@@ -1,0 +1,13 @@
+{
+  "Credentials": "OAuth2 クライアント認証情報",
+  "ClientId": "クライアント ID",
+  "ClientSecret": "クライアントシークレット",
+  "NewClientWarning": "クライアントシークレットをメモしてください。このダイアログを閉じた後は二度と表示されません。これを紛失したり忘れたりすると、このクライアントは完全に使用できなくなります。",
+  "Create": "新しい OAuth2 クライアントを作成",
+  "UnnamedClient": "名前のないOAuth2クライアント",
+  "Docs": "APIドキュメントはこちら",
+  "Clients": "OAuth2クライアント",
+  "Delete": "Delete {clientName}?",
+  "ConfirmDelete": "I am aware of the effects that deleting this OAuth2 client will have and wish to proceed.",
+  "AccountDescription": "このOAuth2クライアントは、あなたのアカウントのすべての権限を継承します"
+}

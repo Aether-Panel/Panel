@@ -1,0 +1,76 @@
+{
+  "Title": "Spartieji klavišai",
+  "Global": {
+    "Title": "Globaliniai",
+    "g a": "Eiti į paskyrą",
+    "g c": "Eiti į panelės konfigūraciją",
+    "g n": "Eiti į taškus",
+    "g s": "Eiti į serverius",
+    "g t": "Eiti į šablonus",
+    "g u": "Eiti į vartotojus",
+    "/": "Global Search"
+  },
+  "Self": {
+    "Title": "Paskyra",
+    "t 2": "Go to 2-Factor-Auth tab",
+    "t a": "Go to Account Details tab",
+    "t o": "Go to OAuth tab",
+    "t p": "Eiti į slaptažodžių skiltį",
+    "t s": "Eiti į nustatymų skiltį"
+  },
+  "ServerList": {
+    "Title": "Serveriai",
+    "c": "Kurti naują serverį",
+    "l": "Fokusuoti pirmą serverį sąraše"
+  },
+  "ServerView": {
+    "Title": "Serveris",
+    "t c": "Eiti į konsolės skiltį",
+    "t i": "Eiti į statistikų skiltį",
+    "t f": "Eiti į failų skiltį",
+    "t s": "Eiti į nustatymų skiltį",
+    "t u": "Eiti į vartotojų skiltį",
+    "t 6": "Eiti į SFTP skiltį",
+    "t 7": "Eiti į API skiltį",
+    "t a": "Eiti į administratoriaus skiltį",
+    "c c": "Clear Console",
+    "r r": "Start Server",
+    "r s": "Stop Server",
+    "r k": "Kill Server",
+    "r i": "Install Server",
+    "f a": "Archive current directory contents",
+    "f c d": "Create new directory",
+    "f c f": "Create new file",
+    "f d": "Upload directory",
+    "f l": "Focus first file/folder in the list",
+    "f r": "Reload file list",
+    "f u": "Upload files",
+    "a e": "Edit Server Definition",
+    "a r": "Reload Server Definiton from disk"
+  },
+  "NodeList": {
+    "Title": "Nodes",
+    "c": "Create a new node",
+    "l": "Focus the first node in the list"
+  },
+  "UserList": {
+    "Title": "Users",
+    "c": "Create a new user",
+    "l": "Focus the first user in the list"
+  },
+  "TemplateList": {
+    "Title": "Templates",
+    "c": "Create a new template",
+    "l": "Focus the first template in the list"
+  },
+  "Template": {
+    "Title": "Template Editor",
+    "t e": "Go to Environment tab",
+    "t g": "Go to General tab",
+    "t h": "Go to Hooks tab",
+    "t i": "Go to Install tab",
+    "t j": "Go to JSON tab",
+    "t r": "Go to Run Configuration tab",
+    "t v": "Go to Variables tab"
+  }
+}

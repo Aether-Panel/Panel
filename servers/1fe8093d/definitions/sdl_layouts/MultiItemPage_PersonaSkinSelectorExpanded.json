@@ -1,0 +1,44 @@
+{
+  "result": {
+    "pageId": "MultiItemPage_PersonaSkinSelectorExpanded",
+    "addToRecentlyViewed": false,
+    "rows": [
+      {
+        "controlId": "Layout",
+        "components": [
+          {
+            "type": "skinPackOfferInteractionComp",
+            "$type": "SkinPackOfferInteractionComponent"
+          },
+          {
+            "type": "appearanceInteractionComp",
+            "$type": "AppearanceInteractionComponent"
+          },
+          {
+            "type": "openExpandedAppearanceViewComp",
+            "$type": "OpenExpandedAppearanceViewComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "ExpandedSkinPackGrid",
+        "components": [
+          {
+            "type": "expandedSkinPackComp",
+            "$type": "ExpandedSkinPackComponent",
+            "isOffline": true
+          },
+          {
+            "items": [],
+            "totalItems": 1,
+            "type": "itemListComp",
+            "$type": "ItemListComponent"
+          }
+        ]
+      }
+    ],
+    "inventoryVersion": "",
+    "pageRefresh": false,
+    "sidebarLayoutType": "Persona"
+  }
+}

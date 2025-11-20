@@ -1,0 +1,132 @@
+package tests
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"github.com/braintree/manners"
+	"github.com/gin-gonic/gin"
+	"github.com/SkyPanel/SkyPanel/v3"
+	"github.com/SkyPanel/SkyPanel/v3/config"
+	"github.com/SkyPanel/SkyPanel/v3/database"
+	"github.com/SkyPanel/SkyPanel/v3/models"
+	"github.com/SkyPanel/SkyPanel/v3/sftp"
+	"github.com/SkyPanel/SkyPanel/v3/web"
+	"math/rand"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+)
+
+func TestMain(m *testing.M) {
+	_ = os.Remove("testing.db")
+	var exitCode = 1
+
+	_ = config.DatabaseDialect.Set("sqlite3", false)
+	_ = config.DatabaseUrl.Set("file:testing.db", false)
+	_ = config.DaemonEnabled.Set(true, false)
+	_ = config.PanelEnabled.Set(true, false)
+	//_ = config.DatabaseLoggingEnabled.Set(false, false)
+
+	_ = os.Remove("testing.db")
+	_ = os.RemoveAll("cache")
+	_ = os.RemoveAll("servers")
+	_ = os.RemoveAll("binaries")
+
+	_ = os.Mkdir("servers", 0755)
+	_ = os.Mkdir("cache", 0755)
+	_ = os.Mkdir("binaries", 0755)
+
+	newPath := os.Getenv("PATH")
+	fullPath, _ := filepath.Abs(config.BinariesFolder.Value())
+	if !strings.Contains(newPath, fullPath) {
+		_ = os.Setenv("PATH", newPath+":"+fullPath)
+	}
+
+	//open db connection
+	db, err := database.GetConnection()
+	if err != nil {
+		panic(err)
+	}
+
+	err = database.Upgrade(db, false)
+	if err != nil {
+		panic(err)
+	}
+
+	err = prepareUsers(db)
+	if err == nil {
+		router := gin.New()
+		router.Use(gin.Recovery())
+		//router.Use(gin.Logger())
+		gin.SetMode(gin.ReleaseMode)
+		web.RegisterRoutes(router)
+
+		models.LocalNode.PublicHost = "127.0.0.1"
+		models.LocalNode.PrivateHost = "127.0.0.1"
+		models.LocalNode.PrivatePort = uint16(rand.Intn(50000) + 10000)
+
+		models.LocalNode.SFTPPort = uint16(rand.Intn(50000) + 10000)
+		RemoteNode.SFTPPort = models.LocalNode.SFTPPort
+		_ = config.SftpHost.Set(fmt.Sprintf("%s:%d", models.LocalNode.PrivateHost, models.LocalNode.SFTPPort), false)
+		_ = config.AuthUrl.Set(fmt.Sprintf("http://%s:%d/oauth2/token", models.LocalNode.PrivateHost, models.LocalNode.PrivatePort), false)
+
+		l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", models.LocalNode.PrivateHost, models.LocalNode.PrivatePort))
+		if err != nil {
+			fmt.Printf("Error starting web services: %s", err.Error())
+			os.Exit(1)
+		}
+
+		webService := manners.NewWithServer(&http.Server{Handler: router})
+		SkyPanel.Engine = router
+
+		go func() {
+			err = webService.Serve(l)
+			if err != nil && !errors.Is(err, http.ErrServerClosed) {
+				fmt.Printf("Error starting web services: %s", err.Error())
+				os.Exit(1)
+			}
+		}()
+
+		go func() {
+			sftp.Run()
+		}()
+
+		//sleep just to give time for the services to start
+		time.Sleep(5 * time.Second)
+
+		exitCode = m.Run()
+		database.Close()
+	} else {
+		fmt.Printf("Error preparing users: %s", err.Error())
+	}
+
+	_ = os.Remove("testing.db")
+	_ = os.Remove("sftp.key")
+	_ = os.RemoveAll("cache")
+	_ = os.RemoveAll("servers")
+	_ = os.RemoveAll("binaries")
+
+	os.Exit(exitCode)
+}
+
+func CallAPI(method, url string, body interface{}, token string) *httptest.ResponseRecorder {
+	requestBody, _ := json.Marshal(body)
+	return CallAPIRaw(method, url, requestBody, token)
+}
+
+func CallAPIRaw(method, url string, body []byte, token string) *httptest.ResponseRecorder {
+	request, _ := http.NewRequest(method, url, bytes.NewBuffer(body))
+	if token != "" {
+		request.Header.Add("Authorization", "Bearer "+token)
+	}
+	writer := httptest.NewRecorder()
+	SkyPanel.Engine.ServeHTTP(writer, request)
+	return writer
+}

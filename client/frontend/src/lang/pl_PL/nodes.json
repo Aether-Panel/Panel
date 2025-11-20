@@ -1,0 +1,50 @@
+{
+  "Node": "Węzeł",
+  "Nodes": "Węzły",
+  "Edit": "Edytuj węzeł",
+  "Add": "Dodaj węzeł",
+  "Create": "Utwórz węzeł",
+  "Update": "Aktualizuj węzeł",
+  "Delete": "Usuń węzeł",
+  "ConfirmDelete": "Czy na pewno chcesz usunąć węzeł {name}?",
+  "Created": "Utworzono węzeł",
+  "Updated": "Zaktualizowano węzeł",
+  "Deleted": "Usunięto węzeł",
+  "Reachable": "This node is correctly set up and running",
+  "Unreachable": "This node is either not set up correctly or currently unavailable",
+  "features": {
+    "os": {
+      "label": "Operating System",
+      "linux": "Linux",
+      "windows": "Windows"
+    },
+    "arch": {
+      "label": "CPU Architecture",
+      "amd64": "x86 64bit",
+      "arm": "ARM 32bit",
+      "arm64": "ARM 64bit"
+    },
+    "docker": {
+      "true": "Docker available",
+      "false": "Docker not available"
+    },
+    "envs": "Available Environments"
+  },
+  "PublicHost": "Publiczny Host",
+  "PublicPort": "Publiczny Port",
+  "PrivateHost": "Prywatny Host",
+  "PrivatePort": "Prywatny Port",
+  "SftpPort": "Port SFTP",
+  "WithPrivateAddress": "Użyj innego hosta/portu dla serwera do komunikacji z serwerem",
+  "WithPrivateAddressHint": "Ten oddzielny adres jest używany, gdy maszyna główna musi rozmawiać z nową maszyną. Przydatne na przykład, gdy maszyny znajdują się w tej samej sieci za NAT.",
+  "LocalNodeEdit": "The local node does not have any editable settings\n\nTo change the host displayed with servers hosted on this node adjust the panels master url in the panel settings",
+  "Deploy": "Wdrożenie węzła",
+  "deploy": {
+    "Step1": "## Krok 1\n\nZainstaluj SkyPanel na nowym serwerze, [zobacz dokumentację po szczegóły](https://docs.SkyPanel.com/en/latest/installing.html)",
+    "Step2": "## Krok 2\n\nZatrzymaj usługę SkyPanel na nowym serwerze, jeśli została uruchomiona podczas instalacji poprzez uruchomienie `sudo systemctl stop SkyPanel`",
+    "Step3": "## Krok 3\n\nZastąp zawartość pliku konfiguracyjnego SkyPanel na nowym serwerze kodem poniżej\n\nPlik konfiguracyjny znajduje się zwykle w `/etc/SkyPanel/config.json`\n\n```\n{config}\n```",
+    "Step4": "## Krok 4\n\nWłącz i (ponownie) uruchom usługę SkyPanel na nowym serwerze, uruchamiając `sudo systemctl enable --now SkyPanel`",
+    "Step5": "### Twój nowy węzeł jest teraz skonfigurowany i gotowy do działania"
+  },
+  "DeploymentInstruction": "Aby wdrożyć węzeł, zainstaluj SkyPanel na nowym serwerze i umieść plik konfiguracyjny w `/etc/SkyPanel/`<br/>Następnie uruchom ponownie SkyPanel na nowym serwerze."
+}

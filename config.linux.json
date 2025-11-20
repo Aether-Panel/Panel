@@ -1,0 +1,20 @@
+{
+  "logs": "/var/log/SkyPanel",
+  "panel": {
+    "database": {
+      "dialect": "sqlite3",
+      "url": "file:/var/lib/SkyPanel/database.db?cache=shared"
+    },
+    "web": {
+      "files": "/var/www/SkyPanel"
+    }
+  },
+  "daemon": {
+    "data": {
+      "root": "/var/lib/SkyPanel"
+    }
+  },
+  "web": {
+    "host": "0.0.0.0:8080"
+  }
+}

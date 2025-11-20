@@ -1,0 +1,32 @@
+{
+  "Settings": "Impostazioni",
+  "PanelSettings": "Impostazioni Pannello",
+  "SavePanelSettings": "Salva Impostazioni Pannello",
+  "EmailSettings": "Impostazioni Email",
+  "SaveEmailSettings": "Salva Impostazioni Email",
+  "MasterUrl": "URL Principale",
+  "MasterUrlHint": "L'URL di base che il pannello può essere raggiunto nel formato http://localhost:8080",
+  "CompanyName": "Nome Azienda",
+  "DefaultTheme": "Tema Predefinito",
+  "RegistrationEnabled": "Consenti agli utenti di registrarsi",
+  "RegistrationEnabledHint": "Gli utenti registrati non possono fare nulla fino a quando non sono stati concessi i permessi\n\nDisabilitare questo impedisce solo la registrazione diretta, invito a un server e la pagina Utenti non sono interessati",
+  "EmailProvider": "Provider Email",
+  "emailProviders": {
+    "none": "Nessuno",
+    "smtp": "SMTP",
+    "mailgun": "Mailgun",
+    "mailjet": "Mailjet"
+  },
+  "email": {
+    "from": "Indirizzo Mittente",
+    "domain": "Dominio",
+    "key": "Chiave API",
+    "host": "Host",
+    "username": "Nome utente",
+    "password": "Password"
+  },
+  "Saved": "Salvato",
+  "TestEmail": "Email di prova",
+  "TestEmailSent": "Email di prova inviata",
+  "TestEmailFailed": "L'Email di prova non è riuscita a essere inviata"
+}

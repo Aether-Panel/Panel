@@ -1,0 +1,54 @@
+{
+  "name": "persona.zuri_name.title",
+  "uuid": "820a57a6-6eb4-4c1a-9a8d-328c107b477d",
+  "thumbnailPath": "textures/ui/default_cast/zuri_icon.png",
+  "appearance": [
+    {
+      "arm": "wide",
+      "skcol": "#ff7e5337",
+      "skin": false
+    },
+    {
+      "id": "8f96d1f8-e9bb-40d2-acc8-eb79746c5d7c/d"
+    },
+    {
+      "id": "1042557f-d1f9-44e3-ba78-f404e8fb7363/d"
+    },
+    {
+      "col": [ "#0", "#0", "#ff45220e", "#0" ],
+      "id": "83c940ce-d7b8-4603-8d73-c1234e322cce/d"
+    },
+    {
+      "col": [ "#ff381d00", "#ff1b110d", "#ffe9ecec", "#0" ],
+      "id": "a0f263b3-e093-4c85-aadb-3759417898ff/d"
+    },
+    {
+      "id": "bb0321e0-9712-e35a-52cc-f3c83e0065f4/d"
+    },
+    {
+      "id": "d42123c3-25b2-74e7-5720-b59e4280017a/d"
+    },
+    {
+      "id": "6791bf52-fb55-3bdf-a20d-6bf9f6c83987/d"
+    },
+    {
+      "id": "69422c5a-60b1-25eb-cfdd-a45626416758/d"
+    },
+    {
+      "col": [ "#ff1b110d", "#0", "#0", "#0" ],
+      "id": "99bdbaae-309b-d64b-42ad-0194a57db891/d"
+    },
+    {
+      "id": "17428c4c-3813-4ea1-b3a9-d6a32f83afca/de"
+    },
+    {
+      "id": "ce5c0300-7f03-455d-aaf1-352e4927b54d/de"
+    },
+    {
+      "id": "9a469a61-c83b-4ba9-b507-bdbe64430582/de"
+    },
+    {
+      "id": "4c8ae710-df2e-47cd-814d-cc7bf21a3d67/de"
+    }
+  ]
+}

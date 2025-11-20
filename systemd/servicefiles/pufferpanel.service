@@ -1,0 +1,15 @@
+[Unit]
+Description=SkyPanel
+
+[Service]
+Type=notify
+WorkingDirectory=/etc/SkyPanel
+ExecStart=/usr/sbin/SkyPanel runService --config /etc/SkyPanel/config.json
+User=SkyPanel
+Group=SkyPanel
+TimeoutStopSec=5m
+OOMPolicy=continue
+Environment="GIN_MODE=release"
+
+[Install]
+WantedBy=multi-user.target

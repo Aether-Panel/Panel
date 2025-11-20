@@ -1,0 +1,68 @@
+{
+  "ConditionHint": "Soorita see samm ainult, kui see tingimus on täitetud",
+  "mojangdl": {
+    "generic": "Laadi minecraft Alla",
+    "formatted": "Laadi Minecraft Alla"
+  },
+  "writefile": {
+    "generic": "Kirjuta faili",
+    "formatted": "Kirjuta faili {target}"
+  },
+  "resolveforgeversion": {
+    "generic": "Leia Minecraft Forge'i Versioon",
+    "formatted": "Leia Minecraft forge'i Versioon"
+  },
+  "download": {
+    "generic": "Laadi fail(e) alla",
+    "formatted": "Lae alla {file} | Lae alla {n} faili",
+    "files": "Failid"
+  },
+  "command": {
+    "generic": "Soorita käsud",
+    "formatted": "Soorita {command} | Soorita {n} käsku",
+    "commands": "Käsud"
+  },
+  "alterfile": {
+    "generic": "Muuda faili",
+    "formatted": "Muuda faili {target}",
+    "regex": "Käsitle otsingut regulaarse ekspressioonina",
+    "search": "Otsi",
+    "replace": "Asenda tulemustega"
+  },
+  "move": {
+    "generic": "Liiguta või nime fail uuesti",
+    "formatted": "Liiguta fail {source} asukohta {target}",
+    "source": "Algne Tee",
+    "target": "Tulev Asukoht"
+  },
+  "mkdir": {
+    "generic": "Loo kaust",
+    "formatted": "Loo kaust {target}"
+  },
+  "steamgamedl": {
+    "generic": "Installi Steami kaudu",
+    "formatted": "Installi Steami App ID {appId}",
+    "appId": "Steami App ID"
+  },
+  "javadl": {
+    "generic": "Installi Java",
+    "formatted": "Installi Java {version}"
+  },
+  "forgedl": {
+    "generic": "Lae Minecraft Forge alla",
+    "formatted": "Lae Minecraft Forge Alla"
+  },
+  "spongeforgedl": {
+    "generic": "Lae Minecraft SpongeForge alla",
+    "formatted": "Lae Minecraft SpongeForge Alla",
+    "releaseType": "Väljalaske Tüüp"
+  },
+  "fabricdl": {
+    "generic": "Laadi Minecraft Fabric alla",
+    "formatted": "Laadi Minecraft Fabric alla"
+  },
+  "curseforge": {
+    "generic": "Download From CurseForge",
+    "formatted": "Download From CurseForge"
+  }
+}

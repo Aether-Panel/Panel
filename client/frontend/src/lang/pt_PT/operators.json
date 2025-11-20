@@ -1,0 +1,68 @@
+{
+  "ConditionHint": "Only execute this step if this condition is met",
+  "mojangdl": {
+    "generic": "Transferir o Minecraft",
+    "formatted": "Transferir o Minecraft"
+  },
+  "writefile": {
+    "generic": "Write to file",
+    "formatted": "Write to file {target}"
+  },
+  "resolveforgeversion": {
+    "generic": "Resolve Minecraft Forge Version",
+    "formatted": "Resolve Minecraft Forge Version"
+  },
+  "download": {
+    "generic": "Download file(s)",
+    "formatted": "Download {file} | Download {n} files",
+    "files": "Ficheiros"
+  },
+  "command": {
+    "generic": "Run command(s)",
+    "formatted": "Run {command} | Run {n} commands",
+    "commands": "Commands"
+  },
+  "alterfile": {
+    "generic": "Modify a file",
+    "formatted": "Modify file {target}",
+    "regex": "Treat search string as regular expression",
+    "search": "Search",
+    "replace": "Replace matches with"
+  },
+  "move": {
+    "generic": "Move or rename a file",
+    "formatted": "Move file {source} to {target}",
+    "source": "Source Path",
+    "target": "Target Path"
+  },
+  "mkdir": {
+    "generic": "Create a directory",
+    "formatted": "Create directory {target}"
+  },
+  "steamgamedl": {
+    "generic": "Install from Steam",
+    "formatted": "Instalar ID da app do Steam {appId}",
+    "appId": "ID da app do Steam"
+  },
+  "javadl": {
+    "generic": "Instalar o Java",
+    "formatted": "Instalar o Java {version}"
+  },
+  "forgedl": {
+    "generic": "Transferir o Minecraft Forge",
+    "formatted": "Transferir o Minecraft Forge"
+  },
+  "spongeforgedl": {
+    "generic": "Transferir o Minecraft SpongeForge",
+    "formatted": "Transferir o Minecraft SpongeForge",
+    "releaseType": "Tipo de lançamento"
+  },
+  "fabricdl": {
+    "generic": "Transferir o Minecraft Fabric",
+    "formatted": "Transferir o Minecraft Fabric"
+  },
+  "curseforge": {
+    "generic": "Transferir do CurseForge",
+    "formatted": "Transferir do CurseForge"
+  }
+}

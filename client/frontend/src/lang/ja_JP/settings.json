@@ -1,0 +1,32 @@
+{
+  "Settings": "設定",
+  "PanelSettings": "パネル設定",
+  "SavePanelSettings": "パネルの設定を保存",
+  "EmailSettings": "メール設定",
+  "SaveEmailSettings": "メールの設定を保存",
+  "MasterUrl": "マスター URL",
+  "MasterUrlHint": "パネルのベースURLは、http://localhost:8080 の形式でアクセスすることができます",
+  "CompanyName": "会社名",
+  "DefaultTheme": "デフォルトのテーマ",
+  "RegistrationEnabled": "ユーザーが自分自身を登録できるようにする",
+  "RegistrationEnabledHint": "自己登録ユーザーは、パーミッションが与えられるまで何もできません。\n\nこれを無効にすると、直接登録ができなくなるだけで、サーバーへの招待やユーザーページには影響しません。",
+  "EmailProvider": "メールのプロバイダ",
+  "emailProviders": {
+    "none": "未設定",
+    "smtp": "SMTP",
+    "mailgun": "Mailgun",
+    "mailjet": "Mailjet"
+  },
+  "email": {
+    "from": "送信元",
+    "domain": "ドメイン",
+    "key": "API キー",
+    "host": "ホスト",
+    "username": "ユーザー名",
+    "password": "パスワード"
+  },
+  "Saved": "保存しました",
+  "TestEmail": "テストメールを送信",
+  "TestEmailSent": "テストメールが送信されました",
+  "TestEmailFailed": "テストメールの送信に失敗しました"
+}

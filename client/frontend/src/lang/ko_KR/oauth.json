@@ -1,0 +1,13 @@
+{
+  "Credentials": "OAuth2 클라이언트 자격증명",
+  "ClientId": "Client ID",
+  "ClientSecret": "Client Secret",
+  "NewClientWarning": "이 창을 닫은 뒤에는 클라이언트 암호가 다시 표시되지 않습니다. 분실하거나 잊어버리면 이 클라이언트를 완전히 사용할 수 없게 됩니다.",
+  "Create": "새로운 OAuth2 Client 생성",
+  "UnnamedClient": "Unnamed OAuth2 Client",
+  "Docs": "API문서 보기",
+  "Clients": "OAuth2 클라이언트",
+  "Delete": "{clientName} 를 삭제하시겠습니까?",
+  "ConfirmDelete": "이 OAuth2 클라이언트를 지우는걸 원하며 계속 진행하기를 원합니다.",
+  "AccountDescription": "여기에 나열된 OAuth2 클라이언트는 모든 계정 권한을 상속합니다."
+}

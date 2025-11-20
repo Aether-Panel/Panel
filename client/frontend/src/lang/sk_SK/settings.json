@@ -1,0 +1,32 @@
+{
+  "Settings": "Nastavenia",
+  "PanelSettings": "Nastavenia panela",
+  "SavePanelSettings": "Uložiť nastavenia panela",
+  "EmailSettings": "Nastavenia e-mailu",
+  "SaveEmailSettings": "Uložiť nastavenia e-mailu",
+  "MasterUrl": "Hlavná adresa URL",
+  "MasterUrlHint": "Základná adresa URL panela je dostupná vo formáte http://localhost:8080",
+  "CompanyName": "Názov spoločnosti",
+  "DefaultTheme": "Predvolená téma",
+  "RegistrationEnabled": "Umožniť používateľom zaregistrovať sa",
+  "RegistrationEnabledHint": "Samostatne registrovaní používatelia nemôžu robiť nič, kým nedostanú povolenia\n\nZakázanie tejto funkcie zabráni iba priamej registrácii, pozvánky na server a stránka Používatelia nie sú ovplyvnené",
+  "EmailProvider": "Poskytovateľ e-mailových služieb",
+  "emailProviders": {
+    "none": "Žiadny",
+    "smtp": "SMTP",
+    "mailgun": "Mailgun",
+    "mailjet": "Mailjet"
+  },
+  "email": {
+    "from": "Adresa odosielateľa",
+    "domain": "Doména",
+    "key": "API kľúč",
+    "host": "Hostiteľ",
+    "username": "Uživateľské meno",
+    "password": "Heslo"
+  },
+  "Saved": "Uložené",
+  "TestEmail": "Testovací email",
+  "TestEmailSent": "Testovací email bol poslaný",
+  "TestEmailFailed": "Testovací email sa nepodarilo poslať"
+}

@@ -1,0 +1,50 @@
+{
+  "Node": "노드",
+  "Nodes": "노드",
+  "Edit": "노드 수정",
+  "Add": "노드 추가",
+  "Create": "Create Node",
+  "Update": "노드 수정",
+  "Delete": "노드 삭제",
+  "ConfirmDelete": "Do you really want to delete the node {name}?",
+  "Created": "Created Node",
+  "Updated": "Updated Node",
+  "Deleted": "Deleted Node",
+  "Reachable": "This node is correctly set up and running",
+  "Unreachable": "This node is either not set up correctly or currently unavailable",
+  "features": {
+    "os": {
+      "label": "Operating System",
+      "linux": "Linux",
+      "windows": "Windows"
+    },
+    "arch": {
+      "label": "CPU Architecture",
+      "amd64": "x86 64bit",
+      "arm": "ARM 32bit",
+      "arm64": "ARM 64bit"
+    },
+    "docker": {
+      "true": "Docker available",
+      "false": "Docker not available"
+    },
+    "envs": "Available Environments"
+  },
+  "PublicHost": "공개 호스트",
+  "PublicPort": "공개 포트",
+  "PrivateHost": "내부 호스트",
+  "PrivatePort": "내부 포트",
+  "SftpPort": "SFTP 포트",
+  "WithPrivateAddress": "서버간 통신에 다른 호스트나 포트 사용",
+  "WithPrivateAddressHint": "이 별도의 주소는 주 노드가 새 노드와 통신해야 할 때 사용됩니다. 예를 들어 노드가 NAT 뒤의 동일한 네트워크에 있는 경우에 유용합니다.",
+  "LocalNodeEdit": "The local node does not have any editable settings\n\nTo change the host displayed with servers hosted on this node adjust the panels master url in the panel settings",
+  "Deploy": "Deploy Node",
+  "deploy": {
+    "Step1": "## Step 1\n\nInstall SkyPanel on the new server, [see the docs for details](https://docs.SkyPanel.com/en/latest/installing.html)",
+    "Step2": "## Step 2\n\nStop the SkyPanel service on the new server if it was started during installation by running `sudo systemctl stop SkyPanel`",
+    "Step3": "## Step 3\n\nReplace the contents of the SkyPanel config file on the new server with the code below\n\nThe config file is usually found at `/etc/SkyPanel/config.json`\n\n```\n{config}\n```",
+    "Step4": "## Step 4\n\nEnable and (re)start the SkyPanel service on the new server by running `sudo systemctl enable --now SkyPanel`",
+    "Step5": "### Your new node is now set up and ready to go"
+  },
+  "DeploymentInstruction": "이 노드를 추가하기 위해서 새 서버에 SkyPanel을 설치하고 이 설정 파일을 `/etc/SkyPanel`에 넣어주세요.<br/>그 후에 새로운 서버에 설치된 SkyPanel을 재시작 해주세요."
+}

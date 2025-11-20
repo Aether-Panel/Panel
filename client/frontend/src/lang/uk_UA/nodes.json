@@ -1,0 +1,50 @@
+{
+  "Node": "Вузол",
+  "Nodes": "Вузли",
+  "Edit": "Змінити вузол",
+  "Add": "Додати вузол",
+  "Create": "Create Node",
+  "Update": "Оновити вузол",
+  "Delete": "Видалити вузол",
+  "ConfirmDelete": "Do you really want to delete the node {name}?",
+  "Created": "Created Node",
+  "Updated": "Updated Node",
+  "Deleted": "Deleted Node",
+  "Reachable": "This node is correctly set up and running",
+  "Unreachable": "This node is either not set up correctly or currently unavailable",
+  "features": {
+    "os": {
+      "label": "Операційна система",
+      "linux": "Linux",
+      "windows": "Windows"
+    },
+    "arch": {
+      "label": "CPU Architecture",
+      "amd64": "x86 64bit",
+      "arm": "ARM 32bit",
+      "arm64": "ARM 64bit"
+    },
+    "docker": {
+      "true": "Docker available",
+      "false": "Docker not available"
+    },
+    "envs": "Available Environments"
+  },
+  "PublicHost": "Відкритий хост",
+  "PublicPort": "Відкритий порт",
+  "PrivateHost": "Приватний хост",
+  "PrivatePort": "Приватний порт",
+  "SftpPort": "Порт SFTP",
+  "WithPrivateAddress": "Використовувати інший хост/порт для з'єднання з сервером",
+  "WithPrivateAddressHint": "Ця окрема адреса використовується, коли головний вузол повинен говорити з новим вузлом. Корисно, наприклад, коли вузли знаходяться в одній мережі за НАТО.",
+  "LocalNodeEdit": "The local node does not have any editable settings\n\nTo change the host displayed with servers hosted on this node adjust the panels master url in the panel settings",
+  "Deploy": "Deploy Node",
+  "deploy": {
+    "Step1": "## Step 1\n\nInstall SkyPanel on the new server, [see the docs for details](https://docs.SkyPanel.com/en/latest/installing.html)",
+    "Step2": "## Step 2\n\nStop the SkyPanel service on the new server if it was started during installation by running `sudo systemctl stop SkyPanel`",
+    "Step3": "## Step 3\n\nReplace the contents of the SkyPanel config file on the new server with the code below\n\nThe config file is usually found at `/etc/SkyPanel/config.json`\n\n```\n{config}\n```",
+    "Step4": "## Step 4\n\nEnable and (re)start the SkyPanel service on the new server by running `sudo systemctl enable --now SkyPanel`",
+    "Step5": "### Your new node is now set up and ready to go"
+  },
+  "DeploymentInstruction": "Щоб розгорнути вузол, встановіть SkyPanel на новий сервер і помістіть файл конфігурації в меню `/etc/SkyPanel/`<br/>Перезапустіть SkyPanel на новий сервер після цього."
+}

@@ -1,0 +1,185 @@
+<script>
+const fields = {
+  host: [
+    {
+      name: 'disableUnshare',
+      type: 'boolean',
+      label: 'env.host.DisableUnshare',
+      hint: 'env.host.DisableUnshareHint',
+      default: false
+    },
+    {
+      name: 'mounts',
+      type: 'list',
+      label: 'env.host.Mounts',
+      hint: 'env.host.MountsHint',
+      default: []
+    }
+  ],
+  docker: [
+    {
+      name: 'image',
+      type: 'text',
+      label: 'templates.DockerImage',
+      default: 'SkyPanel/generic'
+    },
+    {
+      name: 'containerRoot',
+      type: 'text',
+      default: ''
+    },
+    {
+      name: 'networkName',
+      type: 'text',
+      options: [
+        'host',
+        'bridge'
+      ],
+      default: 'host'
+    },
+    {
+      name: 'bindings',
+      type: 'map',
+      hint: 'env.docker.BindingsHint',
+      keyLabel: 'env.docker.HostPath',
+      valueLabel: 'env.docker.ContainerPath',
+      default: {}
+    },
+    {
+      name: 'portBindings',
+      type: 'portBindings',
+      label: 'env.docker.portBindings',
+      hint: 'env.docker.PortBindingsHint',
+      default: []
+    }
+  ],
+  // to not throw up when server creation cant select a valid env
+  unsupported: []
+}
+</script>
+
+<script setup>
+import { onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
+import KeyValueInput from '@/components/ui/KeyValueInput.vue'
+import ListInput from '@/components/ui/ListInput.vue'
+import PortMappingInput from '@/components/ui/PortMappingInput.vue'
+import Suggestion from '@/components/ui/Suggestion.vue'
+import TextField from '@/components/ui/TextField.vue'
+import Toggle from '@/components/ui/Toggle.vue'
+
+const props = defineProps({
+  noFieldsMessage: { type: String, default: () => undefined },
+  modelValue: {
+    type: Object,
+    validator: val => fields[val.type] !== undefined,
+    required: true
+  }
+})
+
+const emit = defineEmits(['update:modelValue'])
+
+const { t } = useI18n()
+
+onMounted(() => {
+  const defaults = {}
+  let envType = props.modelValue.type
+  // remap legacy names for the host env
+  if (envType === 'standard' || envType === 'tty') envType = 'host'
+  fields[envType].map(field => {
+    if (!props.modelValue[field.name]) {
+      defaults[field.name] = field.default
+    }
+  })
+  if (Object.keys(defaults).length > 0)
+    emit('update:modelValue', { ...props.modelValue, type: envType, ...defaults })
+})
+
+function onInput(field, event) {
+  emit('update:modelValue', { ...props.modelValue, [field]: event })
+}
+
+function getLabel(field) {
+  return field.label ? t(field.label) : t(`env.${props.modelValue.type}.${field.name}`)
+}
+</script>
+
+<template>
+  <div 
+    :class="[
+      'environment-config',
+      'space-y-6'
+    ]"
+  >
+    <div 
+      v-if="noFieldsMessage && fields[modelValue.type].length === 0" 
+      :class="[
+        'text-muted-foreground text-center py-8 px-4',
+        'rounded-xl bg-muted/30 border-2 border-border/50',
+        'shadow-sm'
+      ]"
+      v-text="noFieldsMessage" 
+    />
+    <div 
+      v-for="field in fields[modelValue.type]" 
+      :key="field.name" 
+      :class="[
+        'field',
+        'mb-6 p-4 rounded-xl',
+        'bg-muted/20 border border-border/30',
+        'shadow-sm hover:shadow-md transition-shadow duration-200'
+      ]"
+    >
+      <key-value-input 
+        v-if="field.type === 'map'" 
+        :model-value="modelValue[field.name] || field.default" 
+        :label="getLabel(field)" 
+        :hint="field.hint ? t(field.hint) : undefined" 
+        :key-label="t(field.keyLabel)" 
+        :value-label="t(field.valueLabel)" 
+        @update:modelValue="onInput(field.name, $event)" 
+      />
+      <port-mapping-input 
+        v-else-if="field.type === 'portBindings'" 
+        :model-value="modelValue[field.name] || field.default" 
+        :label="getLabel(field)" 
+        :hint="field.hint ? t(field.hint) : undefined" 
+        @update:modelValue="onInput(field.name, $event)" 
+      />
+      <suggestion 
+        v-else-if="field.type === 'text' && field.options" 
+        :model-value="modelValue[field.name] || field.default" 
+        :label="getLabel(field)" 
+        :options="field.options" 
+        :hint="field.hint ? t(field.hint) : undefined" 
+        @update:modelValue="onInput(field.name, $event)" 
+      />
+      <text-field 
+        v-else-if="field.type === 'text'" 
+        :model-value="modelValue[field.name] || field.default" 
+        :label="getLabel(field)" 
+        :hint="field.hint ? t(field.hint) : undefined" 
+        @update:modelValue="onInput(field.name, $event)" 
+      />
+      <toggle 
+        v-else-if="field.type === 'boolean'" 
+        :model-value="modelValue[field.name]" 
+        :label="getLabel(field)" 
+        :hint="field.hint ? t(field.hint) : undefined" 
+        @update:modelValue="onInput(field.name, $event)" 
+      />
+      <list-input 
+        v-else-if="field.type === 'list'" 
+        :model-value="modelValue[field.name]" 
+        :label="getLabel(field)" 
+        :hint="field.hint ? t(field.hint) : undefined" 
+        @update:modelValue="onInput(field.name, $event)" 
+      />
+      <span 
+        v-else 
+        :class="['text-warning text-sm']"
+        v-text="`${field.type} not yet implemented`" 
+      />
+    </div>
+  </div>
+</template>

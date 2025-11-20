@@ -1,0 +1,192 @@
+package sftp
+
+import (
+	"crypto/x509"
+	"encoding/pem"
+	"github.com/pkg/sftp"
+	"github.com/SkyPanel/SkyPanel/v3"
+	"github.com/SkyPanel/SkyPanel/v3/config"
+	"github.com/SkyPanel/SkyPanel/v3/logging"
+	"github.com/SkyPanel/SkyPanel/v3/oauth2"
+	"github.com/SkyPanel/SkyPanel/v3/servers"
+	"github.com/SkyPanel/SkyPanel/v3/utils"
+	"golang.org/x/crypto/ed25519"
+	"golang.org/x/crypto/ssh"
+	"net"
+	"os"
+)
+
+var sftpServer net.Listener
+
+var auth SkyPanel.SFTPAuthorization
+
+func Run() {
+	err := runServer()
+	if err != nil {
+		logging.Error.Printf("Error starting SFTP server: %s", err)
+	}
+}
+
+func SetAuthorization(service SkyPanel.SFTPAuthorization) {
+	auth = service
+}
+
+func Stop() {
+	if sftpServer != nil {
+		_ = sftpServer.Close()
+	}
+}
+
+func runServer() error {
+	if auth == nil {
+		auth = &oauth2.WebSSHAuthorization{}
+	}
+
+	serverConfig := &ssh.ServerConfig{
+		PasswordCallback: func(c ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
+			return auth.Validate(c.User(), string(pass))
+		},
+	}
+
+	serverKeyFile := config.SftpKey.Value()
+
+	_, e := os.Stat(serverKeyFile)
+
+	if e != nil && os.IsNotExist(e) {
+		logging.Info.Printf("Generating new key")
+		var key ed25519.PrivateKey
+		_, key, e = ed25519.GenerateKey(nil)
+		if e != nil {
+			return e
+		}
+
+		data, e := x509.MarshalPKCS8PrivateKey(key)
+		block := &pem.Block{
+			Type:  "PRIVATE KEY",
+			Bytes: data,
+		}
+		if e != nil {
+			return e
+		}
+
+		e = os.WriteFile(serverKeyFile, pem.EncodeToMemory(block), 0700)
+		if e != nil {
+			return e
+		}
+	} else if e != nil {
+		return e
+	}
+
+	logging.Info.Printf("Loading existing key")
+	var data []byte
+	data, e = os.ReadFile(serverKeyFile)
+	if e != nil {
+		return e
+	}
+
+	hkey, e := ssh.ParsePrivateKey(data)
+
+	if e != nil {
+		return e
+	}
+
+	serverConfig.AddHostKey(hkey)
+
+	bind := config.SftpHost.Value()
+
+	sftpServer, e = net.Listen("tcp", bind)
+	if e != nil {
+		return e
+	}
+	logging.Info.Printf("Started SFTP Server on %s", bind)
+
+	go func() {
+		for {
+			conn, _ := sftpServer.Accept()
+			if conn != nil {
+				go HandleConn(conn, serverConfig)
+			}
+		}
+	}()
+
+	return nil
+}
+
+func HandleConn(conn net.Conn, serverConfig *ssh.ServerConfig) {
+	defer utils.Close(conn)
+	defer SkyPanel.Recover()
+	logging.Info.Printf("SFTP connection from %s", conn.RemoteAddr().String())
+	e := handleConn(conn, serverConfig)
+	if e != nil {
+		if e.Error() != "EOF" {
+			logging.Error.Printf("sftpd connection error: %s", e)
+		}
+	}
+}
+func handleConn(conn net.Conn, serverConfig *ssh.ServerConfig) error {
+	sc, chans, reqs, e := ssh.NewServerConn(conn, serverConfig)
+	defer utils.Close(sc)
+	if e != nil {
+		return e
+	}
+
+	// The incoming Request channel must be serviced.
+	go PrintDiscardRequests(reqs)
+
+	// Service the incoming channel.
+	for newChannel := range chans {
+		// Channels have a type, depending on the application level
+		// protocol intended. In the case of an SFTP session, this is "subsystem"
+		// with a payload string of "<length=4>sftp"
+		if newChannel.ChannelType() != "session" {
+			err := newChannel.Reject(ssh.UnknownChannelType, "unknown channel type")
+			if err != nil {
+				return err
+			}
+			continue
+		}
+		channel, requests, err := newChannel.Accept()
+		if err != nil {
+			return err
+		}
+
+		// Sessions have out-of-band requests such as "shell",
+		// "pty-req" and "env".  Here we handle only the
+		// "subsystem" request.
+		go func(in <-chan *ssh.Request) {
+			for req := range in {
+				ok := false
+				switch req.Type {
+				case "subsystem":
+					if string(req.Payload[4:]) == "sftp" {
+						ok = true
+					}
+				}
+				_ = req.Reply(ok, nil)
+			}
+		}(requests)
+
+		serverId := sc.Permissions.Extensions["server_id"]
+		server := servers.GetFromCache(serverId)
+		if server == nil {
+			//this daemon can't handle this request...
+			return nil
+		}
+
+		fs := CreateRequestPrefix(sc.Conn.RemoteAddr(), server.Id(), server.GetFileServer())
+		s := sftp.NewRequestServer(channel, fs)
+
+		if err = s.Serve(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func PrintDiscardRequests(in <-chan *ssh.Request) {
+	for req := range in {
+		if req.WantReply {
+			_ = req.Reply(false, nil)
+		}
+	}
+}

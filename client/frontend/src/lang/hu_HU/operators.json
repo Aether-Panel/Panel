@@ -1,0 +1,68 @@
+{
+  "ConditionHint": "Csak akkor hajtsa végre ezt a lépést, ha a következő feltétel teljesül",
+  "mojangdl": {
+    "generic": "Minecraft Letöltése",
+    "formatted": "Minecraft Letöltése"
+  },
+  "writefile": {
+    "generic": "Fájlba írás",
+    "formatted": "Fájlba írása  {target}"
+  },
+  "resolveforgeversion": {
+    "generic": "Minecraft Forge verzió megoldása",
+    "formatted": "Minecraft Forge verzió megoldása"
+  },
+  "download": {
+    "generic": "Fájl(ok) letöltése",
+    "formatted": "{file} letölése | {n} fájlok letöltése",
+    "files": "Fájlok"
+  },
+  "command": {
+    "generic": "Parancs(ok) Futtatása",
+    "formatted": "{command} futtása | {n} parancs futtása",
+    "commands": "Parancsok"
+  },
+  "alterfile": {
+    "generic": "Fájl módosítása",
+    "formatted": "Fájl {target} módosítása",
+    "regex": "A keresési karakterlánc szabályos kifejezésként való kezelése",
+    "search": "Keresés",
+    "replace": "Találatok kicserélése ezzel"
+  },
+  "move": {
+    "generic": "Fájl áthelyezése vagy törlése",
+    "formatted": "Fájl áthelyezése {source} ide {target}",
+    "source": "Forrás útvonal",
+    "target": "Cél útvonal"
+  },
+  "mkdir": {
+    "generic": "Mappa létrehozása",
+    "formatted": "Mappa létrehozzása {target}"
+  },
+  "steamgamedl": {
+    "generic": "Steamről telepítése",
+    "formatted": "Streamről App id-ben telepítése {appId}",
+    "appId": "Steam App ID"
+  },
+  "javadl": {
+    "generic": "Java telepítése",
+    "formatted": "Java {version} telepítése"
+  },
+  "forgedl": {
+    "generic": "Minecraft Forge Letöltése",
+    "formatted": "Minecraft Forge Letöltése"
+  },
+  "spongeforgedl": {
+    "generic": "Minecraft SpongeForge Letöltése",
+    "formatted": "Minecraft SpongeForge Letöltése",
+    "releaseType": "Kiadás Típusa"
+  },
+  "fabricdl": {
+    "generic": "Minecraft Fabric Letöltése",
+    "formatted": "Minecraft Fabric Letöltése"
+  },
+  "curseforge": {
+    "generic": "Curseforgeról letöltés",
+    "formatted": "Curseforgeról letöltés"
+  }
+}

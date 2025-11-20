@@ -1,0 +1,64 @@
+{
+  "Name": "Nom",
+  "Language": "Langue",
+  "Online": "En ligne",
+  "Offline": "Hors-ligne",
+  "Installing": "Installation en cours...",
+  "Unknown": "Inconnu",
+  "Loading": "Chargement ...",
+  "Description": "Description",
+  "Save": "Sauvegarder",
+  "Cancel": "Annuler",
+  "Close": "Fermer",
+  "Host": "Hôte",
+  "Port": "Port",
+  "Collapse": "Réduire",
+  "Expand": "Développer",
+  "Copy": "Copier dans le Presse-papier",
+  "Copied": "Copié dans le presse-papier",
+  "Back": "Retour",
+  "Next": "Suivant",
+  "Details": "Détails",
+  "ErrorDetails": "Détails de l'erreur",
+  "HelpTranslate": "Aidez-nous à traduire SkyPanel",
+  "Protocol": "Protocole",
+  "Add": "Ajouter",
+  "Apply": "Appliquer",
+  "Confirm": "Confirmer",
+  "Condition": "Condition",
+  "Discard": "Abandonner",
+  "ConfirmLeave": "Vous avez des modifications non enregistrées, voulez-vous annuler les modifications et quitter cette page ?",
+  "theme": {
+    "Theme": "Thème",
+    "Mode": "Mode",
+    "mode": {
+      "Light": "Lumineux",
+      "Dark": "Sombre",
+      "DarkHighContrast": "Sombre (Contrasté)",
+      "Auto": "Auto"
+    },
+    "BaseColor": "Couleur de base",
+    "ServerTypeDisplay": "Affichage du type de serveur",
+    "serverTypeDisplay": {
+      "Icon": "Icône",
+      "None": "Nul"
+    },
+    "ListType": "Type de liste",
+    "listType": {
+      "Grid": "Grille",
+      "List": "Liste"
+    },
+    "FontSize": "Taille de police",
+    "fontSize": {
+      "Default": "Défaut"
+    },
+    "FontFace": "Police de caractères",
+    "fontFace": {
+      "Default": "Défaut",
+      "A11y": "Accessibilité optimisée"
+    }
+  },
+  "NoResults": "Aucun résultat",
+  "Yes": "Oui",
+  "No": "Non"
+}

@@ -1,0 +1,13 @@
+{
+  "Credentials": "Acreditările clientului OAuth2",
+  "ClientId": "ID Client",
+  "ClientSecret": "Secret Client",
+  "NewClientWarning": "Salvează codul secret al clientului, după ce închizi acest dialog nu va mai putea fi văzut niciodată. Dacă îl uiți sau îl pierzi, acesta va deveni inutilizabil.",
+  "Create": "Creează un nou Client OAuth2",
+  "UnnamedClient": "Client OAuth2 nedenumit",
+  "Docs": "Găsește documentația API aici",
+  "Clients": "Clienți OAuth2",
+  "Delete": "Șterge Clientul OAuth2",
+  "ConfirmDelete": "Sigur doriți să ștergeți clientul OAuth2 {name}? Nu îl veți putea recrea cu aceleași acreditări!",
+  "AccountDescription": "Clienții OAuth2 listați aici preiau toate permisiunile contului tău"
+}

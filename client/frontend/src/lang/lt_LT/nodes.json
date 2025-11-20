@@ -1,0 +1,50 @@
+{
+  "Node": "Taškas",
+  "Nodes": "Taškai",
+  "Edit": "Redaguoti tašką",
+  "Add": "Pridėti tašką",
+  "Create": "Kurti tašką",
+  "Update": "Atnaujinti tašką",
+  "Delete": "Ištrinti tašką",
+  "ConfirmDelete": "Ar tikrai norite ištrinti tašką „{name}“?",
+  "Created": "Sukurtas taškas",
+  "Updated": "Atnaujintas taškas",
+  "Deleted": "Ištrintas taškas",
+  "Reachable": "Šis taškas yra taisyklingai paruoštas ir veikia",
+  "Unreachable": "Šis taškas yra arba netaisyklingai paruoštas arba šiuo metu nepasiekiamas",
+  "features": {
+    "os": {
+      "label": "Operacinė sistema",
+      "linux": "„Linux“",
+      "windows": "„Windows“"
+    },
+    "arch": {
+      "label": "Procesoriaus architektūra",
+      "amd64": "x86 64bit",
+      "arm": "ARM 32bit",
+      "arm64": "ARM 64bit"
+    },
+    "docker": {
+      "true": "„Docker“ pasiekiamas",
+      "false": "„Docker“ nepasiekiamas"
+    },
+    "envs": "Pasiekiamos aplinkos"
+  },
+  "PublicHost": "Viešas hostas",
+  "PublicPort": "Viešas portas",
+  "PrivateHost": "Privatus hostas",
+  "PrivatePort": "Privatus portas",
+  "SftpPort": "SFTP portas",
+  "WithPrivateAddress": "Naudoti skirtingą hostą/portą serverio į serverį komunikacijai",
+  "WithPrivateAddressHint": "Šis atskiras adresas yra naudojamas kai pagrindiniui taškui reikia susikalbėti su nauju tašku. Naudinga, pavyzdžiui, kai taškai yra tam pačiam tinkle už NAT.",
+  "LocalNodeEdit": "Vietinis taškas neturi jokių redaguojamų nustatymų\n\nKad pakeisti rodomą hostą su serveriais hostintais šiuose taškuose, pakeiskite panelės pagrindinį url panelės nustatymuose",
+  "Deploy": "Deploy Node",
+  "deploy": {
+    "Step1": "## 1 žingsnis\n\nInstaliuokite „SkyPanel“ naujame serveryje, [pasiskaitykite dokumentaciją](https://docs.SkyPanel.com/en/latest/installing.html)",
+    "Step2": "## 2 žingsnis\n\nSustabdykite „SkyPanel“ paslaugą naujame serveryje, jeigu buvo pradėta instaliacijos metu, įvedant `sudo systemctl stop SkyPanel`",
+    "Step3": "## 3 žingsnis\n\nPakeiskite „SkyPanel“ nustatymų failo turinį naujame serveryje su kodu žemiau\n\nNustatymų failas dažniausiai randamas `/etc/SkyPanel/config.json`\n\n```\n{config}\n```",
+    "Step4": "## 4 žingsnis\n\nĮgalinkit ir perkraukit/startuokite „SkyPanel“ paslaugą naujame serveryje, įvedant `sudo systemctl enable --now SkyPanel`",
+    "Step5": "### Jūsų naujas taškas dabar jau sureguliuotas ir paruoštas naudojimui"
+  },
+  "DeploymentInstruction": "To deploy the node, install SkyPanel on the new server and place the code below in `/etc/SkyPanel/config.json`  \nRestart SkyPanel on the new server afterwards."
+}

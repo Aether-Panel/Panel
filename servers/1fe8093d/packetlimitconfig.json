@@ -1,0 +1,21 @@
+{
+	"limitGroups": [{
+		"minecraftPacketIds": [193, 4],
+		"algorithm": {
+            "name": "BucketPacketLimitAlgorithm",
+            "params": {
+                "drainRatePerSec": 0.0013,
+                "maxBucketSize": 1
+            }
+        }
+	}, {
+		"minecraftPacketIds": [9],
+        "algorithm": {
+            "name": "BucketPacketLimitAlgorithm",
+            "params": {
+                "drainRatePerSec": 10,
+                "maxBucketSize": 50
+            }
+        }
+	}]
+}

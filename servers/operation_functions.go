@@ -1,0 +1,57 @@
+package servers
+
+import (
+	"errors"
+	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/interpreter/functions"
+	"github.com/SkyPanel/SkyPanel/v3"
+	"os"
+	"os/exec"
+	"path/filepath"
+)
+
+func CreateFunctions(env *SkyPanel.Environment) []cel.EnvOption {
+	return []cel.EnvOption{
+		cel.Function("file_exists",
+			cel.Overload("file_exists_string_bool",
+				[]*cel.Type{cel.StringType},
+				cel.BoolType,
+				cel.UnaryBinding(cel_file_exists(env)),
+			)),
+		cel.Function("in_path",
+			cel.Overload("in_path_string_bool",
+				[]*cel.Type{cel.StringType},
+				cel.BoolType,
+				cel.UnaryBinding(cel_in_path(env)),
+			)),
+		cel.Function("is_server_running", cel.Overload("is_server_running_bool",
+			[]*cel.Type{},
+			cel.BoolType,
+			cel.FunctionBinding(cel_is_server_running(env)),
+		)),
+	}
+}
+
+func cel_file_exists(env *SkyPanel.Environment) functions.UnaryOp {
+	return func(fileName ref.Val) ref.Val {
+		fullPath := filepath.Join(env.GetRootDirectory(), fileName.Value().(string))
+		_, err := os.Stat(fullPath)
+		return types.Bool(err == nil)
+	}
+}
+
+func cel_in_path(env *SkyPanel.Environment) functions.UnaryOp {
+	return func(fileName ref.Val) ref.Val {
+		_, err := exec.LookPath(fileName.Value().(string))
+		return types.Bool(err == nil || errors.Is(err, exec.ErrDot))
+	}
+}
+
+func cel_is_server_running(env *SkyPanel.Environment) functions.FunctionOp {
+	return func(values ...ref.Val) ref.Val {
+		r, err := env.IsRunning()
+		return types.Bool(err == nil && r)
+	}
+}

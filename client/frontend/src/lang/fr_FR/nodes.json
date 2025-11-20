@@ -1,0 +1,50 @@
+{
+  "Node": "Nœud",
+  "Nodes": "Nœuds",
+  "Edit": "Éditer le Nœud",
+  "Add": "Ajouter un Nœud",
+  "Create": "Créer un noeud",
+  "Update": "Mettre à jour le Nœud",
+  "Delete": "Supprimer le Nœud",
+  "ConfirmDelete": "Voulez-vous vraiment supprimer le nœud {name} ?",
+  "Created": "Créer un noeud",
+  "Updated": "Mettre à jour le Nœud",
+  "Deleted": "Supprimer le Nœud",
+  "Reachable": "Ce nœud est correctement configuré et exécuté",
+  "Unreachable": "Ce noeud est soit mal configurée ou actuellement indisponible",
+  "features": {
+    "os": {
+      "label": "Système d'exploitation",
+      "linux": "Linux",
+      "windows": "Windows"
+    },
+    "arch": {
+      "label": "Architecture du CPU",
+      "amd64": "x86 64bits",
+      "arm": "ARM 32bits",
+      "arm64": "ARM 64bits"
+    },
+    "docker": {
+      "true": "Docker disponible",
+      "false": "Docker indisponible"
+    },
+    "envs": "Environnements disponibles"
+  },
+  "PublicHost": "Hôte Public",
+  "PublicPort": "Port Public",
+  "PrivateHost": "Hôte Privé",
+  "PrivatePort": "Port Privé",
+  "SftpPort": "Port SFTP",
+  "WithPrivateAddress": "Utiliser un hôte/port différent pour la communication serveur à serveur",
+  "WithPrivateAddressHint": "Cette adresse séparée est utilisée lorsque le nœud principal a besoin de parler au nouveau nœud. Utile par exemple lorsque les nœuds sont dans le même réseau derrière NAT.",
+  "LocalNodeEdit": "Le nœud local n'a pas de paramètres modifiables\n\nPour modifier l'hôte affiché avec les serveurs hébergés sur ce nœud, ajustez l'url principale du panel dans les paramètres",
+  "Deploy": "Déployer le Nœud",
+  "deploy": {
+    "Step1": "## Étape 1\n\nInstallez SkyPanel sur le nouveau serveur, [voir la documentation pour plus de détails](https://docs.SkyPanel.com/en/latest/installing.html)",
+    "Step2": "## Étape 2\n\nArrêtez le service SkyPanel sur le nouveau serveur s'il a été démarré pendant l'installation en exécutant `sudo systemctl stop SkyPanel`",
+    "Step3": "## Étape 3\n\nRemplacez le contenu du fichier de configuration de SkyPanel sur le nouveau serveur par le code ci-dessous\n\nLe fichier de configuration se trouve généralement dans `/etc/SkyPanel/config.json`\n\n```\n{config}\n```",
+    "Step4": "## Étape 4\n\nActivez et (re)démarrez le service SkyPanel sur le nouveau serveur en exécutant `sudo systemctl enable --now SkyPanel`",
+    "Step5": "### Votre nouveau nœud est maintenant configuré et prêt à être utilisé"
+  },
+  "DeploymentInstruction": "Pour déployer le nœud, installez SkyPanel sur le nouveau serveur et placez le fichier de configuration dans `/etc/SkyPanel`<br/>Redémarrez SkyPanel sur le nouveau serveur une fois terminé."
+}

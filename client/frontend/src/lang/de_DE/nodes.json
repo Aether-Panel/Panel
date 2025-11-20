@@ -1,0 +1,50 @@
+{
+  "Node": "Knotenpunkt",
+  "Nodes": "Knotenpunkte",
+  "Edit": "Knotenpunkt bearbeiten",
+  "Add": "Knotenpunkt hinzufügen",
+  "Create": "Knoten erstellen",
+  "Update": "Knotenpunkt aktualisieren",
+  "Delete": "Knotenpunkt entfernen",
+  "ConfirmDelete": "Soll der Knoten {name} wirklich gelöscht werden?",
+  "Created": "Knoten erstellt",
+  "Updated": "Knoten aktualisiert",
+  "Deleted": "Knoten gelöscht",
+  "Reachable": "Dieser Knoten ist korrekt eingerichtet und läuft",
+  "Unreachable": "Dieser Knoten ist entweder nicht korrekt eingerichtet oder zurzeit nicht erreichbar",
+  "features": {
+    "os": {
+      "label": "Betriebssystem",
+      "linux": "Linux",
+      "windows": "Windows"
+    },
+    "arch": {
+      "label": "CPU-Architektur",
+      "amd64": "x86 64Bit",
+      "arm": "ARM 32Bit",
+      "arm64": "ARM 64Bit"
+    },
+    "docker": {
+      "true": "Docker verfügbar",
+      "false": "Docker nicht verfügbar"
+    },
+    "envs": "Verfügbare Umgebungen"
+  },
+  "PublicHost": "Öffentlicher Host",
+  "PublicPort": "Öffentlicher Port",
+  "PrivateHost": "Privater Host",
+  "PrivatePort": "Privater Port",
+  "SftpPort": "SFTP-Port",
+  "WithPrivateAddress": "Benutzen Sie einen anderen Host/Port für die Server zu Server Verbindung",
+  "WithPrivateAddressHint": "Diese Addresse wird für die Verbindung zwischen dem Hauptserver und den Knotenpunkten genutzt. Nützlich falls sich beide in dem selben Netzwerk befinden.",
+  "LocalNodeEdit": "Der lokale Knoten hat keine Einstellungen die bearbeitet werden können.\n\nUm den angezeigten Host der auf diesem Knoten gehosteten Servern zu ändern, passe die Master-Url des Panels in den Panel-Einstellungen an",
+  "Deploy": "Knoten bereitstellen",
+  "deploy": {
+    "Step1": "## Schritt 1\n\nInstalliere SkyPanel auf dem neuen Server, [weitere Informationen finden Sie in der Dokumentation](https://docs.SkyPanel.com/en/latest/installing.html)",
+    "Step2": "## Schritt 2\n\nStoppe den SkyPanel Dienst auf dem neuen Server, wenn er während der Installation gestartet wurde, indem du den Befehl `sudo systemctl stop SkyPanel` ausführst",
+    "Step3": "## Schritt 3\n\nErsetze den Inhalt der SkyPanel Konfigurationsdatei auf dem neuen Server mit dem untenstehenden Code\n\nDie Konfigurationsdatei ist normalerweise hier `/etc/SkyPanel/config.json`\n\n```\n{config}\n```",
+    "Step4": "## Schritt 4\n\nFühre den Befehl `sudo systemctl enable --now SkyPanel` auf dem neuen Server aus, um den SkyPanel Dienst zu aktivieren und (neu) zu starten",
+    "Step5": "### Der Knoten ist jetzt eingerichtet und betriebsbereit"
+  },
+  "DeploymentInstruction": "Um den Knoten bereitzustellen, installieren Sie SkyPanel auf dem neuen Server und platzieren Sie die Konfigurationsdatei in `/etc/SkyPanel/`<br/>Starten Sie SkyPanel anschließend auf dem neuen Server neu."
+}

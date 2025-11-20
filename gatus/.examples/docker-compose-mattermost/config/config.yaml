@@ -1,0 +1,15 @@
+alerting:
+  mattermost:
+    webhook-url: "http://mattermost:8065/hooks/tokengoeshere"
+    insecure: true
+
+endpoints:
+  - name: example
+    url: https://example.org
+    interval: 1m
+    conditions:
+      - "[STATUS] == 200"
+    alerts:
+      - type: mattermost
+        description: "health check failed 3 times in a row"
+        send-on-resolved: true

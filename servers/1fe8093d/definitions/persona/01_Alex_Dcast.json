@@ -1,0 +1,54 @@
+{
+  "name": "persona.alex_name.title",
+  "uuid": "b789cb38-5f14-4dc9-be15-e10dc52ba91b",
+  "thumbnailPath": "textures/ui/default_cast/alex_icon.png",
+  "appearance": [
+    {
+      "arm": "wide",
+      "skcol": "#ffebd0b0",
+      "skin": false
+    },
+    {
+      "col": [ "#0", "#0", "#ffefbbb1", "#0" ],
+      "id": "83c940ce-d7b8-4603-8d73-c1234e322cce/d"
+    },
+    {
+      "id": "1042557f-d1f9-44e3-ba78-f404e8fb7363/d"
+    },
+    {
+      "id": "8f96d1f8-e9bb-40d2-acc8-eb79746c5d7c/d"
+    },
+    {
+      "id": "80eda582-cda7-4fce-9d6f-89a60f2448f1/d"
+    },
+    {
+      "id": "96db6e5b-dc69-4ebc-bd36-cb1b08ffb0f4/d"
+    },
+    {
+      "id": "5f64b737-b88a-40ea-be1f-559840237146/d"
+    },
+    {
+      "id": "0948e089-6f9c-40c1-886b-cd37add03f69/d"
+    },
+    {
+      "col": [ "#ffeb983f", "#0", "#0", "#0" ],
+      "id": "70be0801-a93f-4ce0-8e3f-7fdeac1e03b9/d"
+    },
+    {
+      "col": [ "#ff236224", "#ffeb983f", "#ffe9ecec", "#0" ],
+      "id": "a0f263b3-e093-4c85-aadb-3759417898ff/d"
+    },
+    {
+      "id": "17428c4c-3813-4ea1-b3a9-d6a32f83afca/de"
+    },
+    {
+      "id": "ce5c0300-7f03-455d-aaf1-352e4927b54d/de"
+    },
+    {
+      "id": "9a469a61-c83b-4ba9-b507-bdbe64430582/de"
+    },
+    {
+      "id": "4c8ae710-df2e-47cd-814d-cc7bf21a3d67/de"
+    }
+  ]
+}

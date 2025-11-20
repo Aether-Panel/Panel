@@ -1,0 +1,680 @@
+<html>
+
+<head>
+    <meta content="text/html; charset=UTF-8" http-equiv="content-type">
+    <style type="text/css">
+    body {
+        max-width: 1500px;
+        font-family: Arial;
+    }
+
+    blockquote, pre {
+        border: 1px solid #000;
+        margin: 5px 0;
+        padding: 5px;
+        font-family: "Courier New";
+        font-size: 11pt;
+        background: #eee;
+    }
+
+    code {
+        background: #eee;
+        padding: 2px;
+    }
+
+    table {
+        border-spacing: 0;
+        border-collapse: collapse;
+    }
+
+    table th,
+    table td {
+        border: 1px solid #000;
+        padding: 5px;
+    }
+
+    </style>
+</head>
+
+<body class="c31">
+    <h1>How to use the dedicated server</h1>
+
+    <h2>Recommended Hardware</h2>
+    <p>
+        We recommend running the Bedrock Minecraft Server on 64-bit Intel or AMD processor machines with at least 2 cores and 1 Gb RAM.
+    </p>
+
+    <h2>Platforms</h2>
+
+    <h3>Linux</h3>
+    <p>
+        The Linux version of the Bedrock Server requires Ubuntu 18 or later. Other distributions are not supported.
+        Unzip the container file into an empty folder. Start the server with the following command:
+    </p>
+    <blockquote>
+        LD_LIBRARY_PATH=. ./bedrock_server
+    </blockquote>
+
+    <h3>Windows</h3>
+    <p>
+        The Windows version of the Bedrock Server requires either:
+        <ul type="disc">
+            <li>Windows 10 version 1703 or later</li>
+            <li>Windows Server 2016 or later</li>
+        </ul>
+        Unzip the container file into an empty folder. Start the server by executing the <code>bedrock_server.exe</code> file.
+    </p>
+    <p>
+        On some systems, when you wish to connect to the server using a client running on the same machine as the
+        server is running on, you will need to exempt the Minecraft client from UWP loopback restrictions:
+        <blockquote>CheckNetIsolation.exe LoopbackExempt -a -p=S-1-15-2-1958404141-86561845-1752920682-3514627264-368642714-62675701-733520436</blockquote>.
+    </p>
+
+    <h2>Configuration</h2>
+    <p>
+        The server will try to read a file named <code>server.properties</code>. Some of these options are only read when a new world is created, while some others are read every startup. The file should contain a list with keys and values separated with an equal sign, one per line.
+    </p>
+    <p>
+        The following options are available. If a value as a number in parenthesis, that number can be used instead of the text value.
+    </p>
+    <table>
+        <thead>
+            <tr>
+                <th>Option name</th>
+                <th style="min-width:200px">Possible values</th>
+                <th>Default value</th>
+                <th>When is it used</th>
+                <th>Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>server-name</td>
+                <td>Any string (no semicolon allowed)</td>
+                <td>Dedicated Server</td>
+                <td>Always</td>
+                <td>This is the server name shown in the in-game server list.</td>
+            </tr>
+            <tr>
+                <td>gamemode</td>
+                <td>survival, creative, adventure</td>
+                <td>survival</td>
+                <td>Always or only for new players</td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>force-gamemode</td>
+                <td>true, false</td>
+                <td>false</td>
+                <td>Always</td>
+                <td>
+                    <b>force-gamemode=false</b>(or <b>force-gamemode is not defined</b> in the server.properties file)
+                    prevents the server from sending to the client gamemode values other
+                    than the gamemode value saved by the server during world creation
+                    even if those values are set in server.properties file after world creation.<br />
+                    <b>force-gamemode=true</b> forces the server to send to the client gamemode values
+                    other than the gamemode value saved by the server during world creation
+                    if those values are set in server.properties file after world creation.
+                </td>
+            </tr>
+            <tr>
+                <td>difficulty</td>
+                <td>peaceful, easy, normal, hard</td>
+                <td>easy</td>
+                <td>Always</td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>allow-cheats</td>
+                <td>true, false</td>
+                <td>false</td>
+                <td>Always</td>
+                <td>If true then cheats like commands can be used.</td>
+            </tr>
+            <tr>
+                <td>max-players</td>
+                <td>Any integer</td>
+                <td>10</td>
+                <td>Always</td>
+                <td>The maximum numbers of players that should be able to play on the server. <b>Higher values have performance impact.</b></td>
+            </tr>
+            <tr>
+                <td>server-port</td>
+                <td>Integer between 1024 and 65535</td>
+                <td>19132</td>
+                <td>Always</td>
+                <td>Values below 1024 may be used, but are generally reserved for well known applications</td>
+            </tr>
+            <tr>
+                <td>server-portv6</td>
+                <td>Integer between 1024 and 65535</td>
+                <td>19133</td>
+                <td>Always</td>
+                <td>Values below 1024 may be used, but are generally reserved for well known applications</td>
+            </tr>
+            <tr>
+                <td>enable-lan-visibility</td>
+                <td>true, false</td>
+                <td>true</td>
+                <td>Always</td>
+                <td>Listen and respond to clients that are looking for servers on the LAN. This will cause the server to bind to
+                    the default ports (19132, 19133) even when 'server-port' and 'server-portv6' have non-default values. Consider
+                    turning this off if LAN discovery is not desirable, or when running multiple servers on the same host may lead to port conflicts.</td>
+            </tr>
+            <tr>
+                <td>level-name</td>
+                <td>Any string</td>
+                <td>Bedrock level</td>
+                <td>Always</td>
+                <td>The name of level to be used/generated. Each level has its own folder in <code>/worlds</code>.</td>
+            </tr>
+            <tr>
+                <td>level-seed</td>
+                <td>Any string </td>
+                <td></td>
+                <td>World creation</td>
+                <td>The seed to be used for randomizing the world. If left empty a seed will be chosen at random.</td>
+            </tr>
+            <tr>
+                <td>online-mode</td>
+                <td>true, false</td>
+                <td>true</td>
+                <td>Always</td>
+                <td>If true, all connected players must be authenticated with Xbox Live.
+                    Clients connecting to remote (non-LAN) servers will always require Xbox Live authentication regardless of this setting.
+                    If the server accepts connections from the Internet, then it is <b>highly</b> recommended to enable online-mode.</td>
+            </tr>
+            <tr>
+                <td>allow-list</td>
+                <td>true, false</td>
+                <td>false</td>
+                <td>Always</td>
+                <td>If true then all connected players must be listed in the separate <code>allowlist.json</code> file.
+                    See the <i>Allowlist</i> section.</td>
+            </tr>
+            <tr>
+                <td>enable-packet-rate-limiter</td>
+                <td>true, false</td>
+                <td>false</td>
+                <td>Always</td>
+                <td>If true, the packet rate limiter will be enabled with the configuration provided by the <code>packetlimitconfig.json</code> file.
+                    See the <i>Packet Rate Limit Config</i> section.</td>
+            </tr>
+            <tr>
+                <td>view-distance</td>
+                <td>Any integer greater than 5</td>
+                <td>32</td>
+                <td>Always</td>
+                <td>The maximum allowed view distance. <b>Higher values have performance impact.</b></td>
+            </tr>
+            <tr>
+                <td>player-idle-timeout</td>
+                <td>Any positive integer, including 0</td>
+                <td>30</td>
+                <td>Always</td>
+                <td>After a player has idled for this many minutes they will be kicked. If set to 0 then players can idle indefinitely.</td>
+            </tr>
+            <tr>
+                <td>max-threads</td>
+                <td>Any integer</td>
+                <td>8</td>
+                <td>Always</td>
+                <td>Maximum number of threads the server will try to use. If set to 0 or removed then it will use as many as possible.</td>
+            </tr>
+            <tr>
+                <td>tick-distance</td>
+                <td>An integer in the range [4, 12]</td>
+                <td>4</td>
+                <td>Always</td>
+                <td>The world will be ticked this many chunks away from any player. <b>Higher values have performance impact.</b></td>
+            </tr>
+            <tr>
+                <td>default-player-permission-level</td>
+                <td>visitor, member, operator</td>
+                <td>member</td>
+                <td>Always</td>
+                <td>Which permission level new players will have when they join for the first time.</td>
+            </tr>
+            <tr>
+                <td>texturepack-required</td>
+                <td>true, false</td>
+                <td>false</td>
+                <td>Always</td>
+                <td>If the world uses any specific texture packs then this setting will force the client to use it.</td>
+            </tr>
+            <tr>
+                <td>content-log-file-enabled</td>
+                <td>true, false</td>
+                <td>false</td>
+                <td>Always</td>
+                <td>Enables logging content errors to a file.</td>
+            </tr>
+            <tr>
+                <td>compression-threshold</td>
+                <td>An integer in the range [0-65535]</td>
+                <td>1</td>
+                <td>Always</td>
+                <td>Determines the smallest size of raw network payload to compress. Can be used to experiment with CPU-bandwidth tradeoffs.</td>
+            </tr>
+            <tr>
+                <td>compression-algorithm</td>
+                <td>zlib, snappy</td>
+                <td>zlib</td>
+                <td>Always</td>
+                <td>Determines the compression algorithm to use for networking.</td>
+            </tr>
+            <tr>
+                <td>server-authoritative-movement-strict</td>
+                <td>true, false</td>
+                <td>false</td>
+                <td>Always</td>
+                <td>If true, will be more strict toward the Player position and be less permissive in accepting the client info.
+                    This will impact Player around moving block if there is high latency.</td>
+            </tr>
+            <tr>
+                <td>server-authoritative-dismount-strict</td>
+                <td>true, false</td>
+                <td>false</td>
+                <td>Always</td>
+                <td>If true, will be more strict toward the Player dismount position.
+                    This means clients will receive a correction on their dismount position in higher latency situation.</td>
+            </tr>
+            <tr>
+                <td>server-authoritative-entity-interactions-strict</td>
+                <td>true, false</td>
+                <td>false</td>
+                <td>Always</td>
+                <td>If true, will be more strict toward the Entity interactions. This will impact Players interacting with each other in higher latency situations.</td>
+            </tr>
+            <tr>
+                <td>player-position-acceptance-threshold</td>
+                <td>Any positive float</td>
+                <td>0.5</td>
+                <td>Always</td>
+                <td>This is the tolerance of discrepancies between the Client and Server Player position.
+                This helps in problematic scenarios. The higher the number, the more tolerant the server will be before asking for a correction.
+                Passed value of 1.0, the chance of missing cheating increases.</td>
+            </tr>
+            <tr>
+                <td>player-movement-action-direction-threshold</td>
+                <td>Any positive float in the range of [-1.00, 1.00]</td>
+                <td>0.85</td>
+                <td>Always</td>
+                <td>The amount that the direction the player is attacking can differ from the direction the
+                    player is looking as cos(x) where x is the angle between the two vectors. A value of 1
+                    means the two vectors must be parallel, 0 means anything in front of the player, and -1
+                    means any vector.</td>
+            </tr>
+            <tr>
+                <td>server-authoritative-block-breaking</td>
+                <td>true, false</td>
+                <td>false</td>
+                <td>Not when client-auth</td>
+                <td>If true, the server will compute block mining operations in sync with the client so it can verify that the client should be able to break blocks when it thinks it can.
+                    This setting cannot be combined with client authoritative movement and will be disabled if that setting is enabled.</td>
+            </tr>
+            <tr>
+                <td>server-authoritative-block-breaking-pick-range-scalar</td>
+                <td>Any float above 1.0</td>
+                <td>1.5</td>
+                <td>When server-authoritative-block-breaking is true</td>
+                <td>This increase the range of block breaking. This is squared and multiplied with the default range.</td>
+            </tr>
+            <tr>
+                <td>chat-restriction</td>
+                <td>None, Dropped, Disabled</td>
+                <td>None</td>
+                <td>Always</td>
+                <td>This represents the level of restriction applied to the chat for each player that joins the server.
+                    "None" is the default and represents regular free chat.
+                    "Dropped" means the chat messages are dropped and never sent to any client. Players receive a message to let them know the feature is disabled.
+                    "Disabled" means that unless the player is an operator, the chat UI does not even appear. No information is displayed to the player.
+                </td>
+            </tr>
+            <tr>
+                <td>disable-player-interaction</td>
+                <td>true, false</td>
+                <td>false</td>
+                <td>Always</td>
+                <td>If true, the server will inform clients that they should ignore other players when interacting with the world.
+                    This is not server authoritative.</td>
+            </tr>
+                <td>client-side-chunk-generation-enabled</td>
+                <td>true, false</td>
+                <td>true</td>
+                <td>Always</td>
+                <td>If true, the server will inform clients that they have the ability to generate visual level chunks outside of player interaction distances.</td>
+            </tr>
+            <tr>
+                <td>block-network-ids-are-hashes</td>
+                <td>true, false</td>
+                <td>true</td>
+                <td>Always</td>
+                <td>If true, the server will send hashed block network ID's instead of id's that start from 0 and go up.  These id's are stable and won't change regardless of other block changes.</td>
+            </tr>
+            <tr>
+                <td>disable-persona</td>
+                <td>true, false</td>
+                <td>false</td>
+                <td>Internal Use Only</td>
+                <td></td>
+            </tr>
+            <tr>
+                <td>disable-custom-skins</td>
+                <td>true, false</td>
+                <td>false</td>
+                <td>Always</td>
+                <td>If true, disable players customized skins that were customized outside of the Minecraft store assets or in game assets.  This is used to disable possibly offensive custom skins players make.</td>
+            </tr>
+                <td>server-build-radius-ratio</td>
+                <td>Disabled, 0.0-1.0</td>
+                <td>Disabled</td>
+                <td>Always</td>
+                <td>If "Disabled" the server will dynamically calculate how much of the player's view it will generate, assigning the rest to the client to build.
+                    Otherwise from the overridden ratio tell the server how much of the player's view to generate, disregarding client hardware capability.
+                    <b>Only valid if client-side-chunk-generation-enabled is enabled.</b>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>Folders</h2>
+    <p>
+        When unpacking you will see a few folders and the binary executable. When starting the server for the first time a bunch of new (empty) folders will be created. The folders you should care about are the following:
+    </p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Folder name</th>
+                <th>Purpose</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>behavior_packs</td>
+                <td>This is where new behavior packs can be installed. At the moment there's no way of activating
+                            them in a level.</td>
+            </tr>
+            <tr>
+                <td>resource_packs</td>
+                <td>This is where new resource packs can be installed. At the moment there's no way of activating
+                            them in a level.</td>
+            </tr>
+            <tr>
+                <td>worlds</td>
+                <td>This folder will be created at startup if it doesn't already exist. Every world created will have a folder named according to their <code>level-name</code> inside the <code>server.properties</code> file.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>Allowlist</h2>
+    <p>
+        If the <code>allow-list</code> property is enabled in <code>server.properties</code> then the server will only allow selected users to connect. To allow a user to connect you need to know their Xbox Live Gamertag. The easiest way to add a user to the allowlist is to use the command <code>allowlist add &lt;Gamertag&gt;</code> (eg: <code>allowlist add ExampleName</code>). Note: If there is a white-space in the Gamertag you need to enclose it with double quotes: <code>allowlist add "Example Name"</code>
+    </p>
+    <p>
+        If you later want to remove someone from the list you can use the command <code>allowlist remove &lt;Gamertag&gt;</code>.
+    </p>
+    <p>
+        The allowlist will be saved in a file called <code>allowlist.json</code>. If you want to automate the process of adding or removing players from it you can do so. After you've modified the file you need to run the command <code>allowlist reload</code> to make sure that the server knows about your new change.
+    </p>
+    <p>
+        <b>NOTE:</b> This file was previously named <code>whitelist.json</code>. For backwards compatability, if a <code>whitelist.json</code> file is also present, it will be used instead of <code>allowlist.json</code>.
+        To migrate, delete the default <code>allowlist.json</code> file, rename <code>whitelist.json</code> to <code>allowlist.json</code>, then restart the server.
+    </p>
+    <p>
+        The file contains a JSON array with objects that contains the following key/values.
+    </p>
+    <table>
+        <thead>
+            <tr>
+                <th>Key</th>
+                <th>Type</th>
+                <th>Value</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>name</td>
+                <td>String</td>
+                <td>The gamertag of the user.</td>
+            </tr>
+            <tr>
+                <td>xuid</td>
+                <td>String</td>
+                <td>Optional. The XUID of the user. If it's not set then it will be populated when someone with a matching name connects.</td>
+            </tr>
+            <tr>
+                <td>ignoresPlayerLimit</td>
+                <td>Boolean</td>
+                <td>True if this user should not count towards the maximum player limit. Currently there's another soft limit of 30 (or 1 higher than the specified number of max players) connected players, even if players use this option. The intention for this is to have some players be able to join even if the server is full.</td>
+            </tr>
+        </tbody>
+    </table>
+    <p>
+        Example <code>allowlist.json</code> file:
+    </p>
+    <pre>
+[
+    {
+        "ignoresPlayerLimit": false,
+        "name": "MyPlayer"
+    },
+    {
+        "ignoresPlayerLimit": false,
+        "name": "AnotherPlayer",
+        "xuid": "274817248"
+    }
+]</pre>
+
+
+
+    <h2>Packet Rate Limit Config</h2>
+    <p>
+        If the <code>enable-packet-rate-limiter</code> property is enabled in <code>server.properties</code>, the server will use the packet rate limiter feature. Following the configuration described by the <code>packetlimitconfig.json</code> file, specific types of packets will be limited and rejected.
+    </p>
+    <p>
+        To reload the packet rate limiter configuration on the flight, use the server command <code>reloadpacketlimitconfig</code>. The server will reload the configuration from the <code>packetlimitconfig.json</code> file and update it for all of its clients.
+    </p>
+    <p>
+        The <code>packetlimitconfig.json</code> file contains a JSON array with a list of limit groups. Each group contains a list of packet ids and the corresponding packet rate limit algorithm that will be applied to them. Only <code>BucketPacketLimitAlgorithm</code> is currently supported. Additionally, the file can also use a default algorithm that will be applied to limit the rate for all packet types, on top of the ones specified by the limit groups.
+    </p>
+    <p>
+        <code>BucketPacketLimitAlgorithm</code> requires two parameters:
+    </p>
+    <table>
+        <thead>
+            <tr>
+                <th>Key</th>
+                <th>Type</th>
+                <th>Value</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>drainRatePerSec</td>
+                <td>float</td>
+                <td>The drain rate of the bucket per second. Value must be in the range [0.0f, 10000.0f]</td>
+            </tr>
+            <tr>
+                <td>maxBucketSize</td>
+                <td>uint32_t</td>
+                <td>The maximum size of the bucket. Value must be in the range [1, 10000]</td>
+            </tr>
+        </tbody>
+    </table>
+    <p>
+        Example of the <code>packetlimitconfig.json</code> file:
+    </p>
+    <pre>
+{
+    "limitGroups": [{
+        "minecraftPacketIds": [193, 4],
+        "algorithm": {
+            "name": "BucketPacketLimitAlgorithm",
+            "params": {
+                "drainRatePerSec": 0.0013,
+                "maxBucketSize": 1
+            }
+        }
+    }, {
+        "minecraftPacketIds": [9],
+        "algorithm": {
+            "name": "BucketPacketLimitAlgorithm",
+            "params": {
+                "drainRatePerSec": 10,
+                "maxBucketSize": 50
+            }
+        }
+    }],
+    "defaultAlgorithm": {
+        "name": "BucketPacketLimitAlgorithm",
+        "params": {
+            "drainRatePerSec": 0.0013,
+            "maxBucketSize": 1
+        }
+    }
+}</pre>
+
+    <h2>Permissions</h2>
+    <p>
+        You can adjust player specific permissions by assigning them roles in the <code>permissions.json</code> that is placed in the same directory as the server executable. The file contains a simple JSON object with XUIDs and permissions. Valid permissions are: <code>operator</code>, <code>member</code>, <code>visitor</code>. Every player that connects with these accounts will be treated according to the set premission. If you change this file while the server is running, then run the command <code>permission reload</code> to make sure that the server knows about your new change. You could also list the current permissions with <code>permission list</code>. Note that <code>online-mode</code> needs to be enabled for this feature to work since xuid requires online verification of the user account. If a new player that is not in this list connects, the <code>default-player-permission-level</code> option will apply.
+
+    </p>
+    <p>
+        Example <code>permissions.json</code> file:
+    </p>
+
+    <pre>
+[
+    {
+        "permission": "operator",
+        "xuid": "451298348"
+    },
+    {
+        "permission": "member",
+        "xuid": "52819329"
+    },
+    {
+        "permission": "visitor",
+        "xuid": "234114123"
+    }
+]</pre>
+
+    <h2>Crash reporting</h2>
+    <p>
+        If the server crashes it will automatically send us various information that helps us solve it for the future.
+    </p>
+
+    <h2>Commands</h2>
+    <p>
+        You can issue commands to the server by typing in the console. The following commands are available. &lt; &gt; means a parameter is required, [ ] means it's optional and | denotes different allowed values. Strings can be enclosed in double quotes, ", if they contain spaces.
+    </p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Command syntax</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>kick &lt;player name or xuid&gt; &lt;reason&gt;</td>
+                <td>Immediately kicks a player. The reason will be shown on the kicked players screen.</td>
+            </tr>
+            <tr>
+                <td>stop</td>
+                <td>Shuts down the server gracefully.</td>
+            </tr>
+            <tr>
+                <td>save &lt;hold | resume | query&gt;</td>
+                <td>Used to make atomic backups while the server is running. See the backup section for more information.</td>
+            </tr>
+            <tr>
+                <td>allowlist &lt;on | off | list | reload&gt;</td>
+                <td>
+                    <p>
+                        <code>on</code> and <code>off</code> turns the allowlist on and off. Note that this does not change the value in the <code>server.properties</code> file!
+                    </p>
+                    <p>
+                        <code>list</code> prints the current allowlist used by the server
+                    </p>
+                    <p>
+                        <code>reload</code> makes the server reload the allowlist from the file.
+                    </p>
+                    <p>
+                        See the allowlist section for more information.
+                    </p>
+                </td>
+            </tr>
+            <tr>
+                <td>allowlist &lt;add | remove&gt; &lt;name&gt;</td>
+                <td>Adds or removes a player from the allowlist file. The name parameter should be the Xbox Gamertag of the player you want to add or remove. You don't need to specify a XUID here, it will be resolved the first time the player connects.<br/><br/>See the Allowlist section for more information.</td>
+            </tr>
+            <tr>
+                <td>permission &lt;list | reload&gt;</td>
+                <td>
+                    <p>
+                        <code>list</code> prints the current used operator list.
+                    </p>
+                    <p>
+                        <code>reload</code> makes the server reload the operator list from the ops file.
+                    </p>
+                    <p>
+                        See the Permissions section for more information.
+                    </p>
+                </td>
+            </tr>
+            <tr>
+                <td>op &lt;player&gt;</td>
+                <td>
+                    <p>
+                        Promote a player to <code>operator</code>. This will also persist in <code>permissions.json</code> if the player is authenticated to XBL. If <code>permissions.json</code> is missing it will be created. If the player is not connected to XBL, the player is promoted for the current server session and it will not be persisted on disk. Defualt server permission level will be assigned to the player after a server restart.
+                    </p>
+                </td>
+            </tr>
+            <tr>
+                <td>deop &lt;player&gt;</td>
+                <td>
+                    <p>
+                        Demote a player to <code>member</code>. This will also persist in <code>permissions.json</code> if the player is authenticated to XBL. If <code>permissions.json</code> is missing it will be created.
+                    </p>
+                </td>
+            </tr>
+            <tr>
+                <td>changesetting &lt;setting&gt; &lt;value&gt;</td>
+                <td>Changes a server setting without having to restart the server. Currently only two settings are supported to be changed, <code>allow-cheats</code> (true or false) and <code>difficulty</code> (0, <code>peaceful</code>, 1, <code>easy</code>, 2, <code>normal</code>, 3 or <code>hard</code>). They do not modify the value that's specified in <code>server.properties</code>.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>Backups</h2>
+    <p>
+        The server supports taking backups of the world files while the server is running. It's not particularly friendly for taking manual backups, but works better when automated. The backup (from the servers perspective) consists of three commands.
+    </p>
+    <table>
+        <thead>
+            <tr>
+                <th>Command</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>save hold</td>
+                <td>This will ask the server to prepare for a backup. It’s asynchronous and will return immediately.</td>
+            </tr>
+            <tr>
+                <td>save query</td>
+                <td>After calling <code>save hold</code> you should call this command repeatedly to see if the preparation has finished. When it returns a success it will return a file list (with lengths for each file) of the files you need to copy. The server will not pause while this is happening, so some files can be modified while the backup is taking place. As long as you only copy the files in the given file list and truncate the copied files to the specified lengths, then the backup should be valid.</td>
+            </tr>
+            <tr>
+                <td>save resume</td>
+                <td>When you’re finished with copying the files you should call this to tell the server that it’s okay to remove old files again.</td>
+            </tr>
+        </tbody>
+    </table>
+</body>
+
+</html>

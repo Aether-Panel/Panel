@@ -1,0 +1,13 @@
+{
+  "Credentials": "OAuth2 Client Anmeldeinformationen",
+  "ClientId": "Client ID",
+  "ClientSecret": "Clientgeheimnis",
+  "NewClientWarning": "Notiere das Client-Secret. Nach dem Schließen dieses Dialogs wird er nicht wieder angezeigt. Wenn du ihn verlierst oder vergisst, wird dieser Client unbrauchbar.",
+  "Create": "Neuen OAuth2-Client erstellen",
+  "UnnamedClient": "Unbenannter OAuth2-Client",
+  "Docs": "Hier findest du die API-Dokumentation",
+  "Clients": "OAuth2 Clients",
+  "Delete": "{clientName} löschen?",
+  "ConfirmDelete": "Ich bin mir der Auswirkungen bewusst, die das Löschen dieses OAuth2-Clients haben wird und möchte fortfahren.",
+  "AccountDescription": "Die hier aufgelisteten OAuth2-Clients erben alle Ihre Account-Berechtigungen"
+}

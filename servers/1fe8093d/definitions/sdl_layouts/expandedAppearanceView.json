@@ -1,0 +1,20 @@
+{
+	"result": {
+		"pageId": "DressingRoom_ExpandedAppearanceView",
+		"addToRecentlyViewed": false,
+		"rows": [
+			{
+				"controlId": "Layout",
+				"components": [
+					{
+						"type": "appearanceInteractionComp",
+						"$type": "AppearanceInteractionComponent"
+					}
+				]
+			}
+		],
+		"inventoryVersion": "",
+		"pageRefresh": false,
+		"sidebarLayoutType": "Persona"
+	}
+}

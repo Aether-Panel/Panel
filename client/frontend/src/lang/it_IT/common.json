@@ -1,0 +1,64 @@
+{
+  "Name": "Nome",
+  "Language": "Lingua",
+  "Online": "Online",
+  "Offline": "Offline",
+  "Installing": "Installando",
+  "Unknown": "Sconosciuto",
+  "Loading": "Caricamento...",
+  "Description": "Descrizione",
+  "Save": "Salva",
+  "Cancel": "Annulla",
+  "Close": "Chiudi",
+  "Host": "Ospite",
+  "Port": "Porta",
+  "Collapse": "Collassa",
+  "Expand": "Espandi",
+  "Copy": "Copia negli appunti",
+  "Copied": "Copiato negli appunti",
+  "Back": "Indietro",
+  "Next": "Successivo",
+  "Details": "Dettagli",
+  "ErrorDetails": "Dettagli Errore",
+  "HelpTranslate": "Aiutaci a tradurre SkyPanel",
+  "Protocol": "Protocollo",
+  "Add": "Aggiungi",
+  "Apply": "Applica",
+  "Confirm": "Conferma",
+  "Condition": "Condizione",
+  "Discard": "Annulla",
+  "ConfirmLeave": "Hai delle modifiche non salvate, vuoi scartare queste modifiche e lasciare questa pagina?",
+  "theme": {
+    "Theme": "Tema",
+    "Mode": "Modalità",
+    "mode": {
+      "Light": "Chiaro",
+      "Dark": "Scuro",
+      "DarkHighContrast": "Scuro (contrasto elevato)",
+      "Auto": "Automatico"
+    },
+    "BaseColor": "Colore Base",
+    "ServerTypeDisplay": "Visualizzazione Tipo Server",
+    "serverTypeDisplay": {
+      "Icon": "Icona",
+      "None": "Nessuno"
+    },
+    "ListType": "Tipo Di Lista",
+    "listType": {
+      "Grid": "Griglia",
+      "List": "Lista"
+    },
+    "FontSize": "Dimensione Carattere",
+    "fontSize": {
+      "Default": "Predefinito"
+    },
+    "FontFace": "Stile font",
+    "fontFace": {
+      "Default": "Predefinito",
+      "A11y": "Alta leggibilità"
+    }
+  },
+  "NoResults": "Nessun risultato",
+  "Yes": "Si",
+  "No": "No"
+}

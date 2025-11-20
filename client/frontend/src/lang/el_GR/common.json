@@ -1,0 +1,64 @@
+{
+  "Name": "Όνομα",
+  "Language": "Γλώσσα",
+  "Online": "Σε σύνδεση",
+  "Offline": "Εκτός σύνδεσης",
+  "Installing": "Installing",
+  "Unknown": "Άγνωστο",
+  "Loading": "Φόρτωση...",
+  "Description": "Description",
+  "Save": "Αποθήκευση",
+  "Cancel": "Ακύρωση",
+  "Close": "Close",
+  "Host": "Διακομιστής",
+  "Port": "Θύρα",
+  "Collapse": "Σύμπτυξη",
+  "Expand": "Expand",
+  "Copy": "Copy to clipboard",
+  "Copied": "Copied to clipboard",
+  "Back": "Back",
+  "Next": "Επόμενο",
+  "Details": "Λεπτομέρειες",
+  "ErrorDetails": "Λεπτομέρειες Σφάλματος",
+  "HelpTranslate": "Βοηθήστε μας να μεταφράσουμε το SkyPanel",
+  "Protocol": "Πρωτόκολλο",
+  "Add": "Προσθήκη",
+  "Apply": "Apply",
+  "Confirm": "Confirm",
+  "Condition": "Condition",
+  "Discard": "Discard",
+  "ConfirmLeave": "You have unsaved changes, do you want to discard these changes and leave this page?",
+  "theme": {
+    "Theme": "Theme",
+    "Mode": "Mode",
+    "mode": {
+      "Light": "Light",
+      "Dark": "Dark",
+      "DarkHighContrast": "Dark (High Contrast)",
+      "Auto": "Auto"
+    },
+    "BaseColor": "Base Color",
+    "ServerTypeDisplay": "Server Type Display",
+    "serverTypeDisplay": {
+      "Icon": "Icon",
+      "None": "None"
+    },
+    "ListType": "List Type",
+    "listType": {
+      "Grid": "Grid",
+      "List": "List"
+    },
+    "FontSize": "Font Size",
+    "fontSize": {
+      "Default": "Default"
+    },
+    "FontFace": "Font Face",
+    "fontFace": {
+      "Default": "Default",
+      "A11y": "Accessibility optimized"
+    }
+  },
+  "NoResults": "No Results",
+  "Yes": "Yes",
+  "No": "No"
+}

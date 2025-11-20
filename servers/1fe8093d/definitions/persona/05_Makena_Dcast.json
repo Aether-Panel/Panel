@@ -1,0 +1,54 @@
+{
+  "name": "persona.makena_name.title",
+  "uuid": "fd5c1e0a-5ba3-4467-951b-17103e740a94",
+  "thumbnailPath": "textures/ui/default_cast/makena_icon.png",
+  "appearance": [
+    {
+      "arm": "wide",
+      "skcol": "#ff38281b",
+      "skin": false
+    },
+    {
+      "col": [ "#ff240303", "#ff1b110d", "#ffe9ecec", "#0" ], // Eyes
+      "id": "a0f263b3-e093-4c85-aadb-3759417898ff/d"
+    },
+    {
+      "col": [ "#0", "#0", "#ff2a1919", "#0" ], // Mouth
+      "id": "83c940ce-d7b8-4603-8d73-c1234e322cce/d"
+    },
+    {
+      "id": "1042557f-d1f9-44e3-ba78-f404e8fb7363/d"
+    },
+    {
+      "id": "8f96d1f8-e9bb-40d2-acc8-eb79746c5d7c/d"
+    },
+    {
+      "id": "f76b43c4-052c-ec24-bbc9-389f8b612668/d"
+    },
+    {
+      "id": "4fc639b3-0bb3-9443-0e2d-9332561edb68/d"
+    },
+    {
+      "id": "446f1789-8b8d-755e-6660-672e30537854/d"
+    },
+    {
+      "id": "37788a67-0abb-fec7-4d9b-5dfdbf25e58c/d"
+    },
+    {
+      "col": [ "#ff2c1a1a", "#0", "#0", "#0" ], // Hair
+      "id": "bb29fbdf-5331-ca8e-01a4-b352cd46a324/d"
+    },
+    {
+      "id": "17428c4c-3813-4ea1-b3a9-d6a32f83afca/de"
+    },
+    {
+      "id": "ce5c0300-7f03-455d-aaf1-352e4927b54d/de"
+    },
+    {
+      "id": "9a469a61-c83b-4ba9-b507-bdbe64430582/de"
+    },
+    {
+      "id": "4c8ae710-df2e-47cd-814d-cc7bf21a3d67/de"
+    }
+  ]
+}

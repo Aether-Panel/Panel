@@ -1,0 +1,37 @@
+{
+  "result": {
+    "pageId": "DressingRoom_PersonaProfile_Offline",
+    "addToRecentlyViewed": false,
+    "rows": [
+      {
+        "controlId": "CharacterSelectorRow",
+        "components": [
+          {
+            "skinsPage": {
+              "linksTo": "MultiItemPage_PersonaSkinSelector",
+              "linkType": "openProfileScreen",
+              "displayType": "store_layout.skin_selector_screen",
+              "screenTitle": {
+                "value": "Classic Skins - Offline",
+                "replacements": []
+              }
+            },
+            "characterPage": {
+              "linksTo": "MultiItemPage_PersonaCharacterCreator",
+              "linkType": "openProfileScreen",
+              "displayType": "store_layout.character_creator_screen",
+              "screenTitle": {
+                "value": "Character Creator - Offline",
+                "replacements": []
+              }
+            },
+            "type": "characterSelectComp"
+          }
+        ]
+      }
+    ],
+    "sidebarLayoutType": "Persona",
+    "inventoryVersion": "",
+    "pageRefresh": false
+  }
+}

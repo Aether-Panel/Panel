@@ -1,0 +1,379 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Variables CSS para temas personalizados */
+@layer base {
+  :root {
+    /* Colores base - Modo claro por defecto */
+    --color-primary: 7 167 227; /* #07a7e3 */
+    --color-primary-foreground: 255 255 255;
+    --color-secondary: 226 232 240;
+    --color-secondary-foreground: 15 23 42;
+    --color-accent: 241 245 249;
+    --color-accent-foreground: 15 23 42;
+    --color-background: 255 255 255;
+    --color-foreground: 15 23 42;
+    --color-muted: 241 245 249;
+    --color-muted-foreground: 100 116 139;
+    --color-border: 226 232 240;
+    --color-input: 226 232 240;
+    --color-ring: 7 167 227;
+    --color-error: 239 68 68;
+    --color-error-foreground: 255 255 255;
+    --color-success: 34 197 94;
+    --color-success-foreground: 255 255 255;
+    --color-warning: 251 191 36;
+    --color-warning-foreground: 15 23 42;
+    --color-sidebar: 248 250 252;
+    --color-sidebar-foreground: 51 65 85;
+    --color-topbar: 255 255 255;
+    --color-topbar-foreground: 15 23 42;
+  }
+
+  /* Modo oscuro */
+  .mode-dark,
+  .mode-dark-highcontrast {
+    --color-primary: 59 130 246;
+    --color-primary-foreground: 255 255 255;
+    --color-secondary: 30 41 59;
+    --color-secondary-foreground: 226 232 240;
+    --color-accent: 51 65 85;
+    --color-accent-foreground: 226 232 240;
+    --color-background: 15 23 42;
+    --color-foreground: 226 232 240;
+    --color-muted: 30 41 59;
+    --color-muted-foreground: 148 163 184;
+    --color-border: 51 65 85;
+    --color-input: 51 65 85;
+    --color-ring: 59 130 246;
+    --color-error: 239 68 68;
+    --color-error-foreground: 255 255 255;
+    --color-success: 34 197 94;
+    --color-success-foreground: 255 255 255;
+    --color-warning: 251 191 36;
+    --color-warning-foreground: 15 23 42;
+    --color-sidebar: 30 41 59;
+    --color-sidebar-foreground: 226 232 240;
+    --color-topbar: 15 23 42;
+    --color-topbar-foreground: 226 232 240;
+  }
+
+  /* Alto contraste */
+  .mode-dark-highcontrast {
+    --color-border: 148 163 184;
+    --color-input: 148 163 184;
+  }
+
+  /* Modo claro */
+  .mode-light {
+    --color-primary: 7 167 227;
+    --color-primary-foreground: 255 255 255;
+    --color-secondary: 226 232 240;
+    --color-secondary-foreground: 15 23 42;
+    --color-accent: 241 245 249;
+    --color-accent-foreground: 15 23 42;
+    --color-background: 255 255 255;
+    --color-foreground: 15 23 42;
+    --color-muted: 241 245 249;
+    --color-muted-foreground: 100 116 139;
+    --color-border: 226 232 240;
+    --color-input: 226 232 240;
+    --color-ring: 7 167 227;
+    --color-sidebar: 248 250 252;
+    --color-sidebar-foreground: 51 65 85;
+    --color-topbar: 255 255 255;
+    --color-topbar-foreground: 15 23 42;
+  }
+}
+
+/* Utilidades personalizadas */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  /* Scrollbar personalizado */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: rgb(var(--color-border));
+    border-radius: 3px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--color-primary) / 0.5);
+  }
+  
+  /* Animaciones personalizadas */
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  
+  @keyframes zoom-in-95 {
+    from {
+      transform: scale(0.95);
+    }
+    to {
+      transform: scale(1);
+    }
+  }
+  
+  @keyframes slide-in-from-bottom-2 {
+    from {
+      transform: translateY(8px);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+  
+  .animate-in {
+    animation-duration: 0.2s;
+    animation-fill-mode: both;
+  }
+  
+  .fade-in {
+    animation-name: fade-in;
+  }
+  
+  .zoom-in-95 {
+    animation-name: zoom-in-95;
+  }
+  
+  .slide-in-from-bottom-2 {
+    animation-name: slide-in-from-bottom-2;
+  }
+  
+  /* Estilos para listas de vistas */
+  .serverlist,
+  .nodelist,
+  .userlist,
+  .templatelist {
+    @apply space-y-6;
+  }
+  
+  .serverlist h1,
+  .nodelist h1,
+  .userlist h1,
+  .templatelist h1 {
+    @apply text-3xl font-bold text-foreground mb-6 pb-3 border-b-2 border-border/50;
+  }
+  
+  .list-header {
+    @apply flex items-center justify-between px-4 py-3 mb-4;
+    @apply bg-muted/30 border-2 border-border/50 rounded-xl;
+    @apply shadow-sm;
+  }
+  
+  .list-header h2,
+  .list-header h3 {
+    @apply text-xl font-bold text-foreground m-0;
+  }
+  
+  .createLink {
+    @apply flex items-center gap-2 px-4 py-3;
+    @apply bg-primary/10 border-2 border-primary/30 rounded-xl;
+    @apply text-primary font-semibold;
+    @apply hover:bg-primary/20 hover:border-primary/50;
+    @apply transition-all duration-200;
+    @apply shadow-sm hover:shadow-md;
+    @apply cursor-pointer;
+  }
+  
+  /* Estilos base para iconos */
+  .icon {
+    @apply inline-block align-middle;
+    @apply text-inherit;
+    @apply leading-none;
+  }
+  
+  .icon-spin {
+    @apply animate-spin;
+  }
+  
+  .createLink .icon {
+    @apply text-xl;
+  }
+  
+  /* Estilos para items de lista */
+  .list-item {
+    @apply p-4 rounded-xl border-2 border-border/50;
+    @apply bg-background shadow-sm;
+    @apply transition-all duration-200;
+    @apply hover:shadow-md hover:border-border;
+  }
+  
+  .list-item a {
+    @apply block;
+  }
+  
+  .server,
+  .node,
+  .user,
+  .template {
+    @apply w-full;
+  }
+  
+  .server .title,
+  .node .title,
+  .user .title,
+  .template .title {
+    @apply block text-lg font-semibold text-foreground;
+  }
+  
+  .server .subline,
+  .node .subline,
+  .user .subline,
+  .template .subline {
+    @apply block text-sm text-muted-foreground mt-1;
+  }
+  
+  .user .avatar {
+    @apply w-12 h-12 rounded-full border-2 border-border;
+    @apply mr-3 flex-shrink-0;
+    @apply shadow-sm;
+  }
+  
+  /* Estilos para alertas */
+  .alert {
+    @apply p-4 rounded-xl border-2 shadow-sm mb-4;
+    @apply transition-all duration-200;
+  }
+  
+  .alert.info {
+    @apply bg-primary/10 border-primary/30 text-primary-foreground;
+    @apply flex items-center justify-between gap-4;
+  }
+  
+  .alert.error {
+    @apply bg-error/10 border-error/30 text-error-foreground;
+  }
+  
+  .alert.warning {
+    @apply bg-warning/10 border-warning/30 text-warning-foreground;
+  }
+  
+  .alert.success {
+    @apply bg-success/10 border-success/30 text-success-foreground;
+  }
+  
+  /* Estilos para acciones */
+  .actions {
+    @apply flex gap-4 justify-end pt-6 mt-6;
+    @apply border-t-2 border-border/50;
+  }
+  
+  /* Estilos para vistas */
+  .templateview,
+  .templatecreate,
+  .servercreate,
+  .userview,
+  .nodeview,
+  .serverview {
+    @apply space-y-6;
+  }
+  
+  .templateview h1,
+  .templatecreate h1,
+  .userview h1,
+  .nodeview h1,
+  .serverview h1 {
+    @apply text-3xl font-bold text-foreground mb-6 pb-3 border-b-2 border-border/50;
+  }
+  
+  .templateview .details h1,
+  .templateview .permissions h1,
+  .userview .details h1,
+  .userview .permissions h1 {
+    @apply text-2xl font-bold text-foreground mb-4 pb-2 border-b-2 border-border/50;
+  }
+  
+  /* Estilos para formularios */
+  form {
+    @apply space-y-5;
+  }
+  
+  /* Estilos para preferencias y configuración */
+  .preferences {
+    @apply space-y-6;
+  }
+  
+  .preferences h1 {
+    @apply text-2xl font-bold text-foreground mb-6 pb-3 border-b-2 border-border/50;
+  }
+  
+  /* Estilos para botones de OTP */
+  .otp-enroll-actions,
+  .recovery-code-regeneration-actions {
+    @apply flex gap-4 justify-end mt-4;
+  }
+  
+  /* Estilos para Multiselect (@vueform/multiselect) */
+  .multiselect {
+    @apply border-2 border-input/50 rounded-xl;
+    @apply bg-background shadow-sm;
+    @apply transition-all duration-200;
+    @apply hover:shadow-md focus-within:shadow-lg;
+    @apply focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/20;
+  }
+  
+  .multiselect.is-active {
+    @apply border-ring shadow-lg;
+  }
+  
+  .multiselect.is-active .multiselect-options {
+    @apply border-2 border-border/50 rounded-xl shadow-xl;
+    @apply bg-background/95 backdrop-blur-md;
+    @apply mt-2;
+    @apply animate-in fade-in zoom-in-95 duration-200;
+  }
+  
+  .multiselect-single-label,
+  .multiselect-placeholder {
+    @apply text-foreground;
+  }
+  
+  .multiselect-option {
+    @apply px-4 py-2.5;
+    @apply text-foreground;
+    @apply transition-all duration-200;
+    @apply hover:bg-primary/10;
+  }
+  
+  .multiselect-option.is-selected {
+    @apply bg-primary/15 text-primary font-semibold;
+  }
+  
+  .multiselect-option.is-pointed {
+    @apply bg-primary/10;
+  }
+  
+  .multiselect-tags {
+    @apply px-3 py-2.5;
+  }
+  
+  .multiselect-tag {
+    @apply bg-primary/10 text-primary border border-primary/30 rounded-md;
+    @apply px-2.5 py-1 text-sm font-medium;
+    @apply mr-2 mb-1;
+  }
+  
+  .multiselect-tag.is-disabled {
+    @apply opacity-50;
+  }
+  
+}
+

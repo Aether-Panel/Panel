@@ -1,0 +1,32 @@
+{
+  "Settings": "Ustawienia",
+  "PanelSettings": "Ustawienia Panelu",
+  "SavePanelSettings": "Zapisz ustawienia panelu",
+  "EmailSettings": "Ustawienia Email",
+  "SaveEmailSettings": "Zapisz ustawienia e-mail",
+  "MasterUrl": "Główny URL",
+  "MasterUrlHint": "Podstawowy adres URL panelu można uzyskać w formacie http://localhost:8080",
+  "CompanyName": "Nazwa firmy",
+  "DefaultTheme": "Domyślny Motyw",
+  "RegistrationEnabled": "Pozwól użytkownikom rejestrować się",
+  "RegistrationEnabledHint": "Użytkownicy, którzy sami się zarejestrują, nie mogą nic zrobić, dopóki nie zostaną nadane im uprawnienia\n\nWyłączenie tego tylko uniemożliwia bezpośrednią rejestrację, zaproszenie do serwera i strona użytkowników nie zostaną dotknięte tą zmianą.",
+  "EmailProvider": "Dostawca Poczty Email",
+  "emailProviders": {
+    "none": "Brak",
+    "smtp": "SMTP",
+    "mailgun": "Mailgun",
+    "mailjet": "Mailjet"
+  },
+  "email": {
+    "from": "Adres nadawcy",
+    "domain": "Domena",
+    "key": "Klucz API",
+    "host": "Nazwa hosta",
+    "username": "Nazwa użytkownika",
+    "password": "Hasło"
+  },
+  "Saved": "Saved",
+  "TestEmail": "Test Email",
+  "TestEmailSent": "Test email sent",
+  "TestEmailFailed": "Test email failed to send"
+}

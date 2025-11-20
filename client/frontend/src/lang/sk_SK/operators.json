@@ -1,0 +1,68 @@
+{
+  "ConditionHint": "Tento krok spustite, len ak je táto podmienka splnená",
+  "mojangdl": {
+    "generic": "Stiahnuť Minecraft",
+    "formatted": "Stiahnuť Minecraft"
+  },
+  "writefile": {
+    "generic": "Zapísať do súboru",
+    "formatted": "Zapísať do súboru {target}"
+  },
+  "resolveforgeversion": {
+    "generic": "Vyriešiť verziu Minecraft Forge",
+    "formatted": "Vyriešiť verziu Minecraft Forge"
+  },
+  "download": {
+    "generic": "Stiahnuť súbor(y)",
+    "formatted": "Stiahnuť {file} | Stiahnuť {n} súborov",
+    "files": "Súbory"
+  },
+  "command": {
+    "generic": "Spustiť príkaz(y)",
+    "formatted": "Spustiť {command} | Spustiť {n} príkazov",
+    "commands": "Príkazy"
+  },
+  "alterfile": {
+    "generic": "Upraviť súbor",
+    "formatted": "Upraviť súbor {target}",
+    "regex": "Považovať hľadaný reťazec za regulárny výraz",
+    "search": "Hľadať",
+    "replace": "Nahradiť výsledky"
+  },
+  "move": {
+    "generic": "Presunúť, alebo premenovať súbor",
+    "formatted": "Presunúť súbor {source} do {target}",
+    "source": "Zdrojová cesta",
+    "target": "Cieľová cesta"
+  },
+  "mkdir": {
+    "generic": "Vytvoriť priečinok",
+    "formatted": "Vytvoriť priečinok {target}"
+  },
+  "steamgamedl": {
+    "generic": "Nainštalovať zo Steamu",
+    "formatted": "Nainštalovať Steam aplikáciu s ID {appId}",
+    "appId": "ID Steam aplikácie"
+  },
+  "javadl": {
+    "generic": "Nainštalovať Javu",
+    "formatted": "Nainštalovať Javu {version}"
+  },
+  "forgedl": {
+    "generic": "Stiahnuť Minecraft Forge",
+    "formatted": "Stiahnuť Minecraft Forge"
+  },
+  "spongeforgedl": {
+    "generic": "Stiahnuť Minecraft SpongeForge",
+    "formatted": "Stiahnuť Minecraft SpongeForge",
+    "releaseType": "Typ vydania"
+  },
+  "fabricdl": {
+    "generic": "Stiahnuť Minecraft Fabric",
+    "formatted": "Stiahnuť Minecraft Fabric"
+  },
+  "curseforge": {
+    "generic": "Stiahnuť z CurseForge",
+    "formatted": "Stiahnuť z CurseForge"
+  }
+}

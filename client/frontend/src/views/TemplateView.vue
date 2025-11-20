@@ -1,0 +1,197 @@
+<script setup>
+import { ref, inject, onMounted } from 'vue'
+import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+
+import General from '@/components/template/General.vue'
+import Variables from '@/components/template/Variables.vue'
+import Install from '@/components/template/Install.vue'
+import Hooks from '@/components/template/Hooks.vue'
+import RunConfig from '@/components/template/RunConfig.vue'
+import Environment from '@/components/template/Environment.vue'
+
+import Ace from '@/components/ui/Ace.vue'
+import Btn from '@/components/ui/Btn.vue'
+import Icon from '@/components/ui/Icon.vue'
+import Loader from '@/components/ui/Loader.vue'
+import Tabs from '@/components/ui/Tabs.vue'
+import Tab from '@/components/ui/Tab.vue'
+
+const api = inject('api')
+const toast = inject('toast')
+const events = inject('events')
+const { t } = useI18n()
+const route = useRoute()
+const router = useRouter()
+
+let unmodified = null
+const template = ref(null)
+const valid = ref({
+  general: true,
+  run: true
+})
+const ace = ref(null)
+
+onBeforeRouteLeave(() => {
+  if (unmodified === template.value) {
+    return true
+  } else {
+    return new Promise((resolve) => {
+      events.emit(
+        'confirm',
+        t('common.ConfirmLeave'),
+        {
+          text: t('common.Discard'),
+          icon: 'remove',
+          color: 'error',
+          action: () => { resolve(true) }
+        },
+        {
+          color: 'primary',
+          action: () => { resolve(false) }
+        }
+      )
+    })
+  }
+})
+
+onMounted(async () => {
+  const res = await api.template.get(route.params.repo, route.params.id)
+  delete res.readme
+  if (!res.environment) res.environment = {}
+  if (!res.supportedEnvironments) res.supportedEnvironments = []
+  template.value = JSON.stringify(res, undefined, 4)
+  setTimeout(() => {
+    unmodified = template.value
+  }, 50)
+})
+
+async function deleteTemplate() {
+  if (!canDelete()) return
+  events.emit(
+    'confirm',
+    t('templates.ConfirmDelete', { name: JSON.parse(template.value).display }),
+    {
+      text: t('templates.Delete'),
+      icon: 'remove',
+      color: 'error',
+      action: async () => {
+        await api.template.delete(route.params.id)
+        toast.success(t('templates.Deleted'))
+        router.push({ name: 'TemplateList' })
+      }
+    },
+    {
+      color: 'primary'
+    }
+  )
+}
+
+function canDelete() {
+  return route.params.repo === '0'
+}
+
+async function save() {
+  if (!canSave()) return
+  const data = template.value
+  await api.template.save(route.params.id, data)
+  // update the clean state to prevent confirmation popup
+  // on leave despite no unsaved changes existing
+  unmodified = data
+  toast.success(t('templates.Saved'))
+}
+
+function canSave() {
+  if (route.params.repo !== '0') return false
+  return Object.values(valid.value).filter(e => e === false).length === 0
+}
+
+function createLocalCopy() {
+  const t = JSON.parse(template.value)
+  delete t.name
+  sessionStorage.setItem('copiedTemplate', JSON.stringify(t))
+  router.push({ name: 'TemplateCreate', query: { 'copy': true } })
+}
+
+function tabChanged(newTab) {
+  if (newTab === 'json' && ace.value) ace.value.refresh()
+}
+</script>
+
+<template>
+  <div 
+    :class="[
+      'templateview',
+      'space-y-6'
+    ]"
+  >
+    <loader v-if="!template" />
+    <div v-else :class="['space-y-6']">
+      <div 
+        v-if="route.params.repo !== '0'" 
+        :class="[
+          'alert',
+          'info',
+          'p-4 rounded-xl border-2 shadow-sm',
+          'bg-primary/10 border-primary/30 text-primary-foreground',
+          'flex items-center justify-between gap-4',
+          'transition-all duration-200'
+        ]"
+      >
+        <span v-text="t('templates.EditLocalOnly')" />
+        <btn color="primary" @click="createLocalCopy()">
+          <icon name="copy" />
+          {{ t('templates.CreateLocalCopy') }}
+        </btn>
+      </div>
+      <tabs anchors @tabChanged="tabChanged">
+        <tab id="general" :title="t('templates.General')" icon="general" hotkey="t g">
+          <general v-model="template" @valid="valid.general = $event" />
+        </tab>
+        <tab id="variables" :title="t('templates.Variables')" icon="variables" hotkey="t v">
+          <variables v-model="template" />
+        </tab>
+        <tab id="install" :title="t('templates.Install')" icon="install" hotkey="t i">
+          <install v-model="template" />
+        </tab>
+        <tab id="run" :title="t('templates.RunConfig')" icon="start" hotkey="t r">
+          <run-config v-model="template" @valid="valid.run = $event" />
+        </tab>
+        <tab id="hooks" :title="t('templates.Hooks')" icon="hooks" hotkey="t h">
+          <hooks v-model="template" />
+        </tab>
+        <tab id="environment" :title="t('templates.Environment')" icon="environment" hotkey="t e">
+          <environment v-model="template" />
+        </tab>
+        <tab id="json" :title="t('templates.Json')" icon="json" hotkey="t j">
+          <Ace id="template-json" ref="ace" v-model="template" class="template-json-editor" mode="json" />
+        </tab>
+      </tabs>
+      <div 
+        v-if="route.params.repo === '0'" 
+        :class="[
+          'actions',
+          'flex gap-4 justify-end pt-6 mt-6',
+          'border-t-2 border-border/50'
+        ]"
+      >
+        <btn 
+          color="error" 
+          :disabled="!canDelete()" 
+          @click="deleteTemplate()"
+        >
+          <icon name="remove" />
+          {{ t('templates.Delete') }}
+        </btn>
+        <btn 
+          color="primary" 
+          :disabled="!canSave()" 
+          @click="save()"
+        >
+          <icon name="save" />
+          {{ t('templates.Save') }}
+        </btn>
+      </div>
+    </div>
+  </div>
+</template>

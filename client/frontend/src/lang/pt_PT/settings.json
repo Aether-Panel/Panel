@@ -1,0 +1,32 @@
+{
+  "Settings": "Definições",
+  "PanelSettings": "Definições do painel",
+  "SavePanelSettings": "Guardar definições do painel",
+  "EmailSettings": "Definições de e-mail",
+  "SaveEmailSettings": "Guardar definições de e-mail",
+  "MasterUrl": "URL mestre",
+  "MasterUrlHint": "The base URL the panel can be reached under in the format http://localhost:8080",
+  "CompanyName": "Nome da empresa",
+  "DefaultTheme": "Tema padrão",
+  "RegistrationEnabled": "Permitir aos utilizadores registarem-se",
+  "RegistrationEnabledHint": "Os utilizadores auto-registados não podem fazer nada até que lhes sejam dadas permissões\n\nDesativar esta opção apenas impede o registo direto; o convite para um servidor e a página de utilizadores não são afetados",
+  "EmailProvider": "Fornecedor de e-mail",
+  "emailProviders": {
+    "none": "Nenhum",
+    "smtp": "SMTP",
+    "mailgun": "Mailgun",
+    "mailjet": "Mailjet"
+  },
+  "email": {
+    "from": "Sender Address",
+    "domain": "Domínio",
+    "key": "Chave API",
+    "host": "Host",
+    "username": "Nome de utilizador",
+    "password": "Palavra-passe"
+  },
+  "Saved": "Saved",
+  "TestEmail": "Test Email",
+  "TestEmailSent": "Test email sent",
+  "TestEmailFailed": "Test email failed to send"
+}

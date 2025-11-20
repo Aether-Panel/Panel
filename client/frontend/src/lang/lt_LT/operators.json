@@ -1,0 +1,68 @@
+{
+  "ConditionHint": "Vykdyti šį žingsnį tik jei atitinka šią sąlygą",
+  "mojangdl": {
+    "generic": "Parsiųsti „Minecraft“",
+    "formatted": "Parsiųsti „Minecraft“"
+  },
+  "writefile": {
+    "generic": "Rašyti į failą",
+    "formatted": "Rašyti į failą {target}"
+  },
+  "resolveforgeversion": {
+    "generic": "Resolve Minecraft Forge Version",
+    "formatted": "Resolve Minecraft Forge Version"
+  },
+  "download": {
+    "generic": "Parsiųsti failą(-us)",
+    "formatted": "Parsiųsti {file} | Parsiųsti {n} failus",
+    "files": "Failai"
+  },
+  "command": {
+    "generic": "Vykdyti komandą(-as)",
+    "formatted": "Vykdyti {command} | Vykdyti {n} komandas",
+    "commands": "Komandos"
+  },
+  "alterfile": {
+    "generic": "Redaguoti failą",
+    "formatted": "Redaguoti failą {target}",
+    "regex": "Treat search string as regular expression",
+    "search": "Ieškoti",
+    "replace": "Sukeisti atitikmenis su"
+  },
+  "move": {
+    "generic": "Perkelti ar pervadinti failą",
+    "formatted": "Perkelti failą {source} į {target}",
+    "source": "Šaltinio takas",
+    "target": "Taikinio takas"
+  },
+  "mkdir": {
+    "generic": "Kurti direktoriją",
+    "formatted": "Kurti direktoriją {target}"
+  },
+  "steamgamedl": {
+    "generic": "Instaliuoti iš „Steam“",
+    "formatted": "Instaliuoti „Steam App“ ID {appId}",
+    "appId": "„Steam App“ ID"
+  },
+  "javadl": {
+    "generic": "Instaliuoti „Java“",
+    "formatted": "Instaliuoti „Java“ {version}"
+  },
+  "forgedl": {
+    "generic": "Parsiųsti „Minecraft Forge“",
+    "formatted": "Parsiųsti „Minecraft Forge“"
+  },
+  "spongeforgedl": {
+    "generic": "Parsiųsti „Minecraft SpongeForge“",
+    "formatted": "Parsiųsti „Minecraft SpongeForge“",
+    "releaseType": "Release Type"
+  },
+  "fabricdl": {
+    "generic": "Parsiųsti „Minecraft Fabric“",
+    "formatted": "Parsiųsti „Minecraft Fabric“"
+  },
+  "curseforge": {
+    "generic": "Parsiųsti iš „CurseForge“",
+    "formatted": "Parsiųsti iš „CurseForge“"
+  }
+}

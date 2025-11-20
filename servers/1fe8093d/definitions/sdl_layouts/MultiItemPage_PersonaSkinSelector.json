@@ -1,0 +1,164 @@
+{
+  "result": {
+    "pageId": "MultiItemPage_PersonaSkinSelector_Offline",
+    "addToRecentlyViewed": false,
+    "rows": [
+      {
+        "controlId": "Layout",
+        "components": [
+          {
+            "type": "skinPackOfferInteractionComp",
+            "$type": "SkinPackOfferInteractionComponent"
+          },
+          {
+            "type": "appearanceInteractionComp",
+            "$type": "AppearanceInteractionComponent"
+          },
+          {
+            "type": "openExpandedAppearanceViewComp",
+            "$type": "OpenExpandedAppearanceViewComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "SkinPackList",
+        "components": [
+          {
+            "text": {
+              "value": "dr.classic_skins.custom_skin_section_title",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "font": "MinecraftTen",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [],
+                "offerControlIdType": "None"
+              },
+              "replacements": []
+            },
+            "type": "headerComp",
+            "$type": "HeaderComponent"
+          },
+          {
+            "isOwned": true,
+            "isOffline": true,
+            "linksToInfo": {
+              "linksTo": "MultiItemPage_PersonaSkinSelector%7cCustomSkinPack_e8a13016-2943-4d4c-a875-d012ed1af263",
+              "linkType": "pageId",
+              "displayType": "store_layout.skin_selector_screen"
+            },
+            "type": "skinPackListComp",
+            "$type": "SkinPackListComponent"
+          },
+          {
+            "type": "dispPreviewPieceComp",
+            "$type": "DisplayPreviewedPieceOfferComponent"
+          },
+          {
+            "items": [],
+            "totalItems": 0,
+            "linksTo": "PagedList_Inventory",
+            "linksToInfo": {
+              "linksTo": "PagedList_Inventory",
+              "linkType": "marketplace_inventory",
+              "displayType": "store_layout.store_data_driven_screen"
+            },
+            "customStoreRowConfiguration": {
+              "seeAllVisible": false,
+              "maxOffers": 15,
+              "arrowsVisible": false,
+              "visibleOffersPerRow": 0
+            },
+            "type": "itemListComp",
+            "$type": "ItemListComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "VerticalLineDivider",
+        "components": [
+          {
+            "textureImage": {
+              "type": "Unknown",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [],
+                "font": "default",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [
+                  0.70196,
+                  0.8392,
+                  0.8588,
+                  0.2
+                ],
+                "offerControlIdType": "None"
+              }
+            },
+            "type": "textureComp",
+            "$type": "TextureComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "SkinPackList",
+        "components": [
+          {
+            "text": {
+              "value": "dr.classic_skins.purchasable",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "font": "MinecraftTen",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [],
+                "offerControlIdType": "None"
+              },
+              "replacements": []
+            },
+            "type": "headerComp",
+            "$type": "HeaderComponent"
+          },
+          {
+            "isOwned": false,
+            "isOffline": true,
+            "type": "skinPackListComp",
+            "$type": "SkinPackListComponent"
+          },
+          {
+            "type": "dispPreviewPieceComp",
+            "$type": "DisplayPreviewedPieceOfferComponent"
+          },
+          {
+            "items": [],
+            "totalItems": 0,
+            "type": "pagedItemListComp",
+            "$type": "PagedItemListComponent"
+          }
+        ]
+      }
+    ],
+    "sidebarLayoutType": "Persona",
+    "inventoryVersion": "",
+    "pageRefresh": false
+  }
+}

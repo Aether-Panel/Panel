@@ -1,0 +1,54 @@
+{
+  "name": "persona.steve_name.title",
+  "uuid": "6c8f57cb-fb91-42d2-b621-cd806784cdab",
+  "thumbnailPath": "textures/ui/default_cast/steve_icon.png",
+  "appearance": [
+    {
+      "arm": "wide",
+      "skcol": "#ffb37b62",
+      "skin": false
+    },
+    {
+      "id": "8f96d1f8-e9bb-40d2-acc8-eb79746c5d7c/d"
+    },
+    {
+      "id": "1042557f-d1f9-44e3-ba78-f404e8fb7363/d"
+    },
+    {
+      "col": [ "#ff523d89", "#ff2e180e", "#ffe9ecec", "#0" ],
+      "id": "a0f263b3-e093-4c85-aadb-3759417898ff/d"
+    },
+    {
+      "id": "f1e4c577-19ba-4d77-9222-47f145857f78/d"
+    },
+    {
+      "col": [ "#ff2e180e", "#0", "#0", "#0" ],
+      "id": "2bb1473b-9a5c-4eae-9fd5-82302a6aa3da/d"
+    },
+    {
+      "col": [ "#ff45220e", "#0", "#ff45220e", "#0" ],
+      "id": "2e4341c3-c014-4114-94b5-73968230aaaf/d"
+    },
+    {
+      "id": "b6702f0e-a4b5-497a-8820-6c8e3946bb55/d"
+    },
+    {
+      "id": "49f93789-a512-4c47-95cb-0606cdc1c2be/d"
+    },
+    {
+      "id": "68bfe60d-f30a-422f-b32c-72374ebdd057/d"
+    },
+    {
+      "id": "17428c4c-3813-4ea1-b3a9-d6a32f83afca/de"
+    },
+    {
+      "id": "ce5c0300-7f03-455d-aaf1-352e4927b54d/de"
+    },
+    {
+      "id": "9a469a61-c83b-4ba9-b507-bdbe64430582/de"
+    },
+    {
+      "id": "4c8ae710-df2e-47cd-814d-cc7bf21a3d67/de"
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "ConditionHint": "Выполнить только этот шаг, если это условие выполнено",
+  "mojangdl": {
+    "generic": "Скачать Minecraft",
+    "formatted": "Скачать Minecraft"
+  },
+  "writefile": {
+    "generic": "Записать в файл",
+    "formatted": "Записать в файл {target}"
+  },
+  "resolveforgeversion": {
+    "generic": "Разрешить версию Minecraft Forge",
+    "formatted": "Разрешить версию Minecraft Forge"
+  },
+  "download": {
+    "generic": "Загрузить файл(ы)",
+    "formatted": "Загрузить {file}. | Загрузить {n} файлов",
+    "files": "Файлы"
+  },
+  "command": {
+    "generic": "Выполнить команду(ы)",
+    "formatted": "Выполнить {command} | Выполнить {n} команд",
+    "commands": "Команды"
+  },
+  "alterfile": {
+    "generic": "Изменить файл",
+    "formatted": "Изменить файл {target}",
+    "regex": "Считать строку поиска регулярным выражением",
+    "search": "Поиск",
+    "replace": "Заменить совпадения на"
+  },
+  "move": {
+    "generic": "Переместить или переименовать файл",
+    "formatted": "Переместить файл {source} в {target}",
+    "source": "Исходный путь",
+    "target": "Целевой путь"
+  },
+  "mkdir": {
+    "generic": "Создать каталог",
+    "formatted": "Создать каталог {target}"
+  },
+  "steamgamedl": {
+    "generic": "Установить из Steam",
+    "formatted": "Установить приложение Steam с ID {appId}",
+    "appId": "ID приложения Steam"
+  },
+  "javadl": {
+    "generic": "Установка Java",
+    "formatted": "Установить Java {version}"
+  },
+  "forgedl": {
+    "generic": "Скачать Minecraft Forge",
+    "formatted": "Скачать Minecraft Forge"
+  },
+  "spongeforgedl": {
+    "generic": "Скачать Minecraft SpongeForge",
+    "formatted": "Скачать Minecraft SpongeForge",
+    "releaseType": "Тип релиза"
+  },
+  "fabricdl": {
+    "generic": "Скачать Minecraft Fabric",
+    "formatted": "Скачать Minecraft Fabric"
+  },
+  "curseforge": {
+    "generic": "Скачать с CurseForge",
+    "formatted": "Скачать с CurseForge"
+  }
+}

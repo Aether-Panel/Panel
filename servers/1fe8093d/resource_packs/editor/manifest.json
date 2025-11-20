@@ -1,0 +1,21 @@
+{
+  "format_version": 2,
+  "header": {
+    "description": "resourcePack.editor.client.description",
+    "name": "resourcePack.editor.client.name",
+    "uuid": "c49eddae-4897-45f4-a08c-e5e859740624",
+    "version": [ 0, 0, 1 ],
+    "min_engine_version": [ 1, 14, 0 ]
+  },
+  "modules": [
+    {
+      "description": "resourcePack.editor.client.description",
+      "type": "resources",
+      "uuid": "79e34678-d671-45d8-8044-e3a0437823c1",
+      "version": [ 0, 0, 1 ]
+    }
+  ],
+  "capabilities": [
+    "editorExtension"
+  ]
+}

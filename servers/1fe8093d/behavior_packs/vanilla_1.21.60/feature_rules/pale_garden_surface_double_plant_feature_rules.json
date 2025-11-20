@@ -1,0 +1,16 @@
+{
+  "format_version": "1.13.0",
+  "minecraft:feature_rules": {
+    "description": {
+      "identifier": "minecraft:pale_garden_surface_double_plant_feature_rules",
+      "places_feature": "minecraft:grass_double_plant_patch_feature"
+    },
+    "conditions": {
+      "placement_pass": "surface_pass",
+      "minecraft:biome_filter": [
+        // This feature has been deprecated and is no longer used.
+        { "test": "has_biome_tag", "value": "deprecated" }
+      ]
+    }
+  }
+}

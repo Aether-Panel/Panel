@@ -1,0 +1,30 @@
+name: benchmark
+on:
+  workflow_run:
+    workflows: [publish-latest]
+    branches: [master]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: "Repository to checkout. Useful for benchmarking a fork. Format should be <owner>/<repository>."
+        required: true
+        default: "TwiN/gatus"
+      ref:
+        description: "Branch, tag or SHA to checkout"
+        required: true
+        default: "master"
+jobs:
+  build:
+    name: benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/setup-go@v6
+        with:
+          go-version: 1.24.4
+          repository: "${{ github.event.inputs.repository || 'TwiN/gatus' }}"
+          ref: "${{ github.event.inputs.ref || 'master' }}"
+      - uses: actions/checkout@v5
+      - name: Benchmark
+        run: go test -bench=. ./storage/store

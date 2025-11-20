@@ -1,0 +1,64 @@
+{
+  "Name": "Navn",
+  "Language": "Språk",
+  "Online": "Tilkoblet",
+  "Offline": "Frakoblet",
+  "Installing": "Installing",
+  "Unknown": "Ukjent",
+  "Loading": "Laster...",
+  "Description": "Beskrivelse",
+  "Save": "Lagre",
+  "Cancel": "Avbryt",
+  "Close": "Lukk",
+  "Host": "Vert",
+  "Port": "Port",
+  "Collapse": "Skjul",
+  "Expand": "Utvide",
+  "Copy": "Copy to clipboard",
+  "Copied": "Copied to clipboard",
+  "Back": "Back",
+  "Next": "Neste",
+  "Details": "Detaljer",
+  "ErrorDetails": "Feildetaljer",
+  "HelpTranslate": "Hjelp oss med å oversette SkyPanel",
+  "Protocol": "Protokoll",
+  "Add": "Legg til",
+  "Apply": "Bruk",
+  "Confirm": "Bekreft",
+  "Condition": "Tilstand",
+  "Discard": "Forkast",
+  "ConfirmLeave": "Du har ulagrede endringer, ønsker du å forkaste endringene og forlate denne siden?",
+  "theme": {
+    "Theme": "Tema",
+    "Mode": "Modus",
+    "mode": {
+      "Light": "Lyst",
+      "Dark": "Mørk",
+      "DarkHighContrast": "Dark (High Contrast)",
+      "Auto": "Auto"
+    },
+    "BaseColor": "Basisfarge",
+    "ServerTypeDisplay": "Server Type Display",
+    "serverTypeDisplay": {
+      "Icon": "Ikon",
+      "None": "Ingen"
+    },
+    "ListType": "Liste type",
+    "listType": {
+      "Grid": "Rutenett",
+      "List": "Liste"
+    },
+    "FontSize": "Font Size",
+    "fontSize": {
+      "Default": "Default"
+    },
+    "FontFace": "Font Face",
+    "fontFace": {
+      "Default": "Default",
+      "A11y": "Accessibility optimized"
+    }
+  },
+  "NoResults": "No Results",
+  "Yes": "Yes",
+  "No": "No"
+}

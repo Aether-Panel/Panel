@@ -1,0 +1,64 @@
+{
+  "Name": "Názov",
+  "Language": "Jazyk",
+  "Online": "Online",
+  "Offline": "Offline",
+  "Installing": "Inštalácia",
+  "Unknown": "Neznáme",
+  "Loading": "Načítavanie...",
+  "Description": "Popis",
+  "Save": "Uložiť",
+  "Cancel": "Zrušiť",
+  "Close": "Zatvoriť",
+  "Host": "Hostiteľ",
+  "Port": "Port",
+  "Collapse": "Zbaliť",
+  "Expand": "Rozšíriť",
+  "Copy": "Kopíruj do schránky",
+  "Copied": "Skopírované do schránky",
+  "Back": "Naspäť",
+  "Next": "Ďalej",
+  "Details": "Podrobnosti",
+  "ErrorDetails": "Detaily chyby",
+  "HelpTranslate": "Pomôžte nám preložiť SkyPanel",
+  "Protocol": "Protokol",
+  "Add": "Pridať",
+  "Apply": "Použiť",
+  "Confirm": "Potvrdiť",
+  "Condition": "Podmienky",
+  "Discard": "Vymazať",
+  "ConfirmLeave": "Máte neuložené zmeny, chcete ich zrušiť a opustiť túto stránku?",
+  "theme": {
+    "Theme": "Motív",
+    "Mode": "Režim",
+    "mode": {
+      "Light": "Svetlý",
+      "Dark": "Tmavý",
+      "DarkHighContrast": "Tmavá (vysoký kontrast)",
+      "Auto": "Automatický"
+    },
+    "BaseColor": "Základná farba",
+    "ServerTypeDisplay": "Zobrazenie typu servera",
+    "serverTypeDisplay": {
+      "Icon": "Ikona",
+      "None": "Žiadne"
+    },
+    "ListType": "Typ zoznamu",
+    "listType": {
+      "Grid": "Mriežka",
+      "List": "Zoznam"
+    },
+    "FontSize": "Veľkosť písma",
+    "fontSize": {
+      "Default": "Predvolená"
+    },
+    "FontFace": "Písmo",
+    "fontFace": {
+      "Default": "Predvolené",
+      "A11y": "Optimalizované pre bezbarierovosť"
+    }
+  },
+  "NoResults": "Žiadne výsledky",
+  "Yes": "Áno",
+  "No": "Nie"
+}

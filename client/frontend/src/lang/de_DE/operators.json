@@ -1,0 +1,68 @@
+{
+  "ConditionHint": "Diesen Schritt nur ausführen, wenn diese Bedingung erfüllt ist",
+  "mojangdl": {
+    "generic": "Minecraft herunterladen",
+    "formatted": "Minecraft herunterladen"
+  },
+  "writefile": {
+    "generic": "In eine Datei schreiben",
+    "formatted": "In Datei {target} schreiben"
+  },
+  "resolveforgeversion": {
+    "generic": "Löse Minecraft Forge Version auf",
+    "formatted": "Löse Minecraft Forge Version auf"
+  },
+  "download": {
+    "generic": "Datei(en) herunterladen",
+    "formatted": "{file} Herunterladen | {n} Dateien Herunterladen",
+    "files": "Dateien"
+  },
+  "command": {
+    "generic": "Befehl(e) ausführen",
+    "formatted": "{command} Ausführen | {n} Befehle Ausführen",
+    "commands": "Befehle"
+  },
+  "alterfile": {
+    "generic": "Datei bearbeiten",
+    "formatted": "Datei {target} bearbeiten",
+    "regex": "Such-String als regulären Ausdruck behandeln",
+    "search": "Suchen",
+    "replace": "Ergebnisse ersetzen durch"
+  },
+  "move": {
+    "generic": "Datei verschieben oder umbenennen",
+    "formatted": "Datei von {source} nach {target} verschieben",
+    "source": "Quellpfad",
+    "target": "Zielpfad"
+  },
+  "mkdir": {
+    "generic": "Ordner erstellen",
+    "formatted": "Ordner {target} erstellen"
+  },
+  "steamgamedl": {
+    "generic": "Von Steam installieren",
+    "formatted": "Steam App ID {appId} installieren",
+    "appId": "Steam App ID"
+  },
+  "javadl": {
+    "generic": "Java installieren",
+    "formatted": "Java {version} installieren"
+  },
+  "forgedl": {
+    "generic": "Minecraft Forge herunterladen",
+    "formatted": "Minecraft Forge herunterladen"
+  },
+  "spongeforgedl": {
+    "generic": "Minecraft SpongeForge herunterladen",
+    "formatted": "Minecraft SpongeForge herunterladen",
+    "releaseType": "Release-Typ"
+  },
+  "fabricdl": {
+    "generic": "Minecraft Fabric herunterladen",
+    "formatted": "Minecraft Fabric herunterladen"
+  },
+  "curseforge": {
+    "generic": "Von CurseForge herunterladen",
+    "formatted": "Von CurseForge herunterladen"
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "name": "persona.kai_name.title",
+  "uuid": "a40ade20-c28a-4d34-973b-233ec1284d5a",
+  "thumbnailPath": "textures/ui/default_cast/kai_icon.png",
+  "appearance": [
+    {
+      "arm": "wide",
+      "skcol": "#ffd8844b",
+      "skin": false
+    },
+    {
+      "id": "8f96d1f8-e9bb-40d2-acc8-eb79746c5d7c/d"
+    },
+    {
+      "id": "1042557f-d1f9-44e3-ba78-f404e8fb7363/d"
+    },
+    {
+      "col": [ "#ff436753", "#fffbe28a", "#ffe9ecec", "#0" ],
+      "id": "a0f263b3-e093-4c85-aadb-3759417898ff/d"
+    },
+    {
+      "col": [ "#0", "#0", "#ff774320", "#0" ],
+      "id": "83c940ce-d7b8-4603-8d73-c1234e322cce/d"
+    },
+    {
+      "id": "aa8d3c95-f189-cf08-0ae3-5cc1e090343b/d"
+    },
+    {
+      "col": [ "#fffbe28a", "#0", "#0", "#0" ],
+      "id": "5f49dfbb-1c5d-ec1a-814b-3b6898265d3c/d"
+    },
+    {
+      "id": "97e3e925-6eef-a6db-8235-1f73f8a550fb/d"
+    },
+    {
+      "id": "96db6e5b-dc69-4ebc-bd36-cb1b08ffb0f4/d"
+    },
+    {
+      "id": "a8bc771c-c5a5-7b32-bd03-ba169ec58284/d"
+    },
+    {
+      "id": "37ee7c77-6bf6-4de8-8f56-5dc6b6abc6ff/d"
+    },
+    {
+      "id": "17428c4c-3813-4ea1-b3a9-d6a32f83afca/de"
+    },
+    {
+      "id": "ce5c0300-7f03-455d-aaf1-352e4927b54d/de"
+    },
+    {
+      "id": "9a469a61-c83b-4ba9-b507-bdbe64430582/de"
+    },
+    {
+      "id": "4c8ae710-df2e-47cd-814d-cc7bf21a3d67/de"
+    }
+  ]
+}

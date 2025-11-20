@@ -1,0 +1,13 @@
+{
+  "Credentials": "OAuth2 Ügyfél Adatok",
+  "ClientId": "Ügyfél ID",
+  "ClientSecret": "Titkos ügyfélkód",
+  "NewClientWarning": "Jegyezze fel a klienstitkot, a párbeszédpanel bezárása után soha többé nem jelenik meg. Ha elveszíti vagy elfelejti, a kliens teljesen használhatatlanná válik.",
+  "Create": "Új OAuth2 Ügyfél létrehozása",
+  "UnnamedClient": "Névtelen OAuth2 Ügyfél",
+  "Docs": "Itt találod az API dokumentációját",
+  "Clients": "OAuth2 Ügyfelek",
+  "Delete": "Valóban törlöd a(z) {clientName} adatait?",
+  "ConfirmDelete": "Tisztában vagyok az OAuth2-kliens törlésének hatásaival, és folytatni kívánom.",
+  "AccountDescription": "Az itt szereplő OAuth2 Ügyfelek öröklik az összes jogod"
+}

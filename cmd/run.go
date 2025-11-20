@@ -1,0 +1,275 @@
+package main
+
+import (
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"github.com/braintree/manners"
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
+	"github.com/gin-gonic/gin"
+	"github.com/gorilla/securecookie"
+	"github.com/SkyPanel/SkyPanel/v3"
+	"github.com/SkyPanel/SkyPanel/v3/config"
+	"github.com/SkyPanel/SkyPanel/v3/database"
+	"github.com/SkyPanel/SkyPanel/v3/logging"
+	"github.com/SkyPanel/SkyPanel/v3/servers"
+	"github.com/SkyPanel/SkyPanel/v3/servers/docker"
+	"github.com/SkyPanel/SkyPanel/v3/services"
+	"github.com/SkyPanel/SkyPanel/v3/sftp"
+	"github.com/SkyPanel/SkyPanel/v3/utils"
+	"github.com/SkyPanel/SkyPanel/v3/web"
+	"github.com/spf13/cobra"
+	"net"
+	"net/http"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"strings"
+	"syscall"
+	"time"
+)
+
+var runCmd = &cobra.Command{
+	Use:    "run",
+	Short:  "Runs the panel",
+	Run:    executeRun,
+	Hidden: true,
+}
+
+var webService *manners.GracefulServer
+
+func executeRun(cmd *cobra.Command, args []string) {
+	term, _ := internalRun()
+	<-term
+	closePanel()
+}
+
+func internalRun() (terminate chan bool, success bool) {
+	logging.Initialize(true)
+	signal.Ignore(syscall.SIGPIPE, syscall.SIGHUP)
+
+	terminate = make(chan bool, 2)
+
+	go func() {
+		quit := make(chan os.Signal, 1)
+		// kill (no param) default send syscall.SIGTERM
+		// kill -2 is syscall.SIGINT
+		// kill -9 is syscall.SIGKILL but can"t be catch, so don't need add it
+		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+		<-quit
+		logging.Info.Println("Shutting down...")
+		terminate <- true
+	}()
+
+	router := gin.New()
+	router.Use(gin.Recovery())
+	router.Use(gin.LoggerWithWriter(logging.Info.Writer()))
+
+	//do not trust proxies by default
+	router.SetTrustedProxies(nil)
+	if proxies := config.SecurityTrustedProxies.Value(); proxies != nil {
+		err := router.SetTrustedProxies(proxies)
+		if err != nil {
+			logging.Error.Printf("Failed to add trusted proxies: %s", err.Error())
+		}
+	}
+	if header := config.SecurityTrustedProxyHeader.Value(); header != "" {
+		router.TrustedPlatform = header
+	}
+
+	gin.DefaultWriter = logging.Info.Writer()
+	gin.DefaultErrorWriter = logging.Error.Writer()
+	SkyPanel.Engine = router
+
+	if config.PanelEnabled.Value() {
+		panel()
+
+		// Iniciar Gatus si está habilitado
+		if config.GatusEnabled.Value() {
+			if err := services.StartGatus(); err != nil {
+				logging.Error.Printf("Error starting Gatus service: %s", err.Error())
+			}
+		}
+
+		db, err := database.GetConnection()
+		if err != nil {
+			logging.Error.Printf("error connecting to database: %s", err.Error())
+			terminate <- true
+			return
+		}
+
+		err = database.Upgrade(db, false)
+		if err != nil {
+			logging.Error.Printf("error upgrading database: %s", err.Error())
+			terminate <- true
+			return
+		}
+
+		if config.SessionKey.Value() == "" {
+			k := securecookie.GenerateRandomKey(32)
+			if err := config.SessionKey.Set(hex.EncodeToString(k), true); err != nil {
+				logging.Error.Printf("error saving session key: %s", err.Error())
+				terminate <- true
+				return
+			}
+		}
+
+		result, err := hex.DecodeString(config.SessionKey.Value())
+		if err != nil {
+			logging.Error.Printf("error decoding session key: %s", err.Error())
+			terminate <- true
+			return
+		}
+
+		sameSite := config.PanelWebCookiesSameSite.Value()
+		var sameSiteId http.SameSite
+
+		switch sameSite {
+		case "Strict":
+			sameSiteId = http.SameSiteStrictMode
+		case "None":
+			sameSiteId = http.SameSiteNoneMode
+		case "Lax":
+			sameSiteId = http.SameSiteLaxMode
+		default:
+			sameSiteId = http.SameSiteStrictMode
+		}
+
+		sessionStore := cookie.NewStore(result)
+		sessionStore.Options(sessions.Options{
+			Path:     config.PanelWebCookiesPath.Value(),
+			Domain:   config.PanelWebCookiesDomain.Value(),
+			MaxAge:   config.PanelWebCookiesAge.Value(),
+			Secure:   config.PanelWebCookiesSecure.Value(),
+			HttpOnly: config.PanelWebCookiesHttpOnly.Value(),
+			SameSite: sameSiteId,
+		})
+		router.Use(sessions.Sessions("session", sessionStore))
+
+		if config.DaemonEnabled.Value() {
+			services.SyncNodeToConfig()
+		}
+	}
+
+	if config.DaemonEnabled.Value() {
+		err := daemon()
+		if err != nil {
+			logging.Error.Printf("error starting daemon server: %s", err.Error())
+			terminate <- true
+			return
+		}
+	}
+
+	web.RegisterRoutes(router)
+
+	l, err := net.Listen("tcp", config.WebHost.Value())
+	if err != nil {
+		logging.Error.Printf("error starting http server: %s", err.Error())
+		terminate <- true
+		return
+	}
+
+	logging.Info.Printf("Listening for HTTP requests on %s", l.Addr().String())
+	webService = manners.NewWithServer(&http.Server{Handler: router})
+
+	go func() {
+		err = webService.Serve(l)
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logging.Error.Printf("error listening for http requests: %s", err.Error())
+			terminate <- true
+		}
+	}()
+
+	success = true
+	return
+}
+
+func closePanel() {
+	//shut down everything
+	//all of these can be closed regardless of what type of install this is, as they all check if they are even being
+	//used
+	logging.Debug.Printf("stopping http server")
+	if webService != nil {
+		webService.Close()
+	}
+
+	logging.Debug.Printf("stopping sftp server")
+	sftp.Stop()
+
+	logging.Debug.Printf("stopping Gatus service")
+	services.StopGatus()
+
+	logging.Debug.Printf("stopping servers")
+	servers.ShutdownService()
+	for _, p := range servers.GetAll() {
+		_ = p.Stop()
+		err := p.RunningEnvironment.WaitForMainProcessFor(time.Minute) //wait 60 seconds
+		if err != nil {
+			logging.Error.Printf("error stopping server: %s", err.Error())
+		}
+	}
+
+	logging.Debug.Printf("stopping database connections")
+	database.Close()
+}
+
+func panel() {
+	services.LoadEmailService()
+
+	//if we have the web, then let's use our sftp auth instead
+	sftp.SetAuthorization(&services.DatabaseSFTPAuthorization{})
+}
+
+func daemon() error {
+	utils.DetermineKernelSupport()
+
+	sftp.Run()
+
+	var err error
+
+	err = docker.InitContainerMountSource()
+	if err != nil {
+		return err
+	}
+
+	if _, err = os.Stat(config.ServersFolder.Value()); os.IsNotExist(err) {
+		logging.Info.Printf("No server directory found, creating")
+		err = os.MkdirAll(config.ServersFolder.Value(), 0755)
+		if err != nil && !os.IsExist(err) {
+			return err
+		}
+	}
+
+	err = os.MkdirAll(config.BinariesFolder.Value(), 0755)
+	if err != nil {
+		logging.Error.Printf("Error creating binaries folder: %s", err.Error())
+	}
+
+	err = os.MkdirAll(config.CacheFolder.Value(), 0755)
+	if err != nil {
+		logging.Error.Printf("Error creating cache folder: %s", err.Error())
+	}
+
+	//update path to include our binary folder
+	newPath := os.Getenv("PATH")
+	fullPath, _ := filepath.Abs(config.BinariesFolder.Value())
+	if !strings.Contains(newPath, fullPath) {
+		_ = os.Setenv("PATH", fmt.Sprintf("%s%c%s", newPath, os.PathListSeparator, fullPath))
+	}
+	logging.Debug.Printf("Daemon PATH variable: %s", os.Getenv("PATH"))
+
+	servers.LoadFromFolder()
+
+	servers.InitService()
+
+	for _, element := range servers.GetAll() {
+		element.GetEnvironment().DisplayToConsole(true, "Daemon has been started\n")
+		if element.IsAutoStart() {
+			logging.Info.Printf("Queued server %s", element.Id())
+			element.GetEnvironment().DisplayToConsole(true, "Server has been queued to start\n")
+			servers.StartViaService(element)
+		}
+	}
+	return nil
+}

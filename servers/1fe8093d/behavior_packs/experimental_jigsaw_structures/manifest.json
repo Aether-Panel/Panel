@@ -1,0 +1,18 @@
+{
+  "format_version": 2,
+  "header": {
+    "description": "resourcePack.experimental_jigsaw_structures.description",
+    "name": "resourcePack.experimental_jigsaw_structures.name",
+    "uuid": "3cd7a9c5-f724-4a9e-9925-50c64c8ab15a",
+    "version": [0, 0, 1],
+    "min_engine_version": [1, 21, 0]
+  },
+  "modules": [
+    {
+      "description": "resourcePack.experimental_jigsaw_structures.description",
+      "type": "data",
+      "uuid": "79fccc3b-7bad-4f4f-aa97-d98108e6aa33",
+      "version": [0, 0, 1]
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+package utils
+
+import (
+	"crypto/rand"
+	"encoding/base64"
+	"reflect"
+)
+
+func GenerateRandomString(n int) (string, error) {
+	b := make([]byte, n)
+	_, err := rand.Read(b)
+	if err != nil {
+		return "", err
+	}
+
+	return base64.URLEncoding.EncodeToString(b), nil
+}
+
+func Union[T comparable](a, b []T) []T {
+	result := make([]T, 0)
+
+	if a == nil || b == nil || len(a) == 0 || len(b) == 0 {
+		return result
+	}
+
+	for _, v := range a {
+		for _, x := range b {
+			if reflect.DeepEqual(v, x) {
+				result = append(result, v)
+				break
+			}
+		}
+	}
+
+	return result
+}
+
+func Remove[T comparable](a []T, b T) []T {
+	if a == nil {
+		return nil
+	}
+
+	replacement := make([]T, 0)
+	for _, v := range a {
+		if b == v {
+			continue
+		}
+		replacement = append(replacement, v)
+	}
+	return replacement
+}

@@ -1,0 +1,1189 @@
+{
+  "result": {
+    "pageId": "DressingRoom_All_Owned",
+    "addToRecentlyViewed": false,
+    "rows": [
+      {
+        "controlId": "Layout",
+        "components": [
+          {
+            "type": "personaOfferInteractionComp",
+            "$type": "PersonaOfferInteractionComponent"
+          },
+          {
+            "type": "appearanceInteractionComp",
+            "$type": "AppearanceInteractionComponent"
+          },
+          {
+            "type": "openColorPickerComp",
+            "$type": "OpenColorPickerComponent"
+          },
+          {
+            "type": "openExpandedAppearanceViewComp",
+            "$type": "OpenExpandedAppearanceViewComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "GridList",
+        "components": [
+          {
+            "text": {
+              "value": "dr.categories.top",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "font": "MinecraftTen",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [],
+                "offerControlIdType": "None"
+              },
+              "replacements": []
+            },
+            "type": "headerComp",
+            "$type": "HeaderComponent"
+          },
+          {
+            "items": [],
+            "totalItems": 400,
+            "customStoreRowConfiguration": {
+              "seeAllVisible": false,
+              "maxOffers": 400,
+              "arrowsVisible": false,
+              "visibleOffersPerRow": 0
+            },
+            "offline": {
+              "pieceType": "persona_top"
+            },
+            "type": "itemListComp",
+            "$type": "ItemListComponent"
+          },
+          {
+            "type": "dispPreviewPieceComp",
+            "$type": "DisplayPreviewedPieceOfferComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "VerticalLineDivider",
+        "components": [
+          {
+            "textureImage": {
+              "type": "Unknown",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [],
+                "font": "default",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [
+                  0.70196,
+                  0.8392,
+                  0.8588,
+                  0.2
+                ],
+                "offerControlIdType": "None"
+              }
+            },
+            "type": "textureComp",
+            "$type": "TextureComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "GridList",
+        "components": [
+          {
+            "text": {
+              "value": "dr.categories.bottom",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "font": "MinecraftTen",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [],
+                "offerControlIdType": "None"
+              },
+              "replacements": []
+            },
+            "type": "headerComp",
+            "$type": "HeaderComponent"
+          },
+          {
+            "items": [],
+            "totalItems": 400,
+            "customStoreRowConfiguration": {
+              "seeAllVisible": false,
+              "maxOffers": 400,
+              "arrowsVisible": false,
+              "visibleOffersPerRow": 0
+            },
+            "offline": {
+              "pieceType": "persona_bottom"
+            },
+            "type": "itemListComp",
+            "$type": "ItemListComponent"
+          },
+          {
+            "type": "dispPreviewPieceComp",
+            "$type": "DisplayPreviewedPieceOfferComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "VerticalLineDivider",
+        "components": [
+          {
+            "textureImage": {
+              "type": "Unknown",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [],
+                "font": "default",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [
+                  0.70196,
+                  0.8392,
+                  0.8588,
+                  0.2
+                ],
+                "offerControlIdType": "None"
+              }
+            },
+            "type": "textureComp",
+            "$type": "TextureComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "GridList",
+        "components": [
+          {
+            "text": {
+              "value": "dr.categories.outerwear",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "font": "MinecraftTen",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [],
+                "offerControlIdType": "None"
+              },
+              "replacements": []
+            },
+            "type": "headerComp",
+            "$type": "HeaderComponent"
+          },
+          {
+            "items": [],
+            "totalItems": 400,
+            "customStoreRowConfiguration": {
+              "seeAllVisible": false,
+              "maxOffers": 400,
+              "arrowsVisible": false,
+              "visibleOffersPerRow": 0
+            },
+            "offline": {
+              "pieceType": "persona_outerwear"
+            },
+            "type": "itemListComp",
+            "$type": "ItemListComponent"
+          },
+          {
+            "type": "dispPreviewPieceComp",
+            "$type": "DisplayPreviewedPieceOfferComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "VerticalLineDivider",
+        "components": [
+          {
+            "textureImage": {
+              "type": "Unknown",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [],
+                "font": "default",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [
+                  0.70196,
+                  0.8392,
+                  0.8588,
+                  0.2
+                ],
+                "offerControlIdType": "None"
+              }
+            },
+            "type": "textureComp",
+            "$type": "TextureComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "GridList",
+        "components": [
+          {
+            "text": {
+              "value": "dr.categories.headwear",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "font": "MinecraftTen",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [],
+                "offerControlIdType": "None"
+              },
+              "replacements": []
+            },
+            "type": "headerComp",
+            "$type": "HeaderComponent"
+          },
+          {
+            "items": [],
+            "totalItems": 400,
+            "customStoreRowConfiguration": {
+              "seeAllVisible": false,
+              "maxOffers": 400,
+              "arrowsVisible": false,
+              "visibleOffersPerRow": 0
+            },
+            "offline": {
+              "pieceType": "persona_head"
+            },
+            "type": "itemListComp",
+            "$type": "ItemListComponent"
+          },
+          {
+            "type": "dispPreviewPieceComp",
+            "$type": "DisplayPreviewedPieceOfferComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "VerticalLineDivider",
+        "components": [
+          {
+            "textureImage": {
+              "type": "Unknown",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [],
+                "font": "default",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [
+                  0.70196,
+                  0.8392,
+                  0.8588,
+                  0.2
+                ],
+                "offerControlIdType": "None"
+              }
+            },
+            "type": "textureComp",
+            "$type": "TextureComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "GridList",
+        "components": [
+          {
+            "text": {
+              "value": "dr.categories.gloves",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "font": "MinecraftTen",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [],
+                "offerControlIdType": "None"
+              },
+              "replacements": []
+            },
+            "type": "headerComp",
+            "$type": "HeaderComponent"
+          },
+          {
+            "items": [],
+            "totalItems": 400,
+            "customStoreRowConfiguration": {
+              "seeAllVisible": false,
+              "maxOffers": 400,
+              "arrowsVisible": false,
+              "visibleOffersPerRow": 0
+            },
+            "offline": {
+              "pieceType": "persona_hand"
+            },
+            "type": "itemListComp",
+            "$type": "ItemListComponent"
+          },
+          {
+            "type": "dispPreviewPieceComp",
+            "$type": "DisplayPreviewedPieceOfferComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "VerticalLineDivider",
+        "components": [
+          {
+            "textureImage": {
+              "type": "Unknown",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [],
+                "font": "default",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [
+                  0.70196,
+                  0.8392,
+                  0.8588,
+                  0.2
+                ],
+                "offerControlIdType": "None"
+              }
+            },
+            "type": "textureComp",
+            "$type": "TextureComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "GridList",
+        "components": [
+          {
+            "text": {
+              "value": "dr.categories.footwear",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "font": "MinecraftTen",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [],
+                "offerControlIdType": "None"
+              },
+              "replacements": []
+            },
+            "type": "headerComp",
+            "$type": "HeaderComponent"
+          },
+          {
+            "items": [],
+            "totalItems": 400,
+            "customStoreRowConfiguration": {
+              "seeAllVisible": false,
+              "maxOffers": 400,
+              "arrowsVisible": false,
+              "visibleOffersPerRow": 0
+            },
+            "offline": {
+              "pieceType": "persona_feet"
+            },
+            "type": "itemListComp",
+            "$type": "ItemListComponent"
+          },
+          {
+            "type": "dispPreviewPieceComp",
+            "$type": "DisplayPreviewedPieceOfferComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "VerticalLineDivider",
+        "components": [
+          {
+            "textureImage": {
+              "type": "Unknown",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [],
+                "font": "default",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [
+                  0.70196,
+                  0.8392,
+                  0.8588,
+                  0.2
+                ],
+                "offerControlIdType": "None"
+              }
+            },
+            "type": "textureComp",
+            "$type": "TextureComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "GridList",
+        "components": [
+          {
+            "text": {
+              "value": "dr.categories.face_item",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "font": "MinecraftTen",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [],
+                "offerControlIdType": "None"
+              },
+              "replacements": []
+            },
+            "type": "headerComp",
+            "$type": "HeaderComponent"
+          },
+          {
+            "items": [],
+            "totalItems": 400,
+            "customStoreRowConfiguration": {
+              "seeAllVisible": false,
+              "maxOffers": 400,
+              "arrowsVisible": false,
+              "visibleOffersPerRow": 0
+            },
+            "offline": {
+              "pieceType": "persona_face_accessory"
+            },
+            "type": "itemListComp",
+            "$type": "ItemListComponent"
+          },
+          {
+            "type": "dispPreviewPieceComp",
+            "$type": "DisplayPreviewedPieceOfferComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "VerticalLineDivider",
+        "components": [
+          {
+            "textureImage": {
+              "type": "Unknown",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [],
+                "font": "default",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [
+                  0.70196,
+                  0.8392,
+                  0.8588,
+                  0.2
+                ],
+                "offerControlIdType": "None"
+              }
+            },
+            "type": "textureComp",
+            "$type": "TextureComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "GridList",
+        "components": [
+          {
+            "text": {
+              "value": "dr.categories.back_item",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "font": "MinecraftTen",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [],
+                "offerControlIdType": "None"
+              },
+              "replacements": []
+            },
+            "type": "headerComp",
+            "$type": "HeaderComponent"
+          },
+          {
+            "items": [],
+            "totalItems": 400,
+            "customStoreRowConfiguration": {
+              "seeAllVisible": false,
+              "maxOffers": 400,
+              "arrowsVisible": false,
+              "visibleOffersPerRow": 0
+            },
+            "offline": {
+              "pieceType": "persona_back"
+            },
+            "type": "itemListComp",
+            "$type": "ItemListComponent"
+          },
+          {
+            "type": "dispPreviewPieceComp",
+            "$type": "DisplayPreviewedPieceOfferComponent"
+          }
+        ]
+      },
+
+      // Body
+      {
+        "controlId": "VerticalLineDivider",
+        "components": [
+          {
+            "textureImage": {
+              "type": "Unknown",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [],
+                "font": "default",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [
+                  0.70196,
+                  0.8392,
+                  0.8588,
+                  0.2
+                ],
+                "offerControlIdType": "None"
+              }
+            },
+            "type": "textureComp",
+            "$type": "TextureComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "GridList",
+        "components": [
+          {
+            "text": {
+              "value": "dr.categories.base",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "font": "MinecraftTen",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [],
+                "offerControlIdType": "None"
+              },
+              "replacements": []
+            },
+            "type": "headerComp",
+            "$type": "HeaderComponent"
+          },
+          {
+            "items": [],
+            "totalItems": 400,
+            "customStoreRowConfiguration": {
+              "seeAllVisible": false,
+              "maxOffers": 400,
+              "arrowsVisible": false,
+              "visibleOffersPerRow": 0
+            },
+            "offline": {
+              "pieceType": "persona_skin"
+            },
+            "type": "itemListComp",
+            "$type": "ItemListComponent"
+          },
+          {
+            "type": "dispPreviewPieceComp",
+            "$type": "DisplayPreviewedPieceOfferComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "VerticalLineDivider",
+        "components": [
+          {
+            "textureImage": {
+              "type": "Unknown",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [],
+                "font": "default",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [
+                  0.70196,
+                  0.8392,
+                  0.8588,
+                  0.2
+                ],
+                "offerControlIdType": "None"
+              }
+            },
+            "type": "textureComp",
+            "$type": "TextureComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "GridList",
+        "components": [
+          {
+            "text": {
+              "value": "dr.categories.hair",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "font": "MinecraftTen",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [],
+                "offerControlIdType": "None"
+              },
+              "replacements": []
+            },
+            "type": "headerComp",
+            "$type": "HeaderComponent"
+          },
+          {
+            "items": [],
+            "totalItems": 400,
+            "customStoreRowConfiguration": {
+              "seeAllVisible": false,
+              "maxOffers": 400,
+              "arrowsVisible": false,
+              "visibleOffersPerRow": 0
+            },
+            "offline": {
+              "pieceType": "persona_hair"
+            },
+            "type": "itemListComp",
+            "$type": "ItemListComponent"
+          },
+          {
+            "type": "dispPreviewPieceComp",
+            "$type": "DisplayPreviewedPieceOfferComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "VerticalLineDivider",
+        "components": [
+          {
+            "textureImage": {
+              "type": "Unknown",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [],
+                "font": "default",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [
+                  0.70196,
+                  0.8392,
+                  0.8588,
+                  0.2
+                ],
+                "offerControlIdType": "None"
+              }
+            },
+            "type": "textureComp",
+            "$type": "TextureComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "GridList",
+        "components": [
+          {
+            "text": {
+              "value": "dr.categories.eyes",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "font": "MinecraftTen",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [],
+                "offerControlIdType": "None"
+              },
+              "replacements": []
+            },
+            "type": "headerComp",
+            "$type": "HeaderComponent"
+          },
+          {
+            "items": [],
+            "totalItems": 400,
+            "customStoreRowConfiguration": {
+              "seeAllVisible": false,
+              "maxOffers": 400,
+              "arrowsVisible": false,
+              "visibleOffersPerRow": 0
+            },
+            "offline": {
+              "pieceType": "persona_eyes"
+            },
+            "type": "itemListComp",
+            "$type": "ItemListComponent"
+          },
+          {
+            "type": "dispPreviewPieceComp",
+            "$type": "DisplayPreviewedPieceOfferComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "VerticalLineDivider",
+        "components": [
+          {
+            "textureImage": {
+              "type": "Unknown",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [],
+                "font": "default",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [
+                  0.70196,
+                  0.8392,
+                  0.8588,
+                  0.2
+                ],
+                "offerControlIdType": "None"
+              }
+            },
+            "type": "textureComp",
+            "$type": "TextureComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "GridList",
+        "components": [
+          {
+            "text": {
+              "value": "dr.categories.mouth",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "font": "MinecraftTen",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [],
+                "offerControlIdType": "None"
+              },
+              "replacements": []
+            },
+            "type": "headerComp",
+            "$type": "HeaderComponent"
+          },
+          {
+            "items": [],
+            "totalItems": 400,
+            "customStoreRowConfiguration": {
+              "seeAllVisible": false,
+              "maxOffers": 400,
+              "arrowsVisible": false,
+              "visibleOffersPerRow": 0
+            },
+            "offline": {
+              "pieceType": "persona_mouth"
+            },
+            "type": "itemListComp",
+            "$type": "ItemListComponent"
+          },
+          {
+            "type": "dispPreviewPieceComp",
+            "$type": "DisplayPreviewedPieceOfferComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "VerticalLineDivider",
+        "components": [
+          {
+            "textureImage": {
+              "type": "Unknown",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [],
+                "font": "default",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [
+                  0.70196,
+                  0.8392,
+                  0.8588,
+                  0.2
+                ],
+                "offerControlIdType": "None"
+              }
+            },
+            "type": "textureComp",
+            "$type": "TextureComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "GridList",
+        "components": [
+          {
+            "text": {
+              "value": "dr.categories.facial_hair",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "font": "MinecraftTen",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [],
+                "offerControlIdType": "None"
+              },
+              "replacements": []
+            },
+            "type": "headerComp",
+            "$type": "HeaderComponent"
+          },
+          {
+            "items": [],
+            "totalItems": 400,
+            "customStoreRowConfiguration": {
+              "seeAllVisible": false,
+              "maxOffers": 400,
+              "arrowsVisible": false,
+              "visibleOffersPerRow": 0
+            },
+            "offline": {
+              "pieceType": "persona_facial_hair"
+            },
+            "type": "itemListComp",
+            "$type": "ItemListComponent"
+          },
+          {
+            "type": "dispPreviewPieceComp",
+            "$type": "DisplayPreviewedPieceOfferComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "VerticalLineDivider",
+        "components": [
+          {
+            "textureImage": {
+              "type": "Unknown",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [],
+                "font": "default",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [
+                  0.70196,
+                  0.8392,
+                  0.8588,
+                  0.2
+                ],
+                "offerControlIdType": "None"
+              }
+            },
+            "type": "textureComp",
+            "$type": "TextureComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "GridList",
+        "components": [
+          {
+            "text": {
+              "value": "dr.categories.arms",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "font": "MinecraftTen",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [],
+                "offerControlIdType": "None"
+              },
+              "replacements": []
+            },
+            "type": "headerComp",
+            "$type": "HeaderComponent"
+          },
+          {
+            "items": [],
+            "totalItems": 400,
+            "customStoreRowConfiguration": {
+              "seeAllVisible": false,
+              "maxOffers": 400,
+              "arrowsVisible": false,
+              "visibleOffersPerRow": 0
+            },
+            "offline": {
+              "pieceType": "persona_arms"
+            },
+            "type": "itemListComp",
+            "$type": "ItemListComponent"
+          },
+          {
+            "type": "dispPreviewPieceComp",
+            "$type": "DisplayPreviewedPieceOfferComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "VerticalLineDivider",
+        "components": [
+          {
+            "textureImage": {
+              "type": "Unknown",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [],
+                "font": "default",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [
+                  0.70196,
+                  0.8392,
+                  0.8588,
+                  0.2
+                ],
+                "offerControlIdType": "None"
+              }
+            },
+            "type": "textureComp",
+            "$type": "TextureComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "GridList",
+        "components": [
+          {
+            "text": {
+              "value": "dr.categories.legs",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [
+                  1.0,
+                  1.0,
+                  1.0
+                ],
+                "font": "MinecraftTen",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [],
+                "offerControlIdType": "None"
+              },
+              "replacements": []
+            },
+            "type": "headerComp",
+            "$type": "HeaderComponent"
+          },
+          {
+            "items": [],
+            "totalItems": 400,
+            "customStoreRowConfiguration": {
+              "seeAllVisible": false,
+              "maxOffers": 400,
+              "arrowsVisible": false,
+              "visibleOffersPerRow": 0
+            },
+            "offline": {
+              "pieceType": "persona_legs"
+            },
+            "type": "itemListComp",
+            "$type": "ItemListComponent"
+          },
+          {
+            "type": "dispPreviewPieceComp",
+            "$type": "DisplayPreviewedPieceOfferComponent"
+          }
+        ]
+      },
+      {
+        "controlId": "VerticalLineDivider",
+        "components": [
+          {
+            "textureImage": {
+              "type": "Unknown",
+              "style": {
+                "highlightColor": [],
+                "alignment": "Left",
+                "textColor": [],
+                "font": "default",
+                "showBackground": false,
+                "showOutline": false,
+                "indent": 0.0,
+                "buttonWidth": 0.0,
+                "color": [
+                  0.70196,
+                  0.8392,
+                  0.8588,
+                  0.2
+                ],
+                "offerControlIdType": "None"
+              }
+            },
+            "type": "textureComp",
+            "$type": "TextureComponent"
+          }
+        ]
+      }
+    ],
+    "inventoryVersion": "",
+    "pageRefresh": false,
+    "sidebarLayoutType": "Persona"
+  }
+}

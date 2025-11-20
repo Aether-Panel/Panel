@@ -1,0 +1,50 @@
+{
+  "Node": "Uzol",
+  "Nodes": "Uzly",
+  "Edit": "Upraviť uzol",
+  "Add": "Pridať uzol",
+  "Create": "Vytvoriť uzol",
+  "Update": "Aktualizovať uzol",
+  "Delete": "Vymazať uzol",
+  "ConfirmDelete": "Naozaj chcete vymazať uzol {name}?",
+  "Created": "Uzol vytvorený",
+  "Updated": "Uzol aktualizovaný",
+  "Deleted": "Uzol vymazaný",
+  "Reachable": "Tento uzol je správne nastavený a spustený",
+  "Unreachable": "Tento uzol buď nie je správne nastavený, alebo nie je k dispozícií",
+  "features": {
+    "os": {
+      "label": "Operačný systém",
+      "linux": "Linux",
+      "windows": "Windows"
+    },
+    "arch": {
+      "label": "Architektúra CPU",
+      "amd64": "x86 64bit",
+      "arm": "ARM 32bit",
+      "arm64": "ARM 64bit"
+    },
+    "docker": {
+      "true": "Docker je k dispozícií",
+      "false": "Docker nie je k dispozícií"
+    },
+    "envs": "Dostupné prostredia"
+  },
+  "PublicHost": "Verejný hostiteľ",
+  "PublicPort": "Verejný port",
+  "PrivateHost": "Súkromný hostiteľ",
+  "PrivatePort": "Súkromný port",
+  "SftpPort": "SFTP Port",
+  "WithPrivateAddress": "Použije iného hostiteľa/port na komunikáciu medzi servermi",
+  "WithPrivateAddressHint": "Táto samostatná adresa sa používa, keď hlavný uzol potrebuje komunikovať s novým uzlom. Užitočné napríklad vtedy, keď sú uzly v rovnakej sieti za NAT.",
+  "LocalNodeEdit": "Miestny uzol nemá žiadne upraviteľné nastavenia\n\nAk chcete zmeniť hostiteľa zobrazeného so servermi umiestnenými v tomto uzle, upravte hlavnú url adresu panelov v nastaveniach panelu",
+  "Deploy": "Uvoľniť uzol",
+  "deploy": {
+    "Step1": "## Krok 1\n\nNainštalujte SkyPanel na nový server, [viď. dokumentácia](https://docs.SkyPanel.com/en/latest/installing.html)",
+    "Step2": "## Krok 2\n\nZastavte SkyPanel servis v prípade, že bol počas inštalácie spustený, príkazom `sudo systemctl stop SkyPanel`",
+    "Step3": "## Krok 3\n\nNahraďte konfiguračný súbor na novom serveri nasledovným kódom\n\nKonfiguračný súbor sa obvykle nachádza v `/etc/SkyPanel/config.json`\n\n```\n{config}\n```",
+    "Step4": "## Krok 4\n\nPovoľte a (re)štartuje SkyPanel servis na novom serveri príkazom `sudo systemctl enable --now SkyPanel`",
+    "Step5": "### Tvoj novy uzol je nastavený a pripravený na spustenie"
+  },
+  "DeploymentInstruction": "To deploy the node, install SkyPanel on the new server and place the config file in `/etc/SkyPanel/`<br/>Restart SkyPanel on the new server afterwards."
+}

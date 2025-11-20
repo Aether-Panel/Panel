@@ -1,0 +1,231 @@
+package SkyPanel
+
+import (
+	"errors"
+	"github.com/SkyPanel/SkyPanel/v3/scopes"
+	"github.com/SkyPanel/SkyPanel/v3/utils"
+	"runtime/debug"
+	"strings"
+
+	"github.com/SkyPanel/SkyPanel/v3/logging"
+	"gopkg.in/go-playground/validator.v9"
+)
+
+var ErrUnknownError = CreateError("unknown error", "ErrUnknownError")
+var ErrInvalidCredentials = CreateError("invalid credentials", "ErrInvalidCredentials")
+var ErrServiceNotAvailable = CreateError("service not available", "ErrServiceNotAvailable")
+var ErrEmailNotConfigured = CreateError("email not configured", "ErrEmailNotConfigured")
+var ErrTokenInvalid = CreateError("token is invalid", "ErrTokenInvalid")
+var ErrClientNotFound = CreateError("client not found", "ErrClientNotFound")
+var ErrUserNotFound = CreateError("user not found", "ErrUserNotFound")
+var ErrLoginNotPermitted = CreateError("login not permitted", "ErrLoginNotPermitted")
+var ErrInvalidTokenState = CreateError("invalid token state", "ErrInvalidTokenState")
+var ErrNoPermission = CreateError("no permission to perform action", "ErrNoPermission")
+var ErrServerNotFound = CreateError("server not found", "ErrServerNotFound")
+var ErrDatabaseNotAvailable = CreateError("database not available", "ErrDatabaseNotAvailable")
+var ErrServerOffline = CreateError("server offline", "ErrServerOffline")
+var ErrIllegalFileAccess = CreateError("invalid file access", "ErrIllegalFileAccess")
+var ErrFileNotFound = CreateError("file not found", "ErrFileNotFound")
+var ErrFileExists = CreateError("file exists where there should be none", "ErrFileExists")
+var ErrServerDisabled = CreateError("server is disabled", "ErrServerDisabled")
+var ErrContainerRunning = CreateError("container already running", "ErrContainerRunning")
+var ErrImageDownloading = CreateError("image downloading", "ErrImageDownloading")
+var ErrProcessRunning = CreateError("process already running", "ErrProcessRunning")
+var ErrMissingFactory = CreateError("missing factory", "ErrMissingFactory")
+var ErrServerAlreadyExists = CreateError("server already exists", "ErrServerAlreadyExists")
+var ErrInvalidUnixTime = CreateError("time provided is not a valid UNIX time", "ErrInvalidUnixTime")
+var ErrKeyNotPEM = CreateError("key is not in PEM format", "ErrKeyNotPEM")
+var ErrCannotValidateToken = CreateError("could not validate access token", "ErrCannotValidateToken")
+var ErrMissingAccessToken = CreateError("access token not provided", "ErrMissingAccessToken")
+var ErrNotBearerToken = CreateError("access token must be a Bearer token", "ErrNotBearerToken")
+var ErrKeyNotECDSA = CreateError("key is not ECDSA key", "ErrKeyNotECDSA")
+var ErrMissingScope = CreateError("missing scope", "ErrMissingScope")
+var ErrNodeHasServers = CreateError("node has servers associated", "ErrNodeHasServers")
+var ErrInvalidSession = CreateError("invalid session", "ErrInvalidSession")
+var ErrSessionExpired = CreateError("session expired", "ErrSessionExpired")
+var ErrTaskNotFound = CreateError("task not found", "ErrTaskNotFound")
+var ErrNotImplemented = CreateError("not implemented", "ErrNotImplemented")
+var ErrDockerNotSupported = CreateError("docker not supported", "ErrDockerNotSupported")
+var ErrServerRunning = CreateError("server running", "ErrServerRunning")
+var ErrNoCommand = CreateError("command could not be determined", "ErrNoCommand")
+var ErrRepoExists = CreateError("repo already exists with given name", "ErrRepoExists")
+var ErrEnvironmentNotSupported = CreateError("environment not supported", "ErrEnvironmentNotSupported")
+var ErrPasswordRequirements = CreateError("password does not meet requirements", "ErrPasswordRequirements")
+var ErrBackupInProgress = CreateError("backup in progress", "ErrBackupInProgress")
+var ErrBackupServerRunning = CreateError("cannot backup server, is running", "ErrBackupServerRunning")
+var ErrContainerNotUnique = CreateError("multiple containers found", "ErrContainerNotUnique")
+var ErrNoContainerFound = CreateError("no container found", "ErrNoContainerFound")
+var ErrNoMountFound = CreateError("no mount found", "ErrNoMountFound")
+var ErrUnsupportedMountType = CreateError("unsupported mount type", "ErrUnsupportedMountType")
+
+func CreateErrMissingScope(scope scopes.Scope) *Error {
+	return CreateError(ErrMissingScope.Message, ErrMissingScope.Code).Metadata(map[string]interface{}{"scope": scope})
+}
+
+var ErrSettingNotConfigured = func(name string) *Error {
+	return CreateError("${setting} is not configured", "ErrSettingNotConfigured").Metadata(map[string]interface{}{"setting": name})
+}
+
+var ErrNoTemplate = func(template string) *Error {
+	return CreateError("no template with name ${name}", "ErrNoTemplate").Metadata(map[string]interface{}{"template": template})
+}
+
+var ErrServiceInvalidProvider = func(service, provider string) *Error {
+	return CreateError("${service} does not support ${provider}", "ErrServiceInvalidProvider").Metadata(map[string]interface{}{"service": service, "provider": provider})
+}
+
+var ErrFieldRequired = func(fieldName string) *Error {
+	return CreateError("${field} is required", "ErrFieldRequired").Metadata(map[string]interface{}{"field": fieldName})
+}
+
+var ErrFieldMustBePrintable = func(fieldName string) *Error {
+	return CreateError("${field} must be printable ascii characters", "ErrFieldMustBePrintable").Metadata(map[string]interface{}{"field": fieldName})
+}
+
+var ErrFieldHasURICharacters = func(fieldName string) *Error {
+	return CreateError("${field} must not contain characters which cannot be used in URIs", "ErrFieldHasURICharacters").Metadata(map[string]interface{}{"field": fieldName})
+}
+
+var ErrFieldIsInvalidHost = func(fieldName string) *Error {
+	return CreateError("${field} must be a valid IP or FQDN", "ErrFieldIsInvalidHost").Metadata(map[string]interface{}{"field": fieldName})
+}
+
+var ErrFieldIsInvalidIP = func(fieldName string) *Error {
+	return CreateError("${field} must be a valid IP", "ErrFieldIsInvalidIP").Metadata(map[string]interface{}{"field": fieldName})
+}
+
+var ErrFieldTooLarge = func(fieldName string, value int64) *Error {
+	return CreateError("${field} cannot be larger than ${max}", "ErrFieldTooLarge").Metadata(map[string]interface{}{"field": fieldName, "max": value})
+}
+
+var ErrFieldTooSmall = func(fieldName string, value int64) *Error {
+	return CreateError("${field} cannot be smaller than ${min}", "ErrFieldTooSmall").Metadata(map[string]interface{}{"field": fieldName, "min": value})
+}
+
+var ErrFieldNotBetween = func(fieldName string, min, max int64) *Error {
+	return CreateError("${field} must be between ${min} and ${max}", "ErrFieldNotBetween").Metadata(map[string]interface{}{"field": fieldName, "min": min, "max": max})
+}
+
+var ErrFieldEqual = func(fieldName1, fieldName2 string) *Error {
+	return CreateError("${field1} cannot be equal to ${field2}", "ErrFieldEqual").Metadata(map[string]interface{}{"field1": fieldName1, "field2": fieldName2})
+}
+
+var ErrFieldNotEqual = func(fieldName1, fieldName2 string) *Error {
+	return CreateError("${field1} is not equal to ${field2}", "ErrFieldNotEqual").Metadata(map[string]interface{}{"field1": fieldName1, "field2": fieldName2})
+}
+
+var ErrFieldNotEmail = func(fieldName string) *Error {
+	return CreateError("${field} is not a valid email", "ErrFieldNotEmail").Metadata(map[string]interface{}{"field": fieldName})
+}
+
+var ErrFieldLength = func(fieldName string, min int, max int) *Error {
+	return CreateError("${field} must be between ${min} and ${max} characters", "ErrFieldLength").Metadata(map[string]interface{}{"field": fieldName, "min": min, "max": max})
+}
+
+var ErrFactoryError = func(operatorName string, err error) *Error {
+	return CreateError("factory `${operatorName}` encountered an error: `${err}`", "ErrFactoryError").Metadata(map[string]interface{}{"operatorName": operatorName, "err": err.Error()})
+}
+
+var ErrNodeInvalid = CreateError("node is invalid", "ErrNodeInvalid")
+
+var ErrUnsupportedOS = func(actual, expected string) *Error {
+	return CreateError("OS (${actual}) not supported. Supported OS: ${expected}", "ErrUnsupportedOS").Metadata(map[string]interface{}{"actual": actual, "expected": expected})
+}
+
+var ErrUnsupportedArch = func(actual, expected string) *Error {
+	return CreateError("Architecture ${actual} not supported. Supported Architectures: ${expected}", "ErrUnsupportedArch").Metadata(map[string]interface{}{"actual": actual, "expected": expected})
+}
+
+var ErrMissingBinary = func(expected string) *Error {
+	return CreateError("missing binary: ${expected}", "ErrMissingBinary").Metadata(map[string]interface{}{"expected": expected})
+}
+
+var ErrPathNotAbs = func(path string) *Error {
+	return CreateError("path not abs: ${path}", "ErrPathNotAbs").Metadata(map[string]interface{}{"path": path})
+}
+
+var ErrCurseForgeDistribution = func(projectId uint) *Error {
+	return CreateError("CurseForge modpack with project ID ${projectId} does not allow third-party distribution", "ErrCurseForgeDistribution").Metadata(map[string]interface{}{"projectId": projectId})
+}
+
+var ErrCurseForgeFile = func(projectId uint, fileId uint) *Error {
+	return CreateError("File ID ${fileId} under project ID ${projectId} not found", "ErrCurseForgeFile").Metadata(map[string]interface{}{"fileId": fileId, "projectId": projectId})
+}
+
+var ErrCurseForgeStatus = func(status string) *Error {
+	return CreateError("Invalid status code from CurseForge: ${status}", "ErrCurseForgeStatus").Metadata(map[string]interface{}{"status": status})
+}
+
+func GenerateValidationMessage(err error) error {
+	var errs validator.ValidationErrors
+	if errors.As(err, &errs) {
+		msg := make([]string, 0)
+		for _, e := range errs {
+			t := e.Field() + ": " + e.ActualTag()
+			if e.Param() != "" {
+				t += " (" + e.Param() + ")"
+			}
+			msg = append(msg, t)
+		}
+		return errors.New(strings.Join(msg, ", "))
+	}
+	return nil
+}
+
+type Error struct {
+	Message string                 `json:"msg,omitempty"`
+	Code    string                 `json:"code,omitempty"`
+	Meta    map[string]interface{} `json:"metadata,omitempty"`
+	//error
+} //@name Error
+
+func (ge *Error) GetMessage() string {
+	return utils.ReplaceTokens(ge.Message, ge.Meta)
+}
+
+func (ge *Error) GetCode() string {
+	return ge.Code
+}
+
+func (ge *Error) Error() string {
+	return ge.GetMessage()
+}
+
+func (ge *Error) Is(err *Error) bool {
+	return ge.GetCode() == err.GetCode()
+}
+
+func (ge *Error) Metadata(metadata map[string]interface{}) *Error {
+	cp := ge
+	cp.Meta = metadata
+	return cp
+}
+
+func CreateError(msg, code string) *Error {
+	return &Error{
+		Message: msg,
+		Code:    code,
+	}
+}
+
+func FromError(err error) *Error {
+	if err == nil {
+		return nil
+	}
+
+	var e *Error
+	if errors.As(err, &e) {
+		return e
+	}
+	return CreateError(err.Error(), "ErrGeneric")
+}
+
+func Recover() {
+	if err := recover(); err != nil {
+		if _, ok := err.(error); !ok {
+			err = errors.New(utils.ToString(err))
+		}
+
+		logging.Error.Printf("CRITICAL ERROR: \n%+v\n%s", err, debug.Stack())
+	}
+}

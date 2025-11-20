@@ -1,0 +1,64 @@
+{
+  "Name": "Nombre",
+  "Language": "Idioma",
+  "Online": "En línea",
+  "Offline": "Apagado",
+  "Installing": "Instalando",
+  "Unknown": "Desconocido",
+  "Loading": "Cargando...",
+  "Description": "Descripción",
+  "Save": "Guardar",
+  "Cancel": "Cancelar",
+  "Close": "Cerrar",
+  "Host": "Servidor",
+  "Port": "Puerto",
+  "Collapse": "Colapsar",
+  "Expand": "Ampliar",
+  "Copy": "Copiar al portapapeles",
+  "Copied": "Copiado al portapapeles",
+  "Back": "Atrás",
+  "Next": "Siguiente",
+  "Details": "Detalles",
+  "ErrorDetails": "Detalles del error",
+  "HelpTranslate": "Ayúdanos a traducir SkyPanel",
+  "Protocol": "Protocolo",
+  "Add": "Agregar",
+  "Apply": "Aplicar",
+  "Confirm": "Confirmar",
+  "Condition": "Condición",
+  "Discard": "Descartar",
+  "ConfirmLeave": "Tienes cambios sin guardar, ¿quieres descartar estos cambios y salir de esta página?",
+  "theme": {
+    "Theme": "Tema",
+    "Mode": "Modo",
+    "mode": {
+      "Light": "Claro",
+      "Dark": "Oscuro",
+      "DarkHighContrast": "Oscuro (Contraste Alto)",
+      "Auto": "Auto"
+    },
+    "BaseColor": "Color Base",
+    "ServerTypeDisplay": "Visualización del tipo de servidor",
+    "serverTypeDisplay": {
+      "Icon": "Icono",
+      "None": "Ninguno"
+    },
+    "ListType": "Tipo de lista",
+    "listType": {
+      "Grid": "Cuadrícula",
+      "List": "Lista"
+    },
+    "FontSize": "Tamaño del texto",
+    "fontSize": {
+      "Default": "Por defecto"
+    },
+    "FontFace": "Cara del Texto",
+    "fontFace": {
+      "Default": "Por defecto",
+      "A11y": "Accesibilidad optimizada"
+    }
+  },
+  "NoResults": "No hay resultados",
+  "Yes": "Si",
+  "No": "No"
+}

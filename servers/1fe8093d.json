@@ -1,0 +1,219 @@
+{
+  "DaemonServer": null,
+  "type": "minecraft-bedrock",
+  "id": "1fe8093d",
+  "display": "Minecraft Bedrock",
+  "icon": "minecraft-bedrock",
+  "data": {
+    "allow-cheats": {
+      "type": "boolean",
+      "value": false,
+      "display": "Allow Cheats",
+      "desc": "If true then cheats like commands can be used.",
+      "required": true,
+      "userEdit": true
+    },
+    "default-player-permission-level": {
+      "type": "string",
+      "value": "member",
+      "display": "Default Permission Level",
+      "desc": "Permission level for new players joining for the first time.",
+      "required": true,
+      "userEdit": true
+    },
+    "difficulty": {
+      "type": "string",
+      "value": "easy",
+      "display": "Difficulty",
+      "desc": "Sets the difficulty of the world.",
+      "required": true,
+      "userEdit": true
+    },
+    "gamemode": {
+      "type": "string",
+      "value": "survival",
+      "display": "Gamemode",
+      "desc": "Sets the game mode for new players.",
+      "required": true,
+      "userEdit": true
+    },
+    "level-name": {
+      "type": "string",
+      "value": "Bedrock level",
+      "display": "Level Name",
+      "desc": "Name of the World Folder",
+      "required": true,
+      "userEdit": true
+    },
+    "level-seed": {
+      "type": "string",
+      "value": "",
+      "display": "Level Seed",
+      "desc": "Use to randomize the world",
+      "required": false,
+      "userEdit": true
+    },
+    "max-players": {
+      "type": "integer",
+      "value": 10,
+      "display": "Max Players",
+      "desc": "The maximum number of players that can play on the server.",
+      "required": true,
+      "userEdit": true
+    },
+    "max-threads": {
+      "type": "integer",
+      "value": 0,
+      "display": "Max Threads",
+      "desc": "Maximum number of threads the server will try to use. If set to 0 or removed then it will use as many as possible.",
+      "required": true,
+      "userEdit": true
+    },
+    "online-mode": {
+      "type": "boolean",
+      "value": true,
+      "display": "Online Mode",
+      "desc": "Whether a player is required to be authenticated to XBox Live",
+      "required": true,
+      "userEdit": true
+    },
+    "player-idle-timeout": {
+      "type": "integer",
+      "value": 30,
+      "display": "Player Idle Timeout",
+      "desc": "After a player has idled for this many minutes they will be kicked. If set to 0 then players can idle indefinitely.",
+      "required": true,
+      "userEdit": true
+    },
+    "server-name": {
+      "type": "string",
+      "value": "Dedicated Server",
+      "display": "Server Name",
+      "desc": "Used as the server name",
+      "required": true,
+      "userEdit": true
+    },
+    "server-port": {
+      "type": "integer",
+      "value": 19132,
+      "display": "Server Port",
+      "desc": "Which IPv4 port the server should listen to.",
+      "required": true,
+      "userEdit": false
+    },
+    "server-portv6": {
+      "type": "integer",
+      "value": 19133,
+      "display": "Server Port (IPv6)",
+      "desc": "Which IPv6 port the server should listen to.",
+      "required": true,
+      "userEdit": false
+    },
+    "texturepack-required": {
+      "type": "boolean",
+      "value": false,
+      "display": "Force Server Texturepack",
+      "desc": "Force clients to use texture packs in the current world",
+      "required": true,
+      "userEdit": true
+    },
+    "tick-distance": {
+      "type": "integer",
+      "value": 4,
+      "display": "Tick Distance",
+      "desc": "The world will be ticked this many chunks away from any player.",
+      "required": true,
+      "userEdit": true
+    },
+    "version": {
+      "type": "string",
+      "value": "1.21.102.1",
+      "display": "Bedrock Version",
+      "desc": "Version of the Minecraft Bedrock Server to use",
+      "required": true,
+      "userEdit": true
+    },
+    "view-distance": {
+      "type": "integer",
+      "value": 32,
+      "display": "View Distance",
+      "desc": "The maximum allowed view distance in number of chunks.",
+      "required": true,
+      "userEdit": true
+    },
+    "white-list": {
+      "type": "boolean",
+      "value": false,
+      "display": "Whitelist",
+      "desc": "If true then all connected players must be listed in the separate whitelist.json file.",
+      "required": true,
+      "userEdit": true
+    }
+  },
+  "install": [
+    {
+      "type": "download",
+      "files": [
+        "https://www.minecraft.net/bedrockdedicatedserver/bin-linux/bedrock-server-${version}.zip"
+      ]
+    },
+    {
+      "type": "extract",
+      "destination": "",
+      "source": "bedrock-server-${version}.zip"
+    },
+    {
+      "type": "writefile",
+      "text": "server-name=${server-name}\ngamemode=${gamemode}\ndifficulty=${difficulty}\nallow-cheats=${allow-cheats}\nmax-players=${max-players}\nonline-mode=${online-mode}\nwhite-list=${white-list}\nserver-port=${server-port}\nserver-portv6=${server-portv6}\nview-distance=${view-distance}\ntick-distance=${tick-distance}\nplayer-idle-timeout=${player-idle-timeout}\nmax-threads=${max-threads}\nlevel-name=${level-name}\nlevel-seed=${level-seed}\ndefault-player-permission-level=${default-player-permission-level}\ntexturepack-required=${texturepack-required}\n",
+      "target": "server.properties"
+    }
+  ],
+  "uninstall": null,
+  "run": {
+    "command": "./bedrock_server",
+    "stop": "stop",
+    "environmentVars": {
+      "LD_LIBRARY_PATH": "."
+    },
+    "stdin": {
+      "type": "stdin"
+    },
+    "autostart": false,
+    "autorecover": false,
+    "autorestart": false
+  },
+  "environment": {
+    "type": "host",
+    "disableUnshare": true,
+    "mounts": []
+  },
+  "supportedEnvironments": [
+    {
+      "type": "host"
+    },
+    {
+      "type": "docker",
+      "image": "pufferpanel/ubuntu",
+      "portBindings": [
+        "0.0.0.0:${server-port}:${server-port}/tcp"
+      ]
+    }
+  ],
+  "requirements": {
+    "os": "linux",
+    "arch": "amd64",
+    "binaries": [
+      "unzip"
+    ]
+  },
+  "stats": {
+    "type": ""
+  },
+  "query": {
+    "type": ""
+  },
+  "keepAlive": {
+    "frequency": "",
+    "command": ""
+  }
+}

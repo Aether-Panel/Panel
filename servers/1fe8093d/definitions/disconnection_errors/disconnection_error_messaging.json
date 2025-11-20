@@ -1,0 +1,722 @@
+{
+"FallbackStrings": {
+    "Codeword": "Terracotta",
+    "Title": "disconnectionScreen.title.errorOccurred",
+    "Body": "",
+    "WebUrl": ""
+},
+"Themes": [
+    {
+        "ThemeName": "OneOff",
+        "DefaultStrings": {
+            "Codeword": "Terracotta",
+            "Title": "disconnectionScreen.title.errorOccurred",
+            "Body": "",
+            "WebUrl": ""
+        },
+        "Errors": [
+            {
+                "FailReason": "ThirdPartyBlocked",
+                "OverrideStrings": {
+                    "Codeword": "Fox",
+                    "Title": "disconnectionScreen.cantConnect",
+                    "Body": "networkWorld.multiplayerPrivilegesUnknown"
+                }
+            },
+            {
+                "FailReason": "ThirdPartyBadIP",
+                "OverrideStrings": {
+                    "Codeword": "Squid",
+                    "Title": "disconnectionScreen.cantConnect",
+                    "Body": "disconnectionScreen.invalidIP"
+                }
+            },
+            {
+                "FailReason": "ThirdPartyNoServerOrServerLocked",
+                "OverrideStrings": {
+                    "Codeword": "Silverfish",
+                    "Title": "disconnectionScreen.cantConnect",
+                    "Body": "disconnectionScreen.body.serverNoneOrLocked"
+                }
+            },
+            {
+                "FailReason": "LocalServerNotFound",
+                "OverrideStrings": {
+                    "Codeword": "Panda",
+                    "Title": "disconnectionScreen.title.localServerNotFound"
+                }
+            },
+            {
+                "FailReason": "SessionNotFound",
+                "OverrideStrings": {
+                    "Codeword": "Goat",
+                    "Title": "disconnectionScreen.cantConnect",
+                    "Body": "disconnectionScreen.body.worldNoLongerAvailable"
+                }
+            },
+            {
+                "FailReason": "LevelNewerThanExeVersion",
+                "OverrideStrings": {
+                    "Codeword": "Breeze",
+                    "Body": "disconnectionScreen.body.worldNewerVersion"
+                }
+            },
+            {
+                "FailReason": "ServerNotFound",
+                "OverrideStrings": {
+                    "Codeword": "Clay",
+                    "Title": "disconnectionScreen.title.serverNotFound",
+                    "Body": "disconnectionScreen.body.cantConnectServer"
+                }
+            },
+            {
+                "FailReason": "MissingClient",
+                "OverrideStrings": {
+                    "Codeword": "Snowball",
+                    "Title": "disconnectionScreen.disconnected",
+                    "Body": "disconnectionScreen.body.cantFindClient"
+                }
+            },
+            {
+                "FailReason": "UnspecifiedClientInstanceDisconnection",
+                "OverrideStrings": {
+                    "Codeword": "Feather"
+                }
+            },
+            {
+                "FailReason": "DeepLinkTryingToOpenDemoWorldWhileSignedIn",
+                "OverrideStrings": {
+                    "Codeword": "Honeycomb"
+                }
+            },
+            {
+                "FailReason": "GuestWithoutHost",
+                "OverrideStrings": {
+                    "Codeword": "Bamboo"
+                }
+            },
+            {
+                "FailReason": "Disconnected",
+                "OverrideStrings": {
+                    "Codeword": "Bat",
+                    "Title": "disconnectionScreen.title.disconnectedFromHost",
+                    "Body": "disconnectionScreen.body.cantFindServer"
+                }
+            },
+            {
+                "FailReason": "Timeout",
+                "OverrideStrings": {
+                    "Codeword": "Kelp",
+                    "Title": "disconnectionScreen.title.connectionTimeout"
+                }
+            },
+            {
+                "FailReason": "SubClientLoginDisabled",
+                "OverrideStrings": {
+                    "Codeword": "Coal"
+                }
+            },
+            {
+                "FailReason": "ServerFull",
+                "OverrideStrings": {
+                    "Codeword": "Hopper",
+                    "Title": "disconnectionScreen.title.worldFull"
+                }
+            },
+            {
+                "FailReason": "InvalidHeights",
+                "OverrideStrings": {
+                    "Codeword": "Lead"
+                }
+            },
+            {
+                "FailReason": "InvalidWidths",
+                "OverrideStrings": {
+                    "Codeword": "Ladder"
+                }
+            },
+            {
+                "FailReason": "EmptyUrlFromDiscovery",
+                "OverrideStrings": {
+                    "Codeword": "TNT"
+                }
+            }
+        ]
+    },
+    {
+        "ThemeName": "OneOffGeneral",
+        "DefaultStrings": {
+            "Codeword": "Terracotta",
+            "Title": "disconnectionScreen.title.errorOccurred",
+            "Body": "",
+            "WebUrl": ""
+        },
+        "Errors": [
+            {
+                "FailReason": "ServerIdConflict",
+                "OverrideStrings": {
+                    "Codeword": "Blaze"
+                }
+            },
+            {
+                "FailReason": "Shutdown",
+                "OverrideStrings": {
+                    "Codeword": "Cobweb"
+                }
+            },
+            {
+                "FailReason": "SearchingForSessionLoadingScreenFailed",
+                "OverrideStrings": {
+                    "Codeword": "Compass"
+                }
+            },
+            {
+                "FailReason": "SubsystemStatusError",
+                "OverrideStrings": {
+                    "Codeword": "Echo Shard"
+                }
+            }
+        ]
+    },
+    {
+        "ThemeName": "Authentication",
+        "DefaultStrings": {
+            "Codeword": "Guardian",
+            "Title": "disconnectionScreen.title.errorOccurred",
+            "Body": "",
+            "WebUrl": ""
+        },
+        "Errors": [
+            {
+                "FailReason": "SessionAccessDenied",
+                "OverrideStrings": {
+                    "Title": "disconnectionScreen.cantConnect"
+                }
+            },
+            {
+                "FailReason": "InvalidPlayer"
+            },
+            {
+                "FailReason": "LoggedInOtherLocation",
+                "OverrideStrings": {
+                    "Title": "authentication.unableToConnect",
+                    "Body": "disconnectionScreen.body.loggedInElsewhere"
+                }
+            },
+            {
+                "FailReason": "NotAuthenticated"
+            },
+            {
+                "FailReason": "LoginPacketNoRequest"
+            },
+            {
+                "FailReason": "LoginPacketNoCert"
+            },
+            {
+                "FailReason": "EmptyAuthFromDiscovery"
+            },
+            {
+                "FailReason": "ExpiredAuthFromDiscovery"
+            },
+            {
+                "FailReason": "ServiceSigninIssue"
+            }
+        ]
+    },
+    {
+        "ThemeName": "Editor",
+        "DefaultStrings": {
+            "Codeword": "Emerald",
+            "Title": "disconnectionScreen.title.errorOccurred",
+            "Body": "",
+            "WebUrl": ""
+        },
+        "Errors": [
+            {
+                "FailReason": "EditorMismatchEditorWorld"
+            },
+            {
+                "FailReason": "EditorMismatchVanillaWorld"
+            }
+        ]
+    },
+    {
+        "ThemeName": "Education",
+        "DefaultStrings": {
+            "Codeword": "Gold",
+            "Title": "disconnectionScreen.title.errorOccurred",
+            "Body": "",
+            "WebUrl": ""
+        },
+        "Errors": [
+            {
+                "FailReason": "InvalidTenant",
+                "OverrideStrings": {
+                    "Title": "disconnectionScreen.title.invalidTenantId"
+                }
+            },
+            {
+                "FailReason": "EduLevelSettingsMissing"
+            }
+        ]
+    },
+    {
+        "ThemeName": "GameSetupShutdown",
+        "DefaultStrings": {
+            "Codeword": "Boat",
+            "Title": "disconnectionScreen.title.errorOccurred",
+            "Body": "",
+            "WebUrl": ""
+        },
+        "Errors": [
+            {
+                "FailReason": "LoadingStateTimeout",
+                "OverrideStrings": {
+                    "Title": "disconnectionScreen.title.worldFailedLoad",
+                    "Body": "progressScreen.cantConnect"
+                }
+            },
+            {
+                "FailReason": "HostSuspended"
+            },
+            {
+                "FailReason": "XBLJoinLobbyFailure",
+                "OverrideStrings": {
+                    "Body": "disconnectionScreen.restartClient"
+                }
+            },
+            {
+                "FailReason": "ClientGameSetupCancelled"
+            },
+            {
+                "FailReason": "ClientGameSetupFailed"
+            },
+            {
+                "FailReason": "InvalidLevel",
+                "OverrideStrings": {
+                    "Title": "disconnectionScreen.invalidLevel"
+                }
+            },
+            {
+                "FailReason": "BlockMismatch",
+                "OverrideStrings": {
+                    "Body": "disconnectionScreen.blockMismatch"
+                }
+            }
+        ]
+    },
+    {
+        "ThemeName": "Kicked",
+        "DefaultStrings": {
+            "Codeword": "Evoker",
+            "Title": "disconnectionScreen.title.kickedFromWorld",
+            "Body": "",
+            "WebUrl": ""
+        },
+        "Errors": [
+            {
+                "FailReason": "Kicked"
+            },
+            {
+                "FailReason": "KickedForExploit",
+                "OverrideStrings": {
+                    "Title": "disconnectionScreen.title.errorOccurred"
+                }
+            },
+            {
+                "FailReason": "KickedForIdle",
+                "OverrideStrings": {
+                    "Title": "disconnectionScreen.title.disconnected",
+                    "Body": "disconnectionScreen.body.idleTooLong"
+                }
+            }
+        ]
+    },
+    {
+        "ThemeName": "MinecraftOnline",
+        "DefaultStrings": {
+            "Codeword": "Arrow",
+            "Title": "disconnectionScreen.title.errorOccurred",
+            "Body": "",
+            "WebUrl": ""
+        },
+        "Errors": [
+            {
+                "FailReason": "AsyncJoinTaskDenied",
+                "OverrideStrings": {
+                    "WebUrl": "https://help.minecraft.net/hc/en-us/articles/30437628422413-Troubleshoot-Minecraft-Network-Connection-Errors"
+                }
+            },
+            {
+                "FailReason": "RealmsWorldUnassigned",
+                "OverrideStrings": {
+                    "Title": "disconnectionScreen.title.realmsWorldUnassigned"
+                }
+            },
+            {
+                "FailReason": "RealmsServerCantConnect",
+                "OverrideStrings": {
+                    "Title": "disconnectionScreen.cantConnectToRealms",
+                    "Body": "disconnectionScreen.forbidden"
+                }
+            },
+            {
+                "FailReason": "RealmsServerHidden",
+                "OverrideStrings": {
+                    "Title": "disconnectionScreen.internalError.cantFindRealm",
+                    "Body": "disconnectionScreen.internalError.cantConnect"
+                }
+            },
+            {
+                "FailReason": "RealmsServerDisabledBeta"
+            },
+            {
+                "FailReason": "RealmsServerDisabled"
+            },
+            {
+                "FailReason": "RealmsTimelineRequired"
+            }
+        ]
+    },
+    {
+        "ThemeName": "Networking",
+        "DefaultStrings": {
+            "Codeword": "NetherNet",
+            "Title": "disconnectionScreen.title.multiplayerConnection",
+            "Body": "disconnectionScreen.body.multiplayerConnection",
+            "WebUrl": "https://help.minecraft.net/hc/en-us/articles/30437628422413-Troubleshoot-Minecraft-Network-Connection-Errors"
+        },
+        "Errors": [
+            {
+                "FailReason": "CantConnectNoInternet",
+                "OverrideStrings": {
+                    "Title": "disconnectionScreen.cantConnect",
+                    "Body": "disconnectionScreen.noInternet"
+                }
+            },
+            {
+                "FailReason": "ThirdPartyNoInternet",
+                "OverrideStrings": {
+                    "Title": "disconnectionScreen.title.errorOccurred",
+                    "Body": ""
+                }
+            },
+            {
+                "FailReason": "InviteSessionNotFound",
+                "OverrideStrings": {
+                    "Title": "disconnectionScreen.cantConnect",
+                    "Body": "disconnectionScreen.body.worldNoLongerActive"
+                }
+            },
+            {
+                "FailReason": "LegacyDisconnect",
+                "OverrideStrings": {
+                    "Title": "disconnectionScreen.cantConnect",
+                    "Body": "disconnectionScreen.body.versionNotSupported"
+                }
+            },
+            {
+                "FailReason": "NoWiFi",
+                "OverrideStrings": {
+                    "Title": "disconnectionScreen.title.noWifi",
+                    "Body": "disconnectionScreen.body.checkConnectionAndTry"
+                }
+            },
+            {
+                "FailReason": "NetherNetProtocolVersion",
+                "OverrideStrings": {
+                    "Title": "disconnectionScreen.title.versionMismatchHost",
+                    "Body": ""
+                }
+            },
+            {
+                "FailReason": "NetherNetSessionNotFound"
+            },
+            {
+                "FailReason": "NetherNetCreatePeerConnection"
+            },
+            {
+                "FailReason": "NetherNetConnectRequest"
+            },
+            {
+                "FailReason": "NetherNetConnectResponse"
+            },
+            {
+                "FailReason": "NetherNetInactivityTimeout"
+            },
+            {
+                "FailReason": "StaleConnectionBeingReplaced",
+                "OverrideStrings": {
+                    "Title": "disconnectionScreen.title.errorOccurred",
+                    "Body": ""
+                }
+            },
+            {
+                "FailReason": "NetherNetFailedToCreateOffer"
+            },
+            {
+                "FailReason": "NetherNetFailedToCreateAnswer"
+            },
+            {
+                "FailReason": "NetherNetFailedToSetLocalDescription"
+            },
+            {
+                "FailReason": "NetherNetFailedToSetRemoteDescription"
+            },
+            {
+                "FailReason": "NetherNetNegotiationTimeoutWaitingForResponse"
+            },
+            {
+                "FailReason": "NetherNetNegotiationTimeoutWaitingForAccept"
+            },
+            {
+                "FailReason": "NetherNetIncomingConnectionIgnored"
+            },
+            {
+                "FailReason": "NetherNetNotLoggedIn"
+            }
+        ]
+    },
+    {
+        "ThemeName": "Packet",
+        "DefaultStrings": {
+            "Codeword": "Block",
+            "Title": "disconnectionScreen.title.errorOccurred",
+            "Body": "",
+            "WebUrl": ""
+        },
+        "Errors": [
+            {
+                "FailReason": "WorldTransferNotPrimaryClient"
+            },
+            {
+                "FailReason": "UnknownPacket"
+            },
+            {
+                "FailReason": "UnexpectedPacket"
+            },
+            {
+                "FailReason": "InvalidCommandRequestPacket"
+            },
+            {
+                "FailReason": "BadPacket"
+            }
+        ]
+    },
+    {
+        "ThemeName": "Permissions",
+        "DefaultStrings": {
+            "Codeword": "Spyglass",
+            "Title": "disconnectionScreen.title.unableToConnect",
+            "Body": "disconnectionScreen.body.permissionsDoNotAllow",
+            "WebUrl": ""
+        },
+        "Errors": [
+            {
+                "FailReason": "NoPermissions"
+            },
+            {
+                "FailReason": "CrossPlatformDisabled",
+                "OverrideStrings": {
+                    "Body": "disconnectionScreen.crossPlatformDisabled"
+                }
+            },
+            {
+                "FailReason": "MultiplayerDisabled",
+                "OverrideStrings": {
+                    "Title": "disconnectionScreen.title.multiplayerDisabled",
+                    "Body": ""
+                }
+            },
+            {
+                "FailReason": "NotAllowed",
+                "OverrideStrings": {
+                    "Title": "disconnectionScreen.title.bannedByHost",
+                    "Body": "disconnectionScreen.body.needsHostUnblock"
+                }
+            }
+        ]
+    },
+    {
+        "ThemeName": "ResourcePack",
+        "DefaultStrings": {
+            "Codeword": "Rabbit",
+            "Title": "disconnectionScreen.title.resourcePackLoad",
+            "Body": "",
+            "WebUrl": ""
+        },
+        "Errors": [
+            {
+                "FailReason": "ResourcePackProblem"
+            },
+            {
+                "FailReason": "IncompatiblePack",
+                "OverrideStrings": {
+                    "Title": "disconnectionScreen.title.incompatiblePack"
+                }
+            },
+            {
+                "FailReason": "ResourcePackLoadingFailed"
+            }
+        ]
+    },
+    {
+        "ThemeName": "Signaling",
+        "DefaultStrings": {
+            "Codeword": "Door",
+            "Title": "disconnectionScreen.title.multiplayerConnection",
+            "Body": "disconnectionScreen.body.multiplayerConnection",
+            "WebUrl": "https://help.minecraft.net/hc/en-us/articles/30437628422413-Troubleshoot-Minecraft-Network-Connection-Errors"
+        },
+        "Errors": [
+            {
+                "FailReason": "UnknownSignalServiceSignInFailure"
+            },
+            {
+                "FailReason": "NetherNetICE"
+            },
+            {
+                "FailReason": "NetherNetNegotiationTimeout"
+            },
+            {
+                "FailReason": "NetherNetSignalingParsingFailure"
+            },
+            {
+                "FailReason": "NetherNetSignalingUnknownError"
+            },
+            {
+                "FailReason": "NetherNetSignalingUnicastDeliveryFailed"
+            },
+            {
+                "FailReason": "NetherNetSignalingBroadcastDeliveryFailed"
+            },
+            {
+                "FailReason": "NetherNetSignalingGenericDeliveryFailed"
+            },
+            {
+                "FailReason": "NetherNetSignalingSigninFailed"
+            },
+            {
+                "FailReason": "NetherNetNoSignalingChannel"
+            },
+            {
+                "FailReason": "NetherNetClientSignalingError"
+            }
+        ]
+    },
+    {
+        "ThemeName": "Skins",
+        "DefaultStrings": {
+            "Codeword": "Armor",
+            "Title": "disconnectionScreen.title.skinIssue",
+            "Body": "",
+            "WebUrl": ""
+        },
+        "Errors": [
+            {
+                "FailReason": "InvalidPlatformSkin",
+                "OverrideStrings": {
+                    "Title": "disconnectionScreen.invalidSkin"
+                }
+            },
+            {
+                "FailReason": "SkinIssue"
+            },
+            {
+                "FailReason": "PlatformLockedSkinsError",
+                "OverrideStrings": {
+                    "Title": "disconnectionScreen.title.skinError",
+                    "Body": "disconnectionScreen.body.skinLockedPlatform"
+                }
+            },
+            {
+                "FailReason": "BannedSkin",
+                "OverrideStrings": {
+                    "Title": "disconnectionScreen.title.invalidSkin",
+                    "Body": "disconnectionScreen.body.skinBanned"
+                }
+            }
+        ]
+    },
+    {
+        "ThemeName": "Storage",
+        "DefaultStrings": {
+            "Codeword": "Chest",
+            "Title": "disconnectionScreen.title.errorEncountered",
+            "Body": "disconnectionScreen.body.storageOut",
+            "WebUrl": ""
+        },
+        "Errors": [
+            {
+                "FailReason": "UnrecoverableError"
+            },
+            {
+                "FailReason": "OutOfStorage",
+                "OverrideStrings": {
+                    "Title": "disconnectionScreen.title.outOfStorage",
+                    "Body": "disconnectionScreen.body.checkDeviceStorage"
+                }
+            }
+        ]
+    },
+    {
+        "ThemeName": "UnknownFailReason",
+        "DefaultStrings": {
+            "Codeword": "Creeper",
+            "Title": "disconnectionScreen.title.errorOccurred",
+            "Body": "",
+            "WebUrl": ""
+        },
+        "Errors": [
+            {
+                "FailReason": "Unknown"
+            },
+            {
+                "FailReason": "NoReason"
+            }
+        ]
+    },
+    {
+        "ThemeName": "VersionMismatch",
+        "DefaultStrings": {
+            "Codeword": "Chain",
+            "Title": "disconnectionScreen.title.versionMismatch",
+            "Body": "disconnectionScreen.body.versionMismatchHost",
+            "WebUrl": ""
+        },
+        "Errors": [
+            {
+                "FailReason": "VersionMismatch"
+            },
+            {
+                "FailReason": "EditionVersionMismatch",
+                "OverrideStrings": {
+                    "Title": "disconnectionScreen.title.versionMismatchHost",
+                    "Body": ""
+                }
+            },
+            {
+                "FailReason": "EditionMismatch",
+                "OverrideStrings": {
+                    "Title": "disconnectionScreen.title.incompatibleWorld",
+                    "Body": "disconnectionScreen.editionMismatch"
+                }
+            },
+            {
+                "FailReason": "OutdatedServer",
+                "OverrideStrings": {
+                    "Title": "authentication.unableToConnect",
+                    "Body": "disconnectionScreen.body.hostVersionOlder"
+                }
+            },
+            {
+                "FailReason": "OutdatedClient",
+                "OverrideStrings": {
+                    "Title": "disconnectionScreen.title.versionOutOfDate",
+                    "Body": "disconnectionScreen.body.gameOutOfDate"
+                }
+            }
+        ]
+    }
+]
+}

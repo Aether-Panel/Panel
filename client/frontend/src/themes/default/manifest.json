@@ -1,0 +1,27 @@
+{
+  "name": "Default",
+  "description": "Default theme",
+  "sidebarClosedBelow": 1200,
+  "keepDefaultCss": false,
+  "settings": {
+    "primary": {
+      "type": "color",
+      "var": "--primary",
+      "default": "#3b82f6",
+      "derive": []
+    },
+    "background": {
+      "type": "color",
+      "var": "--background",
+      "default": "#ffffff",
+      "derive": []
+    },
+    "foreground": {
+      "type": "color",
+      "var": "--foreground",
+      "default": "#000000",
+      "derive": []
+    }
+  }
+}
+

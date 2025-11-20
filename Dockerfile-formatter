@@ -1,0 +1,24 @@
+###
+# Builder container
+###
+FROM golang:alpine AS builder
+
+ENV CGOENABLED=1
+
+WORKDIR /home/SkyPanel/build
+
+COPY go.mod go.sum ./
+RUN go mod download && go mod verify
+
+COPY . .
+
+RUN go build -v -buildvcs=false -o /home/SkyPanel/formatter github.com/SkyPanel/SkyPanel/v3/tools/formatter
+
+# Final image
+FROM alpine
+WORKDIR /home/SkyPanel
+COPY --from=builder /home/SkyPanel/formatter .
+
+
+ENTRYPOINT ["./formatter"]
+CMD []

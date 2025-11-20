@@ -1,0 +1,13 @@
+{
+  "Credentials": "İki aşamalı doğrulama bilgileri",
+  "ClientId": "Kullanıcı ID",
+  "ClientSecret": "Kullanıcı anahtarı",
+  "NewClientWarning": "Kullanıcı anahtarınızı lütfen kaydedin, bu sayfayı kapattıktan sonra anahtar kesinlikle tekrar gösterilemez.",
+  "Create": "Yeni iki aşamalı doğrulama oluştur",
+  "UnnamedClient": "İsimsiz iki aşamalı doğrulama",
+  "Docs": "API dökümantasyonlarını görüntüle",
+  "Clients": "İki aşamalı doğrulama",
+  "Delete": "{clientName} silinsin mi?",
+  "ConfirmDelete": "Bu iki aşamalı doğrulamanın silinmesinden kaynaklanabilecek sorunların farkındayım ve devam etmek istiyorum.",
+  "AccountDescription": "Burada listelenen iki aşamalı doğrulama tüm hesap izinlerini devralır"
+}

@@ -1,0 +1,27 @@
+###
+# Builder container
+###
+FROM golang:alpine AS builder
+
+ENV CGOENABLED=1
+
+WORKDIR /home/SkyPanel/build
+
+COPY go.mod go.sum ./
+RUN go mod download && go mod verify
+
+COPY . .
+
+RUN go build -v -buildvcs=false -o /home/SkyPanel/curseforgetester github.com/SkyPanel/SkyPanel/v3/tools/curseforge
+
+# Final image
+FROM eclipse-temurin:21-alpine
+WORKDIR /home/SkyPanel
+ENV CURSEFORGE_KEY=""
+ENV PUFFER_DAEMON_DATA_CACHE="/cache"
+
+COPY --from=builder /home/SkyPanel/curseforgetester /bin/
+
+
+ENTRYPOINT ["/bin/curseforgetester"]
+CMD []

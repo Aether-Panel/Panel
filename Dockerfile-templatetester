@@ -1,0 +1,58 @@
+FROM ubuntu:22.04 AS go
+
+ARG aptproxy=""
+ARG GOVERSION="1.24.1"
+ENV DEBIAN_FRONTEND=noninteractive
+
+WORKDIR /home/SkyPanel/build
+
+RUN apt-get update && \
+    apt-get install -y build-essential wget tar && \
+    wget https://go.dev/dl/go${GOVERSION}.linux-amd64.tar.gz && \
+    rm -rf /usr/local/go && tar -C /usr/local -xzf go*.linux-amd64.tar.gz && \
+    apt-get clean && \
+    rm -rf /var/cache/apt/archives
+
+ENV CGOENABLED=1
+ENV PATH="$PATH:/usr/local/go/bin"
+
+COPY go.mod go.sum ./
+RUN go mod download && go mod verify
+
+COPY . .
+
+ARG GOPROXY=""
+RUN go build -v -buildvcs=false -o /home/SkyPanel/templatetester github.com/SkyPanel/SkyPanel/v3/tools/templatetester
+
+FROM ubuntu:22.04 AS final
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV NODE_MAJOR=20
+
+ARG aptproxy=""
+
+RUN apt-get update && \
+    apt-get install -y dirmngr gnupg apt-transport-https ca-certificates software-properties-common curl && \
+    gpg --homedir /tmp --no-default-keyring --keyring /usr/share/keyrings/mono-official-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF && \
+    echo "deb [signed-by=/usr/share/keyrings/mono-official-archive-keyring.gpg] https://download.mono-project.com/repo/ubuntu stable-focal main" > /etc/apt/sources.list.d/mono-official-stable.list && \
+    dpkg --add-architecture i386 && \
+    mkdir -p /etc/apt/keyrings && \
+    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
+    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list && \
+    echo steam steam/question select "I AGREE" | debconf-set-selections && \
+    echo steam steam/license note '' | debconf-set-selections && \
+    apt-get update && \
+    apt-get install -y wget build-essential zip unzip tar git xz-utils nodejs lib32gcc1 libstdc++6 libstdc++6:i386 libtinfo5:i386 libncurses5:i386 libcurl3-gnutls:i386 mono-complete && \
+    apt-get clean && \
+    rm -rf /var/cache/apt/archives && \
+    useradd SkyPanel && \
+    mkdir /home/SkyPanel && \
+    chown -R SkyPanel:SkyPanel /home/SkyPanel
+
+WORKDIR /home/SkyPanel
+COPY --from=go /home/SkyPanel/templatetester /home/SkyPanel/templatetester
+
+#USER SkyPanel
+
+ENTRYPOINT ["./templatetester"]
+CMD []

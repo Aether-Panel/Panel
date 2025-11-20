@@ -1,0 +1,13 @@
+{
+  "Credentials": "Přihlašovací údaje klienta OAuth2",
+  "ClientId": "ID klienta",
+  "ClientSecret": "Tajný klíč klienta",
+  "NewClientWarning": "Zaznamenejte si tajemství klienta, po zavření tohoto dialogu se již nikdy nezobrazí. Ztrátou nebo zapomenutím bude tento klient zcela nepoužitelný.",
+  "Create": "Vytvořit nového OAuth2 klienta",
+  "UnnamedClient": "Nepojmenovaný OAuth2 klient",
+  "Docs": "Zde naleznete API dokumentaci",
+  "Clients": "OAuth2 klienty",
+  "Delete": "Smazat {clientName}?",
+  "ConfirmDelete": "Jsem si vědom důsledků, které odstranění tohoto klienta OAuth2 bude mít a bude chtít pokračovat.",
+  "AccountDescription": "OAuth2 klienti zde zdědí všechna oprávnění vašich účtů"
+}

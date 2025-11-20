@@ -1,0 +1,57 @@
+{
+  "name": "persona.noor_name.title",
+  "uuid": "f15a3e5c-26ce-48fc-a2b1-080d18d2acfa",
+  "thumbnailPath": "textures/ui/default_cast/noor_icon.png",
+  "appearance": [
+    {
+      "arm": "wide",
+      "skcol": "#ff7e5337",
+      "skin": false
+    },
+    {
+      "id": "8f96d1f8-e9bb-40d2-acc8-eb79746c5d7c/d"
+    },
+    {
+      "id": "1042557f-d1f9-44e3-ba78-f404e8fb7363/d"
+    },
+    {
+      "id": "e9be8a1f-c928-4b51-0bef-e8ea58cc9c42/d"
+    },
+    {
+      "id": "2f7834d2-d0af-8110-fa75-28e59022b34b/d"
+    },
+    {
+      "id": "01fc5519-bf48-b37c-fad1-d265ae7bc26a/d"
+    },
+    {
+      "id": "af5ca60b-dae7-3931-507e-1c6797481de1/d"
+    },
+    {
+      "id": "79100fd3-53a3-21e3-40d1-ff5447a8afd3/d"
+    },
+    {
+      "col": [ "#ff442711", "#0", "#0", "#0" ],
+      "id": "f07544af-8bab-7ed6-fe9d-8ddde78e1e2a/d"
+    },
+    {
+      "col": [ "#ff381d00", "#ff442711", "#ffe9ecec", "#0" ], // Eyes
+      "id": "a0f263b3-e093-4c85-aadb-3759417898ff/d"
+    },
+    {
+      "col": [ "#0", "#0", "#ff45220e", "#0" ], // Mouth
+      "id": "83c940ce-d7b8-4603-8d73-c1234e322cce/d"
+    },
+    {
+      "id": "17428c4c-3813-4ea1-b3a9-d6a32f83afca/de"
+    },
+    {
+      "id": "ce5c0300-7f03-455d-aaf1-352e4927b54d/de"
+    },
+    {
+      "id": "9a469a61-c83b-4ba9-b507-bdbe64430582/de"
+    },
+    {
+      "id": "4c8ae710-df2e-47cd-814d-cc7bf21a3d67/de"
+    }
+  ]
+}
