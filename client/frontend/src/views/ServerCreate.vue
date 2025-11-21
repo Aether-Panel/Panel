@@ -2,6 +2,7 @@
 import { ref, inject } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import Icon from '@/components/ui/Icon.vue'
 import SelectTemplate from '@/components/ui/serverCreateSteps/SelectTemplate.vue'
 import Environment from '@/components/ui/serverCreateSteps/Environment.vue'
 import Settings from '@/components/ui/serverCreateSteps/Settings.vue'

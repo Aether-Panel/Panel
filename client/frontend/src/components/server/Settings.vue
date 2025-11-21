@@ -81,29 +81,135 @@ function getFlagHint(name) {
 </script>
 
 <template>
-  <div class="space-y-6 p-4">
-    <h2 class="text-2xl font-bold text-foreground" v-text="t('servers.Settings')" />
-    <variables v-model="vars" :disabled="!server.hasScope('server.data.edit')" />
-    <div class="space-y-4">
-      <div class="flex items-center justify-between gap-4 pb-3 border-b-2 border-border/50">
-        <h3 class="text-xl font-semibold text-foreground m-0" v-text="t('servers.FlagsHeader')" />
-      </div>
-      <div v-for="(_, name) in flags" :key="name" class="space-y-2">
-        <toggle v-model="flags[name]" :disabled="!server.hasScope('server.flags.edit')" :label="t(`servers.flags.${name}`)" :hint="getFlagHint()" />
+  <div class="server-tab-content">
+    <div class="server-tab-section">
+      <h2 class="server-tab-title" v-text="t('servers.Settings')" />
+    </div>
+    
+    <div v-if="Object.keys(vars.data || {}).length > 0" class="server-tab-section">
+      <h3 class="server-tab-section-title">{{ t('templates.Variables') }}</h3>
+      <div class="server-tab-card">
+        <variables v-model="vars" :disabled="!server.hasScope('server.data.edit')" />
       </div>
     </div>
-    <div v-if="isMinecraftJava" class="space-y-4 mt-8">
-      <div class="flex items-center justify-between gap-4 pb-3 border-b-2 border-border/50">
-        <h3 class="text-xl font-semibold text-foreground m-0" v-text="t('plugins.PluginsSettings')" />
+    
+    <div v-if="Object.keys(flags).length > 0" class="server-tab-section">
+      <h3 class="server-tab-section-title" v-text="t('servers.FlagsHeader')" />
+      <div class="server-tab-card">
+        <div class="server-tab-card-content">
+          <toggle
+            v-for="(_, name) in flags"
+            :key="name"
+            v-model="flags[name]"
+            :disabled="!server.hasScope('server.flags.edit')"
+            :label="t(`servers.flags.${name}`)"
+            :hint="getFlagHint(name)"
+            class="server-setting-item"
+          />
+        </div>
       </div>
-      <toggle 
-        v-model="pluginsEnabled" 
-        :disabled="!server.hasScope('server.data.edit')" 
-        :label="t('plugins.EnablePluginsTab')" 
-        :hint="t('plugins.EnablePluginsTabHint')" 
-      />
     </div>
-    <div v-if="!anyItems" class="text-muted-foreground" v-text="t('servers.NoSettings')" />
-    <btn v-else color="primary" @click="save()"><icon name="save" />{{ t('servers.SaveSettings') }}</btn>
+    
+    <div v-if="isMinecraftJava" class="server-tab-section">
+      <h3 class="server-tab-section-title" v-text="t('plugins.PluginsSettings')" />
+      <div class="server-tab-card">
+        <div class="server-tab-card-content">
+          <toggle 
+            v-model="pluginsEnabled" 
+            :disabled="!server.hasScope('server.data.edit')" 
+            :label="t('plugins.EnablePluginsTab')" 
+            :hint="t('plugins.EnablePluginsTabHint')"
+            class="server-setting-item"
+          />
+        </div>
+      </div>
+    </div>
+    
+    <div v-if="!anyItems" class="server-tab-empty-state">
+      <p class="server-tab-empty-text" v-text="t('servers.NoSettings')" />
+    </div>
+    
+    <div v-if="anyItems" class="server-tab-actions">
+      <btn color="primary" @click="save()">
+        <icon name="save" />
+        {{ t('servers.SaveSettings') }}
+      </btn>
+    </div>
   </div>
 </template>
+
+<style scoped>
+.server-tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  max-width: 100%;
+}
+
+.server-tab-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: rgb(var(--color-foreground));
+  margin: 0;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid rgb(var(--color-border) / 0.5);
+}
+
+.server-tab-section {
+  width: 100%;
+}
+
+.server-tab-section-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: rgb(var(--color-foreground));
+  margin: 0 0 1rem 0;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgb(var(--color-border) / 0.3);
+}
+
+.server-tab-card {
+  background: rgb(var(--color-background));
+  border: 1px solid rgb(var(--color-border) / 0.3);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.server-tab-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.server-setting-item {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid rgb(var(--color-border) / 0.1);
+}
+
+.server-setting-item:last-child {
+  border-bottom: none;
+}
+
+.server-tab-empty-state {
+  padding: 3rem 1.5rem;
+  text-align: center;
+  background: rgb(var(--color-muted) / 0.2);
+  border: 1px solid rgb(var(--color-border) / 0.3);
+  border-radius: 0.75rem;
+}
+
+.server-tab-empty-text {
+  color: rgb(var(--color-muted-foreground));
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.server-tab-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 1rem;
+  border-top: 1px solid rgb(var(--color-border) / 0.3);
+}
+</style>

@@ -56,21 +56,30 @@ export default {
 </script>
 
 <template>
-  <div>
-    <div class="overlay-header">
+  <div class="flex flex-col h-full">
+    <div class="overlay-header flex-shrink-0">
       <h1 class="title" v-text="modelValue.name" />
-      <btn v-if="!readOnly && !((extensions[modelValue.extension] || {}).disableSave)" variant="text" @click="emit('save', {close: true})"><icon name="save" /> {{ t('common.Save') }}</btn>
-      <btn v-hotkey="'Escape'" variant="icon" @click="emit('close')"><icon name="close" /></btn>
+      <div class="flex items-center gap-2">
+        <btn v-if="!readOnly && !((extensions[modelValue.extension] || {}).disableSave)" variant="text" @click="emit('save', {close: true})">
+          <icon name="save" /> 
+          {{ t('common.Save') }}
+        </btn>
+        <btn v-hotkey="'Escape'" variant="icon" @click="emit('close')">
+          <icon name="close" />
+        </btn>
+      </div>
     </div>
-    <img v-if="getType(modelValue) === 'image'" class="file-viewer" :src="modelValue.url" />
-    <video v-else-if="getType(modelValue) === 'video'" class="file-viewer" controls>
-      <source :src="modelValue.url" />
-      <div class="warning unsupported" v-text="t('errors.VideoUnsupported')" />
-    </video>
-    <audio v-else-if="getType(modelValue) === 'audio'" class="file-viewer" controls>
-      <source :src="modelValue.url" />
-      <div class="warning unsupported" v-text="t('errors.AudioUnsupported')" />
-    </audio>
-    <ace v-else id="file-editor" :read-only="readOnly" :model-value="modelValue.content" class="file-editor" :file="modelValue.name" theme="monokai" @update:modelValue="emitUpdate" @save="emit('save', {close: false})" />
+    <div class="flex-1 overflow-auto flex items-center justify-center">
+      <img v-if="getType(modelValue) === 'image'" class="file-viewer" :src="modelValue.url" :alt="modelValue.name" />
+      <video v-else-if="getType(modelValue) === 'video'" class="file-viewer" controls>
+        <source :src="modelValue.url" />
+        <div class="warning unsupported" v-text="t('errors.VideoUnsupported')" />
+      </video>
+      <audio v-else-if="getType(modelValue) === 'audio'" class="file-viewer" controls>
+        <source :src="modelValue.url" />
+        <div class="warning unsupported" v-text="t('errors.AudioUnsupported')" />
+      </audio>
+      <ace v-else id="file-editor" :read-only="readOnly" :model-value="modelValue.content" class="file-editor" :file="modelValue.name" theme="monokai" @update:modelValue="emitUpdate" @save="emit('save', {close: false})" />
+    </div>
   </div>
 </template>

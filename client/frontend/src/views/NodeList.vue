@@ -29,6 +29,7 @@ function focusList() {
   <div 
     :class="[
       'nodelist',
+      'w-full max-w-7xl mx-auto',
       'space-y-6'
     ]"
   >

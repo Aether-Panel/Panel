@@ -193,20 +193,23 @@ function link(index, to) {
   <span 
     :class="[
       'global-search',
-      'relative inline-block'
+      'relative inline-block',
+      'w-full max-w-[180px] lg:max-w-[240px]'
     ]"
   >
-    <text-field 
-      v-model="query" 
-      v-hotkey="'/'" 
-      icon="search" 
-      @change="input()" 
-      @blur="cancel()" 
-      @keyup.up="up()" 
-      @keyup.down="down()" 
-      @keyup.enter="go()" 
-      @keyup.esc="close()" 
-    />
+    <div class="mb-0 [&>div]:mb-0 [&_input]:py-2 [&_input]:text-sm [&_input]:px-3 [&_input]:pl-8 [&>div>div]:rounded-lg [&>div>div]:h-9 [&_svg]:w-4 [&_svg]:h-4">
+      <text-field 
+        v-model="query" 
+        v-hotkey="'/'" 
+        icon="search" 
+        @change="input()" 
+        @blur="cancel()" 
+        @keyup.up="up()" 
+        @keyup.down="down()" 
+        @keyup.enter="go()" 
+        @keyup.esc="close()" 
+      />
+    </div>
     
     <!-- Resultados cargando -->
     <div 

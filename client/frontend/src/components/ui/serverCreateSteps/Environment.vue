@@ -1,7 +1,6 @@
 <script setup>
 import { ref, inject, onMounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
-import Multiselect from '@vueform/multiselect'
 import Btn from '@/components/ui/Btn.vue'
 import Icon from '@/components/ui/Icon.vue'
 import Dropdown from '@/components/ui/Dropdown.vue'
@@ -33,7 +32,11 @@ defineProps({
 onMounted(async () => {
   const self = await api.self.get()
   nextTick(() => {
-    msUsers.value.select({ value: self.username, label: self.username })
+    if (msUsers.value) {
+      users.value = [self.username]
+    } else {
+      users.value = [self.username]
+    }
   })
 
   nodes.value = (await api.node.list()).map(n => { return { value: n.id, label: n.name } })
@@ -149,52 +152,23 @@ function confirm() {
         @change="nameError = undefined" 
       />
       
-      <div 
-        :class="[
-          'dropdown-wrapper',
-          'space-y-2'
-        ]"
-      >
-        <label 
-          :class="[
-            'block text-lg font-semibold text-foreground mb-2'
-          ]"
-          for="userselect"
-          @click="msUsers && msUsers.open()"
-        >
-          {{ t('users.Users') }}
-        </label>
-        <div 
-          :class="[
-            'relative',
-            !validateUsers() ? 'border-error' : ''
-          ]"
-        >
-          <multiselect
-            id="userselect"
-            ref="msUsers"
-            v-model="users"
-            mode="tags"
-            placeholder="t('server.SearchUsers')"
-            :close-on-select="false"
-            :can-clear="false"
-            :filter-results="false"
-            :min-chars="1"
-            :resolve-on-load="false"
-            :delay="500"
-            :searchable="true"
-            :options="searchUsers"
-            :disabled="nouser"
-          />
-        </div>
-        <span 
-          v-if="!validateUsers()" 
-          :class="[
-            'block text-sm text-error'
-          ]"
-          v-text="t('servers.AtLeastOneUserRequired')" 
-        />
-      </div>
+      <dropdown
+        id="userselect"
+        ref="msUsers"
+        v-model="users"
+        mode="tags"
+        :label="t('users.Users')"
+        :search-function="searchUsers"
+        :min-chars="1"
+        :resolve-on-load="false"
+        :delay="500"
+        :close-on-select="false"
+        :can-clear="false"
+        :filter-results="false"
+        :error="!validateUsers() ? t('servers.AtLeastOneUserRequired') : undefined"
+        :disabled="nouser"
+        :placeholder="t('servers.SearchUsers') || 'Buscar usuarios...'"
+      />
       
       <dropdown 
         v-model="node" 

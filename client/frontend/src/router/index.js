@@ -33,6 +33,23 @@ export default function(api) {
       return { name: 'Login' }
     }
 
+    // Verificar permisos si la ruta requiere un permiso específico
+    // Solo verificar si el permiso NO es true (true significa acceso libre para autenticados)
+    if (to.meta && to.meta.permission && to.meta.permission !== true) {
+      if (api.auth.isLoggedIn()) {
+        // Verificar si tiene el permiso específico o es admin
+        const hasPermission = api.auth.hasScope(to.meta.permission)
+        const isAdmin = api.auth.hasScope('admin')
+        if (!hasPermission && !isAdmin) {
+          // Si no tiene permiso ni es admin, redirigir a la ruta por defecto
+          return defaultRoute(api)
+        }
+      } else {
+        // No está autenticado y la ruta requiere permiso
+        return defaultRoute(api)
+      }
+    }
+
     return true
   })
 

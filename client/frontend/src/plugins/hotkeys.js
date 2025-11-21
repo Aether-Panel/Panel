@@ -17,9 +17,15 @@ function registerHotkey (el, keys, vnode) {
 function getGroup(i, route) {
   let r = route
   if (!r) r = i.$route
+  // Verificar que i._ existe antes de acceder a sus propiedades
+  if (!i || !i._) return 'root'
+  // Verificar que root existe
+  if (!i._.root) return 'root'
   const rootId = i._.root.uid
   if (i._.uid === rootId) return 'root'
   if ((i._.type || {}).name === 'RouterView') return r.name
+  // Verificar que parent existe antes de hacer recursión
+  if (!i._.parent || !i._.parent.ctx) return 'root'
   return getGroup(i._.parent.ctx, r)
 }
 

@@ -30,6 +30,7 @@ favicon.ico
 binaries/
 SkyPanel
 pufferpanel
+skypanel
 *.jar
 *.zip
 *.so

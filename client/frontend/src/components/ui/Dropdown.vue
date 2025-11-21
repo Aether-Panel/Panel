@@ -20,7 +20,18 @@ export default {
     options: { type: Array, default: () => [] },
     type: { type: String, default: () => 'text' },
     icon: { type: String, default: () => undefined },
-    modelValue: { type: [String, Number, Object], default: () => '' }
+    modelValue: { type: [String, Number, Object, Array], default: () => '' },
+    mode: { type: String, default: () => 'single' }, // 'single' or 'tags'
+    searchFunction: { type: Function, default: () => undefined },
+    minChars: { type: Number, default: () => 0 },
+    resolveOnLoad: { type: Boolean, default: () => true },
+    delay: { type: Number, default: () => 0 },
+    disabled: { type: Boolean, default: () => false },
+    placeholder: { type: String, default: () => undefined },
+    closeOnSelect: { type: Boolean, default: () => true },
+    canClear: { type: Boolean, default: () => false },
+    canDeselect: { type: Boolean, default: () => false },
+    filterResults: { type: Boolean, default: () => true }
   },
   emits: ['update:modelValue', 'change'],
   setup() {
@@ -31,7 +42,11 @@ export default {
       nextTick(() => ms.value.select(item))
     }
 
-    return { isOpen, ms, select, markdown }
+    function open() {
+      if (ms.value) ms.value.open()
+    }
+
+    return { isOpen, ms, select, open, markdown }
   }
 }
 </script>
@@ -68,12 +83,19 @@ export default {
           ref="ms" 
           :model-value="modelValue" 
           :label="labelProp"  
-          mode="single" 
-          :can-deselect="false" 
-          :can-clear="false" 
-          :options="options" 
+          :mode="mode" 
+          :can-deselect="canDeselect" 
+          :can-clear="canClear" 
+          :options="searchFunction || options" 
           :object="object" 
-          :placeholder="label"
+          :placeholder="placeholder || label"
+          :close-on-select="closeOnSelect"
+          :filter-results="filterResults"
+          :min-chars="minChars"
+          :resolve-on-load="resolveOnLoad"
+          :delay="delay"
+          :searchable="!!searchFunction || searchFunction === undefined"
+          :disabled="disabled"
           class="multiselect-dropdown"
           @input="$emit('update:modelValue', $event); $emit('change', $event)" 
           @open="$nextTick(() => isOpen = true)" 
@@ -95,7 +117,7 @@ export default {
           'origin-top-left',
           isOpen 
             ? 'top-0 -translate-y-1/2 bg-background px-2 text-primary scale-90 font-semibold' 
-            : modelValue === null 
+            : (modelValue === null || modelValue === undefined || (Array.isArray(modelValue) && modelValue.length === 0))
               ? 'top-[1.05rem] scale-100 text-muted-foreground' 
               : 'top-0 -translate-y-1/2 bg-background px-2 text-foreground scale-90 font-semibold',
           icon && 'left-12'

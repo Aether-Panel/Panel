@@ -1,7 +1,9 @@
 package api
 
 import (
-	"github.com/gin-gonic/gin"
+	"fmt"
+	"net/http"
+
 	"github.com/SkyPanel/SkyPanel/v3/config"
 	"github.com/SkyPanel/SkyPanel/v3/logging"
 	"github.com/SkyPanel/SkyPanel/v3/middleware"
@@ -9,8 +11,8 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/response"
 	"github.com/SkyPanel/SkyPanel/v3/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/services"
+	"github.com/gin-gonic/gin"
 	"github.com/spf13/cast"
-	"net/http"
 )
 
 func registerSettings(g *gin.RouterGroup) {
@@ -207,22 +209,62 @@ func sendTestEmail(c *gin.Context) {
 }
 
 // @Summary Discord webhook test
-// @Description Tests Discord webhook settings by sending a test message
+// @Description Tests Discord webhook settings by sending a test message to all configured webhooks
 // @Success 204 {object} nil
 // @Router /api/settings/test/discord [post]
 // @Security OAuth2Application[settings.edit]
 func sendTestDiscord(c *gin.Context) {
 	ds := services.GetDiscordService()
-	
+
 	fields := []services.DiscordEmbedField{
 		{Name: "Tipo", Value: "Mensaje de Prueba", Inline: true},
 		{Name: "Estado", Value: "✅ Configuración Correcta", Inline: true},
 	}
-	
-	err := ds.SendWebhook("🧪 Test de Webhook Discord", "Este es un mensaje de prueba para verificar que el webhook de Discord está configurado correctamente.", 0x0099FF, fields)
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-		return
+
+	title := "🧪 Test de Webhook Discord"
+	description := "Este es un mensaje de prueba para verificar que el webhook de Discord está configurado correctamente."
+	color := 0x0099FF
+
+	// Enviar a los 3 webhooks si están configurados
+	var errors []string
+
+	// Webhook principal
+	if config.DiscordWebhook.Value() != "" {
+		err := ds.SendWebhookToURL(config.DiscordWebhook.Value(), title, description, color, fields)
+		if err != nil {
+			errors = append(errors, fmt.Sprintf("Webhook principal: %v", err))
+			logging.Error.Printf("Error enviando test al webhook principal: %v", err)
+		}
 	}
+
+	// Webhook del sistema
+	if config.DiscordWebhookSystem.Value() != "" {
+		err := ds.SendWebhookToURL(config.DiscordWebhookSystem.Value(), title+" (Sistema)", description+" Este es el webhook del sistema.", color, fields)
+		if err != nil {
+			errors = append(errors, fmt.Sprintf("Webhook sistema: %v", err))
+			logging.Error.Printf("Error enviando test al webhook del sistema: %v", err)
+		}
+	}
+
+	// Webhook del nodo
+	if config.DiscordWebhookNode.Value() != "" {
+		err := ds.SendWebhookToURL(config.DiscordWebhookNode.Value(), title+" (Nodo)", description+" Este es el webhook del nodo.", color, fields)
+		if err != nil {
+			errors = append(errors, fmt.Sprintf("Webhook nodo: %v", err))
+			logging.Error.Printf("Error enviando test al webhook del nodo: %v", err)
+		}
+	}
+
+	// Si hay errores y no se envió a ningún webhook, retornar error
+	if len(errors) > 0 {
+		if config.DiscordWebhook.Value() == "" && config.DiscordWebhookSystem.Value() == "" && config.DiscordWebhookNode.Value() == "" {
+			response.HandleError(c, fmt.Errorf("no hay webhooks configurados"), http.StatusBadRequest)
+			return
+		}
+		// Si hay al menos un webhook configurado pero falló, loguear pero no fallar
+		logging.Info.Printf("Algunos webhooks fallaron al enviar test: %v", errors)
+	}
+
 	c.Status(http.StatusNoContent)
 }
 

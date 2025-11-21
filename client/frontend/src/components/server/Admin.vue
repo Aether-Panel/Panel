@@ -81,11 +81,33 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="space-y-4 p-4">
-    <h2 class="text-2xl font-bold text-foreground" v-text="t('servers.Admin')" />
-    <div class="flex gap-4 flex-wrap">
-      <btn v-if="server.hasScope('server.definition.view')" v-hotkey="'a e'" variant="text" @click="editDefinition()"><icon name="edit" />{{ t('servers.EditDefinition') }}</btn>
-      <btn v-if="server.hasScope('server.delete')" color="error" @click="deleteServer()"><icon name="remove" />{{ t('servers.Delete') }}</btn>
+  <div class="server-tab-content">
+    <div class="server-tab-section">
+      <h2 class="server-tab-title" v-text="t('servers.Admin')" />
+      <p class="server-tab-subtitle" v-text="t('servers.AdminDescription') || 'Administración avanzada del servidor'" />
+    </div>
+    
+    <div class="server-tab-section">
+      <div class="server-admin-actions">
+        <btn
+          v-if="server.hasScope('server.definition.view')"
+          v-hotkey="'a e'"
+          variant="outline"
+          @click="editDefinition()"
+        >
+          <icon name="edit" />
+          {{ t('servers.EditDefinition') }}
+        </btn>
+        <btn
+          v-if="server.hasScope('server.delete')"
+          color="error"
+          variant="outline"
+          @click="deleteServer()"
+        >
+          <icon name="remove" />
+          {{ t('servers.Delete') }}
+        </btn>
+      </div>
     </div>
 
     <overlay v-model="editorOpen" class="server-definition">
@@ -120,3 +142,39 @@ onMounted(async () => {
     </overlay>
   </div>
 </template>
+
+<style scoped>
+.server-tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  max-width: 100%;
+}
+
+.server-tab-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: rgb(var(--color-foreground));
+  margin: 0 0 0.5rem 0;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid rgb(var(--color-border) / 0.5);
+}
+
+.server-tab-subtitle {
+  font-size: 0.875rem;
+  color: rgb(var(--color-muted-foreground));
+  margin: 0;
+  padding-top: 0.5rem;
+}
+
+.server-tab-section {
+  width: 100%;
+}
+
+.server-admin-actions {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+</style>

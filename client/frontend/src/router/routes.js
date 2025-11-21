@@ -119,7 +119,7 @@ export default (api) => [
     name: 'Settings',
     meta: {
       tkey: 'settings.Settings',
-      permission: 'settings.edit',
+      permission: true, // Cambiado para que cualquier usuario autenticado pueda acceder
       icon: 'settings',
       hotkey: 'g c'
     }
@@ -136,7 +136,7 @@ export default (api) => [
     meta: {
       tkey: 'uptime.Uptime',
       permission: 'admin',
-      icon: 'server',
+      icon: 'uptime',
       hotkey: 'g u'
     }
   }

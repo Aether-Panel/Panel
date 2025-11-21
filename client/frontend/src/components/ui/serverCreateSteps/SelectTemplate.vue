@@ -13,6 +13,7 @@ const templatesByRepo = ref([])
 const incompatibleTemplates = ref([])
 const showing = ref(false)
 const currentTemplate = ref({})
+const loading = ref(true)
 
 const props = defineProps({
   arch: { type: String, required: true },
@@ -40,29 +41,36 @@ function templateArchMatches(template) {
 }
 
 async function load() {
-  const repos = await api.template.listAllTemplates()
-  const compatible = []
-  const incompatible = []
-  Object.keys(repos).sort((a, b) => repos[a].id > repos[b].id).map(repo => {
-    if (repos[repo].templates.length === 0) return
-    const templates = repos[repo].templates.filter(template => {
-      return templateEnvMatches(template) &&
-        templateOsMatches(template) &&
-        templateArchMatches(template)
-    })
-    if (templates.length !== 0) compatible.push({ ...repos[repo], templates })
-    if (templates.length !== repos[repo].templates.length) {
-      incompatible.push({
-        ...repos[repo],
-        templates: undefined,
-        arch: repos[repo].templates.filter(t => !templateArchMatches(t)),
-        os: repos[repo].templates.filter(t => !templateOsMatches(t)),
-        env: repos[repo].templates.filter(t => !templateEnvMatches(t))
+  loading.value = true
+  try {
+    const repos = await api.template.listAllTemplates()
+    const compatible = []
+    const incompatible = []
+    Object.keys(repos).sort((a, b) => repos[a].id > repos[b].id).map(repo => {
+      if (repos[repo].templates.length === 0) return
+      const templates = repos[repo].templates.filter(template => {
+        return templateEnvMatches(template) &&
+          templateOsMatches(template) &&
+          templateArchMatches(template)
       })
-    }
-  })
-  templatesByRepo.value = compatible
-  incompatibleTemplates.value = incompatible
+      if (templates.length !== 0) compatible.push({ ...repos[repo], templates })
+      if (templates.length !== repos[repo].templates.length) {
+        incompatible.push({
+          ...repos[repo],
+          templates: undefined,
+          arch: repos[repo].templates.filter(t => !templateArchMatches(t)),
+          os: repos[repo].templates.filter(t => !templateOsMatches(t)),
+          env: repos[repo].templates.filter(t => !templateEnvMatches(t))
+        })
+      }
+    })
+    templatesByRepo.value = compatible
+    incompatibleTemplates.value = incompatible
+  } catch (error) {
+    console.error('Error loading templates:', error)
+  } finally {
+    loading.value = false
+  }
 }
 
 onMounted(async () => {
@@ -101,6 +109,15 @@ function choice(confirm) {
     />
     
     <div 
+      v-if="loading"
+      class="flex items-center justify-center py-12"
+    >
+      <icon name="restart" class="text-4xl text-primary animate-spin" />
+      <span class="ml-4 text-muted-foreground">{{ t('common.Loading') || 'Cargando plantillas...' }}</span>
+    </div>
+    
+    <div 
+      v-else
       :class="[
         'space-y-6'
       ]"
@@ -108,11 +125,10 @@ function choice(confirm) {
       <div 
         v-for="repo in templatesByRepo" 
         :key="repo.id" 
-        :class="['list', 'space-y-2']"
+        class="space-y-4 mb-8"
       >
         <h3 
           :class="[
-            'list-header',
             'flex items-center justify-between px-4 py-3 mb-4',
             'bg-muted/30 border-2 border-border/50 rounded-xl',
             'shadow-sm',
@@ -121,23 +137,66 @@ function choice(confirm) {
           v-text="repo.name" 
         />
         <div 
-          v-for="template in repo.templates" 
-          :key="template.name" 
-          :class="[
-            'list-item',
-            'template',
-            'cursor-pointer'
-          ]"
-          @click="show(repo.id, template.name)"
+          v-if="repo.templates && repo.templates.length > 0"
+          class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
         >
-          <span 
+          <div 
+            v-for="template in repo.templates" 
+            :key="template.name" 
             :class="[
-              'title',
-              'block text-lg font-semibold text-foreground'
+              'template-card',
+              'p-4 rounded-lg border-2 border-border/50',
+              'bg-background hover:bg-primary/5',
+              'hover:border-primary/50 cursor-pointer',
+              'transition-all duration-200',
+              'shadow-sm hover:shadow-md',
+              'flex flex-col'
             ]"
-            v-text="template.display" 
-          />
+            @click="show(repo.id, template.name)"
+          >
+            <div class="flex items-center gap-3 mb-2">
+              <icon name="file" class="text-2xl text-primary flex-shrink-0" />
+              <span 
+                :class="[
+                  'text-lg font-semibold text-foreground',
+                  'flex-1 truncate'
+                ]"
+                v-text="template.display || template.name" 
+              />
+            </div>
+            <div 
+              v-if="template.type"
+              class="mt-auto pt-3 border-t border-border/30"
+            >
+              <span 
+                :class="[
+                  'inline-block px-2 py-1 rounded text-xs font-medium',
+                  'bg-primary/10 text-primary border border-primary/20'
+                ]"
+                v-text="template.type" 
+              />
+            </div>
+          </div>
         </div>
+        <div 
+          v-else
+          class="p-8 text-center rounded-lg bg-muted/20 border border-border/30 text-muted-foreground"
+        >
+          {{ t('templates.NoTemplates') || 'No hay plantillas disponibles en este repositorio' }}
+        </div>
+      </div>
+      
+      <div 
+        v-if="templatesByRepo.length === 0"
+        class="p-12 text-center rounded-xl bg-muted/20 border-2 border-border/30"
+      >
+        <icon name="file" class="text-5xl text-muted-foreground opacity-50 mb-4 mx-auto" />
+        <p class="text-lg font-semibold text-foreground mb-2">
+          {{ t('servers.NoTemplatesAvailable') || 'No hay plantillas disponibles' }}
+        </p>
+        <p class="text-sm text-muted-foreground">
+          {{ t('servers.NoTemplatesAvailableDescription') || 'No se encontraron plantillas compatibles con el entorno seleccionado' }}
+        </p>
       </div>
     </div>
     

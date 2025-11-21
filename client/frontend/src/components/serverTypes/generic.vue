@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 
 import ServerHeader from '../server/Header.vue'
+import Controls from '../server/Controls.vue'
 
 import Btn from '@/components/ui/Btn.vue'
 import Icon from '@/components/ui/Icon.vue'
@@ -157,24 +158,30 @@ onUnmounted(() => {
 })
 </script>
 
-<template>
-  <div :class="http ? 'http-fallback' : ''">
-    <server-header :key="nameUpdateHack" :server="server" />
+            <template>
+              <div :class="http ? 'http-fallback' : ''" class="server-view-container">
+                <server-header :key="nameUpdateHack" :server="server">
+                  <template #actions>
+                    <Controls :server="server" />
+                  </template>
+                </server-header>
 
-    <tabs :key="`tabs-${pluginsEnabled}`" anchors>
-      <tab
-        v-if="server.hasScope('server.console') || server.hasScope('server.console.send')"
-        id="console"
-        :title="t('servers.Console')"
-        icon="console"
-        hotkey="t c"
-      >
-        <div v-if="http && !httpWarnDismissed" class="alert info">
-          <span v-text="t('servers.SocketWarnConsole')" />
-          <btn variant="icon" @click="httpWarnDismissed = true"><icon name="close"></icon></btn>
-        </div>
-        <Console :server="server" />
-      </tab>
+                <tabs :key="`tabs-${pluginsEnabled}`" anchors class="server-tabs-modern">
+                  <tab
+                    v-if="server.hasScope('server.console') || server.hasScope('server.console.send')"
+                    id="console"
+                    :title="t('servers.Console')"
+                    icon="console"
+                    hotkey="t c"
+                  >
+                  <div v-if="http && !httpWarnDismissed" class="alert info flex items-center justify-between gap-4">
+                    <span v-text="t('servers.SocketWarnConsole')" />
+                    <btn variant="icon" @click="httpWarnDismissed = true"><icon name="close"></icon></btn>
+                  </div>
+                  <div class="console-main-panel">
+                    <Console :server="server" />
+                  </div>
+                  </tab>
       <tab
         v-if="server.hasScope('server.stats')"
         id="stats"
@@ -260,3 +267,67 @@ onUnmounted(() => {
     </tabs>
   </div>
 </template>
+
+<style scoped>
+.server-view-container {
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.console-main-panel {
+  width: 100%;
+  min-width: 0;
+}
+
+/* Estilos para las pestañas modernas */
+.server-tabs-modern :deep(.tab-buttons) {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid rgb(var(--color-border) / 0.3);
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.server-tabs-modern :deep(.tab-buttons)::-webkit-scrollbar {
+  display: none;
+}
+
+.server-tabs-modern :deep(.tab-button) {
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgb(var(--color-muted-foreground));
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.server-tabs-modern :deep(.tab-button:hover) {
+  color: rgb(var(--color-foreground));
+  background: rgb(var(--color-muted) / 0.3);
+}
+
+.server-tabs-modern :deep(.tab-button.active) {
+  color: rgb(var(--color-primary));
+  border-bottom-color: rgb(var(--color-primary));
+  background: transparent;
+  font-weight: 600;
+}
+
+.server-tabs-modern :deep(.tab-button .icon) {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+</style>

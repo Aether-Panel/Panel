@@ -7,6 +7,7 @@ import Icon from '@/components/ui/Icon.vue'
 import TextField from '@/components/ui/TextField.vue'
 import ThemeSetting from '@/components/ui/ThemeSetting.vue'
 import Toggle from '@/components/ui/Toggle.vue'
+import Loader from '@/components/ui/Loader.vue'
 
 const emailProviderConfigs = {
   none: [],
@@ -37,7 +38,7 @@ const config = inject('config')
 const masterUrl = ref('')
 const panelTitle = ref('')
 const registrationEnabled = ref(true)
-const theme = ref('Default')
+const theme = ref('PufferPanel')
 const themeSettings = ref([])
 const discordWebhook = ref('')
 const discordWebhookSystem = ref('')
@@ -64,6 +65,9 @@ const email = ref({
   username: '',
   password: ''
 })
+
+const loading = ref(true)
+const error = ref(null)
 
 function autofillMasterUrl() {
   masterUrl.value = window.location.origin
@@ -118,25 +122,70 @@ async function testDiscordWebhook() {
   }
 }
 
+// Función auxiliar para cargar settings con manejo de errores
+async function loadSetting(key, defaultValue = '') {
+  try {
+    const value = await api.settings.get(key)
+    return value || defaultValue
+  } catch (error) {
+    console.warn(`Error loading setting ${key}:`, error)
+    return defaultValue
+  }
+}
+
 onMounted(async () => {
-  masterUrl.value = await api.settings.get('panel.settings.masterUrl')
-  panelTitle.value = await api.settings.get('panel.settings.companyName')
-  const regEnabled = await api.settings.get('panel.registrationEnabled')
-  registrationEnabled.value = (regEnabled === "true" || regEnabled === true)
-  theme.value = await api.settings.get('panel.settings.defaultTheme')
-  discordWebhook.value = await api.settings.get('panel.notifications.discordWebhook')
-  discordWebhookSystem.value = await api.settings.get('panel.notifications.discordWebhookSystem')
-  discordWebhookNode.value = await api.settings.get('panel.notifications.discordWebhookNode')
-  emailProvider.value = await api.settings.get('panel.email.provider')
-  emailProviderChanged(emailProvider.value)
-  Object.keys(email.value).map(async key => {
-    email.value[key] = await api.settings.get('panel.email.' + key)
-  })
-  await themeChanged()
-  themeSettings.value = themeApi.deserializeThemeSettings(
-    themeSettings.value,
-    await api.settings.get('panel.settings.themeSettings')
-  )
+  loading.value = true
+  error.value = null
+  
+  try {
+    // Verificar si el usuario está autenticado
+    if (!api.auth.isLoggedIn()) {
+      error.value = 'Usuario no autenticado'
+      loading.value = false
+      return
+    }
+
+    // Cargar todas las configuraciones con manejo de errores individual
+    masterUrl.value = await loadSetting('panel.settings.masterUrl', '')
+    panelTitle.value = await loadSetting('panel.settings.companyName', '')
+    const regEnabled = await loadSetting('panel.registrationEnabled', 'false')
+    registrationEnabled.value = (regEnabled === "true" || regEnabled === true)
+    theme.value = await loadSetting('panel.settings.defaultTheme', 'PufferPanel')
+    discordWebhook.value = await loadSetting('panel.notifications.discordWebhook', '')
+    discordWebhookSystem.value = await loadSetting('panel.notifications.discordWebhookSystem', '')
+    discordWebhookNode.value = await loadSetting('panel.notifications.discordWebhookNode', '')
+    emailProvider.value = await loadSetting('panel.email.provider', 'none')
+    emailProviderChanged(emailProvider.value)
+    
+    // Cargar campos de email correctamente esperando las promesas
+    const emailPromises = Object.keys(email.value).map(async key => {
+      email.value[key] = await loadSetting('panel.email.' + key, '')
+    })
+    await Promise.all(emailPromises)
+    
+    // Cargar configuración del tema
+    try {
+      await themeChanged()
+    } catch (e) {
+      console.warn('Error loading theme settings:', e)
+    }
+    
+    const themeSettingsValue = await loadSetting('panel.settings.themeSettings', '{}')
+    try {
+      themeSettings.value = themeApi.deserializeThemeSettings(
+        themeSettings.value,
+        themeSettingsValue
+      )
+    } catch (e) {
+      console.warn('Error deserializing theme settings:', e)
+      themeSettings.value = {}
+    }
+  } catch (err) {
+    console.error('Fatal error loading settings:', err)
+    error.value = err.message || String(err)
+  } finally {
+    loading.value = false
+  }
 })
 
 function updateThemeSetting(name, newSetting) {
@@ -148,9 +197,40 @@ function updateThemeSetting(name, newSetting) {
   <div 
     :class="[
       'settings',
-      'space-y-8'
+      'w-full max-w-4xl mx-auto',
+      'space-y-8',
+      'p-4'
     ]"
   >
+    <!-- Estado de carga -->
+    <div 
+      v-if="loading"
+      :class="[
+        'flex items-center justify-center',
+        'min-h-[400px]'
+      ]"
+    >
+      <loader />
+    </div>
+
+    <!-- Estado de error -->
+    <div 
+      v-else-if="error"
+      :class="[
+        'p-6',
+        'bg-error/10 border-2 border-error/30 rounded-xl',
+        'text-error-foreground'
+      ]"
+    >
+      <h2 class="text-xl font-bold mb-2">{{ t('errors.ErrUnknownError') }}</h2>
+      <p class="text-sm">{{ error }}</p>
+      <p class="text-xs mt-2 opacity-75">
+        Verifica la consola del navegador (F12 → Console) para más detalles.
+      </p>
+    </div>
+
+    <!-- Contenido principal -->
+    <template v-else>
     <div 
       :class="[
         'panel',
@@ -213,5 +293,6 @@ function updateThemeSetting(name, newSetting) {
         <btn color="primary" @click="testEmailSettings()"><icon name="test" />{{ t('settings.TestEmail' )}}</btn>
       </div>
     </div>
+    </template>
   </div>
 </template>

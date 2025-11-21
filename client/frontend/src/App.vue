@@ -20,6 +20,8 @@ const router = useRouter()
 const allowSidebar = ref(false)
 const user = ref(undefined)
 const sidebarClosed = ref(window.innerWidth < sidebarClosedBelow.value)
+const sidebarMini = ref(false)
+const sidebarRef = ref(null)
 const ltr = inject('ltr')
 const error = ref('')
 const showError = ref(false)
@@ -116,9 +118,16 @@ api._errorHandler = e => {
 onMounted(async () => {
   window.addEventListener('resize', onResize)
   events.on('confirm', handleConfirm)
+  events.on('sidebar:toggle-mini', (mini) => {
+    sidebarMini.value = mini
+  })
 
   document.documentElement.style.setProperty('--inner-height', `${window.innerHeight}px`)
   allowSidebar.value = !route.meta.noAuth
+  
+  // Inicializar el estado mini del sidebar
+  sidebarMini.value = localStorage.getItem('sidebar.mini') === 'true'
+  
   setInterval(() => {
     if (api.auth.isLoggedIn()) api.auth.reauth()
   }, 1000 * 60 * 15)
@@ -127,6 +136,13 @@ onMounted(async () => {
     api.auth.reauth()
   }
 })
+
+// Observar cambios en el sidebarRef para actualizar sidebarMini
+watch(() => sidebarRef.value?.mini, (newValue) => {
+  if (newValue !== undefined) {
+    sidebarMini.value = newValue
+  }
+}, { immediate: true, flush: 'post' })
 
 onUpdated(async () => {
   if (api.auth.isLoggedIn() && user.value == undefined) {
@@ -225,18 +241,36 @@ function handleConfirm(title, ok, cancel) {
     @hotkey="showHotkeys = !showHotkeys"
   >
     <topbar :class="allowSidebar ? 'sidebar-exists' : ''" :user="user" @toggleSidebar="sidebarClosed = !sidebarClosed" />
-    <sidebar v-if="allowSidebar" :closed="sidebarClosed" :right="!ltr" />
+    <sidebar 
+      v-if="allowSidebar" 
+      ref="sidebarRef"
+      :closed="sidebarClosed" 
+      :right="!ltr" 
+    />
     <main 
       :class="[
         'transition-all duration-300 ease-in-out',
         'pt-16 pb-6 px-4 lg:px-6',
         'min-h-screen bg-gradient-to-br from-background via-background to-muted/20',
-        allowSidebar && !sidebarClosed && !ltr ? 'lg:pl-[calc(16rem+1.5rem)]' : '',
-        allowSidebar && !sidebarClosed && ltr ? 'lg:pr-[calc(16rem+1.5rem)]' : ''
+        'flex flex-col',
+        // Padding izquierdo cuando sidebar está abierto a la izquierda
+        allowSidebar && !sidebarClosed && !ltr 
+          ? sidebarMini 
+            ? 'lg:pl-[calc(4rem+1.5rem)]' // 64px (mini) + padding
+            : 'lg:pl-[calc(16rem+1.5rem)]'   // 256px (expandido) + padding
+          : '',
+        // Padding derecho cuando sidebar está abierto a la derecha
+        allowSidebar && !sidebarClosed && ltr 
+          ? sidebarMini 
+            ? 'lg:pr-[calc(4rem+1.5rem)]' // 64px (mini) + padding
+            : 'lg:pr-[calc(16rem+1.5rem)]'   // 256px (expandido) + padding
+          : ''
       ]"
       @click="maybeCloseSidebar()"
     >
-      <router-view />
+      <div class="w-full">
+        <router-view />
+      </div>
     </main>
     <overlay v-model="showError" :title="t('common.ErrorDetails')" closable>
       <!-- eslint-disable-next-line vue/no-v-html -->

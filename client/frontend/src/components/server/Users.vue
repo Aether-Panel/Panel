@@ -107,29 +107,239 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="space-y-6 p-4">
-    <h2 class="text-2xl font-bold text-foreground" v-text="t('users.Users')" />
-    <div v-for="user in users" :key="user.email" class="rounded-xl border-2 border-border/50 bg-background p-4 space-y-4">
-      <h3 @click="user.open = !user.open" class="text-xl font-semibold text-foreground cursor-pointer hover:text-primary transition-colors" v-text="user.username" />
-      <div v-if="user.open" class="space-y-3 pl-4 border-l-2 border-border/50">
-        <toggle
-          v-for="perm in perms"
-          :key="perm.name"
-          v-model="user.scopes[perm.name]"
-          :disabled="permissionDisabled(perm.name)"
-          :label="perm.label"
-          :hint="perm.hint"
-          @update:modelValue="updatePerms(user)"
-        />
-        <div class="pt-2">
-          <btn v-if="server.hasScope('server.users.delete')" color="error" @click="deleteUser(user)" v-text="t('users.Delete')" />
+  <div class="server-tab-content">
+    <div class="server-tab-section">
+      <h2 class="server-tab-title" v-text="t('users.Users')" />
+    </div>
+    
+    <div v-if="users.length > 0" class="server-tab-section">
+      <div class="server-users-list">
+        <div
+          v-for="user in users"
+          :key="user.email"
+          class="server-user-card"
+        >
+          <div
+            class="server-user-header"
+            @click="user.open = !user.open"
+          >
+            <div class="server-user-info">
+              <h3 class="server-user-name" v-text="user.username" />
+              <span class="server-user-email" v-text="user.email" />
+            </div>
+            <icon
+              :name="user.open ? 'chevron-down' : 'chevron-right'"
+              class="server-user-chevron"
+            />
+          </div>
+          <div v-if="user.open" class="server-user-permissions">
+            <div class="server-permissions-grid">
+              <toggle
+                v-for="perm in perms"
+                :key="perm.name"
+                v-model="user.scopes[perm.name]"
+                :disabled="permissionDisabled(perm.name)"
+                :label="perm.label"
+                :hint="perm.hint"
+                class="server-permission-item"
+                @update:modelValue="updatePerms(user)"
+              />
+            </div>
+            <div class="server-user-actions">
+              <btn
+                v-if="server.hasScope('server.users.delete')"
+                color="error"
+                variant="outline"
+                @click="deleteUser(user)"
+              >
+                <icon name="remove" />
+                {{ t('users.Delete') }}
+              </btn>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-    <div v-if="users.length === 0" class="text-center py-8 text-muted-foreground" v-text="t('servers.NoUsers')" />
-    <div v-if="server.hasScope('server.users.create')" class="space-y-4 p-4 rounded-xl border-2 border-border/50 bg-background">
-      <text-field v-model="newEmail" type="email" icon="email" :label="t('users.Email')" />
-      <btn color="primary" @click="sendInvite()"><icon name="plus" />{{ t('servers.InviteUser') }}</btn>
+    
+    <div v-else class="server-tab-empty-state">
+      <p class="server-tab-empty-text" v-text="t('servers.NoUsers')" />
+    </div>
+    
+    <div v-if="server.hasScope('server.users.create')" class="server-tab-section">
+      <h3 class="server-tab-section-title">{{ t('servers.InviteUser') }}</h3>
+      <div class="server-tab-card">
+        <div class="server-invite-form">
+          <text-field
+            v-model="newEmail"
+            type="email"
+            icon="email"
+            :label="t('users.Email')"
+            class="server-invite-email"
+          />
+          <btn color="primary" @click="sendInvite()">
+            <icon name="plus" />
+            {{ t('servers.InviteUser') }}
+          </btn>
+        </div>
+      </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.server-tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  max-width: 100%;
+}
+
+.server-tab-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: rgb(var(--color-foreground));
+  margin: 0;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid rgb(var(--color-border) / 0.5);
+}
+
+.server-tab-section {
+  width: 100%;
+}
+
+.server-tab-section-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: rgb(var(--color-foreground));
+  margin: 0 0 1rem 0;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgb(var(--color-border) / 0.3);
+}
+
+.server-users-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.server-user-card {
+  background: rgb(var(--color-background));
+  border: 1px solid rgb(var(--color-border) / 0.3);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease-in-out;
+}
+
+.server-user-card:hover {
+  border-color: rgb(var(--color-border));
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.server-user-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  padding: 0.5rem 0;
+}
+
+.server-user-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.server-user-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgb(var(--color-foreground));
+  margin: 0 0 0.25rem 0;
+}
+
+.server-user-email {
+  display: block;
+  font-size: 0.875rem;
+  color: rgb(var(--color-muted-foreground));
+}
+
+.server-user-chevron {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: rgb(var(--color-muted-foreground));
+  transition: transform 0.2s ease-in-out;
+  flex-shrink: 0;
+}
+
+.server-user-header:hover .server-user-chevron {
+  color: rgb(var(--color-primary));
+}
+
+.server-user-permissions {
+  padding-top: 1rem;
+  margin-top: 1rem;
+  border-top: 1px solid rgb(var(--color-border) / 0.3);
+}
+
+.server-permissions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.server-permission-item {
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  transition: background 0.2s ease-in-out;
+}
+
+.server-permission-item:hover {
+  background: rgb(var(--color-muted) / 0.3);
+}
+
+.server-user-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 1rem;
+  border-top: 1px solid rgb(var(--color-border) / 0.2);
+}
+
+.server-tab-card {
+  background: rgb(var(--color-background));
+  border: 1px solid rgb(var(--color-border) / 0.3);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.server-invite-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.server-invite-email {
+  flex: 1;
+}
+
+.server-tab-empty-state {
+  padding: 3rem 1.5rem;
+  text-align: center;
+  background: rgb(var(--color-muted) / 0.2);
+  border: 1px solid rgb(var(--color-border) / 0.3);
+  border-radius: 0.75rem;
+}
+
+.server-tab-empty-text {
+  color: rgb(var(--color-muted-foreground));
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+@media (max-width: 768px) {
+  .server-permissions-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

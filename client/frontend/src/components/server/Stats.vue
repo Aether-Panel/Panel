@@ -334,13 +334,55 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="space-y-6 p-4">
-    <Query :server="server" />
-    <div class="rounded-xl border-2 border-border/50 bg-background p-4 aspect-video">
-      <canvas ref="memoryChartEl"/>
+  <div class="server-tab-content">
+    <div class="server-tab-section">
+      <Query :server="server" />
     </div>
-    <div class="rounded-xl border-2 border-border/50 bg-background p-4 aspect-video">
-      <canvas ref="cpuChartEl"/>
+    <div class="server-tab-section">
+      <h3 class="server-tab-section-title">{{ t('servers.Memory') }}</h3>
+      <div class="server-chart-container">
+        <canvas ref="memoryChartEl"/>
+      </div>
+    </div>
+    <div class="server-tab-section">
+      <h3 class="server-tab-section-title">{{ t('servers.CPU') }}</h3>
+      <div class="server-chart-container">
+        <canvas ref="cpuChartEl"/>
+      </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.server-tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  max-width: 100%;
+}
+
+.server-tab-section {
+  width: 100%;
+}
+
+.server-tab-section-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: rgb(var(--color-foreground));
+  margin: 0 0 1rem 0;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgb(var(--color-border) / 0.3);
+}
+
+.server-chart-container {
+  width: 100%;
+  background: rgb(var(--color-background));
+  border: 1px solid rgb(var(--color-border) / 0.3);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  aspect-ratio: 16/9;
+  min-height: 300px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+</style>

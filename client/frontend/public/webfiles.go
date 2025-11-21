@@ -2,5 +2,5 @@ package dist
 
 import "embed"
 
-//go:embed *
+//go:embed all:*
 var ClientFiles embed.FS

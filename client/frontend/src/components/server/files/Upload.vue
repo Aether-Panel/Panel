@@ -99,21 +99,21 @@ async function uploadFiles(event) {
     <btn v-hotkey="hotkey" variant="icon" :tooltip="t(folder ? 'files.UploadFolder' : 'files.UploadFile')" @click="trigger()">
       <icon :name="folder ? 'folder-upload' : 'file-upload'" />
     </btn>
-    <input ref="input" type="file" multiple :webkitdirectory="folder" @change="uploadFiles" />
+    <input ref="input" type="file" multiple :webkitdirectory="folder" class="hidden" @change="uploadFiles" />
     <overlay v-model="uploading" class="file-upload-progress" :title="t('files.UploadProgress')">
-      <div v-if="uploadState.state === 'preparing'">
+      <div v-if="uploadState && uploadState.state === 'preparing'" class="space-y-4">
         <div class="progress">
           <span v-text="t('files.PreparingUpload')" />
-          <progress />
+          <progress class="w-full h-3 rounded-full" />
         </div>
       </div>
-      <div v-if="uploadState.state === 'create folders'">
+      <div v-if="uploadState && uploadState.state === 'create folders'" class="space-y-4">
         <div class="progress">
           <span v-text="t('files.CreatingFolders')" />
-          <progress />
+          <progress class="w-full h-3 rounded-full" />
         </div>
       </div>
-      <div v-if="uploadState.state === 'upload files'">
+      <div v-if="uploadState && uploadState.state === 'upload files'" class="space-y-4">
         <div class="upload-file-count" v-text="t('files.CurrentlyUploading', { current: uploadState.current, total: uploadState.total })" />
         <div class="upload-file-name" v-text="uploadState.files[uploadState.current].name" />
         <div class="progress">
@@ -121,6 +121,7 @@ async function uploadFiles(event) {
           <progress
             :max="uploadState.files[uploadState.current].size"
             :value="uploadState.files[uploadState.current].progress"
+            class="w-full h-3 rounded-full"
           />
         </div>
         <div class="progress">
@@ -128,6 +129,7 @@ async function uploadFiles(event) {
           <progress
             :max="uploadState.files.reduce((a, b) => a + b.size, 0)"
             :value="uploadState.files.reduce((a, b) => a + b.progress, 0)"
+            class="w-full h-3 rounded-full"
           />
         </div>
       </div>

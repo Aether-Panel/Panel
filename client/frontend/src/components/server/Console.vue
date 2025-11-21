@@ -125,32 +125,201 @@ function nextCommand() {
     command.value = history.value[historyIndex.value]
   }
 }
-
 </script>
 
+<style scoped>
+.console-container {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 18rem);
+  min-height: 500px;
+  max-height: 800px;
+  background: rgb(var(--color-background));
+  border: 1px solid rgb(var(--color-border) / 0.3);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.console-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid rgb(var(--color-border) / 0.3);
+  background: rgb(var(--color-muted) / 0.3);
+  flex-shrink: 0;
+}
+
+.console-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: rgb(var(--color-foreground));
+  margin: 0;
+}
+
+.console-clear-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: rgb(var(--color-muted-foreground));
+  cursor: pointer;
+  border-radius: 0.375rem;
+  transition: all 0.2s ease-in-out;
+}
+
+.console-clear-btn:hover {
+  background: rgb(var(--color-error) / 0.1);
+  color: rgb(var(--color-error));
+}
+
+.console-output {
+  flex: 1;
+  overflow: hidden;
+  background: rgb(var(--color-background));
+  border-bottom: 1px solid rgb(var(--color-border) / 0.3);
+}
+
+.console-content {
+  height: 100%;
+  padding: 1rem 1.25rem;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: rgb(var(--color-foreground));
+  overflow-y: auto;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--color-border)) transparent;
+}
+
+.console-content::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.console-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.console-content::-webkit-scrollbar-thumb {
+  background: rgb(var(--color-border));
+  border-radius: 4px;
+}
+
+.console-content::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--color-primary) / 0.5);
+}
+
+.console-input-wrapper {
+  flex-shrink: 0;
+  padding: 1rem 1.25rem;
+  background: rgb(var(--color-muted) / 0.2);
+  border-top: 1px solid rgb(var(--color-border) / 0.3);
+}
+
+.console-input-container {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.console-input-field {
+  flex: 1;
+}
+
+.console-send-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  border: none;
+  background: rgb(var(--color-primary));
+  color: rgb(var(--color-primary-foreground));
+  cursor: pointer;
+  border-radius: 0.5rem;
+  transition: all 0.2s ease-in-out;
+  flex-shrink: 0;
+}
+
+.console-send-btn:hover {
+  background: rgb(var(--color-primary) / 0.9);
+  transform: translateX(2px);
+}
+
+.console-send-btn:active {
+  transform: translateX(4px);
+}
+
+/* Estilos para el contenido de la consola */
+.console-content :deep(div) {
+  margin: 0;
+  padding: 0.125rem 0;
+  word-break: break-all;
+}
+
+.console-content :deep(span) {
+  display: inline;
+}
+</style>
+
 <template>
-  <div class="space-y-4 p-4">
-    <div class="flex items-center justify-between gap-4">
-      <h2 class="text-2xl font-bold text-foreground" v-text="t('servers.Console')" />
-      <icon v-if="server.hasScope('server.console')" v-hotkey="'c x'" name="clear-console" class="cursor-pointer text-muted-foreground hover:text-foreground transition-colors" @click="clearConsole()" />
+  <div class="console-container">
+    <!-- Header minimalista -->
+    <div class="console-header">
+      <h2 class="console-title" v-text="t('servers.Console')" />
+      <button
+        v-if="server.hasScope('server.console')"
+        v-hotkey="'c x'"
+        class="console-clear-btn"
+        :title="t('servers.ClearConsole')"
+        @click="clearConsole()"
+      >
+        <icon name="close" />
+      </button>
     </div>
-    <div v-if="server.hasScope('server.console')" dir="ltr" class="rounded-xl border-2 border-border/50 bg-background p-4 font-mono text-sm overflow-auto max-h-[600px]">
-      <div ref="console" class="console" />
+    
+    <!-- Área de consola -->
+    <div 
+      v-if="server.hasScope('server.console')" 
+      dir="ltr" 
+      class="console-output"
+    >
+      <div ref="console" class="console-content" />
     </div>
-    <div v-if="server.hasScope('server.console.send')" dir="ltr" class="flex gap-2 items-end">
-      <div class="flex-1">
+    
+    <!-- Input de comandos -->
+    <div 
+      v-if="server.hasScope('server.console.send')" 
+      dir="ltr" 
+      class="console-input-wrapper"
+    >
+      <div class="console-input-container">
         <text-field
           v-model="command"
           v-hotkey="'c c'"
           :label="t('servers.Command')"
+          :placeholder="t('servers.EnterCommand')"
+          class="console-input-field"
           @keyup.enter="sendCommand()"
           @keydown.up.prevent="previousCommand()"
           @keydown.down.prevent="nextCommand()"
         />
+        <button
+          class="console-send-btn"
+          :title="t('servers.SendCommand')"
+          @click="sendCommand()"
+        >
+          <icon name="chevron-right" />
+        </button>
       </div>
-      <btn variant="icon" :tooltip="t('servers.SendCommand')" @click="sendCommand()">
-        <icon name="send" />
-      </btn>
     </div>
   </div>
 </template>

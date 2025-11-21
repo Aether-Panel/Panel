@@ -1886,6 +1886,13 @@ object-hash@^3.0.0:
   resolved "https://registry.yarnpkg.com/object-hash/-/object-hash-3.0.0.tgz#73f97f753e7baffc0e2cc9d6e079079744ac82e9"
   integrity sha512-RSn9F68PjH9HqtltsSnqYC1XXoWe9Bju5+213R98cNGttag9q9yAOTzdbsqvIa7aNm5WffBZFpWYr2aWrklWAw==
 
+oh-vue-icons@^1.0.0-rc3:
+  version "1.0.0-rc3"
+  resolved "https://registry.yarnpkg.com/oh-vue-icons/-/oh-vue-icons-1.0.0-rc3.tgz#63be64dd0da11a1b278d612a4f2a25ba692628f6"
+  integrity sha512-+k2YC6piK7sEZnwbkQF3UokFPMmgqpiLP6f/H0ovQFLl20QA5V4U8EcI6EclD2Lt5NMQ3k6ilLGo8XyXqdVSvg==
+  dependencies:
+    vue-demi "^0.12.5"
+
 optionator@^0.9.3:
   version "0.9.4"
   resolved "https://registry.yarnpkg.com/optionator/-/optionator-0.9.4.tgz#7ea1c1a5d91d764fb282139c88fe11e182a3a734"
@@ -2412,6 +2419,11 @@ vite@^7.1.4:
     tinyglobby "^0.2.14"
   optionalDependencies:
     fsevents "~2.3.3"
+
+vue-demi@^0.12.5:
+  version "0.12.5"
+  resolved "https://registry.yarnpkg.com/vue-demi/-/vue-demi-0.12.5.tgz#8eeed566a7d86eb090209a11723f887d28aeb2d1"
+  integrity sha512-BREuTgTYlUr0zw0EZn3hnhC3I6gPWv+Kwh4MCih6QcAeaTlaIX0DwOVN0wHej7hSvDPecz4jygy/idsgKfW58Q==
 
 vue-eslint-parser@^10.2.0:
   version "10.2.0"
