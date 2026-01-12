@@ -175,6 +175,7 @@ function updateThemeSetting(name, newSetting) {
     v-else 
     :class="[
       'self',
+      'max-w-4xl mx-auto px-6 py-8',
       'space-y-6'
     ]"
   >

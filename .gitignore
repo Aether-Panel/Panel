@@ -29,7 +29,7 @@ favicon.ico
 # Binarios y archivos grandes
 binaries/
 SkyPanel
-pufferpanel
+SkyPanel
 skypanel
 *.jar
 *.zip
@@ -42,3 +42,4 @@ servers/*/*.jar
 servers/*/bedrock-server-*.zip
 
 *.mca
+servers/

@@ -1,0 +1,44 @@
+version: '3.8'
+
+# Configuración para desarrollo/pruebas
+# Uso: docker-compose -f docker-compose.dev.yml up
+
+services:
+  skypanel:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - version=dev-local
+        - sha=dev
+    container_name: skypanel-dev
+    restart: "no" # No reiniciar automáticamente en desarrollo
+
+    ports:
+      - "8080:8080" # Panel web
+      - "5657:5657" # SFTP
+      - "8081:8081" # Gatus
+
+    volumes:
+      # Volúmenes locales para desarrollo
+      # - ./dev-data/config:/etc/SkyPanel:z  <-- Comentado para usar config interno
+      - ./dev-data/data:/var/lib/SkyPanel:z
+      - ./dev-data/logs:/var/log/SkyPanel:z
+      # Socket de Docker
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+    environment:
+      - GIN_MODE=debug
+      - PUFFER_PLATFORM=docker
+      - PUFFER_WEB_HOST=0.0.0.0:8080
+      - PUFFER_PANEL_REGISTRATIONENABLED=true
+      - PUFFER_PANEL_SETTINGS_COMPANYNAME=SkyPanel Dev
+      - PUFFER_PANEL_SETTINGS_DEFAULTTHEME=SkyPanel
+      - PUFFER_LOGS_LEVEL=DEBUG
+
+    networks:
+      - skypanel-dev
+
+networks:
+  skypanel-dev:
+    driver: bridge

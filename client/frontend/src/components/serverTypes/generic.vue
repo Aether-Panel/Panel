@@ -160,11 +160,12 @@ onUnmounted(() => {
 
             <template>
               <div :class="http ? 'http-fallback' : ''" class="server-view-container">
-                <server-header :key="nameUpdateHack" :server="server">
-                  <template #actions>
+                <div class="server-header-controls-grid">
+                  <server-header :key="nameUpdateHack" :server="server" />
+                  <div class="server-controls-section">
                     <Controls :server="server" />
-                  </template>
-                </server-header>
+                  </div>
+                </div>
 
                 <tabs :key="`tabs-${pluginsEnabled}`" anchors class="server-tabs-modern">
                   <tab
@@ -269,12 +270,47 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.server-header-controls-grid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1rem;
+  align-items: start;
+  margin-bottom: 1rem;
+}
+
+.server-controls-section {
+  display: flex;
+  justify-content: flex-end;
+  min-width: 200px;
+}
+
+.server-controls-section :deep(.server-actions-panel) {
+  width: 100%;
+  max-width: 200px;
+}
+
 .server-view-container {
   width: 100%;
   max-width: 100%;
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+@media (max-width: 1024px) {
+  .server-header-controls-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .server-controls-section {
+    min-width: auto;
+    width: 100%;
+  }
+  
+  .server-controls-section :deep(.server-actions-panel) {
+    max-width: 100%;
+  }
 }
 
 .console-main-panel {

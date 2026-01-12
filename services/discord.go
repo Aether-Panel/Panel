@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/SkyPanel/SkyPanel/v3/config"
-	"github.com/SkyPanel/SkyPanel/v3/logging"
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/SkyPanel/SkyPanel/v3/config"
+	"github.com/SkyPanel/SkyPanel/v3/logging"
 )
 
 var discordServiceInstance *DiscordService
@@ -16,18 +17,18 @@ var discordServiceInstance *DiscordService
 type DiscordService struct{}
 
 type DiscordWebhookPayload struct {
-	Content   string                `json:"content,omitempty"`
-	Username  string                `json:"username,omitempty"`
-	Embeds    []DiscordEmbed        `json:"embeds,omitempty"`
+	Content  string         `json:"content,omitempty"`
+	Username string         `json:"username,omitempty"`
+	Embeds   []DiscordEmbed `json:"embeds,omitempty"`
 }
 
 type DiscordEmbed struct {
-	Title       string                `json:"title,omitempty"`
-	Description string                `json:"description,omitempty"`
-	Color       int                   `json:"color,omitempty"`
-	Fields      []DiscordEmbedField   `json:"fields,omitempty"`
-	Timestamp   string                `json:"timestamp,omitempty"`
-	Footer      *DiscordEmbedFooter   `json:"footer,omitempty"`
+	Title       string              `json:"title,omitempty"`
+	Description string              `json:"description,omitempty"`
+	Color       int                 `json:"color,omitempty"`
+	Fields      []DiscordEmbedField `json:"fields,omitempty"`
+	Timestamp   string              `json:"timestamp,omitempty"`
+	Footer      *DiscordEmbedFooter `json:"footer,omitempty"`
 }
 
 type DiscordEmbedField struct {
@@ -142,10 +143,10 @@ func (ds *DiscordService) SendResourceAlert(serverName, serverID, resourceType s
 		{Name: "Uso Actual", Value: fmt.Sprintf("%.1f%%", currentValue), Inline: true},
 		{Name: "Umbral", Value: fmt.Sprintf("%.1f%%", threshold), Inline: true},
 	}
-	
+
 	title := fmt.Sprintf("⚠️ Alto Uso de %s", resourceType)
 	description := fmt.Sprintf("El servidor **%s** está usando **%.1f%%** de %s (umbral: %.1f%%)", serverName, currentValue, resourceType, threshold)
-	
+
 	return ds.SendAlert(title, description, fields)
 }
 
@@ -156,10 +157,10 @@ func (ds *DiscordService) SendBackupAlert(serverName, serverID, status string, i
 		{Name: "ID", Value: serverID, Inline: true},
 		{Name: "Estado", Value: status, Inline: true},
 	}
-	
+
 	var title, description string
 	var color int
-	
+
 	if isSuccess {
 		title = "✅ Backup Completado"
 		description = fmt.Sprintf("El backup del servidor **%s** se completó exitosamente.", serverName)
@@ -169,7 +170,7 @@ func (ds *DiscordService) SendBackupAlert(serverName, serverID, status string, i
 		description = fmt.Sprintf("El backup del servidor **%s** falló: %s", serverName, status)
 		color = 0xFF0000 // Rojo
 	}
-	
+
 	return ds.SendWebhook(title, description, color, fields)
 }
 
@@ -213,7 +214,7 @@ func (ds *DiscordService) SendSystemStatus(servers []ServerInfo) error {
 	// Crear descripción principal
 	description := fmt.Sprintf("**Total de Servidores:** %d\n", totalServers)
 	description += fmt.Sprintf("🟢 **Online:** %d | 🔴 **Offline:** %d\n", onlineServers, offlineServers)
-	
+
 	if onlineCount > 0 {
 		description += fmt.Sprintf("\n**Promedio de Recursos (Servidores Online):**\n")
 		description += fmt.Sprintf("• CPU: %.1f%%\n", avgCPU)
@@ -230,28 +231,28 @@ func (ds *DiscordService) SendSystemStatus(servers []ServerInfo) error {
 	fields := make([]DiscordEmbedField, 0)
 	for i := 0; i < serversToShow; i++ {
 		s := servers[i]
-		
+
 		statusEmoji := "🔴"
 		if s.IsRunning {
 			statusEmoji = "🟢"
 		}
-		
+
 		memoryStr := fmt.Sprintf("%.1f MB", s.Memory/1024/1024)
 		if s.Memory < 1024*1024*10 { // Si es menor a 10 MB, mostrar como porcentaje
 			memoryStr = fmt.Sprintf("%.1f%%", s.Memory)
 		}
-		
+
 		statusText := "Offline"
 		if s.IsRunning {
 			statusText = "Online"
 		}
-		
-		value := fmt.Sprintf("%s %s\nCPU: %.1f%% | RAM: %s", 
-			statusEmoji, 
-			statusText, 
-			s.CPU, 
+
+		value := fmt.Sprintf("%s %s\nCPU: %.1f%% | RAM: %s",
+			statusEmoji,
+			statusText,
+			s.CPU,
 			memoryStr)
-		
+
 		fields = append(fields, DiscordEmbedField{
 			Name:   s.Name,
 			Value:  value,
@@ -267,7 +268,7 @@ func (ds *DiscordService) SendSystemStatus(servers []ServerInfo) error {
 	}
 
 	color := 0x3498DB // Azul para status general
-	
+
 	embed := DiscordEmbed{
 		Title:       "📊 Estado del Sistema",
 		Description: description,
@@ -401,7 +402,7 @@ func (ds *DiscordService) SendNodeStatus(totalServers, onlineServers, offlineSer
 		memUsagePercent := float64(memUsed) / float64(memTotal) * 100.0
 		fields = append(fields, DiscordEmbedField{Name: "RAM Total", Value: formatBytes(memTotal), Inline: true})
 		fields = append(fields, DiscordEmbedField{Name: "RAM Usada", Value: fmt.Sprintf("%s (%.1f%%)", formatBytes(memUsed), memUsagePercent), Inline: true})
-		fields = append(fields, DiscordEmbedField{Name: "RAM Libre", Value: formatBytes(memTotal-memUsed), Inline: true})
+		fields = append(fields, DiscordEmbedField{Name: "RAM Libre", Value: formatBytes(memTotal - memUsed), Inline: true})
 	}
 
 	// Sistema operativo
@@ -418,4 +419,3 @@ func (ds *DiscordService) SendNodeStatus(totalServers, onlineServers, offlineSer
 
 	return ds.SendWebhookToURL(webhookURL, "🖥️ Estado del Nodo", description, color, fields)
 }
-

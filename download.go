@@ -3,13 +3,14 @@ package SkyPanel
 import (
 	"crypto"
 	"fmt"
-	"github.com/SkyPanel/SkyPanel/v3/config"
-	"github.com/SkyPanel/SkyPanel/v3/logging"
-	"github.com/SkyPanel/SkyPanel/v3/utils"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/SkyPanel/SkyPanel/v3/config"
+	"github.com/SkyPanel/SkyPanel/v3/logging"
+	"github.com/SkyPanel/SkyPanel/v3/utils"
 )
 
 func DownloadFile(url, fileName string, env *Environment) error {
@@ -156,7 +157,7 @@ func DownloadHash(hashUrl string, algorithm crypto.Hash) (string, error) {
 	if err != nil {
 		return "", err
 	} else {
-		data := make([]byte, algorithm.Size() * 2)
+		data := make([]byte, algorithm.Size()*2)
 		_, err := response.Body.Read(data)
 		if err != nil {
 			return "", err

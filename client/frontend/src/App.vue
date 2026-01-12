@@ -8,6 +8,7 @@ import Icon from '@/components/ui/Icon.vue'
 import Overlay from '@/components/ui/Overlay.vue'
 import Topbar from '@/components/ui/Topbar.vue'
 import Sidebar from '@/components/ui/Sidebar.vue'
+import Footer from '@/components/ui/Footer.vue'
 
 const api = inject('api')
 const toast = inject('toast')
@@ -158,10 +159,21 @@ onUnmounted(() => {
 })
 
 watch(
+  () => route.path,
+  async () => {
+    maybeCloseSidebar()
+    // Ocultar sidebar normal si estamos en /admin
+    allowSidebar.value = !route.meta.noAuth && !route.path.startsWith('/admin')
+  },
+  { immediate: true }
+)
+
+watch(
   () => route.meta,
   async newMeta => {
     maybeCloseSidebar()
-    allowSidebar.value = !newMeta.noAuth
+    // Ocultar sidebar normal si estamos en /admin
+    allowSidebar.value = !newMeta.noAuth && !route.path.startsWith('/admin')
   }
 )
 
@@ -237,7 +249,7 @@ function handleConfirm(title, ok, cancel) {
   <div 
     id="root" 
     v-hotkey="['?', 'Shift+?']" 
-    :class="themeClasses"
+    :class="[themeClasses, 'flex flex-col min-h-screen']"
     @hotkey="showHotkeys = !showHotkeys"
   >
     <topbar :class="allowSidebar ? 'sidebar-exists' : ''" :user="user" @toggleSidebar="sidebarClosed = !sidebarClosed" />
@@ -249,21 +261,18 @@ function handleConfirm(title, ok, cancel) {
     />
     <main 
       :class="[
-        'transition-all duration-300 ease-in-out',
-        'pt-16 pb-6 px-4 lg:px-6',
-        'min-h-screen bg-gradient-to-br from-background via-background to-muted/20',
-        'flex flex-col',
+        'pt-12 pb-6 px-4 lg:px-6',
+        'bg-background',
+        'flex flex-col flex-grow',
+        // Padding fijo basado en el ancho máximo del sidebar (expandido)
+        // Esto evita que el contenido se mueva cuando el sidebar se colapsa/expande
         // Padding izquierdo cuando sidebar está abierto a la izquierda
         allowSidebar && !sidebarClosed && !ltr 
-          ? sidebarMini 
-            ? 'lg:pl-[calc(4rem+1.5rem)]' // 64px (mini) + padding
-            : 'lg:pl-[calc(16rem+1.5rem)]'   // 256px (expandido) + padding
+          ? 'md:pl-[calc(16rem+1.5rem)] lg:pl-[calc(16rem+1.5rem)]'   // 256px (expandido) + padding - siempre fijo
           : '',
         // Padding derecho cuando sidebar está abierto a la derecha
         allowSidebar && !sidebarClosed && ltr 
-          ? sidebarMini 
-            ? 'lg:pr-[calc(4rem+1.5rem)]' // 64px (mini) + padding
-            : 'lg:pr-[calc(16rem+1.5rem)]'   // 256px (expandido) + padding
+          ? 'md:pr-[calc(16rem+1.5rem)] lg:pr-[calc(16rem+1.5rem)]'   // 256px (expandido) + padding - siempre fijo
           : ''
       ]"
       @click="maybeCloseSidebar()"
@@ -272,6 +281,7 @@ function handleConfirm(title, ok, cancel) {
         <router-view />
       </div>
     </main>
+    <Footer />
     <overlay v-model="showError" :title="t('common.ErrorDetails')" closable>
       <!-- eslint-disable-next-line vue/no-v-html -->
       <div dir="ltr" v-html="error" />

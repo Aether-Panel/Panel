@@ -1,0 +1,30 @@
+{
+  "Admin": "Administración",
+  "Dashboard": "Panel de Control",
+  "AdminDescription": "Panel de administración del sistema",
+  "QuickActions": "Acciones rápidas",
+  "SystemInfo": "Información del sistema",
+  "PanelVersion": "Versión del panel",
+  "TotalServers": "Total de servidores",
+  "TotalUsers": "Total de usuarios",
+  "TotalNodes": "Total de nodos",
+  "TotalTemplates": "Total de plantillas",
+  "BackToPanel": "Volver al panel",
+  "charts": {
+    "ServerStatus": "Estado de Servidores",
+    "ResourceUsage": "Uso de Recursos",
+    "SystemResources": "Recursos del Sistema",
+    "Online": "En Línea",
+    "Offline": "Fuera de Línea",
+    "Installing": "Instalando",
+    "Memory": "Memoria",
+    "CPU": "CPU",
+    "Disk": "Disco",
+    "Used": "Usado",
+    "Available": "Disponible",
+    "Total": "Total",
+    "NetworkTraffic": "Tráfico de Red",
+    "NetworkSent": "Enviado",
+    "NetworkRecv": "Recibido"
+  }
+}

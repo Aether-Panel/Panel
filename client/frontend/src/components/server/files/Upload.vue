@@ -97,7 +97,7 @@ async function uploadFiles(event) {
 <template>
   <div>
     <btn v-hotkey="hotkey" variant="icon" :tooltip="t(folder ? 'files.UploadFolder' : 'files.UploadFile')" @click="trigger()">
-      <icon :name="folder ? 'folder-upload' : 'file-upload'" />
+      <icon :name="folder ? 'hi-folder-open' : 'hi-arrow-up'" />
     </btn>
     <input ref="input" type="file" multiple :webkitdirectory="folder" class="hidden" @change="uploadFiles" />
     <overlay v-model="uploading" class="file-upload-progress" :title="t('files.UploadProgress')">

@@ -2,15 +2,16 @@ package SkyPanel
 
 import (
 	"fmt"
-	"github.com/SkyPanel/SkyPanel/v3/config"
-	"github.com/SkyPanel/SkyPanel/v3/connections"
-	"github.com/SkyPanel/SkyPanel/v3/logging"
 	"io"
 	"log"
 	"os"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/SkyPanel/SkyPanel/v3/config"
+	"github.com/SkyPanel/SkyPanel/v3/connections"
+	"github.com/SkyPanel/SkyPanel/v3/logging"
 )
 
 type EnvironmentImpl interface {

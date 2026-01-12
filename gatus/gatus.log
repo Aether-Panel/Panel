@@ -1,0 +1,10 @@
+2025/12/05 02:27:37 [main.configureLogging] Defaulting log level to INFO
+2025/12/05 02:27:37 [config.LoadConfiguration] Reading configuration from configFile=config.yaml
+2025/12/05 02:27:37 [config.ValidateAlertingConfig] Alerting is not configured
+2025/12/05 02:27:37 [config.ValidateEndpointsConfig] Validated 2 endpoints
+2025/12/05 02:27:37 [config.ValidateEndpointsConfig] Validated 0 external endpoints
+2025/12/05 02:27:37 [config.ValidateSuitesConfig] No suites configured
+2025/12/05 02:27:37 [store.Initialize] Creating storage provider of type=memory
+2025/12/05 02:27:37 [main.initializeStorage] Total endpoint keys to preserve: 2
+2025/12/05 02:27:37 [controller.Handle] Listening on 0.0.0.0:8081
+2025/12/05 02:27:37 [controller.Handle] failed to listen: listen tcp 0.0.0.0:8081: bind: address already in use

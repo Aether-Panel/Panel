@@ -1,0 +1,33 @@
+endpoints:
+    - conditions:
+        - '[STATUS] == 200'
+        - '[RESPONSE_TIME] < 3000'
+      group: Panel SkyPanel
+      interval: 1m
+      name: Panel Principal
+      url: http://127.0.0.1:8080/api/config
+    - conditions:
+        - '[STATUS] == 200'
+        - '[BODY].message == daemon is running'
+        - '[RESPONSE_TIME] < 5000'
+      group: Nodos SkyPanel
+      interval: 1m
+      name: LocalNode
+      url: http://localhost:8080/daemon
+    - conditions:
+        - '[STATUS] == 200'
+        - '[BODY].message == daemon is running'
+        - '[RESPONSE_TIME] < 5000'
+      group: Nodos SkyPanel
+      interval: 1m
+      name: LocalNode
+      url: http://localhost:8080/daemon
+storage:
+    type: memory
+ui:
+    dashboard-heading: Panel de Monitoreo
+    dashboard-subheading: Monitorea el estado de tus servicios en tiempo real
+    header: SkyPanel
+web:
+    address: 0.0.0.0
+    port: 8081

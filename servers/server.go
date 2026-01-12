@@ -5,19 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gofrs/uuid/v5"
-	"github.com/mholt/archiver/v3"
-	"github.com/SkyPanel/SkyPanel/v3"
-	"github.com/SkyPanel/SkyPanel/v3/conditions"
-	"github.com/SkyPanel/SkyPanel/v3/config"
-	"github.com/SkyPanel/SkyPanel/v3/database"
-	"github.com/SkyPanel/SkyPanel/v3/files"
-	"github.com/SkyPanel/SkyPanel/v3/logging"
-	"github.com/SkyPanel/SkyPanel/v3/services"
-	"github.com/SkyPanel/SkyPanel/v3/utils"
-	"github.com/shirou/gopsutil/cpu"
-	"github.com/shirou/gopsutil/mem"
-	"github.com/spf13/cast"
 	"io"
 	"log"
 	"os"
@@ -27,15 +14,29 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/SkyPanel/SkyPanel/v3/conditions"
+	"github.com/SkyPanel/SkyPanel/v3/config"
+	"github.com/SkyPanel/SkyPanel/v3/database"
+	"github.com/SkyPanel/SkyPanel/v3/files"
+	"github.com/SkyPanel/SkyPanel/v3/logging"
+	"github.com/SkyPanel/SkyPanel/v3/services"
+	"github.com/SkyPanel/SkyPanel/v3/utils"
+	"github.com/SkyPanel/SkyPanel/v3"
+	"github.com/gofrs/uuid/v5"
+	"github.com/mholt/archiver/v3"
+	"github.com/shirou/gopsutil/cpu"
+	"github.com/shirou/gopsutil/mem"
+	"github.com/spf13/cast"
 )
 
 type Server struct {
 	SkyPanel.DaemonServer
 	SkyPanel.Server
 
-	CrashCounter       int                      `json:"-"`
+	CrashCounter       int                   `json:"-"`
 	RunningEnvironment *SkyPanel.Environment `json:"-"`
-	Scheduler          *Scheduler               `json:"-"`
+	Scheduler          *Scheduler            `json:"-"`
 	stopChan           chan bool
 	waitForConsole     sync.Locker
 	fileServer         files.FileServer
@@ -284,7 +285,7 @@ func sendSystemStatusToDiscord() {
 				// Cada bloque representa un procesador lógico (thread)
 				physicalCores := make(map[string]bool)
 				coresPerSocket := make(map[string]int)
-				
+
 				// Dividir en bloques (cada bloque es un procesador lógico)
 				blocks := strings.Split(string(data), "\n\n")
 				for _, block := range blocks {
@@ -292,9 +293,9 @@ func sendSystemStatusToDiscord() {
 					if block == "" {
 						continue
 					}
-					
+
 					var physicalID, coreID string
-					
+
 					// Procesar cada línea del bloque
 					lines := strings.Split(block, "\n")
 					for _, line := range lines {
@@ -306,7 +307,7 @@ func sendSystemStatusToDiscord() {
 							}
 							key := strings.TrimSpace(parts[0])
 							value := strings.TrimSpace(parts[1])
-							
+
 							switch key {
 							case "physical id":
 								physicalID = value
@@ -321,7 +322,7 @@ func sendSystemStatusToDiscord() {
 							}
 						}
 					}
-					
+
 					// Si tenemos physical id y core id, crear clave única para core físico
 					if physicalID != "" && coreID != "" {
 						physicalCores[physicalID+"-"+coreID] = true
@@ -590,7 +591,7 @@ func checkServerAlerts(server *Server, stats *SkyPanel.ServerStats) {
 	// Verificar uso alto de recursos (solo si está online)
 	if isRunning && stats != nil {
 		now := time.Now()
-		
+
 		// CPU > 80%
 		if stats.Cpu > 80.0 {
 			alertKey := "cpu_high"

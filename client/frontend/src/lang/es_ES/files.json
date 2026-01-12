@@ -20,5 +20,14 @@
   "Total": "Total",
   "OpenLargeFile": "Este archivo podría causar problemas de rendimiento en tu navegador debido a su tamaño, ¿quieres abrirlo de todas formas?",
   "OpenAnyways": "Abrir de todas formas",
-  "Saved": "File saved"
+  "Saved": "Archivo guardado",
+  "ArchiveSelected": "Archivar archivos seleccionados",
+  "ArchiveSelectedName": "Nombre del Archivo",
+  "DeleteSelected": "Eliminar 1 archivo | Eliminar {n} archivos",
+  "Selected": "1 archivo seleccionado | {n} archivos seleccionados",
+  "Select": "Seleccionar archivo",
+  "DeselectAll": "Deseleccionar todo",
+  "Deselect": "Deseleccionar archivo",
+  "ConfirmDeleteSelected": "¿Realmente quieres eliminar este archivo? | ¿Realmente quieres eliminar estos {n} archivos?",
+  "RefreshError": "Error al actualizar los archivos"
 }

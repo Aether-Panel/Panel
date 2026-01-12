@@ -184,18 +184,19 @@ function isPluginInstalled(pluginId) {
         <div class="server-plugin-search">
           <text-field
             v-model="searchQuery"
-            :label="t('plugins.SearchPlaceholder')"
-            :placeholder="t('plugins.SearchPlaceholder') || 'Buscar plugins...'"
+            :label="t('plugins.SearchPlaceholder') || 'Buscar plugins...'"
             class="server-plugin-search-input"
             @keyup.enter="search()"
           />
           <btn
             color="primary"
+            variant="text"
             :disabled="searching || !searchQuery.trim()"
             @click="search()"
+            class="server-plugin-search-btn"
           >
-            <icon v-if="!searching" name="search" />
-            <icon v-else name="restart" spin />
+            <icon v-if="!searching" name="search" class="w-4 h-4" />
+            <icon v-else name="restart" spin class="w-4 h-4" />
             {{ t('plugins.Search') }}
           </btn>
         </div>
@@ -380,11 +381,23 @@ function isPluginInstalled(pluginId) {
 .server-plugin-search {
   display: flex;
   gap: 1rem;
-  align-items: flex-end;
+  align-items: center;
 }
 
 .server-plugin-search-input {
   flex: 1;
+  min-width: 0;
+}
+
+.server-plugin-search-btn {
+  flex-shrink: 0 !important;
+  min-width: auto !important;
+  width: auto !important;
+  max-width: fit-content !important;
+  padding: 0.625rem 1.25rem !important;
+  height: 2.5rem !important;
+  font-size: 0.875rem !important;
+  white-space: nowrap;
 }
 
 .server-plugins-search-results {

@@ -1,24 +1,26 @@
 package database
 
 import (
-	"github.com/go-gormigrate/gormigrate/v2"
-	"github.com/pterm/pterm"
+	"os"
+	"path/filepath"
+	"time"
+
 	"github.com/SkyPanel/SkyPanel/v3"
 	"github.com/SkyPanel/SkyPanel/v3/config"
 	"github.com/SkyPanel/SkyPanel/v3/logging"
 	"github.com/SkyPanel/SkyPanel/v3/models"
 	"github.com/SkyPanel/SkyPanel/v3/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/utils"
+	"github.com/go-gormigrate/gormigrate/v2"
+	"github.com/pterm/pterm"
 	"gorm.io/gorm"
-	"os"
-	"path/filepath"
-	"time"
 )
 
 var dbObjects = []interface{}{
 	&models.Node{},
 	&models.Server{},
 	&models.User{},
+	&models.Role{},
 	&models.Template{},
 	&models.Permissions{},
 	&models.Client{},
@@ -169,7 +171,7 @@ var migrations = [][]*gormigrate.Migration{
 			Migrate: func(db *gorm.DB) error {
 				err := db.Create(&models.TemplateRepo{
 					Name:   "community",
-					Url:    "http://192.168.0.5:8080/templates.json",
+					Url:    "https://templates.aetherpanel.es/",
 					Branch: "v3",
 				}).Error
 				return err

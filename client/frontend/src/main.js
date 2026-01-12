@@ -18,8 +18,8 @@ const checkEnv = !!import.meta.env.VITE_CHECK_ENV
 if (/app\.github\.dev/.test(window.location.host) && checkEnv) {
   const err = document.createElement('div')
   err.style.border = '16px solid red'
-  err.style.backgroundColor = '#f8d7da'
-  err.style.color = '#58151c'
+  err.style.backgroundColor = 'rgb(30, 41, 59)'
+  err.style.color = 'rgb(226, 232, 240)'
   err.style.textAlign = 'center'
   err.style.display = 'flex'
   err.style.flexDirection = 'column'
@@ -29,10 +29,10 @@ if (/app\.github\.dev/.test(window.location.host) && checkEnv) {
 <p style="text-wrap:balance;max-width:75%;align-self:center;line-height:1.5;margin:1em">
   Please read the <a href="https://docs.github.com/en/site-policy/github-terms/github-terms-for-additional-products-and-features#codespaces">GitHub Codespaces Terms of Service</a>.<br/>
   These explicitly state that the usage of GitHub Codespaces for
-    <code style="background-color:white;border:1px solid;">any other activity unrelated to the development or testing of the software project associated with the repository where GitHub Codespaces is initiated</code>
+    <code style="background-color:rgb(51, 65, 85);border:1px solid rgb(148, 163, 184);color:rgb(226, 232, 240);">any other activity unrelated to the development or testing of the software project associated with the repository where GitHub Codespaces is initiated</code>
   is not permitted.
 </p>
-<blockquote style="text-wrap:balance;max-width:75%;border-left:8px solid;align-self:center;background-color:white;margin:1em">
+<blockquote style="text-wrap:balance;max-width:75%;border-left:8px solid rgb(148, 163, 184);align-self:center;background-color:rgb(30, 41, 59);color:rgb(226, 232, 240);margin:1em;padding:1em;border-radius:0.5rem;">
   In order to prevent violations of these limitations and abuse of GitHub Codespaces, GitHub may monitor your use of GitHub Codespaces.
   Misuse of GitHub Codespaces may result in termination of your access to Codespaces, restrictions in your ability to use GitHub Codespaces,
   or the disabling of repositories created to run Codespaces in a way that violates these Terms.
@@ -65,6 +65,15 @@ function normalizeConfig(rawConfig = {}) {
   }
   themes.settings = themes.settings || '{}'
   config.themes = themes
+  
+  // Asegurar que branding existe
+  if (!config.branding) {
+    config.branding = {}
+  }
+  if (!config.branding.name) {
+    config.branding.name = 'SkyPanel'
+  }
+  
   return config
 }
 

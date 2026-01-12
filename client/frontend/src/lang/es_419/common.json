@@ -59,6 +59,7 @@
     }
   },
   "NoResults": "No hay resultados",
-  "Yes": "Si",
-  "No": "No"
+  "Yes": "Sí",
+  "No": "No",
+  "Refresh": "Refresh"
 }

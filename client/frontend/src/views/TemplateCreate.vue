@@ -97,7 +97,8 @@ async function save() {
     await api.template.save(name, template.value)
     toast.success(t('templates.Saved'))
     saved = true
-    router.push({ name: 'TemplateView', params: { repo: 0, id: name } })
+    const routeName = route.path.startsWith('/admin') ? 'Admin.TemplateView' : 'TemplateView'
+    router.push({ name: routeName, params: { repo: 0, id: name } })
   }
   if (!exists) {
     doSave()
@@ -125,8 +126,10 @@ function canSave() {
   <div 
     :class="[
       'templatecreate',
+      'w-full max-w-5xl ml-auto mr-0',
       'space-y-6'
     ]"
+    style="padding-left: 2rem;"
   >
     <h1 
       :class="[

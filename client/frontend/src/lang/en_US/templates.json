@@ -38,6 +38,7 @@
   "CommandConditionHint": "Use this command only if this condition is met",
   "AddCommand": "Add Command",
   "AddEnvironment": "Add Environment",
+  "Repositories": "Repositories",
   "AddRepo": "Add Template Repository",
   "RepoName": "Repository Name",
   "RepoUrl": "Repository URL",

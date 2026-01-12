@@ -2,8 +2,10 @@ package services
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3/config"
 	"github.com/SkyPanel/SkyPanel/v3/database"
@@ -53,15 +55,21 @@ func StartGatus() error {
 		return err
 	}
 
-	// Configurar puerto interno (8081)
+	// Configurar puerto interno (8081) - asegurarse de que la dirección sea correcta
 	cfg.Web.Address = "127.0.0.1"
 	cfg.Web.Port = 8081
+
+	// Asegurarse de que no use TLS
+	cfg.Web.TLS = nil
 
 	// Validar configuración web (los otros ya fueron validados por LoadConfiguration)
 	if err := cfg.Web.ValidateAndSetDefaults(); err != nil {
 		logging.Error.Printf("Error validating Gatus web configuration: %s", err.Error())
 		return err
 	}
+
+	// Verificar que la configuración se aplicó correctamente
+	logging.Info.Printf("Gatus web config - Address: %s, Port: %d", cfg.Web.Address, cfg.Web.Port)
 
 	gatusConfigInstance = cfg
 
@@ -83,6 +91,7 @@ func StartGatus() error {
 		}
 		cfg.Web.Address = "127.0.0.1"
 		cfg.Web.Port = 8081
+		cfg.Web.TLS = nil // Asegurarse de que no use TLS
 		if err := cfg.Web.ValidateAndSetDefaults(); err != nil {
 			logging.Error.Printf("Error validating Gatus web configuration: %s", err.Error())
 			return err
@@ -107,14 +116,62 @@ func StartGatus() error {
 	// Iniciar monitoreo de endpoints
 	gatusWatchdog.Monitor(cfg)
 
+	// Verificar configuración antes de iniciar
+	logging.Info.Printf("Gatus configuration - Address: %s, Port: %d, SocketAddress: %s",
+		cfg.Web.Address, cfg.Web.Port, cfg.Web.SocketAddress())
+
 	// Iniciar controller de Gatus en goroutine separada
 	go func() {
 		gatusRunning = true
+		logging.Info.Printf("Starting Gatus controller in goroutine...")
+		defer func() {
+			gatusRunning = false
+			if r := recover(); r != nil {
+				logging.Error.Printf("Gatus service panicked: %v", r)
+			}
+		}()
+
+		// gatusController.Handle inicia el servidor HTTP y bloquea
+		// Esta función no retorna hasta que el servidor se detenga
+		// Si hay un error, logr.Fatalf podría hacer panic, pero lo capturamos con defer
+		logging.Info.Printf("Calling gatusController.Handle with config - Address: %s, Port: %d", cfg.Web.Address, cfg.Web.Port)
+
+		// Verificar que la configuración sea correcta antes de iniciar
+		if cfg.Web.Address == "" {
+			logging.Error.Printf("Gatus Web.Address is empty!")
+			return
+		}
+		if cfg.Web.Port == 0 {
+			logging.Error.Printf("Gatus Web.Port is 0!")
+			return
+		}
+
+		logging.Info.Printf("Gatus will listen on: %s", cfg.Web.SocketAddress())
 		gatusController.Handle(cfg)
-		gatusRunning = false
+		logging.Info.Printf("Gatus controller exited")
 	}()
 
-	logging.Info.Printf("Gatus service started on http://127.0.0.1:8081")
+	// Dar tiempo para que el servidor se inicie
+	time.Sleep(1 * time.Second)
+
+	// Verificar que el servidor esté escuchando (hacer varios intentos)
+	maxAttempts := 5
+	for i := 0; i < maxAttempts; i++ {
+		checkURL := fmt.Sprintf("http://%s:%d/", cfg.Web.Address, cfg.Web.Port)
+		client := &http.Client{Timeout: 2 * time.Second}
+		resp, err := client.Get(checkURL)
+		if err == nil {
+			resp.Body.Close()
+			logging.Info.Printf("Gatus service started successfully on http://%s:%d", cfg.Web.Address, cfg.Web.Port)
+			return nil
+		}
+		if i < maxAttempts-1 {
+			time.Sleep(500 * time.Millisecond)
+		}
+	}
+
+	logging.Info.Printf("Gatus service starting on http://%s:%d (may take a few seconds to be ready)", cfg.Web.Address, cfg.Web.Port)
+
 	return nil
 }
 
@@ -137,7 +194,7 @@ func IsGatusRunning() bool {
 
 // createDefaultGatusConfig crea una configuración por defecto para Gatus
 func createDefaultGatusConfig(configPath string) error {
-	defaultConfig := `# Configuración de Gatus para PufferPanel
+	defaultConfig := `# Configuración de Gatus para SkyPanel
 # Este archivo monitorea los nodos y servidores del panel
 
 # Configuración del servidor web
@@ -207,7 +264,7 @@ func cleanupGatusStorage(cfg *gatusConfig.Config) {
 	}
 }
 
-// syncNodesToGatus sincroniza los nodos de PufferPanel con la configuración de Gatus
+// syncNodesToGatus sincroniza los nodos de SkyPanel con la configuración de Gatus
 func syncNodesToGatus(configPath string, cfg *gatusConfig.Config) error {
 	// Obtener conexión a la base de datos
 	db, err := database.GetConnection()
@@ -246,8 +303,8 @@ func syncNodesToGatus(configPath string, cfg *gatusConfig.Config) error {
 	// Identificar endpoints que son de nodos
 	for _, ep := range endpoints {
 		if epMap, ok := ep.(map[string]interface{}); ok {
-			// Si el grupo es "Nodos PufferPanel", es un endpoint de nodo
-			if group, ok := epMap["group"].(string); ok && group == "Nodos PufferPanel" {
+			// Si el grupo es "Nodos SkyPanel" o "Nodos SkyPanel", es un endpoint de nodo
+			if group, ok := epMap["group"].(string); ok && (group == "Nodos SkyPanel" || group == "Nodos SkyPanel") {
 				if name, ok := epMap["name"].(string); ok {
 					nodeEndpointNames[name] = true
 				}
@@ -282,7 +339,7 @@ func syncNodesToGatus(configPath string, cfg *gatusConfig.Config) error {
 		// Crear el endpoint
 		endpoint := map[string]interface{}{
 			"name":     nodeName,
-			"group":    "Nodos PufferPanel",
+			"group":    "Nodos SkyPanel",
 			"url":      daemonURL,
 			"interval": "1m",
 			"conditions": []interface{}{
@@ -299,16 +356,21 @@ func syncNodesToGatus(configPath string, cfg *gatusConfig.Config) error {
 	// Añadir los nuevos endpoints a la lista existente
 	// Primero, mantener los endpoints que NO son de nodos
 	filteredEndpoints := []interface{}{}
+
 	for _, ep := range endpoints {
 		if epMap, ok := ep.(map[string]interface{}); ok {
-			if group, ok := epMap["group"].(string); ok && group == "Nodos PufferPanel" {
+			// Eliminar TODOS los endpoints de nodos antiguos (tanto SkyPanel como SkyPanel)
+			if group, ok := epMap["group"].(string); ok && (group == "Nodos SkyPanel" || group == "Nodos SkyPanel") {
 				continue // Eliminar endpoints de nodos antiguos
 			}
+			filteredEndpoints = append(filteredEndpoints, ep)
+		} else {
+			// Mantener endpoints que no son mapas (por si acaso)
 			filteredEndpoints = append(filteredEndpoints, ep)
 		}
 	}
 
-	// Añadir los nuevos endpoints de nodos
+	// Añadir los nuevos endpoints de nodos (ya verificamos duplicados antes)
 	filteredEndpoints = append(filteredEndpoints, newEndpoints...)
 
 	// Actualizar el mapa de configuración
@@ -338,7 +400,7 @@ func syncNodesToGatus(configPath string, cfg *gatusConfig.Config) error {
 	return nil
 }
 
-// SyncCompanyNameToGatus sincroniza el nombre de la empresa de PufferPanel con la configuración UI de Gatus
+// SyncCompanyNameToGatus sincroniza el nombre de la empresa de SkyPanel con la configuración UI de Gatus
 func SyncCompanyNameToGatus() error {
 	// Verificar si Gatus está habilitado
 	if !config.GatusEnabled.Value() {
@@ -372,7 +434,7 @@ func SyncCompanyNameToGatus() error {
 		return fmt.Errorf("failed to parse YAML: %w", err)
 	}
 
-	// Obtener el nombre de la empresa de PufferPanel
+	// Obtener el nombre de la empresa de SkyPanel
 	companyName := config.CompanyName.Value()
 
 	// Obtener o crear la sección UI

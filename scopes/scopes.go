@@ -75,6 +75,8 @@ var (
 	ScopeUserPermsView  = registerNonServerScope("users.perms.view")
 	ScopeUserPermsEdit  = registerNonServerScope("users.perms.edit")
 
+	ScopeUptimeView = registerNonServerScope("uptime.view")
+
 	ScopePanel = registerNonServerScope("panel")
 )
 

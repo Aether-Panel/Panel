@@ -2,10 +2,11 @@ package SkyPanel
 
 import (
 	"encoding/json"
-	"github.com/gorilla/websocket"
-	"github.com/SkyPanel/SkyPanel/v3/logging"
 	"io"
 	"sync"
+
+	"github.com/SkyPanel/SkyPanel/v3/logging"
+	"github.com/gorilla/websocket"
 )
 
 type Tracker struct {

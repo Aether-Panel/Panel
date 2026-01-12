@@ -85,7 +85,7 @@
     },
     "motd": {
       "type": "string",
-      "value": "A Minecraft Server\\n\\u00A79 hosted on SkyPanel",
+      "value": "A Minecraft Server\\n\\u00A79 sexo",
       "display": "MOTD message of the day",
       "desc": "This is the message that is displayed in the server list of the client, below the name. The MOTD does support \u003ca href='https://minecraft.gamepedia.com/Formatting_codes' target='_blank'\u003ecolor and formatting codes\u003c/a\u003e.",
       "required": true,
@@ -124,7 +124,7 @@
     },
     "version": {
       "type": "string",
-      "value": "latest",
+      "value": "1.21.4",
       "display": "Version",
       "desc": "Version of Minecraft you wish to install. It is best to put a version in, as latest may not work with all server software.",
       "required": true,
@@ -176,8 +176,8 @@
     {
       "if": "modlauncher == ''",
       "type": "mojangdl",
-      "target": "server.jar",
-      "version": "${version}"
+      "version": "${version}",
+      "target": "server.jar"
     },
     {
       "if": "modlauncher == 'fabric'",
@@ -240,9 +240,9 @@
     {
       "if": "modlauncher == 'paper'",
       "type": "paperdl",
-      "target": "server.jar",
       "build": "${paperbuild}",
-      "minecraftVersion": "${version}"
+      "minecraftVersion": "${version}",
+      "target": "server.jar"
     },
     {
       "if": "modlauncher == 'spigot'",

@@ -5,33 +5,33 @@
 /* Variables CSS para temas personalizados */
 @layer base {
   :root {
-    /* Colores base - Modo claro por defecto */
-    --color-primary: 7 167 227; /* #07a7e3 */
+    /* Colores base - Modo oscuro por defecto */
+    --color-primary: 59 130 246;
     --color-primary-foreground: 255 255 255;
-    --color-secondary: 226 232 240;
-    --color-secondary-foreground: 15 23 42;
-    --color-accent: 241 245 249;
-    --color-accent-foreground: 15 23 42;
-    --color-background: 255 255 255;
-    --color-foreground: 15 23 42;
-    --color-muted: 241 245 249;
-    --color-muted-foreground: 100 116 139;
-    --color-border: 226 232 240;
-    --color-input: 226 232 240;
-    --color-ring: 7 167 227;
+    --color-secondary: 30 41 59;
+    --color-secondary-foreground: 226 232 240;
+    --color-accent: 51 65 85;
+    --color-accent-foreground: 226 232 240;
+    --color-background: 15 23 42;
+    --color-foreground: 226 232 240;
+    --color-muted: 30 41 59;
+    --color-muted-foreground: 148 163 184;
+    --color-border: 51 65 85;
+    --color-input: 51 65 85;
+    --color-ring: 59 130 246;
     --color-error: 239 68 68;
     --color-error-foreground: 255 255 255;
     --color-success: 34 197 94;
     --color-success-foreground: 255 255 255;
     --color-warning: 251 191 36;
     --color-warning-foreground: 15 23 42;
-    --color-sidebar: 248 250 252;
-    --color-sidebar-foreground: 51 65 85;
-    --color-topbar: 255 255 255;
-    --color-topbar-foreground: 15 23 42;
+    --color-sidebar: 30 41 59;
+    --color-sidebar-foreground: 226 232 240;
+    --color-topbar: 15 23 42;
+    --color-topbar-foreground: 226 232 240;
   }
 
-  /* Modo oscuro */
+  /* Modo oscuro (ahora es el mismo que :root por defecto) */
   .mode-dark,
   .mode-dark-highcontrast {
     --color-primary: 59 130 246;
@@ -65,7 +65,7 @@
     --color-input: 148 163 184;
   }
 
-  /* Modo claro */
+  /* Modo claro (ahora se aplica con la clase .mode-light) */
   .mode-light {
     --color-primary: 7 167 227;
     --color-primary-foreground: 255 255 255;
@@ -594,29 +594,100 @@
     @apply transition-all duration-200;
     @apply hover:shadow-md focus-within:shadow-lg;
     @apply focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/20;
+    @apply relative;
+    @apply min-h-[2.75rem];
+    @apply w-full;
+  }
+  
+  /* Ocultar opciones por defecto - el componente multiselect las maneja, pero aseguramos que estén ocultas */
+  .multiselect:not(.is-active) .multiselect-options {
+    display: none !important;
   }
   
   .multiselect.is-active {
     @apply border-ring shadow-lg;
   }
   
+  /* Mostrar opciones solo cuando está activo */
   .multiselect.is-active .multiselect-options {
+    display: block !important;
     @apply border-2 border-border/50 rounded-xl shadow-xl;
     @apply bg-background/95 backdrop-blur-md;
     @apply mt-2;
     @apply animate-in fade-in zoom-in-95 duration-200;
+    @apply absolute z-50 w-full;
+    @apply max-h-60 overflow-y-auto;
   }
   
+  /* Contenedor principal del multiselect */
+  .multiselect-wrapper {
+    @apply relative w-full;
+  }
+  
+  /* Contenedor interno del multiselect */
+  .multiselect-single,
+  .multiselect-multiple {
+    @apply relative;
+    @apply min-h-[2.75rem];
+  }
+  
+  /* Input y label del multiselect - estilos más específicos */
   .multiselect-single-label,
   .multiselect-placeholder {
     @apply text-foreground;
+    @apply px-3 py-2.5;
+    @apply min-h-[2.75rem];
+    @apply flex items-center;
+    @apply w-full;
+    @apply block;
+    @apply relative;
   }
   
+  .multiselect-placeholder {
+    @apply text-muted-foreground;
+  }
+  
+  /* Texto del label seleccionado - ocultar elementos duplicados */
+  .multiselect-single-label-text {
+    @apply block w-full truncate;
+    @apply relative z-0;
+  }
+  
+  /* Ocultar cualquier elemento duplicado o innecesario */
+  .multiselect-single-label .multiselect-single-label-text + *,
+  .multiselect-placeholder + * {
+    @apply hidden;
+  }
+  
+  /* Asegurar que solo se muestre el placeholder cuando no hay valor seleccionado */
+  .multiselect-single-label:has(.multiselect-single-label-text) .multiselect-placeholder {
+    @apply hidden;
+  }
+  
+  /* Ocultar cualquier texto adicional que pueda aparecer debajo del campo */
+  .multiselect-single-label > span:not(.multiselect-single-label-text):not(.multiselect-caret),
+  .multiselect-placeholder > span:not(:first-child) {
+    @apply hidden;
+  }
+  
+  /* Input de búsqueda */
+  .multiselect-input {
+    @apply px-3 py-2.5;
+    @apply min-h-[2.75rem];
+    @apply text-foreground;
+    @apply bg-transparent;
+    @apply border-none;
+    @apply outline-none;
+    @apply w-full;
+  }
+  
+  /* Opciones del dropdown */
   .multiselect-option {
     @apply px-4 py-2.5;
     @apply text-foreground;
     @apply transition-all duration-200;
     @apply hover:bg-primary/10;
+    @apply cursor-pointer;
   }
   
   .multiselect-option.is-selected {
@@ -627,8 +698,86 @@
     @apply bg-primary/10;
   }
   
+  /* Tags (para modo tags) */
   .multiselect-tags {
     @apply px-3 py-2.5;
+    @apply min-h-[2.75rem];
+    @apply flex flex-wrap items-center gap-2;
+    @apply relative;
+  }
+  
+  /* Input de búsqueda dentro de tags - asegurar que solo haya uno y sea funcional */
+  .multiselect-tags-search {
+    @apply flex-1;
+    @apply px-0 py-1;
+    @apply bg-transparent;
+    @apply border-none;
+    @apply outline-none;
+    @apply text-foreground;
+    @apply placeholder:text-muted-foreground;
+    @apply min-w-[120px];
+    @apply relative;
+    z-index: 100 !important;
+    color: inherit !important;
+    pointer-events: auto !important;
+  }
+  
+  /* Asegurar que el input sea completamente funcional */
+  .multiselect-tags input.multiselect-tags-search,
+  .multiselect-tags .multiselect-tags-search-wrapper input.multiselect-tags-search {
+    display: block !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    position: relative !important;
+    z-index: 100 !important;
+    opacity: 1 !important;
+  }
+  
+  /* Ocultar elementos de texto duplicados, pero NO el input */
+  .multiselect-tags .multiselect-tags-search-wrapper > span:not(input),
+  .multiselect-tags .multiselect-tags-search-wrapper > div:not(:has(input)) {
+    display: none !important;
+  }
+  
+  /* Ocultar spans y divs que puedan mostrar texto duplicado, pero NO inputs */
+  .multiselect-tags > span:not(.multiselect-tag):not(input),
+  .multiselect-tags > div:not(.multiselect-tags):not(.multiselect-tag):not(:has(input)) {
+    display: none !important;
+  }
+  
+  /* Ocultar cualquier texto que muestre el valor seleccionado dentro de tags */
+  .multiselect-tags .multiselect-single-label-text,
+  .multiselect-tags .multiselect-single-label:not(:has(.multiselect-tags-search)),
+  .multiselect-tags span:not(.multiselect-tag):not(input):not(.multiselect-tags-search) {
+    display: none !important;
+  }
+  
+  /* Ocultar cualquier input duplicado en modo tags (pero NO el input de búsqueda) */
+  .multiselect-tags .multiselect-tags-search + input:not(.multiselect-tags-search),
+  .multiselect-tags input:not(.multiselect-tags-search) {
+    @apply hidden;
+  }
+  
+  /* Asegurar que solo se muestre un input de búsqueda */
+  .multiselect-tags-search:not(:first-of-type) {
+    @apply hidden;
+  }
+  
+  /* CRÍTICO: Asegurar que el input sea completamente funcional y no esté bloqueado */
+  .multiselect-tags input.multiselect-tags-search {
+    pointer-events: auto !important;
+    user-select: text !important;
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
+  }
+  
+  /* Icono de flecha */
+  .multiselect-caret {
+    @apply absolute right-3 top-1/2 -translate-y-1/2;
+    @apply text-muted-foreground;
+    @apply pointer-events-none;
+    @apply z-10;
   }
   
   .multiselect-tag {
@@ -639,6 +788,127 @@
   
   .multiselect-tag.is-disabled {
     @apply opacity-50;
+  }
+  
+  /* Asegurar que el contenido interno del multiselect se vea correctamente */
+  .multiselect-dropdown {
+    @apply w-full;
+  }
+  
+  .multiselect-dropdown .multiselect {
+    @apply w-full;
+  }
+  
+  /* Estilos específicos para el wrapper interno */
+  .multiselect-dropdown .multiselect-wrapper {
+    @apply relative w-full;
+  }
+  
+  /* Asegurar que el placeholder y label se muestren correctamente sin duplicados */
+  .multiselect-dropdown .multiselect-single-label-text,
+  .multiselect-dropdown .multiselect-placeholder {
+    @apply block w-full;
+    @apply truncate;
+    @apply relative z-0;
+  }
+  
+  /* Ocultar elementos duplicados dentro del multiselect */
+  .multiselect-dropdown .multiselect-single-label > *:not(.multiselect-single-label-text):not(.multiselect-caret),
+  .multiselect-dropdown .multiselect-placeholder > *:not(:first-child) {
+    @apply hidden;
+  }
+  
+  /* Estilos para el input de búsqueda cuando está en modo tags */
+  .multiselect-dropdown .multiselect-tags-search {
+    @apply px-0 py-1;
+    @apply bg-transparent;
+    @apply border-none;
+    @apply outline-none;
+    @apply text-foreground;
+    @apply placeholder:text-muted-foreground;
+    @apply min-w-[120px];
+    @apply relative z-0;
+  }
+  
+  /* Ocultar inputs duplicados en modo tags */
+  .multiselect-dropdown .multiselect-tags .multiselect-tags-search + input,
+  .multiselect-dropdown .multiselect-tags input:not(.multiselect-tags-search) {
+    @apply hidden;
+  }
+  
+  /* Asegurar que solo haya un input visible */
+  .multiselect-dropdown .multiselect-tags-search:not(:first-of-type) {
+    @apply hidden;
+  }
+  
+  /* Ocultar cualquier placeholder o texto duplicado dentro de tags */
+  .multiselect-dropdown .multiselect-tags .multiselect-placeholder,
+  .multiselect-dropdown .multiselect-tags .multiselect-single-label {
+    @apply hidden;
+  }
+  
+  /* Ocultar cualquier span o elemento de texto duplicado dentro de tags */
+  .multiselect-dropdown .multiselect-tags > span:not(.multiselect-tag):not(.multiselect-tags-search):not(input) {
+    @apply hidden;
+  }
+  
+  /* Ocultar cualquier texto que muestre el valor seleccionado dentro de tags */
+  .multiselect-dropdown .multiselect-tags .multiselect-single-label-text,
+  .multiselect-dropdown .multiselect-tags span:not(.multiselect-tag):not(input):not(.multiselect-tags-search),
+  .multiselect-dropdown .multiselect-tags div:not(.multiselect-tag):not(:has(input)) {
+    display: none !important;
+  }
+  
+  /* CRÍTICO: Asegurar que el input sea completamente funcional y escribible */
+  .multiselect-dropdown .multiselect-tags input.multiselect-tags-search {
+    pointer-events: auto !important;
+    user-select: text !important;
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
+    display: block !important;
+    visibility: visible !important;
+    position: relative !important;
+    z-index: 100 !important;
+    opacity: 1 !important;
+    color: inherit !important;
+    text-shadow: none !important;
+  }
+  
+  /* Ocultar elementos de texto duplicados, pero NO el input */
+  .multiselect-dropdown .multiselect-tags .multiselect-tags-search-wrapper > span:not(input),
+  .multiselect-dropdown .multiselect-tags .multiselect-tags-search-wrapper > div:not(:has(input)),
+  .multiselect-dropdown .multiselect-tags > span:not(.multiselect-tag):not(input),
+  .multiselect-dropdown .multiselect-tags > div:not(.multiselect-tag):not(:has(input)) {
+    display: none !important;
+  }
+  
+  /* Ocultar cualquier texto que muestre el valor seleccionado (como "admin") dentro de tags */
+  .multiselect-dropdown .multiselect-tags .multiselect-single-label-text,
+  .multiselect-dropdown .multiselect-tags .multiselect-single-label:not(:has(.multiselect-tags-search)),
+  .multiselect-dropdown .multiselect-tags span:not(.multiselect-tag):not(input):not(.multiselect-tags-search),
+  .multiselect-dropdown .multiselect-tags div:not(.multiselect-tag):not(:has(input)) {
+    display: none !important;
+  }
+  
+  /* Ocultar cualquier elemento que contenga texto del valor seleccionado (pero mantener el wrapper del input) */
+  .multiselect-dropdown .multiselect-tags > *:not(.multiselect-tag):not(input):not(.multiselect-tags-search-wrapper):not(.multiselect-tags-wrapper) {
+    display: none !important;
+  }
+  
+  /* Ocultar inputs duplicados */
+  .multiselect-dropdown .multiselect-tags input[type="text"]:not(.multiselect-tags-search),
+  .multiselect-dropdown .multiselect-tags input[type="search"]:not(.multiselect-tags-search) {
+    display: none !important;
+  }
+  
+  /* Asegurar que solo se muestre un elemento de texto a la vez */
+  .multiselect-dropdown .multiselect-single-label:has(.multiselect-single-label-text) .multiselect-placeholder {
+    @apply hidden;
+  }
+  
+  .multiselect-dropdown .multiselect-single-label:has(.multiselect-placeholder) .multiselect-single-label-text {
+    @apply hidden;
   }
   
   /* Estilos para http-fallback */
@@ -714,6 +984,149 @@
     @apply p-4 rounded-xl bg-warning/10 border-2 border-warning/30;
     @apply text-warning-foreground text-center font-medium;
   }
-  
+
+  /* Sistema de notificaciones Toast mejorado */
+  #toasts {
+    @apply fixed bottom-4 right-4 z-[9999];
+    @apply flex flex-col gap-3;
+    @apply pointer-events-none;
+    @apply max-w-md w-full;
+  }
+
+  .toast-notification {
+    @apply relative;
+    @apply bg-background border-2 border-border/50;
+    @apply rounded-xl shadow-2xl;
+    @apply p-4;
+    @apply pointer-events-auto;
+    @apply transform transition-all duration-300 ease-out;
+    @apply opacity-0 translate-x-full;
+    @apply min-w-[320px] max-w-md;
+  }
+
+  .toast-notification.toast-enter {
+    @apply opacity-100 translate-x-0;
+  }
+
+  .toast-notification.toast-exit {
+    @apply opacity-0 translate-x-full scale-95;
+  }
+
+  .toast-content {
+    @apply flex items-start gap-3;
+  }
+
+  .toast-icon {
+    @apply flex-shrink-0;
+    @apply w-6 h-6;
+    @apply mt-0.5;
+  }
+
+  .toast-icon-svg {
+    @apply w-full h-full;
+  }
+
+  .toast-error .toast-icon {
+    @apply text-error;
+  }
+
+  .toast-success .toast-icon {
+    @apply text-success;
+  }
+
+  .toast-warning .toast-icon {
+    @apply text-warning;
+  }
+
+  .toast-info .toast-icon {
+    @apply text-primary;
+  }
+
+  .toast-message {
+    @apply flex-1;
+    @apply text-sm font-medium text-foreground;
+    @apply leading-relaxed;
+    @apply pr-2;
+  }
+
+  .toast-action {
+    @apply flex-shrink-0;
+    @apply px-3 py-1.5;
+    @apply text-xs font-semibold;
+    @apply rounded-lg;
+    @apply transition-all duration-200;
+    @apply cursor-pointer;
+  }
+
+  .toast-error .toast-action {
+    @apply bg-error/10 text-error;
+    @apply hover:bg-error/20;
+  }
+
+  .toast-success .toast-action {
+    @apply bg-success/10 text-success;
+    @apply hover:bg-success/20;
+  }
+
+  .toast-warning .toast-action {
+    @apply bg-warning/10 text-warning;
+    @apply hover:bg-warning/20;
+  }
+
+  .toast-info .toast-action {
+    @apply bg-primary/10 text-primary;
+    @apply hover:bg-primary/20;
+  }
+
+  .toast-close {
+    @apply flex-shrink-0;
+    @apply w-5 h-5;
+    @apply p-0.5;
+    @apply text-muted-foreground;
+    @apply hover:text-foreground;
+    @apply transition-colors duration-200;
+    @apply cursor-pointer;
+    @apply rounded;
+    @apply hover:bg-muted/50;
+  }
+
+  .toast-close-icon {
+    @apply w-full h-full;
+  }
+
+  /* Colores de borde según tipo */
+  .toast-error {
+    @apply border-error/30;
+    @apply bg-error/5;
+  }
+
+  .toast-success {
+    @apply border-success/30;
+    @apply bg-success/5;
+  }
+
+  .toast-warning {
+    @apply border-warning/30;
+    @apply bg-warning/5;
+  }
+
+  .toast-info {
+    @apply border-primary/30;
+    @apply bg-primary/5;
+  }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    #toasts {
+      @apply bottom-2 right-2 left-2;
+      @apply max-w-none;
+    }
+
+    .toast-notification {
+      @apply min-w-0 w-full;
+    }
+  }
+
 }
+
 

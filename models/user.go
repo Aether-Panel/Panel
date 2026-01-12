@@ -16,6 +16,9 @@ type User struct {
 	OtpSecret      string `gorm:"column:otp_secret;size:32" json:"-"`
 	OtpActive      bool   `gorm:"column:otp_active;not null;DEFAULT:0" json:"-"`
 
+	RoleId *uint `gorm:"column:role_id;index" json:"-"`
+	Role   Role  `gorm:"ASSOCIATION_SAVE_REFERENCE:false" json:"-" validate:"-"`
+
 	CreatedAt time.Time `json:"-"`
 	UpdatedAt time.Time `json:"-"`
 }

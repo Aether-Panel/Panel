@@ -1,12 +1,13 @@
 <script setup>
 import { ref, inject, onMounted } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/ui/Icon.vue'
 import Loader from '@/components/ui/Loader.vue'
 
 const { t } = useI18n()
 const api = inject('api')
+const route = useRoute()
 const nodesLoaded = ref(false)
 const nodes = ref([])
 const firstEntry = ref(null)
@@ -29,9 +30,10 @@ function focusList() {
   <div 
     :class="[
       'nodelist',
-      'w-full max-w-7xl mx-auto',
+      'w-full max-w-5xl ml-auto mr-0',
       'space-y-6'
     ]"
+    style="padding-left: 2rem;"
   >
     <h1 
       :class="[
@@ -52,7 +54,7 @@ function focusList() {
       >
         <router-link 
           :ref="setFirstEntry" 
-          :to="{ name: 'NodeView', params: { id: node.id } }"
+          :to="{ name: route.path.startsWith('/admin') ? 'Admin.NodeView' : 'NodeView', params: { id: node.id } }"
           :class="['block']"
         >
           <div 
@@ -92,7 +94,7 @@ function focusList() {
       >
         <router-link 
           v-hotkey="'c'" 
-          :to="{ name: 'NodeCreate' }"
+          :to="{ name: route.path.startsWith('/admin') ? 'Admin.NodeCreate' : 'NodeCreate' }"
           :class="['block']"
         >
           <div 

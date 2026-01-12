@@ -1,11 +1,12 @@
 <script setup>
-import { ref, inject, onMounted } from 'vue'
+import { ref, inject, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import Btn from '@/components/ui/Btn.vue'
 import Icon from '@/components/ui/Icon.vue'
 import TextField from '@/components/ui/TextField.vue'
 import Toggle from '@/components/ui/Toggle.vue'
+import Dropdown from '@/components/ui/Dropdown.vue'
 
 const { t, te, locale } = useI18n()
 const route = useRoute()
@@ -19,6 +20,9 @@ const username = ref('')
 const email = ref('')
 const password = ref('')
 const otpActive = ref('')
+const selectedRoleId = ref(null)
+const roles = ref([])
+const rolesLoaded = ref(false)
 
 const usernameError = ref('')
 const emailError = ref('')
@@ -31,16 +35,35 @@ function canSubmitDetails() {
 }
 
 async function submitDetails() {
-  await api.user.update(route.params.id, {
+  const updateData = {
     username: username.value,
     email: email.value,
     password: password.value || undefined
-  })
+  }
+  if (selectedRoleId.value !== null) {
+    updateData.roleId = selectedRoleId.value ? Number(selectedRoleId.value) : null
+  }
+  await api.user.update(route.params.id, updateData)
+  
+  // Si se asignó un rol, aplicar los permisos del rol automáticamente
+  if (selectedRoleId.value && api.auth.hasScope('users.perms.edit')) {
+    try {
+      await api.user.updatePermissions(route.params.id, { scopes: permissions.value })
+    } catch (error) {
+      console.error('Error updating permissions from role:', error)
+    }
+  }
+  
   toast.success(t('users.UpdateSuccess'))
 }
 
 async function submitPermissions() {
   if (!canSubmitDetails()) return false
+  // Si hay un rol asignado, los permisos se aplicarán automáticamente desde el rol
+  if (selectedRoleId.value) {
+    toast.info(t('users.PermissionsFromRoleInfo'))
+    return
+  }
   await api.user.updatePermissions(route.params.id, { scopes: permissions.value })
   toast.success(t('users.UpdateSuccess'))
 }
@@ -56,7 +79,8 @@ async function deleteUser() {
       action: async () => {
         await api.user.delete(route.params.id)
         toast.success(t('users.DeleteSuccess'))
-        router.push({ name: 'UserList' })
+        const routeName = route.path.startsWith('/admin') ? 'Admin.UserList' : 'UserList'
+        router.push({ name: routeName })
       }
     },
     {
@@ -101,14 +125,62 @@ const scopes = {
 
 const permissions = ref([])
 
+async function loadRolePermissions(roleId) {
+  if (!roleId) {
+    return
+  }
+  try {
+    const role = await api.role.get(roleId)
+    if (role && role.scopes && role.scopes.length > 0) {
+      permissions.value = [...role.scopes]
+    }
+  } catch (error) {
+    console.error('Error loading role permissions:', error)
+  }
+}
+
 onMounted(async () => {
   const user = await api.user.get(route.params.id)
   username.value = user.username
   email.value = user.email
+  if (user.roleId) {
+    selectedRoleId.value = user.roleId
+  }
   if (api.auth.hasScope('users.perms.view')) {
-    permissions.value = await api.user.getPermissions(route.params.id)
+    // Si el usuario tiene un rol, cargar permisos del rol primero
+    if (user.roleId) {
+      await loadRolePermissions(user.roleId)
+    } else {
+      // Si no tiene rol, cargar permisos del usuario
+      permissions.value = await api.user.getPermissions(route.params.id)
+    }
   }
   otpActive.value = user.otpActive !== undefined ? user.otpActive : false
+  
+  // Cargar roles si el usuario tiene permisos para editarlos
+  if (api.auth.hasScope('users.info.edit') || api.auth.hasScope('admin')) {
+    try {
+      roles.value = await api.role.list()
+      rolesLoaded.value = true
+    } catch (error) {
+      console.error('Error loading roles:', error)
+      rolesLoaded.value = true
+    }
+  }
+})
+
+// Observar cambios en el rol seleccionado para aplicar permisos automáticamente
+watch(selectedRoleId, async (newRoleId) => {
+  if (api.auth.hasScope('users.perms.view') && newRoleId) {
+    await loadRolePermissions(newRoleId)
+  } else if (!newRoleId && api.auth.hasScope('users.perms.view')) {
+    // Si se quita el rol, cargar permisos del usuario directamente
+    try {
+      permissions.value = await api.user.getPermissions(route.params.id)
+    } catch (error) {
+      console.error('Error loading user permissions:', error)
+    }
+  }
 })
 
 function scopeLabel(scope) {
@@ -153,116 +225,236 @@ function togglePermission(scope) {
   <div 
     :class="[
       'userview',
-      'space-y-6'
+      'w-full max-w-5xl ml-auto mr-0',
+      'space-y-8'
     ]"
   >
+    <!-- Sección de Detalles del Usuario -->
     <div 
       v-if="$api.auth.hasScope('users.info.view')" 
       :class="[
         'details',
-        'space-y-6'
+        'bg-card rounded-2xl border-2 border-border/50',
+        'p-6 lg:p-8',
+        'shadow-lg'
       ]"
     >
-      <h1 
+      <div 
         :class="[
-          'text-3xl font-bold text-foreground mb-6',
-          'pb-3 border-b-2 border-border/50'
+          'flex items-center justify-between mb-6',
+          'pb-4 border-b-2 border-border/50'
         ]"
-        v-text="t('users.Details')" 
-      />
+      >
+        <h1 
+          :class="[
+            'text-3xl font-bold text-foreground',
+            'flex items-center gap-3'
+          ]"
+        >
+          <icon name="account" class="text-primary" />
+          <span v-text="t('users.Details')" />
+        </h1>
+      </div>
+      
       <form 
-        :class="['space-y-5']"
+        :class="['space-y-6']"
         @submit.prevent="submitDetails()"
       >
-        <text-field
-          v-model="username"
-          :label="t('users.Username')"
-          icon="account"
-          :error="usernameError"
-          :disabled="!$api.auth.hasScope('users.info.edit')"
-          @blur="usernameError = validate.username(username) ? '' : t('errors.ErrUsernameRequirements')"
-        />
-        <text-field
-          v-model="email"
-          :label="t('users.Email')"
-          type="email"
-          icon="email"
-          :error="emailError"
-          :disabled="!$api.auth.hasScope('users.info.edit')"
-          @blur="emailError = validate.email(email) ? '' : t('errors.ErrEmailInvalid')"
-        />
-        <text-field
-          v-if="$api.auth.hasScope('users.info.edit')"
-          v-model="password"
-          :label="t('users.Password')"
-          type="password"
-          icon="lock"
-          :error="passwordError"
-          @blur="passwordError = (validate.password(password) || password.length === 0) ? '' : t('error.PasswordInvalid')"
-        />
+        <!-- Campos en grid responsive -->
+        <div :class="['grid grid-cols-1 md:grid-cols-2 gap-6']">
+          <text-field
+            v-model="username"
+            :label="t('users.Username')"
+            icon="account"
+            :error="usernameError"
+            :disabled="!$api.auth.hasScope('users.info.edit')"
+            @blur="usernameError = validate.username(username) ? '' : t('errors.ErrUsernameRequirements')"
+          />
+          <text-field
+            v-model="email"
+            :label="t('users.Email')"
+            type="email"
+            icon="email"
+            :error="emailError"
+            :disabled="!$api.auth.hasScope('users.info.edit')"
+            @blur="emailError = validate.email(email) ? '' : t('errors.ErrEmailInvalid')"
+          />
+        </div>
+
+        <div :class="['grid grid-cols-1 md:grid-cols-2 gap-6']">
+          <text-field
+            v-if="$api.auth.hasScope('users.info.edit')"
+            v-model="password"
+            :label="t('users.Password')"
+            type="password"
+            icon="lock"
+            :error="passwordError"
+            @blur="passwordError = (validate.password(password) || password.length === 0) ? '' : t('error.PasswordInvalid')"
+          />
+          <dropdown
+            v-if="rolesLoaded && roles.length > 0 && ($api.auth.hasScope('users.info.edit') || $api.auth.hasScope('admin'))"
+            v-model="selectedRoleId"
+            :label="t('users.Role')"
+            :options="[{ value: null, label: t('users.NoRole') }, ...roles.map(r => ({ value: r.id, label: r.name }))]"
+            :hint="t('users.RoleHint')"
+            icon="hi-shield"
+            :can-clear="true"
+          />
+        </div>
+
+        <!-- Información de OTP -->
         <div 
           v-if="$api.auth.hasScope('users.perms.view')"
           :class="[
-            'p-4 rounded-xl border-2 border-border/50',
-            'bg-muted/30'
+            'p-5 rounded-xl border-2',
+            otpActive 
+              ? 'bg-primary/10 border-primary/30' 
+              : 'bg-muted/30 border-border/50'
           ]"
         >
-          <h2 
-            :class="[
-              'text-lg font-semibold text-foreground'
-            ]"
-          >
-            {{ t('users.OtpEnabled') }}: {{ otpActive ? t('common.Yes') : t('common.No') }}
-          </h2>
+          <div :class="['flex items-center gap-3']">
+            <icon 
+              :name="otpActive ? 'hi-shield-check' : 'hi-shield-exclamation'" 
+              :class="[
+                'text-2xl',
+                otpActive ? 'text-primary' : 'text-muted-foreground'
+              ]"
+            />
+            <div>
+              <h3 :class="['text-lg font-semibold text-foreground']">
+                {{ t('users.OtpEnabled') }}
+              </h3>
+              <p :class="['text-sm text-muted-foreground']">
+                {{ otpActive ? t('common.Yes') : t('common.No') }}
+              </p>
+            </div>
+          </div>
         </div>
-        <div :class="['flex gap-4 justify-end mt-6 pt-4 border-t-2 border-border/50']">
-          <btn v-if="$api.auth.hasScope('users.info.edit')" color="primary" :disabled="!canSubmitDetails()" @click="submitDetails()"><icon name="save" />{{ t('users.UpdateDetails') }}</btn>
-          <btn v-if="$api.auth.hasScope('users.info.edit')" color="error" @click="deleteUser()"><icon name="remove" />{{ t('users.Delete') }}</btn>
+
+        <!-- Botones de acción -->
+        <div :class="['flex gap-4 justify-end pt-6 mt-6 border-t-2 border-border/50']">
+          <btn 
+            v-if="$api.auth.hasScope('users.info.edit')" 
+            color="error" 
+            @click="deleteUser()"
+          >
+            <icon name="remove" />
+            {{ t('users.Delete') }}
+          </btn>
+          <btn 
+            v-if="$api.auth.hasScope('users.info.edit')" 
+            color="primary" 
+            :disabled="!canSubmitDetails()" 
+            @click="submitDetails()"
+          >
+            <icon name="save" />
+            {{ t('users.UpdateDetails') }}
+          </btn>
         </div>
       </form>
     </div>
 
+    <!-- Sección de Permisos -->
     <div 
       v-if="$api.auth.hasScope('users.perms.view')" 
       :class="[
         'permissions',
-        'space-y-6'
+        'bg-card rounded-2xl border-2 border-border/50',
+        'p-6 lg:p-8',
+        'shadow-lg'
       ]"
     >
-      <h1 
-        :class="[
-          'text-3xl font-bold text-foreground mb-6',
-          'pb-3 border-b-2 border-border/50'
-        ]"
-        v-text="t('users.Permissions')" 
-      />
       <div 
-        v-for="(scopeCat, catName) in scopes" 
-        :key="scopeCat"
-        :class="['space-y-4 mb-6']"
+        :class="[
+          'flex items-center justify-between mb-6',
+          'pb-4 border-b-2 border-border/50'
+        ]"
       >
-        <h3 
-          v-if="catName !== 'general'" 
+        <h1 
           :class="[
-            'text-2xl font-bold text-foreground mb-4',
-            'pb-2 border-b-2 border-border/50'
+            'text-3xl font-bold text-foreground',
+            'flex items-center gap-3'
           ]"
-          v-text="permissionCategoryHeading(catName)" 
-        />
-        <div :class="['space-y-3']">
-          <toggle
-            v-for="scope in scopeCat"
-            :key="scope"
-            :model-value="permissions.indexOf(scope) >= 0"
-            :disabled="permissionDisabled(scope)"
-            :label="scopeLabel(scope)"
-            :hint="scopeHint(scope)"
-            @update:modelValue="togglePermission(scope)"
-          />
+        >
+          <icon name="hi-shield" class="text-primary" />
+          <span v-text="t('users.Permissions')" />
+        </h1>
+        <div 
+          v-if="selectedRoleId"
+          :class="[
+            'flex items-center gap-2 px-4 py-2 rounded-lg',
+            'bg-primary/20 text-primary border-2 border-primary/30',
+            'text-sm font-semibold'
+          ]"
+        >
+          <icon name="hi-shield" />
+          <span v-text="t('users.PermissionsFromRole')" />
         </div>
       </div>
-      <div :class="['flex gap-4 justify-end mt-6 pt-4 border-t-2 border-border/50']">
-        <btn v-if="api.auth.hasScope('user.perms.edit')" color="primary" @click="submitPermissions()"><icon name="save" />{{ t('users.UpdatePermissions') }}</btn>
+
+      <!-- Alerta de permisos desde rol -->
+      <div 
+        v-if="selectedRoleId"
+        :class="[
+          'mb-6 p-4 rounded-xl',
+          'bg-primary/10 border-2 border-primary/30',
+          'text-sm text-foreground'
+        ]"
+      >
+        <div :class="['flex items-start gap-3']">
+          <icon name="hi-information" :class="['text-primary text-xl flex-shrink-0 mt-0.5']" />
+          <span v-text="t('users.PermissionsFromRoleHint')" />
+        </div>
+      </div>
+
+      <!-- Categorías de permisos -->
+      <div :class="['space-y-8']">
+        <div 
+          v-for="(scopeCat, catName) in scopes" 
+          :key="scopeCat"
+          :class="[
+            'space-y-4',
+            catName !== 'general' ? 'p-5 rounded-xl bg-muted/20 border border-border/30' : ''
+          ]"
+        >
+          <h3 
+            v-if="catName !== 'general'" 
+            :class="[
+              'text-xl font-bold text-foreground mb-4',
+              'pb-3 border-b border-border/30',
+              'flex items-center gap-2'
+            ]"
+          >
+            <icon 
+              :name="catName === 'servers' ? 'hi-server' : catName === 'nodes' ? 'hi-cube' : catName === 'users' ? 'account' : 'hi-document'"
+              class="text-primary"
+            />
+            <span v-text="permissionCategoryHeading(catName)" />
+          </h3>
+          <div :class="['grid grid-cols-1 md:grid-cols-2 gap-3']">
+            <toggle
+              v-for="scope in scopeCat"
+              :key="scope"
+              :model-value="permissions.indexOf(scope) >= 0"
+              :disabled="permissionDisabled(scope)"
+              :label="scopeLabel(scope)"
+              :hint="scopeHint(scope)"
+              @update:modelValue="togglePermission(scope)"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Botón de guardar permisos -->
+      <div :class="['flex gap-4 justify-end pt-6 mt-6 border-t-2 border-border/50']">
+        <btn 
+          v-if="api.auth.hasScope('user.perms.edit')" 
+          color="primary" 
+          @click="submitPermissions()"
+        >
+          <icon name="save" />
+          {{ t('users.UpdatePermissions') }}
+        </btn>
       </div>
     </div>
   </div>

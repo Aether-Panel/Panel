@@ -3,16 +3,17 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/pterm/pterm"
+	"os"
+	"strings"
+
 	"github.com/SkyPanel/SkyPanel/v3/database"
 	"github.com/SkyPanel/SkyPanel/v3/groups"
 	"github.com/SkyPanel/SkyPanel/v3/models"
 	"github.com/SkyPanel/SkyPanel/v3/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/services"
+	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 	"gorm.io/gorm"
-	"os"
-	"strings"
 )
 
 var AddUserCmd = &cobra.Command{
@@ -147,6 +148,9 @@ func addUser(cmd *cobra.Command, args []string) {
 			pterm.Error.Printf("Failed to get permissions: %s\n", err.Error())
 			return err
 		}
+
+		// Siempre agregar el permiso login para que el usuario pueda iniciar sesión
+		perms.Scopes = scopes.AddScope(perms.Scopes, scopes.ScopeLogin)
 
 		if answers.Admin {
 			perms.Scopes = scopes.AddScope(perms.Scopes, scopes.ScopeAdmin)
@@ -308,9 +312,12 @@ func editUser(cmd *cobra.Command, args []string) {
 				ps := &services.Permission{DB: db}
 				perms, err := ps.GetForUserAndServer(user.ID, "")
 				if err != nil {
-					pterm.Error.Printfln("Error updating permissions: %s", err.Error())
+					pterm.Error.Printfln("Error getting permissions: %s", err.Error())
 					break
 				}
+
+				// Asegurar que el usuario tenga permiso de login
+				perms.Scopes = scopes.AddScope(perms.Scopes, scopes.ScopeLogin)
 
 				//perms.Admin = prompt
 				result = strings.ToLower(result)

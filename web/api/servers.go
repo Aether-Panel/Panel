@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"github.com/gin-contrib/cors"
-	"github.com/gin-gonic/gin"
-	"github.com/gofrs/uuid/v5"
+	"io"
+	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
+
 	"github.com/SkyPanel/SkyPanel/v3"
 	"github.com/SkyPanel/SkyPanel/v3/database"
 	"github.com/SkyPanel/SkyPanel/v3/logging"
@@ -16,13 +19,11 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/services"
 	"github.com/SkyPanel/SkyPanel/v3/utils"
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
+	"github.com/gofrs/uuid/v5"
 	"github.com/spf13/cast"
 	"gorm.io/gorm"
-	"io"
-	"net/http"
-	"net/url"
-	"strconv"
-	"strings"
 )
 
 func registerServers(g *gin.RouterGroup) {
@@ -593,6 +594,34 @@ func deleteServer(c *gin.Context) {
 
 	_, skipNode := c.GetQuery("skipNode")
 	if !skipNode {
+		// Primero intentar detener el servidor si está corriendo
+		// Verificar si el servidor está corriendo llamando al endpoint de status
+		statusRes, err := ns.CallNode(node, "GET", "/daemon/server/"+server.Identifier+"/status", nil, nil)
+		if err == nil && statusRes.StatusCode == http.StatusOK {
+			var statusData struct {
+				Running bool `json:"running"`
+			}
+			if err := json.NewDecoder(statusRes.Body).Decode(&statusData); err == nil && statusData.Running {
+				// El servidor está corriendo, detenerlo primero
+				stopRes, err := ns.CallNode(node, "POST", "/daemon/server/"+server.Identifier+"/stop?wait=true", nil, nil)
+				if err != nil {
+					logging.Error.Printf("Error stopping server before deletion: %s", err)
+					response.HandleError(c, err, http.StatusInternalServerError)
+					db.Rollback()
+					return
+				}
+				// Cerrar el body de la respuesta de stop
+				if stopRes != nil && stopRes.Body != nil {
+					stopRes.Body.Close()
+				}
+			}
+			// Cerrar el body de la respuesta de status
+			if statusRes.Body != nil {
+				statusRes.Body.Close()
+			}
+		}
+
+		// Ahora intentar eliminar el servidor
 		nodeRes, err := ns.CallNode(node, "DELETE", "/daemon/server/"+server.Identifier, nil, nil)
 		if response.HandleError(c, err, http.StatusInternalServerError) {
 			//node didn't permit it, REVERT!
@@ -602,7 +631,12 @@ func deleteServer(c *gin.Context) {
 
 		if nodeRes.StatusCode != http.StatusNoContent {
 			response.HandleError(c, errors.New("invalid status code response: "+nodeRes.Status), http.StatusInternalServerError)
+			db.Rollback()
 			return
+		}
+		// Cerrar el body de la respuesta
+		if nodeRes.Body != nil {
+			nodeRes.Body.Close()
 		}
 	}
 

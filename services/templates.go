@@ -7,19 +7,20 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/SkyPanel/SkyPanel/v3"
-	"github.com/SkyPanel/SkyPanel/v3/config"
-	"github.com/SkyPanel/SkyPanel/v3/logging"
-	"github.com/SkyPanel/SkyPanel/v3/models"
-	"github.com/SkyPanel/SkyPanel/v3/utils"
-	"gorm.io/gorm"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/SkyPanel/SkyPanel/v3"
+	"github.com/SkyPanel/SkyPanel/v3/config"
+	"github.com/SkyPanel/SkyPanel/v3/logging"
+	"github.com/SkyPanel/SkyPanel/v3/models"
+	"github.com/SkyPanel/SkyPanel/v3/utils"
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
+	"gorm.io/gorm"
 )
 
 var existingPaths = make(map[uint]repoCache)

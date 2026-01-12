@@ -1,12 +1,14 @@
 <script setup>
 import { ref, inject, onMounted, onUnmounted, nextTick } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/ui/Icon.vue'
 import Loader from '@/components/ui/Loader.vue'
 
 const api = inject('api')
 const { t } = useI18n()
+const route = useRoute()
+const isAdminView = route.name && route.name.startsWith('Admin')
 
 const servers = ref([])
 let lastPage = 0
@@ -92,17 +94,33 @@ function focusList() {
   <div 
     :class="[
       'serverlist',
-      'w-full max-w-7xl mx-auto',
+      'w-full max-w-7xl ml-auto mr-0',
       'space-y-6'
     ]"
+    :style="isAdminView ? 'padding-left: 2rem;' : ''"
   >
-    <h1 
-      :class="[
-        'text-3xl font-bold text-foreground mb-6',
-        'pb-3 border-b-2 border-border/50'
-      ]"
-      v-text="t('servers.Servers')" 
-    />
+    <div class="flex items-center justify-between mb-6 pb-3 border-b-2 border-border/50">
+      <h1 
+        :class="[
+          'text-3xl font-bold text-foreground'
+        ]"
+        v-text="t('servers.Servers')" 
+      />
+      <router-link
+        v-if="isAdminView && api.auth.hasScope('server.create')"
+        :to="{ name: 'Admin.ServerCreate' }"
+        :class="[
+          'px-6 py-3 rounded-lg',
+          'bg-primary text-primary-foreground',
+          'hover:bg-primary/90 transition-colors',
+          'flex items-center gap-2',
+          'font-medium'
+        ]"
+      >
+        <icon name="plus" />
+        {{ t('servers.Create') }}
+      </router-link>
+    </div>
     <div 
       v-hotkey="'l'" 
       class="server-grid-wrapper"
@@ -134,29 +152,17 @@ function focusList() {
                 <span class="server-card-address-text">
                   {{getServerAddress(server)}} @ {{server.node.name}}
                 </span>
+                <span 
+                  v-if="isAdminView && server.users && server.users.length > 0" 
+                  class="server-card-users-text"
+                  :title="server.users.map(u => u.username).join(', ')"
+                >
+                  👤 {{server.users.map(u => u.username).join(', ')}}
+                </span>
               </div>
             </div>
           </router-link>
         </template>
-        
-        <!-- Botón de crear nuevo servidor -->
-        <router-link 
-          v-if="$api.auth.hasScope('server.create')" 
-          v-hotkey="'c'" 
-          :to="{ name: 'ServerCreate' }"
-          class="server-card-item server-card-add"
-        >
-          <div class="server-card-wrapper server-card-add-wrapper">
-            <div class="server-card-top server-card-add-top">
-              <icon name="plus" class="server-card-add-icon" />
-            </div>
-            <div class="server-card-bottom">
-              <span class="server-card-type-badge server-card-add-badge">
-                {{ t('servers.Add') }}
-              </span>
-            </div>
-          </div>
-        </router-link>
         
         <!-- Loader para scroll infinito -->
         <div 
@@ -410,6 +416,19 @@ function focusList() {
   text-overflow: ellipsis !important;
   white-space: nowrap !important;
   max-width: 100% !important;
+}
+
+.server-card-users-text {
+  display: block !important;
+  font-size: 0.75rem !important;
+  color: rgb(var(--color-primary)) !important;
+  text-align: right !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  max-width: 100% !important;
+  margin-top: 0.25rem !important;
+  font-weight: 500 !important;
 }
 
 /* Botón agregar nuevo */

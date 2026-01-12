@@ -1,0 +1,25 @@
+{
+  "Roles": "Roles",
+  "Create": "Create Role",
+  "Edit": "Edit Role",
+  "Name": "Role Name",
+  "Description": "Description",
+  "DescriptionHint": "Optional description for this role",
+  "Permissions": "Permissions",
+  "BasicInfo": "Basic Information",
+  "NameRequired": "Role name is required",
+  "Update": "Update Role",
+  "Delete": "Delete Role",
+  "Created": "Role created successfully",
+  "Updated": "Role updated successfully",
+  "Deleted": "Role deleted successfully",
+  "ConfirmDelete": "Are you sure you want to delete the role \"{name}\"?",
+  "ErrorSaving": "Error saving role",
+  "ErrorDeleting": "Error deleting role",
+  "ErrorLoading": "Error loading role",
+  "NoRoles": "No roles found",
+  "NoDescription": "No description",
+  "More": "more",
+  "General": "General"
+}
+

@@ -14,8 +14,7 @@ const dropdownOpen = ref(false)
 const hotkeys = {
   'r r': () => props.server.restart(),
   'r s': () => props.server.stop(),
-  'r k': () => props.server.kill(),
-  'r i': () => props.server.install()
+  'r k': () => props.server.kill()
 }
 
 function onHotkey(keys) {
@@ -63,14 +62,6 @@ const actions = [
     scope: 'server.kill',
     color: 'error',
     action: () => props.server.kill()
-  },
-  {
-    id: 'install',
-    label: t('servers.Install'),
-    icon: 'install',
-    scope: 'server.install',
-    color: 'primary',
-    action: () => props.server.install()
   }
 ]
 
@@ -88,20 +79,18 @@ const visibleActions = actions.filter(action => {
     class="server-actions-panel"
     @hotkey="onHotkey"
   >
-    <!-- Desktop: Botones horizontales compactos -->
+    <!-- Desktop: Botones verticales separados -->
     <div class="server-actions-desktop">
-      <div class="server-actions-list">
-        <button
-          v-for="action in visibleActions"
-          :key="action.id"
-          :class="['server-action-btn', `server-action-${action.id}`, `server-action-${action.color}`]"
-          :title="action.label"
-          @click="action.action()"
-        >
-          <icon :name="action.icon" class="server-action-icon" />
-          <span class="server-action-text">{{ action.label }}</span>
-        </button>
-      </div>
+      <button
+        v-for="action in visibleActions"
+        :key="action.id"
+        :class="['server-action-btn', `server-action-${action.id}`, `server-action-${action.color}`]"
+        :title="action.label"
+        @click="action.action()"
+      >
+        <icon :name="action.icon" class="server-action-icon" />
+        <span class="server-action-text">{{ action.label }}</span>
+      </button>
     </div>
 
     <!-- Mobile: Menú desplegable -->
@@ -137,43 +126,39 @@ const visibleActions = actions.filter(action => {
 
 <style scoped>
 .server-actions-panel {
-  width: 100%;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   gap: 0.5rem;
+  width: 100%;
+  max-width: 200px;
 }
 
-/* Desktop: Botones horizontales compactos */
+/* Desktop: Botones verticales separados */
 .server-actions-desktop {
   display: flex;
-  align-items: center;
-  width: 100%;
-}
-
-.server-actions-list {
-  display: flex;
-  flex-direction: row;
+  flex-direction: column;
   gap: 0.5rem;
-  flex-wrap: wrap;
   width: 100%;
+  align-items: stretch;
 }
 
 .server-action-btn {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 0.375rem;
-  padding: 0.375rem 0.625rem;
+  padding: 0.5rem 0.75rem;
   border: 1px solid rgb(var(--color-border) / 0.3);
   background: transparent;
   color: rgb(var(--color-foreground));
   font-size: 0.75rem;
   font-weight: 500;
-  border-radius: 0.5rem;
+  border-radius: 0.375rem;
   cursor: pointer;
   transition: all 0.2s ease-in-out;
   white-space: nowrap;
-  min-width: fit-content;
+  width: 100%;
 }
 
 .server-action-btn:hover {
@@ -196,6 +181,7 @@ const visibleActions = actions.filter(action => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 1;
 }
 
 /* Colores específicos para cada acción */
@@ -357,21 +343,15 @@ const visibleActions = actions.filter(action => {
   }
 }
 
-/* Ocultar texto en botones muy pequeños */
+/* Ajustes para pantallas pequeñas */
 @media (max-width: 640px) {
-  .server-action-text {
-    display: none;
-  }
-
   .server-action-btn {
-    min-width: 2.5rem;
-    justify-content: center;
-    padding: 0.5rem;
+    padding: 0.5rem 0.75rem;
   }
 
   .server-action-icon {
-    width: 1.25rem;
-    height: 1.25rem;
+    width: 1rem;
+    height: 1rem;
   }
 }
 </style>

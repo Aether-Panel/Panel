@@ -28,6 +28,12 @@
   "Details": "User Details",
   "Authentication": "Authentication",
   "Permissions": "Permissions",
+  "Role": "Role",
+  "RoleHint": "Optional: Assign a role to this user",
+  "NoRole": "No Role",
+  "PermissionsFromRole": "Permissions from Role",
+  "PermissionsFromRoleHint": "These permissions come from the assigned role and will be applied automatically when you save the user details.",
+  "PermissionsFromRoleInfo": "Permissions are managed by the role. Change the role to modify permissions.",
   "Preferences": "Preferences",
   "SavePreferences": "Save Preferences",
   "Otp": "Two factor authentication",
@@ -49,5 +55,11 @@
   "OtpUseRecovery": "Use a recovery code instead",
   "OtpUseAuthenticator": "Use an authenticator code instead",
   "UserInvited": "User invited",
-  "DeleteSuccess": "User deleted successfully"
+  "DeleteSuccess": "User deleted successfully",
+  "BasicInfo": "Basic Information",
+  "ManageBasicInfo": "Manage basic information and role for this user",
+  "TwoFactorAuth": "Two-Factor Authentication (2FA)",
+  "TwoFactorAuthEnabled": "2FA Enabled",
+  "Yes": "Yes",
+  "No": "No"
 }

@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/SkyPanel/SkyPanel/v3/utils"
 	"reflect"
+
+	"github.com/SkyPanel/SkyPanel/v3/utils"
 )
 
 // MetadataType designed to be overridden

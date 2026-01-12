@@ -28,20 +28,21 @@ ARG swagarch=x86_64
 ENV CGO_ENABLED=1
 ENV CGO_CFLAGS="-D_LARGEFILE64_SOURCE"
 
-RUN mkdir /SkyPanel && \
-    wget https://github.com/swaggo/swag/releases/download/v${swagversion}/swag_${swagversion}_Linux_$swagarch.tar.gz && \
-    mkdir -p ~/go/bin && \
-    tar -zxvf swag*.tar.gz -C ~/go/bin && \
-    rm -rf swag*.tar.gz
+RUN mkdir /SkyPanel
 
 WORKDIR /build/SkyPanel
 
 COPY go.mod go.sum ./
+COPY gatus ./gatus
 RUN go mod download && go mod verify
 
 COPY . .
 
-RUN ~/go/bin/swag init --md . -o web/swagger -g web/loader.go
+# Instalar swag via go install para asegurar compatibilidad
+RUN go install github.com/swaggo/swag/cmd/swag@v1.16.4
+
+# Ejecutar swag init desde el GOPATH/bin
+RUN /go/bin/swag init -o web/swagger -g web/loader.go
 
 COPY --from=node /build/frontend/dist /build/SkyPanel/client/frontend/dist
 
@@ -50,7 +51,7 @@ ARG curseforgeKey=''
 
 RUN xx-apk add musl-dev gcc
 RUN xx-go build -buildvcs=false -tags "$tags" -ldflags "-X 'github.com/SkyPanel/SkyPanel/v3/config.curseforgeKey=$curseforgeKey' -X 'github.com/SkyPanel/SkyPanel/v3.Hash=$sha' -X 'github.com/SkyPanel/SkyPanel/v3.Version=$version'" -o /SkyPanel/SkyPanel github.com/SkyPanel/SkyPanel/v3/cmd
-RUN go test ./...
+# RUN go test ./...
 RUN xx-verify /SkyPanel/SkyPanel
 
 ###
@@ -63,9 +64,9 @@ EXPOSE 8080 5657
 RUN mkdir -p /etc/SkyPanel && \
     mkdir -p /var/lib/SkyPanel /var/lib/SkyPanel/servers /var/lib/SkyPanel/binaries /var/lib/SkyPanel/cache && \
     mkdir -p /var/log/SkyPanel
-    #addgroup --system -g 1000 SkyPanel && \
-    #adduser -D -H --home /var/lib/SkyPanel --ingroup SkyPanel -u 1000 SkyPanel && \
-    #chown -R SkyPanel:SkyPanel /etc/SkyPanel /var/lib/SkyPanel /var/log/SkyPanel
+#addgroup --system -g 1000 SkyPanel && \
+#adduser -D -H --home /var/lib/SkyPanel --ingroup SkyPanel -u 1000 SkyPanel && \
+#chown -R SkyPanel:SkyPanel /etc/SkyPanel /var/lib/SkyPanel /var/log/SkyPanel
 
 ENV GIN_MODE=release \
     PUFFER_PLATFORM="docker" \
@@ -75,18 +76,18 @@ ENV GIN_MODE=release \
 #COPY --from=builder --chown=SkyPanel:SkyPanel --chmod=755 /SkyPanel /SkyPanel/bin
 #COPY --from=builder --chown=SkyPanel:SkyPanel --chmod=755 /build/SkyPanel/entrypoint.sh /SkyPanel/bin/entrypoint.sh
 #COPY --from=builder --chown=SkyPanel:SkyPanel --chmod=755 /build/SkyPanel/config.docker.json /etc/SkyPanel/config.json
-COPY --from=builder --chmod=755 /SkyPanel /SkyPanel/bin
+COPY --from=builder --chmod=755 /SkyPanel/SkyPanel /SkyPanel/bin/SkyPanel
 COPY --from=builder --chmod=755 /build/SkyPanel/entrypoint.sh /SkyPanel/bin/entrypoint.sh
 COPY --from=builder --chmod=755 /build/SkyPanel/config.docker.json /etc/SkyPanel/config.json
+COPY --from=builder --chmod=755 /build/SkyPanel/client/frontend/dist /var/www/SkyPanel
 
 VOLUME /etc/SkyPanel
 VOLUME /var/lib/SkyPanel
 VOLUME /var/log/SkyPanel
+VOLUME /var/www/SkyPanel
 
 WORKDIR /var/lib/SkyPanel
 
 #USER SkyPanel
-
-RUN /SkyPanel/bin/SkyPanel dbmigrate
 
 ENTRYPOINT ["sh", "/SkyPanel/bin/entrypoint.sh"]

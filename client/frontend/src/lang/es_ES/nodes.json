@@ -28,8 +28,37 @@
       "true": "Docker disponible",
       "false": "Docker no disponible"
     },
-    "envs": "Entornos Disponibles"
+    "envs": "Entornos Disponibles",
+    "version": "Versión"
   },
+  "stats": {
+    "TotalServers": "Total de Servidores",
+    "OnlineServers": "En Línea",
+    "Offline": "fuera de línea",
+    "Memory": "Uso de Memoria",
+    "CPU": "Uso de CPU",
+    "Of": "de",
+    "ServersOnNode": "Servidores en este Nodo",
+    "NoServers": "No hay servidores en este nodo"
+  },
+  "system": {
+    "Title": "Información del Sistema",
+    "General": "General",
+    "Hostname": "Nombre del Host",
+    "Platform": "Plataforma",
+    "Uptime": "Tiempo Activo",
+    "CPU": "CPU",
+    "Model": "Modelo",
+    "Cores": "Núcleos Físicos",
+    "Threads": "Hilos Lógicos",
+    "Memory": "Memoria",
+    "Total": "Total",
+    "Used": "Usado",
+    "Free": "Libre",
+    "Disks": "Discos"
+  },
+  "LocalNode": "Nodo Local",
+  "PublicAddress": "Dirección Pública",
   "PublicHost": "Anfitrión público",
   "PublicPort": "Puerto público",
   "PrivateHost": "Anfitrión privado",

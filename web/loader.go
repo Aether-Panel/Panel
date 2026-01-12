@@ -2,6 +2,13 @@ package web
 
 import (
 	"fmt"
+	"io/fs"
+	"net/http"
+	"net/http/httputil"
+	"net/url"
+	"os"
+	"strings"
+
 	"github.com/SkyPanel/SkyPanel/v3/client/frontend/dist"
 	"github.com/SkyPanel/SkyPanel/v3/config"
 	"github.com/SkyPanel/SkyPanel/v3/files"
@@ -19,12 +26,6 @@ import (
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	_ "github.com/swaggo/swag"
-	"io/fs"
-	"net/http"
-	"net/http/httputil"
-	"net/url"
-	"os"
-	"strings"
 )
 
 var noHtmlRedirectOn404 = []string{"/api/", "/oauth2/", "/daemon/"}
@@ -40,7 +41,7 @@ var clientFiles fs.ReadFileFS
 // @license.url http://www.apache.org/licenses/LICENSE-2.0.html
 // @Accept json
 // @Produce json
-// @description.markdown
+// @Produce json
 // @securitydefinitions.oauth2.application OAuth2Application
 // @tokenUrl /oauth2/token
 // @scope.none No scope needed
@@ -117,16 +118,23 @@ func RegisterRoutes(e *gin.Engine) {
 		oauth2.RegisterRoutes(e.Group("/oauth2"))
 		auth.RegisterRoutes(e.Group("/auth"))
 
-		// Rutas para redirigir a Gatus en el puerto 8081
+		// Rutas para hacer proxy a Gatus en el puerto 8081
+		// Siempre intentar hacer proxy primero, si falla, mostrar error
+		gatusHandler := func(c *gin.Context) {
+			// Intentar hacer proxy directamente
+			// Si Gatus no está corriendo, el proxy fallará con un error claro
+			gatusProxy(c)
+		}
+
 		gatusGroup := e.Group("/gatus")
 		{
-			gatusGroup.Any("", redirectToGatus)
-			gatusGroup.Any("/*path", redirectToGatus)
+			gatusGroup.Any("", gatusHandler)
+			gatusGroup.Any("/*path", gatusHandler)
 		}
 		uptimeGroup := e.Group("/uptime")
 		{
-			uptimeGroup.Any("", redirectToGatus)
-			uptimeGroup.Any("/*path", redirectToGatus)
+			uptimeGroup.Any("", gatusHandler)
+			uptimeGroup.Any("/*path", gatusHandler)
 		}
 
 		clientFiles = dist.ClientFiles
@@ -191,7 +199,7 @@ func RegisterRoutes(e *gin.Engine) {
 			theme.StaticFS("", http.FS(f))
 		}
 
-		// Para manifest.json, verificar si viene de Gatus antes de usar el de PufferPanel
+		// Para manifest.json, verificar si viene de Gatus antes de usar el de SkyPanel
 		e.GET("/manifest.json", func(c *gin.Context) {
 			referer := c.Request.Header.Get("Referer")
 			if strings.Contains(referer, "/uptime/") || strings.Contains(referer, "/gatus/") {
@@ -305,7 +313,7 @@ func setContentType(contentType string) gin.HandlerFunc {
 // redirectToGatus redirige las peticiones a Gatus en el puerto 8081
 func redirectToGatus(c *gin.Context) {
 	path := c.Request.URL.Path
-	
+
 	// Quitar prefijos /gatus o /uptime
 	for _, prefix := range []string{"/gatus", "/uptime"} {
 		if strings.HasPrefix(path, prefix) {
@@ -313,13 +321,13 @@ func redirectToGatus(c *gin.Context) {
 			break
 		}
 	}
-	
+
 	// Construir la URL de destino
 	targetURL := "http://127.0.0.1:8081" + path
 	if c.Request.URL.RawQuery != "" {
 		targetURL += "?" + c.Request.URL.RawQuery
 	}
-	
+
 	logging.Info.Printf("Gatus redirect: redirecting %s %s to %s", c.Request.Method, c.Request.URL.Path, targetURL)
 	c.Redirect(http.StatusTemporaryRedirect, targetURL)
 }
@@ -344,15 +352,15 @@ func gatusProxy(c *gin.Context) {
 
 	// Crear proxy reverso con director personalizado
 	proxy := httputil.NewSingleHostReverseProxy(targetURL)
-	
+
 	// Guardar el director original
 	originalDirector := proxy.Director
-	
+
 	// Configurar director personalizado
-		proxy.Director = func(req *http.Request) {
+	proxy.Director = func(req *http.Request) {
 		// Llamar al director original
 		originalDirector(req)
-		
+
 		// Modificar la ruta para quitar el prefijo /gatus o /uptime
 		// Si la ruta ya es /api/v1/*, no necesita modificación porque viene directa de Gatus
 		path := req.URL.Path
@@ -371,11 +379,11 @@ func gatusProxy(c *gin.Context) {
 		if req.URL.Path == "" {
 			req.URL.Path = "/"
 		}
-		
+
 		// Actualizar Host header
 		req.Host = targetURL.Host
 		logging.Debug.Printf("Gatus proxy: final path: %s, host: %s", req.URL.Path, req.Host)
-		
+
 		// Actualizar headers de forwarding
 		req.Header.Set("X-Forwarded-Host", clientHost)
 		req.Header.Set("X-Forwarded-For", clientIP)
@@ -384,7 +392,7 @@ func gatusProxy(c *gin.Context) {
 		} else {
 			req.Header.Set("X-Forwarded-Proto", "http")
 		}
-		
+
 		// Mantener headers originales importantes
 		if origin != "" {
 			req.Header.Set("Origin", origin)
@@ -392,26 +400,47 @@ func gatusProxy(c *gin.Context) {
 		if referer != "" {
 			req.Header.Set("Referer", referer)
 		}
-		
+
 		// Copiar headers importantes del request original
 		for key, values := range c.Request.Header {
 			keyLower := strings.ToLower(key)
 			// Copiar headers importantes pero no modificar los que ya configuramos
-			if keyLower != "host" && 
-			   keyLower != "x-forwarded-host" && 
-			   keyLower != "x-forwarded-for" && 
-			   keyLower != "x-forwarded-proto" {
+			if keyLower != "host" &&
+				keyLower != "x-forwarded-host" &&
+				keyLower != "x-forwarded-for" &&
+				keyLower != "x-forwarded-proto" {
 				req.Header[key] = values
 			}
 		}
 	}
-	
+
 	// Configurar ErrorHandler para manejar errores del proxy
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
 		logging.Error.Printf("Gatus proxy error: %s", err.Error())
+		// Si es un error de conexión, intentar redirigir
+		if strings.Contains(err.Error(), "connection refused") || strings.Contains(err.Error(), "connect: connection refused") {
+			path := r.URL.Path
+			// Quitar prefijos /gatus o /uptime
+			for _, prefix := range []string{"/gatus", "/uptime"} {
+				if strings.HasPrefix(path, prefix) {
+					path = strings.TrimPrefix(path, prefix)
+					break
+				}
+			}
+			if path == "" {
+				path = "/"
+			}
+			targetURL := "http://localhost:8081" + path
+			if r.URL.RawQuery != "" {
+				targetURL += "?" + r.URL.RawQuery
+			}
+			logging.Info.Printf("Gatus not accessible via proxy, redirecting to %s", targetURL)
+			http.Redirect(w, r, targetURL, http.StatusTemporaryRedirect)
+			return
+		}
 		http.Error(w, "Error proxying to Gatus: "+err.Error(), http.StatusBadGateway)
 	}
-	
+
 	// Modificar la respuesta para agregar headers CORS y asegurar que se sirvan correctamente
 	proxy.ModifyResponse = func(resp *http.Response) error {
 		// Agregar headers CORS
@@ -420,7 +449,7 @@ func gatusProxy(c *gin.Context) {
 		resp.Header.Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
 		resp.Header.Set("Access-Control-Allow-Credentials", "true")
 		resp.Header.Set("Access-Control-Max-Age", "86400")
-		
+
 		// Asegurar que los headers de contenido se mantengan
 		contentType := resp.Header.Get("Content-Type")
 		if contentType == "" && resp.StatusCode == 200 {
@@ -432,12 +461,12 @@ func gatusProxy(c *gin.Context) {
 				resp.Header.Set("Content-Type", "text/html; charset=utf-8")
 			}
 		}
-		
-		logging.Info.Printf("Gatus proxy: response status %d Content-Type: %s for %s %s", 
+
+		logging.Info.Printf("Gatus proxy: response status %d Content-Type: %s for %s %s",
 			resp.StatusCode, resp.Header.Get("Content-Type"), resp.Request.Method, resp.Request.URL.Path)
 		return nil
 	}
-	
+
 	// Servir la petición
 	proxy.ServeHTTP(c.Writer, c.Request)
 }

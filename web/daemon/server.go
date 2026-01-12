@@ -4,19 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gin-contrib/cors"
-	"github.com/gin-gonic/gin"
-	"github.com/go-co-op/gocron/v2"
-	"github.com/gofrs/uuid/v5"
-	"github.com/gorilla/websocket"
-	"github.com/SkyPanel/SkyPanel/v3"
-	"github.com/SkyPanel/SkyPanel/v3/logging"
-	"github.com/SkyPanel/SkyPanel/v3/middleware"
-	"github.com/SkyPanel/SkyPanel/v3/query"
-	"github.com/SkyPanel/SkyPanel/v3/response"
-	"github.com/SkyPanel/SkyPanel/v3/servers"
-	"github.com/SkyPanel/SkyPanel/v3/utils"
-	"github.com/spf13/cast"
 	"io"
 	"mime"
 	"net/http"
@@ -24,6 +11,20 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/SkyPanel/SkyPanel/v3"
+	"github.com/SkyPanel/SkyPanel/v3/logging"
+	"github.com/SkyPanel/SkyPanel/v3/middleware"
+	"github.com/SkyPanel/SkyPanel/v3/query"
+	"github.com/SkyPanel/SkyPanel/v3/response"
+	"github.com/SkyPanel/SkyPanel/v3/servers"
+	"github.com/SkyPanel/SkyPanel/v3/utils"
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
+	"github.com/go-co-op/gocron/v2"
+	"github.com/gofrs/uuid/v5"
+	"github.com/gorilla/websocket"
+	"github.com/spf13/cast"
 )
 
 var wsupgrader = websocket.Upgrader{
@@ -1221,9 +1222,9 @@ func searchPlugins(c *gin.Context) {
 	// Esto maneja correctamente búsquedas con espacios como "terra form"
 	encodedQuery := url.PathEscape(query)
 	spigotURL := fmt.Sprintf("https://api.spiget.org/v2/search/resources/%s?field=name&size=20", encodedQuery)
-	
+
 	logging.Debug.Printf("Searching plugins with query: '%s' -> encoded: '%s' -> URL: %s", query, encodedQuery, spigotURL)
-	
+
 	resp, err := http.Get(spigotURL)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		logging.Error.Printf("Error fetching from Spigot API: %v", err)
@@ -1263,7 +1264,7 @@ func searchPlugins(c *gin.Context) {
 		id, _ := cast.ToIntE(res["id"])
 		name, _ := cast.ToStringE(res["name"])
 		tag, _ := cast.ToStringE(res["tag"])
-		
+
 		// Extraer autor
 		authorName := "Unknown"
 		if author, ok := res["author"].(map[string]interface{}); ok {
@@ -1271,7 +1272,7 @@ func searchPlugins(c *gin.Context) {
 				authorName = name
 			}
 		}
-		
+
 		// Extraer descargas
 		downloads := 0
 		if download, ok := res["download"].(map[string]interface{}); ok {
@@ -1279,7 +1280,7 @@ func searchPlugins(c *gin.Context) {
 				downloads = int(dls)
 			}
 		}
-		
+
 		// Extraer versión
 		version := ""
 		if ver, ok := res["version"].(map[string]interface{}); ok {
@@ -1287,7 +1288,7 @@ func searchPlugins(c *gin.Context) {
 				version = verName
 			}
 		}
-		
+
 		// Extraer icono
 		iconURL, _ := cast.ToStringE(res["iconUrl"])
 
@@ -1410,7 +1411,7 @@ func deletePlugin(c *gin.Context) {
 
 	pluginName := c.Query("name")
 	logging.Debug.Printf("deletePlugin called with query param 'name' = '%s'", pluginName)
-	
+
 	if pluginName == "" {
 		logging.Error.Printf("deletePlugin: plugin name is required")
 		response.HandleError(c, errors.New("plugin name is required (use ?name=plugin.jar)"), http.StatusBadRequest)

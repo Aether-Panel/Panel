@@ -27,6 +27,7 @@ func RegisterRoutes(rg *gin.RouterGroup) {
 	registerSettings(rg.Group("/settings"))
 	registerUserSettings(rg.Group("/userSettings"))
 	registerUptime(rg.Group("/uptime"))
+	registerRoles(rg.Group("/roles"))
 
 	rg.GET("/config", panelConfig)
 }

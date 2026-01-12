@@ -21,6 +21,17 @@ export class ServerApi {
     return res.data
   }
 
+  async search(params = {}) {
+    const query = {}
+    if (params.node) query.node = params.node
+    if (params.username) query.username = params.username
+    if (params.name) query.name = params.name
+    if (params.limit) query.limit = params.limit
+    if (params.page) query.page = params.page
+    const res = await this._api.get('/api/servers', query)
+    return res.data
+  }
+
   async get(id, withSocket = true) {
     const res = await this._api.get(`/api/servers/${id}?perms`)
     if (withSocket) {

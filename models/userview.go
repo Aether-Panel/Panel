@@ -11,6 +11,7 @@ type UserView struct {
 	Username string `json:"username,omitempty"`
 	Email    string `json:"email,omitempty"`
 	OtpActive bool `json:"otpActive"`
+	RoleId   *uint  `json:"roleId,omitempty"`
 	//ONLY SHOW WHEN COPYING
 	Password    string `json:"password,omitempty"`
 	NewPassword string `json:"newPassword,omitempty"`
@@ -22,6 +23,7 @@ func FromUser(model *User) *UserView {
 		Username: model.Username,
 		Email:    model.Email,
 		OtpActive: model.OtpActive,
+		RoleId:   model.RoleId,
 	}
 }
 
@@ -46,6 +48,10 @@ func (model *UserView) CopyToModel(newModel *User) {
 
 	if model.Password != "" {
 		_ = newModel.SetPassword(model.Password)
+	}
+
+	if model.RoleId != nil {
+		newModel.RoleId = model.RoleId
 	}
 }
 

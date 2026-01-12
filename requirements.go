@@ -2,12 +2,13 @@ package SkyPanel
 
 import (
 	"context"
-	"github.com/docker/docker/client"
-	"github.com/SkyPanel/SkyPanel/v3/utils"
 	"os/exec"
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/SkyPanel/SkyPanel/v3/utils"
+	"github.com/docker/docker/client"
 )
 
 type Requirements struct {

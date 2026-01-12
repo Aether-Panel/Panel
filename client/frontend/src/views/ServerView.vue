@@ -29,6 +29,7 @@ onUnmounted(() => {
     :class="[
       'serverview',
       server ? server.type : '',
+      'w-full max-w-7xl ml-auto mr-0 px-4',
       'space-y-6'
     ]"
   >

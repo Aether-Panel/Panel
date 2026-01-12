@@ -28,5 +28,6 @@
   "ArchiveSelectedName": "Archive Name",
   "DeselectAll": "Deselect all",
   "DeleteSelected": "Delete 1 file | Delete {n} files",
-  "ConfirmDeleteSelected": "Do you really want to delete this file? | Do you really want to delete these {n} files?"
+  "ConfirmDeleteSelected": "Do you really want to delete this file? | Do you really want to delete these {n} files?",
+  "RefreshError": "Error refreshing files"
 }

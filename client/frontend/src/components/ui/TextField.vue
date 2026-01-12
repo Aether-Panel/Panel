@@ -80,7 +80,7 @@ function onFocus(e) {
         ref="input" 
         :value="modelValue" 
         :type="showPassword ? 'text' : type" 
-        :placeholder="label" 
+        :placeholder="labelFloating ? '' : label" 
         :name="name" 
         :disabled="disabled"
         :class="[
@@ -91,6 +91,12 @@ function onFocus(e) {
           (type === 'password' || afterIcon) && 'pr-10',
           disabled && 'cursor-not-allowed'
         ]"
+        style="
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
+          text-rendering: optimizeLegibility;
+          transform: translateZ(0);
+        "
         @input="onInput($event)" 
         @blur="onBlur($event)" 
         @focus="onFocus($event)" 
@@ -125,8 +131,8 @@ function onFocus(e) {
         :class="[
           'absolute left-3 pointer-events-none transition-all duration-200',
           labelFloating
-            ? 'top-0 -translate-y-1/2 bg-background px-2 text-xs text-primary' 
-            : 'top-1/2 -translate-y-1/2 text-muted-foreground',
+            ? 'top-0 -translate-y-1/2 bg-background px-2 text-xs text-primary opacity-100' 
+            : 'top-1/2 -translate-y-1/2 text-muted-foreground opacity-0',
           icon && !labelFloating && 'left-12',
           icon && labelFloating && 'left-3'
         ]"

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, inject } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import Btn from '@/components/ui/Btn.vue'
 import Icon from '@/components/ui/Icon.vue'
@@ -11,6 +11,7 @@ const api = inject('api')
 const toast = inject('toast')
 const { t } = useI18n()
 const router = useRouter()
+const route = useRoute()
 
 const withPrivateHost = ref(false)
 const name = ref('')
@@ -49,7 +50,8 @@ async function create() {
   }
   const id = await api.node.create(node)
   toast.success(t('nodes.Created'))
-  router.push({ name: 'NodeView', params: { id }, query: { created: true } })
+  const routeName = route.path.startsWith('/admin') ? 'Admin.NodeView' : 'NodeView'
+  router.push({ name: routeName, params: { id }, query: { created: true } })
 }
 </script>
 

@@ -31,6 +31,9 @@ func registerNodes(g *gin.RouterGroup) {
 	g.Handle("GET", "/:id/features", middleware.RequiresPermission(scopes.ScopeNodesView), getFeatures)
 	g.Handle("OPTIONS", "/:id/features", response.CreateOptions("GET"))
 
+	g.Handle("GET", "/:id/system", middleware.RequiresPermission(scopes.ScopeNodesView), getSystemInfo)
+	g.Handle("OPTIONS", "/:id/system", response.CreateOptions("GET"))
+
 	g.Handle("GET", "/:id/deployment", middleware.RequiresPermission(scopes.ScopeNodesDeploy), deployNode)
 	g.Handle("OPTIONS", "/:id/deployment", response.CreateOptions("GET"))
 }
@@ -273,6 +276,46 @@ func getFeatures(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, features)
+}
+
+// @Summary Gets the system information of a node
+// @Description Gets detailed system information including CPU, memory, and disk
+// @Success 200 {object} daemon.SystemInfo
+// @Failure 400 {object} SkyPanel.ErrorResponse
+// @Failure 403 {object} SkyPanel.ErrorResponse
+// @Failure 404 {object} SkyPanel.ErrorResponse
+// @Failure 500 {object} SkyPanel.ErrorResponse
+// @Param id path string true "Node Id"
+// @Router /api/nodes/{id}/system [get]
+// @Security OAuth2Application[nodes.view]
+func getSystemInfo(c *gin.Context) {
+	var err error
+	db := middleware.GetDatabase(c)
+	ns := &services.Node{DB: db}
+
+	id, ok := validateId(c)
+	if !ok {
+		return
+	}
+
+	node, err := ns.Get(id)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	res, err := ns.CallNode(node, "GET", "/daemon/system", nil, nil)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+	defer utils.CloseResponse(res)
+
+	var systemInfo map[string]interface{}
+	err = json.NewDecoder(res.Body).Decode(&systemInfo)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	c.JSON(http.StatusOK, systemInfo)
 }
 
 func validateId(c *gin.Context) (uint, bool) {

@@ -196,6 +196,7 @@ function nextCommand() {
   overflow-x: auto;
   scrollbar-width: thin;
   scrollbar-color: rgb(var(--color-border)) transparent;
+  background: #080e26;
 }
 
 .console-content::-webkit-scrollbar {

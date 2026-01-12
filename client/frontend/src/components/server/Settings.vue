@@ -66,11 +66,105 @@ async function save() {
   // Save plugins enabled setting to localStorage (backend doesn't support custom variables)
   localStorage.setItem(`pluginsEnabled_${props.server.id}`, pluginsEnabled.value.toString())
   
+  // Update server.properties for Minecraft Java servers if MOTD, IP, or Port changed
+  if (isMinecraftJava.value && props.server.hasScope('server.files.edit')) {
+    try {
+      await updateServerProperties(data)
+    } catch (error) {
+      console.error('Error updating server.properties:', error)
+      // No mostrar error al usuario, solo loguear
+    }
+  }
+  
   toast.success(t('servers.SettingsSaved'))
   
   // Emit event to update plugins tab visibility
   if (events) {
     events.emit('server:plugins-enabled-changed', pluginsEnabled.value)
+  }
+}
+
+async function updateServerProperties(data) {
+  try {
+    // Leer el archivo server.properties actual
+    let propertiesContent = ''
+    try {
+      propertiesContent = await props.server.getFile('server.properties', true)
+    } catch (error) {
+      // Si el archivo no existe, crear uno nuevo
+      propertiesContent = ''
+    }
+    
+    // Actualizar las propiedades relevantes
+    const lines = propertiesContent.split('\n')
+    const updatedLines = []
+    const propertiesToUpdate = {}
+    
+    // Solo actualizar propiedades que están en data y son relevantes
+    if (data.motd !== undefined) propertiesToUpdate['motd'] = data.motd
+    if (data.ip !== undefined) propertiesToUpdate['server-ip'] = data.ip
+    if (data.port !== undefined) propertiesToUpdate['server-port'] = data.port
+    
+    // Si no hay propiedades para actualizar, salir
+    if (Object.keys(propertiesToUpdate).length === 0) {
+      return
+    }
+    
+    // Mapa de propiedades que ya existen en el archivo
+    const existingProperties = new Set()
+    
+    // Procesar líneas existentes
+    for (const line of lines) {
+      const trimmedLine = line.trim()
+      if (!trimmedLine || trimmedLine.startsWith('#')) {
+        updatedLines.push(line)
+        continue
+      }
+      
+      const equalIndex = trimmedLine.indexOf('=')
+      if (equalIndex === -1) {
+        updatedLines.push(line)
+        continue
+      }
+      
+      const key = trimmedLine.substring(0, equalIndex).trim()
+      const lowerKey = key.toLowerCase()
+      
+      // Actualizar propiedades que existen
+      if (lowerKey === 'motd' && propertiesToUpdate['motd'] !== undefined) {
+        // Escapar el valor del MOTD correctamente
+        const motdValue = String(propertiesToUpdate['motd']).replace(/\n/g, '\\n')
+        updatedLines.push(`motd=${motdValue}`)
+        existingProperties.add('motd')
+      } else if (lowerKey === 'server-ip' && propertiesToUpdate['server-ip'] !== undefined) {
+        updatedLines.push(`server-ip=${propertiesToUpdate['server-ip']}`)
+        existingProperties.add('server-ip')
+      } else if (lowerKey === 'server-port' && propertiesToUpdate['server-port'] !== undefined) {
+        updatedLines.push(`server-port=${propertiesToUpdate['server-port']}`)
+        existingProperties.add('server-port')
+      } else {
+        updatedLines.push(line)
+      }
+    }
+    
+    // Agregar propiedades que no existen
+    if (propertiesToUpdate['motd'] !== undefined && !existingProperties.has('motd')) {
+      const motdValue = String(propertiesToUpdate['motd']).replace(/\n/g, '\\n')
+      updatedLines.push(`motd=${motdValue}`)
+    }
+    if (propertiesToUpdate['server-ip'] !== undefined && !existingProperties.has('server-ip')) {
+      updatedLines.push(`server-ip=${propertiesToUpdate['server-ip']}`)
+    }
+    if (propertiesToUpdate['server-port'] !== undefined && !existingProperties.has('server-port')) {
+      updatedLines.push(`server-port=${propertiesToUpdate['server-port']}`)
+    }
+    
+    // Escribir el archivo actualizado
+    const updatedContent = updatedLines.join('\n')
+    await props.server.uploadFile('server.properties', updatedContent)
+  } catch (error) {
+    console.error('Error updating server.properties:', error)
+    throw error
   }
 }
 
@@ -145,6 +239,7 @@ function getFlagHint(name) {
   gap: 1.5rem;
   padding: 1.5rem;
   max-width: 100%;
+  color: rgb(var(--color-foreground));
 }
 
 .server-tab-title {
@@ -170,11 +265,11 @@ function getFlagHint(name) {
 }
 
 .server-tab-card {
-  background: rgb(var(--color-background));
-  border: 1px solid rgb(var(--color-border) / 0.3);
+  background: rgb(var(--color-muted) / 0.3);
+  border: 2px solid rgb(var(--color-border) / 0.5);
   border-radius: 0.75rem;
   padding: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .server-tab-card-content {
@@ -186,10 +281,47 @@ function getFlagHint(name) {
 .server-setting-item {
   padding: 0.75rem 0;
   border-bottom: 1px solid rgb(var(--color-border) / 0.1);
+  color: rgb(var(--color-foreground));
 }
 
 .server-setting-item:last-child {
   border-bottom: none;
+}
+
+/* Asegurar que todos los textos dentro de las tarjetas sean blancos */
+.server-tab-card :deep(*) {
+  color: rgb(var(--color-foreground));
+}
+
+.server-tab-card :deep(label) {
+  color: rgb(var(--color-foreground));
+}
+
+.server-tab-card :deep(.text-muted-foreground) {
+  color: rgb(var(--color-muted-foreground)) !important;
+}
+
+.server-tab-card :deep(input),
+.server-tab-card :deep(select),
+.server-tab-card :deep(textarea) {
+  color: rgb(var(--color-foreground));
+  background-color: rgb(var(--color-background));
+}
+
+.server-tab-card :deep(input::placeholder),
+.server-tab-card :deep(select::placeholder),
+.server-tab-card :deep(textarea::placeholder) {
+  color: rgb(var(--color-muted-foreground));
+}
+
+/* Estilos para multiselect dentro de las tarjetas */
+.server-tab-card :deep(.multiselect-single-label),
+.server-tab-card :deep(.multiselect-placeholder) {
+  color: rgb(var(--color-foreground)) !important;
+}
+
+.server-tab-card :deep(.multiselect-option) {
+  color: rgb(var(--color-foreground)) !important;
 }
 
 .server-tab-empty-state {

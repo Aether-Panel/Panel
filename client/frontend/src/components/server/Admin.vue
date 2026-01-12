@@ -88,6 +88,7 @@ onMounted(async () => {
     </div>
     
     <div class="server-tab-section">
+      <h3 class="server-admin-section-title">{{ t('servers.AdminActions') || 'Acciones de administración' }}</h3>
       <div class="server-admin-actions">
         <btn
           v-if="server.hasScope('server.definition.view')"
@@ -108,6 +109,23 @@ onMounted(async () => {
           {{ t('servers.Delete') }}
         </btn>
       </div>
+    </div>
+
+    <div class="server-tab-section">
+      <h3 class="server-admin-section-title">{{ t('servers.Install') || 'Instalación' }}</h3>
+      <div class="server-admin-actions">
+        <btn
+          v-if="server.hasScope('server.install')"
+          v-hotkey="'a i'"
+          color="warning"
+          variant="outline"
+          @click="server.install()"
+        >
+          <icon name="install" />
+          {{ t('servers.Install') }}
+        </btn>
+      </div>
+      <p class="server-admin-hint">{{ t('servers.InstallHint') || 'Reinstala el servidor desde cero. Esto eliminará todos los archivos actuales.' }}</p>
     </div>
 
     <overlay v-model="editorOpen" class="server-definition">
@@ -172,9 +190,28 @@ onMounted(async () => {
   width: 100%;
 }
 
+.server-admin-section-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: rgb(var(--color-foreground));
+  margin: 0 0 1rem 0;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgb(var(--color-border) / 0.3);
+}
+
 .server-admin-actions {
   display: flex;
   gap: 1rem;
   flex-wrap: wrap;
+}
+
+.server-admin-hint {
+  font-size: 0.875rem;
+  color: rgb(var(--color-muted-foreground));
+  margin: 0.75rem 0 0 0;
+  padding: 0.75rem;
+  background: rgb(var(--color-muted) / 0.2);
+  border: 1px solid rgb(var(--color-border) / 0.3);
+  border-radius: 0.5rem;
 }
 </style>

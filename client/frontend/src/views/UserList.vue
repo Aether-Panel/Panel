@@ -1,6 +1,6 @@
 <script setup>
 import { ref, inject, onMounted, onUnmounted, nextTick } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import md5 from 'js-md5'
 import Icon from '@/components/ui/Icon.vue'
@@ -8,6 +8,7 @@ import Loader from '@/components/ui/Loader.vue'
 
 const api = inject('api')
 const { t } = useI18n()
+const route = useRoute()
 
 const users = ref([])
 let lastPage = 0
@@ -68,9 +69,10 @@ function focusList() {
   <div 
     :class="[
       'userlist',
-      'w-full max-w-7xl mx-auto',
+      'w-full max-w-5xl ml-auto mr-0',
       'space-y-6'
     ]"
+    style="padding-left: 2rem;"
   >
     <h1 
       :class="[
@@ -91,7 +93,7 @@ function focusList() {
       >
         <router-link 
           :ref="setFirstEntry" 
-          :to="{ name: 'UserView', params: { id: user.id } }"
+          :to="{ name: route.path.startsWith('/admin') ? 'Admin.UserView' : 'UserView', params: { id: user.id } }"
           :class="['block']"
         >
           <div 
@@ -143,7 +145,7 @@ function focusList() {
       >
         <router-link 
           v-hotkey="'c'" 
-          :to="{ name: 'UserCreate' }"
+          :to="{ name: route.path.startsWith('/admin') ? 'Admin.UserCreate' : 'UserCreate' }"
           :class="['block']"
         >
           <div 

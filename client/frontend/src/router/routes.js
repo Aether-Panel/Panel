@@ -131,13 +131,139 @@ export default (api) => [
   },
   {
     path: '/uptime',
-    component: () => import('@/views/GatusRedirect.vue'),
+    component: () => import('@/views/Uptime.vue'),
     name: 'Uptime',
     meta: {
       tkey: 'uptime.Uptime',
-      permission: 'admin',
+      permission: 'uptime.view',
       icon: 'uptime',
-      hotkey: 'g u'
+      hotkey: 'g t'
     }
+  },
+  {
+    path: '/admin',
+    component: () => import('@/layouts/AdminLayout.vue'),
+    meta: {
+      permission: 'admin',
+      noAuth: false
+    },
+    children: [
+      {
+        path: '',
+        component: () => import('@/views/Admin.vue'),
+        name: 'Admin',
+        meta: {
+          tkey: 'admin.Admin',
+          permission: 'admin',
+          icon: 'hi-shield-check',
+          hotkey: 'g a'
+        }
+      },
+      {
+        path: 'settings',
+        component: () => import('@/views/Settings.vue'),
+        name: 'Admin.Settings',
+        meta: {
+          tkey: 'settings.Settings',
+          permission: true,
+          icon: 'hi-cog'
+        }
+      },
+      {
+        path: 'templates',
+        component: () => import('@/views/TemplateList.vue'),
+        name: 'Admin.TemplateList',
+        meta: {
+          tkey: 'templates.Templates',
+          permission: 'templates.view',
+          icon: 'hi-document'
+        }
+      },
+      {
+        path: 'servers',
+        component: () => import('@/views/ServerList.vue'),
+        name: 'Admin.ServerList',
+        meta: {
+          tkey: 'servers.Servers',
+          permission: true,
+          icon: 'hi-server'
+        }
+      },
+      {
+        path: 'servers/new',
+        component: () => import('@/views/ServerCreate.vue'),
+        name: 'Admin.ServerCreate'
+      },
+      {
+        path: 'users',
+        component: () => import('@/views/UserList.vue'),
+        name: 'Admin.UserList',
+        meta: {
+          tkey: 'users.Users',
+          permission: 'users.info.view',
+          icon: 'hi-users'
+        }
+      },
+      {
+        path: 'users/new',
+        component: () => import('@/views/UserCreate.vue'),
+        name: 'Admin.UserCreate'
+      },
+      {
+        path: 'users/view/:id',
+        component: () => import('@/views/UserView.vue'),
+        name: 'Admin.UserView'
+      },
+      {
+        path: 'templates/new',
+        component: () => import('@/views/TemplateCreate.vue'),
+        name: 'Admin.TemplateCreate'
+      },
+      {
+        path: 'templates/view/:repo/:id',
+        component: () => import('@/views/TemplateView.vue'),
+        name: 'Admin.TemplateView'
+      },
+      {
+        path: 'nodes',
+        component: () => import('@/views/NodeList.vue'),
+        name: 'Admin.NodeList',
+        meta: {
+          tkey: 'nodes.Nodes',
+          permission: 'nodes.view',
+          icon: 'hi-server'
+        }
+      },
+      {
+        path: 'nodes/new',
+        component: () => import('@/views/NodeCreate.vue'),
+        name: 'Admin.NodeCreate'
+      },
+      {
+        path: 'nodes/view/:id',
+        component: () => import('@/views/NodeView.vue'),
+        name: 'Admin.NodeView'
+      },
+      {
+        path: 'roles',
+        component: () => import('@/views/RoleList.vue'),
+        name: 'Admin.RoleList',
+        meta: {
+          tkey: 'roles.Roles',
+          permission: 'admin',
+          icon: 'hi-shield'
+        }
+      },
+      {
+        path: 'roles/new',
+        component: () => import('@/views/RoleView.vue'),
+        name: 'Admin.RoleCreate'
+      },
+      {
+        path: 'roles/view/:id',
+        component: () => import('@/views/RoleView.vue'),
+        name: 'Admin.RoleView'
+      }
+    ]
   }
 ]

@@ -1,11 +1,12 @@
 package SkyPanel
 
 import (
-	"github.com/cavaliergopher/grab/v3"
-	"github.com/mholt/archiver/v3"
-	"github.com/SkyPanel/SkyPanel/v3/files"
 	"net/http"
 	"os"
+
+	"github.com/SkyPanel/SkyPanel/v3/files"
+	"github.com/cavaliergopher/grab/v3"
+	"github.com/mholt/archiver/v3"
 )
 
 var httpClient = &http.Client{}

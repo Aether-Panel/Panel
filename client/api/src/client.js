@@ -8,6 +8,7 @@ import { ServerApi } from './servers'
 import { TemplateApi } from './templates'
 import { SettingsApi } from './settings'
 import { UptimeApi } from './uptime'
+import { RoleApi } from './roles'
 
 export class ApiClient {
   _axios = null
@@ -20,6 +21,7 @@ export class ApiClient {
   user = null
   template = null
   uptime = null
+  role = null
 
   constructor(
     host,
@@ -38,6 +40,7 @@ export class ApiClient {
     this.template = new TemplateApi(this)
     this.settings = new SettingsApi(this)
     this.uptime = new UptimeApi(this)
+    this.role = new RoleApi(this)
   }
 
   _handleError(e) {

@@ -13,13 +13,13 @@
     "background": {
       "type": "color",
       "var": "--background",
-      "default": "#ffffff",
+      "default": "#0f172a",
       "derive": []
     },
     "foreground": {
       "type": "color",
       "var": "--foreground",
-      "default": "#000000",
+      "default": "#e2e8f0",
       "derive": []
     }
   }

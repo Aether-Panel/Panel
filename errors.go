@@ -2,10 +2,11 @@ package SkyPanel
 
 import (
 	"errors"
-	"github.com/SkyPanel/SkyPanel/v3/scopes"
-	"github.com/SkyPanel/SkyPanel/v3/utils"
 	"runtime/debug"
 	"strings"
+
+	"github.com/SkyPanel/SkyPanel/v3/scopes"
+	"github.com/SkyPanel/SkyPanel/v3/utils"
 
 	"github.com/SkyPanel/SkyPanel/v3/logging"
 	"gopkg.in/go-playground/validator.v9"

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, inject, onMounted } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import Btn from '@/components/ui/Btn.vue'
 import Icon from '@/components/ui/Icon.vue'
@@ -11,6 +11,7 @@ import TextField from '@/components/ui/TextField.vue'
 const { t } = useI18n()
 const api = inject('api')
 const events = inject('events')
+const route = useRoute()
 const templatesLoaded = ref(false)
 const templatesByRepo = ref([])
 const firstEntry = ref(null)
@@ -77,9 +78,10 @@ function canAddRepo() {
   <div 
     :class="[
       'templatelist',
-      'w-full max-w-7xl mx-auto',
+      'w-full max-w-5xl ml-auto mr-0',
       'space-y-6'
     ]"
+    style="padding-left: 2rem;"
   >
     <h1 
       :class="[
@@ -150,7 +152,7 @@ function canAddRepo() {
             <template v-for="template in repo.templates" :key="template.name">
               <router-link 
                 :ref="setFirstEntry" 
-                :to="{ name: 'TemplateView', params: { repo: repo.id, id: template.name } }"
+                :to="{ name: route.path.startsWith('/admin') ? 'Admin.TemplateView' : 'TemplateView', params: { repo: repo.id, id: template.name } }"
                 class="template-card-item"
               >
                 <div class="template-card-wrapper">
@@ -173,7 +175,7 @@ function canAddRepo() {
             <router-link 
               v-if="repo.isLocal && $api.auth.hasScope('templates.local.edit')" 
               v-hotkey="'c'" 
-              :to="{ name: 'TemplateCreate' }"
+              :to="{ name: route.path.startsWith('/admin') ? 'Admin.TemplateCreate' : 'TemplateCreate' }"
               class="template-card-item template-card-add"
             >
               <div class="template-card-wrapper template-card-add-wrapper">

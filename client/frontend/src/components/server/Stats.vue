@@ -99,8 +99,8 @@ const chartOptions = (mode) => {
     responsive: true,
     aspectRatio: (ctx) => {
       if (ctx.chart.canvas) {
-        return parseFloat(fromCss(ctx.chart.canvas.parentElement, 'aspect-ratio')) || 2
-      } else return 2
+        return parseFloat(fromCss(ctx.chart.canvas.parentElement, 'aspect-ratio')) || 3
+      } else return 3
     },
     parsing: false,
     locale: locale.value.split('_')[0] || 'en',
@@ -127,15 +127,15 @@ const chartOptions = (mode) => {
         itemSort: (a, b) => {
           return a.datasetIndex < b.datasetIndex
         },
-        multiKeyBackground: (ctx) => fromCss(ctx.chart.canvas, 'background-color') || '#fff',
+        multiKeyBackground: (ctx) => fromCss(ctx.chart.canvas, 'background-color') || 'rgb(15, 23, 42)',
         padding: (ctx) => fromCss(ctx.chart.canvas, '--chartjs-tooltip-padding') || 6,
-        backgroundColor: (ctx) => fromCss(ctx.chart.canvas, '--chartjs-tooltip-background-color') || 'rgba(0, 0, 0, 0.8)',
+        backgroundColor: (ctx) => fromCss(ctx.chart.canvas, '--chartjs-tooltip-background-color') || 'rgba(30, 41, 59, 0.95)',
         cornerRadius: (ctx) => fromCss(ctx.chart.canvas, '--chartjs-tooltip-corner-radius') || 6,
-        borderColor: (ctx) => fromCss(ctx.chart.canvas, '--chartjs-tooltip-border-color') || 'rgba(0, 0, 0, 0)',
-        borderWidth: (ctx) => fromCss(ctx.chart.canvas, '--chartjs-tooltip-border-width') || 0,
+        borderColor: (ctx) => fromCss(ctx.chart.canvas, '--chartjs-tooltip-border-color') || 'rgba(51, 65, 85, 0.5)',
+        borderWidth: (ctx) => fromCss(ctx.chart.canvas, '--chartjs-tooltip-border-width') || 1,
         titleAlign: (ctx) => fromCss(ctx.chart.canvas, '--chartjs-tooltip-title-align') || 'left',
-        titleColor: (ctx) => fromCss(ctx.chart.canvas, '--chartjs-tooltip-font-color') || '#fff',
-        bodyColor: (ctx) => fromCss(ctx.chart.canvas, '--chartjs-tooltip-font-color') || '#fff',
+        titleColor: (ctx) => fromCss(ctx.chart.canvas, '--chartjs-tooltip-font-color') || 'rgb(226, 232, 240)',
+        bodyColor: (ctx) => fromCss(ctx.chart.canvas, '--chartjs-tooltip-font-color') || 'rgb(226, 232, 240)',
         bodySpacing: (ctx) => parseInt(fromCss(ctx.chart.canvas, '--chartjs-tooltip-body-spacing')) || 2,
         titleFont: {
           family: (ctx) => fromCss(ctx.chart.canvas, '--chartjs-tooltip-title-font-family') || fromCss(ctx.chart.canvas, '--chartjs-font-family') || defaultFamily,
@@ -154,7 +154,7 @@ const chartOptions = (mode) => {
       title: {
         display: (ctx) => fromCss(ctx.chart.canvas, '--chartjs-title-display') == 'true',
         align: (ctx) => fromCss(ctx.chart.canvas, '--chartjs-title-align') || 'center',
-        color: (ctx) => fromCss(ctx.chart.canvas, '--chartjs-title-font-color') || fromCss(ctx.chart.canvas, '--chartjs-color') || fromCss(ctx.chart.canvas, 'color'),
+        color: (ctx) => fromCss(ctx.chart.canvas, '--chartjs-title-font-color') || 'rgb(226, 232, 240)',
         position: (ctx) => fromCss(ctx.chart.canvas, '--chartjs-title-position') || 'top',
         font: {
           family: (ctx) => fromCss(ctx.chart.canvas, '--chartjs-title-font-family') || fromCss(ctx.chart.canvas, '--chartjs-font-family') || defaultFamily,
@@ -173,7 +173,7 @@ const chartOptions = (mode) => {
         ticks: {
           min: 12,
           source: 'data',
-          color: (ctx) => fromCss(ctx.chart.canvas, '--chartjs-axis-font-color') || fromCss(ctx.chart.canvas, '--chartjs-color') || fromCss(ctx.chart.canvas, 'color'),
+          color: (ctx) => fromCss(ctx.chart.canvas, '--chartjs-axis-font-color') || 'rgb(226, 232, 240)',
           font: {
             family: (ctx) => fromCss(ctx.chart.canvas, '--chartjs-axis-font-family') || fromCss(ctx.chart.canvas, '--chartjs-font-family') || defaultFamily,
             size: (ctx) => parseInt(fromCss(ctx.chart.canvas, '--chartjs-axis-font-size') || fromCss(ctx.chart.canvas, '--chartjs-font-size')) || 12,
@@ -206,7 +206,7 @@ const chartOptions = (mode) => {
       },
       ticks: {
         callback: formatMemory,
-        color: (ctx) => fromCss(ctx.chart.canvas, '--chartjs-axis-font-color') || fromCss(ctx.chart.canvas, '--chartjs-color') || fromCss(ctx.chart.canvas, 'color'),
+        color: (ctx) => fromCss(ctx.chart.canvas, '--chartjs-axis-font-color') || 'rgb(226, 232, 240)',
         font: {
           family: (ctx) => fromCss(ctx.chart.canvas, '--chartjs-axis-font-family') || fromCss(ctx.chart.canvas, '--chartjs-font-family') || defaultFamily,
           size: (ctx) => parseInt(fromCss(ctx.chart.canvas, '--chartjs-axis-font-size') || fromCss(ctx.chart.canvas, '--chartjs-font-size')) || 12,
@@ -228,7 +228,7 @@ const chartOptions = (mode) => {
       },
       ticks: {
         callback: formatCpu,
-        color: (ctx) => fromCss(ctx.chart.canvas, '--chartjs-axis-font-color') || fromCss(ctx.chart.canvas, '--chartjs-color') || fromCss(ctx.chart.canvas, 'color'),
+        color: (ctx) => fromCss(ctx.chart.canvas, '--chartjs-axis-font-color') || 'rgb(226, 232, 240)',
         font: {
           family: (ctx) => fromCss(ctx.chart.canvas, '--chartjs-axis-font-family') || fromCss(ctx.chart.canvas, '--chartjs-font-family') || defaultFamily,
           size: (ctx) => parseInt(fromCss(ctx.chart.canvas, '--chartjs-axis-font-size') || fromCss(ctx.chart.canvas, '--chartjs-font-size')) || 12,
@@ -355,10 +355,10 @@ onUnmounted(() => {
 
 <style scoped>
 .server-tab-content {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  padding: 1.5rem;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  padding: 1rem;
   max-width: 100%;
 }
 
@@ -366,12 +366,16 @@ onUnmounted(() => {
   width: 100%;
 }
 
+.server-tab-section:first-child {
+  grid-column: 1 / -1;
+}
+
 .server-tab-section-title {
-  font-size: 1.125rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: rgb(var(--color-foreground));
-  margin: 0 0 1rem 0;
-  padding-bottom: 0.75rem;
+  margin: 0 0 0.5rem 0;
+  padding-bottom: 0.5rem;
   border-bottom: 1px solid rgb(var(--color-border) / 0.3);
 }
 
@@ -379,10 +383,25 @@ onUnmounted(() => {
   width: 100%;
   background: rgb(var(--color-background));
   border: 1px solid rgb(var(--color-border) / 0.3);
-  border-radius: 0.75rem;
-  padding: 1rem;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  aspect-ratio: 3/1;
+  min-height: 180px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+@media (max-width: 768px) {
+  .server-tab-content {
+    grid-template-columns: 1fr;
+  }
+  
+  .server-tab-section:first-child {
+    grid-column: 1;
+  }
+  
+  .server-chart-container {
   aspect-ratio: 16/9;
-  min-height: 300px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    min-height: 200px;
+  }
 }
 </style>

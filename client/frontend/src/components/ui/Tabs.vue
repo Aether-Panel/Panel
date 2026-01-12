@@ -140,7 +140,7 @@ export default {
           tab.key === activeKey
             ? 'border-primary text-primary font-semibold bg-primary/5'
             : 'border-transparent text-foreground/70 hover:text-foreground hover:bg-primary/5 hover:border-primary/30',
-          tab.icon ? 'flex flex-col gap-1' : 'flex items-center justify-center',
+          tab.icon ? 'flex flex-row items-center justify-start gap-2' : 'flex items-center justify-center',
           'mode-dark-highcontrast:hover:bg-transparent',
           'mode-dark-highcontrast:hover:[&_.title]:underline',
           'mode-dark-highcontrast:hover:[&_.title]:decoration-dashed',
@@ -148,15 +148,21 @@ export default {
         ]"
         @click="setActive(tab.key)"
       >
+        <img 
+          v-if="tab.icon === 'console'"
+          src="/img/resources/terminal.png"
+          alt="Console"
+          :class="['w-6 h-6 object-contain flex-shrink-0']"
+        />
         <icon 
-          v-if="tab.icon" 
+          v-else-if="tab.icon" 
           :name="tab.icon" 
-          :class="['text-3xl', tab.icon && 'mb-1']"
+          :class="['text-2xl flex-shrink-0']"
         />
         <span 
           :class="[
             'title',
-            tab.icon && 'text-base'
+            'text-base'
           ]"
           v-text="tab.title" 
         />

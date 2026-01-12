@@ -1,0 +1,31 @@
+{
+  "Admin": "Admin",
+  "Dashboard": "Dashboard",
+  "AdminDescription": "System administration panel",
+  "QuickActions": "Quick Actions",
+  "SystemInfo": "System Information",
+  "PanelVersion": "Panel Version",
+  "TotalServers": "Total Servers",
+  "TotalUsers": "Total Users",
+  "TotalNodes": "Total Nodes",
+  "TotalTemplates": "Total Templates",
+  "BackToPanel": "Back to Panel",
+  "charts": {
+    "ServerStatus": "Server Status",
+    "ResourceUsage": "Resource Usage",
+    "SystemResources": "System Resources",
+    "Online": "Online",
+    "Offline": "Offline",
+    "Installing": "Installing",
+    "Memory": "Memory",
+    "CPU": "CPU",
+    "Disk": "Disk",
+    "Used": "Used",
+    "Available": "Available",
+    "Total": "Total",
+    "NetworkTraffic": "Network Traffic",
+    "NetworkSent": "Sent",
+    "NetworkRecv": "Received"
+  }
+}
+

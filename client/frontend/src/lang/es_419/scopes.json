@@ -21,6 +21,7 @@
     "templates-repo-view": "Ver repositorios de plantillas",
     "templates-repo-add": "Añadir repositorios de plantillas",
     "templates-repo-remove": "Eliminar repositorios de plantillas",
+    "uptime-view": "Ver tiempo de actividad (uptime)",
     "server-view": "Puede ver este servidor",
     "server-admin": "Tiene acceso total a este servidor",
     "server-delete": "Puede eliminar este servidor",

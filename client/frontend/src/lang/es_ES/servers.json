@@ -51,9 +51,14 @@
     "autoRestartOnGraceful": "Reiniciar el servidor cuando se detenga",
     "autoRestartOnCrash": "Reiniciar el servidor cuando se bloquee"
   },
-  "IncompatibleTemplates": "Incompatible templates",
-  "IncompatibleTemplatesDescription": "These templates are incompatible with at least one of your previous selections",
-  "IncompatibleArch": "Incompatible with architecture '{arch}'",
-  "IncompatibleOs": "Incompatible with OS '{os}'",
-  "IncompatibleEnv": "Incompatible with environment '{env}'"
+  "IncompatibleTemplates": "Plantillas incompatibles",
+  "IncompatibleTemplatesDescription": "Estas plantillas son incompatibles con al menos una de tus selecciones anteriores",
+  "IncompatibleArch": "Incompatible con la arquitectura '{arch}'",
+  "IncompatibleOs": "Incompatible con el sistema operativo '{os}'",
+  "IncompatibleEnv": "Incompatible con el entorno '{env}'",
+  "AdvancedSettings": "Configuración Avanzada",
+  "Restart": "Reiniciar",
+  "Deleting": "Eliminando servidor, por favor espera...",
+  "SearchUsers": "Buscar usuarios...",
+  "AtLeastOneUserRequired": "Se requiere al menos un usuario"
 }

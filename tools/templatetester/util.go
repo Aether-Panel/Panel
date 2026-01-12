@@ -4,16 +4,17 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/SkyPanel/SkyPanel/v3"
-	"github.com/SkyPanel/SkyPanel/v3/models"
-	"github.com/SkyPanel/SkyPanel/v3/utils"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/SkyPanel/SkyPanel/v3"
+	"github.com/SkyPanel/SkyPanel/v3/models"
+	"github.com/SkyPanel/SkyPanel/v3/utils"
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 )
 
 func panicIf(err error) {
@@ -64,7 +65,7 @@ func buildTests() []*TestScenario {
 
 			log.Printf("Cloning template repo")
 			_, err = git.PlainClone(templateFolder, false, &git.CloneOptions{
-				URL:           "http://192.168.0.5:8080/templates.json",
+				URL:           "https://templates.aetherpanel.es/",
 				ReferenceName: plumbing.ReferenceName(CmdFlags.GitRef),
 				SingleBranch:  true,
 				Depth:         1,

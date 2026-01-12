@@ -1,6 +1,36 @@
 [
   {
+    "uuid": "516080c8-9951-396d-9b3f-c9578805ad27",
+    "name": "iAmGenexis",
+    "level": 4,
+    "bypassesPlayerLimit": false
+  },
+  {
     "uuid": "fd64866a-a972-49cc-aadb-a058713f5d41",
+    "name": "Manu__HD",
+    "level": 4,
+    "bypassesPlayerLimit": false
+  },
+  {
+    "uuid": "a42079b6-db0e-4eaa-9b5d-5a3345ad6a24",
+    "name": "1AZUS",
+    "level": 4,
+    "bypassesPlayerLimit": false
+  },
+  {
+    "uuid": "024ad586-f098-4484-a431-331ec29c97a3",
+    "name": "iAmGenexis",
+    "level": 4,
+    "bypassesPlayerLimit": false
+  },
+  {
+    "uuid": "f2e52f1d-ba38-4297-b97c-a98df2398359",
+    "name": "fide04",
+    "level": 4,
+    "bypassesPlayerLimit": false
+  },
+  {
+    "uuid": "8a870b0b-5895-3434-87f3-af1b6bbe4366",
     "name": "Manu__HD",
     "level": 4,
     "bypassesPlayerLimit": false

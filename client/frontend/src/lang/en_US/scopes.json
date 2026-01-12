@@ -21,6 +21,7 @@
     "templates-repo-view": "View template repos",
     "templates-repo-add": "Add template repos",
     "templates-repo-remove": "Remove template repos",
+    "uptime-view": "View uptime",
     "server-view": "Can view this server",
     "server-admin": "Has full access to this server",
     "server-delete": "Can delete this server",

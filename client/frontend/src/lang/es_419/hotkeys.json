@@ -46,7 +46,10 @@
     "f r": "Recargar lista de archivos",
     "f u": "Subir archivos",
     "a e": "Editar Configuración del Servidor",
-    "a r": "Recargar la Configuración del Servidor desde el disco"
+    "a r": "Recargar la Configuración del Servidor desde el disco",
+    "f s a": "Archivar archivos seleccionados",
+    "f s d": "Eliminar archivos seleccionados",
+    "c x": "Limpiar Consola"
   },
   "NodeList": {
     "Title": "Nodos",

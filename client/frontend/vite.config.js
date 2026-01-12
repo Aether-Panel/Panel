@@ -9,9 +9,9 @@ import fs from 'fs'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   build: {
-    sourcemap: true,
+    sourcemap: mode === 'development' ? false : true,
     chunkSizeWarningLimit: 550,
     rollupOptions: {
       output: {
@@ -23,11 +23,14 @@ export default defineConfig({
   },
   resolve: {
     alias: [
-      {find: "@", replacement: path.resolve(__dirname, 'src')}
+      {find: "@", replacement: path.resolve(__dirname, 'src')},
+      {find: "SkyPanel", replacement: path.resolve(__dirname, '../api')}
     ]
   },
   define: {
-    localeList: fs.readdirSync('src/lang')
+    localeList: fs.readdirSync('src/lang', { withFileTypes: true })
+      .filter(dirent => dirent.isDirectory() && /^[a-z]{2}_[A-Z]{2}$/.test(dirent.name))
+      .map(dirent => dirent.name)
   },
   plugins: [
     vue(),
@@ -37,4 +40,4 @@ export default defineConfig({
     }),
     eslint()
   ]
-})
+}))

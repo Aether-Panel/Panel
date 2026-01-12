@@ -2,7 +2,10 @@ package api
 
 import (
 	"fmt"
+	"net"
 	"net/http"
+	"os"
+	"strings"
 
 	"github.com/SkyPanel/SkyPanel/v3/config"
 	"github.com/SkyPanel/SkyPanel/v3/logging"
@@ -28,6 +31,9 @@ func registerSettings(g *gin.RouterGroup) {
 
 	g.Handle("POST", "/test/discord", middleware.RequiresPermission(scopes.ScopeSettingsEdit), sendTestDiscord)
 	g.Handle("OPTIONS", "/test/discord", response.CreateOptions("POST"))
+
+	g.Handle("POST", "/license/activate", middleware.RequiresPermission(scopes.ScopeSettingsEdit), activateLicense)
+	g.Handle("OPTIONS", "/license/activate", response.CreateOptions("POST"))
 }
 
 // @Summary Value a panel setting
@@ -268,6 +274,160 @@ func sendTestDiscord(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// @Summary Activate license
+// @Description Activates and verifies a license key with the external license server
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} SkyPanel.ErrorResponse
+// @Failure 500 {object} SkyPanel.ErrorResponse
+// @Param body body map[string]string true "License key"
+// @Router /api/settings/license/activate [post]
+// @Security OAuth2Application[settings.edit]
+func activateLicense(c *gin.Context) {
+	var requestBody map[string]string
+	if err := c.BindJSON(&requestBody); response.HandleError(c, err, http.StatusBadRequest) {
+		return
+	}
+
+	licenseKey, ok := requestBody["key"]
+	if !ok || licenseKey == "" {
+		response.HandleError(c, fmt.Errorf("license key is required"), http.StatusBadRequest)
+		return
+	}
+
+	// Normalizar la clave de licencia (remover guiones y convertir a mayúsculas para comparación)
+	normalizedKey := strings.ReplaceAll(strings.ToUpper(licenseKey), "-", "")
+	if len(normalizedKey) != 16 {
+		response.HandleError(c, fmt.Errorf("invalid license key format"), http.StatusBadRequest)
+		return
+	}
+
+	// Obtener el servicio de licencias
+	licenseService := services.GetLicenseService()
+
+	// Primero verificar la licencia (GET)
+	verifyResp, err := licenseService.VerifyLicense(licenseKey)
+	if err != nil {
+		logging.Error.Printf("Error verifying license: %s", err.Error())
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": fmt.Sprintf("Error verifying license: %s", err.Error()),
+		})
+		return
+	}
+
+	if !verifyResp.Valid {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "License is not valid",
+		})
+		return
+	}
+
+	// Obtener identificador del servidor y IP
+	serverId := config.LicenseServerId.Value()
+	serverIp := config.LicenseServerIp.Value()
+
+	// Si no tenemos serverId o serverIp guardados, generarlos
+	if serverId == "" {
+		hostname, err := os.Hostname()
+		if err != nil {
+			hostname = "unknown"
+		}
+		serverId = hostname
+		config.LicenseServerId.Set(serverId, true)
+	}
+
+	if serverIp == "" {
+		// Intentar obtener la IP pública del hostname
+		ip, err := getServerIP()
+		if err != nil {
+			// Usar la IP privada como fallback
+			ip = "127.0.0.1"
+		}
+		serverIp = ip
+		config.LicenseServerIp.Set(serverIp, true)
+	}
+
+	// Vincular la licencia con el servidor (POST)
+	bindResp, err := licenseService.BindLicense(licenseKey, serverId, serverIp)
+	if err != nil {
+		logging.Error.Printf("Error binding license: %s", err.Error())
+		// Aun si falla el bind, guardamos la licencia como válida
+		// porque ya verificamos que es válida
+	}
+
+	// Determinar el tipo de licencia
+	licenseType := licenseService.GetLicenseType(verifyResp)
+
+	// Guardar la información de la licencia
+	config.LicenseKey.Set(licenseKey, true)
+	config.LicenseStatus.Set(licenseType, true)
+
+	// Extraer permisos
+	permissions := licenseService.ExtractPermissions(verifyResp)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"type":    licenseType,
+		"license": gin.H{
+			"key":           verifyResp.License.Key,
+			"plan":          verifyResp.License.Plan,
+			"maxServers":    verifyResp.License.MaxServers,
+			"usedServers":   verifyResp.License.UsedServers,
+			"expiryDate":    verifyResp.License.ExpiryDate,
+			"daysRemaining": verifyResp.License.DaysRemaining,
+			"billingCycle":  verifyResp.License.BillingCycle,
+		},
+		"permissions": permissions,
+		"bound":       bindResp != nil && bindResp.Success,
+		"message":     "License activated successfully",
+	})
+}
+
+// getServerIP obtiene la IP del servidor
+func getServerIP() (string, error) {
+	// Primero intentar obtener la IP pública del hostname
+	hostname, err := os.Hostname()
+	if err != nil {
+		return "", err
+	}
+
+	// Intentar resolver el hostname a IP
+	ips, err := net.LookupIP(hostname)
+	if err != nil {
+		// Si no se puede resolver, intentar obtener IP de interfaces de red
+		return getLocalIP()
+	}
+
+	// Buscar una IP IPv4 que no sea localhost
+	for _, ip := range ips {
+		if ip.To4() != nil && !ip.IsLoopback() {
+			return ip.String(), nil
+		}
+	}
+
+	// Si no encontramos una IP pública, usar local
+	return getLocalIP()
+}
+
+// getLocalIP obtiene una IP local de las interfaces de red
+func getLocalIP() (string, error) {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return "127.0.0.1", err
+	}
+
+	for _, addr := range addrs {
+		if ipNet, ok := addr.(*net.IPNet); ok && !ipNet.IP.IsLoopback() {
+			if ipNet.IP.To4() != nil {
+				return ipNet.IP.String(), nil
+			}
+		}
+	}
+
+	return "127.0.0.1", fmt.Errorf("no local IP found")
+}
+
 var editableStringEntries = []config.StringEntry{
 	config.EmailDomain,
 	config.EmailFrom,
@@ -283,6 +443,10 @@ var editableStringEntries = []config.StringEntry{
 	config.DiscordWebhook,
 	config.DiscordWebhookSystem,
 	config.DiscordWebhookNode,
+	config.LicenseKey,
+	config.LicenseStatus,
+	config.LicenseServerId,
+	config.LicenseServerIp,
 }
 var editableBoolEntries = []config.BoolEntry{
 	config.RegistrationEnabled,

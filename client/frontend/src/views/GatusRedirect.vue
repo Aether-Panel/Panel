@@ -3,7 +3,7 @@ import { onMounted } from 'vue'
 
 onMounted(() => {
   // Redirigir directamente a /uptime/ para que el proxy del backend maneje la redirección a Gatus
-  window.location.href = '/uptime/'
+  window.location.href = 'http://localhost:8081'
 })
 </script>
 

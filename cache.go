@@ -1,9 +1,10 @@
 package SkyPanel
 
 import (
-	"github.com/SkyPanel/SkyPanel/v3/config"
 	"sync"
 	"time"
+
+	"github.com/SkyPanel/SkyPanel/v3/config"
 )
 
 type cacheMessage struct {

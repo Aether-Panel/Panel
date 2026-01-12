@@ -38,4 +38,9 @@ export class SettingsApi {
     await this._api.post(`/api/settings/test/discord`)
     return true
   }
+
+  async activateLicense(licenseKey) {
+    const res = await this._api.post('/api/settings/license/activate', { key: licenseKey })
+    return res.data
+  }
 }

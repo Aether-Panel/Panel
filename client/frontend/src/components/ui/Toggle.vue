@@ -66,7 +66,8 @@ function onInput() {
       v-if="label"
       :class="[
         'inline-block ml-4 mr-2 -mt-[0.5rem] relative',
-        'leading-6'
+        'leading-6',
+        'text-foreground'
       ]"
       v-text="label" 
     />

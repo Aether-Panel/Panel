@@ -1,13 +1,52 @@
-.idea/**
-.github/**
-.azure/*
-.git/**
-*.syso
-**/node_modules/**
-
+# Git
+.git
 .gitignore
-LICENSE
-azure-pipelines.yml
-crowdin.yml
-Dockerfile
+.github
+
+# Documentación
+*.md
+docs/
+
+# Archivos de desarrollo
+dev-data/
+*.log
+*.db
+*.db-shm
+*.db-wal
+
+# Node modules
+node_modules/
+client/*/node_modules/
+
+# Build artifacts
+client/*/dist/
+skypanel
+SkyPanel
+
+# Datos locales mezclados con código
+servers/*
+!servers/*.go
+!servers/docker/
+!servers/tty/
+
+# Otros datos
+binaries/
+cache/
+backups/
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker
+docker-compose*.yml
+docker-test.sh
 Dockerfile*
+
+# Temporal
+tmp/
+temp/
+*.tmp

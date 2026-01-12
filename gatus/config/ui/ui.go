@@ -10,11 +10,11 @@ import (
 )
 
 const (
-	defaultTitle                = "Health Dashboard | Gatus"
-	defaultDescription          = "Gatus is an advanced automated status page that lets you monitor your applications and configure alerts to notify you if there's an issue"
-	defaultHeader               = "Gatus"
-	defaultDashboardHeading     = "Health Dashboard"
-	defaultDashboardSubheading  = "Monitor the health of your endpoints in real-time"
+	defaultTitle                = "Aether Panel - Uptime Monitor"
+	defaultDescription          = "Aether Panel es un panel de administración avanzado con monitoreo de uptime en tiempo real para tus servidores y aplicaciones"
+	defaultHeader               = "Aether Panel"
+	defaultDashboardHeading     = "Monitor de Tiempo de Actividad"
+	defaultDashboardSubheading  = "Monitorea el estado de tus servidores y servicios en tiempo real"
 	defaultLogo                 = ""
 	defaultLink                 = ""
 	defaultCustomCSS            = ""

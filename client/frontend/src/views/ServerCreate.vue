@@ -1,6 +1,6 @@
 <script setup>
 import { ref, inject } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/ui/Icon.vue'
 import SelectTemplate from '@/components/ui/serverCreateSteps/SelectTemplate.vue'
@@ -8,8 +8,10 @@ import Environment from '@/components/ui/serverCreateSteps/Environment.vue'
 import Settings from '@/components/ui/serverCreateSteps/Settings.vue'
 
 const router = useRouter()
+const route = useRoute()
 const { t } = useI18n()
 const api = inject('api')
+const isAdminView = route.name && route.name.startsWith('Admin')
 const step = ref('environment')
 const environment = ref({})
 const users = ref([])
@@ -62,7 +64,11 @@ async function settingsConfirmed(settings, envSettings) {
   }
 
   const id = await api.server.create(request)
-  router.push({ name: 'ServerView', params: { id }, query: { created: true } })
+  if (isAdminView) {
+    router.push({ name: 'Admin.ServerList' })
+  } else {
+    router.push({ name: 'ServerView', params: { id }, query: { created: true } })
+  }
 }
 </script>
 

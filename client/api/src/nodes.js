@@ -34,6 +34,11 @@ export class NodeApi {
     return res.data
   }
 
+  async system(id) {
+    const res = await this._api.get(`/api/nodes/${id}/system`, undefined, undefined, { unhandledErrors: [500] })
+    return res.data
+  }
+
   async create(node) {
     await this._api.post('/api/nodes/', this.fixNode(node))
     try {

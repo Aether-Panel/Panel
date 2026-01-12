@@ -28,8 +28,36 @@
       "true": "Docker disponible",
       "false": "Docker no disponible"
     },
-    "envs": "Entornos Disponibles"
+    "envs": "Entornos Disponibles",
+    "version": "Versión"
   },
+  "stats": {
+    "TotalServers": "Total de Servidores",
+    "OnlineServers": "En Línea",
+    "Offline": "fuera de línea",
+    "Memory": "Uso de Memoria",
+    "CPU": "Uso de CPU",
+    "Of": "de",
+    "ServersOnNode": "Servidores en este Nodo",
+    "NoServers": "No hay servidores en este nodo"
+  },
+  "system": {
+    "Title": "Información del Sistema",
+    "General": "General",
+    "Hostname": "Nombre del Host",
+    "Platform": "Plataforma",
+    "Uptime": "Tiempo Activo",
+    "CPU": "CPU",
+    "Model": "Modelo",
+    "Cores": "Núcleos Físicos",
+    "Threads": "Hilos Lógicos",
+    "Memory": "Memoria",
+    "Total": "Total",
+    "Used": "Usado",
+    "Free": "Libre",
+    "Disks": "Discos"
+  },
+  "PublicAddress": "Dirección Pública",
   "PublicHost": "Host publico",
   "PublicPort": "Puerto publico",
   "PrivateHost": "Host privado",
@@ -46,5 +74,6 @@
     "Step4": "## Paso 4\n\nHabilita y reinicia el servicio de SkyPanel en el nuevo servidor ejecutando `sudo systemctl enable --now SkyPanel`",
     "Step5": "### Tu nuevo nodo está configurado y listo para usar"
   },
-  "DeploymentInstruction": "Para desplegar el nodo, instale SkyPanel en el nuevo servidor y coloque el archivo de configuración en `etc/SkyPanel/`<br/>Después en el nuevo servidor reinicie SkyPanel."
+  "DeploymentInstruction": "Para desplegar el nodo, instale SkyPanel en el nuevo servidor y coloque el archivo de configuración en `etc/SkyPanel/`<br/>Después en el nuevo servidor reinicie SkyPanel.",
+  "LocalNode": "Nodo Local"
 }

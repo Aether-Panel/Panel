@@ -1,0 +1,69 @@
+Migrates the database to a new backend
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:	export GIN_MODE=release
+ - using code:	gin.SetMode(gin.ReleaseMode)
+
+[DEBUG] 2026/01/10 20:09:45 Email template registered: oauthDeleted
+[DEBUG] 2026/01/10 20:09:45 Email template registered: removedFromServer
+[DEBUG] 2026/01/10 20:09:45 Email template registered: accountCreation
+[DEBUG] 2026/01/10 20:09:45 Email template registered: passwordChanged
+[DEBUG] 2026/01/10 20:09:45 Email template registered: emailChanged
+[DEBUG] 2026/01/10 20:09:45 Email template registered: addedToServer
+[DEBUG] 2026/01/10 20:09:45 Email template registered: login
+[DEBUG] 2026/01/10 20:09:45 Email template registered: otpDisabled
+[DEBUG] 2026/01/10 20:09:45 Email template registered: deletedServer
+[DEBUG] 2026/01/10 20:09:45 Email template registered: test
+[DEBUG] 2026/01/10 20:09:45 Email template registered: passwordReset
+[DEBUG] 2026/01/10 20:09:45 Email template registered: otpEnabled
+[DEBUG] 2026/01/10 20:09:45 Email template registered: recoveryCodesRegenerated
+[DEBUG] 2026/01/10 20:09:45 Email template registered: oauthCreated
+
+2026/01/10 20:09:45 /build/SkyPanel/database/upgrade.go:148
+[0.117ms] [rows:0] SELECT * FROM PRAGMA_index_list("nodes")
+
+2026/01/10 20:09:45 /build/SkyPanel/database/upgrade.go:148
+[0.047ms] [rows:0] SELECT * FROM PRAGMA_index_list("servers")
+
+2026/01/10 20:09:45 /build/SkyPanel/database/upgrade.go:148
+[0.045ms] [rows:0] SELECT * FROM PRAGMA_index_list("users")
+
+2026/01/10 20:09:45 /build/SkyPanel/database/upgrade.go:148
+[0.036ms] [rows:0] SELECT * FROM PRAGMA_index_list("roles")
+
+2026/01/10 20:09:45 /build/SkyPanel/database/upgrade.go:148
+[0.051ms] [rows:0] SELECT * FROM PRAGMA_index_list("templates")
+
+2026/01/10 20:09:45 /build/SkyPanel/database/upgrade.go:148
+[0.044ms] [rows:0] SELECT * FROM PRAGMA_index_list("permissions")
+
+2026/01/10 20:09:45 /build/SkyPanel/database/upgrade.go:148
+[0.040ms] [rows:0] SELECT * FROM PRAGMA_index_list("clients")
+
+2026/01/10 20:09:45 /build/SkyPanel/database/upgrade.go:148
+[0.043ms] [rows:0] SELECT * FROM PRAGMA_index_list("user_settings")
+
+2026/01/10 20:09:45 /build/SkyPanel/database/upgrade.go:148
+[0.041ms] [rows:0] SELECT * FROM PRAGMA_index_list("sessions")
+
+2026/01/10 20:09:45 /build/SkyPanel/database/upgrade.go:148
+[0.043ms] [rows:0] SELECT * FROM PRAGMA_index_list("template_repos")
+
+2026/01/10 20:09:45 /build/SkyPanel/database/upgrade.go:148
+[0.049ms] [rows:0] SELECT * FROM PRAGMA_index_list("backups")
+
+2026/01/10 20:09:45 /build/SkyPanel/database/upgrade.go:148
+[0.044ms] [rows:0] SELECT * FROM PRAGMA_index_list("recovery_codes")
+
+2026/01/10 20:09:45 /build/SkyPanel/database/upgrade.go:148
+[0.042ms] [rows:0] SELECT * FROM PRAGMA_index_list("uptime_statuses")
+[INFO] 2026/01/10 20:09:46 No admin column exists, assuming no migration needed
+[INFO] 2026/01/10 20:09:46 Generating new key
+[INFO] 2026/01/10 20:09:46 Loading existing key
+[INFO] 2026/01/10 20:09:46 Started SFTP Server on 0.0.0.0:5657
+[DEBUG] 2026/01/10 20:09:46 stopping http server
+[DEBUG] 2026/01/10 20:09:46 stopping sftp server
+[ERROR] 2026/01/10 20:09:46 error starting daemon server: permission denied while trying to connect to the Docker daemon socket at unix:///var/run/docker.sock: Get "http://%2Fvar%2Frun%2Fdocker.sock/v1.50/containers/json": dial unix /var/run/docker.sock: connect: permission denied
+[DEBUG] 2026/01/10 20:09:46 stopping Gatus service
+[DEBUG] 2026/01/10 20:09:46 stopping servers
+[DEBUG] 2026/01/10 20:09:46 stopping database connections

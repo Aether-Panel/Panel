@@ -24,8 +24,12 @@ export class UserApi {
     return res.data.users
   }
 
-  async create(username, email, password) {
-    const res = await this._api.post('/api/users', { username, email, password })
+  async create(username, email, password, roleId = null) {
+    const data = { username, email, password }
+    if (roleId) {
+      data.roleId = roleId
+    }
+    const res = await this._api.post('/api/users', data)
     return res.data.id
   }
 

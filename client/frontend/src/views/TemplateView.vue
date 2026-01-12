@@ -110,7 +110,8 @@ function createLocalCopy() {
   const t = JSON.parse(template.value)
   delete t.name
   sessionStorage.setItem('copiedTemplate', JSON.stringify(t))
-  router.push({ name: 'TemplateCreate', query: { 'copy': true } })
+  const routeName = route.path.startsWith('/admin') ? 'Admin.TemplateCreate' : 'TemplateCreate'
+  router.push({ name: routeName, query: { 'copy': true } })
 }
 
 function tabChanged(newTab) {
