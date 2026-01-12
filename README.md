@@ -4,7 +4,7 @@
 
 ### Panel de Gestión de Servidores de Juegos de Código Abierto
 
-[![GitHub release](https://img.shields.io/github/v/release/SkyPanel/SkyPanel)](https://github.com/SkyPanel/SkyPanel/releases)
+[![GitHub release](https://img.shields.io/github/v/release/SkyPanel/SkyPanel)]([https://github.com/SkyPanel/SkyPanel/releases](https://github.com/Aether-Panel/Panel/releases)
 [![License](https://img.shields.io/github/license/SkyPanel/SkyPanel)](LICENSE)
 [![Discord](https://img.shields.io/discord/123456789?label=Discord&logo=discord)](https://discord.gg/skypanel)
 [![GitHub stars](https://img.shields.io/github/stars/SkyPanel/SkyPanel?style=social)](https://github.com/SkyPanel/SkyPanel/stargazers)
