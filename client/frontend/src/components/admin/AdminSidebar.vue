@@ -103,7 +103,7 @@ const adminRoutes = [
     name: 'Admin.RoleList',
     path: '/admin/roles',
     label: t('roles.Roles'),
-    icon: 'hi-shield',
+    icon: 'gi-3d-hammer',
     permission: 'admin'
   }
 ].filter(route => {

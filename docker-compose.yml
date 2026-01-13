@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   skypanel:
     build:
@@ -34,7 +32,7 @@ services:
       # Configuración del panel
       - PUFFER_WEB_HOST=0.0.0.0:8080
       - PUFFER_PANEL_REGISTRATIONENABLED=true
-      - PUFFER_PANEL_SETTINGS_COMPANYNAME=SkyPanel
+      - PUFFER_PANEL_SETTINGS_COMPANYNAME=Aether Panel
       - PUFFER_PANEL_SETTINGS_DEFAULTTHEME=SkyPanel
     
     # Healthcheck

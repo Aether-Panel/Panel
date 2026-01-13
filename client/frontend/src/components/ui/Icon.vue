@@ -5,9 +5,10 @@ import * as HiIcons from 'oh-vue-icons/icons/hi'
 import * as MdIcons from 'oh-vue-icons/icons/md'
 import * as BiIcons from 'oh-vue-icons/icons/bi'
 import * as RiIcons from 'oh-vue-icons/icons/ri'
+import { Gi3DHammer } from 'oh-vue-icons/icons/gi'
 
-// Agregar todos los iconos de Heroicons, Material Design, Bootstrap y Remix
-addIcons(...Object.values(HiIcons), ...Object.values(MdIcons), ...Object.values(BiIcons), ...Object.values(RiIcons))
+// Agregar todos los iconos de Heroicons, Material Design, Bootstrap y Remix, y especificos de Game Icons
+addIcons(...Object.values(HiIcons), ...Object.values(MdIcons), ...Object.values(BiIcons), ...Object.values(RiIcons), Gi3DHammer)
 
 const props = defineProps({
   name: { type: String, required: true },
@@ -92,7 +93,7 @@ const iconName = computed(() => {
     return null
   }
   // Si el nombre ya está en formato oh-vue-icons, usarlo directamente
-  if (props.name && props.name.includes('-') && (props.name.startsWith('hi-') || props.name.startsWith('md-') || props.name.startsWith('bi-') || props.name.startsWith('ri-'))) {
+  if (props.name && props.name.includes('-') && (props.name.startsWith('hi-') || props.name.startsWith('md-') || props.name.startsWith('bi-') || props.name.startsWith('ri-') || props.name.startsWith('gi-'))) {
     return props.name
   }
   // Buscar en el mapeo
