@@ -1,6 +1,8 @@
-# 🐳 SkyPanel - Guía de Docker
+# 🐳 Aether Panel - Guía de Docker
 
-Esta guía te ayudará a ejecutar SkyPanel en contenedores Docker de forma fácil y controlada.
+> **Nota**: Aether Panel es el nombre oficial del proyecto. **SkyPanel** es el nombre en clave (codename) utilizado en contenedores Docker, imágenes y código fuente. Estamos en la **versión 3** del proyecto.
+
+Esta guía te ayudará a ejecutar Aether Panel en contenedores Docker de forma fácil y controlada.
 
 ## 📋 Requisitos Previos
 
@@ -59,7 +61,7 @@ docker-compose up -d
 ### Opción 3: Docker Run Directo
 
 ```bash
-# Construir imagen
+# Construir imagen (nota: el nombre de la imagen usa el nombre en clave)
 docker build -t skypanel:latest .
 
 # Ejecutar contenedor
@@ -113,7 +115,7 @@ Una vez iniciado, puedes acceder a:
 
 ### Gatus - Monitoreo de Servicios
 
-Gatus está **habilitado automáticamente** cuando ejecutas SkyPanel en Docker. Proporciona:
+Gatus está **habilitado automáticamente** cuando ejecutas Aether Panel en Docker. Proporciona:
 
 - ✅ Monitoreo en tiempo real del estado del panel
 - ✅ Monitoreo de nodos y daemons
@@ -236,7 +238,7 @@ environment:
   - PUFFER_WEB_HOST=0.0.0.0:8080       # Host y puerto
   - PUFFER_PANEL_REGISTRATIONENABLED=true  # Permitir registro
   - PUFFER_PANEL_SETTINGS_COMPANYNAME=Mi Empresa
-  - PUFFER_PANEL_SETTINGS_DEFAULTTHEME=SkyPanel
+  - PUFFER_PANEL_SETTINGS_DEFAULTTHEME=Aether Panel
 ```
 
 ### Puertos Personalizados
@@ -352,7 +354,7 @@ rm -rf dev-data/
 # Ver ayuda del script
 ./docker-test.sh help
 
-# Ver comandos disponibles de SkyPanel
+# Ver comandos disponibles de Aether Panel (nota: el binario se llama 'skypanel' por el nombre en clave)
 docker exec skypanel-dev /SkyPanel/bin/SkyPanel --help
 
 # Ver versión
@@ -366,6 +368,7 @@ docker exec skypanel-dev /SkyPanel/bin/SkyPanel version
 3. **Puertos**: Los puertos 8080, 5657 y 8081 deben estar libres
 4. **Datos**: Los datos se guardan en volúmenes persistentes
 5. **Seguridad**: Cambia las contraseñas por defecto en producción
+6. **Versión**: Estamos en la versión 3 del proyecto
 
 ## 🎯 Próximos Pasos
 
@@ -375,4 +378,4 @@ docker exec skypanel-dev /SkyPanel/bin/SkyPanel version
 4. ✅ Acceder al panel: http://localhost:8080
 5. ✅ Crear tu primer servidor de juego
 
-¡Disfruta de SkyPanel! 🚀
+¡Disfruta de Aether Panel! 🚀

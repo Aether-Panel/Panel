@@ -1,5 +1,7 @@
 # Security Policy
 
+> **Nota**: Aether Panel es el nombre oficial del proyecto. **SkyPanel** es el nombre en clave (codename) utilizado en el código fuente. Estamos en la **versión 3** del proyecto.
+
 ## Supported Versions
 
 | Version | Supported          |
@@ -11,6 +13,6 @@
 
 ## Reporting a Vulnerability
 
-Reporting sensitive information may be done by submitting a request on https://github.com/SkyPanel/SkyPanel/security/advisories?state=published
+Reporting sensitive information may be done by submitting a request on https://github.com/aetherpanel/aetherpanel/security/advisories?state=published
 
-Reports which do not contain a valid subject or desciption will be ignored.
+Reports which do not contain a valid subject or description will be ignored.
