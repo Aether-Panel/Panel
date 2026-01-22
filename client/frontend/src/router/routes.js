@@ -263,6 +263,26 @@ export default (api) => [
         path: 'roles/view/:id',
         component: () => import('@/views/RoleView.vue'),
         name: 'Admin.RoleView'
+      },
+      {
+        path: 'databasehosts',
+        component: () => import('@/views/DatabaseHostList.vue'),
+        name: 'Admin.DatabaseHostList',
+        meta: {
+          tkey: 'Database Hosts',
+          permission: 'admin',
+          icon: 'hi-database'
+        }
+      },
+      {
+        path: 'databasehosts/new',
+        component: () => import('@/views/DatabaseHostCreate.vue'),
+        name: 'Admin.DatabaseHostCreate'
+      },
+      {
+        path: 'databasehosts/edit/:id',
+        component: () => import('@/views/DatabaseHostCreate.vue'),
+        name: 'Admin.DatabaseHostEdit'
       }
     ]
   }

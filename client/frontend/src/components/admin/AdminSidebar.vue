@@ -36,23 +36,9 @@ function toggleMini() {
 function isActiveRoute(routeName) {
   const currentRouteName = route.name
   
-  // Si la ruta actual coincide exactamente, está activa
-  if (currentRouteName === routeName) {
-    return true
-  }
-  
-  // Si estamos en una ruta hija de Admin (Admin.XXX), solo marcar Admin como activa
-  if (currentRouteName?.startsWith('Admin.')) {
-    // Solo marcar Admin como activa cuando estamos en rutas hijas de Admin
-    return routeName === 'Admin'
-  }
-  
-  // Si la ruta actual es una ruta hija de la ruta especificada
-  if (currentRouteName?.startsWith(routeName + '.')) {
-    return true
-  }
-  
-  return false
+  // Solo marcar como activa si la ruta coincide exactamente
+  // NO marcar rutas padre cuando estamos en rutas hijas
+  return currentRouteName === routeName
 }
 
 // Rutas administrativas - Dashboard, Settings, Plantillas, Usuarios, Nodos y Roles
@@ -104,6 +90,13 @@ const adminRoutes = [
     path: '/admin/roles',
     label: t('roles.Roles'),
     icon: 'gi-3d-hammer',
+    permission: 'admin'
+  },
+  {
+    name: 'Admin.DatabaseHostList',
+    path: '/admin/databasehosts',
+    label: 'Database Hosts',
+    icon: 'hi-database',
     permission: 'admin'
   }
 ].filter(route => {

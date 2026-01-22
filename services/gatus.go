@@ -55,8 +55,13 @@ func StartGatus() error {
 		return err
 	}
 
-	// Configurar puerto interno (8081) - asegurarse de que la dirección sea correcta
-	cfg.Web.Address = "127.0.0.1"
+	// Configurar puerto interno (8081) - usar 0.0.0.0 en Docker para accesibilidad externa
+	// Detectar si estamos en Docker usando variable de entorno
+	if os.Getenv("PUFFER_PLATFORM") == "docker" {
+		cfg.Web.Address = "0.0.0.0"
+	} else {
+		cfg.Web.Address = "127.0.0.1"
+	}
 	cfg.Web.Port = 8081
 
 	// Asegurarse de que no use TLS
@@ -89,7 +94,12 @@ func StartGatus() error {
 			logging.Error.Printf("Error reloading Gatus configuration after node sync: %s", err.Error())
 			return err
 		}
-		cfg.Web.Address = "127.0.0.1"
+		// Usar 0.0.0.0 en Docker para accesibilidad externa
+		if os.Getenv("PUFFER_PLATFORM") == "docker" {
+			cfg.Web.Address = "0.0.0.0"
+		} else {
+			cfg.Web.Address = "127.0.0.1"
+		}
 		cfg.Web.Port = 8081
 		cfg.Web.TLS = nil // Asegurarse de que no use TLS
 		if err := cfg.Web.ValidateAndSetDefaults(); err != nil {
@@ -194,12 +204,25 @@ func IsGatusRunning() bool {
 
 // createDefaultGatusConfig crea una configuración por defecto para Gatus
 func createDefaultGatusConfig(configPath string) error {
-	defaultConfig := `# Configuración de Gatus para SkyPanel
+	// Determinar la URL correcta del panel
+	panelURL := "http://localhost:8080/api/config"
+	if os.Getenv("PUFFER_PLATFORM") == "docker" {
+		// En Docker, usar localhost ya que todo está en el mismo contenedor
+		panelURL = "http://localhost:8080/api/config"
+	}
+
+	// Determinar la dirección web
+	webAddress := "127.0.0.1"
+	if os.Getenv("PUFFER_PLATFORM") == "docker" {
+		webAddress = "0.0.0.0"
+	}
+
+	defaultConfig := fmt.Sprintf(`# Configuración de Gatus para SkyPanel
 # Este archivo monitorea los nodos y servidores del panel
 
 # Configuración del servidor web
 web:
-  address: "127.0.0.1"
+  address: "%s"
   port: 8081
 
 # Almacenamiento en memoria (puedes cambiar a SQLite o PostgreSQL)
@@ -210,12 +233,13 @@ storage:
 # Se pueden añadir endpoints aquí o se generarán automáticamente
 endpoints:
   - name: "Panel Principal"
-    group: "Panel"
-    url: "http://127.0.0.1:5656/daemon"
+    group: "Panel SkyPanel"
+    url: "%s"
     interval: 1m
     conditions:
       - "[STATUS] == 200"
-`
+      - "[RESPONSE_TIME] < 3000"
+`, webAddress, panelURL)
 
 	file, err := os.Create(configPath)
 	if err != nil {
@@ -356,13 +380,66 @@ func syncNodesToGatus(configPath string, cfg *gatusConfig.Config) error {
 	// Añadir los nuevos endpoints a la lista existente
 	// Primero, mantener los endpoints que NO son de nodos
 	filteredEndpoints := []interface{}{}
+	panelEndpointFound := false
+
+	// Determinar la URL correcta del panel
+	panelURL := "http://localhost:8080/api/config"
+	if os.Getenv("PUFFER_PLATFORM") == "docker" {
+		// En Docker, usar localhost ya que todo está en el mismo contenedor
+		panelURL = "http://localhost:8080/api/config"
+	}
 
 	for _, ep := range endpoints {
 		if epMap, ok := ep.(map[string]interface{}); ok {
-			// Eliminar TODOS los endpoints de nodos antiguos (tanto SkyPanel como SkyPanel)
+			// Eliminar TODOS los endpoints de nodos antiguos
 			if group, ok := epMap["group"].(string); ok && (group == "Nodos SkyPanel" || group == "Nodos SkyPanel") {
 				continue // Eliminar endpoints de nodos antiguos
 			}
+			
+			// Verificar si es el endpoint del panel
+			if name, ok := epMap["name"].(string); ok {
+				if name == "Panel Principal" || name == "Panel" {
+					panelEndpointFound = true
+					// Corregir la URL del panel si es incorrecta
+					if url, ok := epMap["url"].(string); ok && url != panelURL {
+						logging.Info.Printf("Gatus: Correcting panel endpoint URL from %s to %s", url, panelURL)
+						epMap["url"] = panelURL
+					}
+					// Asegurar que tenga las condiciones correctas
+					conditions, hasConditions := epMap["conditions"].([]interface{})
+					if !hasConditions {
+						conditions = []interface{}{}
+					}
+					// Verificar si tiene las condiciones necesarias
+					hasStatus200 := false
+					hasResponseTime := false
+					for _, cond := range conditions {
+						if condStr, ok := cond.(string); ok {
+							if condStr == "[STATUS] == 200" {
+								hasStatus200 = true
+							}
+							if condStr == "[RESPONSE_TIME] < 3000" {
+								hasResponseTime = true
+							}
+						}
+					}
+					// Añadir condiciones faltantes
+					if !hasStatus200 {
+						conditions = append(conditions, "[STATUS] == 200")
+					}
+					if !hasResponseTime {
+						conditions = append(conditions, "[RESPONSE_TIME] < 3000")
+					}
+					epMap["conditions"] = conditions
+					// Asegurar que el grupo sea correcto
+					epMap["group"] = "Panel SkyPanel"
+					// Asegurar que el intervalo sea correcto
+					if _, hasInterval := epMap["interval"]; !hasInterval {
+						epMap["interval"] = "1m"
+					}
+				}
+			}
+			
 			filteredEndpoints = append(filteredEndpoints, ep)
 		} else {
 			// Mantener endpoints que no son mapas (por si acaso)
@@ -370,11 +447,39 @@ func syncNodesToGatus(configPath string, cfg *gatusConfig.Config) error {
 		}
 	}
 
+	// Si no se encontró el endpoint del panel, añadirlo
+	if !panelEndpointFound {
+		panelEndpoint := map[string]interface{}{
+			"name":     "Panel Principal",
+			"group":    "Panel SkyPanel",
+			"url":      panelURL,
+			"interval": "1m",
+			"conditions": []interface{}{
+				"[STATUS] == 200",
+				"[RESPONSE_TIME] < 3000",
+			},
+		}
+		filteredEndpoints = append(filteredEndpoints, panelEndpoint)
+		logging.Info.Printf("Gatus: Added panel endpoint at %s", panelURL)
+	}
+
 	// Añadir los nuevos endpoints de nodos (ya verificamos duplicados antes)
 	filteredEndpoints = append(filteredEndpoints, newEndpoints...)
 
 	// Actualizar el mapa de configuración
 	configMap["endpoints"] = filteredEndpoints
+
+	// Actualizar la dirección web si estamos en Docker
+	if os.Getenv("PUFFER_PLATFORM") == "docker" {
+		if webConfig, ok := configMap["web"].(map[string]interface{}); ok {
+			webConfig["address"] = "0.0.0.0"
+		} else {
+			configMap["web"] = map[string]interface{}{
+				"address": "0.0.0.0",
+				"port":    8081,
+			}
+		}
+	}
 
 	// Escribir el YAML actualizado
 	updatedData, err := yaml.Marshal(configMap)

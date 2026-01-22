@@ -44,6 +44,8 @@ const systemInfo = ref(null)
 
 let statsInterval = null
 let isUpdatingNetworkChart = false // Flag para evitar actualizaciones simultáneas
+let isUpdatingResourcesChart = false // Flag para evitar actualizaciones simultáneas de recursos
+let updateQueue = Promise.resolve() // Cola de promesas para actualizaciones secuenciales
 
 onMounted(async () => {
   try {
@@ -82,9 +84,30 @@ onMounted(async () => {
     statsInterval = setInterval(async () => {
       try {
         console.log('🔄 [ADMIN] Actualizando estadísticas del sistema...')
+        
+        // Cargar datos del sistema
         await loadSystemInfo()
+        
+        // Usar una cola de promesas para garantizar actualizaciones secuenciales
+        updateQueue = updateQueue.then(() => {
+          return new Promise((resolve) => {
+            // Actualizar gráfica de recursos primero
+            console.log('📊 [ADMIN] Iniciando actualización de gráfica de recursos...')
         updateCharts()
-        // updateNetworkChart se llama dentro de loadSystemInfo cuando hay datos
+            
+            // Esperar a que termine la actualización de recursos antes de continuar
+            setTimeout(() => {
+              console.log('📊 [ADMIN] Iniciando actualización de gráfica de red...')
+              if (networkStats.value.history.length > 0) {
+                updateNetworkChart()
+              }
+              // Dar tiempo para que se complete la actualización de red
+              setTimeout(resolve, 100)
+            }, 100)
+          })
+        }).catch(error => {
+          console.error('❌ [ADMIN] Error en cola de actualización:', error)
+        })
       } catch (error) {
         console.error('Error updating system info:', error)
       }
@@ -191,8 +214,7 @@ async function loadSystemInfo() {
       networkStats.value.bytesSent = info.networkBytesSent
       networkStats.value.bytesRecv = info.networkBytesRecv
       
-      // Forzar actualización de la gráfica
-      updateNetworkChart()
+      // La actualización de la gráfica se hace desde el intervalo principal con un delay
     } else {
       console.warn('⚠️ [NETWORK] No se recibieron datos de red de la API')
     }
@@ -214,8 +236,17 @@ function createCharts() {
       resourcesChart.value = null
     }
     
-    // Gráfico de recursos del sistema (barras)
+    // Gráfico de recursos del sistema (barras) - Usar porcentajes
     if (resourcesChartEl.value) {
+    // Calcular porcentajes para la visualización inicial
+    const memoryPercent = Number(parseFloat(((resourceStats.value.usedMemory / resourceStats.value.totalMemory) * 100).toFixed(2)))
+    const cpuPercent = Number(parseFloat((systemInfo.value?.cpuUsage?.toFixed(2) || 0)))
+    const diskPercent = Number(parseFloat(((resourceStats.value.usedDisk / resourceStats.value.totalDisk) * 100).toFixed(2)))
+    
+    const availableMemoryPercent = Number(parseFloat((100 - memoryPercent).toFixed(2)))
+    const availableCpuPercent = Number(parseFloat((100 - cpuPercent).toFixed(2)))
+    const availableDiskPercent = Number(parseFloat((100 - diskPercent).toFixed(2)))
+    
     resourcesChart.value = new Chart(resourcesChartEl.value, {
       type: 'bar',
       data: {
@@ -223,9 +254,9 @@ function createCharts() {
         datasets: [{
           label: t('admin.charts.Used'),
           data: [
-            (resourceStats.value.usedMemory / 1024 / 1024 / 1024).toFixed(2),
-            systemInfo.value?.cpuUsage?.toFixed(2) || 0,
-            (resourceStats.value.usedDisk / 1024 / 1024 / 1024).toFixed(2)
+            memoryPercent,
+            cpuPercent,
+            diskPercent
           ],
           backgroundColor: 'rgba(59, 130, 246, 0.8)',
           borderColor: 'rgba(59, 130, 246, 1)',
@@ -233,9 +264,9 @@ function createCharts() {
         }, {
           label: t('admin.charts.Available'),
           data: [
-            ((resourceStats.value.totalMemory - resourceStats.value.usedMemory) / 1024 / 1024 / 1024).toFixed(2),
-            (100 - (systemInfo.value?.cpuUsage || 0)).toFixed(2),
-            ((resourceStats.value.totalDisk - resourceStats.value.usedDisk) / 1024 / 1024 / 1024).toFixed(2)
+            availableMemoryPercent,
+            availableCpuPercent,
+            availableDiskPercent
           ],
           backgroundColor: 'rgba(34, 197, 94, 0.4)',
           borderColor: 'rgba(34, 197, 94, 1)',
@@ -264,12 +295,8 @@ function createCharts() {
               label: function(context) {
                 const label = context.dataset.label || ''
                 const value = context.parsed.y
-                // Memoria y Disco en GB, CPU en porcentaje
-                if (context.dataIndex === 0 || context.dataIndex === 2) {
-                  return `${label}: ${value} GB`
-                } else {
+                // Todos los valores son porcentajes
                   return `${label}: ${value}%`
-                }
               }
             }
           }
@@ -278,8 +305,16 @@ function createCharts() {
           y: {
             stacked: true,
             beginAtZero: true,
+            min: 0,
+            max: 100,
+            suggestedMin: 0,
+            suggestedMax: 100,
             ticks: {
-              color: 'rgb(226, 232, 240)'
+              color: 'rgb(226, 232, 240)',
+              stepSize: 20,
+              callback: function(value) {
+                return value + '%'
+              }
             },
             grid: {
               color: 'rgba(148, 163, 184, 0.1)'
@@ -306,39 +341,154 @@ function createCharts() {
 }
 
 function updateCharts() {
+  // Evitar actualizaciones simultáneas
+  if (isUpdatingResourcesChart) {
+    console.log('⏳ [RESOURCES] Actualización en progreso, saltando...')
+    return
+  }
+  
   try {
-    if (!resourcesChart.value || !resourcesChart.value.data || !resourcesChart.value.data.datasets) {
+    isUpdatingResourcesChart = true
+    
+    if (!resourcesChartEl.value) {
+      console.warn('⚠️ [RESOURCES] resourcesChartEl no existe')
+      isUpdatingResourcesChart = false
       return
     }
     
-    if (!resourcesChart.value.data.datasets[0] || !resourcesChart.value.data.datasets[1]) {
+    // Verificar que tenemos datos válidos
+    if (!systemInfo.value) {
+      console.warn('⚠️ [RESOURCES] systemInfo no disponible')
+      isUpdatingResourcesChart = false
       return
     }
     
-    // Crear arrays nuevos con valores primitivos (no reactivos)
-    const usedData = [
-      Number(parseFloat((resourceStats.value.usedMemory / 1024 / 1024 / 1024).toFixed(2))),
-      Number(parseFloat((systemInfo.value?.cpuUsage?.toFixed(2) || 0))),
-      Number(parseFloat((resourceStats.value.usedDisk / 1024 / 1024 / 1024).toFixed(2)))
-    ]
-    const availableData = [
-      Number(parseFloat(((resourceStats.value.totalMemory - resourceStats.value.usedMemory) / 1024 / 1024 / 1024).toFixed(2))),
-      Number(parseFloat((100 - (systemInfo.value?.cpuUsage || 0)).toFixed(2))),
-      Number(parseFloat(((resourceStats.value.totalDisk - resourceStats.value.usedDisk) / 1024 / 1024 / 1024).toFixed(2)))
-    ]
-    
-    // Asignar nuevos arrays (no referencias reactivas)
-    resourcesChart.value.data.datasets[0].data = usedData
-    resourcesChart.value.data.datasets[1].data = availableData
-    
-    // Actualizar sin animación
-    try {
-      resourcesChart.value.update('none')
+    // Destruir gráfica existente
+    if (resourcesChart.value) {
+      try {
+        resourcesChart.value.destroy()
     } catch (e) {
-      // Ignorar errores de actualización
+        console.warn('⚠️ [RESOURCES] Error al destruir gráfica:', e)
+      }
+      resourcesChart.value = null
     }
+    
+    // Calcular porcentajes para todos los recursos (0-100)
+    const memoryPercent = Number(parseFloat(((resourceStats.value.usedMemory / resourceStats.value.totalMemory) * 100).toFixed(2)))
+    const cpuPercent = Number(parseFloat((systemInfo.value?.cpuUsage?.toFixed(2) || 0)))
+    const diskPercent = Number(parseFloat(((resourceStats.value.usedDisk / resourceStats.value.totalDisk) * 100).toFixed(2)))
+    
+    const availableMemoryPercent = Number(parseFloat((100 - memoryPercent).toFixed(2)))
+    const availableCpuPercent = Number(parseFloat((100 - cpuPercent).toFixed(2)))
+    const availableDiskPercent = Number(parseFloat((100 - diskPercent).toFixed(2)))
+    
+    console.log('🔄 [RESOURCES] Recreando gráfica con datos:', {
+      usadoMemory: memoryPercent,
+      disponibleMemory: availableMemoryPercent,
+      sumaMemory: memoryPercent + availableMemoryPercent,
+      usadoCPU: cpuPercent,
+      disponibleCPU: availableCpuPercent,
+      sumaCPU: cpuPercent + availableCpuPercent,
+      usadoDisk: diskPercent,
+      disponibleDisk: availableDiskPercent,
+      sumaDisk: diskPercent + availableDiskPercent
+    })
+    
+    // Obtener traducciones como strings primitivos
+    const labelMemory = String(t('admin.charts.Memory'))
+    const labelCPU = String(t('admin.charts.CPU'))
+    const labelDisk = String(t('admin.charts.Disk'))
+    const labelUsed = String(t('admin.charts.Used'))
+    const labelAvailable = String(t('admin.charts.Available'))
+    const titleText = String(t('admin.charts.SystemResources'))
+    
+    // Recrear la gráfica completamente con datos en porcentajes
+    resourcesChart.value = new Chart(resourcesChartEl.value, {
+      type: 'bar',
+      data: {
+        labels: [labelMemory, labelCPU, labelDisk],
+        datasets: [{
+          label: labelUsed,
+          data: [memoryPercent, cpuPercent, diskPercent],
+          backgroundColor: 'rgba(59, 130, 246, 0.8)',
+          borderColor: 'rgba(59, 130, 246, 1)',
+          borderWidth: 2
+        }, {
+          label: labelAvailable,
+          data: [availableMemoryPercent, availableCpuPercent, availableDiskPercent],
+          backgroundColor: 'rgba(34, 197, 94, 0.4)',
+          borderColor: 'rgba(34, 197, 94, 1)',
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: {
+          duration: 0 // Sin animación para evitar conflictos
+        },
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: {
+              color: 'rgb(226, 232, 240)',
+              font: { size: 12 }
+            }
+          },
+          title: {
+            display: true,
+            text: titleText,
+            color: 'rgb(226, 232, 240)',
+            font: { size: 16, weight: 'bold' }
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const label = context.dataset.label || ''
+                const value = context.parsed.y
+                // Todos los valores son porcentajes ahora
+                return `${label}: ${value}%`
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            stacked: true,
+            beginAtZero: true,
+            min: 0,
+            max: 100,
+            suggestedMin: 0,
+            suggestedMax: 100,
+            ticks: {
+              color: 'rgb(226, 232, 240)',
+              stepSize: 20,
+              callback: function(value) {
+                return value + '%'
+              }
+            },
+            grid: {
+              color: 'rgba(148, 163, 184, 0.1)'
+            }
+          },
+          x: {
+            stacked: true,
+            ticks: {
+              color: 'rgb(226, 232, 240)'
+            },
+            grid: {
+              color: 'rgba(148, 163, 184, 0.1)'
+            }
+          }
+        }
+      }
+    })
+    
+    console.log('✅ [RESOURCES] Gráfica recreada exitosamente')
   } catch (error) {
-    console.error('Error updating charts:', error)
+    console.error('❌ [RESOURCES] Error actualizando gráfica de recursos:', error)
+  } finally {
+    isUpdatingResourcesChart = false
   }
 }
 
@@ -540,6 +690,7 @@ function createNetworkChart() {
 function updateNetworkChart() {
   // Evitar actualizaciones simultáneas
   if (isUpdatingNetworkChart) {
+    console.log('⏳ [NETWORK] Actualización en progreso, saltando...')
     return
   }
   
@@ -548,26 +699,25 @@ function updateNetworkChart() {
     
     if (!networkChartEl.value) {
       console.warn('⚠️ [NETWORK] networkChartEl no está disponible')
+      isUpdatingNetworkChart = false
       return
     }
     
     if (networkStats.value.history.length === 0) {
       console.log('📊 [NETWORK] No hay datos en el historial aún')
+      isUpdatingNetworkChart = false
       return
     }
     
-    // En lugar de actualizar, recrear completamente la gráfica para evitar problemas de reactividad
-    // Esto es más seguro y evita el "Maximum call stack size exceeded"
-    if (networkChart.value) {
-      try {
-        networkChart.value.destroy()
-      } catch (e) {
-        // Ignorar errores al destruir
-      }
-      networkChart.value = null
+    // Si no existe la gráfica, crearla
+    if (!networkChart.value) {
+      console.log('📊 [NETWORK] Gráfica no existe, creándola...')
+      isUpdatingNetworkChart = false
+      createNetworkChart()
+      return
     }
     
-    // Usar toRaw para obtener valores no reactivos y crear copias profundas
+    // Actualizar datos existentes sin recrear la gráfica (más eficiente)
     const rawHistory = toRaw(networkStats.value.history)
     const historyCopy = JSON.parse(JSON.stringify(rawHistory))
     
@@ -579,9 +729,9 @@ function updateNetworkChart() {
     for (let i = 0; i < historyCopy.length; i++) {
       const item = historyCopy[i]
       const time = new Date(item.time)
-      labels.push(String(time.toLocaleTimeString())) // Convertir a string primitivo
-      sentData.push(Number(parseFloat(item.sent) || 0)) // Número primitivo
-      recvData.push(Number(parseFloat(item.recv) || 0)) // Número primitivo
+      labels.push(String(time.toLocaleTimeString()))
+      sentData.push(Number(parseFloat(item.sent) || 0))
+      recvData.push(Number(parseFloat(item.recv) || 0))
     }
     
     // Calcular el máximo de los datos para ajustar el eje Y dinámicamente
@@ -590,107 +740,40 @@ function updateNetworkChart() {
     const maxValue = Math.max(maxSent, maxRecv)
     const yAxisMax = calculateYAxisMax(maxValue)
     
-    // Obtener traducciones como strings primitivos (no reactivos)
-    const labelSent = String(t('admin.charts.NetworkSent'))
-    const labelRecv = String(t('admin.charts.NetworkRecv'))
-    const titleText = String(t('admin.charts.NetworkTraffic'))
-    
-    console.log('🔄 [NETWORK] Recreando gráfica:', {
+    console.log('🔄 [NETWORK] Actualizando gráfica:', {
       puntos: labels.length,
-      sentData: sentData.length,
-      recvData: recvData.length,
       maxValue: maxValue,
       yAxisMax: yAxisMax
     })
     
-    // Crear nueva gráfica con datos completamente primitivos
-    networkChart.value = new Chart(networkChartEl.value, {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: labelSent,
-          data: sentData,
-          borderColor: 'rgba(59, 130, 246, 1)',
-          backgroundColor: 'rgba(59, 130, 246, 0.1)',
-          borderWidth: 2,
-          fill: true,
-          tension: 0.4,
-          pointRadius: 3,
-          pointHoverRadius: 5
-        }, {
-          label: labelRecv,
-          data: recvData,
-          borderColor: 'rgba(34, 197, 94, 1)',
-          backgroundColor: 'rgba(34, 197, 94, 0.1)',
-          borderWidth: 2,
-          fill: true,
-          tension: 0.4,
-          pointRadius: 3,
-          pointHoverRadius: 5
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: {
-          duration: 0 // Sin animación para evitar problemas
-        },
-        plugins: {
-          legend: {
-            position: 'bottom',
-            labels: {
-              color: 'rgb(226, 232, 240)',
-              font: { size: 12 }
-            }
-          },
-          title: {
-            display: true,
-            text: titleText,
-            color: 'rgb(226, 232, 240)',
-            font: { size: 16, weight: 'bold' }
-          },
-          tooltip: {
-            callbacks: {
-              label: function(context) {
-                const label = context.dataset.label || ''
-                const value = context.parsed.y
-                return `${label}: ${value} MB`
-              }
-            }
-          }
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-            max: yAxisMax, // Ajustar el máximo del eje Y basado en los datos
-            ticks: {
-              color: 'rgb(226, 232, 240)',
-              callback: function(value) {
-                return value.toFixed(2) + ' MB' // Mostrar 2 decimales
-              }
-            },
-            grid: {
-              color: 'rgba(148, 163, 184, 0.1)'
-            }
-          },
-          x: {
-            ticks: {
-              color: 'rgb(226, 232, 240)',
-              maxRotation: 45,
-              minRotation: 45
-            },
-            grid: {
-              color: 'rgba(148, 163, 184, 0.1)'
-            }
-          }
-        }
-      }
-    })
-    
-    console.log('✅ [NETWORK] Gráfica recreada exitosamente')
+    // Actualizar los datos de la gráfica sin recrearla
+    if (networkChart.value && networkChart.value.data) {
+      networkChart.value.data.labels = labels
+      networkChart.value.data.datasets[0].data = sentData
+      networkChart.value.data.datasets[1].data = recvData
+      networkChart.value.options.scales.y.max = yAxisMax
+      
+      // Actualizar sin animación para mejor rendimiento
+      networkChart.value.update('none')
+      console.log('✅ [NETWORK] Gráfica actualizada exitosamente')
+    }
   } catch (error) {
-    console.error('❌ [NETWORK] Error recreando network chart:', error)
+    console.error('❌ [NETWORK] Error actualizando network chart:', error)
+    // Si hay error, intentar recrear la gráfica
+    if (networkChart.value) {
+      try {
+        networkChart.value.destroy()
+      } catch (e) {
+        // Ignorar errores al destruir
+      }
+      networkChart.value = null
+    }
+    // Recrear en el próximo ciclo
+    setTimeout(() => {
+      if (!isUpdatingNetworkChart) {
+        createNetworkChart()
+      }
+    }, 100)
   } finally {
     isUpdatingNetworkChart = false
   }
@@ -868,6 +951,107 @@ function updateNetworkChart() {
         >
           <canvas ref="resourcesChartEl" />
         </div>
+        
+        <!-- Información de uso de recursos -->
+        <div 
+          v-if="systemInfo"
+          :class="[
+            'mt-6 pt-6 border-t-2 border-border/50',
+            'grid grid-cols-1 md:grid-cols-3 gap-4'
+          ]"
+        >
+          <!-- CPU -->
+          <div 
+            :class="[
+              'p-4 rounded-lg',
+              'bg-background/50 border-2 border-border/30',
+              'flex flex-col items-center justify-center'
+            ]"
+          >
+            <div 
+              :class="[
+                'text-sm font-medium text-muted-foreground mb-2'
+              ]"
+            >
+              {{ t('admin.charts.CPU') }}
+            </div>
+            <div 
+              :class="[
+                'text-3xl font-bold',
+                systemInfo.cpuUsage > 80 ? 'text-red-500' : 
+                systemInfo.cpuUsage > 60 ? 'text-yellow-500' : 
+                'text-green-500'
+              ]"
+            >
+              {{ systemInfo.cpuUsage?.toFixed(1) || 0 }}%
+            </div>
+            <div class="text-xs text-muted-foreground mt-1">
+              {{ t('admin.charts.Used') }}
+            </div>
+          </div>
+          
+          <!-- Memoria RAM -->
+          <div 
+            :class="[
+              'p-4 rounded-lg',
+              'bg-background/50 border-2 border-border/30',
+              'flex flex-col items-center justify-center'
+            ]"
+          >
+            <div 
+              :class="[
+                'text-sm font-medium text-muted-foreground mb-2'
+              ]"
+            >
+              {{ t('admin.charts.Memory') }}
+            </div>
+            <div 
+              :class="[
+                'text-3xl font-bold',
+                (resourceStats.usedMemory / resourceStats.totalMemory * 100) > 80 ? 'text-red-500' : 
+                (resourceStats.usedMemory / resourceStats.totalMemory * 100) > 60 ? 'text-yellow-500' : 
+                'text-green-500'
+              ]"
+            >
+              {{ ((resourceStats.usedMemory / resourceStats.totalMemory) * 100).toFixed(1) }}%
+            </div>
+            <div class="text-xs text-muted-foreground mt-1">
+              {{ (resourceStats.usedMemory / 1024 / 1024 / 1024).toFixed(2) }} GB / 
+              {{ (resourceStats.totalMemory / 1024 / 1024 / 1024).toFixed(2) }} GB
+            </div>
+          </div>
+          
+          <!-- Disco -->
+          <div 
+            :class="[
+              'p-4 rounded-lg',
+              'bg-background/50 border-2 border-border/30',
+              'flex flex-col items-center justify-center'
+            ]"
+          >
+            <div 
+              :class="[
+                'text-sm font-medium text-muted-foreground mb-2'
+              ]"
+            >
+              {{ t('admin.charts.Disk') }}
+            </div>
+            <div 
+              :class="[
+                'text-3xl font-bold',
+                (resourceStats.usedDisk / resourceStats.totalDisk * 100) > 80 ? 'text-red-500' : 
+                (resourceStats.usedDisk / resourceStats.totalDisk * 100) > 60 ? 'text-yellow-500' : 
+                'text-green-500'
+              ]"
+            >
+              {{ ((resourceStats.usedDisk / resourceStats.totalDisk) * 100).toFixed(1) }}%
+            </div>
+            <div class="text-xs text-muted-foreground mt-1">
+              {{ (resourceStats.usedDisk / 1024 / 1024 / 1024).toFixed(2) }} GB / 
+              {{ (resourceStats.totalDisk / 1024 / 1024 / 1024).toFixed(2) }} GB
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Gráfico de tráfico de red -->
@@ -885,6 +1069,71 @@ function updateNetworkChart() {
           style="height: 400px;"
         >
           <canvas ref="networkChartEl" />
+        </div>
+        
+        <!-- Información de tráfico de red -->
+        <div 
+          v-if="networkStats.history.length > 0"
+          :class="[
+            'mt-6 pt-6 border-t-2 border-border/50',
+            'grid grid-cols-1 md:grid-cols-2 gap-4'
+          ]"
+        >
+          <!-- Subida -->
+          <div 
+            :class="[
+              'p-4 rounded-lg',
+              'bg-background/50 border-2 border-blue-500/30',
+              'flex flex-col items-center justify-center'
+            ]"
+          >
+            <div 
+              :class="[
+                'text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2'
+              ]"
+            >
+              <icon name="hi-arrow-up" class="text-blue-500" />
+              {{ t('admin.charts.NetworkSent') }}
+            </div>
+            <div 
+              :class="[
+                'text-3xl font-bold text-blue-500'
+              ]"
+            >
+              {{ networkStats.history.length > 0 ? networkStats.history[networkStats.history.length - 1].sent.toFixed(2) : '0.00' }}
+            </div>
+            <div class="text-xs text-muted-foreground mt-1">
+              MB/s (últimos 5 segundos)
+            </div>
+          </div>
+          
+          <!-- Bajada -->
+          <div 
+            :class="[
+              'p-4 rounded-lg',
+              'bg-background/50 border-2 border-green-500/30',
+              'flex flex-col items-center justify-center'
+            ]"
+          >
+            <div 
+              :class="[
+                'text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2'
+              ]"
+            >
+              <icon name="hi-arrow-down" class="text-green-500" />
+              {{ t('admin.charts.NetworkRecv') }}
+            </div>
+            <div 
+              :class="[
+                'text-3xl font-bold text-green-500'
+              ]"
+            >
+              {{ networkStats.history.length > 0 ? networkStats.history[networkStats.history.length - 1].recv.toFixed(2) : '0.00' }}
+            </div>
+            <div class="text-xs text-muted-foreground mt-1">
+              MB/s (últimos 5 segundos)
+            </div>
+          </div>
         </div>
       </div>
       

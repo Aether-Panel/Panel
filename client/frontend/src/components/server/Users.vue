@@ -107,33 +107,52 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="server-tab-content">
-    <div class="server-tab-section">
-      <h2 class="server-tab-title" v-text="t('users.Users')" />
+  <div class="users-container">
+    <!-- Header con título y contador -->
+    <div class="users-header">
+      <div class="users-header-content">
+        <div class="users-header-icon">
+          <icon name="users" />
+        </div>
+        <div>
+          <h2 class="users-title" v-text="t('users.Users')" />
+          <p class="users-subtitle">
+            {{ users.length }} {{ users.length === 1 ? 'usuario' : 'usuarios' }}
+          </p>
+        </div>
+      </div>
     </div>
     
-    <div v-if="users.length > 0" class="server-tab-section">
-      <div class="server-users-list">
+    <!-- Lista de usuarios -->
+    <div v-if="users.length > 0" class="users-section">
+      <div class="users-grid">
         <div
           v-for="user in users"
           :key="user.email"
-          class="server-user-card"
+          class="user-card"
+          :class="{ 'expanded': user.open }"
         >
           <div
-            class="server-user-header"
+            class="user-card-header"
             @click="user.open = !user.open"
           >
-            <div class="server-user-info">
-              <h3 class="server-user-name" v-text="user.username" />
-              <span class="server-user-email" v-text="user.email" />
+            <div class="user-card-title">
+              <div class="user-icon-wrapper">
+                <icon name="user" />
+              </div>
+              <div class="user-card-info">
+                <h3 class="user-name" v-text="user.username" />
+                <span class="user-email" v-text="user.email" />
+              </div>
             </div>
             <icon
               :name="user.open ? 'chevron-down' : 'chevron-right'"
-              class="server-user-chevron"
+              class="expand-icon"
             />
           </div>
-          <div v-if="user.open" class="server-user-permissions">
-            <div class="server-permissions-grid">
+          <transition name="expand">
+            <div v-if="user.open" class="user-card-body">
+              <div class="permissions-grid">
               <toggle
                 v-for="perm in perms"
                 :key="perm.name"
@@ -141,11 +160,11 @@ onMounted(async () => {
                 :disabled="permissionDisabled(perm.name)"
                 :label="perm.label"
                 :hint="perm.hint"
-                class="server-permission-item"
+                  class="permission-item"
                 @update:modelValue="updatePerms(user)"
               />
             </div>
-            <div class="server-user-actions">
+              <div class="user-actions">
               <btn
                 v-if="server.hasScope('server.users.delete')"
                 color="error"
@@ -157,26 +176,35 @@ onMounted(async () => {
               </btn>
             </div>
           </div>
+          </transition>
         </div>
       </div>
     </div>
     
-    <div v-else class="server-tab-empty-state">
-      <p class="server-tab-empty-text" v-text="t('servers.NoUsers')" />
+    <!-- Estado vacío -->
+    <div v-else class="empty-state">
+      <div class="empty-state-icon">
+        <icon name="users" />
+      </div>
+      <h3 class="empty-state-title" v-text="t('servers.NoUsers')" />
+      <p class="empty-state-text">Invita usuarios para compartir acceso al servidor</p>
     </div>
     
-    <div v-if="server.hasScope('server.users.create')" class="server-tab-section">
-      <h3 class="server-tab-section-title">{{ t('servers.InviteUser') }}</h3>
-      <div class="server-tab-card">
-        <div class="server-invite-form">
+    <!-- Formulario de invitación -->
+    <div v-if="server.hasScope('server.users.create')" class="create-section">
+      <div class="create-card">
+        <div class="create-header">
+          <icon name="plus" class="create-icon" />
+          <h3 class="create-title">{{ t('servers.InviteUser') }}</h3>
+        </div>
+        <div class="create-form">
           <text-field
             v-model="newEmail"
             type="email"
             icon="email"
             :label="t('users.Email')"
-            class="server-invite-email"
           />
-          <btn color="primary" @click="sendInvite()">
+          <btn color="primary" size="lg" @click="sendInvite()" class="create-button">
             <icon name="plus" />
             {{ t('servers.InviteUser') }}
           </btn>
@@ -187,158 +215,352 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.server-tab-content {
+.users-container {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
-  padding: 1.5rem;
-  max-width: 100%;
+  gap: 2rem;
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
-.server-tab-title {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: rgb(var(--color-foreground));
-  margin: 0;
-  padding-bottom: 1rem;
-  border-bottom: 2px solid rgb(var(--color-border) / 0.5);
-}
-
-.server-tab-section {
-  width: 100%;
-}
-
-.server-tab-section-title {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: rgb(var(--color-foreground));
-  margin: 0 0 1rem 0;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid rgb(var(--color-border) / 0.3);
-}
-
-.server-users-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.server-user-card {
-  background: rgb(var(--color-background));
-  border: 1px solid rgb(var(--color-border) / 0.3);
-  border-radius: 0.75rem;
-  padding: 1rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  transition: all 0.2s ease-in-out;
-}
-
-.server-user-card:hover {
-  border-color: rgb(var(--color-border));
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-}
-
-.server-user-header {
+/* Header */
+.users-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  cursor: pointer;
-  padding: 0.5rem 0;
+  padding-bottom: 1.5rem;
+  border-bottom: 2px solid #475569;
 }
 
-.server-user-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.server-user-name {
-  font-size: 1rem;
-  font-weight: 600;
-  color: rgb(var(--color-foreground));
-  margin: 0 0 0.25rem 0;
-}
-
-.server-user-email {
-  display: block;
-  font-size: 0.875rem;
-  color: rgb(var(--color-muted-foreground));
-}
-
-.server-user-chevron {
-  width: 1.25rem;
-  height: 1.25rem;
-  color: rgb(var(--color-muted-foreground));
-  transition: transform 0.2s ease-in-out;
-  flex-shrink: 0;
-}
-
-.server-user-header:hover .server-user-chevron {
-  color: rgb(var(--color-primary));
-}
-
-.server-user-permissions {
-  padding-top: 1rem;
-  margin-top: 1rem;
-  border-top: 1px solid rgb(var(--color-border) / 0.3);
-}
-
-.server-permissions-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-}
-
-.server-permission-item {
-  padding: 0.5rem;
-  border-radius: 0.5rem;
-  transition: background 0.2s ease-in-out;
-}
-
-.server-permission-item:hover {
-  background: rgb(var(--color-muted) / 0.3);
-}
-
-.server-user-actions {
+.users-header-content {
   display: flex;
-  justify-content: flex-end;
-  padding-top: 1rem;
-  border-top: 1px solid rgb(var(--color-border) / 0.2);
-}
-
-.server-tab-card {
-  background: rgb(var(--color-background));
-  border: 1px solid rgb(var(--color-border) / 0.3);
-  border-radius: 0.75rem;
-  padding: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-.server-invite-form {
-  display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 1rem;
 }
 
-.server-invite-email {
-  flex: 1;
-}
-
-.server-tab-empty-state {
-  padding: 3rem 1.5rem;
-  text-align: center;
-  background: rgb(var(--color-muted) / 0.2);
-  border: 1px solid rgb(var(--color-border) / 0.3);
+.users-header-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0.5rem;
+  background: #3b82f6;
   border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.server-tab-empty-text {
-  color: rgb(var(--color-muted-foreground));
+.users-header-icon :deep(svg),
+.users-header-icon :deep(svg path),
+.users-header-icon :deep(svg *) {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+  stroke: #ffffff !important;
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.users-title {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: #f1f5f9;
   margin: 0;
+  line-height: 1.2;
+}
+
+.users-subtitle {
   font-size: 0.875rem;
+  color: #cbd5e1;
+  margin: 0.25rem 0 0;
+}
+
+/* Grid de usuarios */
+.users-section {
+  margin-top: 0;
+}
+
+.users-grid {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
 }
 
 @media (max-width: 768px) {
-  .server-permissions-grid {
+  .users-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Tarjeta de usuario */
+.user-card {
+  background: #1e293b;
+  border: 2px solid #475569;
+  border-radius: 1rem;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.user-card:hover {
+  border-color: #3b82f6;
+  transform: translateY(-2px);
+}
+
+.user-card.expanded {
+  border-color: #3b82f6;
+}
+
+.user-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  cursor: pointer;
+  user-select: none;
+  background: #1e293b;
+  transition: background 0.2s;
+}
+
+.user-card-header:hover {
+  background: #2d3e52;
+}
+
+.user-card-title {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1;
+}
+
+.user-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  background: #3b82f6;
+  border-radius: 0.75rem;
+}
+
+.user-icon-wrapper :deep(svg),
+.user-icon-wrapper :deep(svg path),
+.user-icon-wrapper :deep(svg *) {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: #ffffff !important;
+  fill: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+.user-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.user-name {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  margin: 0;
+}
+
+.user-email {
+  font-size: 0.875rem;
+  color: #cbd5e1;
+}
+
+.expand-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+
+.expand-icon :deep(svg),
+.expand-icon :deep(svg path),
+.expand-icon :deep(svg *) {
+  color: #e2e8f0 !important;
+  fill: #e2e8f0 !important;
+  stroke: #e2e8f0 !important;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.user-card.expanded .expand-icon {
+  transform: rotate(180deg);
+}
+
+/* Animación de expansión */
+.expand-enter-active,
+.expand-leave-active {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.expand-enter-from,
+.expand-leave-to {
+  opacity: 0;
+  max-height: 0;
+}
+
+.expand-enter-to,
+.expand-leave-from {
+  opacity: 1;
+  max-height: 1000px;
+}
+
+/* Body de la tarjeta */
+.user-card-body {
+  padding: 1.5rem;
+  background: #0f172a;
+  border-top: 2px solid #334155;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.permissions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.75rem;
+}
+
+.permission-item {
+  padding: 0.75rem;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 0.5rem;
+  transition: all 0.2s;
+}
+
+.permission-item:hover {
+  border-color: #475569;
+  background: #2d3e52;
+}
+
+.user-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.5rem;
+  border-top: 1px solid #334155;
+}
+
+/* Sección de creación */
+.create-section {
+  margin-top: 0;
+}
+
+.create-card {
+  background: #1e293b;
+  border: 2px solid #3b82f6;
+  border-radius: 1rem;
+  padding: 2rem;
+}
+
+.create-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.create-icon {
+  width: 2rem;
+  height: 2rem;
+  padding: 0.5rem;
+  background: #3b82f6;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.create-icon :deep(svg),
+.create-icon :deep(svg path),
+.create-icon :deep(svg *) {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+  stroke: #ffffff !important;
+  width: 1rem;
+  height: 1rem;
+}
+
+.create-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  margin: 0;
+}
+
+.create-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.create-button {
+  width: 100%;
+  justify-content: center;
+}
+
+/* Estado vacío */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+  background: #1e293b;
+  border: 2px dashed #475569;
+  border-radius: 1rem;
+}
+
+.empty-state-icon {
+  width: 4rem;
+  height: 4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #334155;
+  border-radius: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.empty-state-icon :deep(svg),
+.empty-state-icon :deep(svg path),
+.empty-state-icon :deep(svg *) {
+  width: 2rem;
+  height: 2rem;
+  color: #94a3b8 !important;
+  fill: #94a3b8 !important;
+  stroke: #94a3b8 !important;
+}
+
+.empty-state-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  margin: 0 0 0.5rem;
+}
+
+.empty-state-text {
+  font-size: 0.875rem;
+  color: #cbd5e1;
+  margin: 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .users-container {
+    padding: 1rem;
+  }
+  
+  .users-title {
+    font-size: 1.5rem;
+  }
+  
+  .permissions-grid {
     grid-template-columns: 1fr;
   }
 }

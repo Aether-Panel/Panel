@@ -24,6 +24,7 @@ const canEdit = props.server.hasScope('server.files.edit')
 const fileEls = ref([])
 const files = ref(null)
 const file = ref(null)
+const originalFileName = ref('') // Guardar el nombre original del archivo
 const fileSizeWarn = ref(false)
 const fileSizeWarnSubject = ref(null)
 const currentPath = ref([])
@@ -99,6 +100,7 @@ async function openFile(f, overrideWarn = false) {
     const path = getCurrentPath() + `/${f.name}`
     const content = skipDownload(f) ? null : await props.server.getFile(path, true)
     file.value = { ...f, content, url: props.server.getFileUrl(path) }
+    originalFileName.value = f.name // Guardar el nombre original
     editorOpen.value = true
     loading.value = false
   } else {
@@ -111,11 +113,35 @@ async function openFile(f, overrideWarn = false) {
 }
 
 async function saveFile({close}) {
-  await props.server.uploadFile(`${getCurrentPath()}/${file.value.name}`, file.value.content)
-  toast.success(t('files.Saved'))
+  const currentPathStr = getCurrentPath()
+  const originalPath = `${currentPathStr}/${originalFileName.value}`
+  const newPath = `${currentPathStr}/${file.value.name}`
+  
+  // Si el nombre cambió, eliminar el archivo original después de guardar el nuevo
+  if (file.value.name !== originalFileName.value) {
+    // Guardar el archivo con el nuevo nombre
+    await props.server.uploadFile(newPath, file.value.content)
+    // Eliminar el archivo original
+    try {
+      await props.server.deleteFile(originalPath)
+      toast.success(t('files.SavedAndRenamed') || 'Archivo guardado y renombrado')
+    } catch (error) {
+      console.error('Error al eliminar el archivo original:', error)
+      toast.error(t('files.RenameError') || 'Error al renombrar el archivo')
+    }
+  } else {
+    // Solo guardar si el nombre no cambió
+    await props.server.uploadFile(newPath, file.value.content)
+    toast.success(t('files.Saved') || 'Archivo guardado')
+  }
+  
+  // Actualizar el nombre original
+  originalFileName.value = file.value.name
+  
   if (close) {
     editorOpen.value = false
     file.value = null
+    originalFileName.value = ''
   }
   refresh()
 }
@@ -644,7 +670,7 @@ function selectAll() {
     <overlay v-model="loading" class="loader-overlay">
       <loader />
     </overlay>
-    <overlay v-model="editorOpen" class="editor">
+    <overlay v-model="editorOpen" class="editor-overlay">
       <editor v-if="file" v-model="file" :read-only="!canEdit" @save="saveFile($event)" @close="editorOpen = false" />
     </overlay>
   </div>
@@ -827,5 +853,36 @@ function selectAll() {
   .file-icon {
     font-size: 2.5rem;
   }
+}
+
+/* Estilos para el editor overlay */
+:deep(.editor-overlay) {
+  overflow: hidden !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+:deep(.editor-overlay > div) {
+  max-width: 95vw !important;
+  max-height: 95vh !important;
+  width: 95vw !important;
+  height: 95vh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  position: relative !important;
+}
+
+:deep(.editor-overlay > div > div) {
+  padding: 0 !important;
+  height: 100% !important;
+  width: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
 }
 </style>

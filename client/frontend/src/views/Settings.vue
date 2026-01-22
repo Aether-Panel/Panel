@@ -5,7 +5,7 @@ import Btn from '@/components/ui/Btn.vue'
 import Dropdown from '@/components/ui/Dropdown.vue'
 import Icon from '@/components/ui/Icon.vue'
 import TextField from '@/components/ui/TextField.vue'
-import ThemeSetting from '@/components/ui/ThemeSetting.vue'
+// import ThemeSetting from '@/components/ui/ThemeSetting.vue' // Comentado: Tema desactivado
 import Toggle from '@/components/ui/Toggle.vue'
 import Loader from '@/components/ui/Loader.vue'
 import Tabs from '@/components/ui/Tabs.vue'
@@ -34,7 +34,8 @@ const emailProviderConfigs = {
 const { t } = useI18n()
 const api = inject('api')
 const toast = inject('toast')
-const themeApi = inject('theme')
+// TEMA DESACTIVADO: themeApi comentado
+// const themeApi = inject('theme')
 const config = inject('config')
 
 // Logs de diagnóstico al inicio
@@ -50,8 +51,9 @@ console.log('   - api.settings:', api?.settings)
 const masterUrl = ref('')
 const panelTitle = ref('')
 const registrationEnabled = ref(true)
-const theme = ref('SkyPanel')
-const themeSettings = ref([])
+// TEMA DESACTIVADO: Variables comentadas
+// const theme = ref('SkyPanel')
+// const themeSettings = ref([])
 const discordWebhook = ref('')
 const discordWebhookSystem = ref('')
 const discordWebhookNode = ref('')
@@ -137,10 +139,9 @@ const email = ref({
 const loading = ref(true)
 const error = ref(null)
 
-// Opciones de temas para el dropdown - inicializar con valor por defecto
-const themeOptions = ref([{ label: 'Default', value: 'Default' }])
-
-console.log('✅ themeOptions inicializado:', themeOptions.value)
+// TEMA DESACTIVADO: Opciones comentadas
+// const themeOptions = ref([{ label: 'Default', value: 'Default' }])
+// console.log('✅ themeOptions inicializado:', themeOptions.value)
 
 // Variables de licencia - COMENTADO: Funcionalidad de licencias deshabilitada
 // const licenseKey = ref('')
@@ -152,9 +153,10 @@ function autofillMasterUrl() {
   masterUrl.value = window.location.origin
 }
 
-async function themeChanged() {
-  themeSettings.value = await themeApi.getThemeSettings(theme.value)
-}
+// TEMA DESACTIVADO: Función comentada
+// async function themeChanged() {
+//   themeSettings.value = await themeApi.getThemeSettings(theme.value)
+// }
 
 function emailProviderChanged(provider) {
   console.log('📧 [EMAIL] Proveedor cambiado:', provider)
@@ -189,8 +191,9 @@ async function savePanelSettings() {
   await api.settings.set({
     'panel.settings.masterUrl': masterUrl.value,
     'panel.settings.companyName': panelTitle.value,
-    'panel.settings.defaultTheme': theme.value,
-    'panel.settings.themeSettings': themeApi.serializeThemeSettings(themeSettings.value),
+    // TEMA DESACTIVADO: Líneas comentadas
+    // 'panel.settings.defaultTheme': theme.value,
+    // 'panel.settings.themeSettings': themeApi.serializeThemeSettings(themeSettings.value),
     'panel.registrationEnabled': registrationEnabled.value,
     'panel.notifications.discordWebhook': discordWebhook.value,
     'panel.notifications.discordWebhookSystem': discordWebhookSystem.value,
@@ -286,7 +289,8 @@ onMounted(async () => {
     panelTitle.value = await loadSetting('panel.settings.companyName', '')
     const regEnabled = await loadSetting('panel.registrationEnabled', 'false')
     registrationEnabled.value = (regEnabled === "true" || regEnabled === true)
-    theme.value = await loadSetting('panel.settings.defaultTheme', 'SkyPanel')
+    // TEMA DESACTIVADO: Línea comentada
+    // theme.value = await loadSetting('panel.settings.defaultTheme', 'SkyPanel')
     discordWebhook.value = await loadSetting('panel.notifications.discordWebhook', '')
     discordWebhookSystem.value = await loadSetting('panel.notifications.discordWebhookSystem', '')
     discordWebhookNode.value = await loadSetting('panel.notifications.discordWebhookNode', '')
@@ -300,40 +304,41 @@ onMounted(async () => {
     })
     await Promise.all(emailPromises)
     
-    // Cargar opciones de temas
-    try {
-      if (themeApi && typeof themeApi.getThemes === 'function') {
-        const themes = themeApi.getThemes()
-        if (Array.isArray(themes) && themes.length > 0) {
-          themeOptions.value = themes.map(t => ({ label: t, value: t }))
-        } else {
-          themeOptions.value = []
-        }
-      } else {
-        themeOptions.value = []
-      }
-    } catch (e) {
-      console.warn('Error loading theme options:', e)
-      themeOptions.value = []
-    }
-    
-    // Cargar configuración del tema
-    try {
-      await themeChanged()
-    } catch (e) {
-      console.warn('Error loading theme settings:', e)
-    }
-    
-    const themeSettingsValue = await loadSetting('panel.settings.themeSettings', '{}')
-    try {
-      themeSettings.value = themeApi.deserializeThemeSettings(
-        themeSettings.value,
-        themeSettingsValue
-      )
-    } catch (e) {
-      console.warn('Error deserializing theme settings:', e)
-      themeSettings.value = {}
-    }
+    // TEMA DESACTIVADO: Todo el bloque de carga de temas comentado
+    // // Cargar opciones de temas
+    // try {
+    //   if (themeApi && typeof themeApi.getThemes === 'function') {
+    //     const themes = themeApi.getThemes()
+    //     if (Array.isArray(themes) && themes.length > 0) {
+    //       themeOptions.value = themes.map(t => ({ label: t, value: t }))
+    //     } else {
+    //       themeOptions.value = []
+    //     }
+    //   } else {
+    //     themeOptions.value = []
+    //   }
+    // } catch (e) {
+    //   console.warn('Error loading theme options:', e)
+    //   themeOptions.value = []
+    // }
+    // 
+    // // Cargar configuración del tema
+    // try {
+    //   await themeChanged()
+    // } catch (e) {
+    //   console.warn('Error loading theme settings:', e)
+    // }
+    // 
+    // const themeSettingsValue = await loadSetting('panel.settings.themeSettings', '{}')
+    // try {
+    //   themeSettings.value = themeApi.deserializeThemeSettings(
+    //     themeSettings.value,
+    //     themeSettingsValue
+    //   )
+    // } catch (e) {
+    //   console.warn('Error deserializing theme settings:', e)
+    //   themeSettings.value = {}
+    // }
     
     // Cargar información de licencia - COMENTADO: Funcionalidad de licencias deshabilitada
     // licenseKey.value = await loadSetting('panel.license.key', '')
@@ -376,9 +381,10 @@ onMounted(async () => {
   }
 })
 
-function updateThemeSetting(name, newSetting) {
-  themeSettings.value[name] = newSetting
-}
+// Comentado: Función de tema desactivada
+// function updateThemeSetting(name, newSetting) {
+//   themeSettings.value[name] = newSetting
+// }
 
 // ============================================================================
 // FUNCIONALIDAD DE LICENCIAS - COMENTADA: Deshabilitada para no mostrar en la web
@@ -646,8 +652,8 @@ function updateThemeSetting(name, newSetting) {
       </div>
       <text-field v-model="panelTitle" :label="t('settings.CompanyName')" />
       <toggle v-model="registrationEnabled" :label="t('settings.RegistrationEnabled')" :hint="t('settings.RegistrationEnabledHint')" />
-      <dropdown v-model="theme" :options="themeOptions || []" :label="t('settings.DefaultTheme')" @change="themeChanged()" />
-              <theme-setting v-for="(setting, name) in themeSettings" :key="name" :model-value="setting" @update:modelValue="updateThemeSetting(name, $event)" />
+      <!-- <dropdown v-model="theme" :options="themeOptions || []" :label="t('settings.DefaultTheme')" @change="themeChanged()" />
+              <theme-setting v-for="(setting, name) in themeSettings" :key="name" :model-value="setting" @update:modelValue="updateThemeSetting(name, $event)" /> -->
             </div>
             
             <div :class="['flex gap-4 justify-end mt-6 pt-4 border-t-2 border-border/50']">

@@ -2,11 +2,14 @@
   "logs": "/var/log/SkyPanel",
   "panel": {
     "database": {
-      "dialect": "sqlite3",
-      "url": "file:/var/lib/SkyPanel/database.db?cache=shared"
+      "dialect": "mysql",
+      "url": "panel:2006@tcp(192.168.0.5:3306)/skypanel?charset=utf8mb4&parseTime=true"
     },
     "web": {
       "files": "/var/www/SkyPanel"
+    },
+    "gatus": {
+      "enable": true
     }
   },
   "daemon": {

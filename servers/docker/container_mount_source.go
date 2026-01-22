@@ -2,19 +2,20 @@ package docker
 
 import (
 	"context"
-	"github.com/SkyPanel/SkyPanel/v3"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/SkyPanel/SkyPanel/v3"
+
+	"github.com/SkyPanel/SkyPanel/v3/config"
+	"github.com/SkyPanel/SkyPanel/v3/logging"
+	"github.com/SkyPanel/SkyPanel/v3/utils"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	mountType "github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
 	"github.com/gofrs/uuid/v5"
-	"github.com/SkyPanel/SkyPanel/v3/config"
-	"github.com/SkyPanel/SkyPanel/v3/logging"
-	"github.com/SkyPanel/SkyPanel/v3/utils"
 )
 
 var containerMountSource string
@@ -27,11 +28,11 @@ func InitContainerMountSource() (err error) {
 	}
 
 	path := filepath.Join(os.TempDir(), "puffer-cid")
-	err = os.Mkdir(path, 0755)
+	err = os.MkdirAll(path, 0755)
 	if err != nil {
 		return
 	}
-	defer os.Remove(path)
+	defer os.RemoveAll(path)
 
 	id, err := uuid.NewV4()
 	if err != nil {

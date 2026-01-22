@@ -65,7 +65,7 @@ func buildTests() []*TestScenario {
 
 			log.Printf("Cloning template repo")
 			_, err = git.PlainClone(templateFolder, false, &git.CloneOptions{
-				URL:           "https://templates.aetherpanel.es/",
+				URL:           "https://templates.aetherpanel.es/templates.json",
 				ReferenceName: plumbing.ReferenceName(CmdFlags.GitRef),
 				SingleBranch:  true,
 				Depth:         1,

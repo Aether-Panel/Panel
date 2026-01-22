@@ -43,3 +43,6 @@ servers/*/bedrock-server-*.zip
 
 *.mca
 servers/
+
+# Datos de desarrollo local (Docker)
+dev-data/

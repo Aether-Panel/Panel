@@ -5,7 +5,7 @@ endpoints:
       group: Panel SkyPanel
       interval: 1m
       name: Panel Principal
-      url: http://0.0.0.0:8080/api/config
+      url: http://localhost:8080/api/config
 storage:
     type: memory
 ui:

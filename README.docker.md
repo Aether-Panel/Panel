@@ -108,8 +108,19 @@ El script `docker-test.sh` proporciona comandos fáciles de usar:
 Una vez iniciado, puedes acceder a:
 
 - **Panel Web**: http://localhost:8080
-- **Gatus (Monitoring)**: http://localhost:8081
+- **Gatus (Monitoring)**: http://localhost:8081 (habilitado por defecto en Docker)
 - **SFTP**: `localhost:5657`
+
+### Gatus - Monitoreo de Servicios
+
+Gatus está **habilitado automáticamente** cuando ejecutas SkyPanel en Docker. Proporciona:
+
+- ✅ Monitoreo en tiempo real del estado del panel
+- ✅ Monitoreo de nodos y daemons
+- ✅ Dashboard de uptime y métricas
+- ✅ Alertas configurables
+
+Accede al dashboard de Gatus en: **http://localhost:8081**
 
 ### Credenciales Iniciales
 

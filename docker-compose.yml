@@ -1,4 +1,37 @@
 services:
+  # Base de datos MySQL/MariaDB
+  mysql:
+    image: mariadb:10.11
+    container_name: skypanel-mysql
+    restart: unless-stopped
+    
+    # Variables de entorno para MySQL
+    environment:
+      - MYSQL_ROOT_PASSWORD=skypanel_root_password
+      - MYSQL_DATABASE=skypanel
+      - MYSQL_USER=skypanel
+      - MYSQL_PASSWORD=skypanel_password
+    
+    # Volúmenes persistentes para MySQL
+    volumes:
+      - mysql-data:/var/lib/mysql
+    
+    # Puertos (opcional, para acceso externo)
+    ports:
+      - "3306:3306"
+    
+    # Healthcheck
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    
+    # Redes
+    networks:
+      - skypanel-network
+
   skypanel:
     build:
       context: .
@@ -8,6 +41,9 @@ services:
         - sha=local-build
     container_name: skypanel
     restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
     
     # Puertos
     ports:
@@ -34,6 +70,9 @@ services:
       - PUFFER_PANEL_REGISTRATIONENABLED=true
       - PUFFER_PANEL_SETTINGS_COMPANYNAME=Aether Panel
       - PUFFER_PANEL_SETTINGS_DEFAULTTHEME=SkyPanel
+      # Configuración de base de datos MySQL
+      - PUFFER_PANEL_DATABASE_DIALECT=mysql
+      - PUFFER_PANEL_DATABASE_URL=skypanel:skypanel_password@tcp(mysql:3306)/skypanel?charset=utf8&parseTime=true
     
     # Healthcheck
     healthcheck:
@@ -64,6 +103,8 @@ volumes:
   skypanel-data:
     driver: local
   skypanel-logs:
+    driver: local
+  mysql-data:
     driver: local
 
 # Redes

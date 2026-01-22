@@ -21,6 +21,7 @@ func RegisterRoutes(rg *gin.RouterGroup) {
 	rg.Use(middleware.AddVersionHeader)
 	registerNodes(rg.Group("/nodes"))
 	registerServers(rg.Group("/servers"))
+	registerDatabases(rg.Group("/servers"))
 	registerUsers(rg.Group("/users"))
 	registerTemplates(rg.Group("/templates"))
 	registerSelf(rg.Group("/self"))
@@ -28,6 +29,7 @@ func RegisterRoutes(rg *gin.RouterGroup) {
 	registerUserSettings(rg.Group("/userSettings"))
 	registerUptime(rg.Group("/uptime"))
 	registerRoles(rg.Group("/roles"))
+	registerDatabaseHosts(rg.Group("/databasehosts"))
 
 	rg.GET("/config", panelConfig)
 }

@@ -361,7 +361,21 @@ type vpsIndexEntry struct {
 
 func httpGetJson(url string, target interface{}) error {
 	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Get(url)
+	
+	// Crear la petición con headers apropiados para evitar bloqueos de Cloudflare
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return err
+	}
+	
+	// Headers para parecer un navegador legítimo
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+	req.Header.Set("Accept", "application/json, text/plain, */*")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9,es;q=0.8")
+	req.Header.Set("Cache-Control", "no-cache")
+	req.Header.Set("Pragma", "no-cache")
+	
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}

@@ -30,6 +30,8 @@ var dbObjects = []interface{}{
 	&models.Backup{},
 	&models.RecoveryCode{},
 	&models.UptimeStatus{},
+	&models.DatabaseHost{},
+	&models.Database{},
 }
 
 func Upgrade(dbConn *gorm.DB, prettyPrint bool) error {
@@ -169,12 +171,14 @@ var migrations = [][]*gormigrate.Migration{
 		{
 			ID: "1658926619",
 			Migrate: func(db *gorm.DB) error {
-				err := db.Create(&models.TemplateRepo{
-					Name:   "community",
-					Url:    "https://templates.aetherpanel.es/",
-					Branch: "v3",
-				}).Error
-				return err
+				// Comentado: Repositorio bloqueado por Cloudflare
+				// err := db.Create(&models.TemplateRepo{
+				// 	Name:   "community",
+				// 	Url:    "https://templates.aetherpanel.es/templates.json",
+				// 	Branch: "v3",
+				// }).Error
+				// return err
+				return nil // No crear repositorio automáticamente
 			},
 		},
 		{

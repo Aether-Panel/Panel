@@ -60,9 +60,9 @@ RUN xx-verify /SkyPanel/SkyPanel
 
 FROM alpine
 
-EXPOSE 8080 5657
+EXPOSE 8080 5657 8081
 RUN mkdir -p /etc/SkyPanel && \
-    mkdir -p /var/lib/SkyPanel /var/lib/SkyPanel/servers /var/lib/SkyPanel/binaries /var/lib/SkyPanel/cache && \
+    mkdir -p /var/lib/SkyPanel /var/lib/SkyPanel/servers /var/lib/SkyPanel/binaries /var/lib/SkyPanel/cache /var/lib/SkyPanel/gatus && \
     mkdir -p /var/log/SkyPanel
 #addgroup --system -g 1000 SkyPanel && \
 #adduser -D -H --home /var/lib/SkyPanel --ingroup SkyPanel -u 1000 SkyPanel && \
@@ -80,6 +80,8 @@ COPY --from=builder --chmod=755 /SkyPanel/SkyPanel /SkyPanel/bin/SkyPanel
 COPY --from=builder --chmod=755 /build/SkyPanel/entrypoint.sh /SkyPanel/bin/entrypoint.sh
 COPY --from=builder --chmod=755 /build/SkyPanel/config.docker.json /etc/SkyPanel/config.json
 COPY --from=builder --chmod=755 /build/SkyPanel/client/frontend/dist /var/www/SkyPanel
+# Copiar configuración de Gatus
+COPY --from=builder --chmod=644 /build/SkyPanel/gatus/config.yaml /var/lib/SkyPanel/gatus/config.yaml
 
 VOLUME /etc/SkyPanel
 VOLUME /var/lib/SkyPanel

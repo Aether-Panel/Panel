@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import Chart, { _adapters, Tooltip } from 'chart.js/auto'
 import 'chartjs-adapter-date-fns'
 import Query from './Query.vue'
+import Icon from '@/components/ui/Icon.vue'
 
 const fromCss = (el, prop) => {
   return getComputedStyle(el).getPropertyValue(prop).trim()
@@ -334,72 +335,192 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="server-tab-content">
-    <div class="server-tab-section">
+  <div class="stats-container">
+    <!-- Header -->
+    <div class="stats-header">
+      <div class="stats-header-content">
+        <div class="stats-header-icon">
+          <icon name="wifi-router" />
+        </div>
+        <div>
+          <h1 class="stats-title">{{ t('servers.Stats') }}</h1>
+          <p class="stats-subtitle">{{ t('servers.StatsDescription') }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Query Section -->
+    <div class="stats-section">
       <Query :server="server" />
     </div>
-    <div class="server-tab-section">
-      <h3 class="server-tab-section-title">{{ t('servers.Memory') }}</h3>
-      <div class="server-chart-container">
+
+    <!-- Charts Grid -->
+    <div class="stats-grid">
+      <!-- Memory Chart -->
+      <div class="stats-card">
+        <div class="stats-card-header">
+          <icon name="cpu-chip" class="stats-card-icon" />
+          <h2 class="stats-card-title">{{ t('servers.Memory') }}</h2>
+        </div>
+        <div class="stats-chart-container">
         <canvas ref="memoryChartEl"/>
       </div>
     </div>
-    <div class="server-tab-section">
-      <h3 class="server-tab-section-title">{{ t('servers.CPU') }}</h3>
-      <div class="server-chart-container">
+
+      <!-- CPU Chart -->
+      <div class="stats-card">
+        <div class="stats-card-header">
+          <icon name="cpu-chip" class="stats-card-icon" />
+          <h2 class="stats-card-title">{{ t('servers.CPU') }}</h2>
+        </div>
+        <div class="stats-chart-container">
         <canvas ref="cpuChartEl"/>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.server-tab-content {
+.stats-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Header */
+.stats-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 1.5rem;
+  border-bottom: 2px solid #475569;
+}
+
+.stats-header-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.stats-header-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0.5rem;
+  background: #3b82f6;
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stats-header-icon :deep(svg),
+.stats-header-icon :deep(svg path),
+.stats-header-icon :deep(svg *) {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+  stroke: #ffffff !important;
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.stats-title {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.stats-subtitle {
+  font-size: 0.875rem;
+  color: #cbd5e1;
+  margin: 0.25rem 0 0;
+}
+
+/* Secciones */
+.stats-section {
+  margin-top: 0;
+}
+
+.stats-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
+  gap: 2rem;
+}
+
+.stats-card {
+  background: #1e293b;
+  border: 2px solid #475569;
+  border-radius: 1rem;
+  padding: 2rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stats-card:hover {
+  border-color: #3b82f6;
+}
+
+.stats-card-header {
+  display: flex;
+  align-items: center;
   gap: 1rem;
-  padding: 1rem;
-  max-width: 100%;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #334155;
 }
 
-.server-tab-section {
-  width: 100%;
+.stats-card-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: #3b82f6;
 }
 
-.server-tab-section:first-child {
-  grid-column: 1 / -1;
+.stats-card-icon :deep(svg),
+.stats-card-icon :deep(svg path),
+.stats-card-icon :deep(svg *) {
+  color: #3b82f6 !important;
+  fill: #3b82f6 !important;
+  stroke: #3b82f6 !important;
+  width: 1.5rem;
+  height: 1.5rem;
 }
 
-.server-tab-section-title {
-  font-size: 0.875rem;
+.stats-card-title {
+  font-size: 1.25rem;
   font-weight: 600;
-  color: rgb(var(--color-foreground));
-  margin: 0 0 0.5rem 0;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid rgb(var(--color-border) / 0.3);
+  color: #f1f5f9;
+  margin: 0;
 }
 
-.server-chart-container {
+.stats-chart-container {
   width: 100%;
-  background: rgb(var(--color-background));
-  border: 1px solid rgb(var(--color-border) / 0.3);
-  border-radius: 0.5rem;
-  padding: 0.75rem;
+  background: #0f172a;
+  border: 2px solid #334155;
+  border-radius: 0.75rem;
+  padding: 1rem;
   aspect-ratio: 3/1;
-  min-height: 180px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  min-height: 200px;
 }
 
+/* Responsive */
 @media (max-width: 768px) {
-  .server-tab-content {
+  .stats-container {
+    padding: 1rem;
+  }
+  
+  .stats-grid {
     grid-template-columns: 1fr;
   }
   
-  .server-tab-section:first-child {
-    grid-column: 1;
+  .stats-title {
+    font-size: 1.5rem;
   }
   
-  .server-chart-container {
+  .stats-chart-container {
   aspect-ratio: 16/9;
     min-height: 200px;
   }

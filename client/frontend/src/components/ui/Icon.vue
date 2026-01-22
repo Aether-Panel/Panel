@@ -6,9 +6,21 @@ import * as MdIcons from 'oh-vue-icons/icons/md'
 import * as BiIcons from 'oh-vue-icons/icons/bi'
 import * as RiIcons from 'oh-vue-icons/icons/ri'
 import { Gi3DHammer } from 'oh-vue-icons/icons/gi'
+import { GiWifiRouter } from 'oh-vue-icons/icons/gi'
+import { BiClipboardMinusFill } from 'oh-vue-icons/icons/bi'
+import { BiClipboardCheckFill } from 'oh-vue-icons/icons/bi'
+import { BiTrashFill } from 'oh-vue-icons/icons/bi'
+import * as LaIcons from 'oh-vue-icons/icons/la'
+import { LaCodepen } from 'oh-vue-icons/icons/la'
+import { IoSettingsSharp } from 'oh-vue-icons/icons/io'
+import * as ViIcons from 'oh-vue-icons/icons/vi'
+import { ViFolderTypeServerOpened } from 'oh-vue-icons/icons/vi'
+import { ViFolderTypePluginOpened } from 'oh-vue-icons/icons/vi'
+import * as FcIcons from 'oh-vue-icons/icons/fc'
+import { FcDataBackup } from 'oh-vue-icons/icons/fc'
 
 // Agregar todos los iconos de Heroicons, Material Design, Bootstrap y Remix, y especificos de Game Icons
-addIcons(...Object.values(HiIcons), ...Object.values(MdIcons), ...Object.values(BiIcons), ...Object.values(RiIcons), Gi3DHammer)
+addIcons(...Object.values(HiIcons), ...Object.values(MdIcons), ...Object.values(BiIcons), ...Object.values(RiIcons), ...Object.values(LaIcons), ...Object.values(ViIcons), ...Object.values(FcIcons), Gi3DHammer, GiWifiRouter, BiClipboardMinusFill, BiClipboardCheckFill, BiTrashFill, LaCodepen, IoSettingsSharp, ViFolderTypeServerOpened, ViFolderTypePluginOpened, FcDataBackup)
 
 const props = defineProps({
   name: { type: String, required: true },
@@ -22,7 +34,7 @@ const iconMap = {
   'node': 'hi-cube',
   'users': 'hi-users',
   'template': 'hi-document-text',
-  'settings': 'hi-cog',
+  'settings': 'io-settings-sharp',
   'uptime': 'hi-chart-bar',
   'logout': 'hi-arrow-right-on-rectangle',
   'sign-out': 'hi-arrow-right-on-rectangle',
@@ -37,10 +49,16 @@ const iconMap = {
   'save': 'hi-document-arrow-down',
   'remove': 'hi-x-circle',
   'delete': 'hi-trash',
+  'trash': 'bi-trash-fill',
+  'clear': 'bi-trash-fill',
   'close': 'hi-x-circle',
   'plus': 'hi-plus',
   'check': 'hi-check',
   'apply': 'hi-check-circle',
+  'edit': 'hi-pencil',
+  'copy': 'bi-clipboard-minus-fill',
+  'copy-check': 'bi-clipboard-check-fill',
+  'codepen': 'la-codepen',
   
   // Archivos
   'folder': 'hi-folder',
@@ -59,12 +77,17 @@ const iconMap = {
   'kill': 'hi-x-circle',
   'install': 'hi-arrow-down-tray',
   'console': 'hi-command-line',
-  'stats': 'hi-chart-bar',
+  'stats': 'gi-wifi-router',
+  'chart-bar': 'hi-chart-bar',
+  'wifi-router': 'gi-wifi-router',
+  'cpu-chip': 'hi-cpu-chip',
   'files': 'hi-folder',
-  'backup': 'hi-server-stack',
-  'sftp': 'hi-server',
+  'backup': 'fc-data-backup',
+  'sftp': 'vi-folder-type-server-opened',
   'admin': 'hi-shield-check',
   'tasks': 'hi-clipboard-document-list',
+  'plugins': 'vi-folder-type-plugin-opened',
+  'reload': 'hi-arrow-path',
   
   // UI
   'email': 'hi-envelope',
@@ -73,7 +96,11 @@ const iconMap = {
   'eye-off': 'hi-eye-slash',
   'test': 'hi-bolt',
   'auto-fix': 'hi-sparkles',
-  'loading': 'hi-arrow-path'
+  'loading': 'hi-arrow-path',
+  'variables': 'hi-code-bracket',
+  'flags': 'hi-flag',
+  'download': 'hi-arrow-down-tray',
+  'link': 'hi-link'
 }
 
 // Verificar si es un icono de Devicon

@@ -49,60 +49,80 @@ function copyUser() {
 </script>
 
 <template>
-  <div class="server-tab-content">
-    <div class="server-tab-section">
-      <h2 class="server-tab-title" v-text="t('servers.SFTPInfo')" />
-      <p class="server-tab-subtitle" v-text="t('servers.SFTPInfoDescription') || 'Información de conexión SFTP para este servidor'" />
+  <div class="sftp-container">
+    <!-- Header con título y descripción -->
+    <div class="sftp-header">
+      <div class="sftp-header-content">
+        <div class="sftp-header-icon">
+          <icon name="sftp" />
+        </div>
+        <div>
+          <h2 class="sftp-title" v-text="t('servers.SFTPInfo')" />
+          <p class="sftp-subtitle" v-text="t('servers.SFTPInfoDescription') || 'Información de conexión SFTP para este servidor'" />
+        </div>
+      </div>
     </div>
     
-    <div class="server-tab-section">
-      <div class="server-tab-card">
-        <div class="server-sftp-info">
-          <div class="server-sftp-field">
-            <label class="server-sftp-label">{{ t('common.Host') }}/{{ t('common.Port') }}:</label>
-            <div class="server-sftp-value-group">
-              <code class="server-sftp-value">{{ host }}</code>
+    <!-- Información de conexión -->
+    <div class="sftp-card">
+      <div class="sftp-info">
+        <!-- Host/Port -->
+        <div class="sftp-field">
+          <label class="sftp-label">
+            <icon name="server" class="label-icon" />
+            {{ t('common.Host') }}/{{ t('common.Port') }}
+          </label>
+          <div class="sftp-value-wrapper">
+            <code class="sftp-value">{{ host }}</code>
               <button
-                class="server-sftp-copy-btn"
+              class="sftp-copy-btn"
+              :class="{ 'copied': hostCopied }"
                 :title="t('common.Copy')"
                 @click="copyHost()"
               >
-                <icon name="copy" />
+              <icon :name="hostCopied ? 'copy-check' : 'copy'" />
               </button>
-              <span v-if="hostCopied" class="server-sftp-copied" v-text="t('common.Copied')" />
             </div>
             <input ref="hostField" :value="host" class="sr-only" />
           </div>
           
-          <div class="server-sftp-field">
-            <label class="server-sftp-label">{{ t('users.Username') }}:</label>
-            <div class="server-sftp-value-group">
-              <code class="server-sftp-value">{{ user }}</code>
+        <!-- Username -->
+        <div class="sftp-field">
+          <label class="sftp-label">
+            <icon name="user" class="label-icon" />
+            {{ t('users.Username') }}
+          </label>
+          <div class="sftp-value-wrapper">
+            <code class="sftp-value">{{ user }}</code>
               <button
-                class="server-sftp-copy-btn"
+              class="sftp-copy-btn"
+              :class="{ 'copied': userCopied }"
                 :title="t('common.Copy')"
                 @click="copyUser()"
               >
-                <icon name="copy" />
+              <icon :name="userCopied ? 'copy-check' : 'copy'" />
               </button>
-              <span v-if="userCopied" class="server-sftp-copied" v-text="t('common.Copied')" />
             </div>
             <input ref="userField" :value="user" class="sr-only" />
           </div>
           
-          <div class="server-sftp-field">
-            <label class="server-sftp-label">{{ t('users.Password') }}:</label>
-            <span class="server-sftp-password-hint">{{ t('users.AccountPassword') }}</span>
+        <!-- Password -->
+        <div class="sftp-field">
+          <label class="sftp-label">
+            <icon name="lock" class="label-icon" />
+            {{ t('users.Password') }}
+          </label>
+          <span class="sftp-password-hint">{{ t('users.AccountPassword') }}</span>
           </div>
           
-          <div class="server-sftp-connect">
-            <a :href="`sftp://${userEncoded}@${host}`">
-              <btn color="primary" variant="outline">
+        <!-- Botón de conexión -->
+        <div class="sftp-connect">
+          <a :href="`sftp://${userEncoded}@${host}`" class="sftp-connect-link">
+            <btn color="primary" variant="outline" class="sftp-connect-btn">
                 <icon name="sftp" />
                 {{ t('servers.SftpConnection') }}
               </btn>
             </a>
-          </div>
         </div>
       </div>
     </div>
@@ -110,115 +130,227 @@ function copyUser() {
 </template>
 
 <style scoped>
-.server-tab-content {
+.sftp-container {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
-  padding: 1.5rem;
-  max-width: 100%;
+  gap: 2rem;
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
-.server-tab-title {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: rgb(var(--color-foreground));
-  margin: 0 0 0.5rem 0;
-  padding-bottom: 1rem;
-  border-bottom: 2px solid rgb(var(--color-border) / 0.5);
+/* Header */
+.sftp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 1.5rem;
+  border-bottom: 2px solid #475569;
 }
 
-.server-tab-subtitle {
-  font-size: 0.875rem;
-  color: rgb(var(--color-muted-foreground));
-  margin: 0;
-  padding-top: 0.5rem;
+.sftp-header-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
-.server-tab-section {
-  width: 100%;
-}
-
-.server-tab-card {
-  background: rgb(var(--color-background));
-  border: 1px solid rgb(var(--color-border) / 0.3);
+.sftp-header-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0.5rem;
+  background: #3b82f6;
   border-radius: 0.75rem;
-  padding: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.server-sftp-info {
+.sftp-header-icon :deep(svg),
+.sftp-header-icon :deep(svg path),
+.sftp-header-icon :deep(svg *) {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+  stroke: #ffffff !important;
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.sftp-title {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.sftp-subtitle {
+  font-size: 0.875rem;
+  color: #cbd5e1;
+  margin: 0.25rem 0 0;
+}
+
+/* Card */
+.sftp-card {
+  background: #1e293b;
+  border: 2px solid #475569;
+  border-radius: 1rem;
+  padding: 2rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sftp-card:hover {
+  border-color: #3b82f6;
+}
+
+.sftp-info {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
 }
 
-.server-sftp-field {
+.sftp-field {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
-.server-sftp-label {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: rgb(var(--color-foreground));
-}
-
-.server-sftp-value-group {
+.sftp-label {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-.server-sftp-value {
-  display: inline-block;
-  padding: 0.5rem 0.75rem;
-  background: rgb(var(--color-muted) / 0.5);
-  border: 1px solid rgb(var(--color-border) / 0.3);
-  border-radius: 0.5rem;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-  font-size: 0.875rem;
-  color: rgb(var(--color-foreground));
-  flex: 1;
-  min-width: 200px;
+.sftp-label :deep(svg),
+.sftp-label :deep(svg path),
+.sftp-label :deep(svg *),
+.label-icon {
+  width: 1rem;
+  height: 1rem;
+  color: #94a3b8 !important;
+  fill: #94a3b8 !important;
+  stroke: #94a3b8 !important;
 }
 
-.server-sftp-copy-btn {
+.sftp-value-wrapper {
   display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: #0f172a;
+  border: 2px solid #475569;
+  border-radius: 0.5rem;
+  transition: all 0.2s;
+}
+
+.sftp-value-wrapper:hover {
+  border-color: #3b82f6;
+}
+
+.sftp-value {
+  flex: 1;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.875rem;
+  color: #f1f5f9;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Botón de copiar */
+.sftp-copy-btn {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 2rem;
   height: 2rem;
   padding: 0;
+  background: #334155;
   border: none;
-  background: rgb(var(--color-muted) / 0.5);
-  color: rgb(var(--color-muted-foreground));
+  border-radius: 0.375rem;
   cursor: pointer;
-  border-radius: 0.5rem;
-  transition: all 0.2s ease-in-out;
+  transition: all 0.2s;
   flex-shrink: 0;
+  color: #e2e8f0;
 }
 
-.server-sftp-copy-btn:hover {
-  background: rgb(var(--color-primary) / 0.1);
-  color: rgb(var(--color-primary));
+.sftp-copy-btn icon {
+  display: block;
+  width: 1.125rem;
+  height: 1.125rem;
 }
 
-.server-sftp-copied {
-  font-size: 0.75rem;
-  color: rgb(var(--color-success));
-  font-weight: 500;
+.sftp-copy-btn :deep(svg) {
+  width: 1.125rem !important;
+  height: 1.125rem !important;
+  display: block !important;
 }
 
-.server-sftp-password-hint {
+.sftp-copy-btn :deep(svg path),
+.sftp-copy-btn :deep(svg *) {
+  color: #e2e8f0 !important;
+  fill: #e2e8f0 !important;
+  stroke: #e2e8f0 !important;
+}
+
+.sftp-copy-btn:hover {
+  background: #3b82f6;
+  color: #ffffff;
+  transform: scale(1.05);
+}
+
+.sftp-copy-btn:hover :deep(svg),
+.sftp-copy-btn:hover :deep(svg path),
+.sftp-copy-btn:hover :deep(svg *) {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+.sftp-copy-btn.copied {
+  background: #10b981;
+  color: #ffffff;
+}
+
+.sftp-copy-btn.copied :deep(svg),
+.sftp-copy-btn.copied :deep(svg path),
+.sftp-copy-btn.copied :deep(svg *) {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+.sftp-copy-btn:active {
+  transform: scale(0.95);
+}
+
+.sftp-password-hint {
   font-size: 0.875rem;
-  color: rgb(var(--color-muted-foreground));
+  color: #cbd5e1;
   font-style: italic;
+  padding: 0.5rem 0.75rem;
+  background: #0f172a;
+  border: 2px solid #475569;
+  border-radius: 0.5rem;
 }
 
-.server-sftp-connect {
+.sftp-connect {
   padding-top: 0.5rem;
+  border-top: 1px solid #334155;
+}
+
+.sftp-connect-link {
+  text-decoration: none;
+  display: inline-block;
+}
+
+.sftp-connect-btn {
+  width: 100%;
+  justify-content: center;
 }
 
 .sr-only {
@@ -231,5 +363,16 @@ function copyUser() {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border-width: 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sftp-container {
+    padding: 1rem;
+  }
+  
+  .sftp-title {
+    font-size: 1.5rem;
+  }
 }
 </style>

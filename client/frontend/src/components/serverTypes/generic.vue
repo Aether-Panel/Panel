@@ -32,6 +32,10 @@ const Users = defineAsyncComponent({
   loader: () => import('../server/Users.vue'),
   loadingComponent: Loader
 })
+const Databases = defineAsyncComponent({
+  loader: () => import('../server/Databases.vue'),
+  loadingComponent: Loader
+})
 const Tasks = defineAsyncComponent({
   loader: () => import('../server/Tasks.vue'),
   loadingComponent: Loader
@@ -218,6 +222,15 @@ onUnmounted(() => {
         hotkey="t u"
       >
         <users :server="server" />
+      </tab>
+      <tab
+        v-if="server.hasScope('server.view')"
+        id="database"
+        title="Database"
+        icon="database"
+        hotkey="t d"
+      >
+        <databases :server="server" />
       </tab>
       <!-- currently disabled due to tasks being broken -->
       <tab

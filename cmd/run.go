@@ -4,11 +4,15 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/braintree/manners"
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/cookie"
-	"github.com/gin-gonic/gin"
-	"github.com/gorilla/securecookie"
+	"net"
+	"net/http"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"strings"
+	"syscall"
+	"time"
+
 	"github.com/SkyPanel/SkyPanel/v3"
 	"github.com/SkyPanel/SkyPanel/v3/config"
 	"github.com/SkyPanel/SkyPanel/v3/database"
@@ -19,15 +23,12 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/sftp"
 	"github.com/SkyPanel/SkyPanel/v3/utils"
 	"github.com/SkyPanel/SkyPanel/v3/web"
+	"github.com/braintree/manners"
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
+	"github.com/gin-gonic/gin"
+	"github.com/gorilla/securecookie"
 	"github.com/spf13/cobra"
-	"net"
-	"net/http"
-	"os"
-	"os/signal"
-	"path/filepath"
-	"strings"
-	"syscall"
-	"time"
 )
 
 var runCmd = &cobra.Command{
@@ -85,8 +86,14 @@ func internalRun() (terminate chan bool, success bool) {
 	if config.PanelEnabled.Value() {
 		panel()
 
-		// Iniciar Gatus si está habilitado
-		if config.GatusEnabled.Value() {
+		// Iniciar Gatus si está habilitado o si estamos en Docker (habilitado por defecto en Docker)
+		shouldStartGatus := config.GatusEnabled.Value()
+		if os.Getenv("PUFFER_PLATFORM") == "docker" && !shouldStartGatus {
+			// En Docker, intentar iniciar Gatus aunque no esté explícitamente habilitado
+			// Esto permite que funcione sin necesidad de configurar manualmente
+			shouldStartGatus = true
+		}
+		if shouldStartGatus {
 			if err := services.StartGatus(); err != nil {
 				logging.Error.Printf("Error starting Gatus service: %s", err.Error())
 			}
@@ -156,8 +163,14 @@ func internalRun() (terminate chan bool, success bool) {
 		err := daemon()
 		if err != nil {
 			logging.Error.Printf("error starting daemon server: %s", err.Error())
-			terminate <- true
-			return
+			// En Docker, si el daemon falla por permisos del socket, continuar sin el daemon
+			// El panel web y Gatus pueden funcionar sin el daemon
+			if os.Getenv("PUFFER_PLATFORM") == "docker" {
+				logging.Info.Printf("Continuing without daemon in Docker environment")
+			} else {
+				terminate <- true
+				return
+			}
 		}
 	}
 
