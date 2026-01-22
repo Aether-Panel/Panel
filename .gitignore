@@ -46,3 +46,6 @@ servers/
 
 # Datos de desarrollo local (Docker)
 dev-data/
+
+# Scripts shell (ignorar todos los .sh)
+*.sh
