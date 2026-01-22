@@ -902,7 +902,7 @@ Una vez completada la instalación:
 
 ## Recursos Adicionales
 
-- 📚 [Documentación Completa](https://docs.aetherpanel.com)
+- 📚 [Documentación Completa](https://docs.aetherpanel.es)
 - 💬 [Discord de la Comunidad](https://discord.gg/aetherpanel)
 - 🐛 [Reportar Problemas](https://github.com/aetherpanel/aetherpanel/issues)
 - 📝 [Changelog](https://github.com/aetherpanel/aetherpanel/releases)

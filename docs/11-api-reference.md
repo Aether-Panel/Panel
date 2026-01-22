@@ -1778,10 +1778,10 @@ def make_request_with_retry(func, *args, **kwargs):
 
 ### Recursos
 
-- 📖 **Documentación**: [docs.skypanel.com](https://docs.skypanel.com)
+- 📖 **Documentación**: [docs.aetherpanel.es](https://docs.aetherpanel.es)
 - 💬 **Discord**: [discord.gg/skypanel](https://discord.gg/skypanel)
 - 🐛 **Issues**: [github.com/aetherpanel/aetherpanel/issues](https://github.com/aetherpanel/aetherpanel/issues)
-- 📧 **Email**: api-support@skypanel.com
+- 📧 **Email**: api-support@aetherpanel.es
 
 ### Reportar Problemas de API
 

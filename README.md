@@ -4,7 +4,7 @@
 
 ### Panel de Gestión de Servidores de Juegos de Código Abierto
 
-[**Documentación**](./docs/README.md) • [**Instalación**](./docs/01-installation.md) • [**API**](./docs/11-api-reference.md) • [**Discord**](https://discord.gg/aetherpanel) • [**Demo**](https://demo.aetherpanel.com)
+[**Documentación**](./docs/README.md) • [**Instalación**](./docs/01-installation.md) • [**API**](./docs/11-api-reference.md) • [**Discord**](https://discord.gg/aetherpanel) • [**Demo**](https://demo.aetherpanel.es)
 
 </div>
 
@@ -66,7 +66,7 @@
 ### Instalación Automática (Recomendado)
 
 ```bash
-bash <(curl -s https://install.aetherpanel.com/install.sh)
+bash <(curl -s https://install.aetherpanel.es/install.sh)
 ```
 
 ### Instalación con Docker
@@ -304,7 +304,7 @@ go test -cover ./...
 
 - 💬 **Discord**: [discord.gg/aetherpanel](https://discord.gg/aetherpanel)
 - 🐦 **Twitter**: [@AetherPanel](https://twitter.com/aetherpanel)
-- 📧 **Email**: support@aetherpanel.com
+- 📧 **Email**: support@aetherpanel.es
 
 ---
 
@@ -354,7 +354,7 @@ Aether Panel (nombre en clave: SkyPanel) es un proyecto activo en desarrollo con
 
 **Hecho con ❤️ por el equipo de Aether Panel**
 
-[Sitio Web](https://aetherpanel.com) • [Documentación](./docs/README.md) • [Discord](https://discord.gg/aetherpanel) • [Twitter](https://twitter.com/aetherpanel)
+[Sitio Web](https://aetherpanel.es) • [Documentación](./docs/README.md) • [Discord](https://discord.gg/aetherpanel) • [Twitter](https://twitter.com/aetherpanel)
 
 </div>
 # Panel

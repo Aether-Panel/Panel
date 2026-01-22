@@ -164,7 +164,7 @@ Bienvenido a la documentación oficial de **Aether Panel**, el panel de gestión
 
 ```bash
 # Instalación con un solo comando
-bash <(curl -s https://install.aetherpanel.com/install.sh)
+bash <(curl -s https://install.aetherpanel.es/install.sh)
 ```
 
 ### Crear Primer Usuario
@@ -188,8 +188,8 @@ sudo -u skypanel skypanel user add --username admin --email admin@example.com --
 
 | Recurso | Enlace |
 |---------|--------|
-| 🌐 **Sitio Web** | [aetherpanel.com](https://aetherpanel.com) |
-| 📖 **Documentación** | [docs.aetherpanel.com](https://docs.aetherpanel.com) |
+| 🌐 **Sitio Web** | [aetherpanel.es](https://aetherpanel.es) |
+| 📖 **Documentación** | [docs.aetherpanel.es](https://docs.aetherpanel.es) |
 | 💬 **Discord** | [discord.gg/aetherpanel](https://discord.gg/aetherpanel) |
 | 🐛 **Issues** | [GitHub Issues](https://github.com/aetherpanel/aetherpanel/issues) |
 | 📦 **Releases** | [GitHub Releases](https://github.com/aetherpanel/aetherpanel/releases) |
@@ -203,7 +203,7 @@ sudo -u skypanel skypanel user add --username admin --email admin@example.com --
 
 ```bash
 # 1. Instalar Aether Panel
-bash <(curl -s https://install.aetherpanel.com/install.sh)
+bash <(curl -s https://install.aetherpanel.es/install.sh)
 
 # 2. Crear usuario
 sudo -u skypanel skypanel user add --username admin --admin
@@ -241,7 +241,7 @@ sudo -u skypanel skypanel user add --username admin --admin
 
 - 💬 **Discord**: Para preguntas rápidas y ayuda de la comunidad
 - 🐛 **GitHub Issues**: Para reportar bugs o solicitar features
-- 📧 **Email**: support@aetherpanel.com (soporte empresarial)
+- 📧 **Email**: support@aetherpanel.es (soporte empresarial)
 
 ### Reportar un Bug
 
