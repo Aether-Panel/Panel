@@ -1,4 +1,6 @@
-# 📦 Instalación de SkyPanel
+# 📦 Instalación de Aether Panel
+
+> **Nota**: Aether Panel es el nombre oficial del proyecto. **SkyPanel** es el nombre en clave (codename) utilizado en comandos CLI, binarios y servicios del sistema. Estamos en la **versión 3** del proyecto.
 
 ## Tabla de Contenidos
 
@@ -27,7 +29,7 @@
 
 ### Requisitos de Software
 
-SkyPanel requiere las siguientes dependencias (instaladas automáticamente por el script):
+Aether Panel requiere las siguientes dependencias (instaladas automáticamente por el script):
 
 - **Go** 1.21 o superior
 - **Node.js** 18 o superior
@@ -50,7 +52,7 @@ SkyPanel requiere las siguientes dependencias (instaladas automáticamente por e
 
 ## Instalación Automática
 
-La forma más rápida y recomendada de instalar SkyPanel es usando el script de instalación automática.
+La forma más rápida y recomendada de instalar Aether Panel es usando el script de instalación automática.
 
 ### Método 1: Instalación desde URL
 
@@ -70,7 +72,7 @@ Si ya tienes el script descargado:
 
 ```bash
 # Descargar el script
-wget https://raw.githubusercontent.com/SkyPanel/SkyPanel/master/install.sh
+wget https://raw.githubusercontent.com/aetherpanel/aetherpanel/master/install.sh
 
 # Dar permisos de ejecución
 chmod +x install.sh
@@ -85,7 +87,7 @@ Puedes personalizar la instalación usando variables de entorno:
 
 ```bash
 # Cambiar el repositorio Git
-export SKYPANEL_REPO_URL="https://github.com/tu-usuario/SkyPanel.git"
+export SKYPANEL_REPO_URL="https://github.com/tu-usuario/aetherpanel.git"
 
 # Cambiar la rama
 export SKYPANEL_BRANCH="develop"
@@ -149,7 +151,7 @@ El script realizará los siguientes pasos:
 
 ## Instalación Manual
 
-Si prefieres tener control total sobre el proceso, puedes instalar SkyPanel manualmente.
+Si prefieres tener control total sobre el proceso, puedes instalar Aether Panel manualmente.
 
 ### Paso 1: Instalar Dependencias
 
@@ -225,8 +227,8 @@ sudo chown -R skypanel:skypanel /var/www/skypanel
 ### Paso 3: Clonar el Repositorio
 
 ```bash
-# Clonar en /opt/skypanel
-sudo git clone https://github.com/SkyPanel/SkyPanel.git /opt/skypanel
+# Clonar en /opt/skypanel (nota: el directorio usa el nombre en clave)
+sudo git clone https://github.com/aetherpanel/aetherpanel.git /opt/skypanel
 cd /opt/skypanel
 
 # Cambiar propietario
@@ -259,9 +261,9 @@ cd /opt/skypanel
 go mod download
 go mod verify
 
-# Compilar el binario
+# Compilar el binario (nota: el binario se llama 'skypanel' por el nombre en clave)
 go build -tags "" \
-  -ldflags "-X 'github.com/SkyPanel/SkyPanel/v3.Hash=manual' -X 'github.com/SkyPanel/SkyPanel/v3.Version=3.0.0'" \
+  -ldflags "-X 'github.com/aetherpanel/aetherpanel/v3.Hash=manual' -X 'github.com/aetherpanel/aetherpanel/v3.Version=3.0.0'" \
   -o skypanel ./cmd
 
 # Copiar binario a /usr/local/bin
@@ -289,8 +291,8 @@ sudo tee /etc/skypanel/config.json > /dev/null <<EOF
       "port": 8081
     },
     "settings": {
-      "companyname": "SkyPanel",
-      "defaulttheme": "SkyPanel",
+      "companyname": "Aether Panel",
+      "defaulttheme": "Aether Panel",
       "masterurl": "http://$(curl -s ifconfig.me):8080"
     }
   },
@@ -316,10 +318,10 @@ sudo chmod 600 /etc/skypanel/config.json
 ### Paso 7: Crear Servicio Systemd
 
 ```bash
-# Crear archivo de servicio
+# Crear archivo de servicio (nota: el servicio se llama 'skypanel' por el nombre en clave)
 sudo tee /etc/systemd/system/skypanel.service > /dev/null <<EOF
 [Unit]
-Description=SkyPanel Game Server Management Panel
+Description=Aether Panel Game Server Management Panel (SkyPanel codename)
 After=network.target
 
 [Service]
@@ -356,7 +358,7 @@ sudo systemctl start skypanel
 
 ## Instalación con Docker
 
-SkyPanel también puede ejecutarse en un contenedor Docker.
+Aether Panel también puede ejecutarse en un contenedor Docker.
 
 ### Método 1: Docker Compose (Recomendado)
 
@@ -367,7 +369,7 @@ version: '3.8'
 
 services:
   skypanel:
-    image: skypanel/skypanel:latest
+    image: aetherpanel/aetherpanel:latest
     container_name: skypanel
     restart: unless-stopped
     ports:
@@ -430,8 +432,8 @@ docker run -d \
 
 ```bash
 # Clonar repositorio
-git clone https://github.com/SkyPanel/SkyPanel.git
-cd SkyPanel
+git clone https://github.com/aetherpanel/aetherpanel.git
+cd aetherpanel
 
 # Construir imagen
 docker build -t skypanel:custom .
@@ -511,7 +513,7 @@ sudo -u skypanel sqlite3 /var/lib/skypanel/database.db ".tables"
 
 1. Abre tu navegador web
 2. Navega a: `http://TU_IP:8080`
-3. Deberías ver la página de inicio de SkyPanel
+3. Deberías ver la página de inicio de Aether Panel
 
 ### Crear Primer Usuario Administrador
 
@@ -547,10 +549,10 @@ sudo -u skypanel skypanel user add \
 #### UFW (Ubuntu/Debian)
 
 ```bash
-# Permitir puertos de SkyPanel
-sudo ufw allow 8080/tcp comment 'SkyPanel Web'
-sudo ufw allow 5657/tcp comment 'SkyPanel SFTP'
-sudo ufw allow 8081/tcp comment 'SkyPanel Gatus'
+# Permitir puertos de Aether Panel
+sudo ufw allow 8080/tcp comment 'Aether Panel Web'
+sudo ufw allow 5657/tcp comment 'Aether Panel SFTP'
+sudo ufw allow 8081/tcp comment 'Aether Panel Gatus'
 
 # Si usas SSH, asegúrate de permitirlo
 sudo ufw allow 22/tcp
@@ -615,7 +617,7 @@ server {
     access_log /var/log/nginx/skypanel-access.log;
     error_log /var/log/nginx/skypanel-error.log;
 
-    # Proxy a SkyPanel
+    # Proxy a Aether Panel
     location / {
         proxy_pass http://127.0.0.1:8080;
         proxy_set_header Host $host;
@@ -891,20 +893,20 @@ sudo -u skypanel skypanel db upgrade
 
 Una vez completada la instalación:
 
-1. 📖 Lee la [Guía de Configuración](./02-configuration.md) para personalizar SkyPanel
+1. 📖 Lee la [Guía de Configuración](./02-configuration.md) para personalizar Aether Panel
 2. 🎮 Consulta la [Guía de Creación de Servidores](./03-creating-servers.md) para crear tu primer servidor
 3. 👥 Revisa la [Gestión de Usuarios](./04-user-management.md) para administrar permisos
-4. 🔧 Explora la [Referencia de API](./05-api-reference.md) para automatización
+4. 🔧 Explora la [Referencia de API](./11-api-reference.md) para automatización
 
 ---
 
 ## Recursos Adicionales
 
-- 📚 [Documentación Completa](https://docs.skypanel.com)
-- 💬 [Discord de la Comunidad](https://discord.gg/skypanel)
-- 🐛 [Reportar Problemas](https://github.com/SkyPanel/SkyPanel/issues)
-- 📝 [Changelog](https://github.com/SkyPanel/SkyPanel/releases)
+- 📚 [Documentación Completa](https://docs.aetherpanel.com)
+- 💬 [Discord de la Comunidad](https://discord.gg/aetherpanel)
+- 🐛 [Reportar Problemas](https://github.com/aetherpanel/aetherpanel/issues)
+- 📝 [Changelog](https://github.com/aetherpanel/aetherpanel/releases)
 
 ---
 
-**¿Necesitas ayuda?** Únete a nuestro [Discord](https://discord.gg/skypanel) o abre un [issue en GitHub](https://github.com/SkyPanel/SkyPanel/issues).
+**¿Necesitas ayuda?** Únete a nuestro [Discord](https://discord.gg/aetherpanel) o abre un [issue en GitHub](https://github.com/aetherpanel/aetherpanel/issues).

@@ -1,4 +1,6 @@
-# 🔌 Referencia Completa de API de SkyPanel
+# 🔌 Referencia Completa de API de Aether Panel
+
+> **Nota**: Aether Panel es el nombre oficial del proyecto. **SkyPanel** es el nombre en clave (codename) utilizado en comandos CLI y código fuente. Estamos en la **versión 3** del proyecto.
 
 ## Tabla de Contenidos
 
@@ -20,7 +22,7 @@
 
 ## Introducción
 
-La API de SkyPanel es una **API RESTful** completa que permite la automatización y gestión programática de todos los aspectos del panel. Está diseñada siguiendo los estándares de la industria y soporta OAuth2 para autenticación.
+La API de Aether Panel es una **API RESTful** completa que permite la automatización y gestión programática de todos los aspectos del panel. Está diseñada siguiendo los estándares de la industria y soporta OAuth2 para autenticación.
 
 ### Características de la API
 
@@ -49,7 +51,7 @@ https://panel.tudominio.com/api
 
 ## Autenticación
 
-SkyPanel utiliza **OAuth2** con el flujo de **Client Credentials** para autenticación de API.
+Aether Panel utiliza **OAuth2** con el flujo de **Client Credentials** para autenticación de API.
 
 ### Paso 1: Crear un Cliente OAuth2
 
@@ -1147,8 +1149,8 @@ curl -X GET "http://localhost:8080/api/users?username=admin*" \
 **Respuesta**:
 ```json
 {
-  "companyName": "SkyPanel",
-  "defaultTheme": "SkyPanel",
+  "companyName": "Aether Panel",
+  "defaultTheme": "Aether Panel",
   "masterUrl": "https://panel.example.com",
   "registrationEnabled": false
 }
@@ -1656,7 +1658,7 @@ curl -X POST "http://localhost:8080/api/servers/ABC12345/console" \
 
 ## Rate Limiting
 
-La API de SkyPanel implementa rate limiting para prevenir abuso:
+La API de Aether Panel implementa rate limiting para prevenir abuso:
 
 - **Límite**: 100 peticiones por minuto por token
 - **Header de Respuesta**: `X-RateLimit-Remaining`
@@ -1684,7 +1686,7 @@ X-RateLimit-Reset: 1642345678
 
 ## Versionado de API
 
-La API de SkyPanel usa versionado semántico:
+La API de Aether Panel usa versionado semántico:
 
 - **Versión Actual**: `v3`
 - **URL**: `/api/...` (v3 es la versión por defecto)
@@ -1778,7 +1780,7 @@ def make_request_with_retry(func, *args, **kwargs):
 
 - 📖 **Documentación**: [docs.skypanel.com](https://docs.skypanel.com)
 - 💬 **Discord**: [discord.gg/skypanel](https://discord.gg/skypanel)
-- 🐛 **Issues**: [github.com/SkyPanel/SkyPanel/issues](https://github.com/SkyPanel/SkyPanel/issues)
+- 🐛 **Issues**: [github.com/aetherpanel/aetherpanel/issues](https://github.com/aetherpanel/aetherpanel/issues)
 - 📧 **Email**: api-support@skypanel.com
 
 ### Reportar Problemas de API

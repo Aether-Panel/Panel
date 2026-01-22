@@ -1,8 +1,10 @@
 # 🛠️ Referencia de Comandos CLI y Gestión
 
-SkyPanel incluye una potente herramienta de línea de comandos (CLI) que te permite gestionar el panel, crear usuarios, realizar tareas de mantenimiento y ejecutar el servidor.
+Aether Panel incluye una potente herramienta de línea de comandos (CLI) que te permite gestionar el panel, crear usuarios, realizar tareas de mantenimiento y ejecutar el servidor.
 
-Esta guía cubre los comandos esenciales para instalar, configurar y ejecutar SkyPanel.
+> **Nota**: Aether Panel es el nombre oficial del proyecto. **SkyPanel** es el nombre en clave (codename) utilizado en el binario CLI (`skypanel`), servicios del sistema y código fuente. Estamos en la **versión 3** del proyecto.
+
+Esta guía cubre los comandos esenciales para instalar, configurar y ejecutar Aether Panel.
 
 ---
 
@@ -14,13 +16,13 @@ Antes de poder usar los comandos CLI, necesitas compilar el binario del proyecto
 Asegúrate de estar en el directorio raíz del proyecto y tener Go instalado (versión 1.21+).
 
 ### Comando de Compilación
-Para generar el ejecutable `./skypanel`, ejecuta el siguiente comando:
+Para generar el ejecutable `./skypanel` (nombre en clave), ejecuta el siguiente comando:
 
 ```bash
 go build -o skypanel ./cmd
 ```
 
-> **Nota**: Esto creará un archivo binario llamado `skypanel` en tu directorio actual. Si estás en Windows, se creará `skypanel.exe`.
+> **Nota**: Esto creará un archivo binario llamado `skypanel` (nombre en clave) en tu directorio actual. Si estás en Windows, se creará `skypanel.exe`. El nombre del binario usa el nombre en clave por razones de compatibilidad histórica.
 
 ---
 
@@ -51,7 +53,7 @@ Usa el siguiente comando para crear un usuario administrador instantáneamente:
 
 ## 🚀 3. Inicialización y Ejecución
 
-Para iniciar el servidor web y todos los servicios de SkyPanel (incluyendo SFTP y Gatus), utiliza el comando `run`.
+Para iniciar el servidor web y todos los servicios de Aether Panel (incluyendo SFTP y Gatus), utiliza el comando `run`.
 
 ### Iniciar el Panel
 
@@ -92,7 +94,7 @@ Aquí tienes una referencia rápida de otros sub-comandos disponibles en el CLI.
 ### Gestión de Base de Datos
 
 **Migrar base de datos (Actualizar esquema):**
-Útil cuando actualizas SkyPanel a una nueva versión.
+Útil cuando actualizas Aether Panel a una nueva versión (actualmente versión 3).
 ```bash
 ./skypanel db migrate
 ```
@@ -116,6 +118,6 @@ chmod +x skypanel
 
 **Error: "address already in use"**
 Si al ejecutar `./skypanel run` ves este error, significa que el puerto 8080 ya está ocupado.
-- Verifica si ya tienes una instancia de SkyPanel corriendo.
+- Verifica si ya tienes una instancia de Aether Panel corriendo.
 - O edita `config.json` para cambiar el puerto.
 

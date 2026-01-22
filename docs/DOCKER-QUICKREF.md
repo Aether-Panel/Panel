@@ -1,8 +1,10 @@
-# 🐳 SkyPanel - Configuración Docker Completa
+# 🐳 Aether Panel - Configuración Docker Completa
+
+> **Nota**: Aether Panel es el nombre oficial del proyecto. **SkyPanel** es el nombre en clave (codename) utilizado en contenedores Docker, imágenes y código fuente. Estamos en la **versión 3** del proyecto.
 
 ## ✅ Archivos Creados
 
-He creado una configuración completa de Docker para que puedas probar SkyPanel fácilmente:
+He creado una configuración completa de Docker para que puedas probar Aether Panel fácilmente:
 
 ### 📄 Archivos Principales
 
@@ -126,7 +128,7 @@ environment:
   - GIN_MODE=release
   - PUFFER_WEB_HOST=0.0.0.0:8080
   - PUFFER_PANEL_REGISTRATIONENABLED=true
-  - PUFFER_PANEL_SETTINGS_COMPANYNAME=SkyPanel
+  - PUFFER_PANEL_SETTINGS_COMPANYNAME=Aether Panel
 ```
 
 ---
@@ -306,4 +308,4 @@ Si tienes problemas:
 
 ---
 
-¡Disfruta probando SkyPanel en Docker! 🚀
+¡Disfruta probando Aether Panel en Docker! 🚀

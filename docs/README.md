@@ -1,12 +1,21 @@
-# 📚 Documentación de SkyPanel
+# 📚 Documentación de Aether Panel
 
-Bienvenido a la documentación oficial de **SkyPanel**, el panel de gestión de servidores de juegos de código abierto más completo y moderno.
+Bienvenido a la documentación oficial de **Aether Panel**, el panel de gestión de servidores de juegos de código abierto más completo y moderno.
+
+## 📌 Sobre el Nombre del Proyecto
+
+**Aether Panel** es el nombre oficial del proyecto. **SkyPanel** es el nombre en clave (codename) utilizado internamente y en el código fuente. En esta documentación, encontrarás referencias a ambos nombres:
+
+- **Aether Panel**: Nombre oficial del proyecto
+- **SkyPanel** (o `skypanel`): Nombre en clave utilizado en comandos CLI, binarios, servicios del sistema y código fuente
+
+> **Nota**: Estamos en la **versión 3** del proyecto. Todas las referencias a versiones anteriores han sido actualizadas para reflejar esta versión.
 
 ## 🚀 Inicio Rápido
 
-¿Primera vez usando SkyPanel? Comienza aquí:
+¿Primera vez usando Aether Panel? Comienza aquí:
 
-1. 📦 [**Instalación**](./01-installation.md) - Instala SkyPanel en tu servidor
+1. 📦 [**Instalación**](./01-installation.md) - Instala Aether Panel en tu servidor
 2. ⚙️ [**Configuración**](./02-configuration.md) - Configura el panel según tus necesidades
 3. 🎮 [**Crear tu Primer Servidor**](./03-creating-servers.md) - Guía paso a paso
 
@@ -117,7 +126,7 @@ Bienvenido a la documentación oficial de **SkyPanel**, el panel de gestión de 
   - Hardening
 
 - [**16. Actualización**](./16-upgrading.md)
-  - Actualizar SkyPanel
+  - Actualizar Aether Panel
   - Migración de datos
   - Rollback
 
@@ -155,12 +164,13 @@ Bienvenido a la documentación oficial de **SkyPanel**, el panel de gestión de 
 
 ```bash
 # Instalación con un solo comando
-bash <(curl -s https://install.skypanel.com/install.sh)
+bash <(curl -s https://install.aetherpanel.com/install.sh)
 ```
 
 ### Crear Primer Usuario
 
 ```bash
+# Nota: El binario se llama 'skypanel' (nombre en clave)
 sudo -u skypanel skypanel user add --username admin --email admin@example.com --admin
 ```
 
@@ -178,12 +188,12 @@ sudo -u skypanel skypanel user add --username admin --email admin@example.com --
 
 | Recurso | Enlace |
 |---------|--------|
-| 🌐 **Sitio Web** | [skypanel.com](https://skypanel.com) |
-| 📖 **Documentación** | [docs.skypanel.com](https://docs.skypanel.com) |
-| 💬 **Discord** | [discord.gg/skypanel](https://discord.gg/skypanel) |
-| 🐛 **Issues** | [github.com/SkyPanel/SkyPanel/issues](https://github.com/SkyPanel/SkyPanel/issues) |
-| 📦 **Releases** | [github.com/SkyPanel/SkyPanel/releases](https://github.com/SkyPanel/SkyPanel/releases) |
-| 🎥 **YouTube** | [youtube.com/@skypanel](https://youtube.com/@skypanel) |
+| 🌐 **Sitio Web** | [aetherpanel.com](https://aetherpanel.com) |
+| 📖 **Documentación** | [docs.aetherpanel.com](https://docs.aetherpanel.com) |
+| 💬 **Discord** | [discord.gg/aetherpanel](https://discord.gg/aetherpanel) |
+| 🐛 **Issues** | [GitHub Issues](https://github.com/aetherpanel/aetherpanel/issues) |
+| 📦 **Releases** | [GitHub Releases](https://github.com/aetherpanel/aetherpanel/releases) |
+| 🎥 **YouTube** | [YouTube Channel](https://youtube.com/@aetherpanel) |
 
 ---
 
@@ -192,8 +202,8 @@ sudo -u skypanel skypanel user add --username admin --email admin@example.com --
 ### Caso 1: Hosting de Minecraft para Amigos
 
 ```bash
-# 1. Instalar SkyPanel
-bash <(curl -s https://install.skypanel.com/install.sh)
+# 1. Instalar Aether Panel
+bash <(curl -s https://install.aetherpanel.com/install.sh)
 
 # 2. Crear usuario
 sudo -u skypanel skypanel user add --username admin --admin
@@ -225,20 +235,20 @@ sudo -u skypanel skypanel user add --username admin --admin
 
 1. 🔍 Busca en la [documentación](./README.md)
 2. 📖 Revisa las [FAQ](./25-faq.md)
-3. 🐛 Busca en [issues existentes](https://github.com/SkyPanel/SkyPanel/issues)
+3. 🐛 Busca en [issues existentes](https://github.com/aetherpanel/aetherpanel/issues)
 
 ### Canales de Soporte
 
 - 💬 **Discord**: Para preguntas rápidas y ayuda de la comunidad
 - 🐛 **GitHub Issues**: Para reportar bugs o solicitar features
-- 📧 **Email**: support@skypanel.com (soporte empresarial)
+- 📧 **Email**: support@aetherpanel.com (soporte empresarial)
 
 ### Reportar un Bug
 
 Incluye la siguiente información:
 
 ```
-**Versión de SkyPanel**: 3.0.0
+**Versión de Aether Panel**: 3.0.0
 **Sistema Operativo**: Ubuntu 22.04
 **Método de Instalación**: Script automático / Manual / Docker
 
@@ -263,7 +273,7 @@ Incluye la siguiente información:
 
 ## 🤝 Contribuir
 
-¿Quieres contribuir a SkyPanel? ¡Genial!
+¿Quieres contribuir a Aether Panel? ¡Genial!
 
 1. 🍴 Fork el repositorio
 2. 🌿 Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
@@ -277,16 +287,16 @@ Lee la [Guía de Contribución](./27-contributing.md) para más detalles.
 
 ## 📄 Licencia
 
-SkyPanel está licenciado bajo la [Apache License 2.0](../LICENSE).
+Aether Panel está licenciado bajo la [Apache License 2.0](../LICENSE).
 
 ---
 
 ## 🌟 Agradecimientos
 
-SkyPanel es posible gracias a:
+Aether Panel es posible gracias a:
 
-- El equipo de desarrollo de SkyPanel
-- Todos los [contribuidores](https://github.com/SkyPanel/SkyPanel/graphs/contributors)
+- El equipo de desarrollo de Aether Panel
+- Todos los contribuidores del proyecto
 - La comunidad de código abierto
 - Proyectos como Go, Vue.js, Next.js, Gatus, y muchos más
 
@@ -294,11 +304,9 @@ SkyPanel es posible gracias a:
 
 ## 📊 Estado del Proyecto
 
-![GitHub release](https://img.shields.io/github/v/release/SkyPanel/SkyPanel)
-![GitHub stars](https://img.shields.io/github/stars/SkyPanel/SkyPanel)
-![GitHub issues](https://img.shields.io/github/issues/SkyPanel/SkyPanel)
-![GitHub license](https://img.shields.io/github/license/SkyPanel/SkyPanel)
-![Discord](https://img.shields.io/discord/123456789)
+**Versión Actual**: 3.0.0
+
+Aether Panel (nombre en clave: SkyPanel) es un proyecto activo en desarrollo continuo. Para más información sobre el estado del proyecto, consulta el repositorio oficial.
 
 ---
 

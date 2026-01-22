@@ -1,4 +1,6 @@
-# 🚀 Inicio Rápido - SkyPanel en Docker con Sudo
+# 🚀 Inicio Rápido - Aether Panel en Docker con Sudo
+
+> **Nota**: Aether Panel es el nombre oficial del proyecto. **SkyPanel** es el nombre en clave (codename) utilizado en contenedores Docker e imágenes. Estamos en la **versión 3** del proyecto.
 
 ## ⚠️ Problema Detectado
 
