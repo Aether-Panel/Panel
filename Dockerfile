@@ -77,7 +77,16 @@ ENV GIN_MODE=release \
 #COPY --from=builder --chown=SkyPanel:SkyPanel --chmod=755 /build/SkyPanel/entrypoint.sh /SkyPanel/bin/entrypoint.sh
 #COPY --from=builder --chown=SkyPanel:SkyPanel --chmod=755 /build/SkyPanel/config.docker.json /etc/SkyPanel/config.json
 COPY --from=builder --chmod=755 /SkyPanel/SkyPanel /SkyPanel/bin/SkyPanel
-COPY --from=builder --chmod=755 /build/SkyPanel/entrypoint.sh /SkyPanel/bin/entrypoint.sh
+RUN cat <<'EOF' > /SkyPanel/bin/entrypoint.sh
+#!/usr/bin/env sh
+
+/SkyPanel/bin/SkyPanel db migrate
+exitCode=$?
+[ $exitCode -eq 0 ] || [ $exitCode -eq 9 ] || exit $exitCode
+
+/SkyPanel/bin/SkyPanel run
+EOF
+RUN chmod 755 /SkyPanel/bin/entrypoint.sh
 COPY --from=builder --chmod=755 /build/SkyPanel/config.docker.json /etc/SkyPanel/config.json
 COPY --from=builder --chmod=755 /build/SkyPanel/client/frontend/dist /var/www/SkyPanel
 # Copiar configuración de Gatus

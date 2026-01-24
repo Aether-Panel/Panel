@@ -60,7 +60,7 @@ func StartGatus() error {
 	if os.Getenv("PUFFER_PLATFORM") == "docker" {
 		cfg.Web.Address = "0.0.0.0"
 	} else {
-		cfg.Web.Address = "127.0.0.1"
+	cfg.Web.Address = "127.0.0.1"
 	}
 	cfg.Web.Port = 8081
 
@@ -98,7 +98,7 @@ func StartGatus() error {
 		if os.Getenv("PUFFER_PLATFORM") == "docker" {
 			cfg.Web.Address = "0.0.0.0"
 		} else {
-			cfg.Web.Address = "127.0.0.1"
+		cfg.Web.Address = "127.0.0.1"
 		}
 		cfg.Web.Port = 8081
 		cfg.Web.TLS = nil // Asegurarse de que no use TLS

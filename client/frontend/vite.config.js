@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: [
       {find: "@", replacement: path.resolve(__dirname, 'src')},
-      {find: "SkyPanel", replacement: path.resolve(__dirname, '../api')}
+      {find: "SkyPanel", replacement: path.resolve(__dirname, '../api/src/index.js')}
     ]
   },
   define: {
