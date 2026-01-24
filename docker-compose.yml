@@ -75,6 +75,8 @@ services:
       # Configuración de base de datos MySQL
       - PUFFER_PANEL_DATABASE_DIALECT=mysql
       - PUFFER_PANEL_DATABASE_URL=skypanel:skypanel_password@tcp(mysql:3306)/skypanel?charset=utf8&parseTime=true
+      # Configuración de plantillas
+      - PUFFER_TEMPLATES_URL=https://templates.aetherpanel.es/templates.json
     
     # Healthcheck
     healthcheck:
