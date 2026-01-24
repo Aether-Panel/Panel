@@ -1,6 +1,8 @@
 services:
   # Base de datos MySQL/MariaDB
   mysql:
+    profiles:
+      - local-db
     image: mariadb:10.11
     container_name: skypanel-mysql
     restart: unless-stopped
