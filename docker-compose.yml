@@ -58,8 +58,8 @@ services:
       - skypanel-config:/etc/SkyPanel
       - skypanel-data:/var/lib/SkyPanel
       - skypanel-logs:/var/log/SkyPanel
-      # Socket de Docker para gestionar contenedores (opcional)
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Socket de Docker para gestionar contenedores (necesario para crear servidores)
+      - /var/run/docker.sock:/var/run/docker.sock
     
     # Variables de entorno
     environment:
@@ -75,8 +75,13 @@ services:
       # Configuración de base de datos MySQL
       - PUFFER_PANEL_DATABASE_DIALECT=mysql
       - PUFFER_PANEL_DATABASE_URL=skypanel:skypanel_password@tcp(mysql:3306)/skypanel?charset=utf8&parseTime=true
-      # Configuración de plantillas
-      - PUFFER_TEMPLATES_URL=https://templates.aetherpanel.es/templates.json
+      # Configuración de plantillas (vacío para deshabilitar templates de comunidad)
+      - PUFFER_TEMPLATES_URL=
+    
+    # Permisos para acceder a Docker (necesario para gestionar contenedores de servidores)
+    # NOTA: Esto otorga acceso completo al daemon de Docker del host
+    # Asegúrate de que solo usuarios confiables puedan acceder a este contenedor
+    user: "0:0"  # Ejecutar como root para acceso al socket de Docker
     
     # Healthcheck
     healthcheck:
