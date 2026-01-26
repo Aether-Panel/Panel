@@ -1,7 +1,8 @@
 ###
 # Builder container
 ###
-FROM --platform=$BUILDPLATFORM node:22-alpine AS node
+ARG BUILDPLATFORM=linux/amd64
+FROM --platform=${BUILDPLATFORM} node:22-alpine AS node
 
 WORKDIR /build
 COPY client .
@@ -12,9 +13,11 @@ RUN rm -rf /build/*/node_modules/ && \
 RUN yarn install && \
     yarn build
 
-FROM --platform=$BUILDPLATFORM tonistiigi/xx AS xx
+ARG BUILDPLATFORM=linux/amd64
+FROM --platform=${BUILDPLATFORM} tonistiigi/xx AS xx
 
-FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS builder
+ARG BUILDPLATFORM=linux/amd64
+FROM --platform=${BUILDPLATFORM} golang:1.24-alpine AS builder
 
 RUN apk add clang lld
 COPY --from=xx / /
@@ -46,7 +49,7 @@ RUN /go/bin/swag init -o web/swagger -g web/loader.go
 
 COPY --from=node /build/frontend/dist /build/SkyPanel/client/frontend/dist
 
-ARG TARGETPLATFORM
+ARG TARGETPLATFORM=linux/amd64
 ARG curseforgeKey=''
 
 RUN xx-apk add musl-dev gcc
