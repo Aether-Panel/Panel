@@ -35,6 +35,8 @@ services:
       - skypanel-network
 
   skypanel:
+    profiles:
+      - local-db
     build:
       context: .
       dockerfile: Dockerfile
