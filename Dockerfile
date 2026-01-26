@@ -76,10 +76,11 @@ ENV GIN_MODE=release \
     PUFFER_DOCKER_ROOT="" \
     PUFFER_DOCKER_DISALLOWHOST=true
 
-#COPY --from=builder --chown=SkyPanel:SkyPanel --chmod=755 /SkyPanel /SkyPanel/bin
-#COPY --from=builder --chown=SkyPanel:SkyPanel --chmod=755 /build/SkyPanel/entrypoint.sh /SkyPanel/bin/entrypoint.sh
-#COPY --from=builder --chown=SkyPanel:SkyPanel --chmod=755 /build/SkyPanel/config.docker.json /etc/SkyPanel/config.json
-COPY --from=builder --chmod=755 /SkyPanel/SkyPanel /SkyPanel/bin/SkyPanel
+#COPY --from=builder --chown=SkyPanel:SkyPanel /SkyPanel /SkyPanel/bin
+#COPY --from=builder --chown=SkyPanel:SkyPanel /build/SkyPanel/entrypoint.sh /SkyPanel/bin/entrypoint.sh
+#COPY --from=builder --chown=SkyPanel:SkyPanel /build/SkyPanel/config.docker.json /etc/SkyPanel/config.json
+COPY --from=builder /SkyPanel/SkyPanel /SkyPanel/bin/SkyPanel
+RUN chmod 755 /SkyPanel/bin/SkyPanel
 RUN cat <<'EOF' > /SkyPanel/bin/entrypoint.sh
 #!/usr/bin/env sh
 
@@ -90,10 +91,12 @@ exitCode=$?
 /SkyPanel/bin/SkyPanel run
 EOF
 RUN chmod 755 /SkyPanel/bin/entrypoint.sh
-COPY --from=builder --chmod=755 /build/SkyPanel/config.docker.json /etc/SkyPanel/config.json
-COPY --from=builder --chmod=755 /build/SkyPanel/client/frontend/dist /var/www/SkyPanel
+COPY --from=builder /build/SkyPanel/config.docker.json /etc/SkyPanel/config.json
+RUN chmod 644 /etc/SkyPanel/config.json
+COPY --from=builder /build/SkyPanel/client/frontend/dist /var/www/SkyPanel
 # Copiar configuración de Gatus
-COPY --from=builder --chmod=644 /build/SkyPanel/gatus/config.yaml /var/lib/SkyPanel/gatus/config.yaml
+COPY --from=builder /build/SkyPanel/gatus/config.yaml /var/lib/SkyPanel/gatus/config.yaml
+RUN chmod 644 /var/lib/SkyPanel/gatus/config.yaml
 
 VOLUME /etc/SkyPanel
 VOLUME /var/lib/SkyPanel
