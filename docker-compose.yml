@@ -77,7 +77,7 @@ services:
       # Configuración de base de datos MySQL
       - PUFFER_PANEL_DATABASE_DIALECT=mysql
       - PUFFER_PANEL_DATABASE_URL=skypanel:skypanel_password@tcp(mysql:3306)/skypanel?charset=utf8&parseTime=true
-      # Configuración de plantillas (URL para templates de comunidad)
+      # Configuración de plantillas (URL para templates de comunidad)s
       - PUFFER_TEMPLATES_URL=https://templates.aetherpanel.es/templates.json
     
     # Permisos para acceder a Docker (necesario para gestionar contenedores de servidores)
