@@ -64,6 +64,7 @@ RUN xx-verify /SkyPanel/SkyPanel
 FROM alpine
 
 EXPOSE 8080 5657 8081
+RUN apk add --no-cache netcat-openbsd
 RUN mkdir -p /etc/SkyPanel && \
     mkdir -p /var/lib/SkyPanel /var/lib/SkyPanel/servers /var/lib/SkyPanel/binaries /var/lib/SkyPanel/cache /var/lib/SkyPanel/gatus && \
     mkdir -p /var/log/SkyPanel
@@ -84,11 +85,66 @@ RUN chmod 755 /SkyPanel/bin/SkyPanel
 RUN cat <<'EOF' > /SkyPanel/bin/entrypoint.sh
 #!/usr/bin/env sh
 
+echo "=== Iniciando Aether Panel ==="
+echo "Fecha: $(date)"
+echo "Variables de entorno:"
+echo "  PUFFER_PLATFORM=${PUFFER_PLATFORM}"
+echo "  PUFFER_WEB_HOST=${PUFFER_WEB_HOST}"
+echo "  PUFFER_PANEL_DATABASE_DIALECT=${PUFFER_PANEL_DATABASE_DIALECT}"
+echo "  PUFFER_PANEL_DATABASE_URL=${PUFFER_PANEL_DATABASE_URL}"
+
+# Verificar que el binario existe
+if [ ! -f /SkyPanel/bin/SkyPanel ]; then
+    echo "ERROR: El binario /SkyPanel/bin/SkyPanel no existe"
+    exit 1
+fi
+
+# Verificar permisos del binario
+ls -la /SkyPanel/bin/SkyPanel
+
+# Esperar a que MySQL esté disponible (máximo 60 segundos)
+echo "Esperando a que MySQL esté disponible..."
+DB_HOST=$(echo "$PUFFER_PANEL_DATABASE_URL" | sed -n 's/.*@tcp(\([^:]*\):.*/\1/p')
+DB_PORT=$(echo "$PUFFER_PANEL_DATABASE_URL" | sed -n 's/.*@tcp([^:]*:\([0-9]*\)).*/\1/p')
+if [ -z "$DB_HOST" ]; then
+    DB_HOST="mysql"
+fi
+if [ -z "$DB_PORT" ]; then
+    DB_PORT="3306"
+fi
+
+MAX_ATTEMPTS=60
+ATTEMPT=0
+while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+    if nc -z "$DB_HOST" "$DB_PORT" 2>/dev/null; then
+        echo "MySQL está disponible en $DB_HOST:$DB_PORT"
+        break
+    fi
+    ATTEMPT=$((ATTEMPT + 1))
+    echo "Intento $ATTEMPT/$MAX_ATTEMPTS: MySQL no disponible aún, esperando..."
+    sleep 1
+done
+
+if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+    echo "ERROR: MySQL no está disponible después de $MAX_ATTEMPTS intentos"
+    exit 1
+fi
+
+# Ejecutar migraciones de base de datos
+echo "Ejecutando migraciones de base de datos..."
 /SkyPanel/bin/SkyPanel db migrate
 exitCode=$?
-[ $exitCode -eq 0 ] || [ $exitCode -eq 9 ] || exit $exitCode
+if [ $exitCode -eq 0 ] || [ $exitCode -eq 9 ]; then
+    echo "Migraciones completadas (código: $exitCode)"
+else
+    echo "ERROR: Fallo en migraciones (código: $exitCode)"
+    echo "Intentando continuar de todas formas..."
+fi
 
-/SkyPanel/bin/SkyPanel run
+# Iniciar el panel (debe quedarse corriendo)
+echo "Iniciando panel..."
+echo "Ejecutando: /SkyPanel/bin/SkyPanel run"
+exec /SkyPanel/bin/SkyPanel run
 EOF
 RUN chmod 755 /SkyPanel/bin/entrypoint.sh
 COPY --from=builder /build/SkyPanel/config.docker.json /etc/SkyPanel/config.json
