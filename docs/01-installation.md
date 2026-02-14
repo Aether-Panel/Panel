@@ -1,6 +1,6 @@
 # 📦 Instalación de Aether Panel
 
-> **Nota**: Aether Panel es el nombre oficial del proyecto. **SkyPanel** es el nombre en clave (codename) utilizado en comandos CLI, binarios y servicios del sistema. Estamos en la **versión 3** del proyecto.
+> **Nota**: Aether Panel es el nombre oficial del proyecto. **SkyPanel** es el nombre en clave (codename) utilizado en comandos CLI, binarios y servicios del sistema. Estamos en la **versión 1.0.1** del proyecto.
 
 ## Tabla de Contenidos
 
