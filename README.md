@@ -14,7 +14,7 @@
 
 **Aether Panel** es el nombre oficial del proyecto. **SkyPanel** es el nombre en clave (codename) utilizado internamente en el código fuente, binarios, servicios del sistema y comandos CLI.
 
-> **Versión Actual**: 3.0.0
+> **Versión Actual**: 1.0.1
 
 ---
 
