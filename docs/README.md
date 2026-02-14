@@ -304,7 +304,7 @@ Aether Panel es posible gracias a:
 
 ## 📊 Estado del Proyecto
 
-**Versión Actual**: 3.0.0
+**Versión Actual**: 1.0.1
 
 Aether Panel (nombre en clave: SkyPanel) es un proyecto activo en desarrollo continuo. Para más información sobre el estado del proyecto, consulta el repositorio oficial.
 
