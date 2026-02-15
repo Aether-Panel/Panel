@@ -1,388 +1,132 @@
-# 🐳 Aether Panel - Guía de Docker
+# Documentación Docker
 
-> **Nota**: Aether Panel es el nombre oficial del proyecto. **SkyPanel** es el nombre en clave (codename) utilizado en contenedores Docker, imágenes y código fuente. Estamos en la **versión 3** del proyecto.
-
-Esta guía te ayudará a ejecutar Aether Panel en contenedores Docker de forma fácil y controlada.
-
-## 📋 Requisitos Previos
-## Requisitos Previos
-
-- **Docker** 20.10+ instalado
-- **Docker Compose** 2.0+ instalado
-- Al menos **2GB de RAM** disponible
-- Al menos **5GB de espacio en disco**
-
-### Documentación Docker (si no lo tienes)
-
-```bash
-# Ubuntu/Debian
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-sudo usermod -aG docker $USER
-
-# Reinicia la sesión o ejecuta
-newgrp docker
-
-# Verificar instalación
-docker --version
-docker-compose --version
-```
-
-## 🚀 Inicio Rápido
-
-### Opción 1: Script Automatizado (Recomendado)
-
-```bash
-# 1. Dar permisos de ejecución
-chmod +x docker-test.sh
-
-# 2. Construir la imagen
-./docker-test.sh build
-
-# 3. Iniciar el contenedor
-./docker-test.sh start
-
-# 4. Crear usuario administrador
-./docker-test.sh admin
-
-# 5. Acceder al panel
-# Abre tu navegador en: http://localhost:8080
-```
-
-### Opción 2: Docker Compose Manual
-
-```bash
-# Desarrollo/Pruebas
-docker-compose -f docker-compose.dev.yml up -d
-
-# Producción
-# Guía de Despliegue en Docker
-
-Este documento detalla el proceso de instalación y configuración de Aether Panel utilizando Docker. Este método garantiza un entorno aislado y fácil de actualizar.
+Esta guía detalla cómo desplegar Aether Panel utilizando Docker y Docker Compose.
 
 ## Requisitos Previos
 
-*   Docker Engine instalado (versión 20.10 o superior)
-*   Docker Compose (opcional, pero recomendado)
+- **Docker** 20.10+
+- **Docker Compose** 2.0+
 
-## Inicio Rápido
+## Instalación Rápida
 
-Para iniciar una instancia de Aether Panel rápidamente, ejecute el siguiente comando:
+La forma recomendada de ejecutar Aether Panel es mediante Docker Compose.
 
-```bash
-docker run -d \
-  --name skypanel \
-  --restart=always \
-  -p 8080:8080 \
-  -p 5657:5657 \
+### 1. Iniciar el Servicio
 
-El script `docker-test.sh` proporciona comandos fáciles de usar:
+Ejecuta el siguiente comando en la raíz del proyecto (donde se encuentra `docker-compose.yml`):
 
-```bash
-# Construcción
-./docker-test.sh build          # Construir imagen
-
-# Control del contenedor
-./docker-test.sh start          # Iniciar
-./docker-test.sh stop           # Detener
-./docker-test.sh restart        # Reiniciar
-./docker-test.sh status         # Ver estado
-
-# Monitoreo
-./docker-test.sh logs           # Ver logs en tiempo real
-
-# Administración
-./docker-test.sh admin          # Crear usuario admin
-./docker-test.sh shell          # Abrir shell en el contenedor
-
-# Limpieza
-./docker-test.sh clean          # Limpiar todo
-./docker-test.sh rebuild        # Reconstruir e iniciar
-
-# Ayuda
-./docker-test.sh help           # Ver ayuda completa
-```
-
-## 🌐 Acceso al Panel
-
-Una vez iniciado, puedes acceder a:
-
-- **Panel Web**: http://localhost:8080
-- **Gatus (Monitoring)**: http://localhost:8081 (habilitado por defecto en Docker)
-- **SFTP**: `localhost:5657`
-
-### Gatus - Monitoreo de Servicios
-
-Gatus está **habilitado automáticamente** cuando ejecutas Aether Panel en Docker. Proporciona:
-
-- ✅ Monitoreo en tiempo real del estado del panel
-- ✅ Monitoreo de nodos y daemons
-- ✅ Dashboard de uptime y métricas
-- ✅ Alertas configurables
-
-Accede al dashboard de Gatus en: **http://localhost:8081**
-
-### Credenciales Iniciales
-
-Debes crear un usuario Para iniciar el servicio:
 ```bash
 docker-compose up -d
 ```
 
-## Crear Usuario Administrador
+Esto descargará las imágenes necesarias, creará los volúmenes y levantará los servicios en segundo plano.
 
-Una vez que el contenedor esté en ejecución, debe crear un usuario administrador para acceder al panel. Ejecute el siguiente comando:
+### 2. Crear Usuario Administrador
+
+Una vez que el contenedor esté corriendo, necesitas crear un usuario administrativo para acceder al panel.
+
+Ejecuta el siguiente comando:
 
 ```bash
 docker exec -it skypanel /SkyPanel/bin/SkyPanel user add --name admin --email admin@example.com --password 'admin123' --admin
 ```
 
-> **Nota:** Cambie el correo y la contraseña por sus propias credenciales seguras.
+> **Importante:** Recuerda cambiar `admin@example.com` y `'admin123'` por tus credenciales seguras.
 
-O manualmente:
+### 3. Acceder al Panel
 
-```bash
-docker exec -it skypanel-dev /SkyPanel/bin/SkyPanel user add \
-  --email admin@example.com \
-  --password tu-contraseña-segura \
-  --admin
-```
+El panel estará disponible en:
+**http://localhost:8080**
 
-## 📊 Gestión del Contenedor
+---
 
-### Ver Logs
+## Configuración Técnica
 
-```bash
-# Logs en tiempo real
-./docker-test.sh logs
+### Puertos
 
-# O con docker-compose
-docker-compose -f docker-compose.dev.yml logs -f
+El contenedor expone los siguientes puertos:
 
-# Solo las últimas 100 líneas
-docker logs --tail 100 skypanel-dev
-```
+| Puerto | Servicio | Descripción |
+|--------|----------|-------------|
+| `8080` | Panel Web | Interfaz de usuario y API |
+| `5657` | SFTP | Transferencia de archivos |
 
-### Verificar Estado
+### Volúmenes (Persistencia)
 
-```bash
-# Con el script
-./docker-test.sh status
+Los datos se persisten utilizando volúmenes de Docker:
 
-# Manualmente
-docker ps | grep skypanel
-docker stats skypanel-dev
-```
-
-### Ejecutar Comandos
-
-```bash
-# Shell interactivo
-./docker-test.sh shell
-
-# Ejecutar comando específico
-docker exec skypanel-dev /SkyPanel/bin/SkyPanel version
-
-# Listar usuarios
-docker exec skypanel-dev /SkyPanel/bin/SkyPanel user list
-```
-
-## 🗂️ Volúmenes y Datos
-
-### Ubicación de Datos
-
-**Modo Desarrollo** (`docker-compose.dev.yml`):
-```
-./dev-data/
-├── config/     # Configuración
-├── data/       # Base de datos y servidores
-└── logs/       # Logs
-```
-
-**Modo Producción** (`docker-compose.yml`):
-```
-Volúmenes Docker nombrados:
-- skypanel-config
-- skypanel-data
-- skypanel-logs
-```
-
-### Backup de Datos
-
-```bash
-# Desarrollo (archivos locales)
-tar -czf skypanel-backup-$(date +%Y%m%d).tar.gz dev-data/
-
-# Producción (volúmenes Docker)
-docker run --rm \
-  -v skypanel-data:/data \
-  -v $(pwd):/backup \
-  alpine tar -czf /backup/skypanel-backup-$(date +%Y%m%d).tar.gz /data
-```
-
-### Restaurar Backup
-
-```bash
-# Desarrollo
-tar -xzf skypanel-backup-YYYYMMDD.tar.gz
-
-# Producción
-docker run --rm \
-  -v skypanel-data:/data \
-  -v $(pwd):/backup \
-  alpine tar -xzf /backup/skypanel-backup-YYYYMMDD.tar.gz -C /
-```
-
-## 🔧 Configuración Avanzada
+- `skypanel-data`: Almacena la base de datos (SQLite), configuraciones y datos de los servidores de juegos.
+- `skypanel-config`: Almacena archivos de configuración específicos.
 
 ### Variables de Entorno
 
-Puedes personalizar el comportamiento editando `docker-compose.yml`:
+Puedes configurar el comportamiento del contenedor mediante variables de entorno en el archivo `docker-compose.yml`:
 
 ```yaml
 environment:
-  - GIN_MODE=release                    # release o debug
-  - PUFFER_WEB_HOST=0.0.0.0:8080       # Host y puerto
-  - PUFFER_PANEL_REGISTRATIONENABLED=true  # Permitir registro
-  - PUFFER_PANEL_SETTINGS_COMPANYNAME=Mi Empresa
-  - PUFFER_PANEL_SETTINGS_DEFAULTTHEME=Aether Panel
+  - PUFFER_PANEL_SETTINGS_COMPANYNAME=Aether Panel
+  - PUFFER_WEB_HOST=0.0.0.0:8080
+  - GIN_MODE=release
 ```
 
-### Puertos Personalizados
+---
 
+## Gestión del Contenedor
+
+### Ver Logs
+Para ver los logs del panel en tiempo real:
+
+```bash
+docker-compose logs -f
+```
+
+### Detener el Panel
+Para detener los contenedores ordenadamente:
+
+```bash
+docker-compose down
+```
+
+### Reiniciar el Panel
+```bash
+docker-compose restart
+```
+
+### Actualizar Imagen
+Para descargar la última versión y reiniciar:
+
+```bash
+docker-compose pull
+docker-compose up -d
+```
+
+---
+
+## Solución de Problemas
+
+### Error: "Bind for 0.0.0.0:8080 failed: port is already allocated"
+El puerto 8080 está ocupado por otro proceso. Edita el archivo `docker-compose.yml` y cambia el mapeo de puertos.
+Por ejemplo, para usar el puerto 9000:
 ```yaml
 ports:
-  - "9000:8080"   # Panel en puerto 9000
-  - "2222:5657"   # SFTP en puerto 2222
-  - "9001:8081"   # Gatus en puerto 9001
+  - "9000:8080"
 ```
 
-### Límites de Recursos
+### Error de Permisos con Docker
+Si recibes errores de "permission denied" al intentar ejecutar docker:
+1. Asegúrate de que tu usuario pertenece al grupo `docker`:
+   ```bash
+   sudo usermod -aG docker $USER
+   ```
+2. Cierra sesión y vuelve a entrar o ejecuta `newgrp docker`.
 
-```yaml
-deploy:
-  resources:
-    limits:
-      cpus: '4'
-      memory: 4G
-    reservations:
-      cpus: '1'
-      memory: 1G
-```
+---
 
-## 🐛 Solución de Problemas
+## Construcción Manual de la Imagen
 
-### El contenedor no inicia
+Si prefieres construir la imagen Docker localmente desde el código fuente en lugar de descargarla:
 
 ```bash
-# Ver logs de error
-docker logs skypanel-dev
-
-# Verificar configuración
-docker-compose -f docker-compose.dev.yml config
-
-# Verificar puertos en uso
-sudo netstat -tulpn | grep -E '8080|5657|8081'
+docker-compose build
+docker-compose up -d
 ```
-
-### Error de permisos
-
-```bash
-# Agregar usuario al grupo docker
-sudo usermod -aG docker $USER
-newgrp docker
-
-# O ejecutar con sudo
-sudo docker-compose -f docker-compose.dev.yml up -d
-```
-
-### No puedo acceder al panel
-
-```bash
-# Verificar que el contenedor está corriendo
-docker ps | grep skypanel
-
-# Verificar logs
-docker logs skypanel-dev
-
-# Verificar conectividad
-curl http://localhost:8080
-```
-
-### Base de datos corrupta
-
-```bash
-# Detener contenedor
-./docker-test.sh stop
-
-# Eliminar base de datos
-rm -f dev-data/data/database.db*
-
-# Reiniciar
-./docker-test.sh start
-```
-
-## 🔄 Actualización
-
-```bash
-# 1. Detener contenedor
-./docker-test.sh stop
-
-# 2. Hacer backup
-tar -czf backup-$(date +%Y%m%d).tar.gz dev-data/
-
-# 3. Actualizar código (git pull, etc.)
-
-# 4. Reconstruir
-./docker-test.sh rebuild
-```
-
-## 🧹 Limpieza Completa
-
-```bash
-# Eliminar todo (contenedor, imágenes, volúmenes)
-./docker-test.sh clean
-
-# O manualmente
-docker-compose -f docker-compose.dev.yml down -v
-docker rmi skypanel:latest
-rm -rf dev-data/
-```
-
-## 📚 Recursos Adicionales
-
-- **Documentación oficial**: [docs/README.md](docs/README.md)
-- **API Reference**: [docs/11-api-reference.md](docs/11-api-reference.md)
-- **Docker Docs**: https://docs.docker.com/
-
-## 🆘 Obtener Ayuda
-
-```bash
-# Ver ayuda del script
-./docker-test.sh help
-
-# Ver comandos disponibles de Aether Panel (nota: el binario se llama 'skypanel' por el nombre en clave)
-docker exec skypanel-dev /SkyPanel/bin/SkyPanel --help
-
-# Ver versión
-docker exec skypanel-dev /SkyPanel/bin/SkyPanel version
-```
-
-## 📝 Notas Importantes
-
-1. **Primer inicio**: La primera construcción puede tardar 10-15 minutos
-2. **Recursos**: Asegúrate de tener suficiente RAM y CPU disponible
-3. **Puertos**: Los puertos 8080, 5657 y 8081 deben estar libres
-4. **Datos**: Los datos se guardan en volúmenes persistentes
-5. **Seguridad**: Cambia las contraseñas por defecto en producción
-6. **Versión**: Estamos en la versión 3 del proyecto
-
-## 🎯 Próximos Pasos
-
-1. ✅ Construir imagen: `./docker-test.sh build`
-2. ✅ Iniciar contenedor: `./docker-test.sh start`
-3. ✅ Crear admin: `./docker-test.sh admin`
-4. ✅ Acceder al panel: http://localhost:8080
-5. ✅ Crear tu primer servidor de juego
-
-¡Disfruta de Aether Panel! 🚀

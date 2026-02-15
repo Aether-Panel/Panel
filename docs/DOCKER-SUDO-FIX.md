@@ -8,7 +8,7 @@ Tu usuario necesita **sudo** para ejecutar Docker. Hay dos soluciones:
 
 ---
 
-## ✅ Solución 1: Agregar Usuario al Grupo Docker (Recomendado)
+## Solución 1: Agregar Usuario al Grupo Docker (Recomendado)
 
 Esto te permitirá usar Docker sin sudo:
 
@@ -30,7 +30,7 @@ docker ps
 
 ---
 
-## ✅ Solución 2: Usar con Sudo (Rápido)
+## Solución 2: Usar con Sudo (Rápido)
 
 Si no quieres cambiar permisos, ejecuta con sudo:
 
@@ -42,7 +42,7 @@ Si no quieres cambiar permisos, ejecuta con sudo:
 
 Cuando veas:
 ```
-⚠  Docker requiere sudo
+Docker requiere sudo
    Para usar sin sudo, ejecuta:
    sudo usermod -aG docker esteban
    newgrp docker
@@ -54,7 +54,7 @@ Presiona **`y`** y Enter para continuar.
 
 ---
 
-## 🎯 Comandos Rápidos
+## Comandos Rápidos
 
 ### Con Permisos de Docker (después de Solución 1)
 ```bash
@@ -76,7 +76,7 @@ sudo docker-compose -f docker-compose.dev.yml up -d
 
 ---
 
-## 📋 Verificar Estado de Docker
+## Verificar Estado de Docker
 
 ```bash
 # Ver si Docker está corriendo
@@ -95,7 +95,7 @@ sudo docker ps              # Con sudo (Solución 2)
 
 ---
 
-## 🎮 Después de Iniciar
+## Después de Iniciar
 
 Una vez que el contenedor esté corriendo:
 
@@ -123,7 +123,7 @@ Una vez que el contenedor esté corriendo:
 
 ---
 
-## 🐛 Solución de Problemas
+## Solución de Problemas
 
 ### Docker no está corriendo
 ```bash
@@ -153,7 +153,7 @@ sudo netstat -tulpn | grep 8080
 
 ---
 
-## 💡 Recomendación
+## Recomendación
 
 **Para desarrollo**: Usa la **Solución 1** (agregar usuario al grupo docker)
 - Más cómodo
@@ -167,7 +167,7 @@ sudo netstat -tulpn | grep 8080
 
 ---
 
-## 🚀 Siguiente Paso
+## Siguiente Paso
 
 Ejecuta uno de estos comandos según tu elección:
 
@@ -181,4 +181,4 @@ sudo usermod -aG docker $USER && newgrp docker
 # (presiona 'y' cuando pregunte)
 ```
 
-¡Listo! 🎉
+¡Listo!

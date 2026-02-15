@@ -6,7 +6,7 @@
 
 He creado una configuración completa de Docker para que puedas probar Aether Panel fácilmente:
 
-### 📄 Archivos Principales
+### Archivos Principales
 
 1. **`docker-compose.yml`** - Configuración de producción
 2. **`docker-compose.dev.yml`** - Configuración de desarrollo/pruebas
@@ -17,7 +17,7 @@ He creado una configuración completa de Docker para que puedas probar Aether Pa
 
 ---
 
-## 🚀 Inicio Rápido (3 Pasos)
+## Inicio Rápido (3 Pasos)
 
 ### Opción 1: Script Automático (Más Fácil)
 
@@ -27,10 +27,10 @@ He creado una configuración completa de Docker para que puedas probar Aether Pa
 ```
 
 Este script hará:
-- ✅ Verificar Docker
-- ✅ Construir la imagen (10-15 min)
-- ✅ Iniciar el contenedor
-- ✅ Mostrar URLs de acceso
+- Verificar Docker
+- Construir la imagen (10-15 min)
+- Iniciar el contenedor
+- Mostrar URLs de acceso
 
 ### Opción 2: Paso a Paso
 
@@ -47,7 +47,7 @@ Este script hará:
 
 ---
 
-## 🎯 Acceso al Panel
+## Acceso al Panel
 
 Una vez iniciado:
 
@@ -57,7 +57,7 @@ Una vez iniciado:
 
 ---
 
-## 📋 Comandos Disponibles
+## Comandos Disponibles
 
 ### Script de Gestión (`docker-test.sh`)
 
@@ -65,7 +65,6 @@ Una vez iniciado:
 ./docker-test.sh build      # Construir imagen
 ./docker-test.sh start      # Iniciar contenedor
 ./docker-test.sh stop       # Detener contenedor
-./docker-test.sh restart    # Reiniciar
 ./docker-test.sh logs       # Ver logs en tiempo real
 ./docker-test.sh status     # Ver estado
 ./docker-test.sh shell      # Abrir shell
@@ -91,7 +90,7 @@ docker-compose down
 
 ---
 
-## 📊 Estructura de Datos
+## Estructura de Datos
 
 ### Modo Desarrollo
 ```
@@ -111,7 +110,7 @@ Volúmenes Docker:
 
 ---
 
-## 🔧 Configuración
+## Configuración
 
 ### Puertos Expuestos
 
@@ -133,7 +132,7 @@ environment:
 
 ---
 
-## 🛠️ Gestión del Contenedor
+## Gestión del Contenedor
 
 ### Ver Logs
 
@@ -170,7 +169,7 @@ docker exec -it skypanel-dev /SkyPanel/bin/SkyPanel user add \
 
 ---
 
-## 🔄 Backup y Restauración
+## Backup y Restauración
 
 ### Hacer Backup
 
@@ -200,7 +199,7 @@ docker run --rm \
 
 ---
 
-## 🐛 Solución de Problemas
+## Solución de Problemas
 
 ### El contenedor no inicia
 
@@ -241,7 +240,7 @@ curl http://localhost:8080
 
 ---
 
-## 🧹 Limpieza
+## Limpieza
 
 ### Limpiar Todo
 
@@ -263,7 +262,7 @@ rm -rf dev-data/
 
 ---
 
-## 📚 Documentación Completa
+## Documentación Completa
 
 Para más detalles, consulta:
 
@@ -277,7 +276,7 @@ cat README.docker.md
 
 ---
 
-## 🎯 Próximos Pasos
+## Próximos Pasos
 
 1. **Iniciar**: `./quickstart-docker.sh`
 2. **Crear Admin**: `./docker-test.sh admin`
@@ -287,7 +286,7 @@ cat README.docker.md
 
 ---
 
-## 💡 Tips
+## Tips
 
 - **Primera construcción**: Tarda 10-15 minutos
 - **Datos persistentes**: Se guardan en `dev-data/` o volúmenes Docker
@@ -297,7 +296,7 @@ cat README.docker.md
 
 ---
 
-## 🆘 Ayuda
+## Ayuda
 
 Si tienes problemas:
 
@@ -308,4 +307,4 @@ Si tienes problemas:
 
 ---
 
-¡Disfruta probando Aether Panel en Docker! 🚀
+¡Disfruta probando Aether Panel en Docker!

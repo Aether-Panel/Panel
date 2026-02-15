@@ -8,7 +8,7 @@ Esta guía cubre los comandos esenciales para instalar, configurar y ejecutar Ae
 
 ---
 
-## 🏗️ 1. Compilación e Instalación
+## 1. Compilación e Instalación
 
 Antes de poder usar los comandos CLI, necesitas compilar el binario del proyecto.
 
@@ -26,7 +26,7 @@ go build -o skypanel ./cmd
 
 ---
 
-## 👥 2. Crear Cuenta de Administrador
+## 2. Crear Cuenta de Administrador
 
 Una vez compilado el binario, el paso más importante es crear tu primera cuenta de usuario con privilegios de administrador. Esto es necesario para poder iniciar sesión en el panel web.
 
@@ -47,11 +47,11 @@ Usa el siguiente comando para crear un usuario administrador instantáneamente:
 | `--admin` | Bandera que otorga permisos de superusuario | *(sin valor)* |
 | `--password` | Contraseña para la cuenta | `"admin1234"` |
 
-> **⚠️ Importante**: Si no proporcionas la contraseña mediante la bandera `--password`, el sistema te la pedirá de forma interactiva por seguridad.
+> **Importante**: Si no proporcionas la contraseña mediante la bandera `--password`, el sistema te la pedirá de forma interactiva por seguridad.
 
 ---
 
-## 🚀 3. Inicialización y Ejecución
+## 3. Inicialización y Ejecución
 
 Para iniciar el servidor web y todos los servicios de Aether Panel (incluyendo SFTP y Gatus), utiliza el comando `run`.
 
@@ -70,7 +70,7 @@ Este comando:
 
 ---
 
-## 📚 4. Otros Comandos Útiles
+## 4. Otros Comandos Útiles
 
 Aquí tienes una referencia rápida de otros sub-comandos disponibles en el CLI.
 
@@ -108,7 +108,7 @@ Aquí tienes una referencia rápida de otros sub-comandos disponibles en el CLI.
 
 ---
 
-## 🆘 Solución de Problemas Comunes
+## Solución de Problemas Comunes
 
 **Error: "permission denied" al ejecutar**
 Si recibes un error de permisos, asegúrate de que el binario tiene permisos de ejecución:

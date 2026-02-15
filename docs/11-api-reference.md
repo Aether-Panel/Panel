@@ -26,14 +26,14 @@ La API de Aether Panel es una **API RESTful** completa que permite la automatiza
 
 ### Características de la API
 
-- ✅ **RESTful**: Sigue principios REST estándar
-- ✅ **OAuth2**: Autenticación segura con tokens
-- ✅ **JSON**: Formato de datos JSON para requests y responses
-- ✅ **Versionada**: API versionada para compatibilidad
-- ✅ **Documentada**: Documentación completa con ejemplos
-- ✅ **WebSocket**: Soporte para comunicación en tiempo real
-- ✅ **Paginación**: Resultados paginados para grandes conjuntos de datos
-- ✅ **Filtrado**: Búsqueda y filtrado avanzado
+- **RESTful**: Sigue principios REST estándar
+- **OAuth2**: Autenticación segura con tokens
+- **JSON**: Formato de datos JSON para requests y responses
+- **Versionada**: API versionada para compatibilidad
+- **Documentada**: Documentación completa con ejemplos
+- **WebSocket**: Soporte para comunicación en tiempo real
+- **Paginación**: Resultados paginados para grandes conjuntos de datos
+- **Filtrado**: Búsqueda y filtrado avanzado
 
 ### URL Base
 
@@ -1704,12 +1704,12 @@ La API de Aether Panel usa versionado semántico:
 
 ### 1. Cachear Tokens
 ```python
-# ❌ Malo: Autenticar en cada petición
+# Malo: Autenticar en cada petición
 def get_servers():
     token = authenticate()
     return requests.get('/api/servers', headers={'Authorization': f'Bearer {token}'})
 
-# ✅ Bueno: Reutilizar token
+# Bueno: Reutilizar token
 class API:
     def __init__(self):
         self.token = None
@@ -1778,10 +1778,10 @@ def make_request_with_retry(func, *args, **kwargs):
 
 ### Recursos
 
-- 📖 **Documentación**: [docs.aetherpanel.es](https://docs.aetherpanel.es)
-- 💬 **Discord**: [discord.gg/skypanel](https://discord.gg/skypanel)
-- 🐛 **Issues**: [github.com/aetherpanel/aetherpanel/issues](https://github.com/aetherpanel/aetherpanel/issues)
-- 📧 **Email**: api-support@aetherpanel.es
+- **Documentación**: [docs.aetherpanel.es](https://docs.aetherpanel.es)
+- **Discord**: [discord.gg/skypanel](https://discord.gg/skypanel)
+- **Issues**: [github.com/aetherpanel/aetherpanel/issues](https://github.com/aetherpanel/aetherpanel/issues)
+- **Email**: api-support@aetherpanel.es
 
 ### Reportar Problemas de API
 
@@ -1797,4 +1797,4 @@ Al reportar problemas, incluye:
 
 ---
 
-**¡Feliz desarrollo con la API de SkyPanel! 🚀**
+**¡Feliz desarrollo con la API de SkyPanel!**
