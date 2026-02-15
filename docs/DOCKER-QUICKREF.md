@@ -1,8 +1,8 @@
-# 🐳 Aether Panel - Configuración Docker Completa
+# Configuración Docker Completa
 
 > **Nota**: Aether Panel es el nombre oficial del proyecto. **SkyPanel** es el nombre en clave (codename) utilizado en contenedores Docker, imágenes y código fuente. Versión actual: **1.0.1**.
 
-## ✅ Archivos Creados
+## Archivos Creados
 
 He creado una configuración completa de Docker para que puedas probar Aether Panel fácilmente:
 

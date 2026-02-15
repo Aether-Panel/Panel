@@ -1,8 +1,8 @@
-# 🚀 Inicio Rápido - Aether Panel en Docker con Sudo
+# Aether Panel en Docker con Sudo
 
 > **Nota**: Aether Panel es el nombre oficial del proyecto. **SkyPanel** es el nombre en clave (codename) utilizado en contenedores Docker e imágenes. Versión actual: **1.0.1**.
 
-## ⚠️ Problema Detectado
+## Problema Detectado
 
 Tu usuario necesita **sudo** para ejecutar Docker. Hay dos soluciones:
 

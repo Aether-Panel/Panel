@@ -1,4 +1,4 @@
-# 🛠️ Referencia de Comandos CLI y Gestión
+# Referencia de Comandos CLI
 
 Aether Panel incluye una potente herramienta de línea de comandos (CLI) que te permite gestionar el panel, crear usuarios, realizar tareas de mantenimiento y ejecutar el servidor.
 

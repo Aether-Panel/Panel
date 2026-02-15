@@ -5,13 +5,14 @@
 Esta guía te ayudará a ejecutar Aether Panel en contenedores Docker de forma fácil y controlada.
 
 ## 📋 Requisitos Previos
+## Requisitos Previos
 
 - **Docker** 20.10+ instalado
 - **Docker Compose** 2.0+ instalado
 - Al menos **2GB de RAM** disponible
 - Al menos **5GB de espacio en disco**
 
-### Instalar Docker (si no lo tienes)
+### Documentación Docker (si no lo tienes)
 
 ```bash
 # Ubuntu/Debian

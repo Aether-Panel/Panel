@@ -1,4 +1,4 @@
-# 🔌 Referencia Completa de API de Aether Panel
+# Referencia de API
 
 > **Nota**: Aether Panel es el nombre oficial del proyecto. **SkyPanel** es el nombre en clave (codename) utilizado en comandos CLI y código fuente. Versión actual: **1.0.1**.
 
