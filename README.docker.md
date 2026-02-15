@@ -55,28 +55,25 @@ chmod +x docker-test.sh
 docker-compose -f docker-compose.dev.yml up -d
 
 # Producción
-docker-compose up -d
-```
+# Guía de Despliegue en Docker
 
-### Opción 3: Docker Run Directo
+Este documento detalla el proceso de instalación y configuración de Aether Panel utilizando Docker. Este método garantiza un entorno aislado y fácil de actualizar.
+
+## Requisitos Previos
+
+*   Docker Engine instalado (versión 20.10 o superior)
+*   Docker Compose (opcional, pero recomendado)
+
+## Inicio Rápido
+
+Para iniciar una instancia de Aether Panel rápidamente, ejecute el siguiente comando:
 
 ```bash
-# Construir imagen (nota: el nombre de la imagen usa el nombre en clave)
-docker build -t skypanel:latest .
-
-# Ejecutar contenedor
 docker run -d \
   --name skypanel \
+  --restart=always \
   -p 8080:8080 \
   -p 5657:5657 \
-  -p 8081:8081 \
-  -v skypanel-data:/var/lib/SkyPanel \
-  -v skypanel-config:/etc/SkyPanel \
-  -v skypanel-logs:/var/log/SkyPanel \
-  skypanel:latest
-```
-
-## 🎮 Comandos del Script
 
 El script `docker-test.sh` proporciona comandos fáciles de usar:
 
@@ -126,11 +123,20 @@ Accede al dashboard de Gatus en: **http://localhost:8081**
 
 ### Credenciales Iniciales
 
-Debes crear un usuario administrador:
+Debes crear un usuario Para iniciar el servicio:
+```bash
+docker-compose up -d
+```
+
+## Crear Usuario Administrador
+
+Una vez que el contenedor esté en ejecución, debe crear un usuario administrador para acceder al panel. Ejecute el siguiente comando:
 
 ```bash
-./docker-test.sh admin
+docker exec -it skypanel /SkyPanel/bin/SkyPanel user add --name admin --email admin@example.com --password 'admin123' --admin
 ```
+
+> **Nota:** Cambie el correo y la contraseña por sus propias credenciales seguras.
 
 O manualmente:
 

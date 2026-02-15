@@ -2,7 +2,7 @@
 
 Aether Panel incluye una potente herramienta de línea de comandos (CLI) que te permite gestionar el panel, crear usuarios, realizar tareas de mantenimiento y ejecutar el servidor.
 
-> **Nota**: Aether Panel es el nombre oficial del proyecto. **SkyPanel** es el nombre en clave (codename) utilizado en el binario CLI (`skypanel`), servicios del sistema y código fuente. Estamos en la **versión 3** del proyecto.
+> **Nota**: Aether Panel es el nombre oficial del proyecto. **SkyPanel** es el nombre en clave (codename) utilizado en el binario CLI (`skypanel`), servicios del sistema y código fuente. Versión actual: **1.0.1**.
 
 Esta guía cubre los comandos esenciales para instalar, configurar y ejecutar Aether Panel.
 
@@ -94,7 +94,7 @@ Aquí tienes una referencia rápida de otros sub-comandos disponibles en el CLI.
 ### Gestión de Base de Datos
 
 **Migrar base de datos (Actualizar esquema):**
-Útil cuando actualizas Aether Panel a una nueva versión (actualmente versión 3).
+Útil cuando actualizas Aether Panel a una nueva versión (actualmente versión 1.0.1).
 ```bash
 ./skypanel db migrate
 ```
