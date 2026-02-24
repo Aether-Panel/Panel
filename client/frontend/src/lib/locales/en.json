@@ -266,7 +266,14 @@
         "email": "Email",
         "actions": "Actions"
       },
-      "revoke": "Revoke"
+      "revoke": "Revoke",
+      "revokeConfirm": "Are you sure you want to revoke access for this user?",
+      "noUsers": "No users have access to this server yet.",
+      "fetchError": "Failed to load server users.",
+      "addSuccess": "User added successfully.",
+      "addError": "Failed to add user.",
+      "revokeSuccess": "Access revoked successfully.",
+      "revokeError": "Failed to revoke access."
     },
     "database": {
       "title": "Databases",
@@ -634,7 +641,9 @@
     "copy": "Copy",
     "loading": "Loading...",
     "cancel": "Cancel",
-    "close": "Close"
+    "close": "Close",
+    "success": "Success",
+    "error": "Error"
   },
   "settings": {
     "title": "Panel Settings",

@@ -266,7 +266,14 @@
         "email": "Correo Electrónico",
         "actions": "Acciones"
       },
-      "revoke": "Revocar"
+      "revoke": "Revocar",
+      "revokeConfirm": "¿Estás seguro de que deseas revocar el acceso a este usuario?",
+      "noUsers": "Ningún usuario tiene acceso a este servidor todavía.",
+      "fetchError": "Error al cargar los usuarios del servidor.",
+      "addSuccess": "Usuario añadido correctamente.",
+      "addError": "Error al añadir el usuario.",
+      "revokeSuccess": "Acceso revocado correctamente.",
+      "revokeError": "Error al revocar el acceso."
     },
     "database": {
       "title": "Bases de Datos",
@@ -634,7 +641,9 @@
     "copy": "Copiar",
     "loading": "Cargando...",
     "cancel": "Cancelar",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "success": "Éxito",
+    "error": "Error"
   },
   "settings": {
     "title": "Configuración del Panel",
