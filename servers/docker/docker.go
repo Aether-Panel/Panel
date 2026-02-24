@@ -5,9 +5,21 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/SkyPanel/SkyPanel/v3/utils"
 	"slices"
 
+	"github.com/SkyPanel/SkyPanel/v3/utils"
+
+	"io"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/SkyPanel/SkyPanel/v3"
+	"github.com/SkyPanel/SkyPanel/v3/config"
+	"github.com/SkyPanel/SkyPanel/v3/logging"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
@@ -17,17 +29,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
-	"github.com/SkyPanel/SkyPanel/v3"
-	"github.com/SkyPanel/SkyPanel/v3/config"
-	"github.com/SkyPanel/SkyPanel/v3/logging"
 	"github.com/spf13/cast"
-	"io"
-	"os"
-	"path/filepath"
-	"runtime"
-	"strings"
-	"sync"
-	"time"
 )
 
 type Docker struct {
@@ -220,8 +222,9 @@ func (d *Docker) GetStatsImpl(environment *SkyPanel.Environment) (*SkyPanel.Serv
 	//as such, we'll see if we can
 
 	stats := &SkyPanel.ServerStats{
-		Memory: calculateMemoryPercent(data),
-		Cpu:    calculateCPUPercent(data),
+		Memory:    float64(data.MemoryStats.Usage),
+		MaxMemory: float64(data.MemoryStats.Limit),
+		Cpu:       calculateCPUPercent(data),
 	}
 
 	if !d.disableSpecialStats && environment.Server.Stats.Type == "jcmd" {
@@ -627,10 +630,6 @@ func calculateCPUPercent(v *container.StatsResponse) float64 {
 		numCpus = len(v.CPUStats.CPUUsage.PercpuUsage)
 	}
 	return (float64(cpuDelta) / float64(systemCpuDelta)) * float64(numCpus) * 100.0
-}
-
-func calculateMemoryPercent(v *container.StatsResponse) float64 {
-	return float64(v.MemoryStats.Usage)
 }
 
 func convertToBind(source string) string {

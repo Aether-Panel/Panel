@@ -212,9 +212,10 @@
       },
       "editor": {
         "title": "Editing: {{filename}}",
-        "description": "Changes are not saved in this demo.",
+        "description": "Make the necessary changes and click save.",
         "cancel": "Cancel",
-        "save": "Save Changes"
+        "save": "Save Changes",
+        "saveSuccess": "File saved successfully."
       }
     },
     "settings": {
@@ -325,12 +326,14 @@
       "installStatus": {
         "title": "Installation Status",
         "description": "Trigger the server installation or re-installation process.",
-        "button": "Install"
+        "button": "Install",
+        "success": "Installation process started."
       },
       "delete": {
         "title": "Delete Server",
         "description": "This action is permanent. All server files and data will be erased.",
-        "button": "Delete"
+        "button": "Delete",
+        "success": "Server has been deleted."
       },
       "deleteDialog": {
         "title": "Are you absolutely sure?",

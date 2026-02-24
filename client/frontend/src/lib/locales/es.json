@@ -212,9 +212,10 @@
       },
       "editor": {
         "title": "Editando: {{filename}}",
-        "description": "Los cambios no se guardan en esta demostración.",
+        "description": "Realiza los cambios necesarios y pulsa guardar.",
         "cancel": "Cancelar",
-        "save": "Guardar Cambios"
+        "save": "Guardar Cambios",
+        "saveSuccess": "Archivo guardado correctamente."
       }
     },
     "settings": {
@@ -325,23 +326,25 @@
       "installStatus": {
         "title": "Estado de la Instalación",
         "description": "Dispara el proceso de instalación o reinstalación del servidor.",
-        "button": "Instalar"
+        "button": "Instalar",
+        "success": "El proceso de instalación ha comenzado."
       },
       "delete": {
         "title": "Eliminar Servidor",
         "description": "Esta acción es permanente. Se borrarán todos los archivos y datos del servidor.",
-        "button": "Eliminar"
+        "button": "Eliminar",
+        "success": "El servidor ha sido eliminado correctamente."
       },
       "deleteDialog": {
         "title": "¿Estás absolutamente seguro?",
         "description": "Esta acción no se puede deshacer. Esto eliminará permanentemente el servidor y todos sus datos de la plataforma.",
         "cancel": "Cancelar",
         "confirm": "Sí, eliminar servidor"
+      },
+      "resourceChart": {
+        "title": "Resumen de Recursos",
+        "description": "Instantánea actual de la utilización de recursos."
       }
-    },
-    "resourceChart": {
-      "title": "Resumen de Recursos",
-      "description": "Instantánea actual de la utilización de recursos."
     }
   },
   "users": {
@@ -533,7 +536,7 @@
         "title": "Discos"
       },
       "serversOnNode": {
-        "title": "Servidores en este Nodo",
+        "title": "Servers en este Nodo",
         "view": "Ver",
         "empty": "No hay servidores en este nodo."
       },

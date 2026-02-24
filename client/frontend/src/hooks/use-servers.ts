@@ -51,18 +51,29 @@ export function useServers() {
 
         const statsPromises = serversToFetch.map(async (server) => {
             try {
-                const stats = await api.get(`/api/servers/${server.id}/stats`).catch(() => null);
+                const stats = await api.get(`/api/servers/${server.id}/stats`);
                 if (stats) {
+                    const cpu = Math.round(stats.cpu || 0);
+                    // If maxMemory is missing or 0, we can't calculate percentage reliably. 
+                    // We'll fallback to showing 0 or trying to use the value if it looks like a % already.
+                    let memory = 0;
+                    if (stats.maxMemory && stats.maxMemory > 0) {
+                        memory = Math.round((stats.memory / stats.maxMemory) * 100);
+                    } else if (stats.memory <= 100) {
+                        // Maybe it's already a percentage?
+                        memory = Math.round(stats.memory);
+                    }
+
                     return {
                         id: server.id,
-                        cpuUsage: Math.round(stats.cpu || 0),
-                        memoryUsage: Math.round(stats.memory ? (stats.memory / (stats.maxMemory || stats.memory || 1024)) * 100 : 0),
-                        storageUsage: 0, // Not always in stats
-                        status: 'online',
+                        cpuUsage: cpu,
+                        memoryUsage: memory,
+                        storageUsage: 0,
+                        status: stats.running ? 'online' : 'offline',
                         metrics: {
-                            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                            cpu: stats.cpu || 0,
-                            memory: stats.memory || 0,
+                            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+                            cpu: Math.min(100, cpu),
+                            memory: Math.min(100, memory),
                             networkIn: stats.network?.in || 0,
                             networkOut: stats.network?.out || 0,
                         }
@@ -79,8 +90,8 @@ export function useServers() {
         setServers(prev => prev.map(s => {
             const res = results.find(r => r && r.id === s.id);
             if (res) {
-                // Prepend new metrics to history (keep last 20)
-                const newMetrics = [...(s.metrics || []), res.metrics].filter(Boolean).slice(-20);
+                // Keep last 60 points (~5 mins if polling every 5s)
+                const newMetrics = [...(s.metrics || []), res.metrics].filter(Boolean).slice(-60);
                 return {
                     ...s,
                     status: res.status as any,
@@ -102,7 +113,7 @@ export function useServers() {
 
         const interval = setInterval(() => {
             updateAllStats(servers);
-        }, 15000);
+        }, 5000);
 
         // Initial update
         updateAllStats(servers);

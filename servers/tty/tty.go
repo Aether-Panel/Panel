@@ -3,13 +3,6 @@ package tty
 import (
 	"errors"
 	"fmt"
-	"github.com/creack/pty"
-	"github.com/SkyPanel/SkyPanel/v3"
-	"github.com/SkyPanel/SkyPanel/v3/config"
-	"github.com/SkyPanel/SkyPanel/v3/logging"
-	"github.com/SkyPanel/SkyPanel/v3/utils"
-	"github.com/shirou/gopsutil/process"
-	"github.com/spf13/cast"
 	"io"
 	"net"
 	"os"
@@ -20,6 +13,15 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/SkyPanel/SkyPanel/v3"
+	"github.com/SkyPanel/SkyPanel/v3/config"
+	"github.com/SkyPanel/SkyPanel/v3/logging"
+	"github.com/SkyPanel/SkyPanel/v3/utils"
+	"github.com/creack/pty"
+	"github.com/shirou/gopsutil/mem"
+	"github.com/shirou/gopsutil/process"
+	"github.com/spf13/cast"
 )
 
 type tty struct {
@@ -60,6 +62,16 @@ func (t *tty) ExecuteAsyncImpl(environment *SkyPanel.Environment, steps SkyPanel
 		envVars[k] = v
 	}
 
+	// Ensure binaries folder is in PATH
+	binDir := config.BinariesFolder.Value()
+	if currentPath, ok := envVars["PATH"]; ok {
+		if !strings.Contains(currentPath, binDir) {
+			envVars["PATH"] = binDir + ":" + currentPath
+		}
+	} else {
+		envVars["PATH"] = binDir + ":/usr/local/bin:/usr/bin:/bin"
+	}
+
 	for k, v := range envVars {
 		pr.Env = append(pr.Env, fmt.Sprintf("%s=%s", k, v))
 	}
@@ -82,6 +94,7 @@ func (t *tty) ExecuteAsyncImpl(environment *SkyPanel.Environment, steps SkyPanel
 	processTty, err := pty.Start(pr)
 	if err != nil {
 		environment.Wait.Done()
+		environment.DisplayToConsole(true, "Failed to start process: %s", err)
 		return
 	}
 
@@ -118,8 +131,9 @@ func (t *tty) GetStatsImpl(environment *SkyPanel.Environment) (*SkyPanel.ServerS
 	}
 	if !running {
 		stats := &SkyPanel.ServerStats{
-			Cpu:    0,
-			Memory: 0,
+			Cpu:     0,
+			Memory:  0,
+			Running: false,
 		}
 
 		if environment.Server.Stats.Type == "jcmd" {
@@ -145,9 +159,12 @@ func (t *tty) GetStatsImpl(environment *SkyPanel.Environment) (*SkyPanel.ServerS
 	memMap, _ := pr.MemoryInfo()
 	cpu, _ := pr.Percent(time.Second * 1)
 
+	memInfo, _ := mem.VirtualMemory()
 	stats := &SkyPanel.ServerStats{
-		Cpu:    cpu,
-		Memory: cast.ToFloat64(memMap.RSS),
+		Cpu:       cpu,
+		Memory:    cast.ToFloat64(memMap.RSS),
+		MaxMemory: cast.ToFloat64(memInfo.Total),
+		Running:   true,
 	}
 
 	if !t.disableSpecialStats && environment.Server.Stats.Type == "jcmd" {
@@ -232,6 +249,7 @@ func (t *tty) handleClose(environment *SkyPanel.Environment, callback func(exitC
 
 	if err != nil {
 		environment.Log(logging.Error, "Error waiting on process: %s\n", err)
+		environment.DisplayToConsole(true, "Error waiting on process: %s", err)
 	}
 
 	if t.mainProcess != nil && t.mainProcess.ProcessState != nil {

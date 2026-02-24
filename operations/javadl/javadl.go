@@ -4,15 +4,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/SkyPanel/SkyPanel/v3"
-	"github.com/SkyPanel/SkyPanel/v3/config"
-	"github.com/SkyPanel/SkyPanel/v3/logging"
-	"github.com/SkyPanel/SkyPanel/v3/utils"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sync"
+
+	"github.com/SkyPanel/SkyPanel/v3"
+	"github.com/SkyPanel/SkyPanel/v3/config"
+	"github.com/SkyPanel/SkyPanel/v3/logging"
+	"github.com/SkyPanel/SkyPanel/v3/utils"
 )
 
 var downloader sync.Mutex
@@ -62,13 +63,13 @@ func (op JavaDl) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
 		_ = os.Remove(mainCCommand)
 
 		logging.Debug.Printf("Adding to path: %s\n", mainCommand)
-		err = os.Symlink(filepath.Join(file.ReleaseName, "bin", "java"), mainCommand)
+		err = os.Symlink(filepath.Join(rootBinaryFolder, file.ReleaseName, "bin", "java"), mainCommand)
 		if err != nil {
 			return SkyPanel.OperationResult{Error: err}
 		}
 
 		logging.Debug.Printf("Adding to path: %s\n", mainCCommand)
-		err = os.Symlink(filepath.Join(file.ReleaseName, "bin", "javac"), mainCCommand)
+		err = os.Symlink(filepath.Join(rootBinaryFolder, file.ReleaseName, "bin", "javac"), mainCCommand)
 		if err != nil {
 			return SkyPanel.OperationResult{Error: err}
 		}
