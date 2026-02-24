@@ -1,0 +1,8 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { Register as RegisterWrapper } from "@/components/PageWrappers";
+---
+
+<BaseLayout title="Register - Aether Panel">
+  <RegisterWrapper client:only="react" />
+</BaseLayout>

@@ -1,0 +1,17 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { NodeDetail } from "@/components/PageWrappers";
+import { nodes } from "@/lib/data";
+
+export function getStaticPaths() {
+  return nodes.map((n) => ({
+    params: { id: n.id },
+  }));
+}
+
+const { id } = Astro.params;
+---
+
+<BaseLayout title={`Node ${id} - Aether Panel`}>
+  <NodeDetail id={id} client:only="react" />
+</BaseLayout>

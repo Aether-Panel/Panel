@@ -1,0 +1,35 @@
+---
+interface Props {
+  title?: string;
+}
+
+const { title = "Aether Panel" } = Astro.props;
+import "@/styles/globals.css";
+import { ClientRouter } from "astro:transitions";
+---
+
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="The next-generation server management dashboard."
+    />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <title>{title}</title>
+    {
+      /* By default, Astro adds a crossfade. To make it instant like Next.js, we can override the CSS or use transition:animate="none" on the body or replace ClientRouter with no fallback or similar if desired. But actually Astro's default *does* apply a fade. Let's just leave it for now or explicitly set transition:animate="none" on the body. */
+    }
+    <ClientRouter />
+  </head>
+  <body class="font-body antialiased bg-background text-foreground">
+    <slot />
+  </body>
+</html>
