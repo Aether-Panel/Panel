@@ -287,15 +287,21 @@
         "hostPlaceholder": "Selecciona un host",
         "hostLocal": "Panel (localhost)",
         "hostRemote": "Servidor MySQL Remoto",
-        "createButton": "Crear Base de Datos"
+        "createButton": "Crear Base de Datos",
+        "createSuccess": "Base de datos creada correctamente.",
+        "createError": "Error al crear la base de datos."
       },
+      "deleteConfirm": "¿Estás seguro de que deseas eliminar esta base de datos? Se borrarán todos los datos permanentemente.",
+      "deleteSuccess": "Base de datos eliminada correctamente.",
+      "deleteError": "Error al eliminar la base de datos.",
       "table": {
         "name": "Nombre",
         "user": "Usuario",
         "connections": "Conexiones desde",
         "size": "Tamaño"
       },
-      "anyHost": "% (Cualquier Host)"
+      "anyHost": "% (Cualquier Host)",
+      "empty": "No hay bases de datos creadas para este servidor."
     },
     "backups": {
       "title": "Copia de seguridad",
@@ -305,8 +311,23 @@
         "title": "Crear copia de seguridad",
         "nameLabel": "Nombre",
         "namePlaceholder": "Nombre de la copia de seguridad",
-        "createButton": "Crear copia de seguridad"
+        "createButton": "Crear copia de seguridad",
+        "success": "La copia de seguridad se ha creado correctamente.",
+        "error": "Error al crear la copia de seguridad."
       },
+      "restore": {
+        "button": "Restaurar",
+        "confirm": "¿Estás seguro de que deseas restaurar esta copia de seguridad? Se sobrescribirán todos los archivos actuales.",
+        "success": "La restauración de la copia de seguridad ha comenzado.",
+        "error": "Error al restaurar la copia de seguridad."
+      },
+      "delete": {
+        "button": "Eliminar",
+        "confirm": "¿Estás seguro de que deseas eliminar esta copia de seguridad?",
+        "success": "Copia de seguridad eliminada correctamente.",
+        "error": "Error al eliminar la copia de seguridad."
+      },
+      "download": "Descargar",
       "empty": {
         "title": "No hay copias de seguridad",
         "description": "Crea tu primer backup para comenzar."
@@ -315,11 +336,38 @@
     "plugins": {
       "title": "Plugins",
       "description": "{{count}} plugins instalados",
-      "searchPlaceholder": "Buscar plugins...",
+      "searchPlaceholder": "Buscar en Modrinth (plugins, mods...)",
       "searchButton": "Buscar",
+      "tabs": {
+        "installed": "Instalados",
+        "marketplace": "Marketplace"
+      },
+      "marketplace": {
+        "title": "Mercado de Modrinth",
+        "description": "Busca e instala plugins y mods directamente desde Modrinth.",
+        "install": "Instalar",
+        "installing": "Instalando...",
+        "installed": "Instalado",
+        "downloads": "Descargas",
+        "author": "Autor",
+        "version": "Versión"
+      },
+      "installed": {
+        "title": "Plugins Instalados",
+        "description": "Gestiona los plugins que ya están en tu servidor.",
+        "uninstall": "Eliminar",
+        "uninstallConfirm": "¿Estás seguro de que deseas eliminar este plugin?",
+        "size": "Tamaño"
+      },
       "empty": {
-        "title": "No hay plugins instalados",
-        "description": "Busca e instala plugins desde el buscador."
+        "title": "No hay plugins",
+        "description": "No se encontraron plugins con ese nombre."
+      },
+      "notifications": {
+        "installSuccess": "Plugin {{name}} instalado correctamente. Reinicia el servidor para aplicar cambios.",
+        "installError": "Error al instalar el plugin.",
+        "uninstallSuccess": "Plugin eliminado correctamente.",
+        "uninstallError": "Error al eliminar el plugin."
       }
     },
     "admin": {

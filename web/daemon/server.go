@@ -1135,7 +1135,7 @@ type PluginInfo struct {
 }
 
 type PluginSearchResult struct {
-	ID          int    `json:"id"`
+	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Tag         string `json:"tag"`
 	Description string `json:"description"`
@@ -1211,102 +1211,71 @@ func getPlugins(c *gin.Context) {
 // @Param q query string true "Search query"
 // @Router /daemon/server/{id}/plugins/search [get]
 func searchPlugins(c *gin.Context) {
-	query := c.Query("q")
-	if query == "" {
+	queryParam := c.Query("q")
+	if queryParam == "" {
 		response.HandleError(c, errors.New("search query is required"), http.StatusBadRequest)
 		return
 	}
 
-	// Buscar usando Spigot API
-	// url.PathEscape codifica correctamente espacios para usar en la ruta del URL
-	// Esto maneja correctamente búsquedas con espacios como "terra form"
-	encodedQuery := url.PathEscape(query)
-	spigotURL := fmt.Sprintf("https://api.spiget.org/v2/search/resources/%s?field=name&size=20", encodedQuery)
+	// Buscar usando Modrinth API
+	u, _ := url.Parse("https://api.modrinth.com/v2/search")
+	q := u.Query()
+	q.Set("query", queryParam)
+	q.Set("limit", "20")
+	q.Set("facets", "[[\"project_type:mod\",\"project_type:plugin\"]]")
+	u.RawQuery = q.Encode()
 
-	logging.Debug.Printf("Searching plugins with query: '%s' -> encoded: '%s' -> URL: %s", query, encodedQuery, spigotURL)
+	modrinthURL := u.String()
 
-	resp, err := http.Get(spigotURL)
+	logging.Debug.Printf("Searching plugins on Modrinth with query: '%s' -> URL: %s", queryParam, modrinthURL)
+
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", modrinthURL, nil)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
-		logging.Error.Printf("Error fetching from Spigot API: %v", err)
+		return
+	}
+	req.Header.Set("User-Agent", "PufferPanel/SkyPanel Plugin Manager")
+
+	resp, err := client.Do(req)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		logging.Error.Printf("Error fetching from Modrinth API: %v", err)
 		return
 	}
 	defer utils.CloseResponse(resp)
 
 	if resp.StatusCode != http.StatusOK {
-		logging.Error.Printf("Spigot API returned status %d", resp.StatusCode)
-		response.HandleError(c, fmt.Errorf("spigot API returned status %d", resp.StatusCode), http.StatusInternalServerError)
+		logging.Error.Printf("Modrinth API returned status %d", resp.StatusCode)
+		response.HandleError(c, fmt.Errorf("modrinth API returned status %d", resp.StatusCode), http.StatusInternalServerError)
 		return
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		logging.Error.Printf("Error reading Spigot API response: %v", err)
-		response.HandleError(c, err, http.StatusInternalServerError)
-		return
+	var searchResponse struct {
+		Hits []map[string]interface{} `json:"hits"`
 	}
 
-	var resources []map[string]interface{}
-
-	err = json.Unmarshal(body, &resources)
-	if err != nil {
-		bodyPreview := string(body)
-		if len(bodyPreview) > 500 {
-			bodyPreview = bodyPreview[:500] + "..."
-		}
-		logging.Error.Printf("Error decoding Spigot API response: %v\nResponse body (first 500 chars): %s", err, bodyPreview)
-		response.HandleError(c, fmt.Errorf("failed to parse Spigot API response: %v", err), http.StatusInternalServerError)
+	err = json.NewDecoder(resp.Body).Decode(&searchResponse)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
 
 	results := make([]PluginSearchResult, 0)
-	for _, res := range resources {
-		// Extraer campos de forma segura
-		id, _ := cast.ToIntE(res["id"])
-		name, _ := cast.ToStringE(res["name"])
-		tag, _ := cast.ToStringE(res["tag"])
-
-		// Extraer autor
-		authorName := "Unknown"
-		if author, ok := res["author"].(map[string]interface{}); ok {
-			if name, ok := author["name"].(string); ok {
-				authorName = name
-			}
-		}
-
-		// Extraer descargas
-		downloads := 0
-		if download, ok := res["download"].(map[string]interface{}); ok {
-			if dls, ok := download["downloads"].(float64); ok {
-				downloads = int(dls)
-			}
-		}
-
-		// Extraer versión
-		version := ""
-		if ver, ok := res["version"].(map[string]interface{}); ok {
-			if verName, ok := ver["name"].(string); ok {
-				version = verName
-			}
-		}
-
-		// Extraer icono
-		iconURL, _ := cast.ToStringE(res["iconUrl"])
-
-		// Usar tag como descripción por defecto
-		description := tag
-		if tag == "" {
-			description = "No description available"
-		}
+	for _, hit := range searchResponse.Hits {
+		id, _ := cast.ToStringE(hit["project_id"])
+		title, _ := cast.ToStringE(hit["title"])
+		author, _ := cast.ToStringE(hit["author"])
+		description, _ := cast.ToStringE(hit["description"])
+		iconURL, _ := cast.ToStringE(hit["icon_url"])
+		downloads, _ := cast.ToIntE(hit["downloads"])
+		latestVersion, _ := cast.ToStringE(hit["latest_version"])
 
 		results = append(results, PluginSearchResult{
 			ID:          id,
-			Name:        name,
-			Tag:         tag,
+			Name:        title,
 			Description: description,
-			Author:      authorName,
+			Author:      author,
 			IconURL:     iconURL,
 			Downloads:   downloads,
-			Version:     version,
+			Version:     latestVersion,
 		})
 	}
 
@@ -1322,40 +1291,68 @@ func searchPlugins(c *gin.Context) {
 func installPlugin(c *gin.Context) {
 	server := getServerFromGin(c)
 
-	pluginID := c.Param("pluginId")
-	if pluginID == "" {
-		response.HandleError(c, errors.New("plugin ID is required"), http.StatusBadRequest)
+	projectID := c.Param("pluginId")
+	if projectID == "" {
+		response.HandleError(c, errors.New("project ID is required"), http.StatusBadRequest)
 		return
 	}
 
-	// Obtener información del plugin
-	infoURL := fmt.Sprintf("https://api.spiget.org/v2/resources/%s", pluginID)
-	resp, err := http.Get(infoURL)
+	// Obtener versiones del proyecto de Modrinth
+	versionURL := fmt.Sprintf("https://api.modrinth.com/v2/project/%s/version", projectID)
+	client := &http.Client{}
+	req, _ := http.NewRequest("GET", versionURL, nil)
+	req.Header.Set("User-Agent", "PufferPanel/SkyPanel Plugin Manager")
+
+	resp, err := client.Do(req)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
 	defer utils.CloseResponse(resp)
 
 	if resp.StatusCode != http.StatusOK {
-		response.HandleError(c, fmt.Errorf("plugin not found"), http.StatusNotFound)
+		response.HandleError(c, fmt.Errorf("project or versions not found on Modrinth"), http.StatusNotFound)
 		return
 	}
 
-	var pluginInfo struct {
-		Name    string `json:"name"`
-		Version struct {
-			ID   int    `json:"id"`
-			Name string `json:"name"`
-		} `json:"version"`
+	var versions []struct {
+		ID    string `json:"id"`
+		Name  string `json:"name"`
+		Files []struct {
+			URL      string `json:"url"`
+			FileName string `json:"filename"`
+			Primary  bool   `json:"primary"`
+		} `json:"files"`
+		VersionNumber string `json:"version_number"`
 	}
 
-	err = json.NewDecoder(resp.Body).Decode(&pluginInfo)
+	err = json.NewDecoder(resp.Body).Decode(&versions)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
 
+	if len(versions) == 0 {
+		response.HandleError(c, fmt.Errorf("no versions found for this project"), http.StatusNotFound)
+		return
+	}
+
+	// Seleccionar la versión más reciente (primera en la lista)
+	latestVersion := versions[0]
+	if len(latestVersion.Files) == 0 {
+		response.HandleError(c, fmt.Errorf("no files found in the latest version"), http.StatusNotFound)
+		return
+	}
+
+	// Buscar el archivo primario o el primero
+	var downloadURL string
+	var fileName string
+	for _, file := range latestVersion.Files {
+		if file.Primary || downloadURL == "" {
+			downloadURL = file.URL
+			fileName = file.FileName
+		}
+	}
+
 	// Descargar el plugin
-	downloadURL := fmt.Sprintf("https://api.spiget.org/v2/resources/%s/download", pluginID)
 	pluginResp, err := http.Get(downloadURL)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
@@ -1363,7 +1360,7 @@ func installPlugin(c *gin.Context) {
 	defer utils.CloseResponse(pluginResp)
 
 	if pluginResp.StatusCode != http.StatusOK {
-		response.HandleError(c, fmt.Errorf("failed to download plugin"), http.StatusInternalServerError)
+		response.HandleError(c, fmt.Errorf("failed to download plugin from %s", downloadURL), http.StatusInternalServerError)
 		return
 	}
 
@@ -1377,11 +1374,7 @@ func installPlugin(c *gin.Context) {
 		}
 	}
 
-	// Guardar el plugin
-	safeName := strings.ReplaceAll(pluginInfo.Name, " ", "_")
-	safeName = strings.ReplaceAll(safeName, "/", "_")
-	pluginFileName := fmt.Sprintf("%s-%s.jar", safeName, pluginInfo.Version.Name)
-	pluginPath := filepath.Join(pluginsDir, pluginFileName)
+	pluginPath := filepath.Join(pluginsDir, fileName)
 
 	file, err := server.GetFileServer().OpenFile(pluginPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
@@ -1395,7 +1388,7 @@ func installPlugin(c *gin.Context) {
 	}
 
 	if env := server.GetEnvironment(); env != nil {
-		env.DisplayToConsole(true, fmt.Sprintf("Plugin %s installed successfully\n", pluginInfo.Name))
+		env.DisplayToConsole(true, fmt.Sprintf("Plugin/Mod %s installed successfully as %s\n", projectID, fileName))
 	}
 	c.Status(http.StatusNoContent)
 }

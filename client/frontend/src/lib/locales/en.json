@@ -287,15 +287,21 @@
         "hostPlaceholder": "Select a host",
         "hostLocal": "Panel (localhost)",
         "hostRemote": "Remote MySQL Server",
-        "createButton": "Create Database"
+        "createButton": "Create Database",
+        "createSuccess": "Database created successfully.",
+        "createError": "Failed to create database."
       },
+      "deleteConfirm": "Are you sure you want to delete this database? All data will be permanently erased.",
+      "deleteSuccess": "Database deleted successfully.",
+      "deleteError": "Failed to delete database.",
       "table": {
         "name": "Name",
         "user": "User",
         "connections": "Connections from",
         "size": "Size"
       },
-      "anyHost": "% (Any Host)"
+      "anyHost": "% (Any Host)",
+      "empty": "No databases created for this server."
     },
     "backups": {
       "title": "Backups",
@@ -305,8 +311,23 @@
         "title": "Create Backup",
         "nameLabel": "Name",
         "namePlaceholder": "Backup Name",
-        "createButton": "Create Backup"
+        "createButton": "Create Backup",
+        "success": "Backup created successfully.",
+        "error": "Failed to create backup."
       },
+      "restore": {
+        "button": "Restore",
+        "confirm": "Are you sure you want to restore this backup? All current files will be overwritten.",
+        "success": "Backup restoration has started.",
+        "error": "Failed to restore backup."
+      },
+      "delete": {
+        "button": "Delete",
+        "confirm": "Are you sure you want to delete this backup?",
+        "success": "Backup deleted successfully.",
+        "error": "Failed to delete backup."
+      },
+      "download": "Download",
       "empty": {
         "title": "No backups",
         "description": "Create your first backup to get started."
@@ -315,11 +336,38 @@
     "plugins": {
       "title": "Plugins",
       "description": "{{count}} plugins installed",
-      "searchPlaceholder": "Search plugins...",
+      "searchPlaceholder": "Search in Modrinth (plugins, mods...)",
       "searchButton": "Search",
+      "tabs": {
+        "installed": "Installed",
+        "marketplace": "Marketplace"
+      },
+      "marketplace": {
+        "title": "Modrinth Marketplace",
+        "description": "Search and install plugins and mods directly from Modrinth.",
+        "install": "Install",
+        "installing": "Installing...",
+        "installed": "Installed",
+        "downloads": "Downloads",
+        "author": "Author",
+        "version": "Version"
+      },
+      "installed": {
+        "title": "Installed Plugins",
+        "description": "Manage plugins already on your server.",
+        "uninstall": "Uninstall",
+        "uninstallConfirm": "Are you sure you want to delete this plugin?",
+        "size": "Size"
+      },
       "empty": {
-        "title": "No plugins installed",
-        "description": "Search and install plugins from the search bar."
+        "title": "No plugins found",
+        "description": "No plugins were found with that name."
+      },
+      "notifications": {
+        "installSuccess": "Plugin {{name}} installed successfully. Restart the server to apply changes.",
+        "installError": "Failed to install plugin.",
+        "uninstallSuccess": "Plugin deleted successfully.",
+        "uninstallError": "Failed to delete plugin."
       }
     },
     "admin": {
