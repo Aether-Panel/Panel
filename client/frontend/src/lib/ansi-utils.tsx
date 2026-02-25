@@ -38,8 +38,9 @@ export function parseAnsi(text: string): AnsiSegment[] {
             });
         }
 
-        const codesStr = match[1] || match[2] || match[3] || '';
-        const codes = codesStr.split(';').map(Number);
+        const codes = match[1].split(';').map(Number);
+        //const codesStr = match[1] || match[2] || match[3] || '';
+        //const codes = codesStr.split(';').map(Number);
         for (let i = 0; i < codes.length; i++) {
             const code = codes[i];
             if (code === 0) {
