@@ -889,14 +889,14 @@ func extract(c *gin.Context) {
 // @Security OAuth2Application[server.backup.create]
 func createBackup(c *gin.Context) {
 	server := getServerFromGin(c)
-	isRunning, err := server.IsRunning()
+	/*isRunning, err := server.IsRunning()
 	if err != nil {
 		response.HandleError(c, err, http.StatusInternalServerError)
 		return
 	} else if isRunning {
 		response.HandleError(c, SkyPanel.ErrBackupServerRunning, http.StatusBadRequest)
 		return
-	}
+	}*/
 
 	id, err := server.StartBackup()
 

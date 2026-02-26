@@ -238,6 +238,9 @@
       "portDescription": "What port to bind the server to.",
       "projectIdLabel": "Project Id",
       "projectIdDescription": "Project Id for the modpack desired. This is found on the modpack's webpage on the right side.",
+      "generalTitle": "General Information",
+      "nameLabel": "Server Name",
+      "nameDescription": "The friendly name of this server as it appears in the list.",
       "autoStartTitle": "Auto Start Conditions",
       "startOnBootLabel": "Start on Boot",
       "startOnBootDescription": "Start the server when the node boots.",
@@ -248,7 +251,9 @@
       "pluginsTitle": "Plugin Settings",
       "enablePluginsLabel": "Enable Plugins Tab",
       "enablePluginsDescription": "Show or hide the plugin management tab for this server.",
-      "saveButton": "Save Changes"
+      "saveButton": "Save Changes",
+      "saveSuccess": "Settings saved successfully",
+      "saveError": "Failed to save settings"
     },
     "users": {
       "title": "User Access",
@@ -376,7 +381,8 @@
       "editDefinition": {
         "title": "Edit Server Definition",
         "description": "Modify the server's fundamental details.",
-        "button": "Edit Definition"
+        "button": "Edit Definition",
+        "success": "Definition saved successfully"
       },
       "installStatus": {
         "title": "Installation Status",
@@ -681,7 +687,8 @@
       "web": "Web",
       "game": "Game",
       "bot": "Bot",
-      "other": "Other"
+      "other": "Other",
+      "NoGroup": "No Group"
     }
   },
   "common": {

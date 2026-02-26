@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/SkyPanel/SkyPanel/v3"
 	"github.com/SkyPanel/SkyPanel/v3/conditions"
 	"github.com/SkyPanel/SkyPanel/v3/config"
 	"github.com/SkyPanel/SkyPanel/v3/database"
@@ -22,7 +23,6 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/logging"
 	"github.com/SkyPanel/SkyPanel/v3/services"
 	"github.com/SkyPanel/SkyPanel/v3/utils"
-	"github.com/SkyPanel/SkyPanel/v3"
 	"github.com/gofrs/uuid/v5"
 	"github.com/mholt/archiver/v3"
 	"github.com/shirou/gopsutil/cpu"
@@ -1142,8 +1142,8 @@ func (p *Server) Extract(source, destination string) error {
 }
 
 func (p *Server) StartBackup() (string, error) {
-	if err := p.IsIdle(); err != nil {
-		return "", err
+	if p.IsBackingUp() || p.IsRestoring() {
+		return "", SkyPanel.ErrBackupInProgress
 	}
 
 	p.backingUp = true
@@ -1189,16 +1189,16 @@ func (p *Server) StartBackup() (string, error) {
 	backupFile := path.Join(backupDirectory, backupFileName)
 
 	go func(file string, d chan bool) {
-		defer func() {
-			d <- true
-		}()
+		success := true
 		sourceFiles := []string{filepath.Join(p.GetFileServer().Prefix())}
 
 		err = files.Compress(nil, file, sourceFiles)
 		if err != nil {
 			p.Log(logging.Error, "Error creating backup file: %s", err)
 			p.RunningEnvironment.DisplayToConsole(true, "Failed to create backup file")
+			success = false
 		}
+		d <- success
 	}(backupFile, c)
 
 	return backupFileName, nil

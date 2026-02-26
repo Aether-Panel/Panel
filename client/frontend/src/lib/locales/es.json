@@ -238,6 +238,9 @@
       "portDescription": "A qué puerto vincular el servidor.",
       "projectIdLabel": "ID del Proyecto",
       "projectIdDescription": "ID del proyecto para el modpack deseado. Se encuentra en la página web del modpack, en el lado derecho.",
+      "generalTitle": "Información General",
+      "nameLabel": "Nombre del Servidor",
+      "nameDescription": "El nombre descriptivo de este servidor tal como aparece en la lista.",
       "autoStartTitle": "Condiciones de Inicio Automático",
       "startOnBootLabel": "Iniciar en el Arranque",
       "startOnBootDescription": "Iniciar el servidor cuando el nodo arranque.",
@@ -248,7 +251,9 @@
       "pluginsTitle": "Configuración de Plugins",
       "enablePluginsLabel": "Habilitar Pestaña de Plugins",
       "enablePluginsDescription": "Mostrar u ocultar la pestaña de gestión de plugins para este servidor.",
-      "saveButton": "Guardar Cambios"
+      "saveButton": "Guardar Cambios",
+      "saveSuccess": "Configuración guardada correctamente",
+      "saveError": "Error al guardar la configuración"
     },
     "users": {
       "title": "Acceso de Usuarios",
@@ -376,7 +381,8 @@
       "editDefinition": {
         "title": "Editar Definición del Servidor",
         "description": "Modifica los detalles fundamentales del servidor.",
-        "button": "Editar Definición"
+        "button": "Editar Definición",
+        "success": "Definición guardada correctamente"
       },
       "installStatus": {
         "title": "Estado de la Instalación",
@@ -681,7 +687,8 @@
       "web": "Web",
       "game": "Juego",
       "bot": "Bot",
-      "other": "Otro"
+      "other": "Otro",
+      "NoGroup": "Sin Grupo"
     }
   },
   "common": {
