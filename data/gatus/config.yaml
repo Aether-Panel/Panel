@@ -1,0 +1,15 @@
+endpoints:
+    - conditions:
+        - '[STATUS] == 200'
+        - '[RESPONSE_TIME] < 3000'
+      group: Panel SkyPanel
+      interval: 1m
+      name: Panel Principal
+      url: http://localhost:8080/api/config
+storage:
+    type: memory
+ui:
+    header: Aether Panel
+web:
+    address: 127.0.0.1
+    port: 8081

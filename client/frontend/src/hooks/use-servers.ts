@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { api } from '@/lib/api-client';
+import { api, ApiError } from '@/lib/api-client';
 import type { Server } from '@/lib/data';
+
+const globalFailedStatsSet = new Set<string>();
 
 export function useServers() {
     const [servers, setServers] = useState<Server[]>([]);
@@ -29,6 +31,7 @@ export function useServers() {
                     storageUsage: 0,
                     metrics: [],
                     alerts: [],
+                    isGhost: s.isGhost,
                 };
             });
 
@@ -51,6 +54,10 @@ export function useServers() {
 
         const statsPromises = serversToFetch.map(async (server) => {
             try {
+                if (globalFailedStatsSet.has(server.id) || server.isGhost) {
+                    return { id: server.id, status: 'offline' };
+                }
+
                 const stats = await api.get(`/api/servers/${server.id}/stats`);
                 if (stats) {
                     const cpu = Math.round(stats.cpu || 0);
@@ -79,7 +86,10 @@ export function useServers() {
                         }
                     };
                 }
-            } catch (e) {
+            } catch (e: any) {
+                if (e instanceof ApiError && e.status === 404) {
+                    globalFailedStatsSet.add(server.id);
+                }
                 return { id: server.id, status: 'offline' };
             }
             return null;

@@ -1,11 +1,12 @@
 package services
 
 import (
-	"github.com/gofrs/uuid/v5"
+	"strings"
+
 	"github.com/SkyPanel/SkyPanel/v3/models"
+	"github.com/gofrs/uuid/v5"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"strings"
 )
 
 type Server struct {
@@ -97,6 +98,16 @@ func (ss *Server) Delete(id string) error {
 	}
 
 	err = ss.DB.Delete(models.Backup{}, "server_id = ?", id).Error
+	if err != nil {
+		return err
+	}
+
+	err = ss.DB.Delete(models.Database{}, "server_id = ?", id).Error
+	if err != nil {
+		return err
+	}
+
+	err = ss.DB.Delete(models.UptimeStatus{}, "server_id = ?", id).Error
 	if err != nil {
 		return err
 	}

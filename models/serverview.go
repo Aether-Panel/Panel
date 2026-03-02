@@ -17,6 +17,7 @@ type ServerView struct {
 	Type         string           `json:"type"`
 	Icon         string           `json:"icon,omitempty"`
 	CanGetStatus bool             `json:"canGetStatus,omitempty"`
+	IsGhost      bool             `json:"isGhost,omitempty"`
 } //@name ServerInfo
 
 type ServerUserView struct {

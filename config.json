@@ -1,0 +1,50 @@
+{
+  "daemon": {
+    "data": {
+      "root": "/home/esteban/Descargas/pufferpanel/data"
+    },
+    "enable": true
+  },
+  "panel": {
+    "database": {
+      "dialect": "mysql",
+      "url": "esteban:2006@tcp(localhost:3306)/skypanel?charset=utf8mb4&parseTime=true"
+    },
+    "email": {
+      "provider": "none"
+    },
+    "gatus": {
+      "enable": true
+    },
+    "license": {
+      "key": "3BPZ-YX4G-BL9J-QP53",
+      "serverid": "fedora",
+      "serverip": "192.168.0.3",
+      "status": "pro"
+    },
+    "notifications": {
+      "discordwebhook": "https://discordapp.com/api/webhooks/1305601369692049439/n138Injf8P6QgaS4bdESQwhwuvUTPUZqJfI5YZN4GM7Vja-iO1Ukuc240JxKUSECSGo1",
+      "discordwebhooknode": "https://discordapp.com/api/webhooks/1433533302962393180/vHQRsPQncfg-wm9Y-qvn9mCr5N9UdpIaTkOiZY5qOUH1Ux9q2hugMRGWUY12TTb0M855",
+      "discordwebhooksystem": "https://discordapp.com/api/webhooks/1398704149792559224/r2o0vNtKHA-81v6I8B6ci3IpgMZoe0ed-PlaaQ-99yyBwBvaG_A9VwHvorABazDnFtRF"
+    },
+    "registrationenabled": true,
+    "sessionkey": "c0e64d829607b45b11737ef04a82df831f41a771a3ad68421f390806dfdb6739",
+    "settings": {
+      "companyname": "Aether Panel",
+      "defaulttheme": "SkyPanel",
+      "masterurl": "http://localhost:8080",
+      "themesettings": "{\"primary\":\"#000000\",\"background\":\"#000000\",\"foreground\":\"#000000\"}"
+    },
+    "token": "hbnUiN8bxGQ/Pyya/c3nUkWG/mImcPJj8Ad1OjNGKwM="
+  },
+  "templates": {
+    "url": "https://templates.aetherpanel.es/templates.json"
+  },
+  "docker": {
+    "disallowHost": false,
+    "root": ""
+  },
+  "web": {
+    "host": "0.0.0.0:8080"
+  }
+}

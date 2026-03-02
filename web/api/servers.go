@@ -9,6 +9,9 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/gorilla/websocket"
 
 	"github.com/SkyPanel/SkyPanel/v3"
 	"github.com/SkyPanel/SkyPanel/v3/database"
@@ -17,6 +20,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/models"
 	"github.com/SkyPanel/SkyPanel/v3/response"
 	"github.com/SkyPanel/SkyPanel/v3/scopes"
+	"github.com/SkyPanel/SkyPanel/v3/servers"
 	"github.com/SkyPanel/SkyPanel/v3/services"
 	"github.com/SkyPanel/SkyPanel/v3/utils"
 	"github.com/gin-contrib/cors"
@@ -238,7 +242,8 @@ func searchServers(c *gin.Context) {
 
 	data := models.RemoveServerPrivateInfoFromAll(models.FromServers(results))
 
-	for _, v := range data {
+	for i, v := range data {
+		checkGhost(results[i], v)
 		if isAdmin {
 			v.CanGetStatus = true
 			continue
@@ -299,6 +304,8 @@ func getServer(c *gin.Context) {
 		Server: models.RemoveServerPrivateInfo(models.FromServer(server)),
 		Perms:  perms,
 	}
+
+	checkGhost(server, d.Server)
 
 	c.JSON(http.StatusOK, d)
 }
@@ -439,10 +446,12 @@ func createServer(c *gin.Context) {
 	defer utils.CloseResponse(nodeResponse)
 
 	if response.HandleError(c, err, http.StatusInternalServerError) {
+		// _ = ss.Delete(server.Identifier) //esto es IA
 		return
 	}
 
 	if nodeResponse.StatusCode != http.StatusOK {
+		// _ = ss.Delete(server.Identifier) //esto es IA
 		resData, err := io.ReadAll(nodeResponse.Body)
 		if err != nil {
 			logging.Error.Printf("Failed to parse response from daemon\n%s", err.Error())
@@ -607,7 +616,6 @@ func deleteServer(c *gin.Context) {
 				if err != nil {
 					logging.Error.Printf("Error stopping server before deletion: %s", err)
 					response.HandleError(c, err, http.StatusInternalServerError)
-					db.Rollback()
 					return
 				}
 				// Cerrar el body de la respuesta de stop
@@ -625,13 +633,12 @@ func deleteServer(c *gin.Context) {
 		nodeRes, err := ns.CallNode(node, "DELETE", "/daemon/server/"+server.Identifier, nil, nil)
 		if response.HandleError(c, err, http.StatusInternalServerError) {
 			//node didn't permit it, REVERT!
-			db.Rollback()
 			return
 		}
 
-		if nodeRes.StatusCode != http.StatusNoContent {
-			response.HandleError(c, errors.New("invalid status code response: "+nodeRes.Status), http.StatusInternalServerError)
-			db.Rollback()
+		if nodeRes.StatusCode != http.StatusNoContent && nodeRes.StatusCode != http.StatusOK && nodeRes.StatusCode != http.StatusNotFound {
+			resData, _ := io.ReadAll(nodeRes.Body)
+			response.HandleError(c, errors.New("invalid status code response: "+nodeRes.Status+" body: "+string(resData)), http.StatusInternalServerError)
 			return
 		}
 		// Cerrar el body de la respuesta
@@ -642,13 +649,10 @@ func deleteServer(c *gin.Context) {
 
 	err = ss.Delete(server.Identifier)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
-		db.Rollback()
 		return
 	}
 
-	if response.HandleError(c, db.Commit().Error, http.StatusInternalServerError) {
-		return
-	}
+	// Rely on HasTransaction to commit at end of the block
 
 	es := services.GetEmailService()
 	for _, u := range users {
@@ -1342,7 +1346,39 @@ func proxyServerRequest(c *gin.Context) {
 	c.Abort()
 }
 
+var wsupgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
+}
+
 func proxyHttpRequest(c *gin.Context, path string, ns *services.Node, node *models.Node) {
+	// If it's a local node, check if the server is a ghost (in DB but not on disk)
+	if node.IsLocal() {
+		serverId := c.Param("serverId")
+		if servers.GetFromCache(serverId) == nil {
+			if c.Request.Method == "GET" {
+				if strings.HasSuffix(path, "/stats") {
+					c.JSON(http.StatusOK, SkyPanel.ServerStats{Running: false})
+					return
+				}
+				if strings.HasSuffix(path, "/status") {
+					c.JSON(http.StatusOK, SkyPanel.ServerRunning{Running: false, Installing: false})
+					return
+				}
+				if strings.HasSuffix(path, "/console") {
+					c.JSON(http.StatusOK, SkyPanel.ServerLogs{Logs: []byte("")})
+					return
+				}
+			}
+			// For ghost servers, return 200 with an error description instead of a red 404
+			c.JSON(http.StatusOK, gin.H{
+				"error": "El servidor existe en la base de datos pero sus archivos no se encuentran en este nodo. Por favor, reintenta instalarlo o elimínalo.",
+			})
+			return
+		}
+	}
+
 	callResponse, err := ns.CallNode(node, c.Request.Method, path, c.Request.Body, c.Request.Header)
 
 	if response.HandleError(c, err, http.StatusInternalServerError) {
@@ -1350,6 +1386,22 @@ func proxyHttpRequest(c *gin.Context, path string, ns *services.Node, node *mode
 	}
 
 	defer utils.CloseResponse(callResponse)
+
+	// Intercept 404 for stats/status/console to avoid errors in console for "ghost" servers (non-local or fallback)
+	if callResponse.StatusCode == http.StatusNotFound && c.Request.Method == "GET" {
+		if strings.HasSuffix(path, "/stats") {
+			c.JSON(http.StatusOK, SkyPanel.ServerStats{Running: false})
+			return
+		}
+		if strings.HasSuffix(path, "/status") {
+			c.JSON(http.StatusOK, SkyPanel.ServerRunning{Running: false, Installing: false})
+			return
+		}
+		if strings.HasSuffix(path, "/console") {
+			c.JSON(http.StatusOK, SkyPanel.ServerLogs{Logs: []byte("")})
+			return
+		}
+	}
 
 	newHeaders := cleanHttpReturnErrors(callResponse.Header)
 
@@ -1374,6 +1426,27 @@ func cleanHttpReturnErrors(currentHeaders http.Header) map[string]string {
 
 func proxySocketRequest(c *gin.Context, path string, ns *services.Node, node *models.Node) {
 	if node.IsLocal() {
+		serverId := c.Param("serverId")
+		// Check if it's a ghost server
+		if servers.GetFromCache(serverId) == nil {
+			// Upgrade the connection normally to avoid red 404/204 console errors
+			conn, err := wsupgrader.Upgrade(c.Writer, c.Request, nil)
+			if err != nil {
+				return
+			}
+			// Enviar un mensaje de advertencia simulado
+			msg := SkyPanel.ServerLogs{
+				Logs: []byte("> Error: Los archivos de este servidor han desaparecido del nodo. No se puede conectar a la consola."),
+			}
+			data, _ := json.Marshal(msg)
+			_ = conn.WriteMessage(websocket.TextMessage, data)
+
+			// Esperar un segundo y cerrar
+			time.Sleep(1 * time.Second)
+			_ = conn.Close()
+			return
+		}
+
 		//have gin handle the request again, but send it to daemon instead
 		//c.Request.URL.Path = path
 		addr, err := url.Parse(path)
@@ -1391,4 +1464,10 @@ func proxySocketRequest(c *gin.Context, path string, ns *services.Node, node *mo
 
 func getServerFromGin(c *gin.Context) *models.Server {
 	return c.MustGet("server").(*models.Server)
+}
+
+func checkGhost(s *models.Server, v *models.ServerView) {
+	if s.Node.IsLocal() && servers.GetFromCache(s.Identifier) == nil {
+		v.IsGhost = true
+	}
 }

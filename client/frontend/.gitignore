@@ -30,10 +30,3 @@ tsconfig.tsbuildinfo
 # Vercel / App hosting
 .vercel/
 
-# PnP 
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions

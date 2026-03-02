@@ -9,6 +9,7 @@ export type Server = {
   storageUsage: number;
   metrics: { time: string; cpu: number; memory: number; networkIn: number; networkOut: number }[];
   alerts: string[];
+  isGhost?: boolean;
 };
 
 export type User = {
@@ -67,7 +68,7 @@ const generateMetrics = () => {
 
   for (let i = 29; i >= 0; i--) {
     const time = new Date(baseDate.getTime() - i * 60000);
-    
+
     // Format time manually using UTC to avoid locale differences between server and client.
     const hours = time.getUTCHours().toString().padStart(2, '0');
     const minutes = time.getUTCMinutes().toString().padStart(2, '0');
@@ -87,7 +88,7 @@ const generateMetrics = () => {
 export const servers: Server[] = [
   { id: 'srv-1', name: 'Production Web Server', ipAddress: '192.168.1.101', port: 8080, status: 'online', cpuUsage: 75, memoryUsage: 60, storageUsage: 85, metrics: generateMetrics(), alerts: ['[Error] High CPU usage detected on core 3. Process `worker.js` consuming 98% CPU.', 'CRITICAL: Memory usage exceeds 90% threshold. Swap space is being used.'] },
   { id: 'srv-2', name: 'Staging Database', ipAddress: '192.168.1.102', port: 5432, status: 'online', cpuUsage: 40, memoryUsage: 85, storageUsage: 70, metrics: generateMetrics(), alerts: [] },
-  { id: 'srv-3', name: 'Analytics Engine', ipAddress: '192.168.1.103', port: 9090, status: 'offline', cpuUsage: 0, memoryUsage: 0, storageUsage: 95, metrics: generateMetrics().map(m => ({...m, cpu: 0, memory: 0, networkIn: 0, networkOut: 0})), alerts: ['ALERT: Server is unreachable. Last seen 1 hour ago.'] },
+  { id: 'srv-3', name: 'Analytics Engine', ipAddress: '192.168.1.103', port: 9090, status: 'offline', cpuUsage: 0, memoryUsage: 0, storageUsage: 95, metrics: generateMetrics().map(m => ({ ...m, cpu: 0, memory: 0, networkIn: 0, networkOut: 0 })), alerts: ['ALERT: Server is unreachable. Last seen 1 hour ago.'] },
   { id: 'srv-4', name: 'Cache-01 (Redis)', ipAddress: '192.168.1.104', port: 6379, status: 'pending', cpuUsage: 10, memoryUsage: 30, storageUsage: 20, metrics: generateMetrics(), alerts: [] },
   { id: 'srv-5', name: 'Internal API Gateway', ipAddress: '192.168.1.105', port: 80, status: 'online', cpuUsage: 25, memoryUsage: 45, storageUsage: 50, metrics: generateMetrics(), alerts: ['[Warning] API latency for endpoint /v1/users has increased by 50ms.'] },
   { id: 'srv-6', name: 'Logging Service (ELK)', ipAddress: '192.168.1.106', port: 9200, status: 'online', cpuUsage: 55, memoryUsage: 70, storageUsage: 80, metrics: generateMetrics(), alerts: [] },
@@ -101,7 +102,7 @@ export const users: User[] = [
 ];
 
 export const nodes: Node[] = [
-  { 
+  {
     id: 'node-local', name: 'Nodo Local', location: 'Local', status: 'online', isLocal: true, publicHost: 'localhost', publicPort: 8080, sftpPort: 5657, useDifferentHost: false,
     systemInfo: {
       os: 'GNU/Linux',
@@ -126,7 +127,7 @@ export const nodes: Node[] = [
       { id: 'srv-3', name: 'Analytics Engine', type: 'minecraft-java', status: 'offline' }
     ]
   },
-  { 
+  {
     id: 'node-1', name: 'US-East-1', location: 'N. Virginia, USA', status: 'online', isLocal: false, publicHost: '44.204.87.123', publicPort: 8080, sftpPort: 5657, useDifferentHost: false,
     systemInfo: {
       os: 'Ubuntu 22.04',
@@ -147,7 +148,7 @@ export const nodes: Node[] = [
       { id: 'srv-5', name: 'Internal API Gateway', type: 'go', status: 'online' },
     ]
   },
-  { 
+  {
     id: 'node-2', name: 'EU-West-1', location: 'Ireland', status: 'online', isLocal: false, publicHost: '52.17.200.10', publicPort: 8080, sftpPort: 5657, useDifferentHost: false,
     systemInfo: {
       os: 'CentOS 9',
@@ -167,7 +168,7 @@ export const nodes: Node[] = [
       { id: 'srv-6', name: 'Logging Service (ELK)', type: 'java', status: 'online' },
     ]
   },
-  { 
+  {
     id: 'node-3', name: 'AP-South-1', location: 'Mumbai, India', status: 'offline', isLocal: false, publicHost: '13.233.15.221', publicPort: 8080, sftpPort: 5657, useDifferentHost: false,
     systemInfo: {
       os: 'Debian 12',

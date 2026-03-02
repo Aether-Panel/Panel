@@ -142,6 +142,31 @@ func RegisterRoutes(e *gin.Engine) {
 			c.Abort()
 		})
 
+		// Favicon principal: devolver un SVG embebido si no existe archivo físico
+		e.GET("/favicon.ico", func(c *gin.Context) {
+			// Intentar servir desde los archivos del cliente si existe
+			f, err := clientFiles.Open("favicon.ico")
+			if err == nil {
+				_ = f.Close()
+				c.FileFromFS("favicon.ico", http.FS(clientFiles))
+				return
+			}
+
+			// Fallback: pequeño favicon SVG integrado para evitar 404
+			c.Header("Content-Type", "image/svg+xml")
+			c.String(http.StatusOK, `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4f46e5"/>
+      <stop offset="100%" stop-color="#22c55e"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#g)"/>
+  <path d="M20 40L28 24L36 40L44 24" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>`)
+		})
+
 		// Para manifest.json, verificar si viene de Gatus antes de usar el de SkyPanel
 		e.GET("/manifest.json", func(c *gin.Context) {
 			referer := c.Request.Header.Get("Referer")
@@ -195,7 +220,6 @@ func RegisterRoutes(e *gin.Engine) {
 		})
 
 		e.StaticFileFS("/favicon.png", "favicon.png", http.FS(clientFiles))
-		e.StaticFileFS("/favicon.ico", "favicon.ico", http.FS(clientFiles))
 		e.NoRoute(handle404)
 	}
 }

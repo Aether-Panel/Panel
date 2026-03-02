@@ -3,7 +3,7 @@
   "panel": {
     "database": {
       "dialect": "mysql",
-      "url": "panel:2006@tcp(192.168.0.5:3306)/skypanel?charset=utf8mb4&parseTime=true"
+      "url": "panel:2006@tcp(192.168.0.6:3306)/skypanel?charset=utf8mb4&parseTime=true"
     },
     "web": {
       "files": "/var/www/SkyPanel"
