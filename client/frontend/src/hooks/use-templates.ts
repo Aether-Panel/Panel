@@ -52,9 +52,19 @@ export function useTemplates() {
         }
     };
 
+    const saveTemplate = async (templateName: string, templateData: any) => {
+        try {
+            await api.put(`/api/templates/0/${templateName}`, templateData);
+            return true;
+        } catch (e) {
+            console.error(`Failed to save template ${templateName}:`, e);
+            throw e;
+        }
+    };
+
     useEffect(() => {
         fetchRepos();
     }, []);
 
-    return { repos, loading, error, refresh: fetchRepos, getTemplatesForRepo, getTemplateDetails };
+    return { repos, loading, error, refresh: fetchRepos, getTemplatesForRepo, getTemplateDetails, saveTemplate };
 }

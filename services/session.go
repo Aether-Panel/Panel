@@ -4,11 +4,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	uuid "github.com/gofrs/uuid/v5"
-	"github.com/SkyPanel/SkyPanel/v3/models"
-	"gorm.io/gorm"
 	"strings"
 	"time"
+
+	"github.com/SkyPanel/SkyPanel/v3/models"
+	uuid "github.com/gofrs/uuid/v5"
+	"gorm.io/gorm"
 )
 
 type Session struct {
@@ -69,7 +70,7 @@ func (ss *Session) Validate(token string) (*models.Session, error) {
 	}
 
 	session := &models.Session{Token: hashed}
-	query := ss.DB.Preload("Client").Preload("User").Preload("Server")
+	query := ss.DB.Preload("Client").Preload("User.Permissions").Preload("User.Role").Preload("Server")
 	query = query.Where("expiration_time > ?", time.Now())
 	query = query.Where("user_id IS NOT NULL OR client_id IS NOT NULL")
 	query = query.Where(session)

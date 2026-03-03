@@ -199,18 +199,27 @@ func searchServers(c *gin.Context) {
 	}
 
 	user := c.MustGet("user").(*models.User)
+	userScopes := make([]*scopes.Scope, 0)
 
+	// Direct permissions
 	perms, err := ps.GetForUser(user.ID)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
-
-	isAdmin := false
 	for _, p := range perms {
-		if scopes.ContainsScope(p.Scopes, scopes.ScopeAdmin) {
-			isAdmin = true
+		for _, s := range p.Scopes {
+			userScopes = scopes.AddScope(userScopes, s)
 		}
 	}
+
+	// Role permissions
+	if user.RoleId != nil && user.Role.ID != 0 {
+		for _, s := range user.Role.Scopes {
+			userScopes = scopes.AddScope(userScopes, scopes.GetScope(s))
+		}
+	}
+
+	isAdmin := scopes.ContainsScope(userScopes, scopes.ScopeAdmin)
 
 	if !isAdmin && username != "" && user.Username != username {
 		c.JSON(http.StatusOK, &models.ServerSearchResponse{
@@ -250,14 +259,15 @@ func searchServers(c *gin.Context) {
 		}
 
 		serverPerms, _ := ps.GetForUserAndServer(user.ID, v.Identifier)
-		for _, p := range append(perms, serverPerms) {
-			if p == nil {
-				continue
+		allPotentialScopes := userScopes
+		if serverPerms != nil {
+			for _, s := range serverPerms.Scopes {
+				allPotentialScopes = scopes.AddScope(allPotentialScopes, s)
 			}
-			if scopes.ContainsScope(p.Scopes, scopes.ScopeServerStatus) {
-				v.CanGetStatus = true
-				break
-			}
+		}
+
+		if scopes.ContainsScope(allPotentialScopes, scopes.ScopeServerStatus) {
+			v.CanGetStatus = true
 		}
 	}
 

@@ -492,27 +492,53 @@
     }
   },
   "permissions": {
-    "grantAll": "Grant all permissions",
-    "login": "Log in",
-    "editOwnAccount": "Edit my account",
-    "manageOauthClients": "Manage my OAuth2 clients",
-    "editPanelSettings": "Edit panel settings",
-    "createServer": "Create new servers",
-    "viewNodes": "View Nodes",
-    "createNodes": "Create new nodes",
-    "editNodes": "Edit existing nodes",
-    "deployNodes": "Deploy nodes",
-    "deleteNodes": "Delete nodes",
-    "viewUsers": "View list of all users",
-    "viewUserInfo": "View user information",
-    "editUsers": "Edit user information",
-    "viewUserPermissions": "View user permissions",
-    "editUserPermissions": "Edit user permissions",
-    "viewTemplates": "View templates",
-    "manageLocalTemplates": "Create/Edit/Delete local templates",
-    "viewTemplateRepos": "View template repositories",
-    "addTemplateRepos": "Add template repositories",
-    "deleteTemplateRepos": "Delete template repositories"
+    "admin": "Full Administrator Access",
+    "login": "Can Login",
+    "oauth2": {
+      "auth": "Manage OAuth2 Authorization"
+    },
+    "nodes": {
+      "view": "View Nodes",
+      "create": "Create Nodes",
+      "edit": "Edit Nodes",
+      "delete": "Delete Nodes",
+      "deploy": "Deploy Nodes (Advanced)"
+    },
+    "self": {
+      "edit": "Edit Own Account",
+      "clients": "Manage Own OAuth2 Clients"
+    },
+    "server": {
+      "create": "Create New Servers"
+    },
+    "settings": {
+      "edit": "Edit Global Panel Settings"
+    },
+    "templates": {
+      "view": "View Templates",
+      "local": {
+        "edit": "Manage Local Templates"
+      },
+      "repo": {
+        "create": "Add Template Repositories",
+        "delete": "Delete Template Repositories"
+      }
+    },
+    "users": {
+      "info": {
+        "search": "Search Users",
+        "view": "View User Information",
+        "edit": "Edit User Information"
+      },
+      "perms": {
+        "view": "View User Permissions",
+        "edit": "Edit User Permissions"
+      }
+    },
+    "uptime": {
+      "view": "View Uptime Status"
+    },
+    "panel": "Access Panel"
   },
   "nodes": {
     "title": "Node Management",

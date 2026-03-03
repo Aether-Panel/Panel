@@ -19,7 +19,7 @@ import { useTranslations } from '@/contexts/translations-context';
 import { useNodes } from '@/hooks/use-dashboard-data';
 
 export default function NodesPage() {
-  const { role } = useAuth();
+  const { role, hasScope } = useAuth();
   const { t } = useTranslations();
   const { nodes: realNodes, loading: nodesLoading, error, refresh } = useNodes();
   const [isMounted, setIsMounted] = useState(false);
@@ -56,10 +56,10 @@ export default function NodesPage() {
 
   useEffect(() => {
     setIsMounted(true);
-    if (role && role !== 'admin') {
+    if (role && !hasScope('nodes.view')) {
       window.location.href = '/dashboard';
     }
-  }, [role]);
+  }, [role, hasScope]);
 
   useEffect(() => {
     if (editingNode) {
@@ -198,7 +198,7 @@ export default function NodesPage() {
     }
   }, null, 2) : '';
 
-  if (!isMounted || role !== 'admin' || nodesLoading) {
+  if (!isMounted || !hasScope('nodes.view') || nodesLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />

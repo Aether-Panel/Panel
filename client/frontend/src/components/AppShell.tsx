@@ -30,19 +30,25 @@ import { Toaster } from '@/components/ui/toaster';
 import type { ReactNode } from 'react';
 
 function AppLayoutInner({ children, currentPath }: { children: ReactNode; currentPath: string }) {
-    const { role, user, logout } = useAuth();
+    const { role, user, logout, scopes } = useAuth();
     const { t } = useTranslations();
 
     const navItems = [
-        { href: '/dashboard/', label: t('sidebar.dashboard'), icon: LayoutDashboard, roles: ['admin', 'user'] },
-        { href: '/servers/', label: t('sidebar.servers'), icon: Server, roles: ['admin'] },
-        { href: '/users/', label: t('sidebar.users'), icon: Users, roles: ['admin'] },
-        { href: '/roles/', label: t('sidebar.roles'), icon: ShieldCheck, roles: ['admin'] },
-        { href: '/nodes/', label: t('sidebar.nodes'), icon: Network, roles: ['admin'] },
-        { href: '/database-hosts/', label: t('sidebar.databaseHosts'), icon: Database, roles: ['admin'] },
-        { href: '/templates/', label: t('sidebar.templates'), icon: FileText, roles: ['admin'] },
-        { href: '/settings/', label: t('sidebar.settings'), icon: Settings, roles: ['admin'] },
+        { href: '/dashboard/', label: t('sidebar.dashboard'), icon: LayoutDashboard, requiredScopes: [] },
+        { href: '/servers/', label: t('sidebar.servers'), icon: Server, requiredScopes: ['server.view'] },
+        { href: '/users/', label: t('sidebar.users'), icon: Users, requiredScopes: ['users.info.view'] },
+        { href: '/roles/', label: t('sidebar.roles'), icon: ShieldCheck, requiredScopes: ['admin'] },
+        { href: '/nodes/', label: t('sidebar.nodes'), icon: Network, requiredScopes: ['nodes.view'] },
+        { href: '/database-hosts/', label: t('sidebar.databaseHosts'), icon: Database, requiredScopes: ['admin'] },
+        { href: '/templates/', label: t('sidebar.templates'), icon: FileText, requiredScopes: ['templates.view'] },
+        { href: '/settings/', label: t('sidebar.settings'), icon: Settings, requiredScopes: ['settings.edit'] },
     ];
+
+    const hasPermission = (item: typeof navItems[0]) => {
+        if (role === 'admin') return true;
+        if (item.requiredScopes.length === 0) return true;
+        return item.requiredScopes.some(s => scopes.includes(s));
+    };
 
     return (
         <SidebarProvider>
@@ -53,7 +59,7 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
                 <SidebarContent>
                     <SidebarMenu>
                         {navItems.map((item) =>
-                            item.roles.includes(role!) ? (
+                            hasPermission(item) ? (
                                 <SidebarMenuItem key={item.href}>
                                     <SidebarMenuButton
                                         asChild

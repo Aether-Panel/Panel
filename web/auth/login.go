@@ -1,16 +1,17 @@
 package auth
 
 import (
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-gonic/gin"
+	"net/http"
+	"time"
+
 	"github.com/SkyPanel/SkyPanel/v3"
 	"github.com/SkyPanel/SkyPanel/v3/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/models"
 	"github.com/SkyPanel/SkyPanel/v3/response"
 	"github.com/SkyPanel/SkyPanel/v3/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/services"
-	"net/http"
-	"time"
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-gonic/gin"
 )
 
 func LoginPost(c *gin.Context) {
@@ -91,7 +92,20 @@ func createSession(c *gin.Context, user *models.User) {
 		return
 	}
 
-	if !scopes.ContainsScope(perms.Scopes, scopes.ScopeLogin) {
+	// Aggregate scopes from individual permissions and roles
+	allScopes := perms.Scopes
+
+	if user.RoleId != nil {
+		rs := &services.Role{DB: db}
+		role, err := rs.Get(*user.RoleId)
+		if err == nil && role != nil {
+			for _, s := range role.Scopes {
+				allScopes = scopes.AddScope(allScopes, scopes.GetScope(s))
+			}
+		}
+	}
+
+	if !scopes.ContainsScope(allScopes, scopes.ScopeLogin) {
 		response.HandleError(c, SkyPanel.ErrLoginNotPermitted, http.StatusForbidden)
 		return
 	}
@@ -102,7 +116,7 @@ func createSession(c *gin.Context, user *models.User) {
 	}
 
 	data := &LoginResponse{}
-	data.Scopes = perms.Scopes
+	data.Scopes = allScopes
 
 	secure := false
 	if c.Request.TLS != nil {

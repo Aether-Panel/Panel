@@ -2,6 +2,8 @@ package services
 
 import (
 	"errors"
+
+	"github.com/SkyPanel/SkyPanel/v3/logging"
 	"github.com/SkyPanel/SkyPanel/v3/models"
 	"gorm.io/gorm"
 )
@@ -36,14 +38,35 @@ func (rs *Role) Update(role *models.Role) error {
 }
 
 func (rs *Role) Delete(id uint) error {
-	// Verificar si hay usuarios usando este rol
-	var count int64
-	rs.DB.Model(&models.User{}).Where("role_id = ?", id).Count(&count)
-	if count > 0 {
-		return errors.New("cannot delete role: users are assigned to this role")
+	// No permitir borrar el rol 'admin'
+	role, err := rs.Get(id)
+	if err != nil {
+		return err
 	}
-	
-	return rs.DB.Delete(&models.Role{}, id).Error
+	if role.Name == "admin" {
+		return errors.New("cannot delete the admin role")
+	}
+
+	return rs.DB.Transaction(func(tx *gorm.DB) error {
+		logging.Info.Printf("Attempting to delete role %d (%s)", id, role.Name)
+
+		// Decouple users from this role
+		err := tx.Model(&models.User{}).Where("role_id = ?", id).UpdateColumn("role_id", nil).Error
+		if err != nil {
+			logging.Error.Printf("Error decoupling users from role %d: %s", id, err.Error())
+			return err
+		}
+		logging.Info.Printf("Users decoupled from role %d", id)
+
+		// Delete the role
+		err = tx.Delete(&models.Role{}, id).Error
+		if err != nil {
+			logging.Error.Printf("Error deleting role %d from database: %s", id, err.Error())
+			return err
+		}
+		logging.Info.Printf("Role %d deleted successfully", id)
+		return nil
+	})
 }
 
 func (rs *Role) GetByName(name string) (*models.Role, error) {
@@ -56,4 +79,3 @@ func (rs *Role) GetByName(name string) (*models.Role, error) {
 	}
 	return role, nil
 }
-

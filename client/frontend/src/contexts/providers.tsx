@@ -16,6 +16,7 @@ interface UserData {
   id: number;
   username: string;
   email: string;
+  scopes?: string[];
 }
 
 interface RegisterData {
@@ -31,7 +32,9 @@ interface AuthContextType {
   login: (credentials: LoginCredentials) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => void;
+  hasScope: (scope: string) => boolean;
   loading: boolean;
+  fetchSelf: (forceScopes?: string[]) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -43,15 +46,38 @@ function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
+  const normalizeScopes = (rawScopes: any[]): string[] => {
+    if (!rawScopes) return [];
+    console.log('Normalizing raw scopes:', rawScopes);
+    const normalized = rawScopes.map(s => {
+      if (typeof s === 'string') return s;
+      if (s && typeof s === 'object') return s.value || s.scope || '';
+      return '';
+    }).filter(s => s !== '');
+    console.log('Normalized scopes:', normalized);
+    return normalized;
+  };
+
   const fetchSelf = async (forceScopes?: string[]) => {
     try {
       const data = await api.get('/api/self');
       setUser(data);
+      console.log('Fetched self data:', data);
 
-      const storedScopes = forceScopes || JSON.parse(localStorage.getItem('aether_panel_scopes') || '[]');
-      setScopes(storedScopes);
-      setRole(storedScopes.includes('admin') ? 'admin' : 'user');
-      console.log('Session initialized:', { user: data.username, role: storedScopes.includes('admin') ? 'admin' : 'user' });
+      let currentScopes = forceScopes;
+      if (!currentScopes) {
+        if (data.scopes && data.scopes.length > 0) {
+          currentScopes = normalizeScopes(data.scopes);
+          localStorage.setItem('aether_panel_scopes', JSON.stringify(currentScopes));
+        } else {
+          console.warn('No scopes received from backend, falling back to local storage');
+          currentScopes = JSON.parse(localStorage.getItem('aether_panel_scopes') || '[]');
+        }
+      }
+
+      setScopes(currentScopes || []);
+      setRole(currentScopes?.includes('admin') ? 'admin' : 'user');
+      console.log('Session initialized:', { user: data.username, scopes: currentScopes });
     } catch (e) {
       console.error('Failed to fetch self:', e);
       setRole(null);
@@ -97,7 +123,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const scopesList = (data.scopes || []).map((s: any) => typeof s === 'string' ? s : s.scope);
+      const scopesList = normalizeScopes(data.scopes || []);
       localStorage.setItem('aether_panel_scopes', JSON.stringify(scopesList));
 
       // Fetch user info and pass current scopes to avoid race conditions
@@ -132,7 +158,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
         password: data.password
       });
 
-      const scopesList = (res.scopes || []).map((s: any) => typeof s === 'string' ? s : s.scope);
+      const scopesList = normalizeScopes(res.scopes || []);
       localStorage.setItem('aether_panel_scopes', JSON.stringify(scopesList));
 
       await fetchSelf(scopesList);
@@ -169,7 +195,12 @@ function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const value = { role, user, scopes, login, register, logout, loading };
+  const hasScope = (scope: string) => {
+    if (role === 'admin') return true;
+    return scopes.includes(scope);
+  };
+
+  const value = { role, user, scopes, login, register, logout, hasScope, loading, fetchSelf };
 
   const normalizedPath = typeof window !== 'undefined' ? (window.location.pathname.replace(/\/$/, '') || '/') : '';
   const isAuthPage = normalizedPath === '/login' || normalizedPath === '/register';

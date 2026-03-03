@@ -5,7 +5,7 @@ import { users as initialUsers, servers } from '@/lib/data';
 import type { User } from '@/lib/data';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -16,51 +16,131 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTranslations } from '@/contexts/translations-context';
+import { api } from '@/lib/api-client';
+import { useToast } from '@/hooks/use-toast';
 
 export default function UsersPage() {
-  const { role } = useAuth();
-  const [users, setUsers] = useState<User[]>(initialUsers);
+  const { role, hasScope, user: currentUser, fetchSelf } = useAuth();
+  const [users, setUsers] = useState<User[]>([]);
+  const [roles, setRoles] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [viewingUser, setViewingUser] = useState<User | null>(null);
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
   const { t } = useTranslations();
+  const { toast } = useToast();
 
-  // State for the edit form
-  const [editName, setEditName] = useState('');
-  const [editEmail, setEditEmail] = useState('');
-  const [editRole, setEditRole] = useState<User['role']>('user');
+  // State for the form
+  const [formName, setFormName] = useState('');
+  const [formUsername, setFormUsername] = useState('');
+  const [formEmail, setFormEmail] = useState('');
+  const [formPassword, setFormPassword] = useState('');
+  const [formRoleId, setFormRoleId] = useState<string>('none');
 
+  const fetchUsers = async () => {
+    setLoading(true);
+    try {
+      const resp = await api.get('/api/users');
+      // The API returns { users: [...], metadata: {...} }
+      const usersData = resp.users || [];
+      setUsers(usersData.map((u: any) => ({
+        id: u.id,
+        name: u.username, // Using username as name
+        username: u.username,
+        email: u.email,
+        roleId: u.roleId,
+        role: u.role?.name || (u.roleId ? `Role ${u.roleId}` : 'No Role'),
+        avatar: `https://avatar.vercel.sh/${u.email}`,
+        assignedServers: [] // TODO: fetch permissions if needed
+      })));
+    } catch (e: any) {
+      toast({ title: t('common.error'), description: 'Failed to fetch users.', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchRoles = async () => {
+    try {
+      const data = await api.get('/api/roles');
+      setRoles(data || []);
+    } catch (e: any) { }
+  };
 
   useEffect(() => {
     setIsMounted(true);
-    if (role && role !== 'admin') {
+    if (role && !hasScope('users.info.view')) {
       window.location.href = '/dashboard';
     }
-  }, [role]);
+    fetchUsers();
+    fetchRoles();
+  }, [role, hasScope]);
 
   useEffect(() => {
     if (editingUser) {
-      setEditName(editingUser.name);
-      setEditEmail(editingUser.email);
-      setEditRole(editingUser.role);
+      setFormName(editingUser.username || editingUser.name);
+      setFormUsername(editingUser.username || editingUser.name);
+      setFormEmail(editingUser.email);
+      setFormRoleId(editingUser.roleId?.toString() || 'none');
+      setFormPassword('');
+    } else {
+      setFormName('');
+      setFormUsername('');
+      setFormEmail('');
+      setFormPassword('');
+      setFormRoleId('none');
     }
-  }, [editingUser]);
+  }, [editingUser, isAddUserDialogOpen]);
 
-  const handleAddUser = () => {
-    // In a real app, you would add logic to create a user.
-    // For now, we just close the dialog.
-    setIsAddUserDialogOpen(false);
+  const handleAddUser = async () => {
+    try {
+      await api.post('/api/users', {
+        username: formUsername,
+        email: formEmail,
+        password: formPassword,
+        roleId: formRoleId === 'none' ? null : parseInt(formRoleId)
+      });
+      toast({ title: t('common.success'), description: 'User created successfully.' });
+      setIsAddUserDialogOpen(false);
+      fetchUsers();
+    } catch (e: any) {
+      toast({ title: t('common.error'), description: e.message || 'Failed to create user.', variant: 'destructive' });
+    }
   };
 
-  const handleUpdateUser = () => {
+  const handleUpdateUser = async () => {
     if (!editingUser) return;
-    setUsers(users.map(u =>
-      u.id === editingUser.id
-        ? { ...u, name: editName, email: editEmail, role: editRole }
-        : u
-    ));
-    setEditingUser(null);
+    try {
+      await api.post(`/api/users/${editingUser.id}`, {
+        username: formUsername,
+        email: formEmail,
+        password: formPassword || undefined,
+        roleId: formRoleId === 'none' ? null : parseInt(formRoleId)
+      });
+      toast({ title: t('common.success'), description: 'User updated successfully.' });
+
+      // If we just updated ourselves, re-fetch self to update UI role/scopes
+      if (editingUser.id === currentUser?.id) {
+        console.log('Detected self-update, re-fetching session data');
+        await fetchSelf();
+      }
+
+      setEditingUser(null);
+      fetchUsers();
+    } catch (e: any) {
+      toast({ title: t('common.error'), description: e.message || 'Failed to update user.', variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteUser = async (id: number | string) => {
+    try {
+      await api.delete(`/api/users/${id}`);
+      toast({ title: t('common.success'), description: 'User deleted successfully.' });
+      fetchUsers();
+    } catch (e: any) {
+      toast({ title: t('common.error'), description: e.message || 'Failed to delete user.', variant: 'destructive' });
+    }
   };
 
   const getAssignedServers = (user: User | null) => {
@@ -69,10 +149,10 @@ export default function UsersPage() {
   };
 
 
-  if (!isMounted || role !== 'admin') {
+  if (!isMounted || !hasScope('users.info.view') || loading) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <p>Loading...</p>
+      <div className="flex h-full items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -94,26 +174,28 @@ export default function UsersPage() {
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">{t('users.addDialog.nameLabel')}</Label>
-                <Input id="name" placeholder={t('users.addDialog.namePlaceholder')} className="col-span-3" />
+                <Label htmlFor="username" className="text-right">{t('users.addDialog.nameLabel')}</Label>
+                <Input id="username" value={formUsername} onChange={(e) => setFormUsername(e.target.value)} placeholder={t('users.addDialog.namePlaceholder')} className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="email" className="text-right">{t('users.addDialog.emailLabel')}</Label>
-                <Input id="email" type="email" placeholder={t('users.addDialog.emailPlaceholder')} className="col-span-3" />
+                <Input id="email" type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} placeholder={t('users.addDialog.emailPlaceholder')} className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="password" className="text-right">{t('users.addDialog.passwordLabel')}</Label>
-                <Input id="password" type="password" placeholder={t('users.addDialog.passwordPlaceholder')} className="col-span-3" />
+                <Input id="password" type="password" value={formPassword} onChange={(e) => setFormPassword(e.target.value)} placeholder={t('users.addDialog.passwordPlaceholder')} className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="role" className="text-right">{t('users.addDialog.roleLabel')}</Label>
-                <Select>
+                <Select value={formRoleId} onValueChange={setFormRoleId}>
                   <SelectTrigger id="role" className="col-span-3">
                     <SelectValue placeholder={t('users.addDialog.rolePlaceholder')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="admin">{t('users.addDialog.roleAdmin')}</SelectItem>
-                    <SelectItem value="user">{t('users.addDialog.roleUser')}</SelectItem>
+                    <SelectItem value="none">Explicit Permissions Only</SelectItem>
+                    {roles.map(r => (
+                      <SelectItem key={r.id} value={r.id.toString()}>{r.name}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -174,10 +256,10 @@ export default function UsersPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>{t('users.actions.menuLabel')}</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => setTimeout(() => setEditingUser(user))}>{t('users.actions.edit')}</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setTimeout(() => setViewingUser(user))}>{t('users.actions.viewServers')}</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setEditingUser(user)}>{t('users.actions.edit')}</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setViewingUser(user)}>{t('users.actions.viewServers')}</DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-red-500">{t('users.actions.delete')}</DropdownMenuItem>
+                          <DropdownMenuItem className="text-red-500" onClick={() => handleDeleteUser(user.id)}>{t('users.actions.delete')}</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -200,22 +282,28 @@ export default function UsersPage() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-name" className="text-right">{t('users.editDialog.nameLabel')}</Label>
-              <Input id="edit-name" value={editName} onChange={(e) => setEditName(e.target.value)} className="col-span-3" />
+              <Label htmlFor="edit-username" className="text-right">{t('users.editDialog.nameLabel')}</Label>
+              <Input id="edit-username" value={formUsername} onChange={(e) => setFormUsername(e.target.value)} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit-email" className="text-right">{t('users.editDialog.emailLabel')}</Label>
-              <Input id="edit-email" type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} className="col-span-3" />
+              <Input id="edit-email" type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-password" className="text-right">{t('users.addDialog.passwordLabel')}</Label>
+              <Input id="edit-password" type="password" value={formPassword} onChange={(e) => setFormPassword(e.target.value)} placeholder="Leave blank to keep current" className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit-role" className="text-right">{t('users.editDialog.roleLabel')}</Label>
-              <Select value={editRole} onValueChange={(value: User['role']) => setEditRole(value)}>
+              <Select value={formRoleId} onValueChange={setFormRoleId}>
                 <SelectTrigger id="edit-role" className="col-span-3">
                   <SelectValue placeholder={t('users.editDialog.rolePlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">{t('users.editDialog.roleAdmin')}</SelectItem>
-                  <SelectItem value="user">{t('users.editDialog.roleUser')}</SelectItem>
+                  <SelectItem value="none">Explicit Permissions Only</SelectItem>
+                  {roles.map(r => (
+                    <SelectItem key={r.id} value={r.id.toString()}>{r.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

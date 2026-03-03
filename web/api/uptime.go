@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/SkyPanel/SkyPanel/v3"
 	"github.com/SkyPanel/SkyPanel/v3/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/models"
@@ -14,10 +13,11 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/services"
 	"github.com/SkyPanel/SkyPanel/v3/utils"
+	"github.com/gin-gonic/gin"
 )
 
 func registerUptime(g *gin.RouterGroup) {
-	g.Handle("GET", "", middleware.RequiresPermission(scopes.ScopeAdmin), getAllUptime)
+	g.Handle("GET", "", middleware.RequiresAnyPermission(scopes.ScopeAdmin, scopes.ScopeUptimeView), getAllUptime)
 	g.Handle("GET", "/:serverId", middleware.RequiresPermission(scopes.ScopeServerView), middleware.ResolveServerPanel, getServerUptime)
 	g.Handle("OPTIONS", "", response.CreateOptions("GET"))
 	g.Handle("OPTIONS", "/:serverId", response.CreateOptions("GET"))
@@ -140,7 +140,7 @@ func getAllUptime(c *gin.Context) {
 			// Para servidores sin datos históricos, mostrar uptime actual desde inicio del período
 			var currentUptime int64 = 0
 			var currentStartTime time.Time = now
-			
+
 			// Si está online, calcular uptime desde el inicio del período
 			if isRunning {
 				currentUptime = int64(time.Since(since).Seconds())
@@ -148,12 +148,12 @@ func getAllUptime(c *gin.Context) {
 			}
 
 			uptimeStats[server.Identifier] = map[string]interface{}{
-				"serverName":      server.Name,
-				"nodeName":        nodeName,
-				"uptime":          currentUptime,
-				"downtime":        int64(0),
-				"uptimePercent":   100.0, // Si está online, 100%, si está offline, será actualizado
-				"currentStatus":   isRunning,
+				"serverName":       server.Name,
+				"nodeName":         nodeName,
+				"uptime":           currentUptime,
+				"downtime":         int64(0),
+				"uptimePercent":    100.0, // Si está online, 100%, si está offline, será actualizado
+				"currentStatus":    isRunning,
 				"currentStartTime": currentStartTime,
 			}
 
@@ -258,18 +258,18 @@ func getServerUptime(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"serverId":        server.Identifier,
-		"serverName":      server.Name,
-		"nodeName":        nodeName,
-		"currentStatus":   isRunning,
+		"serverId":         server.Identifier,
+		"serverName":       server.Name,
+		"nodeName":         nodeName,
+		"currentStatus":    isRunning,
 		"currentStartTime": currentStartTime,
-		"currentUptime":   currentUptime,
-		"uptimeSeconds":   uptimeSeconds,
-		"downtimeSeconds": downtimeSeconds,
-		"totalSeconds":    totalSeconds,
-		"uptimePercent":   uptimePercent,
+		"currentUptime":    currentUptime,
+		"uptimeSeconds":    uptimeSeconds,
+		"downtimeSeconds":  downtimeSeconds,
+		"totalSeconds":     totalSeconds,
+		"uptimePercent":    uptimePercent,
 		"period": gin.H{
-			"days": days,
+			"days":  days,
 			"since": since,
 			"until": time.Now(),
 		},

@@ -10,61 +10,59 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, ShieldCheck } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslations } from '@/contexts/translations-context';
+import { api } from '@/lib/api-client';
+import { useToast } from '@/hooks/use-toast';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 type Role = {
+  id?: number;
   name: string;
   description: string;
-  permissions: string[]; // These are permission keys
+  scopes: string[];
 };
 
 const allPermissionKeys = [
-  "grantAll", "login", "editOwnAccount", "manageOauthClients", "editPanelSettings",
-  "createServer", "viewNodes", "createNodes", "editNodes", "deployNodes",
-  "deleteNodes", "viewUsers", "viewUserInfo", "editUsers", "viewUserPermissions",
-  "editUserPermissions", "viewTemplates", "manageLocalTemplates",
-  "viewTemplateRepos", "addTemplateRepos", "deleteTemplateRepos",
-];
-
-const initialRolesData = [
-  {
-    name: 'admin',
-    descriptionKey: 'roles.initial.admin.description',
-    permissions: ['grantAll'],
-  },
-  {
-    name: 'user',
-    descriptionKey: 'roles.initial.user.description',
-    permissions: ['login', 'editOwnAccount'],
-  },
+  "admin", "login", "oauth2.auth", "nodes.view", "nodes.create", "nodes.edit", "nodes.delete", "nodes.deploy",
+  "self.edit", "self.clients", "server.create", "settings.edit", "templates.view", "templates.local.edit",
+  "templates.repo.create", "templates.repo.delete", "users.info.search", "users.info.view", "users.info.edit",
+  "users.perms.view", "users.perms.edit", "uptime.view", "panel"
 ];
 
 
 export default function RolesPage() {
-  const { role } = useAuth();
+  const { role, hasScope } = useAuth();
   const [isMounted, setIsMounted] = useState(false);
   const { t } = useTranslations();
 
   const [roles, setRoles] = useState<Role[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  const fetchRoles = async () => {
+    setLoading(true);
+    try {
+      const data = await api.get('/api/roles');
+      setRoles(data || []);
+    } catch (e: any) {
+      toast({ title: t('common.error'), description: e.message || 'Failed to fetch roles.', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     setIsMounted(true);
-    if (role && role !== 'admin') {
+    if (role && !hasScope('admin')) {
       window.location.href = '/dashboard';
     }
-  }, [role]);
-
-  useEffect(() => {
-    setRoles(initialRolesData.map(r => ({
-      name: r.name,
-      description: t(r.descriptionKey),
-      permissions: r.permissions
-    })));
-  }, [t]);
+    fetchRoles();
+  }, [role, hasScope]);
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
 
   // New role form state
   const [newRoleName, setNewRoleName] = useState('');
@@ -77,28 +75,46 @@ export default function RolesPage() {
     );
   };
 
-  const handleAddRole = () => {
-    if (!newRoleName || !newRoleDescription) return; // Basic validation
+  const handleAddRole = async () => {
+    if (!newRoleName) return;
 
-    const newRole: Role = {
-      name: newRoleName,
-      description: newRoleDescription,
-      permissions: newRolePermissions,
-    };
+    setIsAdding(true);
+    try {
+      await api.post('/api/roles', {
+        name: newRoleName,
+        description: newRoleDescription,
+        scopes: newRolePermissions,
+      });
 
-    setRoles(prev => [...prev, newRole]);
+      toast({ title: t('common.success'), description: 'Role created successfully.' });
 
-    // Reset form and close dialog
-    setNewRoleName('');
-    setNewRoleDescription('');
-    setNewRolePermissions([]);
-    setIsAddDialogOpen(false);
+      // Reset form and close dialog
+      setNewRoleName('');
+      setNewRoleDescription('');
+      setNewRolePermissions([]);
+      setIsAddDialogOpen(false);
+      fetchRoles();
+    } catch (e: any) {
+      toast({ title: t('common.error'), description: e.message || 'Failed to create role.', variant: 'destructive' });
+    } finally {
+      setIsAdding(false);
+    }
   };
 
-  if (!isMounted || role !== 'admin') {
+  const handleDeleteRole = async (id: number) => {
+    try {
+      await api.delete(`/api/roles/${id}`);
+      toast({ title: t('common.success'), description: 'Role deleted successfully.' });
+      fetchRoles();
+    } catch (e: any) {
+      toast({ title: t('common.error'), description: e.message || 'Failed to delete role.', variant: 'destructive' });
+    }
+  };
+
+  if (!isMounted || !hasScope('admin') || loading) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <p>Loading...</p>
+      <div className="flex h-full items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -169,8 +185,11 @@ export default function RolesPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>{t('roles.addDialog.cancel')}</Button>
-              <Button type="submit" onClick={handleAddRole}>{t('roles.addDialog.create')}</Button>
+              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} disabled={isAdding}>{t('roles.addDialog.cancel')}</Button>
+              <Button type="submit" onClick={handleAddRole} disabled={isAdding}>
+                {isAdding && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {t('roles.addDialog.create')}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -188,27 +207,62 @@ export default function RolesPage() {
                   <TableHead>{t('roles.table.role')}</TableHead>
                   <TableHead className="hidden md:table-cell">{t('roles.table.description')}</TableHead>
                   <TableHead className="hidden md:table-cell">{t('roles.table.permissions')}</TableHead>
+                  <TableHead className="text-right">{t('common.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {roles.map((role) => (
-                  <TableRow key={role.name}>
+                  <TableRow key={role.id}>
                     <TableCell>
-                      <Badge variant={role.name === 'admin' ? 'default' : 'secondary'} className="capitalize">{role.name}</Badge>
-                      <p className="text-sm text-muted-foreground mt-2 md:hidden">{role.description}</p>
-                      <div className="flex flex-wrap gap-2 mt-2 md:hidden">
-                        {role.permissions.map(permissionKey => (
-                          <Badge key={permissionKey} variant="outline">{t(`permissions.${permissionKey}`)}</Badge>
-                        ))}
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <Badge variant={role.name === 'admin' ? 'default' : 'secondary'} className="capitalize">{role.name}</Badge>
+                          {role.name === 'admin' && <ShieldCheck className="h-4 w-4 text-primary" />}
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-2 md:hidden">{role.description}</p>
+                        <div className="flex flex-wrap gap-2 mt-2 md:hidden">
+                          {role.scopes?.map(permissionKey => (
+                            <Badge key={permissionKey} variant="outline" className="text-[10px]">{permissionKey}</Badge>
+                          ))}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">{role.description}</TableCell>
                     <TableCell className="hidden md:table-cell">
-                      <div className="flex flex-wrap gap-2">
-                        {role.permissions.map(permissionKey => (
-                          <Badge key={permissionKey} variant="outline">{t(`permissions.${permissionKey}`)}</Badge>
+                      <div className="flex flex-wrap gap-2 max-w-sm">
+                        {role.scopes?.map(permissionKey => (
+                          <Badge key={permissionKey} variant="outline" className="text-[10px]">{permissionKey}</Badge>
                         ))}
+                        {(!role.scopes || role.scopes.length === 0) && <span className="text-xs text-muted-foreground">No permissions</span>}
                       </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {role.name !== 'admin' && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>{t('roles.deleteDialog.title') || 'Are you sure?'}</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                {t('roles.deleteDialog.description') || 'This will permanently delete the role. Users assigned to this role cannot be deleted until you reassign them.'}
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => role.id && handleDeleteRole(role.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                {t('common.delete')}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

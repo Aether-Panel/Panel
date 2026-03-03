@@ -1,18 +1,20 @@
 package api
 
 import (
-	"github.com/gin-gonic/gin"
+	"net/http"
+
 	"github.com/SkyPanel/SkyPanel/v3/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/models"
 	"github.com/SkyPanel/SkyPanel/v3/response"
 	"github.com/SkyPanel/SkyPanel/v3/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/services"
+	"github.com/gin-gonic/gin"
 	"github.com/spf13/cast"
-	"net/http"
+	"gorm.io/gorm"
 )
 
 func registerRoles(g *gin.RouterGroup) {
-	g.Handle("GET", "", middleware.RequiresPermission(scopes.ScopeAdmin), listRoles)
+	g.Handle("GET", "", middleware.RequiresAnyPermission(scopes.ScopeAdmin, scopes.ScopeUserInfoView, scopes.ScopeUserInfoEdit), listRoles)
 	g.Handle("POST", "", middleware.RequiresPermission(scopes.ScopeAdmin), createRole)
 	g.Handle("OPTIONS", "", response.CreateOptions("GET", "POST"))
 
@@ -146,10 +148,16 @@ func deleteRole(c *gin.Context) {
 		return
 	}
 
-	if err := rs.Delete(id); response.HandleError(c, err, http.StatusInternalServerError) {
+	if err := rs.Delete(id); err != nil {
+		if err.Error() == "cannot delete the admin role" {
+			response.HandleError(c, err, http.StatusBadRequest)
+		} else if gorm.ErrRecordNotFound == err {
+			c.AbortWithStatus(http.StatusNotFound)
+		} else {
+			response.HandleError(c, err, http.StatusInternalServerError)
+		}
 		return
 	}
 
 	c.Status(http.StatusNoContent)
 }
-

@@ -2,29 +2,49 @@ package models
 
 import (
 	"github.com/SkyPanel/SkyPanel/v3"
+	"github.com/SkyPanel/SkyPanel/v3/scopes"
 	"gopkg.in/go-playground/validator.v9"
-	"net/url"
 )
 
 type UserView struct {
-	Id       uint   `json:"id,omitempty"`
-	Username string `json:"username,omitempty"`
-	Email    string `json:"email,omitempty"`
-	OtpActive bool `json:"otpActive"`
-	RoleId   *uint  `json:"roleId,omitempty"`
+	Id        uint            `json:"id,omitempty"`
+	Username  string          `json:"username,omitempty"`
+	Email     string          `json:"email,omitempty"`
+	OtpActive bool            `json:"otpActive"`
+	RoleId    *uint           `json:"roleId,omitempty"`
+	Scopes    []*scopes.Scope `json:"scopes,omitempty"`
 	//ONLY SHOW WHEN COPYING
 	Password    string `json:"password,omitempty"`
 	NewPassword string `json:"newPassword,omitempty"`
 } //@name User
 
 func FromUser(model *User) *UserView {
-	return &UserView{
-		Id:       model.ID,
-		Username: model.Username,
-		Email:    model.Email,
+	view := &UserView{
+		Id:        model.ID,
+		Username:  model.Username,
+		Email:     model.Email,
 		OtpActive: model.OtpActive,
-		RoleId:   model.RoleId,
+		RoleId:    model.RoleId,
+		Scopes:    make([]*scopes.Scope, 0),
 	}
+
+	// Add individual permissions
+	for _, p := range model.Permissions {
+		if p.ServerIdentifier == nil || *p.ServerIdentifier == "" {
+			for _, s := range p.Scopes {
+				view.Scopes = scopes.AddScope(view.Scopes, s)
+			}
+		}
+	}
+
+	// Add role-based permissions
+	if model.RoleId != nil && model.Role.ID != 0 {
+		for _, s := range model.Role.Scopes {
+			view.Scopes = scopes.AddScope(view.Scopes, scopes.GetScope(s))
+		}
+	}
+
+	return view
 }
 
 func FromUsers(users []*User) []*UserView {
@@ -50,9 +70,7 @@ func (model *UserView) CopyToModel(newModel *User) {
 		_ = newModel.SetPassword(model.Password)
 	}
 
-	if model.RoleId != nil {
-		newModel.RoleId = model.RoleId
-	}
+	newModel.RoleId = model.RoleId
 }
 
 func (model *UserView) Valid(allowEmpty bool) error {
@@ -81,13 +99,8 @@ func (model *UserView) UserNameValid(allowEmpty bool) error {
 		return SkyPanel.ErrFieldMustBePrintable("username")
 	}
 
-	if validate.Var(model.Username, "omitempty,min=5,max=100") != nil {
-		return SkyPanel.ErrFieldLength("username", 5, 100)
-	}
-
-	testName := url.QueryEscape(model.Username)
-	if testName != model.Username {
-		return SkyPanel.ErrFieldHasURICharacters("username")
+	if validate.Var(model.Username, "omitempty,min=1,max=100") != nil {
+		return SkyPanel.ErrFieldLength("username", 1, 100)
 	}
 
 	return nil

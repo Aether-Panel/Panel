@@ -3,8 +3,8 @@ package scopes
 import "encoding/json"
 
 type Scope struct {
-	Value     string
-	ForServer bool
+	Value     string `json:"value"`
+	ForServer bool   `json:"forServer"`
 } // @name Scopes
 
 var (

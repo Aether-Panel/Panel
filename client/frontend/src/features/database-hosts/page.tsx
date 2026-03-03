@@ -28,7 +28,7 @@ const initialHosts: DatabaseHost[] = [
 ];
 
 export default function DatabaseHostsPage() {
-    const { role } = useAuth();
+    const { role, hasScope } = useAuth();
     const [isMounted, setIsMounted] = useState(false);
     const [hosts, setHosts] = useState<DatabaseHost[]>(initialHosts);
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -52,10 +52,10 @@ export default function DatabaseHostsPage() {
 
     useEffect(() => {
         setIsMounted(true);
-        if (role && role !== 'admin') {
+        if (role && !hasScope('admin')) {
             window.location.href = '/dashboard';
         }
-    }, [role]);
+    }, [role, hasScope]);
 
     const handleAddHost = () => {
         if (!newHostName || !newHostHost || !newHostPort || !newHostUser) return;
@@ -140,7 +140,7 @@ export default function DatabaseHostsPage() {
         </div>
     );
 
-    if (!isMounted || role !== 'admin') {
+    if (!isMounted || !hasScope('admin')) {
         return (
             <div className="flex h-full items-center justify-center">
                 <p>{t('common.loading')}</p>

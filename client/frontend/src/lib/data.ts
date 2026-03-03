@@ -13,11 +13,13 @@ export type Server = {
 };
 
 export type User = {
-  id: string;
+  id: number | string;
   name: string;
+  username?: string;
   email: string;
-  role: 'admin' | 'user';
-  avatar: string;
+  role: string;
+  roleId?: number;
+  avatar?: string;
   assignedServers: string[]; // array of server IDs
 };
 

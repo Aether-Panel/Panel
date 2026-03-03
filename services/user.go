@@ -10,11 +10,11 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/pquerna/otp"
-	"github.com/pquerna/otp/totp"
 	"github.com/SkyPanel/SkyPanel/v3"
 	"github.com/SkyPanel/SkyPanel/v3/config"
 	"github.com/SkyPanel/SkyPanel/v3/models"
+	"github.com/pquerna/otp"
+	"github.com/pquerna/otp/totp"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -260,7 +260,7 @@ func (us *User) ValidateOtpEnroll(userId uint, token string) ([]string, error) {
 
 	user.OtpActive = true
 	return codes, us.Update(user)
-	
+
 }
 
 func (us *User) RegenerateOtpRecoveryCodes(userId uint) ([]string, error) {
@@ -335,7 +335,7 @@ func (us *User) Search(usernameFilter, emailFilter string, pageSize, page uint) 
 		return nil, 0, err
 	}
 
-	res := query.Offset(int((page - 1) * pageSize)).Limit(int(pageSize)).Find(&users)
+	res := query.Preload("Role").Preload("Permissions").Offset(int((page - 1) * pageSize)).Limit(int(pageSize)).Find(&users)
 
 	return users, count, res.Error
 }

@@ -2,7 +2,10 @@ package middleware
 
 import (
 	"errors"
-	"github.com/gin-gonic/gin"
+	"net/http"
+	"runtime/debug"
+	"strings"
+
 	"github.com/SkyPanel/SkyPanel/v3/logging"
 	"github.com/SkyPanel/SkyPanel/v3/models"
 	"github.com/SkyPanel/SkyPanel/v3/response"
@@ -10,9 +13,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/servers"
 	"github.com/SkyPanel/SkyPanel/v3/services"
 	"github.com/SkyPanel/SkyPanel/v3/utils"
-	"net/http"
-	"runtime/debug"
-	"strings"
+	"github.com/gin-gonic/gin"
 )
 
 func ResponseAndRecover(c *gin.Context) {
@@ -44,11 +45,28 @@ func Recover(c *gin.Context) {
 
 func RequiresPermission(perm *scopes.Scope) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		requiresPermission(c, perm)
+		if !checkPermission(c, perm) {
+			if !c.IsAborted() {
+				c.AbortWithStatus(http.StatusForbidden)
+			}
+		}
 	}
 }
 
-func requiresPermission(c *gin.Context, perm *scopes.Scope) {
+func RequiresAnyPermission(perms ...*scopes.Scope) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		for _, v := range perms {
+			if checkPermission(c, v) {
+				return
+			}
+		}
+		if !c.IsAborted() {
+			c.AbortWithStatus(http.StatusForbidden)
+		}
+	}
+}
+
+func checkPermission(c *gin.Context, perm *scopes.Scope) bool {
 	//fail-safe in the event something pukes, we don't end up accidentally giving rights to something they should not
 	actuallyFinished := false
 	defer func() {
@@ -59,13 +77,12 @@ func requiresPermission(c *gin.Context, perm *scopes.Scope) {
 
 	NeedsDatabase(c)
 	if c.IsAborted() {
-		return
+		return false
 	}
 
 	userGin, exists := c.Get("user")
 	if !exists {
-		c.AbortWithStatus(http.StatusForbidden)
-		return
+		return false
 	}
 	user, ok := userGin.(*models.User)
 	if !ok {
@@ -75,8 +92,7 @@ func requiresPermission(c *gin.Context, perm *scopes.Scope) {
 	//we now have a user and they are allowed to access something, let's confirm they have server access
 	serverId := c.Param("serverId")
 	if perm.ForServer && serverId == "" {
-		c.AbortWithStatus(http.StatusNotFound)
-		return
+		return false
 	}
 
 	db := GetDatabase(c)
@@ -86,7 +102,7 @@ func requiresPermission(c *gin.Context, perm *scopes.Scope) {
 
 	p, err := ps.GetForUserAndServer(user.ID, serverId)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
-		return
+		return false
 	}
 
 	perms = append(perms, p)
@@ -94,26 +110,51 @@ func requiresPermission(c *gin.Context, perm *scopes.Scope) {
 		//if we had a server, also grab global scopes
 		p, err = ps.GetForUserAndServer(user.ID, "")
 		if response.HandleError(c, err, http.StatusInternalServerError) {
-			return
+			return false
 		}
 		perms = append(perms, p)
 	}
 
-	allowed := false
 	allScopes := make([]*scopes.Scope, 0)
-	for _, p := range perms {
-		if scopes.ContainsScope(p.Scopes, perm) {
-			allowed = true
+
+	// Check role-based permissions first (Global Roles)
+	if user.RoleId != nil {
+		// Use preloaded role if available and correct
+		var role *models.Role
+		if user.Role.ID == *user.RoleId {
+			role = &user.Role
+		} else {
+			rs := &services.Role{DB: db}
+			role, err = rs.Get(*user.RoleId)
+		}
+
+		if err == nil && role != nil {
+			// Update the user object with the fetched role so subsequent handlers see it
+			if user.Role.ID == 0 {
+				user.Role = *role
+			}
+			for _, s := range role.Scopes {
+				scopeObj := scopes.GetScope(s)
+				allScopes = scopes.AddScope(allScopes, scopeObj)
+			}
 		}
 	}
 
-	if !allowed {
-		c.AbortWithStatus(http.StatusForbidden)
-		return
+	for _, p := range perms {
+		for _, s := range p.Scopes {
+			allScopes = scopes.AddScope(allScopes, s)
+		}
 	}
 
-	c.Set("scopes", allScopes)
-	actuallyFinished = true
+	allowed := scopes.ContainsScope(allScopes, perm)
+	if allowed {
+		c.Set("scopes", allScopes)
+		actuallyFinished = true
+	} else {
+		actuallyFinished = true // We finished the check, but it was denied
+	}
+
+	return allowed
 }
 
 func GetToken(c *gin.Context) string {

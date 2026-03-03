@@ -15,7 +15,7 @@ import { useTranslations } from '@/contexts/translations-context';
 
 
 export default function SettingsPage() {
-    const { role } = useAuth();
+    const { role, hasScope } = useAuth();
     const [isMounted, setIsMounted] = useState(false);
     const { t } = useTranslations();
 
@@ -36,12 +36,12 @@ export default function SettingsPage() {
 
     useEffect(() => {
         setIsMounted(true);
-        if (role && role !== 'admin') {
+        if (role && !hasScope('settings.edit')) {
             window.location.href = '/dashboard';
         }
-    }, [role]);
+    }, [role, hasScope]);
 
-    if (!isMounted || role !== 'admin') {
+    if (!isMounted || !hasScope('settings.edit')) {
         return (
             <div className="flex h-full items-center justify-center">
                 <p>{t('common.loading')}</p>

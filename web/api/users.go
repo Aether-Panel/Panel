@@ -1,7 +1,8 @@
 package api
 
 import (
-	"github.com/gin-gonic/gin"
+	"net/http"
+
 	"github.com/SkyPanel/SkyPanel/v3"
 	"github.com/SkyPanel/SkyPanel/v3/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/models"
@@ -9,8 +10,8 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/services"
 	"github.com/SkyPanel/SkyPanel/v3/utils"
+	"github.com/gin-gonic/gin"
 	"github.com/spf13/cast"
-	"net/http"
 )
 
 func registerUsers(g *gin.RouterGroup) {
@@ -85,11 +86,13 @@ func createUser(c *gin.Context) {
 	us := &services.User{DB: db}
 
 	var viewModel models.UserView
-	if err = c.BindJSON(&viewModel); response.HandleError(c, err, http.StatusBadRequest) {
+	if err = c.ShouldBindJSON(&viewModel); err != nil {
+		response.HandleError(c, err, http.StatusBadRequest)
 		return
 	}
 
-	if err = viewModel.Valid(false); response.HandleError(c, err, http.StatusBadRequest) {
+	if err = viewModel.Valid(false); err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -160,11 +163,13 @@ func updateUser(c *gin.Context) {
 	}
 
 	var viewModel models.UserView
-	if err := c.BindJSON(&viewModel); response.HandleError(c, err, http.StatusBadRequest) {
+	if err := c.ShouldBindJSON(&viewModel); err != nil {
+		response.HandleError(c, err, http.StatusBadRequest)
 		return
 	}
 
-	if err := viewModel.Valid(true); response.HandleError(c, err, http.StatusBadRequest) {
+	if err := viewModel.Valid(true); err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
