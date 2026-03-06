@@ -5,13 +5,23 @@
     },
     "enable": true
   },
+  "docker": {
+    "disallowhost": false,
+    "root": ""
+  },
   "panel": {
     "database": {
       "dialect": "mysql",
-      "url": "esteban:2006@tcp(localhost:3306)/skypanel?charset=utf8mb4&parseTime=true"
+      "url": "esteban:2006@tcp(localhost:3306)/skypanel?charset=utf8mb4\u0026parseTime=true"
     },
     "email": {
-      "provider": "none"
+      "domain": "",
+      "from": "",
+      "host": "",
+      "key": "",
+      "password": "",
+      "provider": "none",
+      "username": ""
     },
     "gatus": {
       "enable": true
@@ -30,8 +40,10 @@
     "registrationenabled": true,
     "sessionkey": "c0e64d829607b45b11737ef04a82df831f41a771a3ad68421f390806dfdb6739",
     "settings": {
-      "companyname": "Aether Panel",
+      "companyname": "Aether Panels",
       "defaulttheme": "SkyPanel",
+      "geminiapikey": "",
+      "hideaianalysis": false,
       "masterurl": "http://localhost:8080",
       "themesettings": "{\"primary\":\"#000000\",\"background\":\"#000000\",\"foreground\":\"#000000\"}"
     },
@@ -39,10 +51,6 @@
   },
   "templates": {
     "url": "https://templates.aetherpanel.es/templates.json"
-  },
-  "docker": {
-    "disallowHost": false,
-    "root": ""
   },
   "web": {
     "host": "0.0.0.0:8080"

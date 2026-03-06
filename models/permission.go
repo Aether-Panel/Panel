@@ -1,9 +1,10 @@
 package models
 
 import (
+	"strings"
+
 	"github.com/SkyPanel/SkyPanel/v3/scopes"
 	"gorm.io/gorm"
-	"strings"
 )
 
 type Permissions struct {
@@ -17,7 +18,7 @@ type Permissions struct {
 	Client   Client `gorm:"ASSOCIATION_SAVE_REFERENCE:false" json:"-" validate:"-"`
 
 	//if this set is for a server, what server
-	ServerIdentifier *string `gorm:"column:server_identifier;index" json:"-"`
+	ServerIdentifier *string `gorm:"column:server_identifier;size:20;index" json:"-"`
 	Server           Server  `gorm:"ASSOCIATION_SAVE_REFERENCE:false" json:"-" validate:"-"`
 
 	RawScopes string          `gorm:"column:scopes;not null;size:1000;default:''" json:"-" validate:"required"`

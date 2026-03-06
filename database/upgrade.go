@@ -166,6 +166,65 @@ var migrations = [][]*gormigrate.Migration{
 				return nil
 			},
 		},
+		{
+			ID: "20260304-serverid-harmonization",
+			Migrate: func(db *gorm.DB) error {
+				m := db.Migrator()
+
+				// List of tables and their server-related columns that need to be size 20
+				// to match servers.identifier
+				updates := []struct {
+					Model  interface{}
+					Table  string
+					Column string
+				}{
+					{&models.Database{}, "databases", "server_id"},
+					{&models.UptimeStatus{}, "uptime_statuses", "server_id"},
+					{&models.Backup{}, "backups", "server_id"},
+					{&models.Permissions{}, "permissions", "server_identifier"},
+				}
+
+				if config.DatabaseDialect.Value() == "mysql" {
+					// Drop all FKs referencing servers(identifier) first
+					type FK struct {
+						Table      string `gorm:"column:TABLE_NAME"`
+						Constraint string `gorm:"column:CONSTRAINT_NAME"`
+					}
+					var fks []FK
+					_ = db.Raw(`
+						SELECT TABLE_NAME, CONSTRAINT_NAME 
+						FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE 
+						WHERE TABLE_SCHEMA = (SELECT DATABASE()) 
+						  AND REFERENCED_TABLE_NAME = 'servers' 
+						  AND REFERENCED_COLUMN_NAME = 'identifier'
+					`).Scan(&fks)
+
+					for _, fk := range fks {
+						logging.Info.Printf("Dropping foreign key %s from %s (best practice migration)", fk.Constraint, fk.Table)
+						_ = m.DropConstraint(fk.Table, fk.Constraint)
+					}
+
+					// Also drop any FK on the target tables just in case they were named differently
+					for _, u := range updates {
+						var tableFks []string
+						_ = db.Raw(`
+							SELECT CONSTRAINT_NAME 
+							FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE 
+							WHERE TABLE_SCHEMA = (SELECT DATABASE()) 
+							  AND TABLE_NAME = ? 
+							  AND REFERENCED_TABLE_NAME IS NOT NULL
+						`, u.Table).Scan(&tableFks)
+						for _, name := range tableFks {
+							_ = m.DropConstraint(u.Table, name)
+						}
+					}
+				}
+
+				// Now that constraints are gone, AutoMigrate in the k==0 block
+				// will be able to successfully AlterColumn to the new sizes.
+				return nil
+			},
+		},
 	},
 	{
 		{

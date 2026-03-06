@@ -61,7 +61,7 @@ export function Settings() {
 }
 
 export function ProfileSettings() {
-    return <AppShell currentPath="/profile/settings"><ProfileSettingsPage /></AppShell>;
+    return <AppShell currentPath="/profile/settings/"><ProfileSettingsPage /></AppShell>;
 }
 
 export function Login() {

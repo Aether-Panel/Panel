@@ -1,6 +1,11 @@
 import { cn } from "@/lib/utils";
 
+import { useConfig } from "@/contexts/config-context";
+
 export function Logo({ className }: { className?: string }) {
+  const { config } = useConfig();
+  const panelName = config?.branding?.name || "Aether Panel";
+
   return (
     <div className={cn("flex items-center gap-2", className)}>
       <svg
@@ -17,7 +22,7 @@ export function Logo({ className }: { className?: string }) {
         <path d="M2 17l10 5 10-5" />
         <path d="M2 12l10 5 10-5" />
       </svg>
-      <span className="text-lg font-semibold text-foreground">Aether Panel</span>
+      <span className="text-lg font-semibold text-foreground">{panelName}</span>
     </div>
   );
 }

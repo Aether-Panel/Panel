@@ -1,5 +1,7 @@
-'use client';
+import { useDatabaseHosts } from '@/hooks/use-database-hosts';
+import type { DatabaseHost } from '@/hooks/use-database-hosts';
 import { useAuth } from '@/contexts/providers';
+import { useNodes } from '@/hooks/use-nodes';
 import { useEffect, useState, Fragment } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,31 +10,22 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Check, Copy, Info, PlusCircle } from 'lucide-react';
+import { Check, Copy, Info, PlusCircle, Trash2, Edit2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { useTranslations } from '@/contexts/translations-context';
 
-type DatabaseHost = {
-    id: string;
-    name: string;
-    host: string;
-    port: number;
-    user: string;
-};
-
-const initialHosts: DatabaseHost[] = [
-    { id: 'host-1', name: 'Panel Local', host: '127.0.0.1', port: 3306, user: 'root' }
-];
-
 export default function DatabaseHostsPage() {
     const { role, hasScope } = useAuth();
     const [isMounted, setIsMounted] = useState(false);
-    const [hosts, setHosts] = useState<DatabaseHost[]>(initialHosts);
+    const { hosts, loading, createHost, updateHost, deleteHost, refresh } = useDatabaseHosts();
+    const { nodes } = useNodes();
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [currentStep, setCurrentStep] = useState(1);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editingId, setEditingId] = useState<number | null>(null);
     const { toast } = useToast();
     const { t } = useTranslations();
 
@@ -43,12 +36,15 @@ export default function DatabaseHostsPage() {
     ];
 
     // New host form state
-    const [newHostName, setNewHostName] = useState('');
-    const [newHostHost, setNewHostHost] = useState('0.0.0.0');
-    const [newHostPort, setNewHostPort] = useState('3306');
-    const [newHostUser, setNewHostUser] = useState('root');
-    const [newHostPassword, setNewHostPassword] = useState('');
-    const [newHostMaxDatabases, setNewHostMaxDatabases] = useState('0');
+    const [formData, setFormData] = useState({
+        name: '',
+        host: '0.0.0.0',
+        port: 3306,
+        username: 'root',
+        password: '',
+        max_databases: 0,
+        node_id: null as number | null
+    });
 
     useEffect(() => {
         setIsMounted(true);
@@ -57,20 +53,47 @@ export default function DatabaseHostsPage() {
         }
     }, [role, hasScope]);
 
-    const handleAddHost = () => {
-        if (!newHostName || !newHostHost || !newHostPort || !newHostUser) return;
+    const handleSaveHost = async () => {
+        if (!formData.name || !formData.host || !formData.username) return;
 
-        const newHost: DatabaseHost = {
-            id: `host-${hosts.length + 1}`,
-            name: newHostName,
-            host: newHostHost,
-            port: parseInt(newHostPort, 10),
-            user: newHostUser,
-        };
+        try {
+            if (isEditing && editingId !== null) {
+                await updateHost(editingId, formData);
+                toast({ title: t('common.success'), description: "Database host updated successfully" });
+            } else {
+                await createHost(formData);
+                toast({ title: t('common.success'), description: "Database host created successfully" });
+            }
+            handleDialogChange(false);
+        } catch (e: any) {
+            toast({ title: t('common.error'), description: e.message, variant: 'destructive' });
+        }
+    };
 
-        setHosts(prev => [...prev, newHost]);
+    const handleDeleteHost = async (id: number) => {
+        if (!confirm(t('common.confirmDelete') || "Are you sure you want to delete this database host?")) return;
+        try {
+            await deleteHost(id);
+            toast({ title: t('common.success'), description: "Database host deleted successfully" });
+        } catch (e: any) {
+            toast({ title: t('common.error'), description: e.message, variant: 'destructive' });
+        }
+    };
 
-        handleDialogChange(false);
+    const handleEditHost = (host: DatabaseHost) => {
+        setFormData({
+            name: host.name,
+            host: host.host,
+            port: host.port,
+            username: host.username,
+            password: '',
+            max_databases: host.max_databases,
+            node_id: host.node_id || null
+        });
+        setEditingId(host.id);
+        setIsEditing(true);
+        setCurrentStep(3); // Go straight to config in edit mode
+        setIsAddDialogOpen(true);
     };
 
     const handleDialogChange = (open: boolean) => {
@@ -78,13 +101,18 @@ export default function DatabaseHostsPage() {
         if (!open) {
             setTimeout(() => {
                 setCurrentStep(1);
-                setNewHostName('');
-                setNewHostHost('0.0.0.0');
-                setNewHostPort('3306');
-                setNewHostUser('root');
-                setNewHostPassword('');
-                setNewHostMaxDatabases('0');
-            }, 300); // Delay reset to allow for closing animation
+                setIsEditing(false);
+                setEditingId(null);
+                setFormData({
+                    name: '',
+                    host: '0.0.0.0',
+                    port: 3306,
+                    username: 'root',
+                    password: '',
+                    max_databases: 0,
+                    node_id: null
+                });
+            }, 300);
         }
     }
 
@@ -140,10 +168,18 @@ export default function DatabaseHostsPage() {
         </div>
     );
 
-    if (!isMounted || !hasScope('admin')) {
+    if (!isMounted) {
+        return (
+            <div className="flex h-[80vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (!hasScope('admin')) {
         return (
             <div className="flex h-full items-center justify-center">
-                <p>{t('common.loading')}</p>
+                <p>Not authorized</p>
             </div>
         );
     }
@@ -160,13 +196,13 @@ export default function DatabaseHostsPage() {
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-3xl">
                         <DialogHeader>
-                            <DialogTitle>{t('databaseHosts.addDialog.title')}</DialogTitle>
+                            <DialogTitle>{isEditing ? "Edit Database Host" : t('databaseHosts.addDialog.title')}</DialogTitle>
                             <DialogDescription>
                                 {t('databaseHosts.addDialog.description')}
                             </DialogDescription>
                         </DialogHeader>
 
-                        <Stepper currentStep={currentStep} steps={stepTitles} />
+                        {!isEditing && <Stepper currentStep={currentStep} steps={stepTitles} />}
 
                         <div key={currentStep} className="py-4 max-h-[60vh] overflow-y-auto px-1 animate-in fade-in-50 duration-500">
                             {currentStep === 1 && (
@@ -185,8 +221,8 @@ export default function DatabaseHostsPage() {
                                         <Label htmlFor="host-user">{t('databaseHosts.addDialog.step1.userLabel')}</Label>
                                         <Input
                                             id="host-user"
-                                            value={newHostUser}
-                                            onChange={(e) => setNewHostUser(e.target.value)}
+                                            value={formData.username}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
                                         />
                                         <p className="text-sm text-muted-foreground">{t('databaseHosts.addDialog.step1.userDescription')}</p>
                                     </div>
@@ -195,8 +231,8 @@ export default function DatabaseHostsPage() {
                                         <Input
                                             id="host-password"
                                             type="password"
-                                            value={newHostPassword}
-                                            onChange={(e) => setNewHostPassword(e.target.value)}
+                                            value={formData.password}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
                                         />
                                         <p className="text-sm text-muted-foreground">{t('databaseHosts.addDialog.step1.passwordDescription')}</p>
                                     </div>
@@ -242,12 +278,33 @@ export default function DatabaseHostsPage() {
                             )}
                             {currentStep === 3 && (
                                 <div className="grid grid-cols-2 gap-6 px-4">
+                                    {isEditing && (
+                                        <div className="col-span-2">
+                                            <Alert className="mb-4">
+                                                <Info className="h-4 w-4" />
+                                                <AlertTitle>Edit Mode</AlertTitle>
+                                                <AlertDescription>
+                                                    Leave user and password empty if you don't want to update them.
+                                                </AlertDescription>
+                                            </Alert>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="edit-username">Update Username</Label>
+                                                    <Input id="edit-username" value={formData.username} onChange={e => setFormData(p => ({ ...p, username: e.target.value }))} />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="edit-password">Update Password</Label>
+                                                    <Input id="edit-password" type="password" value={formData.password} onChange={e => setFormData(p => ({ ...p, password: e.target.value }))} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                     <div className="space-y-2">
                                         <Label htmlFor="host-name">{t('databaseHosts.addDialog.step3.hostNameLabel')}</Label>
                                         <Input
                                             id="host-name"
-                                            value={newHostName}
-                                            onChange={(e) => setNewHostName(e.target.value)}
+                                            value={formData.name}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                                             placeholder={t('databaseHosts.addDialog.step3.hostNamePlaceholder')}
                                         />
                                         <p className="text-sm text-muted-foreground">{t('databaseHosts.addDialog.step3.hostNameDescription')}</p>
@@ -256,18 +313,18 @@ export default function DatabaseHostsPage() {
                                         <Label htmlFor="host-host">{t('databaseHosts.addDialog.step3.connectionHostLabel')}</Label>
                                         <Input
                                             id="host-host"
-                                            value={newHostHost}
-                                            onChange={(e) => setNewHostHost(e.target.value)}
+                                            value={formData.host}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, host: e.target.value }))}
                                         />
-                                        <p className="text-sm text-muted-foreground">{t('databaseHosts.addDialog.step3.connectionHostDescription')}</p>
+                                        <p className="text-sm text-muted-foreground">{t('databaseHosts.addDialog.step3.hostNameDescription')}</p>
                                     </div>
                                     <div className="space-y-2">
                                         <Label htmlFor="host-port">{t('databaseHosts.addDialog.step3.portLabel')}</Label>
                                         <Input
                                             id="host-port"
                                             type="number"
-                                            value={newHostPort}
-                                            onChange={(e) => setNewHostPort(e.target.value)}
+                                            value={formData.port}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, port: parseInt(e.target.value) || 0 }))}
                                         />
                                         <p className="text-sm text-muted-foreground">{t('databaseHosts.addDialog.step3.portDescription')}</p>
                                     </div>
@@ -276,17 +333,26 @@ export default function DatabaseHostsPage() {
                                         <Input
                                             id="host-max-db"
                                             type="number"
-                                            value={newHostMaxDatabases}
-                                            onChange={(e) => setNewHostMaxDatabases(e.target.value)}
+                                            value={formData.max_databases}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, max_databases: parseInt(e.target.value) || 0 }))}
                                         />
                                         <p className="text-sm text-muted-foreground">{t('databaseHosts.addDialog.step3.dbLimitDescription')}</p>
                                     </div>
                                     <div className="space-y-2">
                                         <Label>{t('databaseHosts.addDialog.step3.linkedNodesLabel')}</Label>
-                                        <Select disabled>
+                                        <Select
+                                            value={formData.node_id?.toString() || "none"}
+                                            onValueChange={(v) => setFormData(p => ({ ...p, node_id: v === "none" ? null : parseInt(v) }))}
+                                        >
                                             <SelectTrigger>
                                                 <SelectValue placeholder={t('databaseHosts.addDialog.step3.linkedNodesPlaceholder')} />
                                             </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">None</SelectItem>
+                                                {nodes.map(node => (
+                                                    <SelectItem key={node.id} value={node.id.toString()}>{node.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
                                         </Select>
                                         <p className="text-sm text-muted-foreground">{t('databaseHosts.addDialog.step3.linkedNodesDescription')}</p>
                                     </div>
@@ -294,13 +360,13 @@ export default function DatabaseHostsPage() {
                             )}
                         </div>
                         <DialogFooter>
-                            {currentStep === 1 && (
+                            {currentStep === 1 && !isEditing && (
                                 <>
                                     <Button variant="outline" onClick={() => handleDialogChange(false)}>{t('databaseHosts.addDialog.buttons.cancel')}</Button>
-                                    <Button onClick={() => setCurrentStep(2)} disabled={!newHostUser}>{t('databaseHosts.addDialog.buttons.next')}</Button>
+                                    <Button onClick={() => setCurrentStep(2)} disabled={!formData.username}>{t('databaseHosts.addDialog.buttons.next')}</Button>
                                 </>
                             )}
-                            {currentStep === 2 && (
+                            {currentStep === 2 && !isEditing && (
                                 <>
                                     <Button variant="outline" onClick={() => setCurrentStep(1)}>{t('databaseHosts.addDialog.buttons.back')}</Button>
                                     <Button onClick={() => setCurrentStep(3)}>{t('databaseHosts.addDialog.buttons.next')}</Button>
@@ -308,8 +374,12 @@ export default function DatabaseHostsPage() {
                             )}
                             {currentStep === 3 && (
                                 <>
-                                    <Button variant="outline" onClick={() => setCurrentStep(2)}>{t('databaseHosts.addDialog.buttons.back')}</Button>
-                                    <Button type="submit" onClick={handleAddHost} disabled={!newHostName || !newHostHost}>{t('databaseHosts.addDialog.buttons.create')}</Button>
+                                    {!isEditing && <Button variant="outline" onClick={() => setCurrentStep(2)}>{t('databaseHosts.addDialog.buttons.back')}</Button>}
+                                    {isEditing && <Button variant="outline" onClick={() => handleDialogChange(false)}>{t('common.cancel') || "Cancel"}</Button>}
+                                    <Button type="submit" onClick={handleSaveHost} disabled={!formData.name || !formData.host || loading}>
+                                        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                        {isEditing ? (t('common.save') || "Save") : t('databaseHosts.addDialog.buttons.create')}
+                                    </Button>
                                 </>
                             )}
                         </DialogFooter>
@@ -330,15 +400,42 @@ export default function DatabaseHostsPage() {
                                     <TableHead>{t('databaseHosts.table.host')}</TableHead>
                                     <TableHead>{t('databaseHosts.table.port')}</TableHead>
                                     <TableHead>{t('databaseHosts.table.username')}</TableHead>
+                                    <TableHead>{t('databaseHosts.table.linkedNode')}</TableHead>
+                                    <TableHead className="text-right">{t('databaseHosts.table.actions')}</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {hosts.map((host) => (
+                                {loading && hosts.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={6} className="text-center py-8">
+                                            <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+                                        </TableCell>
+                                    </TableRow>
+                                ) : hosts.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                                            No database hosts found.
+                                        </TableCell>
+                                    </TableRow>
+                                ) : hosts.map((host) => (
                                     <TableRow key={host.id}>
                                         <TableCell className="font-medium">{host.name}</TableCell>
                                         <TableCell>{host.host}</TableCell>
                                         <TableCell>{host.port}</TableCell>
-                                        <TableCell>{host.user}</TableCell>
+                                        <TableCell>{host.username}</TableCell>
+                                        <TableCell>
+                                            {nodes.find(n => n.id === host.node_id)?.name || "—"}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <div className="flex justify-end gap-2">
+                                                <Button variant="ghost" size="icon" onClick={() => handleEditHost(host)}>
+                                                    <Edit2 className="h-4 w-4" />
+                                                </Button>
+                                                <Button variant="ghost" size="icon" onClick={() => handleDeleteHost(host.id)}>
+                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                </Button>
+                                            </div>
+                                        </TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
@@ -349,3 +446,4 @@ export default function DatabaseHostsPage() {
         </div>
     );
 }
+

@@ -19,8 +19,9 @@ import (
 )
 
 func registerSettings(g *gin.RouterGroup) {
+	g.Handle("GET", "", middleware.RequiresPermission(scopes.ScopeSettingsEdit), getSettings)
 	g.Handle("POST", "", middleware.RequiresPermission(scopes.ScopeSettingsEdit), setSettings)
-	g.Handle("OPTIONS", "", response.CreateOptions("POST"))
+	g.Handle("OPTIONS", "", response.CreateOptions("GET", "POST"))
 
 	g.Handle("GET", "/:key", middleware.RequiresPermission(scopes.ScopeSettingsEdit), getSetting)
 	g.Handle("PUT", "/:key", middleware.RequiresPermission(scopes.ScopeSettingsEdit), setSetting)
@@ -196,6 +197,24 @@ func setSettings(c *gin.Context) {
 	}
 
 	c.Status(http.StatusNoContent)
+}
+
+func getSettings(c *gin.Context) {
+	settings := make(map[string]interface{})
+
+	for _, v := range editableStringEntries {
+		settings[v.Key()] = v.Value()
+	}
+
+	for _, v := range editableBoolEntries {
+		settings[v.Key()] = v.Value()
+	}
+
+	for _, v := range editableIntEntries {
+		settings[v.Key()] = v.Value()
+	}
+
+	c.JSON(http.StatusOK, settings)
 }
 
 // @Summary Email test
@@ -440,6 +459,7 @@ var editableStringEntries = []config.StringEntry{
 	config.DefaultTheme,
 	config.ThemeSettings,
 	config.MasterUrl,
+	config.GeminiApiKey,
 	config.DiscordWebhook,
 	config.DiscordWebhookSystem,
 	config.DiscordWebhookNode,
@@ -450,5 +470,6 @@ var editableStringEntries = []config.StringEntry{
 }
 var editableBoolEntries = []config.BoolEntry{
 	config.RegistrationEnabled,
+	config.HideAIAnalysis,
 }
 var editableIntEntries = []config.IntEntry{}

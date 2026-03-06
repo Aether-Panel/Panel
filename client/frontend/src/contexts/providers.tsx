@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { TranslationsProvider } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
+import { useConfig } from '@/contexts/config-context';
 
 export type UserRole = 'admin' | 'user';
 
@@ -205,12 +206,15 @@ function AuthProvider({ children }: { children: ReactNode }) {
   const normalizedPath = typeof window !== 'undefined' ? (window.location.pathname.replace(/\/$/, '') || '/') : '';
   const isAuthPage = normalizedPath === '/login' || normalizedPath === '/register';
 
+  const { config } = useConfig();
+  const panelName = config?.branding?.name || "Aether Panel";
+
   if ((loading && !isAuthPage) || (!role && !isAuthPage)) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          <p className="text-muted-foreground">Initializing Aether Panel...</p>
+          <p className="text-muted-foreground">Initializing {panelName}...</p>
         </div>
       </div>
     );
@@ -231,10 +235,14 @@ export function useAuth() {
   return context;
 }
 
+import { ConfigProvider } from '@/contexts/config-context';
+
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <TranslationsProvider>
-      <AuthProvider>{children}</AuthProvider>
+      <ConfigProvider>
+        <AuthProvider>{children}</AuthProvider>
+      </ConfigProvider>
     </TranslationsProvider>
   )
 }

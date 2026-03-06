@@ -1,9 +1,10 @@
 package config
 
 import (
+	"path/filepath"
+
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
-	"path/filepath"
 )
 
 var LogsFolder = asString("logs", "logs")
@@ -39,6 +40,8 @@ var CompanyName = asString("panel.settings.companyName", "SkyPanel")
 var DefaultTheme = asString("panel.settings.defaultTheme", "SkyPanel")
 var ThemeSettings = asString("panel.settings.themeSettings", "{}")
 var MasterUrl = asString("panel.settings.masterUrl", "http://localhost:8080")
+var GeminiApiKey = asString("panel.settings.geminiApiKey", "")
+var HideAIAnalysis = asBool("panel.settings.hideAiAnalysis", false)
 var DiscordWebhook = asString("panel.notifications.discordWebhook", "")
 var DiscordWebhookSystem = asString("panel.notifications.discordWebhookSystem", "")
 var DiscordWebhookNode = asString("panel.notifications.discordWebhookNode", "")

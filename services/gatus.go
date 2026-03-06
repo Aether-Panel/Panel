@@ -60,7 +60,7 @@ func StartGatus() error {
 	if os.Getenv("PUFFER_PLATFORM") == "docker" {
 		cfg.Web.Address = "0.0.0.0"
 	} else {
-	cfg.Web.Address = "127.0.0.1"
+		cfg.Web.Address = "127.0.0.1"
 	}
 	cfg.Web.Port = 8081
 
@@ -98,7 +98,7 @@ func StartGatus() error {
 		if os.Getenv("PUFFER_PLATFORM") == "docker" {
 			cfg.Web.Address = "0.0.0.0"
 		} else {
-		cfg.Web.Address = "127.0.0.1"
+			cfg.Web.Address = "127.0.0.1"
 		}
 		cfg.Web.Port = 8081
 		cfg.Web.TLS = nil // Asegurarse de que no use TLS
@@ -328,7 +328,7 @@ func syncNodesToGatus(configPath string, cfg *gatusConfig.Config) error {
 	for _, ep := range endpoints {
 		if epMap, ok := ep.(map[string]interface{}); ok {
 			// Si el grupo es "Nodos SkyPanel" o "Nodos SkyPanel", es un endpoint de nodo
-			if group, ok := epMap["group"].(string); ok && (group == "Nodos SkyPanel" || group == "Nodos SkyPanel") {
+			if group, ok := epMap["group"].(string); ok && group == "Nodos SkyPanel" {
 				if name, ok := epMap["name"].(string); ok {
 					nodeEndpointNames[name] = true
 				}
@@ -392,10 +392,10 @@ func syncNodesToGatus(configPath string, cfg *gatusConfig.Config) error {
 	for _, ep := range endpoints {
 		if epMap, ok := ep.(map[string]interface{}); ok {
 			// Eliminar TODOS los endpoints de nodos antiguos
-			if group, ok := epMap["group"].(string); ok && (group == "Nodos SkyPanel" || group == "Nodos SkyPanel") {
+			if group, ok := epMap["group"].(string); ok && group == "Nodos SkyPanel" {
 				continue // Eliminar endpoints de nodos antiguos
 			}
-			
+
 			// Verificar si es el endpoint del panel
 			if name, ok := epMap["name"].(string); ok {
 				if name == "Panel Principal" || name == "Panel" {
@@ -439,7 +439,7 @@ func syncNodesToGatus(configPath string, cfg *gatusConfig.Config) error {
 					}
 				}
 			}
-			
+
 			filteredEndpoints = append(filteredEndpoints, ep)
 		} else {
 			// Mantener endpoints que no son mapas (por si acaso)

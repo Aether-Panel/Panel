@@ -108,7 +108,7 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
                                 </div>
                             </DropdownMenuLabel>
                             <DropdownMenuSeparator />
-                            <a href="/profile/settings">
+                            <a href="/profile/settings/">
                                 <DropdownMenuItem className="cursor-pointer">
                                     <Settings className="mr-2" />
                                     <span>{t('userMenu.settings')}</span>

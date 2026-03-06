@@ -14,7 +14,7 @@ type Backup struct {
 	FileName string `gorm:"NOT NULL;default='generic'" json:"fileName" validate:"required,printascii"`
 	//FileSize int64  `gorm:"NOT NULL;default:0" json:"fileSize"`
 
-	ServerID string `gorm:"column:server_id;" json:"-" validate:"-"`
+	ServerID string `gorm:"column:server_id;size:20" json:"-" validate:"-"`
 	Server   Server `gorm:"foreignKey:ServerID;->;<-:create" json:"-" validate:"-"`
 
 	CreatedAt time.Time `json:"createdAt"`

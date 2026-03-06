@@ -17,7 +17,7 @@ endpoints:
 storage:
     type: memory
 ui:
-    header: Aether Panel
+    header: Aether Panels
 web:
     address: 127.0.0.1
     port: 8081

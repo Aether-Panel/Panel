@@ -16,7 +16,15 @@ async function handleResponse(response: Response) {
     }
 
     if (!response.ok) {
-        throw new ApiError(response.status, data?.error || response.statusText, data);
+        let message = response.statusText;
+        if (data?.error) {
+            if (typeof data.error === 'string') {
+                message = data.error;
+            } else if (typeof data.error === 'object' && data.error.msg) {
+                message = data.error.msg;
+            }
+        }
+        throw new ApiError(response.status, message, data);
     }
 
     return data;

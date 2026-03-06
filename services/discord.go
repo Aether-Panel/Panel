@@ -216,7 +216,7 @@ func (ds *DiscordService) SendSystemStatus(servers []ServerInfo) error {
 	description += fmt.Sprintf("🟢 **Online:** %d | 🔴 **Offline:** %d\n", onlineServers, offlineServers)
 
 	if onlineCount > 0 {
-		description += fmt.Sprintf("\n**Promedio de Recursos (Servidores Online):**\n")
+		description += "\n**Promedio de Recursos (Servidores Online):**\n"
 		description += fmt.Sprintf("• CPU: %.1f%%\n", avgCPU)
 		description += fmt.Sprintf("• Memoria: %.1f MB\n", avgMemory/1024/1024) // Convertir bytes a MB si es necesario
 	}
@@ -276,7 +276,7 @@ func (ds *DiscordService) SendSystemStatus(servers []ServerInfo) error {
 		Fields:      fields,
 		Timestamp:   time.Now().Format(time.RFC3339),
 		Footer: &DiscordEmbedFooter{
-			Text: fmt.Sprintf("Actualizado cada minuto"),
+			Text: "Actualizado cada minuto",
 		},
 	}
 

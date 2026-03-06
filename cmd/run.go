@@ -86,19 +86,6 @@ func internalRun() (terminate chan bool, success bool) {
 	if config.PanelEnabled.Value() {
 		panel()
 
-		// Iniciar Gatus si está habilitado o si estamos en Docker (habilitado por defecto en Docker)
-		shouldStartGatus := config.GatusEnabled.Value()
-		if os.Getenv("PUFFER_PLATFORM") == "docker" && !shouldStartGatus {
-			// En Docker, intentar iniciar Gatus aunque no esté explícitamente habilitado
-			// Esto permite que funcione sin necesidad de configurar manualmente
-			shouldStartGatus = true
-		}
-		if shouldStartGatus {
-			if err := services.StartGatus(); err != nil {
-				logging.Error.Printf("Error starting Gatus service: %s", err.Error())
-			}
-		}
-
 		db, err := database.GetConnection()
 		if err != nil {
 			logging.Error.Printf("error connecting to database: %s", err.Error())
@@ -111,6 +98,19 @@ func internalRun() (terminate chan bool, success bool) {
 			logging.Error.Printf("error upgrading database: %s", err.Error())
 			terminate <- true
 			return
+		}
+
+		// Iniciar Gatus si está habilitado o si estamos en Docker (habilitado por defecto en Docker)
+		shouldStartGatus := config.GatusEnabled.Value()
+		if os.Getenv("PUFFER_PLATFORM") == "docker" && !shouldStartGatus {
+			// En Docker, intentar iniciar Gatus aunque no esté explícitamente habilitado
+			// Esto permite que funcione sin necesidad de configurar manualmente
+			shouldStartGatus = true
+		}
+		if shouldStartGatus {
+			if err := services.StartGatus(); err != nil {
+				logging.Error.Printf("Error starting Gatus service: %s", err.Error())
+			}
 		}
 
 		if config.SessionKey.Value() == "" {

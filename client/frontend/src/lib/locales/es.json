@@ -58,6 +58,22 @@
       "here": "aquí",
       "noClients": "No hay clientes de OAuth2 configurados para esta cuenta.",
       "create": "Crear nuevo cliente OAuth2"
+    },
+    "messages": {
+      "infoChanged": "Tu información ha sido cambiada",
+      "passwordChanged": "Tu contraseña ha sido cambiada",
+      "otpEnabled": "2FA ha sido habilitado",
+      "otpDisabled": "2FA ha sido deshabilitado",
+      "recoveryCodesRegenerated": "Los códigos de recuperación han sido regenerados"
+    },
+    "twoFactorSetup": {
+      "title": "Configuración de 2FA",
+      "qrCodeHint": "Escanea este código QR con tu aplicación de autenticación.",
+      "secretCode": "Código secreto",
+      "confirmHint": "Ingresa el código de 6 dígitos de tu aplicación para confirmar.",
+      "recoveryTitle": "Códigos de recuperación",
+      "recoveryHint": "Guarda estos códigos en un lugar seguro. ¡No se volverán a mostrar!",
+      "downloadCodes": "Descargar códigos de recuperación"
     }
   },
   "dashboard": {
@@ -153,6 +169,7 @@
         "database": "Base de datos",
         "backups": "Copias de seguridad",
         "plugins": "Plugins",
+        "sftp": "Acceso SFTP",
         "admin": "Administración"
       },
       "overview": {
@@ -623,7 +640,9 @@
       "name": "Nombre",
       "host": "Host",
       "port": "Puerto",
-      "username": "Usuario"
+      "username": "Usuario",
+      "linkedNode": "Nodo Vinculado",
+      "actions": "Acciones"
     },
     "availableHosts": "Hosts Disponibles",
     "addDialog": {
@@ -698,11 +717,14 @@
     "cancel": "Cancelar",
     "close": "Cerrar",
     "success": "Éxito",
-    "error": "Error"
+    "error": "Error",
+    "save": "Guardar",
+    "confirmDelete": "¿Estás seguro de que deseas eliminar este elemento?"
   },
   "settings": {
     "title": "Configuración del Panel",
     "description": "Administra la configuración global de tu instancia de Aether Panel.",
+    "saveSuccess": "Configuración guardada correctamente",
     "tabs": {
       "general": "General",
       "discord": "Notificaciones Discord",
@@ -736,6 +758,7 @@
       "statusWebhookPlaceholder": "Webhook de Discord - Estado del Nodo",
       "statusWebhookDescription": "URL del webhook de Discord para recibir información sobre el estado del nodo/nodos",
       "testButton": "Probar Webhook",
+      "testSuccess": "Mensaje de prueba enviado correctamente a Discord",
       "saveButton": "Guardar configuración"
     },
     "mail": {
@@ -772,6 +795,7 @@
         "keyPlaceholder": "••••••••"
       },
       "testButton": "Email de prueba",
+      "testSuccess": "Email de prueba enviado correctamente",
       "saveButton": "Guardar configuración"
     }
   }

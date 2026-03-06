@@ -13,6 +13,16 @@ type Uptime struct {
 
 // TrackStatus registra o actualiza el estado de uptime/downtime de un servidor
 func (us *Uptime) TrackStatus(serverID string, isRunning bool) error {
+	// Verificar que el servidor existe en la base de datos antes de trackear (evitar fallos de FK)
+	var count int64
+	if err := us.DB.Table("servers").Where("identifier = ?", serverID).Count(&count).Error; err != nil {
+		return err
+	}
+	if count == 0 {
+		// El servidor no existe en la BD, no podemos trackear su uptime aún
+		return nil
+	}
+
 	// Buscar si hay un registro activo (sin EndTime) para este servidor
 	var currentStatus *models.UptimeStatus
 	err := us.DB.Where("server_id = ? AND end_time IS NULL", serverID).Order("start_time DESC").First(&currentStatus).Error
@@ -121,10 +131,10 @@ func (us *Uptime) GetRecentHistory(serverID string, limit int) ([]*models.Uptime
 // GetAllServerUptime obtiene estadísticas de uptime para todos los servidores
 func (us *Uptime) GetAllServerUptime(since time.Time) (map[string]map[string]interface{}, error) {
 	var results []struct {
-		ServerID        string
-		IsRunning       bool
-		TotalDuration   int64
-		CurrentRunning  bool
+		ServerID         string
+		IsRunning        bool
+		TotalDuration    int64
+		CurrentRunning   bool
 		CurrentStartTime time.Time
 	}
 

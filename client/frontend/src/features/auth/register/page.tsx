@@ -14,6 +14,7 @@ import { Logo } from '@/components/logo';
 import { Loader2, Mail, Lock, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/providers';
+import { useConfig } from '@/contexts/config-context';
 
 const formSchema = z.object({
   username: z.string().min(5, { message: "Username must be at least 5 characters." }),
@@ -28,6 +29,8 @@ const formSchema = z.object({
 
 export default function RegisterPage() {
   const { register } = useAuth();
+  const { config } = useConfig();
+  const panelName = config?.branding?.name || "Aether Panel";
   const [loading, setLoading] = React.useState(false);
   const { toast } = useToast();
 
@@ -65,7 +68,7 @@ export default function RegisterPage() {
           <CardHeader className="items-center text-center space-y-4">
             <Logo className="mb-2" />
             <CardTitle className="text-3xl font-bold">Create an Account</CardTitle>
-            <CardDescription>Join Aether Panel today</CardDescription>
+            <CardDescription>Join {panelName} today</CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
@@ -154,7 +157,7 @@ export default function RegisterPage() {
               </a>
             </p>
             <p className="text-xs text-muted-foreground pt-6 mt-4 border-t border-border/50 w-full">
-              © 2024 Aether Panel. All rights reserved.
+              © 2024 {panelName}. All rights reserved.
             </p>
           </CardFooter>
         </Card>
