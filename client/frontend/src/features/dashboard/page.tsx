@@ -87,13 +87,12 @@ export default function DashboardPage() {
     const nodeResources = realNodes.map(n => n.systemInfo).filter(Boolean);
 
     const avgCpuUsage = nodeResources.length > 0
-      ? Math.round(nodeResources.reduce((acc, si) => acc + (si.cpu?.usage || 0), 0) / nodeResources.length)
+      ? Math.round(nodeResources.reduce((acc, si) => acc + (si.cpuUsage || 0), 0) / nodeResources.length)
       : (onlineCount > 0 ? Math.round(onlineServers.reduce((acc, s) => acc + s.cpuUsage, 0) / onlineCount) : 0);
 
     const avgMemoryUsage = nodeResources.length > 0
       ? Math.round(nodeResources.reduce((acc, si) => {
-        const mem = si.memory || {};
-        const percent = mem.total > 0 ? (mem.used / (mem.total * 1024)) * 100 : 0;
+        const percent = si.memoryTotal > 0 ? (si.memoryUsed / si.memoryTotal) * 100 : 0;
         return acc + percent;
       }, 0) / nodeResources.length)
       : (onlineCount > 0 ? Math.round(onlineServers.reduce((acc, s) => acc + s.memoryUsage, 0) / onlineCount) : 0);
@@ -101,7 +100,7 @@ export default function DashboardPage() {
     const avgStorageUsage = nodeResources.length > 0
       ? Math.round(nodeResources.reduce((acc, si) => {
         const disk = si.disks?.[0] || {};
-        return acc + (disk.usage || 0);
+        return acc + (disk.usedPercent || 0);
       }, 0) / nodeResources.length)
       : (onlineCount > 0 ? Math.round(onlineServers.reduce((acc, s) => acc + (s.storageUsage || 0), 0) / onlineCount) : 0);
 

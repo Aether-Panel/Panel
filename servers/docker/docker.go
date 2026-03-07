@@ -29,6 +29,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/shirou/gopsutil/disk"
 	"github.com/spf13/cast"
 )
 
@@ -225,6 +226,11 @@ func (d *Docker) GetStatsImpl(environment *SkyPanel.Environment) (*SkyPanel.Serv
 		Memory:    float64(data.MemoryStats.Usage),
 		MaxMemory: float64(data.MemoryStats.Limit),
 		Cpu:       calculateCPUPercent(data),
+		Disk:      0,
+	}
+
+	if usage, err := disk.Usage(environment.GetRootDirectory()); err == nil {
+		stats.Disk = usage.UsedPercent
 	}
 
 	if !d.disableSpecialStats && environment.Server.Stats.Type == "jcmd" {

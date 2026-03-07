@@ -176,7 +176,8 @@
         "status": "Estado",
         "cpuUsage": "Uso de CPU",
         "memoryUsage": "Uso de Memoria",
-        "storageUsage": "Uso de Almacenamiento"
+        "storageUsage": "Uso de Almacenamiento",
+        "playersOnline": "Jugadores en línea"
       }
     },
     "address": {
@@ -418,11 +419,11 @@
         "description": "Esta acción no se puede deshacer. Esto eliminará permanentemente el servidor y todos sus datos de la plataforma.",
         "cancel": "Cancelar",
         "confirm": "Sí, eliminar servidor"
-      },
-      "resourceChart": {
-        "title": "Resumen de Recursos",
-        "description": "Instantánea actual de la utilización de recursos."
       }
+    },
+    "resourceChart": {
+      "title": "Resumen de Recursos",
+      "description": "Instantánea actual de la utilización de recursos."
     }
   },
   "users": {
@@ -509,27 +510,53 @@
     }
   },
   "permissions": {
-    "grantAll": "Conceder todos los permisos",
-    "login": "Iniciar sesión",
-    "editOwnAccount": "Editar mi cuenta",
-    "manageOauthClients": "Administrar mis clientes OAuth2",
-    "editPanelSettings": "Editar configuración del panel",
-    "createServer": "Crear nuevos servidores",
-    "viewNodes": "Ver Nodos",
-    "createNodes": "Crear nuevos nodos",
-    "editNodes": "Editar nodos existentes",
-    "deployNodes": "Desplegar nodos",
-    "deleteNodes": "Eliminar nodos",
-    "viewUsers": "Ver lista de todos los usuarios",
-    "viewUserInfo": "Ver información de usuarios",
-    "editUsers": "Editar información de usuarios",
-    "viewUserPermissions": "Ver permisos de usuario",
-    "editUserPermissions": "Editar permisos de usuario",
-    "viewTemplates": "Ver plantillas",
-    "manageLocalTemplates": "Crear/Editar/Eliminar plantillas locales",
-    "viewTemplateRepos": "Ver repositorios de plantillas",
-    "addTemplateRepos": "Añadir repositorios de plantillas",
-    "deleteTemplateRepos": "Eliminar repositorios de plantillas"
+    "admin": "Acceso Total de Administrador",
+    "login": "Iniciar Sesión",
+    "oauth2": {
+      "auth": "Administrar Autorización OAuth2"
+    },
+    "nodes": {
+      "view": "Ver Nodos",
+      "create": "Crear Nodos",
+      "edit": "Editar Nodos",
+      "delete": "Eliminar Nodos",
+      "deploy": "Desplegar Nodos (Avanzado)"
+    },
+    "self": {
+      "edit": "Editar Propia Cuenta",
+      "clients": "Administrar Clientes OAuth2 Propios"
+    },
+    "server": {
+      "create": "Crear Nuevos Servidores"
+    },
+    "settings": {
+      "edit": "Editar Configuración Global del Panel"
+    },
+    "templates": {
+      "view": "Ver Plantillas",
+      "local": {
+        "edit": "Administrar Plantillas Locales"
+      },
+      "repo": {
+        "create": "Añadir Repositorios de Plantillas",
+        "delete": "Eliminar Repositorios de Plantillas"
+      }
+    },
+    "users": {
+      "info": {
+        "search": "Buscar Usuarios",
+        "view": "Ver Información de Usuarios",
+        "edit": "Editar Información de Usuarios"
+      },
+      "perms": {
+        "view": "Ver Permisos de Usuarios",
+        "edit": "Editar Permisos de Usuarios"
+      }
+    },
+    "uptime": {
+      "view": "Ver Estado de Actividad"
+    },
+    "panel": "Acceder al Panel"
   },
   "nodes": {
     "title": "Gestión de Nodos",

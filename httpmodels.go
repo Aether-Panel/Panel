@@ -10,6 +10,7 @@ type ServerStats struct {
 	Cpu       float64         `json:"cpu"`
 	Memory    float64         `json:"memory"`
 	MaxMemory float64         `json:"maxMemory"`
+	Disk      float64         `json:"storage"`
 	Jvm       *utils.JvmStats `json:"jvm,omitempty"`
 	Running   bool            `json:"running"`
 } //@name ServerStats

@@ -19,6 +19,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/logging"
 	"github.com/SkyPanel/SkyPanel/v3/utils"
 	"github.com/creack/pty"
+	"github.com/shirou/gopsutil/disk"
 	"github.com/shirou/gopsutil/mem"
 	"github.com/shirou/gopsutil/process"
 	"github.com/spf13/cast"
@@ -164,7 +165,12 @@ func (t *tty) GetStatsImpl(environment *SkyPanel.Environment) (*SkyPanel.ServerS
 		Cpu:       cpu,
 		Memory:    cast.ToFloat64(memMap.RSS),
 		MaxMemory: cast.ToFloat64(memInfo.Total),
+		Disk:      0,
 		Running:   true,
+	}
+
+	if usage, err := disk.Usage(environment.GetRootDirectory()); err == nil {
+		stats.Disk = usage.UsedPercent
 	}
 
 	if !t.disableSpecialStats && environment.Server.Stats.Type == "jcmd" {

@@ -176,7 +176,8 @@
         "status": "Status",
         "cpuUsage": "CPU Usage",
         "memoryUsage": "Memory Usage",
-        "storageUsage": "Storage Usage"
+        "storageUsage": "Storage Usage",
+        "playersOnline": "Players Online"
       }
     },
     "address": {

@@ -28,7 +28,7 @@ export function useServers() {
                     status: uptime.currentStatus ? 'online' : 'offline',
                     cpuUsage: 0,
                     memoryUsage: 0,
-                    storageUsage: 0,
+                    storageUsage: uptime.storageUsage || 0,
                     metrics: [],
                     alerts: [],
                     isGhost: s.isGhost,
@@ -75,7 +75,7 @@ export function useServers() {
                         id: server.id,
                         cpuUsage: cpu,
                         memoryUsage: memory,
-                        storageUsage: 0,
+                        storageUsage: Math.round(stats.storage || 0),
                         status: stats.running ? 'online' : 'offline',
                         metrics: {
                             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
@@ -107,6 +107,7 @@ export function useServers() {
                     status: res.status as any,
                     cpuUsage: res.cpuUsage ?? s.cpuUsage,
                     memoryUsage: res.memoryUsage ?? s.memoryUsage,
+                    storageUsage: (res as any).storageUsage ?? s.storageUsage,
                     metrics: newMetrics as any
                 };
             }

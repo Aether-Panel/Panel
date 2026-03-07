@@ -3,6 +3,8 @@ package utils
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"os"
+	"path/filepath"
 	"reflect"
 )
 
@@ -48,4 +50,18 @@ func Remove[T comparable](a []T, b T) []T {
 		replacement = append(replacement, v)
 	}
 	return replacement
+}
+
+func GetDirSize(path string) (int64, error) {
+	var size int64
+	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			size += info.Size()
+		}
+		return err
+	})
+	return size, err
 }
