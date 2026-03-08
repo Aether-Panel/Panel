@@ -143,6 +143,7 @@ func getServerFromGin(c *gin.Context) *servers.Server {
 // @Success 202 {object} nil
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
+// @Tags Daemon Server
 // @Router /api/servers/{id}/start [post]
 // @Security OAuth2Application[server.start]
 func startServer(c *gin.Context) {
@@ -183,6 +184,7 @@ func doRestart(server *servers.Server) error {
 // @Success 202 {object} nil
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
+// @Tags Daemon Server
 // @Router /api/servers/{id}/restart [post]
 // @Security OAuth2Application[server.start, server.stop]
 func restartServer(c *gin.Context) {
@@ -212,6 +214,7 @@ func restartServer(c *gin.Context) {
 // @Success 202 {object} nil
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
+// @Tags Daemon Server
 // @Router /api/servers/{id}/stop [post]
 // @Security OAuth2Application[server.stop]
 func stopServer(c *gin.Context) {
@@ -239,6 +242,7 @@ func stopServer(c *gin.Context) {
 // @Description Kill server
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
+// @Tags Daemon Server
 // @Router /api/servers/{id}/kill [post]
 // @Security OAuth2Application[server.kill]
 func killServer(c *gin.Context) {
@@ -318,6 +322,7 @@ func deleteServer(c *gin.Context) {
 // @Success 202 {object} nil
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
+// @Tags Daemon Server
 // @Router /api/servers/{id}/install [post]
 // @Security OAuth2Application[server.install]
 func installServer(c *gin.Context) {
@@ -378,6 +383,7 @@ func editServerDataAdmin(c *gin.Context) {
 // @Description Get server tasks
 // @Success 200 {object} SkyPanel.ServerTasks
 // @Param id path string true "Server ID"
+// @Tags Daemon Server
 // @Router /api/servers/{id}/tasks [get]
 // @Security OAuth2Application[server.tasks.view]
 func getServerTasks(c *gin.Context) {
@@ -406,6 +412,7 @@ func getServerTasks(c *gin.Context) {
 // @Success 200 {object} SkyPanel.ServerTask
 // @Param id path string true "Server ID"
 // @Param taskId path string true "Task ID"
+// @Tags Daemon Server
 // @Router /api/servers/{id}/tasks/{taskId} [get]
 // @Security OAuth2Application[server.tasks.view]
 func getServerTask(c *gin.Context) {
@@ -432,6 +439,7 @@ func getServerTask(c *gin.Context) {
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
 // @Param taskId path string true "Task ID"
+// @Tags Daemon Server
 // @Router /api/servers/{id}/tasks/{taskId}/run [post]
 // @Security OAuth2Application[server.tasks.run]
 func runServerTask(c *gin.Context) {
@@ -456,6 +464,7 @@ func runServerTask(c *gin.Context) {
 // @Param id path string true "Server ID"
 // @Param taskId path string true "Task ID"
 // @Param task body SkyPanel.Task true "Task definition"
+// @Tags Daemon Server
 // @Router /api/servers/{id}/tasks/{taskId} [put]
 // @Security OAuth2Application[server.tasks.edit]
 func editServerTask(c *gin.Context) {
@@ -489,6 +498,7 @@ func editServerTask(c *gin.Context) {
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
 // @Param taskId path string true "Task ID"
+// @Tags Daemon Server
 // @Router /api/servers/{id}/tasks/{taskId} [delete]
 // @Security OAuth2Application[server.tasks.delete]
 func deleteServerTask(c *gin.Context) {
@@ -511,6 +521,7 @@ func deleteServerTask(c *gin.Context) {
 // @Description Reload server
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
+// @Tags Daemon Server
 // @Router /api/servers/{id}/reload [post]
 // @Security OAuth2Application[server.reload]
 func reloadServer(c *gin.Context) {
@@ -527,6 +538,7 @@ func reloadServer(c *gin.Context) {
 // @Description Get server variables
 // @Success 200 {object} SkyPanel.ServerData
 // @Param id path string true "Server ID"
+// @Tags Daemon Server
 // @Router /api/servers/{id}/data [get]
 // @Security OAuth2Application[server.data.view]
 func getServerData(c *gin.Context) {
@@ -548,6 +560,7 @@ func getServerData(c *gin.Context) {
 // @Description Get server definition
 // @Success 200 {object} SkyPanel.Server
 // @Param id path string true "Server ID"
+// @Tags Daemon Server
 // @Router /api/servers/{id}/definition [get]
 // @Security OAuth2Application[server.definition.view]
 func getServerAdmin(c *gin.Context) {
@@ -561,6 +574,7 @@ func getServerAdmin(c *gin.Context) {
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
 // @Param server body SkyPanel.Server true "New definition"
+// @Tags Daemon Server
 // @Router /api/servers/{id}/definition [post]
 // @Security OAuth2Application[server.definition.edit]
 func editServerAdmin(c *gin.Context) {
@@ -610,6 +624,7 @@ func editServerAdmin(c *gin.Context) {
 // @Success 200 {object} nil
 // @Param id path string true "Server ID"
 // @Param filepath path string true "File path"
+// @Tags Daemon Server
 // @Router /api/servers/{id}/file/{filepath} [get]
 // @Security OAuth2Application[server.files.view]
 func getFile(c *gin.Context) {
@@ -659,6 +674,7 @@ func getFile(c *gin.Context) {
 // @Param filepath path string true "File path"
 // @Param file formData file true "File contents"
 // @Accept multipart/form-data
+// @Tags Daemon Server
 // @Router /api/servers/{id}/file/{filepath} [put]
 // @Security OAuth2Application[server.files.edit]
 func putFile(c *gin.Context) {
@@ -715,6 +731,7 @@ func putFile(c *gin.Context) {
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
 // @Param filepath path string true "File path"
+// @Tags Daemon Server
 // @Router /api/servers/{id}/file/{filepath} [delete]
 // @Security OAuth2Application[server.files.edit]
 func deleteFile(c *gin.Context) {
@@ -743,6 +760,7 @@ func deleteFile(c *gin.Context) {
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
 // @Param command body string true "Command"
+// @Tags Daemon Server
 // @Router /api/servers/{id}/console [post]
 // @Security OAuth2Application[server.console.send]
 func postConsole(c *gin.Context) {
@@ -770,6 +788,7 @@ func postConsole(c *gin.Context) {
 // @Description Gets the CPU and memory usage of the server
 // @Success 200 {object} SkyPanel.ServerStats
 // @Param id path string true "Server ID"
+// @Tags Daemon Server
 // @Router /api/servers/{id}/stats [get]
 // @Security OAuth2Application[server.stats]
 func getStats(c *gin.Context) {
@@ -787,6 +806,7 @@ func getStats(c *gin.Context) {
 // @Success 200 {object} SkyPanel.ServerLogs
 // @Param id path string true "Server ID"
 // @Param time query int64 false "Epoch time in MS to get from"
+// @Tags Daemon Server
 // @Router /api/servers/{id}/console [get]
 // @Security OAuth2Application[server.console]
 func getLogs(c *gin.Context) {
@@ -812,6 +832,7 @@ func getLogs(c *gin.Context) {
 // @Description Get the server's status (is it running)
 // @Success 200 {object} SkyPanel.ServerRunning
 // @Param id path string true "Server ID"
+// @Tags Daemon Server
 // @Router /api/servers/{id}/status [get]
 // @Security OAuth2Application[server.status]
 func getStatus(c *gin.Context) {
@@ -838,6 +859,7 @@ func getStatus(c *gin.Context) {
 // @Param id path string true "Server ID"
 // @Param files body []string true "Files to archive"
 // @Param filename path string true "Archive name"
+// @Tags Daemon Server
 // @Router /api/servers/{id}/archive/{filename} [post]
 // @Security OAuth2Application[server.files.edit]
 func archive(c *gin.Context) {
@@ -866,6 +888,7 @@ func archive(c *gin.Context) {
 // @Param id path string true "Server ID"
 // @Param filename path string true "Target file to extract"
 // @Param destination query string true "Path to place files"
+// @Tags Daemon Server
 // @Router /api/servers/{id}/extract/{filename} [post]
 // @Security OAuth2Application[server.files.edit]
 func extract(c *gin.Context) {
@@ -885,6 +908,7 @@ func extract(c *gin.Context) {
 // @Description Creates a full backup of the server
 // @Success 200 {object} SkyPanel.ServerBackupResponse
 // @Param id path string true "Server ID"
+// @Tags Daemon Server
 // @Router /api/servers/{id}/backup/create [post]
 // @Security OAuth2Application[server.backup.create]
 func createBackup(c *gin.Context) {
@@ -911,6 +935,7 @@ func createBackup(c *gin.Context) {
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
 // @Param fileName query string true "File Name"
+// @Tags Daemon Server
 // @Router /api/servers/{id}/backup/delete [post]
 // @Security OAuth2Application[server.backup.delete]
 func deleteBackup(c *gin.Context) {
@@ -929,6 +954,7 @@ func deleteBackup(c *gin.Context) {
 // @Success 202 {object} nil
 // @Param id path string true "Server ID"
 // @Param fileName query string true "File Name"
+// @Tags Daemon Server
 // @Router /api/servers/{id}/backup/restore [post]
 // @Security OAuth2Application[server.backup.restore]
 func restoreBackup(c *gin.Context) {
@@ -955,6 +981,7 @@ func restoreBackup(c *gin.Context) {
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
 // @Param fileName query string true "File Name"
+// @Tags Daemon Server
 // @Router /api/servers/{id}/backup/restore [post]
 // @Security OAuth2Application[server.backup.restore]
 func downloadBackup(c *gin.Context) {
@@ -984,6 +1011,7 @@ func downloadBackup(c *gin.Context) {
 // @Description Get the management flags for a server
 // @Success 200 {object} SkyPanel.ServerFlags
 // @Param id path string true "Server ID"
+// @Tags Daemon Server
 // @Router /api/servers/{id}/flags [get]
 // @Security OAuth2Application[server.flags.view]
 func getFlags(c *gin.Context) {
@@ -1001,6 +1029,7 @@ func getFlags(c *gin.Context) {
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
 // @Param flags body SkyPanel.ServerFlags true "Flags to change"
+// @Tags Daemon Server
 // @Router /api/servers/{id}/flags [post]
 // @Security OAuth2Application[server.flags.edit]
 func setFlags(c *gin.Context) {
@@ -1032,6 +1061,7 @@ func setFlags(c *gin.Context) {
 // @Success 202 {object} nil
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
+// @Tags Daemon Server
 // @Router /api/servers/{id}/query [head]
 // @Security OAuth2Application[server.query]
 func canQueryServer(c *gin.Context) {
@@ -1050,6 +1080,7 @@ func canQueryServer(c *gin.Context) {
 // @Success 200 {object} interface{}
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
+// @Tags Daemon Server
 // @Router /api/servers/{id}/query [get]
 // @Security OAuth2Application[server.query]
 func queryServer(c *gin.Context) {
@@ -1149,6 +1180,7 @@ type PluginSearchResult struct {
 // @Description Gets list of plugins installed in the server
 // @Success 200 {array} PluginInfo
 // @Param id path string true "Server ID"
+// @Tags Daemon Server
 // @Router /daemon/server/{id}/plugins [get]
 func getPlugins(c *gin.Context) {
 	server := getServerFromGin(c)
@@ -1209,6 +1241,7 @@ func getPlugins(c *gin.Context) {
 // @Success 200 {array} PluginSearchResult
 // @Param id path string true "Server ID"
 // @Param q query string true "Search query"
+// @Tags Daemon Server
 // @Router /daemon/server/{id}/plugins/search [get]
 func searchPlugins(c *gin.Context) {
 	queryParam := c.Query("q")
@@ -1287,6 +1320,7 @@ func searchPlugins(c *gin.Context) {
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
 // @Param pluginId path int true "Plugin ID from Spigot"
+// @Tags Daemon Server
 // @Router /daemon/server/{id}/plugins/{pluginId} [post]
 func installPlugin(c *gin.Context) {
 	server := getServerFromGin(c)
@@ -1398,6 +1432,7 @@ func installPlugin(c *gin.Context) {
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
 // @Param name query string true "Plugin file name"
+// @Tags Daemon Server
 // @Router /daemon/server/{id}/plugins [delete]
 func deletePlugin(c *gin.Context) {
 	server := getServerFromGin(c)

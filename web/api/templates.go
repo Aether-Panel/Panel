@@ -36,6 +36,7 @@ func registerTemplates(g *gin.RouterGroup) {
 // @Success 200 {object} []models.TemplateRepo
 // @Failure 400 {object} SkyPanel.ErrorResponse
 // @Failure 500 {object} SkyPanel.ErrorResponse
+// @Tags Templates
 // @Router /api/templates [get]
 // @Security OAuth2Application[templates.view]
 func getRepos(c *gin.Context) {
@@ -56,6 +57,7 @@ func getRepos(c *gin.Context) {
 // @Success 200 {object} []models.Template
 // @Failure 400 {object} SkyPanel.ErrorResponse
 // @Failure 500 {object} SkyPanel.ErrorResponse
+// @Tags Templates
 // @Router /api/templates/{repo} [get]
 // @Security OAuth2Application[templates.view]
 func getsTemplatesForRepo(c *gin.Context) {
@@ -81,6 +83,7 @@ func getsTemplatesForRepo(c *gin.Context) {
 // @Success 200 {object} models.TemplateRepo
 // @Failure 400 {object} SkyPanel.ErrorResponse
 // @Failure 500 {object} SkyPanel.ErrorResponse
+// @Tags Templates
 // @Router /api/templates [post]
 // @Security OAuth2Application[templates.repo.create]
 func addRepo(c *gin.Context) {
@@ -113,6 +116,7 @@ func addRepo(c *gin.Context) {
 // @Success 204 {object} nil
 // @Failure 400 {object} SkyPanel.ErrorResponse
 // @Failure 500 {object} SkyPanel.ErrorResponse
+// @Tags Templates
 // @Router /api/templates/{repo} [delete]
 // @Security OAuth2Application[templates.repo.delete]
 func deleteRepo(c *gin.Context) {
@@ -137,6 +141,7 @@ func deleteRepo(c *gin.Context) {
 // @Param template path string true "Template name"
 // @Success 200 {object} models.Template
 // @Failure 500 {object} SkyPanel.ErrorResponse
+// @Tags Templates
 // @Router /api/templates/{repo}/{template} [get]
 // @Security OAuth2Application[templates.view]
 func getTemplateFromRepo(c *gin.Context) {
@@ -165,6 +170,7 @@ func getTemplateFromRepo(c *gin.Context) {
 // @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param template body SkyPanel.Server true "Template"
 // @Param name path string true "Template name"
+// @Tags Templates
 // @Router /api/templates/local/{name} [put]
 // @Security OAuth2Application[templates.local.edit]
 func putTemplate(c *gin.Context) {
@@ -202,6 +208,7 @@ func putTemplate(c *gin.Context) {
 // @Failure 404 {object} SkyPanel.ErrorResponse
 // @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param name path string true "Template name"
+// @Tags Templates
 // @Router /api/templates/local/{name} [delete]
 // @Security OAuth2Application[templates.repo.delete]
 func deleteTemplate(c *gin.Context) {

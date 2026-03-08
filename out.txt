@@ -1,0 +1,18 @@
+Total endpoints in Swagger: 111
+Endpoints per category:
+  - Auth: 6
+  - Config: 1
+  - Databasehosts: 5
+  - Databases: 3
+  - Nodes: 8
+  - Roles: 5
+  - Root: 4
+  - Self: 5
+  - Server: 34
+  - Servers: 17
+  - Settings: 6
+  - Templates: 7
+  - Token: 1
+  - Uptime: 2
+  - Users: 7
+  - Usersettings: 2

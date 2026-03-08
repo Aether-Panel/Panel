@@ -41,6 +41,7 @@ func registerSettings(g *gin.RouterGroup) {
 // @Description Gets the value currently being used for the specified config key
 // @Success 200 {object} models.Setting
 // @Param key path string true "The config key"
+// @Tags Panel Settings
 // @Router /api/settings/{key} [get]
 // @Security OAuth2Application[settings.edit]
 func getSetting(c *gin.Context) {
@@ -77,6 +78,7 @@ func getSetting(c *gin.Context) {
 // @Failure 500 {object} ErrorResponse
 // @Param key path string true "The config key"
 // @Param value body models.Setting true "The new value for the setting"
+// @Tags Panel Settings
 // @Router /api/settings/{key} [put]
 // @Security OAuth2Application[settings.edit]
 func setSetting(c *gin.Context) {
@@ -143,6 +145,7 @@ func setSetting(c *gin.Context) {
 // @Failure 400 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Param data body models.ChangeMultipleSettings true "Config data to apply"
+// @Tags Panel Settings
 // @Router /api/settings [post]
 // @Security OAuth2Application[settings.edit]
 func setSettings(c *gin.Context) {
@@ -220,6 +223,7 @@ func getSettings(c *gin.Context) {
 // @Summary Email test
 // @Description Tests email settings by sending an email
 // @Success 204 {object} nil
+// @Tags Panel Settings
 // @Router /api/settings/test/email [post]
 // @Security OAuth2Application[settings.edit]
 func sendTestEmail(c *gin.Context) {
@@ -236,6 +240,7 @@ func sendTestEmail(c *gin.Context) {
 // @Summary Discord webhook test
 // @Description Tests Discord webhook settings by sending a test message to all configured webhooks
 // @Success 204 {object} nil
+// @Tags Panel Settings
 // @Router /api/settings/test/discord [post]
 // @Security OAuth2Application[settings.edit]
 func sendTestDiscord(c *gin.Context) {
@@ -299,6 +304,7 @@ func sendTestDiscord(c *gin.Context) {
 // @Failure 400 {object} SkyPanel.ErrorResponse
 // @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param body body map[string]string true "License key"
+// @Tags Panel Settings
 // @Router /api/settings/license/activate [post]
 // @Security OAuth2Application[settings.edit]
 func activateLicense(c *gin.Context) {

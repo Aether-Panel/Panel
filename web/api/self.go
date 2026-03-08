@@ -45,6 +45,7 @@ func registerSelf(g *gin.RouterGroup) {
 // @Failure 403 {object} SkyPanel.ErrorResponse
 // @Failure 404 {object} SkyPanel.ErrorResponse
 // @Failure 500 {object} SkyPanel.ErrorResponse
+// @Tags Self
 // @Router /api/self [get]
 // @Security OAuth2Application[login]
 func getSelf(c *gin.Context) {
@@ -61,6 +62,7 @@ func getSelf(c *gin.Context) {
 // @Failure 404 {object} SkyPanel.ErrorResponse
 // @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param user body models.UserView true "User information"
+// @Tags Self
 // @Router /api/self [PUT]
 // @Security OAuth2Application[self.edit]
 func updateSelf(c *gin.Context) {
@@ -259,6 +261,7 @@ func disableOtp(c *gin.Context) {
 // @Failure 403 {object} SkyPanel.ErrorResponse
 // @Failure 404 {object} SkyPanel.ErrorResponse
 // @Failure 500 {object} SkyPanel.ErrorResponse
+// @Tags Self
 // @Router /api/self/oauth2 [GET]
 // @Security OAuth2Application[self.clients]
 func getPersonalOAuth2Clients(c *gin.Context) {
@@ -282,6 +285,7 @@ func getPersonalOAuth2Clients(c *gin.Context) {
 // @Failure 404 {object} SkyPanel.ErrorResponse
 // @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param client body models.Client false "Information for the client to create"
+// @Tags Self
 // @Router /api/self/oauth2 [POST]
 // @Security OAuth2Application[self.clients]
 func createPersonalOAuth2Client(c *gin.Context) {
@@ -339,6 +343,7 @@ func createPersonalOAuth2Client(c *gin.Context) {
 // @Failure 404 {object} SkyPanel.ErrorResponse
 // @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param id path string true "Information for the client to create"
+// @Tags Self
 // @Router /api/self/oauth2/{id} [DELETE]
 // @Security OAuth2Application[self.clients]
 func deletePersonalOAuth2Client(c *gin.Context) {

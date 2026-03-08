@@ -1,10 +1,10 @@
 package auth
 
 import (
-	"github.com/SkyPanel/SkyPanel/v3/scopes"
 	"net/http"
 
-	"github.com/gin-gonic/gin"
+	"github.com/SkyPanel/SkyPanel/v3/scopes"
+
 	"github.com/SkyPanel/SkyPanel/v3"
 	"github.com/SkyPanel/SkyPanel/v3/config"
 	"github.com/SkyPanel/SkyPanel/v3/logging"
@@ -12,9 +12,19 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/models"
 	"github.com/SkyPanel/SkyPanel/v3/response"
 	"github.com/SkyPanel/SkyPanel/v3/services"
+	"github.com/gin-gonic/gin"
 	"gopkg.in/go-playground/validator.v9"
 )
 
+// @Summary Register a new user
+// @Description Creates a new user account if registration is enabled
+// @Accept json
+// @Produce json
+// @Param request body registerRequestData true "Registration Request"
+// @Success 200 {object} LoginResponse
+// @Failure 400 {object} SkyPanel.ErrorResponse
+// @Tags Auth
+// @Router /auth/register [post]
 func RegisterPost(c *gin.Context) {
 	if !config.RegistrationEnabled.Value() {
 		c.AbortWithStatus(http.StatusNotFound)

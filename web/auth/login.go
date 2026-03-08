@@ -14,6 +14,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// @Summary User Login
+// @Description Authenticates a user and starts a session
+// @Accept json
+// @Produce json
+// @Param request body LoginRequestData true "Login Request"
+// @Success 200 {object} LoginResponse
+// @Failure 400 {object} SkyPanel.ErrorResponse
+// @Tags Auth
+// @Router /auth/login [post]
 func LoginPost(c *gin.Context) {
 	db := middleware.GetDatabase(c)
 	us := &services.User{DB: db}
@@ -47,6 +56,15 @@ func LoginPost(c *gin.Context) {
 	createSession(c, user)
 }
 
+// @Summary OTP Verification
+// @Description Verifies an OTP code for a login attempt
+// @Accept json
+// @Produce json
+// @Param request body OtpRequestData true "OTP Request"
+// @Success 200 {object} LoginResponse
+// @Failure 400 {object} SkyPanel.ErrorResponse
+// @Tags Auth
+// @Router /auth/otp [post]
 func OtpPost(c *gin.Context) {
 	db := middleware.GetDatabase(c)
 	us := &services.User{DB: db}

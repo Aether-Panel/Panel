@@ -45,6 +45,7 @@ func registerNodes(g *gin.RouterGroup) {
 // @Failure 403 {object} SkyPanel.ErrorResponse
 // @Failure 404 {object} SkyPanel.ErrorResponse
 // @Failure 500 {object} SkyPanel.ErrorResponse
+// @Tags Nodes
 // @Router /api/nodes [get]
 // @Security OAuth2Application[nodes.view]
 func getAllNodes(c *gin.Context) {
@@ -69,6 +70,7 @@ func getAllNodes(c *gin.Context) {
 // @Failure 404 {object} SkyPanel.ErrorResponse
 // @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param id path string true "Node Id"
+// @Tags Nodes
 // @Router /api/nodes/{id} [get]
 // @Security OAuth2Application[nodes.view]
 func getNode(c *gin.Context) {
@@ -97,6 +99,7 @@ func getNode(c *gin.Context) {
 // @Failure 403 {object} SkyPanel.ErrorResponse
 // @Failure 404 {object} SkyPanel.ErrorResponse
 // @Failure 500 {object} SkyPanel.ErrorResponse
+// @Tags Nodes
 // @Router /api/nodes [post]
 // @Security OAuth2Application[nodes.create]
 func createNode(c *gin.Context) {
@@ -138,6 +141,7 @@ func createNode(c *gin.Context) {
 // @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param id path string true "Node Id"
 // @Param node body models.NodeView true "Node information"
+// @Tags Nodes
 // @Router /api/nodes/{id} [put]
 // @Security OAuth2Application[nodes.edit]
 func updateNode(c *gin.Context) {
@@ -180,6 +184,7 @@ func updateNode(c *gin.Context) {
 // @Failure 404 {object} SkyPanel.ErrorResponse
 // @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param id path string true "Node Id"
+// @Tags Nodes
 // @Router /api/nodes/{id} [delete]
 // @Security OAuth2Application[nodes.delete]
 func deleteNode(c *gin.Context) {
@@ -213,6 +218,7 @@ func deleteNode(c *gin.Context) {
 // @Failure 404 {object} SkyPanel.ErrorResponse
 // @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param id path string true "Node Id"
+// @Tags Nodes
 // @Router /api/nodes/{id}/deployment [get]
 // @Security OAuth2Application[nodes.deploy]
 func deployNode(c *gin.Context) {
@@ -246,6 +252,7 @@ func deployNode(c *gin.Context) {
 // @Failure 404 {object} SkyPanel.ErrorResponse
 // @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param id path string true "Node Id"
+// @Tags Nodes
 // @Router /api/nodes/{id}/features [get]
 // @Security OAuth2Application[nodes.view]
 func getFeatures(c *gin.Context) {
@@ -286,6 +293,7 @@ func getFeatures(c *gin.Context) {
 // @Failure 404 {object} SkyPanel.ErrorResponse
 // @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param id path string true "Node Id"
+// @Tags Nodes
 // @Router /api/nodes/{id}/system [get]
 // @Security OAuth2Application[nodes.view]
 func getSystemInfo(c *gin.Context) {

@@ -28,6 +28,7 @@ func registerRoles(g *gin.RouterGroup) {
 // @Success 200 {array} models.Role
 // @Failure 403 {object} SkyPanel.ErrorResponse
 // @Failure 500 {object} SkyPanel.ErrorResponse
+// @Tags Roles
 // @Router /api/roles [get]
 // @Security OAuth2Application[admin]
 func listRoles(c *gin.Context) {
@@ -48,6 +49,7 @@ func listRoles(c *gin.Context) {
 // @Failure 403 {object} SkyPanel.ErrorResponse
 // @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param body body models.Role true "New role information"
+// @Tags Roles
 // @Router /api/roles [post]
 // @Security OAuth2Application[admin]
 func createRole(c *gin.Context) {
@@ -73,6 +75,7 @@ func createRole(c *gin.Context) {
 // @Failure 404 {object} SkyPanel.ErrorResponse
 // @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param id path uint true "Role ID"
+// @Tags Roles
 // @Router /api/roles/{id} [get]
 // @Security OAuth2Application[admin]
 func getRole(c *gin.Context) {
@@ -102,6 +105,7 @@ func getRole(c *gin.Context) {
 // @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param id path uint true "Role ID"
 // @Param body body models.Role true "Updated role information"
+// @Tags Roles
 // @Router /api/roles/{id} [post]
 // @Security OAuth2Application[admin]
 func updateRole(c *gin.Context) {
@@ -135,6 +139,7 @@ func updateRole(c *gin.Context) {
 // @Failure 404 {object} SkyPanel.ErrorResponse
 // @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param id path uint true "Role ID"
+// @Tags Roles
 // @Router /api/roles/{id} [delete]
 // @Security OAuth2Application[admin]
 func deleteRole(c *gin.Context) {

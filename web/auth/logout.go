@@ -2,12 +2,19 @@ package auth
 
 import (
 	"errors"
-	"github.com/gin-gonic/gin"
+	"net/http"
+
 	"github.com/SkyPanel/SkyPanel/v3/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/services"
-	"net/http"
+	"github.com/gin-gonic/gin"
 )
 
+// @Summary User Logout
+// @Description Invalidates the current user session
+// @Produce json
+// @Success 204 {string} string ""
+// @Tags Auth
+// @Router /auth/logout [post]
 func LogoutPost(c *gin.Context) {
 	db := middleware.GetDatabase(c)
 	ss := services.Session{DB: db}

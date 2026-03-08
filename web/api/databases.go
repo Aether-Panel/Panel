@@ -30,6 +30,7 @@ func registerDatabases(g *gin.RouterGroup) {
 // @Failure 404 {object} SkyPanel.ErrorResponse
 // @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param serverId path string true "Server Id"
+// @Tags Databases
 // @Router /api/servers/{serverId}/databases [get]
 // @Security OAuth2Application[server.view]
 func getAllDatabasesForServer(c *gin.Context) {
@@ -85,6 +86,7 @@ func getAllDatabasesForServer(c *gin.Context) {
 // @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param serverId path string true "Server Id"
 // @Param database body models.DatabaseCreate true "Database information"
+// @Tags Databases
 // @Router /api/servers/{serverId}/databases [post]
 // @Security OAuth2Application[server.data.edit]
 func createDatabase(c *gin.Context) {
@@ -153,6 +155,7 @@ func createDatabase(c *gin.Context) {
 // @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param serverId path string true "Server Id"
 // @Param id path string true "Database Id"
+// @Tags Databases
 // @Router /api/servers/{serverId}/databases/{id} [delete]
 // @Security OAuth2Application[server.data.edit]
 func deleteDatabase(c *gin.Context) {

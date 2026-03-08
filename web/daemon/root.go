@@ -37,6 +37,7 @@ func RegisterDaemonRoutes(e *gin.RouterGroup) {
 // @Summary Check daemon status
 // @Description Check to see if the daemon is online or not
 // @Success 200 {object} SkyPanel.DaemonRunning
+// @Tags Daemon Root
 // @Router /daemon [get]
 // @Security OAuth2Application[none]
 func getStatusGET(c *gin.Context) {
@@ -46,6 +47,7 @@ func getStatusGET(c *gin.Context) {
 // @Summary Check daemon status
 // @Description Check to see if the daemon is online or not
 // @Success 204 {object} nil
+// @Tags Daemon Root
 // @Router /daemon [head]
 // @Security OAuth2Application[none]
 func getStatusHEAD(c *gin.Context) {
@@ -55,6 +57,7 @@ func getStatusHEAD(c *gin.Context) {
 // @Summary Get features of the node
 // @Description Gets the features that the node supports, like it's OS and environments
 // @Success 200 {object} Features
+// @Tags Daemon Root
 // @Router /daemon/features [get]
 // @Security OAuth2Application[none]
 func getFeatures(c *gin.Context) {
@@ -127,6 +130,7 @@ type SystemInfo struct {
 // @Summary Get system information
 // @Description Gets detailed system information including CPU, memory, and disk
 // @Success 200 {object} SystemInfo
+// @Tags Daemon Root
 // @Router /daemon/system [get]
 // @Security OAuth2Application[none]
 func getSystemInfo(c *gin.Context) {

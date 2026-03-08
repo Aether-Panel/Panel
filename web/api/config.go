@@ -12,6 +12,7 @@ import (
 // @Summary Get config
 // @Description Gets the editable config entries for the panel
 // @Success 200 {object} EditableConfig
+// @Tags Config
 // @Router /api/config [get]
 // @Security OAuth2Application[none]
 func panelConfig(c *gin.Context) {

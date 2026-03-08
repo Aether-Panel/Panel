@@ -1,5 +1,3 @@
-consumes:
-- application/json
 definitions:
   BrandingConfig:
     properties:
@@ -515,6 +513,8 @@ definitions:
         type: string
       ip:
         type: string
+      isGhost:
+        type: boolean
       name:
         type: string
       node:
@@ -561,7 +561,13 @@ definitions:
         type: number
       jvm:
         $ref: '#/definitions/utils.JvmStats'
+      maxMemory:
+        type: number
       memory:
+        type: number
+      running:
+        type: boolean
+      storage:
         type: number
     type: object
   ServerTask:
@@ -752,6 +758,10 @@ definitions:
         type: string
       roleId:
         type: integer
+      scopes:
+        items:
+          $ref: '#/definitions/Scopes'
+        type: array
       username:
         type: string
     type: object
@@ -813,6 +823,42 @@ definitions:
         type: string
       value: {}
     type: object
+  auth.LoginRequestData:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  auth.LoginResponse:
+    properties:
+      otpNeeded:
+        type: boolean
+      scopes:
+        items:
+          $ref: '#/definitions/Scopes'
+        type: array
+    type: object
+  auth.OtpRequestData:
+    properties:
+      token:
+        type: string
+    type: object
+  auth.registerRequestData:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+      username:
+        maxLength: 100
+        minLength: 5
+        type: string
+    required:
+    - email
+    - password
+    - username
+    type: object
   daemon.PluginInfo:
     properties:
       name:
@@ -833,7 +879,7 @@ definitions:
       iconUrl:
         type: string
       id:
-        type: integer
+        type: string
       name:
         type: string
       tag:
@@ -910,15 +956,7 @@ definitions:
         type: integer
     type: object
 info:
-  contact:
-    name: SkyPanel
-    url: https://SkyPanel.com
-  description: SkyPanel API interface for both the panel and daemon.
-  license:
-    name: Apache 2.0
-    url: http://www.apache.org/licenses/LICENSE-2.0.html
-  title: SkyPanel API
-  version: "3.0"
+  contact: {}
 paths:
   /api/config:
     get:
@@ -932,6 +970,8 @@ paths:
       - OAuth2Application:
         - none
       summary: Get config
+      tags:
+      - Config
   /api/databasehosts:
     get:
       description: Gets all database hosts registered to the panel
@@ -962,6 +1002,8 @@ paths:
       - OAuth2Application:
         - admin
       summary: Get database hosts
+      tags:
+      - Database Hosts
     post:
       description: Creates a database host
       parameters:
@@ -996,6 +1038,8 @@ paths:
       - OAuth2Application:
         - admin
       summary: Create database host
+      tags:
+      - Database Hosts
   /api/databasehosts/{id}:
     delete:
       description: Deletes a database host
@@ -1028,6 +1072,8 @@ paths:
       - OAuth2Application:
         - admin
       summary: Delete database host
+      tags:
+      - Database Hosts
     get:
       description: Gets information about a single database host
       parameters:
@@ -1061,6 +1107,8 @@ paths:
       - OAuth2Application:
         - admin
       summary: Get database host
+      tags:
+      - Database Hosts
     put:
       description: Updates a database host with given information
       parameters:
@@ -1098,6 +1146,8 @@ paths:
       - OAuth2Application:
         - admin
       summary: Update database host
+      tags:
+      - Database Hosts
   /api/nodes:
     get:
       description: Gets all nodes registered to the panel
@@ -1128,6 +1178,8 @@ paths:
       - OAuth2Application:
         - nodes.view
       summary: Get nodes
+      tags:
+      - Nodes
     post:
       description: Creates a node
       responses:
@@ -1155,6 +1207,8 @@ paths:
       - OAuth2Application:
         - nodes.create
       summary: Create node
+      tags:
+      - Nodes
   /api/nodes/{id}:
     delete:
       description: Deletes the node
@@ -1187,6 +1241,8 @@ paths:
       - OAuth2Application:
         - nodes.delete
       summary: Deletes a node
+      tags:
+      - Nodes
     get:
       description: Gets information about a single node
       parameters:
@@ -1220,6 +1276,8 @@ paths:
       - OAuth2Application:
         - nodes.view
       summary: Get node
+      tags:
+      - Nodes
     put:
       description: Updates a node with given information
       parameters:
@@ -1257,6 +1315,8 @@ paths:
       - OAuth2Application:
         - nodes.edit
       summary: Update node
+      tags:
+      - Nodes
   /api/nodes/{id}/deployment:
     get:
       description: Gets the secret information needed to deploy a node.
@@ -1291,6 +1351,8 @@ paths:
       - OAuth2Application:
         - nodes.deploy
       summary: Gets the data to deploy a node
+      tags:
+      - Nodes
   /api/nodes/{id}/features:
     get:
       description: Gets the environments and if docker is supported on a node
@@ -1325,6 +1387,8 @@ paths:
       - OAuth2Application:
         - nodes.view
       summary: Gets the features a node supports
+      tags:
+      - Nodes
   /api/nodes/{id}/system:
     get:
       description: Gets detailed system information including CPU, memory, and disk
@@ -1359,6 +1423,8 @@ paths:
       - OAuth2Application:
         - nodes.view
       summary: Gets the system information of a node
+      tags:
+      - Nodes
   /api/roles:
     get:
       responses:
@@ -1380,6 +1446,8 @@ paths:
       - OAuth2Application:
         - admin
       summary: List roles
+      tags:
+      - Roles
     post:
       parameters:
       - description: New role information
@@ -1409,6 +1477,8 @@ paths:
       - OAuth2Application:
         - admin
       summary: Create role
+      tags:
+      - Roles
   /api/roles/{id}:
     delete:
       parameters:
@@ -1440,6 +1510,8 @@ paths:
       - OAuth2Application:
         - admin
       summary: Delete role
+      tags:
+      - Roles
     get:
       parameters:
       - description: Role ID
@@ -1472,6 +1544,8 @@ paths:
       - OAuth2Application:
         - admin
       summary: Get role
+      tags:
+      - Roles
     post:
       parameters:
       - description: Role ID
@@ -1510,6 +1584,8 @@ paths:
       - OAuth2Application:
         - admin
       summary: Update role
+      tags:
+      - Roles
   /api/self:
     get:
       description: Gets the user information of the current user
@@ -1538,6 +1614,8 @@ paths:
       - OAuth2Application:
         - login
       summary: Get your user info
+      tags:
+      - Self
     put:
       description: Update user information for your current user
       parameters:
@@ -1570,6 +1648,8 @@ paths:
       - OAuth2Application:
         - self.edit
       summary: Update your user
+      tags:
+      - Self
   /api/self/oauth2:
     get:
       description: Gets known OAuth2 clients the logged-in user has registered
@@ -1600,6 +1680,8 @@ paths:
       - OAuth2Application:
         - self.clients
       summary: Gets registered OAuth2 clients
+      tags:
+      - Self
     post:
       parameters:
       - description: Information for the client to create
@@ -1632,6 +1714,8 @@ paths:
       - OAuth2Application:
         - self.clients
       summary: Create an account-level OAuth2 client
+      tags:
+      - Self
   /api/self/oauth2/{id}:
     delete:
       parameters:
@@ -1663,6 +1747,8 @@ paths:
       - OAuth2Application:
         - self.clients
       summary: Deletes an account-level OAuth2 client
+      tags:
+      - Self
   /api/servers:
     get:
       description: Gets servers, and allowing for filtering of servers. * is a wildcard
@@ -1697,6 +1783,8 @@ paths:
       - OAuth2Application:
         - server.view
       summary: Search servers
+      tags:
+      - Daemon Servers
   /api/servers/{id}:
     delete:
       description: Deletes a server from the panel
@@ -1713,6 +1801,8 @@ paths:
       - OAuth2Application:
         - server.delete
       summary: Deletes a server
+      tags:
+      - Daemon Servers
     get:
       description: Gets a particular server
       parameters:
@@ -1730,6 +1820,8 @@ paths:
       - OAuth2Application:
         - server.view
       summary: Get a server
+      tags:
+      - Daemon Servers
     put:
       description: Creates a server
       parameters:
@@ -1753,6 +1845,8 @@ paths:
       - OAuth2Application:
         - server.create
       summary: Create server
+      tags:
+      - Daemon Servers
   /api/servers/{id}/archive/{filename}:
     post:
       description: Creates an archive of files or folders
@@ -1782,6 +1876,8 @@ paths:
       - OAuth2Application:
         - server.files.edit
       summary: Create archive
+      tags:
+      - Daemon Server
   /api/servers/{id}/backup:
     get:
       description: Gets all backups made on this server
@@ -1800,6 +1896,8 @@ paths:
       - OAuth2Application:
         - server.backup.view
       summary: Gets servers backups
+      tags:
+      - Daemon Servers
   /api/servers/{id}/backup/{backupId}:
     get:
       description: Gets a specific backup made on this server
@@ -1823,6 +1921,8 @@ paths:
       - OAuth2Application:
         - server.backup.view
       summary: Gets a specific backup on a server
+      tags:
+      - Daemon Servers
   /api/servers/{id}/backup/Delete/{backupId}:
     delete:
       description: Download a server backup
@@ -1844,6 +1944,8 @@ paths:
       - OAuth2Application:
         - server.backup.restore
       summary: Download backup
+      tags:
+      - Daemon Servers
   /api/servers/{id}/backup/create:
     post:
       description: Creates a full backup of the server
@@ -1862,6 +1964,8 @@ paths:
       - OAuth2Application:
         - server.backup.create
       summary: Create backup
+      tags:
+      - Daemon Server
   /api/servers/{id}/backup/delete:
     post:
       description: Delete a backup of the server
@@ -1883,6 +1987,8 @@ paths:
       - OAuth2Application:
         - server.backup.delete
       summary: Delete backup
+      tags:
+      - Daemon Server
   /api/servers/{id}/backup/restore:
     post:
       description: Download a backup of the server
@@ -1904,6 +2010,8 @@ paths:
       - OAuth2Application:
         - server.backup.restore
       summary: Download backup
+      tags:
+      - Daemon Server
   /api/servers/{id}/console:
     get:
       description: Get the console logs for the server
@@ -1914,6 +2022,7 @@ paths:
         required: true
         type: string
       - description: Epoch time in MS to get from
+        format: int64
         in: query
         name: time
         type: integer
@@ -1926,6 +2035,8 @@ paths:
       - OAuth2Application:
         - server.console
       summary: Get logs
+      tags:
+      - Daemon Server
     post:
       description: Sends a command to the server
       parameters:
@@ -1947,6 +2058,8 @@ paths:
       - OAuth2Application:
         - server.console.send
       summary: Send command
+      tags:
+      - Daemon Server
   /api/servers/{id}/data:
     get:
       description: Get server variables
@@ -1965,6 +2078,8 @@ paths:
       - OAuth2Application:
         - server.data.view
       summary: Get server data
+      tags:
+      - Daemon Server
     post:
       description: Updates a server's set of variables
       parameters:
@@ -1987,6 +2102,8 @@ paths:
       - OAuth2Application:
         - server.data.edit
       summary: Update server data
+      tags:
+      - Daemon Servers
     put:
       description: Updates a server's set of variables
       parameters:
@@ -2009,6 +2126,8 @@ paths:
       - OAuth2Application:
         - server.data.edit.admin
       summary: Update server data with admin level rights
+      tags:
+      - Daemon Servers
   /api/servers/{id}/definition:
     get:
       description: Get server definition
@@ -2027,6 +2146,8 @@ paths:
       - OAuth2Application:
         - server.definition.view
       summary: Get server definition
+      tags:
+      - Daemon Server
     post:
       description: Updates the server with a new definition
       parameters:
@@ -2048,6 +2169,8 @@ paths:
       - OAuth2Application:
         - server.definition.edit
       summary: Edit server definition
+      tags:
+      - Daemon Server
     put:
       description: Updates a server definition
       parameters:
@@ -2069,6 +2192,8 @@ paths:
       - OAuth2Application:
         - server.definition.edit
       summary: Update server definition
+      tags:
+      - Daemon Servers
   /api/servers/{id}/extract/{filename}:
     post:
       description: Extracts an archive to the server
@@ -2095,6 +2220,8 @@ paths:
       - OAuth2Application:
         - server.files.edit
       summary: Extract archive
+      tags:
+      - Daemon Server
   /api/servers/{id}/file/{filepath}:
     delete:
       description: |-
@@ -2118,6 +2245,8 @@ paths:
       - OAuth2Application:
         - server.files.edit
       summary: Delete file
+      tags:
+      - Daemon Server
     get:
       description: |-
         Gets a specific file or a list of files in a folder. This will either return
@@ -2141,6 +2270,8 @@ paths:
       - OAuth2Application:
         - server.files.view
       summary: Get file/folder
+      tags:
+      - Daemon Server
     put:
       consumes:
       - multipart/form-data
@@ -2168,6 +2299,8 @@ paths:
       - OAuth2Application:
         - server.files.edit
       summary: Edit file
+      tags:
+      - Daemon Server
   /api/servers/{id}/flags:
     get:
       description: Get the management flags for a server
@@ -2186,6 +2319,8 @@ paths:
       - OAuth2Application:
         - server.flags.view
       summary: Get flags
+      tags:
+      - Daemon Server
     post:
       description: Sets management flags for a server
       parameters:
@@ -2207,6 +2342,8 @@ paths:
       - OAuth2Application:
         - server.flags.edit
       summary: Set flags
+      tags:
+      - Daemon Server
   /api/servers/{id}/install:
     post:
       description: Install server
@@ -2225,6 +2362,8 @@ paths:
       - OAuth2Application:
         - server.install
       summary: Install server
+      tags:
+      - Daemon Server
   /api/servers/{id}/kill:
     post:
       description: Kill server
@@ -2241,6 +2380,8 @@ paths:
       - OAuth2Application:
         - server.kill
       summary: Kill server
+      tags:
+      - Daemon Server
   /api/servers/{id}/name/{name}:
     put:
       description: Renames a server
@@ -2262,6 +2403,8 @@ paths:
       - OAuth2Application:
         - server.name.edit
       summary: Rename server
+      tags:
+      - Daemon Servers
   /api/servers/{id}/query:
     get:
       description: Queries the server using the server's protocol to gather information
@@ -2282,6 +2425,8 @@ paths:
       - OAuth2Application:
         - server.query
       summary: Queries the server for game-specific stats
+      tags:
+      - Daemon Server
     head:
       description: Returns a 202 if the server can be queried, otherwise 204
       parameters:
@@ -2299,6 +2444,8 @@ paths:
       - OAuth2Application:
         - server.query
       summary: Determine if the server supports query protocol
+      tags:
+      - Daemon Server
   /api/servers/{id}/reload:
     post:
       description: Reload server
@@ -2315,6 +2462,8 @@ paths:
       - OAuth2Application:
         - server.reload
       summary: Reload server
+      tags:
+      - Daemon Server
   /api/servers/{id}/restart:
     post:
       description: Restart server
@@ -2334,6 +2483,8 @@ paths:
         - server.start
         - server.stop
       summary: Restart server
+      tags:
+      - Daemon Server
   /api/servers/{id}/start:
     post:
       description: Start server
@@ -2352,6 +2503,8 @@ paths:
       - OAuth2Application:
         - server.start
       summary: Start server
+      tags:
+      - Daemon Server
   /api/servers/{id}/stats:
     get:
       description: Gets the CPU and memory usage of the server
@@ -2370,6 +2523,8 @@ paths:
       - OAuth2Application:
         - server.stats
       summary: Get stats
+      tags:
+      - Daemon Server
   /api/servers/{id}/status:
     get:
       description: Get the server's status (is it running)
@@ -2388,6 +2543,8 @@ paths:
       - OAuth2Application:
         - server.status
       summary: Get status
+      tags:
+      - Daemon Server
   /api/servers/{id}/stop:
     post:
       description: Stop server
@@ -2406,6 +2563,8 @@ paths:
       - OAuth2Application:
         - server.stop
       summary: Stop server
+      tags:
+      - Daemon Server
   /api/servers/{id}/tasks:
     get:
       description: Get server tasks
@@ -2424,6 +2583,8 @@ paths:
       - OAuth2Application:
         - server.tasks.view
       summary: Get server tasks
+      tags:
+      - Daemon Server
   /api/servers/{id}/tasks/{taskId}:
     delete:
       description: Delete server task by id
@@ -2445,6 +2606,8 @@ paths:
       - OAuth2Application:
         - server.tasks.delete
       summary: Delete server task
+      tags:
+      - Daemon Server
     get:
       description: Get server task by id
       parameters:
@@ -2467,6 +2630,8 @@ paths:
       - OAuth2Application:
         - server.tasks.view
       summary: Get server task
+      tags:
+      - Daemon Server
     put:
       description: Edit server task by id
       parameters:
@@ -2493,6 +2658,8 @@ paths:
       - OAuth2Application:
         - server.tasks.edit
       summary: Edit server task
+      tags:
+      - Daemon Server
   /api/servers/{id}/tasks/{taskId}/run:
     post:
       description: Run a specific task
@@ -2514,6 +2681,8 @@ paths:
       - OAuth2Application:
         - server.tasks.run
       summary: Run server task
+      tags:
+      - Daemon Server
   /api/servers/{id}/user:
     get:
       parameters:
@@ -2533,6 +2702,9 @@ paths:
       - OAuth2Application:
         - server.users.view
       summary: Gets all users for a server
+      tags:
+      - Daemon Servers
+      - Daemon Servers
   /api/servers/{id}/user/{email}:
     get:
       parameters:
@@ -2557,6 +2729,9 @@ paths:
       - OAuth2Application:
         - server.users.view
       summary: Gets all users for a server
+      tags:
+      - Daemon Servers
+      - Daemon Servers
   /api/servers/{id}/users/{email}:
     delete:
       parameters:
@@ -2577,6 +2752,8 @@ paths:
       - OAuth2Application:
         - server.users.delete
       summary: Removes access to a server
+      tags:
+      - Daemon Servers
     put:
       parameters:
       - description: Server ID
@@ -2602,6 +2779,8 @@ paths:
       - OAuth2Application:
         - server.users.edit
       summary: Edits access to a server
+      tags:
+      - Daemon Servers
   /api/servers/{serverId}/databases:
     get:
       description: Gets all databases for a specific server
@@ -2638,6 +2817,8 @@ paths:
       - OAuth2Application:
         - server.view
       summary: Get databases for server
+      tags:
+      - Databases
     post:
       description: Creates a database for a server
       parameters:
@@ -2677,6 +2858,8 @@ paths:
       - OAuth2Application:
         - server.data.edit
       summary: Create database
+      tags:
+      - Databases
   /api/servers/{serverId}/databases/{id}:
     delete:
       description: Deletes a database (and its MySQL user)
@@ -2714,6 +2897,8 @@ paths:
       - OAuth2Application:
         - server.data.edit
       summary: Delete database
+      tags:
+      - Databases
   /api/settings:
     post:
       description: Updates multiple panel settings at once
@@ -2739,6 +2924,8 @@ paths:
       - OAuth2Application:
         - settings.edit
       summary: Update multiple panel setting
+      tags:
+      - Panel Settings
   /api/settings/{key}:
     get:
       description: Gets the value currently being used for the specified config key
@@ -2757,6 +2944,8 @@ paths:
       - OAuth2Application:
         - settings.edit
       summary: Value a panel setting
+      tags:
+      - Panel Settings
     put:
       description: Updates the value of a panel setting
       parameters:
@@ -2786,6 +2975,8 @@ paths:
       - OAuth2Application:
         - settings.edit
       summary: Update a panel setting
+      tags:
+      - Panel Settings
   /api/settings/license/activate:
     post:
       description: Activates and verifies a license key with the external license
@@ -2817,6 +3008,8 @@ paths:
       - OAuth2Application:
         - settings.edit
       summary: Activate license
+      tags:
+      - Panel Settings
   /api/settings/test/discord:
     post:
       description: Tests Discord webhook settings by sending a test message to all
@@ -2828,6 +3021,8 @@ paths:
       - OAuth2Application:
         - settings.edit
       summary: Discord webhook test
+      tags:
+      - Panel Settings
   /api/settings/test/email:
     post:
       description: Tests email settings by sending an email
@@ -2838,6 +3033,8 @@ paths:
       - OAuth2Application:
         - settings.edit
       summary: Email test
+      tags:
+      - Panel Settings
   /api/templates:
     get:
       description: Gets all repos that are available to pull template from
@@ -2860,6 +3057,8 @@ paths:
       - OAuth2Application:
         - templates.view
       summary: Get all repos
+      tags:
+      - Templates
     post:
       description: Adds a new repo to the service
       parameters:
@@ -2886,6 +3085,8 @@ paths:
       - OAuth2Application:
         - templates.repo.create
       summary: Add repo
+      tags:
+      - Templates
   /api/templates/{repo}:
     delete:
       description: Deletes a repo from the service
@@ -2910,6 +3111,8 @@ paths:
       - OAuth2Application:
         - templates.repo.delete
       summary: Delete repo
+      tags:
+      - Templates
     get:
       description: Gets all templates from a repository
       parameters:
@@ -2937,6 +3140,8 @@ paths:
       - OAuth2Application:
         - templates.view
       summary: Get all templates from repo
+      tags:
+      - Templates
   /api/templates/{repo}/{template}:
     get:
       description: Gets a template from the repo
@@ -2964,6 +3169,8 @@ paths:
       - OAuth2Application:
         - templates.view
       summary: Get template
+      tags:
+      - Templates
   /api/templates/local/{name}:
     delete:
       description: Deletes template
@@ -2988,6 +3195,8 @@ paths:
       - OAuth2Application:
         - templates.repo.delete
       summary: Deletes template
+      tags:
+      - Templates
     put:
       parameters:
       - description: Template
@@ -3016,6 +3225,8 @@ paths:
       - OAuth2Application:
         - templates.local.edit
       summary: Adds or updates a template
+      tags:
+      - Templates
   /api/uptime:
     get:
       description: Gets uptime statistics for all servers
@@ -3029,6 +3240,8 @@ paths:
       - OAuth2Application:
         - admin
       summary: Get all servers uptime
+      tags:
+      - Uptime
   /api/uptime/{id}:
     get:
       description: Gets uptime statistics for a specific server
@@ -3056,6 +3269,8 @@ paths:
       - OAuth2Application:
         - server.view
       summary: Get server uptime
+      tags:
+      - Uptime
   /api/users:
     get:
       description: Gets users, and allowing for filtering of users. * is a wildcard
@@ -3092,6 +3307,8 @@ paths:
       - OAuth2Application:
         - users.info.search
       summary: Get users
+      tags:
+      - Users
     post:
       parameters:
       - description: New user information
@@ -3125,6 +3342,8 @@ paths:
       - OAuth2Application:
         - users.info.edit
       summary: Create user
+      tags:
+      - Users
   /api/users/{id}:
     delete:
       parameters:
@@ -3156,6 +3375,8 @@ paths:
       - OAuth2Application:
         - users.info.edit
       summary: Delete user
+      tags:
+      - Users
     get:
       parameters:
       - description: User ID
@@ -3188,6 +3409,8 @@ paths:
       - OAuth2Application:
         - users.info.view
       summary: Get a user
+      tags:
+      - Users
     post:
       parameters:
       - description: User ID
@@ -3224,6 +3447,8 @@ paths:
       - OAuth2Application:
         - users.info.edit
       summary: Update user
+      tags:
+      - Users
   /api/users/{id}/perms:
     get:
       parameters:
@@ -3257,6 +3482,8 @@ paths:
       - OAuth2Application:
         - users.perms.view
       summary: Gets user permissions
+      tags:
+      - Users
     put:
       parameters:
       - description: User ID
@@ -3293,6 +3520,8 @@ paths:
       - OAuth2Application:
         - users.perms.edit
       summary: Sets user permissions
+      tags:
+      - Users
   /api/usersettings:
     get:
       description: Gets all settings specific to the current user
@@ -3311,6 +3540,8 @@ paths:
       - OAuth2Application:
         - login
       summary: Get a user setting
+      tags:
+      - User Settings
   /api/usersettings/{key}:
     put:
       description: Updates the value of a user setting
@@ -3341,6 +3572,134 @@ paths:
       - OAuth2Application:
         - login
       summary: Update a user setting
+      tags:
+      - User Settings
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticates a user and starts a session
+      parameters:
+      - description: Login Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.LoginRequestData'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.LoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: User Login
+      tags:
+      - Auth
+  /auth/logout:
+    post:
+      description: Invalidates the current user session
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+          schema:
+            type: string
+      summary: User Logout
+      tags:
+      - Auth
+  /auth/otp:
+    post:
+      consumes:
+      - application/json
+      description: Verifies an OTP code for a login attempt
+      parameters:
+      - description: OTP Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.OtpRequestData'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.LoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: OTP Verification
+      tags:
+      - Auth
+  /auth/publickey:
+    get:
+      description: Gets the public JSON Web Key Set
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Get public JWKS
+      tags:
+      - Auth
+  /auth/reauth:
+    post:
+      description: Reauthenticates a user and refreshes their session
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.LoginResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Reauthenticate user
+      tags:
+      - Auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new user account if registration is enabled
+      parameters:
+      - description: Registration Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.registerRequestData'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.LoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Register a new user
+      tags:
+      - Auth
   /daemon:
     get:
       description: Check to see if the daemon is online or not
@@ -3353,6 +3712,8 @@ paths:
       - OAuth2Application:
         - none
       summary: Check daemon status
+      tags:
+      - Daemon Root
     head:
       description: Check to see if the daemon is online or not
       responses:
@@ -3362,6 +3723,8 @@ paths:
       - OAuth2Application:
         - none
       summary: Check daemon status
+      tags:
+      - Daemon Root
   /daemon/features:
     get:
       description: Gets the features that the node supports, like it's OS and environments
@@ -3374,6 +3737,8 @@ paths:
       - OAuth2Application:
         - none
       summary: Get features of the node
+      tags:
+      - Daemon Root
   /daemon/server/{id}/plugins:
     delete:
       description: Deletes a plugin from the server
@@ -3392,6 +3757,8 @@ paths:
         "204":
           description: No Content
       summary: Delete plugin
+      tags:
+      - Daemon Server
     get:
       description: Gets list of plugins installed in the server
       parameters:
@@ -3408,6 +3775,8 @@ paths:
               $ref: '#/definitions/daemon.PluginInfo'
             type: array
       summary: Get installed plugins
+      tags:
+      - Daemon Server
   /daemon/server/{id}/plugins/{pluginId}:
     post:
       description: Downloads and installs a plugin from Spigot
@@ -3426,6 +3795,8 @@ paths:
         "204":
           description: No Content
       summary: Install plugin
+      tags:
+      - Daemon Server
   /daemon/server/{id}/plugins/search:
     get:
       description: Searches for plugins using Spigot API
@@ -3448,6 +3819,8 @@ paths:
               $ref: '#/definitions/daemon.PluginSearchResult'
             type: array
       summary: Search plugins
+      tags:
+      - Daemon Server
   /daemon/system:
     get:
       description: Gets detailed system information including CPU, memory, and disk
@@ -3460,6 +3833,8 @@ paths:
       - OAuth2Application:
         - none
       summary: Get system information
+      tags:
+      - Daemon Root
   /oauth2/token:
     post:
       consumes:
@@ -3501,71 +3876,6 @@ paths:
           schema:
             $ref: '#/definitions/OAuthErrorResponse'
       summary: Authenticate
-produces:
-- application/json
-- application/json
-securityDefinitions:
-  OAuth2Application:
-    flow: application
-    scopes:
-      admin: Administrator, full rights to all actions
-      login: Allows logging into the panel
-      nodes.create: Allows creating nodes
-      nodes.delete: Allows for deleting nodes
-      nodes.deploy: Allows getting the config of a node for deployment
-      nodes.edit: Allows editing of node connection information
-      nodes.view: Allows viewing nodes
-      none: No scope needed
-      oauth2.auth: Scope to validate another OAuth2 credential
-      self.clients: Allows creating OAuth2 clients under the account
-      self.edit: Allows editing of personal account
-      server.admin: Admin access to a server (full permissions)
-      server.clients.create: Allows adding a new OAuth2 client to a server
-      server.clients.delete: Allows deleting OAuth2 clients associated to a server
-      server.clients.edit: Allows editing OAuth2 clients associated to a server
-      server.clients.view: Allows viewing OAuth2 clients associated to a server
-      server.console: Allows viewing the console of a server
-      server.console.send: Allows sending commands to a server's console
-      server.create: Allows creating servers
-      server.data.edit: Allows editing the values of variables
-      server.data.view: Allows viewing a server's variables
-      server.definition.edit: Allows editing a server's definition
-      server.definition.view: Allows viewing a server's definition
-      server.delete: Allows deleting servers
-      server.files.edit: Allows editing files for a server through the File Manager
-      server.files.view: Allows viewing and downloading files for a server through
-        the File Manager
-      server.flags.edit: Allows changing flags on the server
-      server.flags.view: Allows viewing a server's flags
-      server.install: Allows using the "Install" button for a server
-      server.kill: Allows killing a server
-      server.name.edit: Allows editing of a server name
-      server.reload: Allows reloading of a server's definition from disk
-      server.sftp: Allows connection to a server over SFTP
-      server.start: Allow starting a server
-      server.stats: Allows getting stats of a server like CPU and memory usage
-      server.status: Allows getting the status of a server
-      server.stop: Allows stopping a server
-      server.tasks.add: Allows adding a new tasks to a server
-      server.tasks.delete: Allows deleting tasks from to a server
-      server.tasks.edit: Allows editing tasks associated to a server
-      server.tasks.run: Allows for running tasks on a server
-      server.tasks.view: Allows viewing tasks associated to a server
-      server.users.create: Allows adding a new user to a server
-      server.users.delete: Allows removing users from to a server
-      server.users.edit: Allows editing user permissions to a server
-      server.users.view: Allows viewing users associated to a server
-      server.view: Allows viewing a server
-      settings.edit: Allows for editing of panel settings
-      templates.local.edit: Allows editing of templates in the local repo
-      templates.repo.create: Allows adding a new template repo
-      templates.repo.delete: Allows deleting of a template repo
-      templates.view: Allows viewing templates
-      users.info.edit: Allows for editing a user's info
-      users.info.search: Allows for searching for users
-      users.info.view: Allows for viewing a user's info
-      users.perms.edit: Allows for editing a user's global permissions
-      users.perms.view: Allows for viewing a user's global permissions
-    tokenUrl: /oauth2/token
-    type: oauth2
+      tags:
+      - OAuth2
 swagger: "2.0"

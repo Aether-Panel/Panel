@@ -2,12 +2,20 @@ package auth
 
 import (
 	"context"
-	"github.com/gin-gonic/gin"
+	"net/http"
+
 	"github.com/SkyPanel/SkyPanel/v3/response"
 	"github.com/SkyPanel/SkyPanel/v3/services"
-	"net/http"
+	"github.com/gin-gonic/gin"
 )
 
+// @Summary Get public JWKS
+// @Description Gets the public JSON Web Key Set
+// @Produce json
+// @Success 200 {object} map[string]interface{}
+// @Failure 500 {object} SkyPanel.ErrorResponse
+// @Tags Auth
+// @Router /auth/publickey [get]
 func TokenServiceGetPublicKey(c *gin.Context) {
 	ts, err := services.NewTokenService()
 	if response.HandleError(c, err, http.StatusInternalServerError) {

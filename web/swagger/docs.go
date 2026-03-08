@@ -5,25 +5,11 @@ import "github.com/swaggo/swag"
 
 const docTemplate = `{
     "schemes": {{ marshal .Schemes }},
-    "consumes": [
-        "application/json"
-    ],
-    "produces": [
-        "application/json",
-        "application/json"
-    ],
     "swagger": "2.0",
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "contact": {
-            "name": "SkyPanel",
-            "url": "https://SkyPanel.com"
-        },
-        "license": {
-            "name": "Apache 2.0",
-            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
-        },
+        "contact": {},
         "version": "{{.Version}}"
     },
     "host": "{{.Host}}",
@@ -39,6 +25,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Gets the editable config entries for the panel",
+                "tags": [
+                    "Config"
+                ],
                 "summary": "Get config",
                 "responses": {
                     "200": {
@@ -60,6 +49,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Gets all database hosts registered to the panel",
+                "tags": [
+                    "Database Hosts"
+                ],
                 "summary": "Get database hosts",
                 "responses": {
                     "200": {
@@ -106,6 +98,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Creates a database host",
+                "tags": [
+                    "Database Hosts"
+                ],
                 "summary": "Create database host",
                 "parameters": [
                     {
@@ -162,6 +157,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Gets information about a single database host",
+                "tags": [
+                    "Database Hosts"
+                ],
                 "summary": "Get database host",
                 "parameters": [
                     {
@@ -214,6 +212,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Updates a database host with given information",
+                "tags": [
+                    "Database Hosts"
+                ],
                 "summary": "Update database host",
                 "parameters": [
                     {
@@ -272,6 +273,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Deletes a database host",
+                "tags": [
+                    "Database Hosts"
+                ],
                 "summary": "Delete database host",
                 "parameters": [
                     {
@@ -323,6 +327,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Gets all nodes registered to the panel",
+                "tags": [
+                    "Nodes"
+                ],
                 "summary": "Get nodes",
                 "responses": {
                     "200": {
@@ -369,6 +376,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Creates a node",
+                "tags": [
+                    "Nodes"
+                ],
                 "summary": "Create node",
                 "responses": {
                     "200": {
@@ -414,6 +424,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Gets information about a single node",
+                "tags": [
+                    "Nodes"
+                ],
                 "summary": "Get node",
                 "parameters": [
                     {
@@ -466,6 +479,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Updates a node with given information",
+                "tags": [
+                    "Nodes"
+                ],
                 "summary": "Update node",
                 "parameters": [
                     {
@@ -524,6 +540,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Deletes the node",
+                "tags": [
+                    "Nodes"
+                ],
                 "summary": "Deletes a node",
                 "parameters": [
                     {
@@ -575,6 +594,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Gets the secret information needed to deploy a node.",
+                "tags": [
+                    "Nodes"
+                ],
                 "summary": "Gets the data to deploy a node",
                 "parameters": [
                     {
@@ -629,6 +651,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Gets the environments and if docker is supported on a node",
+                "tags": [
+                    "Nodes"
+                ],
                 "summary": "Gets the features a node supports",
                 "parameters": [
                     {
@@ -683,6 +708,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Gets detailed system information including CPU, memory, and disk",
+                "tags": [
+                    "Nodes"
+                ],
                 "summary": "Gets the system information of a node",
                 "parameters": [
                     {
@@ -736,6 +764,9 @@ const docTemplate = `{
                         ]
                     }
                 ],
+                "tags": [
+                    "Roles"
+                ],
                 "summary": "List roles",
                 "responses": {
                     "200": {
@@ -768,6 +799,9 @@ const docTemplate = `{
                             "admin"
                         ]
                     }
+                ],
+                "tags": [
+                    "Roles"
                 ],
                 "summary": "Create role",
                 "parameters": [
@@ -817,6 +851,9 @@ const docTemplate = `{
                             "admin"
                         ]
                     }
+                ],
+                "tags": [
+                    "Roles"
                 ],
                 "summary": "Get role",
                 "parameters": [
@@ -868,6 +905,9 @@ const docTemplate = `{
                             "admin"
                         ]
                     }
+                ],
+                "tags": [
+                    "Roles"
                 ],
                 "summary": "Update role",
                 "parameters": [
@@ -929,6 +969,9 @@ const docTemplate = `{
                         ]
                     }
                 ],
+                "tags": [
+                    "Roles"
+                ],
                 "summary": "Delete role",
                 "parameters": [
                     {
@@ -980,6 +1023,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Gets the user information of the current user",
+                "tags": [
+                    "Self"
+                ],
                 "summary": "Get your user info",
                 "responses": {
                     "200": {
@@ -1023,6 +1069,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Update user information for your current user",
+                "tags": [
+                    "Self"
+                ],
                 "summary": "Update your user",
                 "parameters": [
                     {
@@ -1076,6 +1125,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Gets known OAuth2 clients the logged-in user has registered",
+                "tags": [
+                    "Self"
+                ],
                 "summary": "Gets registered OAuth2 clients",
                 "responses": {
                     "200": {
@@ -1120,6 +1172,9 @@ const docTemplate = `{
                             "self.clients"
                         ]
                     }
+                ],
+                "tags": [
+                    "Self"
                 ],
                 "summary": "Create an account-level OAuth2 client",
                 "parameters": [
@@ -1175,6 +1230,9 @@ const docTemplate = `{
                         ]
                     }
                 ],
+                "tags": [
+                    "Self"
+                ],
                 "summary": "Deletes an account-level OAuth2 client",
                 "parameters": [
                     {
@@ -1226,6 +1284,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Gets servers, and allowing for filtering of servers. * is a wildcard that can be used for text inputs",
+                "tags": [
+                    "Daemon Servers"
+                ],
                 "summary": "Search servers",
                 "parameters": [
                     {
@@ -1279,6 +1340,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Gets a particular server",
+                "tags": [
+                    "Daemon Servers"
+                ],
                 "summary": "Get a server",
                 "parameters": [
                     {
@@ -1307,6 +1371,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Creates a server",
+                "tags": [
+                    "Daemon Servers"
+                ],
                 "summary": "Create server",
                 "parameters": [
                     {
@@ -1344,6 +1411,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Deletes a server from the panel",
+                "tags": [
+                    "Daemon Servers"
+                ],
                 "summary": "Deletes a server",
                 "parameters": [
                     {
@@ -1371,6 +1441,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Creates an archive of files or folders",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Create archive",
                 "parameters": [
                     {
@@ -1417,6 +1490,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Gets all backups made on this server",
+                "tags": [
+                    "Daemon Servers"
+                ],
                 "summary": "Gets servers backups",
                 "parameters": [
                     {
@@ -1447,6 +1523,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Download a server backup",
+                "tags": [
+                    "Daemon Servers"
+                ],
                 "summary": "Download backup",
                 "parameters": [
                     {
@@ -1481,6 +1560,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Creates a full backup of the server",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Create backup",
                 "parameters": [
                     {
@@ -1511,6 +1593,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Delete a backup of the server",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Delete backup",
                 "parameters": [
                     {
@@ -1545,6 +1630,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Download a backup of the server",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Download backup",
                 "parameters": [
                     {
@@ -1579,6 +1667,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Gets a specific backup made on this server",
+                "tags": [
+                    "Daemon Servers"
+                ],
                 "summary": "Gets a specific backup on a server",
                 "parameters": [
                     {
@@ -1616,6 +1707,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Get the console logs for the server",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Get logs",
                 "parameters": [
                     {
@@ -1627,6 +1721,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
+                        "format": "int64",
                         "description": "Epoch time in MS to get from",
                         "name": "time",
                         "in": "query"
@@ -1650,6 +1745,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Sends a command to the server",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Send command",
                 "parameters": [
                     {
@@ -1686,6 +1784,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Get server variables",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Get server data",
                 "parameters": [
                     {
@@ -1714,6 +1815,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Updates a server's set of variables",
+                "tags": [
+                    "Daemon Servers"
+                ],
                 "summary": "Update server data with admin level rights",
                 "parameters": [
                     {
@@ -1749,6 +1853,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Updates a server's set of variables",
+                "tags": [
+                    "Daemon Servers"
+                ],
                 "summary": "Update server data",
                 "parameters": [
                     {
@@ -1786,6 +1893,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Get server definition",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Get server definition",
                 "parameters": [
                     {
@@ -1814,6 +1924,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Updates a server definition",
+                "tags": [
+                    "Daemon Servers"
+                ],
                 "summary": "Update server definition",
                 "parameters": [
                     {
@@ -1848,6 +1961,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Updates the server with a new definition",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Edit server definition",
                 "parameters": [
                     {
@@ -1884,6 +2000,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Extracts an archive to the server",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Extract archive",
                 "parameters": [
                     {
@@ -1925,6 +2044,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Gets a specific file or a list of files in a folder. This will either return\na) A raw file if the path points to a valid file\nor b) An array of files for the folder contents",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Get file/folder",
                 "parameters": [
                     {
@@ -1959,6 +2081,9 @@ const docTemplate = `{
                 "description": "Adds or edit a file, replacing the contents with the provided body",
                 "consumes": [
                     "multipart/form-data"
+                ],
+                "tags": [
+                    "Daemon Server"
                 ],
                 "summary": "Edit file",
                 "parameters": [
@@ -1999,6 +2124,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Deletes a file or folder.\nWARNING: This is a recursive operation, specifying a folder will delete all children",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Delete file",
                 "parameters": [
                     {
@@ -2033,6 +2161,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Get the management flags for a server",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Get flags",
                 "parameters": [
                     {
@@ -2061,6 +2192,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Sets management flags for a server",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Set flags",
                 "parameters": [
                     {
@@ -2097,6 +2231,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Install server",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Install server",
                 "parameters": [
                     {
@@ -2127,6 +2264,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Kill server",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Kill server",
                 "parameters": [
                     {
@@ -2154,6 +2294,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Renames a server",
+                "tags": [
+                    "Daemon Servers"
+                ],
                 "summary": "Rename server",
                 "parameters": [
                     {
@@ -2188,6 +2331,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Queries the server using the server's protocol to gather information such as players.",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Queries the server for game-specific stats",
                 "parameters": [
                     {
@@ -2217,6 +2363,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Returns a 202 if the server can be queried, otherwise 204",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Determine if the server supports query protocol",
                 "parameters": [
                     {
@@ -2247,6 +2396,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Reload server",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Reload server",
                 "parameters": [
                     {
@@ -2275,6 +2427,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Restart server",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Restart server",
                 "parameters": [
                     {
@@ -2305,6 +2460,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Start server",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Start server",
                 "parameters": [
                     {
@@ -2335,6 +2493,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Gets the CPU and memory usage of the server",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Get stats",
                 "parameters": [
                     {
@@ -2365,6 +2526,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Get the server's status (is it running)",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Get status",
                 "parameters": [
                     {
@@ -2395,6 +2559,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Stop server",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Stop server",
                 "parameters": [
                     {
@@ -2425,6 +2592,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Get server tasks",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Get server tasks",
                 "parameters": [
                     {
@@ -2455,6 +2625,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Get server task by id",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Get server task",
                 "parameters": [
                     {
@@ -2490,6 +2663,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Edit server task by id",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Edit server task",
                 "parameters": [
                     {
@@ -2531,6 +2707,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Delete server task by id",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Delete server task",
                 "parameters": [
                     {
@@ -2565,6 +2744,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Run a specific task",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Run server task",
                 "parameters": [
                     {
@@ -2598,6 +2780,10 @@ const docTemplate = `{
                         ]
                     }
                 ],
+                "tags": [
+                    "Daemon Servers",
+                    "Daemon Servers"
+                ],
                 "summary": "Gets all users for a server",
                 "parameters": [
                     {
@@ -2629,6 +2815,10 @@ const docTemplate = `{
                             "server.users.view"
                         ]
                     }
+                ],
+                "tags": [
+                    "Daemon Servers",
+                    "Daemon Servers"
                 ],
                 "summary": "Gets all users for a server",
                 "parameters": [
@@ -2668,6 +2858,9 @@ const docTemplate = `{
                             "server.users.edit"
                         ]
                     }
+                ],
+                "tags": [
+                    "Daemon Servers"
                 ],
                 "summary": "Edits access to a server",
                 "parameters": [
@@ -2709,6 +2902,9 @@ const docTemplate = `{
                         ]
                     }
                 ],
+                "tags": [
+                    "Daemon Servers"
+                ],
                 "summary": "Removes access to a server",
                 "parameters": [
                     {
@@ -2743,6 +2939,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Gets all databases for a specific server",
+                "tags": [
+                    "Databases"
+                ],
                 "summary": "Get databases for server",
                 "parameters": [
                     {
@@ -2798,6 +2997,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Creates a database for a server",
+                "tags": [
+                    "Databases"
+                ],
                 "summary": "Create database",
                 "parameters": [
                     {
@@ -2861,6 +3063,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Deletes a database (and its MySQL user)",
+                "tags": [
+                    "Databases"
+                ],
                 "summary": "Delete database",
                 "parameters": [
                     {
@@ -2919,6 +3124,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Updates multiple panel settings at once",
+                "tags": [
+                    "Panel Settings"
+                ],
                 "summary": "Update multiple panel setting",
                 "parameters": [
                     {
@@ -2960,6 +3168,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Activates and verifies a license key with the external license server",
+                "tags": [
+                    "Panel Settings"
+                ],
                 "summary": "Activate license",
                 "parameters": [
                     {
@@ -3008,6 +3219,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Tests Discord webhook settings by sending a test message to all configured webhooks",
+                "tags": [
+                    "Panel Settings"
+                ],
                 "summary": "Discord webhook test",
                 "responses": {
                     "204": {
@@ -3026,6 +3240,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Tests email settings by sending an email",
+                "tags": [
+                    "Panel Settings"
+                ],
                 "summary": "Email test",
                 "responses": {
                     "204": {
@@ -3044,6 +3261,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Gets the value currently being used for the specified config key",
+                "tags": [
+                    "Panel Settings"
+                ],
                 "summary": "Value a panel setting",
                 "parameters": [
                     {
@@ -3072,6 +3292,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Updates the value of a panel setting",
+                "tags": [
+                    "Panel Settings"
+                ],
                 "summary": "Update a panel setting",
                 "parameters": [
                     {
@@ -3120,6 +3343,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Gets all repos that are available to pull template from",
+                "tags": [
+                    "Templates"
+                ],
                 "summary": "Get all repos",
                 "responses": {
                     "200": {
@@ -3154,6 +3380,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Adds a new repo to the service",
+                "tags": [
+                    "Templates"
+                ],
                 "summary": "Add repo",
                 "parameters": [
                     {
@@ -3196,6 +3425,9 @@ const docTemplate = `{
                             "templates.local.edit"
                         ]
                     }
+                ],
+                "tags": [
+                    "Templates"
                 ],
                 "summary": "Adds or updates a template",
                 "parameters": [
@@ -3243,6 +3475,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Deletes template",
+                "tags": [
+                    "Templates"
+                ],
                 "summary": "Deletes template",
                 "parameters": [
                     {
@@ -3282,6 +3517,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Gets all templates from a repository",
+                "tags": [
+                    "Templates"
+                ],
                 "summary": "Get all templates from repo",
                 "parameters": [
                     {
@@ -3325,6 +3563,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Deletes a repo from the service",
+                "tags": [
+                    "Templates"
+                ],
                 "summary": "Delete repo",
                 "parameters": [
                     {
@@ -3364,6 +3605,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Gets a template from the repo",
+                "tags": [
+                    "Templates"
+                ],
                 "summary": "Get template",
                 "parameters": [
                     {
@@ -3407,6 +3651,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Gets uptime statistics for all servers",
+                "tags": [
+                    "Uptime"
+                ],
                 "summary": "Get all servers uptime",
                 "responses": {
                     "200": {
@@ -3429,6 +3676,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Gets uptime statistics for a specific server",
+                "tags": [
+                    "Uptime"
+                ],
                 "summary": "Get server uptime",
                 "parameters": [
                     {
@@ -3472,6 +3722,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Gets users, and allowing for filtering of users. * is a wildcard that can be used for text inputs",
+                "tags": [
+                    "Users"
+                ],
                 "summary": "Get users",
                 "parameters": [
                     {
@@ -3524,6 +3777,9 @@ const docTemplate = `{
                             "users.info.edit"
                         ]
                     }
+                ],
+                "tags": [
+                    "Users"
                 ],
                 "summary": "Create user",
                 "parameters": [
@@ -3580,6 +3836,9 @@ const docTemplate = `{
                         ]
                     }
                 ],
+                "tags": [
+                    "Users"
+                ],
                 "summary": "Get a user",
                 "parameters": [
                     {
@@ -3630,6 +3889,9 @@ const docTemplate = `{
                             "users.info.edit"
                         ]
                     }
+                ],
+                "tags": [
+                    "Users"
                 ],
                 "summary": "Update user",
                 "parameters": [
@@ -3688,6 +3950,9 @@ const docTemplate = `{
                         ]
                     }
                 ],
+                "tags": [
+                    "Users"
+                ],
                 "summary": "Delete user",
                 "parameters": [
                     {
@@ -3737,6 +4002,9 @@ const docTemplate = `{
                             "users.perms.view"
                         ]
                     }
+                ],
+                "tags": [
+                    "Users"
                 ],
                 "summary": "Gets user permissions",
                 "parameters": [
@@ -3788,6 +4056,9 @@ const docTemplate = `{
                             "users.perms.edit"
                         ]
                     }
+                ],
+                "tags": [
+                    "Users"
                 ],
                 "summary": "Sets user permissions",
                 "parameters": [
@@ -3849,6 +4120,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Gets all settings specific to the current user",
+                "tags": [
+                    "User Settings"
+                ],
                 "summary": "Get a user setting",
                 "responses": {
                     "200": {
@@ -3879,6 +4153,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Updates the value of a user setting",
+                "tags": [
+                    "User Settings"
+                ],
                 "summary": "Update a user setting",
                 "parameters": [
                     {
@@ -3917,6 +4194,199 @@ const docTemplate = `{
                 }
             }
         },
+        "/auth/login": {
+            "post": {
+                "description": "Authenticates a user and starts a session",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "User Login",
+                "parameters": [
+                    {
+                        "description": "Login Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/auth.LoginRequestData"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/auth.LoginResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/logout": {
+            "post": {
+                "description": "Invalidates the current user session",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "User Logout",
+                "responses": {
+                    "204": {
+                        "description": "No Content",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/otp": {
+            "post": {
+                "description": "Verifies an OTP code for a login attempt",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "OTP Verification",
+                "parameters": [
+                    {
+                        "description": "OTP Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/auth.OtpRequestData"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/auth.LoginResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/publickey": {
+            "get": {
+                "description": "Gets the public JSON Web Key Set",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Get public JWKS",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/reauth": {
+            "post": {
+                "description": "Reauthenticates a user and refreshes their session",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Reauthenticate user",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/auth.LoginResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/register": {
+            "post": {
+                "description": "Creates a new user account if registration is enabled",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Register a new user",
+                "parameters": [
+                    {
+                        "description": "Registration Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/auth.registerRequestData"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/auth.LoginResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/daemon": {
             "get": {
                 "security": [
@@ -3927,6 +4397,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Check to see if the daemon is online or not",
+                "tags": [
+                    "Daemon Root"
+                ],
                 "summary": "Check daemon status",
                 "responses": {
                     "200": {
@@ -3946,6 +4419,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Check to see if the daemon is online or not",
+                "tags": [
+                    "Daemon Root"
+                ],
                 "summary": "Check daemon status",
                 "responses": {
                     "204": {
@@ -3964,6 +4440,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Gets the features that the node supports, like it's OS and environments",
+                "tags": [
+                    "Daemon Root"
+                ],
                 "summary": "Get features of the node",
                 "responses": {
                     "200": {
@@ -3978,6 +4457,9 @@ const docTemplate = `{
         "/daemon/server/{id}/plugins": {
             "get": {
                 "description": "Gets list of plugins installed in the server",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Get installed plugins",
                 "parameters": [
                     {
@@ -4002,6 +4484,9 @@ const docTemplate = `{
             },
             "delete": {
                 "description": "Deletes a plugin from the server",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Delete plugin",
                 "parameters": [
                     {
@@ -4029,6 +4514,9 @@ const docTemplate = `{
         "/daemon/server/{id}/plugins/search": {
             "get": {
                 "description": "Searches for plugins using Spigot API",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Search plugins",
                 "parameters": [
                     {
@@ -4062,6 +4550,9 @@ const docTemplate = `{
         "/daemon/server/{id}/plugins/{pluginId}": {
             "post": {
                 "description": "Downloads and installs a plugin from Spigot",
+                "tags": [
+                    "Daemon Server"
+                ],
                 "summary": "Install plugin",
                 "parameters": [
                     {
@@ -4096,6 +4587,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Gets detailed system information including CPU, memory, and disk",
+                "tags": [
+                    "Daemon Root"
+                ],
                 "summary": "Get system information",
                 "responses": {
                     "200": {
@@ -4115,6 +4609,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "OAuth2"
                 ],
                 "summary": "Authenticate",
                 "parameters": [
@@ -4955,6 +5452,9 @@ const docTemplate = `{
                 "ip": {
                     "type": "string"
                 },
+                "isGhost": {
+                    "type": "boolean"
+                },
                 "name": {
                     "type": "string"
                 },
@@ -5026,7 +5526,16 @@ const docTemplate = `{
                 "jvm": {
                     "$ref": "#/definitions/utils.JvmStats"
                 },
+                "maxMemory": {
+                    "type": "number"
+                },
                 "memory": {
+                    "type": "number"
+                },
+                "running": {
+                    "type": "boolean"
+                },
+                "storage": {
                     "type": "number"
                 }
             }
@@ -5316,6 +5825,12 @@ const docTemplate = `{
                 "roleId": {
                     "type": "integer"
                 },
+                "scopes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Scopes"
+                    }
+                },
                 "username": {
                     "type": "string"
                 }
@@ -5410,6 +5925,60 @@ const docTemplate = `{
                 "value": {}
             }
         },
+        "auth.LoginRequestData": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "auth.LoginResponse": {
+            "type": "object",
+            "properties": {
+                "otpNeeded": {
+                    "type": "boolean"
+                },
+                "scopes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Scopes"
+                    }
+                }
+            }
+        },
+        "auth.OtpRequestData": {
+            "type": "object",
+            "properties": {
+                "token": {
+                    "type": "string"
+                }
+            }
+        },
+        "auth.registerRequestData": {
+            "type": "object",
+            "required": [
+                "email",
+                "password",
+                "username"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 5
+                }
+            }
+        },
         "daemon.PluginInfo": {
             "type": "object",
             "properties": {
@@ -5440,7 +6009,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "string"
                 },
                 "name": {
                     "type": "string"
@@ -5556,83 +6125,17 @@ const docTemplate = `{
                 }
             }
         }
-    },
-    "securityDefinitions": {
-        "OAuth2Application": {
-            "type": "oauth2",
-            "flow": "application",
-            "tokenUrl": "/oauth2/token",
-            "scopes": {
-                "admin": "Administrator, full rights to all actions",
-                "login": "Allows logging into the panel",
-                "nodes.create": "Allows creating nodes",
-                "nodes.delete": "Allows for deleting nodes",
-                "nodes.deploy": "Allows getting the config of a node for deployment",
-                "nodes.edit": "Allows editing of node connection information",
-                "nodes.view": "Allows viewing nodes",
-                "none": "No scope needed",
-                "oauth2.auth": "Scope to validate another OAuth2 credential",
-                "self.clients": "Allows creating OAuth2 clients under the account",
-                "self.edit": "Allows editing of personal account",
-                "server.admin": "Admin access to a server (full permissions)",
-                "server.clients.create": "Allows adding a new OAuth2 client to a server",
-                "server.clients.delete": "Allows deleting OAuth2 clients associated to a server",
-                "server.clients.edit": "Allows editing OAuth2 clients associated to a server",
-                "server.clients.view": "Allows viewing OAuth2 clients associated to a server",
-                "server.console": "Allows viewing the console of a server",
-                "server.console.send": "Allows sending commands to a server's console",
-                "server.create": "Allows creating servers",
-                "server.data.edit": "Allows editing the values of variables",
-                "server.data.view": "Allows viewing a server's variables",
-                "server.definition.edit": "Allows editing a server's definition",
-                "server.definition.view": "Allows viewing a server's definition",
-                "server.delete": "Allows deleting servers",
-                "server.files.edit": "Allows editing files for a server through the File Manager",
-                "server.files.view": "Allows viewing and downloading files for a server through the File Manager",
-                "server.flags.edit": "Allows changing flags on the server",
-                "server.flags.view": "Allows viewing a server's flags",
-                "server.install": "Allows using the \"Install\" button for a server",
-                "server.kill": "Allows killing a server",
-                "server.name.edit": "Allows editing of a server name",
-                "server.reload": "Allows reloading of a server's definition from disk",
-                "server.sftp": "Allows connection to a server over SFTP",
-                "server.start": "Allow starting a server",
-                "server.stats": "Allows getting stats of a server like CPU and memory usage",
-                "server.status": "Allows getting the status of a server",
-                "server.stop": "Allows stopping a server",
-                "server.tasks.add": "Allows adding a new tasks to a server",
-                "server.tasks.delete": "Allows deleting tasks from to a server",
-                "server.tasks.edit": "Allows editing tasks associated to a server",
-                "server.tasks.run": "Allows for running tasks on a server",
-                "server.tasks.view": "Allows viewing tasks associated to a server",
-                "server.users.create": "Allows adding a new user to a server",
-                "server.users.delete": "Allows removing users from to a server",
-                "server.users.edit": "Allows editing user permissions to a server",
-                "server.users.view": "Allows viewing users associated to a server",
-                "server.view": "Allows viewing a server",
-                "settings.edit": "Allows for editing of panel settings",
-                "templates.local.edit": "Allows editing of templates in the local repo",
-                "templates.repo.create": "Allows adding a new template repo",
-                "templates.repo.delete": "Allows deleting of a template repo",
-                "templates.view": "Allows viewing templates",
-                "users.info.edit": "Allows for editing a user's info",
-                "users.info.search": "Allows for searching for users",
-                "users.info.view": "Allows for viewing a user's info",
-                "users.perms.edit": "Allows for editing a user's global permissions",
-                "users.perms.view": "Allows for viewing a user's global permissions"
-            }
-        }
     }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "3.0",
+	Version:          "",
 	Host:             "",
 	BasePath:         "",
 	Schemes:          []string{},
-	Title:            "SkyPanel API",
-	Description:      "SkyPanel API interface for both the panel and daemon.",
+	Title:            "",
+	Description:      "",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

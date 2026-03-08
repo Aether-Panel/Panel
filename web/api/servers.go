@@ -162,6 +162,7 @@ func registerServers(g *gin.RouterGroup) {
 // @Param name query string false "Name of server to filter on"
 // @Param limit query uint false "Max number of results to return"
 // @Param page query uint false "What page to get back for many results"
+// @Tags Daemon Servers
 // @Router /api/servers [get]
 // @Security OAuth2Application[server.view]
 func searchServers(c *gin.Context) {
@@ -286,6 +287,7 @@ func searchServers(c *gin.Context) {
 // @Description Gets a particular server
 // @Success 200 {object} models.GetServerResponse
 // @Param id path string true "Server ID"
+// @Tags Daemon Servers
 // @Router /api/servers/{id} [get]
 // @Security OAuth2Application[server.view]
 func getServer(c *gin.Context) {
@@ -325,6 +327,7 @@ func getServer(c *gin.Context) {
 // @Success 200 {object} models.CreateServerResponse
 // @Param id path string true "Server ID"
 // @Param server body models.ServerCreation true "Creation information"
+// @Tags Daemon Servers
 // @Router /api/servers/{id} [put]
 // @Security OAuth2Application[server.create]
 func createServer(c *gin.Context) {
@@ -495,6 +498,7 @@ func createServer(c *gin.Context) {
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
 // @Param server body models.ServerWithName true "Server definition"
+// @Tags Daemon Servers
 // @Router /api/servers/{id}/definition [put]
 // @Security OAuth2Application[server.definition.edit]
 func editServer(c *gin.Context) {
@@ -576,6 +580,7 @@ func editServer(c *gin.Context) {
 // @Description Deletes a server from the panel
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
+// @Tags Daemon Servers
 // @Router /api/servers/{id} [delete]
 // @Security OAuth2Application[server.delete]
 func deleteServer(c *gin.Context) {
@@ -682,7 +687,9 @@ func deleteServer(c *gin.Context) {
 // @Success 200 {object} []models.UserPermissionsView
 // @Param id path string true "Server ID"
 // @Param email path string true "Email"
+// @Tags Daemon Servers
 // @Router /api/servers/{id}/user [get]
+// @Tags Daemon Servers
 // @Router /api/servers/{id}/user/{email} [get]
 // @Security OAuth2Application[server.users.view]
 func getServerUsers(c *gin.Context) {
@@ -760,6 +767,7 @@ func getServerUsers(c *gin.Context) {
 // @Param id path string true "Server ID"
 // @Param email path string true "Email of user"
 // @Param permissions body models.PermissionView true "New permissions to apply"
+// @Tags Daemon Servers
 // @Router /api/servers/{id}/users/{email} [put]
 // @Security OAuth2Application[server.users.edit]
 func editServerUser(c *gin.Context) {
@@ -884,6 +892,7 @@ func editServerUser(c *gin.Context) {
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
 // @Param email path string true "Email of user"
+// @Tags Daemon Servers
 // @Router /api/servers/{id}/users/{email} [delete]
 // @Security OAuth2Application[server.users.delete]
 func removeServerUser(c *gin.Context) {
@@ -943,6 +952,7 @@ func removeServerUser(c *gin.Context) {
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
 // @Param name path string true "New server name"
+// @Tags Daemon Servers
 // @Router /api/servers/{id}/name/{name} [put]
 // @Security OAuth2Application[server.name.edit]
 func renameServer(c *gin.Context) {
@@ -964,6 +974,7 @@ func renameServer(c *gin.Context) {
 // @Success 202 {object} nil
 // @Param id path string true "Server ID"
 // @Param server body map[string]interface{} true "Server variables"
+// @Tags Daemon Servers
 // @Router /api/servers/{id}/data [post]
 // @Security OAuth2Application[server.data.edit]
 func editServerData(c *gin.Context) {
@@ -975,6 +986,7 @@ func editServerData(c *gin.Context) {
 // @Success 202 {object} nil
 // @Param id path string true "Server ID"
 // @Param server body map[string]interface{} true "Server variables"
+// @Tags Daemon Servers
 // @Router /api/servers/{id}/data [put]
 // @Security OAuth2Application[server.data.edit.admin]
 func editServerDataAdmin(c *gin.Context) {
@@ -1035,6 +1047,7 @@ func editServerDataAdmin(c *gin.Context) {
 // @Description Gets all backups made on this server
 // @Success 200 {object} models.Backup
 // @Param id path string true "Server ID"
+// @Tags Daemon Servers
 // @Router /api/servers/{id}/backup [get]
 // @Security OAuth2Application[server.backup.view]
 func getBackups(c *gin.Context) {
@@ -1055,6 +1068,7 @@ func getBackups(c *gin.Context) {
 // @Success 200 {object} models.Backup
 // @Param id path string true "Server ID"
 // @Param backupId path string true "BackupId"
+// @Tags Daemon Servers
 // @Router /api/servers/{id}/backup/{backupId} [get]
 // @Security OAuth2Application[server.backup.view]
 func getBackup(c *gin.Context) {
@@ -1079,6 +1093,7 @@ func getBackup(c *gin.Context) {
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
 // @Query name query string true "name of the backup"
+// @Tags Daemon Servers
 // @Router /api/servers/{id}/backup/create [post]
 // @Security OAuth2Application[server.backup.create]
 func createBackup(c *gin.Context) {
@@ -1133,6 +1148,7 @@ func createBackup(c *gin.Context) {
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
 // @Param backupId path string true "Backup ID"
+// @Tags Daemon Servers
 // @Router /api/servers/{id}/backup/Delete/{backupId} [delete]
 // @Security OAuth2Application[server.backup.delete]
 func deleteBackup(c *gin.Context) {
@@ -1185,6 +1201,7 @@ func deleteBackup(c *gin.Context) {
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
 // @Param backupId path string true "Backup ID"
+// @Tags Daemon Servers
 // @Router /api/servers/{id}/backup/Delete/{backupId} [delete]
 // @Security OAuth2Application[server.backup.restore]
 func restoreBackup(c *gin.Context) {
@@ -1232,6 +1249,7 @@ func restoreBackup(c *gin.Context) {
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
 // @Param backupId path string true "Backup ID"
+// @Tags Daemon Servers
 // @Router /api/servers/{id}/backup/Delete/{backupId} [delete]
 // @Security OAuth2Application[server.backup.restore]
 func downloadBackup(c *gin.Context) {

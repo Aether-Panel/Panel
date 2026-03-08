@@ -25,6 +25,7 @@ const expiresIn = int64(time.Hour / time.Second)
 // @Failure 500 {object} oauth2.ErrorResponse
 // @Accept x-www-form-urlencoded
 // @Produce json
+// @Tags OAuth2
 // @Router /oauth2/token [post]
 func handleTokenRequest(c *gin.Context) {
 	var request OAuth2TokenRequest

@@ -30,6 +30,7 @@ func registerDatabaseHosts(g *gin.RouterGroup) {
 // @Failure 403 {object} SkyPanel.ErrorResponse
 // @Failure 404 {object} SkyPanel.ErrorResponse
 // @Failure 500 {object} SkyPanel.ErrorResponse
+// @Tags Database Hosts
 // @Router /api/databasehosts [get]
 // @Security OAuth2Application[admin]
 func getAllDatabaseHosts(c *gin.Context) {
@@ -68,6 +69,7 @@ func getAllDatabaseHosts(c *gin.Context) {
 // @Failure 404 {object} SkyPanel.ErrorResponse
 // @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param id path string true "Database Host Id"
+// @Tags Database Hosts
 // @Router /api/databasehosts/{id} [get]
 // @Security OAuth2Application[admin]
 func getDatabaseHost(c *gin.Context) {
@@ -109,6 +111,7 @@ func getDatabaseHost(c *gin.Context) {
 // @Failure 404 {object} SkyPanel.ErrorResponse
 // @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param databaseHost body models.DatabaseHostCreate true "Database Host information"
+// @Tags Database Hosts
 // @Router /api/databasehosts [post]
 // @Security OAuth2Application[admin]
 func createDatabaseHost(c *gin.Context) {
@@ -159,6 +162,7 @@ func createDatabaseHost(c *gin.Context) {
 // @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param id path string true "Database Host Id"
 // @Param databaseHost body models.DatabaseHostUpdate true "Database Host information"
+// @Tags Database Hosts
 // @Router /api/databasehosts/{id} [put]
 // @Security OAuth2Application[admin]
 func updateDatabaseHost(c *gin.Context) {
@@ -207,6 +211,7 @@ func updateDatabaseHost(c *gin.Context) {
 // @Failure 404 {object} SkyPanel.ErrorResponse
 // @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param id path string true "Database Host Id"
+// @Tags Database Hosts
 // @Router /api/databasehosts/{id} [delete]
 // @Security OAuth2Application[admin]
 func deleteDatabaseHost(c *gin.Context) {

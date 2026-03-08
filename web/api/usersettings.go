@@ -20,6 +20,7 @@ func registerUserSettings(g *gin.RouterGroup) {
 // @Description Gets all settings specific to the current user
 // @Success 200 {object} models.UserSettingsView
 // @Failure 500 {object} SkyPanel.ErrorResponse
+// @Tags User Settings
 // @Router /api/usersettings [get]
 // @Security OAuth2Application[login]
 func getUserSettings(c *gin.Context) {
@@ -43,6 +44,7 @@ func getUserSettings(c *gin.Context) {
 // @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param key path string true "The config key"
 // @Param value body models.ChangeUserSetting true "The new value for the setting"
+// @Tags User Settings
 // @Router /api/usersettings/{key} [PUT]
 // @Security OAuth2Application[login]
 func setUserSetting(c *gin.Context) {

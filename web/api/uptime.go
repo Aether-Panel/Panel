@@ -26,6 +26,7 @@ func registerUptime(g *gin.RouterGroup) {
 // @Summary Get all servers uptime
 // @Description Gets uptime statistics for all servers
 // @Success 200 {object} map[string]interface{} "Uptime statistics"
+// @Tags Uptime
 // @Router /api/uptime [get]
 // @Security OAuth2Application[admin]
 func getAllUptime(c *gin.Context) {
@@ -179,6 +180,7 @@ func getAllUptime(c *gin.Context) {
 // @Param id path string true "Server ID"
 // @Param days query int false "Number of days to look back (default: 30, max: 365)"
 // @Param limit query int false "Number of history records to return (default: 50, max: 200)"
+// @Tags Uptime
 // @Router /api/uptime/{id} [get]
 // @Security OAuth2Application[server.view]
 func getServerUptime(c *gin.Context) {

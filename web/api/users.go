@@ -37,6 +37,7 @@ func registerUsers(g *gin.RouterGroup) {
 // @Failure 404 {object} SkyPanel.ErrorResponse
 // @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param body body models.UserSearch true "Filters to search on"
+// @Tags Users
 // @Router /api/users [get]
 // @Security OAuth2Application[users.info.search]
 func searchUsers(c *gin.Context) {
@@ -78,6 +79,7 @@ func searchUsers(c *gin.Context) {
 // @Failure 404 {object} SkyPanel.ErrorResponse
 // @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param body body models.UserView true "New user information"
+// @Tags Users
 // @Router /api/users [post]
 // @Security OAuth2Application[users.info.edit]
 func createUser(c *gin.Context) {
@@ -120,6 +122,7 @@ func createUser(c *gin.Context) {
 // @Failure 404 {object} SkyPanel.ErrorResponse
 // @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param id path uint true "User ID"
+// @Tags Users
 // @Router /api/users/{id} [get]
 // @Security OAuth2Application[users.info.view]
 func getUser(c *gin.Context) {
@@ -149,6 +152,7 @@ func getUser(c *gin.Context) {
 // @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param id path uint true "User ID"
 // @Param body body models.UserView true "New user information"
+// @Tags Users
 // @Router /api/users/{id} [post]
 // @Security OAuth2Application[users.info.edit]
 func updateUser(c *gin.Context) {
@@ -194,6 +198,7 @@ func updateUser(c *gin.Context) {
 // @Failure 404 {object} SkyPanel.ErrorResponse
 // @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param id path uint true "User ID"
+// @Tags Users
 // @Router /api/users/{id} [delete]
 // @Security OAuth2Application[users.info.edit]
 func deleteUser(c *gin.Context) {
@@ -226,6 +231,7 @@ func deleteUser(c *gin.Context) {
 // @Failure 404 {object} SkyPanel.ErrorResponse
 // @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param id path uint true "User ID"
+// @Tags Users
 // @Router /api/users/{id}/perms [get]
 // @Security OAuth2Application[users.perms.view]
 func getUserPerms(c *gin.Context) {
@@ -261,6 +267,7 @@ func getUserPerms(c *gin.Context) {
 // @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param id path uint true "User ID"
 // @Param body body models.PermissionView true "New permissions"
+// @Tags Users
 // @Router /api/users/{id}/perms [put]
 // @Security OAuth2Application[users.perms.edit]
 func setUserPerms(c *gin.Context) {
