@@ -1,0 +1,17 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { ServerDetail } from "@/components/PageWrappers";
+import { servers } from "@/lib/data";
+
+export function getStaticPaths() {
+  return servers.map((server) => ({
+    params: { id: server.id },
+  }));
+}
+
+const { id } = Astro.params;
+---
+
+<BaseLayout title={`Server ${id} - Aether Panel`}>
+  <ServerDetail id={id} client:only="react" />
+</BaseLayout>

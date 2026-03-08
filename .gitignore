@@ -36,9 +36,12 @@ client.zip
 servers/*/bedrock_server
 servers/*/*.jar
 servers/*/bedrock-server-*.zip
-
+data/servers/*/bedrock_server
+data/servers/*/*.jar
+data/servers/*/bedrock-server-*.zip
 *.mca
-servers/
+/servers/
+data/servers/
 
 # Datos de desarrollo local (Docker)
 dev-data/
