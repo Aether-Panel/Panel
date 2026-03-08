@@ -1,11 +1,12 @@
 package api
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/SkyPanel/SkyPanel/v3/config"
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/SkyPanel/SkyPanel/v3/config"
+	"github.com/gin-gonic/gin"
 )
 
 // @Summary Get config
