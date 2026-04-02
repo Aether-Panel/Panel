@@ -24,7 +24,7 @@ Esta plataforma ofrece una arquitectura robusta para gestionar múltiples servid
 ### Gestión de Servidores
 *   **Multi-Servidor:** Capacidad para gestionar instancias ilimitadas de diferentes juegos.
 *   **Contenerización:** Cada servidor se ejecuta en un contenedor Docker aislado para máxima seguridad y control de recursos.
-*   **Plantillas:** Soporte para más de 24 tipos de juegos, incluyendo Minecraft, Terraria, Valheim, Rust y ARK.
+*   **Plantillas:** Soporte para más de 24 tipos de juegos, incluyendo Minecraft, Terraria, Valheim, Rust y ARK, etc.
 
 ### Administración y Seguridad
 *   **Multi-Usuario:** Sistema completo de usuarios y roles con permisos detallados.
