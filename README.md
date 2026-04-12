@@ -15,7 +15,7 @@ Aether Panel (nombre en clave interno: SkyPanel) es una solución moderna de ges
 
 Esta plataforma ofrece una arquitectura robusta para gestionar múltiples servidores de juegos desde una interfaz centralizada. Proporciona despliegue automático mediante contenedores Docker, gestión de usuarios con sistema de permisos granular y herramientas de monitoreo en tiempo real.
 
-**Versión Actual:** 1.0.1
+**Versión  Actual:** 1.0.1
 
 ---
 
