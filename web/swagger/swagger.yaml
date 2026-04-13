@@ -823,6 +823,13 @@ definitions:
         type: string
       value: {}
     type: object
+  api.TransferRequest:
+    properties:
+      nodeId:
+        type: integer
+    required:
+    - nodeId
+    type: object
   auth.LoginRequestData:
     properties:
       email:
@@ -2683,6 +2690,40 @@ paths:
       summary: Run server task
       tags:
       - Daemon Server
+  /api/servers/{id}/transfer:
+    post:
+      consumes:
+      - application/json
+      description: Transfer a server from one node to another
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Target Node ID
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.TransferRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Transfer started
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - server.edit.admin
+      summary: Transfer server
+      tags:
+      - Servers
   /api/servers/{id}/user:
     get:
       parameters:

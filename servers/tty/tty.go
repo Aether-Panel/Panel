@@ -65,12 +65,18 @@ func (t *tty) ExecuteAsyncImpl(environment *SkyPanel.Environment, steps SkyPanel
 
 	// Ensure binaries folder is in PATH
 	binDir := config.BinariesFolder.Value()
+	jailBinDir := binDir
+	// If the binaries folder is relative and we're using unshare, it needs to be absolute within the jail
+	if !filepath.IsAbs(jailBinDir) && !config.SecurityDisableUnshare.Value() && !t.DisableUnshare {
+		jailBinDir = "/" + jailBinDir
+	}
+
 	if currentPath, ok := envVars["PATH"]; ok {
-		if !strings.Contains(currentPath, binDir) {
-			envVars["PATH"] = binDir + ":" + currentPath
+		if !strings.Contains(currentPath, jailBinDir) {
+			envVars["PATH"] = jailBinDir + ":" + currentPath
 		}
 	} else {
-		envVars["PATH"] = binDir + ":/usr/local/bin:/usr/bin:/bin"
+		envVars["PATH"] = jailBinDir + ":/usr/local/bin:/usr/bin:/bin"
 	}
 
 	for k, v := range envVars {
@@ -95,6 +101,14 @@ func (t *tty) ExecuteAsyncImpl(environment *SkyPanel.Environment, steps SkyPanel
 	processTty, err := pty.Start(pr)
 	if err != nil {
 		environment.Wait.Done()
+		if strings.Contains(err.Error(), "permission denied") && !config.SecurityDisableUnshare.Value() && !t.DisableUnshare {
+			environment.DisplayToConsole(true, "------------------------------------------------------------")
+			environment.DisplayToConsole(true, "ERROR: Permission denied while starting the security jail.")
+			environment.DisplayToConsole(true, "Your OS (e.g. Ubuntu 24.04) might be restricting unprivileged user namespaces.")
+			environment.DisplayToConsole(true, "FIX 1 (Recommended): Run 'sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0'")
+			environment.DisplayToConsole(true, "FIX 2: Add '\"security\": {\"disableUnshare\": true}' to your config.json and restart.")
+			environment.DisplayToConsole(true, "------------------------------------------------------------")
+		}
 		environment.DisplayToConsole(true, "Failed to start process: %s", err)
 		return
 	}
@@ -419,15 +433,20 @@ func (t *tty) createCmd(workDir, cmd string) (pr *exec.Cmd, err error) {
 			)
 		}
 
+		absWorkDir, _ := filepath.Abs(workDir)
+		absBinDir, _ := filepath.Abs(config.BinariesFolder.Value())
+		absCacheDir, _ := filepath.Abs(config.CacheFolder.Value())
+
 		unshareArgs = append(unshareArgs,
 			fmt.Sprintf("mkdir -p {%s}", strings.Join(mountFolders, ",")),
-			fmt.Sprintf("mount --bind %s %s", workDir, workDirMount),
-			fmt.Sprintf("mount --bind %s %s", config.BinariesFolder.Value(), binaryFolderMount),
-			fmt.Sprintf("mount --bind %s %s", config.CacheFolder.Value(), cacheFolderMount),
+			fmt.Sprintf("mount --bind %s %s", absWorkDir, workDirMount),
+			fmt.Sprintf("mount --bind %s %s", absBinDir, binaryFolderMount),
+			fmt.Sprintf("mount --bind %s %s", absCacheDir, cacheFolderMount),
 		)
 
 		for _, v := range t.Mounts {
-			unshareArgs = append(unshareArgs, fmt.Sprintf("mount --bind %s %s", v, removeRoot(v)))
+			absV, _ := filepath.Abs(v)
+			unshareArgs = append(unshareArgs, fmt.Sprintf("mount --bind %s %s", absV, removeRoot(v)))
 		}
 
 		unshareArgs = append(unshareArgs,
@@ -440,7 +459,7 @@ func (t *tty) createCmd(workDir, cmd string) (pr *exec.Cmd, err error) {
 			//needs to be lazy because the old root is considered busy as it's still the root outside the namespace
 			"umount -l /old-root",
 			"rm -r /old-root",
-			fmt.Sprintf("unshare -U -w %s --map-user=%d --map-group=%d %s", workDir, os.Getuid(), os.Getgid(), cmd))
+			fmt.Sprintf("cd /%s && %s", workDirMount, cmd))
 
 		pr = exec.Command("bash", "-c", strings.Join(unshareArgs, " && "))
 		pr.Dir, err = os.MkdirTemp("", "unshare-pp-")
@@ -456,7 +475,6 @@ func (t *tty) createCmd(workDir, cmd string) (pr *exec.Cmd, err error) {
 				syscall.CLONE_NEWCGROUP |
 				syscall.CLONE_NEWIPC |
 				syscall.CLONE_NEWUTS,
-			Credential: &syscall.Credential{Uid: 0, Gid: 0, NoSetGroups: true},
 			UidMappings: []syscall.SysProcIDMap{
 				{
 					ContainerID: 0,

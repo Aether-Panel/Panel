@@ -60,6 +60,9 @@ func registerServers(g *gin.RouterGroup) {
 	g.PUT("/:serverId/data", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, editServerDataAdmin)
 	g.OPTIONS("/:serverId/data", response.CreateOptions("GET", "POST", "PUT"))
 
+	g.POST("/:serverId/transfer", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, transferServer)
+	g.OPTIONS("/:serverId/transfer", response.CreateOptions("POST"))
+
 	g.GET("/:serverId/flags", middleware.RequiresPermission(scopes.ScopeServerViewFlags), middleware.ResolveServerPanel, proxyServerRequest)
 	g.POST("/:serverId/flags", middleware.RequiresPermission(scopes.ScopeServerEditFlags), middleware.ResolveServerPanel, proxyServerRequest)
 	g.OPTIONS("/:serverId/flags", response.CreateOptions("GET", "POST"))

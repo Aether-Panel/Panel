@@ -2,12 +2,14 @@ package models
 
 import (
 	"errors"
-	"github.com/gofrs/uuid/v5"
-	"github.com/SkyPanel/SkyPanel/v3"
-	"gopkg.in/go-playground/validator.v9"
-	"gorm.io/gorm"
 	"strings"
 	"time"
+
+	"github.com/SkyPanel/SkyPanel/v3"
+	"github.com/SkyPanel/SkyPanel/v3/config"
+	"github.com/gofrs/uuid/v5"
+	"gopkg.in/go-playground/validator.v9"
+	"gorm.io/gorm"
 )
 
 type Node struct {
@@ -47,14 +49,19 @@ func (n *Node) BeforeSave(*gorm.DB) (err error) {
 }
 
 func (n *Node) IsLocal() bool {
-	return n.Local
+	if n.Local {
+		return true
+	}
+	// If the node IP matches our configured local IP, it's local to US
+	// even if it's stored as a remote node for other panels.
+	return n.PublicHost == config.NodeIP.Value() || n.PrivateHost == config.NodeIP.Value()
 }
 
 var LocalNode = &Node{
 	ID:          0,
 	Name:        "LocalNode",
-	PublicHost:  "127.0.0.1",
-	PrivateHost: "127.0.0.1",
+	PublicHost:  "0.0.0.0",
+	PrivateHost: "0.0.0.0",
 	PublicPort:  8080,
 	PrivatePort: 8080,
 	SFTPPort:    5657,

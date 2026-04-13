@@ -48,3 +48,8 @@ dev-data/
 
 # Scripts shell (ignorar todos los .sh)
 *.sh
+
+# Keys and private data
+data/sftp.key
+skypanel.db
+

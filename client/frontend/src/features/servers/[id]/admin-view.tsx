@@ -8,19 +8,44 @@ import { api } from '@/lib/api-client';
 import { useToast } from '@/hooks/use-toast';
 import { useState, lazy, Suspense } from 'react';
 import { useServerSettings } from '@/hooks/use-server-settings';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { useAuth } from '@/contexts/providers';
 
 const CodeEditor = lazy(() => import('./code-editor'));
 
 export default function AdminView({ serverId }: { serverId: string }) {
     const { t } = useTranslations();
     const { toast } = useToast();
+    const { hasScope } = useAuth();
     const { settings, loading, saveSettings } = useServerSettings(serverId);
     const [isInstalling, setIsInstalling] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [editorOpen, setEditorOpen] = useState(false);
     const [editContent, setEditContent] = useState('');
+
+    // Transfer states
+    const [nodes, setNodes] = useState<any[]>([]);
+    const [selectedNode, setSelectedNode] = useState<string>('');
+    const [isTransferring, setIsTransferring] = useState(false);
+    const [nodesLoaded, setNodesLoaded] = useState(false);
+
+    // Fetch nodes for transfer
+    const fetchNodes = async () => {
+        if (nodesLoaded) return;
+        try {
+            const res = await api.get('/api/nodes');
+            // if (res.data) {
+            //     setNodes(res.data);
+            // }
+            if (Array.isArray(res)) {
+                setNodes(res);
+            }
+            setNodesLoaded(true);
+        } catch (e) {
+            console.error('Failed to fetch nodes', e);
+        }
+    };
 
     const handleEditDefinition = () => {
         if (settings?.definition) {
@@ -80,6 +105,22 @@ export default function AdminView({ serverId }: { serverId: string }) {
         }
     };
 
+    const handleTransfer = async () => {
+        if (!selectedNode) {
+            toast({ title: t('common.error'), description: 'Please select a target node.', variant: 'destructive' });
+            return;
+        }
+        setIsTransferring(true);
+        try {
+            await api.post(`/api/servers/${serverId}/transfer`, { nodeId: parseInt(selectedNode) });
+            toast({ title: t('common.success'), description: 'Transfer started successfully.' });
+        } catch (e: any) {
+            toast({ title: t('common.error'), description: e.message || 'Transfer failed.', variant: 'destructive' });
+        } finally {
+            setIsTransferring(false);
+        }
+    };
+
     return (
         <div className="mt-6 rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50">
             <Card className="border-0">
@@ -93,6 +134,51 @@ export default function AdminView({ serverId }: { serverId: string }) {
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                    {(hasScope('server.admin') || hasScope('server.data.edit.admin') || hasScope('admin')) && (
+                        <div className="flex items-center justify-between rounded-lg border p-4">
+                            <div>
+                                <h3 className="font-medium">Transfer Server</h3>
+                                <p className="text-sm text-muted-foreground">
+                                    Move this server to a different node.
+                                </p>
+                            </div>
+                            <Dialog>
+                                <DialogTrigger asChild>
+                                    <Button variant="outline" onClick={fetchNodes}>Transfer</Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>Transfer Server</DialogTitle>
+                                        <DialogDescription>
+                                            Select the target node to move this server to. This operation will move all files.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="space-y-4 py-4">
+                                        <select
+                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                            value={selectedNode}
+                                            onChange={(e) => setSelectedNode(e.target.value)}
+                                            disabled={nodes.length === 0}
+                                        >
+                                            <option value="" disabled>Select Target Node...</option>
+                                            {nodes.map(node => (
+                                                <option key={node.id} value={node.id}>
+                                                    {node.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <DialogFooter>
+                                        <Button onClick={handleTransfer} disabled={!selectedNode || isTransferring || nodes.length === 0}>
+                                            {isTransferring && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                            Start Transfer
+                                        </Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
+                        </div>
+                    )}
+
                     <div className="flex items-center justify-between rounded-lg border p-4">
                         <div>
                             <h3 className="font-medium">{t('servers.admin.editDefinition.title')}</h3>

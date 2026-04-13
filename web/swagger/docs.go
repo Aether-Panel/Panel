@@ -2771,6 +2771,60 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/servers/{id}/transfer": {
+            "post": {
+                "security": [
+                    {
+                        "OAuth2Application": [
+                            "server.edit.admin"
+                        ]
+                    }
+                ],
+                "description": "Transfer a server from one node to another",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Servers"
+                ],
+                "summary": "Transfer server",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Server ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Target Node ID",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.TransferRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Transfer started",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/servers/{id}/user": {
             "get": {
                 "security": [
@@ -5923,6 +5977,17 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "value": {}
+            }
+        },
+        "api.TransferRequest": {
+            "type": "object",
+            "required": [
+                "nodeId"
+            ],
+            "properties": {
+                "nodeId": {
+                    "type": "integer"
+                }
             }
         },
         "auth.LoginRequestData": {

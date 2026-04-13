@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/SkyPanel/SkyPanel/v3"
+	"github.com/SkyPanel/SkyPanel/v3/files"
 	"github.com/SkyPanel/SkyPanel/v3/logging"
 	"github.com/SkyPanel/SkyPanel/v3/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/query"
@@ -896,8 +897,15 @@ func extract(c *gin.Context) {
 
 	targetPath := c.Param("filename")
 	destination := c.Query("destination")
+	_, skipRoot := c.GetQuery("skipRoot")
 
-	err := server.Extract(targetPath, destination)
+	var err error
+	if skipRoot {
+		err = files.Extract(server.GetFileServer(), targetPath, destination, "*", true, nil)
+	} else {
+		err = server.Extract(targetPath, destination)
+	}
+
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 	} else {
 		c.Status(http.StatusNoContent)

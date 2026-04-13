@@ -12,7 +12,10 @@
   "panel": {
     "database": {
       "dialect": "mysql",
-      "url": "esteban:2006@tcp(localhost:3306)/skypanel?charset=utf8mb4\u0026parseTime=true"
+      "url": "esteban:2006@tcp(192.168.0.3:3306)/skypanel?charset=utf8mb4\u0026parseTime=true"
+    },
+    "security": {
+      "disableUnshare": true
     },
     "email": {
       "domain": "",
@@ -20,7 +23,7 @@
       "host": "",
       "key": "",
       "password": "",
-      "provider": "none",
+      "provider": "mailgun",
       "username": ""
     },
     "gatus": {

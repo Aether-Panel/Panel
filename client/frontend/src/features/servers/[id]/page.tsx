@@ -26,6 +26,7 @@ import { api, ApiError } from '@/lib/api-client';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import { useAuth } from '@/contexts/providers';
 
 type LogEntry = {
   time: string;
@@ -53,6 +54,7 @@ const initialLogMessages = [
 
 export default function ServerDetailPage({ params }: { params: { id: string } }) {
   const { servers: allServers, loading, refresh } = useServers();
+  const { hasScope } = useAuth();
   const [serverDetail, setServerDetail] = useState<any>(null);
   const server = allServers.find((s) => s.id === params.id);
   const [activeTab, setActiveTab] = useState('console');
@@ -289,7 +291,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
     { value: 'backups', label: t('servers.detail.tabs.backups'), icon: Archive },
     { value: 'sftp', label: t('servers.detail.tabs.sftp'), icon: Key },
     ...(pluginsTabEnabled ? [{ value: 'plugins', label: t('servers.detail.tabs.plugins'), icon: Puzzle }] : []),
-    { value: 'admin', label: t('servers.detail.tabs.admin'), icon: Shield },
+    ...(hasScope('server.admin') || hasScope('server.data.edit.admin') || hasScope('admin') ? [{ value: 'admin', label: t('servers.detail.tabs.admin'), icon: Shield }] : []),
   ];
 
 
