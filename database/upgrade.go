@@ -32,6 +32,7 @@ var dbObjects = []interface{}{
 	&models.UptimeStatus{},
 	&models.DatabaseHost{},
 	&models.Database{},
+	&models.PanelSetting{},
 }
 
 func Upgrade(dbConn *gorm.DB, prettyPrint bool) error {

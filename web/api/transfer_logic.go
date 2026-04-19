@@ -19,7 +19,7 @@ import (
 )
 
 type TransferRequest struct {
-	NodeID uint `json:"nodeId" binding:"required"`
+	NodeID *uint `json:"nodeId" binding:"required"`
 }
 
 // @Summary Transfer server
@@ -45,7 +45,7 @@ func transferServer(c *gin.Context) {
 	ns := &services.Node{DB: db}
 
 	// Get target node
-	targetNode, err := ns.Get(req.NodeID)
+	targetNode, err := ns.Get(*req.NodeID)
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}

@@ -90,6 +90,19 @@ func setSetting(c *gin.Context) {
 		return
 	}
 
+	if key == "panel.settings.masterNodeIp" {
+		db := middleware.GetDatabase(c)
+		err = db.Save(&models.PanelSetting{
+			Key:   "master_node_ip",
+			Value: cast.ToString(model.Value),
+		}).Error
+		if response.HandleError(c, err, http.StatusInternalServerError) {
+			return
+		}
+		c.Status(http.StatusNoContent)
+		return
+	}
+
 	companyNameChanged := false
 	for _, v := range editableStringEntries {
 		if v.Key() == key {
@@ -156,7 +169,18 @@ func setSettings(c *gin.Context) {
 	}
 
 	companyNameChanged := false
+	db := middleware.GetDatabase(c)
+
 	for key, value := range *settings {
+		// Intercept the custom global setting
+		if key == "panel.settings.masterNodeIp" {
+			db.Save(&models.PanelSetting{
+				Key:   "master_node_ip",
+				Value: cast.ToString(value),
+			})
+			continue
+		}
+
 		for _, v := range editableStringEntries {
 			if v.Key() == key {
 				err = v.Set(cast.ToString(value), true)
@@ -215,6 +239,15 @@ func getSettings(c *gin.Context) {
 
 	for _, v := range editableIntEntries {
 		settings[v.Key()] = v.Value()
+	}
+
+	// Fetch the global master node ip
+	db := middleware.GetDatabase(c)
+	var masterSetting models.PanelSetting
+	if err := db.Where("`key` = ?", "master_node_ip").First(&masterSetting).Error; err == nil {
+		settings["panel.settings.masterNodeIp"] = masterSetting.Value
+	} else {
+		settings["panel.settings.masterNodeIp"] = ""
 	}
 
 	c.JSON(http.StatusOK, settings)
@@ -465,6 +498,7 @@ var editableStringEntries = []config.StringEntry{
 	config.DefaultTheme,
 	config.ThemeSettings,
 	config.MasterUrl,
+	config.NodeIP,
 	config.GeminiApiKey,
 	config.DiscordWebhook,
 	config.DiscordWebhookSystem,

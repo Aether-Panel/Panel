@@ -14,9 +14,6 @@
       "dialect": "mysql",
       "url": "esteban:2006@tcp(192.168.0.3:3306)/skypanel?charset=utf8mb4\u0026parseTime=true"
     },
-    "security": {
-      "disableUnshare": true
-    },
     "email": {
       "domain": "",
       "from": "",
@@ -41,6 +38,9 @@
       "discordwebhooksystem": "https://discordapp.com/api/webhooks/1398704149792559224/r2o0vNtKHA-81v6I8B6ci3IpgMZoe0ed-PlaaQ-99yyBwBvaG_A9VwHvorABazDnFtRF"
     },
     "registrationenabled": true,
+    "security": {
+      "disableunshare": true
+    },
     "sessionkey": "c0e64d829607b45b11737ef04a82df831f41a771a3ad68421f390806dfdb6739",
     "settings": {
       "companyname": "Aether Panels",
@@ -48,6 +48,7 @@
       "geminiapikey": "AIzaSyDHQLYQK0eZagz6S8tjtOQYuBYP0ygHsKk",
       "hideaianalysis": false,
       "masterurl": "http://localhost:8080",
+      "nodeip": "192.168.0.3",
       "themesettings": "{\"primary\":\"#000000\",\"background\":\"#000000\",\"foreground\":\"#000000\"}"
     },
     "token": "hbnUiN8bxGQ/Pyya/c3nUkWG/mImcPJj8Ad1OjNGKwM="

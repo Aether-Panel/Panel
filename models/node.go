@@ -49,12 +49,29 @@ func (n *Node) BeforeSave(*gorm.DB) (err error) {
 }
 
 func (n *Node) IsLocal() bool {
-	if n.Local {
-		return true
+	nodeIP := config.NodeIP.Value()
+
+	// If the node IP matches our explicitly configured local NodeIP, it is ALWAYS local to us
+	if nodeIP != "" && nodeIP != "0.0.0.0" {
+		if n.PublicHost == nodeIP || n.PrivateHost == nodeIP {
+			return true
+		}
 	}
-	// If the node IP matches our configured local IP, it's local to US
-	// even if it's stored as a remote node for other panels.
-	return n.PublicHost == config.NodeIP.Value() || n.PrivateHost == config.NodeIP.Value()
+
+	if n.Local {
+		if nodeIP != "" && nodeIP != "0.0.0.0" {
+			// If we have a specific NodeIP, but the LocalNode's host (set via MasterUrl)
+			// doesn't match our NodeIP, AND MasterUrl isn't generic localhost,
+			// it means LocalNode represents the Master Panel, and WE are a secondary node!
+			if n.PublicHost != "0.0.0.0" && n.PublicHost != "127.0.0.1" && n.PublicHost != "localhost" && n.PublicHost != nodeIP {
+				return false
+			}
+		}
+		return true // Otherwise, fallback to assuming we are the primary local node
+	}
+	
+	// Fallback for older configs
+	return n.PublicHost == nodeIP || n.PrivateHost == nodeIP
 }
 
 var LocalNode = &Node{

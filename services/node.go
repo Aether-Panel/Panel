@@ -78,6 +78,12 @@ func (ns *Node) GetAll() ([]*models.Node, error) {
 	}
 
 	if config.PanelEnabled.Value() {
+		// Sync the global Master Node IP from the DB
+		var masterSetting models.PanelSetting
+		if err := ns.DB.Where("`key` = ?", "master_node_ip").First(&masterSetting).Error; err == nil && masterSetting.Value != "" {
+			models.LocalNode.PublicHost = masterSetting.Value
+			models.LocalNode.PrivateHost = masterSetting.Value
+		}
 		nodes = append(nodes, models.LocalNode)
 	}
 
@@ -88,6 +94,11 @@ func (ns *Node) Get(id uint) (*models.Node, error) {
 	model := &models.Node{}
 
 	if id == models.LocalNode.ID && config.PanelEnabled.Value() {
+		var masterSetting models.PanelSetting
+		if err := ns.DB.Where("`key` = ?", "master_node_ip").First(&masterSetting).Error; err == nil && masterSetting.Value != "" {
+			models.LocalNode.PublicHost = masterSetting.Value
+			models.LocalNode.PrivateHost = masterSetting.Value
+		}
 		return models.LocalNode, nil
 	}
 
