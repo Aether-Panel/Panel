@@ -20,8 +20,10 @@ const (
 type ExTransferSession struct {
 	ID              uint           `gorm:"primaryKey" json:"-"`
 	SessionUUID     string         `gorm:"type:char(36);uniqueIndex;not null" json:"session_id"`
-	ServerID        string         `gorm:"index;not null" json:"server_id"`
+	ServerID        string         `gorm:"size:36;index;not null" json:"server_id"`
 	UserID          uint           `gorm:"index;not null" json:"user_id"`
+	Server          Server         `gorm:"foreignKey:ServerID;references:Identifier;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"-"`
+	User            User           `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"-"`
 	TokenHash       string         `gorm:"type:varchar(64);uniqueIndex;not null" json:"-"`
 	Status          TransferStatus `gorm:"type:varchar(20);not null;default:'CREATED'" json:"status"`
 	DestHost        string         `gorm:"type:varchar(255)" json:"dest_host,omitempty"`
@@ -37,10 +39,11 @@ type ExTransferSession struct {
 
 type ExTransferLog struct {
 	ID        uint   `gorm:"primaryKey"`
-	SessionID string `gorm:"index;not null"`
-	Action    string `gorm:"type:varchar(50);not null"`
-	IPAddress string `gorm:"type:varchar(45);not null"`
-	IsError   bool   `gorm:"not null;default:false"`
+	SessionID string            `gorm:"type:char(36);index;not null"`
+	Session   ExTransferSession `gorm:"foreignKey:SessionID;references:SessionUUID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Action    string            `gorm:"type:varchar(50);not null"`
+	IPAddress string            `gorm:"type:varchar(45);not null"`
+	IsError   bool              `gorm:"not null;default:false"`
 	Details   string `gorm:"type:text"`
 	CreatedAt time.Time
 }
