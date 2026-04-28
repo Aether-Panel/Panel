@@ -30,6 +30,7 @@ func RegisterRoutes(rg *gin.RouterGroup) {
 	registerUptime(rg.Group("/uptime"))
 	registerRoles(rg.Group("/roles"))
 	registerDatabaseHosts(rg.Group("/databasehosts"))
+	RegisterExTransferRoutes(rg.Group("/extransfer")) // External federated transfers
 
 	rg.GET("/config", panelConfig)
 }

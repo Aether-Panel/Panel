@@ -2,7 +2,7 @@
 import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Cpu, HardDrive, MemoryStick, Network, Terminal, Folder, Settings as SettingsIcon, Users, Database, Archive, Shield, Puzzle, Play, RefreshCw, Square, ShieldAlert, Key, Lock } from 'lucide-react';
+import { Cpu, HardDrive, MemoryStick, Network, Terminal, Folder, Settings as SettingsIcon, Users, Database, Archive, Shield, Puzzle, Play, RefreshCw, Square, ShieldAlert, Key, Lock, ArrowRightLeft } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import ConsoleView from './console-view';
@@ -14,6 +14,7 @@ import BackupsView from './backups-view';
 import AdminView from './admin-view';
 import PluginsView from './plugins-view';
 import SFTPView from './sftp-view';
+import ExternalTransferView from './external-transfer-view';
 import { ServerAddress } from './server-address';
 import MetricsCharts from './metrics-charts';
 import NetworkUsageChart from './network-usage-chart';
@@ -290,6 +291,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
     { value: 'database', label: t('servers.detail.tabs.database'), icon: Database },
     { value: 'backups', label: t('servers.detail.tabs.backups'), icon: Archive },
     { value: 'sftp', label: t('servers.detail.tabs.sftp'), icon: Key },
+    { value: 'extransfer', label: 'Migration', icon: ArrowRightLeft },
     ...(pluginsTabEnabled ? [{ value: 'plugins', label: t('servers.detail.tabs.plugins'), icon: Puzzle }] : []),
     ...(hasScope('server.admin') || hasScope('server.data.edit.admin') || hasScope('admin') ? [{ value: 'admin', label: t('servers.detail.tabs.admin'), icon: Shield }] : []),
   ];
@@ -579,6 +581,11 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
         <TabsContent value="admin">
           <ErrorBoundary name="AdminView">
             <AdminView serverId={server.id} />
+          </ErrorBoundary>
+        </TabsContent>
+        <TabsContent value="extransfer">
+          <ErrorBoundary name="ExternalTransferView">
+            <ExternalTransferView serverId={server.id} />
           </ErrorBoundary>
         </TabsContent>
       </Tabs>

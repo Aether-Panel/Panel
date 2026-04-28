@@ -33,6 +33,8 @@ var dbObjects = []interface{}{
 	&models.DatabaseHost{},
 	&models.Database{},
 	&models.PanelSetting{},
+	&models.ExTransferSession{},
+	&models.ExTransferLog{},
 }
 
 func Upgrade(dbConn *gorm.DB, prettyPrint bool) error {
