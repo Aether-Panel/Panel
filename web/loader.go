@@ -19,6 +19,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/web/oauth2"
 	_ "github.com/SkyPanel/SkyPanel/v3/web/swagger"
 	_ "github.com/alecthomas/template"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	swaggerFiles "github.com/swaggo/files"
@@ -31,6 +32,14 @@ var clientFiles fs.FS
 
 // RegisterRoutes Registers all routes
 func RegisterRoutes(e *gin.Engine) {
+	// Configuración de CORS Global
+	corsConfig := cors.DefaultConfig()
+	corsConfig.AllowOrigins = []string{"http://localhost:9003", "http://localhost:9002", "http://localhost:3000", "http://localhost:8080", "https://192.168.0.3:8080"}
+	corsConfig.AllowCredentials = true
+	corsConfig.AddAllowHeaders("Authorization", "Content-Type", "Accept", "Origin")
+	corsConfig.AddAllowMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+	e.Use(cors.New(corsConfig))
+
 	e.Use(func(c *gin.Context) {
 		middleware.Recover(c)
 	})

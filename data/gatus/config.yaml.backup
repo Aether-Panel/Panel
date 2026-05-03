@@ -12,14 +12,6 @@ endpoints:
         - '[RESPONSE_TIME] < 5000'
       group: Nodos SkyPanel
       interval: 1m
-      name: nodo
-      url: http://192.168.0.13:8080/daemon
-    - conditions:
-        - '[STATUS] == 200'
-        - '[BODY].message == daemon is running'
-        - '[RESPONSE_TIME] < 5000'
-      group: Nodos SkyPanel
-      interval: 1m
       name: LocalNode
       url: http://192.168.0.3:8080/daemon
 storage:
