@@ -135,7 +135,7 @@ func createSession(c *gin.Context, user *models.User) {
 
 	data := &LoginResponse{}
 	data.Scopes = allScopes
-
+	data.Session = session // Expose session token for external App auth
 	secure := false
 	if c.Request.TLS != nil {
 		secure = true
@@ -157,6 +157,7 @@ type LoginRequestData struct {
 type LoginResponse struct {
 	Scopes    []*scopes.Scope `json:"scopes,omitempty"`
 	OtpNeeded bool            `json:"otpNeeded,omitempty"`
+	Session   string          `json:"session,omitempty"`
 }
 
 type OtpRequestData struct {
