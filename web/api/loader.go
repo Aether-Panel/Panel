@@ -17,8 +17,12 @@ func RegisterRoutes(rg *gin.RouterGroup) {
 
 	rg.Use(middleware.ResponseAndRecover)
 	rg.Use(middleware.NeedsDatabase)
+
+	publicRg := rg.Group("")
+
 	rg.Use(middleware.AuthMiddleware)
 	rg.Use(middleware.AddVersionHeader)
+
 	registerNodes(rg.Group("/nodes"))
 	registerServers(rg.Group("/servers"))
 	registerDatabases(rg.Group("/servers"))
@@ -30,7 +34,8 @@ func RegisterRoutes(rg *gin.RouterGroup) {
 	registerUptime(rg.Group("/uptime"))
 	registerRoles(rg.Group("/roles"))
 	registerDatabaseHosts(rg.Group("/databasehosts"))
-	RegisterExTransferRoutes(rg.Group("/extransfer")) // External federated transfers
+	
+	RegisterExTransferRoutes(publicRg.Group("/extransfer")) // External federated transfers
 
 	rg.GET("/config", panelConfig)
 }

@@ -34,7 +34,9 @@ var clientFiles fs.FS
 func RegisterRoutes(e *gin.Engine) {
 	// Configuración de CORS Global
 	corsConfig := cors.DefaultConfig()
-	corsConfig.AllowOrigins = []string{"http://localhost:9003", "http://localhost:9002", "http://localhost:3000", "http://localhost:8080", "https://192.168.0.3:8080"}
+	corsConfig.AllowOriginFunc = func(origin string) bool {
+		return true
+	}
 	corsConfig.AllowCredentials = true
 	corsConfig.AddAllowHeaders("Authorization", "Content-Type", "Accept", "Origin")
 	corsConfig.AddAllowMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")

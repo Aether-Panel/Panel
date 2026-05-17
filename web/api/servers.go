@@ -66,6 +66,9 @@ func registerServers(g *gin.RouterGroup) {
 	g.POST("/:serverId/extransfer/create", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, CreateExTransfer)
 	g.OPTIONS("/:serverId/extransfer/create", response.CreateOptions("POST"))
 
+	g.POST("/:serverId/extransfer/pull", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, pullExTransfer)
+	g.OPTIONS("/:serverId/extransfer/pull", response.CreateOptions("POST"))
+
 	g.GET("/:serverId/flags", middleware.RequiresPermission(scopes.ScopeServerViewFlags), middleware.ResolveServerPanel, proxyServerRequest)
 	g.POST("/:serverId/flags", middleware.RequiresPermission(scopes.ScopeServerEditFlags), middleware.ResolveServerPanel, proxyServerRequest)
 	g.OPTIONS("/:serverId/flags", response.CreateOptions("GET", "POST"))
