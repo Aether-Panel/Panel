@@ -93,15 +93,15 @@ services:
       retries: 3
       start_period: 40s
     
-    # Límites de recursos (opcional)
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 2G
-        reservations:
-          cpus: '0.5'
-          memory: 512M
+    # Límites de recursos (opcional) - Comentado para máximo rendimiento
+    #deploy:
+    #  resources:
+    #    limits:
+    #      cpus: '2'
+    #      memory: 2G
+    #    reservations:
+    #      cpus: '0.5'
+    #      memory: 512M
     
     # Redes
     networks:

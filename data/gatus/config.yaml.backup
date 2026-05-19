@@ -6,14 +6,6 @@ endpoints:
       interval: 1m
       name: Panel Principal
       url: http://localhost:8080/api/config
-    - conditions:
-        - '[STATUS] == 200'
-        - '[BODY].message == daemon is running'
-        - '[RESPONSE_TIME] < 5000'
-      group: Nodos SkyPanel
-      interval: 1m
-      name: LocalNode
-      url: http://192.168.0.3:8080/daemon
 storage:
     type: memory
 ui:

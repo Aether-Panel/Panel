@@ -5,13 +5,15 @@ ARG BUILDPLATFORM=linux/amd64
 FROM --platform=${BUILDPLATFORM} node:22-alpine AS node
 
 WORKDIR /build
-COPY client .
+# Optimización: Copiar solo archivos de dependencia para cachear capas
+COPY client/package.json client/yarn.lock* ./
+RUN yarn install --frozen-lockfile
 
-RUN rm -rf /build/*/node_modules/ && \
-    rm -rf /build/*/dist/
+# Copiar el resto del código
+COPY client/ .
+RUN rm -rf node_modules/.cache
 
-RUN yarn install && \
-    yarn build
+RUN yarn build
 
 ARG BUILDPLATFORM=linux/amd64
 FROM --platform=${BUILDPLATFORM} tonistiigi/xx AS xx
@@ -39,10 +41,10 @@ COPY go.mod go.sum ./
 COPY gatus ./gatus
 RUN go mod download && go mod verify
 
-COPY . .
-
-# Instalar swag via go install para asegurar compatibilidad
+# Optimización: Instalar swag antes de copiar todo el código para cachear la descarga
 RUN go install github.com/swaggo/swag/cmd/swag@v1.16.4
+
+COPY . .
 
 # Ejecutar swag init desde el GOPATH/bin
 RUN /go/bin/swag init -o web/swagger -g web/loader.go
