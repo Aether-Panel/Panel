@@ -6,30 +6,30 @@ services:
     image: mariadb:10.11
     container_name: skypanel-mysql
     restart: unless-stopped
-    
+
     # Variables de entorno para MySQL
     environment:
       - MYSQL_ROOT_PASSWORD=skypanel_root_password
       - MYSQL_DATABASE=skypanel
       - MYSQL_USER=skypanel
       - MYSQL_PASSWORD=skypanel_password
-    
+
     # Volúmenes persistentes para MySQL
     volumes:
       - mysql-data:/var/lib/mysql
-    
-    # Puertos (opcional, para acceso externo)
-    ports:
-      - "3306:3306"
-    
+
+    # Puertos (opcional, para acceso externo) - Comentado para evitar conflictos
+    #ports:
+    #  - "3306:3306"
+
     # Healthcheck
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$${MYSQL_ROOT_PASSWORD}"]
+      test: [ "CMD-SHELL", "mysqladmin ping -h localhost -u root -p$${MYSQL_ROOT_PASSWORD}" ]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
-    
+
     # Redes
     networks:
       - skypanel-network
@@ -48,13 +48,13 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
-    
+
     # Puertos
     ports:
-      - "8080:8080"   # Panel web
-      - "5657:5657"   # SFTP
-      - "8081:8081"   # Gatus (monitoring)
-    
+      - "8080:8080" # Panel web
+      - "5657:5657" # SFTP
+      - "8081:8081" # Gatus (monitoring)
+
     # Volúmenes persistentes
     volumes:
       - skypanel-config:/etc/SkyPanel
@@ -62,7 +62,7 @@ services:
       - skypanel-logs:/var/log/SkyPanel
       # Socket de Docker para gestionar contenedores (necesario para crear servidores)
       - /var/run/docker.sock:/var/run/docker.sock
-    
+
     # Variables de entorno
     environment:
       - GIN_MODE=release
@@ -79,20 +79,20 @@ services:
       - PUFFER_PANEL_DATABASE_URL=skypanel:skypanel_password@tcp(mysql:3306)/skypanel?charset=utf8&parseTime=true
       # Configuración de plantillas (URL para templates de comunidad)s
       - PUFFER_TEMPLATES_URL=https://templates.aetherpanel.es/templates.json
-    
+
     # Permisos para acceder a Docker (necesario para gestionar contenedores de servidores)
     # NOTA: Esto otorga acceso completo al daemon de Docker del host
     # Asegúrate de que solo usuarios confiables puedan acceder a este contenedor
-    user: "0:0"  # Ejecutar como root para acceso al socket de Docker
-    
+    user: "0:0" # Ejecutar como root para acceso al socket de Docker
+
     # Healthcheck
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/"]
+      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/" ]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
-    
+
     # Límites de recursos (opcional) - Comentado para máximo rendimiento
     #deploy:
     #  resources:
@@ -102,7 +102,7 @@ services:
     #    reservations:
     #      cpus: '0.5'
     #      memory: 512M
-    
+
     # Redes
     networks:
       - skypanel-network
