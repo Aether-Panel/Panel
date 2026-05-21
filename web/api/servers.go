@@ -259,7 +259,12 @@ func searchServers(c *gin.Context) {
 		return
 	}
 
-	data := models.RemoveServerPrivateInfoFromAll(models.FromServers(results))
+	var data []*models.ServerView
+	if isAdmin {
+		data = models.FromServers(results)
+	} else {
+		data = models.RemoveServerPrivateInfoFromAll(models.FromServers(results))
+	}
 
 	for i, v := range data {
 		checkGhost(results[i], v)
@@ -304,16 +309,15 @@ func getServer(c *gin.Context) {
 
 	_, includePerms := c.GetQuery("perms")
 	var perms *models.PermissionView
+	db, err := database.GetConnection()
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	u := c.MustGet("user").(*models.User)
+	ps := &services.Permission{DB: db}
+
 	if includePerms {
-		db, err := database.GetConnection()
-		if response.HandleError(c, err, http.StatusInternalServerError) {
-			return
-		}
-
-		u := c.MustGet("user").(*models.User)
-
-		ps := &services.Permission{DB: db}
-
 		p, err := ps.GetForUserAndServer(u.ID, server.Identifier)
 		if response.HandleError(c, err, http.StatusInternalServerError) {
 			return
@@ -321,8 +325,31 @@ func getServer(c *gin.Context) {
 		perms = models.FromPermission(p)
 	}
 
+	userScopes := make([]*scopes.Scope, 0)
+	userPerms, err := ps.GetForUser(u.ID)
+	if err == nil {
+		for _, p := range userPerms {
+			for _, s := range p.Scopes {
+				userScopes = scopes.AddScope(userScopes, s)
+			}
+		}
+	}
+	if u.RoleId != nil && u.Role.ID != 0 {
+		for _, s := range u.Role.Scopes {
+			userScopes = scopes.AddScope(userScopes, scopes.GetScope(s))
+		}
+	}
+	isAdmin := scopes.ContainsScope(userScopes, scopes.ScopeAdmin)
+
+	var serverView *models.ServerView
+	if isAdmin {
+		serverView = models.FromServer(server)
+	} else {
+		serverView = models.RemoveServerPrivateInfo(models.FromServer(server))
+	}
+
 	d := &models.GetServerResponse{
-		Server: models.RemoveServerPrivateInfo(models.FromServer(server)),
+		Server: serverView,
 		Perms:  perms,
 	}
 

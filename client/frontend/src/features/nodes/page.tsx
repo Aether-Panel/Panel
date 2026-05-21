@@ -17,11 +17,13 @@ import { api } from '@/lib/api-client';
 
 import { useTranslations } from '@/contexts/translations-context';
 import { useNodes } from '@/hooks/use-dashboard-data';
+import { useServers } from '@/hooks/use-servers';
 
 export default function NodesPage() {
   const { role, hasScope } = useAuth();
   const { t } = useTranslations();
   const { nodes: realNodes, loading: nodesLoading, error, refresh } = useNodes();
+  const { servers: allServers, loading: serversLoading } = useServers();
   const [isMounted, setIsMounted] = useState(false);
   const { toast } = useToast();
 
@@ -198,7 +200,7 @@ export default function NodesPage() {
     }
   }, null, 2) : '';
 
-  if (!isMounted || !hasScope('nodes.view') || nodesLoading) {
+  if (!isMounted || !hasScope('nodes.view') || nodesLoading || serversLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
@@ -330,6 +332,7 @@ export default function NodesPage() {
                   <TableHead>{t('nodes.table.name')}</TableHead>
                   <TableHead className="hidden sm:table-cell">{t('nodes.table.location')}</TableHead>
                   <TableHead>{t('dashboard.table.status')}</TableHead>
+                  <TableHead className="hidden md:table-cell">Servidores</TableHead>
                   <TableHead className="text-right">{t('dashboard.table.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
@@ -346,6 +349,11 @@ export default function NodesPage() {
                       <Badge variant={node.status === 'online' ? 'default' : node.status === 'offline' ? 'destructive' : 'secondary'} className="capitalize flex items-center gap-2 w-fit">
                         <StatusIndicator status={node.status} />
                         {t(`dashboard.status.${node.status}`)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      <Badge variant="outline" className="font-mono font-semibold">
+                        {allServers.filter((s: any) => String(s.nodeId) === String(node.id)).length}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">

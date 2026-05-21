@@ -8,7 +8,7 @@ import (
 type ServerView struct {
 	Identifier   string           `json:"id,omitempty"`
 	Name         string           `json:"name,omitempty"`
-	NodeId       uint             `json:"nodeId,omitempty"`
+	NodeId       uint             `json:"nodeId"`
 	Node         *NodeView        `json:"node,omitempty"`
 	Data         interface{}      `json:"data,omitempty"`
 	Users        []ServerUserView `json:"users,omitempty"`
@@ -86,8 +86,6 @@ func RemoveServerPrivateInfoFromAll(servers []*ServerView) []*ServerView {
 func RemoveServerPrivateInfo(server *ServerView) *ServerView {
 	//SCRUB DATA FROM REGULAR USERS
 	if server.Node != nil {
-		server.Node.Id = 0
-		server.NodeId = 0
 		server.Node.PrivateHost = ""
 		server.Node.PrivatePort = 0
 	}

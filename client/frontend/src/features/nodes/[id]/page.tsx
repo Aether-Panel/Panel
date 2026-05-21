@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Cpu, HardDrive, MemoryStick, Server as ServerIcon, CheckCircle, Code, Info, Trash2, Rocket, Copy, Loader2 } from 'lucide-react';
+import { Cpu, HardDrive, MemoryStick, Server as ServerIcon, CheckCircle, Code, Info, Trash2, Rocket, Copy, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -24,6 +24,13 @@ export default function NodeDetailPage({ params }: { params: { id: string } }) {
   const { t } = useTranslations();
   const { toast } = useToast();
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const serversPerPage = 5;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [params.id]);
+
   // Live stats state — updated every 3 seconds
   const [liveStats, setLiveStats] = useState<any>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -37,6 +44,11 @@ export default function NodeDetailPage({ params }: { params: { id: string } }) {
   const serversOnNode = allServers.filter((s: any) =>
     String(s.nodeId) === (node?.id ? String(node.id) : params.id)
   );
+
+  const indexOfLastServer = currentPage * serversPerPage;
+  const indexOfFirstServer = indexOfLastServer - serversPerPage;
+  const currentServers = serversOnNode.slice(indexOfFirstServer, indexOfLastServer);
+  const totalPages = Math.ceil(serversOnNode.length / serversPerPage);
 
   // Seed liveStats from static node data on first load
   useEffect(() => {
@@ -362,23 +374,54 @@ export default function NodeDetailPage({ params }: { params: { id: string } }) {
         <div className="lg:col-span-1 space-y-6">
           <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50">
             <Card className="border-0">
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                 <CardTitle>{t('nodes.detail.serversOnNode.title')}</CardTitle>
+                <Badge variant="secondary" className="font-semibold">
+                  {serversOnNode.length}
+                </Badge>
               </CardHeader>
               <CardContent>
                 {serversOnNode.length > 0 ? (
-                  <ul className="space-y-2">
-                    {serversOnNode.map((server: any) => (
-                      <li key={server.id} className="flex items-center justify-between rounded-md border p-3 text-sm">
-                        <div>
-                          <p className="font-medium">{server.name}</p>
-                        </div>
-                        <a href={`/servers/view/?id=${server.id}`}>
-                          <Button variant="ghost" size="sm">{t('nodes.detail.serversOnNode.view')}</Button>
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
+                  <>
+                    <ul className="space-y-2">
+                      {currentServers.map((server: any) => (
+                        <li key={server.id} className="flex items-center justify-between rounded-md border p-3 text-sm hover:bg-muted/50 transition-colors">
+                          <div className="overflow-hidden mr-2">
+                            <p className="font-medium truncate">{server.name}</p>
+                            <p className="text-xs text-muted-foreground font-mono truncate">{server.id}</p>
+                          </div>
+                          <a href={`/servers/view/?id=${server.id}`} className="flex-shrink-0">
+                            <Button variant="ghost" size="sm">{t('nodes.detail.serversOnNode.view')}</Button>
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-between pt-4 border-t mt-4">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                          disabled={currentPage === 1}
+                          className="h-8 w-8 p-0"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <span className="text-xs text-muted-foreground font-medium">
+                          Pág. {currentPage} de {totalPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                          disabled={currentPage === totalPages}
+                          className="h-8 w-8 p-0"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <p className="text-sm text-muted-foreground text-center py-4">{t('nodes.detail.serversOnNode.empty')}</p>
                 )}

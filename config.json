@@ -33,9 +33,9 @@
       "status": "pro"
     },
     "notifications": {
-      "discordwebhook": "https://discordapp.com/api/webhooks/1305601369692049439/n138Injf8P6QgaS4bdESQwhwuvUTPUZqJfI5YZN4GM7Vja-iO1Ukuc240JxKUSECSGo1",
-      "discordwebhooknode": "https://discordapp.com/api/webhooks/1433533302962393180/vHQRsPQncfg-wm9Y-qvn9mCr5N9UdpIaTkOiZY5qOUH1Ux9q2hugMRGWUY12TTb0M855",
-      "discordwebhooksystem": "https://discordapp.com/api/webhooks/1398704149792559224/r2o0vNtKHA-81v6I8B6ci3IpgMZoe0ed-PlaaQ-99yyBwBvaG_A9VwHvorABazDnFtRF"
+      "discordwebhook": "",
+      "discordwebhooknode": "",
+      "discordwebhooksystem": ""
     },
     "registrationenabled": true,
     "security": {
