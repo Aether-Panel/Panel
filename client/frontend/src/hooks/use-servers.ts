@@ -23,7 +23,7 @@ export function useServers() {
                     id: s.id,
                     name: s.name,
                     nodeId: s.nodeId !== undefined && s.nodeId !== null ? s.nodeId : (s.node && s.node.id !== undefined ? s.node.id : 0),
-                    ipAddress: s.ip || '0.0.0.0',
+                    ipAddress: s.ip && s.ip !== '0.0.0.0' ? s.ip : (s.node?.publicHost || '0.0.0.0'),
                     port: s.port || 0,
                     status: uptime.currentStatus ? 'online' : 'offline',
                     cpuUsage: 0,

@@ -406,19 +406,19 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
   );
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader title={server.name}>
-        {serverActions}
-      </PageHeader>
+       <div className="flex flex-col gap-6">
+         <PageHeader title={server.name}>
+           {serverActions}
+         </PageHeader>
 
-      <div className="flex flex-col gap-4 -mt-4">
-        <div className="flex items-center gap-4">
-          <ServerAddress ip={server.ipAddress} port={server.port} />
-          <p className="text-sm text-muted-foreground">
-            {t('servers.detail.description')}
-          </p>
-        </div>
-      </div>
+         <div className="flex flex-col gap-4 p-4">
+           <div className="flex items-center gap-4">
+             <ServerAddress ip={server.ipAddress} port={server.port} />
+             <p className="text-sm text-muted-foreground">
+               {t('servers.detail.description')}
+             </p>
+           </div>
+         </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="md:hidden mb-4">
@@ -440,12 +440,12 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
         </div>
 
         <div className="hidden md:block">
-          <div className="w-full flex justify-center">
-            <TabsList className="bg-muted/50 p-1">
+          <div className="w-full mx-auto px-4">
+            <TabsList className="bg-muted/50 flex flex-nowrap gap-2">
               {serverTabs.map(tab => (
-                <TabsTrigger key={tab.value} value={tab.value} className="px-6">
+                <TabsTrigger key={tab.value} value={tab.value} className="flex-1 flex items-center justify-center px-2 py-2 text-sm font-medium whitespace-nowrap">
                   <tab.icon className="mr-2 h-4 w-4" />
-                  {tab.label}
+                  <span className="ml-2">{tab.label}</span>
                 </TabsTrigger>
               ))}
             </TabsList>

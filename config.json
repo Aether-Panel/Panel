@@ -29,7 +29,7 @@
     "license": {
       "key": "3BPZ-YX4G-BL9J-QP53",
       "serverid": "fedora",
-      "serverip": "192.168.0.3",
+      "serverip": "0.0.0.0",
       "status": "pro"
     },
     "notifications": {
@@ -47,8 +47,8 @@
       "defaulttheme": "SkyPanel",
       "geminiapikey": "AIzaSyDHQLYQK0eZagz6S8tjtOQYuBYP0ygHsKk",
       "hideaianalysis": false,
-      "masterurl": "http://localhost:8080",
-      "nodeip": "192.168.0.3",
+      "masterurl": "http://0.0.0.0:8080",
+      "nodeip": "",
       "themesettings": "{\"primary\":\"#000000\",\"background\":\"#000000\",\"foreground\":\"#000000\"}"
     },
     "token": "hbnUiN8bxGQ/Pyya/c3nUkWG/mImcPJj8Ad1OjNGKwM="
