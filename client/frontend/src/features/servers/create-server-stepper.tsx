@@ -179,13 +179,32 @@ export function CreateServerStepper({ onComplete }: { onComplete: () => void }) 
                 .map(id => users.find(u => u.id === id)?.username)
                 .filter((uname): uname is string => !!uname);
 
+            // Build the correct environment config for Docker:
+            // The template's supportedEnvironments contains the proper image name
+            // and portBindings for each environment type. We MUST use them,
+            // otherwise the backend falls back to its broken "SkyPanel/generic" default.
+            let environmentConfig: Record<string, any> = { type: selectedEnvironment };
+
+            if (selectedEnvironment === 'docker' && templateDetails?.supportedEnvironments) {
+                const dockerEnvTemplate = templateDetails.supportedEnvironments.find(
+                    (e: any) => e.type === 'docker'
+                );
+                if (dockerEnvTemplate) {
+                    // Merge template's docker config (image, portBindings, etc.)
+                    environmentConfig = { ...dockerEnvTemplate };
+                } else {
+                    // Fallback: use a valid lowercase image so Docker doesn't fail
+                    environmentConfig = { type: 'docker', image: 'pufferpanel/generic' };
+                }
+            }
+
             // Combine template definition with user overrides
             const serverPayload = {
                 ...templateDetails,
                 name: name,
                 node: Number(selectedNode),
                 type: templateDetails.type, // Server type (e.g., minecraft-java)
-                environment: { type: selectedEnvironment }, // Environment type (host/docker)
+                environment: environmentConfig, // Full environment config with image + portBindings
                 data: vars,
                 users: usernames,
             };
