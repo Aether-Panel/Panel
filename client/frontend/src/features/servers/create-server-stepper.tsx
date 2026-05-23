@@ -179,32 +179,13 @@ export function CreateServerStepper({ onComplete }: { onComplete: () => void }) 
                 .map(id => users.find(u => u.id === id)?.username)
                 .filter((uname): uname is string => !!uname);
 
-            // Build the correct environment config for Docker:
-            // The template's supportedEnvironments contains the proper image name
-            // and portBindings for each environment type. We MUST use them,
-            // otherwise the backend falls back to its broken "SkyPanel/generic" default.
-            let environmentConfig: Record<string, any> = { type: selectedEnvironment };
-
-            if (selectedEnvironment === 'docker' && templateDetails?.supportedEnvironments) {
-                const dockerEnvTemplate = templateDetails.supportedEnvironments.find(
-                    (e: any) => e.type === 'docker'
-                );
-                if (dockerEnvTemplate) {
-                    // Merge template's docker config (image, portBindings, etc.)
-                    environmentConfig = { ...dockerEnvTemplate };
-                } else {
-                    // Fallback: use a valid lowercase image so Docker doesn't fail
-                    environmentConfig = { type: 'docker', image: 'pufferpanel/generic' };
-                }
-            }
-
             // Combine template definition with user overrides
             const serverPayload = {
                 ...templateDetails,
                 name: name,
                 node: Number(selectedNode),
                 type: templateDetails.type, // Server type (e.g., minecraft-java)
-                environment: environmentConfig, // Full environment config with image + portBindings
+                environment: { type: selectedEnvironment }, // Environment type (host/docker)
                 data: vars,
                 users: usernames,
             };
@@ -224,19 +205,19 @@ export function CreateServerStepper({ onComplete }: { onComplete: () => void }) 
 
     return (
         <ErrorBoundary>
-            <div className="space-y-6">
+            <div className="space-y-6 w-full max-w-full overflow-x-hidden">
                 {/* Stepper Indicator */}
-                <div className="flex items-center justify-between mb-8 max-w-2xl mx-auto">
+                <div className="flex items-center justify-between mb-6 w-full min-w-0">
                     {[1, 2, 3].map((step) => (
                         <div key={step} className="flex items-center">
-                            <div className={`flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all duration-300 ${currentStep >= step ? 'bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/20' : 'border-muted text-muted-foreground'
+                            <div className={`flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full border-2 transition-all duration-300 ${currentStep >= step ? 'bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/20' : 'border-muted text-muted-foreground'
                                 }`}>
-                                {currentStep > step ? <Check className="h-6 w-6" /> : step}
+                                {currentStep > step ? <Check className="h-4 w-4 sm:h-6 sm:w-6" /> : step}
                             </div>
-                            <span className={`ml-3 text-sm font-medium ${currentStep >= step ? 'text-primary' : 'text-muted-foreground'}`}>
-                                {step === 1 ? 'Entorno' : step === 2 ? 'Plantilla' : 'Configuración'}
+                            <span className={`ml-2 text-xs sm:text-sm font-medium ${currentStep >= step ? 'text-primary' : 'text-muted-foreground'}`}>
+                                {step === 1 ? 'Entorno' : step === 2 ? 'Plantilla' : 'Config.'}
                             </span>
-                            {step < 3 && <div className={`mx-4 h-[2px] w-12 sm:w-24 ${currentStep > step ? 'bg-primary' : 'bg-muted'}`} />}
+                            {step < 3 && <div className={`mx-2 sm:mx-4 h-[2px] w-8 sm:w-24 ${currentStep > step ? 'bg-primary' : 'bg-muted'}`} />}
                         </div>
                     ))}
                 </div>
@@ -244,19 +225,19 @@ export function CreateServerStepper({ onComplete }: { onComplete: () => void }) 
                 <Card className="border-0 bg-transparent shadow-none">
                     <CardContent className="p-0">
                         {currentStep === 1 && (
-                            <div className="grid gap-6 animate-in fade-in slide-in-from-right-4 duration-300">
-                                <div className="grid gap-2">
-                                    <Label htmlFor="server-name">Nombre del Servidor *</Label>
-                                    <Input id="server-name" placeholder="Ej: Mi Servidor Minecraft" value={name} onChange={(e) => setName(e.target.value)} />
+                            <div className="grid gap-6 animate-in fade-in slide-in-from-right-4 duration-300 w-full">
+                                <div className="grid gap-2 w-full">
+                                    <Label htmlFor="server-name" className="text-sm font-medium">Nombre del Servidor *</Label>
+                                    <Input id="server-name" placeholder="Ej: Mi Servidor Minecraft" value={name} onChange={(e) => setName(e.target.value)} className="h-10" />
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="grid gap-2">
-                                        <Label>Nodo *</Label>
+                                        <Label className="text-sm font-medium">Nodo *</Label>
                                         <Select value={selectedNode} onValueChange={setSelectedNode}>
-                                            <SelectTrigger>
+                                            <SelectTrigger className="h-10">
                                                 <SelectValue placeholder="Seleccionar nodo" />
                                             </SelectTrigger>
-                                            <SelectContent>
+                                            <SelectContent className="max-h-80 overflow-y-auto z-[100]">
                                                 {nodes.map(n => (
                                                     <SelectItem key={n.id} value={String(n.id)}>{n.name} ({n.publicHost})</SelectItem>
                                                 ))}
@@ -264,12 +245,12 @@ export function CreateServerStepper({ onComplete }: { onComplete: () => void }) 
                                         </Select>
                                     </div>
                                     <div className="grid gap-2">
-                                        <Label>Entorno</Label>
+                                        <Label className="text-sm font-medium">Entorno</Label>
                                         <Select value={selectedEnvironment} onValueChange={setSelectedEnvironment}>
-                                            <SelectTrigger>
+                                            <SelectTrigger className="h-10">
                                                 <SelectValue />
                                             </SelectTrigger>
-                                            <SelectContent>
+                                            <SelectContent className="max-h-80 overflow-y-auto z-[100]">
                                                 <SelectItem value="docker">Docker</SelectItem>
                                                 <SelectItem value="standard">Estándar (Hijo)</SelectItem>
                                                 <SelectItem value="tty">TTY</SelectItem>
@@ -278,7 +259,7 @@ export function CreateServerStepper({ onComplete }: { onComplete: () => void }) 
                                     </div>
                                 </div>
                                 <div className="grid gap-2">
-                                    <Label>Usuarios con acceso</Label>
+                                    <Label className="text-sm font-medium">Usuarios con acceso</Label>
                                     <div className="flex flex-col gap-3">
                                         <Select
                                             value=""
@@ -289,10 +270,10 @@ export function CreateServerStepper({ onComplete }: { onComplete: () => void }) 
                                                 }
                                             }}
                                         >
-                                            <SelectTrigger>
+                                            <SelectTrigger className="h-10">
                                                 <SelectValue placeholder="Seleccionar usuario para añadir..." />
                                             </SelectTrigger>
-                                            <SelectContent>
+                                            <SelectContent className="max-h-80 overflow-y-auto z-[100]">
                                                 {users.filter(u => !selectedUsers.includes(u.id)).map(u => (
                                                     <SelectItem key={u.id} value={String(u.id)}>{u.username} ({u.email})</SelectItem>
                                                 ))}
@@ -329,10 +310,10 @@ export function CreateServerStepper({ onComplete }: { onComplete: () => void }) 
                         )}
 
                         {currentStep === 2 && (
-                            <div className="grid gap-6 animate-in fade-in slide-in-from-right-4 duration-300">
-                                <div className="grid gap-2">
+                            <div className="grid gap-6 animate-in fade-in slide-in-from-right-4 duration-300 w-full">
+                                <div className="grid gap-2 w-full">
                                     <Label>Repositorio de Plantillas</Label>
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
                                         {repos.map(r => (
                                             <div
                                                 key={r.id}
@@ -351,25 +332,27 @@ export function CreateServerStepper({ onComplete }: { onComplete: () => void }) 
                                 </div>
 
                                 {selectedRepo !== null && (
-                                    <div className="grid gap-2 mt-4">
+                                    <div className="grid gap-2 mt-4 w-full">
                                         <Label>Seleccionar Plantilla</Label>
                                         {loadingTemplates ? (
                                             <div className="flex items-center justify-center p-8">
                                                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                                             </div>
                                         ) : (
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                                                {templateList.map(t => (
-                                                    <div
-                                                        key={t.name}
-                                                        onClick={() => setSelectedTemplateName(t.name)}
-                                                        className={`p-3 rounded-lg border text-sm flex items-center gap-3 cursor-pointer transition-all ${selectedTemplateName === t.name ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted'
+                                            <div className="w-full min-w-0 max-h-[280px] overflow-y-auto pr-2">
+                                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 w-full">
+                                                    {templateList.map(t => (
+                                                        <div
+                                                            key={t.name}
+                                                            onClick={() => setSelectedTemplateName(t.name)}
+                                                            className={`p-2 rounded-lg border text-xs flex items-center gap-2 cursor-pointer transition-all min-w-0 ${selectedTemplateName === t.name ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted'
                                                             }`}
-                                                    >
-                                                        <Code className="h-4 w-4" />
-                                                        <span className="truncate flex-1">{t.name}</span>
-                                                    </div>
-                                                ))}
+                                                        >
+                                                            <Code className="h-3 w-3 shrink-0" />
+                                                            <span className="truncate min-w-0">{t.name}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
                                         )}
                                     </div>
@@ -378,7 +361,7 @@ export function CreateServerStepper({ onComplete }: { onComplete: () => void }) 
                         )}
 
                         {currentStep === 3 && (
-                            <div className="grid gap-6 animate-in fade-in-0 duration-300">
+                            <div className="w-full max-w-full overflow-x-hidden">
                                 {templateError ? (
                                     <div className="flex flex-col items-center justify-center p-12 text-center bg-red-500/5 rounded-xl border border-red-500/20">
                                         <ShieldAlert className="h-12 w-12 text-red-500 mb-4" />
@@ -390,20 +373,20 @@ export function CreateServerStepper({ onComplete }: { onComplete: () => void }) 
                                         </Button>
                                     </div>
                                 ) : templateDetails ? (
-                                    <div className="space-y-6">
-                                        <div className="bg-primary/5 p-5 rounded-xl flex items-start gap-4 border border-primary/10 shadow-sm">
-                                            <div className="bg-primary/20 p-2.5 rounded-lg shadow-inner">
-                                                <Code className="h-6 w-6 text-primary" />
+                                    <div className="flex flex-col w-full max-w-full overflow-x-hidden gap-4">
+                                        <div className="bg-primary/5 p-3 rounded-lg flex items-start gap-2 border border-primary/10 w-full">
+                                            <div className="bg-primary/20 p-1.5 rounded shrink-0">
+                                                <Code className="h-4 w-4 text-primary" />
                                             </div>
-                                            <div className="space-y-1">
-                                                <h4 className="font-bold text-lg leading-none"><SafeValue v={templateDetails.display || templateDetails.name} /></h4>
-                                                <p className="text-xs text-muted-foreground leading-relaxed">
-                                                    <SafeValue v={templateDetails.readme} fallback="Configure los parámetros necesarios para esta plantilla. Los valores por defecto han sido precargados." />
+                                            <div className="min-w-0 flex-1">
+                                                <h4 className="font-bold text-sm leading-none truncate"><SafeValue v={templateDetails.display || templateDetails.name} /></h4>
+                                                <p className="text-[10px] text-muted-foreground line-clamp-1">
+                                                    <SafeValue v={templateDetails.readme} fallback="Configure los parámetros." />
                                                 </p>
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8 pt-2">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full">
                                             {(() => {
                                                 try {
                                                     const variables = (templateDetails.data || templateDetails.variables || templateDetails.Variables || {}) as Record<string, any>;
@@ -426,15 +409,21 @@ export function CreateServerStepper({ onComplete }: { onComplete: () => void }) 
                                                                 ? JSON.stringify(currentVal)
                                                                 : String(currentVal ?? "");
 
+                                                            const fieldNeedsTwoCols = variable.type === 'string' && variable.options?.length === 0 && 
+                ((variable.display || key).toLowerCase().includes('arguments') || 
+                 (variable.display || key).toLowerCase().includes('motd') ||
+                 (variable.display || key).toLowerCase().includes('command') ||
+                 (variable.desc && variable.desc.length > 50));
+
                                                             return (
-                                                                <div key={key + idx} className="space-y-2.5 animate-in fade-in slide-in-from-bottom-2 duration-300" style={{ animationDelay: `${idx * 50}ms` }}>
-                                                                    <div className="flex justify-between items-center group">
-                                                                        <Label className="text-sm font-bold text-foreground/80 group-hover:text-primary transition-colors">
+                                                                <div key={key + idx} className={`flex flex-col gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-300 ${fieldNeedsTwoCols ? 'sm:col-span-2' : ''}`} style={{ animationDelay: `${idx * 30}ms` }}>
+                                                                    <div className="flex flex-wrap justify-between items-center gap-1">
+                                                                        <Label className="text-xs font-semibold text-foreground/80 group-hover:text-primary transition-colors break-words">
                                                                             <SafeValue v={variable.display || key} />
-                                                                            {variable.required && <span className="text-red-500 ml-1 font-black">*</span>}
+                                                                            {variable.required && <span className="text-red-500 ml-0.5 font-bold">*</span>}
                                                                         </Label>
-                                                                        <Badge variant="secondary" className="text-[10px] uppercase tracking-wider font-bold h-5 px-1.5 opacity-70 group-hover:opacity-100 transition-opacity">
-                                                                            <SafeValue v={variable.type} fallback="string" />
+                                                                        <Badge variant="secondary" className="text-[9px] uppercase tracking-wider font-bold h-4 px-1 opacity-70 shrink-0">
+                                                                            <SafeValue v={variable.type} fallback="str" />
                                                                         </Badge>
                                                                     </div>
 
@@ -443,10 +432,10 @@ export function CreateServerStepper({ onComplete }: { onComplete: () => void }) 
                                                                             value={stringifiedVal === "" ? "_EMPTY_VALUE_" : stringifiedVal}
                                                                             onValueChange={(val) => setConfigData(prev => ({ ...prev, [key]: val === "_EMPTY_VALUE_" ? "" : val }))}
                                                                         >
-                                                                            <SelectTrigger className="bg-background/50 border-muted-foreground/20 hover:border-primary/50 transition-all">
+                                                                            <SelectTrigger className="w-full bg-background/50 border-muted-foreground/20 hover:border-primary/50 transition-all h-9">
                                                                                 <SelectValue />
                                                                             </SelectTrigger>
-                                                                            <SelectContent>
+<SelectContent className="max-h-80 overflow-y-auto z-[100]">
                                                                                 {variable.options.map((opt: any, oIdx: number) => {
                                                                                     if (!opt) return null;
                                                                                     const rawOptVal = opt.value !== undefined ? opt.value : (typeof opt === 'string' ? opt : "");
@@ -460,22 +449,23 @@ export function CreateServerStepper({ onComplete }: { onComplete: () => void }) 
                                                                             </SelectContent>
                                                                         </Select>
                                                                     ) : variable.type === 'boolean' ? (
-                                                                        <div className="flex items-center gap-3 p-3 rounded-lg border border-muted-foreground/20 bg-background/30 hover:bg-background/50 transition-colors cursor-pointer" onClick={() => setConfigData(prev => ({ ...prev, [key]: !currentVal }))}>
-                                                                            <div className={`h-5 w-5 rounded border transition-colors flex items-center justify-center ${currentVal ? 'bg-primary border-primary' : 'border-muted-foreground/30 bg-transparent'}`}>
-                                                                                {currentVal && <Check className="h-3.5 w-3.5 text-primary-foreground stroke-[3px]" />}
+                                                                        <div className="flex items-center gap-2 py-2 px-3 rounded-lg border border-muted-foreground/20 bg-background/30 hover:bg-background/50 transition-colors cursor-pointer w-full" onClick={() => setConfigData(prev => ({ ...prev, [key]: !currentVal }))}>
+                                                                            <div className={`h-4 w-4 rounded border transition-colors flex items-center justify-center shrink-0 ${currentVal ? 'bg-primary border-primary' : 'border-muted-foreground/30 bg-transparent'}`}>
+                                                                                {currentVal && <Check className="h-3 w-3 text-primary-foreground stroke-[3px]" />}
                                                                             </div>
-                                                                            <span className="text-sm font-medium select-none">Habilitar esta opción</span>
+                                                                            <span className="text-xs font-medium select-none">Habilitar</span>
                                                                         </div>
                                                                     ) : (
                                                                         <Input
+                                                                            id={key}
                                                                             type={variable.type === 'integer' ? 'number' : 'text'}
                                                                             value={stringifiedVal}
                                                                             onChange={(e) => setConfigData(prev => ({ ...prev, [key]: variable.type === 'integer' ? Number(e.target.value) : e.target.value }))}
-                                                                            className="bg-background/50 border-muted-foreground/20 hover:border-primary/50 focus-visible:ring-primary/20 transition-all"
+                                                                            className="w-full bg-background/50 border-muted-foreground/20 hover:border-primary/50 focus-visible:ring-primary/20 transition-all h-9"
                                                                         />
                                                                     )}
                                                                     {variable.desc && (
-                                                                        <p className="text-[11px] text-muted-foreground leading-snug px-1 italic">
+                                                                        <p className="text-[10px] text-muted-foreground leading-snug break-words">
                                                                             <SafeValue v={variable.desc} />
                                                                         </p>
                                                                     )}
@@ -514,22 +504,23 @@ export function CreateServerStepper({ onComplete }: { onComplete: () => void }) 
                             </div>
                         )}
                     </CardContent>
-                    <CardFooter className="flex justify-between mt-8 p-0">
+                    <CardFooter className="flex justify-between items-center mt-8 p-0 w-full">
                         <Button
                             variant="ghost"
                             onClick={() => setCurrentStep(prev => (prev - 1) as Step)}
                             disabled={currentStep === 1 || loading}
+                            className="shrink-0"
                         >
                             <ChevronLeft className="mr-2 h-4 w-4" />
                             Atrás
                         </Button>
                         {currentStep < 3 ? (
-                            <Button onClick={handleNext}>
+                            <Button onClick={handleNext} className="shrink-0">
                                 Siguiente
                                 <ChevronRight className="ml-2 h-4 w-4" />
                             </Button>
                         ) : (
-                            <Button onClick={handleCreate} disabled={loading} className="bg-primary hover:bg-primary/90">
+                            <Button onClick={handleCreate} disabled={loading} className="bg-primary hover:bg-primary/90 shrink-0">
                                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 <Check className="mr-2 h-4 w-4" />
                                 Crear Servidor
