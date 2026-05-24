@@ -227,6 +227,7 @@ func (d *Docker) GetStatsImpl(environment *SkyPanel.Environment) (*SkyPanel.Serv
 		MaxMemory: float64(data.MemoryStats.Limit),
 		Cpu:       calculateCPUPercent(data),
 		Disk:      0,
+		Running:   true,
 	}
 
 	if usage, err := disk.Usage(environment.GetRootDirectory()); err == nil {
