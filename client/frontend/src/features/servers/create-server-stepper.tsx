@@ -179,13 +179,29 @@ export function CreateServerStepper({ onComplete }: { onComplete: () => void }) 
                 .map(id => users.find(u => u.id === id)?.username)
                 .filter((uname): uname is string => !!uname);
 
+            // Fetch correct environment properties from the template's supportedEnvironments
+            // This ensures we pass the correct Docker Image and portBindings to the backend
+            let environmentConfig: Record<string, any> = { type: selectedEnvironment };
+
+            if (selectedEnvironment === 'docker' && templateDetails?.supportedEnvironments) {
+                const dockerEnvTemplate = templateDetails.supportedEnvironments.find(
+                    (e: any) => e.type === 'docker'
+                );
+                if (dockerEnvTemplate) {
+                    environmentConfig = { ...dockerEnvTemplate };
+                } else {
+                    // Fallback to a functional image if the template doesn't specify one
+                    environmentConfig = { type: 'docker', image: 'ubuntu:22.04' };
+                }
+            }
+
             // Combine template definition with user overrides
             const serverPayload = {
                 ...templateDetails,
                 name: name,
                 node: Number(selectedNode),
                 type: templateDetails.type, // Server type (e.g., minecraft-java)
-                environment: { type: selectedEnvironment }, // Environment type (host/docker)
+                environment: environmentConfig, // Correctly resolved environment (image, portBindings, etc.)
                 data: vars,
                 users: usernames,
             };
