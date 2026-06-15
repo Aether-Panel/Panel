@@ -63,11 +63,17 @@ func registerServers(g *gin.RouterGroup) {
 	g.POST("/:serverId/transfer", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, transferServer)
 	g.OPTIONS("/:serverId/transfer", response.CreateOptions("POST"))
 
+	g.POST("/:serverId/ai/analyze", middleware.RequiresPermission(scopes.ScopeServerConsole), middleware.ResolveServerPanel, analyzeServerLogs)
+	g.OPTIONS("/:serverId/ai/analyze", response.CreateOptions("POST"))
+
 	g.POST("/:serverId/extransfer/create", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, CreateExTransfer)
 	g.OPTIONS("/:serverId/extransfer/create", response.CreateOptions("POST"))
 
 	g.POST("/:serverId/extransfer/pull", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, pullExTransfer)
 	g.OPTIONS("/:serverId/extransfer/pull", response.CreateOptions("POST"))
+
+	g.GET("/:serverId/extransfer/status", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, getExTransferStatus)
+	g.OPTIONS("/:serverId/extransfer/status", response.CreateOptions("GET"))
 
 	g.GET("/:serverId/flags", middleware.RequiresPermission(scopes.ScopeServerViewFlags), middleware.ResolveServerPanel, proxyServerRequest)
 	g.POST("/:serverId/flags", middleware.RequiresPermission(scopes.ScopeServerEditFlags), middleware.ResolveServerPanel, proxyServerRequest)

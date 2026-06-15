@@ -150,7 +150,7 @@ echo "Iniciando panel..."
 echo "Ejecutando: /SkyPanel/bin/SkyPanel run"
 exec /SkyPanel/bin/SkyPanel run
 EOF
-RUN chmod 755 /SkyPanel/bin/entrypoint.sh
+RUN chmod 755 /SkyPanel/bin/entrypoint.sh && sed -i 's/\r$//' /SkyPanel/bin/entrypoint.sh
 COPY --from=builder /build/SkyPanel/config.docker.json /etc/SkyPanel/config.json
 RUN chmod 644 /etc/SkyPanel/config.json
 COPY --from=builder /build/SkyPanel/client/frontend/dist /var/www/SkyPanel

@@ -14,7 +14,6 @@ type ExternalTransferViewProps = {
   serverId: string;
 };
 
-// ─── Helpers de persistencia (15 min = 900 segundos) ─────────────────────────
 interface StoredTransfer {
   token: string;
   expires_in: number;
@@ -48,8 +47,6 @@ const clearTransfer = (serverId: string) => {
   localStorage.removeItem(storageKey(serverId));
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-
 export default function ExternalTransferView({ serverId }: ExternalTransferViewProps) {
   const { t } = useTranslations();
   const { toast } = useToast();
@@ -60,9 +57,11 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
   const [importUrl, setImportUrl] = useState('');
   const [importToken, setImportToken] = useState('');
   const [importing, setImporting] = useState(false);
+  const [importStep, setImportStep] = useState('');
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState('export');
 
-  // ── Al montar: recuperar token guardado si aún es válido ─────────────────
+  // Al montar: recuperar token guardado si aún es válido
   useEffect(() => {
     const stored = loadStoredTransfer(serverId);
     if (stored) {
@@ -72,7 +71,48 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
     }
   }, [serverId]);
 
-  // ── Cuenta regresiva ──────────────────────────────────────────────────────
+  // Polling de estado de transferencia
+  useEffect(() => {
+    let lastStatus = '';
+    const checkStatus = async () => {
+      try {
+        const res = await fetch(`/api/servers/${serverId}/extransfer/status`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.status && data.status !== lastStatus) {
+            lastStatus = data.status;
+            setImporting(true);
+            setActiveTab('import');
+
+            if (data.status === 'DONE') {
+              toast({ title: 'Transferencia completa', description: 'El servidor ha sido migrado exitosamente.' });
+              setImportStep('');
+              setImporting(false);
+            } else if (data.status.startsWith('ERROR: ')) {
+              toast({ variant: 'destructive', title: 'Error en la migración', description: data.status.substring(7) });
+              setImportStep('');
+              setImporting(false);
+            } else {
+              setImportStep(data.status);
+            }
+          } else if (!data.status && lastStatus) {
+            // El backend limpió el estado, terminamos.
+            lastStatus = '';
+            setImporting(false);
+            setImportStep('');
+          }
+        }
+      } catch (e) {
+        // Ignorar errores de red en polling
+      }
+    };
+
+    checkStatus();
+    const interval = setInterval(checkStatus, 2000);
+    return () => clearInterval(interval);
+  }, [serverId, toast]);
+
+  // Cuenta regresiva 
   useEffect(() => {
     if (timeLeft === null) return;
     if (timeLeft <= 0) {
@@ -92,7 +132,7 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
     return `${m}:${sec}`;
   };
 
-  // ── Generar token (usa cookies del panel, sin necesidad de Bearer) ─────────
+  // Generar token (usa cookies del panel, sin necesidad de Bearer)
   const generateTransferToken = async () => {
     try {
       setLoading(true);
@@ -141,6 +181,7 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
     }
     try {
       setImporting(true);
+      setImportStep('Iniciando...');
       const res = await fetch(`/api/servers/${serverId}/extransfer/pull`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -148,16 +189,15 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
         body: JSON.stringify({ origin_url: importUrl, token: importToken })
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to initiate import.');
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || 'Failed to initiate import.');
+      }
 
-      toast({
-        title: 'Import Initiated',
-        description: 'The server data is being pulled from the source. Please check the console.'
-      });
+      // El polling (useEffect) se encargará de actualizar el estado a partir de aquí.
     } catch (e: any) {
       toast({ variant: 'destructive', title: 'Import Failed', description: e.message });
-    } finally {
+      setImportStep('');
       setImporting(false);
     }
   };
@@ -179,7 +219,7 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
           </div>
         </CardHeader>
 
-        <Tabs defaultValue="export" className="w-full mt-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-6">
           <TabsList className="grid w-full grid-cols-2 mb-8">
             <TabsTrigger value="export" className="flex gap-2">
               <UploadCloud className="h-4 w-4" /> Export to remote panel
@@ -189,7 +229,7 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
             </TabsTrigger>
           </TabsList>
 
-          {/* ── EXPORT ────────────────────────────────────────────────────── */}
+          {/*  EXPORT */}
           <TabsContent value="export" className="space-y-6 px-0 mt-0">
             <Alert variant="default" className="border-blue-500/20 bg-blue-500/5">
               <ShieldAlert className="h-4 w-4 text-blue-500" />
@@ -226,11 +266,10 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
                     <h3 className="text-lg font-bold">Transfer Session Created</h3>
                   </div>
                   {timeLeft !== null && (
-                    <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-mono font-bold transition-colors ${
-                      timeLeft < 120
+                    <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-mono font-bold transition-colors ${timeLeft < 120
                         ? 'bg-red-500/10 text-red-400 animate-pulse'
                         : 'bg-green-500/10 text-green-400'
-                    }`}>
+                      }`}>
                       <Clock className="h-3.5 w-3.5" />
                       {formatTime(timeLeft)}
                     </div>
@@ -275,7 +314,7 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
             )}
           </TabsContent>
 
-          {/* ── IMPORT ────────────────────────────────────────────────────── */}
+          {/*IMPORT*/}
           <TabsContent value="import" className="space-y-6 px-0 mt-0">
             <Alert variant="default" className="border-indigo-500/20 bg-indigo-500/5">
               <DownloadCloud className="h-4 w-4 text-indigo-500" />
@@ -310,7 +349,7 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
 
                 <Button size="lg" onClick={executeImport} disabled={importing} className="w-full sm:w-auto">
                   {importing
-                    ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Verifying handshake...</>
+                    ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {importStep || 'Migrating...'}</>
                     : 'Initiate Secure Pull'
                   }
                 </Button>

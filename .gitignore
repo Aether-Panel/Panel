@@ -53,4 +53,7 @@ dev-data/
 data/sftp.key
 skypanel.db
 
-
+# Docker-compose generated volumes
+/storage/
+/storage2/
+/storage3/

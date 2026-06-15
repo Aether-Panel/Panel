@@ -106,7 +106,7 @@ export default function ConsoleView({ serverId, logs, addLog }: { serverId: stri
         </Card>
       </div>
       <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50">
-        <AISummary />
+        <AISummary logs={logs} serverId={serverId} />
       </div>
     </div>
   );

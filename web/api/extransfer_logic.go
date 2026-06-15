@@ -15,6 +15,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3/logging"
@@ -25,6 +26,27 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
+
+var (
+	transferProgressMutex sync.RWMutex
+	transferProgress      = make(map[string]string)
+)
+
+func setTransferProgress(serverID, status string) {
+	transferProgressMutex.Lock()
+	defer transferProgressMutex.Unlock()
+	if status == "" {
+		delete(transferProgress, serverID)
+	} else {
+		transferProgress[serverID] = status
+	}
+}
+
+func getTransferProgress(serverID string) string {
+	transferProgressMutex.RLock()
+	defer transferProgressMutex.RUnlock()
+	return transferProgress[serverID]
+}
 
 var ExTransferSalt = "AETHER_FEDERATED_SALT_v1"
 
@@ -151,6 +173,8 @@ func validateExTransfer(c *gin.Context) {
 		c.JSON(400, ExTransferApiError{ErrorCode: "BAD_REQUEST", Message: "Invalid JSON payload", Retryable: false})
 		return
 	}
+
+	req.Token = strings.TrimSpace(req.Token) // se agrego prueba local
 
 	mac := hmac.New(sha256.New, []byte(ExTransferSalt))
 	mac.Write([]byte(req.Token))
@@ -406,15 +430,35 @@ func pullExTransfer(c *gin.Context) {
 		return
 	}
 
+	req.Token = strings.TrimSpace(req.Token)
+	req.OriginURL = strings.TrimSpace(req.OriginURL)
+
 	db := middleware.GetDatabase(c)
 
-	go performPullTransfer(server, req.OriginURL, req.Token, db)
+	setTransferProgress(server.Identifier, "Iniciando...")
+	go performPullTransferAsync(server, req.OriginURL, req.Token, db)
 
 	c.JSON(202, gin.H{"status": "ACCEPTED", "message": "Pull process initiated"})
 }
 
-func performPullTransfer(server *models.Server, originURL, token string, db *gorm.DB) {
+func getExTransferStatus(c *gin.Context) {
+	server := c.MustGet("server").(*models.Server)
+	status := getTransferProgress(server.Identifier)
+	c.JSON(200, gin.H{"status": status})
+}
+
+func performPullTransferAsync(server *models.Server, originURL, token string, db *gorm.DB) {
+	sendStep := func(msg string) {
+		setTransferProgress(server.Identifier, msg)
+	}
+	defer func() {
+		// Clean up status after 10 seconds so the frontend can read the final state
+		time.Sleep(10 * time.Second)
+		sendStep("")
+	}()
+
 	logging.Info.Printf("Starting pull transfer for server %s from %s", server.Identifier, originURL)
+	sendStep("Validando conexión con el panel de origen...")
 
 	// 1. Handle URL format
 	if !strings.HasPrefix(originURL, "http://") && !strings.HasPrefix(originURL, "https://") {
@@ -436,6 +480,7 @@ func performPullTransfer(server *models.Server, originURL, token string, db *gor
 	resp, err := http.Post(validateURL, "application/json", bytes.NewBuffer(bodyBytes))
 	if err != nil {
 		logging.Error.Printf("Failed to call validate on origin: %v", err)
+		sendStep("ERROR: Fallo de red al conectar con origen")
 		return
 	}
 	defer resp.Body.Close()
@@ -443,6 +488,7 @@ func performPullTransfer(server *models.Server, originURL, token string, db *gor
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
 		logging.Error.Printf("Origin validate failed with status %d: %s", resp.StatusCode, string(body))
+		sendStep(fmt.Sprintf("ERROR: Token inválido o expirado (Status %d)", resp.StatusCode))
 		return
 	}
 	
@@ -452,9 +498,11 @@ func performPullTransfer(server *models.Server, originURL, token string, db *gor
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&validateRes); err != nil {
 		logging.Error.Printf("Failed to decode validate response: %v", err)
+		sendStep("ERROR: Respuesta inválida del origen")
 		return
 	}
 	
+	sendStep("Iniciando la transferencia en el servidor origen...")
 	// 3. Consume transfer
 	consumeURL := fmt.Sprintf("%s/api/extransfer/consume", strings.TrimSuffix(originURL, "/"))
 	
@@ -471,6 +519,7 @@ func performPullTransfer(server *models.Server, originURL, token string, db *gor
 	resp, err = http.Post(consumeURL, "application/json", bytes.NewBuffer(bodyBytes))
 	if err != nil {
 		logging.Error.Printf("Failed to call consume on origin: %v", err)
+		sendStep("ERROR: Fallo al iniciar transferencia en origen")
 		return
 	}
 	defer resp.Body.Close()
@@ -478,9 +527,11 @@ func performPullTransfer(server *models.Server, originURL, token string, db *gor
 	if resp.StatusCode != 202 {
 		body, _ := io.ReadAll(resp.Body)
 		logging.Error.Printf("Origin consume failed with status %d: %s", resp.StatusCode, string(body))
+		sendStep("ERROR: El origen rechazó la transferencia")
 		return
 	}
 	
+	sendStep("Esperando a que el origen comprima los archivos...")
 	// 4. Wait for file to be ready (optional but good practice as origin does it async)
 	time.Sleep(5 * time.Second)
 	
@@ -493,9 +544,11 @@ func performPullTransfer(server *models.Server, originURL, token string, db *gor
 	
 	reqURL := fmt.Sprintf("%s?session_id=%s&signature=%s", downloadURL, url.QueryEscape(validateRes.SessionID), url.QueryEscape(dlSigB64))
 	
+	sendStep("Descargando paquete de datos desde el origen...")
 	resp, err = http.Get(reqURL)
 	if err != nil {
 		logging.Error.Printf("Failed to call download on origin: %v", err)
+		sendStep("ERROR: Error de red al descargar paquete")
 		return
 	}
 	defer resp.Body.Close()
@@ -503,8 +556,11 @@ func performPullTransfer(server *models.Server, originURL, token string, db *gor
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
 		logging.Error.Printf("Origin download failed with status %d: %s", resp.StatusCode, string(body))
+		sendStep(fmt.Sprintf("ERROR: El origen falló al entregar el paquete (Status %d)", resp.StatusCode))
 		return
 	}
+	
+	sendStep("Subiendo archivos al daemon local (esto puede tardar)...")
 	
 	// 6. Stream to daemon
 	ns := &services.Node{DB: db}
@@ -516,25 +572,30 @@ func performPullTransfer(server *models.Server, originURL, token string, db *gor
 	if err != nil || uploadRes.StatusCode != http.StatusNoContent {
 		body, _ := io.ReadAll(uploadRes.Body)
 		logging.Error.Printf("Failed to upload archive to daemon: %v %s", err, string(body))
+		sendStep("ERROR: Error al subir archivo al daemon")
 		return
 	}
 	if uploadRes.Body != nil {
 		uploadRes.Body.Close()
 	}
 	
+	sendStep("Descomprimiendo archivos...")
 	// 7. Extract on daemon
 	logging.Info.Printf("Extracting files on daemon for server %s", server.Identifier)
 	extractRes, err := ns.CallNode(&server.Node, "POST", fmt.Sprintf("/daemon/server/%s/extract/transfer.tar.gz?destination=.&skipRoot", server.Identifier), nil, nil)
 	if err != nil || (extractRes != nil && extractRes.StatusCode != http.StatusNoContent && extractRes.StatusCode != http.StatusOK) {
 		logging.Error.Printf("Failed to extract on daemon: %v", err)
+		sendStep("ERROR: Error al descomprimir en el destino")
 		return
 	}
 	if extractRes.Body != nil {
 		extractRes.Body.Close()
 	}
 	
+	sendStep("Limpiando archivos temporales...")
 	// Clean up transfer file on daemon
 	ns.CallNode(&server.Node, "DELETE", fmt.Sprintf("/daemon/server/%s/file/transfer.tar.gz", server.Identifier), nil, nil)
 	
 	logging.Info.Printf("Pull transfer for server %s completed successfully", server.Identifier)
+	sendStep("DONE")
 }
