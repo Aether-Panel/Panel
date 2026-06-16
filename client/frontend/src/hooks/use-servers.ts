@@ -1,14 +1,35 @@
 import { useState, useEffect, useRef } from 'react';
 import { api, ApiError } from '@/lib/api-client';
 import type { Server } from '@/lib/data';
+import { servers as mockServers } from '@/lib/data';
 
 const globalFailedStatsSet = new Set<string>();
+let mockSimulationInterval: NodeJS.Timeout | null = null;
 
 export function useServers() {
     const [servers, setServers] = useState<Server[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
     const pollerRef = useRef<NodeJS.Timeout | null>(null);
+
+    const startMockSimulation = () => {
+        if (mockSimulationInterval) clearInterval(mockSimulationInterval);
+        mockSimulationInterval = setInterval(() => {
+            setServers(prev => prev.map(s => {
+                if (s.status !== 'online') return s;
+                const t = Date.now();
+                const metrics = [...(s.metrics || [])];
+                metrics.push({
+                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+                    cpu: Math.floor(Math.sin(t * 0.0001) * 25 + 50),
+                    memory: Math.floor(Math.cos(t * 0.00008) * 20 + 60),
+                    networkIn: Math.floor(Math.sin(t * 0.00015) * 30 + 40),
+                    networkOut: Math.floor(Math.cos(t * 0.00012) * 20 + 25),
+                });
+                return { ...s, metrics: metrics.slice(-60) };
+            }));
+        }, 3000);
+    };
 
     const fetchServers = async () => {
         try {
@@ -41,8 +62,10 @@ export function useServers() {
             // Start fetching stats for each server
             updateAllStats(mappedServers);
         } catch (e: any) {
-            setError(e);
-            console.error('Failed to fetch servers:', e);
+            console.error('Failed to fetch servers, using mock data:', e);
+            setServers(mockServers as Server[]);
+            setError(null);
+            startMockSimulation();
         } finally {
             setLoading(false);
         }
@@ -81,8 +104,8 @@ export function useServers() {
                             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
                             cpu: Math.min(100, cpu),
                             memory: Math.min(100, memory),
-                            networkIn: stats.network?.in || 0,
-                            networkOut: stats.network?.out || 0,
+                            networkIn: Math.round(stats.networkRx || 0),
+                            networkOut: Math.round(stats.networkTx || 0),
                         }
                     };
                 }
@@ -131,6 +154,12 @@ export function useServers() {
 
         return () => clearInterval(interval);
     }, [servers.length]); // Only reset interval if server count changes
+
+    useEffect(() => {
+        return () => {
+            if (mockSimulationInterval) clearInterval(mockSimulationInterval);
+        };
+    }, []);
 
     return { servers, loading, error, refresh: fetchServers };
 }

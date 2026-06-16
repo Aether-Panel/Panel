@@ -20,6 +20,7 @@ import {
     SidebarMenuItem,
     SidebarMenuButton,
     SidebarProvider,
+    SidebarRail,
     SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -51,8 +52,8 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
     };
 
     return (
-        <SidebarProvider>
-            <Sidebar>
+            <SidebarProvider collapsible="icon">
+            <Sidebar collapsible="icon">
                 <SidebarHeader className="border-b border-sidebar-border/50 pb-4">
                     <Logo />
                 </SidebarHeader>
@@ -76,12 +77,13 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
                         )}
                     </SidebarMenu>
                 </SidebarContent>
-                <SidebarFooter className="border-t border-sidebar-border/50 pt-2">
+                <SidebarFooter className="border-t border-sidebar-border/50 pt-2 space-y-1">
+                    <SidebarTrigger className="w-full justify-center rounded-lg hover:bg-sidebar-accent data-[state=open]:hover:bg-sidebar-accent [&_svg]:size-5" />
                     <DropdownMenu>
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" className="h-12 w-full justify-start gap-2 px-2 rounded-lg hover:bg-sidebar-accent transition-all duration-200">
+                                    <Button variant="ghost" className="h-12 w-full justify-start gap-2 px-2 rounded-lg hover:bg-sidebar-accent transition-all duration-200 group-data-[state=collapsed]:justify-center group-data-[state=collapsed]:px-0">
                                         <Avatar className="h-8 w-8 ring-2 ring-sidebar-border">
                                             <AvatarImage src={`https://avatar.vercel.sh/${user?.email}`} alt={user?.username} />
                                             <AvatarFallback>{user?.username?.charAt(0)}</AvatarFallback>
@@ -122,13 +124,10 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </SidebarFooter>
+                <SidebarRail />
             </Sidebar>
 
             <SidebarInset className="p-4 md:p-6 lg:p-8">
-                <header className="mb-6 flex items-center justify-between">
-                    <SidebarTrigger className="md:hidden" />
-                    <div className="flex-grow" />
-                </header>
                 <main className="animate-in fade-in duration-500 space-y-6">
                     {children}
                 </main>

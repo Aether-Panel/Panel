@@ -7,12 +7,14 @@ type ServerIdResponse struct {
 } //@name ServerId
 
 type ServerStats struct {
-	Cpu       float64         `json:"cpu"`
-	Memory    float64         `json:"memory"`
-	MaxMemory float64         `json:"maxMemory"`
-	Disk      float64         `json:"storage"`
-	Jvm       *utils.JvmStats `json:"jvm,omitempty"`
-	Running   bool            `json:"running"`
+	Cpu              float64         `json:"cpu"`
+	Memory           float64         `json:"memory"`
+	MaxMemory        float64         `json:"maxMemory"`
+	Disk             float64         `json:"storage"`
+	NetworkRx        float64         `json:"networkRx"`
+	NetworkTx        float64         `json:"networkTx"`
+	Jvm              *utils.JvmStats `json:"jvm,omitempty"`
+	Running          bool            `json:"running"`
 } //@name ServerStats
 
 type ServerLogs struct {

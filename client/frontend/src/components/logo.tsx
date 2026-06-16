@@ -1,5 +1,4 @@
 import { cn } from "@/lib/utils";
-
 import { useConfig } from "@/contexts/config-context";
 
 export function Logo({ className }: { className?: string }) {
@@ -7,23 +6,14 @@ export function Logo({ className }: { className?: string }) {
   const panelName = config?.branding?.name || "Aether Panel";
 
   return (
-    <div className={cn("flex items-center gap-2", className)}>
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="h-6 w-6"
-        style={{ color: 'hsl(var(--primary))' }}
-      >
-        <path d="M12 2L2 7l10 5 10-5-10-5z" />
-        <path d="M2 17l10 5 10-5" />
-        <path d="M2 12l10 5 10-5" />
-      </svg>
-      <span className="text-lg font-semibold">
+    <div className={cn("flex items-center gap-2 group-data-[state=collapsed]:justify-center", className)}>
+      <img
+        src="/img/appicons/144.png"
+        alt="Logo"
+        className="h-12 w-12 group-data-[state=collapsed]:h-8 group-data-[state=collapsed]:w-8"
+      />
+
+      <span className="text-lg font-semibold group-data-[state=collapsed]:hidden">
         <span className="text-gradient">{panelName}</span>
       </span>
     </div>

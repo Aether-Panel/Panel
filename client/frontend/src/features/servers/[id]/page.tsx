@@ -451,7 +451,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
         </div>
 
         <div className="hidden md:block">
-          <TabsList className="w-full justify-start gap-1 bg-muted/50 p-1">
+          <TabsList className="w-full justify-center gap-2 bg-muted/50 p-1">
             {serverTabs.map(tab => (
               <TabsTrigger key={tab.value} value={tab.value} className="flex items-center gap-2 px-3 py-2 text-sm font-medium whitespace-nowrap data-[state=active]:shadow-sm">
                 <tab.icon className="h-4 w-4" />

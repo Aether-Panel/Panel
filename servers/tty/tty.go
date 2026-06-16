@@ -21,6 +21,7 @@ import (
 	"github.com/creack/pty"
 	"github.com/shirou/gopsutil/disk"
 	"github.com/shirou/gopsutil/mem"
+	psnet "github.com/shirou/gopsutil/net"
 	"github.com/shirou/gopsutil/process"
 	"github.com/spf13/cast"
 )
@@ -30,6 +31,9 @@ type tty struct {
 	statLocker   sync.Mutex
 	lastStats    *SkyPanel.ServerStats
 	lastStatTime time.Time
+	lastNetworkRx      uint64
+	lastNetworkTx      uint64
+	lastNetTime        time.Time
 	//disableStdin        bool
 	disableSpecialStats bool
 
@@ -175,11 +179,31 @@ func (t *tty) GetStatsImpl(environment *SkyPanel.Environment) (*SkyPanel.ServerS
 	cpu, _ := pr.Percent(time.Second * 1)
 
 	memInfo, _ := mem.VirtualMemory()
+
+	now := time.Now()
+	var rxRate, txRate float64
+	if netStats, err := psnet.IOCounters(false); err == nil && len(netStats) > 0 {
+		totalRx := netStats[0].BytesRecv
+		totalTx := netStats[0].BytesSent
+		if !t.lastNetTime.IsZero() {
+			elapsed := now.Sub(t.lastNetTime).Seconds()
+			if elapsed > 0 {
+				rxRate = (float64(totalRx-t.lastNetworkRx) / elapsed) / 1024
+				txRate = (float64(totalTx-t.lastNetworkTx) / elapsed) / 1024
+			}
+		}
+		t.lastNetworkRx = totalRx
+		t.lastNetworkTx = totalTx
+	}
+	t.lastNetTime = now
+
 	stats := &SkyPanel.ServerStats{
 		Cpu:       cpu,
 		Memory:    cast.ToFloat64(memMap.RSS),
 		MaxMemory: cast.ToFloat64(memInfo.Total),
 		Disk:      0,
+		NetworkRx: rxRate,
+		NetworkTx: txRate,
 		Running:   true,
 	}
 

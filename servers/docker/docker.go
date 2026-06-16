@@ -45,10 +45,13 @@ type Docker struct {
 
 	connection       types.HijackedResponse
 	cli              *client.Client
-	downloadingImage bool
-	statLocker       sync.Mutex
-	lastStats        *SkyPanel.ServerStats
-	lastStatTime     time.Time
+	downloadingImage   bool
+	statLocker         sync.Mutex
+	lastStats          *SkyPanel.ServerStats
+	lastStatTime       time.Time
+	lastNetworkRx      uint64
+	lastNetworkTx      uint64
+	lastNetTime        time.Time
 	//disableStdin        bool
 	disableSpecialStats bool
 }
@@ -222,11 +225,32 @@ func (d *Docker) GetStatsImpl(environment *SkyPanel.Environment) (*SkyPanel.Serv
 	//for java, we can get some extra data from the jcmd command
 	//as such, we'll see if we can
 
+	var totalRx, totalTx uint64
+	for _, netStats := range data.Networks {
+		totalRx += netStats.RxBytes
+		totalTx += netStats.TxBytes
+	}
+
+	now := time.Now()
+	var rxRate, txRate float64
+	if !d.lastNetTime.IsZero() {
+		elapsed := now.Sub(d.lastNetTime).Seconds()
+		if elapsed > 0 {
+			rxRate = (float64(totalRx-d.lastNetworkRx) / elapsed) / 1024
+			txRate = (float64(totalTx-d.lastNetworkTx) / elapsed) / 1024
+		}
+	}
+	d.lastNetworkRx = totalRx
+	d.lastNetworkTx = totalTx
+	d.lastNetTime = now
+
 	stats := &SkyPanel.ServerStats{
 		Memory:    float64(data.MemoryStats.Usage),
 		MaxMemory: float64(data.MemoryStats.Limit),
 		Cpu:       calculateCPUPercent(data),
 		Disk:      0,
+		NetworkRx: rxRate,
+		NetworkTx: txRate,
 		Running:   true,
 	}
 
