@@ -277,7 +277,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
   if (loading) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-border border-t-primary border-l-accent" />
       </div>
     );
   }
@@ -407,18 +407,29 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
 
   return (
        <div className="flex flex-col gap-6">
-         <PageHeader title={server.name}>
-           {serverActions}
-         </PageHeader>
-
-         <div className="flex flex-col gap-4 p-4">
-           <div className="flex items-center gap-4">
-             <ServerAddress ip={server.ipAddress} port={server.port} />
-             <p className="text-sm text-muted-foreground">
-               {t('servers.detail.description')}
-             </p>
-           </div>
-         </div>
+        <Card className="relative overflow-hidden">
+          <div className={`absolute inset-x-0 top-0 h-1 ${server.status === 'online' ? 'bg-green-500' : server.status === 'offline' ? 'bg-red-500' : 'bg-yellow-500'}`} />
+          <CardContent className="p-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <h1 className="text-2xl font-bold tracking-tight">{server.name}</h1>
+                  <Badge variant={server.status === 'online' ? 'default' : server.status === 'offline' ? 'destructive' : 'secondary'} className="capitalize flex items-center gap-1.5">
+                    <span className={`h-2 w-2 rounded-full ${server.status === 'online' ? 'bg-green-400' : server.status === 'offline' ? 'bg-red-400' : 'bg-yellow-400'}`} />
+                    {t(`dashboard.status.${server.status}`)}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                  <ServerAddress ip={server.ipAddress} port={server.port} />
+                  <span className="hidden sm:inline text-muted-foreground/60">{t('servers.detail.description')}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {serverActions}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="md:hidden mb-4">
@@ -440,16 +451,14 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
         </div>
 
         <div className="hidden md:block">
-          <div className="w-full mx-auto px-4">
-            <TabsList className="bg-muted/50 flex flex-nowrap gap-2">
-              {serverTabs.map(tab => (
-                <TabsTrigger key={tab.value} value={tab.value} className="flex-1 flex items-center justify-center px-2 py-2 text-sm font-medium whitespace-nowrap">
-                  <tab.icon className="mr-2 h-4 w-4" />
-                  <span className="ml-2">{tab.label}</span>
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </div>
+          <TabsList className="w-full justify-start gap-1 bg-muted/50 p-1">
+            {serverTabs.map(tab => (
+              <TabsTrigger key={tab.value} value={tab.value} className="flex items-center gap-2 px-3 py-2 text-sm font-medium whitespace-nowrap data-[state=active]:shadow-sm">
+                <tab.icon className="h-4 w-4" />
+                <span>{tab.label}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
         </div>
 
         <TabsContent value="console">
@@ -460,57 +469,53 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
         <TabsContent value="overview" className="mt-6 space-y-8">
           <ErrorBoundary name="OverviewView">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50 h-full">
-                <Card className="border-0 h-full">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">{t('servers.detail.overview.status')}</CardTitle>
-                    <Network className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <Badge variant={server.status === 'online' ? 'default' : server.status === 'offline' ? 'destructive' : 'secondary'} className="capitalize flex items-center gap-2 w-fit text-lg">
-                      <StatusIndicator status={server.status} />
-                      {t(`dashboard.status.${server.status}`)}
-                    </Badge>
-                  </CardContent>
-                </Card>
-              </div>
-              <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50 h-full">
-                <Card className="border-0 h-full">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">{t('servers.detail.overview.cpuUsage')}</CardTitle>
-                    <Cpu className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{server.cpuUsage}%</div>
-                  </CardContent>
-                </Card>
-              </div>
-              <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50 h-full">
-                <Card className="border-0 h-full">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">{t('servers.detail.overview.memoryUsage')}</CardTitle>
-                    <MemoryStick className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{server.memoryUsage}%</div>
-                  </CardContent>
-                </Card>
-              </div>
-              <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50 h-full">
-                <Card className="border-0 h-full">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">{t('servers.detail.overview.storageUsage')}</CardTitle>
-                    <HardDrive className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{server.storageUsage}%</div>
-                  </CardContent>
-                </Card>
-              </div>
+              <Card className="relative overflow-hidden">
+                <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-primary via-accent to-transparent" />
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">{t('servers.detail.overview.status')}</CardTitle>
+                  <Network className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <Badge variant={server.status === 'online' ? 'default' : server.status === 'offline' ? 'destructive' : 'secondary'} className="capitalize flex items-center gap-2 w-fit text-lg">
+                    <StatusIndicator status={server.status} />
+                    {t(`dashboard.status.${server.status}`)}
+                  </Badge>
+                </CardContent>
+              </Card>
+              <Card className="relative overflow-hidden">
+                <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-primary via-accent to-transparent" />
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">{t('servers.detail.overview.cpuUsage')}</CardTitle>
+                  <Cpu className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{server.cpuUsage}%</div>
+                </CardContent>
+              </Card>
+              <Card className="relative overflow-hidden">
+                <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-primary via-accent to-transparent" />
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">{t('servers.detail.overview.memoryUsage')}</CardTitle>
+                  <MemoryStick className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{server.memoryUsage}%</div>
+                </CardContent>
+              </Card>
+              <Card className="relative overflow-hidden">
+                <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-primary via-accent to-transparent" />
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">{t('servers.detail.overview.storageUsage')}</CardTitle>
+                  <HardDrive className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{server.storageUsage}%</div>
+                </CardContent>
+              </Card>
 
               {queryData?.minecraft && (
-                <div className="md:col-span-2 lg:col-span-4 rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50 h-full">
-                  <Card className="border-0 h-full">
+                <div className="md:col-span-2 lg:col-span-4 rounded-lg p-[1px] bg-gradient-to-br from-primary/30 via-accent/20 to-primary/10">
+                  <Card className="border-0">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium">
                         {t('servers.detail.overview.playersOnline')}: {queryData.minecraft.numPlayers} / {queryData.minecraft.maxPlayers}
@@ -534,10 +539,10 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
               )}
             </div>
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50">
+              <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/30 via-accent/20 to-primary/10">
                 <MetricsCharts serverMetrics={server.metrics} className="border-0" />
               </div>
-              <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50">
+              <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/30 via-accent/20 to-primary/10">
                 <NetworkUsageChart serverMetrics={server.metrics} className="border-0" />
               </div>
             </div>

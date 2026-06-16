@@ -43,13 +43,11 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden bg-background p-4">
-      <div className="absolute inset-0 -z-10 h-full w-full bg-background bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px]">
-        <div className="absolute left-0 right-0 top-0 h-[30rem] w-full bg-[radial-gradient(circle_500px_at_50%_200px,#2563eb33,transparent)]"></div>
-      </div>
+    <div className="relative flex min-h-screen w-full flex-col items-center justify-center bg-background p-4">
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,hsl(var(--primary)/0.12),transparent_60%),radial-gradient(ellipse_at_bottom,hsl(var(--accent)/0.06),transparent_60%)]" />
 
-      <div className="w-full max-w-md rounded-xl p-[1px] bg-gradient-to-br from-primary/20 via-accent/50 to-secondary/50">
-        <Card className="border-0 bg-card/80 backdrop-blur-lg animate-in fade-in-0 zoom-in-95 duration-500">
+      <div className="w-full max-w-sm">
+        <Card className="border-border/60 shadow-lg">
           <CardHeader className="items-center text-center space-y-4">
             <Logo className="mb-2" />
             <CardTitle className="text-3xl font-bold">Welcome Back</CardTitle>
@@ -93,7 +91,7 @@ export default function LoginPage() {
                 <Button
                   size="lg"
                   type="submit"
-                  className="w-full text-base py-6 transition-all duration-300 hover:shadow-primary/20 hover:shadow-lg"
+                  className="w-full text-base py-6 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 shadow-lg shadow-primary/20"
                   disabled={loading}
                 >
                   {loading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}

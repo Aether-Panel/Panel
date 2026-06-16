@@ -16,13 +16,16 @@ export function Logo({ className }: { className?: string }) {
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="h-6 w-6 text-primary"
+        className="h-6 w-6"
+        style={{ color: 'hsl(var(--primary))' }}
       >
         <path d="M12 2L2 7l10 5 10-5-10-5z" />
         <path d="M2 17l10 5 10-5" />
         <path d="M2 12l10 5 10-5" />
       </svg>
-      <span className="text-lg font-semibold text-foreground">{panelName}</span>
+      <span className="text-lg font-semibold">
+        <span className="text-gradient">{panelName}</span>
+      </span>
     </div>
   );
 }

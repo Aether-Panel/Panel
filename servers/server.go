@@ -11,6 +11,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -1118,6 +1119,27 @@ func (p *Server) GetItem(name string) (*FileData, error) {
 
 			fileNames[i+offset] = newFile
 		}
+		// Ordenar (carpetas primero, luego archivos, y alfabéticamente)
+		sort.Slice(fileNames, func(i, j int) bool {
+			// ".." siempre de primero
+			if fileNames[i].Name == ".." {
+				return true
+			}
+			if fileNames[j].Name == ".." {
+				return false
+			}
+
+			// Si uno es carpeta y el otro archivo, la carpeta va primero
+			if !fileNames[i].File && fileNames[j].File {
+				return true
+			}
+			if fileNames[i].File && !fileNames[j].File {
+				return false
+			}
+
+			// Si ambos son del mismo tipo, orden alfabético sin distinguir mayúsculas
+			return strings.ToLower(fileNames[i].Name) < strings.ToLower(fileNames[j].Name)
+		})
 
 		return &FileData{FileList: fileNames}, nil
 	} else {

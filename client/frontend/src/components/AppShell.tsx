@@ -53,7 +53,7 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
     return (
         <SidebarProvider>
             <Sidebar>
-                <SidebarHeader>
+                <SidebarHeader className="border-b border-sidebar-border/50 pb-4">
                     <Logo />
                 </SidebarHeader>
                 <SidebarContent>
@@ -76,18 +76,18 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
                         )}
                     </SidebarMenu>
                 </SidebarContent>
-                <SidebarFooter>
+                <SidebarFooter className="border-t border-sidebar-border/50 pt-2">
                     <DropdownMenu>
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" className="h-12 w-full justify-start gap-2 px-2">
-                                        <Avatar className="h-8 w-8">
+                                    <Button variant="ghost" className="h-12 w-full justify-start gap-2 px-2 rounded-lg hover:bg-sidebar-accent transition-all duration-200">
+                                        <Avatar className="h-8 w-8 ring-2 ring-sidebar-border">
                                             <AvatarImage src={`https://avatar.vercel.sh/${user?.email}`} alt={user?.username} />
                                             <AvatarFallback>{user?.username?.charAt(0)}</AvatarFallback>
                                         </Avatar>
                                         <div className="flex-1 min-w-0 flex-col items-start overflow-hidden group-data-[state=collapsed]:hidden flex">
-                                            <span className="w-full truncate font-medium">{user?.username}</span>
+                                            <span className="w-full truncate font-medium text-sm">{user?.username}</span>
                                             <span className="w-full truncate text-xs text-muted-foreground">{user?.email}</span>
                                         </div>
                                     </Button>
@@ -129,7 +129,7 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
                     <SidebarTrigger className="md:hidden" />
                     <div className="flex-grow" />
                 </header>
-                <main className="animate-in fade-in duration-500">
+                <main className="animate-in fade-in duration-500 space-y-6">
                     {children}
                 </main>
             </SidebarInset>

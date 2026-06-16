@@ -61,7 +61,7 @@ export default function DashboardPage() {
   if (serversLoading || nodesLoading || usersLoading) {
     return (
       <div className="flex h-64 w-full items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-border border-t-primary border-l-accent" />
       </div>
     );
   }
@@ -109,62 +109,59 @@ export default function DashboardPage() {
         <PageHeader
           title={t('dashboard.welcome', { name: user?.username || t('dashboard.defaultName') })}
           description={isPowerUser ? t('dashboard.admin.description') : t('dashboard.user.description')}
+          titleClassName="text-gradient"
         />
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {canSeeNodes && (
-            <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50">
-              <Card className="border-0 h-full">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">{t('dashboard.admin.totalNodes')}</CardTitle>
-                  <Network className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{totalNodes}</div>
-                </CardContent>
-              </Card>
-            </div>
+            <Card className="relative overflow-hidden">
+              <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-primary via-accent to-transparent" />
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">{t('dashboard.admin.totalNodes')}</CardTitle>
+                <Network className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{totalNodes}</div>
+              </CardContent>
+            </Card>
           )}
-          <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50">
-            <Card className="border-0 h-full">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{t('dashboard.admin.online')}</CardTitle>
-                <Activity className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-500">{onlineCount}</div>
-                <p className="text-xs text-muted-foreground">{t('dashboard.admin.serversOperational')}</p>
-              </CardContent>
-            </Card>
-          </div>
-          <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50">
-            <Card className="border-0 h-full">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{t('dashboard.admin.offline')}</CardTitle>
-                <Activity className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-red-500">{offlineCount}</div>
-                <p className="text-xs text-muted-foreground">{t('dashboard.admin.serversNeedAttention')}</p>
-              </CardContent>
-            </Card>
-          </div>
-          <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50">
-            <Card className="border-0 h-full">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{t('dashboard.admin.overallHealth')}</CardTitle>
-                <Cpu className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{totalServers > 0 ? `${Math.round((onlineCount / totalServers) * 100)}%` : 'N/A'}</div>
-                <p className="text-xs text-muted-foreground">{t('dashboard.admin.systemUptime')}</p>
-              </CardContent>
-            </Card>
-          </div>
+          <Card className="relative overflow-hidden">
+            <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-green-500 to-green-300" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{t('dashboard.admin.online')}</CardTitle>
+              <Activity className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-500">{onlineCount}</div>
+              <p className="text-xs text-muted-foreground">{t('dashboard.admin.serversOperational')}</p>
+            </CardContent>
+          </Card>
+          <Card className="relative overflow-hidden">
+            <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-red-500 to-red-300" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{t('dashboard.admin.offline')}</CardTitle>
+              <Activity className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-500">{offlineCount}</div>
+              <p className="text-xs text-muted-foreground">{t('dashboard.admin.serversNeedAttention')}</p>
+            </CardContent>
+          </Card>
+          <Card className="relative overflow-hidden">
+            <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-primary via-accent to-transparent" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{t('dashboard.admin.overallHealth')}</CardTitle>
+              <Cpu className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{totalServers > 0 ? `${Math.round((onlineCount / totalServers) * 100)}%` : 'N/A'}</div>
+              <p className="text-xs text-muted-foreground">{t('dashboard.admin.systemUptime')}</p>
+            </CardContent>
+          </Card>
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2 space-y-6">
-            <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50">
+            <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/30 via-accent/20 to-primary/10">
               <ResourceUsageChart
                 cpuUsage={avgCpuUsage}
                 memoryUsage={avgMemoryUsage}
@@ -172,12 +169,12 @@ export default function DashboardPage() {
                 className="border-0"
               />
             </div>
-            <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50">
+            <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/30 via-accent/20 to-primary/10">
               <NetworkUsageChart serverMetrics={aggregatedMetrics} className="border-0" />
             </div>
           </div>
           <div className="lg:col-span-1 space-y-6">
-            <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50">
+            <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/30 via-accent/20 to-primary/10">
               <Card className="border-0">
                 <CardHeader>
                   <CardTitle>{t('dashboard.admin.systemInfo')}</CardTitle>
@@ -229,7 +226,7 @@ export default function DashboardPage() {
         title={t('dashboard.welcome', { name: user?.username || t('dashboard.defaultName') })}
         description={t('dashboard.user.description')}
       />
-      <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50">
+      <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/30 via-accent/20 to-primary/10">
         <Card className="border-0">
           <CardHeader>
             <CardTitle>{t('dashboard.user.myServers')}</CardTitle>

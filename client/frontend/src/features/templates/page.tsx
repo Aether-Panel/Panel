@@ -155,7 +155,7 @@ export default function TemplatesPage() {
   if (!isMounted || !hasScope('templates.view') || reposLoading) {
     return (
       <div className="flex h-full items-center justify-center min-h-[400px]">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-border border-t-primary border-l-accent" />
       </div>
     );
   }
@@ -271,7 +271,7 @@ export default function TemplatesPage() {
 
       {loadingTemplates ? (
         <div className="flex justify-center p-8">
-          <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <div className="h-6 w-6 animate-spin rounded-full border-[3px] border-border border-t-primary border-l-accent" />
         </div>
       ) : (
         <Tabs defaultValue="local" className="w-full">
