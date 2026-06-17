@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { PlusCircle, Trash2, Loader2, ShieldCheck } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, ShieldCheck, Shield } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
@@ -215,9 +215,23 @@ export default function RolesPage() {
                   <TableRow key={role.id}>
                     <TableCell>
                       <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2">
-                          <Badge variant={role.name === 'admin' ? 'default' : 'secondary'} className="capitalize">{role.name}</Badge>
-                          {role.name === 'admin' && <ShieldCheck className="h-4 w-4 text-primary" />}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge
+                            variant={role.name === 'admin' || role.name === 'Administrador' ? 'default' : role.name === 'Usuario' ? 'secondary' : 'outline'}
+                            className="capitalize"
+                          >
+                            {role.name}
+                          </Badge>
+                          {(role.name === 'admin' || role.name === 'Administrador') && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-primary">
+                              <ShieldCheck className="h-3 w-3" /> Admin
+                            </span>
+                          )}
+                          {role.name === 'Usuario' && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
+                              <Shield className="h-3 w-3" /> Predeterminado
+                            </span>
+                          )}
                         </div>
                         <p className="text-sm text-muted-foreground mt-2 md:hidden">{role.description}</p>
                         <div className="flex flex-wrap gap-2 mt-2 md:hidden">
@@ -237,7 +251,7 @@ export default function RolesPage() {
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
-                      {role.name !== 'admin' && (
+                      {role.name !== 'admin' && role.name !== 'Administrador' && role.name !== 'Usuario' ? (
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10">
@@ -262,6 +276,8 @@ export default function RolesPage() {
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
+                      ) : (
+                        <span className="text-xs text-muted-foreground px-2">Protegido</span>
                       )}
                     </TableCell>
                   </TableRow>

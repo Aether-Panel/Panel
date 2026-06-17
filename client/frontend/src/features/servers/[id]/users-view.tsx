@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { PlusCircle, Loader2, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -90,8 +91,6 @@ export default function UsersView({ serverId }: UsersViewProps) {
   };
 
   const handleRevoke = async (userEmail: string) => {
-    if (!confirm(t('servers.users.revokeConfirm') || 'Are you sure you want to revoke access?')) return;
-
     try {
       await api.delete(`/api/servers/${serverId}/user/${userEmail}`);
       toast({
@@ -196,17 +195,34 @@ export default function UsersView({ serverId }: UsersViewProps) {
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">{user.email}</TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRevoke(user.email)}
-                        className="text-red-500 hover:bg-red-500/10 hover:text-red-500 transition-colors"
-                      >
-                        <Trash2 className="h-4 w-4 sm:mr-2" />
-                        <span className="hidden sm:inline">
-                          {t('servers.users.revoke')}
-                        </span>
-                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-500 hover:bg-red-500/10 hover:text-red-500 transition-colors"
+                          >
+                            <Trash2 className="h-4 w-4 sm:mr-2" />
+                            <span className="hidden sm:inline">
+                              {t('servers.users.revoke')}
+                            </span>
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>{t('servers.users.revoke')}</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              {t('servers.users.revokeConfirm')}
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>{t('common.cancel') || 'Cancel'}</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleRevoke(user.email)} className="bg-red-500 hover:bg-red-600">
+                              {t('servers.users.revoke')}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </TableCell>
                   </TableRow>
                 ))}

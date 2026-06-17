@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Archive, PlusCircle, Download, RotateCcw, Trash2, Loader2, Calendar, FileArchive } from 'lucide-react';
@@ -27,6 +28,7 @@ export default function BackupsView({ serverId }: BackupsViewProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [backupName, setBackupName] = useState('');
+  const [pendingAction, setPendingAction] = useState<{ type: 'restore' | 'delete'; backupId: number } | null>(null);
 
   const { t } = useTranslations();
   const { toast } = useToast();
@@ -72,11 +74,10 @@ export default function BackupsView({ serverId }: BackupsViewProps) {
     }
   };
 
-  const handleRestore = async (backupId: number) => {
-    if (!confirm(t('servers.backups.restore.confirm'))) return;
-
+  const handleRestore = async () => {
+    if (!pendingAction || pendingAction.type !== 'restore') return;
     try {
-      await api.post(`/api/servers/${serverId}/backup/restore/${backupId}`, {});
+      await api.post(`/api/servers/${serverId}/backup/restore/${pendingAction.backupId}`, {});
       toast({
         title: t('common.success'),
         description: t('servers.backups.restore.success')
@@ -88,14 +89,15 @@ export default function BackupsView({ serverId }: BackupsViewProps) {
         title: t('common.error'),
         description: t('servers.backups.restore.error')
       });
+    } finally {
+      setPendingAction(null);
     }
   };
 
-  const handleDelete = async (backupId: number) => {
-    if (!confirm(t('servers.backups.delete.confirm'))) return;
-
+  const handleDelete = async () => {
+    if (!pendingAction || pendingAction.type !== 'delete') return;
     try {
-      await api.delete(`/api/servers/${serverId}/backup/${backupId}`);
+      await api.delete(`/api/servers/${serverId}/backup/${pendingAction.backupId}`);
       toast({
         title: t('common.success'),
         description: t('servers.backups.delete.success')
@@ -108,6 +110,8 @@ export default function BackupsView({ serverId }: BackupsViewProps) {
         title: t('common.error'),
         description: t('servers.backups.delete.error')
       });
+    } finally {
+      setPendingAction(null);
     }
   };
 
@@ -190,7 +194,7 @@ export default function BackupsView({ serverId }: BackupsViewProps) {
                       <Download className="h-4 w-4 mr-2" />
                       {t('servers.backups.download')}
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => handleRestore(backup.id)}>
+                    <Button variant="outline" size="sm" onClick={() => setPendingAction({ type: 'restore', backupId: backup.id })}>
                       <RotateCcw className="h-4 w-4 mr-2" />
                       {t('servers.backups.restore.button')}
                     </Button>
@@ -198,7 +202,7 @@ export default function BackupsView({ serverId }: BackupsViewProps) {
                       variant="ghost"
                       size="icon"
                       className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => handleDelete(backup.id)}
+                      onClick={() => setPendingAction({ type: 'delete', backupId: backup.id })}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -214,6 +218,28 @@ export default function BackupsView({ serverId }: BackupsViewProps) {
           </div>
         )}
       </div>
+
+      <AlertDialog open={pendingAction !== null} onOpenChange={(open) => !open && setPendingAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingAction?.type === 'restore' ? t('servers.backups.restore.button') : t('servers.backups.delete.button')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingAction?.type === 'restore' ? t('servers.backups.restore.confirm') : t('servers.backups.delete.confirm')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel') || 'Cancel'}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={pendingAction?.type === 'restore' ? handleRestore : handleDelete}
+              className={pendingAction?.type === 'delete' ? 'bg-red-500 hover:bg-red-600' : ''}
+            >
+              {pendingAction?.type === 'restore' ? t('servers.backups.restore.button') : t('servers.backups.delete.button')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

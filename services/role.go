@@ -38,13 +38,16 @@ func (rs *Role) Update(role *models.Role) error {
 }
 
 func (rs *Role) Delete(id uint) error {
-	// No permitir borrar el rol 'admin'
+	// No permitir borrar los roles predeterminados del sistema
 	role, err := rs.Get(id)
 	if err != nil {
 		return err
 	}
 	if role.Name == "admin" {
 		return errors.New("cannot delete the admin role")
+	}
+	if role.Name == "Administrador" || role.Name == "Usuario" {
+		return errors.New("cannot delete a default role")
 	}
 
 	return rs.DB.Transaction(func(tx *gorm.DB) error {

@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Puzzle, Search, Download, Trash2, ExternalLink, Loader2, CheckCircle2 } from 'lucide-react';
 import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
@@ -38,6 +39,7 @@ export default function PluginsView({ serverId }: PluginsViewProps) {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [installingId, setInstallingId] = useState<string | null>(null);
+  const [pendingPlugin, setPendingPlugin] = useState<string | null>(null);
   const { t } = useTranslations();
   const { toast } = useToast();
 
@@ -99,11 +101,10 @@ export default function PluginsView({ serverId }: PluginsViewProps) {
     }
   };
 
-  const handleDelete = async (pluginName: string) => {
-    if (!confirm(t('servers.plugins.installed.uninstallConfirm'))) return;
-
+  const handleDelete = async () => {
+    if (!pendingPlugin) return;
     try {
-      await api.delete(`/api/servers/${serverId}/plugins?name=${encodeURIComponent(pluginName)}`);
+      await api.delete(`/api/servers/${serverId}/plugins?name=${encodeURIComponent(pendingPlugin)}`);
       toast({
         title: t('common.success'),
         description: t('servers.plugins.notifications.uninstallSuccess')
@@ -116,6 +117,8 @@ export default function PluginsView({ serverId }: PluginsViewProps) {
         title: t('common.error'),
         description: t('servers.plugins.notifications.uninstallError')
       });
+    } finally {
+      setPendingPlugin(null);
     }
   };
 
@@ -190,14 +193,32 @@ export default function PluginsView({ serverId }: PluginsViewProps) {
                           </p>
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => handleDelete(plugin.name)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <AlertDialog open={pendingPlugin === plugin.name} onOpenChange={(open) => !open && setPendingPlugin(null)}>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => setPendingPlugin(plugin.name)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>{t('servers.plugins.installed.uninstall')}</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              {t('servers.plugins.installed.uninstallConfirm')}
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>{t('common.cancel') || 'Cancel'}</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleDelete} className="bg-red-500 hover:bg-red-600">
+                              {t('servers.plugins.installed.uninstall')}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   ))}
                 </div>

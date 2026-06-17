@@ -1,5 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Folder, File as FileIcon, MoreHorizontal, ChevronLeft, Loader2, Plus, Upload, FolderPlus, FilePlus, Copy, Scissors, Clipboard, Trash2, Edit2, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
@@ -40,6 +41,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
   const [newItemDialog, setNewItemDialog] = useState<{ open: boolean; type: 'file' | 'folder' }>({ open: false, type: 'file' });
   const [newItemName, setNewItemName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [pendingFile, setPendingFile] = useState<FileItemResource | null>(null);
 
   const [clipboard, setClipboard] = useState<ClipboardItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -190,11 +192,11 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
     }
   };
 
-  const handleDelete = async (file: FileItemResource) => {
-    if (!confirm(`¿Estás seguro de que quieres eliminar ${file.name}?`)) return;
+  const handleDelete = async () => {
+    if (!pendingFile) return;
     setIsLoading(true);
     try {
-      const filePath = currentPath ? `${currentPath}/${file.name}` : file.name;
+      const filePath = currentPath ? `${currentPath}/${pendingFile.name}` : pendingFile.name;
       await api.delete(`/api/servers/${serverId}/file/${filePath}`);
       toast({ title: t('common.success'), description: 'Eliminado correctamente.' });
       fetchFiles(currentPath);
@@ -202,6 +204,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
       toast({ title: t('common.error'), description: e.message || 'Error al eliminar.', variant: 'destructive' });
     } finally {
       setIsLoading(false);
+      setPendingFile(null);
     }
   };
 
@@ -380,10 +383,28 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
                                 Cortar
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-red-500" onClick={() => handleDelete(file)}>
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Eliminar
-                              </DropdownMenuItem>
+                              <AlertDialog open={pendingFile?.name === file.name} onOpenChange={(open) => !open && setPendingFile(null)}>
+                                <AlertDialogTrigger asChild>
+                                  <DropdownMenuItem className="text-red-500" onSelect={(e) => { e.preventDefault(); setPendingFile(file); }}>
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Eliminar
+                                  </DropdownMenuItem>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Eliminar archivo</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      ¿Estás seguro de que quieres eliminar {file.name}?
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction onClick={handleDelete} className="bg-red-500 hover:bg-red-600">
+                                      Eliminar
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>

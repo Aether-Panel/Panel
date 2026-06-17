@@ -104,8 +104,8 @@ export function useServers() {
                             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
                             cpu: Math.min(100, cpu),
                             memory: Math.min(100, memory),
-                            networkIn: Math.round(stats.networkRx || 0),
-                            networkOut: Math.round(stats.networkTx || 0),
+                            networkIn: parseFloat((stats.networkRx || 0).toFixed(2)),
+                            networkOut: parseFloat((stats.networkTx || 0).toFixed(2)),
                         }
                     };
                 }

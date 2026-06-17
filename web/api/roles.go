@@ -154,7 +154,7 @@ func deleteRole(c *gin.Context) {
 	}
 
 	if err := rs.Delete(id); err != nil {
-		if err.Error() == "cannot delete the admin role" {
+		if err.Error() == "cannot delete the admin role" || err.Error() == "cannot delete a default role" {
 			response.HandleError(c, err, http.StatusBadRequest)
 		} else if gorm.ErrRecordNotFound == err {
 			c.AbortWithStatus(http.StatusNotFound)

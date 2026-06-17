@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { PlusCircle, Trash2, Database, Shield, Globe, ExternalLink, Loader2, Eye, EyeOff, Copy, Check, Lock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -46,6 +47,7 @@ export default function DatabaseView({ serverId }: DatabaseViewProps) {
   const [selectedHost, setSelectedHost] = useState<string>('');
   const [showPassword, setShowPassword] = useState<Record<number, boolean>>({});
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [pendingDb, setPendingDb] = useState<number | null>(null);
 
   const { t } = useTranslations();
   const { toast } = useToast();
@@ -104,11 +106,10 @@ export default function DatabaseView({ serverId }: DatabaseViewProps) {
     }
   };
 
-  const handleDelete = async (dbId: number) => {
-    if (!confirm(t('servers.database.deleteConfirm'))) return;
-
+  const handleDelete = async () => {
+    if (!pendingDb) return;
     try {
-      await api.delete(`/api/servers/${serverId}/databases/${dbId}`);
+      await api.delete(`/api/servers/${serverId}/databases/${pendingDb}`);
       toast({
         title: t('common.success'),
         description: t('servers.database.deleteSuccess')
@@ -121,6 +122,8 @@ export default function DatabaseView({ serverId }: DatabaseViewProps) {
         title: t('common.error'),
         description: t('servers.database.deleteError')
       });
+    } finally {
+      setPendingDb(null);
     }
   };
 
@@ -272,14 +275,32 @@ export default function DatabaseView({ serverId }: DatabaseViewProps) {
                       </CardDescription>
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => handleDelete(db.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <AlertDialog open={pendingDb === db.id} onOpenChange={(open) => !open && setPendingDb(null)}>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => setPendingDb(db.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>{t('common.confirmDelete')}</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          {t('servers.database.deleteConfirm')}
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>{t('common.cancel') || 'Cancel'}</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDelete} className="bg-red-500 hover:bg-red-600">
+                          {t('common.delete') || 'Delete'}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </CardHeader>
               <CardContent>

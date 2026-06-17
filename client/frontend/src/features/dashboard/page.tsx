@@ -1,11 +1,9 @@
 'use client';
 import { useAuth } from '@/contexts/providers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { users as mockUsers, nodes as mockNodes } from '@/lib/data';
 import type { Server } from '@/lib/data';
-import { Activity, Cpu, FolderGit, Network } from 'lucide-react';
+import { Activity, Cpu, Network } from 'lucide-react';
 import { PageHeader } from '@/components/page-header';
-import { useMemo } from 'react';
 import ResourceUsageChart from '@/components/resource-usage-chart';
 import NetworkUsageChart from '@/components/network-usage-chart';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -15,7 +13,7 @@ import { Button } from '@/components/ui/button';
 
 import { useTranslations } from '@/contexts/translations-context';
 import { useServers } from '@/hooks/use-servers';
-import { useNodes, useUsersCount } from '@/hooks/use-dashboard-data';
+import { useNodes, useUsersCount, useGlobalNetworkMetrics } from '@/hooks/use-dashboard-data';
 
 export default function DashboardPage() {
   const { hasScope, user } = useAuth();
@@ -23,40 +21,8 @@ export default function DashboardPage() {
   const { servers: allServers, loading: serversLoading } = useServers();
   const { nodes: realNodes, loading: nodesLoading } = useNodes();
   const { count: usersCount, loading: usersLoading } = useUsersCount();
+  const { metrics: globalNetworkMetrics } = useGlobalNetworkMetrics();
 
-  const aggregatedMetrics = useMemo(() => {
-    if (allServers.length === 0) {
-      return [];
-    }
-
-    const firstServerMetrics = allServers[0].metrics || [];
-    if (firstServerMetrics.length === 0) return [];
-
-    return firstServerMetrics.map((_, index) => {
-      const time = firstServerMetrics[index].time;
-      let totalNetworkIn = 0;
-      let totalNetworkOut = 0;
-      let totalCpu = 0;
-      let totalMemory = 0;
-
-      for (const server of allServers) {
-        if (server.metrics && server.metrics[index]) {
-          totalNetworkIn += server.metrics[index].networkIn || 0;
-          totalNetworkOut += server.metrics[index].networkOut || 0;
-          totalCpu += server.metrics[index].cpu || 0;
-          totalMemory += server.metrics[index].memory || 0;
-        }
-      }
-
-      return {
-        time,
-        networkIn: Math.round(totalNetworkIn),
-        networkOut: Math.round(totalNetworkOut),
-        cpu: Math.round(totalCpu),
-        memory: Math.round(totalMemory),
-      };
-    });
-  }, [allServers]);
 
   if (serversLoading || nodesLoading || usersLoading) {
     return (
@@ -170,7 +136,7 @@ export default function DashboardPage() {
               />
             </div>
             <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/30 via-accent/20 to-primary/10">
-              <NetworkUsageChart serverMetrics={aggregatedMetrics} className="border-0" />
+              <NetworkUsageChart serverMetrics={globalNetworkMetrics} className="border-0" />
             </div>
           </div>
           <div className="lg:col-span-1 space-y-6">

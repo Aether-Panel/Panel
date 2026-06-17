@@ -3,6 +3,7 @@ package database
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3"
@@ -470,6 +471,68 @@ var migrations = [][]*gormigrate.Migration{
 				}
 
 				return nil
+			},
+		},
+	},
+	{
+		{
+			ID: "20260617-default-roles",
+			Migrate: func(db *gorm.DB) error {
+				// Default "Administrador" role — has the admin super-scope
+				adminRole := &models.Role{
+					Name:        "Administrador",
+					Description: "Full access to all panel features (super-admin).",
+					Scopes:      []string{"admin"},
+				}
+				// Use RawScopes since BeforeSave hasn't been called yet
+				adminRole.RawScopes = "admin"
+
+				result := db.Where(models.Role{Name: "Administrador"}).FirstOrCreate(adminRole)
+				if result.Error != nil {
+					return result.Error
+				}
+
+				// Default "Usuario" role — standard server-user permissions
+				userScopes := []string{
+					"login",
+					"self.edit",
+					"self.clients",
+					"server.view",
+					"server.status",
+					"server.stats",
+					"server.console",
+					"server.console.send",
+					"server.start",
+					"server.stop",
+					"server.kill",
+					"server.files.view",
+					"server.files.edit",
+					"server.sftp",
+					"server.data.view",
+					"server.data.edit",
+					"server.backup.view",
+					"server.backup.create",
+					"server.backup.restore",
+					"server.backup.delete",
+					"server.clients.view",
+					"server.clients.edit",
+					"server.clients.create",
+					"server.clients.delete",
+					"server.users.view",
+					"server.tasks.view",
+					"server.tasks.run",
+					"server.install",
+				}
+
+				userRole := &models.Role{
+					Name:        "Usuario",
+					Description: "Standard user: full server management (console, files, backups, SFTP, DB, plugins, install) without global admin.",
+					Scopes:      userScopes,
+					RawScopes:   strings.Join(userScopes, ","),
+				}
+
+				result = db.Where(models.Role{Name: "Usuario"}).FirstOrCreate(userRole)
+				return result.Error
 			},
 		},
 	},
