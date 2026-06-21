@@ -57,3 +57,6 @@ skypanel.db
 /storage/
 /storage2/
 /storage3/
+
+# templates
+/templates/

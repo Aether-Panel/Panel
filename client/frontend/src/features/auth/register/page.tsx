@@ -34,6 +34,12 @@ export default function RegisterPage() {
   const [loading, setLoading] = React.useState(false);
   const { toast } = useToast();
 
+  React.useEffect(() => {
+    if (config?.registrationEnabled === false) {
+      window.location.href = '/login';
+    }
+  }, [config?.registrationEnabled]);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {

@@ -49,7 +49,9 @@ export function useServers() {
                     status: uptime.currentStatus ? 'online' : 'offline',
                     cpuUsage: 0,
                     memoryUsage: 0,
-                    storageUsage: uptime.storageUsage || 0,
+                    storageUsage: 0,
+                    storageUsed: 0,
+                    storageMax: 0,
                     metrics: [],
                     alerts: [],
                     isGhost: s.isGhost,
@@ -94,11 +96,17 @@ export function useServers() {
                         memory = Math.round(stats.memory);
                     }
 
+                    const storageUsed = stats.storage || 0;
+                    const storageMax = stats.maxStorage || 0;
+                    const storageUsage = storageMax > 0 ? Math.round((storageUsed / storageMax) * 100) : 0;
+
                     return {
                         id: server.id,
                         cpuUsage: cpu,
                         memoryUsage: memory,
-                        storageUsage: Math.round(stats.storage || 0),
+                        storageUsage,
+                        storageUsed,
+                        storageMax,
                         status: stats.running ? 'online' : 'offline',
                         metrics: {
                             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
@@ -131,6 +139,8 @@ export function useServers() {
                     cpuUsage: res.cpuUsage ?? s.cpuUsage,
                     memoryUsage: res.memoryUsage ?? s.memoryUsage,
                     storageUsage: (res as any).storageUsage ?? s.storageUsage,
+                    storageUsed: (res as any).storageUsed ?? s.storageUsed,
+                    storageMax: (res as any).storageMax ?? s.storageMax,
                     metrics: newMetrics as any
                 };
             }

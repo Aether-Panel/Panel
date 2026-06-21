@@ -11,6 +11,7 @@ type ServerStats struct {
 	Memory           float64         `json:"memory"`
 	MaxMemory        float64         `json:"maxMemory"`
 	Disk             float64         `json:"storage"`
+	MaxStorage       float64         `json:"maxStorage"`
 	NetworkRx        float64         `json:"networkRx"`
 	NetworkTx        float64         `json:"networkTx"`
 	Jvm              *utils.JvmStats `json:"jvm,omitempty"`

@@ -101,14 +101,16 @@ export default function LoginPage() {
             </Form>
           </CardContent>
           <CardFooter className="flex flex-col gap-4 text-center">
-            <div className="w-full">
-              <p className="text-sm text-muted-foreground">
-                Don&apos;t have an account?{' '}
-                <a href="/register" className="font-semibold text-primary hover:underline">
-                  Sign Up
-                </a>
-              </p>
-            </div>
+            {config?.registrationEnabled !== false && (
+              <div className="w-full">
+                <p className="text-sm text-muted-foreground">
+                  Don&apos;t have an account?{' '}
+                  <a href="/register" className="font-semibold text-primary hover:underline">
+                    Sign Up
+                  </a>
+                </p>
+              </div>
+            )}
             <div className="w-full flex items-center gap-4 text-xs text-muted-foreground my-2">
               <Separator className="flex-1" />
               <span>For Demo</span>

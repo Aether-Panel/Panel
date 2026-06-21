@@ -29,7 +29,6 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
-	"github.com/shirou/gopsutil/disk"
 	"github.com/spf13/cast"
 )
 
@@ -54,6 +53,9 @@ type Docker struct {
 	lastNetTime        time.Time
 	//disableStdin        bool
 	disableSpecialStats bool
+
+	dirSize       int64
+	dirSizeTime   time.Time
 }
 
 func (d *Docker) ExecuteAsyncImpl(environment *SkyPanel.Environment, steps SkyPanel.ExecutionData) error {
@@ -244,18 +246,27 @@ func (d *Docker) GetStatsImpl(environment *SkyPanel.Environment) (*SkyPanel.Serv
 	d.lastNetworkTx = totalTx
 	d.lastNetTime = now
 
-	stats := &SkyPanel.ServerStats{
-		Memory:    float64(data.MemoryStats.Usage),
-		MaxMemory: float64(data.MemoryStats.Limit),
-		Cpu:       calculateCPUPercent(data),
-		Disk:      0,
-		NetworkRx: rxRate,
-		NetworkTx: txRate,
-		Running:   true,
+	if !d.disableSpecialStats && (d.dirSizeTime.IsZero() || time.Since(d.dirSizeTime) > 30*time.Second) {
+		d.dirSize = getDirSize(environment.GetRootDirectory())
+		d.dirSizeTime = time.Now()
 	}
 
-	if usage, err := disk.Usage(environment.GetRootDirectory()); err == nil {
-		stats.Disk = usage.UsedPercent
+	var maxStorage float64
+	if diskVar, ok := environment.Server.Variables["disk"]; ok {
+		if limit, err := cast.ToInt64E(diskVar.Value); err == nil && limit > 0 {
+			maxStorage = float64(limit) * 1024 * 1024
+		}
+	}
+
+	stats := &SkyPanel.ServerStats{
+		Memory:     float64(data.MemoryStats.Usage),
+		MaxMemory:  float64(data.MemoryStats.Limit),
+		Cpu:        calculateCPUPercent(data),
+		Disk:       float64(d.dirSize),
+		MaxStorage: maxStorage,
+		NetworkRx:  rxRate,
+		NetworkTx:  txRate,
+		Running:    true,
 	}
 
 	if !d.disableSpecialStats && environment.Server.Stats.Type == "jcmd" {
@@ -573,6 +584,21 @@ func (d *Docker) createContainer(environment *SkyPanel.Environment, data SkyPane
 		containerConfig.ExposedPorts[k] = struct{}{}
 	}
 
+	// Apply CPU limit from variables
+	if cpuVal, ok := data.Variables["cpu"]; ok {
+		if cpu, err := cast.ToIntE(cpuVal); err == nil && cpu > 0 {
+			hostConfig.NanoCPUs = int64(cpu) * 10000000
+		}
+	}
+
+	// Apply Memory limit from variables (MB to Bytes)
+	if memVal, ok := data.Variables["memory"]; ok {
+		if mem, err := cast.ToInt64E(memVal); err == nil && mem > 0 {
+			hostConfig.Memory = mem * 1024 * 1024
+			hostConfig.MemorySwap = mem * 1024 * 1024 // Equal to Memory to disable swap
+		}
+	}
+
 	networkConfig := &network.NetworkingConfig{}
 
 	//for now, default to linux across the board. This resolves problems that Windows has when you use it and docker
@@ -661,6 +687,20 @@ func calculateCPUPercent(v *container.StatsResponse) float64 {
 		numCpus = len(v.CPUStats.CPUUsage.PercpuUsage)
 	}
 	return (float64(cpuDelta) / float64(systemCpuDelta)) * float64(numCpus) * 100.0
+}
+
+func getDirSize(path string) int64 {
+	var size int64
+	filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if !info.IsDir() {
+			size += info.Size()
+		}
+		return nil
+	})
+	return size
 }
 
 func convertToBind(source string) string {

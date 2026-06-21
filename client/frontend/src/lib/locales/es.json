@@ -494,6 +494,10 @@
       "cancel": "Cancelar",
       "create": "Crear Rol"
     },
+    "deleteDialog": {
+      "title": "¿Estás seguro?",
+      "description": "Esto eliminará permanentemente el rol. Los usuarios asignados a este rol no se pueden eliminar hasta que los reasignes."
+    },
     "availableRoles": "Roles Disponibles",
     "table": {
       "role": "Rol",
@@ -507,6 +511,21 @@
       "user": {
         "description": "Acceso básico para iniciar sesión y gestionar su propia cuenta."
       }
+    },
+    "permissionGroups": {
+      "general": "General",
+      "nodes": "Nodos",
+      "servers": "Servidores",
+      "serverConsole": "Consola",
+      "serverManagement": "Gestión del Servidor",
+      "serverFiles": "Archivos y SFTP",
+      "serverBackups": "Copias de Seguridad",
+      "serverUsers": "Usuarios y Clientes",
+      "serverAdmin": "Administración",
+      "serverMisc": "Varios del Servidor",
+      "templates": "Plantillas",
+      "users": "Usuarios",
+      "other": "Otros"
     }
   },
   "permissions": {
@@ -527,7 +546,39 @@
       "clients": "Administrar Clientes OAuth2 Propios"
     },
     "server": {
-      "create": "Crear Nuevos Servidores"
+      "create": "Crear Nuevos Servidores",
+      "view": "Ver Servidores",
+      "delete": "Eliminar Servidores",
+      "name": { "edit": "Renombrar Servidores" },
+      "console": { "view": "Ver Consola", "send": "Enviar Comandos a Consola" },
+      "start": "Iniciar Servidor",
+      "stop": "Detener Servidor",
+      "kill": "Forzar Detención",
+      "reload": "Recargar Configuración",
+      "install": "Instalar/Reinstalar Servidor",
+      "definition": { "view": "Ver Definición", "edit": "Editar Definición" },
+      "data": { "view": "Ver Datos/Variables", "edit": { "admin": "Edición Admin (Transferencia)" } },
+      "flags": { "view": "Ver Flags", "edit": "Editar Flags" },
+      "tasks": { "view": "Ver Tareas", "run": "Ejecutar Tareas", "create": "Crear Tareas", "edit": "Editar Tareas", "delete": "Eliminar Tareas" },
+      "files": { "view": "Ver/Leer Archivos", "edit": "Editar/Escribir/Eliminar" },
+      "sftp": "Acceso SFTP",
+      "backup": { "view": "Ver/Descargar Copias", "create": "Crear Copias", "restore": "Restaurar Copias", "delete": "Eliminar Copias" },
+      "users": { "view": "Ver Usuarios", "create": "Añadir Usuarios", "edit": "Editar Permisos", "delete": "Eliminar Usuarios" },
+      "clients": { "view": "Ver Clientes OAuth2", "edit": "Editar Clientes OAuth2", "create": "Crear Clientes OAuth2", "delete": "Eliminar Clientes OAuth2" },
+      "stats": "Ver Estadísticas",
+      "status": "Ver Estado",
+      "admin": "Acceso Admin Completo",
+      "adminSection": {
+        "view": "Ver Sección de Administración",
+        "installView": "Ver Sección de Instalación",
+        "installManage": "Gestionar Instalación",
+        "transferView": "Ver Sección de Transferencias",
+        "transferManage": "Gestionar Transferencias",
+        "configView": "Ver Sección de Configuración",
+        "configManage": "Gestionar Configuración",
+        "assignmentsView": "Ver Sección de Asignaciones",
+        "assignmentsManage": "Gestionar Asignaciones"
+      }
     },
     "settings": {
       "edit": "Editar Configuración Global del Panel"

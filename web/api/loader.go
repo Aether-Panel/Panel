@@ -37,5 +37,5 @@ func RegisterRoutes(rg *gin.RouterGroup) {
 	
 	RegisterExTransferRoutes(publicRg.Group("/extransfer")) // External federated transfers
 
-	rg.GET("/config", panelConfig)
+	publicRg.GET("/config", panelConfig) // Public — no auth needed for config
 }

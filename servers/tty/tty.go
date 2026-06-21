@@ -19,7 +19,6 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/logging"
 	"github.com/SkyPanel/SkyPanel/v3/utils"
 	"github.com/creack/pty"
-	"github.com/shirou/gopsutil/disk"
 	"github.com/shirou/gopsutil/mem"
 	psnet "github.com/shirou/gopsutil/net"
 	"github.com/shirou/gopsutil/process"
@@ -39,6 +38,9 @@ type tty struct {
 
 	DisableUnshare bool     `json:"disableUnshare"`
 	Mounts         []string `json:"mounts"`
+
+	dirSize     int64
+	dirSizeTime time.Time
 }
 
 func (t *tty) ExecuteAsyncImpl(environment *SkyPanel.Environment, steps SkyPanel.ExecutionData) (err error) {
@@ -197,18 +199,27 @@ func (t *tty) GetStatsImpl(environment *SkyPanel.Environment) (*SkyPanel.ServerS
 	}
 	t.lastNetTime = now
 
-	stats := &SkyPanel.ServerStats{
-		Cpu:       cpu,
-		Memory:    cast.ToFloat64(memMap.RSS),
-		MaxMemory: cast.ToFloat64(memInfo.Total),
-		Disk:      0,
-		NetworkRx: rxRate,
-		NetworkTx: txRate,
-		Running:   true,
+	if t.dirSizeTime.IsZero() || time.Since(t.dirSizeTime) > 30*time.Second {
+		t.dirSize = getDirSize(environment.GetRootDirectory())
+		t.dirSizeTime = time.Now()
 	}
 
-	if usage, err := disk.Usage(environment.GetRootDirectory()); err == nil {
-		stats.Disk = usage.UsedPercent
+	var maxStorage float64
+	if diskVar, ok := environment.Server.Variables["disk"]; ok {
+		if limit, err := cast.ToInt64E(diskVar.Value); err == nil && limit > 0 {
+			maxStorage = float64(limit) * 1024 * 1024
+		}
+	}
+
+	stats := &SkyPanel.ServerStats{
+		Cpu:        cpu,
+		Memory:     cast.ToFloat64(memMap.RSS),
+		MaxMemory:  cast.ToFloat64(memInfo.Total),
+		Disk:       float64(t.dirSize),
+		MaxStorage: maxStorage,
+		NetworkRx:  rxRate,
+		NetworkTx:  txRate,
+		Running:    true,
 	}
 
 	if !t.disableSpecialStats && environment.Server.Stats.Type == "jcmd" {
@@ -520,4 +531,18 @@ func (t *tty) createCmd(workDir, cmd string) (pr *exec.Cmd, err error) {
 
 func removeRoot(path string) string {
 	return strings.TrimPrefix(path, "/")
+}
+
+func getDirSize(path string) int64 {
+	var size int64
+	filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if !info.IsDir() {
+			size += info.Size()
+		}
+		return nil
+	})
+	return size
 }

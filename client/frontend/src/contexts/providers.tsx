@@ -198,7 +198,11 @@ function AuthProvider({ children }: { children: ReactNode }) {
 
   const hasScope = (scope: string) => {
     if (role === 'admin') return true;
-    return scopes.includes(scope);
+    if (scopes.includes(scope)) return true;
+    if (scope.startsWith('server.') && scope !== 'server.create' && scope !== 'server.admin') {
+      if (scopes.includes('server.admin')) return true;
+    }
+    return false;
   };
 
   const value = { role, user, scopes, login, register, logout, hasScope, loading, fetchSelf };

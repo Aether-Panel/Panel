@@ -494,6 +494,10 @@
       "cancel": "Cancel",
       "create": "Create Role"
     },
+    "deleteDialog": {
+      "title": "Are you sure?",
+      "description": "This will permanently delete the role. Users assigned to this role cannot be deleted until you reassign them."
+    },
     "availableRoles": "Available Roles",
     "table": {
       "role": "Role",
@@ -507,6 +511,21 @@
       "user": {
         "description": "Basic access to log in and manage their own account."
       }
+    },
+    "permissionGroups": {
+      "general": "General",
+      "nodes": "Nodes",
+      "servers": "Servers",
+      "serverConsole": "Console",
+      "serverManagement": "Server Management",
+      "serverFiles": "Files & SFTP",
+      "serverBackups": "Backups",
+      "serverUsers": "Users & Clients",
+      "serverAdmin": "Administration",
+      "serverMisc": "Server Miscellaneous",
+      "templates": "Templates",
+      "users": "Users",
+      "other": "Other"
     }
   },
   "permissions": {
@@ -527,7 +546,39 @@
       "clients": "Manage Own OAuth2 Clients"
     },
     "server": {
-      "create": "Create New Servers"
+      "create": "Create New Servers",
+      "view": "View Servers",
+      "delete": "Delete Servers",
+      "name": { "edit": "Rename Servers" },
+      "console": { "view": "View Console Output", "send": "Send Console Commands" },
+      "start": "Start Server",
+      "stop": "Stop Server",
+      "kill": "Force Kill Server",
+      "reload": "Reload Server Configuration",
+      "install": "Install/Reinstall Server",
+      "definition": { "view": "View Server Definition", "edit": "Edit Server Definition" },
+      "data": { "view": "View Server Data/Variables", "edit": { "admin": "Admin Data Edit (Transfer)" } },
+      "flags": { "view": "View Server Flags", "edit": "Edit Server Flags" },
+      "tasks": { "view": "View Scheduled Tasks", "run": "Run Tasks", "create": "Create Tasks", "edit": "Edit Tasks", "delete": "Delete Tasks" },
+      "files": { "view": "View/Read Files", "edit": "Edit/Write/Delete Files" },
+      "sftp": "SFTP Access",
+      "backup": { "view": "View/Download Backups", "create": "Create Backups", "restore": "Restore Backups", "delete": "Delete Backups" },
+      "users": { "view": "View Server Users", "create": "Add Users to Server", "edit": "Edit User Permissions", "delete": "Remove Users" },
+      "clients": { "view": "View OAuth2 Clients", "edit": "Edit OAuth2 Clients", "create": "Create OAuth2 Clients", "delete": "Delete OAuth2 Clients" },
+      "stats": "View Server Statistics",
+      "status": "View Server Status",
+      "admin": "Full Server Admin Access",
+      "adminSection": {
+        "view": "View Administration Section",
+        "installView": "View Installation Section",
+        "installManage": "Manage Installation",
+        "transferView": "View Transfer Section",
+        "transferManage": "Manage Transfers",
+        "configView": "View Configuration Section",
+        "configManage": "Manage Configuration",
+        "assignmentsView": "View Assignments Section",
+        "assignmentsManage": "Manage Assignments"
+      }
     },
     "settings": {
       "edit": "Edit Global Panel Settings"

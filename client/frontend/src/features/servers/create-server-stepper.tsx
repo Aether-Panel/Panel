@@ -84,6 +84,11 @@ export function CreateServerStepper({ onComplete }: { onComplete: () => void }) 
     const [templateDetails, setTemplateDetails] = useState<any>(null);
     const [templateError, setTemplateError] = useState<string | null>(null);
     const [configData, setConfigData] = useState<Record<string, any>>({});
+    
+    // Explicit Resources
+    const [cpuLimit, setCpuLimit] = useState<number | ''>(100);
+    const [memoryLimit, setMemoryLimit] = useState<number | ''>(1024);
+    const [diskLimit, setDiskLimit] = useState<number | ''>(10240);
 
     useEffect(() => {
         if (selectedRepo !== null) {
@@ -131,11 +136,22 @@ export function CreateServerStepper({ onComplete }: { onComplete: () => void }) 
                             rawValue = Number(rawValue) || 0;
                         }
 
-                        initial[key] = (typeof rawValue === 'object' && rawValue !== null)
-                            ? JSON.stringify(rawValue)
-                            : (rawValue ?? "");
+                        if (key === 'cpu') {
+                            setCpuLimit(rawValue ? Number(rawValue) : 100);
+                        } else if (key === 'memory') {
+                            setMemoryLimit(rawValue ? Number(rawValue) : 1024);
+                        } else if (key === 'disk') {
+                            setDiskLimit(rawValue ? Number(rawValue) : 10240);
+                        } else {
+                            initial[key] = (typeof rawValue === 'object' && rawValue !== null)
+                                ? JSON.stringify(rawValue)
+                                : (rawValue ?? "");
+                        }
                     } else if (val !== undefined && val !== null) {
-                        initial[key] = String(val);
+                        if (key === 'cpu') setCpuLimit(Number(val));
+                        else if (key === 'memory') setMemoryLimit(Number(val));
+                        else if (key === 'disk') setDiskLimit(Number(val));
+                        else initial[key] = String(val);
                     }
                 });
                 console.log('Initialized Config Data:', initial);
@@ -174,6 +190,11 @@ export function CreateServerStepper({ onComplete }: { onComplete: () => void }) 
             Object.entries(configData).forEach(([k, v]) => {
                 vars[k] = { value: v };
             });
+            
+            // Inject Explicit Resources
+            vars['cpu'] = { value: cpuLimit === '' ? 100 : cpuLimit };
+            vars['memory'] = { value: memoryLimit === '' ? 1024 : memoryLimit };
+            vars['disk'] = { value: diskLimit === '' ? 10240 : diskLimit };
 
             const usernames = selectedUsers
                 .map(id => users.find(u => u.id === id)?.username)
@@ -406,17 +427,63 @@ export function CreateServerStepper({ onComplete }: { onComplete: () => void }) 
                                             {(() => {
                                                 try {
                                                     const variables = (templateDetails.data || templateDetails.variables || templateDetails.Variables || {}) as Record<string, any>;
-                                                    const entries = Object.entries(variables).filter(([_, v]) => v && !v.internal);
+                                                    const entries = Object.entries(variables).filter(([key, v]) => v && !v.internal && !['cpu', 'memory', 'disk'].includes(key));
+
+                                                    const resourceSection = (
+                                                        <>
+                                                            <div className="col-span-full pt-2 pb-1 border-b border-primary/10">
+                                                                <h4 className="text-sm font-bold text-primary flex items-center gap-2"><ServerIcon className="h-4 w-4" /> Límites de Recursos</h4>
+                                                                <p className="text-xs text-muted-foreground mt-0.5">Estos límites se aplicarán de forma estricta a nivel de contenedor Docker.</p>
+                                                            </div>
+                                                            <div className="flex flex-col gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                                                <Label className="text-xs font-semibold text-foreground/80 break-words">CPU Asignada (Hilos)</Label>
+                                                                <div className="relative">
+                                                                    <Input type="number" value={cpuLimit} onChange={(e) => setCpuLimit(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-background/50 h-9" />
+                                                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">% (100% = 1 hilo)</span>
+                                                                </div>
+                                                                <p className="text-[10px] text-muted-foreground">Cantidad de procesador que el servidor puede utilizar.</p>
+                                                            </div>
+                                                            <div className="flex flex-col gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                                                <Label className="text-xs font-semibold text-foreground/80 break-words">Memoria RAM</Label>
+                                                                <div className="relative">
+                                                                    <Input type="number" value={memoryLimit} onChange={(e) => setMemoryLimit(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-background/50 h-9" />
+                                                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">MB</span>
+                                                                </div>
+                                                                <p className="text-[10px] text-muted-foreground">Límite estricto de memoria asignada al contenedor.</p>
+                                                            </div>
+                                                            <div className="flex flex-col gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                                                <Label className="text-xs font-semibold text-foreground/80 break-words">Espacio en Disco</Label>
+                                                                <div className="relative">
+                                                                    <Input type="number" value={diskLimit} onChange={(e) => setDiskLimit(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-background/50 h-9" />
+                                                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">MB</span>
+                                                                </div>
+                                                                <p className="text-[10px] text-muted-foreground">Límite de almacenamiento (10240 = 10 GB).</p>
+                                                            </div>
+                                                            
+                                                            {entries.length > 0 && (
+                                                                <div className="col-span-full pt-4 pb-1 border-b border-primary/10 mt-2">
+                                                                    <h4 className="text-sm font-bold text-primary flex items-center gap-2"><Puzzle className="h-4 w-4" /> Configuración de la Plantilla</h4>
+                                                                    <p className="text-xs text-muted-foreground mt-0.5">Parámetros específicos para la ejecución de este tipo de servidor.</p>
+                                                                </div>
+                                                            )}
+                                                        </>
+                                                    );
 
                                                     if (entries.length === 0) {
                                                         return (
-                                                            <div className="col-span-full py-10 text-center border-2 border-dashed rounded-xl border-muted-foreground/20">
-                                                                <p className="text-muted-foreground italic">Esta plantilla no requiere configuración adicional.</p>
-                                                            </div>
+                                                            <>
+                                                                {resourceSection}
+                                                                <div className="col-span-full py-6 text-center rounded-xl border-muted-foreground/20">
+                                                                    <p className="text-xs text-muted-foreground italic">Esta plantilla no requiere configuración adicional.</p>
+                                                                </div>
+                                                            </>
                                                         );
                                                     }
 
-                                                    return entries.map(([key, variable]: [string, any], idx: number) => {
+                                                    return (
+                                                        <>
+                                                            {resourceSection}
+                                                            {entries.map(([key, variable]: [string, any], idx: number) => {
                                                         try {
                                                             if (!variable || typeof variable !== 'object') return null;
 
@@ -491,7 +558,9 @@ export function CreateServerStepper({ onComplete }: { onComplete: () => void }) 
                                                             console.error("Error rendering variable:", key, err);
                                                             return null;
                                                         }
-                                                    });
+                                                    })}
+                                                    </>
+                                                );
                                                 } catch (e) {
                                                     console.error("Critical rendering error in Step 3:", e);
                                                     return (

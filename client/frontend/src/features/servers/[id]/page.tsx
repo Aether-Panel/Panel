@@ -18,6 +18,7 @@ import ExternalTransferView from './external-transfer-view';
 import { ServerAddress } from './server-address';
 import MetricsCharts from './metrics-charts';
 import NetworkUsageChart from './network-usage-chart';
+import { formatBytes } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -293,7 +294,13 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
     { value: 'sftp', label: t('servers.detail.tabs.sftp'), icon: Key },
     { value: 'extransfer', label: 'Migration', icon: ArrowRightLeft },
     ...(pluginsTabEnabled ? [{ value: 'plugins', label: t('servers.detail.tabs.plugins'), icon: Puzzle }] : []),
-    ...(hasScope('server.admin') || hasScope('server.data.edit.admin') || hasScope('admin') ? [{ value: 'admin', label: t('servers.detail.tabs.admin'), icon: Shield }] : []),
+    ...(hasScope('admin') || hasScope('server.admin') || hasScope('server.admin.view')
+        || hasScope('server.admin.install.view') || hasScope('server.install')
+        || hasScope('server.admin.transfer.view') || hasScope('server.data.edit.admin')
+        || hasScope('server.admin.config.view') || hasScope('server.definition.edit')
+        || hasScope('server.admin.assignments.view')
+        || hasScope('server.delete')
+        ? [{ value: 'admin', label: t('servers.detail.tabs.admin'), icon: Shield }] : []),
   ];
 
 
@@ -510,6 +517,9 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{server.storageUsage}%</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {formatBytes(server.storageUsed)} / {formatBytes(server.storageMax)}
+                  </p>
                 </CardContent>
               </Card>
 

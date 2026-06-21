@@ -101,7 +101,7 @@ export default function SettingsView({ serverId }: SettingsViewProps) {
   };
 
   const renderVariable = (name: string, variable?: SettingVariable) => {
-    if (!variable || variable.internal) return null;
+    if (!variable || variable.internal || ['cpu', 'memory', 'disk'].includes(name)) return null;
 
     const displayName = variable.display || name;
     const description = variable.desc;
@@ -238,6 +238,44 @@ export default function SettingsView({ serverId }: SettingsViewProps) {
                   }}
                   className="bg-accent/5 focus:bg-accent/10 transition-colors"
                 />
+              </div>
+            </div>
+          </div>
+
+          {/* Native Resources Section */}
+          <div className="space-y-4 pt-4">
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-primary" />
+                <h3 className="text-xl font-bold">Límites de Recursos</h3>
+              </div>
+              <p className="text-sm text-muted-foreground ml-4">Estos límites se aplican estrictamente a nivel del contenedor Docker.</p>
+              <Separator className="mt-2" />
+            </div>
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-3 ml-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-bold uppercase tracking-tight">CPU Asignada (Hilos)</Label>
+                <div className="relative">
+                  <Input type="number" value={(localSettings.variables['cpu']?.value as number) ?? 100} onChange={(e) => handleVariableChange('cpu', parseInt(e.target.value) || 0)} className="bg-accent/5 pr-8" />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                </div>
+                <p className="text-xs text-muted-foreground">100% = 1 hilo</p>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-bold uppercase tracking-tight">Memoria RAM</Label>
+                <div className="relative">
+                  <Input type="number" value={(localSettings.variables['memory']?.value as number) ?? 1024} onChange={(e) => handleVariableChange('memory', parseInt(e.target.value) || 0)} className="bg-accent/5 pr-8" />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">MB</span>
+                </div>
+                <p className="text-xs text-muted-foreground">Límite estricto de memoria.</p>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-bold uppercase tracking-tight">Espacio en Disco</Label>
+                <div className="relative">
+                  <Input type="number" value={(localSettings.variables['disk']?.value as number) ?? 10240} onChange={(e) => handleVariableChange('disk', parseInt(e.target.value) || 0)} className="bg-accent/5 pr-8" />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">MB</span>
+                </div>
+                <p className="text-xs text-muted-foreground">Límite de almacenamiento.</p>
               </div>
             </div>
           </div>

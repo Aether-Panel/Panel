@@ -531,6 +531,9 @@ func SendStatsForServers() {
 
 			// Trackear uptime/downtime
 			go trackUptime(p)
+
+			// Monitorear límite de disco
+			go checkDiskLimit(p, stats)
 		}(v)
 	}
 	wg.Wait()
@@ -551,6 +554,28 @@ func trackUptime(server *Server) {
 	err = us.TrackStatus(server.Id(), isRunning)
 	if err != nil {
 		logging.Error.Printf("[%s] Error tracking uptime: %s", server.Id(), err)
+	}
+}
+
+func checkDiskLimit(server *Server, stats *SkyPanel.ServerStats) {
+	if stats == nil || stats.MaxStorage <= 0 {
+		return
+	}
+
+	// Si el disco excede el límite (con un margen de 1MB para evitar falsos positivos)
+	if stats.Disk > stats.MaxStorage+(1024*1024) {
+		isRunning, _ := server.IsRunning()
+		if isRunning {
+			logging.Info.Printf("[%s] Server exceeded disk limit (%.2f MB > %.2f MB). Stopping server...", server.Id(), stats.Disk/1024/1024, stats.MaxStorage/1024/1024)
+			server.RunningEnvironment.DisplayToConsole(true, fmt.Sprintf("\n[CRÍTICO] El servidor ha superado el límite de disco asignado (%.2f MB / %.2f MB).\n[CRÍTICO] Deteniendo el servidor por seguridad...\n", stats.Disk/1024/1024, stats.MaxStorage/1024/1024))
+			
+			// Detener el servidor
+			err := server.Stop()
+			if err != nil {
+				logging.Error.Printf("[%s] Failed to stop server after exceeding disk limit: %s", server.Id(), err)
+				_ = server.Kill() // Forzar kill si falla el stop
+			}
+		}
 	}
 }
 
