@@ -16,8 +16,13 @@ type ServerView struct {
 	Port         uint16           `json:"port,omitempty"`
 	Type         string           `json:"type"`
 	Icon         string           `json:"icon,omitempty"`
-	CanGetStatus bool             `json:"canGetStatus,omitempty"`
-	IsGhost      bool             `json:"isGhost,omitempty"`
+	CanGetStatus   bool             `json:"canGetStatus,omitempty"`
+	IsGhost        bool             `json:"isGhost,omitempty"`
+	ParentServerID *string          `json:"parent_server_id,omitempty"`
+	TotalCPU       int              `json:"total_cpu,omitempty"`
+	TotalMemory    int64            `json:"total_memory,omitempty"`
+	TotalDisk      int64            `json:"total_disk,omitempty"`
+	Suspended      bool             `json:"suspended"`
 } //@name ServerInfo
 
 type ServerUserView struct {
@@ -32,9 +37,14 @@ func FromServer(server *Server) *ServerView {
 		NodeId:     server.NodeID,
 		IP:         server.IP,
 		Port:       server.Port,
-		Type:       server.Type,
-		Icon:       server.Icon,
-		Node:       FromNode(&server.Node),
+		Type:           server.Type,
+		Icon:           server.Icon,
+		Node:           FromNode(&server.Node),
+		ParentServerID: server.ParentServerID,
+		TotalCPU:       server.TotalCPU,
+		TotalMemory:    server.TotalMemory,
+		TotalDisk:      server.TotalDisk,
+		Suspended:      server.Suspended,
 	}
 
 	return model

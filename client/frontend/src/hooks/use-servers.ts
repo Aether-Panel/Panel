@@ -55,6 +55,10 @@ export function useServers() {
                     metrics: [],
                     alerts: [],
                     isGhost: s.isGhost,
+                    parentServerId: s.parent_server_id,
+                    totalCpu: s.total_cpu,
+                    totalMemory: s.total_memory,
+                    totalDisk: s.total_disk,
                 };
             });
 

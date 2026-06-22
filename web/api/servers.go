@@ -37,7 +37,9 @@ func registerServers(g *gin.RouterGroup) {
 	g.Handle("GET", "/:serverId", middleware.RequiresPermission(scopes.ScopeServerView), middleware.ResolveServerPanel, getServer)
 	g.Handle("PUT", "/:serverId", middleware.RequiresPermission(scopes.ScopeServerCreate), middleware.HasTransaction, createServer)
 	g.Handle("DELETE", "/:serverId", middleware.RequiresPermission(scopes.ScopeServerDelete), middleware.ResolveServerPanel, middleware.HasTransaction, deleteServer)
+	g.Handle("POST", "/:serverId/suspend", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, middleware.HasTransaction, toggleServerSuspension)
 	g.Handle("OPTIONS", "/:serverId", response.CreateOptions("PUT", "GET", "POST", "DELETE"))
+	g.Handle("OPTIONS", "/:serverId/suspend", response.CreateOptions("POST"))
 
 	g.Handle("PUT", "/:serverId/name/:name", middleware.RequiresPermission(scopes.ScopeServerEditName), middleware.ResolveServerPanel, middleware.HasTransaction, renameServer)
 	g.Handle("OPTIONS", "/:serverId/name", response.CreateOptions("PUT"))
@@ -375,7 +377,6 @@ func getServer(c *gin.Context) {
 func createServer(c *gin.Context) {
 	var err error
 	db := middleware.GetDatabase(c)
-	ss := &services.Server{DB: db}
 	ns := &services.Node{DB: db}
 	us := &services.User{DB: db}
 	ps := &services.Permission{DB: db}
@@ -395,6 +396,32 @@ func createServer(c *gin.Context) {
 	postBody.Identifier = serverId
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
+	}
+
+	if postBody.ParentServerID != nil && *postBody.ParentServerID != "" {
+		var parent models.Server
+		if err := db.Where("identifier = ?", *postBody.ParentServerID).First(&parent).Error; err != nil {
+			response.HandleError(c, errors.New("parent server not found"), http.StatusBadRequest)
+			return
+		}
+
+		// Force node to match parent
+		postBody.NodeId = parent.NodeID
+
+		// Inherit users from parent
+		var parentPerms []models.Permissions
+		db.Where("server_identifier = ?", parent.Identifier).Find(&parentPerms)
+
+		var inheritedUsers []string
+		for _, p := range parentPerms {
+			if p.UserId != nil {
+				user, err := us.GetById(*p.UserId)
+				if err == nil && user != nil {
+					inheritedUsers = append(inheritedUsers, user.Username)
+				}
+			}
+		}
+		postBody.Users = inheritedUsers
 	}
 
 	node, err := ns.Get(postBody.NodeId)
@@ -420,6 +447,19 @@ func createServer(c *gin.Context) {
 		postBody.Name = postBody.Identifier
 	}
 
+	cpuVar, _ := getFromDataOrDefault(postBody.Variables, "cpu", 0)
+	memoryVar, _ := getFromDataOrDefault(postBody.Variables, "memory", 0)
+	diskVar, _ := getFromDataOrDefault(postBody.Variables, "disk", 0)
+
+	totalCPU := cast.ToInt(cpuVar)
+	totalMemory := cast.ToInt64(memoryVar)
+	totalDisk := cast.ToInt64(diskVar)
+
+	if totalCPU < 0 || totalMemory < 0 || totalDisk < 0 {
+		response.HandleError(c, errors.New("resources cannot be negative"), http.StatusBadRequest)
+		return
+	}
+
 	server := &models.Server{
 		Name:       postBody.Name,
 		Identifier: postBody.Identifier,
@@ -428,6 +468,10 @@ func createServer(c *gin.Context) {
 		Port:       cast.ToUint16(port),
 		Type:       postBody.Type.Type,
 		Icon:       postBody.Icon,
+		ParentServerID: postBody.ParentServerID,
+		TotalCPU:   totalCPU,
+		TotalMemory: totalMemory,
+		TotalDisk:  totalDisk,
 	}
 
 	users := make([]*models.User, len(postBody.Users))
@@ -441,8 +485,54 @@ func createServer(c *gin.Context) {
 		users[k] = user
 	}
 
-	err = ss.Create(server)
-	if response.HandleError(c, err, http.StatusInternalServerError) {
+	var parentAvailableCPU int
+	var parentAvailableMemory int64
+	var parentAvailableDisk int64
+
+	// Transactional validation and creation
+	err = db.Transaction(func(tx *gorm.DB) error {
+		if server.ParentServerID != nil && *server.ParentServerID != "" {
+			var parent models.Server
+			if err := tx.Raw("SELECT * FROM servers WHERE identifier = ? FOR UPDATE", *server.ParentServerID).Scan(&parent).Error; err != nil {
+				return err
+			}
+			if parent.Identifier == "" {
+				return errors.New("parent server not found")
+			}
+
+			var children []*models.Server
+			if err := tx.Where("parent_server_id = ?", parent.Identifier).Find(&children).Error; err != nil {
+				return err
+			}
+
+			var usedCPU int
+			var usedMemory, usedDisk int64
+			for _, child := range children {
+				usedCPU += child.TotalCPU
+				usedMemory += child.TotalMemory
+				usedDisk += child.TotalDisk
+			}
+
+			parentAvailableCPU = parent.TotalCPU - usedCPU - server.TotalCPU
+			parentAvailableMemory = parent.TotalMemory - usedMemory - server.TotalMemory
+			parentAvailableDisk = parent.TotalDisk - usedDisk - server.TotalDisk
+
+			if parentAvailableCPU < 0 {
+				return errors.New("not enough CPU available in parent server")
+			}
+			if parentAvailableMemory < 0 {
+				return errors.New("not enough memory available in parent server")
+			}
+			if parentAvailableDisk < 0 {
+				return errors.New("not enough disk available in parent server")
+			}
+		}
+
+		// Create server within transaction
+		return tx.Create(server).Error
+	})
+
+	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
 
@@ -518,6 +608,26 @@ func createServer(c *gin.Context) {
 		_, _ = c.Writer.Write(resData)
 		c.Abort()
 		return
+	}
+
+	// Update the parent's actual limits in the daemon if it's a subserver
+	if server.ParentServerID != nil && *server.ParentServerID != "" {
+		// We send a partial update to the daemon with the new available limits
+		parentDataUpdate := map[string]interface{}{
+			"cpu":    parentAvailableCPU,
+			"memory": parentAvailableMemory,
+			"disk":   parentAvailableDisk,
+		}
+		updateBytes, _ := json.Marshal(parentDataUpdate)
+		parentReqBody := io.NopCloser(bytes.NewReader(updateBytes))
+		
+		var parent models.Server
+		db.Where("identifier = ?", *server.ParentServerID).First(&parent)
+		// We call the daemon's data endpoint to merge these new limits
+		parentRes, _ := ns.CallNode(node, "POST", "/daemon/server/"+parent.Identifier+"/data", parentReqBody, c.Request.Header)
+		if parentRes != nil && parentRes.Body != nil {
+			parentRes.Body.Close()
+		}
 	}
 
 	es := services.GetEmailService()
@@ -658,6 +768,13 @@ func deleteServer(c *gin.Context) {
 		users = append(users, p.User)
 	}
 
+	// Splitter Check: Ensure it has no children
+	var childrenCount int64
+	if err := db.Model(&models.Server{}).Where("parent_server_id = ?", server.Identifier).Count(&childrenCount).Error; err == nil && childrenCount > 0 {
+		response.HandleError(c, errors.New("cannot delete server because it has active child servers"), http.StatusBadRequest)
+		return
+	}
+
 	_, skipNode := c.GetQuery("skipNode")
 	if !skipNode {
 		// Primero intentar detener el servidor si está corriendo
@@ -707,6 +824,44 @@ func deleteServer(c *gin.Context) {
 	err = ss.Delete(server.Identifier)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
+	}
+
+	// Splitter Restore: Update parent limits in daemon
+	if server.ParentServerID != nil && *server.ParentServerID != "" {
+		var parent models.Server
+		if err := db.Raw("SELECT * FROM servers WHERE identifier = ? FOR UPDATE", *server.ParentServerID).Scan(&parent).Error; err == nil && parent.Identifier != "" {
+			var children []*models.Server
+			db.Where("parent_server_id = ?", parent.Identifier).Find(&children)
+			
+			var usedCPU int
+			var usedMemory, usedDisk int64
+			for _, child := range children {
+				if child.Identifier == server.Identifier {
+					continue // En caso de que el soft delete lo siga incluyendo
+				}
+				usedCPU += child.TotalCPU
+				usedMemory += child.TotalMemory
+				usedDisk += child.TotalDisk
+			}
+			
+			parentAvailableCPU := parent.TotalCPU - usedCPU
+			parentAvailableMemory := parent.TotalMemory - usedMemory
+			parentAvailableDisk := parent.TotalDisk - usedDisk
+			
+			// Send to daemon
+			parentDataUpdate := map[string]interface{}{
+				"cpu":    parentAvailableCPU,
+				"memory": parentAvailableMemory,
+				"disk":   parentAvailableDisk,
+			}
+			updateBytes, _ := json.Marshal(parentDataUpdate)
+			parentReqBody := io.NopCloser(bytes.NewReader(updateBytes))
+			
+			parentRes, _ := ns.CallNode(node, "POST", "/daemon/server/"+parent.Identifier+"/data", parentReqBody, c.Request.Header)
+			if parentRes != nil && parentRes.Body != nil {
+				parentRes.Body.Close()
+			}
+		}
 	}
 
 	// Rely on HasTransaction to commit at end of the block
@@ -1360,6 +1515,12 @@ func proxyServerRequest(c *gin.Context) {
 	server := c.MustGet("server").(*models.Server)
 	node := &server.Node
 
+	// Block starting or restarting if the server is suspended
+	if server.Suspended && (strings.HasSuffix(c.Request.URL.Path, "/start") || strings.HasSuffix(c.Request.URL.Path, "/restart")) {
+		response.HandleError(c, errors.New("cannot start or restart a suspended server"), http.StatusForbidden)
+		return
+	}
+
 	ts, err := services.NewTokenService()
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
@@ -1530,6 +1691,78 @@ func proxySocketRequest(c *gin.Context, path string, ns *services.Node, node *mo
 		response.HandleError(c, err, http.StatusInternalServerError)
 	}
 	c.Abort()
+}
+
+func toggleServerSuspension(c *gin.Context) {
+	db := middleware.GetDatabase(c)
+	server := c.MustGet("server").(*models.Server)
+
+	newState := !server.Suspended
+
+	err := db.Transaction(func(tx *gorm.DB) error {
+		server.Suspended = newState
+		if err := tx.Save(server).Error; err != nil {
+			return err
+		}
+
+		var children []models.Server
+		if err := tx.Where("parent_server_id = ?", server.Identifier).Find(&children).Error; err != nil {
+			return err
+		}
+
+		for i := range children {
+			children[i].Suspended = newState
+			if err := tx.Save(&children[i]).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		response.HandleError(c, err, http.StatusInternalServerError)
+		return
+	}
+
+	// If we are suspending, try to stop the server and its children
+	if newState {
+		ns := &services.Node{DB: db}
+		
+		ts, err := services.NewTokenService()
+		var token string
+		if err == nil {
+			token, _ = ts.GenerateRequest()
+		}
+
+		stopServer := func(srvIdentifier string, nodeID uint) {
+			if token != "" {
+				node, err := ns.Get(nodeID)
+				if err != nil {
+					return
+				}
+				headers := make(http.Header)
+				headers.Set("Authorization", "Bearer "+token)
+				stopPath := "/daemon/server/" + srvIdentifier + "/stop"
+				resp, callErr := ns.CallNode(node, "POST", stopPath, nil, headers)
+				if callErr == nil && resp != nil {
+					resp.Body.Close()
+				}
+			}
+		}
+
+		// Stop parent
+		stopServer(server.Identifier, server.NodeID)
+
+		// Find children and stop them
+		var children []models.Server
+		if err := db.Where("parent_server_id = ?", server.Identifier).Find(&children).Error; err == nil {
+			for _, child := range children {
+				stopServer(child.Identifier, child.NodeID)
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, models.FromServer(server))
 }
 
 func getServerFromGin(c *gin.Context) *models.Server {

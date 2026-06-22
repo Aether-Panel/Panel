@@ -21,6 +21,18 @@ type Server struct {
 	Type string `gorm:"NOT NULL;default='generic'" json:"-" validate:"required,printascii"`
 	Icon string `gorm:"" json:"-"`
 
+	// Server Splitter Hierarchical relation
+	ParentServerID *string `gorm:"column:parent_server_id;size:20;index" json:"parent_server_id,omitempty"`
+	ParentServer   *Server `gorm:"foreignKey:ParentServerID;references:Identifier" json:"-" validate:"-"`
+
+	// Total Max Resources for the server
+	TotalCPU    int   `gorm:"column:total_cpu;default:0" json:"total_cpu"`
+	TotalMemory int64 `gorm:"column:total_memory;default:0" json:"total_memory"`
+	TotalDisk   int64 `gorm:"column:total_disk;default:0" json:"total_disk"`
+
+	// Server State
+	Suspended bool `gorm:"column:suspended;default:false" json:"suspended"`
+
 	CreatedAt time.Time `json:"-"`
 	UpdatedAt time.Time `json:"-"`
 }

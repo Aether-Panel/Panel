@@ -12,6 +12,7 @@ import { useNodes } from '@/hooks/use-dashboard-data';
 import { useUsers } from '@/hooks/use-users';
 import { useTemplates, type TemplateRepo } from '@/hooks/use-templates';
 import { useTranslations } from '@/contexts/translations-context';
+import { useServers } from '@/hooks/use-servers';
 import { api } from '@/lib/api-client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -58,19 +59,20 @@ const SafeValue = ({ v, fallback = "" }: { v: any, fallback?: string }) => {
     return String(v);
 };
 
-export function CreateServerStepper({ onComplete }: { onComplete: () => void }) {
+export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }: { onComplete: () => void, forcedParentId?: string, forcedNodeId?: string }) {
     const { t } = useTranslations();
     const { toast } = useToast();
     const { nodes } = useNodes();
     const { users } = useUsers();
     const { repos, getTemplatesForRepo, getTemplateDetails } = useTemplates();
+    const { servers } = useServers();
 
     const [currentStep, setCurrentStep] = useState<Step>(1);
     const [loading, setLoading] = useState(false);
 
     // Step 1: Environment
     const [name, setName] = useState('');
-    const [selectedNode, setSelectedNode] = useState('');
+    const [selectedNode, setSelectedNode] = useState(forcedNodeId || '');
     const [selectedEnvironment, setSelectedEnvironment] = useState('docker');
     const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
 
@@ -165,7 +167,7 @@ export function CreateServerStepper({ onComplete }: { onComplete: () => void }) 
 
     const handleNext = () => {
         if (currentStep === 1) {
-            if (!name || !selectedNode) {
+            if (!name || (!selectedNode && !forcedParentId)) {
                 toast({ title: 'Error', description: 'Por favor completa los campos obligatorios.', variant: 'destructive' });
                 return;
             }
@@ -225,6 +227,7 @@ export function CreateServerStepper({ onComplete }: { onComplete: () => void }) 
                 environment: environmentConfig, // Correctly resolved environment (image, portBindings, etc.)
                 data: vars,
                 users: usernames,
+                parent_server_id: forcedParentId,
             };
 
             console.log('Final Server Payload:', serverPayload);
@@ -267,34 +270,48 @@ export function CreateServerStepper({ onComplete }: { onComplete: () => void }) 
                                     <Label htmlFor="server-name" className="text-sm font-medium">Nombre del Servidor *</Label>
                                     <Input id="server-name" placeholder="Ej: Mi Servidor Minecraft" value={name} onChange={(e) => setName(e.target.value)} className="h-10" />
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="grid gap-2">
-                                        <Label className="text-sm font-medium">Nodo *</Label>
-                                        <Select value={selectedNode} onValueChange={setSelectedNode}>
-                                            <SelectTrigger className="h-10">
-                                                <SelectValue placeholder="Seleccionar nodo" />
-                                            </SelectTrigger>
-                                            <SelectContent className="max-h-80 overflow-y-auto z-[100]">
-                                                {nodes.map(n => (
-                                                    <SelectItem key={n.id} value={String(n.id)}>{n.name} ({n.publicHost})</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                {forcedParentId ? (
+                                    <div className="bg-accent/10 border border-accent/20 rounded-lg p-4 mb-4">
+                                        <div className="flex items-center gap-2 text-primary font-medium mb-1">
+                                            <Shield className="w-5 h-5" />
+                                            <span>Entorno Heredado</span>
+                                        </div>
+                                        <p className="text-sm text-muted-foreground">
+                                            El nodo, entorno y los usuarios de este subservidor se asignarán automáticamente desde el servidor padre.
+                                        </p>
                                     </div>
-                                    <div className="grid gap-2">
-                                        <Label className="text-sm font-medium">Entorno</Label>
-                                        <Select value={selectedEnvironment} onValueChange={setSelectedEnvironment}>
-                                            <SelectTrigger className="h-10">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent className="max-h-80 overflow-y-auto z-[100]">
-                                                <SelectItem value="docker">Docker</SelectItem>
-                                                <SelectItem value="standard">Estándar (Hijo)</SelectItem>
-                                                <SelectItem value="tty">TTY</SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="grid gap-2">
+                                            <Label className="text-sm font-medium">Nodo *</Label>
+                                            <Select value={selectedNode} onValueChange={setSelectedNode}>
+                                                <SelectTrigger className="h-10">
+                                                    <SelectValue placeholder="Seleccionar nodo" />
+                                                </SelectTrigger>
+                                                <SelectContent className="max-h-80 overflow-y-auto z-[100]">
+                                                    {nodes.map(n => (
+                                                        <SelectItem key={n.id} value={String(n.id)}>{n.name} ({n.publicHost})</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label className="text-sm font-medium">Entorno</Label>
+                                            <Select value={selectedEnvironment} onValueChange={setSelectedEnvironment}>
+                                                <SelectTrigger className="h-10">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent className="max-h-80 overflow-y-auto z-[100]">
+                                                    <SelectItem value="docker">Docker</SelectItem>
+                                                    <SelectItem value="standard">Estándar (Hijo)</SelectItem>
+                                                    <SelectItem value="tty">TTY</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
                                     </div>
-                                </div>
+                                )}
+                                
+                                {!forcedParentId && (
                                 <div className="grid gap-2">
                                     <Label className="text-sm font-medium">Usuarios con acceso</Label>
                                     <div className="flex flex-col gap-3">
@@ -343,6 +360,7 @@ export function CreateServerStepper({ onComplete }: { onComplete: () => void }) 
                                     </div>
                                     <p className="text-xs text-muted-foreground italic">Los usuarios seleccionados tendrán acceso de administrador al servidor.</p>
                                 </div>
+                                )}
                             </div>
                         )}
 

@@ -12,6 +12,10 @@ export type Server = {
   metrics: { time: string; cpu: number; memory: number; networkIn: number; networkOut: number }[];
   alerts: string[];
   isGhost?: boolean;
+  parentServerId?: string;
+  totalCpu?: number;
+  totalMemory?: number;
+  totalDisk?: number;
 };
 
 export type User = {

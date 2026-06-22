@@ -2,7 +2,7 @@
 import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Cpu, HardDrive, MemoryStick, Network, Terminal, Folder, Settings as SettingsIcon, Users, Database, Archive, Shield, Puzzle, Play, RefreshCw, Square, ShieldAlert, Key, Lock, ArrowRightLeft } from 'lucide-react';
+import { Cpu, HardDrive, MemoryStick, Network, Terminal, Folder, Settings as SettingsIcon, Users, Database, Archive, Shield, Puzzle, Play, RefreshCw, Square, ShieldAlert, Key, Lock, ArrowRightLeft, GitBranch } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import ConsoleView from './console-view';
@@ -15,6 +15,7 @@ import AdminView from './admin-view';
 import PluginsView from './plugins-view';
 import SFTPView from './sftp-view';
 import ExternalTransferView from './external-transfer-view';
+import SplitterView from './splitter-view';
 import { ServerAddress } from './server-address';
 import MetricsCharts from './metrics-charts';
 import NetworkUsageChart from './network-usage-chart';
@@ -293,6 +294,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
     { value: 'backups', label: t('servers.detail.tabs.backups'), icon: Archive },
     { value: 'sftp', label: t('servers.detail.tabs.sftp'), icon: Key },
     { value: 'extransfer', label: 'Migration', icon: ArrowRightLeft },
+    { value: 'splitter', label: 'Splitter', icon: GitBranch },
     ...(pluginsTabEnabled ? [{ value: 'plugins', label: t('servers.detail.tabs.plugins'), icon: Puzzle }] : []),
     ...(hasScope('admin') || hasScope('server.admin') || hasScope('server.admin.view')
         || hasScope('server.admin.install.view') || hasScope('server.install')
@@ -374,7 +376,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
         size="sm"
         variant="default"
         onClick={() => handleAction('start')}
-        disabled={isActionPending || server.status === 'online'}
+        disabled={isActionPending || server.status === 'online' || server.suspended}
       >
         {isActionPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
         {t('servers.detail.start')}
@@ -383,7 +385,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
         size="sm"
         variant="outline"
         onClick={() => handleAction('restart')}
-        disabled={isActionPending}
+        disabled={isActionPending || server.suspended}
       >
         {isActionPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
         {t('servers.detail.restart')}
@@ -421,10 +423,18 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
                   <h1 className="text-2xl font-bold tracking-tight">{server.name}</h1>
-                  <Badge variant={server.status === 'online' ? 'default' : server.status === 'offline' ? 'destructive' : 'secondary'} className="capitalize flex items-center gap-1.5">
-                    <span className={`h-2 w-2 rounded-full ${server.status === 'online' ? 'bg-green-400' : server.status === 'offline' ? 'bg-red-400' : 'bg-yellow-400'}`} />
-                    {t(`dashboard.status.${server.status}`)}
-                  </Badge>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant={server.status === 'online' ? 'default' : server.status === 'offline' ? 'destructive' : 'secondary'} className="capitalize flex items-center gap-1.5">
+                      <span className={`h-2 w-2 rounded-full ${server.status === 'online' ? 'bg-green-400' : server.status === 'offline' ? 'bg-red-400' : 'bg-yellow-400'}`} />
+                      {t(`dashboard.status.${server.status}`)}
+                    </Badge>
+                    {server.suspended && (
+                      <Badge variant="destructive" className="flex items-center gap-1.5 uppercase font-bold bg-red-600">
+                        <ShieldAlert className="w-3 h-3" />
+                        Suspendido
+                      </Badge>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
                   <ServerAddress ip={server.ipAddress} port={server.port} />
@@ -601,6 +611,11 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
         <TabsContent value="extransfer">
           <ErrorBoundary name="ExternalTransferView">
             <ExternalTransferView serverId={server.id} />
+          </ErrorBoundary>
+        </TabsContent>
+        <TabsContent value="splitter">
+          <ErrorBoundary name="SplitterView">
+            <SplitterView serverId={server.id} />
           </ErrorBoundary>
         </TabsContent>
       </Tabs>

@@ -10,6 +10,12 @@ type ServerCreation struct {
 	NodeId uint     `json:"node"`
 	Users  []string `json:"users"`
 	Name   string   `json:"name"`
+
+	// Splitter Fields
+	ParentServerID *string `json:"parent_server_id,omitempty"`
+	TotalCPU       int     `json:"total_cpu,omitempty"`
+	TotalMemory    int64   `json:"total_memory,omitempty"`
+	TotalDisk      int64   `json:"total_disk,omitempty"`
 } //@name CreatedServer
 
 type GetServerResponse struct {

@@ -21,6 +21,7 @@ export default function AdminView({ serverId }: { serverId: string }) {
     const { settings, loading, saveSettings } = useServerSettings(serverId);
     const [isInstalling, setIsInstalling] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isSuspending, setIsSuspending] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [editorOpen, setEditorOpen] = useState(false);
     const [editContent, setEditContent] = useState('');
@@ -95,6 +96,19 @@ export default function AdminView({ serverId }: { serverId: string }) {
         }
     };
 
+    const handleSuspend = async () => {
+        setIsSuspending(true);
+        try {
+            await api.post(`/api/servers/${serverId}/suspend`, {});
+            toast({ title: t('common.success'), description: 'Server suspension state toggled.' });
+            window.location.reload();
+        } catch (e: any) {
+            toast({ title: t('common.error'), description: e.message || 'Suspension failed.', variant: 'destructive' });
+        } finally {
+            setIsSuspending(false);
+        }
+    };
+
     const handleTransfer = async () => {
         if (!selectedNode) {
             toast({ title: t('common.error'), description: 'Please select a target node.', variant: 'destructive' });
@@ -135,7 +149,7 @@ export default function AdminView({ serverId }: { serverId: string }) {
         ...(canViewTransfer ? [{ value: 'transfer', label: 'Transfer', icon: ArrowRightLeft }] : []),
         ...(canViewConfig ? [{ value: 'config', label: 'Configuration', icon: Settings }] : []),
         ...(canViewAssignments ? [{ value: 'assignments', label: 'Assignments', icon: Flag }] : []),
-        ...(canViewDelete ? [{ value: 'delete', label: 'Delete', icon: Trash2 }] : []),
+        ...(canViewDelete ? [{ value: 'delete', label: 'Danger Zone', icon: Trash2 }] : []),
     ];
 
     return (
@@ -284,6 +298,45 @@ export default function AdminView({ serverId }: { serverId: string }) {
 
                         <TabsContent value="delete" className="space-y-4">
                             <div className="flex items-center justify-between rounded-lg border border-destructive/50 bg-destructive/5 p-4">
+                                <div>
+                                    <h3 className="font-medium text-destructive">Suspend Server</h3>
+                                    <p className="text-sm text-muted-foreground">
+                                        Suspending a server will stop it and prevent users from starting or modifying it.
+                                    </p>
+                                </div>
+                                <AlertDialog open={isSuspending ? true : undefined}>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="destructive" disabled={isSuspending}>
+                                            {isSuspending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                            Suspend / Unsuspend
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Toggle Suspension</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                Are you sure you want to toggle the suspension state of this server? If suspended, the server will be forcibly stopped.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel disabled={isSuspending}>Cancel</AlertDialogCancel>
+                                            <Button
+                                                variant="destructive"
+                                                disabled={isSuspending}
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    handleSuspend();
+                                                }}
+                                            >
+                                                {isSuspending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                                Confirm Toggle
+                                            </Button>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </div>
+
+                            <div className="flex items-center justify-between rounded-lg border border-destructive/50 bg-destructive/5 p-4 mt-4">
                                 <div>
                                     <h3 className="font-medium text-destructive">{t('servers.admin.delete.title')}</h3>
                                     <p className="text-sm text-muted-foreground">
