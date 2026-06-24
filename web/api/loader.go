@@ -34,8 +34,14 @@ func RegisterRoutes(rg *gin.RouterGroup) {
 	registerUptime(rg.Group("/uptime"))
 	registerRoles(rg.Group("/roles"))
 	registerDatabaseHosts(rg.Group("/databasehosts"))
+	registerAPIKeys(rg.Group("/settings/apikeys"))
+	registerProducts(rg.Group("/provision/products"))
 	
 	RegisterExTransferRoutes(publicRg.Group("/extransfer")) // External federated transfers
+
+	v1 := publicRg.Group("/v1")
+	v1.Use(middleware.APIKeyAuthMiddleware)
+	registerProvision(v1)
 
 	publicRg.GET("/config", panelConfig) // Public — no auth needed for config
 }

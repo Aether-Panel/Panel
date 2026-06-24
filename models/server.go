@@ -33,6 +33,9 @@ type Server struct {
 	// Server State
 	Suspended bool `gorm:"column:suspended;default:false" json:"suspended"`
 
+	// External integration ID (e.g. Paymenter service ID)
+	ExternalID string `gorm:"column:external_id;size:64;index" json:"-"`
+
 	CreatedAt time.Time `json:"-"`
 	UpdatedAt time.Time `json:"-"`
 }

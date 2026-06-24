@@ -60,3 +60,6 @@ skypanel.db
 
 # templates
 /templates/
+
+#Modules whmcs and paymenter
+integrations/

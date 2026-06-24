@@ -9,11 +9,13 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Bell, Mail, Loader2 } from 'lucide-react';
+import { Settings, Bell, Mail, Loader2, Key, Package } from 'lucide-react';
 import { useTranslations } from '@/contexts/translations-context';
 import { useSettings } from '@/hooks/use-settings';
 import { useConfig } from '@/contexts/config-context';
 import { useToast } from '@/hooks/use-toast';
+import { ApiKeysView } from './api-keys-view';
+import { ProductsView } from './products-view';
 
 
 export default function SettingsPage() {
@@ -38,6 +40,8 @@ export default function SettingsPage() {
         { value: 'general', label: t('settings.tabs.general'), icon: Settings },
         { value: 'discord', label: t('settings.tabs.discord'), icon: Bell },
         { value: 'mail', label: t('settings.tabs.mail'), icon: Mail },
+        { value: 'apikeys', label: 'API Keys', icon: Key },
+        { value: 'products', label: 'Provision Products', icon: Package },
     ];
 
     useEffect(() => {
@@ -132,7 +136,7 @@ export default function SettingsPage() {
                     </Select>
                 </div>
 
-                <TabsList className="hidden md:grid w-full grid-cols-3">
+                <TabsList className="hidden md:grid w-full grid-cols-5">
                     {settingsTabs.map((tab) => (
                         <TabsTrigger key={tab.value} value={tab.value}>
                             <tab.icon className="mr-2 h-4 w-4" />
@@ -433,6 +437,14 @@ export default function SettingsPage() {
                             </CardContent>
                         </Card>
                     </div>
+                </TabsContent>
+
+                <TabsContent value="apikeys">
+                    <ApiKeysView />
+                </TabsContent>
+
+                <TabsContent value="products">
+                    <ProductsView />
                 </TabsContent>
             </Tabs>
         </div>

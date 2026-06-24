@@ -1,42 +1,30 @@
 services:
-  # Base de datos MySQL/MariaDB
+  # ==========================================
+  # INSTANCIA 1 (Original)
+  # ==========================================
   mysql:
-    profiles:
-      - local-db
     image: mariadb:10.11
     container_name: skypanel-mysql
     restart: unless-stopped
-
-    # Variables de entorno para MySQL
+    ports:
+      - "3306:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=skypanel_root_password
       - MYSQL_DATABASE=skypanel
       - MYSQL_USER=skypanel
-      - MYSQL_PASSWORD=skypanel_password
-
-    # Volúmenes persistentes para MySQL
+      - MYSQL_PASSWORD=skypanel_root_password
     volumes:
-      - mysql-data:/var/lib/mysql
-
-    # Puertos (opcional, para acceso externo) - Comentado para evitar conflictos
-    #ports:
-    #  - "3306:3306"
-
-    # Healthcheck
+      - ./storage/mysql-data:/var/lib/mysql
     healthcheck:
       test: [ "CMD-SHELL", "mysqladmin ping -h localhost -u root -p$${MYSQL_ROOT_PASSWORD}" ]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
-
-    # Redes
     networks:
       - skypanel-network
 
   skypanel:
-    profiles:
-      - local-db
     build:
       context: .
       dockerfile: Dockerfile
@@ -48,75 +36,36 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
-
-    # Puertos
     ports:
-      - "8080:8080" # Panel web
-      - "5657:5657" # SFTP
-      - "8081:8081" # Gatus (monitoring)
-
-    # Volúmenes persistentes
+      - "8080:8080" # Panel web 1
+      - "5657:5657" # SFTP 1
+      - "8081:8081" # Gatus 1
     volumes:
-      - skypanel-config:/etc/SkyPanel
-      - skypanel-data:/var/lib/SkyPanel
-      - skypanel-logs:/var/log/SkyPanel
-      # Socket de Docker para gestionar contenedores (necesario para crear servidores)
-      - /var/run/docker.sock:/var/run/docker.sock
-
-    # Variables de entorno
+      - ./storage/skypanel-config:/etc/SkyPanel
+      - ./storage/skypanel-data:/var/lib/SkyPanel
+      - ./storage/skypanel-logs:/var/log/SkyPanel
+      - //var/run/docker.sock:/var/run/docker.sock
     environment:
       - GIN_MODE=release
       - PUFFER_PLATFORM=docker
       - PUFFER_DOCKER_ROOT=
       - PUFFER_DOCKER_DISALLOWHOST=true
-      # Configuración del panel
       - PUFFER_WEB_HOST=0.0.0.0:8080
       - PUFFER_PANEL_REGISTRATIONENABLED=true
-      - PUFFER_PANEL_SETTINGS_COMPANYNAME=Aether Panel
+      - PUFFER_PANEL_SETTINGS_COMPANYNAME=Aether Panel 1
       - PUFFER_PANEL_SETTINGS_DEFAULTTHEME=SkyPanel
-      # Configuración de base de datos MySQL
       - PUFFER_PANEL_DATABASE_DIALECT=mysql
-      - PUFFER_PANEL_DATABASE_URL=skypanel:skypanel_password@tcp(mysql:3306)/skypanel?charset=utf8&parseTime=true
-      # Configuración de plantillas (URL para templates de comunidad)s
+      - PUFFER_PANEL_DATABASE_URL=skypanel:skypanel_root_password@tcp(mysql:3306)/skypanel?charset=utf8&parseTime=true
       - PUFFER_TEMPLATES_URL=https://templates.aetherpanel.es/templates.json
-
-    # Permisos para acceder a Docker (necesario para gestionar contenedores de servidores)
-    # NOTA: Esto otorga acceso completo al daemon de Docker del host
-    # Asegúrate de que solo usuarios confiables puedan acceder a este contenedor
-    user: "0:0" # Ejecutar como root para acceso al socket de Docker
-
-    # Healthcheck
+    user: "0:0"
     healthcheck:
       test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/" ]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
-
-    # Límites de recursos (opcional) - Comentado para máximo rendimiento
-    #deploy:
-    #  resources:
-    #    limits:
-    #      cpus: '2'
-    #      memory: 2G
-    #    reservations:
-    #      cpus: '0.5'
-    #      memory: 512M
-
-    # Redes
     networks:
       - skypanel-network
-
-# Volúmenes nombrados
-volumes:
-  skypanel-config:
-    driver: local
-  skypanel-data:
-    driver: local
-  skypanel-logs:
-    driver: local
-  mysql-data:
-    driver: local
 
 # Redes
 networks:
