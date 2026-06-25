@@ -69,11 +69,16 @@ function AuthProvider({ children }: { children: ReactNode }) {
       if (!currentScopes) {
         if (data.scopes && data.scopes.length > 0) {
           currentScopes = normalizeScopes(data.scopes);
+          // Always persist the latest scopes from the server
           localStorage.setItem('aether_panel_scopes', JSON.stringify(currentScopes));
         } else {
-          console.warn('No scopes received from backend, falling back to local storage');
-          currentScopes = JSON.parse(localStorage.getItem('aether_panel_scopes') || '[]');
+          // Backend returned no scopes — still try to use stored ones as fallback
+          // but this usually means the user has no permissions at all
+          const stored = JSON.parse(localStorage.getItem('aether_panel_scopes') || '[]');
+          currentScopes = stored;
         }
+      } else {
+        localStorage.setItem('aether_panel_scopes', JSON.stringify(currentScopes));
       }
 
       setScopes(currentScopes || []);

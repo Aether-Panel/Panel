@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Trash2, Plus, Edit } from 'lucide-react';
@@ -25,7 +26,10 @@ export function ProductsView() {
         memory: 0,
         disk: 0,
         default_node: 0,
+        port_range_min: 0,
+        port_range_max: 0,
     });
+    const [usePortRange, setUsePortRange] = useState(false);
 
     const fetchData = async () => {
         try {
@@ -53,7 +57,9 @@ export function ProductsView() {
                 cpu: Number(form.cpu),
                 memory: Number(form.memory),
                 disk: Number(form.disk),
-                default_node: Number(form.default_node)
+                default_node: Number(form.default_node),
+                port_range_min: usePortRange ? Number(form.port_range_min) : 0,
+                port_range_max: usePortRange ? Number(form.port_range_max) : 0,
             };
 
             if (editingId) {
@@ -91,7 +97,10 @@ export function ProductsView() {
             memory: 0,
             disk: 0,
             default_node: nodes[0]?.id || 0,
+            port_range_min: 0,
+            port_range_max: 0,
         });
+        setUsePortRange(false);
         setEditingId(null);
         setIsDialogOpen(true);
     };
@@ -105,7 +114,10 @@ export function ProductsView() {
             memory: product.memory,
             disk: product.disk,
             default_node: product.default_node,
+            port_range_min: product.port_range_min || 0,
+            port_range_max: product.port_range_max || 0,
         });
+        setUsePortRange(!!(product.port_range_min && product.port_range_max));
         setEditingId(product.id);
         setIsDialogOpen(true);
     };
@@ -163,6 +175,46 @@ export function ProductsView() {
                                             ))}
                                         </SelectContent>
                                     </Select>
+                                </div>
+                                <div className="col-span-2 space-y-3 border rounded-lg p-3 bg-muted/30">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <Label className="text-sm font-medium">Assign Port from Range</Label>
+                                            <p className="text-xs text-muted-foreground mt-0.5">
+                                                A random free port from this range will be assigned on provisioning.
+                                            </p>
+                                        </div>
+                                        <Switch
+                                            checked={usePortRange}
+                                            onCheckedChange={setUsePortRange}
+                                        />
+                                    </div>
+                                    {usePortRange && (
+                                        <div className="grid grid-cols-2 gap-3 pt-1">
+                                            <div className="space-y-1">
+                                                <Label className="text-xs">Min Port</Label>
+                                                <Input
+                                                    type="number"
+                                                    min={1024}
+                                                    max={65535}
+                                                    placeholder="e.g. 25000"
+                                                    value={form.port_range_min || ''}
+                                                    onChange={e => setForm({...form, port_range_min: Number(e.target.value)})}
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-xs">Max Port</Label>
+                                                <Input
+                                                    type="number"
+                                                    min={1024}
+                                                    max={65535}
+                                                    placeholder="e.g. 25999"
+                                                    value={form.port_range_max || ''}
+                                                    onChange={e => setForm({...form, port_range_max: Number(e.target.value)})}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             <DialogFooter>

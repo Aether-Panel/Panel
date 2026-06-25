@@ -12,7 +12,6 @@ import { useNodes } from '@/hooks/use-dashboard-data';
 import { useUsers } from '@/hooks/use-users';
 import { useTemplates, type TemplateRepo } from '@/hooks/use-templates';
 import { useTranslations } from '@/contexts/translations-context';
-import { useServers } from '@/hooks/use-servers';
 import { api } from '@/lib/api-client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -62,10 +61,10 @@ const SafeValue = ({ v, fallback = "" }: { v: any, fallback?: string }) => {
 export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }: { onComplete: () => void, forcedParentId?: string, forcedNodeId?: string }) {
     const { t } = useTranslations();
     const { toast } = useToast();
-    const { nodes } = useNodes();
-    const { users } = useUsers();
+    const isSplitter = !!forcedParentId;
+    const { nodes } = useNodes(isSplitter);        // skip if splitter — node is inherited
+    const { users } = useUsers(isSplitter);        // skip if splitter — users are inherited
     const { repos, getTemplatesForRepo, getTemplateDetails } = useTemplates();
-    const { servers } = useServers();
 
     const [currentStep, setCurrentStep] = useState<Step>(1);
     const [loading, setLoading] = useState(false);
@@ -75,6 +74,13 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
     const [selectedNode, setSelectedNode] = useState(forcedNodeId || '');
     const [selectedEnvironment, setSelectedEnvironment] = useState('docker');
     const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
+
+    // Sync forcedNodeId if it arrives late (parent server info loading async)
+    useEffect(() => {
+        if (forcedNodeId && forcedNodeId !== '' && selectedNode === '') {
+            setSelectedNode(forcedNodeId);
+        }
+    }, [forcedNodeId]);
 
     // Step 2: Templates
     const [selectedRepo, setSelectedRepo] = useState<number | null>(null);
@@ -92,6 +98,13 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
     const [memoryLimit, setMemoryLimit] = useState<number | ''>(1024);
     const [diskLimit, setDiskLimit] = useState<number | ''>(10240);
 
+    // Auto-select repo if only one is available (common in splitter mode)
+    useEffect(() => {
+        if (repos.length === 1 && selectedRepo === null) {
+            setSelectedRepo(repos[0].id);
+        }
+    }, [repos]);
+
     useEffect(() => {
         if (selectedRepo !== null) {
             setLoadingTemplates(true);
@@ -101,6 +114,9 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
             getTemplatesForRepo(selectedRepo).then(list => {
                 setTemplateList(list);
                 setLoadingTemplates(false);
+            }).catch(() => {
+                setTemplateList([]);
+                setLoadingTemplates(false);
             });
         }
     }, [selectedRepo]);
@@ -108,10 +124,11 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
     useEffect(() => {
         if (selectedTemplateName && selectedRepo !== null) {
             setTemplateError(null);
+            setTemplateDetails(null);
             getTemplateDetails(selectedRepo, selectedTemplateName).then(details => {
                 console.log('Template Details Received:', details);
                 if (!details) {
-                    setTemplateError("No se pudo cargar la información de la plantilla.");
+                    setTemplateError("No se pudo cargar la información de la plantilla. Comprueba que el repositorio de plantillas esté disponible.");
                     return;
                 }
                 setTemplateDetails(details);
@@ -159,7 +176,7 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
                 console.log('Initialized Config Data:', initial);
                 setConfigData(initial);
             }).catch(err => {
-                setTemplateError(err.message || "Error al obtener detalles de la plantilla.");
+                setTemplateError(err.message || "Error al obtener detalles de la plantilla. Verifica tu conexión o los permisos.");
                 console.error("Details Fetch Error:", err);
             });
         }
@@ -175,6 +192,11 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
         } else if (currentStep === 2) {
             if (!selectedTemplateName) {
                 toast({ title: 'Error', description: 'Por favor selecciona una plantilla.', variant: 'destructive' });
+                return;
+            }
+            // If details are still loading, wait — don't advance yet
+            if (!templateDetails && !templateError) {
+                toast({ title: 'Cargando plantilla...', description: 'Espera un momento mientras se cargan los detalles de la plantilla.' });
                 return;
             }
             setCurrentStep(3);
@@ -203,7 +225,6 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
                 .filter((uname): uname is string => !!uname);
 
             // Fetch correct environment properties from the template's supportedEnvironments
-            // This ensures we pass the correct Docker Image and portBindings to the backend
             let environmentConfig: Record<string, any> = { type: selectedEnvironment };
 
             if (selectedEnvironment === 'docker' && templateDetails?.supportedEnvironments) {
@@ -213,21 +234,24 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
                 if (dockerEnvTemplate) {
                     environmentConfig = { ...dockerEnvTemplate };
                 } else {
-                    // Fallback to a functional image if the template doesn't specify one
                     environmentConfig = { type: 'docker', image: 'ubuntu:22.04' };
                 }
             }
+
+            // Resolve node: in splitter mode forcedNodeId is the parent's node,
+            // fall back to 0 (local node) if still not available
+            const resolvedNode = selectedNode !== '' ? Number(selectedNode) : (forcedNodeId ? Number(forcedNodeId) : 0);
 
             // Combine template definition with user overrides
             const serverPayload = {
                 ...templateDetails,
                 name: name,
-                node: Number(selectedNode),
-                type: templateDetails.type, // Server type (e.g., minecraft-java)
-                environment: environmentConfig, // Correctly resolved environment (image, portBindings, etc.)
+                node: resolvedNode,
+                type: templateDetails.type,
+                environment: environmentConfig,
                 data: vars,
                 users: usernames,
-                parent_server_id: forcedParentId,
+                parent_server_id: forcedParentId || undefined,
             };
 
             console.log('Final Server Payload:', serverPayload);
@@ -383,6 +407,12 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
                                                 </div>
                                             </div>
                                         ))}
+                                        {repos.length === 0 && (
+                                            <div className="col-span-2 flex items-center justify-center p-8 border-2 border-dashed rounded-xl text-muted-foreground text-sm">
+                                                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                                                Cargando repositorios...
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -392,6 +422,10 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
                                         {loadingTemplates ? (
                                             <div className="flex items-center justify-center p-8">
                                                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                            </div>
+                                        ) : templateList.length === 0 ? (
+                                            <div className="flex items-center justify-center p-8 border-2 border-dashed rounded-xl text-muted-foreground text-sm">
+                                                No hay plantillas disponibles en este repositorio.
                                             </div>
                                         ) : (
                                             <div className="w-full min-w-0 max-h-[280px] overflow-y-auto pr-2">
@@ -408,6 +442,25 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
                                                         </div>
                                                     ))}
                                                 </div>
+                                            </div>
+                                        )}
+                                        {/* Loading indicator for template details */}
+                                        {selectedTemplateName && !templateDetails && !templateError && (
+                                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2 p-2 bg-primary/5 rounded-lg border border-primary/10">
+                                                <Loader2 className="h-3 w-3 animate-spin text-primary shrink-0" />
+                                                Cargando detalles de la plantilla <strong>{selectedTemplateName}</strong>...
+                                            </div>
+                                        )}
+                                        {selectedTemplateName && templateError && (
+                                            <div className="flex items-center gap-2 text-xs text-red-600 mt-2 p-2 bg-red-50 rounded-lg border border-red-200">
+                                                <Bot className="h-3 w-3 shrink-0" />
+                                                {templateError}
+                                            </div>
+                                        )}
+                                        {selectedTemplateName && templateDetails && (
+                                            <div className="flex items-center gap-2 text-xs text-green-600 mt-2 p-2 bg-green-50 rounded-lg border border-green-200">
+                                                <Check className="h-3 w-3 shrink-0" />
+                                                Plantilla <strong>{selectedTemplateName}</strong> cargada. Pulsa Siguiente para configurar.
                                             </div>
                                         )}
                                     </div>
@@ -618,7 +671,15 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
                             Atrás
                         </Button>
                         {currentStep < 3 ? (
-                            <Button onClick={handleNext} className="shrink-0">
+                            <Button
+                                onClick={handleNext}
+                                disabled={currentStep === 2 && !!selectedTemplateName && !templateDetails && !templateError}
+                                className="shrink-0"
+                            >
+                                {currentStep === 2 && !!selectedTemplateName && !templateDetails && !templateError
+                                    ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    : null
+                                }
                                 Siguiente
                                 <ChevronRight className="ml-2 h-4 w-4" />
                             </Button>

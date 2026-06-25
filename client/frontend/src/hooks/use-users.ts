@@ -7,12 +7,13 @@ export type User = {
     email: string;
 };
 
-export function useUsers() {
+export function useUsers(skip = false) {
     const [users, setUsers] = useState<User[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(!skip);
     const [error, setError] = useState<Error | null>(null);
 
     const fetchUsers = async () => {
+        if (skip) return;
         try {
             setLoading(true);
             const data = await api.get('/api/users');
@@ -27,8 +28,8 @@ export function useUsers() {
     };
 
     useEffect(() => {
-        fetchUsers();
-    }, []);
+        if (!skip) fetchUsers();
+    }, [skip]);
 
     return { users, loading, error, refresh: fetchUsers };
 }

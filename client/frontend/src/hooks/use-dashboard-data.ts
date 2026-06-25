@@ -13,12 +13,13 @@ export type NodeNetMetric = {
     networkOut: number; // KB/s
 };
 
-export function useNodes() {
+export function useNodes(skip = false) {
     const [nodes, setNodes] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(!skip);
     const [error, setError] = useState<Error | null>(null);
 
     const fetchNodes = async () => {
+        if (skip) return;
         try {
             const data = await api.get('/api/nodes');
             const nodesList = Array.isArray(data) ? data : [];
@@ -44,24 +45,25 @@ export function useNodes() {
     };
 
     useEffect(() => {
-        fetchNodes();
-    }, []);
+        if (!skip) fetchNodes();
+    }, [skip]);
 
     return { nodes, loading, error, refresh: fetchNodes };
 }
 
-export function useUsersCount() {
+export function useUsersCount(skip = false) {
     const [count, setCount] = useState(0);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(!skip);
 
     useEffect(() => {
+        if (skip) return;
         api.get('/api/users?pageSize=1')
             .then(data => {
                 setCount(data.metadata?.total || (Array.isArray(data.users) ? data.users.length : 0));
             })
             .catch(() => setCount(0))
             .finally(() => setLoading(false));
-    }, []);
+    }, [skip]);
 
     return { count, loading };
 }

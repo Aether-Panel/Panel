@@ -51,6 +51,16 @@ func registerSelf(g *gin.RouterGroup) {
 func getSelf(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
 
+	// If user has a role_id but Role is not loaded (e.g. role was assigned after session was created),
+	// reload it from DB so the scopes appear correctly in the response
+	if user.RoleId != nil && user.Role.ID == 0 {
+		db := middleware.GetDatabase(c)
+		rs := &services.Role{DB: db}
+		if role, err := rs.Get(*user.RoleId); err == nil {
+			user.Role = *role
+		}
+	}
+
 	c.JSON(http.StatusOK, models.FromUser(user))
 }
 

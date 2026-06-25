@@ -19,10 +19,14 @@ export default function DashboardPage() {
   const { hasScope, user } = useAuth();
   const { t } = useTranslations();
   const { servers: allServers, loading: serversLoading } = useServers();
-  const { nodes: realNodes, loading: nodesLoading } = useNodes();
-  const { count: usersCount, loading: usersLoading } = useUsersCount();
-  const { metrics: globalNetworkMetrics } = useGlobalNetworkMetrics();
+  const canSeeNodes = hasScope('nodes.view');
+  const canSeeUsers = hasScope('users.info.search');
+  const canSeeUptime = hasScope('uptime.view') || hasScope('admin');
+  const isPowerUser = canSeeNodes || canSeeUsers;
 
+  const { nodes: realNodes, loading: nodesLoading } = useNodes(!canSeeNodes);
+  const { count: usersCount, loading: usersLoading } = useUsersCount(!canSeeUsers);
+  const { metrics: globalNetworkMetrics } = useGlobalNetworkMetrics();
 
   if (serversLoading || nodesLoading || usersLoading) {
     return (
@@ -31,12 +35,6 @@ export default function DashboardPage() {
       </div>
     );
   }
-
-  // Determine which dashboard components to show based on scopes
-  const canSeeNodes = hasScope('nodes.view');
-  const canSeeUsers = hasScope('users.info.search');
-  const canSeeUptime = hasScope('uptime.view') || hasScope('admin');
-  const isPowerUser = canSeeNodes || canSeeUsers || canSeeUptime;
 
   // FOR ADMIN/STAFF ROLE (Users with specific management permissions)
   if (isPowerUser) {

@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"math/rand"
 	"net/http"
 	"strings"
 
+	SkyPanel "github.com/SkyPanel/SkyPanel/v3"
 	"github.com/SkyPanel/SkyPanel/v3/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/models"
 	"github.com/SkyPanel/SkyPanel/v3/response"
@@ -46,6 +48,61 @@ type ProvisionActionRequest struct {
 	ServiceID string `json:"service_id"`
 }
 
+// pickFreePort returns a random available port that is not already assigned
+// to any server on the given node.
+// If min/max are both 0 (no range configured), picks from the full user port range (1024–65535).
+// If min/max are set, restricts to that range.
+func pickFreePort(db *gorm.DB, nodeID uint, min, max uint16) uint16 {
+	// Default to full user port range if no range configured
+	if min == 0 || max == 0 {
+		min = 1024
+		max = 65535
+	}
+
+	if min > max {
+		return 0
+	}
+
+	// Fetch ports already in use on this node
+	var usedPorts []uint16
+	db.Model(&models.Server{}).
+		Where("node_id = ? AND port > 0", nodeID).
+		Pluck("port", &usedPorts)
+
+	used := make(map[uint16]bool, len(usedPorts))
+	for _, p := range usedPorts {
+		used[p] = true
+	}
+
+	rangeSize := int(max-min) + 1
+
+	// For large ranges, use random sampling instead of building a full list
+	if rangeSize > 10000 {
+		maxAttempts := 100
+		for i := 0; i < maxAttempts; i++ {
+			candidate := min + uint16(rand.Intn(rangeSize))
+			if !used[candidate] {
+				return candidate
+			}
+		}
+		return 0
+	}
+
+	// For small/medium ranges build the full free list and pick at random
+	free := make([]uint16, 0, rangeSize)
+	for p := min; p <= max; p++ {
+		if !used[p] {
+			free = append(free, p)
+		}
+	}
+
+	if len(free) == 0 {
+		return 0
+	}
+
+	return free[rand.Intn(len(free))]
+}
+
 func provisionServer(c *gin.Context) {
 	db := middleware.GetDatabase(c)
 
@@ -62,11 +119,14 @@ func provisionServer(c *gin.Context) {
 
 	// 2. Find or create user
 	us := &services.User{DB: db}
+	ps := &services.Permission{DB: db}
 	user, err := us.GetByEmail(req.Email)
 	generatedPassword := req.Password
+	isNewUser := false
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		// New user — generate credentials
+		isNewUser = true
 		if generatedPassword == "" {
 			generatedPassword, _ = utils.GenerateRandomString(12)
 		}
@@ -90,6 +150,30 @@ func provisionServer(c *gin.Context) {
 		generatedPassword, _ = utils.GenerateRandomString(12)
 		user.SetPassword(generatedPassword)
 		if err := us.Update(user); response.HandleError(c, err, http.StatusInternalServerError) {
+			return
+		}
+	}
+
+	// Grant global login scope to new users and assign default "Usuario" role
+	if isNewUser {
+		// Assign the "Usuario" role so they get all standard scopes automatically
+		// (templates.view, uptime.view, server.view, etc.)
+		rs := &services.Role{DB: db}
+		userRole, roleErr := rs.GetByName("Usuario")
+		if roleErr == nil && userRole != nil {
+			user.RoleId = &userRole.ID
+			if err := us.Update(user); response.HandleError(c, err, http.StatusInternalServerError) {
+				return
+			}
+		}
+
+		// Always ensure login scope is set directly as well
+		globalPerms, err := ps.GetForUserAndServer(user.ID, "")
+		if response.HandleError(c, err, http.StatusInternalServerError) {
+			return
+		}
+		globalPerms.Scopes = scopes.AddScope(globalPerms.Scopes, scopes.ScopeLogin)
+		if err := ps.UpdatePermissions(globalPerms); response.HandleError(c, err, http.StatusInternalServerError) {
 			return
 		}
 	}
@@ -135,12 +219,15 @@ func provisionServer(c *gin.Context) {
 		serverName = product.DisplayName
 	}
 
+	// Assign a port from the product's port range (0 if no range configured)
+	assignedPort := pickFreePort(db, node.ID, product.PortRangeMin, product.PortRangeMax)
+
 	server := &models.Server{
 		Name:        serverName,
 		Identifier:  serverID,
 		NodeID:      node.ID,
 		IP:          "0.0.0.0",
-		Port:        0,
+		Port:        assignedPort,
 		Type:        template.Server.Type.Type,
 		Icon:        "",
 		TotalCPU:    product.CPU,
@@ -157,7 +244,6 @@ func provisionServer(c *gin.Context) {
 	}
 
 	// 6. Grant Permissions
-	ps := &services.Permission{DB: db}
 	perm, err := ps.GetForUserAndServer(user.ID, server.Identifier)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
@@ -208,6 +294,22 @@ func provisionServer(c *gin.Context) {
 	}
 	serverCreation.Identifier = server.Identifier
 
+	// Inject the assigned port into the template variables so the server starts on it
+	if assignedPort > 0 {
+		if serverCreation.Server.Variables == nil {
+			serverCreation.Server.Variables = make(map[string]SkyPanel.Variable)
+		}
+		// Always override the port variable with the assigned port
+		existing := serverCreation.Server.Variables["port"]
+		existing.Value = assignedPort
+		serverCreation.Server.Variables["port"] = existing
+
+		// Also update the server record in DB so the panel shows the correct port
+		db.Model(&models.Server{}).
+			Where("identifier = ?", server.Identifier).
+			Update("port", assignedPort)
+	}
+
 	reader := &bytes.Buffer{}
 	json.NewEncoder(reader).Encode(&serverCreation)
 
@@ -235,7 +337,8 @@ func provisionServer(c *gin.Context) {
 		"success":   true,
 		"server_id": serverID,
 		"username":  user.Username,
-		"password":  generatedPassword, // Will be empty if not generated here
+		"password":  generatedPassword,
+		"port":      assignedPort,
 	})
 }
 
@@ -269,34 +372,46 @@ func provisionTerminate(c *gin.Context) {
 	}
 
 	ns := &services.Node{DB: db}
-	node := &server.Node
 
-	// Try to stop first
-	statusRes, err := ns.CallNode(node, "GET", "/daemon/server/"+server.Identifier+"/status", nil, nil)
-	if err == nil && statusRes.StatusCode == http.StatusOK {
-		var statusData struct {
-			Running bool `json:"running"`
-		}
-		if err := json.NewDecoder(statusRes.Body).Decode(&statusData); err == nil && statusData.Running {
-			stopRes, err := ns.CallNode(node, "POST", "/daemon/server/"+server.Identifier+"/stop?wait=true", nil, nil)
-			if err == nil && stopRes != nil && stopRes.Body != nil {
-				stopRes.Body.Close()
+	// terminateOne stops and deletes a single server from daemon + DB
+	terminateOne := func(srv *models.Server) {
+		node := &srv.Node
+
+		// Stop if running
+		statusRes, err := ns.CallNode(node, "GET", "/daemon/server/"+srv.Identifier+"/status", nil, nil)
+		if err == nil && statusRes != nil && statusRes.StatusCode == http.StatusOK {
+			var statusData struct {
+				Running bool `json:"running"`
 			}
-		}
-		if statusRes.Body != nil {
+			if err := json.NewDecoder(statusRes.Body).Decode(&statusData); err == nil && statusData.Running {
+				stopRes, err := ns.CallNode(node, "POST", "/daemon/server/"+srv.Identifier+"/stop?wait=true", nil, nil)
+				if err == nil && stopRes != nil && stopRes.Body != nil {
+					stopRes.Body.Close()
+				}
+			}
 			statusRes.Body.Close()
 		}
+
+		// Delete from daemon
+		nodeRes, err := ns.CallNode(node, "DELETE", "/daemon/server/"+srv.Identifier, nil, nil)
+		if err == nil && nodeRes != nil && nodeRes.Body != nil {
+			nodeRes.Body.Close()
+		}
+
+		// Delete from DB
+		ss.Delete(srv.Identifier)
 	}
 
-	nodeRes, err := ns.CallNode(node, "DELETE", "/daemon/server/"+server.Identifier, nil, nil)
-	if err == nil && nodeRes != nil && nodeRes.Body != nil {
-		nodeRes.Body.Close()
+	// 1. Find and terminate all children first (avoids FK constraint failure)
+	var children []models.Server
+	if err := db.Preload("Node").Where("parent_server_id = ?", server.Identifier).Find(&children).Error; err == nil {
+		for i := range children {
+			terminateOne(&children[i])
+		}
 	}
 
-	err = ss.Delete(server.Identifier)
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-		return
-	}
+	// 2. Now terminate the parent
+	terminateOne(server)
 
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }

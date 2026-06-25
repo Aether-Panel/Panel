@@ -9,12 +9,13 @@ export type Node = {
     sftpPort: number;
 };
 
-export function useNodes() {
+export function useNodes(skip = false) {
     const [nodes, setNodes] = useState<Node[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(!skip);
     const [error, setError] = useState<Error | null>(null);
 
     const fetchNodes = async () => {
+        if (skip) return;
         try {
             setLoading(true);
             const data = await api.get('/api/nodes');
@@ -29,8 +30,8 @@ export function useNodes() {
     };
 
     useEffect(() => {
-        fetchNodes();
-    }, []);
+        if (!skip) fetchNodes();
+    }, [skip]);
 
     return { nodes, loading, error, refresh: fetchNodes };
 }

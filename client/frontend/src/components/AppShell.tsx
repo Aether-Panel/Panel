@@ -36,7 +36,7 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
 
     const navItems = [
         { href: '/dashboard/', label: t('sidebar.dashboard'), icon: LayoutDashboard, requiredScopes: [] },
-        { href: '/servers/', label: t('sidebar.servers'), icon: Server, requiredScopes: ['server.view'] },
+        { href: '/servers/', label: t('sidebar.servers'), icon: Server, requiredScopes: ['admin'] },
         { href: '/users/', label: t('sidebar.users'), icon: Users, requiredScopes: ['users.info.view'] },
         { href: '/roles/', label: t('sidebar.roles'), icon: ShieldCheck, requiredScopes: ['admin'] },
         { href: '/nodes/', label: t('sidebar.nodes'), icon: Network, requiredScopes: ['nodes.view'] },

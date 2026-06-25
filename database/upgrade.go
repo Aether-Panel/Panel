@@ -499,6 +499,7 @@ var migrations = [][]*gormigrate.Migration{
 					"login",
 					"self.edit",
 					"self.clients",
+					"server.create",
 					"server.view",
 					"server.status",
 					"server.stats",
@@ -535,6 +536,80 @@ var migrations = [][]*gormigrate.Migration{
 
 				result = db.Where(models.Role{Name: "Usuario"}).FirstOrCreate(userRole)
 				return result.Error
+			},
+		},
+		{
+			ID: "20260624-usuario-role-templates-view",
+			Migrate: func(db *gorm.DB) error {
+				// Update existing "Usuario" role to include templates.view and uptime.view
+				var role models.Role
+				err := db.Where("name = ?", "Usuario").First(&role).Error
+				if err != nil {
+					return nil
+				}
+
+				existing := strings.Split(role.RawScopes, ",")
+				needsUpdate := false
+				for _, missing := range []string{"templates.view", "uptime.view"} {
+					found := false
+					for _, s := range existing {
+						if strings.TrimSpace(s) == missing {
+							found = true
+							break
+						}
+					}
+					if !found {
+						existing = append(existing, missing)
+						needsUpdate = true
+					}
+				}
+
+				if needsUpdate {
+					role.RawScopes = strings.Join(existing, ",")
+					if err := db.Model(&role).Update("scopes", role.RawScopes).Error; err != nil {
+						return err
+					}
+				}
+
+				// Assign "Usuario" role to all existing users with role_id = NULL
+				// (users created via Paymenter provisioning before this fix)
+				return db.Exec(
+					"UPDATE users SET role_id = ? WHERE role_id IS NULL",
+					role.ID,
+				).Error
+			},
+		},
+		{
+			ID: "20260625-assign-usuario-role-to-existing-users",
+			Migrate: func(db *gorm.DB) error {
+				// Patch: assign "Usuario" role to users that still have role_id = NULL
+				// Covers users created by Paymenter before the role assignment fix
+				var role models.Role
+				if err := db.Where("name = ?", "Usuario").First(&role).Error; err != nil {
+					return nil // Role doesn't exist, skip
+				}
+				return db.Exec(
+					"UPDATE users SET role_id = ? WHERE role_id IS NULL",
+					role.ID,
+				).Error
+			},
+		},
+		{
+			ID: "20260625-usuario-role-add-server-create",
+			Migrate: func(db *gorm.DB) error {
+				// Add server.create to "Usuario" role so users can create sub-servers via Splitter
+				var role models.Role
+				if err := db.Where("name = ?", "Usuario").First(&role).Error; err != nil {
+					return nil
+				}
+				existing := strings.Split(role.RawScopes, ",")
+				for _, s := range existing {
+					if strings.TrimSpace(s) == "server.create" {
+						return nil // already has it
+					}
+				}
+				role.RawScopes = role.RawScopes + ",server.create"
+				return db.Model(&role).Update("scopes", role.RawScopes).Error
 			},
 		},
 	},

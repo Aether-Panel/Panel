@@ -16,15 +16,17 @@ import (
 )
 
 func registerTemplates(g *gin.RouterGroup) {
-	g.Handle("GET", "", middleware.RequiresPermission(scopes.ScopeTemplatesView), getRepos)
+	// GET endpoints only require login — any authenticated user needs to read templates
+	// (e.g. for the server splitter). The page /templates is gated on the frontend via templates.view.
+	g.Handle("GET", "", middleware.RequiresPermission(scopes.ScopeLogin), getRepos)
 	g.Handle("POST", "", middleware.RequiresPermission(scopes.ScopeTemplatesRepoCreate), addRepo)
 	g.Handle("OPTIONS", "", response.CreateOptions("GET", "POST"))
 
-	g.Handle("GET", "/:repo", middleware.RequiresPermission(scopes.ScopeTemplatesView), getsTemplatesForRepo)
+	g.Handle("GET", "/:repo", middleware.RequiresPermission(scopes.ScopeLogin), getsTemplatesForRepo)
 	g.Handle("DELETE", "/:repo", middleware.RequiresPermission(scopes.ScopeTemplatesRepoDelete), deleteRepo)
 	g.Handle("OPTIONS", "/:repo", response.CreateOptions("GET", "PUT", "DELETE"))
 
-	g.Handle("GET", "/:repo/:name", middleware.RequiresPermission(scopes.ScopeTemplatesView), getTemplateFromRepo)
+	g.Handle("GET", "/:repo/:name", middleware.RequiresPermission(scopes.ScopeLogin), getTemplateFromRepo)
 	g.Handle("DELETE", "/0/:name", middleware.RequiresPermission(scopes.ScopeTemplatesLocalEdit), deleteTemplate)
 	g.Handle("PUT", "/0/:name", middleware.RequiresPermission(scopes.ScopeTemplatesLocalEdit), putTemplate)
 	g.Handle("OPTIONS", "/:repo/:name", response.CreateOptions("GET"))
