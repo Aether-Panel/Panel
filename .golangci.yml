@@ -1,18 +1,8 @@
 run:
   timeout: 8m
   go: "1.24"
-  # Skip vendored and generated directories
-  skip-dirs:
-    - gatus
-    - docs
-    - vendor
-    - basura_o_desconocido
-  skip-files:
-    - "web/swagger/docs.go"
 
 linters:
-  # Use only fast, high-value linters
-  # Full staticcheck/unused analysis on large codebases is slow
   disable-all: true
   enable:
     - govet
@@ -35,20 +25,24 @@ issues:
   max-issues-per-linter: 30
   max-same-issues: 3
 
+  # Exclude vendored/generated directories (v1.57+ syntax)
+  exclude-dirs:
+    - gatus
+    - docs
+    - vendor
+    - basura_o_desconocido
+
+  exclude-files:
+    - "web/swagger/docs.go"
+
   exclude-rules:
-    # Ignore errcheck in tests and tools
     - path: _test\.go
       linters:
         - errcheck
     - path: tools/
       linters:
         - errcheck
-    # Ignore shadow in tests (common pattern)
     - path: _test\.go
       linters:
         - govet
       text: "shadow"
-    # Ignore errors that are intentionally unchecked in common patterns
-    - linters:
-        - errcheck
-      text: "Error 404"

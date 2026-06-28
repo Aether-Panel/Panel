@@ -95,7 +95,7 @@ jobs:
         uses: golangci/golangci-lint-action@v6
         with:
           version: latest
-          args: --timeout=8m --skip-dirs=gatus,docs,vendor
+          args: --timeout=8m --exclude-dirs=gatus,docs,vendor
 
   # ─────────────────────────────────────────────
   # JOB 3: Build Binary
