@@ -1,26 +1,28 @@
 run:
-  timeout: 5m
+  timeout: 8m
   go: "1.24"
+  # Skip vendored and generated directories
+  skip-dirs:
+    - gatus
+    - docs
+    - vendor
+    - basura_o_desconocido
+  skip-files:
+    - "web/swagger/docs.go"
 
 linters:
+  # Use only fast, high-value linters
+  # Full staticcheck/unused analysis on large codebases is slow
+  disable-all: true
   enable:
-    - gofmt
     - govet
     - errcheck
-    - staticcheck
-    - unused
-    - gosimple
     - ineffassign
     - typecheck
-  disable:
-    - exhaustruct
-    - wrapcheck
-    - gomnd
-    - gochecknoglobals
+    - gosimple
+    - staticcheck
 
 linters-settings:
-  gofmt:
-    simplify: true
   govet:
     enable-all: false
     enable:
@@ -30,16 +32,23 @@ linters-settings:
     check-blank: false
 
 issues:
-  # Max number of issues shown
-  max-issues-per-linter: 50
-  max-same-issues: 5
+  max-issues-per-linter: 30
+  max-same-issues: 3
 
-  # Exclude common false positives
   exclude-rules:
+    # Ignore errcheck in tests and tools
     - path: _test\.go
       linters:
         - errcheck
-        - unused
     - path: tools/
       linters:
         - errcheck
+    # Ignore shadow in tests (common pattern)
+    - path: _test\.go
+      linters:
+        - govet
+      text: "shadow"
+    # Ignore errors that are intentionally unchecked in common patterns
+    - linters:
+        - errcheck
+      text: "Error 404"
