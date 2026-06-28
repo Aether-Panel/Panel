@@ -49,7 +49,7 @@ RUN go install github.com/swaggo/swag/cmd/swag@v1.16.4
 COPY . .
 
 # Ejecutar swag init desde el GOPATH/bin
-RUN /go/bin/swag init -o web/swagger -g web/loader.go
+RUN /go/bin/swag init -o internal/web/swagger -g internal/web/loader.go
 
 COPY --from=node /build/frontend/dist /build/SkyPanel/client/frontend/dist
 
@@ -57,7 +57,7 @@ ARG TARGETPLATFORM=linux/amd64
 ARG curseforgeKey=''
 
 RUN xx-apk add musl-dev gcc
-RUN xx-go build -buildvcs=false -tags "$tags" -ldflags "-X 'github.com/SkyPanel/SkyPanel/v3/config.curseforgeKey=$curseforgeKey' -X 'github.com/SkyPanel/SkyPanel/v3.Hash=$sha' -X 'github.com/SkyPanel/SkyPanel/v3.Version=$version'" -o /SkyPanel/SkyPanel github.com/SkyPanel/SkyPanel/v3/cmd
+RUN xx-go build -buildvcs=false -tags "$tags" -ldflags "-X 'github.com/SkyPanel/SkyPanel/v3/internal/config.curseforgeKey=$curseforgeKey' -X 'github.com/SkyPanel/SkyPanel/v3.Hash=$sha' -X 'github.com/SkyPanel/SkyPanel/v3.Version=$version'" -o /SkyPanel/SkyPanel github.com/SkyPanel/SkyPanel/v3/cmd/panel
 # RUN go test ./...
 RUN xx-verify /SkyPanel/SkyPanel
 

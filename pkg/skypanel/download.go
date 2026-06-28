@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/SkyPanel/SkyPanel/v3/config"
-	"github.com/SkyPanel/SkyPanel/v3/logging"
-	"github.com/SkyPanel/SkyPanel/v3/utils"
+	"github.com/SkyPanel/SkyPanel/v3/internal/config"
+	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
+	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 )
 
 func DownloadFile(url, fileName string, env *Environment) error {
@@ -177,3 +177,4 @@ func DownloadViaMaven(downloadUrl string, env *Environment) (io.ReadCloser, erro
 
 	return Download(downloadUrl, expectedHash, crypto.SHA1, true, env)
 }
+

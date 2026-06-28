@@ -3,7 +3,7 @@ package SkyPanel
 import (
 	"encoding/json"
 
-	"github.com/SkyPanel/SkyPanel/v3/utils"
+	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 )
 
 type StdinConsoleConfiguration struct {
@@ -35,3 +35,4 @@ func (v *StdinConsoleConfiguration) UnmarshalJSON(data []byte) error {
 	*v = StdinConsoleConfiguration(aux)
 	return nil
 }
+

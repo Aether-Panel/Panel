@@ -1,0 +1,333 @@
+{
+  "DaemonServer": null,
+  "type": "minecraft-java",
+  "id": "asdasdasdasd",
+  "display": "Minecraft: Java Edition",
+  "icon": "minecraft-java",
+  "data": {
+    "cpu": {
+      "type": "string",
+      "value": 300,
+      "required": false,
+      "userEdit": false
+    },
+    "disk": {
+      "type": "string",
+      "value": 10240,
+      "required": false,
+      "userEdit": false
+    },
+    "eula": {
+      "type": "string",
+      "value": true,
+      "required": false,
+      "userEdit": false
+    },
+    "forgebuild": {
+      "type": "string",
+      "value": "",
+      "required": false,
+      "userEdit": false
+    },
+    "ip": {
+      "type": "string",
+      "value": "0.0.0.0",
+      "required": false,
+      "userEdit": false
+    },
+    "javaversion": {
+      "type": "string",
+      "value": "21",
+      "required": false,
+      "userEdit": false
+    },
+    "jvmArgs": {
+      "type": "string",
+      "value": "",
+      "required": false,
+      "userEdit": false
+    },
+    "memory": {
+      "type": "string",
+      "value": 4000,
+      "required": false,
+      "userEdit": false
+    },
+    "modlauncher": {
+      "type": "string",
+      "value": "paper",
+      "required": false,
+      "userEdit": false
+    },
+    "motd": {
+      "type": "string",
+      "value": "A Minecraft Server\\n\\u00A79 hosted on PufferPanel",
+      "required": false,
+      "userEdit": false
+    },
+    "paperbuild": {
+      "type": "string",
+      "value": "latest",
+      "required": false,
+      "userEdit": false
+    },
+    "port": {
+      "type": "string",
+      "value": 25565,
+      "required": false,
+      "userEdit": false
+    },
+    "resolvedForgeVersion": {
+      "type": "string",
+      "value": "",
+      "required": false,
+      "userEdit": false
+    },
+    "version": {
+      "type": "string",
+      "value": "latest",
+      "required": false,
+      "userEdit": false
+    }
+  },
+  "groups": [
+    {
+      "display": "General",
+      "description": "General settings for all servers",
+      "variables": [
+        "eula",
+        "cpu",
+        "memory",
+        "disk",
+        "ip",
+        "port",
+        "motd",
+        "version",
+        "javaversion",
+        "modlauncher",
+        "jvmArgs"
+      ],
+      "order": 1
+    },
+    {
+      "if": "modlauncher == 'forge'",
+      "display": "Forge",
+      "description": "Settings if using MinecraftForge",
+      "variables": [
+        "forgebuild"
+      ],
+      "order": 2
+    },
+    {
+      "if": "modlauncher == 'paper'",
+      "display": "Paper",
+      "description": "Settings specific if using Paper",
+      "variables": [
+        "paperbuild"
+      ],
+      "order": 3
+    }
+  ],
+  "install": [
+    {
+      "if": "javaversion != '' \u0026\u0026 env == 'host'",
+      "type": "javadl",
+      "version": "${javaversion}"
+    },
+    {
+      "if": "modlauncher == ''",
+      "type": "mojangdl",
+      "version": "${version}",
+      "target": "server.jar"
+    },
+    {
+      "if": "modlauncher == 'fabric'",
+      "type": "fabricdl"
+    },
+    {
+      "if": "modlauncher == 'fabric' \u0026\u0026 env == 'host'",
+      "type": "command",
+      "commands": [
+        "java${javaversion} -jar fabric-installer.jar server -mcversion ${version} -downloadMinecraft -noprofile -loader latest"
+      ]
+    },
+    {
+      "if": "modlauncher == 'fabric' \u0026\u0026 env != 'host'",
+      "type": "command",
+      "commands": [
+        "java -jar fabric-installer.jar server -mcversion ${version} -downloadMinecraft -noprofile -loader latest"
+      ]
+    },
+    {
+      "if": "modlauncher == 'fabric'",
+      "type": "mojangdl",
+      "version": "${version}",
+      "target": "server.jar"
+    },
+    {
+      "if": "modlauncher == 'forge'",
+      "type": "forgedl",
+      "target": "installer.jar",
+      "version": "${forgebuild}",
+      "minecraftVersion": "${version}",
+      "outputVariable": "resolvedForgeVersion"
+    },
+    {
+      "if": "modlauncher == 'forge' \u0026\u0026 env == 'host'",
+      "type": "command",
+      "commands": [
+        "java${javaversion} -jar installer.jar --installServer"
+      ]
+    },
+    {
+      "if": "modlauncher == 'forge' \u0026\u0026 env != 'host'",
+      "type": "command",
+      "commands": [
+        "java -jar installer.jar --installServer"
+      ]
+    },
+    {
+      "if": "modlauncher == 'forge' \u0026\u0026 file_exists('forge-' + resolvedForgeVersion + '-shim.jar')",
+      "type": "move",
+      "source": "forge-${resolvedForgeVersion}-shim.jar",
+      "target": "server.jar"
+    },
+    {
+      "if": "modlauncher == 'forge' \u0026\u0026 file_exists('forge-' + resolvedForgeVersion + '.jar')",
+      "type": "move",
+      "source": "forge-${resolvedForgeVersion}.jar",
+      "target": "server.jar"
+    },
+    {
+      "if": "modlauncher == 'paper'",
+      "type": "paperdl",
+      "minecraftVersion": "${version}",
+      "target": "server.jar",
+      "build": "${paperbuild}"
+    },
+    {
+      "if": "modlauncher == 'spigot'",
+      "type": "download",
+      "files": [
+        "https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar"
+      ]
+    },
+    {
+      "if": "modlauncher == 'spigot' \u0026\u0026 env == 'host'",
+      "type": "command",
+      "commands": [
+        "java${javaversion} -jar BuildTools.jar --rev ${version}"
+      ]
+    },
+    {
+      "if": "modlauncher == 'spigot' \u0026\u0026 env != 'host'",
+      "type": "command",
+      "commands": [
+        "java -jar BuildTools.jar --rev ${version}"
+      ]
+    },
+    {
+      "if": "modlauncher == 'spigot'",
+      "type": "move",
+      "source": "spigot-*.jar",
+      "target": "server.jar"
+    },
+    {
+      "if": "!file_exists(\"server.properties\")",
+      "type": "writefile",
+      "target": "server.properties",
+      "text": "server-ip=${ip}\nserver-port=${port}\nmotd=${motd}\n"
+    },
+    {
+      "type": "writefile",
+      "text": "eula=${eula}",
+      "target": "eula.txt"
+    }
+  ],
+  "uninstall": null,
+  "run": {
+    "command": [
+      {
+        "command": "java${javaversion} -Xmx${memory}M -Dterminal.jline=false -Dterminal.ansi=true -Dlog4j2.formatMsgNoLookups=true ${jvmArgs} -jar fabric-server-launch.jar nogui",
+        "if": "env == 'host' \u0026\u0026 file_exists('fabric-server-launch.jar')"
+      },
+      {
+        "command": "java -Xmx${memory}M -Dterminal.jline=false -Dterminal.ansi=true -Dlog4j2.formatMsgNoLookups=true ${jvmArgs} -jar fabric-server-launch.jar nogui",
+        "if": "env != 'host' \u0026\u0026 file_exists('fabric-server-launch.jar')"
+      },
+      {
+        "command": "java${javaversion} -Xmx${memory}M -Dterminal.jline=false -Dterminal.ansi=true -Dlog4j2.formatMsgNoLookups=true ${jvmArgs} -jar server.jar nogui",
+        "if": "env == 'host' \u0026\u0026 file_exists('server.jar')"
+      },
+      {
+        "command": "java -Xmx${memory}M -Dterminal.jline=false -Dterminal.ansi=true -Dlog4j2.formatMsgNoLookups=true ${jvmArgs} -jar server.jar nogui",
+        "if": "env != 'host' \u0026\u0026 file_exists('server.jar')"
+      },
+      {
+        "command": "java${javaversion} -Xmx${memory}M -Dterminal.jline=false -Dterminal.ansi=true -Dlog4j2.formatMsgNoLookups=true ${jvmArgs} @libraries/net/minecraftforge/forge/${resolvedForgeVersion}/win_args.txt nogui",
+        "if": "env == 'host' \u0026\u0026 modlauncher == 'forge' \u0026\u0026 os == 'windows' \u0026\u0026 file_exists('libraries/net/minecraftforge/forge/' + resolvedForgeVersion + '/win_args.txt')"
+      },
+      {
+        "command": "java${javaversion} -Xmx${memory}M -Dterminal.jline=false -Dterminal.ansi=true -Dlog4j2.formatMsgNoLookups=true ${jvmArgs} @libraries/net/minecraftforge/forge/${resolvedForgeVersion}/unix_args.txt nogui",
+        "if": "env == 'host' \u0026\u0026 modlauncher == 'forge' \u0026\u0026 file_exists('libraries/net/minecraftforge/forge/' + resolvedForgeVersion + '/unix_args.txt')"
+      },
+      {
+        "command": "java -Xmx${memory}M -Dterminal.jline=false -Dterminal.ansi=true -Dlog4j2.formatMsgNoLookups=true ${jvmArgs} @libraries/net/minecraftforge/forge/${resolvedForgeVersion}/win_args.txt nogui",
+        "if": "env != 'host' \u0026\u0026 modlauncher == 'forge' \u0026\u0026 os == 'windows' \u0026\u0026 file_exists('libraries/net/minecraftforge/forge/' + resolvedForgeVersion + '/win_args.txt')"
+      },
+      {
+        "command": "java -Xmx${memory}M -Dterminal.jline=false -Dterminal.ansi=true -Dlog4j2.formatMsgNoLookups=true ${jvmArgs} @libraries/net/minecraftforge/forge/${resolvedForgeVersion}/unix_args.txt nogui",
+        "if": "env != 'host' \u0026\u0026 modlauncher == 'forge' \u0026\u0026 file_exists('libraries/net/minecraftforge/forge/' + resolvedForgeVersion+ '/unix_args.txt')"
+      },
+      {
+        "command": "java -Xmx${memory}M -Dterminal.jline=false -Dterminal.ansi=true -Dlog4j2.formatMsgNoLookups=true ${jvmArgs} -jar server.jar nogui"
+      }
+    ],
+    "stop": "stop",
+    "pre": [
+      {
+        "if": "modlauncher == 'forge'",
+        "type": "resolveforgeversion",
+        "minecraftVersion": "${version}",
+        "version": "${forgebuild}",
+        "outputVariable": "resolvedForgeVersion"
+      }
+    ],
+    "stdin": {
+      "type": "stdin"
+    },
+    "autostart": false,
+    "autorecover": false,
+    "autorestart": false
+  },
+  "environment": {
+    "type": "docker",
+    "image": "eclipse-temurin:${javaversion}",
+    "portBindings": [
+      "0.0.0.0:${port}:${port}/tcp"
+    ]
+  },
+  "supportedEnvironments": [
+    {
+      "type": "host"
+    },
+    {
+      "type": "docker",
+      "image": "eclipse-temurin:${javaversion}",
+      "portBindings": [
+        "0.0.0.0:${port}:${port}/tcp"
+      ]
+    }
+  ],
+  "requirements": {},
+  "stats": {
+    "type": "jcmd"
+  },
+  "query": {
+    "type": "minecraft"
+  },
+  "keepAlive": {
+    "frequency": "",
+    "command": ""
+  }
+}

@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/SkyPanel/SkyPanel/v3/config"
+	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 )
 
 func main() {
@@ -14,3 +14,4 @@ func main() {
 	fmt.Printf("DataRootFolder: %s\n", config.DataRootFolder.Value())
 	fmt.Printf("BinariesFolder: %s\n", config.BinariesFolder.Value())
 }
+

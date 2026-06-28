@@ -1,0 +1,19 @@
+package email
+
+import (
+	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
+)
+
+type debugProvider struct {
+	Provider
+}
+
+func init() {
+	providers["debug"] = debugProvider{}
+}
+
+func (debugProvider) Send(to, subject, body string) error {
+	logging.Debug.Println("DEBUG EMAIL TO " + to + "\n" + subject + "\n" + body)
+	return nil
+}
+

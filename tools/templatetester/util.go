@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/SkyPanel/SkyPanel/v3/models"
+	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
-	"github.com/SkyPanel/SkyPanel/v3/utils"
+	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 )
@@ -270,3 +270,4 @@ func createCreateBody(scenario *TestScenario) io.ReadCloser {
 	_ = json.NewEncoder(buf).Encode(model)
 	return io.NopCloser(buf)
 }
+

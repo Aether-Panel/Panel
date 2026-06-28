@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/SkyPanel/SkyPanel/v3/utils"
+	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/docker/docker/client"
 )
 
@@ -102,3 +102,4 @@ func parseRequirementRow(str string) []string {
 	}
 	return d
 }
+

@@ -3,7 +3,7 @@ package files
 import (
 	"archive/tar"
 	"errors"
-	"github.com/SkyPanel/SkyPanel/v3/utils"
+	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/klauspost/compress/zip"
 	"github.com/mholt/archiver/v3"
 	"io"
@@ -215,3 +215,4 @@ func getLinkTarget(file archiver.File) (string, error) {
 type Walker interface {
 	Walk(archive string, walkFn archiver.WalkFunc) error
 }
+

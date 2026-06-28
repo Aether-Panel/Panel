@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/SkyPanel/SkyPanel/v3/config"
-	"github.com/SkyPanel/SkyPanel/v3/connections"
-	"github.com/SkyPanel/SkyPanel/v3/logging"
+	"github.com/SkyPanel/SkyPanel/v3/internal/config"
+	"github.com/SkyPanel/SkyPanel/v3/internal/connections"
+	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 )
 
 type EnvironmentImpl interface {
@@ -271,3 +271,4 @@ func (e *Environment) GetUid() int {
 func (e *Environment) GetGid() int {
 	return e.Implementation.GetGidImpl(e)
 }
+

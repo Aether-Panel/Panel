@@ -1,0 +1,11 @@
+{
+  "daemon": {
+    "data": {
+      "root": "."
+    }
+  },
+  "panel": {
+    "sessionkey": "86e8937acd8560efc416d83b10f7bceb2eed81904332d4ec462ffed686670df3",
+    "token": "XIQN2BMnBfb9upSn0hdCriaBkbyK36uD/v/wl5wxVmU="
+  }
+}

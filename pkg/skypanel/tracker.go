@@ -5,7 +5,7 @@ import (
 	"io"
 	"sync"
 
-	"github.com/SkyPanel/SkyPanel/v3/logging"
+	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/gorilla/websocket"
 )
 
@@ -96,3 +96,4 @@ func (s *Socket) WriteJSON(data interface{}) error {
 func (s *Socket) Close() error {
 	return s.conn.Close()
 }
+

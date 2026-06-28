@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/SkyPanel/SkyPanel/v3/utils"
+	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 )
 
 // MetadataType designed to be overridden
@@ -134,3 +134,4 @@ func encode(buf *bytes.Buffer, k string, v any) error {
 	buf.WriteString(fmt.Sprintf("\"%s\": %s", k, d))
 	return nil
 }
+

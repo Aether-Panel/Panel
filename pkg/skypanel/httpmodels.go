@@ -1,6 +1,6 @@
 package SkyPanel
 
-import "github.com/SkyPanel/SkyPanel/v3/utils"
+import "github.com/SkyPanel/SkyPanel/v3/internal/utils"
 
 type ServerIdResponse struct {
 	Id string `json:"id"`
@@ -74,3 +74,4 @@ type ServerFlags struct {
 type ServerBackupResponse struct {
 	BackupFileName string `json:"backupFileName"`
 } //@name ServerBackup
+

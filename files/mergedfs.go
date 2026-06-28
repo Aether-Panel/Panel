@@ -1,7 +1,7 @@
 package files
 
 import (
-	"github.com/SkyPanel/SkyPanel/v3/utils"
+	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"io/fs"
 	"os"
 )
@@ -101,3 +101,4 @@ func read(fss fs.FS, name string) ([]byte, error) {
 	_, err = f.Read(data)
 	return data, err
 }
+

@@ -5,10 +5,10 @@ import (
 	"runtime/debug"
 	"strings"
 
-	"github.com/SkyPanel/SkyPanel/v3/scopes"
-	"github.com/SkyPanel/SkyPanel/v3/utils"
+	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
+	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 
-	"github.com/SkyPanel/SkyPanel/v3/logging"
+	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"gopkg.in/go-playground/validator.v9"
 )
 
@@ -234,3 +234,4 @@ func Recover() {
 		logging.Error.Printf("CRITICAL ERROR: \n%+v\n%s", err, debug.Stack())
 	}
 }
+

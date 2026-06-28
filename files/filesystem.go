@@ -2,8 +2,8 @@ package files
 
 import (
 	"errors"
-	"github.com/SkyPanel/SkyPanel/v3/sys"
-	"github.com/SkyPanel/SkyPanel/v3/utils"
+	"github.com/SkyPanel/SkyPanel/v3/internal/sys"
+	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"golang.org/x/sys/unix"
 	"io/fs"
 	"os"
@@ -346,3 +346,4 @@ func (sfp *fileServer) fixErr(err error) error {
 func (sfp *fileServer) resolveRootFd() (*os.File, error) {
 	return os.Open(sfp.dir)
 }
+
