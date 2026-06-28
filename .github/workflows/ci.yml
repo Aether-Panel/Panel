@@ -37,7 +37,11 @@ jobs:
         run: go mod download
 
       - name: Create frontend dist stub (required for go:embed)
-        run: mkdir -p client/frontend/dist
+        # go:embed requires at least one embeddable file in the directory.
+        # The real dist is built by the Docker/Node build process, not by CI.
+        run: |
+          mkdir -p client/frontend/dist
+          echo "<!-- CI stub -->" > client/frontend/dist/index.html
 
       - name: Run unit tests
         run: go test -v -race -coverprofile=coverage.out ./...
@@ -65,6 +69,11 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
+
+      - name: Create frontend dist stub (required for go:embed)
+        run: |
+          mkdir -p client/frontend/dist
+          echo "<!-- CI stub -->" > client/frontend/dist/index.html
 
       - name: Check Go formatting (gofmt)
         run: |
@@ -109,7 +118,9 @@ jobs:
         run: go mod download
 
       - name: Create frontend dist stub (required for go:embed)
-        run: mkdir -p client/frontend/dist
+        run: |
+          mkdir -p client/frontend/dist
+          echo "<!-- CI stub -->" > client/frontend/dist/index.html
 
       - name: Build binary
         run: |
