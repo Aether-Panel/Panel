@@ -2,8 +2,8 @@ package files
 
 import (
 	"errors"
-	"github.com/SkyPanel/SkyPanel/v3/sys"
-	"github.com/SkyPanel/SkyPanel/v3/utils"
+	"github.com/SkyPanel/SkyPanel/v3/internal/sys"
+	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"golang.org/x/sys/unix"
 	"io/fs"
 	"os"

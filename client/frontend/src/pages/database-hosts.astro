@@ -1,0 +1,8 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { DatabaseHosts as DatabaseHostsWrapper } from "@/components/PageWrappers";
+---
+
+<BaseLayout title="Database Hosts - Aether Panel">
+  <DatabaseHostsWrapper client:only="react" />
+</BaseLayout>

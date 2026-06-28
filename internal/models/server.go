@@ -1,0 +1,69 @@
+package models
+
+import (
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
+	"gopkg.in/go-playground/validator.v9"
+	"gorm.io/gorm"
+	"time"
+)
+
+type Server struct {
+	Name       string `gorm:"column:name;not null;size:40" json:"-" validate:"required,printascii"`
+	Identifier string `gorm:"column:identifier;primaryKey;size:20" json:"-" validate:"required,printascii"`
+
+	RawNodeID *uint `gorm:"column:node_id;index;->;<-:create" json:"-" validate:"-"`
+	NodeID    uint  `gorm:"-" json:"-" validate:"-"`
+	Node      Node  `gorm:"foreignKey:RawNodeID;->;<-:create" json:"-" validate:"-"`
+
+	IP   string `gorm:"" json:"-" validate:"omitempty,ip|fqdn"`
+	Port uint16 `gorm:"" json:"-" validate:"omitempty"`
+
+	Type string `gorm:"NOT NULL;default='generic'" json:"-" validate:"required,printascii"`
+	Icon string `gorm:"" json:"-"`
+
+	// Server Splitter Hierarchical relation
+	ParentServerID *string `gorm:"column:parent_server_id;size:20;index" json:"parent_server_id,omitempty"`
+	ParentServer   *Server `gorm:"foreignKey:ParentServerID;references:Identifier" json:"-" validate:"-"`
+
+	// Total Max Resources for the server
+	TotalCPU    int   `gorm:"column:total_cpu;default:0" json:"total_cpu"`
+	TotalMemory int64 `gorm:"column:total_memory;default:0" json:"total_memory"`
+	TotalDisk   int64 `gorm:"column:total_disk;default:0" json:"total_disk"`
+
+	// Server State
+	Suspended bool `gorm:"column:suspended;default:false" json:"suspended"`
+
+	// External integration ID (e.g. Paymenter service ID)
+	ExternalID string `gorm:"column:external_id;size:64;index" json:"-"`
+
+	CreatedAt time.Time `json:"-"`
+	UpdatedAt time.Time `json:"-"`
+}
+
+func (s *Server) IsValid() (err error) {
+	err = validator.New().Struct(s)
+	if err != nil {
+		err = SkyPanel.GenerateValidationMessage(err)
+	}
+	return
+}
+
+func (s *Server) BeforeSave(*gorm.DB) (err error) {
+	err = s.IsValid()
+	if s.NodeID == 0 || s.Node.IsLocal() {
+		s.RawNodeID = nil
+	} else {
+		s.RawNodeID = &s.NodeID
+	}
+	return
+}
+
+func (s *Server) AfterFind(*gorm.DB) (err error) {
+	if s.RawNodeID == nil || *s.RawNodeID == LocalNode.ID {
+		s.Node = *LocalNode
+		s.NodeID = LocalNode.ID
+	} else {
+		s.NodeID = *s.RawNodeID
+	}
+	return
+}

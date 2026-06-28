@@ -74,7 +74,7 @@ func TestShallowCopySuiteStatus(t *testing.T) {
 		Key:     testSuite.Key(),
 		Results: []*suite.Result{},
 	}
-	
+
 	ts := time.Now().Add(-25 * time.Hour)
 	for i := 0; i < 25; i++ {
 		result := &suite.Result{
@@ -169,4 +169,3 @@ func TestShallowCopySuiteStatus(t *testing.T) {
 		}
 	})
 }
-

@@ -1,0 +1,880 @@
+{
+  "sidebar": {
+    "dashboard": "Dashboard",
+    "servers": "Servers",
+    "users": "Users",
+    "roles": "Roles",
+    "nodes": "Nodes",
+    "databaseHosts": "Database Hosts",
+    "templates": "Templates",
+    "settings": "Settings"
+  },
+  "userMenu": {
+    "settings": "Settings",
+    "logout": "Log out"
+  },
+  "profileSettings": {
+    "title": "Account Settings",
+    "description": "Manage your profile settings, security, and more.",
+    "selectTabPlaceholder": "Select a section...",
+    "tabs": {
+      "settings": "Settings",
+      "details": "Details",
+      "password": "Password",
+      "twoFactor": "2FA",
+      "oauth": "OAuth"
+    },
+    "general": {
+      "title": "Settings",
+      "language": "Language",
+      "language_es": "Spanish (Spain)",
+      "language_en": "English (US)",
+      "language_help": "Help us translate Aether Panel.",
+      "save": "Save settings"
+    },
+    "accountDetails": {
+      "title": "Change account details",
+      "username": "Username",
+      "email": "Email address",
+      "confirmPassword": "Confirm password",
+      "save": "Change account details"
+    },
+    "changePassword": {
+      "title": "Change password",
+      "oldPassword": "Old password",
+      "newPassword": "New password",
+      "confirmPassword": "Confirm password",
+      "save": "Change password"
+    },
+    "twoFactor": {
+      "title": "Two-factor authentication",
+      "description": "Two-factor authentication adds an extra layer of security to your account by requiring a special code in addition to your password.",
+      "enable": "Enable 2FA"
+    },
+    "oauth": {
+      "title": "OAuth2 Clients",
+      "description": "OAuth2 clients listed here inherit all permissions from their accounts.",
+      "apiDocs": "Find the API documentation",
+      "here": "here",
+      "noClients": "There are no OAuth2 clients configured for this account.",
+      "create": "Create new OAuth2 client"
+    },
+    "messages": {
+      "infoChanged": "Your information has been changed",
+      "passwordChanged": "Your password has been changed",
+      "otpEnabled": "2FA has been enabled",
+      "otpDisabled": "2FA has been disabled",
+      "recoveryCodesRegenerated": "Recovery codes have been regenerated"
+    },
+    "twoFactorSetup": {
+      "title": "2FA Setup",
+      "qrCodeHint": "Scan this QR code with your authenticator app.",
+      "secretCode": "Secret Code",
+      "confirmHint": "Enter the 6-digit code from your app to confirm.",
+      "recoveryTitle": "Recovery Codes",
+      "recoveryHint": "Store these codes in a safe place. They will not be shown again!",
+      "downloadCodes": "Download Recovery Codes"
+    }
+  },
+  "dashboard": {
+    "welcome": "Welcome, {{name}}!",
+    "defaultName": "User",
+    "user": {
+      "description": "Here's a list of your assigned servers.",
+      "myServers": "My Servers",
+      "noServers": "You have not been assigned to any servers."
+    },
+    "admin": {
+      "description": "Here's a quick overview of your server landscape.",
+      "repositories": "Repositories",
+      "online": "Online",
+      "serversOperational": "Servers are operational",
+      "offline": "Offline",
+      "serversNeedAttention": "Servers need attention",
+      "overallHealth": "Overall Health",
+      "systemUptime": "System uptime percentage",
+      "systemInfo": "System Information",
+      "panelVersion": "Panel Version",
+      "totalServers": "Total Servers",
+      "totalUsers": "Total Users",
+      "totalNodes": "Total Nodes",
+      "resourceOverview": {
+        "title": "Resource Overview",
+        "description": "Current snapshot of resource utilization."
+      },
+      "networkTraffic": {
+        "title": "Network Traffic",
+        "description": "Inbound and outbound traffic for the last 30 minutes (KB/s).",
+        "download": "Download",
+        "upload": "Upload"
+      }
+    },
+    "table": {
+      "name": "Name",
+      "ipAddress": "IP Address",
+      "status": "Status",
+      "cpu": "CPU",
+      "memory": "Memory",
+      "storage": "Storage",
+      "actions": "Actions",
+      "view": "View"
+    },
+    "status": {
+      "online": "online",
+      "offline": "offline",
+      "pending": "pending"
+    }
+  },
+  "servers": {
+    "title": "Server Management",
+    "description": "Add, edit, and manage all servers in your infrastructure.",
+    "addServer": "Add Server",
+    "addDialog": {
+      "title": "Add New Server",
+      "description": "Provide the details for the new server.",
+      "nameLabel": "Name",
+      "namePlaceholder": "New Web Server",
+      "ipLabel": "IP Address",
+      "ipPlaceholder": "192.168.1.107",
+      "createButton": "Create Server"
+    },
+    "allServers": "All Servers",
+    "table": {
+      "server": "Server",
+      "status": "Status",
+      "cpu": "CPU",
+      "memory": "Memory",
+      "storage": "Storage",
+      "actions": "Actions"
+    },
+    "actions": {
+      "menuLabel": "Actions",
+      "viewDetails": "View Details",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "detail": {
+      "description": "Detailed metrics and status for this server.",
+      "start": "Start",
+      "restart": "Restart",
+      "stop": "Stop",
+      "forceStop": "Force Stop",
+      "selectPage": "Select a page...",
+      "tabs": {
+        "console": "Console",
+        "overview": "Overview",
+        "files": "File Manager",
+        "settings": "Settings",
+        "users": "Users",
+        "database": "Database",
+        "backups": "Backups",
+        "plugins": "Plugins",
+        "sftp": "SFTP Access",
+        "admin": "Administration"
+      },
+      "overview": {
+        "status": "Status",
+        "cpuUsage": "CPU Usage",
+        "memoryUsage": "Memory Usage",
+        "storageUsage": "Storage Usage",
+        "playersOnline": "Players Online"
+      }
+    },
+    "address": {
+      "copyToastTitle": "Copied to clipboard",
+      "copyToastDescription": "Server address {{address}} copied.",
+      "copyButtonTitle": "Copy address"
+    },
+    "console": {
+      "title": "Live Console",
+      "commandPlaceholder": "Enter a command...",
+      "sendButton": "Send"
+    },
+    "aiSummary": {
+      "title": "AI Console Analysis",
+      "description": "Copy and paste specific logs from the console into the text area below to get an AI-powered summary and troubleshooting tips.",
+      "logsLabel": "Logs to Analyze",
+      "logsPlaceholder": "Paste logs here...",
+      "analyzeButton": "Analyze Logs",
+      "loading": "The AI is analyzing the logs...",
+      "ready": "Ready to provide insights once you paste some logs.",
+      "summaryTitle": "Summary",
+      "fail": "Failed to generate summary. Please check the console for details.",
+      "suggestions": "Troubleshooting Suggestions",
+      "rootCauses": "Potential Root Causes"
+    },
+    "cpuMemoryChart": {
+      "title": "CPU & Memory Usage",
+      "description": "Real-time CPU and Memory usage for the last 30 minutes."
+    },
+    "networkChart": {
+      "title": "Network Traffic",
+      "description": "Inbound and outbound traffic for the last 30 minutes (KB/s).",
+      "download": "Download",
+      "upload": "Upload"
+    },
+    "fileManager": {
+      "title": "File Manager",
+      "description": "Browse and manage files on this server. Click on a file name to edit it.",
+      "table": {
+        "name": "Name",
+        "size": "Size",
+        "modified": "Last Modified",
+        "actions": "Actions"
+      },
+      "actions": {
+        "edit": "Edit",
+        "download": "Download",
+        "rename": "Rename",
+        "delete": "Delete"
+      },
+      "editor": {
+        "title": "Editing: {{filename}}",
+        "description": "Make the necessary changes and click save.",
+        "cancel": "Cancel",
+        "save": "Save Changes",
+        "saveSuccess": "File saved successfully."
+      }
+    },
+    "settings": {
+      "title": "Configuration",
+      "description": "Configuration and server variables",
+      "variablesTitle": "Variables",
+      "eulaLabel": "EULA Agreement",
+      "eulaDescription": "Do you (or the server owner) agree to the Minecraft EULA?",
+      "fileIdLabel": "File Id",
+      "fileIdDescription": "File Id for the modpack desired. This is found at the end of the URL for the specific file desired.",
+      "ipLabel": "IP",
+      "ipDescription": "What IP to bind the server to.",
+      "javaVersionLabel": "Java Version",
+      "javaVersionDescription": "Version of Java to use.",
+      "memoryLabel": "Memory (MB)",
+      "memoryDescription": "How much memory in MB to allocate to the Java Heap.",
+      "jvmArgsLabel": "JVM Arguments",
+      "jvmArgsDescription": "Extra JVM arguments to pass.",
+      "portLabel": "Port",
+      "portDescription": "What port to bind the server to.",
+      "projectIdLabel": "Project Id",
+      "projectIdDescription": "Project Id for the modpack desired. This is found on the modpack's webpage on the right side.",
+      "generalTitle": "General Information",
+      "nameLabel": "Server Name",
+      "nameDescription": "The friendly name of this server as it appears in the list.",
+      "autoStartTitle": "Auto Start Conditions",
+      "startOnBootLabel": "Start on Boot",
+      "startOnBootDescription": "Start the server when the node boots.",
+      "restartOnCrashLabel": "Restart on Crash",
+      "restartOnCrashDescription": "Restart the server when it crashes.",
+      "restartOnStopLabel": "Restart on Stop",
+      "restartOnStopDescription": "Restart the server when it is stopped.",
+      "pluginsTitle": "Plugin Settings",
+      "enablePluginsLabel": "Enable Plugins Tab",
+      "enablePluginsDescription": "Show or hide the plugin management tab for this server.",
+      "saveButton": "Save Changes",
+      "saveSuccess": "Settings saved successfully",
+      "saveError": "Failed to save settings"
+    },
+    "users": {
+      "title": "User Access",
+      "description": "Users who have permission to manage this server.",
+      "addUser": "Add User",
+      "addDialog": {
+        "title": "Add User to Server",
+        "description": "Grant a user access to this server.",
+        "emailLabel": "Email",
+        "emailPlaceholder": "user@example.com",
+        "addButton": "Add User"
+      },
+      "table": {
+        "user": "User",
+        "email": "Email",
+        "actions": "Actions"
+      },
+      "revoke": "Revoke",
+      "revokeConfirm": "Are you sure you want to revoke access for this user?",
+      "noUsers": "No users have access to this server yet.",
+      "fetchError": "Failed to load server users.",
+      "addSuccess": "User added successfully.",
+      "addError": "Failed to add user.",
+      "revokeSuccess": "Access revoked successfully.",
+      "revokeError": "Failed to revoke access."
+    },
+    "database": {
+      "title": "Databases",
+      "description": "Manage the databases for this server.",
+      "newDb": "New Database",
+      "createDialog": {
+        "title": "Create New Database",
+        "nameLabel": "Database Name",
+        "namePlaceholder": "Database Name",
+        "hostLabel": "Database Host",
+        "hostPlaceholder": "Select a host",
+        "hostLocal": "Panel (localhost)",
+        "hostRemote": "Remote MySQL Server",
+        "createButton": "Create Database",
+        "createSuccess": "Database created successfully.",
+        "createError": "Failed to create database."
+      },
+      "deleteConfirm": "Are you sure you want to delete this database? All data will be permanently erased.",
+      "deleteSuccess": "Database deleted successfully.",
+      "deleteError": "Failed to delete database.",
+      "table": {
+        "name": "Name",
+        "user": "User",
+        "connections": "Connections from",
+        "size": "Size"
+      },
+      "anyHost": "% (Any Host)",
+      "empty": "No databases created for this server."
+    },
+    "backups": {
+      "title": "Backups",
+      "description": "{{count}} backups",
+      "create": "Create Backup",
+      "createDialog": {
+        "title": "Create Backup",
+        "nameLabel": "Name",
+        "namePlaceholder": "Backup Name",
+        "createButton": "Create Backup",
+        "success": "Backup created successfully.",
+        "error": "Failed to create backup."
+      },
+      "restore": {
+        "button": "Restore",
+        "confirm": "Are you sure you want to restore this backup? All current files will be overwritten.",
+        "success": "Backup restoration has started.",
+        "error": "Failed to restore backup."
+      },
+      "delete": {
+        "button": "Delete",
+        "confirm": "Are you sure you want to delete this backup?",
+        "success": "Backup deleted successfully.",
+        "error": "Failed to delete backup."
+      },
+      "download": "Download",
+      "empty": {
+        "title": "No backups",
+        "description": "Create your first backup to get started."
+      }
+    },
+    "plugins": {
+      "title": "Plugins",
+      "description": "{{count}} plugins installed",
+      "searchPlaceholder": "Search in Modrinth (plugins, mods...)",
+      "searchButton": "Search",
+      "tabs": {
+        "installed": "Installed",
+        "marketplace": "Marketplace"
+      },
+      "marketplace": {
+        "title": "Modrinth Marketplace",
+        "description": "Search and install plugins and mods directly from Modrinth.",
+        "install": "Install",
+        "installing": "Installing...",
+        "installed": "Installed",
+        "downloads": "Downloads",
+        "author": "Author",
+        "version": "Version"
+      },
+      "installed": {
+        "title": "Installed Plugins",
+        "description": "Manage plugins already on your server.",
+        "uninstall": "Uninstall",
+        "uninstallConfirm": "Are you sure you want to delete this plugin?",
+        "size": "Size"
+      },
+      "empty": {
+        "title": "No plugins found",
+        "description": "No plugins were found with that name."
+      },
+      "notifications": {
+        "installSuccess": "Plugin {{name}} installed successfully. Restart the server to apply changes.",
+        "installError": "Failed to install plugin.",
+        "uninstallSuccess": "Plugin deleted successfully.",
+        "uninstallError": "Failed to delete plugin."
+      }
+    },
+    "admin": {
+      "title": "Administration",
+      "description": "Perform critical administrative actions. These operations can affect server configuration and data.",
+      "editDefinition": {
+        "title": "Edit Server Definition",
+        "description": "Modify the server's fundamental details.",
+        "button": "Edit Definition",
+        "success": "Definition saved successfully"
+      },
+      "installStatus": {
+        "title": "Installation Status",
+        "description": "Trigger the server installation or re-installation process.",
+        "button": "Install",
+        "success": "Installation process started."
+      },
+      "delete": {
+        "title": "Delete Server",
+        "description": "This action is permanent. All server files and data will be erased.",
+        "button": "Delete",
+        "success": "Server has been deleted."
+      },
+      "deleteDialog": {
+        "title": "Are you absolutely sure?",
+        "description": "This action cannot be undone. This will permanently delete the server and all its data from the platform.",
+        "cancel": "Cancel",
+        "confirm": "Yes, delete server"
+      }
+    },
+    "resourceChart": {
+      "title": "Resource Overview",
+      "description": "Current snapshot of resource utilization."
+    }
+  },
+  "users": {
+    "title": "User Management",
+    "description": "Create, view, and manage user accounts and their permissions.",
+    "addUser": "Add User",
+    "allUsers": "All Users",
+    "addDialog": {
+      "title": "Add New User",
+      "description": "Fill in the details to create a new user account.",
+      "nameLabel": "Name",
+      "namePlaceholder": "New User",
+      "emailLabel": "Email",
+      "emailPlaceholder": "user@example.com",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "********",
+      "roleLabel": "Role",
+      "rolePlaceholder": "Select a role",
+      "roleAdmin": "Administrator",
+      "roleUser": "User",
+      "cancel": "Cancel",
+      "create": "Create User"
+    },
+    "editDialog": {
+      "title": "Edit User",
+      "description": "Update details for {{name}}.",
+      "nameLabel": "Name",
+      "emailLabel": "Email",
+      "roleLabel": "Role",
+      "rolePlaceholder": "Select a role",
+      "roleAdmin": "Administrator",
+      "roleUser": "User",
+      "cancel": "Cancel",
+      "save": "Save Changes"
+    },
+    "serversDialog": {
+      "title": "Servers for {{name}}",
+      "description": "This user has access to the following servers.",
+      "noServers": "This user is not assigned to any servers.",
+      "close": "Close"
+    },
+    "table": {
+      "user": "User",
+      "role": "Role",
+      "assignedServers": "Assigned Servers",
+      "actions": "Actions",
+      "serversCount": "{{count}} servers"
+    },
+    "actions": {
+      "menuLabel": "Actions",
+      "edit": "Edit",
+      "viewServers": "View Servers",
+      "delete": "Delete"
+    }
+  },
+  "roles": {
+    "title": "Role Management",
+    "description": "View details and permissions for each user role.",
+    "addRole": "Add Role",
+    "addDialog": {
+      "title": "Add New Role",
+      "description": "Create a new role and assign permissions.",
+      "nameLabel": "Name",
+      "namePlaceholder": "e.g., developer",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "A short description of the role.",
+      "permissionsLabel": "Permissions",
+      "cancel": "Cancel",
+      "create": "Create Role"
+    },
+    "deleteDialog": {
+      "title": "Are you sure?",
+      "description": "This will permanently delete the role. Users assigned to this role cannot be deleted until you reassign them."
+    },
+    "availableRoles": "Available Roles",
+    "table": {
+      "role": "Role",
+      "description": "Description",
+      "permissions": "Permissions"
+    },
+    "initial": {
+      "admin": {
+        "description": "Full access to all panel functions and settings."
+      },
+      "user": {
+        "description": "Basic access to log in and manage their own account."
+      }
+    },
+    "permissionGroups": {
+      "general": "General",
+      "nodes": "Nodes",
+      "servers": "Servers",
+      "serverConsole": "Console",
+      "serverManagement": "Server Management",
+      "serverFiles": "Files & SFTP",
+      "serverBackups": "Backups",
+      "serverUsers": "Users & Clients",
+      "serverAdmin": "Administration",
+      "serverMisc": "Server Miscellaneous",
+      "templates": "Templates",
+      "users": "Users",
+      "other": "Other"
+    }
+  },
+  "permissions": {
+    "admin": "Full Administrator Access",
+    "login": "Can Login",
+    "oauth2": {
+      "auth": "Manage OAuth2 Authorization"
+    },
+    "nodes": {
+      "view": "View Nodes",
+      "create": "Create Nodes",
+      "edit": "Edit Nodes",
+      "delete": "Delete Nodes",
+      "deploy": "Deploy Nodes (Advanced)"
+    },
+    "self": {
+      "edit": "Edit Own Account",
+      "clients": "Manage Own OAuth2 Clients"
+    },
+    "server": {
+      "create": "Create New Servers",
+      "view": "View Servers",
+      "delete": "Delete Servers",
+      "name": { "edit": "Rename Servers" },
+      "console": { "view": "View Console Output", "send": "Send Console Commands" },
+      "start": "Start Server",
+      "stop": "Stop Server",
+      "kill": "Force Kill Server",
+      "reload": "Reload Server Configuration",
+      "install": "Install/Reinstall Server",
+      "definition": { "view": "View Server Definition", "edit": "Edit Server Definition" },
+      "data": { "view": "View Server Data/Variables", "edit": { "admin": "Admin Data Edit (Transfer)" } },
+      "flags": { "view": "View Server Flags", "edit": "Edit Server Flags" },
+      "tasks": { "view": "View Scheduled Tasks", "run": "Run Tasks", "create": "Create Tasks", "edit": "Edit Tasks", "delete": "Delete Tasks" },
+      "files": { "view": "View/Read Files", "edit": "Edit/Write/Delete Files" },
+      "sftp": "SFTP Access",
+      "backup": { "view": "View/Download Backups", "create": "Create Backups", "restore": "Restore Backups", "delete": "Delete Backups" },
+      "users": { "view": "View Server Users", "create": "Add Users to Server", "edit": "Edit User Permissions", "delete": "Remove Users" },
+      "clients": { "view": "View OAuth2 Clients", "edit": "Edit OAuth2 Clients", "create": "Create OAuth2 Clients", "delete": "Delete OAuth2 Clients" },
+      "stats": "View Server Statistics",
+      "status": "View Server Status",
+      "admin": "Full Server Admin Access",
+      "adminSection": {
+        "view": "View Administration Section",
+        "installView": "View Installation Section",
+        "installManage": "Manage Installation",
+        "transferView": "View Transfer Section",
+        "transferManage": "Manage Transfers",
+        "configView": "View Configuration Section",
+        "configManage": "Manage Configuration",
+        "assignmentsView": "View Assignments Section",
+        "assignmentsManage": "Manage Assignments"
+      }
+    },
+    "settings": {
+      "edit": "Edit Global Panel Settings"
+    },
+    "templates": {
+      "view": "View Templates",
+      "local": {
+        "edit": "Manage Local Templates"
+      },
+      "repo": {
+        "create": "Add Template Repositories",
+        "delete": "Delete Template Repositories"
+      }
+    },
+    "users": {
+      "info": {
+        "search": "Search Users",
+        "view": "View User Information",
+        "edit": "Edit User Information"
+      },
+      "perms": {
+        "view": "View User Permissions",
+        "edit": "Edit User Permissions"
+      }
+    },
+    "uptime": {
+      "view": "View Uptime Status"
+    },
+    "panel": "Access Panel"
+  },
+  "nodes": {
+    "title": "Node Management",
+    "description": "Manage all deployment nodes for your servers.",
+    "addNode": "Add Node",
+    "addDialog": {
+      "title": "Create Node",
+      "nameLabel": "Name",
+      "namePlaceholder": "Name",
+      "publicHostLabel": "Public Host",
+      "publicHostPlaceholder": "Public Host",
+      "publicPortLabel": "Public Port",
+      "sftpPortLabel": "SFTP Port",
+      "useDifferentHostLabel": "Use a different host/port for server-to-server communication",
+      "useDifferentHostDescription": "This separate address is used when the main node needs to communicate with the new node. This is useful, for example, when the nodes are on the same network behind NAT.",
+      "privateHostLabel": "Private Host",
+      "privateHostPlaceholder": "Private Host",
+      "privatePortLabel": "Private Port",
+      "createButton": "Create Node"
+    },
+    "allNodes": "All Nodes",
+    "table": {
+      "name": "Name",
+      "location": "Location",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "actions": {
+      "edit": "Edit",
+      "deploy": "Deploy",
+      "delete": "Delete"
+    },
+    "editDialog": {
+      "title": "Edit Node",
+      "cancel": "Cancel",
+      "save": "Save Changes"
+    },
+    "deployDialog": {
+      "title": "Deploy Node: {{name}}",
+      "description": "Follow these steps to set up and connect your new node.",
+      "step1": "Step 1: Install AetherPanel on the new server.",
+      "step1Description": "See the documentation for more details.",
+      "step2": "Step 2: Stop the AetherPanel service.",
+      "step2Description": "If it was started during installation, run the following command:",
+      "step3": "Step 3: Replace the configuration file.",
+      "step3Description": "The file is located at <code>/etc/AetherPanel/config.json</code>. Replace its contents with the following:",
+      "step4": "Step 4: Enable and restart the service.",
+      "step4Description": "Run the following command to complete the setup:",
+      "successMessage": "Your new node is configured and ready to use!",
+      "close": "Close"
+    },
+    "detail": {
+      "totalServers": "Total Servers",
+      "serverStatus": "Server Status",
+      "online": "{{count}} online",
+      "offline": "{{count}} offline",
+      "memoryUsage": "Memory Usage",
+      "of": "of",
+      "cpuUsage": "CPU Usage",
+      "successAlertTitle": "This node is correctly configured and operational",
+      "systemInfo": {
+        "title": "System Information",
+        "os": "Operating System",
+        "arch": "CPU Architecture",
+        "version": "Version",
+        "publicAddress": "Public Address",
+        "environments": "Available Environments",
+        "general": "General",
+        "hostname": "Hostname",
+        "platform": "Platform",
+        "uptime": "Uptime",
+        "cpu": "CPU",
+        "model": "Model",
+        "physicalCores": "Physical Cores",
+        "logicalCores": "Logical Cores",
+        "memory": "Memory",
+        "total": "Total",
+        "used": "Used",
+        "free": "Free"
+      },
+      "disks": {
+        "title": "Disks"
+      },
+      "serversOnNode": {
+        "title": "Servers on this Node",
+        "view": "View",
+        "empty": "There are no servers on this node."
+      },
+      "editNode": {
+        "title": "Edit Node",
+        "localNodeAlertTitle": "Cannot be edited",
+        "localNodeAlertDescription": "The local node does not have any settings that can be edited. To change the displayed host, adjust the panel's master URL in the settings.",
+        "nameLabel": "Name",
+        "publicHostLabel": "Public host",
+        "publicPortLabel": "Public port",
+        "sftpPortLabel": "SFTP port",
+        "updateButton": "Update Node",
+        "deleteButton": "Delete Node",
+        "deployButton": "Deploy Node"
+      }
+    }
+  },
+  "databaseHosts": {
+    "title": "Database Hosts",
+    "description": "Manage all database host connections.",
+    "addHost": "Add Host",
+    "table": {
+      "name": "Name",
+      "host": "Host",
+      "port": "Port",
+      "username": "Username",
+      "linkedNode": "Linked Node",
+      "actions": "Actions"
+    },
+    "availableHosts": "Available Hosts",
+    "addDialog": {
+      "title": "Add New Database Host",
+      "description": "Follow the steps to connect a new database host.",
+      "stepper": {
+        "credentials": "Credentials",
+        "instructions": "Instructions",
+        "config": "Configuration"
+      },
+      "step1": {
+        "alertTitle": "Information",
+        "alertDescription1": "Currently, only MySQL/MariaDB databases are supported for database hosts.",
+        "alertDescription2": "Is the panel and database not on the same server? Make sure to allow external access.",
+        "userLabel": "Username",
+        "userDescription": "The username of an account that has sufficient permissions to create new users and databases on the system.",
+        "passwordLabel": "Password",
+        "passwordDescription": "The password for the database user."
+      },
+      "step2": {
+        "instructionsTitle": "Instructions",
+        "userTitle": "Database User",
+        "userDescription": "Use <code>mysql -u root -p</code> to access the mysql CLI.",
+        "createUserCommandTitle": "Command to create user",
+        "grantPermissionsCommandTitle": "Command to assign permissions",
+        "exitMysql": "To exit the mysql CLI run <code>exit</code>.",
+        "externalAccessTitle": "External Access",
+        "externalAccessDescription1": "You will likely need to allow external access to this MySQL instance. Locate your <code>my.cnf</code> file (you can use <code>find /etc -iname my.cnf</code>).",
+        "externalAccessDescription2": "Open <code>my.cnf</code>, add the text below to the end of the file and save it:",
+        "externalAccessDescription3": "Restart MySQL/MariaDB to apply the changes. Make sure to allow the MySQL port (default 3306) in your firewall.",
+        "copyToast": "Command copied to clipboard"
+      },
+      "step3": {
+        "hostNameLabel": "Host Name",
+        "hostNameDescription": "A unique name to identify this host on the panel.",
+        "hostNamePlaceholder": "e.g., Local DB",
+        "connectionHostLabel": "Connection Host",
+        "connectionHostDescription": "The IP address or domain name that should be used when trying to connect to this MySQL host from this Panel.",
+        "portLabel": "Port",
+        "portDescription": "The port that MySQL is running on for this host.",
+        "dbLimitLabel": "Database Limit",
+        "dbLimitDescription": "Maximum number of databases. Leave blank or 0 for unlimited.",
+        "linkedNodesLabel": "Linked Nodes",
+        "linkedNodesPlaceholder": "None",
+        "linkedNodesDescription": "This setting only sets this database host as the default."
+      },
+      "buttons": {
+        "cancel": "Cancel",
+        "next": "Next",
+        "back": "Back",
+        "create": "Create Host"
+      }
+    }
+  },
+  "templates": {
+    "title": "Template Management",
+    "description": "Select a template to create a new server.",
+    "create": "Create Template",
+    "use": "Use Template",
+    "categories": {
+      "web": "Web",
+      "game": "Game",
+      "bot": "Bot",
+      "other": "Other",
+      "NoGroup": "No Group"
+    }
+  },
+  "common": {
+    "copied": "Copied to clipboard",
+    "copy": "Copy",
+    "loading": "Loading...",
+    "cancel": "Cancel",
+    "close": "Close",
+    "success": "Success",
+    "error": "Error",
+    "save": "Save",
+    "confirmDelete": "Are you sure you want to delete this item?"
+  },
+  "settings": {
+    "title": "Panel Settings",
+    "description": "Manage the global settings for your Aether Panel instance.",
+    "saveSuccess": "Settings saved successfully",
+    "tabs": {
+      "general": "General",
+      "discord": "Discord Notifications",
+      "mail": "Mail"
+    },
+    "general": {
+      "title": "General Settings",
+      "description": "Adjust the main application settings.",
+      "baseUrlLabel": "Base URL",
+      "baseUrlDescription": "The link from which you will access the control panel following the format: http://localhost:8080",
+      "companyNameLabel": "Company Name",
+      "geminiApiKeyLabel": "Gemini API Key",
+      "geminiApiKeyPlaceholder": "Enter your Gemini API key",
+      "geminiApiKeyDescription": "Enter your Google Gemini API key to enable artificial intelligence features.",
+      "hideAiAnalysisLabel": "Hide AI Console Analysis",
+      "hideAiAnalysisDescription": "If enabled, the AI console analysis feature will be hidden for all servers.",
+      "allowRegistrationLabel": "Allow users to register",
+      "allowRegistrationDescription": "Self-registered users cannot perform any actions until permissions are granted. Disabling this only prevents direct registration, server invitations and the Users page are not affected.",
+      "saveButton": "Save settings"
+    },
+    "discord": {
+      "title": "Discord Notifications",
+      "description": "Connect Discord webhooks to receive system alerts and notifications.",
+      "alertsWebhookLabel": "Discord Webhook - Server Alerts",
+      "alertsWebhookPlaceholder": "Discord Webhook - Server Alerts",
+      "alertsWebhookDescription": "Discord webhook URL to receive server alerts (online/offline, resource usage, backups, etc.)",
+      "reportsWebhookLabel": "Discord Webhook - System Reports",
+      "reportsWebhookPlaceholder": "Discord Webhook - System Reports",
+      "reportsWebhookDescription": "Discord webhook URL to receive periodic reports on the complete system status.",
+      "statusWebhookLabel": "Discord Webhook - Node Status",
+      "statusWebhookPlaceholder": "Discord Webhook - Node Status",
+      "statusWebhookDescription": "Discord webhook URL to receive information about the status of the node/nodes.",
+      "testButton": "Test Webhook",
+      "testSuccess": "Test Discord message sent successfully",
+      "saveButton": "Save settings"
+    },
+    "mail": {
+      "title": "Mail Configuration",
+      "description": "Configure a provider to send transactional emails.",
+      "providerLabel": "E-mail Provider",
+      "providerPlaceholder": "Select a provider",
+      "providerDescription": "Select the email provider you want to use to send emails from the panel.",
+      "selectProviderPrompt": "Select an email provider to see the configuration options.",
+      "smtp": {
+        "fromLabel": "Sender Address",
+        "fromPlaceholder": "no-reply@aether.panel",
+        "hostLabel": "Host",
+        "hostPlaceholder": "smtp.example.com",
+        "userLabel": "User",
+        "userPlaceholder": "SMTP User",
+        "passLabel": "Password",
+        "passPlaceholder": "••••••••"
+      },
+      "mailgun": {
+        "domainLabel": "Domain",
+        "domainPlaceholder": "mg.example.com",
+        "fromLabel": "Sender Address",
+        "fromPlaceholder": "no-reply@aether.panel",
+        "keyLabel": "API Key",
+        "keyPlaceholder": "••••••••"
+      },
+      "mailjet": {
+        "domainLabel": "Domain",
+        "domainPlaceholder": "example.com",
+        "fromLabel": "Sender Address",
+        "fromPlaceholder": "no-reply@aether.panel",
+        "keyLabel": "API Key",
+        "keyPlaceholder": "••••••••"
+      },
+      "testButton": "Test Email",
+      "testSuccess": "Test email sent successfully",
+      "saveButton": "Save settings"
+    }
+  }
+}

@@ -1,0 +1,880 @@
+{
+  "sidebar": {
+    "dashboard": "Dashboard",
+    "servers": "Servidores",
+    "users": "Usuarios",
+    "roles": "Roles",
+    "nodes": "Nodos",
+    "databaseHosts": "Hosts de BD",
+    "templates": "Plantillas",
+    "settings": "Configuración"
+  },
+  "userMenu": {
+    "settings": "Configuración",
+    "logout": "Cerrar Sesión"
+  },
+  "profileSettings": {
+    "title": "Configuración de la cuenta",
+    "description": "Administra la configuración de tu perfil, seguridad y más.",
+    "selectTabPlaceholder": "Selecciona una sección...",
+    "tabs": {
+      "settings": "Configuración",
+      "details": "Detalles",
+      "password": "Contraseña",
+      "twoFactor": "2FA",
+      "oauth": "OAuth"
+    },
+    "general": {
+      "title": "Configuración",
+      "language": "Idioma",
+      "language_es": "español (España)",
+      "language_en": "English (US)",
+      "language_help": "Ayúdanos a traducir Aether Panel.",
+      "save": "Guardar configuración"
+    },
+    "accountDetails": {
+      "title": "Cambiar detalles de la cuenta",
+      "username": "Nombre de usuario",
+      "email": "Correo electrónico",
+      "confirmPassword": "Confirme la contraseña",
+      "save": "Cambiar detalles de la cuenta"
+    },
+    "changePassword": {
+      "title": "Cambiar contraseña",
+      "oldPassword": "Contraseña antigua",
+      "newPassword": "Nueva contraseña",
+      "confirmPassword": "Confirme la contraseña",
+      "save": "Cambiar contraseña"
+    },
+    "twoFactor": {
+      "title": "Autenticación de dos pasos",
+      "description": "La autenticación de dos pasos agrega una capa de seguridad adicional a tu cuenta, requiriendo un código especial además de tu contraseña.",
+      "enable": "Habilitar 2FA"
+    },
+    "oauth": {
+      "title": "Clientes de OAuth2",
+      "description": "Los clientes de OAuth2 listados aquí heredan todos los permisos de sus cuentas.",
+      "apiDocs": "Encuentra la documentation de la API",
+      "here": "aquí",
+      "noClients": "No hay clientes de OAuth2 configurados para esta cuenta.",
+      "create": "Crear nuevo cliente OAuth2"
+    },
+    "messages": {
+      "infoChanged": "Tu información ha sido cambiada",
+      "passwordChanged": "Tu contraseña ha sido cambiada",
+      "otpEnabled": "2FA ha sido habilitado",
+      "otpDisabled": "2FA ha sido deshabilitado",
+      "recoveryCodesRegenerated": "Los códigos de recuperación han sido regenerados"
+    },
+    "twoFactorSetup": {
+      "title": "Configuración de 2FA",
+      "qrCodeHint": "Escanea este código QR con tu aplicación de autenticación.",
+      "secretCode": "Código secreto",
+      "confirmHint": "Ingresa el código de 6 dígitos de tu aplicación para confirmar.",
+      "recoveryTitle": "Códigos de recuperación",
+      "recoveryHint": "Guarda estos códigos en un lugar seguro. ¡No se volverán a mostrar!",
+      "downloadCodes": "Descargar códigos de recuperación"
+    }
+  },
+  "dashboard": {
+    "welcome": "¡Bienvenido, {{name}}!",
+    "defaultName": "Usuario",
+    "user": {
+      "description": "Aquí tienes una lista de los servidores que te han sido asignados.",
+      "myServers": "Mis Servidores",
+      "noServers": "No se te ha asignado ningún servidor."
+    },
+    "admin": {
+      "description": "Aquí tienes un resumen rápido del panorama de tus servidores.",
+      "repositories": "Repositorios",
+      "online": "En línea",
+      "serversOperational": "Servidores operativos",
+      "offline": "Fuera de línea",
+      "serversNeedAttention": "Los servidores necesitan atención",
+      "overallHealth": "Salud General",
+      "systemUptime": "Porcentaje de tiempo de actividad del sistema",
+      "systemInfo": "Información del sistema",
+      "panelVersion": "Versión del panel",
+      "totalServers": "Total de servidores",
+      "totalUsers": "Total de usuarios",
+      "totalNodes": "Total de nodos",
+      "resourceOverview": {
+        "title": "Resumen de Recursos",
+        "description": "Instantánea actual de la utilización de recursos."
+      },
+      "networkTraffic": {
+        "title": "Tráfico de Red",
+        "description": "Tráfico de entrada y salida durante los últimos 30 minutos (KB/s).",
+        "download": "Descarga",
+        "upload": "Subida"
+      }
+    },
+    "table": {
+      "name": "Nombre",
+      "ipAddress": "Dirección IP",
+      "status": "Estado",
+      "cpu": "CPU",
+      "memory": "Memoria",
+      "storage": "Almacenamiento",
+      "actions": "Acciones",
+      "view": "Ver"
+    },
+    "status": {
+      "online": "en línea",
+      "offline": "fuera de línea",
+      "pending": "pendiente"
+    }
+  },
+  "servers": {
+    "title": "Administración de Servidores",
+    "description": "Añade, edita y gestiona todos los servidores de tu infraestructura.",
+    "addServer": "Añadir Servidor",
+    "addDialog": {
+      "title": "Añadir Nuevo Servidor",
+      "description": "Proporciona los detalles para el nuevo servidor.",
+      "nameLabel": "Nombre",
+      "namePlaceholder": "Nuevo Servidor Web",
+      "ipLabel": "Dirección IP",
+      "ipPlaceholder": "192.168.1.107",
+      "createButton": "Crear Servidor"
+    },
+    "allServers": "Todos los Servidores",
+    "table": {
+      "server": "Servidor",
+      "status": "Estado",
+      "cpu": "CPU",
+      "memory": "Memoria",
+      "storage": "Almacenamiento",
+      "actions": "Acciones"
+    },
+    "actions": {
+      "menuLabel": "Acciones",
+      "viewDetails": "Ver Detalles",
+      "edit": "Editar",
+      "delete": "Eliminar"
+    },
+    "detail": {
+      "description": "Métricas detalladas y estado de este servidor.",
+      "start": "Iniciar",
+      "restart": "Reiniciar",
+      "stop": "Detener",
+      "forceStop": "Forzar Detención",
+      "selectPage": "Selecciona una página...",
+      "tabs": {
+        "console": "Consola",
+        "overview": "Resumen",
+        "files": "Archivos",
+        "settings": "Configuración",
+        "users": "Usuarios",
+        "database": "Base de datos",
+        "backups": "Copias de seguridad",
+        "plugins": "Plugins",
+        "sftp": "Acceso SFTP",
+        "admin": "Administración"
+      },
+      "overview": {
+        "status": "Estado",
+        "cpuUsage": "Uso de CPU",
+        "memoryUsage": "Uso de Memoria",
+        "storageUsage": "Uso de Almacenamiento",
+        "playersOnline": "Jugadores en línea"
+      }
+    },
+    "address": {
+      "copyToastTitle": "Copiado al portapapeles",
+      "copyToastDescription": "Dirección del servidor {{address}} copiada.",
+      "copyButtonTitle": "Copiar dirección"
+    },
+    "console": {
+      "title": "Consola en Vivo",
+      "commandPlaceholder": "Introduce un comando...",
+      "sendButton": "Enviar"
+    },
+    "aiSummary": {
+      "title": "Análisis de Consola por IA",
+      "description": "Copia y pega registros específicos de la consola en el área de texto a continuación para obtener un resumen y consejos de solución de problemas impulsados por IA.",
+      "logsLabel": "Registros para Analizar",
+      "logsPlaceholder": "Pega los registros aquí...",
+      "analyzeButton": "Analizar Registros",
+      "loading": "La IA está analizando los registros...",
+      "ready": "Listo para proporcionar información una vez que pegues algunos registros.",
+      "summaryTitle": "Resumen",
+      "fail": "No se pudo generar el resumen. Por favor, revisa la consola para más detalles.",
+      "suggestions": "Sugerencias de Solución de Problemas",
+      "rootCauses": "Posibles Causas Raíz"
+    },
+    "cpuMemoryChart": {
+      "title": "Uso de CPU y Memoria",
+      "description": "Uso de CPU y Memoria en tiempo real durante los últimos 30 minutos."
+    },
+    "networkChart": {
+      "title": "Tráfico de Red",
+      "description": "Tráfico de entrada y salida durante los últimos 30 minutos (KB/s).",
+      "download": "Descarga",
+      "upload": "Subida"
+    },
+    "fileManager": {
+      "title": "Administrador de Archivos",
+      "description": "Explora y gestiona los archivos en este servidor. Haz clic en el nombre de un archivo para editarlo.",
+      "table": {
+        "name": "Nombre",
+        "size": "Tamaño",
+        "modified": "Última Modificación",
+        "actions": "Acciones"
+      },
+      "actions": {
+        "edit": "Editar",
+        "download": "Descargar",
+        "rename": "Renombrar",
+        "delete": "Eliminar"
+      },
+      "editor": {
+        "title": "Editando: {{filename}}",
+        "description": "Realiza los cambios necesarios y pulsa guardar.",
+        "cancel": "Cancelar",
+        "save": "Guardar Cambios",
+        "saveSuccess": "Archivo guardado correctamente."
+      }
+    },
+    "settings": {
+      "title": "Configuración",
+      "description": "Configuración y variables del servidor",
+      "variablesTitle": "Variables",
+      "eulaLabel": "Acuerdo EULA",
+      "eulaDescription": "¿Tú (o el propietario del servidor) aceptas el EULA de Minecraft?",
+      "fileIdLabel": "ID del Archivo",
+      "fileIdDescription": "ID del archivo para el modpack deseado. Se encuentra al final de la URL del archivo específico deseado.",
+      "ipLabel": "IP",
+      "ipDescription": "A qué IP vincular el servidor.",
+      "javaVersionLabel": "Versión de Java",
+      "javaVersionDescription": "Versión de Java a utilizar.",
+      "memoryLabel": "Memoria (MB)",
+      "memoryDescription": "Cuánta memoria en MB asignar al Heap de Java.",
+      "jvmArgsLabel": "Argumentos de JVM",
+      "jvmArgsDescription": "Argumentos extra de JVM para pasar.",
+      "portLabel": "Puerto",
+      "portDescription": "A qué puerto vincular el servidor.",
+      "projectIdLabel": "ID del Proyecto",
+      "projectIdDescription": "ID del proyecto para el modpack deseado. Se encuentra en la página web del modpack, en el lado derecho.",
+      "generalTitle": "Información General",
+      "nameLabel": "Nombre del Servidor",
+      "nameDescription": "El nombre descriptivo de este servidor tal como aparece en la lista.",
+      "autoStartTitle": "Condiciones de Inicio Automático",
+      "startOnBootLabel": "Iniciar en el Arranque",
+      "startOnBootDescription": "Iniciar el servidor cuando el nodo arranque.",
+      "restartOnCrashLabel": "Reiniciar en Caso de Fallo",
+      "restartOnCrashDescription": "Reiniciar el servidor cuando falle.",
+      "restartOnStopLabel": "Reiniciar al Detener",
+      "restartOnStopDescription": "Reiniciar el servidor cuando se detiene.",
+      "pluginsTitle": "Configuración de Plugins",
+      "enablePluginsLabel": "Habilitar Pestaña de Plugins",
+      "enablePluginsDescription": "Mostrar u ocultar la pestaña de gestión de plugins para este servidor.",
+      "saveButton": "Guardar Cambios",
+      "saveSuccess": "Configuración guardada correctamente",
+      "saveError": "Error al guardar la configuración"
+    },
+    "users": {
+      "title": "Acceso de Usuarios",
+      "description": "Usuarios que tienen permiso para gestionar este servidor.",
+      "addUser": "Añadir Usuario",
+      "addDialog": {
+        "title": "Añadir Usuario al Servidor",
+        "description": "Conceder acceso a un usuario a este servidor.",
+        "emailLabel": "Correo Electrónico",
+        "emailPlaceholder": "usuario@ejemplo.com",
+        "addButton": "Añadir Usuario"
+      },
+      "table": {
+        "user": "Usuario",
+        "email": "Correo Electrónico",
+        "actions": "Acciones"
+      },
+      "revoke": "Revocar",
+      "revokeConfirm": "¿Estás seguro de que deseas revocar el acceso a este usuario?",
+      "noUsers": "Ningún usuario tiene acceso a este servidor todavía.",
+      "fetchError": "Error al cargar los usuarios del servidor.",
+      "addSuccess": "Usuario añadido correctamente.",
+      "addError": "Error al añadir el usuario.",
+      "revokeSuccess": "Acceso revocado correctamente.",
+      "revokeError": "Error al revocar el acceso."
+    },
+    "database": {
+      "title": "Bases de Datos",
+      "description": "Gestiona las bases de datos para este servidor.",
+      "newDb": "Nueva Base de Datos",
+      "createDialog": {
+        "title": "Crear Nueva Base de Datos",
+        "nameLabel": "Nombre de la Base de Datos",
+        "namePlaceholder": "Nombre de la Base de Datos",
+        "hostLabel": "Host de la Base de Datos",
+        "hostPlaceholder": "Selecciona un host",
+        "hostLocal": "Panel (localhost)",
+        "hostRemote": "Servidor MySQL Remoto",
+        "createButton": "Crear Base de Datos",
+        "createSuccess": "Base de datos creada correctamente.",
+        "createError": "Error al crear la base de datos."
+      },
+      "deleteConfirm": "¿Estás seguro de que deseas eliminar esta base de datos? Se borrarán todos los datos permanentemente.",
+      "deleteSuccess": "Base de datos eliminada correctamente.",
+      "deleteError": "Error al eliminar la base de datos.",
+      "table": {
+        "name": "Nombre",
+        "user": "Usuario",
+        "connections": "Conexiones desde",
+        "size": "Tamaño"
+      },
+      "anyHost": "% (Cualquier Host)",
+      "empty": "No hay bases de datos creadas para este servidor."
+    },
+    "backups": {
+      "title": "Copia de seguridad",
+      "description": "{{count}} copias de seguridad",
+      "create": "Crear copia de seguridad",
+      "createDialog": {
+        "title": "Crear copia de seguridad",
+        "nameLabel": "Nombre",
+        "namePlaceholder": "Nombre de la copia de seguridad",
+        "createButton": "Crear copia de seguridad",
+        "success": "La copia de seguridad se ha creado correctamente.",
+        "error": "Error al crear la copia de seguridad."
+      },
+      "restore": {
+        "button": "Restaurar",
+        "confirm": "¿Estás seguro de que deseas restaurar esta copia de seguridad? Se sobrescribirán todos los archivos actuales.",
+        "success": "La restauración de la copia de seguridad ha comenzado.",
+        "error": "Error al restaurar la copia de seguridad."
+      },
+      "delete": {
+        "button": "Eliminar",
+        "confirm": "¿Estás seguro de que deseas eliminar esta copia de seguridad?",
+        "success": "Copia de seguridad eliminada correctamente.",
+        "error": "Error al eliminar la copia de seguridad."
+      },
+      "download": "Descargar",
+      "empty": {
+        "title": "No hay copias de seguridad",
+        "description": "Crea tu primer backup para comenzar."
+      }
+    },
+    "plugins": {
+      "title": "Plugins",
+      "description": "{{count}} plugins instalados",
+      "searchPlaceholder": "Buscar en Modrinth (plugins, mods...)",
+      "searchButton": "Buscar",
+      "tabs": {
+        "installed": "Instalados",
+        "marketplace": "Marketplace"
+      },
+      "marketplace": {
+        "title": "Mercado de Modrinth",
+        "description": "Busca e instala plugins y mods directamente desde Modrinth.",
+        "install": "Instalar",
+        "installing": "Instalando...",
+        "installed": "Instalado",
+        "downloads": "Descargas",
+        "author": "Autor",
+        "version": "Versión"
+      },
+      "installed": {
+        "title": "Plugins Instalados",
+        "description": "Gestiona los plugins que ya están en tu servidor.",
+        "uninstall": "Eliminar",
+        "uninstallConfirm": "¿Estás seguro de que deseas eliminar este plugin?",
+        "size": "Tamaño"
+      },
+      "empty": {
+        "title": "No hay plugins",
+        "description": "No se encontraron plugins con ese nombre."
+      },
+      "notifications": {
+        "installSuccess": "Plugin {{name}} instalado correctamente. Reinicia el servidor para aplicar cambios.",
+        "installError": "Error al instalar el plugin.",
+        "uninstallSuccess": "Plugin eliminado correctamente.",
+        "uninstallError": "Error al eliminar el plugin."
+      }
+    },
+    "admin": {
+      "title": "Administración",
+      "description": "Realiza acciones administrativas críticas. Estas operaciones pueden afectar la configuración y los datos del servidor.",
+      "editDefinition": {
+        "title": "Editar Definición del Servidor",
+        "description": "Modifica los detalles fundamentales del servidor.",
+        "button": "Editar Definición",
+        "success": "Definición guardada correctamente"
+      },
+      "installStatus": {
+        "title": "Estado de la Instalación",
+        "description": "Dispara el proceso de instalación o reinstalación del servidor.",
+        "button": "Instalar",
+        "success": "El proceso de instalación ha comenzado."
+      },
+      "delete": {
+        "title": "Eliminar Servidor",
+        "description": "Esta acción es permanente. Se borrarán todos los archivos y datos del servidor.",
+        "button": "Eliminar",
+        "success": "El servidor ha sido eliminado correctamente."
+      },
+      "deleteDialog": {
+        "title": "¿Estás absolutamente seguro?",
+        "description": "Esta acción no se puede deshacer. Esto eliminará permanentemente el servidor y todos sus datos de la plataforma.",
+        "cancel": "Cancelar",
+        "confirm": "Sí, eliminar servidor"
+      }
+    },
+    "resourceChart": {
+      "title": "Resumen de Recursos",
+      "description": "Instantánea actual de la utilización de recursos."
+    }
+  },
+  "users": {
+    "title": "Gestión de Usuarios",
+    "description": "Crea, visualiza y gestiona las cuentas de usuario y sus permisos.",
+    "addUser": "Añadir Usuario",
+    "allUsers": "Todos los Usuarios",
+    "addDialog": {
+      "title": "Añadir Nuevo Usuario",
+      "description": "Rellena los detalles para crear una nueva cuenta de usuario.",
+      "nameLabel": "Nombre",
+      "namePlaceholder": "Nuevo Usuario",
+      "emailLabel": "Correo electrónico",
+      "emailPlaceholder": "usuario@ejemplo.com",
+      "passwordLabel": "Contraseña",
+      "passwordPlaceholder": "********",
+      "roleLabel": "Rol",
+      "rolePlaceholder": "Selecciona un rol",
+      "roleAdmin": "Administrador",
+      "roleUser": "Usuario",
+      "cancel": "Cancelar",
+      "create": "Crear Usuario"
+    },
+    "editDialog": {
+      "title": "Editar Usuario",
+      "description": "Actualizar detalles para {{name}}.",
+      "nameLabel": "Nombre",
+      "emailLabel": "Correo electrónico",
+      "roleLabel": "Rol",
+      "rolePlaceholder": "Selecciona un rol",
+      "roleAdmin": "Administrador",
+      "roleUser": "Usuario",
+      "cancel": "Cancelar",
+      "save": "Guardar Cambios"
+    },
+    "serversDialog": {
+      "title": "Servidores de {{name}}",
+      "description": "Este usuario tiene acceso a los siguientes servidores.",
+      "noServers": "Este usuario no está asignado a ningún servidor.",
+      "close": "Cerrar"
+    },
+    "table": {
+      "user": "Usuario",
+      "role": "Rol",
+      "assignedServers": "Servidores Asignados",
+      "actions": "Acciones",
+      "serversCount": "{{count}} servidores"
+    },
+    "actions": {
+      "menuLabel": "Acciones",
+      "edit": "Editar",
+      "viewServers": "Ver Servidores",
+      "delete": "Eliminar"
+    }
+  },
+  "roles": {
+    "title": "Gestión de Roles",
+    "description": "Ver detalles y permisos para cada rol de usuario.",
+    "addRole": "Añadir Rol",
+    "addDialog": {
+      "title": "Añadir Nuevo Rol",
+      "description": "Crear un nuevo rol y asignar permisos.",
+      "nameLabel": "Nombre",
+      "namePlaceholder": "p. ej., desarrollador",
+      "descriptionLabel": "Descripción",
+      "descriptionPlaceholder": "Una breve descripción del rol.",
+      "permissionsLabel": "Permisos",
+      "cancel": "Cancelar",
+      "create": "Crear Rol"
+    },
+    "deleteDialog": {
+      "title": "¿Estás seguro?",
+      "description": "Esto eliminará permanentemente el rol. Los usuarios asignados a este rol no se pueden eliminar hasta que los reasignes."
+    },
+    "availableRoles": "Roles Disponibles",
+    "table": {
+      "role": "Rol",
+      "description": "Descripción",
+      "permissions": "Permisos"
+    },
+    "initial": {
+      "admin": {
+        "description": "Acceso total a todas las funciones y configuraciones del panel."
+      },
+      "user": {
+        "description": "Acceso básico para iniciar sesión y gestionar su propia cuenta."
+      }
+    },
+    "permissionGroups": {
+      "general": "General",
+      "nodes": "Nodos",
+      "servers": "Servidores",
+      "serverConsole": "Consola",
+      "serverManagement": "Gestión del Servidor",
+      "serverFiles": "Archivos y SFTP",
+      "serverBackups": "Copias de Seguridad",
+      "serverUsers": "Usuarios y Clientes",
+      "serverAdmin": "Administración",
+      "serverMisc": "Varios del Servidor",
+      "templates": "Plantillas",
+      "users": "Usuarios",
+      "other": "Otros"
+    }
+  },
+  "permissions": {
+    "admin": "Acceso Total de Administrador",
+    "login": "Iniciar Sesión",
+    "oauth2": {
+      "auth": "Administrar Autorización OAuth2"
+    },
+    "nodes": {
+      "view": "Ver Nodos",
+      "create": "Crear Nodos",
+      "edit": "Editar Nodos",
+      "delete": "Eliminar Nodos",
+      "deploy": "Desplegar Nodos (Avanzado)"
+    },
+    "self": {
+      "edit": "Editar Propia Cuenta",
+      "clients": "Administrar Clientes OAuth2 Propios"
+    },
+    "server": {
+      "create": "Crear Nuevos Servidores",
+      "view": "Ver Servidores",
+      "delete": "Eliminar Servidores",
+      "name": { "edit": "Renombrar Servidores" },
+      "console": { "view": "Ver Consola", "send": "Enviar Comandos a Consola" },
+      "start": "Iniciar Servidor",
+      "stop": "Detener Servidor",
+      "kill": "Forzar Detención",
+      "reload": "Recargar Configuración",
+      "install": "Instalar/Reinstalar Servidor",
+      "definition": { "view": "Ver Definición", "edit": "Editar Definición" },
+      "data": { "view": "Ver Datos/Variables", "edit": { "admin": "Edición Admin (Transferencia)" } },
+      "flags": { "view": "Ver Flags", "edit": "Editar Flags" },
+      "tasks": { "view": "Ver Tareas", "run": "Ejecutar Tareas", "create": "Crear Tareas", "edit": "Editar Tareas", "delete": "Eliminar Tareas" },
+      "files": { "view": "Ver/Leer Archivos", "edit": "Editar/Escribir/Eliminar" },
+      "sftp": "Acceso SFTP",
+      "backup": { "view": "Ver/Descargar Copias", "create": "Crear Copias", "restore": "Restaurar Copias", "delete": "Eliminar Copias" },
+      "users": { "view": "Ver Usuarios", "create": "Añadir Usuarios", "edit": "Editar Permisos", "delete": "Eliminar Usuarios" },
+      "clients": { "view": "Ver Clientes OAuth2", "edit": "Editar Clientes OAuth2", "create": "Crear Clientes OAuth2", "delete": "Eliminar Clientes OAuth2" },
+      "stats": "Ver Estadísticas",
+      "status": "Ver Estado",
+      "admin": "Acceso Admin Completo",
+      "adminSection": {
+        "view": "Ver Sección de Administración",
+        "installView": "Ver Sección de Instalación",
+        "installManage": "Gestionar Instalación",
+        "transferView": "Ver Sección de Transferencias",
+        "transferManage": "Gestionar Transferencias",
+        "configView": "Ver Sección de Configuración",
+        "configManage": "Gestionar Configuración",
+        "assignmentsView": "Ver Sección de Asignaciones",
+        "assignmentsManage": "Gestionar Asignaciones"
+      }
+    },
+    "settings": {
+      "edit": "Editar Configuración Global del Panel"
+    },
+    "templates": {
+      "view": "Ver Plantillas",
+      "local": {
+        "edit": "Administrar Plantillas Locales"
+      },
+      "repo": {
+        "create": "Añadir Repositorios de Plantillas",
+        "delete": "Eliminar Repositorios de Plantillas"
+      }
+    },
+    "users": {
+      "info": {
+        "search": "Buscar Usuarios",
+        "view": "Ver Información de Usuarios",
+        "edit": "Editar Información de Usuarios"
+      },
+      "perms": {
+        "view": "Ver Permisos de Usuarios",
+        "edit": "Editar Permisos de Usuarios"
+      }
+    },
+    "uptime": {
+      "view": "Ver Estado de Actividad"
+    },
+    "panel": "Acceder al Panel"
+  },
+  "nodes": {
+    "title": "Gestión de Nodos",
+    "description": "Gestiona todos los nodos de despliegue para tus servidores.",
+    "addNode": "Añadir Nodo",
+    "addDialog": {
+      "title": "Crear Nodo",
+      "nameLabel": "Nombre",
+      "namePlaceholder": "Nombre",
+      "publicHostLabel": "Anfitrión público",
+      "publicHostPlaceholder": "Anfitrión público",
+      "publicPortLabel": "Puerto público",
+      "sftpPortLabel": "Puerto SFTP",
+      "useDifferentHostLabel": "Usar un host/puerto diferente para la comunicación entre servidores",
+      "useDifferentHostDescription": "Esta dirección separada se utiliza cuando el nodo principal necesita comunicarse con el nuevo nodo. Esto es útil por ejemplo cuando los nodos están en la misma red detrás de NAT.",
+      "privateHostLabel": "Anfitrión Privado",
+      "privateHostPlaceholder": "Anfitrión Privado",
+      "privatePortLabel": "Puerto Privado",
+      "createButton": "Crear Nodo"
+    },
+    "allNodes": "Todos los Nodos",
+    "table": {
+      "name": "Nombre",
+      "location": "Ubicación",
+      "status": "Estado",
+      "actions": "Acciones"
+    },
+    "actions": {
+      "edit": "Editar",
+      "deploy": "Desplegar",
+      "delete": "Eliminar"
+    },
+    "editDialog": {
+      "title": "Editar Nodo",
+      "cancel": "Cancelar",
+      "save": "Guardar Cambios"
+    },
+    "deployDialog": {
+      "title": "Desplegar Nodo: {{name}}",
+      "description": "Sigue estos pasos para configurar y conectar tu nuevo nodo.",
+      "step1": "Paso 1: Instala AetherPanel en el nuevo servidor.",
+      "step1Description": "Consulta la documentación para más detalles.",
+      "step2": "Paso 2: Detén el servicio de AetherPanel.",
+      "step2Description": "Si se inició durante la instalación, ejecuta el siguiente comando:",
+      "step3": "Paso 3: Reemplaza el archivo de configuración.",
+      "step3Description": "El archivo se encuentra en <code>/etc/AetherPanel/config.json</code>. Reemplaza su contenido con lo siguiente:",
+      "step4": "Paso 4: Habilita y reinicia el servicio.",
+      "step4Description": "Ejecuta el siguiente comando para completar la configuración:",
+      "successMessage": "¡Tu nuevo nodo está configurado y listo para usar!",
+      "close": "Cerrar"
+    },
+    "detail": {
+      "totalServers": "Total de Servidores",
+      "serverStatus": "Estado de Servidores",
+      "online": "{{count}} en línea",
+      "offline": "{{count}} fuera de línea",
+      "memoryUsage": "Uso de Memoria",
+      "of": "de",
+      "cpuUsage": "Uso de CPU",
+      "successAlertTitle": "Este nodo está configurado correctamente y en funcionamiento",
+      "systemInfo": {
+        "title": "Información del Sistema",
+        "os": "Sistema Operativo",
+        "arch": "Arquitectura de la CPU",
+        "version": "Versión",
+        "publicAddress": "Dirección Pública",
+        "environments": "Entornos Disponibles",
+        "general": "General",
+        "hostname": "Nombre del Host",
+        "platform": "Plataforma",
+        "uptime": "Tiempo Activo",
+        "cpu": "CPU",
+        "model": "Modelo",
+        "physicalCores": "Núcleos Físicos",
+        "logicalCores": "Hilos Lógicos",
+        "memory": "Memoria",
+        "total": "Total",
+        "used": "Usado",
+        "free": "Libre"
+      },
+      "disks": {
+        "title": "Discos"
+      },
+      "serversOnNode": {
+        "title": "Servers en este Nodo",
+        "view": "Ver",
+        "empty": "No hay servidores en este nodo."
+      },
+      "editNode": {
+        "title": "Editar Nodo",
+        "localNodeAlertTitle": "No se puede editar",
+        "localNodeAlertDescription": "El nodo local no tiene ninguna configuración que se pueda editar. Para cambiar el host mostrado, ajusta la URL maestra del panel en la configuración.",
+        "nameLabel": "Nombre",
+        "publicHostLabel": "Anfitrión público",
+        "publicPortLabel": "Puerto público",
+        "sftpPortLabel": "Puerto SFTP",
+        "updateButton": "Actualizar Nodo",
+        "deleteButton": "Borrar Nodo",
+        "deployButton": "Desplegar Nodo"
+      }
+    }
+  },
+  "databaseHosts": {
+    "title": "Hosts de Bases de Datos",
+    "description": "Gestiona todas las conexiones a los hosts de bases de datos.",
+    "addHost": "Añadir Host",
+    "table": {
+      "name": "Nombre",
+      "host": "Host",
+      "port": "Puerto",
+      "username": "Usuario",
+      "linkedNode": "Nodo Vinculado",
+      "actions": "Acciones"
+    },
+    "availableHosts": "Hosts Disponibles",
+    "addDialog": {
+      "title": "Añadir Nuevo Host de Base de Datos",
+      "description": "Sigue los pasos para conectar un nuevo host de base de datos.",
+      "stepper": {
+        "credentials": "Credenciales",
+        "instructions": "Instrucciones",
+        "config": "Configuración"
+      },
+      "step1": {
+        "alertTitle": "Información",
+        "alertDescription1": "Actualmente, solo se admiten bases de datos MySQL/MariaDB para hosts de bases de datos.",
+        "alertDescription2": "¿El panel y la base de datos no están en el mismo servidor? Asegúrate de permitir acceso externo.",
+        "userLabel": "Usuario",
+        "userDescription": "El nombre de usuario de una cuenta que tenga permisos suficientes para crear nuevos usuarios y bases de datos en el sistema.",
+        "passwordLabel": "Contraseña",
+        "passwordDescription": "La contraseña para el usuario de la base de datos."
+      },
+      "step2": {
+        "instructionsTitle": "Instrucciones",
+        "userTitle": "Usuario de Base de Datos",
+        "userDescription": "Usa <code>mysql -u root -p</code> para acceder a la CLI de mysql.",
+        "createUserCommandTitle": "Comando para crear el usuario",
+        "grantPermissionsCommandTitle": "Comando para asignar permisos",
+        "exitMysql": "Para salir de la CLI de mysql ejecuta <code>exit</code>.",
+        "externalAccessTitle": "Acceso Externo",
+        "externalAccessDescription1": "Es probable que necesites permitir acceso externo a esta instancia de MySQL. Localiza tu archivo <code>my.cnf</code> (puedes usar <code>find /etc -iname my.cnf</code>).",
+        "externalAccessDescription2": "Abre <code>my.cnf</code>, agrega el texto de abajo al final del archivo y guárdalo:",
+        "externalAccessDescription3": "Reinicia MySQL/MariaDB para aplicar los cambios. Asegúrate de permitir el puerto de MySQL (por defecto 3306) en tu firewall.",
+        "copyToast": "Comando copiado al portapapeles"
+      },
+      "step3": {
+        "hostNameLabel": "Nombre del Host",
+        "hostNameDescription": "Un nombre único para identificar este host en el panel.",
+        "hostNamePlaceholder": "p.ej., BD Local",
+        "connectionHostLabel": "Host de Conexión",
+        "connectionHostDescription": "La dirección IP o nombre de dominio que debe usarse al intentar conectarse a este host MySQL desde este Panel.",
+        "portLabel": "Puerto",
+        "portDescription": "El puerto en el que se está ejecutando MySQL para este host.",
+        "dbLimitLabel": "Límite de Bases de Datos",
+        "dbLimitDescription": "Número máximo de bases de datos. Dejar en blanco o 0 para ilimitado.",
+        "linkedNodesLabel": "Nodos Vinculados",
+        "linkedNodesPlaceholder": "Ninguno",
+        "linkedNodesDescription": "Esta configuración solo establece este host de base de datos como predeterminado."
+      },
+      "buttons": {
+        "cancel": "Cancelar",
+        "next": "Siguiente",
+        "back": "Atrás",
+        "create": "Crear Host"
+      }
+    }
+  },
+  "templates": {
+    "title": "Gestión de Plantillas",
+    "description": "Selecciona una plantilla para crear un nuevo servidor.",
+    "create": "Crear Plantilla",
+    "use": "Usar Plantilla",
+    "categories": {
+      "web": "Web",
+      "game": "Juego",
+      "bot": "Bot",
+      "other": "Otro",
+      "NoGroup": "Sin Grupo"
+    }
+  },
+  "common": {
+    "copied": "Copiado al portapapeles",
+    "copy": "Copiar",
+    "loading": "Cargando...",
+    "cancel": "Cancelar",
+    "close": "Cerrar",
+    "success": "Éxito",
+    "error": "Error",
+    "save": "Guardar",
+    "confirmDelete": "¿Estás seguro de que deseas eliminar este elemento?"
+  },
+  "settings": {
+    "title": "Configuración del Panel",
+    "description": "Administra la configuración global de tu instancia de Aether Panel.",
+    "saveSuccess": "Configuración guardada correctamente",
+    "tabs": {
+      "general": "General",
+      "discord": "Notificaciones Discord",
+      "mail": "Correo"
+    },
+    "general": {
+      "title": "Configuración General",
+      "description": "Ajusta la configuración principal de la aplicación.",
+      "baseUrlLabel": "URL Principal",
+      "baseUrlDescription": "El enlace desde el cual accederás al panel de control siguiendo el siguiente formato: http://localhost:8080",
+      "companyNameLabel": "Nombre de la empresa",
+      "geminiApiKeyLabel": "Clave API de Gemini",
+      "geminiApiKeyPlaceholder": "Introduce tu clave API de Gemini",
+      "geminiApiKeyDescription": "Introduce tu clave API de Google Gemini para habilitar las funciones de inteligencia artificial.",
+      "hideAiAnalysisLabel": "Ocultar Análisis IA de la Consola",
+      "hideAiAnalysisDescription": "Si se activa, se ocultará la función de análisis de la consola por IA para todos los servidores.",
+      "allowRegistrationLabel": "Permitir que los usuarios se puedan registrar",
+      "allowRegistrationDescription": "Los usuarios autorregistrados no pueden realizar ninguna acción hasta que se les otorguen permisos. Deshabilitar esto solo impide el registro directo, las invitaciones a un servidor y la página de Usuarios no se ven afectadas.",
+      "saveButton": "Guardar configuración"
+    },
+    "discord": {
+      "title": "Notificaciones Discord",
+      "description": "Conecta webhooks de Discord para recibir alertas y notificaciones del sistema.",
+      "alertsWebhookLabel": "Webhook de Discord - Alertas de Servidores",
+      "alertsWebhookPlaceholder": "Webhook de Discord - Alertas de Servidores",
+      "alertsWebhookDescription": "URL del webhook de Discord para recibir alertas de servidores (online/offline, uso de recursos, backups, etc.)",
+      "reportsWebhookLabel": "Webhook de Discord - Informes del Sistema",
+      "reportsWebhookPlaceholder": "Webhook de Discord - Informes del Sistema",
+      "reportsWebhookDescription": "URL del webhook de Discord para recibir informes periódicos del estado completo del sistema",
+      "statusWebhookLabel": "Webhook de Discord - Estado del Nodo",
+      "statusWebhookPlaceholder": "Webhook de Discord - Estado del Nodo",
+      "statusWebhookDescription": "URL del webhook de Discord para recibir información sobre el estado del nodo/nodos",
+      "testButton": "Probar Webhook",
+      "testSuccess": "Mensaje de prueba enviado correctamente a Discord",
+      "saveButton": "Guardar configuración"
+    },
+    "mail": {
+      "title": "Configuración del correo",
+      "description": "Configura un proveedor para enviar correos transaccionales.",
+      "providerLabel": "Proveedor de e-mail",
+      "providerPlaceholder": "Selecciona un proveedor",
+      "providerDescription": "Selecciona el proveedor de correo electrónico que deseas usar para enviar emails desde el panel",
+      "selectProviderPrompt": "Selecciona un proveedor de correo electrónico para ver las opciones de configuración",
+      "smtp": {
+        "fromLabel": "Dirección del remitente",
+        "fromPlaceholder": "no-reply@aether.panel",
+        "hostLabel": "Host",
+        "hostPlaceholder": "smtp.example.com",
+        "userLabel": "Usuario",
+        "userPlaceholder": "Usuario SMTP",
+        "passLabel": "Contraseña",
+        "passPlaceholder": "••••••••"
+      },
+      "mailgun": {
+        "domainLabel": "Dominio",
+        "domainPlaceholder": "mg.example.com",
+        "fromLabel": "Dirección del remitente",
+        "fromPlaceholder": "no-reply@aether.panel",
+        "keyLabel": "Clave API",
+        "keyPlaceholder": "••••••••"
+      },
+      "mailjet": {
+        "domainLabel": "Dominio",
+        "domainPlaceholder": "example.com",
+        "fromLabel": "Dirección del remitente",
+        "fromPlaceholder": "no-reply@aether.panel",
+        "keyLabel": "Clave API",
+        "keyPlaceholder": "••••••••"
+      },
+      "testButton": "Email de prueba",
+      "testSuccess": "Email de prueba enviado correctamente",
+      "saveButton": "Guardar configuración"
+    }
+  }
+}

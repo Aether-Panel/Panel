@@ -30,7 +30,9 @@ servers/*
 !servers/tty/
 
 # Otros datos
+storage/
 binaries/
+web/tests/binaries/
 cache/
 backups/
 logs/

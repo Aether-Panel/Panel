@@ -3,9 +3,9 @@ package files
 import (
 	"archive/tar"
 	"errors"
+	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/klauspost/compress/zip"
 	"github.com/mholt/archiver/v3"
-	"github.com/SkyPanel/SkyPanel/v3/utils"
 	"io"
 	"os"
 	"path/filepath"
@@ -84,9 +84,24 @@ func Compress(fs FileServer, targetFile string, files []string) error {
 
 		targetFile = filepath.Join(p, targetFile)
 
-		for k, v := range files {
-			files[k] = filepath.Join(p, v)
+		var expandedFiles []string
+		for _, v := range files {
+			fullPath := filepath.Join(p, v)
+			if strings.Contains(v, "*") {
+				matches, _ := filepath.Glob(fullPath)
+				for _, match := range matches {
+					// Don't include the target file itself if it's in the list
+					if match != targetFile {
+						expandedFiles = append(expandedFiles, match)
+					}
+				}
+			} else {
+				if fullPath != targetFile {
+					expandedFiles = append(expandedFiles, fullPath)
+				}
+			}
 		}
+		files = expandedFiles
 	}
 
 	return archiver.Archive(files, targetFile)

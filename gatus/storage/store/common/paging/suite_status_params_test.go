@@ -85,7 +85,7 @@ func TestSuiteStatusParams_WithPagination(t *testing.T) {
 func TestSuiteStatusParams_ChainedMethods(t *testing.T) {
 	params := NewSuiteStatusParams().
 		WithPagination(3, 100)
-	
+
 	if params.Page != 3 {
 		t.Errorf("expected Page to be 3, got %d", params.Page)
 	}
@@ -96,13 +96,13 @@ func TestSuiteStatusParams_ChainedMethods(t *testing.T) {
 
 func TestSuiteStatusParams_OverwritePagination(t *testing.T) {
 	params := NewSuiteStatusParams()
-	
+
 	// Set initial pagination
 	params.WithPagination(2, 50)
 	if params.Page != 2 || params.PageSize != 50 {
 		t.Error("initial pagination not set correctly")
 	}
-	
+
 	// Overwrite pagination
 	params.WithPagination(5, 200)
 	if params.Page != 5 {
@@ -115,7 +115,7 @@ func TestSuiteStatusParams_OverwritePagination(t *testing.T) {
 
 func TestSuiteStatusParams_ReturnsSelf(t *testing.T) {
 	params := NewSuiteStatusParams()
-	
+
 	// Verify WithPagination returns the same instance
 	result := params.WithPagination(1, 20)
 	if result != params {

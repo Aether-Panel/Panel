@@ -19,6 +19,7 @@ Bienvenido a la documentación oficial de Aether Panel. Aquí encontrará toda l
 *   [07. Sistema de Plantillas](./07-templates.md): Cómo crear y modificar plantillas de instalación de juegos.
 *   [08. Monitoreo (Gatus)](./08-monitoring.md): Configuración del sistema de monitoreo de estado.
 *   [11. Referencia de API](./11-api-reference.md): Documentación técnica para la integración con la API RESTful.
+*   [Solución de Problemas (Troubleshooting)](./troubleshooting.md): Guía de soluciones para Ubuntu 24, rutas y errores comunes.
 
 ### Docker
 *   [Referencia Rápida de Docker](./DOCKER-QUICKREF.md): Comandos esenciales para entornos Docker.

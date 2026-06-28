@@ -1,0 +1,43 @@
+run:
+  timeout: 8m
+  go: "1.24"
+
+linters:
+  disable-all: true
+  enable:
+    - govet
+    - errcheck
+    - ineffassign
+    - typecheck
+    - gosimple
+    - staticcheck
+
+
+linters-settings:
+  govet:
+    enable-all: false
+  errcheck:
+    check-type-assertions: false
+    check-blank: false
+
+issues:
+  max-issues-per-linter: 30
+  max-same-issues: 3
+
+  # Exclude vendored/generated directories (v1.57+ syntax)
+  exclude-dirs:
+    - gatus
+    - docs
+    - vendor
+    - basura_o_desconocido
+
+  exclude-files:
+    - "web/swagger/docs.go"
+
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck
+    - path: tools/
+      linters:
+        - errcheck

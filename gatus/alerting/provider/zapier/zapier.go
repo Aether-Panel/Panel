@@ -97,21 +97,20 @@ func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, r
 }
 
 type Body struct {
-	AlertType        string            `json:"alert_type"`
-	Status           string            `json:"status"`
-	Endpoint         string            `json:"endpoint"`
-	Group            string            `json:"group,omitempty"`
-	Message          string            `json:"message"`
-	Description      string            `json:"description,omitempty"`
-	Timestamp        string            `json:"timestamp"`
-	SuccessThreshold int               `json:"success_threshold,omitempty"`
-	FailureThreshold int               `json:"failure_threshold,omitempty"`
+	AlertType        string                      `json:"alert_type"`
+	Status           string                      `json:"status"`
+	Endpoint         string                      `json:"endpoint"`
+	Group            string                      `json:"group,omitempty"`
+	Message          string                      `json:"message"`
+	Description      string                      `json:"description,omitempty"`
+	Timestamp        string                      `json:"timestamp"`
+	SuccessThreshold int                         `json:"success_threshold,omitempty"`
+	FailureThreshold int                         `json:"failure_threshold,omitempty"`
 	ConditionResults []*endpoint.ConditionResult `json:"condition_results,omitempty"`
-	TotalConditions  int               `json:"total_conditions"`
-	PassedConditions int               `json:"passed_conditions"`
-	FailedConditions int               `json:"failed_conditions"`
+	TotalConditions  int                         `json:"total_conditions"`
+	PassedConditions int                         `json:"passed_conditions"`
+	FailedConditions int                         `json:"failed_conditions"`
 }
-
 
 // buildRequestBody builds the request body for the provider
 func (provider *AlertProvider) buildRequestBody(ep *endpoint.Endpoint, alert *alert.Alert, result *endpoint.Result, resolved bool) ([]byte, error) {

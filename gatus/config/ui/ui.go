@@ -10,16 +10,16 @@ import (
 )
 
 const (
-	defaultTitle                = "Aether Panel - Uptime Monitor"
-	defaultDescription          = "Aether Panel es un panel de administración avanzado con monitoreo de uptime en tiempo real para tus servidores y aplicaciones"
-	defaultHeader               = "Aether Panel"
-	defaultDashboardHeading     = "Monitor de Tiempo de Actividad"
-	defaultDashboardSubheading  = "Monitorea el estado de tus servidores y servicios en tiempo real"
-	defaultLogo                 = ""
-	defaultLink                 = ""
-	defaultCustomCSS            = ""
-	defaultSortBy               = "name"
-	defaultFilterBy             = "none"
+	defaultTitle               = "Aether Panel - Uptime Monitor"
+	defaultDescription         = "Aether Panel es un panel de administración avanzado con monitoreo de uptime en tiempo real para tus servidores y aplicaciones"
+	defaultHeader              = "Aether Panel"
+	defaultDashboardHeading    = "Monitor de Tiempo de Actividad"
+	defaultDashboardSubheading = "Monitorea el estado de tus servidores y servicios en tiempo real"
+	defaultLogo                = ""
+	defaultLink                = ""
+	defaultCustomCSS           = ""
+	defaultSortBy              = "name"
+	defaultFilterBy            = "none"
 )
 
 var (
@@ -32,18 +32,18 @@ var (
 
 // Config is the configuration for the UI of Gatus
 type Config struct {
-	Title                   string   `yaml:"title,omitempty"`                  // Title of the page
-	Description             string   `yaml:"description,omitempty"`            // Meta description of the page
-	DashboardHeading        string   `yaml:"dashboard-heading,omitempty"`      // Dashboard Title between header and endpoints
-	DashboardSubheading     string   `yaml:"dashboard-subheading,omitempty"`   // Dashboard Description between header and endpoints
-	Header                  string   `yaml:"header,omitempty"`                 // Header is the text at the top of the page
-	Logo                    string   `yaml:"logo,omitempty"`                   // Logo to display on the page
-	Link                    string   `yaml:"link,omitempty"`                   // Link to open when clicking on the logo
-	Buttons                 []Button `yaml:"buttons,omitempty"`                // Buttons to display below the header
-	CustomCSS               string   `yaml:"custom-css,omitempty"`             // Custom CSS to include in the page
-	DarkMode                *bool    `yaml:"dark-mode,omitempty"`              // DarkMode is a flag to enable dark mode by default
-	DefaultSortBy           string   `yaml:"default-sort-by,omitempty"`        // DefaultSortBy is the default sort option ('name', 'group', 'health')
-	DefaultFilterBy         string   `yaml:"default-filter-by,omitempty"`      // DefaultFilterBy is the default filter option ('none', 'failing', 'unstable')
+	Title               string   `yaml:"title,omitempty"`                // Title of the page
+	Description         string   `yaml:"description,omitempty"`          // Meta description of the page
+	DashboardHeading    string   `yaml:"dashboard-heading,omitempty"`    // Dashboard Title between header and endpoints
+	DashboardSubheading string   `yaml:"dashboard-subheading,omitempty"` // Dashboard Description between header and endpoints
+	Header              string   `yaml:"header,omitempty"`               // Header is the text at the top of the page
+	Logo                string   `yaml:"logo,omitempty"`                 // Logo to display on the page
+	Link                string   `yaml:"link,omitempty"`                 // Link to open when clicking on the logo
+	Buttons             []Button `yaml:"buttons,omitempty"`              // Buttons to display below the header
+	CustomCSS           string   `yaml:"custom-css,omitempty"`           // Custom CSS to include in the page
+	DarkMode            *bool    `yaml:"dark-mode,omitempty"`            // DarkMode is a flag to enable dark mode by default
+	DefaultSortBy       string   `yaml:"default-sort-by,omitempty"`      // DefaultSortBy is the default sort option ('name', 'group', 'health')
+	DefaultFilterBy     string   `yaml:"default-filter-by,omitempty"`    // DefaultFilterBy is the default filter option ('none', 'failing', 'unstable')
 	//////////////////////////////////////////////
 	// Non-configurable - used for UI rendering //
 	//////////////////////////////////////////////

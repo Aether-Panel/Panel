@@ -1,0 +1,10 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { NodeDetail } from "@/components/PageWrappers";
+
+const id = Astro.url.searchParams.get("id") || "";
+---
+
+<BaseLayout title={`Node Detail - Aether Panel`}>
+    <NodeDetail id={id} client:only="react" />
+</BaseLayout>

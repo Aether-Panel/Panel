@@ -157,7 +157,6 @@ func TestShouldRunPingerAsPrivileged(t *testing.T) {
 	}
 }
 
-
 func TestCanPerformStartTLS(t *testing.T) {
 	type args struct {
 		address     string

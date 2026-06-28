@@ -1,0 +1,8 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { Servers } from "@/components/PageWrappers";
+---
+
+<BaseLayout title="Servers - Aether Panel">
+  <Servers client:only="react" />
+</BaseLayout>

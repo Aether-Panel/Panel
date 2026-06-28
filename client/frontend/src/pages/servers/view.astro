@@ -1,0 +1,10 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { ServerDetail } from "@/components/PageWrappers";
+
+const id = Astro.url.searchParams.get("id") || "";
+---
+
+<BaseLayout title={`Server Detail - Aether Panel`}>
+    <ServerDetail id={id} client:only="react" />
+</BaseLayout>

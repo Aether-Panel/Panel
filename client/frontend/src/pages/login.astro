@@ -1,0 +1,8 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { Login as LoginWrapper } from "@/components/PageWrappers";
+---
+
+<BaseLayout title="Login - Aether Panel">
+  <LoginWrapper client:only="react" />
+</BaseLayout>

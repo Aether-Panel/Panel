@@ -5,13 +5,17 @@ ARG BUILDPLATFORM=linux/amd64
 FROM --platform=${BUILDPLATFORM} node:22-alpine AS node
 
 WORKDIR /build
-COPY client .
+# Optimización: Copiar archivos de dependencia (incluyendo workspaces) para cachear capas
+COPY client/package.json client/yarn.lock* ./
+COPY client/api/package.json ./api/
+COPY client/frontend/package.json ./frontend/
+RUN yarn install --frozen-lockfile
 
-RUN rm -rf /build/*/node_modules/ && \
-    rm -rf /build/*/dist/
+# Copiar el resto del código
+COPY client/ .
+RUN rm -rf node_modules/.cache
 
-RUN yarn install && \
-    yarn build
+RUN yarn build
 
 ARG BUILDPLATFORM=linux/amd64
 FROM --platform=${BUILDPLATFORM} tonistiigi/xx AS xx
@@ -39,13 +43,13 @@ COPY go.mod go.sum ./
 COPY gatus ./gatus
 RUN go mod download && go mod verify
 
-COPY . .
-
-# Instalar swag via go install para asegurar compatibilidad
+# Optimización: Instalar swag antes de copiar todo el código para cachear la descarga
 RUN go install github.com/swaggo/swag/cmd/swag@v1.16.4
 
+COPY . .
+
 # Ejecutar swag init desde el GOPATH/bin
-RUN /go/bin/swag init -o web/swagger -g web/loader.go
+RUN /go/bin/swag init -o internal/web/swagger -g internal/web/loader.go
 
 COPY --from=node /build/frontend/dist /build/SkyPanel/client/frontend/dist
 
@@ -53,7 +57,7 @@ ARG TARGETPLATFORM=linux/amd64
 ARG curseforgeKey=''
 
 RUN xx-apk add musl-dev gcc
-RUN xx-go build -buildvcs=false -tags "$tags" -ldflags "-X 'github.com/SkyPanel/SkyPanel/v3/config.curseforgeKey=$curseforgeKey' -X 'github.com/SkyPanel/SkyPanel/v3.Hash=$sha' -X 'github.com/SkyPanel/SkyPanel/v3.Version=$version'" -o /SkyPanel/SkyPanel github.com/SkyPanel/SkyPanel/v3/cmd
+RUN xx-go build -buildvcs=false -tags "$tags" -ldflags "-X 'github.com/SkyPanel/SkyPanel/v3/internal/config.curseforgeKey=$curseforgeKey' -X 'github.com/SkyPanel/SkyPanel/v3.Hash=$sha' -X 'github.com/SkyPanel/SkyPanel/v3.Version=$version'" -o /SkyPanel/SkyPanel github.com/SkyPanel/SkyPanel/v3/cmd/panel
 # RUN go test ./...
 RUN xx-verify /SkyPanel/SkyPanel
 
@@ -146,7 +150,7 @@ echo "Iniciando panel..."
 echo "Ejecutando: /SkyPanel/bin/SkyPanel run"
 exec /SkyPanel/bin/SkyPanel run
 EOF
-RUN chmod 755 /SkyPanel/bin/entrypoint.sh
+RUN chmod 755 /SkyPanel/bin/entrypoint.sh && sed -i 's/\r$//' /SkyPanel/bin/entrypoint.sh
 COPY --from=builder /build/SkyPanel/config.docker.json /etc/SkyPanel/config.json
 RUN chmod 644 /etc/SkyPanel/config.json
 COPY --from=builder /build/SkyPanel/client/frontend/dist /var/www/SkyPanel

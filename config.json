@@ -1,0 +1,62 @@
+{
+  "daemon": {
+    "data": {
+      "root": "/home/esteban/Descargas/pufferpanel/data"
+    },
+    "enable": true
+  },
+  "docker": {
+    "disallowhost": false,
+    "root": ""
+  },
+  "panel": {
+    "database": {
+      "dialect": "mysql",
+      "url": "esteban:2006@tcp(localhost:3306)/skypanel?charset=utf8mb4\u0026parseTime=true"
+    },
+    "email": {
+      "domain": "",
+      "from": "",
+      "host": "",
+      "key": "",
+      "password": "",
+      "provider": "mailgun",
+      "username": ""
+    },
+    "gatus": {
+      "enable": true
+    },
+    "license": {
+      "key": "3BPZ-YX4G-BL9J-QP53",
+      "serverid": "fedora",
+      "serverip": "0.0.0.0",
+      "status": "pro"
+    },
+    "notifications": {
+      "discordwebhook": "",
+      "discordwebhooknode": "",
+      "discordwebhooksystem": ""
+    },
+    "registrationenabled": true,
+    "security": {
+      "disableunshare": true
+    },
+    "sessionkey": "c0e64d829607b45b11737ef04a82df831f41a771a3ad68421f390806dfdb6739",
+    "settings": {
+      "companyname": "Aether Panels",
+      "defaulttheme": "SkyPanel",
+      "geminiapikey": "AIzaSyDHQLYQK0eZagz6S8tjtOQYuBYP0ygHsKk",
+      "hideaianalysis": false,
+      "masterurl": "http://0.0.0.0:8080",
+      "nodeip": "",
+      "themesettings": "{\"primary\":\"#000000\",\"background\":\"#000000\",\"foreground\":\"#000000\"}"
+    },
+    "token": "hbnUiN8bxGQ/Pyya/c3nUkWG/mImcPJj8Ad1OjNGKwM="
+  },
+  "templates": {
+    "url": "https://templates.aetherpanel.es/templates.json"
+  },
+  "web": {
+    "host": "0.0.0.0:8080"
+  }
+}

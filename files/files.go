@@ -1,7 +1,7 @@
 package files
 
 import (
-	"github.com/SkyPanel/SkyPanel/v3/utils"
+	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"io"
 	"os"
 	"path/filepath"

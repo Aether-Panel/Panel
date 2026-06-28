@@ -19,10 +19,10 @@ func SinglePageApplication(uiConfig *ui.Config) fiber.Handler {
 		if configPath == "" {
 			configPath = "config/config.yaml"
 		}
-		
+
 		// Usar el uiConfig pasado como parámetro por defecto
 		currentUIConfig := uiConfig
-		
+
 		// Intentar leer el config del archivo para obtener actualizaciones dinámicas
 		if _, err := os.Stat(configPath); err == nil {
 			cfg, err := config.LoadConfiguration(configPath)
@@ -31,7 +31,7 @@ func SinglePageApplication(uiConfig *ui.Config) fiber.Handler {
 				currentUIConfig = cfg.UI
 			}
 		}
-		
+
 		vd := ui.ViewData{UI: currentUIConfig}
 		{
 			themeFromCookie := string(c.Request().Header.Cookie("theme"))

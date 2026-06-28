@@ -1,0 +1,3922 @@
+definitions:
+  BrandingConfig:
+    properties:
+      name:
+        example: SkyPanel
+        type: string
+    type: object
+  ChangeMultipleSettings:
+    additionalProperties: true
+    type: object
+  CreatedServer:
+    properties:
+      data:
+        additionalProperties:
+          $ref: '#/definitions/Variable'
+        type: object
+      display:
+        type: string
+      environment:
+        $ref: '#/definitions/Metadata'
+      groups:
+        items:
+          $ref: '#/definitions/Group'
+        type: array
+      icon:
+        type: string
+      id:
+        type: string
+      install:
+        items:
+          $ref: '#/definitions/MetadataWithIf'
+        type: array
+      keepAlive:
+        $ref: '#/definitions/KeepAlive'
+      name:
+        type: string
+      node:
+        type: integer
+      query:
+        $ref: '#/definitions/Metadata'
+      requirements:
+        $ref: '#/definitions/Requirements'
+      run:
+        $ref: '#/definitions/Execution'
+      stats:
+        $ref: '#/definitions/Metadata'
+      supportedEnvironments:
+        items:
+          $ref: '#/definitions/Metadata'
+        type: array
+      type:
+        type: string
+      uninstall:
+        items:
+          $ref: '#/definitions/MetadataWithIf'
+        type: array
+      users:
+        items:
+          type: string
+        type: array
+    type: object
+  CreatedServerId:
+    properties:
+      id:
+        type: string
+    type: object
+  DaemonRunning:
+    properties:
+      message:
+        type: string
+    type: object
+  DatabaseCreate:
+    properties:
+      database_host_id:
+        type: integer
+      database_name:
+        type: string
+    required:
+    - database_host_id
+    - database_name
+    type: object
+  DatabaseHostCreate:
+    properties:
+      host:
+        type: string
+      max_databases:
+        type: integer
+      name:
+        type: string
+      node_id:
+        type: integer
+      password:
+        type: string
+      port:
+        type: integer
+      username:
+        type: string
+    required:
+    - host
+    - name
+    - password
+    - port
+    - username
+    type: object
+  DatabaseHostUpdate:
+    properties:
+      host:
+        type: string
+      max_databases:
+        type: integer
+      name:
+        type: string
+      node_id:
+        type: integer
+      password:
+        type: string
+      port:
+        type: integer
+      username:
+        type: string
+    required:
+    - host
+    - name
+    - port
+    - username
+    type: object
+  DatabaseHostView:
+    properties:
+      created_at:
+        type: string
+      host:
+        type: string
+      id:
+        type: integer
+      max_databases:
+        type: integer
+      name:
+        type: string
+      node_id:
+        type: integer
+      port:
+        type: integer
+      updated_at:
+        type: string
+      username:
+        type: string
+    type: object
+  DatabaseView:
+    properties:
+      created_at:
+        type: string
+      database_host_id:
+        type: integer
+      database_name:
+        type: string
+      host:
+        type: string
+      host_name:
+        type: string
+      id:
+        type: integer
+      max_connections:
+        type: integer
+      password:
+        type: string
+      port:
+        type: integer
+      remote_connection:
+        type: string
+      server_id:
+        type: string
+      updated_at:
+        type: string
+      username:
+        type: string
+    type: object
+  DiskInfo:
+    properties:
+      free:
+        type: integer
+      path:
+        type: string
+      total:
+        type: integer
+      used:
+        type: integer
+      usedPercent:
+        type: number
+    type: object
+  EditableConfigSettings:
+    properties:
+      branding:
+        $ref: '#/definitions/BrandingConfig'
+      registrationEnabled:
+        type: boolean
+      themes:
+        $ref: '#/definitions/ThemeConfig'
+    type: object
+  Error:
+    properties:
+      code:
+        type: string
+      metadata:
+        additionalProperties: true
+        type: object
+      msg:
+        type: string
+    type: object
+  ErrorResponse:
+    properties:
+      error:
+        $ref: '#/definitions/Error'
+    type: object
+  Execution:
+    properties:
+      autorecover:
+        type: boolean
+      autorestart:
+        type: boolean
+      autostart:
+        type: boolean
+      command: {}
+      environmentVars:
+        additionalProperties:
+          type: string
+        type: object
+      expectedExitCode:
+        type: integer
+      post:
+        items:
+          $ref: '#/definitions/MetadataWithIf'
+        type: array
+      pre:
+        items:
+          $ref: '#/definitions/MetadataWithIf'
+        type: array
+      stdin:
+        $ref: '#/definitions/StdinConsoleConfiguration'
+      stop:
+        type: string
+      stopCode:
+        type: integer
+      workingDirectory:
+        type: string
+    type: object
+  Features:
+    properties:
+      arch:
+        type: string
+      environments:
+        items:
+          type: string
+        type: array
+      features:
+        items:
+          type: string
+        type: array
+      os:
+        type: string
+      version:
+        type: string
+    type: object
+  GetServer:
+    properties:
+      permissions:
+        $ref: '#/definitions/Permissions'
+      server:
+        $ref: '#/definitions/ServerInfo'
+    type: object
+  Group:
+    properties:
+      description:
+        type: string
+      display:
+        type: string
+      if:
+        type: string
+      order:
+        type: integer
+      variables:
+        items:
+          type: string
+        type: array
+    type: object
+  KeepAlive:
+    properties:
+      command:
+        type: string
+      frequency:
+        type: string
+    type: object
+  Metadata:
+    properties:
+      type:
+        type: string
+    type: object
+  MetadataWithIf:
+    properties:
+      if:
+        type: string
+      type:
+        type: string
+    type: object
+  NamedServer:
+    properties:
+      data:
+        additionalProperties:
+          $ref: '#/definitions/Variable'
+        type: object
+      display:
+        type: string
+      environment:
+        $ref: '#/definitions/Metadata'
+      groups:
+        items:
+          $ref: '#/definitions/Group'
+        type: array
+      icon:
+        type: string
+      id:
+        type: string
+      install:
+        items:
+          $ref: '#/definitions/MetadataWithIf'
+        type: array
+      keepAlive:
+        $ref: '#/definitions/KeepAlive'
+      name:
+        type: string
+      query:
+        $ref: '#/definitions/Metadata'
+      requirements:
+        $ref: '#/definitions/Requirements'
+      run:
+        $ref: '#/definitions/Execution'
+      stats:
+        $ref: '#/definitions/Metadata'
+      supportedEnvironments:
+        items:
+          $ref: '#/definitions/Metadata'
+        type: array
+      type:
+        type: string
+      uninstall:
+        items:
+          $ref: '#/definitions/MetadataWithIf'
+        type: array
+    type: object
+  Node:
+    properties:
+      id:
+        type: integer
+      isLocal:
+        type: boolean
+      name:
+        type: string
+      privateHost:
+        type: string
+      privatePort:
+        type: integer
+      publicHost:
+        type: string
+      publicPort:
+        type: integer
+      sftpPort:
+        type: integer
+    type: object
+  NodeDeploymentConfig:
+    properties:
+      clientId:
+        type: string
+      clientSecret:
+        type: string
+      publicKey:
+        type: string
+    type: object
+  OAuth2TokenResponse:
+    properties:
+      access_token:
+        type: string
+      error:
+        type: string
+      error_description:
+        type: string
+      expires_in:
+        type: integer
+      scope:
+        type: string
+      token_type:
+        type: string
+    type: object
+  OAuthErrorResponse:
+    properties:
+      error:
+        type: string
+      error_description:
+        type: string
+    type: object
+  Paging:
+    properties:
+      maxSize:
+        type: integer
+      page:
+        type: integer
+      pageSize:
+        type: integer
+      total:
+        type: integer
+    type: object
+  Permissions:
+    properties:
+      scopes:
+        items:
+          $ref: '#/definitions/Scopes'
+        type: array
+      serverIdentifier:
+        type: string
+    type: object
+  Requirements:
+    properties:
+      arch:
+        type: string
+      binaries:
+        items:
+          type: string
+        type: array
+      os:
+        type: string
+    type: object
+  Scopes:
+    properties:
+      forServer:
+        type: boolean
+      value:
+        type: string
+    type: object
+  ServerBackup:
+    properties:
+      backupFileName:
+        type: string
+    type: object
+  ServerData:
+    properties:
+      data:
+        additionalProperties:
+          $ref: '#/definitions/Variable'
+        type: object
+      groups:
+        items:
+          $ref: '#/definitions/Group'
+        type: array
+    type: object
+  ServerDefinition:
+    properties:
+      data:
+        additionalProperties:
+          $ref: '#/definitions/Variable'
+        type: object
+      display:
+        type: string
+      environment:
+        $ref: '#/definitions/Metadata'
+      groups:
+        items:
+          $ref: '#/definitions/Group'
+        type: array
+      icon:
+        type: string
+      id:
+        type: string
+      install:
+        items:
+          $ref: '#/definitions/MetadataWithIf'
+        type: array
+      keepAlive:
+        $ref: '#/definitions/KeepAlive'
+      query:
+        $ref: '#/definitions/Metadata'
+      requirements:
+        $ref: '#/definitions/Requirements'
+      run:
+        $ref: '#/definitions/Execution'
+      stats:
+        $ref: '#/definitions/Metadata'
+      supportedEnvironments:
+        items:
+          $ref: '#/definitions/Metadata'
+        type: array
+      type:
+        type: string
+      uninstall:
+        items:
+          $ref: '#/definitions/MetadataWithIf'
+        type: array
+    type: object
+  ServerFlags:
+    properties:
+      autoRestartOnCrash:
+        type: boolean
+      autoRestartOnGraceful:
+        type: boolean
+      autoStart:
+        type: boolean
+    type: object
+  ServerInfo:
+    properties:
+      canGetStatus:
+        type: boolean
+      data: {}
+      icon:
+        type: string
+      id:
+        type: string
+      ip:
+        type: string
+      isGhost:
+        type: boolean
+      name:
+        type: string
+      node:
+        $ref: '#/definitions/Node'
+      nodeId:
+        type: integer
+      port:
+        type: integer
+      type:
+        type: string
+      users:
+        items:
+          $ref: '#/definitions/ServerUser'
+        type: array
+    type: object
+  ServerLogs:
+    properties:
+      epoch:
+        type: integer
+      logs:
+        items:
+          type: integer
+        type: array
+    type: object
+  ServerRunning:
+    properties:
+      installing:
+        type: boolean
+      running:
+        type: boolean
+    type: object
+  ServerSearchResults:
+    properties:
+      paging:
+        $ref: '#/definitions/Paging'
+      servers:
+        items:
+          $ref: '#/definitions/ServerInfo'
+        type: array
+    type: object
+  ServerStats:
+    properties:
+      cpu:
+        type: number
+      jvm:
+        $ref: '#/definitions/utils.JvmStats'
+      maxMemory:
+        type: number
+      memory:
+        type: number
+      running:
+        type: boolean
+      storage:
+        type: number
+    type: object
+  ServerTask:
+    properties:
+      cronSchedule:
+        type: string
+      description:
+        type: string
+      name:
+        type: string
+      operations:
+        items:
+          $ref: '#/definitions/MetadataWithIf'
+        type: array
+    required:
+    - operations
+    type: object
+  ServerTasks:
+    properties:
+      tasks:
+        additionalProperties:
+          $ref: '#/definitions/ServerTask'
+        type: object
+    type: object
+  ServerUser:
+    properties:
+      scopes:
+        items:
+          type: string
+        type: array
+      username:
+        type: string
+    type: object
+  Setting:
+    properties:
+      value: {}
+    type: object
+  StdinConsoleConfiguration:
+    properties:
+      ip:
+        type: string
+      password:
+        type: string
+      port:
+        type: string
+      type:
+        type: string
+    type: object
+  SystemInfo:
+    properties:
+      arch:
+        type: string
+      cpuCores:
+        type: integer
+      cpuModel:
+        type: string
+      cpuThreads:
+        type: integer
+      cpuUsage:
+        type: number
+      disks:
+        items:
+          $ref: '#/definitions/DiskInfo'
+        type: array
+      hostname:
+        type: string
+      memoryFree:
+        type: integer
+      memoryTotal:
+        type: integer
+      memoryUsed:
+        type: integer
+      networkBytesRecv:
+        type: integer
+      networkBytesSent:
+        type: integer
+      os:
+        type: string
+      platform:
+        type: string
+      platformVersion:
+        type: string
+      uptime:
+        type: integer
+    type: object
+  Task:
+    properties:
+      cronSchedule:
+        type: string
+      description:
+        type: string
+      name:
+        type: string
+      operations:
+        items:
+          $ref: '#/definitions/MetadataWithIf'
+        type: array
+    required:
+    - operations
+    type: object
+  Template:
+    properties:
+      data:
+        additionalProperties:
+          $ref: '#/definitions/Variable'
+        type: object
+      display:
+        type: string
+      environment:
+        $ref: '#/definitions/Metadata'
+      groups:
+        items:
+          $ref: '#/definitions/Group'
+        type: array
+      icon:
+        type: string
+      id:
+        type: string
+      install:
+        items:
+          $ref: '#/definitions/MetadataWithIf'
+        type: array
+      keepAlive:
+        $ref: '#/definitions/KeepAlive'
+      name:
+        type: string
+      query:
+        $ref: '#/definitions/Metadata'
+      readme:
+        type: string
+      requirements:
+        $ref: '#/definitions/Requirements'
+      run:
+        $ref: '#/definitions/Execution'
+      stats:
+        $ref: '#/definitions/Metadata'
+      supportedEnvironments:
+        items:
+          $ref: '#/definitions/Metadata'
+        type: array
+      type:
+        type: string
+      uninstall:
+        items:
+          $ref: '#/definitions/MetadataWithIf'
+        type: array
+    type: object
+  TemplateRepo:
+    properties:
+      branch:
+        type: string
+      id:
+        type: integer
+      isLocal:
+        type: boolean
+      name:
+        type: string
+      url:
+        type: string
+    type: object
+  ThemeConfig:
+    properties:
+      active:
+        example: default
+        type: string
+      available:
+        example:
+        - alternativeTheme
+        items:
+          type: string
+        type: array
+      settings:
+        example: '{}'
+        type: string
+    type: object
+  User:
+    properties:
+      email:
+        type: string
+      id:
+        type: integer
+      newPassword:
+        type: string
+      otpActive:
+        type: boolean
+      password:
+        description: ONLY SHOW WHEN COPYING
+        type: string
+      roleId:
+        type: integer
+      scopes:
+        items:
+          $ref: '#/definitions/Scopes'
+        type: array
+      username:
+        type: string
+    type: object
+  UserSearch:
+    properties:
+      email:
+        type: string
+      limit:
+        type: integer
+      page:
+        type: integer
+      username:
+        type: string
+    type: object
+  UserSearchResponse:
+    properties:
+      paging:
+        $ref: '#/definitions/Paging'
+      users:
+        items:
+          $ref: '#/definitions/User'
+        type: array
+    type: object
+  UserSetting:
+    properties:
+      value:
+        type: string
+    type: object
+  UserSettings:
+    properties:
+      key:
+        type: string
+      value:
+        type: string
+    type: object
+  Variable:
+    properties:
+      desc:
+        type: string
+      display:
+        type: string
+      internal:
+        type: boolean
+      options:
+        items:
+          $ref: '#/definitions/VariableOption'
+        type: array
+      required:
+        type: boolean
+      type:
+        type: string
+      userEdit:
+        type: boolean
+      value: {}
+    type: object
+  VariableOption:
+    properties:
+      display:
+        type: string
+      value: {}
+    type: object
+  api.TransferRequest:
+    properties:
+      nodeId:
+        type: integer
+    required:
+    - nodeId
+    type: object
+  auth.LoginRequestData:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  auth.LoginResponse:
+    properties:
+      otpNeeded:
+        type: boolean
+      scopes:
+        items:
+          $ref: '#/definitions/Scopes'
+        type: array
+    type: object
+  auth.OtpRequestData:
+    properties:
+      token:
+        type: string
+    type: object
+  auth.registerRequestData:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+      username:
+        maxLength: 100
+        minLength: 5
+        type: string
+    required:
+    - email
+    - password
+    - username
+    type: object
+  daemon.PluginInfo:
+    properties:
+      name:
+        type: string
+      size:
+        type: integer
+      version:
+        type: string
+    type: object
+  daemon.PluginSearchResult:
+    properties:
+      author:
+        type: string
+      description:
+        type: string
+      downloads:
+        type: integer
+      iconUrl:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      tag:
+        type: string
+      version:
+        type: string
+    type: object
+  models.Backup:
+    properties:
+      createdAt:
+        type: string
+      fileName:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+    required:
+    - fileName
+    - name
+    type: object
+  models.Client:
+    properties:
+      client_id:
+        type: string
+      client_secret:
+        type: string
+      description:
+        type: string
+      name:
+        type: string
+    type: object
+  models.Role:
+    properties:
+      createdAt:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      name:
+        maxLength: 100
+        minLength: 1
+        type: string
+      scopes:
+        items:
+          type: string
+        type: array
+      updatedAt:
+        type: string
+    required:
+    - name
+    type: object
+  models.UserPermissionsView:
+    properties:
+      email:
+        type: string
+      scopes:
+        items:
+          $ref: '#/definitions/Scopes'
+        type: array
+      username:
+        type: string
+    type: object
+  utils.JvmStats:
+    properties:
+      heapTotal:
+        type: integer
+      heapUsed:
+        type: integer
+      metaspaceTotal:
+        type: integer
+      metaspaceUsed:
+        type: integer
+    type: object
+info:
+  contact: {}
+paths:
+  /api/config:
+    get:
+      description: Gets the editable config entries for the panel
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/EditableConfigSettings'
+      security:
+      - OAuth2Application:
+        - none
+      summary: Get config
+      tags:
+      - Config
+  /api/databasehosts:
+    get:
+      description: Gets all database hosts registered to the panel
+      responses:
+        "200":
+          description: Database Hosts
+          schema:
+            items:
+              $ref: '#/definitions/DatabaseHostView'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - admin
+      summary: Get database hosts
+      tags:
+      - Database Hosts
+    post:
+      description: Creates a database host
+      parameters:
+      - description: Database Host information
+        in: body
+        name: databaseHost
+        required: true
+        schema:
+          $ref: '#/definitions/DatabaseHostCreate'
+      responses:
+        "200":
+          description: Database Host created
+          schema:
+            $ref: '#/definitions/DatabaseHostView'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - admin
+      summary: Create database host
+      tags:
+      - Database Hosts
+  /api/databasehosts/{id}:
+    delete:
+      description: Deletes a database host
+      parameters:
+      - description: Database Host Id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - admin
+      summary: Delete database host
+      tags:
+      - Database Hosts
+    get:
+      description: Gets information about a single database host
+      parameters:
+      - description: Database Host Id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Database Host
+          schema:
+            $ref: '#/definitions/DatabaseHostView'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - admin
+      summary: Get database host
+      tags:
+      - Database Hosts
+    put:
+      description: Updates a database host with given information
+      parameters:
+      - description: Database Host Id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Database Host information
+        in: body
+        name: databaseHost
+        required: true
+        schema:
+          $ref: '#/definitions/DatabaseHostUpdate'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - admin
+      summary: Update database host
+      tags:
+      - Database Hosts
+  /api/nodes:
+    get:
+      description: Gets all nodes registered to the panel
+      responses:
+        "200":
+          description: Nodes
+          schema:
+            items:
+              $ref: '#/definitions/Node'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - nodes.view
+      summary: Get nodes
+      tags:
+      - Nodes
+    post:
+      description: Creates a node
+      responses:
+        "200":
+          description: Node created
+          schema:
+            $ref: '#/definitions/Node'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - nodes.create
+      summary: Create node
+      tags:
+      - Nodes
+  /api/nodes/{id}:
+    delete:
+      description: Deletes the node
+      parameters:
+      - description: Node Id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - nodes.delete
+      summary: Deletes a node
+      tags:
+      - Nodes
+    get:
+      description: Gets information about a single node
+      parameters:
+      - description: Node Id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Nodes
+          schema:
+            $ref: '#/definitions/Node'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - nodes.view
+      summary: Get node
+      tags:
+      - Nodes
+    put:
+      description: Updates a node with given information
+      parameters:
+      - description: Node Id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Node information
+        in: body
+        name: node
+        required: true
+        schema:
+          $ref: '#/definitions/Node'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - nodes.edit
+      summary: Update node
+      tags:
+      - Nodes
+  /api/nodes/{id}/deployment:
+    get:
+      description: Gets the secret information needed to deploy a node.
+      parameters:
+      - description: Node Id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/NodeDeploymentConfig'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - nodes.deploy
+      summary: Gets the data to deploy a node
+      tags:
+      - Nodes
+  /api/nodes/{id}/features:
+    get:
+      description: Gets the environments and if docker is supported on a node
+      parameters:
+      - description: Node Id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Features'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - nodes.view
+      summary: Gets the features a node supports
+      tags:
+      - Nodes
+  /api/nodes/{id}/system:
+    get:
+      description: Gets detailed system information including CPU, memory, and disk
+      parameters:
+      - description: Node Id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/SystemInfo'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - nodes.view
+      summary: Gets the system information of a node
+      tags:
+      - Nodes
+  /api/roles:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Role'
+            type: array
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - admin
+      summary: List roles
+      tags:
+      - Roles
+    post:
+      parameters:
+      - description: New role information
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.Role'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Role'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - admin
+      summary: Create role
+      tags:
+      - Roles
+  /api/roles/{id}:
+    delete:
+      parameters:
+      - description: Role ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - admin
+      summary: Delete role
+      tags:
+      - Roles
+    get:
+      parameters:
+      - description: Role ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Role'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - admin
+      summary: Get role
+      tags:
+      - Roles
+    post:
+      parameters:
+      - description: Role ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Updated role information
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.Role'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Role'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - admin
+      summary: Update role
+      tags:
+      - Roles
+  /api/self:
+    get:
+      description: Gets the user information of the current user
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - login
+      summary: Get your user info
+      tags:
+      - Self
+    put:
+      description: Update user information for your current user
+      parameters:
+      - description: User information
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/User'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - self.edit
+      summary: Update your user
+      tags:
+      - Self
+  /api/self/oauth2:
+    get:
+      description: Gets known OAuth2 clients the logged-in user has registered
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Client'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - self.clients
+      summary: Gets registered OAuth2 clients
+      tags:
+      - Self
+    post:
+      parameters:
+      - description: Information for the client to create
+        in: body
+        name: client
+        schema:
+          $ref: '#/definitions/models.Client'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Client'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - self.clients
+      summary: Create an account-level OAuth2 client
+      tags:
+      - Self
+  /api/self/oauth2/{id}:
+    delete:
+      parameters:
+      - description: Information for the client to create
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - self.clients
+      summary: Deletes an account-level OAuth2 client
+      tags:
+      - Self
+  /api/servers:
+    get:
+      description: Gets servers, and allowing for filtering of servers. * is a wildcard
+        that can be used for text inputs
+      parameters:
+      - description: Username to filter on, default is current user if NOT admin
+        in: query
+        name: username
+        type: string
+      - description: Node ID to filter on
+        in: query
+        name: node
+        type: integer
+      - description: Name of server to filter on
+        in: query
+        name: name
+        type: string
+      - description: Max number of results to return
+        in: query
+        name: limit
+        type: integer
+      - description: What page to get back for many results
+        in: query
+        name: page
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ServerSearchResults'
+      security:
+      - OAuth2Application:
+        - server.view
+      summary: Search servers
+      tags:
+      - Daemon Servers
+  /api/servers/{id}:
+    delete:
+      description: Deletes a server from the panel
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      security:
+      - OAuth2Application:
+        - server.delete
+      summary: Deletes a server
+      tags:
+      - Daemon Servers
+    get:
+      description: Gets a particular server
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/GetServer'
+      security:
+      - OAuth2Application:
+        - server.view
+      summary: Get a server
+      tags:
+      - Daemon Servers
+    put:
+      description: Creates a server
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Creation information
+        in: body
+        name: server
+        required: true
+        schema:
+          $ref: '#/definitions/CreatedServer'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/CreatedServerId'
+      security:
+      - OAuth2Application:
+        - server.create
+      summary: Create server
+      tags:
+      - Daemon Servers
+  /api/servers/{id}/archive/{filename}:
+    post:
+      description: Creates an archive of files or folders
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Files to archive
+        in: body
+        name: files
+        required: true
+        schema:
+          items:
+            type: string
+          type: array
+      - description: Archive name
+        in: path
+        name: filename
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      security:
+      - OAuth2Application:
+        - server.files.edit
+      summary: Create archive
+      tags:
+      - Daemon Server
+  /api/servers/{id}/backup:
+    get:
+      description: Gets all backups made on this server
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Backup'
+      security:
+      - OAuth2Application:
+        - server.backup.view
+      summary: Gets servers backups
+      tags:
+      - Daemon Servers
+  /api/servers/{id}/backup/{backupId}:
+    get:
+      description: Gets a specific backup made on this server
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: BackupId
+        in: path
+        name: backupId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Backup'
+      security:
+      - OAuth2Application:
+        - server.backup.view
+      summary: Gets a specific backup on a server
+      tags:
+      - Daemon Servers
+  /api/servers/{id}/backup/Delete/{backupId}:
+    delete:
+      description: Download a server backup
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Backup ID
+        in: path
+        name: backupId
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      security:
+      - OAuth2Application:
+        - server.backup.restore
+      summary: Download backup
+      tags:
+      - Daemon Servers
+  /api/servers/{id}/backup/create:
+    post:
+      description: Creates a full backup of the server
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ServerBackup'
+      security:
+      - OAuth2Application:
+        - server.backup.create
+      summary: Create backup
+      tags:
+      - Daemon Server
+  /api/servers/{id}/backup/delete:
+    post:
+      description: Delete a backup of the server
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: File Name
+        in: query
+        name: fileName
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      security:
+      - OAuth2Application:
+        - server.backup.delete
+      summary: Delete backup
+      tags:
+      - Daemon Server
+  /api/servers/{id}/backup/restore:
+    post:
+      description: Download a backup of the server
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: File Name
+        in: query
+        name: fileName
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      security:
+      - OAuth2Application:
+        - server.backup.restore
+      summary: Download backup
+      tags:
+      - Daemon Server
+  /api/servers/{id}/console:
+    get:
+      description: Get the console logs for the server
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Epoch time in MS to get from
+        format: int64
+        in: query
+        name: time
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ServerLogs'
+      security:
+      - OAuth2Application:
+        - server.console
+      summary: Get logs
+      tags:
+      - Daemon Server
+    post:
+      description: Sends a command to the server
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Command
+        in: body
+        name: command
+        required: true
+        schema:
+          type: string
+      responses:
+        "204":
+          description: No Content
+      security:
+      - OAuth2Application:
+        - server.console.send
+      summary: Send command
+      tags:
+      - Daemon Server
+  /api/servers/{id}/data:
+    get:
+      description: Get server variables
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ServerData'
+      security:
+      - OAuth2Application:
+        - server.data.view
+      summary: Get server data
+      tags:
+      - Daemon Server
+    post:
+      description: Updates a server's set of variables
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Server variables
+        in: body
+        name: server
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      responses:
+        "202":
+          description: Accepted
+      security:
+      - OAuth2Application:
+        - server.data.edit
+      summary: Update server data
+      tags:
+      - Daemon Servers
+    put:
+      description: Updates a server's set of variables
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Server variables
+        in: body
+        name: server
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      responses:
+        "202":
+          description: Accepted
+      security:
+      - OAuth2Application:
+        - server.data.edit.admin
+      summary: Update server data with admin level rights
+      tags:
+      - Daemon Servers
+  /api/servers/{id}/definition:
+    get:
+      description: Get server definition
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ServerDefinition'
+      security:
+      - OAuth2Application:
+        - server.definition.view
+      summary: Get server definition
+      tags:
+      - Daemon Server
+    post:
+      description: Updates the server with a new definition
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New definition
+        in: body
+        name: server
+        required: true
+        schema:
+          $ref: '#/definitions/ServerDefinition'
+      responses:
+        "204":
+          description: No Content
+      security:
+      - OAuth2Application:
+        - server.definition.edit
+      summary: Edit server definition
+      tags:
+      - Daemon Server
+    put:
+      description: Updates a server definition
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Server definition
+        in: body
+        name: server
+        required: true
+        schema:
+          $ref: '#/definitions/NamedServer'
+      responses:
+        "204":
+          description: No Content
+      security:
+      - OAuth2Application:
+        - server.definition.edit
+      summary: Update server definition
+      tags:
+      - Daemon Servers
+  /api/servers/{id}/extract/{filename}:
+    post:
+      description: Extracts an archive to the server
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Target file to extract
+        in: path
+        name: filename
+        required: true
+        type: string
+      - description: Path to place files
+        in: query
+        name: destination
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      security:
+      - OAuth2Application:
+        - server.files.edit
+      summary: Extract archive
+      tags:
+      - Daemon Server
+  /api/servers/{id}/file/{filepath}:
+    delete:
+      description: |-
+        Deletes a file or folder.
+        WARNING: This is a recursive operation, specifying a folder will delete all children
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: File path
+        in: path
+        name: filepath
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      security:
+      - OAuth2Application:
+        - server.files.edit
+      summary: Delete file
+      tags:
+      - Daemon Server
+    get:
+      description: |-
+        Gets a specific file or a list of files in a folder. This will either return
+        a) A raw file if the path points to a valid file
+        or b) An array of files for the folder contents
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: File path
+        in: path
+        name: filepath
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+      security:
+      - OAuth2Application:
+        - server.files.view
+      summary: Get file/folder
+      tags:
+      - Daemon Server
+    put:
+      consumes:
+      - multipart/form-data
+      description: Adds or edit a file, replacing the contents with the provided body
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: File path
+        in: path
+        name: filepath
+        required: true
+        type: string
+      - description: File contents
+        in: formData
+        name: file
+        required: true
+        type: file
+      responses:
+        "204":
+          description: No Content
+      security:
+      - OAuth2Application:
+        - server.files.edit
+      summary: Edit file
+      tags:
+      - Daemon Server
+  /api/servers/{id}/flags:
+    get:
+      description: Get the management flags for a server
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ServerFlags'
+      security:
+      - OAuth2Application:
+        - server.flags.view
+      summary: Get flags
+      tags:
+      - Daemon Server
+    post:
+      description: Sets management flags for a server
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Flags to change
+        in: body
+        name: flags
+        required: true
+        schema:
+          $ref: '#/definitions/ServerFlags'
+      responses:
+        "204":
+          description: No Content
+      security:
+      - OAuth2Application:
+        - server.flags.edit
+      summary: Set flags
+      tags:
+      - Daemon Server
+  /api/servers/{id}/install:
+    post:
+      description: Install server
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "202":
+          description: Accepted
+        "204":
+          description: No Content
+      security:
+      - OAuth2Application:
+        - server.install
+      summary: Install server
+      tags:
+      - Daemon Server
+  /api/servers/{id}/kill:
+    post:
+      description: Kill server
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      security:
+      - OAuth2Application:
+        - server.kill
+      summary: Kill server
+      tags:
+      - Daemon Server
+  /api/servers/{id}/name/{name}:
+    put:
+      description: Renames a server
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New server name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      security:
+      - OAuth2Application:
+        - server.name.edit
+      summary: Rename server
+      tags:
+      - Daemon Servers
+  /api/servers/{id}/query:
+    get:
+      description: Queries the server using the server's protocol to gather information
+        such as players.
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema: {}
+        "204":
+          description: No Content
+      security:
+      - OAuth2Application:
+        - server.query
+      summary: Queries the server for game-specific stats
+      tags:
+      - Daemon Server
+    head:
+      description: Returns a 202 if the server can be queried, otherwise 204
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "202":
+          description: Accepted
+        "204":
+          description: No Content
+      security:
+      - OAuth2Application:
+        - server.query
+      summary: Determine if the server supports query protocol
+      tags:
+      - Daemon Server
+  /api/servers/{id}/reload:
+    post:
+      description: Reload server
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      security:
+      - OAuth2Application:
+        - server.reload
+      summary: Reload server
+      tags:
+      - Daemon Server
+  /api/servers/{id}/restart:
+    post:
+      description: Restart server
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "202":
+          description: Accepted
+        "204":
+          description: No Content
+      security:
+      - OAuth2Application:
+        - server.start
+        - server.stop
+      summary: Restart server
+      tags:
+      - Daemon Server
+  /api/servers/{id}/start:
+    post:
+      description: Start server
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "202":
+          description: Accepted
+        "204":
+          description: No Content
+      security:
+      - OAuth2Application:
+        - server.start
+      summary: Start server
+      tags:
+      - Daemon Server
+  /api/servers/{id}/stats:
+    get:
+      description: Gets the CPU and memory usage of the server
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ServerStats'
+      security:
+      - OAuth2Application:
+        - server.stats
+      summary: Get stats
+      tags:
+      - Daemon Server
+  /api/servers/{id}/status:
+    get:
+      description: Get the server's status (is it running)
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ServerRunning'
+      security:
+      - OAuth2Application:
+        - server.status
+      summary: Get status
+      tags:
+      - Daemon Server
+  /api/servers/{id}/stop:
+    post:
+      description: Stop server
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "202":
+          description: Accepted
+        "204":
+          description: No Content
+      security:
+      - OAuth2Application:
+        - server.stop
+      summary: Stop server
+      tags:
+      - Daemon Server
+  /api/servers/{id}/tasks:
+    get:
+      description: Get server tasks
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ServerTasks'
+      security:
+      - OAuth2Application:
+        - server.tasks.view
+      summary: Get server tasks
+      tags:
+      - Daemon Server
+  /api/servers/{id}/tasks/{taskId}:
+    delete:
+      description: Delete server task by id
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Task ID
+        in: path
+        name: taskId
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      security:
+      - OAuth2Application:
+        - server.tasks.delete
+      summary: Delete server task
+      tags:
+      - Daemon Server
+    get:
+      description: Get server task by id
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Task ID
+        in: path
+        name: taskId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ServerTask'
+      security:
+      - OAuth2Application:
+        - server.tasks.view
+      summary: Get server task
+      tags:
+      - Daemon Server
+    put:
+      description: Edit server task by id
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Task ID
+        in: path
+        name: taskId
+        required: true
+        type: string
+      - description: Task definition
+        in: body
+        name: task
+        required: true
+        schema:
+          $ref: '#/definitions/Task'
+      responses:
+        "204":
+          description: No Content
+      security:
+      - OAuth2Application:
+        - server.tasks.edit
+      summary: Edit server task
+      tags:
+      - Daemon Server
+  /api/servers/{id}/tasks/{taskId}/run:
+    post:
+      description: Run a specific task
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Task ID
+        in: path
+        name: taskId
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      security:
+      - OAuth2Application:
+        - server.tasks.run
+      summary: Run server task
+      tags:
+      - Daemon Server
+  /api/servers/{id}/transfer:
+    post:
+      consumes:
+      - application/json
+      description: Transfer a server from one node to another
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Target Node ID
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.TransferRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Transfer started
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - server.edit.admin
+      summary: Transfer server
+      tags:
+      - Servers
+  /api/servers/{id}/user:
+    get:
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.UserPermissionsView'
+            type: array
+      security:
+      - OAuth2Application:
+        - server.users.view
+      summary: Gets all users for a server
+      tags:
+      - Daemon Servers
+      - Daemon Servers
+  /api/servers/{id}/user/{email}:
+    get:
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Email
+        in: path
+        name: email
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.UserPermissionsView'
+            type: array
+      security:
+      - OAuth2Application:
+        - server.users.view
+      summary: Gets all users for a server
+      tags:
+      - Daemon Servers
+      - Daemon Servers
+  /api/servers/{id}/users/{email}:
+    delete:
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Email of user
+        in: path
+        name: email
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      security:
+      - OAuth2Application:
+        - server.users.delete
+      summary: Removes access to a server
+      tags:
+      - Daemon Servers
+    put:
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Email of user
+        in: path
+        name: email
+        required: true
+        type: string
+      - description: New permissions to apply
+        in: body
+        name: permissions
+        required: true
+        schema:
+          $ref: '#/definitions/Permissions'
+      responses:
+        "204":
+          description: No Content
+      security:
+      - OAuth2Application:
+        - server.users.edit
+      summary: Edits access to a server
+      tags:
+      - Daemon Servers
+  /api/servers/{serverId}/databases:
+    get:
+      description: Gets all databases for a specific server
+      parameters:
+      - description: Server Id
+        in: path
+        name: serverId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Databases
+          schema:
+            items:
+              $ref: '#/definitions/DatabaseView'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - server.view
+      summary: Get databases for server
+      tags:
+      - Databases
+    post:
+      description: Creates a database for a server
+      parameters:
+      - description: Server Id
+        in: path
+        name: serverId
+        required: true
+        type: string
+      - description: Database information
+        in: body
+        name: database
+        required: true
+        schema:
+          $ref: '#/definitions/DatabaseCreate'
+      responses:
+        "200":
+          description: Database created
+          schema:
+            $ref: '#/definitions/DatabaseView'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - server.data.edit
+      summary: Create database
+      tags:
+      - Databases
+  /api/servers/{serverId}/databases/{id}:
+    delete:
+      description: Deletes a database (and its MySQL user)
+      parameters:
+      - description: Server Id
+        in: path
+        name: serverId
+        required: true
+        type: string
+      - description: Database Id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - server.data.edit
+      summary: Delete database
+      tags:
+      - Databases
+  /api/settings:
+    post:
+      description: Updates multiple panel settings at once
+      parameters:
+      - description: Config data to apply
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/ChangeMultipleSettings'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - settings.edit
+      summary: Update multiple panel setting
+      tags:
+      - Panel Settings
+  /api/settings/{key}:
+    get:
+      description: Gets the value currently being used for the specified config key
+      parameters:
+      - description: The config key
+        in: path
+        name: key
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Setting'
+      security:
+      - OAuth2Application:
+        - settings.edit
+      summary: Value a panel setting
+      tags:
+      - Panel Settings
+    put:
+      description: Updates the value of a panel setting
+      parameters:
+      - description: The config key
+        in: path
+        name: key
+        required: true
+        type: string
+      - description: The new value for the setting
+        in: body
+        name: value
+        required: true
+        schema:
+          $ref: '#/definitions/Setting'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - settings.edit
+      summary: Update a panel setting
+      tags:
+      - Panel Settings
+  /api/settings/license/activate:
+    post:
+      description: Activates and verifies a license key with the external license
+        server
+      parameters:
+      - description: License key
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - settings.edit
+      summary: Activate license
+      tags:
+      - Panel Settings
+  /api/settings/test/discord:
+    post:
+      description: Tests Discord webhook settings by sending a test message to all
+        configured webhooks
+      responses:
+        "204":
+          description: No Content
+      security:
+      - OAuth2Application:
+        - settings.edit
+      summary: Discord webhook test
+      tags:
+      - Panel Settings
+  /api/settings/test/email:
+    post:
+      description: Tests email settings by sending an email
+      responses:
+        "204":
+          description: No Content
+      security:
+      - OAuth2Application:
+        - settings.edit
+      summary: Email test
+      tags:
+      - Panel Settings
+  /api/templates:
+    get:
+      description: Gets all repos that are available to pull template from
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/TemplateRepo'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - templates.view
+      summary: Get all repos
+      tags:
+      - Templates
+    post:
+      description: Adds a new repo to the service
+      parameters:
+      - description: Repo information
+        in: body
+        name: repo
+        required: true
+        schema:
+          $ref: '#/definitions/TemplateRepo'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/TemplateRepo'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - templates.repo.create
+      summary: Add repo
+      tags:
+      - Templates
+  /api/templates/{repo}:
+    delete:
+      description: Deletes a repo from the service
+      parameters:
+      - description: Repo Id
+        in: path
+        name: repo
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - templates.repo.delete
+      summary: Delete repo
+      tags:
+      - Templates
+    get:
+      description: Gets all templates from a repository
+      parameters:
+      - description: Repo id
+        in: path
+        name: repo
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/Template'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - templates.view
+      summary: Get all templates from repo
+      tags:
+      - Templates
+  /api/templates/{repo}/{template}:
+    get:
+      description: Gets a template from the repo
+      parameters:
+      - description: Repo Id
+        in: path
+        name: repo
+        required: true
+        type: integer
+      - description: Template name
+        in: path
+        name: template
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Template'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - templates.view
+      summary: Get template
+      tags:
+      - Templates
+  /api/templates/local/{name}:
+    delete:
+      description: Deletes template
+      parameters:
+      - description: Template name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - templates.repo.delete
+      summary: Deletes template
+      tags:
+      - Templates
+    put:
+      parameters:
+      - description: Template
+        in: body
+        name: template
+        required: true
+        schema:
+          $ref: '#/definitions/ServerDefinition'
+      - description: Template name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - templates.local.edit
+      summary: Adds or updates a template
+      tags:
+      - Templates
+  /api/uptime:
+    get:
+      description: Gets uptime statistics for all servers
+      responses:
+        "200":
+          description: Uptime statistics
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - OAuth2Application:
+        - admin
+      summary: Get all servers uptime
+      tags:
+      - Uptime
+  /api/uptime/{id}:
+    get:
+      description: Gets uptime statistics for a specific server
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 'Number of days to look back (default: 30, max: 365)'
+        in: query
+        name: days
+        type: integer
+      - description: 'Number of history records to return (default: 50, max: 200)'
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: Uptime statistics
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - OAuth2Application:
+        - server.view
+      summary: Get server uptime
+      tags:
+      - Uptime
+  /api/users:
+    get:
+      description: Gets users, and allowing for filtering of users. * is a wildcard
+        that can be used for text inputs
+      parameters:
+      - description: Filters to search on
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/UserSearch'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/UserSearchResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - users.info.search
+      summary: Get users
+      tags:
+      - Users
+    post:
+      parameters:
+      - description: New user information
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/User'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - users.info.edit
+      summary: Create user
+      tags:
+      - Users
+  /api/users/{id}:
+    delete:
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - users.info.edit
+      summary: Delete user
+      tags:
+      - Users
+    get:
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - users.info.view
+      summary: Get a user
+      tags:
+      - Users
+    post:
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: New user information
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/User'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - users.info.edit
+      summary: Update user
+      tags:
+      - Users
+  /api/users/{id}/perms:
+    get:
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Permissions'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - users.perms.view
+      summary: Gets user permissions
+      tags:
+      - Users
+    put:
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: New permissions
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/Permissions'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - users.perms.edit
+      summary: Sets user permissions
+      tags:
+      - Users
+  /api/usersettings:
+    get:
+      description: Gets all settings specific to the current user
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/UserSettings'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - login
+      summary: Get a user setting
+      tags:
+      - User Settings
+  /api/usersettings/{key}:
+    put:
+      description: Updates the value of a user setting
+      parameters:
+      - description: The config key
+        in: path
+        name: key
+        required: true
+        type: string
+      - description: The new value for the setting
+        in: body
+        name: value
+        required: true
+        schema:
+          $ref: '#/definitions/UserSetting'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - OAuth2Application:
+        - login
+      summary: Update a user setting
+      tags:
+      - User Settings
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticates a user and starts a session
+      parameters:
+      - description: Login Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.LoginRequestData'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.LoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: User Login
+      tags:
+      - Auth
+  /auth/logout:
+    post:
+      description: Invalidates the current user session
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+          schema:
+            type: string
+      summary: User Logout
+      tags:
+      - Auth
+  /auth/otp:
+    post:
+      consumes:
+      - application/json
+      description: Verifies an OTP code for a login attempt
+      parameters:
+      - description: OTP Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.OtpRequestData'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.LoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: OTP Verification
+      tags:
+      - Auth
+  /auth/publickey:
+    get:
+      description: Gets the public JSON Web Key Set
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Get public JWKS
+      tags:
+      - Auth
+  /auth/reauth:
+    post:
+      description: Reauthenticates a user and refreshes their session
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.LoginResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Reauthenticate user
+      tags:
+      - Auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new user account if registration is enabled
+      parameters:
+      - description: Registration Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.registerRequestData'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.LoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      summary: Register a new user
+      tags:
+      - Auth
+  /daemon:
+    get:
+      description: Check to see if the daemon is online or not
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/DaemonRunning'
+      security:
+      - OAuth2Application:
+        - none
+      summary: Check daemon status
+      tags:
+      - Daemon Root
+    head:
+      description: Check to see if the daemon is online or not
+      responses:
+        "204":
+          description: No Content
+      security:
+      - OAuth2Application:
+        - none
+      summary: Check daemon status
+      tags:
+      - Daemon Root
+  /daemon/features:
+    get:
+      description: Gets the features that the node supports, like it's OS and environments
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Features'
+      security:
+      - OAuth2Application:
+        - none
+      summary: Get features of the node
+      tags:
+      - Daemon Root
+  /daemon/server/{id}/plugins:
+    delete:
+      description: Deletes a plugin from the server
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Plugin file name
+        in: query
+        name: name
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      summary: Delete plugin
+      tags:
+      - Daemon Server
+    get:
+      description: Gets list of plugins installed in the server
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/daemon.PluginInfo'
+            type: array
+      summary: Get installed plugins
+      tags:
+      - Daemon Server
+  /daemon/server/{id}/plugins/{pluginId}:
+    post:
+      description: Downloads and installs a plugin from Spigot
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Plugin ID from Spigot
+        in: path
+        name: pluginId
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: Install plugin
+      tags:
+      - Daemon Server
+  /daemon/server/{id}/plugins/search:
+    get:
+      description: Searches for plugins using Spigot API
+      parameters:
+      - description: Server ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Search query
+        in: query
+        name: q
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/daemon.PluginSearchResult'
+            type: array
+      summary: Search plugins
+      tags:
+      - Daemon Server
+  /daemon/system:
+    get:
+      description: Gets detailed system information including CPU, memory, and disk
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/SystemInfo'
+      security:
+      - OAuth2Application:
+        - none
+      summary: Get system information
+      tags:
+      - Daemon Root
+  /oauth2/token:
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: Get a OAuth2 token to consume this API
+      parameters:
+      - in: formData
+        name: client_id
+        type: string
+      - in: formData
+        name: client_secret
+        type: string
+      - in: formData
+        name: grant_type
+        type: string
+      - in: formData
+        name: password
+        type: string
+      - in: formData
+        name: username
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/OAuth2TokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/OAuthErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/OAuthErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/OAuthErrorResponse'
+      summary: Authenticate
+      tags:
+      - OAuth2
+swagger: "2.0"

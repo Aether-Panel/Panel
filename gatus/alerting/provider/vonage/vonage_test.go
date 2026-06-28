@@ -543,4 +543,3 @@ func TestAlertProvider_GetConfig(t *testing.T) {
 		})
 	}
 }
-
