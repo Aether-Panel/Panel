@@ -156,8 +156,7 @@ func handleConn(conn net.Conn, serverConfig *ssh.ServerConfig) error {
 		go func(in <-chan *ssh.Request) {
 			for req := range in {
 				ok := false
-				switch req.Type {
-				case "subsystem":
+				if req.Type == "subsystem" {
 					if string(req.Payload[4:]) == "sftp" {
 						ok = true
 					}

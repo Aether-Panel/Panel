@@ -124,7 +124,7 @@ func createNode(c *gin.Context) {
 		return
 	}
 
-	create.Secret = strings.Replace(srt.String(), "-", "", -1)
+	create.Secret = strings.ReplaceAll(srt.String(), "-", "")
 	if err = ns.Create(create); response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}

@@ -86,8 +86,7 @@ func TestMain(m *testing.M) {
 
 		l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", models.LocalNode.PrivateHost, models.LocalNode.PrivatePort))
 		if err != nil {
-			fmt.Printf("Error starting web services: %s", err.Error())
-			os.Exit(1)
+			panic(fmt.Sprintf("Error starting web services: %s", err.Error()))
 		}
 
 		webService := manners.NewWithServer(&http.Server{Handler: router})

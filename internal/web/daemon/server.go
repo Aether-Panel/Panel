@@ -1457,7 +1457,7 @@ func deletePlugin(c *gin.Context) {
 	// Asegurar que es un archivo .jar
 	originalName := pluginName
 	if !strings.HasSuffix(strings.ToLower(pluginName), ".jar") {
-		pluginName = pluginName + ".jar"
+		pluginName += ".jar"
 		logging.Debug.Printf("deletePlugin: added .jar extension: '%s' -> '%s'", originalName, pluginName)
 	}
 

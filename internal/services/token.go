@@ -90,13 +90,11 @@ func NewTokenService() (TokenService, error) {
 				return nil, err
 			}
 		}
-	} else {
-		if externalService == nil {
-			var err error
-			externalService, err = keyfunc.NewDefault([]string{config.TokenPublicUrl.Value()})
-			if err != nil {
-				return nil, err
-			}
+	} else if externalService == nil {
+		var err error
+		externalService, err = keyfunc.NewDefault([]string{config.TokenPublicUrl.Value()})
+		if err != nil {
+			return nil, err
 		}
 	}
 

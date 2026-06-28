@@ -61,13 +61,13 @@ func (c *MemoryCache) Write(b []byte) (n int, err error) {
 	var pop cacheMessage
 	for c.Size+n > c.Capacity {
 		pop, c.Buffer = c.Buffer[0], c.Buffer[1:]
-		c.Size = c.Size - len(pop.msg)
+		c.Size -= len(pop.msg)
 	}
 
 	co := make([]byte, len(b))
 	copy(co, b)
 
 	c.Buffer = append(c.Buffer, cacheMessage{msg: co, time: time.Now().UnixMicro()})
-	c.Size = c.Size + n
+	c.Size += n
 	return
 }

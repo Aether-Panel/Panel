@@ -317,8 +317,8 @@ func (us *User) Search(usernameFilter, emailFilter string, pageSize, page uint) 
 
 	query := us.DB
 
-	usernameFilter = strings.Replace(usernameFilter, "*", "%", -1)
-	emailFilter = strings.Replace(emailFilter, "*", "%", -1)
+	usernameFilter = strings.ReplaceAll(usernameFilter, "*", "%")
+	emailFilter = strings.ReplaceAll(emailFilter, "*", "%")
 
 	if usernameFilter != "" && usernameFilter != "%" {
 		query = query.Where("username LIKE ?", usernameFilter)

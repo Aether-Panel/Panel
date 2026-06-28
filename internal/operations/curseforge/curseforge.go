@@ -343,7 +343,9 @@ func installFabric(env *SkyPanel.Environment, data map[string]string, javaBinary
 	if err == nil {
 		//this was a good file, we got what we need
 		return nil
-	} else if !errors.Is(err, errNoFile) {
+	}
+
+	if !errors.Is(err, errNoFile) {
 		//we got a 404, so we can't use the improved version at all
 		fabricUrl = replaceTokens(FabricInstallerUrl, data)
 		targetFile = filepath.Join(env.GetRootDirectory(), "fabric-installer.jar")

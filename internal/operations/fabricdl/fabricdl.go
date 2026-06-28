@@ -9,20 +9,20 @@ import (
 	"path"
 )
 
-const FabricMetadataUrl = "https://meta.fabricmc.net/v2/versions/installer"
+const FabricMetadataURL = "https://meta.fabricmc.net/v2/versions/installer"
 
 type Fabricdl struct {
 }
 
 type FabricMetadata struct {
-	Url string `json:"url"`
+	URL string `json:"url"`
 }
 
 func (f *Fabricdl) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
 	env := args.Environment
 
-	env.DisplayToConsole(true, "Downloading metadata from %s\n", FabricMetadataUrl)
-	response, err := SkyPanel.HttpGet(FabricMetadataUrl)
+	env.DisplayToConsole(true, "Downloading metadata from %s\n", FabricMetadataURL)
+	response, err := SkyPanel.HttpGet(FabricMetadataURL)
 	if err != nil {
 		return SkyPanel.OperationResult{Error: err}
 	}

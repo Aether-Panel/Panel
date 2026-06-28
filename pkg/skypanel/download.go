@@ -115,7 +115,7 @@ func Download(downloadUrl, hash string, algorithm crypto.Hash, cache bool, env *
 		localPath := filepath.Join(config.CacheFolder.Value(), strings.TrimPrefix(strings.TrimPrefix(downloadUrl, "http://"), "https://"))
 
 		if os.PathSeparator != '/' {
-			localPath = strings.Replace(localPath, "/", string(os.PathSeparator), -1)
+			localPath = strings.ReplaceAll(localPath, "/", string(os.PathSeparator))
 		}
 
 		// try to open existing cached file

@@ -26,8 +26,8 @@ import (
 	"strings"
 )
 
-const InstallerUrl = "https://maven.minecraftforge.net/net/minecraftforge/forge/${version}/forge-${version}-installer.jar"
-const PromoUrl = "https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json"
+const InstallerURL = "https://maven.minecraftforge.net/net/minecraftforge/forge/${version}/forge-${version}-installer.jar"
+const PromoURL = "https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json"
 
 type ForgeDl struct {
 	Version          string
@@ -47,7 +47,7 @@ func (op ForgeDl) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
 		op.Version = op.MinecraftVersion + "-" + version
 	}
 
-	jarDownload := strings.Replace(InstallerUrl, "${version}", op.Version, -1)
+	jarDownload := strings.ReplaceAll(InstallerURL, "${version}", op.Version)
 
 	localFile, err := SkyPanel.DownloadViaMaven(jarDownload, env)
 	defer utils.Close(localFile)
@@ -67,7 +67,7 @@ func (op ForgeDl) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
 }
 
 func getLatestForMCVersion(minecraftVersion string) (string, error) {
-	response, err := SkyPanel.HttpGet(PromoUrl)
+	response, err := SkyPanel.HttpGet(PromoURL)
 	defer utils.CloseResponse(response)
 	if err != nil {
 		return "", err

@@ -1237,7 +1237,7 @@ func (p *Server) StartBackup() (string, error) {
 
 	go func(file string, d chan bool) {
 		success := true
-		sourceFiles := []string{filepath.Join(p.GetFileServer().Prefix())}
+		sourceFiles := []string{p.GetFileServer().Prefix()}
 
 		err = files.Compress(nil, file, sourceFiles)
 		if err != nil {

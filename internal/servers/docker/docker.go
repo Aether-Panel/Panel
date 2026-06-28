@@ -354,7 +354,7 @@ func (d *Docker) PullImage(environment *SkyPanel.Environment, ctx context.Contex
 
 		parts := strings.SplitN(imageName, ":", 2)
 		if len(parts) != 2 {
-			imageName = imageName + ":latest"
+			imageName += ":latest"
 		}
 
 		opts := image.ListOptions{
@@ -530,14 +530,12 @@ func (d *Docker) createContainer(environment *SkyPanel.Environment, data SkyPane
 	binaryFolder := config.BinariesFolder.Value()
 	if containerMountSource != "" {
 		binaryFolder = filepath.Join(containerMountSource, "binaries")
-	} else {
-		if !filepath.IsAbs(binaryFolder) {
-			var ef error
-			binaryFolder, ef = filepath.Abs(binaryFolder)
-			if ef != nil {
-				logging.Error.Printf("Failed to resolve binary folder to absolute path: %s", ef)
-				binaryFolder = ""
-			}
+	} else if !filepath.IsAbs(binaryFolder) {
+		var ef error
+		binaryFolder, ef = filepath.Abs(binaryFolder)
+		if ef != nil {
+			logging.Error.Printf("Failed to resolve binary folder to absolute path: %s", ef)
+			binaryFolder = ""
 		}
 	}
 	if binaryFolder != "" {

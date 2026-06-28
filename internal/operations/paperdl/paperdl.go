@@ -96,7 +96,7 @@ func getLatestMCVersion() (string, error) {
 }
 
 func (op PaperDl) getDownloadUrlAndHash(env *SkyPanel.Environment) (string, string, error) {
-	path, err := url.Parse(strings.Replace(strings.Replace(BuildUrl, "${mcVersion}", op.MinecraftVersion, -1), "${build}", op.Build, -1))
+	path, err := url.Parse(strings.ReplaceAll(strings.ReplaceAll(BuildUrl, "${mcVersion}", op.MinecraftVersion), "${build}", op.Build))
 	if err != nil {
 		return "", "", err
 	}

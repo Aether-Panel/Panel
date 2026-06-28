@@ -32,7 +32,7 @@ func (op NeoforgeDL) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult
 		op.Version = neoVersion
 	}
 
-	jarDownload := strings.Replace(InstallerUrl, "${version}", op.Version, -1)
+	jarDownload := strings.ReplaceAll(InstallerUrl, "${version}", op.Version)
 
 	localFile, err := SkyPanel.DownloadViaMaven(jarDownload, env)
 	defer utils.Close(localFile)

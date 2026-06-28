@@ -130,7 +130,7 @@ func RegisterRoutes(e *gin.Engine) {
 				if indexPath == "." {
 					indexPath = "index.html"
 				} else {
-					indexPath = indexPath + "/index.html"
+					indexPath += "/index.html"
 				}
 
 				// Verify index.html exists

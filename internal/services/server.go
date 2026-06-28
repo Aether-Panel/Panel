@@ -41,7 +41,7 @@ func (ss *Server) Search(searchCriteria ServerSearch) (records []*models.Server,
 		query = query.Where("users.username = ?", searchCriteria.Username)
 	}
 
-	nameFilter := strings.Replace(searchCriteria.Name, "*", "%", -1)
+	nameFilter := strings.ReplaceAll(searchCriteria.Name, "*", "%")
 
 	if nameFilter != "" && nameFilter != "%" {
 		query = query.Where("name LIKE ?", nameFilter)

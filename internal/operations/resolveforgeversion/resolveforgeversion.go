@@ -57,13 +57,14 @@ func (op ResolveForgeVersion) Run(args SkyPanel.RunOperatorArgs) SkyPanel.Operat
 				if _, err = fs.Stat(desiredFile); err != nil {
 					continue
 				}
-				if op.Version == "" {
+				switch {
+				case op.Version == "":
 					op.Version = v.Name()
 					ver, _ = version.NewVersion(op.Version)
-				} else if !strings.HasPrefix(folderName, op.MinecraftVersion) {
+				case !strings.HasPrefix(folderName, op.MinecraftVersion):
 					//we need a different version of MC
 					continue
-				} else if ver != nil {
+				case ver != nil:
 					//time to check to see if this a newer version
 					if ver2, _ := version.NewVersion(op.Version); ver2 != nil && ver.LessThan(ver2) {
 						op.Version = v.Name()

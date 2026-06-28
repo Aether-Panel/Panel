@@ -95,10 +95,8 @@ func Compress(fs FileServer, targetFile string, files []string) error {
 						expandedFiles = append(expandedFiles, match)
 					}
 				}
-			} else {
-				if fullPath != targetFile {
-					expandedFiles = append(expandedFiles, fullPath)
-				}
+			} else if fullPath != targetFile {
+				expandedFiles = append(expandedFiles, fullPath)
 			}
 		}
 		files = expandedFiles
@@ -122,7 +120,8 @@ func walker(fs FileServer, targetPath, filter string, skipRoot bool) archiver.Wa
 		parent := filepath.Join(targetPath, filepath.Dir(path))
 		path = filepath.Join(targetPath, path)
 
-		if file.Mode().IsDir() {
+		switch {
+		case file.Mode().IsDir():
 			if fs != nil {
 				if err = fs.MkdirAll(path, 0755); err != nil {
 					return err
@@ -132,7 +131,7 @@ func walker(fs FileServer, targetPath, filter string, skipRoot bool) archiver.Wa
 					return err
 				}
 			}
-		} else if file.Mode().IsRegular() {
+		case file.Mode().IsRegular():
 			if fs != nil {
 				if err = fs.MkdirAll(parent, 0755); err != nil {
 					return err
@@ -154,7 +153,7 @@ func walker(fs FileServer, targetPath, filter string, skipRoot bool) archiver.Wa
 			}
 			defer utils.Close(outFile)
 			_, err = io.Copy(outFile, file.ReadCloser)
-		} else if file.Mode()&os.ModeSymlink != 0 {
+		case file.Mode()&os.ModeSymlink != 0:
 			target, err := getLinkTarget(file)
 			if err != nil {
 				return err

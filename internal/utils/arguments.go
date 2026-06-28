@@ -8,7 +8,7 @@ import (
 func ReplaceTokens(msg string, mapping map[string]interface{}) string {
 	newmsg := msg
 	for key, value := range mapping {
-		newmsg = strings.Replace(newmsg, "${"+key+"}", fmt.Sprint(value), -1)
+		newmsg = strings.ReplaceAll(newmsg, "${"+key+"}", fmt.Sprint(value))
 	}
 	return newmsg
 }

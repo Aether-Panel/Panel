@@ -6,7 +6,7 @@ type OperationFactory struct {
 	SkyPanel.OperationFactory
 }
 
-func (of OperationFactory) Create(op SkyPanel.CreateOperation) (SkyPanel.Operation, error) {
+func (of OperationFactory) Create(_ SkyPanel.CreateOperation) (SkyPanel.Operation, error) {
 	return &Fabricdl{}, nil
 }
 

@@ -608,7 +608,7 @@ var migrations = [][]*gormigrate.Migration{
 						return nil // already has it
 					}
 				}
-				role.RawScopes = role.RawScopes + ",server.create"
+				role.RawScopes += ",server.create"
 				return db.Model(&role).Update("scopes", role.RawScopes).Error
 			},
 		},
