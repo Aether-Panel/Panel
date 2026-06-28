@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -222,11 +223,12 @@ func TestServers(t *testing.T) {
 			if !assert.NoError(t, webErr) {
 				return
 			}
-			listening := true
+			var listening atomic.Bool
+			listening.Store(true)
 			defer utils.Close(c)
 
 			go func(conn *websocket.Conn) {
-				for listening {
+				for listening.Load() {
 					messageType, data, err := conn.ReadMessage()
 					if err != nil {
 						fmt.Printf("Error on websocket: %s\n", err.Error())
@@ -484,7 +486,7 @@ func TestServers(t *testing.T) {
 				}
 			})
 
-			listening = false
+			listening.Store(false)
 			_ = c.Close()
 
 			//create a fake file that we can use to both

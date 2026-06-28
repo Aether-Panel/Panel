@@ -192,8 +192,12 @@ func (ge *Error) Error() string {
 	return ge.GetMessage()
 }
 
-func (ge *Error) Is(err *Error) bool {
-	return ge.GetCode() == err.GetCode()
+func (ge *Error) Is(target error) bool {
+	t, ok := target.(*Error)
+	if !ok {
+		return false
+	}
+	return ge.GetCode() == t.GetCode()
 }
 
 func (ge *Error) Metadata(metadata map[string]interface{}) *Error {
