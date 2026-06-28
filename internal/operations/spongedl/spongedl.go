@@ -37,20 +37,20 @@ type SpongeApiV2Asset struct {
 	Extension   string
 }
 
-func (op SpongeDl) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
+func (op SpongeDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	env := args.Environment
 
 	//first, we need to get the build we need to get, if one isn't specified
 	if op.SpongeVersion == "" {
 		data, err := op.getLatestVersion(env)
 		if err != nil {
-			return SkyPanel.OperationResult{Error: err}
+			return skypanel.OperationResult{Error: err}
 		}
 
 		if len(data.Artifacts) == 0 {
 			env.DisplayToConsole(true, "No matching Sponge versions found")
 			err = errors.New("no valid sponge versions found")
-			return SkyPanel.OperationResult{Error: err}
+			return skypanel.OperationResult{Error: err}
 		}
 
 		for k := range data.Artifacts {
@@ -68,7 +68,7 @@ func (op SpongeDl) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
 
 	data, err := op.getSpecificVersion(env, op.SpongeVersion)
 	if err != nil {
-		return SkyPanel.OperationResult{Error: err}
+		return skypanel.OperationResult{Error: err}
 	}
 
 	var url string
@@ -80,7 +80,7 @@ func (op SpongeDl) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
 
 	if url == "" {
 		err = errors.New("no asset found to download")
-		return SkyPanel.OperationResult{Error: err}
+		return skypanel.OperationResult{Error: err}
 	}
 
 	switch strings.ToLower(op.SpongeType) {
@@ -89,56 +89,56 @@ func (op SpongeDl) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
 			mapping := make(map[string]interface{})
 			mapping["minecraftVersion"] = data.Tags["minecraft"]
 			mapping["target"] = "forge-installer.jar"
-			var forgeDlOp SkyPanel.Operation
-			forgeDlOp, err = forgedl.Factory.Create(SkyPanel.CreateOperation{OperationArgs: mapping})
+			var forgeDlOp skypanel.Operation
+			forgeDlOp, err = forgedl.Factory.Create(skypanel.CreateOperation{OperationArgs: mapping})
 			if err != nil {
-				return SkyPanel.OperationResult{Error: err}
+				return skypanel.OperationResult{Error: err}
 			}
 
 			res := forgeDlOp.Run(args)
 			if res.Error != nil {
-				return SkyPanel.OperationResult{Error: res.Error}
+				return skypanel.OperationResult{Error: res.Error}
 			}
 
 			err = args.Server.GetFileServer().Mkdir("mods", 0755)
 			if err != nil && !os.IsExist(err) {
-				return SkyPanel.OperationResult{Error: err}
+				return skypanel.OperationResult{Error: err}
 			}
 
-			file, err := SkyPanel.DownloadViaMaven(url, env)
+			file, err := skypanel.DownloadViaMaven(url, env)
 			defer utils.Close(file)
 			if err != nil {
-				return SkyPanel.OperationResult{Error: err}
+				return skypanel.OperationResult{Error: err}
 			}
 
 			//going to stick the spongeforge rename in, to assist with those modpacks
 			err = files.WriteFile(file, path.Join(env.GetRootDirectory(), "mods", "_aspongeforge.jar"))
 			if err != nil {
-				return SkyPanel.OperationResult{Error: err}
+				return skypanel.OperationResult{Error: err}
 			}
 		}
 	case "spongevanilla":
 		{
-			file, err := SkyPanel.DownloadViaMaven(url, env)
+			file, err := skypanel.DownloadViaMaven(url, env)
 			defer utils.Close(file)
 			if err != nil {
-				return SkyPanel.OperationResult{Error: err}
+				return skypanel.OperationResult{Error: err}
 			}
 
 			err = files.WriteFile(file, path.Join(env.GetRootDirectory(), "server.jar"))
 			if err != nil {
-				return SkyPanel.OperationResult{Error: err}
+				return skypanel.OperationResult{Error: err}
 			}
 		}
 	default:
 		err = errors.New("invalid sponge type")
-		return SkyPanel.OperationResult{Error: err}
+		return skypanel.OperationResult{Error: err}
 	}
 
-	return SkyPanel.OperationResult{Error: nil}
+	return skypanel.OperationResult{Error: nil}
 }
 
-func (op SpongeDl) getLatestVersion(env *SkyPanel.Environment) (SpongeApiV2Versions, error) {
+func (op SpongeDl) getLatestVersion(env *skypanel.Environment) (SpongeApiV2Versions, error) {
 	var data SpongeApiV2Versions
 
 	var params = "?limit=1"
@@ -151,7 +151,7 @@ func (op SpongeDl) getLatestVersion(env *SkyPanel.Environment) (SpongeApiV2Versi
 
 	var url = SpongeApiBaseUrl + op.SpongeType + "/versions" + params
 
-	response, err := SkyPanel.HttpGet(url)
+	response, err := skypanel.HttpGet(url)
 	if err != nil {
 		return data, err
 	}
@@ -165,12 +165,12 @@ func (op SpongeDl) getLatestVersion(env *SkyPanel.Environment) (SpongeApiV2Versi
 	return data, err
 }
 
-func (op SpongeDl) getSpecificVersion(env *SkyPanel.Environment, version string) (SpongeApiV2Latest, error) {
+func (op SpongeDl) getSpecificVersion(env *skypanel.Environment, version string) (SpongeApiV2Latest, error) {
 	var data SpongeApiV2Latest
 
 	var url = SpongeApiBaseUrl + op.SpongeType + "/versions/" + version
 
-	response, err := SkyPanel.HttpGet(url)
+	response, err := skypanel.HttpGet(url)
 	if err != nil {
 		return data, err
 	}

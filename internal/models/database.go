@@ -29,7 +29,7 @@ type Database struct {
 func (d *Database) IsValid() (err error) {
 	err = validator.New().Struct(d)
 	if err != nil {
-		err = SkyPanel.GenerateValidationMessage(err)
+		err = skypanel.GenerateValidationMessage(err)
 	}
 	return
 }

@@ -32,7 +32,7 @@ type Node struct {
 func (n *Node) IsValid() (err error) {
 	err = validator.New().Struct(n)
 	if err != nil {
-		err = SkyPanel.GenerateValidationMessage(err)
+		err = skypanel.GenerateValidationMessage(err)
 	}
 	return
 }

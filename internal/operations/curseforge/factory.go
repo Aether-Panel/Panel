@@ -8,10 +8,10 @@ import (
 )
 
 type OperationFactory struct {
-	SkyPanel.OperationFactory
+	skypanel.OperationFactory
 }
 
-func (of OperationFactory) Create(op SkyPanel.CreateOperation) (SkyPanel.Operation, error) {
+func (of OperationFactory) Create(op skypanel.CreateOperation) (skypanel.Operation, error) {
 	if config.CurseForgeKey.Value() == "" {
 		return nil, errors.New("CurseForge key is required to use this module")
 	}

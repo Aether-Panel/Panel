@@ -1,4 +1,4 @@
-package SkyPanel
+package skypanel
 
 type FileList struct {
 	CurrentPath string     `json:"path"`

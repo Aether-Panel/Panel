@@ -26,8 +26,8 @@ func registerRoles(g *gin.RouterGroup) {
 
 // @Summary List roles
 // @Success 200 {array} models.Role
-// @Failure 403 {object} SkyPanel.ErrorResponse
-// @Failure 500 {object} SkyPanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
 // @Tags Roles
 // @Router /api/roles [get]
 // @Security OAuth2Application[admin]
@@ -45,9 +45,9 @@ func listRoles(c *gin.Context) {
 
 // @Summary Create role
 // @Success 200 {object} models.Role
-// @Failure 400 {object} SkyPanel.ErrorResponse
-// @Failure 403 {object} SkyPanel.ErrorResponse
-// @Failure 500 {object} SkyPanel.ErrorResponse
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
 // @Param body body models.Role true "New role information"
 // @Tags Roles
 // @Router /api/roles [post]
@@ -70,10 +70,10 @@ func createRole(c *gin.Context) {
 
 // @Summary Get role
 // @Success 200 {object} models.Role
-// @Failure 400 {object} SkyPanel.ErrorResponse
-// @Failure 403 {object} SkyPanel.ErrorResponse
-// @Failure 404 {object} SkyPanel.ErrorResponse
-// @Failure 500 {object} SkyPanel.ErrorResponse
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
 // @Param id path uint true "Role ID"
 // @Tags Roles
 // @Router /api/roles/{id} [get]
@@ -99,10 +99,10 @@ func getRole(c *gin.Context) {
 
 // @Summary Update role
 // @Success 200 {object} models.Role
-// @Failure 400 {object} SkyPanel.ErrorResponse
-// @Failure 403 {object} SkyPanel.ErrorResponse
-// @Failure 404 {object} SkyPanel.ErrorResponse
-// @Failure 500 {object} SkyPanel.ErrorResponse
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
 // @Param id path uint true "Role ID"
 // @Param body body models.Role true "Updated role information"
 // @Tags Roles
@@ -134,10 +134,10 @@ func updateRole(c *gin.Context) {
 
 // @Summary Delete role
 // @Success 204 {object} nil
-// @Failure 400 {object} SkyPanel.ErrorResponse
-// @Failure 403 {object} SkyPanel.ErrorResponse
-// @Failure 404 {object} SkyPanel.ErrorResponse
-// @Failure 500 {object} SkyPanel.ErrorResponse
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
 // @Param id path uint true "Role ID"
 // @Tags Roles
 // @Router /api/roles/{id} [delete]

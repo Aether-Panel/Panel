@@ -29,7 +29,7 @@ func Initialize(useFiles bool) {
 			panic(err)
 		}
 
-		logFile, err := os.OpenFile(path.Join(directory, "SkyPanel.log"), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+		logFile, err := os.OpenFile(path.Join(directory, "skypanel.log"), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 		if err != nil {
 			panic(err)
 		}

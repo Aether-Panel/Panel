@@ -196,7 +196,7 @@ func searchServers(c *gin.Context) {
 
 	pageSize, err := strconv.Atoi(pageSizeQuery)
 	if response.HandleError(c, err, http.StatusBadRequest) || pageSize <= 0 {
-		response.HandleError(c, SkyPanel.ErrFieldTooSmall("pageSize", 0), http.StatusBadRequest)
+		response.HandleError(c, skypanel.ErrFieldTooSmall("pageSize", 0), http.StatusBadRequest)
 		return
 	}
 
@@ -206,13 +206,13 @@ func searchServers(c *gin.Context) {
 
 	page, err := strconv.Atoi(pageQuery)
 	if response.HandleError(c, err, http.StatusBadRequest) || page <= 0 {
-		response.HandleError(c, SkyPanel.ErrFieldTooSmall("page", 0), http.StatusBadRequest)
+		response.HandleError(c, skypanel.ErrFieldTooSmall("page", 0), http.StatusBadRequest)
 		return
 	}
 
 	node, err := strconv.Atoi(nodeQuery)
 	if response.HandleError(c, err, http.StatusBadRequest) || node < 0 {
-		response.HandleError(c, SkyPanel.ErrFieldTooSmall("nodeId", 0), http.StatusBadRequest)
+		response.HandleError(c, skypanel.ErrFieldTooSmall("nodeId", 0), http.StatusBadRequest)
 		return
 	}
 
@@ -242,7 +242,7 @@ func searchServers(c *gin.Context) {
 	if !isAdmin && username != "" && user.Username != username {
 		c.JSON(http.StatusOK, &models.ServerSearchResponse{
 			Servers: []*models.ServerView{},
-			Metadata: &SkyPanel.Metadata{Paging: &SkyPanel.Paging{
+			Metadata: &skypanel.Metadata{Paging: &skypanel.Paging{
 				Page:    1,
 				Size:    0,
 				MaxSize: MaxPageSize,
@@ -296,7 +296,7 @@ func searchServers(c *gin.Context) {
 
 	c.JSON(http.StatusOK, &models.ServerSearchResponse{
 		Servers: data,
-		Metadata: &SkyPanel.Metadata{Paging: &SkyPanel.Paging{
+		Metadata: &skypanel.Metadata{Paging: &skypanel.Paging{
 			Page:    uint(page),
 			Size:    uint(pageSize),
 			MaxSize: MaxPageSize,
@@ -427,7 +427,7 @@ func createServer(c *gin.Context) {
 	node, err := ns.Get(postBody.NodeId)
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		response.HandleError(c, SkyPanel.ErrNodeInvalid, http.StatusBadRequest)
+		response.HandleError(c, skypanel.ErrNodeInvalid, http.StatusBadRequest)
 		return
 	} else if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
@@ -1302,7 +1302,7 @@ func createBackup(c *gin.Context) {
 	node := &server.Node
 
 	if name == "" {
-		response.HandleError(c, SkyPanel.ErrFieldRequired("name"), http.StatusBadRequest)
+		response.HandleError(c, skypanel.ErrFieldRequired("name"), http.StatusBadRequest)
 		return
 	}
 
@@ -1325,7 +1325,7 @@ func createBackup(c *gin.Context) {
 		return
 	}
 
-	responseData := &SkyPanel.ServerBackupResponse{}
+	responseData := &skypanel.ServerBackupResponse{}
 	err = json.NewDecoder(callResponse.Body).Decode(responseData)
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
@@ -1483,7 +1483,7 @@ func downloadBackup(c *gin.Context) {
 	c.DataFromReader(callResponse.StatusCode, callResponse.ContentLength, callResponse.Header.Get("Content-Type"), callResponse.Body, newHeaders)
 }
 
-func getFromData(variables map[string]SkyPanel.Variable, key string) (result interface{}, exists bool) {
+func getFromData(variables map[string]skypanel.Variable, key string) (result interface{}, exists bool) {
 	for k, v := range variables {
 		if k == key {
 			return v.Value, true
@@ -1492,7 +1492,7 @@ func getFromData(variables map[string]SkyPanel.Variable, key string) (result int
 	return nil, false
 }
 
-func getFromDataOrDefault(variables map[string]SkyPanel.Variable, key string, val interface{}) (interface{}, error) {
+func getFromDataOrDefault(variables map[string]skypanel.Variable, key string, val interface{}) (interface{}, error) {
 	res, exists := getFromData(variables, key)
 
 	if exists {
@@ -1590,15 +1590,15 @@ func proxyHttpRequest(c *gin.Context, path string, ns *services.Node, node *mode
 		if servers.GetFromCache(serverId) == nil {
 			if c.Request.Method == "GET" {
 				if strings.HasSuffix(path, "/stats") {
-					c.JSON(http.StatusOK, SkyPanel.ServerStats{Running: false})
+					c.JSON(http.StatusOK, skypanel.ServerStats{Running: false})
 					return
 				}
 				if strings.HasSuffix(path, "/status") {
-					c.JSON(http.StatusOK, SkyPanel.ServerRunning{Running: false, Installing: false})
+					c.JSON(http.StatusOK, skypanel.ServerRunning{Running: false, Installing: false})
 					return
 				}
 				if strings.HasSuffix(path, "/console") {
-					c.JSON(http.StatusOK, SkyPanel.ServerLogs{Logs: []byte("")})
+					c.JSON(http.StatusOK, skypanel.ServerLogs{Logs: []byte("")})
 					return
 				}
 			}
@@ -1621,15 +1621,15 @@ func proxyHttpRequest(c *gin.Context, path string, ns *services.Node, node *mode
 	// Intercept 404 for stats/status/console to avoid errors in console for "ghost" servers (non-local or fallback)
 	if callResponse.StatusCode == http.StatusNotFound && c.Request.Method == "GET" {
 		if strings.HasSuffix(path, "/stats") {
-			c.JSON(http.StatusOK, SkyPanel.ServerStats{Running: false})
+			c.JSON(http.StatusOK, skypanel.ServerStats{Running: false})
 			return
 		}
 		if strings.HasSuffix(path, "/status") {
-			c.JSON(http.StatusOK, SkyPanel.ServerRunning{Running: false, Installing: false})
+			c.JSON(http.StatusOK, skypanel.ServerRunning{Running: false, Installing: false})
 			return
 		}
 		if strings.HasSuffix(path, "/console") {
-			c.JSON(http.StatusOK, SkyPanel.ServerLogs{Logs: []byte("")})
+			c.JSON(http.StatusOK, skypanel.ServerLogs{Logs: []byte("")})
 			return
 		}
 	}
@@ -1666,7 +1666,7 @@ func proxySocketRequest(c *gin.Context, path string, ns *services.Node, node *mo
 				return
 			}
 			// Enviar un mensaje de advertencia simulado
-			msg := SkyPanel.ServerLogs{
+			msg := skypanel.ServerLogs{
 				Logs: []byte("> Error: Los archivos de este servidor han desaparecido del nodo. No se puede conectar a la consola."),
 			}
 			data, _ := json.Marshal(msg)
@@ -1685,7 +1685,7 @@ func proxySocketRequest(c *gin.Context, path string, ns *services.Node, node *mo
 			return
 		}
 		c.Request.URL = addr
-		SkyPanel.Engine.HandleContext(c)
+		skypanel.Engine.HandleContext(c)
 	} else {
 		err := ns.OpenSocket(node, path, c.Writer, c.Request)
 		response.HandleError(c, err, http.StatusInternalServerError)

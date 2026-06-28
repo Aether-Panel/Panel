@@ -28,7 +28,7 @@ import (
 type tty struct {
 	mainProcess   *exec.Cmd
 	statLocker    sync.Mutex
-	lastStats     *SkyPanel.ServerStats
+	lastStats     *skypanel.ServerStats
 	lastStatTime  time.Time
 	lastNetworkRx uint64
 	lastNetworkTx uint64
@@ -43,7 +43,7 @@ type tty struct {
 	dirSizeTime time.Time
 }
 
-func (t *tty) ExecuteAsyncImpl(environment *SkyPanel.Environment, steps SkyPanel.ExecutionData) (err error) {
+func (t *tty) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypanel.ExecutionData) (err error) {
 	environment.Wait.Add(1)
 
 	pr, err := t.createCmd(environment.GetRootDirectory(), steps.Command)
@@ -93,12 +93,12 @@ func (t *tty) ExecuteAsyncImpl(environment *SkyPanel.Environment, steps SkyPanel
 	environment.DisplayToConsole(true, "Starting process: %s", steps.Command)
 	environment.Log(logging.Info, "Starting process in directory [%s]: %s", t.mainProcess.Dir, strings.Join(t.mainProcess.Args, " "))
 
-	_ = environment.StatusTracker.WriteMessage(SkyPanel.Transmission{
-		Message: SkyPanel.ServerRunning{
+	_ = environment.StatusTracker.WriteMessage(skypanel.Transmission{
+		Message: skypanel.ServerRunning{
 			Running:    true,
 			Installing: environment.IsInstalling(),
 		},
-		Type: SkyPanel.MessageTypeStatus,
+		Type: skypanel.MessageTypeStatus,
 	})
 
 	t.disableSpecialStats = steps.DisableStats
@@ -134,7 +134,7 @@ func (t *tty) ExecuteAsyncImpl(environment *SkyPanel.Environment, steps SkyPanel
 	return
 }
 
-func (t *tty) KillImpl(environment *SkyPanel.Environment) (err error) {
+func (t *tty) KillImpl(environment *skypanel.Environment) (err error) {
 	running, err := environment.IsRunning()
 	if err != nil {
 		return
@@ -145,13 +145,13 @@ func (t *tty) KillImpl(environment *SkyPanel.Environment) (err error) {
 	return t.mainProcess.Process.Kill()
 }
 
-func (t *tty) GetStatsImpl(environment *SkyPanel.Environment) (*SkyPanel.ServerStats, error) {
+func (t *tty) GetStatsImpl(environment *skypanel.Environment) (*skypanel.ServerStats, error) {
 	running, err := environment.IsRunning()
 	if err != nil {
 		return nil, err
 	}
 	if !running {
-		stats := &SkyPanel.ServerStats{
+		stats := &skypanel.ServerStats{
 			Cpu:     0,
 			Memory:  0,
 			Running: false,
@@ -211,7 +211,7 @@ func (t *tty) GetStatsImpl(environment *SkyPanel.Environment) (*SkyPanel.ServerS
 		}
 	}
 
-	stats := &SkyPanel.ServerStats{
+	stats := &skypanel.ServerStats{
 		Cpu:        cpu,
 		Memory:     cast.ToFloat64(memMap.RSS),
 		MaxMemory:  cast.ToFloat64(memInfo.Total),
@@ -253,7 +253,7 @@ func (t *tty) GetStatsImpl(environment *SkyPanel.Environment) (*SkyPanel.ServerS
 	return stats, nil
 }
 
-func (t *tty) SendCodeImpl(environment *SkyPanel.Environment, code int) error {
+func (t *tty) SendCodeImpl(environment *skypanel.Environment, code int) error {
 	running, err := environment.IsRunning()
 
 	if err != nil || !running {
@@ -263,15 +263,15 @@ func (t *tty) SendCodeImpl(environment *SkyPanel.Environment, code int) error {
 	return t.mainProcess.Process.Signal(syscall.Signal(code))
 }
 
-func (t *tty) GetUidImpl(*SkyPanel.Environment) int {
+func (t *tty) GetUidImpl(*skypanel.Environment) int {
 	return -1
 }
 
-func (t *tty) GetGidImpl(*SkyPanel.Environment) int {
+func (t *tty) GetGidImpl(*skypanel.Environment) int {
 	return -1
 }
 
-func (t *tty) IsRunningImpl(*SkyPanel.Environment) (isRunning bool, err error) {
+func (t *tty) IsRunningImpl(*skypanel.Environment) (isRunning bool, err error) {
 	isRunning = t.mainProcess != nil && t.mainProcess.Process != nil
 	if isRunning {
 		pr, pErr := os.FindProcess(t.mainProcess.Process.Pid)
@@ -284,7 +284,7 @@ func (t *tty) IsRunningImpl(*SkyPanel.Environment) (isRunning bool, err error) {
 	return
 }
 
-func (t *tty) handleClose(environment *SkyPanel.Environment, callback func(exitCode int)) {
+func (t *tty) handleClose(environment *skypanel.Environment, callback func(exitCode int)) {
 	err := t.mainProcess.Wait()
 
 	_ = environment.Console.Close()
@@ -331,12 +331,12 @@ func (t *tty) handleClose(environment *SkyPanel.Environment, callback func(exitC
 
 	environment.Wait.Done()
 
-	_ = environment.StatusTracker.WriteMessage(SkyPanel.Transmission{
-		Message: SkyPanel.ServerRunning{
+	_ = environment.StatusTracker.WriteMessage(skypanel.Transmission{
+		Message: skypanel.ServerRunning{
 			Running:    false,
 			Installing: environment.IsInstalling(),
 		},
-		Type: SkyPanel.MessageTypeStatus,
+		Type: skypanel.MessageTypeStatus,
 	})
 
 	//t.disableStdin = false

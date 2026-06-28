@@ -50,7 +50,7 @@ type CurseForge struct {
 var installerRegex = regexp.MustCompile("(neo)?forge-.*-installer.jar")
 var errNoFile = errors.New("status code 404")
 
-func (c CurseForge) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
+func (c CurseForge) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	env := args.Environment
 
 	var clientFile, serverFile File
@@ -59,7 +59,7 @@ func (c CurseForge) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult 
 		//we need to get the latest file id to do our calls
 		files, err := getLatestFiles(c.ProjectId)
 		if err != nil {
-			return SkyPanel.OperationResult{Error: err}
+			return skypanel.OperationResult{Error: err}
 		}
 
 		for _, v := range files {
@@ -77,12 +77,12 @@ func (c CurseForge) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult 
 
 		if serverFile.Id == 0 {
 			err = errors.New("no files available on CurseForge")
-			return SkyPanel.OperationResult{Error: err}
+			return skypanel.OperationResult{Error: err}
 		}
 	} else {
 		serverFile, err = getFileById(c.ProjectId, c.FileId)
 		if err != nil {
-			return SkyPanel.OperationResult{Error: err}
+			return skypanel.OperationResult{Error: err}
 		}
 	}
 
@@ -90,28 +90,28 @@ func (c CurseForge) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult 
 		clientFile = serverFile
 		serverFile, err = getFileById(c.ProjectId, serverFile.ServerPackFileId)
 		if err != nil {
-			return SkyPanel.OperationResult{Error: err}
+			return skypanel.OperationResult{Error: err}
 		}
 	}
 
 	if clientFile.Id == 0 && serverFile.ParentProjectFileId != 0 {
 		clientFile, err = getFileById(c.ProjectId, serverFile.ParentProjectFileId)
 		if err != nil {
-			return SkyPanel.OperationResult{Error: err}
+			return skypanel.OperationResult{Error: err}
 		}
 	}
 
 	if !serverFile.IsServerPack {
 		logging.Debug.Printf("File ID %d is not marked as a server pack, will not install\n", serverFile.Id)
 		env.DisplayToConsole(true, "File ID %d is not marked as a server pack, will not install\n", serverFile.Id)
-		return SkyPanel.OperationResult{Error: errors.New("not server pack")}
+		return skypanel.OperationResult{Error: errors.New("not server pack")}
 	}
 
 	logging.Debug.Printf("Downloading modpack from %s\n", serverFile.DownloadUrl)
 	env.DisplayToConsole(true, "Downloading modpack from %s", serverFile.DownloadUrl)
 	err = downloadModpack(serverFile)
 	if err != nil {
-		return SkyPanel.OperationResult{Error: err}
+		return skypanel.OperationResult{Error: err}
 	}
 
 	/*if clientFile.Id != 0 {
@@ -119,7 +119,7 @@ func (c CurseForge) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult 
 		env.DisplayToConsole(true, "Downloading modpack from %s", serverFile.DownloadUrl)
 		err = downloadModpack(clientFile)
 		if err != nil {
-			return SkyPanel.OperationResult{Error: err}
+			return skypanel.OperationResult{Error: err}
 		}
 	}*/
 
@@ -131,7 +131,7 @@ func (c CurseForge) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult 
 
 	err = files.Extract(nil, serverZipPath, env.GetRootDirectory(), "*", singleRoot, nil)
 	if err != nil {
-		return SkyPanel.OperationResult{Error: err}
+		return skypanel.OperationResult{Error: err}
 	}
 
 	//modpack now downloaded and extracted
@@ -177,7 +177,7 @@ func (c CurseForge) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult 
 	} else {
 		//give up
 		env.DisplayToConsole(true, "Unknown server type. Could not prepare server for actual execution")
-		return SkyPanel.OperationResult{Error: nil}
+		return skypanel.OperationResult{Error: nil}
 	}
 
 	//we figured out the loader, now to run their "installer"
@@ -186,7 +186,7 @@ func (c CurseForge) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult 
 		{
 			err = installFabric(env, data, c.JavaBinary)
 			if err != nil {
-				return SkyPanel.OperationResult{Error: err}
+				return skypanel.OperationResult{Error: err}
 			}
 		}
 	case "forge":
@@ -210,22 +210,22 @@ func (c CurseForge) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult 
 					downloadUrl = replaceTokens(forgedl.InstallerURL, map[string]string{"version": version})
 				}
 
-				dl, err := SkyPanel.DownloadViaMaven(downloadUrl, env)
+				dl, err := skypanel.DownloadViaMaven(downloadUrl, env)
 				defer utils.Close(dl)
 				if err != nil {
-					return SkyPanel.OperationResult{Error: err}
+					return skypanel.OperationResult{Error: err}
 				}
 				//copy to server
 				err = files.WriteFile(dl, filepath.Join(env.GetRootDirectory(), installerJar))
 				if err != nil {
-					return SkyPanel.OperationResult{Error: err}
+					return skypanel.OperationResult{Error: err}
 				}
 				jarFile = installerJar
 			}
 
 			err = installViaJar(args.Server, env, jarFile, c.JavaBinary)
 			if err != nil {
-				return SkyPanel.OperationResult{Error: err}
+				return skypanel.OperationResult{Error: err}
 			}
 
 			//grab the ServerStarter if there isn't a server.jar, just to help out
@@ -236,30 +236,30 @@ func (c CurseForge) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult 
 				var cachePath = filepath.Join(config.CacheFolder.Value(), "github.com", "neoforgedl", "serverstarter", NeoForgeServerStarterVersion, "server.jar")
 				if _, err = os.Stat(cachePath); os.IsNotExist(err) {
 					env.DisplayToConsole(true, "Downloading "+NeoForgeServerStarter)
-					err = SkyPanel.DownloadFileToCache(NeoForgeServerStarter, cachePath)
+					err = skypanel.DownloadFileToCache(NeoForgeServerStarter, cachePath)
 					if err != nil {
-						return SkyPanel.OperationResult{Error: err}
+						return skypanel.OperationResult{Error: err}
 					}
 				}
 				err = files.CopyFile(cachePath, runJarFile)
 				if err != nil {
-					return SkyPanel.OperationResult{Error: err}
+					return skypanel.OperationResult{Error: err}
 				}
 			}
 		}
 	default:
 		{
 			env.DisplayToConsole(true, "Unsupported server type. Could not prepare server for actual execution")
-			return SkyPanel.OperationResult{Error: nil}
+			return skypanel.OperationResult{Error: nil}
 		}
 	}
 
 	//loaders installed, at this stage, we're "done"
 	env.DisplayToConsole(true, "Pack installed and should be good to go!")
-	return SkyPanel.OperationResult{Error: nil}
+	return skypanel.OperationResult{Error: nil}
 }
 
-func findInstallerJar(env *SkyPanel.Environment) (string, error) {
+func findInstallerJar(env *skypanel.Environment) (string, error) {
 	entries, err := os.ReadDir(env.GetRootDirectory())
 	if err != nil {
 		return "", err
@@ -276,10 +276,10 @@ func findInstallerJar(env *SkyPanel.Environment) (string, error) {
 	return "", os.ErrNotExist
 }
 
-func installViaJar(server SkyPanel.DaemonServer, env *SkyPanel.Environment, jarFile string, javaBinary string) error {
+func installViaJar(server skypanel.DaemonServer, env *skypanel.Environment, jarFile string, javaBinary string) error {
 	//installer found, we will run this one
 	result := make(chan int, 1)
-	err := env.Execute(SkyPanel.ExecutionData{
+	err := env.Execute(skypanel.ExecutionData{
 		Command: fmt.Sprintf("%s -jar %s --installServer", javaBinary, jarFile),
 		Callback: func(exitCode int) {
 			result <- exitCode
@@ -328,7 +328,7 @@ func installViaJar(server SkyPanel.DaemonServer, env *SkyPanel.Environment, jarF
 	return nil
 }
 
-func installFabric(env *SkyPanel.Environment, data map[string]string, javaBinary string) error {
+func installFabric(env *skypanel.Environment, data map[string]string, javaBinary string) error {
 	//this is a mess
 	//there's 2 options that exist for fabric
 	//there is an "improved" launcher, which is just a jar that we need
@@ -358,7 +358,7 @@ func installFabric(env *SkyPanel.Environment, data map[string]string, javaBinary
 
 		//forge installer found, we will run this one
 		result := make(chan int, 1)
-		err = env.Execute(SkyPanel.ExecutionData{
+		err = env.Execute(skypanel.ExecutionData{
 			Command: fmt.Sprintf("%s -jar fabric-installer server -mcversion %s -loader %s -downloadMinecraft", javaBinary, data["mcVersion"], data["version"]),
 			Callback: func(exitCode int) {
 				result <- exitCode
@@ -393,7 +393,7 @@ func downloadFile(url, target string) error {
 		return err
 	}
 	defer utils.Close(file)
-	response, err := SkyPanel.Http().Get(url)
+	response, err := skypanel.Http().Get(url)
 	defer utils.CloseResponse(response)
 	if err != nil {
 		return err

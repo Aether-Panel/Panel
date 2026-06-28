@@ -46,7 +46,7 @@ type Docker struct {
 	cli              *client.Client
 	downloadingImage bool
 	statLocker       sync.Mutex
-	lastStats        *SkyPanel.ServerStats
+	lastStats        *skypanel.ServerStats
 	lastStatTime     time.Time
 	lastNetworkRx    uint64
 	lastNetworkTx    uint64
@@ -58,9 +58,9 @@ type Docker struct {
 	dirSizeTime time.Time
 }
 
-func (d *Docker) ExecuteAsyncImpl(environment *SkyPanel.Environment, steps SkyPanel.ExecutionData) error {
+func (d *Docker) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypanel.ExecutionData) error {
 	if d.downloadingImage {
-		return SkyPanel.ErrImageDownloading
+		return skypanel.ErrImageDownloading
 	}
 
 	var err error
@@ -119,12 +119,12 @@ func (d *Docker) ExecuteAsyncImpl(environment *SkyPanel.Environment, steps SkyPa
 
 	startOpts := container.StartOptions{}
 
-	_ = environment.StatusTracker.WriteMessage(SkyPanel.Transmission{
-		Message: SkyPanel.ServerRunning{
+	_ = environment.StatusTracker.WriteMessage(skypanel.Transmission{
+		Message: skypanel.ServerRunning{
 			Running:    true,
 			Installing: environment.IsInstalling(),
 		},
-		Type: SkyPanel.MessageTypeStatus,
+		Type: skypanel.MessageTypeStatus,
 	})
 
 	environment.DisplayToConsole(true, "Starting container\n")
@@ -136,7 +136,7 @@ func (d *Docker) ExecuteAsyncImpl(environment *SkyPanel.Environment, steps SkyPa
 	return err
 }
 
-func (d *Docker) KillImpl(environment *SkyPanel.Environment) error {
+func (d *Docker) KillImpl(environment *skypanel.Environment) error {
 	running, err := environment.IsRunning()
 	if err != nil {
 		return err
@@ -154,7 +154,7 @@ func (d *Docker) KillImpl(environment *SkyPanel.Environment) error {
 	return err
 }
 
-func (d *Docker) IsRunningImpl(environment *SkyPanel.Environment) (bool, error) {
+func (d *Docker) IsRunningImpl(environment *skypanel.Environment) (bool, error) {
 	dockerClient, err := d.getClient()
 	if err != nil {
 		return false, err
@@ -174,14 +174,14 @@ func (d *Docker) IsRunningImpl(environment *SkyPanel.Environment) (bool, error) 
 	return stats.State.Running, nil
 }
 
-func (d *Docker) GetStatsImpl(environment *SkyPanel.Environment) (*SkyPanel.ServerStats, error) {
+func (d *Docker) GetStatsImpl(environment *skypanel.Environment) (*skypanel.ServerStats, error) {
 	running, err := environment.IsRunning()
 	if err != nil {
 		return nil, err
 	}
 
 	if !running {
-		stats := &SkyPanel.ServerStats{
+		stats := &skypanel.ServerStats{
 			Cpu:    0,
 			Memory: 0,
 		}
@@ -258,7 +258,7 @@ func (d *Docker) GetStatsImpl(environment *SkyPanel.Environment) (*SkyPanel.Serv
 		}
 	}
 
-	stats := &SkyPanel.ServerStats{
+	stats := &skypanel.ServerStats{
 		Memory:     float64(data.MemoryStats.Usage),
 		MaxMemory:  float64(data.MemoryStats.Limit),
 		Cpu:        calculateCPUPercent(data),
@@ -344,9 +344,9 @@ func doesContainerExist(client *client.Client, id string, ctx context.Context) (
 	return false, nil
 }
 
-func (d *Docker) PullImage(environment *SkyPanel.Environment, ctx context.Context, imageName string, force bool) error {
+func (d *Docker) PullImage(environment *skypanel.Environment, ctx context.Context, imageName string, force bool) error {
 	if d.downloadingImage {
-		return SkyPanel.ErrImageDownloading
+		return skypanel.ErrImageDownloading
 	}
 
 	if !force {
@@ -415,7 +415,7 @@ func (d *Docker) PullImage(environment *SkyPanel.Environment, ctx context.Contex
 	return err
 }
 
-func (d *Docker) createContainer(environment *SkyPanel.Environment, data SkyPanel.ExecutionData, ctx context.Context) error {
+func (d *Docker) createContainer(environment *skypanel.Environment, data skypanel.ExecutionData, ctx context.Context) error {
 	environment.Log(logging.Debug, "Creating container")
 	containerRoot := d.ContainerRoot
 	if containerRoot == "" {
@@ -424,7 +424,7 @@ func (d *Docker) createContainer(environment *SkyPanel.Environment, data SkyPane
 
 	if runtime.GOOS != "windows" {
 		if !filepath.IsAbs(containerRoot) {
-			return SkyPanel.ErrPathNotAbs(containerRoot)
+			return skypanel.ErrPathNotAbs(containerRoot)
 		}
 	}
 
@@ -449,7 +449,7 @@ func (d *Docker) createContainer(environment *SkyPanel.Environment, data SkyPane
 	environment.Log(logging.Debug, "Container command: %s\n", cmdSlice)
 
 	labels := map[string]string{
-		"SkyPanel.server": environment.ServerId,
+		"skypanel.server": environment.ServerId,
 	}
 
 	for k, v := range d.Labels {
@@ -604,7 +604,7 @@ func (d *Docker) createContainer(environment *SkyPanel.Environment, data SkyPane
 	return err
 }
 
-func (d *Docker) SendCodeImpl(environment *SkyPanel.Environment, code int) error {
+func (d *Docker) SendCodeImpl(environment *skypanel.Environment, code int) error {
 	running, err := environment.IsRunning()
 
 	if err != nil || !running {
@@ -621,7 +621,7 @@ func (d *Docker) SendCodeImpl(environment *SkyPanel.Environment, code int) error
 	return dockerClient.ContainerKill(ctx, environment.ServerId, cast.ToString(code))
 }
 
-func (d *Docker) GetUidImpl(environment *SkyPanel.Environment) int {
+func (d *Docker) GetUidImpl(environment *skypanel.Environment) int {
 	user := d.Config.User
 	if user == "" {
 		return -1
@@ -629,7 +629,7 @@ func (d *Docker) GetUidImpl(environment *SkyPanel.Environment) int {
 	return cast.ToInt(strings.Split(user, ":")[0])
 }
 
-func (d *Docker) GetGidImpl(environment *SkyPanel.Environment) int {
+func (d *Docker) GetGidImpl(environment *skypanel.Environment) int {
 	user := d.Config.User
 	if user == "" {
 		return -1
@@ -637,7 +637,7 @@ func (d *Docker) GetGidImpl(environment *SkyPanel.Environment) int {
 	return cast.ToInt(strings.Split(user, ":")[1])
 }
 
-func (d *Docker) handleClose(environment *SkyPanel.Environment, client *client.Client, callback func(int)) {
+func (d *Docker) handleClose(environment *skypanel.Environment, client *client.Client, callback func(int)) {
 	exitCode := -1
 	okChan, errChan := client.ContainerWait(context.Background(), environment.ServerId, container.WaitConditionRemoved)
 
@@ -660,12 +660,12 @@ func (d *Docker) handleClose(environment *SkyPanel.Environment, client *client.C
 
 	environment.Wait.Done()
 
-	_ = environment.StatusTracker.WriteMessage(SkyPanel.Transmission{
-		Message: SkyPanel.ServerRunning{
+	_ = environment.StatusTracker.WriteMessage(skypanel.Transmission{
+		Message: skypanel.ServerRunning{
 			Running:    false,
 			Installing: environment.IsInstalling(),
 		},
-		Type: SkyPanel.MessageTypeStatus,
+		Type: skypanel.MessageTypeStatus,
 	})
 
 	_ = environment.Console.Close()

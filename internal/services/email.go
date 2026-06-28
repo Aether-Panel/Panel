@@ -93,13 +93,13 @@ func GetEmailService() EmailService {
 func (es *emailService) SendEmail(to, template string, data map[string]interface{}, async bool) (err error) {
 	provider := config.EmailProvider.Value()
 	if provider == "" {
-		return SkyPanel.ErrEmailNotConfigured
+		return skypanel.ErrEmailNotConfigured
 	}
 
 	tmpl := es.templates[template]
 
 	if tmpl == nil {
-		return SkyPanel.ErrNoTemplate(template)
+		return skypanel.ErrNoTemplate(template)
 	}
 
 	if data == nil {
@@ -125,7 +125,7 @@ func (es *emailService) SendEmail(to, template string, data map[string]interface
 
 	svc := email.GetProvider(provider)
 	if svc == nil {
-		return SkyPanel.ErrServiceInvalidProvider("email", provider)
+		return skypanel.ErrServiceInvalidProvider("email", provider)
 	}
 
 	if async {

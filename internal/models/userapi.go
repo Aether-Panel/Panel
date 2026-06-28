@@ -13,5 +13,5 @@ type UserSearch struct {
 
 type UserSearchResponse struct {
 	Users []*UserView `json:"users"`
-	*SkyPanel.Metadata
+	*skypanel.Metadata
 } //@name UserSearchResponse

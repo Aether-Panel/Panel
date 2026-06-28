@@ -36,12 +36,12 @@ func RegisterDaemonRoutes(e *gin.RouterGroup) {
 
 // @Summary Check daemon status
 // @Description Check to see if the daemon is online or not
-// @Success 200 {object} SkyPanel.DaemonRunning
+// @Success 200 {object} skypanel.DaemonRunning
 // @Tags Daemon Root
 // @Router /daemon [get]
 // @Security OAuth2Application[none]
 func getStatusGET(c *gin.Context) {
-	c.JSON(http.StatusOK, &SkyPanel.DaemonRunning{Message: "daemon is running"})
+	c.JSON(http.StatusOK, &skypanel.DaemonRunning{Message: "daemon is running"})
 }
 
 // @Summary Check daemon status
@@ -76,7 +76,7 @@ func getFeatures(c *gin.Context) {
 		envs = utils.Remove(envs, "bubblewrap")
 	}
 
-	c.JSON(http.StatusOK, Features{Features: features, Environments: envs, OS: runtime.GOOS, Arch: runtime.GOARCH, Version: SkyPanel.Version})
+	c.JSON(http.StatusOK, Features{Features: features, Environments: envs, OS: runtime.GOOS, Arch: runtime.GOARCH, Version: skypanel.Version})
 }
 
 func testDocker() bool {

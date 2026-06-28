@@ -119,7 +119,7 @@ func LoadFromData(id string, source []byte) (*Server, error) {
 
 func Create(program *Server) (server *Server, err error) {
 	if GetFromCache(program.Id()) != nil {
-		return nil, SkyPanel.ErrServerAlreadyExists
+		return nil, skypanel.ErrServerAlreadyExists
 	}
 
 	defer func() {

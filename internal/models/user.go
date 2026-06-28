@@ -38,7 +38,7 @@ func (u *User) SetPassword(pw string) error {
 func (u *User) IsValid() (err error) {
 	err = validator.New().Struct(u)
 	if err != nil {
-		err = SkyPanel.GenerateValidationMessage(err)
+		err = skypanel.GenerateValidationMessage(err)
 	}
 	return
 }

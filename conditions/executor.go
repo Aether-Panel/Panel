@@ -64,11 +64,12 @@ func Run[T interface{}](statement string, data map[string]interface{}, extras []
 	if err != nil {
 		return res, err
 	}
-	if cast, ok := out.Value().(T); ok {
+	val := out.Value()
+	if cast, ok := val.(T); ok {
 		return cast, nil
-	} else {
-		return res, fmt.Errorf("invalid return type, expected %s, got %s", reflect.TypeOf(res), reflect.TypeOf(cast))
 	}
+	
+	return res, fmt.Errorf("invalid return type, expected %s, got %s", reflect.TypeOf(res), reflect.TypeOf(val))
 }
 
 var conditionalStatementRegex = regexp.MustCompile("{{.*?}}")

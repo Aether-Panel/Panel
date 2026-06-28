@@ -43,7 +43,7 @@ func downloadDD(rootBinaryFolder string, version string) error {
 		link = strings.Replace(link, "${arch}", arch, 1)
 	}
 
-	err = SkyPanel.HttpExtract(link, filepath.Join(rootBinaryFolder, "depotdownloader"), archiver.DefaultZip)
+	err = skypanel.HttpExtract(link, filepath.Join(rootBinaryFolder, "depotdownloader"), archiver.DefaultZip)
 	if err != nil {
 		return err
 	}
@@ -53,7 +53,7 @@ func downloadDD(rootBinaryFolder string, version string) error {
 }
 
 func getLatestVersion() (string, error) {
-	client := SkyPanel.Http()
+	client := skypanel.Http()
 	request := &http.Request{}
 
 	var err error

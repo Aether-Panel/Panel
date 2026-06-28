@@ -47,7 +47,7 @@ func handleTokenRequest(c *gin.Context) {
 	case "client_credentials":
 		{
 			os := &services.OAuth2{DB: db}
-			client, err := os.Get(request.ClientId)
+			client, err := os.Get(request.ClientID)
 			if err != nil {
 				c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: err.Error()})
 				return
@@ -194,7 +194,7 @@ func handleTokenRequest(c *gin.Context) {
 
 type OAuth2TokenRequest struct {
 	GrantType    string `form:"grant_type"`
-	ClientId     string `form:"client_id"`
+	ClientID     string `form:"client_id"`
 	ClientSecret string `form:"client_secret"`
 	Username     string `form:"username"`
 	Password     string `form:"password"`

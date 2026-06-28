@@ -6,10 +6,10 @@ import (
 )
 
 type OperationFactory struct {
-	SkyPanel.OperationFactory
+	skypanel.OperationFactory
 }
 
-func (of OperationFactory) Create(op SkyPanel.CreateOperation) (SkyPanel.Operation, error) {
+func (of OperationFactory) Create(op skypanel.CreateOperation) (skypanel.Operation, error) {
 	file := cast.ToString(op.OperationArgs["file"])
 	search := cast.ToString(op.OperationArgs["search"])
 	replace := cast.ToString(op.OperationArgs["replace"])

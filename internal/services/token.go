@@ -92,7 +92,7 @@ func NewTokenService() (TokenService, error) {
 		}
 	} else if externalService == nil {
 		var err error
-		externalService, err = keyfunc.NewDefault([]string{config.TokenPublicUrl.Value()})
+		externalService, err = keyfunc.NewDefault([]string{config.TokenPublicURL.Value()})
 		if err != nil {
 			return nil, err
 		}

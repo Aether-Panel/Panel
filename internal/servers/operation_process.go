@@ -32,8 +32,8 @@ import (
 	"github.com/spf13/cast"
 )
 
-var commandMapping = make(map[string]SkyPanel.OperationFactory)
-var factories = []SkyPanel.OperationFactory{
+var commandMapping = make(map[string]skypanel.OperationFactory)
+var factories = []skypanel.OperationFactory{
 	alterfile.Factory,
 	archive.Factory,
 	command.Factory,
@@ -66,7 +66,7 @@ func init() {
 	}
 }
 
-func GenerateProcess(directions []SkyPanel.ConditionalMetadataType, environment *SkyPanel.Environment, dataMapping map[string]interface{}, env map[string]string) (OperationProcess, error) {
+func GenerateProcess(directions []skypanel.ConditionalMetadataType, environment *skypanel.Environment, dataMapping map[string]interface{}, env map[string]string) (OperationProcess, error) {
 	dataMap := make(map[string]interface{})
 	for k, v := range dataMapping {
 		dataMap[k] = v
@@ -109,7 +109,7 @@ func GenerateProcess(directions []SkyPanel.ConditionalMetadataType, environment 
 
 		envMap := utils.ReplaceTokensInMap(env, dataMap)
 
-		opCreate := SkyPanel.CreateOperation{
+		opCreate := skypanel.CreateOperation{
 			OperationArgs:        mapCopy,
 			EnvironmentVariables: envMap,
 			DataMap:              dataMap,
@@ -124,7 +124,7 @@ func GenerateProcess(directions []SkyPanel.ConditionalMetadataType, environment 
 type OperationProcess []*OperationTask
 
 type OperationTask struct {
-	Operation SkyPanel.CreateOperation
+	Operation skypanel.CreateOperation
 	Condition string
 	Type      string
 }
@@ -148,14 +148,14 @@ func (p *OperationProcess) Run(server *Server) error {
 		if shouldRun {
 			factory := commandMapping[v.Type]
 			if factory == nil {
-				return SkyPanel.ErrMissingFactory
+				return skypanel.ErrMissingFactory
 			}
 			op, err := factory.Create(v.Operation)
 			if err != nil {
-				return SkyPanel.ErrFactoryError(v.Type, err)
+				return skypanel.ErrFactoryError(v.Type, err)
 			}
 
-			result := op.Run(SkyPanel.RunOperatorArgs{
+			result := op.Run(skypanel.RunOperatorArgs{
 				Environment: server.RunningEnvironment,
 				Server:      server,
 			})

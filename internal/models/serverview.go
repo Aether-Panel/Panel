@@ -64,23 +64,23 @@ func (s *ServerView) Valid(allowEmpty bool) error {
 	validate := validator.New()
 
 	if !allowEmpty && validate.Var(s.Name, "required") != nil {
-		return SkyPanel.ErrFieldRequired("name")
+		return skypanel.ErrFieldRequired("name")
 	}
 
 	if !allowEmpty && validate.Var(s.Type, "required") != nil {
-		return SkyPanel.ErrFieldRequired("type")
+		return skypanel.ErrFieldRequired("type")
 	}
 
 	if validate.Var(s.Name, "omitempty,printascii") != nil {
-		return SkyPanel.ErrFieldMustBePrintable("name")
+		return skypanel.ErrFieldMustBePrintable("name")
 	}
 
 	if !allowEmpty && validate.Var(s.NodeId, "required,min:1") != nil {
-		return SkyPanel.ErrFieldTooSmall("node", 1)
+		return skypanel.ErrFieldTooSmall("node", 1)
 	}
 
 	if validate.Var(s.IP, "omitempty,ip|fqdn") != nil {
-		return SkyPanel.ErrFieldIsInvalidIP("ip")
+		return skypanel.ErrFieldIsInvalidIP("ip")
 	}
 
 	return nil

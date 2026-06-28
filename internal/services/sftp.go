@@ -23,7 +23,7 @@ func (s *DatabaseSFTPAuthorization) Validate(username, password string) (perms *
 
 	db, err := database.GetConnection()
 	if err != nil {
-		return nil, SkyPanel.ErrDatabaseNotAvailable
+		return nil, skypanel.ErrDatabaseNotAvailable
 	}
 
 	us := &User{DB: db}

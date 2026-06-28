@@ -14,7 +14,7 @@ type Permissions struct {
 	UserId *uint `gorm:"column:user_id;index" json:"-"`
 	User   User  `gorm:"ASSOCIATION_SAVE_REFERENCE:false" json:"-" validate:"-"`
 
-	ClientId *uint  `gorm:"column:client_id;index" json:"-"`
+	ClientID *uint  `gorm:"column:client_id;index" json:"-"`
 	Client   Client `gorm:"ASSOCIATION_SAVE_REFERENCE:false" json:"-" validate:"-"`
 
 	//if this set is for a server, what server

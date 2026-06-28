@@ -61,12 +61,12 @@ func (us *User) ValidateLogin(email string, password string) (user *models.User,
 	}
 
 	if user.ID == 0 || errors.Is(err, gorm.ErrRecordNotFound) {
-		err = SkyPanel.ErrInvalidCredentials
+		err = skypanel.ErrInvalidCredentials
 		return
 	}
 
 	if !us.IsValidCredentials(user, password) {
-		err = SkyPanel.ErrInvalidCredentials
+		err = skypanel.ErrInvalidCredentials
 		return
 	}
 
@@ -89,7 +89,7 @@ func (us *User) ValidOtp(email string, token string) (user *models.User, err err
 	}
 
 	if user.ID == 0 || errors.Is(err, gorm.ErrRecordNotFound) {
-		err = SkyPanel.ErrInvalidCredentials
+		err = skypanel.ErrInvalidCredentials
 		return
 	}
 
@@ -105,7 +105,7 @@ func (us *User) ValidOtp(email string, token string) (user *models.User, err err
 			err = res.Error
 		}
 		if res.RowsAffected == 0 {
-			err = SkyPanel.ErrInvalidCredentials
+			err = skypanel.ErrInvalidCredentials
 		}
 	}
 	return
@@ -237,7 +237,7 @@ func (us *User) ValidateOtpEnroll(userId uint, token string) ([]string, error) {
 	}
 
 	if !totp.Validate(token, user.OtpSecret) {
-		return nil, SkyPanel.ErrInvalidCredentials
+		return nil, skypanel.ErrInvalidCredentials
 	}
 
 	codes, err := us.generateOtpRecoveryCodes(10)
@@ -343,7 +343,7 @@ func (us *User) Search(usernameFilter, emailFilter string, pageSize, page uint) 
 func (us *User) IsSecurePassword(password string) error {
 	//TODO: Change to use validator
 	if len(password) < 8 {
-		return SkyPanel.ErrFieldLength("password", 8, 72)
+		return skypanel.ErrFieldLength("password", 8, 72)
 	}
 	return nil
 }

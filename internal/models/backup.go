@@ -23,7 +23,7 @@ type Backup struct {
 func (s *Backup) IsValid() (err error) {
 	err = validator.New().Struct(s)
 	if err != nil {
-		err = SkyPanel.GenerateValidationMessage(err)
+		err = skypanel.GenerateValidationMessage(err)
 	}
 	return
 }

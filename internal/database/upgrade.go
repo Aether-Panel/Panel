@@ -256,7 +256,7 @@ var migrations = [][]*gormigrate.Migration{
 				}
 
 				for _, v := range templates {
-					var rawMap SkyPanel.MetadataType
+					var rawMap skypanel.MetadataType
 					err = utils.UnmarshalTo(v.Environment, &rawMap)
 					if err != nil {
 						logging.Error.Printf("Failed to migrate template %s, template saved off. %s", v.Name, err)
@@ -304,7 +304,7 @@ var migrations = [][]*gormigrate.Migration{
 					//owners of this permission set
 					UserId *uint `json:"-"`
 
-					ClientId *uint `json:"-"`
+					ClientID *uint `json:"-"`
 
 					//if this set is for a server, what server
 					ServerIdentifier *string `json:"-"`
@@ -349,7 +349,7 @@ var migrations = [][]*gormigrate.Migration{
 					newPerms := &models.Permissions{
 						ID:               v.ID,
 						UserId:           v.UserId,
-						ClientId:         v.ClientId,
+						ClientID:         v.ClientID,
 						ServerIdentifier: v.ServerIdentifier,
 						Scopes: []*scopes.Scope{
 							scopes.ScopeLogin,

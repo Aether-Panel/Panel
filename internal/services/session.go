@@ -55,7 +55,7 @@ func (ss *Session) CreateForClient(client *models.Client) (string, error) {
 	session := &models.Session{
 		Token:          res,
 		ExpirationTime: time.Now().Add(time.Hour),
-		ClientId:       &client.ID,
+		ClientID:       &client.ID,
 		UserId:         &client.UserId,
 	}
 

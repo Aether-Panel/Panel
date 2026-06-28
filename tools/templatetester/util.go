@@ -132,7 +132,7 @@ func buildTests() []*TestScenario {
 					panicIf(err)
 				}
 
-				template := SkyPanel.Server{}
+				template := skypanel.Server{}
 				err = json.NewDecoder(bytes.NewReader(tmp.Template)).Decode(&template)
 				panicIf(err)
 
@@ -239,7 +239,7 @@ func ioCopy(dest io.Writer, src io.Reader) {
 
 func createCreateBody(scenario *TestScenario) io.ReadCloser {
 	model := &models.ServerCreation{
-		Server: SkyPanel.Server{},
+		Server: skypanel.Server{},
 		NodeId: 0,
 		Name:   scenario.Name,
 	}

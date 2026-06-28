@@ -186,7 +186,7 @@ func main() {
 func runTest(client *http.Client, session string, test *TestScenario) {
 	log.Println("\nStarting: " + test.Name)
 
-	template := SkyPanel.Server{}
+	template := skypanel.Server{}
 	err := json.NewDecoder(bytes.NewReader(test.Test.Template)).Decode(&template)
 	panicIf(err)
 	if err = template.Requirements.Test(template); err != nil {
@@ -225,7 +225,7 @@ func runTest(client *http.Client, session string, test *TestScenario) {
 		})
 		panicIf(err)
 
-		var status SkyPanel.ServerRunning
+		var status skypanel.ServerRunning
 		err = json.NewDecoder(bytes.NewReader(data)).Decode(&status)
 		panicIf(err)
 
@@ -253,7 +253,7 @@ func runTest(client *http.Client, session string, test *TestScenario) {
 		})
 		panicIf(err)
 
-		var status SkyPanel.ServerRunning
+		var status skypanel.ServerRunning
 		err = json.NewDecoder(bytes.NewReader(data)).Decode(&status)
 		panicIf(err)
 
@@ -287,7 +287,7 @@ func runTest(client *http.Client, session string, test *TestScenario) {
 		})
 		panicIf(err)
 
-		var status SkyPanel.ServerRunning
+		var status skypanel.ServerRunning
 		err = json.NewDecoder(bytes.NewReader(data)).Decode(&status)
 		panicIf(err)
 

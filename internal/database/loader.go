@@ -70,7 +70,7 @@ func openConnection() (err error) {
 	if err != nil {
 		dbConn = nil
 		logging.Error.Printf("Error connecting to database: %s", err)
-		return SkyPanel.ErrDatabaseNotAvailable
+		return skypanel.ErrDatabaseNotAvailable
 	}
 
 	if dialect == "sqlite3" {
@@ -117,7 +117,7 @@ func GetConnectionString() string {
 		case "mysql":
 			connString = "SkyPanel:SkyPanel@/SkyPanel"
 		case "sqlite3":
-			connString = "file:SkyPanel.db"
+			connString = "file:skypanel.db"
 		}
 	}
 

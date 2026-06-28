@@ -92,15 +92,15 @@ func (model *UserView) UserNameValid(allowEmpty bool) error {
 	validate := validator.New()
 
 	if !allowEmpty && validate.Var(model.Username, "required") != nil {
-		return SkyPanel.ErrFieldRequired("username")
+		return skypanel.ErrFieldRequired("username")
 	}
 
 	if validate.Var(model.Username, "omitempty,printascii") != nil {
-		return SkyPanel.ErrFieldMustBePrintable("username")
+		return skypanel.ErrFieldMustBePrintable("username")
 	}
 
 	if validate.Var(model.Username, "omitempty,min=1,max=100") != nil {
-		return SkyPanel.ErrFieldLength("username", 1, 100)
+		return skypanel.ErrFieldLength("username", 1, 100)
 	}
 
 	return nil
@@ -110,11 +110,11 @@ func (model *UserView) EmailValid(allowEmpty bool) error {
 	validate := validator.New()
 
 	if !allowEmpty && validate.Var(model.Email, "required") != nil {
-		return SkyPanel.ErrFieldRequired("email")
+		return skypanel.ErrFieldRequired("email")
 	}
 
 	if validate.Var(model.Email, "omitempty,email,max=255") != nil {
-		return SkyPanel.ErrFieldNotEmail("email")
+		return skypanel.ErrFieldNotEmail("email")
 	}
 
 	return nil

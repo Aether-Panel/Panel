@@ -36,8 +36,8 @@ func registerTemplates(g *gin.RouterGroup) {
 // @Summary Get all repos
 // @Description Gets all repos that are available to pull template from
 // @Success 200 {object} []models.TemplateRepo
-// @Failure 400 {object} SkyPanel.ErrorResponse
-// @Failure 500 {object} SkyPanel.ErrorResponse
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
 // @Tags Templates
 // @Router /api/templates [get]
 // @Security OAuth2Application[templates.view]
@@ -57,8 +57,8 @@ func getRepos(c *gin.Context) {
 // @Description Gets all templates from a repository
 // @Param repo path uint true "Repo id"
 // @Success 200 {object} []models.Template
-// @Failure 400 {object} SkyPanel.ErrorResponse
-// @Failure 500 {object} SkyPanel.ErrorResponse
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
 // @Tags Templates
 // @Router /api/templates/{repo} [get]
 // @Security OAuth2Application[templates.view]
@@ -83,8 +83,8 @@ func getsTemplatesForRepo(c *gin.Context) {
 // @Description Adds a new repo to the service
 // @Param repo body models.TemplateRepo true "Repo information"
 // @Success 200 {object} models.TemplateRepo
-// @Failure 400 {object} SkyPanel.ErrorResponse
-// @Failure 500 {object} SkyPanel.ErrorResponse
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
 // @Tags Templates
 // @Router /api/templates [post]
 // @Security OAuth2Application[templates.repo.create]
@@ -97,7 +97,7 @@ func addRepo(c *gin.Context) {
 	}
 
 	if repo.Name == "" {
-		response.HandleError(c, SkyPanel.ErrFieldRequired("repoName"), http.StatusBadRequest)
+		response.HandleError(c, skypanel.ErrFieldRequired("repoName"), http.StatusBadRequest)
 		return
 	}
 
@@ -116,8 +116,8 @@ func addRepo(c *gin.Context) {
 // @Description Deletes a repo from the service
 // @Param repo path uint true "Repo Id"
 // @Success 204 {object} nil
-// @Failure 400 {object} SkyPanel.ErrorResponse
-// @Failure 500 {object} SkyPanel.ErrorResponse
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
 // @Tags Templates
 // @Router /api/templates/{repo} [delete]
 // @Security OAuth2Application[templates.repo.delete]
@@ -142,7 +142,7 @@ func deleteRepo(c *gin.Context) {
 // @Param repo path uint true "Repo Id"
 // @Param template path string true "Template name"
 // @Success 200 {object} models.Template
-// @Failure 500 {object} SkyPanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
 // @Tags Templates
 // @Router /api/templates/{repo}/{template} [get]
 // @Security OAuth2Application[templates.view]
@@ -168,9 +168,9 @@ func getTemplateFromRepo(c *gin.Context) {
 
 // @Summary Adds or updates a template
 // @Success 204 {object} nil
-// @Failure 400 {object} SkyPanel.ErrorResponse
-// @Failure 500 {object} SkyPanel.ErrorResponse
-// @Param template body SkyPanel.Server true "Template"
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
+// @Param template body skypanel.Server true "Template"
 // @Param name path string true "Template name"
 // @Tags Templates
 // @Router /api/templates/local/{name} [put]
@@ -180,7 +180,7 @@ func putTemplate(c *gin.Context) {
 	ts := &services.Template{DB: db}
 
 	templateName := c.Param("name")
-	templateRequest := SkyPanel.Server{}
+	templateRequest := skypanel.Server{}
 	err := c.MustBindWith(&templateRequest, binding.JSON)
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
@@ -207,8 +207,8 @@ func putTemplate(c *gin.Context) {
 // @Summary Deletes template
 // @Description Deletes template
 // @Success 204 {object} nil
-// @Failure 404 {object} SkyPanel.ErrorResponse
-// @Failure 500 {object} SkyPanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
 // @Param name path string true "Template name"
 // @Tags Templates
 // @Router /api/templates/local/{name} [delete]

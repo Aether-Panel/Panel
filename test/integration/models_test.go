@@ -43,7 +43,7 @@ var loginNoAdminWithServersUser = &models.User{
 const loginNoAdminWithServersUserPassword = "dowiuzlaslf"
 
 var loginOAuth2Admin = &models.Client{
-	ClientId:    "testadmin",
+	ClientID:    "testadmin",
 	Name:        "testadminclient",
 	Description: "For unit testing only",
 	User:        loginAdminUser,
@@ -206,7 +206,7 @@ func initOauth2Client(db *gorm.DB) error {
 	}
 
 	perms := &models.Permissions{
-		ClientId: &loginOAuth2Admin.ID,
+		ClientID: &loginOAuth2Admin.ID,
 		Scopes:   []*scopes.Scope{scopes.ScopeAdmin},
 	}
 	err = db.Create(perms).Error

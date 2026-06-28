@@ -16,7 +16,7 @@ type Scheduler struct {
 	scheduler gocron.Scheduler
 	serverId  string
 
-	Tasks           map[string]SkyPanel.Task `json:"tasks"`
+	Tasks           map[string]skypanel.Task `json:"tasks"`
 	Timezone        string                   `json:"timezone,omitempty"`
 	ConcurrentLimit uint                     `json:"concurrentLimit"`
 	LimitMode       string                   `json:"limitMode"`
@@ -45,7 +45,7 @@ func LoadScheduler(serverId string) (*Scheduler, error) {
 
 func NewDefaultScheduler(serverId string) *Scheduler {
 	return &Scheduler{
-		Tasks:           make(map[string]SkyPanel.Task),
+		Tasks:           make(map[string]skypanel.Task),
 		Timezone:        "Local",
 		ConcurrentLimit: 5,
 		LimitMode:       "wait",
@@ -126,14 +126,14 @@ func (s *Scheduler) IsRunning() bool {
 	return s.scheduler != nil
 }
 
-func (s *Scheduler) AddTask(id string, task SkyPanel.Task) error {
+func (s *Scheduler) AddTask(id string, task skypanel.Task) error {
 	if err := s.addTask(id, task); err != nil {
 		return err
 	}
 	return s.Save()
 }
 
-func (s *Scheduler) addTask(id string, task SkyPanel.Task) error {
+func (s *Scheduler) addTask(id string, task skypanel.Task) error {
 	var opt gocron.JobDefinition
 
 	if task.CronSchedule != "" {
@@ -171,7 +171,7 @@ func (s *Scheduler) RunTask(id string) error {
 	return gocron.ErrJobNotFound
 }
 
-func (s *Scheduler) GetTasks() map[string]SkyPanel.Task {
+func (s *Scheduler) GetTasks() map[string]skypanel.Task {
 	return s.Tasks
 }
 

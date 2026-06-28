@@ -12,7 +12,7 @@ type OAuth2 struct {
 // Get Gets a specific OAuth client, including the scopes it holds
 func (s *OAuth2) Get(clientId string) (*models.Client, error) {
 	client := &models.Client{
-		ClientId: clientId,
+		ClientID: clientId,
 	}
 	err := s.DB.Where(client).First(client).Error
 	return client, err
@@ -38,7 +38,7 @@ func (s *OAuth2) Update(request *models.Client) error {
 
 func (s *OAuth2) Delete(clientId string) error {
 	client := &models.Client{
-		ClientId: clientId,
+		ClientID: clientId,
 	}
 	return s.DB.Model(client).Delete(client, client).Error
 }

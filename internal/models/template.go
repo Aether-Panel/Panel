@@ -8,7 +8,7 @@ import (
 )
 
 type Template struct {
-	SkyPanel.Server `gorm:"-"`
+	skypanel.Server `gorm:"-"`
 
 	Name     string `gorm:"column:name;size:100;primaryKey" json:"name"`
 	RawValue string `gorm:"column:raw_value;not null;size:4000" json:"-"`

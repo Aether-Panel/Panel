@@ -1,4 +1,4 @@
-package SkyPanel
+package skypanel
 
 type Task struct {
 	Name         string                    `json:"name"`

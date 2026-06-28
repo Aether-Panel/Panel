@@ -47,7 +47,7 @@ func (r *Rotator) StartRotation(dir string) {
 
 			<-sig
 
-			newFile, err := os.OpenFile(path.Join(directory, "SkyPanel.log"), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+			newFile, err := os.OpenFile(path.Join(directory, "skypanel.log"), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 			if err != nil {
 				panic(err)
 			}

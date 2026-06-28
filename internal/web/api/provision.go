@@ -15,7 +15,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
-	SkyPanel "github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
+	skypanel "github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid/v5"
 	"gorm.io/gorm"
@@ -297,7 +297,7 @@ func provisionServer(c *gin.Context) {
 	// Inject the assigned port into the template variables so the server starts on it
 	if assignedPort > 0 {
 		if serverCreation.Server.Variables == nil {
-			serverCreation.Server.Variables = make(map[string]SkyPanel.Variable)
+			serverCreation.Server.Variables = make(map[string]skypanel.Variable)
 		}
 		// Always override the port variable with the assigned port
 		existing := serverCreation.Server.Variables["port"]

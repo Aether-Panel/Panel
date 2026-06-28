@@ -30,7 +30,7 @@ type ResolveForgeVersion struct {
 	OutputVariable   string
 }
 
-func (op ResolveForgeVersion) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
+func (op ResolveForgeVersion) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	env := args.Environment
 	fs := args.Server.GetFileServer()
 
@@ -39,12 +39,12 @@ func (op ResolveForgeVersion) Run(args SkyPanel.RunOperatorArgs) SkyPanel.Operat
 		dir := filepath.Join("libraries", "net", "minecraftforge", "forge")
 		folders, err := fs.ReadDir(dir)
 		if os.IsNotExist(err) {
-			return SkyPanel.OperationResult{VariableOverrides: map[string]interface{}{
+			return skypanel.OperationResult{VariableOverrides: map[string]interface{}{
 				op.OutputVariable: op.Version,
 			}}
 		}
 		if err != nil {
-			return SkyPanel.OperationResult{Error: err}
+			return skypanel.OperationResult{Error: err}
 		}
 
 		var ver *version.Version
@@ -79,7 +79,7 @@ func (op ResolveForgeVersion) Run(args SkyPanel.RunOperatorArgs) SkyPanel.Operat
 		env.DisplayToConsole(true, "Resolved Forge Version: %s", op.Version)
 	}
 
-	return SkyPanel.OperationResult{VariableOverrides: map[string]interface{}{
+	return skypanel.OperationResult{VariableOverrides: map[string]interface{}{
 		op.OutputVariable: op.Version,
 	}}
 }

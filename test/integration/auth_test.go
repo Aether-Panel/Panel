@@ -143,7 +143,7 @@ func TestLogout(t *testing.T) {
 			Value: session,
 		})
 		writer := httptest.NewRecorder()
-		SkyPanel.Engine.ServeHTTP(writer, request)
+		skypanel.Engine.ServeHTTP(writer, request)
 		assert.Equal(t, http.StatusNoContent, writer.Code)
 
 		//check to make sure session is gone
@@ -188,7 +188,7 @@ func TestLogout(t *testing.T) {
 			Value: adminSession,
 		})
 		writer := httptest.NewRecorder()
-		SkyPanel.Engine.ServeHTTP(writer, request)
+		skypanel.Engine.ServeHTTP(writer, request)
 		assert.Equal(t, http.StatusNoContent, writer.Code)
 
 		//check to make sure session is gone
@@ -233,7 +233,7 @@ func TestLogout(t *testing.T) {
 			Value: session + "-extratokens",
 		})
 		writer := httptest.NewRecorder()
-		SkyPanel.Engine.ServeHTTP(writer, request)
+		skypanel.Engine.ServeHTTP(writer, request)
 		assert.Equal(t, http.StatusNoContent, writer.Code)
 
 		mo := &models.Session{
@@ -254,7 +254,7 @@ func TestReauth(t *testing.T) {
 		t.Parallel()
 		request, _ := http.NewRequest("POST", "/auth/reauth", nil)
 		writer := httptest.NewRecorder()
-		SkyPanel.Engine.ServeHTTP(writer, request)
+		skypanel.Engine.ServeHTTP(writer, request)
 		assert.Equal(t, http.StatusUnauthorized, writer.Code)
 	})
 	t.Run("ReauthWithValidSession", func(t *testing.T) {
@@ -274,7 +274,7 @@ func TestReauth(t *testing.T) {
 			Value: session,
 		})
 		writer := httptest.NewRecorder()
-		SkyPanel.Engine.ServeHTTP(writer, request)
+		skypanel.Engine.ServeHTTP(writer, request)
 		if !assert.Equal(t, http.StatusOK, writer.Code) {
 			return
 		}
@@ -343,7 +343,7 @@ func TestReauth(t *testing.T) {
 			Value: session,
 		})
 		writer := httptest.NewRecorder()
-		SkyPanel.Engine.ServeHTTP(writer, request)
+		skypanel.Engine.ServeHTTP(writer, request)
 		assert.Equal(t, http.StatusUnauthorized, writer.Code)
 	})
 	t.Run("ReauthWithInvalidSession", func(t *testing.T) {
@@ -354,7 +354,7 @@ func TestReauth(t *testing.T) {
 			Value: "invalidsession",
 		})
 		writer := httptest.NewRecorder()
-		SkyPanel.Engine.ServeHTTP(writer, request)
+		skypanel.Engine.ServeHTTP(writer, request)
 		assert.Equal(t, http.StatusUnauthorized, writer.Code)
 	})
 }

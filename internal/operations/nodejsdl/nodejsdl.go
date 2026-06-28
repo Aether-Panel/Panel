@@ -25,7 +25,7 @@ type NodejsDl struct {
 	Version string
 }
 
-func (op NodejsDl) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
+func (op NodejsDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	env := args.Environment
 
 	env.DisplayToConsole(true, "Downloading Node.js "+op.Version)
@@ -43,20 +43,20 @@ func (op NodejsDl) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
 		var release ReleaseInfo
 		release, err = op.getRelease()
 		if err != nil {
-			return SkyPanel.OperationResult{Error: err}
+			return skypanel.OperationResult{Error: err}
 		}
 
 		//cleanup the existing dir
 		err = os.RemoveAll(filepath.Join(rootBinaryFolder, release.Slug))
 		if err != nil {
-			return SkyPanel.OperationResult{Error: err}
+			return skypanel.OperationResult{Error: err}
 		}
 
 		logging.Debug.Println("Calling " + release.Url)
-		err = SkyPanel.HttpExtract(release.Url, rootBinaryFolder, nil)
+		err = skypanel.HttpExtract(release.Url, rootBinaryFolder, nil)
 
 		if err != nil {
-			return SkyPanel.OperationResult{Error: err}
+			return skypanel.OperationResult{Error: err}
 		}
 
 		_ = os.Remove(mainNodeCommand)
@@ -65,22 +65,22 @@ func (op NodejsDl) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
 		logging.Debug.Printf("Adding to path: %s\n", mainNodeCommand)
 		err = os.Symlink(filepath.Join(release.Slug, "bin", "node"), mainNodeCommand)
 		if err != nil {
-			return SkyPanel.OperationResult{Error: err}
+			return skypanel.OperationResult{Error: err}
 		}
 
 		logging.Debug.Printf("Adding to path: %s\n", mainNpmCommand)
 		err = os.Symlink(filepath.Join(release.Slug, "bin", "npm"), mainNpmCommand)
 		if err != nil {
-			return SkyPanel.OperationResult{Error: err}
+			return skypanel.OperationResult{Error: err}
 		}
 	}
 
-	return SkyPanel.OperationResult{Error: err}
+	return skypanel.OperationResult{Error: err}
 }
 
 func (op NodejsDl) getRelease() (ReleaseInfo, error) {
 	logging.Debug.Println("Calling " + VersionMeta)
-	response, err := SkyPanel.HttpGet(VersionMeta)
+	response, err := skypanel.HttpGet(VersionMeta)
 	defer utils.CloseResponse(response)
 	if err != nil {
 		return ReleaseInfo{}, err

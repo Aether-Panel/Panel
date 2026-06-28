@@ -18,7 +18,7 @@ import (
 const VersionsUrl = "https://fill.papermc.io/v3/projects/paper/versions"
 const BuildUrl = "https://fill.papermc.io/v3/projects/paper/versions/${mcVersion}/builds/${build}"
 
-var UserAgent = SkyPanel.Display + " https://github.com/SkyPanel/SkyPanel"
+var UserAgent = skypanel.Display + " https://github.com/SkyPanel/SkyPanel"
 
 type PaperDl struct {
 	MinecraftVersion string
@@ -26,35 +26,35 @@ type PaperDl struct {
 	Filename         string
 }
 
-func (op PaperDl) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
+func (op PaperDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	env := args.Environment
 
 	if op.MinecraftVersion == "latest" {
 		logging.Info.Printf("PaperDL got Minecraft version 'latest', looking up latest version supported by Paper")
 		mcVersion, err := getLatestMCVersion()
 		if err != nil {
-			return SkyPanel.OperationResult{Error: err}
+			return skypanel.OperationResult{Error: err}
 		}
 		op.MinecraftVersion = mcVersion
 	}
 
 	dlUrl, hash, err := op.getDownloadUrlAndHash(env)
 	if err != nil {
-		return SkyPanel.OperationResult{Error: err}
+		return skypanel.OperationResult{Error: err}
 	}
 
-	dl, err := SkyPanel.Download(dlUrl, hash, crypto.SHA256, true, env)
+	dl, err := skypanel.Download(dlUrl, hash, crypto.SHA256, true, env)
 	defer utils.Close(dl)
 	if err != nil {
-		return SkyPanel.OperationResult{Error: err}
+		return skypanel.OperationResult{Error: err}
 	}
 
 	err = files.WriteFile(dl, path.Join(env.GetRootDirectory(), op.Filename))
 	if err != nil {
-		return SkyPanel.OperationResult{Error: err}
+		return skypanel.OperationResult{Error: err}
 	}
 
-	return SkyPanel.OperationResult{Error: nil}
+	return skypanel.OperationResult{Error: nil}
 }
 
 func getLatestMCVersion() (string, error) {
@@ -70,7 +70,7 @@ func getLatestMCVersion() (string, error) {
 	}
 	request.Header.Add("user-agent", UserAgent)
 
-	response, err := SkyPanel.Http().Do(request)
+	response, err := skypanel.Http().Do(request)
 	defer utils.CloseResponse(response)
 	if err != nil {
 		return "", err
@@ -95,7 +95,7 @@ func getLatestMCVersion() (string, error) {
 	return latest.Original(), nil
 }
 
-func (op PaperDl) getDownloadUrlAndHash(env *SkyPanel.Environment) (string, string, error) {
+func (op PaperDl) getDownloadUrlAndHash(env *skypanel.Environment) (string, string, error) {
 	path, err := url.Parse(strings.ReplaceAll(strings.ReplaceAll(BuildUrl, "${mcVersion}", op.MinecraftVersion), "${build}", op.Build))
 	if err != nil {
 		return "", "", err
@@ -108,7 +108,7 @@ func (op PaperDl) getDownloadUrlAndHash(env *SkyPanel.Environment) (string, stri
 	}
 	request.Header.Add("User-Agent", UserAgent)
 
-	response, err := SkyPanel.Http().Do(request)
+	response, err := skypanel.Http().Do(request)
 	defer utils.CloseResponse(response)
 	if err != nil {
 		return "", "", err

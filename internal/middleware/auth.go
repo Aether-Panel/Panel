@@ -91,7 +91,7 @@ func AuthMiddleware(c *gin.Context) {
 	if sess.UserId != nil {
 		c.Set("user", &sess.User)
 	}
-	if sess.ClientId != nil {
+	if sess.ClientID != nil {
 		c.Set("client", &sess.Client)
 	}
 }

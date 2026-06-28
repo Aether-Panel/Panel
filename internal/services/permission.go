@@ -98,7 +98,7 @@ func (ps *Permission) HasPermission(userId uint, serverId string, permission *sc
 func (ps *Permission) GetForClient(id uint) ([]*models.Permissions, error) {
 	var allPerms []*models.Permissions
 	permissions := &models.Permissions{
-		ClientId: &id,
+		ClientID: &id,
 	}
 
 	err := ps.DB.Preload(clause.Associations).Where(permissions).Find(&allPerms).Error
@@ -108,7 +108,7 @@ func (ps *Permission) GetForClient(id uint) ([]*models.Permissions, error) {
 
 func (ps *Permission) GetForClientAndServer(id uint, serverId *string) (*models.Permissions, error) {
 	permissions := &models.Permissions{
-		ClientId:         &id,
+		ClientID:         &id,
 		ServerIdentifier: serverId,
 	}
 

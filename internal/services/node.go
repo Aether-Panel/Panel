@@ -127,7 +127,7 @@ func (ns *Node) Delete(id uint) error {
 	var count int64
 	ns.DB.Model(&models.Server{}).Where("node_id = ?", model.ID).Count(&count)
 	if count > 0 {
-		return SkyPanel.ErrNodeHasServers
+		return skypanel.ErrNodeHasServers
 	}
 
 	res := ns.DB.Delete(model)
@@ -186,11 +186,11 @@ func (ns *Node) CallNode(node *models.Node, method string, path string, body io.
 	if node.IsLocal() {
 		w := &httptest.ResponseRecorder{}
 		w.Body = &bytes.Buffer{}
-		SkyPanel.Engine.ServeHTTP(w, request)
+		skypanel.Engine.ServeHTTP(w, request)
 		return w.Result(), err
 	}
 
-	response, err := SkyPanel.Http().Do(request)
+	response, err := skypanel.Http().Do(request)
 	return response, err
 }
 
@@ -266,7 +266,7 @@ func doesDaemonUseSSL(node *models.Node) (bool, error) {
 	}
 
 	request := &http.Request{Method: http.MethodOptions, URL: u}
-	_, err = SkyPanel.Http().Do(request)
+	_, err = skypanel.Http().Do(request)
 
 	if err != nil {
 		u, err = url.Parse("http" + path)
@@ -275,7 +275,7 @@ func doesDaemonUseSSL(node *models.Node) (bool, error) {
 		}
 
 		request = &http.Request{Method: http.MethodOptions, URL: u}
-		_, err = SkyPanel.Http().Do(request)
+		_, err = skypanel.Http().Do(request)
 		return false, err
 	}
 

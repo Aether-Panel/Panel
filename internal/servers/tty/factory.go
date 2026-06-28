@@ -5,10 +5,10 @@ import (
 )
 
 type EnvironmentFactory struct {
-	SkyPanel.EnvironmentFactory
+	skypanel.EnvironmentFactory
 }
 
-func (ef EnvironmentFactory) Create() SkyPanel.EnvironmentImpl {
+func (ef EnvironmentFactory) Create() skypanel.EnvironmentImpl {
 	return &tty{}
 }
 

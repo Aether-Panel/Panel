@@ -31,18 +31,18 @@ type ResolveNeoForgeVersion struct {
 	OutputVariable   string
 }
 
-func (op ResolveNeoForgeVersion) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
+func (op ResolveNeoForgeVersion) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	//if a specific version wasn't specified, we have to dig around through the files....
 	if op.Version == "" {
 		dir := filepath.Join(args.Environment.GetRootDirectory(), "libraries", "net", "neoforged", "neoforgedl")
 		folders, err := os.ReadDir(dir)
 		if os.IsNotExist(err) {
-			return SkyPanel.OperationResult{VariableOverrides: map[string]interface{}{
+			return skypanel.OperationResult{VariableOverrides: map[string]interface{}{
 				op.OutputVariable: op.Version,
 			}}
 		}
 		if err != nil {
-			return SkyPanel.OperationResult{Error: err}
+			return skypanel.OperationResult{Error: err}
 		}
 
 		var ver *version.Version
@@ -76,7 +76,7 @@ func (op ResolveNeoForgeVersion) Run(args SkyPanel.RunOperatorArgs) SkyPanel.Ope
 		args.Environment.DisplayToConsole(true, "Resolved NeoForge Version: %s", op.Version)
 	}
 
-	return SkyPanel.OperationResult{VariableOverrides: map[string]interface{}{
+	return skypanel.OperationResult{VariableOverrides: map[string]interface{}{
 		op.OutputVariable: op.Version,
 	}}
 }

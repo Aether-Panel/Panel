@@ -5,10 +5,10 @@ import (
 )
 
 type EnvironmentFactory struct {
-	SkyPanel.EnvironmentFactory
+	skypanel.EnvironmentFactory
 }
 
-func (ef EnvironmentFactory) Create() SkyPanel.EnvironmentImpl {
+func (ef EnvironmentFactory) Create() skypanel.EnvironmentImpl {
 	return &Docker{
 		// pufferpanel/generic es la imagen oficial válida (todo minúsculas requerido por Docker)
 		// La imagen anterior "SkyPanel/generic" era inválida: Docker interpreta mayúsculas

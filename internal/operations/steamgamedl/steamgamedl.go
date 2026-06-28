@@ -29,7 +29,7 @@ type SteamGameDl struct {
 	ExtraArgs []string
 }
 
-func (c SteamGameDl) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
+func (c SteamGameDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	env := args.Environment
 
 	env.DisplayToConsole(true, "Downloading game from Steam")
@@ -38,12 +38,12 @@ func (c SteamGameDl) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult
 
 	err := downloadDD(rootBinaryFolder, config.DepotDownloaderVersion.Value())
 	if err != nil {
-		return SkyPanel.OperationResult{Error: err}
+		return skypanel.OperationResult{Error: err}
 	}
 
 	err = downloadMetadata(env)
 	if err != nil {
-		return SkyPanel.OperationResult{Error: err}
+		return skypanel.OperationResult{Error: err}
 	}
 
 	//generate a login id
@@ -68,7 +68,7 @@ func (c SteamGameDl) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult
 	cmdArgs = append(cmdArgs, c.ExtraArgs...)
 
 	ch := make(chan int, 1)
-	steps := SkyPanel.ExecutionData{
+	steps := skypanel.ExecutionData{
 		Command: utils.MergeArguments(cmdArgs),
 		Callback: func(exitCode int) {
 			ch <- exitCode
@@ -76,12 +76,12 @@ func (c SteamGameDl) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult
 	}
 	err = env.Execute(steps)
 	if err != nil {
-		return SkyPanel.OperationResult{Error: err}
+		return skypanel.OperationResult{Error: err}
 	}
 	exitCode := <-ch
 	if exitCode != 0 {
 		err = fmt.Errorf("depotdownloader exited with non-zero code %d", exitCode)
-		return SkyPanel.OperationResult{Error: err}
+		return skypanel.OperationResult{Error: err}
 	}
 
 	//download game itself now
@@ -101,7 +101,7 @@ func (c SteamGameDl) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult
 		cmdArgs = append(cmdArgs, c.ExtraArgs...)
 	}
 
-	steps = SkyPanel.ExecutionData{
+	steps = skypanel.ExecutionData{
 		Command: utils.MergeArguments(cmdArgs),
 		Callback: func(exitCode int) {
 			ch <- exitCode
@@ -112,19 +112,19 @@ func (c SteamGameDl) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult
 	}
 	err = env.Execute(steps)
 	if err != nil {
-		return SkyPanel.OperationResult{Error: err}
+		return skypanel.OperationResult{Error: err}
 	}
 	exitCode = <-ch
 	if exitCode != 0 {
 		err = fmt.Errorf("depotdownloader exited with non-zero code %d", exitCode)
-		return SkyPanel.OperationResult{Error: err}
+		return skypanel.OperationResult{Error: err}
 	}
 
 	//for each file we download, we need to just... chmod +x the files
 	//we rely on the manifests for this
 	manifests, err := os.ReadDir(manifestFolder)
 	if err != nil {
-		return SkyPanel.OperationResult{Error: err}
+		return skypanel.OperationResult{Error: err}
 	}
 	for _, manifest := range manifests {
 		if manifest.Type().IsDir() || !strings.HasSuffix(manifest.Name(), ".txt") {
@@ -132,15 +132,15 @@ func (c SteamGameDl) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult
 		}
 		err = walkManifest(env.GetRootDirectory(), manifest.Name())
 		if err != nil {
-			return SkyPanel.OperationResult{Error: err}
+			return skypanel.OperationResult{Error: err}
 		}
 	}
 
-	return SkyPanel.OperationResult{Error: nil}
+	return skypanel.OperationResult{Error: nil}
 }
 
-func downloadMetadata(env *SkyPanel.Environment) error {
-	response, err := SkyPanel.HttpGet(SteamMetadataLink)
+func downloadMetadata(env *skypanel.Environment) error {
+	response, err := skypanel.HttpGet(SteamMetadataLink)
 	defer utils.CloseResponse(response)
 	if err != nil {
 		return err
@@ -158,7 +158,7 @@ func downloadMetadata(env *SkyPanel.Environment) error {
 		return err
 	}
 
-	err = SkyPanel.HttpExtract(SteamMetadataServerLink+metadataName, filepath.Join(env.GetRootDirectory(), ".steam"), archiver.DefaultZip)
+	err = skypanel.HttpExtract(SteamMetadataServerLink+metadataName, filepath.Join(env.GetRootDirectory(), ".steam"), archiver.DefaultZip)
 	if err != nil {
 		return err
 	}

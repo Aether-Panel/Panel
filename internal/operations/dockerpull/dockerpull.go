@@ -10,14 +10,14 @@ type DockerPull struct {
 	ImageName string
 }
 
-func (d DockerPull) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
+func (d DockerPull) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	env := args.Environment
 	dockerEnv, ok := env.Implementation.(*docker.Docker)
 
 	if !ok {
-		return SkyPanel.OperationResult{Error: SkyPanel.ErrEnvironmentNotSupported}
+		return skypanel.OperationResult{Error: skypanel.ErrEnvironmentNotSupported}
 	}
 
 	err := dockerEnv.PullImage(env, context.Background(), d.ImageName, true)
-	return SkyPanel.OperationResult{Error: err}
+	return skypanel.OperationResult{Error: err}
 }

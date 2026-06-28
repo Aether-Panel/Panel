@@ -81,7 +81,7 @@ func internalRun() (terminate chan bool, success bool) {
 
 	gin.DefaultWriter = logging.Info.Writer()
 	gin.DefaultErrorWriter = logging.Error.Writer()
-	SkyPanel.Engine = router
+	skypanel.Engine = router
 
 	if config.PanelEnabled.Value() {
 		panel()

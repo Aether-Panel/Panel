@@ -1,4 +1,4 @@
-package SkyPanel
+package skypanel
 
 import (
 	"github.com/SkyPanel/SkyPanel/v3/files"

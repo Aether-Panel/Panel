@@ -18,7 +18,7 @@ import (
 
 var sftpServer net.Listener
 
-var auth SkyPanel.SFTPAuthorization
+var auth skypanel.SFTPAuthorization
 
 func Run() {
 	err := runServer()
@@ -27,7 +27,7 @@ func Run() {
 	}
 }
 
-func SetAuthorization(service SkyPanel.SFTPAuthorization) {
+func SetAuthorization(service skypanel.SFTPAuthorization) {
 	auth = service
 }
 
@@ -114,7 +114,7 @@ func runServer() error {
 
 func HandleConn(conn net.Conn, serverConfig *ssh.ServerConfig) {
 	defer utils.Close(conn)
-	defer SkyPanel.Recover()
+	defer skypanel.Recover()
 	logging.Info.Printf("SFTP connection from %s", conn.RemoteAddr().String())
 	e := handleConn(conn, serverConfig)
 	if e != nil {

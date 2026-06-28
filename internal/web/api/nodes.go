@@ -41,10 +41,10 @@ func registerNodes(g *gin.RouterGroup) {
 // @Summary Get nodes
 // @Description Gets all nodes registered to the panel
 // @Success 200 {object} models.NodesView "Nodes"
-// @Failure 400 {object} SkyPanel.ErrorResponse
-// @Failure 403 {object} SkyPanel.ErrorResponse
-// @Failure 404 {object} SkyPanel.ErrorResponse
-// @Failure 500 {object} SkyPanel.ErrorResponse
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
 // @Tags Nodes
 // @Router /api/nodes [get]
 // @Security OAuth2Application[nodes.view]
@@ -65,10 +65,10 @@ func getAllNodes(c *gin.Context) {
 // @Summary Get node
 // @Description Gets information about a single node
 // @Success 200 {object} models.NodeView "Nodes"
-// @Failure 400 {object} SkyPanel.ErrorResponse
-// @Failure 403 {object} SkyPanel.ErrorResponse
-// @Failure 404 {object} SkyPanel.ErrorResponse
-// @Failure 500 {object} SkyPanel.ErrorResponse
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
 // @Param id path string true "Node Id"
 // @Tags Nodes
 // @Router /api/nodes/{id} [get]
@@ -95,10 +95,10 @@ func getNode(c *gin.Context) {
 // @Summary Create node
 // @Description Creates a node
 // @Success 200 {object} models.NodeView "Node created"
-// @Failure 400 {object} SkyPanel.ErrorResponse
-// @Failure 403 {object} SkyPanel.ErrorResponse
-// @Failure 404 {object} SkyPanel.ErrorResponse
-// @Failure 500 {object} SkyPanel.ErrorResponse
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
 // @Tags Nodes
 // @Router /api/nodes [post]
 // @Security OAuth2Application[nodes.create]
@@ -135,10 +135,10 @@ func createNode(c *gin.Context) {
 // @Summary Update node
 // @Description Updates a node with given information
 // @Success 204 {object} nil
-// @Failure 400 {object} SkyPanel.ErrorResponse
-// @Failure 403 {object} SkyPanel.ErrorResponse
-// @Failure 404 {object} SkyPanel.ErrorResponse
-// @Failure 500 {object} SkyPanel.ErrorResponse
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
 // @Param id path string true "Node Id"
 // @Param node body models.NodeView true "Node information"
 // @Tags Nodes
@@ -179,10 +179,10 @@ func updateNode(c *gin.Context) {
 // @Summary Deletes a node
 // @Description Deletes the node
 // @Success 204 {object} nil
-// @Failure 400 {object} SkyPanel.ErrorResponse
-// @Failure 403 {object} SkyPanel.ErrorResponse
-// @Failure 404 {object} SkyPanel.ErrorResponse
-// @Failure 500 {object} SkyPanel.ErrorResponse
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
 // @Param id path string true "Node Id"
 // @Tags Nodes
 // @Router /api/nodes/{id} [delete]
@@ -213,10 +213,10 @@ func deleteNode(c *gin.Context) {
 // @Summary Gets the data to deploy a node
 // @Description Gets the secret information needed to deploy a node.
 // @Success 200 {object} models.Deployment
-// @Failure 400 {object} SkyPanel.ErrorResponse
-// @Failure 403 {object} SkyPanel.ErrorResponse
-// @Failure 404 {object} SkyPanel.ErrorResponse
-// @Failure 500 {object} SkyPanel.ErrorResponse
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
 // @Param id path string true "Node Id"
 // @Tags Nodes
 // @Router /api/nodes/{id}/deployment [get]
@@ -237,7 +237,7 @@ func deployNode(c *gin.Context) {
 	}
 
 	data := &models.Deployment{
-		ClientId:     fmt.Sprintf(".node_%d", node.ID),
+		ClientID:     fmt.Sprintf(".node_%d", node.ID),
 		ClientSecret: node.Secret,
 	}
 
@@ -247,10 +247,10 @@ func deployNode(c *gin.Context) {
 // @Summary Gets the features a node supports
 // @Description Gets the environments and if docker is supported on a node
 // @Success 200 {object} daemon.Features
-// @Failure 400 {object} SkyPanel.ErrorResponse
-// @Failure 403 {object} SkyPanel.ErrorResponse
-// @Failure 404 {object} SkyPanel.ErrorResponse
-// @Failure 500 {object} SkyPanel.ErrorResponse
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
 // @Param id path string true "Node Id"
 // @Tags Nodes
 // @Router /api/nodes/{id}/features [get]
@@ -288,10 +288,10 @@ func getFeatures(c *gin.Context) {
 // @Summary Gets the system information of a node
 // @Description Gets detailed system information including CPU, memory, and disk
 // @Success 200 {object} daemon.SystemInfo
-// @Failure 400 {object} SkyPanel.ErrorResponse
-// @Failure 403 {object} SkyPanel.ErrorResponse
-// @Failure 404 {object} SkyPanel.ErrorResponse
-// @Failure 500 {object} SkyPanel.ErrorResponse
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
 // @Param id path string true "Node Id"
 // @Tags Nodes
 // @Router /api/nodes/{id}/system [get]
@@ -332,7 +332,7 @@ func validateId(c *gin.Context) (uint, bool) {
 	id, err := strconv.Atoi(param)
 
 	if response.HandleError(c, err, http.StatusBadRequest) || id < 0 {
-		response.HandleError(c, SkyPanel.ErrFieldTooSmall("id", 0), http.StatusBadRequest)
+		response.HandleError(c, skypanel.ErrFieldTooSmall("id", 0), http.StatusBadRequest)
 		return 0, false
 	}
 

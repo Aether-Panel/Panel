@@ -32,11 +32,11 @@ import (
 )
 
 type Server struct {
-	SkyPanel.DaemonServer
-	SkyPanel.Server
+	skypanel.DaemonServer
+	skypanel.Server
 
 	CrashCounter       int                   `json:"-"`
-	RunningEnvironment *SkyPanel.Environment `json:"-"`
+	RunningEnvironment *skypanel.Environment `json:"-"`
 	Scheduler          *Scheduler            `json:"-"`
 	stopChan           chan bool
 	waitForConsole     sync.Locker
@@ -58,7 +58,7 @@ var stateTrackingLock = sync.RWMutex{}
 
 type serverState struct {
 	wasRunning bool
-	lastStats  *SkyPanel.ServerStats
+	lastStats  *skypanel.ServerStats
 	lastAlert  map[string]time.Time // Para evitar spam de alertas
 }
 
@@ -521,9 +521,9 @@ func SendStatsForServers() {
 				return
 			}
 
-			_ = p.GetEnvironment().GetStatsTracker().WriteMessage(SkyPanel.Transmission{
+			_ = p.GetEnvironment().GetStatsTracker().WriteMessage(skypanel.Transmission{
 				Message: stats,
-				Type:    SkyPanel.MessageTypeStats,
+				Type:    skypanel.MessageTypeStats,
 			})
 
 			// Monitorear para alertas
@@ -557,7 +557,7 @@ func trackUptime(server *Server) {
 	}
 }
 
-func checkDiskLimit(server *Server, stats *SkyPanel.ServerStats) {
+func checkDiskLimit(server *Server, stats *skypanel.ServerStats) {
 	if stats == nil || stats.MaxStorage <= 0 {
 		return
 	}
@@ -579,7 +579,7 @@ func checkDiskLimit(server *Server, stats *SkyPanel.ServerStats) {
 	}
 }
 
-func checkServerAlerts(server *Server, stats *SkyPanel.ServerStats) {
+func checkServerAlerts(server *Server, stats *skypanel.ServerStats) {
 	stateTrackingLock.Lock()
 	defer stateTrackingLock.Unlock()
 
@@ -661,7 +661,7 @@ func checkServerAlerts(server *Server, stats *SkyPanel.ServerStats) {
 type FileData struct {
 	Contents      io.ReadCloser
 	ContentLength int64
-	FileList      []SkyPanel.FileDesc
+	FileList      []skypanel.FileDesc
 	Name          string
 }
 
@@ -676,21 +676,21 @@ func (p *Server) DataToMap() map[string]interface{} {
 
 func CreateProgram() *Server {
 	p := &Server{
-		Server: SkyPanel.Server{
-			Execution: SkyPanel.Execution{
+		Server: skypanel.Server{
+			Execution: skypanel.Execution{
 				AutoStart:               false,
 				AutoRestartFromCrash:    false,
 				AutoRestartFromGraceful: false,
-				PreExecution:            make([]SkyPanel.ConditionalMetadataType, 0),
-				PostExecution:           make([]SkyPanel.ConditionalMetadataType, 0),
+				PreExecution:            make([]skypanel.ConditionalMetadataType, 0),
+				PostExecution:           make([]skypanel.ConditionalMetadataType, 0),
 				EnvironmentVariables:    make(map[string]string),
 			},
-			Type:           SkyPanel.Type{Type: "standard"},
-			Variables:      make(map[string]SkyPanel.Variable),
+			Type:           skypanel.Type{Type: "standard"},
+			Variables:      make(map[string]skypanel.Variable),
 			Display:        "Unknown server",
-			Installation:   make([]SkyPanel.ConditionalMetadataType, 0),
-			Uninstallation: make([]SkyPanel.ConditionalMetadataType, 0),
-			Groups:         make([]SkyPanel.Group, 0),
+			Installation:   make([]skypanel.ConditionalMetadataType, 0),
+			Uninstallation: make([]skypanel.ConditionalMetadataType, 0),
+			Groups:         make([]skypanel.Group, 0),
 		},
 	}
 	p.stopChan = make(chan bool, 1)
@@ -723,20 +723,20 @@ func (p *Server) Start() error {
 		return err
 	}
 
-	var command SkyPanel.Command
+	var command skypanel.Command
 
 	if c, ok := p.Execution.Command.(string); ok {
-		command = SkyPanel.Command{Command: c}
+		command = skypanel.Command{Command: c}
 	} else {
 		//we have a list
-		var possibleCommands []SkyPanel.Command
+		var possibleCommands []skypanel.Command
 		err = utils.UnmarshalTo(p.Execution.Command, &possibleCommands)
 		if err != nil {
 			return err
 		}
 
-		var defaultCommand SkyPanel.Command
-		var commandToRun SkyPanel.Command
+		var defaultCommand skypanel.Command
+		var commandToRun skypanel.Command
 		for _, v := range possibleCommands {
 			if v.If == "" {
 				defaultCommand = v
@@ -776,7 +776,7 @@ func (p *Server) Start() error {
 	data := p.DataToMap()
 
 	commandLine := utils.ReplaceTokens(command.Command, data)
-	err = p.RunningEnvironment.ExecuteAsync(SkyPanel.ExecutionData{
+	err = p.RunningEnvironment.ExecuteAsync(skypanel.ExecutionData{
 		Command:     commandLine,
 		Environment: utils.ReplaceTokensInMap(p.Execution.EnvironmentVariables, data),
 		Variables:   p.DataToMap(),
@@ -979,7 +979,7 @@ func (p *Server) Execute(command string) (err error) {
 	return
 }
 
-func (p *Server) SetEnvironment(environment *SkyPanel.Environment) (err error) {
+func (p *Server) SetEnvironment(environment *skypanel.Environment) (err error) {
 	p.RunningEnvironment = environment
 	return
 }
@@ -988,7 +988,7 @@ func (p *Server) Id() string {
 	return p.Identifier
 }
 
-func (p *Server) GetEnvironment() *SkyPanel.Environment {
+func (p *Server) GetEnvironment() *skypanel.Environment {
 	return p.RunningEnvironment
 }
 
@@ -1026,7 +1026,7 @@ func (p *Server) Save() (err error) {
 
 func (p *Server) EditData(data map[string]interface{}, asAdmin bool) (err error) {
 	for k, v := range data {
-		var elem SkyPanel.Variable
+		var elem skypanel.Variable
 
 		if _, ok := p.Variables[k]; ok {
 			elem = p.Variables[k]
@@ -1044,7 +1044,7 @@ func (p *Server) EditData(data map[string]interface{}, asAdmin bool) (err error)
 	return
 }
 
-func (p *Server) GetData() map[string]SkyPanel.Variable {
+func (p *Server) GetData() map[string]skypanel.Variable {
 	return p.Variables
 }
 
@@ -1111,13 +1111,13 @@ func (p *Server) GetItem(name string) (*FileData, error) {
 
 	if info.IsDir() {
 		fileList, _ := p.GetFileServer().ReadDir(name)
-		var fileNames []SkyPanel.FileDesc
+		var fileNames []skypanel.FileDesc
 		offset := 0
 		if name == "" || name == "." || name == "/" {
-			fileNames = make([]SkyPanel.FileDesc, len(fileList))
+			fileNames = make([]skypanel.FileDesc, len(fileList))
 		} else {
-			fileNames = make([]SkyPanel.FileDesc, len(fileList)+1)
-			fileNames[0] = SkyPanel.FileDesc{
+			fileNames = make([]skypanel.FileDesc, len(fileList)+1)
+			fileNames[0] = skypanel.FileDesc{
 				Name: "..",
 				File: false,
 			}
@@ -1127,7 +1127,7 @@ func (p *Server) GetItem(name string) (*FileData, error) {
 		//validate any symlinks are valid
 
 		for i, file := range fileList {
-			newFile := SkyPanel.FileDesc{
+			newFile := skypanel.FileDesc{
 				Name: file.Name(),
 				File: !file.IsDir(),
 			}
@@ -1179,7 +1179,7 @@ func (p *Server) GetItem(name string) (*FileData, error) {
 func (p *Server) ArchiveItems(sourceFiles []string, destination string) error {
 	// This may technically error out in other cases
 	if _, err := os.Stat(destination); err != nil && !os.IsNotExist(err) {
-		return SkyPanel.ErrFileExists
+		return skypanel.ErrFileExists
 	}
 	return files.Compress(p.GetFileServer(), destination, sourceFiles)
 }
@@ -1190,7 +1190,7 @@ func (p *Server) Extract(source, destination string) error {
 
 func (p *Server) StartBackup() (string, error) {
 	if p.IsBackingUp() || p.IsRestoring() {
-		return "", SkyPanel.ErrBackupInProgress
+		return "", skypanel.ErrBackupInProgress
 	}
 
 	p.backingUp = true
@@ -1254,7 +1254,7 @@ func (p *Server) StartBackup() (string, error) {
 func (p *Server) DeleteBackup(fileName string) error {
 	backupDirectory := p.GetBackupDirectory()
 	if backupDirectory == "" {
-		return SkyPanel.ErrSettingNotConfigured("backupDirectory")
+		return skypanel.ErrSettingNotConfigured("backupDirectory")
 	}
 
 	backupFile := path.Join(backupDirectory, fileName)
@@ -1382,7 +1382,7 @@ func (p *Server) Log(l *log.Logger, format string, obj ...interface{}) {
 func (p *Server) RunCondition(condition string, extraData map[string]interface{}) (bool, error) {
 	data := map[string]interface{}{
 		conditions.VariableEnv:      p.RunningEnvironment.Type,
-		conditions.VariableServerId: p.Id(),
+		conditions.VariableServerID: p.Id(),
 	}
 
 	for k, v := range extraData {
@@ -1416,16 +1416,16 @@ func (p *Server) IsRestoring() bool {
 
 func (p *Server) IsIdle() error {
 	if p.IsRestoring() || p.IsBackingUp() {
-		return SkyPanel.ErrBackupInProgress
+		return skypanel.ErrBackupInProgress
 	}
 
 	r, _ := p.GetEnvironment().IsRunning()
 	if r {
-		return SkyPanel.ErrServerRunning
+		return skypanel.ErrServerRunning
 	}
 
 	if p.GetEnvironment().IsInstalling() {
-		return SkyPanel.ErrServerRunning
+		return skypanel.ErrServerRunning
 	}
 
 	return nil

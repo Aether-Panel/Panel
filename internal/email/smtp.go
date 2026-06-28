@@ -20,12 +20,12 @@ func init() {
 func (smtpProvider) Send(to, subject, body string) error {
 	from := config.EmailFrom.Value()
 	if from == "" {
-		return SkyPanel.ErrSettingNotConfigured(config.EmailFrom.Key())
+		return skypanel.ErrSettingNotConfigured(config.EmailFrom.Key())
 	}
 
 	host := config.EmailHost.Value()
 	if host == "" {
-		return SkyPanel.ErrSettingNotConfigured(config.EmailHost.Key())
+		return skypanel.ErrSettingNotConfigured(config.EmailHost.Key())
 	}
 
 	client, err := mail.NewClient(config.EmailHost.Value(),

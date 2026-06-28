@@ -16,22 +16,22 @@ type MojangDl struct {
 	Target  string
 }
 
-func (op MojangDl) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
+func (op MojangDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	env := args.Environment
 
-	response, err := SkyPanel.HttpGet(VersionJSONURL)
+	response, err := skypanel.HttpGet(VersionJSONURL)
 	if err != nil {
-		return SkyPanel.OperationResult{Error: err}
+		return skypanel.OperationResult{Error: err}
 	}
 
 	var data LauncherJSON
 	err = json.NewDecoder(response.Body).Decode(&data)
 	if err != nil {
-		return SkyPanel.OperationResult{Error: err}
+		return skypanel.OperationResult{Error: err}
 	}
 	err = response.Body.Close()
 	if err != nil {
-		return SkyPanel.OperationResult{Error: err}
+		return skypanel.OperationResult{Error: err}
 	}
 
 	var targetVersion string
@@ -52,17 +52,17 @@ func (op MojangDl) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
 			env.DisplayToConsole(true, fmt.Sprintf("Version %s json located, downloading from %s\n", version.ID, version.URL))
 			//now, get the version json for this one...
 			err = downloadServerFromJSON(version.URL, op.Target, env)
-			return SkyPanel.OperationResult{Error: err}
+			return skypanel.OperationResult{Error: err}
 		}
 	}
 
 	env.DisplayToConsole(true, "Could not locate version "+targetVersion+"\n")
 	err = errors.New("Version not located: " + op.Version)
-	return SkyPanel.OperationResult{Error: err}
+	return skypanel.OperationResult{Error: err}
 }
 
-func downloadServerFromJSON(url, target string, env *SkyPanel.Environment) error {
-	response, err := SkyPanel.HttpGet(url)
+func downloadServerFromJSON(url, target string, env *skypanel.Environment) error {
+	response, err := skypanel.HttpGet(url)
 	defer utils.CloseResponse(response)
 	if err != nil {
 		return err
@@ -83,7 +83,7 @@ func downloadServerFromJSON(url, target string, env *SkyPanel.Environment) error
 	logging.Info.Printf("Version jar located, downloading from %s", serverBlock.URL)
 	env.DisplayToConsole(true, fmt.Sprintf("Version jar located, downloading from %s\n", serverBlock.URL))
 
-	return SkyPanel.DownloadFile(serverBlock.URL, target, env)
+	return skypanel.DownloadFile(serverBlock.URL, target, env)
 }
 
 type LauncherJSON struct {

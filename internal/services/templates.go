@@ -78,7 +78,7 @@ func (t *Template) GetAllFromRepo(repoId uint) ([]*models.Template, error) {
 		for k, v := range templates {
 			replacement[k] = &models.Template{
 				Name: v.Name,
-				Server: SkyPanel.Server{
+				Server: skypanel.Server{
 					Display:               v.Server.Display,
 					Type:                  v.Server.Type,
 					Environment:           v.Server.Environment,
@@ -142,7 +142,7 @@ func (t *Template) GetAllFromRepo(repoId uint) ([]*models.Template, error) {
 
 				templates = append(templates, &models.Template{
 					Name: name,
-					Server: SkyPanel.Server{
+					Server: skypanel.Server{
 						Display:               template.Server.Display,
 						Type:                  template.Server.Type,
 						Environment:           template.Server.Environment,
@@ -211,7 +211,7 @@ func (t *Template) Get(repoId uint, name string) (*models.Template, error) {
 		}
 
 		if !exists {
-			return nil, SkyPanel.ErrNoTemplate(name)
+			return nil, skypanel.ErrNoTemplate(name)
 		}
 
 		templatePath := filepath.Join(path, folderName, name+".json")
@@ -258,7 +258,7 @@ func (t *Template) AddRepo(repo *models.TemplateRepo) error {
 	}
 	for _, v := range existing {
 		if v.Name == repo.Name {
-			return SkyPanel.ErrRepoExists
+			return skypanel.ErrRepoExists
 		}
 	}
 	return t.DB.Save(repo).Error
@@ -416,7 +416,7 @@ func (t *Template) getFromVps(indexUrl, name string) (*models.Template, error) {
 	}
 	entry, ok := idx[name]
 	if !ok {
-		return nil, SkyPanel.ErrNoTemplate(name)
+		return nil, skypanel.ErrNoTemplate(name)
 	}
 	return t.getTemplateFromUrl(name, resolveUrl(indexUrl, entry.Url))
 }

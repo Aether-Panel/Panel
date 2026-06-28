@@ -5,7 +5,7 @@ import (
 )
 
 type ServerCreation struct {
-	SkyPanel.Server
+	skypanel.Server
 
 	NodeId uint     `json:"node"`
 	Users  []string `json:"users"`
@@ -29,10 +29,10 @@ type CreateServerResponse struct {
 
 type ServerSearchResponse struct {
 	Servers []*ServerView `json:"servers"`
-	*SkyPanel.Metadata
+	*skypanel.Metadata
 } //@name ServerSearchResults
 
 type ServerWithName struct {
-	SkyPanel.Server
+	skypanel.Server
 	Name string `json:"name"`
 } //@name NamedServer

@@ -104,7 +104,7 @@ func getAllUptime(c *gin.Context) {
 			nodeResponse, err := ns.CallNode(&server.Node, "GET", "/daemon/server/"+serverID+"/status", nil, nil)
 			if err == nil && nodeResponse != nil {
 				if nodeResponse.StatusCode == http.StatusOK {
-					var statusResponse SkyPanel.ServerRunning
+					var statusResponse skypanel.ServerRunning
 					if err := json.NewDecoder(nodeResponse.Body).Decode(&statusResponse); err == nil {
 						isRunning = statusResponse.Running
 					}
@@ -124,7 +124,7 @@ func getAllUptime(c *gin.Context) {
 			nodeResponse, err := ns.CallNode(&server.Node, "GET", "/daemon/server/"+server.Identifier+"/status", nil, nil)
 			if err == nil && nodeResponse != nil {
 				if nodeResponse.StatusCode == http.StatusOK {
-					var statusResponse SkyPanel.ServerRunning
+					var statusResponse skypanel.ServerRunning
 					if err := json.NewDecoder(nodeResponse.Body).Decode(&statusResponse); err == nil {
 						isRunning = statusResponse.Running
 					}
@@ -228,7 +228,7 @@ func getServerUptime(c *gin.Context) {
 	if err == nil && nodeResponse != nil {
 		defer utils.CloseResponse(nodeResponse)
 		if nodeResponse.StatusCode == http.StatusOK {
-			var statusResponse SkyPanel.ServerRunning
+			var statusResponse skypanel.ServerRunning
 			if err := json.NewDecoder(nodeResponse.Body).Decode(&statusResponse); err == nil {
 				isRunning = statusResponse.Running
 			}

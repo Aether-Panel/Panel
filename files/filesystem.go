@@ -227,21 +227,21 @@ func (sfp *fileServer) Mkdir(path string, mode os.FileMode) error {
 		}
 
 		return err
-	} else {
-		folder, err := sfp.OpenFile(parent, os.O_RDONLY, mode)
-		if err != nil {
-			return err
-		}
-		defer utils.Close(folder)
-		err = unix.Mkdirat(getFd(folder), f, sys.SyscallMode(mode))
-		if err != nil {
-			return err
-		}
-		if sfp.uid != -1 {
-			err = unix.Fchown(getFd(folder), sfp.uid, sfp.gid)
-		}
+	}
+	
+	folder, err := sfp.OpenFile(parent, os.O_RDONLY, mode)
+	if err != nil {
 		return err
 	}
+	defer utils.Close(folder)
+	err = unix.Mkdirat(getFd(folder), f, sys.SyscallMode(mode))
+	if err != nil {
+		return err
+	}
+	if sfp.uid != -1 {
+		err = unix.Fchown(getFd(folder), sfp.uid, sfp.gid)
+	}
+	return err
 }
 
 func (sfp *fileServer) Remove(path string) error {
@@ -267,9 +267,9 @@ func (sfp *fileServer) Remove(path string) error {
 
 	if stat.IsDir() {
 		return unix.Unlinkat(getFd(folder), f, unix.AT_REMOVEDIR)
-	} else {
-		return unix.Unlinkat(getFd(folder), f, 0)
 	}
+	
+	return unix.Unlinkat(getFd(folder), f, 0)
 }
 
 func (sfp *fileServer) RemoveAll(path string) error {

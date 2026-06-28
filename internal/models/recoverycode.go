@@ -35,7 +35,7 @@ func (rc *RecoveryCode) SetCode(code string) error {
 func (rc *RecoveryCode) IsValid() (err error) {
 	err = validator.New().Struct(rc)
 	if err != nil {
-		err = SkyPanel.GenerateValidationMessage(err)
+		err = skypanel.GenerateValidationMessage(err)
 	}
 	return
 }

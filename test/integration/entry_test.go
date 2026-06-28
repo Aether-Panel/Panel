@@ -80,7 +80,7 @@ func TestMain(m *testing.M) {
 		models.LocalNode.SFTPPort = uint16(rand.Intn(50000) + 10000)
 		RemoteNode.SFTPPort = models.LocalNode.SFTPPort
 		_ = config.SftpHost.Set(fmt.Sprintf("%s:%d", models.LocalNode.PrivateHost, models.LocalNode.SFTPPort), false)
-		_ = config.AuthUrl.Set(fmt.Sprintf("http://%s:%d/oauth2/token", models.LocalNode.PrivateHost, models.LocalNode.PrivatePort), false)
+		_ = config.AuthURL.Set(fmt.Sprintf("http://%s:%d/oauth2/token", models.LocalNode.PrivateHost, models.LocalNode.PrivatePort), false)
 		_ = config.MasterURL.Set(fmt.Sprintf("http://%s:%d", models.LocalNode.PrivateHost, models.LocalNode.PrivatePort), false)
 		_ = config.WebHost.Set(fmt.Sprintf("%s:%d", models.LocalNode.PrivateHost, models.LocalNode.PrivatePort), false)
 
@@ -90,7 +90,7 @@ func TestMain(m *testing.M) {
 		}
 
 		webService := manners.NewWithServer(&http.Server{Handler: router})
-		SkyPanel.Engine = router
+		skypanel.Engine = router
 
 		go func() {
 			err = webService.Serve(l)
@@ -133,6 +133,6 @@ func CallAPIRaw(method, url string, body []byte, token string) *httptest.Respons
 		request.Header.Add("Authorization", "Bearer "+token)
 	}
 	writer := httptest.NewRecorder()
-	SkyPanel.Engine.ServeHTTP(writer, request)
+	skypanel.Engine.ServeHTTP(writer, request)
 	return writer
 }

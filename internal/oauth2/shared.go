@@ -9,7 +9,7 @@ import (
 )
 
 func createRequest(data url.Values) (request *http.Request) {
-	authUrl := config.AuthUrl.Value()
+	authUrl := config.AuthURL.Value()
 	request, _ = http.NewRequest("POST", authUrl, bytes.NewBufferString(data.Encode()))
 
 	request.Header.Add("Authorization", "Bearer "+config.ClientSecret.Value())

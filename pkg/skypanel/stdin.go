@@ -1,4 +1,4 @@
-package SkyPanel
+package skypanel
 
 import (
 	"encoding/json"

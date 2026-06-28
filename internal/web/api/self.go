@@ -41,10 +41,10 @@ func registerSelf(g *gin.RouterGroup) {
 // @Summary Get your user info
 // @Description Gets the user information of the current user
 // @Success 200 {object} models.UserView
-// @Failure 400 {object} SkyPanel.ErrorResponse
-// @Failure 403 {object} SkyPanel.ErrorResponse
-// @Failure 404 {object} SkyPanel.ErrorResponse
-// @Failure 500 {object} SkyPanel.ErrorResponse
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
 // @Tags Self
 // @Router /api/self [get]
 // @Security OAuth2Application[login]
@@ -67,10 +67,10 @@ func getSelf(c *gin.Context) {
 // @Summary Update your user
 // @Description Update user information for your current user
 // @Success 204 {object} nil
-// @Failure 400 {object} SkyPanel.ErrorResponse
-// @Failure 403 {object} SkyPanel.ErrorResponse
-// @Failure 404 {object} SkyPanel.ErrorResponse
-// @Failure 500 {object} SkyPanel.ErrorResponse
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
 // @Param user body models.UserView true "User information"
 // @Tags Self
 // @Router /api/self [PUT]
@@ -91,12 +91,12 @@ func updateSelf(c *gin.Context) {
 	}
 
 	if viewModel.Password == "" {
-		response.HandleError(c, SkyPanel.ErrFieldRequired("password"), http.StatusBadRequest)
+		response.HandleError(c, skypanel.ErrFieldRequired("password"), http.StatusBadRequest)
 		return
 	}
 
 	if !us.IsValidCredentials(user, viewModel.Password) {
-		response.HandleError(c, SkyPanel.ErrInvalidCredentials, http.StatusInternalServerError)
+		response.HandleError(c, skypanel.ErrInvalidCredentials, http.StatusInternalServerError)
 		return
 	}
 
@@ -110,7 +110,7 @@ func updateSelf(c *gin.Context) {
 	passwordChanged := false
 	if viewModel.NewPassword != "" {
 		if us.IsSecurePassword(viewModel.NewPassword) != nil {
-			response.HandleError(c, SkyPanel.ErrPasswordRequirements, http.StatusBadRequest)
+			response.HandleError(c, skypanel.ErrPasswordRequirements, http.StatusBadRequest)
 			return
 		}
 
@@ -191,7 +191,7 @@ func validateOtpEnroll(c *gin.Context) {
 	}
 
 	recoveryCodes, err := us.ValidateOtpEnroll(user.ID, request.Token)
-	if errors.Is(err, SkyPanel.ErrInvalidCredentials) {
+	if errors.Is(err, skypanel.ErrInvalidCredentials) {
 		response.HandleError(c, err, http.StatusBadRequest)
 		return
 	}
@@ -267,10 +267,10 @@ func disableOtp(c *gin.Context) {
 // @Summary Gets registered OAuth2 clients
 // @Description Gets known OAuth2 clients the logged-in user has registered
 // @Success 200 {object} []models.Client
-// @Failure 400 {object} SkyPanel.ErrorResponse
-// @Failure 403 {object} SkyPanel.ErrorResponse
-// @Failure 404 {object} SkyPanel.ErrorResponse
-// @Failure 500 {object} SkyPanel.ErrorResponse
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
 // @Tags Self
 // @Router /api/self/oauth2 [GET]
 // @Security OAuth2Application[self.clients]
@@ -290,10 +290,10 @@ func getPersonalOAuth2Clients(c *gin.Context) {
 
 // @Summary Create an account-level OAuth2 client
 // @Success 200 {object} models.Client
-// @Failure 400 {object} SkyPanel.ErrorResponse
-// @Failure 403 {object} SkyPanel.ErrorResponse
-// @Failure 404 {object} SkyPanel.ErrorResponse
-// @Failure 500 {object} SkyPanel.ErrorResponse
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
 // @Param client body models.Client false "Information for the client to create"
 // @Tags Self
 // @Router /api/self/oauth2 [POST]
@@ -315,7 +315,7 @@ func createPersonalOAuth2Client(c *gin.Context) {
 		return
 	}
 	client := &models.Client{
-		ClientId:    id.String(),
+		ClientID:    id.String(),
 		UserId:      user.ID,
 		Name:        request.Name,
 		Description: request.Description,
@@ -348,10 +348,10 @@ func createPersonalOAuth2Client(c *gin.Context) {
 
 // @Summary Deletes an account-level OAuth2 client
 // @Success 204 {object} nil
-// @Failure 400 {object} SkyPanel.ErrorResponse
-// @Failure 403 {object} SkyPanel.ErrorResponse
-// @Failure 404 {object} SkyPanel.ErrorResponse
-// @Failure 500 {object} SkyPanel.ErrorResponse
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
 // @Param id path string true "Information for the client to create"
 // @Tags Self
 // @Router /api/self/oauth2/{id} [DELETE]
@@ -374,7 +374,7 @@ func deletePersonalOAuth2Client(c *gin.Context) {
 		return
 	}
 
-	err = os.Delete(client.ClientId)
+	err = os.Delete(client.ClientID)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}

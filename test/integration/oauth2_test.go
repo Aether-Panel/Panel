@@ -31,7 +31,7 @@ func TestOauth(t *testing.T) {
 		if !assert.NoError(t, err) {
 			return
 		}
-		clientId = client.ClientId
+		clientId = client.ClientID
 	})
 
 	t.Run("GetClient", func(t *testing.T) {
@@ -52,7 +52,7 @@ func TestOauth(t *testing.T) {
 
 		found := false
 		for _, v := range clients {
-			if v.ClientId == clientId {
+			if v.ClientID == clientId {
 				found = true
 				if !assert.Equal(t, name, v.Name) {
 					return

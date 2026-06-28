@@ -334,8 +334,8 @@ func sendTestDiscord(c *gin.Context) {
 // @Summary Activate license
 // @Description Activates and verifies a license key with the external license server
 // @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} SkyPanel.ErrorResponse
-// @Failure 500 {object} SkyPanel.ErrorResponse
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
 // @Param body body map[string]string true "License key"
 // @Tags Panel Settings
 // @Router /api/settings/license/activate [post]

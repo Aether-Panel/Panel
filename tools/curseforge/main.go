@@ -128,7 +128,7 @@ func main() {
 
 		server.SetFileServer(fs)
 
-		arg := SkyPanel.RunOperatorArgs{
+		arg := skypanel.RunOperatorArgs{
 			Environment: env,
 			Server:      server,
 		}

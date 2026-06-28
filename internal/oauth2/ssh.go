@@ -30,7 +30,7 @@ func validateSSH(username string, password string, recurse bool) (*ssh.Permissio
 
 	request := createRequest(data)
 
-	response, err := SkyPanel.Http().Do(request)
+	response, err := skypanel.Http().Do(request)
 	defer utils.CloseResponse(response)
 	if err != nil {
 		logging.Error.Printf("error talking to auth server: %s", err)

@@ -25,10 +25,10 @@ func registerDatabases(g *gin.RouterGroup) {
 // @Summary Get databases for server
 // @Description Gets all databases for a specific server
 // @Success 200 {array} models.DatabaseView "Databases"
-// @Failure 400 {object} SkyPanel.ErrorResponse
-// @Failure 403 {object} SkyPanel.ErrorResponse
-// @Failure 404 {object} SkyPanel.ErrorResponse
-// @Failure 500 {object} SkyPanel.ErrorResponse
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
 // @Param serverId path string true "Server Id"
 // @Tags Databases
 // @Router /api/servers/{serverId}/databases [get]
@@ -80,10 +80,10 @@ func getAllDatabasesForServer(c *gin.Context) {
 // @Summary Create database
 // @Description Creates a database for a server
 // @Success 200 {object} models.DatabaseView "Database created"
-// @Failure 400 {object} SkyPanel.ErrorResponse
-// @Failure 403 {object} SkyPanel.ErrorResponse
-// @Failure 404 {object} SkyPanel.ErrorResponse
-// @Failure 500 {object} SkyPanel.ErrorResponse
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
 // @Param serverId path string true "Server Id"
 // @Param database body models.DatabaseCreate true "Database information"
 // @Tags Databases
@@ -149,10 +149,10 @@ func createDatabase(c *gin.Context) {
 // @Summary Delete database
 // @Description Deletes a database (and its MySQL user)
 // @Success 204 {object} nil
-// @Failure 400 {object} SkyPanel.ErrorResponse
-// @Failure 403 {object} SkyPanel.ErrorResponse
-// @Failure 404 {object} SkyPanel.ErrorResponse
-// @Failure 500 {object} SkyPanel.ErrorResponse
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
 // @Param serverId path string true "Server Id"
 // @Param id path string true "Database Id"
 // @Tags Databases

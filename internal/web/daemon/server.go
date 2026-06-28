@@ -269,7 +269,7 @@ func createServer(c *gin.Context) {
 	prg := servers.GetFromCache(serverId)
 
 	if prg != nil {
-		response.HandleError(c, SkyPanel.ErrServerAlreadyExists, http.StatusConflict)
+		response.HandleError(c, skypanel.ErrServerAlreadyExists, http.StatusConflict)
 		return
 	}
 
@@ -296,7 +296,7 @@ func createServer(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, &SkyPanel.ServerIdResponse{Id: serverId})
+	c.JSON(http.StatusOK, &skypanel.ServerIdResponse{Id: serverId})
 }
 
 // Already declared in panel routing
@@ -306,7 +306,7 @@ func deleteServer(c *gin.Context) {
 	if running, err := server.IsRunning(); running || err != nil {
 		if response.HandleError(c, err, http.StatusInternalServerError) {
 		} else {
-			response.HandleError(c, SkyPanel.ErrServerRunning, http.StatusNotAcceptable)
+			response.HandleError(c, skypanel.ErrServerRunning, http.StatusNotAcceptable)
 		}
 		return
 	}
@@ -382,7 +382,7 @@ func editServerDataAdmin(c *gin.Context) {
 
 // @Summary Get server tasks
 // @Description Get server tasks
-// @Success 200 {object} SkyPanel.ServerTasks
+// @Success 200 {object} skypanel.ServerTasks
 // @Param id path string true "Server ID"
 // @Tags Daemon Server
 // @Router /api/servers/{id}/tasks [get]
@@ -390,13 +390,13 @@ func editServerDataAdmin(c *gin.Context) {
 func getServerTasks(c *gin.Context) {
 	server := getServerFromGin(c)
 
-	result := SkyPanel.ServerTasks{
-		Tasks: make(map[string]SkyPanel.ServerTask),
+	result := skypanel.ServerTasks{
+		Tasks: make(map[string]skypanel.ServerTask),
 	}
 
 	for k, v := range server.Scheduler.Tasks {
-		result.Tasks[k] = SkyPanel.ServerTask{
-			Task: SkyPanel.Task{
+		result.Tasks[k] = skypanel.ServerTask{
+			Task: skypanel.Task{
 				Name:         v.Name,
 				CronSchedule: v.CronSchedule,
 				Description:  v.Description,
@@ -410,7 +410,7 @@ func getServerTasks(c *gin.Context) {
 
 // @Summary Get server task
 // @Description Get server task by id
-// @Success 200 {object} SkyPanel.ServerTask
+// @Success 200 {object} skypanel.ServerTask
 // @Param id path string true "Server ID"
 // @Param taskId path string true "Task ID"
 // @Tags Daemon Server
@@ -419,10 +419,10 @@ func getServerTasks(c *gin.Context) {
 func getServerTask(c *gin.Context) {
 	server := getServerFromGin(c)
 
-	var result *SkyPanel.ServerTask
+	var result *skypanel.ServerTask
 
 	for _, v := range server.Scheduler.Tasks {
-		result = &SkyPanel.ServerTask{
+		result = &skypanel.ServerTask{
 			Task: v,
 			//IsRunning: server.Scheduler.IsTaskRunning(k),
 		}
@@ -464,7 +464,7 @@ func runServerTask(c *gin.Context) {
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
 // @Param taskId path string true "Task ID"
-// @Param task body SkyPanel.Task true "Task definition"
+// @Param task body skypanel.Task true "Task definition"
 // @Tags Daemon Server
 // @Router /api/servers/{id}/tasks/{taskId} [put]
 // @Security OAuth2Application[server.tasks.edit]
@@ -473,7 +473,7 @@ func editServerTask(c *gin.Context) {
 
 	taskId := c.Param("taskId")
 
-	var task SkyPanel.Task
+	var task skypanel.Task
 	err := c.ShouldBindJSON(&task)
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
@@ -537,7 +537,7 @@ func reloadServer(c *gin.Context) {
 
 // @Summary Get server data
 // @Description Get server variables
-// @Success 200 {object} SkyPanel.ServerData
+// @Success 200 {object} skypanel.ServerData
 // @Param id path string true "Server ID"
 // @Tags Daemon Server
 // @Router /api/servers/{id}/data [get]
@@ -547,19 +547,19 @@ func getServerData(c *gin.Context) {
 
 	data := server.GetData()
 
-	var replacement = make(map[string]SkyPanel.Variable)
+	var replacement = make(map[string]skypanel.Variable)
 	for k, v := range data {
 		if v.UserEditable {
 			replacement[k] = v
 		}
 	}
 
-	c.JSON(http.StatusOK, &SkyPanel.ServerData{Variables: replacement, Groups: server.Groups})
+	c.JSON(http.StatusOK, &skypanel.ServerData{Variables: replacement, Groups: server.Groups})
 }
 
 // @Summary Get server definition
 // @Description Get server definition
-// @Success 200 {object} SkyPanel.Server
+// @Success 200 {object} skypanel.Server
 // @Param id path string true "Server ID"
 // @Tags Daemon Server
 // @Router /api/servers/{id}/definition [get]
@@ -574,7 +574,7 @@ func getServerAdmin(c *gin.Context) {
 // @Description Updates the server with a new definition
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
-// @Param server body SkyPanel.Server true "New definition"
+// @Param server body skypanel.Server true "New definition"
 // @Tags Daemon Server
 // @Router /api/servers/{id}/definition [post]
 // @Security OAuth2Application[server.definition.edit]
@@ -586,14 +586,14 @@ func editServerAdmin(c *gin.Context) {
 		return
 	}
 
-	replacement := &SkyPanel.Server{}
+	replacement := &skypanel.Server{}
 	err := c.BindJSON(replacement)
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
 
 	//backup, just in case we break
-	backup := &SkyPanel.Server{}
+	backup := &skypanel.Server{}
 	backup.CopyFrom(server)
 
 	//copy from request
@@ -643,7 +643,7 @@ func getFile(c *gin.Context) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			c.AbortWithStatus(http.StatusNotFound)
-		} else if errors.Is(err, SkyPanel.ErrIllegalFileAccess) {
+		} else if errors.Is(err, skypanel.ErrIllegalFileAccess) {
 			response.HandleError(c, err, http.StatusBadRequest)
 		} else {
 			response.HandleError(c, err, http.StatusInternalServerError)
@@ -787,7 +787,7 @@ func postConsole(c *gin.Context) {
 
 // @Summary Get stats
 // @Description Gets the CPU and memory usage of the server
-// @Success 200 {object} SkyPanel.ServerStats
+// @Success 200 {object} skypanel.ServerStats
 // @Param id path string true "Server ID"
 // @Tags Daemon Server
 // @Router /api/servers/{id}/stats [get]
@@ -804,7 +804,7 @@ func getStats(c *gin.Context) {
 
 // @Summary Get logs
 // @Description Get the console logs for the server
-// @Success 200 {object} SkyPanel.ServerLogs
+// @Success 200 {object} skypanel.ServerLogs
 // @Param id path string true "Server ID"
 // @Param time query int64 false "Epoch time in MS to get from"
 // @Tags Daemon Server
@@ -817,13 +817,13 @@ func getLogs(c *gin.Context) {
 
 	castedTime, ok := cast.ToInt64E(time)
 	if ok != nil {
-		response.HandleError(c, SkyPanel.ErrInvalidUnixTime, http.StatusBadRequest)
+		response.HandleError(c, skypanel.ErrInvalidUnixTime, http.StatusBadRequest)
 		return
 	}
 
 	console, epoch := server.GetEnvironment().GetConsoleFrom(castedTime)
 
-	c.JSON(http.StatusOK, &SkyPanel.ServerLogs{
+	c.JSON(http.StatusOK, &skypanel.ServerLogs{
 		Epoch: epoch,
 		Logs:  console,
 	})
@@ -831,7 +831,7 @@ func getLogs(c *gin.Context) {
 
 // @Summary Get status
 // @Description Get the server's status (is it running)
-// @Success 200 {object} SkyPanel.ServerRunning
+// @Success 200 {object} skypanel.ServerRunning
 // @Param id path string true "Server ID"
 // @Tags Daemon Server
 // @Router /api/servers/{id}/status [get]
@@ -842,7 +842,7 @@ func getStatus(c *gin.Context) {
 	installing := server.GetEnvironment().IsInstalling()
 
 	if installing {
-		c.JSON(http.StatusOK, &SkyPanel.ServerRunning{Installing: installing})
+		c.JSON(http.StatusOK, &skypanel.ServerRunning{Installing: installing})
 		return
 	}
 
@@ -850,7 +850,7 @@ func getStatus(c *gin.Context) {
 
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 	} else {
-		c.JSON(http.StatusOK, &SkyPanel.ServerRunning{Running: running})
+		c.JSON(http.StatusOK, &skypanel.ServerRunning{Running: running})
 	}
 }
 
@@ -914,7 +914,7 @@ func extract(c *gin.Context) {
 
 // @Summary Create backup
 // @Description Creates a full backup of the server
-// @Success 200 {object} SkyPanel.ServerBackupResponse
+// @Success 200 {object} skypanel.ServerBackupResponse
 // @Param id path string true "Server ID"
 // @Tags Daemon Server
 // @Router /api/servers/{id}/backup/create [post]
@@ -926,7 +926,7 @@ func createBackup(c *gin.Context) {
 		response.HandleError(c, err, http.StatusInternalServerError)
 		return
 	} else if isRunning {
-		response.HandleError(c, SkyPanel.ErrBackupServerRunning, http.StatusBadRequest)
+		response.HandleError(c, skypanel.ErrBackupServerRunning, http.StatusBadRequest)
 		return
 	}*/
 
@@ -935,7 +935,7 @@ func createBackup(c *gin.Context) {
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
-	c.JSON(http.StatusOK, &SkyPanel.ServerBackupResponse{BackupFileName: id})
+	c.JSON(http.StatusOK, &skypanel.ServerBackupResponse{BackupFileName: id})
 }
 
 // @Summary Delete backup
@@ -972,7 +972,7 @@ func restoreBackup(c *gin.Context) {
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	} else if isRunning {
-		response.HandleError(c, SkyPanel.ErrBackupServerRunning, http.StatusBadRequest)
+		response.HandleError(c, skypanel.ErrBackupServerRunning, http.StatusBadRequest)
 		return
 	}
 
@@ -1017,7 +1017,7 @@ func downloadBackup(c *gin.Context) {
 
 // @Summary Get flags
 // @Description Get the management flags for a server
-// @Success 200 {object} SkyPanel.ServerFlags
+// @Success 200 {object} skypanel.ServerFlags
 // @Param id path string true "Server ID"
 // @Tags Daemon Server
 // @Router /api/servers/{id}/flags [get]
@@ -1025,7 +1025,7 @@ func downloadBackup(c *gin.Context) {
 func getFlags(c *gin.Context) {
 	server := getServerFromGin(c)
 
-	c.JSON(http.StatusOK, &SkyPanel.ServerFlags{
+	c.JSON(http.StatusOK, &skypanel.ServerFlags{
 		AutoStart:             &server.Execution.AutoStart,
 		AutoRestartOnCrash:    &server.Execution.AutoRestartFromCrash,
 		AutoRestartOnGraceful: &server.Execution.AutoRestartFromGraceful,
@@ -1036,14 +1036,14 @@ func getFlags(c *gin.Context) {
 // @Description Sets management flags for a server
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
-// @Param flags body SkyPanel.ServerFlags true "Flags to change"
+// @Param flags body skypanel.ServerFlags true "Flags to change"
 // @Tags Daemon Server
 // @Router /api/servers/{id}/flags [post]
 // @Security OAuth2Application[server.flags.edit]
 func setFlags(c *gin.Context) {
 	server := getServerFromGin(c)
 
-	var req SkyPanel.ServerFlags
+	var req skypanel.ServerFlags
 	err := c.BindJSON(&req)
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
@@ -1137,7 +1137,7 @@ func openSocket(c *gin.Context) {
 		return
 	}
 
-	socket := SkyPanel.Create(conn)
+	socket := skypanel.Create(conn)
 
 	if _, exists := c.GetQuery("console"); exists {
 		server.GetEnvironment().AddConsoleListener(socket)

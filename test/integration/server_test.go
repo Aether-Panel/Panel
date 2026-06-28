@@ -43,7 +43,7 @@ func TestServers(t *testing.T) {
 	}
 
 	type testLocation struct {
-		SFTPAuth SkyPanel.SFTPAuthorization
+		SFTPAuth skypanel.SFTPAuthorization
 		Node     *models.Node
 	}
 
@@ -248,8 +248,8 @@ func TestServers(t *testing.T) {
 					msgData := msg["data"]
 
 					switch msg["type"].(string) {
-					case SkyPanel.MessageTypeLog:
-						var ms SkyPanel.ServerLogs
+					case skypanel.MessageTypeLog:
+						var ms skypanel.ServerLogs
 						err = utils.UnmarshalTo(msgData, &ms)
 						if err != nil {
 							fmt.Printf("Failed to decode message: %s\n", err.Error())
@@ -261,9 +261,9 @@ func TestServers(t *testing.T) {
 						}
 
 						messageReceived = true
-					case SkyPanel.MessageTypeStatus:
+					case skypanel.MessageTypeStatus:
 						statusReceived = true
-					case SkyPanel.MessageTypeStats:
+					case skypanel.MessageTypeStats:
 						statsReceived = true
 					default:
 						fmt.Printf("unknown message type: %s\n", msg["type"])
@@ -407,7 +407,7 @@ func TestServers(t *testing.T) {
 					return
 				}
 
-				var res map[string]map[string]SkyPanel.Variable
+				var res map[string]map[string]skypanel.Variable
 				err := json.NewDecoder(response.Body).Decode(&res)
 				if !assert.NoError(t, err) {
 					return
@@ -468,7 +468,7 @@ func TestServers(t *testing.T) {
 					time.Sleep(time.Second)
 					response = CallAPI("GET", "/api/servers/"+ServerId+"/status", nil, session)
 					assert.Equal(t, http.StatusOK, response.Code)
-					var msg SkyPanel.ServerRunning
+					var msg skypanel.ServerRunning
 					err := json.NewDecoder(response.Body).Decode(&msg)
 					if !assert.NoError(t, err) {
 						return
@@ -633,7 +633,7 @@ func TestServers(t *testing.T) {
 					return
 				}
 
-				var res SkyPanel.ServerTasks
+				var res skypanel.ServerTasks
 				err := json.NewDecoder(response.Body).Decode(&res)
 				if !assert.NoError(t, err) {
 					return
@@ -649,7 +649,7 @@ func TestServers(t *testing.T) {
 					return
 				}
 
-				var res SkyPanel.ServerTask
+				var res skypanel.ServerTask
 				err := json.NewDecoder(response.Body).Decode(&res)
 				if !assert.NoError(t, err) {
 					return
@@ -696,7 +696,7 @@ func TestServers(t *testing.T) {
 					return
 				}
 
-				var res SkyPanel.ServerTasks
+				var res skypanel.ServerTasks
 				err := json.NewDecoder(response.Body).Decode(&res)
 				if !assert.NoError(t, err) {
 					return

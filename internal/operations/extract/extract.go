@@ -9,7 +9,7 @@ type Extract struct {
 	Destination string
 }
 
-func (op Extract) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
+func (op Extract) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	err := args.Server.Extract(op.Source, op.Destination)
-	return SkyPanel.OperationResult{Error: err}
+	return skypanel.OperationResult{Error: err}
 }

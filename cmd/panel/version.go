@@ -13,5 +13,5 @@ var versionCmd = &cobra.Command{
 }
 
 func executeVersion(cmd *cobra.Command, args []string) {
-	fmt.Println(SkyPanel.Display)
+	fmt.Println(skypanel.Display)
 }
