@@ -1,7 +1,7 @@
 package servers
 
 import (
-	"github.com/SkyPanel/SkyPanel/v3"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/conditions"
 	"github.com/SkyPanel/SkyPanel/v3/logging"
 	"github.com/SkyPanel/SkyPanel/v3/operations/alterfile"

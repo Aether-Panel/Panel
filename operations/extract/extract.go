@@ -1,7 +1,7 @@
 package extract
 
 import (
-	"github.com/SkyPanel/SkyPanel/v3"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 )
 
 type Extract struct {

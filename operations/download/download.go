@@ -2,7 +2,7 @@ package download
 
 import (
 	"github.com/cavaliergopher/grab/v3"
-	"github.com/SkyPanel/SkyPanel/v3"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/logging"
 )
 

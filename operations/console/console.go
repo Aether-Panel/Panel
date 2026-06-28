@@ -1,6 +1,6 @@
 package console
 
-import "github.com/SkyPanel/SkyPanel/v3"
+import "github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 
 type Console struct {
 	Text string

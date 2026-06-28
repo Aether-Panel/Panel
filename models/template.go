@@ -2,7 +2,7 @@ package models
 
 import (
 	"encoding/json"
-	"github.com/SkyPanel/SkyPanel/v3"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"gorm.io/gorm"
 	"strings"
 )

@@ -1,7 +1,7 @@
 package models
 
 import (
-	"github.com/SkyPanel/SkyPanel/v3"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/scopes"
 	"gopkg.in/go-playground/validator.v9"
 )

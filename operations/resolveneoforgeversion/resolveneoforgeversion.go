@@ -22,7 +22,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-version"
-	"github.com/SkyPanel/SkyPanel/v3"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 )
 
 type ResolveNeoForgeVersion struct {

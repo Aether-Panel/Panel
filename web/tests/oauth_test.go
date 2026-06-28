@@ -2,7 +2,7 @@ package tests
 
 import (
 	"encoding/json"
-	"github.com/SkyPanel/SkyPanel/v3"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	models "github.com/SkyPanel/SkyPanel/v3/oauth2"
 	"github.com/stretchr/testify/assert"
 	"net/http"

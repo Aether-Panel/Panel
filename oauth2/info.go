@@ -2,7 +2,7 @@ package oauth2
 
 import (
 	"encoding/json"
-	"github.com/SkyPanel/SkyPanel/v3"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/utils"
 	"net/url"
 )

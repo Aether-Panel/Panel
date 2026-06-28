@@ -10,7 +10,7 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/SkyPanel/SkyPanel/v3"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/config"
 	"github.com/SkyPanel/SkyPanel/v3/models"
 	"github.com/pquerna/otp"

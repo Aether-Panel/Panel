@@ -1,6 +1,6 @@
 package fabricdl
 
-import "github.com/SkyPanel/SkyPanel/v3"
+import "github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 
 type OperationFactory struct {
 	SkyPanel.OperationFactory

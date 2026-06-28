@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/SkyPanel/SkyPanel/v3"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/config"
 	"github.com/gofrs/uuid/v5"
 	"gopkg.in/go-playground/validator.v9"

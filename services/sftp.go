@@ -2,7 +2,7 @@ package services
 
 import (
 	"errors"
-	"github.com/SkyPanel/SkyPanel/v3"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/database"
 	"github.com/SkyPanel/SkyPanel/v3/scopes"
 	"golang.org/x/crypto/ssh"

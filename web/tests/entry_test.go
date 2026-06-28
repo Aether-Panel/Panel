@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"github.com/braintree/manners"
 	"github.com/gin-gonic/gin"
-	"github.com/SkyPanel/SkyPanel/v3"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/config"
 	"github.com/SkyPanel/SkyPanel/v3/database"
 	"github.com/SkyPanel/SkyPanel/v3/models"

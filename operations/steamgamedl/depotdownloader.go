@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/mholt/archiver/v3"
-	"github.com/SkyPanel/SkyPanel/v3"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/utils"
 	"net/http"
 	"net/url"

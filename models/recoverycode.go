@@ -2,7 +2,7 @@ package models
 
 import (
 	"fmt"
-	"github.com/SkyPanel/SkyPanel/v3"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"golang.org/x/crypto/blake2b"
 	"gopkg.in/go-playground/validator.v9"
 	"gorm.io/gorm"
