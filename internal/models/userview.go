@@ -7,11 +7,11 @@ import (
 )
 
 type UserView struct {
-	Id        uint            `json:"id,omitempty"`
+	ID        uint            `json:"id,omitempty"`
 	Username  string          `json:"username,omitempty"`
 	Email     string          `json:"email,omitempty"`
 	OtpActive bool            `json:"otpActive"`
-	RoleId    *uint           `json:"roleId,omitempty"`
+	RoleID    *uint           `json:"roleId,omitempty"`
 	Scopes    []*scopes.Scope `json:"scopes,omitempty"`
 	//ONLY SHOW WHEN COPYING
 	Password    string `json:"password,omitempty"`
@@ -20,17 +20,17 @@ type UserView struct {
 
 func FromUser(model *User) *UserView {
 	view := &UserView{
-		Id:        model.ID,
+		ID:        model.ID,
 		Username:  model.Username,
 		Email:     model.Email,
 		OtpActive: model.OtpActive,
-		RoleId:    model.RoleId,
+		RoleID:    model.RoleID,
 		Scopes:    make([]*scopes.Scope, 0),
 	}
 
 	// Add individual permissions
 	for _, p := range model.Permissions {
-		if p.ServerIdentifier == nil || *p.ServerIdentifier == "" {
+		if p.ServerIDentifier == nil || *p.ServerIDentifier == "" {
 			for _, s := range p.Scopes {
 				view.Scopes = scopes.AddScope(view.Scopes, s)
 			}
@@ -38,7 +38,7 @@ func FromUser(model *User) *UserView {
 	}
 
 	// Add role-based permissions
-	if model.RoleId != nil && model.Role.ID != 0 {
+	if model.RoleID != nil && model.Role.ID != 0 {
 		for _, s := range model.Role.Scopes {
 			view.Scopes = scopes.AddScope(view.Scopes, scopes.GetScope(s))
 		}
@@ -70,7 +70,7 @@ func (model *UserView) CopyToModel(newModel *User) {
 		_ = newModel.SetPassword(model.Password)
 	}
 
-	newModel.RoleId = model.RoleId
+	newModel.RoleID = model.RoleID
 }
 
 func (model *UserView) Valid(allowEmpty bool) error {

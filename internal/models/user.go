@@ -17,7 +17,7 @@ type User struct {
 	OtpSecret      string `gorm:"column:otp_secret;size:32" json:"-"`
 	OtpActive      bool   `gorm:"column:otp_active;not null;DEFAULT:0" json:"-"`
 
-	RoleId      *uint         `gorm:"column:role_id;index" json:"-"`
+	RoleID      *uint         `gorm:"column:role_id;index" json:"-"`
 	Role        Role          `gorm:"ASSOCIATION_SAVE_REFERENCE:false" json:"-" validate:"-"`
 	Permissions []Permissions `gorm:"foreignKey:UserId" json:"-"`
 

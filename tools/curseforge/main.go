@@ -20,55 +20,55 @@ var tests = []UnitTest{
 		CanFail: false,
 		Data: curseforge.CurseForge{
 			//All the Mods 9 https://www.curseforge.com/minecraft/modpacks/all-the-mods-9/files/7097957
-			ProjectId: 715572,
-			FileId:    7097957,
+			ProjectID: 715572,
+			FileID:    7097957,
 		},
 	},
 	{
 		CanFail: false,
 		Data: curseforge.CurseForge{
 			//Pixelmon https://www.curseforge.com/minecraft/modpacks/the-pixelmon-modpack/files/4966924
-			ProjectId: 389615,
-			FileId:    4966924,
+			ProjectID: 389615,
+			FileID:    4966924,
 		},
 	},
 	{
 		CanFail: true,
 		Data: curseforge.CurseForge{
 			//RLCraft https://www.curseforge.com/minecraft/modpacks/rlcraft/files/4612990
-			ProjectId: 285109,
-			FileId:    4612990,
+			ProjectID: 285109,
+			FileID:    4612990,
 		},
 	},
 	{
 		CanFail: false,
 		Data: curseforge.CurseForge{
 			//Better MC [FABRIC] https://www.curseforge.com/minecraft/modpacks/better-mc-fabric-bmc1/files/4883129
-			ProjectId: 452013,
-			FileId:    4883129,
+			ProjectID: 452013,
+			FileID:    4883129,
 		},
 	},
 	{
 		CanFail: false,
 		Data: curseforge.CurseForge{
-			ProjectId: 876781,
-			FileId:    0,
+			ProjectID: 876781,
+			FileID:    0,
 		},
 	},
 	{
 		CanFail: false,
 		Data: curseforge.CurseForge{
 			//MeatballCraft https://www.curseforge.com/minecraft/modpacks/meatballcraft/files/5842863
-			ProjectId: 411966,
-			FileId:    5842863,
+			ProjectID: 411966,
+			FileID:    5842863,
 		},
 	},
 	{
 		CanFail: false,
 		Data: curseforge.CurseForge{
 			//Farmopolis https://www.curseforge.com/minecraft/modpacks/farmopolis/files/7112573
-			ProjectId: 1270262,
-			FileId:    7112573,
+			ProjectID: 1270262,
+			FileID:    7112573,
 		},
 	},
 }

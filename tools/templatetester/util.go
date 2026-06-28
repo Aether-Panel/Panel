@@ -240,7 +240,7 @@ func ioCopy(dest io.Writer, src io.Reader) {
 func createCreateBody(scenario *TestScenario) io.ReadCloser {
 	model := &models.ServerCreation{
 		Server: skypanel.Server{},
-		NodeId: 0,
+		NodeID: 0,
 		Name:   scenario.Name,
 	}
 

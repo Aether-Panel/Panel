@@ -38,7 +38,7 @@ func Initialize(useFiles bool) {
 		rotation.StartRotation(directory)
 	}
 
-	//just create them ourselves.....
+	// just create them ourselves.....
 
 	//first, create STDERR
 

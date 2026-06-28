@@ -49,7 +49,7 @@ func NewDefaultScheduler(serverId string) *Scheduler {
 		Timezone:        "Local",
 		ConcurrentLimit: 5,
 		LimitMode:       "wait",
-		serverId:        serverId,
+		serverID:        serverId,
 	}
 }
 

@@ -112,7 +112,7 @@ func (ls *LicenseService) BindLicense(licenseKey, serverId, serverIp string) (*L
 
 	reqBody := LicenseBindRequest{
 		LicenseKey: licenseKey,
-		ServerId:   serverId,
+		ServerID:   serverId,
 		ServerIp:   serverIp,
 	}
 

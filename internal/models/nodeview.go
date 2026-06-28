@@ -7,7 +7,7 @@ import (
 )
 
 type NodeView struct {
-	Id          uint   `json:"id"`
+	ID          uint   `json:"id"`
 	Name        string `json:"name,omitempty"`
 	PublicHost  string `json:"publicHost,omitempty"`
 	PrivateHost string `json:"privateHost,omitempty"`
@@ -21,7 +21,7 @@ type NodesView []*NodeView //@name Nodes
 
 func FromNode(n *Node) *NodeView {
 	return &NodeView{
-		Id:          n.ID,
+		ID:          n.ID,
 		Name:        n.Name,
 		PublicHost:  n.PublicHost,
 		PrivateHost: n.PrivateHost,

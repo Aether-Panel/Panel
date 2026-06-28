@@ -11,7 +11,7 @@ type OperationFactory struct {
 
 func (of OperationFactory) Create(op skypanel.CreateOperation) (skypanel.Operation, error) {
 	o := SteamGameDl{
-		AppId:     cast.ToString(op.OperationArgs["appID"]),
+		AppID:     cast.ToString(op.OperationArgs["appID"]),
 		Username:  cast.ToString(op.OperationArgs["username"]),
 		Password:  cast.ToString(op.OperationArgs["password"]),
 		ExtraArgs: cast.ToStringSlice(op.OperationArgs["extraArgs"]),

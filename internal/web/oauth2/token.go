@@ -72,7 +72,7 @@ func handleTokenRequest(c *gin.Context) {
 
 			var allScopes []string
 			ps := &services.Permission{DB: db}
-			perms, err := ps.GetForUserAndServer(client.UserId, serverId)
+			perms, err := ps.GetForUserAndServer(client.UserID, serverId)
 			if response.HandleError(c, err, http.StatusInternalServerError) {
 				return
 			}
@@ -84,7 +84,7 @@ func handleTokenRequest(c *gin.Context) {
 					return
 				}
 
-				userPerms, err := ps.GetForUserAndServer(client.UserId, "")
+				userPerms, err := ps.GetForUserAndServer(client.UserID, "")
 				if response.HandleError(c, err, http.StatusInternalServerError) {
 					return
 				}

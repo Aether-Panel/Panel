@@ -160,10 +160,10 @@ func asStringArray(key string, def []string) StringArrayEntry {
 }
 
 func as[T ValueType](key string, def T) entry[T] {
-	//We are not using viper for this, because it writes a giant config with the defaults,
+	// We are not using viper for this, because it writes a giant config with the defaults,
 	//and we cannot do that to allow for changes in the future
 
-	//viper.SetDefault(key, def)
+	// viper.SetDefault(key, def)
 	defaults[key] = def
 	return entry[T]{key: key}
 }

@@ -7,7 +7,7 @@ import (
 type ServerCreation struct {
 	skypanel.Server
 
-	NodeId uint     `json:"node"`
+	NodeID uint     `json:"node"`
 	Users  []string `json:"users"`
 	Name   string   `json:"name"`
 

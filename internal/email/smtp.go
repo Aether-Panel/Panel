@@ -39,8 +39,8 @@ func (smtpProvider) Send(to, subject, body string) error {
 	}
 	defer utils.Close(client)
 
-	refId, _ := uuid.NewV4()
-	refIdStr := strings.ReplaceAll(refId.String(), "-", "")
+	refID, _ := uuid.NewV4()
+	refIDStr := strings.ReplaceAll(refID.String(), "-", "")
 	msg := mail.NewMsg()
 	if err = msg.From(from); err != nil {
 		return err
@@ -49,7 +49,7 @@ func (smtpProvider) Send(to, subject, body string) error {
 		return err
 	}
 
-	msg.SetMessageIDWithValue(refIdStr)
+	msg.SetMessageIDWithValue(refIDStr)
 	msg.Subject(subject)
 	msg.SetBodyString("text/html", body)
 

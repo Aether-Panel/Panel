@@ -55,6 +55,7 @@ func (op ResolveNeoForgeVersion) Run(args skypanel.RunOperatorArgs) skypanel.Ope
 				if _, err = os.Lstat(desiredFile); err != nil {
 					continue
 				}
+				//nolint:gocritic
 				if op.Version == "" {
 					op.Version = v.Name()
 					ver, _ = version.NewVersion(op.Version)

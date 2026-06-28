@@ -15,7 +15,7 @@ type Permission struct {
 func (ps *Permission) GetForUser(id uint) ([]*models.Permissions, error) {
 	var allPerms []*models.Permissions
 	permissions := &models.Permissions{
-		UserId: &id,
+		UserID: &id,
 	}
 
 	err := ps.DB.Preload(clause.Associations).Where(permissions).Find(&allPerms).Error
@@ -42,7 +42,7 @@ func (ps *Permission) GetForUserAndServer(userId uint, serverId string) (*models
 	}
 
 	permissions := &models.Permissions{
-		UserId:           &userId,
+		UserID:           &userId,
 		ServerIdentifier: id,
 	}
 

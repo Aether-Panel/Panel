@@ -11,7 +11,7 @@ import (
 type RecoveryCode struct {
 	ID uint `gorm:"column:id;primaryKey;autoIncrement" json:"-"`
 
-	UserId uint `gorm:"column:user_id;not null;index" json:"-"`
+	UserID uint `gorm:"column:user_id;not null;index" json:"-"`
 	User   User `gorm:"ASSOCIATION_SAVE_REFERENCE:false" json:"-" validate:"-"`
 
 	CodeHash string `gorm:"column:code;not null" json:"-"`

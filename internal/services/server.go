@@ -25,8 +25,8 @@ type ServerSearch struct {
 func (ss *Server) Search(searchCriteria ServerSearch) (records []*models.Server, total int64, err error) {
 	query := ss.DB
 
-	if searchCriteria.NodeId != 0 {
-		query = query.Where(&models.Server{NodeID: searchCriteria.NodeId})
+	if searchCriteria.NodeID != 0 {
+		query = query.Where(&models.Server{NodeID: searchCriteria.NodeID})
 	} else if searchCriteria.NodeName != "" {
 		if searchCriteria.NodeName == "LocalNode" {
 			query = query.Where(&models.Server{NodeID: 0, RawNodeID: nil})

@@ -19,7 +19,7 @@ type requestPrefix struct {
 }
 
 func CreateRequestPrefix(remoteAddr net.Addr, serverId string, fs files.FileServer) sftp.Handlers {
-	h := requestPrefix{fs: fs, serverId: serverId, remoteAddr: remoteAddr}
+	h := requestPrefix{fs: fs, serverID: serverId, remoteAddr: remoteAddr}
 
 	return sftp.Handlers{FileCmd: h, FileGet: h, FileList: h, FilePut: h}
 }

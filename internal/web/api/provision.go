@@ -161,7 +161,7 @@ func provisionServer(c *gin.Context) {
 		rs := &services.Role{DB: db}
 		userRole, roleErr := rs.GetByName("Usuario")
 		if roleErr == nil && userRole != nil {
-			user.RoleId = &userRole.ID
+			user.RoleID = &userRole.ID
 			if err := us.Update(user); response.HandleError(c, err, http.StatusInternalServerError) {
 				return
 			}
@@ -288,7 +288,7 @@ func provisionServer(c *gin.Context) {
 	// 7. Call Daemon
 	serverCreation := &models.ServerCreation{
 		Server: template.Server,
-		NodeId: node.ID,
+		NodeID: node.ID,
 		Name:   server.Name,
 		Users:  []string{user.Username},
 	}

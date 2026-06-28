@@ -113,9 +113,9 @@ func createSession(c *gin.Context, user *models.User) {
 	// Aggregate scopes from individual permissions and roles
 	allScopes := perms.Scopes
 
-	if user.RoleId != nil {
+	if user.RoleID != nil {
 		rs := &services.Role{DB: db}
-		role, err := rs.Get(*user.RoleId)
+		role, err := rs.Get(*user.RoleID)
 		if err == nil && role != nil {
 			for _, s := range role.Scopes {
 				allScopes = scopes.AddScope(allScopes, scopes.GetScope(s))

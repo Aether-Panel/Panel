@@ -9,7 +9,7 @@ type Session struct {
 	Token          string    `gorm:"column:token;not null;size:64;uniqueIndex;unique" json:"-"`
 	ExpirationTime time.Time `gorm:"column:expiration_time;not null;index" json:"-"`
 
-	UserId *uint `gorm:"column:user_id;index" json:"-"`
+	UserID *uint `gorm:"column:user_id;index" json:"-"`
 	User   User  `gorm:"ASSOCIATION_SAVE_REFERENCE:false" json:"-" validate:"-"`
 
 	ClientID *uint  `gorm:"column:client_id;index" json:"-"`

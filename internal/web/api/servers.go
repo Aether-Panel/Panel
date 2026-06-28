@@ -231,7 +231,7 @@ func searchServers(c *gin.Context) {
 	}
 
 	// Role permissions
-	if user.RoleId != nil && user.Role.ID != 0 {
+	if user.RoleID != nil && user.Role.ID != 0 {
 		for _, s := range user.Role.Scopes {
 			userScopes = scopes.AddScope(userScopes, scopes.GetScope(s))
 		}
@@ -256,7 +256,7 @@ func searchServers(c *gin.Context) {
 
 	searchCriteria := services.ServerSearch{
 		Username: username,
-		NodeId:   uint(node),
+		NodeID:   uint(node),
 		Name:     nameFilter,
 		PageSize: uint(pageSize),
 		Page:     uint(page),
@@ -342,7 +342,7 @@ func getServer(c *gin.Context) {
 			}
 		}
 	}
-	if u.RoleId != nil && u.Role.ID != 0 {
+	if u.RoleID != nil && u.Role.ID != 0 {
 		for _, s := range u.Role.Scopes {
 			userScopes = scopes.AddScope(userScopes, scopes.GetScope(s))
 		}
@@ -406,7 +406,7 @@ func createServer(c *gin.Context) {
 		}
 
 		// Force node to match parent
-		postBody.NodeId = parent.NodeID
+		postBody.NodeID = parent.NodeID
 
 		// Inherit users from parent
 		var parentPerms []models.Permissions
@@ -414,8 +414,8 @@ func createServer(c *gin.Context) {
 
 		var inheritedUsers []string
 		for _, p := range parentPerms {
-			if p.UserId != nil {
-				user, err := us.GetById(*p.UserId)
+			if p.UserID != nil {
+				user, err := us.GetById(*p.UserID)
 				if err == nil && user != nil {
 					inheritedUsers = append(inheritedUsers, user.Username)
 				}
@@ -424,7 +424,7 @@ func createServer(c *gin.Context) {
 		postBody.Users = inheritedUsers
 	}
 
-	node, err := ns.Get(postBody.NodeId)
+	node, err := ns.Get(postBody.NodeID)
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		response.HandleError(c, skypanel.ErrNodeInvalid, http.StatusBadRequest)
@@ -642,7 +642,7 @@ func createServer(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, &models.CreateServerResponse{Id: serverId})
+	c.JSON(http.StatusOK, &models.CreateServerResponse{ID: serverId})
 }
 
 // @Summary Update server definition

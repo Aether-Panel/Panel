@@ -641,6 +641,7 @@ func getFile(c *gin.Context) {
 	}()
 
 	if err != nil {
+		//nolint:gocritic
 		if os.IsNotExist(err) {
 			c.AbortWithStatus(http.StatusNotFound)
 		} else if errors.Is(err, skypanel.ErrIllegalFileAccess) {
@@ -651,6 +652,7 @@ func getFile(c *gin.Context) {
 		return
 	}
 
+	//nolint:gocritic
 	if data.FileList != nil {
 		c.JSON(http.StatusOK, data.FileList)
 	} else if data.Contents != nil {

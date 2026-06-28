@@ -3,7 +3,7 @@ package models
 type TemplateRepo struct {
 	ID       uint   `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
 	Name     string `gorm:"column:name;not null;size:100" json:"name"`
-	Url      string `gorm:"column:url;not null;size:4000" json:"url"`
+	URL      string `gorm:"column:url;not null;size:4000" json:"url"`
 	Branch   string `gorm:"column:branch;not null;size:100;default:'main'" json:"branch"`
 	PAT      string `gorm:"column:pat;size:4000" json:"-"`
 	Username string `gorm:"column:username;size:1000" json:"-"`

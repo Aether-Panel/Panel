@@ -26,7 +26,7 @@ import (
 
 func TestMain(m *testing.M) {
 	_ = os.WriteFile("config.json", []byte("{}"), 0644)
-	defer os.Remove("config.json")
+
 	_ = config.LoadConfigFile("config.json")
 	_ = os.Remove("testing.db")
 	var exitCode = 1
@@ -119,6 +119,7 @@ func TestMain(m *testing.M) {
 	_ = os.RemoveAll("servers")
 	_ = os.RemoveAll("binaries")
 
+	os.Remove("config.json")
 	os.Exit(exitCode)
 }
 

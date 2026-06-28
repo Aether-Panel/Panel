@@ -90,5 +90,5 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	LocalNode.Secret = strings.Replace(u.String(), "-", "", -1)
+	LocalNode.Secret = strings.ReplaceAll(u.String(), "-", "")
 }

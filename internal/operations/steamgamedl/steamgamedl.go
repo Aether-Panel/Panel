@@ -23,7 +23,7 @@ func init() {
 }
 
 type SteamGameDl struct {
-	AppId     string
+	AppID     string
 	Username  string
 	Password  string
 	ExtraArgs []string
@@ -50,12 +50,12 @@ func (c SteamGameDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult
 	//this is a 32-bit id, which Steam derives from private IP
 	//as such, we can kinda send anything we want
 	//our approach will be we hash the server id
-	loginId := cast.ToString(rand.Int31())
+	loginID := cast.ToString(rand.Int31())
 
 	manifestFolder := filepath.Join(env.GetRootDirectory(), ".manifest")
 	_ = os.RemoveAll(manifestFolder)
 
-	cmdArgs := []string{filepath.Join(rootBinaryFolder, "depotdownloader", DepotDownloaderBinary), "-app", c.AppId, "-dir", ".manifest", "-loginid", loginId, "-manifest-only"}
+	cmdArgs := []string{filepath.Join(rootBinaryFolder, "depotdownloader", DepotDownloaderBinary), "-app", c.AppID, "-dir", ".manifest", "-loginid", loginID, "-manifest-only"}
 	if c.Username != "" {
 		cmdArgs = append(cmdArgs, "-username", c.Username, "-remember-password")
 		if c.Password != "" {
@@ -85,7 +85,7 @@ func (c SteamGameDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult
 	}
 
 	//download game itself now
-	cmdArgs = []string{filepath.Join(rootBinaryFolder, "depotdownloader", DepotDownloaderBinary), "-app", c.AppId, "-dir", ".", "-loginid", loginId, "-validate"}
+	cmdArgs = []string{filepath.Join(rootBinaryFolder, "depotdownloader", DepotDownloaderBinary), "-app", c.AppID, "-dir", ".", "-loginid", loginID, "-validate"}
 	if c.Username != "" {
 		cmdArgs = append(cmdArgs, "-username", c.Username, "-remember-password")
 		if c.Password != "" {

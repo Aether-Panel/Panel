@@ -51,7 +51,7 @@ func (t *Template) GetRepos() ([]*models.TemplateRepo, error) {
 		vps := &models.TemplateRepo{
 			ID:     1,
 			Name:   "community",
-			Url:    u,
+			URL:    u,
 			Branch: "vps",
 		}
 		return []*models.TemplateRepo{vps, localRepo}, nil
@@ -337,7 +337,7 @@ func validateRepoOnDisk(repo *models.TemplateRepo) (string, error) {
 
 		logging.Debug.Printf("Checking out repo %s: %s", repo.Name, path)
 		_, err = git.PlainClone(path, false, &git.CloneOptions{
-			URL:           repo.Url,
+			URL:           repo.URL,
 			SingleBranch:  true,
 			ReferenceName: plumbing.ReferenceName("refs/heads/" + repo.Branch),
 		})
@@ -397,7 +397,7 @@ func (t *Template) getAllFromVps(indexUrl string) ([]*models.Template, error) {
 	result := make([]*models.Template, 0, len(idx))
 	indexBase := indexUrl
 	for name, entry := range idx {
-		target := resolveUrl(indexBase, entry.Url)
+		target := resolveUrl(indexBase, entry.URL)
 		tmp, err := t.getTemplateFromUrl(name, target)
 		if err != nil {
 			logging.Error.Printf("Error reading template from %s: %s", target, err.Error())
@@ -418,7 +418,7 @@ func (t *Template) getFromVps(indexUrl, name string) (*models.Template, error) {
 	if !ok {
 		return nil, skypanel.ErrNoTemplate(name)
 	}
-	return t.getTemplateFromUrl(name, resolveUrl(indexUrl, entry.Url))
+	return t.getTemplateFromUrl(name, resolveUrl(indexUrl, entry.URL))
 }
 
 func (t *Template) getTemplateFromUrl(name, url string) (*models.Template, error) {

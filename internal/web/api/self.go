@@ -53,10 +53,10 @@ func getSelf(c *gin.Context) {
 
 	// If user has a role_id but Role is not loaded (e.g. role was assigned after session was created),
 	// reload it from DB so the scopes appear correctly in the response
-	if user.RoleId != nil && user.Role.ID == 0 {
+	if user.RoleID != nil && user.Role.ID == 0 {
 		db := middleware.GetDatabase(c)
 		rs := &services.Role{DB: db}
-		if role, err := rs.Get(*user.RoleId); err == nil {
+		if role, err := rs.Get(*user.RoleID); err == nil {
 			user.Role = *role
 		}
 	}
@@ -316,7 +316,7 @@ func createPersonalOAuth2Client(c *gin.Context) {
 	}
 	client := &models.Client{
 		ClientID:    id.String(),
-		UserId:      user.ID,
+		UserID:      user.ID,
 		Name:        request.Name,
 		Description: request.Description,
 	}
@@ -369,7 +369,7 @@ func deletePersonalOAuth2Client(c *gin.Context) {
 	}
 
 	//ensure the client id is specific for this server, and this user
-	if client.UserId != user.ID {
+	if client.UserID != user.ID {
 		c.AbortWithStatus(http.StatusNotFound)
 		return
 	}

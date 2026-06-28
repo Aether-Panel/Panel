@@ -313,7 +313,7 @@ func (d *Docker) GetStatsImpl(environment *skypanel.Environment) (*skypanel.Serv
 }
 
 func (d *Docker) getClient() (*client.Client, error) {
-	var err error = nil
+	var err error
 	if d.cli == nil {
 		d.cli, err = client.NewClientWithOpts(client.FromEnv)
 		ctx := context.Background()
@@ -322,7 +322,7 @@ func (d *Docker) getClient() (*client.Client, error) {
 	return d.cli, err
 }
 
-func doesContainerExist(client *client.Client, id string, ctx context.Context) (bool, error) {
+func doesContainerExist(ctx context.Context, client *client.Client, id string) (bool, error) {
 	opts := container.ListOptions{
 		Filters: filters.NewArgs(),
 	}

@@ -118,14 +118,14 @@ func checkPermission(c *gin.Context, perm *scopes.Scope) bool {
 	allScopes := make([]*scopes.Scope, 0)
 
 	// Check role-based permissions first (Global Roles)
-	if user.RoleId != nil {
+	if user.RoleID != nil {
 		// Use preloaded role if available and correct
 		var role *models.Role
-		if user.Role.ID == *user.RoleId {
+		if user.Role.ID == *user.RoleID {
 			role = &user.Role
 		} else {
 			rs := &services.Role{DB: db}
-			role, err = rs.Get(*user.RoleId)
+			role, err = rs.Get(*user.RoleID)
 		}
 
 		if err == nil && role != nil {

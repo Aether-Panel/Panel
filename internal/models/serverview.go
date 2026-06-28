@@ -8,7 +8,7 @@ import (
 type ServerView struct {
 	Identifier     string           `json:"id,omitempty"`
 	Name           string           `json:"name,omitempty"`
-	NodeId         uint             `json:"nodeId"`
+	NodeID         uint             `json:"nodeId"`
 	Node           *NodeView        `json:"node,omitempty"`
 	Data           interface{}      `json:"data,omitempty"`
 	Users          []ServerUserView `json:"users,omitempty"`
@@ -34,7 +34,7 @@ func FromServer(server *Server) *ServerView {
 	model := &ServerView{
 		Name:           server.Name,
 		Identifier:     server.Identifier,
-		NodeId:         server.NodeID,
+		NodeID:         server.NodeID,
 		IP:             server.IP,
 		Port:           server.Port,
 		Type:           server.Type,
@@ -75,7 +75,7 @@ func (s *ServerView) Valid(allowEmpty bool) error {
 		return skypanel.ErrFieldMustBePrintable("name")
 	}
 
-	if !allowEmpty && validate.Var(s.NodeId, "required,min:1") != nil {
+	if !allowEmpty && validate.Var(s.NodeID, "required,min:1") != nil {
 		return skypanel.ErrFieldTooSmall("node", 1)
 	}
 

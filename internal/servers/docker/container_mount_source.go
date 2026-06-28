@@ -83,7 +83,7 @@ func InitContainerMountSource() (err error) {
 		return skypanel.ErrNoContainerFound
 	}
 
-	var dataMount *container.MountPoint = nil
+	var dataMount *container.MountPoint
 	for _, mount := range self.Mounts {
 		mountPath, e := filepath.Abs(mount.Destination)
 		if e != nil {

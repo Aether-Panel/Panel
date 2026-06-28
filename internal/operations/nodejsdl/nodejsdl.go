@@ -52,8 +52,8 @@ func (op NodejsDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 			return skypanel.OperationResult{Error: err}
 		}
 
-		logging.Debug.Println("Calling " + release.Url)
-		err = skypanel.HTTPExtract(release.Url, rootBinaryFolder, nil)
+		logging.Debug.Println("Calling " + release.URL)
+		err = skypanel.HTTPExtract(release.URL, rootBinaryFolder, nil)
 
 		if err != nil {
 			return skypanel.OperationResult{Error: err}
@@ -131,7 +131,7 @@ func (op NodejsDl) getRelease() (ReleaseInfo, error) {
 	}
 
 	release := ReleaseInfo{
-		Url:  utils.ReplaceTokens(DownloadLink, replacements),
+		URL:  utils.ReplaceTokens(DownloadLink, replacements),
 		Slug: utils.ReplaceTokens(VersionSlug, replacements),
 	}
 	return release, nil
@@ -142,6 +142,6 @@ type Release struct {
 }
 
 type ReleaseInfo struct {
-	Url  string
+	URL  string
 	Slug string
 }

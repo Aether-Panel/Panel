@@ -21,7 +21,7 @@ func (ws *WebSSHAuthorization) Validate(username string, password string) (*ssh.
 	return validateSSH(username, password, true)
 }
 
-func validateSSH(username string, password string, recurse bool) (*ssh.Permissions, error) {
+func validateSSH(username string, password string, _ bool) (*ssh.Permissions, error) {
 	data := url.Values{}
 	data.Set("grant_type", "password")
 	data.Set("username", username)
@@ -60,7 +60,7 @@ func validateSSH(username string, password string, recurse bool) (*ssh.Permissio
 		if len(t) != 2 {
 			continue
 		}
-		serverId := t[0]
+		serverID := t[0]
 		scope := t[1]
 
 		if scopes.ScopeServerSftp.Is(scope) {

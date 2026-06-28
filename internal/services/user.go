@@ -96,7 +96,7 @@ func (us *User) ValidOtp(email string, token string) (user *models.User, err err
 	if !totp.Validate(token, user.OtpSecret) {
 		// check recovery codes
 		rc := &models.RecoveryCode{
-			UserId: user.ID,
+			UserID: user.ID,
 		}
 		_ = rc.SetCode(token)
 
@@ -248,7 +248,7 @@ func (us *User) ValidateOtpEnroll(userId uint, token string) ([]string, error) {
 	rcs := make([]models.RecoveryCode, len(codes))
 	for i, code := range codes {
 		rcs[i] = models.RecoveryCode{
-			UserId: user.ID,
+			UserID: user.ID,
 		}
 		_ = rcs[i].SetCode(code)
 	}
@@ -277,7 +277,7 @@ func (us *User) RegenerateOtpRecoveryCodes(userId uint) ([]string, error) {
 	rcs := make([]models.RecoveryCode, len(codes))
 	for i, code := range codes {
 		rcs[i] = models.RecoveryCode{
-			UserId: user.ID,
+			UserID: user.ID,
 		}
 		_ = rcs[i].SetCode(code)
 	}

@@ -349,7 +349,7 @@ func initLoginAdminUser(db *gorm.DB) error {
 	}
 
 	perms := &models.Permissions{
-		UserId: &loginAdminUser.ID,
+		UserID: &loginAdminUser.ID,
 		Scopes: []*scopes.Scope{scopes.ScopeAdmin},
 	}
 	err = db.Create(perms).Error

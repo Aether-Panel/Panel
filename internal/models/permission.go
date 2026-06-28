@@ -11,7 +11,7 @@ type Permissions struct {
 	ID uint `gorm:"column:id;primaryKey;autoIncrement" json:"-"`
 
 	//owners of this permission set
-	UserId *uint `gorm:"column:user_id;index" json:"-"`
+	UserID *uint `gorm:"column:user_id;index" json:"-"`
 	User   User  `gorm:"ASSOCIATION_SAVE_REFERENCE:false" json:"-" validate:"-"`
 
 	ClientID *uint  `gorm:"column:client_id;index" json:"-"`
@@ -26,11 +26,11 @@ type Permissions struct {
 }
 
 func (p *Permissions) BeforeSave(*gorm.DB) error {
-	if p.ServerIdentifier != nil && *p.ServerIdentifier == "" {
-		p.ServerIdentifier = nil
+	if p.ServerIDentifier != nil && *p.ServerIDentifier == "" {
+		p.ServerIDentifier = nil
 	}
 
-	if p.ServerIdentifier != nil {
+	if p.ServerIDentifier != nil {
 		//ensure they have the view, because we're saving them back in
 		p.Scopes = scopes.AddScope(p.Scopes, scopes.ScopeServerView)
 	}
@@ -56,7 +56,7 @@ func (p *Permissions) AfterFind(*gorm.DB) error {
 }
 
 func (p *Permissions) ShouldDelete() bool {
-	if p.ServerIdentifier == nil {
+	if p.ServerIDentifier == nil {
 		return false
 	}
 	return len(p.Scopes) == 0
