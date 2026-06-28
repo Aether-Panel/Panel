@@ -15,8 +15,6 @@ linters:
 linters-settings:
   govet:
     enable-all: false
-    enable:
-      - shadow
   errcheck:
     check-type-assertions: false
     check-blank: false
@@ -42,7 +40,3 @@ issues:
     - path: tools/
       linters:
         - errcheck
-    - path: _test\.go
-      linters:
-        - govet
-      text: "shadow"

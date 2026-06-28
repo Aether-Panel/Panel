@@ -392,7 +392,7 @@ func activateLicense(c *gin.Context) {
 			hostname = "unknown"
 		}
 		serverId = hostname
-		config.LicenseServerId.Set(serverId, true)
+		_ = config.LicenseServerId.Set(serverId, true)
 	}
 
 	if serverIp == "" {
@@ -403,7 +403,7 @@ func activateLicense(c *gin.Context) {
 			ip = "127.0.0.1"
 		}
 		serverIp = ip
-		config.LicenseServerIp.Set(serverIp, true)
+		_ = config.LicenseServerIp.Set(serverIp, true)
 	}
 
 	// Vincular la licencia con el servidor (POST)
@@ -418,8 +418,8 @@ func activateLicense(c *gin.Context) {
 	licenseType := licenseService.GetLicenseType(verifyResp)
 
 	// Guardar la información de la licencia
-	config.LicenseKey.Set(licenseKey, true)
-	config.LicenseStatus.Set(licenseType, true)
+	_ = config.LicenseKey.Set(licenseKey, true)
+	_ = config.LicenseStatus.Set(licenseType, true)
 
 	// Extraer permisos
 	permissions := licenseService.ExtractPermissions(verifyResp)

@@ -15,7 +15,7 @@ func DetermineKernelSupport() {
 	} else {
 		passes := testOpenat2()
 		if !passes {
-			panic(fmt.Sprintf("OpenAt2 is not supported. Cowardly not starting to avoid security issues."))
+			panic("OpenAt2 is not supported. Cowardly not starting to avoid security issues.")
 		}
 	}
 }

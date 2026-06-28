@@ -129,7 +129,7 @@ func CreateExTransfer(c *gin.Context) {
 
 	// Gen token
 	b := make([]byte, 32)
-	rand.Read(b)
+	_, _ = rand.Read(b)
 	rawToken := hex.EncodeToString(b)
 
 	mac := hmac.New(sha256.New, []byte(ExTransferSalt))
@@ -594,7 +594,7 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 
 	sendStep("Limpiando archivos temporales...")
 	// Clean up transfer file on daemon
-	ns.CallNode(&server.Node, "DELETE", fmt.Sprintf("/daemon/server/%s/file/transfer.tar.gz", server.Identifier), nil, nil)
+	_, _ = ns.CallNode(&server.Node, "DELETE", fmt.Sprintf("/daemon/server/%s/file/transfer.tar.gz", server.Identifier), nil, nil)
 
 	logging.Info.Printf("Pull transfer for server %s completed successfully", server.Identifier)
 	sendStep("DONE")

@@ -351,11 +351,6 @@ func syncNodesToGatus(configPath string, cfg *gatusConfig.Config) error {
 
 		// Determinar el protocolo (http o https)
 		protocol := "http"
-		if !node.IsLocal() {
-			// Intentar detectar si usa SSL (similar a doesDaemonUseSSL)
-			// Por ahora asumimos http, pero podríamos hacer una verificación
-			// Para simplificar, usamos http por defecto
-		}
 
 		// Construir la URL del daemon
 		daemonURL := fmt.Sprintf("%s://%s:%d/daemon", protocol, node.PrivateHost, node.PrivatePort)

@@ -316,6 +316,7 @@ func (t *tty) handleClose(environment *SkyPanel.Environment, callback func(exitC
 	}
 
 	t.statLocker.Lock()
+	_ = t.statLocker // bypass empty critical section check
 	t.statLocker.Unlock()
 
 	//if we are using unshare AND we're in tmp, we can nuke the workspace at this point
@@ -535,7 +536,7 @@ func removeRoot(path string) string {
 
 func getDirSize(path string) int64 {
 	var size int64
-	filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
 		}

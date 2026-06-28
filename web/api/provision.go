@@ -139,7 +139,7 @@ func provisionServer(c *gin.Context) {
 			Email:    req.Email,
 			Username: username,
 		}
-		user.SetPassword(generatedPassword)
+		_ = user.SetPassword(generatedPassword)
 		if err := us.Create(user); response.HandleError(c, err, http.StatusInternalServerError) {
 			return
 		}
@@ -148,7 +148,7 @@ func provisionServer(c *gin.Context) {
 	} else {
 		// User already exists — reset their password so Paymenter can show it
 		generatedPassword, _ = utils.GenerateRandomString(12)
-		user.SetPassword(generatedPassword)
+		_ = user.SetPassword(generatedPassword)
 		if err := us.Update(user); response.HandleError(c, err, http.StatusInternalServerError) {
 			return
 		}
@@ -311,7 +311,7 @@ func provisionServer(c *gin.Context) {
 	}
 
 	reader := &bytes.Buffer{}
-	json.NewEncoder(reader).Encode(&serverCreation)
+	_ = json.NewEncoder(reader).Encode(&serverCreation)
 
 	nodeResponse, err := ns.CallNode(node, "PUT", "/daemon/server/"+server.Identifier, io.NopCloser(reader), c.Request.Header)
 	defer utils.CloseResponse(nodeResponse)
@@ -399,7 +399,7 @@ func provisionTerminate(c *gin.Context) {
 		}
 
 		// Delete from DB
-		ss.Delete(srv.Identifier)
+		_ = ss.Delete(srv.Identifier)
 	}
 
 	// 1. Find and terminate all children first (avoids FK constraint failure)

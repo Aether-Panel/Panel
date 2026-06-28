@@ -68,7 +68,7 @@ func internalRun() (terminate chan bool, success bool) {
 	router.Use(gin.LoggerWithWriter(logging.Info.Writer()))
 
 	//do not trust proxies by default
-	router.SetTrustedProxies(nil)
+	_ = router.SetTrustedProxies(nil)
 	if proxies := config.SecurityTrustedProxies.Value(); proxies != nil {
 		err := router.SetTrustedProxies(proxies)
 		if err != nil {

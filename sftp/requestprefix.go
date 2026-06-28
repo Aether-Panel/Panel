@@ -132,7 +132,6 @@ func (rp requestPrefix) getFile(path string, flags int, mode os.FileMode) (*os.F
 	if flags&os.O_CREATE != 0 {
 		_, err := rp.fs.Stat(path)
 		if os.IsNotExist(err) {
-			err = nil
 			err = rp.fs.MkdirAll(filepath.Dir(path), 0755)
 			if err != nil {
 				return nil, err

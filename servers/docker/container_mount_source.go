@@ -62,7 +62,7 @@ func InitContainerMountSource() (err error) {
 	}
 
 	var found []string
-	var self types.Container
+	var self container.Summary
 	for _, c := range containers {
 		rc, _, err := docker.CopyFromContainer(ctx, c.ID, path)
 		if err != nil {
@@ -84,7 +84,7 @@ func InitContainerMountSource() (err error) {
 		return SkyPanel.ErrNoContainerFound
 	}
 
-	var dataMount *types.MountPoint = nil
+	var dataMount *container.MountPoint = nil
 	for _, mount := range self.Mounts {
 		mountPath, e := filepath.Abs(mount.Destination)
 		if e != nil {

@@ -97,11 +97,6 @@ func (tc *RCONWSConnection) reconnector() {
 			_, data, err = conn.ReadMessage()
 			if err != nil {
 				listening = false
-			} else if len(data) > 0 {
-				//err = json.Unmarshal(data, &msg)
-				//if err == nil {
-				//	tc.Environment.DisplayToConsole(false, "[RCON] %s", msg.Message)
-				//}
 			}
 		}
 	}

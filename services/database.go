@@ -168,7 +168,6 @@ func (ds *Database) deleteFromMySQL(database *models.Database) error {
 
 func generateRandomUsername() string {
 	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
-	rand.Seed(time.Now().UnixNano())
 	b := make([]byte, 10)
 	for i := range b {
 		b[i] = charset[rand.Intn(len(charset))]
@@ -178,7 +177,6 @@ func generateRandomUsername() string {
 
 func generateRandomPassword() string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*"
-	rand.Seed(time.Now().UnixNano())
 	b := make([]byte, 16)
 	for i := range b {
 		b[i] = charset[rand.Intn(len(charset))]

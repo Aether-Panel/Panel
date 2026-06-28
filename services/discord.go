@@ -95,7 +95,7 @@ func (ds *DiscordService) SendWebhookToURL(webhookURL, title, description string
 	}
 	defer func() {
 		if resp.Body != nil {
-			io.Copy(io.Discard, resp.Body)
+			_, _ = io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 		}
 	}()
@@ -309,7 +309,7 @@ func (ds *DiscordService) SendSystemStatus(servers []ServerInfo) error {
 	}
 	defer func() {
 		if resp.Body != nil {
-			io.Copy(io.Discard, resp.Body)
+			_, _ = io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 		}
 	}()

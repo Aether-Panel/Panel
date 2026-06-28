@@ -446,7 +446,6 @@ func TestServers(t *testing.T) {
 
 			t.Run("InstallServer", func(t *testing.T) {
 				t.Skip("Skipping install test in unit tests to avoid long downloads")
-				return
 			})
 
 			t.Run("StartServer", func(t *testing.T) {

@@ -98,7 +98,7 @@ func (us *User) ValidOtp(email string, token string) (user *models.User, err err
 		rc := &models.RecoveryCode{
 			UserId: user.ID,
 		}
-		rc.SetCode(token)
+		_ = rc.SetCode(token)
 
 		res := us.DB.Where(rc).Delete(rc)
 		if res.Error != nil {
@@ -198,7 +198,7 @@ func (us *User) StartOtpEnroll(userId uint) (secret string, imgStr string, err e
 	if err != nil {
 		return
 	}
-	png.Encode(&buf, img)
+	_ = png.Encode(&buf, img)
 
 	imgStr = "data:image/png;base64," + base64.StdEncoding.EncodeToString(buf.Bytes())
 	secret = key.Secret()
@@ -250,7 +250,7 @@ func (us *User) ValidateOtpEnroll(userId uint, token string) ([]string, error) {
 		rcs[i] = models.RecoveryCode{
 			UserId: user.ID,
 		}
-		rcs[i].SetCode(code)
+		_ = rcs[i].SetCode(code)
 	}
 
 	err = us.DB.Create(&rcs).Error
@@ -279,7 +279,7 @@ func (us *User) RegenerateOtpRecoveryCodes(userId uint) ([]string, error) {
 		rcs[i] = models.RecoveryCode{
 			UserId: user.ID,
 		}
-		rcs[i].SetCode(code)
+		_ = rcs[i].SetCode(code)
 	}
 
 	err = us.DB.Transaction(func(tx *gorm.DB) error {

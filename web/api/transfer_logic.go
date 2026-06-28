@@ -99,12 +99,12 @@ func performInternalTransfer(server *models.Server, targetNode *models.Node, db 
 
 	// 3. Stop the server on Source Node
 	logging.Info.Printf("Stopping server %s on source node", server.Identifier)
-	ns.CallNode(&server.Node, "POST", fmt.Sprintf("/daemon/server/%s/power/stop", server.Identifier), nil, nil)
+	_, _ = ns.CallNode(&server.Node, "POST", fmt.Sprintf("/daemon/server/%s/power/stop", server.Identifier), nil, nil)
 	time.Sleep(5 * time.Second) // Give it some time to stop
-	ns.CallNode(&server.Node, "POST", fmt.Sprintf("/daemon/server/%s/power/kill", server.Identifier), nil, nil)
+	_, _ = ns.CallNode(&server.Node, "POST", fmt.Sprintf("/daemon/server/%s/power/kill", server.Identifier), nil, nil)
 
 	// Clean up old transfer files if they existed
-	ns.CallNode(&server.Node, "DELETE", fmt.Sprintf("/daemon/server/%s/file/transfer.tar.gz", server.Identifier), nil, nil)
+	_, _ = ns.CallNode(&server.Node, "DELETE", fmt.Sprintf("/daemon/server/%s/file/transfer.tar.gz", server.Identifier), nil, nil)
 
 	// 4. Archive files on Source Node
 	logging.Info.Printf("Archiving files for %s on source node", server.Identifier)
@@ -185,7 +185,7 @@ func performInternalTransfer(server *models.Server, targetNode *models.Node, db 
 	}
 
 	// Clean up transfer file on target node
-	ns.CallNode(targetNode, "DELETE", fmt.Sprintf("/daemon/server/%s/file/transfer.tar.gz", server.Identifier), nil, nil)
+	_, _ = ns.CallNode(targetNode, "DELETE", fmt.Sprintf("/daemon/server/%s/file/transfer.tar.gz", server.Identifier), nil, nil)
 
 	// 7. Change DB record
 	logging.Info.Printf("Updating database for %s", server.Identifier)
@@ -213,7 +213,7 @@ func performInternalTransfer(server *models.Server, targetNode *models.Node, db 
 	server.RawNodeID = rawNodeID
 
 	// 8. Ask source node to delete the server
-	ns.CallNode(&oldNode, "DELETE", fmt.Sprintf("/daemon/server/%s", server.Identifier), nil, nil)
+	_, _ = ns.CallNode(&oldNode, "DELETE", fmt.Sprintf("/daemon/server/%s", server.Identifier), nil, nil)
 
 	logging.Info.Printf("Transfer of %s completed successfully", server.Identifier)
 }
