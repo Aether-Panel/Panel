@@ -13,7 +13,7 @@ func CompareWildcard(source, match string) bool {
 		regex := WildCardToRegexp(match)
 		return matchRegex(regex, source)
 	}
-	
+
 	return source == match
 }
 

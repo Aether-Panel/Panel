@@ -68,7 +68,7 @@ func Run[T interface{}](statement string, data map[string]interface{}, extras []
 	if cast, ok := val.(T); ok {
 		return cast, nil
 	}
-	
+
 	return res, fmt.Errorf("invalid return type, expected %s, got %s", reflect.TypeOf(res), reflect.TypeOf(val))
 }
 

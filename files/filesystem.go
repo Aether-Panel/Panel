@@ -228,7 +228,7 @@ func (sfp *fileServer) Mkdir(path string, mode os.FileMode) error {
 
 		return err
 	}
-	
+
 	folder, err := sfp.OpenFile(parent, os.O_RDONLY, mode)
 	if err != nil {
 		return err
@@ -268,7 +268,7 @@ func (sfp *fileServer) Remove(path string) error {
 	if stat.IsDir() {
 		return unix.Unlinkat(getFd(folder), f, unix.AT_REMOVEDIR)
 	}
-	
+
 	return unix.Unlinkat(getFd(folder), f, 0)
 }
 
