@@ -70,3 +70,6 @@ __pycache__/
 # IDE and Deps
 .vscode/
 node_modules/
+
+# Garbage and Unknown files
+basura_o_desconocido/
