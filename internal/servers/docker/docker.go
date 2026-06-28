@@ -72,7 +72,7 @@ func (d *Docker) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypa
 
 	ctx := context.Background()
 	//TODO: This logic may not work anymore, it's complicated to use an existing container with install/uninstall
-	exists, err := doesContainerExist(dockerClient, environment.ServerID, ctx)
+	exists, err := doesContainerExist(ctx, dockerClient, environment.ServerID)
 	if err != nil {
 		return err
 	}
@@ -162,7 +162,7 @@ func (d *Docker) IsRunningImpl(environment *skypanel.Environment) (bool, error) 
 
 	ctx := context.Background()
 
-	exists, err := doesContainerExist(dockerClient, environment.ServerID, ctx)
+	exists, err := doesContainerExist(ctx, dockerClient, environment.ServerID)
 	if !exists {
 		return false, err
 	}

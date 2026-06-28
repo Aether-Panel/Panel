@@ -65,7 +65,7 @@ func validateSSH(username string, password string, _ bool) (*ssh.Permissions, er
 
 		if scopes.ScopeServerSftp.Is(scope) {
 			sshPerms.Extensions = make(map[string]string)
-			sshPerms.Extensions["server_id"] = serverId
+			sshPerms.Extensions["server_id"] = serverID
 			return sshPerms, nil
 		}
 	}

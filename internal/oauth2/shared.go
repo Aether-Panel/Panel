@@ -10,7 +10,7 @@ import (
 
 func createRequest(data url.Values) (request *http.Request) {
 	authURL := config.AuthURL.Value()
-	request, _ = http.NewRequest("POST", authUrl, bytes.NewBufferString(data.Encode()))
+	request, _ = http.NewRequest("POST", authURL, bytes.NewBufferString(data.Encode()))
 
 	request.Header.Add("Authorization", "Bearer "+config.ClientSecret.Value())
 	request.Header.Add("Content-Type", binding.MIMEPOSTForm)

@@ -87,10 +87,10 @@ func getLatestVersion() (string, error) {
 			if strings.Contains(assetName, strings.ToLower(runtime.GOOS)) {
 				if runtime.GOARCH == "amd64" {
 					if strings.Contains(assetName, "x64") {
-						return asset.DownloadUrl, nil
+						return asset.DownloadURL, nil
 					}
 				} else if strings.Contains(assetName, strings.ToLower(runtime.GOARCH)) {
-					return asset.DownloadUrl, nil
+					return asset.DownloadURL, nil
 				}
 			}
 		}

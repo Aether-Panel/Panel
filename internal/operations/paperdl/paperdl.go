@@ -84,7 +84,7 @@ func getLatestMCVersion() (string, error) {
 
 	latest, _ := version.NewVersion("0.0")
 	for _, v := range versions.Versions {
-		if ver, err := version.NewVersion(v.VersionInfo.Id); err == nil && latest.LessThan(ver) {
+		if ver, err := version.NewVersion(v.VersionInfo.ID); err == nil && latest.LessThan(ver) {
 			latest = ver
 		} else if err != nil {
 			logging.Info.Printf("failed to parse version '%s', %s", v, err)
