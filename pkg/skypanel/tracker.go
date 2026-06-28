@@ -96,4 +96,3 @@ func (s *Socket) WriteJSON(data interface{}) error {
 func (s *Socket) Close() error {
 	return s.conn.Close()
 }
-

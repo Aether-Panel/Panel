@@ -11,11 +11,11 @@ import (
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
-	SkyPanel "github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
 	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	SkyPanel "github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid/v5"
 	"gorm.io/gorm"
@@ -502,4 +502,3 @@ func provisionUnsuspend(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
-

@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/SkyPanel/SkyPanel/v3/files"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"path"
 )
 
@@ -51,4 +51,3 @@ func (f *Fabricdl) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
 
 	return SkyPanel.OperationResult{Error: nil}
 }
-

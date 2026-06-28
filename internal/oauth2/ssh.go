@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"golang.org/x/crypto/ssh"
 	"io"
 	"net/http"
@@ -71,4 +71,3 @@ func validateSSH(username string, password string, recurse bool) (*ssh.Permissio
 	}
 	return nil, errors.New("incorrect username or password")
 }
-

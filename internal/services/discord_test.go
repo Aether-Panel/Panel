@@ -42,4 +42,3 @@ func TestDiscordService_SendWebhookToURL(t *testing.T) {
 }
 
 /* este archivo interactua con servicios externos como los de discord y hace pruebas de que todo funcione correctamente, este archivo se coloco aqui por que en el archivo main.go se inicializa el servicio de discord como un servicio global */
-

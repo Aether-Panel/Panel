@@ -45,4 +45,3 @@ func (c Command) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
 
 	return SkyPanel.OperationResult{Error: nil}
 }
-

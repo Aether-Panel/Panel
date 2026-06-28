@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/go-co-op/gocron/v2"
 	"os"
 	"path/filepath"
@@ -207,4 +207,3 @@ func _executeTask(serverId string, id string) {
 func (s *Scheduler) GetExecutor() gocron.Scheduler {
 	return s.scheduler
 }
-

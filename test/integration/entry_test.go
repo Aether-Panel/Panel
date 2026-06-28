@@ -8,9 +8,9 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/database"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/sftp"
 	"github.com/SkyPanel/SkyPanel/v3/internal/web"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/braintree/manners"
 	"github.com/gin-gonic/gin"
 	"math/rand"
@@ -137,4 +137,3 @@ func CallAPIRaw(method, url string, body []byte, token string) *httptest.Respons
 	SkyPanel.Engine.ServeHTTP(writer, request)
 	return writer
 }
-

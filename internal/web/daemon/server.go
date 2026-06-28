@@ -15,11 +15,11 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/files"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/query"
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/go-co-op/gocron/v2"
@@ -1485,4 +1485,3 @@ func deletePlugin(c *gin.Context) {
 	}
 	c.Status(http.StatusNoContent)
 }
-

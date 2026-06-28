@@ -10,12 +10,12 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/database"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/SkyPanel/SkyPanel/v3/internal/oauth2"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	pufferSftp "github.com/SkyPanel/SkyPanel/v3/internal/sftp"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gorilla/websocket"
 	"github.com/pkg/sftp"
 	"github.com/stretchr/testify/assert"
@@ -801,4 +801,3 @@ func TestServers(t *testing.T) {
 		})
 	}
 }
-

@@ -215,4 +215,3 @@ func getLinkTarget(file archiver.File) (string, error) {
 type Walker interface {
 	Walk(archive string, walkFn archiver.WalkFunc) error
 }
-

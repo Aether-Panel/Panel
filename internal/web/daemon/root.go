@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/docker/docker/client"
 	"github.com/gin-gonic/gin"
 	"github.com/shirou/gopsutil/cpu"
@@ -207,4 +207,3 @@ func getSystemInfo(c *gin.Context) {
 
 	c.JSON(http.StatusOK, sysInfo)
 }
-

@@ -599,4 +599,3 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 	logging.Info.Printf("Pull transfer for server %s completed successfully", server.Identifier)
 	sendStep("DONE")
 }
-

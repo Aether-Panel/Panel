@@ -65,4 +65,3 @@ func TestOauth(t *testing.T) {
 		assert.True(t, found)
 	})
 }
-

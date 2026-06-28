@@ -136,4 +136,3 @@ func (ss *Server) Create(model *models.Server) error {
 	}
 	return nil
 }
-

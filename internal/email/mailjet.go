@@ -51,4 +51,3 @@ func (mailjetProvider) Send(to, subject, body string) error {
 	_, err := m.SendMailV31(&message)
 	return err
 }
-

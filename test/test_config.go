@@ -14,4 +14,3 @@ func main() {
 	fmt.Printf("DataRootFolder: %s\n", config.DataRootFolder.Value())
 	fmt.Printf("BinariesFolder: %s\n", config.BinariesFolder.Value())
 }
-

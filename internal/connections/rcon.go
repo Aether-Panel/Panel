@@ -84,4 +84,3 @@ func (tc *RCONConnection) recon(init bool) {
 	<-tc.closer
 	tc.ready = false
 }
-

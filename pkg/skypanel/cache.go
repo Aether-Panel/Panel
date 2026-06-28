@@ -71,4 +71,3 @@ func (c *MemoryCache) Write(b []byte) (n int, err error) {
 	c.Size = c.Size + n
 	return
 }
-

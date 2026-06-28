@@ -177,4 +177,3 @@ func DownloadViaMaven(downloadUrl string, env *Environment) (io.ReadCloser, erro
 
 	return Download(downloadUrl, expectedHash, crypto.SHA1, true, env)
 }
-

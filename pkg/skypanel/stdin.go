@@ -35,4 +35,3 @@ func (v *StdinConsoleConfiguration) UnmarshalJSON(data []byte) error {
 	*v = StdinConsoleConfiguration(aux)
 	return nil
 }
-

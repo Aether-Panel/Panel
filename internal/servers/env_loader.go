@@ -2,10 +2,10 @@ package servers
 
 import (
 	"fmt"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers/docker"
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers/tty"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"path/filepath"
 	"sync"
 )
@@ -73,4 +73,3 @@ func GetSupportedEnvironments() []string {
 
 	return result
 }
-

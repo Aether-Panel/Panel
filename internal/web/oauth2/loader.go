@@ -41,4 +41,3 @@ func recovery(c *gin.Context) {
 	}()
 	c.Next()
 }
-

@@ -271,4 +271,3 @@ func (e *Environment) GetUid() int {
 func (e *Environment) GetGid() int {
 	return e.Implementation.GetGidImpl(e)
 }
-

@@ -166,4 +166,3 @@ func deleteRole(c *gin.Context) {
 
 	c.Status(http.StatusNoContent)
 }
-

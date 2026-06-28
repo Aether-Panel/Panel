@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	emailAssets "github.com/SkyPanel/SkyPanel/v3/assets/email"
+	"github.com/SkyPanel/SkyPanel/v3/files"
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/email"
-	"github.com/SkyPanel/SkyPanel/v3/files"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"html/template"
 	"io/fs"
 	"os"
@@ -140,4 +140,3 @@ func (es *emailService) SendEmail(to, template string, data map[string]interface
 		return svc.Send(to, subjectBuilder.String(), bodyBuilder.String())
 	}
 }
-

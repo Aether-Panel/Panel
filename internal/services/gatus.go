@@ -596,4 +596,3 @@ func SyncCompanyNameToGatus() error {
 
 	return nil
 }
-

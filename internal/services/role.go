@@ -82,4 +82,3 @@ func (rs *Role) GetByName(name string) (*models.Role, error) {
 	}
 	return role, nil
 }
-

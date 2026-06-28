@@ -27,4 +27,3 @@ func TokenServiceGetPublicKey(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, rawJWKS)
 }
-

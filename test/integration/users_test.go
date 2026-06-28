@@ -104,4 +104,3 @@ func TestUserApi(t *testing.T) {
 		}
 	})
 }
-

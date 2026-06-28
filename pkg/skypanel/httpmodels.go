@@ -74,4 +74,3 @@ type ServerFlags struct {
 type ServerBackupResponse struct {
 	BackupFileName string `json:"backupFileName"`
 } //@name ServerBackup
-

@@ -133,4 +133,3 @@ func (ts *tokenService) GetKeyFunc() jwt.Keyfunc {
 func (ts *tokenService) GetTokenStore() jwkset.Storage {
 	return tokenStore
 }
-

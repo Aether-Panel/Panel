@@ -109,4 +109,3 @@ func copyDatabaseFile(src, dest string) error {
 	_, err = io.Copy(destination, source)
 	return err
 }
-

@@ -1,8 +1,8 @@
 package command
 
 import (
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/spf13/cast"
 )
 
@@ -29,4 +29,3 @@ func (of OperationFactory) Key() string {
 }
 
 var Factory OperationFactory
-

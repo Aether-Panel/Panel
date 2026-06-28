@@ -16,4 +16,3 @@ func (debugProvider) Send(to, subject, body string) error {
 	logging.Debug.Println("DEBUG EMAIL TO " + to + "\n" + subject + "\n" + body)
 	return nil
 }
-

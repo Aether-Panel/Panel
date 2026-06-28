@@ -9,9 +9,9 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-gonic/gin"
 	"gopkg.in/go-playground/validator.v9"
 )
@@ -90,4 +90,3 @@ type registerRequestData struct {
 	Email    string `json:"email" validate:"required,email"`
 	Password string `json:"password" validate:"required"`
 }
-

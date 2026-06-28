@@ -54,4 +54,3 @@ type ThemeConfig struct {
 type BrandingConfig struct {
 	Name string `json:"name" example:"SkyPanel"`
 } //@name BrandingConfig
-

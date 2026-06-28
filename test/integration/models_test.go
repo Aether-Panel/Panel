@@ -577,4 +577,3 @@ var TaskDefinition = []byte(`{
     }
   ]
 }`)
-

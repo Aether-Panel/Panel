@@ -217,4 +217,3 @@ func performInternalTransfer(server *models.Server, targetNode *models.Node, db 
 
 	logging.Info.Printf("Transfer of %s completed successfully", server.Identifier)
 }
-

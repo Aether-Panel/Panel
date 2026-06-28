@@ -34,4 +34,3 @@ func (sendgridProvider) Send(to, subject, body string) error {
 	_, err := client.Send(message)
 	return err
 }
-

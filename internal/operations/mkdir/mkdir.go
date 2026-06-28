@@ -19,4 +19,3 @@ func (m *Mkdir) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
 	err := os.MkdirAll(target, 0755)
 	return SkyPanel.OperationResult{Error: err}
 }
-

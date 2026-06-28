@@ -5,8 +5,8 @@ import (
 	"errors"
 	"github.com/SkyPanel/SkyPanel/v3/files"
 	"github.com/SkyPanel/SkyPanel/v3/internal/operations/forgedl"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"net/http"
 	"os"
 	"path"
@@ -183,4 +183,3 @@ func (op SpongeDl) getSpecificVersion(env *SkyPanel.Environment, version string)
 	err = json.NewDecoder(response.Body).Decode(&data)
 	return data, err
 }
-

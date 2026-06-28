@@ -46,4 +46,3 @@ func RegisterRoutes(rg *gin.RouterGroup) {
 
 	publicRg.GET("/config", panelConfig) // Public — no auth needed for config
 }
-

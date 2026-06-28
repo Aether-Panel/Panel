@@ -2,8 +2,8 @@ package writefile
 
 import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"os"
 )
 
@@ -28,4 +28,3 @@ func (c WriteFile) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
 	_, err = file.Write([]byte(c.Text))
 	return SkyPanel.OperationResult{Error: err}
 }
-

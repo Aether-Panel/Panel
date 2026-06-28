@@ -92,4 +92,3 @@ func (tc *TelnetConnection) reconnector() {
 		}
 	}
 }
-

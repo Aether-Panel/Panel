@@ -3,8 +3,8 @@ package servers
 import (
 	"encoding/json"
 	"errors"
-	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/files"
+	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"os"
@@ -259,4 +259,3 @@ func Reload(id string) (err error) {
 
 	return
 }
-

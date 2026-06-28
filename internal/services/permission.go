@@ -134,4 +134,3 @@ func (ps *Permission) Remove(perms *models.Permissions) error {
 
 	return ps.DB.Omit(clause.Associations).Delete(perms).Error
 }
-

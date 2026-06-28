@@ -346,4 +346,3 @@ func (sfp *fileServer) fixErr(err error) error {
 func (sfp *fileServer) resolveRootFd() (*os.File, error) {
 	return os.Open(sfp.dir)
 }
-

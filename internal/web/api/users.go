@@ -5,11 +5,11 @@ import (
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
 	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cast"
 )
@@ -331,4 +331,3 @@ func newUserSearch() *models.UserSearch {
 		Page:      1,
 	}
 }
-

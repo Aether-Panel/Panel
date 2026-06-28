@@ -36,4 +36,3 @@ func TestAIAPI(t *testing.T) {
 		assert.Contains(t, response.Body.String(), "No logs provided for analysis")
 	})
 }
-

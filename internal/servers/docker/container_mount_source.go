@@ -116,4 +116,3 @@ func InitContainerMountSource() (err error) {
 	logging.Debug.Printf("Found own container id %s and host path %s\n", self.ID, dataMount.Source)
 	return
 }
-

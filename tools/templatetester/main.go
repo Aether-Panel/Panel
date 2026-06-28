@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"io"
@@ -400,4 +400,3 @@ func createHeaders(session string) http.Header {
 	headers.Add("Authorization", "Bearer "+session)
 	return headers
 }
-

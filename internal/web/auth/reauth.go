@@ -18,4 +18,3 @@ func Reauth(c *gin.Context) {
 	createSession(c, user)
 
 }
-

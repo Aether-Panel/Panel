@@ -215,4 +215,3 @@ func ResolveServerNode(c *gin.Context) {
 	}
 	c.Set("program", server)
 }
-

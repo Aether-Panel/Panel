@@ -46,4 +46,3 @@ func (dhs *DatabaseHost) Create(host *models.DatabaseHost) error {
 	res := dhs.DB.Create(host)
 	return res.Error
 }
-

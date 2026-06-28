@@ -37,4 +37,3 @@ func (mailgunProvider) Send(to, subject, body string) error {
 	_, _, err := mailgun.NewMailgun(domain, key).Send(context.Background(), message)
 	return err
 }
-

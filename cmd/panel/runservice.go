@@ -56,4 +56,3 @@ func notifySystemd(msg string) {
 		return
 	}
 }
-

@@ -3,8 +3,8 @@ package services
 import (
 	"errors"
 	"github.com/SkyPanel/SkyPanel/v3/internal/database"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"golang.org/x/crypto/ssh"
 	"strings"
 )
@@ -43,4 +43,3 @@ func (s *DatabaseSFTPAuthorization) Validate(username, password string) (perms *
 	perms.Extensions["server_id"] = serverId
 	return perms, nil
 }
-

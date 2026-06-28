@@ -9,9 +9,9 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/go-gormigrate/gormigrate/v2"
 	"github.com/pterm/pterm"
 	"gorm.io/gorm"
@@ -614,4 +614,3 @@ var migrations = [][]*gormigrate.Migration{
 		},
 	},
 }
-

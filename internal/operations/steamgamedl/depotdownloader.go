@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/mholt/archiver/v3"
 	"net/http"
 	"net/url"
@@ -106,4 +106,3 @@ type GithubAsset struct {
 	Name        string `json:"name"`
 	DownloadUrl string `json:"browser_download_url"`
 }
-

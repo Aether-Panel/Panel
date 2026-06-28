@@ -40,4 +40,3 @@ func LogoutPost(c *gin.Context) {
 	c.SetCookie("puffer_auth_expires", "", 0, "/", "", secure, false)
 	c.Status(http.StatusNoContent)
 }
-

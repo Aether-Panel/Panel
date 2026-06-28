@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"github.com/SkyPanel/SkyPanel/v3/internal/database"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	"github.com/SkyPanel/SkyPanel/v3/internal/web/auth"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
@@ -369,4 +369,3 @@ func TestMisc(t *testing.T) {
 		}
 	})
 }
-

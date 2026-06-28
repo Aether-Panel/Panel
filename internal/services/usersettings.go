@@ -50,4 +50,3 @@ func (uss *UserSettings) Update(model *models.UserSetting) error {
 
 	return err
 }
-

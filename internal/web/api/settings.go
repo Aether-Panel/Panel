@@ -513,4 +513,3 @@ var editableBoolEntries = []config.BoolEntry{
 	config.HideAIAnalysis,
 }
 var editableIntEntries = []config.IntEntry{}
-

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"github.com/SkyPanel/SkyPanel/v3/files"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/hashicorp/go-version"
 	"path"
 	"strings"
@@ -94,4 +94,3 @@ type Metadata struct {
 	Latest   string   `xml:"latest"`
 	Release  string   `xml:"release"`
 }
-

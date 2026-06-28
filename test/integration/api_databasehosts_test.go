@@ -47,4 +47,3 @@ func TestDatabaseHostsAPI(t *testing.T) {
 		assert.Equal(t, http.StatusNoContent, response.Code)
 	})
 }
-

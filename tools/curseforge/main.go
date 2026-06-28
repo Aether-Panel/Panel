@@ -4,13 +4,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/files"
+	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/operations/curseforge"
 	"github.com/SkyPanel/SkyPanel/v3/internal/operations/resolveforgeversion"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"os"
 	"path/filepath"
 )
@@ -178,4 +178,3 @@ type UnitTest struct {
 	Data    curseforge.CurseForge
 	CanFail bool
 }
-

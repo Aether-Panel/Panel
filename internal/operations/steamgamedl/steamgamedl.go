@@ -4,8 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/mholt/archiver/v3"
 	"github.com/spf13/cast"
 	"math/rand"
@@ -199,4 +199,3 @@ func walkManifest(folder, filename string) error {
 
 	return nil
 }
-

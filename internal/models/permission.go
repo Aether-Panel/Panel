@@ -61,4 +61,3 @@ func (p *Permissions) ShouldDelete() bool {
 	}
 	return len(p.Scopes) == 0
 }
-

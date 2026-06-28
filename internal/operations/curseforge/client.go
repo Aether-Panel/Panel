@@ -9,8 +9,8 @@ import (
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 )
 
 func getAddonData(projectId uint) (AddonResponse, error) {
@@ -118,4 +118,3 @@ func callCurseForge(u string) (*http.Response, error) {
 	response, err := SkyPanel.Http().Do(request)
 	return response, err
 }
-

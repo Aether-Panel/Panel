@@ -2,8 +2,8 @@ package email
 
 import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gofrs/uuid/v5"
 	"github.com/wneessen/go-mail"
 	"strings"
@@ -55,4 +55,3 @@ func (smtpProvider) Send(to, subject, body string) error {
 
 	return client.DialAndSend(msg)
 }
-

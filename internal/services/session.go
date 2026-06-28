@@ -116,4 +116,3 @@ func HashToken(source string) (result string, err error) {
 	result = builder.String()
 	return
 }
-

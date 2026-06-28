@@ -48,4 +48,3 @@ func HandleError(c *gin.Context, err error, statusCode int) bool {
 
 	return false
 }
-

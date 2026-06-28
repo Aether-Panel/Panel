@@ -9,9 +9,9 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-gonic/gin"
 	uuid "github.com/gofrs/uuid/v5"
 )
@@ -389,4 +389,3 @@ func deletePersonalOAuth2Client(c *gin.Context) {
 type ValidateOtpRequest struct {
 	Token string `json:"token"`
 }
-

@@ -6,9 +6,9 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/oauth2"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ed25519"
 	"golang.org/x/crypto/ssh"
@@ -190,4 +190,3 @@ func PrintDiscardRequests(in <-chan *ssh.Request) {
 		}
 	}
 }
-

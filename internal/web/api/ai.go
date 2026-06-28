@@ -126,4 +126,3 @@ func analyzeServerLogs(c *gin.Context) {
 
 	c.JSON(500, gin.H{"error": "Empty response from AI"})
 }
-

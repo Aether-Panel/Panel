@@ -231,4 +231,3 @@ func deleteDatabaseHost(c *gin.Context) {
 
 	c.Status(http.StatusNoContent)
 }
-

@@ -35,4 +35,3 @@ func (bs *Backup) Delete(id uint) error {
 		ID: id,
 	}).Error
 }
-

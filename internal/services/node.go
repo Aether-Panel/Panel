@@ -314,4 +314,3 @@ func proxyRead(source, dest *websocket.Conn, ch chan error) {
 		}
 	}
 }
-

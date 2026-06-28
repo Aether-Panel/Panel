@@ -16,8 +16,8 @@ import (
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/creack/pty"
 	"github.com/shirou/gopsutil/mem"
 	psnet "github.com/shirou/gopsutil/net"
@@ -547,4 +547,3 @@ func getDirSize(path string) int64 {
 	})
 	return size
 }
-

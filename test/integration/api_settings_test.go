@@ -56,4 +56,3 @@ func TestSettingsAPI(t *testing.T) {
 		}
 	})
 }
-

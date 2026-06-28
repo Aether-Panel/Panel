@@ -4,10 +4,10 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/files"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
+	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"io"
 	"net/http"
 	"os"
@@ -121,4 +121,3 @@ func readVariableFile(serverFile File) (map[string]string, error) {
 	}
 	return data, scanner.Err()
 }
-

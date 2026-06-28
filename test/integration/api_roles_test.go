@@ -112,4 +112,3 @@ func TestRolesAPI(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, response2.Code)
 	})
 }
-

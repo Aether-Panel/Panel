@@ -199,4 +199,3 @@ type OAuth2TokenRequest struct {
 	Username     string `form:"username"`
 	Password     string `form:"password"`
 } //@name OAuth2TokenRequest
-

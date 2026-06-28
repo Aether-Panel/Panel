@@ -357,4 +357,3 @@ func editUser(cmd *cobra.Command, args []string) {
 		}
 	}
 }
-

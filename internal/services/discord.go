@@ -419,4 +419,3 @@ func (ds *DiscordService) SendNodeStatus(totalServers, onlineServers, offlineSer
 
 	return ds.SendWebhookToURL(webhookURL, "🖥️ Estado del Nodo", description, color, fields)
 }
-

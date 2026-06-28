@@ -101,4 +101,3 @@ func read(fss fs.FS, name string) ([]byte, error) {
 	_, err = f.Read(data)
 	return data, err
 }
-

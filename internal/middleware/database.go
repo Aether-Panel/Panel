@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/SkyPanel/SkyPanel/v3/internal/database"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"net/http"
@@ -67,4 +67,3 @@ func HasTransaction(c *gin.Context) {
 		return nil
 	})
 }
-

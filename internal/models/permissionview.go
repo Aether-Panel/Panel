@@ -27,4 +27,3 @@ type UserPermissionsView struct {
 	Email    string          `json:"email"`
 	Scopes   []*scopes.Scope `json:"scopes"`
 }
-

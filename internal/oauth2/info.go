@@ -2,8 +2,8 @@ package oauth2
 
 import (
 	"encoding/json"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"net/url"
 )
 
@@ -27,4 +27,3 @@ func GetInfo(token string, hint string) (TokenInfoResponse, error) {
 	err = json.NewDecoder(response.Body).Decode(&info)
 	return info, err
 }
-

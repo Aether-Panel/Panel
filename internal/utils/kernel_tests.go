@@ -62,4 +62,3 @@ func testOpenat2() bool {
 	}
 	return useOpenat2
 }
-

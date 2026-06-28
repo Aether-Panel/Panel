@@ -41,4 +41,3 @@ func Test_DBConnection(t *testing.T) {
 		fmt.Printf("- ID: %s | Nombre: %s\n", s.Identifier, s.Name)
 	}
 }
-

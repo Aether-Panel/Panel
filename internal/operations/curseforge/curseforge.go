@@ -3,13 +3,13 @@ package curseforge
 import (
 	"errors"
 	"fmt"
-	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/files"
+	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/operations/forgedl"
 	"github.com/SkyPanel/SkyPanel/v3/internal/operations/neoforgedl"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"io"
 	"net/http"
 	"os"
@@ -410,4 +410,3 @@ func replaceTokens(msg string, data map[string]string) string {
 	}
 	return result
 }
-

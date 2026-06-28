@@ -31,4 +31,3 @@ func ValidateJWT(c *gin.Context) {
 		return
 	}
 }
-

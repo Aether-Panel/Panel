@@ -415,4 +415,3 @@ func TestLoadFromFolder(t *testing.T) {
 		return
 	}
 }
-

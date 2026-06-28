@@ -67,4 +67,3 @@ func resolve(fs files.FileServer, source string, target string) (result map[stri
 	valid = true
 	return
 }
-

@@ -81,4 +81,3 @@ func (s *APIKeyService) GetAll() ([]*models.APIKey, error) {
 func (s *APIKeyService) Delete(id uint) error {
 	return s.DB.Delete(&models.APIKey{}, id).Error
 }
-

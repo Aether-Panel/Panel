@@ -76,4 +76,3 @@ func Close() {
 		_ = rotation.Close()
 	}
 }
-

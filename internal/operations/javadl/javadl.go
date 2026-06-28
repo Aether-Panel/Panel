@@ -12,8 +12,8 @@ import (
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 )
 
 var downloader sync.Mutex
@@ -127,4 +127,3 @@ func (op JavaDl) callAdoptiumApi() (File, error) {
 	}
 	return data[0], nil
 }
-

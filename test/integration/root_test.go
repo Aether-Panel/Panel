@@ -3,8 +3,8 @@ package tests
 import (
 	"encoding/json"
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/web/daemon"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"runtime"
@@ -59,4 +59,3 @@ func Test_getFeatures(t *testing.T) {
 		})
 	}
 }
-

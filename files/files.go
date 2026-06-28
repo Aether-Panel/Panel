@@ -36,4 +36,3 @@ func WriteFile(src io.Reader, dest string) error {
 	_, err = io.Copy(destination, src)
 	return err
 }
-

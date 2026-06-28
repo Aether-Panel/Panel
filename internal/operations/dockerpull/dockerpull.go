@@ -2,8 +2,8 @@ package dockerpull
 
 import (
 	"context"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers/docker"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 )
 
 type DockerPull struct {
@@ -21,4 +21,3 @@ func (d DockerPull) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult 
 	err := dockerEnv.PullImage(env, context.Background(), d.ImageName, true)
 	return SkyPanel.OperationResult{Error: err}
 }
-

@@ -1,8 +1,8 @@
 package models
 
 import (
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"gopkg.in/go-playground/validator.v9"
 )
 
@@ -119,4 +119,3 @@ func (model *UserView) EmailValid(allowEmpty bool) error {
 
 	return nil
 }
-

@@ -16,13 +16,13 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/database"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers"
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers/docker"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	"github.com/SkyPanel/SkyPanel/v3/internal/sftp"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/internal/web"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/braintree/manners"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
@@ -286,4 +286,3 @@ func daemon() error {
 	}
 	return nil
 }
-

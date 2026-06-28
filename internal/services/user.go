@@ -347,4 +347,3 @@ func (us *User) IsSecurePassword(password string) error {
 	}
 	return nil
 }
-

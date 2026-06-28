@@ -208,4 +208,3 @@ func (us *Uptime) GetAllServerUptime(since time.Time) (map[string]map[string]int
 
 	return serverStats, nil
 }
-

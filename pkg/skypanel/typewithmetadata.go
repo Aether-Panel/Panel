@@ -134,4 +134,3 @@ func encode(buf *bytes.Buffer, k string, v any) error {
 	buf.WriteString(fmt.Sprintf("\"%s\": %s", k, d))
 	return nil
 }
-

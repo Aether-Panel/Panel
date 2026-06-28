@@ -22,4 +22,3 @@ func DetermineKernelSupport() {
 func UseOpenat2() bool {
 	return useOpenat2
 }
-

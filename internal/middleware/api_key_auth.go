@@ -40,4 +40,3 @@ func APIKeyAuthMiddleware(c *gin.Context) {
 	c.Set("api_key", apiKey)
 	c.Next()
 }
-

@@ -17,4 +17,3 @@ func RegisterRoutes(rg *gin.RouterGroup) {
 
 	rg.GET("publickey", TokenServiceGetPublicKey)
 }
-

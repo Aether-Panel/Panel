@@ -27,8 +27,8 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/operations/stdin"
 	"github.com/SkyPanel/SkyPanel/v3/internal/operations/steamgamedl"
 	"github.com/SkyPanel/SkyPanel/v3/internal/operations/writefile"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/spf13/cast"
 )
 
@@ -185,4 +185,3 @@ func (p *OperationProcess) Run(server *Server) error {
 	}
 	return firstError
 }
-

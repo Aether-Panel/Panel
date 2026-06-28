@@ -17,13 +17,13 @@ import (
 	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3/conditions"
+	"github.com/SkyPanel/SkyPanel/v3/files"
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/database"
-	"github.com/SkyPanel/SkyPanel/v3/files"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gofrs/uuid/v5"
 	"github.com/mholt/archiver/v3"
 	"github.com/shirou/gopsutil/cpu"
@@ -1434,4 +1434,3 @@ func (p *Server) IsIdle() error {
 func (p *Server) GetBackupDirectory() string {
 	return filepath.Join(config.BackupsFolder.Value(), p.Id())
 }
-

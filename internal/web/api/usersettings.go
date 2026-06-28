@@ -71,4 +71,3 @@ func setUserSetting(c *gin.Context) {
 
 	c.Status(http.StatusNoContent)
 }
-

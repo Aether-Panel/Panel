@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 )
 
 const VersionJsonUrl = "https://launchermeta.mojang.com/mc/game/version_manifest.json"
@@ -111,4 +111,3 @@ type DownloadType struct {
 	Size uint64 `json:"size"`
 	Url  string `json:"url"`
 }
-

@@ -99,4 +99,3 @@ func (tc *RCONWSConnection) reconnector() {
 		}
 	}
 }
-

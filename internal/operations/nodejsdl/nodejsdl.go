@@ -5,8 +5,8 @@ import (
 	"errors"
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/hashicorp/go-version"
 	"os"
 	"os/exec"
@@ -145,4 +145,3 @@ type ReleaseInfo struct {
 	Url  string
 	Slug string
 }
-

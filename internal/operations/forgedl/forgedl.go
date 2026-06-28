@@ -20,8 +20,8 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/SkyPanel/SkyPanel/v3/files"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"path"
 	"strings"
 )
@@ -89,4 +89,3 @@ type ForgePromos struct {
 	Homepage   string            `json:"homepage"`
 	VersionMap map[string]string `json:"promos"`
 }
-

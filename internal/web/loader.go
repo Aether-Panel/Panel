@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"github.com/SkyPanel/SkyPanel/v3/client/frontend"
-	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/files"
+	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/internal/web/api"
 	"github.com/SkyPanel/SkyPanel/v3/internal/web/auth"
@@ -324,4 +324,3 @@ func gatusProxy(c *gin.Context) {
 
 	proxy.ServeHTTP(c.Writer, c.Request)
 }
-

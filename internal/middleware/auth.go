@@ -95,4 +95,3 @@ func AuthMiddleware(c *gin.Context) {
 		c.Set("client", &sess.Client)
 	}
 }
-

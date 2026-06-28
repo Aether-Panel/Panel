@@ -92,4 +92,3 @@ func init() {
 	}
 	LocalNode.Secret = strings.Replace(u.String(), "-", "", -1)
 }
-

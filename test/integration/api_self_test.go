@@ -38,4 +38,3 @@ func TestSelfAPI(t *testing.T) {
 		}
 	})
 }
-

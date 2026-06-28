@@ -41,4 +41,3 @@ func (c AlterFile) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
 	err = os.WriteFile(target, out, 0644)
 	return SkyPanel.OperationResult{Error: err}
 }
-

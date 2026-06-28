@@ -40,4 +40,3 @@ func (of OperationFactory) Key() string {
 }
 
 var Factory OperationFactory
-
