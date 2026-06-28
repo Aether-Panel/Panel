@@ -26,11 +26,11 @@ type Permissions struct {
 }
 
 func (p *Permissions) BeforeSave(*gorm.DB) error {
-	if p.ServerIDentifier != nil && *p.ServerIDentifier == "" {
-		p.ServerIDentifier = nil
+	if p.ServerIdentifier != nil && *p.ServerIdentifier == "" {
+		p.ServerIdentifier = nil
 	}
 
-	if p.ServerIDentifier != nil {
+	if p.ServerIdentifier != nil {
 		//ensure they have the view, because we're saving them back in
 		p.Scopes = scopes.AddScope(p.Scopes, scopes.ScopeServerView)
 	}
@@ -56,7 +56,7 @@ func (p *Permissions) AfterFind(*gorm.DB) error {
 }
 
 func (p *Permissions) ShouldDelete() bool {
-	if p.ServerIDentifier == nil {
+	if p.ServerIdentifier == nil {
 		return false
 	}
 	return len(p.Scopes) == 0

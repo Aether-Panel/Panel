@@ -350,7 +350,7 @@ var migrations = [][]*gormigrate.Migration{
 						ID:               v.ID,
 						UserId:           v.UserId,
 						ClientID:         v.ClientID,
-						ServerIdentifier: v.ServerIDentifier,
+						ServerIdentifier: v.ServerIdentifier,
 						Scopes: []*scopes.Scope{
 							scopes.ScopeLogin,
 							scopes.ScopeSelfEdit,
@@ -402,7 +402,7 @@ var migrations = [][]*gormigrate.Migration{
 						newPerms.Scopes = scopes.AddScope(newPerms.Scopes, scopes.ScopeSettingsEdit)
 					}
 
-					if v.ServerIDentifier != nil && *v.ServerIDentifier != "" {
+					if v.ServerIdentifier != nil && *v.ServerIdentifier != "" {
 						newPerms.Scopes = scopes.AddScope(newPerms.Scopes, scopes.ScopeServerClientView)
 						newPerms.Scopes = scopes.AddScope(newPerms.Scopes, scopes.ScopeServerClientEdit)
 						newPerms.Scopes = scopes.AddScope(newPerms.Scopes, scopes.ScopeServerClientCreate)

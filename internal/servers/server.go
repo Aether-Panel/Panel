@@ -227,7 +227,7 @@ func sendSystemStatusToDiscord() {
 		if isRunning {
 			stats, err := server.GetEnvironment().GetStats()
 			if err == nil && stats != nil {
-				serverInfo.CPU = stats.Cpu
+				serverInfo.CPU = stats.CPU
 				serverInfo.Memory = stats.Memory
 			}
 		}

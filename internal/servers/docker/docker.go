@@ -182,7 +182,7 @@ func (d *Docker) GetStatsImpl(environment *skypanel.Environment) (*skypanel.Serv
 
 	if !running {
 		stats := &skypanel.ServerStats{
-			Cpu:    0,
+			CPU:    0,
 			Memory: 0,
 		}
 
@@ -261,7 +261,7 @@ func (d *Docker) GetStatsImpl(environment *skypanel.Environment) (*skypanel.Serv
 	stats := &skypanel.ServerStats{
 		Memory:     float64(data.MemoryStats.Usage),
 		MaxMemory:  float64(data.MemoryStats.Limit),
-		Cpu:        calculateCPUPercent(data),
+		CPU:        calculateCPUPercent(data),
 		Disk:       float64(d.dirSize),
 		MaxStorage: maxStorage,
 		NetworkRx:  rxRate,
@@ -621,7 +621,7 @@ func (d *Docker) SendCodeImpl(environment *skypanel.Environment, code int) error
 	return dockerClient.ContainerKill(ctx, environment.ServerID, cast.ToString(code))
 }
 
-func (d *Docker) GetUidImpl(environment *skypanel.Environment) int {
+func (d *Docker) GetUIDImpl(environment *skypanel.Environment) int {
 	user := d.Config.User
 	if user == "" {
 		return -1

@@ -152,7 +152,7 @@ func (t *tty) GetStatsImpl(environment *skypanel.Environment) (*skypanel.ServerS
 	}
 	if !running {
 		stats := &skypanel.ServerStats{
-			Cpu:     0,
+			CPU:     0,
 			Memory:  0,
 			Running: false,
 		}
@@ -212,7 +212,7 @@ func (t *tty) GetStatsImpl(environment *skypanel.Environment) (*skypanel.ServerS
 	}
 
 	stats := &skypanel.ServerStats{
-		Cpu:        cpu,
+		CPU:        cpu,
 		Memory:     cast.ToFloat64(memMap.RSS),
 		MaxMemory:  cast.ToFloat64(memInfo.Total),
 		Disk:       float64(t.dirSize),
@@ -263,7 +263,7 @@ func (t *tty) SendCodeImpl(environment *skypanel.Environment, code int) error {
 	return t.mainProcess.Process.Signal(syscall.Signal(code))
 }
 
-func (t *tty) GetUidImpl(*skypanel.Environment) int {
+func (t *tty) GetUIDImpl(*skypanel.Environment) int {
 	return -1
 }
 

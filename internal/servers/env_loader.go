@@ -28,7 +28,7 @@ func CreateEnvironment(environmentType, folder string, backupFolder string, serv
 
 	item := &skypanel.Environment{
 		Type:            factory.Key(),
-		ServerId:        server.Identifier,
+		ServerID:        server.Identifier,
 		ConsoleTracker:  skypanel.CreateTracker(),
 		StatusTracker:   skypanel.CreateTracker(),
 		StatsTracker:    skypanel.CreateTracker(),
