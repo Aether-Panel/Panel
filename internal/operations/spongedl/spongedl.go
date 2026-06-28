@@ -151,7 +151,7 @@ func (op SpongeDl) getLatestVersion(env *skypanel.Environment) (SpongeApiV2Versi
 
 	var url = SpongeApiBaseUrl + op.SpongeType + "/versions" + params
 
-	response, err := skypanel.HttpGet(url)
+	response, err := skypanel.HTTPGet(url)
 	if err != nil {
 		return data, err
 	}
@@ -170,7 +170,7 @@ func (op SpongeDl) getSpecificVersion(env *skypanel.Environment, version string)
 
 	var url = SpongeApiBaseUrl + op.SpongeType + "/versions/" + version
 
-	response, err := skypanel.HttpGet(url)
+	response, err := skypanel.HTTPGet(url)
 	if err != nil {
 		return data, err
 	}

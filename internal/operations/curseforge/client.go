@@ -115,6 +115,6 @@ func callCurseForge(u string) (*http.Response, error) {
 	request.Header.Add("x-api-key", config.CurseForgeKey.Value())
 
 	logging.Debug.Printf("Calling %s\n", request.URL.String())
-	response, err := skypanel.Http().Do(request)
+	response, err := skypanel.HTTP().Do(request)
 	return response, err
 }

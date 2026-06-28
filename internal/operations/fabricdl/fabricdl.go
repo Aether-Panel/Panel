@@ -22,7 +22,7 @@ func (f *Fabricdl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	env := args.Environment
 
 	env.DisplayToConsole(true, "Downloading metadata from %s\n", FabricMetadataURL)
-	response, err := skypanel.HttpGet(FabricMetadataURL)
+	response, err := skypanel.HTTPGet(FabricMetadataURL)
 	if err != nil {
 		return skypanel.OperationResult{Error: err}
 	}

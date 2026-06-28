@@ -393,7 +393,7 @@ func downloadFile(url, target string) error {
 		return err
 	}
 	defer utils.Close(file)
-	response, err := skypanel.Http().Get(url)
+	response, err := skypanel.HTTP().Get(url)
 	defer utils.CloseResponse(response)
 	if err != nil {
 		return err

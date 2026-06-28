@@ -53,7 +53,7 @@ func (op NodejsDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 		}
 
 		logging.Debug.Println("Calling " + release.Url)
-		err = skypanel.HttpExtract(release.Url, rootBinaryFolder, nil)
+		err = skypanel.HTTPExtract(release.Url, rootBinaryFolder, nil)
 
 		if err != nil {
 			return skypanel.OperationResult{Error: err}
@@ -80,7 +80,7 @@ func (op NodejsDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 
 func (op NodejsDl) getRelease() (ReleaseInfo, error) {
 	logging.Debug.Println("Calling " + VersionMeta)
-	response, err := skypanel.HttpGet(VersionMeta)
+	response, err := skypanel.HTTPGet(VersionMeta)
 	defer utils.CloseResponse(response)
 	if err != nil {
 		return ReleaseInfo{}, err

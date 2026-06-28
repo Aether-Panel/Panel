@@ -70,7 +70,7 @@ func getLatestMCVersion() (string, error) {
 	}
 	request.Header.Add("user-agent", UserAgent)
 
-	response, err := skypanel.Http().Do(request)
+	response, err := skypanel.HTTP().Do(request)
 	defer utils.CloseResponse(response)
 	if err != nil {
 		return "", err
@@ -108,7 +108,7 @@ func (op PaperDl) getDownloadUrlAndHash(env *skypanel.Environment) (string, stri
 	}
 	request.Header.Add("User-Agent", UserAgent)
 
-	response, err := skypanel.Http().Do(request)
+	response, err := skypanel.HTTP().Do(request)
 	defer utils.CloseResponse(response)
 	if err != nil {
 		return "", "", err

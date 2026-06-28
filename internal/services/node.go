@@ -190,7 +190,7 @@ func (ns *Node) CallNode(node *models.Node, method string, path string, body io.
 		return w.Result(), err
 	}
 
-	response, err := skypanel.Http().Do(request)
+	response, err := skypanel.HTTP().Do(request)
 	return response, err
 }
 
@@ -266,7 +266,7 @@ func doesDaemonUseSSL(node *models.Node) (bool, error) {
 	}
 
 	request := &http.Request{Method: http.MethodOptions, URL: u}
-	_, err = skypanel.Http().Do(request)
+	_, err = skypanel.HTTP().Do(request)
 
 	if err != nil {
 		u, err = url.Parse("http" + path)
@@ -275,7 +275,7 @@ func doesDaemonUseSSL(node *models.Node) (bool, error) {
 		}
 
 		request = &http.Request{Method: http.MethodOptions, URL: u}
-		_, err = skypanel.Http().Do(request)
+		_, err = skypanel.HTTP().Do(request)
 		return false, err
 	}
 

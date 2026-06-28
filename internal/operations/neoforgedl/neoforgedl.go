@@ -52,7 +52,7 @@ func (op NeoforgeDL) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult
 }
 
 func getLatestForMCVersion(minecraftVersion string) (string, error) {
-	response, err := skypanel.HttpGet(MetadataUrl)
+	response, err := skypanel.HTTPGet(MetadataUrl)
 	defer utils.CloseResponse(response)
 	if err != nil {
 		return "", err

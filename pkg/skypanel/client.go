@@ -11,15 +11,15 @@ import (
 
 var httpClient = &http.Client{}
 
-func Http() *http.Client {
+func HTTP() *http.Client {
 	return httpClient
 }
 
-func HttpGet(requestUrl string) (*http.Response, error) {
+func HTTPGet(requestUrl string) (*http.Response, error) {
 	return httpClient.Get(requestUrl)
 }
 
-func HttpExtract(requestUrl, directory string, archiveType archiver.Walker) error {
+func HTTPExtract(requestUrl, directory string, archiveType archiver.Walker) error {
 	//we will write this to temp so we can not keep so much in memory
 	response, err := grab.Get(os.TempDir(), requestUrl)
 	if err != nil {

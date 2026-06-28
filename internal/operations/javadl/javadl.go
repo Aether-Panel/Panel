@@ -53,7 +53,7 @@ func (op JavaDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 		url := file.Binaries[0].Package.Link
 
 		logging.Debug.Println("Calling " + url)
-		err = skypanel.HttpExtract(url, rootBinaryFolder, nil)
+		err = skypanel.HTTPExtract(url, rootBinaryFolder, nil)
 
 		if err != nil {
 			return skypanel.OperationResult{Error: err}
@@ -106,7 +106,7 @@ func (op JavaDl) callAdoptiumApi() (File, error) {
 	url := utils.ReplaceTokens(DownloadLink, replacements)
 
 	logging.Debug.Println("Calling " + url)
-	response, err := skypanel.HttpGet(url)
+	response, err := skypanel.HTTPGet(url)
 	defer utils.CloseResponse(response)
 	if err != nil {
 		return File{}, err

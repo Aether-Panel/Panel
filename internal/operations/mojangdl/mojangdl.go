@@ -19,7 +19,7 @@ type MojangDl struct {
 func (op MojangDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	env := args.Environment
 
-	response, err := skypanel.HttpGet(VersionJSONURL)
+	response, err := skypanel.HTTPGet(VersionJSONURL)
 	if err != nil {
 		return skypanel.OperationResult{Error: err}
 	}
@@ -62,7 +62,7 @@ func (op MojangDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 }
 
 func downloadServerFromJSON(url, target string, env *skypanel.Environment) error {
-	response, err := skypanel.HttpGet(url)
+	response, err := skypanel.HTTPGet(url)
 	defer utils.CloseResponse(response)
 	if err != nil {
 		return err

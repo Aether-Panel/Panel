@@ -140,7 +140,7 @@ func (c SteamGameDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult
 }
 
 func downloadMetadata(env *skypanel.Environment) error {
-	response, err := skypanel.HttpGet(SteamMetadataLink)
+	response, err := skypanel.HTTPGet(SteamMetadataLink)
 	defer utils.CloseResponse(response)
 	if err != nil {
 		return err
@@ -158,7 +158,7 @@ func downloadMetadata(env *skypanel.Environment) error {
 		return err
 	}
 
-	err = skypanel.HttpExtract(SteamMetadataServerLink+metadataName, filepath.Join(env.GetRootDirectory(), ".steam"), archiver.DefaultZip)
+	err = skypanel.HTTPExtract(SteamMetadataServerLink+metadataName, filepath.Join(env.GetRootDirectory(), ".steam"), archiver.DefaultZip)
 	if err != nil {
 		return err
 	}
