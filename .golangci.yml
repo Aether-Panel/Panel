@@ -1,0 +1,45 @@
+run:
+  timeout: 5m
+  go: "1.24"
+
+linters:
+  enable:
+    - gofmt
+    - govet
+    - errcheck
+    - staticcheck
+    - unused
+    - gosimple
+    - ineffassign
+    - typecheck
+  disable:
+    - exhaustruct
+    - wrapcheck
+    - gomnd
+    - gochecknoglobals
+
+linters-settings:
+  gofmt:
+    simplify: true
+  govet:
+    enable-all: false
+    enable:
+      - shadow
+  errcheck:
+    check-type-assertions: false
+    check-blank: false
+
+issues:
+  # Max number of issues shown
+  max-issues-per-linter: 50
+  max-same-issues: 5
+
+  # Exclude common false positives
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck
+        - unused
+    - path: tools/
+      linters:
+        - errcheck
