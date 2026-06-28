@@ -103,8 +103,8 @@ var ErrFieldTooSmall = func(fieldName string, value int64) *Error {
 	return CreateError("${field} cannot be smaller than ${min}", "ErrFieldTooSmall").Metadata(map[string]interface{}{"field": fieldName, "min": value})
 }
 
-var ErrFieldNotBetween = func(fieldName string, min, max int64) *Error {
-	return CreateError("${field} must be between ${min} and ${max}", "ErrFieldNotBetween").Metadata(map[string]interface{}{"field": fieldName, "min": min, "max": max})
+var ErrFieldNotBetween = func(fieldName string, minVal, maxVal int64) *Error {
+	return CreateError("${field} must be between ${min} and ${max}", "ErrFieldNotBetween").Metadata(map[string]interface{}{"field": fieldName, "min": minVal, "max": maxVal})
 }
 
 var ErrFieldEqual = func(fieldName1, fieldName2 string) *Error {
@@ -119,8 +119,8 @@ var ErrFieldNotEmail = func(fieldName string) *Error {
 	return CreateError("${field} is not a valid email", "ErrFieldNotEmail").Metadata(map[string]interface{}{"field": fieldName})
 }
 
-var ErrFieldLength = func(fieldName string, min int, max int) *Error {
-	return CreateError("${field} must be between ${min} and ${max} characters", "ErrFieldLength").Metadata(map[string]interface{}{"field": fieldName, "min": min, "max": max})
+var ErrFieldLength = func(fieldName string, minVal int, maxVal int) *Error {
+	return CreateError("${field} must be between ${min} and ${max} characters", "ErrFieldLength").Metadata(map[string]interface{}{"field": fieldName, "min": minVal, "max": maxVal})
 }
 
 var ErrFactoryError = func(operatorName string, err error) *Error {

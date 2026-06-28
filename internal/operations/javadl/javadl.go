@@ -39,7 +39,7 @@ func (op JavaDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 
 	if errors.Is(err, exec.ErrNotFound) {
 		var file File
-		file, err = op.callAdoptiumApi()
+		file, err = op.callAdoptiumAPI()
 		if err != nil {
 			return skypanel.OperationResult{Error: err}
 		}
@@ -78,7 +78,7 @@ func (op JavaDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	return skypanel.OperationResult{Error: err}
 }
 
-func (op JavaDl) callAdoptiumApi() (File, error) {
+func (op JavaDl) callAdoptiumAPI() (File, error) {
 	replacements := map[string]interface{}{
 		"version": op.Version,
 	}

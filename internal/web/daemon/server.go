@@ -296,7 +296,7 @@ func createServer(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, &skypanel.ServerIdResponse{Id: serverId})
+	c.JSON(http.StatusOK, &skypanel.ServerIDResponse{Id: serverId})
 }
 
 // Already declared in panel routing

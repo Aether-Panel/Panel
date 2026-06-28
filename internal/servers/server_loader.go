@@ -106,7 +106,7 @@ func LoadFromData(id string, source []byte) (*Server, error) {
 		}
 	}
 
-	fs, err := files.NewFileServer(data.RunningEnvironment.GetRootDirectory(), data.RunningEnvironment.GetUid(), data.RunningEnvironment.GetGid())
+	fs, err := files.NewFileServer(data.RunningEnvironment.GetRootDirectory(), data.RunningEnvironment.GetUID(), data.RunningEnvironment.GetGid())
 	if err != nil {
 		return nil, err
 	}

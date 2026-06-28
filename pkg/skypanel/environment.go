@@ -23,7 +23,7 @@ type EnvironmentImpl interface {
 
 	SendCodeImpl(environment *Environment, code int) error
 
-	GetUidImpl(environment *Environment) int
+	GetUIDImpl(environment *Environment) int
 
 	GetGidImpl(environment *Environment) int
 
@@ -36,7 +36,7 @@ type Environment struct {
 	BackupDirectory string          `json:"-"`
 	ConsoleBuffer   *MemoryCache    `json:"-"`
 	Wait            *sync.WaitGroup `json:"-"`
-	ServerId        string          `json:"-"`
+	ServerID        string          `json:"-"`
 	LastExitCode    int             `json:"-"`
 	Wrapper         io.Writer       `json:"-"` //our proxy back to the main
 	ConsoleTracker  *Tracker        `json:"-"`
@@ -201,7 +201,7 @@ func (e *Environment) WaitForMainProcessFor(timeout time.Duration) (err error) {
 
 func (e *Environment) CreateWrapper() {
 	if config.ConsoleForward.Value() {
-		//return io.MultiWriter(newLogger(e.ServerId).Writer(), e.ConsoleBuffer, e.ConsoleTracker)
+		//return io.MultiWriter(newLogger(e.ServerID).Writer(), e.ConsoleBuffer, e.ConsoleTracker)
 		e.Wrapper = io.MultiWriter(logging.OriginalStdOut, e.ConsoleBuffer, e.ConsoleTracker)
 	} else {
 		e.Wrapper = io.MultiWriter(e.ConsoleBuffer, e.ConsoleTracker)
@@ -217,7 +217,7 @@ func (e *Environment) GetWrapper() io.Writer {
 }
 
 func (e *Environment) Log(l *log.Logger, format string, obj ...interface{}) {
-	msg := fmt.Sprintf("[%s] ", e.ServerId) + format
+	msg := fmt.Sprintf("[%s] ", e.ServerID) + format
 	l.Printf(msg, obj...)
 }
 
@@ -264,8 +264,8 @@ func (e *Environment) SendCode(code int) error {
 	return e.Implementation.SendCodeImpl(e, code)
 }
 
-func (e *Environment) GetUid() int {
-	return e.Implementation.GetUidImpl(e)
+func (e *Environment) GetUID() int {
+	return e.Implementation.GetUIDImpl(e)
 }
 
 func (e *Environment) GetGid() int {

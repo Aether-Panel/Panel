@@ -30,7 +30,7 @@ func FromUser(model *User) *UserView {
 
 	// Add individual permissions
 	for _, p := range model.Permissions {
-		if p.ServerIdentifier == nil || *p.ServerIdentifier == "" {
+		if p.ServerIDentifier == nil || *p.ServerIDentifier == "" {
 			for _, s := range p.Scopes {
 				view.Scopes = scopes.AddScope(view.Scopes, s)
 			}

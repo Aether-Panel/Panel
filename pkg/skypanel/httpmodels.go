@@ -2,12 +2,12 @@ package skypanel
 
 import "github.com/SkyPanel/SkyPanel/v3/internal/utils"
 
-type ServerIdResponse struct {
-	Id string `json:"id"`
+type ServerIDResponse struct {
+	ID string `json:"id"`
 } //@name ServerId
 
 type ServerStats struct {
-	Cpu        float64         `json:"cpu"`
+	CPU        float64         `json:"cpu"`
 	Memory     float64         `json:"memory"`
 	MaxMemory  float64         `json:"maxMemory"`
 	Disk       float64         `json:"storage"`

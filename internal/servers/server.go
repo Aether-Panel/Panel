@@ -619,12 +619,12 @@ func checkServerAlerts(server *Server, stats *skypanel.ServerStats) {
 		now := time.Now()
 
 		// CPU > 80%
-		if stats.Cpu > 80.0 {
+		if stats.CPU > 80.0 {
 			alertKey := "cpu_high"
 			lastAlert, hasAlerted := state.lastAlert[alertKey]
 			if !hasAlerted || now.Sub(lastAlert) > 5*time.Minute {
 				ds := services.GetDiscordService()
-				_ = ds.SendResourceAlert(serverName, serverID, "CPU", stats.Cpu, 80.0)
+				_ = ds.SendResourceAlert(serverName, serverID, "CPU", stats.CPU, 80.0)
 				state.lastAlert[alertKey] = now
 			}
 		}
@@ -646,7 +646,7 @@ func checkServerAlerts(server *Server, stats *skypanel.ServerStats) {
 		}
 
 		// Limpiar alertas antiguas si el recurso ya no está alto
-		if stats.Cpu <= 80.0 {
+		if stats.CPU <= 80.0 {
 			delete(state.lastAlert, "cpu_high")
 		}
 		if stats.Memory <= 90.0 {

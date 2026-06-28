@@ -72,7 +72,7 @@ func (d *Docker) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypa
 
 	ctx := context.Background()
 	//TODO: This logic may not work anymore, it's complicated to use an existing container with install/uninstall
-	exists, err := doesContainerExist(dockerClient, environment.ServerId, ctx)
+	exists, err := doesContainerExist(dockerClient, environment.ServerID, ctx)
 	if err != nil {
 		return err
 	}
@@ -96,7 +96,7 @@ func (d *Docker) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypa
 		Stream: true,
 	}
 
-	d.connection, err = dockerClient.ContainerAttach(ctx, environment.ServerId, cfg)
+	d.connection, err = dockerClient.ContainerAttach(ctx, environment.ServerID, cfg)
 	if err != nil {
 		return err
 	}
@@ -128,7 +128,7 @@ func (d *Docker) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypa
 	})
 
 	environment.DisplayToConsole(true, "Starting container\n")
-	err = dockerClient.ContainerStart(ctx, environment.ServerId, startOpts)
+	err = dockerClient.ContainerStart(ctx, environment.ServerID, startOpts)
 	if err != nil {
 		return err
 	}
@@ -150,7 +150,7 @@ func (d *Docker) KillImpl(environment *skypanel.Environment) error {
 	if err != nil {
 		return err
 	}
-	err = dockerClient.ContainerKill(context.Background(), environment.ServerId, "SIGKILL")
+	err = dockerClient.ContainerKill(context.Background(), environment.ServerID, "SIGKILL")
 	return err
 }
 
@@ -162,12 +162,12 @@ func (d *Docker) IsRunningImpl(environment *skypanel.Environment) (bool, error) 
 
 	ctx := context.Background()
 
-	exists, err := doesContainerExist(dockerClient, environment.ServerId, ctx)
+	exists, err := doesContainerExist(dockerClient, environment.ServerID, ctx)
 	if !exists {
 		return false, err
 	}
 
-	stats, err := dockerClient.ContainerInspect(ctx, environment.ServerId)
+	stats, err := dockerClient.ContainerInspect(ctx, environment.ServerID)
 	if err != nil {
 		return false, err
 	}
@@ -208,7 +208,7 @@ func (d *Docker) GetStatsImpl(environment *skypanel.Environment) (*skypanel.Serv
 	}
 
 	ctx := context.Background()
-	res, err := dockerClient.ContainerStats(ctx, environment.ServerId, false)
+	res, err := dockerClient.ContainerStats(ctx, environment.ServerID, false)
 	defer func() {
 		if res.Body != nil {
 			utils.Close(res.Body)
@@ -275,7 +275,7 @@ func (d *Docker) GetStatsImpl(environment *skypanel.Environment) (*skypanel.Serv
 			cmd = "jcmd"
 		}
 
-		r, e := dockerClient.ContainerExecCreate(context.Background(), environment.ServerId, container.ExecOptions{
+		r, e := dockerClient.ContainerExecCreate(context.Background(), environment.ServerID, container.ExecOptions{
 			AttachStderr: true,
 			AttachStdout: true,
 			Cmd:          []string{cmd, "1", "GC.heap_info"},
@@ -449,7 +449,7 @@ func (d *Docker) createContainer(environment *skypanel.Environment, data skypane
 	environment.Log(logging.Debug, "Container command: %s\n", cmdSlice)
 
 	labels := map[string]string{
-		"skypanel.server": environment.ServerId,
+		"skypanel.server": environment.ServerID,
 	}
 
 	for k, v := range d.Labels {
@@ -512,7 +512,7 @@ func (d *Docker) createContainer(environment *skypanel.Environment, data skypane
 
 	var dir string
 	if containerMountSource != "" {
-		dir = filepath.Join(containerMountSource, "servers", environment.ServerId)
+		dir = filepath.Join(containerMountSource, "servers", environment.ServerID)
 	} else {
 		dir = environment.GetRootDirectory()
 	}
@@ -600,7 +600,7 @@ func (d *Docker) createContainer(environment *skypanel.Environment, data skypane
 	networkConfig := &network.NetworkingConfig{}
 
 	//for now, default to linux across the board. This resolves problems that Windows has when you use it and docker
-	_, err = d.cli.ContainerCreate(ctx, containerConfig, hostConfig, networkConfig, &v1.Platform{OS: "linux"}, environment.ServerId)
+	_, err = d.cli.ContainerCreate(ctx, containerConfig, hostConfig, networkConfig, &v1.Platform{OS: "linux"}, environment.ServerID)
 	return err
 }
 
@@ -618,7 +618,7 @@ func (d *Docker) SendCodeImpl(environment *skypanel.Environment, code int) error
 	}
 
 	ctx := context.Background()
-	return dockerClient.ContainerKill(ctx, environment.ServerId, cast.ToString(code))
+	return dockerClient.ContainerKill(ctx, environment.ServerID, cast.ToString(code))
 }
 
 func (d *Docker) GetUidImpl(environment *skypanel.Environment) int {
@@ -639,7 +639,7 @@ func (d *Docker) GetGidImpl(environment *skypanel.Environment) int {
 
 func (d *Docker) handleClose(environment *skypanel.Environment, client *client.Client, callback func(int)) {
 	exitCode := -1
-	okChan, errChan := client.ContainerWait(context.Background(), environment.ServerId, container.WaitConditionRemoved)
+	okChan, errChan := client.ContainerWait(context.Background(), environment.ServerID, container.WaitConditionRemoved)
 
 	select {
 	case chanErr := <-errChan:

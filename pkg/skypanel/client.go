@@ -15,13 +15,13 @@ func HTTP() *http.Client {
 	return httpClient
 }
 
-func HTTPGet(requestUrl string) (*http.Response, error) {
-	return httpClient.Get(requestUrl)
+func HTTPGet(requestURL string) (*http.Response, error) {
+	return httpClient.Get(requestURL)
 }
 
-func HTTPExtract(requestUrl, directory string, archiveType archiver.Walker) error {
+func HTTPExtract(requestURL, directory string, archiveType archiver.Walker) error {
 	//we will write this to temp so we can not keep so much in memory
-	response, err := grab.Get(os.TempDir(), requestUrl)
+	response, err := grab.Get(os.TempDir(), requestURL)
 	if err != nil {
 		return err
 	}
