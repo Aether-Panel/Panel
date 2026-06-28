@@ -1,27 +1,45 @@
-# Contributing to SkyPanel
+# Contributing to Aether-Panel
 
-First off, thank you for considering contributing to SkyPanel! It's people like you that make SkyPanel such a great tool.
+First off, thank you for considering contributing to Aether-Panel! It's people like you that make Open Source such a great community.
 
-## Where do I go from here?
+## Project Structure (Standard Go Layout)
 
-If you've noticed a bug or have a feature request, make sure to check our [Issues](https://github.com/Aether-Panel/Panel/issues) to see if someone else has already created a ticket. If not, go ahead and make one!
+This project follows the official standard Go project layout:
 
-## Fork & create a branch
+- `cmd/panel/`: Contains the main entry point for the application. When running or building, target `cmd/panel/main.go`.
+- `internal/`: Private application code. This code is specific to this project and cannot be imported by other projects. It contains core business logic, services, databases, etc.
+- `pkg/`: Public library code. Code that could safely be imported and used by external projects.
+- `client/`: Contains the frontend UI codebase (React/Vue/Astro etc.).
+- `files/`: Contains utility functions specifically for filesystem interactions.
 
-If this is something you think you can fix, then fork SkyPanel and create a branch with a descriptive name.
+## Development Workflow
 
-A good branch name would be (where issue #325 is the ticket you're working on):
+We use a standard `Makefile` to simplify development tasks.
 
-```sh
-git checkout -b 325-add-new-server-feature
-```
+### Prerequisites
 
-## Implementation Guidelines
+- Go 1.24+
+- Docker (for full E2E testing and environment setup)
 
-- Ensure you adhere to the standard Go formatting. Run `go fmt ./...` before committing.
-- Ensure your code passes the test suite by running `go test ./...`.
-- Add tests for any new features or bug fixes.
+### Common Commands
 
-## Pull Requests
+- `make run`: Run the application locally.
+- `make build`: Build the Go binary to the `bin/` directory.
+- `make test`: Run integration and unit tests.
+- `make lint`: Run `golangci-lint`.
+- `make fmt`: Auto-format code using `gofmt`.
+- `make docker-build`: Rebuild the docker images.
 
-Once you're ready, submit a Pull Request! We use a standard Pull Request template to help us review your code quickly. Please fill it out as completely as possible.
+## Coding Guidelines
+
+- **Linting**: We enforce strict linting using `gocritic` and `revive` through `golangci-lint`. Ensure your code passes all lint checks before submitting a PR.
+- **Formatting**: Always run `make fmt` (which uses `gofmt`) before committing.
+- **Comments**: Exported functions and structs in `pkg/` should have appropriate GoDoc comments.
+
+## Submitting a Pull Request
+
+1. Fork the repository and create your feature branch from `dev2.0`.
+2. Commit your changes with descriptive commit messages.
+3. Push to your branch and open a Pull Request against `dev2.0`.
+
+Thank you for contributing!
