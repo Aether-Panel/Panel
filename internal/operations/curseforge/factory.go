@@ -20,11 +20,11 @@ func (of OperationFactory) Create(op SkyPanel.CreateOperation) (SkyPanel.Operati
 	if err != nil {
 		return nil, err
 	}
-	fileId, err := cast.ToUintE(op.OperationArgs["fileId"])
-	if op.OperationArgs["fileId"] != "" && err != nil {
+	fileID, err := cast.ToUintE(op.OperationArgs["fileID"])
+	if op.OperationArgs["fileID"] != "" && err != nil {
 		return nil, err
-	} else if op.OperationArgs["fileId"] == "" {
-		fileId = 0
+	} else if op.OperationArgs["fileID"] == "" {
+		fileID = 0
 	}
 
 	javaBinary := cast.ToString(op.OperationArgs["java"])
@@ -32,7 +32,7 @@ func (of OperationFactory) Create(op SkyPanel.CreateOperation) (SkyPanel.Operati
 		javaBinary = "java"
 	}
 
-	return &CurseForge{ProjectId: projectId, FileId: fileId, JavaBinary: javaBinary}, nil
+	return &CurseForge{ProjectId: projectId, FileId: fileID, JavaBinary: javaBinary}, nil
 }
 
 func (of OperationFactory) Key() string {

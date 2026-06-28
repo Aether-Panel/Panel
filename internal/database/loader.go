@@ -111,7 +111,7 @@ func GetDialect() string {
 func GetConnectionString() string {
 	dialect := GetDialect()
 
-	connString := config.DatabaseUrl.Value()
+	connString := config.DatabaseURL.Value()
 	if connString == "" {
 		switch dialect {
 		case "mysql":

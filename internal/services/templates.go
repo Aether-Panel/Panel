@@ -47,7 +47,7 @@ func (*Template) GetLocalRepoId() uint {
 
 func (t *Template) GetRepos() ([]*models.TemplateRepo, error) {
 	// Si hay templates.url configurado, ignoramos los repos de la BD y devolvemos uno sintético + Local
-	if u := config.TemplatesUrl.Value(); u != "" {
+	if u := config.TemplatesURL.Value(); u != "" {
 		vps := &models.TemplateRepo{
 			ID:     1,
 			Name:   "community",
@@ -91,7 +91,7 @@ func (t *Template) GetAllFromRepo(repoId uint) ([]*models.Template, error) {
 		templates = replacement
 	} else {
 		// Si hay URL de VPS configurada, resolvemos contra índice JSON en vez de Git
-		if u := config.TemplatesUrl.Value(); u != "" {
+		if u := config.TemplatesURL.Value(); u != "" {
 			return t.getAllFromVps(u)
 		}
 		repoDb := &models.TemplateRepo{
@@ -168,7 +168,7 @@ func (t *Template) Get(repoId uint, name string) (*models.Template, error) {
 		}
 	} else {
 		// Si hay URL de VPS configurada, resolvemos contra índice JSON en vez de Git
-		if u := config.TemplatesUrl.Value(); u != "" {
+		if u := config.TemplatesURL.Value(); u != "" {
 			return t.getFromVps(u, name)
 		}
 		repoDb := &models.TemplateRepo{

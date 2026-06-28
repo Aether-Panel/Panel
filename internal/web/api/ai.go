@@ -31,7 +31,7 @@ type GeminiMessage struct {
 }
 
 func analyzeServerLogs(c *gin.Context) {
-	apiKey := config.GeminiApiKey.Value()
+	apiKey := config.GeminiAPIKey.Value()
 	if apiKey == "" {
 		c.JSON(400, gin.H{"error": "Gemini API Key is not configured. Please add it in Settings."})
 		return

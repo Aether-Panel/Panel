@@ -149,7 +149,7 @@ func internalRun() (terminate chan bool, success bool) {
 			Domain:   config.PanelWebCookiesDomain.Value(),
 			MaxAge:   config.PanelWebCookiesAge.Value(),
 			Secure:   config.PanelWebCookiesSecure.Value(),
-			HttpOnly: config.PanelWebCookiesHttpOnly.Value(),
+			HttpOnly: config.PanelWebCookiesHTTPOnly.Value(),
 			SameSite: sameSiteId,
 		})
 		router.Use(sessions.Sessions("session", sessionStore))

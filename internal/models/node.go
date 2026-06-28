@@ -60,8 +60,8 @@ func (n *Node) IsLocal() bool {
 
 	if n.Local {
 		if nodeIP != "" && nodeIP != "0.0.0.0" {
-			// If we have a specific NodeIP, but the LocalNode's host (set via MasterUrl)
-			// doesn't match our NodeIP, AND MasterUrl isn't generic localhost,
+			// If we have a specific NodeIP, but the LocalNode's host (set via MasterURL)
+			// doesn't match our NodeIP, AND MasterURL isn't generic localhost,
 			// it means LocalNode represents the Master Panel, and WE are a secondary node!
 			if n.PublicHost != "0.0.0.0" && n.PublicHost != "127.0.0.1" && n.PublicHost != "localhost" && n.PublicHost != nodeIP {
 				return false

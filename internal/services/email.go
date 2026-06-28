@@ -107,7 +107,7 @@ func (es *emailService) SendEmail(to, template string, data map[string]interface
 	}
 
 	data["COMPANY_NAME"] = config.CompanyName.Value()
-	data["MASTER_URL"] = config.MasterUrl.Value()
+	data["MASTER_URL"] = config.MasterURL.Value()
 
 	subjectBuilder := &strings.Builder{}
 	err = tmpl.Subject.Execute(subjectBuilder, data)

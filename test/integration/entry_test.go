@@ -32,7 +32,7 @@ func TestMain(m *testing.M) {
 	var exitCode = 1
 
 	_ = config.DatabaseDialect.Set("sqlite3", false)
-	_ = config.DatabaseUrl.Set("file:testing.db", false)
+	_ = config.DatabaseURL.Set("file:testing.db", false)
 	_ = config.DaemonEnabled.Set(true, false)
 	_ = config.PanelEnabled.Set(true, false)
 	//_ = config.DatabaseLoggingEnabled.Set(false, false)
@@ -81,7 +81,7 @@ func TestMain(m *testing.M) {
 		RemoteNode.SFTPPort = models.LocalNode.SFTPPort
 		_ = config.SftpHost.Set(fmt.Sprintf("%s:%d", models.LocalNode.PrivateHost, models.LocalNode.SFTPPort), false)
 		_ = config.AuthUrl.Set(fmt.Sprintf("http://%s:%d/oauth2/token", models.LocalNode.PrivateHost, models.LocalNode.PrivatePort), false)
-		_ = config.MasterUrl.Set(fmt.Sprintf("http://%s:%d", models.LocalNode.PrivateHost, models.LocalNode.PrivatePort), false)
+		_ = config.MasterURL.Set(fmt.Sprintf("http://%s:%d", models.LocalNode.PrivateHost, models.LocalNode.PrivatePort), false)
 		_ = config.WebHost.Set(fmt.Sprintf("%s:%d", models.LocalNode.PrivateHost, models.LocalNode.PrivatePort), false)
 
 		l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", models.LocalNode.PrivateHost, models.LocalNode.PrivatePort))

@@ -382,8 +382,8 @@ func activateLicense(c *gin.Context) {
 	}
 
 	// Obtener identificador del servidor y IP
-	serverId := config.LicenseServerId.Value()
-	serverIp := config.LicenseServerIp.Value()
+	serverId := config.LicenseServerID.Value()
+	serverIp := config.LicenseServerIP.Value()
 
 	// Si no tenemos serverId o serverIp guardados, generarlos
 	if serverId == "" {
@@ -392,7 +392,7 @@ func activateLicense(c *gin.Context) {
 			hostname = "unknown"
 		}
 		serverId = hostname
-		_ = config.LicenseServerId.Set(serverId, true)
+		_ = config.LicenseServerID.Set(serverId, true)
 	}
 
 	if serverIp == "" {
@@ -403,7 +403,7 @@ func activateLicense(c *gin.Context) {
 			ip = "127.0.0.1"
 		}
 		serverIp = ip
-		_ = config.LicenseServerIp.Set(serverIp, true)
+		_ = config.LicenseServerIP.Set(serverIp, true)
 	}
 
 	// Vincular la licencia con el servidor (POST)
@@ -497,16 +497,16 @@ var editableStringEntries = []config.StringEntry{
 	config.CompanyName,
 	config.DefaultTheme,
 	config.ThemeSettings,
-	config.MasterUrl,
+	config.MasterURL,
 	config.NodeIP,
-	config.GeminiApiKey,
+	config.GeminiAPIKey,
 	config.DiscordWebhook,
 	config.DiscordWebhookSystem,
 	config.DiscordWebhookNode,
 	config.LicenseKey,
 	config.LicenseStatus,
-	config.LicenseServerId,
-	config.LicenseServerIp,
+	config.LicenseServerID,
+	config.LicenseServerIP,
 }
 var editableBoolEntries = []config.BoolEntry{
 	config.RegistrationEnabled,

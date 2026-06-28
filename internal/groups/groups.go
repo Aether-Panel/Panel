@@ -15,13 +15,13 @@ func IsUserIn(groups ...string) bool {
 		return false
 	}
 
-	allowedIds := make([]string, 0)
+	allowedIDs := make([]string, 0)
 	for _, v := range groups {
 		rootGroup, err := user.LookupGroup(v)
 		if err != nil {
 			fmt.Println(err.Error())
 		} else {
-			allowedIds = append(allowedIds, rootGroup.Gid)
+			allowedIDs = append(allowedIDs, rootGroup.Gid)
 		}
 	}
 
@@ -32,7 +32,7 @@ func IsUserIn(groups ...string) bool {
 	}
 
 	for _, v := range g {
-		for _, t := range allowedIds {
+		for _, t := range allowedIDs {
 			if v == t {
 				return true
 			}

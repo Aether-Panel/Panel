@@ -149,8 +149,8 @@ var ErrCurseForgeDistribution = func(projectId uint) *Error {
 	return CreateError("CurseForge modpack with project ID ${projectId} does not allow third-party distribution", "ErrCurseForgeDistribution").Metadata(map[string]interface{}{"projectId": projectId})
 }
 
-var ErrCurseForgeFile = func(projectId uint, fileId uint) *Error {
-	return CreateError("File ID ${fileId} under project ID ${projectId} not found", "ErrCurseForgeFile").Metadata(map[string]interface{}{"fileId": fileId, "projectId": projectId})
+var ErrCurseForgeFile = func(projectId uint, fileID uint) *Error {
+	return CreateError("File ID ${fileID} under project ID ${projectId} not found", "ErrCurseForgeFile").Metadata(map[string]interface{}{"fileID": fileID, "projectId": projectId})
 }
 
 var ErrCurseForgeStatus = func(status string) *Error {
