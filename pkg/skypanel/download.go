@@ -112,42 +112,41 @@ func Download(downloadURL, hash string, algorithm crypto.Hash, cache bool, env *
 		return downloadFile(downloadURL)
 	}
 	// caching allowed
-		localPath := filepath.Join(config.CacheFolder.Value(), strings.TrimPrefix(strings.TrimPrefix(downloadURL, "http://"), "https://"))
+	localPath := filepath.Join(config.CacheFolder.Value(), strings.TrimPrefix(strings.TrimPrefix(downloadURL, "http://"), "https://"))
 
-		if os.PathSeparator != '/' {
-			localPath = strings.ReplaceAll(localPath, "/", string(os.PathSeparator))
-		}
-
-		// try to open existing cached file
-		f, err := os.Open(localPath)
-		if os.IsNotExist(err) {
-			// cache miss, need to download
-			return cacheFile(downloadURL, localPath)
-		} else if err != nil {
-			logging.Info.Printf("Failed opening cached file despite it existing: %s", err)
-			return downloadFile(downloadURL)
-		}
-
-		h := algorithm.New()
-		if _, err := io.Copy(h, f); err != nil {
-			utils.Close(f)
-			logging.Info.Printf("Cached file is not readable, will download (%s)", localPath)
-			return downloadFile(downloadURL)
-		}
-		actualHash := fmt.Sprintf("%x", h.Sum(nil))
-		_, err = f.Seek(0, io.SeekStart)
-		if err != nil {
-			return nil, err
-		}
-		if hash == actualHash {
-			logging.Info.Printf("Using cached copy of file: %s\n", downloadURL)
-			return f, nil
-		}
-		
-		logging.Info.Printf("Cache expected %s but was actually %s, downloading new version and caching to %s", hash, actualHash, localPath)
-		utils.Close(f)
-		return cacheFile(downloadURL, localPath)
+	if os.PathSeparator != '/' {
+		localPath = strings.ReplaceAll(localPath, "/", string(os.PathSeparator))
 	}
+
+	// try to open existing cached file
+	f, err := os.Open(localPath)
+	if os.IsNotExist(err) {
+		// cache miss, need to download
+		return cacheFile(downloadURL, localPath)
+	} else if err != nil {
+		logging.Info.Printf("Failed opening cached file despite it existing: %s", err)
+		return downloadFile(downloadURL)
+	}
+
+	h := algorithm.New()
+	if _, err := io.Copy(h, f); err != nil {
+		utils.Close(f)
+		logging.Info.Printf("Cached file is not readable, will download (%s)", localPath)
+		return downloadFile(downloadURL)
+	}
+	actualHash := fmt.Sprintf("%x", h.Sum(nil))
+	_, err = f.Seek(0, io.SeekStart)
+	if err != nil {
+		return nil, err
+	}
+	if hash == actualHash {
+		logging.Info.Printf("Using cached copy of file: %s\n", downloadURL)
+		return f, nil
+	}
+
+	logging.Info.Printf("Cache expected %s but was actually %s, downloading new version and caching to %s", hash, actualHash, localPath)
+	utils.Close(f)
+	return cacheFile(downloadURL, localPath)
 }
 
 func DownloadHash(hashURL string, algorithm crypto.Hash) (string, error) {
@@ -157,7 +156,7 @@ func DownloadHash(hashURL string, algorithm crypto.Hash) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	data := make([]byte, algorithm.Size()*2)
 	_, err = response.Body.Read(data)
 	if err != nil {
