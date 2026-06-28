@@ -3,12 +3,12 @@ package curseforge
 import (
 	"errors"
 	"fmt"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/config"
 	"github.com/SkyPanel/SkyPanel/v3/files"
 	"github.com/SkyPanel/SkyPanel/v3/logging"
 	"github.com/SkyPanel/SkyPanel/v3/operations/forgedl"
 	"github.com/SkyPanel/SkyPanel/v3/operations/neoforgedl"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/utils"
 	"io"
 	"net/http"

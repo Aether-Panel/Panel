@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/config"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gofrs/uuid/v5"
 	"gopkg.in/go-playground/validator.v9"
 	"gorm.io/gorm"
@@ -69,7 +69,7 @@ func (n *Node) IsLocal() bool {
 		}
 		return true // Otherwise, fallback to assuming we are the primary local node
 	}
-	
+
 	// Fallback for older configs
 	return n.PublicHost == nodeIP || n.PrivateHost == nodeIP
 }

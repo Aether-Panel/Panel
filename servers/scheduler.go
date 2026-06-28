@@ -2,11 +2,11 @@ package servers
 
 import (
 	"encoding/json"
-	"github.com/go-co-op/gocron/v2"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/config"
 	"github.com/SkyPanel/SkyPanel/v3/logging"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/utils"
+	"github.com/go-co-op/gocron/v2"
 	"os"
 	"path/filepath"
 	"time"
@@ -17,9 +17,9 @@ type Scheduler struct {
 	serverId  string
 
 	Tasks           map[string]SkyPanel.Task `json:"tasks"`
-	Timezone        string                      `json:"timezone,omitempty"`
-	ConcurrentLimit uint                        `json:"concurrentLimit"`
-	LimitMode       string                      `json:"limitMode"`
+	Timezone        string                   `json:"timezone,omitempty"`
+	ConcurrentLimit uint                     `json:"concurrentLimit"`
+	LimitMode       string                   `json:"limitMode"`
 }
 
 // LoadScheduler Loads the scheduler from the serverid.cron file, or defaults

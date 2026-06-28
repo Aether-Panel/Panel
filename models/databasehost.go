@@ -16,7 +16,7 @@ type DatabaseHost struct {
 	Password     string `gorm:"column:password;not null;size:255" json:"password" validate:"required"`
 	MaxDatabases int    `gorm:"column:max_databases;default:0" json:"max_databases"`
 	NodeID       *uint  `gorm:"column:node_id;default:null" json:"node_id"`
-	
+
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

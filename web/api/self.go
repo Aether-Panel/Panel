@@ -6,14 +6,14 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/utils"
 	"net/http"
 
-	"github.com/gin-gonic/gin"
-	uuid "github.com/gofrs/uuid/v5"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/logging"
 	"github.com/SkyPanel/SkyPanel/v3/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/models"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/response"
 	"github.com/SkyPanel/SkyPanel/v3/services"
+	"github.com/gin-gonic/gin"
+	uuid "github.com/gofrs/uuid/v5"
 )
 
 func registerSelf(g *gin.RouterGroup) {

@@ -15,7 +15,7 @@ func TestUptime_GatusProxyMock(t *testing.T) {
 
 	router.GET("/api/uptime/status", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
-			"status": "UP", 
+			"status":     "UP",
 			"components": []string{"Node1", "Node2"},
 		})
 	})

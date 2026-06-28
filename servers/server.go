@@ -16,12 +16,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/conditions"
 	"github.com/SkyPanel/SkyPanel/v3/config"
 	"github.com/SkyPanel/SkyPanel/v3/database"
 	"github.com/SkyPanel/SkyPanel/v3/files"
 	"github.com/SkyPanel/SkyPanel/v3/logging"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/services"
 	"github.com/SkyPanel/SkyPanel/v3/utils"
 	"github.com/gofrs/uuid/v5"
@@ -568,7 +568,7 @@ func checkDiskLimit(server *Server, stats *SkyPanel.ServerStats) {
 		if isRunning {
 			logging.Info.Printf("[%s] Server exceeded disk limit (%.2f MB > %.2f MB). Stopping server...", server.Id(), stats.Disk/1024/1024, stats.MaxStorage/1024/1024)
 			server.RunningEnvironment.DisplayToConsole(true, fmt.Sprintf("\n[CRÍTICO] El servidor ha superado el límite de disco asignado (%.2f MB / %.2f MB).\n[CRÍTICO] Deteniendo el servidor por seguridad...\n", stats.Disk/1024/1024, stats.MaxStorage/1024/1024))
-			
+
 			// Detener el servidor
 			err := server.Stop()
 			if err != nil {

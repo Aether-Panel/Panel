@@ -13,10 +13,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/config"
 	"github.com/SkyPanel/SkyPanel/v3/database"
 	"github.com/SkyPanel/SkyPanel/v3/logging"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/servers"
 	"github.com/SkyPanel/SkyPanel/v3/servers/docker"
 	"github.com/SkyPanel/SkyPanel/v3/services"

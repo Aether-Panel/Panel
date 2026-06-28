@@ -14,9 +14,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/config"
 	"github.com/SkyPanel/SkyPanel/v3/logging"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/utils"
 	"github.com/creack/pty"
 	"github.com/shirou/gopsutil/mem"
@@ -26,13 +26,13 @@ import (
 )
 
 type tty struct {
-	mainProcess  *exec.Cmd
-	statLocker   sync.Mutex
-	lastStats    *SkyPanel.ServerStats
-	lastStatTime time.Time
-	lastNetworkRx      uint64
-	lastNetworkTx      uint64
-	lastNetTime        time.Time
+	mainProcess   *exec.Cmd
+	statLocker    sync.Mutex
+	lastStats     *SkyPanel.ServerStats
+	lastStatTime  time.Time
+	lastNetworkRx uint64
+	lastNetworkTx uint64
+	lastNetTime   time.Time
 	//disableStdin        bool
 	disableSpecialStats bool
 

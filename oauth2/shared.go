@@ -2,8 +2,8 @@ package oauth2
 
 import (
 	"bytes"
-	"github.com/gin-gonic/gin/binding"
 	"github.com/SkyPanel/SkyPanel/v3/config"
+	"github.com/gin-gonic/gin/binding"
 	"net/http"
 	"net/url"
 )

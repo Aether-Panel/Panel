@@ -1,9 +1,9 @@
 package move
 
 import (
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/files"
 	"github.com/SkyPanel/SkyPanel/v3/logging"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"os"
 	"path/filepath"
 )

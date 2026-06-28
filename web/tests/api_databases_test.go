@@ -15,8 +15,8 @@ func TestDatabases_CreateDBForServer(t *testing.T) {
 
 	router.POST("/api/servers/:id/databases", func(c *gin.Context) {
 		c.JSON(http.StatusCreated, gin.H{
-			"status": "success", 
-			"database": "s1_minecraft", 
+			"status":   "success",
+			"database": "s1_minecraft",
 			"username": "u1_minecraft",
 			"password": "generated_secure_password_123",
 		})

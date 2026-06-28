@@ -2,9 +2,9 @@ package tests
 
 import (
 	"context"
-	"testing"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/genai"
+	"testing"
 )
 
 func TestGenAI_Initialization(t *testing.T) {
@@ -12,7 +12,7 @@ func TestGenAI_Initialization(t *testing.T) {
 	// and we can mock it if needed.
 	ctx := context.Background()
 	assert.NotNil(t, ctx)
-	
+
 	// Create a dummy response
 	var resp genai.GenerateContentResponse
 	assert.Nil(t, resp.Candidates)

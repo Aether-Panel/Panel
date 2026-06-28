@@ -25,7 +25,7 @@ func TestRolesAPI(t *testing.T) {
 			"is_default":  false,
 			"permissions": []map[string]interface{}{},
 		}, session)
-		
+
 		if !assert.Equal(t, http.StatusOK, response.Code) {
 			t.Log(response.Body.String())
 			return

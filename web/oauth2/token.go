@@ -1,14 +1,14 @@
 package oauth2
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/gin-gonic/gin/binding"
 	"github.com/SkyPanel/SkyPanel/v3/logging"
 	"github.com/SkyPanel/SkyPanel/v3/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/oauth2"
 	"github.com/SkyPanel/SkyPanel/v3/response"
 	"github.com/SkyPanel/SkyPanel/v3/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/services"
+	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
 	"net/http"
 	"strings"
 	"time"

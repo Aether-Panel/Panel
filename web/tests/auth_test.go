@@ -2,9 +2,9 @@ package tests
 
 import (
 	"encoding/json"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/database"
 	"github.com/SkyPanel/SkyPanel/v3/models"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/services"
 	"github.com/SkyPanel/SkyPanel/v3/web/auth"

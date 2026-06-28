@@ -8,8 +8,8 @@ import (
 	"encoding/base64"
 	"github.com/MicahParks/jwkset"
 	"github.com/MicahParks/keyfunc/v3"
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/SkyPanel/SkyPanel/v3/config"
+	"github.com/golang-jwt/jwt/v5"
 	"sync"
 )
 

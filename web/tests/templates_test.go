@@ -45,8 +45,6 @@ func TestTemplateAPI(t *testing.T) {
 		assert.True(t, hasLocal, "No local repo")
 	})
 
-
-
 	t.Run("AddTemplateToLocal", func(t *testing.T) {
 		response := CallAPIRaw("PUT", "/api/templates/0/minecraft-vanilla", TemplateData, session)
 		if !assert.Equal(t, http.StatusNoContent, response.Code) {

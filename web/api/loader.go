@@ -37,7 +37,7 @@ func RegisterRoutes(rg *gin.RouterGroup) {
 	registerAPIKeys(rg.Group("/settings/apikeys"))
 	registerProducts(rg.Group("/provision/products"))
 	RegisterAIRoutes(rg.Group("/ai"))
-	
+
 	RegisterExTransferRoutes(publicRg.Group("/extransfer")) // External federated transfers
 
 	v1 := publicRg.Group("/v1")

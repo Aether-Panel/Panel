@@ -17,9 +17,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/config"
 	"github.com/SkyPanel/SkyPanel/v3/logging"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
@@ -44,18 +44,18 @@ type Docker struct {
 
 	connection       types.HijackedResponse
 	cli              *client.Client
-	downloadingImage   bool
-	statLocker         sync.Mutex
-	lastStats          *SkyPanel.ServerStats
-	lastStatTime       time.Time
-	lastNetworkRx      uint64
-	lastNetworkTx      uint64
-	lastNetTime        time.Time
+	downloadingImage bool
+	statLocker       sync.Mutex
+	lastStats        *SkyPanel.ServerStats
+	lastStatTime     time.Time
+	lastNetworkRx    uint64
+	lastNetworkTx    uint64
+	lastNetTime      time.Time
 	//disableStdin        bool
 	disableSpecialStats bool
 
-	dirSize       int64
-	dirSizeTime   time.Time
+	dirSize     int64
+	dirSizeTime time.Time
 }
 
 func (d *Docker) ExecuteAsyncImpl(environment *SkyPanel.Environment, steps SkyPanel.ExecutionData) error {

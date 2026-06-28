@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/mattn/go-sqlite3"
-	"github.com/pterm/pterm"
 	"github.com/SkyPanel/SkyPanel/v3/config"
 	"github.com/SkyPanel/SkyPanel/v3/database"
 	"github.com/SkyPanel/SkyPanel/v3/utils"
+	"github.com/mattn/go-sqlite3"
+	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 	"io"
 	"os"

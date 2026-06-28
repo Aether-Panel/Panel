@@ -6,16 +6,16 @@ import (
 )
 
 type ServerView struct {
-	Identifier   string           `json:"id,omitempty"`
-	Name         string           `json:"name,omitempty"`
-	NodeId       uint             `json:"nodeId"`
-	Node         *NodeView        `json:"node,omitempty"`
-	Data         interface{}      `json:"data,omitempty"`
-	Users        []ServerUserView `json:"users,omitempty"`
-	IP           string           `json:"ip,omitempty"`
-	Port         uint16           `json:"port,omitempty"`
-	Type         string           `json:"type"`
-	Icon         string           `json:"icon,omitempty"`
+	Identifier     string           `json:"id,omitempty"`
+	Name           string           `json:"name,omitempty"`
+	NodeId         uint             `json:"nodeId"`
+	Node           *NodeView        `json:"node,omitempty"`
+	Data           interface{}      `json:"data,omitempty"`
+	Users          []ServerUserView `json:"users,omitempty"`
+	IP             string           `json:"ip,omitempty"`
+	Port           uint16           `json:"port,omitempty"`
+	Type           string           `json:"type"`
+	Icon           string           `json:"icon,omitempty"`
 	CanGetStatus   bool             `json:"canGetStatus,omitempty"`
 	IsGhost        bool             `json:"isGhost,omitempty"`
 	ParentServerID *string          `json:"parent_server_id,omitempty"`
@@ -32,11 +32,11 @@ type ServerUserView struct {
 
 func FromServer(server *Server) *ServerView {
 	model := &ServerView{
-		Name:       server.Name,
-		Identifier: server.Identifier,
-		NodeId:     server.NodeID,
-		IP:         server.IP,
-		Port:       server.Port,
+		Name:           server.Name,
+		Identifier:     server.Identifier,
+		NodeId:         server.NodeID,
+		IP:             server.IP,
+		Port:           server.Port,
 		Type:           server.Type,
 		Icon:           server.Icon,
 		Node:           FromNode(&server.Node),

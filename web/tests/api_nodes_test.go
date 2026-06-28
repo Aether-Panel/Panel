@@ -28,7 +28,7 @@ func TestNodesAPI(t *testing.T) {
 			"privatePort": 8080,
 			"sftpPort":    5657,
 		}, session)
-		
+
 		if !assert.Equal(t, http.StatusOK, response.Code) {
 			return
 		}

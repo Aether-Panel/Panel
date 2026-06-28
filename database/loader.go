@@ -2,9 +2,9 @@ package database
 
 import (
 	"fmt"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/config"
 	"github.com/SkyPanel/SkyPanel/v3/logging"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/utils"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"

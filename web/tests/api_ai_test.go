@@ -1,10 +1,10 @@
 package tests
 
 import (
+	"github.com/SkyPanel/SkyPanel/v3/config"
+	"github.com/stretchr/testify/assert"
 	"net/http"
 	"testing"
-	"github.com/stretchr/testify/assert"
-	"github.com/SkyPanel/SkyPanel/v3/config"
 )
 
 func TestAIAPI(t *testing.T) {
@@ -20,7 +20,7 @@ func TestAIAPI(t *testing.T) {
 		response := CallAPI("POST", "/api/ai/analyze", map[string]interface{}{
 			"logs": []string{"Error: Something went wrong"},
 		}, session)
-		
+
 		assert.Equal(t, http.StatusBadRequest, response.Code)
 		assert.Contains(t, response.Body.String(), "Gemini API Key is not configured")
 	})
@@ -31,7 +31,7 @@ func TestAIAPI(t *testing.T) {
 		response := CallAPI("POST", "/api/ai/analyze", map[string]interface{}{
 			"logs": []string{},
 		}, session)
-		
+
 		assert.Equal(t, http.StatusBadRequest, response.Code)
 		assert.Contains(t, response.Body.String(), "No logs provided for analysis")
 	})

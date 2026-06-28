@@ -31,19 +31,19 @@ type ExTransferSession struct {
 	CurrentNonce    string         `gorm:"type:varchar(64)" json:"-"`
 	NonceExpiresAt  *time.Time     `json:"-"`
 	ProtocolVersion string         `gorm:"type:varchar(10);default:'1.0'" json:"protocol_version"`
-	Payload         string         `gorm:"type:text" json:"-"` 
+	Payload         string         `gorm:"type:text" json:"-"`
 	CreatedAt       time.Time      `json:"created_at"`
 	UpdatedAt       time.Time      `json:"updated_at"`
 	ExpiresAt       time.Time      `gorm:"index;not null" json:"expires_at"`
 }
 
 type ExTransferLog struct {
-	ID        uint   `gorm:"primaryKey"`
+	ID        uint              `gorm:"primaryKey"`
 	SessionID string            `gorm:"type:char(36);index;not null"`
 	Session   ExTransferSession `gorm:"foreignKey:SessionID;references:SessionUUID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	Action    string            `gorm:"type:varchar(50);not null"`
 	IPAddress string            `gorm:"type:varchar(45);not null"`
 	IsError   bool              `gorm:"not null;default:false"`
-	Details   string `gorm:"type:text"`
+	Details   string            `gorm:"type:text"`
 	CreatedAt time.Time
 }

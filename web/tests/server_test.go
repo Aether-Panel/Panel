@@ -6,18 +6,18 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/websocket"
-	"github.com/pkg/sftp"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/config"
 	"github.com/SkyPanel/SkyPanel/v3/database"
 	"github.com/SkyPanel/SkyPanel/v3/models"
 	"github.com/SkyPanel/SkyPanel/v3/oauth2"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/servers"
 	"github.com/SkyPanel/SkyPanel/v3/services"
 	pufferSftp "github.com/SkyPanel/SkyPanel/v3/sftp"
 	"github.com/SkyPanel/SkyPanel/v3/utils"
+	"github.com/gorilla/websocket"
+	"github.com/pkg/sftp"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/ssh"
 	"io"
@@ -178,7 +178,6 @@ func TestServers(t *testing.T) {
 					return
 				}
 
-
 			})
 
 			t.Run("AdminDataUpdate", func(t *testing.T) {
@@ -199,7 +198,6 @@ func TestServers(t *testing.T) {
 				if !assert.Equal(t, NewVariableChangePort, server.Port) {
 					return
 				}
-
 
 			})
 

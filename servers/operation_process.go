@@ -1,7 +1,6 @@
 package servers
 
 import (
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/conditions"
 	"github.com/SkyPanel/SkyPanel/v3/logging"
 	"github.com/SkyPanel/SkyPanel/v3/operations/alterfile"
@@ -28,6 +27,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/operations/stdin"
 	"github.com/SkyPanel/SkyPanel/v3/operations/steamgamedl"
 	"github.com/SkyPanel/SkyPanel/v3/operations/writefile"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/utils"
 	"github.com/spf13/cast"
 )

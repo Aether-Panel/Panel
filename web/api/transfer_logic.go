@@ -86,8 +86,13 @@ func performInternalTransfer(server *models.Server, targetNode *models.Node, db 
 				errorBody = string(bodyBytes)
 			}
 		}
-		logging.Error.Printf("Failed to create server on target node for %s: err=%v, status=%d, body=%s", 
-			server.Identifier, err, func() int { if createRes != nil { return createRes.StatusCode }; return 0 }(), errorBody)
+		logging.Error.Printf("Failed to create server on target node for %s: err=%v, status=%d, body=%s",
+			server.Identifier, err, func() int {
+				if createRes != nil {
+					return createRes.StatusCode
+				}
+				return 0
+			}(), errorBody)
 		return
 	}
 	defer createRes.Body.Close()
@@ -103,7 +108,7 @@ func performInternalTransfer(server *models.Server, targetNode *models.Node, db 
 
 	// 4. Archive files on Source Node
 	logging.Info.Printf("Archiving files for %s on source node", server.Identifier)
-	archiveBody := bytes.NewReader([]byte(`["."] `)) 
+	archiveBody := bytes.NewReader([]byte(`["."] `))
 	headersArch := http.Header{}
 	headersArch.Set("Content-Type", "application/json")
 	res, err := ns.CallNode(&server.Node, "POST", fmt.Sprintf("/daemon/server/%s/archive/transfer.tar.gz", server.Identifier), io.NopCloser(archiveBody), headersArch)
@@ -194,7 +199,7 @@ func performInternalTransfer(server *models.Server, targetNode *models.Node, db 
 		logging.Error.Printf("Failed to update server config in DB: %v", err)
 		return
 	}
-	
+
 	// ss.Update explicitly omits 'node_id' for security, and gorm has it marked as '<-:create' only.
 	// We MUST force update it here via raw SQL.
 	var rawNodeID *uint

@@ -3,9 +3,9 @@ package files
 import (
 	"archive/tar"
 	"errors"
+	"github.com/SkyPanel/SkyPanel/v3/utils"
 	"github.com/klauspost/compress/zip"
 	"github.com/mholt/archiver/v3"
-	"github.com/SkyPanel/SkyPanel/v3/utils"
 	"io"
 	"os"
 	"path/filepath"

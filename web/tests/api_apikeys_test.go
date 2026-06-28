@@ -16,10 +16,10 @@ func TestAPIKeysAPI(t *testing.T) {
 
 	t.Run("CreateAPIKey", func(t *testing.T) {
 		response := CallAPI("POST", "/api/settings/apikeys", map[string]interface{}{
-			"name":        "Test API Key",
-			"scopes":      []string{"admin"},
+			"name":   "Test API Key",
+			"scopes": []string{"admin"},
 		}, session)
-		
+
 		if !assert.Equal(t, http.StatusOK, response.Code) {
 			return
 		}

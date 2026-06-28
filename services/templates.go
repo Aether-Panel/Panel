@@ -13,10 +13,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/config"
 	"github.com/SkyPanel/SkyPanel/v3/logging"
 	"github.com/SkyPanel/SkyPanel/v3/models"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/utils"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -361,20 +361,20 @@ type vpsIndexEntry struct {
 
 func httpGetJson(url string, target interface{}) error {
 	client := &http.Client{Timeout: 10 * time.Second}
-	
+
 	// Crear la petición con headers apropiados para evitar bloqueos de Cloudflare
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return err
 	}
-	
+
 	// Headers para parecer un navegador legítimo
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 	req.Header.Set("Accept", "application/json, text/plain, */*")
 	req.Header.Set("Accept-Language", "en-US,en;q=0.9,es;q=0.8")
 	req.Header.Set("Cache-Control", "no-cache")
 	req.Header.Set("Pragma", "no-cache")
-	
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return err

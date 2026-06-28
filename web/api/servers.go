@@ -13,11 +13,11 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/database"
 	"github.com/SkyPanel/SkyPanel/v3/logging"
 	"github.com/SkyPanel/SkyPanel/v3/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/models"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/response"
 	"github.com/SkyPanel/SkyPanel/v3/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/servers"
@@ -461,17 +461,17 @@ func createServer(c *gin.Context) {
 	}
 
 	server := &models.Server{
-		Name:       postBody.Name,
-		Identifier: postBody.Identifier,
-		NodeID:     node.ID,
-		IP:         cast.ToString(ip),
-		Port:       cast.ToUint16(port),
-		Type:       postBody.Type.Type,
-		Icon:       postBody.Icon,
+		Name:           postBody.Name,
+		Identifier:     postBody.Identifier,
+		NodeID:         node.ID,
+		IP:             cast.ToString(ip),
+		Port:           cast.ToUint16(port),
+		Type:           postBody.Type.Type,
+		Icon:           postBody.Icon,
 		ParentServerID: postBody.ParentServerID,
-		TotalCPU:   totalCPU,
-		TotalMemory: totalMemory,
-		TotalDisk:  totalDisk,
+		TotalCPU:       totalCPU,
+		TotalMemory:    totalMemory,
+		TotalDisk:      totalDisk,
 	}
 
 	users := make([]*models.User, len(postBody.Users))
@@ -620,7 +620,7 @@ func createServer(c *gin.Context) {
 		}
 		updateBytes, _ := json.Marshal(parentDataUpdate)
 		parentReqBody := io.NopCloser(bytes.NewReader(updateBytes))
-		
+
 		var parent models.Server
 		db.Where("identifier = ?", *server.ParentServerID).First(&parent)
 		// We call the daemon's data endpoint to merge these new limits
@@ -832,7 +832,7 @@ func deleteServer(c *gin.Context) {
 		if err := db.Raw("SELECT * FROM servers WHERE identifier = ? FOR UPDATE", *server.ParentServerID).Scan(&parent).Error; err == nil && parent.Identifier != "" {
 			var children []*models.Server
 			db.Where("parent_server_id = ?", parent.Identifier).Find(&children)
-			
+
 			var usedCPU int
 			var usedMemory, usedDisk int64
 			for _, child := range children {
@@ -843,11 +843,11 @@ func deleteServer(c *gin.Context) {
 				usedMemory += child.TotalMemory
 				usedDisk += child.TotalDisk
 			}
-			
+
 			parentAvailableCPU := parent.TotalCPU - usedCPU
 			parentAvailableMemory := parent.TotalMemory - usedMemory
 			parentAvailableDisk := parent.TotalDisk - usedDisk
-			
+
 			// Send to daemon
 			parentDataUpdate := map[string]interface{}{
 				"cpu":    parentAvailableCPU,
@@ -856,7 +856,7 @@ func deleteServer(c *gin.Context) {
 			}
 			updateBytes, _ := json.Marshal(parentDataUpdate)
 			parentReqBody := io.NopCloser(bytes.NewReader(updateBytes))
-			
+
 			parentRes, _ := ns.CallNode(node, "POST", "/daemon/server/"+parent.Identifier+"/data", parentReqBody, c.Request.Header)
 			if parentRes != nil && parentRes.Body != nil {
 				parentRes.Body.Close()
@@ -1727,7 +1727,7 @@ func toggleServerSuspension(c *gin.Context) {
 	// If we are suspending, try to stop the server and its children
 	if newState {
 		ns := &services.Node{DB: db}
-		
+
 		ts, err := services.NewTokenService()
 		var token string
 		if err == nil {

@@ -21,8 +21,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/hashicorp/go-version"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
+	"github.com/hashicorp/go-version"
 )
 
 type ResolveNeoForgeVersion struct {

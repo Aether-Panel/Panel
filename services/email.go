@@ -3,12 +3,12 @@ package services
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	emailAssets "github.com/SkyPanel/SkyPanel/v3/assets/email"
 	"github.com/SkyPanel/SkyPanel/v3/config"
 	"github.com/SkyPanel/SkyPanel/v3/email"
 	"github.com/SkyPanel/SkyPanel/v3/files"
 	"github.com/SkyPanel/SkyPanel/v3/logging"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/utils"
 	"html/template"
 	"io/fs"

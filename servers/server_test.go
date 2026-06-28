@@ -3,8 +3,8 @@ package servers
 import (
 	"encoding/json"
 	"errors"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/config"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"path/filepath"

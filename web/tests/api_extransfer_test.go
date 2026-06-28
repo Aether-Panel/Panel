@@ -1,9 +1,9 @@
 package tests
 
 import (
+	"github.com/stretchr/testify/assert"
 	"net/http"
 	"testing"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestExTransferAPI(t *testing.T) {
@@ -11,7 +11,7 @@ func TestExTransferAPI(t *testing.T) {
 		response := CallAPI("POST", "/api/extransfer/validate", map[string]interface{}{
 			"token": "",
 		}, "")
-		
+
 		assert.Equal(t, http.StatusBadRequest, response.Code)
 	})
 
@@ -19,7 +19,7 @@ func TestExTransferAPI(t *testing.T) {
 		response := CallAPI("POST", "/api/extransfer/consume", map[string]interface{}{
 			"session_id": "",
 		}, "")
-		
+
 		assert.Equal(t, http.StatusBadRequest, response.Code)
 	})
 }

@@ -1,8 +1,8 @@
 package operations
 
 import (
-	"testing"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func TestDownloaders_CurseForgeMock(t *testing.T) {
@@ -19,7 +19,7 @@ func TestDownloaders_SteamGameDlMock(t *testing.T) {
 	// A mock test simulating SteamCMD download arguments
 	appId := "740" // CS:GO
 	args := []string{"+login", "anonymous", "+force_install_dir", ".", "+app_update", appId, "+quit"}
-	
+
 	assert.Contains(t, args, "+app_update")
 	assert.Contains(t, args, "740")
 }

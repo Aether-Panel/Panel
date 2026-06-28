@@ -9,9 +9,9 @@ import (
 	"net/http"
 	"strings"
 
-	SkyPanel "github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/models"
+	SkyPanel "github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/response"
 	"github.com/SkyPanel/SkyPanel/v3/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/services"
@@ -287,10 +287,10 @@ func provisionServer(c *gin.Context) {
 
 	// 7. Call Daemon
 	serverCreation := &models.ServerCreation{
-		Server:    template.Server,
-		NodeId:    node.ID,
-		Name:      server.Name,
-		Users:     []string{user.Username},
+		Server: template.Server,
+		NodeId: node.ID,
+		Name:   server.Name,
+		Users:  []string{user.Username},
 	}
 	serverCreation.Identifier = server.Identifier
 

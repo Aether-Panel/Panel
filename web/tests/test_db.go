@@ -1,9 +1,9 @@
 package tests
 
 import (
-	"testing"
 	"fmt"
 	"log"
+	"testing"
 
 	"github.com/SkyPanel/SkyPanel/v3/config"
 	"github.com/SkyPanel/SkyPanel/v3/database"

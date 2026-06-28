@@ -1,10 +1,10 @@
 package email
 
 import (
-	"github.com/gofrs/uuid/v5"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/config"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/utils"
+	"github.com/gofrs/uuid/v5"
 	"github.com/wneessen/go-mail"
 	"strings"
 )

@@ -3,9 +3,9 @@ package connections
 import (
 	"errors"
 	"fmt"
-	"github.com/gorcon/rcon"
 	"github.com/SkyPanel/SkyPanel/v3/logging"
 	"github.com/SkyPanel/SkyPanel/v3/utils"
+	"github.com/gorcon/rcon"
 	"io"
 	"time"
 )

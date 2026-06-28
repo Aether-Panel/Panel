@@ -25,9 +25,9 @@ type GeminiContent struct {
 }
 
 type GeminiMessage struct {
-	Contents []GeminiContent `json:"contents"`
-	SystemInstruction *GeminiContent `json:"systemInstruction,omitempty"`
-	GenerationConfig map[string]interface{} `json:"generationConfig,omitempty"`
+	Contents          []GeminiContent        `json:"contents"`
+	SystemInstruction *GeminiContent         `json:"systemInstruction,omitempty"`
+	GenerationConfig  map[string]interface{} `json:"generationConfig,omitempty"`
 }
 
 func analyzeServerLogs(c *gin.Context) {
@@ -63,11 +63,11 @@ func analyzeServerLogs(c *gin.Context) {
 				"properties": map[string]interface{}{
 					"summary": map[string]interface{}{"type": "string"},
 					"suggestions": map[string]interface{}{
-						"type": "array",
+						"type":  "array",
 						"items": map[string]interface{}{"type": "string"},
 					},
 					"rootCauses": map[string]interface{}{
-						"type": "array",
+						"type":  "array",
 						"items": map[string]interface{}{"type": "string"},
 					},
 				},

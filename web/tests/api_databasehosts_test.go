@@ -25,7 +25,7 @@ func TestDatabaseHostsAPI(t *testing.T) {
 			"username": "root",
 			"password": "password",
 		}, session)
-		
+
 		if !assert.Equal(t, http.StatusOK, response.Code) {
 			return
 		}

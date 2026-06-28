@@ -16,10 +16,10 @@ func (ef EnvironmentFactory) Create() SkyPanel.EnvironmentImpl {
 		ImageName: "pufferpanel/generic",
 		// "bridge" permite el port-mapping correcto (0.0.0.0:PUERTO->PUERTO/tcp)
 		// "host" comparte la red del host directamente, lo que rompe el mapping en VPS
-		Network:   "bridge",
-		Ports:     make([]string, 0),
-		Binds:     make(map[string]string),
-		Labels:    make(map[string]string),
+		Network: "bridge",
+		Ports:   make([]string, 0),
+		Binds:   make(map[string]string),
+		Labels:  make(map[string]string),
 	}
 }
 

@@ -27,7 +27,7 @@ func (rc *RecoveryCode) SetCode(code string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	rc.CodeHash = fmt.Sprintf("%x", hash.Sum(nil))
 	return nil
 }

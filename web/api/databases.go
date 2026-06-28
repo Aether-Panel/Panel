@@ -50,7 +50,7 @@ func getAllDatabasesForServer(c *gin.Context) {
 		var hostName string
 		var host string
 		var port uint16
-		
+
 		if database.DatabaseHost != nil {
 			hostName = database.DatabaseHost.Name
 			host = database.DatabaseHost.Host
@@ -120,7 +120,7 @@ func createDatabase(c *gin.Context) {
 	var hostName string
 	var host string
 	var port uint16
-	
+
 	if created.DatabaseHost != nil {
 		hostName = created.DatabaseHost.Name
 		host = created.DatabaseHost.Host

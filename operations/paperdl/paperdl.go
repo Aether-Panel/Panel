@@ -4,11 +4,11 @@ import (
 	"crypto"
 	"encoding/json"
 	"errors"
-	"github.com/hashicorp/go-version"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/files"
 	"github.com/SkyPanel/SkyPanel/v3/logging"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/utils"
+	"github.com/hashicorp/go-version"
 	"net/http"
 	"net/url"
 	"path"
@@ -17,6 +17,7 @@ import (
 
 const VersionsUrl = "https://fill.papermc.io/v3/projects/paper/versions"
 const BuildUrl = "https://fill.papermc.io/v3/projects/paper/versions/${mcVersion}/builds/${build}"
+
 var UserAgent = SkyPanel.Display + " https://github.com/SkyPanel/SkyPanel"
 
 type PaperDl struct {
@@ -64,7 +65,7 @@ func getLatestMCVersion() (string, error) {
 
 	request := &http.Request{
 		Method: "GET",
-		URL: path,
+		URL:    path,
 		Header: http.Header{},
 	}
 	request.Header.Add("user-agent", UserAgent)
@@ -102,7 +103,7 @@ func (op PaperDl) getDownloadUrlAndHash(env *SkyPanel.Environment) (string, stri
 
 	request := &http.Request{
 		Method: "GET",
-		URL: path,
+		URL:    path,
 		Header: http.Header{},
 	}
 	request.Header.Add("User-Agent", UserAgent)

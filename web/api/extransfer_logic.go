@@ -10,11 +10,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"strings"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -467,15 +467,15 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 
 	// 2. Validate token and get nonce
 	validateURL := fmt.Sprintf("%s/api/extransfer/validate", strings.TrimSuffix(originURL, "/"))
-	
+
 	pubKeyB64 := base64.StdEncoding.EncodeToString(ExTransferPublicKey)
-	
+
 	validateBody := map[string]string{
-		"token":               token,
-		"target_public_key":   pubKeyB64,
-		"protocol_version":    "1.0",
+		"token":             token,
+		"target_public_key": pubKeyB64,
+		"protocol_version":  "1.0",
 	}
-	
+
 	bodyBytes, _ := json.Marshal(validateBody)
 	resp, err := http.Post(validateURL, "application/json", bytes.NewBuffer(bodyBytes))
 	if err != nil {
@@ -484,14 +484,14 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 		return
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
 		logging.Error.Printf("Origin validate failed with status %d: %s", resp.StatusCode, string(body))
 		sendStep(fmt.Sprintf("ERROR: Token inválido o expirado (Status %d)", resp.StatusCode))
 		return
 	}
-	
+
 	var validateRes struct {
 		SessionID string `json:"session_id"`
 		Nonce     string `json:"nonce"`
@@ -501,20 +501,20 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 		sendStep("ERROR: Respuesta inválida del origen")
 		return
 	}
-	
+
 	sendStep("Iniciando la transferencia en el servidor origen...")
 	// 3. Consume transfer
 	consumeURL := fmt.Sprintf("%s/api/extransfer/consume", strings.TrimSuffix(originURL, "/"))
-	
+
 	message := validateRes.Nonce + validateRes.SessionID
 	sig := ed25519.Sign(ExTransferPrivateKey, []byte(message))
 	sigB64 := base64.StdEncoding.EncodeToString(sig)
-	
+
 	consumeBody := map[string]string{
 		"session_id": validateRes.SessionID,
 		"signature":  sigB64,
 	}
-	
+
 	bodyBytes, _ = json.Marshal(consumeBody)
 	resp, err = http.Post(consumeURL, "application/json", bytes.NewBuffer(bodyBytes))
 	if err != nil {
@@ -523,27 +523,27 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 		return
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != 202 {
 		body, _ := io.ReadAll(resp.Body)
 		logging.Error.Printf("Origin consume failed with status %d: %s", resp.StatusCode, string(body))
 		sendStep("ERROR: El origen rechazó la transferencia")
 		return
 	}
-	
+
 	sendStep("Esperando a que el origen comprima los archivos...")
 	// 4. Wait for file to be ready (optional but good practice as origin does it async)
 	time.Sleep(5 * time.Second)
-	
+
 	// 5. Download file
 	downloadURL := fmt.Sprintf("%s/api/extransfer/download", strings.TrimSuffix(originURL, "/"))
-	
+
 	dlMessage := "DOWNLOAD:" + validateRes.SessionID
 	dlSig := ed25519.Sign(ExTransferPrivateKey, []byte(dlMessage))
 	dlSigB64 := base64.StdEncoding.EncodeToString(dlSig)
-	
+
 	reqURL := fmt.Sprintf("%s?session_id=%s&signature=%s", downloadURL, url.QueryEscape(validateRes.SessionID), url.QueryEscape(dlSigB64))
-	
+
 	sendStep("Descargando paquete de datos desde el origen...")
 	resp, err = http.Get(reqURL)
 	if err != nil {
@@ -552,22 +552,22 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 		return
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
 		logging.Error.Printf("Origin download failed with status %d: %s", resp.StatusCode, string(body))
 		sendStep(fmt.Sprintf("ERROR: El origen falló al entregar el paquete (Status %d)", resp.StatusCode))
 		return
 	}
-	
+
 	sendStep("Subiendo archivos al daemon local (esto puede tardar)...")
-	
+
 	// 6. Stream to daemon
 	ns := &services.Node{DB: db}
-	
+
 	headersTransfer := http.Header{}
 	headersTransfer.Set("Content-Type", "application/octet-stream")
-	
+
 	uploadRes, err := ns.CallNode(&server.Node, "PUT", fmt.Sprintf("/daemon/server/%s/file/transfer.tar.gz", server.Identifier), resp.Body, headersTransfer)
 	if err != nil || uploadRes.StatusCode != http.StatusNoContent {
 		body, _ := io.ReadAll(uploadRes.Body)
@@ -578,7 +578,7 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 	if uploadRes.Body != nil {
 		uploadRes.Body.Close()
 	}
-	
+
 	sendStep("Descomprimiendo archivos...")
 	// 7. Extract on daemon
 	logging.Info.Printf("Extracting files on daemon for server %s", server.Identifier)
@@ -591,11 +591,11 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 	if extractRes.Body != nil {
 		extractRes.Body.Close()
 	}
-	
+
 	sendStep("Limpiando archivos temporales...")
 	// Clean up transfer file on daemon
 	ns.CallNode(&server.Node, "DELETE", fmt.Sprintf("/daemon/server/%s/file/transfer.tar.gz", server.Identifier), nil, nil)
-	
+
 	logging.Info.Printf("Pull transfer for server %s completed successfully", server.Identifier)
 	sendStep("DONE")
 }

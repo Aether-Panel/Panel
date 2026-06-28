@@ -2,10 +2,10 @@ package sftp
 
 import (
 	"fmt"
-	"github.com/pkg/sftp"
 	"github.com/SkyPanel/SkyPanel/v3/config"
 	"github.com/SkyPanel/SkyPanel/v3/files"
 	"github.com/SkyPanel/SkyPanel/v3/logging"
+	"github.com/pkg/sftp"
 	"io"
 	"net"
 	"os"

@@ -48,7 +48,7 @@ func TestSettingsAPI(t *testing.T) {
 
 	t.Run("UpdateMultipleSettings", func(t *testing.T) {
 		response := CallAPI("POST", "/api/settings", map[string]interface{}{
-			"panel.settings.companyName": "TestCompany2",
+			"panel.settings.companyName":         "TestCompany2",
 			"panel.settings.registrationEnabled": true,
 		}, session)
 		if !assert.Equal(t, http.StatusNoContent, response.Code) {

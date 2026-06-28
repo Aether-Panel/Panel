@@ -1,9 +1,9 @@
 package email
 
 import (
-	"github.com/mailjet/mailjet-apiv3-go/v4"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/config"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
+	"github.com/mailjet/mailjet-apiv3-go/v4"
 )
 
 type mailjetProvider struct {

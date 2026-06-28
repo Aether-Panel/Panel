@@ -3,8 +3,8 @@ package connections
 import (
 	"errors"
 	"fmt"
-	"github.com/gorilla/websocket"
 	"github.com/SkyPanel/SkyPanel/v3/logging"
+	"github.com/gorilla/websocket"
 	"github.com/spf13/cast"
 	"io"
 	"net"

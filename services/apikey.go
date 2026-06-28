@@ -25,7 +25,7 @@ func (s *APIKeyService) GenerateKey(name string, permissions []string) (string, 
 
 	// Create token: ak_ + 5 hex chars prefix + _ + 43 hex chars
 	fullHex := hex.EncodeToString(randomBytes) // 48 chars
-	prefix := "ak_" + fullHex[:5] // exactly 8 chars
+	prefix := "ak_" + fullHex[:5]              // exactly 8 chars
 	token := prefix + "_" + fullHex[5:]
 
 	// Hash the token for storage

@@ -1,12 +1,12 @@
 package api
 
 import (
-	"github.com/gin-gonic/gin"
 	"github.com/SkyPanel/SkyPanel/v3/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/models"
 	"github.com/SkyPanel/SkyPanel/v3/response"
 	"github.com/SkyPanel/SkyPanel/v3/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/services"
+	"github.com/gin-gonic/gin"
 	"net/http"
 )
 

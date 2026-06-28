@@ -45,15 +45,15 @@ func init() {
 }
 
 type Flags struct {
-	GitRef            string
-	Skip              []string
-	Required          []string
-	TemplateFolder    string
-	DeleteTemp        bool
-	WorkingDir        string
-	Reuse             bool
-	Files             []string
+	GitRef         string
+	Skip           []string
+	Required       []string
+	TemplateFolder string
+	DeleteTemp     bool
+	WorkingDir     string
+	Reuse          bool
+	Files          []string
 	SkyPanelBinary string
-	Host              string
-	PrintTests        bool
+	Host           string
+	PrintTests     bool
 }

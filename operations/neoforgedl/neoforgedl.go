@@ -3,11 +3,11 @@ package neoforgedl
 import (
 	"encoding/xml"
 	"errors"
-	"github.com/hashicorp/go-version"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/files"
 	"github.com/SkyPanel/SkyPanel/v3/logging"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/SkyPanel/SkyPanel/v3/utils"
+	"github.com/hashicorp/go-version"
 	"path"
 	"strings"
 )

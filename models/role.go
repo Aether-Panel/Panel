@@ -25,7 +25,7 @@ func (r *Role) BeforeSave(*gorm.DB) error {
 	} else {
 		r.RawScopes = ""
 	}
-	
+
 	// Validar
 	err := validator.New().Struct(r)
 	if err != nil {
@@ -46,4 +46,3 @@ func (r *Role) AfterFind(*gorm.DB) error {
 	}
 	return nil
 }
-

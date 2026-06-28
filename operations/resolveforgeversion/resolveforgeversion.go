@@ -17,8 +17,8 @@
 package resolveforgeversion
 
 import (
-	"github.com/hashicorp/go-version"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
+	"github.com/hashicorp/go-version"
 	"os"
 	"path/filepath"
 	"strings"

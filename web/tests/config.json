@@ -1,14 +1,14 @@
 {
   "daemon": {
     "auth": {
-      "url": "http://127.0.0.1:43781/oauth2/token"
+      "url": "http://127.0.0.1:11339/oauth2/token"
     },
     "data": {
       "root": "."
     },
     "enable": true,
     "sftp": {
-      "host": "127.0.0.1:19471"
+      "host": "127.0.0.1:28989"
     }
   },
   "panel": {
@@ -20,11 +20,11 @@
     "settings": {
       "companyname": "TestCompany2",
       "geminiapikey": "fake-key",
-      "masterurl": "http://127.0.0.1:43781"
+      "masterurl": "http://127.0.0.1:11339"
     },
-    "token": "k9ttSwTVXpYr9eaYYcd65XC2Q6PNhJBJp0xbIhmuD1Y="
+    "token": "rJ241K23dAD3NQMQdD1NapG9vS9ZR2Z1w0Who/vAC3M="
   },
   "web": {
-    "host": "127.0.0.1:43781"
+    "host": "127.0.0.1:11339"
   }
 }

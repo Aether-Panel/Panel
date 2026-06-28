@@ -36,6 +36,9 @@ jobs:
       - name: Download Go modules
         run: go mod download
 
+      - name: Create frontend dist stub (required for go:embed)
+        run: mkdir -p client/frontend/dist
+
       - name: Run unit tests
         run: go test -v -race -coverprofile=coverage.out ./...
 
@@ -65,7 +68,8 @@ jobs:
 
       - name: Check Go formatting (gofmt)
         run: |
-          unformatted=$(gofmt -l .)
+          # Exclude the gatus vendored sub-tree and generated docs
+          unformatted=$(gofmt -l $(find . -name '*.go' -not -path './gatus/*' -not -path './docs/*' -not -path './vendor/*'))
           if [ -n "$unformatted" ]; then
             echo "The following files are not formatted correctly:"
             echo "$unformatted"
@@ -76,7 +80,7 @@ jobs:
           echo "All Go files are properly formatted."
 
       - name: Run go vet
-        run: go vet ./...
+        run: go vet $(go list ./... | grep -v '/gatus/' | grep -v '/docs')
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v6
@@ -103,6 +107,9 @@ jobs:
 
       - name: Download Go modules
         run: go mod download
+
+      - name: Create frontend dist stub (required for go:embed)
+        run: mkdir -p client/frontend/dist
 
       - name: Build binary
         run: |
