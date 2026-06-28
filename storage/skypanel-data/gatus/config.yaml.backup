@@ -1,22 +1,21 @@
-# Configuración de Gatus para SkyPanel
-# Este archivo monitorea los nodos y servidores del panel
-
-# Configuración del servidor web
-web:
-  address: "0.0.0.0"
-  port: 8081
-
-# Almacenamiento en memoria (puedes cambiar a SQLite o PostgreSQL)
-storage:
-  type: memory
-
-# Endpoints a monitorear
-# Se pueden añadir endpoints aquí o se generarán automáticamente
 endpoints:
-  - name: "Panel Principal"
-    group: "Panel SkyPanel"
-    url: "http://localhost:8080/api/config"
-    interval: 1m
-    conditions:
-      - "[STATUS] == 200"
-      - "[RESPONSE_TIME] < 3000"
+    - conditions:
+        - '[STATUS] == 200'
+        - '[RESPONSE_TIME] < 3000'
+      group: Panel SkyPanel
+      interval: 1m
+      name: Panel Principal
+      url: http://localhost:8080/api/config
+    - conditions:
+        - '[STATUS] == 200'
+        - '[BODY].message == daemon is running'
+        - '[RESPONSE_TIME] < 5000'
+      group: Nodos SkyPanel
+      interval: 1m
+      name: LocalNode
+      url: http://localhost:8080/daemon
+storage:
+    type: memory
+web:
+    address: 0.0.0.0
+    port: 8081
