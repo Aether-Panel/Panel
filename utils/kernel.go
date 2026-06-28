@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"fmt"
 	"github.com/SkyPanel/SkyPanel/v3/config"
 	"github.com/SkyPanel/SkyPanel/v3/logging"
 )

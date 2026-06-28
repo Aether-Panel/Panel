@@ -92,9 +92,7 @@ func (tc *RCONWSConnection) reconnector() {
 		tc.ready = true
 		listening := true
 		for listening {
-			var data []byte
-			//var msg rconwsMessage
-			_, data, err = conn.ReadMessage()
+			_, _, err = conn.ReadMessage()
 			if err != nil {
 				listening = false
 			}

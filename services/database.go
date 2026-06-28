@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"math/rand"
-	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3/models"
 	"github.com/go-sql-driver/mysql"

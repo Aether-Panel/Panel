@@ -11,7 +11,6 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/config"
 	"github.com/SkyPanel/SkyPanel/v3/logging"
 	"github.com/SkyPanel/SkyPanel/v3/utils"
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	mountType "github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
