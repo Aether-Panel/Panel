@@ -1,0 +1,30 @@
+{
+  "daemon": {
+    "auth": {
+      "url": "http://127.0.0.1:43781/oauth2/token"
+    },
+    "data": {
+      "root": "."
+    },
+    "enable": true,
+    "sftp": {
+      "host": "127.0.0.1:19471"
+    }
+  },
+  "panel": {
+    "database": {
+      "dialect": "sqlite3",
+      "url": "file:testing.db"
+    },
+    "enable": true,
+    "settings": {
+      "companyname": "TestCompany2",
+      "geminiapikey": "fake-key",
+      "masterurl": "http://127.0.0.1:43781"
+    },
+    "token": "k9ttSwTVXpYr9eaYYcd65XC2Q6PNhJBJp0xbIhmuD1Y="
+  },
+  "web": {
+    "host": "127.0.0.1:43781"
+  }
+}

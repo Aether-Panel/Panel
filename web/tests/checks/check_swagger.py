@@ -1,11 +1,12 @@
 import os
 import re
 
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 directories = [
-    "/home/esteban/Descargas/pufferpanel/web/api",
-    "/home/esteban/Descargas/pufferpanel/web/daemon",
-    "/home/esteban/Descargas/pufferpanel/web/auth",
-    "/home/esteban/Descargas/pufferpanel/web/oauth2"
+    os.path.join(project_root, "web", "api"),
+    os.path.join(project_root, "web", "daemon"),
+    os.path.join(project_root, "web", "auth"),
+    os.path.join(project_root, "web", "oauth2")
 ]
 
 missing = []

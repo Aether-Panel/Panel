@@ -1,6 +1,7 @@
-package main
+package tests
 
 import (
+	"testing"
 	"fmt"
 	"log"
 
@@ -9,7 +10,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/models"
 )
 
-func main() {
+func Test_DBConnection(t *testing.T) {
 	// 1. Cargar la configuración real
 	err := config.LoadConfigFile("config.json")
 	if err != nil {

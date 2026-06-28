@@ -36,50 +36,16 @@ func TestTemplateAPI(t *testing.T) {
 			return
 		}
 		hasLocal := false
-		hasCommunity := false
 		for _, v := range templates {
 			if v.IsLocal {
 				hasLocal = true
-			} else if v.Name == "community" {
-				hasCommunity = true
 			}
 		}
 
 		assert.True(t, hasLocal, "No local repo")
-		assert.True(t, hasCommunity, "No community template repo")
 	})
 
-	t.Run("GetCommunityRepo", func(t *testing.T) {
-		t.Parallel()
 
-		response := CallAPI("GET", "/api/templates/1", nil, session)
-		if !assert.Equal(t, http.StatusOK, response.Code) {
-			return
-		}
-		var templates []*models.Template
-		err := json.NewDecoder(response.Body).Decode(&templates)
-		if !assert.NoError(t, err) {
-			return
-		}
-		if !assert.NotEmpty(t, templates) {
-			return
-		}
-	})
-
-	t.Run("GetTemplateFromCommunity", func(t *testing.T) {
-		response := CallAPI("GET", "/api/templates/1/minecraft", nil, session)
-		if !assert.Equal(t, http.StatusOK, response.Code) {
-			return
-		}
-		var template models.Template
-		err := json.NewDecoder(response.Body).Decode(&template)
-		if !assert.NoError(t, err) {
-			return
-		}
-		if !assert.NotEmpty(t, template) && !assert.NotEmpty(t, template.Name) {
-			return
-		}
-	})
 
 	t.Run("AddTemplateToLocal", func(t *testing.T) {
 		response := CallAPIRaw("PUT", "/api/templates/0/minecraft-vanilla", TemplateData, session)

@@ -2,10 +2,10 @@ import os
 import re
 
 directories = [
-    "/home/esteban/Descargas/pufferpanel/web/api",
-    "/home/esteban/Descargas/pufferpanel/web/daemon",
-    "/home/esteban/Descargas/pufferpanel/web/auth",
-    "/home/esteban/Descargas/pufferpanel/web/oauth2"
+    os.path.join(os.getcwd(), "web", "api"),
+    os.path.join(os.getcwd(), "web", "daemon"),
+    os.path.join(os.getcwd(), "web", "auth"),
+    os.path.join(os.getcwd(), "web", "oauth2")
 ]
 
 missing_annotations = []

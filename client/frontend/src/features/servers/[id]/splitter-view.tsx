@@ -52,7 +52,7 @@ export default function SplitterView({ serverId }: SplitterViewProps) {
                 Crear Subservidor
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-5xl max-h-[88vh] flex flex-col">
               <CreateServerStepper 
                 forcedParentId={serverId} 
                 forcedNodeId={String(currentServerInfo?.nodeId || '')}

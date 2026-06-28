@@ -14,6 +14,10 @@ type AIAnalyzeReq struct {
 	Logs []string `json:"logs" binding:"required"`
 }
 
+func RegisterAIRoutes(rg *gin.RouterGroup) {
+	rg.POST("/analyze", analyzeServerLogs)
+}
+
 type GeminiContent struct {
 	Parts []struct {
 		Text string `json:"text"`

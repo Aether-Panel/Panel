@@ -25,6 +25,9 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	_ = os.WriteFile("config.json", []byte("{}"), 0644)
+	defer os.Remove("config.json")
+	_ = config.LoadConfigFile("config.json")
 	_ = os.Remove("testing.db")
 	var exitCode = 1
 
@@ -35,6 +38,8 @@ func TestMain(m *testing.M) {
 	//_ = config.DatabaseLoggingEnabled.Set(false, false)
 
 	_ = os.Remove("testing.db")
+	_ = os.Remove("testing.db-wal")
+	_ = os.Remove("testing.db-shm")
 	_ = os.RemoveAll("cache")
 	_ = os.RemoveAll("servers")
 	_ = os.RemoveAll("binaries")
@@ -76,6 +81,8 @@ func TestMain(m *testing.M) {
 		RemoteNode.SFTPPort = models.LocalNode.SFTPPort
 		_ = config.SftpHost.Set(fmt.Sprintf("%s:%d", models.LocalNode.PrivateHost, models.LocalNode.SFTPPort), false)
 		_ = config.AuthUrl.Set(fmt.Sprintf("http://%s:%d/oauth2/token", models.LocalNode.PrivateHost, models.LocalNode.PrivatePort), false)
+		_ = config.MasterUrl.Set(fmt.Sprintf("http://%s:%d", models.LocalNode.PrivateHost, models.LocalNode.PrivatePort), false)
+		_ = config.WebHost.Set(fmt.Sprintf("%s:%d", models.LocalNode.PrivateHost, models.LocalNode.PrivatePort), false)
 
 		l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", models.LocalNode.PrivateHost, models.LocalNode.PrivatePort))
 		if err != nil {

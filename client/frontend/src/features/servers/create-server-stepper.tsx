@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, ChevronRight, ChevronLeft, Check, Server as ServerIcon, Code, Puzzle, Bot, Globe, Shield, X, ShieldAlert } from 'lucide-react';
+import { Loader2, ChevronRight, ChevronLeft, Check, Server as ServerIcon, Code, Puzzle, Bot, Globe, Shield, X, ShieldAlert, ChevronDown } from 'lucide-react';
 import { useNodes } from '@/hooks/use-dashboard-data';
 import { useUsers } from '@/hooks/use-users';
 import { useTemplates, type TemplateRepo } from '@/hooks/use-templates';
@@ -457,193 +457,110 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
                                                 {templateError}
                                             </div>
                                         )}
-                                        {selectedTemplateName && templateDetails && (
-                                            <div className="flex items-center gap-2 text-xs text-green-600 mt-2 p-2 bg-green-50 rounded-lg border border-green-200">
-                                                <Check className="h-3 w-3 shrink-0" />
-                                                Plantilla <strong>{selectedTemplateName}</strong> cargada. Pulsa Siguiente para configurar.
-                                            </div>
-                                        )}
                                     </div>
                                 )}
                             </div>
                         )}
 
                         {currentStep === 3 && (
-                            <div className="w-full max-w-full overflow-x-hidden">
+                            <div className="w-full">
                                 {templateError ? (
-                                    <div className="flex flex-col items-center justify-center p-12 text-center bg-red-500/5 rounded-xl border border-red-500/20">
-                                        <ShieldAlert className="h-12 w-12 text-red-500 mb-4" />
-                                        <p className="font-bold text-lg text-red-700">Error de Plantilla</p>
-                                        <p className="text-sm text-red-600 mt-2 max-w-sm">{templateError}</p>
-                                        <Button variant="outline" className="mt-6 border-red-200 hover:bg-red-50 text-red-700" onClick={() => setCurrentStep(2)}>
+                                    <div className="flex flex-col items-center justify-center p-8 text-center bg-red-500/5 rounded-xl border border-red-500/20">
+                                        <ShieldAlert className="h-10 w-10 text-red-500 mb-3" />
+                                        <p className="font-bold text-red-700">Error de Plantilla</p>
+                                        <p className="text-sm text-red-600 mt-1">{templateError}</p>
+                                        <Button variant="outline" size="sm" className="mt-4" onClick={() => setCurrentStep(2)}>
                                             <ChevronLeft className="mr-2 h-4 w-4" />
-                                            Seleccionar otra plantilla
+                                            Volver
                                         </Button>
                                     </div>
                                 ) : templateDetails ? (
-                                    <div className="flex flex-col w-full max-w-full overflow-x-hidden gap-4">
-                                        <div className="bg-primary/5 p-3 rounded-lg flex items-start gap-2 border border-primary/10 w-full">
-                                            <div className="bg-primary/20 p-1.5 rounded shrink-0">
-                                                <Code className="h-4 w-4 text-primary" />
-                                            </div>
-                                            <div className="min-w-0 flex-1">
-                                                <h4 className="font-bold text-sm leading-none truncate"><SafeValue v={templateDetails.display || templateDetails.name} /></h4>
-                                                <p className="text-[10px] text-muted-foreground line-clamp-1">
-                                                    <SafeValue v={templateDetails.readme} fallback="Configure los parámetros." />
-                                                </p>
-                                            </div>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                                        {/* Resource fields always first */}
+                                        <div className="flex flex-col gap-1">
+                                            <Label className="text-xs font-semibold">CPU <span className="font-normal text-muted-foreground">(%)</span></Label>
+                                            <Input type="number" value={cpuLimit} onChange={(e) => setCpuLimit(e.target.value === '' ? '' : Number(e.target.value))} className="h-8 bg-background/50 text-sm" />
+                                        </div>
+                                        <div className="flex flex-col gap-1">
+                                            <Label className="text-xs font-semibold">RAM <span className="font-normal text-muted-foreground">(MB)</span></Label>
+                                            <Input type="number" value={memoryLimit} onChange={(e) => setMemoryLimit(e.target.value === '' ? '' : Number(e.target.value))} className="h-8 bg-background/50 text-sm" />
+                                        </div>
+                                        <div className="flex flex-col gap-1">
+                                            <Label className="text-xs font-semibold">Disco <span className="font-normal text-muted-foreground">(MB)</span></Label>
+                                            <Input type="number" value={diskLimit} onChange={(e) => setDiskLimit(e.target.value === '' ? '' : Number(e.target.value))} className="h-8 bg-background/50 text-sm" />
                                         </div>
 
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full">
-                                            {(() => {
-                                                try {
-                                                    const variables = (templateDetails.data || templateDetails.variables || templateDetails.Variables || {}) as Record<string, any>;
-                                                    const entries = Object.entries(variables).filter(([key, v]) => v && !v.internal && !['cpu', 'memory', 'disk'].includes(key));
+                                        {/* Divider spanning full width */}
+                                        <div className="col-span-full border-t border-border/50 my-1" />
 
-                                                    const resourceSection = (
-                                                        <>
-                                                            <div className="col-span-full pt-2 pb-1 border-b border-primary/10">
-                                                                <h4 className="text-sm font-bold text-primary flex items-center gap-2"><ServerIcon className="h-4 w-4" /> Límites de Recursos</h4>
-                                                                <p className="text-xs text-muted-foreground mt-0.5">Estos límites se aplicarán de forma estricta a nivel de contenedor Docker.</p>
-                                                            </div>
-                                                            <div className="flex flex-col gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                                                <Label className="text-xs font-semibold text-foreground/80 break-words">CPU Asignada (Hilos)</Label>
-                                                                <div className="relative">
-                                                                    <Input type="number" value={cpuLimit} onChange={(e) => setCpuLimit(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-background/50 h-9" />
-                                                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">% (100% = 1 hilo)</span>
-                                                                </div>
-                                                                <p className="text-[10px] text-muted-foreground">Cantidad de procesador que el servidor puede utilizar.</p>
-                                                            </div>
-                                                            <div className="flex flex-col gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                                                <Label className="text-xs font-semibold text-foreground/80 break-words">Memoria RAM</Label>
-                                                                <div className="relative">
-                                                                    <Input type="number" value={memoryLimit} onChange={(e) => setMemoryLimit(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-background/50 h-9" />
-                                                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">MB</span>
-                                                                </div>
-                                                                <p className="text-[10px] text-muted-foreground">Límite estricto de memoria asignada al contenedor.</p>
-                                                            </div>
-                                                            <div className="flex flex-col gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                                                <Label className="text-xs font-semibold text-foreground/80 break-words">Espacio en Disco</Label>
-                                                                <div className="relative">
-                                                                    <Input type="number" value={diskLimit} onChange={(e) => setDiskLimit(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-background/50 h-9" />
-                                                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">MB</span>
-                                                                </div>
-                                                                <p className="text-[10px] text-muted-foreground">Límite de almacenamiento (10240 = 10 GB).</p>
-                                                            </div>
-                                                            
-                                                            {entries.length > 0 && (
-                                                                <div className="col-span-full pt-4 pb-1 border-b border-primary/10 mt-2">
-                                                                    <h4 className="text-sm font-bold text-primary flex items-center gap-2"><Puzzle className="h-4 w-4" /> Configuración de la Plantilla</h4>
-                                                                    <p className="text-xs text-muted-foreground mt-0.5">Parámetros específicos para la ejecución de este tipo de servidor.</p>
-                                                                </div>
-                                                            )}
-                                                        </>
-                                                    );
+                                        {/* All template variables inline */}
+                                        {(() => {
+                                            try {
+                                                const variables = (templateDetails.data || templateDetails.variables || templateDetails.Variables || {}) as Record<string, any>;
+                                                const entries = Object.entries(variables).filter(([key, v]) => v && !v.internal && !['cpu', 'memory', 'disk'].includes(key));
 
-                                                    if (entries.length === 0) {
+                                                return entries.map(([key, variable]: [string, any], idx: number) => {
+                                                    try {
+                                                        if (!variable || typeof variable !== 'object') return null;
+                                                        const currentVal = configData[key] !== undefined ? configData[key] : "";
+                                                        const stringifiedVal = (typeof currentVal === 'object' && currentVal !== null)
+                                                            ? JSON.stringify(currentVal)
+                                                            : String(currentVal ?? "");
+
+                                                        const label = variable.display || key;
+                                                        const isWide = (label.toLowerCase().includes('motd') || label.toLowerCase().includes('arguments') || label.toLowerCase().includes('command'));
+
                                                         return (
-                                                            <>
-                                                                {resourceSection}
-                                                                <div className="col-span-full py-6 text-center rounded-xl border-muted-foreground/20">
-                                                                    <p className="text-xs text-muted-foreground italic">Esta plantilla no requiere configuración adicional.</p>
-                                                                </div>
-                                                            </>
-                                                        );
-                                                    }
-
-                                                    return (
-                                                        <>
-                                                            {resourceSection}
-                                                            {entries.map(([key, variable]: [string, any], idx: number) => {
-                                                        try {
-                                                            if (!variable || typeof variable !== 'object') return null;
-
-                                                            const currentVal = configData[key] !== undefined ? configData[key] : "";
-                                                            const stringifiedVal = (typeof currentVal === 'object' && currentVal !== null)
-                                                                ? JSON.stringify(currentVal)
-                                                                : String(currentVal ?? "");
-
-                                                            const fieldNeedsTwoCols = variable.type === 'string' && variable.options?.length === 0 && 
-                ((variable.display || key).toLowerCase().includes('arguments') || 
-                 (variable.display || key).toLowerCase().includes('motd') ||
-                 (variable.display || key).toLowerCase().includes('command') ||
-                 (variable.desc && variable.desc.length > 50));
-
-                                                            return (
-                                                                <div key={key + idx} className={`flex flex-col gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-300 ${fieldNeedsTwoCols ? 'sm:col-span-2' : ''}`} style={{ animationDelay: `${idx * 30}ms` }}>
-                                                                    <div className="flex flex-wrap justify-between items-center gap-1">
-                                                                        <Label className="text-xs font-semibold text-foreground/80 group-hover:text-primary transition-colors break-words">
-                                                                            <SafeValue v={variable.display || key} />
-                                                                            {variable.required && <span className="text-red-500 ml-0.5 font-bold">*</span>}
-                                                                        </Label>
-                                                                        <Badge variant="secondary" className="text-[9px] uppercase tracking-wider font-bold h-4 px-1 opacity-70 shrink-0">
-                                                                            <SafeValue v={variable.type} fallback="str" />
-                                                                        </Badge>
-                                                                    </div>
-
-                                                                    {Array.isArray(variable.options) && variable.options.length > 0 ? (
-                                                                        <Select
-                                                                            value={stringifiedVal === "" ? "_EMPTY_VALUE_" : stringifiedVal}
-                                                                            onValueChange={(val) => setConfigData(prev => ({ ...prev, [key]: val === "_EMPTY_VALUE_" ? "" : val }))}
-                                                                        >
-                                                                            <SelectTrigger className="w-full bg-background/50 border-muted-foreground/20 hover:border-primary/50 transition-all h-9">
-                                                                                <SelectValue />
-                                                                            </SelectTrigger>
-<SelectContent className="max-h-80 overflow-y-auto z-[100]">
-                                                                                {variable.options.map((opt: any, oIdx: number) => {
-                                                                                    if (!opt) return null;
-                                                                                    const rawOptVal = opt.value !== undefined ? opt.value : (typeof opt === 'string' ? opt : "");
-                                                                                    const optVal = rawOptVal === "" ? "_EMPTY_VALUE_" : String(rawOptVal);
-                                                                                    return (
-                                                                                        <SelectItem key={oIdx} value={optVal}>
-                                                                                            <SafeValue v={opt.display || (rawOptVal === "" ? "Ninguno" : rawOptVal)} />
-                                                                                        </SelectItem>
-                                                                                    );
-                                                                                })}
-                                                                            </SelectContent>
-                                                                        </Select>
-                                                                    ) : variable.type === 'boolean' ? (
-                                                                        <div className="flex items-center gap-2 py-2 px-3 rounded-lg border border-muted-foreground/20 bg-background/30 hover:bg-background/50 transition-colors cursor-pointer w-full" onClick={() => setConfigData(prev => ({ ...prev, [key]: !currentVal }))}>
-                                                                            <div className={`h-4 w-4 rounded border transition-colors flex items-center justify-center shrink-0 ${currentVal ? 'bg-primary border-primary' : 'border-muted-foreground/30 bg-transparent'}`}>
-                                                                                {currentVal && <Check className="h-3 w-3 text-primary-foreground stroke-[3px]" />}
-                                                                            </div>
-                                                                            <span className="text-xs font-medium select-none">Habilitar</span>
+                                                            <div key={key + idx} className={`flex flex-col gap-1 ${isWide ? 'col-span-2' : ''}`}>
+                                                                <Label className="text-xs font-semibold truncate" title={label}>
+                                                                    <SafeValue v={label} />
+                                                                    {variable.required && <span className="text-red-500 ml-0.5">*</span>}
+                                                                </Label>
+                                                                {Array.isArray(variable.options) && variable.options.length > 0 ? (
+                                                                    <Select
+                                                                        value={stringifiedVal === "" ? "_EMPTY_VALUE_" : stringifiedVal}
+                                                                        onValueChange={(val) => setConfigData(prev => ({ ...prev, [key]: val === "_EMPTY_VALUE_" ? "" : val }))}
+                                                                    >
+                                                                        <SelectTrigger className="h-8 bg-background/50 text-sm">
+                                                                            <SelectValue />
+                                                                        </SelectTrigger>
+                                                                        <SelectContent className="max-h-60 z-[100]">
+                                                                            {variable.options.map((opt: any, oIdx: number) => {
+                                                                                if (!opt) return null;
+                                                                                const rawOptVal = opt.value !== undefined ? opt.value : (typeof opt === 'string' ? opt : "");
+                                                                                const optVal = rawOptVal === "" ? "_EMPTY_VALUE_" : String(rawOptVal);
+                                                                                return (
+                                                                                    <SelectItem key={oIdx} value={optVal}>
+                                                                                        <SafeValue v={opt.display || (rawOptVal === "" ? "Ninguno" : rawOptVal)} />
+                                                                                    </SelectItem>
+                                                                                );
+                                                                            })}
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                ) : variable.type === 'boolean' ? (
+                                                                    <div
+                                                                        className="flex items-center gap-2 px-3 rounded-lg border bg-background/30 cursor-pointer h-8"
+                                                                        onClick={() => setConfigData(prev => ({ ...prev, [key]: !currentVal }))}
+                                                                    >
+                                                                        <div className={`h-3.5 w-3.5 rounded border shrink-0 flex items-center justify-center ${currentVal ? 'bg-primary border-primary' : 'border-muted-foreground/40'}`}>
+                                                                            {currentVal && <Check className="h-2.5 w-2.5 text-primary-foreground stroke-[3px]" />}
                                                                         </div>
-                                                                    ) : (
-                                                                        <Input
-                                                                            id={key}
-                                                                            type={variable.type === 'integer' ? 'number' : 'text'}
-                                                                            value={stringifiedVal}
-                                                                            onChange={(e) => setConfigData(prev => ({ ...prev, [key]: variable.type === 'integer' ? Number(e.target.value) : e.target.value }))}
-                                                                            className="w-full bg-background/50 border-muted-foreground/20 hover:border-primary/50 focus-visible:ring-primary/20 transition-all h-9"
-                                                                        />
-                                                                    )}
-                                                                    {variable.desc && (
-                                                                        <p className="text-[10px] text-muted-foreground leading-snug break-words">
-                                                                            <SafeValue v={variable.desc} />
-                                                                        </p>
-                                                                    )}
-                                                                </div>
-                                                            );
-                                                        } catch (err) {
-                                                            console.error("Error rendering variable:", key, err);
-                                                            return null;
-                                                        }
-                                                    })}
-                                                    </>
-                                                );
-                                                } catch (e) {
-                                                    console.error("Critical rendering error in Step 3:", e);
-                                                    return (
-                                                        <div className="col-span-full py-8 text-center text-red-500 bg-red-50 rounded-xl border border-red-100 flex flex-col items-center">
-                                                            <ShieldAlert className="h-8 w-8 mb-2" />
-                                                            <p className="font-bold">Error al procesar los campos de la plantilla</p>
-                                                            <p className="text-xs opacity-80 mt-1">La estructura de esta plantilla no es compatible con el panel actual.</p>
-                                                        </div>
-                                                    );
-                                                }
-                                            })()}
-                                        </div>
+                                                                        <span className="text-xs select-none">Habilitar</span>
+                                                                    </div>
+                                                                ) : (
+                                                                    <Input
+                                                                        type={variable.type === 'integer' ? 'number' : 'text'}
+                                                                        value={stringifiedVal}
+                                                                        onChange={(e) => setConfigData(prev => ({ ...prev, [key]: variable.type === 'integer' ? Number(e.target.value) : e.target.value }))}
+                                                                        className="h-8 bg-background/50 text-sm"
+                                                                    />
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    } catch { return null; }
+                                                });
+                                            } catch { return null; }
+                                        })()}
                                     </div>
                                 ) : (
                                     <div className="flex flex-col items-center justify-center p-20 text-center space-y-4">

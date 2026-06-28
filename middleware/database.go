@@ -58,8 +58,8 @@ func HasTransaction(c *gin.Context) {
 
 		c.Next()
 
-		if c.Errors != nil {
-			logging.Error.Printf("Error: %s", c.Errors)
+		if c.Errors != nil && len(c.Errors) > 0 {
+			logging.Error.Printf("Transaction rollback due to c.Errors: %+v", c.Errors)
 			return errors.New("error in transaction")
 		} else if c.Writer.Status() >= 400 {
 			return fmt.Errorf("bad status code %d", c.Writer.Status())

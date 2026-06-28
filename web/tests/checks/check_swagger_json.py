@@ -1,6 +1,8 @@
 import json
+import os
 
-with open('/home/esteban/Descargas/pufferpanel/web/swagger/swagger.json', 'r') as f:
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+with open(os.path.join(project_root, 'web', 'swagger', 'swagger.json'), 'r') as f:
     data = json.load(f)
 
 endpoints_count = 0

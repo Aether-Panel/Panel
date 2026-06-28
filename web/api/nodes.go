@@ -129,7 +129,7 @@ func createNode(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, create)
+	c.JSON(http.StatusOK, models.FromNode(create))
 }
 
 // @Summary Update node

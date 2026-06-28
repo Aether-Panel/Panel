@@ -50,7 +50,7 @@ func TestUserView_Valid(t *testing.T) {
 		{
 			name: "test invalid username",
 			fields: fields{
-				Username: "test & invalid",
+				Username: "test\x00invalid",
 				Email:    "",
 				Password: "",
 			},

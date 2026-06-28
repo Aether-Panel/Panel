@@ -52,8 +52,8 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
     };
 
     return (
-            <SidebarProvider collapsible="icon">
-            <Sidebar collapsible="icon">
+        <SidebarProvider>
+            <Sidebar collapsible="offcanvas">
                 <SidebarHeader className="border-b border-sidebar-border/50 pb-4">
                     <Logo />
                 </SidebarHeader>
@@ -78,24 +78,23 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
                     </SidebarMenu>
                 </SidebarContent>
                 <SidebarFooter className="border-t border-sidebar-border/50 pt-2 space-y-1">
-                    <SidebarTrigger className="w-full justify-center rounded-lg hover:bg-sidebar-accent data-[state=open]:hover:bg-sidebar-accent [&_svg]:size-5" />
                     <DropdownMenu>
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" className="h-12 w-full justify-start gap-2 px-2 rounded-lg hover:bg-sidebar-accent transition-all duration-200 group-data-[state=collapsed]:justify-center group-data-[state=collapsed]:px-0">
+                                    <Button variant="ghost" className="h-12 w-full justify-start gap-2 px-2 rounded-lg hover:bg-sidebar-accent transition-all duration-200">
                                         <Avatar className="h-8 w-8 ring-2 ring-sidebar-border">
                                             <AvatarImage src={`https://avatar.vercel.sh/${user?.email}`} alt={user?.username} />
                                             <AvatarFallback>{user?.username?.charAt(0)}</AvatarFallback>
                                         </Avatar>
-                                        <div className="flex-1 min-w-0 flex-col items-start overflow-hidden group-data-[state=collapsed]:hidden flex">
+                                        <div className="flex-1 min-w-0 flex-col items-start overflow-hidden flex">
                                             <span className="w-full truncate font-medium text-sm">{user?.username}</span>
                                             <span className="w-full truncate text-xs text-muted-foreground">{user?.email}</span>
                                         </div>
                                     </Button>
                                 </DropdownMenuTrigger>
                             </TooltipTrigger>
-                            <TooltipContent side="right" align="center" className="hidden group-data-[state=collapsed]:block">
+                            <TooltipContent side="right" align="center">
                                 <div className="text-left">
                                     <p className="font-medium">{user?.username}</p>
                                     <p className="text-xs text-muted-foreground">{user?.email}</p>
@@ -127,10 +126,18 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
                 <SidebarRail />
             </Sidebar>
 
-            <SidebarInset className="p-4 md:p-6 lg:p-8">
-                <main className="animate-in fade-in duration-500 space-y-6">
-                    {children}
-                </main>
+            <SidebarInset>
+                {/* Mobile top bar with menu button — desktop hidden */}
+                <header className="flex h-12 items-center gap-3 border-b border-border/50 bg-background/95 backdrop-blur px-4 sticky top-0 z-40 md:hidden">
+                    <SidebarTrigger className="h-8 w-8" />
+                    <span className="text-sm font-medium text-muted-foreground">Menú</span>
+                </header>
+
+                <div className="p-4 md:p-6 lg:p-8">
+                    <main className="animate-in fade-in duration-500 space-y-6">
+                        {children}
+                    </main>
+                </div>
             </SidebarInset>
         </SidebarProvider>
     );
