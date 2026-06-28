@@ -63,3 +63,6 @@ skypanel.db
 
 #Modules whmcs and paymenter
 integrations/
+# Python caches
+__pycache__/
+*.pyc
