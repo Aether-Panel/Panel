@@ -47,6 +47,55 @@ data/servers/
 dev-data/
 
 # Scripts shell (ignorar todos los .sh)
+*.exe
+*.test
+*.prof
+.idea/
+*.iml
+*.pem
+.DS_Store
+
+logs/
+vendor/
+client/node_modules/
+.vs/
+www/
+
+operations/spongedl/cache/
+operations/spongedl/mods/
+operations/spongedl/*.jar
+
+favicon.ico
+.dotnet/
+.wix/
+/SkyPanel.msi
+/SkyPanel.wixpdb
+
+# Binarios y archivos grandes
+binaries/
+SkyPanel
+SkyPanel
+skypanel
+*.jar
+*.zip
+*.so
+cache/
+client-v1.zip
+client.zip
+servers/*/bedrock_server
+servers/*/*.jar
+servers/*/bedrock-server-*.zip
+data/servers/*/bedrock_server
+data/servers/*/*.jar
+data/servers/*/bedrock-server-*.zip
+*.mca
+/servers/
+data/servers/
+
+# Datos de desarrollo local (Docker)
+dev-data/
+
+# Scripts shell (ignorar todos los .sh)
 *.sh
 
 # Keys and private data
@@ -54,9 +103,9 @@ data/sftp.key
 skypanel.db
 
 # Docker-compose generated volumes
-/storage/
-/storage2/
-/storage3/
+internal/storage/
+internal/storage2/
+internal/storage3/
 
 # templates
 /templates/
