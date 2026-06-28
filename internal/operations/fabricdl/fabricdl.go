@@ -38,7 +38,7 @@ func (f *Fabricdl) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
 		return SkyPanel.OperationResult{Error: err}
 	}
 
-	file, err := SkyPanel.DownloadViaMaven(metadata[0].Url, env)
+	file, err := SkyPanel.DownloadViaMaven(metadata[0].URL, env)
 	defer utils.Close(file)
 	if err != nil {
 		return SkyPanel.OperationResult{Error: err}

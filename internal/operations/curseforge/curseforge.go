@@ -207,7 +207,7 @@ func (c CurseForge) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult 
 					if !strings.HasPrefix(version, mcVersion) {
 						version = mcVersion + "-" + version
 					}
-					downloadUrl = replaceTokens(forgedl.InstallerUrl, map[string]string{"version": version})
+					downloadUrl = replaceTokens(forgedl.InstallerURL, map[string]string{"version": version})
 				}
 
 				dl, err := SkyPanel.DownloadViaMaven(downloadUrl, env)
