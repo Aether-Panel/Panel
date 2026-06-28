@@ -150,11 +150,11 @@ jobs:
         with:
           python-version: "3.11"
           cache: "pip"
-          cache-dependency-path: web/tests/python_e2e/requirements.txt
+          cache-dependency-path: test/e2e/requirements.txt
 
       - name: Install Python dependencies
         run: |
-          pip install -r web/tests/python_e2e/requirements.txt
+          pip install -r test/e2e/requirements.txt
 
       - name: Run Python E2E tests
         run: |
