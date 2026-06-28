@@ -66,3 +66,7 @@ integrations/
 # Python caches
 __pycache__/
 *.pyc
+
+# IDE and Deps
+.vscode/
+node_modules/
