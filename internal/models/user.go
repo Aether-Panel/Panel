@@ -19,7 +19,7 @@ type User struct {
 
 	RoleID      *uint         `gorm:"column:role_id;index" json:"-"`
 	Role        Role          `gorm:"ASSOCIATION_SAVE_REFERENCE:false" json:"-" validate:"-"`
-	Permissions []Permissions `gorm:"foreignKey:UserId" json:"-"`
+	Permissions []Permissions `gorm:"foreignKey:UserID" json:"-"`
 
 	CreatedAt time.Time `json:"-"`
 	UpdatedAt time.Time `json:"-"`

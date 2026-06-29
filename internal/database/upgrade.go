@@ -302,7 +302,7 @@ var migrations = [][]*gormigrate.Migration{
 					ID uint `gorm:"primaryKey,autoIncrement" json:"-"`
 
 					//owners of this permission set
-					UserId *uint `json:"-"`
+					UserID *uint `json:"-"`
 
 					ClientID *uint `json:"-"`
 
