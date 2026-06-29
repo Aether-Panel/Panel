@@ -186,7 +186,7 @@ func putTemplate(c *gin.Context) {
 		return
 	}
 
-	template, err := ts.Get(ts.GetLocalRepoId(), templateName)
+	template, err := ts.Get(ts.GetLocalRepoID(), templateName)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		template = &models.Template{
 			Name: templateName,
