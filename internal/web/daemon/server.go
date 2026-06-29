@@ -801,7 +801,7 @@ func getStats(c *gin.Context) {
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
-	c.Status(http.StatusNoContent)
+	c.JSON(http.StatusOK, results)
 }
 
 // @Summary Get logs

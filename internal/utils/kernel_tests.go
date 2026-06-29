@@ -59,7 +59,7 @@ func testOpenat2() bool {
 				break
 			}
 		}
-	} else {
+	default:
 		panic(fmt.Errorf("Could not open /proc/kallsyms to validate kernel support\n%s", err.Error()))
 	}
 	return useOpenat2
