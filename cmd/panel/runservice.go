@@ -16,7 +16,7 @@ var runServiceCmd = &cobra.Command{
 const NotifyReady = "READY=1"
 const NotifyShutdown = "STOPPING=1"
 
-func executeRunService(cmd *cobra.Command, args []string) {
+func executeRunService(_ *cobra.Command, args []string) {
 	term, success := internalRun()
 
 	if !success || term == nil {

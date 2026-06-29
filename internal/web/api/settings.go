@@ -382,17 +382,17 @@ func activateLicense(c *gin.Context) {
 	}
 
 	// Obtener identificador del servidor y IP
-	serverId := config.LicenseServerID.Value()
+	serverID := config.LicenseServerID.Value()
 	serverIP := config.LicenseServerIP.Value()
 
-	// Si no tenemos serverId o serverIP guardados, generarlos
-	if serverId == "" {
+	// Si no tenemos serverID o serverIP guardados, generarlos
+	if serverID == "" {
 		hostname, err := os.Hostname()
 		if err != nil {
 			hostname = "unknown"
 		}
-		serverId = hostname
-		_ = config.LicenseServerID.Set(serverId, true)
+		serverID = hostname
+		_ = config.LicenseServerID.Set(serverID, true)
 	}
 
 	if serverIP == "" {
@@ -407,7 +407,7 @@ func activateLicense(c *gin.Context) {
 	}
 
 	// Vincular la licencia con el servidor (POST)
-	bindResp, err := licenseService.BindLicense(licenseKey, serverId, serverIP)
+	bindResp, err := licenseService.BindLicense(licenseKey, serverID, serverIP)
 	if err != nil {
 		logging.Error.Printf("Error binding license: %s", err.Error())
 		// Aun si falla el bind, guardamos la licencia como válida

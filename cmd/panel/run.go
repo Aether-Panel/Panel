@@ -130,17 +130,17 @@ func internalRun() (terminate chan bool, success bool) {
 		}
 
 		sameSite := config.PanelWebCookiesSameSite.Value()
-		var sameSiteId http.SameSite
+		var sameSiteID http.SameSite
 
 		switch sameSite {
 		case "Strict":
-			sameSiteId = http.SameSiteStrictMode
+			sameSiteID = http.SameSiteStrictMode
 		case "None":
-			sameSiteId = http.SameSiteNoneMode
+			sameSiteID = http.SameSiteNoneMode
 		case "Lax":
-			sameSiteId = http.SameSiteLaxMode
+			sameSiteID = http.SameSiteLaxMode
 		default:
-			sameSiteId = http.SameSiteStrictMode
+			sameSiteID = http.SameSiteStrictMode
 		}
 
 		sessionStore := cookie.NewStore(result)
@@ -150,7 +150,7 @@ func internalRun() (terminate chan bool, success bool) {
 			MaxAge:   config.PanelWebCookiesAge.Value(),
 			Secure:   config.PanelWebCookiesSecure.Value(),
 			HttpOnly: config.PanelWebCookiesHTTPOnly.Value(),
-			SameSite: sameSiteId,
+			SameSite: sameSiteID,
 		})
 		router.Use(sessions.Sessions("session", sessionStore))
 

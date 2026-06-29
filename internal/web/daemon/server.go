@@ -39,88 +39,88 @@ var wsupgrader = websocket.Upgrader{
 func RegisterServerRoutes(e *gin.RouterGroup) {
 	l := e.Group("/server", middleware.ValidateJWT)
 	{
-		l.PUT("/:serverId", createServer)
-		l.DELETE("/:serverId", middleware.ResolveServerNode, deleteServer)
-		l.OPTIONS("/:serverId", response.CreateOptions("PUT", "DELETE", "GET"))
+		l.PUT("/:serverID", createServer)
+		l.DELETE("/:serverID", middleware.ResolveServerNode, deleteServer)
+		l.OPTIONS("/:serverID", response.CreateOptions("PUT", "DELETE", "GET"))
 
-		l.GET("/:serverId/definition", middleware.ResolveServerNode, getServerAdmin)
-		l.PUT("/:serverId/definition", middleware.ResolveServerNode, editServerAdmin)
-		l.OPTIONS("/:serverId/definition", response.CreateOptions("PUT", "DELETE", "GET"))
+		l.GET("/:serverID/definition", middleware.ResolveServerNode, getServerAdmin)
+		l.PUT("/:serverID/definition", middleware.ResolveServerNode, editServerAdmin)
+		l.OPTIONS("/:serverID/definition", response.CreateOptions("PUT", "DELETE", "GET"))
 
-		l.GET("/:serverId/data", middleware.ResolveServerNode, getServerData)
-		l.POST("/:serverId/data", middleware.ResolveServerNode, editServerData)
-		l.PUT("/:serverId/data", middleware.ResolveServerNode, editServerDataAdmin)
-		l.OPTIONS("/:serverId/data", response.CreateOptions("GET", "POST", "PUT"))
+		l.GET("/:serverID/data", middleware.ResolveServerNode, getServerData)
+		l.POST("/:serverID/data", middleware.ResolveServerNode, editServerData)
+		l.PUT("/:serverID/data", middleware.ResolveServerNode, editServerDataAdmin)
+		l.OPTIONS("/:serverID/data", response.CreateOptions("GET", "POST", "PUT"))
 
-		l.GET("/:serverId/tasks", middleware.ResolveServerNode, getServerTasks)
-		l.OPTIONS("/:serverId/tasks", response.CreateOptions("GET"))
+		l.GET("/:serverID/tasks", middleware.ResolveServerNode, getServerTasks)
+		l.OPTIONS("/:serverID/tasks", response.CreateOptions("GET"))
 
-		l.GET("/:serverId/tasks/:taskID", middleware.ResolveServerNode, getServerTask)
-		l.PUT("/:serverId/tasks/:taskID", middleware.ResolveServerNode, editServerTask)
-		l.DELETE("/:serverId/tasks/:taskID", middleware.ResolveServerNode, deleteServerTask)
-		l.OPTIONS("/:serverId/tasks/:taskID", response.CreateOptions("GET", "PUT", "DELETE"))
+		l.GET("/:serverID/tasks/:taskID", middleware.ResolveServerNode, getServerTask)
+		l.PUT("/:serverID/tasks/:taskID", middleware.ResolveServerNode, editServerTask)
+		l.DELETE("/:serverID/tasks/:taskID", middleware.ResolveServerNode, deleteServerTask)
+		l.OPTIONS("/:serverID/tasks/:taskID", response.CreateOptions("GET", "PUT", "DELETE"))
 
-		l.POST("/:serverId/tasks/:taskID/run", middleware.ResolveServerNode, runServerTask)
-		l.OPTIONS("/:serverId/tasks/:taskID/run", response.CreateOptions("POST"))
+		l.POST("/:serverID/tasks/:taskID/run", middleware.ResolveServerNode, runServerTask)
+		l.OPTIONS("/:serverID/tasks/:taskID/run", response.CreateOptions("POST"))
 
-		l.POST("/:serverId/reload", middleware.ResolveServerNode, reloadServer)
-		l.OPTIONS("/:serverId/reload", response.CreateOptions("POST"))
+		l.POST("/:serverID/reload", middleware.ResolveServerNode, reloadServer)
+		l.OPTIONS("/:serverID/reload", response.CreateOptions("POST"))
 
-		l.POST("/:serverId/start", middleware.ResolveServerNode, startServer)
-		l.OPTIONS("/:serverId/start", response.CreateOptions("POST"))
+		l.POST("/:serverID/start", middleware.ResolveServerNode, startServer)
+		l.OPTIONS("/:serverID/start", response.CreateOptions("POST"))
 
-		l.POST("/:serverId/restart", middleware.ResolveServerNode, restartServer)
-		l.OPTIONS("/:serverId/restart", response.CreateOptions("POST"))
+		l.POST("/:serverID/restart", middleware.ResolveServerNode, restartServer)
+		l.OPTIONS("/:serverID/restart", response.CreateOptions("POST"))
 
-		l.POST("/:serverId/stop", middleware.ResolveServerNode, stopServer)
-		l.OPTIONS("/:serverId/stop", response.CreateOptions("POST"))
+		l.POST("/:serverID/stop", middleware.ResolveServerNode, stopServer)
+		l.OPTIONS("/:serverID/stop", response.CreateOptions("POST"))
 
-		l.POST("/:serverId/kill", middleware.ResolveServerNode, killServer)
-		l.OPTIONS("/:serverId/kill", response.CreateOptions("POST"))
+		l.POST("/:serverID/kill", middleware.ResolveServerNode, killServer)
+		l.OPTIONS("/:serverID/kill", response.CreateOptions("POST"))
 
-		l.POST("/:serverId/install", middleware.ResolveServerNode, installServer)
-		l.OPTIONS("/:serverId/install", response.CreateOptions("POST"))
+		l.POST("/:serverID/install", middleware.ResolveServerNode, installServer)
+		l.OPTIONS("/:serverID/install", response.CreateOptions("POST"))
 
-		l.GET("/:serverId/file/*filename", middleware.ResolveServerNode, getFile)
-		l.PUT("/:serverId/file/*filename", middleware.ResolveServerNode, putFile)
-		l.DELETE("/:serverId/file/*filename", middleware.ResolveServerNode, deleteFile)
-		l.POST("/:serverId/file/*filename", middleware.ResolveServerNode, response.NotImplemented)
-		l.OPTIONS("/:serverId/file/*filename", response.CreateOptions("GET", "PUT", "DELETE", "POST"))
+		l.GET("/:serverID/file/*filename", middleware.ResolveServerNode, getFile)
+		l.PUT("/:serverID/file/*filename", middleware.ResolveServerNode, putFile)
+		l.DELETE("/:serverID/file/*filename", middleware.ResolveServerNode, deleteFile)
+		l.POST("/:serverID/file/*filename", middleware.ResolveServerNode, response.NotImplemented)
+		l.OPTIONS("/:serverID/file/*filename", response.CreateOptions("GET", "PUT", "DELETE", "POST"))
 
-		l.GET("/:serverId/console", middleware.ResolveServerNode, getLogs)
-		l.POST("/:serverId/console", middleware.ResolveServerNode, postConsole)
-		l.OPTIONS("/:serverId/console", response.CreateOptions("GET", "POST"))
+		l.GET("/:serverID/console", middleware.ResolveServerNode, getLogs)
+		l.POST("/:serverID/console", middleware.ResolveServerNode, postConsole)
+		l.OPTIONS("/:serverID/console", response.CreateOptions("GET", "POST"))
 
-		l.GET("/:serverId/flags", middleware.ResolveServerNode, getFlags)
-		l.POST("/:serverId/flags", middleware.ResolveServerNode, setFlags)
-		l.OPTIONS("/:serverId/flags", response.CreateOptions("GET", "POST"))
+		l.GET("/:serverID/flags", middleware.ResolveServerNode, getFlags)
+		l.POST("/:serverID/flags", middleware.ResolveServerNode, setFlags)
+		l.OPTIONS("/:serverID/flags", response.CreateOptions("GET", "POST"))
 
-		l.GET("/:serverId/stats", middleware.ResolveServerNode, getStats)
-		l.OPTIONS("/:serverId/stats", response.CreateOptions("GET"))
+		l.GET("/:serverID/stats", middleware.ResolveServerNode, getStats)
+		l.OPTIONS("/:serverID/stats", response.CreateOptions("GET"))
 
-		l.GET("/:serverId/status", middleware.ResolveServerNode, getStatus)
-		l.OPTIONS("/:serverId/status", response.CreateOptions("GET"))
+		l.GET("/:serverID/status", middleware.ResolveServerNode, getStatus)
+		l.OPTIONS("/:serverID/status", response.CreateOptions("GET"))
 
-		l.POST("/:serverId/archive/*filename", middleware.ResolveServerNode, archive)
-		l.POST("/:serverId/extract/*filename", middleware.ResolveServerNode, extract)
+		l.POST("/:serverID/archive/*filename", middleware.ResolveServerNode, archive)
+		l.POST("/:serverID/extract/*filename", middleware.ResolveServerNode, extract)
 
-		l.POST("/:serverId/backup/create", middleware.ResolveServerNode, createBackup)
-		l.DELETE("/:serverId/backup", middleware.ResolveServerNode, deleteBackup)
-		l.POST("/:serverId/backup/restore", middleware.ResolveServerNode, restoreBackup)
-		l.GET("/:serverId/backup/download", middleware.ResolveServerNode, downloadBackup)
+		l.POST("/:serverID/backup/create", middleware.ResolveServerNode, createBackup)
+		l.DELETE("/:serverID/backup", middleware.ResolveServerNode, deleteBackup)
+		l.POST("/:serverID/backup/restore", middleware.ResolveServerNode, restoreBackup)
+		l.GET("/:serverID/backup/download", middleware.ResolveServerNode, downloadBackup)
 
-		l.HEAD("/:serverId/query", middleware.ResolveServerNode, canQueryServer)
-		l.GET("/:serverId/query", middleware.ResolveServerNode, queryServer)
+		l.HEAD("/:serverID/query", middleware.ResolveServerNode, canQueryServer)
+		l.GET("/:serverID/query", middleware.ResolveServerNode, queryServer)
 
-		l.GET("/:serverId/plugins", middleware.ResolveServerNode, getPlugins)
-		l.DELETE("/:serverId/plugins", middleware.ResolveServerNode, deletePlugin)
-		l.OPTIONS("/:serverId/plugins", response.CreateOptions("GET", "DELETE"))
-		l.GET("/:serverId/plugins/search", middleware.ResolveServerNode, searchPlugins)
-		l.OPTIONS("/:serverId/plugins/search", response.CreateOptions("GET"))
-		l.POST("/:serverId/plugins/:pluginId", middleware.ResolveServerNode, installPlugin)
-		l.OPTIONS("/:serverId/plugins/:pluginId", response.CreateOptions("POST"))
+		l.GET("/:serverID/plugins", middleware.ResolveServerNode, getPlugins)
+		l.DELETE("/:serverID/plugins", middleware.ResolveServerNode, deletePlugin)
+		l.OPTIONS("/:serverID/plugins", response.CreateOptions("GET", "DELETE"))
+		l.GET("/:serverID/plugins/search", middleware.ResolveServerNode, searchPlugins)
+		l.OPTIONS("/:serverID/plugins/search", response.CreateOptions("GET"))
+		l.POST("/:serverID/plugins/:pluginId", middleware.ResolveServerNode, installPlugin)
+		l.OPTIONS("/:serverID/plugins/:pluginId", response.CreateOptions("POST"))
 
-		p := l.Group("/:serverId/socket")
+		p := l.Group("/:serverID/socket")
 		{
 			p.GET("", middleware.ResolveServerNode, cors.New(cors.Config{
 				AllowAllOrigins:  true,
@@ -255,15 +255,15 @@ func killServer(c *gin.Context) {
 
 // Already declared in panel routing
 func createServer(c *gin.Context) {
-	serverId := c.Param("serverId")
-	if serverId == "" {
+	serverID := c.Param("serverID")
+	if serverID == "" {
 		id, err := uuid.NewV4()
 		if response.HandleError(c, err, http.StatusInternalServerError) {
 			return
 		}
-		serverId = id.String()
+		serverID = id.String()
 	}
-	prg := servers.GetFromCache(serverId)
+	prg := servers.GetFromCache(serverID)
 
 	if prg != nil {
 		response.HandleError(c, skypanel.ErrServerAlreadyExists, http.StatusConflict)
@@ -277,7 +277,7 @@ func createServer(c *gin.Context) {
 		response.HandleError(c, err, http.StatusBadRequest)
 		return
 	}
-	prg.Identifier = serverId
+	prg.Identifier = serverID
 
 	err = prg.Requirements.Test(prg.Server)
 	if err != nil {
@@ -293,7 +293,7 @@ func createServer(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, &skypanel.ServerIDResponse{ID: serverId})
+	c.JSON(http.StatusOK, &skypanel.ServerIDResponse{ID: serverID})
 }
 
 // Already declared in panel routing
@@ -839,8 +839,7 @@ func getStatus(c *gin.Context) {
 
 	running, err := server.IsRunning()
 
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-	} else {
+	if !response.HandleError(c, err, http.StatusInternalServerError) {
 		c.JSON(http.StatusOK, &skypanel.ServerRunning{Running: running})
 	}
 }
@@ -991,15 +990,14 @@ func downloadBackup(c *gin.Context) {
 			utils.Close(data.Contents)
 		}
 	}()
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-	} else {
+	if !response.HandleError(c, err, http.StatusInternalServerError) {
 		fileName := filepath.Base(data.Name)
 
 		extraHeaders := map[string]string{
 			"Content-Disposition": fmt.Sprintf(`attachment; filename="%s"`, fileName),
 		}
 
-		//discard the built-in response, we cannot use this one at all
+		// discard the built-in response, we cannot use this one at all
 		c.DataFromReader(http.StatusOK, data.ContentLength, "application/octet-stream", data.Contents, extraHeaders)
 	}
 }

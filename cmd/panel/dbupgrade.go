@@ -19,7 +19,7 @@ var dbUpgradeCmd = &cobra.Command{
 	Run:   executeDbUpgrade,
 }
 
-func executeDbUpgrade(cmd *cobra.Command, args []string) {
+func executeDbUpgrade(_ *cobra.Command, args []string) {
 	var currentFile string
 	var backupFile string
 
