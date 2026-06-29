@@ -34,130 +34,130 @@ func registerServers(g *gin.RouterGroup) {
 	g.Handle("GET", "", searchServers)
 	g.Handle("OPTIONS", "", response.CreateOptions("GET"))
 
-	g.Handle("GET", "/:serverID", middleware.RequiresPermission(scopes.ScopeServerView), middleware.ResolveServerPanel, getServer)
-	g.Handle("PUT", "/:serverID", middleware.RequiresPermission(scopes.ScopeServerCreate), middleware.HasTransaction, createServer)
-	g.Handle("DELETE", "/:serverID", middleware.RequiresPermission(scopes.ScopeServerDelete), middleware.ResolveServerPanel, middleware.HasTransaction, deleteServer)
-	g.Handle("POST", "/:serverID/suspend", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, middleware.HasTransaction, toggleServerSuspension)
-	g.Handle("OPTIONS", "/:serverID", response.CreateOptions("PUT", "GET", "POST", "DELETE"))
-	g.Handle("OPTIONS", "/:serverID/suspend", response.CreateOptions("POST"))
+	g.Handle("GET", "/:serverId", middleware.RequiresPermission(scopes.ScopeServerView), middleware.ResolveServerPanel, getServer)
+	g.Handle("PUT", "/:serverId", middleware.RequiresPermission(scopes.ScopeServerCreate), middleware.HasTransaction, createServer)
+	g.Handle("DELETE", "/:serverId", middleware.RequiresPermission(scopes.ScopeServerDelete), middleware.ResolveServerPanel, middleware.HasTransaction, deleteServer)
+	g.Handle("POST", "/:serverId/suspend", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, middleware.HasTransaction, toggleServerSuspension)
+	g.Handle("OPTIONS", "/:serverId", response.CreateOptions("PUT", "GET", "POST", "DELETE"))
+	g.Handle("OPTIONS", "/:serverId/suspend", response.CreateOptions("POST"))
 
-	g.Handle("PUT", "/:serverID/name/:name", middleware.RequiresPermission(scopes.ScopeServerEditName), middleware.ResolveServerPanel, middleware.HasTransaction, renameServer)
-	g.Handle("OPTIONS", "/:serverID/name", response.CreateOptions("PUT"))
-	g.Handle("OPTIONS", "/:serverID/name/:name", response.CreateOptions("PUT"))
+	g.Handle("PUT", "/:serverId/name/:name", middleware.RequiresPermission(scopes.ScopeServerEditName), middleware.ResolveServerPanel, middleware.HasTransaction, renameServer)
+	g.Handle("OPTIONS", "/:serverId/name", response.CreateOptions("PUT"))
+	g.Handle("OPTIONS", "/:serverId/name/:name", response.CreateOptions("PUT"))
 
-	g.Handle("GET", "/:serverID/definition", middleware.RequiresPermission(scopes.ScopeServerViewDefinition), middleware.ResolveServerPanel, proxyServerRequest)
-	g.Handle("PUT", "/:serverID/definition", middleware.RequiresPermission(scopes.ScopeServerEditDefinition), middleware.ResolveServerPanel, middleware.HasTransaction, editServer)
-	g.Handle("OPTIONS", "/:serverID/definition", response.CreateOptions("PUT", "GET"))
+	g.Handle("GET", "/:serverId/definition", middleware.RequiresPermission(scopes.ScopeServerViewDefinition), middleware.ResolveServerPanel, proxyServerRequest)
+	g.Handle("PUT", "/:serverId/definition", middleware.RequiresPermission(scopes.ScopeServerEditDefinition), middleware.ResolveServerPanel, middleware.HasTransaction, editServer)
+	g.Handle("OPTIONS", "/:serverId/definition", response.CreateOptions("PUT", "GET"))
 
-	g.Handle("GET", "/:serverID/user", middleware.RequiresPermission(scopes.ScopeServerUserView), middleware.ResolveServerPanel, getServerUsers)
-	g.Handle("OPTIONS", "/:serverID/user", response.CreateOptions("GET"))
+	g.Handle("GET", "/:serverId/user", middleware.RequiresPermission(scopes.ScopeServerUserView), middleware.ResolveServerPanel, getServerUsers)
+	g.Handle("OPTIONS", "/:serverId/user", response.CreateOptions("GET"))
 
-	g.Handle("GET", "/:serverID/user/:email", middleware.RequiresPermission(scopes.ScopeServerUserView), middleware.ResolveServerPanel, getServerUsers)
-	g.Handle("PUT", "/:serverID/user/:email", middleware.RequiresPermission(scopes.ScopeServerUserEdit), middleware.ResolveServerPanel, middleware.HasTransaction, editServerUser)
-	g.Handle("DELETE", "/:serverID/user/:email", middleware.RequiresPermission(scopes.ScopeServerUserDelete), middleware.ResolveServerPanel, middleware.HasTransaction, removeServerUser)
-	g.Handle("OPTIONS", "/:serverID/user/:email", response.CreateOptions("GET", "PUT", "DELETE"))
+	g.Handle("GET", "/:serverId/user/:email", middleware.RequiresPermission(scopes.ScopeServerUserView), middleware.ResolveServerPanel, getServerUsers)
+	g.Handle("PUT", "/:serverId/user/:email", middleware.RequiresPermission(scopes.ScopeServerUserEdit), middleware.ResolveServerPanel, middleware.HasTransaction, editServerUser)
+	g.Handle("DELETE", "/:serverId/user/:email", middleware.RequiresPermission(scopes.ScopeServerUserDelete), middleware.ResolveServerPanel, middleware.HasTransaction, removeServerUser)
+	g.Handle("OPTIONS", "/:serverId/user/:email", response.CreateOptions("GET", "PUT", "DELETE"))
 
-	g.GET("/:serverID/data", middleware.RequiresPermission(scopes.ScopeServerViewData), middleware.ResolveServerPanel, proxyServerRequest)
-	g.POST("/:serverID/data", middleware.RequiresPermission(scopes.ScopeServerEditData), middleware.ResolveServerPanel, editServerData)
-	g.PUT("/:serverID/data", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, editServerDataAdmin)
-	g.OPTIONS("/:serverID/data", response.CreateOptions("GET", "POST", "PUT"))
+	g.GET("/:serverId/data", middleware.RequiresPermission(scopes.ScopeServerViewData), middleware.ResolveServerPanel, proxyServerRequest)
+	g.POST("/:serverId/data", middleware.RequiresPermission(scopes.ScopeServerEditData), middleware.ResolveServerPanel, editServerData)
+	g.PUT("/:serverId/data", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, editServerDataAdmin)
+	g.OPTIONS("/:serverId/data", response.CreateOptions("GET", "POST", "PUT"))
 
-	g.POST("/:serverID/transfer", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, transferServer)
-	g.OPTIONS("/:serverID/transfer", response.CreateOptions("POST"))
+	g.POST("/:serverId/transfer", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, transferServer)
+	g.OPTIONS("/:serverId/transfer", response.CreateOptions("POST"))
 
-	g.POST("/:serverID/ai/analyze", middleware.RequiresPermission(scopes.ScopeServerConsole), middleware.ResolveServerPanel, analyzeServerLogs)
-	g.OPTIONS("/:serverID/ai/analyze", response.CreateOptions("POST"))
+	g.POST("/:serverId/ai/analyze", middleware.RequiresPermission(scopes.ScopeServerConsole), middleware.ResolveServerPanel, analyzeServerLogs)
+	g.OPTIONS("/:serverId/ai/analyze", response.CreateOptions("POST"))
 
-	g.POST("/:serverID/extransfer/create", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, CreateExTransfer)
-	g.OPTIONS("/:serverID/extransfer/create", response.CreateOptions("POST"))
+	g.POST("/:serverId/extransfer/create", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, CreateExTransfer)
+	g.OPTIONS("/:serverId/extransfer/create", response.CreateOptions("POST"))
 
-	g.POST("/:serverID/extransfer/pull", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, pullExTransfer)
-	g.OPTIONS("/:serverID/extransfer/pull", response.CreateOptions("POST"))
+	g.POST("/:serverId/extransfer/pull", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, pullExTransfer)
+	g.OPTIONS("/:serverId/extransfer/pull", response.CreateOptions("POST"))
 
-	g.GET("/:serverID/extransfer/status", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, getExTransferStatus)
-	g.OPTIONS("/:serverID/extransfer/status", response.CreateOptions("GET"))
+	g.GET("/:serverId/extransfer/status", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, getExTransferStatus)
+	g.OPTIONS("/:serverId/extransfer/status", response.CreateOptions("GET"))
 
-	g.GET("/:serverID/flags", middleware.RequiresPermission(scopes.ScopeServerViewFlags), middleware.ResolveServerPanel, proxyServerRequest)
-	g.POST("/:serverID/flags", middleware.RequiresPermission(scopes.ScopeServerEditFlags), middleware.ResolveServerPanel, proxyServerRequest)
-	g.OPTIONS("/:serverID/flags", response.CreateOptions("GET", "POST"))
+	g.GET("/:serverId/flags", middleware.RequiresPermission(scopes.ScopeServerViewFlags), middleware.ResolveServerPanel, proxyServerRequest)
+	g.POST("/:serverId/flags", middleware.RequiresPermission(scopes.ScopeServerEditFlags), middleware.ResolveServerPanel, proxyServerRequest)
+	g.OPTIONS("/:serverId/flags", response.CreateOptions("GET", "POST"))
 
-	g.GET("/:serverID/tasks", middleware.RequiresPermission(scopes.ScopeServerTaskView), middleware.ResolveServerPanel, proxyServerRequest)
-	g.OPTIONS("/:serverID/tasks", response.CreateOptions("GET"))
+	g.GET("/:serverId/tasks", middleware.RequiresPermission(scopes.ScopeServerTaskView), middleware.ResolveServerPanel, proxyServerRequest)
+	g.OPTIONS("/:serverId/tasks", response.CreateOptions("GET"))
 
-	g.GET("/:serverID/tasks/:taskId", middleware.RequiresPermission(scopes.ScopeServerTaskRun), middleware.ResolveServerPanel, proxyServerRequest)
-	g.PUT("/:serverID/tasks/:taskId", middleware.RequiresPermission(scopes.ScopeServerTaskEdit), middleware.ResolveServerPanel, proxyServerRequest)
-	g.DELETE("/:serverID/tasks/:taskId", middleware.RequiresPermission(scopes.ScopeServerTaskDelete), middleware.ResolveServerPanel, proxyServerRequest)
-	g.OPTIONS("/:serverID/tasks/:taskId", response.CreateOptions("GET", "PUT", "DELETE"))
+	g.GET("/:serverId/tasks/:taskId", middleware.RequiresPermission(scopes.ScopeServerTaskRun), middleware.ResolveServerPanel, proxyServerRequest)
+	g.PUT("/:serverId/tasks/:taskId", middleware.RequiresPermission(scopes.ScopeServerTaskEdit), middleware.ResolveServerPanel, proxyServerRequest)
+	g.DELETE("/:serverId/tasks/:taskId", middleware.RequiresPermission(scopes.ScopeServerTaskDelete), middleware.ResolveServerPanel, proxyServerRequest)
+	g.OPTIONS("/:serverId/tasks/:taskId", response.CreateOptions("GET", "PUT", "DELETE"))
 
-	g.POST("/:serverID/tasks/:taskId/run", middleware.RequiresPermission(scopes.ScopeServerTaskRun), middleware.ResolveServerPanel, proxyServerRequest)
-	g.OPTIONS("/:serverID/tasks/:taskId/run", response.CreateOptions("POST"))
+	g.POST("/:serverId/tasks/:taskId/run", middleware.RequiresPermission(scopes.ScopeServerTaskRun), middleware.ResolveServerPanel, proxyServerRequest)
+	g.OPTIONS("/:serverId/tasks/:taskId/run", response.CreateOptions("POST"))
 
-	g.POST("/:serverID/reload", middleware.RequiresPermission(scopes.ScopeServerReload), middleware.ResolveServerPanel, proxyServerRequest)
-	g.OPTIONS("/:serverID/reload", response.CreateOptions("POST"))
+	g.POST("/:serverId/reload", middleware.RequiresPermission(scopes.ScopeServerReload), middleware.ResolveServerPanel, proxyServerRequest)
+	g.OPTIONS("/:serverId/reload", response.CreateOptions("POST"))
 
-	g.POST("/:serverID/start", middleware.RequiresPermission(scopes.ScopeServerStart), middleware.ResolveServerPanel, proxyServerRequest)
-	g.OPTIONS("/:serverID/start", response.CreateOptions("POST"))
+	g.POST("/:serverId/start", middleware.RequiresPermission(scopes.ScopeServerStart), middleware.ResolveServerPanel, proxyServerRequest)
+	g.OPTIONS("/:serverId/start", response.CreateOptions("POST"))
 
-	g.POST("/:serverID/restart", middleware.RequiresPermission(scopes.ScopeServerStart), middleware.RequiresPermission(scopes.ScopeServerStop), middleware.ResolveServerPanel, proxyServerRequest)
-	g.OPTIONS("/:serverID/restart", response.CreateOptions("POST"))
+	g.POST("/:serverId/restart", middleware.RequiresPermission(scopes.ScopeServerStart), middleware.RequiresPermission(scopes.ScopeServerStop), middleware.ResolveServerPanel, proxyServerRequest)
+	g.OPTIONS("/:serverId/restart", response.CreateOptions("POST"))
 
-	g.POST("/:serverID/stop", middleware.RequiresPermission(scopes.ScopeServerStop), middleware.ResolveServerPanel, proxyServerRequest)
-	g.OPTIONS("/:serverID/stop", response.CreateOptions("POST"))
+	g.POST("/:serverId/stop", middleware.RequiresPermission(scopes.ScopeServerStop), middleware.ResolveServerPanel, proxyServerRequest)
+	g.OPTIONS("/:serverId/stop", response.CreateOptions("POST"))
 
-	g.POST("/:serverID/kill", middleware.RequiresPermission(scopes.ScopeServerKill), middleware.ResolveServerPanel, proxyServerRequest)
-	g.OPTIONS("/:serverID/kill", response.CreateOptions("POST"))
+	g.POST("/:serverId/kill", middleware.RequiresPermission(scopes.ScopeServerKill), middleware.ResolveServerPanel, proxyServerRequest)
+	g.OPTIONS("/:serverId/kill", response.CreateOptions("POST"))
 
-	g.POST("/:serverID/install", middleware.RequiresPermission(scopes.ScopeServerInstall), middleware.ResolveServerPanel, proxyServerRequest)
-	g.OPTIONS("/:serverID/install", response.CreateOptions("POST"))
+	g.POST("/:serverId/install", middleware.RequiresPermission(scopes.ScopeServerInstall), middleware.ResolveServerPanel, proxyServerRequest)
+	g.OPTIONS("/:serverId/install", response.CreateOptions("POST"))
 
-	g.GET("/:serverID/file/*filename", middleware.RequiresPermission(scopes.ScopeServerFileView), middleware.ResolveServerPanel, proxyServerRequest)
-	g.PUT("/:serverID/file/*filename", middleware.RequiresPermission(scopes.ScopeServerFileEdit), middleware.ResolveServerPanel, proxyServerRequest)
-	g.DELETE("/:serverID/file/*filename", middleware.RequiresPermission(scopes.ScopeServerFileEdit), middleware.ResolveServerPanel, proxyServerRequest)
-	g.POST("/:serverID/file/*filename", middleware.RequiresPermission(scopes.ScopeServerFileEdit), middleware.ResolveServerPanel, proxyServerRequest)
-	g.OPTIONS("/:serverID/file/*filename", response.CreateOptions("GET", "PUT", "DELETE", "POST"))
+	g.GET("/:serverId/file/*filename", middleware.RequiresPermission(scopes.ScopeServerFileView), middleware.ResolveServerPanel, proxyServerRequest)
+	g.PUT("/:serverId/file/*filename", middleware.RequiresPermission(scopes.ScopeServerFileEdit), middleware.ResolveServerPanel, proxyServerRequest)
+	g.DELETE("/:serverId/file/*filename", middleware.RequiresPermission(scopes.ScopeServerFileEdit), middleware.ResolveServerPanel, proxyServerRequest)
+	g.POST("/:serverId/file/*filename", middleware.RequiresPermission(scopes.ScopeServerFileEdit), middleware.ResolveServerPanel, proxyServerRequest)
+	g.OPTIONS("/:serverId/file/*filename", response.CreateOptions("GET", "PUT", "DELETE", "POST"))
 
-	g.GET("/:serverID/console", middleware.RequiresPermission(scopes.ScopeServerConsole), middleware.ResolveServerPanel, proxyServerRequest)
-	g.POST("/:serverID/console", middleware.RequiresPermission(scopes.ScopeServerSendCommand), middleware.ResolveServerPanel, proxyServerRequest)
-	g.OPTIONS("/:serverID/console", response.CreateOptions("GET", "POST"))
+	g.GET("/:serverId/console", middleware.RequiresPermission(scopes.ScopeServerConsole), middleware.ResolveServerPanel, proxyServerRequest)
+	g.POST("/:serverId/console", middleware.RequiresPermission(scopes.ScopeServerSendCommand), middleware.ResolveServerPanel, proxyServerRequest)
+	g.OPTIONS("/:serverId/console", response.CreateOptions("GET", "POST"))
 
-	g.GET("/:serverID/stats", middleware.RequiresPermission(scopes.ScopeServerStats), middleware.ResolveServerPanel, proxyServerRequest)
-	g.OPTIONS("/:serverID/stats", response.CreateOptions("GET"))
+	g.GET("/:serverId/stats", middleware.RequiresPermission(scopes.ScopeServerStats), middleware.ResolveServerPanel, proxyServerRequest)
+	g.OPTIONS("/:serverId/stats", response.CreateOptions("GET"))
 
-	g.HEAD("/:serverID/query", middleware.RequiresPermission(scopes.ScopeServerStats), middleware.ResolveServerPanel, proxyServerRequest)
-	g.GET("/:serverID/query", middleware.RequiresPermission(scopes.ScopeServerStats), middleware.ResolveServerPanel, proxyServerRequest)
-	g.OPTIONS("/:serverID/query", response.CreateOptions("POST"))
+	g.HEAD("/:serverId/query", middleware.RequiresPermission(scopes.ScopeServerStats), middleware.ResolveServerPanel, proxyServerRequest)
+	g.GET("/:serverId/query", middleware.RequiresPermission(scopes.ScopeServerStats), middleware.ResolveServerPanel, proxyServerRequest)
+	g.OPTIONS("/:serverId/query", response.CreateOptions("POST"))
 
-	g.GET("/:serverID/status", middleware.RequiresPermission(scopes.ScopeServerStatus), middleware.ResolveServerPanel, proxyServerRequest)
-	g.OPTIONS("/:serverID/status", response.CreateOptions("GET"))
+	g.GET("/:serverId/status", middleware.RequiresPermission(scopes.ScopeServerStatus), middleware.ResolveServerPanel, proxyServerRequest)
+	g.OPTIONS("/:serverId/status", response.CreateOptions("GET"))
 
-	g.HEAD("/:serverID/archive/*filename", middleware.RequiresPermission(scopes.ScopeServerFileEdit), middleware.ResolveServerPanel, proxyServerRequest)
-	g.POST("/:serverID/archive/*filename", middleware.RequiresPermission(scopes.ScopeServerFileEdit), middleware.ResolveServerPanel, proxyServerRequest)
-	g.OPTIONS("/:serverID/archive/*filename", response.CreateOptions("HEAD", "POST"))
+	g.HEAD("/:serverId/archive/*filename", middleware.RequiresPermission(scopes.ScopeServerFileEdit), middleware.ResolveServerPanel, proxyServerRequest)
+	g.POST("/:serverId/archive/*filename", middleware.RequiresPermission(scopes.ScopeServerFileEdit), middleware.ResolveServerPanel, proxyServerRequest)
+	g.OPTIONS("/:serverId/archive/*filename", response.CreateOptions("HEAD", "POST"))
 
-	g.POST("/:serverID/extract/*filename", middleware.RequiresPermission(scopes.ScopeServerFileEdit), middleware.ResolveServerPanel, proxyServerRequest)
-	g.OPTIONS("/:serverID/extract/*filename", response.CreateOptions("POST"))
+	g.POST("/:serverId/extract/*filename", middleware.RequiresPermission(scopes.ScopeServerFileEdit), middleware.ResolveServerPanel, proxyServerRequest)
+	g.OPTIONS("/:serverId/extract/*filename", response.CreateOptions("POST"))
 
-	g.GET("/:serverID/backup", middleware.RequiresPermission(scopes.ScopeServerBackupView), middleware.ResolveServerPanel, getBackups)
-	g.OPTIONS("/:serverID/backup", response.CreateOptions("GET"))
-	g.GET("/:serverID/backup/:backupID", middleware.RequiresPermission(scopes.ScopeServerBackupView), middleware.ResolveServerPanel, getBackup)
-	g.DELETE("/:serverID/backup/:backupID", middleware.RequiresPermission(scopes.ScopeServerBackupDelete), middleware.ResolveServerPanel, deleteBackup)
-	g.OPTIONS("/:serverID/backup/:backupID", response.CreateOptions("GET", "DELETE"))
-	g.POST("/:serverID/backup/create", middleware.RequiresPermission(scopes.ScopeServerBackupCreate), middleware.ResolveServerPanel, createBackup)
-	g.OPTIONS("/:serverID/backup/create", response.CreateOptions("POST"))
-	g.POST("/:serverID/backup/restore/:backupID", middleware.RequiresPermission(scopes.ScopeServerBackupRestore), middleware.ResolveServerPanel, restoreBackup)
-	g.OPTIONS("/:serverID/backup/restore/:backupID", response.CreateOptions("POST"))
-	g.GET("/:serverID/backup/download/:backupID", middleware.RequiresPermission(scopes.ScopeServerBackupView), middleware.ResolveServerPanel, downloadBackup)
-	g.OPTIONS("/:serverID/backup/download/:backupID", response.CreateOptions("GET"))
+	g.GET("/:serverId/backup", middleware.RequiresPermission(scopes.ScopeServerBackupView), middleware.ResolveServerPanel, getBackups)
+	g.OPTIONS("/:serverId/backup", response.CreateOptions("GET"))
+	g.GET("/:serverId/backup/:backupID", middleware.RequiresPermission(scopes.ScopeServerBackupView), middleware.ResolveServerPanel, getBackup)
+	g.DELETE("/:serverId/backup/:backupID", middleware.RequiresPermission(scopes.ScopeServerBackupDelete), middleware.ResolveServerPanel, deleteBackup)
+	g.OPTIONS("/:serverId/backup/:backupID", response.CreateOptions("GET", "DELETE"))
+	g.POST("/:serverId/backup/create", middleware.RequiresPermission(scopes.ScopeServerBackupCreate), middleware.ResolveServerPanel, createBackup)
+	g.OPTIONS("/:serverId/backup/create", response.CreateOptions("POST"))
+	g.POST("/:serverId/backup/restore/:backupID", middleware.RequiresPermission(scopes.ScopeServerBackupRestore), middleware.ResolveServerPanel, restoreBackup)
+	g.OPTIONS("/:serverId/backup/restore/:backupID", response.CreateOptions("POST"))
+	g.GET("/:serverId/backup/download/:backupID", middleware.RequiresPermission(scopes.ScopeServerBackupView), middleware.ResolveServerPanel, downloadBackup)
+	g.OPTIONS("/:serverId/backup/download/:backupID", response.CreateOptions("GET"))
 
-	g.GET("/:serverID/plugins", middleware.RequiresPermission(scopes.ScopeServerFileView), middleware.ResolveServerPanel, proxyServerRequest)
-	g.DELETE("/:serverID/plugins", middleware.RequiresPermission(scopes.ScopeServerFileEdit), middleware.ResolveServerPanel, proxyServerRequest)
-	g.OPTIONS("/:serverID/plugins", response.CreateOptions("GET", "DELETE"))
-	g.GET("/:serverID/plugins/search", middleware.RequiresPermission(scopes.ScopeServerFileView), middleware.ResolveServerPanel, proxyServerRequest)
-	g.OPTIONS("/:serverID/plugins/search", response.CreateOptions("GET"))
-	g.POST("/:serverID/plugins/:pluginId", middleware.RequiresPermission(scopes.ScopeServerFileEdit), middleware.ResolveServerPanel, proxyServerRequest)
-	g.OPTIONS("/:serverID/plugins/:pluginId", response.CreateOptions("POST"))
+	g.GET("/:serverId/plugins", middleware.RequiresPermission(scopes.ScopeServerFileView), middleware.ResolveServerPanel, proxyServerRequest)
+	g.DELETE("/:serverId/plugins", middleware.RequiresPermission(scopes.ScopeServerFileEdit), middleware.ResolveServerPanel, proxyServerRequest)
+	g.OPTIONS("/:serverId/plugins", response.CreateOptions("GET", "DELETE"))
+	g.GET("/:serverId/plugins/search", middleware.RequiresPermission(scopes.ScopeServerFileView), middleware.ResolveServerPanel, proxyServerRequest)
+	g.OPTIONS("/:serverId/plugins/search", response.CreateOptions("GET"))
+	g.POST("/:serverId/plugins/:pluginId", middleware.RequiresPermission(scopes.ScopeServerFileEdit), middleware.ResolveServerPanel, proxyServerRequest)
+	g.OPTIONS("/:serverId/plugins/:pluginId", response.CreateOptions("POST"))
 
-	p := g.Group("/:serverID/socket")
+	p := g.Group("/:serverId/socket")
 	{
 		p.GET("", middleware.RequiresPermission(scopes.ScopeServerView), cors.New(cors.Config{
 			AllowAllOrigins:  true,
@@ -381,7 +381,7 @@ func createServer(c *gin.Context) {
 	us := &services.User{DB: db}
 	ps := &services.Permission{DB: db}
 
-	serverID := c.Param("serverID")
+	serverID := c.Param("serverId")
 
 	if serverID == "" {
 		gen, err := uuid.NewV4()
@@ -1585,7 +1585,7 @@ var wsupgrader = websocket.Upgrader{
 func proxyHTTPRequest(c *gin.Context, path string, ns *services.Node, node *models.Node) {
 	// If it's a local node, check if the server is a ghost (in DB but not on disk)
 	if node.IsLocal() {
-		serverID := c.Param("serverID")
+		serverID := c.Param("serverId")
 		if servers.GetFromCache(serverID) == nil {
 			if c.Request.Method == "GET" {
 				if strings.HasSuffix(path, "/stats") {
@@ -1656,7 +1656,7 @@ func cleanHTTPReturnErrors(currentHeaders http.Header) map[string]string {
 
 func proxySocketRequest(c *gin.Context, path string, ns *services.Node, node *models.Node) {
 	if node.IsLocal() {
-		serverID := c.Param("serverID")
+		serverID := c.Param("serverId")
 		// Check if it's a ghost server
 		if servers.GetFromCache(serverID) == nil {
 			// Upgrade the connection normally to avoid red 404/204 console errors

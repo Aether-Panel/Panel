@@ -49,7 +49,7 @@ func init() {
 	AddUserCmd.Flags().StringVar(&addPassword, "password", "", "password")
 }
 
-func addUser(cmd *cobra.Command, args []string) {
+func addUser(_ *cobra.Command, args []string) {
 	answers := userCreate{
 		Username: addUsername,
 		Email:    addEmail,
@@ -213,7 +213,7 @@ type userCreate struct {
 	Admin    bool
 }
 
-func editUser(cmd *cobra.Command, args []string) {
+func editUser(_ *cobra.Command, args []string) {
 	if !groups.IsUserIn(groups.SkyPanelGroup) {
 		fmt.Printf("You do not have permission to use this command")
 		return

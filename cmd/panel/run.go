@@ -40,7 +40,7 @@ var runCmd = &cobra.Command{
 
 var webService *manners.GracefulServer
 
-func executeRun(cmd *cobra.Command, args []string) {
+func executeRun(_ *cobra.Command, args []string) {
 	term, _ := internalRun()
 	<-term
 	closePanel()

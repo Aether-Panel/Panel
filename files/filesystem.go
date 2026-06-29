@@ -164,13 +164,13 @@ func (sfp *fileServer) OpenFile(path string, flags int, mode os.FileMode) (*os.F
 }
 
 func (sfp *fileServer) MkdirAll(path string, mode os.FileMode) error {
-	//this is going to be recursive...
+	// this is going to be recursive...
 	path = prepPath(path)
 
-	//now for each one, we just need to make each path, and hope this works
+	// now for each one, we just need to make each path, and hope this works
 	//in theory, the mkdir will be safe enough
 	parts := strings.Split(path, string(filepath.Separator))
-	//if it was just mkdir root... we don't do anything
+	// if it was just mkdir root... we don't do anything
 	if len(parts) == 0 {
 		return nil
 	}

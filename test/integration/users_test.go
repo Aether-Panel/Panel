@@ -33,7 +33,7 @@ func TestUserApi(t *testing.T) {
 		}
 	})
 
-	var newUserId uint
+	var newUserID uint
 
 	t.Run("CreateUser", func(t *testing.T) {
 		response := CallAPI("POST", "/api/users", map[string]string{
@@ -50,11 +50,11 @@ func TestUserApi(t *testing.T) {
 		if !assert.NoError(t, err) {
 			return
 		}
-		newUserId = user.ID
+		newUserID = user.ID
 	})
 
 	t.Run("TestEmptyUserPerms", func(t *testing.T) {
-		url := fmt.Sprintf("/api/users/%d/perms", newUserId)
+		url := fmt.Sprintf("/api/users/%d/perms", newUserID)
 		response := CallAPI("GET", url, nil, session)
 		if !assert.Equal(t, http.StatusOK, response.Code) {
 			return
@@ -72,7 +72,7 @@ func TestUserApi(t *testing.T) {
 	})
 
 	t.Run("TestSetEmptyPerms", func(t *testing.T) {
-		url := fmt.Sprintf("/api/users/%d/perms", newUserId)
+		url := fmt.Sprintf("/api/users/%d/perms", newUserID)
 		response := CallAPI("PUT", url, map[string]interface{}{
 			"scopes": []string{},
 		}, session)
@@ -97,7 +97,7 @@ func TestUserApi(t *testing.T) {
 	})
 
 	t.Run("TestDelete", func(t *testing.T) {
-		url := fmt.Sprintf("/api/users/%d", newUserId)
+		url := fmt.Sprintf("/api/users/%d", newUserID)
 		response := CallAPI("DELETE", url, nil, session)
 		if !assert.Equal(t, http.StatusNoContent, response.Code) {
 			return
