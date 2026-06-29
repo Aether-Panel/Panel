@@ -36,7 +36,7 @@ func TestNodesAPI(t *testing.T) {
 		var node models.NodeView
 		err := json.NewDecoder(response.Body).Decode(&node)
 		assert.NoError(t, err)
-		createdNodeId = node.Id
+		createdNodeId = node.ID
 		assert.NotZero(t, createdNodeId)
 	})
 

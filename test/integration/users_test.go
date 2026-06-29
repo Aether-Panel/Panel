@@ -50,7 +50,7 @@ func TestUserApi(t *testing.T) {
 		if !assert.NoError(t, err) {
 			return
 		}
-		newUserId = user.Id
+		newUserId = user.ID
 	})
 
 	t.Run("TestEmptyUserPerms", func(t *testing.T) {
