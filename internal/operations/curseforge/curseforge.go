@@ -19,8 +19,8 @@ import (
 )
 
 type CurseForge struct {
-	ProjectId  uint
-	FileId     uint
+	ProjectID  uint
+	FileID     uint
 	JavaBinary string
 }
 
