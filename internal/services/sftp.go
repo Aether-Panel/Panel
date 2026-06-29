@@ -33,13 +33,13 @@ func (s *DatabaseSFTPAuthorization) Validate(username, password string) (perms *
 	}
 
 	ss := &Permission{DB: db}
-	allowed, err := ss.HasPermission(user.ID, serverId, scopes.ScopeServerSftp)
+	allowed, err := ss.HasPermission(user.ID, serverID, scopes.ScopeServerSftp)
 	if err != nil || !allowed {
 		return nil, errors.New("incorrect username or password")
 	}
 
 	perms = &ssh.Permissions{}
 	perms.Extensions = make(map[string]string)
-	perms.Extensions["server_id"] = serverId
+	perms.Extensions["server_id"] = serverID
 	return perms, nil
 }

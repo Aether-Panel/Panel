@@ -33,8 +33,8 @@ func init() {
 func SyncNodeToConfig() {
 	var masterURL = strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(config.MasterURL.Value(), "http://"), "https://"), "/")
 	var masterParts = strings.SplitN(masterURL, ":", 2)
-	models.LocalNode.PublicHost = strings.Split(masterUrl, ":")[0]
-	models.LocalNode.PrivateHost = strings.Split(masterUrl, ":")[0]
+	models.LocalNode.PublicHost = strings.Split(masterURL, ":")[0]
+	models.LocalNode.PrivateHost = strings.Split(masterURL, ":")[0]
 
 	if len(masterParts) == 2 {
 		port, err := strconv.Atoi(masterParts[1])
@@ -144,15 +144,15 @@ func (ns *Node) CallNode(node *models.Node, method string, path string, body io.
 	var err error
 
 	if node.IsLocal() {
-		fullUrl = "http://localhost" + path
+		fullURL = "http://localhost" + path
 	} else {
-		fullUrl, err = createNodeURL(node, path)
+		fullURL, err = createNodeURL(node, path)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	addr, err := url.Parse(fullUrl)
+	addr, err := url.Parse(fullURL)
 	if err != nil {
 		return nil, err
 	}

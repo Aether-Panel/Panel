@@ -15,7 +15,7 @@ func (uss *UserSettings) GetAllForUser(userID uint) (models.UserSettingsView, er
 
 	query := uss.DB
 
-	query = query.Where(&models.UserSetting{UserID: userId})
+	query = query.Where(&models.UserSetting{UserID: userID})
 
 	err := query.Model(&records).Error
 	if err != nil {

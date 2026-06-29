@@ -419,20 +419,20 @@ func getOSName() string {
 				if line == "" || strings.HasPrefix(line, "#") {
 					continue
 				}
-			switch {
-			case strings.HasPrefix(line, "PRETTY_NAME="):
-				val := strings.TrimPrefix(line, "PRETTY_NAME=")
-				// Remover comillas simples o dobles
-				prettyName = strings.Trim(val, "\"'")
-			case strings.HasPrefix(line, "NAME=") && name == "":
-				val := strings.TrimPrefix(line, "NAME=")
-				// Remover comillas simples o dobles
-				name = strings.Trim(val, "\"'")
-			case strings.HasPrefix(line, "VERSION=") && version == "":
-				val := strings.TrimPrefix(line, "VERSION=")
-				// Remover comillas simples o dobles
-				version = strings.Trim(val, "\"'")
-			}
+				switch {
+				case strings.HasPrefix(line, "PRETTY_NAME="):
+					val := strings.TrimPrefix(line, "PRETTY_NAME=")
+					// Remover comillas simples o dobles
+					prettyName = strings.Trim(val, "\"'")
+				case strings.HasPrefix(line, "NAME=") && name == "":
+					val := strings.TrimPrefix(line, "NAME=")
+					// Remover comillas simples o dobles
+					name = strings.Trim(val, "\"'")
+				case strings.HasPrefix(line, "VERSION=") && version == "":
+					val := strings.TrimPrefix(line, "VERSION=")
+					// Remover comillas simples o dobles
+					version = strings.Trim(val, "\"'")
+				}
 			}
 			if prettyName != "" {
 				return prettyName

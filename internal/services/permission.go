@@ -106,10 +106,10 @@ func (ps *Permission) GetForClient(id uint) ([]*models.Permissions, error) {
 	return allPerms, err
 }
 
-func (ps *Permission) GetForClientAndServer(id uint, serverId *string) (*models.Permissions, error) {
+func (ps *Permission) GetForClientAndServer(id uint, serverID *string) (*models.Permissions, error) {
 	permissions := &models.Permissions{
 		ClientID:         &id,
-		ServerIdentifier: serverId,
+		ServerIdentifier: serverID,
 	}
 
 	err := ps.DB.Preload(clause.Associations).Where(permissions).FirstOrCreate(permissions).Error

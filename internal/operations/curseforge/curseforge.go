@@ -86,16 +86,16 @@ func (c CurseForge) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 		}
 	}
 
-	if !serverFile.IsServerPack && serverFile.ServerPackFileId != 0 {
+	if !serverFile.IsServerPack && serverFile.ServerPackFileID != 0 {
 		clientFile = serverFile
-		serverFile, err = getFileByID(c.ProjectID, serverFile.ServerPackFileId)
+		serverFile, err = getFileByID(c.ProjectID, serverFile.ServerPackFileID)
 		if err != nil {
 			return skypanel.OperationResult{Error: err}
 		}
 	}
 
-	if clientFile.ID == 0 && serverFile.ParentProjectFileId != 0 {
-		clientFile, err = getFileByID(c.ProjectID, serverFile.ParentProjectFileId)
+	if clientFile.ID == 0 && serverFile.ParentProjectFileID != 0 {
+		clientFile, err = getFileByID(c.ProjectID, serverFile.ParentProjectFileID)
 		if err != nil {
 			return skypanel.OperationResult{Error: err}
 		}

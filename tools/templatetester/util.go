@@ -137,63 +137,63 @@ func buildTests() []*TestScenario {
 				panicIf(err)
 
 				_, err = os.Stat(filepath.Join(templateFolder, folder.Name(), "data.json"))
-			switch {
-			case err == nil:
-				tests, err := readDataJsonFile(filepath.Join(templateFolder, folder.Name(), "data.json"))
-				for _, v := range tests {
-					log.Printf("  Considering %s", v.Name)
-					testScenarios = append(testScenarios, &TestScenario{
-						Name: v.Name,
-						Test: &TestTemplate{
-							Template:           tmp.Template,
-							Name:               tmp.Name,
-							Variables:          v.Variables,
-							Environment:        v.Environment,
-							IgnoreExitCode:     v.IgnoreExitCode,
-							RuntimeRequirement: v.RuntimeRequirement,
-						},
-					})
-				}
-				panicIf(err)
-			case os.IsNotExist(err):
-				//no data json, which means it's a single test
-				//but, each template could support envs, so auto-process each
-				if len(template.SupportedEnvironments) > 0 {
-					for _, v := range template.SupportedEnvironments {
-						z := &TestTemplate{
-							Template:           tmp.Template,
-							Name:               tmp.Name,
-							Environment:        make(map[string]interface{}),
-							Variables:          make(map[string]interface{}),
-							RuntimeRequirement: tmp.RuntimeRequirement,
-						}
-
-						scenario := &TestScenario{
-							Name: z.Name,
-							Test: z,
-						}
-						if v.Type != "host" {
-							scenario.Name = scenario.Name + "-" + v.Type
-						}
-
-						for r, p := range v.Metadata {
-							scenario.Test.Environment[r] = p
-						}
-
-						scenario.Test.Environment["type"] = v.Type
-						log.Printf("  Considering %s", scenario.Name)
-						testScenarios = append(testScenarios, scenario)
+				switch {
+				case err == nil:
+					tests, err := readDataJsonFile(filepath.Join(templateFolder, folder.Name(), "data.json"))
+					for _, v := range tests {
+						log.Printf("  Considering %s", v.Name)
+						testScenarios = append(testScenarios, &TestScenario{
+							Name: v.Name,
+							Test: &TestTemplate{
+								Template:           tmp.Template,
+								Name:               tmp.Name,
+								Variables:          v.Variables,
+								Environment:        v.Environment,
+								IgnoreExitCode:     v.IgnoreExitCode,
+								RuntimeRequirement: v.RuntimeRequirement,
+							},
+						})
 					}
-				} else {
-					log.Printf("  Considering %s", tmp.Name)
-					testScenarios = append(testScenarios, &TestScenario{
-						Name: tmp.Name,
-						Test: tmp,
-					})
+					panicIf(err)
+				case os.IsNotExist(err):
+					//no data json, which means it's a single test
+					//but, each template could support envs, so auto-process each
+					if len(template.SupportedEnvironments) > 0 {
+						for _, v := range template.SupportedEnvironments {
+							z := &TestTemplate{
+								Template:           tmp.Template,
+								Name:               tmp.Name,
+								Environment:        make(map[string]interface{}),
+								Variables:          make(map[string]interface{}),
+								RuntimeRequirement: tmp.RuntimeRequirement,
+							}
+
+							scenario := &TestScenario{
+								Name: z.Name,
+								Test: z,
+							}
+							if v.Type != "host" {
+								scenario.Name = scenario.Name + "-" + v.Type
+							}
+
+							for r, p := range v.Metadata {
+								scenario.Test.Environment[r] = p
+							}
+
+							scenario.Test.Environment["type"] = v.Type
+							log.Printf("  Considering %s", scenario.Name)
+							testScenarios = append(testScenarios, scenario)
+						}
+					} else {
+						log.Printf("  Considering %s", tmp.Name)
+						testScenarios = append(testScenarios, &TestScenario{
+							Name: tmp.Name,
+							Test: tmp,
+						})
+					}
+				default:
+					panicIf(err)
 				}
-			default:
-				panicIf(err)
-			}
 			}
 		}
 	}

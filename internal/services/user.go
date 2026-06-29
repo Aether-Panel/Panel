@@ -160,8 +160,8 @@ func (us *User) ChangePassword(username string, newPass string) error {
 	return us.Update(user)
 }
 
-func (us *User) GetOtpStatus(userId uint) (enabled bool, err error) {
-	user, err := us.GetById(userId)
+func (us *User) GetOtpStatus(userID uint) (enabled bool, err error) {
+	user, err := us.GetById(userID)
 	if err != nil {
 		return
 	}
@@ -170,8 +170,8 @@ func (us *User) GetOtpStatus(userId uint) (enabled bool, err error) {
 	return
 }
 
-func (us *User) StartOtpEnroll(userId uint) (secret string, imgStr string, err error) {
-	user, err := us.GetById(userId)
+func (us *User) StartOtpEnroll(userID uint) (secret string, imgStr string, err error) {
+	user, err := us.GetById(userID)
 	if err != nil {
 		return
 	}
@@ -230,8 +230,8 @@ func (us *User) generateOtpRecoveryCodes(numCodes int) ([]string, error) {
 	return codes, nil
 }
 
-func (us *User) ValidateOtpEnroll(userId uint, token string) ([]string, error) {
-	user, err := us.GetById(userId)
+func (us *User) ValidateOtpEnroll(userID uint, token string) ([]string, error) {
+	user, err := us.GetById(userID)
 	if err != nil {
 		return nil, err
 	}
@@ -263,8 +263,8 @@ func (us *User) ValidateOtpEnroll(userId uint, token string) ([]string, error) {
 
 }
 
-func (us *User) RegenerateOtpRecoveryCodes(userId uint) ([]string, error) {
-	user, err := us.GetById(userId)
+func (us *User) RegenerateOtpRecoveryCodes(userID uint) ([]string, error) {
+	user, err := us.GetById(userID)
 	if err != nil {
 		return nil, err
 	}
@@ -294,8 +294,8 @@ func (us *User) RegenerateOtpRecoveryCodes(userId uint) ([]string, error) {
 	return codes, err
 }
 
-func (us *User) DisableOtp(userId uint) error {
-	user, err := us.GetById(userId)
+func (us *User) DisableOtp(userID uint) error {
+	user, err := us.GetById(userID)
 	if err != nil {
 		return err
 	}

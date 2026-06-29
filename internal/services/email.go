@@ -135,6 +135,8 @@ func (es *emailService) SendEmail(to, template string, data map[string]interface
 				logging.Error.Printf("Error sending email: %s", err)
 			}
 		}(svc, to, subjectBuilder.String(), bodyBuilder.String())
-		return svc.Send(to, subjectBuilder.String(), bodyBuilder.String())
+		return nil
 	}
+
+	return svc.Send(to, subjectBuilder.String(), bodyBuilder.String())
 }
