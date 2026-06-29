@@ -139,7 +139,7 @@ func getAllUptime(c *gin.Context) {
 
 			// Crear entrada con datos mínimos (desde ahora)
 			// Para servidores sin datos históricos, mostrar uptime actual desde inicio del período
-			var currentUptime int64 = 0
+			var currentUptime int64
 			var currentStartTime time.Time = now
 
 			// Si está online, calcular uptime desde el inicio del período

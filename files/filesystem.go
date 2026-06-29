@@ -130,10 +130,10 @@ func (sfp *fileServer) OpenFile(path string, flags int, mode os.FileMode) (*os.F
 			return nil, err
 		}
 	} else {
-		//because openat is not permitted, we will have to play a game...
+		// because openat is not permitted, we will have to play a game...
 		parts := strings.Split(path, string(filepath.Separator))
 
-		//follow the chain, this is just directories we're going through
+		// follow the chain, this is just directories we're going through
 		var rootFd = getFd(sfp.root)
 		var previousFd = rootFd
 		for _, v := range parts[:len(parts)-1] {
@@ -146,7 +146,7 @@ func (sfp *fileServer) OpenFile(path string, flags int, mode os.FileMode) (*os.F
 			}
 			previousFd = fd
 		}
-		//now.... we can open the file
+		// now.... we can open the file
 		fd, err = unix.Openat(previousFd, parts[len(parts)-1], unix.O_NOFOLLOW|flags, sys.SyscallMode(mode))
 		if previousFd != rootFd {
 			_ = unix.Close(previousFd)

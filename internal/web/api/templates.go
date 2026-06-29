@@ -66,12 +66,12 @@ func getsTemplatesForRepo(c *gin.Context) {
 	db := middleware.GetDatabase(c)
 	ts := &services.Template{DB: db}
 
-	repoId, err := cast.ToUintE(c.Param("repo"))
+	repoID, err := cast.ToUintE(c.Param("repo"))
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
 
-	templates, err := ts.GetAllFromRepo(repoId)
+	templates, err := ts.GetAllFromRepo(repoID)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
@@ -122,7 +122,7 @@ func addRepo(c *gin.Context) {
 // @Router /api/templates/{repo} [delete]
 // @Security OAuth2Application[templates.repo.delete]
 func deleteRepo(c *gin.Context) {
-	repoId, err := cast.ToUintE(c.Param("repo"))
+	repoID, err := cast.ToUintE(c.Param("repo"))
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
@@ -130,7 +130,7 @@ func deleteRepo(c *gin.Context) {
 	db := middleware.GetDatabase(c)
 	ts := &services.Template{DB: db}
 
-	err = ts.DeleteRepo(repoId)
+	err = ts.DeleteRepo(repoID)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
@@ -150,12 +150,12 @@ func getTemplateFromRepo(c *gin.Context) {
 	db := middleware.GetDatabase(c)
 	ts := &services.Template{DB: db}
 
-	repoId, err := cast.ToUintE(c.Param("repo"))
+	repoID, err := cast.ToUintE(c.Param("repo"))
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
 
-	template, err := ts.Get(repoId, c.Param("name"))
+	template, err := ts.Get(repoID, c.Param("name"))
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		c.AbortWithStatus(404)
 		return

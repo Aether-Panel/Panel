@@ -31,7 +31,7 @@ import (
 var wsupgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
+	CheckOrigin: func(_ *http.Request) bool {
 		return true
 	},
 }
@@ -153,8 +153,7 @@ func startServer(c *gin.Context) {
 
 	if wait {
 		err := server.Start()
-		if response.HandleError(c, err, http.StatusInternalServerError) {
-		} else {
+		if !response.HandleError(c, err, http.StatusInternalServerError) {
 			c.Status(http.StatusNoContent)
 		}
 	} else {
@@ -230,8 +229,7 @@ func stopServer(c *gin.Context) {
 
 	if wait {
 		err = server.GetEnvironment().WaitForMainProcess()
-		if response.HandleError(c, err, http.StatusInternalServerError) {
-		} else {
+		if !response.HandleError(c, err, http.StatusInternalServerError) {
 			c.Status(http.StatusNoContent)
 		}
 	} else {
@@ -250,8 +248,7 @@ func killServer(c *gin.Context) {
 	server := getServerFromGin(c)
 
 	err := server.Kill()
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-	} else {
+	if !response.HandleError(c, err, http.StatusInternalServerError) {
 		c.Status(http.StatusNoContent)
 	}
 }
@@ -312,8 +309,7 @@ func deleteServer(c *gin.Context) {
 	}
 
 	err := servers.Delete(server.ID())
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-	} else {
+	if !response.HandleError(c, err, http.StatusInternalServerError) {
 		c.Status(http.StatusNoContent)
 	}
 }
@@ -333,8 +329,7 @@ func installServer(c *gin.Context) {
 
 	if wait {
 		err := server.Install()
-		if response.HandleError(c, err, http.StatusInternalServerError) {
-		} else {
+		if !response.HandleError(c, err, http.StatusInternalServerError) {
 			c.Status(http.StatusNoContent)
 		}
 	} else {
@@ -357,8 +352,7 @@ func editServerData(c *gin.Context) {
 	}
 
 	err = server.EditData(data, false)
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-	} else {
+	if !response.HandleError(c, err, http.StatusInternalServerError) {
 		c.Status(http.StatusNoContent)
 	}
 }
@@ -374,8 +368,7 @@ func editServerDataAdmin(c *gin.Context) {
 	}
 
 	err = server.EditData(data, true)
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-	} else {
+	if !response.HandleError(c, err, http.StatusInternalServerError) {
 		c.Status(http.StatusNoContent)
 	}
 }
@@ -488,8 +481,7 @@ func editServerTask(c *gin.Context) {
 	}
 
 	err = server.Scheduler.AddTask(taskID, task)
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-	} else {
+	if !response.HandleError(c, err, http.StatusInternalServerError) {
 		c.Status(http.StatusNoContent)
 	}
 }
@@ -512,8 +504,7 @@ func deleteServerTask(c *gin.Context) {
 		c.Status(http.StatusNotFound)
 		return
 	}
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-	} else {
+	if !response.HandleError(c, err, http.StatusInternalServerError) {
 		c.Status(http.StatusNoContent)
 	}
 }
@@ -529,8 +520,7 @@ func reloadServer(c *gin.Context) {
 	server := getServerFromGin(c)
 
 	err := servers.Reload(server.ID())
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-	} else {
+	if !response.HandleError(c, err, http.StatusInternalServerError) {
 		c.Status(http.StatusNoContent)
 	}
 }
@@ -752,8 +742,7 @@ func deleteFile(c *gin.Context) {
 		err = server.GetFileServer().Remove(targetPath)
 	}
 
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-	} else {
+	if !response.HandleError(c, err, http.StatusInternalServerError) {
 		c.Status(http.StatusNoContent)
 	}
 }
@@ -879,8 +868,7 @@ func archive(c *gin.Context) {
 	destination := c.Param("filename")
 
 	err := server.ArchiveItems(files, destination)
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-	} else {
+	if !response.HandleError(c, err, http.StatusInternalServerError) {
 		c.Status(http.StatusNoContent)
 	}
 }
@@ -908,8 +896,7 @@ func extract(c *gin.Context) {
 		err = server.Extract(targetPath, destination)
 	}
 
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-	} else {
+	if !response.HandleError(c, err, http.StatusInternalServerError) {
 		c.Status(http.StatusNoContent)
 	}
 }

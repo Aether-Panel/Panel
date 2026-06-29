@@ -78,7 +78,7 @@ func getNode(c *gin.Context) {
 	db := middleware.GetDatabase(c)
 	ns := &services.Node{DB: db}
 
-	id, ok := validateId(c)
+	id, ok := validateID(c)
 	if !ok {
 		return
 	}
@@ -154,7 +154,7 @@ func updateNode(c *gin.Context) {
 		return
 	}
 
-	id, ok := validateId(c)
+	id, ok := validateID(c)
 	if !ok {
 		return
 	}
@@ -192,7 +192,7 @@ func deleteNode(c *gin.Context) {
 	db := middleware.GetDatabase(c)
 	ns := &services.Node{DB: db}
 
-	id, ok := validateId(c)
+	id, ok := validateID(c)
 	if !ok {
 		return
 	}
@@ -226,7 +226,7 @@ func deployNode(c *gin.Context) {
 	db := middleware.GetDatabase(c)
 	ns := &services.Node{DB: db}
 
-	id, ok := validateId(c)
+	id, ok := validateID(c)
 	if !ok {
 		return
 	}
@@ -260,7 +260,7 @@ func getFeatures(c *gin.Context) {
 	db := middleware.GetDatabase(c)
 	ns := &services.Node{DB: db}
 
-	id, ok := validateId(c)
+	id, ok := validateID(c)
 	if !ok {
 		return
 	}
@@ -301,7 +301,7 @@ func getSystemInfo(c *gin.Context) {
 	db := middleware.GetDatabase(c)
 	ns := &services.Node{DB: db}
 
-	id, ok := validateId(c)
+	id, ok := validateID(c)
 	if !ok {
 		return
 	}
@@ -326,7 +326,7 @@ func getSystemInfo(c *gin.Context) {
 	c.JSON(http.StatusOK, systemInfo)
 }
 
-func validateId(c *gin.Context) (uint, bool) {
+func validateID(c *gin.Context) (uint, bool) {
 	param := c.Param("id")
 
 	id, err := strconv.Atoi(param)

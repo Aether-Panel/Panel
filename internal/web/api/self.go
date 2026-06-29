@@ -34,8 +34,8 @@ func registerSelf(g *gin.RouterGroup) {
 	g.Handle("POST", "/oauth2", middleware.RequiresPermission(scopes.ScopeSelfClients), createPersonalOAuth2Client)
 	g.Handle("OPTIONS", "/oauth2", response.CreateOptions("GET", "POST"))
 
-	g.Handle("DELETE", "/oauth2/:clientId", middleware.RequiresPermission(scopes.ScopeSelfClients), deletePersonalOAuth2Client)
-	g.Handle("OPTIONS", "/oauth2/:clientId", response.CreateOptions("DELETE"))
+	g.Handle("DELETE", "/oauth2/:clientID", middleware.RequiresPermission(scopes.ScopeSelfClients), deletePersonalOAuth2Client)
+	g.Handle("OPTIONS", "/oauth2/:clientID", response.CreateOptions("DELETE"))
 }
 
 // @Summary Get your user info
@@ -358,12 +358,12 @@ func createPersonalOAuth2Client(c *gin.Context) {
 // @Security OAuth2Application[self.clients]
 func deletePersonalOAuth2Client(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
-	clientId := c.Param("clientId")
+	clientID := c.Param("clientID")
 
 	db := middleware.GetDatabase(c)
 	os := &services.OAuth2{DB: db}
 
-	client, err := os.Get(clientId)
+	client, err := os.Get(clientID)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}

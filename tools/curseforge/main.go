@@ -105,22 +105,22 @@ func main() {
 		if test.JavaBinary == "" {
 			test.JavaBinary = "java"
 		}
-		serverId := fmt.Sprintf("%d-%d", test.ProjectID, test.FileID)
+		serverID := fmt.Sprintf("%d-%d", test.ProjectID, test.FileID)
 
-		_ = os.RemoveAll(serverId)
-		_ = os.Mkdir(serverId, 0755)
+		_ = os.RemoveAll(serverID)
+		_ = os.Mkdir(serverID, 0755)
 
 		server := servers.CreateProgram()
-		server.Identifier = serverId
+		server.Identifier = serverID
 
-		env, err := servers.CreateEnvironment("host", serverId, "", server.Server)
+		env, err := servers.CreateEnvironment("host", serverID, "", server.Server)
 		if err != nil {
 			results[unitTest] = err
 			continue
 		}
 		server.RunningEnvironment = env
 
-		fs, err := files.NewFileServer(serverId, os.Getuid(), os.Getgid())
+		fs, err := files.NewFileServer(serverID, os.Getuid(), os.Getgid())
 		if err != nil {
 			results[unitTest] = err
 			continue

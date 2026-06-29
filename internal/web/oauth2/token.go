@@ -65,21 +65,21 @@ func handleTokenRequest(c *gin.Context) {
 				}
 			}
 
-			var serverId string
+			var serverID string
 			if client.Server != nil {
-				serverId = client.Server.Identifier
+				serverID = client.Server.Identifier
 			}
 
 			var allScopes []string
 			ps := &services.Permission{DB: db}
-			perms, err := ps.GetForUserAndServer(client.UserID, serverId)
+			perms, err := ps.GetForUserAndServer(client.UserID, serverID)
 			if response.HandleError(c, err, http.StatusInternalServerError) {
 				return
 			}
 
 			if !scopes.ContainsScope(perms.Scopes, scopes.ScopeLogin) {
 				//because servers don't have an explicit login scope, we need to check the root user
-				if serverId == "" {
+				if serverID == "" {
 					c.AbortWithStatus(http.StatusForbidden)
 					return
 				}

@@ -52,14 +52,14 @@ type ProvisionActionRequest struct {
 // to any server on the given node.
 // If min/max are both 0 (no range configured), picks from the full user port range (1024–65535).
 // If min/max are set, restricts to that range.
-func pickFreePort(db *gorm.DB, nodeID uint, min, max uint16) uint16 {
+func pickFreePort(db *gorm.DB, nodeID uint, portMin, portMax uint16) uint16 {
 	// Default to full user port range if no range configured
-	if min == 0 || max == 0 {
-		min = 1024
-		max = 65535
+	if portMin == 0 || portMax == 0 {
+		portMin = 1024
+		portMax = 65535
 	}
 
-	if min > max {
+	if portMin > portMax {
 		return 0
 	}
 
@@ -74,13 +74,13 @@ func pickFreePort(db *gorm.DB, nodeID uint, min, max uint16) uint16 {
 		used[p] = true
 	}
 
-	rangeSize := int(max-min) + 1
+	rangeSize := int(portMax-portMin) + 1
 
 	// For large ranges, use random sampling instead of building a full list
 	if rangeSize > 10000 {
 		maxAttempts := 100
 		for i := 0; i < maxAttempts; i++ {
-			candidate := min + uint16(rand.Intn(rangeSize))
+			candidate := portMin + uint16(rand.Intn(rangeSize))
 			if !used[candidate] {
 				return candidate
 			}
@@ -90,7 +90,7 @@ func pickFreePort(db *gorm.DB, nodeID uint, min, max uint16) uint16 {
 
 	// For small/medium ranges build the full free list and pick at random
 	free := make([]uint16, 0, rangeSize)
-	for p := min; p <= max; p++ {
+	for p := portMin; p <= portMax; p++ {
 		if !used[p] {
 			free = append(free, p)
 		}

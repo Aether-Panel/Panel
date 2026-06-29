@@ -90,7 +90,7 @@ func checkPermission(c *gin.Context, perm *scopes.Scope) bool {
 	}
 
 	//we now have a user and they are allowed to access something, let's confirm they have server access
-	serverID := c.Param("serverID")
+	serverID := c.Param("serverId")
 	if perm.ForServer && serverID == "" {
 		return false
 	}
@@ -183,7 +183,7 @@ func GetToken(c *gin.Context) string {
 }
 
 func ResolveServerPanel(c *gin.Context) {
-	serverID := c.Param("serverID")
+	serverID := c.Param("serverId")
 	if serverID == "" {
 		c.AbortWithStatus(http.StatusNotFound)
 		return
@@ -202,7 +202,7 @@ func ResolveServerPanel(c *gin.Context) {
 }
 
 func ResolveServerNode(c *gin.Context) {
-	serverID := c.Param("serverID")
+	serverID := c.Param("serverId")
 	if serverID == "" {
 		c.AbortWithStatus(http.StatusNotFound)
 		return

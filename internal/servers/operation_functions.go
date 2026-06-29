@@ -42,7 +42,7 @@ func celFileExists(env *skypanel.Environment) functions.UnaryOp {
 	}
 }
 
-func celInPath(env *skypanel.Environment) functions.UnaryOp {
+func celInPath(_ *skypanel.Environment) functions.UnaryOp {
 	return func(fileName ref.Val) ref.Val {
 		_, err := exec.LookPath(fileName.Value().(string))
 		return types.Bool(err == nil || errors.Is(err, exec.ErrDot))
