@@ -58,7 +58,7 @@ func downloadModpack(file File) error {
 }
 
 func getCacheFolderForFile(file File) string {
-	return filepath.Join(config.CacheFolder.Value(), "curseforge", fmt.Sprintf("%d", file.Id))
+	return filepath.Join(config.CacheFolder.Value(), "curseforge", fmt.Sprintf("%d", file.ID))
 }
 
 func getCacheFilePath(file File) string {
@@ -66,7 +66,7 @@ func getCacheFilePath(file File) string {
 }
 
 func getManifest(clientFile File) (Manifest, error) {
-	if clientFile.Id == 0 {
+	if clientFile.ID == 0 {
 		return Manifest{}, os.ErrNotExist
 	}
 	manifestFile, err := extractFile(getCacheFilePath(clientFile), "manifest.json")

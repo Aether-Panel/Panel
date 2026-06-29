@@ -75,7 +75,7 @@ func (c CurseForge) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 			}
 		}
 
-		if serverFile.Id == 0 {
+		if serverFile.ID == 0 {
 			err = errors.New("no files available on CurseForge")
 			return skypanel.OperationResult{Error: err}
 		}
@@ -94,7 +94,7 @@ func (c CurseForge) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 		}
 	}
 
-	if clientFile.Id == 0 && serverFile.ParentProjectFileId != 0 {
+	if clientFile.ID == 0 && serverFile.ParentProjectFileId != 0 {
 		clientFile, err = getFileByID(c.ProjectID, serverFile.ParentProjectFileId)
 		if err != nil {
 			return skypanel.OperationResult{Error: err}
@@ -102,8 +102,8 @@ func (c CurseForge) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 	}
 
 	if !serverFile.IsServerPack {
-		logging.Debug.Printf("File ID %d is not marked as a server pack, will not install\n", serverFile.Id)
-		env.DisplayToConsole(true, "File ID %d is not marked as a server pack, will not install\n", serverFile.Id)
+		logging.Debug.Printf("File ID %d is not marked as a server pack, will not install\n", serverFile.ID)
+		env.DisplayToConsole(true, "File ID %d is not marked as a server pack, will not install\n", serverFile.ID)
 		return skypanel.OperationResult{Error: errors.New("not server pack")}
 	}
 
@@ -114,7 +114,7 @@ func (c CurseForge) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 		return skypanel.OperationResult{Error: err}
 	}
 
-	/*if clientFile.Id != 0 {
+	/*if clientFile.ID != 0 {
 		logging.Debug.Printf("Downloading modpack from %s\n", serverFile.DownloadURL)
 		env.DisplayToConsole(true, "Downloading modpack from %s", serverFile.DownloadURL)
 		err = downloadModpack(clientFile)
@@ -165,7 +165,7 @@ func (c CurseForge) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 		var loaderVersion string
 		for _, v := range manifest.Minecraft.ModLoaders {
 			if v.Primary {
-				loaderVersion = v.Id
+				loaderVersion = v.ID
 				break
 			}
 		}

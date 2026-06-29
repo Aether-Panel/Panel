@@ -92,7 +92,7 @@ type MinecraftManifest struct {
 }
 
 type ModLoaderManifest struct {
-	Id      string
+	ID      string
 	Primary bool
 }
 
