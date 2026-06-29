@@ -18,6 +18,6 @@ func (d DockerPull) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 		return skypanel.OperationResult{Error: skypanel.ErrEnvironmentNotSupported}
 	}
 
-	err := dockerEnv.PullImage(env, context.Background(), d.ImageName, true)
+	err := dockerEnv.PullImage(context.Background(), env, d.ImageName, true)
 	return skypanel.OperationResult{Error: err}
 }

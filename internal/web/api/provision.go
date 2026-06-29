@@ -124,7 +124,8 @@ func provisionServer(c *gin.Context) {
 	generatedPassword := req.Password
 	isNewUser := false
 
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	switch {
+	case errors.Is(err, gorm.ErrRecordNotFound):
 		// New user — generate credentials
 		isNewUser = true
 		if generatedPassword == "" {
@@ -143,9 +144,9 @@ func provisionServer(c *gin.Context) {
 		if err := us.Create(user); response.HandleError(c, err, http.StatusInternalServerError) {
 			return
 		}
-	} else if response.HandleError(c, err, http.StatusInternalServerError) {
+	case response.HandleError(c, err, http.StatusInternalServerError):
 		return
-	} else {
+	default:
 		// User already exists — reset their password so Paymenter can show it
 		generatedPassword, _ = utils.GenerateRandomString(12)
 		_ = user.SetPassword(generatedPassword)

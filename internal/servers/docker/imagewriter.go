@@ -11,7 +11,7 @@ import (
 type ImageDownload struct {
 	Status         string
 	ProgressDetail ProgressDetail
-	Id             string
+	ID             string
 	Progress       string
 }
 

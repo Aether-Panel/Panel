@@ -429,103 +429,103 @@ func (t *tty) createCmd(workDir, cmd string) (pr *exec.Cmd, err error) {
 		pr.SysProcAttr = &syscall.SysProcAttr{Setctty: true, Setsid: true}
 		pr.Dir = workDir
 		return
-	} else {
-		workDirMount := removeRoot(workDir)
-		binaryFolderMount := removeRoot(config.BinariesFolder.Value())
-		cacheFolderMount := removeRoot(config.CacheFolder.Value())
+	}
 
-		mountFolders := []string{workDirMount, binaryFolderMount, cacheFolderMount}
-		for _, v := range t.Mounts {
-			mountFolders = append(mountFolders, removeRoot(v))
-		}
+	workDirMount := removeRoot(workDir)
+	binaryFolderMount := removeRoot(config.BinariesFolder.Value())
+	cacheFolderMount := removeRoot(config.CacheFolder.Value())
 
-		unshareArgs := make([]string, len(cmdList))
-		copy(unshareArgs, cmdList)
+	mountFolders := []string{workDirMount, binaryFolderMount, cacheFolderMount}
+	for _, v := range t.Mounts {
+		mountFolders = append(mountFolders, removeRoot(v))
+	}
 
-		if runtime.GOARCH == "amd64" {
-			unshareArgs = append(unshareArgs,
-				"mkdir -p lib64",
-				"mount --bind /lib64 lib64",
-			)
-		}
+	unshareArgs := make([]string, len(cmdList))
+	copy(unshareArgs, cmdList)
 
-		var lstat os.FileInfo
-		lstat, err = os.Lstat("/etc/resolv.conf")
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			return
-		}
-		if err == nil && lstat.Mode()&os.ModeSymlink != 0 {
-			var absPath string
-			absPath, err = filepath.EvalSymlinks("/etc/resolv.conf")
-			if err != nil {
-				return
-			}
-			localPath := removeRoot(absPath)
-			dir := removeRoot(filepath.Dir(absPath))
-			unshareArgs = append(unshareArgs,
-				fmt.Sprintf("mkdir -p %s", dir),
-				fmt.Sprintf("touch %s", localPath),
-				fmt.Sprintf("mount --rbind %s %s", absPath, localPath),
-			)
-		}
-
-		absWorkDir, _ := filepath.Abs(workDir)
-		absBinDir, _ := filepath.Abs(config.BinariesFolder.Value())
-		absCacheDir, _ := filepath.Abs(config.CacheFolder.Value())
-
+	if runtime.GOARCH == "amd64" {
 		unshareArgs = append(unshareArgs,
-			fmt.Sprintf("mkdir -p {%s}", strings.Join(mountFolders, ",")),
-			fmt.Sprintf("mount --bind %s %s", absWorkDir, workDirMount),
-			fmt.Sprintf("mount --bind %s %s", absBinDir, binaryFolderMount),
-			fmt.Sprintf("mount --bind %s %s", absCacheDir, cacheFolderMount),
+			"mkdir -p lib64",
+			"mount --bind /lib64 lib64",
 		)
+	}
 
-		for _, v := range t.Mounts {
-			absV, _ := filepath.Abs(v)
-			unshareArgs = append(unshareArgs, fmt.Sprintf("mount --bind %s %s", absV, removeRoot(v)))
-		}
-
-		unshareArgs = append(unshareArgs,
-			//move cwd to bind mounted instace of .
-			"cd .",
-			"mkdir -p old-root",
-			//make . the root for everything in the current namespace
-			"pivot_root . old-root",
-			//make the old root unaccessible by unmounting it
-			//needs to be lazy because the old root is considered busy as it's still the root outside the namespace
-			"umount -l /old-root",
-			"rm -r /old-root",
-			fmt.Sprintf("cd /%s && %s", workDirMount, cmd))
-
-		pr = exec.Command("bash", "-c", strings.Join(unshareArgs, " && "))
-		pr.Dir, err = os.MkdirTemp("", "unshare-pp-")
+	var lstat os.FileInfo
+	lstat, err = os.Lstat("/etc/resolv.conf")
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return
+	}
+	if err == nil && lstat.Mode()&os.ModeSymlink != 0 {
+		var absPath string
+		absPath, err = filepath.EvalSymlinks("/etc/resolv.conf")
 		if err != nil {
 			return
 		}
-		pr.SysProcAttr = &syscall.SysProcAttr{
-			Setctty: true,
-			Setsid:  true,
-			Unshareflags: syscall.CLONE_NEWUSER |
-				syscall.CLONE_NEWNS |
-				syscall.CLONE_FILES |
-				syscall.CLONE_NEWCGROUP |
-				syscall.CLONE_NEWIPC |
-				syscall.CLONE_NEWUTS,
-			UidMappings: []syscall.SysProcIDMap{
-				{
-					ContainerID: 0,
-					HostID:      os.Getuid(),
-					Size:        1,
-				},
+		localPath := removeRoot(absPath)
+		dir := removeRoot(filepath.Dir(absPath))
+		unshareArgs = append(unshareArgs,
+			fmt.Sprintf("mkdir -p %s", dir),
+			fmt.Sprintf("touch %s", localPath),
+			fmt.Sprintf("mount --rbind %s %s", absPath, localPath),
+		)
+	}
+
+	absWorkDir, _ := filepath.Abs(workDir)
+	absBinDir, _ := filepath.Abs(config.BinariesFolder.Value())
+	absCacheDir, _ := filepath.Abs(config.CacheFolder.Value())
+
+	unshareArgs = append(unshareArgs,
+		fmt.Sprintf("mkdir -p {%s}", strings.Join(mountFolders, ",")),
+		fmt.Sprintf("mount --bind %s %s", absWorkDir, workDirMount),
+		fmt.Sprintf("mount --bind %s %s", absBinDir, binaryFolderMount),
+		fmt.Sprintf("mount --bind %s %s", absCacheDir, cacheFolderMount),
+	)
+
+	for _, v := range t.Mounts {
+		absV, _ := filepath.Abs(v)
+		unshareArgs = append(unshareArgs, fmt.Sprintf("mount --bind %s %s", absV, removeRoot(v)))
+	}
+
+	unshareArgs = append(unshareArgs,
+		//move cwd to bind mounted instace of .
+		"cd .",
+		"mkdir -p old-root",
+		//make . the root for everything in the current namespace
+		"pivot_root . old-root",
+		//make the old root unaccessible by unmounting it
+		//needs to be lazy because the old root is considered busy as it's still the root outside the namespace
+		"umount -l /old-root",
+		"rm -r /old-root",
+		fmt.Sprintf("cd /%s && %s", workDirMount, cmd))
+
+	pr = exec.Command("bash", "-c", strings.Join(unshareArgs, " && "))
+	pr.Dir, err = os.MkdirTemp("", "unshare-pp-")
+	if err != nil {
+		return
+	}
+	pr.SysProcAttr = &syscall.SysProcAttr{
+		Setctty: true,
+		Setsid:  true,
+		Unshareflags: syscall.CLONE_NEWUSER |
+			syscall.CLONE_NEWNS |
+			syscall.CLONE_FILES |
+			syscall.CLONE_NEWCGROUP |
+			syscall.CLONE_NEWIPC |
+			syscall.CLONE_NEWUTS,
+		UidMappings: []syscall.SysProcIDMap{
+			{
+				ContainerID: 0,
+				HostID:      os.Getuid(),
+				Size:        1,
 			},
-			GidMappings: []syscall.SysProcIDMap{
-				{
-					ContainerID: 0,
-					HostID:      os.Getgid(),
-					Size:        1,
-				},
+		},
+		GidMappings: []syscall.SysProcIDMap{
+			{
+				ContainerID: 0,
+				HostID:      os.Getgid(),
+				Size:        1,
 			},
-		}
+		},
 	}
 	return
 }

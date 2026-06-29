@@ -81,7 +81,7 @@ func (d *Docker) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypa
 		return errors.New("docker container already exists")
 	}
 
-	err = d.createContainer(environment, steps, ctx)
+	err = d.createContainer(ctx, environment, steps)
 	if err != nil {
 		return err
 	}
@@ -344,7 +344,7 @@ func doesContainerExist(ctx context.Context, client *client.Client, id string) (
 	return false, nil
 }
 
-func (d *Docker) PullImage(environment *skypanel.Environment, ctx context.Context, imageName string, force bool) error {
+func (d *Docker) PullImage(ctx context.Context, environment *skypanel.Environment, imageName string, force bool) error {
 	if d.downloadingImage {
 		return skypanel.ErrImageDownloading
 	}
@@ -415,7 +415,7 @@ func (d *Docker) PullImage(environment *skypanel.Environment, ctx context.Contex
 	return err
 }
 
-func (d *Docker) createContainer(environment *skypanel.Environment, data skypanel.ExecutionData, ctx context.Context) error {
+func (d *Docker) createContainer(ctx context.Context, environment *skypanel.Environment, data skypanel.ExecutionData) error {
 	environment.Log(logging.Debug, "Creating container")
 	containerRoot := d.ContainerRoot
 	if containerRoot == "" {
@@ -430,7 +430,7 @@ func (d *Docker) createContainer(environment *skypanel.Environment, data skypane
 
 	imageName := utils.ReplaceTokens(d.ImageName, data.Variables)
 
-	err := d.PullImage(environment, ctx, imageName, false)
+	err := d.PullImage(ctx, environment, imageName, false)
 
 	if err != nil {
 		return err
@@ -621,7 +621,7 @@ func (d *Docker) SendCodeImpl(environment *skypanel.Environment, code int) error
 	return dockerClient.ContainerKill(ctx, environment.ServerID, cast.ToString(code))
 }
 
-func (d *Docker) GetUIDImpl(environment *skypanel.Environment) int {
+func (d *Docker) GetUIDImpl(_ *skypanel.Environment) int {
 	user := d.Config.User
 	if user == "" {
 		return -1
@@ -629,7 +629,7 @@ func (d *Docker) GetUIDImpl(environment *skypanel.Environment) int {
 	return cast.ToInt(strings.Split(user, ":")[0])
 }
 
-func (d *Docker) GetGidImpl(environment *skypanel.Environment) int {
+func (d *Docker) GetGidImpl(_ *skypanel.Environment) int {
 	user := d.Config.User
 	if user == "" {
 		return -1
@@ -679,7 +679,7 @@ func (d *Docker) handleClose(environment *skypanel.Environment, client *client.C
 func calculateCPUPercent(v *container.StatsResponse) float64 {
 	//this math is from https://docs.docker.com/reference/api/engine/version/v1.45/#tag/Container/operation/ContainerStats
 	cpuDelta := v.CPUStats.CPUUsage.TotalUsage - v.PreCPUStats.CPUUsage.TotalUsage
-	systemCpuDelta := v.CPUStats.SystemUsage - v.PreCPUStats.SystemUsage
+	systemCPUDelta := v.CPUStats.SystemUsage - v.PreCPUStats.SystemUsage
 	numCpus := int(v.CPUStats.OnlineCPUs)
 	if numCpus == 0 {
 		numCpus = len(v.CPUStats.CPUUsage.PercpuUsage)

@@ -16,7 +16,7 @@ func (of OperationFactory) Create(op skypanel.CreateOperation) (skypanel.Operati
 		return nil, errors.New("CurseForge key is required to use this module")
 	}
 
-	projectId, err := cast.ToUintE(op.OperationArgs["projectId"])
+	projectID, err := cast.ToUintE(op.OperationArgs["projectId"])
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +32,7 @@ func (of OperationFactory) Create(op skypanel.CreateOperation) (skypanel.Operati
 		javaBinary = "java"
 	}
 
-	return &CurseForge{ProjectID: projectId, FileID: fileID, JavaBinary: javaBinary}, nil
+	return &CurseForge{ProjectID: projectID, FileID: fileID, JavaBinary: javaBinary}, nil
 }
 
 func (of OperationFactory) Key() string {

@@ -40,16 +40,16 @@ func Initialize(useFiles bool) {
 
 	// just create them ourselves.....
 
-	//first, create STDERR
+	// first, create STDERR
 
 	stderr := MultiWriter(rotation, os.Stderr)
 	Error = log.New(stderr, "[ERROR] ", flags)
 
-	//now, STDOUT
+	// now, STDOUT
 	stdout := MultiWriter(rotation, os.Stdout)
 	Info = log.New(stdout, "[INFO] ", flags)
 
-	//and now, a DEBUG
+	// and now, a DEBUG
 	stddebug := MultiWriter(rotation, os.Stdout)
 	Debug = log.New(stddebug, "[DEBUG] ", flags)
 

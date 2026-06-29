@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-var SpongeApiBaseUrl = "https://dl-api.spongepowered.org/v2/groups/org.spongepowered/artifacts/"
+var SpongeAPIBaseURL = "https://dl-api.spongepowered.org/v2/groups/org.spongepowered/artifacts/"
 
 type SpongeDl struct {
 	Recommended      bool
@@ -22,18 +22,18 @@ type SpongeDl struct {
 	MinecraftVersion string //version of minecraft to download
 }
 
-type SpongeApiV2Versions struct {
+type SpongeAPIV2Versions struct {
 	Artifacts map[string]interface{} `json:"artifacts"`
 }
 
-type SpongeApiV2Latest struct {
-	Assets []SpongeApiV2Asset `json:"assets"`
+type SpongeAPIV2Latest struct {
+	Assets []SpongeAPIV2Asset `json:"assets"`
 	Tags   map[string]string
 }
 
-type SpongeApiV2Asset struct {
+type SpongeAPIV2Asset struct {
 	Classifier  string
-	DownloadUrl string
+	DownloadURL string
 	Extension   string
 }
 
@@ -74,7 +74,7 @@ func (op SpongeDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	var url string
 	for _, v := range data.Assets {
 		if v.Classifier == key && v.Extension == "jar" {
-			url = v.DownloadUrl
+			url = v.DownloadURL
 		}
 	}
 
@@ -138,8 +138,8 @@ func (op SpongeDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	return skypanel.OperationResult{Error: nil}
 }
 
-func (op SpongeDl) getLatestVersion(env *skypanel.Environment) (SpongeApiV2Versions, error) {
-	var data SpongeApiV2Versions
+func (op SpongeDl) getLatestVersion(env *skypanel.Environment) (SpongeAPIV2Versions, error) {
+	var data SpongeAPIV2Versions
 
 	var params = "?limit=1"
 	if op.MinecraftVersion != "" {
@@ -149,7 +149,7 @@ func (op SpongeDl) getLatestVersion(env *skypanel.Environment) (SpongeApiV2Versi
 		params += "&recommended=true"
 	}
 
-	var url = SpongeApiBaseUrl + op.SpongeType + "/versions" + params
+	var url = SpongeAPIBaseURL + op.SpongeType + "/versions" + params
 
 	response, err := skypanel.HTTPGet(url)
 	if err != nil {
@@ -165,10 +165,10 @@ func (op SpongeDl) getLatestVersion(env *skypanel.Environment) (SpongeApiV2Versi
 	return data, err
 }
 
-func (op SpongeDl) getSpecificVersion(env *skypanel.Environment, version string) (SpongeApiV2Latest, error) {
-	var data SpongeApiV2Latest
+func (op SpongeDl) getSpecificVersion(env *skypanel.Environment, version string) (SpongeAPIV2Latest, error) {
+	var data SpongeAPIV2Latest
 
-	var url = SpongeApiBaseUrl + op.SpongeType + "/versions/" + version
+	var url = SpongeAPIBaseURL + op.SpongeType + "/versions/" + version
 
 	response, err := skypanel.HTTPGet(url)
 	if err != nil {

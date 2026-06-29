@@ -34,7 +34,7 @@ func downloadModpack(file File) error {
 	}
 	defer utils.Close(tmpFile)
 
-	response, err := skypanel.HTTP().Get(file.DownloadUrl)
+	response, err := skypanel.HTTP().Get(file.DownloadURL)
 	defer utils.CloseResponse(response)
 	if err != nil {
 		return err

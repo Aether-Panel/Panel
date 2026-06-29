@@ -80,7 +80,7 @@ func (c CurseForge) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 			return skypanel.OperationResult{Error: err}
 		}
 	} else {
-		serverFile, err = getFileById(c.ProjectID, c.FileID)
+		serverFile, err = getFileByID(c.ProjectID, c.FileID)
 		if err != nil {
 			return skypanel.OperationResult{Error: err}
 		}
@@ -88,14 +88,14 @@ func (c CurseForge) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 
 	if !serverFile.IsServerPack && serverFile.ServerPackFileId != 0 {
 		clientFile = serverFile
-		serverFile, err = getFileById(c.ProjectID, serverFile.ServerPackFileId)
+		serverFile, err = getFileByID(c.ProjectID, serverFile.ServerPackFileId)
 		if err != nil {
 			return skypanel.OperationResult{Error: err}
 		}
 	}
 
 	if clientFile.Id == 0 && serverFile.ParentProjectFileId != 0 {
-		clientFile, err = getFileById(c.ProjectID, serverFile.ParentProjectFileId)
+		clientFile, err = getFileByID(c.ProjectID, serverFile.ParentProjectFileId)
 		if err != nil {
 			return skypanel.OperationResult{Error: err}
 		}
@@ -107,16 +107,16 @@ func (c CurseForge) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 		return skypanel.OperationResult{Error: errors.New("not server pack")}
 	}
 
-	logging.Debug.Printf("Downloading modpack from %s\n", serverFile.DownloadUrl)
-	env.DisplayToConsole(true, "Downloading modpack from %s", serverFile.DownloadUrl)
+	logging.Debug.Printf("Downloading modpack from %s\n", serverFile.DownloadURL)
+	env.DisplayToConsole(true, "Downloading modpack from %s", serverFile.DownloadURL)
 	err = downloadModpack(serverFile)
 	if err != nil {
 		return skypanel.OperationResult{Error: err}
 	}
 
 	/*if clientFile.Id != 0 {
-		logging.Debug.Printf("Downloading modpack from %s\n", serverFile.DownloadUrl)
-		env.DisplayToConsole(true, "Downloading modpack from %s", serverFile.DownloadUrl)
+		logging.Debug.Printf("Downloading modpack from %s\n", serverFile.DownloadURL)
+		env.DisplayToConsole(true, "Downloading modpack from %s", serverFile.DownloadURL)
 		err = downloadModpack(clientFile)
 		if err != nil {
 			return skypanel.OperationResult{Error: err}
@@ -195,22 +195,22 @@ func (c CurseForge) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 		{
 			jarFile := data["jar"]
 			if jarFile == "" {
-				var downloadUrl string
+				var downloadURL string
 				var installerJar = "installer.jar"
 				version := data["version"]
 
 				if modLoader == "neoforge" {
-					downloadUrl = replaceTokens(neoforgedl.InstallerUrl, map[string]string{"version": version})
+					downloadURL = replaceTokens(neoforgedl.InstallerURL, map[string]string{"version": version})
 				} else {
 					//because forge has the version in the url, handle it
 					mcVersion := data["mcVersion"]
 					if !strings.HasPrefix(version, mcVersion) {
 						version = mcVersion + "-" + version
 					}
-					downloadUrl = replaceTokens(forgedl.InstallerURL, map[string]string{"version": version})
+					downloadURL = replaceTokens(forgedl.InstallerURL, map[string]string{"version": version})
 				}
 
-				dl, err := skypanel.DownloadViaMaven(downloadUrl, env)
+				dl, err := skypanel.DownloadViaMaven(downloadURL, env)
 				defer utils.Close(dl)
 				if err != nil {
 					return skypanel.OperationResult{Error: err}
@@ -335,11 +335,11 @@ func installFabric(env *skypanel.Environment, data map[string]string, javaBinary
 	//or we have to pull the installer and run it
 
 	//see if improved is available
-	fabricUrl := replaceTokens(ImprovedFabricInstallerUrl, data)
+	fabricURL := replaceTokens(ImprovedFabricInstallerURL, data)
 	targetFile := filepath.Join(env.GetRootDirectory(), "server.jar")
 
-	env.DisplayToConsole(true, "Downloading %s to %s", fabricUrl, targetFile)
-	err := downloadFile(fabricUrl, targetFile)
+	env.DisplayToConsole(true, "Downloading %s to %s", fabricURL, targetFile)
+	err := downloadFile(fabricURL, targetFile)
 	if err == nil {
 		//this was a good file, we got what we need
 		return nil
@@ -347,11 +347,11 @@ func installFabric(env *skypanel.Environment, data map[string]string, javaBinary
 
 	if !errors.Is(err, errNoFile) {
 		//we got a 404, so we can't use the improved version at all
-		fabricUrl = replaceTokens(FabricInstallerUrl, data)
+		fabricURL = replaceTokens(FabricInstallerURL, data)
 		targetFile = filepath.Join(env.GetRootDirectory(), "fabric-installer.jar")
 
-		env.DisplayToConsole(true, "Downloading %s to %s", fabricUrl, targetFile)
-		err = downloadFile(fabricUrl, targetFile)
+		env.DisplayToConsole(true, "Downloading %s to %s", fabricURL, targetFile)
+		err = downloadFile(fabricURL, targetFile)
 		if err != nil {
 			return err
 		}
@@ -382,9 +382,9 @@ func installFabric(env *skypanel.Environment, data map[string]string, javaBinary
 		_ = os.Remove(filepath.Join(env.GetRootDirectory(), "server.jar"))
 		err = os.Rename(filepath.Join(env.GetRootDirectory(), "fabric-server-launch.jar"), filepath.Join(env.GetRootDirectory(), "server.jar"))
 		return err
-	} else {
-		return err
 	}
+
+	return err
 }
 
 func downloadFile(url, target string) error {
