@@ -53,7 +53,7 @@ func (w *ImageWriter) Write(data []byte) (n int, err error) {
 			return
 		}
 
-		message := fmt.Sprintf("%s %s %s", imageDownload.Status, imageDownload.Id, strings.ReplaceAll(imageDownload.Progress, "\u003e", ""))
+		message := fmt.Sprintf("%s %s %s", imageDownload.Status, imageDownload.ID, strings.ReplaceAll(imageDownload.Progress, "\u003e", ""))
 		message = strings.TrimSpace(message)
 		_, err = w.Parent.Write([]byte(message + "\n"))
 	}

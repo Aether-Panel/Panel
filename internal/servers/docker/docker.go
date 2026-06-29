@@ -684,7 +684,7 @@ func calculateCPUPercent(v *container.StatsResponse) float64 {
 	if numCpus == 0 {
 		numCpus = len(v.CPUStats.CPUUsage.PercpuUsage)
 	}
-	return (float64(cpuDelta) / float64(systemCpuDelta)) * float64(numCpus) * 100.0
+	return (float64(cpuDelta) / float64(systemCPUDelta)) * float64(numCpus) * 100.0
 }
 
 func getDirSize(path string) int64 {

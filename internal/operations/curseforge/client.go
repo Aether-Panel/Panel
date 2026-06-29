@@ -53,7 +53,7 @@ func getAddonFileData(projectID uint, fileID uint) (FileResponse, error) {
 	defer utils.CloseResponse(response)
 
 	if response.StatusCode == http.StatusNotFound {
-					return FileResponse{}, skypanel.ErrCurseForgeFile(projectID, fileID)
+		return FileResponse{}, skypanel.ErrCurseForgeFile(projectID, fileID)
 	}
 
 	if response.StatusCode != http.StatusOK {

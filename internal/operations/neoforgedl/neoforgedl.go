@@ -32,7 +32,7 @@ func (op NeoforgeDL) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult
 		op.Version = neoVersion
 	}
 
-	jarDownload := strings.ReplaceAll(InstallerUrl, "${version}", op.Version)
+	jarDownload := strings.ReplaceAll(InstallerURL, "${version}", op.Version)
 
 	localFile, err := skypanel.DownloadViaMaven(jarDownload, env)
 	defer utils.Close(localFile)
@@ -52,7 +52,7 @@ func (op NeoforgeDL) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult
 }
 
 func getLatestForMCVersion(minecraftVersion string) (string, error) {
-	response, err := skypanel.HTTPGet(MetadataUrl)
+	response, err := skypanel.HTTPGet(MetadataURL)
 	defer utils.CloseResponse(response)
 	if err != nil {
 		return "", err

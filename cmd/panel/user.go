@@ -320,15 +320,15 @@ func editUser(cmd *cobra.Command, args []string) {
 				perms.Scopes = scopes.AddScope(perms.Scopes, scopes.ScopeLogin)
 
 				//perms.Admin = prompt
-			result = strings.ToLower(result)
-			switch {
-			case result == "yes" || result == "y":
-				perms.Scopes = scopes.AddScope(perms.Scopes, scopes.ScopeAdmin)
-			case result == "no" || result == "n":
-				perms.Scopes = scopes.RemoveScope(perms.Scopes, scopes.ScopeAdmin)
-			default:
-				break
-			}
+				result = strings.ToLower(result)
+				switch {
+				case result == "yes" || result == "y":
+					perms.Scopes = scopes.AddScope(perms.Scopes, scopes.ScopeAdmin)
+				case result == "no" || result == "n":
+					perms.Scopes = scopes.RemoveScope(perms.Scopes, scopes.ScopeAdmin)
+				default:
+					break
+				}
 
 				err = ps.UpdatePermissions(perms)
 				if err != nil {
