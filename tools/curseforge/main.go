@@ -96,16 +96,16 @@ func main() {
 		test := unitTest.Data
 
 		if specificId != 0 {
-			if test.ProjectId != specificId {
+			if test.ProjectID != specificId {
 				continue
 			}
 		}
 
-		fmt.Printf("Testing %d\n", test.ProjectId)
+		fmt.Printf("Testing %d\n", test.ProjectID)
 		if test.JavaBinary == "" {
 			test.JavaBinary = "java"
 		}
-		serverId := fmt.Sprintf("%d-%d", test.ProjectId, test.FileId)
+		serverId := fmt.Sprintf("%d-%d", test.ProjectID, test.FileID)
 
 		_ = os.RemoveAll(serverId)
 		_ = os.Mkdir(serverId, 0755)
@@ -158,7 +158,7 @@ func main() {
 
 	failed := false
 	for k, v := range results {
-		fmt.Printf("Project: %d\n", k.Data.ProjectId)
+		fmt.Printf("Project: %d\n", k.Data.ProjectID)
 		if v == nil {
 			fmt.Println("  Passes")
 		} else {

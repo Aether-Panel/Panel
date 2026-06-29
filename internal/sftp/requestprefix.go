@@ -15,11 +15,11 @@ import (
 type requestPrefix struct {
 	fs         files.FileServer
 	remoteAddr net.Addr
-	serverId   string
+	serverID   string
 }
 
-func CreateRequestPrefix(remoteAddr net.Addr, serverId string, fs files.FileServer) sftp.Handlers {
-	h := requestPrefix{fs: fs, serverID: serverId, remoteAddr: remoteAddr}
+func CreateRequestPrefix(remoteAddr net.Addr, serverID string, fs files.FileServer) sftp.Handlers {
+	h := requestPrefix{fs: fs, serverID: serverID, remoteAddr: remoteAddr}
 
 	return sftp.Handlers{FileCmd: h, FileGet: h, FileList: h, FilePut: h}
 }
@@ -123,7 +123,7 @@ func (rp requestPrefix) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 
 func (rp requestPrefix) log(request *sftp.Request) {
 	if config.SftpDebugLog.Value() {
-		logging.Debug.Printf("[SFTP] [%s] [%s] [%s] [%s] ", rp.remoteAddr.String(), request.Method, rp.serverId, request.Filepath)
+		logging.Debug.Printf("[SFTP] [%s] [%s] [%s] [%s] ", rp.remoteAddr.String(), request.Method, rp.serverID, request.Filepath)
 	}
 }
 

@@ -24,7 +24,7 @@ type GetServerResponse struct {
 } //@name GetServer
 
 type CreateServerResponse struct {
-	Id string `json:"id"`
+	ID string `json:"id"`
 } //@name CreatedServerId
 
 type ServerSearchResponse struct {
