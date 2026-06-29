@@ -55,9 +55,9 @@ func (c CurseForge) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 
 	var clientFile, serverFile File
 	var err error
-	if c.FileId == 0 {
+	if c.FileID == 0 {
 		//we need to get the latest file id to do our calls
-		files, err := getLatestFiles(c.ProjectId)
+		files, err := getLatestFiles(c.ProjectID)
 		if err != nil {
 			return skypanel.OperationResult{Error: err}
 		}
@@ -80,7 +80,7 @@ func (c CurseForge) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 			return skypanel.OperationResult{Error: err}
 		}
 	} else {
-		serverFile, err = getFileById(c.ProjectId, c.FileId)
+		serverFile, err = getFileById(c.ProjectID, c.FileID)
 		if err != nil {
 			return skypanel.OperationResult{Error: err}
 		}
@@ -88,14 +88,14 @@ func (c CurseForge) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 
 	if !serverFile.IsServerPack && serverFile.ServerPackFileId != 0 {
 		clientFile = serverFile
-		serverFile, err = getFileById(c.ProjectId, serverFile.ServerPackFileId)
+		serverFile, err = getFileById(c.ProjectID, serverFile.ServerPackFileId)
 		if err != nil {
 			return skypanel.OperationResult{Error: err}
 		}
 	}
 
 	if clientFile.Id == 0 && serverFile.ParentProjectFileId != 0 {
-		clientFile, err = getFileById(c.ProjectId, serverFile.ParentProjectFileId)
+		clientFile, err = getFileById(c.ProjectID, serverFile.ParentProjectFileId)
 		if err != nil {
 			return skypanel.OperationResult{Error: err}
 		}
