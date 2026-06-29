@@ -14,7 +14,7 @@ import (
 
 type Scheduler struct {
 	scheduler gocron.Scheduler
-	serverId  string
+	serverID  string
 
 	Tasks           map[string]skypanel.Task `json:"tasks"`
 	Timezone        string                   `json:"timezone,omitempty"`
@@ -54,7 +54,7 @@ func NewDefaultScheduler(serverId string) *Scheduler {
 }
 
 func (s *Scheduler) Save() error {
-	file, err := os.OpenFile(filepath.Join(config.ServersFolder.Value(), s.serverId+".cron"), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	file, err := os.OpenFile(filepath.Join(config.ServersFolder.Value(), s.serverID+".cron"), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
 	}
@@ -142,7 +142,7 @@ func (s *Scheduler) addTask(id string, task skypanel.Task) error {
 		opt = gocron.OneTimeJob(gocron.OneTimeJobStartDateTime(time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC)))
 	}
 
-	_, err := s.scheduler.NewJob(opt, gocron.NewTask(_executeTask, s.serverId, id), gocron.WithName(id))
+	_, err := s.scheduler.NewJob(opt, gocron.NewTask(_executeTask, s.serverID, id), gocron.WithName(id))
 	if err != nil {
 		return err
 	}
