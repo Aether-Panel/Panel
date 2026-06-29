@@ -14,7 +14,7 @@ type Client struct {
 
 	ClientSecret string `gorm:"-" json:"client_secret"`
 
-	UserId uint  `gorm:"column:user_id;not null;index" json:"-"`
+	UserID uint  `gorm:"column:user_id;not null;index" json:"-"`
 	User   *User `json:"-"`
 
 	ServerID *string `gorm:"column:server_id" json:"-"`
