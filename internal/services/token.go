@@ -65,7 +65,7 @@ func NewTokenService() (TokenService, error) {
 					Private: false,
 				},
 				Metadata: jwkset.JWKMetadataOptions{
-					KID: keyId,
+					KID: keyID,
 				},
 			}
 
@@ -103,7 +103,7 @@ func NewTokenService() (TokenService, error) {
 
 func (ts *tokenService) GenerateRequest() (string, error) {
 	token := jwt.New(jwt.SigningMethodEdDSA)
-	token.Header[jwkset.HeaderKID] = keyId
+	token.Header[jwkset.HeaderKID] = keyID
 	token.Claims = jwt.MapClaims{}
 
 	signed, err := token.SignedString(privateKey)

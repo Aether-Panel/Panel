@@ -95,7 +95,7 @@ func (t *Template) GetAllFromRepo(repoID uint) ([]*models.Template, error) {
 			return t.getAllFromVps(u)
 		}
 		repoDb := &models.TemplateRepo{
-			ID: repoId,
+			ID: repoID,
 		}
 
 		err = t.DB.First(repoDb).Error
@@ -172,7 +172,7 @@ func (t *Template) Get(repoID uint, name string) (*models.Template, error) {
 			return t.getFromVps(u, name)
 		}
 		repoDb := &models.TemplateRepo{
-			ID: repoId,
+			ID: repoID,
 		}
 
 		err := t.DB.First(repoDb).Error
