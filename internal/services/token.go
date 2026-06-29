@@ -27,7 +27,7 @@ var tokenServiceLocker sync.Mutex
 var tokenStore jwkset.Storage
 var privateKey crypto.PrivateKey
 
-const keyId = "SkyPanel"
+const keyID = "SkyPanel"
 
 func NewTokenService() (TokenService, error) {
 	tokenServiceLocker.Lock()

@@ -10,7 +10,7 @@ type UserSettings struct {
 	DB *gorm.DB
 }
 
-func (uss *UserSettings) GetAllForUser(userId uint) (models.UserSettingsView, error) {
+func (uss *UserSettings) GetAllForUser(userID uint) (models.UserSettingsView, error) {
 	var records []*models.UserSetting
 
 	query := uss.DB

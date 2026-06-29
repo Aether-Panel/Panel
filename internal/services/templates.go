@@ -41,7 +41,7 @@ var localRepo = &models.TemplateRepo{
 	IsLocal: true,
 }
 
-func (*Template) GetLocalRepoId() uint {
+func (*Template) GetLocalRepoID() uint {
 	return localRepo.ID
 }
 
@@ -62,11 +62,11 @@ func (t *Template) GetRepos() ([]*models.TemplateRepo, error) {
 	return append(repos, localRepo), err
 }
 
-func (t *Template) GetAllFromRepo(repoId uint) ([]*models.Template, error) {
+func (t *Template) GetAllFromRepo(repoID uint) ([]*models.Template, error) {
 	var templates []*models.Template
 	var err error
 
-	if repoId == localRepo.ID {
+	if repoID == localRepo.ID {
 		err = t.DB.Find(&templates).Error
 		if err != nil {
 			return nil, err
@@ -157,11 +157,11 @@ func (t *Template) GetAllFromRepo(repoId uint) ([]*models.Template, error) {
 	return templates, err
 }
 
-func (t *Template) Get(repoId uint, name string) (*models.Template, error) {
+func (t *Template) Get(repoID uint, name string) (*models.Template, error) {
 	template := &models.Template{
 		Name: name,
 	}
-	if repoId == localRepo.ID {
+	if repoID == localRepo.ID {
 		err := t.DB.First(template).Error
 		if err != nil {
 			return nil, err
@@ -359,7 +359,7 @@ type vpsIndexEntry struct {
 	URL string `json:"url"`
 }
 
-func httpGetJson(url string, target interface{}) error {
+func httpGetJSON(url string, target interface{}) error {
 	client := &http.Client{Timeout: 10 * time.Second}
 
 	// Crear la petición con headers apropiados para evitar bloqueos de Cloudflare
@@ -390,7 +390,7 @@ func httpGetJson(url string, target interface{}) error {
 
 func (t *Template) getAllFromVps(indexUrl string) ([]*models.Template, error) {
 	var idx map[string]vpsIndexEntry
-	err := httpGetJson(indexUrl, &idx)
+	err := httpGetJSON(indexUrl, &idx)
 	if err != nil {
 		return nil, err
 	}
@@ -410,7 +410,7 @@ func (t *Template) getAllFromVps(indexUrl string) ([]*models.Template, error) {
 
 func (t *Template) getFromVps(indexUrl, name string) (*models.Template, error) {
 	var idx map[string]vpsIndexEntry
-	err := httpGetJson(indexUrl, &idx)
+	err := httpGetJSON(indexUrl, &idx)
 	if err != nil {
 		return nil, err
 	}
@@ -423,7 +423,7 @@ func (t *Template) getFromVps(indexUrl, name string) (*models.Template, error) {
 
 func (t *Template) getTemplateFromUrl(name, url string) (*models.Template, error) {
 	tmp := &models.Template{Name: name}
-	err := httpGetJson(url, tmp)
+	err := httpGetJSON(url, tmp)
 	if err != nil {
 		return nil, err
 	}

@@ -23,10 +23,10 @@ func (ps *Permission) GetForUser(id uint) ([]*models.Permissions, error) {
 	return allPerms, err
 }
 
-func (ps *Permission) GetForServer(serverId string) ([]*models.Permissions, error) {
+func (ps *Permission) GetForServer(serverID string) ([]*models.Permissions, error) {
 	var allPerms []*models.Permissions
 	permissions := &models.Permissions{
-		ServerIdentifier: &serverId,
+		ServerIdentifier: &serverID,
 	}
 
 	err := ps.DB.Preload(clause.Associations).Where(permissions).Find(&allPerms).Error
@@ -34,20 +34,20 @@ func (ps *Permission) GetForServer(serverId string) ([]*models.Permissions, erro
 	return allPerms, err
 }
 
-func (ps *Permission) GetForUserAndServer(userId uint, serverId string) (*models.Permissions, error) {
+func (ps *Permission) GetForUserAndServer(userID uint, serverID string) (*models.Permissions, error) {
 	var id *string
 
-	if serverId != "" {
-		id = &serverId
+	if serverID != "" {
+		id = &serverID
 	}
 
 	permissions := &models.Permissions{
-		UserID:           &userId,
+		UserID:           &userID,
 		ServerIdentifier: id,
 	}
 
 	err := ps.DB.Preload(clause.Associations).Where(map[string]interface{}{
-		"user_id":           userId,
+		"user_id":           userID,
 		"server_identifier": id,
 	}).First(permissions).Error
 
@@ -58,20 +58,20 @@ func (ps *Permission) GetForUserAndServer(userId uint, serverId string) (*models
 	return permissions, err
 }
 
-func (ps *Permission) HasPermission(userId uint, serverId string, permission *scopes.Scope) (bool, error) {
+func (ps *Permission) HasPermission(userID uint, serverID string, permission *scopes.Scope) (bool, error) {
 	var query *gorm.DB
 
-	if serverId != "" {
+	if serverID != "" {
 		query = ps.DB.Preload(clause.Associations).Where(map[string]interface{}{
-			"user_id":           userId,
-			"server_identifier": serverId,
+			"user_id":           userID,
+			"server_identifier": serverID,
 		}).Or(map[string]interface{}{
-			"user_id":           userId,
+			"user_id":           userID,
 			"server_identifier": nil,
 		})
 	} else {
 		query = ps.DB.Preload(clause.Associations).Where(map[string]interface{}{
-			"user_id":           userId,
+			"user_id":           userID,
 			"server_identifier": nil,
 		})
 	}

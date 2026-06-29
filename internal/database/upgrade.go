@@ -235,7 +235,7 @@ var migrations = [][]*gormigrate.Migration{
 	{
 		{
 			ID: "1658926619",
-			Migrate: func(db *gorm.DB) error {
+			Migrate: func(_ *gorm.DB) error {
 				// Comentado: Repositorio bloqueado por Cloudflare
 				// err := db.Create(&models.TemplateRepo{
 				// 	Name:   "community",

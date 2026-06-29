@@ -122,12 +122,12 @@ func (ss *Server) Delete(id string) error {
 
 func (ss *Server) Create(model *models.Server) error {
 	if model.Identifier == "" {
-		uniqueId, err := uuid.NewV4()
+		uniqueID, err := uuid.NewV4()
 		if err != nil {
 			return err
 		}
-		generatedId := strings.ToUpper(uniqueId.String())[0:8]
-		model.Identifier = generatedId
+		generatedID := strings.ToUpper(uniqueID.String())[0:8]
+		model.Identifier = generatedID
 	}
 
 	res := ss.DB.Omit(clause.Associations).Create(model)

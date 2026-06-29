@@ -2,10 +2,10 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//This is an altered variant of the MultiWriter provided by Golang.
-//This adds a null-check to adding writings, along with holding off
-//on returning when doing a write so that things don't look stupid....
-//because windows
+// This is an altered variant of the MultiWriter provided by Golang.
+// This adds a null-check to adding writings, along with holding off
+// on returning when doing a write so that things don't look stupid....
+// because windows
 
 package logging
 

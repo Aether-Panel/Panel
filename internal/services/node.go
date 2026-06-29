@@ -21,7 +21,7 @@ import (
 var wsupgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
+	CheckOrigin: func(_ *http.Request) bool {
 		return true
 	},
 }
@@ -31,8 +31,8 @@ func init() {
 }
 
 func SyncNodeToConfig() {
-	var masterUrl = strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(config.MasterURL.Value(), "http://"), "https://"), "/")
-	var masterParts = strings.SplitN(masterUrl, ":", 2)
+	var masterURL = strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(config.MasterURL.Value(), "http://"), "https://"), "/")
+	var masterParts = strings.SplitN(masterURL, ":", 2)
 	models.LocalNode.PublicHost = strings.Split(masterUrl, ":")[0]
 	models.LocalNode.PrivateHost = strings.Split(masterUrl, ":")[0]
 
@@ -140,7 +140,7 @@ func (ns *Node) Create(node *models.Node) error {
 }
 
 func (ns *Node) CallNode(node *models.Node, method string, path string, body io.ReadCloser, headers http.Header) (*http.Response, error) {
-	var fullUrl string
+	var fullURL string
 	var err error
 
 	if node.IsLocal() {

@@ -55,7 +55,7 @@ func Initialize(useFiles bool) {
 
 	log.SetOutput(Info.Writer())
 
-	//i hate go's idea of how stdout should work
+	// i hate go's idea of how stdout should work
 	outR, outW, _ := os.Pipe()
 	errR, errW, _ := os.Pipe()
 

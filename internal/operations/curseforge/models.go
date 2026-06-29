@@ -23,19 +23,19 @@ type File struct {
 	FileLength          uint64
 	DownloadCount       uint
 	DownloadURL         string
-	AlternateFileId     uint
+	AlternateFileID     uint
 	GameVersions        []string
 	IsServerPack        bool
-	ServerPackFileId    uint
-	ParentProjectFileId uint
+	ServerPackFileID    uint
+	ParentProjectFileID uint
 }
 
 type Category struct {
 	ID               uint
 	Name             string
-	ParentCategoryId uint
+	ParentCategoryID uint
 	Slug             string
-	ClassId          uint
+	ClassID          uint
 }
 
 type Game struct {

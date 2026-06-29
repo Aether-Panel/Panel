@@ -19,7 +19,7 @@ func (s *DatabaseSFTPAuthorization) Validate(username, password string) (perms *
 	}
 
 	email := parts[0]
-	serverId := parts[1]
+	serverID := parts[1]
 
 	db, err := database.GetConnection()
 	if err != nil {

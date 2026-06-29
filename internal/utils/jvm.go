@@ -82,19 +82,20 @@ func parseLine(line string) map[string]int64 {
 	z = strings.TrimSpace(z)
 	parts := strings.Split(z, ", ")
 	for _, v := range parts {
-		if strings.HasPrefix(v, "used ") {
+		switch {
+		case strings.HasPrefix(v, "used "):
 			d := strings.TrimPrefix(v, "used ")
 			d = strings.TrimSuffix(d, "K")
 			result["used"] = cast.ToInt64(d) * 1024
-		} else if strings.HasPrefix(v, "total ") {
+		case strings.HasPrefix(v, "total "):
 			d := strings.TrimPrefix(v, "total ")
 			d = strings.TrimSuffix(d, "K")
 			result["total"] = cast.ToInt64(d) * 1024
-		} else if strings.HasPrefix(v, "reserved ") {
+		case strings.HasPrefix(v, "reserved "):
 			d := strings.TrimPrefix(v, "reserved ")
 			d = strings.TrimSuffix(d, "K")
 			result["reserved"] = cast.ToInt64(d) * 1024
-		} else if strings.HasPrefix(v, "committed ") {
+		case strings.HasPrefix(v, "committed "):
 			d := strings.TrimPrefix(v, "committed ")
 			d = strings.TrimSuffix(d, "K")
 			result["committed"] = cast.ToInt64(d) * 1024
