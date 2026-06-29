@@ -112,7 +112,7 @@ func (sfp *fileServer) OpenFile(path string, flags int, mode os.FileMode) (*os.F
 		return os.Open(sfp.dir)
 	}
 
-	//if this is not a create request, nuke mode
+	// if this is not a create request, nuke mode
 	if flags&os.O_CREATE == 0 {
 		mode = 0
 	}
@@ -120,7 +120,7 @@ func (sfp *fileServer) OpenFile(path string, flags int, mode os.FileMode) (*os.F
 	var fd int
 	var err error
 	if utils.UseOpenat2() {
-		//at this point, we are going to work on openat2
+		// at this point, we are going to work on openat2
 		fd, err = unix.Openat2(getFd(sfp.root), path, &unix.OpenHow{
 			Flags:   uint64(flags),
 			Mode:    uint64(sys.SyscallMode(mode)),

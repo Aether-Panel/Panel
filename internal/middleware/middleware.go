@@ -90,8 +90,8 @@ func checkPermission(c *gin.Context, perm *scopes.Scope) bool {
 	}
 
 	//we now have a user and they are allowed to access something, let's confirm they have server access
-	serverId := c.Param("serverId")
-	if perm.ForServer && serverId == "" {
+	serverID := c.Param("serverID")
+	if perm.ForServer && serverID == "" {
 		return false
 	}
 
@@ -100,13 +100,13 @@ func checkPermission(c *gin.Context, perm *scopes.Scope) bool {
 
 	var perms []*models.Permissions
 
-	p, err := ps.GetForUserAndServer(user.ID, serverId)
+	p, err := ps.GetForUserAndServer(user.ID, serverID)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return false
 	}
 
 	perms = append(perms, p)
-	if serverId != "" {
+	if serverID != "" {
 		//if we had a server, also grab global scopes
 		p, err = ps.GetForUserAndServer(user.ID, "")
 		if response.HandleError(c, err, http.StatusInternalServerError) {
@@ -183,15 +183,15 @@ func GetToken(c *gin.Context) string {
 }
 
 func ResolveServerPanel(c *gin.Context) {
-	serverId := c.Param("serverId")
-	if serverId == "" {
+	serverID := c.Param("serverID")
+	if serverID == "" {
 		c.AbortWithStatus(http.StatusNotFound)
 		return
 	}
 
 	db := GetDatabase(c)
 	ss := &services.Server{DB: db}
-	server, err := ss.Get(serverId)
+	server, err := ss.Get(serverID)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	} else if server == nil {
@@ -202,13 +202,13 @@ func ResolveServerPanel(c *gin.Context) {
 }
 
 func ResolveServerNode(c *gin.Context) {
-	serverId := c.Param("serverId")
-	if serverId == "" {
+	serverID := c.Param("serverID")
+	if serverID == "" {
 		c.AbortWithStatus(http.StatusNotFound)
 		return
 	}
 
-	server := servers.GetFromCache(serverId)
+	server := servers.GetFromCache(serverID)
 	if server == nil {
 		c.AbortWithStatus(http.StatusNotFound)
 		return

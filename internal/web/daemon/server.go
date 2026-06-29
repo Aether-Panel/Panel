@@ -55,13 +55,13 @@ func RegisterServerRoutes(e *gin.RouterGroup) {
 		l.GET("/:serverId/tasks", middleware.ResolveServerNode, getServerTasks)
 		l.OPTIONS("/:serverId/tasks", response.CreateOptions("GET"))
 
-		l.GET("/:serverId/tasks/:taskId", middleware.ResolveServerNode, getServerTask)
-		l.PUT("/:serverId/tasks/:taskId", middleware.ResolveServerNode, editServerTask)
-		l.DELETE("/:serverId/tasks/:taskId", middleware.ResolveServerNode, deleteServerTask)
-		l.OPTIONS("/:serverId/tasks/:taskId", response.CreateOptions("GET", "PUT", "DELETE"))
+		l.GET("/:serverId/tasks/:taskID", middleware.ResolveServerNode, getServerTask)
+		l.PUT("/:serverId/tasks/:taskID", middleware.ResolveServerNode, editServerTask)
+		l.DELETE("/:serverId/tasks/:taskID", middleware.ResolveServerNode, deleteServerTask)
+		l.OPTIONS("/:serverId/tasks/:taskID", response.CreateOptions("GET", "PUT", "DELETE"))
 
-		l.POST("/:serverId/tasks/:taskId/run", middleware.ResolveServerNode, runServerTask)
-		l.OPTIONS("/:serverId/tasks/:taskId/run", response.CreateOptions("POST"))
+		l.POST("/:serverId/tasks/:taskID/run", middleware.ResolveServerNode, runServerTask)
+		l.OPTIONS("/:serverId/tasks/:taskID/run", response.CreateOptions("POST"))
 
 		l.POST("/:serverId/reload", middleware.ResolveServerNode, reloadServer)
 		l.OPTIONS("/:serverId/reload", response.CreateOptions("POST"))
@@ -161,7 +161,7 @@ func startServer(c *gin.Context) {
 		go func() {
 			err := server.Start()
 			if err != nil {
-				logging.Error.Printf("Error starting server %s: %s", server.Id(), err)
+				logging.Error.Printf("Error starting server %s: %s", server.ID(), err)
 			}
 		}()
 		c.Status(http.StatusAccepted)
@@ -203,7 +203,7 @@ func restartServer(c *gin.Context) {
 		go func() {
 			err := doRestart(server)
 			if err != nil {
-				logging.Error.Printf("Error restarting server %s: %s", server.Id(), err)
+				logging.Error.Printf("Error restarting server %s: %s", server.ID(), err)
 			}
 		}()
 		c.Status(http.StatusAccepted)
@@ -291,7 +291,7 @@ func createServer(c *gin.Context) {
 	if prg, err = servers.Create(prg); err != nil {
 		response.HandleError(c, err, http.StatusInternalServerError)
 		if prg != nil {
-			_ = servers.Delete(prg.Id())
+			_ = servers.Delete(prg.ID())
 		}
 		return
 	}
@@ -305,13 +305,13 @@ func deleteServer(c *gin.Context) {
 
 	if running, err := server.IsRunning(); running || err != nil {
 		if response.HandleError(c, err, http.StatusInternalServerError) {
-		} else {
-			response.HandleError(c, skypanel.ErrServerRunning, http.StatusNotAcceptable)
+			return
 		}
+		c.Status(http.StatusNoContent)
 		return
 	}
 
-	err := servers.Delete(server.Id())
+	err := servers.Delete(server.ID())
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 	} else {
 		c.Status(http.StatusNoContent)
@@ -412,9 +412,9 @@ func getServerTasks(c *gin.Context) {
 // @Description Get server task by id
 // @Success 200 {object} skypanel.ServerTask
 // @Param id path string true "Server ID"
-// @Param taskId path string true "Task ID"
+// @Param taskID path string true "Task ID"
 // @Tags Daemon Server
-// @Router /api/servers/{id}/tasks/{taskId} [get]
+// @Router /api/servers/{id}/tasks/{taskID} [get]
 // @Security OAuth2Application[server.tasks.view]
 func getServerTask(c *gin.Context) {
 	server := getServerFromGin(c)
@@ -439,16 +439,16 @@ func getServerTask(c *gin.Context) {
 // @Description Run a specific task
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
-// @Param taskId path string true "Task ID"
+// @Param taskID path string true "Task ID"
 // @Tags Daemon Server
-// @Router /api/servers/{id}/tasks/{taskId}/run [post]
+// @Router /api/servers/{id}/tasks/{taskID}/run [post]
 // @Security OAuth2Application[server.tasks.run]
 func runServerTask(c *gin.Context) {
 	server := getServerFromGin(c)
 
-	taskId := c.Param("taskId")
+	taskID := c.Param("taskID")
 
-	err := server.Scheduler.RunTask(taskId)
+	err := server.Scheduler.RunTask(taskID)
 	if errors.Is(err, gocron.ErrJobNotFound) {
 		c.Status(http.StatusNotFound)
 		return
@@ -463,15 +463,15 @@ func runServerTask(c *gin.Context) {
 // @Description Edit server task by id
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
-// @Param taskId path string true "Task ID"
+// @Param taskID path string true "Task ID"
 // @Param task body skypanel.Task true "Task definition"
 // @Tags Daemon Server
-// @Router /api/servers/{id}/tasks/{taskId} [put]
+// @Router /api/servers/{id}/tasks/{taskID} [put]
 // @Security OAuth2Application[server.tasks.edit]
 func editServerTask(c *gin.Context) {
 	server := getServerFromGin(c)
 
-	taskId := c.Param("taskId")
+	taskID := c.Param("taskID")
 
 	var task skypanel.Task
 	err := c.ShouldBindJSON(&task)
@@ -479,7 +479,7 @@ func editServerTask(c *gin.Context) {
 		return
 	}
 
-	err = server.Scheduler.RemoveTask(taskId)
+	err = server.Scheduler.RemoveTask(taskID)
 	if errors.Is(err, gocron.ErrJobNotFound) {
 		err = nil
 	}
@@ -487,7 +487,7 @@ func editServerTask(c *gin.Context) {
 		return
 	}
 
-	err = server.Scheduler.AddTask(taskId, task)
+	err = server.Scheduler.AddTask(taskID, task)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 	} else {
 		c.Status(http.StatusNoContent)
@@ -498,16 +498,16 @@ func editServerTask(c *gin.Context) {
 // @Description Delete server task by id
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
-// @Param taskId path string true "Task ID"
+// @Param taskID path string true "Task ID"
 // @Tags Daemon Server
-// @Router /api/servers/{id}/tasks/{taskId} [delete]
+// @Router /api/servers/{id}/tasks/{taskID} [delete]
 // @Security OAuth2Application[server.tasks.delete]
 func deleteServerTask(c *gin.Context) {
 	server := getServerFromGin(c)
 
-	taskId := c.Param("taskId")
+	taskID := c.Param("taskID")
 
-	err := server.Scheduler.RemoveTask(taskId)
+	err := server.Scheduler.RemoveTask(taskID)
 	if errors.Is(err, gocron.ErrJobNotFound) {
 		c.Status(http.StatusNotFound)
 		return
@@ -528,7 +528,7 @@ func deleteServerTask(c *gin.Context) {
 func reloadServer(c *gin.Context) {
 	server := getServerFromGin(c)
 
-	err := servers.Reload(server.Id())
+	err := servers.Reload(server.ID())
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 	} else {
 		c.Status(http.StatusNoContent)
@@ -599,19 +599,19 @@ func editServerAdmin(c *gin.Context) {
 	//copy from request
 	server.CopyFrom(replacement)
 
-	err = servers.Save(prg.Id())
+	err = servers.Save(prg.ID())
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		//REVERT!!!!!!!
 		server.CopyFrom(backup)
 		return
 	}
 
-	err = servers.Reload(prg.Id())
+	err = servers.Reload(prg.ID())
 
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		//attempt to revert... but no promise this works
 		server.CopyFrom(backup)
-		_ = servers.Reload(prg.Id())
+		_ = servers.Reload(prg.ID())
 		return
 	}
 
@@ -799,9 +799,9 @@ func getStats(c *gin.Context) {
 
 	results, err := server.GetEnvironment().GetStats()
 	if response.HandleError(c, err, http.StatusInternalServerError) {
-	} else {
-		c.JSON(http.StatusOK, results)
+		return
 	}
+	c.Status(http.StatusNoContent)
 }
 
 // @Summary Get logs

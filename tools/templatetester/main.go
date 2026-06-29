@@ -57,7 +57,7 @@ func main() {
 		CmdFlags.WorkingDir, err = os.MkdirTemp("", pattern)
 		panicIf(err)
 	} else {
-		err = filepath.WalkDir(CmdFlags.WorkingDir, func(path string, info fs.DirEntry, err error) error {
+		err = filepath.WalkDir(CmdFlags.WorkingDir, func(path string, _ fs.DirEntry, err error) error {
 			if path == CmdFlags.WorkingDir {
 				return err
 			}
@@ -201,7 +201,7 @@ func runTest(client *http.Client, session string, test *TestScenario) {
 	//create server
 	_, err = call(client, &http.Request{
 		Method: "PUT",
-		URL:    createUrl(urlPrefix),
+		URL:    createURL(urlPrefix),
 		Header: createHeaders(session),
 		Body:   createCreateBody(test),
 	})
@@ -210,7 +210,7 @@ func runTest(client *http.Client, session string, test *TestScenario) {
 	//install server
 	_, err = call(client, &http.Request{
 		Method: "POST",
-		URL:    createUrl(urlPrefix + "/install"),
+		URL:    createURL(urlPrefix + "/install"),
 		Header: createHeaders(session),
 	})
 	panicIf(err)
@@ -220,7 +220,7 @@ func runTest(client *http.Client, session string, test *TestScenario) {
 		time.Sleep(30 * time.Second)
 		data, err = call(client, &http.Request{
 			Method: "GET",
-			URL:    createUrl(urlPrefix + "/status"),
+			URL:    createURL(urlPrefix + "/status"),
 			Header: createHeaders(session),
 		})
 		panicIf(err)
@@ -237,7 +237,7 @@ func runTest(client *http.Client, session string, test *TestScenario) {
 	//start server
 	_, err = call(client, &http.Request{
 		Method: "POST",
-		URL:    createUrl(urlPrefix + "/start"),
+		URL:    createURL(urlPrefix + "/start"),
 		Header: createHeaders(session),
 	})
 	panicIf(err)
@@ -248,7 +248,7 @@ func runTest(client *http.Client, session string, test *TestScenario) {
 		time.Sleep(1 * time.Minute)
 		data, err = call(client, &http.Request{
 			Method: "GET",
-			URL:    createUrl(urlPrefix + "/status"),
+			URL:    createURL(urlPrefix + "/status"),
 			Header: createHeaders(session),
 		})
 		panicIf(err)
@@ -271,7 +271,7 @@ func runTest(client *http.Client, session string, test *TestScenario) {
 	//stop server
 	_, err = call(client, &http.Request{
 		Method: "POST",
-		URL:    createUrl(urlPrefix + "/stop"),
+		URL:    createURL(urlPrefix + "/stop"),
 		Header: createHeaders(session),
 	})
 	panicIf(err)
@@ -282,7 +282,7 @@ func runTest(client *http.Client, session string, test *TestScenario) {
 		time.Sleep(1 * time.Minute)
 		data, err = call(client, &http.Request{
 			Method: "GET",
-			URL:    createUrl(urlPrefix + "/status"),
+			URL:    createURL(urlPrefix + "/status"),
 			Header: createHeaders(session),
 		})
 		panicIf(err)
@@ -302,7 +302,7 @@ func runTest(client *http.Client, session string, test *TestScenario) {
 	//delete server
 	_, err = call(client, &http.Request{
 		Method: "DELETE",
-		URL:    createUrl(urlPrefix),
+		URL:    createURL(urlPrefix),
 		Header: createHeaders(session),
 	})
 
@@ -389,7 +389,7 @@ func call(client *http.Client, request *http.Request) (data []byte, err error) {
 	return
 }
 
-func createUrl(str string) *url.URL {
+func createURL(str string) *url.URL {
 	u, err := url.Parse(str)
 	panicIf(err)
 	return u

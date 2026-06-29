@@ -36,7 +36,7 @@ func (us *User) Get(username string) (*models.User, error) {
 	return model, nil
 }
 
-func (us *User) GetById(id uint) (*models.User, error) {
+func (us *User) GetByID(id uint) (*models.User, error) {
 	model := &models.User{
 		ID: id,
 	}
@@ -161,7 +161,7 @@ func (us *User) ChangePassword(username string, newPass string) error {
 }
 
 func (us *User) GetOtpStatus(userID uint) (enabled bool, err error) {
-	user, err := us.GetById(userID)
+	user, err := us.GetByID(userID)
 	if err != nil {
 		return
 	}
@@ -171,7 +171,7 @@ func (us *User) GetOtpStatus(userID uint) (enabled bool, err error) {
 }
 
 func (us *User) StartOtpEnroll(userID uint) (secret string, imgStr string, err error) {
-	user, err := us.GetById(userID)
+	user, err := us.GetByID(userID)
 	if err != nil {
 		return
 	}
@@ -231,7 +231,7 @@ func (us *User) generateOtpRecoveryCodes(numCodes int) ([]string, error) {
 }
 
 func (us *User) ValidateOtpEnroll(userID uint, token string) ([]string, error) {
-	user, err := us.GetById(userID)
+	user, err := us.GetByID(userID)
 	if err != nil {
 		return nil, err
 	}
@@ -264,7 +264,7 @@ func (us *User) ValidateOtpEnroll(userID uint, token string) ([]string, error) {
 }
 
 func (us *User) RegenerateOtpRecoveryCodes(userID uint) ([]string, error) {
-	user, err := us.GetById(userID)
+	user, err := us.GetByID(userID)
 	if err != nil {
 		return nil, err
 	}
@@ -295,7 +295,7 @@ func (us *User) RegenerateOtpRecoveryCodes(userID uint) ([]string, error) {
 }
 
 func (us *User) DisableOtp(userID uint) error {
-	user, err := us.GetById(userID)
+	user, err := us.GetByID(userID)
 	if err != nil {
 		return err
 	}

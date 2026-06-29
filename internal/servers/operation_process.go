@@ -170,9 +170,8 @@ func (p *OperationProcess) Run(server *Server) error {
 				//extraData[conditions.VariableSuccess] = false
 				*/
 				return result.Error
-			} else {
-				extraData[conditions.VariableSuccess] = true
 			}
+			extraData[conditions.VariableSuccess] = true
 
 			if result.VariableOverrides != nil {
 				for k, val := range result.VariableOverrides {

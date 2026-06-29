@@ -24,14 +24,14 @@ type Scheduler struct {
 
 // LoadScheduler Loads the scheduler from the serverid.cron file, or defaults
 // This file is a JSON file, but it hooks into everything
-func LoadScheduler(serverId string) (*Scheduler, error) {
-	file, err := os.Open(filepath.Join(config.ServersFolder.Value(), serverId+".cron"))
+func LoadScheduler(serverID string) (*Scheduler, error) {
+	file, err := os.Open(filepath.Join(config.ServersFolder.Value(), serverID+".cron"))
 	if err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
 	defer utils.Close(file)
 
-	scheduler := NewDefaultScheduler(serverId)
+	scheduler := NewDefaultScheduler(serverID)
 	if file != nil {
 		err = json.NewDecoder(file).Decode(&scheduler)
 		if err != nil {
@@ -43,13 +43,13 @@ func LoadScheduler(serverId string) (*Scheduler, error) {
 	return scheduler, err
 }
 
-func NewDefaultScheduler(serverId string) *Scheduler {
+func NewDefaultScheduler(serverID string) *Scheduler {
 	return &Scheduler{
 		Tasks:           make(map[string]skypanel.Task),
 		Timezone:        "Local",
 		ConcurrentLimit: 5,
 		LimitMode:       "wait",
-		serverID:        serverId,
+		serverID:        serverID,
 	}
 }
 
@@ -175,8 +175,8 @@ func (s *Scheduler) GetTasks() map[string]skypanel.Task {
 	return s.Tasks
 }
 
-func _executeTask(serverId string, id string) {
-	p := GetFromCache(serverId)
+func _executeTask(serverID string, id string) {
+	p := GetFromCache(serverID)
 	var err error
 
 	task := p.Scheduler.Tasks[id]

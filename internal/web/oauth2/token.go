@@ -18,7 +18,7 @@ const expiresIn = int64(time.Hour / time.Second)
 
 // @Summary Authenticate
 // @Description Get a OAuth2 token to consume this API
-// @Param request formData OAuth2TokenRequest true "OAuth2 token request"
+// @Param request formData TokenRequest true "OAuth2 token request"
 // @Success 200 {object} oauth2.TokenResponse
 // @Failure 400 {object} oauth2.ErrorResponse
 // @Failure 401 {object} oauth2.ErrorResponse
@@ -28,7 +28,7 @@ const expiresIn = int64(time.Hour / time.Second)
 // @Tags OAuth2
 // @Router /oauth2/token [post]
 func handleTokenRequest(c *gin.Context) {
-	var request OAuth2TokenRequest
+	var request TokenRequest
 	err := c.MustBindWith(&request, binding.FormPost)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: err.Error()})
@@ -192,7 +192,7 @@ func handleTokenRequest(c *gin.Context) {
 	}
 }
 
-type OAuth2TokenRequest struct {
+type TokenRequest struct {
 	GrantType    string `form:"grant_type"`
 	ClientID     string `form:"client_id"`
 	ClientSecret string `form:"client_secret"`

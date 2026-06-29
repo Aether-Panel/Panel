@@ -195,8 +195,8 @@ func getSystemInfo(c *gin.Context) {
 	// Get network statistics
 	if netStats, err := net.IOCounters(false); err == nil && len(netStats) > 0 {
 		// Sum all network interfaces
-		var totalBytesSent uint64 = 0
-		var totalBytesRecv uint64 = 0
+		var totalBytesSent uint64
+		var totalBytesRecv uint64
 		for _, stat := range netStats {
 			totalBytesSent += stat.BytesSent
 			totalBytesRecv += stat.BytesRecv

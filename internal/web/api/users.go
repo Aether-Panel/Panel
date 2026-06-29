@@ -136,7 +136,7 @@ func getUser(c *gin.Context) {
 		return
 	}
 
-	user, err := us.GetById(id)
+	user, err := us.GetByID(id)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
@@ -177,7 +177,7 @@ func updateUser(c *gin.Context) {
 		return
 	}
 
-	user, err := us.GetById(id)
+	user, err := us.GetByID(id)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
@@ -212,7 +212,7 @@ func deleteUser(c *gin.Context) {
 		return
 	}
 
-	user, err := us.GetById(id)
+	user, err := us.GetByID(id)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
@@ -246,7 +246,7 @@ func getUserPerms(c *gin.Context) {
 		return
 	}
 
-	user, err := us.GetById(id)
+	user, err := us.GetByID(id)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
@@ -288,7 +288,7 @@ func setUserPerms(c *gin.Context) {
 		return
 	}
 
-	user, err := us.GetById(id)
+	user, err := us.GetByID(id)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}

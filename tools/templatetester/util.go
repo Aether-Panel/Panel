@@ -42,7 +42,7 @@ func readDataTxtFile(fileName string) (map[string]interface{}, error) {
 	return result, nil
 }
 
-func readDataJsonFile(fileName string) ([]*TestData, error) {
+func readDataJSONFile(fileName string) ([]*TestData, error) {
 	file, err := os.Open(fileName)
 	if err != nil {
 		return nil, err
@@ -139,7 +139,7 @@ func buildTests() []*TestScenario {
 				_, err = os.Stat(filepath.Join(templateFolder, folder.Name(), "data.json"))
 				switch {
 				case err == nil:
-					tests, err := readDataJsonFile(filepath.Join(templateFolder, folder.Name(), "data.json"))
+					tests, err := readDataJSONFile(filepath.Join(templateFolder, folder.Name(), "data.json"))
 					for _, v := range tests {
 						log.Printf("  Considering %s", v.Name)
 						testScenarios = append(testScenarios, &TestScenario{

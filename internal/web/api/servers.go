@@ -415,7 +415,7 @@ func createServer(c *gin.Context) {
 		var inheritedUsers []string
 		for _, p := range parentPerms {
 			if p.UserID != nil {
-				user, err := us.GetById(*p.UserID)
+				user, err := us.GetByID(*p.UserID)
 				if err == nil && user != nil {
 					inheritedUsers = append(inheritedUsers, user.Username)
 				}

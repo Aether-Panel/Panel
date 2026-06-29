@@ -388,17 +388,17 @@ func httpGetJSON(url string, target interface{}) error {
 	return dec.Decode(target)
 }
 
-func (t *Template) getAllFromVps(indexUrl string) ([]*models.Template, error) {
+func (t *Template) getAllFromVps(indexURL string) ([]*models.Template, error) {
 	var idx map[string]vpsIndexEntry
-	err := httpGetJSON(indexUrl, &idx)
+	err := httpGetJSON(indexURL, &idx)
 	if err != nil {
 		return nil, err
 	}
 	result := make([]*models.Template, 0, len(idx))
-	indexBase := indexUrl
+	indexBase := indexURL
 	for name, entry := range idx {
-		target := resolveUrl(indexBase, entry.URL)
-		tmp, err := t.getTemplateFromUrl(name, target)
+		target := resolveURL(indexBase, entry.URL)
+		tmp, err := t.getTemplateFromURL(name, target)
 		if err != nil {
 			logging.Error.Printf("Error reading template from %s: %s", target, err.Error())
 			continue
@@ -408,9 +408,9 @@ func (t *Template) getAllFromVps(indexUrl string) ([]*models.Template, error) {
 	return result, nil
 }
 
-func (t *Template) getFromVps(indexUrl, name string) (*models.Template, error) {
+func (t *Template) getFromVps(indexURL, name string) (*models.Template, error) {
 	var idx map[string]vpsIndexEntry
-	err := httpGetJSON(indexUrl, &idx)
+	err := httpGetJSON(indexURL, &idx)
 	if err != nil {
 		return nil, err
 	}
@@ -418,10 +418,10 @@ func (t *Template) getFromVps(indexUrl, name string) (*models.Template, error) {
 	if !ok {
 		return nil, skypanel.ErrNoTemplate(name)
 	}
-	return t.getTemplateFromUrl(name, resolveUrl(indexUrl, entry.URL))
+	return t.getTemplateFromURL(name, resolveURL(indexURL, entry.URL))
 }
 
-func (t *Template) getTemplateFromUrl(name, url string) (*models.Template, error) {
+func (t *Template) getTemplateFromURL(name, url string) (*models.Template, error) {
 	tmp := &models.Template{Name: name}
 	err := httpGetJSON(url, tmp)
 	if err != nil {
@@ -430,7 +430,7 @@ func (t *Template) getTemplateFromUrl(name, url string) (*models.Template, error
 	return tmp, nil
 }
 
-func resolveUrl(baseStr, refStr string) string {
+func resolveURL(baseStr, refStr string) string {
 	// Construye URL absoluta a partir de base (índice) y ref (posible relativa)
 	base, err := url.Parse(baseStr)
 	if err != nil {

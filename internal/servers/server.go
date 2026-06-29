@@ -125,7 +125,7 @@ func processQueue() {
 		if run, _ := program.IsRunning(); !run {
 			err := program.Start()
 			if err != nil {
-				logging.Error.Printf("[%s] Error starting server: %s", program.Id(), err)
+				logging.Error.Printf("[%s] Error starting server: %s", program.ID(), err)
 			}
 		}
 	}
@@ -187,17 +187,17 @@ func sendSystemStatusToDiscord() {
 	// Crear un mapa de servidor ID a node ID desde la base de datos
 	serverNodeMap := make(map[string]uint)
 	for _, server := range allServers {
-		serverModel, err := ss.Get(server.Id())
+		serverModel, err := ss.Get(server.ID())
 		if err != nil {
 			// Si no se encuentra en la BD, asumimos nodo local (0)
-			serverNodeMap[server.Id()] = 0
+			serverNodeMap[server.ID()] = 0
 			continue
 		}
 		nodeID := serverModel.NodeID
 		if nodeID == 0 || serverModel.RawNodeID == nil {
 			nodeID = 0 // Nodo local
 		}
-		serverNodeMap[server.Id()] = nodeID
+		serverNodeMap[server.ID()] = nodeID
 	}
 
 	serverInfos := make([]services.ServerInfo, 0, len(allServers))
@@ -206,18 +206,18 @@ func sendSystemStatusToDiscord() {
 	for _, server := range allServers {
 		isRunning, err := server.IsRunning()
 		if err != nil {
-			logging.Error.Printf("[%s] Error checking server status for system status: %s", server.Id(), err)
+			logging.Error.Printf("[%s] Error checking server status for system status: %s", server.ID(), err)
 			isRunning = false
 		}
 
 		serverName := server.Server.Display
 		if serverName == "" {
-			serverName = server.Id()
+			serverName = server.ID()
 		}
 
 		serverInfo := services.ServerInfo{
 			Name:      serverName,
-			ID:        server.Id(),
+			ID:        server.ID(),
 			IsRunning: isRunning,
 			CPU:       0.0,
 			Memory:    0.0,
@@ -235,7 +235,7 @@ func sendSystemStatusToDiscord() {
 		serverInfos = append(serverInfos, serverInfo)
 
 		// Agrupar por nodo
-		nodeID := serverNodeMap[server.Id()]
+		nodeID := serverNodeMap[server.ID()]
 		if nodeServerMap[nodeID] == nil {
 			nodeServerMap[nodeID] = make([]services.ServerInfo, 0)
 		}
@@ -552,9 +552,9 @@ func trackUptime(server *Server) {
 	}
 
 	us := &services.Uptime{DB: db}
-	err = us.TrackStatus(server.Id(), isRunning)
+	err = us.TrackStatus(server.ID(), isRunning)
 	if err != nil {
-		logging.Error.Printf("[%s] Error tracking uptime: %s", server.Id(), err)
+		logging.Error.Printf("[%s] Error tracking uptime: %s", server.ID(), err)
 	}
 }
 
@@ -567,13 +567,13 @@ func checkDiskLimit(server *Server, stats *skypanel.ServerStats) {
 	if stats.Disk > stats.MaxStorage+(1024*1024) {
 		isRunning, _ := server.IsRunning()
 		if isRunning {
-			logging.Info.Printf("[%s] Server exceeded disk limit (%.2f MB > %.2f MB). Stopping server...", server.Id(), stats.Disk/1024/1024, stats.MaxStorage/1024/1024)
+			logging.Info.Printf("[%s] Server exceeded disk limit (%.2f MB > %.2f MB). Stopping server...", server.ID(), stats.Disk/1024/1024, stats.MaxStorage/1024/1024)
 			server.RunningEnvironment.DisplayToConsole(true, fmt.Sprintf("\n[CRÍTICO] El servidor ha superado el límite de disco asignado (%.2f MB / %.2f MB).\n[CRÍTICO] Deteniendo el servidor por seguridad...\n", stats.Disk/1024/1024, stats.MaxStorage/1024/1024))
 
 			// Detener el servidor
 			err := server.Stop()
 			if err != nil {
-				logging.Error.Printf("[%s] Failed to stop server after exceeding disk limit: %s", server.Id(), err)
+				logging.Error.Printf("[%s] Failed to stop server after exceeding disk limit: %s", server.ID(), err)
 				_ = server.Kill() // Forzar kill si falla el stop
 			}
 		}
@@ -584,7 +584,7 @@ func checkServerAlerts(server *Server, stats *skypanel.ServerStats) {
 	stateTrackingLock.Lock()
 	defer stateTrackingLock.Unlock()
 
-	serverID := server.Id()
+	serverID := server.ID()
 	isRunning, _ := server.IsRunning()
 
 	// Obtener o crear estado anterior
@@ -707,7 +707,7 @@ func (p *Server) Start() error {
 		return err
 	}
 
-	p.Log(logging.Info, "Starting server %s", p.Id())
+	p.Log(logging.Info, "Starting server %s", p.ID())
 	p.RunningEnvironment.DisplayToConsole(true, "Starting server\n")
 
 	process, err := GenerateProcess(p.Execution.PreExecution, p.RunningEnvironment, p.DataToMap(), p.Execution.EnvironmentVariables)
@@ -752,7 +752,7 @@ func (p *Server) Start() error {
 			}
 			useThis, err := p.RunCondition(v.If, nil)
 			if err != nil {
-				p.Log(logging.Error, "error starting server %s: %s", p.Id(), err)
+				p.Log(logging.Error, "error starting server %s: %s", p.ID(), err)
 				p.RunningEnvironment.DisplayToConsole(true, " Failed to start server\n")
 				return err
 			}
@@ -786,7 +786,7 @@ func (p *Server) Start() error {
 	})
 
 	if err != nil {
-		p.Log(logging.Error, "error starting server %s: %s", p.Id(), err)
+		p.Log(logging.Error, "error starting server %s: %s", p.ID(), err)
 		p.RunningEnvironment.DisplayToConsole(true, " Failed to start server\n")
 		return err
 	}
@@ -829,7 +829,7 @@ func (p *Server) Stop() error {
 		return err
 	}
 
-	p.Log(logging.Info, "Stopping server %s", p.Id())
+	p.Log(logging.Info, "Stopping server %s", p.ID())
 	if p.Execution.StopCode != 0 {
 		err = p.RunningEnvironment.SendCode(p.Execution.StopCode)
 	} else {
@@ -847,7 +847,7 @@ func (p *Server) Stop() error {
 // Kill Kills the program.
 // This will also stop the environment it is ran in.
 func (p *Server) Kill() (err error) {
-	p.Log(logging.Info, "Killing server %s", p.Id())
+	p.Log(logging.Info, "Killing server %s", p.ID())
 	err = p.RunningEnvironment.Kill()
 	if err != nil {
 		p.Log(logging.Error, "Error killing server: %s", err)
@@ -861,7 +861,7 @@ func (p *Server) Kill() (err error) {
 // Create Creates any files needed for the program.
 // This includes creating the environment.
 func (p *Server) Create() (err error) {
-	p.Log(logging.Info, "Creating server %s", p.Id())
+	p.Log(logging.Info, "Creating server %s", p.ID())
 	p.RunningEnvironment.DisplayToConsole(true, "Allocating server\n")
 	err = p.RunningEnvironment.Create()
 	if err != nil {
@@ -881,7 +881,7 @@ func (p *Server) Destroy() (err error) {
 		return err
 	}
 
-	p.Log(logging.Info, "Destroying server %s", p.Id())
+	p.Log(logging.Info, "Destroying server %s", p.ID())
 
 	p.Log(logging.Debug, "Stopping scheduler")
 	if p.Scheduler != nil && p.Scheduler.IsRunning() {
@@ -921,7 +921,7 @@ func (p *Server) Install() error {
 	p.GetEnvironment().SetInstalling(true)
 	defer p.GetEnvironment().SetInstalling(false)
 
-	p.Log(logging.Info, "Installing server %s", p.Id())
+	p.Log(logging.Info, "Installing server %s", p.ID())
 	r, err := p.IsRunning()
 	if err != nil {
 		p.Log(logging.Error, "Error checking server status: %s", err)
@@ -985,7 +985,7 @@ func (p *Server) SetEnvironment(environment *skypanel.Environment) (err error) {
 	return
 }
 
-func (p *Server) Id() string {
+func (p *Server) ID() string {
 	return p.Identifier
 }
 
@@ -1004,9 +1004,9 @@ func (p *Server) IsAutoStart() (isAutoStart bool) {
 }
 
 func (p *Server) Save() (err error) {
-	p.Log(logging.Info, "Saving server %s", p.Id())
+	p.Log(logging.Info, "Saving server %s", p.ID())
 
-	file := filepath.Join(config.ServersFolder.Value(), p.Id()+".json")
+	file := filepath.Join(config.ServersFolder.Value(), p.ID()+".json")
 
 	if err = p.valid(); err != nil {
 		p.Log(logging.Error, "Server %s contained invalid data, this server is.... broken", p.Identifier)
@@ -1082,12 +1082,12 @@ func (p *Server) afterExit(exitCode int) {
 
 	processes, err := GenerateProcess(p.Execution.PostExecution, p.RunningEnvironment, mapping, p.Execution.EnvironmentVariables)
 	if err != nil {
-		p.Log(logging.Error, "Error running post processing for server %s: %s", p.Id(), err)
+		p.Log(logging.Error, "Error running post processing for server %s: %s", p.ID(), err)
 		p.RunningEnvironment.DisplayToConsole(true, "Failed to run post-execution steps\n")
 		return
 	}
 	p.RunningEnvironment.DisplayToConsole(true, "Running post-execution steps\n")
-	p.Log(logging.Info, "Running post execution steps: %s", p.Id())
+	p.Log(logging.Info, "Running post execution steps: %s", p.ID())
 
 	err = processes.Run(p)
 	if err != nil {
@@ -1168,13 +1168,12 @@ func (p *Server) GetItem(name string) (*FileData, error) {
 		})
 
 		return &FileData{FileList: fileNames}, nil
-	} else {
-		file, err := p.GetFileServer().Open(name)
-		if err != nil {
-			return nil, err
-		}
-		return &FileData{Contents: file, ContentLength: info.Size(), Name: info.Name()}, nil
 	}
+	file, err := p.GetFileServer().Open(name)
+	if err != nil {
+		return nil, err
+	}
+	return &FileData{Contents: file, ContentLength: info.Size(), Name: info.Name()}, nil
 }
 
 func (p *Server) ArchiveItems(sourceFiles []string, destination string) error {
@@ -1198,7 +1197,7 @@ func (p *Server) StartBackup() (string, error) {
 	c := make(chan bool)
 	serverName := p.Server.Display
 	if serverName == "" {
-		serverName = p.Id()
+		serverName = p.ID()
 	}
 	go func(d chan bool) {
 		r := <-d
@@ -1207,12 +1206,12 @@ func (p *Server) StartBackup() (string, error) {
 			p.RunningEnvironment.DisplayToConsole(true, "Backup complete")
 			// Enviar alerta de backup exitoso
 			ds := services.GetDiscordService()
-			_ = ds.SendBackupAlert(serverName, p.Id(), "Completado exitosamente", true)
+			_ = ds.SendBackupAlert(serverName, p.ID(), "Completado exitosamente", true)
 		} else {
 			p.RunningEnvironment.DisplayToConsole(true, "Backup failed")
 			// Enviar alerta de backup fallido
 			ds := services.GetDiscordService()
-			_ = ds.SendBackupAlert(serverName, p.Id(), "Falló durante la creación", false)
+			_ = ds.SendBackupAlert(serverName, p.ID(), "Falló durante la creación", false)
 		}
 	}(c)
 
@@ -1228,12 +1227,12 @@ func (p *Server) StartBackup() (string, error) {
 		}
 	}
 
-	backupId, err := uuid.NewV4()
+	backupID, err := uuid.NewV4()
 	if err != nil {
 		c <- false
 		return "", err
 	}
-	backupFileName := backupId.String() + ".tar.gz"
+	backupFileName := backupID.String() + ".tar.gz"
 	backupFile := path.Join(backupDirectory, backupFileName)
 
 	go func(file string, d chan bool) {
@@ -1376,14 +1375,14 @@ func (p *Server) valid() error {
 }
 
 func (p *Server) Log(l *log.Logger, format string, obj ...interface{}) {
-	msg := fmt.Sprintf("[%s] ", p.Id()) + format
+	msg := fmt.Sprintf("[%s] ", p.ID()) + format
 	l.Printf(msg, obj...)
 }
 
 func (p *Server) RunCondition(condition string, extraData map[string]interface{}) (bool, error) {
 	data := map[string]interface{}{
 		conditions.VariableEnv:      p.RunningEnvironment.Type,
-		conditions.VariableServerID: p.Id(),
+		conditions.VariableServerID: p.ID(),
 	}
 
 	for k, v := range extraData {
@@ -1433,5 +1432,5 @@ func (p *Server) IsIdle() error {
 }
 
 func (p *Server) GetBackupDirectory() string {
-	return filepath.Join(config.BackupsFolder.Value(), p.Id())
+	return filepath.Join(config.BackupsFolder.Value(), p.ID())
 }

@@ -183,7 +183,7 @@ func walker(fs FileServer, targetPath, filter string, skipRoot bool) archiver.Wa
 // getCompressedItemName Resolves headers in the event the wrapped interface fails
 func getCompressedItemName(file archiver.File) string {
 	// For certain headers, the actual File interface uses the wrong value
-	//Example, ZIP gives the filename, not the full path
+	// Example, ZIP gives the filename, not the full path
 
 	switch v := file.Header.(type) {
 	case zip.FileHeader:

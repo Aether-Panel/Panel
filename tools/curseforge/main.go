@@ -86,8 +86,8 @@ func main() {
 
 	logging.OriginalStdOut = os.Stdout
 
-	var specificId uint
-	flag.UintVar(&specificId, "projectId", 0, "Specific project id")
+	var specificID uint
+	flag.UintVar(&specificID, "projectId", 0, "Specific project id")
 	flag.Parse()
 
 	results := make(map[UnitTest]error)
@@ -95,8 +95,8 @@ func main() {
 	for _, unitTest := range tests {
 		test := unitTest.Data
 
-		if specificId != 0 {
-			if test.ProjectID != specificId {
+		if specificID != 0 {
+			if test.ProjectID != specificID {
 				continue
 			}
 		}
