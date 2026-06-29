@@ -356,7 +356,7 @@ func validateRepoOnDisk(repo *models.TemplateRepo) (string, error) {
 
 // --- Origen alternativo: índice JSON remoto (VPS) ---
 type vpsIndexEntry struct {
-	Url string `json:"url"`
+	URL string `json:"url"`
 }
 
 func httpGetJson(url string, target interface{}) error {

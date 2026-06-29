@@ -48,7 +48,7 @@ type LicenseVerifyResponse struct {
 // Request para vincular servidor (POST)
 type LicenseBindRequest struct {
 	LicenseKey string `json:"licenseKey"`
-	ServerId   string `json:"serverId"`
+	ServerID   string `json:"serverId"`
 	ServerIp   string `json:"serverIp"`
 }
 

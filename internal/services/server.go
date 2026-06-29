@@ -15,7 +15,7 @@ type Server struct {
 
 type ServerSearch struct {
 	Username string
-	NodeId   uint
+	NodeID   uint
 	NodeName string
 	Name     string
 	PageSize uint
