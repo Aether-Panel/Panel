@@ -45,14 +45,7 @@ func main() {
 
 	var err error
 	if CmdFlags.WorkingDir == "" {
-		tmpDir := os.TempDir()
 		pattern := "puffertemplatetest"
-
-		toDelete, _ := filepath.Glob(filepath.Join(tmpDir, pattern+"*"))
-		for _, z := range toDelete {
-			err := os.RemoveAll(z)
-			panicIf(err)
-		}
 
 		CmdFlags.WorkingDir, err = os.MkdirTemp("", pattern)
 		panicIf(err)
