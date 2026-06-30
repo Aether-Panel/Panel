@@ -31,7 +31,7 @@ func executeRunService(_ *cobra.Command, _ []string) {
 }
 
 func notifySystemd(msg string) {
-	//tell systemd we started
+	// tell systemd we started
 	socketAddr := &net.UnixAddr{
 		Name: os.Getenv("NOTIFY_SOCKET"),
 		Net:  "unixgram",

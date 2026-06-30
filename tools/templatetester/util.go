@@ -156,8 +156,8 @@ func buildTests() []*TestScenario {
 					}
 					panicIf(err)
 				case os.IsNotExist(err):
-					//no data json, which means it's a single test
-					//but, each template could support envs, so auto-process each
+					// no data json, which means it's a single test
+					// but, each template could support envs, so auto-process each
 					if len(template.SupportedEnvironments) > 0 {
 						for _, v := range template.SupportedEnvironments {
 							z := &TestTemplate{

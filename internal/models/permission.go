@@ -10,14 +10,14 @@ import (
 type Permissions struct {
 	ID uint `gorm:"column:id;primaryKey;autoIncrement" json:"-"`
 
-	//owners of this permission set
+	// owners of this permission set
 	UserID *uint `gorm:"column:user_id;index" json:"-"`
 	User   User  `gorm:"ASSOCIATION_SAVE_REFERENCE:false" json:"-" validate:"-"`
 
 	ClientID *uint  `gorm:"column:client_id;index" json:"-"`
 	Client   Client `gorm:"ASSOCIATION_SAVE_REFERENCE:false" json:"-" validate:"-"`
 
-	//if this set is for a server, what server
+	// if this set is for a server, what server
 	ServerIdentifier *string `gorm:"column:server_identifier;size:20;index" json:"-"`
 	Server           Server  `gorm:"ASSOCIATION_SAVE_REFERENCE:false" json:"-" validate:"-"`
 
@@ -31,7 +31,7 @@ func (p *Permissions) BeforeSave(*gorm.DB) error {
 	}
 
 	if p.ServerIdentifier != nil {
-		//ensure they have the view, because we're saving them back in
+		// ensure they have the view, because we're saving them back in
 		p.Scopes = scopes.AddScope(p.Scopes, scopes.ScopeServerView)
 	}
 
@@ -47,7 +47,7 @@ func (p *Permissions) AfterFind(*gorm.DB) error {
 	p.Scopes = make([]*scopes.Scope, 0)
 	if p.RawScopes != "" {
 		for _, v := range strings.Split(p.RawScopes, ",") {
-			//we can just simply blindly assign it, because the checks we do are just making these strings anyways...
+			// we can just simply blindly assign it, because the checks we do are just making these strings anyways...
 			p.Scopes = append(p.Scopes, scopes.GetScope(v))
 		}
 	}

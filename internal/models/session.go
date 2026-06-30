@@ -15,7 +15,7 @@ type Session struct {
 	ClientID *uint  `gorm:"column:client_id;index" json:"-"`
 	Client   Client `gorm:"ASSOCIATION_SAVE_REFERENCE:false" json:"-" validate:"-"`
 
-	//if this set is for a server, what server
+	// if this set is for a server, what server
 	ServerIdentifier *string `gorm:"column:server_identifier" json:"-"`
 	Server           Server  `gorm:"ASSOCIATION_SAVE_REFERENCE:false" json:"-" validate:"-"`
 }

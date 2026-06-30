@@ -23,12 +23,12 @@ type ServerView struct {
 	TotalMemory    int64            `json:"total_memory,omitempty"`
 	TotalDisk      int64            `json:"total_disk,omitempty"`
 	Suspended      bool             `json:"suspended"`
-} //@name ServerInfo
+} // @name ServerInfo
 
 type ServerUserView struct {
 	Username string   `json:"username"`
 	Scopes   []string `json:"scopes"`
-} //@name ServerUser
+} // @name ServerUser
 
 func FromServer(server *Server) *ServerView {
 	model := &ServerView{
@@ -94,7 +94,7 @@ func RemoveServerPrivateInfoFromAll(servers []*ServerView) []*ServerView {
 }
 
 func RemoveServerPrivateInfo(server *ServerView) *ServerView {
-	//SCRUB DATA FROM REGULAR USERS
+	// SCRUB DATA FROM REGULAR USERS
 	if server.Node != nil {
 		server.Node.PrivateHost = ""
 		server.Node.PrivatePort = 0

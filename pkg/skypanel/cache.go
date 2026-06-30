@@ -26,7 +26,7 @@ func CreateCache() *MemoryCache {
 	}
 	return &MemoryCache{
 		Buffer:   make([]cacheMessage, 0),
-		Capacity: capacity * 1024, //convert to KB
+		Capacity: capacity * 1024, // convert to KB
 	}
 }
 
@@ -57,7 +57,7 @@ func (c *MemoryCache) Write(b []byte) (n int, err error) {
 	defer c.Lock.Unlock()
 	n = len(b)
 
-	//remove data until we've gotten small enough
+	// remove data until we've gotten small enough
 	var pop cacheMessage
 	for c.Size+n > c.Capacity {
 		pop, c.Buffer = c.Buffer[0], c.Buffer[1:]

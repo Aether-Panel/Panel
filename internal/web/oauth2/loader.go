@@ -21,7 +21,7 @@ func setHeaders(c *gin.Context) {
 }
 
 func recovery(c *gin.Context) {
-	//override the recovery route, as we need to change the type returned
+	// override the recovery route, as we need to change the type returned
 	defer func() {
 		if err := recover(); err != nil {
 			var msg string

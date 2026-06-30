@@ -60,8 +60,8 @@ func Load(id string) (program *Server, err error) {
 func LoadFromData(id string, source []byte) (*Server, error) {
 	data := CreateProgram()
 
-	//HACK: Because golang thinks environment and Environment in the json are the same, we have to manually clean the
-	//invalid record up....
+	// HACK: Because golang thinks environment and Environment in the json are the same, we have to manually clean the
+	// invalid record up....
 	rawMap := make(map[string]interface{})
 	err := json.Unmarshal(source, &rawMap)
 	if err != nil {
@@ -124,7 +124,7 @@ func Create(program *Server) (server *Server, err error) {
 
 	defer func() {
 		if err != nil {
-			//revert since we have an error
+			// revert since we have an error
 			_ = os.Remove(filepath.Join(config.ServersFolder.Value(), program.ID()))
 			_ = os.Remove(filepath.Join(config.ServersFolder.Value(), program.ID()+".json"))
 			if program.RunningEnvironment != nil {

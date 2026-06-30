@@ -168,7 +168,7 @@ func (sfp *fileServer) MkdirAll(path string, mode os.FileMode) error {
 	path = prepPath(path)
 
 	// now for each one, we just need to make each path, and hope this works
-	//in theory, the mkdir will be safe enough
+	// in theory, the mkdir will be safe enough
 	parts := strings.Split(path, string(filepath.Separator))
 	// if it was just mkdir root... we don't do anything
 	if len(parts) == 0 {
@@ -286,10 +286,10 @@ func (sfp *fileServer) RemoveAll(path string) error {
 		return err
 	}
 
-	//go through all the files, and call our stuff to delete it
+	// go through all the files, and call our stuff to delete it
 	for _, v := range files {
 		if v.Type()&os.ModeSymlink == 0 && v.IsDir() {
-			//recursive call, so we need to go into this one and delete things
+			// recursive call, so we need to go into this one and delete things
 			err = sfp.RemoveAll(filepath.Join(path, v.Name()))
 			if err != nil {
 				return err

@@ -26,7 +26,7 @@ func ValidateJWT(c *gin.Context) {
 	token := parts[1]
 
 	err = ts.ValidateRequest(token)
-	//if decryption failed, the request wasn't valid
+	// if decryption failed, the request wasn't valid
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}

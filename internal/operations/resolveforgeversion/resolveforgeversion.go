@@ -34,7 +34,7 @@ func (op ResolveForgeVersion) Run(args skypanel.RunOperatorArgs) skypanel.Operat
 	env := args.Environment
 	fs := args.Server.GetFileServer()
 
-	//if a specific version wasn't specified, we have to dig around through the files....
+	// if a specific version wasn't specified, we have to dig around through the files....
 	if op.Version == "" {
 		dir := filepath.Join("libraries", "net", "minecraftforge", "forge")
 		folders, err := fs.ReadDir(dir)
@@ -49,10 +49,10 @@ func (op ResolveForgeVersion) Run(args skypanel.RunOperatorArgs) skypanel.Operat
 
 		var ver *version.Version
 		for _, v := range folders {
-			//look for folders
+			// look for folders
 			if v.IsDir() {
 				folderName := v.Name()
-				//look for the unix file to accurately confirm this to be supported
+				// look for the unix file to accurately confirm this to be supported
 				desiredFile := filepath.Join(dir, folderName, "unix_args.txt")
 				if _, err = fs.Stat(desiredFile); err != nil {
 					continue
@@ -62,10 +62,10 @@ func (op ResolveForgeVersion) Run(args skypanel.RunOperatorArgs) skypanel.Operat
 					op.Version = v.Name()
 					ver, _ = version.NewVersion(op.Version)
 				case !strings.HasPrefix(folderName, op.MinecraftVersion):
-					//we need a different version of MC
+					// we need a different version of MC
 					continue
 				case ver != nil:
-					//time to check to see if this a newer version
+					// time to check to see if this a newer version
 					if ver2, _ := version.NewVersion(op.Version); ver2 != nil && ver.LessThan(ver2) {
 						op.Version = v.Name()
 						ver = ver2

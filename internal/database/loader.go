@@ -23,11 +23,11 @@ var dbConn *gorm.DB
 var lock sync.Mutex
 
 func openConnection() (err error) {
-	//lock system so we can only connect one at a time
+	// lock system so we can only connect one at a time
 	lock.Lock()
 	defer lock.Unlock()
 
-	//if we had 2 calls to this before it was established, quick out since it's already created
+	// if we had 2 calls to this before it was established, quick out since it's already created
 	if dbConn != nil {
 		return
 	}

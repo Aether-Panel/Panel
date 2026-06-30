@@ -77,7 +77,7 @@ func GenerateProcess(directions []skypanel.ConditionalMetadataType, environment 
 	for _, mapping := range directions {
 		mapCopy := make(map[string]interface{})
 
-		//replace tokens
+		// replace tokens
 		for k, v := range mapping.Metadata {
 			switch r := v.(type) {
 			case string:
@@ -94,7 +94,7 @@ func GenerateProcess(directions []skypanel.ConditionalMetadataType, environment 
 				}
 			case []interface{}:
 				{
-					//if we can convert this to a string list, we can work with it
+					// if we can convert this to a string list, we can work with it
 					temp := cast.ToStringSlice(r)
 					if len(temp) == len(r) {
 						mapCopy[k] = utils.ReplaceTokensInArr(temp, dataMap)
@@ -162,12 +162,12 @@ func (p *OperationProcess) Run(server *Server) error {
 
 			if result.Error != nil {
 				logging.Error.Printf("Error running command: %s", result.Error.Error())
-				//TODO: Implement success checking more accurately here
+				// TODO: Implement success checking more accurately here
 				/*if firstError == nil {
 					firstError = result.Error
 					return result.Error
 				}
-				//extraData[conditions.VariableSuccess] = false
+				// extraData[conditions.VariableSuccess] = false
 				*/
 				return result.Error
 			}

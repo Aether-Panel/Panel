@@ -26,9 +26,9 @@ type ImageWriter struct {
 }
 
 func (w *ImageWriter) Write(data []byte) (n int, err error) {
-	//what happens is the writer should send us a json blob, which has the status we want
-	//to handle this, we will parse it, and then format it to our upper-writer
-	//NOTE: WE CAN GET MULTIPLE LINES IN 1 BLOCK
+	// what happens is the writer should send us a json blob, which has the status we want
+	// to handle this, we will parse it, and then format it to our upper-writer
+	// NOTE: WE CAN GET MULTIPLE LINES IN 1 BLOCK
 
 	var buf bytes.Buffer
 	n, err = buf.Write(data)

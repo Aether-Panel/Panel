@@ -15,7 +15,7 @@ type Requirements struct {
 	OS       string   `json:"os,omitempty"`
 	Arch     string   `json:"arch,omitempty"`
 	Binaries []string `json:"binaries,omitempty"`
-} //@name Requirements
+} // @name Requirements
 
 func (r Requirements) Test(server Server) error {
 	osReq := parseRequirementRow(r.OS)
@@ -46,8 +46,8 @@ func (r Requirements) Test(server Server) error {
 		}
 	}
 
-	//check to see if we support the environment
-	//AKA.... if docker, do we support it
+	// check to see if we support the environment
+	// AKA.... if docker, do we support it
 	var envType Type
 	err := utils.UnmarshalTo(server.Environment, &envType)
 	if err != nil {
@@ -68,8 +68,8 @@ func (r Requirements) Test(server Server) error {
 			return ErrDockerNotSupported
 		}
 	} else {
-		//we cannot check in docker if the binary requirements are good, so we'll skip it for docker
-		//and check them now
+		// we cannot check in docker if the binary requirements are good, so we'll skip it for docker
+		// and check them now
 
 		for _, v := range r.Binaries {
 			binaries := parseRequirementRow(v)

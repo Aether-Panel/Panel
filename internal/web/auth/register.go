@@ -69,7 +69,7 @@ func RegisterPost(c *gin.Context) {
 		return
 	}
 
-	//perms.ViewServer = true
+	// perms.ViewServer = true
 	perms.Scopes = []*scopes.Scope{scopes.ScopeLogin}
 
 	err = ps.UpdatePermissions(perms)

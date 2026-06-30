@@ -18,8 +18,8 @@ var SpongeAPIBaseURL = "https://dl-api.spongepowered.org/v2/groups/org.spongepow
 type SpongeDl struct {
 	Recommended      bool
 	SpongeType       string
-	SpongeVersion    string //version of sponge to download
-	MinecraftVersion string //version of minecraft to download
+	SpongeVersion    string // version of sponge to download
+	MinecraftVersion string // version of minecraft to download
 }
 
 type SpongeAPIV2Versions struct {
@@ -40,7 +40,7 @@ type SpongeAPIV2Asset struct {
 func (op SpongeDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	env := args.Environment
 
-	//first, we need to get the build we need to get, if one isn't specified
+	// first, we need to get the build we need to get, if one isn't specified
 	if op.SpongeVersion == "" {
 		data, err := op.getLatestVersion(env)
 		if err != nil {
@@ -111,7 +111,7 @@ func (op SpongeDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 				return skypanel.OperationResult{Error: err}
 			}
 
-			//going to stick the spongeforge rename in, to assist with those modpacks
+			// going to stick the spongeforge rename in, to assist with those modpacks
 			err = files.WriteFile(file, path.Join(env.GetRootDirectory(), "mods", "_aspongeforge.jar"))
 			if err != nil {
 				return skypanel.OperationResult{Error: err}

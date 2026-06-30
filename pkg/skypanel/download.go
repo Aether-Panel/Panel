@@ -112,7 +112,7 @@ func Download(downloadURL, hash string, algorithm crypto.Hash, cache bool, env *
 		return downloadFile(downloadURL)
 	}
 	// caching allowed
-	localPath := filepath.Join(config.CacheFolder.Value(), strings.TrimPrefix(strings.TrimPrefix(downloadURL, "http://"), "https://"))
+	localPath := filepath.Join(config.CacheFolder.Value(), strings.TrimPrefix(strings.TrimPrefix(downloadURL, "http:// "), "https:// "))
 
 	if os.PathSeparator != '/' {
 		localPath = strings.ReplaceAll(localPath, "/", string(os.PathSeparator))

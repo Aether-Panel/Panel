@@ -46,10 +46,10 @@ func (c SteamGameDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult
 		return skypanel.OperationResult{Error: err}
 	}
 
-	//generate a login id
-	//this is a 32-bit id, which Steam derives from private IP
-	//as such, we can kinda send anything we want
-	//our approach will be we hash the server id
+	// generate a login id
+	// this is a 32-bit id, which Steam derives from private IP
+	// as such, we can kinda send anything we want
+	// our approach will be we hash the server id
 	loginID := cast.ToString(rand.Int31())
 
 	manifestFolder := filepath.Join(env.GetRootDirectory(), ".manifest")
@@ -84,7 +84,7 @@ func (c SteamGameDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult
 		return skypanel.OperationResult{Error: err}
 	}
 
-	//download game itself now
+	// download game itself now
 	cmdArgs = []string{filepath.Join(rootBinaryFolder, "depotdownloader", DepotDownloaderBinary), "-app", c.AppID, "-dir", ".", "-loginid", loginID, "-validate"}
 	if c.Username != "" {
 		cmdArgs = append(cmdArgs, "-username", c.Username, "-remember-password")
@@ -107,7 +107,7 @@ func (c SteamGameDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult
 			ch <- exitCode
 		},
 		Environment: map[string]string{
-			"TERM": "SkyPanel", //we use a fake TERM because DD will use a display that is not supported by us directly
+			"TERM": "SkyPanel", // we use a fake TERM because DD will use a display that is not supported by us directly
 		},
 	}
 	err = env.Execute(steps)
@@ -120,8 +120,8 @@ func (c SteamGameDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult
 		return skypanel.OperationResult{Error: err}
 	}
 
-	//for each file we download, we need to just... chmod +x the files
-	//we rely on the manifests for this
+	// for each file we download, we need to just... chmod +x the files
+	// we rely on the manifests for this
 	manifests, err := os.ReadDir(manifestFolder)
 	if err != nil {
 		return skypanel.OperationResult{Error: err}
@@ -185,12 +185,12 @@ func walkManifest(folder, filename string) error {
 			continue
 		}
 		if len(parts) > 5 {
-			//the filename at the end has spaces, we need to consolidate
+			// the filename at the end has spaces, we need to consolidate
 			parts[4] = strings.Join(parts[5:], " ")
 			parts = parts[0:5]
 		}
 
-		//we will only work on 0 files, because this mean no other flags were told
+		// we will only work on 0 files, because this mean no other flags were told
 		if parts[3] == "0" {
 			fileToUpdate := parts[4]
 			_ = os.Chmod(filepath.Join(folder, fileToUpdate), 0755)

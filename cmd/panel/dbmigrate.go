@@ -7,7 +7,7 @@ import (
 var dbMigrateCmd = &cobra.Command{
 	Use:   "migrate",
 	Short: "Migrates the database to a new backend",
-	//Run:   executeDbMigrateToNewSystem,
+	// Run:   executeDbMigrateToNewSystem,
 }
 
 /*

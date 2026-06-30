@@ -10,7 +10,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 )
 
-func TestDBConnection(t *testing.T) {
+func TestDBConnection(_ *testing.T) {
 	// 1. Cargar la configuración real
 	err := config.LoadConfigFile("config.json")
 	if err != nil {

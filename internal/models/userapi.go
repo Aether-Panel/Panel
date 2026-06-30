@@ -9,9 +9,9 @@ type UserSearch struct {
 	Email     string `form:"email"`
 	PageLimit uint   `form:"limit"`
 	Page      uint   `form:"page"`
-} //@name UserSearch
+} // @name UserSearch
 
 type UserSearchResponse struct {
 	Users []*UserView `json:"users"`
 	*skypanel.Metadata
-} //@name UserSearchResponse
+} // @name UserSearchResponse

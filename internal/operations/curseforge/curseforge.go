@@ -24,28 +24,28 @@ type CurseForge struct {
 	JavaBinary string
 }
 
-//new plan
-//download curseforge to cache if not present (curseforge/projectid/fileid)
-//extract from cache to server directory
-//determine modloader to use (do this via 3 ways)
-//- is there a forge installer present
-//- is there a variables.txt present
-//- what does the client manifest.json indicate
-//install desired mod loader
-//- forge
-//-   download installer to cache if not present
-//-   run installer into cache dir
-//-   copy directory to server
-//- fabric
-//-   check if either installer is in the cache
-//-   download improved launcher to the cache
-//-   download "old" installer to the cache
-//-   run installer in cache
-//-   copy directory to server
-//- neoforgedl
-//-   same as forge, but screw downloading
-//- quilt
-//-   will not deal with
+// new plan
+// download curseforge to cache if not present (curseforge/projectid/fileid)
+// extract from cache to server directory
+// determine modloader to use (do this via 3 ways)
+// - is there a forge installer present
+// - is there a variables.txt present
+// - what does the client manifest.json indicate
+// install desired mod loader
+// - forge
+// -   download installer to cache if not present
+// -   run installer into cache dir
+// -   copy directory to server
+// - fabric
+// -   check if either installer is in the cache
+// -   download improved launcher to the cache
+// -   download "old" installer to the cache
+// -   run installer in cache
+// -   copy directory to server
+// - neoforgedl
+// -   same as forge, but screw downloading
+// - quilt
+// -   will not deal with
 
 var installerRegex = regexp.MustCompile("(neo)?forge-.*-installer.jar")
 var errNoFile = errors.New("status code 404")
@@ -56,7 +56,7 @@ func (c CurseForge) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 	var clientFile, serverFile File
 	var err error
 	if c.FileID == 0 {
-		//we need to get the latest file id to do our calls
+		// we need to get the latest file id to do our calls
 		files, err := getLatestFiles(c.ProjectID)
 		if err != nil {
 			return skypanel.OperationResult{Error: err}
@@ -134,11 +134,11 @@ func (c CurseForge) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 		return skypanel.OperationResult{Error: err}
 	}
 
-	//modpack now downloaded and extracted
-	//worse case, this is all we could do...
-	//best case, we can get the modpack set up how we need it
+	// modpack now downloaded and extracted
+	// worse case, this is all we could do...
+	// best case, we can get the modpack set up how we need it
 
-	//set 1: resolve the pack to a "modloader"
+	// set 1: resolve the pack to a "modloader"
 	var modLoader string
 	var data = make(map[string]string)
 	var jar string
@@ -175,12 +175,12 @@ func (c CurseForge) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 		data["version"] = parts[1]
 		logging.Debug.Printf("Resolved: %v\n", data)
 	} else {
-		//give up
+		// give up
 		env.DisplayToConsole(true, "Unknown server type. Could not prepare server for actual execution")
 		return skypanel.OperationResult{Error: nil}
 	}
 
-	//we figured out the loader, now to run their "installer"
+	// we figured out the loader, now to run their "installer"
 	switch modLoader {
 	case "fabric":
 		{
@@ -202,7 +202,7 @@ func (c CurseForge) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 				if modLoader == "neoforge" {
 					downloadURL = replaceTokens(neoforgedl.InstallerURL, map[string]string{"version": version})
 				} else {
-					//because forge has the version in the url, handle it
+					// because forge has the version in the url, handle it
 					mcVersion := data["mcVersion"]
 					if !strings.HasPrefix(version, mcVersion) {
 						version = mcVersion + "-" + version
@@ -215,7 +215,7 @@ func (c CurseForge) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 				if err != nil {
 					return skypanel.OperationResult{Error: err}
 				}
-				//copy to server
+				// copy to server
 				err = files.WriteFile(dl, filepath.Join(env.GetRootDirectory(), installerJar))
 				if err != nil {
 					return skypanel.OperationResult{Error: err}
@@ -228,8 +228,8 @@ func (c CurseForge) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 				return skypanel.OperationResult{Error: err}
 			}
 
-			//grab the ServerStarter if there isn't a server.jar, just to help out
-			//would prefer Forge's variant, but this will do
+			// grab the ServerStarter if there isn't a server.jar, just to help out
+			// would prefer Forge's variant, but this will do
 			runJarFile := filepath.Join(env.GetRootDirectory(), "server.jar")
 			if _, err = os.Stat(runJarFile); os.IsNotExist(err) {
 				env.DisplayToConsole(true, "Grabbing ServerStarter")
@@ -254,7 +254,7 @@ func (c CurseForge) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 		}
 	}
 
-	//loaders installed, at this stage, we're "done"
+	// loaders installed, at this stage, we're "done"
 	env.DisplayToConsole(true, "Pack installed and should be good to go!")
 	return skypanel.OperationResult{Error: nil}
 }
@@ -277,7 +277,7 @@ func findInstallerJar(env *skypanel.Environment) (string, error) {
 }
 
 func installViaJar(server skypanel.DaemonServer, env *skypanel.Environment, jarFile string, javaBinary string) error {
-	//installer found, we will run this one
+	// installer found, we will run this one
 	result := make(chan int, 1)
 	err := env.Execute(skypanel.ExecutionData{
 		Command: fmt.Sprintf("%s -jar %s --installServer", javaBinary, jarFile),
@@ -294,7 +294,7 @@ func installViaJar(server skypanel.DaemonServer, env *skypanel.Environment, jarF
 		return errors.New("failed to run installer")
 	}
 
-	//delete installer now
+	// delete installer now
 	err = os.Remove(filepath.Join(env.GetRootDirectory(), jarFile))
 	if err != nil {
 		env.DisplayToConsole(true, "Failed to delete installer")
@@ -304,11 +304,11 @@ func installViaJar(server skypanel.DaemonServer, env *skypanel.Environment, jarF
 		env.DisplayToConsole(true, "Failed to delete installer")
 	}
 
-	//if this is before 1.16, we have a root jar
-	//or if there's a shim
+	// if this is before 1.16, we have a root jar
+	// or if there's a shim
 	possibleRenames := []string{
-		strings.Replace(jarFile, "-installer", "", 1),      //pre 1.17 forge
-		strings.Replace(jarFile, "-installer", "-shim", 1), //forge shim
+		strings.Replace(jarFile, "-installer", "", 1),      // pre 1.17 forge
+		strings.Replace(jarFile, "-installer", "-shim", 1), // forge shim
 	}
 
 	var fi os.FileInfo
@@ -329,24 +329,24 @@ func installViaJar(server skypanel.DaemonServer, env *skypanel.Environment, jarF
 }
 
 func installFabric(env *skypanel.Environment, data map[string]string, javaBinary string) error {
-	//this is a mess
-	//there's 2 options that exist for fabric
-	//there is an "improved" launcher, which is just a jar that we need
-	//or we have to pull the installer and run it
+	// this is a mess
+	// there's 2 options that exist for fabric
+	// there is an "improved" launcher, which is just a jar that we need
+	// or we have to pull the installer and run it
 
-	//see if improved is available
+	// see if improved is available
 	fabricURL := replaceTokens(ImprovedFabricInstallerURL, data)
 	targetFile := filepath.Join(env.GetRootDirectory(), "server.jar")
 
 	env.DisplayToConsole(true, "Downloading %s to %s", fabricURL, targetFile)
 	err := downloadFile(fabricURL, targetFile)
 	if err == nil {
-		//this was a good file, we got what we need
+		// this was a good file, we got what we need
 		return nil
 	}
 
 	if !errors.Is(err, errNoFile) {
-		//we got a 404, so we can't use the improved version at all
+		// we got a 404, so we can't use the improved version at all
 		fabricURL = replaceTokens(FabricInstallerURL, data)
 		targetFile = filepath.Join(env.GetRootDirectory(), "fabric-installer.jar")
 
@@ -356,7 +356,7 @@ func installFabric(env *skypanel.Environment, data map[string]string, javaBinary
 			return err
 		}
 
-		//forge installer found, we will run this one
+		// forge installer found, we will run this one
 		result := make(chan int, 1)
 		err = env.Execute(skypanel.ExecutionData{
 			Command: fmt.Sprintf("%s -jar fabric-installer server -mcversion %s -loader %s -downloadMinecraft", javaBinary, data["mcVersion"], data["version"]),
@@ -372,13 +372,13 @@ func installFabric(env *skypanel.Environment, data map[string]string, javaBinary
 			return errors.New("failed to run fabric installer")
 		}
 
-		//delete installer now
+		// delete installer now
 		err = os.Remove(filepath.Join(env.GetRootDirectory(), "fabric-installer.jar"))
 		if err != nil {
 			env.DisplayToConsole(true, "Failed to delete installer")
 		}
 
-		//replace jar with the fabric jar
+		// replace jar with the fabric jar
 		_ = os.Remove(filepath.Join(env.GetRootDirectory(), "server.jar"))
 		err = os.Rename(filepath.Join(env.GetRootDirectory(), "fabric-server-launch.jar"), filepath.Join(env.GetRootDirectory(), "server.jar"))
 		return err

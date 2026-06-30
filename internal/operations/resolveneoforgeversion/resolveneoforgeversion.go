@@ -32,7 +32,7 @@ type ResolveNeoForgeVersion struct {
 }
 
 func (op ResolveNeoForgeVersion) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
-	//if a specific version wasn't specified, we have to dig around through the files....
+	// if a specific version wasn't specified, we have to dig around through the files....
 	if op.Version == "" {
 		dir := filepath.Join(args.Environment.GetRootDirectory(), "libraries", "net", "neoforged", "neoforgedl")
 		folders, err := os.ReadDir(dir)
@@ -47,23 +47,23 @@ func (op ResolveNeoForgeVersion) Run(args skypanel.RunOperatorArgs) skypanel.Ope
 
 		var ver *version.Version
 		for _, v := range folders {
-			//look for folders
+			// look for folders
 			if v.IsDir() {
 				folderName := v.Name()
-				//look for the unix file to accurately confirm this to be supported
+				// look for the unix file to accurately confirm this to be supported
 				desiredFile := filepath.Join(dir, folderName, "unix_args.txt")
 				if _, err = os.Lstat(desiredFile); err != nil {
 					continue
 				}
-				//nolint:gocritic
+				// nolint:gocritic
 				if op.Version == "" {
 					op.Version = v.Name()
 					ver, _ = version.NewVersion(op.Version)
 				} else if !strings.HasPrefix(folderName, op.MinecraftVersion) {
-					//we need a different version of MC
+					// we need a different version of MC
 					continue
 				} else if ver != nil {
-					//time to check to see if this a newer version
+					// time to check to see if this a newer version
 					if ver2, _ := version.NewVersion(op.Version); ver2 != nil && ver.LessThan(ver2) {
 						op.Version = v.Name()
 						ver = ver2

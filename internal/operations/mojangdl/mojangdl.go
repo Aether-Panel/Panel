@@ -50,7 +50,7 @@ func (op MojangDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 		if version.ID == targetVersion {
 			logging.Info.Printf("Version %s json located, downloading from %s", version.ID, version.URL)
 			env.DisplayToConsole(true, fmt.Sprintf("Version %s json located, downloading from %s\n", version.ID, version.URL))
-			//now, get the version json for this one...
+			// now, get the version json for this one...
 			err = downloadServerFromJSON(version.URL, op.Target, env)
 			return skypanel.OperationResult{Error: err}
 		}

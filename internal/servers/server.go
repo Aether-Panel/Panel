@@ -729,7 +729,7 @@ func (p *Server) Start() error {
 	if c, ok := p.Execution.Command.(string); ok {
 		command = skypanel.Command{Command: c}
 	} else {
-		//we have a list
+		// we have a list
 		var possibleCommands []skypanel.Command
 		err = utils.UnmarshalTo(p.Execution.Command, &possibleCommands)
 		if err != nil {
@@ -746,7 +746,7 @@ func (p *Server) Start() error {
 		}
 
 		for _, v := range possibleCommands {
-			//now... we see which command to use
+			// now... we see which command to use
 			if v.If == "" {
 				continue
 			}
@@ -764,7 +764,7 @@ func (p *Server) Start() error {
 
 		command = commandToRun
 
-		//if no command, use default
+		// if no command, use default
 		if command.Command == "" {
 			command = defaultCommand
 		}
@@ -791,7 +791,7 @@ func (p *Server) Start() error {
 		return err
 	}
 
-	//keepalive!
+	// keepalive!
 	if p.KeepAlive.Frequency != "" && p.KeepAlive.Command != "" {
 		dur, err := time.ParseDuration(p.KeepAlive.Frequency)
 		if err != nil {
@@ -1010,8 +1010,8 @@ func (p *Server) Save() (err error) {
 
 	if err = p.valid(); err != nil {
 		p.Log(logging.Error, "Server %s contained invalid data, this server is.... broken", p.Identifier)
-		//we can't even reload from disk....
-		//so, puke back, and for now we'll handle it later
+		// we can't even reload from disk....
+		// so, puke back, and for now we'll handle it later
 		return err
 	}
 
@@ -1125,7 +1125,7 @@ func (p *Server) GetItem(name string) (*FileData, error) {
 			offset = 1
 		}
 
-		//validate any symlinks are valid
+		// validate any symlinks are valid
 
 		for i, file := range fileList {
 			newFile := skypanel.FileDesc{
@@ -1299,7 +1299,7 @@ func (p *Server) StartRestore(fileName string) error {
 			d <- true
 		}()
 
-		//Check if any files exist, as remove all errors if its empty
+		// Check if any files exist, as remove all errors if its empty
 		existingFiles, err := p.GetFileServer().Glob("*")
 		if err != nil {
 			p.Log(logging.Error, "Error globbing files: %s", err)
@@ -1362,7 +1362,7 @@ func (p *Server) GetBackupFile(fileName string) (*FileData, error) {
 }
 
 func (p *Server) valid() error {
-	//we need a type at least, this is a safe check
+	// we need a type at least, this is a safe check
 	if p.Type.Type == "" {
 		return ErrServerTypeRequired
 	}

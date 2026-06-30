@@ -10,4 +10,4 @@ type TemplateRepo struct {
 	Password string `gorm:"column:password;size:1000" json:"-"`
 	SSHKey   string `gorm:"column:ssh_key;size:4000" json:"-"`
 	IsLocal  bool   `gorm:"-" json:"isLocal"`
-} //@name TemplateRepo
+} // @name TemplateRepo

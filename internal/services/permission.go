@@ -118,8 +118,8 @@ func (ps *Permission) GetForClientAndServer(id uint, serverID *string) (*models.
 }
 
 func (ps *Permission) UpdatePermissions(perms *models.Permissions) error {
-	//update oauth2 with new information
-	//TODO: THIS NUKES STUFF IF YOU REMOVE GLOBAL PERMS........
+	// update oauth2 with new information
+	// TODO: THIS NUKES STUFF IF YOU REMOVE GLOBAL PERMS........
 	/*if perms.ShouldDelete() {
 		return ps.Remove(perms)
 	} else {
@@ -130,7 +130,7 @@ func (ps *Permission) UpdatePermissions(perms *models.Permissions) error {
 }
 
 func (ps *Permission) Remove(perms *models.Permissions) error {
-	//update oauth2 with new information
+	// update oauth2 with new information
 
 	return ps.DB.Omit(clause.Associations).Delete(perms).Error
 }

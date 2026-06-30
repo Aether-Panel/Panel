@@ -168,7 +168,7 @@ func handleConn(conn net.Conn, serverConfig *ssh.ServerConfig) error {
 		serverID := sc.Permissions.Extensions["server_id"]
 		server := servers.GetFromCache(serverID)
 		if server == nil {
-			//this daemon can't handle this request...
+			// this daemon can't handle this request...
 			return nil
 		}
 

@@ -9,15 +9,15 @@ type Scope struct {
 
 var (
 	ScopeAdmin       = registerNonServerScope("admin")
-	ScopeLogin       = registerNonServerScope("login")        //can you log in
-	ScopeOAuth2Auth  = registerNonServerScope("oauth2.auth")  //can you validate user credentials over OAuth2
-	ScopeNodesView   = registerNonServerScope("nodes.view")   //can you globally view nodes
-	ScopeNodesCreate = registerNonServerScope("nodes.create") //can you create nodes
-	ScopeNodesEdit   = registerNonServerScope("nodes.edit")   //can you edit an existing node
-	ScopeNodesDelete = registerNonServerScope("nodes.delete") //can you delete a node
-	ScopeNodesDeploy = registerNonServerScope("nodes.deploy") //can you deploy the node (this has secret info, which is why it's special)
-	ScopeSelfEdit    = registerNonServerScope("self.edit")    //can you manage your own account
-	ScopeSelfClients = registerNonServerScope("self.clients") //can the user create and manage OAuth2 clients for their own account
+	ScopeLogin       = registerNonServerScope("login")        // can you log in
+	ScopeOAuth2Auth  = registerNonServerScope("oauth2.auth")  // can you validate user credentials over OAuth2
+	ScopeNodesView   = registerNonServerScope("nodes.view")   // can you globally view nodes
+	ScopeNodesCreate = registerNonServerScope("nodes.create") // can you create nodes
+	ScopeNodesEdit   = registerNonServerScope("nodes.edit")   // can you edit an existing node
+	ScopeNodesDelete = registerNonServerScope("nodes.delete") // can you delete a node
+	ScopeNodesDeploy = registerNonServerScope("nodes.deploy") // can you deploy the node (this has secret info, which is why it's special)
+	ScopeSelfEdit    = registerNonServerScope("self.edit")    // can you manage your own account
+	ScopeSelfClients = registerNonServerScope("self.clients") // can the user create and manage OAuth2 clients for their own account
 
 	ScopeServerCreate         = registerNonServerScope("server.create")
 	ScopeServerView           = registerServerScope("server.view")
@@ -186,14 +186,14 @@ func RemoveScope(source []*Scope, removal *Scope) []*Scope {
 func UpdateScopesWhereGranted(source, desired, changer []*Scope) []*Scope {
 	replacement := make([]*Scope, 0)
 	for _, v := range source {
-		//does our user have permission to this scope
-		//if so, we need to set this to match the view model
+		// does our user have permission to this scope
+		// if so, we need to set this to match the view model
 		if ContainsScope(changer, v) {
 			if ContainsScope(desired, v) {
 				replacement = append(replacement, v)
 			}
 		} else {
-			//otherwise, our current user can't change this value, so re-copy
+			// otherwise, our current user can't change this value, so re-copy
 			replacement = append(replacement, v)
 		}
 	}

@@ -13,12 +13,12 @@ import (
 type MetadataType struct {
 	Type     string                 `json:"type,omitempty"`
 	Metadata map[string]interface{} `json:"-"`
-} //@name Metadata
+} // @name Metadata
 
 type ConditionalMetadataType struct {
 	If string `json:"if,omitempty"`
 	MetadataType
-} //@name MetadataWithIf
+} // @name MetadataWithIf
 
 // UnmarshalJSON parses a type with this declaration, storing what it needs into metadata and type
 func (t *MetadataType) UnmarshalJSON(bs []byte) error {

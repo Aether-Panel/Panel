@@ -78,7 +78,7 @@ func handleTokenRequest(c *gin.Context) {
 			}
 
 			if !scopes.ContainsScope(perms.Scopes, scopes.ScopeLogin) {
-				//because servers don't have an explicit login scope, we need to check the root user
+				// because servers don't have an explicit login scope, we need to check the root user
 				if serverID == "" {
 					c.AbortWithStatus(http.StatusForbidden)
 					return
@@ -115,7 +115,7 @@ func handleTokenRequest(c *gin.Context) {
 				return
 			}
 
-			//validate this is a bearer token and a good JWT token
+			// validate this is a bearer token and a good JWT token
 			auth = strings.TrimPrefix(auth, "Bearer ")
 			node, err := session.ValidateNode(auth)
 			if err != nil {
@@ -126,7 +126,7 @@ func handleTokenRequest(c *gin.Context) {
 			us := &services.User{DB: db}
 			ss := &services.Server{DB: db}
 
-			//get user and server information
+			// get user and server information
 			parts := strings.SplitN(request.Username, "#", 2)
 			if len(parts) != 2 {
 				c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: "bad username"})
@@ -144,13 +144,13 @@ func handleTokenRequest(c *gin.Context) {
 				return
 			}
 
-			//ensure the node asking for the credential check is where this server is
+			// ensure the node asking for the credential check is where this server is
 			if server.Node.ID != node.ID {
 				c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: "no access"})
 				return
 			}
 
-			//validate their credentials
+			// validate their credentials
 			var token string
 			user, _, err = us.ValidateLogin(user.Email, request.Password)
 			if err != nil {
@@ -158,7 +158,7 @@ func handleTokenRequest(c *gin.Context) {
 				return
 			}
 
-			//confirm user has access to this server
+			// confirm user has access to this server
 			ps := &services.Permission{DB: db}
 			allowed, err := ps.HasPermission(user.ID, server.Identifier, scopes.ScopeServerSftp)
 			if err != nil {
@@ -171,7 +171,7 @@ func handleTokenRequest(c *gin.Context) {
 				return
 			}
 
-			//at this point, their login credentials were valid, and we need to shortcut because otp
+			// at this point, their login credentials were valid, and we need to shortcut because otp
 			sessionService := &services.Session{DB: db}
 			token, err = sessionService.CreateForUser(user)
 			if err != nil {
@@ -198,4 +198,4 @@ type TokenRequest struct {
 	ClientSecret string `form:"client_secret"`
 	Username     string `form:"username"`
 	Password     string `form:"password"`
-} //@name OAuth2TokenRequest
+} // @name OAuth2TokenRequest

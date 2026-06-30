@@ -37,7 +37,7 @@ func validateSSH(username string, password string, _ bool) (*ssh.Permissions, er
 		return nil, errors.New("invalid response from authorization server")
 	}
 
-	//we should only get a 200, if we get any others, we have a problem
+	// we should only get a 200, if we get any others, we have a problem
 	if response.StatusCode != http.StatusOK {
 		msg, _ := io.ReadAll(response.Body)
 

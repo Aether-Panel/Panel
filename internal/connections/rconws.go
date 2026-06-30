@@ -18,7 +18,7 @@ type RCONWSConnection struct {
 	Port      string
 	Password  string
 	Reconnect bool
-	//Environment      skypanel.Environment
+	// Environment      skypanel.Environment
 	connection       *websocket.Conn
 	ready            bool
 	identifier       int

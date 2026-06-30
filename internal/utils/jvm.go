@@ -12,10 +12,10 @@ import (
 // As this data is retrieved from several places, this is the wrapper to
 // decode the data
 func ParseJCMDResponse(data []byte) *JvmStats {
-	//data is as such:
-	//line 1 is the PID
-	//"garbage-first heap" is the actual heap results
-	//"Metadata" is metaspace usage
+	// data is as such:
+	// line 1 is the PID
+	// "garbage-first heap" is the actual heap results
+	// "Metadata" is metaspace usage
 	scanner := bufio.NewScanner(bytes.NewReader(data))
 
 	stats := &JvmStats{}
@@ -29,11 +29,11 @@ func ParseJCMDResponse(data []byte) *JvmStats {
 			}
 			return -1
 		}, line)
-		//older jvms start the lines we want with a space, newer ones don't
+		// older jvms start the lines we want with a space, newer ones don't
 		line = strings.TrimPrefix(line, " ")
 
 		if z, had := strings.CutPrefix(line, "garbage-first heap"); had {
-			//heap could have array stuff in it, remove it
+			// heap could have array stuff in it, remove it
 			results := parseLine(z)
 			if num, exists := results["used"]; exists {
 				stats.HeapUsed += num
@@ -45,7 +45,7 @@ func ParseJCMDResponse(data []byte) *JvmStats {
 				stats.HeapTotal += num
 			}
 		} else if z, had := strings.CutPrefix(line, "def new generation"); had {
-			//heap could have array stuff in it, remove it
+			// heap could have array stuff in it, remove it
 			results := parseLine(z)
 			if num, exists := results["used"]; exists {
 				stats.HeapUsed += num
@@ -54,7 +54,7 @@ func ParseJCMDResponse(data []byte) *JvmStats {
 				stats.HeapTotal += num
 			}
 		} else if z, had := strings.CutPrefix(line, "tenured generation"); had {
-			//heap could have array stuff in it, remove it
+			// heap could have array stuff in it, remove it
 			results := parseLine(z)
 			if num, exists := results["used"]; exists {
 				stats.HeapUsed += num

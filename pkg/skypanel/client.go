@@ -20,7 +20,7 @@ func HTTPGet(requestURL string) (*http.Response, error) {
 }
 
 func HTTPExtract(requestURL, directory string, archiveType archiver.Walker) error {
-	//we will write this to temp so we can not keep so much in memory
+	// we will write this to temp so we can not keep so much in memory
 	response, err := grab.Get(os.TempDir(), requestURL)
 	if err != nil {
 		return err

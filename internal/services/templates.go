@@ -72,7 +72,7 @@ func (t *Template) GetAllFromRepo(repoID uint) ([]*models.Template, error) {
 			return nil, err
 		}
 
-		//because we don't want to return a ton of data, we'll only return a few select fields
+		// because we don't want to return a ton of data, we'll only return a few select fields
 		replacement := make([]*models.Template, len(templates))
 
 		for k, v := range templates {
@@ -285,7 +285,7 @@ func readTemplateFromDisk(name, path string) (*models.Template, error) {
 }
 
 func validateRepoOnDisk(repo *models.TemplateRepo) (string, error) {
-	//temp locations!!!
+	// temp locations!!!
 	pathLock.Lock()
 	defer pathLock.Unlock()
 
@@ -322,7 +322,7 @@ func validateRepoOnDisk(repo *models.TemplateRepo) (string, error) {
 	} else {
 		path := filepath.Join(config.CacheFolder.Value(), "template-repos", fmt.Sprintf("%d", repo.ID))
 
-		//if the directory already exists, we may need to nuke it
+		// if the directory already exists, we may need to nuke it
 		fi, err := os.Stat(path)
 		if err != nil && !os.IsNotExist(err) {
 			return "", err

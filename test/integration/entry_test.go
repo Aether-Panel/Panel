@@ -35,7 +35,7 @@ func TestMain(m *testing.M) {
 	_ = config.DatabaseURL.Set("file:testing.db", false)
 	_ = config.DaemonEnabled.Set(true, false)
 	_ = config.PanelEnabled.Set(true, false)
-	//_ = config.DatabaseLoggingEnabled.Set(false, false)
+	// _ = config.DatabaseLoggingEnabled.Set(false, false)
 
 	_ = os.Remove("testing.db")
 	_ = os.Remove("testing.db-wal")
@@ -54,7 +54,7 @@ func TestMain(m *testing.M) {
 		_ = os.Setenv("PATH", newPath+":"+fullPath)
 	}
 
-	//open db connection
+	// open db connection
 	db, err := database.GetConnection()
 	if err != nil {
 		panic(err)
@@ -69,7 +69,7 @@ func TestMain(m *testing.M) {
 	if err == nil {
 		router := gin.New()
 		router.Use(gin.Recovery())
-		//router.Use(gin.Logger())
+		// router.Use(gin.Logger())
 		gin.SetMode(gin.ReleaseMode)
 		web.RegisterRoutes(router)
 
@@ -104,7 +104,7 @@ func TestMain(m *testing.M) {
 			sftp.Run()
 		}()
 
-		//sleep just to give time for the services to start
+		// sleep just to give time for the services to start
 		time.Sleep(5 * time.Second)
 
 		exitCode = m.Run()

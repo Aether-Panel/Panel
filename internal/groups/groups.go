@@ -6,7 +6,7 @@ import (
 )
 
 func IsUserIn(groups ...string) bool {
-	//add root as an allowed group
+	// add root as an allowed group
 	groups = append(groups, "root")
 
 	u, err := user.Current()

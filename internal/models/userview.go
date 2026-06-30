@@ -13,10 +13,10 @@ type UserView struct {
 	OtpActive bool            `json:"otpActive"`
 	RoleID    *uint           `json:"roleId,omitempty"`
 	Scopes    []*scopes.Scope `json:"scopes,omitempty"`
-	//ONLY SHOW WHEN COPYING
+	// ONLY SHOW WHEN COPYING
 	Password    string `json:"password,omitempty"`
 	NewPassword string `json:"newPassword,omitempty"`
-} //@name User
+} // @name User
 
 func FromUser(model *User) *UserView {
 	view := &UserView{

@@ -44,7 +44,7 @@ func (op JavaDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 			return skypanel.OperationResult{Error: err}
 		}
 
-		//cleanup the existing dir
+		// cleanup the existing dir
 		err = os.RemoveAll(filepath.Join(rootBinaryFolder, file.ReleaseName))
 		if err != nil {
 			return skypanel.OperationResult{Error: err}

@@ -16,23 +16,23 @@ type ServerCreation struct {
 	TotalCPU       int     `json:"total_cpu,omitempty"`
 	TotalMemory    int64   `json:"total_memory,omitempty"`
 	TotalDisk      int64   `json:"total_disk,omitempty"`
-} //@name CreatedServer
+} // @name CreatedServer
 
 type GetServerResponse struct {
 	Server *ServerView     `json:"server"`
 	Perms  *PermissionView `json:"permissions"`
-} //@name GetServer
+} // @name GetServer
 
 type CreateServerResponse struct {
 	ID string `json:"id"`
-} //@name CreatedServerId
+} // @name CreatedServerId
 
 type ServerSearchResponse struct {
 	Servers []*ServerView `json:"servers"`
 	*skypanel.Metadata
-} //@name ServerSearchResults
+} // @name ServerSearchResults
 
 type ServerWithName struct {
 	skypanel.Server
 	Name string `json:"name"`
-} //@name NamedServer
+} // @name NamedServer

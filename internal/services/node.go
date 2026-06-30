@@ -31,7 +31,7 @@ func init() {
 }
 
 func SyncNodeToConfig() {
-	var masterURL = strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(config.MasterURL.Value(), "http://"), "https://"), "/")
+	var masterURL = strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(config.MasterURL.Value(), "http:// "), "https:// "), "/")
 	var masterParts = strings.SplitN(masterURL, ":", 2)
 	models.LocalNode.PublicHost = strings.Split(masterURL, ":")[0]
 	models.LocalNode.PrivateHost = strings.Split(masterURL, ":")[0]
@@ -43,8 +43,8 @@ func SyncNodeToConfig() {
 			models.LocalNode.PrivatePort = uint16(port)
 		}
 	} else {
-		//default port to 80 or 443 as the url doesn't have one, so we can assume one or other
-		if strings.HasPrefix(config.MasterURL.Value(), "https://") {
+		// default port to 80 or 443 as the url doesn't have one, so we can assume one or other
+		if strings.HasPrefix(config.MasterURL.Value(), "https:// ") {
 			models.LocalNode.PublicPort = 443
 			models.LocalNode.PrivatePort = 443
 		} else {
@@ -172,7 +172,7 @@ func (ns *Node) CallNode(node *models.Node, method string, path string, body io.
 		return nil, err
 	}
 
-	//generate a new JWT token
+	// generate a new JWT token
 	token, err := ts.GenerateRequest()
 	if err != nil {
 		return nil, err
@@ -228,7 +228,7 @@ func (ns *Node) OpenSocket(node *models.Node, path string, writer http.ResponseW
 
 	c, _, err := websocket.DefaultDialer.Dial(u, header)
 	if err != nil {
-		//close the connection, because it failed
+		// close the connection, because it failed
 		_ = conn.Close()
 		return err
 	}
@@ -259,7 +259,7 @@ func doesDaemonUseSSL(node *models.Node) (bool, error) {
 
 	path := fmt.Sprintf("://%s:%d/daemon", node.PrivateHost, node.PrivatePort)
 
-	//we want to do options so we can avoid auth
+	// we want to do options so we can avoid auth
 	u, err := url.Parse("https" + path)
 	if err != nil {
 		return false, err

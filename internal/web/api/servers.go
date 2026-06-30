@@ -591,18 +591,18 @@ func createServer(c *gin.Context) {
 	defer utils.CloseResponse(nodeResponse)
 
 	if response.HandleError(c, err, http.StatusInternalServerError) {
-		// _ = ss.Delete(server.Identifier) //esto es IA
+		// _ = ss.Delete(server.Identifier) // esto es IA
 		return
 	}
 
 	if nodeResponse.StatusCode != http.StatusOK {
-		// _ = ss.Delete(server.Identifier) //esto es IA
+		// _ = ss.Delete(server.Identifier) // esto es IA
 		resData, err := io.ReadAll(nodeResponse.Body)
 		if err != nil {
 			logging.Error.Printf("Failed to parse response from daemon\n%s", err.Error())
 		}
 		logging.Error.Printf("Unexpected response from daemon: %+v\n%s", nodeResponse.StatusCode, string(resData))
-		//assume daemon gives us a valid response, directly forward to client
+		// assume daemon gives us a valid response, directly forward to client
 		c.Header("Content-Type", "application/json")
 		c.Status(nodeResponse.StatusCode)
 		_, _ = c.Writer.Write(resData)
@@ -637,7 +637,7 @@ func createServer(c *gin.Context) {
 			"RegisterToken": "",
 		}, true)
 		if err != nil {
-			//since we don't want to tell the user it failed, we'll log and move on
+			// since we don't want to tell the user it failed, we'll log and move on
 			logging.Error.Printf("Error sending email: %s", err)
 		}
 	}
@@ -713,7 +713,7 @@ func editServer(c *gin.Context) {
 			logging.Error.Printf("Failed to parse response from daemon\n%s", err.Error())
 		}
 		logging.Error.Printf("Unexpected response from daemon: %+v\n%s", nodeResponse.StatusCode, string(resData))
-		//assume daemon gives us a valid response, directly forward to client
+		// assume daemon gives us a valid response, directly forward to client
 		c.Header("Content-Type", "application/json")
 		c.Status(nodeResponse.StatusCode)
 		_, _ = c.Writer.Write(resData)
@@ -746,7 +746,7 @@ func deleteServer(c *gin.Context) {
 
 	node := &server.Node
 
-	//we need to know what users are impacted by a server being deleted
+	// we need to know what users are impacted by a server being deleted
 	ps := services.Permission{DB: db}
 	users := make([]models.User, 0)
 	perms, err := ps.GetForServer(server.Identifier)
@@ -806,7 +806,7 @@ func deleteServer(c *gin.Context) {
 		// Ahora intentar eliminar el servidor
 		nodeRes, err := ns.CallNode(node, "DELETE", "/daemon/server/"+server.Identifier, nil, nil)
 		if response.HandleError(c, err, http.StatusInternalServerError) {
-			//node didn't permit it, REVERT!
+			// node didn't permit it, REVERT!
 			return
 		}
 
@@ -872,7 +872,7 @@ func deleteServer(c *gin.Context) {
 			"Server": server,
 		}, true)
 		if err != nil {
-			//since we don't want to tell the user it failed, we'll log and move on
+			// since we don't want to tell the user it failed, we'll log and move on
 			logging.Error.Printf("Error sending email: %s\n", err)
 		}
 	}
@@ -926,7 +926,7 @@ func getServerUsers(c *gin.Context) {
 		p := make([]*scopes.Scope, 0)
 		for z, r := range users {
 			if v.User.ID == z.ID {
-				//this is the user
+				// this is the user
 				p = r
 				break
 			}
@@ -936,7 +936,7 @@ func getServerUsers(c *gin.Context) {
 		found := false
 		for z := range users {
 			if v.User.ID == z.ID {
-				//this is the user
+				// this is the user
 				users[z] = p
 				found = true
 				break
@@ -1013,7 +1013,7 @@ func editServerUser(c *gin.Context) {
 			response.HandleError(c, err, http.StatusBadRequest)
 			return
 		}
-		//we need to create the user here, since it's a new email we've not seen
+		// we need to create the user here, since it's a new email we've not seen
 
 		un, err := uuid.NewV4()
 		if response.HandleError(c, err, http.StatusInternalServerError) {
@@ -1049,11 +1049,11 @@ func editServerUser(c *gin.Context) {
 		firstTimeAccess = true
 	}
 
-	//update perms to match this "setup", but not stomp over what the user can't change
+	// update perms to match this "setup", but not stomp over what the user can't change
 	if scopes.ContainsScope(currentPerms.Scopes, scopes.ScopeServerAdmin) || scopes.ContainsScope(currentGlobalPerms.Scopes, scopes.ScopeServerAdmin) || scopes.ContainsScope(currentGlobalPerms.Scopes, scopes.ScopeAdmin) {
 		existing.Scopes = perms.Scopes
 	} else {
-		//update perms to match this "setup", but not stomp over what the user can't change
+		// update perms to match this "setup", but not stomp over what the user can't change
 		replacement := scopes.UpdateScopesWhereGranted(existing.Scopes, perms.Scopes, currentPerms.Scopes)
 		existing.Scopes = replacement
 	}
@@ -1068,7 +1068,7 @@ func editServerUser(c *gin.Context) {
 		return
 	}
 
-	//now we can send emails to the people
+	// now we can send emails to the people
 	if firstTimeAccess {
 		es := services.GetEmailService()
 		err = es.SendEmail(user.Email, "addedToServer", map[string]interface{}{
@@ -1077,7 +1077,7 @@ func editServerUser(c *gin.Context) {
 			"Email":         user.Email,
 		}, true)
 		if err != nil {
-			//since we don't want to tell the user it failed, we'll log and move on
+			// since we don't want to tell the user it failed, we'll log and move on
 			logging.Error.Printf("Error sending email: %s\n", err)
 		}
 	}
@@ -1137,7 +1137,7 @@ func removeServerUser(c *gin.Context) {
 		"Server": server,
 	}, true)
 	if err != nil {
-		//since we don't want to tell the user it failed, we'll log and move on
+		// since we don't want to tell the user it failed, we'll log and move on
 		logging.Error.Printf("Error sending email: %s\n", err)
 	}
 
@@ -1189,7 +1189,7 @@ func editServerData(c *gin.Context) {
 func editServerDataAdmin(c *gin.Context) {
 	server := getServerFromGin(c)
 
-	//clone request body, so we can re-set it for the proxy call
+	// clone request body, so we can re-set it for the proxy call
 	useHere := &bytes.Buffer{}
 	useThere := &bytes.Buffer{}
 
@@ -1316,7 +1316,7 @@ func createBackup(c *gin.Context) {
 		return
 	}
 
-	if callResponse.StatusCode == http.StatusBadRequest { //If its a local node, the err will not be set, have to check the status code
+	if callResponse.StatusCode == http.StatusBadRequest { // If its a local node, the err will not be set, have to check the status code
 		newHeaders := cleanHTTPReturnErrors(callResponse.Header)
 
 		c.DataFromReader(callResponse.StatusCode, callResponse.ContentLength, callResponse.Header.Get("Content-Type"), callResponse.Body, newHeaders)
@@ -1376,7 +1376,7 @@ func deleteBackup(c *gin.Context) {
 		return
 	}
 
-	if callResponse.StatusCode == http.StatusBadRequest { //If its a local node, the err will not be set, have to check the status code
+	if callResponse.StatusCode == http.StatusBadRequest { // If its a local node, the err will not be set, have to check the status code
 		newHeaders := cleanHTTPReturnErrors(callResponse.Header)
 
 		c.DataFromReader(callResponse.StatusCode, callResponse.ContentLength, callResponse.Header.Get("Content-Type"), callResponse.Body, newHeaders)
@@ -1429,7 +1429,7 @@ func restoreBackup(c *gin.Context) {
 		return
 	}
 
-	if callResponse.StatusCode == http.StatusBadRequest { //If its a local node, the err will not be set, have to check the status code
+	if callResponse.StatusCode == http.StatusBadRequest { // If its a local node, the err will not be set, have to check the status code
 		newHeaders := cleanHTTPReturnErrors(callResponse.Header)
 
 		c.DataFromReader(callResponse.StatusCode, callResponse.ContentLength, callResponse.Header.Get("Content-Type"), callResponse.Body, newHeaders)
@@ -1530,11 +1530,11 @@ func proxyServerRequest(c *gin.Context) {
 		return
 	}
 
-	//switch to our token for auth
+	// switch to our token for auth
 	c.Request.Header.Set("Authorization", "Bearer "+token)
 
 	if c.IsWebsocket() {
-		//for websocket, nuke the query params to avoid trying to escalate
+		// for websocket, nuke the query params to avoid trying to escalate
 		resolvedPath = strings.SplitN(resolvedPath, "?", 2)[0]
 		if !strings.HasPrefix(resolvedPath, "/") {
 			resolvedPath = "/" + resolvedPath
@@ -1555,7 +1555,7 @@ func proxyServerRequest(c *gin.Context) {
 
 		allScopes = append(allScopes, perms.Scopes...)
 
-		//add the params we can grant for this request
+		// add the params we can grant for this request
 		var params []string
 		if scopes.ContainsScope(allScopes, scopes.ScopeServerConsole) {
 			params = append(params, "console")
@@ -1639,7 +1639,7 @@ func proxyHTTPRequest(c *gin.Context, path string, ns *services.Node, node *mode
 }
 
 func cleanHTTPReturnErrors(currentHeaders http.Header) map[string]string {
-	//Even though apache isn't going to be in place, we can't set certain headers
+	// Even though apache isn't going to be in place, we can't set certain headers
 	newHeaders := make(map[string]string)
 	for k, v := range currentHeaders {
 		switch k {
@@ -1677,8 +1677,8 @@ func proxySocketRequest(c *gin.Context, path string, ns *services.Node, node *mo
 			return
 		}
 
-		//have gin handle the request again, but send it to daemon instead
-		//c.Request.URL.Path = path
+		// have gin handle the request again, but send it to daemon instead
+		// c.Request.URL.Path = path
 		addr, err := url.Parse(path)
 		if response.HandleError(c, err, http.StatusInternalServerError) {
 			return

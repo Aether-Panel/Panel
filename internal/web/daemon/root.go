@@ -98,7 +98,7 @@ type Features struct {
 	OS           string   `json:"os"`
 	Arch         string   `json:"arch"`
 	Version      string   `json:"version"`
-} //@name Features
+} // @name Features
 
 type DiskInfo struct {
 	Path        string  `json:"path"`
@@ -106,7 +106,7 @@ type DiskInfo struct {
 	Used        uint64  `json:"used"`
 	Free        uint64  `json:"free"`
 	UsedPercent float64 `json:"usedPercent"`
-} //@name DiskInfo
+} // @name DiskInfo
 
 type SystemInfo struct {
 	Hostname         string      `json:"hostname"`
@@ -125,7 +125,7 @@ type SystemInfo struct {
 	Uptime           uint64      `json:"uptime"`
 	NetworkBytesSent uint64      `json:"networkBytesSent"`
 	NetworkBytesRecv uint64      `json:"networkBytesRecv"`
-} //@name SystemInfo
+} // @name SystemInfo
 
 // @Summary Get system information
 // @Description Gets detailed system information including CPU, memory, and disk

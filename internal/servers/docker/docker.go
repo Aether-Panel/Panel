@@ -51,7 +51,7 @@ type Docker struct {
 	lastNetworkRx    uint64
 	lastNetworkTx    uint64
 	lastNetTime      time.Time
-	//disableStdin        bool
+	// disableStdin        bool
 	disableSpecialStats bool
 
 	dirSize     int64
@@ -71,7 +71,7 @@ func (d *Docker) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypa
 	}
 
 	ctx := context.Background()
-	//TODO: This logic may not work anymore, it's complicated to use an existing container with install/uninstall
+	// TODO: This logic may not work anymore, it's complicated to use an existing container with install/uninstall
 	exists, err := doesContainerExist(ctx, dockerClient, environment.ServerID)
 	if err != nil {
 		return err
@@ -87,7 +87,7 @@ func (d *Docker) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypa
 	}
 
 	d.disableSpecialStats = steps.DisableStats
-	//d.disableStdin = steps.DisableStdin
+	// d.disableStdin = steps.DisableStdin
 
 	cfg := container.AttachOptions{
 		Stdin:  true,
@@ -108,7 +108,7 @@ func (d *Docker) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypa
 		_, _ = io.Copy(environment.Wrapper, d.connection.Reader)
 	}()
 
-	//if !d.disableStdin {
+	// if !d.disableStdin {
 	//	environment.CreateConsoleStdinProxy(steps.StdInConfig, d.connection.Conn)
 	//}
 	environment.CreateConsoleStdinProxy(steps.StdInConfig, d.connection.Conn)
@@ -196,7 +196,7 @@ func (d *Docker) GetStatsImpl(environment *skypanel.Environment) (*skypanel.Serv
 	d.statLocker.Lock()
 	defer d.statLocker.Unlock()
 
-	//only fetch stats once every 5 seconds, to avoid excessive spam
+	// only fetch stats once every 5 seconds, to avoid excessive spam
 	if d.lastStatTime.Add(5 * time.Second).After(time.Now()) {
 		return d.lastStats, nil
 	}
@@ -224,8 +224,8 @@ func (d *Docker) GetStatsImpl(environment *skypanel.Environment) (*skypanel.Serv
 		return nil, err
 	}
 
-	//for java, we can get some extra data from the jcmd command
-	//as such, we'll see if we can
+	// for java, we can get some extra data from the jcmd command
+	// as such, we'll see if we can
 
 	var totalRx, totalTx uint64
 	for _, netStats := range data.Networks {
@@ -459,7 +459,7 @@ func (d *Docker) createContainer(ctx context.Context, environment *skypanel.Envi
 	c := d.Config
 	containerConfig := &c
 
-	//these we need to override
+	// these we need to override
 	containerConfig.AttachStderr = true
 	containerConfig.AttachStdin = true
 	containerConfig.AttachStdout = true
@@ -468,7 +468,7 @@ func (d *Docker) createContainer(ctx context.Context, environment *skypanel.Envi
 	containerConfig.NetworkDisabled = false
 	containerConfig.Labels = labels
 
-	//default if it wasn't overridden
+	// default if it wasn't overridden
 	if containerConfig.Image == "" {
 		containerConfig.Image = imageName
 	}
@@ -477,7 +477,7 @@ func (d *Docker) createContainer(ctx context.Context, environment *skypanel.Envi
 		containerConfig.WorkingDir = containerRoot
 	}
 
-	//append anything the container config added
+	// append anything the container config added
 	var envVars = make(map[string]string)
 
 	for _, v := range containerConfig.Env {
@@ -517,7 +517,7 @@ func (d *Docker) createContainer(ctx context.Context, environment *skypanel.Envi
 		dir = environment.GetRootDirectory()
 	}
 
-	//convert root dir to a full path, so we can bind it
+	// convert root dir to a full path, so we can bind it
 	if !filepath.IsAbs(dir) {
 		dir, err = filepath.Abs(dir)
 		if err != nil {
@@ -567,7 +567,7 @@ func (d *Docker) createContainer(ctx context.Context, environment *skypanel.Envi
 
 	if data.StdInConfig.Port != "" {
 		if _, exists := hostConfig.PortBindings[nat.Port(data.StdInConfig.Port+"/tcp")]; !exists {
-			//we have a port defined for stdin, we need to also export it
+			// we have a port defined for stdin, we need to also export it
 			hostConfig.PortBindings[nat.Port(data.StdInConfig.Port+"/tcp")] = []nat.PortBinding{{
 				HostIP: "127.0.0.1", HostPort: data.StdInConfig.Port,
 			}}
@@ -599,7 +599,7 @@ func (d *Docker) createContainer(ctx context.Context, environment *skypanel.Envi
 
 	networkConfig := &network.NetworkingConfig{}
 
-	//for now, default to linux across the board. This resolves problems that Windows has when you use it and docker
+	// for now, default to linux across the board. This resolves problems that Windows has when you use it and docker
 	_, err = d.cli.ContainerCreate(ctx, containerConfig, hostConfig, networkConfig, &v1.Platform{OS: "linux"}, environment.ServerID)
 	return err
 }
@@ -677,7 +677,7 @@ func (d *Docker) handleClose(environment *skypanel.Environment, client *client.C
 }
 
 func calculateCPUPercent(v *container.StatsResponse) float64 {
-	//this math is from https://docs.docker.com/reference/api/engine/version/v1.45/#tag/Container/operation/ContainerStats
+	// this math is from https://docs.docker.com/reference/api/engine/version/v1.45/#tag/Container/operation/ContainerStats
 	cpuDelta := v.CPUStats.CPUUsage.TotalUsage - v.PreCPUStats.CPUUsage.TotalUsage
 	systemCPUDelta := v.CPUStats.SystemUsage - v.PreCPUStats.SystemUsage
 	numCpus := int(v.CPUStats.OnlineCPUs)
@@ -709,7 +709,7 @@ func convertToBind(source string) string {
 
 	fullPath = strings.ReplaceAll(fullPath, "\\", "/")
 	fullPath = strings.ReplaceAll(fullPath, ":", "")
-	//lowercase first character as that's the drive
+	// lowercase first character as that's the drive
 	fullPath = strings.ToLower(string(fullPath[0])) + fullPath[1:]
 	fullPath = "/" + fullPath
 	return fullPath

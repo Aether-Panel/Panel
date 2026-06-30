@@ -128,7 +128,7 @@ func (rp requestPrefix) log(request *sftp.Request) {
 }
 
 func (rp requestPrefix) getFile(path string, flags int, mode os.FileMode) (*os.File, error) {
-	//if this is a file create, then ensure the folder path exists
+	// if this is a file create, then ensure the folder path exists
 	if flags&os.O_CREATE != 0 {
 		_, err := rp.fs.Stat(path)
 		if os.IsNotExist(err) {

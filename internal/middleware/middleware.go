@@ -67,7 +67,7 @@ func RequiresAnyPermission(perms ...*scopes.Scope) gin.HandlerFunc {
 }
 
 func checkPermission(c *gin.Context, perm *scopes.Scope) bool {
-	//fail-safe in the event something pukes, we don't end up accidentally giving rights to something they should not
+	// fail-safe in the event something pukes, we don't end up accidentally giving rights to something they should not
 	actuallyFinished := false
 	defer func() {
 		if !actuallyFinished && !c.IsAborted() {
@@ -89,7 +89,7 @@ func checkPermission(c *gin.Context, perm *scopes.Scope) bool {
 		panic("user not defined")
 	}
 
-	//we now have a user and they are allowed to access something, let's confirm they have server access
+	// we now have a user and they are allowed to access something, let's confirm they have server access
 	serverID := c.Param("serverId")
 	if perm.ForServer && serverID == "" {
 		return false
@@ -107,7 +107,7 @@ func checkPermission(c *gin.Context, perm *scopes.Scope) bool {
 
 	perms = append(perms, p)
 	if serverID != "" {
-		//if we had a server, also grab global scopes
+		// if we had a server, also grab global scopes
 		p, err = ps.GetForUserAndServer(user.ID, "")
 		if response.HandleError(c, err, http.StatusInternalServerError) {
 			return false
@@ -158,7 +158,7 @@ func checkPermission(c *gin.Context, perm *scopes.Scope) bool {
 }
 
 func GetToken(c *gin.Context) string {
-	//use header first, because we set that a lot
+	// use header first, because we set that a lot
 	authHeader := c.Request.Header.Get("Authorization")
 
 	if authHeader != "" {

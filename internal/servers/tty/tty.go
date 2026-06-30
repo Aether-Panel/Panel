@@ -33,7 +33,7 @@ type tty struct {
 	lastNetworkRx uint64
 	lastNetworkTx uint64
 	lastNetTime   time.Time
-	//disableStdin        bool
+	// disableStdin        bool
 	disableSpecialStats bool
 
 	DisableUnshare bool     `json:"disableUnshare"`
@@ -102,7 +102,7 @@ func (t *tty) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypanel
 	})
 
 	t.disableSpecialStats = steps.DisableStats
-	//t.disableStdin = steps.DisableStdin
+	// t.disableStdin = steps.DisableStdin
 
 	processTty, err := pty.Start(pr)
 	if err != nil {
@@ -119,7 +119,7 @@ func (t *tty) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypanel
 		return
 	}
 
-	//if !t.disableStdin {
+	// if !t.disableStdin {
 	//	environment.CreateConsoleStdinProxy(steps.StdInConfig, processTty)
 	//}
 	environment.CreateConsoleStdinProxy(steps.StdInConfig, processTty)
@@ -167,7 +167,7 @@ func (t *tty) GetStatsImpl(environment *skypanel.Environment) (*skypanel.ServerS
 	t.statLocker.Lock()
 	defer t.statLocker.Unlock()
 
-	//only fetch stats once every 5 seconds, to avoid excessive spam
+	// only fetch stats once every 5 seconds, to avoid excessive spam
 	if t.lastStatTime.Add(5 * time.Second).After(time.Now()) {
 		return t.lastStats, nil
 	}
@@ -232,7 +232,7 @@ func (t *tty) GetStatsImpl(environment *skypanel.Environment) (*skypanel.ServerS
 					break
 				}
 			}
-			//only continue parsing if no errors sending command
+			// only continue parsing if no errors sending command
 			if err == nil {
 				var jcmdData []byte
 				jcmdData, err = io.ReadAll(socket)
@@ -316,10 +316,10 @@ func (t *tty) handleClose(environment *skypanel.Environment, callback func(exitC
 	}
 
 	t.statLocker.Lock()
-	//nolint:staticcheck // used as a barrier
+	// nolint:staticcheck // used as a barrier
 	t.statLocker.Unlock()
 
-	//if we are using unshare AND we're in tmp, we can nuke the workspace at this point
+	// if we are using unshare AND we're in tmp, we can nuke the workspace at this point
 	if !t.DisableUnshare && strings.HasPrefix(t.mainProcess.Dir, os.TempDir()) {
 		err = os.RemoveAll(t.mainProcess.Dir)
 		if err != nil {
@@ -339,7 +339,7 @@ func (t *tty) handleClose(environment *skypanel.Environment, callback func(exitC
 		Type: skypanel.MessageTypeStatus,
 	})
 
-	//t.disableStdin = false
+	// t.disableStdin = false
 	t.disableSpecialStats = false
 
 	if callback != nil {
@@ -379,7 +379,7 @@ func activateAttachAPI(pid int) error {
 		time.Sleep(time.Duration(1<<uint(i)) * time.Millisecond)
 	}
 
-	//if we got here, then the file wasn't available or otherwise not good anymore
+	// if we got here, then the file wasn't available or otherwise not good anymore
 	return err
 }
 
@@ -487,13 +487,13 @@ func (t *tty) createCmd(workDir, cmd string) (pr *exec.Cmd, err error) {
 	}
 
 	unshareArgs = append(unshareArgs,
-		//move cwd to bind mounted instace of .
+		// move cwd to bind mounted instace of .
 		"cd .",
 		"mkdir -p old-root",
-		//make . the root for everything in the current namespace
+		// make . the root for everything in the current namespace
 		"pivot_root . old-root",
-		//make the old root unaccessible by unmounting it
-		//needs to be lazy because the old root is considered busy as it's still the root outside the namespace
+		// make the old root unaccessible by unmounting it
+		// needs to be lazy because the old root is considered busy as it's still the root outside the namespace
 		"umount -l /old-root",
 		"rm -r /old-root",
 		fmt.Sprintf("cd /%s && %s", workDirMount, cmd))

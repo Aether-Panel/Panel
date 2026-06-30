@@ -368,7 +368,7 @@ func deletePersonalOAuth2Client(c *gin.Context) {
 		return
 	}
 
-	//ensure the client id is specific for this server, and this user
+	// ensure the client id is specific for this server, and this user
 	if client.UserID != user.ID {
 		c.AbortWithStatus(http.StatusNotFound)
 		return

@@ -27,7 +27,7 @@ func TestLogin(t *testing.T) {
 		if !assert.Equal(t, http.StatusForbidden, response.Code) {
 			return
 		}
-		//ensure we sent back correct headers
+		// ensure we sent back correct headers
 		assert.Empty(t, response.Header().Values("Set-Cookie"))
 	})
 	t.Run("GoodLoginWithLoginScope", func(t *testing.T) {
@@ -47,7 +47,7 @@ func TestLogin(t *testing.T) {
 		if !assert.Equal(t, []*scopes.Scope{scopes.ScopeLogin}, res.Scopes) {
 			return
 		}
-		//ensure we sent back correct headers
+		// ensure we sent back correct headers
 		cookies := response.Header().Values("Set-Cookie")
 		if !assert.NotEmpty(t, cookies) {
 			return
@@ -77,7 +77,7 @@ func TestLogin(t *testing.T) {
 		if !assert.Equal(t, []*scopes.Scope{scopes.ScopeAdmin}, res.Scopes) {
 			return
 		}
-		//ensure we sent back correct headers
+		// ensure we sent back correct headers
 		tmpRes := http.Response{Header: response.Header()}
 		cookies := tmpRes.Cookies()
 		if !assert.NotEmpty(t, cookies) {
@@ -146,7 +146,7 @@ func TestLogout(t *testing.T) {
 		skypanel.Engine.ServeHTTP(writer, request)
 		assert.Equal(t, http.StatusNoContent, writer.Code)
 
-		//check to make sure session is gone
+		// check to make sure session is gone
 		mo := &models.Session{
 			Token: hashed,
 		}
@@ -191,7 +191,7 @@ func TestLogout(t *testing.T) {
 		skypanel.Engine.ServeHTTP(writer, request)
 		assert.Equal(t, http.StatusNoContent, writer.Code)
 
-		//check to make sure session is gone
+		// check to make sure session is gone
 		mo := &models.Session{
 			Token: hashed,
 		}
@@ -288,7 +288,7 @@ func TestReauth(t *testing.T) {
 			return
 		}
 
-		//ensure we sent back correct headers
+		// ensure we sent back correct headers
 		var cookie string
 		res := http.Response{Header: writer.Header()}
 		cookies := res.Cookies()

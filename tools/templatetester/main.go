@@ -102,10 +102,10 @@ func main() {
 		return
 	}
 
-	//we have our test set, let's kick off a panel instance
-	//for this, we're going to run the binary, and wait for the "service" to start up (using the unix socket)
-	//once that's done, we'll then create our servers
-	//this is the best way to truly "model" what's going on
+	// we have our test set, let's kick off a panel instance
+	// for this, we're going to run the binary, and wait for the "service" to start up (using the unix socket)
+	// once that's done, we'll then create our servers
+	// this is the best way to truly "model" what's going on
 
 	waiter := make(chan bool, 1)
 
@@ -160,18 +160,18 @@ func main() {
 		panicIf(e)
 	}()
 
-	//wait for panel to be up, so the db is fully created and we're good to go
+	// wait for panel to be up, so the db is fully created and we're good to go
 	<-waiter
 
-	//now we can inject our admin user in, so we can proceed to spin up the servers
+	// now we can inject our admin user in, so we can proceed to spin up the servers
 	log.Println("Starting database edits")
 	db, err := gorm.Open(sqlite.Open(dbConn))
 	panicIf(err)
 	panicIf(initLoginAdminUser(db))
 
-	//now, start the web calls
-	//the concern is the session length, we'll "force" it to last for 24 hours. if it expires, then the tests should
-	//be failed anyways
+	// now, start the web calls
+	// the concern is the session length, we'll "force" it to last for 24 hours. if it expires, then the tests should
+	// be failed anyways
 	client := &http.Client{}
 	session, err := createSession(db)
 	panicIf(err)
@@ -198,7 +198,7 @@ func runTest(client *http.Client, session string, test *TestScenario) {
 
 	var data []byte
 
-	//create server
+	// create server
 	_, err = call(client, &http.Request{
 		Method: "PUT",
 		URL:    createURL(urlPrefix),
@@ -207,7 +207,7 @@ func runTest(client *http.Client, session string, test *TestScenario) {
 	})
 	panicIf(err)
 
-	//install server
+	// install server
 	_, err = call(client, &http.Request{
 		Method: "POST",
 		URL:    createURL(urlPrefix + "/install"),
@@ -215,7 +215,7 @@ func runTest(client *http.Client, session string, test *TestScenario) {
 	})
 	panicIf(err)
 
-	//wait for install to complete
+	// wait for install to complete
 	for {
 		time.Sleep(30 * time.Second)
 		data, err = call(client, &http.Request{
@@ -234,7 +234,7 @@ func runTest(client *http.Client, session string, test *TestScenario) {
 		}
 	}
 
-	//start server
+	// start server
 	_, err = call(client, &http.Request{
 		Method: "POST",
 		URL:    createURL(urlPrefix + "/start"),
@@ -242,7 +242,7 @@ func runTest(client *http.Client, session string, test *TestScenario) {
 	})
 	panicIf(err)
 
-	//wait for 5 minutes
+	// wait for 5 minutes
 	started := time.Now()
 	for {
 		time.Sleep(1 * time.Minute)
@@ -268,7 +268,7 @@ func runTest(client *http.Client, session string, test *TestScenario) {
 		}
 	}
 
-	//stop server
+	// stop server
 	_, err = call(client, &http.Request{
 		Method: "POST",
 		URL:    createURL(urlPrefix + "/stop"),
@@ -276,7 +276,7 @@ func runTest(client *http.Client, session string, test *TestScenario) {
 	})
 	panicIf(err)
 
-	//wait for the stop
+	// wait for the stop
 	started = time.Now()
 	for {
 		time.Sleep(1 * time.Minute)
@@ -299,7 +299,7 @@ func runTest(client *http.Client, session string, test *TestScenario) {
 		}
 	}
 
-	//delete server
+	// delete server
 	_, err = call(client, &http.Request{
 		Method: "DELETE",
 		URL:    createURL(urlPrefix),

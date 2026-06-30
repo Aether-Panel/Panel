@@ -298,19 +298,19 @@ func setUserPerms(c *gin.Context) {
 		return
 	}
 
-	//get the current user's scopes
+	// get the current user's scopes
 	editorUser := c.MustGet("user").(*models.User)
 	editorPerms, err := ps.GetForUserAndServer(editorUser.ID, "")
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
 
-	//admins can override, so skip our comparers
+	// admins can override, so skip our comparers
 	if scopes.ContainsScope(editorPerms.Scopes, scopes.ScopeAdmin) {
 		perms.Scopes = viewModel.Scopes
 	} else {
 		allowedScopes := utils.Union(viewModel.Scopes, editorPerms.Scopes)
-		//update perms to match this "setup", but not stomp over what the user can't change
+		// update perms to match this "setup", but not stomp over what the user can't change
 		replacement := scopes.UpdateScopesWhereGranted(perms.Scopes, allowedScopes, editorPerms.Scopes)
 		perms.Scopes = replacement
 	}

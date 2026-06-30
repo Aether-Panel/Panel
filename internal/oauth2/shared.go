@@ -21,7 +21,7 @@ type TokenInfoResponse struct {
 	Active bool   `json:"active"`
 	Scope  string `json:"scope,omitempty"`
 	ErrorResponse
-} //@name OAuth2TokenInfoResponse
+} // @name OAuth2TokenInfoResponse
 
 type TokenResponse struct {
 	AccessToken string `json:"access_token,omitempty"`
@@ -29,9 +29,9 @@ type TokenResponse struct {
 	ExpiresIn   int64  `json:"expires_in,omitempty"`
 	Scope       string `json:"scope"`
 	ErrorResponse
-} //@name OAuth2TokenResponse
+} // @name OAuth2TokenResponse
 
 type ErrorResponse struct {
 	Error            string `json:"error,omitempty"`
 	ErrorDescription string `json:"error_description,omitempty"`
-} //@name OAuthErrorResponse
+} // @name OAuthErrorResponse

@@ -206,8 +206,8 @@ func TestServers(t *testing.T) {
 				return
 			}
 
-			//previous test is a block,so we can now open up a websocket connection and start playing with it
-			//the test here is... do we get all 3 types of messages
+			// previous test is a block,so we can now open up a websocket connection and start playing with it
+			// the test here is... do we get all 3 types of messages
 			statsReceived := false
 			messageReceived := false
 			statusReceived := false
@@ -351,7 +351,7 @@ func TestServers(t *testing.T) {
 			})
 
 			t.Run("SubuserGrantUserPermissions", func(t *testing.T) {
-				//first get a session for the fake user
+				// first get a session for the fake user
 				testSession, err := createSession(db, loginNoLoginUser)
 				if !assert.NoError(t, err) {
 					return
@@ -461,7 +461,7 @@ func TestServers(t *testing.T) {
 					return
 				}
 
-				//now we wait for the install to finish
+				// now we wait for the install to finish
 				timeout := 60
 				counter := 0
 				for counter < timeout {
@@ -488,7 +488,7 @@ func TestServers(t *testing.T) {
 			listening.Store(false)
 			_ = c.Close()
 
-			//create a fake file that we can use to both
+			// create a fake file that we can use to both
 			t.Run("Compression", func(t *testing.T) {
 				dir := filepath.Join(serverDir, "testarchive")
 				err := os.Mkdir(dir, 0755)
@@ -513,7 +513,7 @@ func TestServers(t *testing.T) {
 				_ = tmpFile.Close()
 				expectedHash := hasher.Sum(nil)
 
-				//test other functionality
+				// test other functionality
 				t.Run("Archive", func(t *testing.T) {
 					response := CallAPI("POST", "/api/servers/"+serverID+"/archive/archive.zip", []string{"testarchive"}, session)
 					if !assert.Equal(t, http.StatusNoContent, response.Code) {
@@ -780,7 +780,7 @@ func TestServers(t *testing.T) {
 					return
 				}
 
-				//ensure was actually removed
+				// ensure was actually removed
 				if !assert.NoDirExists(t, filepath.Join(config.ServersFolder.Value(), serverID)) {
 					return
 				}

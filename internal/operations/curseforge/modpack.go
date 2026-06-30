@@ -19,7 +19,7 @@ func downloadModpack(file File) error {
 	var cacheZipFolder = getCacheFolderForFile(file)
 	var cacheZipFileLocation = getCacheFilePath(file)
 
-	//see if the file already exists, if so, use it instead
+	// see if the file already exists, if so, use it instead
 	if fi, err := os.Lstat(cacheZipFileLocation); err == nil && !fi.IsDir() && fi.Size() > 0 {
 		return nil
 	}
@@ -90,7 +90,7 @@ func extractFile(zipFile, fileName string) (*os.File, error) {
 		if err != nil {
 			return nil, err
 		}
-		//re-open file
+		// re-open file
 		file, err = os.Open(filepath.Join(folder, fileName))
 	}
 	return file, err

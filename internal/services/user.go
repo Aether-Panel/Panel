@@ -341,7 +341,7 @@ func (us *User) Search(usernameFilter, emailFilter string, pageSize, page uint) 
 }
 
 func (us *User) IsSecurePassword(password string) error {
-	//TODO: Change to use validator
+	// TODO: Change to use validator
 	if len(password) < 8 {
 		return skypanel.ErrFieldLength("password", 8, 72)
 	}

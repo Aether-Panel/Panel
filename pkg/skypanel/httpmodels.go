@@ -4,7 +4,7 @@ import "github.com/SkyPanel/SkyPanel/v3/internal/utils"
 
 type ServerIDResponse struct {
 	ID string `json:"id"`
-} //@name ServerId
+} // @name ServerId
 
 type ServerStats struct {
 	CPU        float64         `json:"cpu"`
@@ -16,22 +16,22 @@ type ServerStats struct {
 	NetworkTx  float64         `json:"networkTx"`
 	Jvm        *utils.JvmStats `json:"jvm,omitempty"`
 	Running    bool            `json:"running"`
-} //@name ServerStats
+} // @name ServerStats
 
 type ServerLogs struct {
 	Epoch int64  `json:"epoch"`
 	Logs  []byte `json:"logs"`
-} //@name ServerLogs
+} // @name ServerLogs
 
 type ServerRunning struct {
 	Running    bool `json:"running"`
 	Installing bool `json:"installing"`
-} //@name ServerRunning
+} // @name ServerRunning
 
 type ServerData struct {
 	Variables map[string]Variable `json:"data"`
 	Groups    []Group             `json:"groups,omitempty"`
-} //@name ServerData
+} // @name ServerData
 
 type ServerDataAdmin struct {
 	*Server
@@ -39,38 +39,38 @@ type ServerDataAdmin struct {
 
 type DaemonRunning struct {
 	Message string `json:"message"`
-} //@name DaemonRunning
+} // @name DaemonRunning
 
 type ServerTasks struct {
 	Tasks map[string]ServerTask `json:"tasks"`
-} //@name ServerTasks
+} // @name ServerTasks
 
 type ServerTask struct {
-	//IsRunning bool `json:"isRunning"`
+	// IsRunning bool `json:"isRunning"`
 	Task
-} //@name ServerTask
+} // @name ServerTask
 
 type ErrorResponse struct {
 	Error *Error `json:"error"`
-} //@name ErrorResponse
+} // @name ErrorResponse
 
 type Metadata struct {
 	Paging *Paging `json:"paging"`
-} //@name Metadata
+} // @name Metadata
 
 type Paging struct {
 	Page    uint  `json:"page"`
 	Size    uint  `json:"pageSize"`
 	MaxSize uint  `json:"maxSize"`
 	Total   int64 `json:"total"`
-} //@name Paging
+} // @name Paging
 
 type ServerFlags struct {
 	AutoStart             *bool `json:"autoStart,omitempty"`
 	AutoRestartOnCrash    *bool `json:"autoRestartOnCrash,omitempty"`
 	AutoRestartOnGraceful *bool `json:"autoRestartOnGraceful,omitempty"`
-} //@name ServerFlags
+} // @name ServerFlags
 
 type ServerBackupResponse struct {
 	BackupFileName string `json:"backupFileName"`
-} //@name ServerBackup
+} // @name ServerBackup

@@ -40,7 +40,7 @@ var runCmd = &cobra.Command{
 
 var webService *manners.GracefulServer
 
-func executeRun(_ *cobra.Command, args []string) {
+func executeRun(_ *cobra.Command, _ []string) {
 	term, _ := internalRun()
 	<-term
 	closePanel()
@@ -67,7 +67,7 @@ func internalRun() (terminate chan bool, success bool) {
 	router.Use(gin.Recovery())
 	router.Use(gin.LoggerWithWriter(logging.Info.Writer()))
 
-	//do not trust proxies by default
+	// do not trust proxies by default
 	_ = router.SetTrustedProxies(nil)
 	if proxies := config.SecurityTrustedProxies.Value(); proxies != nil {
 		err := router.SetTrustedProxies(proxies)
@@ -199,9 +199,9 @@ func internalRun() (terminate chan bool, success bool) {
 }
 
 func closePanel() {
-	//shut down everything
-	//all of these can be closed regardless of what type of install this is, as they all check if they are even being
-	//used
+	// shut down everything
+	// all of these can be closed regardless of what type of install this is, as they all check if they are even being
+	// used
 	logging.Debug.Printf("stopping http server")
 	if webService != nil {
 		webService.Close()
@@ -217,7 +217,7 @@ func closePanel() {
 	servers.ShutdownService()
 	for _, p := range servers.GetAll() {
 		_ = p.Stop()
-		err := p.RunningEnvironment.WaitForMainProcessFor(time.Minute) //wait 60 seconds
+		err := p.RunningEnvironment.WaitForMainProcessFor(time.Minute) // wait 60 seconds
 		if err != nil {
 			logging.Error.Printf("error stopping server: %s", err.Error())
 		}
@@ -230,7 +230,7 @@ func closePanel() {
 func panel() {
 	services.LoadEmailService()
 
-	//if we have the web, then let's use our sftp auth instead
+	// if we have the web, then let's use our sftp auth instead
 	sftp.SetAuthorization(&services.DatabaseSFTPAuthorization{})
 }
 
@@ -264,7 +264,7 @@ func daemon() error {
 		logging.Error.Printf("Error creating cache folder: %s", err.Error())
 	}
 
-	//update path to include our binary folder
+	// update path to include our binary folder
 	newPath := os.Getenv("PATH")
 	fullPath, _ := filepath.Abs(config.BinariesFolder.Value())
 	if !strings.Contains(newPath, fullPath) {

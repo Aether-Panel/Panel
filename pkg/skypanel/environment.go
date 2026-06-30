@@ -38,7 +38,7 @@ type Environment struct {
 	Wait            *sync.WaitGroup `json:"-"`
 	ServerID        string          `json:"-"`
 	LastExitCode    int             `json:"-"`
-	Wrapper         io.Writer       `json:"-"` //our proxy back to the main
+	Wrapper         io.Writer       `json:"-"` // our proxy back to the main
 	ConsoleTracker  *Tracker        `json:"-"`
 	StatusTracker   *Tracker        `json:"-"`
 	StatsTracker    *Tracker        `json:"-"`
@@ -56,7 +56,7 @@ type ExecutionData struct {
 	Variables        map[string]interface{}
 	Callback         func(exitCode int)
 	StdInConfig      StdinConsoleConfiguration
-	//DisableStdin     bool
+	// DisableStdin     bool
 	DisableQuery bool
 	DisableStats bool
 }
@@ -81,7 +81,7 @@ func (e *Environment) ExecuteAsync(steps ExecutionData) (err error) {
 		return
 	}
 
-	//update configs
+	// update configs
 	steps.StdInConfig = steps.StdInConfig.Replace(steps.Variables)
 
 	return e.Implementation.ExecuteAsyncImpl(e, steps)
@@ -201,7 +201,7 @@ func (e *Environment) WaitForMainProcessFor(timeout time.Duration) (err error) {
 
 func (e *Environment) CreateWrapper() {
 	if config.ConsoleForward.Value() {
-		//return io.MultiWriter(newLogger(e.ServerID).Writer(), e.ConsoleBuffer, e.ConsoleTracker)
+		// return io.MultiWriter(newLogger(e.ServerID).Writer(), e.ConsoleBuffer, e.ConsoleTracker)
 		e.Wrapper = io.MultiWriter(logging.OriginalStdOut, e.ConsoleBuffer, e.ConsoleTracker)
 	} else {
 		e.Wrapper = io.MultiWriter(e.ConsoleBuffer, e.ConsoleTracker)
