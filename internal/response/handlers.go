@@ -12,7 +12,7 @@ import (
 )
 
 func NotImplemented(c *gin.Context) {
-	c.AbortWithStatusJSON(http.StatusNotImplemented, skypanel.ErrNotImplemented)
+	c.AbortWithStatusJSON(http.StatusNotImplemented, SkyPanel.ErrNotImplemented)
 }
 
 func CreateOptions(options ...string) gin.HandlerFunc {
@@ -40,7 +40,7 @@ func HandleError(c *gin.Context, err error, statusCode int) bool {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.AbortWithStatus(http.StatusNotFound)
 		} else {
-			c.AbortWithStatusJSON(statusCode, &skypanel.ErrorResponse{Error: skypanel.FromError(err)})
+			c.AbortWithStatusJSON(statusCode, &SkyPanel.ErrorResponse{Error: SkyPanel.FromError(err)})
 		}
 
 		return true

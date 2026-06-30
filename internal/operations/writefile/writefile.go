@@ -12,7 +12,7 @@ type WriteFile struct {
 	Text       string
 }
 
-func (c WriteFile) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
+func (c WriteFile) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
 	env := args.Environment
 	fs := args.Server.GetFileServer()
 
@@ -21,10 +21,10 @@ func (c WriteFile) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 
 	file, err := fs.OpenFile(c.TargetFile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 	if err != nil {
-		return skypanel.OperationResult{Error: err}
+		return SkyPanel.OperationResult{Error: err}
 	}
 	defer utils.Close(file)
 
 	_, err = file.Write([]byte(c.Text))
-	return skypanel.OperationResult{Error: err}
+	return SkyPanel.OperationResult{Error: err}
 }

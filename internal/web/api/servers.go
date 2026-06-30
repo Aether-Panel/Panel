@@ -139,15 +139,15 @@ func registerServers(g *gin.RouterGroup) {
 
 	g.GET("/:serverId/backup", middleware.RequiresPermission(scopes.ScopeServerBackupView), middleware.ResolveServerPanel, getBackups)
 	g.OPTIONS("/:serverId/backup", response.CreateOptions("GET"))
-	g.GET("/:serverId/backup/:backupID", middleware.RequiresPermission(scopes.ScopeServerBackupView), middleware.ResolveServerPanel, getBackup)
-	g.DELETE("/:serverId/backup/:backupID", middleware.RequiresPermission(scopes.ScopeServerBackupDelete), middleware.ResolveServerPanel, deleteBackup)
-	g.OPTIONS("/:serverId/backup/:backupID", response.CreateOptions("GET", "DELETE"))
+	g.GET("/:serverId/backup/:backupId", middleware.RequiresPermission(scopes.ScopeServerBackupView), middleware.ResolveServerPanel, getBackup)
+	g.DELETE("/:serverId/backup/:backupId", middleware.RequiresPermission(scopes.ScopeServerBackupDelete), middleware.ResolveServerPanel, deleteBackup)
+	g.OPTIONS("/:serverId/backup/:backupId", response.CreateOptions("GET", "DELETE"))
 	g.POST("/:serverId/backup/create", middleware.RequiresPermission(scopes.ScopeServerBackupCreate), middleware.ResolveServerPanel, createBackup)
 	g.OPTIONS("/:serverId/backup/create", response.CreateOptions("POST"))
-	g.POST("/:serverId/backup/restore/:backupID", middleware.RequiresPermission(scopes.ScopeServerBackupRestore), middleware.ResolveServerPanel, restoreBackup)
-	g.OPTIONS("/:serverId/backup/restore/:backupID", response.CreateOptions("POST"))
-	g.GET("/:serverId/backup/download/:backupID", middleware.RequiresPermission(scopes.ScopeServerBackupView), middleware.ResolveServerPanel, downloadBackup)
-	g.OPTIONS("/:serverId/backup/download/:backupID", response.CreateOptions("GET"))
+	g.POST("/:serverId/backup/restore/:backupId", middleware.RequiresPermission(scopes.ScopeServerBackupRestore), middleware.ResolveServerPanel, restoreBackup)
+	g.OPTIONS("/:serverId/backup/restore/:backupId", response.CreateOptions("POST"))
+	g.GET("/:serverId/backup/download/:backupId", middleware.RequiresPermission(scopes.ScopeServerBackupView), middleware.ResolveServerPanel, downloadBackup)
+	g.OPTIONS("/:serverId/backup/download/:backupId", response.CreateOptions("GET"))
 
 	g.GET("/:serverId/plugins", middleware.RequiresPermission(scopes.ScopeServerFileView), middleware.ResolveServerPanel, proxyServerRequest)
 	g.DELETE("/:serverId/plugins", middleware.RequiresPermission(scopes.ScopeServerFileEdit), middleware.ResolveServerPanel, proxyServerRequest)
@@ -196,7 +196,7 @@ func searchServers(c *gin.Context) {
 
 	pageSize, err := strconv.Atoi(pageSizeQuery)
 	if response.HandleError(c, err, http.StatusBadRequest) || pageSize <= 0 {
-		response.HandleError(c, skypanel.ErrFieldTooSmall("pageSize", 0), http.StatusBadRequest)
+		response.HandleError(c, SkyPanel.ErrFieldTooSmall("pageSize", 0), http.StatusBadRequest)
 		return
 	}
 
@@ -206,13 +206,13 @@ func searchServers(c *gin.Context) {
 
 	page, err := strconv.Atoi(pageQuery)
 	if response.HandleError(c, err, http.StatusBadRequest) || page <= 0 {
-		response.HandleError(c, skypanel.ErrFieldTooSmall("page", 0), http.StatusBadRequest)
+		response.HandleError(c, SkyPanel.ErrFieldTooSmall("page", 0), http.StatusBadRequest)
 		return
 	}
 
 	node, err := strconv.Atoi(nodeQuery)
 	if response.HandleError(c, err, http.StatusBadRequest) || node < 0 {
-		response.HandleError(c, skypanel.ErrFieldTooSmall("nodeId", 0), http.StatusBadRequest)
+		response.HandleError(c, SkyPanel.ErrFieldTooSmall("nodeId", 0), http.StatusBadRequest)
 		return
 	}
 
@@ -231,7 +231,7 @@ func searchServers(c *gin.Context) {
 	}
 
 	// Role permissions
-	if user.RoleID != nil && user.Role.ID != 0 {
+	if user.RoleId != nil && user.Role.ID != 0 {
 		for _, s := range user.Role.Scopes {
 			userScopes = scopes.AddScope(userScopes, scopes.GetScope(s))
 		}
@@ -242,7 +242,7 @@ func searchServers(c *gin.Context) {
 	if !isAdmin && username != "" && user.Username != username {
 		c.JSON(http.StatusOK, &models.ServerSearchResponse{
 			Servers: []*models.ServerView{},
-			Metadata: &skypanel.Metadata{Paging: &skypanel.Paging{
+			Metadata: &SkyPanel.Metadata{Paging: &SkyPanel.Paging{
 				Page:    1,
 				Size:    0,
 				MaxSize: MaxPageSize,
@@ -256,7 +256,7 @@ func searchServers(c *gin.Context) {
 
 	searchCriteria := services.ServerSearch{
 		Username: username,
-		NodeID:   uint(node),
+		NodeId:   uint(node),
 		Name:     nameFilter,
 		PageSize: uint(pageSize),
 		Page:     uint(page),
@@ -296,7 +296,7 @@ func searchServers(c *gin.Context) {
 
 	c.JSON(http.StatusOK, &models.ServerSearchResponse{
 		Servers: data,
-		Metadata: &skypanel.Metadata{Paging: &skypanel.Paging{
+		Metadata: &SkyPanel.Metadata{Paging: &SkyPanel.Paging{
 			Page:    uint(page),
 			Size:    uint(pageSize),
 			MaxSize: MaxPageSize,
@@ -342,7 +342,7 @@ func getServer(c *gin.Context) {
 			}
 		}
 	}
-	if u.RoleID != nil && u.Role.ID != 0 {
+	if u.RoleId != nil && u.Role.ID != 0 {
 		for _, s := range u.Role.Scopes {
 			userScopes = scopes.AddScope(userScopes, scopes.GetScope(s))
 		}
@@ -381,19 +381,19 @@ func createServer(c *gin.Context) {
 	us := &services.User{DB: db}
 	ps := &services.Permission{DB: db}
 
-	serverID := c.Param("serverId")
+	serverId := c.Param("serverId")
 
-	if serverID == "" {
+	if serverId == "" {
 		gen, err := uuid.NewV4()
 		if response.HandleError(c, err, http.StatusInternalServerError) {
 			return
 		}
-		serverID = gen.String()[:8]
+		serverId = gen.String()[:8]
 	}
 
 	postBody := &models.ServerCreation{}
 	err = c.ShouldBindJSON(&postBody)
-	postBody.Identifier = serverID
+	postBody.Identifier = serverId
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
@@ -406,7 +406,7 @@ func createServer(c *gin.Context) {
 		}
 
 		// Force node to match parent
-		postBody.NodeID = parent.NodeID
+		postBody.NodeId = parent.NodeID
 
 		// Inherit users from parent
 		var parentPerms []models.Permissions
@@ -414,8 +414,8 @@ func createServer(c *gin.Context) {
 
 		var inheritedUsers []string
 		for _, p := range parentPerms {
-			if p.UserID != nil {
-				user, err := us.GetByID(*p.UserID)
+			if p.UserId != nil {
+				user, err := us.GetById(*p.UserId)
 				if err == nil && user != nil {
 					inheritedUsers = append(inheritedUsers, user.Username)
 				}
@@ -424,10 +424,10 @@ func createServer(c *gin.Context) {
 		postBody.Users = inheritedUsers
 	}
 
-	node, err := ns.Get(postBody.NodeID)
+	node, err := ns.Get(postBody.NodeId)
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		response.HandleError(c, skypanel.ErrNodeInvalid, http.StatusBadRequest)
+		response.HandleError(c, SkyPanel.ErrNodeInvalid, http.StatusBadRequest)
 		return
 	} else if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
@@ -591,18 +591,18 @@ func createServer(c *gin.Context) {
 	defer utils.CloseResponse(nodeResponse)
 
 	if response.HandleError(c, err, http.StatusInternalServerError) {
-		// _ = ss.Delete(server.Identifier) // esto es IA
+		// _ = ss.Delete(server.Identifier) //esto es IA
 		return
 	}
 
 	if nodeResponse.StatusCode != http.StatusOK {
-		// _ = ss.Delete(server.Identifier) // esto es IA
+		// _ = ss.Delete(server.Identifier) //esto es IA
 		resData, err := io.ReadAll(nodeResponse.Body)
 		if err != nil {
 			logging.Error.Printf("Failed to parse response from daemon\n%s", err.Error())
 		}
 		logging.Error.Printf("Unexpected response from daemon: %+v\n%s", nodeResponse.StatusCode, string(resData))
-		// assume daemon gives us a valid response, directly forward to client
+		//assume daemon gives us a valid response, directly forward to client
 		c.Header("Content-Type", "application/json")
 		c.Status(nodeResponse.StatusCode)
 		_, _ = c.Writer.Write(resData)
@@ -637,12 +637,12 @@ func createServer(c *gin.Context) {
 			"RegisterToken": "",
 		}, true)
 		if err != nil {
-			// since we don't want to tell the user it failed, we'll log and move on
+			//since we don't want to tell the user it failed, we'll log and move on
 			logging.Error.Printf("Error sending email: %s", err)
 		}
 	}
 
-	c.JSON(http.StatusOK, &models.CreateServerResponse{ID: serverID})
+	c.JSON(http.StatusOK, &models.CreateServerResponse{Id: serverId})
 }
 
 // @Summary Update server definition
@@ -713,7 +713,7 @@ func editServer(c *gin.Context) {
 			logging.Error.Printf("Failed to parse response from daemon\n%s", err.Error())
 		}
 		logging.Error.Printf("Unexpected response from daemon: %+v\n%s", nodeResponse.StatusCode, string(resData))
-		// assume daemon gives us a valid response, directly forward to client
+		//assume daemon gives us a valid response, directly forward to client
 		c.Header("Content-Type", "application/json")
 		c.Status(nodeResponse.StatusCode)
 		_, _ = c.Writer.Write(resData)
@@ -746,7 +746,7 @@ func deleteServer(c *gin.Context) {
 
 	node := &server.Node
 
-	// we need to know what users are impacted by a server being deleted
+	//we need to know what users are impacted by a server being deleted
 	ps := services.Permission{DB: db}
 	users := make([]models.User, 0)
 	perms, err := ps.GetForServer(server.Identifier)
@@ -806,7 +806,7 @@ func deleteServer(c *gin.Context) {
 		// Ahora intentar eliminar el servidor
 		nodeRes, err := ns.CallNode(node, "DELETE", "/daemon/server/"+server.Identifier, nil, nil)
 		if response.HandleError(c, err, http.StatusInternalServerError) {
-			// node didn't permit it, REVERT!
+			//node didn't permit it, REVERT!
 			return
 		}
 
@@ -872,7 +872,7 @@ func deleteServer(c *gin.Context) {
 			"Server": server,
 		}, true)
 		if err != nil {
-			// since we don't want to tell the user it failed, we'll log and move on
+			//since we don't want to tell the user it failed, we'll log and move on
 			logging.Error.Printf("Error sending email: %s\n", err)
 		}
 	}
@@ -926,7 +926,7 @@ func getServerUsers(c *gin.Context) {
 		p := make([]*scopes.Scope, 0)
 		for z, r := range users {
 			if v.User.ID == z.ID {
-				// this is the user
+				//this is the user
 				p = r
 				break
 			}
@@ -936,7 +936,7 @@ func getServerUsers(c *gin.Context) {
 		found := false
 		for z := range users {
 			if v.User.ID == z.ID {
-				// this is the user
+				//this is the user
 				users[z] = p
 				found = true
 				break
@@ -1013,7 +1013,7 @@ func editServerUser(c *gin.Context) {
 			response.HandleError(c, err, http.StatusBadRequest)
 			return
 		}
-		// we need to create the user here, since it's a new email we've not seen
+		//we need to create the user here, since it's a new email we've not seen
 
 		un, err := uuid.NewV4()
 		if response.HandleError(c, err, http.StatusInternalServerError) {
@@ -1049,11 +1049,11 @@ func editServerUser(c *gin.Context) {
 		firstTimeAccess = true
 	}
 
-	// update perms to match this "setup", but not stomp over what the user can't change
+	//update perms to match this "setup", but not stomp over what the user can't change
 	if scopes.ContainsScope(currentPerms.Scopes, scopes.ScopeServerAdmin) || scopes.ContainsScope(currentGlobalPerms.Scopes, scopes.ScopeServerAdmin) || scopes.ContainsScope(currentGlobalPerms.Scopes, scopes.ScopeAdmin) {
 		existing.Scopes = perms.Scopes
 	} else {
-		// update perms to match this "setup", but not stomp over what the user can't change
+		//update perms to match this "setup", but not stomp over what the user can't change
 		replacement := scopes.UpdateScopesWhereGranted(existing.Scopes, perms.Scopes, currentPerms.Scopes)
 		existing.Scopes = replacement
 	}
@@ -1068,7 +1068,7 @@ func editServerUser(c *gin.Context) {
 		return
 	}
 
-	// now we can send emails to the people
+	//now we can send emails to the people
 	if firstTimeAccess {
 		es := services.GetEmailService()
 		err = es.SendEmail(user.Email, "addedToServer", map[string]interface{}{
@@ -1077,7 +1077,7 @@ func editServerUser(c *gin.Context) {
 			"Email":         user.Email,
 		}, true)
 		if err != nil {
-			// since we don't want to tell the user it failed, we'll log and move on
+			//since we don't want to tell the user it failed, we'll log and move on
 			logging.Error.Printf("Error sending email: %s\n", err)
 		}
 	}
@@ -1137,7 +1137,7 @@ func removeServerUser(c *gin.Context) {
 		"Server": server,
 	}, true)
 	if err != nil {
-		// since we don't want to tell the user it failed, we'll log and move on
+		//since we don't want to tell the user it failed, we'll log and move on
 		logging.Error.Printf("Error sending email: %s\n", err)
 	}
 
@@ -1189,7 +1189,7 @@ func editServerData(c *gin.Context) {
 func editServerDataAdmin(c *gin.Context) {
 	server := getServerFromGin(c)
 
-	// clone request body, so we can re-set it for the proxy call
+	//clone request body, so we can re-set it for the proxy call
 	useHere := &bytes.Buffer{}
 	useThere := &bytes.Buffer{}
 
@@ -1254,7 +1254,8 @@ func getBackups(c *gin.Context) {
 
 	records, err := bs.GetAllForServer(server.Identifier)
 
-	if !response.HandleError(c, err, http.StatusInternalServerError) {
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+	} else {
 		c.JSON(http.StatusOK, records)
 	}
 }
@@ -1263,20 +1264,20 @@ func getBackups(c *gin.Context) {
 // @Description Gets a specific backup made on this server
 // @Success 200 {object} models.Backup
 // @Param id path string true "Server ID"
-// @Param backupID path string true "BackupId"
+// @Param backupId path string true "BackupId"
 // @Tags Daemon Servers
-// @Router /api/servers/{id}/backup/{backupID} [get]
+// @Router /api/servers/{id}/backup/{backupId} [get]
 // @Security OAuth2Application[server.backup.view]
 func getBackup(c *gin.Context) {
 	server := getServerFromGin(c)
 	db := middleware.GetDatabase(c)
 	bs := &services.Backup{DB: db}
-	backupID, err := cast.ToUintE(c.Param("backupID"))
+	backupId, err := cast.ToUintE(c.Param("backupId"))
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
 
-	records, err := bs.Get(server.Identifier, backupID)
+	records, err := bs.Get(server.Identifier, backupId)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
@@ -1301,7 +1302,7 @@ func createBackup(c *gin.Context) {
 	node := &server.Node
 
 	if name == "" {
-		response.HandleError(c, skypanel.ErrFieldRequired("name"), http.StatusBadRequest)
+		response.HandleError(c, SkyPanel.ErrFieldRequired("name"), http.StatusBadRequest)
 		return
 	}
 
@@ -1316,15 +1317,15 @@ func createBackup(c *gin.Context) {
 		return
 	}
 
-	if callResponse.StatusCode == http.StatusBadRequest { // If its a local node, the err will not be set, have to check the status code
-		newHeaders := cleanHTTPReturnErrors(callResponse.Header)
+	if callResponse.StatusCode == http.StatusBadRequest { //If its a local node, the err will not be set, have to check the status code
+		newHeaders := cleanHttpReturnErrors(callResponse.Header)
 
 		c.DataFromReader(callResponse.StatusCode, callResponse.ContentLength, callResponse.Header.Get("Content-Type"), callResponse.Body, newHeaders)
 		c.Abort()
 		return
 	}
 
-	responseData := &skypanel.ServerBackupResponse{}
+	responseData := &SkyPanel.ServerBackupResponse{}
 	err = json.NewDecoder(callResponse.Body).Decode(responseData)
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
@@ -1343,9 +1344,9 @@ func createBackup(c *gin.Context) {
 // @Description Removes the backup and its associated file
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
-// @Param backupID path string true "Backup ID"
+// @Param backupId path string true "Backup ID"
 // @Tags Daemon Servers
-// @Router /api/servers/{id}/backup/Delete/{backupID} [delete]
+// @Router /api/servers/{id}/backup/Delete/{backupId} [delete]
 // @Security OAuth2Application[server.backup.delete]
 func deleteBackup(c *gin.Context) {
 	server := getServerFromGin(c)
@@ -1354,12 +1355,12 @@ func deleteBackup(c *gin.Context) {
 	bs := &services.Backup{DB: db}
 	node := &server.Node
 
-	backupID, err := cast.ToUintE(c.Param("backupID"))
+	backupId, err := cast.ToUintE(c.Param("backupId"))
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
 
-	backup, err := bs.Get(server.Identifier, backupID)
+	backup, err := bs.Get(server.Identifier, backupId)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
@@ -1376,15 +1377,15 @@ func deleteBackup(c *gin.Context) {
 		return
 	}
 
-	if callResponse.StatusCode == http.StatusBadRequest { // If its a local node, the err will not be set, have to check the status code
-		newHeaders := cleanHTTPReturnErrors(callResponse.Header)
+	if callResponse.StatusCode == http.StatusBadRequest { //If its a local node, the err will not be set, have to check the status code
+		newHeaders := cleanHttpReturnErrors(callResponse.Header)
 
 		c.DataFromReader(callResponse.StatusCode, callResponse.ContentLength, callResponse.Header.Get("Content-Type"), callResponse.Body, newHeaders)
 		c.Abort()
 		return
 	}
 
-	err = bs.Delete(backupID)
+	err = bs.Delete(backupId)
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
@@ -1396,9 +1397,9 @@ func deleteBackup(c *gin.Context) {
 // @Description Removes all exisiting files and restores the server to the state of the backup
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
-// @Param backupID path string true "Backup ID"
+// @Param backupId path string true "Backup ID"
 // @Tags Daemon Servers
-// @Router /api/servers/{id}/backup/Delete/{backupID} [delete]
+// @Router /api/servers/{id}/backup/Delete/{backupId} [delete]
 // @Security OAuth2Application[server.backup.restore]
 func restoreBackup(c *gin.Context) {
 	server := getServerFromGin(c)
@@ -1407,12 +1408,12 @@ func restoreBackup(c *gin.Context) {
 	bs := &services.Backup{DB: db}
 	node := &server.Node
 
-	backupID, err := cast.ToUintE(c.Param("backupID"))
+	backupId, err := cast.ToUintE(c.Param("backupId"))
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
 
-	backup, err := bs.Get(server.Identifier, backupID)
+	backup, err := bs.Get(server.Identifier, backupId)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
@@ -1429,8 +1430,8 @@ func restoreBackup(c *gin.Context) {
 		return
 	}
 
-	if callResponse.StatusCode == http.StatusBadRequest { // If its a local node, the err will not be set, have to check the status code
-		newHeaders := cleanHTTPReturnErrors(callResponse.Header)
+	if callResponse.StatusCode == http.StatusBadRequest { //If its a local node, the err will not be set, have to check the status code
+		newHeaders := cleanHttpReturnErrors(callResponse.Header)
 
 		c.DataFromReader(callResponse.StatusCode, callResponse.ContentLength, callResponse.Header.Get("Content-Type"), callResponse.Body, newHeaders)
 		c.Abort()
@@ -1444,9 +1445,9 @@ func restoreBackup(c *gin.Context) {
 // @Description Download a server backup
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
-// @Param backupID path string true "Backup ID"
+// @Param backupId path string true "Backup ID"
 // @Tags Daemon Servers
-// @Router /api/servers/{id}/backup/Delete/{backupID} [delete]
+// @Router /api/servers/{id}/backup/Delete/{backupId} [delete]
 // @Security OAuth2Application[server.backup.restore]
 func downloadBackup(c *gin.Context) {
 	server := getServerFromGin(c)
@@ -1455,12 +1456,12 @@ func downloadBackup(c *gin.Context) {
 	bs := &services.Backup{DB: db}
 	node := &server.Node
 
-	backupID, err := cast.ToUintE(c.Param("backupID"))
+	backupId, err := cast.ToUintE(c.Param("backupId"))
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
 
-	backup, err := bs.Get(server.Identifier, backupID)
+	backup, err := bs.Get(server.Identifier, backupId)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
@@ -1477,12 +1478,12 @@ func downloadBackup(c *gin.Context) {
 		return
 	}
 
-	newHeaders := cleanHTTPReturnErrors(callResponse.Header)
+	newHeaders := cleanHttpReturnErrors(callResponse.Header)
 
 	c.DataFromReader(callResponse.StatusCode, callResponse.ContentLength, callResponse.Header.Get("Content-Type"), callResponse.Body, newHeaders)
 }
 
-func getFromData(variables map[string]skypanel.Variable, key string) (result interface{}, exists bool) {
+func getFromData(variables map[string]SkyPanel.Variable, key string) (result interface{}, exists bool) {
 	for k, v := range variables {
 		if k == key {
 			return v.Value, true
@@ -1491,7 +1492,7 @@ func getFromData(variables map[string]skypanel.Variable, key string) (result int
 	return nil, false
 }
 
-func getFromDataOrDefault(variables map[string]skypanel.Variable, key string, val interface{}) (interface{}, error) {
+func getFromDataOrDefault(variables map[string]SkyPanel.Variable, key string, val interface{}) (interface{}, error) {
 	res, exists := getFromData(variables, key)
 
 	if exists {
@@ -1530,11 +1531,11 @@ func proxyServerRequest(c *gin.Context) {
 		return
 	}
 
-	// switch to our token for auth
+	//switch to our token for auth
 	c.Request.Header.Set("Authorization", "Bearer "+token)
 
 	if c.IsWebsocket() {
-		// for websocket, nuke the query params to avoid trying to escalate
+		//for websocket, nuke the query params to avoid trying to escalate
 		resolvedPath = strings.SplitN(resolvedPath, "?", 2)[0]
 		if !strings.HasPrefix(resolvedPath, "/") {
 			resolvedPath = "/" + resolvedPath
@@ -1555,7 +1556,7 @@ func proxyServerRequest(c *gin.Context) {
 
 		allScopes = append(allScopes, perms.Scopes...)
 
-		// add the params we can grant for this request
+		//add the params we can grant for this request
 		var params []string
 		if scopes.ContainsScope(allScopes, scopes.ScopeServerConsole) {
 			params = append(params, "console")
@@ -1570,34 +1571,34 @@ func proxyServerRequest(c *gin.Context) {
 
 		proxySocketRequest(c, resolvedPath, ns, node)
 	} else {
-		proxyHTTPRequest(c, resolvedPath, ns, node)
+		proxyHttpRequest(c, resolvedPath, ns, node)
 	}
 
 	c.Abort()
 }
 
 var wsupgrader = websocket.Upgrader{
-	CheckOrigin: func(_ *http.Request) bool {
+	CheckOrigin: func(r *http.Request) bool {
 		return true
 	},
 }
 
-func proxyHTTPRequest(c *gin.Context, path string, ns *services.Node, node *models.Node) {
+func proxyHttpRequest(c *gin.Context, path string, ns *services.Node, node *models.Node) {
 	// If it's a local node, check if the server is a ghost (in DB but not on disk)
 	if node.IsLocal() {
-		serverID := c.Param("serverId")
-		if servers.GetFromCache(serverID) == nil {
+		serverId := c.Param("serverId")
+		if servers.GetFromCache(serverId) == nil {
 			if c.Request.Method == "GET" {
 				if strings.HasSuffix(path, "/stats") {
-					c.JSON(http.StatusOK, skypanel.ServerStats{Running: false})
+					c.JSON(http.StatusOK, SkyPanel.ServerStats{Running: false})
 					return
 				}
 				if strings.HasSuffix(path, "/status") {
-					c.JSON(http.StatusOK, skypanel.ServerRunning{Running: false, Installing: false})
+					c.JSON(http.StatusOK, SkyPanel.ServerRunning{Running: false, Installing: false})
 					return
 				}
 				if strings.HasSuffix(path, "/console") {
-					c.JSON(http.StatusOK, skypanel.ServerLogs{Logs: []byte("")})
+					c.JSON(http.StatusOK, SkyPanel.ServerLogs{Logs: []byte("")})
 					return
 				}
 			}
@@ -1620,26 +1621,26 @@ func proxyHTTPRequest(c *gin.Context, path string, ns *services.Node, node *mode
 	// Intercept 404 for stats/status/console to avoid errors in console for "ghost" servers (non-local or fallback)
 	if callResponse.StatusCode == http.StatusNotFound && c.Request.Method == "GET" {
 		if strings.HasSuffix(path, "/stats") {
-			c.JSON(http.StatusOK, skypanel.ServerStats{Running: false})
+			c.JSON(http.StatusOK, SkyPanel.ServerStats{Running: false})
 			return
 		}
 		if strings.HasSuffix(path, "/status") {
-			c.JSON(http.StatusOK, skypanel.ServerRunning{Running: false, Installing: false})
+			c.JSON(http.StatusOK, SkyPanel.ServerRunning{Running: false, Installing: false})
 			return
 		}
 		if strings.HasSuffix(path, "/console") {
-			c.JSON(http.StatusOK, skypanel.ServerLogs{Logs: []byte("")})
+			c.JSON(http.StatusOK, SkyPanel.ServerLogs{Logs: []byte("")})
 			return
 		}
 	}
 
-	newHeaders := cleanHTTPReturnErrors(callResponse.Header)
+	newHeaders := cleanHttpReturnErrors(callResponse.Header)
 
 	c.DataFromReader(callResponse.StatusCode, callResponse.ContentLength, callResponse.Header.Get("Content-Type"), callResponse.Body, newHeaders)
 }
 
-func cleanHTTPReturnErrors(currentHeaders http.Header) map[string]string {
-	// Even though apache isn't going to be in place, we can't set certain headers
+func cleanHttpReturnErrors(currentHeaders http.Header) map[string]string {
+	//Even though apache isn't going to be in place, we can't set certain headers
 	newHeaders := make(map[string]string)
 	for k, v := range currentHeaders {
 		switch k {
@@ -1656,16 +1657,16 @@ func cleanHTTPReturnErrors(currentHeaders http.Header) map[string]string {
 
 func proxySocketRequest(c *gin.Context, path string, ns *services.Node, node *models.Node) {
 	if node.IsLocal() {
-		serverID := c.Param("serverId")
+		serverId := c.Param("serverId")
 		// Check if it's a ghost server
-		if servers.GetFromCache(serverID) == nil {
+		if servers.GetFromCache(serverId) == nil {
 			// Upgrade the connection normally to avoid red 404/204 console errors
 			conn, err := wsupgrader.Upgrade(c.Writer, c.Request, nil)
 			if err != nil {
 				return
 			}
 			// Enviar un mensaje de advertencia simulado
-			msg := skypanel.ServerLogs{
+			msg := SkyPanel.ServerLogs{
 				Logs: []byte("> Error: Los archivos de este servidor han desaparecido del nodo. No se puede conectar a la consola."),
 			}
 			data, _ := json.Marshal(msg)
@@ -1677,14 +1678,14 @@ func proxySocketRequest(c *gin.Context, path string, ns *services.Node, node *mo
 			return
 		}
 
-		// have gin handle the request again, but send it to daemon instead
-		// c.Request.URL.Path = path
+		//have gin handle the request again, but send it to daemon instead
+		//c.Request.URL.Path = path
 		addr, err := url.Parse(path)
 		if response.HandleError(c, err, http.StatusInternalServerError) {
 			return
 		}
 		c.Request.URL = addr
-		skypanel.Engine.HandleContext(c)
+		SkyPanel.Engine.HandleContext(c)
 	} else {
 		err := ns.OpenSocket(node, path, c.Writer, c.Request)
 		response.HandleError(c, err, http.StatusInternalServerError)

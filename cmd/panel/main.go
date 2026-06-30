@@ -73,7 +73,7 @@ func loadConfig() {
 }
 
 func Execute() {
-	rootCmd.SetVersionTemplate(skypanel.Display)
+	rootCmd.SetVersionTemplate(SkyPanel.Display)
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)

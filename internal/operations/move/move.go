@@ -13,13 +13,13 @@ type Move struct {
 	TargetFile string
 }
 
-func (m Move) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
+func (m Move) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
 	env := args.Environment
 	fs := args.Server.GetFileServer()
 
 	result, valid := resolve(fs, m.SourceFile, m.TargetFile)
 	if !valid {
-		return skypanel.OperationResult{Error: nil}
+		return SkyPanel.OperationResult{Error: nil}
 	}
 
 	for k, v := range result {
@@ -27,10 +27,10 @@ func (m Move) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 		env.DisplayToConsole(true, "Moving file from %s to %s\n", k, v)
 		err := fs.Rename(k, v)
 		if err != nil {
-			return skypanel.OperationResult{Error: err}
+			return SkyPanel.OperationResult{Error: err}
 		}
 	}
-	return skypanel.OperationResult{Error: nil}
+	return SkyPanel.OperationResult{Error: nil}
 }
 
 func resolve(fs files.FileServer, source string, target string) (result map[string]string, valid bool) {

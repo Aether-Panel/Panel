@@ -29,7 +29,7 @@ func Initialize(useFiles bool) {
 			panic(err)
 		}
 
-		logFile, err := os.OpenFile(path.Join(directory, "skypanel.log"), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+		logFile, err := os.OpenFile(path.Join(directory, "SkyPanel.log"), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 		if err != nil {
 			panic(err)
 		}
@@ -38,24 +38,24 @@ func Initialize(useFiles bool) {
 		rotation.StartRotation(directory)
 	}
 
-	// just create them ourselves.....
+	//just create them ourselves.....
 
-	// first, create STDERR
+	//first, create STDERR
 
 	stderr := MultiWriter(rotation, os.Stderr)
 	Error = log.New(stderr, "[ERROR] ", flags)
 
-	// now, STDOUT
+	//now, STDOUT
 	stdout := MultiWriter(rotation, os.Stdout)
 	Info = log.New(stdout, "[INFO] ", flags)
 
-	// and now, a DEBUG
+	//and now, a DEBUG
 	stddebug := MultiWriter(rotation, os.Stdout)
 	Debug = log.New(stddebug, "[DEBUG] ", flags)
 
 	log.SetOutput(Info.Writer())
 
-	// i hate go's idea of how stdout should work
+	//i hate go's idea of how stdout should work
 	outR, outW, _ := os.Pipe()
 	errR, errW, _ := os.Pipe()
 

@@ -11,18 +11,18 @@ var LogsFolder = asString("logs", "logs")
 var WebHost = asString("web.host", "0.0.0.0:8080")
 
 // Templates source (custom VPS JSON index)
-var TemplatesURL = asString("templates.url", "")
+var TemplatesUrl = asString("templates.url", "")
 
 var PanelEnabled = asBool("panel.enable", true)
 var GatusEnabled = asBool("panel.gatus.enable", false)
 var DatabaseDialect = asString("panel.database.dialect", "sqlite3")
-var DatabaseURL = asString("panel.database.url", "")
+var DatabaseUrl = asString("panel.database.url", "")
 var DatabaseLoggingEnabled = asBool("panel.database.log", false)
 
 var WebRoot = asString("panel.web.files", "www")
 
 var PanelWebCookiesSecure = asBool("panel.web.cookies.secure", false)
-var PanelWebCookiesHTTPOnly = asBool("panel.web.cookies.httpOnly", true)
+var PanelWebCookiesHttpOnly = asBool("panel.web.cookies.httpOnly", true)
 var PanelWebCookiesDomain = asString("panel.web.cookies.domain", "")
 var PanelWebCookiesAge = asInt("panel.web.cookies.age", 86400*30)
 var PanelWebCookiesSameSite = asString("panel.web.cookies.sameSite", "Strict")
@@ -39,17 +39,17 @@ var EmailPassword = asString("panel.email.password", "")
 var CompanyName = asString("panel.settings.companyName", "SkyPanel")
 var DefaultTheme = asString("panel.settings.defaultTheme", "SkyPanel")
 var ThemeSettings = asString("panel.settings.themeSettings", "{}")
-var MasterURL = asString("panel.settings.masterUrl", "http://localhost:8080")
+var MasterUrl = asString("panel.settings.masterUrl", "http://localhost:8080")
 var NodeIP = asString("panel.settings.nodeIp", "0.0.0.0")
-var GeminiAPIKey = asString("panel.settings.geminiApiKey", "")
+var GeminiApiKey = asString("panel.settings.geminiApiKey", "")
 var HideAIAnalysis = asBool("panel.settings.hideAiAnalysis", false)
 var DiscordWebhook = asString("panel.notifications.discordWebhook", "")
 var DiscordWebhookSystem = asString("panel.notifications.discordWebhookSystem", "")
 var DiscordWebhookNode = asString("panel.notifications.discordWebhookNode", "")
 var LicenseKey = asString("panel.license.key", "")
 var LicenseStatus = asString("panel.license.status", "free")
-var LicenseServerID = asString("panel.license.serverId", "")
-var LicenseServerIP = asString("panel.license.serverIp", "")
+var LicenseServerId = asString("panel.license.serverId", "")
+var LicenseServerIp = asString("panel.license.serverIp", "")
 var SessionKey = asString("panel.sessionKey", "")
 var RegistrationEnabled = asBool("panel.registrationEnabled", true)
 var PrivateKey = asString("panel.token", "")
@@ -60,8 +60,8 @@ var ConsoleForward = asBool("daemon.console.forward", false)
 var SftpHost = asString("daemon.sftp.host", "0.0.0.0:5657")
 var SftpKey = asDataFolder("daemon.sftp.key", "sftp.key")
 var SftpDebugLog = asBool("daemon.sftp.log", false)
-var AuthURL = asString("daemon.auth.url", "http://localhost:8080")
-var ClientID = asString("daemon.auth.clientId", "")
+var AuthUrl = asString("daemon.auth.url", "http://localhost:8080")
+var ClientId = asString("daemon.auth.clientId", "")
 var ClientSecret = asString("daemon.auth.clientSecret", "")
 var CacheFolder = asDataFolder("daemon.data.cache", "cache")
 var ServersFolder = asDataFolder("daemon.data.servers", "servers")
@@ -73,7 +73,7 @@ var DataRootFolder = asString("daemon.data.root", "")
 var DepotDownloaderVersion = asString("daemon.depotDownloader.version", "latest")
 var DepotDownloaderDisableLancache = asBool("daemon.depotDownloader.disableLancache", false)
 
-var TokenPublicURL = asString("token.public", "")
+var TokenPublicUrl = asString("token.public", "")
 
 var SecurityForceOpenat = asBool("security.forceOpenat", false)
 var SecurityTrustedProxies = asStringArray("security.trustedProxies", []string{})
@@ -160,10 +160,10 @@ func asStringArray(key string, def []string) StringArrayEntry {
 }
 
 func as[T ValueType](key string, def T) entry[T] {
-	// We are not using viper for this, because it writes a giant config with the defaults,
-	// and we cannot do that to allow for changes in the future
+	//We are not using viper for this, because it writes a giant config with the defaults,
+	//and we cannot do that to allow for changes in the future
 
-	// viper.SetDefault(key, def)
+	//viper.SetDefault(key, def)
 	defaults[key] = def
 	return entry[T]{key: key}
 }

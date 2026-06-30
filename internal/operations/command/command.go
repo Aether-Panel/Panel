@@ -10,18 +10,18 @@ import (
 type Command struct {
 	Commands  []string
 	Env       map[string]string
-	StdIn     skypanel.StdinConsoleConfiguration
+	StdIn     SkyPanel.StdinConsoleConfiguration
 	Variables map[string]interface{}
 }
 
-func (c Command) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
+func (c Command) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
 	env := args.Environment
 
 	for _, cmd := range c.Commands {
 		logging.Info.Printf("Executing command: %s", cmd)
 		env.DisplayToConsole(true, fmt.Sprintf("Executing: %s\n", cmd))
 		ch := make(chan error, 1)
-		err := env.Execute(skypanel.ExecutionData{
+		err := env.Execute(SkyPanel.ExecutionData{
 			Command:     cmd,
 			Environment: c.Env,
 			Callback: func(exitCode int) {
@@ -35,13 +35,13 @@ func (c Command) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 			DisableStats: true,
 		})
 		if err != nil {
-			return skypanel.OperationResult{Error: err}
+			return SkyPanel.OperationResult{Error: err}
 		}
 		err = <-ch
 		if err != nil {
-			return skypanel.OperationResult{Error: err}
+			return SkyPanel.OperationResult{Error: err}
 		}
 	}
 
-	return skypanel.OperationResult{Error: nil}
+	return SkyPanel.OperationResult{Error: nil}
 }

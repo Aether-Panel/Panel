@@ -11,7 +11,7 @@ type DatabaseHostView struct {
 	NodeID       *uint  `json:"node_id"`
 	CreatedAt    string `json:"created_at"`
 	UpdatedAt    string `json:"updated_at"`
-} // @name DatabaseHostView
+} //@name DatabaseHostView
 
 type DatabaseHostCreate struct {
 	Name         string `json:"name" binding:"required"`
@@ -21,7 +21,7 @@ type DatabaseHostCreate struct {
 	Password     string `json:"password" binding:"required"`
 	MaxDatabases int    `json:"max_databases"`
 	NodeID       *uint  `json:"node_id"`
-} // @name DatabaseHostCreate
+} //@name DatabaseHostCreate
 
 type DatabaseHostUpdate struct {
 	Name         string `json:"name" binding:"required"`
@@ -31,4 +31,4 @@ type DatabaseHostUpdate struct {
 	Password     string `json:"password"`
 	MaxDatabases int    `json:"max_databases"`
 	NodeID       *uint  `json:"node_id"`
-} // @name DatabaseHostUpdate
+} //@name DatabaseHostUpdate

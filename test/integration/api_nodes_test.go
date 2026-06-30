@@ -16,7 +16,7 @@ func TestNodesAPI(t *testing.T) {
 		return
 	}
 
-	var createdNodeID uint
+	var createdNodeId uint
 
 	t.Run("CreateNode", func(t *testing.T) {
 		response := CallAPI("POST", "/api/nodes", map[string]interface{}{
@@ -36,8 +36,8 @@ func TestNodesAPI(t *testing.T) {
 		var node models.NodeView
 		err := json.NewDecoder(response.Body).Decode(&node)
 		assert.NoError(t, err)
-		createdNodeID = node.ID
-		assert.NotZero(t, createdNodeID)
+		createdNodeId = node.Id
+		assert.NotZero(t, createdNodeId)
 	})
 
 	t.Run("ListNodes", func(t *testing.T) {
@@ -46,8 +46,8 @@ func TestNodesAPI(t *testing.T) {
 	})
 
 	t.Run("DeleteNode", func(t *testing.T) {
-		if createdNodeID != 0 {
-			url := fmt.Sprintf("/api/nodes/%d", createdNodeID)
+		if createdNodeId != 0 {
+			url := fmt.Sprintf("/api/nodes/%d", createdNodeId)
 			response := CallAPI("DELETE", url, nil, session)
 			assert.Equal(t, http.StatusNoContent, response.Code)
 		}

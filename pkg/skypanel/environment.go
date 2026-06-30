@@ -1,4 +1,4 @@
-package skypanel
+package SkyPanel
 
 import (
 	"fmt"
@@ -23,7 +23,7 @@ type EnvironmentImpl interface {
 
 	SendCodeImpl(environment *Environment, code int) error
 
-	GetUIDImpl(environment *Environment) int
+	GetUidImpl(environment *Environment) int
 
 	GetGidImpl(environment *Environment) int
 
@@ -36,9 +36,9 @@ type Environment struct {
 	BackupDirectory string          `json:"-"`
 	ConsoleBuffer   *MemoryCache    `json:"-"`
 	Wait            *sync.WaitGroup `json:"-"`
-	ServerID        string          `json:"-"`
+	ServerId        string          `json:"-"`
 	LastExitCode    int             `json:"-"`
-	Wrapper         io.Writer       `json:"-"` // our proxy back to the main
+	Wrapper         io.Writer       `json:"-"` //our proxy back to the main
 	ConsoleTracker  *Tracker        `json:"-"`
 	StatusTracker   *Tracker        `json:"-"`
 	StatsTracker    *Tracker        `json:"-"`
@@ -56,7 +56,7 @@ type ExecutionData struct {
 	Variables        map[string]interface{}
 	Callback         func(exitCode int)
 	StdInConfig      StdinConsoleConfiguration
-	// DisableStdin     bool
+	//DisableStdin     bool
 	DisableQuery bool
 	DisableStats bool
 }
@@ -81,33 +81,33 @@ func (e *Environment) ExecuteAsync(steps ExecutionData) (err error) {
 		return
 	}
 
-	// update configs
+	//update configs
 	steps.StdInConfig = steps.StdInConfig.Replace(steps.Variables)
 
 	return e.Implementation.ExecuteAsyncImpl(e, steps)
 }
 
 func (e *Environment) CreateConsoleStdinProxy(config StdinConsoleConfiguration, base io.WriteCloser) {
-	switch config.Type {
-	case "telnet":
+	if config.Type == "telnet" {
 		e.Console = &connections.TelnetConnection{
 			IP:       config.IP,
 			Port:     config.Port,
 			Password: config.Password,
 		}
-	case "rcon":
+	} else if config.Type == "rcon" {
 		e.Console = &connections.RCONConnection{
 			IP:       config.IP,
 			Port:     config.Port,
 			Password: config.Password,
 		}
-	case "rconws":
+	} else if config.Type == "rconws" {
 		e.Console = &connections.RCONWSConnection{
 			IP:       config.IP,
 			Port:     config.Port,
 			Password: config.Password,
+			//Environment: e,
 		}
-	default:
+	} else {
 		e.Console = &NoStartConsole{Base: base}
 	}
 }
@@ -201,7 +201,7 @@ func (e *Environment) WaitForMainProcessFor(timeout time.Duration) (err error) {
 
 func (e *Environment) CreateWrapper() {
 	if config.ConsoleForward.Value() {
-		// return io.MultiWriter(newLogger(e.ServerID).Writer(), e.ConsoleBuffer, e.ConsoleTracker)
+		//return io.MultiWriter(newLogger(e.ServerId).Writer(), e.ConsoleBuffer, e.ConsoleTracker)
 		e.Wrapper = io.MultiWriter(logging.OriginalStdOut, e.ConsoleBuffer, e.ConsoleTracker)
 	} else {
 		e.Wrapper = io.MultiWriter(e.ConsoleBuffer, e.ConsoleTracker)
@@ -217,7 +217,7 @@ func (e *Environment) GetWrapper() io.Writer {
 }
 
 func (e *Environment) Log(l *log.Logger, format string, obj ...interface{}) {
-	msg := fmt.Sprintf("[%s] ", e.ServerID) + format
+	msg := fmt.Sprintf("[%s] ", e.ServerId) + format
 	l.Printf(msg, obj...)
 }
 
@@ -264,8 +264,8 @@ func (e *Environment) SendCode(code int) error {
 	return e.Implementation.SendCodeImpl(e, code)
 }
 
-func (e *Environment) GetUID() int {
-	return e.Implementation.GetUIDImpl(e)
+func (e *Environment) GetUid() int {
+	return e.Implementation.GetUidImpl(e)
 }
 
 func (e *Environment) GetGid() int {

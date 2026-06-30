@@ -1,7 +1,7 @@
 package models
 
 type Deployment struct {
-	ClientID     string `json:"clientId"`
+	ClientId     string `json:"clientId"`
 	ClientSecret string `json:"clientSecret"`
 	PublicKey    string `json:"publicKey"`
-} // @name NodeDeploymentConfig
+} //@name NodeDeploymentConfig

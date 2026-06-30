@@ -38,7 +38,7 @@ func LoadFromFolder() {
 			continue
 		}
 
-		logging.Info.Printf("Loaded server %s", program.ID())
+		logging.Info.Printf("Loaded server %s", program.Id())
 		allServers = append(allServers, program)
 	}
 }
@@ -60,8 +60,8 @@ func Load(id string) (program *Server, err error) {
 func LoadFromData(id string, source []byte) (*Server, error) {
 	data := CreateProgram()
 
-	// HACK: Because golang thinks environment and Environment in the json are the same, we have to manually clean the
-	// invalid record up....
+	//HACK: Because golang thinks environment and Environment in the json are the same, we have to manually clean the
+	//invalid record up....
 	rawMap := make(map[string]interface{})
 	err := json.Unmarshal(source, &rawMap)
 	if err != nil {
@@ -97,16 +97,16 @@ func LoadFromData(id string, source []byte) (*Server, error) {
 		return nil, err
 	}
 
-	data.Scheduler, _ = LoadScheduler(data.ID())
+	data.Scheduler, _ = LoadScheduler(data.Id())
 	if data.Scheduler == nil {
-		data.Scheduler = NewDefaultScheduler(data.ID())
+		data.Scheduler = NewDefaultScheduler(data.Id())
 		err = data.Scheduler.Init()
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	fs, err := files.NewFileServer(data.RunningEnvironment.GetRootDirectory(), data.RunningEnvironment.GetUID(), data.RunningEnvironment.GetGid())
+	fs, err := files.NewFileServer(data.RunningEnvironment.GetRootDirectory(), data.RunningEnvironment.GetUid(), data.RunningEnvironment.GetGid())
 	if err != nil {
 		return nil, err
 	}
@@ -118,15 +118,15 @@ func LoadFromData(id string, source []byte) (*Server, error) {
 }
 
 func Create(program *Server) (server *Server, err error) {
-	if GetFromCache(program.ID()) != nil {
-		return nil, skypanel.ErrServerAlreadyExists
+	if GetFromCache(program.Id()) != nil {
+		return nil, SkyPanel.ErrServerAlreadyExists
 	}
 
 	defer func() {
 		if err != nil {
-			// revert since we have an error
-			_ = os.Remove(filepath.Join(config.ServersFolder.Value(), program.ID()))
-			_ = os.Remove(filepath.Join(config.ServersFolder.Value(), program.ID()+".json"))
+			//revert since we have an error
+			_ = os.Remove(filepath.Join(config.ServersFolder.Value(), program.Id()))
+			_ = os.Remove(filepath.Join(config.ServersFolder.Value(), program.Id()+".json"))
 			if program.RunningEnvironment != nil {
 				_ = program.RunningEnvironment.Delete()
 			}
@@ -134,7 +134,7 @@ func Create(program *Server) (server *Server, err error) {
 		}
 	}()
 
-	err = os.Mkdir(filepath.Join(config.ServersFolder.Value(), program.ID()), 0755)
+	err = os.Mkdir(filepath.Join(config.ServersFolder.Value(), program.Id()), 0755)
 	if err != nil {
 		logging.Error.Printf("Error writing server: %s", err)
 		return
@@ -146,7 +146,7 @@ func Create(program *Server) (server *Server, err error) {
 		return
 	}
 
-	server, err = Load(program.ID())
+	server, err = Load(program.Id())
 	if err != nil {
 		return
 	}
@@ -164,7 +164,7 @@ func Delete(id string) (err error) {
 	var index int
 	var program *Server
 	for i, element := range allServers {
-		if element.ID() == id {
+		if element.Id() == id {
 			program = element
 			index = i
 			break
@@ -198,7 +198,7 @@ func Delete(id string) (err error) {
 	if err != nil {
 		return
 	}
-	err = os.Remove(filepath.Join(config.ServersFolder.Value(), program.ID()+".json"))
+	err = os.Remove(filepath.Join(config.ServersFolder.Value(), program.Id()+".json"))
 	if err != nil {
 		logging.Error.Printf("Error removing server: %s", err)
 	}
@@ -208,7 +208,7 @@ func Delete(id string) (err error) {
 
 func GetFromCache(id string) *Server {
 	for _, element := range allServers {
-		if element != nil && element.ID() == id {
+		if element != nil && element.Id() == id {
 			return element
 		}
 	}
@@ -232,7 +232,7 @@ func Reload(id string) (err error) {
 		return
 	}
 
-	logging.Info.Printf("Reloading server %s", program.ID())
+	logging.Info.Printf("Reloading server %s", program.Id())
 	newVersion, err := Load(id)
 	if err != nil {
 		logging.Error.Printf("Error reloading server: %s", err)
@@ -245,12 +245,12 @@ func Reload(id string) (err error) {
 	program.Scheduler.Stop()
 	logging.Debug.Println("Rebuilding scheduler")
 
-	program.Scheduler, err = LoadScheduler(program.ID())
+	program.Scheduler, err = LoadScheduler(program.Id())
 	if err != nil {
 		return err
 	}
 	if program.Scheduler == nil {
-		program.Scheduler = NewDefaultScheduler(program.ID())
+		program.Scheduler = NewDefaultScheduler(program.Id())
 		_ = program.Scheduler.Init()
 	}
 

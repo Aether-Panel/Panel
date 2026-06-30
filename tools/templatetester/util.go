@@ -42,7 +42,7 @@ func readDataTxtFile(fileName string) (map[string]interface{}, error) {
 	return result, nil
 }
 
-func readDataJSONFile(fileName string) ([]*TestData, error) {
+func readDataJsonFile(fileName string) ([]*TestData, error) {
 	file, err := os.Open(fileName)
 	if err != nil {
 		return nil, err
@@ -132,14 +132,13 @@ func buildTests() []*TestScenario {
 					panicIf(err)
 				}
 
-				template := skypanel.Server{}
+				template := SkyPanel.Server{}
 				err = json.NewDecoder(bytes.NewReader(tmp.Template)).Decode(&template)
 				panicIf(err)
 
 				_, err = os.Stat(filepath.Join(templateFolder, folder.Name(), "data.json"))
-				switch {
-				case err == nil:
-					tests, err := readDataJSONFile(filepath.Join(templateFolder, folder.Name(), "data.json"))
+				if err == nil {
+					tests, err := readDataJsonFile(filepath.Join(templateFolder, folder.Name(), "data.json"))
 					for _, v := range tests {
 						log.Printf("  Considering %s", v.Name)
 						testScenarios = append(testScenarios, &TestScenario{
@@ -155,9 +154,11 @@ func buildTests() []*TestScenario {
 						})
 					}
 					panicIf(err)
-				case os.IsNotExist(err):
-					// no data json, which means it's a single test
-					// but, each template could support envs, so auto-process each
+				} else if !os.IsNotExist(err) {
+					panicIf(err)
+				} else {
+					//no data json, which means it's a single test
+					//but, each template could support envs, so auto-process each
 					if len(template.SupportedEnvironments) > 0 {
 						for _, v := range template.SupportedEnvironments {
 							z := &TestTemplate{
@@ -191,8 +192,6 @@ func buildTests() []*TestScenario {
 							Test: tmp,
 						})
 					}
-				default:
-					panicIf(err)
 				}
 			}
 		}
@@ -240,8 +239,8 @@ func ioCopy(dest io.Writer, src io.Reader) {
 
 func createCreateBody(scenario *TestScenario) io.ReadCloser {
 	model := &models.ServerCreation{
-		Server: skypanel.Server{},
-		NodeID: 0,
+		Server: SkyPanel.Server{},
+		NodeId: 0,
 		Name:   scenario.Name,
 	}
 

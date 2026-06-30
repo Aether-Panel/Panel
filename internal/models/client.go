@@ -9,15 +9,15 @@ import (
 
 type Client struct {
 	ID                 uint   `gorm:"column:id;primaryKey;autoIncrement" json:"-"`
-	ClientID           string `gorm:"column:client_id;not null;size:100;uniqueIndex;unique" json:"client_id"`
+	ClientId           string `gorm:"column:client_id;not null;size:100;uniqueIndex;unique" json:"client_id"`
 	HashedClientSecret string `gorm:"column:client_secret;not null;size:100" json:"-"`
 
 	ClientSecret string `gorm:"-" json:"client_secret"`
 
-	UserID uint  `gorm:"column:user_id;not null;index" json:"-"`
+	UserId uint  `gorm:"column:user_id;not null;index" json:"-"`
 	User   *User `json:"-"`
 
-	ServerID *string `gorm:"column:server_id" json:"-"`
+	ServerId *string `gorm:"column:server_id" json:"-"`
 	Server   *Server `json:"-"`
 
 	Name        string `gorm:"column:name;not null;size:100;default:''" json:"name"`
@@ -44,7 +44,7 @@ func (c *Client) IsValid() (err error) {
 	err = validator.New().Struct(c)
 
 	if err != nil {
-		err = skypanel.GenerateValidationMessage(err)
+		err = SkyPanel.GenerateValidationMessage(err)
 	}
 
 	return

@@ -6,16 +6,16 @@ type Stdin struct {
 	Command string
 }
 
-func (d Stdin) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
+func (d Stdin) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
 	env := args.Environment
 
 	running, err := env.IsRunning()
 	if err != nil {
-		return skypanel.OperationResult{Error: err}
+		return SkyPanel.OperationResult{Error: err}
 	} else if !running {
-		return skypanel.OperationResult{Error: skypanel.ErrServerOffline}
+		return SkyPanel.OperationResult{Error: SkyPanel.ErrServerOffline}
 	}
 
 	err = env.ExecuteInMainProcess(d.Command)
-	return skypanel.OperationResult{Error: err}
+	return SkyPanel.OperationResult{Error: err}
 }

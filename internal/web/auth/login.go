@@ -20,7 +20,7 @@ import (
 // @Produce json
 // @Param request body LoginRequestData true "Login Request"
 // @Success 200 {object} LoginResponse
-// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 400 {object} SkyPanel.ErrorResponse
 // @Tags Auth
 // @Router /auth/login [post]
 func LoginPost(c *gin.Context) {
@@ -62,7 +62,7 @@ func LoginPost(c *gin.Context) {
 // @Produce json
 // @Param request body OtpRequestData true "OTP Request"
 // @Success 200 {object} LoginResponse
-// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 400 {object} SkyPanel.ErrorResponse
 // @Tags Auth
 // @Router /auth/otp [post]
 func OtpPost(c *gin.Context) {
@@ -81,14 +81,14 @@ func OtpPost(c *gin.Context) {
 	timestamp := userSession.Get("time").(int64)
 
 	if email == "" {
-		response.HandleError(c, skypanel.ErrInvalidSession, http.StatusBadRequest)
+		response.HandleError(c, SkyPanel.ErrInvalidSession, http.StatusBadRequest)
 		return
 	}
 
 	if timestamp < time.Now().Unix()-300 {
 		userSession.Clear()
 		_ = userSession.Save()
-		response.HandleError(c, skypanel.ErrSessionExpired, http.StatusBadRequest)
+		response.HandleError(c, SkyPanel.ErrSessionExpired, http.StatusBadRequest)
 		return
 	}
 
@@ -113,9 +113,9 @@ func createSession(c *gin.Context, user *models.User) {
 	// Aggregate scopes from individual permissions and roles
 	allScopes := perms.Scopes
 
-	if user.RoleID != nil {
+	if user.RoleId != nil {
 		rs := &services.Role{DB: db}
-		role, err := rs.Get(*user.RoleID)
+		role, err := rs.Get(*user.RoleId)
 		if err == nil && role != nil {
 			for _, s := range role.Scopes {
 				allScopes = scopes.AddScope(allScopes, scopes.GetScope(s))
@@ -124,7 +124,7 @@ func createSession(c *gin.Context, user *models.User) {
 	}
 
 	if !scopes.ContainsScope(allScopes, scopes.ScopeLogin) {
-		response.HandleError(c, skypanel.ErrLoginNotPermitted, http.StatusForbidden)
+		response.HandleError(c, SkyPanel.ErrLoginNotPermitted, http.StatusForbidden)
 		return
 	}
 

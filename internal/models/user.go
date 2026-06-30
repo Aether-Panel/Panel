@@ -17,9 +17,9 @@ type User struct {
 	OtpSecret      string `gorm:"column:otp_secret;size:32" json:"-"`
 	OtpActive      bool   `gorm:"column:otp_active;not null;DEFAULT:0" json:"-"`
 
-	RoleID      *uint         `gorm:"column:role_id;index" json:"-"`
+	RoleId      *uint         `gorm:"column:role_id;index" json:"-"`
 	Role        Role          `gorm:"ASSOCIATION_SAVE_REFERENCE:false" json:"-" validate:"-"`
-	Permissions []Permissions `gorm:"foreignKey:UserID" json:"-"`
+	Permissions []Permissions `gorm:"foreignKey:UserId" json:"-"`
 
 	CreatedAt time.Time `json:"-"`
 	UpdatedAt time.Time `json:"-"`
@@ -38,7 +38,7 @@ func (u *User) SetPassword(pw string) error {
 func (u *User) IsValid() (err error) {
 	err = validator.New().Struct(u)
 	if err != nil {
-		err = skypanel.GenerateValidationMessage(err)
+		err = SkyPanel.GenerateValidationMessage(err)
 	}
 	return
 }

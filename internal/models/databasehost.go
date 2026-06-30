@@ -24,7 +24,7 @@ type DatabaseHost struct {
 func (dh *DatabaseHost) IsValid() (err error) {
 	err = validator.New().Struct(dh)
 	if err != nil {
-		err = skypanel.GenerateValidationMessage(err)
+		err = SkyPanel.GenerateValidationMessage(err)
 	}
 	return
 }

@@ -22,7 +22,7 @@ import (
 // @Produce json
 // @Param request body registerRequestData true "Registration Request"
 // @Success 200 {object} LoginResponse
-// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 400 {object} SkyPanel.ErrorResponse
 // @Tags Auth
 // @Router /auth/register [post]
 func RegisterPost(c *gin.Context) {
@@ -48,7 +48,7 @@ func RegisterPost(c *gin.Context) {
 	}
 
 	if us.IsSecurePassword(request.Password) != nil {
-		response.HandleError(c, skypanel.ErrPasswordRequirements, http.StatusBadRequest)
+		response.HandleError(c, SkyPanel.ErrPasswordRequirements, http.StatusBadRequest)
 		return
 	}
 
@@ -69,7 +69,7 @@ func RegisterPost(c *gin.Context) {
 		return
 	}
 
-	// perms.ViewServer = true
+	//perms.ViewServer = true
 	perms.Scopes = []*scopes.Scope{scopes.ScopeLogin}
 
 	err = ps.UpdatePermissions(perms)

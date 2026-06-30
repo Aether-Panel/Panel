@@ -18,7 +18,7 @@ const expiresIn = int64(time.Hour / time.Second)
 
 // @Summary Authenticate
 // @Description Get a OAuth2 token to consume this API
-// @Param request formData TokenRequest true "OAuth2 token request"
+// @Param request formData OAuth2TokenRequest true "OAuth2 token request"
 // @Success 200 {object} oauth2.TokenResponse
 // @Failure 400 {object} oauth2.ErrorResponse
 // @Failure 401 {object} oauth2.ErrorResponse
@@ -28,7 +28,7 @@ const expiresIn = int64(time.Hour / time.Second)
 // @Tags OAuth2
 // @Router /oauth2/token [post]
 func handleTokenRequest(c *gin.Context) {
-	var request TokenRequest
+	var request OAuth2TokenRequest
 	err := c.MustBindWith(&request, binding.FormPost)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: err.Error()})
@@ -47,7 +47,7 @@ func handleTokenRequest(c *gin.Context) {
 	case "client_credentials":
 		{
 			os := &services.OAuth2{DB: db}
-			client, err := os.Get(request.ClientID)
+			client, err := os.Get(request.ClientId)
 			if err != nil {
 				c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: err.Error()})
 				return
@@ -65,26 +65,26 @@ func handleTokenRequest(c *gin.Context) {
 				}
 			}
 
-			var serverID string
+			var serverId string
 			if client.Server != nil {
-				serverID = client.Server.Identifier
+				serverId = client.Server.Identifier
 			}
 
 			var allScopes []string
 			ps := &services.Permission{DB: db}
-			perms, err := ps.GetForUserAndServer(client.UserID, serverID)
+			perms, err := ps.GetForUserAndServer(client.UserId, serverId)
 			if response.HandleError(c, err, http.StatusInternalServerError) {
 				return
 			}
 
 			if !scopes.ContainsScope(perms.Scopes, scopes.ScopeLogin) {
-				// because servers don't have an explicit login scope, we need to check the root user
-				if serverID == "" {
+				//because servers don't have an explicit login scope, we need to check the root user
+				if serverId == "" {
 					c.AbortWithStatus(http.StatusForbidden)
 					return
 				}
 
-				userPerms, err := ps.GetForUserAndServer(client.UserID, "")
+				userPerms, err := ps.GetForUserAndServer(client.UserId, "")
 				if response.HandleError(c, err, http.StatusInternalServerError) {
 					return
 				}
@@ -115,7 +115,7 @@ func handleTokenRequest(c *gin.Context) {
 				return
 			}
 
-			// validate this is a bearer token and a good JWT token
+			//validate this is a bearer token and a good JWT token
 			auth = strings.TrimPrefix(auth, "Bearer ")
 			node, err := session.ValidateNode(auth)
 			if err != nil {
@@ -126,7 +126,7 @@ func handleTokenRequest(c *gin.Context) {
 			us := &services.User{DB: db}
 			ss := &services.Server{DB: db}
 
-			// get user and server information
+			//get user and server information
 			parts := strings.SplitN(request.Username, "#", 2)
 			if len(parts) != 2 {
 				c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: "bad username"})
@@ -144,13 +144,13 @@ func handleTokenRequest(c *gin.Context) {
 				return
 			}
 
-			// ensure the node asking for the credential check is where this server is
+			//ensure the node asking for the credential check is where this server is
 			if server.Node.ID != node.ID {
 				c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: "no access"})
 				return
 			}
 
-			// validate their credentials
+			//validate their credentials
 			var token string
 			user, _, err = us.ValidateLogin(user.Email, request.Password)
 			if err != nil {
@@ -158,7 +158,7 @@ func handleTokenRequest(c *gin.Context) {
 				return
 			}
 
-			// confirm user has access to this server
+			//confirm user has access to this server
 			ps := &services.Permission{DB: db}
 			allowed, err := ps.HasPermission(user.ID, server.Identifier, scopes.ScopeServerSftp)
 			if err != nil {
@@ -171,7 +171,7 @@ func handleTokenRequest(c *gin.Context) {
 				return
 			}
 
-			// at this point, their login credentials were valid, and we need to shortcut because otp
+			//at this point, their login credentials were valid, and we need to shortcut because otp
 			sessionService := &services.Session{DB: db}
 			token, err = sessionService.CreateForUser(user)
 			if err != nil {
@@ -192,10 +192,10 @@ func handleTokenRequest(c *gin.Context) {
 	}
 }
 
-type TokenRequest struct {
+type OAuth2TokenRequest struct {
 	GrantType    string `form:"grant_type"`
-	ClientID     string `form:"client_id"`
+	ClientId     string `form:"client_id"`
 	ClientSecret string `form:"client_secret"`
 	Username     string `form:"username"`
 	Password     string `form:"password"`
-} // @name OAuth2TokenRequest
+} //@name OAuth2TokenRequest

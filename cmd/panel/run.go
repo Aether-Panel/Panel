@@ -40,7 +40,7 @@ var runCmd = &cobra.Command{
 
 var webService *manners.GracefulServer
 
-func executeRun(_ *cobra.Command, _ []string) {
+func executeRun(cmd *cobra.Command, args []string) {
 	term, _ := internalRun()
 	<-term
 	closePanel()
@@ -67,7 +67,7 @@ func internalRun() (terminate chan bool, success bool) {
 	router.Use(gin.Recovery())
 	router.Use(gin.LoggerWithWriter(logging.Info.Writer()))
 
-	// do not trust proxies by default
+	//do not trust proxies by default
 	_ = router.SetTrustedProxies(nil)
 	if proxies := config.SecurityTrustedProxies.Value(); proxies != nil {
 		err := router.SetTrustedProxies(proxies)
@@ -81,7 +81,7 @@ func internalRun() (terminate chan bool, success bool) {
 
 	gin.DefaultWriter = logging.Info.Writer()
 	gin.DefaultErrorWriter = logging.Error.Writer()
-	skypanel.Engine = router
+	SkyPanel.Engine = router
 
 	if config.PanelEnabled.Value() {
 		panel()
@@ -130,17 +130,17 @@ func internalRun() (terminate chan bool, success bool) {
 		}
 
 		sameSite := config.PanelWebCookiesSameSite.Value()
-		var sameSiteID http.SameSite
+		var sameSiteId http.SameSite
 
 		switch sameSite {
 		case "Strict":
-			sameSiteID = http.SameSiteStrictMode
+			sameSiteId = http.SameSiteStrictMode
 		case "None":
-			sameSiteID = http.SameSiteNoneMode
+			sameSiteId = http.SameSiteNoneMode
 		case "Lax":
-			sameSiteID = http.SameSiteLaxMode
+			sameSiteId = http.SameSiteLaxMode
 		default:
-			sameSiteID = http.SameSiteStrictMode
+			sameSiteId = http.SameSiteStrictMode
 		}
 
 		sessionStore := cookie.NewStore(result)
@@ -149,8 +149,8 @@ func internalRun() (terminate chan bool, success bool) {
 			Domain:   config.PanelWebCookiesDomain.Value(),
 			MaxAge:   config.PanelWebCookiesAge.Value(),
 			Secure:   config.PanelWebCookiesSecure.Value(),
-			HttpOnly: config.PanelWebCookiesHTTPOnly.Value(),
-			SameSite: sameSiteID,
+			HttpOnly: config.PanelWebCookiesHttpOnly.Value(),
+			SameSite: sameSiteId,
 		})
 		router.Use(sessions.Sessions("session", sessionStore))
 
@@ -199,9 +199,9 @@ func internalRun() (terminate chan bool, success bool) {
 }
 
 func closePanel() {
-	// shut down everything
-	// all of these can be closed regardless of what type of install this is, as they all check if they are even being
-	// used
+	//shut down everything
+	//all of these can be closed regardless of what type of install this is, as they all check if they are even being
+	//used
 	logging.Debug.Printf("stopping http server")
 	if webService != nil {
 		webService.Close()
@@ -217,7 +217,7 @@ func closePanel() {
 	servers.ShutdownService()
 	for _, p := range servers.GetAll() {
 		_ = p.Stop()
-		err := p.RunningEnvironment.WaitForMainProcessFor(time.Minute) // wait 60 seconds
+		err := p.RunningEnvironment.WaitForMainProcessFor(time.Minute) //wait 60 seconds
 		if err != nil {
 			logging.Error.Printf("error stopping server: %s", err.Error())
 		}
@@ -230,7 +230,7 @@ func closePanel() {
 func panel() {
 	services.LoadEmailService()
 
-	// if we have the web, then let's use our sftp auth instead
+	//if we have the web, then let's use our sftp auth instead
 	sftp.SetAuthorization(&services.DatabaseSFTPAuthorization{})
 }
 
@@ -264,7 +264,7 @@ func daemon() error {
 		logging.Error.Printf("Error creating cache folder: %s", err.Error())
 	}
 
-	// update path to include our binary folder
+	//update path to include our binary folder
 	newPath := os.Getenv("PATH")
 	fullPath, _ := filepath.Abs(config.BinariesFolder.Value())
 	if !strings.Contains(newPath, fullPath) {
@@ -279,7 +279,7 @@ func daemon() error {
 	for _, element := range servers.GetAll() {
 		element.GetEnvironment().DisplayToConsole(true, "Daemon has been started\n")
 		if element.IsAutoStart() {
-			logging.Info.Printf("Queued server %s", element.ID())
+			logging.Info.Printf("Queued server %s", element.Id())
 			element.GetEnvironment().DisplayToConsole(true, "Server has been queued to start\n")
 			servers.StartViaService(element)
 		}

@@ -12,9 +12,9 @@ func CompareWildcard(source, match string) bool {
 	if strings.Contains(match, "*") {
 		regex := WildCardToRegexp(match)
 		return matchRegex(regex, source)
+	} else {
+		return source == match
 	}
-
-	return source == match
 }
 
 // WildCardToRegexp converts a wildcard pattern to a regular expression pattern.

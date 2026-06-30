@@ -6,13 +6,13 @@ import (
 )
 
 type OperationFactory struct {
-	skypanel.OperationFactory
+	SkyPanel.OperationFactory
 }
 
 func (of OperationFactory) Key() string {
 	return "extract"
 }
-func (of OperationFactory) Create(op skypanel.CreateOperation) (skypanel.Operation, error) {
+func (of OperationFactory) Create(op SkyPanel.CreateOperation) (SkyPanel.Operation, error) {
 	source := cast.ToString(op.OperationArgs["source"])
 	destination := cast.ToString(op.OperationArgs["destination"])
 

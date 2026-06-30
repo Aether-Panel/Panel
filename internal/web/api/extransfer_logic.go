@@ -64,7 +64,7 @@ func init() {
 	ExTransferPublicKey = pub
 }
 
-type ExTransferAPIError struct {
+type ExTransferApiError struct {
 	ErrorCode string `json:"error_code"`
 	Message   string `json:"message"`
 	SessionID string `json:"session_id,omitempty"`
@@ -163,14 +163,14 @@ func CreateExTransfer(c *gin.Context) {
 // @Produce json
 // @Param request body ExValidateReq true "Validation Request"
 // @Success 200 {object} map[string]interface{} "Validation successful"
-// @Failure 400 {object} ExTransferAPIError "Bad request"
-// @Failure 403 {object} ExTransferAPIError "Forbidden"
+// @Failure 400 {object} ExTransferApiError "Bad request"
+// @Failure 403 {object} ExTransferApiError "Forbidden"
 // @Tags Federated Transfer
 // @Router /api/extransfer/validate [post]
 func validateExTransfer(c *gin.Context) {
 	var req ExValidateReq
 	if err := c.BindJSON(&req); err != nil {
-		c.JSON(400, ExTransferAPIError{ErrorCode: "BAD_REQUEST", Message: "Invalid JSON payload", Retryable: false})
+		c.JSON(400, ExTransferApiError{ErrorCode: "BAD_REQUEST", Message: "Invalid JSON payload", Retryable: false})
 		return
 	}
 
@@ -213,7 +213,7 @@ func validateExTransfer(c *gin.Context) {
 	})
 
 	if err != nil {
-		c.JSON(403, ExTransferAPIError{ErrorCode: "TOKEN_ERROR", Message: err.Error(), Retryable: false})
+		c.JSON(403, ExTransferApiError{ErrorCode: "TOKEN_ERROR", Message: err.Error(), Retryable: false})
 		return
 	}
 
@@ -235,14 +235,14 @@ func validateExTransfer(c *gin.Context) {
 // @Produce json
 // @Param request body ExConsumeReq true "Consume Request"
 // @Success 202 {object} map[string]interface{} "Migration started"
-// @Failure 400 {object} ExTransferAPIError "Bad request"
-// @Failure 403 {object} ExTransferAPIError "Forbidden"
+// @Failure 400 {object} ExTransferApiError "Bad request"
+// @Failure 403 {object} ExTransferApiError "Forbidden"
 // @Tags Federated Transfer
 // @Router /api/extransfer/consume [post]
 func consumeExTransfer(c *gin.Context) {
 	var req ExConsumeReq
 	if err := c.BindJSON(&req); err != nil {
-		c.JSON(400, ExTransferAPIError{ErrorCode: "BAD_REQUEST", Message: "Invalid JSON payload", Retryable: false})
+		c.JSON(400, ExTransferApiError{ErrorCode: "BAD_REQUEST", Message: "Invalid JSON payload", Retryable: false})
 		return
 	}
 
@@ -278,7 +278,7 @@ func consumeExTransfer(c *gin.Context) {
 	})
 
 	if err != nil {
-		c.JSON(403, ExTransferAPIError{ErrorCode: "CONSUME_ERROR", Message: err.Error(), Retryable: false})
+		c.JSON(403, ExTransferApiError{ErrorCode: "CONSUME_ERROR", Message: err.Error(), Retryable: false})
 		return
 	}
 
@@ -325,9 +325,9 @@ func cancelExTransfer(c *gin.Context) {
 // @Param session_id query string true "Session ID"
 // @Param signature query string true "Signature of 'DOWNLOAD:' + session_id"
 // @Success 200 {file} binary "Server archive"
-// @Failure 400 {object} ExTransferAPIError "Bad request"
-// @Failure 403 {object} ExTransferAPIError "Forbidden"
-// @Failure 404 {object} ExTransferAPIError "Not found"
+// @Failure 400 {object} ExTransferApiError "Bad request"
+// @Failure 403 {object} ExTransferApiError "Forbidden"
+// @Failure 404 {object} ExTransferApiError "Not found"
 // @Tags Federated Transfer
 // @Router /api/extransfer/download [get]
 func downloadExTransfer(c *gin.Context) {
@@ -335,19 +335,19 @@ func downloadExTransfer(c *gin.Context) {
 	signature := c.Query("signature")
 
 	if sessionID == "" || signature == "" {
-		c.JSON(400, ExTransferAPIError{ErrorCode: "BAD_REQUEST", Message: "Missing session_id or signature", Retryable: false})
+		c.JSON(400, ExTransferApiError{ErrorCode: "BAD_REQUEST", Message: "Missing session_id or signature", Retryable: false})
 		return
 	}
 
 	db := middleware.GetDatabase(c)
 	var session models.ExTransferSession
 	if err := db.Where("session_uuid = ?", sessionID).First(&session).Error; err != nil {
-		c.JSON(404, ExTransferAPIError{ErrorCode: "NOT_FOUND", Message: "Session not found", Retryable: false})
+		c.JSON(404, ExTransferApiError{ErrorCode: "NOT_FOUND", Message: "Session not found", Retryable: false})
 		return
 	}
 
 	if session.Status != models.StatusMigrating {
-		c.JSON(403, ExTransferAPIError{ErrorCode: "INVALID_STATE", Message: "Session not in migrating state", Retryable: false})
+		c.JSON(403, ExTransferApiError{ErrorCode: "INVALID_STATE", Message: "Session not in migrating state", Retryable: false})
 		return
 	}
 
@@ -355,27 +355,27 @@ func downloadExTransfer(c *gin.Context) {
 	pubKey, errDec := base64.StdEncoding.DecodeString(session.DestPublicKey)
 	sig, errSig := base64.StdEncoding.DecodeString(signature)
 	if errDec != nil || errSig != nil || len(pubKey) != ed25519.PublicKeySize {
-		c.JSON(400, ExTransferAPIError{ErrorCode: "INVALID_SIGNATURE_FORMAT", Message: "Invalid signature format", Retryable: false})
+		c.JSON(400, ExTransferApiError{ErrorCode: "INVALID_SIGNATURE_FORMAT", Message: "Invalid signature format", Retryable: false})
 		return
 	}
 
 	message := "DOWNLOAD:" + sessionID
 	if !ed25519.Verify(pubKey, []byte(message), sig) {
-		c.JSON(403, ExTransferAPIError{ErrorCode: "INVALID_SIGNATURE", Message: "Invalid signature", Retryable: false})
+		c.JSON(403, ExTransferApiError{ErrorCode: "INVALID_SIGNATURE", Message: "Invalid signature", Retryable: false})
 		return
 	}
 
 	// Get server
 	var server models.Server
 	if err := db.Preload("Node").Where("identifier = ?", session.ServerID).First(&server).Error; err != nil {
-		c.JSON(500, ExTransferAPIError{ErrorCode: "INTERNAL_ERROR", Message: "Failed to get server", Retryable: false})
+		c.JSON(500, ExTransferApiError{ErrorCode: "INTERNAL_ERROR", Message: "Failed to get server", Retryable: false})
 		return
 	}
 
 	ns := &services.Node{DB: db}
 	downloadRes, err := ns.CallNode(&server.Node, "GET", fmt.Sprintf("/daemon/server/%s/file/transfer.tar.gz", server.Identifier), nil, nil)
 	if err != nil || downloadRes.StatusCode != 200 {
-		c.JSON(500, ExTransferAPIError{ErrorCode: "DAEMON_ERROR", Message: "Failed to get file from daemon", Retryable: true})
+		c.JSON(500, ExTransferApiError{ErrorCode: "DAEMON_ERROR", Message: "Failed to get file from daemon", Retryable: true})
 		return
 	}
 	defer downloadRes.Body.Close()

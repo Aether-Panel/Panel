@@ -95,8 +95,10 @@ func Compress(fs FileServer, targetFile string, files []string) error {
 						expandedFiles = append(expandedFiles, match)
 					}
 				}
-			} else if fullPath != targetFile {
-				expandedFiles = append(expandedFiles, fullPath)
+			} else {
+				if fullPath != targetFile {
+					expandedFiles = append(expandedFiles, fullPath)
+				}
 			}
 		}
 		files = expandedFiles
@@ -120,8 +122,7 @@ func walker(fs FileServer, targetPath, filter string, skipRoot bool) archiver.Wa
 		parent := filepath.Join(targetPath, filepath.Dir(path))
 		path = filepath.Join(targetPath, path)
 
-		switch {
-		case file.Mode().IsDir():
+		if file.Mode().IsDir() {
 			if fs != nil {
 				if err = fs.MkdirAll(path, 0755); err != nil {
 					return err
@@ -131,7 +132,7 @@ func walker(fs FileServer, targetPath, filter string, skipRoot bool) archiver.Wa
 					return err
 				}
 			}
-		case file.Mode().IsRegular():
+		} else if file.Mode().IsRegular() {
 			if fs != nil {
 				if err = fs.MkdirAll(parent, 0755); err != nil {
 					return err
@@ -153,7 +154,7 @@ func walker(fs FileServer, targetPath, filter string, skipRoot bool) archiver.Wa
 			}
 			defer utils.Close(outFile)
 			_, err = io.Copy(outFile, file.ReadCloser)
-		case file.Mode()&os.ModeSymlink != 0:
+		} else if file.Mode()&os.ModeSymlink != 0 {
 			target, err := getLinkTarget(file)
 			if err != nil {
 				return err
@@ -182,8 +183,8 @@ func walker(fs FileServer, targetPath, filter string, skipRoot bool) archiver.Wa
 
 // getCompressedItemName Resolves headers in the event the wrapped interface fails
 func getCompressedItemName(file archiver.File) string {
-	// For certain headers, the actual File interface uses the wrong value
-	// Example, ZIP gives the filename, not the full path
+	//For certain headers, the actual File interface uses the wrong value
+	//Example, ZIP gives the filename, not the full path
 
 	switch v := file.Header.(type) {
 	case zip.FileHeader:

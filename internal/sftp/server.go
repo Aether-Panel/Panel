@@ -18,7 +18,7 @@ import (
 
 var sftpServer net.Listener
 
-var auth skypanel.SFTPAuthorization
+var auth SkyPanel.SFTPAuthorization
 
 func Run() {
 	err := runServer()
@@ -27,7 +27,7 @@ func Run() {
 	}
 }
 
-func SetAuthorization(service skypanel.SFTPAuthorization) {
+func SetAuthorization(service SkyPanel.SFTPAuthorization) {
 	auth = service
 }
 
@@ -114,7 +114,7 @@ func runServer() error {
 
 func HandleConn(conn net.Conn, serverConfig *ssh.ServerConfig) {
 	defer utils.Close(conn)
-	defer skypanel.Recover()
+	defer SkyPanel.Recover()
 	logging.Info.Printf("SFTP connection from %s", conn.RemoteAddr().String())
 	e := handleConn(conn, serverConfig)
 	if e != nil {
@@ -156,7 +156,8 @@ func handleConn(conn net.Conn, serverConfig *ssh.ServerConfig) error {
 		go func(in <-chan *ssh.Request) {
 			for req := range in {
 				ok := false
-				if req.Type == "subsystem" {
+				switch req.Type {
+				case "subsystem":
 					if string(req.Payload[4:]) == "sftp" {
 						ok = true
 					}
@@ -165,14 +166,14 @@ func handleConn(conn net.Conn, serverConfig *ssh.ServerConfig) error {
 			}
 		}(requests)
 
-		serverID := sc.Permissions.Extensions["server_id"]
-		server := servers.GetFromCache(serverID)
+		serverId := sc.Permissions.Extensions["server_id"]
+		server := servers.GetFromCache(serverId)
 		if server == nil {
-			// this daemon can't handle this request...
+			//this daemon can't handle this request...
 			return nil
 		}
 
-		fs := CreateRequestPrefix(sc.Conn.RemoteAddr(), server.ID(), server.GetFileServer())
+		fs := CreateRequestPrefix(sc.Conn.RemoteAddr(), server.Id(), server.GetFileServer())
 		s := sftp.NewRequestServer(channel, fs)
 
 		if err = s.Serve(); err != nil {

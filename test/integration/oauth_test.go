@@ -18,13 +18,13 @@ func TestOAuth(t *testing.T) {
 	t.Run("testAuth", func(t *testing.T) {
 		form := url.Values{}
 		form.Set("grant_type", "client_credentials")
-		form.Set("client_id", loginOAuth2Admin.ClientID)
+		form.Set("client_id", loginOAuth2Admin.ClientId)
 		form.Set("client_secret", loginOAuth2AdminSecret)
 
 		request, _ := http.NewRequest("POST", "/oauth2/token", strings.NewReader(form.Encode()))
 		request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		response := httptest.NewRecorder()
-		skypanel.Engine.ServeHTTP(response, request)
+		SkyPanel.Engine.ServeHTTP(response, request)
 
 		if !assert.Equal(t, http.StatusOK, response.Code) {
 			return

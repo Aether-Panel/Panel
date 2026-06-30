@@ -6,12 +6,12 @@ import (
 )
 
 type OperationFactory struct {
-	skypanel.OperationFactory
+	SkyPanel.OperationFactory
 }
 
-func (of OperationFactory) Create(op skypanel.CreateOperation) (skypanel.Operation, error) {
+func (of OperationFactory) Create(op SkyPanel.CreateOperation) (SkyPanel.Operation, error) {
 	o := SteamGameDl{
-		AppID:     cast.ToString(op.OperationArgs["appID"]),
+		AppId:     cast.ToString(op.OperationArgs["appId"]),
 		Username:  cast.ToString(op.OperationArgs["username"]),
 		Password:  cast.ToString(op.OperationArgs["password"]),
 		ExtraArgs: cast.ToStringSlice(op.OperationArgs["extraArgs"]),

@@ -440,7 +440,7 @@ func (s *Store) DeleteAllEndpointStatusesNotInKeys(keys []string) int {
 
 // GetTriggeredEndpointAlert returns whether the triggered alert for the specified endpoint as well as the necessary information to resolve it
 func (s *Store) GetTriggeredEndpointAlert(ep *endpoint.Endpoint, alert *alert.Alert) (exists bool, resolveKey string, numberOfSuccessesInARow int, err error) {
-	// logr.Debugf("[sql.GetTriggeredEndpointAlert] Getting triggered alert with checksum=%s for endpoint with key=%s", alert.Checksum(), ep.Key())
+	//logr.Debugf("[sql.GetTriggeredEndpointAlert] Getting triggered alert with checksum=%s for endpoint with key=%s", alert.Checksum(), ep.Key())
 	err = s.db.QueryRow(
 		"SELECT resolve_key, number_of_successes_in_a_row FROM endpoint_alerts_triggered WHERE endpoint_id = (SELECT endpoint_id FROM endpoints WHERE endpoint_key = $1 LIMIT 1) AND configuration_checksum = $2",
 		ep.Key(),
@@ -458,7 +458,7 @@ func (s *Store) GetTriggeredEndpointAlert(ep *endpoint.Endpoint, alert *alert.Al
 // UpsertTriggeredEndpointAlert inserts/updates a triggered alert for an endpoint
 // Used for persistence of triggered alerts across application restarts
 func (s *Store) UpsertTriggeredEndpointAlert(ep *endpoint.Endpoint, triggeredAlert *alert.Alert) error {
-	// logr.Debugf("[sql.UpsertTriggeredEndpointAlert] Upserting triggered alert with checksum=%s for endpoint with key=%s", triggeredAlert.Checksum(), ep.Key())
+	//logr.Debugf("[sql.UpsertTriggeredEndpointAlert] Upserting triggered alert with checksum=%s for endpoint with key=%s", triggeredAlert.Checksum(), ep.Key())
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
@@ -505,7 +505,7 @@ func (s *Store) UpsertTriggeredEndpointAlert(ep *endpoint.Endpoint, triggeredAle
 
 // DeleteTriggeredEndpointAlert deletes a triggered alert for an endpoint
 func (s *Store) DeleteTriggeredEndpointAlert(ep *endpoint.Endpoint, triggeredAlert *alert.Alert) error {
-	// logr.Debugf("[sql.DeleteTriggeredEndpointAlert] Deleting triggered alert with checksum=%s for endpoint with key=%s", triggeredAlert.Checksum(), ep.Key())
+	//logr.Debugf("[sql.DeleteTriggeredEndpointAlert] Deleting triggered alert with checksum=%s for endpoint with key=%s", triggeredAlert.Checksum(), ep.Key())
 	_, err := s.db.Exec("DELETE FROM endpoint_alerts_triggered WHERE configuration_checksum = $1 AND endpoint_id = (SELECT endpoint_id FROM endpoints WHERE endpoint_key = $2 LIMIT 1)", triggeredAlert.Checksum(), ep.Key())
 	return err
 }
@@ -514,7 +514,7 @@ func (s *Store) DeleteTriggeredEndpointAlert(ep *endpoint.Endpoint, triggeredAle
 // configurations are not provided in the checksums list.
 // This prevents triggered alerts that have been removed or modified from lingering in the database.
 func (s *Store) DeleteAllTriggeredAlertsNotInChecksumsByEndpoint(ep *endpoint.Endpoint, checksums []string) int {
-	// logr.Debugf("[sql.DeleteAllTriggeredAlertsNotInChecksumsByEndpoint] Deleting triggered alerts for endpoint with key=%s that do not belong to any of checksums=%v", ep.Key(), checksums)
+	//logr.Debugf("[sql.DeleteAllTriggeredAlertsNotInChecksumsByEndpoint] Deleting triggered alerts for endpoint with key=%s that do not belong to any of checksums=%v", ep.Key(), checksums)
 	var err error
 	var result sql.Result
 	if len(checksums) == 0 {
@@ -585,7 +585,7 @@ func (s *Store) Close() {
 
 // insertEndpoint inserts an endpoint in the store and returns the generated id of said endpoint
 func (s *Store) insertEndpoint(tx *sql.Tx, ep *endpoint.Endpoint) (int64, error) {
-	// logr.Debugf("[sql.insertEndpoint] Inserting endpoint with group=%s and name=%s", ep.Group, ep.Name)
+	//logr.Debugf("[sql.insertEndpoint] Inserting endpoint with group=%s and name=%s", ep.Group, ep.Name)
 	var id int64
 	err := tx.QueryRow(
 		"INSERT INTO endpoints (endpoint_key, endpoint_name, endpoint_group) VALUES ($1, $2, $3) RETURNING endpoint_id",

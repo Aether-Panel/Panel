@@ -16,9 +16,9 @@ func (bs *Backup) GetAllForServer(serverID string) ([]*models.Backup, error) {
 	return records, err
 }
 
-func (bs *Backup) Get(serverID string, id uint) (*models.Backup, error) {
+func (bs *Backup) Get(serverId string, id uint) (*models.Backup, error) {
 	var record *models.Backup
-	err := bs.DB.Where(&models.Backup{ServerID: serverID, ID: id}).First(&record).Error
+	err := bs.DB.Where(&models.Backup{ServerID: serverId, ID: id}).First(&record).Error
 	return record, err
 }
 

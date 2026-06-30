@@ -18,12 +18,12 @@ func init() {
 func (sendgridProvider) Send(to, subject, body string) error {
 	from := config.EmailFrom.Value()
 	if from == "" {
-		return skypanel.ErrSettingNotConfigured(config.EmailFrom.Key())
+		return SkyPanel.ErrSettingNotConfigured(config.EmailFrom.Key())
 	}
 
 	key := config.EmailKey.Value()
 	if key == "" {
-		return skypanel.ErrSettingNotConfigured(config.EmailKey.Key())
+		return SkyPanel.ErrSettingNotConfigured(config.EmailKey.Key())
 	}
 
 	fromEmail := mail.NewEmail("", from)

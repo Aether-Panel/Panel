@@ -15,7 +15,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
-	skypanel "github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
+	SkyPanel "github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid/v5"
 	"gorm.io/gorm"
@@ -52,14 +52,14 @@ type ProvisionActionRequest struct {
 // to any server on the given node.
 // If min/max are both 0 (no range configured), picks from the full user port range (1024–65535).
 // If min/max are set, restricts to that range.
-func pickFreePort(db *gorm.DB, nodeID uint, portMin, portMax uint16) uint16 {
+func pickFreePort(db *gorm.DB, nodeID uint, min, max uint16) uint16 {
 	// Default to full user port range if no range configured
-	if portMin == 0 || portMax == 0 {
-		portMin = 1024
-		portMax = 65535
+	if min == 0 || max == 0 {
+		min = 1024
+		max = 65535
 	}
 
-	if portMin > portMax {
+	if min > max {
 		return 0
 	}
 
@@ -74,13 +74,13 @@ func pickFreePort(db *gorm.DB, nodeID uint, portMin, portMax uint16) uint16 {
 		used[p] = true
 	}
 
-	rangeSize := int(portMax-portMin) + 1
+	rangeSize := int(max-min) + 1
 
 	// For large ranges, use random sampling instead of building a full list
 	if rangeSize > 10000 {
 		maxAttempts := 100
 		for i := 0; i < maxAttempts; i++ {
-			candidate := portMin + uint16(rand.Intn(rangeSize))
+			candidate := min + uint16(rand.Intn(rangeSize))
 			if !used[candidate] {
 				return candidate
 			}
@@ -90,7 +90,7 @@ func pickFreePort(db *gorm.DB, nodeID uint, portMin, portMax uint16) uint16 {
 
 	// For small/medium ranges build the full free list and pick at random
 	free := make([]uint16, 0, rangeSize)
-	for p := portMin; p <= portMax; p++ {
+	for p := min; p <= max; p++ {
 		if !used[p] {
 			free = append(free, p)
 		}
@@ -124,8 +124,7 @@ func provisionServer(c *gin.Context) {
 	generatedPassword := req.Password
 	isNewUser := false
 
-	switch {
-	case errors.Is(err, gorm.ErrRecordNotFound):
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		// New user — generate credentials
 		isNewUser = true
 		if generatedPassword == "" {
@@ -144,9 +143,9 @@ func provisionServer(c *gin.Context) {
 		if err := us.Create(user); response.HandleError(c, err, http.StatusInternalServerError) {
 			return
 		}
-	case response.HandleError(c, err, http.StatusInternalServerError):
+	} else if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
-	default:
+	} else {
 		// User already exists — reset their password so Paymenter can show it
 		generatedPassword, _ = utils.GenerateRandomString(12)
 		_ = user.SetPassword(generatedPassword)
@@ -162,7 +161,7 @@ func provisionServer(c *gin.Context) {
 		rs := &services.Role{DB: db}
 		userRole, roleErr := rs.GetByName("Usuario")
 		if roleErr == nil && userRole != nil {
-			user.RoleID = &userRole.ID
+			user.RoleId = &userRole.ID
 			if err := us.Update(user); response.HandleError(c, err, http.StatusInternalServerError) {
 				return
 			}
@@ -289,7 +288,7 @@ func provisionServer(c *gin.Context) {
 	// 7. Call Daemon
 	serverCreation := &models.ServerCreation{
 		Server: template.Server,
-		NodeID: node.ID,
+		NodeId: node.ID,
 		Name:   server.Name,
 		Users:  []string{user.Username},
 	}
@@ -298,7 +297,7 @@ func provisionServer(c *gin.Context) {
 	// Inject the assigned port into the template variables so the server starts on it
 	if assignedPort > 0 {
 		if serverCreation.Server.Variables == nil {
-			serverCreation.Server.Variables = make(map[string]skypanel.Variable)
+			serverCreation.Server.Variables = make(map[string]SkyPanel.Variable)
 		}
 		// Always override the port variable with the assigned port
 		existing := serverCreation.Server.Variables["port"]

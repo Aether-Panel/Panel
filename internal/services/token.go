@@ -27,7 +27,7 @@ var tokenServiceLocker sync.Mutex
 var tokenStore jwkset.Storage
 var privateKey crypto.PrivateKey
 
-const keyID = "SkyPanel"
+const keyId = "SkyPanel"
 
 func NewTokenService() (TokenService, error) {
 	tokenServiceLocker.Lock()
@@ -65,7 +65,7 @@ func NewTokenService() (TokenService, error) {
 					Private: false,
 				},
 				Metadata: jwkset.JWKMetadataOptions{
-					KID: keyID,
+					KID: keyId,
 				},
 			}
 
@@ -90,11 +90,13 @@ func NewTokenService() (TokenService, error) {
 				return nil, err
 			}
 		}
-	} else if externalService == nil {
-		var err error
-		externalService, err = keyfunc.NewDefault([]string{config.TokenPublicURL.Value()})
-		if err != nil {
-			return nil, err
+	} else {
+		if externalService == nil {
+			var err error
+			externalService, err = keyfunc.NewDefault([]string{config.TokenPublicUrl.Value()})
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -103,7 +105,7 @@ func NewTokenService() (TokenService, error) {
 
 func (ts *tokenService) GenerateRequest() (string, error) {
 	token := jwt.New(jwt.SigningMethodEdDSA)
-	token.Header[jwkset.HeaderKID] = keyID
+	token.Header[jwkset.HeaderKID] = keyId
 	token.Claims = jwt.MapClaims{}
 
 	signed, err := token.SignedString(privateKey)

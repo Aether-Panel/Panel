@@ -25,7 +25,7 @@ type NodejsDl struct {
 	Version string
 }
 
-func (op NodejsDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
+func (op NodejsDl) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
 	env := args.Environment
 
 	env.DisplayToConsole(true, "Downloading Node.js "+op.Version)
@@ -43,20 +43,20 @@ func (op NodejsDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 		var release ReleaseInfo
 		release, err = op.getRelease()
 		if err != nil {
-			return skypanel.OperationResult{Error: err}
+			return SkyPanel.OperationResult{Error: err}
 		}
 
-		// cleanup the existing dir
+		//cleanup the existing dir
 		err = os.RemoveAll(filepath.Join(rootBinaryFolder, release.Slug))
 		if err != nil {
-			return skypanel.OperationResult{Error: err}
+			return SkyPanel.OperationResult{Error: err}
 		}
 
-		logging.Debug.Println("Calling " + release.URL)
-		err = skypanel.HTTPExtract(release.URL, rootBinaryFolder, nil)
+		logging.Debug.Println("Calling " + release.Url)
+		err = SkyPanel.HttpExtract(release.Url, rootBinaryFolder, nil)
 
 		if err != nil {
-			return skypanel.OperationResult{Error: err}
+			return SkyPanel.OperationResult{Error: err}
 		}
 
 		_ = os.Remove(mainNodeCommand)
@@ -65,22 +65,22 @@ func (op NodejsDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 		logging.Debug.Printf("Adding to path: %s\n", mainNodeCommand)
 		err = os.Symlink(filepath.Join(release.Slug, "bin", "node"), mainNodeCommand)
 		if err != nil {
-			return skypanel.OperationResult{Error: err}
+			return SkyPanel.OperationResult{Error: err}
 		}
 
 		logging.Debug.Printf("Adding to path: %s\n", mainNpmCommand)
 		err = os.Symlink(filepath.Join(release.Slug, "bin", "npm"), mainNpmCommand)
 		if err != nil {
-			return skypanel.OperationResult{Error: err}
+			return SkyPanel.OperationResult{Error: err}
 		}
 	}
 
-	return skypanel.OperationResult{Error: err}
+	return SkyPanel.OperationResult{Error: err}
 }
 
 func (op NodejsDl) getRelease() (ReleaseInfo, error) {
 	logging.Debug.Println("Calling " + VersionMeta)
-	response, err := skypanel.HTTPGet(VersionMeta)
+	response, err := SkyPanel.HttpGet(VersionMeta)
 	defer utils.CloseResponse(response)
 	if err != nil {
 		return ReleaseInfo{}, err
@@ -131,7 +131,7 @@ func (op NodejsDl) getRelease() (ReleaseInfo, error) {
 	}
 
 	release := ReleaseInfo{
-		URL:  utils.ReplaceTokens(DownloadLink, replacements),
+		Url:  utils.ReplaceTokens(DownloadLink, replacements),
 		Slug: utils.ReplaceTokens(VersionSlug, replacements),
 	}
 	return release, nil
@@ -142,6 +142,6 @@ type Release struct {
 }
 
 type ReleaseInfo struct {
-	URL  string
+	Url  string
 	Slug string
 }

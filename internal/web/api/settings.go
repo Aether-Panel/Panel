@@ -334,8 +334,8 @@ func sendTestDiscord(c *gin.Context) {
 // @Summary Activate license
 // @Description Activates and verifies a license key with the external license server
 // @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} skypanel.ErrorResponse
-// @Failure 500 {object} skypanel.ErrorResponse
+// @Failure 400 {object} SkyPanel.ErrorResponse
+// @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param body body map[string]string true "License key"
 // @Tags Panel Settings
 // @Router /api/settings/license/activate [post]
@@ -382,32 +382,32 @@ func activateLicense(c *gin.Context) {
 	}
 
 	// Obtener identificador del servidor y IP
-	serverID := config.LicenseServerID.Value()
-	serverIP := config.LicenseServerIP.Value()
+	serverId := config.LicenseServerId.Value()
+	serverIp := config.LicenseServerIp.Value()
 
-	// Si no tenemos serverID o serverIP guardados, generarlos
-	if serverID == "" {
+	// Si no tenemos serverId o serverIp guardados, generarlos
+	if serverId == "" {
 		hostname, err := os.Hostname()
 		if err != nil {
 			hostname = "unknown"
 		}
-		serverID = hostname
-		_ = config.LicenseServerID.Set(serverID, true)
+		serverId = hostname
+		_ = config.LicenseServerId.Set(serverId, true)
 	}
 
-	if serverIP == "" {
+	if serverIp == "" {
 		// Intentar obtener la IP pública del hostname
 		ip, err := getServerIP()
 		if err != nil {
 			// Usar la IP privada como fallback
 			ip = "127.0.0.1"
 		}
-		serverIP = ip
-		_ = config.LicenseServerIP.Set(serverIP, true)
+		serverIp = ip
+		_ = config.LicenseServerIp.Set(serverIp, true)
 	}
 
 	// Vincular la licencia con el servidor (POST)
-	bindResp, err := licenseService.BindLicense(licenseKey, serverID, serverIP)
+	bindResp, err := licenseService.BindLicense(licenseKey, serverId, serverIp)
 	if err != nil {
 		logging.Error.Printf("Error binding license: %s", err.Error())
 		// Aun si falla el bind, guardamos la licencia como válida
@@ -497,16 +497,16 @@ var editableStringEntries = []config.StringEntry{
 	config.CompanyName,
 	config.DefaultTheme,
 	config.ThemeSettings,
-	config.MasterURL,
+	config.MasterUrl,
 	config.NodeIP,
-	config.GeminiAPIKey,
+	config.GeminiApiKey,
 	config.DiscordWebhook,
 	config.DiscordWebhookSystem,
 	config.DiscordWebhookNode,
 	config.LicenseKey,
 	config.LicenseStatus,
-	config.LicenseServerID,
-	config.LicenseServerIP,
+	config.LicenseServerId,
+	config.LicenseServerIp,
 }
 var editableBoolEntries = []config.BoolEntry{
 	config.RegistrationEnabled,

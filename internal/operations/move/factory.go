@@ -6,10 +6,10 @@ import (
 )
 
 type OperationFactory struct {
-	skypanel.OperationFactory
+	SkyPanel.OperationFactory
 }
 
-func (of OperationFactory) Create(op skypanel.CreateOperation) (skypanel.Operation, error) {
+func (of OperationFactory) Create(op SkyPanel.CreateOperation) (SkyPanel.Operation, error) {
 	source := cast.ToString(op.OperationArgs["source"])
 	target := cast.ToString(op.OperationArgs["target"])
 	return Move{SourceFile: source, TargetFile: target}, nil

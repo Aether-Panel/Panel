@@ -43,7 +43,7 @@ type Server struct {
 func (s *Server) IsValid() (err error) {
 	err = validator.New().Struct(s)
 	if err != nil {
-		err = skypanel.GenerateValidationMessage(err)
+		err = SkyPanel.GenerateValidationMessage(err)
 	}
 	return
 }

@@ -23,13 +23,13 @@ func init() {
 }
 
 type SteamGameDl struct {
-	AppID     string
+	AppId     string
 	Username  string
 	Password  string
 	ExtraArgs []string
 }
 
-func (c SteamGameDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
+func (c SteamGameDl) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
 	env := args.Environment
 
 	env.DisplayToConsole(true, "Downloading game from Steam")
@@ -38,24 +38,24 @@ func (c SteamGameDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult
 
 	err := downloadDD(rootBinaryFolder, config.DepotDownloaderVersion.Value())
 	if err != nil {
-		return skypanel.OperationResult{Error: err}
+		return SkyPanel.OperationResult{Error: err}
 	}
 
 	err = downloadMetadata(env)
 	if err != nil {
-		return skypanel.OperationResult{Error: err}
+		return SkyPanel.OperationResult{Error: err}
 	}
 
-	// generate a login id
-	// this is a 32-bit id, which Steam derives from private IP
-	// as such, we can kinda send anything we want
-	// our approach will be we hash the server id
-	loginID := cast.ToString(rand.Int31())
+	//generate a login id
+	//this is a 32-bit id, which Steam derives from private IP
+	//as such, we can kinda send anything we want
+	//our approach will be we hash the server id
+	loginId := cast.ToString(rand.Int31())
 
 	manifestFolder := filepath.Join(env.GetRootDirectory(), ".manifest")
 	_ = os.RemoveAll(manifestFolder)
 
-	cmdArgs := []string{filepath.Join(rootBinaryFolder, "depotdownloader", DepotDownloaderBinary), "-app", c.AppID, "-dir", ".manifest", "-loginid", loginID, "-manifest-only"}
+	cmdArgs := []string{filepath.Join(rootBinaryFolder, "depotdownloader", DepotDownloaderBinary), "-app", c.AppId, "-dir", ".manifest", "-loginid", loginId, "-manifest-only"}
 	if c.Username != "" {
 		cmdArgs = append(cmdArgs, "-username", c.Username, "-remember-password")
 		if c.Password != "" {
@@ -68,7 +68,7 @@ func (c SteamGameDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult
 	cmdArgs = append(cmdArgs, c.ExtraArgs...)
 
 	ch := make(chan int, 1)
-	steps := skypanel.ExecutionData{
+	steps := SkyPanel.ExecutionData{
 		Command: utils.MergeArguments(cmdArgs),
 		Callback: func(exitCode int) {
 			ch <- exitCode
@@ -76,16 +76,16 @@ func (c SteamGameDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult
 	}
 	err = env.Execute(steps)
 	if err != nil {
-		return skypanel.OperationResult{Error: err}
+		return SkyPanel.OperationResult{Error: err}
 	}
 	exitCode := <-ch
 	if exitCode != 0 {
 		err = fmt.Errorf("depotdownloader exited with non-zero code %d", exitCode)
-		return skypanel.OperationResult{Error: err}
+		return SkyPanel.OperationResult{Error: err}
 	}
 
-	// download game itself now
-	cmdArgs = []string{filepath.Join(rootBinaryFolder, "depotdownloader", DepotDownloaderBinary), "-app", c.AppID, "-dir", ".", "-loginid", loginID, "-validate"}
+	//download game itself now
+	cmdArgs = []string{filepath.Join(rootBinaryFolder, "depotdownloader", DepotDownloaderBinary), "-app", c.AppId, "-dir", ".", "-loginid", loginId, "-validate"}
 	if c.Username != "" {
 		cmdArgs = append(cmdArgs, "-username", c.Username, "-remember-password")
 		if c.Password != "" {
@@ -101,30 +101,30 @@ func (c SteamGameDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult
 		cmdArgs = append(cmdArgs, c.ExtraArgs...)
 	}
 
-	steps = skypanel.ExecutionData{
+	steps = SkyPanel.ExecutionData{
 		Command: utils.MergeArguments(cmdArgs),
 		Callback: func(exitCode int) {
 			ch <- exitCode
 		},
 		Environment: map[string]string{
-			"TERM": "SkyPanel", // we use a fake TERM because DD will use a display that is not supported by us directly
+			"TERM": "SkyPanel", //we use a fake TERM because DD will use a display that is not supported by us directly
 		},
 	}
 	err = env.Execute(steps)
 	if err != nil {
-		return skypanel.OperationResult{Error: err}
+		return SkyPanel.OperationResult{Error: err}
 	}
 	exitCode = <-ch
 	if exitCode != 0 {
 		err = fmt.Errorf("depotdownloader exited with non-zero code %d", exitCode)
-		return skypanel.OperationResult{Error: err}
+		return SkyPanel.OperationResult{Error: err}
 	}
 
-	// for each file we download, we need to just... chmod +x the files
-	// we rely on the manifests for this
+	//for each file we download, we need to just... chmod +x the files
+	//we rely on the manifests for this
 	manifests, err := os.ReadDir(manifestFolder)
 	if err != nil {
-		return skypanel.OperationResult{Error: err}
+		return SkyPanel.OperationResult{Error: err}
 	}
 	for _, manifest := range manifests {
 		if manifest.Type().IsDir() || !strings.HasSuffix(manifest.Name(), ".txt") {
@@ -132,15 +132,15 @@ func (c SteamGameDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult
 		}
 		err = walkManifest(env.GetRootDirectory(), manifest.Name())
 		if err != nil {
-			return skypanel.OperationResult{Error: err}
+			return SkyPanel.OperationResult{Error: err}
 		}
 	}
 
-	return skypanel.OperationResult{Error: nil}
+	return SkyPanel.OperationResult{Error: nil}
 }
 
-func downloadMetadata(env *skypanel.Environment) error {
-	response, err := skypanel.HTTPGet(SteamMetadataLink)
+func downloadMetadata(env *SkyPanel.Environment) error {
+	response, err := SkyPanel.HttpGet(SteamMetadataLink)
 	defer utils.CloseResponse(response)
 	if err != nil {
 		return err
@@ -158,7 +158,7 @@ func downloadMetadata(env *skypanel.Environment) error {
 		return err
 	}
 
-	err = skypanel.HTTPExtract(SteamMetadataServerLink+metadataName, filepath.Join(env.GetRootDirectory(), ".steam"), archiver.DefaultZip)
+	err = SkyPanel.HttpExtract(SteamMetadataServerLink+metadataName, filepath.Join(env.GetRootDirectory(), ".steam"), archiver.DefaultZip)
 	if err != nil {
 		return err
 	}
@@ -185,12 +185,12 @@ func walkManifest(folder, filename string) error {
 			continue
 		}
 		if len(parts) > 5 {
-			// the filename at the end has spaces, we need to consolidate
+			//the filename at the end has spaces, we need to consolidate
 			parts[4] = strings.Join(parts[5:], " ")
 			parts = parts[0:5]
 		}
 
-		// we will only work on 0 files, because this mean no other flags were told
+		//we will only work on 0 files, because this mean no other flags were told
 		if parts[3] == "0" {
 			fileToUpdate := parts[4]
 			_ = os.Chmod(filepath.Join(folder, fileToUpdate), 0755)

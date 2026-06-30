@@ -29,7 +29,7 @@ func (r *Role) BeforeSave(*gorm.DB) error {
 	// Validar
 	err := validator.New().Struct(r)
 	if err != nil {
-		return skypanel.GenerateValidationMessage(err)
+		return SkyPanel.GenerateValidationMessage(err)
 	}
 	return nil
 }

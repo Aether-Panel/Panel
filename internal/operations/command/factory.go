@@ -7,13 +7,13 @@ import (
 )
 
 type OperationFactory struct {
-	skypanel.OperationFactory
+	SkyPanel.OperationFactory
 }
 
-func (of OperationFactory) Create(op skypanel.CreateOperation) (skypanel.Operation, error) {
+func (of OperationFactory) Create(op SkyPanel.CreateOperation) (SkyPanel.Operation, error) {
 	cmds := cast.ToStringSlice(op.OperationArgs["commands"])
 
-	var stdIn skypanel.StdinConsoleConfiguration
+	var stdIn SkyPanel.StdinConsoleConfiguration
 	if field, exists := op.OperationArgs["stdin"]; exists {
 		err := utils.UnmarshalTo(field, stdIn)
 		if err != nil {

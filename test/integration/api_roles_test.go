@@ -16,7 +16,7 @@ func TestRolesAPI(t *testing.T) {
 		return
 	}
 
-	var createdRoleID uint
+	var createdRoleId uint
 
 	t.Run("CreateRole", func(t *testing.T) {
 		response := CallAPI("POST", "/api/roles", map[string]interface{}{
@@ -39,7 +39,7 @@ func TestRolesAPI(t *testing.T) {
 
 		assert.Equal(t, "TestRole", role.Name)
 		assert.NotZero(t, role.ID)
-		createdRoleID = role.ID
+		createdRoleId = role.ID
 	})
 
 	t.Run("ListRoles", func(t *testing.T) {
@@ -57,7 +57,7 @@ func TestRolesAPI(t *testing.T) {
 		assert.NotEmpty(t, roles)
 		found := false
 		for _, r := range roles {
-			if r.ID == createdRoleID {
+			if r.ID == createdRoleId {
 				found = true
 				break
 			}
@@ -66,7 +66,7 @@ func TestRolesAPI(t *testing.T) {
 	})
 
 	t.Run("GetRole", func(t *testing.T) {
-		response := CallAPI("GET", fmt.Sprintf("/api/roles/%d", createdRoleID), nil, session)
+		response := CallAPI("GET", fmt.Sprintf("/api/roles/%d", createdRoleId), nil, session)
 		if !assert.Equal(t, http.StatusOK, response.Code) {
 			return
 		}
@@ -77,12 +77,12 @@ func TestRolesAPI(t *testing.T) {
 			return
 		}
 
-		assert.Equal(t, createdRoleID, role.ID)
+		assert.Equal(t, createdRoleId, role.ID)
 		assert.Equal(t, "TestRole", role.Name)
 	})
 
 	t.Run("UpdateRole", func(t *testing.T) {
-		response := CallAPI("POST", fmt.Sprintf("/api/roles/%d", createdRoleID), map[string]interface{}{
+		response := CallAPI("POST", fmt.Sprintf("/api/roles/%d", createdRoleId), map[string]interface{}{
 			"name":        "TestRoleUpdated",
 			"description": "Updated description",
 			"is_default":  false,
@@ -101,14 +101,14 @@ func TestRolesAPI(t *testing.T) {
 	})
 
 	t.Run("DeleteRole", func(t *testing.T) {
-		response := CallAPI("DELETE", fmt.Sprintf("/api/roles/%d", createdRoleID), nil, session)
+		response := CallAPI("DELETE", fmt.Sprintf("/api/roles/%d", createdRoleId), nil, session)
 		if !assert.Equal(t, http.StatusNoContent, response.Code) {
 			t.Log(response.Body.String())
 			return
 		}
 
 		// Verify deletion
-		response2 := CallAPI("GET", fmt.Sprintf("/api/roles/%d", createdRoleID), nil, session)
+		response2 := CallAPI("GET", fmt.Sprintf("/api/roles/%d", createdRoleId), nil, session)
 		assert.Equal(t, http.StatusNotFound, response2.Code)
 	})
 }

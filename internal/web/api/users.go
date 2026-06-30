@@ -32,10 +32,10 @@ func registerUsers(g *gin.RouterGroup) {
 // @Summary Get users
 // @Description Gets users, and allowing for filtering of users. * is a wildcard that can be used for text inputs
 // @Success 200 {object} models.UserSearchResponse
-// @Failure 400 {object} skypanel.ErrorResponse
-// @Failure 403 {object} skypanel.ErrorResponse
-// @Failure 404 {object} skypanel.ErrorResponse
-// @Failure 500 {object} skypanel.ErrorResponse
+// @Failure 400 {object} SkyPanel.ErrorResponse
+// @Failure 403 {object} SkyPanel.ErrorResponse
+// @Failure 404 {object} SkyPanel.ErrorResponse
+// @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param body body models.UserSearch true "Filters to search on"
 // @Tags Users
 // @Router /api/users [get]
@@ -63,7 +63,7 @@ func searchUsers(c *gin.Context) {
 
 	c.JSON(http.StatusOK, &models.UserSearchResponse{
 		Users: models.FromUsers(results),
-		Metadata: &skypanel.Metadata{Paging: &skypanel.Paging{
+		Metadata: &SkyPanel.Metadata{Paging: &SkyPanel.Paging{
 			Page:    search.Page,
 			Size:    search.PageLimit,
 			MaxSize: MaxPageSize,
@@ -74,10 +74,10 @@ func searchUsers(c *gin.Context) {
 
 // @Summary Create user
 // @Success 200 {object} models.UserView
-// @Failure 400 {object} skypanel.ErrorResponse
-// @Failure 403 {object} skypanel.ErrorResponse
-// @Failure 404 {object} skypanel.ErrorResponse
-// @Failure 500 {object} skypanel.ErrorResponse
+// @Failure 400 {object} SkyPanel.ErrorResponse
+// @Failure 403 {object} SkyPanel.ErrorResponse
+// @Failure 404 {object} SkyPanel.ErrorResponse
+// @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param body body models.UserView true "New user information"
 // @Tags Users
 // @Router /api/users [post]
@@ -99,7 +99,7 @@ func createUser(c *gin.Context) {
 	}
 
 	if viewModel.Password == "" {
-		response.HandleError(c, skypanel.ErrFieldRequired("password"), http.StatusBadRequest)
+		response.HandleError(c, SkyPanel.ErrFieldRequired("password"), http.StatusBadRequest)
 		return
 	}
 
@@ -117,10 +117,10 @@ func createUser(c *gin.Context) {
 
 // @Summary Get a user
 // @Success 200 {object} models.UserView
-// @Failure 400 {object} skypanel.ErrorResponse
-// @Failure 403 {object} skypanel.ErrorResponse
-// @Failure 404 {object} skypanel.ErrorResponse
-// @Failure 500 {object} skypanel.ErrorResponse
+// @Failure 400 {object} SkyPanel.ErrorResponse
+// @Failure 403 {object} SkyPanel.ErrorResponse
+// @Failure 404 {object} SkyPanel.ErrorResponse
+// @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param id path uint true "User ID"
 // @Tags Users
 // @Router /api/users/{id} [get]
@@ -136,7 +136,7 @@ func getUser(c *gin.Context) {
 		return
 	}
 
-	user, err := us.GetByID(id)
+	user, err := us.GetById(id)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
@@ -146,10 +146,10 @@ func getUser(c *gin.Context) {
 
 // @Summary Update user
 // @Success 204 {object} nil
-// @Failure 400 {object} skypanel.ErrorResponse
-// @Failure 403 {object} skypanel.ErrorResponse
-// @Failure 404 {object} skypanel.ErrorResponse
-// @Failure 500 {object} skypanel.ErrorResponse
+// @Failure 400 {object} SkyPanel.ErrorResponse
+// @Failure 403 {object} SkyPanel.ErrorResponse
+// @Failure 404 {object} SkyPanel.ErrorResponse
+// @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param id path uint true "User ID"
 // @Param body body models.UserView true "New user information"
 // @Tags Users
@@ -177,7 +177,7 @@ func updateUser(c *gin.Context) {
 		return
 	}
 
-	user, err := us.GetByID(id)
+	user, err := us.GetById(id)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
@@ -193,10 +193,10 @@ func updateUser(c *gin.Context) {
 
 // @Summary Delete user
 // @Success 204 {object} nil
-// @Failure 400 {object} skypanel.ErrorResponse
-// @Failure 403 {object} skypanel.ErrorResponse
-// @Failure 404 {object} skypanel.ErrorResponse
-// @Failure 500 {object} skypanel.ErrorResponse
+// @Failure 400 {object} SkyPanel.ErrorResponse
+// @Failure 403 {object} SkyPanel.ErrorResponse
+// @Failure 404 {object} SkyPanel.ErrorResponse
+// @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param id path uint true "User ID"
 // @Tags Users
 // @Router /api/users/{id} [delete]
@@ -212,7 +212,7 @@ func deleteUser(c *gin.Context) {
 		return
 	}
 
-	user, err := us.GetByID(id)
+	user, err := us.GetById(id)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
@@ -226,10 +226,10 @@ func deleteUser(c *gin.Context) {
 
 // @Summary Gets user permissions
 // @Success 200 {object} models.PermissionView
-// @Failure 400 {object} skypanel.ErrorResponse
-// @Failure 403 {object} skypanel.ErrorResponse
-// @Failure 404 {object} skypanel.ErrorResponse
-// @Failure 500 {object} skypanel.ErrorResponse
+// @Failure 400 {object} SkyPanel.ErrorResponse
+// @Failure 403 {object} SkyPanel.ErrorResponse
+// @Failure 404 {object} SkyPanel.ErrorResponse
+// @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param id path uint true "User ID"
 // @Tags Users
 // @Router /api/users/{id}/perms [get]
@@ -246,7 +246,7 @@ func getUserPerms(c *gin.Context) {
 		return
 	}
 
-	user, err := us.GetByID(id)
+	user, err := us.GetById(id)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
@@ -261,10 +261,10 @@ func getUserPerms(c *gin.Context) {
 
 // @Summary Sets user permissions
 // @Success 204 {object} nil
-// @Failure 400 {object} skypanel.ErrorResponse
-// @Failure 403 {object} skypanel.ErrorResponse
-// @Failure 404 {object} skypanel.ErrorResponse
-// @Failure 500 {object} skypanel.ErrorResponse
+// @Failure 400 {object} SkyPanel.ErrorResponse
+// @Failure 403 {object} SkyPanel.ErrorResponse
+// @Failure 404 {object} SkyPanel.ErrorResponse
+// @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param id path uint true "User ID"
 // @Param body body models.PermissionView true "New permissions"
 // @Tags Users
@@ -288,7 +288,7 @@ func setUserPerms(c *gin.Context) {
 		return
 	}
 
-	user, err := us.GetByID(id)
+	user, err := us.GetById(id)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
@@ -298,19 +298,19 @@ func setUserPerms(c *gin.Context) {
 		return
 	}
 
-	// get the current user's scopes
+	//get the current user's scopes
 	editorUser := c.MustGet("user").(*models.User)
 	editorPerms, err := ps.GetForUserAndServer(editorUser.ID, "")
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
 
-	// admins can override, so skip our comparers
+	//admins can override, so skip our comparers
 	if scopes.ContainsScope(editorPerms.Scopes, scopes.ScopeAdmin) {
 		perms.Scopes = viewModel.Scopes
 	} else {
 		allowedScopes := utils.Union(viewModel.Scopes, editorPerms.Scopes)
-		// update perms to match this "setup", but not stomp over what the user can't change
+		//update perms to match this "setup", but not stomp over what the user can't change
 		replacement := scopes.UpdateScopesWhereGranted(perms.Scopes, allowedScopes, editorPerms.Scopes)
 		perms.Scopes = replacement
 	}

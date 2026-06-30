@@ -19,7 +19,7 @@ var dbUpgradeCmd = &cobra.Command{
 	Run:   executeDbUpgrade,
 }
 
-func executeDbUpgrade(_ *cobra.Command, _ []string) {
+func executeDbUpgrade(cmd *cobra.Command, args []string) {
 	var currentFile string
 	var backupFile string
 
@@ -29,7 +29,7 @@ func executeDbUpgrade(_ *cobra.Command, _ []string) {
 	}
 
 	if database.GetDialect() == "sqlite3" {
-		// we could get the filename... let's get it
+		//we could get the filename... let's get it
 		drv := sqlite3.SQLiteDriver{}
 		conn, err := drv.Open(database.GetConnectionString())
 		if err != nil {
@@ -41,7 +41,7 @@ func executeDbUpgrade(_ *cobra.Command, _ []string) {
 		currentFile = s3.GetFilename("")
 		_ = conn.Close()
 
-		// look for a new name we can give this....
+		//look for a new name we can give this....
 		suffix := "backup"
 		num := 0
 		for {

@@ -1,4 +1,4 @@
-package skypanel
+package SkyPanel
 
 type EnvironmentFactory interface {
 	Create() EnvironmentImpl

@@ -76,14 +76,14 @@ func InitContainerMountSource() (err error) {
 
 	if len(found) > 1 {
 		logging.Debug.Printf("Multiple containers found that could be us: %s\n", strings.Join(found, ", "))
-		return skypanel.ErrContainerNotUnique
+		return SkyPanel.ErrContainerNotUnique
 	}
 
 	if len(found) == 0 {
-		return skypanel.ErrNoContainerFound
+		return SkyPanel.ErrNoContainerFound
 	}
 
-	var dataMount *container.MountPoint
+	var dataMount *container.MountPoint = nil
 	for _, mount := range self.Mounts {
 		mountPath, e := filepath.Abs(mount.Destination)
 		if e != nil {
@@ -104,12 +104,12 @@ func InitContainerMountSource() (err error) {
 	}
 
 	if dataMount == nil {
-		return skypanel.ErrNoMountFound
+		return SkyPanel.ErrNoMountFound
 	}
 
 	if dataMount.Type != mountType.TypeBind && dataMount.Type != mountType.TypeVolume {
 		logging.Debug.Printf("Unsupported mount type found: %s\n", dataMount.Type)
-		return skypanel.ErrUnsupportedMountType
+		return SkyPanel.ErrUnsupportedMountType
 	}
 
 	containerMountSource = dataMount.Source

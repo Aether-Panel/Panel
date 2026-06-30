@@ -15,7 +15,7 @@ func TestDatabaseHostsAPI(t *testing.T) {
 		return
 	}
 
-	var hostID uint
+	var hostId uint
 
 	t.Run("CreateDatabaseHost", func(t *testing.T) {
 		response := CallAPI("POST", "/api/databasehosts", map[string]interface{}{
@@ -33,8 +33,8 @@ func TestDatabaseHostsAPI(t *testing.T) {
 		var host models.DatabaseHost
 		err := json.NewDecoder(response.Body).Decode(&host)
 		assert.NoError(t, err)
-		hostID = host.ID
-		assert.NotZero(t, hostID)
+		hostId = host.ID
+		assert.NotZero(t, hostId)
 	})
 
 	t.Run("ListDatabaseHosts", func(t *testing.T) {

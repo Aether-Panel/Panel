@@ -1,4 +1,4 @@
-package skypanel
+package SkyPanel
 
 type Transmission struct {
 	Message interface{}      `json:"data"`

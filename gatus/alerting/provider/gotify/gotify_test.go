@@ -48,7 +48,7 @@ func TestAlertProvider_Validate(t *testing.T) {
 func TestAlertProvider_buildRequestBody(t *testing.T) {
 	var (
 		description = "custom-description"
-		// title       = "custom-title"
+		//title       = "custom-title"
 		endpointName = "custom-endpoint"
 	)
 	scenarios := []struct {

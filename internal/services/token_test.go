@@ -31,7 +31,7 @@ func Test_tokenService_GenerateRequest(t *testing.T) {
 				return
 			}
 
-			// now check if we can decrypt it
+			//now check if we can decrypt it
 			err = ts.ValidateRequest(got)
 			if !assert.NoError(t, err) {
 				return

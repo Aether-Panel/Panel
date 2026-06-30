@@ -180,20 +180,20 @@ func TestStore_HourlyUptimeEntriesAreMergedIntoDailyUptimeEntriesProperly(t *tes
 	for _, scenario := range scenarios {
 		t.Run(fmt.Sprintf("num-hours-%d-expected-max-entries-%d", scenario.numberOfHours, scenario.expectedMaxUptimeEntries), func(t *testing.T) {
 			for i := scenario.numberOfHours; i > 0; i-- {
-				// fmt.Printf("i: %d (%s)\n", i, now.Add(-time.Duration(i)*time.Hour))
+				//fmt.Printf("i: %d (%s)\n", i, now.Add(-time.Duration(i)*time.Hour))
 				// Create an uptime entry
 				err := store.InsertEndpointResult(&testEndpoint, &endpoint.Result{Timestamp: now.Add(-time.Duration(i) * time.Hour), Success: true})
 				if err != nil {
 					t.Log(err)
 				}
 				//// DEBUGGING: check number of uptime entries for endpoint
-				// tx, _ := store.db.Begin()
-				// numberOfUptimeEntriesForEndpoint, err := store.getNumberOfUptimeEntriesByEndpointID(tx, 1)
-				// if err != nil {
+				//tx, _ := store.db.Begin()
+				//numberOfUptimeEntriesForEndpoint, err := store.getNumberOfUptimeEntriesByEndpointID(tx, 1)
+				//if err != nil {
 				//	t.Log(err)
 				//}
-				// _ = tx.Commit()
-				// t.Logf("i=%d; numberOfHours=%d; There are currently %d uptime entries for endpointID=%d", i, scenario.numberOfHours, numberOfUptimeEntriesForEndpoint, 1)
+				//_ = tx.Commit()
+				//t.Logf("i=%d; numberOfHours=%d; There are currently %d uptime entries for endpointID=%d", i, scenario.numberOfHours, numberOfUptimeEntriesForEndpoint, 1)
 			}
 			// check number of uptime entries for endpoint
 			tx, _ := store.db.Begin()
@@ -202,7 +202,7 @@ func TestStore_HourlyUptimeEntriesAreMergedIntoDailyUptimeEntriesProperly(t *tes
 				t.Log(err)
 			}
 			_ = tx.Commit()
-			// t.Logf("numberOfHours=%d; There are currently %d uptime entries for endpointID=%d", scenario.numberOfHours, numberOfUptimeEntriesForEndpoint, 1)
+			//t.Logf("numberOfHours=%d; There are currently %d uptime entries for endpointID=%d", scenario.numberOfHours, numberOfUptimeEntriesForEndpoint, 1)
 			if scenario.expectedMaxUptimeEntries < numberOfUptimeEntriesForEndpoint {
 				t.Errorf("expected %d (uptime entries) to be smaller than %d", numberOfUptimeEntriesForEndpoint, scenario.expectedMaxUptimeEntries)
 			}

@@ -26,10 +26,10 @@ func registerDatabaseHosts(g *gin.RouterGroup) {
 // @Summary Get database hosts
 // @Description Gets all database hosts registered to the panel
 // @Success 200 {array} models.DatabaseHostView "Database Hosts"
-// @Failure 400 {object} skypanel.ErrorResponse
-// @Failure 403 {object} skypanel.ErrorResponse
-// @Failure 404 {object} skypanel.ErrorResponse
-// @Failure 500 {object} skypanel.ErrorResponse
+// @Failure 400 {object} SkyPanel.ErrorResponse
+// @Failure 403 {object} SkyPanel.ErrorResponse
+// @Failure 404 {object} SkyPanel.ErrorResponse
+// @Failure 500 {object} SkyPanel.ErrorResponse
 // @Tags Database Hosts
 // @Router /api/databasehosts [get]
 // @Security OAuth2Application[admin]
@@ -64,10 +64,10 @@ func getAllDatabaseHosts(c *gin.Context) {
 // @Summary Get database host
 // @Description Gets information about a single database host
 // @Success 200 {object} models.DatabaseHostView "Database Host"
-// @Failure 400 {object} skypanel.ErrorResponse
-// @Failure 403 {object} skypanel.ErrorResponse
-// @Failure 404 {object} skypanel.ErrorResponse
-// @Failure 500 {object} skypanel.ErrorResponse
+// @Failure 400 {object} SkyPanel.ErrorResponse
+// @Failure 403 {object} SkyPanel.ErrorResponse
+// @Failure 404 {object} SkyPanel.ErrorResponse
+// @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param id path string true "Database Host Id"
 // @Tags Database Hosts
 // @Router /api/databasehosts/{id} [get]
@@ -106,10 +106,10 @@ func getDatabaseHost(c *gin.Context) {
 // @Summary Create database host
 // @Description Creates a database host
 // @Success 200 {object} models.DatabaseHostView "Database Host created"
-// @Failure 400 {object} skypanel.ErrorResponse
-// @Failure 403 {object} skypanel.ErrorResponse
-// @Failure 404 {object} skypanel.ErrorResponse
-// @Failure 500 {object} skypanel.ErrorResponse
+// @Failure 400 {object} SkyPanel.ErrorResponse
+// @Failure 403 {object} SkyPanel.ErrorResponse
+// @Failure 404 {object} SkyPanel.ErrorResponse
+// @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param databaseHost body models.DatabaseHostCreate true "Database Host information"
 // @Tags Database Hosts
 // @Router /api/databasehosts [post]
@@ -156,10 +156,10 @@ func createDatabaseHost(c *gin.Context) {
 // @Summary Update database host
 // @Description Updates a database host with given information
 // @Success 204 {object} nil
-// @Failure 400 {object} skypanel.ErrorResponse
-// @Failure 403 {object} skypanel.ErrorResponse
-// @Failure 404 {object} skypanel.ErrorResponse
-// @Failure 500 {object} skypanel.ErrorResponse
+// @Failure 400 {object} SkyPanel.ErrorResponse
+// @Failure 403 {object} SkyPanel.ErrorResponse
+// @Failure 404 {object} SkyPanel.ErrorResponse
+// @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param id path string true "Database Host Id"
 // @Param databaseHost body models.DatabaseHostUpdate true "Database Host information"
 // @Tags Database Hosts
@@ -206,10 +206,10 @@ func updateDatabaseHost(c *gin.Context) {
 // @Summary Delete database host
 // @Description Deletes a database host
 // @Success 204 {object} nil
-// @Failure 400 {object} skypanel.ErrorResponse
-// @Failure 403 {object} skypanel.ErrorResponse
-// @Failure 404 {object} skypanel.ErrorResponse
-// @Failure 500 {object} skypanel.ErrorResponse
+// @Failure 400 {object} SkyPanel.ErrorResponse
+// @Failure 403 {object} SkyPanel.ErrorResponse
+// @Failure 404 {object} SkyPanel.ErrorResponse
+// @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param id path string true "Database Host Id"
 // @Tags Database Hosts
 // @Router /api/databasehosts/{id} [delete]

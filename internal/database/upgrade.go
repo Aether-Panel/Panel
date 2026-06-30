@@ -46,7 +46,7 @@ func Upgrade(dbConn *gorm.DB, prettyPrint bool) error {
 
 	var printer *pterm.ProgressbarPrinter
 	if prettyPrint {
-		size := 1 // include 1 for models
+		size := 1 //include 1 for models
 		for _, z := range migrations {
 			size += len(z)
 		}
@@ -80,8 +80,8 @@ func Upgrade(dbConn *gorm.DB, prettyPrint bool) error {
 			}
 		}
 
-		// these are migrations we need done first before we can do models
-		// now we can do the models directly
+		//these are migrations we need done first before we can do models
+		//now we can do the models directly
 		if k == 0 {
 			if printer != nil {
 				printer.UpdateTitle("Upgrading models")
@@ -106,7 +106,7 @@ func Upgrade(dbConn *gorm.DB, prettyPrint bool) error {
 }
 
 func saveToFile(filename string, data []byte) error {
-	// just dump it into working dir
+	//just dump it into working dir
 	err := os.MkdirAll("migrations", 0755)
 	if err != nil {
 		return err
@@ -129,7 +129,7 @@ var migrations = [][]*gormigrate.Migration{
 					return nil
 				}
 
-				// at this point for mysql, just manually do the queries...
+				//at this point for mysql, just manually do the queries...
 				type FKs struct {
 					Table string `gorm:"column:TABLE_NAME"`
 					Name  string `gorm:"column:CONSTRAINT_NAME"`
@@ -235,11 +235,11 @@ var migrations = [][]*gormigrate.Migration{
 	{
 		{
 			ID: "1658926619",
-			Migrate: func(_ *gorm.DB) error {
+			Migrate: func(db *gorm.DB) error {
 				// Comentado: Repositorio bloqueado por Cloudflare
 				// err := db.Create(&models.TemplateRepo{
 				// 	Name:   "community",
-				// 	URL:    "https://templates.aetherpanel.es/templates.json",
+				// 	Url:    "https://templates.aetherpanel.es/templates.json",
 				// 	Branch: "v3",
 				// }).Error
 				// return err
@@ -256,7 +256,7 @@ var migrations = [][]*gormigrate.Migration{
 				}
 
 				for _, v := range templates {
-					var rawMap skypanel.MetadataType
+					var rawMap SkyPanel.MetadataType
 					err = utils.UnmarshalTo(v.Environment, &rawMap)
 					if err != nil {
 						logging.Error.Printf("Failed to migrate template %s, template saved off. %s", v.Name, err)
@@ -264,7 +264,7 @@ var migrations = [][]*gormigrate.Migration{
 						if err != nil {
 							return err
 						}
-						// return err
+						//return err
 						err = db.Delete(&v).Error
 						if err != nil {
 							return err
@@ -286,8 +286,8 @@ var migrations = [][]*gormigrate.Migration{
 		{
 			ID: "permissions-from-v2",
 			Migrate: func(db *gorm.DB) error {
-				// this is going to be a nightmare
-				// go ahead and migrate the table, so that the columns we need are there
+				//this is going to be a nightmare
+				//go ahead and migrate the table, so that the columns we need are there
 				err := db.AutoMigrate(&models.Permissions{})
 				if err != nil {
 					return err
@@ -301,15 +301,15 @@ var migrations = [][]*gormigrate.Migration{
 				type permissions struct {
 					ID uint `gorm:"primaryKey,autoIncrement" json:"-"`
 
-					// owners of this permission set
-					UserID *uint `json:"-"`
+					//owners of this permission set
+					UserId *uint `json:"-"`
 
-					ClientID *uint `json:"-"`
+					ClientId *uint `json:"-"`
 
-					// if this set is for a server, what server
+					//if this set is for a server, what server
 					ServerIdentifier *string `json:"-"`
 
-					// and here are all the perms we support
+					//and here are all the perms we support
 					Admin           bool `gorm:"NOT NULL;DEFAULT:0" json:"-" oneOf:""`
 					ViewServer      bool `gorm:"NOT NULL;DEFAULT:0" json:"-" oneOf:""`
 					CreateServer    bool `gorm:"NOT NULL;DEFAULT:0" json:"-" oneOf:""`
@@ -324,11 +324,11 @@ var migrations = [][]*gormigrate.Migration{
 					DeleteServer    bool `gorm:"NOT NULL;DEFAULT:0" json:"-" oneOf:""`
 					PanelSettings   bool `gorm:"NOT NULL;DEFAULT:0" json:"-" oneOf:""`
 
-					// these only will exist if tied to a server, and for a user
+					//these only will exist if tied to a server, and for a user
 					EditServerData    bool `gorm:"NOT NULL;DEFAULT:0" json:"-" oneOf:""`
 					EditServerUsers   bool `gorm:"NOT NULL;DEFAULT:0" json:"-" oneOf:""`
 					InstallServer     bool `gorm:"NOT NULL;DEFAULT:0" json:"-" oneOf:""`
-					UpdateServer      bool `gorm:"NOT NULL;DEFAULT:0" json:"-" oneOf:""` // this is unused currently
+					UpdateServer      bool `gorm:"NOT NULL;DEFAULT:0" json:"-" oneOf:""` //this is unused currently
 					ViewServerConsole bool `gorm:"NOT NULL;DEFAULT:0" json:"-" oneOf:""`
 					SendServerConsole bool `gorm:"NOT NULL;DEFAULT:0" json:"-" oneOf:""`
 					StopServer        bool `gorm:"NOT NULL;DEFAULT:0" json:"-" oneOf:""`
@@ -348,8 +348,8 @@ var migrations = [][]*gormigrate.Migration{
 				for _, v := range allPerms {
 					newPerms := &models.Permissions{
 						ID:               v.ID,
-						UserID:           v.UserID,
-						ClientID:         v.ClientID,
+						UserId:           v.UserId,
+						ClientId:         v.ClientId,
 						ServerIdentifier: v.ServerIdentifier,
 						Scopes: []*scopes.Scope{
 							scopes.ScopeLogin,
@@ -358,7 +358,7 @@ var migrations = [][]*gormigrate.Migration{
 						},
 					}
 
-					// now... map all the perms to the new scopes
+					//now... map all the perms to the new scopes
 					if v.Admin {
 						newPerms.Scopes = scopes.AddScope(newPerms.Scopes, scopes.ScopeAdmin)
 					}
@@ -458,7 +458,7 @@ var migrations = [][]*gormigrate.Migration{
 					}
 				}
 
-				// now... nuke the old columns
+				//now... nuke the old columns
 				p := &permissions{}
 				for _, v := range []string{"Admin", "ViewServer", "CreateServer", "ViewNodes", "EditNodes",
 					"DeployNodes", "ViewTemplates", "EditTemplates", "EditUsers", "ViewUsers", "EditServerAdmin",
@@ -608,7 +608,7 @@ var migrations = [][]*gormigrate.Migration{
 						return nil // already has it
 					}
 				}
-				role.RawScopes += ",server.create"
+				role.RawScopes = role.RawScopes + ",server.create"
 				return db.Model(&role).Update("scopes", role.RawScopes).Error
 			},
 		},

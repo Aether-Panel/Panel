@@ -31,7 +31,7 @@ func TestProgram_valid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &Server{
-				Server: skypanel.Server{},
+				Server: SkyPanel.Server{},
 			}
 			err := json.Unmarshal([]byte(tt.data), &p.Server)
 			if !assert.NoError(t, err) {

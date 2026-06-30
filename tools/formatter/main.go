@@ -52,8 +52,8 @@ func reformatFile(path string, info fs.DirEntry, err error) error {
 	return writeFile(path, template)
 }
 
-func readFile(path string) (*skypanel.Server, error) {
-	template := &skypanel.Server{}
+func readFile(path string) (*SkyPanel.Server, error) {
+	template := &SkyPanel.Server{}
 	file, err := os.OpenFile(path, os.O_RDONLY, 0644)
 	if err != nil {
 		return nil, err
@@ -64,7 +64,7 @@ func readFile(path string) (*skypanel.Server, error) {
 	return template, err
 }
 
-func writeFile(path string, template *skypanel.Server) error {
+func writeFile(path string, template *SkyPanel.Server) error {
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return err

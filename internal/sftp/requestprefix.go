@@ -15,11 +15,11 @@ import (
 type requestPrefix struct {
 	fs         files.FileServer
 	remoteAddr net.Addr
-	serverID   string
+	serverId   string
 }
 
-func CreateRequestPrefix(remoteAddr net.Addr, serverID string, fs files.FileServer) sftp.Handlers {
-	h := requestPrefix{fs: fs, serverID: serverID, remoteAddr: remoteAddr}
+func CreateRequestPrefix(remoteAddr net.Addr, serverId string, fs files.FileServer) sftp.Handlers {
+	h := requestPrefix{fs: fs, serverId: serverId, remoteAddr: remoteAddr}
 
 	return sftp.Handlers{FileCmd: h, FileGet: h, FileList: h, FilePut: h}
 }
@@ -123,12 +123,12 @@ func (rp requestPrefix) Filelist(request *sftp.Request) (sftp.ListerAt, error) {
 
 func (rp requestPrefix) log(request *sftp.Request) {
 	if config.SftpDebugLog.Value() {
-		logging.Debug.Printf("[SFTP] [%s] [%s] [%s] [%s] ", rp.remoteAddr.String(), request.Method, rp.serverID, request.Filepath)
+		logging.Debug.Printf("[SFTP] [%s] [%s] [%s] [%s] ", rp.remoteAddr.String(), request.Method, rp.serverId, request.Filepath)
 	}
 }
 
 func (rp requestPrefix) getFile(path string, flags int, mode os.FileMode) (*os.File, error) {
-	// if this is a file create, then ensure the folder path exists
+	//if this is a file create, then ensure the folder path exists
 	if flags&os.O_CREATE != 0 {
 		_, err := rp.fs.Stat(path)
 		if os.IsNotExist(err) {

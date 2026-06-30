@@ -23,11 +23,11 @@ var dbConn *gorm.DB
 var lock sync.Mutex
 
 func openConnection() (err error) {
-	// lock system so we can only connect one at a time
+	//lock system so we can only connect one at a time
 	lock.Lock()
 	defer lock.Unlock()
 
-	// if we had 2 calls to this before it was established, quick out since it's already created
+	//if we had 2 calls to this before it was established, quick out since it's already created
 	if dbConn != nil {
 		return
 	}
@@ -70,7 +70,7 @@ func openConnection() (err error) {
 	if err != nil {
 		dbConn = nil
 		logging.Error.Printf("Error connecting to database: %s", err)
-		return skypanel.ErrDatabaseNotAvailable
+		return SkyPanel.ErrDatabaseNotAvailable
 	}
 
 	if dialect == "sqlite3" {
@@ -111,13 +111,13 @@ func GetDialect() string {
 func GetConnectionString() string {
 	dialect := GetDialect()
 
-	connString := config.DatabaseURL.Value()
+	connString := config.DatabaseUrl.Value()
 	if connString == "" {
 		switch dialect {
 		case "mysql":
 			connString = "SkyPanel:SkyPanel@/SkyPanel"
 		case "sqlite3":
-			connString = "file:skypanel.db"
+			connString = "file:SkyPanel.db"
 		}
 	}
 

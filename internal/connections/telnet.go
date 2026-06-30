@@ -70,7 +70,7 @@ func (tc *TelnetConnection) reconnector() {
 		}
 		_ = conn.SetKeepAlive(true)
 
-		// wait a second for the prompt for passwords/other delays
+		//wait a second for the prompt for passwords/other delays
 		time.Sleep(1 * time.Second)
 
 		if tc.Password != "" {

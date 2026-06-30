@@ -26,8 +26,8 @@ import (
 	"strings"
 )
 
-const InstallerURL = "https://maven.minecraftforge.net/net/minecraftforge/forge/${version}/forge-${version}-installer.jar"
-const PromoURL = "https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json"
+const InstallerUrl = "https://maven.minecraftforge.net/net/minecraftforge/forge/${version}/forge-${version}-installer.jar"
+const PromoUrl = "https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json"
 
 type ForgeDl struct {
 	Version          string
@@ -36,38 +36,38 @@ type ForgeDl struct {
 	OutputVariable   string
 }
 
-func (op ForgeDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
+func (op ForgeDl) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
 	env := args.Environment
 
 	if op.Version == "" {
 		version, err := getLatestForMCVersion(op.MinecraftVersion)
 		if err != nil {
-			return skypanel.OperationResult{Error: err}
+			return SkyPanel.OperationResult{Error: err}
 		}
 		op.Version = op.MinecraftVersion + "-" + version
 	}
 
-	jarDownload := strings.ReplaceAll(InstallerURL, "${version}", op.Version)
+	jarDownload := strings.Replace(InstallerUrl, "${version}", op.Version, -1)
 
-	localFile, err := skypanel.DownloadViaMaven(jarDownload, env)
+	localFile, err := SkyPanel.DownloadViaMaven(jarDownload, env)
 	defer utils.Close(localFile)
 	if err != nil {
-		return skypanel.OperationResult{Error: err}
+		return SkyPanel.OperationResult{Error: err}
 	}
 
-	// copy from the cache
+	//copy from the cache
 	err = files.WriteFile(localFile, path.Join(env.GetRootDirectory(), op.Filename))
 	if err != nil {
-		return skypanel.OperationResult{Error: err}
+		return SkyPanel.OperationResult{Error: err}
 	}
 
-	return skypanel.OperationResult{VariableOverrides: map[string]interface{}{
+	return SkyPanel.OperationResult{VariableOverrides: map[string]interface{}{
 		op.OutputVariable: op.Version,
 	}}
 }
 
 func getLatestForMCVersion(minecraftVersion string) (string, error) {
-	response, err := skypanel.HTTPGet(PromoURL)
+	response, err := SkyPanel.HttpGet(PromoUrl)
 	defer utils.CloseResponse(response)
 	if err != nil {
 		return "", err

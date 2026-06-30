@@ -9,7 +9,7 @@ import (
 // @Description Reauthenticates a user and refreshes their session
 // @Produce json
 // @Success 200 {object} LoginResponse
-// @Failure 401 {object} skypanel.ErrorResponse
+// @Failure 401 {object} SkyPanel.ErrorResponse
 // @Tags Auth
 // @Router /auth/reauth [post]
 func Reauth(c *gin.Context) {

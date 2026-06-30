@@ -6,5 +6,5 @@ import (
 )
 
 func AddVersionHeader(c *gin.Context) {
-	c.Header("X-API-Version", skypanel.Version)
+	c.Header("X-API-Version", SkyPanel.Version)
 }

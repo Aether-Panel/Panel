@@ -43,7 +43,7 @@ type Config struct {
 	// default: gatus-
 	EntityPrefix string `yaml:"entity-prefix"`
 
-	// AliasPrefix is a prefix to be used in alias argument in Opsgenie alert payload
+	//AliasPrefix is a prefix to be used in alias argument in Opsgenie alert payload
 	//
 	// default: gatus-healthcheck-
 	AliasPrefix string `yaml:"alias-prefix"`

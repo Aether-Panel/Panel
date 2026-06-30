@@ -7,10 +7,10 @@ import (
 )
 
 type OperationFactory struct {
-	skypanel.OperationFactory
+	SkyPanel.OperationFactory
 }
 
-func (of OperationFactory) Create(op skypanel.CreateOperation) (skypanel.Operation, error) {
+func (of OperationFactory) Create(op SkyPanel.CreateOperation) (SkyPanel.Operation, error) {
 	minecraftVersion := cast.ToString(op.OperationArgs["minecraftVersion"])
 	build := cast.ToString(op.OperationArgs["build"])
 	filename := cast.ToString(op.OperationArgs["target"])

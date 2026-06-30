@@ -16,7 +16,7 @@ type AlterFile struct {
 	Regex      bool
 }
 
-func (c AlterFile) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
+func (c AlterFile) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
 	env := args.Environment
 
 	logging.Info.Printf("Changing data in file: %s", c.TargetFile)
@@ -24,14 +24,14 @@ func (c AlterFile) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	target := filepath.Join(env.GetRootDirectory(), c.TargetFile)
 	data, err := os.ReadFile(target)
 	if err != nil {
-		return skypanel.OperationResult{Error: err}
+		return SkyPanel.OperationResult{Error: err}
 	}
 
 	var out []byte
 	if c.Regex {
 		regex, err := regexp.Compile("(?m)" + c.Search)
 		if err != nil {
-			return skypanel.OperationResult{Error: err}
+			return SkyPanel.OperationResult{Error: err}
 		}
 		out = regex.ReplaceAllLiteral(data, []byte(c.Replace))
 	} else {
@@ -39,5 +39,5 @@ func (c AlterFile) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	}
 
 	err = os.WriteFile(target, out, 0644)
-	return skypanel.OperationResult{Error: err}
+	return SkyPanel.OperationResult{Error: err}
 }

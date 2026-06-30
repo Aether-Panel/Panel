@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestGenAIInitialization(t *testing.T) {
+func TestGenAI_Initialization(t *testing.T) {
 	// Simple test to ensure the genai types can be referenced correctly
 	// and we can mock it if needed.
 	ctx := context.Background()

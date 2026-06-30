@@ -36,12 +36,12 @@ func RegisterDaemonRoutes(e *gin.RouterGroup) {
 
 // @Summary Check daemon status
 // @Description Check to see if the daemon is online or not
-// @Success 200 {object} skypanel.DaemonRunning
+// @Success 200 {object} SkyPanel.DaemonRunning
 // @Tags Daemon Root
 // @Router /daemon [get]
 // @Security OAuth2Application[none]
 func getStatusGET(c *gin.Context) {
-	c.JSON(http.StatusOK, &skypanel.DaemonRunning{Message: "daemon is running"})
+	c.JSON(http.StatusOK, &SkyPanel.DaemonRunning{Message: "daemon is running"})
 }
 
 // @Summary Check daemon status
@@ -76,7 +76,7 @@ func getFeatures(c *gin.Context) {
 		envs = utils.Remove(envs, "bubblewrap")
 	}
 
-	c.JSON(http.StatusOK, Features{Features: features, Environments: envs, OS: runtime.GOOS, Arch: runtime.GOARCH, Version: skypanel.Version})
+	c.JSON(http.StatusOK, Features{Features: features, Environments: envs, OS: runtime.GOOS, Arch: runtime.GOARCH, Version: SkyPanel.Version})
 }
 
 func testDocker() bool {
@@ -98,7 +98,7 @@ type Features struct {
 	OS           string   `json:"os"`
 	Arch         string   `json:"arch"`
 	Version      string   `json:"version"`
-} // @name Features
+} //@name Features
 
 type DiskInfo struct {
 	Path        string  `json:"path"`
@@ -106,7 +106,7 @@ type DiskInfo struct {
 	Used        uint64  `json:"used"`
 	Free        uint64  `json:"free"`
 	UsedPercent float64 `json:"usedPercent"`
-} // @name DiskInfo
+} //@name DiskInfo
 
 type SystemInfo struct {
 	Hostname         string      `json:"hostname"`
@@ -125,7 +125,7 @@ type SystemInfo struct {
 	Uptime           uint64      `json:"uptime"`
 	NetworkBytesSent uint64      `json:"networkBytesSent"`
 	NetworkBytesRecv uint64      `json:"networkBytesRecv"`
-} // @name SystemInfo
+} //@name SystemInfo
 
 // @Summary Get system information
 // @Description Gets detailed system information including CPU, memory, and disk
@@ -195,8 +195,8 @@ func getSystemInfo(c *gin.Context) {
 	// Get network statistics
 	if netStats, err := net.IOCounters(false); err == nil && len(netStats) > 0 {
 		// Sum all network interfaces
-		var totalBytesSent uint64
-		var totalBytesRecv uint64
+		var totalBytesSent uint64 = 0
+		var totalBytesRecv uint64 = 0
 		for _, stat := range netStats {
 			totalBytesSent += stat.BytesSent
 			totalBytesRecv += stat.BytesRecv

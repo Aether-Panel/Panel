@@ -41,17 +41,17 @@ var localRepo = &models.TemplateRepo{
 	IsLocal: true,
 }
 
-func (*Template) GetLocalRepoID() uint {
+func (*Template) GetLocalRepoId() uint {
 	return localRepo.ID
 }
 
 func (t *Template) GetRepos() ([]*models.TemplateRepo, error) {
 	// Si hay templates.url configurado, ignoramos los repos de la BD y devolvemos uno sintético + Local
-	if u := config.TemplatesURL.Value(); u != "" {
+	if u := config.TemplatesUrl.Value(); u != "" {
 		vps := &models.TemplateRepo{
 			ID:     1,
 			Name:   "community",
-			URL:    u,
+			Url:    u,
 			Branch: "vps",
 		}
 		return []*models.TemplateRepo{vps, localRepo}, nil
@@ -62,23 +62,23 @@ func (t *Template) GetRepos() ([]*models.TemplateRepo, error) {
 	return append(repos, localRepo), err
 }
 
-func (t *Template) GetAllFromRepo(repoID uint) ([]*models.Template, error) {
+func (t *Template) GetAllFromRepo(repoId uint) ([]*models.Template, error) {
 	var templates []*models.Template
 	var err error
 
-	if repoID == localRepo.ID {
+	if repoId == localRepo.ID {
 		err = t.DB.Find(&templates).Error
 		if err != nil {
 			return nil, err
 		}
 
-		// because we don't want to return a ton of data, we'll only return a few select fields
+		//because we don't want to return a ton of data, we'll only return a few select fields
 		replacement := make([]*models.Template, len(templates))
 
 		for k, v := range templates {
 			replacement[k] = &models.Template{
 				Name: v.Name,
-				Server: skypanel.Server{
+				Server: SkyPanel.Server{
 					Display:               v.Server.Display,
 					Type:                  v.Server.Type,
 					Environment:           v.Server.Environment,
@@ -91,11 +91,11 @@ func (t *Template) GetAllFromRepo(repoID uint) ([]*models.Template, error) {
 		templates = replacement
 	} else {
 		// Si hay URL de VPS configurada, resolvemos contra índice JSON en vez de Git
-		if u := config.TemplatesURL.Value(); u != "" {
+		if u := config.TemplatesUrl.Value(); u != "" {
 			return t.getAllFromVps(u)
 		}
 		repoDb := &models.TemplateRepo{
-			ID: repoID,
+			ID: repoId,
 		}
 
 		err = t.DB.First(repoDb).Error
@@ -142,7 +142,7 @@ func (t *Template) GetAllFromRepo(repoID uint) ([]*models.Template, error) {
 
 				templates = append(templates, &models.Template{
 					Name: name,
-					Server: skypanel.Server{
+					Server: SkyPanel.Server{
 						Display:               template.Server.Display,
 						Type:                  template.Server.Type,
 						Environment:           template.Server.Environment,
@@ -157,22 +157,22 @@ func (t *Template) GetAllFromRepo(repoID uint) ([]*models.Template, error) {
 	return templates, err
 }
 
-func (t *Template) Get(repoID uint, name string) (*models.Template, error) {
+func (t *Template) Get(repoId uint, name string) (*models.Template, error) {
 	template := &models.Template{
 		Name: name,
 	}
-	if repoID == localRepo.ID {
+	if repoId == localRepo.ID {
 		err := t.DB.First(template).Error
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		// Si hay URL de VPS configurada, resolvemos contra índice JSON en vez de Git
-		if u := config.TemplatesURL.Value(); u != "" {
+		if u := config.TemplatesUrl.Value(); u != "" {
 			return t.getFromVps(u, name)
 		}
 		repoDb := &models.TemplateRepo{
-			ID: repoID,
+			ID: repoId,
 		}
 
 		err := t.DB.First(repoDb).Error
@@ -211,7 +211,7 @@ func (t *Template) Get(repoID uint, name string) (*models.Template, error) {
 		}
 
 		if !exists {
-			return nil, skypanel.ErrNoTemplate(name)
+			return nil, SkyPanel.ErrNoTemplate(name)
 		}
 
 		templatePath := filepath.Join(path, folderName, name+".json")
@@ -258,7 +258,7 @@ func (t *Template) AddRepo(repo *models.TemplateRepo) error {
 	}
 	for _, v := range existing {
 		if v.Name == repo.Name {
-			return skypanel.ErrRepoExists
+			return SkyPanel.ErrRepoExists
 		}
 	}
 	return t.DB.Save(repo).Error
@@ -285,7 +285,7 @@ func readTemplateFromDisk(name, path string) (*models.Template, error) {
 }
 
 func validateRepoOnDisk(repo *models.TemplateRepo) (string, error) {
-	// temp locations!!!
+	//temp locations!!!
 	pathLock.Lock()
 	defer pathLock.Unlock()
 
@@ -322,7 +322,7 @@ func validateRepoOnDisk(repo *models.TemplateRepo) (string, error) {
 	} else {
 		path := filepath.Join(config.CacheFolder.Value(), "template-repos", fmt.Sprintf("%d", repo.ID))
 
-		// if the directory already exists, we may need to nuke it
+		//if the directory already exists, we may need to nuke it
 		fi, err := os.Stat(path)
 		if err != nil && !os.IsNotExist(err) {
 			return "", err
@@ -337,7 +337,7 @@ func validateRepoOnDisk(repo *models.TemplateRepo) (string, error) {
 
 		logging.Debug.Printf("Checking out repo %s: %s", repo.Name, path)
 		_, err = git.PlainClone(path, false, &git.CloneOptions{
-			URL:           repo.URL,
+			URL:           repo.Url,
 			SingleBranch:  true,
 			ReferenceName: plumbing.ReferenceName("refs/heads/" + repo.Branch),
 		})
@@ -356,10 +356,10 @@ func validateRepoOnDisk(repo *models.TemplateRepo) (string, error) {
 
 // --- Origen alternativo: índice JSON remoto (VPS) ---
 type vpsIndexEntry struct {
-	URL string `json:"url"`
+	Url string `json:"url"`
 }
 
-func httpGetJSON(url string, target interface{}) error {
+func httpGetJson(url string, target interface{}) error {
 	client := &http.Client{Timeout: 10 * time.Second}
 
 	// Crear la petición con headers apropiados para evitar bloqueos de Cloudflare
@@ -388,17 +388,17 @@ func httpGetJSON(url string, target interface{}) error {
 	return dec.Decode(target)
 }
 
-func (t *Template) getAllFromVps(indexURL string) ([]*models.Template, error) {
+func (t *Template) getAllFromVps(indexUrl string) ([]*models.Template, error) {
 	var idx map[string]vpsIndexEntry
-	err := httpGetJSON(indexURL, &idx)
+	err := httpGetJson(indexUrl, &idx)
 	if err != nil {
 		return nil, err
 	}
 	result := make([]*models.Template, 0, len(idx))
-	indexBase := indexURL
+	indexBase := indexUrl
 	for name, entry := range idx {
-		target := resolveURL(indexBase, entry.URL)
-		tmp, err := t.getTemplateFromURL(name, target)
+		target := resolveUrl(indexBase, entry.Url)
+		tmp, err := t.getTemplateFromUrl(name, target)
 		if err != nil {
 			logging.Error.Printf("Error reading template from %s: %s", target, err.Error())
 			continue
@@ -408,29 +408,29 @@ func (t *Template) getAllFromVps(indexURL string) ([]*models.Template, error) {
 	return result, nil
 }
 
-func (t *Template) getFromVps(indexURL, name string) (*models.Template, error) {
+func (t *Template) getFromVps(indexUrl, name string) (*models.Template, error) {
 	var idx map[string]vpsIndexEntry
-	err := httpGetJSON(indexURL, &idx)
+	err := httpGetJson(indexUrl, &idx)
 	if err != nil {
 		return nil, err
 	}
 	entry, ok := idx[name]
 	if !ok {
-		return nil, skypanel.ErrNoTemplate(name)
+		return nil, SkyPanel.ErrNoTemplate(name)
 	}
-	return t.getTemplateFromURL(name, resolveURL(indexURL, entry.URL))
+	return t.getTemplateFromUrl(name, resolveUrl(indexUrl, entry.Url))
 }
 
-func (t *Template) getTemplateFromURL(name, url string) (*models.Template, error) {
+func (t *Template) getTemplateFromUrl(name, url string) (*models.Template, error) {
 	tmp := &models.Template{Name: name}
-	err := httpGetJSON(url, tmp)
+	err := httpGetJson(url, tmp)
 	if err != nil {
 		return nil, err
 	}
 	return tmp, nil
 }
 
-func resolveURL(baseStr, refStr string) string {
+func resolveUrl(baseStr, refStr string) string {
 	// Construye URL absoluta a partir de base (índice) y ref (posible relativa)
 	base, err := url.Parse(baseStr)
 	if err != nil {

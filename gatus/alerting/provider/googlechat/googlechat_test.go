@@ -165,7 +165,7 @@ func TestAlertProvider_buildRequestBody(t *testing.T) {
 		},
 		{
 			Name:         "icmp-should-not-include-url", // See https://github.com/TwiN/gatus/issues/362
-			Endpoint:     endpoint.Endpoint{Name: "endpoint-name", URL: "icmp:// example.org"},
+			Endpoint:     endpoint.Endpoint{Name: "endpoint-name", URL: "icmp://example.org"},
 			Provider:     AlertProvider{},
 			Alert:        alert.Alert{Description: &firstDescription, SuccessThreshold: 5, FailureThreshold: 3},
 			Resolved:     false,
@@ -173,7 +173,7 @@ func TestAlertProvider_buildRequestBody(t *testing.T) {
 		},
 		{
 			Name:         "tcp-should-not-include-url", // See https://github.com/TwiN/gatus/issues/362
-			Endpoint:     endpoint.Endpoint{Name: "endpoint-name", URL: "tcp:// example.org"},
+			Endpoint:     endpoint.Endpoint{Name: "endpoint-name", URL: "tcp://example.org"},
 			Provider:     AlertProvider{},
 			Alert:        alert.Alert{Description: &firstDescription, SuccessThreshold: 5, FailureThreshold: 3},
 			Resolved:     false,

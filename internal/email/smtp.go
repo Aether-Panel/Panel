@@ -20,12 +20,12 @@ func init() {
 func (smtpProvider) Send(to, subject, body string) error {
 	from := config.EmailFrom.Value()
 	if from == "" {
-		return skypanel.ErrSettingNotConfigured(config.EmailFrom.Key())
+		return SkyPanel.ErrSettingNotConfigured(config.EmailFrom.Key())
 	}
 
 	host := config.EmailHost.Value()
 	if host == "" {
-		return skypanel.ErrSettingNotConfigured(config.EmailHost.Key())
+		return SkyPanel.ErrSettingNotConfigured(config.EmailHost.Key())
 	}
 
 	client, err := mail.NewClient(config.EmailHost.Value(),
@@ -39,8 +39,8 @@ func (smtpProvider) Send(to, subject, body string) error {
 	}
 	defer utils.Close(client)
 
-	refID, _ := uuid.NewV4()
-	refIDStr := strings.ReplaceAll(refID.String(), "-", "")
+	refId, _ := uuid.NewV4()
+	refIdStr := strings.ReplaceAll(refId.String(), "-", "")
 	msg := mail.NewMsg()
 	if err = msg.From(from); err != nil {
 		return err
@@ -49,7 +49,7 @@ func (smtpProvider) Send(to, subject, body string) error {
 		return err
 	}
 
-	msg.SetMessageIDWithValue(refIDStr)
+	msg.SetMessageIDWithValue(refIdStr)
 	msg.Subject(subject)
 	msg.SetBodyString("text/html", body)
 

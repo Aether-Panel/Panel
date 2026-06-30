@@ -1,4 +1,4 @@
-package skypanel
+package SkyPanel
 
 import (
 	"errors"
@@ -103,8 +103,8 @@ var ErrFieldTooSmall = func(fieldName string, value int64) *Error {
 	return CreateError("${field} cannot be smaller than ${min}", "ErrFieldTooSmall").Metadata(map[string]interface{}{"field": fieldName, "min": value})
 }
 
-var ErrFieldNotBetween = func(fieldName string, minVal, maxVal int64) *Error {
-	return CreateError("${field} must be between ${min} and ${max}", "ErrFieldNotBetween").Metadata(map[string]interface{}{"field": fieldName, "min": minVal, "max": maxVal})
+var ErrFieldNotBetween = func(fieldName string, min, max int64) *Error {
+	return CreateError("${field} must be between ${min} and ${max}", "ErrFieldNotBetween").Metadata(map[string]interface{}{"field": fieldName, "min": min, "max": max})
 }
 
 var ErrFieldEqual = func(fieldName1, fieldName2 string) *Error {
@@ -119,8 +119,8 @@ var ErrFieldNotEmail = func(fieldName string) *Error {
 	return CreateError("${field} is not a valid email", "ErrFieldNotEmail").Metadata(map[string]interface{}{"field": fieldName})
 }
 
-var ErrFieldLength = func(fieldName string, minVal int, maxVal int) *Error {
-	return CreateError("${field} must be between ${min} and ${max} characters", "ErrFieldLength").Metadata(map[string]interface{}{"field": fieldName, "min": minVal, "max": maxVal})
+var ErrFieldLength = func(fieldName string, min int, max int) *Error {
+	return CreateError("${field} must be between ${min} and ${max} characters", "ErrFieldLength").Metadata(map[string]interface{}{"field": fieldName, "min": min, "max": max})
 }
 
 var ErrFactoryError = func(operatorName string, err error) *Error {
@@ -149,8 +149,8 @@ var ErrCurseForgeDistribution = func(projectId uint) *Error {
 	return CreateError("CurseForge modpack with project ID ${projectId} does not allow third-party distribution", "ErrCurseForgeDistribution").Metadata(map[string]interface{}{"projectId": projectId})
 }
 
-var ErrCurseForgeFile = func(projectId uint, fileID uint) *Error {
-	return CreateError("File ID ${fileID} under project ID ${projectId} not found", "ErrCurseForgeFile").Metadata(map[string]interface{}{"fileID": fileID, "projectId": projectId})
+var ErrCurseForgeFile = func(projectId uint, fileId uint) *Error {
+	return CreateError("File ID ${fileId} under project ID ${projectId} not found", "ErrCurseForgeFile").Metadata(map[string]interface{}{"fileId": fileId, "projectId": projectId})
 }
 
 var ErrCurseForgeStatus = func(status string) *Error {
@@ -177,8 +177,8 @@ type Error struct {
 	Message string                 `json:"msg,omitempty"`
 	Code    string                 `json:"code,omitempty"`
 	Meta    map[string]interface{} `json:"metadata,omitempty"`
-	// error
-} // @name Error
+	//error
+} //@name Error
 
 func (ge *Error) GetMessage() string {
 	return utils.ReplaceTokens(ge.Message, ge.Meta)

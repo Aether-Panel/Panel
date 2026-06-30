@@ -20,7 +20,7 @@ const WWWAuthenticateHeaderContents = "Bearer realm=\"\""
 func AuthMiddleware(c *gin.Context) {
 	for _, v := range noLogin {
 		if strings.HasPrefix(c.Request.URL.Path, v) {
-			// and now we see if it's actually one we override
+			//and now we see if it's actually one we override
 			skip := false
 			for _, o := range overrideRequireLogin {
 				if o == c.Request.URL.Path {
@@ -43,8 +43,8 @@ func AuthMiddleware(c *gin.Context) {
 
 	var token string
 
-	// order of priority, use auth headers first
-	// check for token Auth header
+	//order of priority, use auth headers first
+	//check for token Auth header
 	authHeader := c.Request.Header.Get("Authorization")
 	authHeader = strings.TrimSpace(authHeader)
 
@@ -77,7 +77,7 @@ func AuthMiddleware(c *gin.Context) {
 		return
 	}
 
-	// pull user from the session
+	//pull user from the session
 	sess, err := ss.Validate(token)
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -88,10 +88,10 @@ func AuthMiddleware(c *gin.Context) {
 		return
 	}
 
-	if sess.UserID != nil {
+	if sess.UserId != nil {
 		c.Set("user", &sess.User)
 	}
-	if sess.ClientID != nil {
+	if sess.ClientId != nil {
 		c.Set("client", &sess.Client)
 	}
 }

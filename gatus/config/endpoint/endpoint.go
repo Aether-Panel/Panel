@@ -164,25 +164,25 @@ func (e *Endpoint) Type() Type {
 	switch {
 	case e.DNSConfig != nil:
 		return TypeDNS
-	case strings.HasPrefix(e.URL, "tcp:// "):
+	case strings.HasPrefix(e.URL, "tcp://"):
 		return TypeTCP
-	case strings.HasPrefix(e.URL, "sctp:// "):
+	case strings.HasPrefix(e.URL, "sctp://"):
 		return TypeSCTP
-	case strings.HasPrefix(e.URL, "udp:// "):
+	case strings.HasPrefix(e.URL, "udp://"):
 		return TypeUDP
-	case strings.HasPrefix(e.URL, "icmp:// "):
+	case strings.HasPrefix(e.URL, "icmp://"):
 		return TypeICMP
-	case strings.HasPrefix(e.URL, "starttls:// "):
+	case strings.HasPrefix(e.URL, "starttls://"):
 		return TypeSTARTTLS
-	case strings.HasPrefix(e.URL, "tls:// "):
+	case strings.HasPrefix(e.URL, "tls://"):
 		return TypeTLS
-	case strings.HasPrefix(e.URL, "http:// ") || strings.HasPrefix(e.URL, "https:// "):
+	case strings.HasPrefix(e.URL, "http://") || strings.HasPrefix(e.URL, "https://"):
 		return TypeHTTP
-	case strings.HasPrefix(e.URL, "grpc:// ") || strings.HasPrefix(e.URL, "grpcs:// "):
+	case strings.HasPrefix(e.URL, "grpc://") || strings.HasPrefix(e.URL, "grpcs://"):
 		return TypeGRPC
-	case strings.HasPrefix(e.URL, "ws:// ") || strings.HasPrefix(e.URL, "wss:// "):
+	case strings.HasPrefix(e.URL, "ws://") || strings.HasPrefix(e.URL, "wss://"):
 		return TypeWS
-	case strings.HasPrefix(e.URL, "ssh:// "):
+	case strings.HasPrefix(e.URL, "ssh://"):
 		return TypeSSH
 	default:
 		return TypeUNKNOWN
@@ -303,7 +303,7 @@ func (e *Endpoint) EvaluateHealthWithContext(context *gontext.Gontext) *Result {
 	} else if processedEndpoint.Type() == TypeICMP {
 		// To handle IPv6 addresses, we need to handle the hostname differently here. This is to avoid, for instance,
 		// "1111:2222:3333::4444" being displayed as "1111:2222:3333:" because :4444 would be interpreted as a port.
-		result.Hostname = strings.TrimPrefix(processedEndpoint.URL, "icmp:// ")
+		result.Hostname = strings.TrimPrefix(processedEndpoint.URL, "icmp://")
 	} else {
 		urlObject, err := url.Parse(processedEndpoint.URL)
 		if err != nil {
@@ -465,9 +465,9 @@ func (e *Endpoint) call(result *Result) {
 		result.Duration = time.Since(startTime)
 	} else if endpointType == TypeSTARTTLS || endpointType == TypeTLS {
 		if endpointType == TypeSTARTTLS {
-			result.Connected, certificate, err = client.CanPerformStartTLS(strings.TrimPrefix(e.URL, "starttls:// "), e.ClientConfig)
+			result.Connected, certificate, err = client.CanPerformStartTLS(strings.TrimPrefix(e.URL, "starttls://"), e.ClientConfig)
 		} else {
-			result.Connected, result.Body, certificate, err = client.CanPerformTLS(strings.TrimPrefix(e.URL, "tls:// "), e.getParsedBody(), e.ClientConfig)
+			result.Connected, result.Body, certificate, err = client.CanPerformTLS(strings.TrimPrefix(e.URL, "tls://"), e.getParsedBody(), e.ClientConfig)
 		}
 		if err != nil {
 			result.AddError(err.Error())
@@ -476,16 +476,16 @@ func (e *Endpoint) call(result *Result) {
 		result.Duration = time.Since(startTime)
 		result.CertificateExpiration = time.Until(certificate.NotAfter)
 	} else if endpointType == TypeTCP {
-		result.Connected, result.Body = client.CanCreateNetworkConnection("tcp", strings.TrimPrefix(e.URL, "tcp:// "), e.getParsedBody(), e.ClientConfig)
+		result.Connected, result.Body = client.CanCreateNetworkConnection("tcp", strings.TrimPrefix(e.URL, "tcp://"), e.getParsedBody(), e.ClientConfig)
 		result.Duration = time.Since(startTime)
 	} else if endpointType == TypeUDP {
-		result.Connected, result.Body = client.CanCreateNetworkConnection("udp", strings.TrimPrefix(e.URL, "udp:// "), e.getParsedBody(), e.ClientConfig)
+		result.Connected, result.Body = client.CanCreateNetworkConnection("udp", strings.TrimPrefix(e.URL, "udp://"), e.getParsedBody(), e.ClientConfig)
 		result.Duration = time.Since(startTime)
 	} else if endpointType == TypeSCTP {
-		result.Connected = client.CanCreateSCTPConnection(strings.TrimPrefix(e.URL, "sctp:// "), e.ClientConfig)
+		result.Connected = client.CanCreateSCTPConnection(strings.TrimPrefix(e.URL, "sctp://"), e.ClientConfig)
 		result.Duration = time.Since(startTime)
 	} else if endpointType == TypeICMP {
-		result.Connected, result.Duration = client.Ping(strings.TrimPrefix(e.URL, "icmp:// "), e.ClientConfig)
+		result.Connected, result.Duration = client.Ping(strings.TrimPrefix(e.URL, "icmp://"), e.ClientConfig)
 	} else if endpointType == TypeWS {
 		wsHeaders := map[string]string{}
 		if e.Headers != nil {
@@ -505,7 +505,7 @@ func (e *Endpoint) call(result *Result) {
 	} else if endpointType == TypeSSH {
 		// If there's no username/password specified, attempt to validate just the SSH banner
 		if e.SSHConfig == nil || (len(e.SSHConfig.Username) == 0 && len(e.SSHConfig.Password) == 0) {
-			result.Connected, result.HTTPStatus, err = client.CheckSSHBanner(strings.TrimPrefix(e.URL, "ssh:// "), e.ClientConfig)
+			result.Connected, result.HTTPStatus, err = client.CheckSSHBanner(strings.TrimPrefix(e.URL, "ssh://"), e.ClientConfig)
 			if err != nil {
 				result.AddError(err.Error())
 				return
@@ -515,7 +515,7 @@ func (e *Endpoint) call(result *Result) {
 			return
 		}
 		var cli *ssh.Client
-		result.Connected, cli, err = client.CanCreateSSHConnection(strings.TrimPrefix(e.URL, "ssh:// "), e.SSHConfig.Username, e.SSHConfig.Password, e.ClientConfig)
+		result.Connected, cli, err = client.CanCreateSSHConnection(strings.TrimPrefix(e.URL, "ssh://"), e.SSHConfig.Username, e.SSHConfig.Password, e.ClientConfig)
 		if err != nil {
 			result.AddError(err.Error())
 			return
@@ -532,8 +532,8 @@ func (e *Endpoint) call(result *Result) {
 		}
 		result.Duration = time.Since(startTime)
 	} else if endpointType == TypeGRPC {
-		useTLS := strings.HasPrefix(e.URL, "grpcs:// ")
-		address := strings.TrimPrefix(strings.TrimPrefix(e.URL, "grpcs:// "), "grpc:// ")
+		useTLS := strings.HasPrefix(e.URL, "grpcs://")
+		address := strings.TrimPrefix(strings.TrimPrefix(e.URL, "grpcs://"), "grpc://")
 		connected, status, err, duration := client.PerformGRPCHealthCheck(address, useTLS, e.ClientConfig)
 		if err != nil {
 			result.AddError(err.Error())

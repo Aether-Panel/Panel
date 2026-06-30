@@ -28,12 +28,12 @@ import (
 type tty struct {
 	mainProcess   *exec.Cmd
 	statLocker    sync.Mutex
-	lastStats     *skypanel.ServerStats
+	lastStats     *SkyPanel.ServerStats
 	lastStatTime  time.Time
 	lastNetworkRx uint64
 	lastNetworkTx uint64
 	lastNetTime   time.Time
-	// disableStdin        bool
+	//disableStdin        bool
 	disableSpecialStats bool
 
 	DisableUnshare bool     `json:"disableUnshare"`
@@ -43,7 +43,7 @@ type tty struct {
 	dirSizeTime time.Time
 }
 
-func (t *tty) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypanel.ExecutionData) (err error) {
+func (t *tty) ExecuteAsyncImpl(environment *SkyPanel.Environment, steps SkyPanel.ExecutionData) (err error) {
 	environment.Wait.Add(1)
 
 	pr, err := t.createCmd(environment.GetRootDirectory(), steps.Command)
@@ -93,16 +93,16 @@ func (t *tty) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypanel
 	environment.DisplayToConsole(true, "Starting process: %s", steps.Command)
 	environment.Log(logging.Info, "Starting process in directory [%s]: %s", t.mainProcess.Dir, strings.Join(t.mainProcess.Args, " "))
 
-	_ = environment.StatusTracker.WriteMessage(skypanel.Transmission{
-		Message: skypanel.ServerRunning{
+	_ = environment.StatusTracker.WriteMessage(SkyPanel.Transmission{
+		Message: SkyPanel.ServerRunning{
 			Running:    true,
 			Installing: environment.IsInstalling(),
 		},
-		Type: skypanel.MessageTypeStatus,
+		Type: SkyPanel.MessageTypeStatus,
 	})
 
 	t.disableSpecialStats = steps.DisableStats
-	// t.disableStdin = steps.DisableStdin
+	//t.disableStdin = steps.DisableStdin
 
 	processTty, err := pty.Start(pr)
 	if err != nil {
@@ -119,7 +119,7 @@ func (t *tty) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypanel
 		return
 	}
 
-	// if !t.disableStdin {
+	//if !t.disableStdin {
 	//	environment.CreateConsoleStdinProxy(steps.StdInConfig, processTty)
 	//}
 	environment.CreateConsoleStdinProxy(steps.StdInConfig, processTty)
@@ -134,7 +134,7 @@ func (t *tty) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypanel
 	return
 }
 
-func (t *tty) KillImpl(environment *skypanel.Environment) (err error) {
+func (t *tty) KillImpl(environment *SkyPanel.Environment) (err error) {
 	running, err := environment.IsRunning()
 	if err != nil {
 		return
@@ -145,14 +145,14 @@ func (t *tty) KillImpl(environment *skypanel.Environment) (err error) {
 	return t.mainProcess.Process.Kill()
 }
 
-func (t *tty) GetStatsImpl(environment *skypanel.Environment) (*skypanel.ServerStats, error) {
+func (t *tty) GetStatsImpl(environment *SkyPanel.Environment) (*SkyPanel.ServerStats, error) {
 	running, err := environment.IsRunning()
 	if err != nil {
 		return nil, err
 	}
 	if !running {
-		stats := &skypanel.ServerStats{
-			CPU:     0,
+		stats := &SkyPanel.ServerStats{
+			Cpu:     0,
 			Memory:  0,
 			Running: false,
 		}
@@ -167,7 +167,7 @@ func (t *tty) GetStatsImpl(environment *skypanel.Environment) (*skypanel.ServerS
 	t.statLocker.Lock()
 	defer t.statLocker.Unlock()
 
-	// only fetch stats once every 5 seconds, to avoid excessive spam
+	//only fetch stats once every 5 seconds, to avoid excessive spam
 	if t.lastStatTime.Add(5 * time.Second).After(time.Now()) {
 		return t.lastStats, nil
 	}
@@ -211,8 +211,8 @@ func (t *tty) GetStatsImpl(environment *skypanel.Environment) (*skypanel.ServerS
 		}
 	}
 
-	stats := &skypanel.ServerStats{
-		CPU:        cpu,
+	stats := &SkyPanel.ServerStats{
+		Cpu:        cpu,
 		Memory:     cast.ToFloat64(memMap.RSS),
 		MaxMemory:  cast.ToFloat64(memInfo.Total),
 		Disk:       float64(t.dirSize),
@@ -232,7 +232,7 @@ func (t *tty) GetStatsImpl(environment *skypanel.Environment) (*skypanel.ServerS
 					break
 				}
 			}
-			// only continue parsing if no errors sending command
+			//only continue parsing if no errors sending command
 			if err == nil {
 				var jcmdData []byte
 				jcmdData, err = io.ReadAll(socket)
@@ -253,7 +253,7 @@ func (t *tty) GetStatsImpl(environment *skypanel.Environment) (*skypanel.ServerS
 	return stats, nil
 }
 
-func (t *tty) SendCodeImpl(environment *skypanel.Environment, code int) error {
+func (t *tty) SendCodeImpl(environment *SkyPanel.Environment, code int) error {
 	running, err := environment.IsRunning()
 
 	if err != nil || !running {
@@ -263,15 +263,15 @@ func (t *tty) SendCodeImpl(environment *skypanel.Environment, code int) error {
 	return t.mainProcess.Process.Signal(syscall.Signal(code))
 }
 
-func (t *tty) GetUIDImpl(*skypanel.Environment) int {
+func (t *tty) GetUidImpl(*SkyPanel.Environment) int {
 	return -1
 }
 
-func (t *tty) GetGidImpl(*skypanel.Environment) int {
+func (t *tty) GetGidImpl(*SkyPanel.Environment) int {
 	return -1
 }
 
-func (t *tty) IsRunningImpl(*skypanel.Environment) (isRunning bool, err error) {
+func (t *tty) IsRunningImpl(*SkyPanel.Environment) (isRunning bool, err error) {
 	isRunning = t.mainProcess != nil && t.mainProcess.Process != nil
 	if isRunning {
 		pr, pErr := os.FindProcess(t.mainProcess.Process.Pid)
@@ -284,7 +284,7 @@ func (t *tty) IsRunningImpl(*skypanel.Environment) (isRunning bool, err error) {
 	return
 }
 
-func (t *tty) handleClose(environment *skypanel.Environment, callback func(exitCode int)) {
+func (t *tty) handleClose(environment *SkyPanel.Environment, callback func(exitCode int)) {
 	err := t.mainProcess.Wait()
 
 	_ = environment.Console.Close()
@@ -316,10 +316,10 @@ func (t *tty) handleClose(environment *skypanel.Environment, callback func(exitC
 	}
 
 	t.statLocker.Lock()
-	// nolint:staticcheck // used as a barrier
+	//nolint:staticcheck // used as a barrier
 	t.statLocker.Unlock()
 
-	// if we are using unshare AND we're in tmp, we can nuke the workspace at this point
+	//if we are using unshare AND we're in tmp, we can nuke the workspace at this point
 	if !t.DisableUnshare && strings.HasPrefix(t.mainProcess.Dir, os.TempDir()) {
 		err = os.RemoveAll(t.mainProcess.Dir)
 		if err != nil {
@@ -331,15 +331,15 @@ func (t *tty) handleClose(environment *skypanel.Environment, callback func(exitC
 
 	environment.Wait.Done()
 
-	_ = environment.StatusTracker.WriteMessage(skypanel.Transmission{
-		Message: skypanel.ServerRunning{
+	_ = environment.StatusTracker.WriteMessage(SkyPanel.Transmission{
+		Message: SkyPanel.ServerRunning{
 			Running:    false,
 			Installing: environment.IsInstalling(),
 		},
-		Type: skypanel.MessageTypeStatus,
+		Type: SkyPanel.MessageTypeStatus,
 	})
 
-	// t.disableStdin = false
+	//t.disableStdin = false
 	t.disableSpecialStats = false
 
 	if callback != nil {
@@ -379,7 +379,7 @@ func activateAttachAPI(pid int) error {
 		time.Sleep(time.Duration(1<<uint(i)) * time.Millisecond)
 	}
 
-	// if we got here, then the file wasn't available or otherwise not good anymore
+	//if we got here, then the file wasn't available or otherwise not good anymore
 	return err
 }
 
@@ -429,103 +429,103 @@ func (t *tty) createCmd(workDir, cmd string) (pr *exec.Cmd, err error) {
 		pr.SysProcAttr = &syscall.SysProcAttr{Setctty: true, Setsid: true}
 		pr.Dir = workDir
 		return
-	}
+	} else {
+		workDirMount := removeRoot(workDir)
+		binaryFolderMount := removeRoot(config.BinariesFolder.Value())
+		cacheFolderMount := removeRoot(config.CacheFolder.Value())
 
-	workDirMount := removeRoot(workDir)
-	binaryFolderMount := removeRoot(config.BinariesFolder.Value())
-	cacheFolderMount := removeRoot(config.CacheFolder.Value())
+		mountFolders := []string{workDirMount, binaryFolderMount, cacheFolderMount}
+		for _, v := range t.Mounts {
+			mountFolders = append(mountFolders, removeRoot(v))
+		}
 
-	mountFolders := []string{workDirMount, binaryFolderMount, cacheFolderMount}
-	for _, v := range t.Mounts {
-		mountFolders = append(mountFolders, removeRoot(v))
-	}
+		unshareArgs := make([]string, len(cmdList))
+		copy(unshareArgs, cmdList)
 
-	unshareArgs := make([]string, len(cmdList))
-	copy(unshareArgs, cmdList)
+		if runtime.GOARCH == "amd64" {
+			unshareArgs = append(unshareArgs,
+				"mkdir -p lib64",
+				"mount --bind /lib64 lib64",
+			)
+		}
 
-	if runtime.GOARCH == "amd64" {
+		var lstat os.FileInfo
+		lstat, err = os.Lstat("/etc/resolv.conf")
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return
+		}
+		if err == nil && lstat.Mode()&os.ModeSymlink != 0 {
+			var absPath string
+			absPath, err = filepath.EvalSymlinks("/etc/resolv.conf")
+			if err != nil {
+				return
+			}
+			localPath := removeRoot(absPath)
+			dir := removeRoot(filepath.Dir(absPath))
+			unshareArgs = append(unshareArgs,
+				fmt.Sprintf("mkdir -p %s", dir),
+				fmt.Sprintf("touch %s", localPath),
+				fmt.Sprintf("mount --rbind %s %s", absPath, localPath),
+			)
+		}
+
+		absWorkDir, _ := filepath.Abs(workDir)
+		absBinDir, _ := filepath.Abs(config.BinariesFolder.Value())
+		absCacheDir, _ := filepath.Abs(config.CacheFolder.Value())
+
 		unshareArgs = append(unshareArgs,
-			"mkdir -p lib64",
-			"mount --bind /lib64 lib64",
+			fmt.Sprintf("mkdir -p {%s}", strings.Join(mountFolders, ",")),
+			fmt.Sprintf("mount --bind %s %s", absWorkDir, workDirMount),
+			fmt.Sprintf("mount --bind %s %s", absBinDir, binaryFolderMount),
+			fmt.Sprintf("mount --bind %s %s", absCacheDir, cacheFolderMount),
 		)
-	}
 
-	var lstat os.FileInfo
-	lstat, err = os.Lstat("/etc/resolv.conf")
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return
-	}
-	if err == nil && lstat.Mode()&os.ModeSymlink != 0 {
-		var absPath string
-		absPath, err = filepath.EvalSymlinks("/etc/resolv.conf")
+		for _, v := range t.Mounts {
+			absV, _ := filepath.Abs(v)
+			unshareArgs = append(unshareArgs, fmt.Sprintf("mount --bind %s %s", absV, removeRoot(v)))
+		}
+
+		unshareArgs = append(unshareArgs,
+			//move cwd to bind mounted instace of .
+			"cd .",
+			"mkdir -p old-root",
+			//make . the root for everything in the current namespace
+			"pivot_root . old-root",
+			//make the old root unaccessible by unmounting it
+			//needs to be lazy because the old root is considered busy as it's still the root outside the namespace
+			"umount -l /old-root",
+			"rm -r /old-root",
+			fmt.Sprintf("cd /%s && %s", workDirMount, cmd))
+
+		pr = exec.Command("bash", "-c", strings.Join(unshareArgs, " && "))
+		pr.Dir, err = os.MkdirTemp("", "unshare-pp-")
 		if err != nil {
 			return
 		}
-		localPath := removeRoot(absPath)
-		dir := removeRoot(filepath.Dir(absPath))
-		unshareArgs = append(unshareArgs,
-			fmt.Sprintf("mkdir -p %s", dir),
-			fmt.Sprintf("touch %s", localPath),
-			fmt.Sprintf("mount --rbind %s %s", absPath, localPath),
-		)
-	}
-
-	absWorkDir, _ := filepath.Abs(workDir)
-	absBinDir, _ := filepath.Abs(config.BinariesFolder.Value())
-	absCacheDir, _ := filepath.Abs(config.CacheFolder.Value())
-
-	unshareArgs = append(unshareArgs,
-		fmt.Sprintf("mkdir -p {%s}", strings.Join(mountFolders, ",")),
-		fmt.Sprintf("mount --bind %s %s", absWorkDir, workDirMount),
-		fmt.Sprintf("mount --bind %s %s", absBinDir, binaryFolderMount),
-		fmt.Sprintf("mount --bind %s %s", absCacheDir, cacheFolderMount),
-	)
-
-	for _, v := range t.Mounts {
-		absV, _ := filepath.Abs(v)
-		unshareArgs = append(unshareArgs, fmt.Sprintf("mount --bind %s %s", absV, removeRoot(v)))
-	}
-
-	unshareArgs = append(unshareArgs,
-		// move cwd to bind mounted instace of .
-		"cd .",
-		"mkdir -p old-root",
-		// make . the root for everything in the current namespace
-		"pivot_root . old-root",
-		// make the old root unaccessible by unmounting it
-		// needs to be lazy because the old root is considered busy as it's still the root outside the namespace
-		"umount -l /old-root",
-		"rm -r /old-root",
-		fmt.Sprintf("cd /%s && %s", workDirMount, cmd))
-
-	pr = exec.Command("bash", "-c", strings.Join(unshareArgs, " && "))
-	pr.Dir, err = os.MkdirTemp("", "unshare-pp-")
-	if err != nil {
-		return
-	}
-	pr.SysProcAttr = &syscall.SysProcAttr{
-		Setctty: true,
-		Setsid:  true,
-		Unshareflags: syscall.CLONE_NEWUSER |
-			syscall.CLONE_NEWNS |
-			syscall.CLONE_FILES |
-			syscall.CLONE_NEWCGROUP |
-			syscall.CLONE_NEWIPC |
-			syscall.CLONE_NEWUTS,
-		UidMappings: []syscall.SysProcIDMap{
-			{
-				ContainerID: 0,
-				HostID:      os.Getuid(),
-				Size:        1,
+		pr.SysProcAttr = &syscall.SysProcAttr{
+			Setctty: true,
+			Setsid:  true,
+			Unshareflags: syscall.CLONE_NEWUSER |
+				syscall.CLONE_NEWNS |
+				syscall.CLONE_FILES |
+				syscall.CLONE_NEWCGROUP |
+				syscall.CLONE_NEWIPC |
+				syscall.CLONE_NEWUTS,
+			UidMappings: []syscall.SysProcIDMap{
+				{
+					ContainerID: 0,
+					HostID:      os.Getuid(),
+					Size:        1,
+				},
 			},
-		},
-		GidMappings: []syscall.SysProcIDMap{
-			{
-				ContainerID: 0,
-				HostID:      os.Getgid(),
-				Size:        1,
+			GidMappings: []syscall.SysProcIDMap{
+				{
+					ContainerID: 0,
+					HostID:      os.Getgid(),
+					Size:        1,
+				},
 			},
-		},
+		}
 	}
 	return
 }

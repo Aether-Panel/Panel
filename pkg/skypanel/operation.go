@@ -1,4 +1,4 @@
-package skypanel
+package SkyPanel
 
 type Operation interface {
 	Run(args RunOperatorArgs) OperationResult

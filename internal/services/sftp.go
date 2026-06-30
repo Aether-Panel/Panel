@@ -19,11 +19,11 @@ func (s *DatabaseSFTPAuthorization) Validate(username, password string) (perms *
 	}
 
 	email := parts[0]
-	serverID := parts[1]
+	serverId := parts[1]
 
 	db, err := database.GetConnection()
 	if err != nil {
-		return nil, skypanel.ErrDatabaseNotAvailable
+		return nil, SkyPanel.ErrDatabaseNotAvailable
 	}
 
 	us := &User{DB: db}
@@ -33,13 +33,13 @@ func (s *DatabaseSFTPAuthorization) Validate(username, password string) (perms *
 	}
 
 	ss := &Permission{DB: db}
-	allowed, err := ss.HasPermission(user.ID, serverID, scopes.ScopeServerSftp)
+	allowed, err := ss.HasPermission(user.ID, serverId, scopes.ScopeServerSftp)
 	if err != nil || !allowed {
 		return nil, errors.New("incorrect username or password")
 	}
 
 	perms = &ssh.Permissions{}
 	perms.Extensions = make(map[string]string)
-	perms.Extensions["server_id"] = serverID
+	perms.Extensions["server_id"] = serverId
 	return perms, nil
 }

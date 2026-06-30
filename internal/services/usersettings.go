@@ -10,12 +10,12 @@ type UserSettings struct {
 	DB *gorm.DB
 }
 
-func (uss *UserSettings) GetAllForUser(userID uint) (models.UserSettingsView, error) {
+func (uss *UserSettings) GetAllForUser(userId uint) (models.UserSettingsView, error) {
 	var records []*models.UserSetting
 
 	query := uss.DB
 
-	query = query.Where(&models.UserSetting{UserID: userID})
+	query = query.Where(&models.UserSetting{UserID: userId})
 
 	err := query.Model(&records).Error
 	if err != nil {

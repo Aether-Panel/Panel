@@ -15,10 +15,10 @@ import (
 	"strings"
 )
 
-const VersionsURL = "https://fill.papermc.io/v3/projects/paper/versions"
-const BuildURL = "https://fill.papermc.io/v3/projects/paper/versions/${mcVersion}/builds/${build}"
+const VersionsUrl = "https://fill.papermc.io/v3/projects/paper/versions"
+const BuildUrl = "https://fill.papermc.io/v3/projects/paper/versions/${mcVersion}/builds/${build}"
 
-var UserAgent = skypanel.Display + " https://github.com/SkyPanel/SkyPanel"
+var UserAgent = SkyPanel.Display + " https://github.com/SkyPanel/SkyPanel"
 
 type PaperDl struct {
 	MinecraftVersion string
@@ -26,39 +26,39 @@ type PaperDl struct {
 	Filename         string
 }
 
-func (op PaperDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
+func (op PaperDl) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
 	env := args.Environment
 
 	if op.MinecraftVersion == "latest" {
 		logging.Info.Printf("PaperDL got Minecraft version 'latest', looking up latest version supported by Paper")
 		mcVersion, err := getLatestMCVersion()
 		if err != nil {
-			return skypanel.OperationResult{Error: err}
+			return SkyPanel.OperationResult{Error: err}
 		}
 		op.MinecraftVersion = mcVersion
 	}
 
-	dlURL, hash, err := op.getDownloadURLAndHash(env)
+	dlUrl, hash, err := op.getDownloadUrlAndHash(env)
 	if err != nil {
-		return skypanel.OperationResult{Error: err}
+		return SkyPanel.OperationResult{Error: err}
 	}
 
-	dl, err := skypanel.Download(dlURL, hash, crypto.SHA256, true, env)
+	dl, err := SkyPanel.Download(dlUrl, hash, crypto.SHA256, true, env)
 	defer utils.Close(dl)
 	if err != nil {
-		return skypanel.OperationResult{Error: err}
+		return SkyPanel.OperationResult{Error: err}
 	}
 
 	err = files.WriteFile(dl, path.Join(env.GetRootDirectory(), op.Filename))
 	if err != nil {
-		return skypanel.OperationResult{Error: err}
+		return SkyPanel.OperationResult{Error: err}
 	}
 
-	return skypanel.OperationResult{Error: nil}
+	return SkyPanel.OperationResult{Error: nil}
 }
 
 func getLatestMCVersion() (string, error) {
-	path, err := url.Parse(VersionsURL)
+	path, err := url.Parse(VersionsUrl)
 	if err != nil {
 		return "", err
 	}
@@ -70,7 +70,7 @@ func getLatestMCVersion() (string, error) {
 	}
 	request.Header.Add("user-agent", UserAgent)
 
-	response, err := skypanel.HTTP().Do(request)
+	response, err := SkyPanel.Http().Do(request)
 	defer utils.CloseResponse(response)
 	if err != nil {
 		return "", err
@@ -84,7 +84,7 @@ func getLatestMCVersion() (string, error) {
 
 	latest, _ := version.NewVersion("0.0")
 	for _, v := range versions.Versions {
-		if ver, err := version.NewVersion(v.VersionInfo.ID); err == nil && latest.LessThan(ver) {
+		if ver, err := version.NewVersion(v.VersionInfo.Id); err == nil && latest.LessThan(ver) {
 			latest = ver
 		} else if err != nil {
 			logging.Info.Printf("failed to parse version '%s', %s", v, err)
@@ -95,8 +95,8 @@ func getLatestMCVersion() (string, error) {
 	return latest.Original(), nil
 }
 
-func (op PaperDl) getDownloadURLAndHash(env *skypanel.Environment) (string, string, error) {
-	path, err := url.Parse(strings.ReplaceAll(strings.ReplaceAll(BuildURL, "${mcVersion}", op.MinecraftVersion), "${build}", op.Build))
+func (op PaperDl) getDownloadUrlAndHash(env *SkyPanel.Environment) (string, string, error) {
+	path, err := url.Parse(strings.Replace(strings.Replace(BuildUrl, "${mcVersion}", op.MinecraftVersion, -1), "${build}", op.Build, -1))
 	if err != nil {
 		return "", "", err
 	}
@@ -108,7 +108,7 @@ func (op PaperDl) getDownloadURLAndHash(env *skypanel.Environment) (string, stri
 	}
 	request.Header.Add("User-Agent", UserAgent)
 
-	response, err := skypanel.HTTP().Do(request)
+	response, err := SkyPanel.Http().Do(request)
 	defer utils.CloseResponse(response)
 	if err != nil {
 		return "", "", err
@@ -125,11 +125,11 @@ func (op PaperDl) getDownloadURLAndHash(env *skypanel.Environment) (string, stri
 		return "", "", err
 	}
 
-	return build.Downloads.Server.URL, build.Downloads.Server.Checksums.Sha256, nil
+	return build.Downloads.Server.Url, build.Downloads.Server.Checksums.Sha256, nil
 }
 
 type PaperVersionInfo struct {
-	ID string `json:"id"`
+	Id string `json:"id"`
 }
 
 type PaperVersion struct {
@@ -146,7 +146,7 @@ type PaperChecksums struct {
 
 type PaperServer struct {
 	Checksums PaperChecksums `json:"checksums"`
-	URL       string         `json:"url"`
+	Url       string         `json:"url"`
 }
 
 type PaperDownload struct {

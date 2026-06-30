@@ -15,7 +15,7 @@ func TestAIAPI(t *testing.T) {
 
 	t.Run("NoAPIKey", func(t *testing.T) {
 		// Ensure API key is empty
-		config.GeminiAPIKey.Set("", false)
+		config.GeminiApiKey.Set("", false)
 
 		response := CallAPI("POST", "/api/ai/analyze", map[string]interface{}{
 			"logs": []string{"Error: Something went wrong"},
@@ -26,7 +26,7 @@ func TestAIAPI(t *testing.T) {
 	})
 
 	t.Run("EmptyLogs", func(t *testing.T) {
-		config.GeminiAPIKey.Set("fake-key", false)
+		config.GeminiApiKey.Set("fake-key", false)
 
 		response := CallAPI("POST", "/api/ai/analyze", map[string]interface{}{
 			"logs": []string{},

@@ -28,8 +28,8 @@ type LicenseVerifyResponse struct {
 		ExpiryDate    string `json:"expiryDate"`
 		DaysRemaining int    `json:"daysRemaining"`
 		BillingCycle  string `json:"billingCycle"`
-		BoundServerID string `json:"boundServerId"`
-		BoundServerIP string `json:"boundServerIp"`
+		BoundServerId string `json:"boundServerId"`
+		BoundServerIp string `json:"boundServerIp"`
 	} `json:"license"`
 	User struct {
 		Email string `json:"email"`
@@ -48,8 +48,8 @@ type LicenseVerifyResponse struct {
 // Request para vincular servidor (POST)
 type LicenseBindRequest struct {
 	LicenseKey string `json:"licenseKey"`
-	ServerID   string `json:"serverId"`
-	ServerIP   string `json:"serverIp"`
+	ServerId   string `json:"serverId"`
+	ServerIp   string `json:"serverIp"`
 }
 
 // Respuesta del bind de licencia (POST)
@@ -107,13 +107,13 @@ func (ls *LicenseService) VerifyLicense(licenseKey string) (*LicenseVerifyRespon
 }
 
 // BindLicense vincula una licencia con un servidor usando POST /api/public/licenses/verify
-func (ls *LicenseService) BindLicense(licenseKey, serverID, serverIP string) (*LicenseBindResponse, error) {
+func (ls *LicenseService) BindLicense(licenseKey, serverId, serverIp string) (*LicenseBindResponse, error) {
 	url := fmt.Sprintf("%s/verify", LicenseAPIBaseURL)
 
 	reqBody := LicenseBindRequest{
 		LicenseKey: licenseKey,
-		ServerID:   serverID,
-		ServerIP:   serverIP,
+		ServerId:   serverId,
+		ServerIp:   serverIp,
 	}
 
 	jsonData, err := json.Marshal(reqBody)

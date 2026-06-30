@@ -1,4 +1,4 @@
-package skypanel
+package SkyPanel
 
 import (
 	"net/http"
@@ -11,17 +11,17 @@ import (
 
 var httpClient = &http.Client{}
 
-func HTTP() *http.Client {
+func Http() *http.Client {
 	return httpClient
 }
 
-func HTTPGet(requestURL string) (*http.Response, error) {
-	return httpClient.Get(requestURL)
+func HttpGet(requestUrl string) (*http.Response, error) {
+	return httpClient.Get(requestUrl)
 }
 
-func HTTPExtract(requestURL, directory string, archiveType archiver.Walker) error {
-	// we will write this to temp so we can not keep so much in memory
-	response, err := grab.Get(os.TempDir(), requestURL)
+func HttpExtract(requestUrl, directory string, archiveType archiver.Walker) error {
+	//we will write this to temp so we can not keep so much in memory
+	response, err := grab.Get(os.TempDir(), requestUrl)
 	if err != nil {
 		return err
 	}

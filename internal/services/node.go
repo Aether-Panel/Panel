@@ -21,7 +21,7 @@ import (
 var wsupgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-	CheckOrigin: func(_ *http.Request) bool {
+	CheckOrigin: func(r *http.Request) bool {
 		return true
 	},
 }
@@ -31,10 +31,10 @@ func init() {
 }
 
 func SyncNodeToConfig() {
-	var masterURL = strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(config.MasterURL.Value(), "http://"), "https://"), "/")
-	var masterParts = strings.SplitN(masterURL, ":", 2)
-	models.LocalNode.PublicHost = strings.Split(masterURL, ":")[0]
-	models.LocalNode.PrivateHost = strings.Split(masterURL, ":")[0]
+	var masterUrl = strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(config.MasterUrl.Value(), "http://"), "https://"), "/")
+	var masterParts = strings.SplitN(masterUrl, ":", 2)
+	models.LocalNode.PublicHost = strings.Split(masterUrl, ":")[0]
+	models.LocalNode.PrivateHost = strings.Split(masterUrl, ":")[0]
 
 	if len(masterParts) == 2 {
 		port, err := strconv.Atoi(masterParts[1])
@@ -43,8 +43,8 @@ func SyncNodeToConfig() {
 			models.LocalNode.PrivatePort = uint16(port)
 		}
 	} else {
-		// default port to 80 or 443 as the url doesn't have one, so we can assume one or other
-		if strings.HasPrefix(config.MasterURL.Value(), "https://") {
+		//default port to 80 or 443 as the url doesn't have one, so we can assume one or other
+		if strings.HasPrefix(config.MasterUrl.Value(), "https://") {
 			models.LocalNode.PublicPort = 443
 			models.LocalNode.PrivatePort = 443
 		} else {
@@ -127,7 +127,7 @@ func (ns *Node) Delete(id uint) error {
 	var count int64
 	ns.DB.Model(&models.Server{}).Where("node_id = ?", model.ID).Count(&count)
 	if count > 0 {
-		return skypanel.ErrNodeHasServers
+		return SkyPanel.ErrNodeHasServers
 	}
 
 	res := ns.DB.Delete(model)
@@ -140,19 +140,19 @@ func (ns *Node) Create(node *models.Node) error {
 }
 
 func (ns *Node) CallNode(node *models.Node, method string, path string, body io.ReadCloser, headers http.Header) (*http.Response, error) {
-	var fullURL string
+	var fullUrl string
 	var err error
 
 	if node.IsLocal() {
-		fullURL = "http://localhost" + path
+		fullUrl = "http://localhost" + path
 	} else {
-		fullURL, err = createNodeURL(node, path)
+		fullUrl, err = createNodeURL(node, path)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	addr, err := url.Parse(fullURL)
+	addr, err := url.Parse(fullUrl)
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +172,7 @@ func (ns *Node) CallNode(node *models.Node, method string, path string, body io.
 		return nil, err
 	}
 
-	// generate a new JWT token
+	//generate a new JWT token
 	token, err := ts.GenerateRequest()
 	if err != nil {
 		return nil, err
@@ -186,11 +186,11 @@ func (ns *Node) CallNode(node *models.Node, method string, path string, body io.
 	if node.IsLocal() {
 		w := &httptest.ResponseRecorder{}
 		w.Body = &bytes.Buffer{}
-		skypanel.Engine.ServeHTTP(w, request)
+		SkyPanel.Engine.ServeHTTP(w, request)
 		return w.Result(), err
 	}
 
-	response, err := skypanel.HTTP().Do(request)
+	response, err := SkyPanel.Http().Do(request)
 	return response, err
 }
 
@@ -228,7 +228,7 @@ func (ns *Node) OpenSocket(node *models.Node, path string, writer http.ResponseW
 
 	c, _, err := websocket.DefaultDialer.Dial(u, header)
 	if err != nil {
-		// close the connection, because it failed
+		//close the connection, because it failed
 		_ = conn.Close()
 		return err
 	}
@@ -259,14 +259,14 @@ func doesDaemonUseSSL(node *models.Node) (bool, error) {
 
 	path := fmt.Sprintf("://%s:%d/daemon", node.PrivateHost, node.PrivatePort)
 
-	// we want to do options so we can avoid auth
+	//we want to do options so we can avoid auth
 	u, err := url.Parse("https" + path)
 	if err != nil {
 		return false, err
 	}
 
 	request := &http.Request{Method: http.MethodOptions, URL: u}
-	_, err = skypanel.HTTP().Do(request)
+	_, err = SkyPanel.Http().Do(request)
 
 	if err != nil {
 		u, err = url.Parse("http" + path)
@@ -275,7 +275,7 @@ func doesDaemonUseSSL(node *models.Node) (bool, error) {
 		}
 
 		request = &http.Request{Method: http.MethodOptions, URL: u}
-		_, err = skypanel.HTTP().Do(request)
+		_, err = SkyPanel.Http().Do(request)
 		return false, err
 	}
 

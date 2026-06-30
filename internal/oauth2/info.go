@@ -18,7 +18,7 @@ func GetInfo(token string, hint string) (TokenInfoResponse, error) {
 	var info TokenInfoResponse
 
 	request := createRequest(data)
-	response, err := skypanel.HTTP().Do(request)
+	response, err := SkyPanel.Http().Do(request)
 	defer utils.CloseResponse(response)
 	if err != nil {
 		return info, err

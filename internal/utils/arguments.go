@@ -8,7 +8,7 @@ import (
 func ReplaceTokens(msg string, mapping map[string]interface{}) string {
 	newmsg := msg
 	for key, value := range mapping {
-		newmsg = strings.ReplaceAll(newmsg, "${"+key+"}", fmt.Sprint(value))
+		newmsg = strings.Replace(newmsg, "${"+key+"}", fmt.Sprint(value), -1)
 	}
 	return newmsg
 }
@@ -36,7 +36,7 @@ func SplitArguments(source string) (cmd string, arguments []string) {
 
 	results := []string{""}
 
-	skip := false // if this is set, the next char is always added to the current string
+	skip := false //if this is set, the next char is always added to the current string
 	inQuote := false
 	for _, v := range source {
 		if skip {
@@ -66,7 +66,7 @@ func SplitArguments(source string) (cmd string, arguments []string) {
 		}
 	}
 
-	// remove any "empty" items
+	//remove any "empty" items
 	i := 0 // output index
 	for _, x := range results {
 		if x != "" {

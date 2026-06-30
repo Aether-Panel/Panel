@@ -15,7 +15,7 @@ type Server struct {
 
 type ServerSearch struct {
 	Username string
-	NodeID   uint
+	NodeId   uint
 	NodeName string
 	Name     string
 	PageSize uint
@@ -25,8 +25,8 @@ type ServerSearch struct {
 func (ss *Server) Search(searchCriteria ServerSearch) (records []*models.Server, total int64, err error) {
 	query := ss.DB
 
-	if searchCriteria.NodeID != 0 {
-		query = query.Where(&models.Server{NodeID: searchCriteria.NodeID})
+	if searchCriteria.NodeId != 0 {
+		query = query.Where(&models.Server{NodeID: searchCriteria.NodeId})
 	} else if searchCriteria.NodeName != "" {
 		if searchCriteria.NodeName == "LocalNode" {
 			query = query.Where(&models.Server{NodeID: 0, RawNodeID: nil})
@@ -41,7 +41,7 @@ func (ss *Server) Search(searchCriteria ServerSearch) (records []*models.Server,
 		query = query.Where("users.username = ?", searchCriteria.Username)
 	}
 
-	nameFilter := strings.ReplaceAll(searchCriteria.Name, "*", "%")
+	nameFilter := strings.Replace(searchCriteria.Name, "*", "%", -1)
 
 	if nameFilter != "" && nameFilter != "%" {
 		query = query.Where("name LIKE ?", nameFilter)
@@ -122,12 +122,12 @@ func (ss *Server) Delete(id string) error {
 
 func (ss *Server) Create(model *models.Server) error {
 	if model.Identifier == "" {
-		uniqueID, err := uuid.NewV4()
+		uniqueId, err := uuid.NewV4()
 		if err != nil {
 			return err
 		}
-		generatedID := strings.ToUpper(uniqueID.String())[0:8]
-		model.Identifier = generatedID
+		generatedId := strings.ToUpper(uniqueId.String())[0:8]
+		model.Identifier = generatedId
 	}
 
 	res := ss.DB.Omit(clause.Associations).Create(model)

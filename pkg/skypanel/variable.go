@@ -1,4 +1,4 @@
-package skypanel
+package SkyPanel
 
 import (
 	"encoding/json"
@@ -14,13 +14,13 @@ type Variable struct {
 	Internal     bool             `json:"internal,omitempty"`
 	UserEditable bool             `json:"userEdit"`
 	Options      []VariableOption `json:"options,omitempty"`
-} // @name Variable
+} //@name Variable
 type variableAlias Variable
 
 type VariableOption struct {
 	Value   interface{} `json:"value"`
 	Display string      `json:"display"`
-} // @name VariableOption
+} //@name VariableOption
 
 func (v *Variable) UnmarshalJSON(data []byte) (err error) {
 	aux := variableAlias{}
@@ -31,12 +31,12 @@ func (v *Variable) UnmarshalJSON(data []byte) (err error) {
 		aux.Type = Type{Type: "string"}
 	}
 
-	// default any null value to empty string
+	//default any null value to empty string
 	if aux.Value == nil {
 		aux.Value = ""
 	}
 
-	// convert variable to correct typing
+	//convert variable to correct typing
 	switch aux.Type.Type {
 	case "integer":
 		{

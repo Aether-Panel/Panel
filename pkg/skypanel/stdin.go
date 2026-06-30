@@ -1,4 +1,4 @@
-package skypanel
+package SkyPanel
 
 import (
 	"encoding/json"
@@ -11,7 +11,7 @@ type StdinConsoleConfiguration struct {
 	IP       string `json:"ip,omitempty"`
 	Port     string `json:"port,omitempty"`
 	Password string `json:"password,omitempty"`
-} // @name StdinConsoleConfiguration
+} //@name StdinConsoleConfiguration
 
 type stdinConfigAlias StdinConsoleConfiguration
 

@@ -6,7 +6,7 @@ import (
 )
 
 func Close(closer io.Closer) {
-	// at this point, i give up trying to get this to not fail, so we'll go with the brute force
+	//at this point, i give up trying to get this to not fail, so we'll go with the brute force
 	defer func() {
 		_ = recover()
 	}()

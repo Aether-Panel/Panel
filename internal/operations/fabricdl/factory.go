@@ -3,10 +3,10 @@ package fabricdl
 import "github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 
 type OperationFactory struct {
-	skypanel.OperationFactory
+	SkyPanel.OperationFactory
 }
 
-func (of OperationFactory) Create(_ skypanel.CreateOperation) (skypanel.Operation, error) {
+func (of OperationFactory) Create(op SkyPanel.CreateOperation) (SkyPanel.Operation, error) {
 	return &Fabricdl{}, nil
 }
 

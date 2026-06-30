@@ -1,4 +1,4 @@
-package skypanel
+package SkyPanel
 
 import (
 	"crypto"
@@ -22,7 +22,7 @@ func DownloadFile(url, fileName string, env *Environment) error {
 
 	env.DisplayToConsole(true, "Downloading: "+url+"\n")
 
-	response, err := HTTPGet(url)
+	response, err := HttpGet(url)
 	defer utils.CloseResponse(response)
 	if err != nil {
 		return err
@@ -47,7 +47,7 @@ func DownloadFileToCache(url, fileName string) error {
 
 	logging.Info.Printf("Downloading: %s\n", url)
 
-	response, err := HTTPGet(url)
+	response, err := HttpGet(url)
 	defer utils.CloseResponse(response)
 	if err != nil {
 		return err
@@ -59,15 +59,15 @@ func DownloadFileToCache(url, fileName string) error {
 
 func downloadFile(url string) (io.ReadCloser, error) {
 	logging.Info.Printf("Downloading: %s", url)
-	response, err := HTTPGet(url)
+	response, err := HttpGet(url)
 	if err != nil {
 		return nil, err
 	}
 	return response.Body, err
 }
 
-func cacheFile(downloadURL, localPath string) (io.ReadCloser, error) {
-	dl, err := downloadFile(downloadURL)
+func cacheFile(downloadUrl, localPath string) (io.ReadCloser, error) {
+	dl, err := downloadFile(downloadUrl)
 	if err != nil {
 		utils.Close(dl)
 		return nil, err
@@ -102,77 +102,78 @@ func cacheFile(downloadURL, localPath string) (io.ReadCloser, error) {
 	return f, nil
 }
 
-func Download(downloadURL, hash string, algorithm crypto.Hash, cache bool, env *Environment) (io.ReadCloser, error) {
+func Download(downloadUrl, hash string, algorithm crypto.Hash, cache bool, env *Environment) (io.ReadCloser, error) {
 	if env != nil {
-		env.DisplayToConsole(true, "Downloading: %s\n", downloadURL)
+		env.DisplayToConsole(true, "Downloading: %s\n", downloadUrl)
 	}
 
 	if !cache {
 		// don't interact with cache, directly return download response
-		return downloadFile(downloadURL)
-	}
-	// caching allowed
-	localPath := filepath.Join(config.CacheFolder.Value(), strings.TrimPrefix(strings.TrimPrefix(downloadURL, "http:// "), "https:// "))
+		return downloadFile(downloadUrl)
+	} else {
+		// caching allowed
+		localPath := filepath.Join(config.CacheFolder.Value(), strings.TrimPrefix(strings.TrimPrefix(downloadUrl, "http://"), "https://"))
 
-	if os.PathSeparator != '/' {
-		localPath = strings.ReplaceAll(localPath, "/", string(os.PathSeparator))
-	}
+		if os.PathSeparator != '/' {
+			localPath = strings.Replace(localPath, "/", string(os.PathSeparator), -1)
+		}
 
-	// try to open existing cached file
-	f, err := os.Open(localPath)
-	if os.IsNotExist(err) {
-		// cache miss, need to download
-		return cacheFile(downloadURL, localPath)
-	} else if err != nil {
-		logging.Info.Printf("Failed opening cached file despite it existing: %s", err)
-		return downloadFile(downloadURL)
-	}
+		// try to open existing cached file
+		f, err := os.Open(localPath)
+		if os.IsNotExist(err) {
+			// cache miss, need to download
+			return cacheFile(downloadUrl, localPath)
+		} else if err != nil {
+			logging.Info.Printf("Failed opening cached file despite it existing: %s", err)
+			return downloadFile(downloadUrl)
+		}
 
-	h := algorithm.New()
-	if _, err := io.Copy(h, f); err != nil {
-		utils.Close(f)
-		logging.Info.Printf("Cached file is not readable, will download (%s)", localPath)
-		return downloadFile(downloadURL)
+		h := algorithm.New()
+		if _, err := io.Copy(h, f); err != nil {
+			utils.Close(f)
+			logging.Info.Printf("Cached file is not readable, will download (%s)", localPath)
+			return downloadFile(downloadUrl)
+		}
+		actualHash := fmt.Sprintf("%x", h.Sum(nil))
+		_, err = f.Seek(0, io.SeekStart)
+		if err != nil {
+			return nil, err
+		}
+		if hash == actualHash {
+			logging.Info.Printf("Using cached copy of file: %s\n", downloadUrl)
+			return f, nil
+		} else {
+			logging.Info.Printf("Cache expected %s but was actually %s, downloading new version and caching to %s", hash, actualHash, localPath)
+			utils.Close(f)
+			return cacheFile(downloadUrl, localPath)
+		}
 	}
-	actualHash := fmt.Sprintf("%x", h.Sum(nil))
-	_, err = f.Seek(0, io.SeekStart)
-	if err != nil {
-		return nil, err
-	}
-	if hash == actualHash {
-		logging.Info.Printf("Using cached copy of file: %s\n", downloadURL)
-		return f, nil
-	}
-
-	logging.Info.Printf("Cache expected %s but was actually %s, downloading new version and caching to %s", hash, actualHash, localPath)
-	utils.Close(f)
-	return cacheFile(downloadURL, localPath)
 }
 
-func DownloadHash(hashURL string, algorithm crypto.Hash) (string, error) {
-	logging.Info.Printf("Downloading hash from %s", hashURL)
-	response, err := HTTPGet(hashURL)
+func DownloadHash(hashUrl string, algorithm crypto.Hash) (string, error) {
+	logging.Info.Printf("Downloading hash from %s", hashUrl)
+	response, err := HttpGet(hashUrl)
 	defer utils.CloseResponse(response)
 	if err != nil {
 		return "", err
-	}
+	} else {
+		data := make([]byte, algorithm.Size()*2)
+		_, err := response.Body.Read(data)
+		if err != nil {
+			return "", err
+		}
 
-	data := make([]byte, algorithm.Size()*2)
-	_, err = response.Body.Read(data)
-	if err != nil {
-		return "", err
+		return string(data), nil
 	}
-
-	return string(data), nil
 }
 
-func DownloadViaMaven(downloadURL string, env *Environment) (io.ReadCloser, error) {
-	hashURL := downloadURL + ".sha1"
-	expectedHash, err := DownloadHash(hashURL, crypto.SHA1)
+func DownloadViaMaven(downloadUrl string, env *Environment) (io.ReadCloser, error) {
+	hashUrl := downloadUrl + ".sha1"
+	expectedHash, err := DownloadHash(hashUrl, crypto.SHA1)
 	if err != nil {
 		logging.Info.Printf("Failed downloading hash, not using cache")
-		return Download(downloadURL, "", crypto.SHA1, false, env)
+		return Download(downloadUrl, "", crypto.SHA1, false, env)
 	}
 
-	return Download(downloadURL, expectedHash, crypto.SHA1, true, env)
+	return Download(downloadUrl, expectedHash, crypto.SHA1, true, env)
 }

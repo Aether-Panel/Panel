@@ -15,7 +15,7 @@ import (
 	"strings"
 )
 
-const DownloadBaseURL = "https://github.com/SteamRE/DepotDownloader/releases/download/DepotDownloader_${version}/"
+const DownloadBaseUrl = "https://github.com/SteamRE/DepotDownloader/releases/download/DepotDownloader_${version}/"
 const RepoReleases = "https://api.github.com/repos/SteamRE/DepotDownloader/releases?per_page=1"
 
 func downloadDD(rootBinaryFolder string, version string) error {
@@ -35,7 +35,7 @@ func downloadDD(rootBinaryFolder string, version string) error {
 			return err
 		}
 	} else {
-		link = strings.ReplaceAll(DownloadBaseURL+AssetName, "${version}", version)
+		link = strings.ReplaceAll(DownloadBaseUrl+AssetName, "${version}", version)
 		arch := "x64"
 		if runtime.GOOS == "arm64" {
 			arch = "arm64"
@@ -43,7 +43,7 @@ func downloadDD(rootBinaryFolder string, version string) error {
 		link = strings.Replace(link, "${arch}", arch, 1)
 	}
 
-	err = skypanel.HTTPExtract(link, filepath.Join(rootBinaryFolder, "depotdownloader"), archiver.DefaultZip)
+	err = SkyPanel.HttpExtract(link, filepath.Join(rootBinaryFolder, "depotdownloader"), archiver.DefaultZip)
 	if err != nil {
 		return err
 	}
@@ -53,7 +53,7 @@ func downloadDD(rootBinaryFolder string, version string) error {
 }
 
 func getLatestVersion() (string, error) {
-	client := skypanel.HTTP()
+	client := SkyPanel.Http()
 	request := &http.Request{}
 
 	var err error
@@ -87,10 +87,10 @@ func getLatestVersion() (string, error) {
 			if strings.Contains(assetName, strings.ToLower(runtime.GOOS)) {
 				if runtime.GOARCH == "amd64" {
 					if strings.Contains(assetName, "x64") {
-						return asset.DownloadURL, nil
+						return asset.DownloadUrl, nil
 					}
 				} else if strings.Contains(assetName, strings.ToLower(runtime.GOARCH)) {
-					return asset.DownloadURL, nil
+					return asset.DownloadUrl, nil
 				}
 			}
 		}
@@ -104,5 +104,5 @@ type GithubRelease struct {
 
 type GithubAsset struct {
 	Name        string `json:"name"`
-	DownloadURL string `json:"browser_download_url"`
+	DownloadUrl string `json:"browser_download_url"`
 }

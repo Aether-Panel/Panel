@@ -6,7 +6,7 @@ import (
 )
 
 func IsUserIn(groups ...string) bool {
-	// add root as an allowed group
+	//add root as an allowed group
 	groups = append(groups, "root")
 
 	u, err := user.Current()
@@ -15,13 +15,13 @@ func IsUserIn(groups ...string) bool {
 		return false
 	}
 
-	allowedIDs := make([]string, 0)
+	allowedIds := make([]string, 0)
 	for _, v := range groups {
 		rootGroup, err := user.LookupGroup(v)
 		if err != nil {
 			fmt.Println(err.Error())
 		} else {
-			allowedIDs = append(allowedIDs, rootGroup.Gid)
+			allowedIds = append(allowedIds, rootGroup.Gid)
 		}
 	}
 
@@ -32,7 +32,7 @@ func IsUserIn(groups ...string) bool {
 	}
 
 	for _, v := range g {
-		for _, t := range allowedIDs {
+		for _, t := range allowedIds {
 			if v == t {
 				return true
 			}

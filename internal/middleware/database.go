@@ -17,7 +17,7 @@ func NeedsDatabase(c *gin.Context) {
 
 	if err != nil {
 		logging.Error.Printf("Database not available: %s", err)
-		err = skypanel.ErrDatabaseNotAvailable
+		err = SkyPanel.ErrDatabaseNotAvailable
 	}
 
 	if response.HandleError(c, err, http.StatusInternalServerError) {
@@ -46,7 +46,7 @@ func HasTransaction(c *gin.Context) {
 		NeedsDatabase(c)
 		db = GetDatabase(c)
 		if db == nil {
-			response.HandleError(c, skypanel.ErrDatabaseNotAvailable, http.StatusInternalServerError)
+			response.HandleError(c, SkyPanel.ErrDatabaseNotAvailable, http.StatusInternalServerError)
 			return
 		}
 	}

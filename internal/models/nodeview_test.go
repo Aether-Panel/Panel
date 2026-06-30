@@ -24,7 +24,7 @@ func TestFromNodes(t *testing.T) {
 
 	desired := make(NodesView, 1)
 	desired[0] = &NodeView{
-		ID:          sourceNode[0].ID,
+		Id:          sourceNode[0].ID,
 		Name:        sourceNode[0].Name,
 		PublicHost:  sourceNode[0].PublicHost,
 		PrivateHost: sourceNode[0].PrivateHost,

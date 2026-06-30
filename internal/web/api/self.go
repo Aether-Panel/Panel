@@ -34,17 +34,17 @@ func registerSelf(g *gin.RouterGroup) {
 	g.Handle("POST", "/oauth2", middleware.RequiresPermission(scopes.ScopeSelfClients), createPersonalOAuth2Client)
 	g.Handle("OPTIONS", "/oauth2", response.CreateOptions("GET", "POST"))
 
-	g.Handle("DELETE", "/oauth2/:clientID", middleware.RequiresPermission(scopes.ScopeSelfClients), deletePersonalOAuth2Client)
-	g.Handle("OPTIONS", "/oauth2/:clientID", response.CreateOptions("DELETE"))
+	g.Handle("DELETE", "/oauth2/:clientId", middleware.RequiresPermission(scopes.ScopeSelfClients), deletePersonalOAuth2Client)
+	g.Handle("OPTIONS", "/oauth2/:clientId", response.CreateOptions("DELETE"))
 }
 
 // @Summary Get your user info
 // @Description Gets the user information of the current user
 // @Success 200 {object} models.UserView
-// @Failure 400 {object} skypanel.ErrorResponse
-// @Failure 403 {object} skypanel.ErrorResponse
-// @Failure 404 {object} skypanel.ErrorResponse
-// @Failure 500 {object} skypanel.ErrorResponse
+// @Failure 400 {object} SkyPanel.ErrorResponse
+// @Failure 403 {object} SkyPanel.ErrorResponse
+// @Failure 404 {object} SkyPanel.ErrorResponse
+// @Failure 500 {object} SkyPanel.ErrorResponse
 // @Tags Self
 // @Router /api/self [get]
 // @Security OAuth2Application[login]
@@ -53,10 +53,10 @@ func getSelf(c *gin.Context) {
 
 	// If user has a role_id but Role is not loaded (e.g. role was assigned after session was created),
 	// reload it from DB so the scopes appear correctly in the response
-	if user.RoleID != nil && user.Role.ID == 0 {
+	if user.RoleId != nil && user.Role.ID == 0 {
 		db := middleware.GetDatabase(c)
 		rs := &services.Role{DB: db}
-		if role, err := rs.Get(*user.RoleID); err == nil {
+		if role, err := rs.Get(*user.RoleId); err == nil {
 			user.Role = *role
 		}
 	}
@@ -67,10 +67,10 @@ func getSelf(c *gin.Context) {
 // @Summary Update your user
 // @Description Update user information for your current user
 // @Success 204 {object} nil
-// @Failure 400 {object} skypanel.ErrorResponse
-// @Failure 403 {object} skypanel.ErrorResponse
-// @Failure 404 {object} skypanel.ErrorResponse
-// @Failure 500 {object} skypanel.ErrorResponse
+// @Failure 400 {object} SkyPanel.ErrorResponse
+// @Failure 403 {object} SkyPanel.ErrorResponse
+// @Failure 404 {object} SkyPanel.ErrorResponse
+// @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param user body models.UserView true "User information"
 // @Tags Self
 // @Router /api/self [PUT]
@@ -91,12 +91,12 @@ func updateSelf(c *gin.Context) {
 	}
 
 	if viewModel.Password == "" {
-		response.HandleError(c, skypanel.ErrFieldRequired("password"), http.StatusBadRequest)
+		response.HandleError(c, SkyPanel.ErrFieldRequired("password"), http.StatusBadRequest)
 		return
 	}
 
 	if !us.IsValidCredentials(user, viewModel.Password) {
-		response.HandleError(c, skypanel.ErrInvalidCredentials, http.StatusInternalServerError)
+		response.HandleError(c, SkyPanel.ErrInvalidCredentials, http.StatusInternalServerError)
 		return
 	}
 
@@ -110,7 +110,7 @@ func updateSelf(c *gin.Context) {
 	passwordChanged := false
 	if viewModel.NewPassword != "" {
 		if us.IsSecurePassword(viewModel.NewPassword) != nil {
-			response.HandleError(c, skypanel.ErrPasswordRequirements, http.StatusBadRequest)
+			response.HandleError(c, SkyPanel.ErrPasswordRequirements, http.StatusBadRequest)
 			return
 		}
 
@@ -191,7 +191,7 @@ func validateOtpEnroll(c *gin.Context) {
 	}
 
 	recoveryCodes, err := us.ValidateOtpEnroll(user.ID, request.Token)
-	if errors.Is(err, skypanel.ErrInvalidCredentials) {
+	if errors.Is(err, SkyPanel.ErrInvalidCredentials) {
 		response.HandleError(c, err, http.StatusBadRequest)
 		return
 	}
@@ -267,10 +267,10 @@ func disableOtp(c *gin.Context) {
 // @Summary Gets registered OAuth2 clients
 // @Description Gets known OAuth2 clients the logged-in user has registered
 // @Success 200 {object} []models.Client
-// @Failure 400 {object} skypanel.ErrorResponse
-// @Failure 403 {object} skypanel.ErrorResponse
-// @Failure 404 {object} skypanel.ErrorResponse
-// @Failure 500 {object} skypanel.ErrorResponse
+// @Failure 400 {object} SkyPanel.ErrorResponse
+// @Failure 403 {object} SkyPanel.ErrorResponse
+// @Failure 404 {object} SkyPanel.ErrorResponse
+// @Failure 500 {object} SkyPanel.ErrorResponse
 // @Tags Self
 // @Router /api/self/oauth2 [GET]
 // @Security OAuth2Application[self.clients]
@@ -290,10 +290,10 @@ func getPersonalOAuth2Clients(c *gin.Context) {
 
 // @Summary Create an account-level OAuth2 client
 // @Success 200 {object} models.Client
-// @Failure 400 {object} skypanel.ErrorResponse
-// @Failure 403 {object} skypanel.ErrorResponse
-// @Failure 404 {object} skypanel.ErrorResponse
-// @Failure 500 {object} skypanel.ErrorResponse
+// @Failure 400 {object} SkyPanel.ErrorResponse
+// @Failure 403 {object} SkyPanel.ErrorResponse
+// @Failure 404 {object} SkyPanel.ErrorResponse
+// @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param client body models.Client false "Information for the client to create"
 // @Tags Self
 // @Router /api/self/oauth2 [POST]
@@ -315,8 +315,8 @@ func createPersonalOAuth2Client(c *gin.Context) {
 		return
 	}
 	client := &models.Client{
-		ClientID:    id.String(),
-		UserID:      user.ID,
+		ClientId:    id.String(),
+		UserId:      user.ID,
 		Name:        request.Name,
 		Description: request.Description,
 	}
@@ -348,33 +348,33 @@ func createPersonalOAuth2Client(c *gin.Context) {
 
 // @Summary Deletes an account-level OAuth2 client
 // @Success 204 {object} nil
-// @Failure 400 {object} skypanel.ErrorResponse
-// @Failure 403 {object} skypanel.ErrorResponse
-// @Failure 404 {object} skypanel.ErrorResponse
-// @Failure 500 {object} skypanel.ErrorResponse
+// @Failure 400 {object} SkyPanel.ErrorResponse
+// @Failure 403 {object} SkyPanel.ErrorResponse
+// @Failure 404 {object} SkyPanel.ErrorResponse
+// @Failure 500 {object} SkyPanel.ErrorResponse
 // @Param id path string true "Information for the client to create"
 // @Tags Self
 // @Router /api/self/oauth2/{id} [DELETE]
 // @Security OAuth2Application[self.clients]
 func deletePersonalOAuth2Client(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
-	clientID := c.Param("clientID")
+	clientId := c.Param("clientId")
 
 	db := middleware.GetDatabase(c)
 	os := &services.OAuth2{DB: db}
 
-	client, err := os.Get(clientID)
+	client, err := os.Get(clientId)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
 
-	// ensure the client id is specific for this server, and this user
-	if client.UserID != user.ID {
+	//ensure the client id is specific for this server, and this user
+	if client.UserId != user.ID {
 		c.AbortWithStatus(http.StatusNotFound)
 		return
 	}
 
-	err = os.Delete(client.ClientID)
+	err = os.Delete(client.ClientId)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
