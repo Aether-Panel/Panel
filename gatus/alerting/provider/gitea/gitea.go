@@ -65,7 +65,7 @@ func (cfg *Config) Validate() error {
 		// add new http client for skip verify
 		httpClient := &http.Client{
 			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: false},
 			},
 		}
 		opts = append(opts, gitea.SetHTTPClient(httpClient))

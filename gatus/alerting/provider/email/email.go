@@ -134,7 +134,7 @@ func (provider *AlertProvider) Send(ep *endpoint.Endpoint, alert *alert.Alert, r
 		d = gomail.NewDialer(cfg.Host, cfg.Port, username, cfg.Password)
 	}
 	if cfg.ClientConfig != nil && cfg.ClientConfig.Insecure {
-		d.TLSConfig = &tls.Config{InsecureSkipVerify: true}
+		d.TLSConfig = &tls.Config{InsecureSkipVerify: false}
 	}
 	return d.DialAndSend(m)
 }
