@@ -29,7 +29,7 @@ type TransferRequest struct {
 // @Param id path string true "Server ID"
 // @Param request body TransferRequest true "Target Node ID"
 // @Success 202 {object} string "Transfer started"
-// @Failure 400 {object} SkyPanel.ErrorResponse
+// @Failure 400 {object} skypanel.ErrorResponse
 // @Tags Servers
 // @Router /api/servers/{id}/transfer [post]
 // @Security OAuth2Application[server.edit.admin]

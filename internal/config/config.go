@@ -19,11 +19,11 @@ func LoadConfigFile(configFile string) error {
 		var exists bool
 		configFile, exists = os.LookupEnv("PUFFER_CONFIG")
 		if !exists || configFile == "" {
-			//well, check for the /etc path
+			// well, check for the /etc path
 			if _, err := os.Lstat("/etc/SkyPanel/config.json"); err == nil {
 				configFile = "/etc/SkyPanel/config.json"
 			}
-			//we got nothing
+			// we got nothing
 			if configFile == "" {
 				configFile = "config.json"
 			}
@@ -39,7 +39,7 @@ func LoadConfigFile(configFile string) error {
 	}
 
 	if DataRootFolder.Value() == "" {
-		//we need to set root and save it
+		// we need to set root and save it
 		serversDir := ServersFolder.Value()
 		err := DataRootFolder.Set(filepath.Dir(serversDir), true)
 		if err != nil {

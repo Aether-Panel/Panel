@@ -8,7 +8,7 @@ import (
 type ServerView struct {
 	Identifier     string           `json:"id,omitempty"`
 	Name           string           `json:"name,omitempty"`
-	NodeId         uint             `json:"nodeId"`
+	NodeID         uint             `json:"nodeId"`
 	Node           *NodeView        `json:"node,omitempty"`
 	Data           interface{}      `json:"data,omitempty"`
 	Users          []ServerUserView `json:"users,omitempty"`
@@ -23,18 +23,18 @@ type ServerView struct {
 	TotalMemory    int64            `json:"total_memory,omitempty"`
 	TotalDisk      int64            `json:"total_disk,omitempty"`
 	Suspended      bool             `json:"suspended"`
-} //@name ServerInfo
+} // @name ServerInfo
 
 type ServerUserView struct {
 	Username string   `json:"username"`
 	Scopes   []string `json:"scopes"`
-} //@name ServerUser
+} // @name ServerUser
 
 func FromServer(server *Server) *ServerView {
 	model := &ServerView{
 		Name:           server.Name,
 		Identifier:     server.Identifier,
-		NodeId:         server.NodeID,
+		NodeID:         server.NodeID,
 		IP:             server.IP,
 		Port:           server.Port,
 		Type:           server.Type,
@@ -64,23 +64,23 @@ func (s *ServerView) Valid(allowEmpty bool) error {
 	validate := validator.New()
 
 	if !allowEmpty && validate.Var(s.Name, "required") != nil {
-		return SkyPanel.ErrFieldRequired("name")
+		return skypanel.ErrFieldRequired("name")
 	}
 
 	if !allowEmpty && validate.Var(s.Type, "required") != nil {
-		return SkyPanel.ErrFieldRequired("type")
+		return skypanel.ErrFieldRequired("type")
 	}
 
 	if validate.Var(s.Name, "omitempty,printascii") != nil {
-		return SkyPanel.ErrFieldMustBePrintable("name")
+		return skypanel.ErrFieldMustBePrintable("name")
 	}
 
-	if !allowEmpty && validate.Var(s.NodeId, "required,min:1") != nil {
-		return SkyPanel.ErrFieldTooSmall("node", 1)
+	if !allowEmpty && validate.Var(s.NodeID, "required,min:1") != nil {
+		return skypanel.ErrFieldTooSmall("node", 1)
 	}
 
 	if validate.Var(s.IP, "omitempty,ip|fqdn") != nil {
-		return SkyPanel.ErrFieldIsInvalidIP("ip")
+		return skypanel.ErrFieldIsInvalidIP("ip")
 	}
 
 	return nil
@@ -94,7 +94,7 @@ func RemoveServerPrivateInfoFromAll(servers []*ServerView) []*ServerView {
 }
 
 func RemoveServerPrivateInfo(server *ServerView) *ServerView {
-	//SCRUB DATA FROM REGULAR USERS
+	// SCRUB DATA FROM REGULAR USERS
 	if server.Node != nil {
 		server.Node.PrivateHost = ""
 		server.Node.PrivatePort = 0

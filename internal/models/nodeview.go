@@ -7,7 +7,7 @@ import (
 )
 
 type NodeView struct {
-	Id          uint   `json:"id"`
+	ID          uint   `json:"id"`
 	Name        string `json:"name,omitempty"`
 	PublicHost  string `json:"publicHost,omitempty"`
 	PrivateHost string `json:"privateHost,omitempty"`
@@ -15,13 +15,13 @@ type NodeView struct {
 	PrivatePort uint16 `json:"privatePort,omitempty"`
 	SFTPPort    uint16 `json:"sftpPort,omitempty"`
 	Local       bool   `json:"isLocal"`
-} //@name Node
+} // @name Node
 
-type NodesView []*NodeView //@name Nodes
+type NodesView []*NodeView // @name Nodes
 
 func FromNode(n *Node) *NodeView {
 	return &NodeView{
-		Id:          n.ID,
+		ID:          n.ID,
 		Name:        n.Name,
 		PublicHost:  n.PublicHost,
 		PrivateHost: n.PrivateHost,
@@ -72,66 +72,66 @@ func (n *NodeView) Valid(allowEmpty bool) error {
 	validate := validator.New()
 
 	if !allowEmpty && validate.Var(n.Name, "required") != nil {
-		return SkyPanel.ErrFieldRequired("name")
+		return skypanel.ErrFieldRequired("name")
 	}
 
 	if validate.Var(n.Name, "omitempty,printascii") != nil {
-		return SkyPanel.ErrFieldMustBePrintable("name")
+		return skypanel.ErrFieldMustBePrintable("name")
 	}
 
 	testName := url.QueryEscape(n.Name)
 	if testName != n.Name {
-		return SkyPanel.ErrFieldHasURICharacters("name")
+		return skypanel.ErrFieldHasURICharacters("name")
 	}
 
 	if !allowEmpty && validate.Var(n.PublicHost, "required") != nil {
-		return SkyPanel.ErrFieldMustBePrintable("publicHost")
+		return skypanel.ErrFieldMustBePrintable("publicHost")
 	}
 
 	if validate.Var(n.PublicHost, "omitempty,ip|fqdn") != nil {
-		return SkyPanel.ErrFieldIsInvalidHost("publicHost")
+		return skypanel.ErrFieldIsInvalidHost("publicHost")
 	}
 
 	if !allowEmpty && validate.Var(n.PrivateHost, "required") != nil {
-		return SkyPanel.ErrFieldMustBePrintable("privateHost")
+		return skypanel.ErrFieldMustBePrintable("privateHost")
 	}
 
 	if validate.Var(n.PrivateHost, "omitempty,ip_addr|fqdn") != nil {
-		return SkyPanel.ErrFieldIsInvalidHost("privateHost")
+		return skypanel.ErrFieldIsInvalidHost("privateHost")
 	}
 
 	if allowEmpty {
 		if validate.Var(n.PublicPort, "min=0,max=65535") != nil {
-			return SkyPanel.ErrFieldTooLarge("publicPort", 65535)
+			return skypanel.ErrFieldTooLarge("publicPort", 65535)
 		}
 
 		if validate.Var(n.PrivatePort, "min=0,max=65535") != nil {
-			return SkyPanel.ErrFieldTooLarge("privatePort", 65535)
+			return skypanel.ErrFieldTooLarge("privatePort", 65535)
 		}
 
 		if validate.Var(n.SFTPPort, "min=0,max=65535") != nil {
-			return SkyPanel.ErrFieldTooLarge("sftpPort", 65535)
+			return skypanel.ErrFieldTooLarge("sftpPort", 65535)
 		}
 	} else {
 		if validate.Var(n.PublicPort, "min=1,max=65535") != nil {
-			return SkyPanel.ErrFieldNotBetween("publicPort", 1, 65535)
+			return skypanel.ErrFieldNotBetween("publicPort", 1, 65535)
 		}
 
 		if validate.Var(n.PrivatePort, "min=1,max=65535") != nil {
-			return SkyPanel.ErrFieldNotBetween("privatePort", 1, 65535)
+			return skypanel.ErrFieldNotBetween("privatePort", 1, 65535)
 		}
 
 		if validate.Var(n.SFTPPort, "min=1,max=65535") != nil {
-			return SkyPanel.ErrFieldNotBetween("sftpPort", 1, 65535)
+			return skypanel.ErrFieldNotBetween("sftpPort", 1, 65535)
 		}
 	}
 
 	if n.SFTPPort != 0 && n.SFTPPort == n.PublicPort {
-		return SkyPanel.ErrFieldEqual("sftpPort", "publicPort")
+		return skypanel.ErrFieldEqual("sftpPort", "publicPort")
 	}
 
 	if n.SFTPPort != 0 && n.SFTPPort == n.PrivatePort {
-		return SkyPanel.ErrFieldEqual("sftpPort", "privatePort")
+		return skypanel.ErrFieldEqual("sftpPort", "privatePort")
 	}
 
 	return nil

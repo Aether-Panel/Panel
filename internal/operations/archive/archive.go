@@ -9,7 +9,7 @@ type Archive struct {
 	Destination string
 }
 
-func (op Archive) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
+func (op Archive) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	err := args.Server.ArchiveItems(op.Source, op.Destination)
-	return SkyPanel.OperationResult{Error: err}
+	return skypanel.OperationResult{Error: err}
 }

@@ -14,9 +14,9 @@ type DatabaseView struct {
 	HostName         string `json:"host_name"`
 	CreatedAt        string `json:"created_at"`
 	UpdatedAt        string `json:"updated_at"`
-} //@name DatabaseView
+} // @name DatabaseView
 
 type DatabaseCreate struct {
 	DatabaseHostID uint   `json:"database_host_id" binding:"required"`
 	DatabaseName   string `json:"database_name" binding:"required"`
-} //@name DatabaseCreate
+} // @name DatabaseCreate

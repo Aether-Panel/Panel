@@ -10,7 +10,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 )
 
-func Test_DBConnection(t *testing.T) {
+func TestDBConnection(_ *testing.T) {
 	// 1. Cargar la configuración real
 	err := config.LoadConfigFile("config.json")
 	if err != nil {
@@ -18,7 +18,7 @@ func Test_DBConnection(t *testing.T) {
 	}
 
 	fmt.Printf("Usando Dialecto: %s\n", config.DatabaseDialect.Value())
-	fmt.Printf("Usando URL: %s\n", config.DatabaseUrl.Value())
+	fmt.Printf("Usando URL: %s\n", config.DatabaseURL.Value())
 
 	// 2. Usar la conexión oficial del proyecto
 	db, err := database.GetConnection()

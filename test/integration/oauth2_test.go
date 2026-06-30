@@ -9,7 +9,7 @@ import (
 )
 
 func TestOauth(t *testing.T) {
-	var clientId string
+	var clientID string
 	name := "Test Client"
 	description := "this is a test to make sure things even work"
 
@@ -31,7 +31,7 @@ func TestOauth(t *testing.T) {
 		if !assert.NoError(t, err) {
 			return
 		}
-		clientId = client.ClientId
+		clientID = client.ClientID
 	})
 
 	t.Run("GetClient", func(t *testing.T) {
@@ -52,7 +52,7 @@ func TestOauth(t *testing.T) {
 
 		found := false
 		for _, v := range clients {
-			if v.ClientId == clientId {
+			if v.ClientID == clientID {
 				found = true
 				if !assert.Equal(t, name, v.Name) {
 					return

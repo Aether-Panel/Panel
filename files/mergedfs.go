@@ -72,7 +72,7 @@ func (m *MergedFS) ReadFile(name string) (data []byte, err error) {
 				return
 			}
 		} else {
-			//primary FS does not expose the read file endpoint. We must read it directly
+			// primary FS does not expose the read file endpoint. We must read it directly
 			data, err = read(fss, name)
 			if err == nil || !os.IsNotExist(err) {
 				return
@@ -91,7 +91,7 @@ func read(fss fs.FS, name string) ([]byte, error) {
 		return nil, err
 	}
 
-	//to get the buffer... we have to make it the right size
+	// to get the buffer... we have to make it the right size
 	var fi fs.FileInfo
 	fi, err = f.Stat()
 	if err != nil {

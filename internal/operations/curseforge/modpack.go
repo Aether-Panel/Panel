@@ -19,7 +19,7 @@ func downloadModpack(file File) error {
 	var cacheZipFolder = getCacheFolderForFile(file)
 	var cacheZipFileLocation = getCacheFilePath(file)
 
-	//see if the file already exists, if so, use it instead
+	// see if the file already exists, if so, use it instead
 	if fi, err := os.Lstat(cacheZipFileLocation); err == nil && !fi.IsDir() && fi.Size() > 0 {
 		return nil
 	}
@@ -34,7 +34,7 @@ func downloadModpack(file File) error {
 	}
 	defer utils.Close(tmpFile)
 
-	response, err := SkyPanel.Http().Get(file.DownloadUrl)
+	response, err := skypanel.HTTP().Get(file.DownloadURL)
 	defer utils.CloseResponse(response)
 	if err != nil {
 		return err
@@ -58,7 +58,7 @@ func downloadModpack(file File) error {
 }
 
 func getCacheFolderForFile(file File) string {
-	return filepath.Join(config.CacheFolder.Value(), "curseforge", fmt.Sprintf("%d", file.Id))
+	return filepath.Join(config.CacheFolder.Value(), "curseforge", fmt.Sprintf("%d", file.ID))
 }
 
 func getCacheFilePath(file File) string {
@@ -66,7 +66,7 @@ func getCacheFilePath(file File) string {
 }
 
 func getManifest(clientFile File) (Manifest, error) {
-	if clientFile.Id == 0 {
+	if clientFile.ID == 0 {
 		return Manifest{}, os.ErrNotExist
 	}
 	manifestFile, err := extractFile(getCacheFilePath(clientFile), "manifest.json")
@@ -90,7 +90,7 @@ func extractFile(zipFile, fileName string) (*os.File, error) {
 		if err != nil {
 			return nil, err
 		}
-		//re-open file
+		// re-open file
 		file, err = os.Open(filepath.Join(folder, fileName))
 	}
 	return file, err

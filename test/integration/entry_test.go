@@ -26,16 +26,16 @@ import (
 
 func TestMain(m *testing.M) {
 	_ = os.WriteFile("config.json", []byte("{}"), 0644)
-	defer os.Remove("config.json")
+
 	_ = config.LoadConfigFile("config.json")
 	_ = os.Remove("testing.db")
 	var exitCode = 1
 
 	_ = config.DatabaseDialect.Set("sqlite3", false)
-	_ = config.DatabaseUrl.Set("file:testing.db", false)
+	_ = config.DatabaseURL.Set("file:testing.db", false)
 	_ = config.DaemonEnabled.Set(true, false)
 	_ = config.PanelEnabled.Set(true, false)
-	//_ = config.DatabaseLoggingEnabled.Set(false, false)
+	// _ = config.DatabaseLoggingEnabled.Set(false, false)
 
 	_ = os.Remove("testing.db")
 	_ = os.Remove("testing.db-wal")
@@ -54,7 +54,7 @@ func TestMain(m *testing.M) {
 		_ = os.Setenv("PATH", newPath+":"+fullPath)
 	}
 
-	//open db connection
+	// open db connection
 	db, err := database.GetConnection()
 	if err != nil {
 		panic(err)
@@ -69,7 +69,7 @@ func TestMain(m *testing.M) {
 	if err == nil {
 		router := gin.New()
 		router.Use(gin.Recovery())
-		//router.Use(gin.Logger())
+		// router.Use(gin.Logger())
 		gin.SetMode(gin.ReleaseMode)
 		web.RegisterRoutes(router)
 
@@ -80,18 +80,17 @@ func TestMain(m *testing.M) {
 		models.LocalNode.SFTPPort = uint16(rand.Intn(50000) + 10000)
 		RemoteNode.SFTPPort = models.LocalNode.SFTPPort
 		_ = config.SftpHost.Set(fmt.Sprintf("%s:%d", models.LocalNode.PrivateHost, models.LocalNode.SFTPPort), false)
-		_ = config.AuthUrl.Set(fmt.Sprintf("http://%s:%d/oauth2/token", models.LocalNode.PrivateHost, models.LocalNode.PrivatePort), false)
-		_ = config.MasterUrl.Set(fmt.Sprintf("http://%s:%d", models.LocalNode.PrivateHost, models.LocalNode.PrivatePort), false)
+		_ = config.AuthURL.Set(fmt.Sprintf("http://%s:%d/oauth2/token", models.LocalNode.PrivateHost, models.LocalNode.PrivatePort), false)
+		_ = config.MasterURL.Set(fmt.Sprintf("http://%s:%d", models.LocalNode.PrivateHost, models.LocalNode.PrivatePort), false)
 		_ = config.WebHost.Set(fmt.Sprintf("%s:%d", models.LocalNode.PrivateHost, models.LocalNode.PrivatePort), false)
 
 		l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", models.LocalNode.PrivateHost, models.LocalNode.PrivatePort))
 		if err != nil {
-			fmt.Printf("Error starting web services: %s", err.Error())
-			os.Exit(1)
+			panic(fmt.Sprintf("Error starting web services: %s", err.Error()))
 		}
 
 		webService := manners.NewWithServer(&http.Server{Handler: router})
-		SkyPanel.Engine = router
+		skypanel.Engine = router
 
 		go func() {
 			err = webService.Serve(l)
@@ -105,7 +104,7 @@ func TestMain(m *testing.M) {
 			sftp.Run()
 		}()
 
-		//sleep just to give time for the services to start
+		// sleep just to give time for the services to start
 		time.Sleep(5 * time.Second)
 
 		exitCode = m.Run()
@@ -120,6 +119,7 @@ func TestMain(m *testing.M) {
 	_ = os.RemoveAll("servers")
 	_ = os.RemoveAll("binaries")
 
+	os.Remove("config.json")
 	os.Exit(exitCode)
 }
 
@@ -134,6 +134,6 @@ func CallAPIRaw(method, url string, body []byte, token string) *httptest.Respons
 		request.Header.Add("Authorization", "Bearer "+token)
 	}
 	writer := httptest.NewRecorder()
-	SkyPanel.Engine.ServeHTTP(writer, request)
+	skypanel.Engine.ServeHTTP(writer, request)
 	return writer
 }

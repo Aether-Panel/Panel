@@ -9,13 +9,12 @@ func GetStringOrDefault(data map[string]interface{}, key string, def string) str
 	var section = data[key]
 	if section == nil {
 		return def
-	} else {
-		val, err := cast.ToStringE(section)
-		if err != nil {
-			return def
-		}
-		return val
 	}
+	val, err := cast.ToStringE(section)
+	if err != nil {
+		return def
+	}
+	return val
 }
 
 func GetBooleanOrDefault(data map[string]interface{}, key string, def bool) bool {
@@ -25,13 +24,12 @@ func GetBooleanOrDefault(data map[string]interface{}, key string, def bool) bool
 	var section = data[key]
 	if section == nil {
 		return def
-	} else {
-		val, err := cast.ToBoolE(section)
-		if err != nil {
-			return def
-		}
-		return val
 	}
+	val, err := cast.ToBoolE(section)
+	if err != nil {
+		return def
+	}
+	return val
 }
 
 func GetMapOrNull(data map[string]interface{}, key string) map[string]interface{} {
@@ -41,13 +39,12 @@ func GetMapOrNull(data map[string]interface{}, key string) map[string]interface{
 	var section = data[key]
 	if section == nil {
 		return nil
-	} else {
-		val, err := cast.ToStringMapE(section)
-		if err != nil {
-			return nil
-		}
-		return val
 	}
+	val, err := cast.ToStringMapE(section)
+	if err != nil {
+		return nil
+	}
+	return val
 }
 
 func GetObjectArrayOrNull(data map[string]interface{}, key string) []interface{} {
@@ -57,13 +54,12 @@ func GetObjectArrayOrNull(data map[string]interface{}, key string) []interface{}
 	var section = data[key]
 	if section == nil {
 		return nil
-	} else {
-		val, err := cast.ToSliceE(section)
-		if err != nil {
-			return nil
-		}
-		return val
 	}
+	val, err := cast.ToSliceE(section)
+	if err != nil {
+		return nil
+	}
+	return val
 }
 
 func GetStringArrayOrNull(data map[string]interface{}, key string) []string {
@@ -73,11 +69,10 @@ func GetStringArrayOrNull(data map[string]interface{}, key string) []string {
 	var section = data[key]
 	if section == nil {
 		return nil
-	} else {
-		val, err := cast.ToStringSliceE(section)
-		if err != nil {
-			return nil
-		}
-		return val
 	}
+	val, err := cast.ToStringSliceE(section)
+	if err != nil {
+		return nil
+	}
+	return val
 }

@@ -31,7 +31,7 @@ import (
 var wsupgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
+	CheckOrigin: func(_ *http.Request) bool {
 		return true
 	},
 }
@@ -55,13 +55,13 @@ func RegisterServerRoutes(e *gin.RouterGroup) {
 		l.GET("/:serverId/tasks", middleware.ResolveServerNode, getServerTasks)
 		l.OPTIONS("/:serverId/tasks", response.CreateOptions("GET"))
 
-		l.GET("/:serverId/tasks/:taskId", middleware.ResolveServerNode, getServerTask)
-		l.PUT("/:serverId/tasks/:taskId", middleware.ResolveServerNode, editServerTask)
-		l.DELETE("/:serverId/tasks/:taskId", middleware.ResolveServerNode, deleteServerTask)
-		l.OPTIONS("/:serverId/tasks/:taskId", response.CreateOptions("GET", "PUT", "DELETE"))
+		l.GET("/:serverId/tasks/:taskID", middleware.ResolveServerNode, getServerTask)
+		l.PUT("/:serverId/tasks/:taskID", middleware.ResolveServerNode, editServerTask)
+		l.DELETE("/:serverId/tasks/:taskID", middleware.ResolveServerNode, deleteServerTask)
+		l.OPTIONS("/:serverId/tasks/:taskID", response.CreateOptions("GET", "PUT", "DELETE"))
 
-		l.POST("/:serverId/tasks/:taskId/run", middleware.ResolveServerNode, runServerTask)
-		l.OPTIONS("/:serverId/tasks/:taskId/run", response.CreateOptions("POST"))
+		l.POST("/:serverId/tasks/:taskID/run", middleware.ResolveServerNode, runServerTask)
+		l.OPTIONS("/:serverId/tasks/:taskID/run", response.CreateOptions("POST"))
 
 		l.POST("/:serverId/reload", middleware.ResolveServerNode, reloadServer)
 		l.OPTIONS("/:serverId/reload", response.CreateOptions("POST"))
@@ -153,15 +153,14 @@ func startServer(c *gin.Context) {
 
 	if wait {
 		err := server.Start()
-		if response.HandleError(c, err, http.StatusInternalServerError) {
-		} else {
+		if !response.HandleError(c, err, http.StatusInternalServerError) {
 			c.Status(http.StatusNoContent)
 		}
 	} else {
 		go func() {
 			err := server.Start()
 			if err != nil {
-				logging.Error.Printf("Error starting server %s: %s", server.Id(), err)
+				logging.Error.Printf("Error starting server %s: %s", server.ID(), err)
 			}
 		}()
 		c.Status(http.StatusAccepted)
@@ -203,7 +202,7 @@ func restartServer(c *gin.Context) {
 		go func() {
 			err := doRestart(server)
 			if err != nil {
-				logging.Error.Printf("Error restarting server %s: %s", server.Id(), err)
+				logging.Error.Printf("Error restarting server %s: %s", server.ID(), err)
 			}
 		}()
 		c.Status(http.StatusAccepted)
@@ -230,8 +229,7 @@ func stopServer(c *gin.Context) {
 
 	if wait {
 		err = server.GetEnvironment().WaitForMainProcess()
-		if response.HandleError(c, err, http.StatusInternalServerError) {
-		} else {
+		if !response.HandleError(c, err, http.StatusInternalServerError) {
 			c.Status(http.StatusNoContent)
 		}
 	} else {
@@ -250,26 +248,25 @@ func killServer(c *gin.Context) {
 	server := getServerFromGin(c)
 
 	err := server.Kill()
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-	} else {
+	if !response.HandleError(c, err, http.StatusInternalServerError) {
 		c.Status(http.StatusNoContent)
 	}
 }
 
 // Already declared in panel routing
 func createServer(c *gin.Context) {
-	serverId := c.Param("serverId")
-	if serverId == "" {
+	serverID := c.Param("serverId")
+	if serverID == "" {
 		id, err := uuid.NewV4()
 		if response.HandleError(c, err, http.StatusInternalServerError) {
 			return
 		}
-		serverId = id.String()
+		serverID = id.String()
 	}
-	prg := servers.GetFromCache(serverId)
+	prg := servers.GetFromCache(serverID)
 
 	if prg != nil {
-		response.HandleError(c, SkyPanel.ErrServerAlreadyExists, http.StatusConflict)
+		response.HandleError(c, skypanel.ErrServerAlreadyExists, http.StatusConflict)
 		return
 	}
 
@@ -280,7 +277,7 @@ func createServer(c *gin.Context) {
 		response.HandleError(c, err, http.StatusBadRequest)
 		return
 	}
-	prg.Identifier = serverId
+	prg.Identifier = serverID
 
 	err = prg.Requirements.Test(prg.Server)
 	if err != nil {
@@ -291,12 +288,12 @@ func createServer(c *gin.Context) {
 	if prg, err = servers.Create(prg); err != nil {
 		response.HandleError(c, err, http.StatusInternalServerError)
 		if prg != nil {
-			_ = servers.Delete(prg.Id())
+			_ = servers.Delete(prg.ID())
 		}
 		return
 	}
 
-	c.JSON(http.StatusOK, &SkyPanel.ServerIdResponse{Id: serverId})
+	c.JSON(http.StatusOK, &skypanel.ServerIDResponse{ID: serverID})
 }
 
 // Already declared in panel routing
@@ -305,15 +302,14 @@ func deleteServer(c *gin.Context) {
 
 	if running, err := server.IsRunning(); running || err != nil {
 		if response.HandleError(c, err, http.StatusInternalServerError) {
-		} else {
-			response.HandleError(c, SkyPanel.ErrServerRunning, http.StatusNotAcceptable)
+			return
 		}
+		c.Status(http.StatusNoContent)
 		return
 	}
 
-	err := servers.Delete(server.Id())
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-	} else {
+	err := servers.Delete(server.ID())
+	if !response.HandleError(c, err, http.StatusInternalServerError) {
 		c.Status(http.StatusNoContent)
 	}
 }
@@ -333,8 +329,7 @@ func installServer(c *gin.Context) {
 
 	if wait {
 		err := server.Install()
-		if response.HandleError(c, err, http.StatusInternalServerError) {
-		} else {
+		if !response.HandleError(c, err, http.StatusInternalServerError) {
 			c.Status(http.StatusNoContent)
 		}
 	} else {
@@ -357,8 +352,7 @@ func editServerData(c *gin.Context) {
 	}
 
 	err = server.EditData(data, false)
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-	} else {
+	if !response.HandleError(c, err, http.StatusInternalServerError) {
 		c.Status(http.StatusNoContent)
 	}
 }
@@ -374,15 +368,14 @@ func editServerDataAdmin(c *gin.Context) {
 	}
 
 	err = server.EditData(data, true)
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-	} else {
+	if !response.HandleError(c, err, http.StatusInternalServerError) {
 		c.Status(http.StatusNoContent)
 	}
 }
 
 // @Summary Get server tasks
 // @Description Get server tasks
-// @Success 200 {object} SkyPanel.ServerTasks
+// @Success 200 {object} skypanel.ServerTasks
 // @Param id path string true "Server ID"
 // @Tags Daemon Server
 // @Router /api/servers/{id}/tasks [get]
@@ -390,18 +383,18 @@ func editServerDataAdmin(c *gin.Context) {
 func getServerTasks(c *gin.Context) {
 	server := getServerFromGin(c)
 
-	result := SkyPanel.ServerTasks{
-		Tasks: make(map[string]SkyPanel.ServerTask),
+	result := skypanel.ServerTasks{
+		Tasks: make(map[string]skypanel.ServerTask),
 	}
 
 	for k, v := range server.Scheduler.Tasks {
-		result.Tasks[k] = SkyPanel.ServerTask{
-			Task: SkyPanel.Task{
+		result.Tasks[k] = skypanel.ServerTask{
+			Task: skypanel.Task{
 				Name:         v.Name,
 				CronSchedule: v.CronSchedule,
 				Description:  v.Description,
 			},
-			//IsRunning: server.Scheduler.IsTaskRunning(k),
+			// IsRunning: server.Scheduler.IsTaskRunning(k),
 		}
 	}
 
@@ -410,21 +403,21 @@ func getServerTasks(c *gin.Context) {
 
 // @Summary Get server task
 // @Description Get server task by id
-// @Success 200 {object} SkyPanel.ServerTask
+// @Success 200 {object} skypanel.ServerTask
 // @Param id path string true "Server ID"
-// @Param taskId path string true "Task ID"
+// @Param taskID path string true "Task ID"
 // @Tags Daemon Server
-// @Router /api/servers/{id}/tasks/{taskId} [get]
+// @Router /api/servers/{id}/tasks/{taskID} [get]
 // @Security OAuth2Application[server.tasks.view]
 func getServerTask(c *gin.Context) {
 	server := getServerFromGin(c)
 
-	var result *SkyPanel.ServerTask
+	var result *skypanel.ServerTask
 
 	for _, v := range server.Scheduler.Tasks {
-		result = &SkyPanel.ServerTask{
+		result = &skypanel.ServerTask{
 			Task: v,
-			//IsRunning: server.Scheduler.IsTaskRunning(k),
+			// IsRunning: server.Scheduler.IsTaskRunning(k),
 		}
 	}
 
@@ -439,16 +432,16 @@ func getServerTask(c *gin.Context) {
 // @Description Run a specific task
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
-// @Param taskId path string true "Task ID"
+// @Param taskID path string true "Task ID"
 // @Tags Daemon Server
-// @Router /api/servers/{id}/tasks/{taskId}/run [post]
+// @Router /api/servers/{id}/tasks/{taskID}/run [post]
 // @Security OAuth2Application[server.tasks.run]
 func runServerTask(c *gin.Context) {
 	server := getServerFromGin(c)
 
-	taskId := c.Param("taskId")
+	taskID := c.Param("taskID")
 
-	err := server.Scheduler.RunTask(taskId)
+	err := server.Scheduler.RunTask(taskID)
 	if errors.Is(err, gocron.ErrJobNotFound) {
 		c.Status(http.StatusNotFound)
 		return
@@ -463,23 +456,23 @@ func runServerTask(c *gin.Context) {
 // @Description Edit server task by id
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
-// @Param taskId path string true "Task ID"
-// @Param task body SkyPanel.Task true "Task definition"
+// @Param taskID path string true "Task ID"
+// @Param task body skypanel.Task true "Task definition"
 // @Tags Daemon Server
-// @Router /api/servers/{id}/tasks/{taskId} [put]
+// @Router /api/servers/{id}/tasks/{taskID} [put]
 // @Security OAuth2Application[server.tasks.edit]
 func editServerTask(c *gin.Context) {
 	server := getServerFromGin(c)
 
-	taskId := c.Param("taskId")
+	taskID := c.Param("taskID")
 
-	var task SkyPanel.Task
+	var task skypanel.Task
 	err := c.ShouldBindJSON(&task)
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
 
-	err = server.Scheduler.RemoveTask(taskId)
+	err = server.Scheduler.RemoveTask(taskID)
 	if errors.Is(err, gocron.ErrJobNotFound) {
 		err = nil
 	}
@@ -487,9 +480,8 @@ func editServerTask(c *gin.Context) {
 		return
 	}
 
-	err = server.Scheduler.AddTask(taskId, task)
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-	} else {
+	err = server.Scheduler.AddTask(taskID, task)
+	if !response.HandleError(c, err, http.StatusInternalServerError) {
 		c.Status(http.StatusNoContent)
 	}
 }
@@ -498,22 +490,21 @@ func editServerTask(c *gin.Context) {
 // @Description Delete server task by id
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
-// @Param taskId path string true "Task ID"
+// @Param taskID path string true "Task ID"
 // @Tags Daemon Server
-// @Router /api/servers/{id}/tasks/{taskId} [delete]
+// @Router /api/servers/{id}/tasks/{taskID} [delete]
 // @Security OAuth2Application[server.tasks.delete]
 func deleteServerTask(c *gin.Context) {
 	server := getServerFromGin(c)
 
-	taskId := c.Param("taskId")
+	taskID := c.Param("taskID")
 
-	err := server.Scheduler.RemoveTask(taskId)
+	err := server.Scheduler.RemoveTask(taskID)
 	if errors.Is(err, gocron.ErrJobNotFound) {
 		c.Status(http.StatusNotFound)
 		return
 	}
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-	} else {
+	if !response.HandleError(c, err, http.StatusInternalServerError) {
 		c.Status(http.StatusNoContent)
 	}
 }
@@ -528,16 +519,15 @@ func deleteServerTask(c *gin.Context) {
 func reloadServer(c *gin.Context) {
 	server := getServerFromGin(c)
 
-	err := servers.Reload(server.Id())
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-	} else {
+	err := servers.Reload(server.ID())
+	if !response.HandleError(c, err, http.StatusInternalServerError) {
 		c.Status(http.StatusNoContent)
 	}
 }
 
 // @Summary Get server data
 // @Description Get server variables
-// @Success 200 {object} SkyPanel.ServerData
+// @Success 200 {object} skypanel.ServerData
 // @Param id path string true "Server ID"
 // @Tags Daemon Server
 // @Router /api/servers/{id}/data [get]
@@ -547,19 +537,19 @@ func getServerData(c *gin.Context) {
 
 	data := server.GetData()
 
-	var replacement = make(map[string]SkyPanel.Variable)
+	var replacement = make(map[string]skypanel.Variable)
 	for k, v := range data {
 		if v.UserEditable {
 			replacement[k] = v
 		}
 	}
 
-	c.JSON(http.StatusOK, &SkyPanel.ServerData{Variables: replacement, Groups: server.Groups})
+	c.JSON(http.StatusOK, &skypanel.ServerData{Variables: replacement, Groups: server.Groups})
 }
 
 // @Summary Get server definition
 // @Description Get server definition
-// @Success 200 {object} SkyPanel.Server
+// @Success 200 {object} skypanel.Server
 // @Param id path string true "Server ID"
 // @Tags Daemon Server
 // @Router /api/servers/{id}/definition [get]
@@ -574,7 +564,7 @@ func getServerAdmin(c *gin.Context) {
 // @Description Updates the server with a new definition
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
-// @Param server body SkyPanel.Server true "New definition"
+// @Param server body skypanel.Server true "New definition"
 // @Tags Daemon Server
 // @Router /api/servers/{id}/definition [post]
 // @Security OAuth2Application[server.definition.edit]
@@ -586,32 +576,32 @@ func editServerAdmin(c *gin.Context) {
 		return
 	}
 
-	replacement := &SkyPanel.Server{}
+	replacement := &skypanel.Server{}
 	err := c.BindJSON(replacement)
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
 
-	//backup, just in case we break
-	backup := &SkyPanel.Server{}
+	// backup, just in case we break
+	backup := &skypanel.Server{}
 	backup.CopyFrom(server)
 
-	//copy from request
+	// copy from request
 	server.CopyFrom(replacement)
 
-	err = servers.Save(prg.Id())
+	err = servers.Save(prg.ID())
 	if response.HandleError(c, err, http.StatusInternalServerError) {
-		//REVERT!!!!!!!
+		// REVERT!!!!!!!
 		server.CopyFrom(backup)
 		return
 	}
 
-	err = servers.Reload(prg.Id())
+	err = servers.Reload(prg.ID())
 
 	if response.HandleError(c, err, http.StatusInternalServerError) {
-		//attempt to revert... but no promise this works
+		// attempt to revert... but no promise this works
 		server.CopyFrom(backup)
-		_ = servers.Reload(prg.Id())
+		_ = servers.Reload(prg.ID())
 		return
 	}
 
@@ -641,9 +631,10 @@ func getFile(c *gin.Context) {
 	}()
 
 	if err != nil {
+		// nolint:gocritic
 		if os.IsNotExist(err) {
 			c.AbortWithStatus(http.StatusNotFound)
-		} else if errors.Is(err, SkyPanel.ErrIllegalFileAccess) {
+		} else if errors.Is(err, skypanel.ErrIllegalFileAccess) {
 			response.HandleError(c, err, http.StatusBadRequest)
 		} else {
 			response.HandleError(c, err, http.StatusInternalServerError)
@@ -651,6 +642,7 @@ func getFile(c *gin.Context) {
 		return
 	}
 
+	// nolint:gocritic
 	if data.FileList != nil {
 		c.JSON(http.StatusOK, data.FileList)
 	} else if data.Contents != nil {
@@ -660,10 +652,10 @@ func getFile(c *gin.Context) {
 			"Content-Disposition": fmt.Sprintf(`attachment; filename="%s"`, fileName),
 		}
 
-		//discard the built-in response, we cannot use this one at all
+		// discard the built-in response, we cannot use this one at all
 		c.DataFromReader(http.StatusOK, data.ContentLength, "application/octet-stream", data.Contents, extraHeaders)
 	} else {
-		//uhhhhhhhhhhhhh
+		// uhhhhhhhhhhhhh
 		response.HandleError(c, errors.New("no file content or file list"), http.StatusInternalServerError)
 	}
 }
@@ -750,8 +742,7 @@ func deleteFile(c *gin.Context) {
 		err = server.GetFileServer().Remove(targetPath)
 	}
 
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-	} else {
+	if !response.HandleError(c, err, http.StatusInternalServerError) {
 		c.Status(http.StatusNoContent)
 	}
 }
@@ -787,7 +778,7 @@ func postConsole(c *gin.Context) {
 
 // @Summary Get stats
 // @Description Gets the CPU and memory usage of the server
-// @Success 200 {object} SkyPanel.ServerStats
+// @Success 200 {object} skypanel.ServerStats
 // @Param id path string true "Server ID"
 // @Tags Daemon Server
 // @Router /api/servers/{id}/stats [get]
@@ -797,14 +788,14 @@ func getStats(c *gin.Context) {
 
 	results, err := server.GetEnvironment().GetStats()
 	if response.HandleError(c, err, http.StatusInternalServerError) {
-	} else {
-		c.JSON(http.StatusOK, results)
+		return
 	}
+	c.JSON(http.StatusOK, results)
 }
 
 // @Summary Get logs
 // @Description Get the console logs for the server
-// @Success 200 {object} SkyPanel.ServerLogs
+// @Success 200 {object} skypanel.ServerLogs
 // @Param id path string true "Server ID"
 // @Param time query int64 false "Epoch time in MS to get from"
 // @Tags Daemon Server
@@ -817,13 +808,13 @@ func getLogs(c *gin.Context) {
 
 	castedTime, ok := cast.ToInt64E(time)
 	if ok != nil {
-		response.HandleError(c, SkyPanel.ErrInvalidUnixTime, http.StatusBadRequest)
+		response.HandleError(c, skypanel.ErrInvalidUnixTime, http.StatusBadRequest)
 		return
 	}
 
 	console, epoch := server.GetEnvironment().GetConsoleFrom(castedTime)
 
-	c.JSON(http.StatusOK, &SkyPanel.ServerLogs{
+	c.JSON(http.StatusOK, &skypanel.ServerLogs{
 		Epoch: epoch,
 		Logs:  console,
 	})
@@ -831,7 +822,7 @@ func getLogs(c *gin.Context) {
 
 // @Summary Get status
 // @Description Get the server's status (is it running)
-// @Success 200 {object} SkyPanel.ServerRunning
+// @Success 200 {object} skypanel.ServerRunning
 // @Param id path string true "Server ID"
 // @Tags Daemon Server
 // @Router /api/servers/{id}/status [get]
@@ -842,15 +833,14 @@ func getStatus(c *gin.Context) {
 	installing := server.GetEnvironment().IsInstalling()
 
 	if installing {
-		c.JSON(http.StatusOK, &SkyPanel.ServerRunning{Installing: installing})
+		c.JSON(http.StatusOK, &skypanel.ServerRunning{Installing: installing})
 		return
 	}
 
 	running, err := server.IsRunning()
 
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-	} else {
-		c.JSON(http.StatusOK, &SkyPanel.ServerRunning{Running: running})
+	if !response.HandleError(c, err, http.StatusInternalServerError) {
+		c.JSON(http.StatusOK, &skypanel.ServerRunning{Running: running})
 	}
 }
 
@@ -877,8 +867,7 @@ func archive(c *gin.Context) {
 	destination := c.Param("filename")
 
 	err := server.ArchiveItems(files, destination)
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-	} else {
+	if !response.HandleError(c, err, http.StatusInternalServerError) {
 		c.Status(http.StatusNoContent)
 	}
 }
@@ -906,15 +895,14 @@ func extract(c *gin.Context) {
 		err = server.Extract(targetPath, destination)
 	}
 
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-	} else {
+	if !response.HandleError(c, err, http.StatusInternalServerError) {
 		c.Status(http.StatusNoContent)
 	}
 }
 
 // @Summary Create backup
 // @Description Creates a full backup of the server
-// @Success 200 {object} SkyPanel.ServerBackupResponse
+// @Success 200 {object} skypanel.ServerBackupResponse
 // @Param id path string true "Server ID"
 // @Tags Daemon Server
 // @Router /api/servers/{id}/backup/create [post]
@@ -926,7 +914,7 @@ func createBackup(c *gin.Context) {
 		response.HandleError(c, err, http.StatusInternalServerError)
 		return
 	} else if isRunning {
-		response.HandleError(c, SkyPanel.ErrBackupServerRunning, http.StatusBadRequest)
+		response.HandleError(c, skypanel.ErrBackupServerRunning, http.StatusBadRequest)
 		return
 	}*/
 
@@ -935,7 +923,7 @@ func createBackup(c *gin.Context) {
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
-	c.JSON(http.StatusOK, &SkyPanel.ServerBackupResponse{BackupFileName: id})
+	c.JSON(http.StatusOK, &skypanel.ServerBackupResponse{BackupFileName: id})
 }
 
 // @Summary Delete backup
@@ -972,7 +960,7 @@ func restoreBackup(c *gin.Context) {
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	} else if isRunning {
-		response.HandleError(c, SkyPanel.ErrBackupServerRunning, http.StatusBadRequest)
+		response.HandleError(c, skypanel.ErrBackupServerRunning, http.StatusBadRequest)
 		return
 	}
 
@@ -1002,22 +990,21 @@ func downloadBackup(c *gin.Context) {
 			utils.Close(data.Contents)
 		}
 	}()
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-	} else {
+	if !response.HandleError(c, err, http.StatusInternalServerError) {
 		fileName := filepath.Base(data.Name)
 
 		extraHeaders := map[string]string{
 			"Content-Disposition": fmt.Sprintf(`attachment; filename="%s"`, fileName),
 		}
 
-		//discard the built-in response, we cannot use this one at all
+		// discard the built-in response, we cannot use this one at all
 		c.DataFromReader(http.StatusOK, data.ContentLength, "application/octet-stream", data.Contents, extraHeaders)
 	}
 }
 
 // @Summary Get flags
 // @Description Get the management flags for a server
-// @Success 200 {object} SkyPanel.ServerFlags
+// @Success 200 {object} skypanel.ServerFlags
 // @Param id path string true "Server ID"
 // @Tags Daemon Server
 // @Router /api/servers/{id}/flags [get]
@@ -1025,7 +1012,7 @@ func downloadBackup(c *gin.Context) {
 func getFlags(c *gin.Context) {
 	server := getServerFromGin(c)
 
-	c.JSON(http.StatusOK, &SkyPanel.ServerFlags{
+	c.JSON(http.StatusOK, &skypanel.ServerFlags{
 		AutoStart:             &server.Execution.AutoStart,
 		AutoRestartOnCrash:    &server.Execution.AutoRestartFromCrash,
 		AutoRestartOnGraceful: &server.Execution.AutoRestartFromGraceful,
@@ -1036,14 +1023,14 @@ func getFlags(c *gin.Context) {
 // @Description Sets management flags for a server
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
-// @Param flags body SkyPanel.ServerFlags true "Flags to change"
+// @Param flags body skypanel.ServerFlags true "Flags to change"
 // @Tags Daemon Server
 // @Router /api/servers/{id}/flags [post]
 // @Security OAuth2Application[server.flags.edit]
 func setFlags(c *gin.Context) {
 	server := getServerFromGin(c)
 
-	var req SkyPanel.ServerFlags
+	var req skypanel.ServerFlags
 	err := c.BindJSON(&req)
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
@@ -1137,7 +1124,7 @@ func openSocket(c *gin.Context) {
 		return
 	}
 
-	socket := SkyPanel.Create(conn)
+	socket := skypanel.Create(conn)
 
 	if _, exists := c.GetQuery("console"); exists {
 		server.GetEnvironment().AddConsoleListener(socket)
@@ -1457,7 +1444,7 @@ func deletePlugin(c *gin.Context) {
 	// Asegurar que es un archivo .jar
 	originalName := pluginName
 	if !strings.HasSuffix(strings.ToLower(pluginName), ".jar") {
-		pluginName = pluginName + ".jar"
+		pluginName += ".jar"
 		logging.Debug.Printf("deletePlugin: added .jar extension: '%s' -> '%s'", originalName, pluginName)
 	}
 

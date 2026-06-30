@@ -29,7 +29,7 @@ func Parse(os string, body io.Reader) (string, error) {
 
 	fileScanner := bufio.NewScanner(body)
 
-	//first line indicates "key"
+	// first line indicates "key"
 	var line string
 	var results []string
 	for fileScanner.Scan() {

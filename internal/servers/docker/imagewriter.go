@@ -11,7 +11,7 @@ import (
 type ImageDownload struct {
 	Status         string
 	ProgressDetail ProgressDetail
-	Id             string
+	ID             string
 	Progress       string
 }
 
@@ -26,9 +26,9 @@ type ImageWriter struct {
 }
 
 func (w *ImageWriter) Write(data []byte) (n int, err error) {
-	//what happens is the writer should send us a json blob, which has the status we want
-	//to handle this, we will parse it, and then format it to our upper-writer
-	//NOTE: WE CAN GET MULTIPLE LINES IN 1 BLOCK
+	// what happens is the writer should send us a json blob, which has the status we want
+	// to handle this, we will parse it, and then format it to our upper-writer
+	// NOTE: WE CAN GET MULTIPLE LINES IN 1 BLOCK
 
 	var buf bytes.Buffer
 	n, err = buf.Write(data)
@@ -53,7 +53,7 @@ func (w *ImageWriter) Write(data []byte) (n int, err error) {
 			return
 		}
 
-		message := fmt.Sprintf("%s %s %s", imageDownload.Status, imageDownload.Id, strings.ReplaceAll(imageDownload.Progress, "\u003e", ""))
+		message := fmt.Sprintf("%s %s %s", imageDownload.Status, imageDownload.ID, strings.ReplaceAll(imageDownload.Progress, "\u003e", ""))
 		message = strings.TrimSpace(message)
 		_, err = w.Parent.Write([]byte(message + "\n"))
 	}

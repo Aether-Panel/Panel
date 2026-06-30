@@ -24,7 +24,7 @@ type UptimeStatus struct {
 func (u *UptimeStatus) IsValid() (err error) {
 	err = validator.New().Struct(u)
 	if err != nil {
-		err = SkyPanel.GenerateValidationMessage(err)
+		err = skypanel.GenerateValidationMessage(err)
 	}
 	return
 }

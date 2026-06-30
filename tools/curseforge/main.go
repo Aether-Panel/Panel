@@ -19,56 +19,56 @@ var tests = []UnitTest{
 	{
 		CanFail: false,
 		Data: curseforge.CurseForge{
-			//All the Mods 9 https://www.curseforge.com/minecraft/modpacks/all-the-mods-9/files/7097957
-			ProjectId: 715572,
-			FileId:    7097957,
+			// All the Mods 9 https://www.curseforge.com/minecraft/modpacks/all-the-mods-9/files/7097957
+			ProjectID: 715572,
+			FileID:    7097957,
 		},
 	},
 	{
 		CanFail: false,
 		Data: curseforge.CurseForge{
-			//Pixelmon https://www.curseforge.com/minecraft/modpacks/the-pixelmon-modpack/files/4966924
-			ProjectId: 389615,
-			FileId:    4966924,
+			// Pixelmon https://www.curseforge.com/minecraft/modpacks/the-pixelmon-modpack/files/4966924
+			ProjectID: 389615,
+			FileID:    4966924,
 		},
 	},
 	{
 		CanFail: true,
 		Data: curseforge.CurseForge{
-			//RLCraft https://www.curseforge.com/minecraft/modpacks/rlcraft/files/4612990
-			ProjectId: 285109,
-			FileId:    4612990,
+			// RLCraft https://www.curseforge.com/minecraft/modpacks/rlcraft/files/4612990
+			ProjectID: 285109,
+			FileID:    4612990,
 		},
 	},
 	{
 		CanFail: false,
 		Data: curseforge.CurseForge{
-			//Better MC [FABRIC] https://www.curseforge.com/minecraft/modpacks/better-mc-fabric-bmc1/files/4883129
-			ProjectId: 452013,
-			FileId:    4883129,
+			// Better MC [FABRIC] https://www.curseforge.com/minecraft/modpacks/better-mc-fabric-bmc1/files/4883129
+			ProjectID: 452013,
+			FileID:    4883129,
 		},
 	},
 	{
 		CanFail: false,
 		Data: curseforge.CurseForge{
-			ProjectId: 876781,
-			FileId:    0,
+			ProjectID: 876781,
+			FileID:    0,
 		},
 	},
 	{
 		CanFail: false,
 		Data: curseforge.CurseForge{
-			//MeatballCraft https://www.curseforge.com/minecraft/modpacks/meatballcraft/files/5842863
-			ProjectId: 411966,
-			FileId:    5842863,
+			// MeatballCraft https://www.curseforge.com/minecraft/modpacks/meatballcraft/files/5842863
+			ProjectID: 411966,
+			FileID:    5842863,
 		},
 	},
 	{
 		CanFail: false,
 		Data: curseforge.CurseForge{
-			//Farmopolis https://www.curseforge.com/minecraft/modpacks/farmopolis/files/7112573
-			ProjectId: 1270262,
-			FileId:    7112573,
+			// Farmopolis https://www.curseforge.com/minecraft/modpacks/farmopolis/files/7112573
+			ProjectID: 1270262,
+			FileID:    7112573,
 		},
 	},
 }
@@ -86,8 +86,8 @@ func main() {
 
 	logging.OriginalStdOut = os.Stdout
 
-	var specificId uint
-	flag.UintVar(&specificId, "projectId", 0, "Specific project id")
+	var specificID uint
+	flag.UintVar(&specificID, "projectId", 0, "Specific project id")
 	flag.Parse()
 
 	results := make(map[UnitTest]error)
@@ -95,32 +95,32 @@ func main() {
 	for _, unitTest := range tests {
 		test := unitTest.Data
 
-		if specificId != 0 {
-			if test.ProjectId != specificId {
+		if specificID != 0 {
+			if test.ProjectID != specificID {
 				continue
 			}
 		}
 
-		fmt.Printf("Testing %d\n", test.ProjectId)
+		fmt.Printf("Testing %d\n", test.ProjectID)
 		if test.JavaBinary == "" {
 			test.JavaBinary = "java"
 		}
-		serverId := fmt.Sprintf("%d-%d", test.ProjectId, test.FileId)
+		serverID := fmt.Sprintf("%d-%d", test.ProjectID, test.FileID)
 
-		_ = os.RemoveAll(serverId)
-		_ = os.Mkdir(serverId, 0755)
+		_ = os.RemoveAll(serverID)
+		_ = os.Mkdir(serverID, 0755)
 
 		server := servers.CreateProgram()
-		server.Identifier = serverId
+		server.Identifier = serverID
 
-		env, err := servers.CreateEnvironment("host", serverId, "", server.Server)
+		env, err := servers.CreateEnvironment("host", serverID, "", server.Server)
 		if err != nil {
 			results[unitTest] = err
 			continue
 		}
 		server.RunningEnvironment = env
 
-		fs, err := files.NewFileServer(serverId, os.Getuid(), os.Getgid())
+		fs, err := files.NewFileServer(serverID, os.Getuid(), os.Getgid())
 		if err != nil {
 			results[unitTest] = err
 			continue
@@ -128,7 +128,7 @@ func main() {
 
 		server.SetFileServer(fs)
 
-		arg := SkyPanel.RunOperatorArgs{
+		arg := skypanel.RunOperatorArgs{
 			Environment: env,
 			Server:      server,
 		}
@@ -158,7 +158,7 @@ func main() {
 
 	failed := false
 	for k, v := range results {
-		fmt.Printf("Project: %d\n", k.Data.ProjectId)
+		fmt.Printf("Project: %d\n", k.Data.ProjectID)
 		if v == nil {
 			fmt.Println("  Passes")
 		} else {

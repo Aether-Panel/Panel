@@ -1,8 +1,8 @@
-package SkyPanel
+package skypanel
 
 type Task struct {
 	Name         string                    `json:"name"`
 	CronSchedule string                    `json:"cronSchedule"`
 	Description  string                    `json:"description,omitempty"`
 	Operations   []ConditionalMetadataType `json:"operations,omitempty" binding:"required"`
-} //@name Task
+} // @name Task

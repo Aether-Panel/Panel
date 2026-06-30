@@ -7,24 +7,24 @@ import (
 )
 
 type UserView struct {
-	Id        uint            `json:"id,omitempty"`
+	ID        uint            `json:"id,omitempty"`
 	Username  string          `json:"username,omitempty"`
 	Email     string          `json:"email,omitempty"`
 	OtpActive bool            `json:"otpActive"`
-	RoleId    *uint           `json:"roleId,omitempty"`
+	RoleID    *uint           `json:"roleId,omitempty"`
 	Scopes    []*scopes.Scope `json:"scopes,omitempty"`
-	//ONLY SHOW WHEN COPYING
+	// ONLY SHOW WHEN COPYING
 	Password    string `json:"password,omitempty"`
 	NewPassword string `json:"newPassword,omitempty"`
-} //@name User
+} // @name User
 
 func FromUser(model *User) *UserView {
 	view := &UserView{
-		Id:        model.ID,
+		ID:        model.ID,
 		Username:  model.Username,
 		Email:     model.Email,
 		OtpActive: model.OtpActive,
-		RoleId:    model.RoleId,
+		RoleID:    model.RoleID,
 		Scopes:    make([]*scopes.Scope, 0),
 	}
 
@@ -38,7 +38,7 @@ func FromUser(model *User) *UserView {
 	}
 
 	// Add role-based permissions
-	if model.RoleId != nil && model.Role.ID != 0 {
+	if model.RoleID != nil && model.Role.ID != 0 {
 		for _, s := range model.Role.Scopes {
 			view.Scopes = scopes.AddScope(view.Scopes, scopes.GetScope(s))
 		}
@@ -70,7 +70,7 @@ func (model *UserView) CopyToModel(newModel *User) {
 		_ = newModel.SetPassword(model.Password)
 	}
 
-	newModel.RoleId = model.RoleId
+	newModel.RoleID = model.RoleID
 }
 
 func (model *UserView) Valid(allowEmpty bool) error {
@@ -92,15 +92,15 @@ func (model *UserView) UserNameValid(allowEmpty bool) error {
 	validate := validator.New()
 
 	if !allowEmpty && validate.Var(model.Username, "required") != nil {
-		return SkyPanel.ErrFieldRequired("username")
+		return skypanel.ErrFieldRequired("username")
 	}
 
 	if validate.Var(model.Username, "omitempty,printascii") != nil {
-		return SkyPanel.ErrFieldMustBePrintable("username")
+		return skypanel.ErrFieldMustBePrintable("username")
 	}
 
 	if validate.Var(model.Username, "omitempty,min=1,max=100") != nil {
-		return SkyPanel.ErrFieldLength("username", 1, 100)
+		return skypanel.ErrFieldLength("username", 1, 100)
 	}
 
 	return nil
@@ -110,11 +110,11 @@ func (model *UserView) EmailValid(allowEmpty bool) error {
 	validate := validator.New()
 
 	if !allowEmpty && validate.Var(model.Email, "required") != nil {
-		return SkyPanel.ErrFieldRequired("email")
+		return skypanel.ErrFieldRequired("email")
 	}
 
 	if validate.Var(model.Email, "omitempty,email,max=255") != nil {
-		return SkyPanel.ErrFieldNotEmail("email")
+		return skypanel.ErrFieldNotEmail("email")
 	}
 
 	return nil

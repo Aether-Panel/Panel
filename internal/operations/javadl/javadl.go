@@ -23,7 +23,7 @@ type JavaDl struct {
 	Version string
 }
 
-func (op JavaDl) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
+func (op JavaDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	env := args.Environment
 
 	env.DisplayToConsole(true, "Downloading Java "+op.Version)
@@ -39,24 +39,24 @@ func (op JavaDl) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
 
 	if errors.Is(err, exec.ErrNotFound) {
 		var file File
-		file, err = op.callAdoptiumApi()
+		file, err = op.callAdoptiumAPI()
 		if err != nil {
-			return SkyPanel.OperationResult{Error: err}
+			return skypanel.OperationResult{Error: err}
 		}
 
-		//cleanup the existing dir
+		// cleanup the existing dir
 		err = os.RemoveAll(filepath.Join(rootBinaryFolder, file.ReleaseName))
 		if err != nil {
-			return SkyPanel.OperationResult{Error: err}
+			return skypanel.OperationResult{Error: err}
 		}
 
 		url := file.Binaries[0].Package.Link
 
 		logging.Debug.Println("Calling " + url)
-		err = SkyPanel.HttpExtract(url, rootBinaryFolder, nil)
+		err = skypanel.HTTPExtract(url, rootBinaryFolder, nil)
 
 		if err != nil {
-			return SkyPanel.OperationResult{Error: err}
+			return skypanel.OperationResult{Error: err}
 		}
 
 		_ = os.Remove(mainCommand)
@@ -65,20 +65,20 @@ func (op JavaDl) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
 		logging.Debug.Printf("Adding to path: %s\n", mainCommand)
 		err = os.Symlink(filepath.Join(rootBinaryFolder, file.ReleaseName, "bin", "java"), mainCommand)
 		if err != nil {
-			return SkyPanel.OperationResult{Error: err}
+			return skypanel.OperationResult{Error: err}
 		}
 
 		logging.Debug.Printf("Adding to path: %s\n", mainCCommand)
 		err = os.Symlink(filepath.Join(rootBinaryFolder, file.ReleaseName, "bin", "javac"), mainCCommand)
 		if err != nil {
-			return SkyPanel.OperationResult{Error: err}
+			return skypanel.OperationResult{Error: err}
 		}
 	}
 
-	return SkyPanel.OperationResult{Error: err}
+	return skypanel.OperationResult{Error: err}
 }
 
-func (op JavaDl) callAdoptiumApi() (File, error) {
+func (op JavaDl) callAdoptiumAPI() (File, error) {
 	replacements := map[string]interface{}{
 		"version": op.Version,
 	}
@@ -106,7 +106,7 @@ func (op JavaDl) callAdoptiumApi() (File, error) {
 	url := utils.ReplaceTokens(DownloadLink, replacements)
 
 	logging.Debug.Println("Calling " + url)
-	response, err := SkyPanel.HttpGet(url)
+	response, err := skypanel.HTTPGet(url)
 	defer utils.CloseResponse(response)
 	if err != nil {
 		return File{}, err

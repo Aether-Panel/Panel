@@ -43,7 +43,7 @@ func (cfg *Config) Validate() error {
 	if err != nil {
 		return err
 	}
-	baseURL := repositoryURL.Scheme + "://" + repositoryURL.Host
+	baseURL := repositoryURL.Scheme + ":// " + repositoryURL.Host
 	pathParts := strings.Split(repositoryURL.Path, "/")
 	if len(pathParts) != 3 {
 		return ErrInvalidRepositoryURL

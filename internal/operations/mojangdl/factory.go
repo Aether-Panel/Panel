@@ -6,10 +6,10 @@ import (
 )
 
 type OperationFactory struct {
-	SkyPanel.OperationFactory
+	skypanel.OperationFactory
 }
 
-func (of OperationFactory) Create(op SkyPanel.CreateOperation) (SkyPanel.Operation, error) {
+func (of OperationFactory) Create(op skypanel.CreateOperation) (skypanel.Operation, error) {
 	version := cast.ToString(op.OperationArgs["version"])
 	target := cast.ToString(op.OperationArgs["target"])
 

@@ -57,7 +57,7 @@ func main() {
 		CmdFlags.WorkingDir, err = os.MkdirTemp("", pattern)
 		panicIf(err)
 	} else {
-		err = filepath.WalkDir(CmdFlags.WorkingDir, func(path string, info fs.DirEntry, err error) error {
+		err = filepath.WalkDir(CmdFlags.WorkingDir, func(path string, _ fs.DirEntry, err error) error {
 			if path == CmdFlags.WorkingDir {
 				return err
 			}
@@ -102,10 +102,10 @@ func main() {
 		return
 	}
 
-	//we have our test set, let's kick off a panel instance
-	//for this, we're going to run the binary, and wait for the "service" to start up (using the unix socket)
-	//once that's done, we'll then create our servers
-	//this is the best way to truly "model" what's going on
+	// we have our test set, let's kick off a panel instance
+	// for this, we're going to run the binary, and wait for the "service" to start up (using the unix socket)
+	// once that's done, we'll then create our servers
+	// this is the best way to truly "model" what's going on
 
 	waiter := make(chan bool, 1)
 
@@ -160,18 +160,18 @@ func main() {
 		panicIf(e)
 	}()
 
-	//wait for panel to be up, so the db is fully created and we're good to go
+	// wait for panel to be up, so the db is fully created and we're good to go
 	<-waiter
 
-	//now we can inject our admin user in, so we can proceed to spin up the servers
+	// now we can inject our admin user in, so we can proceed to spin up the servers
 	log.Println("Starting database edits")
 	db, err := gorm.Open(sqlite.Open(dbConn))
 	panicIf(err)
 	panicIf(initLoginAdminUser(db))
 
-	//now, start the web calls
-	//the concern is the session length, we'll "force" it to last for 24 hours. if it expires, then the tests should
-	//be failed anyways
+	// now, start the web calls
+	// the concern is the session length, we'll "force" it to last for 24 hours. if it expires, then the tests should
+	// be failed anyways
 	client := &http.Client{}
 	session, err := createSession(db)
 	panicIf(err)
@@ -186,7 +186,7 @@ func main() {
 func runTest(client *http.Client, session string, test *TestScenario) {
 	log.Println("\nStarting: " + test.Name)
 
-	template := SkyPanel.Server{}
+	template := skypanel.Server{}
 	err := json.NewDecoder(bytes.NewReader(test.Test.Template)).Decode(&template)
 	panicIf(err)
 	if err = template.Requirements.Test(template); err != nil {
@@ -198,34 +198,34 @@ func runTest(client *http.Client, session string, test *TestScenario) {
 
 	var data []byte
 
-	//create server
+	// create server
 	_, err = call(client, &http.Request{
 		Method: "PUT",
-		URL:    createUrl(urlPrefix),
+		URL:    createURL(urlPrefix),
 		Header: createHeaders(session),
 		Body:   createCreateBody(test),
 	})
 	panicIf(err)
 
-	//install server
+	// install server
 	_, err = call(client, &http.Request{
 		Method: "POST",
-		URL:    createUrl(urlPrefix + "/install"),
+		URL:    createURL(urlPrefix + "/install"),
 		Header: createHeaders(session),
 	})
 	panicIf(err)
 
-	//wait for install to complete
+	// wait for install to complete
 	for {
 		time.Sleep(30 * time.Second)
 		data, err = call(client, &http.Request{
 			Method: "GET",
-			URL:    createUrl(urlPrefix + "/status"),
+			URL:    createURL(urlPrefix + "/status"),
 			Header: createHeaders(session),
 		})
 		panicIf(err)
 
-		var status SkyPanel.ServerRunning
+		var status skypanel.ServerRunning
 		err = json.NewDecoder(bytes.NewReader(data)).Decode(&status)
 		panicIf(err)
 
@@ -234,26 +234,26 @@ func runTest(client *http.Client, session string, test *TestScenario) {
 		}
 	}
 
-	//start server
+	// start server
 	_, err = call(client, &http.Request{
 		Method: "POST",
-		URL:    createUrl(urlPrefix + "/start"),
+		URL:    createURL(urlPrefix + "/start"),
 		Header: createHeaders(session),
 	})
 	panicIf(err)
 
-	//wait for 5 minutes
+	// wait for 5 minutes
 	started := time.Now()
 	for {
 		time.Sleep(1 * time.Minute)
 		data, err = call(client, &http.Request{
 			Method: "GET",
-			URL:    createUrl(urlPrefix + "/status"),
+			URL:    createURL(urlPrefix + "/status"),
 			Header: createHeaders(session),
 		})
 		panicIf(err)
 
-		var status SkyPanel.ServerRunning
+		var status skypanel.ServerRunning
 		err = json.NewDecoder(bytes.NewReader(data)).Decode(&status)
 		panicIf(err)
 
@@ -268,26 +268,26 @@ func runTest(client *http.Client, session string, test *TestScenario) {
 		}
 	}
 
-	//stop server
+	// stop server
 	_, err = call(client, &http.Request{
 		Method: "POST",
-		URL:    createUrl(urlPrefix + "/stop"),
+		URL:    createURL(urlPrefix + "/stop"),
 		Header: createHeaders(session),
 	})
 	panicIf(err)
 
-	//wait for the stop
+	// wait for the stop
 	started = time.Now()
 	for {
 		time.Sleep(1 * time.Minute)
 		data, err = call(client, &http.Request{
 			Method: "GET",
-			URL:    createUrl(urlPrefix + "/status"),
+			URL:    createURL(urlPrefix + "/status"),
 			Header: createHeaders(session),
 		})
 		panicIf(err)
 
-		var status SkyPanel.ServerRunning
+		var status skypanel.ServerRunning
 		err = json.NewDecoder(bytes.NewReader(data)).Decode(&status)
 		panicIf(err)
 
@@ -299,10 +299,10 @@ func runTest(client *http.Client, session string, test *TestScenario) {
 		}
 	}
 
-	//delete server
+	// delete server
 	_, err = call(client, &http.Request{
 		Method: "DELETE",
-		URL:    createUrl(urlPrefix),
+		URL:    createURL(urlPrefix),
 		Header: createHeaders(session),
 	})
 
@@ -349,7 +349,7 @@ func initLoginAdminUser(db *gorm.DB) error {
 	}
 
 	perms := &models.Permissions{
-		UserId: &loginAdminUser.ID,
+		UserID: &loginAdminUser.ID,
 		Scopes: []*scopes.Scope{scopes.ScopeAdmin},
 	}
 	err = db.Create(perms).Error
@@ -389,7 +389,7 @@ func call(client *http.Client, request *http.Request) (data []byte, err error) {
 	return
 }
 
-func createUrl(str string) *url.URL {
+func createURL(str string) *url.URL {
 	u, err := url.Parse(str)
 	panicIf(err)
 	return u

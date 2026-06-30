@@ -26,7 +26,7 @@ func Run[T interface{}](statement string, data map[string]interface{}, extras []
 		celVars = make([]cel.EnvOption, 0)
 	}
 
-	//if we didn't define a statement, then set as success if the map has one
+	// if we didn't define a statement, then set as success if the map has one
 	if statement == "" {
 		if _, exists := data["success"]; exists {
 			statement = "success"
@@ -64,11 +64,12 @@ func Run[T interface{}](statement string, data map[string]interface{}, extras []
 	if err != nil {
 		return res, err
 	}
-	if cast, ok := out.Value().(T); ok {
+	val := out.Value()
+	if cast, ok := val.(T); ok {
 		return cast, nil
-	} else {
-		return res, fmt.Errorf("invalid return type, expected %s, got %s", reflect.TypeOf(res), reflect.TypeOf(cast))
 	}
+
+	return res, fmt.Errorf("invalid return type, expected %s, got %s", reflect.TypeOf(res), reflect.TypeOf(val))
 }
 
 var conditionalStatementRegex = regexp.MustCompile("{{.*?}}")

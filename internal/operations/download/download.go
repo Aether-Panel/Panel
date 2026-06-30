@@ -10,7 +10,7 @@ type Download struct {
 	Files []string
 }
 
-func (d Download) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
+func (d Download) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	env := args.Environment
 
 	for _, file := range d.Files {
@@ -18,8 +18,8 @@ func (d Download) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
 		env.DisplayToConsole(true, "Downloading file %s\n", file)
 		_, err := grab.Get(env.GetRootDirectory(), file)
 		if err != nil {
-			return SkyPanel.OperationResult{Error: err}
+			return skypanel.OperationResult{Error: err}
 		}
 	}
-	return SkyPanel.OperationResult{Error: nil}
+	return skypanel.OperationResult{Error: nil}
 }

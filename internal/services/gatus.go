@@ -289,7 +289,7 @@ func cleanupGatusStorage(cfg *gatusConfig.Config) {
 }
 
 // syncNodesToGatus sincroniza los nodos de SkyPanel con la configuración de Gatus
-func syncNodesToGatus(configPath string, cfg *gatusConfig.Config) error {
+func syncNodesToGatus(configPath string, _ *gatusConfig.Config) error {
 	// Obtener conexión a la base de datos
 	db, err := database.GetConnection()
 	if err != nil {

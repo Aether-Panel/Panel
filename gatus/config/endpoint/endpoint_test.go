@@ -302,37 +302,37 @@ func TestEndpoint_Type(t *testing.T) {
 		},
 		{
 			args: args{
-				URL: "tcp://127.0.0.1:6379",
+				URL: "tcp:// 127.0.0.1:6379",
 			},
 			want: TypeTCP,
 		},
 		{
 			args: args{
-				URL: "icmp://example.com",
+				URL: "icmp:// example.com",
 			},
 			want: TypeICMP,
 		},
 		{
 			args: args{
-				URL: "sctp://example.com",
+				URL: "sctp:// example.com",
 			},
 			want: TypeSCTP,
 		},
 		{
 			args: args{
-				URL: "udp://example.com",
+				URL: "udp:// example.com",
 			},
 			want: TypeUDP,
 		},
 		{
 			args: args{
-				URL: "starttls://smtp.gmail.com:587",
+				URL: "starttls:// smtp.gmail.com:587",
 			},
 			want: TypeSTARTTLS,
 		},
 		{
 			args: args{
-				URL: "tls://example.com:443",
+				URL: "tls:// example.com:443",
 			},
 			want: TypeTLS,
 		},
@@ -344,19 +344,19 @@ func TestEndpoint_Type(t *testing.T) {
 		},
 		{
 			args: args{
-				URL: "wss://example.com/",
+				URL: "wss:// example.com/",
 			},
 			want: TypeWS,
 		},
 		{
 			args: args{
-				URL: "ws://example.com/",
+				URL: "ws:// example.com/",
 			},
 			want: TypeWS,
 		},
 		{
 			args: args{
-				URL: "ssh://example.com:22",
+				URL: "ssh:// example.com:22",
 				SSH: &ssh.Config{
 					Username: "root",
 					Password: "password",
@@ -366,7 +366,7 @@ func TestEndpoint_Type(t *testing.T) {
 		},
 		{
 			args: args{
-				URL: "invalid://example.org",
+				URL: "invalid:// example.org",
 			},
 			want: TypeUNKNOWN,
 		},
@@ -810,7 +810,7 @@ func TestIntegrationEvaluateHealthForSSH(t *testing.T) {
 			name: "ssh-success",
 			endpoint: Endpoint{
 				Name: "ssh-success",
-				URL:  "ssh://localhost",
+				URL:  "ssh:// localhost",
 				SSHConfig: &ssh.Config{
 					Username: "scenario",
 					Password: "scenario",
@@ -824,7 +824,7 @@ func TestIntegrationEvaluateHealthForSSH(t *testing.T) {
 			name: "ssh-failure",
 			endpoint: Endpoint{
 				Name: "ssh-failure",
-				URL:  "ssh://localhost",
+				URL:  "ssh:// localhost",
 				SSHConfig: &ssh.Config{
 					Username: "scenario",
 					Password: "scenario",
@@ -851,7 +851,7 @@ func TestIntegrationEvaluateHealthForSSH(t *testing.T) {
 func TestIntegrationEvaluateHealthForICMP(t *testing.T) {
 	endpoint := Endpoint{
 		Name:       "icmp-test",
-		URL:        "icmp://127.0.0.1",
+		URL:        "icmp:// 127.0.0.1",
 		Conditions: []Condition{"[CONNECTED] == true"},
 	}
 	err := endpoint.ValidateAndSetDefaults()

@@ -67,7 +67,7 @@ func RequiresAnyPermission(perms ...*scopes.Scope) gin.HandlerFunc {
 }
 
 func checkPermission(c *gin.Context, perm *scopes.Scope) bool {
-	//fail-safe in the event something pukes, we don't end up accidentally giving rights to something they should not
+	// fail-safe in the event something pukes, we don't end up accidentally giving rights to something they should not
 	actuallyFinished := false
 	defer func() {
 		if !actuallyFinished && !c.IsAborted() {
@@ -89,9 +89,9 @@ func checkPermission(c *gin.Context, perm *scopes.Scope) bool {
 		panic("user not defined")
 	}
 
-	//we now have a user and they are allowed to access something, let's confirm they have server access
-	serverId := c.Param("serverId")
-	if perm.ForServer && serverId == "" {
+	// we now have a user and they are allowed to access something, let's confirm they have server access
+	serverID := c.Param("serverId")
+	if perm.ForServer && serverID == "" {
 		return false
 	}
 
@@ -100,14 +100,14 @@ func checkPermission(c *gin.Context, perm *scopes.Scope) bool {
 
 	var perms []*models.Permissions
 
-	p, err := ps.GetForUserAndServer(user.ID, serverId)
+	p, err := ps.GetForUserAndServer(user.ID, serverID)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return false
 	}
 
 	perms = append(perms, p)
-	if serverId != "" {
-		//if we had a server, also grab global scopes
+	if serverID != "" {
+		// if we had a server, also grab global scopes
 		p, err = ps.GetForUserAndServer(user.ID, "")
 		if response.HandleError(c, err, http.StatusInternalServerError) {
 			return false
@@ -118,14 +118,14 @@ func checkPermission(c *gin.Context, perm *scopes.Scope) bool {
 	allScopes := make([]*scopes.Scope, 0)
 
 	// Check role-based permissions first (Global Roles)
-	if user.RoleId != nil {
+	if user.RoleID != nil {
 		// Use preloaded role if available and correct
 		var role *models.Role
-		if user.Role.ID == *user.RoleId {
+		if user.Role.ID == *user.RoleID {
 			role = &user.Role
 		} else {
 			rs := &services.Role{DB: db}
-			role, err = rs.Get(*user.RoleId)
+			role, err = rs.Get(*user.RoleID)
 		}
 
 		if err == nil && role != nil {
@@ -158,7 +158,7 @@ func checkPermission(c *gin.Context, perm *scopes.Scope) bool {
 }
 
 func GetToken(c *gin.Context) string {
-	//use header first, because we set that a lot
+	// use header first, because we set that a lot
 	authHeader := c.Request.Header.Get("Authorization")
 
 	if authHeader != "" {
@@ -183,15 +183,15 @@ func GetToken(c *gin.Context) string {
 }
 
 func ResolveServerPanel(c *gin.Context) {
-	serverId := c.Param("serverId")
-	if serverId == "" {
+	serverID := c.Param("serverId")
+	if serverID == "" {
 		c.AbortWithStatus(http.StatusNotFound)
 		return
 	}
 
 	db := GetDatabase(c)
 	ss := &services.Server{DB: db}
-	server, err := ss.Get(serverId)
+	server, err := ss.Get(serverID)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	} else if server == nil {
@@ -202,13 +202,13 @@ func ResolveServerPanel(c *gin.Context) {
 }
 
 func ResolveServerNode(c *gin.Context) {
-	serverId := c.Param("serverId")
-	if serverId == "" {
+	serverID := c.Param("serverId")
+	if serverID == "" {
 		c.AbortWithStatus(http.StatusNotFound)
 		return
 	}
 
-	server := servers.GetFromCache(serverId)
+	server := servers.GetFromCache(serverID)
 	if server == nil {
 		c.AbortWithStatus(http.StatusNotFound)
 		return

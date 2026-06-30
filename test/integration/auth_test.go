@@ -27,7 +27,7 @@ func TestLogin(t *testing.T) {
 		if !assert.Equal(t, http.StatusForbidden, response.Code) {
 			return
 		}
-		//ensure we sent back correct headers
+		// ensure we sent back correct headers
 		assert.Empty(t, response.Header().Values("Set-Cookie"))
 	})
 	t.Run("GoodLoginWithLoginScope", func(t *testing.T) {
@@ -47,7 +47,7 @@ func TestLogin(t *testing.T) {
 		if !assert.Equal(t, []*scopes.Scope{scopes.ScopeLogin}, res.Scopes) {
 			return
 		}
-		//ensure we sent back correct headers
+		// ensure we sent back correct headers
 		cookies := response.Header().Values("Set-Cookie")
 		if !assert.NotEmpty(t, cookies) {
 			return
@@ -77,7 +77,7 @@ func TestLogin(t *testing.T) {
 		if !assert.Equal(t, []*scopes.Scope{scopes.ScopeAdmin}, res.Scopes) {
 			return
 		}
-		//ensure we sent back correct headers
+		// ensure we sent back correct headers
 		tmpRes := http.Response{Header: response.Header()}
 		cookies := tmpRes.Cookies()
 		if !assert.NotEmpty(t, cookies) {
@@ -143,10 +143,10 @@ func TestLogout(t *testing.T) {
 			Value: session,
 		})
 		writer := httptest.NewRecorder()
-		SkyPanel.Engine.ServeHTTP(writer, request)
+		skypanel.Engine.ServeHTTP(writer, request)
 		assert.Equal(t, http.StatusNoContent, writer.Code)
 
-		//check to make sure session is gone
+		// check to make sure session is gone
 		mo := &models.Session{
 			Token: hashed,
 		}
@@ -188,10 +188,10 @@ func TestLogout(t *testing.T) {
 			Value: adminSession,
 		})
 		writer := httptest.NewRecorder()
-		SkyPanel.Engine.ServeHTTP(writer, request)
+		skypanel.Engine.ServeHTTP(writer, request)
 		assert.Equal(t, http.StatusNoContent, writer.Code)
 
-		//check to make sure session is gone
+		// check to make sure session is gone
 		mo := &models.Session{
 			Token: hashed,
 		}
@@ -233,7 +233,7 @@ func TestLogout(t *testing.T) {
 			Value: session + "-extratokens",
 		})
 		writer := httptest.NewRecorder()
-		SkyPanel.Engine.ServeHTTP(writer, request)
+		skypanel.Engine.ServeHTTP(writer, request)
 		assert.Equal(t, http.StatusNoContent, writer.Code)
 
 		mo := &models.Session{
@@ -254,7 +254,7 @@ func TestReauth(t *testing.T) {
 		t.Parallel()
 		request, _ := http.NewRequest("POST", "/auth/reauth", nil)
 		writer := httptest.NewRecorder()
-		SkyPanel.Engine.ServeHTTP(writer, request)
+		skypanel.Engine.ServeHTTP(writer, request)
 		assert.Equal(t, http.StatusUnauthorized, writer.Code)
 	})
 	t.Run("ReauthWithValidSession", func(t *testing.T) {
@@ -274,7 +274,7 @@ func TestReauth(t *testing.T) {
 			Value: session,
 		})
 		writer := httptest.NewRecorder()
-		SkyPanel.Engine.ServeHTTP(writer, request)
+		skypanel.Engine.ServeHTTP(writer, request)
 		if !assert.Equal(t, http.StatusOK, writer.Code) {
 			return
 		}
@@ -288,7 +288,7 @@ func TestReauth(t *testing.T) {
 			return
 		}
 
-		//ensure we sent back correct headers
+		// ensure we sent back correct headers
 		var cookie string
 		res := http.Response{Header: writer.Header()}
 		cookies := res.Cookies()
@@ -343,7 +343,7 @@ func TestReauth(t *testing.T) {
 			Value: session,
 		})
 		writer := httptest.NewRecorder()
-		SkyPanel.Engine.ServeHTTP(writer, request)
+		skypanel.Engine.ServeHTTP(writer, request)
 		assert.Equal(t, http.StatusUnauthorized, writer.Code)
 	})
 	t.Run("ReauthWithInvalidSession", func(t *testing.T) {
@@ -354,7 +354,7 @@ func TestReauth(t *testing.T) {
 			Value: "invalidsession",
 		})
 		writer := httptest.NewRecorder()
-		SkyPanel.Engine.ServeHTTP(writer, request)
+		skypanel.Engine.ServeHTTP(writer, request)
 		assert.Equal(t, http.StatusUnauthorized, writer.Code)
 	})
 }

@@ -17,17 +17,17 @@ func init() {
 func (mailjetProvider) Send(to, subject, body string) error {
 	domain := config.EmailDomain.Value()
 	if domain == "" {
-		return SkyPanel.ErrSettingNotConfigured(config.EmailDomain.Key())
+		return skypanel.ErrSettingNotConfigured(config.EmailDomain.Key())
 	}
 
 	from := config.EmailFrom.Value()
 	if from == "" {
-		return SkyPanel.ErrSettingNotConfigured(config.EmailFrom.Key())
+		return skypanel.ErrSettingNotConfigured(config.EmailFrom.Key())
 	}
 
 	key := config.EmailKey.Value()
 	if key == "" {
-		return SkyPanel.ErrSettingNotConfigured(config.EmailKey.Key())
+		return skypanel.ErrSettingNotConfigured(config.EmailKey.Key())
 	}
 
 	m := mailjet.NewMailjetClient(domain, key)

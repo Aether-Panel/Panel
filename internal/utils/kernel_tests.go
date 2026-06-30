@@ -13,7 +13,8 @@ import (
 
 func testOpenat2() bool {
 	f, err := os.Open("/proc/kallsyms")
-	if errors.Is(err, os.ErrNotExist) {
+	switch {
+	case errors.Is(err, os.ErrNotExist):
 		logging.Info.Printf("Could not open /proc/kallsyms to validate kernel support, falling back to temp file test\n%s", err.Error())
 
 		var testPath string
@@ -32,21 +33,22 @@ func testOpenat2() bool {
 		}
 		defer Close(testFile)
 
-		//we have a file now, let's see if we can... read it with openat2
+		// we have a file now, let's see if we can... read it with openat2
 		var fd int
 		fd, err = unix.Openat2(int(testFile.Fd()), "validate", &unix.OpenHow{
 			Flags: uint64(os.O_CREATE),
 			Mode:  uint64(sys.SyscallMode(0644)),
 		})
-		if err == nil {
+		switch {
+		case err == nil:
 			_ = unix.Close(fd)
 			useOpenat2 = true
-		} else if errors.Is(err, unix.EOPNOTSUPP) || errors.Is(err, unix.ENOSYS) {
+		case errors.Is(err, unix.EOPNOTSUPP) || errors.Is(err, unix.ENOSYS):
 			useOpenat2 = false
-		} else {
+		default:
 			panic(fmt.Errorf("failed to validate kernel support with test file\n%s", err.Error()))
 		}
-	} else if err == nil {
+	case err == nil:
 		defer Close(f)
 		reader := bufio.NewScanner(f)
 		var line string
@@ -57,7 +59,7 @@ func testOpenat2() bool {
 				break
 			}
 		}
-	} else {
+	default:
 		panic(fmt.Errorf("Could not open /proc/kallsyms to validate kernel support\n%s", err.Error()))
 	}
 	return useOpenat2

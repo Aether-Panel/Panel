@@ -17,24 +17,24 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/web/auth"
 	"github.com/SkyPanel/SkyPanel/v3/internal/web/daemon"
 	"github.com/SkyPanel/SkyPanel/v3/internal/web/oauth2"
-	_ "github.com/SkyPanel/SkyPanel/v3/internal/web/swagger"
+	_ "github.com/SkyPanel/SkyPanel/v3/internal/web/swagger" // swagger docs init side effect
 	_ "github.com/alecthomas/template"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-	_ "github.com/swaggo/swag"
+	_ "github.com/swaggo/swag" // swagger docs init side effect
 )
 
-var noHtmlRedirectOn404 = []string{"/api/", "/oauth2/", "/daemon/"}
+var noHTMLRedirectOn404 = []string{"/api/", "/oauth2/", "/daemon/"}
 var clientFiles fs.FS
 
 // RegisterRoutes Registers all routes
 func RegisterRoutes(e *gin.Engine) {
 	// Configuración de CORS Global
 	corsConfig := cors.DefaultConfig()
-	corsConfig.AllowOriginFunc = func(origin string) bool {
+	corsConfig.AllowOriginFunc = func(_ string) bool {
 		return true
 	}
 	corsConfig.AllowCredentials = true
@@ -89,7 +89,7 @@ func RegisterRoutes(e *gin.Engine) {
 			path := c.Request.URL.Path
 
 			// Skip for API, OAuth2, and Daemon routes
-			for _, prefix := range noHtmlRedirectOn404 {
+			for _, prefix := range noHTMLRedirectOn404 {
 				if strings.HasPrefix(path, prefix) {
 					return
 				}
@@ -130,7 +130,7 @@ func RegisterRoutes(e *gin.Engine) {
 				if indexPath == "." {
 					indexPath = "index.html"
 				} else {
-					indexPath = indexPath + "/index.html"
+					indexPath += "/index.html"
 				}
 
 				// Verify index.html exists
@@ -236,7 +236,7 @@ func RegisterRoutes(e *gin.Engine) {
 }
 
 func handle404(c *gin.Context) {
-	for _, v := range noHtmlRedirectOn404 {
+	for _, v := range noHTMLRedirectOn404 {
 		if strings.HasPrefix(c.Request.URL.Path, v) {
 			c.AbortWithStatus(http.StatusNotFound)
 			return

@@ -32,7 +32,7 @@ func (ss *Session) CreateForUser(user *models.User) (string, error) {
 	session := &models.Session{
 		Token:          res,
 		ExpirationTime: time.Now().Add(time.Hour),
-		UserId:         &user.ID,
+		UserID:         &user.ID,
 	}
 
 	err = ss.DB.Create(session).Error
@@ -55,8 +55,8 @@ func (ss *Session) CreateForClient(client *models.Client) (string, error) {
 	session := &models.Session{
 		Token:          res,
 		ExpirationTime: time.Now().Add(time.Hour),
-		ClientId:       &client.ID,
-		UserId:         &client.UserId,
+		ClientID:       &client.ID,
+		UserID:         &client.UserID,
 	}
 
 	err = ss.DB.Create(session).Error

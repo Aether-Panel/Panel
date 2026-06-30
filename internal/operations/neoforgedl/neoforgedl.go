@@ -12,8 +12,8 @@ import (
 	"strings"
 )
 
-const InstallerUrl = "https://maven.neoforged.net/releases/net/neoforged/neoforge/${version}/neoforge-${version}-installer.jar"
-const MetadataUrl = "https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml"
+const InstallerURL = "https://maven.neoforged.net/releases/net/neoforged/neoforge/${version}/neoforge-${version}-installer.jar"
+const MetadataURL = "https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml"
 
 type NeoforgeDL struct {
 	Version          string
@@ -22,37 +22,37 @@ type NeoforgeDL struct {
 	OutputVariable   string
 }
 
-func (op NeoforgeDL) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
+func (op NeoforgeDL) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	env := args.Environment
 	if op.Version == "" {
 		neoVersion, err := getLatestForMCVersion(op.MinecraftVersion)
 		if err != nil {
-			return SkyPanel.OperationResult{Error: err}
+			return skypanel.OperationResult{Error: err}
 		}
 		op.Version = neoVersion
 	}
 
-	jarDownload := strings.Replace(InstallerUrl, "${version}", op.Version, -1)
+	jarDownload := strings.ReplaceAll(InstallerURL, "${version}", op.Version)
 
-	localFile, err := SkyPanel.DownloadViaMaven(jarDownload, env)
+	localFile, err := skypanel.DownloadViaMaven(jarDownload, env)
 	defer utils.Close(localFile)
 	if err != nil {
-		return SkyPanel.OperationResult{Error: err}
+		return skypanel.OperationResult{Error: err}
 	}
 
-	//copy from the cache
+	// copy from the cache
 	err = files.WriteFile(localFile, path.Join(env.GetRootDirectory(), op.Filename))
 	if err != nil {
-		return SkyPanel.OperationResult{Error: err}
+		return skypanel.OperationResult{Error: err}
 	}
 
-	return SkyPanel.OperationResult{VariableOverrides: map[string]interface{}{
+	return skypanel.OperationResult{VariableOverrides: map[string]interface{}{
 		op.OutputVariable: op.Version,
 	}}
 }
 
 func getLatestForMCVersion(minecraftVersion string) (string, error) {
-	response, err := SkyPanel.HttpGet(MetadataUrl)
+	response, err := skypanel.HTTPGet(MetadataURL)
 	defer utils.CloseResponse(response)
 	if err != nil {
 		return "", err

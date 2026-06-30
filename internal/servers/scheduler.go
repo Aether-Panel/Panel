@@ -14,9 +14,9 @@ import (
 
 type Scheduler struct {
 	scheduler gocron.Scheduler
-	serverId  string
+	serverID  string
 
-	Tasks           map[string]SkyPanel.Task `json:"tasks"`
+	Tasks           map[string]skypanel.Task `json:"tasks"`
 	Timezone        string                   `json:"timezone,omitempty"`
 	ConcurrentLimit uint                     `json:"concurrentLimit"`
 	LimitMode       string                   `json:"limitMode"`
@@ -24,14 +24,14 @@ type Scheduler struct {
 
 // LoadScheduler Loads the scheduler from the serverid.cron file, or defaults
 // This file is a JSON file, but it hooks into everything
-func LoadScheduler(serverId string) (*Scheduler, error) {
-	file, err := os.Open(filepath.Join(config.ServersFolder.Value(), serverId+".cron"))
+func LoadScheduler(serverID string) (*Scheduler, error) {
+	file, err := os.Open(filepath.Join(config.ServersFolder.Value(), serverID+".cron"))
 	if err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
 	defer utils.Close(file)
 
-	scheduler := NewDefaultScheduler(serverId)
+	scheduler := NewDefaultScheduler(serverID)
 	if file != nil {
 		err = json.NewDecoder(file).Decode(&scheduler)
 		if err != nil {
@@ -43,18 +43,18 @@ func LoadScheduler(serverId string) (*Scheduler, error) {
 	return scheduler, err
 }
 
-func NewDefaultScheduler(serverId string) *Scheduler {
+func NewDefaultScheduler(serverID string) *Scheduler {
 	return &Scheduler{
-		Tasks:           make(map[string]SkyPanel.Task),
+		Tasks:           make(map[string]skypanel.Task),
 		Timezone:        "Local",
 		ConcurrentLimit: 5,
 		LimitMode:       "wait",
-		serverId:        serverId,
+		serverID:        serverID,
 	}
 }
 
 func (s *Scheduler) Save() error {
-	file, err := os.OpenFile(filepath.Join(config.ServersFolder.Value(), s.serverId+".cron"), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	file, err := os.OpenFile(filepath.Join(config.ServersFolder.Value(), s.serverID+".cron"), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
 	}
@@ -126,14 +126,14 @@ func (s *Scheduler) IsRunning() bool {
 	return s.scheduler != nil
 }
 
-func (s *Scheduler) AddTask(id string, task SkyPanel.Task) error {
+func (s *Scheduler) AddTask(id string, task skypanel.Task) error {
 	if err := s.addTask(id, task); err != nil {
 		return err
 	}
 	return s.Save()
 }
 
-func (s *Scheduler) addTask(id string, task SkyPanel.Task) error {
+func (s *Scheduler) addTask(id string, task skypanel.Task) error {
 	var opt gocron.JobDefinition
 
 	if task.CronSchedule != "" {
@@ -142,7 +142,7 @@ func (s *Scheduler) addTask(id string, task SkyPanel.Task) error {
 		opt = gocron.OneTimeJob(gocron.OneTimeJobStartDateTime(time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC)))
 	}
 
-	_, err := s.scheduler.NewJob(opt, gocron.NewTask(_executeTask, s.serverId, id), gocron.WithName(id))
+	_, err := s.scheduler.NewJob(opt, gocron.NewTask(_executeTask, s.serverID, id), gocron.WithName(id))
 	if err != nil {
 		return err
 	}
@@ -171,12 +171,12 @@ func (s *Scheduler) RunTask(id string) error {
 	return gocron.ErrJobNotFound
 }
 
-func (s *Scheduler) GetTasks() map[string]SkyPanel.Task {
+func (s *Scheduler) GetTasks() map[string]skypanel.Task {
 	return s.Tasks
 }
 
-func _executeTask(serverId string, id string) {
-	p := GetFromCache(serverId)
+func _executeTask(serverID string, id string) {
+	p := GetFromCache(serverID)
 	var err error
 
 	task := p.Scheduler.Tasks[id]

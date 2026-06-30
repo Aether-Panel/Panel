@@ -13,8 +13,8 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 )
 
-func getAddonData(projectId uint) (AddonResponse, error) {
-	u := fmt.Sprintf("https://api.curseforge.com/v1/mods/%d", projectId)
+func getAddonData(projectID uint) (AddonResponse, error) {
+	u := fmt.Sprintf("https://api.curseforge.com/v1/mods/%d", projectID)
 
 	response, err := callCurseForge(u)
 	if err != nil {
@@ -27,7 +27,7 @@ func getAddonData(projectId uint) (AddonResponse, error) {
 	}
 
 	if response.StatusCode != http.StatusOK {
-		return AddonResponse{}, SkyPanel.ErrCurseForgeStatus(response.Status)
+		return AddonResponse{}, skypanel.ErrCurseForgeStatus(response.Status)
 	}
 
 	d, err := io.ReadAll(response.Body)
@@ -43,8 +43,8 @@ func getAddonData(projectId uint) (AddonResponse, error) {
 	return addon, nil
 }
 
-func getAddonFileData(projectId uint, fileId uint) (FileResponse, error) {
-	u := fmt.Sprintf("https://api.curseforge.com/v1/mods/%d/files/%d", projectId, fileId)
+func getAddonFileData(projectID uint, fileID uint) (FileResponse, error) {
+	u := fmt.Sprintf("https://api.curseforge.com/v1/mods/%d/files/%d", projectID, fileID)
 
 	response, err := callCurseForge(u)
 	if err != nil {
@@ -53,11 +53,11 @@ func getAddonFileData(projectId uint, fileId uint) (FileResponse, error) {
 	defer utils.CloseResponse(response)
 
 	if response.StatusCode == http.StatusNotFound {
-		return FileResponse{}, SkyPanel.ErrCurseForgeFile(projectId, fileId)
+		return FileResponse{}, skypanel.ErrCurseForgeFile(projectID, fileID)
 	}
 
 	if response.StatusCode != http.StatusOK {
-		return FileResponse{}, SkyPanel.ErrCurseForgeStatus(response.Status)
+		return FileResponse{}, skypanel.ErrCurseForgeStatus(response.Status)
 	}
 
 	var res FileResponse
@@ -68,31 +68,31 @@ func getAddonFileData(projectId uint, fileId uint) (FileResponse, error) {
 	return res, nil
 }
 
-func getLatestFiles(projectId uint) ([]File, error) {
-	addon, err := getAddonData(projectId)
+func getLatestFiles(projectID uint) ([]File, error) {
+	addon, err := getAddonData(projectID)
 	if err != nil {
 		return nil, err
 	}
 
 	if !addon.Data.AllowModDistribution {
-		return nil, SkyPanel.ErrCurseForgeDistribution(projectId)
+		return nil, skypanel.ErrCurseForgeDistribution(projectID)
 	}
 
 	return addon.Data.LatestFiles, err
 }
 
-func getFileById(projectId uint, fileId uint) (File, error) {
-	addon, addonErr := getAddonData(projectId)
+func getFileByID(projectID uint, fileID uint) (File, error) {
+	addon, addonErr := getAddonData(projectID)
 
 	if addonErr != nil {
 		return File{}, addonErr
 	}
 
 	if !addon.Data.AllowModDistribution {
-		return File{}, SkyPanel.ErrCurseForgeDistribution(projectId)
+		return File{}, skypanel.ErrCurseForgeDistribution(projectID)
 	}
 
-	file, fileErr := getAddonFileData(projectId, fileId)
+	file, fileErr := getAddonFileData(projectID, fileID)
 
 	if fileErr != nil {
 		return File{}, fileErr
@@ -115,6 +115,6 @@ func callCurseForge(u string) (*http.Response, error) {
 	request.Header.Add("x-api-key", config.CurseForgeKey.Value())
 
 	logging.Debug.Printf("Calling %s\n", request.URL.String())
-	response, err := SkyPanel.Http().Do(request)
+	response, err := skypanel.HTTP().Do(request)
 	return response, err
 }

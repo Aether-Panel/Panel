@@ -43,7 +43,7 @@ var loginNoAdminWithServersUser = &models.User{
 const loginNoAdminWithServersUserPassword = "dowiuzlaslf"
 
 var loginOAuth2Admin = &models.Client{
-	ClientId:    "testadmin",
+	ClientID:    "testadmin",
 	Name:        "testadminclient",
 	Description: "For unit testing only",
 	User:        loginAdminUser,
@@ -132,7 +132,7 @@ func initLoginNoServersUser(db *gorm.DB) error {
 	}
 
 	perms := &models.Permissions{
-		UserId: &loginNoServerViewUser.ID,
+		UserID: &loginNoServerViewUser.ID,
 		Scopes: []*scopes.Scope{scopes.ScopeLogin},
 	}
 	err = db.Create(perms).Error
@@ -146,7 +146,7 @@ func initLoginAdminUser(db *gorm.DB) error {
 	}
 
 	perms := &models.Permissions{
-		UserId: &loginAdminUser.ID,
+		UserID: &loginAdminUser.ID,
 		Scopes: []*scopes.Scope{scopes.ScopeAdmin},
 	}
 	err = db.Create(perms).Error
@@ -166,7 +166,7 @@ func initLoginSftp(db *gorm.DB) error {
 	var str = "testserver-local"
 	var perms = &models.Permissions{
 		Scopes:           []*scopes.Scope{scopes.ScopeServerSftp, scopes.ScopeLogin},
-		UserId:           &loginSftpUser.ID,
+		UserID:           &loginSftpUser.ID,
 		ServerIdentifier: &str,
 	}
 	err = db.Create(perms).Error
@@ -177,7 +177,7 @@ func initLoginSftp(db *gorm.DB) error {
 	str = "testserver-remote"
 	perms = &models.Permissions{
 		Scopes:           []*scopes.Scope{scopes.ScopeServerSftp, scopes.ScopeLogin},
-		UserId:           &loginSftpUser.ID,
+		UserID:           &loginSftpUser.ID,
 		ServerIdentifier: &str,
 	}
 	err = db.Create(perms).Error
@@ -192,7 +192,7 @@ func initLoginDifferentUser(db *gorm.DB) error {
 	var str = "secondserver"
 	var perms = &models.Permissions{
 		Scopes:           []*scopes.Scope{scopes.ScopeLogin},
-		UserId:           &loginSftpUser.ID,
+		UserID:           &loginSftpUser.ID,
 		ServerIdentifier: &str,
 	}
 	return db.Create(perms).Error
@@ -206,7 +206,7 @@ func initOauth2Client(db *gorm.DB) error {
 	}
 
 	perms := &models.Permissions{
-		ClientId: &loginOAuth2Admin.ID,
+		ClientID: &loginOAuth2Admin.ID,
 		Scopes:   []*scopes.Scope{scopes.ScopeAdmin},
 	}
 	err = db.Create(perms).Error

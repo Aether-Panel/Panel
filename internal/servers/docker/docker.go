@@ -46,21 +46,21 @@ type Docker struct {
 	cli              *client.Client
 	downloadingImage bool
 	statLocker       sync.Mutex
-	lastStats        *SkyPanel.ServerStats
+	lastStats        *skypanel.ServerStats
 	lastStatTime     time.Time
 	lastNetworkRx    uint64
 	lastNetworkTx    uint64
 	lastNetTime      time.Time
-	//disableStdin        bool
+	// disableStdin        bool
 	disableSpecialStats bool
 
 	dirSize     int64
 	dirSizeTime time.Time
 }
 
-func (d *Docker) ExecuteAsyncImpl(environment *SkyPanel.Environment, steps SkyPanel.ExecutionData) error {
+func (d *Docker) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypanel.ExecutionData) error {
 	if d.downloadingImage {
-		return SkyPanel.ErrImageDownloading
+		return skypanel.ErrImageDownloading
 	}
 
 	var err error
@@ -71,8 +71,8 @@ func (d *Docker) ExecuteAsyncImpl(environment *SkyPanel.Environment, steps SkyPa
 	}
 
 	ctx := context.Background()
-	//TODO: This logic may not work anymore, it's complicated to use an existing container with install/uninstall
-	exists, err := doesContainerExist(dockerClient, environment.ServerId, ctx)
+	// TODO: This logic may not work anymore, it's complicated to use an existing container with install/uninstall
+	exists, err := doesContainerExist(ctx, dockerClient, environment.ServerID)
 	if err != nil {
 		return err
 	}
@@ -81,13 +81,13 @@ func (d *Docker) ExecuteAsyncImpl(environment *SkyPanel.Environment, steps SkyPa
 		return errors.New("docker container already exists")
 	}
 
-	err = d.createContainer(environment, steps, ctx)
+	err = d.createContainer(ctx, environment, steps)
 	if err != nil {
 		return err
 	}
 
 	d.disableSpecialStats = steps.DisableStats
-	//d.disableStdin = steps.DisableStdin
+	// d.disableStdin = steps.DisableStdin
 
 	cfg := container.AttachOptions{
 		Stdin:  true,
@@ -96,7 +96,7 @@ func (d *Docker) ExecuteAsyncImpl(environment *SkyPanel.Environment, steps SkyPa
 		Stream: true,
 	}
 
-	d.connection, err = dockerClient.ContainerAttach(ctx, environment.ServerId, cfg)
+	d.connection, err = dockerClient.ContainerAttach(ctx, environment.ServerID, cfg)
 	if err != nil {
 		return err
 	}
@@ -108,7 +108,7 @@ func (d *Docker) ExecuteAsyncImpl(environment *SkyPanel.Environment, steps SkyPa
 		_, _ = io.Copy(environment.Wrapper, d.connection.Reader)
 	}()
 
-	//if !d.disableStdin {
+	// if !d.disableStdin {
 	//	environment.CreateConsoleStdinProxy(steps.StdInConfig, d.connection.Conn)
 	//}
 	environment.CreateConsoleStdinProxy(steps.StdInConfig, d.connection.Conn)
@@ -119,16 +119,16 @@ func (d *Docker) ExecuteAsyncImpl(environment *SkyPanel.Environment, steps SkyPa
 
 	startOpts := container.StartOptions{}
 
-	_ = environment.StatusTracker.WriteMessage(SkyPanel.Transmission{
-		Message: SkyPanel.ServerRunning{
+	_ = environment.StatusTracker.WriteMessage(skypanel.Transmission{
+		Message: skypanel.ServerRunning{
 			Running:    true,
 			Installing: environment.IsInstalling(),
 		},
-		Type: SkyPanel.MessageTypeStatus,
+		Type: skypanel.MessageTypeStatus,
 	})
 
 	environment.DisplayToConsole(true, "Starting container\n")
-	err = dockerClient.ContainerStart(ctx, environment.ServerId, startOpts)
+	err = dockerClient.ContainerStart(ctx, environment.ServerID, startOpts)
 	if err != nil {
 		return err
 	}
@@ -136,7 +136,7 @@ func (d *Docker) ExecuteAsyncImpl(environment *SkyPanel.Environment, steps SkyPa
 	return err
 }
 
-func (d *Docker) KillImpl(environment *SkyPanel.Environment) error {
+func (d *Docker) KillImpl(environment *skypanel.Environment) error {
 	running, err := environment.IsRunning()
 	if err != nil {
 		return err
@@ -150,11 +150,11 @@ func (d *Docker) KillImpl(environment *SkyPanel.Environment) error {
 	if err != nil {
 		return err
 	}
-	err = dockerClient.ContainerKill(context.Background(), environment.ServerId, "SIGKILL")
+	err = dockerClient.ContainerKill(context.Background(), environment.ServerID, "SIGKILL")
 	return err
 }
 
-func (d *Docker) IsRunningImpl(environment *SkyPanel.Environment) (bool, error) {
+func (d *Docker) IsRunningImpl(environment *skypanel.Environment) (bool, error) {
 	dockerClient, err := d.getClient()
 	if err != nil {
 		return false, err
@@ -162,27 +162,27 @@ func (d *Docker) IsRunningImpl(environment *SkyPanel.Environment) (bool, error) 
 
 	ctx := context.Background()
 
-	exists, err := doesContainerExist(dockerClient, environment.ServerId, ctx)
+	exists, err := doesContainerExist(ctx, dockerClient, environment.ServerID)
 	if !exists {
 		return false, err
 	}
 
-	stats, err := dockerClient.ContainerInspect(ctx, environment.ServerId)
+	stats, err := dockerClient.ContainerInspect(ctx, environment.ServerID)
 	if err != nil {
 		return false, err
 	}
 	return stats.State.Running, nil
 }
 
-func (d *Docker) GetStatsImpl(environment *SkyPanel.Environment) (*SkyPanel.ServerStats, error) {
+func (d *Docker) GetStatsImpl(environment *skypanel.Environment) (*skypanel.ServerStats, error) {
 	running, err := environment.IsRunning()
 	if err != nil {
 		return nil, err
 	}
 
 	if !running {
-		stats := &SkyPanel.ServerStats{
-			Cpu:    0,
+		stats := &skypanel.ServerStats{
+			CPU:    0,
 			Memory: 0,
 		}
 
@@ -196,7 +196,7 @@ func (d *Docker) GetStatsImpl(environment *SkyPanel.Environment) (*SkyPanel.Serv
 	d.statLocker.Lock()
 	defer d.statLocker.Unlock()
 
-	//only fetch stats once every 5 seconds, to avoid excessive spam
+	// only fetch stats once every 5 seconds, to avoid excessive spam
 	if d.lastStatTime.Add(5 * time.Second).After(time.Now()) {
 		return d.lastStats, nil
 	}
@@ -208,7 +208,7 @@ func (d *Docker) GetStatsImpl(environment *SkyPanel.Environment) (*SkyPanel.Serv
 	}
 
 	ctx := context.Background()
-	res, err := dockerClient.ContainerStats(ctx, environment.ServerId, false)
+	res, err := dockerClient.ContainerStats(ctx, environment.ServerID, false)
 	defer func() {
 		if res.Body != nil {
 			utils.Close(res.Body)
@@ -224,8 +224,8 @@ func (d *Docker) GetStatsImpl(environment *SkyPanel.Environment) (*SkyPanel.Serv
 		return nil, err
 	}
 
-	//for java, we can get some extra data from the jcmd command
-	//as such, we'll see if we can
+	// for java, we can get some extra data from the jcmd command
+	// as such, we'll see if we can
 
 	var totalRx, totalTx uint64
 	for _, netStats := range data.Networks {
@@ -258,10 +258,10 @@ func (d *Docker) GetStatsImpl(environment *SkyPanel.Environment) (*SkyPanel.Serv
 		}
 	}
 
-	stats := &SkyPanel.ServerStats{
+	stats := &skypanel.ServerStats{
 		Memory:     float64(data.MemoryStats.Usage),
 		MaxMemory:  float64(data.MemoryStats.Limit),
-		Cpu:        calculateCPUPercent(data),
+		CPU:        calculateCPUPercent(data),
 		Disk:       float64(d.dirSize),
 		MaxStorage: maxStorage,
 		NetworkRx:  rxRate,
@@ -275,7 +275,7 @@ func (d *Docker) GetStatsImpl(environment *SkyPanel.Environment) (*SkyPanel.Serv
 			cmd = "jcmd"
 		}
 
-		r, e := dockerClient.ContainerExecCreate(context.Background(), environment.ServerId, container.ExecOptions{
+		r, e := dockerClient.ContainerExecCreate(context.Background(), environment.ServerID, container.ExecOptions{
 			AttachStderr: true,
 			AttachStdout: true,
 			Cmd:          []string{cmd, "1", "GC.heap_info"},
@@ -313,7 +313,7 @@ func (d *Docker) GetStatsImpl(environment *SkyPanel.Environment) (*SkyPanel.Serv
 }
 
 func (d *Docker) getClient() (*client.Client, error) {
-	var err error = nil
+	var err error
 	if d.cli == nil {
 		d.cli, err = client.NewClientWithOpts(client.FromEnv)
 		ctx := context.Background()
@@ -322,7 +322,7 @@ func (d *Docker) getClient() (*client.Client, error) {
 	return d.cli, err
 }
 
-func doesContainerExist(client *client.Client, id string, ctx context.Context) (bool, error) {
+func doesContainerExist(ctx context.Context, client *client.Client, id string) (bool, error) {
 	opts := container.ListOptions{
 		Filters: filters.NewArgs(),
 	}
@@ -344,9 +344,9 @@ func doesContainerExist(client *client.Client, id string, ctx context.Context) (
 	return false, nil
 }
 
-func (d *Docker) PullImage(environment *SkyPanel.Environment, ctx context.Context, imageName string, force bool) error {
+func (d *Docker) PullImage(ctx context.Context, environment *skypanel.Environment, imageName string, force bool) error {
 	if d.downloadingImage {
-		return SkyPanel.ErrImageDownloading
+		return skypanel.ErrImageDownloading
 	}
 
 	if !force {
@@ -354,7 +354,7 @@ func (d *Docker) PullImage(environment *SkyPanel.Environment, ctx context.Contex
 
 		parts := strings.SplitN(imageName, ":", 2)
 		if len(parts) != 2 {
-			imageName = imageName + ":latest"
+			imageName += ":latest"
 		}
 
 		opts := image.ListOptions{
@@ -415,7 +415,7 @@ func (d *Docker) PullImage(environment *SkyPanel.Environment, ctx context.Contex
 	return err
 }
 
-func (d *Docker) createContainer(environment *SkyPanel.Environment, data SkyPanel.ExecutionData, ctx context.Context) error {
+func (d *Docker) createContainer(ctx context.Context, environment *skypanel.Environment, data skypanel.ExecutionData) error {
 	environment.Log(logging.Debug, "Creating container")
 	containerRoot := d.ContainerRoot
 	if containerRoot == "" {
@@ -424,13 +424,13 @@ func (d *Docker) createContainer(environment *SkyPanel.Environment, data SkyPane
 
 	if runtime.GOOS != "windows" {
 		if !filepath.IsAbs(containerRoot) {
-			return SkyPanel.ErrPathNotAbs(containerRoot)
+			return skypanel.ErrPathNotAbs(containerRoot)
 		}
 	}
 
 	imageName := utils.ReplaceTokens(d.ImageName, data.Variables)
 
-	err := d.PullImage(environment, ctx, imageName, false)
+	err := d.PullImage(ctx, environment, imageName, false)
 
 	if err != nil {
 		return err
@@ -449,7 +449,7 @@ func (d *Docker) createContainer(environment *SkyPanel.Environment, data SkyPane
 	environment.Log(logging.Debug, "Container command: %s\n", cmdSlice)
 
 	labels := map[string]string{
-		"SkyPanel.server": environment.ServerId,
+		"skypanel.server": environment.ServerID,
 	}
 
 	for k, v := range d.Labels {
@@ -459,7 +459,7 @@ func (d *Docker) createContainer(environment *SkyPanel.Environment, data SkyPane
 	c := d.Config
 	containerConfig := &c
 
-	//these we need to override
+	// these we need to override
 	containerConfig.AttachStderr = true
 	containerConfig.AttachStdin = true
 	containerConfig.AttachStdout = true
@@ -468,7 +468,7 @@ func (d *Docker) createContainer(environment *SkyPanel.Environment, data SkyPane
 	containerConfig.NetworkDisabled = false
 	containerConfig.Labels = labels
 
-	//default if it wasn't overridden
+	// default if it wasn't overridden
 	if containerConfig.Image == "" {
 		containerConfig.Image = imageName
 	}
@@ -477,7 +477,7 @@ func (d *Docker) createContainer(environment *SkyPanel.Environment, data SkyPane
 		containerConfig.WorkingDir = containerRoot
 	}
 
-	//append anything the container config added
+	// append anything the container config added
 	var envVars = make(map[string]string)
 
 	for _, v := range containerConfig.Env {
@@ -512,12 +512,12 @@ func (d *Docker) createContainer(environment *SkyPanel.Environment, data SkyPane
 
 	var dir string
 	if containerMountSource != "" {
-		dir = filepath.Join(containerMountSource, "servers", environment.ServerId)
+		dir = filepath.Join(containerMountSource, "servers", environment.ServerID)
 	} else {
 		dir = environment.GetRootDirectory()
 	}
 
-	//convert root dir to a full path, so we can bind it
+	// convert root dir to a full path, so we can bind it
 	if !filepath.IsAbs(dir) {
 		dir, err = filepath.Abs(dir)
 		if err != nil {
@@ -530,14 +530,12 @@ func (d *Docker) createContainer(environment *SkyPanel.Environment, data SkyPane
 	binaryFolder := config.BinariesFolder.Value()
 	if containerMountSource != "" {
 		binaryFolder = filepath.Join(containerMountSource, "binaries")
-	} else {
-		if !filepath.IsAbs(binaryFolder) {
-			var ef error
-			binaryFolder, ef = filepath.Abs(binaryFolder)
-			if ef != nil {
-				logging.Error.Printf("Failed to resolve binary folder to absolute path: %s", ef)
-				binaryFolder = ""
-			}
+	} else if !filepath.IsAbs(binaryFolder) {
+		var ef error
+		binaryFolder, ef = filepath.Abs(binaryFolder)
+		if ef != nil {
+			logging.Error.Printf("Failed to resolve binary folder to absolute path: %s", ef)
+			binaryFolder = ""
 		}
 	}
 	if binaryFolder != "" {
@@ -569,7 +567,7 @@ func (d *Docker) createContainer(environment *SkyPanel.Environment, data SkyPane
 
 	if data.StdInConfig.Port != "" {
 		if _, exists := hostConfig.PortBindings[nat.Port(data.StdInConfig.Port+"/tcp")]; !exists {
-			//we have a port defined for stdin, we need to also export it
+			// we have a port defined for stdin, we need to also export it
 			hostConfig.PortBindings[nat.Port(data.StdInConfig.Port+"/tcp")] = []nat.PortBinding{{
 				HostIP: "127.0.0.1", HostPort: data.StdInConfig.Port,
 			}}
@@ -601,12 +599,12 @@ func (d *Docker) createContainer(environment *SkyPanel.Environment, data SkyPane
 
 	networkConfig := &network.NetworkingConfig{}
 
-	//for now, default to linux across the board. This resolves problems that Windows has when you use it and docker
-	_, err = d.cli.ContainerCreate(ctx, containerConfig, hostConfig, networkConfig, &v1.Platform{OS: "linux"}, environment.ServerId)
+	// for now, default to linux across the board. This resolves problems that Windows has when you use it and docker
+	_, err = d.cli.ContainerCreate(ctx, containerConfig, hostConfig, networkConfig, &v1.Platform{OS: "linux"}, environment.ServerID)
 	return err
 }
 
-func (d *Docker) SendCodeImpl(environment *SkyPanel.Environment, code int) error {
+func (d *Docker) SendCodeImpl(environment *skypanel.Environment, code int) error {
 	running, err := environment.IsRunning()
 
 	if err != nil || !running {
@@ -620,10 +618,10 @@ func (d *Docker) SendCodeImpl(environment *SkyPanel.Environment, code int) error
 	}
 
 	ctx := context.Background()
-	return dockerClient.ContainerKill(ctx, environment.ServerId, cast.ToString(code))
+	return dockerClient.ContainerKill(ctx, environment.ServerID, cast.ToString(code))
 }
 
-func (d *Docker) GetUidImpl(environment *SkyPanel.Environment) int {
+func (d *Docker) GetUIDImpl(_ *skypanel.Environment) int {
 	user := d.Config.User
 	if user == "" {
 		return -1
@@ -631,7 +629,7 @@ func (d *Docker) GetUidImpl(environment *SkyPanel.Environment) int {
 	return cast.ToInt(strings.Split(user, ":")[0])
 }
 
-func (d *Docker) GetGidImpl(environment *SkyPanel.Environment) int {
+func (d *Docker) GetGidImpl(_ *skypanel.Environment) int {
 	user := d.Config.User
 	if user == "" {
 		return -1
@@ -639,9 +637,9 @@ func (d *Docker) GetGidImpl(environment *SkyPanel.Environment) int {
 	return cast.ToInt(strings.Split(user, ":")[1])
 }
 
-func (d *Docker) handleClose(environment *SkyPanel.Environment, client *client.Client, callback func(int)) {
+func (d *Docker) handleClose(environment *skypanel.Environment, client *client.Client, callback func(int)) {
 	exitCode := -1
-	okChan, errChan := client.ContainerWait(context.Background(), environment.ServerId, container.WaitConditionRemoved)
+	okChan, errChan := client.ContainerWait(context.Background(), environment.ServerID, container.WaitConditionRemoved)
 
 	select {
 	case chanErr := <-errChan:
@@ -662,12 +660,12 @@ func (d *Docker) handleClose(environment *SkyPanel.Environment, client *client.C
 
 	environment.Wait.Done()
 
-	_ = environment.StatusTracker.WriteMessage(SkyPanel.Transmission{
-		Message: SkyPanel.ServerRunning{
+	_ = environment.StatusTracker.WriteMessage(skypanel.Transmission{
+		Message: skypanel.ServerRunning{
 			Running:    false,
 			Installing: environment.IsInstalling(),
 		},
-		Type: SkyPanel.MessageTypeStatus,
+		Type: skypanel.MessageTypeStatus,
 	})
 
 	_ = environment.Console.Close()
@@ -679,14 +677,14 @@ func (d *Docker) handleClose(environment *SkyPanel.Environment, client *client.C
 }
 
 func calculateCPUPercent(v *container.StatsResponse) float64 {
-	//this math is from https://docs.docker.com/reference/api/engine/version/v1.45/#tag/Container/operation/ContainerStats
+	// this math is from https://docs.docker.com/reference/api/engine/version/v1.45/#tag/Container/operation/ContainerStats
 	cpuDelta := v.CPUStats.CPUUsage.TotalUsage - v.PreCPUStats.CPUUsage.TotalUsage
-	systemCpuDelta := v.CPUStats.SystemUsage - v.PreCPUStats.SystemUsage
+	systemCPUDelta := v.CPUStats.SystemUsage - v.PreCPUStats.SystemUsage
 	numCpus := int(v.CPUStats.OnlineCPUs)
 	if numCpus == 0 {
 		numCpus = len(v.CPUStats.CPUUsage.PercpuUsage)
 	}
-	return (float64(cpuDelta) / float64(systemCpuDelta)) * float64(numCpus) * 100.0
+	return (float64(cpuDelta) / float64(systemCPUDelta)) * float64(numCpus) * 100.0
 }
 
 func getDirSize(path string) int64 {
@@ -711,7 +709,7 @@ func convertToBind(source string) string {
 
 	fullPath = strings.ReplaceAll(fullPath, "\\", "/")
 	fullPath = strings.ReplaceAll(fullPath, ":", "")
-	//lowercase first character as that's the drive
+	// lowercase first character as that's the drive
 	fullPath = strings.ToLower(string(fullPath[0])) + fullPath[1:]
 	fullPath = "/" + fullPath
 	return fullPath

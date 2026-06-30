@@ -9,7 +9,7 @@ type Sleep struct {
 	Duration time.Duration
 }
 
-func (d Sleep) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
+func (d Sleep) Run(_ skypanel.RunOperatorArgs) skypanel.OperationResult {
 	time.Sleep(d.Duration)
-	return SkyPanel.OperationResult{Error: nil}
+	return skypanel.OperationResult{Error: nil}
 }

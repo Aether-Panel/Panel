@@ -11,7 +11,8 @@ linters:
     - typecheck
     - gosimple
     - staticcheck
-
+    - revive
+    - gocritic
 
 linters-settings:
   govet:

@@ -1,4 +1,4 @@
-package SkyPanel
+package skypanel
 
 import (
 	"github.com/SkyPanel/SkyPanel/v3/files"
@@ -20,7 +20,7 @@ type Server struct {
 	Stats                 MetadataType              `json:"stats,omitempty"`
 	Query                 MetadataType              `json:"query,omitempty"`
 	KeepAlive             KeepAlive                 `json:"keepAlive,omitempty"`
-} //@name ServerDefinition
+} // @name ServerDefinition
 
 type Execution struct {
 	Command                 interface{}               `json:"command"`
@@ -35,21 +35,21 @@ type Execution struct {
 	AutoRestartFromCrash    bool                      `json:"autorecover"`
 	AutoRestartFromGraceful bool                      `json:"autorestart"`
 	ExpectedExitCode        int                       `json:"expectedExitCode,omitempty"`
-} //@name Execution
+} // @name Execution
 
 type Name struct {
 	Name string `json:"name"`
-} //@name Name
+} // @name Name
 
 type Command struct {
 	If      string                    `json:"if,omitempty"`
 	Command string                    `json:"command"`
 	StdIn   StdinConsoleConfiguration `json:"stdin"`
-} //@name Command
+} // @name Command
 
 type Type struct {
 	Type string `json:"type"`
-} //@name Type
+} // @name Type
 
 type Group struct {
 	If          string   `json:"if,omitempty"`
@@ -57,12 +57,12 @@ type Group struct {
 	Description string   `json:"description"`
 	Variables   []string `json:"variables"`
 	Order       int      `json:"order"`
-} //@name Group
+} // @name Group
 
 type KeepAlive struct {
 	Frequency string `json:"frequency"`
 	Command   string `json:"command"`
-} //@name KeepAlive
+} // @name KeepAlive
 
 func (s *Server) CopyFrom(replacement *Server) {
 	s.Variables = replacement.Variables

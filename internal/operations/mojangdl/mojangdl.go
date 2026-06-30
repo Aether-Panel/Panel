@@ -9,29 +9,29 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 )
 
-const VersionJsonUrl = "https://launchermeta.mojang.com/mc/game/version_manifest.json"
+const VersionJSONURL = "https://launchermeta.mojang.com/mc/game/version_manifest.json"
 
 type MojangDl struct {
 	Version string
 	Target  string
 }
 
-func (op MojangDl) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
+func (op MojangDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	env := args.Environment
 
-	response, err := SkyPanel.HttpGet(VersionJsonUrl)
+	response, err := skypanel.HTTPGet(VersionJSONURL)
 	if err != nil {
-		return SkyPanel.OperationResult{Error: err}
+		return skypanel.OperationResult{Error: err}
 	}
 
-	var data LauncherJson
+	var data LauncherJSON
 	err = json.NewDecoder(response.Body).Decode(&data)
 	if err != nil {
-		return SkyPanel.OperationResult{Error: err}
+		return skypanel.OperationResult{Error: err}
 	}
 	err = response.Body.Close()
 	if err != nil {
-		return SkyPanel.OperationResult{Error: err}
+		return skypanel.OperationResult{Error: err}
 	}
 
 	var targetVersion string
@@ -47,28 +47,28 @@ func (op MojangDl) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
 	}
 
 	for _, version := range data.Versions {
-		if version.Id == targetVersion {
-			logging.Info.Printf("Version %s json located, downloading from %s", version.Id, version.Url)
-			env.DisplayToConsole(true, fmt.Sprintf("Version %s json located, downloading from %s\n", version.Id, version.Url))
-			//now, get the version json for this one...
-			err = downloadServerFromJson(version.Url, op.Target, env)
-			return SkyPanel.OperationResult{Error: err}
+		if version.ID == targetVersion {
+			logging.Info.Printf("Version %s json located, downloading from %s", version.ID, version.URL)
+			env.DisplayToConsole(true, fmt.Sprintf("Version %s json located, downloading from %s\n", version.ID, version.URL))
+			// now, get the version json for this one...
+			err = downloadServerFromJSON(version.URL, op.Target, env)
+			return skypanel.OperationResult{Error: err}
 		}
 	}
 
 	env.DisplayToConsole(true, "Could not locate version "+targetVersion+"\n")
 	err = errors.New("Version not located: " + op.Version)
-	return SkyPanel.OperationResult{Error: err}
+	return skypanel.OperationResult{Error: err}
 }
 
-func downloadServerFromJson(url, target string, env *SkyPanel.Environment) error {
-	response, err := SkyPanel.HttpGet(url)
+func downloadServerFromJSON(url, target string, env *skypanel.Environment) error {
+	response, err := skypanel.HTTPGet(url)
 	defer utils.CloseResponse(response)
 	if err != nil {
 		return err
 	}
 
-	var data VersionJson
+	var data VersionJSON
 	err = json.NewDecoder(response.Body).Decode(&data)
 	if err != nil {
 		return err
@@ -80,13 +80,13 @@ func downloadServerFromJson(url, target string, env *SkyPanel.Environment) error
 
 	serverBlock := data.Downloads["server"]
 
-	logging.Info.Printf("Version jar located, downloading from %s", serverBlock.Url)
-	env.DisplayToConsole(true, fmt.Sprintf("Version jar located, downloading from %s\n", serverBlock.Url))
+	logging.Info.Printf("Version jar located, downloading from %s", serverBlock.URL)
+	env.DisplayToConsole(true, fmt.Sprintf("Version jar located, downloading from %s\n", serverBlock.URL))
 
-	return SkyPanel.DownloadFile(serverBlock.Url, target, env)
+	return skypanel.DownloadFile(serverBlock.URL, target, env)
 }
 
-type LauncherJson struct {
+type LauncherJSON struct {
 	Versions []LauncherVersion `json:"versions"`
 	Latest   Latest            `json:"latest"`
 }
@@ -97,17 +97,17 @@ type Latest struct {
 }
 
 type LauncherVersion struct {
-	Id   string `json:"id"`
-	Url  string `json:"url"`
+	ID   string `json:"id"`
+	URL  string `json:"url"`
 	Type string `json:"type"`
 }
 
-type VersionJson struct {
+type VersionJSON struct {
 	Downloads map[string]DownloadType `json:"downloads"`
 }
 
 type DownloadType struct {
 	Sha1 string `json:"sha1"`
 	Size uint64 `json:"size"`
-	Url  string `json:"url"`
+	URL  string `json:"url"`
 }

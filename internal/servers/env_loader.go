@@ -10,7 +10,7 @@ import (
 	"sync"
 )
 
-var envMapping = make(map[string]SkyPanel.EnvironmentFactory)
+var envMapping = make(map[string]skypanel.EnvironmentFactory)
 
 func init() {
 	envMapping["host"] = tty.EnvironmentFactory{}
@@ -19,20 +19,20 @@ func init() {
 	envMapping["docker"] = docker.EnvironmentFactory{}
 }
 
-func CreateEnvironment(environmentType, folder string, backupFolder string, server SkyPanel.Server) (*SkyPanel.Environment, error) {
+func CreateEnvironment(environmentType, folder string, backupFolder string, server skypanel.Server) (*skypanel.Environment, error) {
 	factory := envMapping[environmentType]
 
 	if factory == nil {
 		return nil, fmt.Errorf("undefined environment: %s", environmentType)
 	}
 
-	item := &SkyPanel.Environment{
+	item := &skypanel.Environment{
 		Type:            factory.Key(),
-		ServerId:        server.Identifier,
-		ConsoleTracker:  SkyPanel.CreateTracker(),
-		StatusTracker:   SkyPanel.CreateTracker(),
-		StatsTracker:    SkyPanel.CreateTracker(),
-		ConsoleBuffer:   SkyPanel.CreateCache(),
+		ServerID:        server.Identifier,
+		ConsoleTracker:  skypanel.CreateTracker(),
+		StatusTracker:   skypanel.CreateTracker(),
+		StatsTracker:    skypanel.CreateTracker(),
+		ConsoleBuffer:   skypanel.CreateCache(),
 		BackupDirectory: filepath.Join(backupFolder, server.Identifier),
 		Wait:            &sync.WaitGroup{},
 		Server:          server,

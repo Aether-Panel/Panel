@@ -5,9 +5,9 @@ import (
 )
 
 type ServerCreation struct {
-	SkyPanel.Server
+	skypanel.Server
 
-	NodeId uint     `json:"node"`
+	NodeID uint     `json:"node"`
 	Users  []string `json:"users"`
 	Name   string   `json:"name"`
 
@@ -16,23 +16,23 @@ type ServerCreation struct {
 	TotalCPU       int     `json:"total_cpu,omitempty"`
 	TotalMemory    int64   `json:"total_memory,omitempty"`
 	TotalDisk      int64   `json:"total_disk,omitempty"`
-} //@name CreatedServer
+} // @name CreatedServer
 
 type GetServerResponse struct {
 	Server *ServerView     `json:"server"`
 	Perms  *PermissionView `json:"permissions"`
-} //@name GetServer
+} // @name GetServer
 
 type CreateServerResponse struct {
-	Id string `json:"id"`
-} //@name CreatedServerId
+	ID string `json:"id"`
+} // @name CreatedServerId
 
 type ServerSearchResponse struct {
 	Servers []*ServerView `json:"servers"`
-	*SkyPanel.Metadata
-} //@name ServerSearchResults
+	*skypanel.Metadata
+} // @name ServerSearchResults
 
 type ServerWithName struct {
-	SkyPanel.Server
+	skypanel.Server
 	Name string `json:"name"`
-} //@name NamedServer
+} // @name NamedServer

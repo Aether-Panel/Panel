@@ -13,7 +13,7 @@ import (
 // @Description Gets the public JSON Web Key Set
 // @Produce json
 // @Success 200 {object} map[string]interface{}
-// @Failure 500 {object} SkyPanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
 // @Tags Auth
 // @Router /auth/publickey [get]
 func TokenServiceGetPublicKey(c *gin.Context) {

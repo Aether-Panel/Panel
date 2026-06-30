@@ -8,23 +8,23 @@ import (
 )
 
 type OperationFactory struct {
-	SkyPanel.OperationFactory
+	skypanel.OperationFactory
 }
 
-func (of OperationFactory) Create(op SkyPanel.CreateOperation) (SkyPanel.Operation, error) {
+func (of OperationFactory) Create(op skypanel.CreateOperation) (skypanel.Operation, error) {
 	if config.CurseForgeKey.Value() == "" {
 		return nil, errors.New("CurseForge key is required to use this module")
 	}
 
-	projectId, err := cast.ToUintE(op.OperationArgs["projectId"])
+	projectID, err := cast.ToUintE(op.OperationArgs["projectId"])
 	if err != nil {
 		return nil, err
 	}
-	fileId, err := cast.ToUintE(op.OperationArgs["fileId"])
-	if op.OperationArgs["fileId"] != "" && err != nil {
+	fileID, err := cast.ToUintE(op.OperationArgs["fileID"])
+	if op.OperationArgs["fileID"] != "" && err != nil {
 		return nil, err
-	} else if op.OperationArgs["fileId"] == "" {
-		fileId = 0
+	} else if op.OperationArgs["fileID"] == "" {
+		fileID = 0
 	}
 
 	javaBinary := cast.ToString(op.OperationArgs["java"])
@@ -32,7 +32,7 @@ func (of OperationFactory) Create(op SkyPanel.CreateOperation) (SkyPanel.Operati
 		javaBinary = "java"
 	}
 
-	return &CurseForge{ProjectId: projectId, FileId: fileId, JavaBinary: javaBinary}, nil
+	return &CurseForge{ProjectID: projectID, FileID: fileID, JavaBinary: javaBinary}, nil
 }
 
 func (of OperationFactory) Key() string {

@@ -1,4 +1,4 @@
-package SkyPanel
+package skypanel
 
 import (
 	"golang.org/x/crypto/ssh"

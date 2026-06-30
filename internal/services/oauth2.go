@@ -10,18 +10,18 @@ type OAuth2 struct {
 }
 
 // Get Gets a specific OAuth client, including the scopes it holds
-func (s *OAuth2) Get(clientId string) (*models.Client, error) {
+func (s *OAuth2) Get(clientID string) (*models.Client, error) {
 	client := &models.Client{
-		ClientId: clientId,
+		ClientID: clientID,
 	}
 	err := s.DB.Where(client).First(client).Error
 	return client, err
 }
 
 // GetForUser Gets all clients for a user
-func (s *OAuth2) GetForUser(userId uint) ([]*models.Client, error) {
+func (s *OAuth2) GetForUser(userID uint) ([]*models.Client, error) {
 	client := &models.Client{
-		UserId: userId,
+		UserID: userID,
 	}
 	var clients []*models.Client
 	err := s.DB.Where(client).Find(&clients).Error
@@ -36,9 +36,9 @@ func (s *OAuth2) Update(request *models.Client) error {
 	return s.DB.Save(request).Error
 }
 
-func (s *OAuth2) Delete(clientId string) error {
+func (s *OAuth2) Delete(clientID string) error {
 	client := &models.Client{
-		ClientId: clientId,
+		ClientID: clientID,
 	}
 	return s.DB.Model(client).Delete(client, client).Error
 }

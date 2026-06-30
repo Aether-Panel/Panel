@@ -8,7 +8,7 @@ type PermissionView struct {
 	ServerIdentifier string `json:"serverIdentifier,omitempty"`
 
 	Scopes []*scopes.Scope `json:"scopes"`
-} //@name Permissions
+} // @name Permissions
 
 func FromPermission(p *Permissions) *PermissionView {
 	model := &PermissionView{

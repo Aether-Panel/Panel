@@ -5,5 +5,5 @@ var (
 	VariableArch     = "arch"
 	VariableSuccess  = "success"
 	VariableEnv      = "env"
-	VariableServerId = "serverId"
+	VariableServerID = "serverId"
 )

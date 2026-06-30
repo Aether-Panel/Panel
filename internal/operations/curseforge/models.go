@@ -3,7 +3,7 @@ package curseforge
 import "time"
 
 type Addon struct {
-	Id                   uint
+	ID                   uint
 	Name                 string
 	DateCreated          time.Time
 	DateModified         time.Time
@@ -13,7 +13,7 @@ type Addon struct {
 }
 
 type File struct {
-	Id                  uint
+	ID                  uint
 	IsAvailable         bool
 	DisplayName         string
 	FileName            string
@@ -22,24 +22,24 @@ type File struct {
 	FileDate            time.Time
 	FileLength          uint64
 	DownloadCount       uint
-	DownloadUrl         string
-	AlternateFileId     uint
+	DownloadURL         string
+	AlternateFileID     uint
 	GameVersions        []string
 	IsServerPack        bool
-	ServerPackFileId    uint
-	ParentProjectFileId uint
+	ServerPackFileID    uint
+	ParentProjectFileID uint
 }
 
 type Category struct {
-	Id               uint
+	ID               uint
 	Name             string
-	ParentCategoryId uint
+	ParentCategoryID uint
 	Slug             string
-	ClassId          uint
+	ClassID          uint
 }
 
 type Game struct {
-	Id   uint
+	ID   uint
 	Name string
 	Slug string
 }
@@ -92,7 +92,7 @@ type MinecraftManifest struct {
 }
 
 type ModLoaderManifest struct {
-	Id      string
+	ID      string
 	Primary bool
 }
 

@@ -30,41 +30,42 @@ type ResolveForgeVersion struct {
 	OutputVariable   string
 }
 
-func (op ResolveForgeVersion) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
+func (op ResolveForgeVersion) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	env := args.Environment
 	fs := args.Server.GetFileServer()
 
-	//if a specific version wasn't specified, we have to dig around through the files....
+	// if a specific version wasn't specified, we have to dig around through the files....
 	if op.Version == "" {
 		dir := filepath.Join("libraries", "net", "minecraftforge", "forge")
 		folders, err := fs.ReadDir(dir)
 		if os.IsNotExist(err) {
-			return SkyPanel.OperationResult{VariableOverrides: map[string]interface{}{
+			return skypanel.OperationResult{VariableOverrides: map[string]interface{}{
 				op.OutputVariable: op.Version,
 			}}
 		}
 		if err != nil {
-			return SkyPanel.OperationResult{Error: err}
+			return skypanel.OperationResult{Error: err}
 		}
 
 		var ver *version.Version
 		for _, v := range folders {
-			//look for folders
+			// look for folders
 			if v.IsDir() {
 				folderName := v.Name()
-				//look for the unix file to accurately confirm this to be supported
+				// look for the unix file to accurately confirm this to be supported
 				desiredFile := filepath.Join(dir, folderName, "unix_args.txt")
 				if _, err = fs.Stat(desiredFile); err != nil {
 					continue
 				}
-				if op.Version == "" {
+				switch {
+				case op.Version == "":
 					op.Version = v.Name()
 					ver, _ = version.NewVersion(op.Version)
-				} else if !strings.HasPrefix(folderName, op.MinecraftVersion) {
-					//we need a different version of MC
+				case !strings.HasPrefix(folderName, op.MinecraftVersion):
+					// we need a different version of MC
 					continue
-				} else if ver != nil {
-					//time to check to see if this a newer version
+				case ver != nil:
+					// time to check to see if this a newer version
 					if ver2, _ := version.NewVersion(op.Version); ver2 != nil && ver.LessThan(ver2) {
 						op.Version = v.Name()
 						ver = ver2
@@ -78,7 +79,7 @@ func (op ResolveForgeVersion) Run(args SkyPanel.RunOperatorArgs) SkyPanel.Operat
 		env.DisplayToConsole(true, "Resolved Forge Version: %s", op.Version)
 	}
 
-	return SkyPanel.OperationResult{VariableOverrides: map[string]interface{}{
+	return skypanel.OperationResult{VariableOverrides: map[string]interface{}{
 		op.OutputVariable: op.Version,
 	}}
 }

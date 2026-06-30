@@ -32,8 +32,8 @@ import (
 	"github.com/spf13/cast"
 )
 
-var commandMapping = make(map[string]SkyPanel.OperationFactory)
-var factories = []SkyPanel.OperationFactory{
+var commandMapping = make(map[string]skypanel.OperationFactory)
+var factories = []skypanel.OperationFactory{
 	alterfile.Factory,
 	archive.Factory,
 	command.Factory,
@@ -66,7 +66,7 @@ func init() {
 	}
 }
 
-func GenerateProcess(directions []SkyPanel.ConditionalMetadataType, environment *SkyPanel.Environment, dataMapping map[string]interface{}, env map[string]string) (OperationProcess, error) {
+func GenerateProcess(directions []skypanel.ConditionalMetadataType, environment *skypanel.Environment, dataMapping map[string]interface{}, env map[string]string) (OperationProcess, error) {
 	dataMap := make(map[string]interface{})
 	for k, v := range dataMapping {
 		dataMap[k] = v
@@ -77,7 +77,7 @@ func GenerateProcess(directions []SkyPanel.ConditionalMetadataType, environment 
 	for _, mapping := range directions {
 		mapCopy := make(map[string]interface{})
 
-		//replace tokens
+		// replace tokens
 		for k, v := range mapping.Metadata {
 			switch r := v.(type) {
 			case string:
@@ -94,7 +94,7 @@ func GenerateProcess(directions []SkyPanel.ConditionalMetadataType, environment 
 				}
 			case []interface{}:
 				{
-					//if we can convert this to a string list, we can work with it
+					// if we can convert this to a string list, we can work with it
 					temp := cast.ToStringSlice(r)
 					if len(temp) == len(r) {
 						mapCopy[k] = utils.ReplaceTokensInArr(temp, dataMap)
@@ -109,7 +109,7 @@ func GenerateProcess(directions []SkyPanel.ConditionalMetadataType, environment 
 
 		envMap := utils.ReplaceTokensInMap(env, dataMap)
 
-		opCreate := SkyPanel.CreateOperation{
+		opCreate := skypanel.CreateOperation{
 			OperationArgs:        mapCopy,
 			EnvironmentVariables: envMap,
 			DataMap:              dataMap,
@@ -124,7 +124,7 @@ func GenerateProcess(directions []SkyPanel.ConditionalMetadataType, environment 
 type OperationProcess []*OperationTask
 
 type OperationTask struct {
-	Operation SkyPanel.CreateOperation
+	Operation skypanel.CreateOperation
 	Condition string
 	Type      string
 }
@@ -148,31 +148,30 @@ func (p *OperationProcess) Run(server *Server) error {
 		if shouldRun {
 			factory := commandMapping[v.Type]
 			if factory == nil {
-				return SkyPanel.ErrMissingFactory
+				return skypanel.ErrMissingFactory
 			}
 			op, err := factory.Create(v.Operation)
 			if err != nil {
-				return SkyPanel.ErrFactoryError(v.Type, err)
+				return skypanel.ErrFactoryError(v.Type, err)
 			}
 
-			result := op.Run(SkyPanel.RunOperatorArgs{
+			result := op.Run(skypanel.RunOperatorArgs{
 				Environment: server.RunningEnvironment,
 				Server:      server,
 			})
 
 			if result.Error != nil {
 				logging.Error.Printf("Error running command: %s", result.Error.Error())
-				//TODO: Implement success checking more accurately here
+				// TODO: Implement success checking more accurately here
 				/*if firstError == nil {
 					firstError = result.Error
 					return result.Error
 				}
-				//extraData[conditions.VariableSuccess] = false
+				// extraData[conditions.VariableSuccess] = false
 				*/
 				return result.Error
-			} else {
-				extraData[conditions.VariableSuccess] = true
 			}
+			extraData[conditions.VariableSuccess] = true
 
 			if result.VariableOverrides != nil {
 				for k, val := range result.VariableOverrides {

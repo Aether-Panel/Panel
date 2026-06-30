@@ -6,9 +6,9 @@ type Console struct {
 	Text string
 }
 
-func (d Console) Run(args SkyPanel.RunOperatorArgs) SkyPanel.OperationResult {
+func (d Console) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	env := args.Environment
 
 	env.DisplayToConsole(true, "Message: %s \n", d.Text)
-	return SkyPanel.OperationResult{Error: nil}
+	return skypanel.OperationResult{Error: nil}
 }

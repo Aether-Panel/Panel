@@ -36,7 +36,7 @@ func (us *User) Get(username string) (*models.User, error) {
 	return model, nil
 }
 
-func (us *User) GetById(id uint) (*models.User, error) {
+func (us *User) GetByID(id uint) (*models.User, error) {
 	model := &models.User{
 		ID: id,
 	}
@@ -61,12 +61,12 @@ func (us *User) ValidateLogin(email string, password string) (user *models.User,
 	}
 
 	if user.ID == 0 || errors.Is(err, gorm.ErrRecordNotFound) {
-		err = SkyPanel.ErrInvalidCredentials
+		err = skypanel.ErrInvalidCredentials
 		return
 	}
 
 	if !us.IsValidCredentials(user, password) {
-		err = SkyPanel.ErrInvalidCredentials
+		err = skypanel.ErrInvalidCredentials
 		return
 	}
 
@@ -89,14 +89,14 @@ func (us *User) ValidOtp(email string, token string) (user *models.User, err err
 	}
 
 	if user.ID == 0 || errors.Is(err, gorm.ErrRecordNotFound) {
-		err = SkyPanel.ErrInvalidCredentials
+		err = skypanel.ErrInvalidCredentials
 		return
 	}
 
 	if !totp.Validate(token, user.OtpSecret) {
 		// check recovery codes
 		rc := &models.RecoveryCode{
-			UserId: user.ID,
+			UserID: user.ID,
 		}
 		_ = rc.SetCode(token)
 
@@ -105,7 +105,7 @@ func (us *User) ValidOtp(email string, token string) (user *models.User, err err
 			err = res.Error
 		}
 		if res.RowsAffected == 0 {
-			err = SkyPanel.ErrInvalidCredentials
+			err = skypanel.ErrInvalidCredentials
 		}
 	}
 	return
@@ -160,8 +160,8 @@ func (us *User) ChangePassword(username string, newPass string) error {
 	return us.Update(user)
 }
 
-func (us *User) GetOtpStatus(userId uint) (enabled bool, err error) {
-	user, err := us.GetById(userId)
+func (us *User) GetOtpStatus(userID uint) (enabled bool, err error) {
+	user, err := us.GetByID(userID)
 	if err != nil {
 		return
 	}
@@ -170,8 +170,8 @@ func (us *User) GetOtpStatus(userId uint) (enabled bool, err error) {
 	return
 }
 
-func (us *User) StartOtpEnroll(userId uint) (secret string, imgStr string, err error) {
-	user, err := us.GetById(userId)
+func (us *User) StartOtpEnroll(userID uint) (secret string, imgStr string, err error) {
+	user, err := us.GetByID(userID)
 	if err != nil {
 		return
 	}
@@ -230,14 +230,14 @@ func (us *User) generateOtpRecoveryCodes(numCodes int) ([]string, error) {
 	return codes, nil
 }
 
-func (us *User) ValidateOtpEnroll(userId uint, token string) ([]string, error) {
-	user, err := us.GetById(userId)
+func (us *User) ValidateOtpEnroll(userID uint, token string) ([]string, error) {
+	user, err := us.GetByID(userID)
 	if err != nil {
 		return nil, err
 	}
 
 	if !totp.Validate(token, user.OtpSecret) {
-		return nil, SkyPanel.ErrInvalidCredentials
+		return nil, skypanel.ErrInvalidCredentials
 	}
 
 	codes, err := us.generateOtpRecoveryCodes(10)
@@ -248,7 +248,7 @@ func (us *User) ValidateOtpEnroll(userId uint, token string) ([]string, error) {
 	rcs := make([]models.RecoveryCode, len(codes))
 	for i, code := range codes {
 		rcs[i] = models.RecoveryCode{
-			UserId: user.ID,
+			UserID: user.ID,
 		}
 		_ = rcs[i].SetCode(code)
 	}
@@ -263,8 +263,8 @@ func (us *User) ValidateOtpEnroll(userId uint, token string) ([]string, error) {
 
 }
 
-func (us *User) RegenerateOtpRecoveryCodes(userId uint) ([]string, error) {
-	user, err := us.GetById(userId)
+func (us *User) RegenerateOtpRecoveryCodes(userID uint) ([]string, error) {
+	user, err := us.GetByID(userID)
 	if err != nil {
 		return nil, err
 	}
@@ -277,7 +277,7 @@ func (us *User) RegenerateOtpRecoveryCodes(userId uint) ([]string, error) {
 	rcs := make([]models.RecoveryCode, len(codes))
 	for i, code := range codes {
 		rcs[i] = models.RecoveryCode{
-			UserId: user.ID,
+			UserID: user.ID,
 		}
 		_ = rcs[i].SetCode(code)
 	}
@@ -294,8 +294,8 @@ func (us *User) RegenerateOtpRecoveryCodes(userId uint) ([]string, error) {
 	return codes, err
 }
 
-func (us *User) DisableOtp(userId uint) error {
-	user, err := us.GetById(userId)
+func (us *User) DisableOtp(userID uint) error {
+	user, err := us.GetByID(userID)
 	if err != nil {
 		return err
 	}
@@ -317,8 +317,8 @@ func (us *User) Search(usernameFilter, emailFilter string, pageSize, page uint) 
 
 	query := us.DB
 
-	usernameFilter = strings.Replace(usernameFilter, "*", "%", -1)
-	emailFilter = strings.Replace(emailFilter, "*", "%", -1)
+	usernameFilter = strings.ReplaceAll(usernameFilter, "*", "%")
+	emailFilter = strings.ReplaceAll(emailFilter, "*", "%")
 
 	if usernameFilter != "" && usernameFilter != "%" {
 		query = query.Where("username LIKE ?", usernameFilter)
@@ -341,9 +341,9 @@ func (us *User) Search(usernameFilter, emailFilter string, pageSize, page uint) 
 }
 
 func (us *User) IsSecurePassword(password string) error {
-	//TODO: Change to use validator
+	// TODO: Change to use validator
 	if len(password) < 8 {
-		return SkyPanel.ErrFieldLength("password", 8, 72)
+		return skypanel.ErrFieldLength("password", 8, 72)
 	}
 	return nil
 }
