@@ -31,7 +31,7 @@ func init() {
 }
 
 func SyncNodeToConfig() {
-	var masterURL = strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(config.MasterURL.Value(), "http:// "), "https:// "), "/")
+	var masterURL = strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(config.MasterURL.Value(), "http://"), "https://"), "/")
 	var masterParts = strings.SplitN(masterURL, ":", 2)
 	models.LocalNode.PublicHost = strings.Split(masterURL, ":")[0]
 	models.LocalNode.PrivateHost = strings.Split(masterURL, ":")[0]
@@ -44,7 +44,7 @@ func SyncNodeToConfig() {
 		}
 	} else {
 		// default port to 80 or 443 as the url doesn't have one, so we can assume one or other
-		if strings.HasPrefix(config.MasterURL.Value(), "https:// ") {
+		if strings.HasPrefix(config.MasterURL.Value(), "https://") {
 			models.LocalNode.PublicPort = 443
 			models.LocalNode.PrivatePort = 443
 		} else {

@@ -461,8 +461,8 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 	sendStep("Validando conexión con el panel de origen...")
 
 	// 1. Handle URL format
-	if !strings.HasPrefix(originURL, "http:// ") && !strings.HasPrefix(originURL, "https:// ") {
-		originURL = "http:// " + originURL
+	if !strings.HasPrefix(originURL, "http://") && !strings.HasPrefix(originURL, "https://") {
+		originURL = "http://" + originURL
 	}
 
 	// 2. Validate token and get nonce
