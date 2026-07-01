@@ -8,7 +8,8 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/mholt/archiver/v3"
 	"github.com/spf13/cast"
-	"math/rand"
+	cryptoRand "crypto/rand"
+	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,7 +51,8 @@ func (c SteamGameDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult
 	// this is a 32-bit id, which Steam derives from private IP
 	// as such, we can kinda send anything we want
 	// our approach will be we hash the server id
-	loginID := cast.ToString(rand.Int31())
+	n, _ := cryptoRand.Int(cryptoRand.Reader, big.NewInt(1<<31-1))
+	loginID := cast.ToString(n.Int64())
 
 	manifestFolder := filepath.Join(env.GetRootDirectory(), ".manifest")
 	_ = os.RemoveAll(manifestFolder)
@@ -193,7 +195,7 @@ func walkManifest(folder, filename string) error {
 		// we will only work on 0 files, because this mean no other flags were told
 		if parts[3] == "0" {
 			fileToUpdate := parts[4]
-			_ = os.Chmod(filepath.Join(folder, fileToUpdate), 0755)
+			_ = os.Chmod(filepath.Join(folder, fileToUpdate), 0700)
 		}
 	}
 

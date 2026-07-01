@@ -48,7 +48,7 @@ func downloadDD(rootBinaryFolder string, version string) error {
 		return err
 	}
 
-	_ = os.Chmod(filepath.Join(rootBinaryFolder, "depotdownloader", DepotDownloaderBinary), 0755)
+	_ = os.Chmod(filepath.Join(rootBinaryFolder, "depotdownloader", DepotDownloaderBinary), 0700)
 	return nil
 }
 

@@ -7,7 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
+	"crypto/rand"
+	"math/big"
 	"net"
 	"net/http"
 	"net/url"
@@ -429,7 +430,8 @@ func (e *Endpoint) getParsedBody() string {
 			const availableCharacterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 			b := make([]byte, n)
 			for i := range b {
-				b[i] = availableCharacterBytes[rand.Intn(len(availableCharacterBytes))]
+				rnd, _ := rand.Int(rand.Reader, big.NewInt(int64(len(availableCharacterBytes))))
+				b[i] = availableCharacterBytes[rnd.Int64()]
 			}
 			return string(b)
 		})
