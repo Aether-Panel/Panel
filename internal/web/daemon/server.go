@@ -1433,9 +1433,16 @@ func deletePlugin(c *gin.Context) {
 	server := getServerFromGin(c)
 
 	pluginName := c.Query("name")
+
+	// Prevent path traversal
+	pluginName = filepath.Clean(filepath.Base(pluginName))
+	// Prevent log injection
+	pluginName = strings.ReplaceAll(pluginName, "\n", "")
+	pluginName = strings.ReplaceAll(pluginName, "\r", "")
+
 	logging.Debug.Printf("deletePlugin called with query param 'name' = '%s'", pluginName)
 
-	if pluginName == "" {
+	if pluginName == "" || pluginName == "." || pluginName == "/" {
 		logging.Error.Printf("deletePlugin: plugin name is required")
 		response.HandleError(c, errors.New("plugin name is required (use ?name=plugin.jar)"), http.StatusBadRequest)
 		return
