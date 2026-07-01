@@ -5,10 +5,16 @@ import (
 	"database/sql"
 	"fmt"
 	"math/big"
+	"regexp"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
+)
+
+var (
+	validIdentifier = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+	validPassword   = regexp.MustCompile(`^[a-zA-Z0-9_!@#$%^&*]+$`)
 )
 
 type Database struct {
@@ -76,6 +82,10 @@ func (ds *Database) Create(database *models.Database) error {
 }
 
 func (ds *Database) createInMySQL(database *models.Database, host *models.DatabaseHost) error {
+	if !validIdentifier.MatchString(database.DatabaseName) || !validIdentifier.MatchString(database.Username) || !validPassword.MatchString(database.Password) {
+		return fmt.Errorf("invalid characters in database credentials")
+	}
+
 	// Conectar a MySQL usando Config para escapar caracteres especiales
 	cfg := mysql.NewConfig()
 	cfg.User = host.Username
@@ -125,6 +135,10 @@ func (ds *Database) createInMySQL(database *models.Database, host *models.Databa
 }
 
 func (ds *Database) deleteFromMySQL(database *models.Database) error {
+	if !validIdentifier.MatchString(database.DatabaseName) || !validIdentifier.MatchString(database.Username) {
+		return fmt.Errorf("invalid characters in database credentials")
+	}
+
 	// Obtener el database host
 	host := &models.DatabaseHost{}
 	err := ds.DB.First(host, database.DatabaseHostID).Error
