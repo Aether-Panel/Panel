@@ -52,7 +52,7 @@ func (c SteamGameDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult
 	// this is a 32-bit id, which Steam derives from private IP
 	// as such, we can kinda send anything we want
 	// our approach will be we hash the server id
-	n, _ := cryptoRand.Int(cryptoRand.Reader, big.NewInt(1<<31 - 1))
+	n, _ := cryptoRand.Int(cryptoRand.Reader, big.NewInt(1<<31-1))
 	loginID := cast.ToString(n.Int64())
 
 	manifestFolder := filepath.Join(env.GetRootDirectory(), ".manifest")
