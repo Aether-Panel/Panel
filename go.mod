@@ -5,7 +5,6 @@ go 1.24.4
 require (
 	github.com/MicahParks/jwkset v0.9.6
 	github.com/MicahParks/keyfunc/v3 v3.4.0
-	github.com/TwiN/gatus/v5 v5.32.0
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751
 	github.com/braintree/manners v0.0.0-20160418043613-82a8879fc5fd
 	github.com/cavaliergopher/grab/v3 v3.0.1
@@ -267,5 +266,3 @@ require (
 	modernc.org/sqlite v1.39.1 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
-
-replace github.com/TwiN/gatus/v5 => ./gatus

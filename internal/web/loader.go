@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
 	"os"
 	"strings"
 
@@ -58,21 +56,6 @@ func RegisterRoutes(e *gin.Engine) {
 		oauth2.RegisterRoutes(e.Group("/oauth2"))
 		auth.RegisterRoutes(e.Group("/auth"))
 
-		// Rutas para hacer proxy a Gatus en el puerto 8081
-		gatusHandler := func(c *gin.Context) {
-			gatusProxy(c)
-		}
-
-		gatusGroup := e.Group("/gatus")
-		{
-			gatusGroup.Any("", gatusHandler)
-			gatusGroup.Any("/*path", gatusHandler)
-		}
-		uptimeGroup := e.Group("/uptime")
-		{
-			uptimeGroup.Any("", gatusHandler)
-			uptimeGroup.Any("/*path", gatusHandler)
-		}
 
 		sub, err := fs.Sub(frontend.ClientFiles, "dist")
 		if err != nil {
@@ -178,56 +161,9 @@ func RegisterRoutes(e *gin.Engine) {
 </svg>`)
 		})
 
-		// Para manifest.json, verificar si viene de Gatus antes de usar el de SkyPanel
+		// Para manifest.json
 		e.GET("/manifest.json", func(c *gin.Context) {
-			referer := c.Request.Header.Get("Referer")
-			if strings.Contains(referer, "/uptime/") || strings.Contains(referer, "/gatus/") {
-				gatusProxy(c)
-				return
-			}
 			webManifest(c)
-		})
-
-		// Archivos de la raíz que pueden ser de Gatus
-		e.GET("/favicon-16x16.png", func(c *gin.Context) {
-			referer := c.Request.Header.Get("Referer")
-			if strings.Contains(referer, "/uptime/") || strings.Contains(referer, "/gatus/") {
-				gatusProxy(c)
-				return
-			}
-			c.AbortWithStatus(http.StatusNotFound)
-		})
-		e.GET("/favicon-32x32.png", func(c *gin.Context) {
-			referer := c.Request.Header.Get("Referer")
-			if strings.Contains(referer, "/uptime/") || strings.Contains(referer, "/gatus/") {
-				gatusProxy(c)
-				return
-			}
-			c.AbortWithStatus(http.StatusNotFound)
-		})
-		e.GET("/apple-touch-icon.png", func(c *gin.Context) {
-			referer := c.Request.Header.Get("Referer")
-			if strings.Contains(referer, "/uptime/") || strings.Contains(referer, "/gatus/") {
-				gatusProxy(c)
-				return
-			}
-			c.AbortWithStatus(http.StatusNotFound)
-		})
-		e.GET("/logo-192x192.png", func(c *gin.Context) {
-			referer := c.Request.Header.Get("Referer")
-			if strings.Contains(referer, "/uptime/") || strings.Contains(referer, "/gatus/") {
-				gatusProxy(c)
-				return
-			}
-			c.AbortWithStatus(http.StatusNotFound)
-		})
-		e.GET("/logo-512x512.png", func(c *gin.Context) {
-			referer := c.Request.Header.Get("Referer")
-			if strings.Contains(referer, "/uptime/") || strings.Contains(referer, "/gatus/") {
-				gatusProxy(c)
-				return
-			}
-			c.AbortWithStatus(http.StatusNotFound)
 		})
 
 		e.StaticFileFS("/favicon.png", "favicon.png", http.FS(clientFiles))
@@ -282,45 +218,3 @@ func webManifest(c *gin.Context) {
 	})
 }
 
-// gatusProxy crea un proxy reverso para Gatus
-func gatusProxy(c *gin.Context) {
-	targetURL, err := url.Parse("http://127.0.0.1:8081")
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse Gatus URL"})
-		return
-	}
-
-	clientHost := c.Request.Host
-	clientIP := c.ClientIP()
-	isTLS := c.Request.TLS != nil
-
-	proxy := httputil.NewSingleHostReverseProxy(targetURL)
-	originalDirector := proxy.Director
-
-	proxy.Director = func(req *http.Request) {
-		originalDirector(req)
-		path := req.URL.Path
-		if !strings.HasPrefix(path, "/api/v1") {
-			for _, prefix := range []string{"/gatus", "/uptime"} {
-				if strings.HasPrefix(path, prefix) {
-					path = strings.TrimPrefix(path, prefix)
-					break
-				}
-			}
-		}
-		req.URL.Path = path
-		if req.URL.Path == "" {
-			req.URL.Path = "/"
-		}
-		req.Host = targetURL.Host
-		req.Header.Set("X-Forwarded-Host", clientHost)
-		req.Header.Set("X-Forwarded-For", clientIP)
-		if isTLS {
-			req.Header.Set("X-Forwarded-Proto", "https")
-		} else {
-			req.Header.Set("X-Forwarded-Proto", "http")
-		}
-	}
-
-	proxy.ServeHTTP(c.Writer, c.Request)
-}

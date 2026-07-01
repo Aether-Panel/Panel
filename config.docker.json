@@ -7,9 +7,6 @@
     },
     "web": {
       "files": "/var/www/SkyPanel"
-    },
-    "gatus": {
-      "enable": true
     }
   },
   "daemon": {
