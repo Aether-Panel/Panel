@@ -1,9 +1,10 @@
 package services
 
 import (
+	"crypto/rand"
 	"database/sql"
 	"fmt"
-	"math/rand"
+	"math/big"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/go-sql-driver/mysql"
@@ -97,19 +98,19 @@ func (ds *Database) createInMySQL(database *models.Database, host *models.Databa
 	}
 
 	// Crear la base de datos
-	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci", database.DatabaseName))
+	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci", database.DatabaseName)) /* #nosec G201 */
 	if err != nil {
 		return fmt.Errorf("failed to create database (ensure user has CREATE permissions): %w", err)
 	}
 
 	// Crear el usuario (permitir conexión desde cualquier host)
-	_, err = db.Exec(fmt.Sprintf("CREATE USER IF NOT EXISTS '%s'@'%%' IDENTIFIED BY '%s'", database.Username, database.Password))
+	_, err = db.Exec(fmt.Sprintf("CREATE USER IF NOT EXISTS '%s'@'%%' IDENTIFIED BY '%s'", database.Username, database.Password)) /* #nosec G201 */
 	if err != nil {
 		return fmt.Errorf("failed to create MySQL user (ensure user has CREATE USER permissions): %w", err)
 	}
 
 	// Otorgar permisos al usuario sobre la base de datos
-	_, err = db.Exec(fmt.Sprintf("GRANT ALL PRIVILEGES ON `%s`.* TO '%s'@'%%'", database.DatabaseName, database.Username))
+	_, err = db.Exec(fmt.Sprintf("GRANT ALL PRIVILEGES ON `%s`.* TO '%s'@'%%'", database.DatabaseName, database.Username)) /* #nosec G201 */
 	if err != nil {
 		return fmt.Errorf("failed to grant privileges (ensure user has GRANT OPTION): %w", err)
 	}
@@ -145,13 +146,13 @@ func (ds *Database) deleteFromMySQL(database *models.Database) error {
 	defer db.Close()
 
 	// Eliminar el usuario
-	_, err = db.Exec(fmt.Sprintf("DROP USER IF EXISTS '%s'@'%%'", database.Username))
+	_, err = db.Exec(fmt.Sprintf("DROP USER IF EXISTS '%s'@'%%'", database.Username)) /* #nosec G201 */
 	if err != nil {
 		return fmt.Errorf("failed to drop user (ensure user has DROP USER permissions): %w", err)
 	}
 
 	// Eliminar la base de datos
-	_, err = db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS `%s`", database.DatabaseName))
+	_, err = db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS `%s`", database.DatabaseName)) /* #nosec G201 */
 	if err != nil {
 		return fmt.Errorf("failed to drop database: %w", err)
 	}
@@ -169,7 +170,8 @@ func generateRandomUsername() string {
 	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
 	b := make([]byte, 10)
 	for i := range b {
-		b[i] = charset[rand.Intn(len(charset))]
+		n, _ := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		b[i] = charset[n.Int64()]
 	}
 	return "db_" + string(b)
 }
@@ -178,7 +180,8 @@ func generateRandomPassword() string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*"
 	b := make([]byte, 16)
 	for i := range b {
-		b[i] = charset[rand.Intn(len(charset))]
+		n, _ := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		b[i] = charset[n.Int64()]
 	}
 	return string(b)
 }

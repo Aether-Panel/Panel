@@ -2,10 +2,11 @@ package api
 
 import (
 	"bytes"
+	cryptoRand "crypto/rand"
 	"encoding/json"
 	"errors"
 	"io"
-	"math/rand"
+	"math/big"
 	"net/http"
 	"strings"
 
@@ -80,7 +81,11 @@ func pickFreePort(db *gorm.DB, nodeID uint, portMin, portMax uint16) uint16 {
 	if rangeSize > 10000 {
 		maxAttempts := 100
 		for i := 0; i < maxAttempts; i++ {
-			candidate := portMin + uint16(rand.Intn(rangeSize))
+			randBig, err := cryptoRand.Int(cryptoRand.Reader, big.NewInt(int64(rangeSize)))
+			if err != nil {
+				return 0
+			}
+			candidate := portMin + uint16(randBig.Int64())
 			if !used[candidate] {
 				return candidate
 			}
@@ -100,7 +105,11 @@ func pickFreePort(db *gorm.DB, nodeID uint, portMin, portMax uint16) uint16 {
 		return 0
 	}
 
-	return free[rand.Intn(len(free))]
+	randBig, err := cryptoRand.Int(cryptoRand.Reader, big.NewInt(int64(len(free))))
+	if err != nil {
+		return 0
+	}
+	return free[randBig.Int64()]
 }
 
 func provisionServer(c *gin.Context) {
