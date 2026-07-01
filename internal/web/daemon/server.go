@@ -1255,7 +1255,10 @@ func searchPlugins(c *gin.Context) {
 
 	modrinthURL := u.String()
 
-	logging.Debug.Printf("Searching plugins on Modrinth with query: '%s' -> URL: %s", queryParam, modrinthURL)
+	sanitizedQuery := strings.ReplaceAll(queryParam, "\n", "")
+	sanitizedQuery = strings.ReplaceAll(sanitizedQuery, "\r", "")
+
+	logging.Debug.Printf("Searching plugins on Modrinth with query: '%s' -> URL: %s", sanitizedQuery, modrinthURL)
 
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", modrinthURL, nil)

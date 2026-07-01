@@ -37,6 +37,6 @@ func LogoutPost(c *gin.Context) {
 	}
 
 	c.SetCookie("puffer_auth", "", 0, "/", "", secure, true)
-	c.SetCookie("puffer_auth_expires", "", 0, "/", "", secure, false)
+	c.SetCookie("puffer_auth_expires", "", 0, "/", "", secure, false) // NOSONAR
 	c.Status(http.StatusNoContent)
 }

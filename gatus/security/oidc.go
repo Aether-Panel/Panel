@@ -64,6 +64,7 @@ func (c *OIDCConfig) loginHandler(ctx *fiber.Ctx) error {
 		Path:     "/",
 		MaxAge:   int(time.Hour.Seconds()),
 		SameSite: "lax",
+		Secure:   true,
 		HTTPOnly: true,
 	})
 	ctx.Cookie(&fiber.Cookie{
@@ -72,6 +73,7 @@ func (c *OIDCConfig) loginHandler(ctx *fiber.Ctx) error {
 		Path:     "/",
 		MaxAge:   int(time.Hour.Seconds()),
 		SameSite: "lax",
+		Secure:   true,
 		HTTPOnly: true,
 	})
 	return ctx.Redirect(c.oauth2Config.AuthCodeURL(state, oidc.Nonce(nonce)), http.StatusFound)
@@ -146,5 +148,7 @@ func (c *OIDCConfig) setSessionCookie(w http.ResponseWriter, idToken *oidc.IDTok
 		Path:     "/",
 		MaxAge:   int(c.SessionTTL.Seconds()),
 		SameSite: http.SameSiteStrictMode,
+		Secure:   true,
+		HttpOnly: true,
 	})
 }
