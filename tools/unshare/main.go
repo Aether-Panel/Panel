@@ -76,7 +76,7 @@ func main() {
 	unshare(dir, "ls", "-l")                   // do we see anything
 	unshare(dir, "whoami")                     // are we the correct user
 	unshare(dir, "touch", "test")              // can we write and it persist
-	unshare(dir, "curl", "1.1.1.1")            // can we access an IP
+	unshare(dir, "curl", "1.1.1.1")            // can we access an IP // NOSONAR
 	unshare(dir, "curl", "google.com")         // does DNS work
 	unshare(dir, "curl", "https://google.com") // does SSL work
 	unshare(dir, "ls", "-l", "/")              // is root clean
@@ -102,7 +102,7 @@ var cmdList = []string{
 func unshare(dir, cmd string, args ...string) {
 	var err error
 
-	c := exec.Command("bash", "-c",
+	c := exec.Command("/bin/bash", "-c",
 		strings.Join(append(cmdList,
 			"mkdir -p "+strings.TrimPrefix(dir, "/"),
 			"mount --bind "+dir+" "+strings.TrimPrefix(dir, "/"),
