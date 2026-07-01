@@ -103,17 +103,14 @@ func setSetting(c *gin.Context) {
 		return
 	}
 
-	companyNameChanged := false
+
 	for _, v := range editableStringEntries {
 		if v.Key() == key {
 			err = v.Set(cast.ToString(model.Value), true)
 			if response.HandleError(c, err, http.StatusInternalServerError) {
 				return
 			}
-			// Si cambió el nombre de la empresa, sincronizar con Gatus
-			if key == "panel.settings.companyName" {
-				companyNameChanged = true
-			}
+
 		}
 	}
 
@@ -137,13 +134,7 @@ func setSetting(c *gin.Context) {
 
 	services.SyncNodeToConfig()
 
-	// Sincronizar el nombre de la empresa con Gatus si cambió
-	if companyNameChanged {
-		if err := services.SyncCompanyNameToGatus(); err != nil {
-			// No es crítico, solo loguear el error
-			logging.Error.Printf("Error syncing company name to Gatus: %s", err.Error())
-		}
-	}
+
 
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
@@ -168,7 +159,7 @@ func setSettings(c *gin.Context) {
 		return
 	}
 
-	companyNameChanged := false
+
 	db := middleware.GetDatabase(c)
 
 	for key, value := range *settings {
@@ -187,10 +178,7 @@ func setSettings(c *gin.Context) {
 				if response.HandleError(c, err, http.StatusInternalServerError) {
 					return
 				}
-				// Si cambió el nombre de la empresa, sincronizar con Gatus
-				if key == "panel.settings.companyName" {
-					companyNameChanged = true
-				}
+
 			}
 		}
 
@@ -215,13 +203,7 @@ func setSettings(c *gin.Context) {
 
 	services.SyncNodeToConfig()
 
-	// Sincronizar el nombre de la empresa con Gatus si cambió
-	if companyNameChanged {
-		if err := services.SyncCompanyNameToGatus(); err != nil {
-			// No es crítico, solo loguear el error
-			logging.Error.Printf("Error syncing company name to Gatus: %s", err.Error())
-		}
-	}
+
 
 	c.Status(http.StatusNoContent)
 }

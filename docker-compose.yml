@@ -39,7 +39,7 @@ services:
     ports:
       - "8080:8080" # Panel web 1
       - "5657:5657" # SFTP 1
-      - "8081:8081" # Gatus 1
+
     volumes:
       - ./storage/skypanel-config:/etc/SkyPanel
       - ./storage/skypanel-data:/var/lib/SkyPanel

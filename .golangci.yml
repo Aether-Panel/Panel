@@ -27,7 +27,7 @@ issues:
 
   # Exclude vendored/generated directories (v1.57+ syntax)
   exclude-dirs:
-    - gatus
+
     - docs
     - vendor
     - basura_o_desconocido

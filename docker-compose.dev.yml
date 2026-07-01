@@ -15,7 +15,7 @@ services:
     ports:
       - "8080:8080" # Panel web
       - "5657:5657" # SFTP
-      - "8081:8081" # Gatus
+
 
     volumes:
       # Volúmenes locales para desarrollo

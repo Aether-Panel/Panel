@@ -14,7 +14,7 @@ var WebHost = asString("web.host", "0.0.0.0:8080")
 var TemplatesURL = asString("templates.url", "")
 
 var PanelEnabled = asBool("panel.enable", true)
-var GatusEnabled = asBool("panel.gatus.enable", false)
+
 var DatabaseDialect = asString("panel.database.dialect", "sqlite3")
 var DatabaseURL = asString("panel.database.url", "")
 var DatabaseLoggingEnabled = asBool("panel.database.log", false)

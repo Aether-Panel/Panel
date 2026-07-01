@@ -78,7 +78,7 @@ jobs:
       - name: Check Go formatting (gofmt)
         run: |
           # Exclude the gatus vendored sub-tree and generated docs
-          unformatted=$(gofmt -l $(find . -name '*.go' -not -path './gatus/*' -not -path './docs/*' -not -path './vendor/*'))
+          unformatted=$(gofmt -l $(find . -name '*.go' -not -path './docs/*' -not -path './vendor/*'))
           if [ -n "$unformatted" ]; then
             echo "The following files are not formatted correctly:"
             echo "$unformatted"
@@ -89,7 +89,7 @@ jobs:
           echo "All Go files are properly formatted."
 
       - name: Run go vet
-        run: go vet $(go list ./... | grep -v '/gatus/' | grep -v '/docs')
+        run: go vet $(go list ./... | grep -v '/docs')
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v6

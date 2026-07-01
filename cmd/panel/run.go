@@ -100,18 +100,7 @@ func internalRun() (terminate chan bool, success bool) {
 			return
 		}
 
-		// Iniciar Gatus si está habilitado o si estamos en Docker (habilitado por defecto en Docker)
-		shouldStartGatus := config.GatusEnabled.Value()
-		if os.Getenv("PUFFER_PLATFORM") == "docker" && !shouldStartGatus {
-			// En Docker, intentar iniciar Gatus aunque no esté explícitamente habilitado
-			// Esto permite que funcione sin necesidad de configurar manualmente
-			shouldStartGatus = true
-		}
-		if shouldStartGatus {
-			if err := services.StartGatus(); err != nil {
-				logging.Error.Printf("Error starting Gatus service: %s", err.Error())
-			}
-		}
+
 
 		if config.SessionKey.Value() == "" {
 			k := securecookie.GenerateRandomKey(32)
@@ -210,8 +199,6 @@ func closePanel() {
 	logging.Debug.Printf("stopping sftp server")
 	sftp.Stop()
 
-	logging.Debug.Printf("stopping Gatus service")
-	services.StopGatus()
 
 	logging.Debug.Printf("stopping servers")
 	servers.ShutdownService()
