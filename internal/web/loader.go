@@ -56,7 +56,6 @@ func RegisterRoutes(e *gin.Engine) {
 		oauth2.RegisterRoutes(e.Group("/oauth2"))
 		auth.RegisterRoutes(e.Group("/auth"))
 
-
 		sub, err := fs.Sub(frontend.ClientFiles, "dist")
 		if err != nil {
 			panic(err)
@@ -217,4 +216,3 @@ func webManifest(c *gin.Context) {
 		"icons":            icons,
 	})
 }
-
