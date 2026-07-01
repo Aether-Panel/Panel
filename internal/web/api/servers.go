@@ -183,7 +183,6 @@ func registerServers(g *gin.RouterGroup) {
 // @Router /api/servers [get]
 // @Security OAuth2Application[server.view]
 func searchServers(c *gin.Context) {
-	var err error
 	db := middleware.GetDatabase(c)
 	ss := &services.Server{DB: db}
 	ps := &services.Permission{DB: db}
@@ -194,49 +193,13 @@ func searchServers(c *gin.Context) {
 	pageSizeQuery := c.DefaultQuery("limit", strconv.Itoa(DefaultPageSize))
 	pageQuery := c.DefaultQuery("page", strconv.Itoa(1))
 
-	pageSize, err := strconv.Atoi(pageSizeQuery)
-	if response.HandleError(c, err, http.StatusBadRequest) || pageSize <= 0 {
-		response.HandleError(c, skypanel.ErrFieldTooSmall("pageSize", 0), http.StatusBadRequest)
-		return
-	}
-
-	if pageSize > MaxPageSize {
-		pageSize = MaxPageSize
-	}
-
-	page, err := strconv.Atoi(pageQuery)
-	if response.HandleError(c, err, http.StatusBadRequest) || page <= 0 {
-		response.HandleError(c, skypanel.ErrFieldTooSmall("page", 0), http.StatusBadRequest)
-		return
-	}
-
-	node, err := strconv.Atoi(nodeQuery)
-	if response.HandleError(c, err, http.StatusBadRequest) || node < 0 {
-		response.HandleError(c, skypanel.ErrFieldTooSmall("nodeId", 0), http.StatusBadRequest)
+	pageSize, page, node, err := parseSearchQueryParams(pageSizeQuery, pageQuery, nodeQuery)
+	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
 
 	user := c.MustGet("user").(*models.User)
-	userScopes := make([]*scopes.Scope, 0)
-
-	// Direct permissions
-	perms, err := ps.GetForUser(user.ID)
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-		return
-	}
-	for _, p := range perms {
-		for _, s := range p.Scopes {
-			userScopes = scopes.AddScope(userScopes, s)
-		}
-	}
-
-	// Role permissions
-	if user.RoleID != nil && user.Role.ID != 0 {
-		for _, s := range user.Role.Scopes {
-			userScopes = scopes.AddScope(userScopes, scopes.GetScope(s))
-		}
-	}
-
+	userScopes := getUserScopesForSearch(user, ps)
 	isAdmin := scopes.ContainsScope(userScopes, scopes.ScopeAdmin)
 
 	if !isAdmin && username != "" && user.Username != username {
@@ -254,45 +217,18 @@ func searchServers(c *gin.Context) {
 		username = user.Username
 	}
 
-	searchCriteria := services.ServerSearch{
+	results, total, err := ss.Search(services.ServerSearch{
 		Username: username,
 		NodeID:   uint(node),
 		Name:     nameFilter,
 		PageSize: uint(pageSize),
 		Page:     uint(page),
-	}
-
-	results, total, err := ss.Search(searchCriteria)
+	})
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
 
-	var data []*models.ServerView
-	if isAdmin {
-		data = models.FromServers(results)
-	} else {
-		data = models.RemoveServerPrivateInfoFromAll(models.FromServers(results))
-	}
-
-	for i, v := range data {
-		checkGhost(results[i], v)
-		if isAdmin {
-			v.CanGetStatus = true
-			continue
-		}
-
-		serverPerms, _ := ps.GetForUserAndServer(user.ID, v.Identifier)
-		allPotentialScopes := userScopes
-		if serverPerms != nil {
-			for _, s := range serverPerms.Scopes {
-				allPotentialScopes = scopes.AddScope(allPotentialScopes, s)
-			}
-		}
-
-		if scopes.ContainsScope(allPotentialScopes, scopes.ScopeServerStatus) {
-			v.CanGetStatus = true
-		}
-	}
+	data := processServerSearchResults(results, isAdmin, user, ps, userScopes)
 
 	c.JSON(http.StatusOK, &models.ServerSearchResponse{
 		Servers: data,
@@ -375,14 +311,12 @@ func getServer(c *gin.Context) {
 // @Router /api/servers/{id} [put]
 // @Security OAuth2Application[server.create]
 func createServer(c *gin.Context) {
-	var err error
 	db := middleware.GetDatabase(c)
 	ns := &services.Node{DB: db}
 	us := &services.User{DB: db}
 	ps := &services.Permission{DB: db}
 
 	serverID := c.Param("serverId")
-
 	if serverID == "" {
 		gen, err := uuid.NewV4()
 		if response.HandleError(c, err, http.StatusInternalServerError) {
@@ -392,40 +326,17 @@ func createServer(c *gin.Context) {
 	}
 
 	postBody := &models.ServerCreation{}
-	err = c.ShouldBindJSON(&postBody)
+	if err := c.ShouldBindJSON(&postBody); response.HandleError(c, err, http.StatusBadRequest) {
+		return
+	}
 	postBody.Identifier = serverID
-	if response.HandleError(c, err, http.StatusBadRequest) {
+
+	server, users, err := validateAndBuildServerCreation(c, db, us, postBody)
+	if err != nil {
 		return
 	}
 
-	if postBody.ParentServerID != nil && *postBody.ParentServerID != "" {
-		var parent models.Server
-		if err := db.Where("identifier = ?", *postBody.ParentServerID).First(&parent).Error; err != nil {
-			response.HandleError(c, errors.New("parent server not found"), http.StatusBadRequest)
-			return
-		}
-
-		// Force node to match parent
-		postBody.NodeID = parent.NodeID
-
-		// Inherit users from parent
-		var parentPerms []models.Permissions
-		db.Where("server_identifier = ?", parent.Identifier).Find(&parentPerms)
-
-		var inheritedUsers []string
-		for _, p := range parentPerms {
-			if p.UserID != nil {
-				user, err := us.GetByID(*p.UserID)
-				if err == nil && user != nil {
-					inheritedUsers = append(inheritedUsers, user.Username)
-				}
-			}
-		}
-		postBody.Users = inheritedUsers
-	}
-
 	node, err := ns.Get(postBody.NodeID)
-
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		response.HandleError(c, skypanel.ErrNodeInvalid, http.StatusBadRequest)
 		return
@@ -433,215 +344,35 @@ func createServer(c *gin.Context) {
 		return
 	}
 
-	port, err := getFromDataOrDefault(postBody.Variables, "port", uint16(0))
-	if response.HandleError(c, err, http.StatusBadRequest) {
-		return
-	}
-
-	ip, err := getFromDataOrDefault(postBody.Variables, "ip", "0.0.0.0")
-	if response.HandleError(c, err, http.StatusBadRequest) {
-		return
-	}
-
-	if postBody.Name == "" {
-		postBody.Name = postBody.Identifier
-	}
-
-	cpuVar, _ := getFromDataOrDefault(postBody.Variables, "cpu", 0)
-	memoryVar, _ := getFromDataOrDefault(postBody.Variables, "memory", 0)
-	diskVar, _ := getFromDataOrDefault(postBody.Variables, "disk", 0)
-
-	totalCPU := cast.ToInt(cpuVar)
-	totalMemory := cast.ToInt64(memoryVar)
-	totalDisk := cast.ToInt64(diskVar)
-
-	if totalCPU < 0 || totalMemory < 0 || totalDisk < 0 {
-		response.HandleError(c, errors.New("resources cannot be negative"), http.StatusBadRequest)
-		return
-	}
-
-	server := &models.Server{
-		Name:           postBody.Name,
-		Identifier:     postBody.Identifier,
-		NodeID:         node.ID,
-		IP:             cast.ToString(ip),
-		Port:           cast.ToUint16(port),
-		Type:           postBody.Type.Type,
-		Icon:           postBody.Icon,
-		ParentServerID: postBody.ParentServerID,
-		TotalCPU:       totalCPU,
-		TotalMemory:    totalMemory,
-		TotalDisk:      totalDisk,
-	}
-
-	users := make([]*models.User, len(postBody.Users))
-
-	for k, v := range postBody.Users {
-		user, err := us.Get(v)
-		if response.HandleError(c, err, http.StatusInternalServerError) {
-			return
-		}
-
-		users[k] = user
-	}
-
 	var parentAvailableCPU int
 	var parentAvailableMemory int64
 	var parentAvailableDisk int64
 
-	// Transactional validation and creation
 	err = db.Transaction(func(tx *gorm.DB) error {
 		if server.ParentServerID != nil && *server.ParentServerID != "" {
-			var parent models.Server
-			if err := tx.Raw("SELECT * FROM servers WHERE identifier = ? FOR UPDATE", *server.ParentServerID).Scan(&parent).Error; err != nil {
+			if err := checkParentServerLimits(tx, server, &parentAvailableCPU, &parentAvailableMemory, &parentAvailableDisk); err != nil {
 				return err
-			}
-			if parent.Identifier == "" {
-				return errors.New("parent server not found")
-			}
-
-			var children []*models.Server
-			if err := tx.Where("parent_server_id = ?", parent.Identifier).Find(&children).Error; err != nil {
-				return err
-			}
-
-			var usedCPU int
-			var usedMemory, usedDisk int64
-			for _, child := range children {
-				usedCPU += child.TotalCPU
-				usedMemory += child.TotalMemory
-				usedDisk += child.TotalDisk
-			}
-
-			parentAvailableCPU = parent.TotalCPU - usedCPU - server.TotalCPU
-			parentAvailableMemory = parent.TotalMemory - usedMemory - server.TotalMemory
-			parentAvailableDisk = parent.TotalDisk - usedDisk - server.TotalDisk
-
-			if parentAvailableCPU < 0 {
-				return errors.New("not enough CPU available in parent server")
-			}
-			if parentAvailableMemory < 0 {
-				return errors.New("not enough memory available in parent server")
-			}
-			if parentAvailableDisk < 0 {
-				return errors.New("not enough disk available in parent server")
 			}
 		}
-
-		// Create server within transaction
 		return tx.Create(server).Error
 	})
-
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
 
-	for _, v := range users {
-		perm, err := ps.GetForUserAndServer(v.ID, server.Identifier)
-		if response.HandleError(c, err, http.StatusInternalServerError) {
-			return
-		}
-
-		perm.Scopes = []*scopes.Scope{
-			scopes.ScopeServerView,
-			scopes.ScopeServerViewData,
-			scopes.ScopeServerEditData,
-			scopes.ScopeServerEditFlags,
-			scopes.ScopeServerEditName,
-			scopes.ScopeServerViewData,
-			scopes.ScopeServerClientView,
-			scopes.ScopeServerClientEdit,
-			scopes.ScopeServerClientCreate,
-			scopes.ScopeServerClientDelete,
-			scopes.ScopeServerUserView,
-			scopes.ScopeServerUserCreate,
-			scopes.ScopeServerUserEdit,
-			scopes.ScopeServerUserDelete,
-			scopes.ScopeServerTaskView,
-			scopes.ScopeServerTaskRun,
-			scopes.ScopeServerTaskCreate,
-			scopes.ScopeServerTaskDelete,
-			scopes.ScopeServerReload,
-			scopes.ScopeServerStart,
-			scopes.ScopeServerStop,
-			scopes.ScopeServerKill,
-			scopes.ScopeServerInstall,
-			scopes.ScopeServerFileView,
-			scopes.ScopeServerFileEdit,
-			scopes.ScopeServerSftp,
-			scopes.ScopeServerConsole,
-			scopes.ScopeServerSendCommand,
-			scopes.ScopeServerStats,
-			scopes.ScopeServerStatus,
-		}
-
-		err = ps.UpdatePermissions(perm)
-		if response.HandleError(c, err, http.StatusInternalServerError) {
-			return
-		}
-	}
-
-	reader := &bytes.Buffer{}
-	err = json.NewEncoder(reader).Encode(&postBody.Server)
-	if response.HandleError(c, err, http.StatusInternalServerError) {
+	if err := assignServerPermissions(ps, server.Identifier, users); response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
 
-	nodeResponse, err := ns.CallNode(node, "PUT", "/daemon/server/"+server.Identifier, io.NopCloser(reader), c.Request.Header)
-	defer utils.CloseResponse(nodeResponse)
-
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-		// _ = ss.Delete(server.Identifier) // esto es IA
+	if err := notifyNodeOfServerCreation(c, ns, node, postBody, server); err != nil {
 		return
 	}
 
-	if nodeResponse.StatusCode != http.StatusOK {
-		// _ = ss.Delete(server.Identifier) // esto es IA
-		resData, err := io.ReadAll(nodeResponse.Body)
-		if err != nil {
-			logging.Error.Printf("Failed to parse response from daemon\n%s", err.Error())
-		}
-		logging.Error.Printf("Unexpected response from daemon: %+v\n%s", nodeResponse.StatusCode, string(resData))
-		// assume daemon gives us a valid response, directly forward to client
-		c.Header("Content-Type", "application/json")
-		c.Status(nodeResponse.StatusCode)
-		_, _ = c.Writer.Write(resData)
-		c.Abort()
-		return
-	}
-
-	// Update the parent's actual limits in the daemon if it's a subserver
 	if server.ParentServerID != nil && *server.ParentServerID != "" {
-		// We send a partial update to the daemon with the new available limits
-		parentDataUpdate := map[string]interface{}{
-			"cpu":    parentAvailableCPU,
-			"memory": parentAvailableMemory,
-			"disk":   parentAvailableDisk,
-		}
-		updateBytes, _ := json.Marshal(parentDataUpdate)
-		parentReqBody := io.NopCloser(bytes.NewReader(updateBytes))
-
-		var parent models.Server
-		db.Where("identifier = ?", *server.ParentServerID).First(&parent)
-		// We call the daemon's data endpoint to merge these new limits
-		parentRes, _ := ns.CallNode(node, "POST", "/daemon/server/"+parent.Identifier+"/data", parentReqBody, c.Request.Header)
-		if parentRes != nil && parentRes.Body != nil {
-			parentRes.Body.Close()
-		}
+		updateParentServerLimitsOnNode(c, db, ns, node, server, parentAvailableCPU, parentAvailableMemory, parentAvailableDisk)
 	}
 
-	es := services.GetEmailService()
-	for _, user := range users {
-		err = es.SendEmail(user.Email, "addedToServer", map[string]interface{}{
-			"Server":        server,
-			"RegisterToken": "",
-		}, true)
-		if err != nil {
-			// since we don't want to tell the user it failed, we'll log and move on
-			logging.Error.Printf("Error sending email: %s", err)
-		}
-	}
-
+	sendServerCreationEmails(users, server)
 	c.JSON(http.StatusOK, &models.CreateServerResponse{ID: serverID})
 }
 
@@ -736,39 +467,18 @@ func editServer(c *gin.Context) {
 // @Router /api/servers/{id} [delete]
 // @Security OAuth2Application[server.delete]
 func deleteServer(c *gin.Context) {
-	var err error
-
 	db := middleware.GetDatabase(c)
 	ss := &services.Server{DB: db}
 	ns := &services.Node{DB: db}
 
 	server := getServerFromGin(c)
-
 	node := &server.Node
 
-	// we need to know what users are impacted by a server being deleted
-	ps := services.Permission{DB: db}
-	users := make([]models.User, 0)
-	perms, err := ps.GetForServer(server.Identifier)
-	if err != nil {
-		response.HandleError(c, err, http.StatusInternalServerError)
+	users, err := getImpactedUsersByServerDeletion(db, server.Identifier)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
-	for _, p := range perms {
-		exists := false
-		for _, u := range users {
-			if u.ID == p.User.ID {
-				exists = true
-				break
-			}
-		}
-		if exists {
-			continue
-		}
-		users = append(users, p.User)
-	}
 
-	// Splitter Check: Ensure it has no children
 	var childrenCount int64
 	if err := db.Model(&models.Server{}).Where("parent_server_id = ?", server.Identifier).Count(&childrenCount).Error; err == nil && childrenCount > 0 {
 		response.HandleError(c, errors.New("cannot delete server because it has active child servers"), http.StatusBadRequest)
@@ -777,106 +487,28 @@ func deleteServer(c *gin.Context) {
 
 	_, skipNode := c.GetQuery("skipNode")
 	if !skipNode {
-		// Primero intentar detener el servidor si está corriendo
-		// Verificar si el servidor está corriendo llamando al endpoint de status
-		statusRes, err := ns.CallNode(node, "GET", "/daemon/server/"+server.Identifier+"/status", nil, nil)
-		if err == nil && statusRes.StatusCode == http.StatusOK {
-			var statusData struct {
-				Running bool `json:"running"`
-			}
-			if err := json.NewDecoder(statusRes.Body).Decode(&statusData); err == nil && statusData.Running {
-				// El servidor está corriendo, detenerlo primero
-				stopRes, err := ns.CallNode(node, "POST", "/daemon/server/"+server.Identifier+"/stop?wait=true", nil, nil)
-				if err != nil {
-					logging.Error.Printf("Error stopping server before deletion: %s", err)
-					response.HandleError(c, err, http.StatusInternalServerError)
-					return
-				}
-				// Cerrar el body de la respuesta de stop
-				if stopRes != nil && stopRes.Body != nil {
-					stopRes.Body.Close()
-				}
-			}
-			// Cerrar el body de la respuesta de status
-			if statusRes.Body != nil {
-				statusRes.Body.Close()
-			}
-		}
-
-		// Ahora intentar eliminar el servidor
-		nodeRes, err := ns.CallNode(node, "DELETE", "/daemon/server/"+server.Identifier, nil, nil)
-		if response.HandleError(c, err, http.StatusInternalServerError) {
-			// node didn't permit it, REVERT!
+		if err := shutdownServerOnNodeBeforeDeletion(ns, node, server.Identifier); response.HandleError(c, err, http.StatusInternalServerError) {
 			return
 		}
 
-		if nodeRes.StatusCode != http.StatusNoContent && nodeRes.StatusCode != http.StatusOK && nodeRes.StatusCode != http.StatusNotFound {
-			resData, _ := io.ReadAll(nodeRes.Body)
-			response.HandleError(c, errors.New("invalid status code response: "+nodeRes.Status+" body: "+string(resData)), http.StatusInternalServerError)
+		if err := executeServerDeletionOnNode(c, ns, node, server.Identifier); err != nil {
 			return
-		}
-		// Cerrar el body de la respuesta
-		if nodeRes.Body != nil {
-			nodeRes.Body.Close()
 		}
 	}
 
-	err = ss.Delete(server.Identifier)
-	if response.HandleError(c, err, http.StatusInternalServerError) {
+	if err := db.Transaction(func(tx *gorm.DB) error {
+		return tx.Delete(server).Error
+	}); response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
 
-	// Splitter Restore: Update parent limits in daemon
+	_ = ss.Delete(server.Identifier)
+
 	if server.ParentServerID != nil && *server.ParentServerID != "" {
-		var parent models.Server
-		if err := db.Raw("SELECT * FROM servers WHERE identifier = ? FOR UPDATE", *server.ParentServerID).Scan(&parent).Error; err == nil && parent.Identifier != "" {
-			var children []*models.Server
-			db.Where("parent_server_id = ?", parent.Identifier).Find(&children)
-
-			var usedCPU int
-			var usedMemory, usedDisk int64
-			for _, child := range children {
-				if child.Identifier == server.Identifier {
-					continue // En caso de que el soft delete lo siga incluyendo
-				}
-				usedCPU += child.TotalCPU
-				usedMemory += child.TotalMemory
-				usedDisk += child.TotalDisk
-			}
-
-			parentAvailableCPU := parent.TotalCPU - usedCPU
-			parentAvailableMemory := parent.TotalMemory - usedMemory
-			parentAvailableDisk := parent.TotalDisk - usedDisk
-
-			// Send to daemon
-			parentDataUpdate := map[string]interface{}{
-				"cpu":    parentAvailableCPU,
-				"memory": parentAvailableMemory,
-				"disk":   parentAvailableDisk,
-			}
-			updateBytes, _ := json.Marshal(parentDataUpdate)
-			parentReqBody := io.NopCloser(bytes.NewReader(updateBytes))
-
-			parentRes, _ := ns.CallNode(node, "POST", "/daemon/server/"+parent.Identifier+"/data", parentReqBody, c.Request.Header)
-			if parentRes != nil && parentRes.Body != nil {
-				parentRes.Body.Close()
-			}
-		}
+		updateParentServerLimitsAfterDeletion(db, ns, node, server)
 	}
 
-	// Rely on HasTransaction to commit at end of the block
-
-	es := services.GetEmailService()
-	for _, u := range users {
-		err = es.SendEmail(u.Email, "deletedServer", map[string]interface{}{
-			"Server": server,
-		}, true)
-		if err != nil {
-			// since we don't want to tell the user it failed, we'll log and move on
-			logging.Error.Printf("Error sending email: %s\n", err)
-		}
-	}
-
+	sendServerDeletionEmails(users, server)
 	c.Status(http.StatusNoContent)
 }
 
@@ -1771,5 +1403,416 @@ func getServerFromGin(c *gin.Context) *models.Server {
 func checkGhost(s *models.Server, v *models.ServerView) {
 	if s.Node.IsLocal() && servers.GetFromCache(s.Identifier) == nil {
 		v.IsGhost = true
+	}
+}
+
+// --- Helpers for Search Servers ---
+
+func parseSearchQueryParams(pageSizeQuery, pageQuery, nodeQuery string) (int, int, int, error) {
+	pageSize, err := strconv.Atoi(pageSizeQuery)
+	if err != nil || pageSize <= 0 {
+		return 0, 0, 0, skypanel.ErrFieldTooSmall("pageSize", 0)
+	}
+	if pageSize > MaxPageSize {
+		pageSize = MaxPageSize
+	}
+
+	page, err := strconv.Atoi(pageQuery)
+	if err != nil || page <= 0 {
+		return 0, 0, 0, skypanel.ErrFieldTooSmall("page", 0)
+	}
+
+	node, err := strconv.Atoi(nodeQuery)
+	if err != nil || node < 0 {
+		return 0, 0, 0, skypanel.ErrFieldTooSmall("nodeId", 0)
+	}
+
+	return pageSize, page, node, nil
+}
+
+func getUserScopesForSearch(user *models.User, ps *services.Permission) []*scopes.Scope {
+	userScopes := make([]*scopes.Scope, 0)
+	perms, err := ps.GetForUser(user.ID)
+	if err == nil {
+		for _, p := range perms {
+			for _, s := range p.Scopes {
+				userScopes = scopes.AddScope(userScopes, s)
+			}
+		}
+	}
+	if user.RoleID != nil && user.Role.ID != 0 {
+		for _, s := range user.Role.Scopes {
+			userScopes = scopes.AddScope(userScopes, scopes.GetScope(s))
+		}
+	}
+	return userScopes
+}
+
+func processServerSearchResults(results []*models.Server, isAdmin bool, user *models.User, ps *services.Permission, userScopes []*scopes.Scope) []*models.ServerView {
+	var data []*models.ServerView
+	if isAdmin {
+		data = models.FromServers(results)
+	} else {
+		data = models.RemoveServerPrivateInfoFromAll(models.FromServers(results))
+	}
+
+	for i, v := range data {
+		checkGhost(results[i], v)
+		if isAdmin {
+			v.CanGetStatus = true
+			continue
+		}
+
+		serverPerms, _ := ps.GetForUserAndServer(user.ID, v.Identifier)
+		allPotentialScopes := userScopes
+		if serverPerms != nil {
+			for _, s := range serverPerms.Scopes {
+				allPotentialScopes = scopes.AddScope(allPotentialScopes, s)
+			}
+		}
+
+		if scopes.ContainsScope(allPotentialScopes, scopes.ScopeServerStatus) {
+			v.CanGetStatus = true
+		}
+	}
+	return data
+}
+
+// --- Helpers for Delete Server ---
+
+func getImpactedUsersByServerDeletion(db *gorm.DB, identifier string) ([]models.User, error) {
+	ps := services.Permission{DB: db}
+	users := make([]models.User, 0)
+	perms, err := ps.GetForServer(identifier)
+	if err != nil {
+		return nil, err
+	}
+	for _, p := range perms {
+		exists := false
+		for _, u := range users {
+			if u.ID == p.User.ID {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			users = append(users, p.User)
+		}
+	}
+	return users, nil
+}
+
+func shutdownServerOnNodeBeforeDeletion(ns *services.Node, node *models.Node, identifier string) error {
+	statusRes, err := ns.CallNode(node, "GET", "/daemon/server/"+identifier+"/status", nil, nil)
+	if err == nil && statusRes.StatusCode == http.StatusOK {
+		var statusData struct {
+			Running bool `json:"running"`
+		}
+		if err := json.NewDecoder(statusRes.Body).Decode(&statusData); err == nil && statusData.Running {
+			stopRes, err := ns.CallNode(node, "POST", "/daemon/server/"+identifier+"/stop?wait=true", nil, nil)
+			if err != nil {
+				logging.Error.Printf("Error stopping server before deletion: %s", err)
+				return err
+			}
+			if stopRes != nil && stopRes.Body != nil {
+				stopRes.Body.Close()
+			}
+		}
+		if statusRes != nil && statusRes.Body != nil {
+			statusRes.Body.Close()
+		}
+	}
+	return nil
+}
+
+func executeServerDeletionOnNode(c *gin.Context, ns *services.Node, node *models.Node, identifier string) error {
+	nodeResponse, err := ns.CallNode(node, "DELETE", "/daemon/server/"+identifier, nil, c.Request.Header)
+	defer utils.CloseResponse(nodeResponse)
+
+	if err != nil {
+		return err
+	}
+
+	if nodeResponse.StatusCode != http.StatusNoContent {
+		resData, err := io.ReadAll(nodeResponse.Body)
+		if err != nil {
+			logging.Error.Printf("Failed to parse response from daemon\n%s", err.Error())
+		}
+		logging.Error.Printf("Unexpected response from daemon: %+v\n%s", nodeResponse.StatusCode, string(resData))
+		c.Header("Content-Type", "application/json")
+		c.Status(nodeResponse.StatusCode)
+		_, _ = c.Writer.Write(resData)
+		e := c.Error(errors.New("unexpected response from daemon"))
+		response.HandleError(c, e, http.StatusInternalServerError)
+		return e
+	}
+	return nil
+}
+
+func updateParentServerLimitsAfterDeletion(db *gorm.DB, ns *services.Node, node *models.Node, server *models.Server) {
+	var parent models.Server
+	if err := db.Where("identifier = ?", *server.ParentServerID).First(&parent).Error; err != nil {
+		return
+	}
+	var children []*models.Server
+	if err := db.Where("parent_server_id = ?", parent.Identifier).Find(&children).Error; err != nil {
+		return
+	}
+
+	var usedCPU int
+	var usedMemory, usedDisk int64
+	for _, child := range children {
+		usedCPU += child.TotalCPU
+		usedMemory += child.TotalMemory
+		usedDisk += child.TotalDisk
+	}
+
+	parentDataUpdate := map[string]interface{}{
+		"cpu":    parent.TotalCPU - usedCPU,
+		"memory": parent.TotalMemory - usedMemory,
+		"disk":   parent.TotalDisk - usedDisk,
+	}
+	updateBytes, _ := json.Marshal(parentDataUpdate)
+	parentReqBody := io.NopCloser(bytes.NewReader(updateBytes))
+	parentRes, _ := ns.CallNode(node, "POST", "/daemon/server/"+parent.Identifier+"/data", parentReqBody, nil)
+	if parentRes != nil && parentRes.Body != nil {
+		parentRes.Body.Close()
+	}
+}
+
+func sendServerDeletionEmails(users []models.User, server *models.Server) {
+	es := services.GetEmailService()
+	for _, user := range users {
+		err := es.SendEmail(user.Email, "deletedFromServer", map[string]interface{}{
+			"Server": server,
+		}, true)
+		if err != nil {
+			logging.Error.Printf("Error sending email: %s", err)
+		}
+	}
+}
+
+// --- Helpers for Create Server ---
+
+func validateAndBuildServerCreation(c *gin.Context, db *gorm.DB, us *services.User, postBody *models.ServerCreation) (*models.Server, []*models.User, error) {
+	if postBody.ParentServerID != nil && *postBody.ParentServerID != "" {
+		var parent models.Server
+		if err := db.Where("identifier = ?", *postBody.ParentServerID).First(&parent).Error; err != nil {
+			response.HandleError(c, errors.New("parent server not found"), http.StatusBadRequest)
+			return nil, nil, err
+		}
+
+		postBody.NodeID = parent.NodeID
+
+		var parentPerms []models.Permissions
+		db.Where("server_identifier = ?", parent.Identifier).Find(&parentPerms)
+
+		var inheritedUsers []string
+		for _, p := range parentPerms {
+			if p.UserID != nil {
+				user, err := us.GetByID(*p.UserID)
+				if err == nil && user != nil {
+					inheritedUsers = append(inheritedUsers, user.Username)
+				}
+			}
+		}
+		postBody.Users = inheritedUsers
+	}
+
+	port, err := getFromDataOrDefault(postBody.Variables, "port", uint16(0))
+	if response.HandleError(c, err, http.StatusBadRequest) {
+		return nil, nil, err
+	}
+
+	ip, err := getFromDataOrDefault(postBody.Variables, "ip", "0.0.0.0")
+	if response.HandleError(c, err, http.StatusBadRequest) {
+		return nil, nil, err
+	}
+
+	if postBody.Name == "" {
+		postBody.Name = postBody.Identifier
+	}
+
+	cpuVar, _ := getFromDataOrDefault(postBody.Variables, "cpu", 0)
+	memoryVar, _ := getFromDataOrDefault(postBody.Variables, "memory", 0)
+	diskVar, _ := getFromDataOrDefault(postBody.Variables, "disk", 0)
+
+	totalCPU := cast.ToInt(cpuVar)
+	totalMemory := cast.ToInt64(memoryVar)
+	totalDisk := cast.ToInt64(diskVar)
+
+	if totalCPU < 0 || totalMemory < 0 || totalDisk < 0 {
+		response.HandleError(c, errors.New("resources cannot be negative"), http.StatusBadRequest)
+		return nil, nil, errors.New("resources cannot be negative")
+	}
+
+	server := &models.Server{
+		Name:           postBody.Name,
+		Identifier:     postBody.Identifier,
+		NodeID:         postBody.NodeID,
+		IP:             cast.ToString(ip),
+		Port:           cast.ToUint16(port),
+		Type:           postBody.Type.Type,
+		Icon:           postBody.Icon,
+		ParentServerID: postBody.ParentServerID,
+		TotalCPU:       totalCPU,
+		TotalMemory:    totalMemory,
+		TotalDisk:      totalDisk,
+	}
+
+	users := make([]*models.User, len(postBody.Users))
+	for k, v := range postBody.Users {
+		user, err := us.Get(v)
+		if response.HandleError(c, err, http.StatusInternalServerError) {
+			return nil, nil, err
+		}
+		users[k] = user
+	}
+
+	return server, users, nil
+}
+
+func checkParentServerLimits(tx *gorm.DB, server *models.Server, parentAvailableCPU *int, parentAvailableMemory, parentAvailableDisk *int64) error {
+	var parent models.Server
+	if err := tx.Raw("SELECT * FROM servers WHERE identifier = ? FOR UPDATE", *server.ParentServerID).Scan(&parent).Error; err != nil {
+		return err
+	}
+	if parent.Identifier == "" {
+		return errors.New("parent server not found")
+	}
+
+	var children []*models.Server
+	if err := tx.Where("parent_server_id = ?", parent.Identifier).Find(&children).Error; err != nil {
+		return err
+	}
+
+	var usedCPU int
+	var usedMemory, usedDisk int64
+	for _, child := range children {
+		usedCPU += child.TotalCPU
+		usedMemory += child.TotalMemory
+		usedDisk += child.TotalDisk
+	}
+
+	*parentAvailableCPU = parent.TotalCPU - usedCPU - server.TotalCPU
+	*parentAvailableMemory = parent.TotalMemory - usedMemory - server.TotalMemory
+	*parentAvailableDisk = parent.TotalDisk - usedDisk - server.TotalDisk
+
+	if *parentAvailableCPU < 0 {
+		return errors.New("not enough CPU available in parent server")
+	}
+	if *parentAvailableMemory < 0 {
+		return errors.New("not enough memory available in parent server")
+	}
+	if *parentAvailableDisk < 0 {
+		return errors.New("not enough disk available in parent server")
+	}
+	return nil
+}
+
+func assignServerPermissions(ps *services.Permission, serverID string, users []*models.User) error {
+	for _, v := range users {
+		perm, err := ps.GetForUserAndServer(v.ID, serverID)
+		if err != nil {
+			return err
+		}
+
+		perm.Scopes = []*scopes.Scope{
+			scopes.ScopeServerView,
+			scopes.ScopeServerViewData,
+			scopes.ScopeServerEditData,
+			scopes.ScopeServerEditFlags,
+			scopes.ScopeServerEditName,
+			scopes.ScopeServerViewData,
+			scopes.ScopeServerClientView,
+			scopes.ScopeServerClientEdit,
+			scopes.ScopeServerClientCreate,
+			scopes.ScopeServerClientDelete,
+			scopes.ScopeServerUserView,
+			scopes.ScopeServerUserCreate,
+			scopes.ScopeServerUserEdit,
+			scopes.ScopeServerUserDelete,
+			scopes.ScopeServerTaskView,
+			scopes.ScopeServerTaskRun,
+			scopes.ScopeServerTaskCreate,
+			scopes.ScopeServerTaskDelete,
+			scopes.ScopeServerReload,
+			scopes.ScopeServerStart,
+			scopes.ScopeServerStop,
+			scopes.ScopeServerKill,
+			scopes.ScopeServerInstall,
+			scopes.ScopeServerFileView,
+			scopes.ScopeServerFileEdit,
+			scopes.ScopeServerSftp,
+			scopes.ScopeServerConsole,
+			scopes.ScopeServerSendCommand,
+			scopes.ScopeServerStats,
+			scopes.ScopeServerStatus,
+		}
+
+		err = ps.UpdatePermissions(perm)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func notifyNodeOfServerCreation(c *gin.Context, ns *services.Node, node *models.Node, postBody *models.ServerCreation, server *models.Server) error {
+	reader := &bytes.Buffer{}
+	if err := json.NewEncoder(reader).Encode(&postBody.Server); err != nil {
+		response.HandleError(c, err, http.StatusInternalServerError)
+		return err
+	}
+
+	nodeResponse, err := ns.CallNode(node, "PUT", "/daemon/server/"+server.Identifier, io.NopCloser(reader), c.Request.Header)
+	defer utils.CloseResponse(nodeResponse)
+
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return err
+	}
+
+	if nodeResponse.StatusCode != http.StatusOK {
+		resData, err := io.ReadAll(nodeResponse.Body)
+		if err != nil {
+			logging.Error.Printf("Failed to parse response from daemon\n%s", err.Error())
+		}
+		logging.Error.Printf("Unexpected response from daemon: %+v\n%s", nodeResponse.StatusCode, string(resData))
+		c.Header("Content-Type", "application/json")
+		c.Status(nodeResponse.StatusCode)
+		_, _ = c.Writer.Write(resData)
+		c.Abort()
+		return errors.New("unexpected node response")
+	}
+	return nil
+}
+
+func updateParentServerLimitsOnNode(c *gin.Context, db *gorm.DB, ns *services.Node, node *models.Node, server *models.Server, parentAvailableCPU int, parentAvailableMemory int64, parentAvailableDisk int64) {
+	parentDataUpdate := map[string]interface{}{
+		"cpu":    parentAvailableCPU,
+		"memory": parentAvailableMemory,
+		"disk":   parentAvailableDisk,
+	}
+	updateBytes, _ := json.Marshal(parentDataUpdate)
+	parentReqBody := io.NopCloser(bytes.NewReader(updateBytes))
+
+	var parent models.Server
+	db.Where("identifier = ?", *server.ParentServerID).First(&parent)
+	parentRes, _ := ns.CallNode(node, "POST", "/daemon/server/"+parent.Identifier+"/data", parentReqBody, c.Request.Header)
+	if parentRes != nil && parentRes.Body != nil {
+		parentRes.Body.Close()
+	}
+}
+
+func sendServerCreationEmails(users []*models.User, server *models.Server) {
+	es := services.GetEmailService()
+	for _, user := range users {
+		err := es.SendEmail(user.Email, "addedToServer", map[string]interface{}{
+			"Server":        server,
+			"RegisterToken": "",
+		}, true)
+		if err != nil {
+			logging.Error.Printf("Error sending email: %s", err)
+		}
 	}
 }
