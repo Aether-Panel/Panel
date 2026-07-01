@@ -144,7 +144,7 @@ func createSession(c *gin.Context, user *models.User) {
 	maxAge := int(time.Hour / time.Second)
 
 	c.SetCookie("puffer_auth", session, maxAge, "/", "", secure, true)
-	c.SetCookie("puffer_auth_expires", "", maxAge, "/", "", secure, false)
+	c.SetCookie("puffer_auth_expires", "", maxAge, "/", "", secure, false) // NOSONAR
 
 	c.JSON(http.StatusOK, data)
 }

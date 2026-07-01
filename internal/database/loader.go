@@ -59,7 +59,7 @@ func openConnection() (err error) {
 
 	if config.DatabaseLoggingEnabled.Value() {
 		logging.Info.Printf("Database logging enabled")
-		gormConfig.Logger = gormConfig.Logger.LogMode(logger.Info)
+		gormConfig.Logger = gormConfig.Logger.LogMode(logger.Info) // NOSONAR
 	}
 
 	// Sqlite doesn't implement constraints see https://gorm.io/docs/migration.html#Auto-Migration

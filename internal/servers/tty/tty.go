@@ -498,7 +498,7 @@ func (t *tty) createCmd(workDir, cmd string) (pr *exec.Cmd, err error) {
 		"rm -r /old-root",
 		fmt.Sprintf("cd /%s && %s", workDirMount, cmd))
 
-	pr = exec.Command("bash", "-c", strings.Join(unshareArgs, " && "))
+	pr = exec.Command("/bin/bash", "-c", strings.Join(unshareArgs, " && "))
 	pr.Dir, err = os.MkdirTemp("", "unshare-pp-")
 	if err != nil {
 		return

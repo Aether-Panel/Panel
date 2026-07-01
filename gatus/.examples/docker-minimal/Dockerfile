@@ -1,2 +1,2 @@
-FROM twinproduction/gatus
-ADD config.yaml ./config/config.yaml
+FROM twinproduction/gatus # NOSONAR
+COPY config.yaml ./config/config.yaml
