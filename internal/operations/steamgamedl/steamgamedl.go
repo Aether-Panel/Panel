@@ -2,18 +2,19 @@ package steamgamedl
 
 import (
 	"bufio"
-	"fmt"
-	"github.com/SkyPanel/SkyPanel/v3/internal/config"
-	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
-	"github.com/mholt/archiver/v3"
-	"github.com/spf13/cast"
 	cryptoRand "crypto/rand"
+	"fmt"
 	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/SkyPanel/SkyPanel/v3/internal/config"
+	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
+	"github.com/mholt/archiver/v3"
+	"github.com/spf13/cast"
 )
 
 var downloader sync.Mutex
@@ -51,7 +52,7 @@ func (c SteamGameDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult
 	// this is a 32-bit id, which Steam derives from private IP
 	// as such, we can kinda send anything we want
 	// our approach will be we hash the server id
-	n, _ := cryptoRand.Int(cryptoRand.Reader, big.NewInt(1<<31-1))
+	n, _ := cryptoRand.Int(cryptoRand.Reader, big.NewInt(1<<31 - 1))
 	loginID := cast.ToString(n.Int64())
 
 	manifestFolder := filepath.Join(env.GetRootDirectory(), ".manifest")
