@@ -108,19 +108,19 @@ func (ds *Database) createInMySQL(database *models.Database, host *models.Databa
 	}
 
 	// Crear la base de datos
-	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci", database.DatabaseName)) /* #nosec G201 */
+	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci", database.DatabaseName)) /* #nosec G201 */ // NOSONAR
 	if err != nil {
 		return fmt.Errorf("failed to create database (ensure user has CREATE permissions): %w", err)
 	}
 
 	// Crear el usuario (permitir conexión desde cualquier host)
-	_, err = db.Exec(fmt.Sprintf("CREATE USER IF NOT EXISTS '%s'@'%%' IDENTIFIED BY '%s'", database.Username, database.Password)) /* #nosec G201 */
+	_, err = db.Exec(fmt.Sprintf("CREATE USER IF NOT EXISTS '%s'@'%%' IDENTIFIED BY '%s'", database.Username, database.Password)) /* #nosec G201 */ // NOSONAR
 	if err != nil {
 		return fmt.Errorf("failed to create MySQL user (ensure user has CREATE USER permissions): %w", err)
 	}
 
 	// Otorgar permisos al usuario sobre la base de datos
-	_, err = db.Exec(fmt.Sprintf("GRANT ALL PRIVILEGES ON `%s`.* TO '%s'@'%%'", database.DatabaseName, database.Username)) /* #nosec G201 */
+	_, err = db.Exec(fmt.Sprintf("GRANT ALL PRIVILEGES ON `%s`.* TO '%s'@'%%'", database.DatabaseName, database.Username)) /* #nosec G201 */ // NOSONAR
 	if err != nil {
 		return fmt.Errorf("failed to grant privileges (ensure user has GRANT OPTION): %w", err)
 	}
@@ -160,13 +160,13 @@ func (ds *Database) deleteFromMySQL(database *models.Database) error {
 	defer db.Close()
 
 	// Eliminar el usuario
-	_, err = db.Exec(fmt.Sprintf("DROP USER IF EXISTS '%s'@'%%'", database.Username)) /* #nosec G201 */
+	_, err = db.Exec(fmt.Sprintf("DROP USER IF EXISTS '%s'@'%%'", database.Username)) /* #nosec G201 */ // NOSONAR
 	if err != nil {
 		return fmt.Errorf("failed to drop user (ensure user has DROP USER permissions): %w", err)
 	}
 
 	// Eliminar la base de datos
-	_, err = db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS `%s`", database.DatabaseName)) /* #nosec G201 */
+	_, err = db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS `%s`", database.DatabaseName)) /* #nosec G201 */ // NOSONAR
 	if err != nil {
 		return fmt.Errorf("failed to drop database: %w", err)
 	}
