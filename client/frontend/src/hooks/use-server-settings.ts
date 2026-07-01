@@ -135,10 +135,50 @@ export function useServerSettings(serverId: string) {
     return { settings, loading, error, saveSettings, isMinecraftJava, refresh: fetchSettings };
 }
 
+function applyPropertiesToLines(lines: string[], propsToUpdate: Record<string, string>): string[] {
+    const updatedLines = [];
+    const existingKeys = new Set();
+    
+    for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) {
+            updatedLines.push(line);
+            continue;
+        }
+
+        const eqIndex = trimmed.indexOf('=');
+        if (eqIndex === -1) {
+            updatedLines.push(line);
+            continue;
+        }
+
+        const key = trimmed.substring(0, eqIndex).trim().toLowerCase();
+        if (propsToUpdate[key] !== undefined) {
+            updatedLines.push(`${key}=${propsToUpdate[key]}`);
+            existingKeys.add(key);
+        } else if (key === 'server-ip' && propsToUpdate['server-ip'] !== undefined) {
+            updatedLines.push(`server-ip=${propsToUpdate['server-ip']}`);
+            existingKeys.add('server-ip');
+        } else if (key === 'server-port' && propsToUpdate['server-port'] !== undefined) {
+            updatedLines.push(`server-port=${propsToUpdate['server-port']}`);
+            existingKeys.add('server-port');
+        } else {
+            updatedLines.push(line);
+        }
+    }
+
+    // Add missing ones
+    Object.entries(propsToUpdate).forEach(([key, value]) => {
+        if (!existingKeys.has(key)) {
+            updatedLines.push(`${key}=${value}`);
+        }
+    });
+
+    return updatedLines;
+}
+
 async function syncServerProperties(serverId: string, data: Record<string, any>) {
     try {
-        // This replicates the logic from the old frontend
-        // Get current server.properties
         let content = '';
         try {
             content = await api.get(`/api/servers/${serverId}/file/server.properties`);
@@ -147,12 +187,10 @@ async function syncServerProperties(serverId: string, data: Record<string, any>)
         }
 
         if (typeof content !== 'string') {
-            // Handle if it returned JSON (file list) instead of string
             return;
         }
 
         const lines = content.split('\n');
-        const updatedLines = [];
         const propsToUpdate: Record<string, string> = {};
 
         if (data.motd !== undefined) propsToUpdate['motd'] = String(data.motd).replace(/\n/g, '\\n');
@@ -161,41 +199,7 @@ async function syncServerProperties(serverId: string, data: Record<string, any>)
 
         if (Object.keys(propsToUpdate).length === 0) return;
 
-        const existingKeys = new Set();
-        for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed || trimmed.startsWith('#')) {
-                updatedLines.push(line);
-                continue;
-            }
-
-            const eqIndex = trimmed.indexOf('=');
-            if (eqIndex === -1) {
-                updatedLines.push(line);
-                continue;
-            }
-
-            const key = trimmed.substring(0, eqIndex).trim().toLowerCase();
-            if (propsToUpdate[key] !== undefined) {
-                updatedLines.push(`${key}=${propsToUpdate[key]}`);
-                existingKeys.add(key);
-            } else if (key === 'server-ip' && propsToUpdate['server-ip'] !== undefined) {
-                updatedLines.push(`server-ip=${propsToUpdate['server-ip']}`);
-                existingKeys.add('server-ip');
-            } else if (key === 'server-port' && propsToUpdate['server-port'] !== undefined) {
-                updatedLines.push(`server-port=${propsToUpdate['server-port']}`);
-                existingKeys.add('server-port');
-            } else {
-                updatedLines.push(line);
-            }
-        }
-
-        // Add missing ones
-        Object.entries(propsToUpdate).forEach(([key, value]) => {
-            if (!existingKeys.has(key)) {
-                updatedLines.push(`${key}=${value}`);
-            }
-        });
+        const updatedLines = applyPropertiesToLines(lines, propsToUpdate);
 
         await fetch(`/api/servers/${serverId}/file/server.properties`, {
             method: 'PUT',

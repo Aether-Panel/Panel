@@ -5,17 +5,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, ChevronRight, ChevronLeft, Check, Server as ServerIcon, Code, Puzzle, Bot, Globe, Shield, X, ShieldAlert, ChevronDown } from 'lucide-react';
+import { Loader2, ChevronRight, ChevronLeft, Check, Code, Globe, Shield, X, ShieldAlert } from 'lucide-react';
 import { useNodes } from '@/hooks/use-dashboard-data';
 import { useUsers } from '@/hooks/use-users';
-import { useTemplates, type TemplateRepo } from '@/hooks/use-templates';
+import { useTemplates } from '@/hooks/use-templates';
 import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
 import { useToast } from '@/hooks/use-toast';
 
-// Error Boundary component to prevent the whole app from crashing
 class ErrorBoundary extends React.Component<
     { children: React.ReactNode },
     { hasError: boolean; errorMsg: string; errorStack: string }
@@ -51,54 +50,345 @@ class ErrorBoundary extends React.Component<
 
 type Step = 1 | 2 | 3;
 
-// Helper to safely render values that might be objects
 const SafeValue = ({ v, fallback = "" }: { v: any, fallback?: string }) => {
     if (v === null || v === undefined) return fallback;
     if (typeof v === 'object') return JSON.stringify(v);
     return String(v);
 };
 
+function Step1Environment({
+    name, setName, selectedNode, setSelectedNode, selectedEnvironment, setSelectedEnvironment,
+    selectedUsers, setSelectedUsers, forcedParentId, nodes, users
+}: any) {
+    return (
+        <div className="grid gap-6 animate-in fade-in slide-in-from-right-4 duration-300 w-full">
+            <div className="grid gap-2 w-full">
+                <Label htmlFor="server-name" className="text-sm font-medium">Nombre del Servidor *</Label>
+                <Input id="server-name" placeholder="Ej: Mi Servidor Minecraft" value={name} onChange={(e) => setName(e.target.value)} className="h-10" />
+            </div>
+            {forcedParentId ? (
+                <div className="bg-accent/10 border border-accent/20 rounded-lg p-4 mb-4">
+                    <div className="flex items-center gap-2 text-primary font-medium mb-1">
+                        <Shield className="w-5 h-5" />
+                        <span>Entorno Heredado</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                        El nodo, entorno y los usuarios de este subservidor se asignarán automáticamente desde el servidor padre.
+                    </p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                        <Label className="text-sm font-medium">Nodo *</Label>
+                        <Select value={selectedNode} onValueChange={setSelectedNode}>
+                            <SelectTrigger className="h-10">
+                                <SelectValue placeholder="Seleccionar nodo" />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-80 overflow-y-auto z-[100]">
+                                {nodes.map((n: any) => (
+                                    <SelectItem key={n.id} value={String(n.id)}>{n.name} ({n.publicHost})</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="grid gap-2">
+                        <Label className="text-sm font-medium">Entorno</Label>
+                        <Select value={selectedEnvironment} onValueChange={setSelectedEnvironment}>
+                            <SelectTrigger className="h-10">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-80 overflow-y-auto z-[100]">
+                                <SelectItem value="docker">Docker</SelectItem>
+                                <SelectItem value="standard">Estándar (Hijo)</SelectItem>
+                                <SelectItem value="tty">TTY</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+            )}
+            {!forcedParentId && (
+                <div className="grid gap-2">
+                    <Label className="text-sm font-medium">Usuarios con acceso</Label>
+                    <div className="flex flex-col gap-3">
+                        <Select
+                            value=""
+                            onValueChange={(val) => {
+                                const id = Number(val);
+                                if (!selectedUsers.includes(id)) {
+                                    setSelectedUsers((prev: any) => [...prev, id]);
+                                }
+                            }}
+                        >
+                            <SelectTrigger className="h-10">
+                                <SelectValue placeholder="Seleccionar usuario para añadir..." />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-80 overflow-y-auto z-[100]">
+                                {users.filter((u: any) => !selectedUsers.includes(u.id)).map((u: any) => (
+                                    <SelectItem key={u.id} value={String(u.id)}>{u.username} ({u.email})</SelectItem>
+                                ))}
+                                {users.filter((u: any) => !selectedUsers.includes(u.id)).length === 0 && (
+                                    <div className="p-2 text-xs text-muted-foreground text-center italic">No hay más usuarios disponibles.</div>
+                                )}
+                            </SelectContent>
+                        </Select>
+
+                        {selectedUsers.length > 0 && (
+                            <div className="flex flex-wrap gap-2 pt-1">
+                                {selectedUsers.map((id: number) => {
+                                    const u = users.find((user: any) => user.id === id);
+                                    return (
+                                        <Badge key={id} variant="secondary" className="pl-3 pr-1 py-1 flex items-center gap-2 bg-primary/10 text-primary border-primary/20">
+                                            {u?.username}
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-4 w-4 rounded-full hover:bg-red-500 hover:text-white transition-colors"
+                                                onClick={() => setSelectedUsers((prev: any) => prev.filter((uid: number) => uid !== id))}
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </Button>
+                                        </Badge>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                    <p className="text-xs text-muted-foreground italic">Los usuarios seleccionados tendrán acceso de administrador al servidor.</p>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function Step2Template({
+    repos, selectedRepo, setSelectedRepo,
+    templateList, selectedTemplateName, setSelectedTemplateName,
+    loadingTemplates, templateDetails, templateError
+}: any) {
+    return (
+        <div className="grid gap-6 animate-in fade-in slide-in-from-right-4 duration-300 w-full">
+            <div className="grid gap-2 w-full">
+                <Label>Repositorio de Plantillas</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+                    {repos.map((r: any) => (
+                        <div
+                            key={r.id}
+                            onClick={() => setSelectedRepo(r.id)}
+                            className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedRepo === r.id ? 'border-primary bg-primary/5 ring-4 ring-primary/10' : 'border-muted hover:border-primary/50'
+                                }`}
+                        >
+                            {r.isLocal ? <Shield className="h-6 w-6 text-primary" /> : <Globe className="h-6 w-6 text-blue-400" />}
+                            <div className="text-left">
+                                <p className="font-semibold">{r.name}</p>
+                                <p className="text-xs text-muted-foreground">{r.isLocal ? 'Local' : 'Comunidad'}</p>
+                            </div>
+                        </div>
+                    ))}
+                    {repos.length === 0 && (
+                        <div className="col-span-2 flex items-center justify-center p-8 border-2 border-dashed rounded-xl text-muted-foreground text-sm">
+                            <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                            Cargando repositorios...
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {selectedRepo !== null && (
+                <div className="grid gap-2 mt-4 w-full">
+                    <Label>Seleccionar Plantilla</Label>
+                    {loadingTemplates ? (
+                        <div className="flex items-center justify-center p-8">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        </div>
+                    ) : templateList.length === 0 ? (
+                        <div className="flex items-center justify-center p-8 border-2 border-dashed rounded-xl text-muted-foreground text-sm">
+                            No hay plantillas disponibles en este repositorio.
+                        </div>
+                    ) : (
+                        <div className="w-full min-w-0 max-h-[280px] overflow-y-auto pr-2">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 w-full">
+                                {templateList.map((t: any) => (
+                                    <div
+                                        key={t.name}
+                                        onClick={() => setSelectedTemplateName(t.name)}
+                                        className={`p-2 rounded-lg border text-xs flex items-center gap-2 cursor-pointer transition-all min-w-0 ${selectedTemplateName === t.name ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted'
+                                            }`}
+                                    >
+                                        <Code className="h-3 w-3 shrink-0" />
+                                        <span className="truncate min-w-0">{t.name}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    {selectedTemplateName && !templateDetails && !templateError && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2 p-2 bg-primary/5 rounded-lg border border-primary/10">
+                            <Loader2 className="h-3 w-3 animate-spin text-primary shrink-0" />
+                            Cargando detalles de la plantilla <strong>{selectedTemplateName}</strong>...
+                        </div>
+                    )}
+                    {selectedTemplateName && templateError && (
+                        <div className="flex items-center gap-2 text-xs text-red-600 mt-2 p-2 bg-red-50 rounded-lg border border-red-200">
+                            <ShieldAlert className="h-3 w-3 shrink-0" />
+                            {templateError}
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function Step3Configuration({
+    templateDetails, templateError, configData, setConfigData,
+    cpuLimit, setCpuLimit, memoryLimit, setMemoryLimit, diskLimit, setDiskLimit,
+    setCurrentStep
+}: any) {
+    if (templateError) {
+        return (
+            <div className="flex flex-col items-center justify-center p-8 text-center bg-red-500/5 rounded-xl border border-red-500/20">
+                <ShieldAlert className="h-10 w-10 text-red-500 mb-3" />
+                <p className="font-bold text-red-700">Error de Plantilla</p>
+                <p className="text-sm text-red-600 mt-1">{templateError}</p>
+                <Button variant="outline" size="sm" className="mt-4" onClick={() => setCurrentStep(2)}>
+                    <ChevronLeft className="mr-2 h-4 w-4" />
+                    Volver
+                </Button>
+            </div>
+        );
+    }
+    
+    if (!templateDetails) {
+        return (
+            <div className="flex flex-col items-center justify-center p-20 text-center space-y-4">
+                <div className="relative">
+                    <div className="absolute -inset-4 bg-primary/10 rounded-full blur-xl animate-pulse" />
+                    <Loader2 className="h-12 w-12 animate-spin text-primary relative" />
+                </div>
+                <div className="space-y-1">
+                    <p className="font-bold text-lg text-foreground/80">Analizando Plantilla</p>
+                    <p className="text-sm text-muted-foreground">Obteniendo parámetros de configuración...</p>
+                </div>
+            </div>
+        );
+    }
+
+    const variables = (templateDetails.data || templateDetails.variables || templateDetails.Variables || {}) as Record<string, any>;
+    const entries = Object.entries(variables).filter(([key, v]) => v && !v.internal && !['cpu', 'memory', 'disk'].includes(key));
+
+    return (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 w-full">
+            <div className="flex flex-col gap-1">
+                <Label className="text-xs font-semibold">CPU <span className="font-normal text-muted-foreground">(%)</span></Label>
+                <Input type="number" value={cpuLimit} onChange={(e) => setCpuLimit(e.target.value === '' ? '' : Number(e.target.value))} className="h-8 bg-background/50 text-sm" />
+            </div>
+            <div className="flex flex-col gap-1">
+                <Label className="text-xs font-semibold">RAM <span className="font-normal text-muted-foreground">(MB)</span></Label>
+                <Input type="number" value={memoryLimit} onChange={(e) => setMemoryLimit(e.target.value === '' ? '' : Number(e.target.value))} className="h-8 bg-background/50 text-sm" />
+            </div>
+            <div className="flex flex-col gap-1">
+                <Label className="text-xs font-semibold">Disco <span className="font-normal text-muted-foreground">(MB)</span></Label>
+                <Input type="number" value={diskLimit} onChange={(e) => setDiskLimit(e.target.value === '' ? '' : Number(e.target.value))} className="h-8 bg-background/50 text-sm" />
+            </div>
+
+            <div className="col-span-full border-t border-border/50 my-1" />
+
+            {entries.map(([key, variable]: [string, any], idx: number) => {
+                if (!variable || typeof variable !== 'object') return null;
+                const currentVal = configData[key] !== undefined ? configData[key] : "";
+                const stringifiedVal = (typeof currentVal === 'object' && currentVal !== null)
+                    ? JSON.stringify(currentVal)
+                    : String(currentVal ?? "");
+
+                const label = variable.display || key;
+                const isWide = (label.toLowerCase().includes('motd') || label.toLowerCase().includes('arguments') || label.toLowerCase().includes('command'));
+
+                return (
+                    <div key={key + idx} className={`flex flex-col gap-1 ${isWide ? 'col-span-2' : ''}`}>
+                        <Label className="text-xs font-semibold truncate" title={label}>
+                            <SafeValue v={label} />
+                            {variable.required && <span className="text-red-500 ml-0.5">*</span>}
+                        </Label>
+                        {Array.isArray(variable.options) && variable.options.length > 0 ? (
+                            <Select
+                                value={stringifiedVal === "" ? "_EMPTY_VALUE_" : stringifiedVal}
+                                onValueChange={(val) => setConfigData((prev: any) => ({ ...prev, [key]: val === "_EMPTY_VALUE_" ? "" : val }))}
+                            >
+                                <SelectTrigger className="h-8 bg-background/50 text-sm">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="max-h-60 z-[100]">
+                                    {variable.options.map((opt: any, oIdx: number) => {
+                                        if (!opt) return null;
+                                        const rawOptVal = opt.value !== undefined ? opt.value : (typeof opt === 'string' ? opt : "");
+                                        const optVal = rawOptVal === "" ? "_EMPTY_VALUE_" : String(rawOptVal);
+                                        return (
+                                            <SelectItem key={oIdx} value={optVal}>
+                                                <SafeValue v={opt.display || (rawOptVal === "" ? "Ninguno" : rawOptVal)} />
+                                            </SelectItem>
+                                        );
+                                    })}
+                                </SelectContent>
+                            </Select>
+                        ) : variable.type === 'boolean' ? (
+                            <div
+                                className="flex items-center gap-2 px-3 rounded-lg border bg-background/30 cursor-pointer h-8"
+                                onClick={() => setConfigData((prev: any) => ({ ...prev, [key]: !currentVal }))}
+                            >
+                                <div className={`h-3.5 w-3.5 rounded border shrink-0 flex items-center justify-center ${currentVal ? 'bg-primary border-primary' : 'border-muted-foreground/40'}`}>
+                                    {currentVal && <Check className="h-2.5 w-2.5 text-primary-foreground stroke-[3px]" />}
+                                </div>
+                                <span className="text-xs select-none">Habilitar</span>
+                            </div>
+                        ) : (
+                            <Input
+                                type={variable.type === 'integer' ? 'number' : 'text'}
+                                value={stringifiedVal}
+                                onChange={(e) => setConfigData((prev: any) => ({ ...prev, [key]: variable.type === 'integer' ? Number(e.target.value) : e.target.value }))}
+                                className="h-8 bg-background/50 text-sm"
+                            />
+                        )}
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
 export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }: { onComplete: () => void, forcedParentId?: string, forcedNodeId?: string }) {
-    const { t } = useTranslations();
     const { toast } = useToast();
     const isSplitter = !!forcedParentId;
-    const { nodes } = useNodes(isSplitter);        // skip if splitter — node is inherited
-    const { users } = useUsers(isSplitter);        // skip if splitter — users are inherited
+    const { nodes } = useNodes(isSplitter);
+    const { users } = useUsers(isSplitter);
     const { repos, getTemplatesForRepo, getTemplateDetails } = useTemplates();
 
     const [currentStep, setCurrentStep] = useState<Step>(1);
     const [loading, setLoading] = useState(false);
 
-    // Step 1: Environment
     const [name, setName] = useState('');
     const [selectedNode, setSelectedNode] = useState(forcedNodeId || '');
     const [selectedEnvironment, setSelectedEnvironment] = useState('docker');
     const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
 
-    // Sync forcedNodeId if it arrives late (parent server info loading async)
     useEffect(() => {
         if (forcedNodeId && forcedNodeId !== '' && selectedNode === '') {
             setSelectedNode(forcedNodeId);
         }
     }, [forcedNodeId]);
 
-    // Step 2: Templates
     const [selectedRepo, setSelectedRepo] = useState<number | null>(null);
     const [templateList, setTemplateList] = useState<any[]>([]);
     const [selectedTemplateName, setSelectedTemplateName] = useState('');
     const [loadingTemplates, setLoadingTemplates] = useState(false);
 
-    // Step 3: Configuration
     const [templateDetails, setTemplateDetails] = useState<any>(null);
     const [templateError, setTemplateError] = useState<string | null>(null);
     const [configData, setConfigData] = useState<Record<string, any>>({});
     
-    // Explicit Resources
     const [cpuLimit, setCpuLimit] = useState<number | ''>(100);
     const [memoryLimit, setMemoryLimit] = useState<number | ''>(1024);
     const [diskLimit, setDiskLimit] = useState<number | ''>(10240);
 
-    // Auto-select repo if only one is available (common in splitter mode)
     useEffect(() => {
         if (repos.length === 1 && selectedRepo === null) {
             setSelectedRepo(repos[0].id);
@@ -121,63 +411,56 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
         }
     }, [selectedRepo]);
 
+    const parseTemplateVariables = (details: any) => {
+        const initial: Record<string, any> = {};
+        const rawVars = details.data || details.variables || details.Variables || {};
+        const variables = (typeof rawVars === 'object' && rawVars !== null) ? rawVars : {};
+
+        Object.entries(variables).forEach(([key, val]: [string, any]) => {
+            if (val && typeof val === 'object') {
+                let rawValue = val.value !== undefined ? val.value : (val.default !== undefined ? val.default : "");
+
+                if (val.type === 'boolean') {
+                    rawValue = rawValue !== 'false' && rawValue !== false && !!rawValue;
+                }
+                if (val.type === 'integer') {
+                    rawValue = Number(rawValue) || 0;
+                }
+
+                if (key === 'cpu') {
+                    setCpuLimit(rawValue ? Number(rawValue) : 100);
+                } else if (key === 'memory') {
+                    setMemoryLimit(rawValue ? Number(rawValue) : 1024);
+                } else if (key === 'disk') {
+                    setDiskLimit(rawValue ? Number(rawValue) : 10240);
+                } else {
+                    initial[key] = (typeof rawValue === 'object' && rawValue !== null)
+                        ? JSON.stringify(rawValue)
+                        : (rawValue ?? "");
+                }
+            } else if (val !== undefined && val !== null) {
+                if (key === 'cpu') setCpuLimit(Number(val));
+                else if (key === 'memory') setMemoryLimit(Number(val));
+                else if (key === 'disk') setDiskLimit(Number(val));
+                else initial[key] = String(val);
+            }
+        });
+        setConfigData(initial);
+    };
+
     useEffect(() => {
         if (selectedTemplateName && selectedRepo !== null) {
             setTemplateError(null);
             setTemplateDetails(null);
             getTemplateDetails(selectedRepo, selectedTemplateName).then(details => {
-                console.log('Template Details Received:', details);
                 if (!details) {
                     setTemplateError("No se pudo cargar la información de la plantilla. Comprueba que el repositorio de plantillas esté disponible.");
                     return;
                 }
                 setTemplateDetails(details);
-
-                // Initialize config data with default values
-                const initial: Record<string, any> = {};
-                // PufferPanel templates use "data" or "variables" or "Variables"
-                const rawVars = details.data || details.variables || details.Variables || {};
-
-                // Ensure rawVars is an object we can iterate over
-                const variables = (typeof rawVars === 'object' && rawVars !== null) ? rawVars : {};
-
-                Object.entries(variables).forEach(([key, val]: [string, any]) => {
-                    // Normalize the value to a string/number/boolean safe for inputs
-                    if (val && typeof val === 'object') {
-                        let rawValue = val.value !== undefined ? val.value : (val.default !== undefined ? val.default : "");
-
-                        // Old frontend logic for booleans
-                        if (val.type === 'boolean') {
-                            rawValue = rawValue !== 'false' && rawValue !== false && !!rawValue;
-                        }
-                        // For integer
-                        if (val.type === 'integer') {
-                            rawValue = Number(rawValue) || 0;
-                        }
-
-                        if (key === 'cpu') {
-                            setCpuLimit(rawValue ? Number(rawValue) : 100);
-                        } else if (key === 'memory') {
-                            setMemoryLimit(rawValue ? Number(rawValue) : 1024);
-                        } else if (key === 'disk') {
-                            setDiskLimit(rawValue ? Number(rawValue) : 10240);
-                        } else {
-                            initial[key] = (typeof rawValue === 'object' && rawValue !== null)
-                                ? JSON.stringify(rawValue)
-                                : (rawValue ?? "");
-                        }
-                    } else if (val !== undefined && val !== null) {
-                        if (key === 'cpu') setCpuLimit(Number(val));
-                        else if (key === 'memory') setMemoryLimit(Number(val));
-                        else if (key === 'disk') setDiskLimit(Number(val));
-                        else initial[key] = String(val);
-                    }
-                });
-                console.log('Initialized Config Data:', initial);
-                setConfigData(initial);
+                parseTemplateVariables(details);
             }).catch(err => {
                 setTemplateError(err.message || "Error al obtener detalles de la plantilla. Verifica tu conexión o los permisos.");
-                console.error("Details Fetch Error:", err);
             });
         }
     }, [selectedTemplateName, selectedRepo]);
@@ -194,7 +477,6 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
                 toast({ title: 'Error', description: 'Por favor selecciona una plantilla.', variant: 'destructive' });
                 return;
             }
-            // If details are still loading, wait — don't advance yet
             if (!templateDetails && !templateError) {
                 toast({ title: 'Cargando plantilla...', description: 'Espera un momento mientras se cargan los detalles de la plantilla.' });
                 return;
@@ -206,25 +488,21 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
     const handleCreate = async () => {
         setLoading(true);
         try {
-            // Identifier is usually a slug of the name or generated
             const identifier = name.toLowerCase().replace(/\s+/g, '-').slice(0, 20);
 
-            // Format config data as { key: { value: val } } for Go backend
             const vars: Record<string, any> = {};
             Object.entries(configData).forEach(([k, v]) => {
                 vars[k] = { value: v };
             });
             
-            // Inject Explicit Resources
             vars['cpu'] = { value: cpuLimit === '' ? 100 : cpuLimit };
             vars['memory'] = { value: memoryLimit === '' ? 1024 : memoryLimit };
             vars['disk'] = { value: diskLimit === '' ? 10240 : diskLimit };
 
             const usernames = selectedUsers
-                .map(id => users.find(u => u.id === id)?.username)
+                .map(id => users.find((u: any) => u.id === id)?.username)
                 .filter((uname): uname is string => !!uname);
 
-            // Fetch correct environment properties from the template's supportedEnvironments
             let environmentConfig: Record<string, any> = { type: selectedEnvironment };
 
             if (selectedEnvironment === 'docker' && templateDetails?.supportedEnvironments) {
@@ -238,11 +516,8 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
                 }
             }
 
-            // Resolve node: in splitter mode forcedNodeId is the parent's node,
-            // fall back to 0 (local node) if still not available
             const resolvedNode = selectedNode !== '' ? Number(selectedNode) : (forcedNodeId ? Number(forcedNodeId) : 0);
 
-            // Combine template definition with user overrides
             const serverPayload = {
                 ...templateDetails,
                 name: name,
@@ -253,8 +528,6 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
                 users: usernames,
                 parent_server_id: forcedParentId || undefined,
             };
-
-            console.log('Final Server Payload:', serverPayload);
 
             await api.put(`/api/servers/${identifier}`, serverPayload);
 
@@ -270,7 +543,6 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
     return (
         <ErrorBoundary>
             <div className="space-y-6 w-full max-w-full overflow-x-hidden">
-                {/* Stepper Indicator */}
                 <div className="flex items-center justify-between mb-6 w-full min-w-0">
                     {[1, 2, 3].map((step) => (
                         <div key={step} className="flex items-center">
@@ -289,298 +561,36 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
                 <Card className="border-0 bg-transparent shadow-none">
                     <CardContent className="p-0">
                         {currentStep === 1 && (
-                            <div className="grid gap-6 animate-in fade-in slide-in-from-right-4 duration-300 w-full">
-                                <div className="grid gap-2 w-full">
-                                    <Label htmlFor="server-name" className="text-sm font-medium">Nombre del Servidor *</Label>
-                                    <Input id="server-name" placeholder="Ej: Mi Servidor Minecraft" value={name} onChange={(e) => setName(e.target.value)} className="h-10" />
-                                </div>
-                                {forcedParentId ? (
-                                    <div className="bg-accent/10 border border-accent/20 rounded-lg p-4 mb-4">
-                                        <div className="flex items-center gap-2 text-primary font-medium mb-1">
-                                            <Shield className="w-5 h-5" />
-                                            <span>Entorno Heredado</span>
-                                        </div>
-                                        <p className="text-sm text-muted-foreground">
-                                            El nodo, entorno y los usuarios de este subservidor se asignarán automáticamente desde el servidor padre.
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="grid gap-2">
-                                            <Label className="text-sm font-medium">Nodo *</Label>
-                                            <Select value={selectedNode} onValueChange={setSelectedNode}>
-                                                <SelectTrigger className="h-10">
-                                                    <SelectValue placeholder="Seleccionar nodo" />
-                                                </SelectTrigger>
-                                                <SelectContent className="max-h-80 overflow-y-auto z-[100]">
-                                                    {nodes.map(n => (
-                                                        <SelectItem key={n.id} value={String(n.id)}>{n.name} ({n.publicHost})</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <div className="grid gap-2">
-                                            <Label className="text-sm font-medium">Entorno</Label>
-                                            <Select value={selectedEnvironment} onValueChange={setSelectedEnvironment}>
-                                                <SelectTrigger className="h-10">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent className="max-h-80 overflow-y-auto z-[100]">
-                                                    <SelectItem value="docker">Docker</SelectItem>
-                                                    <SelectItem value="standard">Estándar (Hijo)</SelectItem>
-                                                    <SelectItem value="tty">TTY</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                    </div>
-                                )}
-                                
-                                {!forcedParentId && (
-                                <div className="grid gap-2">
-                                    <Label className="text-sm font-medium">Usuarios con acceso</Label>
-                                    <div className="flex flex-col gap-3">
-                                        <Select
-                                            value=""
-                                            onValueChange={(val) => {
-                                                const id = Number(val);
-                                                if (!selectedUsers.includes(id)) {
-                                                    setSelectedUsers(prev => [...prev, id]);
-                                                }
-                                            }}
-                                        >
-                                            <SelectTrigger className="h-10">
-                                                <SelectValue placeholder="Seleccionar usuario para añadir..." />
-                                            </SelectTrigger>
-                                            <SelectContent className="max-h-80 overflow-y-auto z-[100]">
-                                                {users.filter(u => !selectedUsers.includes(u.id)).map(u => (
-                                                    <SelectItem key={u.id} value={String(u.id)}>{u.username} ({u.email})</SelectItem>
-                                                ))}
-                                                {users.filter(u => !selectedUsers.includes(u.id)).length === 0 && (
-                                                    <div className="p-2 text-xs text-muted-foreground text-center italic">No hay más usuarios disponibles.</div>
-                                                )}
-                                            </SelectContent>
-                                        </Select>
-
-                                        {selectedUsers.length > 0 && (
-                                            <div className="flex flex-wrap gap-2 pt-1">
-                                                {selectedUsers.map(id => {
-                                                    const u = users.find(user => user.id === id);
-                                                    return (
-                                                        <Badge key={id} variant="secondary" className="pl-3 pr-1 py-1 flex items-center gap-2 bg-primary/10 text-primary border-primary/20">
-                                                            {u?.username}
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-4 w-4 rounded-full hover:bg-red-500 hover:text-white transition-colors"
-                                                                onClick={() => setSelectedUsers(prev => prev.filter(uid => uid !== id))}
-                                                            >
-                                                                <X className="h-3 w-3" />
-                                                            </Button>
-                                                        </Badge>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
-                                    </div>
-                                    <p className="text-xs text-muted-foreground italic">Los usuarios seleccionados tendrán acceso de administrador al servidor.</p>
-                                </div>
-                                )}
-                            </div>
+                            <Step1Environment
+                                name={name} setName={setName}
+                                selectedNode={selectedNode} setSelectedNode={setSelectedNode}
+                                selectedEnvironment={selectedEnvironment} setSelectedEnvironment={setSelectedEnvironment}
+                                selectedUsers={selectedUsers} setSelectedUsers={setSelectedUsers}
+                                forcedParentId={forcedParentId} nodes={nodes} users={users}
+                            />
                         )}
-
                         {currentStep === 2 && (
-                            <div className="grid gap-6 animate-in fade-in slide-in-from-right-4 duration-300 w-full">
-                                <div className="grid gap-2 w-full">
-                                    <Label>Repositorio de Plantillas</Label>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
-                                        {repos.map(r => (
-                                            <div
-                                                key={r.id}
-                                                onClick={() => setSelectedRepo(r.id)}
-                                                className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedRepo === r.id ? 'border-primary bg-primary/5 ring-4 ring-primary/10' : 'border-muted hover:border-primary/50'
-                                                    }`}
-                                            >
-                                                {r.isLocal ? <Shield className="h-6 w-6 text-primary" /> : <Globe className="h-6 w-6 text-blue-400" />}
-                                                <div className="text-left">
-                                                    <p className="font-semibold">{r.name}</p>
-                                                    <p className="text-xs text-muted-foreground">{r.isLocal ? 'Local' : 'Comunidad'}</p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                        {repos.length === 0 && (
-                                            <div className="col-span-2 flex items-center justify-center p-8 border-2 border-dashed rounded-xl text-muted-foreground text-sm">
-                                                <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                                                Cargando repositorios...
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {selectedRepo !== null && (
-                                    <div className="grid gap-2 mt-4 w-full">
-                                        <Label>Seleccionar Plantilla</Label>
-                                        {loadingTemplates ? (
-                                            <div className="flex items-center justify-center p-8">
-                                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                                            </div>
-                                        ) : templateList.length === 0 ? (
-                                            <div className="flex items-center justify-center p-8 border-2 border-dashed rounded-xl text-muted-foreground text-sm">
-                                                No hay plantillas disponibles en este repositorio.
-                                            </div>
-                                        ) : (
-                                            <div className="w-full min-w-0 max-h-[280px] overflow-y-auto pr-2">
-                                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 w-full">
-                                                    {templateList.map(t => (
-                                                        <div
-                                                            key={t.name}
-                                                            onClick={() => setSelectedTemplateName(t.name)}
-                                                            className={`p-2 rounded-lg border text-xs flex items-center gap-2 cursor-pointer transition-all min-w-0 ${selectedTemplateName === t.name ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted'
-                                                            }`}
-                                                        >
-                                                            <Code className="h-3 w-3 shrink-0" />
-                                                            <span className="truncate min-w-0">{t.name}</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-                                        {/* Loading indicator for template details */}
-                                        {selectedTemplateName && !templateDetails && !templateError && (
-                                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2 p-2 bg-primary/5 rounded-lg border border-primary/10">
-                                                <Loader2 className="h-3 w-3 animate-spin text-primary shrink-0" />
-                                                Cargando detalles de la plantilla <strong>{selectedTemplateName}</strong>...
-                                            </div>
-                                        )}
-                                        {selectedTemplateName && templateError && (
-                                            <div className="flex items-center gap-2 text-xs text-red-600 mt-2 p-2 bg-red-50 rounded-lg border border-red-200">
-                                                <Bot className="h-3 w-3 shrink-0" />
-                                                {templateError}
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
+                            <Step2Template
+                                repos={repos} selectedRepo={selectedRepo} setSelectedRepo={setSelectedRepo}
+                                templateList={templateList} selectedTemplateName={selectedTemplateName} setSelectedTemplateName={setSelectedTemplateName}
+                                loadingTemplates={loadingTemplates} templateDetails={templateDetails} templateError={templateError}
+                            />
                         )}
-
                         {currentStep === 3 && (
-                            <div className="w-full">
-                                {templateError ? (
-                                    <div className="flex flex-col items-center justify-center p-8 text-center bg-red-500/5 rounded-xl border border-red-500/20">
-                                        <ShieldAlert className="h-10 w-10 text-red-500 mb-3" />
-                                        <p className="font-bold text-red-700">Error de Plantilla</p>
-                                        <p className="text-sm text-red-600 mt-1">{templateError}</p>
-                                        <Button variant="outline" size="sm" className="mt-4" onClick={() => setCurrentStep(2)}>
-                                            <ChevronLeft className="mr-2 h-4 w-4" />
-                                            Volver
-                                        </Button>
-                                    </div>
-                                ) : templateDetails ? (
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                                        {/* Resource fields always first */}
-                                        <div className="flex flex-col gap-1">
-                                            <Label className="text-xs font-semibold">CPU <span className="font-normal text-muted-foreground">(%)</span></Label>
-                                            <Input type="number" value={cpuLimit} onChange={(e) => setCpuLimit(e.target.value === '' ? '' : Number(e.target.value))} className="h-8 bg-background/50 text-sm" />
-                                        </div>
-                                        <div className="flex flex-col gap-1">
-                                            <Label className="text-xs font-semibold">RAM <span className="font-normal text-muted-foreground">(MB)</span></Label>
-                                            <Input type="number" value={memoryLimit} onChange={(e) => setMemoryLimit(e.target.value === '' ? '' : Number(e.target.value))} className="h-8 bg-background/50 text-sm" />
-                                        </div>
-                                        <div className="flex flex-col gap-1">
-                                            <Label className="text-xs font-semibold">Disco <span className="font-normal text-muted-foreground">(MB)</span></Label>
-                                            <Input type="number" value={diskLimit} onChange={(e) => setDiskLimit(e.target.value === '' ? '' : Number(e.target.value))} className="h-8 bg-background/50 text-sm" />
-                                        </div>
-
-                                        {/* Divider spanning full width */}
-                                        <div className="col-span-full border-t border-border/50 my-1" />
-
-                                        {/* All template variables inline */}
-                                        {(() => {
-                                            try {
-                                                const variables = (templateDetails.data || templateDetails.variables || templateDetails.Variables || {}) as Record<string, any>;
-                                                const entries = Object.entries(variables).filter(([key, v]) => v && !v.internal && !['cpu', 'memory', 'disk'].includes(key));
-
-                                                return entries.map(([key, variable]: [string, any], idx: number) => {
-                                                    try {
-                                                        if (!variable || typeof variable !== 'object') return null;
-                                                        const currentVal = configData[key] !== undefined ? configData[key] : "";
-                                                        const stringifiedVal = (typeof currentVal === 'object' && currentVal !== null)
-                                                            ? JSON.stringify(currentVal)
-                                                            : String(currentVal ?? "");
-
-                                                        const label = variable.display || key;
-                                                        const isWide = (label.toLowerCase().includes('motd') || label.toLowerCase().includes('arguments') || label.toLowerCase().includes('command'));
-
-                                                        return (
-                                                            <div key={key + idx} className={`flex flex-col gap-1 ${isWide ? 'col-span-2' : ''}`}>
-                                                                <Label className="text-xs font-semibold truncate" title={label}>
-                                                                    <SafeValue v={label} />
-                                                                    {variable.required && <span className="text-red-500 ml-0.5">*</span>}
-                                                                </Label>
-                                                                {Array.isArray(variable.options) && variable.options.length > 0 ? (
-                                                                    <Select
-                                                                        value={stringifiedVal === "" ? "_EMPTY_VALUE_" : stringifiedVal}
-                                                                        onValueChange={(val) => setConfigData(prev => ({ ...prev, [key]: val === "_EMPTY_VALUE_" ? "" : val }))}
-                                                                    >
-                                                                        <SelectTrigger className="h-8 bg-background/50 text-sm">
-                                                                            <SelectValue />
-                                                                        </SelectTrigger>
-                                                                        <SelectContent className="max-h-60 z-[100]">
-                                                                            {variable.options.map((opt: any, oIdx: number) => {
-                                                                                if (!opt) return null;
-                                                                                const rawOptVal = opt.value !== undefined ? opt.value : (typeof opt === 'string' ? opt : "");
-                                                                                const optVal = rawOptVal === "" ? "_EMPTY_VALUE_" : String(rawOptVal);
-                                                                                return (
-                                                                                    <SelectItem key={oIdx} value={optVal}>
-                                                                                        <SafeValue v={opt.display || (rawOptVal === "" ? "Ninguno" : rawOptVal)} />
-                                                                                    </SelectItem>
-                                                                                );
-                                                                            })}
-                                                                        </SelectContent>
-                                                                    </Select>
-                                                                ) : variable.type === 'boolean' ? (
-                                                                    <div
-                                                                        className="flex items-center gap-2 px-3 rounded-lg border bg-background/30 cursor-pointer h-8"
-                                                                        onClick={() => setConfigData(prev => ({ ...prev, [key]: !currentVal }))}
-                                                                    >
-                                                                        <div className={`h-3.5 w-3.5 rounded border shrink-0 flex items-center justify-center ${currentVal ? 'bg-primary border-primary' : 'border-muted-foreground/40'}`}>
-                                                                            {currentVal && <Check className="h-2.5 w-2.5 text-primary-foreground stroke-[3px]" />}
-                                                                        </div>
-                                                                        <span className="text-xs select-none">Habilitar</span>
-                                                                    </div>
-                                                                ) : (
-                                                                    <Input
-                                                                        type={variable.type === 'integer' ? 'number' : 'text'}
-                                                                        value={stringifiedVal}
-                                                                        onChange={(e) => setConfigData(prev => ({ ...prev, [key]: variable.type === 'integer' ? Number(e.target.value) : e.target.value }))}
-                                                                        className="h-8 bg-background/50 text-sm"
-                                                                    />
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    } catch { return null; }
-                                                });
-                                            } catch { return null; }
-                                        })()}
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-col items-center justify-center p-20 text-center space-y-4">
-                                        <div className="relative">
-                                            <div className="absolute -inset-4 bg-primary/10 rounded-full blur-xl animate-pulse" />
-                                            <Loader2 className="h-12 w-12 animate-spin text-primary relative" />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="font-bold text-lg text-foreground/80">Analizando Plantilla</p>
-                                            <p className="text-sm text-muted-foreground">Obteniendo parámetros de configuración...</p>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
+                            <Step3Configuration
+                                templateDetails={templateDetails} templateError={templateError}
+                                configData={configData} setConfigData={setConfigData}
+                                cpuLimit={cpuLimit} setCpuLimit={setCpuLimit}
+                                memoryLimit={memoryLimit} setMemoryLimit={setMemoryLimit}
+                                diskLimit={diskLimit} setDiskLimit={setDiskLimit}
+                                setCurrentStep={setCurrentStep}
+                            />
                         )}
                     </CardContent>
                     <CardFooter className="flex justify-between items-center mt-8 p-0 w-full">
                         <Button
                             variant="ghost"
-                            onClick={() => setCurrentStep(prev => (prev - 1) as Step)}
+                            onClick={() => setCurrentStep((prev) => (prev - 1) as Step)}
                             disabled={currentStep === 1 || loading}
                             className="shrink-0"
                         >
