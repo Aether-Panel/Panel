@@ -2,11 +2,12 @@ package matrix
 
 import (
 	"bytes"
+	cryptoRand "crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"math/rand"
+	"math/big"
 	"net/http"
 	"net/url"
 
@@ -203,7 +204,8 @@ func randStringBytes(n int) string {
 	const availableCharacterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	b := make([]byte, n)
 	for i := range b {
-		b[i] = availableCharacterBytes[rand.Intn(len(availableCharacterBytes))]
+		rnd, _ := cryptoRand.Int(cryptoRand.Reader, big.NewInt(int64(len(availableCharacterBytes))))
+		b[i] = availableCharacterBytes[rnd.Int64()]
 	}
 	return string(b)
 }
