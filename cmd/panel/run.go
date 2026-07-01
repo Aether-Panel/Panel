@@ -100,8 +100,6 @@ func internalRun() (terminate chan bool, success bool) {
 			return
 		}
 
-
-
 		if config.SessionKey.Value() == "" {
 			k := securecookie.GenerateRandomKey(32)
 			if err := config.SessionKey.Set(hex.EncodeToString(k), true); err != nil {
@@ -198,7 +196,6 @@ func closePanel() {
 
 	logging.Debug.Printf("stopping sftp server")
 	sftp.Stop()
-
 
 	logging.Debug.Printf("stopping servers")
 	servers.ShutdownService()

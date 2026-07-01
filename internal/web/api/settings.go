@@ -103,7 +103,6 @@ func setSetting(c *gin.Context) {
 		return
 	}
 
-
 	for _, v := range editableStringEntries {
 		if v.Key() == key {
 			err = v.Set(cast.ToString(model.Value), true)
@@ -134,8 +133,6 @@ func setSetting(c *gin.Context) {
 
 	services.SyncNodeToConfig()
 
-
-
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
@@ -158,7 +155,6 @@ func setSettings(c *gin.Context) {
 	if err = c.BindJSON(&settings); response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
-
 
 	db := middleware.GetDatabase(c)
 
@@ -202,8 +198,6 @@ func setSettings(c *gin.Context) {
 	}
 
 	services.SyncNodeToConfig()
-
-
 
 	c.Status(http.StatusNoContent)
 }
