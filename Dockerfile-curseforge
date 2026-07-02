@@ -16,6 +16,8 @@ RUN go build -v -buildvcs=false -o /home/SkyPanel/curseforgetester github.com/Sk
 
 # Final image
 FROM eclipse-temurin:21-alpine
+RUN addgroup -S skypanel && adduser -S skypanel -G skypanel
+USER skypanel
 WORKDIR /home/SkyPanel
 ENV CURSEFORGE_KEY=""
 ENV PUFFER_DAEMON_DATA_CACHE="/cache"

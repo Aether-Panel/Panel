@@ -16,6 +16,8 @@ RUN go build -v -buildvcs=false -o /home/SkyPanel/formatter github.com/SkyPanel/
 
 # Final image
 FROM alpine
+RUN addgroup -S skypanel && adduser -S skypanel -G skypanel
+USER skypanel
 WORKDIR /home/SkyPanel
 COPY --from=builder /home/SkyPanel/formatter .
 
