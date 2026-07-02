@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
+	"path"
 	"strings"
 
 	"github.com/SkyPanel/SkyPanel/v3/client/frontend"
@@ -68,18 +69,21 @@ func RegisterRoutes(e *gin.Engine) {
 
 		// Generic static file serving (Optimized for Astro)
 		e.Use(func(c *gin.Context) {
-			path := c.Request.URL.Path
+			reqPath := c.Request.URL.Path
 
 			// Skip for API, OAuth2, and Daemon routes
 			for _, prefix := range noHTMLRedirectOn404 {
-				if strings.HasPrefix(path, prefix) {
+				if strings.HasPrefix(reqPath, prefix) {
 					return
 				}
 			}
 
+			// Use path.Clean to prevent path traversal attacks
+			cleanedPath := path.Clean(reqPath)
+
 			// Clean path for fs.FS (no leading slash, "." for root)
-			fPath := strings.TrimPrefix(path, "/")
-			if fPath == "" {
+			fPath := strings.TrimPrefix(cleanedPath, "/")
+			if fPath == "" || fPath == "." {
 				fPath = "."
 			} else {
 				// fs.FS.Open doesn't like trailing slashes for directory names
@@ -101,8 +105,8 @@ func RegisterRoutes(e *gin.Engine) {
 
 			if stat.IsDir() {
 				// If it's a directory, we REQUIRE a trailing slash in the URL
-				if !strings.HasSuffix(path, "/") {
-					c.Redirect(http.StatusMovedPermanently, path+"/")
+				if !strings.HasSuffix(reqPath, "/") {
+					c.Redirect(http.StatusMovedPermanently, reqPath+"/")
 					c.Abort()
 					return
 				}
