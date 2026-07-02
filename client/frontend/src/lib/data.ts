@@ -136,7 +136,7 @@ export const nodes: Node[] = [
     ]
   },
   {
-    id: 'node-1', name: 'US-East-1', location: 'N. Virginia, USA', status: 'online', isLocal: false, publicHost: '44.204.87.123', publicPort: 8080, sftpPort: 5657, useDifferentHost: false,
+    id: 'node-1', name: 'US-East-1', location: 'N. Virginia, USA', status: 'online', isLocal: false, publicHost: 'node-1.example.com', publicPort: 8080, sftpPort: 5657, useDifferentHost: false,
     systemInfo: {
       os: 'Ubuntu 22.04',
       architecture: 'ARM64',
@@ -157,7 +157,7 @@ export const nodes: Node[] = [
     ]
   },
   {
-    id: 'node-2', name: 'EU-West-1', location: 'Ireland', status: 'online', isLocal: false, publicHost: '52.17.200.10', publicPort: 8080, sftpPort: 5657, useDifferentHost: false,
+    id: 'node-2', name: 'EU-West-1', location: 'Ireland', status: 'online', isLocal: false, publicHost: 'node-2.example.com', publicPort: 8080, sftpPort: 5657, useDifferentHost: false,
     systemInfo: {
       os: 'CentOS 9',
       architecture: 'x86_64',
@@ -177,7 +177,7 @@ export const nodes: Node[] = [
     ]
   },
   {
-    id: 'node-3', name: 'AP-South-1', location: 'Mumbai, India', status: 'offline', isLocal: false, publicHost: '13.233.15.221', publicPort: 8080, sftpPort: 5657, useDifferentHost: false,
+    id: 'node-3', name: 'AP-South-1', location: 'Mumbai, India', status: 'offline', isLocal: false, publicHost: 'node-3.example.com', publicPort: 8080, sftpPort: 5657, useDifferentHost: false,
     systemInfo: {
       os: 'Debian 12',
       architecture: 'x86_64',
