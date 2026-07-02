@@ -94,12 +94,12 @@ const generateMetrics = () => {
 };
 
 export const servers: Server[] = [
-  { id: 'srv-1', name: 'Production Web Server', ipAddress: '192.168.1.101', port: 8080, status: 'online', cpuUsage: 75, memoryUsage: 60, storageUsage: 85, storageUsed: 8703182848, storageMax: 10737418240, metrics: generateMetrics(), alerts: ['[Error] High CPU usage detected on core 3. Process `worker.js` consuming 98% CPU.', 'CRITICAL: Memory usage exceeds 90% threshold. Swap space is being used.'] },
-  { id: 'srv-2', name: 'Staging Database', ipAddress: '192.168.1.102', port: 5432, status: 'online', cpuUsage: 40, memoryUsage: 85, storageUsage: 70, storageUsed: 7516192768, storageMax: 10737418240, metrics: generateMetrics(), alerts: [] },
-  { id: 'srv-3', name: 'Analytics Engine', ipAddress: '192.168.1.103', port: 9090, status: 'offline', cpuUsage: 0, memoryUsage: 0, storageUsage: 95, storageUsed: 10199947264, storageMax: 10737418240, metrics: generateMetrics().map(m => ({ ...m, cpu: 0, memory: 0, networkIn: 0, networkOut: 0 })), alerts: ['ALERT: Server is unreachable. Last seen 1 hour ago.'] },
-  { id: 'srv-4', name: 'Cache-01 (Redis)', ipAddress: '192.168.1.104', port: 6379, status: 'pending', cpuUsage: 10, memoryUsage: 30, storageUsage: 20, storageUsed: 1073741824, storageMax: 5368709120, metrics: generateMetrics(), alerts: [] },
-  { id: 'srv-5', name: 'Internal API Gateway', ipAddress: '192.168.1.105', port: 80, status: 'online', cpuUsage: 25, memoryUsage: 45, storageUsage: 50, storageUsed: 5368709120, storageMax: 10737418240, metrics: generateMetrics(), alerts: ['[Warning] API latency for endpoint /v1/users has increased by 50ms.'] },
-  { id: 'srv-6', name: 'Logging Service (ELK)', ipAddress: '192.168.1.106', port: 9200, status: 'online', cpuUsage: 55, memoryUsage: 70, storageUsage: 80, storageUsed: 8589934592, storageMax: 10737418240, metrics: generateMetrics(), alerts: [] },
+  { id: 'srv-1', name: 'Production Web Server', ipAddress: 'node-1.example.com', port: 8080, status: 'online', cpuUsage: 75, memoryUsage: 60, storageUsage: 85, storageUsed: 8703182848, storageMax: 10737418240, metrics: generateMetrics(), alerts: ['[Error] High CPU usage detected on core 3. Process `worker.js` consuming 98% CPU.', 'CRITICAL: Memory usage exceeds 90% threshold. Swap space is being used.'] },
+  { id: 'srv-2', name: 'Staging Database', ipAddress: 'node-2.example.com', port: 5432, status: 'online', cpuUsage: 40, memoryUsage: 85, storageUsage: 70, storageUsed: 7516192768, storageMax: 10737418240, metrics: generateMetrics(), alerts: [] },
+  { id: 'srv-3', name: 'Analytics Engine', ipAddress: 'node-3.example.com', port: 9090, status: 'offline', cpuUsage: 0, memoryUsage: 0, storageUsage: 95, storageUsed: 10199947264, storageMax: 10737418240, metrics: generateMetrics().map(m => ({ ...m, cpu: 0, memory: 0, networkIn: 0, networkOut: 0 })), alerts: ['ALERT: Server is unreachable. Last seen 1 hour ago.'] },
+  { id: 'srv-4', name: 'Cache-01 (Redis)', ipAddress: 'node-4.example.com', port: 6379, status: 'pending', cpuUsage: 10, memoryUsage: 30, storageUsage: 20, storageUsed: 1073741824, storageMax: 5368709120, metrics: generateMetrics(), alerts: [] },
+  { id: 'srv-5', name: 'Internal API Gateway', ipAddress: 'node-5.example.com', port: 80, status: 'online', cpuUsage: 25, memoryUsage: 45, storageUsage: 50, storageUsed: 5368709120, storageMax: 10737418240, metrics: generateMetrics(), alerts: ['[Warning] API latency for endpoint /v1/users has increased by 50ms.'] },
+  { id: 'srv-6', name: 'Logging Service (ELK)', ipAddress: 'node-6.example.com', port: 9200, status: 'online', cpuUsage: 55, memoryUsage: 70, storageUsage: 80, storageUsed: 8589934592, storageMax: 10737418240, metrics: generateMetrics(), alerts: [] },
 ];
 
 export const users: User[] = [
