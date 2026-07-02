@@ -42,7 +42,7 @@
     "settings": {
       "companyname": "Aether Panels",
       "defaulttheme": "SkyPanel",
-      "geminiapikey": "AIzaSyDHQLYQK0eZagz6S8tjtOQYuBYP0ygHsKk",
+      "geminiapikey": "",
       "hideaianalysis": false,
       "masterurl": "http://0.0.0.0:8080",
       "nodeip": "",
