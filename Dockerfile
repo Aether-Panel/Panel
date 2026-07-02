@@ -72,9 +72,9 @@ RUN apk add --no-cache netcat-openbsd
 RUN mkdir -p /etc/SkyPanel && \
     mkdir -p /var/lib/SkyPanel /var/lib/SkyPanel/servers /var/lib/SkyPanel/binaries /var/lib/SkyPanel/cache && \
     mkdir -p /var/log/SkyPanel
-#addgroup --system -g 1000 SkyPanel && \
-#adduser -D -H --home /var/lib/SkyPanel --ingroup SkyPanel -u 1000 SkyPanel && \
-#chown -R SkyPanel:SkyPanel /etc/SkyPanel /var/lib/SkyPanel /var/log/SkyPanel
+RUN addgroup -S -g 1000 SkyPanel && \
+    adduser -D -H -h /var/lib/SkyPanel -G SkyPanel -u 1000 SkyPanel && \
+    chown -R SkyPanel:SkyPanel /etc/SkyPanel /var/lib/SkyPanel /var/log/SkyPanel
 
 ENV GIN_MODE=release \
     PUFFER_PLATFORM="docker" \
@@ -154,6 +154,7 @@ RUN chmod 755 /SkyPanel/bin/entrypoint.sh && sed -i 's/\r$//' /SkyPanel/bin/entr
 COPY --from=builder /build/SkyPanel/config.docker.json /etc/SkyPanel/config.json
 RUN chmod 644 /etc/SkyPanel/config.json
 COPY --from=builder /build/SkyPanel/client/frontend/dist /var/www/SkyPanel
+RUN chown -R SkyPanel:SkyPanel /SkyPanel /var/www/SkyPanel /etc/SkyPanel
 
 
 VOLUME /etc/SkyPanel
@@ -163,6 +164,6 @@ VOLUME /var/www/SkyPanel
 
 WORKDIR /var/lib/SkyPanel
 
-#USER SkyPanel
+USER SkyPanel
 
 ENTRYPOINT ["sh", "/SkyPanel/bin/entrypoint.sh"]
