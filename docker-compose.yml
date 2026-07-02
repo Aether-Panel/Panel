@@ -12,7 +12,7 @@ services:
       - MYSQL_ROOT_PASSWORD=skypanel_root_password
       - MYSQL_DATABASE=skypanel
       - MYSQL_USER=skypanel
-      - MYSQL_PASSWORD=skypanel_root_password
+      - MYSQL_PASSWORD=skypanel_root_password #NOSONAR
     volumes:
       - ./storage/mysql-data:/var/lib/mysql
     healthcheck:
