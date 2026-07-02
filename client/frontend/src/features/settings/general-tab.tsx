@@ -37,9 +37,9 @@ export function GeneralTab({ localSettings, handleUpdate, handleSave, saving, t 
                             id="master-node-ip"
                             value={localSettings['panel.settings.masterNodeIp'] || ''}
                             onChange={(e) => handleUpdate('panel.settings.masterNodeIp', e.target.value)}
-                            placeholder="192.168.0.3"
+                            placeholder="panel.example.com"
                         />
-                        <p className="text-sm text-muted-foreground">If multiple panels share a database, set the true Master IP here (e.g. 192.168.0.3). ALL panels will sync this and route LocalNode transfers properly.</p>
+                        <p className="text-sm text-muted-foreground">If multiple panels share a database, set the true Master IP here (e.g. panel.example.com). ALL panels will sync this and route LocalNode transfers properly.</p>
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="company-name">{t('settings.general.companyNameLabel')}</Label>
