@@ -186,11 +186,11 @@ export default function NodesPage() {
   const deployConfigJson = deployingNode ? JSON.stringify({
     "logs": "/var/log/AetherPanel",
     "web": { "host": "0.0.0.0:8080" },
-    "token": { "public": "http://192.168.0.12:8080/auth/publickey" },
+    "token": { "public": `${typeof window !== 'undefined' ? window.location.origin : 'https://192.168.0.12:8080'}/auth/publickey` },
     "panel": { "enable": false },
     "daemon": {
       "auth": {
-        "url": "http://192.168.0.12:8080/oauth2/token",
+        "url": `${typeof window !== 'undefined' ? window.location.origin : 'https://192.168.0.12:8080'}/oauth2/token`,
         "clientId": `.node_${String(deployingNode.id).includes('-') ? String(deployingNode.id).split('-')[1] : deployingNode.id}`,
         "clientSecret": "7bdb03bbfbd44aeda8e2a4fc52035c38",
         "publicKey": ""

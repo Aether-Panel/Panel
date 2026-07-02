@@ -194,14 +194,14 @@ function DeployDialog({ isDeployDialogOpen, setIsDeployDialogOpen, node, t, toas
       "host": "0.0.0.0:8080"
     },
     "token": {
-      "public": "http://192.168.0.12:8080/auth/publickey"
+      "public": `${typeof window !== 'undefined' ? window.location.origin : 'https://192.168.0.12:8080'}/auth/publickey`
     },
     "panel": {
       "enable": false
     },
     "daemon": {
       "auth": {
-        "url": "http://192.168.0.12:8080/oauth2/token",
+        "url": `${typeof window !== 'undefined' ? window.location.origin : 'https://192.168.0.12:8080'}/oauth2/token`,
         "clientId": `.node_${String(node.id).includes('-') ? String(node.id).split('-')[1] : node.id}`,
         "clientSecret": "7bdb03bbfbd44aeda8e2a4fc52035c38",
         "publicKey": ""
