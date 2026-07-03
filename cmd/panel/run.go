@@ -171,7 +171,10 @@ func internalRun() (terminate chan bool, success bool) {
 	}
 
 	logging.Info.Printf("Listening for HTTP requests on %s", l.Addr().String())
-	webService = manners.NewWithServer(&http.Server{Handler: router})
+	webService = manners.NewWithServer(&http.Server{
+		Handler:           router,
+		ReadHeaderTimeout: 10 * time.Second,
+	})
 
 	go func() {
 		err = webService.Serve(l)

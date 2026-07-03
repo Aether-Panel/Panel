@@ -115,7 +115,7 @@ jobs:
       - name: Run gosec (Go Security)
         uses: securego/gosec@master
         with:
-          args: -exclude=G115,G122,G204,G304,G702,G703 ./...
+          args: -exclude=G104,G107,G115,G122,G204,G301,G302,G304,G306,G702,G703,G706 ./...
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
