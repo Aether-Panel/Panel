@@ -98,12 +98,30 @@ jobs:
           args: --timeout=8m
 
   # ─────────────────────────────────────────────
+  # JOB 2.5: SonarCloud Scan
+  # ─────────────────────────────────────────────
+  sonarcloud:
+    name: SonarCloud Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Requerido por SonarCloud para un análisis preciso
+          
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  # ─────────────────────────────────────────────
   # JOB 3: Build Binary
   # ─────────────────────────────────────────────
   build:
     name: Build Binary
     runs-on: ubuntu-latest
-    needs: [test]
+    needs: [test, lint, sonarcloud]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -140,7 +158,7 @@ jobs:
   e2e-python:
     name: Python E2E Tests
     runs-on: ubuntu-latest
-    needs: [test]
+    needs: [test, lint]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
