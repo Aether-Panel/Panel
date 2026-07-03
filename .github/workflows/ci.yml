@@ -46,6 +46,15 @@ jobs:
       - name: Run unit tests
         run: go test -v -race -coverprofile=coverage.out ./...
 
+      - name: Check minimum coverage
+        run: |
+          TOTAL=$(go tool cover -func=coverage.out | grep total | awk '{print substr($3, 1, length($3)-1)}')
+          echo "Total coverage: $TOTAL%"
+          if [ 1 -eq "$(echo "${TOTAL} < 60.0" | bc)" ]; then
+            echo "Insufficient coverage: $TOTAL% is below minimum 60.0%"
+            exit 1
+          fi
+
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         if: always()
@@ -97,23 +106,81 @@ jobs:
           version: latest
           args: --timeout=8m
 
+      - name: Run Staticcheck
+        uses: dominikh/staticcheck-action@v1.3.1
+        with:
+          version: "latest"
+          install-go: false
+
+      - name: Run gosec (Go Security)
+        uses: securego/gosec@master
+        with:
+          args: ./...
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Run Trivy Secret Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '1'
+          scanners: 'secret'
+
+      - name: Run Trivy Config Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '1'
+          scanners: 'config'
+
+
   # ─────────────────────────────────────────────
-  # JOB 2.5: SonarCloud Scan
+  # JOB 2.5: Frontend Tests & Lint
   # ─────────────────────────────────────────────
-  sonarcloud:
-    name: SonarCloud Scan
+  frontend-test:
+    name: Frontend Quality
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          fetch-depth: 0  # Requerido por SonarCloud para un análisis preciso
-          
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@master
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          node-version: '20'
+          cache: 'yarn'
+          cache-dependency-path: 'client/yarn.lock'
+
+      - name: Install dependencies
+        working-directory: ./client
+        run: yarn install --frozen-lockfile
+
+      - name: Run API Lint
+        working-directory: ./client/api
+        run: yarn lint
+
+      - name: Run Frontend Lint & Typecheck
+        working-directory: ./client/frontend
+        run: |
+          yarn lint
+          yarn typecheck
+
+      - name: Verify Frontend Build
+        working-directory: ./client
+        run: yarn build
 
   # ─────────────────────────────────────────────
   # JOB 3: Build Binary
@@ -121,7 +188,7 @@ jobs:
   build:
     name: Build Binary
     runs-on: ubuntu-latest
-    needs: [test, lint, sonarcloud]
+    needs: [test, lint, frontend-test]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -181,7 +248,7 @@ jobs:
 
   # ─────────────────────────────────────────────
   # JOB 5: Docker Build & Push
-  # Only pushes on merges to main/dev2.0, not on PRs
+  # Only pushes on merges to main, dev2.0 only builds
   # ─────────────────────────────────────────────
   docker:
     name: Docker Build
@@ -227,7 +294,7 @@ jobs:
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
+          push: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
