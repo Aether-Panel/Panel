@@ -8,7 +8,7 @@ def test_extransfer_flow(auth_session, api_base_url, requests_mock):
     })
     
     init_response = auth_session.post(f"{api_base_url}/servers/srv-123/extransfer/initiate", json={
-        "target_url": "http://destination-panel.local"
+        "target_url": "https://destination-panel.local"
     })
     assert init_response.status_code == 200
     token = init_response.json()["token"]
