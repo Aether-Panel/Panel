@@ -317,6 +317,7 @@ func (t *tty) handleClose(environment *skypanel.Environment, callback func(exitC
 
 	//lint:ignore SA2001 used as a barrier
 	t.statLocker.Lock()
+	//nolint:staticcheck // used as a barrier
 	t.statLocker.Unlock()
 
 	// if we are using unshare AND we're in tmp, we can nuke the workspace at this point
