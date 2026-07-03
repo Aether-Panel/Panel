@@ -9,10 +9,10 @@ services:
     ports:
       - "3306:3306"
     environment:
-      - MYSQL_ROOT_PASSWORD=skypanel_root_password
-      - MYSQL_DATABASE=skypanel
-      - MYSQL_USER=skypanel
-      - MYSQL_PASSWORD=skypanel_root_password #NOSONAR
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-skypanel_secret}
+      - MYSQL_DATABASE=${DB_DATABASE:-skypanel}
+      - MYSQL_USER=${DB_USER:-skypanel}
+      - MYSQL_PASSWORD=${DB_PASSWORD:-skypanel_secret}
     volumes:
       - ./storage/mysql-data:/var/lib/mysql
     healthcheck:
@@ -55,7 +55,7 @@ services:
       - PUFFER_PANEL_SETTINGS_COMPANYNAME=Aether Panel 1
       - PUFFER_PANEL_SETTINGS_DEFAULTTHEME=SkyPanel
       - PUFFER_PANEL_DATABASE_DIALECT=mysql
-      - PUFFER_PANEL_DATABASE_URL=skypanel:skypanel_root_password@tcp(mysql:3306)/skypanel?charset=utf8&parseTime=true
+      - PUFFER_PANEL_DATABASE_URL=${DB_USER:-skypanel}:${DB_PASSWORD:-skypanel_secret}@tcp(mysql:3306)/${DB_DATABASE:-skypanel}?charset=utf8&parseTime=true
       - PUFFER_TEMPLATES_URL=https://templates.aetherpanel.es/templates.json
     user: "0:0"
     healthcheck:
