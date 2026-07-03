@@ -321,27 +321,7 @@ func prepPath(path string) string {
 	return path
 }
 
-// shorten maps name, which should start with f.dir, back to the suffix after f.dir.
-func (sfp *fileServer) shorten(name string) (rel string, ok bool) {
-	if name == sfp.dir {
-		return ".", true
-	}
-	if len(name) >= len(sfp.dir)+2 && name[len(sfp.dir)] == '/' && name[:len(sfp.dir)] == sfp.dir {
-		return name[len(sfp.dir)+1:], true
-	}
-	return "", false
-}
 
-// fixErr shortens any reported names in PathErrors by stripping f.dir.
-func (sfp *fileServer) fixErr(err error) error {
-	var e *fs.PathError
-	if errors.As(err, &e) {
-		if short, ok := sfp.shorten(e.Path); ok {
-			e.Path = short
-		}
-	}
-	return err
-}
 
 func (sfp *fileServer) resolveRootFd() (*os.File, error) {
 	return os.Open(sfp.dir)

@@ -116,7 +116,7 @@ func (op PaperDl) getDownloadURLAndHash(env *skypanel.Environment) (string, stri
 
 	if response.StatusCode == 404 {
 		env.DisplayToConsole(true, "Invalid Minecraft version or Paper build\n")
-		return "", "", errors.New("Invalid minecraft version or paper build")
+		return "", "", errors.New("invalid minecraft version or paper build")
 	}
 
 	var build PaperBuild
