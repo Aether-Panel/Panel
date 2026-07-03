@@ -321,8 +321,6 @@ func prepPath(path string) string {
 	return path
 }
 
-
-
 func (sfp *fileServer) resolveRootFd() (*os.File, error) {
 	return os.Open(sfp.dir)
 }
