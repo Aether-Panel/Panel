@@ -66,7 +66,7 @@ Este comando:
 2.  Iniciará los servicios internos.
 3.  Mostrará logs en la consola en tiempo real.
 
-> **Tip**: Para ejecutarlo en segundo plano o como servicio del sistema, consulta la [Guía de Instalación](./01-installation.md).
+> **Tip**: Para ejecutarlo en segundo plano o como servicio del sistema, consulta la [Guía de Instalación](../setup/01-installation.md).
 
 ---
 
