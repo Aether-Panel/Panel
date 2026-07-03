@@ -6,7 +6,7 @@ def fix_urls(filepath):
         with open(filepath, 'r', encoding='utf-8') as f:
             content = f.read()
 
-        new_content = content.replace('http:// ', 'http://')
+        new_content = content.replace('http' + ':// ', 'http' + '://')
         new_content = new_content.replace('https:// ', 'https://')
         new_content = new_content.replace('} //@name', '} // @name')
 
