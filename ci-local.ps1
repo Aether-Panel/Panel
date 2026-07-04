@@ -63,7 +63,7 @@ function Invoke-DockerGo([string]$ScriptFile) {
     docker run --rm `
         --workdir /workspace `
         -v "${ROOT}:/workspace" `
-        -v "skypanel-gomodcache:/root/go/pkg/mod" `
+        -v "skypanel-gomodcache:/go/pkg/mod" `
         -v "skypanel-gocache:/root/.cache/go-build" `
         $GO_IMAGE sh /workspace/ci-scripts/$ScriptFile
     if ($LASTEXITCODE -ne 0) { throw "exit code $LASTEXITCODE" }
