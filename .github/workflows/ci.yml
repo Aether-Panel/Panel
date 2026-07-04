@@ -34,7 +34,9 @@ jobs:
           cache: true
 
       - name: Download Go modules
-        run: go mod download
+        run: |
+          go mod tidy
+          go mod download
 
       - name: Create frontend dist stub (required for go:embed)
         # go:embed requires at least one embeddable file in the directory.
@@ -198,7 +200,9 @@ jobs:
           cache: true
 
       - name: Download Go modules
-        run: go mod download
+        run: |
+          go mod tidy
+          go mod download
 
       - name: Create frontend dist stub (required for go:embed)
         run: |
