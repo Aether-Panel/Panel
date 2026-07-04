@@ -1,6 +1,6 @@
 module github.com/SkyPanel/SkyPanel/v3
 
-go 1.25.0
+go 1.24.0
 
 require (
 	github.com/MicahParks/jwkset v0.9.6

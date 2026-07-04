@@ -34,7 +34,7 @@ param(
 if ($Help) { Get-Help $MyInvocation.MyCommand.Path -Detailed; exit 0 }
 
 $ErrorActionPreference = "Stop"
-$GO_IMAGE  = "golang:1.25-alpine"
+$GO_IMAGE  = "golang:1.24-alpine"
 $PY_IMAGE  = "python:3.11-slim"
 $ROOT      = $PSScriptRoot
 $script:FAILURES = @()
