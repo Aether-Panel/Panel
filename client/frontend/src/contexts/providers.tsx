@@ -18,6 +18,8 @@ interface UserData {
   username: string;
   email: string;
   scopes?: string[];
+  name?: string;
+  avatar?: string;
 }
 
 interface RegisterData {
