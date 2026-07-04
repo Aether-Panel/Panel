@@ -65,6 +65,8 @@ function Invoke-DockerGo([string]$ScriptFile) {
         -v "${ROOT}:/workspace" `
         -v "skypanel-gomodcache:/go/pkg/mod" `
         -v "skypanel-gocache:/root/.cache/go-build" `
+        -e GOPROXY=direct `
+        --dns 8.8.8.8 `
         $GO_IMAGE sh /workspace/ci-scripts/$ScriptFile
     if ($LASTEXITCODE -ne 0) { throw "exit code $LASTEXITCODE" }
 }
