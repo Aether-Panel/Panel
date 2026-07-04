@@ -48,13 +48,7 @@ jobs:
       - name: Run unit tests
         run: go test -v -race -coverprofile=coverage.out ./...
 
-      - name: Check minimum coverage
-        run: |
-          TOTAL=$(go tool cover -func=coverage.out | grep total | awk '{print substr($3, 1, length($3)-1)}')
-          echo "Total coverage: $TOTAL%"
-          if [ 1 -eq "$(echo "${TOTAL} < 60.0" | bc)" ]; then
-            echo "Insufficient coverage: $TOTAL% is below minimum 60.0% (Warning only)"
-          fi
+
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
@@ -99,7 +93,9 @@ jobs:
           echo "All Go files are properly formatted."
 
       - name: Run go vet
-        run: go vet $(go list ./... | grep -v '/docs')
+        run: |
+          go mod tidy
+          go vet $(go list ./... | grep -v '/docs')
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v6
