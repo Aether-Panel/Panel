@@ -1,5 +1,5 @@
 run:
-  timeout: 8m
+  timeout: 15m
   go: "1.24"
 
 linters:
