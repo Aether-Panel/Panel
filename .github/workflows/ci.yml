@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GO_VERSION: "1.24.0"
+  GO_VERSION: "1.25.0"
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
@@ -102,6 +102,7 @@ jobs:
         with:
           version: latest
           args: --timeout=15m
+          install-mode: goinstall
 
       - name: Run Staticcheck
         uses: dominikh/staticcheck-action@v1.3.1
