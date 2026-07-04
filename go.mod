@@ -9,7 +9,7 @@ require (
 	github.com/braintree/manners v0.0.0-20160418043613-82a8879fc5fd
 	github.com/cavaliergopher/grab/v3 v3.0.1
 	github.com/creack/pty v1.1.24
-	github.com/docker/docker v28.5.2+incompatible
+	github.com/docker/docker v29.3.1+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/dreamscached/minequery/v2 v2.5.0
 	github.com/gin-contrib/cors v1.7.5
