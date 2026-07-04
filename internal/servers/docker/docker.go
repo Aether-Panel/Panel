@@ -20,6 +20,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
+	"github.com/docker/go-connections/nat"
 	"github.com/moby/moby/api/types"
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/filters"
@@ -27,7 +28,6 @@ import (
 	"github.com/moby/moby/api/types/network"
 	"github.com/moby/moby/api/types/strslice"
 	"github.com/moby/moby/client"
-	"github.com/docker/go-connections/nat"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/spf13/cast"
 )
