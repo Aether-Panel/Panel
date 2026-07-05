@@ -105,18 +105,18 @@ jobs:
           install-mode: goinstall
 
       - name: Run Staticcheck
-        uses: dominikh/staticcheck-action@v1.3.1
+        uses: dominikh/staticcheck-action@5106bb8ba1333e0510c91b2aa44c5ede005d9cff # v1.3.1
         with:
           version: "latest"
           install-go: false
 
       - name: Run gosec (Go Security)
-        uses: securego/gosec@master
+        uses: securego/gosec@11023e51e1f46c4ea63315bdb7670f073442168f # master
         with:
           args: -exclude=G104,G107,G115,G122,G204,G301,G302,G304,G306,G702,G703,G706 ./...
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@c07df6fec6fa692e6fd1200d50aaa1fdd66f03c8 # master
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -127,7 +127,7 @@ jobs:
           severity: 'CRITICAL,HIGH'
 
       - name: Run Trivy Secret Scan
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@c07df6fec6fa692e6fd1200d50aaa1fdd66f03c8 # master
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -136,7 +136,7 @@ jobs:
           scanners: 'secret'
 
       - name: Run Trivy Config Scan
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@c07df6fec6fa692e6fd1200d50aaa1fdd66f03c8 # master
         with:
           scan-type: 'fs'
           scan-ref: '.'
