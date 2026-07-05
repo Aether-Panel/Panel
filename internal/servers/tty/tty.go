@@ -497,7 +497,7 @@ func (t *tty) createCmd(workDir, cmd string) (pr *exec.Cmd, err error) {
 		// needs to be lazy because the old root is considered busy as it's still the root outside the namespace
 		"umount -l /old-root",
 		"rm -r /old-root",
-		fmt.Sprintf("cd /%s && %s", workDirMount, cmd))
+		safeCmd(workDirMount, cmd))
 
 	pr = exec.Command("/bin/bash", "-c", strings.Join(unshareArgs, " && "))
 	pr.Dir, err = os.MkdirTemp("", "unshare-pp-")
@@ -533,6 +533,20 @@ func (t *tty) createCmd(workDir, cmd string) (pr *exec.Cmd, err error) {
 
 func removeRoot(path string) string {
 	return strings.TrimPrefix(path, "/")
+}
+
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+}
+
+func safeCmd(workDirMount, cmd string) string {
+	c, args := utils.SplitArguments(cmd)
+	parts := make([]string, 0, len(args)+1)
+	parts = append(parts, shellQuote(c))
+	for _, a := range args {
+		parts = append(parts, shellQuote(a))
+	}
+	return fmt.Sprintf("cd /%s && %s", shellQuote(workDirMount), strings.Join(parts, " "))
 }
 
 func getDirSize(path string) int64 {
