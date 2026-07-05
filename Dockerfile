@@ -17,7 +17,7 @@ RUN rm -rf node_modules/.cache
 RUN yarn build
 
 ARG BUILDPLATFORM=linux/amd64
-FROM --platform=${BUILDPLATFORM} tonistiigi/xx:latest AS xx
+FROM --platform=${BUILDPLATFORM} tonistiigi/xx:1.9.0 AS xx
 
 ARG BUILDPLATFORM=linux/amd64
 FROM --platform=${BUILDPLATFORM} golang:1.25-alpine AS builder
@@ -64,7 +64,7 @@ RUN xx-verify /SkyPanel/SkyPanel
 # Generate final image
 ###
 
-FROM alpine:latest
+FROM alpine:3.21
 
 EXPOSE 8080 5657
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 CMD nc -z localhost 8080 || exit 1
