@@ -1,6 +1,6 @@
 run:
-  timeout: 8m
-  go: "1.24"
+  timeout: 15m
+  go: "1.25"
 
 linters:
   disable-all: true

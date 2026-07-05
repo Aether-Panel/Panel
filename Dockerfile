@@ -7,7 +7,6 @@ FROM --platform=${BUILDPLATFORM} node:22-alpine AS node
 WORKDIR /build
 # Optimización: Copiar archivos de dependencia (incluyendo workspaces) para cachear capas
 COPY client/package.json client/yarn.lock* ./
-COPY client/api/package.json ./api/
 COPY client/frontend/package.json ./frontend/
 RUN yarn install --frozen-lockfile
 
@@ -18,12 +17,12 @@ RUN rm -rf node_modules/.cache
 RUN yarn build
 
 ARG BUILDPLATFORM=linux/amd64
-FROM --platform=${BUILDPLATFORM} tonistiigi/xx AS xx
+FROM --platform=${BUILDPLATFORM} tonistiigi/xx:1.9.0 AS xx
 
 ARG BUILDPLATFORM=linux/amd64
-FROM --platform=${BUILDPLATFORM} golang:1.24-alpine AS builder
+FROM --platform=${BUILDPLATFORM} golang:1.25-alpine AS builder
 
-RUN apk add clang lld
+RUN apk add --no-cache clang lld
 COPY --from=xx / /
 
 ARG tags
@@ -44,7 +43,7 @@ COPY go.mod go.sum ./
 RUN go mod download && go mod verify
 
 # Optimización: Instalar swag antes de copiar todo el código para cachear la descarga
-RUN go install github.com/swaggo/swag/cmd/swag@v1.16.4
+RUN CGO_ENABLED=0 go install github.com/swaggo/swag/cmd/swag@v1.16.4
 
 COPY . .
 
@@ -65,9 +64,10 @@ RUN xx-verify /SkyPanel/SkyPanel
 # Generate final image
 ###
 
-FROM alpine
+FROM alpine:3.21
 
 EXPOSE 8080 5657
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 CMD nc -z localhost 8080 || exit 1
 RUN apk add --no-cache netcat-openbsd
 RUN mkdir -p /etc/SkyPanel && \
     mkdir -p /var/lib/SkyPanel /var/lib/SkyPanel/servers /var/lib/SkyPanel/binaries /var/lib/SkyPanel/cache && \

@@ -16,6 +16,8 @@ export type Server = {
   totalCpu?: number;
   totalMemory?: number;
   totalDisk?: number;
+  suspended?: boolean;
+  nodeId?: number | string;
 };
 
 export type User = {

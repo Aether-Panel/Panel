@@ -2,15 +2,17 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
+
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/database"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
-	"github.com/mattn/go-sqlite3"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
-	"io"
-	"os"
-	"path/filepath"
 )
 
 var dbUpgradeCmd = &cobra.Command{
@@ -29,17 +31,20 @@ func executeDbUpgrade(_ *cobra.Command, _ []string) {
 	}
 
 	if database.GetDialect() == "sqlite3" {
-		// we could get the filename... let's get it
-		drv := sqlite3.SQLiteDriver{}
-		conn, err := drv.Open(database.GetConnectionString())
-		if err != nil {
-			pterm.Error.Printfln("error connecting to database: %s", err.Error())
-			os.Exit(1)
-			return
+		connStr := database.GetConnectionString()
+		// extract file path from "file:path?params" format
+		currentFile = strings.TrimPrefix(connStr, "file:")
+		if idx := strings.Index(currentFile, "?"); idx != -1 {
+			currentFile = currentFile[:idx]
 		}
-		s3 := conn.(*sqlite3.SQLiteConn)
-		currentFile = s3.GetFilename("")
-		_ = conn.Close()
+		currentFile, _ = url.PathUnescape(currentFile)
+		if currentFile == "" {
+			currentFile = "skypanel.db"
+		}
+		abs, err := filepath.Abs(currentFile)
+		if err == nil {
+			currentFile = abs
+		}
 
 		// look for a new name we can give this....
 		suffix := "backup"

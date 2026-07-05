@@ -1,0 +1,13 @@
+# docker/docker: CVE-2026-34040 (AuthZ bypass) - fixed in v29.3.1, but that version
+# changed module path to github.com/moby/moby/v2 (incompatible API restructuring).
+# Panel uses docker/docker as a client SDK, not as a daemon, so this is not exploitable.
+CVE-2026-34040
+
+# protobufjs: 5 HIGH CVEs in client/yarn.lock (v8.0.1) - fixed in v8.4.1.
+# OpenTelemetry SDK pins protobufjs 8.0.1; upstream hasn't released a patch.
+# protobufjs is used only for serialization in telemetry, not exposed to untrusted input.
+CVE-2026-44289
+CVE-2026-44290
+CVE-2026-44291
+CVE-2026-44293
+CVE-2026-48712
