@@ -17,6 +17,7 @@ dev-data/
 # Node modules
 node_modules/
 client/*/node_modules/
+**/node_modules/
 
 # Build artifacts
 client/*/dist/

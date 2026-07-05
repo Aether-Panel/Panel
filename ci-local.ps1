@@ -5,10 +5,10 @@
     Runs ALL checks inside Docker. NO Go installation required locally.
 
 .PARAMETER Only
-    Run only this stage: gofmt | vet | lint | tests | build | e2e | docker
+    Run only this stage: gofmt | vet | lint | staticcheck | gosec | trivy | tests | frontend | build | e2e | docker
 
 .PARAMETER Skip
-    Comma-separated stages to skip. E.g. -Skip docker,e2e
+    Comma-separated stages to skip. E.g. -Skip docker,e2e,trivy
 
 .PARAMETER Fix
     Auto-fix gofmt formatting issues
@@ -19,7 +19,7 @@
 .EXAMPLE
     .\ci-local.ps1
     .\ci-local.ps1 -Only tests
-    .\ci-local.ps1 -Skip docker
+    .\ci-local.ps1 -Skip docker,trivy
     .\ci-local.ps1 -Fix -Only gofmt
 #>
 
@@ -34,9 +34,11 @@ param(
 if ($Help) { Get-Help $MyInvocation.MyCommand.Path -Detailed; exit 0 }
 
 $ErrorActionPreference = "Stop"
-$GO_IMAGE  = "golang:1.25-alpine"
-$PY_IMAGE  = "python:3.11-slim"
-$ROOT      = $PSScriptRoot
+$GO_IMAGE    = "golang:1.25-alpine"
+$PY_IMAGE    = "python:3.11-slim"
+$NODE_IMAGE  = "node:22-alpine"
+$TRIVY_IMAGE = "aquasec/trivy:latest"
+$ROOT        = $PSScriptRoot
 $script:FAILURES = @()
 $SkipList  = if ($Skip) { $Skip.ToLower() -split "," | ForEach-Object { $_.Trim() } } else { @() }
 
@@ -65,7 +67,7 @@ function Invoke-DockerGo([string]$ScriptFile) {
         -v "${ROOT}:/workspace" `
         -v "skypanel-gomodcache:/go/pkg/mod" `
         -v "skypanel-gocache:/root/.cache/go-build" `
-        -e GOPROXY=direct `
+        -e GOPROXY=https://proxy.golang.org,direct `
         --dns 8.8.8.8 `
         $GO_IMAGE sh /workspace/ci-scripts/$ScriptFile
     if ($LASTEXITCODE -ne 0) { throw "exit code $LASTEXITCODE" }
@@ -76,6 +78,29 @@ function Invoke-DockerPy([string]$ScriptFile) {
         --workdir /workspace `
         -v "${ROOT}:/workspace" `
         $PY_IMAGE sh /workspace/ci-scripts/$ScriptFile
+    if ($LASTEXITCODE -ne 0) { throw "exit code $LASTEXITCODE" }
+}
+
+function Invoke-DockerNode([string]$ScriptFile) {
+    docker run --rm `
+        --workdir /workspace `
+        -v "${ROOT}:/workspace" `
+        -v "skypanel-nodemodules:/workspace/client/node_modules" `
+        -v "skypanel-nodemodules-frontend:/workspace/client/frontend/node_modules" `
+        --dns 8.8.8.8 `
+        $NODE_IMAGE sh /workspace/ci-scripts/$ScriptFile
+    if ($LASTEXITCODE -ne 0) { throw "exit code $LASTEXITCODE" }
+}
+
+function Invoke-DockerTrivy([string]$ScanArgs) {
+    $dockerArgs = @(
+        'run', '--rm',
+        '-v', "${ROOT}:/workspace",
+        $TRIVY_IMAGE, 'fs',
+        '--exit-code', '1',
+        '--format', 'table'
+    ) + (-split $ScanArgs) + @('/workspace')
+    & docker $dockerArgs
     if ($LASTEXITCODE -ne 0) { throw "exit code $LASTEXITCODE" }
 }
 
@@ -96,6 +121,8 @@ if (-not $NoPull) {
     Write-Info "Pulling Docker images (use -NoPull to skip)..."
     docker pull $GO_IMAGE 2>&1 | Select-String "Status|Pull complete|already" | ForEach-Object { Write-Info $_.Line }
     docker pull $PY_IMAGE 2>&1 | Select-String "Status|Pull complete|already" | ForEach-Object { Write-Info $_.Line }
+    docker pull $NODE_IMAGE 2>&1 | Select-String "Status|Pull complete|already" | ForEach-Object { Write-Info $_.Line }
+    docker pull $TRIVY_IMAGE 2>&1 | Select-String "Status|Pull complete|already" | ForEach-Object { Write-Info $_.Line }
 }
 
 # Frontend dist stub required for go:embed
@@ -118,17 +145,43 @@ Run-Stage "vet"    { Invoke-DockerGo "02_vet.sh"   }
 # STAGE 3: golangci-lint
 Run-Stage "lint"   { Invoke-DockerGo "03_lint.sh"  }
 
-# STAGE 4: go tests
+# STAGE 4: staticcheck
+Run-Stage "staticcheck" { Invoke-DockerGo "07_staticcheck.sh" }
+
+# STAGE 5: gosec
+Run-Stage "gosec" { Invoke-DockerGo "08_gosec.sh" }
+
+# STAGE 6: Trivy (vulnerability, secret, config scans)
+Run-Stage "trivy" {
+    Write-Info "Trivy - Vulnerability scan (CRITICAL+HIGH)..."
+    Invoke-DockerTrivy "--ignore-unfixed --severity CRITICAL,HIGH --vuln-type os,library"
+    Write-Info "Trivy - Secret scan..."
+    Invoke-DockerTrivy "--scanners secret"
+    Write-Info "Trivy - Config scan..."
+    Invoke-DockerTrivy "--scanners config"
+}
+
+# STAGE 7: go tests
 Run-Stage "tests"  { Invoke-DockerGo "04_tests.sh" }
 
-# STAGE 5: build binary
+# STAGE 8: Frontend quality (lint, typecheck, build)
+Run-Stage "frontend" { Invoke-DockerNode "09_frontend.sh" }
+
+# STAGE 9: build binary
 Run-Stage "build"  { Invoke-DockerGo "05_build.sh" }
 
-# STAGE 6: Python E2E
+# STAGE 10: Python E2E
 Run-Stage "e2e"    { Invoke-DockerPy "06_e2e.sh"   }
 
-# STAGE 7: Docker build
+# STAGE 11: Docker build
 Run-Stage "docker" {
+    Write-Info "Cleaning reparse points in node_modules (Windows Docker workaround)..."
+    Get-ChildItem -Path (Join-Path $ROOT "client") -Recurse -Directory -Force -ErrorAction SilentlyContinue `
+        | Where-Object { $_.Attributes -band [System.IO.FileAttributes]::ReparsePoint } `
+        | ForEach-Object {
+            Write-Info "  Removing reparse point: $($_.FullName)"
+            Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
+        }
     Write-Info "Building Docker image (local only, no push)..."
     docker build `
         --build-arg version=local-dev `
@@ -154,8 +207,9 @@ if ($script:FAILURES.Count -eq 0) {
 } else {
     Write-Host "  FAILED: $($script:FAILURES -join ", ")" -ForegroundColor Red
     Write-Host ""
-    Write-Host "  gofmt fix  -> .\ci-local.ps1 -Fix -Only gofmt" -ForegroundColor DarkGray
-    Write-Host "  One stage  -> .\ci-local.ps1 -Only tests"      -ForegroundColor DarkGray
-    Write-Host "  Skip stage -> .\ci-local.ps1 -Skip docker"     -ForegroundColor DarkGray
+    Write-Host "  gofmt fix     -> .\ci-local.ps1 -Fix -Only gofmt"      -ForegroundColor DarkGray
+    Write-Host "  One stage     -> .\ci-local.ps1 -Only tests"           -ForegroundColor DarkGray
+    Write-Host "  Skip stage    -> .\ci-local.ps1 -Skip docker,trivy"    -ForegroundColor DarkGray
+    Write-Host "  Skip frontend -> .\ci-local.ps1 -Skip frontend"        -ForegroundColor DarkGray
     exit 1
 }
