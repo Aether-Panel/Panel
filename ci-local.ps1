@@ -96,16 +96,22 @@ function Invoke-DockerNode([string]$ScriptFile) {
 }
 
 function Invoke-DockerTrivy([string]$ScanArgs) {
+    $skipDirs = 'node_modules,.git,.cache,client/node_modules,client/frontend/node_modules,bin'
     $dockerArgs = @(
         'run', '--rm',
         '-v', "${ROOT}:/workspace",
         $TRIVY_IMAGE, 'fs',
         '--exit-code', '1',
-        '--format', 'table'
+        '--format', 'table',
+        '--skip-dirs', $skipDirs
     ) + (-split $ScanArgs) + @('/workspace')
     & docker $dockerArgs
     if ($LASTEXITCODE -ne 0) { throw "exit code $LASTEXITCODE" }
 }
+
+# Trivy DB cache volume to reuse across runs
+$TRIVY_CACHE_VOLUME = "trivy-db-cache"
+$null = docker volume create $TRIVY_CACHE_VOLUME 2>&1
 
 # Pre-flight check
 Write-Host ""
