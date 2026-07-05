@@ -17,12 +17,12 @@ RUN rm -rf node_modules/.cache
 RUN yarn build
 
 ARG BUILDPLATFORM=linux/amd64
-FROM --platform=${BUILDPLATFORM} tonistiigi/xx AS xx
+FROM --platform=${BUILDPLATFORM} tonistiigi/xx:latest AS xx
 
 ARG BUILDPLATFORM=linux/amd64
 FROM --platform=${BUILDPLATFORM} golang:1.25-alpine AS builder
 
-RUN apk add clang lld
+RUN apk add --no-cache clang lld
 COPY --from=xx / /
 
 ARG tags
@@ -64,9 +64,10 @@ RUN xx-verify /SkyPanel/SkyPanel
 # Generate final image
 ###
 
-FROM alpine
+FROM alpine:latest
 
 EXPOSE 8080 5657
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 CMD nc -z localhost 8080 || exit 1
 RUN apk add --no-cache netcat-openbsd
 RUN mkdir -p /etc/SkyPanel && \
     mkdir -p /var/lib/SkyPanel /var/lib/SkyPanel/servers /var/lib/SkyPanel/binaries /var/lib/SkyPanel/cache && \
