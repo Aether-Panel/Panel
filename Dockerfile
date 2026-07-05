@@ -7,7 +7,6 @@ FROM --platform=${BUILDPLATFORM} node:22-alpine AS node
 WORKDIR /build
 # Optimización: Copiar archivos de dependencia (incluyendo workspaces) para cachear capas
 COPY client/package.json client/yarn.lock* ./
-COPY client/api/package.json ./api/
 COPY client/frontend/package.json ./frontend/
 RUN yarn install --frozen-lockfile
 
@@ -21,7 +20,7 @@ ARG BUILDPLATFORM=linux/amd64
 FROM --platform=${BUILDPLATFORM} tonistiigi/xx AS xx
 
 ARG BUILDPLATFORM=linux/amd64
-FROM --platform=${BUILDPLATFORM} golang:1.24-alpine AS builder
+FROM --platform=${BUILDPLATFORM} golang:1.25-alpine AS builder
 
 RUN apk add clang lld
 COPY --from=xx / /
@@ -44,7 +43,7 @@ COPY go.mod go.sum ./
 RUN go mod download && go mod verify
 
 # Optimización: Instalar swag antes de copiar todo el código para cachear la descarga
-RUN go install github.com/swaggo/swag/cmd/swag@v1.16.4
+RUN CGO_ENABLED=0 go install github.com/swaggo/swag/cmd/swag@v1.16.4
 
 COPY . .
 

@@ -49,7 +49,10 @@ function Write-Info { param($m) Write-Host "  ...    $m"  -ForegroundColor Gray 
 function Write-Warn { param($m) Write-Host "  [SKIP] $m"  -ForegroundColor Yellow }
 
 function Should-Run([string]$stage) {
-    if ($Only -and $Only.ToLower() -ne $stage) { return $false }
+    if ($Only) {
+        $onlyList = $Only.ToLower() -split "," | ForEach-Object { $_.Trim() }
+        if ($onlyList -notcontains $stage) { return $false }
+    }
     if ($SkipList -contains $stage)             { return $false }
     return $true
 }
@@ -154,7 +157,7 @@ Run-Stage "gosec" { Invoke-DockerGo "08_gosec.sh" }
 # STAGE 6: Trivy (vulnerability, secret, config scans)
 Run-Stage "trivy" {
     Write-Info "Trivy - Vulnerability scan (CRITICAL+HIGH)..."
-    Invoke-DockerTrivy "--ignore-unfixed --severity CRITICAL,HIGH --vuln-type os,library"
+    Invoke-DockerTrivy "--ignore-unfixed --severity CRITICAL,HIGH --pkg-types os,library"
     Write-Info "Trivy - Secret scan..."
     Invoke-DockerTrivy "--scanners secret"
     Write-Info "Trivy - Config scan..."
