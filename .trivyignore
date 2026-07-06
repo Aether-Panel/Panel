@@ -3,3 +3,7 @@
 # Panel uses docker/docker as a client SDK, not as a daemon, so this is not exploitable.
 CVE-2026-34040
 
+# nwaples/rardecode: CVE-2025-11579 / GHSA-rwvp-r38j-9rgg (DoS via large RAR dictionary) - fixed in v2.2.0,
+# but archiver/v3 imports the v1 path; project never extracts RAR files, only ZIP/TarGz.
+CVE-2025-11579
+
