@@ -26,7 +26,7 @@ require (
 	github.com/gorcon/rcon v1.4.0
 	github.com/gorilla/securecookie v1.1.2
 	github.com/gorilla/websocket v1.5.3
-	github.com/hashicorp/go-version v1.7.0
+	github.com/hashicorp/go-version v1.9.0
 	github.com/klauspost/compress v1.18.0
 	github.com/mailgun/mailgun-go/v4 v4.23.0
 	github.com/mailjet/mailjet-apiv3-go/v4 v4.0.7
