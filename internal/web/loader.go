@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -117,12 +118,7 @@ func RegisterRoutes(e *gin.Engine) {
 						target = "/" + fPath + "/"
 					}
 					
-					// Explicitly validate for SonarQube to prove it's a relative path and not protocol-relative
-					if !strings.HasPrefix(target, "/") || strings.HasPrefix(target, "//") {
-						target = "/"
-					}
-					
-					c.Redirect(http.StatusMovedPermanently, target)
+					c.Redirect(http.StatusMovedPermanently, validRedirectPath(target))
 					c.Abort()
 					return
 				}
@@ -212,6 +208,14 @@ func handle404(c *gin.Context) {
 		return
 	}
 	c.Data(http.StatusOK, binding.MIMEHTML, file)
+}
+
+func validRedirectPath(p string) string {
+	u, err := url.Parse(p)
+	if err != nil || u.Host != "" || !strings.HasPrefix(u.Path, "/") || strings.HasPrefix(u.Path, "//") {
+		return "/"
+	}
+	return u.Path
 }
 
 func webManifest(c *gin.Context) {
