@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -111,8 +112,13 @@ func RegisterRoutes(e *gin.Engine) {
 			if stat.IsDir() {
 				// If it's a directory, we REQUIRE a trailing slash in the URL
 				if !strings.HasSuffix(reqPath, "/") {
-					// Use cleanedPath to prevent open redirect vulnerabilities (e.g. //attacker.com)
-					c.Redirect(http.StatusMovedPermanently, cleanedPath+"/")
+					// Construct target strictly from validated fPath to clear SonarQube taint
+					target := "/"
+					if fPath != "." && fPath != "" {
+						target = "/" + fPath + "/"
+					}
+
+					c.Redirect(http.StatusMovedPermanently, validRedirectPath(target))
 					c.Abort()
 					return
 				}
@@ -202,6 +208,14 @@ func handle404(c *gin.Context) {
 		return
 	}
 	c.Data(http.StatusOK, binding.MIMEHTML, file)
+}
+
+func validRedirectPath(p string) string {
+	u, err := url.Parse(p)
+	if err != nil || u.Host != "" || !strings.HasPrefix(u.Path, "/") || strings.HasPrefix(u.Path, "//") {
+		return "/"
+	}
+	return u.Path
 }
 
 func webManifest(c *gin.Context) {
