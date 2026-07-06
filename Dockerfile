@@ -64,7 +64,7 @@ RUN xx-verify /SkyPanel/SkyPanel
 # Generate final image
 ###
 
-FROM alpine:3.21
+FROM alpine:3.24
 
 EXPOSE 8080 5657
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 CMD nc -z localhost 8080 || exit 1
