@@ -7,3 +7,7 @@ CVE-2026-34040
 # but archiver/v3 imports the v1 path; project never extracts RAR files, only ZIP/TarGz.
 CVE-2025-11579
 
+# docker/docker: CVE-2026-41568 / GHSA-vp62-88p7-qqf5 (race condition in docker cp) - fixed in v29.3.1,
+# but that version changed module path to github.com/moby/moby/v2. Panel uses docker/docker as client SDK.
+CVE-2026-41568
+
