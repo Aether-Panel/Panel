@@ -22,6 +22,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
+	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -30,6 +31,7 @@ import (
 var (
 	transferProgressMutex sync.RWMutex
 	transferProgress      = make(map[string]string)
+	externalHTTPClient    = utils.NewRestrictedHTTPClient()
 )
 
 func setTransferProgress(serverID, status string) {
@@ -465,6 +467,13 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 		originURL = "http://" + originURL
 	}
 
+	// SSRF prevention: validate the origin URL does not point to internal/private resources
+	if err := utils.ValidateExternalURL(originURL); err != nil {
+		logging.Error.Printf("SSRF validation failed for origin URL %s: %v", originURL, err)
+		sendStep("ERROR: La URL de origen no es válida o apunta a una dirección no permitida")
+		return
+	}
+
 	// 2. Validate token and get nonce
 	validateURL := fmt.Sprintf("%s/api/extransfer/validate", strings.TrimSuffix(originURL, "/"))
 
@@ -477,7 +486,7 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 	}
 
 	bodyBytes, _ := json.Marshal(validateBody)
-	resp, err := http.Post(validateURL, "application/json", bytes.NewBuffer(bodyBytes))
+	resp, err := externalHTTPClient.Post(validateURL, "application/json", bytes.NewBuffer(bodyBytes))
 	if err != nil {
 		logging.Error.Printf("Failed to call validate on origin: %v", err)
 		sendStep("ERROR: Fallo de red al conectar con origen")
@@ -516,7 +525,7 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 	}
 
 	bodyBytes, _ = json.Marshal(consumeBody)
-	resp, err = http.Post(consumeURL, "application/json", bytes.NewBuffer(bodyBytes))
+	resp, err = externalHTTPClient.Post(consumeURL, "application/json", bytes.NewBuffer(bodyBytes))
 	if err != nil {
 		logging.Error.Printf("Failed to call consume on origin: %v", err)
 		sendStep("ERROR: Fallo al iniciar transferencia en origen")
@@ -545,7 +554,7 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 	reqURL := fmt.Sprintf("%s?session_id=%s&signature=%s", downloadURL, url.QueryEscape(validateRes.SessionID), url.QueryEscape(dlSigB64))
 
 	sendStep("Descargando paquete de datos desde el origen...")
-	resp, err = http.Get(reqURL)
+	resp, err = externalHTTPClient.Get(reqURL)
 	if err != nil {
 		logging.Error.Printf("Failed to call download on origin: %v", err)
 		sendStep("ERROR: Error de red al descargar paquete")
