@@ -7,6 +7,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -50,6 +51,17 @@ func CreateEnvironment(environmentType, folder string, backupFolder string, serv
 
 	if item.RootDirectory == "" {
 		item.RootDirectory = filepath.Join(folder, server.Identifier)
+	} else {
+		absRoot, errRoot := filepath.Abs(item.RootDirectory)
+		absFolder, errFolder := filepath.Abs(folder)
+		if errRoot != nil || errFolder != nil {
+			return nil, fmt.Errorf("invalid root directory: %s", item.RootDirectory)
+		}
+		rel, errRel := filepath.Rel(absFolder, absRoot)
+		if errRel != nil || strings.HasPrefix(rel, "..") {
+			return nil, fmt.Errorf("root directory %s must be within %s", item.RootDirectory, folder)
+		}
+		item.RootDirectory = absRoot
 	}
 
 	item.CreateWrapper()
