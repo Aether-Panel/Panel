@@ -108,11 +108,8 @@ func isPrivateIP(ip net.IP) bool {
 		if ip4[0] == 198 && ip4[1] >= 18 && ip4[1] <= 19 {
 			return true
 		}
-	} else {
-		// IPv6
-		if ip.IsPrivate() {
-			return true
-		}
+	} else if ip.IsPrivate() {
+		return true
 	}
 
 	return false
