@@ -116,6 +116,12 @@ func RegisterRoutes(e *gin.Engine) {
 					if fPath != "." && fPath != "" {
 						target = "/" + fPath + "/"
 					}
+					
+					// Explicitly validate for SonarQube to prove it's a relative path and not protocol-relative
+					if !strings.HasPrefix(target, "/") || strings.HasPrefix(target, "//") {
+						target = "/"
+					}
+					
 					c.Redirect(http.StatusMovedPermanently, target)
 					c.Abort()
 					return
