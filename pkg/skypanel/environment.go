@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -163,13 +164,34 @@ func (e *Environment) Update() error {
 	return nil
 }
 
+func (e *Environment) validatedRoot() (string, error) {
+	p := filepath.Clean(e.RootDirectory)
+	if !filepath.IsAbs(p) {
+		return "", fmt.Errorf("root directory must be absolute: %s", e.RootDirectory)
+	}
+	base := filepath.Clean(config.ServersFolder.Value())
+	rel, err := filepath.Rel(base, p)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		return "", fmt.Errorf("root directory %s is not within %s", p, base)
+	}
+	return p, nil
+}
+
 func (e *Environment) Delete() (err error) {
-	err = os.RemoveAll(e.RootDirectory)
+	dir, err := e.validatedRoot()
+	if err != nil {
+		return err
+	}
+	err = os.RemoveAll(dir)
 	return
 }
 
 func (e *Environment) Create() error {
-	err := os.Mkdir(e.RootDirectory, 0755)
+	dir, err := e.validatedRoot()
+	if err != nil {
+		return err
+	}
+	err = os.Mkdir(dir, 0755)
 	if os.IsExist(err) {
 		return nil
 	}
