@@ -111,7 +111,8 @@ func RegisterRoutes(e *gin.Engine) {
 			if stat.IsDir() {
 				// If it's a directory, we REQUIRE a trailing slash in the URL
 				if !strings.HasSuffix(reqPath, "/") {
-					c.Redirect(http.StatusMovedPermanently, reqPath+"/")
+					// Use cleanedPath to prevent open redirect vulnerabilities (e.g. //attacker.com)
+					c.Redirect(http.StatusMovedPermanently, cleanedPath+"/")
 					c.Abort()
 					return
 				}
