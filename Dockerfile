@@ -20,7 +20,7 @@ ARG BUILDPLATFORM=linux/amd64
 FROM --platform=${BUILDPLATFORM} tonistiigi/xx:1.9.0 AS xx
 
 ARG BUILDPLATFORM=linux/amd64
-FROM --platform=${BUILDPLATFORM} golang:1.25-alpine AS builder
+FROM --platform=${BUILDPLATFORM} golang:1.26-alpine AS builder
 
 RUN apk add --no-cache clang lld
 COPY --from=xx / /
