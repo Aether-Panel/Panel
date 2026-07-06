@@ -90,6 +90,11 @@ func RegisterRoutes(e *gin.Engine) {
 				fPath = strings.TrimSuffix(fPath, "/")
 			}
 
+			// Validate path to prevent directory traversal attacks (fixes SonarQube vulnerability)
+			if !fs.ValidPath(fPath) {
+				return
+			}
+
 			// Try to open the path in our embedded FS
 			f, err := clientFiles.Open(fPath)
 			if err != nil {
