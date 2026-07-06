@@ -165,11 +165,15 @@ func (e *Environment) Update() error {
 }
 
 func (e *Environment) validatedRoot() (string, error) {
-	p := filepath.Clean(e.RootDirectory)
-	if !filepath.IsAbs(p) {
-		return "", fmt.Errorf("root directory must be absolute: %s", e.RootDirectory)
+	p, err := filepath.Abs(e.RootDirectory)
+	if err != nil {
+		return "", fmt.Errorf("invalid root directory: %s", e.RootDirectory)
 	}
-	base := filepath.Clean(config.ServersFolder.Value())
+	p = filepath.Clean(p)
+	base, err := filepath.Abs(config.ServersFolder.Value())
+	if err != nil {
+		return "", fmt.Errorf("invalid server data folder: %s", config.ServersFolder.Value())
+	}
 	rel, err := filepath.Rel(base, p)
 	if err != nil || strings.HasPrefix(rel, "..") {
 		return "", fmt.Errorf("root directory %s is not within %s", p, base)
