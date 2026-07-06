@@ -545,7 +545,7 @@ func shellQuote(s string) string {
 
 func safeCmd(workDirMount, cmd string) string {
 	c, args := utils.SplitArguments(cmd)
-	parts := make([]string, 0, len(args)+1)
+	var parts []string
 	parts = append(parts, shellQuote(c))
 	for _, a := range args {
 		parts = append(parts, shellQuote(a))
