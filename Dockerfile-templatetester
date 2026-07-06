@@ -1,4 +1,4 @@
-FROM ubuntu:22.04 AS go
+FROM ubuntu:26.04 AS go
 
 ARG aptproxy=""
 ARG GOVERSION="1.24.1"
@@ -24,7 +24,7 @@ COPY . .
 ARG GOPROXY=""
 RUN go build -v -buildvcs=false -o /home/SkyPanel/templatetester github.com/SkyPanel/SkyPanel/v3/tools/templatetester
 
-FROM ubuntu:22.04 AS final
+FROM ubuntu:26.04 AS final
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV NODE_MAJOR=20
