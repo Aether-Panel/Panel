@@ -117,7 +117,7 @@ func RegisterRoutes(e *gin.Engine) {
 					if fPath != "." && fPath != "" {
 						target = "/" + fPath + "/"
 					}
-					
+
 					c.Redirect(http.StatusMovedPermanently, validRedirectPath(target))
 					c.Abort()
 					return
