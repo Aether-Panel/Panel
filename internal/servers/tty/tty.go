@@ -475,16 +475,20 @@ func (t *tty) createCmd(workDir, cmd string) (pr *exec.Cmd, err error) {
 	absBinDir, _ := filepath.Abs(config.BinariesFolder.Value())
 	absCacheDir, _ := filepath.Abs(config.CacheFolder.Value())
 
+	mkdirDirs := make([]string, len(mountFolders))
+	for i, f := range mountFolders {
+		mkdirDirs[i] = shellQuote(f)
+	}
 	unshareArgs = append(unshareArgs,
-		fmt.Sprintf("mkdir -p {%s}", strings.Join(mountFolders, ",")),
-		fmt.Sprintf("mount --bind %s %s", absWorkDir, workDirMount),
-		fmt.Sprintf("mount --bind %s %s", absBinDir, binaryFolderMount),
-		fmt.Sprintf("mount --bind %s %s", absCacheDir, cacheFolderMount),
+		fmt.Sprintf("mkdir -p %s", strings.Join(mkdirDirs, " ")),
+		fmt.Sprintf("mount --bind %s %s", shellQuote(absWorkDir), shellQuote(workDirMount)),
+		fmt.Sprintf("mount --bind %s %s", shellQuote(absBinDir), shellQuote(binaryFolderMount)),
+		fmt.Sprintf("mount --bind %s %s", shellQuote(absCacheDir), shellQuote(cacheFolderMount)),
 	)
 
 	for _, v := range t.Mounts {
 		absV, _ := filepath.Abs(v)
-		unshareArgs = append(unshareArgs, fmt.Sprintf("mount --bind %s %s", absV, removeRoot(v)))
+		unshareArgs = append(unshareArgs, fmt.Sprintf("mount --bind %s %s", shellQuote(absV), shellQuote(removeRoot(v))))
 	}
 
 	unshareArgs = append(unshareArgs,
