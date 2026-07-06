@@ -1,15 +1,18 @@
 package utils
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
+	"time"
 )
 
 // ValidateExternalURL validates that a URL is safe for external requests (SSRF prevention).
@@ -113,6 +116,46 @@ func isPrivateIP(ip net.IP) bool {
 	}
 
 	return false
+}
+
+// NewRestrictedHTTPClient creates an *http.Client that blocks connections to
+// private/internal IPs as an SSRF mitigation. The transport resolves hostnames
+// and rejects any connection that resolves to a private, loopback, or link-local address.
+func NewRestrictedHTTPClient() *http.Client {
+	transport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			host, port, err := net.SplitHostPort(addr)
+			if err != nil {
+				return nil, err
+			}
+
+			// Resolve all IPs for the host
+			ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, ip := range ips {
+				if isPrivateIP(ip.IP) {
+					return nil, errors.New("connection refused: target resolves to a private or loopback IP address")
+				}
+			}
+
+			var dialer net.Dialer
+			return dialer.DialContext(ctx, network, addr)
+		},
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          5,
+		IdleConnTimeout:       30 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+
+	return &http.Client{
+		Transport: transport,
+		Timeout:   30 * time.Second,
+	}
 }
 
 func GenerateRandomString(n int) (string, error) {
