@@ -454,7 +454,6 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 		setTransferProgress(server.Identifier, msg)
 	}
 	defer func() {
-		// Clean up status after 10 seconds so the frontend can read the final state
 		time.Sleep(10 * time.Second)
 		sendStep("")
 	}()
@@ -462,21 +461,34 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 	logging.Info.Printf("Starting pull transfer for server %s from %s", server.Identifier, originURL)
 	sendStep("Validando conexión con el panel de origen...")
 
-	// 1. Handle URL format
+	originURL = strings.TrimSpace(originURL)
+
 	if !strings.HasPrefix(originURL, "http://") && !strings.HasPrefix(originURL, "https://") {
 		originURL = "http://" + originURL
 	}
 
-	// SSRF prevention: validate the origin URL does not point to internal/private resources
 	if err := utils.ValidateExternalURL(originURL); err != nil {
 		logging.Error.Printf("SSRF validation failed for origin URL %s: %v", originURL, err)
 		sendStep("ERROR: La URL de origen no es válida o apunta a una dirección no permitida")
 		return
 	}
 
-	// 2. Validate token and get nonce
-	validateURL := fmt.Sprintf("%s/api/extransfer/validate", strings.TrimSuffix(originURL, "/"))
+	u, err := url.Parse(originURL)
+	if err != nil {
+		logging.Error.Printf("Failed to parse origin URL: %v", err)
+		sendStep("ERROR: La URL de origen no es válida")
+		return
+	}
 
+	apis := &struct {
+		validate, consume, download *url.URL
+	}{
+		validate: u.ResolveReference(&url.URL{Path: "/api/extransfer/validate"}),
+		consume:  u.ResolveReference(&url.URL{Path: "/api/extransfer/consume"}),
+		download: u.ResolveReference(&url.URL{Path: "/api/extransfer/download"}),
+	}
+
+	// 2. Validate token and get nonce
 	pubKeyB64 := base64.StdEncoding.EncodeToString(ExTransferPublicKey)
 
 	validateBody := map[string]string{
@@ -486,7 +498,14 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 	}
 
 	bodyBytes, _ := json.Marshal(validateBody)
-	resp, err := externalHTTPClient.Post(validateURL, "application/json", bytes.NewBuffer(bodyBytes))
+	req := &http.Request{
+		Method: "POST",
+		URL:    apis.validate,
+		Header: http.Header{},
+		Body:   io.NopCloser(bytes.NewBuffer(bodyBytes)),
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := externalHTTPClient.Do(req)
 	if err != nil {
 		logging.Error.Printf("Failed to call validate on origin: %v", err)
 		sendStep("ERROR: Fallo de red al conectar con origen")
@@ -513,8 +532,6 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 
 	sendStep("Iniciando la transferencia en el servidor origen...")
 	// 3. Consume transfer
-	consumeURL := fmt.Sprintf("%s/api/extransfer/consume", strings.TrimSuffix(originURL, "/"))
-
 	message := validateRes.Nonce + validateRes.SessionID
 	sig := ed25519.Sign(ExTransferPrivateKey, []byte(message))
 	sigB64 := base64.StdEncoding.EncodeToString(sig)
@@ -525,7 +542,14 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 	}
 
 	bodyBytes, _ = json.Marshal(consumeBody)
-	resp, err = externalHTTPClient.Post(consumeURL, "application/json", bytes.NewBuffer(bodyBytes))
+	req = &http.Request{
+		Method: "POST",
+		URL:    apis.consume,
+		Header: http.Header{},
+		Body:   io.NopCloser(bytes.NewBuffer(bodyBytes)),
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err = externalHTTPClient.Do(req)
 	if err != nil {
 		logging.Error.Printf("Failed to call consume on origin: %v", err)
 		sendStep("ERROR: Fallo al iniciar transferencia en origen")
@@ -541,20 +565,21 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 	}
 
 	sendStep("Esperando a que el origen comprima los archivos...")
-	// 4. Wait for file to be ready (optional but good practice as origin does it async)
 	time.Sleep(5 * time.Second)
 
 	// 5. Download file
-	downloadURL := fmt.Sprintf("%s/api/extransfer/download", strings.TrimSuffix(originURL, "/"))
-
 	dlMessage := "DOWNLOAD:" + validateRes.SessionID
 	dlSig := ed25519.Sign(ExTransferPrivateKey, []byte(dlMessage))
 	dlSigB64 := base64.StdEncoding.EncodeToString(dlSig)
 
-	reqURL := fmt.Sprintf("%s?session_id=%s&signature=%s", downloadURL, url.QueryEscape(validateRes.SessionID), url.QueryEscape(dlSigB64))
+	dlURL := *apis.download
+	dlURL.RawQuery = url.Values{
+		"session_id": {validateRes.SessionID},
+		"signature":  {dlSigB64},
+	}.Encode()
 
 	sendStep("Descargando paquete de datos desde el origen...")
-	resp, err = externalHTTPClient.Get(reqURL)
+	resp, err = externalHTTPClient.Get(dlURL.String())
 	if err != nil {
 		logging.Error.Printf("Failed to call download on origin: %v", err)
 		sendStep("ERROR: Error de red al descargar paquete")
