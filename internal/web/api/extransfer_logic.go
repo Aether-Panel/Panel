@@ -22,6 +22,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
+	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -463,6 +464,13 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 	// 1. Handle URL format
 	if !strings.HasPrefix(originURL, "http://") && !strings.HasPrefix(originURL, "https://") {
 		originURL = "http://" + originURL
+	}
+
+	// SSRF prevention: validate the origin URL does not point to internal/private resources
+	if err := utils.ValidateExternalURL(originURL); err != nil {
+		logging.Error.Printf("SSRF validation failed for origin URL %s: %v", originURL, err)
+		sendStep("ERROR: La URL de origen no es válida o apunta a una dirección no permitida")
+		return
 	}
 
 	// 2. Validate token and get nonce
