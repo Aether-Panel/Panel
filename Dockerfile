@@ -2,7 +2,7 @@
 # Builder container
 ###
 ARG BUILDPLATFORM=linux/amd64
-FROM --platform=${BUILDPLATFORM} node:22-alpine AS node
+FROM --platform=${BUILDPLATFORM} node:26-alpine AS node
 
 WORKDIR /build
 # Optimización: Copiar archivos de dependencia (incluyendo workspaces) para cachear capas
