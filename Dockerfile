@@ -8,7 +8,7 @@ WORKDIR /build
 # Optimización: Copiar archivos de dependencia (incluyendo workspaces) para cachear capas
 COPY client/package.json client/yarn.lock* ./
 COPY client/frontend/package.json ./frontend/
-RUN yarn install --frozen-lockfile
+RUN npm install -g yarn && yarn install --frozen-lockfile
 
 # Copiar el resto del código
 COPY client/ .
