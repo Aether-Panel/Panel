@@ -2,13 +2,13 @@
 # Builder container
 ###
 ARG BUILDPLATFORM=linux/amd64
-FROM --platform=${BUILDPLATFORM} node:22-alpine AS node
+FROM --platform=${BUILDPLATFORM} node:26-alpine AS node
 
 WORKDIR /build
 # Optimización: Copiar archivos de dependencia (incluyendo workspaces) para cachear capas
 COPY client/package.json client/yarn.lock* ./
 COPY client/frontend/package.json ./frontend/
-RUN yarn install --frozen-lockfile
+RUN npm install -g yarn && yarn install --frozen-lockfile
 
 # Copiar el resto del código
 COPY client/ .
@@ -64,7 +64,7 @@ RUN xx-verify /SkyPanel/SkyPanel
 # Generate final image
 ###
 
-FROM alpine:3.21
+FROM alpine:3.24
 
 EXPOSE 8080 5657
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 CMD nc -z localhost 8080 || exit 1
