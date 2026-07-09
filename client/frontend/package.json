@@ -46,7 +46,7 @@
     "lucide-react": "^0.475.0",
     "patch-package": "^8.0.0",
     "react": "^19.2.7",
-    "react-day-picker": "^9.11.3",
+    "react-day-picker": "^10.0.1",
     "react-dom": "^19.2.7",
     "react-hook-form": "^7.54.2",
     "recharts": "^2.15.1",
