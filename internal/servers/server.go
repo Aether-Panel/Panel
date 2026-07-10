@@ -64,8 +64,6 @@ type serverState struct {
 var ErrServerTypeRequired = errors.New("server type is required")
 var ErrEnvironmentTypeRequired = errors.New("environment type is required")
 
-
-
 func InitService() {
 	queue = list.New()
 	running = true

@@ -52,7 +52,7 @@ func DetermineIfSingleRoot(ctx context.Context, sourceFile string) (bool, error)
 		return false, err
 	}
 
-	err = extractor.Extract(ctx, file, func(ctx context.Context, f archives.FileInfo) error {
+	err = extractor.Extract(ctx, file, func(_ context.Context, f archives.FileInfo) error {
 		name := getCompressedItemName(f)
 
 		if name == "" || name == PathSeparator {
@@ -151,13 +151,13 @@ func Compress(fs FileServer, targetFile string, filesToCompress []string) error 
 	}
 
 	ctx := context.Background()
-	
+
 	// Create mapping for archives.FilesFromDisk
 	filenames := make(map[string]string)
 	for _, f := range filesToCompress {
 		filenames[f] = ""
 	}
-	
+
 	filesList, err := archives.FilesFromDisk(ctx, nil, filenames)
 	if err != nil {
 		return err
@@ -173,7 +173,7 @@ func Compress(fs FileServer, targetFile string, filesToCompress []string) error 
 	if err != nil {
 		return err
 	}
-	
+
 	archiver, ok := format.(archives.Archiver)
 	if !ok {
 		return errors.New("format is not an archiver")
@@ -183,7 +183,7 @@ func Compress(fs FileServer, targetFile string, filesToCompress []string) error 
 }
 
 func walker(fs FileServer, targetPath, filter string, skipRoot bool) archives.FileHandler {
-	return func(ctx context.Context, file archives.FileInfo) (err error) {
+	return func(_ context.Context, file archives.FileInfo) (err error) {
 		path := getCompressedItemName(file)
 
 		if !utils.CompareWildcard(file.Name(), filter) {
@@ -229,14 +229,16 @@ func walker(fs FileServer, targetPath, filter string, skipRoot bool) archives.Fi
 				return err
 			}
 			defer utils.Close(outFile)
-			
+
 			r, err := file.Open()
 			if err != nil {
 				return err
 			}
 			defer utils.Close(r)
-			
-			_, err = io.Copy(outFile, r)
+
+			if _, err = io.Copy(outFile, r); err != nil {
+				return err
+			}
 		case file.Mode()&os.ModeSymlink != 0:
 			target, err := getLinkTarget(file)
 			if err != nil {
