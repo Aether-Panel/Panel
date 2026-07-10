@@ -8,6 +8,7 @@
     "dev": "yarn workspaces run dev"
   },
   "resolutions": {
+    "@opentelemetry/core": "^2.8.0",
     "@opentelemetry/auto-instrumentations-node": "^0.78.0",
     "@opentelemetry/sdk-node": "^0.220.0",
     "protobufjs": "^8.0.2",
