@@ -1,6 +1,7 @@
 package curseforge
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/SkyPanel/SkyPanel/v3/files"
@@ -127,7 +128,7 @@ func (c CurseForge) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 	logging.Debug.Printf("Extracting modpack from %s\n", serverZipPath)
 	env.DisplayToConsole(true, "Extracting modpack from %s", serverZipPath)
 
-	singleRoot, _ := files.DetermineIfSingleRoot(serverZipPath)
+	singleRoot, _ := files.DetermineIfSingleRoot(context.Background(), serverZipPath)
 
 	err = files.Extract(nil, serverZipPath, env.GetRootDirectory(), "*", singleRoot, nil)
 	if err != nil {
