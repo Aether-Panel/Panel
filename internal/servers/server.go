@@ -25,7 +25,6 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gofrs/uuid/v5"
-	"github.com/mholt/archiver/v3"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
 	"github.com/spf13/cast"
@@ -65,10 +64,7 @@ type serverState struct {
 var ErrServerTypeRequired = errors.New("server type is required")
 var ErrEnvironmentTypeRequired = errors.New("environment type is required")
 
-func init() {
-	archiver.DefaultZip.OverwriteExisting = true
-	archiver.DefaultTarGz.OverwriteExisting = true
-}
+
 
 func InitService() {
 	queue = list.New()

@@ -2,14 +2,16 @@ package files
 
 import (
 	"archive/tar"
+	"context"
 	"errors"
-	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
-	"github.com/klauspost/compress/zip"
-	"github.com/mholt/archiver/v3"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/klauspost/compress/zip"
+	"github.com/mholt/archives"
 )
 
 const PathSeparator = "/"
@@ -20,18 +22,38 @@ type ExtractOptions struct {
 	TargetPath   string
 	Filter       string
 	SkipRoot     bool
-	ForcedWalker Walker
+	ForcedWalker archives.Extractor
 }
 
-func DetermineIfSingleRoot(sourceFile string) (bool, error) {
+func DetermineIfSingleRoot(ctx context.Context, sourceFile string) (bool, error) {
 	isSingleRoot := true
-
 	var rootName string
-
 	var desired = errors.New("not single root")
 
-	err := archiver.Walk(sourceFile, func(file archiver.File) error {
-		name := getCompressedItemName(file)
+	file, err := os.Open(sourceFile)
+	if err != nil {
+		return false, err
+	}
+	defer utils.Close(file)
+
+	format, _, err := archives.Identify(ctx, sourceFile, file)
+	if err != nil {
+		return false, err
+	}
+
+	extractor, ok := format.(archives.Extractor)
+	if !ok {
+		return false, errors.New("format is not an extractor")
+	}
+
+	// Reset file pointer
+	_, err = file.Seek(0, io.SeekStart)
+	if err != nil {
+		return false, err
+	}
+
+	err = extractor.Extract(ctx, file, func(ctx context.Context, f archives.FileInfo) error {
+		name := getCompressedItemName(f)
 
 		if name == "" || name == PathSeparator {
 			return nil
@@ -47,35 +69,62 @@ func DetermineIfSingleRoot(sourceFile string) (bool, error) {
 		return nil
 	})
 
-	if err != nil {
+	if err != nil && err != desired {
 		isSingleRoot = false
+	} else if err == desired {
+		isSingleRoot = false
+		err = nil
 	}
 
 	return isSingleRoot, err
 }
 
-func Extract(fs FileServer, sourceFile, targetPath, filter string, skipRoot bool, forcedType Walker) error {
+func Extract(fs FileServer, sourceFile, targetPath, filter string, skipRoot bool, forcedType archives.Extractor) error {
 	if fs != nil {
 		sourceFile = filepath.Join(fs.Prefix(), sourceFile)
 	}
 
+	ctx := context.Background()
+
 	if skipRoot {
 		var err error
-		skipRoot, err = DetermineIfSingleRoot(sourceFile)
+		skipRoot, err = DetermineIfSingleRoot(ctx, sourceFile)
 		if err != nil {
 			return err
 		}
 	}
 
+	file, err := os.Open(sourceFile)
+	if err != nil {
+		return err
+	}
+	defer utils.Close(file)
+
+	var extractor archives.Extractor
 	if forcedType != nil {
-		return forcedType.Walk(sourceFile, walker(fs, targetPath, filter, skipRoot))
+		extractor = forcedType
+	} else {
+		format, _, err := archives.Identify(ctx, sourceFile, file)
+		if err != nil {
+			return err
+		}
+		var ok bool
+		extractor, ok = format.(archives.Extractor)
+		if !ok {
+			return errors.New("format is not an extractor")
+		}
+		// Reset file pointer
+		_, err = file.Seek(0, io.SeekStart)
+		if err != nil {
+			return err
+		}
 	}
 
-	return archiver.Walk(sourceFile, walker(fs, targetPath, filter, skipRoot))
+	return extractor.Extract(ctx, file, walker(fs, targetPath, filter, skipRoot))
 }
 
-func Compress(fs FileServer, targetFile string, files []string) error {
-	if len(files) == 0 {
+func Compress(fs FileServer, targetFile string, filesToCompress []string) error {
+	if len(filesToCompress) == 0 {
 		return errors.New("no files to compress")
 	}
 
@@ -85,12 +134,11 @@ func Compress(fs FileServer, targetFile string, files []string) error {
 		targetFile = filepath.Join(p, targetFile)
 
 		var expandedFiles []string
-		for _, v := range files {
+		for _, v := range filesToCompress {
 			fullPath := filepath.Join(p, v)
 			if strings.Contains(v, "*") {
 				matches, _ := filepath.Glob(fullPath)
 				for _, match := range matches {
-					// Don't include the target file itself if it's in the list
 					if match != targetFile {
 						expandedFiles = append(expandedFiles, match)
 					}
@@ -99,14 +147,43 @@ func Compress(fs FileServer, targetFile string, files []string) error {
 				expandedFiles = append(expandedFiles, fullPath)
 			}
 		}
-		files = expandedFiles
+		filesToCompress = expandedFiles
 	}
 
-	return archiver.Archive(files, targetFile)
+	ctx := context.Background()
+	
+	// Create mapping for archives.FilesFromDisk
+	filenames := make(map[string]string)
+	for _, f := range filesToCompress {
+		filenames[f] = ""
+	}
+	
+	filesList, err := archives.FilesFromDisk(ctx, nil, filenames)
+	if err != nil {
+		return err
+	}
+
+	out, err := os.Create(targetFile)
+	if err != nil {
+		return err
+	}
+	defer utils.Close(out)
+
+	format, _, err := archives.Identify(ctx, targetFile, nil)
+	if err != nil {
+		return err
+	}
+	
+	archiver, ok := format.(archives.Archiver)
+	if !ok {
+		return errors.New("format is not an archiver")
+	}
+
+	return archiver.Archive(ctx, out, filesList)
 }
 
-func walker(fs FileServer, targetPath, filter string, skipRoot bool) archiver.WalkFunc {
-	return func(file archiver.File) (err error) {
+func walker(fs FileServer, targetPath, filter string, skipRoot bool) archives.FileHandler {
+	return func(ctx context.Context, file archives.FileInfo) (err error) {
 		path := getCompressedItemName(file)
 
 		if !utils.CompareWildcard(file.Name(), filter) {
@@ -121,7 +198,7 @@ func walker(fs FileServer, targetPath, filter string, skipRoot bool) archiver.Wa
 		path = filepath.Join(targetPath, path)
 
 		switch {
-		case file.Mode().IsDir():
+		case file.IsDir():
 			if fs != nil {
 				if err = fs.MkdirAll(path, 0755); err != nil {
 					return err
@@ -152,7 +229,14 @@ func walker(fs FileServer, targetPath, filter string, skipRoot bool) archiver.Wa
 				return err
 			}
 			defer utils.Close(outFile)
-			_, err = io.Copy(outFile, file.ReadCloser)
+			
+			r, err := file.Open()
+			if err != nil {
+				return err
+			}
+			defer utils.Close(r)
+			
+			_, err = io.Copy(outFile, r)
 		case file.Mode()&os.ModeSymlink != 0:
 			target, err := getLinkTarget(file)
 			if err != nil {
@@ -181,9 +265,10 @@ func walker(fs FileServer, targetPath, filter string, skipRoot bool) archiver.Wa
 }
 
 // getCompressedItemName Resolves headers in the event the wrapped interface fails
-func getCompressedItemName(file archiver.File) string {
-	// For certain headers, the actual File interface uses the wrong value
-	// Example, ZIP gives the filename, not the full path
+func getCompressedItemName(file archives.FileInfo) string {
+	if file.NameInArchive != "" {
+		return file.NameInArchive
+	}
 
 	switch v := file.Header.(type) {
 	case zip.FileHeader:
@@ -195,22 +280,19 @@ func getCompressedItemName(file archiver.File) string {
 	}
 }
 
-func getLinkTarget(file archiver.File) (string, error) {
+func getLinkTarget(file archives.FileInfo) (string, error) {
+	if file.LinkTarget != "" {
+		return file.LinkTarget, nil
+	}
+
 	switch v := file.Header.(type) {
 	case *tar.Header:
 		return v.Linkname, nil
 	case zip.FileHeader:
-		buffer := make([]byte, file.Size())
-		size, err := file.Read(buffer)
-		if err != nil {
-			return "", err
-		}
-		return string(buffer[:size]), nil
+		// Not supported out of the box in mholt/archives for zip without manual read
+		// but archives.FileInfo provides LinkTarget if it is parsed
+		return "", errors.New("zip symlink unsupported")
 	default:
-		return "", archiver.ErrFormatNotRecognized
+		return "", errors.New("format not recognized")
 	}
-}
-
-type Walker interface {
-	Walk(archive string, walkFn archiver.WalkFunc) error
 }

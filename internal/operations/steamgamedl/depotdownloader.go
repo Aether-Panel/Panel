@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
-	"github.com/mholt/archiver/v3"
+	"github.com/mholt/archives"
 	"net/http"
 	"net/url"
 	"os"
@@ -43,7 +43,7 @@ func downloadDD(rootBinaryFolder string, version string) error {
 		link = strings.Replace(link, "${arch}", arch, 1)
 	}
 
-	err = skypanel.HTTPExtract(link, filepath.Join(rootBinaryFolder, "depotdownloader"), archiver.DefaultZip)
+	err = skypanel.HTTPExtract(link, filepath.Join(rootBinaryFolder, "depotdownloader"), archives.Zip{})
 	if err != nil {
 		return err
 	}

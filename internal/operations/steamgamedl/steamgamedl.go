@@ -13,7 +13,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
-	"github.com/mholt/archiver/v3"
+	"github.com/mholt/archives"
 	"github.com/spf13/cast"
 )
 
@@ -161,7 +161,7 @@ func downloadMetadata(env *skypanel.Environment) error {
 		return err
 	}
 
-	err = skypanel.HTTPExtract(SteamMetadataServerLink+metadataName, filepath.Join(env.GetRootDirectory(), ".steam"), archiver.DefaultZip)
+	err = skypanel.HTTPExtract(SteamMetadataServerLink+metadataName, filepath.Join(env.GetRootDirectory(), ".steam"), archives.Zip{})
 	if err != nil {
 		return err
 	}

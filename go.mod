@@ -167,7 +167,7 @@ require (
 	github.com/sergi/go-diff v1.4.0 // indirect
 	github.com/skeema/knownhosts v1.3.1 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
-	github.com/spf13/afero v1.14.0 // indirect
+	github.com/spf13/afero v1.15.0 // indirect
 	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/stoewer/go-strcase v1.3.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
@@ -175,7 +175,7 @@ require (
 	github.com/tklauser/numcpus v0.9.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.3.1 // indirect
-	github.com/ulikunitz/xz v0.5.14 // indirect
+	github.com/ulikunitz/xz v0.5.15 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect

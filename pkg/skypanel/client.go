@@ -6,7 +6,7 @@ import (
 
 	"github.com/SkyPanel/SkyPanel/v3/files"
 	"github.com/cavaliergopher/grab/v3"
-	"github.com/mholt/archiver/v3"
+	"github.com/mholt/archives"
 )
 
 var httpClient = &http.Client{}
@@ -19,7 +19,7 @@ func HTTPGet(requestURL string) (*http.Response, error) {
 	return httpClient.Get(requestURL)
 }
 
-func HTTPExtract(requestURL, directory string, archiveType archiver.Walker) error {
+func HTTPExtract(requestURL, directory string, archiveType archives.Extractor) error {
 	// we will write this to temp so we can not keep so much in memory
 	response, err := grab.Get(os.TempDir(), requestURL)
 	if err != nil {
