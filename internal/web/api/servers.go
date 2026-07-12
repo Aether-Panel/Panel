@@ -497,6 +497,30 @@ func deleteServer(c *gin.Context) {
 	}
 
 	if err := db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("server_identifier = ?", server.Identifier).Delete(&models.Permissions{}).Error; err != nil {
+			return err
+		}
+		
+		var clientIDs []uint
+		if err := tx.Model(&models.Client{}).Where("server_id = ?", server.Identifier).Pluck("id", &clientIDs).Error; err == nil && len(clientIDs) > 0 {
+			if err := tx.Where("client_id IN ?", clientIDs).Delete(&models.Permissions{}).Error; err != nil {
+				return err
+			}
+		}
+
+		if err := tx.Where("server_id = ?", server.Identifier).Delete(&models.UptimeStatus{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("server_id = ?", server.Identifier).Delete(&models.Backup{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("server_id = ?", server.Identifier).Delete(&models.Client{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("server_identifier = ?", server.Identifier).Delete(&models.Session{}).Error; err != nil {
+			return err
+		}
+
 		return tx.Delete(server).Error
 	}); response.HandleError(c, err, http.StatusInternalServerError) {
 		return
@@ -1533,7 +1557,7 @@ func executeServerDeletionOnNode(c *gin.Context, ns *services.Node, node *models
 		return err
 	}
 
-	if nodeResponse.StatusCode != http.StatusNoContent {
+	if nodeResponse.StatusCode != http.StatusNoContent && nodeResponse.StatusCode != http.StatusNotFound {
 		resData, err := io.ReadAll(nodeResponse.Body)
 		if err != nil {
 			logging.Error.Printf("Failed to parse response from daemon\n%s", err.Error())
