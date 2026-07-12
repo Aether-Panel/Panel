@@ -46,7 +46,7 @@ require (
 	github.com/swaggo/swag v1.16.4
 	github.com/wneessen/go-mail v0.7.1
 	golang.org/x/crypto v0.53.0
-	golang.org/x/sys v0.46.0
+	golang.org/x/sys v0.47.0
 	google.golang.org/genai v1.49.0
 	gopkg.in/go-playground/validator.v9 v9.31.0
 	gorm.io/driver/mysql v1.6.0
