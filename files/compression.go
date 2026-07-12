@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -42,10 +41,7 @@ func DetermineIfSingleRoot(ctx context.Context, sourceFile string) (bool, error)
 	var rootName string
 	var desired = errors.New("not single root")
 
-	cleaned := path.Clean(sourceFile)
-	if cleaned != sourceFile || strings.HasPrefix(cleaned, "..") {
-		return false, fmt.Errorf("%w: %s", ErrPathTraversal, sourceFile)
-	}
+	sourceFile = filepath.Clean(sourceFile)
 
 	file, err := os.Open(sourceFile)
 	if err != nil {
@@ -108,10 +104,7 @@ func Extract(fs FileServer, sourceFile, targetPath, filter string, skipRoot bool
 			return err
 		}
 	} else {
-		if filepath.IsAbs(sourceFile) {
-			return fmt.Errorf("%w: %s", ErrPathTraversal, sourceFile)
-		}
-		if cleaned := path.Clean(sourceFile); strings.HasPrefix(cleaned, "..") {
+		if !filepath.IsLocal(sourceFile) {
 			return fmt.Errorf("%w: %s", ErrPathTraversal, sourceFile)
 		}
 	}
@@ -124,11 +117,6 @@ func Extract(fs FileServer, sourceFile, targetPath, filter string, skipRoot bool
 		if err != nil {
 			return err
 		}
-	}
-
-	cleaned := path.Clean(sourceFile)
-	if cleaned != sourceFile || strings.HasPrefix(cleaned, "..") {
-		return fmt.Errorf("%w: %s", ErrPathTraversal, sourceFile)
 	}
 
 	file, err := os.Open(sourceFile)

@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -869,20 +868,12 @@ func archive(c *gin.Context) {
 	destination := c.Param("filename")
 
 	for _, f := range files {
-		if filepath.IsAbs(f) {
-			_ = c.AbortWithError(http.StatusBadRequest, fmt.Errorf("invalid file path: %s", f))
-			return
-		}
-		if cleaned := path.Clean(f); strings.HasPrefix(cleaned, "..") {
+		if !filepath.IsLocal(f) {
 			_ = c.AbortWithError(http.StatusBadRequest, fmt.Errorf("invalid file path: %s", f))
 			return
 		}
 	}
-	if filepath.IsAbs(destination) {
-		_ = c.AbortWithError(http.StatusBadRequest, fmt.Errorf("invalid destination path: %s", destination))
-		return
-	}
-	if cleaned := path.Clean(destination); strings.HasPrefix(cleaned, "..") {
+	if !filepath.IsLocal(destination) {
 		_ = c.AbortWithError(http.StatusBadRequest, fmt.Errorf("invalid destination path: %s", destination))
 		return
 	}
@@ -908,19 +899,11 @@ func extract(c *gin.Context) {
 	targetPath := c.Param("filename")
 	destination := c.Query("destination")
 
-	if filepath.IsAbs(targetPath) {
+	if !filepath.IsLocal(targetPath) {
 		_ = c.AbortWithError(http.StatusBadRequest, fmt.Errorf("invalid file path: %s", targetPath))
 		return
 	}
-	if cleaned := path.Clean(targetPath); strings.HasPrefix(cleaned, "..") {
-		_ = c.AbortWithError(http.StatusBadRequest, fmt.Errorf("invalid file path: %s", targetPath))
-		return
-	}
-	if filepath.IsAbs(destination) {
-		_ = c.AbortWithError(http.StatusBadRequest, fmt.Errorf("invalid destination path: %s", destination))
-		return
-	}
-	if cleaned := path.Clean(destination); strings.HasPrefix(cleaned, "..") {
+	if !filepath.IsLocal(destination) {
 		_ = c.AbortWithError(http.StatusBadRequest, fmt.Errorf("invalid destination path: %s", destination))
 		return
 	}
