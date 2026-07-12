@@ -36,18 +36,10 @@ func safeJoin(base, path string) (string, error) {
 	return cleaned, nil
 }
 
-func DetermineIfSingleRoot(ctx context.Context, sourceFile string) (bool, error) {
+func DetermineIfSingleRoot(ctx context.Context, sourceFile string, file io.ReadSeeker) (bool, error) {
 	isSingleRoot := true
 	var rootName string
 	var desired = errors.New("not single root")
-
-	sourceFile = filepath.Clean(sourceFile)
-
-	file, err := os.Open(sourceFile)
-	if err != nil {
-		return false, err
-	}
-	defer utils.Close(file)
 
 	format, _, err := archives.Identify(ctx, sourceFile, file)
 	if err != nil {
@@ -95,10 +87,6 @@ func DetermineIfSingleRoot(ctx context.Context, sourceFile string) (bool, error)
 func Extract(fs FileServer, sourceFile, targetPath, filter string, skipRoot bool, forcedType archives.Extractor) error {
 	if fs != nil {
 		var err error
-		sourceFile, err = safeJoin(fs.Prefix(), sourceFile)
-		if err != nil {
-			return err
-		}
 		targetPath, err = safeJoin(fs.Prefix(), targetPath)
 		if err != nil {
 			return err
@@ -107,23 +95,36 @@ func Extract(fs FileServer, sourceFile, targetPath, filter string, skipRoot bool
 		if !filepath.IsLocal(sourceFile) {
 			return fmt.Errorf("%w: %s", ErrPathTraversal, sourceFile)
 		}
+		if !filepath.IsLocal(targetPath) {
+			return fmt.Errorf("%w: %s", ErrPathTraversal, targetPath)
+		}
 	}
 
 	ctx := context.Background()
 
-	if skipRoot {
-		var err error
-		skipRoot, err = DetermineIfSingleRoot(ctx, sourceFile)
-		if err != nil {
-			return err
-		}
+	var file *os.File
+	var err error
+	if fs != nil {
+		file, err = fs.OpenFile(sourceFile, os.O_RDONLY, 0)
+	} else {
+		file, err = os.Open(sourceFile)
 	}
-
-	file, err := os.Open(sourceFile)
 	if err != nil {
 		return err
 	}
 	defer utils.Close(file)
+
+	if skipRoot {
+		var err error
+		skipRoot, err = DetermineIfSingleRoot(ctx, sourceFile, file)
+		if err != nil {
+			return err
+		}
+		_, err = file.Seek(0, io.SeekStart)
+		if err != nil {
+			return err
+		}
+	}
 
 	var extractor archives.Extractor
 	if forcedType != nil {
@@ -138,7 +139,6 @@ func Extract(fs FileServer, sourceFile, targetPath, filter string, skipRoot bool
 		if !ok {
 			return errors.New("format is not an extractor")
 		}
-		// Reset file pointer
 		_, err = file.Seek(0, io.SeekStart)
 		if err != nil {
 			return err
