@@ -865,7 +865,7 @@ func archive(c *gin.Context) {
 		return
 	}
 
-	destination := c.Param("filename")
+	destination := strings.TrimPrefix(c.Param("filename"), "/")
 
 	for _, f := range files {
 		if !filepath.IsLocal(f) {
@@ -896,14 +896,14 @@ func archive(c *gin.Context) {
 func extract(c *gin.Context) {
 	server := getServerFromGin(c)
 
-	targetPath := c.Param("filename")
+	targetPath := strings.TrimPrefix(c.Param("filename"), "/")
 	destination := c.Query("destination")
 
 	if !filepath.IsLocal(targetPath) {
 		_ = c.AbortWithError(http.StatusBadRequest, fmt.Errorf("invalid file path: %s", targetPath))
 		return
 	}
-	if !filepath.IsLocal(destination) {
+	if destination != "" && !filepath.IsLocal(destination) {
 		_ = c.AbortWithError(http.StatusBadRequest, fmt.Errorf("invalid destination path: %s", destination))
 		return
 	}

@@ -89,12 +89,6 @@ func Extract(fs FileServer, sourceFile, targetPath, filter string, skipRoot bool
 		return errors.New("fileserver is required")
 	}
 
-	var err error
-	targetPath, err = safeJoin(fs.Prefix(), targetPath)
-	if err != nil {
-		return err
-	}
-
 	file, err := fs.OpenFile(sourceFile, os.O_RDONLY, 0)
 	if err != nil {
 		return err
@@ -226,9 +220,17 @@ func walker(fs FileServer, targetPath, filter string, skipRoot bool) archives.Fi
 			path = strings.Join(strings.Split(path, PathSeparator)[1:], PathSeparator)
 		}
 
-		joined, err := safeJoin(targetPath, path)
-		if err != nil {
-			return err
+		var joined string
+		if targetPath == "" {
+			if !filepath.IsLocal(path) {
+				return ErrPathTraversal
+			}
+			joined = path
+		} else {
+			joined, err = safeJoin(targetPath, path)
+			if err != nil {
+				return err
+			}
 		}
 		parent := filepath.Dir(joined)
 		path = joined
