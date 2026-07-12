@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -14,6 +15,8 @@ import (
 	"github.com/mholt/archives"
 )
 
+var ErrPathTraversal = errors.New("path traversal detected")
+
 const PathSeparator = "/"
 
 type ExtractOptions struct {
@@ -23,6 +26,14 @@ type ExtractOptions struct {
 	Filter       string
 	SkipRoot     bool
 	ForcedWalker archives.Extractor
+}
+
+func safeJoin(base, path string) (string, error) {
+	cleaned := filepath.Clean(filepath.Join(base, path))
+	if !strings.HasPrefix(cleaned, filepath.Clean(base)+string(filepath.Separator)) && cleaned != filepath.Clean(base) {
+		return "", fmt.Errorf("%w: %s", ErrPathTraversal, path)
+	}
+	return cleaned, nil
 }
 
 func DetermineIfSingleRoot(ctx context.Context, sourceFile string) (bool, error) {
@@ -81,7 +92,17 @@ func DetermineIfSingleRoot(ctx context.Context, sourceFile string) (bool, error)
 
 func Extract(fs FileServer, sourceFile, targetPath, filter string, skipRoot bool, forcedType archives.Extractor) error {
 	if fs != nil {
-		sourceFile = filepath.Join(fs.Prefix(), sourceFile)
+		var err error
+		sourceFile, err = safeJoin(fs.Prefix(), sourceFile)
+		if err != nil {
+			return err
+		}
+		targetPath, err = safeJoin(fs.Prefix(), targetPath)
+		if err != nil {
+			return err
+		}
+	} else if strings.Contains(sourceFile, "..") {
+		return fmt.Errorf("%w: %s", ErrPathTraversal, sourceFile)
 	}
 
 	ctx := context.Background()
@@ -131,11 +152,18 @@ func Compress(fs FileServer, targetFile string, filesToCompress []string) error 
 	if fs != nil {
 		p := fs.Prefix()
 
-		targetFile = filepath.Join(p, targetFile)
+		var err error
+		targetFile, err = safeJoin(p, targetFile)
+		if err != nil {
+			return err
+		}
 
 		var expandedFiles []string
 		for _, v := range filesToCompress {
-			fullPath := filepath.Join(p, v)
+			fullPath, err := safeJoin(p, v)
+			if err != nil {
+				return err
+			}
 			if strings.Contains(v, "*") {
 				matches, _ := filepath.Glob(fullPath)
 				for _, match := range matches {
@@ -194,8 +222,12 @@ func walker(fs FileServer, targetPath, filter string, skipRoot bool) archives.Fi
 			path = strings.Join(strings.Split(path, PathSeparator)[1:], PathSeparator)
 		}
 
-		parent := filepath.Join(targetPath, filepath.Dir(path))
-		path = filepath.Join(targetPath, path)
+		joined, err := safeJoin(targetPath, path)
+		if err != nil {
+			return err
+		}
+		parent := filepath.Dir(joined)
+		path = joined
 
 		switch {
 		case file.IsDir():

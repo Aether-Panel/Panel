@@ -864,7 +864,19 @@ func archive(c *gin.Context) {
 		c.Status(http.StatusBadRequest)
 		return
 	}
+
 	destination := c.Param("filename")
+
+	for _, f := range files {
+		if strings.Contains(f, "..") {
+			_ = c.AbortWithError(http.StatusBadRequest, fmt.Errorf("invalid file path: %s", f))
+			return
+		}
+	}
+	if strings.Contains(destination, "..") {
+		_ = c.AbortWithError(http.StatusBadRequest, fmt.Errorf("invalid destination path: %s", destination))
+		return
+	}
 
 	err := server.ArchiveItems(files, destination)
 	if !response.HandleError(c, err, http.StatusInternalServerError) {
@@ -886,6 +898,16 @@ func extract(c *gin.Context) {
 
 	targetPath := c.Param("filename")
 	destination := c.Query("destination")
+
+	if strings.Contains(targetPath, "..") {
+		_ = c.AbortWithError(http.StatusBadRequest, fmt.Errorf("invalid file path: %s", targetPath))
+		return
+	}
+	if strings.Contains(destination, "..") {
+		_ = c.AbortWithError(http.StatusBadRequest, fmt.Errorf("invalid destination path: %s", destination))
+		return
+	}
+
 	_, skipRoot := c.GetQuery("skipRoot")
 
 	var err error
