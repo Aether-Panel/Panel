@@ -85,34 +85,34 @@ func DetermineIfSingleRoot(ctx context.Context, sourceFile string, file io.ReadS
 }
 
 func Extract(fs FileServer, sourceFile, targetPath, filter string, skipRoot bool, forcedType archives.Extractor) error {
-	if fs != nil {
-		var err error
-		targetPath, err = safeJoin(fs.Prefix(), targetPath)
-		if err != nil {
-			return err
-		}
-	} else {
-		if !filepath.IsLocal(sourceFile) {
-			return fmt.Errorf("%w: %s", ErrPathTraversal, sourceFile)
-		}
-		if !filepath.IsLocal(targetPath) {
-			return fmt.Errorf("%w: %s", ErrPathTraversal, targetPath)
-		}
+	if fs == nil {
+		return errors.New("fileserver is required")
 	}
 
-	ctx := context.Background()
-
-	var file *os.File
 	var err error
-	if fs != nil {
-		file, err = fs.OpenFile(sourceFile, os.O_RDONLY, 0)
-	} else {
-		file, err = os.Open(sourceFile)
+	targetPath, err = safeJoin(fs.Prefix(), targetPath)
+	if err != nil {
+		return err
 	}
+
+	file, err := fs.OpenFile(sourceFile, os.O_RDONLY, 0)
 	if err != nil {
 		return err
 	}
 	defer utils.Close(file)
+
+	return extractFile(file, sourceFile, targetPath, filter, skipRoot, forcedType, fs)
+}
+
+func ExtractFromReader(reader io.ReadSeeker, sourceFile, targetPath, filter string, skipRoot bool, forcedType archives.Extractor) error {
+	if !filepath.IsLocal(targetPath) {
+		return fmt.Errorf("%w: %s", ErrPathTraversal, targetPath)
+	}
+	return extractFile(reader, sourceFile, targetPath, filter, skipRoot, forcedType, nil)
+}
+
+func extractFile(file io.ReadSeeker, sourceFile, targetPath, filter string, skipRoot bool, forcedType archives.Extractor, fs FileServer) error {
+	ctx := context.Background()
 
 	if skipRoot {
 		var err error

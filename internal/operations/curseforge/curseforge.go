@@ -133,9 +133,10 @@ func (c CurseForge) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 		return skypanel.OperationResult{Error: err}
 	}
 	singleRoot, _ := files.DetermineIfSingleRoot(context.Background(), serverZipPath, f)
-	f.Close()
+	_, _ = f.Seek(0, io.SeekStart)
 
-	err = files.Extract(nil, serverZipPath, env.GetRootDirectory(), "*", singleRoot, nil)
+	err = files.ExtractFromReader(f, serverZipPath, env.GetRootDirectory(), "*", singleRoot, nil)
+	_ = f.Close()
 	if err != nil {
 		return skypanel.OperationResult{Error: err}
 	}
