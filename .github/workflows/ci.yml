@@ -111,7 +111,7 @@ jobs:
           install-go: false
 
       - name: Run gosec (Go Security)
-        uses: securego/gosec@11023e51e1f46c4ea63315bdb7670f073442168f # master
+        uses: securego/gosec@849570622f56a251c015c0e2417aebafc0216e17 # master
         with:
           args: -exclude=G104,G107,G115,G122,G204,G301,G302,G304,G306,G702,G703,G706 ./...
 
