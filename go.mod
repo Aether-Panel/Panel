@@ -3,8 +3,8 @@ module github.com/SkyPanel/SkyPanel/v3
 go 1.25.0
 
 require (
-	github.com/MicahParks/jwkset v0.9.6
-	github.com/MicahParks/keyfunc/v3 v3.4.0
+	github.com/MicahParks/jwkset v0.11.0
+	github.com/MicahParks/keyfunc/v3 v3.8.0
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751
 	github.com/braintree/manners v0.0.0-20160418043613-82a8879fc5fd
 	github.com/cavaliergopher/grab/v3 v3.0.1
