@@ -1,123 +1,254 @@
 # Referencia de Comandos CLI
 
-Aether Panel incluye una potente herramienta de línea de comandos (CLI) que te permite gestionar el panel, crear usuarios, realizar tareas de mantenimiento y ejecutar el servidor.
+Aether Panel incluye una CLI construida con **Cobra** que permite gestionar el panel, crear usuarios, ejecutar migraciones y más.
 
-> **Nota**: Aether Panel es el nombre oficial del proyecto. **SkyPanel** es el nombre en clave (codename) utilizado en el binario CLI (`skypanel`), servicios del sistema y código fuente. Versión actual: **1.0.1**.
-
-Esta guía cubre los comandos esenciales para instalar, configurar y ejecutar Aether Panel.
+> **Nota:** El binario se compila desde `cmd/panel/main.go`. El nombre interno del comando raíz es `SkyPanel`, pero el archivo binario se genera como `skypanel` (o `skypanel.exe` en Windows).
 
 ---
 
-## 1. Compilación e Instalación
+## 0. Uso con Docker
 
-Antes de poder usar los comandos CLI, necesitas compilar el binario del proyecto.
+Si ejecutas el panel dentro de un contenedor Docker (imagen `ghcr.io/aether-panel/panel`), no puedes ejecutar el binario directamente en el host. Usa `docker exec` para interactuar con la CLI del contenedor en ejecución.
+
+### Ejecutar Comandos en el Contenedor
+
+```bash
+# Acceder al shell del contenedor
+docker exec -it skypanel sh
+
+# O ejecutar comandos directamente
+docker exec -it skypanel /SkyPanel/bin/SkyPanel version
+docker exec -it skypanel /SkyPanel/bin/SkyPanel user add --admin
+docker exec -it skypanel /SkyPanel/bin/SkyPanel db upgrade
+```
+
+> **Ruta del binario dentro del contenedor:** `/SkyPanel/bin/SkyPanel`
+
+### Usando docker-compose
+
+Con el archivo `docker-compose.yml` incluido en el repositorio:
+
+```bash
+# Iniciar servicios
+docker compose up -d
+
+# Ejecutar CLI en el contenedor en ejecución
+docker compose exec skypanel /SkyPanel/bin/SkyPanel user add --admin
+
+# Ver logs
+docker compose logs -f skypanel
+```
+
+### Ejemplo: Crear Admin en Docker
+
+```bash
+docker exec -it skypanel /SkyPanel/bin/SkyPanel user add \
+  --name "admin" \
+  --email "admin@example.com" \
+  --admin
+```
+
+### Ejemplo: Migrar Base de Datos en Docker
+
+```bash
+docker exec -it skypanel /SkyPanel/bin/SkyPanel db upgrade
+```
+
+### Notas para Docker
+
+- El binario dentro del contenedor está en `/SkyPanel/bin/SkyPanel` (con S mayúscula).
+- La config dentro del contenedor está en `/etc/SkyPanel/config.json`.
+- Los datos persistentes están en `/var/lib/SkyPanel/`.
+- Puedes verificar que el contenedor esté funcionando con `docker ps` antes de ejecutar comandos.
+
+---
+
+## 1. Compilación (sin Docker)
 
 ### Requisitos Previos
-Asegúrate de estar en el directorio raíz del proyecto y tener Go instalado (versión 1.21+).
+- Go 1.25+
+- Acceso a `cmd/panel/main.go`
 
-### Comando de Compilación
-Para generar el ejecutable `./skypanel` (nombre en clave), ejecuta el siguiente comando:
-
+### Build Básico
 ```bash
-go build -o skypanel ./cmd
+go build -o skypanel ./cmd/panel
 ```
 
-> **Nota**: Esto creará un archivo binario llamado `skypanel` (nombre en clave) en tu directorio actual. Si estás en Windows, se creará `skypanel.exe`. El nombre del binario usa el nombre en clave por razones de compatibilidad histórica.
+### Build con Versión Personalizada
+```bash
+go build -ldflags "-X 'github.com/SkyPanel/SkyPanel/v3.Version=1.2.0' -X 'github.com/SkyPanel/SkyPanel/v3.Hash=$(git rev-parse --short HEAD)'" -o skypanel ./cmd/panel
+```
+
+### Usando Makefile
+```bash
+make build    # Genera bin/skypanel
+make run      # Ejecuta go run ./cmd/panel/main.go
+```
 
 ---
 
-## 2. Crear Cuenta de Administrador
+## 2. Comandos Disponibles
 
-Una vez compilado el binario, el paso más importante es crear tu primera cuenta de usuario con privilegios de administrador. Esto es necesario para poder iniciar sesión en el panel web.
+| Comando | Descripción |
+|---------|-------------|
+| `run` | Inicia el panel completo (web, daemon SFTP, planificador) |
+| `runService` | Inicia como servicio systemd con notificación `NOTIFY_SOCKET` |
+| `version` | Muestra la versión del panel |
+| `user` | Gestión de usuarios (subcomandos: `add`, `edit`) |
+| `db` | Operaciones de base de datos (subcomandos: `upgrade`, `migrate`) |
 
-### Comando para Crear Admin
+### Flags Globales
 
-Usa el siguiente comando para crear un usuario administrador instantáneamente:
+| Flag | Descripción |
+|------|-------------|
+| `--workDir` | Cambia el directorio de trabajo antes de iniciar |
+| `--config` | Ruta al archivo de configuración JSON |
 
-```bash
-./skypanel user add --name "ADMIN" --email "admin@admin.com" --admin --password "admin1234"
-```
-
-### Desglose de Parámetros
-
-| Parámetro | Descripción | Ejemplo |
-|-----------|-------------|---------|
-| `--name` | Nombre de usuario para iniciar sesión | `"ADMIN"` |
-| `--email` | Dirección de correo electrónico del usuario | `"admin@admin.com"` |
-| `--admin` | Bandera que otorga permisos de superusuario | *(sin valor)* |
-| `--password` | Contraseña para la cuenta | `"admin1234"` |
-
-> **Importante**: Si no proporcionas la contraseña mediante la bandera `--password`, el sistema te la pedirá de forma interactiva por seguridad.
+Ambos flags están disponibles en **todos** los subcomandos.
 
 ---
 
-## 3. Inicialización y Ejecución
-
-Para iniciar el servidor web y todos los servicios de Aether Panel (incluyendo SFTP y Gatus), utiliza el comando `run`.
-
-### Iniciar el Panel
+## 3. `run` — Iniciar el Panel
 
 ```bash
 ./skypanel run
 ```
 
-Este comando:
-1.  Iniciará el servidor web en el puerto configurado (por defecto `8080`).
-2.  Iniciará los servicios internos.
-3.  Mostrará logs en la consola en tiempo real.
+Inicializa y arranca todos los servicios del panel:
 
-> **Tip**: Para ejecutarlo en segundo plano o como servicio del sistema, consulta la [Guía de Instalación](../setup/01-installation.md).
+1. Carga la configuración desde `config.json`.
+2. Conecta a la base de datos (SQLite, MySQL, PostgreSQL o SQL Server).
+3. Inicia el **servidor HTTP** (API REST + panel web) en el puerto configurado (default `8080`).
+4. Inicia el **servidor SFTP** (puerto default `5657`).
+5. Inicia el **planificador de tareas** (gocron).
+6. Inicia la gestión de **servidores de juego** (carga servidores existentes, inicia el daemon).
+7. Muestra logs en consola en tiempo real.
+
+```bash
+# Usar directorio y config personalizados
+./skypanel run --workDir /opt/skypanel --config /opt/skypanel/production.json
+```
 
 ---
 
-## 4. Otros Comandos Útiles
+## 4. `runService` — Servicio systemd
 
-Aquí tienes una referencia rápida de otros sub-comandos disponibles en el CLI.
-
-### Gestión de Usuarios
-
-**Listar usuarios:**
 ```bash
-./skypanel user list
+./skypanel runService
 ```
 
-**Eliminar un usuario:**
-```bash
-./skypanel user delete --email "usuario@ejemplo.com"
-```
+Idéntico a `run`, pero además notifica a systemd vía `NOTIFY_SOCKET`:
+- Envía `READY=1` cuando el panel está listo.
+- Envía `STOPPING=1` durante el apagado.
 
-**Cambiar contraseña:**
-```bash
-./skypanel user password --email "admin@admin.com" --password "NuevaClave123"
-```
+Útil para integrar con unidades systemd tipo `Type=notify`.
 
-### Gestión de Base de Datos
+---
 
-**Migrar base de datos (Actualizar esquema):**
-Útil cuando actualizas Aether Panel a una nueva versión (actualmente versión 1.0.1).
-```bash
-./skypanel db migrate
-```
+## 5. `version` — Versión
 
-### Versión
-
-**Ver la versión actual:**
 ```bash
 ./skypanel version
 ```
 
+Muestra la versión del panel. Por defecto: `SkyPanel nightly (unknown)`. Se puede personalizar en tiempo de compilación con `-ldflags` (ver sección 1).
+
 ---
 
-## Solución de Problemas Comunes
+## 6. `user` — Gestión de Usuarios
 
-**Error: "permission denied" al ejecutar**
-Si recibes un error de permisos, asegúrate de que el binario tiene permisos de ejecución:
+### 6.1. `user add` — Crear Usuario
+
 ```bash
-chmod +x skypanel
+./skypanel user add --name "admin" --email "admin@example.com" --admin --password "clave_segura"
 ```
 
-**Error: "address already in use"**
-Si al ejecutar `./skypanel run` ves este error, significa que el puerto 8080 ya está ocupado.
-- Verifica si ya tienes una instancia de Aether Panel corriendo.
-- O edita `config.json` para cambiar el puerto.
+Todos los flags son **opcionales**. Si se omite alguno, el sistema lo solicitará de forma interactiva:
 
+| Flag | Descripción |
+|------|-------------|
+| `--name` | Nombre de usuario |
+| `--email` | Correo electrónico |
+| `--admin` | Otorga permisos de administrador |
+| `--password` | Contraseña (si se omite, se solicita con confirmación) |
+
+El comando:
+1. Valida el formato del username, email y fortaleza de la contraseña.
+2. Conecta a la base de datos.
+3. Crea el usuario con permisos `ScopeLogin` + `ScopeAdmin` (si `--admin`).
+
+### 6.2. `user edit` — Editar Usuario (Interactivo)
+
+```bash
+./skypanel user edit
+```
+
+Comando **totalmente interactivo** (sin flags). Pasos:
+
+1. Solicita el nombre de usuario a editar.
+2. Muestra un menú interactivo con opciones:
+
+   | Opción | Acción |
+   |--------|--------|
+   | **Username** | Cambiar nombre de usuario |
+   | **Email** | Cambiar correo electrónico |
+   | **Password** | Cambiar contraseña |
+   | **Admin Status** | Agregar o quitar permisos de administrador |
+   | **Remove 2FA** | Deshabilitar autenticación de dos factores |
+   | **Quit** | Salir |
+
+3. Permite realizar múltiples cambios en la misma sesión.
+
+---
+
+## 7. `db` — Base de Datos
+
+### 7.1. `db upgrade` — Migraciones
+
+```bash
+./skypanel db upgrade
+```
+
+Ejecuta las migraciones de esquema de base de datos. Útil después de actualizar el panel a una nueva versión.
+
+- **SQLite:** Realiza un backup automático del archivo (`skypanel.db.0.backup`, `skypanel.db.1.backup`, ...) antes de migrar.
+- **Otros dialectos:** Ejecuta migraciones directamente.
+- Si la migración falla, restaura automáticamente el backup (SQLite).
+
+### 7.2. `db migrate` — Cambiar de Motor (Experimental)
+
+```bash
+./skypanel db migrate
+```
+
+> **Nota:** Este comando actualmente es un **stub** y no ejecuta ninguna acción. Está diseñado para migrar datos entre dialectos de base de datos (ej: SQLite → MySQL) en el futuro.
+
+---
+
+## Resumen Rápido
+
+```bash
+# Compilar
+go build -o skypanel ./cmd/panel
+
+# Versión
+./skypanel version
+
+# Crear admin
+./skypanel user add --name admin --email admin@example.com --admin
+
+# Editar usuario (interactivo)
+./skypanel user edit
+
+# Iniciar panel
+./skypanel run
+
+# Iniciar como servicio
+./skypanel runService
+
+# Migrar base de datos
+./skypanel db upgrade
+
+# Con flags globales
+./skypanel --workDir /data/skypanel --config /data/skypanel/config.json run
+```

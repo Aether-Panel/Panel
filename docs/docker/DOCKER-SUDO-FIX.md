@@ -1,184 +1,66 @@
-# Aether Panel en Docker con Sudo
+# Docker Socket y Permisos
 
-> **Nota**: Aether Panel es el nombre oficial del proyecto. **SkyPanel** es el nombre en clave (codename) utilizado en contenedores Docker e imágenes. Versión actual: **1.0.1**.
+El panel necesita acceso al socket de Docker para orquestar contenedores de servidores de juego. Esto aplica tanto en desarrollo como en producción.
 
-## Problema Detectado
+## Montaje del Socket
 
-Tu usuario necesita **sudo** para ejecutar Docker. Hay dos soluciones:
+En ambos `docker-compose.yml` y `docker-compose.dev.yml` el socket se monta así:
 
----
-
-## Solución 1: Agregar Usuario al Grupo Docker (Recomendado)
-
-Esto te permitirá usar Docker sin sudo:
-
-```bash
-# 1. Agregar tu usuario al grupo docker
-sudo usermod -aG docker $USER
-
-# 2. Aplicar cambios (elige una opción)
-# Opción A: Reiniciar sesión (cerrar y volver a entrar)
-# Opción B: Ejecutar esto (temporal)
-newgrp docker
-
-# 3. Verificar que funciona
-docker ps
-
-# 4. Ejecutar quickstart
-./quickstart-docker.sh
+```yaml
+volumes:
+  - /var/run/docker.sock:/var/run/docker.sock
 ```
 
----
+## Gestión de Servidores
 
-## Solución 2: Usar con Sudo (Rápido)
+El panel ejecuta cada servidor de juego en su propio contenedor Docker. Para esto requiere:
 
-Si no quieres cambiar permisos, ejecuta con sudo:
-
-```bash
-# El script detectará automáticamente que necesitas sudo
-# y te preguntará si quieres continuar
-./quickstart-docker.sh
-```
-
-Cuando veas:
-```
-Docker requiere sudo
-   Para usar sin sudo, ejecuta:
-   sudo usermod -aG docker esteban
-   newgrp docker
-
-¿Continuar con sudo? (y/N):
-```
-
-Presiona **`y`** y Enter para continuar.
-
----
-
-## Comandos Rápidos
-
-### Con Permisos de Docker (después de Solución 1)
-```bash
-./quickstart-docker.sh          # Inicio automático
-./docker-test.sh build          # Construir imagen
-./docker-test.sh start          # Iniciar contenedor
-./docker-test.sh admin          # Crear usuario admin
-```
-
-### Con Sudo (Solución 2)
-```bash
-# Los scripts detectarán automáticamente que necesitas sudo
-./quickstart-docker.sh          # Te preguntará si continuar con sudo
-
-# O ejecuta comandos directamente con sudo
-sudo docker build -t skypanel:latest .
-sudo docker-compose -f docker-compose.dev.yml up -d
-```
-
----
-
-## Verificar Estado de Docker
-
-```bash
-# Ver si Docker está corriendo
-sudo systemctl status docker
-
-# Iniciar Docker si no está corriendo
-sudo systemctl start docker
-
-# Habilitar Docker al inicio
-sudo systemctl enable docker
-
-# Verificar que puedes usar Docker
-docker ps                    # Sin sudo (después de Solución 1)
-sudo docker ps              # Con sudo (Solución 2)
-```
-
----
-
-## Después de Iniciar
-
-Una vez que el contenedor esté corriendo:
-
-1. **Crear usuario admin**:
-   ```bash
-   ./docker-test.sh admin
-   # O con sudo:
-   sudo docker exec -it skypanel-dev /SkyPanel/bin/SkyPanel user add \
-     --email admin@example.com \
-     --password tu-contraseña \
-     --admin
-   ```
-
-2. **Acceder al panel**:
-   - Panel Web: http://localhost:8080
-   - Gatus: http://localhost:8081
-   - SFTP: localhost:5657
-
-3. **Ver logs**:
-   ```bash
-   ./docker-test.sh logs
-   # O:
-   sudo docker logs -f skypanel-dev
-   ```
-
----
+1. Acceso al socket Docker del host
+2. Permisos para crear/eliminar contenedores
+3. La configuración `PUFFER_DOCKER_DISALLOWHOST=true` para forzar el uso de Docker (deshabilitando entornos host/TTY)
 
 ## Solución de Problemas
 
-### Docker no está corriendo
-```bash
-sudo systemctl start docker
-sudo systemctl status docker
+### Error: "Cannot connect to the Docker daemon"
+
+1. Verificar que Docker está corriendo en el host:
+   ```bash
+   sudo systemctl status docker
+   ```
+
+2. Verificar que el socket existe:
+   ```bash
+   ls -la /var/run/docker.sock
+   ```
+
+3. Verificar que el contenedor ve el socket:
+   ```bash
+   docker exec skypanel ls -la /var/run/docker.sock
+   ```
+
+### Error: "permission denied" al acceder al socket
+
+El socket Docker tiene permisos `srw-rw----` (socket, owner root, group docker). El usuario `SkyPanel` (UID 1000) dentro del contenedor necesita acceso.
+
+**Solución en producción (`docker-compose.yml`):**
+El contenedor ejecuta como root (`user: "0:0"`), lo que evita problemas de permisos.
+
+**Solución en desarrollo (`docker-compose.dev.yml`):**
+Usa `privileged: true` y `user: "0:0"`, que también evita restricciones.
+
+### El host no tiene Docker
+
+Si el panel corre sin Docker en el host (ej: servidor sin Docker), deshabilitar el uso de Docker:
+
+```yaml
+environment:
+  - PUFFER_DOCKER_DISALLOWHOST=false
 ```
 
-### No puedo ejecutar docker sin sudo
-```bash
-# Agregar usuario al grupo
-sudo usermod -aG docker $USER
+Y quitar el montaje del socket. El panel usará entornos TTY en su lugar.
 
-# Aplicar cambios
-newgrp docker
+### Seguridad
 
-# O reinicia tu sesión
-```
-
-### El puerto 8080 está en uso
-```bash
-# Ver qué está usando el puerto
-sudo netstat -tulpn | grep 8080
-
-# O cambiar el puerto en docker-compose.dev.yml
-# Edita la línea: "8080:8080" por "9000:8080"
-```
-
----
-
-## Recomendación
-
-**Para desarrollo**: Usa la **Solución 1** (agregar usuario al grupo docker)
-- Más cómodo
-- No necesitas sudo cada vez
-- Es la forma estándar
-
-**Para prueba rápida**: Usa la **Solución 2** (con sudo)
-- Más rápido
-- No cambia permisos del sistema
-- Bueno para pruebas temporales
-
----
-
-## Siguiente Paso
-
-Ejecuta uno de estos comandos según tu elección:
-
-```bash
-# Solución 1 (recomendado)
-sudo usermod -aG docker $USER && newgrp docker
-./quickstart-docker.sh
-
-# Solución 2 (rápido)
-./quickstart-docker.sh
-# (presiona 'y' cuando pregunte)
-```
-
-¡Listo!
+- El socket Docker montado otorga control total sobre Docker del host
+- En producción, asegurar que solo usuarios confiables tengan acceso al host
+- Considerar usar `docker.sock` con proxies de autorización como `alexellis/faas-netes` o `docker-socket-proxy`

@@ -1,310 +1,104 @@
-# Configuración Docker Completa
+# Referencia Rápida Docker
 
-> **Nota**: Aether Panel es el nombre oficial del proyecto. **SkyPanel** es el nombre en clave (codename) utilizado en contenedores Docker, imágenes y código fuente. Versión actual: **1.0.1**.
-
-## Archivos Creados
-
-He creado una configuración completa de Docker para que puedas probar Aether Panel fácilmente:
-
-### Archivos Principales
-
-1. **`docker-compose.yml`** - Configuración de producción
-2. **`docker-compose.dev.yml`** - Configuración de desarrollo/pruebas
-3. **`docker-test.sh`** - Script completo de gestión
-4. **`quickstart-docker.sh`** - Script de inicio rápido
-5. **`README.docker.md`** - Documentación completa
-6. **`.dockerignore`** - Optimización de build
-
----
-
-## Inicio Rápido (3 Pasos)
-
-### Opción 1: Script Automático (Más Fácil)
+## Imágenes
 
 ```bash
-# Ejecutar todo automáticamente
-./quickstart-docker.sh
+# Construir imagen principal
+docker build -t skypanel:latest .
+
+# Build multi-plataforma
+docker build --platform linux/amd64 -t skypanel:latest .
+docker build --platform linux/arm64 -t skypanel:latest .
+
+# Dockerfiles auxiliares
+docker build -f Dockerfile-curseforge -t curseforge-tester .
+docker build -f Dockerfile-templatetester -t template-tester .
+docker build -f Dockerfile-formatter -t formatter .
 ```
 
-Este script hará:
-- Verificar Docker
-- Construir la imagen (10-15 min)
-- Iniciar el contenedor
-- Mostrar URLs de acceso
-
-### Opción 2: Paso a Paso
+## Docker Compose
 
 ```bash
-# 1. Construir imagen
-./docker-test.sh build
-
-# 2. Iniciar contenedor
-./docker-test.sh start
-
-# 3. Crear usuario admin
-./docker-test.sh admin
-```
-
----
-
-## Acceso al Panel
-
-Una vez iniciado:
-
-- **Panel Web**: http://localhost:8080
-- **Gatus (Monitoring)**: http://localhost:8081
-- **SFTP**: localhost:5657
-
----
-
-## Comandos Disponibles
-
-### Script de Gestión (`docker-test.sh`)
-
-```bash
-./docker-test.sh build      # Construir imagen
-./docker-test.sh start      # Iniciar contenedor
-./docker-test.sh stop       # Detener contenedor
-./docker-test.sh logs       # Ver logs en tiempo real
-./docker-test.sh status     # Ver estado
-./docker-test.sh shell      # Abrir shell
-./docker-test.sh admin      # Crear usuario admin
-./docker-test.sh clean      # Limpiar todo
-./docker-test.sh rebuild    # Reconstruir
-./docker-test.sh help       # Ver ayuda
-```
-
-### Docker Compose Directo
-
-```bash
-# Desarrollo
-docker-compose -f docker-compose.dev.yml up -d
-docker-compose -f docker-compose.dev.yml logs -f
-docker-compose -f docker-compose.dev.yml down
-
-# Producción
+# Producción (Panel + MariaDB)
 docker-compose up -d
+
+# Desarrollo (Panel standalone, SQLite)
+docker-compose -f docker-compose.dev.yml up -d
+
+# Logs
 docker-compose logs -f
+docker-compose -f docker-compose.dev.yml logs -f
+
+# Detener
 docker-compose down
-```
-
----
-
-## Estructura de Datos
-
-### Modo Desarrollo
-```
-dev-data/
-├── config/     # Configuración
-├── data/       # Base de datos y servidores
-└── logs/       # Logs
-```
-
-### Modo Producción
-```
-Volúmenes Docker:
-- skypanel-config
-- skypanel-data
-- skypanel-logs
-```
-
----
-
-## Configuración
-
-### Puertos Expuestos
-
-- **8080** - Panel Web
-- **5657** - SFTP
-- **8081** - Gatus (Monitoring)
-
-### Variables de Entorno
-
-Edita `docker-compose.yml` o `docker-compose.dev.yml`:
-
-```yaml
-environment:
-  - GIN_MODE=release
-  - PUFFER_WEB_HOST=0.0.0.0:8080
-  - PUFFER_PANEL_REGISTRATIONENABLED=true
-  - PUFFER_PANEL_SETTINGS_COMPANYNAME=Aether Panel
-```
-
----
-
-## Gestión del Contenedor
-
-### Ver Logs
-
-```bash
-# Con el script
-./docker-test.sh logs
-
-# Directo
-docker logs -f skypanel-dev
-```
-
-### Ejecutar Comandos
-
-```bash
-# Shell interactivo
-./docker-test.sh shell
-
-# Comando específico
-docker exec skypanel-dev /SkyPanel/bin/SkyPanel version
-```
-
-### Crear Usuario Admin
-
-```bash
-# Con el script (interactivo)
-./docker-test.sh admin
-
-# Manualmente
-docker exec -it skypanel-dev /SkyPanel/bin/SkyPanel user add \
-  --email admin@example.com \
-  --password tu-contraseña \
-  --admin
-```
-
----
-
-## Backup y Restauración
-
-### Hacer Backup
-
-```bash
-# Desarrollo (archivos locales)
-tar -czf backup-$(date +%Y%m%d).tar.gz dev-data/
-
-# Producción (volúmenes Docker)
-docker run --rm \
-  -v skypanel-data:/data \
-  -v $(pwd):/backup \
-  alpine tar -czf /backup/backup-$(date +%Y%m%d).tar.gz /data
-```
-
-### Restaurar Backup
-
-```bash
-# Desarrollo
-tar -xzf backup-YYYYMMDD.tar.gz
-
-# Producción
-docker run --rm \
-  -v skypanel-data:/data \
-  -v $(pwd):/backup \
-  alpine tar -xzf /backup/backup-YYYYMMDD.tar.gz -C /
-```
-
----
-
-## Solución de Problemas
-
-### El contenedor no inicia
-
-```bash
-# Ver logs
-docker logs skypanel-dev
-
-# Verificar configuración
-docker-compose -f docker-compose.dev.yml config
-
-# Verificar puertos
-sudo netstat -tulpn | grep -E '8080|5657|8081'
-```
-
-### Error de permisos de Docker
-
-```bash
-# Agregar usuario al grupo docker
-sudo usermod -aG docker $USER
-newgrp docker
-
-# Verificar
-docker ps
-```
-
-### No puedo acceder al panel
-
-```bash
-# Verificar que está corriendo
-./docker-test.sh status
-
-# Verificar conectividad
-curl http://localhost:8080
-
-# Ver logs
-./docker-test.sh logs
-```
-
----
-
-## Limpieza
-
-### Limpiar Todo
-
-```bash
-# Con el script (interactivo)
-./docker-test.sh clean
-
-# Manualmente
 docker-compose -f docker-compose.dev.yml down -v
-docker rmi skypanel:latest
-rm -rf dev-data/
 ```
 
-### Solo Detener
+## Comandos del Panel
 
 ```bash
-./docker-test.sh stop
+# Crear usuario admin
+docker exec -it skypanel /SkyPanel/bin/SkyPanel user add --name admin --email admin@example.com --admin
+
+# Shell
+docker exec -it skypanel sh
+
+# Versión
+docker exec skypanel /SkyPanel/bin/SkyPanel version
+
+# Migraciones manuales
+docker exec skypanel /SkyPanel/bin/SkyPanel db migrate
 ```
 
----
+## Puertos
 
-## Documentación Completa
+| Puerto | Servicio | Prod | Dev |
+|---|---|---|---|
+| `8080` | Panel Web | sí | sí |
+| `5657` | SFTP | sí | sí |
+| `3306` | MariaDB | sí | no |
 
-Para más detalles, consulta:
+## Volúmenes
+
+| Ruta | Propósito | Prod | Dev |
+|---|---|---|---|
+| `./storage/skypanel-config/` | Config | sí | no |
+| `./storage/skypanel-data/` | Datos | sí | no |
+| `./storage/skypanel-logs/` | Logs | sí | no |
+| `./storage/mysql-data/` | BD MySQL | sí | no |
+| `./dev-data/data/` | Datos | no | sí |
+| `./dev-data/logs/` | Logs | no | sí |
+
+## Variables Comunes
 
 ```bash
-# Ver documentación completa
-cat README.docker.md
+# Cambiar a SQLite (dev)
+PUFFER_PANEL_DATABASE_DIALECT=sqlite3
 
-# Ver ayuda del script
-./docker-test.sh help
+# Personalizar marca
+PUFFER_PANEL_SETTINGS_COMPANYNAME="Mi Panel"
+
+# Template URL
+PUFFER_TEMPLATES_URL=https://templates.aetherpanel.es/templates.json
+
+# Gemini API Key
+PUFFER_PANEL_SETTINGS_GEMINIAPIKEY=tu-api-key
+
+# Discord Webhooks
+PUFFER_PANEL_NOTIFICATIONS_DISCORDWEBHOOK=https://discord.com/api/webhooks/...
 ```
 
----
+## Solución Rápida
 
-## Próximos Pasos
+```bash
+# 1. Iniciar
+docker-compose up -d
 
-1. **Iniciar**: `./quickstart-docker.sh`
-2. **Crear Admin**: `./docker-test.sh admin`
-3. **Acceder**: http://localhost:8080
-4. **Crear Servidor**: Desde el panel web
-5. **Monitorear**: http://localhost:8081
+# 2. Ver logs hasta que esté listo
+docker-compose logs -f
 
----
+# 3. Crear admin
+docker exec -it skypanel /SkyPanel/bin/SkyPanel user add --name admin --email admin@example.com --admin
 
-## Tips
-
-- **Primera construcción**: Tarda 10-15 minutos
-- **Datos persistentes**: Se guardan en `dev-data/` o volúmenes Docker
-- **Logs en tiempo real**: `./docker-test.sh logs`
-- **Reinicio rápido**: `./docker-test.sh restart`
-- **Limpiar y empezar de nuevo**: `./docker-test.sh clean && ./quickstart-docker.sh`
-
----
-
-## Ayuda
-
-Si tienes problemas:
-
-1. Verifica que Docker esté corriendo: `docker ps`
-2. Revisa los logs: `./docker-test.sh logs`
-3. Verifica el estado: `./docker-test.sh status`
-4. Lee la documentación: `cat README.docker.md`
-
----
-
-¡Disfruta probando Aether Panel en Docker!
+# 4. Abrir http://localhost:8080
+```

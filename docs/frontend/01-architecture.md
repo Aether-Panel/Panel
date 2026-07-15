@@ -2,62 +2,117 @@
 
 Este documento detalla la estructura, las tecnologías y la arquitectura general de la interfaz de usuario (frontend) de Aether Panel.
 
-## Visión General del Espacio de Trabajo (Monorepo)
+## Stack Tecnológico
 
-El directorio `client/` utiliza un enfoque de **Monorepo** basado en Yarn Workspaces. Esta estructura divide el código del cliente en dos paquetes principales que se intercomunican:
+| Tecnología | Versión | Uso |
+|---|---|---|
+| **Astro** | ^6.4.6 | Framework web con arquitectura de Islas, enrutamiento basado en archivos (`src/pages/`) |
+| **React** | ^19.2.7 | Componentes interactivos de UI |
+| **Tailwind CSS** | ^3.4.1 | Estilos utilitarios |
+| **Shadcn UI / Radix UI** | — | 35+ componentes accesibles (Dialog, Select, Tabs, etc.) |
+| **react-hook-form** | ^7.54.2 | Manejo de formularios |
+| **zod** | ^3.24.2 | Validación de esquemas |
+| **Monaco Editor** | ^4.6.1 | Editor de código/configuraciones en el navegador |
+| **Genkit** | ^1.28.0 | Integración con Google GenAI para análisis de logs |
+| **recharts** | ^2.15.1 | Gráficos de métricas (CPU, RAM) |
+| **lucide-react** | ^0.475.0 | Iconos |
+| **clsx + tailwind-merge** | — | Manejo condicional de clases CSS |
 
-1.  **`api`**: Un envoltorio (Wrapper/SDK) encargado exclusivamente de la comunicación HTTP con el backend en Go.
-2.  **`frontend`**: La aplicación web real encargada de la interfaz gráfica y la experiencia de usuario.
+## Estructura de Directorios (`frontend/src/`)
 
----
+```
+src/
+├── ai/                      # Lógica de Genkit AI (flows, prompts)
+│   ├── genkit.ts            # Configuración del cliente Genkit
+│   ├── dev.ts               # Utilidad de desarrollo
+│   └── flows/               # Flujos de IA (summarize, troubleshooting)
+├── components/              # Componentes visuales
+│   ├── ui/                  # 35+ componentes Shadcn/Radix UI
+│   ├── AppShell.tsx         # Layout principal del dashboard
+│   ├── AuthShell.tsx        # Layout de autenticación
+│   ├── metrics-charts.tsx   # Gráficos de métricas
+│   ├── network-usage-chart.tsx
+│   ├── resource-usage-chart.tsx
+│   ├── page-header.tsx
+│   ├── PageWrappers.tsx
+│   ├── logo.tsx
+│   └── ErrorBoundary.tsx
+├── contexts/                # Estado global de React
+│   ├── providers.tsx        # AuthContext + Providers wrapper
+│   ├── config-context.tsx   # ConfigContext (branding, temas desde /api/config)
+│   └── translations-context.tsx  # i18n (en/es)
+├── features/                # Lógica agrupada por dominio
+│   ├── auth/                # Login, registro
+│   ├── dashboard/           # Panel principal con métricas globales
+│   ├── database-hosts/      # Administración de hosts de base de datos
+│   ├── nodes/               # Gestión de nodos
+│   ├── profile/             # Perfil de usuario
+│   ├── roles/               # Roles y permisos
+│   ├── servers/             # CRUD, consola, archivos, backups, plugins
+│   ├── settings/            # Configuración del panel
+│   ├── templates/           # Plantillas de servidores
+│   └── users/               # Usuarios globales
+├── hooks/                   # Custom hooks de React
+│   ├── use-dashboard-data.ts
+│   ├── use-database-hosts.ts
+│   ├── use-mobile.tsx
+│   ├── use-nodes.ts
+│   ├── use-profile.ts
+│   ├── use-server-settings.ts
+│   ├── use-servers.ts
+│   ├── use-settings.ts
+│   ├── use-templates.ts
+│   ├── use-toast.ts
+│   └── use-users.ts
+├── layouts/
+│   └── BaseLayout.astro     # Layout base HTML
+├── lib/                     # Utilidades y configuración
+│   ├── api-client.ts        # SDK HTTP (fetch nativo, singleton api object)
+│   ├── utils.ts             # Utilidades generales (cn())
+│   ├── ansi-utils.tsx       # Parseo de colores ANSI para la consola
+│   ├── data.ts              # Datos y constantes
+│   └── locales/             # Traducciones (en.json, es.json)
+├── pages/                   # Rutas de Astro (file-based routing)
+│   ├── index.astro
+│   ├── login.astro
+│   ├── register.astro
+│   ├── dashboard.astro
+│   ├── servers/             # CRUD de servidores
+│   ├── nodes/               # Detalle de nodos
+│   ├── users.astro
+│   ├── templates.astro
+│   ├── settings.astro
+│   ├── roles.astro
+│   ├── database-hosts.astro
+│   └── profile/
+└── styles/
+    └── globals.css          # Estilos globales y variables CSS
+```
 
-## 1. Paquete `api` (SDK del Cliente)
+## SDK de API (`lib/api-client.ts`)
 
-El directorio `client/api/` contiene una librería construida con Vite y empaquetada como módulos ESM y CJS. Su propósito es abstraer las llamadas HTTP hacia la API RESTful de Aether Panel.
+No existe un paquete separado `client/api/`. El SDK es un único archivo de 81 líneas en `frontend/src/lib/api-client.ts` que exporta un objeto `api` con métodos `get`, `post`, `put`, `delete` usando la **API nativa `fetch`** del navegador con `credentials: 'include'` para autenticación por cookies/sesión.
 
-### Características y Tecnologías:
-*   **Axios**: Cliente HTTP utilizado para gestionar las peticiones, intercepciones y manejo de errores estandarizado.
-*   **js-cookie**: Para la lectura y escritura de cookies (probablemente relacionado a la gestión de sesiones y tokens).
-*   **Estructura**:
-    *   Cada archivo en `src/` representa un dominio de la API del panel: `servers.js`, `users.js`, `nodes.js`, `auth.js`, `templates.js`, etc.
-    *   Exporta todas sus funciones centralizadas desde `index.js`.
+Las llamadas a la API se realizan directamente desde los features y hooks, no desde clases separadas por dominio:
 
----
+```typescript
+import { api } from '@/lib/api-client';
+const servers = await api.get('/api/servers');
+await api.post('/api/servers/' + id + '/start', {});
+```
 
-## 2. Paquete `frontend` (Aplicación Web)
+## Cliente HTTP Nativo
 
-La interfaz de usuario principal que interactúa con el usuario, ubicada en `client/frontend/`.
+El SDK usa `fetch` nativo (no axios, no js-cookie). Las peticiones incluyen automáticamente las cookies de sesión gracias a `credentials: 'include'`. Los errores HTTP se convierten en `ApiError` con `status`, `message` y `data`.
 
-### Stack Tecnológico:
-*   **Astro (`astro`)**: Framework web utilizado por su arquitectura de "Islas" (Islands) que envía el mínimo JavaScript necesario, mejorando los tiempos de carga y el SEO (si fuera necesario). Además, se encarga del enrutamiento estático basado en archivos (`src/pages`).
-*   **React (`react`, `@astrojs/react`)**: Utilizado para construir los componentes interactivos de la aplicación.
-*   **Tailwind CSS**: Framework de CSS utilitario, usado en conjunto con `tailwind-merge` y `clsx` para gestionar las clases CSS condicionales.
-*   **Shadcn UI / Radix UI**: Colección de primitivas de UI sin estilo (`@radix-ui/react-*`) que, junto con Tailwind, construyen componentes accesibles y responsivos. Se usa para diálogos, modales, barras de progreso, menús, etc.
-*   **Formularios**: Gestionados de forma robusta con `react-hook-form` y esquemas de validación tipados con `zod`.
-*   **Mónaco Editor (`@monaco-editor/react`)**: Para la edición de código, configuración y plantillas directamente en el navegador.
-*   **Genkit AI (`@genkit-ai/google-genai`)**: Integración con Inteligencia Artificial, que posiblemente asiste en la creación de servidores, sugerencias de configuración o análisis.
-*   **Gráficos**: Uso de `recharts` para visualizar métricas (CPU, RAM) de los servidores de juego.
+## Compilación
 
-### Estructura de Directorios (`frontend/src/`)
+El paquete `frontend/` se compila con `astro build`, generando un sitio estático en `frontend/dist/`. El servidor Go embebe estos archivos usando `embed.FS` y los sirve en producción.
 
-El patrón de carpetas sigue las mejores prácticas modernas para aplicaciones React y Astro:
-
-*   **`ai/`**: Lógica de integración, prompts y configuración para Genkit y el asistente de IA.
-*   **`components/`**: Bloques de construcción visuales de la aplicación. Suele dividirse en componentes "UI" (Shadcn/Genéricos) y componentes específicos del panel.
-*   **`contexts/`**: Estado global de la aplicación en React (por ejemplo: AuthContext, ThemeContext).
-*   **`features/`**: Lógica agrupada por funcionalidad o dominio comercial (ej. `servers`, `billing`, `users`). Cada "feature" puede tener sus propios componentes, hooks y estado.
-*   **`hooks/`**: Custom hooks de React para reusabilidad lógica (ej. `useServerStatus`, `useWebsocket`).
-*   **`layouts/`**: Plantillas maestras de Astro/React que definen los esqueletos principales (Sidebar, Header, Layout base de dashboard).
-*   **`lib/`**: Archivos de utilería (`utils.ts`), configuraciones globales e instanciación del cliente de API (`api/`).
-*   **`pages/`**: Enrutador de Astro. Cada archivo `.astro` o `.tsx` aquí se convierte en una ruta web directa de la aplicación.
-*   **`styles/`**: Variables CSS globales, estilos base y configuración de Tailwind.
-
----
-
-## Flujo de Trabajo y Compilación
-
-Al ser un workspace de Yarn, ejecutar `yarn build` desde la raíz del directorio `client/` desencadenará:
-1.  La construcción del SDK en `client/api/dist/`.
-2.  La generación del build optimizado de Astro en `client/frontend/dist/`.
-
-Esto asegura que el frontend siempre consuma los esquemas de API más actualizados desarrollados internamente.
+```bash
+cd client/frontend
+npm run build    # Genera client/frontend/dist/
+# Opcional: vista previa
+npm run start    # astro preview
+npm run dev      # astro dev --port 9002
+```

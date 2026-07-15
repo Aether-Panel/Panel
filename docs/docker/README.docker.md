@@ -1,132 +1,236 @@
 # Documentación Docker
 
-Esta guía detalla cómo desplegar Aether Panel utilizando Docker y Docker Compose.
+## Visión General
 
-## Requisitos Previos
+El proyecto incluye 4 Dockerfiles y 2 configuraciones de Docker Compose para diferentes propósitos.
 
-- **Docker** 20.10+
-- **Docker Compose** 2.0+
+| Archivo | Propósito |
+|---|---|
+| `Dockerfile` | Imagen principal de producción (multi-stage) |
+| `Dockerfile-curseforge` | Tester de integración CurseForge |
+| `Dockerfile-templatetester` | Tester de plantillas (Ubuntu + Mono + Node) |
+| `Dockerfile-formatter` | Formateador de código fuente |
+| `docker-compose.yml` | Producción: Panel + MariaDB |
+| `docker-compose.dev.yml` | Desarrollo: Panel standalone con SQLite |
 
-## Instalación Rápida
+## Imagen Principal (`Dockerfile`)
 
-La forma recomendada de ejecutar Aether Panel es mediante Docker Compose.
+Multi-stage build:
 
-### 1. Iniciar el Servicio
+```
+Stage 1 (node):26-alpine
+  → Build frontend (Yarn workspaces, Astro)
 
-Ejecuta el siguiente comando en la raíz del proyecto (donde se encuentra `docker-compose.yml`):
+Stage 2 (golang:1.26-alpine + tonistiigi/xx)
+  → Compila binario Go con CGO, swag, ldflags
+  → Frontend build copiado desde stage 1
 
-```bash
-docker-compose up -d
+Stage 3 (alpine:3.24)
+  → Imagen final mínima (3.24 MB base + binario + frontend)
 ```
 
-Esto descargará las imágenes necesarias, creará los volúmenes y levantará los servicios en segundo plano.
+### Puertos Expuestos
 
-### 2. Crear Usuario Administrador
+| Puerto | Servicio |
+|---|---|
+| `8080` | Panel Web (API + frontend) |
+| `5657` | SFTP |
 
-Una vez que el contenedor esté corriendo, necesitas crear un usuario administrativo para acceder al panel.
+### Entrypoint
 
-Ejecuta el siguiente comando:
-
-```bash
-docker exec -it skypanel /SkyPanel/bin/SkyPanel user add --name admin --email admin@example.com --password 'admin123' --admin
-```
-
-> **Importante:** Recuerda cambiar `admin@example.com` y `'admin123'` por tus credenciales seguras.
-
-### 3. Acceder al Panel
-
-El panel estará disponible en:
-**http://localhost:8080**
-
----
-
-## Configuración Técnica
-
-### Puertos
-
-El contenedor expone los siguientes puertos:
-
-| Puerto | Servicio | Descripción |
-|--------|----------|-------------|
-| `8080` | Panel Web | Interfaz de usuario y API |
-| `5657` | SFTP | Transferencia de archivos |
-
-### Volúmenes (Persistencia)
-
-Los datos se persisten utilizando volúmenes de Docker:
-
-- `skypanel-data`: Almacena la base de datos (SQLite), configuraciones y datos de los servidores de juegos.
-- `skypanel-config`: Almacena archivos de configuración específicos.
+`/SkyPanel/bin/entrypoint.sh`:
+1. Espera a que MySQL esté disponible (hasta 60s, via `nc`)
+2. Ejecuta `SkyPanel db migrate`
+3. Inicia `SkyPanel run`
 
 ### Variables de Entorno
 
-Puedes configurar el comportamiento del contenedor mediante variables de entorno en el archivo `docker-compose.yml`:
+| Variable | Descripción | Default en Docker |
+|---|---|---|
+| `GIN_MODE` | Modo de Gin | `release` |
+| `PUFFER_PLATFORM` | Plataforma | `docker` |
+| `PUFFER_DOCKER_ROOT` | Root de Docker | `""` |
+| `PUFFER_DOCKER_DISALLOWHOST` | Forzar Docker | `true` |
+| `PUFFER_WEB_HOST` | Bind address | `0.0.0.0:8080` |
+| `PUFFER_PANEL_DATABASE_DIALECT` | Dialecto BD | `mysql` |
+| `PUFFER_PANEL_DATABASE_URL` | Connection string | — |
+| `PUFFER_PANEL_SETTINGS_COMPANYNAME` | Marca | `Aether Panel` |
+| `PUFFER_PANEL_REGISTRATIONENABLED` | Registro abierto | `true` |
+| `PUFFER_PANEL_SETTINGS_DEFAULTTHEME` | Tema default | `SkyPanel` |
+
+### Usuario
+
+Ejecuta como usuario `SkyPanel` (UID 1000) no-root. Los directorios de datos se crean con `mkdir -p` en el build y se asignan a `SkyPanel:SkyPanel`.
+
+### Volúmenes
+
+| Ruta en contenedor | Propósito |
+|---|---|
+| `/etc/SkyPanel` | Configuración (config.json) |
+| `/var/lib/SkyPanel` | Datos runtime (servidores, backups, cache, logs) |
+| `/var/log/SkyPanel` | Logs |
+| `/var/www/SkyPanel` | Frontend estático |
+
+## Producción (`docker-compose.yml`)
+
+```yaml
+services:
+  mysql:
+    image: mariadb:10.11
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-skypanel_secret}
+      - MYSQL_DATABASE=${DB_DATABASE:-skypanel}
+      - MYSQL_USER=${DB_USER:-skypanel}
+      - MYSQL_PASSWORD=${DB_PASSWORD:-skypanel_secret}
+    volumes:
+      - ./storage/mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$${MYSQL_ROOT_PASSWORD}"]
+
+  skypanel:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - version=dev-docker
+        - sha=local-build
+    ports:
+      - "8080:8080"
+      - "5657:5657"
+    volumes:
+      - ./storage/skypanel-config:/etc/SkyPanel
+      - ./storage/skypanel-data:/var/lib/SkyPanel
+      - ./storage/skypanel-logs:/var/log/SkyPanel
+      - //var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - PUFFER_PANEL_DATABASE_DIALECT=mysql
+      - PUFFER_PANEL_DATABASE_URL=${DB_USER:-skypanel}:${DB_PASSWORD:-skypanel_secret}@tcp(mysql:3306)/${DB_DATABASE:-skypanel}?charset=utf8&parseTime=true
+    depends_on:
+      mysql:
+        condition: service_healthy
+```
+
+## Desarrollo (`docker-compose.dev.yml`)
+
+```yaml
+services:
+  skypanel:
+    container_name: skypanel-dev
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - version=dev-local
+        - sha=dev
+    ports:
+      - "8080:8080"
+      - "5657:5657"
+    volumes:
+      - ./dev-data/data:/var/lib/SkyPanel:z
+      - ./dev-data/logs:/var/log/SkyPanel:z
+      - /var/run/docker.sock:/var/run/docker.sock:z
+    privileged: true
+    user: "0:0"
+    environment:
+      - GIN_MODE=debug
+      - PUFFER_LOGS_LEVEL=DEBUG
+      # SQLite por defecto (no requiere servicio de BD)
+```
+
+## Comandos Útiles
+
+```bash
+# Iniciar producción
+docker-compose up -d
+
+# Iniciar desarrollo
+docker-compose -f docker-compose.dev.yml up -d
+
+# Ver logs
+docker-compose logs -f
+
+# Detener
+docker-compose down
+
+# Crear usuario admin
+docker exec -it skypanel /SkyPanel/bin/SkyPanel user add --name admin --email admin@example.com --admin
+
+# Shell interactivo
+docker exec -it skypanel sh
+
+# Ver versión
+docker exec skypanel /SkyPanel/bin/SkyPanel version
+
+# Ejecutar comando CLI
+docker exec skypanel /SkyPanel/bin/SkyPanel version
+
+# Reconstruir imagen
+docker-compose build
+
+# Actualizar imagen
+docker-compose pull
+```
+
+## Build Multi-Plataforma
+
+El Dockerfile soporta build multi-arquitectura via `tonistiigi/xx`:
+
+```bash
+# Build para linux/amd64
+docker build --platform linux/amd64 -t skypanel:latest .
+
+# Build para linux/arm64
+docker build --platform linux/arm64 -t skypanel:latest .
+```
+
+## Configuración Personalizada
+
+La configuración por defecto está en `config.docker.json` con MySQL. Para usar SQLite en producción, cambia las variables de entorno:
 
 ```yaml
 environment:
-  - PUFFER_PANEL_SETTINGS_COMPANYNAME=Aether Panel
-  - PUFFER_WEB_HOST=0.0.0.0:8080
-  - GIN_MODE=release
+  - PUFFER_PANEL_DATABASE_DIALECT=sqlite3
+  # No requiere PUFFER_PANEL_DATABASE_URL (default: file:skypanel.db)
+  # Elimina depends_on: mysql
 ```
 
----
+## Dockerfiles Auxiliares
 
-## Gestión del Contenedor
+### `Dockerfile-curseforge`
+Imagen para el tester de CurseForge. Build con CGO, runtime Eclipse Temurin 25 (Java). Usado para verificar modpacks de CurseForge.
 
-### Ver Logs
-Para ver los logs del panel en tiempo real:
+### `Dockerfile-templatetester`
+Imagen pesada para testear plantillas. Incluye Mono (para SteamCMD), Node.js 20, GCC, zip/unzip, y dependencias i386. Construye la herramienta `templatetester`.
 
-```bash
-docker-compose logs -f
-```
-
-### Detener el Panel
-Para detener los contenedores ordenadamente:
-
-```bash
-docker-compose down
-```
-
-### Reiniciar el Panel
-```bash
-docker-compose restart
-```
-
-### Actualizar Imagen
-Para descargar la última versión y reiniciar:
-
-```bash
-docker-compose pull
-docker-compose up -d
-```
-
----
+### `Dockerfile-formatter`
+Imagen mínima para formatear código Go. Construye la herramienta `formatter` y la ejecuta sobre el código fuente.
 
 ## Solución de Problemas
 
 ### Error: "Bind for 0.0.0.0:8080 failed: port is already allocated"
-El puerto 8080 está ocupado por otro proceso. Edita el archivo `docker-compose.yml` y cambia el mapeo de puertos.
-Por ejemplo, para usar el puerto 9000:
+Cambiar mapeo de puertos:
 ```yaml
 ports:
   - "9000:8080"
 ```
 
-### Error de Permisos con Docker
-Si recibes errores de "permission denied" al intentar ejecutar docker:
-1. Asegúrate de que tu usuario pertenece al grupo `docker`:
-   ```bash
-   sudo usermod -aG docker $USER
-   ```
-2. Cierra sesión y vuelve a entrar o ejecuta `newgrp docker`.
+### Error: "permission denied" al conectar Docker socket
+Asegurar que el usuario del contenedor tiene permisos. En producción:
+```yaml
+user: "0:0"  # Temporal
+```
+En desarrollo ya está configurado con `privileged: true` y `user: "0:0"`.
 
----
-
-## Construcción Manual de la Imagen
-
-Si prefieres construir la imagen Docker localmente desde el código fuente en lugar de descargarla:
-
+### Error: MySQL connection refused
+El entrypoint espera hasta 60s. Verificar:
 ```bash
-docker-compose build
-docker-compose up -d
+docker logs skypanel
+docker logs skypanel-mysql
+```
+
+### Los cambios no persisten
+Verificar volúmenes:
+```bash
+docker volume ls
+docker inspect skypanel | grep Mounts
 ```

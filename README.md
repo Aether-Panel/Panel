@@ -5,7 +5,7 @@
 ### Panel de Gestión de Servidores de Juegos de Código Abierto
 </div>
 
-[Documentación](./docs/README.md) • [Instalación](./docs/01-installation.md) • [API](./docs/11-api-reference.md) • [Discord](https://discord.gg/aetherpanel) • [Demo](https://demo.aetherpanel.es)
+[Documentación](./docs/README.md) • [Instalación](./docs/setup/01-installation.md) • [API](./docs/reference/11-api-reference.md) • [Discord](https://discord.gg/aetherpanel)
 
 ---
 
@@ -13,63 +13,71 @@
 
 Aether Panel (nombre en clave interno: SkyPanel) es una solución moderna de gestión de servidores de juegos diseñada para proveedores de hosting, comunidades y administradores de servidores.
 
-Esta plataforma ofrece una arquitectura robusta para gestionar múltiples servidores de juegos desde una interfaz centralizada. Proporciona despliegue automático mediante contenedores Docker, gestión de usuarios con sistema de permisos granular y herramientas de monitoreo en tiempo real.
+Ofrece una arquitectura flexible con dos backends de ejecución —Docker y ejecución directa con aislamiento por namespaces (unshare)—, gestión de usuarios con permisos granulares, servidor SFTP integrado, y monitorización en tiempo real.
 
-**Versión Actual:** 1.0.1
+**Versión:** 2.0.0
 
 ---
 
 ## Características Principales
 
 ### Gestión de Servidores
-*   **Multi-Servidor:** Capacidad para gestionar instancias ilimitadas de diferentes juegos.
-*   **Contenerización:** Cada servidor se ejecuta en un contenedor Docker aislado para máxima seguridad y control de recursos.
-*   **Plantillas:** Soporte para más de 24 tipos de juegos, incluyendo Minecraft, Terraria, Valheim, Rust y ARK.
+*   **Multi-Servidor:** Capacidad para gestionar instancias ilimitadas de diferentes juegos mediante plantillas descargables.
+*   **Dos Backends de Ejecución:**
+    *   **Docker:** Cada servidor se ejecuta en un contenedor Docker aislado.
+    *   **Host/TTY:** Ejecución directa con aislamiento por contenedores de Linux (namespaces: user, mount, cgroup, ipc, uts) y `pivot_root`.
+*   **Plantillas:** Soporte para más de 24 tipos de juegos (Minecraft, Terraria, Valheim, Rust, ARK, etc.) mediante repositorios de plantillas externos.
 
 ### Administración y Seguridad
-*   **Multi-Usuario:** Sistema completo de usuarios y roles con permisos detallados.
-*   **Autenticación:** Soporte para OAuth2, JWT y autenticación de dos factores (2FA/TOTP).
-*   **Seguridad:** Aislamiento de procesos y gestión segura de credenciales.
+*   **Multi-Usuario:** Sistema completo de usuarios y roles con permisos detallados por servidor.
+*   **Autenticación Múltiple:** Sesiones con cookie/token, API keys (`ak_*`), OAuth2 (client credentials + password grant), JWT con JWKS endpoint.
+*   **2FA/TOTP:** Autenticación de dos factores vía códigos temporales.
+*   **Aislamiento:** Contenedores Docker o namespaces de Linux con `pivot_root` y mapeo de usuarios.
 
 ### Herramientas Integradas
-*   **Monitoreo:** Integración nativa con Gatus para seguimiento de uptime y estado del servicio.
-*   **Gestión de Archivos:** Servidor SFTP incorporado y editor de archivos web.
-*   **Notificaciones:** Alertas automáticas vía Discord y correo electrónico.
-*   **API RESTful:** Interfaz de programación completa para automatización e integración con terceros.
+*   **Gestión de Archivos:** Servidor SFTP nativo (SSH + SFTP sobre Go) con autenticación por OAuth2 o base de datos.
+*   **Panel Web:** Interfaz moderna construida con Astro, React 19 y Tailwind CSS.
+*   **Notificaciones:** Alertas automáticas vía Discord (embeds enriquecidos) y correo electrónico (Mailgun, Mailjet, SendGrid, SMTP).
+*   **API RESTful:** Documentada con Swagger/OpenAPI, disponible en `/swagger/`.
+*   **Monitorización:** Estadísticas de CPU, memoria y disco por servidor vía `gopsutil`; WebSocket en tiempo real para console y métricas.
+*   **Programador de Tareas:** Motor de tareas programadas con gocron.
+*   **AI Asistente:** Integración con Google GenAI para asistencia en consola/logs.
 
 ---
 
 ## Arquitectura del Sistema
 
-Aether Panel opera como una aplicación monolítica modular con capacidad de despliegue distribuido (Panel + Nodos).
+Aether Panel opera como una aplicación monolítica modular con capacidad de despliegue distribuido (Panel + Nodos remotos).
 
 ### Componentes Principales
 
 1.  **Core (Backend):**
-    *   Escrito en **Go**.
+    *   Escrito en **Go** (1.25).
+    *   Framework web **Gin**, ORM **GORM**, CLI **Cobra**.
     *   Gestiona la API HTTP, autenticación, base de datos y lógica de negocio.
-    *   Controla el ciclo de vida de los contenedores Docker.
-    *   Provee el servidor SFTP integrado.
+    *   Controla el ciclo de vida de servidores (Docker o directo).
+    *   Provee el servidor SFTP integrado y WebSocket para consola/estadísticas.
 
 2.  **Interfaz de Usuario (Frontend):**
-    *   Aplicación SPA (Single Page Application) construida con **Vue.js 3**.
-    *   Desarrollada con Vite y estilizada con Tailwind CSS.
+    *   Aplicación SPA construida con **Astro + React 19**.
+    *   Estilizada con **Tailwind CSS 3** y componentes **Radix UI**.
     *   Se comunica con el backend exclusivamente a través de la API REST.
 
 3.  **Capa de Datos:**
-    *   Soporte para **SQLite** (por defecto, archivo local) o **MySQL/MariaDB/PostgreSQL** para despliegues de producción.
+    *   Soporte para **SQLite** (por defecto), **MySQL/MariaDB**, **PostgreSQL** y **SQL Server**.
 
 4.  **Infraestructura de Ejecución:**
-    *   Utiliza **Docker** para aislar cada servidor de juego.
-    *   Cada instancia tiene su propio sistema de archivos, límites de recursos y red virtual.
+    *   **Docker:** Contenedores aislados con límites de recursos.
+    *   **Host (directo):** Ejecución con namespaces (user, mount, cgroup, ipc, uts) y `pivot_root` para aislamiento de sistema de archivos.
 
 ```
-[Cliente Web (Vue.js)] <---> [API Gateway (Go)] <---> [Base de Datos]
-                                    |
-                                    v
-                           [Docker Engine]
-                                    |
-                       [Contenedores de Juegos]
+[Cliente Web (Astro/React)] <---> [API (Go/Gin)] <---> [Base de Datos]
+                                      |
+                          +-----------+-----------+
+                          |                       |
+                    [Docker Engine]      [Unshare Namespaces]
+                          |                       |
+              [Contenedores de Juegos]   [Procesos Aislados]
 ```
 
 ---
@@ -92,44 +100,87 @@ docker run -d \
   -p 8080:8080 \
   -p 5657:5657 \
   -v skypanel-data:/var/lib/skypanel \
-  aetherpanel/aetherpanel:latest
+  ghcr.io/aether-panel/panel:latest
 ```
 
 ### Opción 3: Construcción Manual
-Requiere Go 1.24+ y Node.js 18+.
+Requiere Go 1.25+ y Node.js 22+.
 
 1.  Clonar el repositorio.
-2.  Compilar el frontend (`yarn build` en `client/frontend`).
+2.  Compilar el frontend (`yarn build` en `client/`).
 3.  Compilar el backend (`make build` en raíz).
 4.  Ejecutar el binario generado (`make run`).
 
-Para instrucciones detalladas, consulte la [Guía de Instalación Completa](./docs/01-installation.md).
+Para instrucciones detalladas, consulte la [Guía de Instalación Completa](./docs/setup/01-installation.md).
 
 ---
 
 ## Stack Tecnológico
 
 **Backend**
-*   Lenguaje: Go 1.24.4
+*   Lenguaje: Go 1.25
 *   Framework Web: Gin
 *   ORM: GORM
+*   CLI: Cobra + Viper
 *   Contenedores: Docker SDK
+*   Aislamiento: unshare (namespaces Linux)
+*   Documentación API: Swaggo / Swagger
+*   Tareas programadas: gocron
+*   Estadísticas: gopsutil
 
 **Frontend**
-*   Framework: Vue.js 3
-*   Build Tool: Vite
-*   Estilos: Tailwind CSS
+*   Framework: Astro + React 19
+*   Componentes: Radix UI
+*   Estilos: Tailwind CSS 3
+*   Editor: Monaco Editor
+*   Charts: Recharts
+*   Formularios: React Hook Form + Zod
 
 **Infraestructura**
-*   Base de Datos: SQLite, MySQL, PostgreSQL
-*   Monitoreo: Gatus
-*   Transferencia: Servidor SFTP nativo (Go)
+*   Base de Datos: SQLite, MySQL/MariaDB, PostgreSQL, SQL Server
+*   Transferencia: SFTP nativo (Go)
+*   Notificaciones: Discord, Mailgun, Mailjet, SendGrid, SMTP
+*   Autenticación: Sesiones, OAuth2, JWT/JWKS, API Keys, 2FA/TOTP
+
+---
+
+## CLI (Command Line Interface)
+
+```
+SkyPanel run          Inicia el panel completo (web, daemon, SFTP)
+SkyPanel runService   Inicia como servicio systemd
+SkyPanel version      Muestra la versión
+SkyPanel user add     Agrega un nuevo usuario
+SkyPanel user edit    Edita un usuario existente
+SkyPanel db upgrade   Ejecuta migraciones de base de datos
+SkyPanel db migrate   Migra entre backends de base de datos (experimental)
+```
+
+---
+
+## CI/CD
+
+El proyecto utiliza **GitHub Actions** para integración continua:
+
+*   `gofmt`, `go vet`, `golangci-lint`, `staticcheck`, `gosec`
+*   Escaneo de vulnerabilidades con **Trivy**
+*   Tests unitarios con detector de carreras (`-race`)
+*   Tests de frontend (lint, typecheck, build)
+*   Tests E2E en Python
+*   Build multi-arquitectura (amd64 + arm64) y publish a `ghcr.io/aether-panel/panel`
+
+Ejecución local con Docker:
+```powershell
+.\ci-local.ps1              # Todos los stages
+.\ci-local.ps1 -Only tests  # Solo tests
+.\ci-local.ps1 -Skip docker # Saltar build de Docker
+```
 
 ---
 
 ## Contribuir
 
-Las contribuciones son bienvenidas. Por favor, consulte las guías de contribución en `CONTRIBUTING.md` antes de enviar un Pull Request. El proyecto se distribuye bajo la licencia Apache 2.0.
+Las contribuciones son bienvenidas. El proyecto se distribuye bajo la licencia Apache 2.0.
 
 ---
 

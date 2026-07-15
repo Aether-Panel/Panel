@@ -1,1800 +1,1165 @@
 # Referencia de API
 
-> **Nota**: Aether Panel es el nombre oficial del proyecto. **SkyPanel** es el nombre en clave (codename) utilizado en comandos CLI y código fuente. Versión actual: **1.0.1**.
+> **Nota:** El proyecto tiene los nombres Aether Panel (público) y SkyPanel (código, CLI, módulo Go v3).
 
-## Tabla de Contenidos
-
-- [Introducción](#introducción)
-- [Autenticación](#autenticación)
-- [Formato de Datos](#formato-de-datos)
-- [Manejo de Errores](#manejo-de-errores)
-- [Paginación](#paginación)
-- [Endpoints de Servidores](#endpoints-de-servidores)
-- [Endpoints de Usuarios](#endpoints-de-usuarios)
-- [Endpoints de Nodos](#endpoints-de-nodos)
-- [Endpoints de Configuración](#endpoints-de-configuración)
-- [Endpoints de Plantillas](#endpoints-de-plantillas)
-- [WebSocket API](#websocket-api)
-- [Ejemplos de Uso](#ejemplos-de-uso)
-- [SDKs y Librerías](#sdks-y-librerías)
+Documentación OpenAPI/Swagger interactiva disponible en `http://localhost:8080/swagger/index.html` cuando el panel está en ejecución.
 
 ---
 
-## Introducción
+## Tabla de Contenidos
 
-La API de Aether Panel es una **API RESTful** completa que permite la automatización y gestión programática de todos los aspectos del panel. Está diseñada siguiendo los estándares de la industria y soporta OAuth2 para autenticación.
-
-### Características de la API
-
-- **RESTful**: Sigue principios REST estándar
-- **OAuth2**: Autenticación segura con tokens
-- **JSON**: Formato de datos JSON para requests y responses
-- **Versionada**: API versionada para compatibilidad
-- **Documentada**: Documentación completa con ejemplos
-- **WebSocket**: Soporte para comunicación en tiempo real
-- **Paginación**: Resultados paginados para grandes conjuntos de datos
-- **Filtrado**: Búsqueda y filtrado avanzado
-
-### URL Base
-
-```
-http://tu-servidor:8080/api
-```
-
-O con HTTPS en producción:
-
-```
-https://panel.tudominio.com/api
-```
+- [Autenticación](#autenticación)
+- [Scopes (Permisos)](#scopes-permisos)
+- [Formato de Respuestas](#formato-de-respuestas)
+- [Tipos de Datos](#tipos-de-datos)
+- [Config](#config)
+- [Auth](#auth)
+- [OAuth2](#oauth2)
+- [Nodos](#nodos)
+- [Servidores](#servidores)
+- [Archivos](#archivos)
+- [Archivos Comprimidos](#archivos-comprimidos)
+- [Plugins](#plugins)
+- [Backups](#backups)
+- [Tareas](#tareas)
+- [Flags](#flags)
+- [Consola](#consola)
+- [Bases de Datos del Servidor](#bases-de-datos-del-servidor)
+- [Usuarios del Servidor](#usuarios-del-servidor)
+- [Transferencia entre Nodos](#transferencia-entre-nodos)
+- [Transferencia Externa](#transferencia-externa)
+- [AI](#ai)
+- [Usuarios Globales](#usuarios-globales)
+- [Self (Perfil Propio)](#self-perfil-propio)
+- [Settings](#settings)
+- [User Settings](#user-settings)
+- [API Keys](#api-keys)
+- [Roles](#roles)
+- [Database Hosts](#database-hosts)
+- [Templates](#templates)
+- [Provision Products](#provision-products)
+- [Provision API v1](#provision-api-v1)
+- [Uptime](#uptime)
+- [Daemon](#daemon)
+- [WebSocket](#websocket)
 
 ---
 
 ## Autenticación
 
-Aether Panel utiliza **OAuth2** con el flujo de **Client Credentials** para autenticación de API.
+### 1. OAuth2 Client Credentials (API externa)
 
-### Paso 1: Crear un Cliente OAuth2
-
-Puedes crear un cliente OAuth2 desde:
-- **Panel Web**: Configuración → OAuth2 Clients
-- **CLI**: `skypanel oauth2 create`
-
-### Paso 2: Obtener Token de Acceso
-
-**Endpoint**: `POST /oauth2/token`
-
-**Headers**:
-```http
+```
+POST /oauth2/token
 Content-Type: application/x-www-form-urlencoded
+
+grant_type=client_credentials&client_id=ID&client_secret=SECRET
 ```
 
-**Body** (form-urlencoded):
-```
-grant_type=client_credentials
-client_id=TU_CLIENT_ID
-client_secret=TU_CLIENT_SECRET
-```
-
-**Ejemplo con cURL**:
-```bash
-curl -X POST http://localhost:8080/oauth2/token \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=client_credentials" \
-  -d "client_id=YOUR_CLIENT_ID" \
-  -d "client_secret=YOUR_CLIENT_SECRET"
-```
-
-**Respuesta**:
+**Respuesta:**
 ```json
 {
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "access_token": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9...",
   "token_type": "Bearer",
   "expires_in": 3600,
-  "scope": "server.view server.edit"
+  "scope": "server.view server.start"
 }
 ```
 
-### Paso 3: Usar el Token
-
-Incluye el token en el header `Authorization` de todas las peticiones:
-
-```http
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Usar el token en todas las peticiones:
+```
+Authorization: Bearer eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9...
 ```
 
-**Ejemplo**:
-```bash
-curl -X GET http://localhost:8080/api/servers \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+### 2. OAuth2 Password Grant (SFTP/SSH)
+
+```
+POST /oauth2/token
+Content-Type: application/x-www-form-urlencoded
+Authorization: Bearer <node-token>
+
+grant_type=password&username=email%23serverId&password=USER_PASSWORD&scope=sftp
 ```
 
-### Scopes (Permisos)
+### 3. API Keys (Provision)
 
-Los scopes definen qué acciones puede realizar un token:
+```
+X-Api-Key: ak_<key>
+```
+O como Bearer:
+```
+Authorization: Bearer ak_<key>
+```
+
+### 4. Auth de Panel (Sesiones Web)
+
+Usar los endpoints `/auth/login`, `/auth/otp`, etc. para obtener cookies de sesión.
+
+---
+
+## Scopes (Permisos)
+
+### Scopes de Servidor (por servidor)
 
 | Scope | Descripción |
 |-------|-------------|
-| `admin` | Acceso administrativo completo |
-| `server.view` | Ver servidores |
-| `server.create` | Crear servidores |
-| `server.edit` | Editar servidores |
-| `server.delete` | Eliminar servidores |
-| `server.start` | Iniciar servidores |
-| `server.stop` | Detener servidores |
-| `server.console` | Acceso a consola |
+| `server.view` | Ver servidor |
+| `server.admin` | Admin del servidor |
+| `server.delete` | Eliminar servidor |
+| `server.definition.edit` | Editar definición |
+| `server.definition.view` | Ver definición |
+| `server.data.edit` | Editar datos del servidor |
+| `server.data.edit.admin` | Editar datos (admin) |
+| `server.data.view` | Ver datos |
+| `server.flags.edit` | Editar flags |
+| `server.flags.view` | Ver flags |
+| `server.name.edit` | Cambiar nombre |
+| `server.clients.view` | Ver clients OAuth2 |
+| `server.clients.edit` | Editar clients |
+| `server.clients.create` | Crear clients |
+| `server.clients.delete` | Eliminar clients |
+| `server.users.view` | Ver usuarios del servidor |
+| `server.users.create` | Agregar usuarios |
+| `server.users.edit` | Editar permisos de usuarios |
+| `server.users.delete` | Eliminar usuarios del servidor |
+| `server.tasks.view` | Ver tareas |
+| `server.tasks.run` | Ejecutar tarea |
+| `server.tasks.create` | Crear tarea |
+| `server.tasks.delete` | Eliminar tarea |
+| `server.tasks.edit` | Editar tarea |
+| `server.reload` | Recargar servidor |
+| `server.start` | Iniciar servidor |
+| `server.stop` | Detener servidor |
+| `server.kill` | Matar proceso |
+| `server.install` | Ejecutar instalación |
 | `server.files.view` | Ver archivos |
-| `server.files.edit` | Editar archivos |
-| `users.view` | Ver usuarios |
-| `users.edit` | Editar usuarios |
+| `server.files.edit` | Subir/editar/eliminar archivos |
+| `server.sftp` | Acceso SFTP |
+| `server.console` | Ver consola |
+| `server.console.send` | Enviar comandos |
+| `server.stats` | Ver estadísticas |
+| `server.status` | Ver estado |
+| `server.backup.view` | Ver backups |
+| `server.backup.create` | Crear backup |
+| `server.backup.restore` | Restaurar backup |
+| `server.backup.delete` | Eliminar backup |
+| `server.admin.view` | Admin: ver |
+| `server.admin.install.view` | Admin: ver instalación |
+| `server.admin.install.manage` | Admin: gestionar instalación |
+| `server.admin.transfer.view` | Admin: ver transferencias |
+| `server.admin.transfer.manage` | Admin: gestionar transferencias |
+| `server.admin.config.view` | Admin: ver config |
+| `server.admin.config.manage` | Admin: gestionar config |
+| `server.admin.assignments.view` | Admin: ver asignaciones |
+| `server.admin.assignments.manage` | Admin: gestionar asignaciones |
+
+### Scopes Globales
+
+| Scope | Descripción |
+|-------|-------------|
+| `admin` | Superadmin |
+| `login` | Iniciar sesión |
+| `panel` | Acceso al panel |
+| `oauth2.auth` | Validar credenciales vía OAuth2 |
 | `nodes.view` | Ver nodos |
+| `nodes.create` | Crear nodos |
 | `nodes.edit` | Editar nodos |
+| `nodes.delete` | Eliminar nodos |
+| `nodes.deploy` | Obtener datos de despliegue |
+| `self.edit` | Editar propio perfil |
+| `self.clients` | Gestionar clients OAuth2 propios |
+| `settings.edit` | Editar configuración global |
+| `templates.view` | Ver plantillas |
+| `templates.local.edit` | Editar plantillas locales |
+| `templates.repo.create` | Agregar repositorios |
+| `templates.repo.delete` | Eliminar repositorios |
+| `users.info.search` | Buscar usuarios |
+| `users.info.view` | Ver usuarios |
+| `users.info.edit` | Crear/editar/eliminar usuarios |
+| `users.perms.view` | Ver permisos de usuarios |
+| `users.perms.edit` | Editar permisos de usuarios |
+| `uptime.view` | Ver estadísticas de uptime |
+| `server.create` | Crear servidores |
 
 ---
 
-## Formato de Datos
+## Formato de Respuestas
 
-### Content-Type
-
-Todas las peticiones y respuestas usan JSON:
-
-```http
-Content-Type: application/json
-Accept: application/json
-```
-
-### Estructura de Respuesta Exitosa
-
+### Éxito
 ```json
-{
-  "data": { ... },
-  "metadata": {
-    "paging": {
-      "page": 1,
-      "size": 25,
-      "maxSize": 100,
-      "total": 150
-    }
-  }
-}
+{ "data": { ... } }
 ```
+O directamente un array u objeto según el endpoint.
 
-### Códigos de Estado HTTP
-
-| Código | Significado | Descripción |
-|--------|-------------|-------------|
-| `200` | OK | Petición exitosa |
-| `201` | Created | Recurso creado exitosamente |
-| `204` | No Content | Petición exitosa sin contenido de respuesta |
-| `400` | Bad Request | Datos de entrada inválidos |
-| `401` | Unauthorized | Token inválido o expirado |
-| `403` | Forbidden | Sin permisos para esta acción |
-| `404` | Not Found | Recurso no encontrado |
-| `500` | Internal Server Error | Error del servidor |
-
----
-
-## Manejo de Errores
-
-### Estructura de Error
-
+### Error
 ```json
 {
   "error": {
-    "code": "ErrServerNotFound",
-    "msg": "Server with ID {id} not found",
-    "metadata": {
-      "id": "ABC12345"
-    }
+    "code": "ErrFieldRequired",
+    "msg": "username: required field is missing"
   }
 }
 ```
 
-### Códigos de Error Comunes
+Códigos de error: `ErrFieldRequired`, `ErrFieldInvalid`, `ErrServerNotFound`, `ErrUserNotFound`, `ErrNodeNotFound`, `ErrDatabaseError`, `ErrPermissionDenied`, `ErrEmailAlreadyUsed`, `ErrUnknownError`.
 
-| Código | Descripción |
+### Códigos HTTP
+
+| Código | Significado |
 |--------|-------------|
-| `ErrFieldRequired` | Campo requerido faltante |
-| `ErrFieldInvalid` | Valor de campo inválido |
-| `ErrServerNotFound` | Servidor no encontrado |
-| `ErrUserNotFound` | Usuario no encontrado |
-| `ErrNodeNotFound` | Nodo no encontrado |
-| `ErrPermissionDenied` | Permiso denegado |
-| `ErrDatabaseError` | Error de base de datos |
+| 200 | OK |
+| 201 | Created |
+| 204 | No Content |
+| 202 | Accepted (operación asíncrona) |
+| 400 | Bad Request |
+| 401 | Unauthorized |
+| 403 | Forbidden |
+| 404 | Not Found |
+| 429 | Too Many Requests |
+| 500 | Internal Server Error |
 
 ---
 
-## Paginación
+## Tipos de Datos
 
-Los endpoints que retornan listas soportan paginación:
-
-### Parámetros de Query
-
-| Parámetro | Tipo | Default | Descripción |
-|-----------|------|---------|-------------|
-| `page` | int | 1 | Número de página (1-indexed) |
-| `limit` | int | 25 | Elementos por página |
-
-**Máximo**: 100 elementos por página
-
-### Ejemplo
-
-```bash
-GET /api/servers?page=2&limit=50
+### Paging
+```json
+{ "page": 1, "size": 25, "maxSize": 100, "total": 1 }
 ```
 
-### Respuesta con Metadata
-
+### Error
 ```json
 {
-  "servers": [...],
-  "metadata": {
-    "paging": {
-      "page": 2,
-      "size": 50,
-      "maxSize": 100,
-      "total": 237
-    }
-  }
+  "error": { "code": "ErrFieldRequired", "msg": "...", "metadata": {} }
 }
 ```
 
----
-
-## Endpoints de Servidores
-
-### Listar Servidores
-
-**Endpoint**: `GET /api/servers`
-
-**Scopes**: `server.view`
-
-**Parámetros de Query**:
-| Parámetro | Tipo | Descripción |
-|-----------|------|-------------|
-| `username` | string | Filtrar por usuario (solo admin) |
-| `node` | uint | Filtrar por ID de nodo |
-| `name` | string | Filtrar por nombre (soporta `*` como wildcard) |
-| `page` | uint | Número de página |
-| `limit` | uint | Elementos por página |
-
-**Ejemplo**:
-```bash
-curl -X GET "http://localhost:8080/api/servers?name=minecraft*&limit=10" \
-  -H "Authorization: Bearer YOUR_TOKEN"
-```
-
-**Respuesta**:
+### Node
 ```json
 {
-  "servers": [
-    {
-      "identifier": "ABC12345",
-      "name": "Minecraft Survival",
-      "node": {
-        "id": 1,
-        "name": "Node-01"
-      },
-      "ip": "192.168.1.100",
-      "port": 25565,
-      "type": "minecraft-java",
-      "canGetStatus": true
-    }
-  ],
-  "metadata": {
-    "paging": {
-      "page": 1,
-      "size": 10,
-      "maxSize": 100,
-      "total": 1
-    }
-  }
+  "id": 1, "name": "Node-01", "isLocal": true,
+  "publicHost": "node1.example.com", "publicPort": 8080,
+  "privateHost": "192.168.1.10", "privatePort": 8080,
+  "sftpPort": 5657
 }
 ```
 
----
-
-### Obtener Servidor
-
-**Endpoint**: `GET /api/servers/:serverId`
-
-**Scopes**: `server.view`
-
-**Parámetros de Path**:
-- `serverId` (string): ID del servidor
-
-**Parámetros de Query**:
-- `perms` (boolean): Incluir permisos del usuario
-
-**Ejemplo**:
-```bash
-curl -X GET "http://localhost:8080/api/servers/ABC12345?perms=true" \
-  -H "Authorization: Bearer YOUR_TOKEN"
-```
-
-**Respuesta**:
+### ServerInfo
 ```json
 {
-  "server": {
-    "identifier": "ABC12345",
-    "name": "Minecraft Survival",
-    "node": {
-      "id": 1,
-      "name": "Node-01"
-    },
-    "ip": "192.168.1.100",
-    "port": 25565,
-    "type": "minecraft-java",
-    "icon": "minecraft.png"
+  "id": "abc123", "name": "Minecraft", "node": { "id": 1, "name": "Node" },
+  "nodeId": 1, "ip": "192.168.1.100", "port": 25565, "type": "minecraft-java",
+  "icon": "minecraft.png", "isGhost": false, "canGetStatus": true,
+  "users": [ { "username": "admin", "scopes": ["server.view"] } ]
+}
+```
+
+### ServerDefinition (Create/Edit)
+```json
+{
+  "name": "Mi Servidor", "type": "minecraft-java", "icon": "minecraft.png",
+  "environment": { "type": "standard" },
+  "install": [ { "type": "mojangdl", "version": "1.20.1" } ],
+  "uninstall": [],
+  "run": {
+    "command": "java -Xmx{{memory}}M -jar server.jar nogui",
+    "stop": "stop", "stopCode": 0,
+    "pre": [], "post": [],
+    "environmentVars": { "KEY": "VALUE" },
+    "workingDirectory": "",
+    "autostart": false, "autorestart": false, "autorecover": false,
+    "expectedExitCode": 0,
+    "stdin": { "type": "", "ip": "", "port": "", "password": "" }
   },
-  "perms": {
-    "scopes": [
-      "server.view",
-      "server.console",
-      "server.files.view"
-    ]
-  }
-}
-```
-
----
-
-### Crear Servidor
-
-**Endpoint**: `PUT /api/servers/:serverId`
-
-**Scopes**: `server.create`
-
-**Parámetros de Path**:
-- `serverId` (string, opcional): ID personalizado (se genera automáticamente si se omite)
-
-**Body**:
-```json
-{
-  "name": "Mi Servidor Minecraft",
-  "nodeId": 1,
-  "type": {
-    "type": "minecraft-java"
+  "data": {
+    "memory": { "type": "integer", "value": 2048, "required": true, "desc": "Memoria MB", "display": "Memoria" },
+    "port": { "type": "string", "value": "25565", "required": true },
+    "version": { "type": "string", "value": "1.20.1", "required": true }
   },
-  "icon": "minecraft.png",
-  "users": ["admin@example.com"],
-  "server": {
-    "environment": {
-      "type": "standard"
-    },
-    "install": [
-      {
-        "type": "mojangdl",
-        "version": "1.20.1"
-      }
-    ],
-    "run": {
-      "command": "java -Xmx2G -jar server.jar nogui",
-      "stop": "stop",
-      "pre": [],
-      "post": [],
-      "environmentVars": {}
-    },
-    "data": {
-      "memory": 2048,
-      "cpu": 200,
-      "disk": 5000
-    }
-  },
-  "variables": {
-    "ip": "0.0.0.0",
-    "port": 25565
-  }
+  "groups": [ { "display": "Config", "variables": ["memory", "port"] } ],
+  "requirements": { "os": "linux", "arch": "amd64", "binaries": ["java"] },
+  "supportedEnvironments": [ { "type": "standard" }, { "type": "docker" } ],
+  "keepAlive": { "command": "", "frequency": "" },
+  "query": { "type": "" },
+  "stats": { "type": "" }
 }
 ```
 
-**Ejemplo**:
-```bash
-curl -X PUT "http://localhost:8080/api/servers/MYSERVER" \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d @server-create.json
-```
-
-**Respuesta**:
+### ServerData
 ```json
 {
-  "id": "MYSERVER"
+  "data": { "version": { "type": "string", "value": "1.20.1" } },
+  "groups": [ { "display": "Config", "variables": ["memory", "port"] } ]
 }
 ```
 
----
+### ServerRunning (Status)
+```json
+{ "running": true, "installing": false }
+```
 
-### Actualizar Definición de Servidor
-
-**Endpoint**: `PUT /api/servers/:serverId/definition`
-
-**Scopes**: `server.definition.edit`
-
-**Body**:
+### ServerStats
 ```json
 {
-  "name": "Nuevo Nombre",
-  "type": {
-    "type": "minecraft-java"
-  },
-  "icon": "nuevo-icono.png",
-  "server": {
-    "run": {
-      "command": "java -Xmx4G -jar server.jar nogui"
-    },
-    "data": {
-      "memory": 4096
-    }
-  },
-  "variables": {
-    "port": 25566
-  }
+  "cpu": 45.2, "memory": 1536000000, "maxMemory": 2147483648,
+  "running": true, "storage": 5000000000,
+  "jvm": { "heapUsed": 1000000000, "heapTotal": 2000000000, "metaspaceUsed": 50000000, "metaspaceTotal": 100000000 }
 }
 ```
 
-**Respuesta**: `204 No Content`
-
----
-
-### Eliminar Servidor
-
-**Endpoint**: `DELETE /api/servers/:serverId`
-
-**Scopes**: `server.delete`
-
-**Parámetros de Query**:
-- `skipNode` (boolean): No eliminar del nodo, solo de la base de datos
-
-**Ejemplo**:
-```bash
-curl -X DELETE "http://localhost:8080/api/servers/ABC12345" \
-  -H "Authorization: Bearer YOUR_TOKEN"
+### ServerLogs
+```json
+{ "logs": ["[10:30:15] [Server thread/INFO]: Starting server"], "epoch": 1705312215 }
 ```
 
-**Respuesta**: `204 No Content`
-
----
-
-### Iniciar Servidor
-
-**Endpoint**: `POST /api/servers/:serverId/start`
-
-**Scopes**: `server.start`
-
-**Ejemplo**:
-```bash
-curl -X POST "http://localhost:8080/api/servers/ABC12345/start" \
-  -H "Authorization: Bearer YOUR_TOKEN"
+### ServerFlags
+```json
+{ "autoStart": false, "autoRestartOnCrash": true, "autoRestartOnGraceful": false }
 ```
 
-**Respuesta**: `204 No Content`
-
----
-
-### Detener Servidor
-
-**Endpoint**: `POST /api/servers/:serverId/stop`
-
-**Scopes**: `server.stop`
-
-**Ejemplo**:
-```bash
-curl -X POST "http://localhost:8080/api/servers/ABC12345/stop" \
-  -H "Authorization: Bearer YOUR_TOKEN"
-```
-
-**Respuesta**: `204 No Content`
-
----
-
-### Reiniciar Servidor
-
-**Endpoint**: `POST /api/servers/:serverId/restart`
-
-**Scopes**: `server.start`, `server.stop`
-
-**Ejemplo**:
-```bash
-curl -X POST "http://localhost:8080/api/servers/ABC12345/restart" \
-  -H "Authorization: Bearer YOUR_TOKEN"
-```
-
-**Respuesta**: `204 No Content`
-
----
-
-### Matar Servidor (Force Stop)
-
-**Endpoint**: `POST /api/servers/:serverId/kill`
-
-**Scopes**: `server.kill`
-
-**Ejemplo**:
-```bash
-curl -X POST "http://localhost:8080/api/servers/ABC12345/kill" \
-  -H "Authorization: Bearer YOUR_TOKEN"
-```
-
-**Respuesta**: `204 No Content`
-
----
-
-### Instalar Servidor
-
-**Endpoint**: `POST /api/servers/:serverId/install`
-
-**Scopes**: `server.install`
-
-**Ejemplo**:
-```bash
-curl -X POST "http://localhost:8080/api/servers/ABC12345/install" \
-  -H "Authorization: Bearer YOUR_TOKEN"
-```
-
-**Respuesta**: `204 No Content`
-
----
-
-### Obtener Estado del Servidor
-
-**Endpoint**: `GET /api/servers/:serverId/status`
-
-**Scopes**: `server.status`
-
-**Respuesta**:
+### ServerTask
 ```json
 {
-  "running": true
+  "name": "Backup diario", "description": "Ejecuta backup cada 6h",
+  "cronSchedule": "0 */6 * * *",
+  "operations": [ { "type": "backup" } ]
 }
 ```
 
----
+### User
+```json
+{ "id": 1, "username": "admin", "email": "admin@example.com", "otpActive": false, "roleId": null, "scopes": [] }
+```
 
-### Obtener Estadísticas del Servidor
+### Permissions
+```json
+{ "serverIdentifier": "abc123", "scopes": [ { "value": "server.view", "forServer": true } ] }
+```
 
-**Endpoint**: `GET /api/servers/:serverId/stats`
+### Backup
+```json
+{ "id": 1, "name": "Backup 2024-01-15", "fileName": "backup_abc123.tar.gz", "createdAt": "2024-01-15T10:30:00Z" }
+```
 
-**Scopes**: `server.stats`
+### Features
+```json
+{ "arch": "amd64", "os": "linux", "version": "1.0.0", "environments": ["standard", "docker"], "features": ["docker"] }
+```
 
-**Respuesta**:
+### SystemInfo
 ```json
 {
-  "cpu": 45.2,
-  "memory": 1536000000,
-  "memoryTotal": 2147483648
+  "hostname": "node1", "os": "linux", "platform": "ubuntu", "platformVersion": "22.04",
+  "arch": "amd64", "uptime": 123456,
+  "cpuModel": "Intel Core", "cpuCores": 8, "cpuThreads": 16, "cpuUsage": 25.5,
+  "memoryTotal": 17179869184, "memoryUsed": 8589934592, "memoryFree": 8589934592,
+  "disks": [ { "path": "/", "total": 1099511627776, "used": 549755813888, "free": 549755813888, "usedPercent": 50.0 } ],
+  "networkBytesSent": 1000000, "networkBytesRecv": 2000000
 }
 ```
 
----
-
-### Obtener Consola
-
-**Endpoint**: `GET /api/servers/:serverId/console`
-
-**Scopes**: `server.console`
-
-**Parámetros de Query**:
-- `time` (int): Timestamp desde el cual obtener logs
-
-**Respuesta**:
+### DatabaseHostView
 ```json
 {
-  "logs": [
-    "[10:30:15] [Server thread/INFO]: Starting minecraft server version 1.20.1",
-    "[10:30:16] [Server thread/INFO]: Loading properties",
-    "[10:30:17] [Server thread/INFO]: Done (2.5s)! For help, type \"help\""
-  ]
+  "id": 1, "name": "DB Host 1", "host": "db1.example.com", "port": 3306,
+  "username": "skypanel", "node_id": 1, "max_databases": 10,
+  "created_at": "...", "updated_at": "..."
 }
 ```
 
----
-
-### Enviar Comando a Consola
-
-**Endpoint**: `POST /api/servers/:serverId/console`
-
-**Scopes**: `server.sendCommand`
-
-**Body**:
+### DatabaseView
 ```json
 {
-  "command": "say Hello World!"
+  "id": 1, "server_id": "abc123", "database_host_id": 1, "database_name": "server_abc123",
+  "host": "db1.example.com", "port": 3306, "username": "user_abc123",
+  "password": "pass123", "max_connections": 5, "remote_connection": "",
+  "host_name": "DB Host 1", "created_at": "...", "updated_at": "..."
 }
 ```
 
-**Respuesta**: `204 No Content`
+### Template
+```json
+{
+  "id": "minecraft-java", "name": "Minecraft Java Edition", "display": "Minecraft Java",
+  "type": "minecraft-java", "icon": "minecraft.png",
+  "install": [], "run": { "command": "" }, "data": {},
+  "environment": { "type": "standard" }
+}
+```
+
+### TemplateRepo
+```json
+{ "id": 1, "name": "official", "url": "https://templates.example.com/templates.json", "branch": "main", "isLocal": false }
+```
+
+### Role
+```json
+{ "id": 1, "name": "Admin", "description": "Full access", "scopes": ["admin"], "createdAt": "...", "updatedAt": "..." }
+```
+
+### Client (OAuth2)
+```json
+{ "client_id": "abc123", "client_secret": "secret...", "name": "My App", "description": "App description" }
+```
+
+### PluginInfo
+```json
+{ "name": "EssentialsX.jar", "version": "2.20.1", "size": 1234567 }
+```
+
+### PluginSearchResult
+```json
+{
+  "id": "essentialssx", "name": "EssentialsX", "tag": "essentialsx",
+  "version": "2.20.1", "author": "EssentialsX Team",
+  "description": "Essential commands...", "iconUrl": "...", "downloads": 1000000
+}
+```
 
 ---
 
-### Gestión de Archivos
+## Config
 
-#### Listar Archivos
+### `GET /api/config`
+Sin autenticación. Retorna configuración pública del panel.
 
-**Endpoint**: `GET /api/servers/:serverId/file/*filename`
-
-**Scopes**: `server.files.view`
-
-**Ejemplo**:
-```bash
-curl -X GET "http://localhost:8080/api/servers/ABC12345/file/" \
-  -H "Authorization: Bearer YOUR_TOKEN"
+```json
+{
+  "branding": { "name": "SkyPanel" },
+  "registrationEnabled": true,
+  "themes": { "active": "default", "available": ["alternativeTheme"], "settings": "{}" }
+}
 ```
 
-**Respuesta**:
+---
+
+## Auth
+
+### `POST /auth/login`
+**Body:**
+```json
+{ "email": "admin@example.com", "password": "..." }
+```
+**Respuesta:**
+```json
+{ "otpNeeded": false, "token": "session_token" }
+```
+Si `otpNeeded` es `true`, continuar con `/auth/otp`.
+
+### `POST /auth/otp`
+**Body:**
+```json
+{ "token": "session_token_from_login", "otp": "123456" }
+```
+**Respuesta:**
+```json
+{ "token": "final_session_token", "otpNeeded": false }
+```
+
+### `POST /auth/logout`
+Cierra la sesión actual.
+
+### `POST /auth/register`
+Requiere `registrationEnabled: true`.
+**Body:**
+```json
+{ "username": "newuser", "email": "new@example.com", "password": "Secure123!" }
+```
+
+### `POST /auth/reauth`
+Re-autentica la sesión actual. **Auth:** Bearer.
+
+### `GET /auth/publickey`
+Retorna la clave pública Ed25519 en formato JWK para validar JWTs.
+
+---
+
+## OAuth2
+
+### `POST /oauth2/token`
+**Form (urlencoded):** `grant_type`, `client_id`, `client_secret`, `username`, `password`
+
+Ver [Autenticación](#autenticación) para ejemplos.
+
+**Errores:**
+```json
+{ "error": "invalid_client", "error_description": "Invalid client credentials" }
+```
+
+---
+
+## Nodos
+
+| Método | Path | Scope | Descripción |
+|--------|------|-------|-------------|
+| GET | `/api/nodes` | `nodes.view` | Listar nodos |
+| POST | `/api/nodes` | `nodes.create` | Crear nodo |
+| GET | `/api/nodes/:id` | `nodes.view` | Obtener nodo |
+| PUT | `/api/nodes/:id` | `nodes.edit` | Actualizar nodo |
+| DELETE | `/api/nodes/:id` | `nodes.delete` | Eliminar nodo |
+| GET | `/api/nodes/:id/features` | `nodes.view` | Features del nodo |
+| GET | `/api/nodes/:id/system` | `nodes.view` | Info del sistema |
+| GET | `/api/nodes/:id/deployment` | `nodes.deploy` | Datos de despliegue |
+
+### `POST /api/nodes`
+**Body:**
+```json
+{
+  "name": "Node-02", "publicHost": "node2.example.com", "privateHost": "192.168.1.11",
+  "publicPort": 8080, "privatePort": 8080, "sftpPort": 5657
+}
+```
+**Respuesta:** `Node` (incluye `id`)
+
+### `GET /api/nodes/:id/deployment`
+```json
+{ "clientId": ".node_1", "clientSecret": "abc123def456...", "publicKey": "..." }
+```
+
+---
+
+## Servidores
+
+La mayoría de los endpoints de acción usan `proxyServerRequest` que reenvía la petición al daemon del nodo.
+
+| Método | Path | Scope | Descripción |
+|--------|------|-------|-------------|
+| GET | `/api/servers` | (auth) | Listar servidores |
+| GET | `/api/servers/:serverId` | `server.view` | Obtener servidor |
+| PUT | `/api/servers/:serverId` | `server.create` | Crear servidor |
+| DELETE | `/api/servers/:serverId` | `server.delete` | Eliminar servidor |
+| POST | `/api/servers/:serverId/suspend` | `server.edit.data.admin` | Suspender/activar |
+| PUT | `/api/servers/:serverId/name/:name` | `server.name.edit` | Renombrar |
+| GET | `/api/servers/:serverId/definition` | `server.definition.view` | Obtener definición |
+| PUT | `/api/servers/:serverId/definition` | `server.definition.edit` | Editar definición |
+| GET | `/api/servers/:serverId/data` | `server.data.view` | Obtener variables |
+| POST | `/api/servers/:serverId/data` | `server.data.edit` | Editar variables |
+| PUT | `/api/servers/:serverId/data` | `server.data.edit.admin` | Editar datos (admin) |
+| POST | `/api/servers/:serverId/transfer` | `server.edit.data.admin` | Transferir a otro nodo |
+| GET | `/api/servers/:serverId/status` | `server.status` | Estado (running/stopped) |
+| GET | `/api/servers/:serverId/stats` | `server.stats` | Estadísticas |
+| GET | `/api/servers/:serverId/console` | `server.console` | Logs de consola |
+| POST | `/api/servers/:serverId/console` | `server.console.send` | Enviar comando |
+| GET | `/api/servers/:serverId/flags` | `server.flags.view` | Obtener flags |
+| POST | `/api/servers/:serverId/flags` | `server.flags.edit` | Editar flags |
+| POST | `/api/servers/:serverId/start` | `server.start` | Iniciar |
+| POST | `/api/servers/:serverId/stop` | `server.stop` | Detener |
+| POST | `/api/servers/:serverId/restart` | `server.start`+`server.stop` | Reiniciar |
+| POST | `/api/servers/:serverId/kill` | `server.kill` | Matar proceso |
+| POST | `/api/servers/:serverId/install` | `server.install` | Ejecutar instalación |
+| POST | `/api/servers/:serverId/reload` | `server.reload` | Recargar configuración |
+| HEAD | `/api/servers/:serverId/query` | `server.stats` | Consultar(query) server |
+| GET | `/api/servers/:serverId/query` | `server.stats` | Consultar server |
+| GET | `/api/servers/:serverId/socket` | `server.view` | WebSocket (consola/stats) |
+
+### `GET /api/servers`
+**Query params:** `name` (filtro con `*`), `node` (ID), `username`, `page`, `limit`.
+
+```json
+{
+  "servers": [ { "identifier": "abc123", "name": "Server", "node": { "id": 1, "name": "Node" }, "ip": "10.0.0.1", "port": 25565, "type": "minecraft-java", "canGetStatus": true } ],
+  "metadata": { "paging": { "page": 1, "size": 25, "maxSize": 100, "total": 1 } }
+}
+```
+
+### `GET /api/servers/:serverId?perms=true`
+```json
+{
+  "server": { "identifier": "abc123", "name": "Server", "icon": "minecraft.png", "node": { "id": 1, "name": "Node" } },
+  "perms": { "scopes": [{ "value": "server.view", "forServer": true }] }
+}
+```
+
+### `PUT /api/servers/:serverId`
+Crea un servidor. **Body:** `ServerDefinition` (ver tipos).
+**Respuesta:** `{ "id": "abc123" }`
+
+### `DELETE /api/servers/:serverId?skipNode=true`
+`skipNode`: elimina solo de la BD, no del nodo.
+
+### `POST /api/servers/:serverId/suspend`
+Suspende o activa el servidor (toggle).
+
+### `PUT /api/servers/:serverId/name/:name`
+Renombra el servidor en la BD.
+
+### `GET /api/servers/:serverId/definition`
+Retorna la definición completa del servidor.
+
+### `PUT /api/servers/:serverId/definition`
+**Body:** `ServerDefinition`.
+**Respuesta:** `204`.
+
+### `GET /api/servers/:serverId/data`
+```json
+{ "data": { "version": { "type": "string", "value": "1.20.1" } }, "groups": [] }
+```
+
+### `POST /api/servers/:serverId/data`
+Edita variables del servidor. **Body:** `{ "key": "value" }` (objeto plano).
+**Respuesta:** `202`.
+
+### `PUT /api/servers/:serverId/data`
+Edición admin de datos. **Body:** `{ ... }`. **Respuesta:** `202`.
+
+### `POST /api/servers/:serverId/transfer`
+**Body:** `{ "nodeId": 2 }`. Transfiere el servidor a otro nodo.
+**Respuesta:** `202 "Transfer started"`.
+
+### `GET /api/servers/:serverId/status`
+```json
+{ "running": true, "installing": false }
+```
+
+### `GET /api/servers/:serverId/stats`
+```json
+{
+  "cpu": 45.2, "memory": 1536000000, "maxMemory": 2147483648,
+  "running": true, "storage": 5000000000,
+  "jvm": { "heapUsed": 1000000000, "heapTotal": 2000000000, "metaspaceUsed": 50000000, "metaspaceTotal": 100000000 }
+}
+```
+
+### `GET /api/servers/:serverId/console?time=1705312215000`
+`time`: epoch en ms para obtener logs desde ese momento.
+```json
+{ "logs": ["[10:30:15] [Server thread/INFO]: Starting server"], "epoch": 1705312215 }
+```
+
+### `POST /api/servers/:serverId/console`
+**Body:** `"command"` (string literal del comando).
+**Respuesta:** `204`.
+
+### `GET /api/servers/:serverId/flags`
+```json
+{ "autoStart": false, "autoRestartOnCrash": true, "autoRestartOnGraceful": false }
+```
+
+### `POST /api/servers/:serverId/flags`
+**Body:** `ServerFlags`. **Respuesta:** `204`.
+
+### Acciones de ciclo de vida
+
+| Acción | Método | Respuesta |
+|--------|--------|-----------|
+| Iniciar | `POST /api/servers/:serverId/start` | `202` / `204` |
+| Detener | `POST /api/servers/:serverId/stop` | `202` / `204` |
+| Reiniciar | `POST /api/servers/:serverId/restart` | `202` / `204` |
+| Matar | `POST /api/servers/:serverId/kill` | `204` |
+| Instalar | `POST /api/servers/:serverId/install` | `202` / `204` |
+| Recargar | `POST /api/servers/:serverId/reload` | `204` |
+
+### `HEAD` / `GET /api/servers/:serverId/query`
+Consulta el servidor de juego vía query protocol.
+
+---
+
+## Archivos
+
+| Método | Path | Scope | Descripción |
+|--------|------|-------|-------------|
+| GET | `/api/servers/:serverId/file/*filename` | `server.files.view` | Listar/descargar archivo |
+| PUT | `/api/servers/:serverId/file/*filename` | `server.files.edit` | Subir archivo |
+| DELETE | `/api/servers/:serverId/file/*filename` | `server.files.edit` | Eliminar archivo |
+| POST | `/api/servers/:serverId/file/*filename` | `server.files.edit` | Mover/copiar archivo |
+
+**Listar directorio:** `GET /api/servers/:serverId/file/`
 ```json
 {
   "files": [
-    {
-      "name": "server.jar",
-      "size": 45678901,
-      "modified": "2024-01-15T10:30:00Z",
-      "isFile": true
-    },
-    {
-      "name": "world",
-      "size": 0,
-      "modified": "2024-01-15T10:25:00Z",
-      "isFile": false
-    }
+    { "name": "server.jar", "size": 45678901, "modified": "2024-01-15T10:30:00Z", "isFile": true },
+    { "name": "world", "size": 0, "modified": "2024-01-15T10:25:00Z", "isFile": false }
   ]
 }
 ```
 
-#### Descargar Archivo
-
-**Endpoint**: `GET /api/servers/:serverId/file/*filename`
-
-**Scopes**: `server.files.view`
-
-**Ejemplo**:
-```bash
-curl -X GET "http://localhost:8080/api/servers/ABC12345/file/server.properties" \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -o server.properties
-```
-
-#### Subir Archivo
-
-**Endpoint**: `PUT /api/servers/:serverId/file/*filename`
-
-**Scopes**: `server.files.edit`
-
-**Ejemplo**:
-```bash
-curl -X PUT "http://localhost:8080/api/servers/ABC12345/file/config.yml" \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -H "Content-Type: application/octet-stream" \
-  --data-binary @config.yml
-```
-
-#### Eliminar Archivo
-
-**Endpoint**: `DELETE /api/servers/:serverId/file/*filename`
-
-**Scopes**: `server.files.edit`
-
-**Ejemplo**:
-```bash
-curl -X DELETE "http://localhost:8080/api/servers/ABC12345/file/old-backup.zip" \
-  -H "Authorization: Bearer YOUR_TOKEN"
-```
+**Subir:** `PUT /api/servers/:serverId/file/config.yml` con `Content-Type: application/octet-stream`.
 
 ---
 
-### Backups
+## Archivos Comprimidos
 
-#### Listar Backups
+| Método | Path | Scope | Descripción |
+|--------|------|-------|-------------|
+| HEAD | `/api/servers/:serverId/archive/*filename` | `server.files.edit` | Verificar si existe |
+| POST | `/api/servers/:serverId/archive/*filename` | `server.files.edit` | Crear ZIP |
+| POST | `/api/servers/:serverId/extract/*filename` | `server.files.edit` | Extraer ZIP |
 
-**Endpoint**: `GET /api/servers/:serverId/backup`
+### `POST /api/servers/:serverId/archive/backup.zip`
+**Body:** `["file1.txt", "folder/"]` — archivos a comprimir.
+**Query:** `destination` — subdirectorio de destino.
+**Respuesta:** `204`.
 
-**Scopes**: `server.backup.view`
-
-**Respuesta**:
-```json
-{
-  "backups": [
-    {
-      "id": "backup-20240115-103000",
-      "size": 123456789,
-      "created": "2024-01-15T10:30:00Z"
-    }
-  ]
-}
-```
-
-#### Crear Backup
-
-**Endpoint**: `POST /api/servers/:serverId/backup/create`
-
-**Scopes**: `server.backup.create`
-
-**Respuesta**:
-```json
-{
-  "id": "backup-20240115-120000"
-}
-```
-
-#### Restaurar Backup
-
-**Endpoint**: `POST /api/servers/:serverId/backup/restore/:backupId`
-
-**Scopes**: `server.backup.restore`
-
-**Respuesta**: `204 No Content`
-
-#### Eliminar Backup
-
-**Endpoint**: `DELETE /api/servers/:serverId/backup/:backupId`
-
-**Scopes**: `server.backup.delete`
-
-**Respuesta**: `204 No Content`
-
-#### Descargar Backup
-
-**Endpoint**: `GET /api/servers/:serverId/backup/download/:backupId`
-
-**Scopes**: `server.backup.view`
-
-**Ejemplo**:
-```bash
-curl -X GET "http://localhost:8080/api/servers/ABC12345/backup/download/backup-20240115-103000" \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -o backup.tar.gz
-```
+### `POST /api/servers/:serverId/extract/archive.zip`
+**Query:** `destination` — directorio donde extraer (vacío = raíz del servidor).
+**Respuesta:** `204`.
 
 ---
 
-### Usuarios del Servidor
+## Plugins
 
-#### Listar Usuarios
+| Método | Path | Scope |
+|--------|------|-------|
+| GET | `/api/servers/:serverId/plugins` | `server.files.view` |
+| DELETE | `/api/servers/:serverId/plugins` | `server.files.edit` |
+| GET | `/api/servers/:serverId/plugins/search` | `server.files.view` |
+| POST | `/api/servers/:serverId/plugins/:pluginId` | `server.files.edit` |
 
-**Endpoint**: `GET /api/servers/:serverId/user`
-
-**Scopes**: `server.users.view`
-
-**Respuesta**:
+### `GET /api/servers/:serverId/plugins`
 ```json
-[
-  {
-    "username": "admin",
-    "email": "admin@example.com",
-    "scopes": [
-      "server.view",
-      "server.console",
-      "server.files.view"
-    ]
-  }
-]
+[{ "name": "EssentialsX.jar", "version": "2.20.1", "size": 1234567 }]
 ```
 
-#### Obtener Usuario Específico
-
-**Endpoint**: `GET /api/servers/:serverId/user/:email`
-
-**Scopes**: `server.users.view`
-
-#### Editar Permisos de Usuario
-
-**Endpoint**: `PUT /api/servers/:serverId/user/:email`
-
-**Scopes**: `server.users.edit`
-
-**Body**:
+### `GET /api/servers/:serverId/plugins/search?q=essentials`
 ```json
-{
-  "scopes": [
-    "server.view",
-    "server.console",
-    "server.files.view",
-    "server.files.edit"
-  ]
-}
+[{ "id": "essentialsx", "name": "EssentialsX", "version": "2.20.1", "author": "...", "downloads": 1000000 }]
 ```
 
-**Respuesta**: `204 No Content`
+### `DELETE /api/servers/:serverId/plugins?name=EssentialsX.jar`
+Elimina el plugin `EssentialsX.jar`.
 
-#### Eliminar Usuario del Servidor
-
-**Endpoint**: `DELETE /api/servers/:serverId/user/:email`
-
-**Scopes**: `server.users.delete`
-
-**Respuesta**: `204 No Content`
+### `POST /api/servers/:serverId/plugins/:pluginId`
+Instala el plugin desde SpigotMC (ID numérico de Spigot).
 
 ---
 
-## Endpoints de Usuarios
+## Backups
 
-### Listar Usuarios
+| Método | Path | Scope |
+|--------|------|-------|
+| GET | `/api/servers/:serverId/backup` | `server.backup.view` |
+| GET | `/api/servers/:serverId/backup/:backupID` | `server.backup.view` |
+| DELETE | `/api/servers/:serverId/backup/:backupID` | `server.backup.delete` |
+| POST | `/api/servers/:serverId/backup/create` | `server.backup.create` |
+| POST | `/api/servers/:serverId/backup/restore/:backupID` | `server.backup.restore` |
+| GET | `/api/servers/:serverId/backup/download/:backupID` | `server.backup.view` |
 
-**Endpoint**: `GET /api/users`
-
-**Scopes**: `users.info.search`
-
-**Parámetros de Query**:
-- `username` (string): Filtrar por username (soporta `*`)
-- `email` (string): Filtrar por email (soporta `*`)
-- `page` (uint): Número de página
-- `limit` (uint): Elementos por página
-
-**Ejemplo**:
-```bash
-curl -X GET "http://localhost:8080/api/users?username=admin*" \
-  -H "Authorization: Bearer YOUR_TOKEN"
+### `GET /api/servers/:serverId/backup`
+```json
+[{ "id": 1, "name": "Backup 2024-01-15", "fileName": "backup_abc123.tar.gz", "createdAt": "2024-01-15T10:30:00Z" }]
 ```
 
-**Respuesta**:
+### `POST /api/servers/:serverId/backup/create`
+**Respuesta:** `{ "backupFileName": "backup_abc123.tar.gz" }`
+
+---
+
+## Tareas (Tasks)
+
+| Método | Path | Scope |
+|--------|------|-------|
+| GET | `/api/servers/:serverId/tasks` | `server.tasks.view` |
+| GET | `/api/servers/:serverId/tasks/:taskId` | `server.tasks.view` |
+| PUT | `/api/servers/:serverId/tasks/:taskId` | `server.tasks.edit` |
+| DELETE | `/api/servers/:serverId/tasks/:taskId` | `server.tasks.delete` |
+| POST | `/api/servers/:serverId/tasks/:taskId/run` | `server.tasks.run` |
+
+### `GET /api/servers/:serverId/tasks`
 ```json
 {
-  "users": [
-    {
-      "id": 1,
-      "username": "admin",
-      "email": "admin@example.com"
-    }
-  ],
-  "metadata": {
-    "paging": {
-      "page": 1,
-      "size": 25,
-      "maxSize": 100,
-      "total": 1
-    }
+  "tasks": {
+    "backup_task": { "name": "Backup diario", "cronSchedule": "0 */6 * * *", "operations": [{ "type": "backup" }] }
   }
 }
 ```
 
----
-
-### Crear Usuario
-
-**Endpoint**: `POST /api/users`
-
-**Scopes**: `users.info.edit`
-
-**Body**:
-```json
-{
-  "username": "newuser",
-  "email": "newuser@example.com",
-  "password": "SecurePassword123!"
-}
-```
-
-**Respuesta**:
-```json
-{
-  "id": 2,
-  "username": "newuser",
-  "email": "newuser@example.com"
-}
-```
+### `PUT /api/servers/:serverId/tasks/:taskId`
+**Body:** `ServerTask`. **Respuesta:** `204`.
 
 ---
 
-### Obtener Usuario
+## Bases de Datos del Servidor
 
-**Endpoint**: `GET /api/users/:id`
+| Método | Path | Scope |
+|--------|------|-------|
+| GET | `/api/servers/:serverId/databases` | `server.view` |
+| POST | `/api/servers/:serverId/databases` | `server.data.edit` |
+| DELETE | `/api/servers/:serverId/databases/:id` | `server.data.edit` |
 
-**Scopes**: `users.info.view`
-
-**Respuesta**:
-```json
-{
-  "id": 1,
-  "username": "admin",
-  "email": "admin@example.com"
-}
-```
+### `POST /api/servers/:serverId/databases`
+**Body:** `{ "database_host_id": 1, "database_name": "my_db" }`
+**Respuesta:** `DatabaseView` (con username/password generados).
 
 ---
 
-### Actualizar Usuario
+## Usuarios del Servidor
 
-**Endpoint**: `POST /api/users/:id`
+| Método | Path | Scope |
+|--------|------|-------|
+| GET | `/api/servers/:serverId/user` | `server.users.view` |
+| GET | `/api/servers/:serverId/user/:email` | `server.users.view` |
+| PUT | `/api/servers/:serverId/user/:email` | `server.users.edit` |
+| DELETE | `/api/servers/:serverId/user/:email` | `server.users.delete` |
 
-**Scopes**: `users.info.edit`
-
-**Body**:
+### `GET /api/servers/:serverId/user`
 ```json
-{
-  "username": "newusername",
-  "email": "newemail@example.com",
-  "password": "NewPassword123!"
-}
+[{ "username": "admin", "email": "admin@example.com", "scopes": ["server.view", "server.console"] }]
 ```
 
-**Respuesta**: `204 No Content`
+### `PUT /api/servers/:serverId/user/:email`
+**Body:** `{ "permissions": { "scopes": ["server.view", "server.console"] } }`
+**Respuesta:** `204`.
 
 ---
 
-### Eliminar Usuario
+## Transferencia entre Nodos
 
-**Endpoint**: `DELETE /api/users/:id`
+| Método | Path | Scope |
+|--------|------|-------|
+| POST | `/api/servers/:serverId/transfer` | `server.edit.data.admin` |
 
-**Scopes**: `users.info.edit`
-
-**Respuesta**: `204 No Content`
-
----
-
-### Obtener Permisos de Usuario
-
-**Endpoint**: `GET /api/users/:id/perms`
-
-**Scopes**: `users.perms.view`
-
-**Respuesta**:
-```json
-{
-  "scopes": [
-    "admin",
-    "server.view",
-    "server.create"
-  ]
-}
-```
+**Body:** `{ "nodeId": 2 }`
 
 ---
 
-### Actualizar Permisos de Usuario
+## Transferencia Externa
 
-**Endpoint**: `PUT /api/users/:id/perms`
+Endpoints públicos para migrar servidores entre paneles (sin autenticación).
 
-**Scopes**: `users.perms.edit`
+| Método | Path | Descripción |
+|--------|------|-------------|
+| POST | `/api/extransfer/validate` | Validar token de transferencia |
+| POST | `/api/extransfer/consume` | Consumir transferencia |
+| POST | `/api/extransfer/heartbeat` | Heartbeat durante transferencia |
+| POST | `/api/extransfer/confirm` | Confirmar transferencia |
+| GET | `/api/extransfer/download` | Descargar datos de transferencia |
+| POST | `/api/extransfer/cancel` | Cancelar transferencia |
 
-**Body**:
-```json
-{
-  "scopes": [
-    "server.view",
-    "server.create",
-    "server.edit"
-  ]
-}
-```
+También desde el servidor:
 
-**Respuesta**: `204 No Content`
-
----
-
-## Endpoints de Nodos
-
-### Listar Nodos
-
-**Endpoint**: `GET /api/nodes`
-
-**Scopes**: `nodes.view`
-
-**Respuesta**:
-```json
-[
-  {
-    "id": 1,
-    "name": "Node-01",
-    "publicHost": "node1.example.com",
-    "privateHost": "192.168.1.10",
-    "publicPort": 8080,
-    "privatePort": 8080,
-    "sftpPort": 5657
-  }
-]
-```
+| Método | Path | Scope |
+|--------|------|-------|
+| POST | `/api/servers/:serverId/extransfer/create` | `server.edit.data.admin` |
+| POST | `/api/servers/:serverId/extransfer/pull` | `server.edit.data.admin` |
+| GET | `/api/servers/:serverId/extransfer/status` | `server.edit.data.admin` |
 
 ---
 
-### Crear Nodo
+## AI
 
-**Endpoint**: `POST /api/nodes`
+| Método | Path | Scope |
+|--------|------|-------|
+| POST | `/api/ai/analyze` | `—` (autenticado) |
+| POST | `/api/servers/:serverId/ai/analyze` | `server.console` |
 
-**Scopes**: `nodes.create`
+Analiza logs del servidor usando Google GenAI (requiere `geminiApiKey` configurada).
 
-**Body**:
+### `POST /api/ai/analyze`
 ```json
-{
-  "name": "Node-02",
-  "publicHost": "node2.example.com",
-  "privateHost": "192.168.1.11",
-  "publicPort": 8080,
-  "privatePort": 8080,
-  "sftpPort": 5657
-}
-```
+// Request
+{ "logs": ["[ERROR] Connection refused", "[WARN] Memory low"] }
 
-**Respuesta**:
-```json
+// Response
 {
-  "id": 2,
-  "name": "Node-02",
-  "publicHost": "node2.example.com",
-  "privateHost": "192.168.1.11",
-  "publicPort": 8080,
-  "privatePort": 8080,
-  "sftpPort": 5657,
-  "secret": "abc123def456..."
+  "summary": "Resumen del análisis...",
+  "rootCauses": ["Causa raíz 1"],
+  "suggestions": ["Sugerencia 1", "Sugerencia 2"]
 }
 ```
 
 ---
 
-### Obtener Nodo
+## Usuarios Globales
 
-**Endpoint**: `GET /api/nodes/:id`
+| Método | Path | Scope | Descripción |
+|--------|------|-------|-------------|
+| GET | `/api/users` | `users.info.search` | Buscar usuarios |
+| POST | `/api/users` | `users.info.edit` | Crear usuario |
+| GET | `/api/users/:id` | `users.info.view` | Obtener usuario |
+| POST | `/api/users/:id` | `users.info.edit` | Actualizar usuario |
+| DELETE | `/api/users/:id` | `users.info.edit` | Eliminar usuario |
+| GET | `/api/users/:id/perms` | `users.perms.view` | Obtener permisos |
+| PUT | `/api/users/:id/perms` | `users.perms.edit` | Actualizar permisos |
 
-**Scopes**: `nodes.view`
-
-**Respuesta**:
+### `GET /api/users?username=admin*&email=*@example.com&page=1&limit=25`
 ```json
 {
-  "id": 1,
-  "name": "Node-01",
-  "publicHost": "node1.example.com",
-  "privateHost": "192.168.1.10",
-  "publicPort": 8080,
-  "privatePort": 8080,
-  "sftpPort": 5657
+  "users": [{ "id": 1, "username": "admin", "email": "admin@example.com" }],
+  "metadata": { "paging": { "page": 1, "size": 25, "maxSize": 100, "total": 1 } }
+}
+```
+
+### `POST /api/users`
+**Body:** `{ "username": "newuser", "email": "new@example.com", "password": "Secure123!" }`
+
+### `POST /api/users/:id`
+**Body:** `{ "username": "newname", "email": "new@example.com", "password": "newpass" }`
+
+### `GET /api/users/:id/perms`
+```json
+{ "serverIdentifier": "", "scopes": [{ "value": "server.view", "forServer": false }, { "value": "admin", "forServer": false }] }
+```
+
+### `PUT /api/users/:id/perms`
+**Body:** `{ "scopes": ["admin", "server.view"] }` (array de strings).
+**Respuesta:** `204`.
+
+---
+
+## Self (Perfil Propio)
+
+| Método | Path | Scope | Descripción |
+|--------|------|-------|-------------|
+| GET | `/api/self` | `login` | Obtener perfil propio |
+| PUT | `/api/self` | `self.edit` | Actualizar perfil |
+| GET | `/api/self/otp` | `self.edit` | Estado de OTP |
+| POST | `/api/self/otp` | `self.edit` | Iniciar enrolamiento OTP |
+| PUT | `/api/self/otp` | `self.edit` | Validar enrolamiento |
+| POST | `/api/self/otp/recovery` | `self.edit` | Regenerar códigos de recuperación |
+| DELETE | `/api/self/otp/:token` | `self.edit` | Deshabilitar OTP |
+| GET | `/api/self/oauth2` | `self.clients` | Listar OAuth2 clients |
+| POST | `/api/self/oauth2` | `self.clients` | Crear client |
+| DELETE | `/api/self/oauth2/:clientID` | `self.clients` | Eliminar client |
+
+---
+
+## Settings
+
+| Método | Path | Scope | Descripción |
+|--------|------|-------|-------------|
+| GET | `/api/settings` | `settings.edit` | Obtener configuración |
+| POST | `/api/settings` | `settings.edit` | Actualizar múltiples valores |
+| GET | `/api/settings/:key` | `settings.edit` | Obtener un valor |
+| PUT | `/api/settings/:key` | `settings.edit` | Actualizar un valor |
+| POST | `/api/settings/test/email` | `settings.edit` | Enviar email de prueba |
+| POST | `/api/settings/test/discord` | `settings.edit` | Enviar notificación Discord de prueba |
+| POST | `/api/settings/license/activate` | `settings.edit` | Activar licencia |
+
+### `POST /api/settings`
+**Body:** `{ "companyName": "Mi Empresa", "registrationEnabled": false }`. **Respuesta:** `204`.
+
+### `PUT /api/settings/:key`
+**Body:** `{ "value": "nuevo_valor" }`. **Respuesta:** `204`.
+
+---
+
+## User Settings
+
+| Método | Path | Scope |
+|--------|------|-------|
+| GET | `/api/userSettings` | `login` |
+| PUT | `/api/userSettings/:key` | `login` |
+
+### `PUT /api/userSettings/theme`
+**Body:** `{ "value": "dark" }`. **Respuesta:** `204`.
+
+---
+
+## API Keys
+
+| Método | Path | Scope |
+|--------|------|-------|
+| GET | `/api/settings/apikeys` | `admin` |
+| POST | `/api/settings/apikeys` | `admin` |
+| DELETE | `/api/settings/apikeys/:id` | `admin` |
+
+---
+
+## Roles
+
+| Método | Path | Scope |
+|--------|------|-------|
+| GET | `/api/roles` | `admin` o `users.info.view/edit` |
+| POST | `/api/roles` | `admin` |
+| GET | `/api/roles/:id` | `admin` |
+| POST | `/api/roles/:id` | `admin` |
+| DELETE | `/api/roles/:id` | `admin` |
+
+### `POST /api/roles`
+**Body:** `{ "name": "Moderator", "description": "Can manage servers", "scopes": ["server.view", "server.start"] }`
+
+---
+
+## Database Hosts
+
+| Método | Path | Scope |
+|--------|------|-------|
+| GET | `/api/databasehosts` | `admin` |
+| POST | `/api/databasehosts` | `admin` |
+| GET | `/api/databasehosts/:id` | `admin` |
+| PUT | `/api/databasehosts/:id` | `admin` |
+| DELETE | `/api/databasehosts/:id` | `admin` |
+
+### `POST /api/databasehosts`
+**Body:**
+```json
+{
+  "name": "DB Host 1", "host": "db1.example.com", "port": 3306,
+  "username": "skypanel", "password": "secret", "max_databases": 10, "node_id": 1
 }
 ```
 
 ---
 
-### Actualizar Nodo
+## Templates
 
-**Endpoint**: `PUT /api/nodes/:id`
+| Método | Path | Scope |
+|--------|------|-------|
+| GET | `/api/templates` | `login` |
+| POST | `/api/templates` | `templates.repo.create` |
+| GET | `/api/templates/:repo` | `login` |
+| DELETE | `/api/templates/:repo` | `templates.repo.delete` |
+| GET | `/api/templates/:repo/:name` | `login` |
+| PUT | `/api/templates/0/:name` | `templates.local.edit` |
+| DELETE | `/api/templates/0/:name` | `templates.local.edit` |
 
-**Scopes**: `nodes.edit`
-
-**Body**:
-```json
-{
-  "name": "Node-01-Updated",
-  "publicHost": "node1-new.example.com"
-}
-```
-
-**Respuesta**: `204 No Content`
+`:repo=0` es el repositorio local. Los repositorios remotos tienen IDs > 0.
 
 ---
 
-### Eliminar Nodo
+## Provision Products
 
-**Endpoint**: `DELETE /api/nodes/:id`
-
-**Scopes**: `nodes.delete`
-
-**Respuesta**: `204 No Content`
-
----
-
-### Obtener Información del Sistema del Nodo
-
-**Endpoint**: `GET /api/nodes/:id/system`
-
-**Scopes**: `nodes.view`
-
-**Respuesta**:
-```json
-{
-  "cpu": {
-    "model": "Intel(R) Xeon(R) CPU E5-2680 v4",
-    "cores": 8,
-    "threads": 16,
-    "mhz": 2400.0
-  },
-  "memory": {
-    "total": 17179869184,
-    "used": 8589934592,
-    "free": 8589934592
-  },
-  "disk": {
-    "total": 1099511627776,
-    "used": 549755813888,
-    "free": 549755813888
-  },
-  "os": {
-    "platform": "linux",
-    "family": "debian",
-    "version": "22.04"
-  }
-}
-```
+| Método | Path | Scope |
+|--------|------|-------|
+| GET | `/api/provision/products` | `admin` |
+| POST | `/api/provision/products` | `admin` |
+| PUT | `/api/provision/products/:id` | `admin` |
+| DELETE | `/api/provision/products/:id` | `admin` |
 
 ---
 
-### Obtener Features del Nodo
+## Provision API v1
 
-**Endpoint**: `GET /api/nodes/:id/features`
+Autenticación por API Key en header. Endpoints para integración con sistemas externos (WHMCS, etc.).
 
-**Scopes**: `nodes.view`
-
-**Respuesta**:
-```json
-{
-  "docker": true,
-  "environments": [
-    "standard",
-    "docker"
-  ]
-}
-```
+| Método | Path | Descripción |
+|--------|------|-------------|
+| GET | `/api/v1/ping` | Verificar conectividad |
+| POST | `/api/v1/provision` | Crear servidor automáticamente |
+| POST | `/api/v1/terminate` | Terminar servidor |
+| POST | `/api/v1/suspend` | Suspender servidor |
+| POST | `/api/v1/unsuspend` | Reactivar servidor |
 
 ---
 
-### Obtener Datos de Deployment
+## Uptime
 
-**Endpoint**: `GET /api/nodes/:id/deployment`
+| Método | Path | Scope | Descripción |
+|--------|------|-------|-------------|
+| GET | `/api/uptime` | `admin` o `uptime.view` | Todos los registros |
+| GET | `/api/uptime/:serverId` | `server.view` | Registros de un servidor |
 
-**Scopes**: `nodes.deploy`
-
-**Respuesta**:
-```json
-{
-  "clientId": ".node_1",
-  "clientSecret": "abc123def456..."
-}
-```
+**Query params:** `days` (días hacia atrás), `limit` (número de registros).
 
 ---
 
-## Endpoints de Configuración
+## Daemon
 
-### Obtener Configuración
+Endpoints del daemon para comunicación directa entre nodos y panel. No pasan por proxy. Usan autenticación JWT.
 
-**Endpoint**: `GET /api/settings`
+| Método | Path | Scope Swagger |
+|--------|------|---------------|
+| GET | `/daemon` | `none` |
+| HEAD | `/daemon` | `none` |
+| GET | `/daemon/features` | `none` |
+| GET | `/daemon/system` | `none` |
+| GET/PUT/DELETE | `/daemon/server/:serverId/...` | (según acción) |
 
-**Scopes**: `settings.view`
+### Acciones del Daemon por Servidor
 
-**Respuesta**:
-```json
-{
-  "companyName": "Aether Panel",
-  "defaultTheme": "Aether Panel",
-  "masterUrl": "https://panel.example.com",
-  "registrationEnabled": false
-}
-```
-
----
-
-### Actualizar Configuración
-
-**Endpoint**: `PUT /api/settings`
-
-**Scopes**: `settings.edit`
-
-**Body**:
-```json
-{
-  "companyName": "Mi Empresa",
-  "registrationEnabled": true
-}
-```
-
-**Respuesta**: `204 No Content`
-
----
-
-## Endpoints de Plantillas
-
-### Listar Plantillas
-
-**Endpoint**: `GET /api/templates`
-
-**Scopes**: `templates.view`
-
-**Respuesta**:
-```json
-{
-  "templates": [
-    {
-      "name": "minecraft-java",
-      "display": "Minecraft Java Edition",
-      "type": "java",
-      "supportedVersions": ["1.20.1", "1.19.4", "1.18.2"]
-    },
-    {
-      "name": "terraria",
-      "display": "Terraria",
-      "type": "native",
-      "supportedVersions": ["1.4.4.9"]
-    }
-  ]
-}
-```
+| Método | Path | Scope Swagger |
+|--------|------|---------------|
+| PUT | `/daemon/server/:serverId` | — |
+| DELETE | `/daemon/server/:serverId` | — |
+| GET | `/daemon/server/:serverId/definition` | `server.definition.view` |
+| PUT | `/daemon/server/:serverId/definition` | `server.definition.edit` |
+| GET | `/daemon/server/:serverId/data` | `server.data.view` |
+| POST | `/daemon/server/:serverId/data` | — |
+| PUT | `/daemon/server/:serverId/data` | — |
+| GET | `/daemon/server/:serverId/tasks` | `server.tasks.view` |
+| GET/PUT/DELETE | `/daemon/server/:serverId/tasks/:taskID` | `server.tasks.*` |
+| POST | `/daemon/server/:serverId/tasks/:taskID/run` | `server.tasks.run` |
+| POST | `/daemon/server/:serverId/reload` | `server.reload` |
+| POST | `/daemon/server/:serverId/start` | `server.start` |
+| POST | `/daemon/server/:serverId/restart` | `server.start` + `server.stop` |
+| POST | `/daemon/server/:serverId/stop` | `server.stop` |
+| POST | `/daemon/server/:serverId/kill` | `server.kill` |
+| POST | `/daemon/server/:serverId/install` | `server.install` |
+| GET | `/daemon/server/:serverId/file/*filename` | `server.files.view` |
+| PUT | `/daemon/server/:serverId/file/*filename` | `server.files.edit` |
+| DELETE | `/daemon/server/:serverId/file/*filename` | `server.files.edit` |
+| GET | `/daemon/server/:serverId/console` | `server.console` |
+| POST | `/daemon/server/:serverId/console` | `server.console.send` |
+| GET | `/daemon/server/:serverId/flags` | `server.flags.view` |
+| POST | `/daemon/server/:serverId/flags` | `server.flags.edit` |
+| GET | `/daemon/server/:serverId/stats` | `server.stats` |
+| GET | `/daemon/server/:serverId/status` | `server.status` |
+| POST | `/daemon/server/:serverId/archive/*filename` | `server.files.edit` |
+| POST | `/daemon/server/:serverId/extract/*filename` | `server.files.edit` |
+| POST | `/daemon/server/:serverId/backup/create` | `server.backup.create` |
+| DELETE | `/daemon/server/:serverId/backup` | `server.backup.delete` |
+| POST | `/daemon/server/:serverId/backup/restore` | `server.backup.restore` |
+| GET | `/daemon/server/:serverId/backup/download` | `server.backup.restore` |
+| HEAD/GET | `/daemon/server/:serverId/query` | `server.query` |
+| GET | `/daemon/server/:serverId/plugins` | — |
+| DELETE | `/daemon/server/:serverId/plugins` | — |
+| GET | `/daemon/server/:serverId/plugins/search` | — |
+| POST | `/daemon/server/:serverId/plugins/:pluginId` | — |
+| GET | `/daemon/server/:serverId/socket` | — |
 
 ---
 
-### Obtener Plantilla
+## WebSocket
 
-**Endpoint**: `GET /api/templates/:name`
+### `GET /api/servers/:serverId/socket`
 
-**Scopes**: `templates.view`
+Conecta a la consola y estadísticas en tiempo real.
 
-**Respuesta**:
-```json
-{
-  "name": "minecraft-java",
-  "display": "Minecraft Java Edition",
-  "type": "java",
-  "install": [
-    {
-      "type": "mojangdl",
-      "version": "{{version}}"
-    }
-  ],
-  "run": {
-    "command": "java -Xmx{{memory}}M -jar server.jar nogui",
-    "stop": "stop"
-  },
-  "variables": {
-    "version": {
-      "type": "string",
-      "default": "1.20.1",
-      "required": true
-    },
-    "memory": {
-      "type": "integer",
-      "default": 2048,
-      "required": true
-    }
-  }
-}
-```
-
----
-
-## WebSocket API
-
-### Conectar a Consola en Tiempo Real
-
-**Endpoint**: `WS /api/servers/:serverId/socket`
-
-**Scopes**: `server.view`
-
-**Protocolo**: WebSocket
-
-**Ejemplo con JavaScript**:
 ```javascript
-const token = 'YOUR_ACCESS_TOKEN';
-const serverId = 'ABC12345';
-const ws = new WebSocket(`ws://localhost:8080/api/servers/${serverId}/socket`);
-
-// Autenticación
-ws.onopen = () => {
-  ws.send(JSON.stringify({
-    type: 'auth',
-    token: token
-  }));
-};
-
-// Recibir mensajes
-ws.onmessage = (event) => {
-  const data = JSON.parse(event.data);
-  
-  if (data.type === 'console') {
-    console.log('Console:', data.data);
-  } else if (data.type === 'stats') {
-    console.log('Stats:', data.data);
-  } else if (data.type === 'status') {
-    console.log('Status:', data.data);
-  }
-};
-
-// Enviar comando
-function sendCommand(command) {
-  ws.send(JSON.stringify({
-    type: 'console',
-    data: command
-  }));
-}
-
-// Ejemplo de uso
-sendCommand('say Hello from WebSocket!');
+const ws = new WebSocket(`ws://localhost:8080/api/servers/${serverId}/socket?token=${token}`);
 ```
 
-### Tipos de Mensajes WebSocket
+### Tipos de Mensaje
 
-#### Autenticación
+| Tipo | Dirección | Descripción |
+|------|-----------|-------------|
+| `auth` | Cliente → Servidor | Autenticación (alternativa al query param) |
+| `console` | Servidor → Cliente | Línea de consola del servidor |
+| `stats` | Servidor → Cliente | Estadísticas periódicas |
+| `status` | Servidor → Cliente | Cambio de estado |
+
+### Eventos del Servidor
 ```json
-{
-  "type": "auth",
-  "token": "YOUR_ACCESS_TOKEN"
-}
+{ "type": "console", "data": "[10:30:15] [Server thread/INFO]: Starting server" }
+{ "type": "stats", "data": { "cpu": 45.2, "memory": 1536000000, "memoryTotal": 2147483648 } }
+{ "type": "status", "data": { "running": true } }
 ```
 
-#### Consola (Servidor → Cliente)
+### Enviar Comando
 ```json
-{
-  "type": "console",
-  "data": "[10:30:15] [Server thread/INFO]: Starting server"
-}
-```
-
-#### Comando (Cliente → Servidor)
-```json
-{
-  "type": "console",
-  "data": "say Hello World!"
-}
-```
-
-#### Estadísticas (Servidor → Cliente)
-```json
-{
-  "type": "stats",
-  "data": {
-    "cpu": 45.2,
-    "memory": 1536000000
-  }
-}
-```
-
-#### Estado (Servidor → Cliente)
-```json
-{
-  "type": "status",
-  "data": {
-    "running": true
-  }
-}
+{ "type": "console", "data": "say Hello World!" }
 ```
 
 ---
 
-## Ejemplos de Uso
-
-### Python
-
-#### Instalación
-```bash
-pip install requests
-```
-
-#### Ejemplo Completo
-```python
-import requests
-import json
-
-class SkyPanelAPI:
-    def __init__(self, base_url, client_id, client_secret):
-        self.base_url = base_url
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.token = None
-    
-    def authenticate(self):
-        """Obtener token de acceso"""
-        url = f"{self.base_url}/oauth2/token"
-        data = {
-            'grant_type': 'client_credentials',
-            'client_id': self.client_id,
-            'client_secret': self.client_secret
-        }
-        response = requests.post(url, data=data)
-        response.raise_for_status()
-        self.token = response.json()['access_token']
-        return self.token
-    
-    def get_headers(self):
-        """Headers con autenticación"""
-        if not self.token:
-            self.authenticate()
-        return {
-            'Authorization': f'Bearer {self.token}',
-            'Content-Type': 'application/json'
-        }
-    
-    def list_servers(self, **filters):
-        """Listar servidores"""
-        url = f"{self.base_url}/api/servers"
-        response = requests.get(url, headers=self.get_headers(), params=filters)
-        response.raise_for_status()
-        return response.json()
-    
-    def get_server(self, server_id):
-        """Obtener servidor específico"""
-        url = f"{self.base_url}/api/servers/{server_id}"
-        response = requests.get(url, headers=self.get_headers())
-        response.raise_for_status()
-        return response.json()
-    
-    def start_server(self, server_id):
-        """Iniciar servidor"""
-        url = f"{self.base_url}/api/servers/{server_id}/start"
-        response = requests.post(url, headers=self.get_headers())
-        response.raise_for_status()
-        return True
-    
-    def stop_server(self, server_id):
-        """Detener servidor"""
-        url = f"{self.base_url}/api/servers/{server_id}/stop"
-        response = requests.post(url, headers=self.get_headers())
-        response.raise_for_status()
-        return True
-    
-    def send_command(self, server_id, command):
-        """Enviar comando a consola"""
-        url = f"{self.base_url}/api/servers/{server_id}/console"
-        data = {'command': command}
-        response = requests.post(url, headers=self.get_headers(), json=data)
-        response.raise_for_status()
-        return True
-    
-    def create_server(self, server_data):
-        """Crear servidor"""
-        server_id = server_data.get('identifier', '')
-        url = f"{self.base_url}/api/servers/{server_id}"
-        response = requests.put(url, headers=self.get_headers(), json=server_data)
-        response.raise_for_status()
-        return response.json()
-
-# Uso
-api = SkyPanelAPI(
-    base_url='http://localhost:8080',
-    client_id='YOUR_CLIENT_ID',
-    client_secret='YOUR_CLIENT_SECRET'
-)
-
-# Listar servidores
-servers = api.list_servers(name='minecraft*')
-print(f"Encontrados {len(servers['servers'])} servidores")
-
-# Iniciar servidor
-api.start_server('ABC12345')
-print("Servidor iniciado")
-
-# Enviar comando
-api.send_command('ABC12345', 'say Hello from Python!')
-print("Comando enviado")
-```
-
----
-
-### Node.js
-
-#### Instalación
-```bash
-npm install axios
-```
-
-#### Ejemplo Completo
-```javascript
-const axios = require('axios');
-
-class SkyPanelAPI {
-  constructor(baseURL, clientId, clientSecret) {
-    this.baseURL = baseURL;
-    this.clientId = clientId;
-    this.clientSecret = clientSecret;
-    this.token = null;
-    
-    this.client = axios.create({
-      baseURL: this.baseURL
-    });
-  }
-  
-  async authenticate() {
-    const response = await this.client.post('/oauth2/token', 
-      new URLSearchParams({
-        grant_type: 'client_credentials',
-        client_id: this.clientId,
-        client_secret: this.clientSecret
-      }),
-      {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        }
-      }
-    );
-    
-    this.token = response.data.access_token;
-    return this.token;
-  }
-  
-  getHeaders() {
-    if (!this.token) {
-      throw new Error('Not authenticated. Call authenticate() first.');
-    }
-    
-    return {
-      'Authorization': `Bearer ${this.token}`,
-      'Content-Type': 'application/json'
-    };
-  }
-  
-  async listServers(filters = {}) {
-    const response = await this.client.get('/api/servers', {
-      headers: this.getHeaders(),
-      params: filters
-    });
-    return response.data;
-  }
-  
-  async getServer(serverId) {
-    const response = await this.client.get(`/api/servers/${serverId}`, {
-      headers: this.getHeaders()
-    });
-    return response.data;
-  }
-  
-  async startServer(serverId) {
-    await this.client.post(`/api/servers/${serverId}/start`, {}, {
-      headers: this.getHeaders()
-    });
-    return true;
-  }
-  
-  async stopServer(serverId) {
-    await this.client.post(`/api/servers/${serverId}/stop`, {}, {
-      headers: this.getHeaders()
-    });
-    return true;
-  }
-  
-  async sendCommand(serverId, command) {
-    await this.client.post(`/api/servers/${serverId}/console`, 
-      { command },
-      { headers: this.getHeaders() }
-    );
-    return true;
-  }
-  
-  async createServer(serverData) {
-    const serverId = serverData.identifier || '';
-    const response = await this.client.put(`/api/servers/${serverId}`, 
-      serverData,
-      { headers: this.getHeaders() }
-    );
-    return response.data;
-  }
-}
-
-// Uso
-(async () => {
-  const api = new SkyPanelAPI(
-    'http://localhost:8080',
-    'YOUR_CLIENT_ID',
-    'YOUR_CLIENT_SECRET'
-  );
-  
-  // Autenticar
-  await api.authenticate();
-  console.log('Autenticado');
-  
-  // Listar servidores
-  const servers = await api.listServers({ name: 'minecraft*' });
-  console.log(`Encontrados ${servers.servers.length} servidores`);
-  
-  // Iniciar servidor
-  await api.startServer('ABC12345');
-  console.log('Servidor iniciado');
-  
-  // Enviar comando
-  await api.sendCommand('ABC12345', 'say Hello from Node.js!');
-  console.log('Comando enviado');
-})();
-```
-
----
+## Ejemplos
 
 ### cURL
-
-#### Autenticación
 ```bash
-# Obtener token
-TOKEN=$(curl -X POST http://localhost:8080/oauth2/token \
+TOKEN=$(curl -s -X POST http://localhost:8080/oauth2/token \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "grant_type=client_credentials" \
-  -d "client_id=YOUR_CLIENT_ID" \
-  -d "client_secret=YOUR_CLIENT_SECRET" \
-  | jq -r '.access_token')
+  -d "client_id=ID" \
+  -d "client_secret=SECRET" | jq -r '.access_token')
 
-echo "Token: $TOKEN"
+curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/servers
+curl -s -X POST -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/servers/abc123/start
 ```
 
-#### Listar Servidores
-```bash
-curl -X GET "http://localhost:8080/api/servers" \
-  -H "Authorization: Bearer $TOKEN" \
-  | jq '.'
-```
-
-#### Crear Servidor
-```bash
-curl -X PUT "http://localhost:8080/api/servers/MYSERVER" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Mi Servidor",
-    "nodeId": 1,
-    "type": {"type": "minecraft-java"},
-    "users": ["admin@example.com"],
-    "server": {
-      "environment": {"type": "standard"},
-      "install": [{"type": "mojangdl", "version": "1.20.1"}],
-      "run": {
-        "command": "java -Xmx2G -jar server.jar nogui",
-        "stop": "stop"
-      },
-      "data": {"memory": 2048, "cpu": 200, "disk": 5000}
-    },
-    "variables": {"ip": "0.0.0.0", "port": 25565}
-  }'
-```
-
-#### Iniciar Servidor
-```bash
-curl -X POST "http://localhost:8080/api/servers/ABC12345/start" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-#### Enviar Comando
-```bash
-curl -X POST "http://localhost:8080/api/servers/ABC12345/console" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"command": "say Hello from cURL!"}'
-```
-
----
-
-## SDKs y Librerías
-
-### Oficiales
-
-- **Python**: `pip install skypanel-api` (próximamente)
-- **Node.js**: `npm install skypanel-api` (próximamente)
-- **Go**: `go get github.com/SkyPanel/skypanel-go` (próximamente)
-
-### Comunitarias
-
-- **PHP**: [skypanel-php](https://github.com/community/skypanel-php)
-- **Ruby**: [skypanel-ruby](https://github.com/community/skypanel-ruby)
-- **Java**: [skypanel-java](https://github.com/community/skypanel-java)
-
----
-
-## Rate Limiting
-
-La API de Aether Panel implementa rate limiting para prevenir abuso:
-
-- **Límite**: 100 peticiones por minuto por token
-- **Header de Respuesta**: `X-RateLimit-Remaining`
-- **Código de Error**: `429 Too Many Requests`
-
-**Ejemplo de Respuesta**:
-```http
-HTTP/1.1 429 Too Many Requests
-X-RateLimit-Limit: 100
-X-RateLimit-Remaining: 0
-X-RateLimit-Reset: 1642345678
-
-{
-  "error": {
-    "code": "ErrRateLimitExceeded",
-    "msg": "Rate limit exceeded. Try again in {seconds} seconds",
-    "metadata": {
-      "seconds": 45
-    }
-  }
-}
-```
-
----
-
-## Versionado de API
-
-La API de Aether Panel usa versionado semántico:
-
-- **Versión Actual**: `v3`
-- **URL**: `/api/...` (v3 es la versión por defecto)
-- **Versiones Antiguas**: `/api/v2/...` (deprecado)
-
-### Política de Deprecación
-
-- Las versiones antiguas se mantienen por **6 meses** después de una nueva versión mayor
-- Se notifica con **3 meses** de anticipación antes de eliminar una versión
-- Header de deprecación: `X-API-Deprecated: true`
-
----
-
-## Mejores Prácticas
-
-### 1. Cachear Tokens
+### Python
 ```python
-# Malo: Autenticar en cada petición
-def get_servers():
-    token = authenticate()
-    return requests.get('/api/servers', headers={'Authorization': f'Bearer {token}'})
-
-# Bueno: Reutilizar token
-class API:
-    def __init__(self):
-        self.token = None
-        self.token_expires = 0
-    
-    def get_token(self):
-        if time.time() > self.token_expires:
-            self.token = authenticate()
-            self.token_expires = time.time() + 3600
-        return self.token
+import requests
+api = "http://localhost:8080"
+r = requests.post(f"{api}/oauth2/token", data={"grant_type": "client_credentials", "client_id": "ID", "client_secret": "SECRET"})
+token = r.json()["access_token"]
+headers = {"Authorization": f"Bearer {token}"}
+servers = requests.get(f"{api}/api/servers", headers=headers).json()
 ```
 
-### 2. Manejo de Errores
-```python
-try:
-    response = api.start_server('ABC12345')
-except requests.exceptions.HTTPError as e:
-    if e.response.status_code == 404:
-        print("Servidor no encontrado")
-    elif e.response.status_code == 403:
-        print("Sin permisos")
-    else:
-        print(f"Error: {e.response.json()}")
+### JavaScript
+```javascript
+const api = axios.create({ baseURL: 'http://localhost:8080' });
+const { data } = await api.post('/oauth2/token', new URLSearchParams({ grant_type: 'client_credentials', client_id: 'ID', client_secret: 'SECRET' }));
+api.defaults.headers.Authorization = `Bearer ${data.access_token}`;
+const servers = (await api.get('/api/servers')).data;
 ```
-
-### 3. Paginación
-```python
-def get_all_servers():
-    page = 1
-    all_servers = []
-    
-    while True:
-        response = api.list_servers(page=page, limit=100)
-        all_servers.extend(response['servers'])
-        
-        if page * 100 >= response['metadata']['paging']['total']:
-            break
-        
-        page += 1
-    
-    return all_servers
-```
-
-### 4. Rate Limiting
-```python
-import time
-
-def make_request_with_retry(func, *args, **kwargs):
-    max_retries = 3
-    retry_delay = 1
-    
-    for attempt in range(max_retries):
-        try:
-            return func(*args, **kwargs)
-        except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 429:
-                if attempt < max_retries - 1:
-                    time.sleep(retry_delay * (2 ** attempt))
-                    continue
-            raise
-```
-
----
-
-## Soporte y Ayuda
-
-### Recursos
-
-- **Documentación**: [docs.aetherpanel.es](https://docs.aetherpanel.es)
-- **Discord**: [discord.gg/skypanel](https://discord.gg/skypanel)
-- **Issues**: [github.com/aetherpanel/aetherpanel/issues](https://github.com/aetherpanel/aetherpanel/issues)
-- **Email**: api-support@aetherpanel.es
-
-### Reportar Problemas de API
-
-Al reportar problemas, incluye:
-
-1. **Endpoint** afectado
-2. **Método HTTP** usado
-3. **Headers** enviados (sin tokens)
-4. **Body** de la petición
-5. **Respuesta** recibida
-6. **Código de error**
-7. **Versión de SkyPanel**
-
----
-
-**¡Feliz desarrollo con la API de SkyPanel!**
