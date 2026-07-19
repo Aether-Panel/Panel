@@ -105,7 +105,7 @@ jobs:
           install-mode: goinstall
 
       - name: Run Staticcheck
-        uses: dominikh/staticcheck-action@fe1dd0c3658873b46f8c9bb3291096a617310ca6 # v1.3.1
+        uses: dominikh/staticcheck-action@9716614d4101e79b4340dd97b10e54d68234e431 # v1.4.1
         with:
           version: "latest"
           install-go: false
