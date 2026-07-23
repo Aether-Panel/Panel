@@ -8,7 +8,7 @@ WORKDIR /build
 # Optimización: Copiar archivos de dependencia (incluyendo workspaces) para cachear capas
 COPY client/package.json client/yarn.lock* ./
 COPY client/frontend/package.json ./frontend/
-RUN npm install -g yarn && yarn install --frozen-lockfile --ignore-scripts
+RUN npm install -g yarn@1.22.22 --ignore-scripts && yarn install --frozen-lockfile --ignore-scripts
 
 # Copiar el resto del código
 COPY client/ .
@@ -43,7 +43,7 @@ COPY go.mod go.sum ./
 RUN go mod download && go mod verify
 
 # Optimización: Instalar swag antes de copiar todo el código para cachear la descarga
-RUN CGO_ENABLED=0 go install github.com/swaggo/swag/cmd/swag@v1.16.4
+RUN CGO_ENABLED=0 go install github.com/swaggo/swag/cmd/swag
 
 COPY . .
 
