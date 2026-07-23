@@ -20,15 +20,15 @@ Nuestro script de instalación automático maneja la configuración de usuarios,
 Ejecute el siguiente comando como usuario root o con privilegios sudo:
 
 ```bash
-bash <(curl -s https://install.aetherpanel.es/install.sh)
+bash <(curl -s https://install.aetherpanel.com/install.sh)
 ```
 
 El instalador le guiará a través del proceso:
 1.  Verificación de dependencias.
 2.  Instalación de Docker (si no está presente).
-3.  Descarga del binario de Aether Panel.
+3.  Descarga del binario de SkyPanel.
 4.  Creación del usuario administrador inicial.
-5.  Inicio del servicio.
+5.  Inicio del servicio SkyPanel.
 
 ---
 
@@ -42,11 +42,12 @@ Cree el usuario del sistema y los directorios necesarios:
 
 ```bash
 # Crear usuario sin privilegios
-useradd -r -m -d /var/lib/pufferpanel -s /bin/false pufferpanel
+useradd -r -m -d /var/lib/SkyPanel -s /bin/false skypanel
 
 # Crear estructura de directorios
-mkdir -p /var/lib/pufferpanel
-mkdir -p /etc/pufferpanel
+mkdir -p /var/lib/SkyPanel
+mkdir -p /etc/SkyPanel
+mkdir -p /var/log/SkyPanel
 ```
 
 ### 2. Descargar e Instalar
@@ -55,8 +56,8 @@ Descargue la última versión estable desde nuestra página de lanzamientos:
 
 ```bash
 # Ejemplo para Linux AMD64
-wget https://github.com/aetherpanel/aetherpanel/releases/latest/download/pufferpanel_linux_amd64 -O /usr/local/bin/pufferpanel
-chmod +x /usr/local/bin/pufferpanel
+wget https://github.com/aetherpanel/aetherpanel/releases/latest/download/SkyPanel_linux_amd64 -O /usr/local/bin/SkyPanel
+chmod +x /usr/local/bin/SkyPanel
 ```
 
 ### 3. Configuración Inicial
@@ -65,10 +66,10 @@ Habilite el servicio y cree el primer usuario administrador:
 
 ```bash
 # Añadir usuario administrador
-/usr/local/bin/pufferpanel user add --admin
+/usr/local/bin/SkyPanel user add --admin
 
 # Habilitar servicio (si usa systemd)
-/usr/local/bin/pufferpanel runservice
+/usr/local/bin/SkyPanel runservice
 ```
 
 ---
@@ -84,11 +85,11 @@ docker run -d \
   --name skypanel \
   -p 8080:8080 \
   -p 5657:5657 \
-  -v skypanel-config:/etc/pufferpanel \
-  -v skypanel-data:/var/lib/pufferpanel \
+  -v skypanel-config:/etc/SkyPanel \
+  -v skypanel-data:/var/lib/SkyPanel \
   -v /var/run/docker.sock:/var/run/docker.sock \
   --restart=always \
-  aetherpanel/aetherpanel:latest
+  aetherpanel/skypanel:latest
 ```
 
 ### Docker Compose
@@ -98,14 +99,14 @@ Guarde el siguiente contenido en un archivo `docker-compose.yml`:
 ```yaml
 version: '3'
 services:
-  pufferpanel:
-    image: aetherpanel/aetherpanel:latest
+  skypanel:
+    image: aetherpanel/skypanel:latest
     ports:
       - "8080:8080"
       - "5657:5657"
     volumes:
-      - ./config:/etc/pufferpanel
-      - ./data:/var/lib/pufferpanel
+      - ./config:/etc/SkyPanel
+      - ./data:/var/lib/SkyPanel
       - /var/run/docker.sock:/var/run/docker.sock
     restart: always
 ```
@@ -120,7 +121,7 @@ docker-compose up -d
 Una vez que el contenedor esté corriendo, ejecute este comando para crear su cuenta de administrador:
 
 ```bash
-docker exec -it skypanel /SkyPanel/bin/SkyPanel user add --name admin --email admin@example.com --password 'admin123' --admin
+docker exec -it skypanel /usr/local/bin/SkyPanel user add --name admin --email admin@example.com --password 'admin123' --admin
 ```
 
 > **Importante:** Recuerde cambiar `admin@example.com` y `'admin123'` por sus datos reales.

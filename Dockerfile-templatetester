@@ -8,7 +8,7 @@ WORKDIR /home/SkyPanel/build
 
 RUN apt-get update && \
     apt-get install -y build-essential wget tar && \
-    wget https://go.dev/dl/go${GOVERSION}.linux-amd64.tar.gz && \
+    curl -fsSL --proto =https -o go${GOVERSION}.linux-amd64.tar.gz https://go.dev/dl/go${GOVERSION}.linux-amd64.tar.gz && \
     rm -rf /usr/local/go && tar -C /usr/local -xzf go*.linux-amd64.tar.gz && \
     apt-get clean && \
     rm -rf /var/cache/apt/archives
@@ -37,7 +37,7 @@ RUN apt-get update && \
     echo "deb [signed-by=/usr/share/keyrings/mono-official-archive-keyring.gpg] https://download.mono-project.com/repo/ubuntu stable-focal main" > /etc/apt/sources.list.d/mono-official-stable.list && \
     dpkg --add-architecture i386 && \
     mkdir -p /etc/apt/keyrings && \
-    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
+    curl -fsSL --proto =https -o nodesource-repo.gpg.key https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key && gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg < nodesource-repo.gpg.key && rm nodesource-repo.gpg.key && \
     echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list && \
     echo steam steam/question select "I AGREE" | debconf-set-selections && \
     echo steam steam/license note '' | debconf-set-selections && \

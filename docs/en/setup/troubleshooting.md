@@ -15,7 +15,7 @@ Este documento detalla las soluciones a problemas comunes encontrados durante el
 [ERROR] error starting server testserver: fork/exec /bin/bash: operation not permitted
 ```
 
-### Soluciones:
+#### Solutions:
 
 *   **Opción A (Recomendada para producción):** Habilitar los namespaces en el kernel:
     ```bash
@@ -46,7 +46,7 @@ Este documento detalla las soluciones a problemas comunes encontrados durante el
 
 **Causa:** El panel usa el SDK de Docker con `client.FromEnv()`, que lee las variables de entorno estándar de Docker.
 
-### Soluciones:
+#### Solutions:
 
 *   **Verificar que Docker está corriendo:**
     ```bash
@@ -71,7 +71,7 @@ Este documento detalla las soluciones a problemas comunes encontrados durante el
 
 **Puerto por defecto:** `5657`
 
-### Soluciones:
+#### Solutions:
 
 **Error: `incorrect username or password`**
 *   **Autenticación por base de datos:** El formato de usuario es `email#serverId` (ej: `user@example.com#abc123`). Verificar que el usuario tenga el permiso `ScopeServerSftp` asignado.
@@ -101,7 +101,7 @@ Este documento detalla las soluciones a problemas comunes encontrados durante el
 *   `dial tcp 127.0.0.1:3306: connect: connection refused` — MySQL/MariaDB no está corriendo.
 *   `could not load driver` — Dialecto incorrecto o controlador no compilado.
 
-### Soluciones:
+#### Solutions:
 
 *   **Para SQLite (recomendado para pruebas):**
     ```json
@@ -133,7 +133,7 @@ Este documento detalla las soluciones a problemas comunes encontrados durante el
 | HTTP (Web) | `8080` | `web.host` |
 | SFTP | `5657` | `daemon.sftp.host` |
 
-### Soluciones:
+#### Solutions:
 
 *   **Verificar qué proceso está usando el puerto:**
     ```bash
@@ -166,7 +166,7 @@ Este documento detalla las soluciones a problemas comunes encontrados durante el
 
 **Comportamiento:** El panel asigna UID/GID a los archivos del servidor según el usuario configurado. Si el UID es `-1`, no se cambia la propiedad (usa el usuario del proceso).
 
-### Soluciones:
+#### Solutions:
 
 *   **Verificar el UID/GID del proceso del panel:**
     ```bash
@@ -184,7 +184,7 @@ Este documento detalla las soluciones a problemas comunes encontrados durante el
 
 **Comportamiento:** El panel permite **todos los orígenes** (`AllowOriginFunc` siempre retorna `true`). Esto es intencional para soportar despliegues donde el frontend y backend están en dominios separados.
 
-### Soluciones:
+#### Solutions:
 
 *   Si hay errores CORS, verificar que el frontend esté usando la URL correcta de la API.
 *   Verificar que los headers `Authorization` y `Content-Type` estén incluidos en las peticiones.
@@ -227,7 +227,7 @@ Las variables de entorno **tienen prioridad** sobre el archivo `config.json`.
 | `[DEBUG]` | Debug | Stdout + archivo |
 | `[SERVER]` | Servidor | Stdout + archivo |
 
-### Soluciones:
+#### Solutions:
 
 *   **Ver logs en tiempo real:**
     ```bash
@@ -296,7 +296,7 @@ Si usas un proxy de confianza, configurar en `config.json`:
 
 **Problema:** Error al ejecutar migraciones o el panel no arranca después de una actualización.
 
-### Soluciones:
+#### Solutions:
 
 *   **Ejecutar migraciones manualmente:**
     ```bash

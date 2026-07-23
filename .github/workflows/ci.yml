@@ -164,9 +164,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: ./client
-        run: yarn install
-
-
+        run: yarn install --frozen-lockfile --ignore-scripts
 
       - name: Run Frontend Lint & Typecheck
         working-directory: ./client/frontend
