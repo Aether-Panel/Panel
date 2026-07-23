@@ -3,8 +3,8 @@ module github.com/SkyPanel/SkyPanel/v3
 go 1.25.0
 
 require (
-	github.com/MicahParks/jwkset v0.9.6
-	github.com/MicahParks/keyfunc/v3 v3.4.0
+	github.com/MicahParks/jwkset v0.11.0
+	github.com/MicahParks/keyfunc/v3 v3.8.0
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751
 	github.com/braintree/manners v0.0.0-20160418043613-82a8879fc5fd
 	github.com/cavaliergopher/grab/v3 v3.0.1
@@ -45,15 +45,15 @@ require (
 	github.com/swaggo/gin-swagger v1.6.0
 	github.com/swaggo/swag v1.16.4
 	github.com/wneessen/go-mail v0.7.1
-	golang.org/x/crypto v0.53.0
-	golang.org/x/sys v0.46.0
+	golang.org/x/crypto v0.54.0
+	golang.org/x/sys v0.47.0
 	google.golang.org/genai v1.49.0
 	gopkg.in/go-playground/validator.v9 v9.31.0
 	gorm.io/driver/mysql v1.6.0
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/driver/sqlserver v1.6.0
-	gorm.io/gorm v1.30.0
+	gorm.io/gorm v1.31.2
 )
 
 require (
@@ -199,12 +199,12 @@ require (
 	go4.org v0.0.0-20230225012048-214862532bf5 // indirect
 	golang.org/x/arch v0.23.0 // indirect
 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f // indirect
-	golang.org/x/net v0.55.0 // indirect
-	golang.org/x/sync v0.21.0 // indirect
-	golang.org/x/term v0.44.0 // indirect
-	golang.org/x/text v0.38.0 // indirect
+	golang.org/x/net v0.56.0 // indirect
+	golang.org/x/sync v0.22.0 // indirect
+	golang.org/x/term v0.45.0 // indirect
+	golang.org/x/text v0.40.0 // indirect
 	golang.org/x/time v0.13.0 // indirect
-	golang.org/x/tools v0.45.0 // indirect
+	golang.org/x/tools v0.47.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260401024825-9d38bb4040a9 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260401024825-9d38bb4040a9 // indirect
 	google.golang.org/grpc v1.80.0 // indirect
