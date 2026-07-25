@@ -235,7 +235,7 @@ jobs:
 
       - name: Install Python dependencies
         run: |
-          pip install -r test/e2e/requirements.txt
+          pip install --require-hashes --only-binary :all: -r test/e2e/requirements.txt
 
       - name: Run Python E2E tests
         run: |

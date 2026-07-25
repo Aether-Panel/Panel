@@ -1422,7 +1422,7 @@
   resolved "https://registry.yarnpkg.com/@opentelemetry/context-async-hooks/-/context-async-hooks-1.25.1.tgz#810bff2fcab84ec51f4684aff2d21f6c057d9e73"
   integrity sha512-UW/ge9zjvAEmRWVapOP0qyCvPulWU6cQxGxDbWEFfGOj1VBBZAuOqTo3X6yWmDTD3Xe15ysCZChHncr2xFMIfQ==
 
-"@opentelemetry/core@1.25.1", "@opentelemetry/core@2.9.0", "@opentelemetry/core@^1.25.0", "@opentelemetry/core@^2.0.0", "@opentelemetry/core@^2.8.0", "@opentelemetry/core@~1.25.0":
+"@opentelemetry/core@1.25.1", "@opentelemetry/core@2.10.0", "@opentelemetry/core@2.9.0", "@opentelemetry/core@^1.25.0", "@opentelemetry/core@^2.0.0", "@opentelemetry/core@~1.25.0":
   version "2.10.0"
   resolved "https://registry.yarnpkg.com/@opentelemetry/core/-/core-2.10.0.tgz#aa77f7138e74ba5399d5f3bb0deade0c168f00b2"
   integrity sha512-/wNZ8twnEQQA4HoHu22+vcsdru6pWPWxW+7w+FlxT6Id7PE/WIbZmVKkte+PF72e0F2dnImFeHD2syyE1Mw6MQ==
@@ -7158,7 +7158,7 @@ proto3-json-serializer@^2.0.2:
   dependencies:
     protobufjs "^7.2.5"
 
-protobufjs@^7.2.5, protobufjs@^7.2.6, protobufjs@^7.3.2, protobufjs@^7.4.0, protobufjs@^7.5.4, protobufjs@^7.5.5, protobufjs@^8.0.2:
+protobufjs@8.7.1, protobufjs@^7.2.5, protobufjs@^7.2.6, protobufjs@^7.3.2, protobufjs@^7.4.0, protobufjs@^7.5.4, protobufjs@^7.5.5:
   version "8.7.1"
   resolved "https://registry.yarnpkg.com/protobufjs/-/protobufjs-8.7.1.tgz#5650e11f3d4b61c71e5bc0447230a6794a34d713"
   integrity sha512-agdGHrXNTv0IrYscJPDou/PlEJk1c/hBZ9o/B5NH2i/nSPtPqacNxzgwf1CebXxFMjMrZH5sqv9uQuw96aGt/A==
