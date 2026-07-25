@@ -24,6 +24,6 @@
   "dependencies": {
     "@opentelemetry/auto-instrumentations-node": "^0.78.0",
     "@opentelemetry/sdk-node": "^0.220.0",
-    "astro": "^6.4.6"
+    "astro": "^7.1.0"
   }
 }
