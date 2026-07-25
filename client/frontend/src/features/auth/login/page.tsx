@@ -31,7 +31,7 @@ export default function LoginPage() {
   const panelName = config?.branding?.name || "Aether Panel";
 
   const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(formSchema as any),
     defaultValues: {
       email: "",
       password: "",

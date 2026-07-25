@@ -1,0 +1,103 @@
+# Frequently Asked Questions
+
+What is Aether Panel?
+
+Aether Panel is an open source fork of PufferPanel, a game server management panel. It is built with Go 1.25 (Gin + GORM) for the backend and a modern frontend with Astro + React 19. It runs on your own server (self-hosted) and lets you manage Minecraft, Terraria, Valheim, and more game servers from a web interface.
+
+Is Aether Panel free?
+
+Yes, the core panel is 100% free and open source under the MIT license. All panel features are free with no exceptions. There may be integration modules with third-party closed-source software (like WHMCS) that have a cost to cover licenses and maintenance, but the panel itself is and will always be free.
+
+How is Aether Panel different from PufferPanel?
+
+Aether Panel is a fork of PufferPanel. We maintain compatibility with the original core but add our own improvements, a renewed frontend with Astro + React 19, community integration (suggestions, voting), a marketing website with documentation, and additional features like external transfers between panels and integrated Gatus monitoring.
+
+What kind of servers can I run?
+
+Aether Panel supports any server that can run in Docker. It comes with templates for Minecraft (Vanilla, Spigot, Paper, Forge, Fabric), Terraria, Valheim, Discord bots, and many more. You can create custom templates for any application.
+
+Do I need Docker to use Aether Panel?
+
+Yes, the Aether Panel daemon uses Docker to isolate and run servers. Each server runs in its own Docker container, providing isolation, security, and easy management. Docker is included automatically during installation.
+
+What is the panel architecture?
+
+The panel has two main components: the panel (web interface and REST API on port 8080) and the daemon (Docker server execution, SFTP on port 5657). In standard installations both run together. It also includes Gatus for uptime monitoring (port 8081). The panel frontend is built with Astro + React, while the marketing/documentation site uses Next.js.
+
+Can I manage multiple physical servers?
+
+Yes, Aether Panel supports multiple nodes. You can add physical or virtual servers as nodes and distribute your game servers among them. Each node runs a daemon that communicates with the central panel via HTTP API with a shared secret.
+
+How does authentication work?
+
+The panel supports Bearer token authentication (Authorization header) or cookies (puffer_auth). Sessions use SHA256-hashed UUID v4 tokens. It also includes a full OAuth2 server with Ed25519-signed JWTs, and 2FA/TOTP support with recovery codes.
+
+How does the permission system work?
+
+The panel has approximately 80 granular scopes that control every action. Permissions can be assigned at global level (affect all servers) or per-server. Roles group scopes for mass assignment. The 'admin' scope grants all permissions, and 'server.admin' grants all permissions on a specific server.
+
+What database does the panel use?
+
+It uses SQLite by default, which is configured automatically. It also supports PostgreSQL and MySQL/MariaDB. Configuration is done in config.json. The panel uses GORM as the ORM.
+
+How do I create databases for my servers?
+
+First create a Database Host from Admin  Database Hosts with MySQL credentials that have GRANT ALL privileges. Then, from the Database tab of any server, you can create databases that are automatically generated with user, password, and remote connection info.
+
+How do I access my server files?
+
+You have two options: the integrated file editor in the server's Files tab (with syntax highlighting, compression, and extraction), or SFTP using the credentials shown in the SFTP tab (port 5657).
+
+How do backups work?
+
+From the Backups tab you can create manual backups with custom names. Backups are stored compressed on the node and you can download, restore, or delete them. Each backup has a unique name for easy identification.
+
+How does the real-time console work?
+
+The console uses WebSocket to stream live server logs. You can send commands and see output in real-time with auto-scroll. The connection goes from the panel to the node daemon via proxy. It includes timestamps and fullscreen mode.
+
+What statistics can I see for a server?
+
+The Stats tab shows real-time charts for CPU, RAM, disk usage, and network traffic. Data updates via WebSocket. You can also see server status (running/stopped/installing) and query server information (version, players, etc.) if the game supports it.
+
+How do plugins work?
+
+The Plugins tab lets you search and install plugins for compatible Minecraft servers (Spigot/Paper). You can search by name in public repositories, view details, and install them directly from the panel.
+
+What is external transfer?
+
+External transfer (extransfer) allows moving servers between independent Aether Panel installations. It is useful for migrating servers between different panels or providers. Internal transfer between nodes of the same panel is also available.
+
+What is Gatus?
+
+Gatus is an integrated uptime monitoring system. It checks the status of your panel and configured services. It runs on port 8081 with its own web dashboard. It is enabled automatically in Docker installations.
+
+Does Aether Panel have an API?
+
+Yes, the panel exposes a complete RESTful API at /api/*. All endpoints require Bearer token authentication. The API covers servers, nodes, users, files, backups, databases, roles, templates, uptime, configuration, and more. There is also a WebSocket for real-time data.
+
+Does it support OAuth2?
+
+Yes, the panel includes a full OAuth2 server with endpoints at /oauth2/token, /oauth2/revoke, and /oauth2/jwks. It uses the Client Credentials flow with Ed25519-signed JWTs. Public keys are available via JWKS for third-party verification.
+
+What CLI commands does the panel have?
+
+The panel includes a full Cobra-based CLI. Main commands: SkyPanel run (start panel and daemon), SkyPanel version (show version), SkyPanel user (user management), SkyPanel db (database migrations), SkyPanel runservice (run as a system service).
+
+How do I update Aether Panel?
+
+If using Docker: docker compose pull && docker compose up -d. If using native installation: git pull, rebuild with go build, and restart the service. Check the installation documentation for detailed instructions.
+
+Can I use an external MySQL database?
+
+Yes, you can configure the panel to use external MySQL or PostgreSQL by editing the database configuration in config.json. It uses SQLite by default which is configured automatically.
+
+How can I contribute to the project?
+
+You can contribute in several ways: reporting bugs on GitHub, submitting pull requests with improvements, participating in community voting to prioritize features, joining the Discord for feedback, or making a voluntary donation via PayPal.
+
+Where can I get help?
+
+We have several channels: the Discord community server for support and discussion, GitHub issues for bug reports and feature requests, and the documentation on this website. As an open source project, support is community-driven.
+
+

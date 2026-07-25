@@ -41,7 +41,7 @@ export default function RegisterPage() {
   }, [config?.registrationEnabled]);
 
   const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(formSchema as any),
     defaultValues: {
       username: "",
       email: "",
