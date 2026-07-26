@@ -1,44 +1,52 @@
+version: "2"
+
 run:
-  timeout: 15m
   go: "1.25"
 
 linters:
-  disable-all: true
+  default: none
   enable:
     - govet
     - errcheck
     - ineffassign
-    - typecheck
-    - gosimple
     - staticcheck
     - revive
     - gocritic
-
-linters-settings:
-  govet:
-    enable-all: false
-  errcheck:
-    check-type-assertions: false
-    check-blank: false
+  settings:
+    govet:
+      enable-all: false
+    errcheck:
+      check-type-assertions: false
+      check-blank: false
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - docs
+      - vendor
+      - basura_o_desconocido
+      - "web/swagger/docs.go"
+    rules:
+      - path: _test\.go
+        linters:
+          - errcheck
+      - path: tools/
+        linters:
+          - errcheck
+      - linters:
+          - errcheck
+        text: "Error return value of .*.(Close|Remove|RemoveAll|Delete)"
+      - linters:
+          - revive
+        text: "package-comments:|exported:"
+      - linters:
+          - staticcheck
+        text: "QF1001:|QF1002:|QF1003:|QF1007:|QF1008:|QF1012:"
 
 issues:
   max-issues-per-linter: 30
   max-same-issues: 3
-
-  # Exclude vendored/generated directories (v1.57+ syntax)
-  exclude-dirs:
-
-    - docs
-    - vendor
-    - basura_o_desconocido
-
-  exclude-files:
-    - "web/swagger/docs.go"
-
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - errcheck
-    - path: tools/
-      linters:
-        - errcheck

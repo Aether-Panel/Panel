@@ -98,11 +98,10 @@ jobs:
           go vet $(go list ./... | grep -v '/docs')
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v9
         with:
-          version: latest
+          version: v2.12.2
           args: --timeout=15m
-          install-mode: goinstall
 
       - name: Run Staticcheck
         uses: dominikh/staticcheck-action@9716614d4101e79b4340dd97b10e54d68234e431 # v1.4.1
