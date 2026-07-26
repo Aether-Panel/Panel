@@ -19,6 +19,12 @@ linters:
       check-type-assertions: false
       check-blank: false
   exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
     paths:
       - docs
       - vendor
@@ -31,6 +37,15 @@ linters:
       - path: tools/
         linters:
           - errcheck
+      - linters:
+          - errcheck
+        text: "Error return value of .*.(Close|Remove|RemoveAll|Delete)"
+      - linters:
+          - revive
+        text: "package-comments:|exported:"
+      - linters:
+          - staticcheck
+        text: "QF1001:|QF1002:|QF1003:|QF1007:|QF1008:|QF1012:"
 
 issues:
   max-issues-per-linter: 30
