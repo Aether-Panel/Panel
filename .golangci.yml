@@ -23,7 +23,6 @@ linters:
       - docs
       - vendor
       - basura_o_desconocido
-    files:
       - "web/swagger/docs.go"
     rules:
       - path: _test\.go
