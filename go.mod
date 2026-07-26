@@ -29,7 +29,7 @@ require (
 	github.com/hashicorp/go-version v1.9.0
 	github.com/klauspost/compress v1.18.0
 	github.com/mailgun/mailgun-go/v4 v4.23.0
-	github.com/mailjet/mailjet-apiv3-go/v4 v4.0.7
+	github.com/mailjet/mailjet-apiv3-go/v4 v4.0.8
 	github.com/mholt/archives v0.1.5
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/pkg/sftp v1.13.9
