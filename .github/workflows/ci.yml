@@ -110,7 +110,7 @@ jobs:
           install-go: false
 
       - name: Run gosec (Go Security)
-        uses: securego/gosec@1769a22fd149bfd9e5e546e06a7f9d596eab2f65 # master
+        uses: securego/gosec@45b083a0cb42119d61b1e0e364d8c62c68f6f5cd # master
         with:
           args: -exclude=G104,G107,G115,G122,G204,G301,G302,G304,G306,G702,G703,G706 ./...
 
@@ -226,7 +226,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: "pip"
