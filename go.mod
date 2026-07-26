@@ -13,7 +13,7 @@ require (
 	github.com/docker/go-connections v0.5.0
 	github.com/dreamscached/minequery/v2 v2.5.0
 	github.com/gin-contrib/cors v1.7.7
-	github.com/gin-contrib/sessions v1.0.4
+	github.com/gin-contrib/sessions v1.1.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/go-co-op/gocron/v2 v2.16.2
 	github.com/go-git/go-git/v5 v5.19.1
