@@ -42,7 +42,7 @@
     "date-fns": "^4.4.0",
     "dotenv": "^17.4.2",
     "embla-carousel-react": "^8.6.0",
-    "genkit": "^1.28.0",
+    "genkit": "^1.40.1",
     "lucide-react": "^1.26.0",
     "patch-package": "^8.0.0",
     "react": "^19.2.8",
