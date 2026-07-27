@@ -487,7 +487,7 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 	bodyBytes, _ := json.Marshal(validateBody)
 	req := &http.Request{
 		Method: "POST",
-		URL:    	originValidate,
+		URL:    originValidate,
 		Header: http.Header{},
 		Body:   io.NopCloser(bytes.NewBuffer(bodyBytes)),
 	}
