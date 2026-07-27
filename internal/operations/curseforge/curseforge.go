@@ -284,6 +284,9 @@ func findInstallerJar(env *skypanel.Environment) (string, error) {
 }
 
 func installViaJar(server skypanel.DaemonServer, env *skypanel.Environment, jarFile string, javaBinary string) error {
+	cleanRoot := filepath.Clean(env.GetRootDirectory())
+	rootPrefix := cleanRoot + string(filepath.Separator)
+
 	// installer found, we will run this one
 	result := make(chan int, 1)
 	err := env.Execute(skypanel.ExecutionData{
@@ -302,33 +305,48 @@ func installViaJar(server skypanel.DaemonServer, env *skypanel.Environment, jarF
 	}
 
 	// delete installer now
-	err = os.Remove(filepath.Join(env.GetRootDirectory(), jarFile))
-	if err != nil {
-		env.DisplayToConsole(true, "Failed to delete installer")
+	cleanJar := filepath.Base(jarFile)
+	jarPath := filepath.Join(cleanRoot, cleanJar)
+	cleanJarPath := filepath.Clean(jarPath)
+	if strings.HasPrefix(cleanJarPath, rootPrefix) {
+		err = os.Remove(cleanJarPath)
+		if err != nil {
+			env.DisplayToConsole(true, "Failed to delete installer")
+		}
 	}
-	err = os.Remove(filepath.Join(env.GetRootDirectory(), jarFile+".log"))
-	if err != nil {
-		env.DisplayToConsole(true, "Failed to delete installer")
+	logPath := filepath.Join(cleanRoot, cleanJar+".log")
+	cleanLogPath := filepath.Clean(logPath)
+	if strings.HasPrefix(cleanLogPath, rootPrefix) {
+		err = os.Remove(cleanLogPath)
+		if err != nil {
+			env.DisplayToConsole(true, "Failed to delete installer")
+		}
 	}
 
 	// if this is before 1.16, we have a root jar
 	// or if there's a shim
 	possibleRenames := []string{
-		strings.Replace(jarFile, "-installer", "", 1),      // pre 1.17 forge
-		strings.Replace(jarFile, "-installer", "-shim", 1), // forge shim
+		strings.Replace(cleanJar, "-installer", "", 1),      // pre 1.17 forge
+		strings.Replace(cleanJar, "-installer", "-shim", 1), // forge shim
 	}
 
 	var fi os.FileInfo
 	for _, f := range possibleRenames {
-		if fi, err = os.Lstat(filepath.Join(env.GetRootDirectory(), f)); err == nil && !fi.IsDir() {
-			err = os.Rename(filepath.Join(env.GetRootDirectory(), f), filepath.Join(env.GetRootDirectory(), "server.jar"))
-			if err != nil {
-				return err
-			}
-		} else if fi, err = os.Lstat(filepath.Join(env.GetRootDirectory(), f)); err == nil && !fi.IsDir() {
-			err = os.Rename(filepath.Join(env.GetRootDirectory(), f), filepath.Join(env.GetRootDirectory(), "server.jar"))
-			if err != nil {
-				return err
+		fPath := filepath.Join(cleanRoot, f)
+		cleanFPath := filepath.Clean(fPath)
+		serverPath := filepath.Join(cleanRoot, "server.jar")
+		cleanServerPath := filepath.Clean(serverPath)
+		if strings.HasPrefix(cleanFPath, rootPrefix) && strings.HasPrefix(cleanServerPath, rootPrefix) {
+			if fi, err = os.Lstat(cleanFPath); err == nil && !fi.IsDir() {
+				err = os.Rename(cleanFPath, cleanServerPath)
+				if err != nil {
+					return err
+				}
+			} else if fi, err = os.Lstat(cleanFPath); err == nil && !fi.IsDir() {
+				err = os.Rename(cleanFPath, cleanServerPath)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
