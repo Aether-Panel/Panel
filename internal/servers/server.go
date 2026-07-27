@@ -1251,7 +1251,7 @@ func (p *Server) DeleteBackup(fileName string) error {
 		return skypanel.ErrSettingNotConfigured("backupDirectory")
 	}
 
-	backupFile := path.Join(backupDirectory, fileName)
+	backupFile := path.Join(backupDirectory, path.Base(fileName))
 
 	err := os.Remove(backupFile)
 	if err != nil && !os.IsNotExist(err) {
@@ -1280,7 +1280,7 @@ func (p *Server) StartRestore(fileName string) error {
 
 	p.RunningEnvironment.DisplayToConsole(true, "Restoring server")
 
-	backupFile := filepath.Join(p.GetBackupDirectory(), fileName)
+	backupFile := filepath.Join(p.GetBackupDirectory(), path.Base(fileName))
 
 	_, err := os.Stat(backupFile)
 	if err != nil && !os.IsNotExist(err) {
@@ -1330,7 +1330,7 @@ func (p *Server) StartRestore(fileName string) error {
 }
 
 func (p *Server) GetBackup(fileName string) (*FileData, error) {
-	backupFile := filepath.Join(p.GetBackupDirectory(), fileName)
+	backupFile := filepath.Join(p.GetBackupDirectory(), path.Base(fileName))
 
 	info, err := os.Stat(backupFile)
 	if err != nil && !os.IsNotExist(err) {
@@ -1340,7 +1340,7 @@ func (p *Server) GetBackup(fileName string) (*FileData, error) {
 }
 
 func (p *Server) GetBackupFile(fileName string) (*FileData, error) {
-	backupFile := filepath.Join(p.GetBackupDirectory(), fileName)
+	backupFile := filepath.Join(p.GetBackupDirectory(), path.Base(fileName))
 
 	file, err := os.Open(backupFile)
 	if err != nil {
