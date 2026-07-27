@@ -1000,7 +1000,7 @@ func (p *Server) IsAutoStart() (isAutoStart bool) {
 func (p *Server) Save() (err error) {
 	p.Log(logging.Info, "Saving server %s", p.ID())
 
-	file := filepath.Join(config.ServersFolder.Value(), p.ID()+".json")
+	file := filepath.Join(config.ServersFolder.Value(), path.Base(p.ID())+".json")
 
 	if err = p.valid(); err != nil {
 		p.Log(logging.Error, "Server %s contained invalid data, this server is.... broken", p.Identifier)

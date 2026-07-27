@@ -8,6 +8,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 )
@@ -49,7 +50,7 @@ func GetAll() []*Server {
 
 func Load(id string) (program *Server, err error) {
 	var data []byte
-	data, err = os.ReadFile(filepath.Join(config.ServersFolder.Value(), id+".json"))
+	data, err = os.ReadFile(filepath.Join(config.ServersFolder.Value(), path.Base(id)+".json"))
 	if len(data) == 0 || err != nil {
 		return
 	}
@@ -125,8 +126,8 @@ func Create(program *Server) (server *Server, err error) {
 	defer func() {
 		if err != nil {
 			// revert since we have an error
-			_ = os.Remove(filepath.Join(config.ServersFolder.Value(), program.ID()))
-			_ = os.Remove(filepath.Join(config.ServersFolder.Value(), program.ID()+".json"))
+			_ = os.Remove(filepath.Join(config.ServersFolder.Value(), path.Base(program.ID())))
+			_ = os.Remove(filepath.Join(config.ServersFolder.Value(), path.Base(program.ID())+".json"))
 			if program.RunningEnvironment != nil {
 				_ = program.RunningEnvironment.Delete()
 			}
@@ -134,7 +135,7 @@ func Create(program *Server) (server *Server, err error) {
 		}
 	}()
 
-	err = os.Mkdir(filepath.Join(config.ServersFolder.Value(), program.ID()), 0755)
+	err = os.Mkdir(filepath.Join(config.ServersFolder.Value(), path.Base(program.ID())), 0755)
 	if err != nil {
 		logging.Error.Printf("Error writing server: %s", err)
 		return
@@ -198,7 +199,7 @@ func Delete(id string) (err error) {
 	if err != nil {
 		return
 	}
-	err = os.Remove(filepath.Join(config.ServersFolder.Value(), program.ID()+".json"))
+	err = os.Remove(filepath.Join(config.ServersFolder.Value(), path.Base(program.ID())+".json"))
 	if err != nil {
 		logging.Error.Printf("Error removing server: %s", err)
 	}
