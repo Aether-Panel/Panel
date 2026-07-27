@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 func CreateFunctions(env *skypanel.Environment) []cel.EnvOption {
@@ -37,7 +38,12 @@ func CreateFunctions(env *skypanel.Environment) []cel.EnvOption {
 func celFileExists(env *skypanel.Environment) functions.UnaryOp {
 	return func(fileName ref.Val) ref.Val {
 		fullPath := filepath.Join(env.GetRootDirectory(), fileName.Value().(string))
-		_, err := os.Stat(fullPath)
+		cleanedPath := filepath.Clean(fullPath)
+		rootDir := filepath.Clean(env.GetRootDirectory())
+		if !strings.HasPrefix(cleanedPath, rootDir+string(filepath.Separator)) && cleanedPath != rootDir {
+			return types.Bool(false)
+		}
+		_, err := os.Stat(cleanedPath)
 		return types.Bool(err == nil)
 	}
 }

@@ -170,7 +170,7 @@ func downloadMetadata(env *skypanel.Environment) error {
 }
 
 func walkManifest(folder, filename string) error {
-	file, err := os.Open(filepath.Join(folder, ".manifest", filename))
+	file, err := os.Open(filepath.Join(folder, ".manifest", filepath.Base(filename)))
 	defer utils.Close(file)
 	if err != nil {
 		return err
@@ -193,10 +193,14 @@ func walkManifest(folder, filename string) error {
 			parts = parts[0:5]
 		}
 
-		// we will only work on 0 files, because this mean no other flags were told
 		if parts[3] == "0" {
 			fileToUpdate := parts[4]
-			_ = os.Chmod(filepath.Join(folder, fileToUpdate), 0700)
+			fullPath := filepath.Join(folder, fileToUpdate)
+			cleanedPath := filepath.Clean(fullPath)
+			cleanFolder := filepath.Clean(folder)
+			if strings.HasPrefix(cleanedPath, cleanFolder+string(filepath.Separator)) || cleanedPath == cleanFolder {
+				_ = os.Chmod(cleanedPath, 0700)
+			}
 		}
 	}
 
