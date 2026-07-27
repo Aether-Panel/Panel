@@ -480,12 +480,16 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 		return
 	}
 
+	baseURL := &url.URL{
+		Scheme: u.Scheme,
+		Host:   u.Host,
+	}
 	apis := &struct {
 		validate, consume, download *url.URL
 	}{
-		validate: u.ResolveReference(&url.URL{Path: "/api/extransfer/validate"}),
-		consume:  u.ResolveReference(&url.URL{Path: "/api/extransfer/consume"}),
-		download: u.ResolveReference(&url.URL{Path: "/api/extransfer/download"}),
+		validate: baseURL.ResolveReference(&url.URL{Path: "/api/extransfer/validate"}),
+		consume:  baseURL.ResolveReference(&url.URL{Path: "/api/extransfer/consume"}),
+		download: baseURL.ResolveReference(&url.URL{Path: "/api/extransfer/download"}),
 	}
 
 	// 2. Validate token and get nonce

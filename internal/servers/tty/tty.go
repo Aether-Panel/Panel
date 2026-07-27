@@ -503,11 +503,17 @@ func (t *tty) createCmd(workDir, cmd string) (pr *exec.Cmd, err error) {
 		"rm -r /old-root",
 		safeCmd(workDirMount, cmd))
 
-	pr = exec.Command("/bin/bash", "-c", strings.Join(unshareArgs, " && "))
-	pr.Dir, err = os.MkdirTemp("", "unshare-pp-")
+	scriptDir, err := os.MkdirTemp("", "unshare-pp-")
 	if err != nil {
 		return
 	}
+	scriptPath := filepath.Join(scriptDir, "unshare.sh")
+	script := "#!/bin/bash\nset -e\n" + strings.Join(unshareArgs, "\n")
+	if err := os.WriteFile(scriptPath, []byte(script), 0755); err != nil {
+		return
+	}
+	pr = exec.Command("/bin/bash", scriptPath)
+	pr.Dir = scriptDir
 	pr.SysProcAttr = &syscall.SysProcAttr{
 		Setctty: true,
 		Setsid:  true,
