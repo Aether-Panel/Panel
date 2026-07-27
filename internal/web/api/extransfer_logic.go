@@ -461,36 +461,19 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 	logging.Info.Printf("Starting pull transfer for server %s from %s", server.Identifier, originURL)
 	sendStep("Validando conexión con el panel de origen...")
 
-	originURL = strings.TrimSpace(originURL)
-
-	if !strings.HasPrefix(originURL, "http://") && !strings.HasPrefix(originURL, "https://") {
-		originURL = "http://" + originURL
-	}
-
-	if err := utils.ValidateExternalURL(originURL); err != nil {
-		logging.Error.Printf("SSRF validation failed for origin URL %s: %v", originURL, err)
+	baseURL, err := parseOriginURL(originURL)
+	if err != nil {
+		logging.Error.Printf("Invalid origin URL %s: %v", originURL, err)
 		sendStep("ERROR: La URL de origen no es válida o apunta a una dirección no permitida")
 		return
 	}
 
-	u, err := url.Parse(originURL)
-	if err != nil {
-		logging.Error.Printf("Failed to parse origin URL: %v", err)
-		sendStep("ERROR: La URL de origen no es válida")
-		return
+	originAPI := func(path string) *url.URL {
+		return baseURL.ResolveReference(&url.URL{Path: path})
 	}
-
-	baseURL := &url.URL{
-		Scheme: u.Scheme,
-		Host:   u.Host,
-	}
-	apis := &struct {
-		validate, consume, download *url.URL
-	}{
-		validate: baseURL.ResolveReference(&url.URL{Path: "/api/extransfer/validate"}),
-		consume:  baseURL.ResolveReference(&url.URL{Path: "/api/extransfer/consume"}),
-		download: baseURL.ResolveReference(&url.URL{Path: "/api/extransfer/download"}),
-	}
+	originValidate := originAPI("/api/extransfer/validate")
+	originConsume := originAPI("/api/extransfer/consume")
+	originDownload := originAPI("/api/extransfer/download")
 
 	// 2. Validate token and get nonce
 	pubKeyB64 := base64.StdEncoding.EncodeToString(ExTransferPublicKey)
@@ -504,7 +487,7 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 	bodyBytes, _ := json.Marshal(validateBody)
 	req := &http.Request{
 		Method: "POST",
-		URL:    apis.validate,
+		URL:    	originValidate,
 		Header: http.Header{},
 		Body:   io.NopCloser(bytes.NewBuffer(bodyBytes)),
 	}
@@ -534,6 +517,12 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 		return
 	}
 
+	if _, err := uuid.Parse(validateRes.SessionID); err != nil {
+		logging.Error.Printf("Origin returned invalid session_id: %v", err)
+		sendStep("ERROR: El origen devolvió un ID de sesión inválido")
+		return
+	}
+
 	sendStep("Iniciando la transferencia en el servidor origen...")
 	// 3. Consume transfer
 	message := validateRes.Nonce + validateRes.SessionID
@@ -548,7 +537,7 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 	bodyBytes, _ = json.Marshal(consumeBody)
 	req = &http.Request{
 		Method: "POST",
-		URL:    apis.consume,
+		URL:    originConsume,
 		Header: http.Header{},
 		Body:   io.NopCloser(bytes.NewBuffer(bodyBytes)),
 	}
@@ -576,7 +565,7 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 	dlSig := ed25519.Sign(ExTransferPrivateKey, []byte(dlMessage))
 	dlSigB64 := base64.StdEncoding.EncodeToString(dlSig)
 
-	dlURL := *apis.download
+	dlURL := *originDownload
 	dlURL.RawQuery = url.Values{
 		"session_id": {validateRes.SessionID},
 		"signature":  {dlSigB64},
@@ -636,4 +625,19 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 
 	logging.Info.Printf("Pull transfer for server %s completed successfully", server.Identifier)
 	sendStep("DONE")
+}
+
+func parseOriginURL(rawURL string) (*url.URL, error) {
+	rawURL = strings.TrimSpace(rawURL)
+	if !strings.HasPrefix(rawURL, "http://") && !strings.HasPrefix(rawURL, "https://") {
+		rawURL = "http://" + rawURL
+	}
+	if err := utils.ValidateExternalURL(rawURL); err != nil {
+		return nil, err
+	}
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return nil, err
+	}
+	return &url.URL{Scheme: u.Scheme, Host: u.Host}, nil
 }
