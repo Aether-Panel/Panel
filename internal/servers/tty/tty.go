@@ -509,7 +509,7 @@ func (t *tty) createCmd(workDir, cmd string) (pr *exec.Cmd, err error) {
 	}
 	scriptPath := filepath.Join(scriptDir, "unshare.sh")
 	script := "#!/bin/bash\nset -e\n" + strings.Join(unshareArgs, "\n")
-	if err := os.WriteFile(scriptPath, []byte(script), 0755); err != nil {
+	if err = os.WriteFile(scriptPath, []byte(script), 0755); err != nil {
 		return
 	}
 	pr = exec.Command("/bin/bash", scriptPath)
