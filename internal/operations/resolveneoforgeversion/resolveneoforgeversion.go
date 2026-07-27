@@ -34,8 +34,15 @@ type ResolveNeoForgeVersion struct {
 func (op ResolveNeoForgeVersion) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	// if a specific version wasn't specified, we have to dig around through the files....
 	if op.Version == "" {
-		dir := filepath.Join(args.Environment.GetRootDirectory(), "libraries", "net", "neoforged", "neoforgedl")
-		folders, err := os.ReadDir(dir)
+		cleanRoot := filepath.Clean(args.Environment.GetRootDirectory())
+		dir := filepath.Join(cleanRoot, "libraries", "net", "neoforged", "neoforgedl")
+		cleanDir := filepath.Clean(dir)
+		if !strings.HasPrefix(cleanDir, cleanRoot+string(filepath.Separator)) {
+			return skypanel.OperationResult{VariableOverrides: map[string]interface{}{
+				op.OutputVariable: op.Version,
+			}}
+		}
+		folders, err := os.ReadDir(cleanDir)
 		if os.IsNotExist(err) {
 			return skypanel.OperationResult{VariableOverrides: map[string]interface{}{
 				op.OutputVariable: op.Version,
@@ -51,7 +58,11 @@ func (op ResolveNeoForgeVersion) Run(args skypanel.RunOperatorArgs) skypanel.Ope
 			if v.IsDir() {
 				folderName := v.Name()
 				// look for the unix file to accurately confirm this to be supported
-				desiredFile := filepath.Join(dir, folderName, "unix_args.txt")
+				cleanFolderName := filepath.Clean(folderName)
+				if strings.Contains(cleanFolderName, "/") || strings.Contains(cleanFolderName, "\\") || cleanFolderName == ".." {
+					continue
+				}
+				desiredFile := filepath.Join(cleanDir, cleanFolderName, "unix_args.txt")
 				if _, err = os.Lstat(desiredFile); err != nil {
 					continue
 				}

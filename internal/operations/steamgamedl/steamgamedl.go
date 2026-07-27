@@ -55,8 +55,12 @@ func (c SteamGameDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult
 	n, _ := cryptoRand.Int(cryptoRand.Reader, big.NewInt(1<<31-1))
 	loginID := cast.ToString(n.Int64())
 
-	manifestFolder := filepath.Join(env.GetRootDirectory(), ".manifest")
-	_ = os.RemoveAll(manifestFolder)
+	cleanRoot := filepath.Clean(env.GetRootDirectory())
+	manifestFolder := filepath.Join(cleanRoot, ".manifest")
+	cleanManifest := filepath.Clean(manifestFolder)
+	if strings.HasPrefix(cleanManifest, cleanRoot+string(filepath.Separator)) {
+		_ = os.RemoveAll(cleanManifest)
+	}
 
 	cmdArgs := []string{filepath.Join(rootBinaryFolder, "depotdownloader", DepotDownloaderBinary), "-app", c.AppID, "-dir", ".manifest", "-loginid", loginID, "-manifest-only"}
 	if c.Username != "" {
@@ -125,7 +129,7 @@ func (c SteamGameDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult
 
 	// for each file we download, we need to just... chmod +x the files
 	// we rely on the manifests for this
-	manifests, err := os.ReadDir(manifestFolder)
+	manifests, err := os.ReadDir(cleanManifest)
 	if err != nil {
 		return skypanel.OperationResult{Error: err}
 	}
@@ -133,7 +137,7 @@ func (c SteamGameDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult
 		if manifest.Type().IsDir() || !strings.HasSuffix(manifest.Name(), ".txt") {
 			continue
 		}
-		err = walkManifest(env.GetRootDirectory(), manifest.Name())
+		err = walkManifest(cleanRoot, manifest.Name())
 		if err != nil {
 			return skypanel.OperationResult{Error: err}
 		}
@@ -143,6 +147,7 @@ func (c SteamGameDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult
 }
 
 func downloadMetadata(env *skypanel.Environment) error {
+	cleanRoot := filepath.Clean(env.GetRootDirectory())
 	response, err := skypanel.HTTPGet(SteamMetadataLink)
 	defer utils.CloseResponse(response)
 	if err != nil {
@@ -156,12 +161,17 @@ func downloadMetadata(env *skypanel.Environment) error {
 		return err
 	}
 
-	err = os.RemoveAll(filepath.Join(env.GetRootDirectory(), ".steam"))
+	steamFolder := filepath.Join(cleanRoot, ".steam")
+	cleanSteam := filepath.Clean(steamFolder)
+	if !strings.HasPrefix(cleanSteam, cleanRoot+string(filepath.Separator)) {
+		return nil
+	}
+	err = os.RemoveAll(cleanSteam)
 	if err != nil {
 		return err
 	}
 
-	err = skypanel.HTTPExtract(SteamMetadataServerLink+metadataName, filepath.Join(env.GetRootDirectory(), ".steam"), archives.Zip{})
+	err = skypanel.HTTPExtract(SteamMetadataServerLink+metadataName, cleanSteam, archives.Zip{})
 	if err != nil {
 		return err
 	}
@@ -170,7 +180,7 @@ func downloadMetadata(env *skypanel.Environment) error {
 }
 
 func walkManifest(folder, filename string) error {
-	file, err := os.Open(filepath.Join(folder, ".manifest", filename))
+	file, err := os.Open(filepath.Join(folder, ".manifest", filepath.Base(filename)))
 	defer utils.Close(file)
 	if err != nil {
 		return err
@@ -193,10 +203,14 @@ func walkManifest(folder, filename string) error {
 			parts = parts[0:5]
 		}
 
-		// we will only work on 0 files, because this mean no other flags were told
 		if parts[3] == "0" {
 			fileToUpdate := parts[4]
-			_ = os.Chmod(filepath.Join(folder, fileToUpdate), 0700)
+			fullPath := filepath.Join(folder, fileToUpdate)
+			cleanedPath := filepath.Clean(fullPath)
+			cleanFolder := filepath.Clean(folder)
+			if strings.HasPrefix(cleanedPath, cleanFolder+string(filepath.Separator)) || cleanedPath == cleanFolder {
+				_ = os.Chmod(cleanedPath, 0700)
+			}
 		}
 	}
 

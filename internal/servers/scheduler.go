@@ -25,7 +25,7 @@ type Scheduler struct {
 // LoadScheduler Loads the scheduler from the serverid.cron file, or defaults
 // This file is a JSON file, but it hooks into everything
 func LoadScheduler(serverID string) (*Scheduler, error) {
-	file, err := os.Open(filepath.Join(config.ServersFolder.Value(), serverID+".cron"))
+	file, err := os.Open(filepath.Join(config.ServersFolder.Value(), filepath.Base(serverID)+".cron"))
 	if err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
