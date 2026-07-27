@@ -341,12 +341,16 @@ func installFabric(env *skypanel.Environment, data map[string]string, javaBinary
 	// there is an "improved" launcher, which is just a jar that we need
 	// or we have to pull the installer and run it
 
+	cleanRoot := filepath.Clean(env.GetRootDirectory())
+	rootPrefix := cleanRoot + string(filepath.Separator)
+
 	// see if improved is available
 	fabricURL := replaceTokens(ImprovedFabricInstallerURL, data)
-	targetFile := filepath.Join(env.GetRootDirectory(), "server.jar")
+	targetFile := filepath.Join(cleanRoot, "server.jar")
+	cleanTarget := filepath.Clean(targetFile)
 
-	env.DisplayToConsole(true, "Downloading %s to %s", fabricURL, targetFile)
-	err := downloadFile(fabricURL, targetFile)
+	env.DisplayToConsole(true, "Downloading %s to %s", fabricURL, cleanTarget)
+	err := downloadFile(fabricURL, cleanTarget)
 	if err == nil {
 		// this was a good file, we got what we need
 		return nil
@@ -355,10 +359,11 @@ func installFabric(env *skypanel.Environment, data map[string]string, javaBinary
 	if !errors.Is(err, errNoFile) {
 		// we got a 404, so we can't use the improved version at all
 		fabricURL = replaceTokens(FabricInstallerURL, data)
-		targetFile = filepath.Join(env.GetRootDirectory(), "fabric-installer.jar")
+		targetFile = filepath.Join(cleanRoot, "fabric-installer.jar")
+		cleanTarget = filepath.Clean(targetFile)
 
-		env.DisplayToConsole(true, "Downloading %s to %s", fabricURL, targetFile)
-		err = downloadFile(fabricURL, targetFile)
+		env.DisplayToConsole(true, "Downloading %s to %s", fabricURL, cleanTarget)
+		err = downloadFile(fabricURL, cleanTarget)
 		if err != nil {
 			return err
 		}
@@ -380,14 +385,24 @@ func installFabric(env *skypanel.Environment, data map[string]string, javaBinary
 		}
 
 		// delete installer now
-		err = os.Remove(filepath.Join(env.GetRootDirectory(), "fabric-installer.jar"))
-		if err != nil {
-			env.DisplayToConsole(true, "Failed to delete installer")
+		installerPath := filepath.Join(cleanRoot, "fabric-installer.jar")
+		cleanInstaller := filepath.Clean(installerPath)
+		if strings.HasPrefix(cleanInstaller, rootPrefix) {
+			err = os.Remove(cleanInstaller)
+			if err != nil {
+				env.DisplayToConsole(true, "Failed to delete installer")
+			}
 		}
 
-		// replace jar with the fabric jar
-		_ = os.Remove(filepath.Join(env.GetRootDirectory(), "server.jar"))
-		err = os.Rename(filepath.Join(env.GetRootDirectory(), "fabric-server-launch.jar"), filepath.Join(env.GetRootDirectory(), "server.jar"))
+		removePath := filepath.Join(cleanRoot, "server.jar")
+		removeClean := filepath.Clean(removePath)
+		renameFrom := filepath.Join(cleanRoot, "fabric-server-launch.jar")
+		renameFromClean := filepath.Clean(renameFrom)
+		renameToClean := removeClean
+		if strings.HasPrefix(removeClean, rootPrefix) && strings.HasPrefix(renameFromClean, rootPrefix) && strings.HasPrefix(renameToClean, rootPrefix) {
+			_ = os.Remove(removeClean)
+			err = os.Rename(renameFromClean, renameToClean)
+		}
 		return err
 	}
 
