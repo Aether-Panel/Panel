@@ -18,12 +18,14 @@ func DownloadFile(url, fileName string, env *Environment) error {
 	if err != nil {
 		return err
 	}
-	targetPath := filepath.Join(root, fileName)
-	rel, err := filepath.Rel(root, targetPath)
-	if err != nil || strings.HasPrefix(rel, "..") {
+	cleanRoot := filepath.Clean(root)
+	rootPrefix := cleanRoot + string(filepath.Separator)
+	targetPath := filepath.Join(cleanRoot, fileName)
+	cleanTarget := filepath.Clean(targetPath)
+	if !strings.HasPrefix(cleanTarget, rootPrefix) && cleanTarget != cleanRoot {
 		return fmt.Errorf("invalid file path: %s", fileName)
 	}
-	target, err := os.Create(targetPath)
+	target, err := os.Create(cleanTarget)
 	defer utils.Close(target)
 	if err != nil {
 		return err
