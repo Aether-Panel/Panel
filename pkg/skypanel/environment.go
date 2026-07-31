@@ -181,8 +181,25 @@ func (e *Environment) validatedRoot() (string, error) {
 	return p, nil
 }
 
+func (e *Environment) validatedPath() (string, error) {
+	p, err := e.validatedRoot()
+	if err != nil {
+		return "", err
+	}
+	cleanP := filepath.Clean(p)
+	base, absErr := filepath.Abs(config.ServersFolder.Value())
+	if absErr != nil {
+		return "", absErr
+	}
+	cleanBase := filepath.Clean(base)
+	if !strings.HasPrefix(cleanP, cleanBase+string(filepath.Separator)) && cleanP != cleanBase {
+		return "", fmt.Errorf("invalid root directory: %s", cleanP)
+	}
+	return cleanP, nil
+}
+
 func (e *Environment) Delete() (err error) {
-	dir, err := e.validatedRoot()
+	dir, err := e.validatedPath()
 	if err != nil {
 		return err
 	}
@@ -191,7 +208,7 @@ func (e *Environment) Delete() (err error) {
 }
 
 func (e *Environment) Create() error {
-	dir, err := e.validatedRoot()
+	dir, err := e.validatedPath()
 	if err != nil {
 		return err
 	}
