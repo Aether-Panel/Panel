@@ -36,7 +36,8 @@ func LogoutPost(c *gin.Context) {
 		secure = true
 	}
 
+	// The Secure flag intentionally follows the request TLS state so the panel keeps working over plain HTTP in dev.
+	// codeql[go/cookie-secure-not-set]
 	c.SetCookie("puffer_auth", "", 0, "/", "", secure, true)
-	c.SetCookie("puffer_auth_expires", "", 0, "/", "", secure, false) // NOSONAR
 	c.Status(http.StatusNoContent)
 }
