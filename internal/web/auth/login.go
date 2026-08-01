@@ -136,15 +136,10 @@ func createSession(c *gin.Context, user *models.User) {
 	data := &LoginResponse{}
 	data.Scopes = allScopes
 	data.Session = session // Expose session token for external App auth
-	secure := false
-	if c.Request.TLS != nil {
-		secure = true
-	}
+	secure := isRequestSecure(c)
 
 	maxAge := int(time.Hour / time.Second)
 
-	// The Secure flag intentionally follows the request TLS state so the panel keeps working over plain HTTP in dev.
-	// codeql[go/cookie-secure-not-set]
 	c.SetCookie("puffer_auth", session, maxAge, "/", "", secure, true)
 
 	c.JSON(http.StatusOK, data)
