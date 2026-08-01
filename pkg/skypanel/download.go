@@ -22,7 +22,7 @@ func DownloadFile(url, fileName string, env *Environment) error {
 	rootPrefix := cleanRoot + string(filepath.Separator)
 	targetPath := filepath.Join(cleanRoot, fileName)
 	cleanTarget := filepath.Clean(targetPath)
-	if !strings.HasPrefix(cleanTarget, rootPrefix) && cleanTarget != cleanRoot {
+	if !strings.HasPrefix(cleanTarget, rootPrefix) {
 		return fmt.Errorf("invalid file path: %s", fileName)
 	}
 	target, err := os.Create(cleanTarget)
