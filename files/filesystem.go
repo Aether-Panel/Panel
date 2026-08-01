@@ -2,6 +2,7 @@ package files
 
 import (
 	"errors"
+	"fmt"
 	"github.com/SkyPanel/SkyPanel/v3/internal/sys"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"golang.org/x/sys/unix"
@@ -110,6 +111,9 @@ func (sfp *fileServer) OpenFile(path string, flags int, mode os.FileMode) (*os.F
 
 	if path == "" {
 		return os.Open(sfp.dir)
+	}
+	if !filepath.IsLocal(path) {
+		return nil, fmt.Errorf("invalid path: %s", path)
 	}
 
 	// if this is not a create request, nuke mode

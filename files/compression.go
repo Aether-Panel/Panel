@@ -220,17 +220,18 @@ func walker(fs FileServer, targetPath, filter string, skipRoot bool) archives.Fi
 			path = strings.Join(strings.Split(path, PathSeparator)[1:], PathSeparator)
 		}
 
+		if path == "" {
+			return nil
+		}
+		if !filepath.IsLocal(path) {
+			return ErrPathTraversal
+		}
+
 		var joined string
 		if targetPath == "" {
-			if !filepath.IsLocal(path) {
-				return ErrPathTraversal
-			}
 			joined = path
 		} else {
-			joined, err = safeJoin(targetPath, path)
-			if err != nil {
-				return err
-			}
+			joined = filepath.Join(targetPath, path)
 		}
 		parent := filepath.Dir(joined)
 		path = joined
