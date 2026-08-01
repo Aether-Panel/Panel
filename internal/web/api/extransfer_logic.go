@@ -572,7 +572,12 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 	}.Encode()
 
 	sendStep("Descargando paquete de datos desde el origen...")
-	resp, err = externalHTTPClient.Get(dlURL.String())
+	req = &http.Request{
+		Method: "GET",
+		URL:    &dlURL,
+		Header: http.Header{},
+	}
+	resp, err = externalHTTPClient.Do(req)
 	if err != nil {
 		logging.Error.Printf("Failed to call download on origin: %v", err)
 		sendStep("ERROR: Error de red al descargar paquete")

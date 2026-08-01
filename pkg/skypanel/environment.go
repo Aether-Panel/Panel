@@ -192,7 +192,7 @@ func (e *Environment) validatedPath() (string, error) {
 		return "", absErr
 	}
 	cleanBase := filepath.Clean(base)
-	if !strings.HasPrefix(cleanP, cleanBase+string(filepath.Separator)) && cleanP != cleanBase {
+	if !strings.HasPrefix(cleanP, cleanBase+string(filepath.Separator)) {
 		return "", fmt.Errorf("invalid root directory: %s", cleanP)
 	}
 	return cleanP, nil
@@ -203,6 +203,14 @@ func (e *Environment) Delete() (err error) {
 	if err != nil {
 		return err
 	}
+	base, absErr := filepath.Abs(config.ServersFolder.Value())
+	if absErr != nil {
+		return absErr
+	}
+	cleanBase := filepath.Clean(base)
+	if !strings.HasPrefix(dir, cleanBase+string(filepath.Separator)) {
+		return fmt.Errorf("invalid root directory: %s", dir)
+	}
 	err = os.RemoveAll(dir)
 	return
 }
@@ -211,6 +219,14 @@ func (e *Environment) Create() error {
 	dir, err := e.validatedPath()
 	if err != nil {
 		return err
+	}
+	base, absErr := filepath.Abs(config.ServersFolder.Value())
+	if absErr != nil {
+		return absErr
+	}
+	cleanBase := filepath.Clean(base)
+	if !strings.HasPrefix(dir, cleanBase+string(filepath.Separator)) {
+		return fmt.Errorf("invalid root directory: %s", dir)
 	}
 	err = os.Mkdir(dir, 0755)
 	if os.IsExist(err) {
