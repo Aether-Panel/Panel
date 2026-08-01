@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"regexp"
+	"strings"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/go-sql-driver/mysql"
@@ -86,6 +87,8 @@ func (ds *Database) createInMySQL(database *models.Database, host *models.Databa
 		return fmt.Errorf("invalid characters in database credentials")
 	}
 
+	databaseName := sanitizeIdentifier(database.DatabaseName)
+
 	// Conectar a MySQL usando Config para escapar caracteres especiales
 	cfg := mysql.NewConfig()
 	cfg.User = host.Username
@@ -108,7 +111,7 @@ func (ds *Database) createInMySQL(database *models.Database, host *models.Databa
 	}
 
 	// Crear la base de datos
-	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci", database.DatabaseName)) /* #nosec G201 */ // NOSONAR
+	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci", databaseName)) /* #nosec G201 */ // NOSONAR
 	if err != nil {
 		return fmt.Errorf("failed to create database (ensure user has CREATE permissions): %w", err)
 	}
@@ -120,7 +123,7 @@ func (ds *Database) createInMySQL(database *models.Database, host *models.Databa
 	}
 
 	// Otorgar permisos al usuario sobre la base de datos
-	_, err = db.Exec(fmt.Sprintf("GRANT ALL PRIVILEGES ON `%s`.* TO '%s'@'%%'", database.DatabaseName, database.Username)) /* #nosec G201 */ // NOSONAR
+	_, err = db.Exec(fmt.Sprintf("GRANT ALL PRIVILEGES ON `%s`.* TO '%s'@'%%'", databaseName, database.Username)) /* #nosec G201 */ // NOSONAR
 	if err != nil {
 		return fmt.Errorf("failed to grant privileges (ensure user has GRANT OPTION): %w", err)
 	}
@@ -138,6 +141,8 @@ func (ds *Database) deleteFromMySQL(database *models.Database) error {
 	if !validIdentifier.MatchString(database.DatabaseName) || !validIdentifier.MatchString(database.Username) {
 		return fmt.Errorf("invalid characters in database credentials")
 	}
+
+	databaseName := sanitizeIdentifier(database.DatabaseName)
 
 	// Obtener el database host
 	host := &models.DatabaseHost{}
@@ -166,7 +171,7 @@ func (ds *Database) deleteFromMySQL(database *models.Database) error {
 	}
 
 	// Eliminar la base de datos
-	_, err = db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS `%s`", database.DatabaseName)) /* #nosec G201 */ // NOSONAR
+	_, err = db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS `%s`", databaseName)) /* #nosec G201 */ // NOSONAR
 	if err != nil {
 		return fmt.Errorf("failed to drop database: %w", err)
 	}
@@ -178,6 +183,16 @@ func (ds *Database) deleteFromMySQL(database *models.Database) error {
 	}
 
 	return nil
+}
+
+func sanitizeIdentifier(name string) string {
+	var b strings.Builder
+	for _, r := range name {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-' {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 func generateRandomUsername() string {
