@@ -16,6 +16,9 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
+permissions:
+  contents: read
+
 jobs:
   # ─────────────────────────────────────────────
   # JOB 1: Go Unit Tests
