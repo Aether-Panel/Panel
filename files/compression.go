@@ -233,6 +233,9 @@ func walker(fs FileServer, targetPath, filter string, skipRoot bool) archives.Fi
 		} else {
 			joined = filepath.Join(targetPath, path)
 		}
+		if !strings.HasPrefix(joined, targetPath) {
+			return ErrPathTraversal
+		}
 		parent := filepath.Dir(joined)
 		path = joined
 
@@ -282,6 +285,9 @@ func walker(fs FileServer, targetPath, filter string, skipRoot bool) archives.Fi
 			target, err := getLinkTarget(file)
 			if err != nil {
 				return err
+			}
+			if !filepath.IsLocal(target) {
+				return ErrPathTraversal
 			}
 
 			if fs != nil {

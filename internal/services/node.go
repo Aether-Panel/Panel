@@ -37,7 +37,7 @@ func SyncNodeToConfig() {
 	models.LocalNode.PrivateHost = strings.Split(masterURL, ":")[0]
 
 	if len(masterParts) == 2 {
-		port, err := strconv.Atoi(masterParts[1])
+		port, err := strconv.ParseUint(masterParts[1], 10, 16)
 		if err == nil {
 			models.LocalNode.PublicPort = uint16(port)
 			models.LocalNode.PrivatePort = uint16(port)
@@ -57,7 +57,7 @@ func SyncNodeToConfig() {
 	sftpParts := strings.SplitN(sftpHost, ":", 2)
 
 	if len(sftpParts) == 2 {
-		port, err := strconv.Atoi(sftpParts[1])
+		port, err := strconv.ParseUint(sftpParts[1], 10, 16)
 		if err == nil {
 			models.LocalNode.SFTPPort = uint16(port)
 		}
