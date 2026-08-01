@@ -1000,7 +1000,11 @@ func (p *Server) IsAutoStart() (isAutoStart bool) {
 func (p *Server) Save() (err error) {
 	p.Log(logging.Info, "Saving server %s", p.ID())
 
-	file := filepath.Join(config.ServersFolder.Value(), path.Base(p.ID())+".json")
+	safeID, err := validateServerID(p.ID())
+	if err != nil {
+		return
+	}
+	file := filepath.Join(config.ServersFolder.Value(), safeID+".json")
 
 	if err = p.valid(); err != nil {
 		p.Log(logging.Error, "Server %s contained invalid data, this server is.... broken", p.Identifier)
@@ -1246,6 +1250,9 @@ func (p *Server) StartBackup() (string, error) {
 }
 
 func (p *Server) DeleteBackup(fileName string) error {
+	if !filepath.IsLocal(fileName) {
+		return fmt.Errorf("invalid backup file name: %s", fileName)
+	}
 	backupDirectory := p.GetBackupDirectory()
 	if backupDirectory == "" {
 		return skypanel.ErrSettingNotConfigured("backupDirectory")
@@ -1262,6 +1269,9 @@ func (p *Server) DeleteBackup(fileName string) error {
 }
 
 func (p *Server) StartRestore(fileName string) error {
+	if !filepath.IsLocal(fileName) {
+		return fmt.Errorf("invalid backup file name: %s", fileName)
+	}
 	if err := p.IsIdle(); err != nil {
 		return err
 	}
@@ -1330,6 +1340,9 @@ func (p *Server) StartRestore(fileName string) error {
 }
 
 func (p *Server) GetBackup(fileName string) (*FileData, error) {
+	if !filepath.IsLocal(fileName) {
+		return nil, fmt.Errorf("invalid backup file name: %s", fileName)
+	}
 	backupFile := filepath.Join(p.GetBackupDirectory(), path.Base(fileName))
 
 	info, err := os.Stat(backupFile)
@@ -1340,6 +1353,9 @@ func (p *Server) GetBackup(fileName string) (*FileData, error) {
 }
 
 func (p *Server) GetBackupFile(fileName string) (*FileData, error) {
+	if !filepath.IsLocal(fileName) {
+		return nil, fmt.Errorf("invalid backup file name: %s", fileName)
+	}
 	backupFile := filepath.Join(p.GetBackupDirectory(), path.Base(fileName))
 
 	file, err := os.Open(backupFile)

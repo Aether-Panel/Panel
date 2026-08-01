@@ -271,7 +271,7 @@ func (t *Template) DeleteRepo(id uint) error {
 func readTemplateFromDisk(name, path string) (*models.Template, error) {
 	cleanPath := filepath.Clean(path)
 	cacheDir := filepath.Clean(config.CacheFolder.Value())
-	if !strings.HasPrefix(cleanPath, cacheDir+string(filepath.Separator)) && cleanPath != cacheDir {
+	if !strings.HasPrefix(cleanPath, cacheDir+string(filepath.Separator)) {
 		return nil, fmt.Errorf("invalid template path: %s", path)
 	}
 	file, err := os.Open(cleanPath)

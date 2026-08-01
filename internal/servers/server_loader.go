@@ -3,15 +3,22 @@ package servers
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/SkyPanel/SkyPanel/v3/files"
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 )
+
+func validateServerID(id string) (string, error) {
+	if !filepath.IsLocal(id) {
+		return "", fmt.Errorf("invalid server id: %s", id)
+	}
+	return id, nil
+}
 
 var (
 	allServers = make([]*Server, 0)
@@ -49,8 +56,12 @@ func GetAll() []*Server {
 }
 
 func Load(id string) (program *Server, err error) {
+	safeID, err := validateServerID(id)
+	if err != nil {
+		return
+	}
 	var data []byte
-	data, err = os.ReadFile(filepath.Join(config.ServersFolder.Value(), path.Base(id)+".json"))
+	data, err = os.ReadFile(filepath.Join(config.ServersFolder.Value(), safeID+".json"))
 	if len(data) == 0 || err != nil {
 		return
 	}
@@ -123,11 +134,16 @@ func Create(program *Server) (server *Server, err error) {
 		return nil, skypanel.ErrServerAlreadyExists
 	}
 
+	serverID, err := validateServerID(program.ID())
+	if err != nil {
+		return
+	}
+
 	defer func() {
 		if err != nil {
 			// revert since we have an error
-			_ = os.Remove(filepath.Join(config.ServersFolder.Value(), path.Base(program.ID())))
-			_ = os.Remove(filepath.Join(config.ServersFolder.Value(), path.Base(program.ID())+".json"))
+			_ = os.Remove(filepath.Join(config.ServersFolder.Value(), serverID))
+			_ = os.Remove(filepath.Join(config.ServersFolder.Value(), serverID+".json"))
 			if program.RunningEnvironment != nil {
 				_ = program.RunningEnvironment.Delete()
 			}
@@ -135,7 +151,7 @@ func Create(program *Server) (server *Server, err error) {
 		}
 	}()
 
-	err = os.Mkdir(filepath.Join(config.ServersFolder.Value(), path.Base(program.ID())), 0755)
+	err = os.Mkdir(filepath.Join(config.ServersFolder.Value(), serverID), 0755)
 	if err != nil {
 		logging.Error.Printf("Error writing server: %s", err)
 		return
@@ -174,6 +190,10 @@ func Delete(id string) (err error) {
 	if program == nil {
 		return
 	}
+	safeID, err := validateServerID(id)
+	if err != nil {
+		return
+	}
 	running, err := program.IsRunning()
 
 	if err != nil {
@@ -199,7 +219,7 @@ func Delete(id string) (err error) {
 	if err != nil {
 		return
 	}
-	err = os.Remove(filepath.Join(config.ServersFolder.Value(), path.Base(program.ID())+".json"))
+	err = os.Remove(filepath.Join(config.ServersFolder.Value(), safeID+".json"))
 	if err != nil {
 		logging.Error.Printf("Error removing server: %s", err)
 	}
