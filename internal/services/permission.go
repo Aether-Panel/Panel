@@ -46,10 +46,14 @@ func (ps *Permission) GetForUserAndServer(userID uint, serverID string) (*models
 		ServerIdentifier: id,
 	}
 
-	err := ps.DB.Preload(clause.Associations).Where(map[string]interface{}{
-		"user_id":           userID,
-		"server_identifier": id,
-	}).First(permissions).Error
+	query := ps.DB.Preload(clause.Associations)
+	if id != nil {
+		query = query.Where("user_id = ? AND server_identifier = ?", userID, *id)
+	} else {
+		query = query.Where("user_id = ? AND server_identifier IS NULL", userID)
+	}
+
+	err := query.First(permissions).Error
 
 	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
 		return permissions, nil
@@ -62,18 +66,11 @@ func (ps *Permission) HasPermission(userID uint, serverID string, permission *sc
 	var query *gorm.DB
 
 	if serverID != "" {
-		query = ps.DB.Preload(clause.Associations).Where(map[string]interface{}{
-			"user_id":           userID,
-			"server_identifier": serverID,
-		}).Or(map[string]interface{}{
-			"user_id":           userID,
-			"server_identifier": nil,
-		})
+		query = ps.DB.Preload(clause.Associations).
+			Where("user_id = ? AND server_identifier = ?", userID, serverID).
+			Or("user_id = ? AND server_identifier IS NULL", userID)
 	} else {
-		query = ps.DB.Preload(clause.Associations).Where(map[string]interface{}{
-			"user_id":           userID,
-			"server_identifier": nil,
-		})
+		query = ps.DB.Preload(clause.Associations).Where("user_id = ? AND server_identifier IS NULL", userID)
 	}
 
 	var perms []*models.Permissions
