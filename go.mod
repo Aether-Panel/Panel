@@ -3,8 +3,8 @@ module github.com/SkyPanel/SkyPanel/v3
 go 1.25.0
 
 require (
-	github.com/MicahParks/jwkset v0.11.0
-	github.com/MicahParks/keyfunc/v3 v3.8.0
+	github.com/MicahParks/jwkset v0.11.1
+	github.com/MicahParks/keyfunc/v3 v3.8.1
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751
 	github.com/braintree/manners v0.0.0-20160418043613-82a8879fc5fd
 	github.com/cavaliergopher/grab/v3 v3.0.1
@@ -203,7 +203,7 @@ require (
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/term v0.45.0 // indirect
 	golang.org/x/text v0.40.0 // indirect
-	golang.org/x/time v0.13.0 // indirect
+	golang.org/x/time v0.15.0 // indirect
 	golang.org/x/tools v0.47.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260414002931-afd174a4e478 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260414002931-afd174a4e478 // indirect
