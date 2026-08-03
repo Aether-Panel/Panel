@@ -41,8 +41,10 @@ func ValidateExternalURL(rawURL string) error {
 	// Check if host is an IP address
 	ip := net.ParseIP(host)
 	if ip != nil {
-		if isPrivateIP(ip) {
-			return errors.New("URL cannot point to a private or loopback IP address")
+		//if isPrivateIP(ip) {
+		//	return errors.New("URL cannot point to a private or loopback IP address")
+		if ip.IsLoopback() {
+			return errors.New("URL cannot point to a loopback IP address")
 		}
 		return nil
 	}
@@ -54,8 +56,10 @@ func ValidateExternalURL(rawURL string) error {
 	}
 
 	for _, ip := range ips {
-		if isPrivateIP(ip) {
-			return errors.New("URL resolves to a private or loopback IP address")
+		//if isPrivateIP(ip) {
+		//	return errors.New("URL resolves to a private or loopback IP address")
+		if ip.IsLoopback() {
+			return errors.New("URL resolves to a loopback IP address")
 		}
 	}
 
