@@ -26,6 +26,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 )
 
 var (
@@ -33,6 +34,33 @@ var (
 	transferProgress      = make(map[string]string)
 	externalHTTPClient    = utils.NewRestrictedHTTPClient()
 )
+
+func sendWebhookReport(serverName, status, details string, isError bool) {
+	webhookURL := config.DiscordWebhookExTransfer.Value()
+	if webhookURL == "" {
+		return
+	}
+
+	ds := &services.DiscordService{}
+	color := 0x00FF00 // Green for success
+	if isError {
+		color = 0xFF0000 // Red for error
+	}
+
+	title := fmt.Sprintf("ExTransfer: %s", status)
+	fields := []services.DiscordEmbedField{
+		{Name: "Servidor", Value: serverName, Inline: true},
+		{Name: "Estado", Value: status, Inline: true},
+	}
+	if details != "" {
+		fields = append(fields, services.DiscordEmbedField{Name: "Detalles", Value: details, Inline: false})
+	}
+
+	err := ds.SendWebhookToURL(webhookURL, title, "Reporte de transferencia externa", color, fields)
+	if err != nil {
+		logging.Error.Printf("Failed to send ExTransfer webhook: %v", err)
+	}
+}
 
 func setTransferProgress(serverID, status string) {
 	transferProgressMutex.Lock()
@@ -413,6 +441,7 @@ func StartDataPlaneMigration(session models.ExTransferSession, db *gorm.DB) {
 	if err != nil || (res != nil && res.StatusCode != http.StatusNoContent && res.StatusCode != http.StatusOK) {
 		logging.Error.Printf("Failed to archive server %s: %v", server.Identifier, err)
 		db.Model(&session).Update("status", models.StatusFailed)
+		sendWebhookReport(server.Name, "Fallida (Origen)", "Fallo al comprimir los archivos en el servidor de origen.", true)
 		return
 	}
 
@@ -452,6 +481,9 @@ func getExTransferStatus(c *gin.Context) {
 func performPullTransferAsync(server *models.Server, originURL, token string, db *gorm.DB) {
 	sendStep := func(msg string) {
 		setTransferProgress(server.Identifier, msg)
+		if strings.HasPrefix(msg, "ERROR:") {
+			sendWebhookReport(server.Name, "Fallida", msg, true)
+		}
 	}
 	defer func() {
 		time.Sleep(10 * time.Second)
@@ -638,6 +670,7 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 	_, _ = ns.CallNode(&server.Node, "DELETE", fmt.Sprintf("/daemon/server/%s/file/transfer.tar.gz", server.Identifier), nil, nil)
 
 	logging.Info.Printf("Pull transfer for server %s completed successfully", server.Identifier)
+	sendWebhookReport(server.Name, "Completada", "La transferencia externa finalizó correctamente.", false)
 	sendStep("DONE")
 }
 

@@ -34,7 +34,8 @@
     "notifications": {
       "discordwebhook": "",
       "discordwebhooknode": "",
-      "discordwebhooksystem": ""
+      "discordwebhooksystem": "",
+      "discordwebhookextransfer": ""
     },
     "registrationenabled": true,
     "security": {
