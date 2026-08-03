@@ -10,6 +10,8 @@
     "root": ""
   },
   "panel": {
+    "_comment": "Para desactivar el panel y usar solo como Nodo (Daemon), cambia 'enable' a false",
+    "enable": true,
     "database": {
       "dialect": "mysql",
       "url": "esteban:2006@tcp(localhost:3306)/skypanel?charset=utf8mb4\u0026parseTime=true"

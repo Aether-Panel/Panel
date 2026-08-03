@@ -1,6 +1,8 @@
 {
   "logs": "/var/log/SkyPanel",
   "panel": {
+    "_comment": "Para desactivar el panel y usar solo como Nodo (Daemon), cambia 'enable' a false",
+    "enable": true,
     "database": {
       "dialect": "mysql",
       "url": "esteban:2006@tcp(192.168.0.6:3306)/skypanel?charset=utf8mb4&parseTime=true"
