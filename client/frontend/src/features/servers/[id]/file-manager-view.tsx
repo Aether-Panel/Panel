@@ -389,7 +389,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
     setIsLoading(true);
     try {
       const filePath = currentPath ? `${currentPath}/${file.name}` : file.name;
-      await api.post(`/api/servers/${serverId}/extract/${filePath}?destination=.&skipRoot`);
+      await api.post(`/api/servers/${serverId}/extract/${filePath}?destination=.&skipRoot`, {});
       toast({ title: t('common.success'), description: t('servers.fileManager.toast.extracted') });
       fetchFiles(currentPath);
     } catch (e: any) {
