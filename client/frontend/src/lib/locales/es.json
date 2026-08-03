@@ -7,7 +7,20 @@
     "nodes": "Nodos",
     "databaseHosts": "Hosts de BD",
     "templates": "Plantillas",
-    "settings": "Configuración"
+    "settings": "Configuración",
+    "groups": {
+      "overview": "Resumen",
+      "management": "Gestión"
+    },
+    "system": {
+      "online": "Sistema en línea",
+      "panel": "Panel",
+      "poweredBy": "Impulsado por Aether Panel"
+    },
+    "roleBadge": {
+      "admin": "Administrador",
+      "user": "Usuario"
+    }
   },
   "userMenu": {
     "settings": "Configuración",
@@ -139,6 +152,9 @@
       "createButton": "Crear Servidor"
     },
     "allServers": "Todos los Servidores",
+    "card": {
+      "activity": "Actividad reciente"
+    },
     "table": {
       "server": "Servidor",
       "status": "Estado",
@@ -177,7 +193,9 @@
         "cpuUsage": "Uso de CPU",
         "memoryUsage": "Uso de Memoria",
         "storageUsage": "Uso de Almacenamiento",
-        "playersOnline": "Jugadores en línea"
+        "playersOnline": "Jugadores en línea",
+        "resourcesTitle": "Recursos en vivo",
+        "resourcesSubtitle": "Consumo actual frente al límite asignado al servidor"
       }
     },
     "address": {
@@ -188,7 +206,8 @@
     "console": {
       "title": "Consola en Vivo",
       "commandPlaceholder": "Introduce un comando...",
-      "sendButton": "Enviar"
+      "sendButton": "Enviar",
+      "waitingOutput": "Esperando la salida del servidor..."
     },
     "aiSummary": {
       "title": "Análisis de Consola por IA",
@@ -216,6 +235,20 @@
     "fileManager": {
       "title": "Administrador de Archivos",
       "description": "Explora y gestiona los archivos en este servidor. Haz clic en el nombre de un archivo para editarlo.",
+      "upload": "Subir",
+      "new": "Nuevo",
+      "newFile": "Archivo",
+      "newFolder": "Carpeta",
+      "paste": "Pegar",
+      "empty": "Esta carpeta está vacía.",
+      "emptyHint": "Sube un archivo o crea una carpeta para empezar.",
+      "nameLabel": "Nombre",
+      "createFileTitle": "Crear Archivo",
+      "createFolderTitle": "Crear Carpeta",
+      "createDescription": "Introduce el nombre del nuevo elemento que quieres crear en el directorio actual.",
+      "createFilePlaceholder": "nuevo-archivo.txt",
+      "createFolderPlaceholder": "nueva-carpeta",
+      "create": "Crear",
       "table": {
         "name": "Nombre",
         "size": "Tamaño",
@@ -226,14 +259,31 @@
         "edit": "Editar",
         "download": "Descargar",
         "rename": "Renombrar",
-        "delete": "Eliminar"
+        "delete": "Eliminar",
+        "copy": "Copiar",
+        "cut": "Cortar"
+      },
+      "deleteDialog": {
+        "title": "Eliminar",
+        "description": "¿Estás seguro de que quieres eliminar {{name}}?"
       },
       "editor": {
         "title": "Editando: {{filename}}",
         "description": "Realiza los cambios necesarios y pulsa guardar.",
         "cancel": "Cancelar",
         "save": "Guardar Cambios",
-        "saveSuccess": "Archivo guardado correctamente."
+        "saveSuccess": "Archivo guardado correctamente.",
+        "saveHint": "Ctrl + S para guardar"
+      },
+      "toast": {
+        "createdFile": "Archivo creado correctamente.",
+        "createdFolder": "Carpeta creada correctamente.",
+        "uploaded": "Archivo subido correctamente.",
+        "deleted": "Eliminado correctamente.",
+        "copied": "Copiado: {{name}}",
+        "cut": "Cortado: {{name}}",
+        "pasted": "Pegado correctamente.",
+        "moved": "Movido correctamente."
       }
     },
     "settings": {
@@ -269,6 +319,16 @@
       "pluginsTitle": "Configuración de Plugins",
       "enablePluginsLabel": "Habilitar Pestaña de Plugins",
       "enablePluginsDescription": "Mostrar u ocultar la pestaña de gestión de plugins para este servidor.",
+      "serverTypeLabel": "Tipo de servidor",
+      "resourcesTitle": "Límites de Recursos",
+      "resourcesDescription": "Estos límites se aplican estrictamente a nivel del contenedor Docker y solo los administradores pueden modificarlos.",
+      "resourcesAdminBadge": "Solo administradores",
+      "cpuLabel": "CPU Asignada",
+      "cpuHint": "100% equivale a 1 hilo del procesador.",
+      "memoryLabel": "Memoria RAM",
+      "memoryHint": "Límite estricto de memoria del contenedor.",
+      "diskLabel": "Espacio en Disco",
+      "diskHint": "Límite de almacenamiento del contenedor.",
       "saveButton": "Guardar Cambios",
       "saveSuccess": "Configuración guardada correctamente",
       "saveError": "Error al guardar la configuración"
@@ -638,7 +698,8 @@
     "actions": {
       "edit": "Editar",
       "deploy": "Desplegar",
-      "delete": "Eliminar"
+      "delete": "Eliminar",
+      "viewDetails": "Ver Detalles"
     },
     "editDialog": {
       "title": "Editar Nodo",
@@ -786,7 +847,10 @@
       "bot": "Bot",
       "other": "Otro",
       "NoGroup": "Sin Grupo"
-    }
+    },
+    "General": "General",
+    "RunConfig": "Configuración de Ejecución",
+    "Json": "JSON"
   },
   "common": {
     "copied": "Copiado al portapapeles",
@@ -796,8 +860,17 @@
     "close": "Cerrar",
     "success": "Éxito",
     "error": "Error",
+    "info": "Información",
     "save": "Guardar",
-    "confirmDelete": "¿Estás seguro de que deseas eliminar este elemento?"
+    "saved": "Guardado",
+    "confirmDelete": "¿Estás seguro de que deseas eliminar este elemento?",
+    "notFound": "No Encontrado",
+    "back": "Atrás",
+    "next": "Siguiente",
+    "actions": "Acciones",
+    "delete": "Eliminar",
+    "retry": "Reintentar",
+    "saving": "Guardando..."
   },
   "settings": {
     "title": "Configuración del Panel",
@@ -814,11 +887,16 @@
       "baseUrlLabel": "URL Principal",
       "baseUrlDescription": "El enlace desde el cual accederás al panel de control siguiendo el siguiente formato: http://localhost:8080",
       "companyNameLabel": "Nombre de la empresa",
+      "companyNameDescription": "El nombre de tu organización mostrado en toda la interfaz del panel.",
+      "masterNodeIpLabel": "IP Global del Nodo Maestro",
+      "masterNodeIpDescription": "Si múltiples paneles comparten una base de datos, establece aquí la IP verdadera del Maestro (ej. panel.ejemplo.com). TODOS los paneles sincronizarán esto y enrutarán las transferencias correctamente.",
       "geminiApiKeyLabel": "Clave API de Gemini",
       "geminiApiKeyPlaceholder": "Introduce tu clave API de Gemini",
       "geminiApiKeyDescription": "Introduce tu clave API de Google Gemini para habilitar las funciones de inteligencia artificial.",
       "hideAiAnalysisLabel": "Ocultar Análisis IA de la Consola",
       "hideAiAnalysisDescription": "Si se activa, se ocultará la función de análisis de la consola por IA para todos los servidores.",
+      "headerDecorationsLabel": "Decoraciones de la cabecera",
+      "headerDecorationsDescription": "Muestra las animaciones decorativas (gif y vídeo) en la parte inferior de la cabecera del sidebar.",
       "allowRegistrationLabel": "Permitir que los usuarios se puedan registrar",
       "allowRegistrationDescription": "Los usuarios autorregistrados no pueden realizar ninguna acción hasta que se les otorguen permisos. Deshabilitar esto solo impide el registro directo, las invitaciones a un servidor y la página de Usuarios no se ven afectadas.",
       "saveButton": "Guardar configuración"
@@ -875,6 +953,71 @@
       "testButton": "Email de prueba",
       "testSuccess": "Email de prueba enviado correctamente",
       "saveButton": "Guardar configuración"
+    }
+  },
+  "apiKeys": {
+    "title": "Claves API",
+    "description": "Gestiona claves API para integraciones externas (WHMCS, Paymenter).",
+    "generate": "Generar Clave",
+    "generateTitle": "Generar Nueva Clave API",
+    "generateDescription": "Esta clave se usará para autenticar sistemas externos.",
+    "nameLabel": "Nombre / Descripción",
+    "namePlaceholder": "p. ej. WHMCS Servidor 1",
+    "cancel": "Cancelar",
+    "create": "Generar",
+    "successTitle": "Éxito",
+    "successCreated": "Clave API generada correctamente",
+    "successDeleted": "Clave API eliminada",
+    "errorTitle": "Error",
+    "errorCreated": "Error al generar la clave",
+    "copyTitle": "Copiada",
+    "copyDescription": "Clave API copiada al portapapeles",
+    "generatedAlert": "Clave generada correctamente",
+    "generatedHint": "Copia esta clave ahora. No podrás volver a verla.",
+    "table": {
+      "prefix": "Prefijo",
+      "name": "Nombre",
+      "createdAt": "Creada el",
+      "empty": "No hay Claves API generadas todavía."
+    },
+    "deleteConfirm": "¿Estás seguro de que quieres eliminar esta clave?"
+  },
+  "products": {
+    "title": "Productos de Aprovisionamiento",
+    "description": "Define productos que los sistemas externos pueden aprovisionar automáticamente.",
+    "add": "Añadir Producto",
+    "addTitle": "Añadir Nuevo Producto",
+    "editTitle": "Editar Producto",
+    "productIdLabel": "ID del Producto (p. ej. minecraft_2gb)",
+    "displayNameLabel": "Nombre a Mostrar",
+    "templateLabel": "Nombre de la Plantilla",
+    "templatePlaceholder": "p. ej. minecraft",
+    "cpuLabel": "Límite de CPU (%)",
+    "memoryLabel": "Límite de Memoria (MB)",
+    "diskLabel": "Límite de Disco (MB)",
+    "defaultNodeLabel": "Nodo por Defecto",
+    "selectNode": "Selecciona un nodo",
+    "assignPortLabel": "Asignar Puerto de Rango",
+    "assignPortHint": "Se asignará un puerto aleatorio libre de este rango al aprovisionar.",
+    "minPortLabel": "Puerto Mín.",
+    "minPortPlaceholder": "p. ej. 25000",
+    "maxPortLabel": "Puerto Máx.",
+    "maxPortPlaceholder": "p. ej. 25999",
+    "cancel": "Cancelar",
+    "save": "Guardar Producto",
+    "successTitle": "Éxito",
+    "successSaved": "Producto guardado correctamente",
+    "successDeleted": "Producto eliminado",
+    "errorTitle": "Error",
+    "errorSaved": "Error al guardar el producto",
+    "deleteConfirm": "¿Estás seguro de que deseas eliminar este producto?",
+    "table": {
+      "productId": "ID del Producto",
+      "name": "Nombre",
+      "template": "Plantilla",
+      "limits": "Límites",
+      "empty": "No hay productos definidos.",
+      "limitsFormat": "CPU: {{cpu}}%, RAM: {{memory}}MB, Disco: {{disk}}MB"
     }
   }
 }

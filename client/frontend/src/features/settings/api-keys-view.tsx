@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -60,81 +59,82 @@ export function ApiKeysView() {
     };
 
     return (
-        <div className="mt-6 rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50 animate-in slide-in-from-bottom-4 duration-500">
-            <Card className="border-0 shadow-lg">
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <div>
-                        <CardTitle>API Keys</CardTitle>
-                        <CardDescription>Manage API Keys for external integrations (WHMCS, Paymenter)</CardDescription>
-                    </div>
-                    <Dialog open={isCreating} onOpenChange={setIsCreating}>
-                        <DialogTrigger asChild>
-                            <Button><Plus className="w-4 h-4 mr-2"/> Generate Key</Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Generate New API Key</DialogTitle>
-                                <DialogDescription>This key will be used to authenticate external systems.</DialogDescription>
-                            </DialogHeader>
-                            <div className="space-y-4 py-4">
-                                <div className="space-y-2">
-                                    <Label>Name / Description</Label>
-                                    <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. WHMCS Server 1" />
-                                </div>
-                            </div>
-                            <DialogFooter>
-                                <Button variant="outline" onClick={() => setIsCreating(false)}>Cancel</Button>
-                                <Button onClick={handleCreate} disabled={!name}>Generate</Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
-                </CardHeader>
-                <CardContent>
-                    {newKeyData && (
-                        <div className="mb-6 p-4 rounded-md bg-green-500/10 border border-green-500/20 text-green-700 dark:text-green-400">
-                            <h4 className="font-semibold mb-2 flex items-center"><Key className="w-4 h-4 mr-2"/> Key Generated Successfully</h4>
-                            <p className="text-sm mb-4">Please copy this key now. You won't be able to see it again.</p>
-                            <div className="flex gap-2">
-                                <Input readOnly value={newKeyData.token} className="bg-background font-mono" />
-                                <Button variant="secondary" onClick={() => copyToClipboard(newKeyData.token)}>
-                                    <Copy className="w-4 h-4" />
-                                </Button>
+        <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h2 className="text-xl font-semibold tracking-tight">API Keys</h2>
+                    <p className="text-sm text-muted-foreground mt-1">Manage API Keys for external integrations (WHMCS, Paymenter)</p>
+                </div>
+                <Dialog open={isCreating} onOpenChange={setIsCreating}>
+                    <DialogTrigger asChild>
+                        <Button><Plus className="w-4 h-4 mr-2"/> Generate Key</Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Generate New API Key</DialogTitle>
+                            <DialogDescription>This key will be used to authenticate external systems.</DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                                <Label>Name / Description</Label>
+                                <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. WHMCS Server 1" />
                             </div>
                         </div>
-                    )}
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setIsCreating(false)}>Cancel</Button>
+                            <Button onClick={handleCreate} disabled={!name}>Generate</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+            </div>
 
-                    <div className="rounded-md border">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Prefix</TableHead>
-                                    <TableHead>Name</TableHead>
-                                    <TableHead>Created At</TableHead>
-                                    <TableHead className="w-[100px]"></TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {keys.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">No API Keys generated yet.</TableCell>
-                                    </TableRow>
-                                ) : keys.map(key => (
-                                    <TableRow key={key.id}>
-                                        <TableCell className="font-mono text-sm">{key.prefix}***</TableCell>
-                                        <TableCell>{key.name}</TableCell>
-                                        <TableCell>{new Date(key.created_at).toLocaleDateString()}</TableCell>
-                                        <TableCell>
-                                            <Button variant="ghost" size="icon" onClick={() => handleDelete(key.id)} className="text-red-500 hover:text-red-600 hover:bg-red-500/10">
-                                                <Trash2 className="w-4 h-4" />
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+            {newKeyData && (
+                <div className="p-4 rounded-xl bg-success/10 border border-success/20 text-success">
+                    <h4 className="font-semibold mb-2 flex items-center">
+                        <Key className="w-4 h-4 mr-2"/> Key Generated Successfully
+                    </h4>
+                    <p className="text-sm mb-4">Please copy this key now. You won't be able to see it again.</p>
+                    <div className="flex gap-2">
+                        <Input readOnly value={newKeyData.token} className="bg-background/80 font-mono" />
+                        <Button variant="secondary" onClick={() => copyToClipboard(newKeyData.token)}>
+                            <Copy className="w-4 h-4" />
+                        </Button>
                     </div>
-                </CardContent>
-            </Card>
+                </div>
+            )}
+
+            <div className="rounded-xl border border-border/60 bg-card shadow-sm overflow-hidden">
+                <Table>
+                    <TableHeader className="bg-muted/30">
+                        <TableRow>
+                            <TableHead className="font-medium">Prefix</TableHead>
+                            <TableHead className="font-medium">Name</TableHead>
+                            <TableHead className="font-medium">Created At</TableHead>
+                            <TableHead className="w-[80px]"></TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {keys.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                                    No API Keys generated yet.
+                                </TableCell>
+                            </TableRow>
+                        ) : keys.map(key => (
+                            <TableRow key={key.id}>
+                                <TableCell className="font-mono text-[13px] text-muted-foreground">{key.prefix}***</TableCell>
+                                <TableCell className="font-medium">{key.name}</TableCell>
+                                <TableCell className="text-muted-foreground text-sm">{new Date(key.created_at).toLocaleDateString()}</TableCell>
+                                <TableCell className="text-right">
+                                    <Button variant="ghost" size="icon" onClick={() => handleDelete(key.id)} className="text-red-500 hover:text-red-600 hover:bg-red-500/10">
+                                        <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </div>
         </div>
     );
 }

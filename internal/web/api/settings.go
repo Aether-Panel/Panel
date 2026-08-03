@@ -487,5 +487,6 @@ var editableStringEntries = []config.StringEntry{
 var editableBoolEntries = []config.BoolEntry{
 	config.RegistrationEnabled,
 	config.HideAIAnalysis,
+	config.HeaderDecorations,
 }
 var editableIntEntries = []config.IntEntry{}

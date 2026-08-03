@@ -1,10 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { api, ApiError } from '@/lib/api-client';
 import type { Server } from '@/lib/data';
-import { servers as mockServers } from '@/lib/data';
-
 const globalFailedStatsSet = new Set<string>();
-let mockSimulationInterval: NodeJS.Timeout | null = null;
 
 export function useServers() {
     const [servers, setServers] = useState<Server[]>([]);
@@ -12,24 +9,7 @@ export function useServers() {
     const [error, setError] = useState<Error | null>(null);
     const pollerRef = useRef<NodeJS.Timeout | null>(null);
 
-    const startMockSimulation = () => {
-        if (mockSimulationInterval) clearInterval(mockSimulationInterval);
-        mockSimulationInterval = setInterval(() => {
-            setServers(prev => prev.map(s => {
-                if (s.status !== 'online') return s;
-                const t = Date.now();
-                const metrics = [...(s.metrics || [])];
-                metrics.push({
-                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-                    cpu: Math.floor(Math.sin(t * 0.0001) * 25 + 50),
-                    memory: Math.floor(Math.cos(t * 0.00008) * 20 + 60),
-                    networkIn: Math.floor(Math.sin(t * 0.00015) * 30 + 40),
-                    networkOut: Math.floor(Math.cos(t * 0.00012) * 20 + 25),
-                });
-                return { ...s, metrics: metrics.slice(-60) };
-            }));
-        }, 3000);
-    };
+
 
     const fetchServers = async () => {
         try {
@@ -52,6 +32,7 @@ export function useServers() {
                     storageUsage: 0,
                     storageUsed: 0,
                     storageMax: 0,
+                    memoryUsed: 0,
                     metrics: [],
                     alerts: [],
                     isGhost: s.isGhost,
@@ -68,10 +49,8 @@ export function useServers() {
             // Start fetching stats for each server
             updateAllStats(mappedServers);
         } catch (e: any) {
-            console.error('Failed to fetch servers, using mock data:', e);
-            setServers(mockServers as Server[]);
-            setError(null);
-            startMockSimulation();
+            console.error('Failed to fetch servers:', e);
+            setError(e);
         } finally {
             setLoading(false);
         }
@@ -87,7 +66,11 @@ export function useServers() {
                     return { id: server.id, status: 'offline' };
                 }
 
-                const stats = await api.get(`/api/servers/${server.id}/stats`);
+                const [stats, queryData] = await Promise.all([
+                    api.get(`/api/servers/${server.id}/stats`).catch(() => null),
+                    api.get(`/api/servers/${server.id}/query`).catch(() => null)
+                ]);
+
                 if (stats) {
                     const cpu = Math.round(stats.cpu || 0);
                     // If maxMemory is missing or 0, we can't calculate percentage reliably. 
@@ -108,6 +91,7 @@ export function useServers() {
                         id: server.id,
                         cpuUsage: cpu,
                         memoryUsage: memory,
+                        memoryUsed: stats.memory || 0,
                         storageUsage,
                         storageUsed,
                         storageMax,
@@ -118,7 +102,10 @@ export function useServers() {
                             memory: Math.min(100, memory),
                             networkIn: parseFloat((stats.networkRx || 0).toFixed(2)),
                             networkOut: parseFloat((stats.networkTx || 0).toFixed(2)),
-                        }
+                        },
+                        playersOnline: queryData?.minecraft?.numPlayers ?? undefined,
+                        maxPlayers: queryData?.minecraft?.maxPlayers ?? undefined,
+                        isMinecraft: !!queryData?.minecraft
                     };
                 }
             } catch (e: any) {
@@ -145,6 +132,10 @@ export function useServers() {
                     storageUsage: (res as any).storageUsage ?? s.storageUsage,
                     storageUsed: (res as any).storageUsed ?? s.storageUsed,
                     storageMax: (res as any).storageMax ?? s.storageMax,
+                    memoryUsed: (res as any).memoryUsed ?? s.memoryUsed,
+                    playersOnline: (res as any).playersOnline,
+                    maxPlayers: (res as any).maxPlayers,
+                    isMinecraft: (res as any).isMinecraft,
                     metrics: newMetrics as any
                 };
             }
@@ -169,11 +160,6 @@ export function useServers() {
         return () => clearInterval(interval);
     }, [servers.length]); // Only reset interval if server count changes
 
-    useEffect(() => {
-        return () => {
-            if (mockSimulationInterval) clearInterval(mockSimulationInterval);
-        };
-    }, []);
 
     return { servers, loading, error, refresh: fetchServers };
 }

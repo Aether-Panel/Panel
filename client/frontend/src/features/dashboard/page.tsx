@@ -3,15 +3,13 @@ import { useAuth } from '@/contexts/providers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Server } from '@/lib/data';
 import { Activity, Cpu, Network } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { PageHeader } from '@/components/page-header';
 import ResourceUsageChart from '@/components/resource-usage-chart';
 import NetworkUsageChart from '@/components/network-usage-chart';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Button } from '@/components/ui/button';
-
 import { useTranslations } from '@/contexts/translations-context';
+import { ServerCard } from '@/components/server-card';
+import { cn } from '@/lib/utils';
 import { useServers } from '@/hooks/use-servers';
 import { useNodes, useUsersCount, useGlobalNetworkMetrics } from '@/hooks/use-dashboard-data';
 
@@ -51,6 +49,30 @@ function calculateStorageUsage(nodeResources: any[], onlineServers: any[], onlin
   return 0;
 }
 
+type StatCardProps = {
+  label: string;
+  value: React.ReactNode;
+  icon: LucideIcon;
+  dot?: 'success' | 'destructive';
+};
+
+function StatCard({ label, value, icon: Icon, dot }: StatCardProps) {
+  return (
+    <div className="flex flex-col gap-5 rounded-xl border border-border/80 bg-card p-5 transition-colors hover:border-border">
+      <div className="flex items-center justify-between gap-3">
+        <p className="truncate text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
+        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-border/80 bg-muted/40 text-muted-foreground">
+          <Icon className="h-4 w-4" />
+        </div>
+      </div>
+      <div className="flex items-end justify-between gap-2">
+        <p className="font-mono text-3xl font-medium leading-none tracking-tight text-foreground">{value}</p>
+        {dot && <span className={cn('mb-1 h-2 w-2 rounded-full', dot === 'success' ? 'bg-success' : 'bg-destructive')} />}
+      </div>
+    </div>
+  );
+}
+
 function AdminDashboard({ user, t, canSeeNodes, canSeeUsers, allServers, usersCount, realNodes, globalNetworkMetrics }: any) {
   const adminServers = allServers;
   const onlineServers = adminServers.filter((s: any) => s.status === 'online');
@@ -71,114 +93,66 @@ function AdminDashboard({ user, t, canSeeNodes, canSeeUsers, allServers, usersCo
       <PageHeader
         title={t('dashboard.welcome', { name: user?.username || t('dashboard.defaultName') })}
         description={t('dashboard.admin.description')}
-        titleClassName="text-gradient"
       />
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {canSeeNodes && (
-          <Card className="relative overflow-hidden">
-            <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-primary via-accent to-transparent" />
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t('dashboard.admin.totalNodes')}</CardTitle>
-              <Network className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totalNodes}</div>
-            </CardContent>
-          </Card>
+          <StatCard label={t('dashboard.admin.totalNodes')} value={totalNodes} icon={Network} />
         )}
-        <Card className="relative overflow-hidden">
-          <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-green-500 to-green-300" />
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t('dashboard.admin.online')}</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-500">{onlineCount}</div>
-            <p className="text-xs text-muted-foreground">{t('dashboard.admin.serversOperational')}</p>
-          </CardContent>
-        </Card>
-        <Card className="relative overflow-hidden">
-          <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-red-500 to-red-300" />
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t('dashboard.admin.offline')}</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-500">{offlineCount}</div>
-            <p className="text-xs text-muted-foreground">{t('dashboard.admin.serversNeedAttention')}</p>
-          </CardContent>
-        </Card>
-        <Card className="relative overflow-hidden">
-          <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-primary via-accent to-transparent" />
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t('dashboard.admin.overallHealth')}</CardTitle>
-            <Cpu className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalServers > 0 ? `${Math.round((onlineCount / totalServers) * 100)}%` : 'N/A'}</div>
-            <p className="text-xs text-muted-foreground">{t('dashboard.admin.systemUptime')}</p>
-          </CardContent>
-        </Card>
+        <StatCard label={t('dashboard.admin.online')} value={onlineCount} icon={Activity} dot="success" />
+        <StatCard label={t('dashboard.admin.offline')} value={offlineCount} icon={Activity} dot="destructive" />
+        <StatCard
+          label={t('dashboard.admin.overallHealth')}
+          value={totalServers > 0 ? `${Math.round((onlineCount / totalServers) * 100)}%` : 'N/A'}
+          icon={Cpu}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
-          <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/30 via-accent/20 to-primary/10">
-            <ResourceUsageChart
-              cpuUsage={avgCpuUsage}
-              memoryUsage={avgMemoryUsage}
-              storageUsage={avgStorageUsage}
-              className="border-0"
-            />
-          </div>
-          <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/30 via-accent/20 to-primary/10">
-            <NetworkUsageChart serverMetrics={globalNetworkMetrics} className="border-0" />
-          </div>
+          <ResourceUsageChart
+            cpuUsage={avgCpuUsage}
+            memoryUsage={avgMemoryUsage}
+            storageUsage={avgStorageUsage}
+          />
+          <NetworkUsageChart serverMetrics={globalNetworkMetrics} />
         </div>
-        <div className="lg:col-span-1 space-y-6">
-          <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/30 via-accent/20 to-primary/10">
-            <Card className="border-0">
-              <CardHeader>
-                <CardTitle>{t('dashboard.admin.systemInfo')}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-muted-foreground">{t('dashboard.admin.panelVersion')}</p>
-                  <p className="font-medium">AetherPanel</p>
+        <div className="lg:col-span-1">
+          <Card className="h-fit">
+            <CardHeader className="border-b border-border/70 px-6">
+              <CardTitle className="font-headline text-lg">{t('dashboard.admin.systemInfo')}</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <dl className="divide-y divide-border/70">
+                <div className="flex items-center justify-between gap-4 px-6 py-3.5">
+                  <dt className="text-sm text-muted-foreground">{t('dashboard.admin.panelVersion')}</dt>
+                  <dd className="font-mono text-sm text-foreground">AetherPanel</dd>
                 </div>
-                <div className="flex items-center justify-between">
-                  <p className="text-muted-foreground">{t('dashboard.admin.totalServers')}</p>
-                  <p className="font-medium">{totalServers}</p>
+                <div className="flex items-center justify-between gap-4 px-6 py-3.5">
+                  <dt className="text-sm text-muted-foreground">{t('dashboard.admin.totalServers')}</dt>
+                  <dd className="font-mono text-sm text-foreground">{totalServers}</dd>
                 </div>
                 {canSeeUsers && (
-                  <div className="flex items-center justify-between">
-                    <p className="text-muted-foreground">{t('dashboard.admin.totalUsers')}</p>
-                    <p className="font-medium">{totalUsers}</p>
+                  <div className="flex items-center justify-between gap-4 px-6 py-3.5">
+                    <dt className="text-sm text-muted-foreground">{t('dashboard.admin.totalUsers')}</dt>
+                    <dd className="font-mono text-sm text-foreground">{totalUsers}</dd>
                   </div>
                 )}
                 {canSeeNodes && (
-                  <div className="flex items-center justify-between">
-                    <p className="text-muted-foreground">{t('dashboard.admin.totalNodes')}</p>
-                    <p className="font-medium">{totalNodes}</p>
+                  <div className="flex items-center justify-between gap-4 px-6 py-3.5">
+                    <dt className="text-sm text-muted-foreground">{t('dashboard.admin.totalNodes')}</dt>
+                    <dd className="font-mono text-sm text-foreground">{totalNodes}</dd>
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          </div>
+              </dl>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
   );
 }
 
-const StatusIndicator = ({ status }: { status: Server['status'] }) => {
-  const statusClasses = {
-    online: 'bg-green-500',
-    offline: 'bg-red-500',
-    pending: 'bg-yellow-500 animate-pulse',
-  };
-  return <div className={`mr-2 h-2.5 w-2.5 rounded-full ${statusClasses[status]}`} />;
-};
+
 
 function UserDashboard({ user, t, userServers }: any) {
   return (
@@ -187,72 +161,19 @@ function UserDashboard({ user, t, userServers }: any) {
         title={t('dashboard.welcome', { name: user?.username || t('dashboard.defaultName') })}
         description={t('dashboard.user.description')}
       />
-      <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/30 via-accent/20 to-primary/10">
-        <Card className="border-0">
-          <CardHeader>
-            <CardTitle>{t('dashboard.user.myServers')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {userServers.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('dashboard.table.name')}</TableHead>
-                    <TableHead>{t('dashboard.table.ipAddress')}</TableHead>
-                    <TableHead>{t('dashboard.table.status')}</TableHead>
-                    <TableHead className="hidden md:table-cell">{t('dashboard.table.cpu')}</TableHead>
-                    <TableHead className="hidden md:table-cell">{t('dashboard.table.memory')}</TableHead>
-                    <TableHead className="hidden lg:table-cell">{t('dashboard.table.storage')}</TableHead>
-                    <TableHead className="text-right">{t('dashboard.table.actions')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {userServers.map((server: any) => (
-                    <TableRow key={server.id}>
-                      <TableCell className="font-medium">
-                        <a href={`/servers/view/?id=${server.id}`} className="font-medium hover:underline text-primary group-hover:text-primary-foreground transition-colors truncate block">
-                          {server.name}
-                        </a>
-                      </TableCell>
-                      <TableCell>{server.ipAddress}</TableCell>
-                      <TableCell>
-                        <Badge variant={server.status === 'online' ? 'default' : server.status === 'offline' ? 'destructive' : 'secondary'} className="capitalize flex items-center gap-2 w-fit">
-                          <StatusIndicator status={server.status} />
-                          {t(`dashboard.status.${server.status}`)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        <div className="flex items-center gap-2">
-                          <Progress value={server.cpuUsage} className="h-2 w-20" />
-                          <span>{server.cpuUsage}%</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        <div className="flex items-center gap-2">
-                          <Progress value={server.memoryUsage} className="h-2 w-20" />
-                          <span>{server.memoryUsage}%</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell">
-                        <div className="flex items-center gap-2">
-                          <Progress value={server.storageUsage} className="h-2 w-20" />
-                          <span>{server.storageUsage}%</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button asChild variant="ghost" size="sm">
-                          <a href={`/servers/view/?id=${server.id}`}>{t('dashboard.table.view')}</a>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <p className="text-center text-muted-foreground py-8">{t('dashboard.user.noServers')}</p>
-            )}
-          </CardContent>
-        </Card>
+      <div>
+        <h2 className="text-xl font-semibold tracking-tight mb-4">{t('dashboard.user.myServers')}</h2>
+        {userServers.length > 0 ? (
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 2xl:grid-cols-3">
+            {userServers.map((server: any) => (
+              <ServerCard key={server.id} server={server} t={t} />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-border/80 bg-card p-12 text-center shadow-sm">
+            <p className="text-sm text-muted-foreground">{t('dashboard.user.noServers')}</p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -280,7 +201,7 @@ export default function DashboardPage() {
 
   if (isPowerUser) {
     return (
-      <AdminDashboard
+       <AdminDashboard
         user={user}
         t={t}
         canSeeNodes={canSeeNodes}
@@ -295,4 +216,3 @@ export default function DashboardPage() {
 
   return <UserDashboard user={user} t={t} userServers={allServers} />;
 }
-

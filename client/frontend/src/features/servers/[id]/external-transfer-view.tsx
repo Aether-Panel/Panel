@@ -6,9 +6,10 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Copy, ShieldAlert, ArrowRightLeft, CheckCircle2, DownloadCloud, UploadCloud, Clock } from 'lucide-react';
+import { Loader2, Copy, ShieldAlert, ArrowRightLeft, CheckCircle2, DownloadCloud, UploadCloud, Clock, KeyRound, Globe, ArrowRight } from 'lucide-react';
 import { useTranslations } from '@/contexts/translations-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 
 type ExternalTransferViewProps = {
   serverId: string;
@@ -112,7 +113,7 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
     return () => clearInterval(interval);
   }, [serverId, toast]);
 
-  // Cuenta regresiva 
+  // Cuenta regresiva
   useEffect(() => {
     if (timeLeft === null) return;
     if (timeLeft <= 0) {
@@ -202,39 +203,47 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
     }
   };
 
+  const originUrl = typeof window !== 'undefined' ? window.location.origin : '';
+
   return (
     <div className="mt-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <Card className="border-0 bg-transparent shadow-none">
         <CardHeader className="px-0">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500">
+          <div className="flex items-center gap-4">
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-primary/30 bg-gradient-to-br from-primary/25 via-accent/15 to-transparent text-primary shadow-[0_0_20px_rgb(0_0_0/0.3)]">
               <ArrowRightLeft className="h-5 w-5" />
             </div>
             <div>
-              <CardTitle className="text-2xl">Federated Server Transfer (Zero-Trust)</CardTitle>
-              <CardDescription>
-                Migrate this server seamlessly between different hosting providers.
+              <CardTitle className="font-headline text-2xl">Federated Server Transfer</CardTitle>
+              <CardDescription className="flex items-center gap-1.5">
+                Zero-Trust migration between hosting providers
+                <span className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/10 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-primary">
+                  <KeyRound className="h-2.5 w-2.5" />
+                  Zero-Trust
+                </span>
               </CardDescription>
             </div>
           </div>
         </CardHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-6">
-          <TabsList className="grid w-full grid-cols-2 mb-8">
-            <TabsTrigger value="export" className="flex gap-2">
-              <UploadCloud className="h-4 w-4" /> Export to remote panel
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6 w-full">
+          <TabsList className="mb-8 grid h-auto w-full grid-cols-2 overflow-hidden rounded-xl border border-border/70 bg-muted/50 p-0">
+            <TabsTrigger value="export" className="group relative flex h-11 items-center justify-center gap-2 rounded-none border-r border-border/50 px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:bg-accent/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring after:pointer-events-none after:absolute after:bottom-0 after:left-1/2 after:h-0.5 after:w-14 after:-translate-x-1/2 after:rounded-full after:bg-primary after:opacity-0 after:transition-opacity after:duration-200 data-[state=active]:bg-card data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-none data-[state=active]:after:opacity-100">
+              <UploadCloud className="h-4 w-4 text-muted-foreground transition-colors duration-200 group-data-[state=active]:text-primary" />
+              Export to remote panel
             </TabsTrigger>
-            <TabsTrigger value="import" className="flex gap-2">
-              <DownloadCloud className="h-4 w-4" /> Import from remote panel
+            <TabsTrigger value="import" className="group relative flex h-11 items-center justify-center gap-2 rounded-none px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:bg-accent/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring after:pointer-events-none after:absolute after:bottom-0 after:left-1/2 after:h-0.5 after:w-14 after:-translate-x-1/2 after:rounded-full after:bg-primary after:opacity-0 after:transition-opacity after:duration-200 data-[state=active]:bg-card data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-none data-[state=active]:after:opacity-100">
+              <DownloadCloud className="h-4 w-4 text-muted-foreground transition-colors duration-200 group-data-[state=active]:text-primary" />
+              Import from remote panel
             </TabsTrigger>
           </TabsList>
 
           {/*  EXPORT */}
-          <TabsContent value="export" className="space-y-6 px-0 mt-0">
-            <Alert variant="default" className="border-blue-500/20 bg-blue-500/5">
-              <ShieldAlert className="h-4 w-4 text-blue-500" />
-              <AlertTitle className="text-blue-500">How it works</AlertTitle>
-              <AlertDescription className="text-muted-foreground mt-2">
+          <TabsContent value="export" className="mt-0 space-y-6 px-0">
+            <Alert className="border-primary/20 bg-primary/5">
+              <ShieldAlert className="h-4 w-4 text-primary" />
+              <AlertTitle className="text-primary">How it works</AlertTitle>
+              <AlertDescription className="mt-2 text-muted-foreground">
                 Generating a token will allow another panel to request the transfer of your server&apos;s data.
                 The system uses military-grade cryptographic hashing. Give this token <strong>only</strong> to the provider you are migrating to.
                 The token persists for 15 minutes even if you navigate away.
@@ -242,13 +251,22 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
             </Alert>
 
             {!sessionData ? (
-              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed p-8 bg-accent/5">
-                <ShieldAlert className="h-12 w-12 text-muted-foreground mb-4 opacity-20" />
-                <h3 className="text-lg font-medium mb-2">Ready to generate token</h3>
-                <p className="text-sm text-center text-muted-foreground max-w-md mb-6">
+              <div className="group relative flex flex-col items-center justify-center overflow-hidden rounded-xl border border-dashed border-border/80 bg-card p-10 text-center">
+                <img
+                  src="/img/Fondos/minecraft-shaders-anime-hd-wallpaper-preview.jpg"
+                  alt=""
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-20"
+                />
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-card via-card/85 to-card/40" />
+                <div className="relative mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/25 via-accent/15 to-transparent shadow-[0_0_30px_rgb(0_0_0/0.4)]">
+                  <ShieldAlert className="h-7 w-7 text-primary" />
+                </div>
+                <h3 className="relative mb-2 font-headline text-lg font-semibold">Ready to generate token</h3>
+                <p className="relative mb-6 max-w-md text-sm text-muted-foreground">
                   The token is valid for exactly 15 minutes. Once generated, head over to your destination hosting panel and enter the token to begin the Zero-Trust handshake.
                 </p>
-                <Button size="lg" onClick={generateTransferToken} disabled={loading} className="px-8 font-semibold">
+                <Button size="lg" onClick={generateTransferToken} disabled={loading} className="relative px-8 font-semibold">
                   {loading
                     ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...</>
                     : 'Generate Transfer Token'
@@ -256,45 +274,56 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
                 </Button>
               </div>
             ) : (
-              <div className="space-y-6 rounded-xl border p-6 bg-accent/5 relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-500" />
+              <div className="group relative space-y-6 overflow-hidden rounded-xl border border-border/80 bg-card p-6">
+                <img
+                  src="/img/Fondos/minecraft-shaders-anime-hd-wallpaper-preview.jpg"
+                  alt=""
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-15"
+                />
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-card/80 to-card/95" />
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-accent to-transparent" />
 
                 {/* Header con temporizador */}
-                <div className="flex items-center justify-between">
+                <div className="relative flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <CheckCircle2 className="h-6 w-6 text-green-500" />
-                    <h3 className="text-lg font-bold">Transfer Session Created</h3>
+                    <div className="grid h-10 w-10 place-items-center rounded-lg bg-success/15 text-success">
+                      <CheckCircle2 className="h-5 w-5" />
+                    </div>
+                    <h3 className="font-headline text-lg font-bold">Transfer Session Created</h3>
                   </div>
                   {timeLeft !== null && (
-                    <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-mono font-bold transition-colors ${timeLeft < 120
-                        ? 'bg-red-500/10 text-red-400 animate-pulse'
-                        : 'bg-green-500/10 text-green-400'
-                      }`}>
+                    <div className={cn(
+                      'flex items-center gap-2 rounded-full px-3 py-1 font-mono text-sm font-bold backdrop-blur-sm',
+                      timeLeft < 120
+                        ? 'bg-destructive/15 text-destructive animate-pulse'
+                        : 'bg-success/15 text-success'
+                    )}>
                       <Clock className="h-3.5 w-3.5" />
                       {formatTime(timeLeft)}
                     </div>
                   )}
                 </div>
 
-                <div className="grid gap-4">
+                <div className="relative grid gap-4">
                   <div className="space-y-1.5">
                     <Label>Destination Import URL</Label>
                     <p className="text-sm text-muted-foreground">Provide this URL to your new hosting so they know where to pull the data from.</p>
-                    <div className="flex gap-2 mt-2">
-                      <Input readOnly value={window.location.origin} className="font-mono bg-background/50" />
-                      <Button variant="outline" size="icon" onClick={() => copyToClipboard(window.location.origin)}>
+                    <div className="mt-2 flex gap-2">
+                      <Input readOnly value={originUrl} className="bg-background/60 font-mono backdrop-blur-sm" />
+                      <Button variant="outline" size="icon" className="shrink-0" onClick={() => copyToClipboard(originUrl)}>
                         <Copy className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
 
-                  <div className="space-y-1.5 mt-4">
-                    <Label className="text-indigo-400">Secure Transfer Token</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-primary">Secure Transfer Token</Label>
                     <p className="text-sm text-muted-foreground">
                       One-time crypto payload. Expires in {timeLeft !== null ? formatTime(timeLeft) : '—'}.
                     </p>
-                    <div className="flex gap-2 mt-2 relative">
-                      <Input readOnly value={sessionData.token} className="font-mono text-indigo-400 font-bold bg-background/50 pr-28" />
+                    <div className="relative mt-2">
+                      <Input readOnly value={sessionData.token} className="bg-background/60 pr-32 font-mono font-bold text-primary backdrop-blur-sm" />
                       <Button
                         variant="default"
                         onClick={() => copyToClipboard(sessionData.token)}
@@ -306,51 +335,77 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
                   </div>
                 </div>
 
-                <div className="mt-6 pt-6 border-t flex flex-col sm:flex-row gap-4 items-center justify-between text-sm text-muted-foreground">
-                  <p>Status: <span className="text-blue-500 font-medium">Waiting for Destination Panel handshake...</span></p>
-                  <p>Session ID: <span className="font-mono text-xs opacity-50">{sessionData.session_id}</span></p>
+                <div className="relative mt-6 flex flex-col items-center justify-between gap-4 border-t border-border/60 pt-6 text-sm text-muted-foreground sm:flex-row">
+                  <p className="flex items-center gap-2">
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+                    </span>
+                    Waiting for Destination Panel handshake...
+                  </p>
+                  <p className="flex items-center gap-1.5">
+                    Session ID:
+                    <span className="font-mono text-xs opacity-50">{sessionData.session_id}</span>
+                  </p>
                 </div>
               </div>
             )}
           </TabsContent>
 
           {/*IMPORT*/}
-          <TabsContent value="import" className="space-y-6 px-0 mt-0">
-            <Alert variant="default" className="border-indigo-500/20 bg-indigo-500/5">
-              <DownloadCloud className="h-4 w-4 text-indigo-500" />
-              <AlertTitle className="text-indigo-500">Warning: Overwrite Server</AlertTitle>
-              <AlertDescription className="text-muted-foreground mt-2">
+          <TabsContent value="import" className="mt-0 space-y-6 px-0">
+            <Alert className="border-warning/25 bg-warning/10">
+              <ShieldAlert className="h-4 w-4 text-warning" />
+              <AlertTitle className="text-warning">Warning: Overwrite Server</AlertTitle>
+              <AlertDescription className="mt-2 text-muted-foreground">
                 Initiating a pull from an external provider will stop this current server and <strong>overwrite its files and configuration</strong> with the incoming data. Make sure you have a backup.
               </AlertDescription>
             </Alert>
 
-            <div className="space-y-6 rounded-xl border p-6 bg-accent/5">
-              <div className="grid gap-6">
+            <div className="group relative space-y-6 overflow-hidden rounded-xl border border-border/80 bg-card p-6">
+              <img
+                src="/img/Fondos/minecraft-shaders-anime-hd-wallpaper-preview.jpg"
+                alt=""
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-15"
+              />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-card/80 to-card/95" />
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-accent to-transparent" />
+
+              <div className="relative grid gap-6">
                 <div className="space-y-2">
-                  <Label>Origin Panel URL</Label>
+                  <Label className="flex items-center gap-1.5">
+                    <Globe className="h-3.5 w-3.5 text-primary" />
+                    Origin Panel URL
+                  </Label>
                   <Input
                     placeholder="https://panel.other-host.com"
                     value={importUrl}
                     onChange={e => setImportUrl(e.target.value)}
+                    className="bg-background/60 backdrop-blur-sm"
                   />
                   <p className="text-xs text-muted-foreground">The API endpoint or main URL of the host providing the server.</p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Transfer Token</Label>
+                  <Label className="flex items-center gap-1.5">
+                    <KeyRound className="h-3.5 w-3.5 text-primary" />
+                    Transfer Token
+                  </Label>
                   <Input
                     type="password"
                     placeholder="Paste the secure transfer token here..."
                     value={importToken}
                     onChange={e => setImportToken(e.target.value)}
+                    className="bg-background/60 backdrop-blur-sm"
                   />
                   <p className="text-xs text-muted-foreground">The generated cryptographically secure hash provided by the origin panel.</p>
                 </div>
 
-                <Button size="lg" onClick={executeImport} disabled={importing} className="w-full sm:w-auto">
+                <Button size="lg" onClick={executeImport} disabled={importing} className="w-full font-semibold sm:w-auto">
                   {importing
                     ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {importStep || 'Migrating...'}</>
-                    : 'Initiate Secure Pull'
+                    : <>Initiate Secure Pull <ArrowRight className="ml-2 h-4 w-4" /></>
                   }
                 </Button>
               </div>

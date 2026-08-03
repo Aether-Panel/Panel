@@ -36,6 +36,7 @@ func panelConfig(c *gin.Context) {
 			Name: config.CompanyName.Value(),
 		},
 		RegistrationEnabled: config.RegistrationEnabled.Value(),
+		HeaderDecorations:   config.HeaderDecorations.Value(),
 	})
 }
 
@@ -43,6 +44,7 @@ type EditableConfig struct {
 	Themes              ThemeConfig    `json:"themes"`
 	Branding            BrandingConfig `json:"branding"`
 	RegistrationEnabled bool           `json:"registrationEnabled"`
+	HeaderDecorations   bool           `json:"headerDecorations"`
 } // @name EditableConfigSettings
 
 type ThemeConfig struct {

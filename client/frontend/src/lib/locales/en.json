@@ -7,7 +7,20 @@
     "nodes": "Nodes",
     "databaseHosts": "Database Hosts",
     "templates": "Templates",
-    "settings": "Settings"
+    "settings": "Settings",
+    "groups": {
+      "overview": "Overview",
+      "management": "Management"
+    },
+    "system": {
+      "online": "System online",
+      "panel": "Panel",
+      "poweredBy": "Powered by Aether Panel"
+    },
+    "roleBadge": {
+      "admin": "Administrator",
+      "user": "User"
+    }
   },
   "userMenu": {
     "settings": "Settings",
@@ -139,6 +152,9 @@
       "createButton": "Create Server"
     },
     "allServers": "All Servers",
+    "card": {
+      "activity": "Recent activity"
+    },
     "table": {
       "server": "Server",
       "status": "Status",
@@ -177,7 +193,9 @@
         "cpuUsage": "CPU Usage",
         "memoryUsage": "Memory Usage",
         "storageUsage": "Storage Usage",
-        "playersOnline": "Players Online"
+        "playersOnline": "Players Online",
+        "resourcesTitle": "Live Resources",
+        "resourcesSubtitle": "Current usage against the server's allocated limit"
       }
     },
     "address": {
@@ -188,7 +206,8 @@
     "console": {
       "title": "Live Console",
       "commandPlaceholder": "Enter a command...",
-      "sendButton": "Send"
+      "sendButton": "Send",
+      "waitingOutput": "Waiting for server output..."
     },
     "aiSummary": {
       "title": "AI Console Analysis",
@@ -216,6 +235,20 @@
     "fileManager": {
       "title": "File Manager",
       "description": "Browse and manage files on this server. Click on a file name to edit it.",
+      "upload": "Upload",
+      "new": "New",
+      "newFile": "File",
+      "newFolder": "Folder",
+      "paste": "Paste",
+      "empty": "This folder is empty.",
+      "emptyHint": "Upload a file or create a folder to get started.",
+      "nameLabel": "Name",
+      "createFileTitle": "Create File",
+      "createFolderTitle": "Create Folder",
+      "createDescription": "Enter the name of the new item you want to create in the current directory.",
+      "createFilePlaceholder": "new-file.txt",
+      "createFolderPlaceholder": "new-folder",
+      "create": "Create",
       "table": {
         "name": "Name",
         "size": "Size",
@@ -226,14 +259,31 @@
         "edit": "Edit",
         "download": "Download",
         "rename": "Rename",
-        "delete": "Delete"
+        "delete": "Delete",
+        "copy": "Copy",
+        "cut": "Cut"
+      },
+      "deleteDialog": {
+        "title": "Delete",
+        "description": "Are you sure you want to delete {{name}}?"
       },
       "editor": {
         "title": "Editing: {{filename}}",
         "description": "Make the necessary changes and click save.",
         "cancel": "Cancel",
         "save": "Save Changes",
-        "saveSuccess": "File saved successfully."
+        "saveSuccess": "File saved successfully.",
+        "saveHint": "Ctrl + S to save"
+      },
+      "toast": {
+        "createdFile": "File created successfully.",
+        "createdFolder": "Folder created successfully.",
+        "uploaded": "File uploaded successfully.",
+        "deleted": "Deleted successfully.",
+        "copied": "Copied: {{name}}",
+        "cut": "Cut: {{name}}",
+        "pasted": "Pasted successfully.",
+        "moved": "Moved successfully."
       }
     },
     "settings": {
@@ -269,6 +319,16 @@
       "pluginsTitle": "Plugin Settings",
       "enablePluginsLabel": "Enable Plugins Tab",
       "enablePluginsDescription": "Show or hide the plugin management tab for this server.",
+      "serverTypeLabel": "Server Type",
+      "resourcesTitle": "Resource Limits",
+      "resourcesDescription": "These limits are enforced strictly at the Docker container level and can only be modified by administrators.",
+      "resourcesAdminBadge": "Admins only",
+      "cpuLabel": "Allocated CPU",
+      "cpuHint": "100% equals 1 processor thread.",
+      "memoryLabel": "RAM Memory",
+      "memoryHint": "Strict container memory limit.",
+      "diskLabel": "Disk Space",
+      "diskHint": "Container storage limit.",
       "saveButton": "Save Changes",
       "saveSuccess": "Settings saved successfully",
       "saveError": "Failed to save settings"
@@ -638,7 +698,8 @@
     "actions": {
       "edit": "Edit",
       "deploy": "Deploy",
-      "delete": "Delete"
+      "delete": "Delete",
+      "viewDetails": "View Details"
     },
     "editDialog": {
       "title": "Edit Node",
@@ -786,7 +847,10 @@
       "bot": "Bot",
       "other": "Other",
       "NoGroup": "No Group"
-    }
+    },
+    "General": "General",
+    "RunConfig": "Run Configuration",
+    "Json": "JSON"
   },
   "common": {
     "copied": "Copied to clipboard",
@@ -796,8 +860,17 @@
     "close": "Close",
     "success": "Success",
     "error": "Error",
+    "info": "Info",
     "save": "Save",
-    "confirmDelete": "Are you sure you want to delete this item?"
+    "saved": "Saved",
+    "confirmDelete": "Are you sure you want to delete this item?",
+    "notFound": "Not Found",
+    "back": "Back",
+    "next": "Next",
+    "actions": "Actions",
+    "delete": "Delete",
+    "retry": "Retry",
+    "saving": "Saving..."
   },
   "settings": {
     "title": "Panel Settings",
@@ -814,11 +887,16 @@
       "baseUrlLabel": "Base URL",
       "baseUrlDescription": "The link from which you will access the control panel following the format: http://localhost:8080",
       "companyNameLabel": "Company Name",
+      "companyNameDescription": "The name of your organization displayed across the panel interface.",
+      "masterNodeIpLabel": "Global Master Node IP",
+      "masterNodeIpDescription": "If multiple panels share a database, set the true Master IP here (e.g. panel.example.com). ALL panels will sync this and route LocalNode transfers properly.",
       "geminiApiKeyLabel": "Gemini API Key",
       "geminiApiKeyPlaceholder": "Enter your Gemini API key",
       "geminiApiKeyDescription": "Enter your Google Gemini API key to enable artificial intelligence features.",
       "hideAiAnalysisLabel": "Hide AI Console Analysis",
       "hideAiAnalysisDescription": "If enabled, the AI console analysis feature will be hidden for all servers.",
+      "headerDecorationsLabel": "Header decorations",
+      "headerDecorationsDescription": "Shows the decorative animations (gif and video) at the bottom of the sidebar header.",
       "allowRegistrationLabel": "Allow users to register",
       "allowRegistrationDescription": "Self-registered users cannot perform any actions until permissions are granted. Disabling this only prevents direct registration, server invitations and the Users page are not affected.",
       "saveButton": "Save settings"
@@ -875,6 +953,71 @@
       "testButton": "Test Email",
       "testSuccess": "Test email sent successfully",
       "saveButton": "Save settings"
+    }
+  },
+  "apiKeys": {
+    "title": "API Keys",
+    "description": "Manage API Keys for external integrations (WHMCS, Paymenter).",
+    "generate": "Generate Key",
+    "generateTitle": "Generate New API Key",
+    "generateDescription": "This key will be used to authenticate external systems.",
+    "nameLabel": "Name / Description",
+    "namePlaceholder": "e.g. WHMCS Server 1",
+    "cancel": "Cancel",
+    "create": "Generate",
+    "successTitle": "Success",
+    "successCreated": "API Key generated successfully",
+    "successDeleted": "API Key deleted",
+    "errorTitle": "Error",
+    "errorCreated": "Failed to generate key",
+    "copyTitle": "Copied",
+    "copyDescription": "API Key copied to clipboard",
+    "generatedAlert": "Key Generated Successfully",
+    "generatedHint": "Please copy this key now. You won't be able to see it again.",
+    "table": {
+      "prefix": "Prefix",
+      "name": "Name",
+      "createdAt": "Created At",
+      "empty": "No API Keys generated yet."
+    },
+    "deleteConfirm": "Are you sure you want to delete this key?"
+  },
+  "products": {
+    "title": "Provision Products",
+    "description": "Define products that can be automatically provisioned by external systems.",
+    "add": "Add Product",
+    "addTitle": "Add New Product",
+    "editTitle": "Edit Product",
+    "productIdLabel": "Product ID (e.g. minecraft_2gb)",
+    "displayNameLabel": "Display Name",
+    "templateLabel": "Template Name",
+    "templatePlaceholder": "e.g. minecraft",
+    "cpuLabel": "CPU Limit (%)",
+    "memoryLabel": "Memory Limit (MB)",
+    "diskLabel": "Disk Limit (MB)",
+    "defaultNodeLabel": "Default Node",
+    "selectNode": "Select a node",
+    "assignPortLabel": "Assign Port from Range",
+    "assignPortHint": "A random free port from this range will be assigned on provisioning.",
+    "minPortLabel": "Min Port",
+    "minPortPlaceholder": "e.g. 25000",
+    "maxPortLabel": "Max Port",
+    "maxPortPlaceholder": "e.g. 25999",
+    "cancel": "Cancel",
+    "save": "Save Product",
+    "successTitle": "Success",
+    "successSaved": "Product saved successfully",
+    "successDeleted": "Product deleted",
+    "errorTitle": "Error",
+    "errorSaved": "Failed to save product",
+    "deleteConfirm": "Are you sure you want to delete this product?",
+    "table": {
+      "productId": "Product ID",
+      "name": "Name",
+      "template": "Template",
+      "limits": "Limits",
+      "empty": "No products defined.",
+      "limitsFormat": "CPU: {{cpu}}%, RAM: {{memory}}MB, Disk: {{disk}}MB"
     }
   }
 }
