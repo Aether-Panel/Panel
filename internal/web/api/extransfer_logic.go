@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
@@ -26,7 +27,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 )
 
 var (
