@@ -261,7 +261,8 @@
         "rename": "Rename",
         "delete": "Delete",
         "copy": "Copy",
-        "cut": "Cut"
+        "cut": "Cut",
+        "unarchive": "Unarchive"
       },
       "deleteDialog": {
         "title": "Delete",
@@ -283,7 +284,8 @@
         "copied": "Copied: {{name}}",
         "cut": "Cut: {{name}}",
         "pasted": "Pasted successfully.",
-        "moved": "Moved successfully."
+        "moved": "Moved successfully.",
+        "extracted": "Extracted successfully."
       }
     },
     "settings": {

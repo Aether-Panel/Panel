@@ -261,7 +261,8 @@
         "rename": "Renombrar",
         "delete": "Eliminar",
         "copy": "Copiar",
-        "cut": "Cortar"
+        "cut": "Cortar",
+        "unarchive": "Descomprimir"
       },
       "deleteDialog": {
         "title": "Eliminar",
@@ -283,7 +284,8 @@
         "copied": "Copiado: {{name}}",
         "cut": "Cortado: {{name}}",
         "pasted": "Pegado correctamente.",
-        "moved": "Movido correctamente."
+        "moved": "Movido correctamente.",
+        "extracted": "Descomprimido correctamente."
       }
     },
     "settings": {

@@ -385,6 +385,20 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
     }
   };
 
+  const handleExtract = async (file: FileItemResource) => {
+    setIsLoading(true);
+    try {
+      const filePath = currentPath ? `${currentPath}/${file.name}` : file.name;
+      await api.post(`/api/servers/${serverId}/extract/${filePath}?destination=.&skipRoot`);
+      toast({ title: t('common.success'), description: t('servers.fileManager.toast.extracted') });
+      fetchFiles(currentPath);
+    } catch (e: any) {
+      toast({ title: t('common.error'), description: e.message || 'Error al descomprimir.', variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSaveChanges = async () => {
     if (!editingFile) return;
     setIsSaving(true);
@@ -643,6 +657,12 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
                                     {t('servers.fileManager.actions.download')}
                                   </a>
                                 </DropdownMenuItem>
+                                {file.isFile && file.name.match(/\.(zip|tar(\.gz)?|tgz|gz|bz2|rar|7z|xz)$/i) ? (
+                                  <DropdownMenuItem onClick={() => handleExtract(file)}>
+                                    <FileArchive className="h-4 w-4 mr-2 text-amber-400" />
+                                    {t('servers.fileManager.actions.unarchive')}
+                                  </DropdownMenuItem>
+                                ) : null}
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => handleCopy(file, 'copy')}>
                                   <Copy className="h-4 w-4 mr-2" />
