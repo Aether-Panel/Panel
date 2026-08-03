@@ -179,9 +179,27 @@ func Compress(fs FileServer, targetFile string, filesToCompress []string) error 
 	ctx := context.Background()
 
 	// Create mapping for archives.FilesFromDisk
+	// The second value in the map is the NameInArchive (relative path inside the tar).
+	// When a FileServer is used, we MUST set this to the path relative to the server
+	// root, otherwise archives.FilesFromDisk will use the absolute disk path's last
+	// component (e.g. "mc-pc-local") as the root directory name inside the archive.
+	// This causes "path traversal detected" errors during extraction on the destination.
 	filenames := make(map[string]string)
-	for _, f := range filesToCompress {
-		filenames[f] = ""
+	if fs != nil {
+		prefix := filepath.Clean(fs.Prefix())
+		for _, f := range filesToCompress {
+			rel, err := filepath.Rel(prefix, f)
+			if err != nil {
+				return err
+			}
+			// Normalize separators to forward slashes for cross-platform tarballs
+			rel = filepath.ToSlash(rel)
+			filenames[f] = rel
+		}
+	} else {
+		for _, f := range filesToCompress {
+			filenames[f] = ""
+		}
 	}
 
 	filesList, err := archives.FilesFromDisk(ctx, nil, filenames)
