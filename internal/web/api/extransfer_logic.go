@@ -434,7 +434,7 @@ func StartDataPlaneMigration(session models.ExTransferSession, db *gorm.DB) {
 	_, _ = ns.CallNode(&server.Node, "DELETE", fmt.Sprintf("/daemon/server/%s/file/transfer.tar.gz", server.Identifier), nil, nil)
 
 	// Archive files
-	archiveBody := bytes.NewReader([]byte(`["."] `))
+	archiveBody := bytes.NewReader([]byte(`["*"]`))
 	headersArch := http.Header{}
 	headersArch.Set("Content-Type", "application/json")
 	res, err := ns.CallNode(&server.Node, "POST", fmt.Sprintf("/daemon/server/%s/archive/transfer.tar.gz", server.Identifier), io.NopCloser(archiveBody), headersArch)
