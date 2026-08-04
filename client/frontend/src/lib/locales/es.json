@@ -300,7 +300,7 @@
       "ipDescription": "A qué IP vincular el servidor.",
       "javaVersionLabel": "Versión de Java",
       "javaVersionDescription": "Versión de Java a utilizar.",
-      "memoryLabel": "Memoria (MB)",
+      "memoryLabel": "Memoria RAM",
       "memoryDescription": "Cuánta memoria en MB asignar al Heap de Java.",
       "jvmArgsLabel": "Argumentos de JVM",
       "jvmArgsDescription": "Argumentos extra de JVM para pasar.",
@@ -327,7 +327,6 @@
       "resourcesAdminBadge": "Solo administradores",
       "cpuLabel": "CPU Asignada",
       "cpuHint": "100% equivale a 1 hilo del procesador.",
-      "memoryLabel": "Memoria RAM",
       "memoryHint": "Límite estricto de memoria del contenedor.",
       "diskLabel": "Espacio en Disco",
       "diskHint": "Límite de almacenamiento del contenedor.",
@@ -611,22 +610,62 @@
       "create": "Crear Nuevos Servidores",
       "view": "Ver Servidores",
       "delete": "Eliminar Servidores",
-      "name": { "edit": "Renombrar Servidores" },
-      "console": { "view": "Ver Consola", "send": "Enviar Comandos a Consola" },
+      "name": {
+        "edit": "Renombrar Servidores"
+      },
+      "console": {
+        "view": "Ver Consola",
+        "send": "Enviar Comandos a Consola"
+      },
       "start": "Iniciar Servidor",
       "stop": "Detener Servidor",
       "kill": "Forzar Detención",
       "reload": "Recargar Configuración",
       "install": "Instalar/Reinstalar Servidor",
-      "definition": { "view": "Ver Definición", "edit": "Editar Definición" },
-      "data": { "view": "Ver Datos/Variables", "edit": { "admin": "Edición Admin (Transferencia)" } },
-      "flags": { "view": "Ver Flags", "edit": "Editar Flags" },
-      "tasks": { "view": "Ver Tareas", "run": "Ejecutar Tareas", "create": "Crear Tareas", "edit": "Editar Tareas", "delete": "Eliminar Tareas" },
-      "files": { "view": "Ver/Leer Archivos", "edit": "Editar/Escribir/Eliminar" },
+      "definition": {
+        "view": "Ver Definición",
+        "edit": "Editar Definición"
+      },
+      "data": {
+        "view": "Ver Datos/Variables",
+        "edit": {
+          "admin": "Edición Admin (Transferencia)"
+        }
+      },
+      "flags": {
+        "view": "Ver Flags",
+        "edit": "Editar Flags"
+      },
+      "tasks": {
+        "view": "Ver Tareas",
+        "run": "Ejecutar Tareas",
+        "create": "Crear Tareas",
+        "edit": "Editar Tareas",
+        "delete": "Eliminar Tareas"
+      },
+      "files": {
+        "view": "Ver/Leer Archivos",
+        "edit": "Editar/Escribir/Eliminar"
+      },
       "sftp": "Acceso SFTP",
-      "backup": { "view": "Ver/Descargar Copias", "create": "Crear Copias", "restore": "Restaurar Copias", "delete": "Eliminar Copias" },
-      "users": { "view": "Ver Usuarios", "create": "Añadir Usuarios", "edit": "Editar Permisos", "delete": "Eliminar Usuarios" },
-      "clients": { "view": "Ver Clientes OAuth2", "edit": "Editar Clientes OAuth2", "create": "Crear Clientes OAuth2", "delete": "Eliminar Clientes OAuth2" },
+      "backup": {
+        "view": "Ver/Descargar Copias",
+        "create": "Crear Copias",
+        "restore": "Restaurar Copias",
+        "delete": "Eliminar Copias"
+      },
+      "users": {
+        "view": "Ver Usuarios",
+        "create": "Añadir Usuarios",
+        "edit": "Editar Permisos",
+        "delete": "Eliminar Usuarios"
+      },
+      "clients": {
+        "view": "Ver Clientes OAuth2",
+        "edit": "Editar Clientes OAuth2",
+        "create": "Crear Clientes OAuth2",
+        "delete": "Eliminar Clientes OAuth2"
+      },
       "stats": "Ver Estadísticas",
       "status": "Ver Estado",
       "admin": "Acceso Admin Completo",
@@ -917,7 +956,10 @@
       "statusWebhookDescription": "URL del webhook de Discord para recibir información sobre el estado del nodo/nodos",
       "testButton": "Probar Webhook",
       "testSuccess": "Mensaje de prueba enviado correctamente a Discord",
-      "saveButton": "Guardar configuración"
+      "saveButton": "Guardar configuración",
+      "extransferWebhookLabel": "Webhook de ExTransfer",
+      "extransferWebhookDescription": "Notificaciones para las transferencias externas (éxito o errores)",
+      "extransferWebhookPlaceholder": "https://discord.com/api/webhooks/..."
     },
     "mail": {
       "title": "Configuración del correo",

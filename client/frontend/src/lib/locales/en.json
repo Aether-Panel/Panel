@@ -300,7 +300,7 @@
       "ipDescription": "What IP to bind the server to.",
       "javaVersionLabel": "Java Version",
       "javaVersionDescription": "Version of Java to use.",
-      "memoryLabel": "Memory (MB)",
+      "memoryLabel": "RAM Memory",
       "memoryDescription": "How much memory in MB to allocate to the Java Heap.",
       "jvmArgsLabel": "JVM Arguments",
       "jvmArgsDescription": "Extra JVM arguments to pass.",
@@ -327,7 +327,6 @@
       "resourcesAdminBadge": "Admins only",
       "cpuLabel": "Allocated CPU",
       "cpuHint": "100% equals 1 processor thread.",
-      "memoryLabel": "RAM Memory",
       "memoryHint": "Strict container memory limit.",
       "diskLabel": "Disk Space",
       "diskHint": "Container storage limit.",
@@ -611,22 +610,62 @@
       "create": "Create New Servers",
       "view": "View Servers",
       "delete": "Delete Servers",
-      "name": { "edit": "Rename Servers" },
-      "console": { "view": "View Console Output", "send": "Send Console Commands" },
+      "name": {
+        "edit": "Rename Servers"
+      },
+      "console": {
+        "view": "View Console Output",
+        "send": "Send Console Commands"
+      },
       "start": "Start Server",
       "stop": "Stop Server",
       "kill": "Force Kill Server",
       "reload": "Reload Server Configuration",
       "install": "Install/Reinstall Server",
-      "definition": { "view": "View Server Definition", "edit": "Edit Server Definition" },
-      "data": { "view": "View Server Data/Variables", "edit": { "admin": "Admin Data Edit (Transfer)" } },
-      "flags": { "view": "View Server Flags", "edit": "Edit Server Flags" },
-      "tasks": { "view": "View Scheduled Tasks", "run": "Run Tasks", "create": "Create Tasks", "edit": "Edit Tasks", "delete": "Delete Tasks" },
-      "files": { "view": "View/Read Files", "edit": "Edit/Write/Delete Files" },
+      "definition": {
+        "view": "View Server Definition",
+        "edit": "Edit Server Definition"
+      },
+      "data": {
+        "view": "View Server Data/Variables",
+        "edit": {
+          "admin": "Admin Data Edit (Transfer)"
+        }
+      },
+      "flags": {
+        "view": "View Server Flags",
+        "edit": "Edit Server Flags"
+      },
+      "tasks": {
+        "view": "View Scheduled Tasks",
+        "run": "Run Tasks",
+        "create": "Create Tasks",
+        "edit": "Edit Tasks",
+        "delete": "Delete Tasks"
+      },
+      "files": {
+        "view": "View/Read Files",
+        "edit": "Edit/Write/Delete Files"
+      },
       "sftp": "SFTP Access",
-      "backup": { "view": "View/Download Backups", "create": "Create Backups", "restore": "Restore Backups", "delete": "Delete Backups" },
-      "users": { "view": "View Server Users", "create": "Add Users to Server", "edit": "Edit User Permissions", "delete": "Remove Users" },
-      "clients": { "view": "View OAuth2 Clients", "edit": "Edit OAuth2 Clients", "create": "Create OAuth2 Clients", "delete": "Delete OAuth2 Clients" },
+      "backup": {
+        "view": "View/Download Backups",
+        "create": "Create Backups",
+        "restore": "Restore Backups",
+        "delete": "Delete Backups"
+      },
+      "users": {
+        "view": "View Server Users",
+        "create": "Add Users to Server",
+        "edit": "Edit User Permissions",
+        "delete": "Remove Users"
+      },
+      "clients": {
+        "view": "View OAuth2 Clients",
+        "edit": "Edit OAuth2 Clients",
+        "create": "Create OAuth2 Clients",
+        "delete": "Delete OAuth2 Clients"
+      },
       "stats": "View Server Statistics",
       "status": "View Server Status",
       "admin": "Full Server Admin Access",
@@ -917,7 +956,10 @@
       "statusWebhookDescription": "Discord webhook URL to receive information about the status of the node/nodes.",
       "testButton": "Test Webhook",
       "testSuccess": "Test Discord message sent successfully",
-      "saveButton": "Save settings"
+      "saveButton": "Save settings",
+      "extransferWebhookLabel": "ExTransfer Webhook",
+      "extransferWebhookDescription": "Notifications for external transfers (success or failures)",
+      "extransferWebhookPlaceholder": "https://discord.com/api/webhooks/..."
     },
     "mail": {
       "title": "Mail Configuration",

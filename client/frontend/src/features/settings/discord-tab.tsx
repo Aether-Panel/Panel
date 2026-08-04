@@ -63,6 +63,20 @@ export function DiscordTab({ localSettings, handleUpdate, handleSave, handleTest
                             className="bg-background/50"
                         />
                     </SettingsSection>
+                    
+                    <SettingsSection
+                        id="webhook-extransfer"
+                        title={t('settings.discord.extransferWebhookLabel')}
+                        description={t('settings.discord.extransferWebhookDescription')}
+                    >
+                        <Input
+                            id="webhook-extransfer"
+                            value={localSettings['panel.notifications.discordWebhookExTransfer'] || ''}
+                            onChange={(e) => handleUpdate('panel.notifications.discordWebhookExTransfer', e.target.value)}
+                            placeholder={t('settings.discord.extransferWebhookPlaceholder')}
+                            className="bg-background/50"
+                        />
+                    </SettingsSection>
                 </div>
                 
                 <div className="flex items-center justify-between px-6 py-4 bg-muted/30 border-t border-border/60 rounded-b-xl">
