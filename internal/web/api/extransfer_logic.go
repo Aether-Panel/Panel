@@ -657,11 +657,16 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 	logging.Info.Printf("Extracting files on daemon for server %s", server.Identifier)
 	extractRes, err := ns.CallNode(&server.Node, "POST", fmt.Sprintf("/daemon/server/%s/extract/transfer.tar.gz?destination=.", server.Identifier), nil, nil)
 	if err != nil || (extractRes != nil && extractRes.StatusCode != http.StatusNoContent && extractRes.StatusCode != http.StatusOK) {
-		logging.Error.Printf("Failed to extract on daemon: %v", err)
-		sendStep("ERROR: Error al descomprimir en el destino")
+		var body string
+		if extractRes != nil && extractRes.Body != nil {
+			b, _ := io.ReadAll(extractRes.Body)
+			body = string(b)
+		}
+		logging.Error.Printf("Failed to extract on daemon: %v, body: %s", err, body)
+		sendStep(fmt.Sprintf("ERROR: Error al descomprimir en el destino: %s", body))
 		return
 	}
-	if extractRes.Body != nil {
+	if extractRes != nil && extractRes.Body != nil {
 		extractRes.Body.Close()
 	}
 
