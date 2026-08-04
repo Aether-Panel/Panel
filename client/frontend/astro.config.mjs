@@ -18,6 +18,11 @@ export default defineConfig({
         },
         optimizeDeps: {
             include: ['lucide-react', 'react', 'react-dom']
-        }
+        },
+        server: {
+            fs: {
+                allow: ['..'],
+            },
+        },
     },
 });

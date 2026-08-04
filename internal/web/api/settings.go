@@ -294,9 +294,18 @@ func sendTestDiscord(c *gin.Context) {
 		}
 	}
 
+	// Webhook ExTransfer
+	if config.DiscordWebhookExTransfer.Value() != "" {
+		err := ds.SendWebhookToURL(config.DiscordWebhookExTransfer.Value(), title+" (ExTransfer)", description+" Este es el webhook de transferencias externas.", color, fields)
+		if err != nil {
+			errors = append(errors, fmt.Sprintf("Webhook extransfer: %v", err))
+			logging.Error.Printf("Error enviando test al webhook de extransfer: %v", err)
+		}
+	}
+
 	// Si hay errores y no se envió a ningún webhook, retornar error
 	if len(errors) > 0 {
-		if config.DiscordWebhook.Value() == "" && config.DiscordWebhookSystem.Value() == "" && config.DiscordWebhookNode.Value() == "" {
+		if config.DiscordWebhook.Value() == "" && config.DiscordWebhookSystem.Value() == "" && config.DiscordWebhookNode.Value() == "" && config.DiscordWebhookExTransfer.Value() == "" {
 			response.HandleError(c, fmt.Errorf("no hay webhooks configurados"), http.StatusBadRequest)
 			return
 		}
@@ -479,6 +488,7 @@ var editableStringEntries = []config.StringEntry{
 	config.DiscordWebhook,
 	config.DiscordWebhookSystem,
 	config.DiscordWebhookNode,
+	config.DiscordWebhookExTransfer,
 	config.LicenseKey,
 	config.LicenseStatus,
 	config.LicenseServerID,
@@ -487,5 +497,6 @@ var editableStringEntries = []config.StringEntry{
 var editableBoolEntries = []config.BoolEntry{
 	config.RegistrationEnabled,
 	config.HideAIAnalysis,
+	config.HeaderDecorations,
 }
 var editableIntEntries = []config.IntEntry{}

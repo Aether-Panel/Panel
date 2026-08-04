@@ -51,6 +51,11 @@ services:
       - PUFFER_DOCKER_ROOT=
       - PUFFER_DOCKER_DISALLOWHOST=true
       - PUFFER_WEB_HOST=0.0.0.0:8080
+      
+      # Para configurar como nodo esclavo (Daemon only):
+      # - PUFFER_PANEL_ENABLE=false
+      # - PUFFER_TOKEN_PUBLIC=http://<MASTER-IP>:8080/auth/publickey
+      
       - PUFFER_PANEL_REGISTRATIONENABLED=true
       - PUFFER_PANEL_SETTINGS_COMPANYNAME=Aether Panel 1
       - PUFFER_PANEL_SETTINGS_DEFAULTTHEME=SkyPanel

@@ -45,7 +45,14 @@ export function useNodes(skip = false) {
     };
 
     useEffect(() => {
-        if (!skip) fetchNodes();
+        if (skip) return;
+        
+        fetchNodes();
+        const interval = setInterval(() => {
+            fetchNodes();
+        }, 5000);
+        
+        return () => clearInterval(interval);
     }, [skip]);
 
     return { nodes, loading, error, refresh: fetchNodes };

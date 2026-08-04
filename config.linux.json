@@ -1,6 +1,8 @@
 {
   "logs": "/var/log/SkyPanel",
   "panel": {
+    "_comment": "Para desactivar el panel y usar solo como Nodo (Daemon), cambia 'enable' a false",
+    "enable": true,
     "database": {
       "dialect": "sqlite3",
       "url": "file:/var/lib/SkyPanel/database.db?cache=shared"

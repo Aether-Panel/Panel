@@ -52,13 +52,14 @@ export default function ResourceUsageChart({ cpuUsage, memoryUsage, storageUsage
                 dataKey="value"
                 background={{ fill: 'hsl(var(--muted))' }}
                 cornerRadius={6}
+                isAnimationActive={false}
               />
             </RadialBarChart>
           </ChartContainer>
           <div className="absolute inset-0 flex flex-col items-center justify-center pt-8">
-            <span className="text-3xl font-bold tracking-tighter text-foreground">
+            <span className="font-mono text-3xl font-medium tracking-tight text-foreground">
               {value}
-              <span className="text-sm font-medium text-muted-foreground">%</span>
+              <span className="text-sm text-muted-foreground">%</span>
             </span>
           </div>
         </div>

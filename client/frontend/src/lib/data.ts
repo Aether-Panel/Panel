@@ -9,6 +9,7 @@ export type Server = {
   storageUsage: number;
   storageUsed: number;
   storageMax: number;
+  memoryUsed?: number;
   metrics: { time: string; cpu: number; memory: number; networkIn: number; networkOut: number }[];
   alerts: string[];
   isGhost?: boolean;
@@ -18,6 +19,9 @@ export type Server = {
   totalDisk?: number;
   suspended?: boolean;
   nodeId?: number | string;
+  playersOnline?: number;
+  maxPlayers?: number;
+  isMinecraft?: boolean;
 };
 
 export type User = {

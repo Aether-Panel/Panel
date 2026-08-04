@@ -39,6 +39,7 @@ var addUsername string
 var addEmail string
 var addIsAdmin bool
 var addPassword string
+var addForce bool
 
 func init() {
 	userCmd.AddCommand(AddUserCmd, EditUserCmd)
@@ -47,6 +48,7 @@ func init() {
 	AddUserCmd.Flags().StringVar(&addEmail, "email", "", "email")
 	AddUserCmd.Flags().BoolVar(&addIsAdmin, "admin", false, "if admin")
 	AddUserCmd.Flags().StringVar(&addPassword, "password", "", "password")
+	AddUserCmd.Flags().BoolVar(&addForce, "force", false, "recreate the user if it already exists")
 }
 
 func promptForUsername(username *string, useFlags bool) {
@@ -132,6 +134,29 @@ func addUser(_ *cobra.Command, _ []string) {
 		return
 	}
 	defer database.Close()
+
+	if addForce {
+		us := &services.User{DB: db}
+
+		// Eliminar usuarios existentes con el mismo email o nombre de usuario
+		existing, err := us.GetByEmail(answers.Email)
+		if err == nil && existing != nil {
+			if err := us.Delete(existing); err != nil {
+				pterm.Error.Printf("Failed to remove existing user: %s\n", err.Error())
+				return
+			}
+			pterm.Warning.Printf("Existing user %s removed, recreating\n", existing.Email)
+		}
+
+		existingByName, err := us.Get(answers.Username)
+		if err == nil && existingByName != nil {
+			if err := us.Delete(existingByName); err != nil {
+				pterm.Error.Printf("Failed to remove existing user: %s\n", err.Error())
+				return
+			}
+			pterm.Warning.Printf("Existing user %s removed, recreating\n", existingByName.Username)
+		}
+	}
 
 	if err := db.Transaction(func(tx *gorm.DB) error {
 		user := &models.User{

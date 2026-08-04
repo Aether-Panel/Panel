@@ -1,0 +1,182 @@
+import type { Server } from '@/lib/data';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { MoreHorizontal, Server as ServerIcon, Globe, Activity } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { cn, formatBytes } from '@/lib/utils';
+
+export const usageColor = (value: number) =>
+  value >= 85 ? 'bg-destructive' : value >= 60 ? 'bg-warning' : 'bg-success';
+
+export function MetricBar({ label, value, extra }: { label: string; value: number; extra?: string }) {
+  return (
+    <div>
+      <div className="mb-1.5 flex items-baseline justify-between gap-3">
+        <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">{label}</span>
+        <span className="font-mono text-xs tabular-nums text-foreground">
+          {value}%{extra ? <span className="text-muted-foreground"> · {extra}</span> : null}
+        </span>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+        <div
+          className={cn('h-full rounded-full transition-all duration-500 ease-out', usageColor(value))}
+          style={{ width: `${Math.min(Math.max(value, 0), 100)}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+export function Sparkline({ data }: { data: number[] }) {
+  const values = data.length > 0 ? data.slice(-32) : [0];
+  const w = 300;
+  const h = 44;
+  const max = Math.max(...values, 1);
+  const min = Math.min(...values, 0);
+  const range = max - min || 1;
+  const points = values
+    .map((v, i) => {
+      const x = (i / Math.max(values.length - 1, 1)) * w;
+      const y = h - 3 - ((v - min) / range) * (h - 6);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(' ');
+  const area = `0,${h} ${points} ${w},${h}`;
+
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className="h-11 w-full" preserveAspectRatio="none" aria-hidden="true">
+      <polygon points={area} fill="hsl(var(--primary)/0.08)" />
+      <polyline
+        points={points}
+        fill="none"
+        stroke="hsl(var(--primary))"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  );
+}
+
+export const StatusIndicator = ({ status }: { status: Server['status'] }) => {
+  const statusClasses = {
+    online: 'bg-success',
+    offline: 'bg-destructive',
+    pending: 'bg-warning animate-pulse',
+  };
+  return <div className={cn('h-1.5 w-1.5 shrink-0 rounded-full', statusClasses[status])} />;
+};
+
+export function ServerCard({ server, t }: { server: Server; t: (key: string) => string }) {
+  const cpuSeries = (server.metrics || []).map((m: any) => m.cpu ?? 0);
+
+  return (
+    <div className="group relative flex flex-col gap-5 overflow-hidden rounded-xl border border-border/80 bg-card p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[0_8px_30px_rgb(0_0_0/0.35)]">
+      <img
+        src="/img/Fondos/minecraft-shaders-anime-hd-wallpaper-preview.jpg"
+        alt=""
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-40 transition-opacity duration-300 group-hover:opacity-55"
+      />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-card via-card/75 to-card/20" />
+
+      <div className="relative flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-border/80 bg-background/60 text-primary backdrop-blur-sm">
+            <ServerIcon className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <a
+              href={`/servers/view/?id=${server.id}`}
+              className="block truncate font-headline text-base font-semibold leading-tight text-foreground transition-colors hover:text-primary"
+            >
+              {server.name}
+            </a>
+            <p className="truncate font-mono text-xs text-muted-foreground">{server.ipAddress}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1 z-10">
+          <Badge
+            variant="outline"
+            className={cn(
+              'gap-1.5 border-transparent capitalize',
+              server.status === 'online'
+                ? 'bg-success/15 text-success'
+                : server.status === 'offline'
+                  ? 'bg-destructive/15 text-destructive'
+                  : 'bg-warning/15 text-warning'
+            )}
+          >
+            <StatusIndicator status={server.status} />
+            {t(`dashboard.status.${server.status}`)}
+          </Badge>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                className="h-8 w-8 p-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:text-foreground"
+              >
+                <span className="sr-only">Open menu</span>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>{t('servers.actions.menuLabel')}</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => window.location.href = `/servers/view/?id=${server.id}`}>{t('servers.actions.viewDetails')}</DropdownMenuItem>
+              <DropdownMenuItem>{t('servers.actions.edit')}</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-red-500">{t('servers.actions.delete')}</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      <div className="relative flex items-center gap-3 text-xs">
+        <span className="inline-flex items-center gap-1.5 rounded-md border border-border/80 bg-background/60 px-2 py-1 font-mono text-muted-foreground backdrop-blur-sm">
+          <Globe className="h-3 w-3" />
+          {server.port || '—'}
+        </span>
+        <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+          <Activity className="h-3 w-3" />
+          {t('servers.table.cpu')} · {server.cpuUsage}%
+        </span>
+      </div>
+
+      <div className="relative space-y-4">
+        <MetricBar label={t('servers.table.cpu')} value={server.cpuUsage} />
+        <MetricBar label={t('servers.table.memory')} value={server.memoryUsage} />
+        <MetricBar
+          label={t('servers.table.storage')}
+          value={server.storageUsage}
+          extra={server.storageMax > 0 ? `${formatBytes(server.storageUsed)} / ${formatBytes(server.storageMax)}` : undefined}
+        />
+      </div>
+
+      <div className="relative mt-auto border-t border-border/60 pt-4">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+            {server.isMinecraft ? t('servers.detail.overview.playersOnline') : t('servers.card.activity')}
+          </span>
+          <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+            {server.isMinecraft 
+               ? `${server.playersOnline ?? 0} / ${server.maxPlayers ?? 0}` 
+               : (cpuSeries.length > 0 ? `${Math.round(cpuSeries[cpuSeries.length - 1])}%` : '—')
+            }
+          </span>
+        </div>
+        {server.isMinecraft ? (
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary mt-4">
+            <div
+              className="h-full rounded-full transition-all duration-500 ease-out bg-primary"
+              style={{ width: `${Math.min(Math.max(((server.playersOnline || 0) / Math.max(server.maxPlayers || 1, 1)) * 100, 0), 100)}%` }}
+            />
+          </div>
+        ) : (
+          <Sparkline data={cpuSeries} />
+        )}
+      </div>
+
+    </div>
+  );
+}

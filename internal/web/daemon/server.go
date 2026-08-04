@@ -704,6 +704,12 @@ func putFile(c *gin.Context) {
 		sourceFile = c.Request.Body
 	}
 
+	// os.O_CREATE does not create missing parent directories, so ensure they exist first
+	parentDir := filepath.Dir(targetPath)
+	if err := server.GetFileServer().MkdirAll(parentDir, 0755); response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
 	file, err := server.GetFileServer().OpenFile(targetPath, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0644)
 	defer utils.Close(file)
 	if response.HandleError(c, err, http.StatusInternalServerError) {

@@ -228,20 +228,41 @@ export default function CodeEditor({ language, value, onChange }: CodeEditorProp
         onChange={onChange}
         theme="tokyo-night"
         loading={
-          <div className="flex h-full w-full flex-col items-center justify-center gap-4">
+          <div className="flex h-full w-full flex-col items-center justify-center gap-4 bg-[#1a1b26]">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-muted-foreground">Loading Editor...</p>
+            <p className="text-sm text-muted-foreground">Loading Editor...</p>
           </div>
         }
         options={{
           fontSize: 14,
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace',
+          fontLigatures: true,
+          tabSize: 2,
           wordWrap: 'on',
           minimap: {
             enabled: true,
+            maxColumn: 80,
           },
           lineNumbers: 'on',
           roundedSelection: false,
           scrollBeyondLastLine: false,
+          smoothScrolling: true,
+          cursorBlinking: 'smooth',
+          cursorSmoothCaretAnimation: 'on',
+          cursorWidth: 2,
+          padding: {
+            top: 16,
+            bottom: 16,
+          },
+          bracketPairColorization: {
+            enabled: true,
+          },
+          guides: {
+            bracketPairs: true,
+            indentation: true,
+          },
+          renderLineHighlight: 'all',
+          unusualLineTerminators: 'off',
           readOnly: false,
         }}
       />

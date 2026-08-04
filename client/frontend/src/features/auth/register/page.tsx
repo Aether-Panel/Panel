@@ -4,33 +4,31 @@ import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-
-
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Logo } from '@/components/logo';
-import { Loader2, Mail, Lock, User } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/providers';
 import { useConfig } from '@/contexts/config-context';
+import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
 
 const formSchema = z.object({
-  username: z.string().min(5, { message: "Username must be at least 5 characters." }),
-  email: z.string().email({ message: "Please enter a valid email address." }),
-  password: z.string().min(8, { message: "Password must be at least 8 characters." }),
+  username: z.string().min(5, { message: 'Username must be at least 5 characters.' }),
+  email: z.string().email({ message: 'Please enter a valid email address.' }),
+  password: z.string().min(8, { message: 'Password must be at least 8 characters.' }),
   confirmPassword: z.string(),
-}).refine(data => data.password === data.confirmPassword, {
-  message: "Passwords do not match.",
-  path: ["confirmPassword"],
+}).refine((data) => data.password === data.confirmPassword, {
+  message: 'Passwords do not match.',
+  path: ['confirmPassword'],
 });
 
+const inputClass =
+  'px-3 py-2.5 text-sm text-foreground rounded-md bg-background/60 border border-border/60 placeholder:text-muted-foreground/50 focus:border-primary focus:bg-background/80 focus:ring-0';
 
 export default function RegisterPage() {
   const { register } = useAuth();
   const { config } = useConfig();
-  const panelName = config?.branding?.name || "Aether Panel";
+  const panelName = config?.branding?.name || 'Aether Panel';
   const [loading, setLoading] = React.useState(false);
   const { toast } = useToast();
 
@@ -42,12 +40,7 @@ export default function RegisterPage() {
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema as any),
-    defaultValues: {
-      username: "",
-      email: "",
-      password: "",
-      confirmPassword: "",
-    },
+    defaultValues: { username: '', email: '', password: '', confirmPassword: '' },
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
@@ -58,116 +51,127 @@ export default function RegisterPage() {
         email: values.email,
         password: values.password,
       });
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message || 'Failed to create account.', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden bg-background p-4">
-      <div className="absolute inset-0 -z-10 h-full w-full bg-background bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px]">
-        <div className="absolute left-0 right-0 top-0 h-[30rem] w-full bg-[radial-gradient(circle_500px_at_50%_200px,#2563eb33,transparent)]"></div>
-      </div>
+    <main className="md:min-h-screen flex items-center justify-center py-4 px-4 md:px-8 bg-background">
+      <div className="w-full max-w-5xl bg-card [box-shadow:0_2px_10px_-3px_rgba(0,0,0,0.3)] rounded-2xl overflow-hidden border border-border">
+        <div className="grid items-center w-full gap-0 md:grid-cols-2">
+          <div className="relative md:aspect-[8/10] w-full h-full overflow-hidden max-md:-order-1">
+            <img
+              src="/img/Fondos/minecraft-shaders-anime-hd-wallpaper-preview.jpg"
+              className="h-full w-full object-cover"
+              alt="register image"
+            />
+            <div className="absolute inset-0 flex items-end justify-center">
+              <div className="w-full bg-gradient-to-t from-black/70 via-black/50 to-transparent absolute bottom-0 p-6 max-md:hidden">
+                <h2 className="text-white text-2xl font-semibold">Join {panelName} today</h2>
+                <p className="text-slate-200 text-base font-medium mt-4 leading-relaxed">
+                  Spin up your account, assign your first server and start managing your infrastructure in seconds.
+                </p>
+              </div>
+            </div>
+          </div>
 
-      <div className="w-full max-w-md rounded-xl p-[1px] bg-gradient-to-br from-primary/20 via-accent/50 to-secondary/50">
-        <Card className="border-0 bg-card/80 backdrop-blur-lg animate-in fade-in-0 zoom-in-95 duration-500">
-          <CardHeader className="items-center text-center space-y-4">
-            <Logo className="mb-2" />
-            <CardTitle className="text-3xl font-bold">Create an Account</CardTitle>
-            <CardDescription>Join {panelName} today</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="username"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Username</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <Input placeholder="yourusername" {...field} className="pl-10" />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <Input placeholder="you@example.com" {...field} className="pl-10" />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Password</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <Input type="password" placeholder="••••••••" {...field} className="pl-10" />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="confirmPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Confirm Password</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <Input type="password" placeholder="••••••••" {...field} className="pl-10" />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button
-                  size="lg"
-                  type="submit"
-                  className="w-full text-base py-6 transition-all duration-300 hover:shadow-primary/20 hover:shadow-lg"
-                  disabled={loading}
+          <div className="py-6 px-6 lg:px-8">
+            <div className="max-w-md mx-auto w-full">
+              <h1 className="text-foreground text-3xl font-bold mb-10">Sign up</h1>
+
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="username"
+                    render={({ field }) => (
+                      <FormItem>
+                        <label className="mb-2 text-foreground font-medium text-sm inline-block">
+                          Username
+                        </label>
+                        <FormControl>
+                          <Input {...field} type="text" placeholder="yourusername" className={inputClass} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <label className="mb-2 text-foreground font-medium text-sm inline-block">
+                          Email
+                        </label>
+                        <FormControl>
+                          <Input {...field} type="email" placeholder="you@example.com" className={inputClass} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <label className="mb-2 text-foreground font-medium text-sm inline-block">
+                          Password
+                        </label>
+                        <FormControl>
+                          <Input {...field} type="password" placeholder="••••••••" className={inputClass} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="confirmPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <label className="mb-2 text-foreground font-medium text-sm inline-block">
+                          Confirm Password
+                        </label>
+                        <FormControl>
+                          <Input {...field} type="password" placeholder="••••••••" className={inputClass} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <Button
+                    type="submit"
+                    className="w-full mt-4 py-2 px-3.5 text-sm rounded-md font-semibold cursor-pointer text-primary-foreground bg-primary hover:bg-primary/90 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary h-auto"
+                    disabled={loading}
+                  >
+                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Create Account
+                  </Button>
+                </form>
+              </Form>
+
+              <div className="mt-6 text-center text-sm text-muted-foreground">
+                Already have an account?{' '}
+                <a
+                  href="/login"
+                  className="font-semibold text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
                 >
-                  {loading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
-                  Create Account
-                </Button>
-              </form>
-            </Form>
-          </CardContent>
-          <CardFooter className="flex flex-col gap-4 text-center">
-            <p className="text-sm text-muted-foreground">
-              Already have an account?{' '}
-              <a href="/login" className="font-semibold text-primary hover:underline">
-                Sign In
-              </a>
-            </p>
-            <p className="text-xs text-muted-foreground pt-6 mt-4 border-t border-border/50 w-full">
-              © 2024 {panelName}. All rights reserved.
-            </p>
-          </CardFooter>
-        </Card>
+                  Sign in
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
+    </main>
   );
 }

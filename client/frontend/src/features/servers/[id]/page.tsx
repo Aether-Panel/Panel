@@ -2,7 +2,7 @@
 import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Cpu, HardDrive, MemoryStick, Network, Terminal, Folder, Settings as SettingsIcon, Users, Database, Archive, Shield, Puzzle, Play, RefreshCw, Square, ShieldAlert, Key, ArrowRightLeft, GitBranch } from 'lucide-react';
+import { Cpu, HardDrive, MemoryStick, Network, Terminal, Folder, Settings as SettingsIcon, Users, Database, Archive, Shield, Puzzle, Play, RefreshCw, Square, ShieldAlert, Key, ArrowRightLeft, GitBranch, Activity, type LucideIcon } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import ConsoleView from './console-view';
@@ -36,15 +36,6 @@ type LogEntry = {
   message: string;
 };
 
-function StatusIndicator({ status }: { status: string }) {
-  const statusClasses: any = {
-    online: 'bg-green-500',
-    offline: 'bg-red-500',
-    pending: 'bg-yellow-500 animate-pulse',
-  };
-  return <div className={`mr-2 h-3 w-3 rounded-full ${statusClasses[status] || 'bg-gray-500'}`} />;
-}
-
 const processRawLogs = (rawLogs: any): string[] => {
   if (!rawLogs) return [];
   let lines: string[] = [];
@@ -73,7 +64,7 @@ const decodeLogLines = (lines: string[]): string[] => {
 
 function ServerActions({ server, isActionPending, handleAction, showKill, t }: any) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
       <Button
         size="sm"
         variant="default"
@@ -117,58 +108,93 @@ function ServerActions({ server, isActionPending, handleAction, showKill, t }: a
   );
 }
 
-function ServerOverviewCards({ server, queryData, t }: any) {
+function ResourceGauge({ icon: Icon, label, used, allocated, pct }: {
+  icon: LucideIcon;
+  label: string;
+  used: string;
+  allocated: string;
+  pct: number;
+}) {
+  const bar =
+    pct > 85
+      ? 'from-rose-500 via-rose-400 to-rose-400/60'
+      : 'from-primary via-accent to-accent/60';
+
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-primary/25 bg-gradient-to-br from-primary/20 via-accent/10 to-transparent text-primary">
+            <Icon className="h-4 w-4" />
+          </div>
+          <span className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
+        </div>
+        <div className="flex items-baseline gap-1.5">
+          <span className="font-mono text-xl font-semibold tabular-nums tracking-tight">{used}</span>
+          <span className="font-mono text-xs text-muted-foreground/70">/ {allocated}</span>
+        </div>
+      </div>
+      <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-muted/50">
+        <div
+          className={`h-full rounded-full bg-gradient-to-r ${bar} transition-all duration-700`}
+          style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ServerOverviewCards({ server, queryData, t }: any) {
+  const cpuAllocated = server.totalCpu ?? 100;
+  const memAllocatedBytes = server.totalMemory
+    ? server.totalMemory * 1024 * 1024
+    : server.memoryUsage > 0 && server.memoryUsed
+      ? server.memoryUsed / (server.memoryUsage / 100)
+      : 0;
+
+  return (
+    <div className="grid gap-6">
       <Card className="relative overflow-hidden">
-        <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-primary via-accent to-transparent" />
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">{t('servers.detail.overview.status')}</CardTitle>
-          <Network className="h-4 w-4 text-muted-foreground" />
+        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-accent to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+        <CardHeader className="pb-5">
+          <div className="flex items-center gap-3">
+            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-primary/25 bg-gradient-to-br from-primary/20 via-accent/10 to-transparent text-primary">
+              <Activity className="h-4 w-4" />
+            </div>
+            <div className="space-y-0.5">
+              <h3 className="font-headline text-base font-semibold leading-tight">{t('servers.detail.overview.resourcesTitle')}</h3>
+              <p className="text-xs leading-relaxed text-muted-foreground">{t('servers.detail.overview.resourcesSubtitle')}</p>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent>
-          <Badge variant={server.status === 'online' ? 'default' : server.status === 'offline' ? 'destructive' : 'secondary'} className="capitalize flex items-center gap-2 w-fit text-lg">
-            <StatusIndicator status={server.status} />
-            {t(`dashboard.status.${server.status}`)}
-          </Badge>
-        </CardContent>
-      </Card>
-      <Card className="relative overflow-hidden">
-        <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-primary via-accent to-transparent" />
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">{t('servers.detail.overview.cpuUsage')}</CardTitle>
-          <Cpu className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{server.cpuUsage}%</div>
-        </CardContent>
-      </Card>
-      <Card className="relative overflow-hidden">
-        <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-primary via-accent to-transparent" />
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">{t('servers.detail.overview.memoryUsage')}</CardTitle>
-          <MemoryStick className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{server.memoryUsage}%</div>
-        </CardContent>
-      </Card>
-      <Card className="relative overflow-hidden">
-        <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-primary via-accent to-transparent" />
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">{t('servers.detail.overview.storageUsage')}</CardTitle>
-          <HardDrive className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{server.storageUsage}%</div>
-          <p className="text-xs text-muted-foreground mt-1">
-            {formatBytes(server.storageUsed)} / {formatBytes(server.storageMax)}
-          </p>
+        <CardContent className="grid gap-x-8 gap-y-6 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+          <ResourceGauge
+            icon={Cpu}
+            label={t('dashboard.table.cpu')}
+            used={`${server.cpuUsage}%`}
+            allocated={`${cpuAllocated}%`}
+            pct={server.cpuUsage}
+          />
+          <ResourceGauge
+            icon={MemoryStick}
+            label={t('dashboard.table.memory')}
+            used={formatBytes(server.memoryUsed)}
+            allocated={formatBytes(memAllocatedBytes)}
+            pct={server.memoryUsage}
+          />
+          <ResourceGauge
+            icon={HardDrive}
+            label={t('dashboard.table.storage')}
+            used={formatBytes(server.storageUsed)}
+            allocated={formatBytes(server.storageMax)}
+            pct={server.storageUsage}
+          />
         </CardContent>
       </Card>
 
       {queryData?.minecraft && (
-        <div className="md:col-span-2 lg:col-span-4 rounded-lg p-[1px] bg-gradient-to-br from-primary/30 via-accent/20 to-primary/10">
+        <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/30 via-accent/20 to-primary/10">
           <Card className="border-0">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
@@ -436,7 +462,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
       <Card className="relative overflow-hidden">
         <div className={`absolute inset-x-0 top-0 h-1 ${server.status === 'online' ? 'bg-green-500' : server.status === 'offline' ? 'bg-red-500' : 'bg-yellow-500'}`} />
         <CardContent className="p-6">
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-bold tracking-tight">{server.name}</h1>
@@ -458,7 +484,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
                 <span className="hidden sm:inline text-muted-foreground/60">{t('servers.detail.description')}</span>
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
               <ServerActions server={server} isActionPending={isActionPending} handleAction={handleAction} showKill={showKill} t={t} />
             </div>
           </div>
@@ -466,7 +492,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
       </Card>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <div className="md:hidden mb-4">
+        <div className="xl:hidden mb-4">
           <Select value={activeTab} onValueChange={setActiveTab}>
             <SelectTrigger>
               <SelectValue placeholder={t('servers.detail.selectPage')} />
@@ -484,8 +510,8 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
           </Select>
         </div>
 
-        <div className="hidden md:block">
-          <TabsList className="w-full justify-center gap-2 bg-muted/50 p-1">
+        <div className="hidden xl:block">
+          <TabsList className="flex flex-wrap w-full justify-center gap-2 bg-muted/50 p-1 h-auto">
             {serverTabs.map(tab => (
               <TabsTrigger key={tab.value} value={tab.value} className="flex items-center gap-2 px-3 py-2 text-sm font-medium whitespace-nowrap data-[state=active]:shadow-sm">
                 <tab.icon className="h-4 w-4" />

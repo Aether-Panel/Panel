@@ -19,8 +19,8 @@ export default function NetworkUsageChart({ serverMetrics, className }: NetworkU
   const { t } = useTranslations();
 
   const chartConfig = {
-    networkIn: { label: t('dashboard.admin.networkTraffic.download') || 'Download', color: '#22c55e' },
-    networkOut: { label: t('dashboard.admin.networkTraffic.upload') || 'Upload', color: '#a855f7' },
+    networkIn: { label: t('dashboard.admin.networkTraffic.download') || 'Download', color: 'hsl(var(--chart-2))' },
+    networkOut: { label: t('dashboard.admin.networkTraffic.upload') || 'Upload', color: 'hsl(var(--chart-1))' },
   };
 
   const hasData = serverMetrics && serverMetrics.length > 0;
@@ -44,12 +44,12 @@ export default function NetworkUsageChart({ serverMetrics, className }: NetworkU
               <AreaChart data={serverMetrics} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="dashFillNetIn" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                    <stop offset="5%" stopColor="hsl(var(--chart-2))" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="hsl(var(--chart-2))" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="dashFillNetOut" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#a855f7" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
+                    <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.1} />
@@ -92,7 +92,7 @@ export default function NetworkUsageChart({ serverMetrics, className }: NetworkU
                   dataKey="networkIn"
                   type="monotone"
                   fill="url(#dashFillNetIn)"
-                  stroke="#22c55e"
+                  stroke="hsl(var(--chart-2))"
                   strokeWidth={2}
                   dot={false}
                   activeDot={{ r: 4, strokeWidth: 0 }}
@@ -103,7 +103,7 @@ export default function NetworkUsageChart({ serverMetrics, className }: NetworkU
                   dataKey="networkOut"
                   type="monotone"
                   fill="url(#dashFillNetOut)"
-                  stroke="#a855f7"
+                  stroke="hsl(var(--chart-1))"
                   strokeWidth={2}
                   dot={false}
                   activeDot={{ r: 4, strokeWidth: 0 }}
