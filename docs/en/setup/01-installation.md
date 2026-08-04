@@ -128,9 +128,43 @@ docker exec -it skypanel /usr/local/bin/SkyPanel user add --name admin --email a
 
 ---
 
+## Method 4: Installation as a Secondary Node (Daemon only)
+
+If you wish to set up an additional server that functions solely as a daemon (slave node) for hosting game servers, connecting to an existing Master Panel:
+
+### Using Docker Compose
+
+Add the following environment variables to your `skypanel` service configuration in your `docker-compose.yml`:
+
+```yaml
+    environment:
+      # Disable the web panel interface and database connection
+      - PUFFER_PANEL_ENABLE=false
+      # Configure the Master Panel's public key for token validation
+      # Make sure to replace <MASTER-PANEL-IP> with the real IP or domain
+      - PUFFER_TOKEN_PUBLIC=http://<MASTER-PANEL-IP>:8080/auth/publickey
+```
+
+### Without Docker (Manual Installation)
+
+If you installed the node manually, edit the `/etc/SkyPanel/config.json` file to modify the `panel` section and add the `token` section:
+
+```json
+  "panel": {
+    "enable": false
+  },
+  "token": {
+    "public": "http://<MASTER-PANEL-IP>:8080/auth/publickey"
+  }
+```
+
+Restart the service with `systemctl restart skypanel`.
+
+---
+
 ## Post-Installation
 
-Once installed, the panel will be accessible at:
+Once the main panel is installed, it will be accessible at:
 `http://<YOUR-SERVER-IP>:8080`
 
 Log in with the administrator credentials created during the installation process.
