@@ -230,12 +230,20 @@ func walker(fs FileServer, targetPath, filter string, skipRoot bool) archives.Fi
 	return func(_ context.Context, file archives.FileInfo) (err error) {
 		path := getCompressedItemName(file)
 
+		// Trim leading slashes to prevent absolute path false positives from IsLocal
+		path = strings.TrimLeft(path, "/\\")
+
 		if !utils.CompareWildcard(file.Name(), filter) {
 			return
 		}
 
 		if skipRoot {
-			path = strings.Join(strings.Split(path, PathSeparator)[1:], PathSeparator)
+			parts := strings.Split(path, PathSeparator)
+			if len(parts) > 1 {
+				path = strings.Join(parts[1:], PathSeparator)
+			} else {
+				path = ""
+			}
 		}
 
 		if path == "" {
