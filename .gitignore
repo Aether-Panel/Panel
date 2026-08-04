@@ -71,3 +71,6 @@ integrations/
 
 # Garbage and Unknown files
 basura_o_desconocido/
+
+# Agent rules (solo en dev2.0)
+.agents/
