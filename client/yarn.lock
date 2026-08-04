@@ -2399,6 +2399,16 @@
     "@radix-ui/react-primitive" "2.1.7"
     "@radix-ui/react-slot" "1.3.0"
 
+"@radix-ui/react-collection@1.1.15":
+  version "1.1.15"
+  resolved "https://registry.yarnpkg.com/@radix-ui/react-collection/-/react-collection-1.1.15.tgz#6f045630d6f9778ab1b0c456ae97b474aec8a20b"
+  integrity sha512-9W+B9NPF0NaaPh/1NJd3+KqsnlLqU9H7T2rvww+fp+T/evVXdNAyYcnfRQZFOjkR1ajQp3yORlqnI8soawLvNA==
+  dependencies:
+    "@radix-ui/react-compose-refs" "1.1.5"
+    "@radix-ui/react-context" "1.2.2"
+    "@radix-ui/react-primitive" "2.1.10"
+    "@radix-ui/react-slot" "1.3.3"
+
 "@radix-ui/react-compose-refs@1.1.3":
   version "1.1.3"
   resolved "https://registry.yarnpkg.com/@radix-ui/react-compose-refs/-/react-compose-refs-1.1.3.tgz#5f1e61e1a5f52800d31e7f8affa6d046e38f50d1"
@@ -2800,23 +2810,23 @@
     "@radix-ui/react-roving-focus" "1.1.15"
     "@radix-ui/react-use-controllable-state" "1.2.3"
 
-"@radix-ui/react-toast@^1.2.6":
-  version "1.2.19"
-  resolved "https://registry.yarnpkg.com/@radix-ui/react-toast/-/react-toast-1.2.19.tgz#ce751105c18f128fb3464accd76187107ea4d9fb"
-  integrity sha512-SxfVZfVOibWKWdkf0Xx1awW2d09fQu4V4PXDY1j5hi4MVf7MWdJZqTBJMa1KWtOr1S6GGtCk02nniZ0Iia+dHw==
+"@radix-ui/react-toast@^1.2.23":
+  version "1.2.23"
+  resolved "https://registry.yarnpkg.com/@radix-ui/react-toast/-/react-toast-1.2.23.tgz#b64e2e2b735b4f2188fd79f446e0e2cbc624d088"
+  integrity sha512-ofhyAsYaocRGOs/n0XWdUOSVzEAG6BfrMVM8z0c0kLEWY38w/0WuMFPTJP/HVaZPYkMvHZoKIIhNcjbTCBILPg==
   dependencies:
-    "@radix-ui/primitive" "1.1.5"
-    "@radix-ui/react-collection" "1.1.12"
-    "@radix-ui/react-compose-refs" "1.1.3"
-    "@radix-ui/react-context" "1.2.0"
-    "@radix-ui/react-dismissable-layer" "1.1.15"
-    "@radix-ui/react-portal" "1.1.13"
-    "@radix-ui/react-presence" "1.1.7"
-    "@radix-ui/react-primitive" "2.1.7"
-    "@radix-ui/react-use-callback-ref" "1.1.2"
-    "@radix-ui/react-use-controllable-state" "1.2.3"
-    "@radix-ui/react-use-layout-effect" "1.1.2"
-    "@radix-ui/react-visually-hidden" "1.2.7"
+    "@radix-ui/primitive" "1.1.7"
+    "@radix-ui/react-collection" "1.1.15"
+    "@radix-ui/react-compose-refs" "1.1.5"
+    "@radix-ui/react-context" "1.2.2"
+    "@radix-ui/react-dismissable-layer" "1.1.19"
+    "@radix-ui/react-portal" "1.1.17"
+    "@radix-ui/react-presence" "1.1.10"
+    "@radix-ui/react-primitive" "2.1.10"
+    "@radix-ui/react-use-callback-ref" "1.1.4"
+    "@radix-ui/react-use-controllable-state" "1.2.6"
+    "@radix-ui/react-use-layout-effect" "1.1.4"
+    "@radix-ui/react-visually-hidden" "1.2.11"
 
 "@radix-ui/react-tooltip@^1.2.16":
   version "1.2.16"
