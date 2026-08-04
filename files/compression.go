@@ -251,9 +251,12 @@ func walker(fs FileServer, targetPath, filter string, skipRoot bool) archives.Fi
 		} else {
 			joined = filepath.Join(targetPath, path)
 		}
-		if !strings.HasPrefix(joined, targetPath) {
+		cleanTarget := filepath.Clean(targetPath)
+		cleanJoined := filepath.Clean(joined)
+		if cleanTarget != "." && !strings.HasPrefix(cleanJoined, cleanTarget+string(filepath.Separator)) {
 			return ErrPathTraversal
 		}
+		joined = cleanJoined
 		parent := filepath.Dir(joined)
 		path = joined
 
