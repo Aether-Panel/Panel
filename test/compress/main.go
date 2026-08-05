@@ -15,7 +15,7 @@ func main() {
 	os.WriteFile(filepath.Join(prefix, "file1.txt"), []byte("hello world"), 0644)
 
 	targetFile := filepath.Join(prefix, "transfer.tar.gz")
-	
+
 	filesToCompress := []string{prefix}
 
 	filenames := make(map[string]string)
@@ -29,7 +29,9 @@ func main() {
 
 	ctx := context.Background()
 	filesList, err := archives.FilesFromDisk(ctx, nil, filenames)
-	if err != nil { panic(err) }
+	if err != nil {
+		panic(err)
+	}
 
 	fmt.Printf("filesList len: %d\n", len(filesList))
 	for _, f := range filesList {
@@ -37,15 +39,21 @@ func main() {
 	}
 
 	out, err := os.Create(targetFile)
-	if err != nil { panic(err) }
+	if err != nil {
+		panic(err)
+	}
 	defer out.Close()
 
 	format, _, err := archives.Identify(ctx, targetFile, nil)
-	if err != nil { panic(err) }
+	if err != nil {
+		panic(err)
+	}
 
 	archiver := format.(archives.Archiver)
 	err = archiver.Archive(ctx, out, filesList)
-	if err != nil { panic(err) }
+	if err != nil {
+		panic(err)
+	}
 
 	info, _ := os.Stat(targetFile)
 	fmt.Printf("Archive size: %d bytes\n", info.Size())
