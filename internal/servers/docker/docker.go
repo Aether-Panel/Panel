@@ -20,13 +20,12 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/api/types/strslice"
-	"github.com/docker/docker/client"
+	"github.com/moby/moby/api/types"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/image"
+	"github.com/moby/moby/api/types/network"
+	"github.com/moby/moby/api/types/strslice"
+	"github.com/moby/moby/client"
 	"github.com/docker/go-connections/nat"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/spf13/cast"
@@ -89,7 +88,7 @@ func (d *Docker) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypa
 	d.disableSpecialStats = steps.DisableStats
 	// d.disableStdin = steps.DisableStdin
 
-	cfg := container.AttachOptions{
+	cfg := client.ContainerAttachOptions{
 		Stdin:  true,
 		Stdout: true,
 		Stderr: true,
@@ -117,7 +116,7 @@ func (d *Docker) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypa
 
 	go d.handleClose(environment, dockerClient, steps.Callback)
 
-	startOpts := container.StartOptions{}
+	startOpts := client.ContainerStartOptions{}
 
 	_ = environment.StatusTracker.WriteMessage(skypanel.Transmission{
 		Message: skypanel.ServerRunning{
@@ -275,14 +274,14 @@ func (d *Docker) GetStatsImpl(environment *skypanel.Environment) (*skypanel.Serv
 			cmd = "jcmd"
 		}
 
-		r, e := dockerClient.ContainerExecCreate(context.Background(), environment.ServerID, container.ExecOptions{
+		r, e := dockerClient.ContainerExecCreate(context.Background(), environment.ServerID, container.ExecCreateRequest{
 			AttachStderr: true,
 			AttachStdout: true,
 			Cmd:          []string{cmd, "1", "GC.heap_info"},
 		})
 
 		if e == nil {
-			rw, e := dockerClient.ContainerExecAttach(context.Background(), r.ID, container.ExecAttachOptions{
+			rw, e := dockerClient.ContainerExecAttach(context.Background(), r.ID, client.ExecAttachOptions{
 				Detach: false,
 				Tty:    false,
 			})
@@ -323,8 +322,8 @@ func (d *Docker) getClient() (*client.Client, error) {
 }
 
 func doesContainerExist(ctx context.Context, client *client.Client, id string) (bool, error) {
-	opts := container.ListOptions{
-		Filters: filters.NewArgs(),
+	opts := client.ContainerListOptions{
+		Filters: make(client.Filters),
 	}
 
 	opts.All = true
@@ -357,9 +356,9 @@ func (d *Docker) PullImage(ctx context.Context, environment *skypanel.Environmen
 			imageName += ":latest"
 		}
 
-		opts := image.ListOptions{
+		opts := client.ImageListOptions{
 			All:     true,
-			Filters: filters.NewArgs(),
+			Filters: make(client.Filters),
 		}
 		opts.Filters.Add("reference", imageName)
 		images, err := d.cli.ImageList(ctx, opts)
@@ -387,7 +386,7 @@ func (d *Docker) PullImage(ctx context.Context, environment *skypanel.Environmen
 		}
 	}
 
-	op := image.PullOptions{}
+	op := client.ImagePullOptions{}
 
 	environment.Log(logging.Debug, "Downloading image %v", imageName)
 	environment.DisplayToConsole(true, "Downloading image for container, please wait\n")

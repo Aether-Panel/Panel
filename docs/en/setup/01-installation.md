@@ -160,6 +160,8 @@ If you installed the node manually, edit the `/etc/SkyPanel/config.json` file to
 
 Restart the service with `systemctl restart skypanel`.
 
+> **Clarification Note:** Even if you disable the Panel, the process will still listen on the HTTP port (default `8080`) because the Daemon requires this port for its REST API (to communicate with the Master). If you attempt to access it via a web browser, you will see a 404 error; this is completely normal and indicates that the Node is functioning correctly.
+
 ---
 
 ## Post-Installation

@@ -11,9 +11,9 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
-	"github.com/docker/docker/api/types/container"
-	mountType "github.com/docker/docker/api/types/mount"
-	"github.com/docker/docker/client"
+	"github.com/moby/moby/api/types/container"
+	mountType "github.com/moby/moby/api/types/mount"
+	"github.com/moby/moby/client"
 	"github.com/gofrs/uuid/v5"
 )
 
@@ -54,7 +54,7 @@ func InitContainerMountSource() (err error) {
 	ctx := context.Background()
 	docker.NegotiateAPIVersion(ctx)
 
-	containers, err := docker.ContainerList(ctx, container.ListOptions{})
+	containers, err := docker.ContainerList(ctx, client.ContainerListOptions{})
 	if err != nil {
 		return
 	}

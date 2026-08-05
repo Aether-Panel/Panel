@@ -161,6 +161,15 @@ func internalRun() (terminate chan bool, success bool) {
 		}
 	}
 
+	if !config.PanelEnabled.Value() {
+		logging.Info.Printf("Panel web routes are disabled. Only Daemon API is active.")
+		if config.TokenPublicURL.Value() == "" {
+			logging.Error.Printf("WARNING: Panel is disabled but token.public (TokenPublicURL) is empty!")
+			logging.Error.Printf("This node will not be able to authenticate requests from the Master Panel.")
+			logging.Error.Printf("Please configure it in config.json or set PUFFER_TOKEN_PUBLIC in docker-compose.")
+		}
+	}
+
 	web.RegisterRoutes(router)
 
 	l, err := net.Listen("tcp", config.WebHost.Value())
