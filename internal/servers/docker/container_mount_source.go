@@ -11,10 +11,10 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/gofrs/uuid/v5"
 	"github.com/moby/moby/api/types/container"
 	mountType "github.com/moby/moby/api/types/mount"
 	"github.com/moby/moby/client"
-	"github.com/gofrs/uuid/v5"
 )
 
 var containerMountSource string
@@ -46,29 +46,28 @@ func InitContainerMountSource() (err error) {
 	// we only need the file to exist, we never read or write, so close it right away
 	utils.Close(file)
 
-	docker, err := client.NewClientWithOpts(client.FromEnv)
+	docker, err := client.New(client.FromEnv)
 	if err != nil {
 		return
 	}
 	defer utils.Close(docker)
 	ctx := context.Background()
-	docker.NegotiateAPIVersion(ctx)
 
-	containers, err := docker.ContainerList(ctx, client.ContainerListOptions{})
+	listResult, err := docker.ContainerList(ctx, client.ContainerListOptions{})
 	if err != nil {
 		return
 	}
 
 	var found []string
 	var self container.Summary
-	for _, c := range containers {
-		rc, _, err := docker.CopyFromContainer(ctx, c.ID, path)
+	for _, c := range listResult.Items {
+		rc, err := docker.CopyFromContainer(ctx, c.ID, client.CopyFromContainerOptions{SourcePath: path})
 		if err != nil {
 			// failed, so either file or container doesn't exist, meaning that's not us
 			continue
 		}
 		// not interested in the contents, just need to know the file existed in the container
-		utils.Close(rc)
+		utils.Close(rc.Content)
 		found = append(found, c.ID)
 		self = c
 	}

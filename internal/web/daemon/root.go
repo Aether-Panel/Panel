@@ -11,8 +11,8 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
-	"github.com/moby/moby/client"
 	"github.com/gin-gonic/gin"
+	"github.com/moby/moby/client"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/disk"
 	"github.com/shirou/gopsutil/host"
@@ -80,7 +80,7 @@ func getFeatures(c *gin.Context) {
 }
 
 func testDocker() bool {
-	d, err := client.NewClientWithOpts(client.FromEnv)
+	d, err := client.New(client.FromEnv)
 	if err != nil {
 		return false
 	}
@@ -88,7 +88,7 @@ func testDocker() bool {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	_, err = d.Ping(ctx)
+	_, err = d.Ping(ctx, client.PingOptions{})
 	return err == nil
 }
 
