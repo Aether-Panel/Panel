@@ -9,7 +9,6 @@ require (
 	github.com/braintree/manners v0.0.0-20160418043613-82a8879fc5fd
 	github.com/cavaliergopher/grab/v3 v3.0.1
 	github.com/creack/pty v1.1.24
-	github.com/docker/go-connections v0.7.0
 	github.com/dreamscached/minequery/v2 v2.5.0
 	github.com/gin-contrib/cors v1.7.7
 	github.com/gin-contrib/sessions v1.1.0
@@ -33,7 +32,7 @@ require (
 	github.com/moby/moby/api v1.55.0
 	github.com/moby/moby/client v0.5.1
 	github.com/opencontainers/image-spec v1.1.1
-	github.com/pkg/sftp v1.13.9
+	github.com/pkg/sftp v1.13.11
 	github.com/pquerna/otp v1.5.0
 	github.com/pterm/pterm v0.12.83
 	github.com/sendgrid/sendgrid-go v3.16.1+incompatible
@@ -91,6 +90,7 @@ require (
 	github.com/cyphar/filepath-securejoin v0.6.1 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/distribution/reference v0.6.0 // indirect
+	github.com/docker/go-connections v0.7.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dsnet/compress v0.0.2-0.20230904184137-39efe44ab707 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
