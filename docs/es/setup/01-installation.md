@@ -160,6 +160,8 @@ Si instaló el nodo manualmente, edite el archivo `/etc/SkyPanel/config.json` y 
 
 Reinicie el servicio con `systemctl restart skypanel`.
 
+> **Nota Aclaratoria:** Aunque desactive el Panel, el proceso seguirá escuchando en el puerto HTTP (por defecto `8080`) ya que el Daemon necesita este puerto para su API REST (comunicación con el Maestro). Si intenta acceder por el navegador, verá un error 404, esto es completamente normal e indica que el Nodo está funcionando correctamente.
+
 ---
 
 ## Post-Instalación
