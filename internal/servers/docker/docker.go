@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/netip"
 	"slices"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
@@ -20,13 +21,10 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
-	"github.com/moby/moby/api/types"
 	"github.com/moby/moby/api/types/container"
-	"github.com/moby/moby/api/types/image"
 	"github.com/moby/moby/api/types/network"
 	"github.com/moby/moby/api/types/strslice"
 	"github.com/moby/moby/client"
-	"github.com/docker/go-connections/nat"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/spf13/cast"
 )
@@ -41,7 +39,7 @@ type Docker struct {
 	Labels        map[string]string    `json:"labels,omitempty"`
 	Config        container.Config     `json:"config,omitempty"`
 
-	connection       types.HijackedResponse
+	connection       client.HijackedResponse
 	cli              *client.Client
 	downloadingImage bool
 	statLocker       sync.Mutex
@@ -95,10 +93,11 @@ func (d *Docker) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypa
 		Stream: true,
 	}
 
-	d.connection, err = dockerClient.ContainerAttach(ctx, environment.ServerID, cfg)
+	attachResult, err := dockerClient.ContainerAttach(ctx, environment.ServerID, cfg)
 	if err != nil {
 		return err
 	}
+	d.connection = attachResult.HijackedResponse
 
 	environment.Wait.Add(1)
 
@@ -127,7 +126,7 @@ func (d *Docker) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypa
 	})
 
 	environment.DisplayToConsole(true, "Starting container\n")
-	err = dockerClient.ContainerStart(ctx, environment.ServerID, startOpts)
+	_, err = dockerClient.ContainerStart(ctx, environment.ServerID, startOpts)
 	if err != nil {
 		return err
 	}
@@ -149,7 +148,7 @@ func (d *Docker) KillImpl(environment *skypanel.Environment) error {
 	if err != nil {
 		return err
 	}
-	err = dockerClient.ContainerKill(context.Background(), environment.ServerID, "SIGKILL")
+	_, err = dockerClient.ContainerKill(context.Background(), environment.ServerID, client.ContainerKillOptions{Signal: "SIGKILL"})
 	return err
 }
 
@@ -166,11 +165,11 @@ func (d *Docker) IsRunningImpl(environment *skypanel.Environment) (bool, error) 
 		return false, err
 	}
 
-	stats, err := dockerClient.ContainerInspect(ctx, environment.ServerID)
+	inspectResult, err := dockerClient.ContainerInspect(ctx, environment.ServerID, client.ContainerInspectOptions{})
 	if err != nil {
 		return false, err
 	}
-	return stats.State.Running, nil
+	return inspectResult.Container.State.Running, nil
 }
 
 func (d *Docker) GetStatsImpl(environment *skypanel.Environment) (*skypanel.ServerStats, error) {
@@ -207,7 +206,9 @@ func (d *Docker) GetStatsImpl(environment *skypanel.Environment) (*skypanel.Serv
 	}
 
 	ctx := context.Background()
-	res, err := dockerClient.ContainerStats(ctx, environment.ServerID, false)
+	res, err := dockerClient.ContainerStats(ctx, environment.ServerID, client.ContainerStatsOptions{
+		IncludePreviousSample: true,
+	})
 	defer func() {
 		if res.Body != nil {
 			utils.Close(res.Body)
@@ -274,23 +275,22 @@ func (d *Docker) GetStatsImpl(environment *skypanel.Environment) (*skypanel.Serv
 			cmd = "jcmd"
 		}
 
-		r, e := dockerClient.ContainerExecCreate(context.Background(), environment.ServerID, container.ExecCreateRequest{
+		r, e := dockerClient.ExecCreate(context.Background(), environment.ServerID, client.ExecCreateOptions{
 			AttachStderr: true,
 			AttachStdout: true,
 			Cmd:          []string{cmd, "1", "GC.heap_info"},
 		})
 
 		if e == nil {
-			rw, e := dockerClient.ContainerExecAttach(context.Background(), r.ID, client.ExecAttachOptions{
-				Detach: false,
-				Tty:    false,
+			rw, e := dockerClient.ExecAttach(context.Background(), r.ID, client.ExecAttachOptions{
+				TTY: false,
 			})
 			if e != nil {
 				logging.Error.Printf("Could not exec JCMD: %s", e.Error())
 			} else {
-				defer func(z types.HijackedResponse) {
+				defer func(z client.HijackedResponse) {
 					z.Close()
-				}(rw)
+				}(rw.HijackedResponse)
 
 				jcmdData, err := io.ReadAll(rw.Reader)
 				if err != nil {
@@ -314,27 +314,25 @@ func (d *Docker) GetStatsImpl(environment *skypanel.Environment) (*skypanel.Serv
 func (d *Docker) getClient() (*client.Client, error) {
 	var err error
 	if d.cli == nil {
-		d.cli, err = client.NewClientWithOpts(client.FromEnv)
-		ctx := context.Background()
-		d.cli.NegotiateAPIVersion(ctx)
+		d.cli, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	}
 	return d.cli, err
 }
 
-func doesContainerExist(ctx context.Context, client *client.Client, id string) (bool, error) {
+func doesContainerExist(ctx context.Context, dockerClient *client.Client, id string) (bool, error) {
 	opts := client.ContainerListOptions{
+		All:     true,
 		Filters: make(client.Filters),
 	}
 
-	opts.All = true
 	opts.Filters.Add("name", id)
 
-	existingContainers, err := client.ContainerList(ctx, opts)
+	existingContainers, err := dockerClient.ContainerList(ctx, opts)
 	if err != nil {
 		return false, err
 	}
 
-	for _, v := range existingContainers {
+	for _, v := range existingContainers.Items {
 		if slices.Contains(v.Names, "/"+id) {
 			return true, nil
 		}
@@ -361,13 +359,13 @@ func (d *Docker) PullImage(ctx context.Context, environment *skypanel.Environmen
 			Filters: make(client.Filters),
 		}
 		opts.Filters.Add("reference", imageName)
-		images, err := d.cli.ImageList(ctx, opts)
+		listResult, err := d.cli.ImageList(ctx, opts)
 
 		if err != nil {
 			return err
 		}
 
-		for _, v := range images {
+		for _, v := range listResult.Items {
 			for _, z := range v.RepoTags {
 				if z == imageName {
 					exists = true
@@ -555,26 +553,33 @@ func (d *Docker) createContainer(ctx context.Context, environment *skypanel.Envi
 
 	hostConfig.Binds = append(hostConfig.Binds, bindDirs...)
 
-	_, hostConfig.PortBindings, err = nat.ParsePortSpecs(utils.ReplaceTokensInArr(d.Ports, data.Variables))
+	var exposedPorts network.PortSet
+	exposedPorts, hostConfig.PortBindings, err = parsePortSpecs(utils.ReplaceTokensInArr(d.Ports, data.Variables))
 	if err != nil {
 		return err
 	}
 
 	if hostConfig.PortBindings == nil {
-		hostConfig.PortBindings = nat.PortMap{}
+		hostConfig.PortBindings = network.PortMap{}
 	}
 
 	if data.StdInConfig.Port != "" {
-		if _, exists := hostConfig.PortBindings[nat.Port(data.StdInConfig.Port+"/tcp")]; !exists {
+		p := network.MustParsePort(data.StdInConfig.Port + "/tcp")
+		if _, exists := hostConfig.PortBindings[p]; !exists {
+			hostIP := netip.Addr{}
+			if ip, ipErr := netip.ParseAddr("127.0.0.1"); ipErr == nil {
+				hostIP = ip
+			}
 			// we have a port defined for stdin, we need to also export it
-			hostConfig.PortBindings[nat.Port(data.StdInConfig.Port+"/tcp")] = []nat.PortBinding{{
-				HostIP: "127.0.0.1", HostPort: data.StdInConfig.Port,
+			hostConfig.PortBindings[p] = []network.PortBinding{{
+				HostIP: hostIP, HostPort: data.StdInConfig.Port,
 			}}
 		}
 	}
 
+	containerConfig.ExposedPorts = exposedPorts
 	if containerConfig.ExposedPorts == nil {
-		containerConfig.ExposedPorts = make(nat.PortSet)
+		containerConfig.ExposedPorts = network.PortSet{}
 	}
 
 	for k := range hostConfig.PortBindings {
@@ -599,7 +604,13 @@ func (d *Docker) createContainer(ctx context.Context, environment *skypanel.Envi
 	networkConfig := &network.NetworkingConfig{}
 
 	// for now, default to linux across the board. This resolves problems that Windows has when you use it and docker
-	_, err = d.cli.ContainerCreate(ctx, containerConfig, hostConfig, networkConfig, &v1.Platform{OS: "linux"}, environment.ServerID)
+	_, err = d.cli.ContainerCreate(ctx, client.ContainerCreateOptions{
+		Config:           containerConfig,
+		HostConfig:       hostConfig,
+		NetworkingConfig: networkConfig,
+		Platform:         &v1.Platform{OS: "linux"},
+		Name:             environment.ServerID,
+	})
 	return err
 }
 
@@ -617,7 +628,8 @@ func (d *Docker) SendCodeImpl(environment *skypanel.Environment, code int) error
 	}
 
 	ctx := context.Background()
-	return dockerClient.ContainerKill(ctx, environment.ServerID, cast.ToString(code))
+	_, err = dockerClient.ContainerKill(ctx, environment.ServerID, client.ContainerKillOptions{Signal: cast.ToString(code)})
+	return err
 }
 
 func (d *Docker) GetUIDImpl(_ *skypanel.Environment) int {
@@ -636,17 +648,19 @@ func (d *Docker) GetGidImpl(_ *skypanel.Environment) int {
 	return cast.ToInt(strings.Split(user, ":")[1])
 }
 
-func (d *Docker) handleClose(environment *skypanel.Environment, client *client.Client, callback func(int)) {
+func (d *Docker) handleClose(environment *skypanel.Environment, dockerClient *client.Client, callback func(int)) {
 	exitCode := -1
-	okChan, errChan := client.ContainerWait(context.Background(), environment.ServerID, container.WaitConditionRemoved)
+	waitResult := dockerClient.ContainerWait(context.Background(), environment.ServerID, client.ContainerWaitOptions{
+		Condition: container.WaitConditionRemoved,
+	})
 
 	select {
-	case chanErr := <-errChan:
+	case chanErr := <-waitResult.Error:
 		{
 			exitCode = -999
 			environment.Log(logging.Error, "Error from error channel: %s\n", chanErr.Error())
 		}
-	case info := <-okChan:
+	case info := <-waitResult.Result:
 		{
 			exitCode = cast.ToInt(info.StatusCode)
 			if info.Error != nil {
@@ -712,4 +726,71 @@ func convertToBind(source string) string {
 	fullPath = strings.ToLower(string(fullPath[0])) + fullPath[1:]
 	fullPath = "/" + fullPath
 	return fullPath
+}
+
+// parsePortSpecs parses a slice of docker port spec strings into the moby
+// network.PortSet and network.PortMap types used by container.HostConfig.
+func parsePortSpecs(specs []string) (network.PortSet, network.PortMap, error) {
+	exposed := network.PortSet{}
+	bindings := network.PortMap{}
+
+	for _, spec := range specs {
+		for _, part := range strings.Split(spec, ",") {
+			part = strings.TrimSpace(part)
+			if part == "" {
+				continue
+			}
+
+			var proto string
+			host := ""
+			parts := strings.SplitN(part, "->", 2)
+			if len(parts) == 2 {
+				host = parts[0]
+				part = parts[1]
+			}
+
+			if idx := strings.LastIndex(part, "/"); idx != -1 {
+				proto = part[idx+1:]
+				part = part[:idx]
+				if proto == "" {
+					proto = "tcp"
+				}
+			} else {
+				proto = "tcp"
+			}
+
+			if idx := strings.LastIndex(part, ":"); idx != -1 {
+				part = part[idx+1:]
+			}
+
+			containerPort, err := network.ParsePort(part + "/" + proto)
+			if err != nil {
+				return nil, nil, err
+			}
+			exposed[containerPort] = struct{}{}
+
+			if host == "" {
+				continue
+			}
+
+			hostPort := host
+			if idx := strings.LastIndex(host, ":"); idx != -1 {
+				hostPort = host[idx+1:]
+			}
+
+			hostIP := netip.Addr{}
+			if idx := strings.LastIndex(host, ":"); idx != -1 {
+				if ip, ipErr := netip.ParseAddr(host[:idx]); ipErr == nil {
+					hostIP = ip
+				}
+			}
+
+			bindings[containerPort] = append(bindings[containerPort], network.PortBinding{
+				HostIP:   hostIP,
+				HostPort: hostPort,
+			})
+		}
+	}
+
+	return exposed, bindings, nil
 }

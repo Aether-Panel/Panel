@@ -88,7 +88,7 @@ func testDocker() bool {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	_, err = d.Ping(ctx)
+	_, err = d.Ping(ctx, client.PingOptions{})
 	return err == nil
 }
 

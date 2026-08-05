@@ -63,7 +63,7 @@ func (r Requirements) Test(server Server) error {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 
-		_, err = d.Ping(ctx)
+		_, err = d.Ping(ctx, client.PingOptions{})
 		if err != nil {
 			return ErrDockerNotSupported
 		}
