@@ -23,7 +23,6 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/network"
-	"github.com/moby/moby/api/types/strslice"
 	"github.com/moby/moby/client"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/spf13/cast"
@@ -314,7 +313,7 @@ func (d *Docker) GetStatsImpl(environment *skypanel.Environment) (*skypanel.Serv
 func (d *Docker) getClient() (*client.Client, error) {
 	var err error
 	if d.cli == nil {
-		d.cli, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+		d.cli, err = client.New(client.FromEnv)
 	}
 	return d.cli, err
 }
@@ -435,13 +434,11 @@ func (d *Docker) createContainer(ctx context.Context, environment *skypanel.Envi
 
 	cmd, args := utils.SplitArguments(data.Command)
 
-	cmdSlice := strslice.StrSlice{}
+	var cmdSlice []string
 	if data.Command != "" {
 		cmdSlice = append(cmdSlice, cmd)
 	}
-	for _, v := range args {
-		cmdSlice = append(cmdSlice, v)
-	}
+	cmdSlice = append(cmdSlice, args...)
 
 	environment.Log(logging.Debug, "Container command: %s\n", cmdSlice)
 

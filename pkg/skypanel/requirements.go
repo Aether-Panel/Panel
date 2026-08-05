@@ -55,7 +55,7 @@ func (r Requirements) Test(server Server) error {
 	}
 
 	if envType.Type == "docker" {
-		d, err := client.NewClientWithOpts(client.FromEnv)
+		d, err := client.New(client.FromEnv)
 		if err != nil {
 			return ErrDockerNotSupported
 		}

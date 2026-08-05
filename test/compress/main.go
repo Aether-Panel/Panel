@@ -11,8 +11,14 @@ import (
 
 func main() {
 	prefix := "test_server_dir"
-	os.MkdirAll(prefix, 0755)
-	os.WriteFile(filepath.Join(prefix, "file1.txt"), []byte("hello world"), 0644)
+	err := os.MkdirAll(prefix, 0755)
+	if err != nil {
+		panic(err)
+	}
+	err = os.WriteFile(filepath.Join(prefix, "file1.txt"), []byte("hello world"), 0644)
+	if err != nil {
+		panic(err)
+	}
 
 	targetFile := filepath.Join(prefix, "transfer.tar.gz")
 

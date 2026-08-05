@@ -13,8 +13,14 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	os.WriteFile("test_server_dir/file1.txt", []byte("hello world"), 0644)
-	os.WriteFile("test_server_dir/some_folder/file2.txt", []byte("hello world 2"), 0644)
+	err = os.WriteFile("test_server_dir/file1.txt", []byte("hello world"), 0644)
+	if err != nil {
+		panic(err)
+	}
+	err = os.WriteFile("test_server_dir/some_folder/file2.txt", []byte("hello world 2"), 0644)
+	if err != nil {
+		panic(err)
+	}
 
 	filenames := map[string]string{
 		"test_server_dir": ".",

@@ -80,7 +80,7 @@ func getFeatures(c *gin.Context) {
 }
 
 func testDocker() bool {
-	d, err := client.NewClientWithOpts(client.FromEnv)
+	d, err := client.New(client.FromEnv)
 	if err != nil {
 		return false
 	}

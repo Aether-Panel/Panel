@@ -46,7 +46,7 @@ func InitContainerMountSource() (err error) {
 	// we only need the file to exist, we never read or write, so close it right away
 	utils.Close(file)
 
-	docker, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	docker, err := client.New(client.FromEnv)
 	if err != nil {
 		return
 	}
