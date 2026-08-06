@@ -253,20 +253,23 @@ func walker(fs FileServer, targetPath, filter string, skipRoot bool) archives.Fi
 			return ErrPathTraversal
 		}
 
-		var joined string
-		if targetPath == "" {
-			joined = path
-		} else {
+		joined := path
+		if targetPath != "" {
 			joined = filepath.Join(targetPath, path)
 		}
-		cleanTarget := filepath.Clean(targetPath)
-		cleanJoined := filepath.Clean(joined)
-		if cleanTarget != "." && !strings.HasPrefix(cleanJoined, cleanTarget+string(filepath.Separator)) {
+		absJoined, err := filepath.Abs(joined)
+		if err != nil {
+			return err
+		}
+		absTarget, err := filepath.Abs(targetPath)
+		if err != nil {
+			return err
+		}
+		if absJoined != absTarget && !strings.HasPrefix(absJoined, absTarget+string(filepath.Separator)) {
 			return ErrPathTraversal
 		}
-		joined = cleanJoined
-		parent := filepath.Dir(joined)
-		path = joined
+		path = filepath.Clean(joined)
+		parent := filepath.Dir(path)
 
 		switch {
 		case file.IsDir():
