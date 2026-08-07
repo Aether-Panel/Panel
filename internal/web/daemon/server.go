@@ -266,8 +266,13 @@ func createServer(c *gin.Context) {
 	prg := servers.GetFromCache(serverID)
 
 	if prg != nil {
-		response.HandleError(c, skypanel.ErrServerAlreadyExists, http.StatusConflict)
-		return
+		// Un servidor ya existente en el nodo (p.ej. por una transferencia previa
+		// que no limpió el destino) bloquea el re-creado con un 409. Lo eliminamos
+		// para que la operación sea idempotente y el transfer round-trip funcione.
+		if err := servers.Delete(serverID); err != nil {
+			response.HandleError(c, err, http.StatusInternalServerError)
+			return
+		}
 	}
 
 	prg = servers.CreateProgram()
@@ -300,11 +305,13 @@ func createServer(c *gin.Context) {
 func deleteServer(c *gin.Context) {
 	server := getServerFromGin(c)
 
-	if running, err := server.IsRunning(); running || err != nil {
-		if response.HandleError(c, err, http.StatusInternalServerError) {
+	if running, err := server.IsRunning(); running {
+		if err = server.Kill(); response.HandleError(c, err, http.StatusInternalServerError) {
 			return
 		}
-		c.Status(http.StatusNoContent)
+		_ = server.RunningEnvironment.WaitForMainProcess()
+	} else if err != nil {
+		response.HandleError(c, err, http.StatusInternalServerError)
 		return
 	}
 
