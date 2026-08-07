@@ -143,6 +143,9 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
   const [newItemName, setNewItemName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [pendingFile, setPendingFile] = useState<FileItemResource | null>(null);
+  const [renameTarget, setRenameTarget] = useState<FileItemResource | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [isRenaming, setIsRenaming] = useState(false);
 
   const [clipboard, setClipboard] = useState<ClipboardItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -382,6 +385,45 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
     } finally {
       setIsLoading(false);
       setPendingFile(null);
+    }
+  };
+
+  const openRename = (file: FileItemResource) => {
+    setRenameTarget(file);
+    setRenameValue(file.name);
+  };
+
+  const closeRename = () => {
+    setRenameTarget(null);
+    setRenameValue('');
+    setIsRenaming(false);
+  };
+
+  const handleRename = async () => {
+    if (!renameTarget || !renameValue.trim() || isRenaming) return;
+    const newName = renameValue.trim();
+    if (newName === renameTarget.name) {
+      closeRename();
+      return;
+    }
+    setIsRenaming(true);
+    try {
+      const srcPath = currentPath ? `${currentPath}/${renameTarget.name}` : renameTarget.name;
+      const destPath = currentPath ? `${currentPath}/${newName}` : newName;
+      const response = await fetch(`/api/servers/${serverId}/file/${srcPath}?destination=${encodeURIComponent(destPath)}`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'No se pudo renombrar el elemento');
+      }
+      toast({ title: t('common.success'), description: t('servers.fileManager.toast.renamed') });
+      closeRename();
+      fetchFiles(currentPath);
+    } catch (e: any) {
+      toast({ title: t('common.error'), description: e.message || 'Error al renombrar.', variant: 'destructive' });
+      setIsRenaming(false);
     }
   };
 
@@ -663,6 +705,10 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
                                     {t('servers.fileManager.actions.unarchive')}
                                   </DropdownMenuItem>
                                 ) : null}
+                                <DropdownMenuItem onClick={() => openRename(file)}>
+                                  <Edit2 className="h-4 w-4 mr-2" />
+                                  {t('servers.fileManager.actions.rename')}
+                                </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => handleCopy(file, 'copy')}>
                                   <Copy className="h-4 w-4 mr-2" />
@@ -798,6 +844,40 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
             <Button onClick={handleCreateItem} disabled={isCreating || !newItemName}>
               {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {t('servers.fileManager.create')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rename Dialog */}
+      <Dialog open={!!renameTarget} onOpenChange={(open) => !open && closeRename()}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>{t('servers.fileManager.renameDialog.title')}</DialogTitle>
+            <DialogDescription>
+              {t('servers.fileManager.renameDialog.description', { name: renameTarget?.name ?? '' })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="rename">{t('servers.fileManager.nameLabel')}</Label>
+              <Input
+                id="rename"
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                placeholder={t('servers.fileManager.renameDialog.placeholder')}
+                autoFocus
+                onKeyDown={(e) => e.key === 'Enter' && handleRename()}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeRename}>
+              {t('common.cancel')}
+            </Button>
+            <Button onClick={handleRename} disabled={isRenaming || !renameValue.trim()}>
+              {isRenaming && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {t('servers.fileManager.actions.rename')}
             </Button>
           </DialogFooter>
         </DialogContent>

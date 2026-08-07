@@ -268,6 +268,11 @@
         "title": "Delete",
         "description": "Are you sure you want to delete {{name}}?"
       },
+      "renameDialog": {
+        "title": "Rename",
+        "description": "Rename {{name}}. You can also change the extension.",
+        "placeholder": "new-name.txt"
+      },
       "editor": {
         "title": "Editing: {{filename}}",
         "description": "Make the necessary changes and click save.",
@@ -285,7 +290,8 @@
         "cut": "Cut: {{name}}",
         "pasted": "Pasted successfully.",
         "moved": "Moved successfully.",
-        "extracted": "Extracted successfully."
+        "extracted": "Extracted successfully.",
+        "renamed": "Renamed successfully."
       }
     },
     "settings": {
