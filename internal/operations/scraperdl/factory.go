@@ -12,9 +12,9 @@ type OperationFactory struct {
 func (of OperationFactory) Create(op skypanel.CreateOperation) (skypanel.Operation, error) {
 	url := cast.ToString(op.OperationArgs["url"])
 	regex := cast.ToString(op.OperationArgs["regex"])
-	downloadUrl := cast.ToString(op.OperationArgs["downloadUrl"])
+	downloadURL := cast.ToString(op.OperationArgs["downloadUrl"])
 	outputVariable := cast.ToString(op.OperationArgs["outputVariable"])
-	return &ScraperDl{URL: url, Regex: regex, DownloadURL: downloadUrl, OutputVariable: outputVariable}, nil
+	return &ScraperDl{URL: url, Regex: regex, DownloadURL: downloadURL, OutputVariable: outputVariable}, nil
 }
 
 func (of OperationFactory) Key() string {

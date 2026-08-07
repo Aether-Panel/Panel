@@ -44,7 +44,7 @@ func (op GithubDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	var releaseData struct {
 		Assets []struct {
 			Name               string `json:"name"`
-			BrowserDownloadUrl string `json:"browser_download_url"`
+			BrowserDownloadURL string `json:"browser_download_url"`
 		} `json:"assets"`
 	}
 
@@ -52,20 +52,20 @@ func (op GithubDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 		return skypanel.OperationResult{Error: err}
 	}
 
-	var downloadUrl string
+	var downloadURL string
 	for _, asset := range releaseData.Assets {
 		if strings.Contains(asset.Name, op.AssetMatch) {
-			downloadUrl = asset.BrowserDownloadUrl
+			downloadURL = asset.BrowserDownloadURL
 			break
 		}
 	}
 
-	if downloadUrl == "" {
+	if downloadURL == "" {
 		return skypanel.OperationResult{Error: errors.New("no matching asset found in latest github release")}
 	}
 
-	env.DisplayToConsole(true, "Downloading %s\n", downloadUrl)
-	_, err = grab.Get(env.GetRootDirectory(), downloadUrl)
+	env.DisplayToConsole(true, "Downloading %s\n", downloadURL)
+	_, err = grab.Get(env.GetRootDirectory(), downloadURL)
 	if err != nil {
 		return skypanel.OperationResult{Error: err}
 	}
@@ -75,7 +75,7 @@ func (op GithubDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 		// the basename of the URL. Templates reference this variable as a local
 		// file path (e.g. in `extract source` / `move source` / `rm`), so we must
 		// expose the on-disk filename rather than the download URL.
-		localName := path.Base(downloadUrl)
+		localName := path.Base(downloadURL)
 		return skypanel.OperationResult{
 			VariableOverrides: map[string]interface{}{
 				op.OutputVariable: localName,

@@ -54,10 +54,10 @@ func (op ScraperDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 	match := matches[1]
 	env.DisplayToConsole(true, "Found version: %s\n", match)
 
-	finalDownloadUrl := strings.ReplaceAll(op.DownloadURL, "${match}", match)
+	finalDownloadURL := strings.ReplaceAll(op.DownloadURL, "${match}", match)
 
-	env.DisplayToConsole(true, "Downloading %s\n", finalDownloadUrl)
-	_, err = grab.Get(env.GetRootDirectory(), finalDownloadUrl)
+	env.DisplayToConsole(true, "Downloading %s\n", finalDownloadURL)
+	_, err = grab.Get(env.GetRootDirectory(), finalDownloadURL)
 	if err != nil {
 		return skypanel.OperationResult{Error: err}
 	}

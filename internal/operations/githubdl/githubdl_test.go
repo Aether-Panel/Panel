@@ -28,7 +28,7 @@ func (s *stubServer) GetFileServer() files.FileServer { return s.fs }
 func (s *stubServer) Extract(source, destination string) error {
 	return files.Extract(s.fs, source, destination, "*", false, nil)
 }
-func (s *stubServer) ArchiveItems(filesToArchive []string, destination string) error {
+func (s *stubServer) ArchiveItems(_ []string, _ string) error {
 	return nil
 }
 func (s *stubServer) DataToMap() map[string]interface{} { return nil }
