@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path"
 	"strings"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
@@ -18,10 +19,14 @@ type GithubDl struct {
 	OutputVariable string
 }
 
+var (
+	githubAPIBase = "https://api.github.com"
+)
+
 func (op GithubDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	env := args.Environment
 
-	url := fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", op.Repository)
+	url := fmt.Sprintf("%s/repos/%s/releases/latest", githubAPIBase, op.Repository)
 
 	env.DisplayToConsole(true, "Fetching latest release from %s\n", op.Repository)
 	logging.Debug.Printf("Fetching github release from %s", url)
@@ -66,9 +71,14 @@ func (op GithubDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	}
 
 	if op.OutputVariable != "" {
+		// The asset was just saved to the server root directory by grab using
+		// the basename of the URL. Templates reference this variable as a local
+		// file path (e.g. in `extract source` / `move source` / `rm`), so we must
+		// expose the on-disk filename rather than the download URL.
+		localName := path.Base(downloadUrl)
 		return skypanel.OperationResult{
 			VariableOverrides: map[string]interface{}{
-				op.OutputVariable: downloadUrl, // you might want to extract just the version here, but let's provide the full url or asset name?
+				op.OutputVariable: localName,
 			},
 			Error: nil,
 		}
