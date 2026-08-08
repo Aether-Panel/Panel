@@ -42,7 +42,7 @@ func main() {
 	// Paper 1.20.1 install (javaversion blank -> javadl skipped in host env)
 	server.Variables = map[string]skypanel.Variable{
 		"eula":        {Value: false},
-		"modlauncher":  {Value: "paper"},
+		"modlauncher": {Value: "paper"},
 		"version":     {Value: "1.20.1"},
 		"paperbuild":  {Value: "latest"},
 		"javaversion": {Value: ""},
@@ -61,13 +61,13 @@ func main() {
 			MetadataType: skypanel.MetadataType{Type: "javadl", Metadata: map[string]interface{}{"version": "${javaversion}"}},
 		},
 		{
-			If:           "modlauncher == 'paper'",
+			If: "modlauncher == 'paper'",
 			MetadataType: skypanel.MetadataType{Type: "paperdl", Metadata: map[string]interface{}{
 				"build": "${paperbuild}", "minecraftVersion": "${version}", "target": "server.jar",
 			}},
 		},
 		{
-			If:           "!file_exists(\"server.properties\")",
+			If: "!file_exists(\"server.properties\")",
 			MetadataType: skypanel.MetadataType{Type: "writefile", Metadata: map[string]interface{}{
 				"text": "server-ip=${ip}\nserver-port=${port}\nmotd=${motd}\n", "target": "server.properties",
 			}},

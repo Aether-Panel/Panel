@@ -51,7 +51,7 @@ func TestCompressAndExtractRoundTrip(t *testing.T) {
 	// Build a server root with a couple of nested files (the classic
 	// transfer layout: direct children of the root).
 	root := t.TempDir()
-	fs, err := NewFileServer(root, 0, 0)
+	fs, err := NewFileServer(root, -1, -1)
 	if !assert.NoError(t, err) {
 		t.FailNow()
 	}
@@ -72,7 +72,7 @@ func TestCompressAndExtractRoundTrip(t *testing.T) {
 	if !assert.NoError(t, os.MkdirAll(restoredRoot, 0755)) {
 		t.FailNow()
 	}
-	destFS, err := NewFileServer(restoredRoot, 0, 0)
+	destFS, err := NewFileServer(restoredRoot, -1, -1)
 	if !assert.NoError(t, err) {
 		t.FailNow()
 	}

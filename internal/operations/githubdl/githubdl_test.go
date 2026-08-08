@@ -84,7 +84,7 @@ func TestGithubDl_OutputVariableIsLocalFilename(t *testing.T) {
 		ConsoleBuffer:  skypanel.CreateCache(),
 		ConsoleTracker: skypanel.CreateTracker(),
 	}
-	fs, err := files.NewFileServer(rootDir, 0, 0)
+	fs, err := files.NewFileServer(rootDir, -1, -1)
 	if err != nil {
 		t.Fatalf("creating file server: %v", err)
 	}
