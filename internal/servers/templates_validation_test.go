@@ -36,12 +36,18 @@ func templateRepoRoot(t *testing.T) string {
 // the docker package tests).
 func TestTemplates_AllRegisteredAndStructured(t *testing.T) {
 	templatesDir := filepath.Join(templateRepoRoot(t), "Templates")
-	if _, err := os.Stat(templatesDir); err != nil {
+	_, err := os.Stat(templatesDir)
+	if os.IsNotExist(err) {
+		// Templates are fetched at runtime and the Templates/ directory is
+		// gitignored, so it is absent in a fresh CI checkout. Skip gracefully.
+		t.Skipf("Templates directory not present at %s (gitignored); skipping", templatesDir)
+	}
+	if err != nil {
 		t.Fatalf("Templates directory not found: %v", err)
 	}
 
 	var paths []string
-	err := filepath.WalkDir(templatesDir, func(p string, d fs.DirEntry, err error) error {
+	err = filepath.WalkDir(templatesDir, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
