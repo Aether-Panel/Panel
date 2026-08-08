@@ -13,10 +13,20 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	_ = config.ConsoleForward.Set(true, false)
 	_ = config.SecurityDisableUnshare.Set(true, false)
 
-	root, _ := os.MkdirTemp("", "reproinstall")
+	root, err := os.MkdirTemp("", "reproinstall")
+	if err != nil {
+		return fmt.Errorf("mkdir temp: %w", err)
+	}
 	defer os.RemoveAll(root)
 
 	workDir := filepath.Join(root, "srv")
@@ -35,8 +45,7 @@ func main() {
 
 	serverFolder := filepath.Join(workDir, serverID)
 	if err := os.MkdirAll(serverFolder, 0755); err != nil {
-		fmt.Println("mkdir error:", err)
-		os.Exit(2)
+		return fmt.Errorf("mkdir error: %w", err)
 	}
 
 	// Paper 1.20.1 install (javaversion blank -> javadl skipped in host env)
@@ -82,29 +91,26 @@ func main() {
 
 	env, err := servers.CreateEnvironment("host", workDir, "", server.Server)
 	if err != nil {
-		fmt.Println("CreateEnvironment error:", err)
-		os.Exit(2)
+		return fmt.Errorf("CreateEnvironment error: %w", err)
 	}
 	server.RunningEnvironment = env
 
 	fs, err := files.NewFileServer(serverFolder, 0, 0)
 	if err != nil {
-		fmt.Println("NewFileServer error:", err)
-		os.Exit(2)
+		return fmt.Errorf("NewFileServer error: %w", err)
 	}
 	server.SetFileServer(fs)
 
 	fmt.Println("Installing Paper 1.20.1 ...")
 	if err := server.Install(); err != nil {
-		fmt.Println("INSTALL FAILED:", err)
-		os.Exit(1)
+		return fmt.Errorf("install failed: %w", err)
 	}
 
 	rootDir := env.GetRootDirectory()
 	_, statErr := os.Stat(filepath.Join(rootDir, "server.jar"))
 	if statErr != nil {
-		fmt.Println("server.jar MISSING after install:", statErr)
-		os.Exit(1)
+		return fmt.Errorf("server.jar missing after install: %w", statErr)
 	}
 	fmt.Println("INSTALL OK: server.jar present in", rootDir)
+	return nil
 }
