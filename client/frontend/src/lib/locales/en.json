@@ -755,16 +755,16 @@
     },
     "deployDialog": {
       "title": "Deploy Node: {{name}}",
-      "description": "Follow these steps to set up and connect your new node.",
+      "description": "This node will be used as a slave: it adds capacity to run servers on another machine while the master panel centralizes management. The server will only run the Daemon (<code>panel.enable: false</code>) and connect to this Panel.",
       "step1": "Step 1: Install AetherPanel on the new server.",
-      "step1Description": "See the documentation for more details.",
+      "step1Description": "Install AetherPanel on the machine that will become the slave node. You can reuse the standard installer; you do not need to configure an additional Panel, only the Daemon.",
       "step2": "Step 2: Stop the AetherPanel service.",
-      "step2Description": "If it was started during installation, run the following command:",
+      "step2Description": "If it was started during installation and you want to apply the slave node configuration, run:",
       "step3": "Step 3: Replace the configuration file.",
-      "step3Description": "The file is located at <code>/etc/AetherPanel/config.json</code>. Replace its contents with the following:",
+      "step3Description": "Edit <code>/etc/AetherPanel/config.json</code> on the slave node and replace it with the following. With <code>panel.enable: false</code> the local Panel is disabled and the Daemon points to the master:",
       "step4": "Step 4: Enable and restart the service.",
-      "step4Description": "Run the following command to complete the setup:",
-      "successMessage": "Your new node is configured and ready to use!",
+      "step4Description": "Run the following command so the Daemon starts and securely connects to the Master Panel:",
+      "successMessage": "Your new slave node is configured and connected. You can now assign servers to it from the Master Panel!",
       "close": "Close"
     },
     "detail": {

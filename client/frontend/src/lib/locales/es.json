@@ -755,16 +755,16 @@
     },
     "deployDialog": {
       "title": "Desplegar Nodo: {{name}}",
-      "description": "Sigue estos pasos para configurar y conectar tu nuevo nodo.",
+      "description": "Este nodo se usará como esclavo: añade capacidad para ejecutar servidores en otra máquina mientras el Panel maestro centraliza la gestión. El servidor solo ejecutará el Daemon (<code>panel.enable: false</code>) y se conectará a este Panel.",
       "step1": "Paso 1: Instala AetherPanel en el nuevo servidor.",
-      "step1Description": "Consulta la documentación para más detalles.",
+      "step1Description": "Instala AetherPanel en la máquina que será el nodo esclavo. Puedes reutilizar el instalador estándar; no necesitas configurar un Panel adicional, solo el Daemon.",
       "step2": "Paso 2: Detén el servicio de AetherPanel.",
-      "step2Description": "Si se inició durante la instalación, ejecuta el siguiente comando:",
+      "step2Description": "Si se inició durante la instalación y quieres aplicar la configuración del nodo esclavo, ejecuta:",
       "step3": "Paso 3: Reemplaza el archivo de configuración.",
-      "step3Description": "El archivo se encuentra en <code>/etc/AetherPanel/config.json</code>. Reemplaza su contenido con lo siguiente:",
+      "step3Description": "Edita <code>/etc/AetherPanel/config.json</code> en el nodo esclavo y reemplázalo con el contenido siguiente. Con <code>panel.enable: false</code> se desactiva el Panel local y el Daemon apunta al maestro:",
       "step4": "Paso 4: Habilita y reinicia el servicio.",
-      "step4Description": "Ejecuta el siguiente comando para completar la configuración:",
-      "successMessage": "¡Tu nuevo nodo está configurado y listo para usar!",
+      "step4Description": "Ejecuta el siguiente comando para que el Daemon arranque y se conecte de forma segura al Panel maestro:",
+      "successMessage": "¡Tu nuevo nodo esclavo está configurado y conectado. Ya puedes asignarle servidores desde el Panel maestro!",
       "close": "Cerrar"
     },
     "detail": {
