@@ -27,6 +27,7 @@ import (
 
 type tty struct {
 	mainProcess   *exec.Cmd
+	processLocker sync.RWMutex
 	statLocker    sync.Mutex
 	lastStats     *skypanel.ServerStats
 	lastStatTime  time.Time
@@ -89,9 +90,8 @@ func (t *tty) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypanel
 		pr.Env = append(pr.Env, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	t.mainProcess = pr
 	environment.DisplayToConsole(true, "Starting process: %s", steps.Command)
-	environment.Log(logging.Info, "Starting process in directory [%s]: %s", t.mainProcess.Dir, strings.Join(t.mainProcess.Args, " "))
+	environment.Log(logging.Info, "Starting process in directory [%s]: %s", pr.Dir, strings.Join(pr.Args, " "))
 
 	_ = environment.StatusTracker.WriteMessage(skypanel.Transmission{
 		Message: skypanel.ServerRunning{
@@ -119,6 +119,14 @@ func (t *tty) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypanel
 		return
 	}
 
+	// Publish the process only after pty.Start has fully initialized it
+	// (pty.Start -> Cmd.Start writes cmd.Process). Publishing earlier lets a
+	// concurrent Stop/IsRunning observe a half-initialized command, which the
+	// race detector flags (data race between Cmd.Start and IsRunningImpl).
+	t.processLocker.Lock()
+	t.mainProcess = pr
+	t.processLocker.Unlock()
+
 	// if !t.disableStdin {
 	//	environment.CreateConsoleStdinProxy(steps.StdInConfig, processTty)
 	//}
@@ -142,7 +150,10 @@ func (t *tty) KillImpl(environment *skypanel.Environment) (err error) {
 	if !running {
 		return
 	}
-	return t.mainProcess.Process.Kill()
+	t.processLocker.RLock()
+	mainProcess := t.mainProcess
+	t.processLocker.RUnlock()
+	return mainProcess.Process.Kill()
 }
 
 func (t *tty) GetStatsImpl(environment *skypanel.Environment) (*skypanel.ServerStats, error) {
@@ -172,7 +183,14 @@ func (t *tty) GetStatsImpl(environment *skypanel.Environment) (*skypanel.ServerS
 		return t.lastStats, nil
 	}
 
-	pr, err := process.NewProcess(int32(t.mainProcess.Process.Pid))
+	t.processLocker.RLock()
+	mainProcess := t.mainProcess
+	t.processLocker.RUnlock()
+	if mainProcess == nil || mainProcess.Process == nil {
+		return nil, errors.New("process is not running")
+	}
+
+	pr, err := process.NewProcess(int32(mainProcess.Process.Pid))
 	if err != nil {
 		return nil, err
 	}
@@ -260,7 +278,13 @@ func (t *tty) SendCodeImpl(environment *skypanel.Environment, code int) error {
 		return err
 	}
 
-	return t.mainProcess.Process.Signal(syscall.Signal(code))
+	t.processLocker.RLock()
+	mainProcess := t.mainProcess
+	t.processLocker.RUnlock()
+	if mainProcess == nil || mainProcess.Process == nil {
+		return errors.New("process is not running")
+	}
+	return mainProcess.Process.Signal(syscall.Signal(code))
 }
 
 func (t *tty) GetUIDImpl(*skypanel.Environment) int {
@@ -272,9 +296,12 @@ func (t *tty) GetGidImpl(*skypanel.Environment) int {
 }
 
 func (t *tty) IsRunningImpl(*skypanel.Environment) (isRunning bool, err error) {
-	isRunning = t.mainProcess != nil && t.mainProcess.Process != nil
+	t.processLocker.RLock()
+	mainProcess := t.mainProcess
+	t.processLocker.RUnlock()
+	isRunning = mainProcess != nil && mainProcess.Process != nil
 	if isRunning {
-		pr, pErr := os.FindProcess(t.mainProcess.Process.Pid)
+		pr, pErr := os.FindProcess(mainProcess.Process.Pid)
 		if pr == nil || pErr != nil {
 			isRunning = false
 		} else if pr.Signal(syscall.Signal(0)) != nil {
@@ -285,12 +312,20 @@ func (t *tty) IsRunningImpl(*skypanel.Environment) (isRunning bool, err error) {
 }
 
 func (t *tty) handleClose(environment *skypanel.Environment, callback func(exitCode int)) {
-	err := t.mainProcess.Wait()
+	t.processLocker.RLock()
+	mainProcess := t.mainProcess
+	t.processLocker.RUnlock()
+	if mainProcess == nil {
+		environment.Wait.Done()
+		return
+	}
+
+	err := mainProcess.Wait()
 
 	_ = environment.Console.Close()
 
 	var exitCode int
-	if t.mainProcess.ProcessState == nil || err != nil {
+	if mainProcess.ProcessState == nil || err != nil {
 		var psErr *exec.ExitError
 		if errors.As(err, &psErr) {
 			exitCode = psErr.ExitCode()
@@ -298,7 +333,7 @@ func (t *tty) handleClose(environment *skypanel.Environment, callback func(exitC
 			exitCode = 1
 		}
 	} else {
-		exitCode = t.mainProcess.ProcessState.ExitCode()
+		exitCode = mainProcess.ProcessState.ExitCode()
 	}
 	environment.LastExitCode = exitCode
 
@@ -307,12 +342,12 @@ func (t *tty) handleClose(environment *skypanel.Environment, callback func(exitC
 		environment.DisplayToConsole(true, "Error waiting on process: %s", err)
 	}
 
-	if t.mainProcess != nil && t.mainProcess.ProcessState != nil {
-		environment.Log(logging.Debug, "%s\n", t.mainProcess.ProcessState.String())
+	if mainProcess.ProcessState != nil {
+		environment.Log(logging.Debug, "%s\n", mainProcess.ProcessState.String())
 	}
 
-	if t.mainProcess != nil && t.mainProcess.Process != nil {
-		_ = t.mainProcess.Process.Release()
+	if mainProcess.Process != nil {
+		_ = mainProcess.Process.Release()
 	}
 
 	t.statLocker.Lock()
@@ -321,14 +356,16 @@ func (t *tty) handleClose(environment *skypanel.Environment, callback func(exitC
 	t.statLocker.Unlock()
 
 	// if we are using unshare AND we're in tmp, we can nuke the workspace at this point
-	if !t.DisableUnshare && strings.HasPrefix(t.mainProcess.Dir, os.TempDir()) {
-		err = os.RemoveAll(t.mainProcess.Dir)
+	if !t.DisableUnshare && strings.HasPrefix(mainProcess.Dir, os.TempDir()) {
+		err = os.RemoveAll(mainProcess.Dir)
 		if err != nil {
-			logging.Debug.Printf("Failed to delete %s: %s", t.mainProcess.Dir, err.Error())
+			logging.Debug.Printf("Failed to delete %s: %s", mainProcess.Dir, err.Error())
 		}
 	}
 
+	t.processLocker.Lock()
 	t.mainProcess = nil
+	t.processLocker.Unlock()
 
 	environment.Wait.Done()
 
@@ -393,7 +430,13 @@ func socketPath(pid int) string {
 }
 
 func (t *tty) initiateJCMD() (*net.UnixConn, error) {
-	pid := t.mainProcess.Process.Pid
+	t.processLocker.RLock()
+	mainProcess := t.mainProcess
+	t.processLocker.RUnlock()
+	if mainProcess == nil || mainProcess.Process == nil {
+		return nil, errors.New("process is not running")
+	}
+	pid := mainProcess.Process.Pid
 	sock := socketPath(pid)
 
 	// Check if the UNIX socket is active

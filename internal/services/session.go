@@ -12,6 +12,11 @@ import (
 	"gorm.io/gorm"
 )
 
+// SessionLength is the lifetime of a session. With sliding expiration (see
+// Validate) the clock is renewed on activity, so a session only expires after
+// this much time has passed without any authenticated request.
+const SessionLength = time.Hour
+
 type Session struct {
 	DB *gorm.DB
 }
@@ -31,7 +36,7 @@ func (ss *Session) CreateForUser(user *models.User) (string, error) {
 
 	session := &models.Session{
 		Token:          res,
-		ExpirationTime: time.Now().Add(time.Hour),
+		ExpirationTime: time.Now().Add(SessionLength),
 		UserID:         &user.ID,
 	}
 
@@ -54,7 +59,7 @@ func (ss *Session) CreateForClient(client *models.Client) (string, error) {
 
 	session := &models.Session{
 		Token:          res,
-		ExpirationTime: time.Now().Add(time.Hour),
+		ExpirationTime: time.Now().Add(SessionLength),
 		ClientID:       &client.ID,
 		UserID:         &client.UserID,
 	}
@@ -76,8 +81,24 @@ func (ss *Session) Validate(token string) (*models.Session, error) {
 	query = query.Where(session)
 
 	err = query.First(session).Error
+	if err != nil {
+		return nil, err
+	}
 
-	return session, err
+	// Sliding expiration: renew the session while the user is active so it only
+	// expires after a stretch of true inactivity. To avoid a write on every
+	// request we only refresh once more than half the lifetime has elapsed.
+	if time.Until(session.ExpirationTime) < SessionLength/2 {
+		newExpiration := time.Now().Add(SessionLength)
+		if upErr := ss.DB.Model(&models.Session{}).
+			Where("token = ?", session.Token).
+			Update("expiration_time", newExpiration).Error; upErr != nil {
+			return nil, upErr
+		}
+		session.ExpirationTime = newExpiration
+	}
+
+	return session, nil
 }
 
 func (ss *Session) ValidateNode(token string) (*models.Node, error) {
