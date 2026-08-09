@@ -977,10 +977,10 @@
   resolved "https://registry.yarnpkg.com/@hono/node-server/-/node-server-2.1.0.tgz#c1823e1b9add6bdd14807fbbfec39b8b80614b25"
   integrity sha512-XovyyCCnBzW+zKu+z/zq8hwNs4KOR5rEMAOxo2f40Q5xoOI37IMm6MIg2COOUtUApo0i6850MTBKH2u4QLGIqg==
 
-"@hookform/resolvers@^5.5.1":
-  version "5.5.1"
-  resolved "https://registry.yarnpkg.com/@hookform/resolvers/-/resolvers-5.5.1.tgz#e198f8c68378923f641966943aed09199e8262ec"
-  integrity sha512-OjJoswUdmOSKTojFaSLjxHyORcbNbHsmxhFNWeVHWEGVYctQaUXOqEr7GkMKEJu8yGCRvnjueAPmsY8oSBYjKw==
+"@hookform/resolvers@^5.7.1":
+  version "5.7.1"
+  resolved "https://registry.yarnpkg.com/@hookform/resolvers/-/resolvers-5.7.1.tgz#c2c3067066d4ac94411d4583c9522901951a2a12"
+  integrity sha512-8wS/P4UDr5sQDe4nFaV51TVyfDPrWgNIXweqG0Bs9Z5LSuzKLb+RQNPvkN2oHM5SRrJyWrVH/F+LOUcFjUyvwQ==
   dependencies:
     "@standard-schema/utils" "^0.3.0"
 
