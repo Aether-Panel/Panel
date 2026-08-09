@@ -268,6 +268,11 @@
         "title": "Delete",
         "description": "Are you sure you want to delete {{name}}?"
       },
+      "renameDialog": {
+        "title": "Rename",
+        "description": "Rename {{name}}. You can also change the extension.",
+        "placeholder": "new-name.txt"
+      },
       "editor": {
         "title": "Editing: {{filename}}",
         "description": "Make the necessary changes and click save.",
@@ -285,7 +290,8 @@
         "cut": "Cut: {{name}}",
         "pasted": "Pasted successfully.",
         "moved": "Moved successfully.",
-        "extracted": "Extracted successfully."
+        "extracted": "Extracted successfully.",
+        "renamed": "Renamed successfully."
       }
     },
     "settings": {
@@ -749,16 +755,16 @@
     },
     "deployDialog": {
       "title": "Deploy Node: {{name}}",
-      "description": "Follow these steps to set up and connect your new node.",
-      "step1": "Step 1: Install AetherPanel on the new server.",
-      "step1Description": "See the documentation for more details.",
-      "step2": "Step 2: Stop the AetherPanel service.",
-      "step2Description": "If it was started during installation, run the following command:",
-      "step3": "Step 3: Replace the configuration file.",
-      "step3Description": "The file is located at <code>/etc/AetherPanel/config.json</code>. Replace its contents with the following:",
-      "step4": "Step 4: Enable and restart the service.",
-      "step4Description": "Run the following command to complete the setup:",
-      "successMessage": "Your new node is configured and ready to use!",
+      "description": "This node will be used as a slave: it adds capacity to run servers on another machine while the master panel centralizes management. The server will only run the Daemon (<code>PUFFER_PANEL_ENABLE=false</code>) and connect to this Panel.",
+      "step1": "Step 1: Install Docker on the new server.",
+      "step1Description": "Install Docker Engine and the Docker Compose plugin on the machine that will become the slave node. Since AetherPanel runs in Docker, you do not need to configure an additional Panel, only the Daemon.",
+      "step2": "Step 2: Create the deploy folder.",
+      "step2Description": "Create the folder where you will place the <code>docker-compose.yml</code> file and the SkyPanel data folders:",
+      "step3": "Step 3: Create the docker-compose.yml file.",
+      "step3Description": "Create a <code>docker-compose.yml</code> file in that folder with the following content. With <code>PUFFER_PANEL_ENABLE=false</code> the local Panel is disabled and the Daemon points to the master (adjust the master IP if it differs from this URL):",
+      "step4": "Step 4: Start the container.",
+      "step4Description": "Run the following command so the Daemon starts inside Docker and securely connects to the Master Panel:",
+      "successMessage": "Your new slave node is configured and connected. You can now assign servers to it from the Master Panel!",
       "close": "Close"
     },
     "detail": {

@@ -3,35 +3,40 @@ package paperdl
 import (
 	"crypto"
 	"encoding/json"
-	"errors"
+	"fmt"
+	"net/http"
+	"net/url"
+	"path"
+
 	"github.com/SkyPanel/SkyPanel/v3/files"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/hashicorp/go-version"
-	"net/http"
-	"net/url"
-	"path"
-	"strings"
 )
 
-const VersionsURL = "https://fill.papermc.io/v3/projects/paper/versions"
-const BuildURL = "https://fill.papermc.io/v3/projects/paper/versions/${mcVersion}/builds/${build}"
-
 var UserAgent = skypanel.Display + " https://github.com/SkyPanel/SkyPanel"
+
+// DefaultProject is used when a template does not specify a PaperMC project.
+const DefaultProject = "paper"
 
 type PaperDl struct {
 	MinecraftVersion string
 	Build            string
 	Filename         string
+	Project          string
 }
 
 func (op PaperDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	env := args.Environment
 
+	if op.Project == "" {
+		op.Project = DefaultProject
+	}
+
 	if op.MinecraftVersion == "latest" {
-		logging.Info.Printf("PaperDL got Minecraft version 'latest', looking up latest version supported by Paper")
-		mcVersion, err := getLatestMCVersion()
+		logging.Info.Printf("PaperDL got Minecraft version 'latest', looking up latest version supported by %s", op.Project)
+		mcVersion, err := getLatestVersion(op.Project)
 		if err != nil {
 			return skypanel.OperationResult{Error: err}
 		}
@@ -57,15 +62,15 @@ func (op PaperDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	return skypanel.OperationResult{Error: nil}
 }
 
-func getLatestMCVersion() (string, error) {
-	path, err := url.Parse(VersionsURL)
+func getLatestVersion(project string) (string, error) {
+	u, err := url.Parse(fmt.Sprintf("https://fill.papermc.io/v3/projects/%s/versions", project))
 	if err != nil {
 		return "", err
 	}
 
 	request := &http.Request{
 		Method: "GET",
-		URL:    path,
+		URL:    u,
 		Header: http.Header{},
 	}
 	request.Header.Add("user-agent", UserAgent)
@@ -91,12 +96,13 @@ func getLatestMCVersion() (string, error) {
 		}
 	}
 
-	logging.Info.Printf("Latest Minecraft version supported by Paper is %s", latest.Original())
+	logging.Info.Printf("Latest version supported by %s is %s", project, latest.Original())
 	return latest.Original(), nil
 }
 
 func (op PaperDl) getDownloadURLAndHash(env *skypanel.Environment) (string, string, error) {
-	path, err := url.Parse(strings.ReplaceAll(strings.ReplaceAll(BuildURL, "${mcVersion}", op.MinecraftVersion), "${build}", op.Build))
+	buildPath := fmt.Sprintf("https://fill.papermc.io/v3/projects/%s/versions/%s/builds/%s", op.Project, op.MinecraftVersion, op.Build)
+	path, err := url.Parse(buildPath)
 	if err != nil {
 		return "", "", err
 	}
@@ -115,8 +121,8 @@ func (op PaperDl) getDownloadURLAndHash(env *skypanel.Environment) (string, stri
 	}
 
 	if response.StatusCode == 404 {
-		env.DisplayToConsole(true, "Invalid Minecraft version or Paper build\n")
-		return "", "", errors.New("invalid minecraft version or paper build")
+		env.DisplayToConsole(true, "Invalid %s version or build\n", op.Project)
+		return "", "", fmt.Errorf("invalid %s version or build", op.Project)
 	}
 
 	var build PaperBuild

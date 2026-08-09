@@ -108,7 +108,7 @@ func performInternalTransfer(server *models.Server, targetNode *models.Node, db 
 
 	// 4. Archive files on Source Node
 	logging.Info.Printf("Archiving files for %s on source node", server.Identifier)
-	archiveBody := bytes.NewReader([]byte(`["."] `))
+	archiveBody := bytes.NewReader([]byte(`["*"]`))
 	headersArch := http.Header{}
 	headersArch.Set("Content-Type", "application/json")
 	res, err := ns.CallNode(&server.Node, "POST", fmt.Sprintf("/daemon/server/%s/archive/transfer.tar.gz", server.Identifier), io.NopCloser(archiveBody), headersArch)
@@ -169,7 +169,7 @@ func performInternalTransfer(server *models.Server, targetNode *models.Node, db 
 
 	// 6. Extract on target node
 	logging.Info.Printf("Extracting files on target node for %s", server.Identifier)
-	extractRes, err := ns.CallNode(targetNode, "POST", fmt.Sprintf("/daemon/server/%s/extract/transfer.tar.gz?destination=.&skipRoot", server.Identifier), nil, nil)
+	extractRes, err := ns.CallNode(targetNode, "POST", fmt.Sprintf("/daemon/server/%s/extract/transfer.tar.gz?destination=.", server.Identifier), nil, nil)
 	if err != nil || (extractRes != nil && extractRes.StatusCode != http.StatusNoContent && extractRes.StatusCode != http.StatusOK) {
 		errorMsg := "unknown error"
 		if extractRes != nil {
