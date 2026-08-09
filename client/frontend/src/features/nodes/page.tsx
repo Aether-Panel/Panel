@@ -183,22 +183,34 @@ export default function NodesPage() {
     );
   };
 
-  const deployConfigJson = deployingNode ? JSON.stringify({
-    "logs": "/var/log/AetherPanel",
-    "web": { "host": "0.0.0.0:8080" },
-    "token": { "public": `${typeof window !== 'undefined' ? window.location.origin : 'https://192.168.0.12:8080'}/auth/publickey` },
-    "panel": { "enable": false },
-    "daemon": {
-      "auth": {
-        "url": `${typeof window !== 'undefined' ? window.location.origin : 'https://192.168.0.12:8080'}/oauth2/token`,
-        "clientId": `.node_${String(deployingNode.id).includes('-') ? String(deployingNode.id).split('-')[1] : deployingNode.id}`,
-        "clientSecret": "7bdb03bbfbd44aeda8e2a4fc52035c38",
-        "publicKey": ""
-      },
-      "data": { "root": "/var/lib/AetherPanel" },
-      "sftp": { "host": `0.0.0.0:${deployingNode.sftpPort}` }
-    }
-  }, null, 2) : '';
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://192.168.0.12:8080';
+  const clientId = deployingNode ? `.node_${String(deployingNode.id).includes('-') ? String(deployingNode.id).split('-')[1] : deployingNode.id}` : '';
+  const deployCompose = deployingNode ? [
+    'services:',
+    '  skypanel:',
+    '    image: ghcr.io/aether-panel/panel',
+    '    container_name: skypanel',
+    '    restart: unless-stopped',
+    '    ports:',
+    '      - "8080:8080"',
+    `      - "${deployingNode.sftpPort}:${deployingNode.sftpPort}"`,
+    '    volumes:',
+    '      - ./storage/skypanel-data:/var/lib/SkyPanel',
+    '      - ./storage/skypanel-logs:/var/log/SkyPanel',
+    '      - //var/run/docker.sock:/var/run/docker.sock',
+    '    environment:',
+    '      - GIN_MODE=release',
+    '      - PUFFER_PLATFORM=docker',
+    '      - PUFFER_WEB_HOST=0.0.0.0:8080',
+    '      - PUFFER_PANEL_ENABLE=false',
+    `      - PUFFER_PANEL_SETTINGS_MASTERURL=${origin}`,
+    `      - PUFFER_TOKEN_PUBLIC=${origin}/auth/publickey`,
+    `      - PUFFER_DAEMON_AUTH_URL=${origin}/oauth2/token`,
+    `      - PUFFER_DAEMON_AUTH_CLIENTID=${clientId}`,
+    '      - PUFFER_DAEMON_AUTH_CLIENTSECRET=7bdb03bbfbd44aeda8e2a4fc52035c38',
+    `      - PUFFER_DAEMON_SFTP_HOST=0.0.0.0:${deployingNode.sftpPort}`,
+    '    user: "0:0"'
+  ].join('\n') : '';
 
   if (!isMounted || !hasScope('nodes.view') || nodesLoading || serversLoading) {
     return (
@@ -503,7 +515,7 @@ export default function NodesPage() {
               <div>
                 <h4 className="font-semibold">{t('nodes.deployDialog.step2')}</h4>
                 <p className="text-sm text-muted-foreground">{t('nodes.deployDialog.step2Description')}</p>
-                <CopyableCode command="sudo systemctl stop AetherPanel" />
+                <CopyableCode command="mkdir -p /opt/AetherPanel && cd /opt/AetherPanel" />
               </div>
             </div>
             <div className="flex gap-4 items-start">
@@ -511,7 +523,7 @@ export default function NodesPage() {
               <div>
                 <h4 className="font-semibold">{t('nodes.deployDialog.step3')}</h4>
                 <p className="text-sm text-muted-foreground" dangerouslySetInnerHTML={{ __html: t('nodes.deployDialog.step3Description') }}></p>
-                <CopyableCode command={deployConfigJson} />
+                <CopyableCode command={deployCompose} />
               </div>
             </div>
             <div className="flex gap-4 items-start">
@@ -519,6 +531,7 @@ export default function NodesPage() {
               <div>
                 <h4 className="font-semibold">{t('nodes.deployDialog.step4')}</h4>
                 <p className="text-sm text-muted-foreground">{t('nodes.deployDialog.step4Description')}</p>
+                <CopyableCode command="docker compose up -d" />
                 <p className="mt-4 text-sm font-semibold text-green-500">{t('nodes.deployDialog.successMessage')}</p>
               </div>
             </div>

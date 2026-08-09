@@ -84,7 +84,7 @@ func RegisterServerRoutes(e *gin.RouterGroup) {
 		l.GET("/:serverId/file/*filename", middleware.ResolveServerNode, getFile)
 		l.PUT("/:serverId/file/*filename", middleware.ResolveServerNode, putFile)
 		l.DELETE("/:serverId/file/*filename", middleware.ResolveServerNode, deleteFile)
-		l.POST("/:serverId/file/*filename", middleware.ResolveServerNode, response.NotImplemented)
+		l.POST("/:serverId/file/*filename", middleware.ResolveServerNode, moveFile)
 		l.OPTIONS("/:serverId/file/*filename", response.CreateOptions("GET", "PUT", "DELETE", "POST"))
 
 		l.GET("/:serverId/console", middleware.ResolveServerNode, getLogs)
@@ -266,8 +266,13 @@ func createServer(c *gin.Context) {
 	prg := servers.GetFromCache(serverID)
 
 	if prg != nil {
-		response.HandleError(c, skypanel.ErrServerAlreadyExists, http.StatusConflict)
-		return
+		// Un servidor ya existente en el nodo (p.ej. por una transferencia previa
+		// que no limpió el destino) bloquea el re-creado con un 409. Lo eliminamos
+		// para que la operación sea idempotente y el transfer round-trip funcione.
+		if err := servers.Delete(serverID); err != nil {
+			response.HandleError(c, err, http.StatusInternalServerError)
+			return
+		}
 	}
 
 	prg = servers.CreateProgram()
@@ -300,11 +305,13 @@ func createServer(c *gin.Context) {
 func deleteServer(c *gin.Context) {
 	server := getServerFromGin(c)
 
-	if running, err := server.IsRunning(); running || err != nil {
-		if response.HandleError(c, err, http.StatusInternalServerError) {
+	if running, err := server.IsRunning(); running {
+		if err = server.Kill(); response.HandleError(c, err, http.StatusInternalServerError) {
 			return
 		}
-		c.Status(http.StatusNoContent)
+		_ = server.RunningEnvironment.WaitForMainProcess()
+	} else if err != nil {
+		response.HandleError(c, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -749,6 +756,52 @@ func deleteFile(c *gin.Context) {
 	}
 
 	if !response.HandleError(c, err, http.StatusInternalServerError) {
+		c.Status(http.StatusNoContent)
+	}
+}
+
+// @Summary Rename or move a file/folder
+// @Description Renames or moves a file/folder to a new path, allowing the name
+// @Description and extension to be changed (e.g. config.json -> config.yaml).
+// @Success 204 {object} nil
+// @Param id path string true "Server ID"
+// @Param filepath path string true "Current file path"
+// @Param destination query string true "New file path"
+// @Tags Daemon Server
+// @Router /api/servers/{id}/file/{filepath} [post]
+// @Security OAuth2Application[server.files.edit]
+func moveFile(c *gin.Context) {
+	server := getServerFromGin(c)
+
+	source := strings.TrimPrefix(c.Param("filename"), "/")
+	destination := c.Query("destination")
+
+	if !filepath.IsLocal(source) {
+		_ = c.AbortWithError(http.StatusBadRequest, fmt.Errorf("invalid source path: %s", source))
+		return
+	}
+	if destination == "" {
+		_ = c.AbortWithError(http.StatusBadRequest, fmt.Errorf("destination path is required"))
+		return
+	}
+	if !filepath.IsLocal(destination) {
+		_ = c.AbortWithError(http.StatusBadRequest, fmt.Errorf("invalid destination path: %s", destination))
+		return
+	}
+
+	fs := server.GetFileServer()
+
+	if _, err := fs.Stat(source); response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	// Do not silently overwrite an existing file/folder
+	if _, err := fs.Stat(destination); err == nil {
+		response.HandleError(c, skypanel.ErrFileExists, http.StatusBadRequest)
+		return
+	}
+
+	if err := fs.Rename(source, destination); !response.HandleError(c, err, http.StatusInternalServerError) {
 		c.Status(http.StatusNoContent)
 	}
 }
