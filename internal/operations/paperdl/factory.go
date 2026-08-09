@@ -14,6 +14,7 @@ func (of OperationFactory) Create(op skypanel.CreateOperation) (skypanel.Operati
 	minecraftVersion := cast.ToString(op.OperationArgs["minecraftVersion"])
 	build := cast.ToString(op.OperationArgs["build"])
 	filename := cast.ToString(op.OperationArgs["target"])
+	project := cast.ToString(op.OperationArgs["project"])
 
 	if minecraftVersion == "" {
 		return nil, errors.New("missing minecraftVersion")
@@ -23,7 +24,7 @@ func (of OperationFactory) Create(op skypanel.CreateOperation) (skypanel.Operati
 		return nil, errors.New("missing build")
 	}
 
-	return PaperDl{MinecraftVersion: minecraftVersion, Build: build, Filename: filename}, nil
+	return PaperDl{MinecraftVersion: minecraftVersion, Build: build, Filename: filename, Project: project}, nil
 }
 
 func (of OperationFactory) Key() string {
