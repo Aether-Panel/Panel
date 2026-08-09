@@ -138,7 +138,7 @@ func createSession(c *gin.Context, user *models.User) {
 	data.Session = session // Expose session token for external App auth
 	secure := isRequestSecure(c)
 
-	maxAge := int(time.Hour / time.Second)
+	maxAge := int(services.SessionLength / time.Second)
 
 	c.SetCookie("puffer_auth", session, maxAge, "/", "", secure, true)
 

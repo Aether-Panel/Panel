@@ -756,7 +756,16 @@ func parsePortSpecs(specs []string) (network.PortSet, network.PortMap, error) {
 				proto = "tcp"
 			}
 
+			// The container port is everything after the final ":".
 			if idx := strings.LastIndex(part, ":"); idx != -1 {
+				// Without an explicit "HOST->CONTAINER" separator, interpret the
+				// leading part as the host binding using Docker's classic
+				// "[IP:]HOST_PORT:CONTAINER_PORT[/PROTO]" syntax (e.g.
+				// "0.0.0.0:25565:25565/tcp" from the templates). This keeps
+				// both the legacy PufferPanel format and the template format working.
+				if len(parts) != 2 {
+					host = part[:idx]
+				}
 				part = part[idx+1:]
 			}
 

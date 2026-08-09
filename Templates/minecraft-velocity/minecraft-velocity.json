@@ -1,0 +1,130 @@
+{
+  "type": "minecraft-java",
+  "display": "Velocity - Minecraft",
+  "icon": "minecraft-java",
+  "data": {
+    "cpu": {
+      "type": "integer",
+      "value": 100,
+      "display": "CPU (100% = 1 thread)",
+      "desc": "CPU allocation in threads. 100% = 1 thread, 200% = 2 threads, 1000% = 10 threads",
+      "required": true,
+      "userEdit": false
+    },
+    "disk": {
+      "type": "integer",
+      "value": 10240,
+      "display": "Disk (MB)",
+      "desc": "Disk space allocation in MB (10240 MB = 10 GB)",
+      "required": true,
+      "userEdit": false
+    },
+    "build": {
+      "type": "integer",
+      "value": 615,
+      "display": "Velocity Build",
+      "desc": "Build of the Velocity Version to use",
+      "required": true,
+      "userEdit": true
+    },
+    "ip": {
+      "type": "string",
+      "value": "0.0.0.0",
+      "display": "IP",
+      "desc": "What IP to bind the server to",
+      "required": true,
+      "userEdit": false
+    },
+    "javaVersion": {
+      "type": "string",
+      "value": "25",
+      "display": "Java Version",
+      "desc": "Java version to run Velocity with. Velocity 4.x requires Java 25; leave the default unless you are running an older 3.x version older than 3.5.1.",
+      "required": true,
+      "userEdit": true
+    },
+    "memory": {
+      "type": "integer",
+      "value": 512,
+      "display": "Memory (MB)",
+      "desc": "How much memory in MB to allocate to the Waterfall server. It is generally recommended to allocated 512MB RAM for every 500 players. Please keep in mind that additional plugins may impact the amount needed in your case.",
+      "required": true,
+      "userEdit": false
+    },
+    "motd": {
+      "type": "string",
+      "value": "A Velocity proxy &9hosted on PufferPanel",
+      "display": "MOTD message of the day",
+      "desc": "This is the message that is displayed in the server list of the client, below the name. The MOTD does support <a href='https://minecraft.gamepedia.com/Formatting_codes' target='_blank'>color and formatting codes</a>.",
+      "required": true,
+      "userEdit": true
+    },
+    "port": {
+      "type": "integer",
+      "value": 25565,
+      "display": "Port",
+      "desc": "What port to bind the server to",
+      "required": true,
+      "userEdit": false
+    },
+    "version": {
+      "type": "string",
+      "value": "3.5.1",
+      "display": "Velocity Version",
+      "desc": "Version of Velocity to install.",
+      "required": true,
+      "userEdit": true
+    }
+  },
+  "install": [
+    {
+      "if": "env == 'host' && javaVersion != ''",
+      "type": "javadl",
+      "version": "${javaVersion}"
+    },
+    {
+      "type": "paperdl",
+      "project": "velocity",
+      "minecraftVersion": "${version}",
+      "build": "${build}",
+      "target": "velocity.jar"
+    }
+  ],
+  "run": {
+    "command": [
+      {
+        "command": "java${javaVersion} -Xmx${memory}M -Xms${memory}M -Dterminal.jline=false -Dterminal.ansi=true -Dlog4j2.formatMsgNoLookups=true -jar velocity.jar",
+        "if": "env == 'host' && javaVersion != ''"
+      },
+      {
+        "command": "java -Xmx${memory}M -Xms${memory}M -Dterminal.jline=false -Dterminal.ansi=true -Dlog4j2.formatMsgNoLookups=true -jar velocity.jar"
+      }
+    ],
+    "stop": "shutdown",
+    "stdin": {
+      "type": "stdin"
+    },
+    "autostart": false,
+    "autorecover": false,
+    "autorestart": false
+  },
+  "environment": {
+    "type": "host"
+  },
+  "supportedEnvironments": [
+    {
+      "type": "host"
+    },
+    {
+      "type": "docker",
+      "image": "eclipse-temurin:${javaVersion}",
+      "portBindings": [
+        "0.0.0.0:${port}:${port}/tcp"
+      ]
+    }
+  ],
+  "requirements": {},
+  "stats": {
+    "type": "jcmd"
+  }
+}
