@@ -188,32 +188,34 @@ function ServersCard({ serversOnNode, t }: { serversOnNode: any[]; t: any }) {
 }
 
 function DeployDialog({ isDeployDialogOpen, setIsDeployDialogOpen, node, t, toast }: any) {
-  const deployConfigJson = node ? JSON.stringify({
-    "logs": "/var/log/AetherPanel",
-    "web": {
-      "host": "0.0.0.0:8080"
-    },
-    "token": {
-      "public": `${typeof window !== 'undefined' ? window.location.origin : 'https://192.168.0.12:8080'}/auth/publickey`
-    },
-    "panel": {
-      "enable": false
-    },
-    "daemon": {
-      "auth": {
-        "url": `${typeof window !== 'undefined' ? window.location.origin : 'https://192.168.0.12:8080'}/oauth2/token`,
-        "clientId": `.node_${String(node.id).includes('-') ? String(node.id).split('-')[1] : node.id}`,
-        "clientSecret": "7bdb03bbfbd44aeda8e2a4fc52035c38",
-        "publicKey": ""
-      },
-      "data": {
-        "root": "/var/lib/AetherPanel"
-      },
-      "sftp": {
-        "host": `0.0.0.0:${node.sftpPort}`
-      }
-    }
-  }, null, 2) : '';
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://192.168.0.12:8080';
+  const clientId = node ? `.node_${String(node.id).includes('-') ? String(node.id).split('-')[1] : node.id}` : '';
+  const deployCompose = node ? [
+    'services:',
+    '  skypanel:',
+    '    image: ghcr.io/aether-panel/panel',
+    '    container_name: skypanel',
+    '    restart: unless-stopped',
+    '    ports:',
+    '      - "8080:8080"',
+    `      - "${node.sftpPort}:${node.sftpPort}"`,
+    '    volumes:',
+    '      - ./storage/skypanel-data:/var/lib/SkyPanel',
+    '      - ./storage/skypanel-logs:/var/log/SkyPanel',
+    '      - //var/run/docker.sock:/var/run/docker.sock',
+    '    environment:',
+    '      - GIN_MODE=release',
+    '      - PUFFER_PLATFORM=docker',
+    '      - PUFFER_WEB_HOST=0.0.0.0:8080',
+    '      - PUFFER_PANEL_ENABLE=false',
+    `      - PUFFER_PANEL_SETTINGS_MASTERURL=${origin}`,
+    `      - PUFFER_TOKEN_PUBLIC=${origin}/auth/publickey`,
+    `      - PUFFER_DAEMON_AUTH_URL=${origin}/oauth2/token`,
+    `      - PUFFER_DAEMON_AUTH_CLIENTID=${clientId}`,
+    '      - PUFFER_DAEMON_AUTH_CLIENTSECRET=7bdb03bbfbd44aeda8e2a4fc52035c38',
+    `      - PUFFER_DAEMON_SFTP_HOST=0.0.0.0:${node.sftpPort}`,
+    '    user: "0:0"'
+  ].join('\n') : '';
 
   return (
     <Dialog open={isDeployDialogOpen} onOpenChange={setIsDeployDialogOpen}>
@@ -237,7 +239,7 @@ function DeployDialog({ isDeployDialogOpen, setIsDeployDialogOpen, node, t, toas
             <div>
               <h4 className="font-semibold">{t('nodes.deployDialog.step2')}</h4>
               <p className="text-sm text-muted-foreground">{t('nodes.deployDialog.step2Description')}</p>
-              <CopyableCode command="sudo systemctl stop AetherPanel" t={t} toast={toast} />
+              <CopyableCode command="mkdir -p /opt/AetherPanel && cd /opt/AetherPanel" t={t} toast={toast} />
             </div>
           </div>
           <div className="flex gap-4 items-start">
@@ -245,7 +247,7 @@ function DeployDialog({ isDeployDialogOpen, setIsDeployDialogOpen, node, t, toas
             <div>
               <h4 className="font-semibold">{t('nodes.deployDialog.step3')}</h4>
               <p className="text-sm text-muted-foreground" dangerouslySetInnerHTML={{ __html: t('nodes.deployDialog.step3Description') }}></p>
-              <CopyableCode command={deployConfigJson} t={t} toast={toast} />
+              <CopyableCode command={deployCompose} t={t} toast={toast} />
             </div>
           </div>
           <div className="flex gap-4 items-start">
@@ -253,7 +255,7 @@ function DeployDialog({ isDeployDialogOpen, setIsDeployDialogOpen, node, t, toas
             <div>
               <h4 className="font-semibold">{t('nodes.deployDialog.step4')}</h4>
               <p className="text-sm text-muted-foreground">{t('nodes.deployDialog.step4Description')}</p>
-              <CopyableCode command="sudo systemctl enable --now AetherPanel" t={t} toast={toast} />
+              <CopyableCode command="docker compose up -d" t={t} toast={toast} />
               <p className="mt-4 text-sm font-semibold text-green-500">{t('nodes.deployDialog.successMessage')}</p>
             </div>
           </div>
