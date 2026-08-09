@@ -2,11 +2,11 @@ package tests
 
 import (
 	"encoding/json"
-	"github.com/SkyPanel/SkyPanel/v3/internal/database"
-	"github.com/SkyPanel/SkyPanel/v3/internal/models"
-	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
-	"github.com/SkyPanel/SkyPanel/v3/internal/services"
-	"github.com/SkyPanel/SkyPanel/v3/internal/web/auth"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/database"
+	"github.com/SkyPanel/SkyPanel/v3/internal/domain"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/scopes"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared"
+	"github.com/SkyPanel/SkyPanel/v3/internal/feature/auth"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/stretchr/testify/assert"
 	"net/http"
@@ -147,7 +147,7 @@ func TestLogout(t *testing.T) {
 		assert.Equal(t, http.StatusNoContent, writer.Code)
 
 		// check to make sure session is gone
-		mo := &models.Session{
+		mo := &domain.Session{
 			Token: hashed,
 		}
 		var count int64
@@ -192,7 +192,7 @@ func TestLogout(t *testing.T) {
 		assert.Equal(t, http.StatusNoContent, writer.Code)
 
 		// check to make sure session is gone
-		mo := &models.Session{
+		mo := &domain.Session{
 			Token: hashed,
 		}
 		var count int64
@@ -202,7 +202,7 @@ func TestLogout(t *testing.T) {
 		}
 		assert.Equal(t, int64(0), count, "Token session not expired")
 
-		mo = &models.Session{
+		mo = &domain.Session{
 			Token: adminHashed,
 		}
 		err = db.Model(mo).Where(mo).Count(&count).Error
@@ -236,7 +236,7 @@ func TestLogout(t *testing.T) {
 		skypanel.Engine.ServeHTTP(writer, request)
 		assert.Equal(t, http.StatusNoContent, writer.Code)
 
-		mo := &models.Session{
+		mo := &domain.Session{
 			Token: hashed,
 		}
 		var count int64
@@ -307,7 +307,7 @@ func TestReauth(t *testing.T) {
 			return
 		}
 
-		mo := &models.Session{
+		mo := &domain.Session{
 			Token: hashed,
 		}
 		var count int64
@@ -332,7 +332,7 @@ func TestReauth(t *testing.T) {
 		if !assert.NoError(t, err) {
 			return
 		}
-		err = db.Model(&models.Session{}).Where(&models.Session{Token: hashed}).Updates(&models.Session{ExpirationTime: time.Now().Add(time.Hour * -24)}).Error
+		err = db.Model(&domain.Session{}).Where(&domain.Session{Token: hashed}).Updates(&domain.Session{ExpirationTime: time.Now().Add(time.Hour * -24)}).Error
 		if !assert.NoError(t, err) {
 			return
 		}

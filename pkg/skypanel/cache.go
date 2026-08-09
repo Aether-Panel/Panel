@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/SkyPanel/SkyPanel/v3/internal/config"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/config"
 )
 
 type cacheMessage struct {

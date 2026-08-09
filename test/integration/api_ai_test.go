@@ -1,7 +1,7 @@
 package tests
 
 import (
-	"github.com/SkyPanel/SkyPanel/v3/internal/config"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/config"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"testing"

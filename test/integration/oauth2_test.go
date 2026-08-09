@@ -2,7 +2,7 @@ package tests
 
 import (
 	"encoding/json"
-	"github.com/SkyPanel/SkyPanel/v3/internal/models"
+	"github.com/SkyPanel/SkyPanel/v3/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"testing"
@@ -26,7 +26,7 @@ func TestOauth(t *testing.T) {
 		if !assert.Equal(t, http.StatusOK, response.Code) {
 			return
 		}
-		var client models.Client
+		var client domain.Client
 		err = json.NewDecoder(response.Body).Decode(&client)
 		if !assert.NoError(t, err) {
 			return
@@ -40,7 +40,7 @@ func TestOauth(t *testing.T) {
 			return
 		}
 
-		var clients []models.Client
+		var clients []domain.Client
 		err = json.NewDecoder(response.Body).Decode(&clients)
 		if !assert.NoError(t, err) {
 			return

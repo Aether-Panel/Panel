@@ -5,10 +5,10 @@ import (
 	"runtime/debug"
 	"strings"
 
-	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
-	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/scopes"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/utils"
 
-	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/logging"
 	"gopkg.in/go-playground/validator.v9"
 )
 

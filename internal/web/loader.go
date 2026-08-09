@@ -11,12 +11,12 @@ import (
 
 	"github.com/SkyPanel/SkyPanel/v3/client/frontend"
 	"github.com/SkyPanel/SkyPanel/v3/files"
-	"github.com/SkyPanel/SkyPanel/v3/internal/config"
-	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
-	"github.com/SkyPanel/SkyPanel/v3/internal/web/api"
-	"github.com/SkyPanel/SkyPanel/v3/internal/web/auth"
-	"github.com/SkyPanel/SkyPanel/v3/internal/web/daemon"
-	"github.com/SkyPanel/SkyPanel/v3/internal/web/oauth2"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/config"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/middleware"
+	"github.com/SkyPanel/SkyPanel/v3/internal/feature/apikey"
+	"github.com/SkyPanel/SkyPanel/v3/internal/feature/auth"
+	"github.com/SkyPanel/SkyPanel/v3/internal/daemon"
+	"github.com/SkyPanel/SkyPanel/v3/internal/feature/oauth2"
 	_ "github.com/SkyPanel/SkyPanel/v3/internal/web/swagger" // swagger docs init side effect
 	_ "github.com/alecthomas/template"
 	"github.com/gin-contrib/cors"

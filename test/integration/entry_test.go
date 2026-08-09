@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/SkyPanel/SkyPanel/v3/internal/config"
-	"github.com/SkyPanel/SkyPanel/v3/internal/database"
-	"github.com/SkyPanel/SkyPanel/v3/internal/models"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/config"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/database"
+	"github.com/SkyPanel/SkyPanel/v3/internal/domain"
 	"github.com/SkyPanel/SkyPanel/v3/internal/sftp"
 	"github.com/SkyPanel/SkyPanel/v3/internal/web"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
@@ -73,18 +73,18 @@ func TestMain(m *testing.M) {
 		gin.SetMode(gin.ReleaseMode)
 		web.RegisterRoutes(router)
 
-		models.LocalNode.PublicHost = "127.0.0.1"
-		models.LocalNode.PrivateHost = "127.0.0.1"
-		models.LocalNode.PrivatePort = uint16(rand.Intn(50000) + 10000)
+		domain.LocalNode.PublicHost = "127.0.0.1"
+		domain.LocalNode.PrivateHost = "127.0.0.1"
+		domain.LocalNode.PrivatePort = uint16(rand.Intn(50000) + 10000)
 
-		models.LocalNode.SFTPPort = uint16(rand.Intn(50000) + 10000)
-		RemoteNode.SFTPPort = models.LocalNode.SFTPPort
-		_ = config.SftpHost.Set(fmt.Sprintf("%s:%d", models.LocalNode.PrivateHost, models.LocalNode.SFTPPort), false)
-		_ = config.AuthURL.Set(fmt.Sprintf("http://%s:%d/oauth2/token", models.LocalNode.PrivateHost, models.LocalNode.PrivatePort), false)
-		_ = config.MasterURL.Set(fmt.Sprintf("http://%s:%d", models.LocalNode.PrivateHost, models.LocalNode.PrivatePort), false)
-		_ = config.WebHost.Set(fmt.Sprintf("%s:%d", models.LocalNode.PrivateHost, models.LocalNode.PrivatePort), false)
+		domain.LocalNode.SFTPPort = uint16(rand.Intn(50000) + 10000)
+		RemoteNode.SFTPPort = domain.LocalNode.SFTPPort
+		_ = config.SftpHost.Set(fmt.Sprintf("%s:%d", domain.LocalNode.PrivateHost, domain.LocalNode.SFTPPort), false)
+		_ = config.AuthURL.Set(fmt.Sprintf("http://%s:%d/oauth2/token", domain.LocalNode.PrivateHost, domain.LocalNode.PrivatePort), false)
+		_ = config.MasterURL.Set(fmt.Sprintf("http://%s:%d", domain.LocalNode.PrivateHost, domain.LocalNode.PrivatePort), false)
+		_ = config.WebHost.Set(fmt.Sprintf("%s:%d", domain.LocalNode.PrivateHost, domain.LocalNode.PrivatePort), false)
 
-		l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", models.LocalNode.PrivateHost, models.LocalNode.PrivatePort))
+		l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", domain.LocalNode.PrivateHost, domain.LocalNode.PrivatePort))
 		if err != nil {
 			panic(fmt.Sprintf("Error starting web services: %s", err.Error()))
 		}

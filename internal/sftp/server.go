@@ -3,11 +3,11 @@ package sftp
 import (
 	"crypto/x509"
 	"encoding/pem"
-	"github.com/SkyPanel/SkyPanel/v3/internal/config"
-	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
-	"github.com/SkyPanel/SkyPanel/v3/internal/oauth2"
-	"github.com/SkyPanel/SkyPanel/v3/internal/servers"
-	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/config"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/logging"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/oauth2"
+	"github.com/SkyPanel/SkyPanel/v3/internal/runtime"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/utils"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ed25519"
@@ -166,7 +166,7 @@ func handleConn(conn net.Conn, serverConfig *ssh.ServerConfig) error {
 		}(requests)
 
 		serverID := sc.Permissions.Extensions["server_id"]
-		server := servers.GetFromCache(serverID)
+		server := runtime.GetFromCache(serverID)
 		if server == nil {
 			// this daemon can't handle this request...
 			return nil

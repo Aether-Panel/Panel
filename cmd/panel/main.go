@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/SkyPanel/SkyPanel/v3/internal/config"
-	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/config"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/logging"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/spf13/cobra"
 	"os"

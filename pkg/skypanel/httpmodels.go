@@ -1,6 +1,6 @@
 package skypanel
 
-import "github.com/SkyPanel/SkyPanel/v3/internal/utils"
+import "github.com/SkyPanel/SkyPanel/v3/internal/shared/utils"
 
 type ServerIDResponse struct {
 	ID string `json:"id"`

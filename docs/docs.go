@@ -994,7 +994,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/models.Role"
+                                "$ref": "#/definitions/domain.Role"
                             }
                         }
                     },
@@ -1031,7 +1031,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.Role"
+                            "$ref": "#/definitions/domain.Role"
                         }
                     }
                 ],
@@ -1039,7 +1039,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.Role"
+                            "$ref": "#/definitions/domain.Role"
                         }
                     },
                     "400": {
@@ -1089,7 +1089,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.Role"
+                            "$ref": "#/definitions/domain.Role"
                         }
                     },
                     "400": {
@@ -1144,7 +1144,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.Role"
+                            "$ref": "#/definitions/domain.Role"
                         }
                     }
                 ],
@@ -1152,7 +1152,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.Role"
+                            "$ref": "#/definitions/domain.Role"
                         }
                     },
                     "400": {
@@ -1355,7 +1355,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/models.Client"
+                                "$ref": "#/definitions/domain.Client"
                             }
                         }
                     },
@@ -1403,7 +1403,7 @@ const docTemplate = `{
                         "name": "client",
                         "in": "body",
                         "schema": {
-                            "$ref": "#/definitions/models.Client"
+                            "$ref": "#/definitions/domain.Client"
                         }
                     }
                 ],
@@ -1411,7 +1411,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.Client"
+                            "$ref": "#/definitions/domain.Client"
                         }
                     },
                     "400": {
@@ -1727,7 +1727,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.Backup"
+                            "$ref": "#/definitions/domain.Backup"
                         }
                     }
                 }
@@ -1911,7 +1911,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/models.Backup"
+                            "$ref": "#/definitions/domain.Backup"
                         }
                     }
                 }
@@ -3073,7 +3073,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/models.UserPermissionsView"
+                                "$ref": "#/definitions/domain.UserPermissionsView"
                             }
                         }
                     }
@@ -3116,7 +3116,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/models.UserPermissionsView"
+                                "$ref": "#/definitions/domain.UserPermissionsView"
                             }
                         }
                     }
@@ -6406,7 +6406,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.Backup": {
+        "domain.Backup": {
             "type": "object",
             "required": [
                 "fileName",
@@ -6427,7 +6427,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.Client": {
+        "domain.Client": {
             "type": "object",
             "properties": {
                 "client_id": {
@@ -6444,7 +6444,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.Role": {
+        "domain.Role": {
             "type": "object",
             "required": [
                 "name"
@@ -6475,7 +6475,7 @@ const docTemplate = `{
                 }
             }
         },
-        "models.UserPermissionsView": {
+        "domain.UserPermissionsView": {
             "type": "object",
             "properties": {
                 "email": {

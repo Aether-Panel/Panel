@@ -2,8 +2,8 @@ package tests
 
 import (
 	"encoding/json"
-	"github.com/SkyPanel/SkyPanel/v3/internal/config"
-	"github.com/SkyPanel/SkyPanel/v3/internal/web/daemon"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/config"
+	"github.com/SkyPanel/SkyPanel/v3/internal/daemon"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/stretchr/testify/assert"
 	"net/http"

@@ -6,15 +6,15 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"github.com/SkyPanel/SkyPanel/v3/internal/config"
-	"github.com/SkyPanel/SkyPanel/v3/internal/database"
-	"github.com/SkyPanel/SkyPanel/v3/internal/models"
-	"github.com/SkyPanel/SkyPanel/v3/internal/oauth2"
-	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
-	"github.com/SkyPanel/SkyPanel/v3/internal/servers"
-	"github.com/SkyPanel/SkyPanel/v3/internal/services"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/config"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/database"
+	"github.com/SkyPanel/SkyPanel/v3/internal/domain"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/oauth2"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/scopes"
+	"github.com/SkyPanel/SkyPanel/v3/internal/runtime"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared"
 	pufferSftp "github.com/SkyPanel/SkyPanel/v3/internal/sftp"
-	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/utils"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gorilla/websocket"
 	"github.com/pkg/sftp"
@@ -44,12 +44,12 @@ func TestServers(t *testing.T) {
 
 	type testLocation struct {
 		SFTPAuth skypanel.SFTPAuthorization
-		Node     *models.Node
+		Node     *domain.Node
 	}
 
-	RemoteNode.PublicPort = models.LocalNode.PublicPort
-	RemoteNode.PrivatePort = models.LocalNode.PrivatePort
-	RemoteNode.SFTPPort = models.LocalNode.SFTPPort
+	RemoteNode.PublicPort = domain.LocalNode.PublicPort
+	RemoteNode.PrivatePort = domain.LocalNode.PrivatePort
+	RemoteNode.SFTPPort = domain.LocalNode.SFTPPort
 
 	initErr = db.Create(RemoteNode).Error
 	if !assert.NoError(t, initErr) {
@@ -64,7 +64,7 @@ func TestServers(t *testing.T) {
 			name: "Local",
 			test: testLocation{
 				SFTPAuth: &services.DatabaseSFTPAuthorization{},
-				Node:     models.LocalNode,
+				Node:     domain.LocalNode,
 			},
 		},
 		{
@@ -94,7 +94,7 @@ func TestServers(t *testing.T) {
 				}
 
 				var count int64
-				err := db.Model(&models.Server{}).Where(&models.Server{Identifier: serverID}).Count(&count).Error
+				err := db.Model(&domain.Server{}).Where(&domain.Server{Identifier: serverID}).Count(&count).Error
 				if !assert.NoError(t, err) {
 					return
 				}
@@ -115,7 +115,7 @@ func TestServers(t *testing.T) {
 					return
 				}
 
-				var s *models.ServerSearchResponse
+				var s *domain.ServerSearchResponse
 				err := json.NewDecoder(response.Body).Decode(&s)
 				if !assert.NoError(t, err) {
 					return
@@ -146,7 +146,7 @@ func TestServers(t *testing.T) {
 					return
 				}
 
-				var s *models.ServerSearchResponse
+				var s *domain.ServerSearchResponse
 				err = json.NewDecoder(response.Body).Decode(&s)
 				if !assert.NoError(t, err) {
 					return
@@ -163,8 +163,8 @@ func TestServers(t *testing.T) {
 					return
 				}
 
-				var server *models.Server
-				err := db.Model(&server).Where(&models.Server{Identifier: serverID}).Find(&server).Error
+				var server *domain.Server
+				err := db.Model(&server).Where(&domain.Server{Identifier: serverID}).Find(&server).Error
 				if !assert.NoError(t, err) {
 					return
 				}
@@ -187,8 +187,8 @@ func TestServers(t *testing.T) {
 					return
 				}
 
-				var server *models.Server
-				err := db.Model(&server).Where(&models.Server{Identifier: serverID}).Find(&server).Error
+				var server *domain.Server
+				err := db.Model(&server).Where(&domain.Server{Identifier: serverID}).Find(&server).Error
 				if !assert.NoError(t, err) {
 					return
 				}
@@ -212,7 +212,7 @@ func TestServers(t *testing.T) {
 			messageReceived := false
 			statusReceived := false
 
-			addr := fmt.Sprintf("%s:%d", models.LocalNode.PrivateHost, models.LocalNode.PrivatePort)
+			addr := fmt.Sprintf("%s:%d", domain.LocalNode.PrivateHost, domain.LocalNode.PrivatePort)
 
 			u := fmt.Sprintf("ws://%s/api/servers/%s/socket", addr, serverID)
 
@@ -285,7 +285,7 @@ func TestServers(t *testing.T) {
 				if !assert.Equal(t, http.StatusOK, response.Code) {
 					return
 				}
-				var data []*models.UserPermissionsView
+				var data []*domain.UserPermissionsView
 				err := json.NewDecoder(response.Body).Decode(&data)
 				if !assert.NoError(t, err) {
 					return
@@ -323,7 +323,7 @@ func TestServers(t *testing.T) {
 				if !assert.Equal(t, http.StatusOK, response.Code) {
 					return
 				}
-				var perms []*models.UserPermissionsView
+				var perms []*domain.UserPermissionsView
 				err := json.NewDecoder(response.Body).Decode(&perms)
 				if !assert.NoError(t, err) {
 					return
@@ -367,7 +367,7 @@ func TestServers(t *testing.T) {
 				if !assert.Equal(t, http.StatusOK, response.Code) {
 					return
 				}
-				var perms []*models.UserPermissionsView
+				var perms []*domain.UserPermissionsView
 				err = json.NewDecoder(response.Body).Decode(&perms)
 				if !assert.NoError(t, err) {
 					return
@@ -676,10 +676,10 @@ func TestServers(t *testing.T) {
 				if !assert.Equal(t, http.StatusNoContent, response.Code) {
 					return
 				}
-				if !assert.Len(t, servers.GetFromCache(serverID).Scheduler.GetTasks(), 1) {
+				if !assert.Len(t, runtime.GetFromCache(serverID).Scheduler.GetTasks(), 1) {
 					return
 				}
-				e := servers.GetFromCache(serverID).Scheduler.GetExecutor()
+				e := runtime.GetFromCache(serverID).Scheduler.GetExecutor()
 				if !assert.Len(t, e.Jobs(), 1) {
 					return
 				}
@@ -786,7 +786,7 @@ func TestServers(t *testing.T) {
 				}
 
 				var count int64
-				err := db.Model(&models.Server{}).Where(&models.Server{Identifier: serverID}).Count(&count).Error
+				err := db.Model(&domain.Server{}).Where(&domain.Server{Identifier: serverID}).Count(&count).Error
 				if !assert.NoError(t, err) {
 					return
 				}

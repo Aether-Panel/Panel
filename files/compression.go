@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/utils"
 	"github.com/klauspost/compress/zip"
 	"github.com/mholt/archives"
 )

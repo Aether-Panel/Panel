@@ -1,0 +1,449 @@
+package template
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/SkyPanel/SkyPanel/v3/internal/domain"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/config"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/logging"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
+	"gorm.io/gorm"
+)
+
+var existingPaths = make(map[uint]repoCache)
+var pathLock sync.Mutex
+
+type TemplateRepoService struct {
+	DB *gorm.DB
+}
+
+type repoCache struct {
+	LastRefreshed time.Time
+	Path          string
+}
+
+var localRepo = &domain.TemplateRepo{
+	ID:      0,
+	Name:    "Local",
+	IsLocal: true,
+}
+
+func (*TemplateRepoService) GetLocalRepoID() uint {
+	return localRepo.ID
+}
+
+func (t *TemplateRepoService) GetRepos() ([]*domain.TemplateRepo, error) {
+	// Si hay templates.url configurado, ignoramos los repos de la BD y devolvemos uno sintético + Local
+	if u := config.TemplatesURL.Value(); u != "" {
+		vps := &domain.TemplateRepo{
+			ID:     1,
+			Name:   "community",
+			URL:    u,
+			Branch: "vps",
+		}
+		return []*domain.TemplateRepo{vps, localRepo}, nil
+	}
+	// Comportamiento original: repos desde DB + Local
+	var repos []*domain.TemplateRepo
+	err := t.DB.Find(&repos).Error
+	return append(repos, localRepo), err
+}
+
+func (t *TemplateRepoService) GetAllFromRepo(repoID uint) ([]*domain.Template, error) {
+	var templates []*domain.Template
+	var err error
+
+	if repoID == localRepo.ID {
+		err = t.DB.Find(&templates).Error
+		if err != nil {
+			return nil, err
+		}
+
+		// because we don't want to return a ton of data, we'll only return a few select fields
+		replacement := make([]*domain.Template, len(templates))
+
+		for k, v := range templates {
+			replacement[k] = &domain.Template{
+				Name: v.Name,
+				Server: skypanel.Server{
+					Display:               v.Server.Display,
+					Type:                  v.Server.Type,
+					Environment:           v.Server.Environment,
+					SupportedEnvironments: v.Server.SupportedEnvironments,
+					Requirements:          v.Server.Requirements,
+				},
+			}
+		}
+
+		templates = replacement
+	} else {
+		// Si hay URL de VPS configurada, resolvemos contra índice JSON en vez de Git
+		if u := config.TemplatesURL.Value(); u != "" {
+			return t.getAllFromVps(u)
+		}
+		repoDb := &domain.TemplateRepo{
+			ID: repoID,
+		}
+
+		err = t.DB.First(repoDb).Error
+		if err != nil {
+			return nil, err
+		}
+
+		path, err := validateRepoOnDisk(repoDb)
+		if err != nil {
+			return nil, err
+		}
+
+		folders, err := os.ReadDir(path)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, folder := range folders {
+			if !folder.IsDir() || strings.HasPrefix(folder.Name(), ".") {
+				continue
+			}
+
+			jsonFolder, err := os.ReadDir(filepath.Join(path, folder.Name()))
+			if err != nil {
+				return nil, err
+			}
+
+			for _, v := range jsonFolder {
+				if !strings.HasSuffix(v.Name(), ".json") {
+					continue
+				}
+
+				if v.Name() == "data.json" {
+					continue
+				}
+
+				name := strings.TrimSuffix(v.Name(), ".json")
+				templatePath := filepath.Join(path, folder.Name(), v.Name())
+				template, err := readTemplateFromDisk(name, templatePath)
+				if err != nil {
+					logging.Error.Printf("Error reading template from %s: %s", templatePath, err.Error())
+					continue
+				}
+
+				templates = append(templates, &domain.Template{
+					Name: name,
+					Server: skypanel.Server{
+						Display:               template.Server.Display,
+						Type:                  template.Server.Type,
+						Environment:           template.Server.Environment,
+						SupportedEnvironments: template.Server.SupportedEnvironments,
+						Requirements:          template.Server.Requirements,
+					},
+				})
+			}
+		}
+	}
+
+	return templates, err
+}
+
+func (t *TemplateRepoService) Get(repoID uint, name string) (*domain.Template, error) {
+	template := &domain.Template{
+		Name: name,
+	}
+	if repoID == localRepo.ID {
+		err := t.DB.First(template).Error
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// Si hay URL de VPS configurada, resolvemos contra índice JSON en vez de Git
+		if u := config.TemplatesURL.Value(); u != "" {
+			return t.getFromVps(u, name)
+		}
+		repoDb := &domain.TemplateRepo{
+			ID: repoID,
+		}
+
+		err := t.DB.First(repoDb).Error
+		if err != nil {
+			return nil, err
+		}
+
+		path, err := validateRepoOnDisk(repoDb)
+		if err != nil {
+			return nil, err
+		}
+
+		var folderName string
+		var exists bool
+		folders, err := os.ReadDir(path)
+		if err != nil {
+			return nil, err
+		}
+		for _, folder := range folders {
+			if !folder.IsDir() || strings.HasPrefix(folder.Name(), ".") {
+				continue
+			}
+
+			jsonFolder, err := os.ReadDir(filepath.Join(path, folder.Name()))
+			if err != nil {
+				return nil, err
+			}
+
+			for _, v := range jsonFolder {
+				if v.Name() == name+".json" {
+					folderName = folder.Name()
+					exists = true
+					break
+				}
+			}
+		}
+
+		if !exists {
+			return nil, skypanel.ErrNoTemplate(name)
+		}
+
+		templatePath := filepath.Join(path, folderName, name+".json")
+		template, err = readTemplateFromDisk(name, templatePath)
+		if err != nil {
+			return nil, err
+		}
+
+		readmePath := filepath.Join(path, folderName, "README.md")
+		readme, err := os.ReadFile(readmePath)
+		if err != nil {
+			logging.Error.Printf("Error reading readme %s: %s", readmePath, err.Error())
+		} else {
+			template.Readme = string(readme)
+		}
+	}
+
+	return template, nil
+}
+
+func (t *TemplateRepoService) Save(template *domain.Template) error {
+	return t.DB.Save(template).Error
+}
+
+func (t *TemplateRepoService) Delete(name string) error {
+	model := &domain.Template{
+		Name: name,
+	}
+
+	res := t.DB.Delete(model)
+	if res.Error != nil {
+		return res.Error
+	} else if res.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+
+	return nil
+}
+
+func (t *TemplateRepoService) AddRepo(repo *domain.TemplateRepo) error {
+	existing, err := t.GetRepos()
+	if err != nil {
+		return err
+	}
+	for _, v := range existing {
+		if v.Name == repo.Name {
+			return skypanel.ErrRepoExists
+		}
+	}
+	return t.DB.Save(repo).Error
+}
+
+func (t *TemplateRepoService) DeleteRepo(id uint) error {
+	return t.DB.Where(&domain.TemplateRepo{ID: id}).Delete(&domain.TemplateRepo{ID: id}).Error
+}
+
+func readTemplateFromDisk(name, path string) (*domain.Template, error) {
+	cleanPath := filepath.Clean(path)
+	cacheDir := filepath.Clean(config.CacheFolder.Value())
+	if !strings.HasPrefix(cleanPath, cacheDir+string(filepath.Separator)) {
+		return nil, fmt.Errorf("invalid template path: %s", path)
+	}
+	file, err := os.Open(cleanPath)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer utils.Close(file)
+
+	template := &domain.Template{
+		Name: name,
+	}
+	err = json.NewDecoder(file).Decode(template)
+	return template, err
+}
+
+func validateRepoOnDisk(repo *domain.TemplateRepo) (string, error) {
+	// temp locations!!!
+	pathLock.Lock()
+	defer pathLock.Unlock()
+
+	if cache, exists := existingPaths[repo.ID]; exists {
+		if cache.LastRefreshed.Add(time.Minute * 5).After(time.Now()) {
+			return cache.Path, nil
+		}
+
+		logging.Debug.Printf("Updating local git repo for %s: %s", repo.Name, cache)
+
+		r, err := git.PlainOpen(cache.Path)
+		if err != nil {
+			return "", err
+		}
+
+		w, err := r.Worktree()
+		if err != nil {
+			return "", err
+		}
+
+		err = w.Pull(&git.PullOptions{
+			SingleBranch:  true,
+			ReferenceName: plumbing.ReferenceName("refs/heads/" + repo.Branch),
+			RemoteName:    "origin"},
+		)
+		if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
+			return "", err
+		}
+
+		existingPaths[repo.ID] = repoCache{
+			LastRefreshed: time.Now(),
+			Path:          cache.Path,
+		}
+	} else {
+		path := filepath.Join(config.CacheFolder.Value(), "template-repos", fmt.Sprintf("%d", repo.ID))
+
+		// if the directory already exists, we may need to nuke it
+		fi, err := os.Stat(path)
+		if err != nil && !os.IsNotExist(err) {
+			return "", err
+		} else if fi != nil {
+			_ = os.RemoveAll(path)
+		}
+
+		err = os.MkdirAll(path, 0755)
+		if err != nil && !os.IsExist(err) {
+			return "", err
+		}
+
+		logging.Debug.Printf("Checking out repo %s: %s", repo.Name, path)
+		_, err = git.PlainClone(path, false, &git.CloneOptions{
+			URL:           repo.URL,
+			SingleBranch:  true,
+			ReferenceName: plumbing.ReferenceName("refs/heads/" + repo.Branch),
+		})
+		if err != nil {
+			return "", err
+		}
+
+		existingPaths[repo.ID] = repoCache{
+			LastRefreshed: time.Now(),
+			Path:          path,
+		}
+	}
+
+	return existingPaths[repo.ID].Path, nil
+}
+
+// --- Origen alternativo: índice JSON remoto (VPS) ---
+type vpsIndexEntry struct {
+	URL string `json:"url"`
+}
+
+func httpGetJSON(url string, target interface{}) error {
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	// Crear la petición con headers apropiados para evitar bloqueos de Cloudflare
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return err
+	}
+
+	// Headers para parecer un navegador legítimo
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+	req.Header.Set("Accept", "application/json, text/plain, */*")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9,es;q=0.8")
+	req.Header.Set("Cache-Control", "no-cache")
+	req.Header.Set("Pragma", "no-cache")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		b, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("bad status %d from %s: %s", resp.StatusCode, url, string(b))
+	}
+	dec := json.NewDecoder(resp.Body)
+	return dec.Decode(target)
+}
+
+func (t *TemplateRepoService) getAllFromVps(indexURL string) ([]*domain.Template, error) {
+	var idx map[string]vpsIndexEntry
+	err := httpGetJSON(indexURL, &idx)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]*domain.Template, 0, len(idx))
+	indexBase := indexURL
+	for name, entry := range idx {
+		target := resolveURL(indexBase, entry.URL)
+		tmp, err := t.getTemplateFromURL(name, target)
+		if err != nil {
+			logging.Error.Printf("Error reading template from %s: %s", target, err.Error())
+			continue
+		}
+		result = append(result, tmp)
+	}
+	return result, nil
+}
+
+func (t *TemplateRepoService) getFromVps(indexURL, name string) (*domain.Template, error) {
+	var idx map[string]vpsIndexEntry
+	err := httpGetJSON(indexURL, &idx)
+	if err != nil {
+		return nil, err
+	}
+	entry, ok := idx[name]
+	if !ok {
+		return nil, skypanel.ErrNoTemplate(name)
+	}
+	return t.getTemplateFromURL(name, resolveURL(indexURL, entry.URL))
+}
+
+func (t *TemplateRepoService) getTemplateFromURL(name, url string) (*domain.Template, error) {
+	tmp := &domain.Template{Name: name}
+	err := httpGetJSON(url, tmp)
+	if err != nil {
+		return nil, err
+	}
+	return tmp, nil
+}
+
+func resolveURL(baseStr, refStr string) string {
+	// Construye URL absoluta a partir de base (índice) y ref (posible relativa)
+	base, err := url.Parse(baseStr)
+	if err != nil {
+		return refStr
+	}
+	ref, err := url.Parse(refStr)
+	if err != nil {
+		return refStr
+	}
+	return base.ResolveReference(ref).String()
+}

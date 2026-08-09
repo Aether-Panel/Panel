@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/SkyPanel/SkyPanel/v3/internal/models"
+	"github.com/SkyPanel/SkyPanel/v3/internal/domain"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -30,7 +30,7 @@ func TestDatabaseHostsAPI(t *testing.T) {
 			return
 		}
 
-		var host models.DatabaseHost
+		var host domain.DatabaseHost
 		err := json.NewDecoder(response.Body).Decode(&host)
 		assert.NoError(t, err)
 		hostID = host.ID

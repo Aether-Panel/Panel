@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/SkyPanel/SkyPanel/v3/internal/config"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/config"
 )
 
 func main() {

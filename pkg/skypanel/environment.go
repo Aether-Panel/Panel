@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/SkyPanel/SkyPanel/v3/internal/config"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/connections"
-	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/logging"
 )
 
 type EnvironmentImpl interface {

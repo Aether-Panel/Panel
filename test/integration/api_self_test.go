@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/SkyPanel/SkyPanel/v3/internal/models"
+	"github.com/SkyPanel/SkyPanel/v3/internal/domain"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -21,7 +21,7 @@ func TestSelfAPI(t *testing.T) {
 			return
 		}
 
-		var user models.UserView
+		var user domain.UserView
 		err := json.NewDecoder(response.Body).Decode(&user)
 		assert.NoError(t, err)
 		assert.Equal(t, loginAdminUser.Email, user.Email)

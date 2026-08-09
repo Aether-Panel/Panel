@@ -2,7 +2,7 @@ package tests
 
 import (
 	"fmt"
-	"github.com/SkyPanel/SkyPanel/v3/internal/models"
+	"github.com/SkyPanel/SkyPanel/v3/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"testing"
@@ -15,7 +15,7 @@ func TestFeatures(t *testing.T) {
 	}
 
 	t.Run("TestFeatures", func(t *testing.T) {
-		url := fmt.Sprintf("/api/nodes/%d/features", models.LocalNode.ID)
+		url := fmt.Sprintf("/api/nodes/%d/features", domain.LocalNode.ID)
 		response := CallAPI("GET", url, nil, session)
 		if !assert.Equal(t, http.StatusOK, response.Code) {
 			return

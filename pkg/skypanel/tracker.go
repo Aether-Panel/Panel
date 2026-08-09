@@ -5,7 +5,7 @@ import (
 	"io"
 	"sync"
 
-	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/logging"
 	"github.com/gorilla/websocket"
 )
 

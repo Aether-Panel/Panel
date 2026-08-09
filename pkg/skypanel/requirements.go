@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/utils"
 	"github.com/moby/moby/client"
 )
 

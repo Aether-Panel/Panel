@@ -2,8 +2,8 @@ package tests
 
 import (
 	"encoding/json"
-	"github.com/SkyPanel/SkyPanel/v3/internal/database"
-	"github.com/SkyPanel/SkyPanel/v3/internal/models"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/database"
+	"github.com/SkyPanel/SkyPanel/v3/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"testing"
@@ -27,7 +27,7 @@ func TestTemplateAPI(t *testing.T) {
 		if !assert.Equal(t, http.StatusOK, response.Code) {
 			return
 		}
-		var templates []*models.TemplateRepo
+		var templates []*domain.TemplateRepo
 		err := json.NewDecoder(response.Body).Decode(&templates)
 		if !assert.NoError(t, err) {
 			return
@@ -51,7 +51,7 @@ func TestTemplateAPI(t *testing.T) {
 			return
 		}
 
-		mo := &models.Template{
+		mo := &domain.Template{
 			Name: "minecraft-vanilla",
 		}
 		var count int64
@@ -65,7 +65,7 @@ func TestTemplateAPI(t *testing.T) {
 	})
 
 	t.Run("DeleteTemplateFromLocal", func(t *testing.T) {
-		mo := &models.Template{
+		mo := &domain.Template{
 			Name: "minecraft-vanilla",
 		}
 		var count int64

@@ -2,7 +2,7 @@ package tests
 
 import (
 	"encoding/json"
-	models "github.com/SkyPanel/SkyPanel/v3/internal/oauth2"
+	models "github.com/SkyPanel/SkyPanel/v3/internal/shared/oauth2"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/stretchr/testify/assert"
 	"net/http"
@@ -29,7 +29,7 @@ func TestOAuth(t *testing.T) {
 		if !assert.Equal(t, http.StatusOK, response.Code) {
 			return
 		}
-		var res models.TokenResponse
+		var res domain.TokenResponse
 		err := json.NewDecoder(response.Body).Decode(&res)
 		if !assert.NoError(t, err) {
 			return

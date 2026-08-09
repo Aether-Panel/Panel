@@ -1,16 +1,16 @@
 package tests
 
 import (
-	"github.com/SkyPanel/SkyPanel/v3/internal/database"
-	"github.com/SkyPanel/SkyPanel/v3/internal/models"
-	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
-	"github.com/SkyPanel/SkyPanel/v3/internal/services"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/database"
+	"github.com/SkyPanel/SkyPanel/v3/internal/domain"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/scopes"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared"
 	"github.com/spf13/cast"
 	"gorm.io/gorm"
 	"sync"
 )
 
-var loginNoLoginUser = &models.User{
+var loginNoLoginUser = &domain.User{
 	Username:  "loginNoLoginUser",
 	Email:     "noscope@example.com",
 	OtpActive: false,
@@ -18,7 +18,7 @@ var loginNoLoginUser = &models.User{
 
 const loginNoLoginUserPassword = "dontletmein"
 
-var loginNoServerViewUser = &models.User{
+var loginNoServerViewUser = &domain.User{
 	Username:  "loginNoServerViewUser",
 	Email:     "test@example.com",
 	OtpActive: false,
@@ -26,7 +26,7 @@ var loginNoServerViewUser = &models.User{
 
 const loginNoServerViewUserPassword = "testing123"
 
-var loginAdminUser = &models.User{
+var loginAdminUser = &domain.User{
 	Username:  "loginAdminUser",
 	Email:     "admin@example.com",
 	OtpActive: false,
@@ -34,7 +34,7 @@ var loginAdminUser = &models.User{
 
 const loginAdminUserPassword = "asdfasdf"
 
-var loginNoAdminWithServersUser = &models.User{
+var loginNoAdminWithServersUser = &domain.User{
 	Username:  "loginNoAdminWithServersUser",
 	Email:     "notadmin@example.com",
 	OtpActive: false,
@@ -42,7 +42,7 @@ var loginNoAdminWithServersUser = &models.User{
 
 const loginNoAdminWithServersUserPassword = "dowiuzlaslf"
 
-var loginOAuth2Admin = &models.Client{
+var loginOAuth2Admin = &domain.Client{
 	ClientID:    "testadmin",
 	Name:        "testadminclient",
 	Description: "For unit testing only",
@@ -51,21 +51,21 @@ var loginOAuth2Admin = &models.Client{
 
 const loginOAuth2AdminSecret = "rawr"
 
-var loginSftpUser = &models.User{
+var loginSftpUser = &domain.User{
 	Username: "loginSftpUser",
 	Email:    "sftp@example.com",
 }
 
 const loginSftpUserPassword = "sftpPassword"
 
-var loginDifferentServerUser = &models.User{
+var loginDifferentServerUser = &domain.User{
 	Username: "user2",
 	Email:    "user2@example.com",
 }
 
 var loginDifferentServerUserPassword = "user2"
 
-var RemoteNode = &models.Node{
+var RemoteNode = &domain.Node{
 	Name:        "remoteNode",
 	PublicHost:  "127.0.0.1",
 	PrivateHost: "127.0.0.1",
@@ -131,7 +131,7 @@ func initLoginNoServersUser(db *gorm.DB) error {
 		return err
 	}
 
-	perms := &models.Permissions{
+	perms := &domain.Permissions{
 		UserID: &loginNoServerViewUser.ID,
 		Scopes: []*scopes.Scope{scopes.ScopeLogin},
 	}
@@ -145,7 +145,7 @@ func initLoginAdminUser(db *gorm.DB) error {
 		return err
 	}
 
-	perms := &models.Permissions{
+	perms := &domain.Permissions{
 		UserID: &loginAdminUser.ID,
 		Scopes: []*scopes.Scope{scopes.ScopeAdmin},
 	}
@@ -164,7 +164,7 @@ func initLoginSftp(db *gorm.DB) error {
 	}
 
 	var str = "testserver-local"
-	var perms = &models.Permissions{
+	var perms = &domain.Permissions{
 		Scopes:           []*scopes.Scope{scopes.ScopeServerSftp, scopes.ScopeLogin},
 		UserID:           &loginSftpUser.ID,
 		ServerIdentifier: &str,
@@ -175,7 +175,7 @@ func initLoginSftp(db *gorm.DB) error {
 	}
 
 	str = "testserver-remote"
-	perms = &models.Permissions{
+	perms = &domain.Permissions{
 		Scopes:           []*scopes.Scope{scopes.ScopeServerSftp, scopes.ScopeLogin},
 		UserID:           &loginSftpUser.ID,
 		ServerIdentifier: &str,
@@ -190,7 +190,7 @@ func initLoginDifferentUser(db *gorm.DB) error {
 		return err
 	}
 	var str = "secondserver"
-	var perms = &models.Permissions{
+	var perms = &domain.Permissions{
 		Scopes:           []*scopes.Scope{scopes.ScopeLogin},
 		UserID:           &loginSftpUser.ID,
 		ServerIdentifier: &str,
@@ -205,7 +205,7 @@ func initOauth2Client(db *gorm.DB) error {
 		return err
 	}
 
-	perms := &models.Permissions{
+	perms := &domain.Permissions{
 		ClientID: &loginOAuth2Admin.ID,
 		Scopes:   []*scopes.Scope{scopes.ScopeAdmin},
 	}
@@ -213,8 +213,8 @@ func initOauth2Client(db *gorm.DB) error {
 	return err
 }
 
-func createSession(db *gorm.DB, user *models.User) (string, error) {
-	ss := &services.Session{DB: db}
+func createSession(db *gorm.DB, user *domain.User) (string, error) {
+	ss := &session.SessionRepo{DB: db}
 	return ss.CreateForUser(user)
 }
 

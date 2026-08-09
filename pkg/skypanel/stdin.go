@@ -3,7 +3,7 @@ package skypanel
 import (
 	"encoding/json"
 
-	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/utils"
 )
 
 type StdinConsoleConfiguration struct {

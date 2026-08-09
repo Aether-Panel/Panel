@@ -2,7 +2,7 @@ package curseforge
 
 import (
 	"errors"
-	"github.com/SkyPanel/SkyPanel/v3/internal/config"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/config"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/spf13/cast"
 )

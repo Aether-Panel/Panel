@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/SkyPanel/SkyPanel/v3/internal/models"
-	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
-	"github.com/SkyPanel/SkyPanel/v3/internal/services"
+	"github.com/SkyPanel/SkyPanel/v3/internal/domain"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/scopes"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -328,7 +328,7 @@ func socketListener(listener net.PacketConn, ch chan bool) {
 	}
 }
 
-var loginAdminUser = &models.User{
+var loginAdminUser = &domain.User{
 	Username:       "loginAdminUser",
 	Email:          "admin@example.com",
 	OtpActive:      false,
@@ -341,7 +341,7 @@ func initLoginAdminUser(db *gorm.DB) error {
 		return err
 	}
 
-	perms := &models.Permissions{
+	perms := &domain.Permissions{
 		UserID: &loginAdminUser.ID,
 		Scopes: []*scopes.Scope{scopes.ScopeAdmin},
 	}
@@ -350,12 +350,12 @@ func initLoginAdminUser(db *gorm.DB) error {
 }
 
 func createSession(db *gorm.DB) (string, error) {
-	ss := &services.Session{DB: db}
+	ss := &session.SessionRepo{DB: db}
 	token, err := ss.CreateForUser(loginAdminUser)
 	if err != nil {
 		return "", err
 	}
-	err = db.Model(&models.Session{}).Where("token = ?", token).Update("expiration_time", time.Now().Add(time.Hour*24)).Error
+	err = db.Model(&domain.Session{}).Where("token = ?", token).Update("expiration_time", time.Now().Add(time.Hour*24)).Error
 	return token, err
 }
 

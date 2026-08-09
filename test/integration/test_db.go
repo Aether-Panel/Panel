@@ -5,9 +5,9 @@ import (
 	"log"
 	"testing"
 
-	"github.com/SkyPanel/SkyPanel/v3/internal/config"
-	"github.com/SkyPanel/SkyPanel/v3/internal/database"
-	"github.com/SkyPanel/SkyPanel/v3/internal/models"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/config"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/database"
+	"github.com/SkyPanel/SkyPanel/v3/internal/domain"
 )
 
 func TestDBConnection(_ *testing.T) {
@@ -27,7 +27,7 @@ func TestDBConnection(_ *testing.T) {
 	}
 
 	// 3. Listar servidores
-	var servers []models.Server
+	var servers []domain.Server
 	err = db.Find(&servers).Error
 	if err != nil {
 		log.Fatalf("Error consultando tabla servers: %v", err)

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/SkyPanel/SkyPanel/v3/internal/models"
+	"github.com/SkyPanel/SkyPanel/v3/internal/domain"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -33,7 +33,7 @@ func TestNodesAPI(t *testing.T) {
 			return
 		}
 
-		var node models.NodeView
+		var node domain.NodeView
 		err := json.NewDecoder(response.Body).Decode(&node)
 		assert.NoError(t, err)
 		createdNodeID = node.ID

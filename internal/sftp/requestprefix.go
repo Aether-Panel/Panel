@@ -3,8 +3,8 @@ package sftp
 import (
 	"fmt"
 	"github.com/SkyPanel/SkyPanel/v3/files"
-	"github.com/SkyPanel/SkyPanel/v3/internal/config"
-	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/config"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/logging"
 	"github.com/pkg/sftp"
 	"io"
 	"net"

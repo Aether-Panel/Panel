@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/SkyPanel/SkyPanel/v3/internal/models"
-	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/internal/domain"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/utils"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -239,7 +239,7 @@ func ioCopy(dest io.Writer, src io.Reader) {
 }
 
 func createCreateBody(scenario *TestScenario) io.ReadCloser {
-	model := &models.ServerCreation{
+	model := &domain.ServerCreation{
 		Server: skypanel.Server{},
 		NodeID: 0,
 		Name:   scenario.Name,

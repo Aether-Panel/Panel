@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/SkyPanel/SkyPanel/v3/internal/models"
+	"github.com/SkyPanel/SkyPanel/v3/internal/domain"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -41,7 +41,7 @@ func TestSettingsAPI(t *testing.T) {
 		// Verify
 		response2 := CallAPI("GET", fmt.Sprintf("/api/settings/%s", key), nil, session)
 		assert.Equal(t, http.StatusOK, response2.Code)
-		var setting models.Setting
+		var setting domain.Setting
 		json.NewDecoder(response2.Body).Decode(&setting)
 		assert.Equal(t, "TestCompany", setting.Value)
 	})

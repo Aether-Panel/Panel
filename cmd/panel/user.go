@@ -6,11 +6,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/SkyPanel/SkyPanel/v3/internal/database"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/database"
 	"github.com/SkyPanel/SkyPanel/v3/internal/groups"
-	"github.com/SkyPanel/SkyPanel/v3/internal/models"
-	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
-	"github.com/SkyPanel/SkyPanel/v3/internal/services"
+	"github.com/SkyPanel/SkyPanel/v3/internal/domain"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/scopes"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 	"gorm.io/gorm"
@@ -136,7 +136,7 @@ func addUser(_ *cobra.Command, _ []string) {
 	defer database.Close()
 
 	if addForce {
-		us := &services.User{DB: db}
+		us := &user.UserRepo{DB: db}
 
 		// Eliminar usuarios existentes con el mismo email o nombre de usuario
 		existing, err := us.GetByEmail(answers.Email)
@@ -159,7 +159,7 @@ func addUser(_ *cobra.Command, _ []string) {
 	}
 
 	if err := db.Transaction(func(tx *gorm.DB) error {
-		user := &models.User{
+		user := &domain.User{
 			Username:       answers.Username,
 			Email:          answers.Email,
 			HashedPassword: "",
@@ -170,14 +170,14 @@ func addUser(_ *cobra.Command, _ []string) {
 			return err
 		}
 
-		us := &services.User{DB: tx}
+		us := &user.UserRepo{DB: tx}
 		err = us.Create(user)
 		if err != nil {
 			pterm.Error.Printf("Failed to create user: %s\n", err.Error())
 			return err
 		}
 
-		ps := &services.Permission{DB: tx}
+		ps := &permission.PermissionRepo{DB: tx}
 		perms, err := ps.GetForUserAndServer(user.ID, "")
 		if err != nil {
 			pterm.Error.Printf("Failed to get permissions: %s\n", err.Error())
@@ -207,14 +207,14 @@ func addUser(_ *cobra.Command, _ []string) {
 
 func validateEmail(val interface{}) error {
 	email := val.(string)
-	var viewModel models.UserView
+	var viewModel domain.UserView
 	viewModel.Email = email
 	return viewModel.EmailValid(false)
 }
 
 func validateUsername(val interface{}) error {
 	usr := val.(string)
-	var viewModel models.UserView
+	var viewModel domain.UserView
 	viewModel.Username = usr
 	return viewModel.UserNameValid(false)
 }
@@ -224,7 +224,7 @@ func validatePassword(val interface{}) error {
 	if !ok {
 		return errors.New("password is not a string")
 	}
-	us := &services.User{}
+	us := &user.UserRepo{}
 	return us.IsSecurePassword(pw)
 }
 
@@ -235,7 +235,7 @@ type userCreate struct {
 	Admin    bool
 }
 
-func handleEditUsername(user *models.User, us *services.User) {
+func handleEditUsername(user *domain.User, us *user.UserRepo) {
 	oldValue := user.Username
 	user.Username, _ = pterm.DefaultInteractiveTextInput.WithDefaultText("Change username to").WithDefaultValue(oldValue).Show()
 
@@ -247,7 +247,7 @@ func handleEditUsername(user *models.User, us *services.User) {
 	}
 }
 
-func handleEditEmail(user *models.User, us *services.User) {
+func handleEditEmail(user *domain.User, us *user.UserRepo) {
 	oldValue := user.Email
 	user.Email, _ = pterm.DefaultInteractiveTextInput.WithDefaultText("Change email to").WithDefaultValue(oldValue).Show()
 
@@ -259,7 +259,7 @@ func handleEditEmail(user *models.User, us *services.User) {
 	}
 }
 
-func handleEditPassword(user *models.User, us *services.User) {
+func handleEditPassword(user *domain.User, us *user.UserRepo) {
 	password, _ := pterm.DefaultInteractiveTextInput.WithMask("*").WithDefaultText("Change password to").Show()
 
 	err := user.SetPassword(password)
@@ -275,14 +275,14 @@ func handleEditPassword(user *models.User, us *services.User) {
 	}
 }
 
-func handleEditAdminStatus(user *models.User, db *gorm.DB) {
+func handleEditAdminStatus(user *domain.User, db *gorm.DB) {
 	result, _ := pterm.DefaultInteractiveContinue.WithDefaultText("Set as admin").WithOptions([]string{"yes", "no", "cancel"}).WithDefaultValue("cancel").Show()
 
 	if result == "cancel" {
 		return
 	}
 
-	ps := &services.Permission{DB: db}
+	ps := &permission.PermissionRepo{DB: db}
 	perms, err := ps.GetForUserAndServer(user.ID, "")
 	if err != nil {
 		pterm.Error.Printfln("Error getting permissions: %s", err.Error())
@@ -315,10 +315,10 @@ func handleEditAdminStatus(user *models.User, db *gorm.DB) {
 	}
 }
 
-func handleRemove2FA(user *models.User, db *gorm.DB) {
+func handleRemove2FA(user *domain.User, db *gorm.DB) {
 	result, _ := pterm.DefaultInteractiveConfirm.WithDefaultText("Remove 2FA").Show()
 	if result {
-		us := &services.User{DB: db}
+		us := &user.UserRepo{DB: db}
 		err := us.DisableOtp(user.ID)
 		if err != nil {
 			fmt.Printf("Error removing 2FA: %s", err.Error())
@@ -343,7 +343,7 @@ func editUser(_ *cobra.Command, _ []string) {
 
 	username, _ := pterm.DefaultInteractiveTextInput.WithDefaultText("Enter Username").Show()
 
-	us := &services.User{DB: db}
+	us := &user.UserRepo{DB: db}
 
 	user, err := us.Get(username)
 	if errors.Is(err, gorm.ErrRecordNotFound) {

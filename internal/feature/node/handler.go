@@ -1,0 +1,340 @@
+package node
+
+import (
+	"encoding/json"
+	"fmt"
+	"github.com/SkyPanel/SkyPanel/v3/internal/daemon"
+	"github.com/SkyPanel/SkyPanel/v3/internal/domain"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/middleware"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/response"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/scopes"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
+	"github.com/gin-gonic/gin"
+	uuid "github.com/gofrs/uuid/v5"
+	"net/http"
+	"strconv"
+	"strings"
+)
+
+func registerNodes(g *gin.RouterGroup) {
+	g.Handle("GET", "", middleware.RequiresPermission(scopes.ScopeNodesView), getAllNodes)
+	g.Handle("POST", "", middleware.RequiresPermission(scopes.ScopeNodesCreate), createNode)
+	g.Handle("OPTIONS", "", response.CreateOptions("GET", "POST"))
+
+	g.Handle("GET", "/:id", middleware.RequiresPermission(scopes.ScopeNodesView), getNode)
+	g.Handle("PUT", "/:id", middleware.RequiresPermission(scopes.ScopeNodesEdit), updateNode)
+	g.Handle("DELETE", "/:id", middleware.RequiresPermission(scopes.ScopeNodesDelete), deleteNode)
+	g.Handle("OPTIONS", "/:id", response.CreateOptions("PUT", "GET", "DELETE"))
+
+	g.Handle("GET", "/:id/features", middleware.RequiresPermission(scopes.ScopeNodesView), getFeatures)
+	g.Handle("OPTIONS", "/:id/features", response.CreateOptions("GET"))
+
+	g.Handle("GET", "/:id/system", middleware.RequiresPermission(scopes.ScopeNodesView), getSystemInfo)
+	g.Handle("OPTIONS", "/:id/system", response.CreateOptions("GET"))
+
+	g.Handle("GET", "/:id/deployment", middleware.RequiresPermission(scopes.ScopeNodesDeploy), deployNode)
+	g.Handle("OPTIONS", "/:id/deployment", response.CreateOptions("GET"))
+}
+
+// @Summary Get nodes
+// @Description Gets all nodes registered to the panel
+// @Success 200 {object} domain.NodesView "Nodes"
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
+// @Tags Nodes
+// @Router /api/nodes [get]
+// @Security OAuth2Application[nodes.view]
+func getAllNodes(c *gin.Context) {
+	var err error
+	db := middleware.GetDatabase(c)
+	ns := &node.NodeRepo{DB: db}
+
+	var nodes []*domain.Node
+	if nodes, err = ns.GetAll(); response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	data := domain.FromNodes(nodes)
+	c.JSON(http.StatusOK, data)
+}
+
+// @Summary Get node
+// @Description Gets information about a single node
+// @Success 200 {object} domain.NodeView "Nodes"
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
+// @Param id path string true "Node Id"
+// @Tags Nodes
+// @Router /api/nodes/{id} [get]
+// @Security OAuth2Application[nodes.view]
+func getNode(c *gin.Context) {
+	var err error
+	db := middleware.GetDatabase(c)
+	ns := &node.NodeRepo{DB: db}
+
+	id, ok := validateID(c)
+	if !ok {
+		return
+	}
+
+	node, err := ns.Get(id)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	d := domain.FromNode(node)
+	c.JSON(http.StatusOK, d)
+}
+
+// @Summary Create node
+// @Description Creates a node
+// @Success 200 {object} domain.NodeView "Node created"
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
+// @Tags Nodes
+// @Router /api/nodes [post]
+// @Security OAuth2Application[nodes.create]
+func createNode(c *gin.Context) {
+	var err error
+	db := middleware.GetDatabase(c)
+	ns := &node.NodeRepo{DB: db}
+
+	model := &domain.NodeView{}
+	if err = c.BindJSON(model); response.HandleError(c, err, http.StatusBadRequest) {
+		return
+	}
+
+	if err = model.Valid(false); response.HandleError(c, err, http.StatusBadRequest) {
+		return
+	}
+
+	create := &domain.Node{}
+	model.CopyToModel(create)
+
+	srt, err := uuid.NewV4()
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	create.Secret = strings.ReplaceAll(srt.String(), "-", "")
+	if err = ns.Create(create); response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	c.JSON(http.StatusOK, domain.FromNode(create))
+}
+
+// @Summary Update node
+// @Description Updates a node with given information
+// @Success 204 {object} nil
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
+// @Param id path string true "Node Id"
+// @Param node body domain.NodeView true "Node information"
+// @Tags Nodes
+// @Router /api/nodes/{id} [put]
+// @Security OAuth2Application[nodes.edit]
+func updateNode(c *gin.Context) {
+	var err error
+	db := middleware.GetDatabase(c)
+	ns := &node.NodeRepo{DB: db}
+
+	viewModel := &domain.NodeView{}
+	if err = c.BindJSON(viewModel); response.HandleError(c, err, http.StatusBadRequest) {
+		return
+	}
+
+	id, ok := validateID(c)
+	if !ok {
+		return
+	}
+
+	if err = viewModel.Valid(true); response.HandleError(c, err, http.StatusBadRequest) {
+		return
+	}
+
+	node, err := ns.Get(id)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	viewModel.CopyToModel(node)
+	if err = ns.Update(node); response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
+// @Summary Deletes a node
+// @Description Deletes the node
+// @Success 204 {object} nil
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
+// @Param id path string true "Node Id"
+// @Tags Nodes
+// @Router /api/nodes/{id} [delete]
+// @Security OAuth2Application[nodes.delete]
+func deleteNode(c *gin.Context) {
+	var err error
+	db := middleware.GetDatabase(c)
+	ns := &node.NodeRepo{DB: db}
+
+	id, ok := validateID(c)
+	if !ok {
+		return
+	}
+
+	node, err := ns.Get(id)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	err = ns.Delete(node.ID)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
+// @Summary Gets the data to deploy a node
+// @Description Gets the secret information needed to deploy a node.
+// @Success 200 {object} domain.Deployment
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
+// @Param id path string true "Node Id"
+// @Tags Nodes
+// @Router /api/nodes/{id}/deployment [get]
+// @Security OAuth2Application[nodes.deploy]
+func deployNode(c *gin.Context) {
+	var err error
+	db := middleware.GetDatabase(c)
+	ns := &node.NodeRepo{DB: db}
+
+	id, ok := validateID(c)
+	if !ok {
+		return
+	}
+
+	node, err := ns.Get(id)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	data := &domain.Deployment{
+		ClientID:     fmt.Sprintf(".node_%d", node.ID),
+		ClientSecret: node.Secret,
+	}
+
+	c.JSON(http.StatusOK, data)
+}
+
+// @Summary Gets the features a node supports
+// @Description Gets the environments and if docker is supported on a node
+// @Success 200 {object} daemon.Features
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
+// @Param id path string true "Node Id"
+// @Tags Nodes
+// @Router /api/nodes/{id}/features [get]
+// @Security OAuth2Application[nodes.view]
+func getFeatures(c *gin.Context) {
+	var err error
+	db := middleware.GetDatabase(c)
+	ns := &node.NodeRepo{DB: db}
+
+	id, ok := validateID(c)
+	if !ok {
+		return
+	}
+
+	node, err := ns.Get(id)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	res, err := ns.CallNode(node, "GET", "/daemon/features", nil, nil)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+	defer utils.CloseResponse(res)
+
+	features := &daemon.Features{}
+	err = json.NewDecoder(res.Body).Decode(&features)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	c.JSON(http.StatusOK, features)
+}
+
+// @Summary Gets the system information of a node
+// @Description Gets detailed system information including CPU, memory, and disk
+// @Success 200 {object} daemon.SystemInfo
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
+// @Param id path string true "Node Id"
+// @Tags Nodes
+// @Router /api/nodes/{id}/system [get]
+// @Security OAuth2Application[nodes.view]
+func getSystemInfo(c *gin.Context) {
+	var err error
+	db := middleware.GetDatabase(c)
+	ns := &node.NodeRepo{DB: db}
+
+	id, ok := validateID(c)
+	if !ok {
+		return
+	}
+
+	node, err := ns.Get(id)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	res, err := ns.CallNode(node, "GET", "/daemon/system", nil, nil)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+	defer utils.CloseResponse(res)
+
+	var systemInfo map[string]interface{}
+	err = json.NewDecoder(res.Body).Decode(&systemInfo)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	c.JSON(http.StatusOK, systemInfo)
+}
+
+func validateID(c *gin.Context) (uint, bool) {
+	param := c.Param("id")
+
+	id, err := strconv.Atoi(param)
+
+	if response.HandleError(c, err, http.StatusBadRequest) || id < 0 {
+		response.HandleError(c, skypanel.ErrFieldTooSmall("id", 0), http.StatusBadRequest)
+		return 0, false
+	}
+
+	return uint(id), true
+}

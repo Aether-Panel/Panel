@@ -3,7 +3,7 @@ package tests
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/SkyPanel/SkyPanel/v3/internal/models"
+	"github.com/SkyPanel/SkyPanel/v3/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"testing"
@@ -22,7 +22,7 @@ func TestUserApi(t *testing.T) {
 			return
 		}
 
-		perms := &models.PermissionView{}
+		perms := &domain.PermissionView{}
 		err = json.NewDecoder(response.Body).Decode(perms)
 		if !assert.NoError(t, err) {
 			return
@@ -45,7 +45,7 @@ func TestUserApi(t *testing.T) {
 			return
 		}
 
-		user := &models.UserView{}
+		user := &domain.UserView{}
 		err = json.NewDecoder(response.Body).Decode(user)
 		if !assert.NoError(t, err) {
 			return
@@ -60,7 +60,7 @@ func TestUserApi(t *testing.T) {
 			return
 		}
 
-		perms := &models.PermissionView{}
+		perms := &domain.PermissionView{}
 		err = json.NewDecoder(response.Body).Decode(perms)
 		if !assert.NoError(t, err) {
 			return
@@ -85,7 +85,7 @@ func TestUserApi(t *testing.T) {
 			return
 		}
 
-		perms := &models.PermissionView{}
+		perms := &domain.PermissionView{}
 		err = json.NewDecoder(response.Body).Decode(perms)
 		if !assert.NoError(t, err) {
 			return

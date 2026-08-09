@@ -3,7 +3,7 @@ package connections
 import (
 	"errors"
 	"fmt"
-	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/logging"
 	"github.com/gorilla/websocket"
 	"github.com/spf13/cast"
 	"io"

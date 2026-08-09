@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/SkyPanel/SkyPanel/v3/internal/models"
+	"github.com/SkyPanel/SkyPanel/v3/internal/domain"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -31,7 +31,7 @@ func TestRolesAPI(t *testing.T) {
 			return
 		}
 
-		var role models.Role
+		var role domain.Role
 		err := json.NewDecoder(response.Body).Decode(&role)
 		if !assert.NoError(t, err) {
 			return
@@ -48,7 +48,7 @@ func TestRolesAPI(t *testing.T) {
 			return
 		}
 
-		var roles []models.Role
+		var roles []domain.Role
 		err := json.NewDecoder(response.Body).Decode(&roles)
 		if !assert.NoError(t, err) {
 			return
@@ -71,7 +71,7 @@ func TestRolesAPI(t *testing.T) {
 			return
 		}
 
-		var role models.Role
+		var role domain.Role
 		err := json.NewDecoder(response.Body).Decode(&role)
 		if !assert.NoError(t, err) {
 			return
@@ -91,7 +91,7 @@ func TestRolesAPI(t *testing.T) {
 			return
 		}
 
-		var role models.Role
+		var role domain.Role
 		err := json.NewDecoder(response.Body).Decode(&role)
 		if !assert.NoError(t, err) {
 			return

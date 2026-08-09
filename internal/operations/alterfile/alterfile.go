@@ -2,7 +2,7 @@ package alterfile
 
 import (
 	"bytes"
-	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
+	"github.com/SkyPanel/SkyPanel/v3/internal/shared/logging"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"os"
 	"path/filepath"
