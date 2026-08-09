@@ -3,7 +3,7 @@ module github.com/SkyPanel/SkyPanel/v3
 go 1.25.0
 
 require (
-	github.com/MicahParks/jwkset v0.11.1
+	github.com/MicahParks/jwkset v0.11.3
 	github.com/MicahParks/keyfunc/v3 v3.8.1
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751
 	github.com/braintree/manners v0.0.0-20160418043613-82a8879fc5fd
@@ -25,7 +25,7 @@ require (
 	github.com/gorilla/securecookie v1.1.2
 	github.com/gorilla/websocket v1.5.3
 	github.com/hashicorp/go-version v1.9.0
-	github.com/klauspost/compress v1.18.0
+	github.com/klauspost/compress v1.19.2
 	github.com/mailgun/mailgun-go/v4 v4.23.0
 	github.com/mailjet/mailjet-apiv3-go/v4 v4.0.8
 	github.com/mholt/archives v0.1.5
@@ -43,7 +43,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/swaggo/files v1.0.1
 	github.com/swaggo/gin-swagger v1.6.1
-	github.com/swaggo/swag v1.16.4
+	github.com/swaggo/swag v1.16.6
 	github.com/wneessen/go-mail v0.8.1
 	golang.org/x/crypto v0.54.0
 	golang.org/x/sys v0.47.0
@@ -52,7 +52,7 @@ require (
 	gorm.io/driver/mysql v1.6.0
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/driver/sqlite v1.6.0
-	gorm.io/driver/sqlserver v1.6.3
+	gorm.io/driver/sqlserver v1.6.4
 	gorm.io/gorm v1.31.2
 )
 
@@ -148,7 +148,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.20 // indirect
 	github.com/mattn/go-sqlite3 v1.14.28 // indirect
-	github.com/microsoft/go-mssqldb v1.8.2 // indirect
+	github.com/microsoft/go-mssqldb v1.9.6 // indirect
 	github.com/mikelolasagasti/xz v1.0.1 // indirect
 	github.com/minio/minlz v1.0.1 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
@@ -168,6 +168,7 @@ require (
 	github.com/sagikazarmark/locafero v0.11.0 // indirect
 	github.com/sendgrid/rest v2.6.9+incompatible // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect
+	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/skeema/knownhosts v1.3.1 // indirect
 	github.com/sorairolake/lzip-go v0.3.8 // indirect
 	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8 // indirect
@@ -193,6 +194,7 @@ require (
 	go4.org v0.0.0-20230225012048-214862532bf5 // indirect
 	golang.org/x/arch v0.23.0 // indirect
 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f // indirect
+	golang.org/x/mod v0.37.0 // indirect
 	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/term v0.45.0 // indirect
