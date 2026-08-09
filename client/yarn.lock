@@ -760,10 +760,10 @@
     node-fetch "^3.3.2"
     winston "^3.12.0"
 
-"@genkit-ai/google-genai@^1.28.0":
-  version "1.39.0"
-  resolved "https://registry.yarnpkg.com/@genkit-ai/google-genai/-/google-genai-1.39.0.tgz#56a8752602c6adfbe99d023d413a79a49b060341"
-  integrity sha512-ZP9nA6TlBJ1ZHCmSkz56v0lrRS/Wfh6L09oHgeOIZyD/Pq76uX3W+Uly8dPAbDtNax63l64TsEYZH1HHt8rC8A==
+"@genkit-ai/google-genai@^1.40.1":
+  version "1.40.1"
+  resolved "https://registry.yarnpkg.com/@genkit-ai/google-genai/-/google-genai-1.40.1.tgz#845bb3fa8b558c3a69511199d346b22b6e5a3e28"
+  integrity sha512-U+Cl8009vVBVVRIW7L4sq4XOWE7O9wfOVqGdyp38cZWnkrQrxdsoMzg3svt/Vqn2C0lIMFNsdKeBGTxNx5RwbA==
   dependencies:
     google-auth-library "^9.14.2"
     jsonpath-plus "^10.3.0"
