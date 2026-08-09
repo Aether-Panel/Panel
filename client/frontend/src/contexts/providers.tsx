@@ -11,6 +11,7 @@ export type UserRole = 'admin' | 'user';
 interface LoginCredentials {
   email: string;
   password?: string;
+  turnstileToken?: string;
 }
 
 interface UserData {
@@ -26,6 +27,7 @@ interface RegisterData {
   username: string;
   email: string;
   password?: string;
+  turnstileToken?: string;
 }
 
 interface AuthContextType {
@@ -119,7 +121,8 @@ function AuthProvider({ children }: { children: ReactNode }) {
       console.log('Attempting login for:', credentials.email);
       const data = await api.post('/auth/login', {
         email: credentials.email,
-        password: credentials.password
+        password: credentials.password,
+        turnstileToken: credentials.turnstileToken
       });
 
       if (data.otpNeeded) {
@@ -163,7 +166,8 @@ function AuthProvider({ children }: { children: ReactNode }) {
       const res = await api.post('/auth/register', {
         username: data.username,
         email: data.email,
-        password: data.password
+        password: data.password,
+        turnstileToken: data.turnstileToken
       });
 
       const scopesList = normalizeScopes(res.scopes || []);

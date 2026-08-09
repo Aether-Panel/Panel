@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/providers';
 import { useConfig } from '@/contexts/config-context';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import Turnstile from '@/components/Turnstile';
 
 const formSchema = z.object({
   username: z.string().min(5, { message: 'Username must be at least 5 characters.' }),
@@ -30,6 +31,7 @@ export default function RegisterPage() {
   const { config } = useConfig();
   const panelName = config?.branding?.name || 'Aether Panel';
   const [loading, setLoading] = React.useState(false);
+  const [turnstileToken, setTurnstileToken] = React.useState<string | null>(null);
   const { toast } = useToast();
 
   React.useEffect(() => {
@@ -50,6 +52,7 @@ export default function RegisterPage() {
         username: values.username,
         email: values.email,
         password: values.password,
+        turnstileToken: turnstileToken || undefined,
       });
     } catch (e: any) {
       toast({ title: 'Error', description: e.message || 'Failed to create account.', variant: 'destructive' });
@@ -147,6 +150,16 @@ export default function RegisterPage() {
                       </FormItem>
                     )}
                   />
+
+                  <div className="flex justify-center mt-4">
+                    {config?.turnstileEnabled && (
+                      <Turnstile
+                        siteKey={config?.turnstileSiteKey || ''}
+                        onVerify={(token) => setTurnstileToken(token)}
+                        theme="dark"
+                      />
+                    )}
+                  </div>
 
                   <Button
                     type="submit"

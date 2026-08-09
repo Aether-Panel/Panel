@@ -37,6 +37,8 @@ func panelConfig(c *gin.Context) {
 		},
 		RegistrationEnabled: config.RegistrationEnabled.Value(),
 		HeaderDecorations:   config.HeaderDecorations.Value(),
+		TurnstileSiteKey:    config.TurnstileSiteKey.Value(),
+		TurnstileEnabled:    config.TurnstileEnabled.Value(),
 	})
 }
 
@@ -45,6 +47,8 @@ type EditableConfig struct {
 	Branding            BrandingConfig `json:"branding"`
 	RegistrationEnabled bool           `json:"registrationEnabled"`
 	HeaderDecorations   bool           `json:"headerDecorations"`
+	TurnstileSiteKey    string         `json:"turnstileSiteKey"`
+	TurnstileEnabled    bool           `json:"turnstileEnabled"`
 } // @name EditableConfigSettings
 
 type ThemeConfig struct {

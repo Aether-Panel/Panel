@@ -946,6 +946,14 @@
       "headerDecorationsDescription": "Muestra las animaciones decorativas (gif y vídeo) en la parte inferior de la cabecera del sidebar.",
       "allowRegistrationLabel": "Permitir que los usuarios se puedan registrar",
       "allowRegistrationDescription": "Los usuarios autorregistrados no pueden realizar ninguna acción hasta que se les otorguen permisos. Deshabilitar esto solo impide el registro directo, las invitaciones a un servidor y la página de Usuarios no se ven afectadas.",
+      "turnstileEnabledLabel": "Protección Cloudflare Turnstile",
+      "turnstileEnabledDescription": "Activa el widget de Cloudflare Turnstile en el inicio de sesión y el registro para bloquear bots. Desactivado por defecto.",
+      "turnstileSiteKeyLabel": "Site Key de Turnstile",
+      "turnstileSiteKeyDescription": "La clave pública de sitio de tu widget Turnstile de Cloudflare.",
+      "turnstileSiteKeyPlaceholder": "0x4AAAAAAA...",
+      "turnstileSecretKeyLabel": "Secret Key de Turnstile",
+      "turnstileSecretKeyDescription": "La clave secreta usada por el servidor para verificar los tokens. Nunca la compartas.",
+      "turnstileSecretKeyPlaceholder": "0x4AAAAAAA...",
       "saveButton": "Guardar configuración"
     },
     "discord": {

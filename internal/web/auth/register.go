@@ -41,6 +41,10 @@ func RegisterPost(c *gin.Context) {
 		return
 	}
 
+	if err := verifyTurnstile(request.TurnstileToken); response.HandleError(c, err, http.StatusBadRequest) {
+		return
+	}
+
 	validate := validator.New()
 	err = validate.Struct(request)
 	if response.HandleError(c, err, http.StatusBadRequest) {
@@ -86,7 +90,8 @@ func RegisterPost(c *gin.Context) {
 }
 
 type registerRequestData struct {
-	Username string `json:"username" validate:"required,printascii,min=5,max=100"`
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required"`
+	Username       string `json:"username" validate:"required,printascii,min=5,max=100"`
+	Email          string `json:"email" validate:"required,email"`
+	Password       string `json:"password" validate:"required"`
+	TurnstileToken string `json:"turnstileToken"`
 }

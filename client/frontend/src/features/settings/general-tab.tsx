@@ -134,6 +134,53 @@ export function GeneralTab({ localSettings, handleUpdate, handleSave, saving, t 
                             />
                         </div>
                     </SettingsSection>
+
+                    <SettingsSection 
+                        id="turnstile-enabled" 
+                        title={t('settings.general.turnstileEnabledLabel')} 
+                        description={t('settings.general.turnstileEnabledDescription')}
+                    >
+                        <div className="flex items-center h-10">
+                            <Switch
+                                id="turnstile-enabled"
+                                checked={!!localSettings['panel.turnstile.enabled']}
+                                onCheckedChange={(v) => handleUpdate('panel.turnstile.enabled', v)}
+                            />
+                        </div>
+                    </SettingsSection>
+
+                    {localSettings['panel.turnstile.enabled'] && (
+                        <>
+                            <SettingsSection 
+                                id="turnstile-site-key" 
+                                title={t('settings.general.turnstileSiteKeyLabel')} 
+                                description={t('settings.general.turnstileSiteKeyDescription')}
+                            >
+                                <Input
+                                    id="turnstile-site-key"
+                                    value={localSettings['panel.turnstile.siteKey'] || ''}
+                                    onChange={(e) => handleUpdate('panel.turnstile.siteKey', e.target.value)}
+                                    placeholder={t('settings.general.turnstileSiteKeyPlaceholder')}
+                                    className="bg-background/50"
+                                />
+                            </SettingsSection>
+
+                            <SettingsSection 
+                                id="turnstile-secret-key" 
+                                title={t('settings.general.turnstileSecretKeyLabel')} 
+                                description={t('settings.general.turnstileSecretKeyDescription')}
+                            >
+                                <Input
+                                    id="turnstile-secret-key"
+                                    type="password"
+                                    value={localSettings['panel.turnstile.secretKey'] || ''}
+                                    onChange={(e) => handleUpdate('panel.turnstile.secretKey', e.target.value)}
+                                    placeholder={t('settings.general.turnstileSecretKeyPlaceholder')}
+                                    className="bg-background/50"
+                                />
+                            </SettingsSection>
+                        </>
+                    )}
                 </div>
                 <div className="flex items-center justify-end px-6 py-4 bg-muted/30 border-t border-border/60 rounded-b-xl">
                     <Button onClick={handleSave} disabled={saving} className="min-w-[120px]">

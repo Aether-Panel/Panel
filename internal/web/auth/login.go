@@ -34,6 +34,10 @@ func LoginPost(c *gin.Context) {
 		return
 	}
 
+	if err := verifyTurnstile(request.TurnstileToken); response.HandleError(c, err, http.StatusBadRequest) {
+		return
+	}
+
 	user, otpNeeded, err := us.ValidateLogin(request.Email, request.Password)
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
@@ -146,8 +150,9 @@ func createSession(c *gin.Context, user *models.User) {
 }
 
 type LoginRequestData struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email          string `json:"email"`
+	Password       string `json:"password"`
+	TurnstileToken string `json:"turnstileToken"`
 }
 
 type LoginResponse struct {

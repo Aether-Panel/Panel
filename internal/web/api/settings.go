@@ -493,10 +493,13 @@ var editableStringEntries = []config.StringEntry{
 	config.LicenseStatus,
 	config.LicenseServerID,
 	config.LicenseServerIP,
+	config.TurnstileSiteKey,
+	config.TurnstileSecretKey,
 }
 var editableBoolEntries = []config.BoolEntry{
 	config.RegistrationEnabled,
 	config.HideAIAnalysis,
 	config.HeaderDecorations,
+	config.TurnstileEnabled,
 }
 var editableIntEntries = []config.IntEntry{}
