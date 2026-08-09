@@ -117,6 +117,9 @@ func (s *Scheduler) Init() error {
 }
 
 func (s *Scheduler) Stop() {
+	if s.scheduler == nil {
+		return
+	}
 	if s.scheduler.Shutdown() == nil {
 		s.scheduler = nil
 	}

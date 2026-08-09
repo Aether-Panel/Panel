@@ -75,6 +75,18 @@ export default function NodesPage() {
     }
   }, [editingNode]);
 
+  // Ensure Radix Dialog/DropdownMenu cleanup finished so the UI is not left blocked
+  useEffect(() => {
+    const anyOpen = isCreateOpen || !!editingNode || !!deletingNode || !!deployingNode;
+    if (!anyOpen) {
+      const timer = setTimeout(() => {
+        document.body.style.pointerEvents = 'auto';
+        document.body.style.overflow = 'auto';
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isCreateOpen, editingNode, deletingNode, deployingNode]);
+
   // ── Handlers ──────────────────────────────────────────────
 
   const handleCreateNode = async () => {
@@ -382,11 +394,11 @@ export default function NodesPage() {
                             {t('nodes.actions.viewDetails')}
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => setTimeout(() => setEditingNode(node))}>{t('nodes.actions.edit')}</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setDeployingNode(node)}>{t('nodes.actions.deploy')}</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setTimeout(() => setDeployingNode(node), 50)}>{t('nodes.actions.deploy')}</DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             className="text-red-500 focus:text-red-500"
-                            onClick={() => setDeletingNode(node)}
+                            onClick={() => setTimeout(() => setDeletingNode(node), 50)}
                           >
                             <Trash2 className="mr-2 h-4 w-4" />
                             {t('nodes.actions.delete')}

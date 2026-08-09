@@ -385,6 +385,11 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
     } finally {
       setIsLoading(false);
       setPendingFile(null);
+      // Ensure Radix dropdown/alert-dialog cleanup finished so the UI is not left blocked
+      setTimeout(() => {
+        document.body.style.pointerEvents = 'auto';
+        document.body.style.overflow = 'auto';
+      }, 100);
     }
   };
 
@@ -420,6 +425,11 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
       }
       toast({ title: t('common.success'), description: t('servers.fileManager.toast.renamed') });
       closeRename();
+      // Ensure Radix Dialog/DropdownMenu cleanup finished so the UI is not left blocked
+      setTimeout(() => {
+        document.body.style.pointerEvents = 'auto';
+        document.body.style.overflow = 'auto';
+      }, 100);
       fetchFiles(currentPath);
     } catch (e: any) {
       toast({ title: t('common.error'), description: e.message || 'Error al renombrar.', variant: 'destructive' });
@@ -688,7 +698,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 {file.isFile ? (
-                                  <DropdownMenuItem onClick={() => handleFileClick(file)}>
+                                  <DropdownMenuItem onClick={() => setTimeout(() => handleFileClick(file), 50)}>
                                     <Edit2 className="h-4 w-4 mr-2" />
                                     {t('servers.fileManager.actions.edit')}
                                   </DropdownMenuItem>
@@ -705,7 +715,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
                                     {t('servers.fileManager.actions.unarchive')}
                                   </DropdownMenuItem>
                                 ) : null}
-                                <DropdownMenuItem onClick={() => openRename(file)}>
+                                <DropdownMenuItem onClick={() => setTimeout(() => openRename(file), 50)}>
                                   <Edit2 className="h-4 w-4 mr-2" />
                                   {t('servers.fileManager.actions.rename')}
                                 </DropdownMenuItem>

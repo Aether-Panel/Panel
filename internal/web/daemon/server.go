@@ -1218,12 +1218,17 @@ func openSocket(c *gin.Context) {
 	if _, exists := c.GetQuery("status"); exists {
 		server.GetEnvironment().AddStatusListener(socket)
 	}
+
+	// Serve keeps the connection alive (pings/pongs), detects dead peers,
+	// and unregisters the socket from every tracker once it drops. It must
+	// run in the background or idle connections get closed by proxies.
+	go socket.Serve()
 }
 
 func getFullFilename(c *gin.Context) string {
 	filename := c.Param("filename")
 
-	if k := c.Query("folder"); k != "" {
+	if _, exists := c.GetQuery("folder"); exists {
 		return filename
 	}
 

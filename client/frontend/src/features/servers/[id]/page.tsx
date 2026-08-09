@@ -226,7 +226,12 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
   const { hasScope } = useAuth();
   const [serverDetail, setServerDetail] = useState<any>(null);
   const server = allServers.find((s) => s.id === params.id);
-  const [activeTab, setActiveTab] = useState('console');
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(`serverTab_${params.id}`) || 'console';
+    }
+    return 'console';
+  });
 
   useEffect(() => {
     const fetchDetail = async () => {
@@ -288,22 +293,15 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
     if (!server || serverUnavailable) return;
     let cancelled = false;
     let socket: WebSocket | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let attempt = 0;
+    let connectedOnce = false;
 
-    const run = async () => {
-      try {
-        const data = await api.get(`/api/servers/${server.id}/console`);
-        if (cancelled) return;
-        if (data && data.logs) appendLogs(data.logs);
-      } catch (e) {
-        if (e instanceof ApiError && e.status === 404) {
-          if (!cancelled) {
-            setServerUnavailable(true);
-            addLog('> Server console is not available on the node.');
-          }
-          return;
-        }
-        console.error('Failed to fetch logs history:', e);
-      }
+    const addLogOnce = (message: string) => {
+      if (!connectedOnce) addLog(message);
+    };
+
+    const connect = () => {
       if (cancelled || serverUnavailable) return;
 
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -334,21 +332,47 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
         }
       };
 
-      socket.onopen = () => console.log('[Console WS] Connected');
+      socket.onopen = () => {
+        attempt = 0;
+        connectedOnce = true;
+        console.log('[Console WS] Connected');
+      };
       socket.onerror = (error) => {
         if (!server?.isGhost) console.error('[Console WS] Error:', error);
       };
       socket.onclose = () => {
-        if (!cancelled && !server?.isGhost) {
-          console.log('[Console WS] Disconnected');
-          addLog('> Connection to server console lost.');
-        }
+        socket = null;
+        if (cancelled || serverUnavailable) return;
+        addLogOnce('> Connection to server console lost. Reconnecting...');
+        const delay = Math.min(1000 * Math.pow(2, attempt), 15000);
+        attempt += 1;
+        reconnectTimer = setTimeout(connect, delay);
       };
+    };
+
+    const run = async () => {
+      try {
+        const data = await api.get(`/api/servers/${server.id}/console`);
+        if (cancelled) return;
+        if (data && data.logs) appendLogs(data.logs);
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 404) {
+          if (!cancelled) {
+            setServerUnavailable(true);
+            addLog('> Server console is not available on the node.');
+          }
+          return;
+        }
+        console.error('Failed to fetch logs history:', e);
+      }
+      if (cancelled || serverUnavailable) return;
+      connect();
     };
 
     run();
     return () => {
       cancelled = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
       if (socket) socket.close();
     };
   }, [server?.id, serverUnavailable]);
@@ -384,16 +408,11 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
     return () => window.removeEventListener('server:plugins-enabled-changed' as any, handleChanged);
   }, [server?.id]);
 
-  if (loading) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-border border-t-primary border-l-accent" />
-      </div>
-    );
-  }
-  if (!server) {
-    return <div className="flex h-full items-center justify-center"><p>Server not found.</p></div>;
-  }
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(`serverTab_${params.id}`, activeTab);
+    }
+  }, [activeTab, params.id]);
 
   const serverTabs = [
     { value: 'console', label: t('servers.detail.tabs.console'), icon: Terminal },
@@ -414,6 +433,25 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
       || hasScope('server.admin.assignments.view') || hasScope('server.delete')
       ? [{ value: 'admin', label: t('servers.detail.tabs.admin'), icon: Shield }] : []),
   ];
+
+  const serverTabValues = serverTabs.map((tab) => tab.value);
+
+  useEffect(() => {
+    if (!serverTabValues.includes(activeTab)) {
+      setActiveTab('console');
+    }
+  }, [serverTabValues.join(','), activeTab]);
+
+  if (loading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-border border-t-primary border-l-accent" />
+      </div>
+    );
+  }
+  if (!server) {
+    return <div className="flex h-full items-center justify-center"><p>Server not found.</p></div>;
+  }
 
   const addLog = (message: string) => {
     setLogs(prevLogs => [...prevLogs, { time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }), message }]);

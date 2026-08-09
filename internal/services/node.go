@@ -241,6 +241,7 @@ func (ns *Node) OpenSocket(node *models.Node, path string, writer http.ResponseW
 
 		ch := make(chan error)
 		go proxyRead(daemon, client, ch)
+		go proxyRead(client, daemon, ch)
 
 		err := <-ch
 

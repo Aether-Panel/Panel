@@ -129,14 +129,17 @@ func (e *Environment) GetConsoleFrom(time int64) (console []byte, epoch int64) {
 
 func (e *Environment) AddConsoleListener(ws *Socket) {
 	e.ConsoleTracker.Register(ws)
+	ws.attach(e.ConsoleTracker)
 }
 
 func (e *Environment) AddStatsListener(ws *Socket) {
 	e.StatsTracker.Register(ws)
+	ws.attach(e.StatsTracker)
 }
 
 func (e *Environment) AddStatusListener(ws *Socket) {
 	e.StatusTracker.Register(ws)
+	ws.attach(e.StatusTracker)
 }
 
 func (e *Environment) GetStatsTracker() *Tracker {
