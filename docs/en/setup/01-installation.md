@@ -121,7 +121,7 @@ docker-compose up -d
 Once the container is running, execute this command to create your admin account:
 
 ```bash
-docker exec -it skypanel /usr/local/bin/SkyPanel user add --name admin --email admin@example.com --password 'admin123' --admin
+docker exec -it skypanel /SkyPanel/bin/SkyPanel user add --name admin --email admin@example.com --password 'admin123' --admin
 ```
 
 > **Important:** Remember to change `admin@example.com` and `'admin123'` to your actual details.
