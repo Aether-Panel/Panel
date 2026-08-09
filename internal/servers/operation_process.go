@@ -13,6 +13,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/operations/extract"
 	"github.com/SkyPanel/SkyPanel/v3/internal/operations/fabricdl"
 	"github.com/SkyPanel/SkyPanel/v3/internal/operations/forgedl"
+	"github.com/SkyPanel/SkyPanel/v3/internal/operations/githubdl"
 	"github.com/SkyPanel/SkyPanel/v3/internal/operations/javadl"
 	"github.com/SkyPanel/SkyPanel/v3/internal/operations/mkdir"
 	"github.com/SkyPanel/SkyPanel/v3/internal/operations/mojangdl"
@@ -22,6 +23,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/operations/paperdl"
 	"github.com/SkyPanel/SkyPanel/v3/internal/operations/resolveforgeversion"
 	"github.com/SkyPanel/SkyPanel/v3/internal/operations/resolveneoforgeversion"
+	"github.com/SkyPanel/SkyPanel/v3/internal/operations/scraperdl"
 	"github.com/SkyPanel/SkyPanel/v3/internal/operations/sleep"
 	"github.com/SkyPanel/SkyPanel/v3/internal/operations/spongedl"
 	"github.com/SkyPanel/SkyPanel/v3/internal/operations/stdin"
@@ -44,6 +46,7 @@ var factories = []skypanel.OperationFactory{
 	extract.Factory,
 	fabricdl.Factory,
 	forgedl.Factory,
+	githubdl.Factory,
 	javadl.Factory,
 	mkdir.Factory,
 	mojangdl.Factory,
@@ -53,6 +56,7 @@ var factories = []skypanel.OperationFactory{
 	paperdl.Factory,
 	resolveforgeversion.Factory,
 	resolveneoforgeversion.Factory,
+	scraperdl.Factory,
 	sleep.Factory,
 	spongedl.Factory,
 	stdin.Factory,
