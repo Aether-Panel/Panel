@@ -26,7 +26,7 @@ Ofrece una arquitectura flexible con dos backends de ejecución —Docker y ejec
 *   **Dos Backends de Ejecución:**
     *   **Docker:** Cada servidor se ejecuta en un contenedor Docker aislado.
     *   **Host/TTY:** Ejecución directa con aislamiento por contenedores de Linux (namespaces: user, mount, cgroup, ipc, uts) y `pivot_root`.
-*   **Plantillas:** Soporte para más de 24 tipos de juegos (Minecraft, Terraria, Valheim, Rust, ARK, etc.) mediante repositorios de plantillas externos.
+*   **Plantillas: ** Soporte para más de 24 tipos de juegos (Minecraft, Terraria, Valheim, Rust, ARK, etc.) mediante repositorios de plantillas externos.
 
 ### Administración y Seguridad
 *   **Multi-Usuario:** Sistema completo de usuarios y roles con permisos detallados por servidor.
