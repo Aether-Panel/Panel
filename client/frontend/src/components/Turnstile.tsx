@@ -82,5 +82,5 @@ export default function Turnstile({
 
   if (!siteKey) return null;
 
-  return <div ref={containerRef} className="w-full" />;
+  return <div className="flex w-full justify-center"><div ref={containerRef} /></div>;
 }

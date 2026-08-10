@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
-import { useToast } from '@/hooks/use-toast';
+import { sileo } from "@/lib/toast";
 import { cn } from '@/lib/utils';
 
 type BackupInfo = {
@@ -43,7 +43,7 @@ export default function BackupsView({ serverId }: BackupsViewProps) {
   const [pendingAction, setPendingAction] = useState<{ type: 'restore' | 'delete'; backupId: number } | null>(null);
 
   const { t, language } = useTranslations();
-  const { toast } = useToast();
+  
 
   const fetchBackups = useCallback(async () => {
     try {
@@ -67,7 +67,7 @@ export default function BackupsView({ serverId }: BackupsViewProps) {
     try {
       setIsCreating(true);
       await api.post(`/api/servers/${serverId}/backup/create?name=${encodeURIComponent(backupName)}`, {});
-      toast({
+      sileo.success({
         title: t('common.success'),
         description: t('servers.backups.createDialog.success')
       });
@@ -76,8 +76,7 @@ export default function BackupsView({ serverId }: BackupsViewProps) {
       fetchBackups();
     } catch (err) {
       console.error('Failed to create backup:', err);
-      toast({
-        variant: 'destructive',
+      sileo.error({
         title: t('common.error'),
         description: t('servers.backups.createDialog.error')
       });
@@ -90,14 +89,13 @@ export default function BackupsView({ serverId }: BackupsViewProps) {
     if (!pendingAction || pendingAction.type !== 'restore') return;
     try {
       await api.post(`/api/servers/${serverId}/backup/restore/${pendingAction.backupId}`, {});
-      toast({
+      sileo.success({
         title: t('common.success'),
         description: t('servers.backups.restore.success')
       });
     } catch (err) {
       console.error('Failed to restore backup:', err);
-      toast({
-        variant: 'destructive',
+      sileo.error({
         title: t('common.error'),
         description: t('servers.backups.restore.error')
       });
@@ -110,15 +108,14 @@ export default function BackupsView({ serverId }: BackupsViewProps) {
     if (!pendingAction || pendingAction.type !== 'delete') return;
     try {
       await api.delete(`/api/servers/${serverId}/backup/${pendingAction.backupId}`);
-      toast({
+      sileo.success({
         title: t('common.success'),
         description: t('servers.backups.delete.success')
       });
       fetchBackups();
     } catch (err) {
       console.error('Failed to delete backup:', err);
-      toast({
-        variant: 'destructive',
+      sileo.error({
         title: t('common.error'),
         description: t('servers.backups.delete.error')
       });

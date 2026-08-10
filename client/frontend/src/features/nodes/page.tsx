@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useToast } from '@/hooks/use-toast';
+import { sileo } from "@/lib/toast";
 import { api } from '@/lib/api-client';
 
 import { useTranslations } from '@/contexts/translations-context';
@@ -25,7 +25,7 @@ export default function NodesPage() {
   const { nodes: realNodes, loading: nodesLoading, error, refresh } = useNodes();
   const { servers: allServers, loading: serversLoading } = useServers();
   const [isMounted, setIsMounted] = useState(false);
-  const { toast } = useToast();
+  
 
   // ── Create state ──────────────────────────────────────────
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -91,11 +91,11 @@ export default function NodesPage() {
 
   const handleCreateNode = async () => {
     if (!createName.trim()) {
-      toast({ title: t('nodes.addDialog.nameLabel'), description: 'El nombre es obligatorio.', variant: 'destructive' });
+      sileo.error({ title: t('nodes.addDialog.nameLabel'), description: 'El nombre es obligatorio.' });
       return;
     }
     if (!createPublicHost.trim()) {
-      toast({ title: t('nodes.addDialog.publicHostLabel'), description: 'La dirección pública es obligatoria.', variant: 'destructive' });
+      sileo.error({ title: t('nodes.addDialog.publicHostLabel'), description: 'La dirección pública es obligatoria.' });
       return;
     }
     setIsCreating(true);
@@ -111,7 +111,7 @@ export default function NodesPage() {
         privateHost: pHost,
         privatePort: pPort,
       });
-      toast({ title: t('nodes.addDialog.createButton'), description: `Nodo "${createName}" creado correctamente.` });
+      sileo.success({ title: t('nodes.addDialog.createButton'), description: `Nodo "${createName}" creado correctamente.` });
       // reset form
       setCreateName(''); setCreatePublicHost(''); setCreatePublicPort('8080');
       setCreateSftpPort('5657'); setCreateUseDifferentHost(false);
@@ -119,7 +119,7 @@ export default function NodesPage() {
       setIsCreateOpen(false);
       refresh();
     } catch (e: any) {
-      toast({ title: 'Error al crear nodo', description: e?.message || 'Error desconocido.', variant: 'destructive' });
+      sileo.error({ title: 'Error al crear nodo', description: e?.message || 'Error desconocido.' });
     } finally {
       setIsCreating(false);
     }
@@ -128,7 +128,7 @@ export default function NodesPage() {
   const handleUpdateNode = async () => {
     if (!editingNode) return;
     if (!editName.trim()) {
-      toast({ title: 'Error', description: 'El nombre es obligatorio.', variant: 'destructive' });
+      sileo.error({ title: 'Error', description: 'El nombre es obligatorio.' });
       return;
     }
     setIsSaving(true);
@@ -144,11 +144,11 @@ export default function NodesPage() {
         privateHost: pHost,
         privatePort: pPort,
       });
-      toast({ title: t('nodes.editDialog.save'), description: `Nodo "${editName}" actualizado.` });
+      sileo.success({ title: t('nodes.editDialog.save'), description: `Nodo "${editName}" actualizado.` });
       setEditingNode(null);
       refresh();
     } catch (e: any) {
-      toast({ title: 'Error al actualizar', description: e?.message || 'Error desconocido.', variant: 'destructive' });
+      sileo.error({ title: 'Error al actualizar', description: e?.message || 'Error desconocido.' });
     } finally {
       setIsSaving(false);
     }
@@ -159,11 +159,11 @@ export default function NodesPage() {
     setIsDeleting(true);
     try {
       await api.delete(`/api/nodes/${deletingNode.id}`);
-      toast({ title: 'Nodo eliminado', description: `"${deletingNode.name}" fue eliminado correctamente.` });
+      sileo.success({ title: 'Nodo eliminado', description: `"${deletingNode.name}" fue eliminado correctamente.` });
       setDeletingNode(null);
       refresh();
     } catch (e: any) {
-      toast({ title: 'Error al eliminar', description: e?.message || 'Error desconocido.', variant: 'destructive' });
+      sileo.error({ title: 'Error al eliminar', description: e?.message || 'Error desconocido.' });
     } finally {
       setIsDeleting(false);
     }
@@ -181,7 +181,7 @@ export default function NodesPage() {
   const CopyableCode = ({ command }: { command: string }) => {
     const handleCopy = () => {
       navigator.clipboard.writeText(command);
-      toast({ title: t('common.copied') });
+      sileo.success({ title: t('common.copied') });
     };
 
     return (

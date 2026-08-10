@@ -14,7 +14,7 @@ import { PlusCircle, Trash2, Loader2, ShieldCheck, Shield, Search, Pencil } from
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
-import { useToast } from '@/hooks/use-toast';
+import { sileo } from "@/lib/toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 type Role = {
@@ -110,7 +110,7 @@ export default function RolesPage() {
 
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
+  
 
   const fetchRoles = useCallback(async () => {
     setLoading(true);
@@ -118,11 +118,11 @@ export default function RolesPage() {
       const data = await api.get('/api/roles');
       setRoles(data || []);
     } catch (e: any) {
-      toast({ title: t('common.error'), description: e.message || 'Failed to fetch roles.', variant: 'destructive' });
+      sileo.error({ title: t('common.error'), description: e.message || 'Failed to fetch roles.' });
     } finally {
       setLoading(false);
     }
-  }, [t, toast]);
+  }, [t]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -175,7 +175,7 @@ export default function RolesPage() {
         scopes: newRolePermissions,
       });
 
-      toast({ title: t('common.success'), description: 'Role created successfully.' });
+      sileo.success({ title: t('common.success'), description: 'Role created successfully.' });
 
       setNewRoleName('');
       setNewRoleDescription('');
@@ -184,21 +184,21 @@ export default function RolesPage() {
       setIsAddDialogOpen(false);
       fetchRoles();
     } catch (e: any) {
-      toast({ title: t('common.error'), description: e.message || 'Failed to create role.', variant: 'destructive' });
+      sileo.error({ title: t('common.error'), description: e.message || 'Failed to create role.' });
     } finally {
       setIsAdding(false);
     }
-  }, [newRoleName, newRoleDescription, newRolePermissions, t, toast, fetchRoles]);
+  }, [newRoleName, newRoleDescription, newRolePermissions, t, fetchRoles]);
 
   const handleDeleteRole = useCallback(async (id: number) => {
     try {
       await api.delete(`/api/roles/${id}`);
-      toast({ title: t('common.success'), description: 'Role deleted successfully.' });
+      sileo.success({ title: t('common.success'), description: 'Role deleted successfully.' });
       fetchRoles();
     } catch (e: any) {
-      toast({ title: t('common.error'), description: e.message || 'Failed to delete role.', variant: 'destructive' });
+      sileo.error({ title: t('common.error'), description: e.message || 'Failed to delete role.' });
     }
-  }, [t, toast, fetchRoles]);
+  }, [t, fetchRoles]);
 
   // Edit role state
   const [editRole, setEditRole] = useState<Role | null>(null);
@@ -245,16 +245,16 @@ export default function RolesPage() {
         scopes: editPermissions,
       });
 
-      toast({ title: t('common.success'), description: 'Role updated successfully.' });
+      sileo.success({ title: t('common.success'), description: 'Role updated successfully.' });
       setIsEditDialogOpen(false);
       setEditRole(null);
       fetchRoles();
     } catch (e: any) {
-      toast({ title: t('common.error'), description: e.message || 'Failed to update role.', variant: 'destructive' });
+      sileo.error({ title: t('common.error'), description: e.message || 'Failed to update role.' });
     } finally {
       setIsEditing(false);
     }
-  }, [editRole, editName, editDescription, editPermissions, t, toast, fetchRoles]);
+  }, [editRole, editName, editDescription, editPermissions, t, fetchRoles]);
 
   const filteredGroups = useMemo(() => {
     if (!searchQuery) return permissionGroups;

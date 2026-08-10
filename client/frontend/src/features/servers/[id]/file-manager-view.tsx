@@ -48,7 +48,7 @@ import { Label } from '@/components/ui/label';
 import { useState, useEffect, lazy, Suspense, useRef, Fragment } from 'react';
 import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
-import { useToast } from '@/hooks/use-toast';
+import { sileo } from "@/lib/toast";
 import { cn } from '@/lib/utils';
 
 const CodeEditor = lazy(() => import('./code-editor'));
@@ -151,7 +151,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { t } = useTranslations();
-  const { toast } = useToast();
+  
 
   const fetchFiles = async (path: string) => {
     setIsLoading(true);
@@ -161,7 +161,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
         setFiles(data);
       }
     } catch (e: any) {
-      toast({ title: t('common.error'), description: e.message || 'Failed to load files.', variant: 'destructive' });
+      sileo.error({ title: t('common.error'), description: e.message || 'Failed to load files.' });
     } finally {
       setIsLoading(false);
     }
@@ -188,7 +188,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
         setEditedContent(typeof content === 'string' ? content : JSON.stringify(content, null, 2));
         setEditingFile(file);
       } catch (e: any) {
-        toast({ title: t('common.error'), description: e.message || 'Failed to load file content.', variant: 'destructive' });
+        sileo.error({ title: t('common.error'), description: e.message || 'Failed to load file content.' });
       }
     }
   };
@@ -216,7 +216,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
         throw new Error(data.error || 'No se pudo crear el elemento en el servidor');
       }
 
-      toast({
+      sileo.success({
         title: t('common.success'),
         description: newItemDialog.type === 'file' ? t('servers.fileManager.toast.createdFile') : t('servers.fileManager.toast.createdFolder')
       });
@@ -234,7 +234,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
         document.body.style.overflow = 'auto';
       }, 300);
     } catch (e: any) {
-      toast({ title: t('common.error'), description: e.message || 'Error al crear el elemento.', variant: 'destructive' });
+      sileo.error({ title: t('common.error'), description: e.message || 'Error al crear el elemento.' });
       setIsCreating(false);
     }
   };
@@ -259,10 +259,10 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
         credentials: 'include'
       });
 
-      toast({ title: t('common.success'), description: t('servers.fileManager.toast.uploaded') });
+      sileo.success({ title: t('common.success'), description: t('servers.fileManager.toast.uploaded') });
       fetchFiles(currentPath);
     } catch (e: any) {
-      toast({ title: t('common.error'), description: e.message || 'Error al subir el archivo.', variant: 'destructive' });
+      sileo.error({ title: t('common.error'), description: e.message || 'Error al subir el archivo.' });
     } finally {
       setIsLoading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -272,7 +272,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
   const handleCopy = (file: FileItemResource, mode: 'copy' | 'cut') => {
     const path = currentPath ? `${currentPath}/${file.name}` : file.name;
     setClipboard({ name: file.name, path, isFile: file.isFile, mode });
-    toast({
+    sileo.success({
       title: t('common.success'),
       description: mode === 'copy' ? t('servers.fileManager.toast.copied', { name: file.name }) : t('servers.fileManager.toast.cut', { name: file.name })
     });
@@ -340,7 +340,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
 
     // Reject pasting onto itself or a folder into its own subtree
     if (sourcePath === destPath || (!clipboard.isFile && destPath.startsWith(`${sourcePath}/`))) {
-      toast({ title: t('common.error'), description: 'No puedes pegar aquí.', variant: 'destructive' });
+      sileo.error({ title: t('common.error'), description: 'No puedes pegar aquí.' });
       return;
     }
 
@@ -358,7 +358,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
         setClipboard(null);
       }
 
-      toast({
+      sileo.success({
         title: t('common.success'),
         description: clipboard.mode === 'cut'
           ? t('servers.fileManager.toast.moved')
@@ -366,7 +366,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
       });
       fetchFiles(currentPath);
     } catch (e: any) {
-      toast({ title: t('common.error'), description: e.message || 'Error en la operación.', variant: 'destructive' });
+      sileo.error({ title: t('common.error'), description: e.message || 'Error en la operación.' });
     } finally {
       setIsLoading(false);
     }
@@ -378,10 +378,10 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
     try {
       const filePath = currentPath ? `${currentPath}/${pendingFile.name}` : pendingFile.name;
       await api.delete(`/api/servers/${serverId}/file/${filePath}`);
-      toast({ title: t('common.success'), description: t('servers.fileManager.toast.deleted') });
+      sileo.success({ title: t('common.success'), description: t('servers.fileManager.toast.deleted') });
       fetchFiles(currentPath);
     } catch (e: any) {
-      toast({ title: t('common.error'), description: e.message || 'Error al eliminar.', variant: 'destructive' });
+      sileo.error({ title: t('common.error'), description: e.message || 'Error al eliminar.' });
     } finally {
       setIsLoading(false);
       setPendingFile(null);
@@ -423,7 +423,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
         const data = await response.json().catch(() => ({}));
         throw new Error(data.error || 'No se pudo renombrar el elemento');
       }
-      toast({ title: t('common.success'), description: t('servers.fileManager.toast.renamed') });
+      sileo.success({ title: t('common.success'), description: t('servers.fileManager.toast.renamed') });
       closeRename();
       // Ensure Radix Dialog/DropdownMenu cleanup finished so the UI is not left blocked
       setTimeout(() => {
@@ -432,7 +432,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
       }, 100);
       fetchFiles(currentPath);
     } catch (e: any) {
-      toast({ title: t('common.error'), description: e.message || 'Error al renombrar.', variant: 'destructive' });
+      sileo.error({ title: t('common.error'), description: e.message || 'Error al renombrar.' });
       setIsRenaming(false);
     }
   };
@@ -442,10 +442,10 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
     try {
       const filePath = currentPath ? `${currentPath}/${file.name}` : file.name;
       await api.post(`/api/servers/${serverId}/extract/${filePath}?destination=.&skipRoot`, {});
-      toast({ title: t('common.success'), description: t('servers.fileManager.toast.extracted') });
+      sileo.success({ title: t('common.success'), description: t('servers.fileManager.toast.extracted') });
       fetchFiles(currentPath);
     } catch (e: any) {
-      toast({ title: t('common.error'), description: e.message || 'Error al descomprimir.', variant: 'destructive' });
+      sileo.error({ title: t('common.error'), description: e.message || 'Error al descomprimir.' });
     } finally {
       setIsLoading(false);
     }
@@ -463,10 +463,10 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
       });
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 1500);
-      toast({ title: t('common.success'), description: t('servers.fileManager.editor.saveSuccess') });
+      sileo.success({ title: t('common.success'), description: t('servers.fileManager.editor.saveSuccess') });
       setEditingFile(null);
     } catch (e: any) {
-      toast({ title: t('common.error'), description: e.message || 'Error al guardar.', variant: 'destructive' });
+      sileo.error({ title: t('common.error'), description: e.message || 'Error al guardar.' });
     } finally {
       setIsSaving(false);
     }

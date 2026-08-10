@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/netip"
 	"slices"
+	"syscall"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 
@@ -316,6 +318,121 @@ func (d *Docker) getClient() (*client.Client, error) {
 		d.cli, err = client.New(client.FromEnv)
 	}
 	return d.cli, err
+}
+
+// CheckBindingsConflict returns an error if any host port referenced in the
+// given port specs (after token replacement) is already bound by another
+// running container on this node or by a host process. The container
+// identified by excludedID (e.g. the server being restarted) is ignored.
+func CheckBindingsConflict(portSpecs []string, variables map[string]interface{}, excludedID string) error {
+	hostPorts, err := parseHostPorts(portSpecs, variables)
+	if err != nil || len(hostPorts) == 0 {
+		// If we can't resolve the specs, let Docker report the real error on start.
+		return nil
+	}
+
+	dockerClient, err := client.New(client.FromEnv)
+	if err != nil {
+		// Without docker access we can't list containers, so probe the host for
+		// any port that is already bound by a non-Docker process.
+		for host := range hostPorts {
+			if host == 0 {
+				continue
+			}
+			if !hostPortFree(host) {
+				return portConflictError(host)
+			}
+		}
+		return nil
+	}
+
+	opts := client.ContainerListOptions{
+		All:     true,
+		Filters: make(client.Filters),
+	}
+	opts.Filters.Add("status", "running")
+
+	existingContainers, err := dockerClient.ContainerList(context.Background(), opts)
+	if err != nil {
+		logging.Debug.Printf("CheckBindingsConflict: could not list containers: %s", err)
+		return nil
+	}
+
+	excludedPorts := make(map[uint16]bool)
+	for _, cont := range existingContainers.Items {
+		names := cont.Names
+		if slices.Contains(names, "/"+excludedID) {
+			for _, p := range cont.Ports {
+				if p.PublicPort != 0 {
+					excludedPorts[p.PublicPort] = true
+				}
+			}
+			continue
+		}
+		for _, p := range cont.Ports {
+			host := p.PublicPort
+			if host == 0 {
+				continue
+			}
+			if _, conflict := hostPorts[host]; conflict {
+				return portConflictError(host)
+			}
+		}
+	}
+
+	// Also detect host ports held by non-Docker processes (e.g. another daemon
+	// or a random service), which never show up in the container list. Ports
+	// already bound by the excluded (restarting) server must be skipped.
+	for host := range hostPorts {
+		if excludedPorts[host] {
+			continue
+		}
+		if !hostPortFree(host) {
+			return portConflictError(host)
+		}
+	}
+
+	return nil
+}
+
+func portConflictError(host uint16) error {
+	return fmt.Errorf(
+		"el puerto %d ya está en uso por otro servidor o proceso activo en este nodo. Detén el servicio que lo ocupa o cambia el puerto del servidor antes de iniciarlo",
+		host,
+	)
+}
+
+// hostPortFree reports whether a TCP listener can be bound to the given port
+// on the host. The daemon itself may hold the port (SocketOverlay), so only
+// "address already in use" failures are treated as occupied.
+func hostPortFree(port uint16) bool {
+	l, err := net.Listen("tcp", net.JoinHostPort("", cast.ToString(port)))
+	if err != nil {
+		return !errors.Is(err, syscall.EADDRINUSE)
+	}
+	_ = l.Close()
+	return true
+}
+
+func parseHostPorts(portSpecs []string, variables map[string]interface{}) (map[uint16]bool, error) {
+	resolved := utils.ReplaceTokensInArr(portSpecs, variables)
+	_, bindings, err := parsePortSpecs(resolved)
+	if err != nil {
+		return nil, err
+	}
+
+	hostPorts := make(map[uint16]bool)
+	for _, list := range bindings {
+		for _, binding := range list {
+			if binding.HostPort == "" {
+				continue
+			}
+			if port, err := cast.ToUint16E(binding.HostPort); err == nil {
+				hostPorts[port] = true
+			}
+		}
+	}
+	return hostPorts, nil
 }
 
 func doesContainerExist(ctx context.Context, dockerClient *client.Client, id string) (bool, error) {

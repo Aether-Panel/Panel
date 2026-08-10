@@ -13,7 +13,7 @@ import { useUsers } from '@/hooks/use-users';
 import { useTemplates } from '@/hooks/use-templates';
 import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
-import { useToast } from '@/hooks/use-toast';
+import { sileo } from "@/lib/toast";
 
 class ErrorBoundary extends React.Component<
     { children: React.ReactNode },
@@ -356,7 +356,7 @@ function Step3Configuration({
 }
 
 export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }: { onComplete: () => void, forcedParentId?: string, forcedNodeId?: string }) {
-    const { toast } = useToast();
+    
     const isSplitter = !!forcedParentId;
     const { nodes } = useNodes(isSplitter);
     const { users } = useUsers(isSplitter);
@@ -468,17 +468,17 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
     const handleNext = () => {
         if (currentStep === 1) {
             if (!name || (!selectedNode && !forcedParentId)) {
-                toast({ title: 'Error', description: 'Por favor completa los campos obligatorios.', variant: 'destructive' });
+                sileo.error({ title: 'Error', description: 'Por favor completa los campos obligatorios.' });
                 return;
             }
             setCurrentStep(2);
         } else if (currentStep === 2) {
             if (!selectedTemplateName) {
-                toast({ title: 'Error', description: 'Por favor selecciona una plantilla.', variant: 'destructive' });
+                sileo.error({ title: 'Error', description: 'Por favor selecciona una plantilla.' });
                 return;
             }
             if (!templateDetails && !templateError) {
-                toast({ title: 'Cargando plantilla...', description: 'Espera un momento mientras se cargan los detalles de la plantilla.' });
+                sileo.success({ title: 'Cargando plantilla...', description: 'Espera un momento mientras se cargan los detalles de la plantilla.' });
                 return;
             }
             setCurrentStep(3);
@@ -531,10 +531,10 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
 
             await api.put(`/api/servers/${identifier}`, serverPayload);
 
-            toast({ title: 'Éxito', description: `Servidor "${name}" creado correctamente.` });
+            sileo.success({ title: 'Éxito', description: `Servidor "${name}" creado correctamente.` });
             onComplete();
         } catch (e: any) {
-            toast({ title: 'Error al crear servidor', description: e?.message || 'Error desconocido.', variant: 'destructive' });
+            sileo.error({ title: 'Error al crear servidor', description: e?.message || 'Error desconocido.' });
         } finally {
             setLoading(false);
         }

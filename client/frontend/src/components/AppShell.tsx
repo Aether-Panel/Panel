@@ -31,7 +31,7 @@ import { ArrowUpRight, LayoutDashboard, LogOut, Server, Settings, Sparkles, User
 import { Logo } from '@/components/logo';
 import { useTranslations } from '@/contexts/translations-context';
 import { useConfig } from '@/contexts/config-context';
-import { Toaster } from '@/components/ui/toaster';
+import SileoToaster from '@/components/SileoToaster';
 import { cn } from '@/lib/utils';
 import type { ReactNode } from 'react';
 
@@ -222,7 +222,7 @@ export default function AppShell({ children, currentPath }: { children: ReactNod
             <AppLayoutInner currentPath={currentPath}>
                 {children}
             </AppLayoutInner>
-            <Toaster />
+            <SileoToaster />
         </Providers>
     );
 }

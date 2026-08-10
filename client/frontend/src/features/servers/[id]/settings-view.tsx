@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useTranslations } from '@/contexts/translations-context';
 import { useServerSettings, type ServerSettings, type SettingVariable } from '@/hooks/use-server-settings';
-import { useToast } from '@/hooks/use-toast';
+import { sileo } from "@/lib/toast";
 import { useAuth } from '@/contexts/providers';
 import { cn } from '@/lib/utils';
 import {
@@ -94,7 +94,7 @@ export default function SettingsView({ serverId }: SettingsViewProps) {
   const { t } = useTranslations();
   const { hasScope } = useAuth();
   const { settings, loading, error, saveSettings, isMinecraftJava } = useServerSettings(serverId);
-  const { toast } = useToast();
+  
   const [localSettings, setLocalSettings] = useState<ServerSettings | null>(null);
   const [saving, setSaving] = useState(false);
   const [pluginsEnabled, setPluginsEnabled] = useState(true);
@@ -166,13 +166,12 @@ export default function SettingsView({ serverId }: SettingsViewProps) {
       localStorage.setItem(`pluginsEnabled_${serverId}`, pluginsEnabled.toString());
       window.dispatchEvent(new CustomEvent('server:plugins-enabled-changed', { detail: pluginsEnabled }));
 
-      toast({
+      sileo.success({
         title: t('common.success') || 'Success',
         description: t('servers.settings.saveSuccess' as any) || 'Settings saved successfully'
       });
     } catch (e) {
-      toast({
-        variant: 'destructive',
+      sileo.error({
         title: t('common.error') || 'Error',
         description: t('servers.settings.saveError' as any) || 'Failed to save settings'
       });

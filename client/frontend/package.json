@@ -50,6 +50,7 @@
     "react-dom": "^19.2.8",
     "react-hook-form": "^7.83.0",
     "recharts": "^2.15.1",
+    "sileo": "^0.1.5",
     "tailwind-merge": "^3.0.1",
     "tailwindcss-animate": "^1.0.7",
     "zod": "^4.4.3"

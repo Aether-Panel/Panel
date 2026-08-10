@@ -13,7 +13,7 @@ import type { LucideIcon } from 'lucide-react';
 import { useTranslations } from '@/contexts/translations-context';
 import { useTemplates, type TemplateRepo } from '@/hooks/use-templates';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { useToast } from '@/hooks/use-toast';
+import { sileo } from "@/lib/toast";
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
@@ -76,7 +76,7 @@ const defaultTemplateJson = `{
 
 export default function TemplatesPage() {
   const { role, hasScope } = useAuth();
-  const { toast } = useToast();
+  
   const [isMounted, setIsMounted] = useState(false);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -236,7 +236,7 @@ export default function TemplatesPage() {
                     const parsed = JSON.parse(templateJson);
                     if (!parsed.name) throw new Error("Template must have a 'name' field.");
                     await saveTemplate(parsed.name, parsed);
-                    toast({ title: 'Success', description: 'Template created successfully' });
+                    sileo.success({ title: 'Success', description: 'Template created successfully' });
                     setIsCreateOpen(false);
                     setTemplateJson(defaultTemplateJson);
                     // Refresh
@@ -256,7 +256,7 @@ export default function TemplatesPage() {
                     setAllTemplates(uniqueLoaded);
                     setLoadingTemplates(false);
                   } catch (e: any) {
-                    toast({ title: 'Error', description: e.message || 'Invalid JSON format or network error', variant: 'destructive' });
+                    sileo.error({ title: 'Error', description: e.message || 'Invalid JSON format or network error' });
                   } finally {
                     setSaving(false);
                   }

@@ -1,16 +1,16 @@
 'use client';
 import { Copy } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { sileo } from "@/lib/toast";
 import { useTranslations } from '@/contexts/translations-context';
 
 export function ServerAddress({ ip, port }: { ip: string; port: number }) {
-  const { toast } = useToast();
+  
   const { t } = useTranslations();
   const address = `${ip}:${port}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(address);
-    toast({
+    sileo.success({
       title: t('servers.address.copyToastTitle'),
       description: t('servers.address.copyToastDescription', { address }),
     });

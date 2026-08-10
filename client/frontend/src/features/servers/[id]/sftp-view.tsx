@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/providers';
-import { useToast } from '@/hooks/use-toast';
+import { sileo } from "@/lib/toast";
 import { Check, Copy, ExternalLink, Lock } from 'lucide-react';
 
 type SFTPViewProps = {
@@ -40,7 +40,7 @@ function SpecRow({
 
 export default function SFTPView({ server }: SFTPViewProps) {
     const { user } = useAuth();
-    const { toast } = useToast();
+    
     const [copiedField, setCopiedField] = useState<string | null>(null);
 
     if (!server || !server.node) {
@@ -65,7 +65,7 @@ export default function SFTPView({ server }: SFTPViewProps) {
         navigator.clipboard.writeText(text);
         setCopiedField(field);
         setTimeout(() => setCopiedField(null), 2000);
-        toast({
+        sileo.success({
             description: "Copiado al portapapeles",
         });
     };
@@ -73,7 +73,7 @@ export default function SFTPView({ server }: SFTPViewProps) {
     const handleLaunchSFTP = () => {
         const url = `sftp://${encodeURIComponent(sftpUser)}@${sftpHost}:${sftpPort}/`;
         window.location.href = url;
-        toast({
+        sileo.success({
             title: "Lanzando SFTP",
             description: "Se ha enviado la solicitud a tu cliente SFTP local.",
         });

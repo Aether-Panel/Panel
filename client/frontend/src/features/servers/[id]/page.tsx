@@ -26,7 +26,7 @@ import { Button } from '@/components/ui/button';
 import { useTranslations } from '@/contexts/translations-context';
 import { useServers } from '@/hooks/use-servers';
 import { api, ApiError } from '@/lib/api-client';
-import { useToast } from '@/hooks/use-toast';
+import { sileo } from "@/lib/toast";
 import { Loader2 } from 'lucide-react';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { useAuth } from '@/contexts/providers';
@@ -248,7 +248,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
   }, [params.id]);
 
   const { t } = useTranslations();
-  const { toast } = useToast();
+  
   const [isActionPending, setIsActionPending] = useState(false);
   const [serverUnavailable, setServerUnavailable] = useState(false);
 
@@ -466,11 +466,11 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
       const res = await api.post(`/api/servers/${server.id}/${action}`, {});
       if (res && res.error) {
         addLog(`> Error: ${res.error}`);
-        toast({ title: t('common.error'), description: res.error, variant: 'destructive' });
+        sileo.error({ title: t('common.error'), description: res.error });
         setTimeout(refresh, 2000);
         return;
       }
-      toast({ title: t('common.success'), description: t(`servers.actions.${action}Success`) || `Action ${action} sent.` });
+      sileo.success({ title: t('common.success'), description: t(`servers.actions.${action}Success`) || `Action ${action} sent.` });
 
       if (action === 'stop') {
         setStopRequestedAt(Date.now());
@@ -486,9 +486,12 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
     } catch (e: any) {
       if (e instanceof ApiError && e.status === 404) {
         addLog('> Error: Server files or configuration missing from node.');
-        toast({ title: t('common.error'), description: 'Server files not found on this node.', variant: 'destructive' });
+        sileo.error({ title: t('common.error'), description: 'Server files not found on this node.' });
+      } else if (e instanceof ApiError && e.status === 409) {
+        addLog('> Error: Port already in use.');
+        sileo.error({ title: t('common.error'), description: e.message || t('servers.detail.portInUse') || 'The port is already in use by another server.' });
       } else {
-        toast({ title: t('common.error'), description: e.message || 'Action failed.', variant: 'destructive' });
+        sileo.error({ title: t('common.error'), description: e.message || 'Action failed.' });
       }
     } finally {
       setIsActionPending(false);

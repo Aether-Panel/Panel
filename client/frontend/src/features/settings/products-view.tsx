@@ -6,7 +6,7 @@ import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Trash2, Plus, Edit } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { sileo } from "@/lib/toast";
 import { api } from '@/lib/api-client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -15,7 +15,7 @@ export function ProductsView() {
     const [nodes, setNodes] = useState<any[]>([]);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
-    const { toast } = useToast();
+    
 
     const [form, setForm] = useState({
         product_id: '',
@@ -69,10 +69,10 @@ export function ProductsView() {
 
             fetchData();
             setIsDialogOpen(false);
-            toast({ title: 'Success', description: 'Product saved successfully' });
+            sileo.success({ title: 'Success', description: 'Product saved successfully' });
         } catch (e) {
             console.error(e);
-            toast({ title: 'Error', description: 'Failed to save product', variant: 'destructive' });
+            sileo.error({ title: 'Error', description: 'Failed to save product' });
         }
     };
 
@@ -81,7 +81,7 @@ export function ProductsView() {
         try {
             await api.delete(`/api/provision/products/${id}`);
             fetchData();
-            toast({ title: 'Success', description: 'Product deleted' });
+            sileo.success({ title: 'Success', description: 'Product deleted' });
         } catch (e) {
             console.error(e);
         }

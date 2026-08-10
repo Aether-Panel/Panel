@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
-import { useToast } from '@/hooks/use-toast';
+import { sileo } from "@/lib/toast";
 
 type UsersViewProps = {
   serverId: string;
@@ -28,7 +28,7 @@ export default function UsersView({ serverId }: UsersViewProps) {
   const [addingUser, setAddingUser] = useState(false);
   const [email, setEmail] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const { toast } = useToast();
+  
   const { t } = useTranslations();
 
   const fetchUsers = useCallback(async () => {
@@ -38,15 +38,14 @@ export default function UsersView({ serverId }: UsersViewProps) {
       setUsers(data || []);
     } catch (err) {
       console.error('Failed to fetch users:', err);
-      toast({
-        variant: 'destructive',
+      sileo.error({
         title: t('common.error') || 'Error',
         description: t('servers.users.fetchError') || 'Failed to load users'
       });
     } finally {
       setLoading(false);
     }
-  }, [serverId, t, toast]);
+  }, [serverId, t]);
 
   useEffect(() => {
     fetchUsers();
@@ -70,7 +69,7 @@ export default function UsersView({ serverId }: UsersViewProps) {
         scopes: defaultScopes
       });
 
-      toast({
+      sileo.success({
         title: t('common.success') || 'Success',
         description: t('servers.users.addSuccess') || 'User added successfully'
       });
@@ -79,8 +78,7 @@ export default function UsersView({ serverId }: UsersViewProps) {
       fetchUsers();
     } catch (err: any) {
       console.error('Failed to add user:', err);
-      toast({
-        variant: 'destructive',
+      sileo.error({
         title: t('common.error') || 'Error',
         description: err.message || t('servers.users.addError') || 'Failed to add user'
       });
@@ -92,15 +90,14 @@ export default function UsersView({ serverId }: UsersViewProps) {
   const handleRevoke = async (userEmail: string) => {
     try {
       await api.delete(`/api/servers/${serverId}/user/${userEmail}`);
-      toast({
+      sileo.success({
         title: t('common.success') || 'Success',
         description: t('servers.users.revokeSuccess') || 'Access revoked successfully'
       });
       fetchUsers();
     } catch (err: any) {
       console.error('Failed to revoke access:', err);
-      toast({
-        variant: 'destructive',
+      sileo.error({
         title: t('common.error') || 'Error',
         description: err.message || t('servers.users.revokeError') || 'Failed to revoke access'
       });

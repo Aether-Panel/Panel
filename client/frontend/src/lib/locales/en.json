@@ -1,4 +1,15 @@
 {
+  "auth": {
+    "loginSuccess": "Login successful",
+    "loginFailed": "Login failed",
+    "registerSuccess": "Account created successfully",
+    "registerFailed": "Failed to create account",
+    "otpRequired": "OTP required",
+    "otpDescription": "Two-factor authentication is enabled for this account.",
+    "redirecting": "Redirecting to dashboard...",
+    "checkCredentials": "Please check your credentials and try again.",
+    "accountCreated": "Account created and signed in."
+  },
   "sidebar": {
     "dashboard": "Dashboard",
     "servers": "Servers",
@@ -175,6 +186,7 @@
       "restart": "Restart",
       "stop": "Stop",
       "forceStop": "Force Stop",
+      "portInUse": "The port is already in use by another server or active process on this node.",
       "selectPage": "Select a page...",
       "tabs": {
         "console": "Console",

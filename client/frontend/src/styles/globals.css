@@ -108,6 +108,23 @@
     @apply bg-white/10 rounded-full hover:bg-white/20 transition-colors;
   }
 
+[data-sileo-viewport] {
+    --sileo-state-success: hsl(var(--success));
+    --sileo-state-error: hsl(var(--destructive));
+    --sileo-state-warning: hsl(var(--warning));
+    --sileo-state-info: hsl(var(--primary));
+    --sileo-state-action: hsl(var(--primary));
+    --sileo-state-loading: hsl(var(--muted-foreground));
+  }
+
+  /* Sileo paints its toast background via an SVG `fill` attribute, but SVG
+     presentation attributes can't resolve CSS variables (var()). Force the
+     fill through real CSS so the toast matches the panel theme. */
+  [data-sileo-pill],
+  [data-sileo-body] {
+    fill: #181b26;
+  }
+
   .text-gradient {
     background: linear-gradient(to right, hsl(0 0% 100%), hsl(var(--primary)));
     -webkit-background-clip: text;

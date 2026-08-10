@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Check, Copy, Info, PlusCircle, Trash2, Edit2, Loader2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { sileo } from "@/lib/toast";
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
@@ -26,7 +26,7 @@ export default function DatabaseHostsPage() {
     const [currentStep, setCurrentStep] = useState(1);
     const [isEditing, setIsEditing] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
-    const { toast } = useToast();
+    
     const { t } = useTranslations();
 
     const stepTitles = [
@@ -59,14 +59,14 @@ export default function DatabaseHostsPage() {
         try {
             if (isEditing && editingId !== null) {
                 await updateHost(editingId, formData);
-                toast({ title: t('common.success'), description: "Database host updated successfully" });
+                sileo.success({ title: t('common.success'), description: "Database host updated successfully" });
             } else {
                 await createHost(formData);
-                toast({ title: t('common.success'), description: "Database host created successfully" });
+                sileo.success({ title: t('common.success'), description: "Database host created successfully" });
             }
             handleDialogChange(false);
         } catch (e: any) {
-            toast({ title: t('common.error'), description: e.message, variant: 'destructive' });
+            sileo.error({ title: t('common.error'), description: e.message });
         }
     };
 
@@ -74,9 +74,9 @@ export default function DatabaseHostsPage() {
         if (!confirm(t('common.confirmDelete') || "Are you sure you want to delete this database host?")) return;
         try {
             await deleteHost(id);
-            toast({ title: t('common.success'), description: "Database host deleted successfully" });
+            sileo.success({ title: t('common.success'), description: "Database host deleted successfully" });
         } catch (e: any) {
-            toast({ title: t('common.error'), description: e.message, variant: 'destructive' });
+            sileo.error({ title: t('common.error'), description: e.message });
         }
     };
 
@@ -119,7 +119,7 @@ export default function DatabaseHostsPage() {
     const CopyableCode = ({ command }: { command: string }) => {
         const handleCopy = () => {
             navigator.clipboard.writeText(command);
-            toast({ title: t('databaseHosts.addDialog.step2.copyToast') });
+            sileo.success({ title: t('databaseHosts.addDialog.step2.copyToast') });
         };
 
         return (

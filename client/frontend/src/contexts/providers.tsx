@@ -1,8 +1,8 @@
 'use client';
 import { useState, useEffect, createContext, useContext } from 'react';
 import type { ReactNode } from 'react';
-import { useToast } from '@/hooks/use-toast';
-import { TranslationsProvider } from '@/contexts/translations-context';
+import { sileo } from "@/lib/toast";
+import { TranslationsProvider, useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
 import { useConfig } from '@/contexts/config-context';
 
@@ -45,11 +45,12 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 function AuthProvider({ children }: { children: ReactNode }) {
+  const { t } = useTranslations();
   const [role, setRole] = useState<UserRole | null>(null);
   const [user, setUser] = useState<UserData | null>(null);
   const [scopes, setScopes] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
+  
 
   const normalizeScopes = (rawScopes: any[]): string[] => {
     if (!rawScopes) return [];
@@ -126,9 +127,9 @@ function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (data.otpNeeded) {
-        toast({
-          title: 'OTP Required',
-          description: 'Two-factor authentication is enabled for this account.',
+        sileo.success({
+          title: t('auth.otpRequired'),
+          description: t('auth.otpDescription'),
         });
         setLoading(false);
         return;
@@ -140,9 +141,9 @@ function AuthProvider({ children }: { children: ReactNode }) {
       // Fetch user info and pass current scopes to avoid race conditions
       await fetchSelf(scopesList);
 
-      toast({
-        title: 'Login Successful',
-        description: 'Redirecting to dashboard...',
+      sileo.success({
+        title: t('auth.loginSuccess'),
+        description: t('auth.redirecting'),
       });
 
       setTimeout(() => {
@@ -150,10 +151,9 @@ function AuthProvider({ children }: { children: ReactNode }) {
       }, 500);
     } catch (e: any) {
       console.error('Login error:', e);
-      toast({
-        variant: 'destructive',
-        title: 'Login Failed',
-        description: e.message || 'Please check your credentials.',
+      sileo.error({
+        title: t('auth.loginFailed'),
+        description: e.message || t('auth.checkCredentials'),
       });
       setLoading(false);
     }
@@ -175,9 +175,9 @@ function AuthProvider({ children }: { children: ReactNode }) {
 
       await fetchSelf(scopesList);
 
-      toast({
-        title: 'Registration Successful',
-        description: 'Account created and logged in.',
+      sileo.success({
+        title: t('auth.registerSuccess'),
+        description: t('auth.accountCreated'),
       });
 
       setTimeout(() => {
@@ -185,10 +185,9 @@ function AuthProvider({ children }: { children: ReactNode }) {
       }, 500);
     } catch (e: any) {
       console.error('Registration error:', e);
-      toast({
-        variant: 'destructive',
-        title: 'Registration Failed',
-        description: e.message || 'Could not create account.',
+      sileo.error({
+        title: t('auth.registerFailed'),
+        description: e.message || t('auth.checkCredentials'),
       });
       setLoading(false);
     }

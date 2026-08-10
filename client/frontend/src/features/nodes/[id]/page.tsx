@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { useToast } from '@/hooks/use-toast';
+import { sileo } from "@/lib/toast";
 import { useTranslations } from '@/contexts/translations-context';
 
 function findNode(realNodes: any[], idParam: string) {
@@ -42,10 +42,10 @@ const InfoItem = ({ label, value, children }: { label: string, value?: React.Rea
   </div>
 );
 
-const CopyableCode = ({ command, t, toast }: { command: string, t: any, toast: any }) => {
+const CopyableCode = ({ command, t }: { command: string, t: any }) => {
   const handleCopy = () => {
     navigator.clipboard.writeText(command);
-    toast({ title: t('common.copied') });
+    sileo.success({ title: t('common.copied') });
   };
 
   return (
@@ -187,7 +187,7 @@ function ServersCard({ serversOnNode, t }: { serversOnNode: any[]; t: any }) {
   );
 }
 
-function DeployDialog({ isDeployDialogOpen, setIsDeployDialogOpen, node, t, toast }: any) {
+function DeployDialog({ isDeployDialogOpen, setIsDeployDialogOpen, node, t }: any) {
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://192.168.0.12:8080';
   const clientId = node ? `.node_${String(node.id).includes('-') ? String(node.id).split('-')[1] : node.id}` : '';
   const deployCompose = node ? [
@@ -239,7 +239,7 @@ function DeployDialog({ isDeployDialogOpen, setIsDeployDialogOpen, node, t, toas
             <div>
               <h4 className="font-semibold">{t('nodes.deployDialog.step2')}</h4>
               <p className="text-sm text-muted-foreground">{t('nodes.deployDialog.step2Description')}</p>
-              <CopyableCode command="mkdir -p /opt/AetherPanel && cd /opt/AetherPanel" t={t} toast={toast} />
+              <CopyableCode command="mkdir -p /opt/AetherPanel && cd /opt/AetherPanel" t={t}  />
             </div>
           </div>
           <div className="flex gap-4 items-start">
@@ -247,7 +247,7 @@ function DeployDialog({ isDeployDialogOpen, setIsDeployDialogOpen, node, t, toas
             <div>
               <h4 className="font-semibold">{t('nodes.deployDialog.step3')}</h4>
               <p className="text-sm text-muted-foreground" dangerouslySetInnerHTML={{ __html: t('nodes.deployDialog.step3Description') }}></p>
-              <CopyableCode command={deployCompose} t={t} toast={toast} />
+              <CopyableCode command={deployCompose} t={t}  />
             </div>
           </div>
           <div className="flex gap-4 items-start">
@@ -255,7 +255,7 @@ function DeployDialog({ isDeployDialogOpen, setIsDeployDialogOpen, node, t, toas
             <div>
               <h4 className="font-semibold">{t('nodes.deployDialog.step4')}</h4>
               <p className="text-sm text-muted-foreground">{t('nodes.deployDialog.step4Description')}</p>
-              <CopyableCode command="docker compose up -d" t={t} toast={toast} />
+              <CopyableCode command="docker compose up -d" t={t}  />
               <p className="mt-4 text-sm font-semibold text-green-500">{t('nodes.deployDialog.successMessage')}</p>
             </div>
           </div>
@@ -268,7 +268,7 @@ function DeployDialog({ isDeployDialogOpen, setIsDeployDialogOpen, node, t, toas
   );
 }
 
-function EditNodeCard({ node, t, toast }: { node: any; t: any; toast: any }) {
+function EditNodeCard({ node, t }: { node: any; t: any }) {
   const [editName, setEditName] = useState(node.name || '');
   const [editPublicHost, setEditPublicHost] = useState(node.publicHost || '');
   const [editPublicPort, setEditPublicPort] = useState(String(node.publicPort || '8080'));
@@ -295,7 +295,7 @@ function EditNodeCard({ node, t, toast }: { node: any; t: any; toast: any }) {
 
   const handleUpdateNode = async () => {
     if (!editName.trim()) {
-      toast({ title: 'Error', description: 'El nombre es obligatorio.', variant: 'destructive' });
+      sileo.error({ title: 'Error', description: 'El nombre es obligatorio.' });
       return;
     }
     setIsSaving(true);
@@ -310,9 +310,9 @@ function EditNodeCard({ node, t, toast }: { node: any; t: any; toast: any }) {
         privateHost: pHost,
         privatePort: pPort,
       });
-      toast({ title: t('nodes.editDialog.save'), description: `Nodo "${editName}" actualizado.` });
+      sileo.success({ title: t('nodes.editDialog.save'), description: `Nodo "${editName}" actualizado.` });
     } catch (e: any) {
-      toast({ title: 'Error al actualizar', description: e?.message || 'Error desconocido.', variant: 'destructive' });
+      sileo.error({ title: 'Error al actualizar', description: e?.message || 'Error desconocido.' });
     } finally {
       setIsSaving(false);
     }
@@ -322,10 +322,10 @@ function EditNodeCard({ node, t, toast }: { node: any; t: any; toast: any }) {
     setIsDeleting(true);
     try {
       await api.delete(`/api/nodes/${node.id}`);
-      toast({ title: 'Nodo eliminado', description: `"${node.name}" fue eliminado correctamente.` });
+      sileo.success({ title: 'Nodo eliminado', description: `"${node.name}" fue eliminado correctamente.` });
       window.location.href = '/nodes/';
     } catch (e: any) {
-      toast({ title: 'Error al eliminar', description: e?.message || 'Error desconocido.', variant: 'destructive' });
+      sileo.error({ title: 'Error al eliminar', description: e?.message || 'Error desconocido.' });
       setIsDeleting(false);
     }
   };
@@ -432,7 +432,7 @@ function EditNodeCard({ node, t, toast }: { node: any; t: any; toast: any }) {
           )}
         </CardContent>
       </Card>
-      <DeployDialog isDeployDialogOpen={isDeployDialogOpen} setIsDeployDialogOpen={setIsDeployDialogOpen} node={node} t={t} toast={toast} />
+      <DeployDialog isDeployDialogOpen={isDeployDialogOpen} setIsDeployDialogOpen={setIsDeployDialogOpen} node={node} t={t}  />
     </div>
   );
 }
@@ -442,7 +442,7 @@ export default function NodeDetailPage({ params }: { params: { id: string } }) {
   const { nodes: realNodes, loading: nodesLoading } = useNodes();
   const { servers: allServers, loading: serversLoading } = useServers();
   const { t } = useTranslations();
-  const { toast } = useToast();
+  
 
   const [liveStats, setLiveStats] = useState<any>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -599,7 +599,7 @@ export default function NodeDetailPage({ params }: { params: { id: string } }) {
 
         <div className="lg:col-span-1 space-y-6">
           <ServersCard serversOnNode={serversOnNode} t={t} />
-          <EditNodeCard node={node} t={t} toast={toast} />
+          <EditNodeCard node={node} t={t}  />
         </div>
       </div>
     </div>

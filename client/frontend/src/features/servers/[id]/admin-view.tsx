@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Shield, Loader2, Settings, ArrowRightLeft, Trash2, HardDrive, Flag } from 'lucide-react';
 import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
-import { useToast } from '@/hooks/use-toast';
+import { sileo } from "@/lib/toast";
 import { useState, lazy, Suspense } from 'react';
 import { useServerSettings } from '@/hooks/use-server-settings';
 import { useAuth } from '@/contexts/providers';
@@ -16,7 +16,7 @@ const CodeEditor = lazy(() => import('./code-editor'));
 
 export default function AdminView({ serverId }: { serverId: string }) {
     const { t } = useTranslations();
-    const { toast } = useToast();
+    
     const { hasScope } = useAuth();
     const { settings, loading, saveSettings } = useServerSettings(serverId);
     const [isInstalling, setIsInstalling] = useState(false);
@@ -62,10 +62,10 @@ export default function AdminView({ serverId }: { serverId: string }) {
                 ...settings,
                 definition: parsed
             });
-            toast({ title: t('common.success'), description: t('servers.admin.editDefinition.success') || 'Definition saved.' });
+            sileo.success({ title: t('common.success'), description: t('servers.admin.editDefinition.success') || 'Definition saved.' });
             setEditorOpen(false);
         } catch (e: any) {
-            toast({ title: t('common.error'), description: e.message || 'Invalid JSON or save failed.', variant: 'destructive' });
+            sileo.error({ title: t('common.error'), description: e.message || 'Invalid JSON or save failed.' });
         } finally {
             setIsSaving(false);
         }
@@ -75,9 +75,9 @@ export default function AdminView({ serverId }: { serverId: string }) {
         setIsInstalling(true);
         try {
             await api.post(`/api/servers/${serverId}/install`, {});
-            toast({ title: t('common.success'), description: t('servers.admin.installStatus.success') || 'Installation started.' });
+            sileo.success({ title: t('common.success'), description: t('servers.admin.installStatus.success') || 'Installation started.' });
         } catch (e: any) {
-            toast({ title: t('common.error'), description: e.message || 'Installation failed.', variant: 'destructive' });
+            sileo.error({ title: t('common.error'), description: e.message || 'Installation failed.' });
         } finally {
             setIsInstalling(false);
         }
@@ -87,10 +87,10 @@ export default function AdminView({ serverId }: { serverId: string }) {
         setIsDeleting(true);
         try {
             await api.delete(`/api/servers/${serverId}`);
-            toast({ title: t('common.success'), description: t('servers.admin.delete.success') || 'Server deleted.' });
+            sileo.success({ title: t('common.success'), description: t('servers.admin.delete.success') || 'Server deleted.' });
             window.location.href = '/servers';
         } catch (e: any) {
-            toast({ title: t('common.error'), description: e.message || 'Delete failed.', variant: 'destructive' });
+            sileo.error({ title: t('common.error'), description: e.message || 'Delete failed.' });
         } finally {
             setIsDeleting(false);
         }
@@ -100,10 +100,10 @@ export default function AdminView({ serverId }: { serverId: string }) {
         setIsSuspending(true);
         try {
             await api.post(`/api/servers/${serverId}/suspend`, {});
-            toast({ title: t('common.success'), description: 'Server suspension state toggled.' });
+            sileo.success({ title: t('common.success'), description: 'Server suspension state toggled.' });
             window.location.reload();
         } catch (e: any) {
-            toast({ title: t('common.error'), description: e.message || 'Suspension failed.', variant: 'destructive' });
+            sileo.error({ title: t('common.error'), description: e.message || 'Suspension failed.' });
         } finally {
             setIsSuspending(false);
         }
@@ -111,15 +111,15 @@ export default function AdminView({ serverId }: { serverId: string }) {
 
     const handleTransfer = async () => {
         if (!selectedNode) {
-            toast({ title: t('common.error'), description: 'Please select a target node.', variant: 'destructive' });
+            sileo.error({ title: t('common.error'), description: 'Please select a target node.' });
             return;
         }
         setIsTransferring(true);
         try {
             await api.post(`/api/servers/${serverId}/transfer`, { nodeId: parseInt(selectedNode) });
-            toast({ title: t('common.success'), description: 'Transfer started successfully.' });
+            sileo.success({ title: t('common.success'), description: 'Transfer started successfully.' });
         } catch (e: any) {
-            toast({ title: t('common.error'), description: e.message || 'Transfer failed.', variant: 'destructive' });
+            sileo.error({ title: t('common.error'), description: e.message || 'Transfer failed.' });
         } finally {
             setIsTransferring(false);
         }

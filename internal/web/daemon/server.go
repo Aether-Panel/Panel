@@ -18,6 +18,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/query"
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers"
+	"github.com/SkyPanel/SkyPanel/v3/internal/servers/docker"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-contrib/cors"
@@ -151,6 +152,13 @@ func startServer(c *gin.Context) {
 	server := getServerFromGin(c)
 	_, wait := c.GetQuery("wait")
 
+	// Pre-check for port conflicts so the user gets a clear error instead of a
+	// generic 202 that later fails asynchronously on the docker daemon.
+	if err := checkPortConflicts(server); err != nil {
+		response.HandleError(c, err, http.StatusConflict)
+		return
+	}
+
 	if wait {
 		err := server.Start()
 		if !response.HandleError(c, err, http.StatusInternalServerError) {
@@ -165,6 +173,22 @@ func startServer(c *gin.Context) {
 		}()
 		c.Status(http.StatusAccepted)
 	}
+}
+
+// checkPortConflicts inspects the server's docker port bindings and returns an
+// error if any of them are already in use by another running container.
+func checkPortConflicts(server *servers.Server) error {
+	env := server.GetEnvironment()
+	if env == nil || env.Implementation == nil {
+		return nil
+	}
+
+	d, ok := env.Implementation.(*docker.Docker)
+	if !ok {
+		return nil
+	}
+
+	return docker.CheckBindingsConflict(d.Ports, server.DataToMap(), server.ID())
 }
 
 func doRestart(server *servers.Server) error {
@@ -190,6 +214,13 @@ func doRestart(server *servers.Server) error {
 func restartServer(c *gin.Context) {
 	server := getServerFromGin(c)
 	_, wait := c.GetQuery("wait")
+
+	// Pre-check for port conflicts so the user gets a clear error instead of a
+	// generic 202 that later fails asynchronously on the docker daemon.
+	if err := checkPortConflicts(server); err != nil {
+		response.HandleError(c, err, http.StatusConflict)
+		return
+	}
 
 	if wait {
 		err := doRestart(server)

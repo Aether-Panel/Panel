@@ -7,7 +7,7 @@ import { Settings, Bell, Mail, Loader2, Key, Package } from 'lucide-react';
 import { useTranslations } from '@/contexts/translations-context';
 import { useSettings } from '@/hooks/use-settings';
 import { useConfig } from '@/contexts/config-context';
-import { useToast } from '@/hooks/use-toast';
+import { sileo } from "@/lib/toast";
 import { ApiKeysView } from './api-keys-view';
 import { ProductsView } from './products-view';
 import { GeneralTab } from './general-tab';
@@ -20,7 +20,7 @@ export default function SettingsPage() {
     const { t } = useTranslations();
     const { settings, loading, saving, saveSettings, sendTestEmail, sendTestDiscord } = useSettings();
     const { refresh: refreshConfig } = useConfig();
-    const { toast } = useToast();
+    
 
     const [localSettings, setLocalSettings] = useState<Record<string, any>>({});
     const [activeTab, setActiveTab] = useState('general');
@@ -54,15 +54,14 @@ export default function SettingsPage() {
         try {
             await saveSettings(localSettings);
             await refreshConfig();
-            toast({
+            sileo.success({
                 title: t('common.success'),
                 description: t('settings.saveSuccess') || 'Settings saved successfully',
             });
         } catch (e: any) {
-            toast({
+            sileo.error({
                 title: t('common.error'),
                 description: e.message || 'Failed to save settings',
-                variant: 'destructive',
             });
         }
     };
@@ -70,15 +69,14 @@ export default function SettingsPage() {
     const handleTestEmail = async () => {
         try {
             await sendTestEmail();
-            toast({
+            sileo.success({
                 title: t('common.success'),
                 description: t('settings.mail.testSuccess') || 'Test email sent successfully',
             });
         } catch (e: any) {
-            toast({
+            sileo.error({
                 title: t('common.error'),
                 description: e.message || 'Failed to send test email',
-                variant: 'destructive',
             });
         }
     };
@@ -86,15 +84,14 @@ export default function SettingsPage() {
     const handleTestDiscord = async () => {
         try {
             await sendTestDiscord();
-            toast({
+            sileo.success({
                 title: t('common.success'),
                 description: t('settings.discord.testSuccess') || 'Test Discord message sent successfully',
             });
         } catch (e: any) {
-            toast({
+            sileo.error({
                 title: t('common.error'),
                 description: e.message || 'Failed to send test Discord message',
-                variant: 'destructive',
             });
         }
     };

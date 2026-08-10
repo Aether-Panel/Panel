@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
-import { useToast } from '@/hooks/use-toast';
+import { sileo } from "@/lib/toast";
 
 type DatabaseInfo = {
   id: number;
@@ -86,7 +86,7 @@ export default function DatabaseView({ serverId }: DatabaseViewProps) {
   const [pendingDb, setPendingDb] = useState<number | null>(null);
 
   const { t } = useTranslations();
-  const { toast } = useToast();
+  
 
   const fetchData = useCallback(async () => {
     try {
@@ -121,7 +121,7 @@ export default function DatabaseView({ serverId }: DatabaseViewProps) {
       setCreatedDb(result);
       setIsSuccessOpen(true);
 
-      toast({
+      sileo.success({
         title: t('common.success'),
         description: t('servers.database.createDialog.createSuccess')
       });
@@ -132,8 +132,7 @@ export default function DatabaseView({ serverId }: DatabaseViewProps) {
       fetchData();
     } catch (err: any) {
       console.error('Failed to create database:', err);
-      toast({
-        variant: 'destructive',
+      sileo.error({
         title: t('common.error'),
         description: err.message || t('servers.database.createDialog.createError')
       });
@@ -146,15 +145,14 @@ export default function DatabaseView({ serverId }: DatabaseViewProps) {
     if (!pendingDb) return;
     try {
       await api.delete(`/api/servers/${serverId}/databases/${pendingDb}`);
-      toast({
+      sileo.success({
         title: t('common.success'),
         description: t('servers.database.deleteSuccess')
       });
       fetchData();
     } catch (err) {
       console.error('Failed to delete database:', err);
-      toast({
-        variant: 'destructive',
+      sileo.error({
         title: t('common.error'),
         description: t('servers.database.deleteError')
       });
@@ -167,7 +165,7 @@ export default function DatabaseView({ serverId }: DatabaseViewProps) {
     navigator.clipboard.writeText(text);
     setCopiedField(field);
     setTimeout(() => setCopiedField(null), 2000);
-    toast({
+    sileo.success({
       description: "Copiado al portapapeles",
     });
   };

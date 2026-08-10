@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Trash2, Key, Copy, Plus } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { sileo } from "@/lib/toast";
 import { api } from '@/lib/api-client';
 
 export function ApiKeysView() {
@@ -13,7 +13,7 @@ export function ApiKeysView() {
     const [name, setName] = useState('');
     const [isCreating, setIsCreating] = useState(false);
     const [newKeyData, setNewKeyData] = useState<{token: string, key: any} | null>(null);
-    const { toast } = useToast();
+    
 
     const fetchKeys = async () => {
         try {
@@ -35,10 +35,10 @@ export function ApiKeysView() {
             setName('');
             setIsCreating(false);
             fetchKeys();
-            toast({ title: 'Success', description: 'API Key generated successfully' });
+            sileo.success({ title: 'Success', description: 'API Key generated successfully' });
         } catch (e) {
             console.error(e);
-            toast({ title: 'Error', description: 'Failed to generate key', variant: 'destructive' });
+            sileo.error({ title: 'Error', description: 'Failed to generate key' });
         }
     };
 
@@ -47,7 +47,7 @@ export function ApiKeysView() {
         try {
             await api.delete(`/api/settings/apikeys/${id}`);
             fetchKeys();
-            toast({ title: 'Success', description: 'API Key deleted' });
+            sileo.success({ title: 'Success', description: 'API Key deleted' });
         } catch (e) {
             console.error(e);
         }
@@ -55,7 +55,7 @@ export function ApiKeysView() {
 
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text);
-        toast({ title: 'Copied', description: 'API Key copied to clipboard' });
+        sileo.success({ title: 'Copied', description: 'API Key copied to clipboard' });
     };
 
     return (

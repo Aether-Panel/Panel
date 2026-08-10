@@ -8,7 +8,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Puzzle, Search, Download, Trash2, ExternalLink, Loader2, CheckCircle2 } from 'lucide-react';
 import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
-import { useToast } from '@/hooks/use-toast';
+import { sileo } from "@/lib/toast";
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
@@ -41,7 +41,7 @@ export default function PluginsView({ serverId }: PluginsViewProps) {
   const [installingId, setInstallingId] = useState<string | null>(null);
   const [pendingPlugin, setPendingPlugin] = useState<string | null>(null);
   const { t } = useTranslations();
-  const { toast } = useToast();
+  
 
   const fetchInstalled = useCallback(async () => {
     try {
@@ -70,8 +70,7 @@ export default function PluginsView({ serverId }: PluginsViewProps) {
       setActiveTab('marketplace');
     } catch (err) {
       console.error('Failed to search projects on Modrinth:', err);
-      toast({
-        variant: 'destructive',
+      sileo.error({
         title: t('common.error'),
         description: 'Failed to search on Modrinth'
       });
@@ -84,15 +83,14 @@ export default function PluginsView({ serverId }: PluginsViewProps) {
     try {
       setInstallingId(plugin.id);
       await api.post(`/api/servers/${serverId}/plugins/${plugin.id}`, {});
-      toast({
+      sileo.success({
         title: t('common.success'),
         description: t('servers.plugins.notifications.installSuccess', { name: plugin.name })
       });
       fetchInstalled();
     } catch (err) {
       console.error('Failed to install project:', err);
-      toast({
-        variant: 'destructive',
+      sileo.error({
         title: t('common.error'),
         description: t('servers.plugins.notifications.installError')
       });
@@ -105,15 +103,14 @@ export default function PluginsView({ serverId }: PluginsViewProps) {
     if (!pendingPlugin) return;
     try {
       await api.delete(`/api/servers/${serverId}/plugins?name=${encodeURIComponent(pendingPlugin)}`);
-      toast({
+      sileo.success({
         title: t('common.success'),
         description: t('servers.plugins.notifications.uninstallSuccess')
       });
       fetchInstalled();
     } catch (err) {
       console.error('Failed to delete plugin:', err);
-      toast({
-        variant: 'destructive',
+      sileo.error({
         title: t('common.error'),
         description: t('servers.plugins.notifications.uninstallError')
       });

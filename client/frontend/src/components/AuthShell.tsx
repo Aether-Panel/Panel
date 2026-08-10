@@ -1,6 +1,6 @@
 'use client';
 import { Providers } from '@/contexts/providers';
-import { Toaster } from '@/components/ui/toaster';
+import SileoToaster from '@/components/SileoToaster';
 import type { ReactNode } from 'react';
 
 export default function AuthShell({ children }: { children: ReactNode }) {
@@ -9,7 +9,7 @@ export default function AuthShell({ children }: { children: ReactNode }) {
             <main className="animate-in fade-in duration-500">
                 {children}
             </main>
-            <Toaster />
+            <SileoToaster />
         </Providers>
     );
 }

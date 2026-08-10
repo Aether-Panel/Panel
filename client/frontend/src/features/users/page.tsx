@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
-import { useToast } from '@/hooks/use-toast';
+import { sileo } from "@/lib/toast";
 
 export default function UsersPage() {
   const { role, hasScope, user: currentUser, fetchSelf } = useAuth();
@@ -29,7 +29,7 @@ export default function UsersPage() {
   const [viewingUser, setViewingUser] = useState<User | null>(null);
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
   const { t } = useTranslations();
-  const { toast } = useToast();
+  
 
   // State for the form
   const [formName, setFormName] = useState('');
@@ -55,7 +55,7 @@ export default function UsersPage() {
         assignedServers: [] // TODO: fetch permissions if needed
       })));
     } catch (e: any) {
-      toast({ title: t('common.error'), description: 'Failed to fetch users.', variant: 'destructive' });
+      sileo.error({ title: t('common.error'), description: 'Failed to fetch users.' });
     } finally {
       setLoading(false);
     }
@@ -101,11 +101,11 @@ export default function UsersPage() {
         password: formPassword,
         roleId: formRoleId === 'none' ? null : parseInt(formRoleId)
       });
-      toast({ title: t('common.success'), description: 'User created successfully.' });
+      sileo.success({ title: t('common.success'), description: 'User created successfully.' });
       setIsAddUserDialogOpen(false);
       fetchUsers();
     } catch (e: any) {
-      toast({ title: t('common.error'), description: e.message || 'Failed to create user.', variant: 'destructive' });
+      sileo.error({ title: t('common.error'), description: e.message || 'Failed to create user.' });
     }
   };
 
@@ -118,7 +118,7 @@ export default function UsersPage() {
         password: formPassword || undefined,
         roleId: formRoleId === 'none' ? null : parseInt(formRoleId)
       });
-      toast({ title: t('common.success'), description: 'User updated successfully.' });
+      sileo.success({ title: t('common.success'), description: 'User updated successfully.' });
 
       // If we just updated ourselves, re-fetch self to update UI role/scopes
       if (editingUser.id === currentUser?.id) {
@@ -129,17 +129,17 @@ export default function UsersPage() {
       setEditingUser(null);
       fetchUsers();
     } catch (e: any) {
-      toast({ title: t('common.error'), description: e.message || 'Failed to update user.', variant: 'destructive' });
+      sileo.error({ title: t('common.error'), description: e.message || 'Failed to update user.' });
     }
   };
 
   const handleDeleteUser = async (id: number | string) => {
     try {
       await api.delete(`/api/users/${id}`);
-      toast({ title: t('common.success'), description: 'User deleted successfully.' });
+      sileo.success({ title: t('common.success'), description: 'User deleted successfully.' });
       fetchUsers();
     } catch (e: any) {
-      toast({ title: t('common.error'), description: e.message || 'Failed to delete user.', variant: 'destructive' });
+      sileo.error({ title: t('common.error'), description: e.message || 'Failed to delete user.' });
     }
   };
 

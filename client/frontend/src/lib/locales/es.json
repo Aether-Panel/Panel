@@ -1,4 +1,15 @@
 {
+  "auth": {
+    "loginSuccess": "Sesión iniciada correctamente",
+    "loginFailed": "Error al iniciar sesión",
+    "registerSuccess": "Cuenta creada correctamente",
+    "registerFailed": "Error al crear la cuenta",
+    "otpRequired": "Código OTP requerido",
+    "otpDescription": "Tu cuenta tiene la autenticación de dos factores habilitada.",
+    "redirecting": "Redirigiendo al panel...",
+    "checkCredentials": "Revisa tus credenciales e inténtalo de nuevo.",
+    "accountCreated": "Cuenta creada e iniciada sesión."
+  },
   "sidebar": {
     "dashboard": "Dashboard",
     "servers": "Servidores",
@@ -175,6 +186,7 @@
       "restart": "Reiniciar",
       "stop": "Detener",
       "forceStop": "Forzar Detención",
+      "portInUse": "El puerto ya está en uso por otro servidor o proceso activo en este nodo.",
       "selectPage": "Selecciona una página...",
       "tabs": {
         "console": "Consola",

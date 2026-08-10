@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/providers';
 import { useProfile } from '@/hooks/use-profile';
-import { useToast } from '@/hooks/use-toast';
+import { sileo } from "@/lib/toast";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Settings, User, KeyRound, ShieldCheck, Code, Loader2, Download, Trash2, Plus } from 'lucide-react';
@@ -20,7 +20,7 @@ export default function ProfileSettingsPage() {
   const { user, fetchSelf } = useAuth();
   const { otpEnabled, oauthClients, loading, updateDetails, startOtpEnroll, validateOtpEnroll, disableOtp, regenerateRecoveryCodes, createOauthClient, deleteOauthClient } = useProfile();
   const { t, language, setLanguage } = useTranslations();
-  const { toast } = useToast();
+  
   const [activeTab, setActiveTab] = useState('settings');
   const [isMounted, setIsMounted] = useState(false);
 
@@ -58,24 +58,24 @@ export default function ProfileSettingsPage() {
     try {
       await updateDetails({ username: detailsForm.username, email: detailsForm.email, password: detailsForm.password });
       await fetchSelf();
-      toast({ title: t('common.success'), description: t('profileSettings.messages.infoChanged') });
+      sileo.success({ title: t('common.success'), description: t('profileSettings.messages.infoChanged') });
       setDetailsForm(prev => ({ ...prev, password: '' }));
     } catch (e: any) {
-      toast({ title: t('common.error'), description: e.message, variant: 'destructive' });
+      sileo.error({ title: t('common.error'), description: e.message });
     }
   };
 
   const handleChangePassword = async () => {
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      toast({ title: t('common.error'), description: "Passwords do not match", variant: "destructive" });
+      sileo.error({ title: t('common.error'), description: "Passwords do not match" });
       return;
     }
     try {
       await updateDetails({ password: passwordForm.oldPassword, newPassword: passwordForm.newPassword });
-      toast({ title: t('common.success'), description: t('profileSettings.messages.passwordChanged') });
+      sileo.success({ title: t('common.success'), description: t('profileSettings.messages.passwordChanged') });
       setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' });
     } catch (e: any) {
-      toast({ title: t('common.error'), description: e.message, variant: 'destructive' });
+      sileo.error({ title: t('common.error'), description: e.message });
     }
   };
 
@@ -88,7 +88,7 @@ export default function ProfileSettingsPage() {
       setOtpToken('');
       setOtpDialog(true);
     } catch (e: any) {
-      toast({ title: t('common.error'), description: e.message, variant: 'destructive' });
+      sileo.error({ title: t('common.error'), description: e.message });
     }
   };
 
@@ -97,9 +97,9 @@ export default function ProfileSettingsPage() {
       const res = await validateOtpEnroll(otpToken);
       setOtpData(prev => ({ ...prev, recoveryCodes: res.recoveryCodes }));
       setOtpStep('recovery');
-      toast({ title: t('common.success'), description: t('profileSettings.messages.otpEnabled') });
+      sileo.success({ title: t('common.success'), description: t('profileSettings.messages.otpEnabled') });
     } catch (e: any) {
-      toast({ title: t('common.error'), description: e.message, variant: 'destructive' });
+      sileo.error({ title: t('common.error'), description: e.message });
     }
   };
 
@@ -108,9 +108,9 @@ export default function ProfileSettingsPage() {
     if (!token) return;
     try {
       await disableOtp(token);
-      toast({ title: t('common.success'), description: t('profileSettings.messages.otpDisabled') });
+      sileo.success({ title: t('common.success'), description: t('profileSettings.messages.otpDisabled') });
     } catch (e: any) {
-      toast({ title: t('common.error'), description: e.message, variant: 'destructive' });
+      sileo.error({ title: t('common.error'), description: e.message });
     }
   };
 
@@ -122,9 +122,9 @@ export default function ProfileSettingsPage() {
       setOtpData({ recoveryCodes: res.recoveryCodes });
       setOtpStep('recovery');
       setOtpDialog(true);
-      toast({ title: t('common.success'), description: t('profileSettings.messages.recoveryCodesRegenerated') });
+      sileo.success({ title: t('common.success'), description: t('profileSettings.messages.recoveryCodesRegenerated') });
     } catch (e: any) {
-      toast({ title: t('common.error'), description: e.message, variant: 'destructive' });
+      sileo.error({ title: t('common.error'), description: e.message });
     }
   };
 
@@ -143,14 +143,14 @@ export default function ProfileSettingsPage() {
   const handleCreateClient = async () => {
     try {
       const client = await createOauthClient(oauthForm);
-      toast({ title: t('common.success'), description: `OAuth client ${client.name} created` });
+      sileo.success({ title: t('common.success'), description: `OAuth client ${client.name} created` });
       setOauthForm({ name: '', description: '' });
       // Show secret to user if available
       if (client.clientSecret) {
         alert(`Client Secret: ${client.clientSecret}\nPLEASE SAVE THIS NOW! IT WILL NOT BE SHOWN AGAIN.`);
       }
     } catch (e: any) {
-      toast({ title: t('common.error'), description: e.message, variant: 'destructive' });
+      sileo.error({ title: t('common.error'), description: e.message });
     }
   };
 
@@ -158,9 +158,9 @@ export default function ProfileSettingsPage() {
     if (!confirm("Are you sure you want to delete this OAuth client?")) return;
     try {
       await deleteOauthClient(id);
-      toast({ title: t('common.success'), description: "OAuth client deleted" });
+      sileo.success({ title: t('common.success'), description: "OAuth client deleted" });
     } catch (e: any) {
-      toast({ title: t('common.error'), description: e.message, variant: 'destructive' });
+      sileo.error({ title: t('common.error'), description: e.message });
     }
   };
 

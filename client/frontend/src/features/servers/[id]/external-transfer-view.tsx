@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { useToast } from '@/hooks/use-toast';
+import { sileo } from "@/lib/toast";
 import { Loader2, Copy, ShieldAlert, ArrowRightLeft, CheckCircle2, DownloadCloud, UploadCloud, Clock, KeyRound, Globe, ArrowRight } from 'lucide-react';
 import { useTranslations } from '@/contexts/translations-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -50,7 +50,7 @@ const clearTransfer = (serverId: string) => {
 
 export default function ExternalTransferView({ serverId }: ExternalTransferViewProps) {
   const { t } = useTranslations();
-  const { toast } = useToast();
+  
 
   const [loading, setLoading] = useState(false);
   const [sessionData, setSessionData] = useState<StoredTransfer | null>(null);
@@ -86,11 +86,11 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
             setActiveTab('import');
 
             if (data.status === 'DONE') {
-              toast({ title: 'Transferencia completa', description: 'El servidor ha sido migrado exitosamente.' });
+              sileo.success({ title: 'Transferencia completa', description: 'El servidor ha sido migrado exitosamente.' });
               setImportStep('');
               setImporting(false);
             } else if (data.status.startsWith('ERROR: ')) {
-              toast({ variant: 'destructive', title: 'Error en la migración', description: data.status.substring(7) });
+              sileo.error({ title: 'Error en la migración', description: data.status.substring(7) });
               setImportStep('');
               setImporting(false);
             } else {
@@ -111,7 +111,7 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
     checkStatus();
     const interval = setInterval(checkStatus, 2000);
     return () => clearInterval(interval);
-  }, [serverId, toast]);
+  }, [serverId]);
 
   // Cuenta regresiva
   useEffect(() => {
@@ -120,7 +120,7 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
       setSessionData(null);
       clearTransfer(serverId);
       setTimeLeft(null);
-      toast({ title: 'Transfer token expired', description: 'The 15-minute window has passed.' });
+      sileo.success({ title: 'Transfer token expired', description: 'The 15-minute window has passed.' });
       return;
     }
     const timer = setTimeout(() => setTimeLeft(prev => (prev !== null ? prev - 1 : null)), 1000);
@@ -157,12 +157,12 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
       setTimeLeft(900);
       saveTransfer(serverId, stored); // ← persiste en localStorage
 
-      toast({
+      sileo.success({
         title: 'Token generated',
         description: 'Valid for 15 minutes. Will remain visible if you navigate away.'
       });
     } catch (e: any) {
-      toast({ variant: 'destructive', title: 'Error', description: e.message });
+      sileo.error({ title: 'Error', description: e.message });
     } finally {
       setLoading(false);
     }
@@ -172,12 +172,12 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-    toast({ title: 'Copied to clipboard' });
+    sileo.success({ title: 'Copied to clipboard' });
   };
 
   const executeImport = async () => {
     if (!importUrl || !importToken) {
-      toast({ variant: 'destructive', title: 'Missing fields', description: 'Please provide both the URL and Token.' });
+      sileo.error({ title: 'Missing fields', description: 'Please provide both the URL and Token.' });
       return;
     }
     try {
@@ -197,7 +197,7 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
 
       // El polling (useEffect) se encargará de actualizar el estado a partir de aquí.
     } catch (e: any) {
-      toast({ variant: 'destructive', title: 'Import Failed', description: e.message });
+      sileo.error({ title: 'Import Failed', description: e.message });
       setImportStep('');
       setImporting(false);
     }

@@ -9,7 +9,8 @@ import { Form, FormControl, FormField, FormItem, FormMessage } from '@/component
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/providers';
 import { useConfig } from '@/contexts/config-context';
-import { useToast } from '@/hooks/use-toast';
+import { useTranslations } from '@/contexts/translations-context';
+import { sileo } from "@/lib/toast";
 import { Loader2 } from 'lucide-react';
 import Turnstile from '@/components/Turnstile';
 
@@ -27,12 +28,13 @@ const inputClass =
   'px-3 py-2.5 text-sm text-foreground rounded-md bg-background/60 border border-border/60 placeholder:text-muted-foreground/50 focus:border-primary focus:bg-background/80 focus:ring-0';
 
 export default function RegisterPage() {
+  const { t } = useTranslations();
   const { register } = useAuth();
   const { config } = useConfig();
   const panelName = config?.branding?.name || 'Aether Panel';
   const [loading, setLoading] = React.useState(false);
   const [turnstileToken, setTurnstileToken] = React.useState<string | null>(null);
-  const { toast } = useToast();
+  
 
   React.useEffect(() => {
     if (config?.registrationEnabled === false) {
@@ -55,7 +57,7 @@ export default function RegisterPage() {
         turnstileToken: turnstileToken || undefined,
       });
     } catch (e: any) {
-      toast({ title: 'Error', description: e.message || 'Failed to create account.', variant: 'destructive' });
+      sileo.error({ title: t('auth.registerFailed'), description: e.message || t('auth.checkCredentials') });
     } finally {
       setLoading(false);
     }
