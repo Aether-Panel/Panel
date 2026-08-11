@@ -249,7 +249,7 @@ export function UpdatesTab() {
                     )}
 
                     <div className="text-sm text-muted-foreground">
-                        <p><strong>Note:</strong> Starting an update will automatically put the panel into maintenance mode, download the latest files, and restart the system. This process usually takes 1-3 minutes.</p>
+                        <p><strong>Note:</strong> The update pulls the latest code from the repository, rebuilds the panel image and restarts the services. The panel may be unreachable for a few minutes during the process.</p>
                     </div>
                 </CardContent>
             </Card>
