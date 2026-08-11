@@ -510,7 +510,7 @@ func updatePanel(c *gin.Context) {
 
 	logging.Info.Println("Update panel requested via API")
 
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	cli, err := client.New(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		response.HandleError(c, fmt.Errorf("failed to connect to docker: %v", err), http.StatusInternalServerError)
 		return
