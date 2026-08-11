@@ -36,7 +36,7 @@ export function UpdatesTab() {
         setUpdating(true);
         try {
             setUpdateFailed(false);
-            await api.post('/api/settings/update-panel');
+            await api.post('/api/settings/update-panel', {});
             sileo.success({
                 title: 'Update Initiated',
                 description: 'The update process has started. The panel will restart shortly.',

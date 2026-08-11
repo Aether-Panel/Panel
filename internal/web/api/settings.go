@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -15,10 +16,9 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	"github.com/gin-gonic/gin"
-	"github.com/spf13/cast"
-	"context"
-	"github.com/moby/moby/client"
 	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/client"
+	"github.com/spf13/cast"
 )
 
 func registerSettings(g *gin.RouterGroup) {
