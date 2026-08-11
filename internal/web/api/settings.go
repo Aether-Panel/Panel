@@ -498,16 +498,13 @@ var editableBoolEntries = []config.BoolEntry{
 var editableIntEntries = []config.IntEntry{}
 
 // @Summary Update panel automatically
-// @Description Spawns an ephemeral container on the host to run the install.sh update script.
+// @Description Spawns an ephemeral container on the host to run the panelUpdate script.
 // @Success 200 {object} nil
 // @Failure 500 {object} ErrorResponse
 // @Tags Panel Settings
 // @Router /api/settings/update-panel [post]
 // @Security OAuth2Application[settings.edit]
 func updatePanel(c *gin.Context) {
-	// Require settings.edit permission
-	// Handled by middleware
-
 	logging.Info.Println("Update panel requested via API")
 
 	cli, err := client.New(client.FromEnv)
@@ -525,7 +522,7 @@ func updatePanel(c *gin.Context) {
 		Name: "",
 		Config: &container.Config{
 			Image: "alpine",
-			Cmd:   []string{"chroot", "/host", "bash", "-c", "cd /opt/skypanel && ./install.sh --update"},
+			Cmd:   []string{"chroot", "/host", "bash", "-c", "cd /opt/skypanel && chmod +x tools/panelUpdate.sh && ./tools/panelUpdate.sh"},
 		},
 		HostConfig: &container.HostConfig{
 			Binds:      []string{"/:/host"},
@@ -546,3 +543,5 @@ func updatePanel(c *gin.Context) {
 	logging.Info.Printf("Update container started with ID %s\n", resp.ID)
 	c.JSON(http.StatusOK, gin.H{"message": "Update initiated successfully. The panel will restart shortly."})
 }
+
+
