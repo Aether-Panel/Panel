@@ -45,6 +45,8 @@ services:
       - ./storage/skypanel-data:/var/lib/SkyPanel
       - ./storage/skypanel-logs:/var/log/SkyPanel
       - //var/run/docker.sock:/var/run/docker.sock
+      # Repositorio del host montado en solo lectura para verificar el commit desplegado
+      - ./.git:/repo/.git:ro
     environment:
       - GIN_MODE=release
       - PUFFER_PLATFORM=docker

@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { DownloadCloud, Loader2, GitCommit, LifeBuoy, CheckCircle2, XCircle } from 'lucide-react';
-import { useConfig } from '@/contexts/config-context';
+import { DownloadCloud, Loader2, GitCommit, LifeBuoy, CheckCircle2, XCircle, Info } from 'lucide-react';
 import { sileo } from '@/lib/toast';
 import { api } from '@/lib/api-client';
 
+interface UpdateCheckResult {
+    current: string;
+    latest: string;
+    updateAvailable: boolean;
+}
+
 export function UpdatesTab() {
-    const { config } = useConfig();
-    const [latestCommit, setLatestCommit] = useState<string | null>(null);
+    const [check, setCheck] = useState<UpdateCheckResult | null>(null);
     const [checking, setChecking] = useState(true);
     const [updating, setUpdating] = useState(false);
     const [updateFailed, setUpdateFailed] = useState(false);
@@ -16,21 +20,18 @@ export function UpdatesTab() {
     useEffect(() => {
         const checkUpdates = async () => {
             try {
-                // Fetch the latest commit from the dev2.0 branch (or main depending on deployment)
-                const res = await fetch('https://api.github.com/repos/Aether-Panel/Panel/commits/dev2.0');
-                if (res.ok) {
-                    const data = await res.json();
-                    setLatestCommit(data.sha);
-                }
+                const data = await api.get<UpdateCheckResult>('/api/settings/update-check');
+                setCheck(data);
             } catch (err) {
                 console.error("Failed to check for updates:", err);
+                setCheck({ current: '', latest: '', updateAvailable: false });
             } finally {
                 setChecking(false);
             }
         };
-        
+
         checkUpdates();
-    }, [config?.version]);
+    }, []);
 
     const handleUpdate = async () => {
         setUpdating(true);
@@ -51,15 +52,47 @@ export function UpdatesTab() {
         }
     };
 
-    // Calculate if we need an update
-    // We assume an update is needed if the version doesn't contain the first 7 chars of the latest commit
-    // Development builds usually have 'dev-docker' or 'devel' as version.
-    const isDevBuild = config?.version === 'dev-docker' || config?.version === 'devel' || !config?.version;
-    const updateAvailable = latestCommit && config?.version && !config.version.includes(latestCommit.substring(0, 7));
-    
-    // Display version formatting
-    const currentVerDisplay = isDevBuild ? 'Development Build' : (config?.version || 'Unknown');
-    const latestVerDisplay = latestCommit ? latestCommit.substring(0, 7) : 'Checking...';
+    const current = check?.current || '';
+    const latest = check?.latest || '';
+    const checkFailed = !latest;
+    const unknownCurrent = latest && !current;
+    const isUpToDate = Boolean(current && latest) && !check?.updateAvailable;
+    const updateAvailable = Boolean(check?.updateAvailable);
+
+    const currentDisplay = current ? current.substring(0, 7) : 'Unknown';
+    const latestDisplay = latest ? latest.substring(0, 7) : 'Unavailable';
+
+    let statusTitle = 'Checking for updates...';
+    let statusIcon = <Loader2 className="h-6 w-6 animate-spin" />;
+    let statusColor = 'text-muted-foreground';
+    let statusDescription = '';
+
+    if (!checking) {
+        if (updateFailed) {
+            statusTitle = 'Update Failed';
+            statusIcon = <XCircle className="h-6 w-6 text-red-500" />;
+            statusColor = 'text-red-500';
+        } else if (checkFailed) {
+            statusTitle = 'Couldn\'t check for updates';
+            statusIcon = <XCircle className="h-6 w-6 text-red-500" />;
+            statusColor = 'text-red-500';
+            statusDescription = 'The panel could not reach GitHub to look for new versions.';
+        } else if (unknownCurrent) {
+            statusTitle = 'Unable to verify current version';
+            statusIcon = <Info className="h-6 w-6 text-amber-500" />;
+            statusColor = 'text-amber-500';
+            statusDescription = 'The deployed commit could not be determined. You can still update manually.';
+        } else if (updateAvailable) {
+            statusTitle = 'Update Available';
+            statusIcon = <LifeBuoy className="h-6 w-6 text-blue-500 animate-pulse" />;
+            statusColor = 'text-blue-500';
+            statusDescription = 'A new version of the panel is available.';
+        } else {
+            statusTitle = 'System is up to date';
+            statusIcon = <CheckCircle2 className="h-6 w-6 text-green-500" />;
+            statusColor = 'text-green-500';
+        }
+    }
 
     return (
         <div className="flex flex-col gap-6">
@@ -73,38 +106,31 @@ export function UpdatesTab() {
                 <CardContent className="space-y-6">
                     <div className="flex flex-col md:flex-row md:items-center justify-between p-4 border rounded-lg bg-card">
                         <div className="flex items-center gap-4 mb-4 md:mb-0">
-                            <div className="p-3 rounded-full bg-primary/10 text-primary">
-                                {checking ? (
-                                    <Loader2 className="h-6 w-6 animate-spin" />
-                                ) : updateFailed ? (
-                                    <XCircle className="h-6 w-6 text-red-500" />
-                                ) : updateAvailable ? (
-                                    <LifeBuoy className="h-6 w-6 text-blue-500 animate-pulse" />
-                                ) : (
-                                    <CheckCircle2 className="h-6 w-6 text-green-500" />
-                                )}
+                            <div className={`p-3 rounded-full bg-primary/10 ${statusColor}`}>
+                                {statusIcon}
                             </div>
                             <div>
-                                <h3 className="font-semibold text-lg">
-                                    {checking ? 'Checking for updates...' : updateFailed ? 'Update Failed' : updateAvailable ? 'Update Available' : 'System is up to date'}
-                                </h3>
+                                <h3 className="font-semibold text-lg">{statusTitle}</h3>
+                                {statusDescription && (
+                                    <p className="text-sm text-muted-foreground mt-1">{statusDescription}</p>
+                                )}
                                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-muted-foreground mt-1">
                                     <div className="flex items-center gap-1">
                                         <GitCommit className="h-4 w-4" />
-                                        <span>Current: {currentVerDisplay}</span>
+                                        <span>Current: {currentDisplay}</span>
                                     </div>
                                     <div className="hidden sm:block text-border">•</div>
                                     <div className="flex items-center gap-1">
                                         <DownloadCloud className="h-4 w-4" />
-                                        <span>Latest: {latestVerDisplay}</span>
+                                        <span>Latest: {latestDisplay}</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        
-                        <Button 
-                            onClick={handleUpdate} 
-                            disabled={checking || updating || !updateAvailable}
+
+                        <Button
+                            onClick={handleUpdate}
+                            disabled={checking || updating || isUpToDate}
                             className="w-full md:w-auto"
                         >
                             {updating ? (

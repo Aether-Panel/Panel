@@ -36,6 +36,7 @@ import { cn } from '@/lib/utils';
 import type { ReactNode } from 'react';
 import { useEffect } from 'react';
 import { sileo } from '@/lib/toast';
+import { api } from '@/lib/api-client';
 
 function AppLayoutInner({ children, currentPath }: { children: ReactNode; currentPath: string }) {
     const { role, user, logout, scopes, hasScope } = useAuth();
@@ -58,28 +59,22 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
             */
 
             try {
-                console.log("Checking for global updates...");
-                console.log("Current version:", config.version);
-                const res = await fetch('https://api.github.com/repos/Aether-Panel/Panel/commits/dev2.0');
-                if (res.ok) {
-                    const data = await res.json();
-                    console.log("Latest commit SHA:", data.sha);
-                    
-                    if (data.sha && !config.version.includes(data.sha.substring(0, 7))) {
-                        console.log("Update available! Firing toast...");
-                        
-                        // Small delay to ensure toaster is mounted
-                        setTimeout(() => {
-                            sileo.info({
-                                title: 'Update Available',
-                                description: 'A new version of Aether Panel is available for installation in Settings.',
-                            });
-                        }, 500);
-                    } else {
-                        console.log("System is up to date. No toast needed.");
-                    }
-                    sessionStorage.setItem('hasCheckedForUpdates', 'true');
+                const data = await api.get<{ current: string; latest: string; updateAvailable: boolean }>('/api/settings/update-check');
+
+                if (data.updateAvailable) {
+                    console.log("Update available! Firing toast...");
+
+                    // Small delay to ensure toaster is mounted
+                    setTimeout(() => {
+                        sileo.info({
+                            title: 'Update Available',
+                            description: 'A new version of Aether Panel is available for installation in Settings.',
+                        });
+                    }, 500);
+                } else {
+                    console.log("System is up to date. No toast needed.");
                 }
+                sessionStorage.setItem('hasCheckedForUpdates', 'true');
             } catch (err) {
                 console.error("Global update check failed:", err);
             }

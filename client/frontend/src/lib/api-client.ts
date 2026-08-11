@@ -31,7 +31,7 @@ async function handleResponse(response: Response) {
 }
 
 export const api = {
-    async get(url: string) {
+    async get<T = any>(url: string): Promise<T> {
         const response = await fetch(url, {
             method: 'GET',
             headers: {
@@ -42,7 +42,7 @@ export const api = {
         return handleResponse(response);
     },
 
-    async post(url: string, body: any) {
+    async post<T = any>(url: string, body: any): Promise<T> {
         const response = await fetch(url, {
             method: 'POST',
             headers: {
@@ -55,7 +55,7 @@ export const api = {
         return handleResponse(response);
     },
 
-    async put(url: string, body: any) {
+    async put<T = any>(url: string, body: any): Promise<T> {
         const response = await fetch(url, {
             method: 'PUT',
             headers: {
@@ -68,7 +68,7 @@ export const api = {
         return handleResponse(response);
     },
 
-    async delete(url: string) {
+    async delete<T = any>(url: string): Promise<T> {
         const response = await fetch(url, {
             method: 'DELETE',
             headers: {

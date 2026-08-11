@@ -2,11 +2,13 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
@@ -41,6 +43,9 @@ func registerSettings(g *gin.RouterGroup) {
 
 	g.Handle("POST", "/update-panel", middleware.RequiresPermission(scopes.ScopeSettingsEdit), updatePanel)
 	g.Handle("OPTIONS", "/update-panel", response.CreateOptions("POST"))
+
+	g.Handle("GET", "/update-check", middleware.RequiresPermission(scopes.ScopeSettingsEdit), updateCheck)
+	g.Handle("OPTIONS", "/update-check", response.CreateOptions("GET"))
 }
 
 // @Summary Value a panel setting
@@ -560,4 +565,98 @@ func updatePanel(c *gin.Context) {
 
 	logging.Info.Printf("Update container started with ID %s\n", resp.ID)
 	c.JSON(http.StatusOK, gin.H{"message": "Update initiated successfully. The panel will restart shortly."})
+}
+
+// gitRepoGitDir is the location of the repository's .git directory, mounted
+// read-only from the host at build/runtime (see docker-compose.yml).
+const gitRepoGitDir = "/repo/.git"
+
+// currentGitCommit returns the full SHA of the commit the repository currently
+// points to, or an empty string if it cannot be determined.
+func currentGitCommit() string {
+	head, err := os.ReadFile(gitRepoGitDir + "/HEAD")
+	if err != nil {
+		return ""
+	}
+
+	ref := strings.TrimSpace(string(head))
+	if strings.HasPrefix(ref, "ref:") {
+		path := gitRepoGitDir + "/" + strings.TrimSpace(strings.TrimPrefix(ref, "ref:"))
+		sha, err := os.ReadFile(path)
+		if err == nil {
+			if s := strings.TrimSpace(string(sha)); s != "" {
+				return s
+			}
+		}
+
+		// Ref could be packed (e.g. after git gc). Look it up in packed-refs.
+		packed, err := os.ReadFile(gitRepoGitDir + "/packed-refs")
+		if err != nil {
+			return ""
+		}
+		for _, line := range strings.Split(string(packed), "\n") {
+			trimmed := strings.TrimSpace(line)
+			if strings.HasPrefix(trimmed, "#") || trimmed == "" {
+				continue
+			}
+			parts := strings.SplitN(trimmed, " ", 2)
+			if len(parts) == 2 && parts[1] == strings.TrimSpace(strings.TrimPrefix(ref, "ref:")) {
+				return parts[0]
+			}
+		}
+		return ""
+	}
+
+	return ref
+}
+
+// @Summary Check for panel updates
+// @Description Compares the deployed commit with the latest commit on the dev2.0 branch.
+// @Success 200 {object} nil
+// @Tags Panel Settings
+// @Router /api/settings/update-check [get]
+// @Security OAuth2Application[settings.edit]
+func updateCheck(c *gin.Context) {
+	current := currentGitCommit()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/repos/Aether-Panel/Panel/commits/dev2.0", nil)
+	if err != nil {
+		response.HandleError(c, fmt.Errorf("failed to build update check request: %v", err), http.StatusInternalServerError)
+		return
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("User-Agent", "Aether-Panel")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		logging.Error.Printf("Update check failed to reach GitHub: %v", err)
+		c.JSON(http.StatusOK, gin.H{"current": current, "latest": "", "updateAvailable": false})
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		logging.Error.Printf("Update check got unexpected GitHub response: %d", resp.StatusCode)
+		c.JSON(http.StatusOK, gin.H{"current": current, "latest": "", "updateAvailable": false})
+		return
+	}
+
+	var payload struct {
+		Sha string `json:"sha"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		logging.Error.Printf("Update check failed to decode GitHub response: %v", err)
+		c.JSON(http.StatusOK, gin.H{"current": current, "latest": "", "updateAvailable": false})
+		return
+	}
+
+	latest := payload.Sha
+	c.JSON(http.StatusOK, gin.H{
+		"current":         current,
+		"latest":          latest,
+		"updateAvailable": current != "" && latest != "" && current != latest,
+	})
 }
