@@ -522,7 +522,7 @@ func updatePanel(c *gin.Context) {
 		Name: "",
 		Config: &container.Config{
 			Image: "alpine",
-			Cmd:   []string{"chroot", "/host", "bash", "-c", "cd /opt/skypanel && chmod +x tools/panelUpdate.sh && ./tools/panelUpdate.sh"},
+			Cmd:   []string{"chroot", "/host", "bash", "-c", "cd /opt/skypanel && chmod +x tools/panelUpdate/panelUpdate.sh && ./tools/panelUpdate/panelUpdate.sh"},
 		},
 		HostConfig: &container.HostConfig{
 			Binds:      []string{"/:/host"},
@@ -543,5 +543,3 @@ func updatePanel(c *gin.Context) {
 	logging.Info.Printf("Update container started with ID %s\n", resp.ID)
 	c.JSON(http.StatusOK, gin.H{"message": "Update initiated successfully. The panel will restart shortly."})
 }
-
-
