@@ -17,6 +17,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
 	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-gonic/gin"
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/client"
@@ -633,14 +634,14 @@ func updateCheck(c *gin.Context) {
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		logging.Error.Printf("Update check failed to reach GitHub: %v", err)
-		c.JSON(http.StatusOK, gin.H{"current": current, "latest": "", "updateAvailable": false})
+		c.JSON(http.StatusOK, gin.H{"current": current, "latest": "", "version": skypanel.Version, "updateAvailable": false})
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		logging.Error.Printf("Update check got unexpected GitHub response: %d", resp.StatusCode)
-		c.JSON(http.StatusOK, gin.H{"current": current, "latest": "", "updateAvailable": false})
+		c.JSON(http.StatusOK, gin.H{"current": current, "latest": "", "version": skypanel.Version, "updateAvailable": false})
 		return
 	}
 
@@ -649,7 +650,7 @@ func updateCheck(c *gin.Context) {
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		logging.Error.Printf("Update check failed to decode GitHub response: %v", err)
-		c.JSON(http.StatusOK, gin.H{"current": current, "latest": "", "updateAvailable": false})
+		c.JSON(http.StatusOK, gin.H{"current": current, "latest": "", "version": skypanel.Version, "updateAvailable": false})
 		return
 	}
 
@@ -657,6 +658,7 @@ func updateCheck(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"current":         current,
 		"latest":          latest,
+		"version":         skypanel.Version,
 		"updateAvailable": current != "" && latest != "" && current != latest,
 	})
 }

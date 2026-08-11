@@ -56,7 +56,7 @@ ARG TARGETPLATFORM=linux/amd64
 ARG curseforgeKey=''
 
 RUN xx-apk add musl-dev gcc
-RUN xx-go build -buildvcs=false -tags "$tags" -ldflags "-X 'github.com/SkyPanel/SkyPanel/v3/internal/config.curseforgeKey=$curseforgeKey' -X 'github.com/SkyPanel/SkyPanel/v3.Hash=$sha' -X 'github.com/SkyPanel/SkyPanel/v3.Version=$version'" -o /SkyPanel/SkyPanel github.com/SkyPanel/SkyPanel/v3/cmd/panel
+RUN xx-go build -buildvcs=false -tags "$tags" -ldflags "-X 'github.com/SkyPanel/SkyPanel/v3/internal/config.curseforgeKey=$curseforgeKey' -X 'github.com/SkyPanel/SkyPanel/v3/pkg/skypanel.Hash=$sha' -X 'github.com/SkyPanel/SkyPanel/v3/pkg/skypanel.Version=$version'" -o /SkyPanel/SkyPanel github.com/SkyPanel/SkyPanel/v3/cmd/panel
 # RUN go test ./...
 RUN xx-verify /SkyPanel/SkyPanel
 

@@ -8,6 +8,7 @@ import { api } from '@/lib/api-client';
 interface UpdateCheckResult {
     current: string;
     latest: string;
+    version: string;
     updateAvailable: boolean;
 }
 
@@ -24,7 +25,7 @@ export function UpdatesTab() {
                 setCheck(data);
             } catch (err) {
                 console.error("Failed to check for updates:", err);
-                setCheck({ current: '', latest: '', updateAvailable: false });
+                setCheck({ current: '', latest: '', version: '', updateAvailable: false });
             } finally {
                 setChecking(false);
             }
@@ -54,12 +55,19 @@ export function UpdatesTab() {
 
     const current = check?.current || '';
     const latest = check?.latest || '';
+    const panelVersion = check?.version || '';
     const checkFailed = !latest;
     const unknownCurrent = latest && !current;
     const isUpToDate = Boolean(current && latest) && !check?.updateAvailable;
     const updateAvailable = Boolean(check?.updateAvailable);
 
-    const currentDisplay = current ? current.substring(0, 7) : 'Unknown';
+    // Current shows the panel version with the deployed commit between parens,
+    // while Latest shows the most recent commit available.
+    const currentDisplay = current
+        ? panelVersion
+            ? `${panelVersion} (${current.substring(0, 7)})`
+            : current.substring(0, 7)
+        : 'Unknown';
     const latestDisplay = latest ? latest.substring(0, 7) : 'Unavailable';
 
     let statusTitle = 'Checking for updates...';
