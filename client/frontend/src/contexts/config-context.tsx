@@ -17,6 +17,7 @@ export interface Config {
     headerDecorations: boolean;
     turnstileSiteKey: string;
     turnstileEnabled: boolean;
+    version: string;
 }
 
 interface ConfigContextType {

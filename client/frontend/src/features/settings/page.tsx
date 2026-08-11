@@ -13,6 +13,8 @@ import { ProductsView } from './products-view';
 import { GeneralTab } from './general-tab';
 import { DiscordTab } from './discord-tab';
 import { MailTab } from './mail-tab';
+import { UpdatesTab } from './updates-tab';
+import { DownloadCloud } from 'lucide-react';
 
 export default function SettingsPage() {
     const { role, hasScope } = useAuth();
@@ -37,6 +39,7 @@ export default function SettingsPage() {
         { value: 'mail', label: t('settings.tabs.mail'), icon: Mail },
         { value: 'apikeys', label: 'API Keys', icon: Key },
         { value: 'products', label: 'Provision Products', icon: Package },
+        { value: 'updates', label: 'System Updates', icon: DownloadCloud },
     ];
 
     useEffect(() => {
@@ -179,6 +182,9 @@ export default function SettingsPage() {
 
                         <TabsContent value="products" className="mt-0">
                             <ProductsView />
+                        </TabsContent>
+                        <TabsContent value="updates" className="mt-0">
+                            <UpdatesTab />
                         </TabsContent>
                     </Tabs>
                 </div>

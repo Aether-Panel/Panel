@@ -16,6 +16,9 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cast"
+	"context"
+	"github.com/moby/moby/client"
+	"github.com/moby/moby/api/types/container"
 )
 
 func registerSettings(g *gin.RouterGroup) {
@@ -35,6 +38,9 @@ func registerSettings(g *gin.RouterGroup) {
 
 	g.Handle("POST", "/license/activate", middleware.RequiresPermission(scopes.ScopeSettingsEdit), activateLicense)
 	g.Handle("OPTIONS", "/license/activate", response.CreateOptions("POST"))
+
+	g.Handle("POST", "/update-panel", middleware.RequiresPermission(scopes.ScopeSettingsEdit), updatePanel)
+	g.Handle("OPTIONS", "/update-panel", response.CreateOptions("POST"))
 }
 
 // @Summary Value a panel setting
@@ -294,18 +300,9 @@ func sendTestDiscord(c *gin.Context) {
 		}
 	}
 
-	// Webhook ExTransfer
-	if config.DiscordWebhookExTransfer.Value() != "" {
-		err := ds.SendWebhookToURL(config.DiscordWebhookExTransfer.Value(), title+" (ExTransfer)", description+" Este es el webhook de transferencias externas.", color, fields)
-		if err != nil {
-			errors = append(errors, fmt.Sprintf("Webhook extransfer: %v", err))
-			logging.Error.Printf("Error enviando test al webhook de extransfer: %v", err)
-		}
-	}
-
 	// Si hay errores y no se envió a ningún webhook, retornar error
 	if len(errors) > 0 {
-		if config.DiscordWebhook.Value() == "" && config.DiscordWebhookSystem.Value() == "" && config.DiscordWebhookNode.Value() == "" && config.DiscordWebhookExTransfer.Value() == "" {
+		if config.DiscordWebhook.Value() == "" && config.DiscordWebhookSystem.Value() == "" && config.DiscordWebhookNode.Value() == "" {
 			response.HandleError(c, fmt.Errorf("no hay webhooks configurados"), http.StatusBadRequest)
 			return
 		}
@@ -488,18 +485,64 @@ var editableStringEntries = []config.StringEntry{
 	config.DiscordWebhook,
 	config.DiscordWebhookSystem,
 	config.DiscordWebhookNode,
-	config.DiscordWebhookExTransfer,
 	config.LicenseKey,
 	config.LicenseStatus,
 	config.LicenseServerID,
 	config.LicenseServerIP,
-	config.TurnstileSiteKey,
-	config.TurnstileSecretKey,
 }
 var editableBoolEntries = []config.BoolEntry{
 	config.RegistrationEnabled,
 	config.HideAIAnalysis,
 	config.HeaderDecorations,
-	config.TurnstileEnabled,
 }
 var editableIntEntries = []config.IntEntry{}
+
+// @Summary Update panel automatically
+// @Description Spawns an ephemeral container on the host to run the install.sh update script.
+// @Success 200 {object} nil
+// @Failure 500 {object} ErrorResponse
+// @Tags Panel Settings
+// @Router /api/settings/update-panel [post]
+// @Security OAuth2Application[settings.edit]
+func updatePanel(c *gin.Context) {
+	// Require settings.edit permission
+	// Handled by middleware
+
+	logging.Info.Println("Update panel requested via API")
+
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		response.HandleError(c, fmt.Errorf("failed to connect to docker: %v", err), http.StatusInternalServerError)
+		return
+	}
+	defer cli.Close()
+
+	ctx := context.Background()
+
+	// Spin up an ephemeral alpine container to run the update script on the host
+	// We mount / of the host to /host in the container
+	resp, err := cli.ContainerCreate(ctx, client.ContainerCreateOptions{
+		Name: "",
+		Config: &container.Config{
+			Image: "alpine",
+			Cmd:   []string{"chroot", "/host", "bash", "-c", "cd /opt/skypanel && ./install.sh --update"},
+		},
+		HostConfig: &container.HostConfig{
+			Binds:      []string{"/:/host"},
+			AutoRemove: true,
+		},
+	})
+
+	if err != nil {
+		response.HandleError(c, fmt.Errorf("failed to create update container: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	if _, err := cli.ContainerStart(ctx, resp.ID, client.ContainerStartOptions{}); err != nil {
+		response.HandleError(c, fmt.Errorf("failed to start update container: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	logging.Info.Printf("Update container started with ID %s\n", resp.ID)
+	c.JSON(http.StatusOK, gin.H{"message": "Update initiated successfully. The panel will restart shortly."})
+}

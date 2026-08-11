@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-gonic/gin"
 )
 
@@ -39,6 +40,7 @@ func panelConfig(c *gin.Context) {
 		HeaderDecorations:   config.HeaderDecorations.Value(),
 		TurnstileSiteKey:    config.TurnstileSiteKey.Value(),
 		TurnstileEnabled:    config.TurnstileEnabled.Value(),
+		Version:             skypanel.Version,
 	})
 }
 
@@ -49,6 +51,7 @@ type EditableConfig struct {
 	HeaderDecorations   bool           `json:"headerDecorations"`
 	TurnstileSiteKey    string         `json:"turnstileSiteKey"`
 	TurnstileEnabled    bool           `json:"turnstileEnabled"`
+	Version             string         `json:"version"`
 } // @name EditableConfigSettings
 
 type ThemeConfig struct {
