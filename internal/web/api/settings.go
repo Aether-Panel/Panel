@@ -516,12 +516,30 @@ func updatePanel(c *gin.Context) {
 
 	ctx := context.Background()
 
+	const updateImage = "alpine:latest"
+
+	// Make sure the ephemeral image used to run the update script exists on the
+	// host daemon. The daemon won't pull it automatically, so do it explicitly.
+	if _, err := cli.ImageInspect(ctx, updateImage); err != nil {
+		logging.Info.Printf("Update image %s not found, pulling it...", updateImage)
+		pull, err := cli.ImagePull(ctx, updateImage, client.ImagePullOptions{})
+		if err != nil {
+			response.HandleError(c, fmt.Errorf("failed to pull %s: %v", updateImage, err), http.StatusInternalServerError)
+			return
+		}
+		if err := pull.Wait(ctx); err != nil {
+			response.HandleError(c, fmt.Errorf("failed to pull %s: %v", updateImage, err), http.StatusInternalServerError)
+			return
+		}
+		pull.Close()
+	}
+
 	// Spin up an ephemeral alpine container to run the update script on the host
 	// We mount / of the host to /host in the container
 	resp, err := cli.ContainerCreate(ctx, client.ContainerCreateOptions{
 		Name: "",
 		Config: &container.Config{
-			Image: "alpine",
+			Image: updateImage,
 			Cmd:   []string{"chroot", "/host", "bash", "-c", "cd /opt/skypanel && chmod +x tools/panelUpdate/panelUpdate.sh && ./tools/panelUpdate/panelUpdate.sh"},
 		},
 		HostConfig: &container.HostConfig{
