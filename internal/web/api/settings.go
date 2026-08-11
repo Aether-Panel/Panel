@@ -47,6 +47,9 @@ func registerSettings(g *gin.RouterGroup) {
 
 	g.Handle("GET", "/update-check", middleware.RequiresPermission(scopes.ScopeSettingsEdit), updateCheck)
 	g.Handle("OPTIONS", "/update-check", response.CreateOptions("GET"))
+
+	g.Handle("GET", "/update-status", middleware.RequiresPermission(scopes.ScopeSettingsEdit), updateStatus)
+	g.Handle("OPTIONS", "/update-status", response.CreateOptions("GET"))
 }
 
 // @Summary Value a panel setting
@@ -549,8 +552,7 @@ func updatePanel(c *gin.Context) {
 			Cmd:   []string{"chroot", "/host", "bash", "-c", "cd /opt/skypanel && chmod +x tools/panelUpdate/panelUpdate.sh && ./tools/panelUpdate/panelUpdate.sh"},
 		},
 		HostConfig: &container.HostConfig{
-			Binds:      []string{"/:/host"},
-			AutoRemove: true,
+			Binds: []string{"/:/host"},
 		},
 	})
 
@@ -564,8 +566,11 @@ func updatePanel(c *gin.Context) {
 		return
 	}
 
+	updateTracker.begin(resp.ID)
+	go monitorUpdateContainer(resp.ID)
+
 	logging.Info.Printf("Update container started with ID %s\n", resp.ID)
-	c.JSON(http.StatusOK, gin.H{"message": "Update initiated successfully. The panel will restart shortly."})
+	c.JSON(http.StatusOK, gin.H{"message": "Update initiated successfully. The panel will restart shortly.", "containerId": resp.ID})
 }
 
 // gitRepoGitDir is the location of the repository's .git directory, mounted

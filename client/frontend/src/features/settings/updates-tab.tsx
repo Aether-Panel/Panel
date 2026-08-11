@@ -12,11 +12,23 @@ interface UpdateCheckResult {
     updateAvailable: boolean;
 }
 
+interface UpdateStatusResult {
+    running: boolean;
+    containerId: string;
+    startedAt: string;
+    finishedAt: string;
+    exitCode: number;
+    log: string;
+    error: string;
+}
+
 export function UpdatesTab() {
     const [check, setCheck] = useState<UpdateCheckResult | null>(null);
     const [checking, setChecking] = useState(true);
     const [updating, setUpdating] = useState(false);
     const [updateFailed, setUpdateFailed] = useState(false);
+    const [reconnecting, setReconnecting] = useState(false);
+    const [updateStatus, setUpdateStatus] = useState<UpdateStatusResult | null>(null);
 
     useEffect(() => {
         const checkUpdates = async () => {
@@ -34,22 +46,70 @@ export function UpdatesTab() {
         checkUpdates();
     }, []);
 
+    // Poll the update status while an update is running.
+    useEffect(() => {
+        if (!updating) return;
+
+        let cancelled = false;
+        let timer: ReturnType<typeof setTimeout>;
+
+        const poll = async () => {
+            try {
+                const data = await api.get<UpdateStatusResult>('/api/settings/update-status');
+                setReconnecting(false);
+                if (!cancelled) setUpdateStatus(data);
+
+                if (!data.running) {
+                    if (!cancelled) setUpdating(false);
+
+                    if (data.exitCode === 0) {
+                        setUpdateFailed(false);
+                        sileo.success({
+                            title: 'Update Complete',
+                            description: 'The panel has been updated successfully.',
+                        });
+                        // Reload so the freshly built frontend is served.
+                        setTimeout(() => window.location.reload(), 2500);
+                    } else {
+                        setUpdateFailed(true);
+                        sileo.error({
+                            title: 'Update Failed',
+                            description: data.error || `The update exited with code ${data.exitCode}.`,
+                        });
+                    }
+                    return;
+                }
+            } catch {
+                // The panel may be restarting. Keep polling until it comes back.
+                setReconnecting(true);
+            }
+
+            if (!cancelled) {
+                timer = setTimeout(poll, 3000);
+            }
+        };
+
+        timer = setTimeout(poll, 1000);
+
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+        };
+    }, [updating]);
+
     const handleUpdate = async () => {
         setUpdating(true);
+        setUpdateFailed(false);
+        setUpdateStatus(null);
         try {
-            setUpdateFailed(false);
             await api.post('/api/settings/update-panel', {});
-            sileo.success({
-                title: 'Update Initiated',
-                description: 'The update process has started. The panel will restart shortly.',
-            });
         } catch (err: any) {
+            setUpdating(false);
+            setUpdateFailed(true);
             sileo.error({
                 title: 'Update Failed',
                 description: err.message || 'There was a problem initiating the update.',
             });
-            setUpdating(false);
-            setUpdateFailed(true);
         }
     };
 
@@ -75,7 +135,14 @@ export function UpdatesTab() {
     let statusColor = 'text-muted-foreground';
     let statusDescription = '';
 
-    if (!checking) {
+    if (updating) {
+        statusTitle = reconnecting ? 'Panel is restarting...' : 'Updating...';
+        statusIcon = <Loader2 className="h-6 w-6 animate-spin" />;
+        statusColor = 'text-blue-500';
+        statusDescription = reconnecting
+            ? 'Waiting for the panel to come back online. This can take a minute while migrations run.'
+            : 'Rebuilding the panel image and restarting the system. This usually takes 1-3 minutes.';
+    } else if (!checking) {
         if (updateFailed) {
             statusTitle = 'Update Failed';
             statusIcon = <XCircle className="h-6 w-6 text-red-500" />;
@@ -101,6 +168,9 @@ export function UpdatesTab() {
             statusColor = 'text-green-500';
         }
     }
+
+    const showLog = updating || updateFailed;
+    const logText = updateStatus?.log || '';
 
     return (
         <div className="flex flex-col gap-6">
@@ -154,6 +224,14 @@ export function UpdatesTab() {
                             )}
                         </Button>
                     </div>
+
+                    {showLog && logText && (
+                        <div className="rounded-lg border bg-black text-green-400 p-3">
+                            <pre className="text-xs font-mono whitespace-pre-wrap max-h-64 overflow-y-auto">
+                                {logText}
+                            </pre>
+                        </div>
+                    )}
 
                     <div className="text-sm text-muted-foreground">
                         <p><strong>Note:</strong> Starting an update will automatically put the panel into maintenance mode, download the latest files, and restart the system. This process usually takes 1-3 minutes.</p>
