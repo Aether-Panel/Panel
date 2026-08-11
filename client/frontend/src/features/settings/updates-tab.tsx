@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { DownloadCloud, Loader2, GitCommit, LifeBuoy, CheckCircle2, XCircle, Info } from 'lucide-react';
+import { DownloadCloud, Loader2, GitCommit, LifeBuoy, CheckCircle2, XCircle, Info, RefreshCw } from 'lucide-react';
 import { sileo } from '@/lib/toast';
 import { api } from '@/lib/api-client';
 
@@ -30,21 +30,22 @@ export function UpdatesTab() {
     const [reconnecting, setReconnecting] = useState(false);
     const [updateStatus, setUpdateStatus] = useState<UpdateStatusResult | null>(null);
 
-    useEffect(() => {
-        const checkUpdates = async () => {
-            try {
-                const data = await api.get<UpdateCheckResult>('/api/settings/update-check');
-                setCheck(data);
-            } catch (err) {
-                console.error("Failed to check for updates:", err);
-                setCheck({ current: '', latest: '', version: '', updateAvailable: false });
-            } finally {
-                setChecking(false);
-            }
-        };
-
-        checkUpdates();
+    const checkUpdates = useCallback(async () => {
+        setChecking(true);
+        try {
+            const data = await api.get<UpdateCheckResult>('/api/settings/update-check');
+            setCheck(data);
+        } catch (err) {
+            console.error("Failed to check for updates:", err);
+            setCheck({ current: '', latest: '', version: '', updateAvailable: false });
+        } finally {
+            setChecking(false);
+        }
     }, []);
+
+    useEffect(() => {
+        checkUpdates();
+    }, [checkUpdates]);
 
     // Poll the update status while an update is running.
     useEffect(() => {
@@ -176,10 +177,24 @@ export function UpdatesTab() {
         <div className="flex flex-col gap-6">
             <Card>
                 <CardHeader>
-                    <CardTitle>System Updates</CardTitle>
-                    <CardDescription>
-                        Keep your Aether Panel up to date with the latest features and security patches.
-                    </CardDescription>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div>
+                            <CardTitle>System Updates</CardTitle>
+                            <CardDescription>
+                                Keep your Aether Panel up to date with the latest features and security patches.
+                            </CardDescription>
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={checkUpdates}
+                            disabled={checking || updating}
+                            className="self-start sm:self-auto"
+                        >
+                            <RefreshCw className={`h-4 w-4 mr-2 ${checking ? 'animate-spin' : ''}`} />
+                            Check for Updates
+                        </Button>
+                    </div>
                 </CardHeader>
                 <CardContent className="space-y-6">
                     <div className="flex flex-col md:flex-row md:items-center justify-between p-4 border rounded-lg bg-card">
