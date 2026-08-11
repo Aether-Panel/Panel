@@ -64,6 +64,7 @@ storage/
 
 # Shell Scripts
 *.sh
+!tools/panelUpdate/panelUpdate.sh
 
 # Templates and Integrations
 /templates/
