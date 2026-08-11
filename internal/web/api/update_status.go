@@ -131,11 +131,11 @@ func monitorUpdateContainer(containerID string) {
 			}
 			waitDone = true
 		case <-ticker.C:
-			updateTracker.setLog(readContainerLogTail(cli, ctx, containerID))
+			updateTracker.setLog(readContainerLogTail(ctx, cli, containerID))
 		}
 	}
 
-	tail := readContainerLogTail(cli, ctx, containerID)
+	tail := readContainerLogTail(ctx, cli, containerID)
 
 	errStr := ""
 	if waitErr != nil {
@@ -150,7 +150,7 @@ func monitorUpdateContainer(containerID string) {
 	}
 }
 
-func readContainerLogTail(cli *client.Client, ctx context.Context, containerID string) string {
+func readContainerLogTail(ctx context.Context, cli *client.Client, containerID string) string {
 	logs, err := cli.ContainerLogs(ctx, containerID, client.ContainerLogsOptions{
 		ShowStdout: true,
 		ShowStderr: true,
