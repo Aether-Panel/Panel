@@ -161,6 +161,9 @@ export default function TemplatesPage() {
     try {
       const text = await file.text();
       const parsed = JSON.parse(text);
+      if (!parsed.name) {
+        parsed.name = (file.name || '').replace(/\.json$/i, '');
+      }
       setTemplateJson(JSON.stringify(parsed, null, 2));
       setTemplateObj(parsed);
     } catch (e) {
