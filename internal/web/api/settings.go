@@ -17,10 +17,9 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
 	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
+	"github.com/SkyPanel/SkyPanel/v3/internal/update"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-gonic/gin"
-	"github.com/moby/moby/api/types/container"
-	"github.com/moby/moby/client"
 	"github.com/spf13/cast"
 )
 
@@ -507,7 +506,7 @@ var editableBoolEntries = []config.BoolEntry{
 var editableIntEntries = []config.IntEntry{}
 
 // @Summary Update panel automatically
-// @Description Spawns an ephemeral container on the host to run the panelUpdate script.
+// @Description Spawns an ephemeral container on the host to run the panelUpdate script, and triggers the update on every registered node.
 // @Success 200 {object} nil
 // @Failure 500 {object} ErrorResponse
 // @Tags Panel Settings
@@ -516,61 +515,51 @@ var editableIntEntries = []config.IntEntry{}
 func updatePanel(c *gin.Context) {
 	logging.Info.Println("Update panel requested via API")
 
-	cli, err := client.New(client.FromEnv)
-	if err != nil {
-		response.HandleError(c, fmt.Errorf("failed to connect to docker: %v", err), http.StatusInternalServerError)
+	db := middleware.GetDatabase(c)
+	ns := &services.Node{DB: db}
+
+	nodes, err := ns.GetAll()
+	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
-	defer cli.Close()
 
-	ctx := context.Background()
+	results := make([]gin.H, 0, len(nodes))
+	localUpdated := false
 
-	const updateImage = "alpine:latest"
+	for _, node := range nodes {
+		if node.IsLocal() {
+			if localUpdated {
+				continue
+			}
+			localUpdated = true
+			containerID, err := update.Trigger()
+			if err != nil {
+				logging.Error.Printf("Failed to trigger local update: %v", err)
+				update.RecordFailure(err.Error())
+				results = append(results, gin.H{"name": node.Name, "local": true, "error": err.Error()})
+			} else {
+				logging.Info.Printf("Local update container started with ID %s", containerID)
+				results = append(results, gin.H{"name": node.Name, "local": true})
+			}
+			continue
+		}
 
-	// Make sure the ephemeral image used to run the update script exists on the
-	// host daemon. The daemon won't pull it automatically, so do it explicitly.
-	if _, err := cli.ImageInspect(ctx, updateImage); err != nil {
-		logging.Info.Printf("Update image %s not found, pulling it...", updateImage)
-		pull, err := cli.ImagePull(ctx, updateImage, client.ImagePullOptions{})
+		resp, err := ns.CallNode(node, http.MethodPost, "/daemon/update", http.NoBody, nil)
 		if err != nil {
-			response.HandleError(c, fmt.Errorf("failed to pull %s: %v", updateImage, err), http.StatusInternalServerError)
-			return
+			logging.Error.Printf("Failed to trigger update on node %s: %v", node.Name, err)
+			results = append(results, gin.H{"name": node.Name, "error": err.Error()})
+			continue
 		}
-		if err := pull.Wait(ctx); err != nil {
-			response.HandleError(c, fmt.Errorf("failed to pull %s: %v", updateImage, err), http.StatusInternalServerError)
-			return
+		if resp.StatusCode >= 400 {
+			logging.Error.Printf("Node %s returned status %d", node.Name, resp.StatusCode)
+			results = append(results, gin.H{"name": node.Name, "error": fmt.Sprintf("node returned status %d", resp.StatusCode)})
+			continue
 		}
-		pull.Close()
+		logging.Info.Printf("Update triggered on node %s", node.Name)
+		results = append(results, gin.H{"name": node.Name})
 	}
 
-	// Spin up an ephemeral alpine container to run the update script on the host
-	// We mount / of the host to /host in the container
-	resp, err := cli.ContainerCreate(ctx, client.ContainerCreateOptions{
-		Name: "",
-		Config: &container.Config{
-			Image: updateImage,
-			Cmd:   []string{"chroot", "/host", "bash", "-c", "cd /opt/skypanel && chmod +x tools/panelUpdate/panelUpdate.sh && ./tools/panelUpdate/panelUpdate.sh"},
-		},
-		HostConfig: &container.HostConfig{
-			Binds: []string{"/:/host"},
-		},
-	})
-
-	if err != nil {
-		response.HandleError(c, fmt.Errorf("failed to create update container: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	if _, err := cli.ContainerStart(ctx, resp.ID, client.ContainerStartOptions{}); err != nil {
-		response.HandleError(c, fmt.Errorf("failed to start update container: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	updateTracker.begin(resp.ID)
-	go monitorUpdateContainer(resp.ID)
-
-	logging.Info.Printf("Update container started with ID %s\n", resp.ID)
-	c.JSON(http.StatusOK, gin.H{"message": "Update initiated successfully. The panel will restart shortly.", "containerId": resp.ID})
+	c.JSON(http.StatusOK, gin.H{"message": "Update initiated on the panel and all nodes.", "nodes": results})
 }
 
 // gitRepoGitDir is the location of the repository's .git directory, mounted
@@ -666,4 +655,91 @@ func updateCheck(c *gin.Context) {
 		"version":         skypanel.Version,
 		"updateAvailable": current != "" && latest != "" && current != latest,
 	})
+}
+
+// nodeUpdateStatus describes the update status of a single node of the fleet.
+type nodeUpdateStatus struct {
+	Name        string    `json:"name"`
+	Address     string    `json:"address"`
+	Local       bool      `json:"local"`
+	Online      bool      `json:"online"`
+	Running     bool      `json:"running"`
+	ContainerID string    `json:"containerId"`
+	StartedAt   time.Time `json:"startedAt"`
+	FinishedAt  time.Time `json:"finishedAt"`
+	ExitCode    int       `json:"exitCode"`
+	Log         string    `json:"log"`
+	Error       string    `json:"error"`
+}
+
+// @Summary Get panel update status
+// @Description Returns the update status, exit code and log tail of the panel and every registered node.
+// @Success 200 {object} nil
+// @Tags Panel Settings
+// @Router /api/settings/update-status [get]
+// @Security OAuth2Application[settings.edit]
+func updateStatus(c *gin.Context) {
+	db := middleware.GetDatabase(c)
+	ns := &services.Node{DB: db}
+
+	nodes, err := ns.GetAll()
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	statuses := make([]nodeUpdateStatus, 0, len(nodes))
+
+	for _, node := range nodes {
+		status := nodeUpdateStatus{
+			Name:    node.Name,
+			Address: fmt.Sprintf("%s:%d", node.PrivateHost, node.PrivatePort),
+			Local:   node.IsLocal(),
+		}
+
+		if node.IsLocal() {
+			state := update.Status()
+			status.Online = true
+			status.Running = state.Running
+			status.ContainerID = state.ContainerID
+			status.StartedAt = state.StartedAt
+			status.FinishedAt = state.FinishedAt
+			status.ExitCode = state.ExitCode
+			status.Log = state.LogTail
+			status.Error = state.Error
+		} else {
+			resp, err := ns.CallNode(node, http.MethodGet, "/daemon/update-status", http.NoBody, nil)
+			if err != nil {
+				status.Error = fmt.Sprintf("unable to reach node: %v", err)
+				statuses = append(statuses, status)
+				continue
+			}
+
+			if resp.StatusCode != http.StatusOK {
+				status.Error = fmt.Sprintf("node returned status %d", resp.StatusCode)
+				statuses = append(statuses, status)
+				continue
+			}
+
+			var state update.State
+			if err := json.NewDecoder(resp.Body).Decode(&state); err != nil {
+				status.Error = "invalid status response from node"
+				statuses = append(statuses, status)
+				continue
+			}
+
+			resp.Body.Close()
+			status.Online = true
+			status.Running = state.Running
+			status.ContainerID = state.ContainerID
+			status.StartedAt = state.StartedAt
+			status.FinishedAt = state.FinishedAt
+			status.ExitCode = state.ExitCode
+			status.Log = state.LogTail
+			status.Error = state.Error
+		}
+
+		statuses = append(statuses, status)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"nodes": statuses})
 }

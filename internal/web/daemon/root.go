@@ -7,8 +7,11 @@ import (
 	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
+	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
+	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers"
+	"github.com/SkyPanel/SkyPanel/v3/internal/update"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-gonic/gin"
@@ -31,7 +34,41 @@ func RegisterDaemonRoutes(e *gin.RouterGroup) {
 	e.GET("system", getSystemInfo)
 	e.Handle("OPTIONS", "system", response.CreateOptions("GET"))
 
+	e.POST("update", middleware.ValidateJWT, daemonUpdate)
+	e.Handle("OPTIONS", "update", response.CreateOptions("POST"))
+
+	e.GET("update-status", middleware.ValidateJWT, daemonUpdateStatus)
+	e.Handle("OPTIONS", "update-status", response.CreateOptions("GET"))
+
 	RegisterServerRoutes(e)
+}
+
+// @Summary Update this node
+// @Description Starts an update of the host this node runs on by spawning an ephemeral container.
+// @Success 200 {object} nil
+// @Tags Daemon Root
+// @Router /daemon/update [post]
+// @Security OAuth2Application[none]
+func daemonUpdate(c *gin.Context) {
+	containerID, err := update.Trigger()
+	if err != nil {
+		logging.Error.Printf("Failed to trigger node update: %v", err)
+		response.HandleError(c, err, http.StatusInternalServerError)
+		return
+	}
+
+	logging.Info.Printf("Node update container started with ID %s", containerID)
+	c.JSON(http.StatusOK, gin.H{"message": "Update initiated on this node.", "containerId": containerID})
+}
+
+// @Summary Get node update status
+// @Description Returns the update status, exit code and log tail of this node.
+// @Success 200 {object} update.State
+// @Tags Daemon Root
+// @Router /daemon/update-status [get]
+// @Security OAuth2Application[none]
+func daemonUpdateStatus(c *gin.Context) {
+	c.JSON(http.StatusOK, update.Status())
 }
 
 // @Summary Check daemon status
