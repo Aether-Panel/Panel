@@ -55,6 +55,18 @@ export const api = {
         return handleResponse(response);
     },
 
+    async postForm<T = any>(url: string, formData: FormData): Promise<T> {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+            },
+            body: formData,
+            credentials: 'include',
+        });
+        return handleResponse(response);
+    },
+
     async put<T = any>(url: string, body: any): Promise<T> {
         const response = await fetch(url, {
             method: 'PUT',

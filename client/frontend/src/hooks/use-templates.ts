@@ -62,9 +62,21 @@ export function useTemplates() {
         }
     };
 
+    const uploadTemplates = async (files: File[]) => {
+        try {
+            const formData = new FormData();
+            files.forEach(f => formData.append('files', f));
+            const data = await api.postForm('/api/templates/upload', formData);
+            return Array.isArray(data) ? data : [];
+        } catch (e) {
+            console.error('Failed to upload templates:', e);
+            throw e;
+        }
+    };
+
     useEffect(() => {
         fetchRepos();
     }, []);
 
-    return { repos, loading, error, refresh: fetchRepos, getTemplatesForRepo, getTemplateDetails, saveTemplate };
+    return { repos, loading, error, refresh: fetchRepos, getTemplatesForRepo, getTemplateDetails, saveTemplate, uploadTemplates };
 }

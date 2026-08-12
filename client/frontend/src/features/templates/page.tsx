@@ -1,13 +1,13 @@
 'use client';
 import { useAuth } from '@/contexts/providers';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Code, Puzzle, Bot, Server as ServerIcon, Database, PlusCircle, LayoutTemplate,
-  Gamepad2, Globe, Cpu, Radio, Network, Box, Terminal, Shield, Play
+  Gamepad2, Globe, Cpu, Radio, Network, Box, Terminal, Shield, Play, Upload, FileJson
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useTranslations } from '@/contexts/translations-context';
@@ -83,6 +83,9 @@ export default function TemplatesPage() {
   const [templateJson, setTemplateJson] = useState(defaultTemplateJson);
   const [templateObj, setTemplateObj] = useState<any>(JSON.parse(defaultTemplateJson));
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const loadFileRef = useRef<HTMLInputElement>(null);
 
   const updateField = (field: string, value: string) => {
     const newObj = { ...templateObj, [field]: value };
@@ -105,25 +108,13 @@ export default function TemplatesPage() {
 
   const { t } = useTranslations();
 
-  const { repos, loading: reposLoading, getTemplatesForRepo, saveTemplate } = useTemplates();
+  const { repos, loading: reposLoading, getTemplatesForRepo, saveTemplate, uploadTemplates } = useTemplates();
   const [allTemplates, setAllTemplates] = useState<any[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
 
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (isMounted && role && !hasScope('templates.view')) {
-      window.location.href = '/dashboard/';
-    }
-  }, [role, hasScope, isMounted]);
-
-  useEffect(() => {
-    if (!hasScope('templates.view')) return;
-
-    async function loadAll() {
-      setLoadingTemplates(true);
+  const loadAllTemplates = async () => {
+    setLoadingTemplates(true);
+    try {
       const loaded: any[] = [];
       for (const repo of repos) {
         const tpls = await getTemplatesForRepo(repo.id);
@@ -144,12 +135,58 @@ export default function TemplatesPage() {
       const uniqueLoaded = loaded.filter((v, i, a) => a.findIndex(t => (t.name === v.name && t.repoId === v.repoId)) === i);
 
       setAllTemplates(uniqueLoaded);
+    } finally {
       setLoadingTemplates(false);
     }
+  };
+
+  const handleUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    try {
+      const uploaded = await uploadTemplates(Array.from(files));
+      sileo.success({ title: 'Success', description: `Uploaded ${uploaded.length} template(s)` });
+      await loadAllTemplates();
+    } catch (e: any) {
+      sileo.error({ title: 'Error', description: e?.message || 'Failed to upload templates' });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleLoadFromFile = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      setTemplateJson(JSON.stringify(parsed, null, 2));
+      setTemplateObj(parsed);
+    } catch (e) {
+      sileo.error({ title: 'Error', description: 'Invalid JSON file' });
+    } finally {
+      if (loadFileRef.current) loadFileRef.current.value = '';
+    }
+  };
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (isMounted && role && !hasScope('templates.view')) {
+      window.location.href = '/dashboard/';
+    }
+  }, [role, hasScope, isMounted]);
+
+  useEffect(() => {
+    if (!hasScope('templates.view')) return;
 
     if (repos && repos.length > 0) {
-      loadAll();
+      loadAllTemplates();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [repos, hasScope]);
 
   if (!isMounted || !hasScope('templates.view') || reposLoading) {
@@ -163,6 +200,22 @@ export default function TemplatesPage() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader title={t('templates.title')} description={t('templates.description')}>
+        {hasScope('templates.local.edit') && (
+          <>
+            <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+              <Upload className="mr-2" />
+              {uploading ? 'Uploading...' : 'Upload'}
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json,application/json"
+              multiple
+              className="hidden"
+              onChange={(e) => handleUpload(e.target.files)}
+            />
+          </>
+        )}
         {hasScope('templates.repo.create') && (
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
@@ -217,6 +270,20 @@ export default function TemplatesPage() {
                   </TabsContent>
 
                   <TabsContent value="json" className="flex-1 h-full min-h-[300px]">
+                    <div className="mb-2 flex items-center justify-between">
+                      <Label>Template JSON</Label>
+                      <Button variant="outline" size="sm" type="button" onClick={() => loadFileRef.current?.click()}>
+                        <FileJson className="mr-2 h-4 w-4" />
+                        Load from JSON file
+                      </Button>
+                      <input
+                        ref={loadFileRef}
+                        type="file"
+                        accept=".json,application/json"
+                        className="hidden"
+                        onChange={(e) => handleLoadFromFile(e.target.files)}
+                      />
+                    </div>
                     <Textarea
                       className="h-full min-h-[300px] w-full font-mono text-sm"
                       value={templateJson}
@@ -240,21 +307,7 @@ export default function TemplatesPage() {
                     setIsCreateOpen(false);
                     setTemplateJson(defaultTemplateJson);
                     // Refresh
-                    setLoadingTemplates(true);
-                    const loaded: any[] = [];
-                    for (const repo of repos) {
-                      const tpls = await getTemplatesForRepo(repo.id);
-                      tpls.forEach((t: any) => loaded.push({ ...t, repoId: repo.id, repoName: repo.name }));
-                    }
-                    // Since local is repo 0 implicitly in PufferPanel API sometimes:
-                    const localTpls = await getTemplatesForRepo(0);
-                    localTpls.forEach((t: any) => loaded.push({ ...t, repoId: 0, repoName: 'Local' }));
-
-                    // Deduplicate logic just in case repo 0 is listed in `repos`
-                    const uniqueLoaded = loaded.filter((v, i, a) => a.findIndex(t => (t.name === v.name && t.repoId === v.repoId)) === i);
-
-                    setAllTemplates(uniqueLoaded);
-                    setLoadingTemplates(false);
+                    await loadAllTemplates();
                   } catch (e: any) {
                     sileo.error({ title: 'Error', description: e.message || 'Invalid JSON format or network error' });
                   } finally {

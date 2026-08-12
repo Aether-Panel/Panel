@@ -1,7 +1,13 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
+	"io"
+	"net/http"
+	"path/filepath"
+	"strings"
+
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
@@ -12,7 +18,6 @@ import (
 	"github.com/gin-gonic/gin/binding"
 	"github.com/spf13/cast"
 	"gorm.io/gorm"
-	"net/http"
 )
 
 func registerTemplates(g *gin.RouterGroup) {
@@ -21,6 +26,9 @@ func registerTemplates(g *gin.RouterGroup) {
 	g.Handle("GET", "", middleware.RequiresPermission(scopes.ScopeLogin), getRepos)
 	g.Handle("POST", "", middleware.RequiresPermission(scopes.ScopeTemplatesRepoCreate), addRepo)
 	g.Handle("OPTIONS", "", response.CreateOptions("GET", "POST"))
+
+	g.Handle("POST", "/upload", middleware.RequiresPermission(scopes.ScopeTemplatesLocalEdit), uploadTemplates)
+	g.Handle("OPTIONS", "/upload", response.CreateOptions("POST"))
 
 	g.Handle("GET", "/:repo", middleware.RequiresPermission(scopes.ScopeLogin), getsTemplatesForRepo)
 	g.Handle("DELETE", "/:repo", middleware.RequiresPermission(scopes.ScopeTemplatesRepoDelete), deleteRepo)
@@ -226,4 +234,77 @@ func deleteTemplate(c *gin.Context) {
 	}
 
 	c.Status(http.StatusNoContent)
+}
+
+const maxTemplateFileSize = 2 << 20 // 2 MB per template file
+
+// @Summary Upload local templates
+// @Description Uploads one or more .json template files to the local templates repository.
+// @Description The template name is taken from the file name (e.g. minecraft.json -> "minecraft").
+// @Accept multipart/form-data
+// @Param files formData file true "Template JSON file(s)"
+// @Success 200 {object} []models.Template
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
+// @Tags Templates
+// @Router /api/templates/upload [post]
+// @Security OAuth2Application[templates.local.edit]
+func uploadTemplates(c *gin.Context) {
+	db := middleware.GetDatabase(c)
+	ts := &services.Template{DB: db}
+
+	form, err := c.MultipartForm()
+	if response.HandleError(c, err, http.StatusBadRequest) {
+		return
+	}
+
+	files := form.File["files"]
+	if len(files) == 0 {
+		response.HandleError(c, skypanel.ErrFieldRequired("files"), http.StatusBadRequest)
+		return
+	}
+
+	created := make([]*models.Template, 0, len(files))
+	for _, fh := range files {
+		if !strings.HasSuffix(strings.ToLower(fh.Filename), ".json") {
+			response.HandleError(c, skypanel.CreateError("file "+fh.Filename+" is not a JSON template", "ErrInvalidTemplate"), http.StatusBadRequest)
+			return
+		}
+
+		f, err := fh.Open()
+		if response.HandleError(c, err, http.StatusBadRequest) {
+			return
+		}
+		data, err := io.ReadAll(io.LimitReader(f, maxTemplateFileSize))
+		_ = f.Close()
+		if response.HandleError(c, err, http.StatusBadRequest) {
+			return
+		}
+
+		var server skypanel.Server
+		if err := json.Unmarshal(data, &server); response.HandleError(c, err, http.StatusBadRequest) {
+			return
+		}
+
+		if len(server.Installation) == 0 && server.Execution.Command == nil {
+			response.HandleError(c, skypanel.CreateError("template "+fh.Filename+" has no install steps or run command", "ErrInvalidTemplate"), http.StatusBadRequest)
+			return
+		}
+
+		name := strings.TrimSuffix(filepath.Base(fh.Filename), filepath.Ext(fh.Filename))
+		if name == "" {
+			name = server.Type.Type
+		}
+		if server.Display == "" {
+			server.Display = name
+		}
+
+		template := &models.Template{Name: name, Server: server}
+		if err := ts.Save(template); response.HandleError(c, err, http.StatusInternalServerError) {
+			return
+		}
+		created = append(created, template)
+	}
+
+	c.JSON(http.StatusOK, created)
 }
