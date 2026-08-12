@@ -335,7 +335,7 @@ export function UpdatesTab() {
                     )}
 
                     <div className="text-sm text-muted-foreground">
-                        <p><strong>Note:</strong> The update pulls the latest code from the repository, rebuilds the panel image and restarts the services, including on every registered node. The panel may be unreachable for a few minutes during the process. Thank You!</p>
+                        <p><strong>Note:</strong> The update pulls the latest code from the repository, rebuilds the panel image and restarts the services, including on every registered node. The panel may be unreachable for a few  minutes during the process. Thank You!</p>
                     </div>
                 </CardContent>
             </Card>
