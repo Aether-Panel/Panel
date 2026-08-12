@@ -41,7 +41,7 @@ if grep -qE '^[[:space:]]*- PUFFER_PANEL_ENABLE=false' docker-compose.yml 2>/dev
 fi
 
 echo "[INFO] Obteniendo últimos cambios de GitHub..."
-git checkout -- docker-compose.yml 2>/dev/null || true
+git checkout -- . 2>/dev/null || true
 git fetch origin
 git checkout "$GIT_BRANCH" 2>/dev/null || git checkout main
 git pull
