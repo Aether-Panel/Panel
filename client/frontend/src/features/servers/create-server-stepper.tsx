@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -165,6 +165,7 @@ function Step2Template({
     templateList, selectedTemplateName, setSelectedTemplateName,
     loadingTemplates, templateDetails, templateError
 }: any) {
+    const activeRepo = repos.find((r: any) => r.id === selectedRepo);
     return (
         <div className="grid gap-6 animate-in fade-in slide-in-from-right-4 duration-300 w-full">
             <div className="grid gap-2 w-full">
@@ -196,6 +197,11 @@ function Step2Template({
             {selectedRepo !== null && (
                 <div className="grid gap-2 mt-4 w-full">
                     <Label>Seleccionar Plantilla</Label>
+                    {activeRepo && (
+                        <p className="text-xs text-muted-foreground">
+                            Mostrando plantillas de: <strong>{activeRepo.name}</strong> ({activeRepo.isLocal ? 'Local' : 'Comunidad'})
+                        </p>
+                    )}
                     {loadingTemplates ? (
                         <div className="flex items-center justify-center p-8">
                             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -381,6 +387,15 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
     const [selectedTemplateName, setSelectedTemplateName] = useState('');
     const [loadingTemplates, setLoadingTemplates] = useState(false);
 
+    // Ensure the "Local" repo is always selectable even if the API omits it.
+    const repoList = useMemo(() => {
+        const list = [...(repos || [])];
+        if (!list.some((r: any) => r.id === 0)) {
+            list.push({ id: 0, name: 'Local', url: '', isLocal: true });
+        }
+        return list;
+    }, [repos]);
+
     const [templateDetails, setTemplateDetails] = useState<any>(null);
     const [templateError, setTemplateError] = useState<string | null>(null);
     const [configData, setConfigData] = useState<Record<string, any>>({});
@@ -390,10 +405,10 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
     const [diskLimit, setDiskLimit] = useState<number | ''>(10240);
 
     useEffect(() => {
-        if (repos.length === 1 && selectedRepo === null) {
-            setSelectedRepo(repos[0].id);
+        if (repoList.length === 1 && selectedRepo === null) {
+            setSelectedRepo(repoList[0].id);
         }
-    }, [repos]);
+    }, [repoList]);
 
     useEffect(() => {
         if (selectedRepo !== null) {
@@ -571,7 +586,7 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
                         )}
                         {currentStep === 2 && (
                             <Step2Template
-                                repos={repos} selectedRepo={selectedRepo} setSelectedRepo={setSelectedRepo}
+                                repos={repoList} selectedRepo={selectedRepo} setSelectedRepo={setSelectedRepo}
                                 templateList={templateList} selectedTemplateName={selectedTemplateName} setSelectedTemplateName={setSelectedTemplateName}
                                 loadingTemplates={loadingTemplates} templateDetails={templateDetails} templateError={templateError}
                             />

@@ -612,5 +612,16 @@ var migrations = [][]*gormigrate.Migration{
 				return db.Model(&role).Update("scopes", role.RawScopes).Error
 			},
 		},
+		{
+			ID: "20260811-template-raw-value-size",
+			Migrate: func(db *gorm.DB) error {
+				// templates.raw_value was VARCHAR(4000), which truncated large templates
+				// (e.g. minecraft.json) and made local templates unusable.
+				if config.DatabaseDialect.Value() == "mysql" {
+					return db.Exec("ALTER TABLE templates MODIFY COLUMN raw_value MEDIUMTEXT NOT NULL").Error
+				}
+				return db.Migrator().AlterColumn(&models.Template{}, "RawValue")
+			},
+		},
 	},
 }

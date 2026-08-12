@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Code, Puzzle, Bot, Server as ServerIcon, Database, PlusCircle, LayoutTemplate,
-  Gamepad2, Globe, Cpu, Radio, Network, Box, Terminal, Shield, Play, Upload, FileJson
+  Gamepad2, Globe, Cpu, Radio, Network, Box, Terminal, Shield, Play, Upload, FileJson, Trash2
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useTranslations } from '@/contexts/translations-context';
@@ -108,7 +108,7 @@ export default function TemplatesPage() {
 
   const { t } = useTranslations();
 
-  const { repos, loading: reposLoading, getTemplatesForRepo, saveTemplate, uploadTemplates } = useTemplates();
+  const { repos, loading: reposLoading, getTemplatesForRepo, saveTemplate, uploadTemplates, deleteTemplate } = useTemplates();
   const [allTemplates, setAllTemplates] = useState<any[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
 
@@ -191,6 +191,17 @@ export default function TemplatesPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [repos, hasScope]);
+
+  const handleDeleteTemplate = async (template: any) => {
+    if (!window.confirm(`¿Eliminar la plantilla local "${template.display || template.name}"? Esta acción no se puede deshacer.`)) return;
+    try {
+      await deleteTemplate(template.name);
+      sileo.success({ title: 'Success', description: `Template "${template.name}" deleted` });
+      await loadAllTemplates();
+    } catch (e: any) {
+      sileo.error({ title: 'Error', description: e?.message || 'Failed to delete template' });
+    }
+  };
 
   if (!isMounted || !hasScope('templates.view') || reposLoading) {
     return (
@@ -348,15 +359,31 @@ export default function TemplatesPage() {
                   const categoryLabel = template.type || 'Other';
                   return (
                     <div key={`local-${template.name}-${idx}`} className="rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50 transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-primary/10">
-                      <Card className="flex h-full cursor-pointer flex-col justify-between overflow-hidden border-0">
-                        <CardHeader>
-                          <div className="flex items-start justify-between">
-                            <Icon className="h-10 w-10 text-muted-foreground" />
+                    <Card className="flex h-full cursor-pointer flex-col justify-between overflow-hidden border-0">
+                      <CardHeader>
+                        <div className="flex items-start justify-between">
+                          <Icon className="h-10 w-10 text-muted-foreground" />
+                          <div className="flex items-center gap-2">
                             <Badge variant="outline" className={`whitespace-nowrap ${getBadgeStyle(template.type)}`}>
                               {categoryLabel}
                             </Badge>
+                            {hasScope('templates.local.edit') && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
+                                title={`Delete ${template.name}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteTemplate(template);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
-                        </CardHeader>
+                        </div>
+                      </CardHeader>
                         <CardContent>
                           <CardTitle className="text-lg">{template.display || template.name}</CardTitle>
                           {template.repoName && <CardDescription>Repo: {template.repoName}</CardDescription>}

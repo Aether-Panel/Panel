@@ -74,9 +74,19 @@ export function useTemplates() {
         }
     };
 
+    const deleteTemplate = async (templateName: string) => {
+        try {
+            await api.delete(`/api/templates/0/${encodeURIComponent(templateName)}`);
+            return true;
+        } catch (e) {
+            console.error(`Failed to delete template ${templateName}:`, e);
+            throw e;
+        }
+    };
+
     useEffect(() => {
         fetchRepos();
     }, []);
 
-    return { repos, loading, error, refresh: fetchRepos, getTemplatesForRepo, getTemplateDetails, saveTemplate, uploadTemplates };
+    return { repos, loading, error, refresh: fetchRepos, getTemplatesForRepo, getTemplateDetails, saveTemplate, uploadTemplates, deleteTemplate };
 }

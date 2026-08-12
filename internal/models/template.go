@@ -11,7 +11,7 @@ type Template struct {
 	skypanel.Server `gorm:"-"`
 
 	Name     string `gorm:"column:name;size:100;primaryKey" json:"name"`
-	RawValue string `gorm:"column:raw_value;not null;size:4000" json:"-"`
+	RawValue string `gorm:"column:raw_value;not null;type:mediumtext" json:"-"`
 
 	Readme string `gorm:"column:readme;size:4000" json:"readme,omitempty"`
 } // @name Template
