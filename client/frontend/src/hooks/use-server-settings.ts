@@ -74,12 +74,20 @@ export function useServerSettings(serverId: string) {
         }
     };
 
-    const saveSettings = async (newSettings: ServerSettings) => {
+    const saveSettings = async (newSettings: ServerSettings, canEditAdminData = false) => {
         try {
-            // Prepare data for saving
+            // Prepare data for saving.
+            // Variables with userEdit:false (cpu/memory/disk...) are admin-only:
+            // the daemon's non-admin /data endpoint silently skips them, so they must
+            // be saved through the admin endpoint (PUT /data).
             const data: Record<string, any> = {};
+            const adminData: Record<string, any> = {};
             Object.entries(newSettings.variables).forEach(([name, variable]) => {
-                data[name] = variable.value;
+                if (canEditAdminData && variable.userEdit === false) {
+                    adminData[name] = variable.value;
+                } else {
+                    data[name] = variable.value;
+                }
             });
 
             // Sync variables into definition before saving if definition exists
@@ -91,8 +99,13 @@ export function useServerSettings(serverId: string) {
                 }
             } : null;
 
-            // Save variables
+            // Save user-editable variables
             await api.post(`/api/servers/${serverId}/data`, data);
+
+            // Save admin-only variables through the admin endpoint so they are applied
+            if (Object.keys(adminData).length > 0) {
+                await api.put(`/api/servers/${serverId}/data`, adminData);
+            }
 
             // If we have a definition, update its internal run flags to match the new flags
             // This prevents overwriting the flags when saving the definition

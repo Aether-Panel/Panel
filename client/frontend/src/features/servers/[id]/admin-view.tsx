@@ -61,7 +61,7 @@ export default function AdminView({ serverId }: { serverId: string }) {
             await saveSettings({
                 ...settings,
                 definition: parsed
-            });
+            }, hasScope('server.data.edit.admin'));
             sileo.success({ title: t('common.success'), description: t('servers.admin.editDefinition.success') || 'Definition saved.' });
             setEditorOpen(false);
         } catch (e: any) {

@@ -160,7 +160,7 @@ export default function SettingsView({ serverId }: SettingsViewProps) {
   const onSave = async () => {
     try {
       setSaving(true);
-      await saveSettings(localSettings);
+      await saveSettings(localSettings, hasScope('server.data.edit.admin'));
 
       // Save plugins enabled to localStorage
       localStorage.setItem(`pluginsEnabled_${serverId}`, pluginsEnabled.toString());
