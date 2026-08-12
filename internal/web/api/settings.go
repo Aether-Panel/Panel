@@ -3,10 +3,12 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -605,6 +607,23 @@ func currentGitCommit() string {
 	return ref
 }
 
+// isGitAncestor reports whether ancestor is an ancestor of (or equal to)
+// descendant in the repository mounted at gitRepoGitDir. It relies on the
+// git binary present in the runtime image. Any git error (missing binary,
+// unknown object, shallow history...) is returned so callers can fall back.
+func isGitAncestor(ancestor, descendant string) (bool, error) {
+	cmd := exec.Command("git", "--git-dir="+gitRepoGitDir, "merge-base", "--is-ancestor", ancestor, descendant)
+	err := cmd.Run()
+	if err == nil {
+		return true, nil
+	}
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+		return false, nil
+	}
+	return false, err
+}
+
 // @Summary Check for panel updates
 // @Description Compares the deployed commit with the latest commit on the dev2.0 branch.
 // @Success 200 {object} nil
@@ -649,11 +668,24 @@ func updateCheck(c *gin.Context) {
 	}
 
 	latest := payload.Sha
+
+	// Consider an update available only when the remote tip contains commits
+	// not yet deployed. A plain SHA comparison produces false positives when
+	// the host repository has local commits (e.g. merge commits created by
+	// git pull after local edits), so compare ancestry instead.
+	updateAvailable := current != "" && latest != "" && current != latest
+	if updateAvailable {
+		contains, err := isGitAncestor(latest, current)
+		if err == nil {
+			updateAvailable = !contains
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"current":         current,
 		"latest":          latest,
 		"version":         skypanel.Version,
-		"updateAvailable": current != "" && latest != "" && current != latest,
+		"updateAvailable": updateAvailable,
 	})
 }
 

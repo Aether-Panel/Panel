@@ -68,7 +68,7 @@ FROM alpine:3.24
 
 EXPOSE 8080 5657
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 CMD nc -z localhost 8080 || exit 1
-RUN apk add --no-cache netcat-openbsd
+RUN apk add --no-cache netcat-openbsd git
 RUN mkdir -p /etc/SkyPanel && \
     mkdir -p /var/lib/SkyPanel /var/lib/SkyPanel/servers /var/lib/SkyPanel/binaries /var/lib/SkyPanel/cache && \
     mkdir -p /var/log/SkyPanel
