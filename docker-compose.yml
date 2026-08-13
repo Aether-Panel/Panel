@@ -29,7 +29,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        - version=2.0.0
+        - version=2.0.1
         - sha=local-build
     container_name: skypanel
     restart: unless-stopped
