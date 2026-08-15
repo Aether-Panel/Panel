@@ -71,7 +71,7 @@ export default function SettingsPage() {
 
     const handleTestEmail = async () => {
         try {
-            await sendTestEmail();
+            await sendTestEmail(localSettings);
             sileo.success({
                 title: t('common.success'),
                 description: t('settings.mail.testSuccess') || 'Test email sent successfully',

@@ -252,6 +252,40 @@ func getSettings(c *gin.Context) {
 func sendTestEmail(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
 
+	var body map[string]interface{}
+	_ = c.BindJSON(&body)
+
+	getStr := func(key string) string {
+		if v, ok := body[key].(string); ok {
+			return v
+		}
+		return ""
+	}
+
+	entries := []config.StringEntry{
+		config.EmailProvider,
+		config.EmailFrom,
+		config.EmailHost,
+		config.EmailUsername,
+		config.EmailPassword,
+		config.EmailDomain,
+		config.EmailKey,
+	}
+
+	saved := make([]string, len(entries))
+	for i, entry := range entries {
+		saved[i] = entry.Value()
+		if value := getStr(entry.Key()); value != "" {
+			_ = entry.Set(value, false)
+		}
+	}
+
+	defer func() {
+		for i, entry := range entries {
+			_ = entry.Set(saved[i], false)
+		}
+	}()
+
 	es := services.GetEmailService()
 	err := es.SendEmail(user.Email, "test", nil, false)
 	if response.HandleError(c, err, http.StatusInternalServerError) {

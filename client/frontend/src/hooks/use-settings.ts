@@ -35,9 +35,9 @@ export function useSettings() {
         }
     };
 
-    const sendTestEmail = async () => {
+    const sendTestEmail = async (overrides: Record<string, any> = {}) => {
         try {
-            await api.post('/api/settings/test/email', {});
+            await api.post('/api/settings/test/email', overrides);
             return true;
         } catch (e: any) {
             console.error('Failed to send test email:', e);
