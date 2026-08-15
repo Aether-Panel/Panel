@@ -29,6 +29,7 @@ export default function AdminView({ serverId }: { serverId: string }) {
     const [nodes, setNodes] = useState<any[]>([]);
     const [selectedNode, setSelectedNode] = useState<string>('');
     const [isTransferring, setIsTransferring] = useState(false);
+    const [transferOpen, setTransferOpen] = useState(false);
     const [nodesLoaded, setNodesLoaded] = useState(false);
 
     const [adminTab, setAdminTab] = useState('install');
@@ -115,13 +116,17 @@ export default function AdminView({ serverId }: { serverId: string }) {
             return;
         }
         setIsTransferring(true);
+        const startedAt = Date.now();
         try {
             await api.post(`/api/servers/${serverId}/transfer`, { nodeId: parseInt(selectedNode) });
             sileo.success({ title: t('common.success'), description: 'Transfer started successfully.' });
+            setSelectedNode('');
+            setTransferOpen(false);
         } catch (e: any) {
             sileo.error({ title: t('common.error'), description: e.message || 'Transfer failed.' });
         } finally {
-            setIsTransferring(false);
+            const remaining = Math.max(0, 1200 - (Date.now() - startedAt));
+            setTimeout(() => setIsTransferring(false), remaining);
         }
     };
 
@@ -201,9 +206,13 @@ export default function AdminView({ serverId }: { serverId: string }) {
                                     </p>
                                 </div>
                                 {canManageTransfer && (
-                                    <Dialog>
+                                    <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
                                         <DialogTrigger asChild>
-                                            <Button variant="outline" onClick={fetchNodes}>Transfer</Button>
+                                            <Button variant="outline" onClick={() => {
+                                                setSelectedNode('');
+                                                fetchNodes();
+                                                setTransferOpen(true);
+                                            }}>Transfer</Button>
                                         </DialogTrigger>
                                         <DialogContent>
                                             <DialogHeader>
