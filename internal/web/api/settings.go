@@ -3,12 +3,10 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -608,20 +606,24 @@ func currentGitCommit() string {
 }
 
 // isGitAncestor reports whether ancestor is an ancestor of (or equal to)
-// descendant in the repository mounted at gitRepoGitDir. It relies on the
-// git binary present in the runtime image. Any git error (missing binary,
-// unknown object, shallow history...) is returned so callers can fall back.
+// descendant in the repository mounted at gitRepoGitDir. It runs git either
+// inside an isolated container (preferred) or through a fixed absolute binary
+// path, so executable resolution never relies on a mutable PATH. Any git error
+// (missing binary, unknown object, shallow history...) is returned so callers
+// can fall back to the plain SHA comparison.
 func isGitAncestor(ancestor, descendant string) (bool, error) {
-	cmd := exec.Command("git", "--git-dir="+gitRepoGitDir, "merge-base", "--is-ancestor", ancestor, descendant)
-	err := cmd.Run()
-	if err == nil {
+	code, err := runGit("--git-dir="+gitRepoGitDir, "merge-base", "--is-ancestor", ancestor, descendant)
+	if err != nil {
+		return false, err
+	}
+	switch code {
+	case 0:
 		return true, nil
-	}
-	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+	case 1:
 		return false, nil
+	default:
+		return false, fmt.Errorf("git merge-base --is-ancestor exited with unexpected code %d", code)
 	}
-	return false, err
 }
 
 // @Summary Check for panel updates
