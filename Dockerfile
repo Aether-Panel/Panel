@@ -160,7 +160,6 @@ RUN chown -R SkyPanel:SkyPanel /SkyPanel /var/www/SkyPanel /etc/SkyPanel
 VOLUME /etc/SkyPanel
 VOLUME /var/lib/SkyPanel
 VOLUME /var/log/SkyPanel
-VOLUME /var/www/SkyPanel
 
 WORKDIR /var/lib/SkyPanel
 
