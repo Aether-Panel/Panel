@@ -15,6 +15,8 @@ import SettingsPage from '@/features/settings/page';
 import ProfileSettingsPage from '@/features/profile/settings/page';
 import LoginPage from '@/features/auth/login/page';
 import RegisterPage from '@/features/auth/register/page';
+import ForgotPasswordPage from '@/features/auth/forgot-password/page';
+import ResetPasswordPage from '@/features/auth/reset-password/page';
 
 export function Dashboard() {
     return <AppShell currentPath="/dashboard/"><DashboardPage /></AppShell>;
@@ -70,4 +72,12 @@ export function Login() {
 
 export function Register() {
     return <AuthShell><RegisterPage /></AuthShell>;
+}
+
+export function ForgotPassword() {
+    return <AuthShell><ForgotPasswordPage /></AuthShell>;
+}
+
+export function ResetPassword() {
+    return <AuthShell><ResetPasswordPage /></AuthShell>;
 }

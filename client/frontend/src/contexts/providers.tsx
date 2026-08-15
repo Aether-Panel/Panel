@@ -106,7 +106,8 @@ function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (loading) return;
     const pathname = window.location.pathname.replace(/\/$/, '') || '/';
-    const isAuthPage = pathname === '/login' || pathname === '/register';
+    const isAuthPage =
+      pathname === '/login' || pathname === '/register' || pathname === '/forgot-password' || pathname === '/reset-password';
 
     if (!role && !isAuthPage) {
       window.location.href = '/login/';

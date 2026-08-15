@@ -13,6 +13,8 @@ func RegisterRoutes(rg *gin.RouterGroup) {
 	rg.POST("logout", middleware.NeedsDatabase, LogoutPost)
 	rg.POST("otp", middleware.NeedsDatabase, OtpPost)
 	rg.POST("register", middleware.NeedsDatabase, RegisterPost)
+	rg.POST("forgot-password", middleware.NeedsDatabase, ForgotPasswordPost)
+	rg.POST("reset-password", middleware.NeedsDatabase, ResetPasswordPost)
 	rg.POST("reauth", middleware.AuthMiddleware, middleware.NeedsDatabase, Reauth)
 
 	rg.GET("publickey", TokenServiceGetPublicKey)

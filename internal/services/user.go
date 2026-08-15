@@ -9,6 +9,7 @@ import (
 	"image/png"
 	"math/big"
 	"strings"
+	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
@@ -158,6 +159,59 @@ func (us *User) ChangePassword(username string, newPass string) error {
 		return err
 	}
 	return us.Update(user)
+}
+
+func (us *User) CreatePasswordResetToken(email string) (string, error) {
+	user, err := us.GetByEmail(email)
+	if err != nil {
+		return "", err
+	}
+
+	token := rand.Text()
+
+	model := &models.PasswordReset{
+		UserID:    user.ID,
+		ExpiresAt: time.Now().Add(time.Minute * 30),
+	}
+	err = model.SetToken(token)
+	if err != nil {
+		return "", err
+	}
+
+	err = us.DB.Transaction(func(tx *gorm.DB) error {
+		tx.Delete(models.PasswordReset{}, "user_id = ?", user.ID)
+		return tx.Create(model).Error
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return token, nil
+}
+
+func (us *User) ConsumePasswordResetToken(token string) (*models.User, error) {
+	model := &models.PasswordReset{}
+	err := model.SetToken(token)
+	if err != nil {
+		return nil, err
+	}
+
+	err = us.DB.Where("token = ? AND expires_at > ?", model.TokenHash, time.Now()).First(model).Error
+	if err != nil {
+		return nil, err
+	}
+
+	user, err := us.GetByID(model.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	err = us.DB.Delete(model).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
 }
 
 func (us *User) GetOtpStatus(userID uint) (enabled bool, err error) {
