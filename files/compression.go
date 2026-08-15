@@ -261,15 +261,30 @@ func walker(fs FileServer, targetPath, filter string, skipRoot bool) archives.Fi
 		if targetPath != "" {
 			joined = filepath.Join(targetPath, path)
 		}
-		absJoined, err := filepath.Abs(joined)
+		absPath, err := filepath.Abs(joined)
 		if err != nil {
 			return err
 		}
-		if absJoined != root && !strings.HasPrefix(absJoined, root+string(filepath.Separator)) {
-			return ErrPathTraversal
+		if absPath == root {
+			return nil
 		}
-		path = absJoined
+		relPath := filepath.Clean(joined)
+
+		if fs != nil {
+			if filepath.IsLocal(relPath) {
+				path = relPath
+			} else {
+				return ErrPathTraversal
+			}
+		} else {
+			if strings.HasPrefix(absPath, root+string(filepath.Separator)) {
+				path = absPath
+			} else {
+				return ErrPathTraversal
+			}
+		}
 		parent := filepath.Dir(path)
+		absParent := filepath.Dir(absPath)
 
 		switch {
 		case file.IsDir():
@@ -318,31 +333,28 @@ func walker(fs FileServer, targetPath, filter string, skipRoot bool) archives.Fi
 			if err != nil {
 				return err
 			}
-			if !filepath.IsLocal(target) {
-				return ErrPathTraversal
-			}
-			resolvedTarget, err := filepath.Abs(filepath.Join(parent, target))
+			resolvedTarget, err := filepath.Abs(filepath.Join(absParent, target))
 			if err != nil {
 				return err
 			}
-			if resolvedTarget != root && !strings.HasPrefix(resolvedTarget, root+string(filepath.Separator)) {
-				return ErrPathTraversal
-			}
-
-			if fs != nil {
-				if err = fs.MkdirAll(parent, 0755); err != nil {
-					return err
-				}
-				if err = fs.Symlink(target, path); err != nil {
-					return err
+			if filepath.IsLocal(target) && (resolvedTarget == root || strings.HasPrefix(resolvedTarget, root+string(filepath.Separator))) {
+				if fs != nil {
+					if err = fs.MkdirAll(parent, 0755); err != nil {
+						return err
+					}
+					if err = fs.Symlink(target, path); err != nil {
+						return err
+					}
+				} else {
+					if err = os.MkdirAll(parent, 0755); err != nil {
+						return err
+					}
+					if err = os.Symlink(target, path); err != nil {
+						return err
+					}
 				}
 			} else {
-				if err = os.MkdirAll(parent, 0755); err != nil {
-					return err
-				}
-				if err = os.Symlink(target, path); err != nil {
-					return err
-				}
+				return ErrPathTraversal
 			}
 		}
 
