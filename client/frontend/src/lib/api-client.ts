@@ -42,7 +42,7 @@ export const api = {
         return handleResponse(response);
     },
 
-    async post<T = any>(url: string, body: any): Promise<T> {
+    async post<T = any>(url: string, body: any, signal?: AbortSignal): Promise<T> {
         const response = await fetch(url, {
             method: 'POST',
             headers: {
@@ -51,6 +51,7 @@ export const api = {
             },
             body: JSON.stringify(body),
             credentials: 'include',
+            signal,
         });
         return handleResponse(response);
     },

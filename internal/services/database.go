@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/go-sql-driver/mysql"
@@ -97,6 +98,9 @@ func (ds *Database) createInMySQL(database *models.Database, host *models.Databa
 	cfg.Addr = fmt.Sprintf("%s:%d", host.Host, host.Port)
 	cfg.ParseTime = true
 	cfg.InterpolateParams = true
+	cfg.Timeout = 5 * time.Second
+	cfg.ReadTimeout = 5 * time.Second
+	cfg.WriteTimeout = 5 * time.Second
 
 	db, err := sql.Open("mysql", cfg.FormatDSN())
 	if err != nil {
@@ -157,6 +161,9 @@ func (ds *Database) deleteFromMySQL(database *models.Database) error {
 	cfg.Passwd = host.Password
 	cfg.Net = "tcp"
 	cfg.Addr = fmt.Sprintf("%s:%d", host.Host, host.Port)
+	cfg.Timeout = 5 * time.Second
+	cfg.ReadTimeout = 5 * time.Second
+	cfg.WriteTimeout = 5 * time.Second
 
 	db, err := sql.Open("mysql", cfg.FormatDSN())
 	if err != nil {

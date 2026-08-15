@@ -91,14 +91,20 @@ export default function DatabaseView({ serverId }: DatabaseViewProps) {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [dbData, hostData] = await Promise.all([
+      const [dbResult, hostResult] = await Promise.allSettled([
         api.get(`/api/servers/${serverId}/databases`),
         api.get('/api/databasehosts')
       ]);
-      setDatabases(dbData || []);
-      setHosts(hostData || []);
-    } catch (err) {
-      console.error('Failed to fetch database data:', err);
+      if (dbResult.status === 'fulfilled') {
+        setDatabases(Array.isArray(dbResult.value) ? dbResult.value : []);
+      } else {
+        console.error('Failed to fetch databases:', dbResult.reason);
+      }
+      if (hostResult.status === 'fulfilled') {
+        setHosts(Array.isArray(hostResult.value) ? hostResult.value : []);
+      } else {
+        console.error('Failed to fetch database hosts:', hostResult.reason);
+      }
     } finally {
       setLoading(false);
     }
@@ -111,12 +117,15 @@ export default function DatabaseView({ serverId }: DatabaseViewProps) {
   const handleCreate = async () => {
     if (!newDbName || !selectedHost) return;
 
+    setIsCreating(true);
+    const startedAt = Date.now();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
     try {
-      setIsCreating(true);
       const result = await api.post(`/api/servers/${serverId}/databases`, {
         database_host_id: parseInt(selectedHost),
         database_name: newDbName
-      });
+      }, controller.signal);
 
       setCreatedDb(result);
       setIsSuccessOpen(true);
@@ -131,13 +140,18 @@ export default function DatabaseView({ serverId }: DatabaseViewProps) {
       setIsDialogOpen(false);
       fetchData();
     } catch (err: any) {
+      clearTimeout(timeoutId);
       console.error('Failed to create database:', err);
       sileo.error({
         title: t('common.error'),
-        description: err.message || t('servers.database.createDialog.createError')
+        description: err?.name === 'AbortError'
+          ? t('servers.database.createDialog.createError')
+          : (err?.message || t('servers.database.createDialog.createError'))
       });
     } finally {
-      setIsCreating(false);
+      clearTimeout(timeoutId);
+      const remaining = Math.max(0, 1200 - (Date.now() - startedAt));
+      setTimeout(() => setIsCreating(false), remaining);
     }
   };
 
@@ -245,14 +259,10 @@ export default function DatabaseView({ serverId }: DatabaseViewProps) {
               <Database className="h-6 w-6" />
             </div>
             <h3 className="font-headline text-lg font-semibold">{t('servers.database.empty')}</h3>
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="mt-6">
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  {t('servers.database.newDb')}
-                </Button>
-              </DialogTrigger>
-            </Dialog>
+            <Button className="mt-6" onClick={() => setIsDialogOpen(true)}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              {t('servers.database.newDb')}
+            </Button>
           </div>
         ) : (
           databases.map((db: DatabaseInfo) => (
