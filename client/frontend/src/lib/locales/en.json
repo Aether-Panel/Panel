@@ -858,7 +858,7 @@
         "userLabel": "Username",
         "userDescription": "The username of an account that has sufficient permissions to create new users and databases on the system.",
         "passwordLabel": "Password",
-        "passwordDescription": "The password for the database user."
+        "passwordDescription": "The password for the database user. It must match the password used in the SQL commands from Step 2."
       },
       "step2": {
         "instructionsTitle": "Instructions",
@@ -866,6 +866,7 @@
         "userDescription": "Use <code>mysql -u root -p</code> to access the mysql CLI.",
         "createUserCommandTitle": "Command to create user",
         "grantPermissionsCommandTitle": "Command to assign permissions",
+        "passwordNote": "Replace <code>your_strong_password</code> with a real password and type the same value in the Password field (Step 1). If the panel runs inside Docker, it connects from its own container IP, so the user must be created for <code>'%'</code> (any host) as shown above.",
         "exitMysql": "To exit the mysql CLI run <code>exit</code>.",
         "externalAccessTitle": "External Access",
         "externalAccessDescription1": "You will likely need to allow external access to this MySQL instance. Locate your <code>my.cnf</code> file (you can use <code>find /etc -iname my.cnf</code>).",

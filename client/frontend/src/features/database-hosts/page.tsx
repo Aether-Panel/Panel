@@ -73,8 +73,8 @@ export default function DatabaseHostsPage() {
     };
 
     const handleTestConnection = async () => {
-        if (!formData.host || !formData.username) {
-            sileo.error({ title: t('common.error'), description: "Host and username are required to test the connection." });
+        if (!formData.host || !formData.username || !formData.password) {
+            sileo.error({ title: t('common.error'), description: "Host, username and password are required to test the connection." });
             return;
         }
         setIsTesting(true);
@@ -286,12 +286,13 @@ export default function DatabaseHostsPage() {
                                             </div>
                                             <div>
                                                 <h4 className="font-semibold">{t('databaseHosts.addDialog.step2.createUserCommandTitle')}</h4>
-                                                <CopyableCode command={"CREATE USER 'aetheruser'@'127.0.0.1' IDENTIFIED BY 'password';"} />
+                                                <CopyableCode command={"CREATE USER 'aetheruser'@'%' IDENTIFIED BY 'your_strong_password';"} />
                                             </div>
                                             <div>
                                                 <h4 className="font-semibold">{t('databaseHosts.addDialog.step2.grantPermissionsCommandTitle')}</h4>
-                                                <CopyableCode command={"GRANT ALL PRIVILEGES ON *.* TO 'aetheruser'@'127.0.0.1' WITH GRANT OPTION;"} />
+                                                <CopyableCode command={"GRANT ALL PRIVILEGES ON *.* TO 'aetheruser'@'%' WITH GRANT OPTION;"} />
                                             </div>
+                                            <p className="text-sm text-muted-foreground" dangerouslySetInnerHTML={{ __html: t('databaseHosts.addDialog.step2.passwordNote') }} />
                                             <p className="text-sm text-muted-foreground" dangerouslySetInnerHTML={{ __html: t('databaseHosts.addDialog.step2.exitMysql') }} />
                                         </CardContent>
                                     </Card>
@@ -411,7 +412,7 @@ export default function DatabaseHostsPage() {
                                 <>
                                     {!isEditing && <Button variant="outline" onClick={() => setCurrentStep(2)}>{t('databaseHosts.addDialog.buttons.back')}</Button>}
                                     {isEditing && <Button variant="outline" onClick={() => handleDialogChange(false)}>{t('common.cancel') || "Cancel"}</Button>}
-                                    <Button variant="outline" onClick={handleTestConnection} disabled={isTesting || !formData.host || !formData.username}>
+                                    <Button variant="outline" onClick={handleTestConnection} disabled={isTesting || !formData.host || !formData.username || !formData.password}>
                                         {isTesting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                         {isTesting ? "Testing..." : "Test Connection"}
                                     </Button>
