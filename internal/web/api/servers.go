@@ -884,12 +884,76 @@ func editServerDataAdmin(c *gin.Context) {
 		dirty = true
 	}
 
+	resourcesChanged := false
+	cpuVal, cpuExist := postBody["cpu"]
+	memoryVal, memoryExist := postBody["memory"]
+	diskVal, diskExist := postBody["disk"]
+	if cpuExist {
+		newCPU, err := cast.ToIntE(cpuVal)
+		if response.HandleError(c, err, http.StatusBadRequest) {
+			return
+		}
+		if newCPU < 0 {
+			response.HandleError(c, errors.New("resources cannot be negative"), http.StatusBadRequest)
+			return
+		}
+		server.TotalCPU = newCPU
+		resourcesChanged = true
+	}
+	if memoryExist {
+		newMemory, err := cast.ToInt64E(memoryVal)
+		if response.HandleError(c, err, http.StatusBadRequest) {
+			return
+		}
+		if newMemory < 0 {
+			response.HandleError(c, errors.New("resources cannot be negative"), http.StatusBadRequest)
+			return
+		}
+		server.TotalMemory = newMemory
+		resourcesChanged = true
+	}
+	if diskExist {
+		newDisk, err := cast.ToInt64E(diskVal)
+		if response.HandleError(c, err, http.StatusBadRequest) {
+			return
+		}
+		if newDisk < 0 {
+			response.HandleError(c, errors.New("resources cannot be negative"), http.StatusBadRequest)
+			return
+		}
+		server.TotalDisk = newDisk
+		resourcesChanged = true
+	}
+	dirty = dirty || resourcesChanged
+
 	if dirty {
 		db := middleware.GetDatabase(c)
-		ss := &services.Server{DB: db}
-		err = ss.Update(server)
-		if response.HandleError(c, err, http.StatusInternalServerError) {
-			return
+
+		if resourcesChanged && server.ParentServerID != nil && *server.ParentServerID != "" {
+			var parentAvailableCPU int
+			var parentAvailableMemory, parentAvailableDisk int64
+
+			err := db.Transaction(func(tx *gorm.DB) error {
+				if err := checkParentServerLimitsOnUpdate(tx, server, &parentAvailableCPU, &parentAvailableMemory, &parentAvailableDisk); err != nil {
+					return err
+				}
+				ss := &services.Server{DB: tx}
+				return ss.Update(server)
+			})
+			if response.HandleError(c, err, http.StatusBadRequest) {
+				return
+			}
+
+			node, nodeErr := (&services.Node{DB: db}).Get(server.NodeID)
+			if nodeErr == nil && node != nil {
+				updateParentServerLimitsOnNode(c, db, &services.Node{DB: db}, node, server, parentAvailableCPU, parentAvailableMemory, parentAvailableDisk)
+			}
+		} else {
+			ss := &services.Server{DB: db}
+			err = ss.Update(server)
+			if response.HandleError(c, err, http.StatusInternalServerError) {
+				return
+			}
 		}
 	}
 
@@ -1713,6 +1777,47 @@ func checkParentServerLimits(tx *gorm.DB, server *models.Server, parentAvailable
 	var usedCPU int
 	var usedMemory, usedDisk int64
 	for _, child := range children {
+		usedCPU += child.TotalCPU
+		usedMemory += child.TotalMemory
+		usedDisk += child.TotalDisk
+	}
+
+	*parentAvailableCPU = parent.TotalCPU - usedCPU - server.TotalCPU
+	*parentAvailableMemory = parent.TotalMemory - usedMemory - server.TotalMemory
+	*parentAvailableDisk = parent.TotalDisk - usedDisk - server.TotalDisk
+
+	if *parentAvailableCPU < 0 {
+		return errors.New("not enough CPU available in parent server")
+	}
+	if *parentAvailableMemory < 0 {
+		return errors.New("not enough memory available in parent server")
+	}
+	if *parentAvailableDisk < 0 {
+		return errors.New("not enough disk available in parent server")
+	}
+	return nil
+}
+
+func checkParentServerLimitsOnUpdate(tx *gorm.DB, server *models.Server, parentAvailableCPU *int, parentAvailableMemory, parentAvailableDisk *int64) error {
+	var parent models.Server
+	if err := tx.Raw("SELECT * FROM servers WHERE identifier = ? FOR UPDATE", *server.ParentServerID).Scan(&parent).Error; err != nil {
+		return err
+	}
+	if parent.Identifier == "" {
+		return errors.New("parent server not found")
+	}
+
+	var children []*models.Server
+	if err := tx.Where("parent_server_id = ?", parent.Identifier).Find(&children).Error; err != nil {
+		return err
+	}
+
+	var usedCPU int
+	var usedMemory, usedDisk int64
+	for _, child := range children {
+		if child.Identifier == server.Identifier {
+			continue
+		}
 		usedCPU += child.TotalCPU
 		usedMemory += child.TotalMemory
 		usedDisk += child.TotalDisk
