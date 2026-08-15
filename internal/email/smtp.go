@@ -30,8 +30,8 @@ func (smtpProvider) Send(to, subject, body string) error {
 
 	client, err := mail.NewClient(config.EmailHost.Value(),
 		mail.WithSSLPort(true),
-		mail.WithUsername(config.EmailUsername.Value()),
-		mail.WithPassword(config.EmailPassword.Value()),
+		mail.WithUsername(strings.TrimSpace(config.EmailUsername.Value())),
+		mail.WithPassword(strings.ReplaceAll(config.EmailPassword.Value(), " ", "")),
 		mail.WithSMTPAuth(mail.SMTPAuthAutoDiscover),
 	)
 	if err != nil {
