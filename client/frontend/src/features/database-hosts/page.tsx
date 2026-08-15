@@ -1,5 +1,6 @@
 import { useDatabaseHosts } from '@/hooks/use-database-hosts';
 import type { DatabaseHost } from '@/hooks/use-database-hosts';
+import { api } from '@/lib/api-client';
 import { useAuth } from '@/contexts/providers';
 import { useNodes } from '@/hooks/use-nodes';
 import { useEffect, useState, Fragment } from 'react';
@@ -26,6 +27,7 @@ export default function DatabaseHostsPage() {
     const [currentStep, setCurrentStep] = useState(1);
     const [isEditing, setIsEditing] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
+    const [isTesting, setIsTesting] = useState(false);
     
     const { t } = useTranslations();
 
@@ -67,6 +69,39 @@ export default function DatabaseHostsPage() {
             handleDialogChange(false);
         } catch (e: any) {
             sileo.error({ title: t('common.error'), description: e.message });
+        }
+    };
+
+    const handleTestConnection = async () => {
+        if (!formData.host || !formData.username) {
+            sileo.error({ title: t('common.error'), description: "Host and username are required to test the connection." });
+            return;
+        }
+        setIsTesting(true);
+        const startedAt = Date.now();
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        try {
+            await api.post('/api/databasehosts/test', {
+                host: formData.host,
+                port: formData.port,
+                username: formData.username,
+                password: formData.password
+            }, controller.signal);
+            clearTimeout(timeoutId);
+            sileo.success({ title: "Connection successful", description: "The database host responded correctly." });
+        } catch (e: any) {
+            clearTimeout(timeoutId);
+            sileo.error({
+                title: "Connection failed",
+                description: e?.name === 'AbortError'
+                    ? "The connection attempt timed out."
+                    : (e?.message || "Could not connect to the database host.")
+            });
+        } finally {
+            clearTimeout(timeoutId);
+            const remaining = Math.max(0, 1200 - (Date.now() - startedAt));
+            setTimeout(() => setIsTesting(false), remaining);
         }
     };
 
@@ -376,6 +411,10 @@ export default function DatabaseHostsPage() {
                                 <>
                                     {!isEditing && <Button variant="outline" onClick={() => setCurrentStep(2)}>{t('databaseHosts.addDialog.buttons.back')}</Button>}
                                     {isEditing && <Button variant="outline" onClick={() => handleDialogChange(false)}>{t('common.cancel') || "Cancel"}</Button>}
+                                    <Button variant="outline" onClick={handleTestConnection} disabled={isTesting || !formData.host || !formData.username}>
+                                        {isTesting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                        {isTesting ? "Testing..." : "Test Connection"}
+                                    </Button>
                                     <Button type="submit" onClick={handleSaveHost} disabled={!formData.name || !formData.host || loading}>
                                         {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                         {isEditing ? (t('common.save') || "Save") : t('databaseHosts.addDialog.buttons.create')}

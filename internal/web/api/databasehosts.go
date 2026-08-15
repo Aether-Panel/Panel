@@ -1,8 +1,12 @@
 package api
 
 import (
+	"database/sql"
+	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
@@ -10,17 +14,75 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	"github.com/gin-gonic/gin"
+	"github.com/go-sql-driver/mysql"
 )
 
 func registerDatabaseHosts(g *gin.RouterGroup) {
 	g.Handle("GET", "", middleware.RequiresPermission(scopes.ScopeAdmin), getAllDatabaseHosts)
 	g.Handle("POST", "", middleware.RequiresPermission(scopes.ScopeAdmin), createDatabaseHost)
+	g.Handle("POST", "/test", middleware.RequiresPermission(scopes.ScopeAdmin), testDatabaseHostConnection)
 	g.Handle("OPTIONS", "", response.CreateOptions("GET", "POST"))
 
 	g.Handle("GET", "/:id", middleware.RequiresPermission(scopes.ScopeAdmin), getDatabaseHost)
 	g.Handle("PUT", "/:id", middleware.RequiresPermission(scopes.ScopeAdmin), updateDatabaseHost)
 	g.Handle("DELETE", "/:id", middleware.RequiresPermission(scopes.ScopeAdmin), deleteDatabaseHost)
 	g.Handle("OPTIONS", "/:id", response.CreateOptions("PUT", "GET", "DELETE"))
+}
+
+type databaseHostTest struct {
+	Host     string `json:"host"`
+	Port     uint16 `json:"port"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+// @Summary Test database host connection
+// @Description Attempts to connect to a MySQL database host with the provided credentials
+// @Success 200 {object} map[string]string "Connection successful"
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Param databaseHost body databaseHostTest true "Database host connection details"
+// @Tags Database Hosts
+// @Router /api/databasehosts/test [post]
+// @Security OAuth2Application[admin]
+func testDatabaseHostConnection(c *gin.Context) {
+	model := &databaseHostTest{}
+	if err := c.BindJSON(model); response.HandleError(c, err, http.StatusBadRequest) {
+		return
+	}
+
+	if model.Host == "" || model.Username == "" {
+		response.HandleError(c, errors.New("host and username are required"), http.StatusBadRequest)
+		return
+	}
+
+	port := model.Port
+	if port == 0 {
+		port = 3306
+	}
+
+	cfg := mysql.NewConfig()
+	cfg.User = model.Username
+	cfg.Passwd = model.Password
+	cfg.Net = "tcp"
+	cfg.Addr = fmt.Sprintf("%s:%d", model.Host, port)
+	cfg.Timeout = 5 * time.Second
+	cfg.ReadTimeout = 5 * time.Second
+	cfg.WriteTimeout = 5 * time.Second
+
+	db, err := sql.Open("mysql", cfg.FormatDSN())
+	if err != nil {
+		response.HandleError(c, fmt.Errorf("failed to open MySQL connection: %w", err), http.StatusBadRequest)
+		return
+	}
+	defer db.Close()
+
+	if err := db.Ping(); err != nil {
+		response.HandleError(c, fmt.Errorf("connection failed: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
 // @Summary Get database hosts
