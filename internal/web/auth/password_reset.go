@@ -36,7 +36,7 @@ func ForgotPasswordPost(c *gin.Context) {
 		return
 	}
 
-	resetLink := panelBaseURL(c) + "/reset-password?token=" + token
+	resetLink := panelBaseURL(c) + "/reset-password/?token=" + token
 	err = services.GetEmailService().SendEmail(request.Email, "passwordReset", map[string]interface{}{
 		"RESET_LINK": resetLink,
 	}, true)
