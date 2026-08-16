@@ -36,7 +36,7 @@ func ForgotPasswordPost(c *gin.Context) {
 		return
 	}
 
-	resetLink := config.MasterURL.Value() + "/reset-password?token=" + token
+	resetLink := panelBaseURL(c) + "/reset-password?token=" + token
 	err = services.GetEmailService().SendEmail(request.Email, "passwordReset", map[string]interface{}{
 		"RESET_LINK": resetLink,
 	}, true)
@@ -99,4 +99,23 @@ type forgotPasswordRequestData struct {
 type resetPasswordRequestData struct {
 	Token    string `json:"token" validate:"required"`
 	Password string `json:"password" validate:"required"`
+}
+
+func panelBaseURL(c *gin.Context) string {
+	host := c.Request.Header.Get("X-Forwarded-Host")
+	if host == "" {
+		host = c.Request.Host
+	}
+
+	if host != "" {
+		scheme := "http"
+		if proto := c.Request.Header.Get("X-Forwarded-Proto"); proto != "" {
+			scheme = proto
+		} else if c.Request.TLS != nil {
+			scheme = "https"
+		}
+		return scheme + "://" + host
+	}
+
+	return config.MasterURL.Value()
 }
