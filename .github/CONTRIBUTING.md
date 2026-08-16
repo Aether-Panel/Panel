@@ -2,6 +2,10 @@
 
 First off, thank you for considering contributing to Aether-Panel! It's people like you that make Open Source such a great community.
 
+## License
+
+Aether-Panel (SkyPanel) is distributed under the **Apache License, Version 2.0**. By submitting a contribution (Pull Request, issue with code, or any other form of contribution), you agree that your contribution is licensed under the Apache License, Version 2.0, unless you explicitly state otherwise. Please read the `LICENSE` and `NOTICE` files for full details.
+
 ## Project Structure (Standard Go Layout)
 
 This project follows the official standard Go project layout:
@@ -9,7 +13,7 @@ This project follows the official standard Go project layout:
 - `cmd/panel/`: Contains the main entry point for the application. When running or building, target `cmd/panel/main.go`.
 - `internal/`: Private application code. This code is specific to this project and cannot be imported by other projects. It contains core business logic, services, databases, etc.
 - `pkg/`: Public library code. Code that could safely be imported and used by external projects.
-- `client/`: Contains the frontend UI codebase (React/Vue/Astro etc.).
+- `client/`: Contains the frontend UI codebase (Astro + React).
 - `files/`: Contains utility functions specifically for filesystem interactions.
 
 ## Development Workflow
@@ -18,7 +22,7 @@ We use a standard `Makefile` to simplify development tasks.
 
 ### Prerequisites
 
-- Go 1.24+
+- Go 1.25+
 - Docker (for full E2E testing and environment setup)
 
 ### Common Commands
