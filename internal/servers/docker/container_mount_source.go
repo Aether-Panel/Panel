@@ -21,12 +21,12 @@ var containerMountSource string
 
 func InitContainerMountSource() (err error) {
 	containerMountSource = config.DockerRootPath.Value()
-	if containerMountSource != "" || os.Getenv("PUFFER_PLATFORM") == "" {
+	if containerMountSource != "" || os.Getenv("SKYPANEL_PLATFORM") == "" {
 		// either the path was set from env or we're not in a container
 		return
 	}
 
-	path, err := os.MkdirTemp("", "puffer-cid-*")
+	path, err := os.MkdirTemp("", "skypanel-cid-*")
 	if err != nil {
 		return
 	}

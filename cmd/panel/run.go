@@ -152,7 +152,7 @@ func internalRun() (terminate chan bool, success bool) {
 			logging.Error.Printf("error starting daemon server: %s", err.Error())
 			// En Docker, si el daemon falla por permisos del socket, continuar sin el daemon
 			// El panel web y Gatus pueden funcionar sin el daemon
-			if os.Getenv("PUFFER_PLATFORM") == "docker" {
+			if os.Getenv("SKYPANEL_PLATFORM") == "docker" {
 				logging.Info.Printf("Continuing without daemon in Docker environment")
 			} else {
 				terminate <- true
@@ -166,7 +166,7 @@ func internalRun() (terminate chan bool, success bool) {
 		if config.TokenPublicURL.Value() == "" {
 			logging.Error.Printf("WARNING: Panel is disabled but token.public (TokenPublicURL) is empty!")
 			logging.Error.Printf("This node will not be able to authenticate requests from the Master Panel.")
-			logging.Error.Printf("Please configure it in config.json or set PUFFER_TOKEN_PUBLIC in docker-compose.")
+			logging.Error.Printf("Please configure it in config.json or set SKYPANEL_TOKEN_PUBLIC in docker-compose.")
 		}
 	}
 

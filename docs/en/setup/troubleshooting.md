@@ -61,7 +61,7 @@ Este documento detalla las soluciones a problemas comunes encontrados durante el
     ```bash
     export DOCKER_HOST=unix:///var/run/docker.sock
     ```
-*   **Ejecutando el panel dentro de Docker:** El panel detecta automáticamente `PUFFER_PLATFORM=docker` y omite la verificación de Docker, continuando sin el motor Docker interno.
+*   **Ejecutando el panel dentro de Docker:** El panel detecta automáticamente `SKYPANEL_PLATFORM=docker` y omite la verificación de Docker, continuando sin el motor Docker interno.
 
 ---
 
@@ -154,8 +154,8 @@ Este documento detalla las soluciones a problemas comunes encontrados durante el
     ```
 *   También se puede cambiar vía variables de entorno:
     ```bash
-    export PUFFER_WEB_HOST=0.0.0.0:9090
-    export PUFFER_DAEMON_SFTP_HOST=0.0.0.0:6565
+    export SKYPANEL_WEB_HOST=0.0.0.0:9090
+    export SKYPANEL_DAEMON_SFTP_HOST=0.0.0.0:6565
     ```
 
 ---
@@ -196,18 +196,18 @@ Este documento detalla las soluciones a problemas comunes encontrados durante el
 
 **Problema:** El panel no usa los valores que configuraste.
 
-**Comportamiento:** Todas las configuraciones de `config.json` se pueden sobrescribir con variables de entorno con prefijo `PUFFER_` y reemplazando `.` por `_`.
+**Comportamiento:** Todas las configuraciones de `config.json` se pueden sobrescribir con variables de entorno con prefijo `SKYPANEL_` y reemplazando `.` por `_`.
 
 ### Ejemplos:
 
 | Variable de Entorno | Config JSON |
 |---------------------|-------------|
-| `PUFFER_WEB_HOST` | `web.host` |
-| `PUFFER_DAEMON_SFTP_HOST` | `daemon.sftp.host` |
-| `PUFFER_PANEL_DATABASE_URL` | `panel.database.url` |
-| `PUFFER_PANEL_DATABASE_DIALECT` | `panel.database.dialect` |
-| `PUFFER_LOGS` | `logs` |
-| `PUFFER_PANEL_SETTINGS_COMPANYNAME` | `panel.settings.companyName` |
+| `SKYPANEL_WEB_HOST` | `web.host` |
+| `SKYPANEL_DAEMON_SFTP_HOST` | `daemon.sftp.host` |
+| `SKYPANEL_PANEL_DATABASE_URL` | `panel.database.url` |
+| `SKYPANEL_PANEL_DATABASE_DIALECT` | `panel.database.dialect` |
+| `SKYPANEL_LOGS` | `logs` |
+| `SKYPANEL_PANEL_SETTINGS_COMPANYNAME` | `panel.settings.companyName` |
 
 Las variables de entorno **tienen prioridad** sobre el archivo `config.json`.
 
@@ -336,7 +336,7 @@ Si usas un proxy de confianza, configurar en `config.json`:
 ```
 O vía variable de entorno:
 ```bash
-export PUFFER_PANEL_SETTINGS_GEMINIAPIKEY=tu-api-key-de-gemini
+export SKYPANEL_PANEL_SETTINGS_GEMINIAPIKEY=tu-api-key-de-gemini
 ```
 
 ---
@@ -345,7 +345,7 @@ export PUFFER_PANEL_SETTINGS_GEMINIAPIKEY=tu-api-key-de-gemini
 
 **Problema:** El panel no encuentra o ignora el archivo de configuración.
 
-**Comportamiento:** Por defecto, el panel busca `config.json` en el directorio de trabajo actual. Se puede especificar una ruta personalizada con la flag `--config` o la variable de entorno `PUFFER_CONFIG`.
+**Comportamiento:** Por defecto, el panel busca `config.json` en el directorio de trabajo actual. Se puede especificar una ruta personalizada con la flag `--config` o la variable de entorno `SKYPANEL_CONFIG`.
 
 ### Archivos de configuración incluidos:
 

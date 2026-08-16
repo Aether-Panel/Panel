@@ -77,9 +77,9 @@ RUN addgroup -S -g 1000 SkyPanel && \
     chown -R SkyPanel:SkyPanel /etc/SkyPanel /var/lib/SkyPanel /var/log/SkyPanel
 
 ENV GIN_MODE=release \
-    PUFFER_PLATFORM="docker" \
-    PUFFER_DOCKER_ROOT="" \
-    PUFFER_DOCKER_DISALLOWHOST=true
+    SKYPANEL_PLATFORM="docker" \
+    SKYPANEL_DOCKER_ROOT="" \
+    SKYPANEL_DOCKER_DISALLOWHOST=true
 
 #COPY --from=builder --chown=SkyPanel:SkyPanel /SkyPanel /SkyPanel/bin
 #COPY --from=builder --chown=SkyPanel:SkyPanel /build/SkyPanel/entrypoint.sh /SkyPanel/bin/entrypoint.sh
@@ -92,10 +92,10 @@ RUN cat <<'EOF' > /SkyPanel/bin/entrypoint.sh
 echo "=== Iniciando Aether Panel ==="
 echo "Fecha: $(date)"
 echo "Variables de entorno:"
-echo "  PUFFER_PLATFORM=${PUFFER_PLATFORM}"
-echo "  PUFFER_WEB_HOST=${PUFFER_WEB_HOST}"
-echo "  PUFFER_PANEL_DATABASE_DIALECT=${PUFFER_PANEL_DATABASE_DIALECT}"
-echo "  PUFFER_PANEL_DATABASE_URL=${PUFFER_PANEL_DATABASE_URL}"
+echo "  SKYPANEL_PLATFORM=${SKYPANEL_PLATFORM}"
+echo "  SKYPANEL_WEB_HOST=${SKYPANEL_WEB_HOST}"
+echo "  SKYPANEL_PANEL_DATABASE_DIALECT=${SKYPANEL_PANEL_DATABASE_DIALECT}"
+echo "  SKYPANEL_PANEL_DATABASE_URL=${SKYPANEL_PANEL_DATABASE_URL}"
 
 # Verificar que el binario existe
 if [ ! -f /SkyPanel/bin/SkyPanel ]; then
@@ -108,8 +108,8 @@ ls -la /SkyPanel/bin/SkyPanel
 
 # Esperar a que MySQL esté disponible (máximo 60 segundos)
 echo "Esperando a que MySQL esté disponible..."
-DB_HOST=$(echo "$PUFFER_PANEL_DATABASE_URL" | sed -n 's/.*@tcp(\([^:]*\):.*/\1/p')
-DB_PORT=$(echo "$PUFFER_PANEL_DATABASE_URL" | sed -n 's/.*@tcp([^:]*:\([0-9]*\)).*/\1/p')
+DB_HOST=$(echo "$SKYPANEL_PANEL_DATABASE_URL" | sed -n 's/.*@tcp(\([^:]*\):.*/\1/p')
+DB_PORT=$(echo "$SKYPANEL_PANEL_DATABASE_URL" | sed -n 's/.*@tcp([^:]*:\([0-9]*\)).*/\1/p')
 if [ -z "$DB_HOST" ]; then
     DB_HOST="mysql"
 fi

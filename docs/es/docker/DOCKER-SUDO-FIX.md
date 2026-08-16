@@ -17,7 +17,7 @@ El panel ejecuta cada servidor de juego en su propio contenedor Docker. Para est
 
 1. Acceso al socket Docker del host
 2. Permisos para crear/eliminar contenedores
-3. La configuración `PUFFER_DOCKER_DISALLOWHOST=true` para forzar el uso de Docker (deshabilitando entornos host/TTY)
+3. La configuración `SKYPANEL_DOCKER_DISALLOWHOST=true` para forzar el uso de Docker (deshabilitando entornos host/TTY)
 
 ## Solución de Problemas
 
@@ -54,7 +54,7 @@ Si el panel corre sin Docker en el host (ej: servidor sin Docker), deshabilitar 
 
 ```yaml
 environment:
-  - PUFFER_DOCKER_DISALLOWHOST=false
+  - SKYPANEL_DOCKER_DISALLOWHOST=false
 ```
 
 Y quitar el montaje del socket. El panel usará entornos TTY en su lugar.

@@ -139,10 +139,10 @@ Add the following environment variables to your `skypanel` service configuration
 ```yaml
     environment:
       # Disable the web panel interface and database connection
-      - PUFFER_PANEL_ENABLE=false
+      - SKYPANEL_PANEL_ENABLE=false
       # Configure the Master Panel's public key for token validation
       # Make sure to replace <MASTER-PANEL-IP> with the real IP or domain
-      - PUFFER_TOKEN_PUBLIC=http://<MASTER-PANEL-IP>:8080/auth/publickey
+      - SKYPANEL_TOKEN_PUBLIC=http://<MASTER-PANEL-IP>:8080/auth/publickey
 ```
 
 ### Without Docker (Manual Installation)

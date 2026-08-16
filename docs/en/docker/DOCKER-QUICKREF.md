@@ -73,19 +73,19 @@ docker exec skypanel /SkyPanel/bin/SkyPanel db upgrade
 
 ```bash
 # Change to SQLite (dev)
-PUFFER_PANEL_DATABASE_DIALECT=sqlite3
+SKYPANEL_PANEL_DATABASE_DIALECT=sqlite3
 
 # Customize brand
-PUFFER_PANEL_SETTINGS_COMPANYNAME="My Panel"
+SKYPANEL_PANEL_SETTINGS_COMPANYNAME="My Panel"
 
 # Template URL
-PUFFER_TEMPLATES_URL=https://templates.aetherpanel.es/templates.json
+SKYPANEL_TEMPLATES_URL=https://templates.aetherpanel.es/templates.json
 
 # Gemini API Key
-PUFFER_PANEL_SETTINGS_GEMINIAPIKEY=your-api-key
+SKYPANEL_PANEL_SETTINGS_GEMINIAPIKEY=your-api-key
 
 # Discord Webhooks
-PUFFER_PANEL_NOTIFICATIONS_DISCORDWEBHOOK=https://discord.com/api/webhooks/...
+SKYPANEL_PANEL_NOTIFICATIONS_DISCORDWEBHOOK=https://discord.com/api/webhooks/...
 ```
 
 ## Quick Solution

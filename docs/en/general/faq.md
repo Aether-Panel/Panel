@@ -2,15 +2,15 @@
 
 What is Aether Panel?
 
-Aether Panel is an open source fork of PufferPanel, a game server management panel. It is built with Go 1.25 (Gin + GORM) for the backend and a modern frontend with Astro + React 19. It runs on your own server (self-hosted) and lets you manage Minecraft, Terraria, Valheim, and more game servers from a web interface.
+Aether Panel is an open source game server management panel. It is built with Go 1.25 (Gin + GORM) for the backend and a modern frontend with Astro + React 19. It runs on your own server (self-hosted) and lets you manage Minecraft, Terraria, Valheim, and more game servers from a web interface.
 
 Is Aether Panel free?
 
 Yes, the core panel is 100% free and open source under the MIT license. All panel features are free with no exceptions. There may be integration modules with third-party closed-source software (like WHMCS) that have a cost to cover licenses and maintenance, but the panel itself is and will always be free.
 
-How is Aether Panel different from PufferPanel?
+How is Aether Panel different from other panels?
 
-Aether Panel is a fork of PufferPanel. We maintain compatibility with the original core but add our own improvements, a renewed frontend with Astro + React 19, community integration (suggestions, voting), a marketing website with documentation, and additional features like external transfers between panels and integrated Gatus monitoring.
+Aether Panel is an independent panel. We maintain compatibility with the original core but add our own improvements, a renewed frontend with Astro + React 19, community integration (suggestions, voting), a marketing website with documentation, and additional features like external transfers between panels and integrated Gatus monitoring.
 
 What kind of servers can I run?
 
@@ -30,7 +30,7 @@ Yes, Aether Panel supports multiple nodes. You can add physical or virtual serve
 
 How does authentication work?
 
-The panel supports Bearer token authentication (Authorization header) or cookies (puffer_auth). Sessions use SHA256-hashed UUID v4 tokens. It also includes a full OAuth2 server with Ed25519-signed JWTs, and 2FA/TOTP support with recovery codes.
+The panel supports Bearer token authentication (Authorization header) or cookies (skypanel_auth). Sessions use SHA256-hashed UUID v4 tokens. It also includes a full OAuth2 server with Ed25519-signed JWTs, and 2FA/TOTP support with recovery codes.
 
 How does the permission system work?
 

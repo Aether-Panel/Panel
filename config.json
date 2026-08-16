@@ -1,7 +1,7 @@
 {
   "daemon": {
     "data": {
-      "root": "/home/esteban/Descargas/pufferpanel/data"
+      "root": "/home/esteban/Descargas/skypanel/data"
     },
     "enable": true
   },

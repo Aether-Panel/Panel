@@ -1,22 +1,22 @@
 # Configuración
 
-El sistema usa **Viper** con prefijo `PUFFER_`. Las variables de entorno tienen prioridad sobre el archivo de configuración.
+El sistema usa **Viper** con prefijo `SKYPANEL_`. Las variables de entorno tienen prioridad sobre el archivo de configuración.
 
 ## Archivo de Configuración
 
-Rutas de búsqueda (por orden): `--config` flag > `PUFFER_CONFIG` env > `/etc/SkyPanel/config.json` > `./config.json`
+Rutas de búsqueda (por orden): `--config` flag > `SKYPANEL_CONFIG` env > `/etc/SkyPanel/config.json` > `./config.json`
 
 Formato: JSON (compatible con Viper, también YAML/TOML).
 
 ## Variables de Entorno
 
-Todas las claves anidadas con `.` se convierten a `_`. Prefijo `PUFFER_`:
+Todas las claves anidadas con `.` se convierten a `_`. Prefijo `SKYPANEL_`:
 
 | Variable | Clave Viper |
 |---|---|
-| `PUFFER_WEB_HOST` | `web.host` |
-| `PUFFER_PANEL_DATABASE_DIALECT` | `panel.database.dialect` |
-| `PUFFER_DAEMON_SFTP_HOST` | `daemon.sftp.host` |
+| `SKYPANEL_WEB_HOST` | `web.host` |
+| `SKYPANEL_PANEL_DATABASE_DIALECT` | `panel.database.dialect` |
+| `SKYPANEL_DAEMON_SFTP_HOST` | `daemon.sftp.host` |
 
 ## Tabla Completa de Configuración
 

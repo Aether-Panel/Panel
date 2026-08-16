@@ -13,7 +13,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
-	pufferSftp "github.com/SkyPanel/SkyPanel/v3/internal/sftp"
+	skypanelSftp "github.com/SkyPanel/SkyPanel/v3/internal/sftp"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gorilla/websocket"
@@ -80,7 +80,7 @@ func TestServers(t *testing.T) {
 		name := tt.name
 		test := tt.test
 		t.Run(name, func(t *testing.T) {
-			pufferSftp.SetAuthorization(test.SFTPAuth)
+			skypanelSftp.SetAuthorization(test.SFTPAuth)
 			_ = config.ClientSecret.Set(test.Node.Secret, false)
 			var serverID = "testserver-" + strings.ToLower(name)
 			serverDir := filepath.Join(config.ServersFolder.Value(), serverID)

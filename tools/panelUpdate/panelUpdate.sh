@@ -34,9 +34,9 @@ cd "$INSTALL_DIR"
 # para que los cambios personalizados sobrevivan al git pull que revierte el yml.
 IS_SLAVE=false
 SLAVE_TOKEN_PUBLIC=""
-if grep -qE '^[[:space:]]*- PUFFER_PANEL_ENABLE=false' docker-compose.yml 2>/dev/null; then
+if grep -qE '^[[:space:]]*- SKYPANEL_PANEL_ENABLE=false' docker-compose.yml 2>/dev/null; then
     IS_SLAVE=true
-    SLAVE_TOKEN_PUBLIC=$(grep -oE 'PUFFER_TOKEN_PUBLIC=[^ ]+' docker-compose.yml 2>/dev/null | head -1 | cut -d= -f2-)
+    SLAVE_TOKEN_PUBLIC=$(grep -oE 'SKYPANEL_TOKEN_PUBLIC=[^ ]+' docker-compose.yml 2>/dev/null | head -1 | cut -d= -f2-)
     echo "[INFO] Nodo esclavo detectado: se preservará la configuración de daemon en el yml."
 fi
 
@@ -48,9 +48,9 @@ git pull
 
 # Re-aplicar configuración de esclavo sobre el yml recién actualizado
 if [ "$IS_SLAVE" = "true" ]; then
-    sed -i 's|^[[:space:]]*# - PUFFER_PANEL_ENABLE=false|      - PUFFER_PANEL_ENABLE=false|' docker-compose.yml
+    sed -i 's|^[[:space:]]*# - SKYPANEL_PANEL_ENABLE=false|      - SKYPANEL_PANEL_ENABLE=false|' docker-compose.yml
     if [ -n "$SLAVE_TOKEN_PUBLIC" ]; then
-        sed -i "s|^[[:space:]]*# - PUFFER_TOKEN_PUBLIC=.*|      - PUFFER_TOKEN_PUBLIC=${SLAVE_TOKEN_PUBLIC}|" docker-compose.yml
+        sed -i "s|^[[:space:]]*# - SKYPANEL_TOKEN_PUBLIC=.*|      - SKYPANEL_TOKEN_PUBLIC=${SLAVE_TOKEN_PUBLIC}|" docker-compose.yml
     fi
     echo "[✓] Configuración de nodo esclavo re-aplicada en docker-compose.yml."
 fi

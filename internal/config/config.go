@@ -9,7 +9,7 @@ import (
 )
 
 func init() {
-	viper.SetEnvPrefix("PUFFER")
+	viper.SetEnvPrefix("SKYPANEL")
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
 }
@@ -17,7 +17,7 @@ func init() {
 func LoadConfigFile(configFile string) error {
 	if configFile == "" {
 		var exists bool
-		configFile, exists = os.LookupEnv("PUFFER_CONFIG")
+		configFile, exists = os.LookupEnv("SKYPANEL_CONFIG")
 		if !exists || configFile == "" {
 			// well, check for the /etc path
 			if _, err := os.Lstat("/etc/SkyPanel/config.json"); err == nil {

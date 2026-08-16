@@ -22,7 +22,7 @@ func LogoutPost(c *gin.Context) {
 	var err error
 	cookie := c.Query("token")
 	if cookie == "" {
-		cookie, err = c.Cookie("puffer_auth")
+		cookie, err = c.Cookie("skypanel_auth")
 		if errors.Is(err, http.ErrNoCookie) {
 			c.Status(http.StatusNoContent)
 			return
@@ -33,6 +33,6 @@ func LogoutPost(c *gin.Context) {
 
 	secure := isRequestSecure(c)
 
-	c.SetCookie("puffer_auth", "", 0, "/", "", secure, true)
+	c.SetCookie("skypanel_auth", "", 0, "/", "", secure, true)
 	c.Status(http.StatusNoContent)
 }

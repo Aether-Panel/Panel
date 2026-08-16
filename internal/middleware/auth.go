@@ -54,7 +54,7 @@ func AuthMiddleware(c *gin.Context) {
 	authHeader = strings.TrimSpace(authHeader)
 
 	if authHeader == "" {
-		token, err = c.Cookie("puffer_auth")
+		token, err = c.Cookie("skypanel_auth")
 		fromCookie = true
 
 		if errors.Is(err, http.ErrNoCookie) || token == "" {
@@ -107,7 +107,7 @@ func AuthMiddleware(c *gin.Context) {
 	// (background/API clients manage their own token lifetime).
 	if fromCookie {
 		maxAge := int(services.SessionLength / time.Second)
-		c.SetCookie("puffer_auth", token, maxAge, "/", "", isSecureRequest(c), true)
+		c.SetCookie("skypanel_auth", token, maxAge, "/", "", isSecureRequest(c), true)
 	}
 }
 

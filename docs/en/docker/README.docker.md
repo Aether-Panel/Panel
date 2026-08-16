@@ -48,15 +48,15 @@ Stage 3 (alpine:3.24)
 | Variable | Description | Default in Docker |
 |---|---|---|
 | `GIN_MODE` | Gin Mode | `release` |
-| `PUFFER_PLATFORM` | Platform | `docker` |
-| `PUFFER_DOCKER_ROOT` | Docker Root | `""` |
-| `PUFFER_DOCKER_DISALLOWHOST` | Force Docker | `true` |
-| `PUFFER_WEB_HOST` | Bind address | `0.0.0.0:8080` |
-| `PUFFER_PANEL_DATABASE_DIALECT` | DB Dialect | `mysql` |
-| `PUFFER_PANEL_DATABASE_URL` | Connection string | — |
-| `PUFFER_PANEL_SETTINGS_COMPANYNAME` | Brand | `Aether Panel` |
-| `PUFFER_PANEL_REGISTRATIONENABLED` | Registration open | `true` |
-| `PUFFER_PANEL_SETTINGS_DEFAULTTHEME` | Default theme | `SkyPanel` |
+| `SKYPANEL_PLATFORM` | Platform | `docker` |
+| `SKYPANEL_DOCKER_ROOT` | Docker Root | `""` |
+| `SKYPANEL_DOCKER_DISALLOWHOST` | Force Docker | `true` |
+| `SKYPANEL_WEB_HOST` | Bind address | `0.0.0.0:8080` |
+| `SKYPANEL_PANEL_DATABASE_DIALECT` | DB Dialect | `mysql` |
+| `SKYPANEL_PANEL_DATABASE_URL` | Connection string | — |
+| `SKYPANEL_PANEL_SETTINGS_COMPANYNAME` | Brand | `Aether Panel` |
+| `SKYPANEL_PANEL_REGISTRATIONENABLED` | Registration open | `true` |
+| `SKYPANEL_PANEL_SETTINGS_DEFAULTTHEME` | Default theme | `SkyPanel` |
 
 ### User
 
@@ -104,8 +104,8 @@ services:
       - ./storage/skypanel-logs:/var/log/SkyPanel
       - //var/run/docker.sock:/var/run/docker.sock
     environment:
-      - PUFFER_PANEL_DATABASE_DIALECT=mysql
-      - PUFFER_PANEL_DATABASE_URL=${DB_USER:-skypanel}:${DB_PASSWORD:-skypanel_secret}@tcp(mysql:3306)/${DB_DATABASE:-skypanel}?charset=utf8&parseTime=true
+      - SKYPANEL_PANEL_DATABASE_DIALECT=mysql
+      - SKYPANEL_PANEL_DATABASE_URL=${DB_USER:-skypanel}:${DB_PASSWORD:-skypanel_secret}@tcp(mysql:3306)/${DB_DATABASE:-skypanel}?charset=utf8&parseTime=true
     depends_on:
       mysql:
         condition: service_healthy
@@ -134,7 +134,7 @@ services:
     user: "0:0"
     environment:
       - GIN_MODE=debug
-      - PUFFER_LOGS_LEVEL=DEBUG
+      - SKYPANEL_LOGS_LEVEL=DEBUG
       # SQLite by default (no DB service required)
 ```
 
@@ -190,8 +190,8 @@ The default configuration is in `config.docker.json` with MySQL. To use SQLite i
 
 ```yaml
 environment:
-  - PUFFER_PANEL_DATABASE_DIALECT=sqlite3
-  # PUFFER_PANEL_DATABASE_URL not required (default: file:skypanel.db)
+  - SKYPANEL_PANEL_DATABASE_DIALECT=sqlite3
+  # SKYPANEL_PANEL_DATABASE_URL not required (default: file:skypanel.db)
   # Remove depends_on: mysql
 ```
 

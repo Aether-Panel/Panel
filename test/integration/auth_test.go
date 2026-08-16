@@ -54,11 +54,11 @@ func TestLogin(t *testing.T) {
 		}
 		valid := false
 		for _, v := range cookies {
-			if strings.HasPrefix(v, "puffer_auth") {
+			if strings.HasPrefix(v, "skypanel_auth") {
 				valid = true
 			}
 		}
-		assert.True(t, valid, "No puffer_auth cookie found")
+		assert.True(t, valid, "No skypanel_auth cookie found")
 	})
 	t.Run("GoodLoginWithAdminScope", func(t *testing.T) {
 		t.Parallel()
@@ -85,11 +85,11 @@ func TestLogin(t *testing.T) {
 		}
 		valid := false
 		for _, v := range cookies {
-			if v.Name == "puffer_auth" {
+			if v.Name == "skypanel_auth" {
 				valid = true
 			}
 		}
-		assert.True(t, valid, "No puffer_auth cookie found")
+		assert.True(t, valid, "No skypanel_auth cookie found")
 	})
 	t.Run("NoDataLogin", func(t *testing.T) {
 		t.Parallel()
@@ -139,7 +139,7 @@ func TestLogout(t *testing.T) {
 
 		request, _ := http.NewRequest("POST", "/auth/logout", nil)
 		request.AddCookie(&http.Cookie{
-			Name:  "puffer_auth",
+			Name:  "skypanel_auth",
 			Value: session,
 		})
 		writer := httptest.NewRecorder()
@@ -184,7 +184,7 @@ func TestLogout(t *testing.T) {
 
 		request, _ := http.NewRequest("POST", "/auth/logout?token="+session, nil)
 		request.AddCookie(&http.Cookie{
-			Name:  "puffer_auth",
+			Name:  "skypanel_auth",
 			Value: adminSession,
 		})
 		writer := httptest.NewRecorder()
@@ -229,7 +229,7 @@ func TestLogout(t *testing.T) {
 
 		request, _ := http.NewRequest("POST", "/auth/logout", nil)
 		request.AddCookie(&http.Cookie{
-			Name:  "puffer_auth",
+			Name:  "skypanel_auth",
 			Value: session + "-extratokens",
 		})
 		writer := httptest.NewRecorder()
@@ -270,7 +270,7 @@ func TestReauth(t *testing.T) {
 
 		request, _ := http.NewRequest("POST", "/auth/reauth", nil)
 		request.AddCookie(&http.Cookie{
-			Name:  "puffer_auth",
+			Name:  "skypanel_auth",
 			Value: session,
 		})
 		writer := httptest.NewRecorder()
@@ -296,11 +296,11 @@ func TestReauth(t *testing.T) {
 			return
 		}
 		for _, v := range cookies {
-			if v.Name == "puffer_auth" {
+			if v.Name == "skypanel_auth" {
 				cookie = v.Value
 			}
 		}
-		assert.NotEmpty(t, cookie, "No puffer_auth cookie found")
+		assert.NotEmpty(t, cookie, "No skypanel_auth cookie found")
 
 		hashed, err := services.HashToken(cookie)
 		if !assert.NoError(t, err) {
@@ -339,7 +339,7 @@ func TestReauth(t *testing.T) {
 
 		request, _ := http.NewRequest("POST", "/auth/reauth", nil)
 		request.AddCookie(&http.Cookie{
-			Name:  "puffer_auth",
+			Name:  "skypanel_auth",
 			Value: session,
 		})
 		writer := httptest.NewRecorder()
@@ -350,7 +350,7 @@ func TestReauth(t *testing.T) {
 		t.Parallel()
 		request, _ := http.NewRequest("POST", "/auth/reauth", nil)
 		request.AddCookie(&http.Cookie{
-			Name:  "puffer_auth",
+			Name:  "skypanel_auth",
 			Value: "invalidsession",
 		})
 		writer := httptest.NewRecorder()

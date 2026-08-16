@@ -175,7 +175,7 @@ func GetToken(c *gin.Context) string {
 		return parts[1]
 	}
 
-	cookie, err := c.Cookie("puffer_auth")
+	cookie, err := c.Cookie("skypanel_auth")
 	if errors.Is(err, http.ErrNoCookie) {
 		return ""
 	}

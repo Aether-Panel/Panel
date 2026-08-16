@@ -8,17 +8,17 @@ Aether Panel incluye múltiples capas de seguridad: autenticación por tokens Be
 
 ## Autenticación
 
-El panel implementa un sistema de autenticación multicapa. Los tokens se envían como Bearer en el header Authorization, o alternativamente en la cookie `puffer_auth`. Las sesiones se almacenan en la base de datos con el token hasheado en SHA256.
+El panel implementa un sistema de autenticación multicapa. Los tokens se envían como Bearer en el header Authorization, o alternativamente en la cookie `skypanel_auth`. Las sesiones se almacenan en la base de datos con el token hasheado en SHA256.
 
 ### Métodos de Autenticación
 
 #### Sesiones Web
 
-El panel usa sesiones basadas en cookies con Gin sessions. Al iniciar sesión, se genera un UUID v4 como token de sesión. El token se hashea con SHA256 antes de almacenarse en la base de datos. La cookie `puffer_auth` es configurable: path, domain, maxAge, Secure, HttpOnly y SameSite. La sesión expira por defecto en 1 hora.
+El panel usa sesiones basadas en cookies con Gin sessions. Al iniciar sesión, se genera un UUID v4 como token de sesión. El token se hashea con SHA256 antes de almacenarse en la base de datos. La cookie `skypanel_auth` es configurable: path, domain, maxAge, Secure, HttpOnly y SameSite. La sesión expira por defecto en 1 hora.
 
 #### Tokens Bearer (API)
 
-Para acceso mediante API, el panel prioriza el header `Authorization: Bearer <token>`. Si no hay header, busca la cookie `puffer_auth`. El token se valida consultando la base de datos, verificando que exista y que `expiration_time` sea futura.
+Para acceso mediante API, el panel prioriza el header `Authorization: Bearer <token>`. Si no hay header, busca la cookie `skypanel_auth`. El token se valida consultando la base de datos, verificando que exista y que `expiration_time` sea futura.
 
 #### OAuth2 Server Integrado
 
@@ -116,7 +116,7 @@ Cada petición a la API pasa por una cadena de middleware que garantiza la segur
 - Recovery — Captura panics y retorna 500 sin exponer información interna
 - ResponseAndRecover — Manejo de errores con respuestas JSON estructuradas
 - NeedsDatabase — Verifica conexión a BD antes de procesar
-- AuthMiddleware — Extrae token del header Authorization o cookie puffer_auth, valida contra BD
+- AuthMiddleware — Extrae token del header Authorization o cookie skypanel_auth, valida contra BD
 - RequiresPermission — Verifica que el usuario tenga el scope necesario (retorna 403 si no)
 - ResolveServerPanel — Para rutas con :serverId, carga el servidor desde BD
 - HasTransaction — Envuelve la operación en una transacción de BD

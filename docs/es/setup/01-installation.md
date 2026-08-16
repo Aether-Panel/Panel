@@ -139,10 +139,10 @@ Añada las siguientes variables de entorno a la configuración del servicio `sky
 ```yaml
     environment:
       # Apagar la interfaz del panel web y la base de datos
-      - PUFFER_PANEL_ENABLE=false
+      - SKYPANEL_PANEL_ENABLE=false
       # Configurar la llave pública del Panel Maestro para validación de tokens
       # Asegúrese de cambiar <IP-DEL-PANEL-MAESTRO> por la IP o dominio real
-      - PUFFER_TOKEN_PUBLIC=http://<IP-DEL-PANEL-MAESTRO>:8080/auth/publickey
+      - SKYPANEL_TOKEN_PUBLIC=http://<IP-DEL-PANEL-MAESTRO>:8080/auth/publickey
 ```
 
 ### Sin Docker (Instalación Manual)

@@ -59,7 +59,7 @@ func (t *tty) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypanel
 		if !valid {
 			continue
 		}
-		if strings.HasPrefix(key, "PUFFER_") {
+		if strings.HasPrefix(key, "SKYPANEL_") {
 			continue
 		}
 		envVars[key] = value

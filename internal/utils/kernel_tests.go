@@ -18,7 +18,7 @@ func testOpenat2() bool {
 		logging.Info.Printf("Could not open /proc/kallsyms to validate kernel support, falling back to temp file test\n%s", err.Error())
 
 		var testPath string
-		testPath, err = os.MkdirTemp("", "puffer-openat2-test-*")
+		testPath, err = os.MkdirTemp("", "skypanel-openat2-test-*")
 		if err != nil {
 			panic(fmt.Errorf("failed to validate kernel support with test file\n%s", err.Error()))
 		}

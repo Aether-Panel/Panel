@@ -17,7 +17,7 @@ The panel runs each game server in its own Docker container. For this it require
 
 1. Access to the host's Docker socket
 2. Permissions to create/delete containers
-3. The `PUFFER_DOCKER_DISALLOWHOST=true` configuration to force Docker usage (disabling host/TTY environments)
+3. The `SKYPANEL_DOCKER_DISALLOWHOST=true` configuration to force Docker usage (disabling host/TTY environments)
 
 ## Troubleshooting
 
@@ -54,7 +54,7 @@ If the panel runs without Docker on the host (e.g., server without Docker), disa
 
 ```yaml
 environment:
-  - PUFFER_DOCKER_DISALLOWHOST=false
+  - SKYPANEL_DOCKER_DISALLOWHOST=false
 ```
 
 And remove the socket mount. The panel will use TTY environments instead.

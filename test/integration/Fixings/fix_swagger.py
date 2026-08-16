@@ -1,7 +1,7 @@
 import os
 import re
 
-directories = ["/home/esteban/Descargas/pufferpanel/web/api", "/home/esteban/Descargas/pufferpanel/web/daemon"]
+directories = ["/home/esteban/Descargas/skypanel/web/api", "/home/esteban/Descargas/skypanel/web/daemon"]
 
 for directory in directories:
     for filename in os.listdir(directory):

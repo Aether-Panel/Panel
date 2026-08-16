@@ -596,7 +596,7 @@ func (d *Docker) createContainer(ctx context.Context, environment *skypanel.Envi
 		if !valid {
 			continue
 		}
-		if strings.HasPrefix(key, "PUFFER_") {
+		if strings.HasPrefix(key, "SKYPANEL_") {
 			continue
 		}
 		envVars[key] = value

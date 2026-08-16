@@ -2,7 +2,7 @@
 
 ## Introducción
 
-Aether Panel es un fork open source de PufferPanel, publicado bajo licencia MIT. Todo el código fuente está disponible públicamente en GitHub para su revisión, auditoría y contribución. Esta política de privacidad explica cómo manejamos los datos en nuestra comunidad y en el sitio web.
+Aether Panel es un panel open source publicado bajo licencia MIT. Todo el código fuente está disponible públicamente en GitHub para su revisión, auditoría y contribución. Esta política de privacidad explica cómo manejamos los datos en nuestra comunidad y en el sitio web.
 
 Dado que Aether Panel se ejecuta en tu propio servidor (self-hosted), **nosotros no tenemos acceso a tu instalación ni a los datos que contiene**. Toda la información de tus servidores, usuarios y configuración permanece local en tu infraestructura. Esta política cubre principalmente tu interacción con nuestra comunidad (Discord, GitHub, página web).
 
@@ -10,7 +10,7 @@ Creemos en la transparencia total: como proyecto open source, cualquiera puede a
 
 ## Nuestra Filosofía
 
-Aether Panel (fork de PufferPanel) fue creado con una filosofía diferente:
+Aether Panel fue creado con una filosofía diferente:
 
 Esta filosofía nos diferencia de otros paneles que, siendo forks o proyectos similares, optan por modelos de negocio que comprometen la privacidad o la apertura del software.
 
@@ -100,7 +100,7 @@ Las votaciones nos permiten saber qué características priorizar. Los resultado
 
 ## Transparencia del Código Abierto
 
-Al ser un fork de PufferPanel bajo licencia MIT, el código fuente completo está disponible para auditoría pública:
+Al estar publicado bajo licencia MIT, el código fuente completo está disponible para auditoría pública:
 
 - Repositorio público en GitHub con todo el historial de cambios
 - Licencia MIT — puedes usar, modificar y distribuir sin restricciones
@@ -218,7 +218,7 @@ Al ser un proyecto open source sin fines de lucro, respondemos en la medida de l
 
 ## En Resumen
 
-Aether Panel es un fork open source de PufferPanel. Esto significa que:
+Aether Panel es un panel open source de gestión de servidores de videojuegos. Esto significa que:
 
 No confíes en nosotros, confía en el código. Todo está en GitHub para que lo verifiques.
 
@@ -227,7 +227,7 @@ No confíes en nosotros, confía en el código. Todo está en GitHub para que lo
 - No hay telemetría, rastreadores ni recolección de datos en el panel
 - El panel principal es gratuito — sin funciones premium de pago
 - Solo recopilamos datos si interactúas voluntariamente con nuestra comunidad
-- Somos un fork — construimos sobre el trabajo de PufferPanel y contribuimos de vuelta
+- Somos open source — construimos en abierto y contribuimos de vuelta a la comunidad
 - Integraciones con software de código cerrado (WHMCS) pueden tener costo para cubrir licencias y mantenimiento, pero el panel base es y será siempre libre
 
 ## Módulos de Pago

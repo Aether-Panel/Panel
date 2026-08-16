@@ -10,7 +10,7 @@
 | ORM | **GORM** (`gorm.io/gorm`) con `auto` y `gormigrate` |
 | Base de Datos | SQLite3, MySQL, PostgreSQL, SQL Server |
 | CLI | **Cobra** (`github.com/spf13/cobra`) |
-| Config | **Viper** (`github.com/spf13/viper`) con variables de entorno `PUFFER_*` |
+| Config | **Viper** (`github.com/spf13/viper`) con variables de entorno `SKYPANEL_*` |
 | Auth | JWT (`golang-jwt/jwt/v5`), Ed25519, OAuth2, cookies de sesión |
 | Scheduling | **gocron** (`go-co-op/gocron/v2`) |
 | WebSocket | **gorilla/websocket** |
@@ -36,7 +36,7 @@ cmd/panel/              → Punto de entrada (CLI + servidor HTTP)
 
 internal/
 ├── config/             → Sistema de configuración tipado con Viper
-│   ├── config.go       → LoadConfigFile, init con prefijo PUFFER_
+│   ├── config.go       → LoadConfigFile, init con prefijo SKYPANEL_
 │   └── entries.go      → Declaración tipada de todas las variables
 ├── database/           → Conexión GORM multi-dialecto
 │   ├── loader.go       → openConnection, GetConnection, Close
@@ -116,8 +116,8 @@ conditions/            → Evaluación de condiciones CEL
 
 3. loadConfig()
    └── config.LoadConfigFile(configFile)
-       ├── Viper init (prefijo PUFFER_, auto env)
-       ├── Busca: --config > PUFFER_CONFIG > /etc/SkyPanel/config.json > config.json
+       ├── Viper init (prefijo SKYPANEL_, auto env)
+       ├── Busca: --config > SKYPANEL_CONFIG > /etc/SkyPanel/config.json > config.json
        └── Lee archivo con viper.ReadInConfig()
 
 4. internalRun() (run.go)

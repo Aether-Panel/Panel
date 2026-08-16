@@ -8,17 +8,17 @@ Aether Panel includes multiple security layers: Bearer token and HttpOnly cookie
 
 ## Authentication
 
-The panel implements a multi-layer authentication system. Tokens are sent as Bearer in the Authorization header, or alternatively in the `puffer_auth` cookie. Sessions are stored in the database with SHA256-hashed tokens.
+The panel implements a multi-layer authentication system. Tokens are sent as Bearer in the Authorization header, or alternatively in the `skypanel_auth` cookie. Sessions are stored in the database with SHA256-hashed tokens.
 
 ### Authentication Methods
 
 #### Web Sessions
 
-The panel uses cookie-based sessions with Gin sessions. On login, a UUID v4 session token is generated. The token is SHA256-hashed before database storage. The `puffer_auth` cookie is configurable: path, domain, maxAge, Secure, HttpOnly, and SameSite. Sessions expire by default in 1 hour.
+The panel uses cookie-based sessions with Gin sessions. On login, a UUID v4 session token is generated. The token is SHA256-hashed before database storage. The `skypanel_auth` cookie is configurable: path, domain, maxAge, Secure, HttpOnly, and SameSite. Sessions expire by default in 1 hour.
 
 #### Bearer Tokens (API)
 
-For API access, the panel prioritizes the `Authorization: Bearer <token>` header. If no header is present, it falls back to the `puffer_auth` cookie. The token is validated against the database, checking that it exists and its `expiration_time` is in the future.
+For API access, the panel prioritizes the `Authorization: Bearer <token>` header. If no header is present, it falls back to the `skypanel_auth` cookie. The token is validated against the database, checking that it exists and its `expiration_time` is in the future.
 
 #### Integrated OAuth2 Server
 
@@ -116,7 +116,7 @@ Each API request passes through a middleware chain that guarantees security:
 - Recovery — Catches panics and returns 500 without exposing internal information
 - ResponseAndRecover — Error handling with structured JSON responses
 - NeedsDatabase — Verifies database connection before processing
-- AuthMiddleware — Extracts token from Authorization header or puffer_auth cookie, validates against DB
+- AuthMiddleware — Extracts token from Authorization header or skypanel_auth cookie, validates against DB
 - RequiresPermission — Verifies the user has the required scope (returns 403 if not)
 - ResolveServerPanel — For routes with :serverId, loads the server from DB
 - HasTransaction — Wraps the operation in a DB transaction

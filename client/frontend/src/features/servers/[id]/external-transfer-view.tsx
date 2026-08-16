@@ -140,7 +140,7 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
       const res = await fetch(`/api/servers/${serverId}/extransfer/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include' // usa la cookie puffer_auth del panel
+        credentials: 'include' // usa la cookie de sesión del panel
       });
 
       const data = await res.json();

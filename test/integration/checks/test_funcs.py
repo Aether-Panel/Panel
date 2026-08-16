@@ -2,10 +2,10 @@ import os
 import re
 
 directories = [
-    "/home/esteban/Descargas/pufferpanel/web/api",
-    "/home/esteban/Descargas/pufferpanel/web/daemon",
-    "/home/esteban/Descargas/pufferpanel/web/auth",
-    "/home/esteban/Descargas/pufferpanel/web/oauth2"
+    "/home/esteban/Descargas/skypanel/web/api",
+    "/home/esteban/Descargas/skypanel/web/daemon",
+    "/home/esteban/Descargas/skypanel/web/auth",
+    "/home/esteban/Descargas/skypanel/web/oauth2"
 ]
 
 for directory in directories:

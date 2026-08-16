@@ -20,7 +20,7 @@ RUN addgroup -S skypanel && adduser -S skypanel -G skypanel
 USER skypanel
 WORKDIR /home/SkyPanel
 ENV CURSEFORGE_KEY=""
-ENV PUFFER_DAEMON_DATA_CACHE="/cache"
+ENV SKYPANEL_DAEMON_DATA_CACHE="/cache"
 
 COPY --from=builder /home/SkyPanel/curseforgetester /bin/
 

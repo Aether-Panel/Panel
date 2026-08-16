@@ -525,7 +525,7 @@ No es un paquete Go. Contiene:
 
 | Archivo | Propósito |
 |---|---|
-| `servicefiles/pufferpanel.service` | Template de unit systemd |
+| `servicefiles/skypanel.service` | Template de unit systemd |
 | `servicefiles/apparmor.conf` | Configuración AppArmor |
 | `debian/templates` | Templates de Debconf para empaquetado Debian |
 

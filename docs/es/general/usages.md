@@ -28,7 +28,7 @@ Configuración avanzada del panel: Database Hosts, plantillas, roles globales y 
 
 ## Arquitectura del Panel
 
-Aether Panel es un fork de PufferPanel construido con Go 1.25. El backend expone una API RESTful usando Gin (framework web) y GORM (ORM). El panel puede ejecutarse en dos modos: panel (interfaz web y API) y daemon (ejecución de servidores). En instalaciones estándar, ambos modos se ejecutan en un solo binario.
+Aether Panel es un panel open source construido con Go 1.25. El backend expone una API RESTful usando Gin (framework web) y GORM (ORM). El panel puede ejecutarse en dos modos: panel (interfaz web y API) y daemon (ejecución de servidores). En instalaciones estándar, ambos modos se ejecutan en un solo binario.
 
 ### Stack Tecnológico
 

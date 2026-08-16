@@ -144,7 +144,7 @@ func createSession(c *gin.Context, user *models.User) {
 
 	maxAge := int(services.SessionLength / time.Second)
 
-	c.SetCookie("puffer_auth", session, maxAge, "/", "", secure, true)
+	c.SetCookie("skypanel_auth", session, maxAge, "/", "", secure, true)
 
 	c.JSON(http.StatusOK, data)
 }

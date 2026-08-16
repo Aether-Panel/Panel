@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Aether Panel is an open source fork of PufferPanel, published under the MIT license. All source code is publicly available on GitHub for review, auditing, and contribution. This privacy policy explains how we handle data on our community site and website.
+Aether Panel is an open source game server panel, published under the MIT license. All source code is publicly available on GitHub for review, auditing, and contribution. This privacy policy explains how we handle data on our community site and website.
 
 Since Aether Panel runs on your own server (self-hosted), **we do not have access to your installation or the data it contains**. All information about your servers, users, and configuration stays local on your infrastructure. This policy primarily covers your interaction with our community (Discord, GitHub, website).
 
@@ -10,7 +10,7 @@ We believe in total transparency: as an open source project, anyone can audit th
 
 ## Our Philosophy
 
-Aether Panel (a fork of PufferPanel) was created with a different philosophy:
+Aether Panel was created with a different philosophy:
 
 This philosophy sets us apart from other panels that, as forks or similar projects, choose business models that compromise privacy or software openness.
 
@@ -100,7 +100,7 @@ Voting helps us know which features to prioritize. Results are public.
 
 ## Open Source Transparency
 
-As a fork of PufferPanel under the MIT license, the complete source code is available for public audit:
+Being published under the MIT license, the complete source code is available for public audit:
 
 - Public GitHub repository with full change history
 - MIT license — you can use, modify, and distribute without restrictions
@@ -218,7 +218,7 @@ As a non-profit open source project, we respond to the best of our ability. Your
 
 ## In Summary
 
-Aether Panel is an open source fork of PufferPanel. This means:
+Aether Panel is an open source game server panel. This means:
 
 Don't trust us, trust the code. Everything is on GitHub for you to verify.
 
@@ -227,7 +227,7 @@ Don't trust us, trust the code. Everything is on GitHub for you to verify.
 - No telemetry, trackers, or data collection
 - No paid premium features — everything is free
 - We only collect data if you voluntarily interact with our community
-- We are a fork — we build on PufferPanel's work and contribute back to the open source community
+- We are open source — we build in the open and contribute back to the open source community
 
 ## Paid Modules
 

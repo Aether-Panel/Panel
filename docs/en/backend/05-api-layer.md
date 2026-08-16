@@ -73,8 +73,8 @@ rg.Use(middleware.APIKeyAuthMiddleware)
 ### 1. Cookie Session
 
 1. `POST /auth/login` → validates credentials → if OTP enabled, requires step 2
-2. `POST /auth/otp` → validates OTP → creates session → sets `puffer_auth` cookie
-3. `AuthMiddleware` first looks for `Authorization: Bearer <token>` header, then `puffer_auth` cookie
+2. `POST /auth/otp` → validates OTP → creates session → sets `skypanel_auth` cookie
+3. `AuthMiddleware` first looks for `Authorization: Bearer <token>` header, then `skypanel_auth` cookie
 4. The session is validated against the DB (`sessions` table)
 
 ### 2. Bearer Token (OAuth2)

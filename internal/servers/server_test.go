@@ -392,7 +392,7 @@ func TestLoadFromFolder(t *testing.T) {
   ]
 }`)
 
-	tmpDir, err := os.MkdirTemp("", "puffer")
+	tmpDir, err := os.MkdirTemp("", "skypanel")
 	if !assert.NoError(t, err) {
 		return
 	}

@@ -45,7 +45,7 @@ func main() {
 
 	var err error
 	if CmdFlags.WorkingDir == "" {
-		pattern := "puffertemplatetest"
+		pattern := "skypaneltemplatetest"
 
 		CmdFlags.WorkingDir, err = os.MkdirTemp("", pattern)
 		panicIf(err)
@@ -125,11 +125,11 @@ func main() {
 		c.Dir = CmdFlags.WorkingDir
 		c.Env = append(
 			os.Environ(),
-			"PUFFER_PANEL_DATABASE_URL="+dbConn,
-			"PUFFER_LOGS=logs",
-			"PUFFER_DAEMON_CONSOLE_FORWARD=true",
-			"PUFFER_DAEMON_DATA_ROOT="+CmdFlags.WorkingDir,
-			"PUFFER_WEB_HOST=127.0.0.1:8080",
+			"SKYPANEL_PANEL_DATABASE_URL="+dbConn,
+			"SKYPANEL_LOGS=logs",
+			"SKYPANEL_DAEMON_CONSOLE_FORWARD=true",
+			"SKYPANEL_DAEMON_DATA_ROOT="+CmdFlags.WorkingDir,
+			"SKYPANEL_WEB_HOST=127.0.0.1:8080",
 			"NOTIFY_SOCKET="+unixSocketPath,
 			"GIN_MODE=release",
 		)

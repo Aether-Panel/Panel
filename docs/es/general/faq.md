@@ -2,15 +2,15 @@
 
 ¿Qué es Aether Panel?
 
-Aether Panel es un fork open source de PufferPanel, un panel de gestión de servidores de videojuegos. Está construido con Go 1.25 (Gin + GORM) para el backend y un frontend moderno con Astro + React 19. Se ejecuta en tu propio servidor (self-hosted) y te permite gestionar servidores de Minecraft, Terraria, Valheim y más desde una interfaz web.
+Aether Panel es un panel open source de gestión de servidores de videojuegos. Está construido con Go 1.25 (Gin + GORM) para el backend y un frontend moderno con Astro + React 19. Se ejecuta en tu propio servidor (self-hosted) y te permite gestionar servidores de Minecraft, Terraria, Valheim y más desde una interfaz web.
 
 ¿Es Aether Panel gratuito?
 
 Sí, el panel principal es 100% gratuito y open source bajo licencia MIT. Todas las funciones del panel son gratuitas sin excepciones. Pueden existir módulos de integración con software de código cerrado de terceros (como WHMCS) que tengan un costo para cubrir licencias y mantenimiento, pero el panel en sí mismo es y será siempre gratuito.
 
-¿En qué se diferencia Aether Panel de PufferPanel?
+¿En qué se diferencia Aether Panel de otros paneles?
 
-Aether Panel es un fork de PufferPanel. Mantenemos compatibilidad con el núcleo original pero añadimos mejoras propias, un frontend renovado con Astro + React 19, integración con la comunidad (sugerencias, votaciones), un sitio web de marketing y documentación, y características adicionales como transferencia externa entre paneles y monitoreo Gatus integrado.
+Aether Panel es un panel independiente. Mantenemos compatibilidad con el núcleo original pero añadimos mejoras propias, un frontend renovado con Astro + React 19, integración con la comunidad (sugerencias, votaciones), un sitio web de marketing y documentación, y características adicionales como transferencia externa entre paneles y monitoreo Gatus integrado.
 
 ¿Qué tipo de servidores puedo ejecutar?
 
@@ -30,7 +30,7 @@ Sí, Aether Panel soporta múltiples nodos. Puedes añadir servidores físicos o
 
 ¿Cómo funciona la autenticación?
 
-El panel soporta autenticación mediante tokens Bearer (header Authorization) o cookies (puffer_auth). Las sesiones usan tokens UUID v4 hasheados con SHA256. También incluye un servidor OAuth2 completo con JWTs firmados con Ed25519, y soporte para 2FA/TOTP con códigos de recuperación.
+El panel soporta autenticación mediante tokens Bearer (header Authorization) o cookies (skypanel_auth). Las sesiones usan tokens UUID v4 hasheados con SHA256. También incluye un servidor OAuth2 completo con JWTs firmados con Ed25519, y soporte para 2FA/TOTP con códigos de recuperación.
 
 ¿Cómo funciona el sistema de permisos?
 
