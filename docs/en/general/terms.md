@@ -62,7 +62,7 @@ The software is provided "as is" without warranties of any kind, express or impl
 
 ### Free Core Panel
 
-The core panel is and will always be completely free and open source (MIT). All essential panel features are available at no cost. Addons for closed-source software integrations (like WHMCS) may have a cost to cover licenses and maintenance.
+The core panel is and will always be completely free and open source (Apache 2.0). All essential panel features are available at no cost. Addons for closed-source software integrations (like WHMCS) may have a cost to cover licenses and maintenance.
 
 ### Community First
 
@@ -191,7 +191,7 @@ Aether Panel exists to be different: a real open source panel that respects the 
 
 ## Paid Modules & Integrations
 
-The core Aether Panel is and will always be 100% free and open source (MIT). However, integration modules with third-party software may have an associated cost.
+The core Aether Panel is and will always be 100% free and open source (Apache 2.0). However, integration modules with third-party software may have an associated cost.
 
 We are currently developing a WHMCS integration module (billing and automation platform). WHMCS is closed-source software requiring a paid license, so the module has associated costs:
 
@@ -204,14 +204,14 @@ We are currently developing a WHMCS integration module (billing and automation p
 
 The WHMCS module is an optional addon. You don't need to buy it to use the panel. The main panel, all its features, and the source code remain 100% free and open source. We will never put core panel features behind a paywall. If other modules for closed-source software integrations exist in the future, they will follow the same policy.
 
-## MIT License
+## Apache 2.0 License
 
-Aether Panel is a fork of Aether Panel distributed under the MIT license. This means:
+Aether Panel is distributed under the Apache 2.0 license. This means:
 
 - You may freely use, copy, modify, and distribute the software
 - You may use it commercially (e.g., to manage client servers)
-- You may not sell the panel itself as a closed product
+- You may sell services (hosting, support, managed installation) based on the panel
 - The software is provided "as is", without warranties of any kind
 - The authors are not liable for damages or losses from using the software
-- You must retain the copyright notice and license in all copies
+- You must retain the copyright notice, NOTICE file, and license in all copies
 

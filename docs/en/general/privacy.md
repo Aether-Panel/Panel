@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Aether Panel is an open source game server panel, published under the MIT license. All source code is publicly available on GitHub for review, auditing, and contribution. This privacy policy explains how we handle data on our community site and website.
+Aether Panel is an open source game server panel, published under the Apache 2.0 license. All source code is publicly available on GitHub for review, auditing, and contribution. This privacy policy explains how we handle data on our community site and website.
 
 Since Aether Panel runs on your own server (self-hosted), **we do not have access to your installation or the data it contains**. All information about your servers, users, and configuration stays local on your infrastructure. This policy primarily covers your interaction with our community (Discord, GitHub, website).
 
@@ -16,7 +16,7 @@ This philosophy sets us apart from other panels that, as forks or similar projec
 
 ### Real Open Source, No Tricks
 
-All code is on GitHub under MIT license. No enterprise versions, no hidden premium features, no covert telemetry. What you see is what you get.
+All code is on GitHub under Apache 2.0 license. No enterprise versions, no hidden premium features, no covert telemetry. What you see is what you get.
 
 ### Privacy by Design
 
@@ -28,7 +28,7 @@ You are not a customer because we don't sell anything. You are part of a communi
 
 ### Total Transparency
 
-Being open source (MIT), anyone can audit the code. No closed binaries, no mandatory cloud services, no surprises.
+Being open source (Apache 2.0), anyone can audit the code. No closed binaries, no mandatory cloud services, no surprises.
 
 
 ## Data We Collect
@@ -96,14 +96,14 @@ Voting helps us know which features to prioritize. Results are public.
 - We do not collect panel usage statistics
 - We have no mandatory cloud services
 - We do not monetize user data
-- We do not put features behind paywalls — all code is MIT, all free
+- We do not put features behind paywalls — all code is Apache 2.0, all free
 
 ## Open Source Transparency
 
-Being published under the MIT license, the complete source code is available for public audit:
+Being published under the Apache 2.0 license, the complete source code is available for public audit:
 
 - Public GitHub repository with full change history
-- MIT license — you can use, modify, and distribute without restrictions
+- Apache 2.0 license — you can use, modify, and distribute without restrictions
 - Anyone can audit the code to verify no data collection exists
 - No closed pre-compiled binaries — everything builds from source
 - No mandatory external services — the panel works 100% offline if desired
@@ -222,7 +222,7 @@ Aether Panel is an open source game server panel. This means:
 
 Don't trust us, trust the code. Everything is on GitHub for you to verify.
 
-- The code is 100% public and auditable (MIT license)
+- The code is 100% public and auditable (Apache 2.0 license)
 - The panel runs on YOUR server — we see nothing
 - No telemetry, trackers, or data collection
 - No paid premium features — everything is free

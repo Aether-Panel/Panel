@@ -6,7 +6,7 @@ Aether Panel es un panel open source de gestión de servidores de videojuegos. E
 
 ¿Es Aether Panel gratuito?
 
-Sí, el panel principal es 100% gratuito y open source bajo licencia MIT. Todas las funciones del panel son gratuitas sin excepciones. Pueden existir módulos de integración con software de código cerrado de terceros (como WHMCS) que tengan un costo para cubrir licencias y mantenimiento, pero el panel en sí mismo es y será siempre gratuito.
+Sí, el panel principal es 100% gratuito y open source bajo licencia Apache 2.0. Todas las funciones del panel son gratuitas sin excepciones. Pueden existir módulos de integración con software de código cerrado de terceros (como WHMCS) que tengan un costo para cubrir licencias y mantenimiento, pero el panel en sí mismo es y será siempre gratuito.
 
 ¿En qué se diferencia Aether Panel de otros paneles?
 

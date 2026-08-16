@@ -1,0 +1,39 @@
+Aether Panel / SkyPanel
+Copyright 2026 Aether-Panel
+
+This product is a modified fork of PufferPanel, distributed under the
+Apache License, Version 2.0 (https://www.apache.org/licenses/LICENSE-2.0).
+
+PufferPanel
+Copyright 2016-2025 PufferPanel contributors
+Licensed under the Apache License, Version 2.0.
+Source: https://github.com/pufferpanel/pufferpanel
+
+The backend (Go) is derived from PufferPanel. The following packages
+contain files modified from their original PufferPanel versions:
+
+  internal/config, internal/connections, internal/database, internal/email,
+  internal/groups, internal/logging, internal/middleware, internal/models,
+  internal/oauth2, internal/operations, internal/query, internal/response,
+  internal/scopes, internal/servers, internal/services, internal/sftp,
+  internal/sys, internal/utils, internal/web
+
+Changes made from the original PufferPanel source include, but are not
+limited to:
+
+  - Rebranding from "PufferPanel" to "SkyPanel" / "Aether Panel"
+  - Renaming of environment variable prefix (PUFFER_ to SKYPANEL_)
+  - Renaming of the authentication cookie (puffer_auth to skypanel_auth)
+  - Replacing upstream runtime images with custom images published under
+    ghcr.io/aether-panel/*
+  - Replacing the frontend (originally Vue 3) with an original frontend
+    written from scratch using Astro and React
+  - Addition of new features and endpoints not present upstream
+  - Various bug fixes and security hardening
+
+The frontend (client/frontend), the Dockerfiles under docker/runtime-images,
+and any other files that do not state otherwise are original works of
+Aether-Panel and are also licensed under the Apache License, Version 2.0.
+
+This NOTICE file is provided for informational purposes only and does not
+modify the Apache License, Version 2.0.

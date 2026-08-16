@@ -6,7 +6,7 @@ Aether Panel is an open source game server management panel. It is built with Go
 
 Is Aether Panel free?
 
-Yes, the core panel is 100% free and open source under the MIT license. All panel features are free with no exceptions. There may be integration modules with third-party closed-source software (like WHMCS) that have a cost to cover licenses and maintenance, but the panel itself is and will always be free.
+Yes, the core panel is 100% free and open source under the Apache 2.0 license. All panel features are free with no exceptions. There may be integration modules with third-party closed-source software (like WHMCS) that have a cost to cover licenses and maintenance, but the panel itself is and will always be free.
 
 How is Aether Panel different from other panels?
 

@@ -62,7 +62,7 @@ El software se proporciona "tal cual" sin garantías de ningún tipo, expresas o
 
 ### Panel Principal Gratuito
 
-El núcleo del panel es y será siempre completamente gratuito y open source (MIT). Todas las funciones esenciales del panel están disponibles sin costo. Complementos para integraciones con software de código cerrado (como WHMCS) pueden tener costo para cubrir licencias y mantenimiento.
+El núcleo del panel es y será siempre completamente gratuito y open source (Apache 2.0). Todas las funciones esenciales del panel están disponibles sin costo. Complementos para integraciones con software de código cerrado (como WHMCS) pueden tener costo para cubrir licencias y mantenimiento.
 
 ### Comunidad Primero
 
@@ -191,7 +191,7 @@ Aether Panel existe para ser diferente: un panel open source real que respeta a 
 
 ## Módulos de Pago e Integraciones
 
-El panel principal de Aether Panel es y será siempre 100% gratuito y open source (MIT). Sin embargo, pueden existir módulos de integración con software de terceros que tengan un costo asociado.
+El panel principal de Aether Panel es y será siempre 100% gratuito y open source (Apache 2.0). Sin embargo, pueden existir módulos de integración con software de terceros que tengan un costo asociado.
 
 Actualmente estamos desarrollando un módulo de integración con WHMCS (plataforma de facturación y automatización). WHMCS es un software de código cerrado que requiere licencia paga, por lo que el módulo tiene costos asociados:
 
@@ -204,14 +204,14 @@ Actualmente estamos desarrollando un módulo de integración con WHMCS (platafor
 
 El módulo WHMCS es un complemento opcional. No necesitas comprarlo para usar el panel. El panel principal, todas sus funciones y el código fuente permanecen 100% gratuitos y open source. Nunca pondremos funciones del panel tras un paywall. Si en el futuro existieran otros módulos para integraciones con software de código cerrado, seguirían la misma política.
 
-## Licencia MIT
+## Licencia Apache 2.0
 
-Aether Panel es un fork de Aether Panel distribuido bajo la licencia MIT. Esto significa que:
+Aether Panel se distribuye bajo la licencia Apache 2.0. Esto significa que:
 
 - Puedes usar, copiar, modificar y distribuir el software libremente
 - Puedes usarlo comercialmente (ej: para gestionar servidores de clientes)
-- No puedes vender el panel en sí mismo como producto cerrado
+- Puedes vender servicios (hosting, soporte, instalación gestionada) basados en el panel
 - El software se proporciona "tal cual", sin garantías de ningún tipo
 - Los autores no son responsables por daños o pérdidas derivadas del uso del software
-- Debes mantener el aviso de copyright y la licencia en todas las copias
+- Debes mantener el aviso de copyright, el NOTICE y la licencia en todas las copias
 
