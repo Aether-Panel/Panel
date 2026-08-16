@@ -103,11 +103,15 @@ function AuthProvider({ children }: { children: ReactNode }) {
     fetchSelf();
   }, []);
 
+  const normalizedPath = typeof window !== 'undefined' ? (window.location.pathname.replace(/\/$/, '') || '/') : '';
+  const isAuthPage =
+    normalizedPath === '/login' ||
+    normalizedPath === '/register' ||
+    normalizedPath === '/forgot-password' ||
+    normalizedPath === '/reset-password';
+
   useEffect(() => {
     if (loading) return;
-    const pathname = window.location.pathname.replace(/\/$/, '') || '/';
-    const isAuthPage =
-      pathname === '/login' || pathname === '/register' || pathname === '/forgot-password' || pathname === '/reset-password';
 
     if (!role && !isAuthPage) {
       window.location.href = '/login/';
@@ -217,9 +221,6 @@ function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const value = { role, user, scopes, login, register, logout, hasScope, loading, fetchSelf };
-
-  const normalizedPath = typeof window !== 'undefined' ? (window.location.pathname.replace(/\/$/, '') || '/') : '';
-  const isAuthPage = normalizedPath === '/login' || normalizedPath === '/register';
 
   const { config } = useConfig();
   const panelName = config?.branding?.name || "Aether Panel";
