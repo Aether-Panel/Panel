@@ -14,6 +14,9 @@ RUN useradd -m -d /home/container container
 
 WORKDIR /home/container
 
+ENV HOME=/home/container \
+    USER=container
+
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 CMD command -v sh || exit 1
 
 USER container
