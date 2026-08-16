@@ -69,7 +69,8 @@ Ejecuta como usuario `SkyPanel` (UID 1000) no-root. Los directorios de datos se 
 | `/etc/SkyPanel` | Configuración (config.json) |
 | `/var/lib/SkyPanel` | Datos runtime (servidores, backups, cache, logs) |
 | `/var/log/SkyPanel` | Logs |
-| `/var/www/SkyPanel` | Frontend estático |
+
+> **Nota:** El frontend (`/var/www/SkyPanel`) **ya no es un volumen**. Se copia en el build (`COPY`) desde `client/frontend/dist` y se reemplaza en cada reconstrucción de la imagen, evitando que un volumen anónimo quede con archivos obsoletos. La carpeta `client/frontend/dist` también se embebe en el binario Go (`go:embed all:dist`) y `panel.web.files` puede sobrescribir el FS embebido.
 
 ## Producción (`docker-compose.yml`)
 

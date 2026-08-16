@@ -34,7 +34,7 @@ En lugar de clases, el frontend usa custom hooks que encapsulan la lógica de ca
 
 | Hook | Rutas que consume | Propósito |
 |---|---|---|
-| `use-auth` (en `providers.tsx`) | `POST /auth/login`, `POST /auth/logout`, `POST /auth/register`, `GET /api/self` | Autenticación, sesión, scopes |
+| `use-auth` (en `providers.tsx`) | `POST /auth/login`, `POST /auth/logout`, `POST /auth/register`, `POST /auth/forgot-password`, `POST /auth/reset-password`, `GET /api/self` | Autenticación, sesión, scopes |
 | `use-servers` | `GET /api/servers`, `PUT /api/servers/:id`, `DELETE /api/servers/:id`, `POST /api/servers/:id/suspend`, `PUT /api/servers/:id/name/:name` | CRUD de servidores |
 | `use-users` | `GET /api/users`, `POST /api/users`, `GET /api/users/:id`, `POST /api/users/:id`, `DELETE /api/users/:id`, `GET /api/users/:id/perms`, `PUT /api/users/:id/perms` | Usuarios globales |
 | `use-nodes` | `GET /api/nodes`, `POST /api/nodes`, `GET /api/nodes/:id`, `PUT /api/nodes/:id`, `DELETE /api/nodes/:id`, `GET /api/nodes/:id/features`, `GET /api/nodes/:id/system`, `GET /api/nodes/:id/deployment` | Nodos |

@@ -62,7 +62,7 @@ In `src/components/ui/` there are 35 components based on Radix UI primitives:
 - Operations: create folder, upload file, compress/extract ZIP
 
 ### Other Features
-- **auth/** — Login, registration, OTP
+- **auth/** — Login, registration, OTP, password recovery (forgot/reset)
 - **dashboard/** — Main panel with global metrics, uptime, server status
 - **servers/** — CRUD, details, management of backups, plugins, tasks, flags, database, sub-users, transfers
 - **nodes/** — Listing, creation, detail, deployment

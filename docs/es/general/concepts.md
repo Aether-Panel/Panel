@@ -86,5 +86,5 @@ El binario de Aether Panel incluye una CLI basada en Cobra con los siguientes co
 - **run**: run — Inicia el Panel y/o Daemon según la configuración. Comando oculto que no aparece en la ayuda.
 - **version**: version — Muestra la versión del panel.
 - **user**: user add / user edit — Gestiona usuarios desde la terminal. Permite crear usuarios con nombre, email, contraseña y opción de admin, y editar usuarios existentes (cambiar email, contraseña, admin, remover 2FA).
-- **db**: db upgrade / db migrate — Gestiona la base de datos (migraciones y actualizaciones de esquema).
+- **db**: db upgrade / db migrate — Gestiona la base de datos (`upgrade` ejecuta migraciones de esquema; `migrate` es un stub experimental).
 - **runservice**: runService — Igual que run pero con soporte para systemd notify (NOTIFY_SOCKET).

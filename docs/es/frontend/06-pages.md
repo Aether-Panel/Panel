@@ -9,6 +9,8 @@ src/pages/
 ├── index.astro              # /          → Landing/redirección a login o dashboard
 ├── login.astro              # /login/    → Inicio de sesión
 ├── register.astro           # /register/ → Registro de usuario
+├── forgot-password.astro    # /forgot-password/ → Solicitar reset de contraseña
+├── reset-password.astro     # /reset-password/ → Ingresar nueva contraseña (?token=)
 ├── dashboard.astro          # /dashboard/ → Panel principal con métricas globales
 ├── servers/
 │   ├── index.astro          # /servers/  → Lista de servidores
@@ -16,6 +18,7 @@ src/pages/
 │   └── [id].astro           # /servers/:id/ → Detalle del servidor (parámetro dinámico)
 ├── nodes/
 │   ├── index.astro          # /nodes/    → Lista de nodos
+│   ├── view.astro           # /nodes/view/ → Vista de nodo individual
 │   └── [id].astro           # /nodes/:id/ → Detalle de nodo
 ├── users.astro              # /users/    → Administración de usuarios
 ├── templates.astro          # /templates/ → Repositorios y plantillas
@@ -42,7 +45,7 @@ Las páginas Astro actúan como contenedores que hidratan componentes React con 
 
 ## Navegación
 
-- **AuthShell.tsx** — Layout para páginas sin autenticación (`/login/`, `/register/`).
+- **AuthShell.tsx** — Layout para páginas sin autenticación (`/login/`, `/register/`, `/forgot-password/`, `/reset-password/`).
 - **AppShell.tsx** — Layout principal con sidebar y header para páginas autenticadas.
 - `AuthContext` redirige automáticamente:
   - Usuario no autenticado en ruta privada → `/login/`

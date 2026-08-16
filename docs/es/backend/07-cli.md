@@ -84,8 +84,8 @@ Operaciones de base de datos.
 
 | Comando | Archivo | Descripción |
 |---|---|---|
-| `db migrate` | `dbmigrate.go` | Ejecuta migraciones pendientes |
-| `db upgrade` | `dbupgrade.go` | Upgrade de esquema de BD |
+| `db migrate` | `dbmigrate.go` | Stub (sin `Run` implementado). Diseñado para migrar entre dialectos de BD en el futuro |
+| `db upgrade` | `dbupgrade.go` | Ejecuta las migraciones de esquema (gormigrate + `AutoMigrate`). Con SQLite crea un backup `*.N.backup` y lo restaura si falla |
 
 ### `runService`
 

@@ -46,8 +46,8 @@ docker exec -it skypanel sh
 # Versión
 docker exec skypanel /SkyPanel/bin/SkyPanel version
 
-# Migraciones manuales
-docker exec skypanel /SkyPanel/bin/SkyPanel db migrate
+# Migraciones de esquema
+docker exec skypanel /SkyPanel/bin/SkyPanel db upgrade
 ```
 
 ## Puertos

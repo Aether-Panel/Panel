@@ -84,8 +84,8 @@ Database operations.
 
 | Command | File | Description |
 |---|---|---|
-| `db migrate` | `dbmigrate.go` | Executes pending migrations |
-| `db upgrade` | `dbupgrade.go` | DB schema upgrade |
+| `db migrate` | `dbmigrate.go` | Stub (no `Run` implemented). Designed to migrate between DB dialects in the future |
+| `db upgrade` | `dbupgrade.go` | Runs the schema migrations (gormigrate + `AutoMigrate`). With SQLite it creates a `*.N.backup` and restores it on failure |
 
 ### `runService`
 

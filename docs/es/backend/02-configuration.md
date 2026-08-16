@@ -56,9 +56,11 @@ Todas las claves anidadas con `.` se convierten a `_`. Prefijo `PUFFER_`:
 | `panel.settings.nodeIp` | string | `0.0.0.0` | IP del nodo |
 | `panel.settings.geminiApiKey` | string | — | API Key de Google Gemini |
 | `panel.settings.hideAiAnalysis` | bool | `false` | Oculta la funcionalidad de AI Analysis |
+| `panel.settings.headerDecorations` | bool | `true` | Habilita las decoraciones del header |
 | `panel.notifications.discordWebhook` | string | — | Webhook de Discord (notificaciones) |
 | `panel.notifications.discordWebhookSystem` | string | — | Webhook de Discord (sistema) |
 | `panel.notifications.discordWebhookNode` | string | — | Webhook de Discord (nodos) |
+| `panel.notifications.discordWebhookExTransfer` | string | — | Webhook de Discord (transferencias externas) |
 | `panel.license.key` | string | — | Clave de licencia |
 | `panel.license.status` | string | `free` | Estado de licencia |
 | `panel.license.serverId` | string | — | ID del servidor para licencia |
@@ -66,6 +68,15 @@ Todas las claves anidadas con `.` se convierten a `_`. Prefijo `PUFFER_`:
 | `panel.sessionKey` | string | — | Clave para cifrado de sesiones (autogenerada) |
 | `panel.registrationEnabled` | bool | `true` | Permite registro de usuarios |
 | `panel.token` | string | — | Clave privada Ed25519 (JWT) |
+| `panel.turnstile.siteKey` | string | — | Site Key de Cloudflare Turnstile |
+| `panel.turnstile.secretKey` | string | — | Secret Key de Cloudflare Turnstile |
+| `panel.turnstile.enabled` | bool | `false` | Habilita Cloudflare Turnstile en registro/login |
+
+### Token
+
+| Clave | Tipo | Default | Descripción |
+|---|---|---|---|
+| `token.public` | string | — | URL pública del panel maestro para validar JWT (modo nodo) |
 
 ### Templates
 

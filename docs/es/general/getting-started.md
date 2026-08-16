@@ -505,8 +505,7 @@ O desde el contenedor Docker:
 
 ##### Gestión de Base de Datos
 
-- SkyPanel db migrate (actualizar esquema de BD)
-- SkyPanel db upgrade (actualizar a nueva versión)
+- SkyPanel db upgrade (actualizar esquema de BD a la nueva versión)
 
 ##### Ejecutar Panel
 

@@ -41,7 +41,7 @@ internal/
 ├── database/           → Conexión GORM multi-dialecto
 │   ├── loader.go       → openConnection, GetConnection, Close
 │   └── upgrade.go      → gormigrate (migraciones versionadas)
-├── models/             → 34 modelos GORM (Server, User, Node, etc.)
+├── models/             → 21 modelos GORM (Server, User, Node, etc.)
 ├── services/           → 21 servicios (capa de negocio)
 ├── middleware/         → 6 middleware Gin
 ├── web/               → Capa HTTP

@@ -44,12 +44,14 @@ rg.Use(middleware.AddVersionHeader)    // agrega X-Panel-Version
 ```go
 rg.Use(middleware.ResponseAndRecover)
 // Endpoints específicos:
-/auth/login     → NeedsDatabase, LoginPost
-/auth/logout    → NeedsDatabase, LogoutPost
-/auth/otp       → NeedsDatabase, OtpPost
-/auth/register  → NeedsDatabase, RegisterPost
-/auth/reauth    → AuthMiddleware, NeedsDatabase, Reauth
-/auth/publickey → (sin auth) TokenServiceGetPublicKey
+/auth/login          → NeedsDatabase, LoginPost
+/auth/logout         → NeedsDatabase, LogoutPost
+/auth/otp            → NeedsDatabase, OtpPost
+/auth/register       → NeedsDatabase, RegisterPost
+/auth/forgot-password → NeedsDatabase, ForgotPasswordPost
+/auth/reset-password → NeedsDatabase, ResetPasswordPost
+/auth/reauth         → AuthMiddleware, NeedsDatabase, Reauth
+/auth/publickey      → (sin auth) TokenServiceGetPublicKey
 ```
 
 ### OAuth2 (`/oauth2/*`)
@@ -80,6 +82,12 @@ rg.Use(middleware.APIKeyAuthMiddleware)
 1. `POST /oauth2/token` con `grant_type=client_credentials` o `password`
 2. Devuelve `access_token` (JWT firmado con Ed25519)
 3. Las rutas protegidas aceptan `Authorization: Bearer <token>`
+
+### 5. Recuperación de Contraseña
+
+1. `POST /auth/forgot-password` con `{ "email": "..." }` → crea token (hash blake2b, 30 min) y envía email con enlace de reset
+2. `POST /auth/reset-password` con `{ "token": "...", "password": "..." }` → consume el token y cambia la contraseña
+3. Ambos responden `204` siempre que sea posible para evitar enumeración de usuarios; el enlace usa el host real (header `Host`/`X-Forwarded-Host`)
 
 ### 3. API Key
 

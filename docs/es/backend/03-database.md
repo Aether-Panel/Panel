@@ -43,16 +43,17 @@ m := gormigrate.New(db, gormigrate.DefaultOptions, []*gormigrate.Migration{
 m.Migrate()
 ```
 
-## Modelos (34 tablas)
+## Modelos (21 tablas)
 
 ### Core
 
 | Modelo | Archivo | PK | Columnas clave |
 |---|---|---|---|
-| `User` | `user.go` | `id` (uint, auto) | `username`, `email`, `hashedPassword`, `otpSecret`, `otpVerified`, `roleID` |
+| `User` | `user.go` | `id` (uint, auto) | `username`, `email`, `hashedPassword`, `otpSecret`, `otpActive`, `roleID` |
 | `Session` | `session.go` | `id` (uint) | `userId`, `token`, `expiresAt` |
 | `APIKey` | `apikey.go` | `id` (uint) | `userId`, `token` (prefijo `ak_`), `scopes` (JSON), `memo` |
-| `RecoveryCode` | `recoverycode.go` | `userId`+`code` | `consumed` |
+| `RecoveryCode` | `recoverycode.go` | `id` (uint) | `userId`, `code` (hash blake2b del código) |
+| `PasswordReset` | `passwordreset.go` | `id` (uint) | `userId`, `token` (hash blake2b), `expiresAt` (30 min) |
 
 ### Servidores
 
@@ -114,19 +115,20 @@ m.Migrate()
 
 | Modelo | Archivo | PK | Columnas clave |
 |---|---|---|---|
-| `Product` | `product.go` | `id` (uint) | `name`, `description`, `data` (JSON) |
+| `ProvisionProduct` | `product.go` | `id` (uint) | `productID`, `displayName`, `template`, `nodeID`, `cpu`, `memory`, `disk`, `defaultNode`, `portRangeMin`, `portRangeMax` |
 
 ### Uptime
 
 | Modelo | Archivo | PK | Columnas clave |
 |---|---|---|---|
-| `Uptime` | `uptime.go` | `id` (uint) | `serverID`, `timestamp`, `uptime` |
+| `UptimeStatus` | `uptime.go` | `id` (uint) | `serverID`, `isRunning`, `startTime`, `endTime`, `duration` |
 
 ### Transferencias
 
 | Modelo | Archivo | PK | Columnas clave |
 |---|---|---|---|
-| `ExTransfer` | `extransfer.go` | `id` (uint) | `serverID`, `token`, `sourcePanel`, `targetPanel`, `status`, `expiresAt` |
+| `ExTransferSession` | `extransfer.go` | `id` (uint) | `sessionUUID`, `serverID`, `userID`, `tokenHash`, `status`, `destHost`, `destPublicKey`, `currentNonce`, `nonceExpiresAt`, `protocolVersion`, `payload`, `expiresAt` |
+| `ExTransferLog` | `extransfer.go` | `id` (uint) | `sessionID`, `action`, `ipAddress`, `isError`, `details` |
 
 ### Clientes OAuth2
 
@@ -142,13 +144,14 @@ User 1──N APIKey
 User N──1 Role (nullable)
 User N──N Server (via Permissions)
 User 1──N RecoveryCode
+User 1──N PasswordReset
 
 Server N──1 Node
 Server N──N User (via Permissions)
 Server N──N DatabaseHost (via Database)
 Server 1──N Backup
-Server 1──1..N Uptime
-Server 1──1 ExTransfer
+Server 1──1..N UptimeStatus
+Server 1──1 ExTransferSession (más ExTransferLog)
 Server N──1 Server (parent, splitter)
 
 DatabaseHost 1──N Database
@@ -163,7 +166,7 @@ Cada servicio encapsula queries GORM y lógica de negocio. Reciben `*gorm.DB` en
 | Servicio | Archivo | Métodos principales |
 |---|---|---|
 | `Session` | `session.go` | `Get`, `Create`, `DeleteExpired` |
-| `User` | `user.go` | `Get`, `Create`, `Update`, `Delete`, `GetAll`, `Search`, `IsSecurePassword`, `DisableOtp` |
+| `User` | `user.go` | `Get`, `Create`, `Update`, `Delete`, `GetAll`, `Search`, `IsSecurePassword`, `DisableOtp`, `CreatePasswordResetToken`, `ConsumePasswordResetToken` |
 | `Server` | `server.go` | `Get`, `GetAll`, `Create`, `Update`, `Delete`, `Search` |
 | `Node` | `node.go` | `Get`, `GetAll`, `Create`, `Update`, `Delete`, `GetDeployment` |
 | `Permission` | `permission.go` | `GetForUserAndServer`, `UpdatePermissions` |

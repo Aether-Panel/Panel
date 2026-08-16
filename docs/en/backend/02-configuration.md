@@ -56,9 +56,11 @@ All nested keys with `.` are converted to `_`. `PUFFER_` prefix:
 | `panel.settings.nodeIp` | string | `0.0.0.0` | Node IP |
 | `panel.settings.geminiApiKey` | string | — | Google Gemini API Key |
 | `panel.settings.hideAiAnalysis` | bool | `false` | Hides AI Analysis functionality |
+| `panel.settings.headerDecorations` | bool | `true` | Enables header decorations |
 | `panel.notifications.discordWebhook` | string | — | Discord Webhook (notifications) |
 | `panel.notifications.discordWebhookSystem` | string | — | Discord Webhook (system) |
 | `panel.notifications.discordWebhookNode` | string | — | Discord Webhook (nodes) |
+| `panel.notifications.discordWebhookExTransfer` | string | — | Discord Webhook (external transfers) |
 | `panel.license.key` | string | — | License key |
 | `panel.license.status` | string | `free` | License status |
 | `panel.license.serverId` | string | — | Server ID for license |
@@ -66,6 +68,15 @@ All nested keys with `.` are converted to `_`. `PUFFER_` prefix:
 | `panel.sessionKey` | string | — | Key for session encryption (auto-generated) |
 | `panel.registrationEnabled` | bool | `true` | Allows user registration |
 | `panel.token` | string | — | Ed25519 private key (JWT) |
+| `panel.turnstile.siteKey` | string | — | Cloudflare Turnstile Site Key |
+| `panel.turnstile.secretKey` | string | — | Cloudflare Turnstile Secret Key |
+| `panel.turnstile.enabled` | bool | `false` | Enables Cloudflare Turnstile on register/login |
+
+### Token
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `token.public` | string | — | Public URL of the master panel to validate JWTs (node mode) |
 
 ### Templates
 

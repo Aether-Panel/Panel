@@ -505,8 +505,7 @@ Or from the Docker container:
 
 ##### Database Management
 
-- SkyPanel db migrate (update database schema)
-- SkyPanel db upgrade (upgrade to new version)
+- SkyPanel db upgrade (update the database schema to the new version)
 
 ##### Run Panel
 

@@ -466,6 +466,20 @@ Requiere `registrationEnabled: true`.
 { "username": "newuser", "email": "new@example.com", "password": "Secure123!" }
 ```
 
+### `POST /auth/forgot-password`
+Solicita un enlace de reset para un email. **Respuesta:** siempre `204` (evita enumeración de usuarios). Si el email existe, se envía un correo con el enlace `/reset-password/?token=<token>`.
+**Body:**
+```json
+{ "email": "admin@example.com" }
+```
+
+### `POST /auth/reset-password`
+Consume el token de reset y establece una nueva contraseña. **Respuesta:** `204`. **Errores:** `400` si el token es inválido/vencido o la contraseña no cumple los requisitos.
+**Body:**
+```json
+{ "token": "reset_token", "password": "NuevaSegura123!" }
+```
+
 ### `POST /auth/reauth`
 Re-autentica la sesión actual. **Auth:** Bearer.
 
