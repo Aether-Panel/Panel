@@ -4,7 +4,7 @@ El frontend no tiene un SDK empaquetado separado. Todas las llamadas HTTP se rea
 
 ## Cliente HTTP (`api-client.ts`)
 
-Exporta un objeto `api` con 4 métodos que usan `fetch` nativo:
+Exporta un objeto `api` con 5 métodos que usan `fetch` nativo:
 
 ```typescript
 import { api } from '@/lib/api-client';
@@ -14,6 +14,9 @@ const servers = await api.get('/api/servers');
 
 // POST — crear o ejecutar acción
 await api.post('/api/servers/abc123/start', {});
+
+// POST con FormData — subida de archivos
+await api.postForm('/api/servers/abc123/file/...', formData);
 
 // PUT  — crear o reemplazar (uso del backend: crear servidor)
 await api.put('/api/servers/abc123', { name, ... });
@@ -26,7 +29,7 @@ Características:
 - Usa `credentials: 'include'` — la autenticación se maneja mediante cookies de sesión.
 - No usa axios ni js-cookie.
 - Los errores HTTP lanzan `ApiError` con `status`, `message` y `data` (parsed desde JSON).
-- No hay clases separadas por dominio (`AuthApi`, `ServerApi`, etc.). Cada feature llama a `api.get/post/put/delete` directamente.
+- No hay clases separadas por dominio (`AuthApi`, `ServerApi`, etc.). Cada feature llama a `api.get/post/postForm/put/delete` directamente.
 
 ## Hooks por Dominio
 
@@ -44,7 +47,7 @@ En lugar de clases, el frontend usa custom hooks que encapsulan la lógica de ca
 | `use-server-settings` | `GET /api/servers/:serverId/data`, `POST /api/servers/:serverId/data`, `PUT /api/servers/:serverId/data` | Variables del servidor |
 | `use-profile` | `GET /api/self`, `PUT /api/self`, `GET /api/self/otp`, `POST /api/self/otp`, `PUT /api/self/otp`, `POST /api/self/otp/recovery`, `DELETE /api/self/otp/:token`, `GET /api/self/oauth2`, `POST /api/self/oauth2`, `DELETE /api/self/oauth2/:clientID` | Perfil propio |
 | `use-dashboard-data` | `GET /api/uptime`, `GET /api/servers` | Datos del dashboard |
-| `use-toast` | — | Notificaciones toast (ui) |
+| toast (`lib/toast.ts`) | — | Notificaciones toast (sileo) |
 
 ## Llamadas Directas desde Features
 

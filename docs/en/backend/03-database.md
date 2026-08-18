@@ -31,16 +31,25 @@ parseTime=true
 
 ## Migrations
 
-They use **gormigrate** (versioned migrations). They run in `database/upgrade.go`.
+They use **gormigrate** (versioned migrations) defined in `internal/database/upgrade.go`. They are grouped into batches and each batch runs in its own transaction against the `migrations` table.
 
 ```go
-m := gormigrate.New(db, gormigrate.DefaultOptions, []*gormigrate.Migration{
-    {ID: "2025-01-01-initial", Migrate: func(tx *gorm.DB) error { ... }},
-    {ID: "2025-04-10-add-template-repo", Migrate: func(tx *gorm.DB) error { ... }},
-    {ID: "2025-05-01-refactor-permissions", Migrate: func(tx *gorm.DB) error { ... }},
-    // ...
-})
-m.Migrate()
+options := &gormigrate.Options{TableName: "migrations", IDColumnName: "id", IDColumnSize: 255}
+
+// per batch:
+for _, z := range batch {
+    gormigrate.New(session, options, []*gormigrate.Migration{z}).Migrate()
+}
+```
+
+Real migration IDs (date/timestamp as versioning):
+
+```go
+"1726675832", "1726675832-mysql", "1658926619", "1677250619",
+"permissions-from-v2", "20260304-serverid-harmonization",
+"20260617-default-roles", "20260624-usuario-role-templates-view",
+"20260625-assign-usuario-role-to-existing-users",
+"20260625-usuario-role-add-server-create", "20260811-template-raw-value-size"
 ```
 
 ## Models (21 tables)
@@ -49,17 +58,17 @@ m.Migrate()
 
 | Model | File | PK | Key Columns |
 |---|---|---|---|
-| `User` | `user.go` | `id` (uint, auto) | `username`, `email`, `hashedPassword`, `otpSecret`, `otpActive`, `roleID` |
-| `Session` | `session.go` | `id` (uint) | `userId`, `token`, `expiresAt` |
-| `APIKey` | `apikey.go` | `id` (uint) | `userId`, `token` (prefix `ak_`), `scopes` (JSON), `memo` |
-| `RecoveryCode` | `recoverycode.go` | `id` (uint) | `userId`, `code` (blake2b hash of the code) |
-| `PasswordReset` | `passwordreset.go` | `id` (uint) | `userId`, `token` (blake2b hash), `expiresAt` (30 min) |
+| `User` | `user.go` | `id` (uint, auto) | `username` (unique), `email` (unique), `password` (hash), `otp_secret`, `otp_active`, `role_id` (nullable) |
+| `Session` | `session.go` | `id` (uint) | `token` (size 64, unique), `expiration_time`, `user_id` (nullable), `client_id` (nullable), `server_identifier` (nullable) |
+| `APIKey` | `apikey.go` | `id` (uint) | `name`, `hashed_key`, `prefix` (8, e.g. `ak_a1b2c3`), `permissions` (JSON serializer) |
+| `RecoveryCode` | `recoverycode.go` | `id` (uint) | `user_id`, `code` (hash of the code) |
+| `PasswordReset` | `passwordreset.go` | `id` (uint) | `user_id`, `token` (hash, size 64, unique), `expires_at` (30 min) |
 
 ### Servers
 
 | Model | File | PK | Key Columns |
 |---|---|---|---|
-| `Server` | `server.go` | `identifier` (string, 20) | `name`, `nodeID`, `ip`, `port`, `type`, `parentServerID`, `totalCPU`, `totalMemory`, `totalDisk`, `suspended`, `externalID` |
+| `Server` | `server.go` | `identifier` (string, 20) | `name`, `node_id` (nullable, write-only), `ip`, `port`, `type`, `icon`, `parent_server_id`, `total_cpu`, `total_memory`, `total_disk`, `suspended`, `external_id` |
 | `ServerView` | `serverview.go` | — | View model (no table) |
 | `ServerAPI` | `serverapi.go` | — | DTO |
 
@@ -67,7 +76,7 @@ m.Migrate()
 
 | Model | File | PK | Key Columns |
 |---|---|---|---|
-| `Node` | `node.go` | `id` (uint) | `name`, `host`, `port`, `sftp`, `tokenID`, `publicKey`, `secret`, `active`, `useInternal` |
+| `Node` | `node.go` | `id` (uint) | `name` (unique), `public_host`, `private_host`, `public_port`, `private_port`, `sftp_port`, `secret` (36), `local` (no column, runtime) |
 | `NodeView` | `nodeview.go` | — | View model |
 | `NodeAPI` | `nodeapi.go` | — | DTO |
 
@@ -75,32 +84,32 @@ m.Migrate()
 
 | Model | File | PK | Key Columns |
 |---|---|---|---|
-| `Permissions` | `permission.go` | `id` (uint) | `userID`, `serverID`, `scopes` (JSON) |
+| `Permissions` | `permission.go` | `id` (uint) | `user_id` (nullable), `client_id` (nullable), `server_identifier` (nullable), `scopes` (JSON) |
 | `PermissionView` | `permissionview.go` | — | View model |
-| `Role` | `role.go` | `id` (uint) | `name`, `description`, `scopes` (JSON), `isAdmin` |
+| `Role` | `role.go` | `id` (uint) | `name` (unique), `description`, `scopes` (JSON, size 2000), `created_at`, `updated_at` |
 
 ### Databases
 
 | Model | File | PK | Key Columns |
 |---|---|---|---|
-| `DatabaseHost` | `databasehost.go` | `id` (uint) | `host`, `port`, `username`, `password`, `database`, `nodeID` |
+| `DatabaseHost` | `databasehost.go` | `id` (uint) | `name`, `host`, `port`, `username`, `password`, `max_databases`, `node_id` (nullable) |
 | `DatabaseHostAPI` | `databasehostapi.go` | — | DTO |
-| `Database` | `database.go` | `id` (uint) | `serverID`, `databaseHostID`, `databaseName`, `username`, `password`, `remote` |
+| `Database` | `database.go` | `id` (uint) | `server_id` (FK, cascade), `database_host_id` (FK, cascade), `database_name`, `username`, `password`, `remote_connection`, `max_connections` |
 | `DatabaseAPI` | `databaseapi.go` | — | DTO |
 
 ### Backups
 
 | Model | File | PK | Key Columns |
 |---|---|---|---|
-| `Backup` | `backup.go` | `id` (uint) | `serverID`, `name`, `size`, `sha256`, `completedAt` |
+| `Backup` | `backup.go` | `id` (uint) | `name`, `file_name`, `server_id` (FK) |
 
 ### Settings
 
 | Model | File | PK | Key Columns |
 |---|---|---|---|
-| `PanelSetting` | `panelsetting.go` | `key` (string) | `value` |
+| `PanelSetting` | `panelsetting.go` | `key` (string, 100) | `value` (size 255) |
 | `SettingAPI` | `settingapi.go` | — | DTO |
-| `UserSetting` | `usersetting.go` | `id` (uint) | `userID`, `key`, `value` |
+| `UserSetting` | `usersetting.go` | `key` + `user_id` (composite) | `value` (size 4000) |
 | `UserSettingView` | `usersettingview.go` | — | View model |
 | `UserSettingAPI` | `usersettingapi.go` | — | DTO |
 
@@ -108,33 +117,33 @@ m.Migrate()
 
 | Model | File | PK | Key Columns |
 |---|---|---|---|
-| `Template` | `template.go` | `id` (uint) | `name`, `display`, `author`, `description`, `data` (JSON), `version`, `templateRepoID` |
-| `TemplateRepo` | `templaterepo.go` | `id` (uint) | `url`, `name` |
+| `Template` | `template.go` | `name` (string, 100) | `raw_value` (mediumtext), `readme` |
+| `TemplateRepo` | `templaterepo.go` | `id` (uint) | `name`, `url`, `branch` (default `main`), `pat`, `username`, `password`, `ssh_key`, `is_local` (no column) |
 
 ### Products (Provision)
 
 | Model | File | PK | Key Columns |
 |---|---|---|---|
-| `ProvisionProduct` | `product.go` | `id` (uint) | `productID`, `displayName`, `template`, `nodeID`, `cpu`, `memory`, `disk`, `defaultNode`, `portRangeMin`, `portRangeMax` |
+| `ProvisionProduct` | `product.go` | `id` (uint) | `product_id` (unique, e.g. `minecraft_2gb`), `display_name`, `template`, `node_id` (nullable = auto-select), `cpu`, `memory` (MB), `disk` (MB), `default_node`, `port_range_min`, `port_range_max` |
 
 ### Uptime
 
 | Model | File | PK | Key Columns |
 |---|---|---|---|
-| `UptimeStatus` | `uptime.go` | `id` (uint) | `serverID`, `isRunning`, `startTime`, `endTime`, `duration` |
+| `UptimeStatus` | `uptime.go` | `id` (uint) | `server_id` (FK), `is_running`, `start_time`, `end_time` (nullable), `duration` (seconds) |
 
 ### Transfers
 
 | Model | File | PK | Key Columns |
 |---|---|---|---|
-| `ExTransferSession` | `extransfer.go` | `id` (uint) | `sessionUUID`, `serverID`, `userID`, `tokenHash`, `status`, `destHost`, `destPublicKey`, `currentNonce`, `nonceExpiresAt`, `protocolVersion`, `payload`, `expiresAt` |
-| `ExTransferLog` | `extransfer.go` | `id` (uint) | `sessionID`, `action`, `ipAddress`, `isError`, `details` |
+| `ExTransferSession` | `extransfer.go` | `id` (uint) | `session_uuid` (char 36, unique), `server_id` (FK cascade), `user_id` (FK cascade), `token_hash` (unique), `status` (default `CREATED`), `dest_host`, `dest_public_key`, `current_nonce`, `protocol_version` (default `1.0`), `payload`, `expires_at` |
+| `ExTransferLog` | `extransfer.go` | — | `session_id` (FK), `action`, `ip_address`, `is_error`, `details` |
 
 ### OAuth2 Clients
 
 | Model | File | PK | Key Columns |
 |---|---|---|---|
-| `Client` | `client.go` | `id` (uint) | `userID`, `name`, `secret`, `redirectURI`, `personal` |
+| `Client` | `client.go` | `id` (uint) | `client_id` (unique), `client_secret` (hash), `user_id` (FK), `server_id` (nullable), `name`, `description`, `scopes` (size 4000) |
 
 ## Key Relationships
 
@@ -145,6 +154,7 @@ User N──1 Role (nullable)
 User N──N Server (via Permissions)
 User 1──N RecoveryCode
 User 1──N PasswordReset
+User 1──N Client
 
 Server N──1 Node
 Server N──N User (via Permissions)
@@ -165,22 +175,22 @@ Each service encapsulates GORM queries and business logic. They receive `*gorm.D
 
 | Service | File | Main Methods |
 |---|---|---|
-| `Session` | `session.go` | `Get`, `Create`, `DeleteExpired` |
-| `User` | `user.go` | `Get`, `Create`, `Update`, `Delete`, `GetAll`, `Search`, `IsSecurePassword`, `DisableOtp`, `CreatePasswordResetToken`, `ConsumePasswordResetToken` |
-| `Server` | `server.go` | `Get`, `GetAll`, `Create`, `Update`, `Delete`, `Search` |
-| `Node` | `node.go` | `Get`, `GetAll`, `Create`, `Update`, `Delete`, `GetDeployment` |
-| `Permission` | `permission.go` | `GetForUserAndServer`, `UpdatePermissions` |
-| `Role` | `role.go` | `Get`, `GetAll`, `Create`, `Update`, `Delete` |
-| `APIKeyService` | `apikey.go` | `GetAll`, `Create`, `Delete`, `ValidateKey` |
-| `Backup` | `backup.go` | `Get`, `GetAll`, `Create`, `Delete`, `Update` |
-| `Database` | `database.go` | `GetAllForServer`, `Create`, `Delete` |
-| `DatabaseHost` | `databasehost.go` | `Get`, `GetAll`, `Create`, `Update`, `Delete`, `TestConnection` |
-| `Template` | `templates.go` | `GetRepos`, `AddRepo`, `DeleteRepo`, `GetFromRepo`, `GetTemplate`, `PutTemplate`, `DeleteTemplate` |
-| `OAuth2` | `oauth2.go` | `Token` (client_credentials, password) |
-| `Token` | `token.go` | `Sign`, `Validate`, `GetPublicKey` |
-| `UserSettings` | `usersettings.go` | `Get`, `GetAll`, `Set` |
-| `License` | `license.go` | `Activate`, `Validate` |
-| `Email` | `email.go` | `Send` |
-| `Discord` | `discord.go` | `SendNotification`, `SendSystemAlert` |
-| `Uptime` | `uptime.go` | `GetAll`, `GetForServer`, `Record`, `Track` |
-| `SFTP` | `sftp.go` | `GetCredentials`, `Validate` |
+| `Session` | `session.go` | `CreateForUser`, `CreateForClient`, `Validate`, `ValidateNode`, `Expire` |
+| `User` | `user.go` | `Get`, `GetByID`, `GetByEmail`, `ValidateLogin`, `ValidOtp`, `IsValidCredentials`, `Create`, `Update`, `Delete`, `ChangePassword`, `CreatePasswordResetToken`, `ConsumePasswordResetToken`, `GetOtpStatus`, `StartOtpEnroll`, `ValidateOtpEnroll`, `RegenerateOtpRecoveryCodes`, `DisableOtp`, `Search`, `IsSecurePassword` |
+| `Server` | `server.go` | `Search`, `Get`, `Create`, `Update`, `Delete` |
+| `Node` | `node.go` | `GetAll`, `Get`, `Create`, `Update`, `Delete`, `CallNode`, `OpenSocket` |
+| `Permission` | `permission.go` | `GetForUser`, `GetForServer`, `GetForUserAndServer`, `HasPermission`, `GetForClient`, `GetForClientAndServer`, `UpdatePermissions`, `Remove` |
+| `Role` | `role.go` | `Get`, `List`, `GetByName`, `Create`, `Update`, `Delete` |
+| `APIKeyService` | `apikey.go` | `GenerateKey`, `ValidateKey`, `GetAll`, `Delete` |
+| `Backup` | `backup.go` | `GetAllForServer`, `Get`, `Create`, `Update`, `Delete` |
+| `Database` | `database.go` | `GetAllForServer`, `Get`, `Create`, `Delete`, `createInMySQL`, `deleteFromMySQL` |
+| `DatabaseHost` | `databasehost.go` | `GetAll`, `Get`, `Create`, `Update`, `Delete` |
+| `Template` | `templates.go` | `GetRepos`, `AddRepo`, `DeleteRepo`, `GetAllFromRepo`, `Get`, `Save`, `Delete` |
+| `OAuth2` | `oauth2.go` | `Get`, `GetForUser`, `Create`, `Update`, `Delete` |
+| `Token` | `token.go` | `GenerateRequest`, `ValidateRequest`, `GetKeyFunc`, `GetTokenStore` |
+| `UserSettings` | `usersettings.go` | `GetAllForUser`, `Update` |
+| `License` | `license.go` | `VerifyLicense`, `BindLicense`, `ExtractPermissions`, `GetLicenseType` |
+| `Email` | `email.go` | `SendEmail` |
+| `Discord` | `discord.go` | `SendWebhook`, `SendWebhookToURL`, `SendAlert`, `SendServerOfflineAlert`, `SendServerOnlineAlert`, `SendResourceAlert`, `SendBackupAlert`, `SendSystemStatus`, `SendNodeStatus` |
+| `Uptime` | `uptime.go` | `TrackStatus`, `GetUptimeStats`, `GetRecentHistory`, `GetAllServerUptime` |
+| `SFTP` | `sftp.go` | `Validate` |

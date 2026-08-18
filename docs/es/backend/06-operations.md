@@ -31,7 +31,7 @@ type OperationResult struct {
 
 Las factorías se registran mediante `init()` en cada paquete de operación. El mapa global está en `internal/servers/operation_functions.go`.
 
-## Operaciones Disponibles (25)
+## Operaciones Disponibles (26)
 
 | Key | Paquete | Descripción |
 |---|---|---|
@@ -45,6 +45,7 @@ Las factorías se registran mediante `init()` en cada paquete de operación. El 
 | `extract` | `operations/extract/` | Extrae archivos comprimidos (ZIP, tar.gz) |
 | `fabricdl` | `operations/fabricdl/` | Descarga Fabric Loader para Minecraft |
 | `forgedl` | `operations/forgedl/` | Descarga Minecraft Forge |
+| `githubdl` | `operations/githubdl/` | Descarga archivos desde GitHub (release/raw) |
 | `javadl` | `operations/javadl/` | Descarga Java Runtime |
 | `mkdir` | `operations/mkdir/` | Crea directorios |
 | `mojangdl` | `operations/mojangdl/` | Descarga server de Minecraft de Mojang |
@@ -54,6 +55,7 @@ Las factorías se registran mediante `init()` en cada paquete de operación. El 
 | `paperdl` | `operations/paperdl/` | Descarga PaperMC |
 | `resolveforgeversion` | `operations/resolveforgeversion/` | Resuelve versión de Forge |
 | `resolveneoforgeversion` | `operations/resolveneoforgeversion/` | Resuelve versión de NeoForge |
+| `scraperdl` | `operations/scraperdl/` | Descarga usando scraping de URLs |
 | `sleep` | `operations/sleep/` | Pausa por un tiempo determinado |
 | `spongedl` | `operations/spongedl/` | Descarga Sponge |
 | `stdin` | `operations/stdin/` | Envía texto a stdin del proceso |

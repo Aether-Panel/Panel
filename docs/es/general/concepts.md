@@ -38,7 +38,7 @@ El sistema de autenticación soporta múltiples mecanismos para diferentes casos
 - **twofactor**: 2FA — El panel soporta autenticación de dos factores (OTP) como capa adicional de seguridad en el inicio de sesión.
 ## Permisos y Scopes
 
-El sistema de permisos se basa en scopes granulares (~60 en total) que controlan cada acción posible en el panel.
+El sistema de permisos se basa en scopes granulares (74 en total: 50 específicos de servidor + 24 globales) que controlan cada acción posible en el panel.
 
 - **scopes**: Scopes — Cada permiso es un string como server.start, nodes.view, users.edit, etc. Los scopes pueden ser globales o específicos de un servidor (ForServer: true).
 - **admin**: Jerarquía — El scope admin concede todos los permisos. A nivel de servidor, server.admin concede todos los scopes de ese servidor.
@@ -54,9 +54,9 @@ El Daemon incluye un servidor SFTP integrado para acceso a archivos de servidore
 - **isolation**: Aislamiento — Cada conexión SFTP está aislada al directorio del servidor específico. No se puede acceder a archivos de otros servidores ni del sistema.
 ## Consola WebSocket
 
-El Daemon proporciona una consola en tiempo real mediante WebSocket en GET /daemon/:serverId/socket.
+El Daemon proporciona una consola en tiempo real mediante WebSocket en GET /daemon/server/:serverId/socket.
 
-- **streams**: Tres canales de streaming — console (salida en vivo del proceso), stats (CPU, RAM, disco, red en intervalos regulares), status (estado del servidor: online/offline/installing).
+- **streams**: Tres canales de streaming — console (salida en vivo del proceso), stat (CPU, RAM, disco, red en intervalos regulares), status (estado del servidor: online/offline/installing).
 - **tracker**: Tracker — Cada Environment tiene tres Trackers (ConsoleTracker, StatsTracker, StatusTracker) que registran Sockets y transmiten mensajes JSON en formato {message, type}.
 - **proxy**: Proxy — El Panel hace proxy de las conexiones WebSocket: si el nodo es local, reescribe la URL internamente; si es remoto, crea un proxy bidireccional.
 ## Templates

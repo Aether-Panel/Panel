@@ -90,13 +90,13 @@ Todas las claves anidadas con `.` se convierten a `_`. Prefijo `SKYPANEL_`:
 |---|---|---|---|
 | `daemon.enable` | bool | `true` | Habilita el modo daemon |
 | `daemon.console.buffer` | int | `50` | Tamaño del buffer de consola en memoria |
-| `daemon.console.forward` | bool | `false` | Reenvía consola al panel |
+| `daemon.console.forward` | bool | `false` | Reenvía la consola del servidor a la salida estándar (stdout/journald/logs Docker) |
 | `daemon.sftp.host` | string | `0.0.0.0:5657` | Dirección del servidor SFTP |
 | `daemon.sftp.key` | string | `sftp.key` | Ruta a la clave privada SFTP |
 | `daemon.sftp.log` | bool | `false` | Logging detallado de SFTP |
-| `daemon.auth.url` | string | `http://localhost:8080` | URL del panel para autenticación |
-| `daemon.auth.clientId` | string | — | Client ID OAuth2 para daemon |
-| `daemon.auth.clientSecret` | string | — | Client Secret OAuth2 para daemon |
+| `daemon.auth.url` | string | `http://localhost:8080` | URL del panel (legacy, para autenticación) |
+| `daemon.auth.clientId` | string | — | Client ID (legacy, no usado por la auth JWT actual) |
+| `daemon.auth.clientSecret` | string | — | Client Secret (legacy, no usado por la auth JWT actual) |
 | `daemon.data.cache` | string | `cache` | Carpeta de caché |
 | `daemon.data.servers` | string | `servers` | Carpeta de servidores |
 | `daemon.data.backups.folder` | string | `backups` | Carpeta de backups |

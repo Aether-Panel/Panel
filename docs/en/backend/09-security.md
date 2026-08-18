@@ -7,10 +7,10 @@ The panel includes an integrated SFTP server (does not require OpenSSH). It runs
 ### Authentication
 
 SFTP authentication is performed against the panel:
-1. The SFTP client connects to the daemon
-2. The daemon validates the credentials against the panel via API (`/daemon/sftp/auth`)
-3. Password authentication is used (panel user's username/password)
-4. The daemon verifies that the user has the `server.sftp` scope
+1. The SFTP client connects to the daemon with username/password
+2. The daemon validates the credentials against the panel via the OAuth2 endpoint (`grant_type=password`, `scope=sftp`) — see `internal/oauth2/ssh.go:validateSSH`
+3. The panel returns the granted scopes in `<serverId>:<scope>` format; the daemon grants access only if it includes `server.sftp`
+4. Local mode (`DatabaseSFTPAuthorization`, `internal/services/sftp.go`): the username uses the `<email>#<serverId>` format and verifies the `server.sftp` scope directly against the DB
 
 ### Server Key
 
@@ -51,39 +51,42 @@ Used for daemon↔panel and OAuth2 authentication.
 ### Claims
 
 ```go
-// JWT contains:
-{
-  "sub": "serverId o clientId",
-  "iat": timestamp,
-  "exp": timestamp,
-  "scopes": ["admin", "server.console"],
-  "type": "client_credentials" | "password"
-}
+// The daemon token (GenerateRequest) uses a JWT signed with Ed25519.
+// Header: alg=EdDSA, kid="SkyPanel"
+// Claims: jwt.MapClaims (no custom claims by default)
+// The panel validates signature + expiration; the node identity is resolved
+// by the requested /daemon/* endpoint (the daemon authenticates with its
+// request token signed with the node's private key).
 ```
 
 ### Token Service (`internal/services/token.go`)
 
 | Method | Description |
 |---|---|
-| `Sign(claims)` | Signs and returns JWT |
-| `Validate(tokenString)` | Validates and parses JWT |
-| `GetPublicKey()` | Returns the Ed25519 public key |
+| `GenerateRequest()` | Signs a daemon request JWT (header `kid=SkyPanel`, EdDSA/Ed25519 method) |
+| `ValidateRequest(token)` | Validates the JWT signature and expiration against the public key |
+| `GetKeyFunc()` | Returns `jwt.Keyfunc` (resolves the JWK key) |
+| `GetTokenStore()` | Returns the JWKS store (`jwkset.Storage`) |
+
+The private key is obtained from `config.PrivateKey` (base64, 32 byte seed) or randomly generated if it does not exist. The KID is fixed (`SkyPanel`).
 
 ## API Keys
 
 ### Format
 
-Prefix: `ak_` + token generated with `securecookie.GenerateRandomKey(32)` → hex.
+Token: `ak_<5 hex>_<43 hex>` (e.g. `ak_a1b2c3_...`). Generated with 24 random bytes (`crypto/rand`) in `services/apikey.go:GenerateKey`.
 
 ### Storage
 
 `api_keys` table with the fields:
 - `id` — auto-increment
-- `user_id` — owner
-- `token` — token hash (for validation)
-- `scopes` — JSON array of allowed scopes
-- `memo` — visible description
-- `created_at`, `updated_at`
+- `name` — descriptive name
+- `prefix` — first 8 characters (`ak_` + 5 hex), used for fast lookup
+- `hashed_key` — SHA-256 hash of the full token (hex), for validation
+- `permissions` — JSON array of allowed permissions/scopes
+- `created_at`
+
+Only the hash is stored; the full token is not stored in the DB.
 
 ### Authentication
 
@@ -97,14 +100,16 @@ Used by Provisioning API routes (`/api/v1/*`).
 
 TTY environments use `unshare` to isolate the server process:
 
-- PID namespace (separate processes)
-- Mount namespace (isolated file system)
-- Network namespace (isolated network)
+- User namespace (CLONE_NEWUSER)
+- Mount namespace (CLONE_NEWNS)
+- Cgroup namespace (CLONE_NEWCGROUP)
 - UTS namespace (separate hostname)
-- IPC namespace
+- IPC namespace (CLONE_NEWIPC)
+- CLONE_FILES (share file descriptors)
 
 Configurable with:
-- `security.disableUnshare` (bool, default false) — completely disables unshare
+- `security.disableUnshare` (bool, default false) — disables unshare globally
+- `disableUnshare` (bool, per server) — disables unshare for a specific server
 - `security.forceOpenat` (bool, default false) — forces openat() for file operations
 
 ## Trusted Proxies

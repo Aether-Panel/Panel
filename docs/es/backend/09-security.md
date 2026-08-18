@@ -7,10 +7,10 @@ El panel incluye un servidor SFTP integrado (no requiere OpenSSH). Corre en el p
 ### Autenticación
 
 La autenticación SFTP se realiza contra el panel:
-1. El cliente SFTP se conecta al daemon
-2. El daemon valida las credenciales contra el panel via API (`/daemon/sftp/auth`)
-3. Se usa autenticación por contraseña (username/password del usuario del panel)
-4. El daemon verifica que el usuario tenga el scope `server.sftp`
+1. El cliente SFTP se conecta al daemon con username/password
+2. El daemon valida las credenciales contra el panel vía el endpoint OAuth2 (`grant_type=password`, `scope=sftp`) — ver `internal/oauth2/ssh.go:validateSSH`
+3. El panel devuelve los scopes concedidos en formato `<serverId>:<scope>`; el daemon otorga acceso solo si incluye `server.sftp`
+4. Modo local (`DatabaseSFTPAuthorization`, `internal/services/sftp.go`): el username usa formato `<email>#<serverId>` y verifica el scope `server.sftp` directamente contra la BD
 
 ### Server Key
 
@@ -51,39 +51,42 @@ Usado para autenticación daemon↔panel y OAuth2.
 ### Claims
 
 ```go
-// JWT contiene:
-{
-  "sub": "serverId o clientId",
-  "iat": timestamp,
-  "exp": timestamp,
-  "scopes": ["admin", "server.console"],
-  "type": "client_credentials" | "password"
-}
+// El token de daemon (GenerateRequest) usa un JWT firmado con Ed25519.
+// Header: alg=EdDSA, kid="SkyPanel"
+// Claims: jwt.MapClaims (sin claims personalizados por defecto)
+// El panel valida firma + expiración; la identidad del nodo se resuelve
+// por el endpoint /daemon/* solicitado (el daemon se autentica con su
+// token request firmado con la clave privada del nodo).
 ```
 
 ### Servicio de Token (`internal/services/token.go`)
 
 | Método | Descripción |
 |---|---|
-| `Sign(claims)` | Firma y devuelve JWT |
-| `Validate(tokenString)` | Valida y parsea JWT |
-| `GetPublicKey()` | Devuelve la clave pública Ed25519 |
+| `GenerateRequest()` | Firma un JWT request del daemon (header `kid=SkyPanel`, método EdDSA/Ed25519) |
+| `ValidateRequest(token)` | Valida la firma y expiración del JWT contra la clave pública |
+| `GetKeyFunc()` | Devuelve `jwt.Keyfunc` (resuelve la clave JWK) |
+| `GetTokenStore()` | Devuelve el almacén JWKS (`jwkset.Storage`) |
+
+La clave privada se obtiene de `config.PrivateKey` (base64, 32 bytes seed) o se genera aleatoriamente si no existe. El KID es fijo (`SkyPanel`).
 
 ## API Keys
 
 ### Formato
 
-Prefijo: `ak_` + token generado con `securecookie.GenerateRandomKey(32)` → hex.
+Token: `ak_<5 hex>_<43 hex>` (ej. `ak_a1b2c3_...`). Generado con 24 bytes aleatorios (`crypto/rand`) en `services/apikey.go:GenerateKey`.
 
 ### Almacenamiento
 
 Tabla `api_keys` con los campos:
 - `id` — autoincremental
-- `user_id` — propietario
-- `token` — hash del token (para validación)
-- `scopes` — JSON array de scopes permitidos
-- `memo` — descripción visible
-- `created_at`, `updated_at`
+- `name` — nombre descriptivo
+- `prefix` — primeros 8 caracteres (`ak_` + 5 hex), usado para lookup rápido
+- `hashed_key` — hash SHA-256 del token completo (hex), para validación
+- `permissions` — JSON array de permisos/scopes permitidos
+- `created_at`
+
+Solo se guarda el hash; el token completo no se almacena en BD.
 
 ### Autenticación
 
@@ -97,14 +100,16 @@ Usado por las rutas de Provisioning API (`/api/v1/*`).
 
 Los entornos TTY usan `unshare` para aislar el proceso del servidor:
 
-- PID namespace (procesos separados)
-- Mount namespace (sistema de archivos aislado)
-- Network namespace (red aislada)
+- User namespace (CLONE_NEWUSER)
+- Mount namespace (CLONE_NEWNS)
+- Cgroup namespace (CLONE_NEWCGROUP)
 - UTS namespace (hostname separado)
-- IPC namespace
+- IPC namespace (CLONE_NEWIPC)
+- CLONE_FILES (compartir descriptores de archivo)
 
 Configurable con:
-- `security.disableUnshare` (bool, default false) — deshabilita completamente el unshare
+- `security.disableUnshare` (bool, default false) — deshabilita el unshare globalmente
+- `disableUnshare` (bool, por servidor) — deshabilita el unshare para un servidor concreto
 - `security.forceOpenat` (bool, default false) — fuerza openat() para operaciones de archivos
 
 ## Trusted Proxies

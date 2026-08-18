@@ -52,10 +52,10 @@ Stage 3 (alpine:3.24)
 | `SKYPANEL_DOCKER_ROOT` | Docker Root | `""` |
 | `SKYPANEL_DOCKER_DISALLOWHOST` | Force Docker | `true` |
 | `SKYPANEL_WEB_HOST` | Bind address | `0.0.0.0:8080` |
-| `SKYPANEL_PANEL_DATABASE_DIALECT` | DB Dialect | `mysql` |
+| `SKYPANEL_PANEL_DATABASE_DIALECT` | DB dialect | `mysql` |
 | `SKYPANEL_PANEL_DATABASE_URL` | Connection string | — |
 | `SKYPANEL_PANEL_SETTINGS_COMPANYNAME` | Brand | `Aether Panel` |
-| `SKYPANEL_PANEL_REGISTRATIONENABLED` | Registration open | `true` |
+| `SKYPANEL_PANEL_REGISTRATIONENABLED` | Open registration | `true` |
 | `SKYPANEL_PANEL_SETTINGS_DEFAULTTHEME` | Default theme | `SkyPanel` |
 
 ### User
@@ -209,13 +209,13 @@ Minimal image for formatting Go code. Builds the `formatter` tool and runs it on
 ## Troubleshooting
 
 ### Error: "Bind for 0.0.0.0:8080 failed: port is already allocated"
-Change port mapping:
+Change the port mapping:
 ```yaml
 ports:
   - "9000:8080"
 ```
 
-### Error: "permission denied" when connecting Docker socket
+### Error: "permission denied" when connecting the Docker socket
 Ensure the container user has permissions. In production:
 ```yaml
 user: "0:0"  # Temporary
@@ -230,7 +230,7 @@ docker logs skypanel-mysql
 ```
 
 ### Changes do not persist
-Check volumes:
+Verify the volumes:
 ```bash
 docker volume ls
 docker inspect skypanel | grep Mounts

@@ -15,28 +15,28 @@ The server system is based on the concept of **environments** (`Environment`). A
 
 ### TTY Environment (`internal/servers/tty/`)
 
--   Runs processes directly on the host operating system.
--   Uses `unshare` for namespace isolation (PID, mount, network, UTS, IPC).
--   Security options: `unshare` can be disabled with `security.disableUnshare`.
--   Implements the `EnvironmentImpl` interface with:
-    -   `ExecuteAsyncImpl` — launches the process with `os/exec` + PTY (if applicable)
-    -   `KillImpl` — sends termination signal
-    -   `GetStatsImpl` — reads `/proc` for process CPU/memory
-    -   `IsRunningImpl` — verifies process status
-    -   `GetUIDImpl` / `GetGidImpl` — process UID/GID
+- Runs processes directly on the host operating system.
+- Uses `unshare` for namespace isolation (USER, mount, cgroup, IPC, UTS).
+- Security options: `unshare` can be disabled with `security.disableUnshare` (config) or `disableUnshare` (per server).
+- Implements the `EnvironmentImpl` interface with:
+  - `ExecuteAsyncImpl` — launches the process with `os/exec` + PTY (if applicable)
+  - `KillImpl` — sends termination signal
+  - `GetStatsImpl` — reads `/proc` for process CPU/memory
+  - `IsRunningImpl` — verifies process status
+  - `GetUIDImpl` / `GetGidImpl` — process UID/GID
 
 ### Docker Environment (`internal/servers/docker/`)
 
--   Requires the Docker socket on the host.
--   Each server runs in a separate container.
--   Directories: mounts the server's `RootDirectory` into the container.
--   Networking: automatic port mapping.
--   Implements the same `EnvironmentImpl` interface.
--   Files:
-    -   `docker.go` — container creation and management
-    -   `factory.go` — `EnvironmentFactory`
-    -   `container_mount_source.go` — bind mount mounting
-    -   `imagewriter.go` — image download
+- Requires the Docker socket on the host.
+- Each server runs in a separate container.
+- Directories: mounts the server's `RootDirectory` into the container.
+- Networking: automatic port mapping.
+- Implements the same `EnvironmentImpl` interface.
+- Files:
+  - `docker.go` — container creation and management
+  - `factory.go` — `EnvironmentFactory`
+  - `container_mount_source.go` — bind mount mounting
+  - `imagewriter.go` — image download
 
 ## Environment Interface
 
@@ -109,15 +109,15 @@ The daemon maintains a **FIFO queue** of server operations to prevent overload:
 
 ```go
 var queue *list.List        // operations queue
-var startQueueTicker *time.Ticker  // processes queue every 100ms
-var statTicker *time.Ticker        // statistics every 15s
-var systemStatusTicker *time.Ticker // system status every 30s
+var startQueueTicker *time.Ticker  // processes the queue every 1s
+var statTicker *time.Ticker        // statistics every 5s
+var systemStatusTicker *time.Ticker // system status every 1min
 ```
 
--   `InitService()` starts 3 goroutines: `processQueue()`, `processStats()`, `processSystemStatus()`
--   `processStats()` collects metrics from all servers every 15s and notifies via StatsTracker
--   `processSystemStatus()` collects system metrics every 30s
--   `trackUptimeForAllServers()` records server uptime
+- `InitService()` starts 4 goroutines: `processQueue()`, `processStats()`, `processSystemStatus()`, `trackUptimeForAllServers()`
+- `processStats()` collects metrics from all servers every 5s and notifies via StatsTracker
+- `processSystemStatus()` collects system metrics every 1min
+- `trackUptimeForAllServers()` records server uptime
 
 ## Scheduler (Scheduled Tasks)
 
@@ -134,10 +134,10 @@ type Scheduler struct {
 }
 ```
 
--   Loaded from JSON file when the server starts
--   Tasks are defined as operations (command, console, etc.)
--   Can be created/edited/deleted via API
--   Integration with the process queue
+- Loaded from JSON file when the server starts
+- Tasks are defined as operations (command, console, etc.)
+- Can be created/edited/deleted via API
+- Integration with the process queue
 
 ## Server Definition (JSON)
 

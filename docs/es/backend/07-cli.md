@@ -50,7 +50,7 @@ SkyPanel user add
 SkyPanel user add --name admin --email admin@example.com --password secreto --admin
 ```
 
-Flags: `--name`, `--email`, `--password`, `--admin`
+Flags: `--name`, `--email`, `--password`, `--admin`, `--force` (recrea el usuario si ya existe)
 
 Flujo:
 1. Prompt por username (o flag)

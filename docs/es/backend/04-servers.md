@@ -16,8 +16,8 @@ El sistema de servidores se basa en el concepto de **entornos** (`Environment`).
 ### TTY Environment (`internal/servers/tty/`)
 
 - Ejecuta procesos directamente en el sistema operativo host.
-- Usa `unshare` para aislamiento de namespaces (PID, mount, network, UTS, IPC).
-- Opciones de seguridad: `unshare` se puede deshabilitar con `security.disableUnshare`.
+- Usa `unshare` para aislamiento de namespaces (USER, mount, cgroup, IPC, UTS).
+- Opciones de seguridad: `unshare` se puede deshabilitar con `security.disableUnshare` (config) o `disableUnshare` (por servidor).
 - Implementa la interfaz `EnvironmentImpl` con:
   - `ExecuteAsyncImpl` — lanza el proceso con `os/exec` + PTY (si aplica)
   - `KillImpl` — envía señal de terminación
@@ -109,14 +109,14 @@ El daemon mantiene una **cola FIFO** de operaciones de servidor para evitar sobr
 
 ```go
 var queue *list.List        // cola de operaciones
-var startQueueTicker *time.Ticker  // procesa cola cada 100ms
-var statTicker *time.Ticker        // estadísticas cada 15s
-var systemStatusTicker *time.Ticker // estado del sistema cada 30s
+var startQueueTicker *time.Ticker  // procesa cola cada 1s
+var statTicker *time.Ticker        // estadísticas cada 5s
+var systemStatusTicker *time.Ticker // estado del sistema cada 1min
 ```
 
-- `InitService()` inicia 3 goroutines: `processQueue()`, `processStats()`, `processSystemStatus()`
-- `processStats()` recolecta métricas de todos los servidores cada 15s y notifica via StatsTracker
-- `processSystemStatus()` recolecta métricas del sistema cada 30s
+- `InitService()` inicia 4 goroutines: `processQueue()`, `processStats()`, `processSystemStatus()`, `trackUptimeForAllServers()`
+- `processStats()` recolecta métricas de todos los servidores cada 5s y notifica via StatsTracker
+- `processSystemStatus()` recolecta métricas del sistema cada 1min
 - `trackUptimeForAllServers()` registra uptime de servidores
 
 ## Scheduler (Tareas Programadas)

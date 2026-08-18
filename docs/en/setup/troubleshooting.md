@@ -1,109 +1,107 @@
-# Guía de Solución de Problemas (Troubleshooting)
+# Troubleshooting Guide
 
-Este documento detalla las soluciones a problemas comunes encontrados durante el despliegue y operación de Aether Panel.
+This document details solutions to common problems encountered during the deployment and operation of Aether Panel.
 
 ---
 
-## 1. Aislamiento con Unshare (Ubuntu 24.04+)
+## 1. Isolation with Unshare (Ubuntu 24.04+)
 
-**Problema:** Error `Permission denied` al iniciar el "security jail" o el servidor de juego.
+**Problem:** `Permission denied` error when starting the "security jail" or the game server.
 
-**Causa:** Ubuntu 24.04+ restringe por defecto el uso de *unprivileged user namespaces* (`unshare`), que el panel usa para aislar procesos de servidores de juego.
+**Cause:** Ubuntu 24.04+ restricts by default the use of *unprivileged user namespaces* (`unshare`), which the panel uses to isolate game server processes.
 
-**Síntoma en logs:**
+**Symptom in logs:**
 ```
 [ERROR] error starting server testserver: fork/exec /bin/bash: operation not permitted
 ```
 
 #### Solutions:
 
-*   **Opción A (Recomendada para producción):** Habilitar los namespaces en el kernel:
+*   **Option A (Recommended for production):** Enable namespaces in the kernel:
     ```bash
     sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
     ```
-*   **Opción B (Desactivar aislamiento):** Agregar en `config.json`:
+*   **Option B (Disable isolation):** Add to `config.json`:
     ```json
     {
-        "panel": {
-            "security": {
-                "disableUnshare": true
-            }
+        "security": {
+            "disableUnshare": true
         }
     }
     ```
-    También se puede configurar por servidor en su JSON individual con `"disableUnshare": true` en la sección de entorno (tty).
+    It can also be configured per server in its individual JSON with `"disableUnshare": true` in the environment (tty) section.
 
 ---
 
-## 2. Conexión a Docker
+## 2. Docker Connection
 
-**Problema:** El panel no puede conectarse al motor Docker.
+**Problem:** The panel cannot connect to the Docker engine.
 
-**Síntoma en logs:**
+**Symptom in logs:**
 ```
 [ERROR] Cannot connect to the Docker daemon
 ```
 
-**Causa:** El panel usa el SDK de Docker con `client.FromEnv()`, que lee las variables de entorno estándar de Docker.
+**Cause:** The panel uses the Docker SDK with `client.FromEnv()`, which reads the standard Docker environment variables.
 
 #### Solutions:
 
-*   **Verificar que Docker está corriendo:**
+*   **Verify that Docker is running:**
     ```bash
     docker info
     ```
-*   **Verificar permisos del socket:** El usuario que ejecuta el panel debe tener permisos para acceder al socket de Docker:
+*   **Verify socket permissions:** The user running the panel must have permissions to access the Docker socket:
     ```bash
     sudo usermod -aG docker $USER
-    # Cerrar sesión y volver a entrar
+    # Log out and log back in
     ```
-*   **Usar Docker socket personalizado:** Configurar vía variable de entorno:
+*   **Use a custom Docker socket:** Configure via environment variable:
     ```bash
     export DOCKER_HOST=unix:///var/run/docker.sock
     ```
-*   **Ejecutando el panel dentro de Docker:** El panel detecta automáticamente `SKYPANEL_PLATFORM=docker` y omite la verificación de Docker, continuando sin el motor Docker interno.
+*   **Running the panel inside Docker:** The panel automatically detects `SKYPANEL_PLATFORM=docker` and skips the Docker verification, continuing without the internal Docker engine.
 
 ---
 
-## 3. SFTP — Conexión y Autenticación
+## 3. SFTP — Connection and Authentication
 
-**Problema:** No se puede conectar via SFTP al panel.
+**Problem:** Unable to connect to the panel via SFTP.
 
-**Puerto por defecto:** `5657`
+**Default port:** `5657`
 
 #### Solutions:
 
 **Error: `incorrect username or password`**
-*   **Autenticación por base de datos:** El formato de usuario es `email#serverId` (ej: `user@example.com#abc123`). Verificar que el usuario tenga el permiso `ScopeServerSftp` asignado.
-*   **Autenticación por OAuth2:** Verificar que el servidor de autenticación OAuth2 esté accesible y devuelva el scope `sftp` para el servidor correspondiente.
+*   **Database authentication:** The user format is `email#serverId` (e.g., `user@example.com#abc123`). Verify that the user has the `ScopeServerSftp` permission assigned.
+*   **OAuth2 authentication:** Verify that the OAuth2 authentication server is accessible and returns the `sftp` scope for the corresponding server.
 
 **Error: `error talking to auth server`**
-*   Verificar que `daemon.auth.url` apunte a la URL correcta del panel (default: `http://localhost:8080`).
-*   Verificar que `daemon.auth.clientId` y `daemon.auth.clientSecret` estén configurados.
+*   Verify that `daemon.auth.url` points to the correct panel URL (default: `http://localhost:8080`).
+*   Verify that `daemon.auth.clientId` and `daemon.auth.clientSecret` are configured.
 
 **Error: `no access` / `invalid response from authorization server`**
-*   El servidor OAuth2 rechazó las credenciales o el scope solicitado no está disponible.
+*   The OAuth2 server rejected the credentials or the requested scope is not available.
 
 **Error: `connection refused`**
-*   El puerto SFTP (5657) no está abierto o el panel no está corriendo.
-*   Verificar con: `ss -tlnp | grep 5657`
+*   The SFTP port (5657) is not open or the panel is not running.
+*   Check with: `ss -tlnp | grep 5657`
 
 ---
 
-## 4. Base de Datos
+## 4. Database
 
-**Problema:** Error de conexión a la base de datos al iniciar el panel.
+**Problem:** Database connection error when starting the panel.
 
-**Dialectos soportados:** `sqlite3`, `mysql`, `postgresql`, `sqlserver`
+**Supported dialects:** `sqlite3`, `mysql`, `postgresql`, `sqlserver`
 
-**Síntomas comunes:**
+**Common symptoms:**
 
-*   `dial tcp 127.0.0.1:3306: connect: connection refused` — MySQL/MariaDB no está corriendo.
-*   `could not load driver` — Dialecto incorrecto o controlador no compilado.
+*   `dial tcp 127.0.0.1:3306: connect: connection refused` — MySQL/MariaDB is not running.
+*   `could not load driver` — Incorrect dialect or driver not compiled.
 
 #### Solutions:
 
-*   **Para SQLite (recomendado para pruebas):**
+*   **For SQLite (recommended for testing):**
     ```json
     {
         "panel": {
@@ -114,32 +112,32 @@ Este documento detalla las soluciones a problemas comunes encontrados durante el
         }
     }
     ```
-*   **Para MySQL/MariaDB:** Verificar que el servicio esté corriendo y que el usuario tenga permisos:
+*   **For MySQL/MariaDB:** Verify that the service is running and that the user has permissions:
     ```bash
     mysql -u skypanel -p -h 127.0.0.1 skypanel
     ```
-*   **Para PostgreSQL:** Verificar `pg_hba.conf` permita conexiones desde `localhost`.
-*   **Para SQL Server:** Verificar que TCP/IP esté habilitado en la configuración del servidor.
+*   **For PostgreSQL:** Verify that `pg_hba.conf` allows connections from `localhost`.
+*   **For SQL Server:** Verify that TCP/IP is enabled in the server configuration.
 
 ---
 
-## 5. Puertos en Uso
+## 5. Ports in Use
 
-**Problema:** Error `address already in use` al iniciar el panel.
+**Problem:** `address already in use` error when starting the panel.
 
-**Puertos por defecto:**
-| Servicio | Puerto | Config Key |
+**Default ports:**
+| Service | Port | Config Key |
 |----------|--------|------------|
 | HTTP (Web) | `8080` | `web.host` |
 | SFTP | `5657` | `daemon.sftp.host` |
 
 #### Solutions:
 
-*   **Verificar qué proceso está usando el puerto:**
+*   **Check which process is using the port:**
     ```bash
     ss -tlnp | grep -E '8080|5657'
     ```
-*   **Cambiar el puerto** en `config.json`:
+*   **Change the port** in `config.json`:
     ```json
     {
         "web": {
@@ -152,7 +150,7 @@ Este documento detalla las soluciones a problemas comunes encontrados durante el
         }
     }
     ```
-*   También se puede cambiar vía variables de entorno:
+*   It can also be changed via environment variables:
     ```bash
     export SKYPANEL_WEB_HOST=0.0.0.0:9090
     export SKYPANEL_DAEMON_SFTP_HOST=0.0.0.0:6565
@@ -160,47 +158,47 @@ Este documento detalla las soluciones a problemas comunes encontrados durante el
 
 ---
 
-## 6. Permisos de Archivos (UID/GID)
+## 6. File Permissions (UID/GID)
 
-**Problema:** Archivos creados por el panel tienen dueños incorrectos o errores de permisos.
+**Problem:** Files created by the panel have incorrect owners or permission errors.
 
-**Comportamiento:** El panel asigna UID/GID a los archivos del servidor según el usuario configurado. Si el UID es `-1`, no se cambia la propiedad (usa el usuario del proceso).
+**Behavior:** The panel assigns UID/GID to server files based on the configured user. If the UID is `-1`, ownership is not changed (it uses the process user).
 
 #### Solutions:
 
-*   **Verificar el UID/GID del proceso del panel:**
+*   **Verify the UID/GID of the panel process:**
     ```bash
     ps aux | grep skypanel
     ```
-*   **Los contenedores Docker** heredan el UID/GID del proceso del panel automáticamente.
-*   **Entorno TTY con unshare:** El proceso dentro del jail se ejecuta como root (UID 0) mapeado al usuario real del sistema. Los archivos creados dentro del jail pertenecerán al usuario real fuera del jail.
-*   **Si hay errores de permisos** al leer/escribir archivos del servidor, verificar que el usuario del panel tenga acceso a los directorios `servers/`, `cache/` y `binaries/`.
+*   **Docker containers** inherit the UID/GID of the panel process automatically.
+*   **TTY environment with unshare:** The process inside the jail runs as root (UID 0) mapped to the real system user. Files created inside the jail will belong to the real user outside the jail.
+*   **If there are permission errors** reading/writing server files, verify that the panel user has access to the `servers/`, `cache/`, and `binaries/` directories.
 
 ---
 
-## 7. CORS — Conexiones desde el Frontend
+## 7. CORS — Connections from the Frontend
 
-**Problema:** El frontend no puede hacer peticiones a la API (errores CORS en consola del navegador).
+**Problem:** The frontend cannot make requests to the API (CORS errors in the browser console).
 
-**Comportamiento:** El panel permite **todos los orígenes** (`AllowOriginFunc` siempre retorna `true`). Esto es intencional para soportar despliegues donde el frontend y backend están en dominios separados.
+**Behavior:** The panel allows **all origins** (`AllowOriginFunc` always returns `true`). This is intentional to support deployments where the frontend and backend are on separate domains.
 
 #### Solutions:
 
-*   Si hay errores CORS, verificar que el frontend esté usando la URL correcta de la API.
-*   Verificar que los headers `Authorization` y `Content-Type` estén incluidos en las peticiones.
-*   Si se usa un proxy reverso (nginx, Caddy) que modifica headers, asegurarse de que no quite los headers CORS.
+*   If there are CORS errors, verify that the frontend is using the correct API URL.
+*   Verify that the `Authorization` and `Content-Type` headers are included in the requests.
+*   If a reverse proxy (nginx, Caddy) that modifies headers is used, make sure it does not strip the CORS headers.
 
 ---
 
-## 8. Variables de Entorno y Configuración
+## 8. Environment Variables and Configuration
 
-**Problema:** El panel no usa los valores que configuraste.
+**Problem:** The panel does not use the values you configured.
 
-**Comportamiento:** Todas las configuraciones de `config.json` se pueden sobrescribir con variables de entorno con prefijo `SKYPANEL_` y reemplazando `.` por `_`.
+**Behavior:** All `config.json` settings can be overridden with environment variables using the `SKYPANEL_` prefix and replacing `.` with `_`.
 
-### Ejemplos:
+### Examples:
 
-| Variable de Entorno | Config JSON |
+| Environment Variable | Config JSON |
 |---------------------|-------------|
 | `SKYPANEL_WEB_HOST` | `web.host` |
 | `SKYPANEL_DAEMON_SFTP_HOST` | `daemon.sftp.host` |
@@ -209,35 +207,35 @@ Este documento detalla las soluciones a problemas comunes encontrados durante el
 | `SKYPANEL_LOGS` | `logs` |
 | `SKYPANEL_PANEL_SETTINGS_COMPANYNAME` | `panel.settings.companyName` |
 
-Las variables de entorno **tienen prioridad** sobre el archivo `config.json`.
+Environment variables **take precedence** over the `config.json` file.
 
 ---
 
-## 9. Logs y Depuración
+## 9. Logs and Debugging
 
-**Problema:** Necesitas más información para diagnosticar un error.
+**Problem:** You need more information to diagnose an error.
 
-**Comportamiento:** El panel escribe logs en `logs/skypanel.log` con rotación automática al recibir `SIGUSR1`.
+**Behavior:** The panel writes logs to `logs/skypanel.log` with automatic rotation upon receiving `SIGUSR1`.
 
-**Niveles de log:**
-| Prefijo | Nivel | Destino |
+**Log levels:**
+| Prefix | Level | Destination |
 |---------|-------|---------|
-| `[ERROR]` | Error | Stderr + archivo |
-| `[INFO]` | Info | Stdout + archivo |
-| `[DEBUG]` | Debug | Stdout + archivo |
-| `[SERVER]` | Servidor | Stdout + archivo |
+| `[ERROR]` | Error | Stderr + file |
+| `[INFO]` | Info | Stdout + file |
+| `[DEBUG]` | Debug | Stdout + file |
+| `[SERVER]` | Server | Stdout + file |
 
 #### Solutions:
 
-*   **Ver logs en tiempo real:**
+*   **View logs in real time:**
     ```bash
     tail -f logs/skypanel.log
     ```
-*   **Forzar rotación de logs** (sin reiniciar el panel):
+*   **Force log rotation** (without restarting the panel):
     ```bash
     kill -USR1 $(pidof SkyPanel)
     ```
-*   **Aumentar nivel de detalle:** Iniciar con `GIN_MODE=debug` para ver todas las rutas HTTP:
+*   **Increase detail level:** Start with `GIN_MODE=debug` to see all HTTP routes:
     ```bash
     GIN_MODE=debug ./SkyPanel run
     ```
@@ -246,26 +244,26 @@ Las variables de entorno **tienen prioridad** sobre el archivo `config.json`.
 
 ## 10. SSL/TLS (HTTPS)
 
-**Problema:** Necesitas HTTPS para producción.
+**Problem:** You need HTTPS for production.
 
-**Comportamiento:** El panel **no incluye soporte nativo para HTTPS**. Escucha únicamente en HTTP plano.
+**Behavior:** The panel **does not include native HTTPS support**. It listens only on plain HTTP.
 
-### Solución:
+### Solution:
 
-Usar un proxy reverso para terminación SSL (nginx, Caddy, Traefik):
+Use a reverse proxy for SSL termination (nginx, Caddy, Traefik):
 
-**Ejemplo con Caddy:**
+**Example with Caddy:**
 ```caddyfile
-panel.tudominio.com {
+panel.yourdomain.com {
     reverse_proxy localhost:8080
 }
 ```
 
-**Ejemplo con nginx:**
+**Example with nginx:**
 ```nginx
 server {
     listen 443 ssl;
-    server_name panel.tudominio.com;
+    server_name panel.yourdomain.com;
 
     ssl_certificate /etc/ssl/certs/panel.crt;
     ssl_certificate_key /etc/ssl/private/panel.key;
@@ -280,7 +278,7 @@ server {
 }
 ```
 
-Si usas un proxy de confianza, configurar en `config.json`:
+If you use a trusted proxy, configure in `config.json`:
 ```json
 {
     "security": {
@@ -292,66 +290,66 @@ Si usas un proxy de confianza, configurar en `config.json`:
 
 ---
 
-## 11. Migraciones de Base de Datos
+## 11. Database Migrations
 
-**Problema:** Error al ejecutar migraciones o el panel no arranca después de una actualización.
+**Problem:** Error running migrations or the panel does not start after an update.
 
 #### Solutions:
 
-*   **Ejecutar migraciones manualmente:**
+*   **Run migrations manually:**
     ```bash
     ./SkyPanel db upgrade
     ```
-    Este comando realiza un backup automático antes de migrar.
-*   **Si la migración falla**, verificar que el usuario de base de datos tenga permisos para crear/modificar tablas.
-*   **SQLite:** El archivo `skypanel.db` debe tener permisos de escritura para el usuario del panel.
+    This command performs an automatic backup before migrating.
+*   **If the migration fails**, verify that the database user has permissions to create/modify tables.
+*   **SQLite:** The `skypanel.db` file must have write permissions for the panel user.
 
 ---
 
-## 12. Plantillas (Templates)
+## 12. Templates
 
-**Problema:** El panel carga el índice de plantillas pero falla al descargar plantillas individuales.
+**Problem:** The panel loads the template index but fails to download individual templates.
 
-**Causa:** La URL configurada en `templates.url` apunta a un servidor que solo tiene el `templates.json` pero no los archivos JSON de cada plantilla.
+**Cause:** The URL configured in `templates.url` points to a server that only has the `templates.json` but not the JSON files for each template.
 
-**Solución:** Asegurarse de que el servidor de plantillas tenga la estructura completa. Si `templates.json` referencia `minecraft/minecraft.json`, ese archivo debe ser accesible en la misma ruta base.
+**Solution:** Make sure the template server has the complete structure. If `templates.json` references `minecraft/minecraft.json`, that file must be accessible at the same base path.
 
 ---
 
-## 13. AI Asistente (Google GenAI)
+## 13. AI Assistant (Google GenAI)
 
-**Problema:** El asistente AI no responde o muestra errores.
+**Problem:** The AI assistant does not respond or shows errors.
 
-**Causa:** No se ha configurado la API Key de Google Gemini.
+**Cause:** The Google Gemini API Key has not been configured.
 
-**Solución:** Configurar en `config.json`:
+**Solution:** Configure in `config.json`:
 ```json
 {
     "panel": {
         "settings": {
-            "geminiApiKey": "tu-api-key-de-gemini"
+            "geminiApiKey": "your-gemini-api-key"
         }
     }
 }
 ```
-O vía variable de entorno:
+Or via environment variable:
 ```bash
-export SKYPANEL_PANEL_SETTINGS_GEMINIAPIKEY=tu-api-key-de-gemini
+export SKYPANEL_PANEL_SETTINGS_GEMINIAPIKEY=your-gemini-api-key
 ```
 
 ---
 
-## 14. Archivo de Configuración
+## 14. Configuration File
 
-**Problema:** El panel no encuentra o ignora el archivo de configuración.
+**Problem:** The panel cannot find or ignores the configuration file.
 
-**Comportamiento:** Por defecto, el panel busca `config.json` en el directorio de trabajo actual. Se puede especificar una ruta personalizada con la flag `--config` o la variable de entorno `SKYPANEL_CONFIG`.
+**Behavior:** By default, the panel looks for `config.json` in the current working directory. A custom path can be specified with the `--config` flag or the `SKYPANEL_CONFIG` environment variable.
 
-### Archivos de configuración incluidos:
+### Included configuration files:
 
-*   `config.json` — Configuración principal (personalizable).
-*   `config.docker.json` — Configución predefinida para entorno Docker.
-*   `config.linux.json` — Configuración predefinida para Linux (SQLite local).
+*   `config.json` — Main configuration (customizable).
+*   `config.docker.json` — Predefined configuration for the Docker environment.
+*   `config.linux.json` — Predefined configuration for Linux (local SQLite).
 
 ```bash
 ./SkyPanel run --config config.linux.json
@@ -359,18 +357,18 @@ export SKYPANEL_PANEL_SETTINGS_GEMINIAPIKEY=tu-api-key-de-gemini
 
 ---
 
-## 15. Resolución de Problemas General
+## 15. General Troubleshooting
 
-Si ninguna de las soluciones anteriores resuelve tu problema:
+If none of the above solutions resolves your problem:
 
-1.  **Revisar los logs completos:**
+1.  **Review the complete logs:**
     ```bash
     cat logs/skypanel.log | grep ERROR
     ```
-2.  **Verificar la versión del panel:**
+2.  **Check the panel version:**
     ```bash
     ./SkyPanel version
     ```
-3.  **Verificar conectividad de red:** Asegurarse de que los puertos necesarios (8080, 5657) estén accesibles desde los clientes.
-4.  **Verificar espacio en disco:** El panel necesita espacio para logs, caché de plantillas y servidores de juego.
-5.  **Reportar el problema** en [Discord](https://discord.gg/aetherpanel) o abrir un issue en [GitHub](https://github.com/Aether-Panel/Panel/issues) incluyendo los logs relevantes.
+3.  **Check network connectivity:** Make sure the required ports (8080, 5657) are accessible from the clients.
+4.  **Check disk space:** The panel needs space for logs, template cache, and game servers.
+5.  **Report the problem** on [Discord](https://discord.gg/aetherpanel) or open an issue on [GitHub](https://github.com/Aether-Panel/Panel/issues) including the relevant logs.

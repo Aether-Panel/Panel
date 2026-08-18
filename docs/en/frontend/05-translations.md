@@ -1,17 +1,17 @@
-# Internacionalización (i18n)
+# Internationalization (i18n)
 
-El frontend usa un sistema de traducciones propio basado en React Context con archivos JSON planos, sin dependencias externas de i18n.
+The frontend uses its own translation system based on React Context with plain JSON files, without external i18n dependencies.
 
-## Archivos de Traducción
+## Translation Files
 
-Los archivos están en `src/lib/locales/`:
+The files are located in `src/lib/locales/`:
 
-| Archivo | Idioma |
+| File | Language |
 |---|---|
-| `en.json` (880 líneas) | Inglés |
-| `es.json` | Español |
+| `en.json` (1094 lines) | English |
+| `es.json` (1094 lines) | Spanish |
 
-Estructura de claves anidadas con notación de puntos:
+Nested keys structure with dot notation:
 
 ```json
 {
@@ -28,28 +28,28 @@ Estructura de claves anidadas con notación de puntos:
 }
 ```
 
-## Contexto (`src/contexts/translations-context.tsx`)
+## Context (`src/contexts/translations-context.tsx`)
 
-`TranslationsProvider` envuelve la aplicación y expone:
+`TranslationsProvider` wraps the application and exposes:
 
-| Propiedad | Tipo | Descripción |
+| Property | Type | Description |
 |---|---|---|
-| `language` | `'en' \| 'es'` | Idioma activo |
-| `setLanguage(lang)` | función | Cambia el idioma y lo persiste en localStorage |
-| `t(key, options?)` | función | Traduce una clave con interpolación opcional |
+| `language` | `'en' \| 'es'` | Active language |
+| `setLanguage(lang)` | function | Changes the language and persists it to localStorage |
+| `t(key, options?)` | function | Translates a key with optional interpolation |
 
-### Función `t()`
+### `t()` function
 
-- Resuelve claves anidadas con notación de puntos: `t('sidebar.dashboard')` → `"Dashboard"`
-- Si la clave no existe en el idioma actual, fallback a inglés.
-- Si tampoco existe en inglés, devuelve la clave literal.
-- Soporta interpolación: `t('welcome', { name: 'Admin' })` reemplaza `{{name}}`.
+- Resolves nested keys with dot notation: `t('sidebar.dashboard')` → `"Dashboard"`
+- If the key does not exist in the current language, fallback to English.
+- If it does not exist in English either, it returns the literal key.
+- Supports interpolation: `t('welcome', { name: 'Admin' })` replaces `{{name}}`.
 
-### Persistencia
+### Persistence
 
-El idioma se guarda en `localStorage` bajo la clave `aether_panel_language`. Por defecto es `'es'`.
+The language is stored in `localStorage` under the key `aether_panel_language`. By default it is `'es'`.
 
-## Uso en Componentes
+## Usage in Components
 
 ```tsx
 import { useTranslations } from '@/contexts/translations-context';
@@ -68,6 +68,6 @@ function Sidebar() {
 }
 ```
 
-## Cobertura
+## Coverage
 
-Las traducciones cubren: sidebar, menú de usuario, perfil/configuración, servidores, nodos, usuarios, roles, templates, settings, bases de datos, dashboard, formularios, validaciones, notificaciones y estados de carga/vacío/error.
+The translations cover: sidebar, user menu, profile/settings, servers, nodes, users, roles, templates, settings, databases, dashboard, forms, validations, notifications, and loading/empty/error states.

@@ -15,7 +15,7 @@
 | Scheduling | **gocron** (`go-co-op/gocron/v2`) |
 | WebSocket | **gorilla/websocket** |
 | SFTP | **pkg/sftp** (proprietary, not OpenSSH) |
-| Containers | **Docker SDK** (`docker/docker` v28) |
+| Containers | **Docker SDK** (`github.com/moby/moby` api v1.55 + client v0.5) |
 | Server Query | **minequery** (game server query) |
 | AI | **Gemini API** (Google GenAI) |
 | Template Engine | Go `text/template` |
@@ -42,7 +42,7 @@ internal/
 │   ├── loader.go       → openConnection, GetConnection, Close
 │   └── upgrade.go      → gormigrate (versioned migrations)
 ├── models/             → 21 GORM models (Server, User, Node, etc.)
-├── services/           → 21 services (business layer)
+├── services/           → 19 services (business layer)
 ├── middleware/         → 6 Gin middleware
 ├── web/               → HTTP Layer
 │   ├── loader.go      → RegisterRoutes (main router)
@@ -56,22 +56,23 @@ internal/
 │   ├── env_loader.go  → Environment factory (Docker/TTY)
 │   ├── scheduler.go   → per-server gocron scheduler
 │   ├── docker/        → Docker Implementation
-│   └── tty/           → TTY Implementation (host/standard/bubblewrap)
-├── operations/        → Operations System (25 types)
+│   └── tty/           → TTY Implementation (host/standard)
+├── operations/        → Operations System (26 types)
 ├── connections/       → RCON, Telnet, WebSocket RCON
 ├── sftp/              → Integrated SFTP server
-├── scopes/            → 73 typed permission scopes
+├── scopes/            → 74 typed permission scopes
 ├── oauth2/            → OAuth2 Logic (grant types)
 ├── email/             → Email Provider (Mailgun, SMTP)
 ├── response/          → HTTP Response Utilities
 ├── logging/           → Custom Logger
 ├── query/             → Game server query
-├── storage/           → Storage Abstraction
+├── storage/           → Docker volumes (mysql-data, skypanel-config, skypanel-logs)
+├── update/            → Panel self-update via Docker
 ├── groups/            → System group verification
 ├── utils/             → General Utilities
 ├── sys/               → Syscalls and namespace manipulation
 ├── systemd/           → systemd integration (notify, watchdog)
-└── services/          → 21 business services (GORM queries)
+└── services/          → 19 business services (GORM queries)
 
 pkg/skypanel/          → Public Shared Package
 ├── server.go          → Server definition, DaemonServer interface
@@ -146,4 +147,4 @@ The binary can run in two simultaneous modes:
 | **Panel** | `panel.enable` (default: true) | REST API, Auth, OAuth2, Static Frontend, SFTP |
 | **Daemon** | `daemon.enable` (default: true) | Proxy to nodes, authentication against panel |
 
-Both modes can run together (monolith) or separately (central panel + daemon nodes). The daemon authenticates against the panel using OAuth2 Client Credentials.
+Both modes can run together (monolith) or separately (central panel + daemon nodes). The daemon authenticates against the panel using a **JWT signed with Ed25519** (a request token signed with the daemon's private key, sent as `Authorization: Bearer` and validated by the panel), not OAuth2.

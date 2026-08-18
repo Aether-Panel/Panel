@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Aether Panel is an open source game server panel, published under the Apache 2.0 license. All source code is publicly available on GitHub for review, auditing, and contribution. This privacy policy explains how we handle data on our community site and website.
+Aether Panel is an open source panel published under the Apache 2.0 license. All source code is publicly available on GitHub for review, audit, and contribution. This privacy policy explains how we handle data in our community and on the website.
 
 Since Aether Panel runs on your own server (self-hosted), **we do not have access to your installation or the data it contains**. All information about your servers, users, and configuration stays local on your infrastructure. This policy primarily covers your interaction with our community (Discord, GitHub, website).
 
@@ -16,7 +16,7 @@ This philosophy sets us apart from other panels that, as forks or similar projec
 
 ### Real Open Source, No Tricks
 
-All code is on GitHub under Apache 2.0 license. No enterprise versions, no hidden premium features, no covert telemetry. What you see is what you get.
+The panel core is on GitHub under the Apache 2.0 license. No enterprise versions, no hidden premium features, no covert telemetry. Addons for integrations with closed-source software (WHMCS) may have a cost to cover licenses and maintenance, but the panel itself is and will always be free.
 
 ### Privacy by Design
 
@@ -28,7 +28,7 @@ You are not a customer because we don't sell anything. You are part of a communi
 
 ### Total Transparency
 
-Being open source (Apache 2.0), anyone can audit the code. No closed binaries, no mandatory cloud services, no surprises.
+Being open source (Apache 2.0), anyone can audit the code. No closed binaries, no mandatory cloud services, no surprises. The main panel is completely transparent.
 
 
 ## Data We Collect
@@ -76,7 +76,7 @@ The limited data we collect (community only) is used exclusively for:
 
 **What we do NOT do (and never will):**
 
-All development is funded by voluntary community donations. There is no economic incentive to compromise your privacy.
+The main panel is and will always be completely free and open source. The only addons that could have a cost are integrations with third-party closed-source software (like WHMCS), whose development and maintenance requires covering licenses and infrastructure. These will be sold at the lowest possible price to only cover costs.
 
 ### Project Improvement
 
@@ -96,7 +96,7 @@ Voting helps us know which features to prioritize. Results are public.
 - We do not collect panel usage statistics
 - We have no mandatory cloud services
 - We do not monetize user data
-- We do not put features behind paywalls — all code is Apache 2.0, all free
+- The main panel is 100% free and open source (Apache 2.0) — we will never put panel features behind a paywall
 
 ## Open Source Transparency
 
@@ -218,20 +218,21 @@ As a non-profit open source project, we respond to the best of our ability. Your
 
 ## In Summary
 
-Aether Panel is an open source game server panel. This means:
+Aether Panel is an open source game server management panel. This means:
 
 Don't trust us, trust the code. Everything is on GitHub for you to verify.
 
-- The code is 100% public and auditable (Apache 2.0 license)
+- The panel code is 100% public and auditable (Apache 2.0 license)
 - The panel runs on YOUR server — we see nothing
-- No telemetry, trackers, or data collection
-- No paid premium features — everything is free
+- No telemetry, trackers, or data collection in the panel
+- The main panel is free — no paid premium features
 - We only collect data if you voluntarily interact with our community
-- We are open source — we build in the open and contribute back to the open source community
+- We are open source — we build in the open and contribute back to the community
+- Integrations with closed-source software (WHMCS) may have a cost to cover licenses and maintenance, but the base panel is and will always be free
 
 ## Paid Modules
 
-The core Aether Panel is and will always be 100% free and open source (MIT). However, integration modules with third-party software may have an associated cost.
+The main Aether Panel is and will always be 100% free and open source (Apache 2.0). However, integration modules with third-party software may have an associated cost.
 
 We are currently developing a WHMCS integration module (billing and automation platform). WHMCS is closed-source software that requires a paid license. The WHMCS module for Aether Panel will have a cost because:
 

@@ -58,9 +58,9 @@ Aether Panel puede instalarse de tres formas diferentes. Elige la que mejor se a
 - Instalación Manual: Para usuarios avanzados que quieren control total
 
 - **linuxTitle**: Método 1: Instalación Automática con Script
-- **linuxP1**: Este es el método más recomendado. El script detecta tu sistema operativo e instala todo automáticamente.
+- **linuxP1**: Este es el método más recomendado. El script instala Docker (si falta), clona el repositorio, construye la imagen y configura el servicio.
 - **linuxP2**: Ejecuta el siguiente comando como root o con sudo para iniciar la instalación:
-- **linuxCode**: bash <(curl -s https://install.aetherpanel.es/install.sh)
+- **linuxCode**: bash -c "$(curl -s https://install.aetherpanel.es/install.sh)"
 - **linuxP3**: O descarga el script primero y luego ejecútalo:
 - **linuxCode2**: # Descargar el script
 wget https://install.aetherpanel.es/install.sh
@@ -74,21 +74,20 @@ sudo bash install.sh
 
 Durante la instalación, el script te preguntará:
 
-- Tipo de instalación: ¿Con Docker o sin Docker?
-- Dominio o IP: ¿Quieres usar un dominio o solo IP?
+- ¿Usar un dominio o solo IP? (si usas dominio, configura Nginx como proxy reverso)
 - SSL: ¿Quieres configurar SSL con Let's Encrypt? (solo si usas dominio)
 - Puertos: ¿Quieres cambiar los puertos por defecto? (opcional)
 
 ### El script de instalación realizará los siguientes pasos:
 
 - Detectará automáticamente tu sistema operativo (Ubuntu, Debian, Fedora, CentOS, RHEL)
-- Instalará todas las dependencias necesarias (Go, Node.js, Yarn, etc.)
-- Configurará el firewall y abrirá los puertos necesarios
-- Clonará el repositorio desde GitHub
-- Compilará el frontend y backend
-- Configurará Nginx como proxy reverso
-- Creará el servicio systemd para ejecución automática
-- Te permitirá configurar dominio y SSL con Let's Encrypt
+- Instalará Docker y Docker Compose v2 (si no están presentes)
+- Clonará el repositorio desde https://github.com/Aether-Panel/Panel.git
+- Construirá la imagen con `docker compose build` (rama dev2.0)
+- Configurará Nginx como proxy reverso (solo si usas dominio)
+- Configurará SSL con Let's Encrypt (opcional)
+- Creará el usuario administrador inicial
+- Iniciará los contenedores con `docker compose up -d`
 
 - **dockerTitle**: Método 2: Instalación con Docker
 - **dockerP1**: Si prefieres usar Docker, puedes desplegar Aether Panel con Docker Compose. Este método es ideal si ya estás familiarizado con Docker.
@@ -156,7 +155,7 @@ docker compose up -d
 
 #### 5. Verificar que los contenedores estén corriendo
 
-Deberías ver los contenedores 'aetherpanel' y 'aetherpanel-mysql' (si configuraste MySQL) con estado 'Up'.
+Deberías ver los contenedores 'skypanel' y 'skypanel-mysql' con estado 'Up'.
 
 ```text
 docker compose ps
@@ -170,43 +169,7 @@ Presiona Ctrl+C para salir de los logs.
 docker compose logs -f
 ```
 
-### Opción rápida: Usar imagen pre-construida
-
-Si prefieres no compilar desde el código fuente, puedes usar la imagen pre-construida de Docker:
-
-Este comando descargará la imagen más reciente y ejecutará el panel con persistencia de datos.
-
-```text
-docker run -d \
-  --name skypanel \
-  -p 8080:8080 \
-  -p 5657:5657 \
-  -v skypanel-config:/etc/SkyPanel \
-  -v skypanel-data:/var/lib/SkyPanel \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  --restart=always \
-  ghcr.io/aether-panel/panel:latest
-```
-
-### Opción con Docker Compose (simplificada)
-
-También puedes usar este docker-compose.yml simplificado:
-
-Inicia el servicio con: docker compose up -d
-
-```text
-services:
-  skypanel:
-    image: ghcr.io/aether-panel/panel:latest
-    ports:
-      - "8080:8080"
-      - "5657:5657"
-    volumes:
-      - ./config:/etc/SkyPanel
-      - ./data:/var/lib/SkyPanel
-      - /var/run/docker.sock:/var/run/docker.sock
-    restart: always
-```
+> **Nota:** No existe una imagen pre-construida publicada. La imagen se construye siempre desde el `Dockerfile` del repositorio (`docker compose build` o `docker compose up -d --build`).
 
 ### Crear Usuario Administrador (Docker)
 
@@ -238,7 +201,7 @@ http://<IP-DE-SU-SERVIDOR>:8080
 ```
 
 - **nativeTitle**: Método 3: Instalación Manual (Sin Docker)
-- **nativeP1**: Para instalar manualmente sin Docker, necesitas compilar el panel tú mismo. Este método te da control total sobre el proceso.
+- **nativeP1**: **No existe un modo nativo soportado.** La instalación oficial es solo vía Docker. Si aún así quieres compilar el panel desde el código fuente (por ejemplo, para desarrollo), puedes hacerlo siguiendo estos pasos, pero no es el método de instalación recomendado ni el que usa el instalador automático.
 ### Instalar Dependencias Manualmente
 
 #### Ubuntu/Debian
@@ -571,7 +534,7 @@ Si quieres usar nodos remotos:
 - Ve a Admin  Nodos
 - Haz clic en 'Crear Nodo'
 - Ingresa la IP del nodo remoto
-- Ingresa el puerto del daemon (por defecto 5656)
+- Ingresa el puerto del daemon (por defecto 8080)
 - Ingresa el token de autenticación del daemon
 - Verifica la conexión
 - Guarda el nodo

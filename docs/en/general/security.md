@@ -4,7 +4,7 @@
 
 Security is a fundamental priority in Aether Panel. This document covers the built-in security features and best practices for keeping your installation secure.
 
-Aether Panel includes multiple security layers: Bearer token and HttpOnly cookie authentication, SHA256-hashed sessions, bcrypt password encryption, Ed25519-signed JWTs, a system of ~80 granular scopes, and TOTP 2FA support. The panel does not handle TLS directly — you must use a reverse proxy like Nginx or Caddy for HTTPS.
+Aether Panel includes multiple security layers: Bearer token and HttpOnly cookie authentication, SHA256-hashed sessions, bcrypt encryption for passwords, Ed25519-signed JWTs, a system of 74 granular scopes, and TOTP 2FA support. The panel does not handle TLS directly — you must use a reverse proxy like Nginx or Caddy for HTTPS.
 
 ## Authentication
 
@@ -22,7 +22,7 @@ For API access, the panel prioritizes the `Authorization: Bearer <token>` header
 
 #### Integrated OAuth2 Server
 
-The panel includes a full OAuth2 server. Endpoints are at `/oauth2/token` (generate token) and `/oauth2/revoke` (revoke). Uses the Client Credentials flow. Public keys are available at `/oauth2/jwks`. Tokens are Ed25519 (EdDSA) signed JWTs.
+The panel includes an OAuth2 server. The endpoint is at `/oauth2/token` (generate token). It uses the Client Credentials flow (panel↔node authentication) and Password (SFTP authentication). Public keys are available at `/auth/publickey` in JWKS format. Tokens are Ed25519 (EdDSA) signed JWTs.
 
 - Client Credentials authentication for integrations
 - Ed25519-signed JWT tokens (auto-generated key on first start)
@@ -32,7 +32,7 @@ The panel includes a full OAuth2 server. Endpoints are at `/oauth2/token` (gener
 
 #### Two-Factor Authentication (2FA/TOTP)
 
-Aether Panel supports TOTP (Time-based One-Time Password) for two-factor authentication. When a user has 2FA enabled, they are prompted for the OTP code after login. The code must be entered within a 5-minute window. Compatible with Google Authenticator, Authy, Microsoft Authenticator, etc.
+Aether Panel supports TOTP (Time-based One-Time Password) for two-factor authentication. When a user has 2FA enabled, they are prompted for the OTP code after login. The code must be entered within a 5-minute window from login. Compatible with Google Authenticator, Authy, Microsoft Authenticator, etc.
 
 ##### Setting Up 2FA
 
@@ -64,11 +64,11 @@ Passwords in Aether Panel are protected with:
 
 ## Authorization & Permissions
 
-The panel uses a permission system based on ~80 granular scopes. Each API route requires one or more specific scopes. The `RequiresPermission` middleware verifies scopes before processing each request.
+The panel uses a permission system based on 74 granular scopes. Each API route requires one or more specific scopes. The `RequiresPermission` middleware verifies scopes before processing each request.
 
 ### Scope System
 
-Scopes control access to specific features. Examples of the ~80 defined scopes:
+Scopes control access to specific features. Examples of the 74 defined scopes (50 server-specific + 24 global):
 
 - admin — Full administrative access (inherits all scopes)
 - server.view — View server information
@@ -227,7 +227,7 @@ sudo firewall-cmd --permanent --add-port=8081/tcp
 # Apply changes
 sudo firewall-cmd --reload
 
-# List ports
+# Check rules
 sudo firewall-cmd --list-ports
 ```
 

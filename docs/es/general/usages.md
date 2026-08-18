@@ -132,7 +132,7 @@ En la sección "Usuarios", puedes crear nuevas cuentas de usuario y asignarlas a
 
 ### Sistema de Permisos (Scopes)
 
-Aether Panel usa ~80 scopes granulares que controlan cada acción. Los permisos pueden asignarse a nivel global (afectan a todos los servidores) o a nivel de servidor individual. También existen roles que agrupan scopes para asignación masiva.
+Aether Panel usa 74 scopes granulares (50 específicos de servidor + 24 globales) que controlan cada acción. Los permisos pueden asignarse a nivel global (afectan a todos los servidores) o a nivel de servidor individual. También existen roles que agrupan scopes para asignación masiva.
 
 #### Categorías de Scopes
 

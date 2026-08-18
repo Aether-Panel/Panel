@@ -48,7 +48,7 @@ The container runs as root (`user: "0:0"`), which avoids permission issues.
 **Solution in development (`docker-compose.dev.yml`):**
 Uses `privileged: true` and `user: "0:0"`, which also avoids restrictions.
 
-### Host does not have Docker
+### The host does not have Docker
 
 If the panel runs without Docker on the host (e.g., server without Docker), disable Docker usage:
 

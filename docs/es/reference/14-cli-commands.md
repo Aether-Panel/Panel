@@ -76,7 +76,7 @@ go build -o skypanel ./cmd/panel
 
 ### Build con Versión Personalizada
 ```bash
-go build -ldflags "-X 'github.com/SkyPanel/SkyPanel/v3.Version=1.2.0' -X 'github.com/SkyPanel/SkyPanel/v3.Hash=$(git rev-parse --short HEAD)'" -o skypanel ./cmd/panel
+go build -ldflags "-X 'github.com/SkyPanel/SkyPanel/v3/pkg/skypanel.Version=1.2.0' -X 'github.com/SkyPanel/SkyPanel/v3/pkg/skypanel.Hash=$(git rev-parse --short HEAD)'" -o skypanel ./cmd/panel
 ```
 
 ### Usando Makefile

@@ -2,15 +2,15 @@
 
 What is Aether Panel?
 
-Aether Panel is an open source game server management panel. It is built with Go 1.25 (Gin + GORM) for the backend and a modern frontend with Astro + React 19. It runs on your own server (self-hosted) and lets you manage Minecraft, Terraria, Valheim, and more game servers from a web interface.
+Aether Panel is an open source game server management panel. It is built with Go 1.25 (Gin + GORM) for the backend and a modern frontend with Astro + React 19. It runs on your own server (self-hosted) and lets you manage Minecraft, Terraria, Valheim, and more servers from a web interface.
 
 Is Aether Panel free?
 
-Yes, the core panel is 100% free and open source under the Apache 2.0 license. All panel features are free with no exceptions. There may be integration modules with third-party closed-source software (like WHMCS) that have a cost to cover licenses and maintenance, but the panel itself is and will always be free.
+Yes, the main panel is 100% free and open source under the Apache 2.0 license. All panel features are free with no exceptions. There may be integration modules with third-party closed-source software (like WHMCS) that have a cost to cover licenses and maintenance, but the panel itself is and will always be free.
 
 How is Aether Panel different from other panels?
 
-Aether Panel is an independent panel. We maintain compatibility with the original core but add our own improvements, a renewed frontend with Astro + React 19, community integration (suggestions, voting), a marketing website with documentation, and additional features like external transfers between panels and integrated Gatus monitoring.
+Aether Panel is an independent panel. We maintain compatibility with the original core but add our own improvements, a renewed frontend with Astro + React 19, community integration (suggestions, voting), a marketing website and documentation, and additional features like external transfer between panels.
 
 What kind of servers can I run?
 
@@ -22,7 +22,7 @@ Yes, the Aether Panel daemon uses Docker to isolate and run servers. Each server
 
 What is the panel architecture?
 
-The panel has two main components: the panel (web interface and REST API on port 8080) and the daemon (Docker server execution, SFTP on port 5657). In standard installations both run together. It also includes Gatus for uptime monitoring (port 8081). The panel frontend is built with Astro + React, while the marketing/documentation site uses Next.js.
+The panel has two main components: the panel (web interface and REST API on port 8080) and the daemon (Docker server execution, SFTP on port 5657). In standard installations both run together. The panel frontend is built with Astro + React.
 
 Can I manage multiple physical servers?
 
@@ -34,7 +34,7 @@ The panel supports Bearer token authentication (Authorization header) or cookies
 
 How does the permission system work?
 
-The panel has approximately 80 granular scopes that control every action. Permissions can be assigned at global level (affect all servers) or per-server. Roles group scopes for mass assignment. The 'admin' scope grants all permissions, and 'server.admin' grants all permissions on a specific server.
+The panel has approximately 74 granular scopes (50 server-specific + 24 global) that control every action. Permissions can be assigned at global level (affect all servers) or per-server. There are also roles that group scopes. The 'admin' scope grants all permissions, and 'server.admin' grants all permissions on a specific server.
 
 What database does the panel use?
 
@@ -70,7 +70,7 @@ External transfer (extransfer) allows moving servers between independent Aether 
 
 What is Gatus?
 
-Gatus is an integrated uptime monitoring system. It checks the status of your panel and configured services. It runs on port 8081 with its own web dashboard. It is enabled automatically in Docker installations.
+The repository includes a configuration file `data/gatus/config.yaml` to monitor the uptime of the panel and its nodes with Gatus (web dashboard on port 8081). However, **Gatus is not deployed automatically** with the `docker-compose.yml`: if you want to use it, you must run Gatus separately using that configuration file.
 
 Does Aether Panel have an API?
 
@@ -78,7 +78,7 @@ Yes, the panel exposes a complete RESTful API at /api/*. All endpoints require B
 
 Does it support OAuth2?
 
-Yes, the panel includes a full OAuth2 server with endpoints at /oauth2/token, /oauth2/revoke, and /oauth2/jwks. It uses the Client Credentials flow with Ed25519-signed JWTs. Public keys are available via JWKS for third-party verification.
+Yes, the panel includes an OAuth2 server with the /oauth2/token endpoint. It uses the Client Credentials flow (panel↔node authentication) and Password (SFTP authentication), with Ed25519-signed JWTs. Public keys are available at /auth/publickey in JWKS format for third-party verification.
 
 What CLI commands does the panel have?
 
@@ -86,7 +86,7 @@ The panel includes a full Cobra-based CLI. Main commands: SkyPanel run (start pa
 
 How do I update Aether Panel?
 
-If using Docker: docker compose pull && docker compose up -d. If using native installation: git pull, rebuild with go build, and restart the service. Check the installation documentation for detailed instructions.
+If using Docker: `docker compose build && docker compose up -d` (or `git pull` and rebuild the image). Check the installation documentation for detailed instructions.
 
 Can I use an external MySQL database?
 

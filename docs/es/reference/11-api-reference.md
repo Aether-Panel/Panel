@@ -201,7 +201,7 @@ O directamente un array u objeto según el endpoint.
 }
 ```
 
-Códigos de error: `ErrFieldRequired`, `ErrFieldInvalid`, `ErrServerNotFound`, `ErrUserNotFound`, `ErrNodeNotFound`, `ErrDatabaseError`, `ErrPermissionDenied`, `ErrEmailAlreadyUsed`, `ErrUnknownError`.
+Códigos de error: `ErrFieldRequired`, `ErrFieldLength`, `ErrServerNotFound`, `ErrUserNotFound`, `ErrNodeInvalid`, `ErrDatabaseNotAvailable`, `ErrNoPermission`, `ErrInvalidCredentials`, `ErrUnknownError`. Lista completa en `pkg/skypanel/errors.go`.
 
 ### Códigos HTTP
 
@@ -215,7 +215,6 @@ Códigos de error: `ErrFieldRequired`, `ErrFieldInvalid`, `ErrServerNotFound`, `
 | 401 | Unauthorized |
 | 403 | Forbidden |
 | 404 | Not Found |
-| 429 | Too Many Requests |
 | 500 | Internal Server Error |
 
 ---
@@ -224,7 +223,7 @@ Códigos de error: `ErrFieldRequired`, `ErrFieldInvalid`, `ErrServerNotFound`, `
 
 ### Paging
 ```json
-{ "page": 1, "size": 25, "maxSize": 100, "total": 1 }
+{ "page": 1, "size": 20, "maxSize": 100, "total": 1 }
 ```
 
 ### Error
@@ -442,19 +441,23 @@ Sin autenticación. Retorna configuración pública del panel.
 ```
 **Respuesta:**
 ```json
-{ "otpNeeded": false, "token": "session_token" }
+{
+  "scopes": [{ "value": "server.view", "forServer": true }],
+  "otpNeeded": false,
+  "session": "session_token"
+}
 ```
-Si `otpNeeded` es `true`, continuar con `/auth/otp`.
+- `otpNeeded: false` → login completo; también setea la cookie `skypanel_auth`.
+- `otpNeeded: true` → continuar con `/auth/otp` (la sesión en curso se guarda en la cookie del navegador).
+- `session` expone el token de sesión para autenticación de apps externas.
 
 ### `POST /auth/otp`
 **Body:**
 ```json
-{ "token": "session_token_from_login", "otp": "123456" }
+{ "token": "123456" }
 ```
-**Respuesta:**
-```json
-{ "token": "final_session_token", "otpNeeded": false }
-```
+`token` es el **código OTP** (el email del usuario y el timestamp provienen de la sesión en cookie, con expiración de 5 minutos).
+**Respuesta:** igual que `/auth/login` (LoginResponse con `scopes` y `session`).
 
 ### `POST /auth/logout`
 Cierra la sesión actual.
@@ -572,7 +575,7 @@ La mayoría de los endpoints de acción usan `proxyServerRequest` que reenvía l
 ```json
 {
   "servers": [ { "identifier": "abc123", "name": "Server", "node": { "id": 1, "name": "Node" }, "ip": "10.0.0.1", "port": 25565, "type": "minecraft-java", "canGetStatus": true } ],
-  "metadata": { "paging": { "page": 1, "size": 25, "maxSize": 100, "total": 1 } }
+  "metadata": { "paging": { "page": 1, "size": 20, "maxSize": 100, "total": 1 } }
 }
 ```
 
@@ -889,7 +892,7 @@ Analiza logs del servidor usando Google GenAI (requiere `geminiApiKey` configura
 ```json
 {
   "users": [{ "id": 1, "username": "admin", "email": "admin@example.com" }],
-  "metadata": { "paging": { "page": 1, "size": 25, "maxSize": 100, "total": 1 } }
+  "metadata": { "paging": { "page": 1, "size": 20, "maxSize": 100, "total": 1 } }
 }
 ```
 
@@ -1104,7 +1107,7 @@ Endpoints del daemon para comunicación directa entre nodos y panel. No pasan po
 | DELETE | `/daemon/server/:serverId/backup` | `server.backup.delete` |
 | POST | `/daemon/server/:serverId/backup/restore` | `server.backup.restore` |
 | GET | `/daemon/server/:serverId/backup/download` | `server.backup.restore` |
-| HEAD/GET | `/daemon/server/:serverId/query` | `server.query` |
+| HEAD/GET | `/daemon/server/:serverId/query` | `server.stats` |
 | GET | `/daemon/server/:serverId/plugins` | — |
 | DELETE | `/daemon/server/:serverId/plugins` | — |
 | GET | `/daemon/server/:serverId/plugins/search` | — |
@@ -1120,23 +1123,25 @@ Endpoints del daemon para comunicación directa entre nodos y panel. No pasan po
 Conecta a la consola y estadísticas en tiempo real.
 
 ```javascript
-const ws = new WebSocket(`ws://localhost:8080/api/servers/${serverId}/socket?token=${token}`);
+const ws = new WebSocket(`ws://localhost:8080/api/servers/${serverId}/socket`);
 ```
+
+La autenticación se realiza mediante la cookie de sesión (`skypanel_auth`); no se requiere token en URL.
 
 ### Tipos de Mensaje
 
 | Tipo | Dirección | Descripción |
 |------|-----------|-------------|
-| `auth` | Cliente → Servidor | Autenticación (alternativa al query param) |
-| `console` | Servidor → Cliente | Línea de consola del servidor |
-| `stats` | Servidor → Cliente | Estadísticas periódicas |
-| `status` | Servidor → Cliente | Cambio de estado |
+| `console` | Servidor → Cliente | Línea de consola (struct `ServerLogs`) |
+| `stat` | Servidor → Cliente | Estadísticas periódicas (struct `ServerStats`) |
+| `status` | Servidor → Cliente | Cambio de estado (struct `ServerRunning`) |
+| `console` | Cliente → Servidor | Enviar comando (data = string) |
 
 ### Eventos del Servidor
 ```json
-{ "type": "console", "data": "[10:30:15] [Server thread/INFO]: Starting server" }
-{ "type": "stats", "data": { "cpu": 45.2, "memory": 1536000000, "memoryTotal": 2147483648 } }
-{ "type": "status", "data": { "running": true } }
+{ "type": "console", "data": { "epoch": 1712345678000, "logs": "[10:30:15] [Server thread/INFO]: Starting server" } }
+{ "type": "stat", "data": { "cpu": 45.2, "memory": 1536000000, "maxMemory": 2147483648, "storage": 5000000000, "maxStorage": 10737418240, "networkRx": 0, "networkTx": 0, "running": true } }
+{ "type": "status", "data": { "running": true, "installing": false } }
 ```
 
 ### Enviar Comando

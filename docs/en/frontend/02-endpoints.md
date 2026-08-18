@@ -4,7 +4,7 @@ The frontend does not have a separate packaged SDK. All HTTP calls are made thro
 
 ## HTTP Client (`api-client.ts`)
 
-It exports an `api` object with 4 methods that use native `fetch`:
+It exports an `api` object with 5 methods that use native `fetch`:
 
 ```typescript
 import { api } from '@/lib/api-client';
@@ -14,6 +14,9 @@ const servers = await api.get('/api/servers');
 
 // POST — create or execute action
 await api.post('/api/servers/abc123/start', {});
+
+// POST with FormData — file upload
+await api.postForm('/api/servers/abc123/file/...', formData);
 
 // PUT  — create or replace (backend use: create server)
 await api.put('/api/servers/abc123', { name, ... });
@@ -26,13 +29,13 @@ Features:
 - Uses `credentials: 'include'` — authentication is handled by session cookies.
 - Does not use axios or js-cookie.
 - HTTP errors throw `ApiError` with `status`, `message`, and `data` (parsed from JSON).
-- There are no separate domain-specific classes (`AuthApi`, `ServerApi`, etc.). Each feature calls `api.get/post/put/delete` directly.
+- There are no separate domain-specific classes (`AuthApi`, `ServerApi`, etc.). Each feature calls `api.get/post/postForm/put/delete` directly.
 
 ## Domain-specific Hooks
 
 Instead of classes, the frontend uses custom hooks that encapsulate the logic for each domain. The hooks are located in `src/hooks/`:
 
-| Hook | Rutas que consume | Purpose |
+| Hook | Endpoints it consumes | Purpose |
 |---|---|---|
 | `use-auth` (in `providers.tsx`) | `POST /auth/login`, `POST /auth/logout`, `POST /auth/register`, `POST /auth/forgot-password`, `POST /auth/reset-password`, `GET /api/self` | Authentication, session, scopes |
 | `use-servers` | `GET /api/servers`, `PUT /api/servers/:id`, `DELETE /api/servers/:id`, `POST /api/servers/:id/suspend`, `PUT /api/servers/:id/name/:name` | Server CRUD |
@@ -44,7 +47,7 @@ Instead of classes, the frontend uses custom hooks that encapsulate the logic fo
 | `use-server-settings` | `GET /api/servers/:serverId/data`, `POST /api/servers/:serverId/data`, `PUT /api/servers/:serverId/data` | Server variables |
 | `use-profile` | `GET /api/self`, `PUT /api/self`, `GET /api/self/otp`, `POST /api/self/otp`, `PUT /api/self/otp`, `POST /api/self/otp/recovery`, `DELETE /api/self/otp/:token`, `GET /api/self/oauth2`, `POST /api/self/oauth2`, `DELETE /api/self/oauth2/:clientID` | Own profile |
 | `use-dashboard-data` | `GET /api/uptime`, `GET /api/servers` | Dashboard data |
-| `use-toast` | — | Toast notifications (ui) |
+| toast (`lib/toast.ts`) | — | Toast notifications (sileo) |
 
 ## Direct Calls from Features
 

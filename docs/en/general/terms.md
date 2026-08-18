@@ -6,7 +6,7 @@ These Terms of Service govern your use of Aether Panel. By accessing or using ou
 
 Aether Panel is an open source project that operates under principles different from other panels on the market. These terms reflect our philosophy of being a truly free panel that listens to the community and does not monetize basic features.
 
-By using Aether Panel, you acknowledge it is open source software provided "as is" without commercial warranties. The main panel is free and open source — any addons that may have a cost are integrations with third-party closed-source software (like WHMCS), to cover license and maintenance costs.
+By using Aether Panel, you acknowledge it is open source software provided "as is" without commercial warranties. The main panel is free and open source — the only addons that could have a cost are integrations with third-party closed-source software (like WHMCS), to cover licenses and maintenance.
 
 ## Acceptance of Terms
 
@@ -58,7 +58,7 @@ This philosophy is fundamental to Aether Panel. The main panel will always be fr
 
 ### No Commercial Warranties
 
-The software is provided "as is" without warranties of any kind, express or implied. We do not offer commercial technical support.
+The software is provided "as is" without warranties of any kind, express or implied. We do not offer commercial technical support, nor do we guarantee that the software will run without errors.
 
 ### Free Core Panel
 
@@ -70,7 +70,7 @@ Development decisions are based on community needs. The main panel will always b
 
 ### No Paywalls in the Panel
 
-We will never put core panel features behind a paywall. Only integrations with third-party closed-source software may have a cost.
+We will never put core panel features behind a paywall. The panel is and will always be free. Only integrations with third-party closed-source software could have a cost.
 
 
 ## Contributions to the Project
@@ -191,7 +191,7 @@ Aether Panel exists to be different: a real open source panel that respects the 
 
 ## Paid Modules & Integrations
 
-The core Aether Panel is and will always be 100% free and open source (Apache 2.0). However, integration modules with third-party software may have an associated cost.
+The main panel of Aether Panel is and will always be 100% free and open source (Apache 2.0). However, integration modules with third-party software may have an associated cost.
 
 We are currently developing a WHMCS integration module (billing and automation platform). WHMCS is closed-source software requiring a paid license, so the module has associated costs:
 
@@ -202,7 +202,7 @@ We are currently developing a WHMCS integration module (billing and automation p
 
 ### Important
 
-The WHMCS module is an optional addon. You don't need to buy it to use the panel. The main panel, all its features, and the source code remain 100% free and open source. We will never put core panel features behind a paywall. If other modules for closed-source software integrations exist in the future, they will follow the same policy.
+The WHMCS module is an optional addon. You don't need to buy it to use the panel. The main panel, all its features, and the source code remain 100% free and open source. We will never put panel features behind a paywall. If other modules for closed-source software integrations exist in the future, they will follow the same policy.
 
 ## Apache 2.0 License
 
