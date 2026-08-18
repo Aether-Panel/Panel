@@ -14,7 +14,7 @@ La interfaz visual con la que los usuarios interactúan (dashboard, login, conso
 
 ## Componentes UI Base (Shadcn UI / Radix UI)
 
-En `src/components/ui/` hay 35 componentes basados en Radix UI primitives:
+En `src/components/ui/` hay 33 componentes basados en Radix UI primitives:
 
 | Componente | Propósito |
 |---|---|
@@ -23,7 +23,7 @@ En `src/components/ui/` hay 35 componentes basados en Radix UI primitives:
 | Avatar | Avatares de usuario |
 | Badge | Etiquetas/badges de estado |
 | Button | Botones con variantes |
-| Calendar, DatePicker | Selección de fechas |
+| Calendar | Selección de fechas |
 | Card | Tarjetas de contenido |
 | Carousel | Carrusel de imágenes |
 | Chart | Gráficos (envuelve recharts) |
@@ -38,7 +38,8 @@ En `src/components/ui/` hay 35 componentes basados en Radix UI primitives:
 | Slider | Control deslizante |
 | Table | Tablas de datos |
 | Tabs | Navegación por pestañas |
-| Toast / Toaster | Notificaciones emergentes |
+
+> Nota: las notificaciones toast no son un componente de `ui/`; se implementan con **sileo** (`src/lib/toast.ts`) y se renderizan con `SileoToaster.tsx`.
 
 ## Componentes Custom (`src/components/`)
 
@@ -94,7 +95,7 @@ En `src/components/ui/` hay 35 componentes basados en Radix UI primitives:
 | `use-server-settings` | Variables/configuración de un servidor |
 | `use-profile` | Perfil propio, OTP, OAuth2 clients |
 | `use-dashboard-data` | Datos del dashboard (uptime, servidores) |
-| `use-toast` | Notificaciones toast |
+| toast (`lib/toast.ts`) | Notificaciones toast (sileo) |
 | `use-mobile` | Detección de dispositivo móvil |
 
 ## Integración Genkit AI (`src/ai/`)

@@ -5,7 +5,7 @@ The `SkyPanel` binary uses **Cobra** for the command-line interface.
 ## Usage
 
 ```bash
-SkyPanel [--config archivo] [--workDir directorio] <comando>
+SkyPanel [--config file] [--workDir directory] <command>
 ```
 
 ## Commands
@@ -47,10 +47,10 @@ Creates a new user with an interactive wizard or flags:
 SkyPanel user add
 
 # With flags (useful for scripting in Docker):
-SkyPanel user add --name admin --email admin@example.com --password secreto --admin
+SkyPanel user add --name admin --email admin@example.com --password secret --admin
 ```
 
-Flags: `--name`, `--email`, `--password`, `--admin`
+Flags: `--name`, `--email`, `--password`, `--admin`, `--force` (recreates the user if it already exists)
 
 Flow:
 1. Prompt for username (or flag)

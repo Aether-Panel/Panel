@@ -8,7 +8,7 @@ This guide will take you step by step from installation to having your first ser
 
 Before starting, make sure your system meets the following requirements:
 
-It is important to note that Aether Panel requires at least 2 CPU vcores, 2GB RAM, and 5GB storage just to function correctly. These requirements do not cover the usage of the services it will manage in the panel.
+It is important to note that Aether Panel requires at least 2 CPU vcores, 2GB of RAM, and 5GB of storage just to run correctly. These requirements do not cover the usage of the services it will manage in the panel.
 
 - **cardTitle**: Hardware and Software
 - **cardTitle2**: Minimum
@@ -37,7 +37,7 @@ Make sure the following ports are available:
 
 Before installing, verify that you have root or sudo access:
 
-Verify that ports are free:
+Verify that the ports are free:
 
 If any port is in use, stop the service or change the port in the configuration.
 
@@ -58,9 +58,9 @@ Aether Panel can be installed in three different ways. Choose the one that best 
 - Manual Installation: For advanced users who want full control
 
 - **linuxTitle**: Method 1: Automatic Installation with Script
-- **linuxP1**: This is the most recommended method. The script detects your operating system and installs everything automatically.
+- **linuxP1**: This is the most recommended method. The script installs Docker (if missing), clones the repository, builds the image, and configures the service.
 - **linuxP2**: Run the following command as root or with sudo to start the installation:
-- **linuxCode**: bash <(curl -s https://install.aetherpanel.es/install.sh)
+- **linuxCode**: bash -c "$(curl -s https://install.aetherpanel.es/install.sh)"
 - **linuxP3**: Or download the script first and then run it:
 - **linuxCode2**: # Download the script
 wget https://install.aetherpanel.es/install.sh
@@ -74,21 +74,20 @@ sudo bash install.sh
 
 During installation, the script will ask you:
 
-- Installation type: With Docker or without Docker?
-- Domain or IP: Do you want to use a domain or just IP?
-- SSL: Do you want to configure SSL with Let's Encrypt? (only if using domain)
+- Use a domain or only IP? (if using a domain, configure Nginx as reverse proxy)
+- SSL: Do you want to configure SSL with Let's Encrypt? (only if using a domain)
 - Ports: Do you want to change the default ports? (optional)
 
 ### The installation script will perform the following steps:
 
 - Automatically detect your operating system (Ubuntu, Debian, Fedora, CentOS, RHEL)
-- Install all necessary dependencies (Go, Node.js, Yarn, etc.)
-- Configure the firewall and open necessary ports
-- Clone the repository from GitHub
-- Compile the frontend and backend
-- Configure Nginx as reverse proxy
-- Create the systemd service for automatic execution
-- Allow you to configure domain and SSL with Let's Encrypt
+- Install Docker and Docker Compose v2 (if not present)
+- Clone the repository from https://github.com/Aether-Panel/Panel.git
+- Build the image with `docker compose build` (dev2.0 branch)
+- Configure Nginx as a reverse proxy (only if using a domain)
+- Configure SSL with Let's Encrypt (optional)
+- Create the initial administrator user
+- Start the containers with `docker compose up -d`
 
 - **dockerTitle**: Method 2: Docker Installation
 - **dockerP1**: If you prefer to use Docker, you can deploy Aether Panel with Docker Compose. This method is ideal if you are already familiar with Docker.
@@ -121,11 +120,11 @@ git clone https://github.com/Aether-Panel/Panel.git
 cd Panel
 ```
 
-#### 2. Configure database (optional)
+#### 2. Configure the database (optional)
 
 If you want to use external MySQL, edit config.docker.json:
 
-If you use the MySQL from docker-compose.yml, you don't need to change anything.
+If you use the MySQL from the docker-compose.yml, you don't need to change anything.
 
 ```text
 {
@@ -154,15 +153,15 @@ The -d flag runs the containers in the background (detached mode).
 docker compose up -d
 ```
 
-#### 5. Verify that containers are running
+#### 5. Verify that the containers are running
 
-You should see the 'aetherpanel' and 'aetherpanel-mysql' containers (if you configured MySQL) with 'Up' status.
+You should see the 'skypanel' and 'skypanel-mysql' containers with 'Up' status.
 
 ```text
 docker compose ps
 ```
 
-#### 6. View logs (optional)
+#### 6. View the logs (optional)
 
 Press Ctrl+C to exit the logs.
 
@@ -170,62 +169,16 @@ Press Ctrl+C to exit the logs.
 docker compose logs -f
 ```
 
-### Quick option: Use pre-built image
+> **Note:** There is no published pre-built image. The image is always built from the repository's `Dockerfile` (`docker compose build` or `docker compose up -d --build`).
 
-If you prefer not to compile from source, you can use the pre-built Docker image:
+### Create Administrator User (Docker)
 
-This command will download the latest image and run the panel with persistent data.
+Once the container is running, run this command to create your administrator account:
 
-```text
-docker run -d \
-  --name skypanel \
-  -p 8080:8080 \
-  -p 5657:5657 \
-  -v skypanel-config:/etc/SkyPanel \
-  -v skypanel-data:/var/lib/SkyPanel \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  --restart=always \
-  ghcr.io/aether-panel/panel:latest
-```
-
-### Simplified Docker Compose option
-
-You can also use this simplified docker-compose.yml:
-
-Start the service with: docker compose up -d
-
-```text
-services:
-  skypanel:
-    image: ghcr.io/aether-panel/panel:latest
-    ports:
-      - "8080:8080"
-      - "5657:5657"
-    volumes:
-      - ./config:/etc/SkyPanel
-      - ./data:/var/lib/SkyPanel
-      - /var/run/docker.sock:/var/run/docker.sock
-    restart: always
-```
-
-### Create Admin User (Docker)
-
-Once the container is running, run this command to create your admin account:
-
-Remember to change admin@example.com and admin123 with your actual data.
+Remember to change admin@example.com and admin123 to your real data.
 
 ```text
 docker exec -it skypanel /SkyPanel/bin/SkyPanel user add --name admin --email admin@example.com --password 'admin123' --admin
-```
-
-### Post-Installation
-
-Once installed, the panel will be accessible at:
-
-Log in with the admin credentials created during the installation process.
-
-```text
-http://<YOUR-SERVER-IP>:8080
 ```
 
 ### Docker Configuration
@@ -237,8 +190,18 @@ The docker-compose.yml includes:
 - Persistent volumes for data and configuration
 - Health checks to verify service status
 
+### Post-Installation
+
+Once installed, the panel will be accessible at:
+
+Log in with the administrator credentials created during the installation process.
+
+```text
+http://<YOUR-SERVER-IP>:8080
+```
+
 - **nativeTitle**: Method 3: Manual Installation (Without Docker)
-- **nativeP1**: To install manually without Docker, you need to compile the panel yourself. This method gives you full control over the process.
+- **nativeP1**: **There is no supported native mode.** The official installation is only via Docker. If you still want to compile the panel from source code (for example, for development), you can do so by following these steps, but it is not the recommended installation method nor the one used by the automatic installer.
 ### Install Dependencies Manually
 
 #### Ubuntu/Debian
@@ -509,7 +472,7 @@ Or from the Docker container:
 
 ##### Run Panel
 
-- SkyPanel runService (start as service with systemd notify)
+- SkyPanel runService (start as a service with systemd notify)
 - SkyPanel version (show version)
 
 ### Step 3: Configure Firewall
@@ -556,7 +519,7 @@ Once you have logged in, configure the basic settings:
 
 #### Basic Configuration
 
-- Go to Settings in the menu
+- Go to Settings (Configuration) in the menu
 - Configure the panel URL (e.g., http://YOUR_IP:8080 or https://your-domain.com)
 - Configure the administrator email
 - Configure the company/organization name
@@ -564,14 +527,14 @@ Once you have logged in, configure the basic settings:
 
 #### Configure Nodes
 
-If you installed on the same server where servers will run (local node), you don't need to configure anything else. The local node is configured automatically.
+If you installed on the same server where the servers will run (local node), you don't need to configure anything else. The local node is configured automatically.
 
 If you want to use remote nodes:
 
 - Go to Admin  Nodes
 - Click 'Create Node'
 - Enter the remote node IP
-- Enter the daemon port (default 5656)
+- Enter the daemon port (default 8080)
 - Enter the daemon authentication token
 - Verify the connection
 - Save the node

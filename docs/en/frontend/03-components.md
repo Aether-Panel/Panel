@@ -14,7 +14,7 @@ The visual interface that users interact with (dashboard, login, web console, et
 
 ## Base UI Components (Shadcn UI / Radix UI)
 
-In `src/components/ui/` there are 35 components based on Radix UI primitives:
+In `src/components/ui/` there are 33 components based on Radix UI primitives:
 
 | Component | Purpose |
 |---|---|
@@ -23,7 +23,7 @@ In `src/components/ui/` there are 35 components based on Radix UI primitives:
 | Avatar | User avatars |
 | Badge | Status labels/badges |
 | Button | Buttons with variants |
-| Calendar, DatePicker | Date selection |
+| Calendar | Date selection |
 | Card | Content cards |
 | Carousel | Image carousel |
 | Chart | Charts (wraps recharts) |
@@ -38,7 +38,8 @@ In `src/components/ui/` there are 35 components based on Radix UI primitives:
 | Slider | Slider control |
 | Table | Data tables |
 | Tabs | Tabbed navigation |
-| Toast / Toaster | Pop-up notifications |
+
+> Note: toast notifications are not a `ui/` component; they are implemented with **sileo** (`src/lib/toast.ts`) and rendered with `SileoToaster.tsx`.
 
 ## Custom Components (`src/components/`)
 
@@ -94,7 +95,7 @@ In `src/components/ui/` there are 35 components based on Radix UI primitives:
 | `use-server-settings` | Server variables/configuration |
 | `use-profile` | Own profile, OTP, OAuth2 clients |
 | `use-dashboard-data` | Dashboard data (uptime, servers) |
-| `use-toast` | Toast notifications |
+| toast (`lib/toast.ts`) | Toast notifications (sileo) |
 | `use-mobile` | Mobile device detection |
 
 ## Genkit AI Integration (`src/ai/`)

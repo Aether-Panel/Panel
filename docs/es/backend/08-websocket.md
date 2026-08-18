@@ -14,38 +14,50 @@ ws[s]://<host>/api/servers/<serverId>/socket[?console]
 
 ## Mensajes del Servidor → Cliente
 
+Todas las transmisiones usan la estructura `Transmission` (`pkg/skypanel/message.go`), con campos `data` y `type`. Los tipos son `console`, `stat` y `status`.
+
 ### Tipo: `console`
 ```json
 {
   "type": "console",
-  "data": "[10:30:15] [Server thread/INFO]: Starting server"
-}
-```
-Línea de consola del servidor de juego. El frontend aplica parseo de colores ANSI.
-
-### Tipo: `stats`
-```json
-{
-  "type": "stats",
   "data": {
-    "cpu": 45.2,
-    "memory": 1536000000,
-    "memoryTotal": 2147483648
+    "epoch": 1712345678,
+    "logs": "[10:30:15] [Server thread/INFO]: Starting server"
   }
 }
 ```
-Estadísticas periódicas (cada ~15 segundos). CPU como porcentaje, memoria en bytes.
+Estructura `ServerLogs` (`pkg/skypanel/httpmodels.go`): `epoch` (timestamp en ms) y `logs` (línea de consola como bytes). El frontend aplica parseo de colores ANSI.
+
+### Tipo: `stat`
+```json
+{
+  "type": "stat",
+  "data": {
+    "cpu": 45.2,
+    "memory": 1536000000,
+    "maxMemory": 2147483648,
+    "storage": 1024000000,
+    "maxStorage": 10737418240,
+    "networkRx": 1024,
+    "networkTx": 2048,
+    "jvm": { "heapUsed": 512, "heapTotal": 1024 },
+    "running": true
+  }
+}
+```
+Estructura `ServerStats`: CPU como porcentaje, memoria/almacenamiento en bytes, `jvm` opcional (solo si el servidor lo reporta), `running` indica estado. Se envían periódicamente (cada 5s en `processStats()`).
 
 ### Tipo: `status`
 ```json
 {
   "type": "status",
   "data": {
-    "running": true
+    "running": true,
+    "installing": false
   }
 }
 ```
-Cambio de estado del servidor (running/stopped/installing).
+Estructura `ServerRunning`: `running` (estado running/stopped) e `installing` (proceso de instalación en curso).
 
 ## Mensajes del Cliente → Servidor
 
@@ -56,7 +68,7 @@ Cambio de estado del servidor (running/stopped/installing).
   "data": "say Hello World!"
 }
 ```
-Envía un comando a la consola del servidor de juego.
+Envía un comando a la consola del servidor de juego (se reenvía al stdin del proceso).
 
 ## Sistema de Trackers (Pub/Sub Interno)
 
@@ -64,8 +76,16 @@ Los WebSocket usan un sistema de **trackers** definido en `pkg/skypanel/tracker.
 
 ```go
 type Tracker struct {
-    listeners map[string]chan interface{}  // canales por topic
-    lock      sync.RWMutex
+    sockets []*Socket   // sockets suscritos
+    locker  sync.Mutex
+}
+
+type Socket struct {
+    conn     *websocket.Conn
+    locker   sync.Mutex
+    trackers []*Tracker
+    closed   bool
+    io.WriteCloser
 }
 ```
 
@@ -85,23 +105,32 @@ Hay 3 trackers por servidor, creados en `CreateEnvironment()`:
    - STDOUT del proceso del servidor → `ConsoleTracker`
 2. El handler WebSocket (`/api/servers/:serverId/socket`) se suscribe a los 3 trackers
 3. Cuando llega un mensaje del cliente, se reenvía al proceso (stdin)
+4. `Socket.Serve()` mantiene la conexión viva (ping cada 25s, pong timeout 60s) y desregistra el socket de todos sus trackers al desconectarse
 
 ### MemoryCache (Buffer de Consola)
 
 ```go
 type MemoryCache struct {
-    entries []interface{}
-    max     int
+    Buffer   []cacheMessage  // msg []byte + time (UnixMicro)
+    Capacity int             // en bytes = daemon.console.buffer * 1024 (KB)
+    Size     int
+    Lock     sync.RWMutex
 }
 ```
 
-- Buffer circular de tamaño configurable (`daemon.console.buffer`, default 50)
-- Almacena las últimas N líneas de consola
-- Cuando un cliente se conecta, recibe primero el buffer histórico
+- Buffer circular con capacidad en **bytes** (`daemon.console.buffer`, default 50, en KB)
+- Evicta las entradas más viejas cuando excede la capacidad
+- Cuando un cliente se conecta, recibe primero el buffer histórico (con `ReadFrom(startTime)`)
 
-## Daemon ↔ Panel WebSocket
+## Daemon ↔ Panel WebSocket (Proxy)
 
-El daemon también puede conectar vía WebSocket al panel para reenviar consola (habilitado con `daemon.console.forward`). Esto permite que el panel central tenga acceso a la consola aunque el daemon esté en un nodo separado.
+El WebSocket del cliente se conecta al **panel**, y el panel hace de **proxy** hacia el daemon del nodo:
+
+- El handler `/api/servers/:serverId/socket` detecta el nodo del servidor.
+- Si el nodo es local, el panel atiende directamente.
+- Si es remoto, `services.Node.OpenSocket()` conecta vía `websocket.Dialer` a `ws[s]://<daemon>:<port>/daemon/server/<serverId>/socket`, autenticando con el JWT de daemon (`Authorization: Bearer <token>` generado por `services/token.go`), y hace puente bidireccional entre el cliente y el daemon.
+
+`daemon.console.forward` NO está relacionado con este proxy: simplemente reenvía la consola del servidor a la salida estándar del daemon (ver `pkg/skypanel/environment.go:CreateWrapper()`).
 
 ## RCON WebSocket
 

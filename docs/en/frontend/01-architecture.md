@@ -6,17 +6,18 @@ This document details the structure, technologies, and general architecture of t
 
 | Technology | Version | Usage |
 |---|---|---|
-| **Astro** | ^6.4.6 | Web framework with Islands architecture, file-based routing (`src/pages/`) |
-| **React** | ^19.2.7 | Interactive UI components |
+| **Astro** | ^7.1.3 | Web framework with Islands architecture, file-based routing (`src/pages/`) |
+| **React** | ^19.2.8 | Interactive UI components |
 | **Tailwind CSS** | ^3.4.1 | Utility-first styles |
-| **Shadcn UI / Radix UI** | — | 35+ accessible components (Dialog, Select, Tabs, etc.) |
-| **react-hook-form** | ^7.54.2 | Form handling |
-| **zod** | ^3.24.2 | Schema validation |
+| **Shadcn UI / Radix UI** | — | 33 accessible components (Dialog, Select, Tabs, etc.) |
+| **react-hook-form** | ^7.83.0 | Form handling |
+| **zod** | ^4.4.3 | Schema validation |
 | **Monaco Editor** | ^4.6.1 | In-browser code/configuration editor |
-| **Genkit** | ^1.28.0 | Integration with Google GenAI for log analysis |
+| **Genkit** | ^1.40.1 | Integration with Google GenAI for log analysis |
 | **recharts** | ^2.15.1 | Metrics charts (CPU, RAM) |
-| **lucide-react** | ^0.475.0 | Icons |
-| **clsx + tailwind-merge** | — | Conditional CSS class handling |
+| **lucide-react** | ^1.26.0 | Icons |
+| **clsx + tailwind-merge** | ^2.1.1 / ^3.0.1 | Conditional CSS class handling |
+| **sileo** | ^0.1.5 | Toast notifications |
 
 ## Directory Structure (`frontend/src/`)
 
@@ -27,9 +28,12 @@ src/
 │   ├── dev.ts               # Development utility
 │   └── flows/               # AI flows (summarize, troubleshooting)
 ├── components/              # Visual components
-│   ├── ui/                  # 35+ Shadcn/Radix UI components
+│   ├── ui/                  # 33 Shadcn/Radix UI components
 │   ├── AppShell.tsx         # Main dashboard layout
 │   ├── AuthShell.tsx        # Authentication layout
+│   ├── SileoToaster.tsx     # Toast notification renderer
+│   ├── Turnstile.tsx        # Cloudflare Turnstile widget
+│   ├── server-card.tsx      # Server card
 │   ├── metrics-charts.tsx   # Metrics charts
 │   ├── network-usage-chart.tsx
 │   ├── resource-usage-chart.tsx
@@ -62,7 +66,6 @@ src/
 │   ├── use-servers.ts
 │   ├── use-settings.ts
 │   ├── use-templates.ts
-│   ├── use-toast.ts
 │   └── use-users.ts
 ├── layouts/
 │   └── BaseLayout.astro     # Base HTML layout
@@ -71,6 +74,7 @@ src/
 │   ├── utils.ts             # General utilities (cn())
 │   ├── ansi-utils.tsx       # ANSI color parsing for console
 │   ├── data.ts              # Data and constants
+│   ├── toast.ts             # Toast notifications (sileo)
 │   └── locales/             # Translations (en.json, es.json)
 ├── pages/                   # Astro routes (file-based routing)
 │   ├── index.astro
@@ -91,7 +95,7 @@ src/
 
 ## API SDK (`lib/api-client.ts`)
 
-There is no separate `client/api/` package. The SDK is a single 81-line file in `frontend/src/lib/api-client.ts` that exports an `api` object with `get`, `post`, `put`, `delete` methods using the **native `fetch` API** of the browser with `credentials: 'include'` for cookie/session authentication.
+There is no separate `client/api/` package. The SDK is a single 94-line file in `frontend/src/lib/api-client.ts` that exports an `api` object with `get`, `post`, `postForm`, `put`, `delete` methods using the browser's **native `fetch` API** with `credentials: 'include'` for cookie/session authentication.
 
 API calls are made directly from features and hooks, not from separate domain classes:
 

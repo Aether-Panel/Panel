@@ -197,14 +197,18 @@ type Error struct {
 | `CreateError(msg, code)` | Crea error tipado |
 | `FromError(err)` | Convierte cualquier error a `*Error` |
 
-Errores predefinidos:
+Errores predefinidos (selección):
 - `ErrInvalidCredentials`, `ErrServerOffline`, `ErrNoPermission`
 - `ErrIllegalFileAccess`, `ErrBackupInProgress`, `ErrDockerNotSupported`
-- `ErrDatabaseNotAvailable`, `ErrNotImplemented`, `ErrInvalidTemplate`
+- `ErrDatabaseNotAvailable`, `ErrNotImplemented`, `ErrNoTemplate`, `ErrNodeInvalid`
+- `ErrInvalidSession`, `ErrSessionExpired`, `ErrUserNotFound`, `ErrServerNotFound`
 
 Fábricas parametrizadas:
-- `ErrSettingNotConfigured(key)`, `ErrFieldRequired(field)`, `ErrFieldLength(field, min, max)`
-- `ErrUnsupportedOS(os)`, `ErrMissingBinary(binary)`
+- `ErrSettingNotConfigured(name)`, `ErrNoTemplate(template)`, `ErrServiceInvalidProvider(service, provider)`
+- `ErrFieldTooLarge(field, value)`, `ErrFieldTooSmall(field, value)`, `ErrFieldNotBetween(field, min, max)`
+- `ErrFieldEqual(f1, f2)`, `ErrFieldNotEqual(f1, f2)`, `ErrFieldNotEmail(field)`, `ErrFieldLength(field, min, max)`
+- `ErrFactoryError(op, err)`, `ErrUnsupportedOS(actual, expected)`, `ErrUnsupportedArch(actual, expected)`
+- `ErrMissingBinary(binary)`, `ErrPathNotAbs(path)`, `ErrCurseForgeDistribution(projectId)`, `ErrCurseForgeFile(projectId, fileID)`
 
 ### Descargas
 
@@ -281,7 +285,7 @@ type RCONConnection struct {
 
 - **`Start()`** — Inicia loop de reconexión automática
 - **`Write(p []byte)`** — Ejecuta comando via `gorcon/rcon`
-- Usa puerto 25575 por defecto
+- IP/port/password vienen de la configuración del servidor (`StdinConsoleConfiguration`)
 
 ### RCON sobre WebSocket
 
@@ -533,11 +537,10 @@ No es un paquete Go. Contiene:
 
 ## internal/storage/ — Datos de Volumen Docker
 
-No es un paquete Go. Directorios para volúmenes Docker:
+No es un paquete Go. Directorios usados como volúmenes Docker:
 
 | Directorio | Propósito |
 |---|---|
 | `mysql-data/` | Archivos de base de datos MariaDB |
 | `skypanel-config/` | Configuración del panel |
-| `skypanel-data/` | Datos runtime (config.json, sftp.key, servers/, logs/, cache/, binaries/) |
 | `skypanel-logs/` | Logs del panel |

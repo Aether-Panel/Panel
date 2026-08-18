@@ -24,10 +24,8 @@ Este documento detalla las soluciones a problemas comunes encontrados durante el
 *   **Opción B (Desactivar aislamiento):** Agregar en `config.json`:
     ```json
     {
-        "panel": {
-            "security": {
-                "disableUnshare": true
-            }
+        "security": {
+            "disableUnshare": true
         }
     }
     ```

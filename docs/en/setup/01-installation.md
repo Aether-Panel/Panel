@@ -2,123 +2,81 @@
 
 This guide details the steps required to install Aether Panel on your server. We support multiple installation methods to suit different environments and needs.
 
+> **Note:** Installation is **Docker only**. There is no native mode (standalone binaries). The installation script and the `docker-compose.yml` in the repository build the image from the `Dockerfile`.
+
 ## System Requirements
 
 Before you begin, ensure your server meets the following minimum requirements:
 
-*   **OS:** Linux (Ubuntu 20.04+, Debian 11+, CentOS 8+)
+*   **Operating System:** Linux (Ubuntu 20.04+, Debian 11+, CentOS 8+)
 *   **Architecture:** amd64 or arm64
 *   **Resources (Minimum):** 2 vCPU, 2GB RAM
+*   **Docker:** Docker Engine + Docker Compose v2 (the installer installs it if missing)
 *   **Ports:** 8080 (Web), 5657 (SFTP) open in your firewall
 
 ---
 
 ## Method 1: Automatic Installation (Recommended)
 
-Our automatic installation script handles user configuration, dependency installation, and systemd service setup.
+Our automatic installation script handles Docker installation, repository download, image build, and service configuration.
 
 Run the following command as root or a user with sudo privileges:
 
 ```bash
-bash <(curl -s https://install.aetherpanel.com/install.sh)
+bash -c "$(curl -s https://install.aetherpanel.es/install.sh)"
+```
+
+Alternatives (avoid process substitution):
+
+```bash
+# Automatic mode (no questions)
+curl -s https://install.aetherpanel.es/install.sh | sudo bash
+
+# Download and run
+curl -s https://install.aetherpanel.es/install.sh -o /tmp/install.sh
+sudo bash /tmp/install.sh
 ```
 
 The installer will guide you through the process:
-1.  Dependency verification.
-2.  Docker installation (if not present).
-3.  Downloading the SkyPanel binary.
-4.  Creating the initial administrator user.
-5.  Starting the SkyPanel service.
+1.  Verification of dependencies and resources (minimum 1GB RAM, space ≥10GB).
+2.  Installation of Docker and Docker Compose (if not present).
+3.  Cloning of the repository from `https://github.com/Aether-Panel/Panel.git`.
+4.  Building the image with `docker compose build` (branch `dev2.0`).
+5.  Configuration of ports, domain, and SSL (optional).
+6.  Creation of the initial administrator user.
+7.  Starting the Aether Panel service.
 
 ---
 
-## Method 2: Manual Installation
+## Method 2: Manual Installation via Docker
 
-If you prefer full control over the installation process or your distribution is not compatible with the script, follow these steps.
+If you prefer full control over the process, clone the repository and use the included `docker-compose.yml`.
 
-### 1. Prepare Environment
-
-Create the system user and necessary directories:
+### 1. Clone the Repository
 
 ```bash
-# Create unprivileged user
-useradd -r -m -d /var/lib/SkyPanel -s /bin/false skypanel
-
-# Create directory structure
-mkdir -p /var/lib/SkyPanel
-mkdir -p /etc/SkyPanel
-mkdir -p /var/log/SkyPanel
+git clone -b dev2.0 https://github.com/Aether-Panel/Panel.git /opt/skypanel
+cd /opt/skypanel
 ```
 
-### 2. Download and Install
+### 2. Configure the Environment
 
-Download the latest stable release from our releases page:
+The `docker-compose.yml` uses variables with defaults (defining a `.env` is optional):
+
+| Variable | Default | Usage |
+|---|---|---|
+| `DB_ROOT_PASSWORD` | `skypanel_secret` | MariaDB root password |
+| `DB_DATABASE` | `skypanel` | Database name |
+| `DB_USER` | `skypanel` | Database user |
+| `DB_PASSWORD` | `skypanel_secret` | User password |
+
+### 3. Build and Start
 
 ```bash
-# Example for Linux AMD64
-wget https://github.com/aetherpanel/aetherpanel/releases/latest/download/SkyPanel_linux_amd64 -O /usr/local/bin/SkyPanel
-chmod +x /usr/local/bin/SkyPanel
+docker compose up -d --build
 ```
 
-### 3. Initial Configuration
-
-Enable the service and create the first admin user:
-
-```bash
-# Add admin user
-/usr/local/bin/SkyPanel user add --admin
-
-# Enable service (if using systemd)
-/usr/local/bin/SkyPanel runservice
-```
-
----
-
-## Method 3: Docker Installation
-
-To run Aether Panel in an isolated container, use Docker.
-
-### Direct Execution
-
-```bash
-docker run -d \
-  --name skypanel \
-  -p 8080:8080 \
-  -p 5657:5657 \
-  -v skypanel-config:/etc/SkyPanel \
-  -v skypanel-data:/var/lib/SkyPanel \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  --restart=always \
-  aetherpanel/skypanel:latest
-```
-
-### Docker Compose
-
-Save the following to a `docker-compose.yml` file:
-
-```yaml
-version: '3'
-services:
-  skypanel:
-    image: aetherpanel/skypanel:latest
-    ports:
-      - "8080:8080"
-      - "5657:5657"
-    volumes:
-      - ./config:/etc/SkyPanel
-      - ./data:/var/lib/SkyPanel
-      - /var/run/docker.sock:/var/run/docker.sock
-    restart: always
-```
-
-Start the service with:
-```bash
-docker-compose up -d
-```
-
-### Create Admin User (Docker)
-
-Once the container is running, execute this command to create your admin account:
+### 4. Create Administrator User
 
 ```bash
 docker exec -it skypanel /SkyPanel/bin/SkyPanel user add --name admin --email admin@example.com --password 'admin123' --admin
@@ -128,17 +86,17 @@ docker exec -it skypanel /SkyPanel/bin/SkyPanel user add --name admin --email ad
 
 ---
 
-## Method 4: Installation as a Secondary Node (Daemon only)
+## Method 3: Installation as a Secondary Node (Slave)
 
 If you wish to set up an additional server that functions solely as a daemon (slave node) for hosting game servers, connecting to an existing Master Panel:
 
 ### Using Docker Compose
 
-Add the following environment variables to your `skypanel` service configuration in your `docker-compose.yml`:
+Add the following environment variables to the `skypanel` service configuration in your `docker-compose.yml`:
 
 ```yaml
     environment:
-      # Disable the web panel interface and database connection
+      # Turn off the web panel interface and the database
       - SKYPANEL_PANEL_ENABLE=false
       # Configure the Master Panel's public key for token validation
       # Make sure to replace <MASTER-PANEL-IP> with the real IP or domain
@@ -147,7 +105,7 @@ Add the following environment variables to your `skypanel` service configuration
 
 ### Without Docker (Manual Installation)
 
-If you installed the node manually, edit the `/etc/SkyPanel/config.json` file to modify the `panel` section and add the `token` section:
+> **There is no native mode.** If you installed the node with the automatic installer, the equivalent configuration is applied via environment variables. In a manual deployment without compose, edit the `/etc/SkyPanel/config.json` file inside the container and modify the `panel` and `token` sections:
 
 ```json
   "panel": {
@@ -158,7 +116,7 @@ If you installed the node manually, edit the `/etc/SkyPanel/config.json` file to
   }
 ```
 
-Restart the service with `systemctl restart skypanel`.
+Restart the container with `docker restart skypanel`.
 
 > **Clarification Note:** Even if you disable the Panel, the process will still listen on the HTTP port (default `8080`) because the Daemon requires this port for its REST API (to communicate with the Master). If you attempt to access it via a web browser, you will see a 404 error; this is completely normal and indicates that the Node is functioning correctly.
 

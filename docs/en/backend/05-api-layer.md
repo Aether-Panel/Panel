@@ -98,7 +98,7 @@ rg.Use(middleware.APIKeyAuthMiddleware)
 
 ### 4. Daemon Auth
 
-The daemon authenticates against the panel using the OAuth2 Client Credentials flow configured via `daemon.auth.clientId` and `daemon.auth.clientSecret`.
+The daemon authenticates against the panel with a **JWT signed with Ed25519**. On each request to `/daemon/*`, the daemon generates a request token signed with its private key and sends it as `Authorization: Bearer <token>`; the panel validates it against the node's public key (see `services/token.go`). It does not use OAuth2.
 
 ## Scope Checking
 

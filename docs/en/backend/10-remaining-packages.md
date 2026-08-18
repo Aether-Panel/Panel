@@ -197,14 +197,18 @@ type Error struct {
 | `CreateError(msg, code)` | Creates typed error |
 | `FromError(err)` | Converts any error to `*Error` |
 
-Predefined errors:
+Predefined errors (selection):
 - `ErrInvalidCredentials`, `ErrServerOffline`, `ErrNoPermission`
 - `ErrIllegalFileAccess`, `ErrBackupInProgress`, `ErrDockerNotSupported`
-- `ErrDatabaseNotAvailable`, `ErrNotImplemented`, `ErrInvalidTemplate`
+- `ErrDatabaseNotAvailable`, `ErrNotImplemented`, `ErrNoTemplate`, `ErrNodeInvalid`
+- `ErrInvalidSession`, `ErrSessionExpired`, `ErrUserNotFound`, `ErrServerNotFound`
 
 Parameterized factories:
-- `ErrSettingNotConfigured(key)`, `ErrFieldRequired(field)`, `ErrFieldLength(field, min, max)`
-- `ErrUnsupportedOS(os)`, `ErrMissingBinary(binary)`
+- `ErrSettingNotConfigured(name)`, `ErrNoTemplate(template)`, `ErrServiceInvalidProvider(service, provider)`
+- `ErrFieldTooLarge(field, value)`, `ErrFieldTooSmall(field, value)`, `ErrFieldNotBetween(field, min, max)`
+- `ErrFieldEqual(f1, f2)`, `ErrFieldNotEqual(f1, f2)`, `ErrFieldNotEmail(field)`, `ErrFieldLength(field, min, max)`
+- `ErrFactoryError(op, err)`, `ErrUnsupportedOS(actual, expected)`, `ErrUnsupportedArch(actual, expected)`
+- `ErrMissingBinary(binary)`, `ErrPathNotAbs(path)`, `ErrCurseForgeDistribution(projectId)`, `ErrCurseForgeFile(projectId, fileID)`
 
 ### Downloads
 
@@ -281,7 +285,7 @@ type RCONConnection struct {
 
 - **`Start()`** — Starts automatic reconnection loop
 - **`Write(p []byte)`** — Executes command via `gorcon/rcon`
-- Uses port 25575 by default
+- IP/port/password come from the server configuration (`StdinConsoleConfiguration`)
 
 ### RCON over WebSocket
 
@@ -434,7 +438,7 @@ func UnmarshalTo(source, target interface{}) error                    // deep co
 ### Slice Operations
 
 ```go
-func Union[T comparable](a, b []T) []T                                // union
+func Union[T comparable](a, b []T) []T                                // intersection
 func Remove[T comparable](a []T, b T) []T                             // remove occurrences
 ```
 
@@ -533,11 +537,10 @@ Not a Go package. Contains:
 
 ## internal/storage/ — Docker Volume Data
 
-Not a Go package. Directories for Docker volumes:
+Not a Go package. Directories used as Docker volumes:
 
 | Directory | Purpose |
 |---|---|
 | `mysql-data/` | MariaDB database files |
 | `skypanel-config/` | Panel configuration |
-| `skypanel-data/` | Runtime data (config.json, sftp.key, servers/, logs/, cache/, binaries/) |
 | `skypanel-logs/` | Panel logs |

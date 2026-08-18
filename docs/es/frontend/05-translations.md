@@ -8,8 +8,8 @@ Los archivos están en `src/lib/locales/`:
 
 | Archivo | Idioma |
 |---|---|
-| `en.json` (880 líneas) | Inglés |
-| `es.json` | Español |
+| `en.json` (1094 líneas) | Inglés |
+| `es.json` (1094 líneas) | Español |
 
 Estructura de claves anidadas con notación de puntos:
 

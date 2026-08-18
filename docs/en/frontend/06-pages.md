@@ -1,63 +1,63 @@
-# Enrutamiento y Páginas (Astro)
+# Routing and Pages (Astro)
 
-Las rutas del frontend están determinadas por la estructura de archivos en `src/pages/` (file-based routing de Astro).
+The frontend routes are determined by the file structure in `src/pages/` (Astro file-based routing).
 
-## Estructura de Páginas
+## Page Structure
 
 ```
 src/pages/
-├── index.astro              # /          → Landing/redirección a login o dashboard
-├── login.astro              # /login/    → Inicio de sesión
-├── register.astro           # /register/ → Registro de usuario
-├── forgot-password.astro    # /forgot-password/ → Solicitar reset de contraseña
-├── reset-password.astro     # /reset-password/ → Ingresar nueva contraseña (?token=)
-├── dashboard.astro          # /dashboard/ → Panel principal con métricas globales
+├── index.astro              # /          → Landing/redirect to login or dashboard
+├── login.astro              # /login/    → Sign in
+├── register.astro           # /register/ → User registration
+├── forgot-password.astro    # /forgot-password/ → Request password reset
+├── reset-password.astro     # /reset-password/ → Enter new password (?token=)
+├── dashboard.astro          # /dashboard/ → Main panel with global metrics
 ├── servers/
-│   ├── index.astro          # /servers/  → Lista de servidores
-│   ├── view.astro           # /servers/view/ → Vista de servidor individual
-│   └── [id].astro           # /servers/:id/ → Detalle del servidor (parámetro dinámico)
+│   ├── index.astro          # /servers/  → Server list
+│   ├── view.astro           # /servers/view/ → Individual server view
+│   └── [id].astro           # /servers/:id/ → Server details (dynamic parameter)
 ├── nodes/
-│   ├── index.astro          # /nodes/    → Lista de nodos
-│   ├── view.astro           # /nodes/view/ → Vista de nodo individual
-│   └── [id].astro           # /nodes/:id/ → Detalle de nodo
-├── users.astro              # /users/    → Administración de usuarios
-├── templates.astro          # /templates/ → Repositorios y plantillas
-├── settings.astro           # /settings/ → Configuración global del panel
-├── roles.astro              # /roles/    → Roles y permisos
-├── database-hosts.astro     # /database-hosts/ → Hosts de bases de datos
+│   ├── index.astro          # /nodes/    → Node list
+│   ├── view.astro           # /nodes/view/ → Individual node view
+│   └── [id].astro           # /nodes/:id/ → Node details
+├── users.astro              # /users/    → User administration
+├── templates.astro          # /templates/ → Repositories and templates
+├── settings.astro           # /settings/ → Global panel configuration
+├── roles.astro              # /roles/    → Roles and permissions
+├── database-hosts.astro     # /database-hosts/ → Database hosts
 └── profile/
-    └── settings.astro       # /profile/settings/ → Perfil del usuario
+    └── settings.astro       # /profile/settings/ → User profile
 ```
 
-## Hidratación de Componentes React
+## React Component Hydration
 
-Las páginas Astro actúan como contenedores que hidratan componentes React con la directiva `client:only`:
+Astro pages act as containers that hydrate React components with the `client:only` directive:
 
 ```astro
 ---
 // login.astro
-// Carga el componente de login completamente del lado del cliente
+// Loads the login component fully on the client side
 ---
 <Layout title="Login">
   <LoginWrapper client:only="react" />
 </Layout>
 ```
 
-## Navegación
+## Navigation
 
-- **AuthShell.tsx** — Layout para páginas sin autenticación (`/login/`, `/register/`, `/forgot-password/`, `/reset-password/`).
-- **AppShell.tsx** — Layout principal con sidebar y header para páginas autenticadas.
-- `AuthContext` redirige automáticamente:
-  - Usuario no autenticado en ruta privada → `/login/`
-  - Usuario autenticado en `/login/` o `/register/` → `/dashboard/`
+- **AuthShell.tsx** — Layout for pages without authentication (`/login/`, `/register/`, `/forgot-password/`, `/reset-password/`).
+- **AppShell.tsx** — Main layout with sidebar and header for authenticated pages.
+- `AuthContext` automatically redirects:
+  - Unauthenticated user on a private route → `/login/`
+  - Authenticated user on `/login/` or `/register/` → `/dashboard/`
 
-## Parámetros Dinámicos
+## Dynamic Parameters
 
-Las rutas con `[id].astro` usan parámetros dinámicos de Astro:
+Routes with `[id].astro` use Astro dynamic parameters:
 
 ```
 /servers/:id   → servers/[id].astro → params.id
 /nodes/:id     → nodes/[id].astro   → params.id
 ```
 
-Los componentes React acceden al ID mediante `Astro.params` y lo pasan como prop a los componentes hijos.
+React components access the ID via `Astro.params` and pass it as a prop to child components.

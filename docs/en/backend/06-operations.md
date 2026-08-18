@@ -31,7 +31,7 @@ type OperationResult struct {
 
 Factories are registered via `init()` in each operation package. The global map is located in `internal/servers/operation_functions.go`.
 
-## Available Operations (25)
+## Available Operations (26)
 
 | Key | Package | Description |
 |---|---|---|
@@ -44,21 +44,23 @@ Factories are registered via `init()` in each operation package. The global map 
 | `download` | `operations/download/` | Downloads files via HTTP/HTTPS |
 | `extract` | `operations/extract/` | Extracts compressed files (ZIP, tar.gz) |
 | `fabricdl` | `operations/fabricdl/` | Downloads Fabric Loader for Minecraft |
-| `forgedl` | `operations/forgedl/\` | Downloads Minecraft Forge |
-| `javadl` | `operations/javadl/\` | Downloads Java Runtime |
-| `mkdir` | `operations/mkdir/\` | Creates directories |
-| `mojangdl` | `operations/mojangdl/\` | Downloads Minecraft server from Mojang |
-| `move` | `operations/move/\` | Moves or renames files |
-| `neoforgedl` | `operations/neoforgedl/\` | Downloads NeoForge |
-| `nodejsdl` | `operations/nodejsdl/\` | Downloads Node.js |
-| `paperdl` | `operations/paperdl/\` | Downloads PaperMC |
-| `resolveforgeversion` | `operations/resolveforgeversion/\` | Resolves Forge version |
-| `resolveneoforgeversion` | `operations/resolveneoforgeversion/\` | Resolves NeoForge version |
-| `sleep` | `operations/sleep/\` | Pauses for a specified duration |
-| `spongedl` | `operations/spongedl/\` | Downloads Sponge |
-| `stdin` | `operations/stdin/\` | Sends text to process stdin |
-| `steamgamedl` | `operations/steamgamedl/\` | Downloads Steam games (DepotDownloader) |
-| `writefile` | `operations/writefile/\` | Writes content to a file |
+| `forgedl` | `operations/forgedl/` | Downloads Minecraft Forge |
+| `githubdl` | `operations/githubdl/` | Downloads files from GitHub (release/raw) |
+| `javadl` | `operations/javadl/` | Downloads Java Runtime |
+| `mkdir` | `operations/mkdir/` | Creates directories |
+| `mojangdl` | `operations/mojangdl/` | Downloads Minecraft server from Mojang |
+| `move` | `operations/move/` | Moves or renames files |
+| `neoforgedl` | `operations/neoforgedl/` | Downloads NeoForge |
+| `nodejsdl` | `operations/nodejsdl/` | Downloads Node.js |
+| `paperdl` | `operations/paperdl/` | Downloads PaperMC |
+| `resolveforgeversion` | `operations/resolveforgeversion/` | Resolves Forge version |
+| `resolveneoforgeversion` | `operations/resolveneoforgeversion/` | Resolves NeoForge version |
+| `scraperdl` | `operations/scraperdl/` | Downloads using URL scraping |
+| `sleep` | `operations/sleep/` | Pauses for a specified duration |
+| `spongedl` | `operations/spongedl/` | Downloads Sponge |
+| `stdin` | `operations/stdin/` | Sends text to process stdin |
+| `steamgamedl` | `operations/steamgamedl/` | Downloads Steam games (DepotDownloader) |
+| `writefile` | `operations/writefile/` | Writes content to a file |
 
 ## Conditions (CEL)
 

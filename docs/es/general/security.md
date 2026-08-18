@@ -4,7 +4,7 @@
 
 La seguridad es una prioridad fundamental en Aether Panel. Este documento cubre las características de seguridad integradas en el panel y las mejores prácticas para mantener tu instalación segura.
 
-Aether Panel incluye múltiples capas de seguridad: autenticación por tokens Bearer y cookies HttpOnly, sesiones con hash SHA256, cifrado bcrypt para contraseñas, JWT con firma Ed25519, un sistema de ~80 scopes granulares, y soporte para 2FA vía TOTP. El panel no maneja TLS directamente — debe usarse un proxy reverso como Nginx o Caddy para HTTPS.
+Aether Panel incluye múltiples capas de seguridad: autenticación por tokens Bearer y cookies HttpOnly, sesiones con hash SHA256, cifrado bcrypt para contraseñas, JWT con firma Ed25519, un sistema de 74 scopes granulares, y soporte para 2FA vía TOTP. El panel no maneja TLS directamente — debe usarse un proxy reverso como Nginx o Caddy para HTTPS.
 
 ## Autenticación
 
@@ -22,7 +22,7 @@ Para acceso mediante API, el panel prioriza el header `Authorization: Bearer <to
 
 #### OAuth2 Server Integrado
 
-El panel incluye un servidor OAuth2 completo. Los endpoints están en `/oauth2/token` (generar token) y `/oauth2/revoke` (revocar). Usa el flujo Client Credentials. Las claves públicas están disponibles en `/oauth2/jwks`. Los tokens son JWT firmados con Ed25519 (EdDSA).
+El panel incluye un servidor OAuth2. El endpoint está en `/oauth2/token` (generar token). Usa los flujos Client Credentials (autenticación panel↔nodo) y Password (autenticación SFTP). Las claves públicas están disponibles en `/auth/publickey` en formato JWKS. Los tokens son JWT firmados con Ed25519 (EdDSA).
 
 - Autenticación Client Credentials para integraciones
 - Tokens JWT con firma Ed25519 (clave autogenerada en el primer inicio)
@@ -64,11 +64,11 @@ Las contraseñas en Aether Panel están protegidas con:
 
 ## Autorización y Permisos
 
-El panel utiliza un sistema de permisos basado en ~80 scopes granulares. Cada ruta de la API requiere uno o más scopes específicos. El middleware `RequiresPermission` verifica los scopes antes de procesar cada petición.
+El panel utiliza un sistema de permisos basado en 74 scopes granulares. Cada ruta de la API requiere uno o más scopes específicos. El middleware `RequiresPermission` verifica los scopes antes de procesar cada petición.
 
 ### Sistema de Scopes
 
-Los scopes controlan el acceso a funcionalidades específicas. Ejemplos de los ~80 scopes definidos:
+Los scopes controlan el acceso a funcionalidades específicas. Ejemplos de los 74 scopes definidos (50 específicos de servidor + 24 globales):
 
 - admin — Acceso administrativo completo (hereda todos los scopes)
 - server.view — Ver información de servidores

@@ -12,11 +12,11 @@ Overview with statistics, active servers, and system status with resource usage 
 
 #### Servers
 
-Manage all your game servers: real-time console, files, backups, databases, plugins, and more.
+Manage all your game servers from here: real-time console, files, backups, databases, plugins, and more.
 
 #### Users
 
-Manage users, granular scope-based permissions, and roles.
+Manage users, granular scope-based permissions, and panel roles.
 
 #### Nodes
 
@@ -68,7 +68,7 @@ To add a new server, navigate to the "Servers" section and click "Create New". Y
 
 ### Server Lifecycle
 
-The panel exposes REST endpoints to fully control the server lifecycle. Each action requires authentication and specific scope permissions.
+The panel exposes REST endpoints to fully control the server lifecycle. Each action requires authentication and specific permissions.
 
 - Start — powers on the server
 - Stop — gracefully shuts down the server
@@ -81,7 +81,7 @@ The panel exposes REST endpoints to fully control the server lifecycle. Each act
 
 #### Console
 
-Access the server console in real-time via WebSocket. Send commands and view live logs with auto-scroll. Includes timestamps and fullscreen mode.
+Access the server console in real-time via WebSocket. Send commands and view live logs with auto-scroll. The console includes timestamps and fullscreen mode.
 
 #### Files
 
@@ -132,7 +132,7 @@ In the "Users" section, you can create new user accounts and assign them to role
 
 ### Permission System (Scopes)
 
-Aether Panel uses ~80 granular scopes that control every action. Permissions can be assigned at global level (affect all servers) or at individual server level. Roles group scopes for mass assignment.
+Aether Panel uses 74 granular scopes (50 server-specific + 24 global) that control every action. Permissions can be assigned at global level (affect all servers) or at individual server level. There are also roles that group scopes for mass assignment.
 
 #### Scope Categories
 
@@ -209,7 +209,7 @@ The panel provides a WebSocket connection through the REST API that allows recei
 - Interactive server console with live logs
 - Real-time CPU, RAM, and disk statistics
 - Server status (running/stopped/installing)
-- Bearer token authentication
+- Authentication via the panel's Bearer token
 
 ## Command Line Interface (CLI)
 

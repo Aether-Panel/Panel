@@ -10,7 +10,7 @@ Sí, el panel principal es 100% gratuito y open source bajo licencia Apache 2.0.
 
 ¿En qué se diferencia Aether Panel de otros paneles?
 
-Aether Panel es un panel independiente. Mantenemos compatibilidad con el núcleo original pero añadimos mejoras propias, un frontend renovado con Astro + React 19, integración con la comunidad (sugerencias, votaciones), un sitio web de marketing y documentación, y características adicionales como transferencia externa entre paneles y monitoreo Gatus integrado.
+Aether Panel es un panel independiente. Mantenemos compatibilidad con el núcleo original pero añadimos mejoras propias, un frontend renovado con Astro + React 19, integración con la comunidad (sugerencias, votaciones), un sitio web de marketing y documentación, y características adicionales como transferencia externa entre paneles.
 
 ¿Qué tipo de servidores puedo ejecutar?
 
@@ -22,7 +22,7 @@ Sí, el daemon de Aether Panel utiliza Docker para aislar y ejecutar los servido
 
 ¿Cuál es la arquitectura del panel?
 
-El panel tiene dos componentes principales: el panel (interfaz web y API REST en el puerto 8080) y el daemon (ejecución de servidores Docker, SFTP en puerto 5657). En instalaciones estándar ambos se ejecutan juntos. También incluye Gatus para monitoreo de uptime (puerto 8081). El frontend del panel está construido con Astro + React, y el sitio web de marketing/documentación con Next.js.
+El panel tiene dos componentes principales: el panel (interfaz web y API REST en el puerto 8080) y el daemon (ejecución de servidores Docker, SFTP en puerto 5657). En instalaciones estándar ambos se ejecutan juntos. El frontend del panel está construido con Astro + React.
 
 ¿Puedo gestionar múltiples servidores físicos?
 
@@ -34,7 +34,7 @@ El panel soporta autenticación mediante tokens Bearer (header Authorization) o 
 
 ¿Cómo funciona el sistema de permisos?
 
-El panel tiene aproximadamente 80 scopes granulares que controlan cada acción. Los permisos pueden asignarse a nivel global (afectan todos los servidores) o por servidor. También existen roles que agrupan scopes. El scope 'admin' concede todos los permisos, y 'server.admin' concede todos los permisos sobre un servidor específico.
+El panel tiene aproximadamente 74 scopes granulares (50 específicos de servidor + 24 globales) que controlan cada acción. Los permisos pueden asignarse a nivel global (afectan todos los servidores) o por servidor. También existen roles que agrupan scopes. El scope 'admin' concede todos los permisos, y 'server.admin' concede todos los permisos sobre un servidor específico.
 
 ¿Qué base de datos usa el panel?
 
@@ -70,7 +70,7 @@ La transferencia externa (extransfer) permite mover servidores entre instalacion
 
 ¿Qué es Gatus?
 
-Gatus es un sistema de monitoreo de uptime integrado. Verifica el estado de tu panel y servicios configurados. Se ejecuta en el puerto 8081 y puedes acceder a su dashboard web. Se habilita automáticamente en instalaciones Docker.
+El repositorio incluye un archivo de configuración `data/gatus/config.yaml` para monitorear el uptime del panel y sus nodos con Gatus (dashboard web en el puerto 8081). Sin embargo, **Gatus no se despliega automáticamente** con el `docker-compose.yml`: si quieres usarlo, debes ejecutar Gatus por separado usando ese archivo de configuración.
 
 ¿Aether Panel tiene API?
 
@@ -78,7 +78,7 @@ Sí, el panel expone una API RESTful completa en /api/*. Todos los endpoints req
 
 ¿Soporta OAuth2?
 
-Sí, el panel incluye un servidor OAuth2 completo con endpoints en /oauth2/token, /oauth2/revoke y /oauth2/jwks. Usa el flujo Client Credentials con JWTs firmados con Ed25519. Las claves públicas están disponibles via JWKS para verificación por terceros.
+Sí, el panel incluye un servidor OAuth2 con el endpoint /oauth2/token. Usa los flujos Client Credentials (autenticación panel↔nodo) y Password (autenticación SFTP), con JWTs firmados con Ed25519. Las claves públicas están disponibles en /auth/publickey en formato JWKS para verificación por terceros.
 
 ¿Qué línea de comandos (CLI) tiene el panel?
 
@@ -86,7 +86,7 @@ El panel incluye un CLI completo basado en Cobra. Los comandos principales son: 
 
 ¿Cómo actualizo Aether Panel?
 
-Si usas Docker: docker compose pull && docker compose up -d. Si usas instalación nativa: git pull, recompila con go build y reinicia el servicio. Consulta la documentación de instalación para instrucciones detalladas.
+Si usas Docker: `docker compose build && docker compose up -d` (o `git pull` y reconstruir la imagen). Consulta la documentación de instalación para instrucciones detalladas.
 
 ¿El panel funciona con MySQL externo?
 

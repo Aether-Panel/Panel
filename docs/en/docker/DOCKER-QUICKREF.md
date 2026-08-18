@@ -6,7 +6,7 @@
 # Build main image
 docker build -t skypanel:latest .
 
-# Build multi-platform
+# Multi-platform build
 docker build --platform linux/amd64 -t skypanel:latest .
 docker build --platform linux/arm64 -t skypanel:latest .
 
@@ -22,7 +22,7 @@ docker build -f Dockerfile-formatter -t formatter .
 # Production (Panel + MariaDB)
 docker-compose up -d
 
-# Development (Standalone Panel, SQLite)
+# Development (Standalone panel, SQLite)
 docker-compose -f docker-compose.dev.yml up -d
 
 # Logs

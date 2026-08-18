@@ -6,17 +6,18 @@ Este documento detalla la estructura, las tecnologías y la arquitectura general
 
 | Tecnología | Versión | Uso |
 |---|---|---|
-| **Astro** | ^6.4.6 | Framework web con arquitectura de Islas, enrutamiento basado en archivos (`src/pages/`) |
-| **React** | ^19.2.7 | Componentes interactivos de UI |
+| **Astro** | ^7.1.3 | Framework web con arquitectura de Islas, enrutamiento basado en archivos (`src/pages/`) |
+| **React** | ^19.2.8 | Componentes interactivos de UI |
 | **Tailwind CSS** | ^3.4.1 | Estilos utilitarios |
-| **Shadcn UI / Radix UI** | — | 35+ componentes accesibles (Dialog, Select, Tabs, etc.) |
-| **react-hook-form** | ^7.54.2 | Manejo de formularios |
-| **zod** | ^3.24.2 | Validación de esquemas |
+| **Shadcn UI / Radix UI** | — | 33 componentes accesibles (Dialog, Select, Tabs, etc.) |
+| **react-hook-form** | ^7.83.0 | Manejo de formularios |
+| **zod** | ^4.4.3 | Validación de esquemas |
 | **Monaco Editor** | ^4.6.1 | Editor de código/configuraciones en el navegador |
-| **Genkit** | ^1.28.0 | Integración con Google GenAI para análisis de logs |
+| **Genkit** | ^1.40.1 | Integración con Google GenAI para análisis de logs |
 | **recharts** | ^2.15.1 | Gráficos de métricas (CPU, RAM) |
-| **lucide-react** | ^0.475.0 | Iconos |
-| **clsx + tailwind-merge** | — | Manejo condicional de clases CSS |
+| **lucide-react** | ^1.26.0 | Iconos |
+| **clsx + tailwind-merge** | ^2.1.1 / ^3.0.1 | Manejo condicional de clases CSS |
+| **sileo** | ^0.1.5 | Notificaciones toast |
 
 ## Estructura de Directorios (`frontend/src/`)
 
@@ -27,9 +28,12 @@ src/
 │   ├── dev.ts               # Utilidad de desarrollo
 │   └── flows/               # Flujos de IA (summarize, troubleshooting)
 ├── components/              # Componentes visuales
-│   ├── ui/                  # 35+ componentes Shadcn/Radix UI
+│   ├── ui/                  # 33 componentes Shadcn/Radix UI
 │   ├── AppShell.tsx         # Layout principal del dashboard
 │   ├── AuthShell.tsx        # Layout de autenticación
+│   ├── SileoToaster.tsx     # Renderer de notificaciones toast
+│   ├── Turnstile.tsx        # Widget Cloudflare Turnstile
+│   ├── server-card.tsx      # Tarjeta de servidor
 │   ├── metrics-charts.tsx   # Gráficos de métricas
 │   ├── network-usage-chart.tsx
 │   ├── resource-usage-chart.tsx
@@ -62,7 +66,6 @@ src/
 │   ├── use-servers.ts
 │   ├── use-settings.ts
 │   ├── use-templates.ts
-│   ├── use-toast.ts
 │   └── use-users.ts
 ├── layouts/
 │   └── BaseLayout.astro     # Layout base HTML
@@ -71,6 +74,7 @@ src/
 │   ├── utils.ts             # Utilidades generales (cn())
 │   ├── ansi-utils.tsx       # Parseo de colores ANSI para la consola
 │   ├── data.ts              # Datos y constantes
+│   ├── toast.ts             # Notificaciones toast (sileo)
 │   └── locales/             # Traducciones (en.json, es.json)
 ├── pages/                   # Rutas de Astro (file-based routing)
 │   ├── index.astro
@@ -91,7 +95,7 @@ src/
 
 ## SDK de API (`lib/api-client.ts`)
 
-No existe un paquete separado `client/api/`. El SDK es un único archivo de 81 líneas en `frontend/src/lib/api-client.ts` que exporta un objeto `api` con métodos `get`, `post`, `put`, `delete` usando la **API nativa `fetch`** del navegador con `credentials: 'include'` para autenticación por cookies/sesión.
+No existe un paquete separado `client/api/`. El SDK es un único archivo de 94 líneas en `frontend/src/lib/api-client.ts` que exporta un objeto `api` con métodos `get`, `post`, `postForm`, `put`, `delete` usando la **API nativa `fetch`** del navegador con `credentials: 'include'` para autenticación por cookies/sesión.
 
 Las llamadas a la API se realizan directamente desde los features y hooks, no desde clases separadas por dominio:
 
