@@ -2472,21 +2472,20 @@
     "@radix-ui/react-context" "1.2.0"
     "@radix-ui/react-primitive" "2.1.7"
 
-"@radix-ui/react-radio-group@^1.2.3":
-  version "1.4.3"
-  resolved "https://registry.npmjs.org/@radix-ui/react-radio-group/-/react-radio-group-1.4.3.tgz"
-  integrity sha512-WwZFjWV4s3aC1QtR3k04R+oANHtX2q6fgKlc7MCEiDNlnTxCZ3H8k3mHtEgVlOejystwk1WQgarQhNOQZ2bK1g==
+"@radix-ui/react-radio-group@^1.4.7":
+  version "1.4.7"
+  resolved "https://registry.yarnpkg.com/@radix-ui/react-radio-group/-/react-radio-group-1.4.7.tgz#915d083547d26d763884b7683be469c6402aed96"
+  integrity sha512-cgYFEkntCxppHZgtSZ+7vh0wbZQ+IC7PPMw8DSnRG27B6kDd32/Zw0OJt7dGDigCoprMuWHjg2PvUn3PYvPFoQ==
   dependencies:
-    "@radix-ui/primitive" "1.1.5"
-    "@radix-ui/react-compose-refs" "1.1.3"
-    "@radix-ui/react-context" "1.2.0"
-    "@radix-ui/react-direction" "1.1.2"
-    "@radix-ui/react-presence" "1.1.7"
-    "@radix-ui/react-primitive" "2.1.7"
-    "@radix-ui/react-roving-focus" "1.1.15"
-    "@radix-ui/react-use-controllable-state" "1.2.3"
-    "@radix-ui/react-use-previous" "1.1.2"
-    "@radix-ui/react-use-size" "1.1.2"
+    "@radix-ui/primitive" "1.1.7"
+    "@radix-ui/react-compose-refs" "1.1.5"
+    "@radix-ui/react-context" "1.2.2"
+    "@radix-ui/react-direction" "1.1.4"
+    "@radix-ui/react-presence" "1.1.10"
+    "@radix-ui/react-primitive" "2.1.10"
+    "@radix-ui/react-roving-focus" "1.1.19"
+    "@radix-ui/react-use-controllable-state" "1.2.6"
+    "@radix-ui/react-use-size" "1.1.4"
 
 "@radix-ui/react-roving-focus@1.1.15":
   version "1.1.15"
