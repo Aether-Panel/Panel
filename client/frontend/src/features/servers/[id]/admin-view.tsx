@@ -275,6 +275,7 @@ export default function AdminView({ serverId }: { serverId: string }) {
                                                 language="json"
                                                 value={editContent}
                                                 onChange={(val) => setEditContent(val || '')}
+                                                onSave={handleSaveDefinition}
                                             />
                                         </Suspense>
                                     </div>

@@ -94,6 +94,12 @@
     background: hsl(var(--primary)/0.3);
     color: hsl(var(--foreground));
   }
+
+  /* Fallback while Monaco CSS loads after ClientRouter / bfcache navigation */
+  .monaco-editor-host ::selection {
+    background: #33467c;
+    color: #c0caf5;
+  }
 }
 
 @layer utilities {

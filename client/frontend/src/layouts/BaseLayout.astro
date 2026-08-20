@@ -28,6 +28,19 @@ import { ClientRouter } from "astro:transitions";
       /* By default, Astro adds a crossfade. To make it instant like Next.js, we can override the CSS or use transition:animate="none" on the body or replace ClientRouter with no fallback or similar if desired. But actually Astro's default *does* apply a fade. Let's just leave it for now or explicitly set transition:animate="none" on the body. */
     }
     <ClientRouter />
+    <script is:inline>
+      (function () {
+        // Remove Radix portals (dialogs, dropdowns, toasts) before Astro swaps
+        // the page, otherwise they can linger after client-side navigation.
+        document.addEventListener("astro:before-swap", function () {
+          document
+            .querySelectorAll("[data-radix-portal], [data-radix-popper-content-wrapper]")
+            .forEach(function (el) {
+              el.remove();
+            });
+        });
+      })();
+    </script>
   </head>
   <body class="font-body antialiased bg-background text-foreground">
     <slot />

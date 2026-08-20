@@ -133,10 +133,19 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
   const [currentPath, setCurrentPath] = useState('');
   const [files, setFiles] = useState<FileItemResource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingFile, setEditingFile] = useState<FileItemResource | null>(null);
   const [editedContent, setEditedContent] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
+
+  const closeEditor = () => {
+    setIsEditorOpen(false);
+    editorCloseTimeoutRef.current = window.setTimeout(() => {
+      editorCloseTimeoutRef.current = null;
+      setEditingFile(null);
+    }, 300);
+  };
 
   // New State for operations
   const [newItemDialog, setNewItemDialog] = useState<{ open: boolean; type: 'file' | 'folder' }>({ open: false, type: 'file' });
@@ -149,6 +158,8 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
 
   const [clipboard, setClipboard] = useState<ClipboardItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const editorCloseTimeoutRef = useRef<number | null>(null);
+  const savingRef = useRef(false);
 
   const { t } = useTranslations();
   
@@ -185,8 +196,13 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
       try {
         const filePath = currentPath ? `${currentPath}/${file.name}` : file.name;
         const content = await api.get(`/api/servers/${serverId}/file/${filePath}`);
+        if (editorCloseTimeoutRef.current !== null) {
+          clearTimeout(editorCloseTimeoutRef.current);
+          editorCloseTimeoutRef.current = null;
+        }
         setEditedContent(typeof content === 'string' ? content : JSON.stringify(content, null, 2));
         setEditingFile(file);
+        setIsEditorOpen(true);
       } catch (e: any) {
         sileo.error({ title: t('common.error'), description: e.message || 'Failed to load file content.' });
       }
@@ -452,7 +468,8 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
   };
 
   const handleSaveChanges = async () => {
-    if (!editingFile) return;
+    if (!editingFile || savingRef.current) return;
+    savingRef.current = true;
     setIsSaving(true);
     try {
       const filePath = currentPath ? `${currentPath}/${editingFile.name}` : editingFile.name;
@@ -462,12 +479,11 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
         credentials: 'include'
       });
       setSavedFlash(true);
-      setTimeout(() => setSavedFlash(false), 1500);
-      sileo.success({ title: t('common.success'), description: t('servers.fileManager.editor.saveSuccess') });
-      setEditingFile(null);
+      setTimeout(() => setSavedFlash(false), 2000);
     } catch (e: any) {
       sileo.error({ title: t('common.error'), description: e.message || 'Error al guardar.' });
     } finally {
+      savingRef.current = false;
       setIsSaving(false);
     }
   };
@@ -514,6 +530,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
       case 'ini':
       case 'conf':
       case 'cfg':
+      case 'env':
       case 'properties': return 'ini';
       default: return 'plaintext';
     }
@@ -766,7 +783,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
       </div>
 
       {/* Editor Dialog */}
-      <Dialog open={!!editingFile} onOpenChange={(open) => !open && setEditingFile(null)}>
+      <Dialog open={isEditorOpen} onOpenChange={(open) => !open && closeEditor()}>
         <DialogContent className="flex h-[90vh] w-[95vw] max-w-[95vw] flex-col gap-0 overflow-hidden p-0">
           <div className="flex items-center justify-between gap-3 border-b border-border/80 bg-card px-5 py-4 pr-12">
             <div className="flex min-w-0 items-center gap-3">
@@ -801,6 +818,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
                   language={editingLanguage}
                   value={editedContent}
                   onChange={(value) => setEditedContent(value || '')}
+                  onSave={handleSaveChanges}
                 />
               </Suspense>
             )}
@@ -812,7 +830,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
               {t('servers.fileManager.editor.saveHint')}
             </p>
             <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={() => setEditingFile(null)}>
+              <Button variant="outline" onClick={closeEditor}>
                 {t('servers.fileManager.editor.cancel')}
               </Button>
               <Button onClick={handleSaveChanges} disabled={isSaving} className="min-w-[120px]">
