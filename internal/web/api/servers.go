@@ -1346,7 +1346,7 @@ func validatePortsAgainstNode(db *gorm.DB, nodeID uint, excludeIdentifier string
 		if p == 0 {
 			continue
 		}
-		if p < 1024 || p > 65535 {
+		if p < 1024 {
 			return fmt.Errorf("el puerto %d está fuera del rango permitido (1024-65535)", p)
 		}
 		if seen[p] {
