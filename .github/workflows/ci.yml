@@ -109,7 +109,7 @@ jobs:
       - name: Run Staticcheck
         uses: dominikh/staticcheck-action@9716614d4101e79b4340dd97b10e54d68234e431 # v1.4.1
         with:
-          version: "latest"
+          version: "v0.7.0"
           install-go: false
 
       - name: Run gosec (Go Security)
