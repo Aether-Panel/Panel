@@ -118,7 +118,7 @@ jobs:
           args: -exclude=G104,G107,G115,G122,G204,G301,G302,G304,G306,G702,G703,G706 ./...
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@2736533278103862a861f4a35ebac3e97854d956 # master
+        uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297 # master
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -129,7 +129,7 @@ jobs:
           severity: 'CRITICAL,HIGH'
 
       - name: Run Trivy Secret Scan
-        uses: aquasecurity/trivy-action@2736533278103862a861f4a35ebac3e97854d956 # master
+        uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297 # master
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -138,7 +138,7 @@ jobs:
           scanners: 'secret'
 
       - name: Run Trivy Config Scan
-        uses: aquasecurity/trivy-action@2736533278103862a861f4a35ebac3e97854d956 # master
+        uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297 # master
         with:
           scan-type: 'fs'
           scan-ref: '.'
