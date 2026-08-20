@@ -248,6 +248,7 @@ function Step2Template({
 function Step3Configuration({
     templateDetails, templateError, configData, setConfigData,
     cpuLimit, setCpuLimit, memoryLimit, setMemoryLimit, diskLimit, setDiskLimit,
+    extraPorts, setExtraPorts,
     setCurrentStep
 }: any) {
     if (templateError) {
@@ -357,6 +358,41 @@ function Step3Configuration({
                     </div>
                 );
             })}
+
+        <div className="col-span-full border-t border-border/50 my-1" />
+        <div className="col-span-full space-y-3">
+            <Label className="text-xs font-semibold">Puertos Extra</Label>
+            <p className="text-xs text-muted-foreground">
+                Puerto principal: <span className="font-mono">{configData['port'] || '—'}</span>
+            </p>
+            {extraPorts.map((p: string, idx: number) => (
+                <div key={idx} className="flex items-center gap-2">
+                    <Input
+                        type="number"
+                        value={p}
+                        placeholder="p. ej. 25566"
+                        onChange={(e) => {
+                            const next = [...extraPorts];
+                            next[idx] = e.target.value;
+                            setExtraPorts(next);
+                        }}
+                        className="h-8 bg-background/50 text-sm font-mono"
+                    />
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0 text-muted-foreground hover:text-red-500"
+                        onClick={() => setExtraPorts(extraPorts.filter((_: string, i: number) => i !== idx))}
+                    >
+                        <X className="h-4 w-4" />
+                    </Button>
+                </div>
+            ))}
+            <Button type="button" variant="outline" size="sm" onClick={() => setExtraPorts([...extraPorts, ''])}>
+                Añadir puerto extra
+            </Button>
+        </div>
         </div>
     );
 }
@@ -403,6 +439,7 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
     const [cpuLimit, setCpuLimit] = useState<number | ''>(100);
     const [memoryLimit, setMemoryLimit] = useState<number | ''>(1024);
     const [diskLimit, setDiskLimit] = useState<number | ''>(10240);
+    const [extraPorts, setExtraPorts] = useState<string[]>([]);
 
     useEffect(() => {
         if (repoList.length === 1 && selectedRepo === null) {
@@ -467,6 +504,7 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
         if (selectedTemplateName && selectedRepo !== null) {
             setTemplateError(null);
             setTemplateDetails(null);
+            setExtraPorts([]);
             getTemplateDetails(selectedRepo, selectedTemplateName).then(details => {
                 if (!details) {
                     setTemplateError("No se pudo cargar la información de la plantilla. Comprueba que el repositorio de plantillas esté disponible.");
@@ -513,6 +551,11 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
             vars['cpu'] = { value: cpuLimit === '' ? 100 : cpuLimit };
             vars['memory'] = { value: memoryLimit === '' ? 1024 : memoryLimit };
             vars['disk'] = { value: diskLimit === '' ? 10240 : diskLimit };
+
+            // Inject extra ports as port2, port3, ... so the daemon binds them
+            extraPorts.map(Number).filter(p => p > 0).forEach((p, i) => {
+                vars[`port${i + 2}`] = { value: p };
+            });
 
             const usernames = selectedUsers
                 .map(id => users.find((u: any) => u.id === id)?.username)
@@ -598,6 +641,7 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
                                 cpuLimit={cpuLimit} setCpuLimit={setCpuLimit}
                                 memoryLimit={memoryLimit} setMemoryLimit={setMemoryLimit}
                                 diskLimit={diskLimit} setDiskLimit={setDiskLimit}
+                                extraPorts={extraPorts} setExtraPorts={setExtraPorts}
                                 setCurrentStep={setCurrentStep}
                             />
                         )}

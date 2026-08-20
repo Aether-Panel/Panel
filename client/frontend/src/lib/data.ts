@@ -3,6 +3,7 @@ export type Server = {
   name: string;
   ipAddress: string;
   port: number;
+  ports?: number[];
   status: 'online' | 'offline' | 'pending';
   cpuUsage: number;
   memoryUsage: number;

@@ -188,7 +188,10 @@ func checkPortConflicts(server *servers.Server) error {
 		return nil
 	}
 
-	return docker.CheckBindingsConflict(d.Ports, server.DataToMap(), server.ID())
+	variables := server.DataToMap()
+	resolved := docker.ResolvedPortBindings(d.Ports, variables)
+	resolved = append(resolved, docker.ExtraPortBindings(variables)...)
+	return docker.CheckBindingsConflict(resolved, variables, server.ID())
 }
 
 func doRestart(server *servers.Server) error {
@@ -403,6 +406,54 @@ func editServerDataAdmin(c *gin.Context) {
 	err := json.NewDecoder(c.Request.Body).Decode(&data)
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
+	}
+
+	// Extra ports: the panel sends "ports" (full assigned list) and
+	// "primaryPort". Mirror them into the port/port2/... variables so the
+	// container binds all of them, and remove stale extra-port variables.
+	if portsField, hasPorts := data["ports"]; hasPorts {
+		var ports []uint16
+		if rawList, ok := portsField.([]interface{}); ok {
+			for _, raw := range rawList {
+				if p, perr := cast.ToUint16E(raw); perr == nil && p > 0 {
+					ports = append(ports, p)
+				}
+			}
+		}
+
+		var primary uint16
+		if rawPrimary, ok := data["primaryPort"]; ok {
+			primary = cast.ToUint16(rawPrimary)
+		} else if len(ports) > 0 {
+			primary = ports[0]
+		}
+
+		if primary > 0 {
+			for i, p := range ports {
+				if p == primary {
+					ports[0], ports[i] = ports[i], ports[0]
+					break
+				}
+			}
+		}
+
+		if len(ports) > 0 {
+			data["port"] = ports[0]
+			for i := 1; i < len(ports); i++ {
+				data[fmt.Sprintf("port%d", i+1)] = ports[i]
+			}
+			// Remove variables beyond the new list so dropped ports unbind.
+			for i := len(ports) + 1; ; i++ {
+				key := fmt.Sprintf("port%d", i)
+				if _, exists := server.Variables[key]; exists {
+					delete(server.Variables, key)
+				} else {
+					break
+				}
+			}
+		}
+		delete(data, "ports")
+		delete(data, "primaryPort")
 	}
 
 	err = server.EditData(data, true)

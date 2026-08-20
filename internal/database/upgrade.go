@@ -232,6 +232,12 @@ var migrations = [][]*gormigrate.Migration{
 				return nil
 			},
 		},
+		{
+			ID: "20260819-server-extra-ports",
+			Migrate: func(db *gorm.DB) error {
+				return db.Migrator().AutoMigrate(&models.Server{})
+			},
+		},
 	},
 	{
 		{

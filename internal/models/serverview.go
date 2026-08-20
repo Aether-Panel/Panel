@@ -14,6 +14,7 @@ type ServerView struct {
 	Users          []ServerUserView `json:"users,omitempty"`
 	IP             string           `json:"ip,omitempty"`
 	Port           uint16           `json:"port,omitempty"`
+	Ports          []uint16         `json:"ports,omitempty"`
 	Type           string           `json:"type"`
 	Icon           string           `json:"icon,omitempty"`
 	CanGetStatus   bool             `json:"canGetStatus,omitempty"`
@@ -31,12 +32,18 @@ type ServerUserView struct {
 } // @name ServerUser
 
 func FromServer(server *Server) *ServerView {
+	ports := server.Ports
+	if len(ports) == 0 && server.Port > 0 {
+		ports = []uint16{server.Port}
+	}
+
 	model := &ServerView{
 		Name:           server.Name,
 		Identifier:     server.Identifier,
 		NodeID:         server.NodeID,
 		IP:             server.IP,
 		Port:           server.Port,
+		Ports:          ports,
 		Type:           server.Type,
 		Icon:           server.Icon,
 		Node:           FromNode(&server.Node),

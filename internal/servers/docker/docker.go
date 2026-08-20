@@ -56,6 +56,35 @@ type Docker struct {
 	dirSizeTime time.Time
 }
 
+// ResolvedPortBindings resolves template port specs against the given variables.
+func ResolvedPortBindings(portSpecs []string, variables map[string]interface{}) []string {
+	return utils.ReplaceTokensInArr(portSpecs, variables)
+}
+
+// ExtraPortBindings returns host bindings for the extra port variables
+// (port2, port3, ...) so additional ports assigned to a server are always
+// reachable regardless of the template's own portBindings. Both TCP and UDP
+// are exposed since game servers commonly listen on both.
+func ExtraPortBindings(variables map[string]interface{}) []string {
+	var specs []string
+	for i := 2; ; i++ {
+		key := fmt.Sprintf("port%d", i)
+		val, ok := variables[key]
+		if !ok {
+			break
+		}
+		p := cast.ToString(val)
+		if p == "" || p == "0" {
+			continue
+		}
+		specs = append(specs,
+			"0.0.0.0:"+p+":"+p+"/tcp",
+			"0.0.0.0:"+p+":"+p+"/udp",
+		)
+	}
+	return specs
+}
+
 func (d *Docker) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypanel.ExecutionData) error {
 	if d.downloadingImage {
 		return skypanel.ErrImageDownloading
@@ -668,7 +697,9 @@ func (d *Docker) createContainer(ctx context.Context, environment *skypanel.Envi
 	hostConfig.Binds = append(hostConfig.Binds, bindDirs...)
 
 	var exposedPorts network.PortSet
-	exposedPorts, hostConfig.PortBindings, err = parsePortSpecs(utils.ReplaceTokensInArr(d.Ports, data.Variables))
+	portSpecs := utils.ReplaceTokensInArr(d.Ports, data.Variables)
+	portSpecs = append(portSpecs, ExtraPortBindings(data.Variables)...)
+	exposedPorts, hostConfig.PortBindings, err = parsePortSpecs(portSpecs)
 	if err != nil {
 		return err
 	}

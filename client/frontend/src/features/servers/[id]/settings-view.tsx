@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -10,6 +10,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useTranslations } from '@/contexts/translations-context';
 import { useServerSettings, type ServerSettings, type SettingVariable } from '@/hooks/use-server-settings';
 import { sileo } from "@/lib/toast";
+import { api } from '@/lib/api-client';
 import { useAuth } from '@/contexts/providers';
 import { cn } from '@/lib/utils';
 import {
@@ -24,11 +25,17 @@ import {
   MemoryStick,
   HardDrive,
   ShieldCheck,
+  Network,
+  Star,
+  Trash2,
+  Plus,
   type LucideIcon,
 } from 'lucide-react';
 
 type SettingsViewProps = {
   serverId: string;
+  serverStatus?: 'online' | 'offline' | 'pending';
+  onPortsSaved?: () => void;
 };
 
 type SectionHeaderProps = {
@@ -90,7 +97,7 @@ function ResourceTile({ icon: Icon, label, hint, unit, value, onChange }: Resour
   );
 }
 
-export default function SettingsView({ serverId }: SettingsViewProps) {
+export default function SettingsView({ serverId, serverStatus, onPortsSaved }: SettingsViewProps) {
   const { t } = useTranslations();
   const { hasScope } = useAuth();
   const { settings, loading, error, saveSettings, isMinecraftJava } = useServerSettings(serverId);
@@ -106,6 +113,15 @@ export default function SettingsView({ serverId }: SettingsViewProps) {
     hasScope('server.admin.config.manage') ||
     hasScope('server.definition.edit');
 
+  const canEditAdminData = hasScope('server.data.edit.admin');
+
+  const [ports, setPorts] = useState<number[]>([]);
+  const initialPrimaryRef = useRef<number | null>(null);
+  const savedPortsRef = useRef<number[]>([]);
+  const portsInitializedRef = useRef(false);
+
+  const isRunning = serverStatus !== 'offline';
+
   useEffect(() => {
     if (settings) {
       setLocalSettings(JSON.parse(JSON.stringify(settings)));
@@ -114,6 +130,27 @@ export default function SettingsView({ serverId }: SettingsViewProps) {
       const stored = localStorage.getItem(`pluginsEnabled_${serverId}`);
       if (stored !== null) {
         setPluginsEnabled(stored === 'true');
+      }
+
+      // Initialize assigned ports from the port/port2/... variables (only once:
+      // internal saves must not wipe the list the admin is editing).
+      if (!portsInitializedRef.current) {
+        const loadedPorts: number[] = [];
+        for (let i = 1; ; i++) {
+          const key = i === 1 ? 'port' : `port${i}`;
+          const v = settings.variables[key]?.value;
+          if (v === undefined || v === null || v === '') break;
+          const num = Number(v);
+          if (num > 0) {
+            loadedPorts.push(num);
+          } else {
+            break;
+          }
+        }
+        setPorts(loadedPorts);
+        initialPrimaryRef.current = loadedPorts[0] ?? null;
+        savedPortsRef.current = [...loadedPorts];
+        portsInitializedRef.current = true;
       }
     }
   }, [settings, serverId]);
@@ -157,19 +194,111 @@ export default function SettingsView({ serverId }: SettingsViewProps) {
     });
   };
 
+  const handleMakePrimary = (idx: number) => {
+    if (idx === 0) return;
+    if (isRunning) {
+      sileo.error({
+        title: t('common.error') || 'Error',
+        description: t('servers.settings.portsRequireOffline' as any) || 'The server must be stopped to change the primary port.'
+      });
+      return;
+    }
+    setPorts(prev => {
+      const next = [...prev];
+      const [p] = next.splice(idx, 1);
+      next.unshift(p);
+      return next;
+    });
+  };
+
+  const removePort = (idx: number) => {
+    if (idx === 0 && isRunning) {
+      sileo.error({
+        title: t('common.error') || 'Error',
+        description: t('servers.settings.portsRequireOffline' as any) || 'The server must be stopped to change the primary port.'
+      });
+      return;
+    }
+    setPorts(prev => prev.filter((_, i) => i !== idx));
+  };
+
   const onSave = async () => {
     try {
       setSaving(true);
+
+      const validPorts = ports.filter(p => p > 0);
+
+      // Validate the port list before touching anything.
+      if (canEditAdminData) {
+        if (validPorts.length === 0) {
+          sileo.error({
+            title: t('common.error') || 'Error',
+            description: t('servers.settings.portRequired' as any) || 'You must assign at least one port.'
+          });
+          return;
+        }
+        const seen = new Set<number>();
+        for (const p of validPorts) {
+          if (p < 1024 || p > 65535) {
+            sileo.error({
+              title: t('common.error') || 'Error',
+              description: (t('servers.settings.portInvalid' as any) || 'Port {port} is invalid (1024-65535).').replace('{port}', String(p))
+            });
+            return;
+          }
+          if (seen.has(p)) {
+            sileo.error({
+              title: t('common.error') || 'Error',
+              description: (t('servers.settings.portDuplicate' as any) || 'Port {port} is already assigned to this server.').replace('{port}', String(p))
+            });
+            return;
+          }
+          seen.add(p);
+        }
+        // Changing the primary port requires the server to be stopped.
+        if (validPorts[0] !== initialPrimaryRef.current && isRunning) {
+          sileo.error({
+            title: t('common.error') || 'Error',
+            description: t('servers.settings.portsRequireOffline' as any) || 'The server must be stopped to change the primary port.'
+          });
+          return;
+        }
+      }
+
+      const portsChanged =
+        validPorts.length !== savedPortsRef.current.length ||
+        validPorts.some((p, i) => p !== savedPortsRef.current[i]);
+
       await saveSettings(localSettings, hasScope('server.data.edit.admin'));
 
       // Save plugins enabled to localStorage
       localStorage.setItem(`pluginsEnabled_${serverId}`, pluginsEnabled.toString());
       window.dispatchEvent(new CustomEvent('server:plugins-enabled-changed', { detail: pluginsEnabled }));
 
-      sileo.success({
-        title: t('common.success') || 'Success',
-        description: t('servers.settings.saveSuccess' as any) || 'Settings saved successfully'
-      });
+      // Persist the assigned ports (primary first) through the admin endpoint.
+      if (canEditAdminData && validPorts.length > 0) {
+        await api.put(`/api/servers/${serverId}/data`, {
+          ports: validPorts,
+          primaryPort: validPorts[0],
+        });
+      }
+
+      // Keep local state in sync so the UI updates without a page reload.
+      initialPrimaryRef.current = validPorts[0] ?? initialPrimaryRef.current;
+      savedPortsRef.current = [...validPorts];
+      onPortsSaved?.();
+
+      if (canEditAdminData && isRunning && portsChanged) {
+        sileo.success({
+          title: t('common.success') || 'Success',
+          description: t('servers.settings.portsApplyOnRestart' as any) || 'Port changes will take effect when the server restarts.'
+        });
+      } else {
+        sileo.success({
+          title: t('common.success') || 'Success',
+          description: t('servers.settings.saveSuccess' as any) || 'Settings saved successfully'
+        });
+      }
     } catch (e) {
       sileo.error({
         title: t('common.error') || 'Error',
@@ -182,6 +311,8 @@ export default function SettingsView({ serverId }: SettingsViewProps) {
 
   const renderVariable = (name: string, variable?: SettingVariable) => {
     if (!variable || variable.internal || ['cpu', 'memory', 'disk'].includes(name)) return null;
+    // Ports (port, port2, ...) are managed through the dedicated Ports section.
+    if (name === 'port' || /^port\d+$/.test(name)) return null;
 
     const displayName = variable.display || name;
     const description = variable.desc;
@@ -432,6 +563,67 @@ export default function SettingsView({ serverId }: SettingsViewProps) {
                   value={(localSettings.variables['disk']?.value as number) ?? 10240}
                   onChange={(val) => handleVariableChange('disk', val)}
                 />
+              </div>
+            </section>
+          )}
+
+          {/* Ports Section (Admin Only) */}
+          {canEditAdminData && (
+            <section className="space-y-5">
+              <SectionHeader
+                icon={Network}
+                title={t('servers.settings.portsTitle')}
+                description={t('servers.settings.portsDescription')}
+                right={adminResourcesBadge}
+              />
+              {isRunning && (
+                <div className="flex items-start gap-2 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-500">
+                  <Power className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span>{t('servers.settings.portsRunningHint' as any) || 'The server is running. Stop it to change which port is primary.'}</span>
+                </div>
+              )}
+              <div className="space-y-3">
+                {ports.map((p, idx) => (
+                  <div key={idx} className="flex flex-col gap-3 rounded-xl border border-border/80 bg-card p-4 sm:flex-row sm:items-center">
+                    <div className="flex items-center gap-3 sm:flex-1">
+                      <Button
+                        variant={idx === 0 ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => handleMakePrimary(idx)}
+                        disabled={idx === 0}
+                        className="shrink-0"
+                        title={t('servers.settings.primaryPortLabel')}
+                      >
+                        {idx === 0 && <Star className="mr-1.5 h-3.5 w-3.5" />}
+                        {t('servers.settings.primaryPortLabel')}
+                      </Button>
+                      <Input
+                        type="number"
+                        value={p || ''}
+                        placeholder={t('servers.settings.portPlaceholder')}
+                        onChange={(e) => {
+                          const next = [...ports];
+                          next[idx] = parseInt(e.target.value) || 0;
+                          setPorts(next);
+                        }}
+                        className="bg-accent/5 font-mono focus:bg-accent/10 transition-colors"
+                      />
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="shrink-0 self-end text-muted-foreground hover:text-red-500 sm:self-auto"
+                      onClick={() => removePort(idx)}
+                      title={t('common.delete') || 'Delete'}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button variant="outline" size="sm" onClick={() => setPorts(prev => [...prev, 0])}>
+                  <Plus className="mr-1.5 h-4 w-4" />
+                  {t('servers.settings.addPortLabel')}
+                </Button>
               </div>
             </section>
           )}

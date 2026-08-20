@@ -587,7 +587,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
         </TabsContent>
         <TabsContent value="settings">
           <ErrorBoundary name="SettingsView">
-            <SettingsView serverId={server.id} />
+            <SettingsView serverId={server.id} serverStatus={server.status} onPortsSaved={refresh} />
           </ErrorBoundary>
         </TabsContent>
         <TabsContent value="users">

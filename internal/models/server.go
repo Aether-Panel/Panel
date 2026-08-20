@@ -18,6 +18,10 @@ type Server struct {
 	IP   string `gorm:"" json:"-" validate:"omitempty,ip|fqdn"`
 	Port uint16 `gorm:"" json:"-" validate:"omitempty"`
 
+	// Ports holds the full list of ports assigned to the server (primary first).
+	// Port mirrors the first entry and is kept for backwards compatibility.
+	Ports []uint16 `gorm:"serializer:json" json:"-" validate:"-"`
+
 	Type string `gorm:"NOT NULL;default='generic'" json:"-" validate:"required,printascii"`
 	Icon string `gorm:"" json:"-"`
 

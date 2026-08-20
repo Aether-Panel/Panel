@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -926,9 +927,73 @@ func editServerDataAdmin(c *gin.Context) {
 	}
 	dirty = dirty || resourcesChanged
 
-	if dirty {
-		db := middleware.GetDatabase(c)
+	// Extra ports management: the frontend sends "ports" (full list) and
+	// "primaryPort" (which one is primary). These are mirrored to the daemon
+	// as the port/port2/port3... variables so the container binds them.
+	db := middleware.GetDatabase(c)
+	portsChanged := false
+	portsField, portsExist := postBody["ports"]
+	primaryField, primaryExist := postBody["primaryPort"]
+	if portsExist || primaryExist {
+		var ports []uint16
+		if portsExist {
+			rawList, ok := portsField.([]interface{})
+			if !ok {
+				response.HandleError(c, errors.New("ports must be an array of numbers"), http.StatusBadRequest)
+				return
+			}
+			for _, raw := range rawList {
+				p, err := cast.ToUint16E(raw)
+				if err != nil {
+					response.HandleError(c, errors.New("ports must be an array of numbers"), http.StatusBadRequest)
+					return
+				}
+				if p > 0 {
+					ports = append(ports, p)
+				}
+			}
+		}
+		if len(ports) == 0 {
+			ports = []uint16{server.Port}
+		}
 
+		var primary uint16
+		if primaryExist {
+			primary = cast.ToUint16(primaryField)
+		} else if len(ports) > 0 {
+			primary = ports[0]
+		}
+
+		if primary > 0 {
+			found := false
+			for i, p := range ports {
+				if p == primary {
+					if i != 0 {
+						ports[0], ports[i] = ports[i], ports[0]
+					}
+					found = true
+					break
+				}
+			}
+			if !found {
+				response.HandleError(c, errors.New("primaryPort must be one of the assigned ports"), http.StatusBadRequest)
+				return
+			}
+		}
+
+		if len(ports) > 0 {
+			if err := validatePortsAgainstNode(db, server.NodeID, server.Identifier, ports); err != nil {
+				response.HandleError(c, err, http.StatusBadRequest)
+				return
+			}
+			server.Port = ports[0]
+			server.Ports = ports
+			portsChanged = true
+		}
+	}
+	dirty = dirty || portsChanged
+
+	if dirty {
 		if resourcesChanged && server.ParentServerID != nil && *server.ParentServerID != "" {
 			var parentAvailableCPU int
 			var parentAvailableMemory, parentAvailableDisk int64
@@ -957,6 +1022,8 @@ func editServerDataAdmin(c *gin.Context) {
 		}
 	}
 
+	// The ports/primaryPort fields are left in the body so the daemon can
+	// reconcile its port/port2/... variables (removing stale ones too).
 	proxyServerRequest(c)
 }
 
@@ -1219,6 +1286,79 @@ func getFromDataOrDefault(variables map[string]skypanel.Variable, key string, va
 	}
 
 	return val, nil
+}
+
+// collectPortsFromVariables extracts the primary port (port) and any extra
+// ports (port2, port3, ...) from the given variables, in order, dropping any
+// zero/empty values.
+func collectPortsFromVariables(variables map[string]skypanel.Variable) []uint16 {
+	var ports []uint16
+	for i := 1; ; i++ {
+		key := "port"
+		if i > 1 {
+			key = fmt.Sprintf("port%d", i)
+		}
+		val, exists := getFromData(variables, key)
+		if !exists {
+			break
+		}
+		p := cast.ToUint16(val)
+		if p > 0 {
+			ports = append(ports, p)
+		}
+	}
+	return ports
+}
+
+// validatePortsAgainstNode ensures the given ports are within the allowed
+// range, contain no duplicates, and are not already assigned to another server
+// on the same node.
+func validatePortsAgainstNode(db *gorm.DB, nodeID uint, excludeIdentifier string, ports []uint16) error {
+	query := db.Model(&models.Server{})
+	if nodeID == 0 {
+		query = query.Where("node_id IS NULL")
+	} else {
+		query = query.Where("node_id = ?", nodeID)
+	}
+
+	var serversOnNode []*models.Server
+	if err := query.Find(&serversOnNode).Error; err != nil {
+		return err
+	}
+
+	used := make(map[uint16]bool)
+	for _, s := range serversOnNode {
+		if s.Identifier == excludeIdentifier {
+			continue
+		}
+		if s.Port > 0 {
+			used[s.Port] = true
+		}
+		for _, p := range s.Ports {
+			if p > 0 {
+				used[p] = true
+			}
+		}
+	}
+
+	seen := make(map[uint16]bool)
+	for _, p := range ports {
+		if p == 0 {
+			continue
+		}
+		if p < 1024 || p > 65535 {
+			return fmt.Errorf("el puerto %d está fuera del rango permitido (1024-65535)", p)
+		}
+		if seen[p] {
+			return fmt.Errorf("el puerto %d está duplicado", p)
+		}
+		if used[p] {
+			return fmt.Errorf("el puerto %d ya está en uso por otro servidor en este nodo", p)
+		}
+		seen[p] = true
+		used[p] = true
+	}
+	return nil
 }
 
 func proxyServerRequest(c *gin.Context) {
@@ -1717,6 +1857,14 @@ func validateAndBuildServerCreation(c *gin.Context, db *gorm.DB, us *services.Us
 		return nil, nil, err
 	}
 
+	ports := collectPortsFromVariables(postBody.Variables)
+	if len(ports) > 0 {
+		if err := validatePortsAgainstNode(db, postBody.NodeID, "", ports); err != nil {
+			response.HandleError(c, err, http.StatusBadRequest)
+			return nil, nil, err
+		}
+	}
+
 	if postBody.Name == "" {
 		postBody.Name = postBody.Identifier
 	}
@@ -1740,6 +1888,7 @@ func validateAndBuildServerCreation(c *gin.Context, db *gorm.DB, us *services.Us
 		NodeID:         postBody.NodeID,
 		IP:             cast.ToString(ip),
 		Port:           cast.ToUint16(port),
+		Ports:          ports,
 		Type:           postBody.Type.Type,
 		Icon:           postBody.Icon,
 		ParentServerID: postBody.ParentServerID,
