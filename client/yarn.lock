@@ -675,12 +675,12 @@
   resolved "https://registry.npmjs.org/@floating-ui/utils/-/utils-0.2.11.tgz"
   integrity sha512-RiB/yIh78pcIxl6lLMG0CgBXAZ2Y0eVHqMPYugu+9U0AeT6YBeiJpf7lbdJNIugFP5SIjwNRgo4DhR1Qxi26Gg==
 
-"@genkit-ai/ai@1.40.1":
-  version "1.40.1"
-  resolved "https://registry.npmjs.org/@genkit-ai/ai/-/ai-1.40.1.tgz"
-  integrity sha512-qQZegPEHv92SRwCii9F9VmLD9nsDsX2udjk3MslayLyviRJ0izt3JbqBcWJdLkT07VjGy+pdGqQttZjRPsnROg==
+"@genkit-ai/ai@1.41.0":
+  version "1.41.0"
+  resolved "https://registry.yarnpkg.com/@genkit-ai/ai/-/ai-1.41.0.tgz#12508c711c635868349708258d0d687add7798b4"
+  integrity sha512-ynwZLqiKqLpQ1RWrdJxyUpSHqj5e7FgY48MKrMvvayjcZeqs/rlzkk1eUgpfMIIQyDtyFQwwfGxlbA+wDKRF2A==
   dependencies:
-    "@genkit-ai/core" "1.40.1"
+    "@genkit-ai/core" "1.41.0"
     "@opentelemetry/api" "^1.9.0"
     "@types/node" "^20.11.19"
     colorette "^2.0.20"
@@ -692,10 +692,10 @@
     uri-templates "^0.2.0"
     uuid "^10.0.0"
 
-"@genkit-ai/core@1.40.1":
-  version "1.40.1"
-  resolved "https://registry.npmjs.org/@genkit-ai/core/-/core-1.40.1.tgz"
-  integrity sha512-Q/QJJdSNdfJU54Nb0qPx1238hAp574jqhCd1F/l6sHQ6ZN7RPJJm5nBMBz4SQm8yc/vAhumXdfcWv+J11Ef6yw==
+"@genkit-ai/core@1.41.0":
+  version "1.41.0"
+  resolved "https://registry.yarnpkg.com/@genkit-ai/core/-/core-1.41.0.tgz#222ffedf4ff36aaa7e59ddde5596ccfc80636ada"
+  integrity sha512-dwLnQyKI5sKO4C1+tRWhscQDkHumS0sqsxwoNFtiG0IKIZ/TsqXdX+DPSedql30NCdmTbYlG9666srbv4Crz3Q==
   dependencies:
     "@opentelemetry/api" "^1.9.0"
     "@opentelemetry/api-logs" "^0.52.0"
@@ -4687,13 +4687,13 @@ gcp-metadata@^8.0.0:
     google-logging-utils "1.1.3"
     json-bigint "^1.0.0"
 
-genkit@^1.40.1:
-  version "1.40.1"
-  resolved "https://registry.npmjs.org/genkit/-/genkit-1.40.1.tgz"
-  integrity sha512-YzHnrHSkLwz2h90auI5ABAxITlrM/LHvbLfSBIqe61z7gCRbCmw5Xmm36goo4flM/Q5CJ972QwO22qdiezX6BA==
+genkit@^1.41.0:
+  version "1.41.0"
+  resolved "https://registry.yarnpkg.com/genkit/-/genkit-1.41.0.tgz#bd29d448b0cf234d3013fea8f61196f95f12f159"
+  integrity sha512-myaWTdeFVnXrp1cKSVbM0as6QvBgRPI7t6SfBTKKb130QdVzKNPefgugEMPwpiaK2jmM+ZghfKLpQh/ZRVlAmQ==
   dependencies:
-    "@genkit-ai/ai" "1.40.1"
-    "@genkit-ai/core" "1.40.1"
+    "@genkit-ai/ai" "1.41.0"
+    "@genkit-ai/core" "1.41.0"
     uuid "^10.0.0"
 
 gensync@^1.0.0-beta.2:
