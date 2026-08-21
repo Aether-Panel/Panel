@@ -675,12 +675,12 @@
   resolved "https://registry.npmjs.org/@floating-ui/utils/-/utils-0.2.11.tgz"
   integrity sha512-RiB/yIh78pcIxl6lLMG0CgBXAZ2Y0eVHqMPYugu+9U0AeT6YBeiJpf7lbdJNIugFP5SIjwNRgo4DhR1Qxi26Gg==
 
-"@genkit-ai/ai@1.40.1":
-  version "1.40.1"
-  resolved "https://registry.npmjs.org/@genkit-ai/ai/-/ai-1.40.1.tgz"
-  integrity sha512-qQZegPEHv92SRwCii9F9VmLD9nsDsX2udjk3MslayLyviRJ0izt3JbqBcWJdLkT07VjGy+pdGqQttZjRPsnROg==
+"@genkit-ai/ai@1.41.0":
+  version "1.41.0"
+  resolved "https://registry.yarnpkg.com/@genkit-ai/ai/-/ai-1.41.0.tgz#12508c711c635868349708258d0d687add7798b4"
+  integrity sha512-ynwZLqiKqLpQ1RWrdJxyUpSHqj5e7FgY48MKrMvvayjcZeqs/rlzkk1eUgpfMIIQyDtyFQwwfGxlbA+wDKRF2A==
   dependencies:
-    "@genkit-ai/core" "1.40.1"
+    "@genkit-ai/core" "1.41.0"
     "@opentelemetry/api" "^1.9.0"
     "@types/node" "^20.11.19"
     colorette "^2.0.20"
@@ -692,10 +692,10 @@
     uri-templates "^0.2.0"
     uuid "^10.0.0"
 
-"@genkit-ai/core@1.40.1":
-  version "1.40.1"
-  resolved "https://registry.npmjs.org/@genkit-ai/core/-/core-1.40.1.tgz"
-  integrity sha512-Q/QJJdSNdfJU54Nb0qPx1238hAp574jqhCd1F/l6sHQ6ZN7RPJJm5nBMBz4SQm8yc/vAhumXdfcWv+J11Ef6yw==
+"@genkit-ai/core@1.41.0":
+  version "1.41.0"
+  resolved "https://registry.yarnpkg.com/@genkit-ai/core/-/core-1.41.0.tgz#222ffedf4ff36aaa7e59ddde5596ccfc80636ada"
+  integrity sha512-dwLnQyKI5sKO4C1+tRWhscQDkHumS0sqsxwoNFtiG0IKIZ/TsqXdX+DPSedql30NCdmTbYlG9666srbv4Crz3Q==
   dependencies:
     "@opentelemetry/api" "^1.9.0"
     "@opentelemetry/api-logs" "^0.52.0"
@@ -2048,20 +2048,20 @@
   resolved "https://registry.npmjs.org/@radix-ui/primitive/-/primitive-1.1.7.tgz"
   integrity sha512-rqWnm76nYT8HoNNqEjpgJ7Pw/DrBj5iBTrmEPo6HTX5+VJyBNOqTdv4g89G63HuR5g0AaENoAcH7Is5fF2kZ8Q==
 
-"@radix-ui/react-accordion@^1.2.3":
-  version "1.2.16"
-  resolved "https://registry.npmjs.org/@radix-ui/react-accordion/-/react-accordion-1.2.16.tgz"
-  integrity sha512-BpZJNmetujnGgUI6OX0jEhEmlA46WPqgub8Rv09Kyquwd0cc1ndMKpiPYCjmBU6KSSRPAMtgLpEoZSG/tdNIWQ==
+"@radix-ui/react-accordion@^1.2.20":
+  version "1.2.20"
+  resolved "https://registry.yarnpkg.com/@radix-ui/react-accordion/-/react-accordion-1.2.20.tgz#b472f0a32028bc43e8af749169b65cbbcdfd70bf"
+  integrity sha512-jDhG9FvAEnlhnjrsINbNXcUa4G+L1KqSkJSunkbKEzFRcAb52jvM0PjPxPRvhe1HNc5F5yc0yzzWeeqlH4yBIg==
   dependencies:
-    "@radix-ui/primitive" "1.1.5"
-    "@radix-ui/react-collapsible" "1.1.16"
-    "@radix-ui/react-collection" "1.1.12"
-    "@radix-ui/react-compose-refs" "1.1.3"
-    "@radix-ui/react-context" "1.2.0"
-    "@radix-ui/react-direction" "1.1.2"
-    "@radix-ui/react-id" "1.1.2"
-    "@radix-ui/react-primitive" "2.1.7"
-    "@radix-ui/react-use-controllable-state" "1.2.3"
+    "@radix-ui/primitive" "1.1.7"
+    "@radix-ui/react-collapsible" "1.1.20"
+    "@radix-ui/react-collection" "1.1.15"
+    "@radix-ui/react-compose-refs" "1.1.5"
+    "@radix-ui/react-context" "1.2.2"
+    "@radix-ui/react-direction" "1.1.4"
+    "@radix-ui/react-id" "1.1.4"
+    "@radix-ui/react-primitive" "2.1.10"
+    "@radix-ui/react-use-controllable-state" "1.2.6"
 
 "@radix-ui/react-alert-dialog@^1.1.6":
   version "1.1.19"
@@ -2114,21 +2114,7 @@
     "@radix-ui/react-use-previous" "1.1.2"
     "@radix-ui/react-use-size" "1.1.2"
 
-"@radix-ui/react-collapsible@1.1.16":
-  version "1.1.16"
-  resolved "https://registry.npmjs.org/@radix-ui/react-collapsible/-/react-collapsible-1.1.16.tgz"
-  integrity sha512-opfXRe6nnzyGmCDPx+l1Aqo/RbqWtQal2FnsBqF9hhePp6j0LsRoBaRxcMOlTv+uYTJVtWYZKg9t9wTe+BA/ZA==
-  dependencies:
-    "@radix-ui/primitive" "1.1.5"
-    "@radix-ui/react-compose-refs" "1.1.3"
-    "@radix-ui/react-context" "1.2.0"
-    "@radix-ui/react-id" "1.1.2"
-    "@radix-ui/react-presence" "1.1.7"
-    "@radix-ui/react-primitive" "2.1.7"
-    "@radix-ui/react-use-controllable-state" "1.2.3"
-    "@radix-ui/react-use-layout-effect" "1.1.2"
-
-"@radix-ui/react-collapsible@^1.1.20":
+"@radix-ui/react-collapsible@1.1.20", "@radix-ui/react-collapsible@^1.1.20":
   version "1.1.20"
   resolved "https://registry.yarnpkg.com/@radix-ui/react-collapsible/-/react-collapsible-1.1.20.tgz#146057107f01587380b6f5b0ef8f60abd7230b23"
   integrity sha512-mcGesGplBnzN2sbvJETzpCNfSMyPnb29q1GRLU+Ib7bJrpIG2ywmRoh2V5VbA2uNvKikKUlVbAPks7JDjz4A8Q==
@@ -2486,21 +2472,20 @@
     "@radix-ui/react-context" "1.2.0"
     "@radix-ui/react-primitive" "2.1.7"
 
-"@radix-ui/react-radio-group@^1.2.3":
-  version "1.4.3"
-  resolved "https://registry.npmjs.org/@radix-ui/react-radio-group/-/react-radio-group-1.4.3.tgz"
-  integrity sha512-WwZFjWV4s3aC1QtR3k04R+oANHtX2q6fgKlc7MCEiDNlnTxCZ3H8k3mHtEgVlOejystwk1WQgarQhNOQZ2bK1g==
+"@radix-ui/react-radio-group@^1.4.7":
+  version "1.4.7"
+  resolved "https://registry.yarnpkg.com/@radix-ui/react-radio-group/-/react-radio-group-1.4.7.tgz#915d083547d26d763884b7683be469c6402aed96"
+  integrity sha512-cgYFEkntCxppHZgtSZ+7vh0wbZQ+IC7PPMw8DSnRG27B6kDd32/Zw0OJt7dGDigCoprMuWHjg2PvUn3PYvPFoQ==
   dependencies:
-    "@radix-ui/primitive" "1.1.5"
-    "@radix-ui/react-compose-refs" "1.1.3"
-    "@radix-ui/react-context" "1.2.0"
-    "@radix-ui/react-direction" "1.1.2"
-    "@radix-ui/react-presence" "1.1.7"
-    "@radix-ui/react-primitive" "2.1.7"
-    "@radix-ui/react-roving-focus" "1.1.15"
-    "@radix-ui/react-use-controllable-state" "1.2.3"
-    "@radix-ui/react-use-previous" "1.1.2"
-    "@radix-ui/react-use-size" "1.1.2"
+    "@radix-ui/primitive" "1.1.7"
+    "@radix-ui/react-compose-refs" "1.1.5"
+    "@radix-ui/react-context" "1.2.2"
+    "@radix-ui/react-direction" "1.1.4"
+    "@radix-ui/react-presence" "1.1.10"
+    "@radix-ui/react-primitive" "2.1.10"
+    "@radix-ui/react-roving-focus" "1.1.19"
+    "@radix-ui/react-use-controllable-state" "1.2.6"
+    "@radix-ui/react-use-size" "1.1.4"
 
 "@radix-ui/react-roving-focus@1.1.15":
   version "1.1.15"
@@ -4702,13 +4687,13 @@ gcp-metadata@^8.0.0:
     google-logging-utils "1.1.3"
     json-bigint "^1.0.0"
 
-genkit@^1.40.1:
-  version "1.40.1"
-  resolved "https://registry.npmjs.org/genkit/-/genkit-1.40.1.tgz"
-  integrity sha512-YzHnrHSkLwz2h90auI5ABAxITlrM/LHvbLfSBIqe61z7gCRbCmw5Xmm36goo4flM/Q5CJ972QwO22qdiezX6BA==
+genkit@^1.41.0:
+  version "1.41.0"
+  resolved "https://registry.yarnpkg.com/genkit/-/genkit-1.41.0.tgz#bd29d448b0cf234d3013fea8f61196f95f12f159"
+  integrity sha512-myaWTdeFVnXrp1cKSVbM0as6QvBgRPI7t6SfBTKKb130QdVzKNPefgugEMPwpiaK2jmM+ZghfKLpQh/ZRVlAmQ==
   dependencies:
-    "@genkit-ai/ai" "1.40.1"
-    "@genkit-ai/core" "1.40.1"
+    "@genkit-ai/ai" "1.41.0"
+    "@genkit-ai/core" "1.41.0"
     uuid "^10.0.0"
 
 gensync@^1.0.0-beta.2:
