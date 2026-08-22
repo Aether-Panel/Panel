@@ -13,8 +13,9 @@ type ServerView struct {
 	Data           interface{}      `json:"data,omitempty"`
 	Users          []ServerUserView `json:"users,omitempty"`
 	IP             string           `json:"ip,omitempty"`
-	Port           uint16           `json:"port,omitempty"`
-	Ports          []uint16         `json:"ports,omitempty"`
+	Port           uint16            `json:"port,omitempty"`
+	Ports          []uint16          `json:"ports,omitempty"`
+	PortNotes      map[string]string `json:"portNotes,omitempty"`
 	Type           string           `json:"type"`
 	Icon           string           `json:"icon,omitempty"`
 	CanGetStatus   bool             `json:"canGetStatus,omitempty"`
@@ -44,6 +45,7 @@ func FromServer(server *Server) *ServerView {
 		IP:             server.IP,
 		Port:           server.Port,
 		Ports:          ports,
+		PortNotes:      server.PortNotes,
 		Type:           server.Type,
 		Icon:           server.Icon,
 		Node:           FromNode(&server.Node),

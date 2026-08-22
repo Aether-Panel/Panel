@@ -620,6 +620,94 @@ var migrations = [][]*gormigrate.Migration{
 			},
 		},
 		{
+			ID: "20260820-usuario-role-config-ports",
+			Migrate: func(db *gorm.DB) error {
+				var role models.Role
+				if err := db.Where("name = ?", "Usuario").First(&role).Error; err != nil {
+					return nil
+				}
+				existing := strings.Split(role.RawScopes, ",")
+				missing := []string{
+					"server.admin.config.view",
+					"server.admin.config.manage",
+					"server.data.edit.admin",
+				}
+				needsUpdate := false
+				for _, s := range missing {
+					found := false
+					for _, e := range existing {
+						if strings.TrimSpace(e) == s {
+							found = true
+							break
+						}
+					}
+					if !found {
+						existing = append(existing, s)
+						needsUpdate = true
+					}
+				}
+				if !needsUpdate {
+					return nil
+				}
+				role.RawScopes = strings.Join(existing, ",")
+				return db.Model(&role).Update("scopes", role.RawScopes).Error
+			},
+		},
+		{
+			ID: "20260821-fix-usuario-role-scopes",
+			Migrate: func(db *gorm.DB) error {
+				var role models.Role
+				if err := db.Where("name = ?", "Usuario").First(&role).Error; err != nil {
+					return nil
+				}
+				existing := strings.Split(role.RawScopes, ",")
+				needsUpdate := false
+
+				// Remove scopes that users should NOT have
+				revoke := map[string]bool{
+					"server.admin.config.view":   true,
+					"server.admin.config.manage": true,
+					"server.data.edit.admin":     true,
+				}
+				filtered := make([]string, 0, len(existing))
+				for _, s := range existing {
+					trimmed := strings.TrimSpace(s)
+					if revoke[trimmed] {
+						needsUpdate = true
+						continue
+					}
+					filtered = append(filtered, s)
+				}
+
+				// Add scopes that users NEED
+				grant := []string{
+					"server.definition.view",
+					"server.definition.edit",
+					"server.flags.view",
+					"server.flags.edit",
+				}
+				for _, s := range grant {
+					found := false
+					for _, e := range filtered {
+						if strings.TrimSpace(e) == s {
+							found = true
+							break
+						}
+					}
+					if !found {
+						filtered = append(filtered, s)
+						needsUpdate = true
+					}
+				}
+
+				if !needsUpdate {
+					return nil
+				}
+				role.RawScopes = strings.Join(filtered, ",")
+				return db.Model(&role).Update("scopes", role.RawScopes).Error
+			},
+		},
+		{
 			ID: "20260811-template-raw-value-size",
 			Migrate: func(db *gorm.DB) error {
 				// templates.raw_value was VARCHAR(4000), which truncated large templates
@@ -628,6 +716,12 @@ var migrations = [][]*gormigrate.Migration{
 					return db.Exec("ALTER TABLE templates MODIFY COLUMN raw_value MEDIUMTEXT NOT NULL").Error
 				}
 				return db.Migrator().AlterColumn(&models.Template{}, "RawValue")
+			},
+		},
+		{
+			ID: "20260821-server-port-notes",
+			Migrate: func(db *gorm.DB) error {
+				return db.Migrator().AutoMigrate(&models.Server{})
 			},
 		},
 	},

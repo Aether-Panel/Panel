@@ -63,6 +63,9 @@ func registerServers(g *gin.RouterGroup) {
 	g.PUT("/:serverId/data", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, editServerDataAdmin)
 	g.OPTIONS("/:serverId/data", response.CreateOptions("GET", "POST", "PUT"))
 
+	g.PUT("/:serverId/port-settings", middleware.RequiresPermission(scopes.ScopeServerViewData), middleware.ResolveServerPanel, editPortSettings)
+	g.OPTIONS("/:serverId/port-settings", response.CreateOptions("PUT"))
+
 	g.POST("/:serverId/transfer", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, transferServer)
 	g.OPTIONS("/:serverId/transfer", response.CreateOptions("POST"))
 
@@ -993,6 +996,20 @@ func editServerDataAdmin(c *gin.Context) {
 	}
 	dirty = dirty || portsChanged
 
+	// Port notes: user-defined labels per port (e.g. "Game", "RCON", "Query")
+	if notesField, hasNotes := postBody["portNotes"]; hasNotes {
+		if notesMap, ok := notesField.(map[string]interface{}); ok {
+			converted := make(map[string]string, len(notesMap))
+			for k, v := range notesMap {
+				if str, ok := v.(string); ok {
+					converted[k] = str
+				}
+			}
+			server.PortNotes = converted
+			dirty = true
+		}
+	}
+
 	if dirty {
 		if resourcesChanged && server.ParentServerID != nil && *server.ParentServerID != "" {
 			var parentAvailableCPU int
@@ -1025,6 +1042,62 @@ func editServerDataAdmin(c *gin.Context) {
 	// The ports/primaryPort fields are left in the body so the daemon can
 	// reconcile its port/port2/... variables (removing stale ones too).
 	proxyServerRequest(c)
+}
+
+// editPortSettings allows users to manage port metadata (primary port + notes)
+// without needing admin-level port editing permissions.
+func editPortSettings(c *gin.Context) {
+	server := getServerFromGin(c)
+	db := middleware.GetDatabase(c)
+
+	var postBody map[string]interface{}
+	if err := c.ShouldBindJSON(&postBody); err != nil {
+		response.HandleError(c, err, http.StatusBadRequest)
+		return
+	}
+
+	dirty := false
+
+	// Primary port: user selects which port is primary (reorders the list)
+	if primaryField, has := postBody["primaryPort"]; has {
+		primary := cast.ToUint16(primaryField)
+		if primary > 0 && server.Ports != nil {
+			for i, p := range server.Ports {
+				if p == primary {
+					if i != 0 {
+						server.Ports[0], server.Ports[i] = server.Ports[i], server.Ports[0]
+						server.Port = primary
+						dirty = true
+					}
+					break
+				}
+			}
+		}
+	}
+
+	// Port notes: user-defined labels per port
+	if notesField, has := postBody["portNotes"]; has {
+		if notesMap, ok := notesField.(map[string]interface{}); ok {
+			converted := make(map[string]string, len(notesMap))
+			for k, v := range notesMap {
+				if str, ok := v.(string); ok {
+					converted[k] = str
+				}
+			}
+			server.PortNotes = converted
+			dirty = true
+		}
+	}
+
+	if dirty {
+		ss := &services.Server{DB: db}
+		if err := ss.Update(server); err != nil {
+			response.HandleError(c, err, http.StatusInternalServerError)
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
 // @Summary Gets servers backups

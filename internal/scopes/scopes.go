@@ -31,6 +31,7 @@ var (
 	ScopeServerViewDefinition = registerServerScope("server.definition.view")
 	ScopeServerViewData       = registerServerScope("server.data.view")
 	ScopeServerViewFlags      = registerServerScope("server.flags.view")
+	ScopeServerEditPorts      = registerServerScope("server.ports.edit")
 
 	ScopeServerClientView    = registerServerScope("server.clients.view")
 	ScopeServerClientEdit    = registerServerScope("server.clients.edit")

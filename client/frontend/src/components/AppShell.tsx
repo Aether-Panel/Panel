@@ -85,7 +85,7 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
 
     const navItems = [
         { href: '/dashboard/', label: t('sidebar.dashboard'), icon: LayoutDashboard, requiredScopes: [] },
-        { href: '/servers/', label: t('sidebar.servers'), icon: Server, requiredScopes: ['admin'] },
+        { href: '/servers/', label: t('sidebar.servers'), icon: Server, requiredScopes: ['server.view'] },
         { href: '/users/', label: t('sidebar.users'), icon: Users, requiredScopes: ['users.info.view'] },
         { href: '/roles/', label: t('sidebar.roles'), icon: ShieldCheck, requiredScopes: ['admin'] },
         { href: '/nodes/', label: t('sidebar.nodes'), icon: Network, requiredScopes: ['nodes.view'] },
@@ -100,7 +100,7 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
     const hasPermission = (item: typeof navItems[0]) => {
         if (role === 'admin') return true;
         if (item.requiredScopes.length === 0) return true;
-        return item.requiredScopes.some(s => scopes.includes(s));
+        return item.requiredScopes.some(s => hasScope(s));
     };
 
     const renderItems = (items: typeof navItems) =>

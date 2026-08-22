@@ -22,6 +22,9 @@ type Server struct {
 	// Port mirrors the first entry and is kept for backwards compatibility.
 	Ports []uint16 `gorm:"serializer:json" json:"-" validate:"-"`
 
+	// PortNotes stores user-defined labels for each port (key: port number as string).
+	PortNotes map[string]string `gorm:"serializer:json" json:"-" validate:"-"`
+
 	Type string `gorm:"NOT NULL;default='generic'" json:"-" validate:"required,printascii"`
 	Icon string `gorm:"" json:"-"`
 
