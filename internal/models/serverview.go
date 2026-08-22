@@ -6,25 +6,25 @@ import (
 )
 
 type ServerView struct {
-	Identifier     string           `json:"id,omitempty"`
-	Name           string           `json:"name,omitempty"`
-	NodeID         uint             `json:"nodeId"`
-	Node           *NodeView        `json:"node,omitempty"`
-	Data           interface{}      `json:"data,omitempty"`
-	Users          []ServerUserView `json:"users,omitempty"`
-	IP             string           `json:"ip,omitempty"`
+	Identifier     string            `json:"id,omitempty"`
+	Name           string            `json:"name,omitempty"`
+	NodeID         uint              `json:"nodeId"`
+	Node           *NodeView         `json:"node,omitempty"`
+	Data           interface{}       `json:"data,omitempty"`
+	Users          []ServerUserView  `json:"users,omitempty"`
+	IP             string            `json:"ip,omitempty"`
 	Port           uint16            `json:"port,omitempty"`
 	Ports          []uint16          `json:"ports,omitempty"`
 	PortNotes      map[string]string `json:"portNotes,omitempty"`
-	Type           string           `json:"type"`
-	Icon           string           `json:"icon,omitempty"`
-	CanGetStatus   bool             `json:"canGetStatus,omitempty"`
-	IsGhost        bool             `json:"isGhost,omitempty"`
-	ParentServerID *string          `json:"parent_server_id,omitempty"`
-	TotalCPU       int              `json:"total_cpu,omitempty"`
-	TotalMemory    int64            `json:"total_memory,omitempty"`
-	TotalDisk      int64            `json:"total_disk,omitempty"`
-	Suspended      bool             `json:"suspended"`
+	Type           string            `json:"type"`
+	Icon           string            `json:"icon,omitempty"`
+	CanGetStatus   bool              `json:"canGetStatus,omitempty"`
+	IsGhost        bool              `json:"isGhost,omitempty"`
+	ParentServerID *string           `json:"parent_server_id,omitempty"`
+	TotalCPU       int               `json:"total_cpu,omitempty"`
+	TotalMemory    int64             `json:"total_memory,omitempty"`
+	TotalDisk      int64             `json:"total_disk,omitempty"`
+	Suspended      bool              `json:"suspended"`
 } // @name ServerInfo
 
 type ServerUserView struct {
