@@ -1097,7 +1097,54 @@ func editPortSettings(c *gin.Context) {
 		}
 	}
 
+	// Sync port variables (port, port2, port3...) to the daemon so Docker
+	// binds all assigned ports on next start.
+	syncPortVarsToDaemon(c, server)
+
 	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+// syncPortVarsToDaemon sends the current port list to the daemon so it
+// creates/updates port, port2, port3... variables. Best-effort: errors are
+// logged but not returned to the client.
+func syncPortVarsToDaemon(c *gin.Context, server *models.Server) {
+	if len(server.Ports) == 0 {
+		return
+	}
+	db := middleware.GetDatabase(c)
+	ns := &services.Node{DB: db}
+
+	node := &server.Node
+	daemonPath := "/daemon/server/" + server.Identifier + "/data"
+
+	syncBody := map[string]interface{}{
+		"ports":       server.Ports,
+		"primaryPort": server.Port,
+	}
+	bodyBytes, err := json.Marshal(syncBody)
+	if err != nil {
+		return
+	}
+
+	ts, err := services.NewTokenService()
+	if err != nil {
+		return
+	}
+	token, err := ts.GenerateRequest()
+	if err != nil {
+		return
+	}
+
+	headers := http.Header{
+		"Content-Type":  {"application/json"},
+		"Authorization": {"Bearer " + token},
+	}
+
+	resp, err := ns.CallNode(node, http.MethodPut, daemonPath, io.NopCloser(bytes.NewReader(bodyBytes)), headers)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
 }
 
 // @Summary Gets servers backups
