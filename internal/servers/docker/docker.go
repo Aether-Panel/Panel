@@ -56,6 +56,41 @@ type Docker struct {
 	dirSizeTime time.Time
 }
 
+var (
+	panelNetworkOnce sync.Once
+	panelNetworkName string
+)
+
+// detectPanelNetwork returns the Docker network the SkyPanel container itself
+// is connected to (e.g. "panel_skypanel-network"). Falls back to "bridge" if
+// detection fails (running outside Docker, or no socket available).
+func detectPanelNetwork() string {
+	panelNetworkOnce.Do(func() {
+		hostname, _ := os.Hostname()
+		if hostname == "" {
+			panelNetworkName = "bridge"
+			return
+		}
+		cli, err := client.New(client.FromEnv)
+		if err != nil {
+			panelNetworkName = "bridge"
+			return
+		}
+		defer cli.Close()
+		info, err := cli.ContainerInspect(context.Background(), hostname, client.ContainerInspectOptions{})
+		if err != nil {
+			panelNetworkName = "bridge"
+			return
+		}
+		for name := range info.Container.NetworkSettings.Networks {
+			panelNetworkName = name
+			return
+		}
+		panelNetworkName = "bridge"
+	})
+	return panelNetworkName
+}
+
 // ResolvedPortBindings resolves template port specs against the given variables.
 func ResolvedPortBindings(portSpecs []string, variables map[string]interface{}) []string {
 	return utils.ReplaceTokensInArr(portSpecs, variables)
@@ -691,7 +726,11 @@ func (d *Docker) createContainer(ctx context.Context, environment *skypanel.Envi
 	hostConfig := &baseConfig
 	hostConfig.AutoRemove = true
 	if hostConfig.NetworkMode == "" {
-		hostConfig.NetworkMode = container.NetworkMode(utils.ReplaceTokens(d.Network, data.Variables))
+		networkName := utils.ReplaceTokens(d.Network, data.Variables)
+		if networkName == "" || networkName == "bridge" {
+			networkName = detectPanelNetwork()
+		}
+		hostConfig.NetworkMode = container.NetworkMode(networkName)
 	}
 
 	hostConfig.Binds = append(hostConfig.Binds, bindDirs...)
