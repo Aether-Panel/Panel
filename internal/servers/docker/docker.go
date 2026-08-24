@@ -691,7 +691,11 @@ func (d *Docker) createContainer(ctx context.Context, environment *skypanel.Envi
 	hostConfig := &baseConfig
 	hostConfig.AutoRemove = true
 	if hostConfig.NetworkMode == "" {
-		hostConfig.NetworkMode = container.NetworkMode(utils.ReplaceTokens(d.Network, data.Variables))
+		networkName := utils.ReplaceTokens(d.Network, data.Variables)
+		if networkName == "" {
+			networkName = "skypanel-network"
+		}
+		hostConfig.NetworkMode = container.NetworkMode(networkName)
 	}
 
 	hostConfig.Binds = append(hostConfig.Binds, bindDirs...)
