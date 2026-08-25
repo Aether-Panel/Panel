@@ -55,7 +55,7 @@ type LicenseService struct {
 }
 
 func (s *LicenseService) VerifyLicense(licenseKey string) (*LicenseVerifyResponse, error)
-func (s *LicenseService) BindLicense(licenseKey, serverID, serverIP string) (*LicenseVerifyResponse, error)
+func (s *LicenseService) BindLicense(licenseKey, serverID, serverIP string) (*LicenseBindResponse, error)
 func (s *LicenseService) ExtractPermissions(verifyResp *LicenseVerifyResponse) *LicensePermissions
 func (s *LicenseService) GetLicenseType(verifyResp *LicenseVerifyResponse) string
 ```
@@ -75,18 +75,19 @@ func (s *LicenseService) VerifyLicense(licenseKey string) (*LicenseVerifyRespons
 **Response:**
 ```json
 {
+  "valid": true,
   "status": "valid",
-  "is_in_grace_period": false,
+  "isInGracePeriod": false,
   "license": {
     "key": "LICENSE_KEY",
     "plan": "professional",
-    "max_servers": 10,
-    "used_servers": 2,
-    "expiry_date": "2025-12-31T23:59:59Z",
-    "days_remaining": 365,
-    "billing_cycle": "monthly",
-    "bound_server_id": "abc123",
-    "bound_server_ip": "192.168.1.100"
+    "maxServers": 10,
+    "usedServers": 2,
+    "expiryDate": "2025-12-31T23:59:59Z",
+    "daysRemaining": 365,
+    "billingCycle": "monthly",
+    "boundServerId": "abc123",
+    "boundServerIp": "192.168.1.100"
   },
   "user": {...},
   "payment": {...},
@@ -97,30 +98,38 @@ func (s *LicenseService) VerifyLicense(licenseKey string) (*LicenseVerifyRespons
 **Structs:**
 ```go
 type LicenseVerifyResponse struct {
-    Status           string         `json:"status"`
-    IsInGracePeriod  bool           `json:"is_in_grace_period"`
-    License          LicenseInfo    `json:"license"`
-    User             UserInfo       `json:"user"`
-    Payment          PaymentInfo    `json:"payment"`
-    Validation       ValidationInfo `json:"validation"`
-}
-
-type LicenseInfo struct {
-    Key              string `json:"key"`
-    Plan             string `json:"plan"`
-    MaxServers       int    `json:"max_servers"`
-    UsedServers      int    `json:"used_servers"`
-    ExpiryDate       string `json:"expiry_date"`
-    DaysRemaining    int    `json:"days_remaining"`
-    BillingCycle     string `json:"billing_cycle"`
-    BoundServerID    string `json:"bound_server_id"`
-    BoundServerIP    string `json:"bound_server_ip"`
+    Valid           bool   `json:"valid"`
+    Status          string `json:"status"`
+    IsInGracePeriod bool   `json:"isInGracePeriod"`
+    License         struct {
+        Key            string `json:"key"`
+        Plan           string `json:"plan"`
+        MaxServers     int    `json:"maxServers"`
+        UsedServers    int    `json:"usedServers"`
+        ExpiryDate     string `json:"expiryDate"`
+        DaysRemaining  int    `json:"daysRemaining"`
+        BillingCycle   string `json:"billingCycle"`
+        BoundServerID  string `json:"boundServerId"`
+        BoundServerIP  string `json:"boundServerIp"`
+    } `json:"license"`
+    User struct {
+        Email string `json:"email"`
+        Name  string `json:"name"`
+    } `json:"user"`
+    Payment struct {
+        HasCompletedPayment bool   `json:"hasCompletedPayment"`
+        LastPaymentDate     string `json:"lastPaymentDate"`
+    } `json:"payment"`
+    Validation struct {
+        Timestamp string `json:"timestamp"`
+        IP        string `json:"ip"`
+    } `json:"validation"`
 }
 ```
 
 **Error Handling:**
-- Invalid key → `status: "invalid"`
-- Expired → `status: "expired"`, check `license.expiry_date`
+- Invalid key → `valid: false`, `status: "invalid"`
+- Expired → `valid: false`, `status: "expired"`, check `license.expiryDate`
 - Network error → returns error, falls back to cached status
 
 ---
@@ -128,7 +137,7 @@ type LicenseInfo struct {
 ## BindLicense()
 
 ```go
-func (s *LicenseService) BindLicense(licenseKey, serverID, serverIP string) (*LicenseVerifyResponse, error)
+func (s *LicenseService) BindLicense(licenseKey, serverID, serverIP string) (*LicenseBindResponse, error)
 ```
 
 **Request:** `POST /api/public/licenses/verify` with body:
@@ -145,8 +154,8 @@ func (s *LicenseService) BindLicense(licenseKey, serverID, serverIP string) (*Li
 **Response:**
 ```json
 {
-  "status": "valid",
-  "license": { ... }
+  "success": true,
+  "message": "License bound to server abc123"
 }
 ```
 
@@ -161,7 +170,9 @@ func (s *LicenseService) BindLicense(licenseKey, serverID, serverIP string) (*Li
 
 ```go
 func (s *LicenseService) ExtractPermissions(verifyResp *LicenseVerifyResponse) *LicensePermissions
+```
 
+```go
 type LicensePermissions struct {
     HasPlugins bool `json:"has_plugins"`
 }
@@ -170,8 +181,10 @@ type LicensePermissions struct {
 **Logic:**
 ```go
 func (s *LicenseService) ExtractPermissions(verifyResp *LicenseVerifyResponse) *LicensePermissions {
+    hasPlugins := verifyResp.License.Plan == "professional" || verifyResp.License.Plan == "enterprise"
+
     return &LicensePermissions{
-        HasPlugins: verifyResp.License.Plan == "professional" || verifyResp.License.Plan == "enterprise",
+        HasPlugins: hasPlugins,
     }
 }
 ```
@@ -292,8 +305,8 @@ if !licenseService.ExtractPermissions(verification).HasPlugins {
 
 | Scenario | Behavior |
 |----------|----------|
-| Invalid key | `status: "invalid"`, shows error in UI |
-| Expired license | `status: "invalid"`, shows expiry date, falls back to free |
+| Invalid key | `valid: false`, `status: "invalid"`, shows error in UI |
+| Expired license | `valid: false`, `status: "expired"`, shows expiry date, falls back to free |
 | API unreachable | Uses cache if < 24h, else `free` |
 | Max servers exceeded | Blocks server creation, shows limit error |
 | Key bound to different server | Bind fails, shows conflict error |

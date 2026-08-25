@@ -45,16 +45,45 @@ Aether Panel integrates Cloudflare Turnstile for CAPTCHA-free bot protection on 
 ## Backend Verification (`internal/web/auth/turnstile.go`)
 
 ```go
-func verifyTurnstile(token, remoteIP string) error {
-    resp, err := http.PostForm(
-        "https://challenges.cloudflare.com/turnstile/v0/siteverify",
-        url.Values{
-            "secret":   {config.TurnstileSecretKey},
-            "response": {token},
-            "remoteip": {remoteIP},
-        },
-    )
-    // Parse response: { "success": true, "challenge_ts": "...", "hostname": "..." }
+const turnstileVerifyURL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+
+type turnstileVerifyResponse struct {
+	Success bool `json:"success"`
+}
+
+// verifyTurnstile validates a Cloudflare Turnstile token against Cloudflare's
+// siteverify endpoint. If Turnstile is disabled or no secret key is configured,
+// validation is skipped so the panel keeps working without it.
+func verifyTurnstile(token string) error {
+	if !config.TurnstileEnabled.Value() {
+		return nil
+	}
+
+	secret := config.TurnstileSecretKey.Value()
+	if secret == "" {
+		return nil
+	}
+
+	params := url.Values{}
+	params.Set("secret", secret)
+	params.Set("response", token)
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.PostForm(turnstileVerifyURL, params)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	var result turnstileVerifyResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return err
+	}
+
+	if !result.Success {
+		return errors.New("turnstile verification failed")
+	}
+	return nil
 }
 ```
 
@@ -65,9 +94,11 @@ func verifyTurnstile(token, remoteIP string) error {
 **Flow:**
 1. User submits login/register form
 2. Frontend includes Turnstile token in request
-3. Backend verifies token with Cloudflare (includes `remoteip`)
+3. Backend verifies token with Cloudflare (sends `secret` and `response`)
 4. On success: continue with login/registration
 5. On failure: return error, prompt retry
+
+**Note:** The verification does NOT send `remoteip` - only `secret` and `response` are sent to Cloudflare.
 
 ---
 
@@ -160,7 +191,7 @@ curl -H "Authorization: Bearer $TOKEN" http://panel/api/config
 - **Secret key**: Never exposed to frontend (only backend verification)
 - **Site key**: Public, safe to expose in HTML
 - **Tokens**: Single-use, 30-minute expiry
-- **IP validation**: Optional remote IP check in verification
+- **IP validation**: Not implemented (only `secret` and `response` sent)
 - **Rate limiting**: Cloudflare handles rate limiting
 
 ---

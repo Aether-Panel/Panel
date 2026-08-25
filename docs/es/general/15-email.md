@@ -49,12 +49,9 @@ Aether Panel uses a template-based email system with support for multiple provid
 ## EmailService (`internal/services/email.go`)
 
 ```go
-type EmailService struct {
-    templates map[string]*template.Template
-    provider  Provider
+type EmailService interface {
+    SendEmail(to, templateName string, data map[string]interface{}, async bool) error
 }
-
-func (s *EmailService) SendEmail(to, templateName string, data map[string]interface{}, async bool) error
 ```
 
 **Parameters:**
@@ -126,11 +123,10 @@ type SMTPProvider struct {
 }
 ```
 
-**Note:** No port config used - hardcodes `mail.WithSSLPort(true)` (implicit 465/587 based on TLS). Uses `mail.WithSMTPAuth(mail.SMTPAuthPlain)`.
-
 **Features:**
-- SSL/TLS (port 465) or STARTTLS (port 587) auto-detected
+- SSL/TLS (port 465) or STARTTLS (port 587) auto-detected via `mail.WithSSLPort(true)`
 - Authentication: PLAIN
+- **Note:** No port config - uses `mail.WithSSLPort(true)` which auto-detects SSL (port 465) or STARTTLS (port 587)
 
 ---
 
@@ -308,16 +304,16 @@ func GetProvider(name string) (Provider, error) {
 ## Async Sending
 
 ```go
-func (s *EmailService) SendEmail(to, templateName string, data map[string]interface{}, async bool) error {
+func (es *emailService) SendEmail(to, templateName string, data map[string]interface{}, async bool) error {
     if async {
         go func() {
-            if err := s.sendEmailSync(to, templateName, data); err != nil {
+            if err := es.sendEmailSync(to, templateName, data); err != nil {
                 logging.Errorf("Async email failed: %v", err)
             }
         }()
         return nil
     }
-    return s.sendEmailSync(to, templateName, data)
+    return es.sendEmailSync(to, templateName, data)
 }
 ```
 
@@ -356,10 +352,10 @@ func (s *EmailService) SendEmail(to, templateName string, data map[string]interf
 If email fails and Discord webhook configured, sends to Discord instead:
 
 ```go
-func (s *EmailService) SendEmail(...) error {
-    err := s.provider.Send(...)
-    if err != nil && s.hasDiscordWebhook() {
-        s.discord.SendAlert("Email Failed", fmt.Sprintf("To: %s, Template: %s, Error: %v", to, templateName, err))
+func (es *emailService) SendEmail(...) error {
+    err := svc.Send(...)
+    if err != nil && hasDiscordWebhook() {
+        discord.SendAlert("Email Failed", fmt.Sprintf("To: %s, Template: %s, Error: %v", to, templateName, err))
     }
     return err
 }
@@ -443,7 +439,7 @@ func (c *CustomProvider) Send(to, subject, body string) error {
     return nil
 }
 
-func (c *CustomProvider) Name() string { return "custom" }
+// Note: No Name() method needed - providers registered by init()
 
 // Register in provider.go init():
 // providers["custom"] = func() Provider { return NewCustomProvider(config) }

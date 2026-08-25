@@ -1,6 +1,6 @@
 # Complete Scopes Reference
 
-Complete reference of all **72** permission scopes in Aether Panel (verified against `internal/scopes/scopes.go`).
+Complete reference of all **75** permission scopes in Aether Panel (verified against `internal/scopes/scopes.go`).
 
 ---
 
@@ -8,27 +8,27 @@ Complete reference of all **72** permission scopes in Aether Panel (verified aga
 
 | Category | Count |
 |----------|-------|
-| **Server Scopes** | 49 |
-| **Global Scopes** | 23 |
+| **Server Scopes** | 51 |
+| **Global Scopes** | 24 |
 
-**Total: 72 scopes**
+**Total: 75 scopes**
 
 ---
 
-## Server Scopes (49)
+## Server Scopes (51)
 
 ### Server Lifecycle (9)
 | Scope | Description |
 |-------|-------------|
 | `server.view` | View server details |
-| `server.create` | Create new server (global scope) |
 | `server.delete` | Delete server |
 | `server.start` | Start server |
 | `server.stop` | Stop server |
-| `server.restart` | Restart server (requires start + stop) |
 | `server.kill` | Force kill server |
 | `server.install` | Run installation |
 | `server.reload` | Reload configuration |
+| `server.status` | View running/stopped status |
+| `server.stats` | View CPU/RAM/disk/network stats |
 
 ### Server Data (6)
 | Scope | Description |
@@ -112,6 +112,14 @@ Complete reference of all **72** permission scopes in Aether Panel (verified aga
 | `server.extransfer.view` | View external transfers |
 | `server.extransfer.manage` | Manage external transfers |
 
+### Clients / OAuth2 (4)
+| Scope | Description |
+|-------|-------------|
+| `server.clients.view` | View OAuth2 clients |
+| `server.clients.edit` | Edit OAuth2 clients |
+| `server.clients.create` | Create OAuth2 clients |
+| `server.clients.delete` | Delete OAuth2 clients |
+
 ### Admin Scopes (19)
 | Scope | Description |
 |-------|-------------|
@@ -146,7 +154,7 @@ Complete reference of all **72** permission scopes in Aether Panel (verified aga
 
 ---
 
-## Global Scopes (23)
+## Global Scopes (24)
 
 ### System Administration (6)
 | Scope | Description |
@@ -207,16 +215,21 @@ Complete reference of all **72** permission scopes in Aether Panel (verified aga
 | `roles.view` | View roles |
 | `roles.edit` | Create/edit/delete roles |
 
+### Server Creation (1)
+| Scope | Description |
+|-------|-------------|
+| `server.create` | Create new server (global scope, not per-server) |
+
 ---
 
 ## Scope Hierarchy
 
 ```
 admin (superadmin)
-├── Global scopes (23)
-└── Server scopes via server.admin (49)
+├── Global scopes (24)
+└── Server scopes via server.admin (51)
     ├── server.view
-    ├── server.start/stop/restart/kill
+    ├── server.start/stop/kill
     ├── server.data.edit.admin
     ├── server.definition.edit
     ├── server.flags.edit
@@ -324,7 +337,6 @@ servers.GET("/:serverId", middleware.RequiresPermission(scopes.ScopeServerView),
 | `GET /api/servers/:id/data` | `server.data.view` |
 | `POST /api/servers/:id/data` | `server.data.edit` |
 | `PUT /api/servers/:id/data` | `server.data.edit.admin` |
-| `PUT /api/servers/:id/port-settings` | `server.data.view` |
 | `GET /api/servers/:id/definition` | `server.definition.view` |
 | `PUT /api/servers/:id/definition` | `server.definition.edit` |
 | `GET /api/servers/:id/flags` | `server.flags.view` |
@@ -377,7 +389,7 @@ servers.GET("/:serverId", middleware.RequiresPermission(scopes.ScopeServerView),
 
 ## Scope Constants (`internal/scopes/scopes.go`)
 
-All 72 scopes defined as constants:
+All 75 scopes defined as constants:
 
 ```go
 package scopes
@@ -386,21 +398,27 @@ const (
     // Global
     ScopeAdmin              = "admin"
     ScopeLogin              = "login"
-    ScopePanel              = "panel"
-    ScopeSettingsEdit       = "settings.edit"
     ScopeOAuth2Auth         = "oauth2.auth"
-    ScopeLicense            = "license"
+    ScopeNodesView          = "nodes.view"
+    ScopeNodesCreate        = "nodes.create"
+    ScopeNodesEdit          = "nodes.edit"
+    ScopeNodesDelete        = "nodes.delete"
+    ScopeNodesDeploy        = "nodes.deploy"
+    ScopeSelfEdit           = "self.edit"
+    ScopeSelfClients        = "self.clients"
+    ScopeServerCreate       = "server.create"  // Non-server scope!
     
     // Server lifecycle
     ScopeServerView         = "server.view"
-    ScopeServerCreate       = "server.create"
+    ScopeServerAdmin        = "server.admin"
     ScopeServerDelete       = "server.delete"
     ScopeServerStart        = "server.start"
     ScopeServerStop         = "server.stop"
-    ScopeServerRestart      = "server.restart"
     ScopeServerKill         = "server.kill"
     ScopeServerInstall      = "server.install"
     ScopeServerReload       = "server.reload"
+    ScopeServerStatus       = "server.status"
+    ScopeServerStats        = "server.stats"
     
     // Server data
     ScopeServerViewData     = "server.data.view"
@@ -462,10 +480,6 @@ const (
     ScopeServerExTransferView = "server.extransfer.view"
     ScopeServerExTransferManage = "server.extransfer.manage"
     
-    // Plugins
-    ScopeServerPluginsView  = "server.plugins.view"
-    ScopeServerPluginsEdit  = "server.plugins.edit"
-    
     // Clients / OAuth2
     ScopeServerClientsView  = "server.clients.view"
     ScopeServerClientsEdit  = "server.clients.edit"
@@ -514,24 +528,34 @@ const (
     ScopeUsersPermsView     = "users.perms.view"
     ScopeUsersPermsEdit     = "users.perms.edit"
     ScopeSelfEdit           = "self.edit"
+    ScopeSelfClients        = "self.clients"
     ScopeNodesView          = "nodes.view"
     ScopeNodesCreate        = "nodes.create"
     ScopeNodesEdit          = "nodes.edit"
     ScopeNodesDelete        = "nodes.delete"
     ScopeNodesDeploy        = "nodes.deploy"
-    ScopeSelfEdit           = "self.edit"
-    ScopeSelfClients        = "self.clients"
-    ScopeOAuth2Auth         = "oauth2.auth"
-    ScopeLicense            = "license"
-    ScopeUsersInfoSearch    = "users.info.search"
-    ScopeUsersInfoView      = "users.info.view"
-    ScopeUsersInfoEdit      = "users.info.edit"
-    ScopeUsersPermsView     = "users.perms.view"
-    ScopeUsersPermsEdit     = "users.perms.edit"
     ScopeTemplatesView      = "templates.view"
     ScopeTemplatesLocalEdit = "templates.local.edit"
     ScopeTemplatesRepoCreate = "templates.repo.create"
     ScopeTemplatesRepoDelete = "templates.repo.delete"
+    ScopeDatabaseHostsManage = "databasehosts.manage"
+    ScopeProvisionManage    = "provision.manage"
+    ScopeProvisionView      = "provision.view"
+    ScopeUptimeView         = "uptime.view"
+    ScopeRolesView          = "roles.view"
+    ScopeRolesEdit          = "roles.edit"
+    ScopeDatabaseHostsManage = "databasehosts.manage"
+    ScopeProvisionManage    = "provision.manage"
+    ScopeProvisionView      = "provision.view"
+    ScopeUptimeView         = "uptime.view"
+    ScopeRolesView          = "roles.view"
+    ScopeRolesEdit          = "roles.edit"
+    ScopeDatabaseHostsManage = "databasehosts.manage"
+    ScopeProvisionManage    = "provision.manage"
+    ScopeProvisionView      = "provision.view"
+    ScopeUptimeView         = "uptime.view"
+    ScopeRolesView          = "roles.view"
+    ScopeRolesEdit          = "roles.edit"
     ScopeDatabaseHostsManage = "databasehosts.manage"
     ScopeProvisionManage    = "provision.manage"
     ScopeProvisionView      = "provision.view"
