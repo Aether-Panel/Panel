@@ -85,8 +85,9 @@ Real migration IDs (date/timestamp as versioning):
 | Model | File | PK | Key Columns |
 |---|---|---|---|
 | `Permissions` | `permission.go` | `id` (uint) | `user_id` (nullable), `client_id` (nullable), `server_identifier` (nullable), `scopes` (JSON) |
-| `PermissionView` | `permissionview.go` | — | View model |
+| `PermissionView` | `permissionview.go` | — | View model (aggregated user + role permissions) |
 | `Role` | `role.go` | `id` (uint) | `name` (unique), `description`, `scopes` (JSON, size 2000), `created_at`, `updated_at` |
+| `UserPermissionsView` | `userpermissionsview.go` | — | View model (effective permissions per user + server) |
 
 ### Databases
 
@@ -144,6 +145,14 @@ Real migration IDs (date/timestamp as versioning):
 | Model | File | PK | Key Columns |
 |---|---|---|---|
 | `Client` | `client.go` | `id` (uint) | `client_id` (unique), `client_secret` (hash), `user_id` (FK), `server_id` (nullable), `name`, `description`, `scopes` (size 4000) |
+
+### Metadata
+
+| Model | File | PK | Key Columns |
+|---|---|---|---|
+| `Metadata` | `metadata.go` | `key` (string, 100) | `value` (size 4000), `created_at`, `updated_at` |
+
+Generic key-value storage used for internal state (e.g., panel hash, version, last update check).
 
 ## Key Relationships
 

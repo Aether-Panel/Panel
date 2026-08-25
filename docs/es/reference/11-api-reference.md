@@ -1,36 +1,36 @@
-# Referencia de API
+# API Reference
 
-> **Nota:** El proyecto tiene los nombres Aether Panel (público) y SkyPanel (código, CLI, módulo Go v3).
+> **Note:** The project has the names Aether Panel (public) and SkyPanel (code, CLI, Go module v3).
 
-Documentación OpenAPI/Swagger interactiva disponible en `http://localhost:8080/swagger/index.html` cuando el panel está en ejecución.
+Interactive OpenAPI/Swagger documentation available at `http://localhost:8080/swagger/index.html` when the panel is running.
 
 ---
 
-## Tabla de Contenidos
+## Table of Contents
 
-- [Autenticación](#autenticación)
-- [Scopes (Permisos)](#scopes-permisos)
-- [Formato de Respuestas](#formato-de-respuestas)
-- [Tipos de Datos](#tipos-de-datos)
+- [Authentication](#authentication)
+- [Scopes (Permissions)](#scopes-permissions)
+- [Response Format](#response-format)
+- [Data Types](#data-types)
 - [Config](#config)
 - [Auth](#auth)
 - [OAuth2](#oauth2)
-- [Nodos](#nodos)
-- [Servidores](#servidores)
-- [Archivos](#archivos)
-- [Archivos Comprimidos](#archivos-comprimidos)
+- [Nodes](#nodes)
+- [Servers](#servers)
+- [Files](#files)
+- [Archived Files](#archived-files)
 - [Plugins](#plugins)
 - [Backups](#backups)
-- [Tareas](#tareas)
+- [Tasks](#tasks)
 - [Flags](#flags)
-- [Consola](#consola)
-- [Bases de Datos del Servidor](#bases-de-datos-del-servidor)
-- [Usuarios del Servidor](#usuarios-del-servidor)
-- [Transferencia entre Nodos](#transferencia-entre-nodos)
-- [Transferencia Externa](#transferencia-externa)
+- [Console](#console)
+- [Server Databases](#server-databases)
+- [Server Users](#server-users)
+- [Transfer Between Nodes](#transfer-between-nodes)
+- [External Transfer](#external-transfer)
 - [AI](#ai)
-- [Usuarios Globales](#usuarios-globales)
-- [Self (Perfil Propio)](#self-perfil-propio)
+- [Global Users](#global-users)
+- [Self (Own Profile)](#self-own-profile)
 - [Settings](#settings)
 - [User Settings](#user-settings)
 - [API Keys](#api-keys)
@@ -45,9 +45,9 @@ Documentación OpenAPI/Swagger interactiva disponible en `http://localhost:8080/
 
 ---
 
-## Autenticación
+## Authentication
 
-### 1. OAuth2 Client Credentials (API externa)
+### 1. OAuth2 Client Credentials (External API)
 
 ```
 POST /oauth2/token
@@ -56,7 +56,7 @@ Content-Type: application/x-www-form-urlencoded
 grant_type=client_credentials&client_id=ID&client_secret=SECRET
 ```
 
-**Respuesta:**
+**Response:**
 ```json
 {
   "access_token": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9...",
@@ -66,7 +66,7 @@ grant_type=client_credentials&client_id=ID&client_secret=SECRET
 }
 ```
 
-Usar el token en todas las peticiones:
+Use the token in all requests:
 ```
 Authorization: Bearer eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9...
 ```
@@ -86,110 +86,110 @@ grant_type=password&username=email%23serverId&password=USER_PASSWORD&scope=sftp
 ```
 X-Api-Key: ak_<key>
 ```
-O como Bearer:
+Or as Bearer:
 ```
 Authorization: Bearer ak_<key>
 ```
 
-### 4. Auth de Panel (Sesiones Web)
+### 4. Panel Auth (Web Sessions)
 
-Usar los endpoints `/auth/login`, `/auth/otp`, etc. para obtener cookies de sesión.
+Use the `/auth/login`, `/auth/otp`, etc. endpoints to obtain session cookies.
 
 ---
 
-## Scopes (Permisos)
+## Scopes (Permissions)
 
-### Scopes de Servidor (por servidor)
+### Server Scopes (per server)
 
-| Scope | Descripción |
+| Scope | Description |
 |-------|-------------|
-| `server.view` | Ver servidor |
-| `server.admin` | Admin del servidor |
-| `server.delete` | Eliminar servidor |
-| `server.definition.edit` | Editar definición |
-| `server.definition.view` | Ver definición |
-| `server.data.edit` | Editar datos del servidor |
-| `server.data.edit.admin` | Editar datos (admin) |
-| `server.data.view` | Ver datos |
-| `server.flags.edit` | Editar flags |
-| `server.flags.view` | Ver flags |
-| `server.name.edit` | Cambiar nombre |
-| `server.clients.view` | Ver clients OAuth2 |
-| `server.clients.edit` | Editar clients |
-| `server.clients.create` | Crear clients |
-| `server.clients.delete` | Eliminar clients |
-| `server.users.view` | Ver usuarios del servidor |
-| `server.users.create` | Agregar usuarios |
-| `server.users.edit` | Editar permisos de usuarios |
-| `server.users.delete` | Eliminar usuarios del servidor |
-| `server.tasks.view` | Ver tareas |
-| `server.tasks.run` | Ejecutar tarea |
-| `server.tasks.create` | Crear tarea |
-| `server.tasks.delete` | Eliminar tarea |
-| `server.tasks.edit` | Editar tarea |
-| `server.reload` | Recargar servidor |
-| `server.start` | Iniciar servidor |
-| `server.stop` | Detener servidor |
-| `server.kill` | Matar proceso |
-| `server.install` | Ejecutar instalación |
-| `server.files.view` | Ver archivos |
-| `server.files.edit` | Subir/editar/eliminar archivos |
-| `server.sftp` | Acceso SFTP |
-| `server.console` | Ver consola |
-| `server.console.send` | Enviar comandos |
-| `server.stats` | Ver estadísticas |
-| `server.status` | Ver estado |
-| `server.backup.view` | Ver backups |
-| `server.backup.create` | Crear backup |
-| `server.backup.restore` | Restaurar backup |
-| `server.backup.delete` | Eliminar backup |
-| `server.admin.view` | Admin: ver |
-| `server.admin.install.view` | Admin: ver instalación |
-| `server.admin.install.manage` | Admin: gestionar instalación |
-| `server.admin.transfer.view` | Admin: ver transferencias |
-| `server.admin.transfer.manage` | Admin: gestionar transferencias |
-| `server.admin.config.view` | Admin: ver config |
-| `server.admin.config.manage` | Admin: gestionar config |
-| `server.admin.assignments.view` | Admin: ver asignaciones |
-| `server.admin.assignments.manage` | Admin: gestionar asignaciones |
+| `server.view` | View server |
+| `server.admin` | Server admin |
+| `server.delete` | Delete server |
+| `server.definition.edit` | Edit definition |
+| `server.definition.view` | View definition |
+| `server.data.edit` | Edit server data |
+| `server.data.edit.admin` | Edit data (admin) |
+| `server.data.view` | View data |
+| `server.flags.edit` | Edit flags |
+| `server.flags.view` | View flags |
+| `server.name.edit` | Change name |
+| `server.clients.view` | View OAuth2 clients |
+| `server.clients.edit` | Edit clients |
+| `server.clients.create` | Create clients |
+| `server.clients.delete` | Delete clients |
+| `server.users.view` | View server users |
+| `server.users.create` | Add users |
+| `server.users.edit` | Edit user permissions |
+| `server.users.delete` | Delete server users |
+| `server.tasks.view` | View tasks |
+| `server.tasks.run` | Run task |
+| `server.tasks.create` | Create task |
+| `server.tasks.delete` | Delete task |
+| `server.tasks.edit` | Edit task |
+| `server.reload` | Reload server |
+| `server.start` | Start server |
+| `server.stop` | Stop server |
+| `server.kill` | Kill process |
+| `server.install` | Run installation |
+| `server.files.view` | View files |
+| `server.files.edit` | Upload/edit/delete files |
+| `server.sftp` | SFTP access |
+| `server.console` | View console |
+| `server.console.send` | Send commands |
+| `server.stats` | View statistics |
+| `server.status` | View status |
+| `server.backup.view` | View backups |
+| `server.backup.create` | Create backup |
+| `server.backup.restore` | Restore backup |
+| `server.backup.delete` | Delete backup |
+| `server.admin.view` | Admin: view |
+| `server.admin.install.view` | Admin: view installation |
+| `server.admin.install.manage` | Admin: manage installation |
+| `server.admin.transfer.view` | Admin: view transfers |
+| `server.admin.transfer.manage` | Admin: manage transfers |
+| `server.admin.config.view` | Admin: view config |
+| `server.admin.config.manage` | Admin: manage config |
+| `server.admin.assignments.view` | Admin: view assignments |
+| `server.admin.assignments.manage` | Admin: manage assignments |
 
-### Scopes Globales
+### Global Scopes
 
-| Scope | Descripción |
+| Scope | Description |
 |-------|-------------|
 | `admin` | Superadmin |
-| `login` | Iniciar sesión |
-| `panel` | Acceso al panel |
-| `oauth2.auth` | Validar credenciales vía OAuth2 |
-| `nodes.view` | Ver nodos |
-| `nodes.create` | Crear nodos |
-| `nodes.edit` | Editar nodos |
-| `nodes.delete` | Eliminar nodos |
-| `nodes.deploy` | Obtener datos de despliegue |
-| `self.edit` | Editar propio perfil |
-| `self.clients` | Gestionar clients OAuth2 propios |
-| `settings.edit` | Editar configuración global |
-| `templates.view` | Ver plantillas |
-| `templates.local.edit` | Editar plantillas locales |
-| `templates.repo.create` | Agregar repositorios |
-| `templates.repo.delete` | Eliminar repositorios |
-| `users.info.search` | Buscar usuarios |
-| `users.info.view` | Ver usuarios |
-| `users.info.edit` | Crear/editar/eliminar usuarios |
-| `users.perms.view` | Ver permisos de usuarios |
-| `users.perms.edit` | Editar permisos de usuarios |
-| `uptime.view` | Ver estadísticas de uptime |
-| `server.create` | Crear servidores |
+| `login` | Log in |
+| `panel` | Panel access |
+| `oauth2.auth` | Validate credentials via OAuth2 |
+| `nodes.view` | View nodes |
+| `nodes.create` | Create nodes |
+| `nodes.edit` | Edit nodes |
+| `nodes.delete` | Delete nodes |
+| `nodes.deploy` | Get deployment data |
+| `self.edit` | Edit own profile |
+| `self.clients` | Manage own OAuth2 clients |
+| `settings.edit` | Edit global configuration |
+| `templates.view` | View templates |
+| `templates.local.edit` | Edit local templates |
+| `templates.repo.create` | Add repositories |
+| `templates.repo.delete` | Delete repositories |
+| `users.info.search` | Search users |
+| `users.info.view` | View users |
+| `users.info.edit` | Create/edit/delete users |
+| `users.perms.view` | View user permissions |
+| `users.perms.edit` | Edit user permissions |
+| `uptime.view` | View uptime statistics |
+| `server.create` | Create servers |
 
 ---
 
-## Formato de Respuestas
+## Response Format
 
-### Éxito
+### Success
 ```json
 { "data": { ... } }
 ```
-O directamente un array u objeto según el endpoint.
+Or directly an array or object depending on the endpoint.
 
 ### Error
 ```json
@@ -201,16 +201,16 @@ O directamente un array u objeto según el endpoint.
 }
 ```
 
-Códigos de error: `ErrFieldRequired`, `ErrFieldLength`, `ErrServerNotFound`, `ErrUserNotFound`, `ErrNodeInvalid`, `ErrDatabaseNotAvailable`, `ErrNoPermission`, `ErrInvalidCredentials`, `ErrUnknownError`. Lista completa en `pkg/skypanel/errors.go`.
+Error codes: `ErrFieldRequired`, `ErrFieldLength`, `ErrServerNotFound`, `ErrUserNotFound`, `ErrNodeInvalid`, `ErrDatabaseNotAvailable`, `ErrNoPermission`, `ErrInvalidCredentials`, `ErrUnknownError`. Complete list in `pkg/skypanel/errors.go`.
 
-### Códigos HTTP
+### HTTP Codes
 
-| Código | Significado |
+| Code | Meaning |
 |--------|-------------|
 | 200 | OK |
 | 201 | Created |
 | 204 | No Content |
-| 202 | Accepted (operación asíncrona) |
+| 202 | Accepted (asynchronous operation) |
 | 400 | Bad Request |
 | 401 | Unauthorized |
 | 403 | Forbidden |
@@ -219,7 +219,7 @@ Códigos de error: `ErrFieldRequired`, `ErrFieldLength`, `ErrServerNotFound`, `E
 
 ---
 
-## Tipos de Datos
+## Data Types
 
 ### Paging
 ```json
@@ -256,7 +256,7 @@ Códigos de error: `ErrFieldRequired`, `ErrFieldLength`, `ErrServerNotFound`, `E
 ### ServerDefinition (Create/Edit)
 ```json
 {
-  "name": "Mi Servidor", "type": "minecraft-java", "icon": "minecraft.png",
+  "name": "My Server", "type": "minecraft-java", "icon": "minecraft.png",
   "environment": { "type": "standard" },
   "install": [ { "type": "mojangdl", "version": "1.20.1" } ],
   "uninstall": [],
@@ -271,7 +271,7 @@ Códigos de error: `ErrFieldRequired`, `ErrFieldLength`, `ErrServerNotFound`, `E
     "stdin": { "type": "", "ip": "", "port": "", "password": "" }
   },
   "data": {
-    "memory": { "type": "integer", "value": 2048, "required": true, "desc": "Memoria MB", "display": "Memoria" },
+    "memory": { "type": "integer", "value": 2048, "required": true, "desc": "Memory MB", "display": "Memory" },
     "port": { "type": "string", "value": "25565", "required": true },
     "version": { "type": "string", "value": "1.20.1", "required": true }
   },
@@ -319,7 +319,7 @@ Códigos de error: `ErrFieldRequired`, `ErrFieldLength`, `ErrServerNotFound`, `E
 ### ServerTask
 ```json
 {
-  "name": "Backup diario", "description": "Ejecuta backup cada 6h",
+  "name": "Daily backup", "description": "Runs backup every 6h",
   "cronSchedule": "0 */6 * * *",
   "operations": [ { "type": "backup" } ]
 }
@@ -420,7 +420,7 @@ Códigos de error: `ErrFieldRequired`, `ErrFieldLength`, `ErrServerNotFound`, `E
 ## Config
 
 ### `GET /api/config`
-Sin autenticación. Retorna configuración pública del panel.
+No authentication. Returns the panel's public configuration.
 
 ```json
 {
@@ -439,7 +439,7 @@ Sin autenticación. Retorna configuración pública del panel.
 ```json
 { "email": "admin@example.com", "password": "..." }
 ```
-**Respuesta:**
+**Response:**
 ```json
 {
   "scopes": [{ "value": "server.view", "forServer": true }],
@@ -447,47 +447,47 @@ Sin autenticación. Retorna configuración pública del panel.
   "session": "session_token"
 }
 ```
-- `otpNeeded: false` → login completo; también setea la cookie `skypanel_auth`.
-- `otpNeeded: true` → continuar con `/auth/otp` (la sesión en curso se guarda en la cookie del navegador).
-- `session` expone el token de sesión para autenticación de apps externas.
+- `otpNeeded: false` → full login; it also sets the `skypanel_auth` cookie.
+- `otpNeeded: true` → continue with `/auth/otp` (the current session is stored in the browser cookie).
+- `session` exposes the session token for authentication of external apps.
 
 ### `POST /auth/otp`
 **Body:**
 ```json
 { "token": "123456" }
 ```
-`token` es el **código OTP** (el email del usuario y el timestamp provienen de la sesión en cookie, con expiración de 5 minutos).
-**Respuesta:** igual que `/auth/login` (LoginResponse con `scopes` y `session`).
+`token` is the **OTP code** (the user's email and the timestamp come from the cookie session, with a 5-minute expiration).
+**Response:** same as `/auth/login` (LoginResponse with `scopes` and `session`).
 
 ### `POST /auth/logout`
-Cierra la sesión actual.
+Closes the current session.
 
 ### `POST /auth/register`
-Requiere `registrationEnabled: true`.
+Requires `registrationEnabled: true`.
 **Body:**
 ```json
 { "username": "newuser", "email": "new@example.com", "password": "Secure123!" }
 ```
 
 ### `POST /auth/forgot-password`
-Solicita un enlace de reset para un email. **Respuesta:** siempre `204` (evita enumeración de usuarios). Si el email existe, se envía un correo con el enlace `/reset-password/?token=<token>`.
+Requests a reset link for an email. **Response:** always `204` (prevents user enumeration). If the email exists, an email is sent with the link `/reset-password/?token=<token>`.
 **Body:**
 ```json
 { "email": "admin@example.com" }
 ```
 
 ### `POST /auth/reset-password`
-Consume el token de reset y establece una nueva contraseña. **Respuesta:** `204`. **Errores:** `400` si el token es inválido/vencido o la contraseña no cumple los requisitos.
+Consumes the reset token and sets a new password. **Response:** `204`. **Errors:** `400` if the token is invalid/expired or the password does not meet the requirements.
 **Body:**
 ```json
-{ "token": "reset_token", "password": "NuevaSegura123!" }
+{ "token": "reset_token", "password": "NewSecure123!" }
 ```
 
 ### `POST /auth/reauth`
-Re-autentica la sesión actual. **Auth:** Bearer.
+Re-authenticates the current session. **Auth:** Bearer.
 
 ### `GET /auth/publickey`
-Retorna la clave pública Ed25519 en formato JWK para validar JWTs.
+Returns the Ed25519 public key in JWK format to validate JWTs.
 
 ---
 
@@ -496,27 +496,27 @@ Retorna la clave pública Ed25519 en formato JWK para validar JWTs.
 ### `POST /oauth2/token`
 **Form (urlencoded):** `grant_type`, `client_id`, `client_secret`, `username`, `password`
 
-Ver [Autenticación](#autenticación) para ejemplos.
+See [Authentication](#authentication) for examples.
 
-**Errores:**
+**Errors:**
 ```json
 { "error": "invalid_client", "error_description": "Invalid client credentials" }
 ```
 
 ---
 
-## Nodos
+## Nodes
 
-| Método | Path | Scope | Descripción |
+| Method | Path | Scope | Description |
 |--------|------|-------|-------------|
-| GET | `/api/nodes` | `nodes.view` | Listar nodos |
-| POST | `/api/nodes` | `nodes.create` | Crear nodo |
-| GET | `/api/nodes/:id` | `nodes.view` | Obtener nodo |
-| PUT | `/api/nodes/:id` | `nodes.edit` | Actualizar nodo |
-| DELETE | `/api/nodes/:id` | `nodes.delete` | Eliminar nodo |
-| GET | `/api/nodes/:id/features` | `nodes.view` | Features del nodo |
-| GET | `/api/nodes/:id/system` | `nodes.view` | Info del sistema |
-| GET | `/api/nodes/:id/deployment` | `nodes.deploy` | Datos de despliegue |
+| GET | `/api/nodes` | `nodes.view` | List nodes |
+| POST | `/api/nodes` | `nodes.create` | Create node |
+| GET | `/api/nodes/:id` | `nodes.view` | Get node |
+| PUT | `/api/nodes/:id` | `nodes.edit` | Update node |
+| DELETE | `/api/nodes/:id` | `nodes.delete` | Delete node |
+| GET | `/api/nodes/:id/features` | `nodes.view` | Node features |
+| GET | `/api/nodes/:id/system` | `nodes.view` | System info |
+| GET | `/api/nodes/:id/deployment` | `nodes.deploy` | Deployment data |
 
 ### `POST /api/nodes`
 **Body:**
@@ -526,51 +526,63 @@ Ver [Autenticación](#autenticación) para ejemplos.
   "publicPort": 8080, "privatePort": 8080, "sftpPort": 5657
 }
 ```
-**Respuesta:** `Node` (incluye `id`)
+**Response:** `Node` (includes `id`)
 
 ### `GET /api/nodes/:id/deployment`
 ```json
 { "clientId": ".node_1", "clientSecret": "abc123def456...", "publicKey": "..." }
 ```
 
+### `GET /api/nodes/:id/features`
+Returns node capabilities (`Features` type).
+
+### `GET /api/nodes/:id/system`
+Returns system info (`SystemInfo` type).
+
+### `GET /api/nodes/:id/usage`
+Returns resource usage stats for the node.
+
+### `GET /api/nodes/:id/certs`
+Returns SSL certificates for the node (if configured).
+
 ---
 
-## Servidores
+## Servers
 
-La mayoría de los endpoints de acción usan `proxyServerRequest` que reenvía la petición al daemon del nodo.
+Most action endpoints use `proxyServerRequest`, which forwards the request to the node's daemon.
 
-| Método | Path | Scope | Descripción |
+| Method | Path | Scope | Description |
 |--------|------|-------|-------------|
-| GET | `/api/servers` | (auth) | Listar servidores |
-| GET | `/api/servers/:serverId` | `server.view` | Obtener servidor |
-| PUT | `/api/servers/:serverId` | `server.create` | Crear servidor |
-| DELETE | `/api/servers/:serverId` | `server.delete` | Eliminar servidor |
-| POST | `/api/servers/:serverId/suspend` | `server.edit.data.admin` | Suspender/activar |
-| PUT | `/api/servers/:serverId/name/:name` | `server.name.edit` | Renombrar |
-| GET | `/api/servers/:serverId/definition` | `server.definition.view` | Obtener definición |
-| PUT | `/api/servers/:serverId/definition` | `server.definition.edit` | Editar definición |
-| GET | `/api/servers/:serverId/data` | `server.data.view` | Obtener variables |
-| POST | `/api/servers/:serverId/data` | `server.data.edit` | Editar variables |
-| PUT | `/api/servers/:serverId/data` | `server.data.edit.admin` | Editar datos (admin) |
-| POST | `/api/servers/:serverId/transfer` | `server.edit.data.admin` | Transferir a otro nodo |
-| GET | `/api/servers/:serverId/status` | `server.status` | Estado (running/stopped) |
-| GET | `/api/servers/:serverId/stats` | `server.stats` | Estadísticas |
-| GET | `/api/servers/:serverId/console` | `server.console` | Logs de consola |
-| POST | `/api/servers/:serverId/console` | `server.console.send` | Enviar comando |
-| GET | `/api/servers/:serverId/flags` | `server.flags.view` | Obtener flags |
-| POST | `/api/servers/:serverId/flags` | `server.flags.edit` | Editar flags |
-| POST | `/api/servers/:serverId/start` | `server.start` | Iniciar |
-| POST | `/api/servers/:serverId/stop` | `server.stop` | Detener |
-| POST | `/api/servers/:serverId/restart` | `server.start`+`server.stop` | Reiniciar |
-| POST | `/api/servers/:serverId/kill` | `server.kill` | Matar proceso |
-| POST | `/api/servers/:serverId/install` | `server.install` | Ejecutar instalación |
-| POST | `/api/servers/:serverId/reload` | `server.reload` | Recargar configuración |
-| HEAD | `/api/servers/:serverId/query` | `server.stats` | Consultar(query) server |
-| GET | `/api/servers/:serverId/query` | `server.stats` | Consultar server |
-| GET | `/api/servers/:serverId/socket` | `server.view` | WebSocket (consola/stats) |
+| GET | `/api/servers` | (auth) | List servers |
+| GET | `/api/servers/:serverId` | `server.view` | Get server |
+| PUT | `/api/servers/:serverId` | `server.create` | Create server |
+| DELETE | `/api/servers/:serverId` | `server.delete` | Delete server |
+| POST | `/api/servers/:serverId/suspend` | `server.edit.data.admin` | Suspend/activate |
+| PUT | `/api/servers/:serverId/name/:name` | `server.name.edit` | Rename |
+| GET | `/api/servers/:serverId/definition` | `server.definition.view` | Get definition |
+| PUT | `/api/servers/:serverId/definition` | `server.definition.edit` | Edit definition |
+| GET | `/api/servers/:serverId/data` | `server.data.view` | Get variables |
+| POST | `/api/servers/:serverId/data` | `server.data.edit` | Edit variables |
+| PUT | `/api/servers/:serverId/data` | `server.data.edit.admin` | Edit data (admin) |
+| POST | `/api/servers/:serverId/transfer` | `server.edit.data.admin` | Transfer to another node |
+| GET | `/api/servers/:serverId/status` | `server.status` | Status (running/stopped) |
+| GET | `/api/servers/:serverId/stats` | `server.stats` | Statistics |
+| GET | `/api/servers/:serverId/console` | `server.console` | Console logs |
+| POST | `/api/servers/:serverId/console` | `server.console.send` | Send command |
+| GET | `/api/servers/:serverId/flags` | `server.flags.view` | Get flags |
+| POST | `/api/servers/:serverId/flags` | `server.flags.edit` | Edit flags |
+| POST | `/api/servers/:serverId/start` | `server.start` | Start |
+| POST | `/api/servers/:serverId/stop` | `server.stop` | Stop |
+| POST | `/api/servers/:serverId/restart` | `server.start`+`server.stop` | Restart |
+| POST | `/api/servers/:serverId/kill` | `server.kill` | Kill process |
+| POST | `/api/servers/:serverId/install` | `server.install` | Run installation |
+| POST | `/api/servers/:serverId/reload` | `server.reload` | Reload configuration |
+| HEAD | `/api/servers/:serverId/query` | `server.stats` | Query server |
+| GET | `/api/servers/:serverId/query` | `server.stats` | Query server |
+| GET | `/api/servers/:serverId/socket` | `server.view` | WebSocket (console/stats) |
 
 ### `GET /api/servers`
-**Query params:** `name` (filtro con `*`), `node` (ID), `username`, `page`, `limit`.
+**Query params:** `name` (filter with `*`), `node` (ID), `username`, `page`, `limit`.
 
 ```json
 {
@@ -588,24 +600,24 @@ La mayoría de los endpoints de acción usan `proxyServerRequest` que reenvía l
 ```
 
 ### `PUT /api/servers/:serverId`
-Crea un servidor. **Body:** `ServerDefinition` (ver tipos).
-**Respuesta:** `{ "id": "abc123" }`
+Creates a server. **Body:** `ServerDefinition` (see types).
+**Response:** `{ "id": "abc123" }`
 
 ### `DELETE /api/servers/:serverId?skipNode=true`
-`skipNode`: elimina solo de la BD, no del nodo.
+`skipNode`: deletes only from the database, not from the node.
 
 ### `POST /api/servers/:serverId/suspend`
-Suspende o activa el servidor (toggle).
+Suspends or activates the server (toggle).
 
 ### `PUT /api/servers/:serverId/name/:name`
-Renombra el servidor en la BD.
+Renames the server in the database.
 
 ### `GET /api/servers/:serverId/definition`
-Retorna la definición completa del servidor.
+Returns the server's complete definition.
 
 ### `PUT /api/servers/:serverId/definition`
 **Body:** `ServerDefinition`.
-**Respuesta:** `204`.
+**Response:** `204`.
 
 ### `GET /api/servers/:serverId/data`
 ```json
@@ -613,15 +625,15 @@ Retorna la definición completa del servidor.
 ```
 
 ### `POST /api/servers/:serverId/data`
-Edita variables del servidor. **Body:** `{ "key": "value" }` (objeto plano).
-**Respuesta:** `202`.
+Edits server variables. **Body:** `{ "key": "value" }` (flat object).
+**Response:** `202`.
 
 ### `PUT /api/servers/:serverId/data`
-Edición admin de datos. **Body:** `{ ... }`. **Respuesta:** `202`.
+Admin data editing. **Body:** `{ ... }`. **Response:** `202`.
 
 ### `POST /api/servers/:serverId/transfer`
-**Body:** `{ "nodeId": 2 }`. Transfiere el servidor a otro nodo.
-**Respuesta:** `202 "Transfer started"`.
+**Body:** `{ "nodeId": 2 }`. Transfers the server to another node.
+**Response:** `202 "Transfer started"`.
 
 ### `GET /api/servers/:serverId/status`
 ```json
@@ -638,14 +650,14 @@ Edición admin de datos. **Body:** `{ ... }`. **Respuesta:** `202`.
 ```
 
 ### `GET /api/servers/:serverId/console?time=1705312215000`
-`time`: epoch en ms para obtener logs desde ese momento.
+`time`: epoch in ms to get logs from that moment.
 ```json
 { "logs": ["[10:30:15] [Server thread/INFO]: Starting server"], "epoch": 1705312215 }
 ```
 
 ### `POST /api/servers/:serverId/console`
-**Body:** `"command"` (string literal del comando).
-**Respuesta:** `204`.
+**Body:** `"command"` (literal string of the command).
+**Response:** `204`.
 
 ### `GET /api/servers/:serverId/flags`
 ```json
@@ -653,34 +665,69 @@ Edición admin de datos. **Body:** `{ ... }`. **Respuesta:** `202`.
 ```
 
 ### `POST /api/servers/:serverId/flags`
-**Body:** `ServerFlags`. **Respuesta:** `204`.
+**Body:** `ServerFlags`. **Response:** `204`.
 
-### Acciones de ciclo de vida
+### Lifecycle actions
 
-| Acción | Método | Respuesta |
+| Action | Method | Response |
 |--------|--------|-----------|
-| Iniciar | `POST /api/servers/:serverId/start` | `202` / `204` |
-| Detener | `POST /api/servers/:serverId/stop` | `202` / `204` |
-| Reiniciar | `POST /api/servers/:serverId/restart` | `202` / `204` |
-| Matar | `POST /api/servers/:serverId/kill` | `204` |
-| Instalar | `POST /api/servers/:serverId/install` | `202` / `204` |
-| Recargar | `POST /api/servers/:serverId/reload` | `204` |
+| Start | `POST /api/servers/:serverId/start` | `202` / `204` |
+| Stop | `POST /api/servers/:serverId/stop` | `202` / `204` |
+| Restart | `POST /api/servers/:serverId/restart` | `202` / `204` |
+| Kill | `POST /api/servers/:serverId/kill` | `204` |
+| Install | `POST /api/servers/:serverId/install` | `202` / `204` |
+| Reload | `POST /api/servers/:serverId/reload` | `204` |
 
 ### `HEAD` / `GET /api/servers/:serverId/query`
-Consulta el servidor de juego vía query protocol.
+Queries the game server via the query protocol.
+
+### `GET /api/servers/:serverId/flags`
+**Response:** `ServerFlags` (autoStart, autoRestartOnCrash, autoRestartOnGraceful).
+
+### `POST /api/servers/:serverId/flags`
+**Body:** `ServerFlags`. **Response:** `204`.
+
+### `GET /api/servers/:serverId/definition`
+Returns the complete `ServerDefinition` JSON.
+
+### `PUT /api/servers/:serverId/definition`
+**Body:** `ServerDefinition`. **Response:** `204`.
+
+### `GET /api/servers/:serverId/data`
+Returns `ServerData` (variables + groups).
+
+### `POST /api/servers/:serverId/data`
+Edits user-editable variables. **Body:** flat object `{ "key": "value" }`. **Response:** `202`.
+
+### `PUT /api/servers/:serverId/data`
+Admin data editing (includes server.data.edit.admin variables). **Body:** full object. **Response:** `202`.
+
+### `PUT /api/servers/:serverId/port-settings`
+Manages port metadata (primary port + notes). Requires `server.data.view`.
+**Body:** `{ "primaryPort": 25565, "portNotes": { "25575": "RCON" } }`
+**Response:** `{ "success": true }`
+
+### `POST /api/servers/:serverId/process`
+Gets process info. **Response:** `204`.
+
+### `POST /api/servers/:serverId/reload`
+Reloads server configuration. **Response:** `204`.
+
+### `GET /api/servers/:serverId/socket`
+WebSocket endpoint. Query params: `?console`, `?stats`, `?status` (comma-separated or separate connections). See [WebSocket](#websocket) section.
 
 ---
 
-## Archivos
+## Files
 
-| Método | Path | Scope | Descripción |
+| Method | Path | Scope | Description |
 |--------|------|-------|-------------|
-| GET | `/api/servers/:serverId/file/*filename` | `server.files.view` | Listar/descargar archivo |
-| PUT | `/api/servers/:serverId/file/*filename` | `server.files.edit` | Subir archivo |
-| DELETE | `/api/servers/:serverId/file/*filename` | `server.files.edit` | Eliminar archivo |
-| POST | `/api/servers/:serverId/file/*filename` | `server.files.edit` | Mover/copiar archivo |
+| GET | `/api/servers/:serverId/file/*filename` | `server.files.view` | List/download file |
+| PUT | `/api/servers/:serverId/file/*filename` | `server.files.edit` | Upload file |
+| DELETE | `/api/servers/:serverId/file/*filename` | `server.files.edit` | Delete file |
+| POST | `/api/servers/:serverId/file/*filename` | `server.files.edit` | Move/copy file |
 
-**Listar directorio:** `GET /api/servers/:serverId/file/`
+**List directory:** `GET /api/servers/:serverId/file/`
 ```json
 {
   "files": [
@@ -690,32 +737,32 @@ Consulta el servidor de juego vía query protocol.
 }
 ```
 
-**Subir:** `PUT /api/servers/:serverId/file/config.yml` con `Content-Type: application/octet-stream`.
+**Upload:** `PUT /api/servers/:serverId/file/config.yml` with `Content-Type: application/octet-stream`.
 
 ---
 
-## Archivos Comprimidos
+## Archived Files
 
-| Método | Path | Scope | Descripción |
+| Method | Path | Scope | Description |
 |--------|------|-------|-------------|
-| HEAD | `/api/servers/:serverId/archive/*filename` | `server.files.edit` | Verificar si existe |
-| POST | `/api/servers/:serverId/archive/*filename` | `server.files.edit` | Crear ZIP |
-| POST | `/api/servers/:serverId/extract/*filename` | `server.files.edit` | Extraer ZIP |
+| HEAD | `/api/servers/:serverId/archive/*filename` | `server.files.edit` | Check if it exists |
+| POST | `/api/servers/:serverId/archive/*filename` | `server.files.edit` | Create ZIP |
+| POST | `/api/servers/:serverId/extract/*filename` | `server.files.edit` | Extract ZIP |
 
 ### `POST /api/servers/:serverId/archive/backup.zip`
-**Body:** `["file1.txt", "folder/"]` — archivos a comprimir.
-**Query:** `destination` — subdirectorio de destino.
-**Respuesta:** `204`.
+**Body:** `["file1.txt", "folder/"]` — files to compress.
+**Query:** `destination` — destination subdirectory.
+**Response:** `204`.
 
 ### `POST /api/servers/:serverId/extract/archive.zip`
-**Query:** `destination` — directorio donde extraer (vacío = raíz del servidor).
-**Respuesta:** `204`.
+**Query:** `destination` — directory to extract into (empty = server root).
+**Response:** `204`.
 
 ---
 
 ## Plugins
 
-| Método | Path | Scope |
+| Method | Path | Scope |
 |--------|------|-------|
 | GET | `/api/servers/:serverId/plugins` | `server.files.view` |
 | DELETE | `/api/servers/:serverId/plugins` | `server.files.edit` |
@@ -733,16 +780,44 @@ Consulta el servidor de juego vía query protocol.
 ```
 
 ### `DELETE /api/servers/:serverId/plugins?name=EssentialsX.jar`
-Elimina el plugin `EssentialsX.jar`.
+Deletes the plugin `EssentialsX.jar`.
 
 ### `POST /api/servers/:serverId/plugins/:pluginId`
-Instala el plugin desde SpigotMC (ID numérico de Spigot).
+Installs the plugin from SpigotMC (Spigot numeric ID).
+
+### `GET /api/servers/:serverId/transfer`
+Gets transfer status/history.
+
+### `POST /api/servers/:serverId/install`
+Runs installation operations. **Response:** `202` / `204`.
+
+### `GET /api/servers/:serverId/users`
+Lists server users with scopes.
+
+### `GET /api/servers/:serverId/databases`
+Lists databases for this server.
+
+### `POST /api/servers/:serverId/databases`
+Creates a database. **Body:** `{ "database_host_id": 1, "database_name": "my_db" }`
+**Response:** `DatabaseView` (with generated username/password).
+
+### `DELETE /api/servers/:serverId/databases/:id`
+Deletes a database.
+
+### `GET /api/servers/:serverId/extransfer/status`
+Gets external transfer status.
+
+### `POST /api/servers/:serverId/extransfer/create`
+Creates external transfer. **Response:** transfer token + data.
+
+### `POST /api/servers/:serverId/extransfer/pull`
+Pulls transfer data from remote panel.
 
 ---
 
 ## Backups
 
-| Método | Path | Scope |
+| Method | Path | Scope |
 |--------|------|-------|
 | GET | `/api/servers/:serverId/backup` | `server.backup.view` |
 | GET | `/api/servers/:serverId/backup/:backupID` | `server.backup.view` |
@@ -757,13 +832,13 @@ Instala el plugin desde SpigotMC (ID numérico de Spigot).
 ```
 
 ### `POST /api/servers/:serverId/backup/create`
-**Respuesta:** `{ "backupFileName": "backup_abc123.tar.gz" }`
+**Response:** `{ "backupFileName": "backup_abc123.tar.gz" }`
 
 ---
 
-## Tareas (Tasks)
+## Tasks
 
-| Método | Path | Scope |
+| Method | Path | Scope |
 |--------|------|-------|
 | GET | `/api/servers/:serverId/tasks` | `server.tasks.view` |
 | GET | `/api/servers/:serverId/tasks/:taskId` | `server.tasks.view` |
@@ -775,19 +850,19 @@ Instala el plugin desde SpigotMC (ID numérico de Spigot).
 ```json
 {
   "tasks": {
-    "backup_task": { "name": "Backup diario", "cronSchedule": "0 */6 * * *", "operations": [{ "type": "backup" }] }
+    "backup_task": { "name": "Daily backup", "cronSchedule": "0 */6 * * *", "operations": [{ "type": "backup" }] }
   }
 }
 ```
 
 ### `PUT /api/servers/:serverId/tasks/:taskId`
-**Body:** `ServerTask`. **Respuesta:** `204`.
+**Body:** `ServerTask`. **Response:** `204`.
 
 ---
 
-## Bases de Datos del Servidor
+## Server Databases
 
-| Método | Path | Scope |
+| Method | Path | Scope |
 |--------|------|-------|
 | GET | `/api/servers/:serverId/databases` | `server.view` |
 | POST | `/api/servers/:serverId/databases` | `server.data.edit` |
@@ -795,13 +870,13 @@ Instala el plugin desde SpigotMC (ID numérico de Spigot).
 
 ### `POST /api/servers/:serverId/databases`
 **Body:** `{ "database_host_id": 1, "database_name": "my_db" }`
-**Respuesta:** `DatabaseView` (con username/password generados).
+**Response:** `DatabaseView` (with generated username/password).
 
 ---
 
-## Usuarios del Servidor
+## Server Users
 
-| Método | Path | Scope |
+| Method | Path | Scope |
 |--------|------|-------|
 | GET | `/api/servers/:serverId/user` | `server.users.view` |
 | GET | `/api/servers/:serverId/user/:email` | `server.users.view` |
@@ -815,13 +890,13 @@ Instala el plugin desde SpigotMC (ID numérico de Spigot).
 
 ### `PUT /api/servers/:serverId/user/:email`
 **Body:** `{ "permissions": { "scopes": ["server.view", "server.console"] } }`
-**Respuesta:** `204`.
+**Response:** `204`.
 
 ---
 
-## Transferencia entre Nodos
+## Transfer Between Nodes
 
-| Método | Path | Scope |
+| Method | Path | Scope |
 |--------|------|-------|
 | POST | `/api/servers/:serverId/transfer` | `server.edit.data.admin` |
 
@@ -829,22 +904,22 @@ Instala el plugin desde SpigotMC (ID numérico de Spigot).
 
 ---
 
-## Transferencia Externa
+## External Transfer
 
-Endpoints públicos para migrar servidores entre paneles (sin autenticación).
+Public endpoints to migrate servers between panels (no authentication).
 
-| Método | Path | Descripción |
+| Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/extransfer/validate` | Validar token de transferencia |
-| POST | `/api/extransfer/consume` | Consumir transferencia |
-| POST | `/api/extransfer/heartbeat` | Heartbeat durante transferencia |
-| POST | `/api/extransfer/confirm` | Confirmar transferencia |
-| GET | `/api/extransfer/download` | Descargar datos de transferencia |
-| POST | `/api/extransfer/cancel` | Cancelar transferencia |
+| POST | `/api/extransfer/validate` | Validate transfer token |
+| POST | `/api/extransfer/consume` | Consume transfer |
+| POST | `/api/extransfer/heartbeat` | Heartbeat during transfer |
+| POST | `/api/extransfer/confirm` | Confirm transfer |
+| GET | `/api/extransfer/download` | Download transfer data |
+| POST | `/api/extransfer/cancel` | Cancel transfer |
 
-También desde el servidor:
+Also from the server:
 
-| Método | Path | Scope |
+| Method | Path | Scope |
 |--------|------|-------|
 | POST | `/api/servers/:serverId/extransfer/create` | `server.edit.data.admin` |
 | POST | `/api/servers/:serverId/extransfer/pull` | `server.edit.data.admin` |
@@ -854,12 +929,12 @@ También desde el servidor:
 
 ## AI
 
-| Método | Path | Scope |
+| Method | Path | Scope |
 |--------|------|-------|
-| POST | `/api/ai/analyze` | `—` (autenticado) |
+| POST | `/api/ai/analyze` | `—` (authenticated) |
 | POST | `/api/servers/:serverId/ai/analyze` | `server.console` |
 
-Analiza logs del servidor usando Google GenAI (requiere `geminiApiKey` configurada).
+Analyzes server logs using Google GenAI (requires `geminiApiKey` configured).
 
 ### `POST /api/ai/analyze`
 ```json
@@ -868,25 +943,25 @@ Analiza logs del servidor usando Google GenAI (requiere `geminiApiKey` configura
 
 // Response
 {
-  "summary": "Resumen del análisis...",
-  "rootCauses": ["Causa raíz 1"],
-  "suggestions": ["Sugerencia 1", "Sugerencia 2"]
+  "summary": "Analysis summary...",
+  "rootCauses": ["Root cause 1"],
+  "suggestions": ["Suggestion 1", "Suggestion 2"]
 }
 ```
 
 ---
 
-## Usuarios Globales
+## Global Users
 
-| Método | Path | Scope | Descripción |
+| Method | Path | Scope | Description |
 |--------|------|-------|-------------|
-| GET | `/api/users` | `users.info.search` | Buscar usuarios |
-| POST | `/api/users` | `users.info.edit` | Crear usuario |
-| GET | `/api/users/:id` | `users.info.view` | Obtener usuario |
-| POST | `/api/users/:id` | `users.info.edit` | Actualizar usuario |
-| DELETE | `/api/users/:id` | `users.info.edit` | Eliminar usuario |
-| GET | `/api/users/:id/perms` | `users.perms.view` | Obtener permisos |
-| PUT | `/api/users/:id/perms` | `users.perms.edit` | Actualizar permisos |
+| GET | `/api/users` | `users.info.search` | Search users |
+| POST | `/api/users` | `users.info.edit` | Create user |
+| GET | `/api/users/:id` | `users.info.view` | Get user |
+| POST | `/api/users/:id` | `users.info.edit` | Update user |
+| DELETE | `/api/users/:id` | `users.info.edit` | Delete user |
+| GET | `/api/users/:id/perms` | `users.perms.view` | Get permissions |
+| PUT | `/api/users/:id/perms` | `users.perms.edit` | Update permissions |
 
 ### `GET /api/users?username=admin*&email=*@example.com&page=1&limit=25`
 ```json
@@ -908,63 +983,63 @@ Analiza logs del servidor usando Google GenAI (requiere `geminiApiKey` configura
 ```
 
 ### `PUT /api/users/:id/perms`
-**Body:** `{ "scopes": ["admin", "server.view"] }` (array de strings).
-**Respuesta:** `204`.
+**Body:** `{ "scopes": ["admin", "server.view"] }` (array of strings).
+**Response:** `204`.
 
 ---
 
-## Self (Perfil Propio)
+## Self (Own Profile)
 
-| Método | Path | Scope | Descripción |
+| Method | Path | Scope | Description |
 |--------|------|-------|-------------|
-| GET | `/api/self` | `login` | Obtener perfil propio |
-| PUT | `/api/self` | `self.edit` | Actualizar perfil |
-| GET | `/api/self/otp` | `self.edit` | Estado de OTP |
-| POST | `/api/self/otp` | `self.edit` | Iniciar enrolamiento OTP |
-| PUT | `/api/self/otp` | `self.edit` | Validar enrolamiento |
-| POST | `/api/self/otp/recovery` | `self.edit` | Regenerar códigos de recuperación |
-| DELETE | `/api/self/otp/:token` | `self.edit` | Deshabilitar OTP |
-| GET | `/api/self/oauth2` | `self.clients` | Listar OAuth2 clients |
-| POST | `/api/self/oauth2` | `self.clients` | Crear client |
-| DELETE | `/api/self/oauth2/:clientID` | `self.clients` | Eliminar client |
+| GET | `/api/self` | `login` | Get own profile |
+| PUT | `/api/self` | `self.edit` | Update profile |
+| GET | `/api/self/otp` | `self.edit` | OTP status |
+| POST | `/api/self/otp` | `self.edit` | Start OTP enrollment |
+| PUT | `/api/self/otp` | `self.edit` | Validate enrollment |
+| POST | `/api/self/otp/recovery` | `self.edit` | Regenerate recovery codes |
+| DELETE | `/api/self/otp/:token` | `self.edit` | Disable OTP |
+| GET | `/api/self/oauth2` | `self.clients` | List OAuth2 clients |
+| POST | `/api/self/oauth2` | `self.clients` | Create client |
+| DELETE | `/api/self/oauth2/:clientID` | `self.clients` | Delete client |
 
 ---
 
 ## Settings
 
-| Método | Path | Scope | Descripción |
+| Method | Path | Scope | Description |
 |--------|------|-------|-------------|
-| GET | `/api/settings` | `settings.edit` | Obtener configuración |
-| POST | `/api/settings` | `settings.edit` | Actualizar múltiples valores |
-| GET | `/api/settings/:key` | `settings.edit` | Obtener un valor |
-| PUT | `/api/settings/:key` | `settings.edit` | Actualizar un valor |
-| POST | `/api/settings/test/email` | `settings.edit` | Enviar email de prueba |
-| POST | `/api/settings/test/discord` | `settings.edit` | Enviar notificación Discord de prueba |
-| POST | `/api/settings/license/activate` | `settings.edit` | Activar licencia |
+| GET | `/api/settings` | `settings.edit` | Get configuration |
+| POST | `/api/settings` | `settings.edit` | Update multiple values |
+| GET | `/api/settings/:key` | `settings.edit` | Get a value |
+| PUT | `/api/settings/:key` | `settings.edit` | Update a value |
+| POST | `/api/settings/test/email` | `settings.edit` | Send test email |
+| POST | `/api/settings/test/discord` | `settings.edit` | Send test Discord notification |
+| POST | `/api/settings/license/activate` | `settings.edit` | Activate license |
 
 ### `POST /api/settings`
-**Body:** `{ "companyName": "Mi Empresa", "registrationEnabled": false }`. **Respuesta:** `204`.
+**Body:** `{ "companyName": "My Company", "registrationEnabled": false }`. **Response:** `204`.
 
 ### `PUT /api/settings/:key`
-**Body:** `{ "value": "nuevo_valor" }`. **Respuesta:** `204`.
+**Body:** `{ "value": "new_value" }`. **Response:** `204`.
 
 ---
 
 ## User Settings
 
-| Método | Path | Scope |
+| Method | Path | Scope |
 |--------|------|-------|
 | GET | `/api/userSettings` | `login` |
 | PUT | `/api/userSettings/:key` | `login` |
 
 ### `PUT /api/userSettings/theme`
-**Body:** `{ "value": "dark" }`. **Respuesta:** `204`.
+**Body:** `{ "value": "dark" }`. **Response:** `204`.
 
 ---
 
 ## API Keys
 
-| Método | Path | Scope |
+| Method | Path | Scope |
 |--------|------|-------|
 | GET | `/api/settings/apikeys` | `admin` |
 | POST | `/api/settings/apikeys` | `admin` |
@@ -974,9 +1049,9 @@ Analiza logs del servidor usando Google GenAI (requiere `geminiApiKey` configura
 
 ## Roles
 
-| Método | Path | Scope |
+| Method | Path | Scope |
 |--------|------|-------|
-| GET | `/api/roles` | `admin` o `users.info.view/edit` |
+| GET | `/api/roles` | `admin` or `users.info.view/edit` |
 | POST | `/api/roles` | `admin` |
 | GET | `/api/roles/:id` | `admin` |
 | POST | `/api/roles/:id` | `admin` |
@@ -989,7 +1064,7 @@ Analiza logs del servidor usando Google GenAI (requiere `geminiApiKey` configura
 
 ## Database Hosts
 
-| Método | Path | Scope |
+| Method | Path | Scope |
 |--------|------|-------|
 | GET | `/api/databasehosts` | `admin` |
 | POST | `/api/databasehosts` | `admin` |
@@ -1006,11 +1081,17 @@ Analiza logs del servidor usando Google GenAI (requiere `geminiApiKey` configura
 }
 ```
 
+### `POST /api/databasehosts/:id/test`
+Tests connection to the database host. **Response:** `204` on success, error details on failure.
+
+### `GET /api/databasehosts/:id/max-databases`
+Returns max databases limit and current usage.
+
 ---
 
 ## Templates
 
-| Método | Path | Scope |
+| Method | Path | Scope |
 |--------|------|-------|
 | GET | `/api/templates` | `login` |
 | POST | `/api/templates` | `templates.repo.create` |
@@ -1020,13 +1101,13 @@ Analiza logs del servidor usando Google GenAI (requiere `geminiApiKey` configura
 | PUT | `/api/templates/0/:name` | `templates.local.edit` |
 | DELETE | `/api/templates/0/:name` | `templates.local.edit` |
 
-`:repo=0` es el repositorio local. Los repositorios remotos tienen IDs > 0.
+`:repo=0` is the local repository. Remote repositories have IDs > 0.
 
 ---
 
 ## Provision Products
 
-| Método | Path | Scope |
+| Method | Path | Scope |
 |--------|------|-------|
 | GET | `/api/provision/products` | `admin` |
 | POST | `/api/provision/products` | `admin` |
@@ -1037,44 +1118,84 @@ Analiza logs del servidor usando Google GenAI (requiere `geminiApiKey` configura
 
 ## Provision API v1
 
-Autenticación por API Key en header. Endpoints para integración con sistemas externos (WHMCS, etc.).
+API Key authentication in header. Endpoints for integration with external systems (WHMCS, etc.).
 
-| Método | Path | Descripción |
+| Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/v1/ping` | Verificar conectividad |
-| POST | `/api/v1/provision` | Crear servidor automáticamente |
-| POST | `/api/v1/terminate` | Terminar servidor |
-| POST | `/api/v1/suspend` | Suspender servidor |
-| POST | `/api/v1/unsuspend` | Reactivar servidor |
+| GET | `/api/v1/ping` | Check connectivity |
+| POST | `/api/v1/provision` | Automatically create server |
+| POST | `/api/v1/terminate` | Terminate server |
+| POST | `/api/v1/suspend` | Suspend server |
+| POST | `/api/v1/unsuspend` | Reactivate server |
+
+### `POST /api/v1/provision`
+Creates a server automatically based on a product.
+
+**Headers:** `X-Api-Key: ak_...` or `Authorization: Bearer ak_...`
+
+**Body:**
+```json
+{
+  "product_id": 1,
+  "email": "customer@example.com",
+  "server_name": "My Server",
+  "password": "optional_password"
+}
+```
+
+**Flow:**
+1. Validates API key permissions (`provision`, `terminate`, `suspend`)
+2. Finds product by `product_id`
+3. Creates/finds user by email (generates random password if new)
+4. Assigns "Usuario" role + login scope
+5. Picks free port from product's port range
+6. Creates server with product resources (CPU/Memory/Disk)
+7. Grants server scopes to user
+8. Calls daemon to create server
+9. Sends credentials email
+
+**Response:** `{ "server_id": "abc123", "password": "generated_password" }`
+
+### `POST /api/v1/terminate`
+**Body:** `{ "server_id": "abc123" }`
+Stops and deletes the server AND all child servers (parent_server_id).
+
+### `POST /api/v1/suspend`
+**Body:** `{ "server_id": "abc123" }`
+Toggles `Suspended` flag on server + children, stops if suspending.
+
+### `POST /api/v1/unsuspend`
+**Body:** `{ "server_id": "abc123" }`
+Reactivates suspended server + children.
 
 ---
 
 ## Uptime
 
-| Método | Path | Scope | Descripción |
+| Method | Path | Scope | Description |
 |--------|------|-------|-------------|
-| GET | `/api/uptime` | `admin` o `uptime.view` | Todos los registros |
-| GET | `/api/uptime/:serverId` | `server.view` | Registros de un servidor |
+| GET | `/api/uptime` | `admin` or `uptime.view` | All records |
+| GET | `/api/uptime/:serverId` | `server.view` | Records of a server |
 
-**Query params:** `days` (días hacia atrás), `limit` (número de registros).
+**Query params:** `days` (days back), `limit` (number of records).
 
 ---
 
 ## Daemon
 
-Endpoints del daemon para comunicación directa entre nodos y panel. No pasan por proxy. Usan autenticación JWT.
+Daemon endpoints for direct communication between nodes and panel. They do not go through a proxy. They use JWT authentication.
 
-| Método | Path | Scope Swagger |
+| Method | Path | Swagger Scope |
 |--------|------|---------------|
 | GET | `/daemon` | `none` |
 | HEAD | `/daemon` | `none` |
 | GET | `/daemon/features` | `none` |
 | GET | `/daemon/system` | `none` |
-| GET/PUT/DELETE | `/daemon/server/:serverId/...` | (según acción) |
+| GET/PUT/DELETE | `/daemon/server/:serverId/...` | (depending on action) |
 
-### Acciones del Daemon por Servidor
+### Daemon Actions per Server
 
-| Método | Path | Scope Swagger |
+| Method | Path | Swagger Scope |
 |--------|------|---------------|
 | PUT | `/daemon/server/:serverId` | — |
 | DELETE | `/daemon/server/:serverId` | — |
@@ -1120,38 +1241,592 @@ Endpoints del daemon para comunicación directa entre nodos y panel. No pasan po
 
 ### `GET /api/servers/:serverId/socket`
 
-Conecta a la consola y estadísticas en tiempo real.
+Connects to the console and real-time statistics.
 
 ```javascript
 const ws = new WebSocket(`ws://localhost:8080/api/servers/${serverId}/socket`);
 ```
 
-La autenticación se realiza mediante la cookie de sesión (`skypanel_auth`); no se requiere token en URL.
+Authentication is done via the session cookie (`skypanel_auth`); no token is required in the URL.
 
-### Tipos de Mensaje
+### Message Types
 
-| Tipo | Dirección | Descripción |
+| Type | Direction | Description |
 |------|-----------|-------------|
-| `console` | Servidor → Cliente | Línea de consola (struct `ServerLogs`) |
-| `stat` | Servidor → Cliente | Estadísticas periódicas (struct `ServerStats`) |
-| `status` | Servidor → Cliente | Cambio de estado (struct `ServerRunning`) |
-| `console` | Cliente → Servidor | Enviar comando (data = string) |
+| `console` | Server → Client | Console line (struct `ServerLogs`) |
+| `stat` | Server → Client | Periodic statistics (struct `ServerStats`) |
+| `status` | Server → Client | Status change (struct `ServerRunning`) |
+| `console` | Client → Server | Send command (data = string) |
 
-### Eventos del Servidor
+### Server Events
 ```json
 { "type": "console", "data": { "epoch": 1712345678000, "logs": "[10:30:15] [Server thread/INFO]: Starting server" } }
 { "type": "stat", "data": { "cpu": 45.2, "memory": 1536000000, "maxMemory": 2147483648, "storage": 5000000000, "maxStorage": 10737418240, "networkRx": 0, "networkTx": 0, "running": true } }
 { "type": "status", "data": { "running": true, "installing": false } }
 ```
 
-### Enviar Comando
+### Send Command
 ```json
 { "type": "console", "data": "say Hello World!" }
 ```
 
 ---
 
-## Ejemplos
+## OAuth2 Personal Clients
+
+Endpoints for users to manage their own OAuth2 clients (external integrations).
+
+| Method | Path | Scope | Description |
+|--------|------|-------|-------------|
+| GET | `/api/self/oauth2` | `self.clients` | List own clients |
+| POST | `/api/self/oauth2` | `self.clients` | Create client |
+| DELETE | `/api/self/oauth2/:clientID` | `self.clients` | Delete client |
+
+### `POST /api/self/oauth2`
+Creates a new OAuth2 client.
+
+**Body:**
+```json
+{
+  "name": "My App",
+  "description": "Integration with external system",
+  "scopes": ["server.view", "server.start"],
+  "server_id": "abc123"  // optional: null = global, set = server-scoped
+}
+```
+
+**Response:** Returns client with `client_secret` **ONLY ONCE** (store immediately).
+```json
+{
+  "client_id": "uuid",
+  "client_secret": "random_36_char_string",
+  "name": "My App",
+  "description": "Integration",
+  "scopes": ["server.view", "server.start"],
+  "server_id": "abc123"
+}
+```
+
+**Notes:**
+- `client_secret` is bcrypt-hashed in DB, never returned again
+- Email notification sent on create/delete
+- `server_id` null = global client (requires global scopes)
+- `server_id` set = server-scoped client (requires server scopes with ForServer=true)
+- Max 10 clients per user (configurable)
+
+### `GET /api/self/oauth2`
+Lists all clients for the authenticated user.
+
+### `DELETE /api/self/oauth2/:clientID`
+Deletes the client. Email notification sent.
+
+---
+
+## External Transfer Protocol
+
+Migrates servers between independent Aether Panel installations (cross-panel).
+
+### Security Model
+- **Signing:** Ed25519 signatures on all requests
+- **HMAC:** SHA256 with salt `AETHER_FEDERATED_SALT_v1` for token hashing
+- **Nonces:** Challenge/response with timestamp validation
+- **Session expiry:** 15 minutes
+
+### States
+`CREADA` → `VALIDADA` → `MIGRANDO` → `CONSUMADA` / `COMPLETADA` / `FALLIDA` / `CANCELADA`
+
+### Endpoints
+
+**Source Panel (Server Owner):**
+| Method | Path | Scope |
+|--------|------|-------|
+| POST | `/api/servers/:serverId/extransfer/create` | `server.edit.data.admin` |
+| POST | `/api/servers/:serverId/extransfer/pull` | `server.edit.data.admin` |
+| GET | `/api/servers/:serverId/extransfer/status` | `server.edit.data.admin` |
+
+**Destination Panel (Public):**
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/extransfer/validate` | Validates transfer token |
+| POST | `/api/extransfer/consume` | Consumes transfer, creates server |
+| POST | `/api/extransfer/heartbeat` | Heartbeat during migration |
+| POST | `/api/extransfer/confirm` | Confirms completion |
+| GET | `/api/extransfer/download` | Downloads transfer data |
+| POST | `/api/extransfer/cancel` | Cancels transfer |
+
+### Flow
+1. Source: `POST /extransfer/create` → generates signed token with server data
+2. Source sends token to destination admin
+3. Destination: `POST /extransfer/validate` → verifies signature, shows preview
+4. Destination: `POST /extransfer/consume` → creates server, starts file transfer
+5. Both: `POST /extransfer/heartbeat` every 30s during transfer
+6. Destination: `POST /extransfer/confirm` → marks complete
+7. Source: `POST /extransfer/pull` → cleans up source server (optional)
+
+---
+
+## Internal Systems (Background Services)
+
+### Process Queue
+**File:** `internal/servers/queue.go`
+
+FIFO queue for server operations (install/start/stop/restart) to prevent overload.
+
+- **Tickers:** `startQueueTicker` (1s), `statTicker` (5s), `systemStatusTicker` (1min)
+- **Concurrency:** Configurable via `ConcurrentLimit` in scheduler
+- **Processing:** `InitService()` starts 4 goroutines:
+  - `processQueue()` - executes queued operations sequentially
+  - `processStats()` - collects metrics from all servers every 5s
+  - `processSystemStatus()` - collects system metrics every 1min
+  - `trackUptimeForAllServers()` - records uptime
+
+### Disk Enforcement
+**File:** `internal/servers/disk.go`
+
+Enforces per-server disk limits.
+
+- Runs `du` periodically on server directory
+- At 95% usage: sends Discord webhook alert + logs warning
+- At 100%: auto-stops server (`server.Stop()`)
+- Configurable via `server.TotalDisk` (bytes, 0 = unlimited)
+
+### Resource Alerts
+**File:** `internal/servers/alerts.go`
+
+Monitors CPU/RAM/Disk thresholds and sends Discord webhook notifications.
+
+- Configurable thresholds per resource type
+- Sends structured embed with server name, current usage, threshold
+- Deduplication: only alerts once per threshold crossing
+
+### System Status Broadcast
+**File:** `internal/services/node.go:400-500`
+
+Collects node-level metrics every 1 minute and broadcasts via WebSocket.
+
+**Metrics:** CPU usage, RAM usage, disk usage (per mount), network I/O
+**Broadcast:** To all connected clients via `StatusTracker` (type `system_status`)
+
+### Scheduler / Cron
+**File:** `internal/servers/scheduler.go`
+
+Per-server gocron-based scheduler persisted in `{serverId}.cron`.
+
+```go
+type Scheduler struct {
+    scheduler       gocron.Scheduler
+    serverID        string
+    Tasks           map[string]skypanel.Task
+    Timezone        string
+    ConcurrentLimit uint
+    LimitMode       string  // "wait" / "skip"
+}
+```
+
+- Tasks = operations (command, console, backup, etc.)
+- Loaded from JSON on server start
+- CRUD via API: `GET/PUT/DELETE /api/servers/:id/tasks/:taskId`
+- Manual run: `POST /api/servers/:id/tasks/:taskId/run`
+- Integration with process queue for concurrency control
+
+### KeepAlive
+**File:** `internal/servers/keepalive.go`
+
+Prevents server process from idling out by sending periodic commands.
+
+```go
+type KeepAlive struct {
+    Frequency string  // e.g., "5m", "30s" (parsed by time.ParseDuration)
+    Command   string  // Command sent to process stdin
+}
+```
+
+- Runs as goroutine with `time.Ticker`
+- Stops on server exit (`afterExit` callback)
+- Sends via `ExecuteInMainProcess()` (writes to process stdin)
+- Use case: Minecraft `say alive` to prevent AFK kick
+
+---
+
+## Frontend Hooks Reference
+
+### `useServerSettings(serverId)`
+Fetches and manages server settings (variables, flags, definition).
+- **Returns:** `{ settings, loading, error, saveSettings, isMinecraftJava, refresh }`
+- **saveSettings(data, canEditAdminData):** Saves user/admin variables, definition, flags, server.properties sync
+
+### `useServers()`
+Server CRUD hook.
+- **Returns:** `{ servers, loading, create, update, delete, start, stop, restart, kill, install, reload }`
+
+### `useNodes()`
+Node CRUD + deployment.
+- **Returns:** `{ nodes, loading, create, update, delete, getDeployment, getFeatures, getSystem }`
+
+### `useTemplates()`
+Template repositories and local templates.
+- **Returns:** `{ templates, loading, createRepo, deleteRepo, syncRepo, createLocal, updateLocal, deleteLocal }`
+
+### `useDatabaseHosts()`
+Database host CRUD.
+- **Returns:** `{ hosts, loading, create, update, delete, testConnection }`
+
+### `useSettings()`
+Global panel settings.
+- **Returns:** `{ settings, loading, saving, saveSettings, sendTestEmail, sendTestDiscord }`
+
+### `useProfile()`
+Own profile management.
+- **Returns:** `{ profile, loading, update, otp: { status, enroll, validate, recovery, disable }, oauth2: { clients, create, delete } }`
+
+### `useDashboardData()`
+Dashboard metrics.
+- **Returns:** `{ uptime, servers, loading, refresh }`
+
+### `useUserSettings(key)`
+User-specific settings (theme, etc.).
+- **Returns:** `{ value, setValue }`
+
+### `useMobile()`
+Returns `true` if viewport < 768px (mobile).
+
+### `toast` (lib/toast.ts)
+Notifications via **sileo**:
+- `sileo.success({ title, description })`
+- `sileo.error({ title, description })`
+- `sileo.info({ title, description })`
+- `sileo.warning({ title, description })`
+
+---
+
+## Multi-Node Deployment Details
+
+### Local Node Detection (`internal/models/node.go:51-75`)
+```go
+func (n *Node) IsLocal() bool {
+    // 1. ID == 0 (legacy)
+    // 2. MasterURL hostname matches node publicHost
+    // 3. Node IP matches panel's detected public IP
+    // 4. Node IP matches any local interface IP
+}
+```
+The local node (ID 0) runs the Panel + Daemon in same process. Uses direct Gin router calls instead of HTTP.
+
+### Daemon JWT Authentication (`internal/services/token.go`)
+- **TokenService** generates Ed25519 JWT for Panel→Daemon calls
+- **Token validity:** 1 hour
+- **Header:** `Authorization: Bearer <jwt>`
+- **Payload:** `serverId`, `iat`, `exp`, `iss` (panel URL)
+
+### WebSocket Proxy (`internal/services/node.go:OpenSocket()`)
+For remote nodes, Panel bridges client WebSocket ↔ Daemon WebSocket:
+1. Client connects to `ws://panel/api/servers/:id/socket`
+2. Panel dials `ws://node:8080/daemon/server/:id/socket`
+3. Bidirectional copy with auth header injection
+4. Handles console, stats, status streams
+
+### Daemon Config (`cmd/panel/run.go:144-161`)
+Remote daemon requires:
+```json
+{
+  "daemon": {
+    "auth": { "url": "http://panel:8080", "clientId": ".node_1", "clientSecret": "..." },
+    "token": { "public": "http://panel:8080/auth/publickey" }
+  }
+}
+```
+- `auth.url`: Panel URL for OAuth2 token endpoint
+- `token.public`: Panel JWKS endpoint for JWT validation
+
+### Panel Update Propagation
+`POST /api/settings/update-panel` → triggers update on all connected nodes via their daemon endpoints.
+
+### Docker Network Auto-Detection
+`internal/servers/docker/docker.go:detectPanelNetwork()`
+- Inspects Panel container via Docker API at startup
+- Finds network name (e.g., `panel_skypanel-network`)
+- Uses as default for server containers (if template doesn't specify `networkName`)
+- Enables `mysql:3306` resolution from server containers
+
+---
+
+## WebSocket Detailed Events
+
+### Connection
+```
+ws://panel/api/servers/:serverId/socket?console,stats,status
+```
+Query params enable streams: `console` (logs), `stats` (metrics), `status` (state changes).
+
+### Message Structure
+```json
+{ "type": "console|stat|status", "data": { ... } }
+```
+
+### Console Stream
+```json
+{ "type": "console", "data": { "epoch": 1712345678000, "logs": "[10:30:15] [Server thread/INFO]: Starting server" } }
+```
+- `epoch`: milliseconds since epoch
+- `logs`: raw line (ANSI codes parsed by `lib/ansi-utils.tsx` → HTML spans)
+
+### Stat Stream (every ~5s)
+```json
+{
+  "type": "stat",
+  "data": {
+    "cpu": 45.2,
+    "memory": 1536000000,
+    "maxMemory": 2147483648,
+    "storage": 5000000000,
+    "maxStorage": 10737418240,
+    "networkRx": 0,
+    "networkTx": 0,
+    "running": true
+  }
+}
+```
+
+### Status Stream
+```json
+{ "type": "status", "data": { "running": true, "installing": false } }
+```
+
+### Client → Server (Send Command)
+```json
+{ "type": "console", "data": "say Hello World!" }
+```
+Raw string sent to process stdin.
+
+### Tracker Pattern
+Each Environment has 3 Trackers (Pub/Sub):
+- `ConsoleTracker` - broadcasts console lines
+- `StatsTracker` - broadcasts periodic stats
+- `StatusTracker` - broadcasts status changes
+Clients register via `Tracker.Register(conn)` on WebSocket connect.
+
+---
+
+## CLI Commands Reference
+
+| Command | Description |
+|---------|-------------|
+| `SkyPanel run` | Starts Panel and/or Daemon (hidden) |
+| `SkyPanel runService` | Like run but with systemd NOTIFY_SOCKET |
+| `SkyPanel version` | Shows version + git hash |
+| `SkyPanel user add --name --email --admin` | Creates admin user |
+| `SkyPanel user edit` | Interactive edit (username/email/password/admin/2FA) |
+| `SkyPanel db upgrade` | Runs GORM auto-migrations + custom migrations |
+| `SkyPanel db migrate` | **Experimental stub** (not for production) |
+| `SkyPanel --config /path/config.json` | Custom config path |
+
+---
+
+## Configuration Reference (Complete)
+
+All `config.json` options (environment variables: `SKYPANEL_` prefix, dots → underscores):
+
+### `panel.settings`
+| Key | Env | Default | Description |
+|-----|-----|---------|-------------|
+| `companyName` | `SKYPANEL_PANEL_SETTINGS_COMPANYNAME` | `SkyPanel` | Panel display name |
+| `defaultTheme` | `SKYPANEL_PANEL_SETTINGS_DEFAULTTHEME` | `SkyPanel` | Default UI theme |
+| `registrationEnabled` | `SKYPANEL_PANEL_SETTINGS_REGISTRATIONENABLED` | `true` | Allow public registration |
+| `branding` | `SKYPANEL_PANEL_SETTINGS_BRANDING` | `{}` | Custom branding JSON |
+| `turnstile.enabled` | `SKYPANEL_PANEL_TURNSTILE_ENABLED` | `false` | Cloudflare Turnstile captcha |
+| `turnstile.siteKey` | `SKYPANEL_PANEL_TURNSTILE_SITEKEY` | `` | Turnstile site key |
+| `turnstile.secretKey` | `SKYPANEL_PANEL_TURNSTILE_SECRETKEY` | `` | Turnstile secret key |
+| `licenseKey` | `SKYPANEL_PANEL_SETTINGS_LICENSEKEY` | `` | License key (future) |
+| `sentryDSN` | `SKYPANEL_PANEL_SETTINGS_SENTRYDSN` | `` | Sentry error tracking DSN |
+| `geminiApiKey` | `SKYPANEL_PANEL_SETTINGS_GEMINIAPIKEY` | `` | Google GenAI API key |
+
+### `panel.database`
+| Key | Env | Default | Description |
+|-----|-----|---------|-------------|
+| `dialect` | `SKYPANEL_PANEL_DATABASE_DIALECT` | `sqlite3` | `sqlite3`/`mysql`/`postgresql`/`sqlserver` |
+| `url` | `SKYPANEL_PANEL_DATABASE_URL` | `skypanel.db` | Connection string |
+
+### `daemon.auth` (Remote Daemon)
+| Key | Env | Default | Description |
+|-----|-----|---------|-------------|
+| `url` | `SKYPANEL_DAEMON_AUTH_URL` | `http://localhost:8080` | Panel URL for OAuth2 |
+| `clientId` | `SKYPANEL_DAEMON_AUTH_CLIENTID` | `.node_1` | OAuth2 client ID |
+| `clientSecret` | `SKYPANEL_DAEMON_AUTH_CLIENTSECRET` | (generated) | OAuth2 client secret |
+
+### `daemon.token` (Remote Daemon JWT Validation)
+| Key | Env | Default | Description |
+|-----|-----|---------|-------------|
+| `public` | `SKYPANEL_DAEMON_TOKEN_PUBLIC` | `http://localhost:8080/auth/publickey` | Panel JWKS endpoint |
+
+### `daemon.sftp`
+| Key | Env | Default | Description |
+|-----|-----|---------|-------------|
+| `host` | `SKYPANEL_DAEMON_SFTP_HOST` | `0.0.0.0:5657` | SFTP listen address |
+| `key` | `SKYPANEL_DAEMON_SFTP_KEY` | (generated) | Ed25519 host key |
+| `disable` | `SKYPANEL_DAEMON_SFTP_DISABLE` | `false` | Disable SFTP server |
+
+### `daemon.data`
+| Key | Env | Default | Description |
+|-----|-----|---------|-------------|
+| `root` | `SKYPANEL_DAEMON_DATA_ROOT` | `/var/lib/SkyPanel` | Servers root directory |
+| `binaries` | `SKYPANEL_DAEMON_DATA_BINARIES` | `/var/lib/SkyPanel/binaries` | Binaries cache |
+| `cache` | `SKYPANEL_DAEMON_DATA_CACHE` | `/var/lib/SkyPanel/cache` | Template cache |
+| `templates` | `SKYPANEL_DAEMON_DATA_TEMPLATES` | `/var/lib/SkyPanel/templates` | Local templates |
+| `images` | `SKYPANEL_DAEMON_DATA_IMAGES` | `/var/lib/SkyPanel/images` | Docker images |
+| `backups` | `SKYPANEL_DAEMON_DATA_BACKUPS` | `/var/lib/SkyPanel/backups` | Backups storage |
+| `scripts` | `SKYPANEL_DAEMON_DATA_SCRIPTS` | `/var/lib/SkyPanel/scripts` | Custom scripts |
+
+### `security`
+| Key | Env | Default | Description |
+|-----|-----|---------|-------------|
+| `disableUnshare` | `SKYPANEL_SECURITY_DISABLEUNSHARE` | `false` | Disable unshare isolation |
+| `trustedProxies` | `SKYPANEL_SECURITY_TRUSTEDPROXIES` | `[]` | CIDR list for X-Forwarded-For |
+| `trustedProxyHeader` | `SKYPANEL_SECURITY_TRUSTEDPROXYHEADER` | `X-Forwarded-For` | Header to read client IP |
+
+### `node`
+| Key | Env | Default | Description |
+|-----|-----|---------|-------------|
+| `ip` | `SKYPANEL_NODE_IP` | (auto) | Local node public IP |
+| `port` | `SKYPANEL_NODE_PORT` | `8080` | Local node port |
+| `masterUrl` | `SKYPANEL_NODE_MASTERURL` | (auto) | Master panel URL |
+
+### `logs`
+| Key | Env | Default | Description |
+|-----|-----|---------|-------------|
+| `level` | `SKYPANEL_LOGS_LEVEL` | `info` | `debug`/`info`/`warn`/`error` |
+| `format` | `SKYPANEL_LOGS_FORMAT` | `text` | `text`/`json` |
+| `output` | `SKYPANEL_LOGS_OUTPUT` | `stdout` | `stdout`/`file`/`both` |
+
+### `web`
+| Key | Env | Default | Description |
+|-----|-----|---------|-------------|
+| `host` | `SKYPANEL_WEB_HOST` | `0.0.0.0:8080` | HTTP listen address |
+| `files` | `SKYPANEL_WEB_FILES` | `/var/www/SkyPanel` | Frontend static files |
+
+### `templates`
+| Key | Env | Default | Description |
+|-----|-----|---------|-------------|
+| `url` | `SKYPANEL_TEMPLATES_URL` | (official) | Templates index URL |
+
+---
+
+## Database Models Reference (Complete)
+
+| Model | Table | Purpose |
+|-------|-------|---------|
+| `User` | `users` | Panel users |
+| `Session` | `sessions` | Auth sessions (SHA256 token) |
+| `Role` | `roles` | Role definitions |
+| `Permission` | `permissions` | User/Role → Scope mappings |
+| `Server` | `servers` | Server definitions |
+| `Node` | `nodes` | Compute nodes |
+| `TemplateRepo` | `template_repos` | Remote template repositories |
+| `Template` | `templates` | Server templates |
+| `DatabaseHost` | `database_hosts` | External MySQL hosts |
+| `Database` | `databases` | Created databases |
+| `Backup` | `backups` | Server backups |
+| `Client` | `clients` | OAuth2 clients (personal + provision) |
+| `APIKey` | `api_keys` | Provision API v1 keys |
+| `Setting` | `settings` | Global panel settings |
+| `UserSetting` | `user_settings` | Per-user settings |
+| `OTPToken` | `otp_tokens` | OTP enrollment/validation |
+| `PasswordReset` | `password_resets` | Password reset tokens |
+| `ExternalTransfer` | `external_transfers` | Cross-panel migrations |
+| `Metadata` | `metadata` | Generic key-value storage |
+| `PermissionView` | (view) | Aggregated permissions |
+| `UserPermissionsView` | (view) | User effective permissions |
+| `DatabaseHostView` | (view) | DatabaseHost + usage |
+| `DatabaseView` | (view) | Database + host info |
+| `NodeView` | (view) | Node + status |
+| `ServerView` | (view) | Server + perms |
+| `ServerUserView` | (view) | Server user + scopes |
+
+---
+
+## Server Definition Fields Explained
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `KeepAlive` | `{Frequency, Command}` | Sends `Command` to stdin every `Frequency` (e.g., `5m`). Prevents idle timeout. |
+| `Requirements` | `{OS, Arch, Binaries[]}` | Validated on `Create()`. Checks runtime OS/arch and binary availability in PATH. |
+| `Query` | `{Type: "minecraft"}` | Enables `HEAD/GET /query` endpoint for Minecraft query protocol. |
+| `Stats` | `{Type: string}` | Custom stats collector type (advanced). |
+
+---
+
+## Examples (Extended)
+
+### Provision API (WHMCS Integration)
+```bash
+# Create server
+curl -X POST http://panel/api/v1/provision \
+  -H "X-Api-Key: ak_abc123" \
+  -H "Content-Type: application/json" \
+  -d '{"product_id":1,"email":"client@example.com","server_name":"My Server"}'
+
+# Terminate
+curl -X POST http://panel/api/v1/terminate \
+  -H "X-Api-Key: ak_abc123" \
+  -d '{"server_id":"abc123"}'
+```
+
+### OAuth2 Personal Client (User Integration)
+```bash
+# Create client
+curl -X POST http://panel/api/self/oauth2 \
+  -H "Authorization: Bearer <session_token>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"My Bot","scopes":["server.view","server.start"],"server_id":"abc123"}'
+
+# Use client credentials flow
+curl -X POST http://panel/oauth2/token \
+  -d "grant_type=client_credentials&client_id=...&client_secret=..."
+
+# Use token
+curl -H "Authorization: Bearer <access_token>" http://panel/api/servers/abc123/start
+```
+
+### External Transfer (Panel to Panel)
+```bash
+# Source: Create transfer
+curl -X POST http://panel1/api/servers/abc123/extransfer/create \
+  -H "Authorization: Bearer <token>"
+
+# Response: { "token": "signed_jwt_token", "data": {...} }
+
+# Destination: Validate
+curl -X POST http://panel2/api/extransfer/validate \
+  -H "Content-Type: application/json" \
+  -d '{"token":"signed_jwt_token"}'
+
+# Destination: Consume (starts transfer)
+curl -X POST http://panel2/api/extransfer/consume \
+  -H "Content-Type: application/json" \
+  -d '{"token":"signed_jwt_token"}'
+```
+
+### Multi-Node Setup (Remote Daemon)
+```bash
+# On master panel: Get deployment data
+curl -H "Authorization: Bearer <token>" http://panel/api/nodes/1/deployment
+
+# Response: { "clientId": ".node_1", "clientSecret": "...", "publicKey": "..." }
+
+# On remote machine: daemon config
+cat > /etc/SkyPanel/config.json <<EOF
+{
+  "daemon": {
+    "auth": { "url": "http://master-panel:8080", "clientId": ".node_1", "clientSecret": "..." },
+    "token": { "public": "http://master-panel:8080/auth/publickey" }
+  }
+}
+EOF
+
+# Start daemon
+SkyPanel run --config /etc/SkyPanel/config.json
+```
+
+## Examples
 
 ### cURL
 ```bash

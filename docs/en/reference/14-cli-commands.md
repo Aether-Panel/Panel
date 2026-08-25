@@ -221,7 +221,18 @@ Runs the database schema migrations. Useful after updating the panel to a new ve
 ./skypanel db migrate
 ```
 
-> **Note:** This command is currently a **stub** and does not perform any action. It is designed to migrate data between database dialects (e.g., SQLite → MySQL) in the future.
+> **Note:** This command is currently a **stub** and does not perform any action. It is designed to migrate data between database dialects (e.g., SQLite → MySQL) in the future. **Not for production use.**
+
+---
+
+## Global Flags (All Commands)
+
+| Flag | Description |
+|------|-------------|
+| `--workDir` | Changes the working directory before starting |
+| `--config` | Path to the JSON configuration file |
+
+Both flags are available in **all** subcommands.
 
 ---
 

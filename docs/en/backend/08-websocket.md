@@ -5,12 +5,13 @@ The panel uses WebSockets to transmit the console, statistics, and server status
 ## Connection
 
 ```
-ws[s]://<host>/api/servers/<serverId>/socket[?console]
+ws[s]://<host>/api/servers/<serverId>/socket[?console][,stats][,status]
 ```
 
-- `?console` — optional parameter (currently ignored, always connects to the console channel)
-- Authentication via session cookie (does not require token in URL)
-- Protocol: **gorilla/websocket** with JSON text messages
+- Query params enable streams: `console` (logs), `stats` (metrics), `status` (state changes). Can be comma-separated or repeated.
+- Authentication via session cookie (`skypanel_auth`); no token in URL required.
+- Protocol: **gorilla/websocket** with JSON text messages.
+- Supports binary frames for console data (used by `xterm.js` WebGL addon).
 
 ## Server → Client Messages
 
@@ -121,6 +122,20 @@ type MemoryCache struct {
 - Circular buffer with capacity in **bytes** (`daemon.console.buffer`, default 50, in KB)
 - Evicts the oldest entries when capacity is exceeded
 - When a client connects, it first receives the historical buffer (with `ReadFrom(startTime)`)
+
+### Stream Query Parameters
+
+| Param | Stream | Description |
+|-------|--------|-------------|
+| `console` | Console logs | Live server output (stdout/stderr) |
+| `stats` | Statistics | Periodic CPU, RAM, disk, network |
+| `status` | Status | Running/stopped/installing changes |
+
+Can be combined: `?console,stats,status` or `?console&stats&status`
+
+### Binary Frames Support
+
+The WebSocket supports binary frames (opcode 2) for high-performance console streaming to `xterm.js` WebGL addon. Text frames (opcode 1) used for JSON messages.
 
 ## Daemon ↔ Panel WebSocket (Proxy)
 

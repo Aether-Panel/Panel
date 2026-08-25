@@ -1,22 +1,23 @@
-# WebSocket — Protocolo de Consola en Tiempo Real
+# WebSocket — Real-time Console Protocol
 
-El panel utiliza WebSockets para transmitir en tiempo real la consola, estadísticas y estado de los servidores.
+The panel uses WebSockets to transmit the console, statistics, and server status in real-time.
 
-## Conexión
+## Connection
 
 ```
-ws[s]://<host>/api/servers/<serverId>/socket[?console]
+ws[s]://<host>/api/servers/<serverId>/socket[?console][,stats][,status]
 ```
 
-- `?console` — parámetro opcional (actualmente ignorado, siempre se conecta al canal de consola)
-- Autenticación vía cookie de sesión (no requiere token en URL)
-- Protocolo: **gorilla/websocket** con mensajes de texto JSON
+- Query params enable streams: `console` (logs), `stats` (metrics), `status` (state changes). Can be comma-separated or repeated.
+- Authentication via session cookie (`skypanel_auth`); no token in URL required.
+- Protocol: **gorilla/websocket** with JSON text messages.
+- Supports binary frames for console data (used by `xterm.js` WebGL addon).
 
-## Mensajes del Servidor → Cliente
+## Server → Client Messages
 
-Todas las transmisiones usan la estructura `Transmission` (`pkg/skypanel/message.go`), con campos `data` y `type`. Los tipos son `console`, `stat` y `status`.
+All transmissions use the `Transmission` structure (`pkg/skypanel/message.go`), with `data` and `type` fields. The types are `console`, `stat` and `status`.
 
-### Tipo: `console`
+### Type: `console`
 ```json
 {
   "type": "console",
@@ -26,9 +27,9 @@ Todas las transmisiones usan la estructura `Transmission` (`pkg/skypanel/message
   }
 }
 ```
-Estructura `ServerLogs` (`pkg/skypanel/httpmodels.go`): `epoch` (timestamp en ms) y `logs` (línea de consola como bytes). El frontend aplica parseo de colores ANSI.
+`ServerLogs` structure (`pkg/skypanel/httpmodels.go`): `epoch` (timestamp in ms) and `logs` (console line as bytes). The frontend applies ANSI color parsing.
 
-### Tipo: `stat`
+### Type: `stat`
 ```json
 {
   "type": "stat",
@@ -45,9 +46,9 @@ Estructura `ServerLogs` (`pkg/skypanel/httpmodels.go`): `epoch` (timestamp en ms
   }
 }
 ```
-Estructura `ServerStats`: CPU como porcentaje, memoria/almacenamiento en bytes, `jvm` opcional (solo si el servidor lo reporta), `running` indica estado. Se envían periódicamente (cada 5s en `processStats()`).
+`ServerStats` structure: CPU as percentage, memory/storage in bytes, optional `jvm` (only if the server reports it), `running` indicates status. They are sent periodically (every 5s in `processStats()`).
 
-### Tipo: `status`
+### Type: `status`
 ```json
 {
   "type": "status",
@@ -57,26 +58,26 @@ Estructura `ServerStats`: CPU como porcentaje, memoria/almacenamiento en bytes, 
   }
 }
 ```
-Estructura `ServerRunning`: `running` (estado running/stopped) e `installing` (proceso de instalación en curso).
+`ServerRunning` structure: `running` (running/stopped status) and `installing` (installation in progress).
 
-## Mensajes del Cliente → Servidor
+## Client → Server Messages
 
-### Enviar Comando
+### Send Command
 ```json
 {
   "type": "console",
   "data": "say Hello World!"
 }
 ```
-Envía un comando a la consola del servidor de juego (se reenvía al stdin del proceso).
+Sends a command to the game server console (forwarded to the process stdin).
 
-## Sistema de Trackers (Pub/Sub Interno)
+## Tracker System (Internal Pub/Sub)
 
-Los WebSocket usan un sistema de **trackers** definido en `pkg/skypanel/tracker.go`:
+WebSockets use a **tracker** system defined in `pkg/skypanel/tracker.go`:
 
 ```go
 type Tracker struct {
-    sockets []*Socket   // sockets suscritos
+    sockets []*Socket   // subscribed sockets
     locker  sync.Mutex
 }
 
@@ -89,49 +90,63 @@ type Socket struct {
 }
 ```
 
-Hay 3 trackers por servidor, creados en `CreateEnvironment()`:
+There are 3 trackers per server, created in `CreateEnvironment()`:
 
-| Tracker | Descripción |
+| Tracker | Description |
 |---|---|
-| `ConsoleTracker` | Líneas de consola |
-| `StatusTracker` | Cambios de estado (running/stopped) |
-| `StatsTracker` | Estadísticas periódicas (CPU, RAM) |
+| `ConsoleTracker` | Console lines |
+| `StatusTracker` | Status changes (running/stopped) |
+| `StatsTracker` | Periodic statistics (CPU, RAM) |
 
-### Funcionamiento
+### How it Works
 
-1. El daemon escribe en los trackers desde:
+1. The daemon writes to the trackers from:
    - `processStats()` → `StatsTracker`
-   - `servers/server.go:` cambios de estado → `StatusTracker`
-   - STDOUT del proceso del servidor → `ConsoleTracker`
-2. El handler WebSocket (`/api/servers/:serverId/socket`) se suscribe a los 3 trackers
-3. Cuando llega un mensaje del cliente, se reenvía al proceso (stdin)
-4. `Socket.Serve()` mantiene la conexión viva (ping cada 25s, pong timeout 60s) y desregistra el socket de todos sus trackers al desconectarse
+   - `servers/server.go:` status changes → `StatusTracker`
+   - STDOUT of the server process → `ConsoleTracker`
+2. The WebSocket handler (`/api/servers/:serverId/socket`) subscribes to all 3 trackers
+3. When a message arrives from the client, it is forwarded to the process (stdin)
+4. `Socket.Serve()` keeps the connection alive (ping every 25s, pong timeout 60s) and unregisters the socket from all its trackers on disconnect
 
-### MemoryCache (Buffer de Consola)
+### MemoryCache (Console Buffer)
 
 ```go
 type MemoryCache struct {
     Buffer   []cacheMessage  // msg []byte + time (UnixMicro)
-    Capacity int             // en bytes = daemon.console.buffer * 1024 (KB)
+    Capacity int             // in bytes = daemon.console.buffer * 1024 (KB)
     Size     int
     Lock     sync.RWMutex
 }
 ```
 
-- Buffer circular con capacidad en **bytes** (`daemon.console.buffer`, default 50, en KB)
-- Evicta las entradas más viejas cuando excede la capacidad
-- Cuando un cliente se conecta, recibe primero el buffer histórico (con `ReadFrom(startTime)`)
+- Circular buffer with capacity in **bytes** (`daemon.console.buffer`, default 50, in KB)
+- Evicts the oldest entries when capacity is exceeded
+- When a client connects, it first receives the historical buffer (with `ReadFrom(startTime)`)
+
+### Stream Query Parameters
+
+| Param | Stream | Description |
+|-------|--------|-------------|
+| `console` | Console logs | Live server output (stdout/stderr) |
+| `stats` | Statistics | Periodic CPU, RAM, disk, network |
+| `status` | Status | Running/stopped/installing changes |
+
+Can be combined: `?console,stats,status` or `?console&stats&status`
+
+### Binary Frames Support
+
+The WebSocket supports binary frames (opcode 2) for high-performance console streaming to `xterm.js` WebGL addon. Text frames (opcode 1) used for JSON messages.
 
 ## Daemon ↔ Panel WebSocket (Proxy)
 
-El WebSocket del cliente se conecta al **panel**, y el panel hace de **proxy** hacia el daemon del nodo:
+The client WebSocket connects to the **panel**, and the panel acts as a **proxy** to the node's daemon:
 
-- El handler `/api/servers/:serverId/socket` detecta el nodo del servidor.
-- Si el nodo es local, el panel atiende directamente.
-- Si es remoto, `services.Node.OpenSocket()` conecta vía `websocket.Dialer` a `ws[s]://<daemon>:<port>/daemon/server/<serverId>/socket`, autenticando con el JWT de daemon (`Authorization: Bearer <token>` generado por `services/token.go`), y hace puente bidireccional entre el cliente y el daemon.
+- The `/api/servers/:serverId/socket` handler detects the server's node.
+- If the node is local, the panel handles it directly.
+- If it is remote, `services.Node.OpenSocket()` connects via `websocket.Dialer` to `ws[s]://<daemon>:<port>/daemon/server/<serverId>/socket`, authenticating with the daemon JWT (`Authorization: Bearer <token>` generated by `services/token.go`), and bridges bidirectionally between the client and the daemon.
 
-`daemon.console.forward` NO está relacionado con este proxy: simplemente reenvía la consola del servidor a la salida estándar del daemon (ver `pkg/skypanel/environment.go:CreateWrapper()`).
+`daemon.console.forward` is NOT related to this proxy: it simply forwards the server console to the daemon's standard output (see `pkg/skypanel/environment.go:CreateWrapper()`).
 
 ## RCON WebSocket
 
-Además del WebSocket de consola, existe RCON sobre WebSocket en `internal/connections/rconws.go` para conexiones RCON desde el navegador.
+In addition to the console WebSocket, there is RCON over WebSocket in `internal/connections/rconws.go` for RCON connections from the browser.

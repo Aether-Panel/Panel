@@ -85,27 +85,78 @@ In `src/components/ui/` there are 33 components based on Radix UI primitives:
 
 ## Custom Hooks (`src/hooks/`)
 
-| Hook | Purpose |
-|---|---|
-| `use-servers` | Server CRUD |
-| `use-users` | User and permissions CRUD |
-| `use-nodes` | Node CRUD and deployment data |
-| `use-templates` | Repositories and templates |
-| `use-database-hosts` | Database hosts |
-| `use-settings` | Global panel configuration |
-| `use-server-settings` | Server variables/configuration |
-| `use-profile` | Own profile, OTP, OAuth2 clients |
-| `use-dashboard-data` | Dashboard data (uptime, servers) |
-| toast (`lib/toast.ts`) | Toast notifications (sileo) |
-| `use-mobile` | Mobile device detection |
+| Hook | Purpose | Key Returns |
+|---|---|---|
+| `use-servers` | Server CRUD | `{ servers, loading, create, update, delete, start, stop, restart, kill, install, reload }` |
+| `use-users` | User and permissions CRUD | `{ users, loading, create, update, delete, getPermissions, updatePermissions }` |
+| `use-nodes` | Node CRUD and deployment data | `{ nodes, loading, create, update, delete, getDeployment, getFeatures, getSystem }` |
+| `use-templates` | Repositories and templates | `{ templates, loading, createRepo, deleteRepo, syncRepo, createLocal, updateLocal, deleteLocal }` |
+| `use-database-hosts` | Database hosts | `{ hosts, loading, create, update, delete, testConnection }` |
+| `use-settings` | Global panel configuration | `{ settings, loading, saving, saveSettings, sendTestEmail, sendTestDiscord }` |
+| `use-server-settings` | Server variables/configuration | `{ settings, loading, error, saveSettings, isMinecraftJava, refresh }` |
+| `use-profile` | Own profile, OTP, OAuth2 clients | `{ profile, loading, update, otp: { status, enroll, validate, recovery, disable }, oauth2: { clients, create, delete } }` |
+| `use-dashboard-data` | Dashboard data (uptime, servers) | `{ uptime, servers, loading, refresh }` |
+| `use-user-settings` | User-specific settings | `{ value, setValue }` |
+| `use-mobile` | Mobile device detection | `true` if viewport < 768px |
+
+## Toast Notifications (`lib/toast.ts`)
+
+Uses **sileo** library for toast notifications:
+
+```typescript
+import { sileo } from '@/lib/toast';
+
+// Success
+sileo.success({ title: 'Success', description: 'Settings saved' });
+
+// Error
+sileo.error({ title: 'Error', description: 'Failed to save' });
+
+// Info
+sileo.info({ title: 'Info', description: 'Server started' });
+
+// Warning
+sileo.warning({ title: 'Warning', description: 'High memory usage' });
+```
+
+Rendered by `SileoToaster.tsx` in `AppShell.tsx`.
 
 ## Genkit AI Integration (`src/ai/`)
 
 - `genkit.ts` — Genkit client configuration with Google Generative AI
 - `flows/` — AI flows:
-  - `summarize-server-alerts.ts` — Summary of server alerts
-  - `generate-troubleshooting-tips.ts` — Troubleshooting tips suggestions
-- Invoked from the "AI Analyze" button in the server view
+  - `summarize-server-alerts.ts` — **Input:** server alerts array. **Output:** `{ summary, rootCauses[], suggestions[] }`. Prompt: analyzes alerts for patterns.
+  - `generate-troubleshooting-tips.ts` — **Input:** error logs + context. **Output:** `{ tips[] }`. Prompt: generates actionable troubleshooting steps.
+- Invoked from the "AI Analyze" button in the server view (requires `geminiApiKey` in config)
+
+### AI Flow Details
+
+| Flow | Input | Output | Prompt Focus |
+|---|---|---|---|
+| `summarize-server-alerts` | `logs: string[]` | `{ summary, rootCauses: string[], suggestions: string[] }` | Pattern recognition in server logs |
+| `generate-troubleshooting-tips` | `logs: string[], context: object` | `{ tips: string[] }` | Actionable steps for specific errors |
+
+## Console / Terminal (`features/servers/[id]/`)
+
+- `console-view.tsx` — Live terminal with WebSocket (`ws[s]://host/api/servers/:id/socket?console`)
+- `ansi-utils.tsx` — ANSI escape code parser → HTML spans (colors, bold, cursor movement)
+- `xterm.js` — Terminal emulator (fit addon, webgl addon for performance)
+- Connection auto-reconnect with exponential backoff
+- Command history (up/down arrows), paste support, fullscreen
+
+## File Manager (`features/servers/[id]/`)
+
+- `file-manager-view.tsx` — Tree navigation, drag-drop upload, context menus
+- `code-editor.tsx` — Monaco Editor integration (lazy-loaded, Tokyo Night theme)
+- Operations: create file/folder, upload, download, rename, delete, zip/extract
+- Syntax highlighting for 50+ languages, minimap, word wrap
+
+## AI Flows
+
+| File | Purpose | Input | Output |
+|---|---|---|---|
+| `summarize-server-alerts.ts` | Summarize server alerts | `logs: string[]` | `{ summary, rootCauses[], suggestions[] }` |
+| `generate-troubleshooting-tips.ts` | Generate tips for errors | `logs: string[], context` | `{ tips: string[] }` |
 
 ## Build Flow
 

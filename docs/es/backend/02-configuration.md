@@ -1,140 +1,283 @@
-# Configuración
+# Configuration
 
-El sistema usa **Viper** con prefijo `SKYPANEL_`. Las variables de entorno tienen prioridad sobre el archivo de configuración.
+The system uses **Viper** with prefix `SKYPANEL_`. Environment variables take precedence over the configuration file.
 
-## Archivo de Configuración
+## Configuration File
 
-Rutas de búsqueda (por orden): `--config` flag > `SKYPANEL_CONFIG` env > `/etc/SkyPanel/config.json` > `./config.json`
+Search paths (in order): `--config` flag > `SKYPANEL_CONFIG` env > `/etc/SkyPanel/config.json` > `./config.json`
 
-Formato: JSON (compatible con Viper, también YAML/TOML).
+Format: JSON (Viper compatible, also YAML/TOML).
 
-## Variables de Entorno
+## Environment Variables
 
-Todas las claves anidadas con `.` se convierten a `_`. Prefijo `SKYPANEL_`:
+All nested keys with `.` are converted to `_`. `SKYPANEL_` prefix:
 
-| Variable | Clave Viper |
+| Variable | Viper Key |
 |---|---|
 | `SKYPANEL_WEB_HOST` | `web.host` |
 | `SKYPANEL_PANEL_DATABASE_DIALECT` | `panel.database.dialect` |
 | `SKYPANEL_DAEMON_SFTP_HOST` | `daemon.sftp.host` |
 
-## Tabla Completa de Configuración
+## Complete Configuration Table
 
 ### Web
 
-| Clave | Tipo | Default | Descripción |
+| Key | Type | Default | Description |
 |---|---|---|---|
-| `web.host` | string | `0.0.0.0:8080` | Dirección y puerto del servidor HTTP |
+| `web.host` | string | `0.0.0:8080` | HTTP server address and port |
+| `web.files` | string | `/var/www/SkyPanel` | Path to frontend static files (embedded FS override) |
 
 ### Panel
 
-| Clave | Tipo | Default | Descripción |
+| Key | Type | Default | Description |
 |---|---|---|---|
-| `panel.enable` | bool | `true` | Habilita el modo panel (API, frontend) |
-| `panel.database.dialect` | string | `sqlite3` | Dialecto: `sqlite3`, `mysql`, `postgresql`, `sqlserver` |
-| `panel.database.url` | string | — | Connection string (default según dialecto) |
-| `panel.database.log` | bool | `false` | Habilita logging detallado de GORM (SQL) |
-| `panel.web.files` | string | `www` | Ruta a archivos frontend (override del FS embebido) |
+| `panel.enable` | bool | `true` | Enables panel mode (API, frontend) |
+| `panel.database.dialect` | string | `sqlite3` | Dialect: `sqlite3`, `mysql`, `postgresql`, `sqlserver` |
+| `panel.database.url` | string | — | Connection string (default according to dialect) |
+| `panel.database.log` | bool | `false` | Enables detailed GORM logging (SQL) |
+| `panel.web.files` | string | `/var/www/SkyPanel` | Path to frontend files (embedded FS override) |
 | `panel.web.cookies.secure` | bool | `false` | Cookie Secure flag |
 | `panel.web.cookies.httpOnly` | bool | `true` | Cookie HttpOnly flag |
 | `panel.web.cookies.domain` | string | — | Cookie Domain |
-| `panel.web.cookies.age` | int | `2592000` (30d) | Cookie Max-Age en segundos |
+| `panel.web.cookies.age` | int | `2592000` (30d) | Cookie Max-Age in seconds |
 | `panel.web.cookies.sameSite` | string | `Strict` | Cookie SameSite |
 | `panel.web.cookies.path` | string | `/` | Cookie Path |
-| `panel.email.templateFolder` | string | — | Carpeta de plantillas de email |
-| `panel.email.provider` | string | — | Proveedor de email (`mailgun`, `smtp`) |
-| `panel.email.from` | string | — | Dirección From |
-| `panel.email.domain` | string | — | Dominio (Mailgun) |
-| `panel.email.host` | string | — | Host SMTP |
-| `panel.email.key` | string | — | API Key (Mailgun) o password |
-| `panel.email.username` | string | — | Usuario SMTP |
-| `panel.email.password` | string | — | Contraseña SMTP |
-| `panel.settings.companyName` | string | `SkyPanel` | Nombre de la empresa/marca |
-| `panel.settings.defaultTheme` | string | `SkyPanel` | Tema por defecto |
-| `panel.settings.themeSettings` | string | `{}` | Configuración del tema (JSON) |
-| `panel.settings.masterUrl` | string | `http://localhost:8080` | URL del panel maestro |
-| `panel.settings.nodeIp` | string | `0.0.0.0` | IP del nodo |
-| `panel.settings.geminiApiKey` | string | — | API Key de Google Gemini |
-| `panel.settings.hideAiAnalysis` | bool | `false` | Oculta la funcionalidad de AI Analysis |
-| `panel.settings.headerDecorations` | bool | `true` | Habilita las decoraciones del header |
-| `panel.notifications.discordWebhook` | string | — | Webhook de Discord (notificaciones) |
-| `panel.notifications.discordWebhookSystem` | string | — | Webhook de Discord (sistema) |
-| `panel.notifications.discordWebhookNode` | string | — | Webhook de Discord (nodos) |
-| `panel.notifications.discordWebhookExTransfer` | string | — | Webhook de Discord (transferencias externas) |
-| `panel.license.key` | string | — | Clave de licencia |
-| `panel.license.status` | string | `free` | Estado de licencia |
-| `panel.license.serverId` | string | — | ID del servidor para licencia |
-| `panel.license.serverIp` | string | — | IP del servidor para licencia |
-| `panel.sessionKey` | string | — | Clave para cifrado de sesiones (autogenerada) |
-| `panel.registrationEnabled` | bool | `true` | Permite registro de usuarios |
-| `panel.token` | string | — | Clave privada Ed25519 (JWT) |
-| `panel.turnstile.siteKey` | string | — | Site Key de Cloudflare Turnstile |
-| `panel.turnstile.secretKey` | string | — | Secret Key de Cloudflare Turnstile |
-| `panel.turnstile.enabled` | bool | `false` | Habilita Cloudflare Turnstile en registro/login |
+| `panel.email.templateFolder` | string | — | Email template folder |
+| `panel.email.provider` | string | — | Email provider (`mailgun`, `smtp`) |
+| `panel.email.from` | string | — | From address |
+| `panel.email.domain` | string | — | Domain (Mailgun) |
+| `panel.email.host` | string | — | SMTP Host |
+| `panel.email.key` | string | — | API Key (Mailgun) or password |
+| `panel.email.username` | string | — | SMTP Username |
+| `panel.email.password` | string | — | SMTP Password |
+| `panel.settings.companyName` | string | `SkyPanel` | Company/brand name |
+| `panel.settings.defaultTheme` | string | `SkyPanel` | Default theme |
+| `panel.settings.themeSettings` | string | `{}` | Theme settings (JSON) |
+| `panel.settings.masterUrl` | string | `http://localhost:8080` | Master panel URL |
+| `panel.settings.nodeIp` | string | `0.0.0.0` | Node IP |
+| `panel.settings.geminiApiKey` | string | — | Google Gemini API Key |
+| `panel.settings.hideAiAnalysis` | bool | `false` | Hides AI Analysis functionality |
+| `panel.settings.headerDecorations` | bool | `true` | Enables header decorations |
+| `panel.notifications.discordWebhook` | string | — | Discord Webhook (notifications) |
+| `panel.notifications.discordWebhookSystem` | string | — | Discord Webhook (system) |
+| `panel.notifications.discordWebhookNode` | string | — | Discord Webhook (nodes) |
+| `panel.notifications.discordWebhookExTransfer` | string | — | Discord Webhook (external transfers) |
+| `panel.license.key` | string | — | License key |
+| `panel.license.status` | string | `free` | License status |
+| `panel.license.serverId` | string | — | Server ID for license |
+| `panel.license.serverIp` | string | — | Server IP for license |
+| `panel.sessionKey` | string | — | Key for session encryption (auto-generated) |
+| `panel.registrationEnabled` | bool | `true` | Allows user registration |
+| `panel.token` | string | — | Ed25519 private key (JWT) |
+| `panel.turnstile.siteKey` | string | — | Cloudflare Turnstile Site Key |
+| `panel.turnstile.secretKey` | string | — | Cloudflare Turnstile Secret Key |
+| `panel.turnstile.enabled` | bool | `false` | Enables Cloudflare Turnstile on register/login |
+| `panel.settings.branding` | object | `{}` | Custom branding JSON |
+| `panel.settings.turnstileSiteKey` | string | — | Turnstile site key (alias) |
+| `panel.settings.turnstileSecretKey` | string | — | Turnstile secret key (alias) |
+| `panel.settings.turnstileEnabled` | bool | `false` | Turnstile enabled (alias) |
+| `panel.settings.licenseKey` | string | — | License key (alias) |
+| `panel.settings.sentryDSN` | string | — | Sentry DSN for error tracking |
+| `panel.curseforgeKey` | string | — | CurseForge API key (internal) |
+| `panel.frontendPath` | string | `/var/www/SkyPanel` | Frontend files path (internal) |
 
-### Token
+### Panel Database
 
-| Clave | Tipo | Default | Descripción |
+| Key | Type | Default | Description |
 |---|---|---|---|
-| `token.public` | string | — | URL pública del panel maestro para validar JWT (modo nodo) |
+| `panel.database.dialect` | string | `sqlite3` | Dialect: `sqlite3`, `mysql`, `postgresql`, `sqlserver` |
+| `panel.database.url` | string | `skypanel.db` | Connection string |
+| `panel.database.log` | bool | `false` | Enable GORM SQL logging |
+
+### Panel Settings
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `panel.settings.companyName` | string | `SkyPanel` | Company/brand name |
+| `panel.settings.defaultTheme` | string | `SkyPanel` | Default UI theme |
+| `panel.settings.registrationEnabled` | bool | `true` | Allow public registration |
+| `panel.settings.companyName` | string | `SkyPanel` | Company name |
+| `panel.settings.defaultTheme` | string | `SkyPanel` | Default theme |
+| `panel.settings.branding` | object | `{}` | Custom branding JSON |
+| `panel.settings.turnstileEnabled` | bool | `false` | Enable Cloudflare Turnstile |
+| `panel.settings.turnstileSiteKey` | string | — | Turnstile site key |
+| `panel.settings.turnstileSecretKey` | string | — | Turnstile secret key |
+| `panel.settings.licenseKey` | string | — | License key |
+| `panel.settings.sentryDSN` | string | — | Sentry DSN |
+| `panel.settings.geminiApiKey` | string | — | Google GenAI API key |
+| `panel.settings.hideAiAnalysis` | bool | `false` | Hide AI Analysis button |
+| `panel.settings.headerDecorations` | bool | `true` | Header decorations |
+| `panel.settings.masterUrl` | string | `http://localhost:8080` | Master panel URL |
+| `panel.settings.nodeIp` | string | `0.0.0.0` | Local node IP |
+
+### Panel Notifications
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `panel.notifications.discordWebhook` | string | — | Discord webhook (general) |
+| `panel.notifications.discordWebhookSystem` | string | — | Discord webhook (system alerts) |
+| `panel.notifications.discordWebhookNode` | string | — | Discord webhook (node alerts) |
+| `panel.notifications.discordWebhookExTransfer` | string | — | Discord webhook (external transfers) |
+
+### Panel License
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `panel.license.key` | string | — | License key |
+| `panel.license.status` | string | `free` | License status |
+| `panel.license.serverId` | string | — | Licensed server ID |
+| `panel.license.serverIp` | string | — | Licensed server IP |
+
+### Panel Session / Security
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `panel.sessionKey` | string | (auto) | Session encryption key (auto-generated) |
+| `panel.registrationEnabled` | bool | `true` | Public registration |
+| `panel.token` | string | (auto) | Ed25519 private key for JWT (auto) |
+| `panel.turnstile.siteKey` | string | — | Turnstile site key |
+| `panel.turnstile.secretKey` | string | — | Turnstile secret key |
+| `panel.turnstile.enabled` | bool | `false` | Enable Turnstile |
+
+### Token (Remote Daemon)
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `token.public` | string | — | Master panel URL for JWT validation (node mode) |
 
 ### Templates
 
-| Clave | Tipo | Default | Descripción |
+| Key | Type | Default | Description |
 |---|---|---|---|
-| `templates.url` | string | — | URL de repositorio de plantillas VPS JSON |
+| `templates.url` | string | `https://templates.aetherpanel.es/templates.json` | Template repository index URL |
 
 ### Daemon
 
-| Clave | Tipo | Default | Descripción |
+| Key | Type | Default | Description |
 |---|---|---|---|
-| `daemon.enable` | bool | `true` | Habilita el modo daemon |
-| `daemon.console.buffer` | int | `50` | Tamaño del buffer de consola en memoria |
-| `daemon.console.forward` | bool | `false` | Reenvía la consola del servidor a la salida estándar (stdout/journald/logs Docker) |
-| `daemon.sftp.host` | string | `0.0.0.0:5657` | Dirección del servidor SFTP |
-| `daemon.sftp.key` | string | `sftp.key` | Ruta a la clave privada SFTP |
-| `daemon.sftp.log` | bool | `false` | Logging detallado de SFTP |
-| `daemon.auth.url` | string | `http://localhost:8080` | URL del panel (legacy, para autenticación) |
-| `daemon.auth.clientId` | string | — | Client ID (legacy, no usado por la auth JWT actual) |
-| `daemon.auth.clientSecret` | string | — | Client Secret (legacy, no usado por la auth JWT actual) |
-| `daemon.data.cache` | string | `cache` | Carpeta de caché |
-| `daemon.data.servers` | string | `servers` | Carpeta de servidores |
-| `daemon.data.backups.folder` | string | `backups` | Carpeta de backups |
-| `daemon.data.binaries` | string | `binaries` | Carpeta de binarios |
-| `daemon.data.crashLimit` | int | `3` | Límite de crashes antes de suspender |
-| `daemon.data.root` | string | — | Raíz de datos (por defecto: parent de servers) |
-| `daemon.curseforge.key` | string | — | API Key de CurseForge |
-| `daemon.depotDownloader.version` | string | `latest` | Versión de DepotDownloader |
-| `daemon.depotDownloader.disableLancache` | bool | `false` | Deshabilita Lancache |
+| `daemon.enable` | bool | `true` | Enable daemon mode |
+| `daemon.console.buffer` | int | `50` | Console buffer lines |
+| `daemon.console.forward` | bool | `false` | Forward console to stdout/journald |
+| `daemon.sftp.host` | string | `0.0.0.0:5657` | SFTP listen address |
+| `daemon.sftp.key` | string | `sftp.key` | SFTP private key path |
+| `daemon.sftp.log` | bool | `false` | Verbose SFTP logging |
+| `daemon.sftp.disable` | bool | `false` | Disable SFTP server |
+| `daemon.auth.url` | string | `http://localhost:8080` | Panel URL for OAuth2 |
+| `daemon.auth.clientId` | string | `.node_1` | OAuth2 client ID |
+| `daemon.auth.clientSecret` | string | (generated) | OAuth2 client secret |
+| `daemon.token.public` | string | `http://localhost:8080/auth/publickey` | Panel JWKS endpoint |
+| `daemon.data.cache` | string | `cache` | Cache folder |
+| `daemon.data.servers` | string | `servers` | Servers folder |
+| `daemon.data.backups.folder` | string | `backups` | Backups folder |
+| `daemon.data.binaries` | string | `binaries` | Binaries folder |
+| `daemon.data.crashLimit` | int | `3` | Crash limit before suspend |
+| `daemon.data.root` | string | (auto) | Data root (parent of servers) |
+| `daemon.curseforge.key` | string | — | CurseForge API key |
+| `daemon.depotDownloader.version` | string | `latest` | DepotDownloader version |
+| `daemon.depotDownloader.disableLancache` | bool | `false` | Disable Lancache |
+| `daemon.data.root` | string | `/var/lib/SkyPanel` | Data root directory |
+| `daemon.data.binaries` | string | `/var/lib/SkyPanel/binaries` | Binaries cache |
+| `daemon.data.cache` | string | `/var/lib/SkyPanel/cache` | Template cache |
+| `daemon.data.templates` | string | `/var/lib/SkyPanel/templates` | Local templates |
+| `daemon.data.images` | string | `/var/lib/SkyPanel/images` | Docker images |
+| `daemon.data.backups` | string | `/var/lib/SkyPanel/backups` | Backups storage |
+| `daemon.data.scripts` | string | `/var/lib/SkyPanel/scripts` | Custom scripts |
 
-### Seguridad
+### Daemon Auth (Remote Daemon OAuth2)
 
-| Clave | Tipo | Default | Descripción |
+| Key | Type | Default | Description |
 |---|---|---|---|
-| `security.forceOpenat` | bool | `false` | Fuerza uso de openat() en lugar de open() |
-| `security.trustedProxies` | []string | `[]` | Proxies de confianza |
-| `security.trustedProxyHeader` | string | — | Header de proxy confiable |
-| `security.disableUnshare` | bool | `false` | Deshabilita unshare de namespaces |
+| `daemon.auth.url` | string | `http://localhost:8080` | Panel URL for token endpoint |
+| `daemon.auth.clientId` | string | `.node_1` | OAuth2 client ID |
+| `daemon.auth.clientSecret` | string | (generated) | OAuth2 client secret |
+
+### Daemon Token (JWT Validation)
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `daemon.token.public` | string | `http://localhost:8080/auth/publickey` | Panel JWKS endpoint |
+
+### Security
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `security.forceOpenat` | bool | `false` | Force openat() syscall |
+| `security.trustedProxies` | []string | `[]` | Trusted proxy CIDRs |
+| `security.trustedProxyHeader` | string | `X-Forwarded-For` | Proxy header for client IP |
+| `security.disableUnshare` | bool | `false` | Disable unshare isolation |
 
 ### Docker
 
-| Clave | Tipo | Default | Descripción |
+| Key | Type | Default | Description |
 |---|---|---|---|
-| `docker.root` | string | — | Ruta raíz de Docker |
-| `docker.disallowHost` | bool | `false` | Deshabilita entorno host (fuerza Docker) |
+| `docker.root` | string | — | Docker root path |
+| `docker.disallowHost` | bool | `false` | Disable host environment (force Docker) |
+
+### Node
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `node.ip` | string | (auto) | Local node public IP |
+| `node.port` | int | `8080` | Local node port |
+| `node.masterUrl` | string | (auto) | Master panel URL |
 
 ### Logs
 
-| Clave | Tipo | Default | Descripción |
+| Key | Type | Default | Description |
 |---|---|---|---|
-| `logs` | string | `logs` | Carpeta de logs |
+| `logs` | string | `logs` | Logs folder |
+| `logs.level` | string | `info` | Log level: `debug`/`info`/`warn`/`error` |
+| `logs.format` | string | `text` | Format: `text`/`json` |
+| `logs.output` | string | `stdout` | Output: `stdout`/`file`/`both` |
 
-## Claves Generadas Automáticamente
+### Web
 
-- `panel.sessionKey` — Se genera automáticamente si no está configurada (usando `securecookie.GenerateRandomKey`)
-- `panel.token` — Clave privada Ed25519 para JWT (se genera automáticamente)
-- `daemon.data.root` — Se calcula como `filepath.Dir(daemon.data.servers)` si está vacío
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `web.host` | string | `0.0.0.0:8080` | HTTP listen address |
+| `web.files` | string | `/var/www/SkyPanel` | Frontend static files path |
 
-## Sistema de Config Editables
+### Templates (Legacy)
 
-El endpoint `GET /api/config` expone una versión filtrada de la configuración (branding, temas, registro). Los cambios en `panel.settings.*` y `panel.notifications.*` se pueden realizar mediante `POST /api/settings` y se persisten al archivo de configuración.
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `templates.url` | string | `https://templates.aetherpanel.es/templates.json` | Template index URL |
+
+## Automatically Generated Keys
+
+- `panel.sessionKey` — Auto-generated using `securecookie.GenerateRandomKey`
+- `panel.token` — Ed25519 private key for JWT (auto-generated)
+- `daemon.data.root` — Calculated as `filepath.Dir(daemon.data.servers)` if empty
+- `daemon.sftp.key` — Ed25519 key generated if missing
+
+## Editable Configuration System
+
+The `GET /api/config` endpoint exposes a filtered version of the configuration (branding, themes, registration). Changes to `panel.settings.*` and `panel.notifications.*` can be made via `POST /api/settings` and are persisted to the configuration file.
+
+## Remote Daemon Configuration Example
+
+For a remote node connecting to a master panel:
+
+```json
+{
+  "daemon": {
+    "enable": true,
+    "auth": {
+      "url": "http://master-panel:8080",
+      "clientId": ".node_1",
+      "clientSecret": "remote-node-secret"
+    },
+    "token": {
+      "public": "http://master-panel:8080/auth/publickey"
+    },
+    "sftp": {
+      "host": "0.0.0.0:5657"
+    }
+  },
+  "web": {
+    "host": "0.0.0.0:8080"
+  }
+}
+```
+
+The remote daemon authenticates to the panel via OAuth2 (`/oauth2/token` with `client_credentials`), then uses the returned JWT for all `/daemon/*` calls.
