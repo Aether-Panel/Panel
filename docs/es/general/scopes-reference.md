@@ -311,7 +311,7 @@ servers.GET("/:serverId", middleware.RequiresPermission(scopes.ScopeServerView),
 ]
 ```
 
-**Revoked from Usuario (v2.0.1):**
+**Revoked from Usuario (v2.0.0):**
 - `server.admin.config.view`
 - `server.admin.config.manage`
 - `server.data.edit.admin`

@@ -13,7 +13,7 @@ Bienvenido a la documentación oficial técnica de Aether Panel. Aquí encontrar
 ### General (Conceptos y Guías)
 *   [Primeros Pasos](./general/getting-started.md): Guía completa desde instalación hasta primer servidor.
 *   [Conceptos Clave](./general/concepts.md): Arquitectura, nodos, servidores, auth, scopes, SFTP, templates, database hosts, transferencia federada, **gestión de puertos, red Docker auto-detección, roles actualizados, Monaco Editor pin**.
-*   [FAQ](./general/faq.md): Preguntas frecuentes (novedades v2.0.1+, roles, conectividad MySQL, Monaco).
+*   [FAQ](./general/faq.md): Preguntas frecuentes (novedades v2.0.0+, roles, conectividad MySQL, Monaco).
 *   [Uptime Tracking](./general/13-uptime.md): Sistema de seguimiento de tiempo activo/inactivo.
 *   [License System](./general/14-license.md): Sistema de licencias (API externa).
 *   [Email/SMTP](./general/15-email.md): Proveedores de email y sistema de plantillas.
