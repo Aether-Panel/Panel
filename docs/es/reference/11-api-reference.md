@@ -832,6 +832,43 @@ Pulls transfer data from remote panel.
 ```
 
 ### `POST /api/servers/:serverId/backup/create`
+Creates a compressed backup of the server files.
+
+**Response:** `{ "backupFileName": "backup_abc123.tar.gz" }`
+
+**Implementation Details:**
+- Creates tar.gz archive of server root directory (async, non-blocking)
+- Filename format: `backup_{serverId}_{timestamp}.tar.gz`
+- Stored in daemon's backup directory (`daemon.data.backups.folder`)
+- Discord webhook alerts on success/failure
+- Returns immediately, backup runs in background
+
+---
+
+### Backup Implementation Details
+
+**Server-side (`internal/servers/server.go`):**
+- `StartBackup()`: Async tar.gz creation via channel, Discord alerts on success/fail
+- `DeleteBackup()`: Validates path, removes file
+- `StartRestore()`: Deletes all files first, extracts with `skipRoot=true`
+- `GetBackup()`: Returns file info
+- `GetBackupFile()`: Streams file for download
+
+**Daemon Endpoints (`internal/web/daemon/server.go`):**
+| Method | Path | Scope |
+|--------|------|-------|
+| POST | `/daemon/server/:serverId/backup/create` | `server.backup.create` |
+| DELETE | `/daemon/server/:serverId/backup` | `server.backup.delete` |
+| POST | `/daemon/server/:serverId/backup/restore` | `server.backup.restore` |
+| GET | `/daemon/server/:serverId/backup/download` | `server.backup.view` |
+
+**BackupService** (`internal/services/backup.go`): CRUD for Backup metadata in DB
+
+**Format:** tar.gz (preserves permissions, symlinks, timestamps)
+
+---
+
+### `POST /api/servers/:serverId/backup/create`
 **Response:** `{ "backupFileName": "backup_abc123.tar.gz" }`
 
 ---
@@ -1107,12 +1144,45 @@ Returns max databases limit and current usage.
 
 ## Provision Products
 
-| Method | Path | Scope |
-|--------|------|-------|
-| GET | `/api/provision/products` | `admin` |
-| POST | `/api/provision/products` | `admin` |
-| PUT | `/api/provision/products/:id` | `admin` |
-| DELETE | `/api/provision/products/:id` | `admin` |
+Products define server templates for automated provisioning (WHMCS integration, etc.).
+
+| Method | Path | Scope | Description |
+|--------|------|-------|-------------|
+| GET | `/api/provision/products` | `admin` | List all products |
+| POST | `/api/provision/products` | `admin` | Create product |
+| PUT | `/api/provision/products/:id` | `admin` | Update product |
+| DELETE | `/api/provision/products/:id` | `admin` | Delete product |
+
+### ProvisionProduct Model
+
+```json
+{
+  "id": 1,
+  "product_id": "minecraft_2gb",
+  "display_name": "Minecraft 2GB",
+  "template": "minecraft-java",
+  "node_id": null,
+  "cpu": 100,
+  "memory": 2048,
+  "disk": 10240,
+  "default_node": true,
+  "port_range_min": 25565,
+  "port_range_max": 25665
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `product_id` | string | Unique identifier (e.g., `minecraft_2gb`) |
+| `display_name` | string | Display name for UI |
+| `template` | string | Template name (e.g., `minecraft-java`) |
+| `node_id` | uint | Specific node (null = auto-select) |
+| `cpu` | int | CPU limit (percentage) |
+| `memory` | int | Memory limit (MB) |
+| `disk` | int | Disk limit (MB) |
+| `default_node` | bool | Auto-select node with resources |
+| `port_range_min` | int | Min port for auto-assignment |
+| `port_range_max` | int | Max port for auto-assignment |
 
 ---
 

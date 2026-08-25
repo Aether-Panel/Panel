@@ -1,14 +1,123 @@
-# Paquetes de Utilidades
+# Utility Packages
 
-Documentación de los paquetes utilitarios y transversales del backend.
+Documentation for the backend's utility and cross-cutting packages.
 
 ---
 
-## files/ — Sistema de Archivos y Compresión
+## Templates System (`internal/services/templates.go`)
+
+Template management with support for local templates, Git repositories, and VPS JSON index repositories.
+
+### Template Repository (`models/templaterepo.go`)
+
+```go
+type TemplateRepo struct {
+    ID       uint   `gorm:"primaryKey"`
+    Name     string `gorm:"unique;size:100"`
+    URL      string `gorm:"size:500"`      // Git repo URL or VPS JSON index URL
+    Branch   string `gorm:"size:100;default:main"`
+    PAT      string `gorm:"size:200"`      // Personal Access Token (private repos)
+    Username string `gorm:"size:100"`      // Git username
+    Password string `gorm:"size:200"`      // Git password / token
+    SSHKey   string `gorm:"type:text"`     // SSH private key for auth
+    IsLocal  bool   `gorm:"-"`             // Runtime: true for repo ID 0
+}
+```
+
+**Repo Types:**
+| ID | Type | Description |
+|----|------|-------------|
+| 0 | Local | Templates stored in DB (editable via panel) |
+| >0 | Git | Cloned from remote Git repo |
+| >0 | VPS JSON | Index URL pointing to `templates.json` |
+
+### Template (`models/template.go`)
+
+```go
+type Template struct {
+    Name       string `gorm:"primaryKey;size:100"`
+    RawValue   string `gorm:"type:mediumtext"`  // Full server definition JSON
+    Readme     string `gorm:"type:text"`        // Markdown description
+}
+```
+
+### TemplateService (`internal/services/templates.go`)
+
+```go
+type TemplateService struct {
+    DB *gorm.DB
+}
+
+func (s *TemplateService) GetRepos() ([]*models.TemplateRepo, error)
+func (s *TemplateService) AddRepo(repo *models.TemplateRepo) error
+func (s *TemplateService) DeleteRepo(id uint) error
+func (s *TemplateService) GetAllFromRepo(repoID uint) ([]*models.Template, error)
+func (s *TemplateService) Get(repoID uint, name string) (*models.Template, error)
+func (s *TemplateService) Save(template *models.Template) error
+func (s *TemplateService) Delete(repoID uint, name string) error
+
+// VPS JSON Index Repositories
+func (s *TemplateService) SyncRepo(repo *models.TemplateRepo) error
+func (s *TemplateService) getAllFromVps(repo *models.TemplateRepo) ([]*models.Template, error)
+func (s *TemplateService) getFromVps(repo *models.TemplateRepo, name string) (*models.Template, error)
+func (s *TemplateService) getTemplateFromURL(url string) (*models.Template, error)
+```
+
+### VPS JSON Index Format
+
+Remote repository index (`templates.json`):
+
+```json
+{
+  "templates": [
+    {
+      "name": "minecraft-java",
+      "url": "https://example.com/templates/minecraft-java.json"
+    },
+    {
+      "name": "paper-mc",
+      "url": "https://example.com/templates/paper-mc.json"
+    }
+  ]
+}
+```
+
+**SyncRepo Flow:**
+1. Fetch `templates.json` from `repo.URL`
+2. Parse template list
+3. For each template: fetch individual JSON from `template.url`
+4. Store in DB as `Template` records
+4. Cache for 5 minutes
+
+### Private Repository Authentication
+
+Supports multiple auth methods for private Git repos:
+
+| Method | Config Fields |
+|--------|---------------|
+| HTTPS + PAT | `PAT` (Personal Access Token) |
+| HTTPS + Basic | `Username` + `Password` |
+| SSH | `SSHKey` (private key) |
+
+### Local Repository (ID = 0)
+
+- Templates stored directly in DB
+- Editable via `PUT /api/templates/0/:name`
+- No external sync needed
+
+---
+
+## Utility Packages
+
+Documentation for the backend's utility and cross-cutting packages.
+
+---
+
+## files/ — Filesystem and Compression
 
 ### FileServer Interface
 
-Define operaciones seguras de archivos con jail root (path traversal prevention via `openat2` / `openat` + `O_NOFOLLOW`):
+Defines secure file operations with root jail (path traversal prevention via `openat2` / `openat` + `O_NOFOLLOW`):
 
 ```go
 type FileServer interface {
@@ -29,11 +138,11 @@ type FileServer interface {
 }
 ```
 
-Implementación concreta: `fileServer` en `filesystem.go`.
+Concrete implementation: `fileServer` in `filesystem.go`.
 
-- **`NewFileServer(prefix string, uid, gid int) (FileServer, error)`** — Crea un FileServer enjaulado en `prefix`
-- **`OpenFile(path, flags, mode)`** — Usa `openat2` con `RESOLVE_BENEATH` (kernel >=5.6) o fallback a `openat` + `O_NOFOLLOW`. Hace chown del archivo si `uid != -1`
-- **`MkdirAll`, `Rename`, `Remove`, `RemoveAll`** — Operan con `unix.Mkdirat`, `unix.Renameat2`, `unix.Unlinkat`
+- **`NewFileServer(prefix string, uid, gid int) (FileServer, error)`** — Creates a FileServer jailed in `prefix`
+- **`OpenFile(path, flags, mode)`** — Uses `openat2` with `RESOLVE_BENEATH` (kernel >=5.6) or falls back to `openat` + `O_NOFOLLOW`. Chowns the file if `uid != -1`
+- **`MkdirAll`, `Rename`, `Remove`, `RemoveAll`** — Operate with `unix.Mkdirat`, `unix.Renameat2`, `unix.Unlinkat`
 
 ### MergedFS
 
@@ -43,14 +152,14 @@ type MergedFS struct {
 }
 ```
 
-- **`NewMergedFS(systems ...fs.FS) *MergedFS`** — Fusiona múltiples `fs.FS` en uno solo
-- **`Open(name)`** — Devuelve el primer `fs.File` exitoso
-- **`ReadDir(name)`** — Fusiona directorios, deduplicando por nombre
-- **`ReadFile(name)`** — Devuelve la primera lectura exitosa
+- **`NewMergedFS(systems ...fs.FS) *MergedFS`** — Merges multiple `fs.FS` into a single one
+- **`Open(name)`** — Returns the first successful `fs.File`
+- **`ReadDir(name)`** — Merges directories, deduplicating by name
+- **`ReadFile(name)`** — Returns the first successful read
 
-### Compresión (`compression.go`)
+### Compression (`compression.go`)
 
-Usa la librería `mholt/archives` para soportar múltiples formatos (ZIP, tar.gz, tar.bz2, etc.).
+Uses the `mholt/archives` library to support multiple formats (ZIP, tar.gz, tar.bz2, etc.).
 
 ```go
 type ExtractOptions struct {
@@ -63,28 +172,28 @@ type ExtractOptions struct {
 }
 ```
 
-| Función | Descripción |
+| Function | Description |
 |---|---|
-| `Extract(fs, sourceFile, targetPath, filter, skipRoot, forcedType)` | Extrae un archivo del FileServer |
-| `ExtractFromReader(reader, sourceFile, targetPath, filter, skipRoot, forcedType)` | Extrae desde un `io.ReadSeeker` arbitrario |
-| `DetermineIfSingleRoot(ctx, sourceFile, reader)` | Detecta si un archivo tiene un solo directorio raíz |
-| `Compress(fs, targetFile, filesToCompress)` | Comprime archivos/directorios, detecta formato por extensión |
-| `safeJoin(base, path string)` | Previene path traversal verificando que la ruta resuelta esté bajo base |
+| `Extract(fs, sourceFile, targetPath, filter, skipRoot, forcedType)` | Extracts a file from the FileServer |
+| `ExtractFromReader(reader, sourceFile, targetPath, filter, skipRoot, forcedType)` | Extracts from an arbitrary `io.ReadSeeker` |
+| `DetermineIfSingleRoot(ctx, sourceFile, reader)` | Detects if a file has a single root directory |
+| `Compress(fs, targetFile, filesToCompress)` | Compresses files/directories, detects format by extension |
+| `safeJoin(base, path string)` | Prevents path traversal by verifying that the resolved path is under base |
 
 ### CopyFile / WriteFile (`files.go`)
 
 ```go
-func CopyFile(src, dest string) error     // copia archivo creando directorios padre
-func WriteFile(src io.Reader, dest string) error  // escribe reader a archivo
+func CopyFile(src, dest string) error     // copies file creating parent directories
+func WriteFile(src io.Reader, dest string) error  // writes reader to file
 ```
 
 ---
 
-## conditions/ — Evaluación de Expresiones CEL
+## conditions/ — CEL Expression Evaluation
 
-Motor de evaluación de **CEL** (Common Expression Language) de `google/cel-go`. Se usa para condiciones en operaciones de instalación, plantillas, y cualquier lugar con sintaxis `{{ expression }}`.
+Evaluation engine for **CEL** (Common Expression Language) from `google/cel-go`. Used for conditions in installation operations, templates, and anywhere with `{{ expression }}` syntax.
 
-### Constantes Globales
+### Global Constants
 
 ```go
 var GlobalConstantValues = map[string]interface{}{
@@ -93,34 +202,34 @@ var GlobalConstantValues = map[string]interface{}{
 }
 ```
 
-### Funciones
+### Functions
 
-| Función | Descripción |
+| Function | Description |
 |---|---|
-| `ResolveIf(condition, data, extras)` | Evalúa condición CEL que debe devolver `bool`. Si condición vacía, usa `data["success"]` |
-| `Run[T](statement, data, extras)` | Evalúa cualquier expresión CEL y type-assert a `T` |
-| `ReplaceInString(str, data, extras)` | Reemplaza `{{ expression }}` en string con el resultado de evaluar cada expresión |
+| `ResolveIf(condition, data, extras)` | Evaluates CEL condition which must return `bool`. If condition is empty, uses `data["success"]` |
+| `Run[T](statement, data, extras)` | Evaluates any CEL expression and type-asserts to `T` |
+| `ReplaceInString(str, data, extras)` | Replaces `{{ expression }}` in string with the result of evaluating each expression |
 
-### Variables Disponibles en Expresiones
+### Variables Available in Expressions
 
-| Variable | Descripción |
+| Variable | Description |
 |---|---|
 | `os` | `runtime.GOOS` |
 | `arch` | `runtime.GOARCH` |
-| `success` | Resultado de operación anterior |
-| `env` | Tipo de entorno (docker/tty) |
-| `serverId` | ID del servidor |
-| Cualquier variable del servidor | Definidas en `Server.Variables` |
+| `success` | Result of previous operation |
+| `env` | Environment type (docker/tty) |
+| `serverId` | Server ID |
+| Any server variable | Defined in `Server.Variables` |
 
 ---
 
-## pkg/skypanel/ — Tipos Compartidos
+## pkg/skypanel/ — Shared Types
 
-Paquete central de tipos del dominio. Todos los demás paquetes dependen de él.
+Core domain types package. All other packages depend on it.
 
-### Interfaces Clave
+### Key Interfaces
 
-| Interfaz | Archivo | Métodos |
+| Interface | File | Methods |
 |---|---|---|
 | `EnvironmentImpl` | `environment.go` | `ExecuteAsyncImpl`, `KillImpl`, `GetStatsImpl`, `SendCodeImpl`, `GetUIDImpl`, `GetGidImpl`, `IsRunningImpl` |
 | `EnvironmentFactory` | `environmentfactory.go` | `Create() EnvironmentImpl`, `Key() string` |
@@ -130,7 +239,7 @@ Paquete central de tipos del dominio. Todos los demás paquetes dependen de él.
 | `DaemonServer` | `server.go` | `GetFileServer()`, `Extract()`, `ArchiveItems()`, `DataToMap()` |
 | `SFTPAuthorization` | `authorization.go` | `Validate(username, password) (*ssh.Permissions, error)` |
 
-### Trackers (Sistema Pub/Sub para WebSocket)
+### Trackers (Pub/Sub System for WebSocket)
 
 ```go
 type Tracker struct {
@@ -139,12 +248,12 @@ type Tracker struct {
 }
 ```
 
-| Función | Descripción |
+| Function | Description |
 |---|---|
-| `CreateTracker()` | Crea tracker vacío |
-| `Register(conn *Socket)` | Agrega socket al tracker |
-| `WriteMessage(msg Transmission)` | Envía mensaje JSON a todos los sockets |
-| `Write(source []byte)` | Envía bytes a todos los sockets |
+| `CreateTracker()` | Creates an empty tracker |
+| `Register(conn *Socket)` | Adds socket to the tracker |
+| `WriteMessage(msg Transmission)` | Sends JSON message to all sockets |
+| `Write(source []byte)` | Sends bytes to all sockets |
 
 ```go
 type Socket struct {
@@ -154,35 +263,35 @@ type Socket struct {
 }
 ```
 
-| Función | Descripción |
+| Function | Description |
 |---|---|
-| `Create(ws)` | Crea socket desde conexión WebSocket |
-| `WriteMessage(msg Transmission)` | Envía mensaje tipado |
-| `Write(data []byte)` | Envía datos raw |
-| `WriteJSON(data interface{})` | Envía JSON |
-| `Close()` | Cierra conexión |
+| `Create(ws)` | Creates socket from WebSocket connection |
+| `WriteMessage(msg Transmission)` | Sends typed message |
+| `Write(data []byte)` | Sends raw data |
+| `WriteJSON(data interface{})` | Sends JSON |
+| `Close()` | Closes connection |
 
-### MemoryCache (Buffer Circular de Consola)
+### MemoryCache (Console Circular Buffer)
 
 ```go
 type MemoryCache struct {
     Buffer   []cacheMessage
-    Capacity int    // capacidad en KB (config: daemon.console.buffer)
+    Capacity int    // capacity in KB (config: daemon.console.buffer)
     Size     int
     Lock     sync.RWMutex
 }
 ```
 
-| Método | Descripción |
+| Method | Description |
 |---|---|
-| `CreateCache()` | Crea con capacidad de `daemon.console.buffer` KB |
-| `Read()` | Devuelve todo el buffer |
-| `ReadFrom(startTime)` | Devuelve datos desde timestamp |
-| `Write(b)` | Agrega datos, evicta los más viejos si excede capacidad |
+| `CreateCache()` | Creates with capacity of `daemon.console.buffer` KB |
+| `Read()` | Returns the entire buffer |
+| `ReadFrom(startTime)` | Returns data from timestamp |
+| `Write(b)` | Adds data, evicts oldest if capacity exceeded |
 
-### Errores Compartidos
+### Shared Errors
 
-Error tipado con código y metadata:
+Typed error with code and metadata:
 
 ```go
 type Error struct {
@@ -192,25 +301,25 @@ type Error struct {
 }
 ```
 
-| Función | Descripción |
+| Function | Description |
 |---|---|
-| `CreateError(msg, code)` | Crea error tipado |
-| `FromError(err)` | Convierte cualquier error a `*Error` |
+| `CreateError(msg, code)` | Creates typed error |
+| `FromError(err)` | Converts any error to `*Error` |
 
-Errores predefinidos (selección):
+Predefined errors (selection):
 - `ErrInvalidCredentials`, `ErrServerOffline`, `ErrNoPermission`
 - `ErrIllegalFileAccess`, `ErrBackupInProgress`, `ErrDockerNotSupported`
 - `ErrDatabaseNotAvailable`, `ErrNotImplemented`, `ErrNoTemplate`, `ErrNodeInvalid`
 - `ErrInvalidSession`, `ErrSessionExpired`, `ErrUserNotFound`, `ErrServerNotFound`
 
-Fábricas parametrizadas:
+Parameterized factories:
 - `ErrSettingNotConfigured(name)`, `ErrNoTemplate(template)`, `ErrServiceInvalidProvider(service, provider)`
 - `ErrFieldTooLarge(field, value)`, `ErrFieldTooSmall(field, value)`, `ErrFieldNotBetween(field, min, max)`
 - `ErrFieldEqual(f1, f2)`, `ErrFieldNotEqual(f1, f2)`, `ErrFieldNotEmail(field)`, `ErrFieldLength(field, min, max)`
 - `ErrFactoryError(op, err)`, `ErrUnsupportedOS(actual, expected)`, `ErrUnsupportedArch(actual, expected)`
 - `ErrMissingBinary(binary)`, `ErrPathNotAbs(path)`, `ErrCurseForgeDistribution(projectId)`, `ErrCurseForgeFile(projectId, fileID)`
 
-### Descargas
+### Downloads
 
 ```go
 func DownloadFile(url, fileName string, env *Environment) error
@@ -249,7 +358,7 @@ type FileDesc struct {
 ```go
 type Variable struct {
     Type
-    Value        interface{}        // auto-convertido a int/bool según type
+    Value        interface{}        // auto-converted to int/bool based on type
     Display      string
     Description  string
     Required     bool
@@ -263,15 +372,15 @@ type Variable struct {
 
 ```go
 var Hash string      // git commit hash (ldflags)
-var Version string   // versión semver (ldflags)
+var Version string   // semver version (ldflags)
 var Display string   // "SkyPanel v3.x.x (hash)"
 ```
 
 ---
 
-## internal/connections/ — Proxis de Conexión a Consola
+## internal/connections/ — Console Connection Proxies
 
-Tres tipos de conexión que implementan `io.WriteCloser` + `Start()` para actuar como stdin de servidores:
+Three connection types implementing `io.WriteCloser` + `Start()` to act as server stdin:
 
 ### RCON
 
@@ -283,11 +392,11 @@ type RCONConnection struct {
 }
 ```
 
-- **`Start()`** — Inicia loop de reconexión automática
-- **`Write(p []byte)`** — Ejecuta comando via `gorcon/rcon`
-- IP/port/password vienen de la configuración del servidor (`StdinConsoleConfiguration`)
+- **`Start()`** — Starts automatic reconnection loop
+- **`Write(p []byte)`** — Executes command via `gorcon/rcon`
+- IP/port/password come from the server configuration (`StdinConsoleConfiguration`)
 
-### RCON sobre WebSocket
+### RCON over WebSocket
 
 ```go
 type RCONWSConnection struct {
@@ -297,8 +406,8 @@ type RCONWSConnection struct {
 }
 ```
 
-- **`Start()`** — Conecta vía WebSocket a `ws://IP:Port/Password`
-- **`Write(p []byte)`** — Envía mensaje JSON con identificador incremental
+- **`Start()`** — Connects via WebSocket to `ws://IP:Port/Password`
+- **`Write(p []byte)`** — Sends JSON message with incremental identifier
 
 ### Telnet
 
@@ -310,14 +419,14 @@ type TelnetConnection struct {
 }
 ```
 
-- **`Start()`** — Conecta TCP, envía password, mantiene keepalive
-- **`Write(p []byte)`** — Escribe al socket TCP
+- **`Start()`** — Connects TCP, sends password, maintains keepalive
+- **`Write(p []byte)`** — Writes to the TCP socket
 
-Seleccionadas automáticamente por `Environment.CreateConsoleStdinProxy()` según `StdinConsoleConfiguration.Type`.
+Automatically selected by `Environment.CreateConsoleStdinProxy()` based on `StdinConsoleConfiguration.Type`.
 
 ---
 
-## internal/query/ — Consulta de Servidores Minecraft
+## internal/query/ — Minecraft Server Query
 
 ```go
 type MinecraftResponse struct {
@@ -330,12 +439,12 @@ type MinecraftResponse struct {
 func Minecraft(ip string, port int) (MinecraftResponse, error)
 ```
 
-- Usa `dreamscached/minequery/v2` con protocolo `Ping17` (Minecraft 1.7+)
+- Uses `dreamscached/minequery/v2` with `Ping17` protocol (Minecraft 1.7+)
 - Default IP: `127.0.0.1`
 
 ---
 
-## internal/email/ — Proveedores de Email
+## internal/email/ — Email Providers
 
 ### Interface
 
@@ -345,27 +454,27 @@ type Provider interface {
 }
 ```
 
-### Proveedores Implementados
+### Implemented Providers
 
-| Nombre | Archivo | Dependencia |
+| Name | File | Dependency |
 |---|---|---|
 | `smtp` | `smtp.go` | `wneessen/go-mail` |
 | `sendgrid` | `sendgrid.go` | `sendgrid/sendgrid-go` |
 | `mailjet` | `mailjet.go` | `mailjet/mailjet-apiv3-go` |
 | `mailgun` | `mailgun.go` | `mailgun/mailgun-go` |
-| `debug` | `debug.go` | logging solamente |
+| `debug` | `debug.go` | logging only |
 
-Se registran via `init()`. Se obtienen con:
+Registered via `init()`. Obtained with:
 
 ```go
 func GetProvider(provider string) Provider
 ```
 
-Configuración usada: `EmailProvider`, `EmailFrom`, `EmailDomain`, `EmailHost`, `EmailKey`, `EmailUsername`, `EmailPassword`.
+Configuration used: `EmailProvider`, `EmailFrom`, `EmailDomain`, `EmailHost`, `EmailKey`, `EmailUsername`, `EmailPassword`.
 
 ---
 
-## internal/logging/ — Sistema de Logging
+## internal/logging/ — Logging System
 
 ### Loggers
 
@@ -376,80 +485,80 @@ var Info  *log.Logger   // [INFO] tag
 var Server *log.Logger  // [SERVER] tag
 ```
 
-### Funciones
+### Functions
 
-| Función | Descripción |
+| Function | Description |
 |---|---|
-| `Initialize(useFiles bool)` | Crea rotator, tee a archivo+consola, redirige os.Stdout/Stderr |
-| `Close()` | Cierra el archivo de log |
+| `Initialize(useFiles bool)` | Creates rotator, tees to file+console, redirects os.Stdout/Stderr |
+| `Close()` | Closes the log file |
 
 ### Rotator (`rotator.go`)
 
-Archivo `skypanel.log` en `LogsFolder` con rotación mediante señal `SIGUSR1`:
+File `skypanel.log` in `LogsFolder` with rotation via `SIGUSR1` signal:
 
 ```go
 type Rotator struct {
     io.WriteCloser
 }
-func (r *Rotator) Rotate(newBackend)     // swap atómico del backend
-func (r *Rotator) StartRotation(dir)     // goroutine que escucha SIGUSR1
+func (r *Rotator) Rotate(newBackend)     // atomic swap of the backend
+func (r *Rotator) StartRotation(dir)     // goroutine that listens for SIGUSR1
 ```
 
 ### MultiWriter (`multi.go`)
 
 ```go
-func MultiWriter(writers ...io.Writer) io.Writer  // ignora nils, aplasta anidados
+func MultiWriter(writers ...io.Writer) io.Writer  // ignores nils, flattens nested
 ```
 
 ---
 
-## internal/response/ — Helpers HTTP
+## internal/response/ — HTTP Helpers
 
 ```go
 func NotImplemented(c *gin.Context)                                            // 501
-func CreateOptions(options ...string) gin.HandlerFunc                          // middleware CORS OPTIONS
-func HandleError(c *gin.Context, err error, statusCode int) bool               // error response estandarizado
+func CreateOptions(options ...string) gin.HandlerFunc                          // CORS OPTIONS middleware
+func HandleError(c *gin.Context, err error, statusCode int) bool               // standardized error response
 ```
 
-- `HandleError` retorna `true` si el error no es nil (para early return en handlers)
-- 404 automático para `gorm.ErrRecordNotFound`
-- Response JSON con formato `{ "error": "mensaje", "code": "..." }`
+- `HandleError` returns `true` if the error is not nil (for early return in handlers)
+- Automatic 404 for `gorm.ErrRecordNotFound`
+- JSON response with format `{ "error": "message", "code": "..." }`
 
 ---
 
-## internal/utils/ — Utilidades Generales
+## internal/utils/ — General Utilities
 
-### Seguridad de Red (SSRF Protection)
+### Network Security (SSRF Protection)
 
 ```go
-func ValidateExternalURL(rawURL string) error                         // valida URL no apunte a IP privada
-func isPrivateIP(ip net.IP) bool                                      // detecta rangos privados
-func NewRestrictedHTTPClient() *http.Client                           // cliente HTTP que bloquea IPs internas
+func ValidateExternalURL(rawURL string) error                         // validates URL does not point to private IP
+func isPrivateIP(ip net.IP) bool                                      // detects private ranges
+func NewRestrictedHTTPClient() *http.Client                           // HTTP client that blocks internal IPs
 ```
 
-### Strings y Tokens
+### Strings and Tokens
 
 ```go
-func GenerateRandomString(n int) (string, error)                      // cadena aleatoria base64 URL
-func ToString(v interface{}) string                                   // conversión a string
+func GenerateRandomString(n int) (string, error)                      // base64 URL random string
+func ToString(v interface{}) string                                   // conversion to string
 func UnmarshalTo(source, target interface{}) error                    // deep copy via JSON round-trip
 ```
 
 ### Slice Operations
 
 ```go
-func Union[T comparable](a, b []T) []T                                // intersección
-func Remove[T comparable](a []T, b T) []T                             // remover ocurrencias
+func Union[T comparable](a, b []T) []T                                // intersection
+func Remove[T comparable](a []T, b T) []T                             // remove occurrences
 ```
 
-### Argumentos y Tokens
+### Arguments and Tokens
 
 ```go
-func ReplaceTokens(msg string, mapping map[string]interface{}) string           // reemplaza ${key}
+func ReplaceTokens(msg string, mapping map[string]interface{}) string           // replaces ${key}
 func ReplaceTokensInArr(msg []string, mapping map[string]interface{}) []string
 func ReplaceTokensInMap(msg map[string]string, mapping map[string]interface{}) map[string]string
-func SplitArguments(source string) (cmd string, arguments []string)             // split respetando comillas
-func MergeArguments(arguments []string) string                                  // re-join con quoting
+func SplitArguments(source string) (cmd string, arguments []string)             // split respecting quotes
+func MergeArguments(arguments []string) string                                  // re-join with quoting
 ```
 
 ### JVM Stats
@@ -458,33 +567,33 @@ func MergeArguments(arguments []string) string                                  
 type JvmStats struct {
     HeapUsed, HeapTotal, MetaspaceUsed, MetaspaceTotal int64
 }
-func ParseJCMDResponse(data []byte) *JvmStats          // parsea output de jcmd
+func ParseJCMDResponse(data []byte) *JvmStats          // parses jcmd output
 ```
 
 ### Kernel Support
 
 ```go
-func DetermineKernelSupport()       // detecta soporte de openat2
-func UseOpenat2() bool              // openat2 disponible?
+func DetermineKernelSupport()       // detects openat2 support
+func UseOpenat2() bool              // openat2 available?
 ```
 
 ### Filesystem
 
 ```go
-func GetDirSize(path string) (int64, error)   // tamaño recursivo de directorio
+func GetDirSize(path string) (int64, error)   // recursive directory size
 ```
 
 ### Safe Close
 
 ```go
-func Close(closer io.Closer)                    // close con recovery
-func CloseResponse(response *http.Response)     // close de body HTTP
+func Close(closer io.Closer)                    // close with recovery
+func CloseResponse(response *http.Response)     // close of HTTP body
 ```
 
 ### Type Conversion
 
 ```go
-func Convert(val interface{}, target interface{}) (interface{}, error)  // conversión genérica
+func Convert(val interface{}, target interface{}) (interface{}, error)  // generic conversion
 ```
 
 ### Data Extraction
@@ -500,7 +609,7 @@ func GetStringArrayOrNull(data map[string]interface{}, key string) []string
 ### Wildcard Matching
 
 ```go
-func CompareWildcard(source, match string) bool     // matching con *
+func CompareWildcard(source, match string) bool     // matching with *
 func WildCardToRegexp(pattern string) string         // wildcard → regex
 ```
 
@@ -514,33 +623,33 @@ func SyscallMode(i os.FileMode) (o uint32)    // os.FileMode → syscall mode bi
 
 ---
 
-## internal/groups/ — Verificación de Grupos
+## internal/groups/ — Group Verification
 
 ```go
 const SkyPanelGroup = "SkyPanel"
-func IsUserIn(groups ...string) bool          // verifica si el usuario actual pertenece a algún grupo (incluye root)
+func IsUserIn(groups ...string) bool          // verifies if the current user belongs to any group (includes root)
 ```
 
 ---
 
-## internal/systemd/ — Archivos de Despliegue
+## internal/systemd/ — Deployment Files
 
-No es un paquete Go. Contiene:
+Not a Go package. Contains:
 
-| Archivo | Propósito |
+| File | Purpose |
 |---|---|
-| `servicefiles/skypanel.service` | Template de unit systemd |
-| `servicefiles/apparmor.conf` | Configuración AppArmor |
-| `debian/templates` | Templates de Debconf para empaquetado Debian |
+| `servicefiles/skypanel.service` | systemd unit template |
+| `servicefiles/apparmor.conf` | AppArmor configuration |
+| `debian/templates` | Debconf templates for Debian packaging |
 
 ---
 
-## internal/storage/ — Datos de Volumen Docker
+## internal/storage/ — Docker Volume Data
 
-No es un paquete Go. Directorios usados como volúmenes Docker:
+Not a Go package. Directories used as Docker volumes:
 
-| Directorio | Propósito |
+| Directory | Purpose |
 |---|---|
-| `mysql-data/` | Archivos de base de datos MariaDB |
-| `skypanel-config/` | Configuración del panel |
-| `skypanel-logs/` | Logs del panel |
+| `mysql-data/` | MariaDB database files |
+| `skypanel-config/` | Panel configuration |
+| `skypanel-logs/` | Panel logs |
