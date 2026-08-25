@@ -371,6 +371,128 @@ func (s *TokenService) GetTokenStore() *jwkset.MemoryStorage
 - Claims: `serverId`, `iat`, `exp` (1 hour), `iss` (panel URL)
 - Token store: in-memory JWKS with rotation support
 
+### Panel → Daemon Authentication Flow
+
+```go
+// In NodeService.CallNode()
+func (ns *NodeService) CallNode(node *models.Node, method, path string, body io.ReadCloser, headers http.Header) (*http.Response, error) {
+    // 1. Generate JWT for this request
+    token, err := tokenService.GenerateRequest()
+    
+    // 2. Build daemon URL
+    url := fmt.Sprintf("http://%s:%d/daemon%s", node.PrivateHost, node.PrivatePort, path)
+    
+    // 3. Create HTTP request with JWT
+    req, _ := http.NewRequest(method, url, body)
+    req.Header.Set("Authorization", "Bearer "+token)
+    req.Header.Set("Content-Type", "application/json")
+    
+    // 4. Execute
+    return http.DefaultClient.Do(req)
+}
+```
+
+### Daemon JWT Validation
+
+Remote daemon validates Panel JWTs using JWKS:
+
+```go
+// In daemon middleware
+func validateJWT(c *gin.Context) {
+    tokenString := c.GetHeader("Authorization")[7:] // Remove "Bearer "
+    token, err := jwt.Parse(tokenString, keyFunc)
+    
+    // keyFunc fetches JWKS from panel's /auth/publickey
+    // Validates: Ed25519 signature, exp, iss, serverId claim
+}
+```
+
+### Remote Daemon Configuration
+
+```json
+{
+  "daemon": {
+    "enable": true,
+    "auth": {
+      "url": "http://master-panel:8080",
+      "clientId": ".node_1",
+      "clientSecret": "remote-node-secret"
+    },
+    "token": {
+      "public": "http://master-panel:8080/auth/publickey"
+    },
+    "sftp": {
+      "host": "0.0.0.0:5657"
+    }
+  },
+  "web": {
+    "host": "0.0.0.0:8080"
+  }
+}
+```
+
+### WebSocket Proxy (`NodeService.OpenSocket()`)
+
+For remote nodes, Panel bridges client WebSocket ↔ Daemon WebSocket:
+
+```go
+func (ns *NodeService) OpenSocket(ctx context.Context, node *models.Node, serverID string, params string) (*websocket.Conn, error) {
+    // 1. Build daemon WebSocket URL
+    wsURL := fmt.Sprintf("ws://%s:%d/daemon/server/%s/socket?%s", 
+        node.PrivateHost, node.PrivatePort, serverID, params)
+    
+    // 2. Generate JWT for this connection
+    token, _ := tokenService.GenerateRequest()
+    
+    // 3. Dial daemon WebSocket with JWT header
+    dialer := websocket.Dialer{}
+    conn, _, _ := dialer.Dial(wsURL, http.Header{
+        "Authorization": {"Bearer " + token},
+    })
+    
+    // 4. Return connection for bidirectional proxy
+    return conn, nil
+}
+```
+
+### Panel → Daemon Proxy Flow
+
+1. Client connects to `ws://panel/api/servers/:id/socket?console,stats,status`
+2. Panel handler detects server's node
+3. If local node: direct handler
+4. If remote node: `NodeService.OpenSocket()` → dials daemon WebSocket
+5. Injects `Authorization: Bearer <JWT>` header
+6. Bidirectional copy with ping/pong keepalive (25s/60s)
+
+### Remote Daemon OAuth2 Flow (Initial Auth)
+
+Remote daemon authenticates to Panel on startup:
+
+```go
+// In remote daemon startup
+func authenticateWithPanel() {
+    // 1. POST /oauth2/token with client_credentials
+    resp := http.PostForm("http://master-panel:8080/oauth2/token", 
+        url.Values{
+            "grant_type": {"client_credentials"},
+            "client_id": {".node_1"},
+            "client_secret": {"remote-node-secret"},
+        })
+    
+    // 2. Stores access_token for subsequent /daemon/* calls
+    // Token valid for 1 hour, refreshed automatically
+}
+```
+
+### Configuration Keys
+
+| Config Key | Env Var | Default | Description |
+|------------|---------|---------|-------------|
+| `daemon.auth.url` | `SKYPANEL_DAEMON_AUTH_URL` | `http://localhost:8080` | Panel URL for OAuth2 |
+| `daemon.auth.clientId` | `SKYPANEL_DAEMON_AUTH_CLIENTID` | `.node_1` | OAuth2 client ID |
+| `daemon.auth.clientSecret` | `SKYPANEL_DAEMON_AUTH_CLIENTSECRET` | (generated) | OAuth2 client secret |
+| `daemon.token.public` | `SKYPANEL_DAEMON_TOKEN_PUBLIC` | `http://localhost:8080/auth/publickey` | Panel JWKS endpoint |
+
 ---
 
 ### 14. UserSettingsService (`internal/services/usersettings.go`)

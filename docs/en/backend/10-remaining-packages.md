@@ -4,6 +4,115 @@ Documentation for the backend's utility and cross-cutting packages.
 
 ---
 
+## Templates System (`internal/services/templates.go`)
+
+Template management with support for local templates, Git repositories, and VPS JSON index repositories.
+
+### Template Repository (`models/templaterepo.go`)
+
+```go
+type TemplateRepo struct {
+    ID       uint   `gorm:"primaryKey"`
+    Name     string `gorm:"unique;size:100"`
+    URL      string `gorm:"size:500"`      // Git repo URL or VPS JSON index URL
+    Branch   string `gorm:"size:100;default:main"`
+    PAT      string `gorm:"size:200"`      // Personal Access Token (private repos)
+    Username string `gorm:"size:100"`      // Git username
+    Password string `gorm:"size:200"`      // Git password / token
+    SSHKey   string `gorm:"type:text"`     // SSH private key for auth
+    IsLocal  bool   `gorm:"-"`             // Runtime: true for repo ID 0
+}
+```
+
+**Repo Types:**
+| ID | Type | Description |
+|----|------|-------------|
+| 0 | Local | Templates stored in DB (editable via panel) |
+| >0 | Git | Cloned from remote Git repo |
+| >0 | VPS JSON | Index URL pointing to `templates.json` |
+
+### Template (`models/template.go`)
+
+```go
+type Template struct {
+    Name       string `gorm:"primaryKey;size:100"`
+    RawValue   string `gorm:"type:mediumtext"`  // Full server definition JSON
+    Readme     string `gorm:"type:text"`        // Markdown description
+}
+```
+
+### TemplateService (`internal/services/templates.go`)
+
+```go
+type TemplateService struct {
+    DB *gorm.DB
+}
+
+func (s *TemplateService) GetRepos() ([]*models.TemplateRepo, error)
+func (s *TemplateService) AddRepo(repo *models.TemplateRepo) error
+func (s *TemplateService) DeleteRepo(id uint) error
+func (s *TemplateService) GetAllFromRepo(repoID uint) ([]*models.Template, error)
+func (s *TemplateService) Get(repoID uint, name string) (*models.Template, error)
+func (s *TemplateService) Save(template *models.Template) error
+func (s *TemplateService) Delete(repoID uint, name string) error
+
+// VPS JSON Index Repositories
+func (s *TemplateService) SyncRepo(repo *models.TemplateRepo) error
+func (s *TemplateService) getAllFromVps(repo *models.TemplateRepo) ([]*models.Template, error)
+func (s *TemplateService) getFromVps(repo *models.TemplateRepo, name string) (*models.Template, error)
+func (s *TemplateService) getTemplateFromURL(url string) (*models.Template, error)
+```
+
+### VPS JSON Index Format
+
+Remote repository index (`templates.json`):
+
+```json
+{
+  "templates": [
+    {
+      "name": "minecraft-java",
+      "url": "https://example.com/templates/minecraft-java.json"
+    },
+    {
+      "name": "paper-mc",
+      "url": "https://example.com/templates/paper-mc.json"
+    }
+  ]
+}
+```
+
+**SyncRepo Flow:**
+1. Fetch `templates.json` from `repo.URL`
+2. Parse template list
+3. For each template: fetch individual JSON from `template.url`
+4. Store in DB as `Template` records
+4. Cache for 5 minutes
+
+### Private Repository Authentication
+
+Supports multiple auth methods for private Git repos:
+
+| Method | Config Fields |
+|--------|---------------|
+| HTTPS + PAT | `PAT` (Personal Access Token) |
+| HTTPS + Basic | `Username` + `Password` |
+| SSH | `SSHKey` (private key) |
+
+### Local Repository (ID = 0)
+
+- Templates stored directly in DB
+- Editable via `PUT /api/templates/0/:name`
+- No external sync needed
+
+---
+
+## Utility Packages
+
+Documentation for the backend's utility and cross-cutting packages.
+
+---
+
 ## files/ — Filesystem and Compression
 
 ### FileServer Interface
