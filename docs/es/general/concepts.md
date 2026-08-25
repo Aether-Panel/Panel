@@ -88,3 +88,86 @@ El binario de Aether Panel incluye una CLI basada en Cobra con los siguientes co
 - **user**: user add / user edit — Gestiona usuarios desde la terminal. Permite crear usuarios con nombre, email, contraseña y opción de admin, y editar usuarios existentes (cambiar email, contraseña, admin, remover 2FA).
 - **db**: db upgrade / db migrate — Gestiona la base de datos (`upgrade` ejecuta migraciones de esquema; `migrate` es un stub experimental).
 - **runservice**: runService — Igual que run pero con soporte para systemd notify (NOTIFY_SOCKET).
+
+## Gestión de Puertos (Port Management)
+
+Aether Panel permite asignar múltiples puertos a un servidor, no solo el puerto principal. Esta funcionalidad es crítica para servidores que requieren puertos adicionales (ej. Minecraft + plugins que usan puertos separados para query, RCON, voice, etc.).
+
+### Características Principales
+
+- **Puerto Primario**: El primer puerto de la lista es el "puerto principal" usado por el panel para conexiones por defecto.
+- **Puertos Extra**: Se pueden asignar puertos adicionales (port2, port3, etc.) que se bindean automáticamente al contenedor Docker.
+- **Notas de Puerto**: Cada puerto puede tener una etiqueta/descripción personalizada para identificar su propósito (ej. "RCON", "Voice Chat", "Query").
+- **Selección de Primario**: El usuario puede elegir qué puerto es el principal reordenando la lista.
+
+### Flujo Técnico
+
+1. El panel guarda la lista ordenada en `server.Ports` (array) y el primario en `server.Port`.
+2. Al guardar (`PUT /api/servers/:id/data`), el panel envía la lista al Daemon que la convierte en variables `port`, `port2`, `port3`...
+3. El Daemon crea el contenedor con `ExtraPortBindings()` que bindea todos los puertos extra (TCP y UDP).
+4. `PUT /api/servers/:id/port-settings` gestiona solo metadatos (notas, primario) sin tocar la lista completa.
+5. La sincronización con el Daemon es automática: cambios en `port-settings` también propagan la lista de puertos.
+
+### Permisos
+
+| Acción | Scope Requerido |
+|--------|-----------------|
+| Ver puertos asignados | `server.data.view` |
+| Editar lista completa (admin) | `server.data.edit.admin` |
+| Cambiar primario / notas (usuario) | `server.data.view` (via `port-settings`) |
+
+> **Importante**: Los puertos extra solo funcionan en entorno Docker. En entorno TTY/Host, el binding de puertos es responsabilidad del proceso del servidor.
+
+## Red Docker: Auto-Detección `skypanel-network`
+
+Para que los servidores en contenedores Docker puedan conectarse a bases de datos MySQL y otros servicios en la red interna, Aether Panel detecta automáticamente la red Docker del contenedor Panel y conecta todos los servidores a esa misma red.
+
+### Problema Resuelto
+
+Antes, los contenedores de servidores se creaban en la red `bridge` por defecto de Docker, donde no podían resolver hostnames como `mysql` (el servicio MySQL corre en `skypanel-network`). El error típico era:
+```
+Communications link failure... database address 'mysql:3306' accessible
+```
+
+### Solución Implementada
+
+1. **Detección automática**: Al iniciar, el Panel inspecciona su propio contenedor vía Docker API y detecta a qué red pertenece (ej. `panel_skypanel-network`).
+2. **Default automático**: Si un template no especifica `networkName`, se usa la red detectada.
+3. **Resultado**: Todos los servidores se crean en `skypanel-network` y pueden resolver `mysql:3306` directamente.
+
+### Configuración
+
+No requiere configuración adicional. Funciona automáticamente con `docker compose up`. Si se usa instalación nativa (sin Docker), la red no aplica y se usa la IP del host.
+
+> **Nota**: Servidores creados antes de este cambio deben recrearse para unirse a la red correcta.
+
+## Roles y Permisos Actualizados (Migración `20260821-fix-usuario-role-scopes`)
+
+Se corrigió la asignación de scopes al rol "Usuario" para eliminar accesos de admin indebidos y otorgar permisos correctos de definición y flags.
+
+### Cambios
+
+| Acción | Antes | Después |
+|--------|-------|---------|
+| `server.admin.config.view` | ✅ Concedido | ❌ Revocado |
+| `server.admin.config.manage` | ✅ Concedido | ❌ Revocado |
+| `server.data.edit.admin` | ✅ Concedido | ❌ Revocado |
+| `server.definition.view` | ❌ No tenía | ✅ Concedido |
+| `server.definition.edit` | ❌ No tenía | ✅ Concedido |
+| `server.flags.view` | ❌ No tenía | ✅ Concedido |
+| `server.flags.edit` | ❌ No tenía | ✅ Concedido |
+
+### Resultado
+
+- **Admin**: Acceso completo a todo (config, límites, metadata, admin tab, CRUD puertos).
+- **Usuario**: Ver/editar Grupos, Variables, Plugins, Auto-start, Puertos (ver + primario + notas, sin CRUD números), **NO** ve Límites de Recursos, Metadatos, Admin tab.
+
+## Monaco Editor — Pin a v0.44.0
+
+La versión 0.56+ de `monaco-editor` introdujo restricciones en `package.json` `exports` que impiden importar CSS vía `?inline` con Vite 8/Rolldown. Se mantiene la versión `^0.44.0` hasta que haya una solución upstream.
+
+```json
+"monaco-editor": "^0.44.0"
+```
+
+El CSS se inyecta inline y el font codicon se sirve desde CDN jsDelivr apuntando a la versión 0.44.0.

@@ -595,14 +595,33 @@ Now that you have the panel running, you can:
 - Explore the API for automation
 - Read the complete documentation in other sections
 
-### Need Help?
+### What's New in v2.0.1+
 
-If you encounter problems during installation:
+#### Redesigned Settings View
 
-- Review the Troubleshooting section in the documentation
-- Check the panel logs
-- Consult the FAQ for common issues
-- Join the community Discord for help
+The server **Settings** tab (`/servers/:id` → Settings) now features:
+
+- **2-column responsive layout** with per-section cards.
+- **Unique visual identity** per section (colors, borders, gradient bars).
+- **Sticky Save Bar** that stays visible on scroll.
+- **Role-based permissions**: Admin sees all + CRUD; User sees only allowed (no Limits, Metadata, Admin tab).
+- **Extra Ports Management**: Users view assigned ports, pick primary, edit notes; Admins have full CRUD.
+- **Metadata (Admin only)**: Key-value read-only, filters internal variables.
+- **Resource Limits**: Colored progress bars with percentages.
+
+#### Automatic MySQL Connectivity (Docker)
+
+Docker container servers now auto-join the `skypanel-network`, allowing `mysql:3306` resolution without extra config. See [Troubleshooting: MySQL Connectivity](../setup/troubleshooting.md#16-mysql-connectivity-from-docker-servers-mysql3306-not-resolving).
+
+#### Fixed Roles and Permissions
+
+The "User" role now has correct permissions:
+- **Has**: `server.definition.view/edit`, `server.flags.view/edit`.
+- **No longer has**: `server.admin.config.view/manage`, `server.data.edit.admin`.
+
+#### Sidebar Fix
+
+Sidebar navigation uses `hasScope()` instead of `scopes.includes()` and `/servers/` requires `server.view`.
 
 ## Advanced Panel Configuration
 

@@ -357,18 +357,43 @@ export SKYPANEL_PANEL_SETTINGS_GEMINIAPIKEY=your-gemini-api-key
 
 ---
 
-## 15. General Troubleshooting
+## 16. MySQL Connectivity from Docker Servers (`mysql:3306` not resolving)
 
-If none of the above solutions resolves your problem:
+**Problem:** Docker container servers cannot connect to MySQL using the `mysql` hostname (e.g., error `Communications link failure... database address 'mysql:3306' accessible`).
 
-1.  **Review the complete logs:**
-    ```bash
-    cat logs/skypanel.log | grep ERROR
-    ```
-2.  **Check the panel version:**
-    ```bash
-    ./SkyPanel version
-    ```
-3.  **Check network connectivity:** Make sure the required ports (8080, 5657) are accessible from the clients.
-4.  **Check disk space:** The panel needs space for logs, template cache, and game servers.
-5.  **Report the problem** on [Discord](https://discord.gg/aetherpanel) or open an issue on [GitHub](https://github.com/Aether-Panel/Panel/issues) including the relevant logs.
+**Cause:** The server container was created in Docker's default `bridge` network, while MySQL runs in the internal `skypanel-network`. Containers in different networks cannot resolve each other by hostname.
+
+**Implemented Solution (v2.0.1+):**
+Aether Panel now automatically detects the Panel container's Docker network (`skypanel-network` or `panel_skypanel-network` depending on docker-compose project name) and connects all servers to that network.
+
+**Verification:**
+```bash
+# Check panel network
+docker inspect skypanel --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{end}}'
+# Should show: panel_skypanel-network (or skypanel-network)
+
+# Check server network
+docker inspect <server-id> --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{end}}'
+# Must match the panel's network
+```
+
+**If the server already exists:** Delete and recreate the server so it joins the correct network.
+
+**Native installation (without Docker):** Not applicable. Use host IP or `host.docker.internal` in Database Host config.
+
+---
+
+## 17. Frontend Build Error: `monaco-editor/min/vs/editor/editor.main.css?inline`
+
+**Problem:** `astro build` fails with:
+```
+Rolldown failed to resolve import "monaco-editor/min/vs/editor/editor.main.css?inline"
+```
+
+**Cause:** `monaco-editor@0.56.0+` introduced `package.json` `exports` restrictions that prevent resolving CSS imports with `?inline` under Vite 8/Rolldown.
+
+**Solution:** Keep `monaco-editor` at `^0.44.0` in `client/frontend/package.json`:
+```json
+"monaco-editor": "^0.44.0"
+```
+CSS is injected inline and codicon font served from jsDelivr CDN pointing to version 0.44.0.

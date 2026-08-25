@@ -604,6 +604,34 @@ Si encuentras problemas durante la instalación:
 - Consulta el FAQ para problemas comunes
 - Únete al Discord de la comunidad para obtener ayuda
 
+## Novedades en v2.0.1+
+
+### Vista de Configuración Rediseñada
+
+La pestaña **Settings** de cada servidor (`/servers/:id` → Settings) ahora tiene:
+
+- **Layout de 2 columnas** responsive con tarjetas por sección.
+- **Identidad visual única** por sección (colores, bordes, barras gradient).
+- **Sticky Save Bar** que permanece visible al hacer scroll.
+- **Permisos por rol**: Admin ve todo + CRUD; Usuario ve solo lo permitido (sin Límites, Metadatos, Admin tab).
+- **Gestión de Puertos Extra**: Usuarios ven puertos asignados, eligen primario y editan notas; Admins tienen CRUD completo.
+- **Metadatos (Solo Admin)**: Key-value read-only, filtra variables internas.
+- **Límites de Recursos**: Barras de progreso coloreadas con porcentajes.
+
+### Conectividad MySQL Automática (Docker)
+
+Los servidores en contenedores Docker ahora se conectan automáticamente a la red `skypanel-network`, permitiendo resolver `mysql:3306` sin configuración adicional. Ver [Troubleshooting: Conectividad MySQL](../setup/troubleshooting.md#16-conectividad-mysql-desde-servidores-docker-mysql3306-no-resuelve).
+
+### Roles y Permisos Corregidos
+
+El rol "Usuario" ahora tiene permisos correctos:
+- **Tiene**: `server.definition.view/edit`, `server.flags.view/edit`.
+- **No tiene**: `server.admin.config.view/manage`, `server.data.edit.admin`.
+
+### Corrección Sidebar
+
+La navegación lateral usa `hasScope()` en lugar de `scopes.includes()` y `/servers/` requiere `server.view`.
+
 ## Configuración Avanzada del Panel
 
 ### Archivo de Configuración

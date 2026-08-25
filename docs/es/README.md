@@ -6,16 +6,25 @@ Bienvenido a la documentación oficial técnica de Aether Panel. Aquí encontrar
 
 ### Instalación y Configuración
 *   [01. Guía de Instalación](./setup/01-installation.md): Instrucciones paso a paso para desplegar el panel.
-*   [Troubleshooting](./setup/troubleshooting.md): Guía de solución de problemas y errores comunes.
+*   [Troubleshooting](./setup/troubleshooting.md): Guía de solución de problemas y errores comunes (incluye MySQL Docker, Monaco Editor build).
 *   [Referencia Rápida de Docker](./docker/DOCKER-QUICKREF.md): Comandos esenciales para entornos Docker.
 *   [Solución de Problemas Sudo (Docker)](./docker/DOCKER-SUDO-FIX.md): Guía para resolver permisos en Docker.
+
+### General (Conceptos y Guías)
+*   [Primeros Pasos](./general/getting-started.md): Guía completa desde instalación hasta primer servidor.
+*   [Conceptos Clave](./general/concepts.md): Arquitectura, nodos, servidores, auth, scopes, SFTP, templates, database hosts, transferencia federada, **gestión de puertos, red Docker auto-detección, roles actualizados, Monaco Editor pin**.
+*   [FAQ](./general/faq.md): Preguntas frecuentes (novedades v2.0.1+, roles, conectividad MySQL, Monaco).
+*   [Términos y Condiciones](./general/terms.md): Términos legales.
+*   [Política de Privacidad](./general/privacy.md): Privacidad de datos.
+*   [Seguridad](./general/security.md): Consideraciones de seguridad.
+*   [Usos](./general/usages.md): Casos de uso.
 
 ### Backend (Arquitectura y APIs)
 *   [01. Visión General](./backend/01-overview.md): Estructura del código Go, modos Panel y Daemon.
 *   [02. Configuración](./backend/02-configuration.md): Archivo `config.json` y sistema Viper.
 *   [03. Base de Datos](./backend/03-database.md): Modelos GORM y migraciones.
-*   [04. Gestión de Servidores](./backend/04-servers.md): Ciclo de vida, scheduler y entornos de aislamiento.
-*   [05. Capa API y HTTP](./backend/05-api-layer.md): Rutas REST, CORS y autenticación OAuth2.
+*   [04. Gestión de Servidores](./backend/04-servers.md): Ciclo de vida, scheduler, **ExtraPortBindings, red Docker auto-detección**.
+*   [05. Capa API y HTTP](./backend/05-api-layer.md): Rutas REST, CORS, OAuth2, **endpoints de puertos**.
 *   [06. Operaciones y Condiciones](./backend/06-operations.md): Motor de operaciones tipo JSON para tareas (descargas, unzip, chown).
 *   [07. Herramienta CLI](./backend/07-cli.md): Uso del binario de SkyPanel desde la terminal.
 *   [08. WebSocket y Consola](./backend/08-websocket.md): Transmisión en tiempo real de logs y estadísticas.
@@ -25,10 +34,10 @@ Bienvenido a la documentación oficial técnica de Aether Panel. Aquí encontrar
 ### Frontend (Arquitectura de Interfaz)
 *   [01. Arquitectura del Cliente](./frontend/01-architecture.md): Estructura general de Astro, React y Tailwind.
 *   [02. Endpoints y API Client](./frontend/02-endpoints.md): SDK nativo de API e integración de React.
-*   [03. Componentes y UI](./frontend/03-components.md): Shadcn UI y componentes compartidos.
+*   [03. Componentes y UI](./frontend/03-components.md): Shadcn UI, **Settings View rediseñada, roles corregidos**.
 *   [04. Inteligencia Artificial (Genkit)](./frontend/04-ai.md): Integración de Google GenAI para análisis de logs.
 *   [05. Sistema de Traducciones (i18n)](./frontend/05-translations.md): Internacionalización usando diccionarios JSON.
-*   [06. Páginas y Vistas](./frontend/06-pages.md): Vistas principales del dashboard.
+*   [06. Páginas y Vistas](./frontend/06-pages.md): Vistas principales, **Settings View, Sidebar fix**.
 
 ### Referencias
 *   [Referencia de API](./reference/11-api-reference.md): Esquema general para uso programático.

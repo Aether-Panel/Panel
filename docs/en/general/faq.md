@@ -100,4 +100,20 @@ Where can I get help?
 
 We have several channels: the Discord community server for support and discussion, GitHub issues for bug reports and feature requests, and the documentation on this website. As an open source project, support is community-driven.
 
+What's new in the redesigned Settings view (v2.0.1+)?
+
+The server Settings tab now has a 2-column layout, per-section visual identity, sticky save bar, and role-based permissions. Admin sees all + CRUD; User sees General Info, Groups/Variables, Plugins, Auto-start, Ports (view + primary + notes), but NOT Limits, Metadata, Admin tab. Extra ports are managed with per-port notes and primary selection.
+
+Why doesn't my Docker server connect to MySQL (`mysql:3306`)?
+
+Previously containers were created in the `bridge` network and couldn't resolve `mysql`. Since v2.0.1 the Panel auto-detects its Docker network (`skypanel-network`) and connects all servers to it. If the server already existed, delete and recreate it to join the correct network.
+
+What changed in the "User" role permissions?
+
+Improper admin accesses were revoked (`server.admin.config.view/manage`, `server.data.edit.admin`) and correct permissions granted: `server.definition.view/edit`, `server.flags.view/edit`. Users can now view/edit server definition and flags, but not admin config or limits.
+
+Why does the build fail with `monaco-editor/min/vs/editor/editor.main.css?inline`?
+
+`monaco-editor@0.56.0+` changed its `exports` and breaks CSS `?inline` imports in Vite 8/Rolldown. Version `^0.44.0` is pinned in `client/frontend/package.json` until upstream fix.
+
 

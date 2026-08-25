@@ -66,6 +66,7 @@ In `src/components/ui/` there are 33 components based on Radix UI primitives:
 - **auth/** — Login, registration, OTP, password recovery (forgot/reset)
 - **dashboard/** — Main panel with global metrics, uptime, server status
 - **servers/** — CRUD, details, management of backups, plugins, tasks, flags, database, sub-users, transfers
+  - `settings-view.tsx` — **Redesigned Settings View**: 2-column layout, per-section themed cards (colors, gradient bars), sticky save bar, permission gates by role (admin vs user).
 - **nodes/** — Listing, creation, detail, deployment
 - **users/** — Global user CRUD, permissions
 - **templates/** — Template repositories

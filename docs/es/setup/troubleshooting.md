@@ -357,18 +357,43 @@ export SKYPANEL_PANEL_SETTINGS_GEMINIAPIKEY=tu-api-key-de-gemini
 
 ---
 
-## 15. Resolución de Problemas General
+## 16. Conectividad MySQL desde Servidores Docker (`mysql:3306` no resuelve)
 
-Si ninguna de las soluciones anteriores resuelve tu problema:
+**Problema:** Los servidores en contenedores Docker no pueden conectarse a MySQL usando el hostname `mysql` (ej. error `Communications link failure... database address 'mysql:3306' accessible`).
 
-1.  **Revisar los logs completos:**
-    ```bash
-    cat logs/skypanel.log | grep ERROR
-    ```
-2.  **Verificar la versión del panel:**
-    ```bash
-    ./SkyPanel version
-    ```
-3.  **Verificar conectividad de red:** Asegurarse de que los puertos necesarios (8080, 5657) estén accesibles desde los clientes.
-4.  **Verificar espacio en disco:** El panel necesita espacio para logs, caché de plantillas y servidores de juego.
-5.  **Reportar el problema** en [Discord](https://discord.gg/aetherpanel) o abrir un issue en [GitHub](https://github.com/Aether-Panel/Panel/issues) incluyendo los logs relevantes.
+**Causa:** El contenedor del servidor se creaba en la red `bridge` por defecto de Docker, mientras que MySQL corre en la red interna `skypanel-network`. Los contenedores en redes diferentes no se resuelven por hostname.
+
+**Solución Implementada (v2.0.1+):**
+Aether Panel ahora detecta automáticamente la red Docker del contenedor Panel (`skypanel-network` o `panel_skypanel-network` según el project name de docker-compose) y conecta todos los servidores a esa red.
+
+**Verificación:**
+```bash
+# Ver red del panel
+docker inspect skypanel --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{end}}'
+# Debe mostrar: panel_skypanel-network (o skypanel-network)
+
+# Ver red de un servidor
+docker inspect <server-id> --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{end}}'
+# Debe coincidir con la red del panel
+```
+
+**Si el servidor ya existe:** Eliminar y recrear el servidor para que se una a la red correcta.
+
+**Instalación nativa (sin Docker):** No aplica. Usar IP del host o `host.docker.internal` en Database Host config.
+
+---
+
+## 17. Error de Build Frontend: `monaco-editor/min/vs/editor/editor.main.css?inline`
+
+**Problema:** `astro build` falla con:
+```
+Rolldown failed to resolve import "monaco-editor/min/vs/editor/editor.main.css?inline"
+```
+
+**Causa:** `monaco-editor@0.56.0+` introdujo restricciones en `package.json` `exports` que impiden resolver imports CSS con `?inline` bajo Vite 8/Rolldown.
+
+**Solución:** Mantener `monaco-editor` en `^0.44.0` en `client/frontend/package.json`:
+```json
+"monaco-editor": "^0.44.0"
+```
+El CSS se inyecta inline y el font codicon se sirve desde CDN jsDelivr apuntando a la versión 0.44.0.

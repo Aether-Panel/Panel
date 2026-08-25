@@ -46,10 +46,40 @@ Las páginas Astro actúan como contenedores que hidratan componentes React con 
 ## Navegación
 
 - **AuthShell.tsx** — Layout para páginas sin autenticación (`/login/`, `/register/`, `/forgot-password/`, `/reset-password/`).
-- **AppShell.tsx** — Layout principal con sidebar y header para páginas autenticadas.
+- **AppShell.tsx** — Layout principal con sidebar y header para páginas autenticadas. Usa `hasScope()` para verificar permisos y renderizar enlaces del sidebar (ej. `/servers/` requiere `server.view`).
 - `AuthContext` redirige automáticamente:
   - Usuario no autenticado en ruta privada → `/login/`
   - Usuario autenticado en `/login/` o `/register/` → `/dashboard/`
+
+## Vista de Configuración del Servidor (`/servers/:id` → Settings)
+
+La pestaña **Settings** del servidor (`features/servers/[id]/settings-view.tsx`) fue rediseñada completamente con:
+
+- **Layout 2 columnas** (grid responsive: 1 col en móvil, 2 en desktop).
+- **Identidad visual por sección**: cada tarjeta tiene color/border/gradient propio:
+  - Información General (slate), Grupos/Variables (blue), Plugins (violet), Auto-start (emerald)
+  - Puertos (primary/sky), Límites de Recursos (cyan con barras de progreso), Metadatos (amber, solo admin)
+- **Sticky Save Bar** inferior fija al hacer scroll.
+- **Permission Gates** por rol:
+  - Admin: todas las secciones visibles + CRUD completo.
+  - Usuario: Información General (ver), Grupos/Variables (ver+editar), Plugins (ver+editar), Auto-start (ver+editar), Puertos (ver, elegir primario, notas, sin CRUD números), **NO** Límites, Metadatos, Admin tab.
+- **Puertos Extra**: Usuarios ven puertos asignados (solo lectura), eligen primario, editan notas; Admins tienen CRUD completo.
+- **Metadatos Card**: Solo admin, key-value read-only, filtra vars internas (`resolved*`, `forge*`, `javaVersion*`, `build*`, `git*`).
+- **Recursos**: Barras de progreso coloreadas (CPU cyan, RAM emerald, Disco violet) con porcentajes.
+
+## Corrección Sidebar (`AppShell.tsx`)
+
+Se corrigió la verificación de scopes en la navegación lateral:
+
+```tsx
+// Antes (incorrecto)
+scopes.includes('admin')
+
+// Después (correcto)
+hasScope('admin') || hasScope('server.admin')
+```
+
+Y la ruta `/servers/` ahora requiere `['server.view']` (no `['admin']`), permitiendo acceso a usuarios con scope de servidor.
 
 ## Parámetros Dinámicos
 

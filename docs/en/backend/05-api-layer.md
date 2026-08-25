@@ -146,3 +146,30 @@ The daemon validates requests using a JWT signed by the panel.
 ## Swagger
 
 OpenAPI/Swagger documentation is available at `/swagger/index.html`. Swagger files are located in `internal/web/swagger/swagger.json` and served via `gin-swagger`.
+
+## Port Management Endpoints
+
+### `PUT /api/servers/:id/data` (Admin)
+Saves the full port list and primary. Requires `server.data.edit.admin` or `admin`.
+```json
+// Request
+{ "ports": [25565, 25575, 25585], "primaryPort": 25565 }
+// Response: 204 No Content
+```
+- Validates against node (ports in use, range 1024-65535).
+- Updates `server.Port`, `server.Ports` in Panel DB.
+- **Proxies to Daemon**: sends `ports` + `primaryPort` → Daemon creates `port`, `port2`, `port3`... variables.
+
+### `PUT /api/servers/:id/port-settings` (User)
+Manages port metadata without touching the full list. Requires `server.data.view`.
+```json
+// Request
+{ "primaryPort": 25565, "portNotes": { "25575": "RCON", "25585": "Voice" } }
+// Response: { "success": true }
+```
+- Reorders `server.Ports` putting primary first.
+- Saves `server.PortNotes` (map string->string).
+- **Syncs with Daemon**: sends full current list to keep `port`/`port2`/`port3` in sync.
+
+### `PUT /api/servers/:id/port-settings` (Daemon side)
+Daemon receives sync at `PUT /daemon/server/:id/data` and runs same `ports` → `port`/`port2`/... conversion logic.

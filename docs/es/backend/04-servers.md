@@ -31,12 +31,40 @@ El sistema de servidores se basa en el concepto de **entornos** (`Environment`).
 - Cada servidor se ejecuta en un contenedor separado.
 - Directorios: monta el `RootDirectory` del servidor en el contenedor.
 - Networking: mapeo de puertos automático.
+- **Red por defecto**: detección automática de `skypanel-network` (ver [Conceptos: Red Docker](./../../general/concepts.md#red-docker-auto-deteccion-skypanel-network)).
 - Implementa la misma interfaz `EnvironmentImpl`.
 - Archivos:
   - `docker.go` — creación y gestión de contenedores
   - `factory.go` — `EnvironmentFactory`
   - `container_mount_source.go` — montaje de bind mounts
   - `imagewriter.go` — descarga de imágenes
+
+## ExtraPortBindings — Puertos Extra en Contenedores
+
+La función `ExtraPortBindings()` en `docker.go` genera automáticamente los bindings Docker para todos los puertos extra (`port2`, `port3`, ...):
+
+```go
+func ExtraPortBindings(variables map[string]interface{}) []string {
+    var specs []string
+    for i := 2; ; i++ {
+        key := fmt.Sprintf("port%d", i)
+        val, ok := variables[key]
+        if !ok { break }
+        p := cast.ToString(val)
+        if p == "" || p == "0" { continue }
+        specs = append(specs,
+            "0.0.0.0:"+p+":"+p+"/tcp",
+            "0.0.0.0:"+p+":"+p+"/udp",
+        )
+    }
+    return specs
+}
+```
+
+- Busca variables `port2`, `port3`... en `ExecutionData.Variables`.
+- Genera bindings `0.0.0.0:PUERTO:PUERTO/tcp` y `/udp` para cada uno.
+- Se invoca en `createContainer()` junto con los puertos del template.
+- `checkPortConflicts()` también lo usa para validar antes de iniciar.
 
 ## Interfaz Environment
 

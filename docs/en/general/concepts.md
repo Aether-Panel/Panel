@@ -83,8 +83,91 @@ Allows migrating servers between independent Aether Panel instances (cross-panel
 
 The Aether Panel binary includes a Cobra-based CLI with the following commands:
 
-- **run**: run — Starts the Panel and/or Daemon based on the configuration. Hidden command that does not appear in the help.
-- **version**: version — Displays the panel version.
-- **user**: user add / user edit — Manages users from the terminal. Allows creating users with name, email, password, and admin option, and editing existing users (change email, password, admin, remove 2FA).
+- **run**: run — Starts the Panel and/or Daemon according to configuration. Hidden command not shown in help.
+- **version**: version — Shows the panel version.
+- **user**: user add / user edit — Manages users from terminal. Allows creating users with name, email, password, and admin option, and editing existing users (change email, password, admin, remove 2FA).
 - **db**: db upgrade / db migrate — Manages the database (`upgrade` runs schema migrations; `migrate` is an experimental stub).
 - **runservice**: runService — Same as run but with systemd notify support (NOTIFY_SOCKET).
+
+## Port Management
+
+Aether Panel allows assigning multiple ports to a server, not just the primary port. This is critical for servers requiring additional ports (e.g., Minecraft + plugins using separate ports for query, RCON, voice, etc.).
+
+### Key Features
+
+- **Primary Port**: The first port in the list is the "primary port" used by the panel for default connections.
+- **Extra Ports**: Additional ports (port2, port3, etc.) can be assigned and are automatically bound to the Docker container.
+- **Port Notes**: Each port can have a custom label/description to identify its purpose (e.g., "RCON", "Voice Chat", "Query").
+- **Primary Selection**: Users can choose which port is primary by reordering the list.
+
+### Technical Flow
+
+1. Panel stores ordered list in `server.Ports` (array) and primary in `server.Port`.
+2. On save (`PUT /api/servers/:id/data`), panel sends list to Daemon which converts to `port`, `port2`, `port3`... variables.
+3. Daemon creates container with `ExtraPortBindings()` binding all extra ports (TCP and UDP).
+4. `PUT /api/servers/:id/port-settings` manages only metadata (notes, primary) without touching the full list.
+5. Daemon sync is automatic: changes in `port-settings` also propagate the port list.
+
+### Permissions
+
+| Action | Required Scope |
+|--------|----------------|
+| View assigned ports | `server.data.view` |
+| Edit full list (admin) | `server.data.edit.admin` |
+| Change primary / notes (user) | `server.data.view` (via `port-settings`) |
+
+> **Important**: Extra ports only work in Docker environment. In TTY/Host environment, port binding is the server process responsibility.
+
+## Docker Network: Auto-Detection `skypanel-network`
+
+For Docker container servers to connect to MySQL databases and other internal services, Aether Panel automatically detects the Panel's Docker network and connects all servers to that same network.
+
+### Problem Solved
+
+Previously, server containers were created in Docker's default `bridge` network, where they couldn't resolve hostnames like `mysql` (MySQL service runs in `skypanel-network`). Typical error:
+```
+Communications link failure... database address 'mysql:3306' accessible
+```
+
+### Implemented Solution
+
+1. **Auto-detection**: On startup, Panel inspects its own container via Docker API and detects its network (e.g., `panel_skypanel-network`).
+2. **Automatic default**: If a template doesn't specify `networkName`, the detected network is used.
+3. **Result**: All servers are created in `skypanel-network` and can resolve `mysql:3306` directly.
+
+### Configuration
+
+No additional configuration needed. Works automatically with `docker compose up`. For native installation (without Docker), network doesn't apply and host IP is used.
+
+> **Note**: Servers created before this change must be recreated to join the correct network.
+
+## Updated Roles and Permissions (Migration `20260821-fix-usuario-role-scopes`)
+
+Fixed scope assignment for "Usuario" role to remove improper admin access and grant correct definition/flags permissions.
+
+### Changes
+
+| Action | Before | After |
+|--------|--------|-------|
+| `server.admin.config.view` | ✅ Granted | ❌ Revoked |
+| `server.admin.config.manage` | ✅ Granted | ❌ Revoked |
+| `server.data.edit.admin` | ✅ Granted | ❌ Revoked |
+| `server.definition.view` | ❌ Missing | ✅ Granted |
+| `server.definition.edit` | ❌ Missing | ✅ Granted |
+| `server.flags.view` | ❌ Missing | ✅ Granted |
+| `server.flags.edit` | ❌ Missing | ✅ Granted |
+
+### Result
+
+- **Admin**: Full access to everything (config, limits, metadata, admin tab, ports CRUD).
+- **User**: View/edit Groups, Variables, Plugins, Auto-start, Ports (view + primary + notes, no number CRUD), **NO** Resource Limits, Metadata, Admin tab.
+
+## Monaco Editor — Pin to v0.44.0
+
+`monaco-editor` 0.56+ introduced `package.json` `exports` restrictions preventing CSS imports via `?inline` with Vite 8/Rolldown. Version `^0.44.0` is pinned until upstream fix.
+
+```json
+"monaco-editor": "^0.44.0"
+```
+
+CSS is injected inline and codicon font served from jsDelivr CDN pointing to version 0.44.0.
