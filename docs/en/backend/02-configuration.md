@@ -89,6 +89,92 @@ All nested keys with `.` are converted to `_`. `SKYPANEL_` prefix:
 | `panel.database.url` | string | `skypanel.db` | Connection string |
 | `panel.database.log` | bool | `false` | Enable GORM SQL logging |
 
+### Panel Web Cookies
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `panel.web.cookies.secure` | bool | `false` | Cookie Secure flag (HTTPS only) |
+| `panel.web.cookies.httpOnly` | bool | `true` | Cookie HttpOnly flag |
+| `panel.web.cookies.domain` | string | — | Cookie Domain |
+| `panel.web.cookies.age` | int | `2592000` (30d) | Cookie Max-Age in seconds |
+| `panel.web.cookies.sameSite` | string | `Strict` | Cookie SameSite policy |
+| `panel.web.cookies.path` | string | `/` | Cookie Path |
+
+### Panel Email
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `panel.email.templateFolder` | string | — | Custom email template folder |
+| `panel.email.provider` | string | — | Email provider (`smtp`, `sendgrid`, `mailjet`, `mailgun`, `debug`) |
+| `panel.email.from` | string | — | From address |
+| `panel.email.domain` | string | — | Domain (Mailgun) |
+| `panel.email.host` | string | — | SMTP Host |
+| `panel.email.key` | string | — | API Key (Mailgun/SendGrid) or password |
+| `panel.email.username` | string | — | SMTP Username |
+| `panel.email.password` | string | — | SMTP Password |
+
+### Panel Settings
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `panel.settings.companyName` | string | `SkyPanel` | Company/brand name |
+| `panel.settings.defaultTheme` | string | `SkyPanel` | Default UI theme |
+| `panel.settings.themeSettings` | string | `{}` | Theme settings (JSON) |
+| `panel.settings.masterUrl` | string | `http://localhost:8080` | Master panel URL |
+| `panel.settings.nodeIp` | string | `0.0.0.0` | Local node IP |
+| `panel.settings.geminiApiKey` | string | — | Google GenAI API Key |
+| `panel.settings.hideAiAnalysis` | bool | `false` | Hides AI Analysis functionality |
+| `panel.settings.headerDecorations` | bool | `true` | Enables header decorations |
+| `panel.settings.branding` | object | `{}` | Custom branding JSON |
+| `panel.settings.turnstileEnabled` | bool | `false` | Enable Cloudflare Turnstile |
+| `panel.settings.turnstileSiteKey` | string | — | Turnstile site key |
+| `panel.settings.turnstileSecretKey` | string | — | Turnstile secret key |
+| `panel.settings.licenseKey` | string | — | License key |
+| `panel.settings.sentryDSN` | string | — | Sentry DSN for error tracking |
+
+### Panel Notifications
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `panel.notifications.discordWebhook` | string | — | Discord webhook (general alerts) |
+| `panel.notifications.discordWebhookSystem` | string | — | Discord webhook (system status) |
+| `panel.notifications.discordWebhookNode` | string | — | Discord webhook (node alerts) |
+| `panel.notifications.discordWebhookExTransfer` | string | — | Discord webhook (external transfers) |
+
+### Panel License
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `panel.license.key` | string | — | License key |
+| `panel.license.status` | string | `free` | License status (`free`, `pro`, `enterprise`) |
+| `panel.license.serverId` | string | — | Licensed server ID |
+| `panel.license.serverIp` | string | — | Licensed server IP |
+
+### Panel Session / Security
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `panel.sessionKey` | string | (auto) | Session encryption key (auto-generated) |
+| `panel.registrationEnabled` | bool | `true` | Allow public registration |
+| `panel.token` | string | (auto) | Ed25519 private key for JWT (auto-generated) |
+| `panel.turnstile.siteKey` | string | — | Turnstile site key |
+| `panel.turnstile.secretKey` | string | — | Turnstile secret key |
+| `panel.turnstile.enabled` | bool | `false` | Enable Cloudflare Turnstile |
+
+### Panel Misc
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `panel.curseforgeKey` | string | — | CurseForge API key (internal) |
+| `panel.frontendPath` | string | `/var/www/SkyPanel` | Frontend files path (internal) |
+
+### Web Root
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `web.root` | string | `www` | Web root path (legacy) |
+| `web.files` | string | `/var/www/SkyPanel` | Frontend static files path |
+
 ### Panel Settings
 
 | Key | Type | Default | Description |
