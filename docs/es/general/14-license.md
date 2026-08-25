@@ -51,22 +51,23 @@ The license system validates license keys against an external API and controls f
 
 ```go
 type LicenseService struct {
-    DB    *gorm.DB
-    client *http.Client
+    httpClient *http.Client
 }
 
-func (s *LicenseService) VerifyLicense(licenseKey string) (*LicenseVerification, error)
-func (s *LicenseService) BindLicense(licenseKey, serverID, serverIP string) (*LicenseBindResult, error)
-func (s *LicenseService) ExtractPermissions(verification *LicenseVerification) LicensePermissions
-func (s *LicenseService) GetLicenseType(verification *LicenseVerification) string
+func (s *LicenseService) VerifyLicense(licenseKey string) (*LicenseVerifyResponse, error)
+func (s *LicenseService) BindLicense(licenseKey, serverID, serverIP string) (*LicenseVerifyResponse, error)
+func (s *LicenseService) ExtractPermissions(verifyResp *LicenseVerifyResponse) *LicensePermissions
+func (s *LicenseService) GetLicenseType(verifyResp *LicenseVerifyResponse) string
 ```
+
+**Note:** No `DB` field in struct - stateless service using external API.
 
 ---
 
 ## VerifyLicense()
 
 ```go
-func (s *LicenseService) VerifyLicense(licenseKey string) (*LicenseVerification, error)
+func (s *LicenseService) VerifyLicense(licenseKey string) (*LicenseVerifyResponse, error)
 ```
 
 **Request:** `GET /api/public/licenses/verify?licenseKey={key}`
@@ -74,50 +75,52 @@ func (s *LicenseService) VerifyLicense(licenseKey string) (*LicenseVerification,
 **Response:**
 ```json
 {
-  "valid": true,
-  "plan": "professional",
-  "maxServers": 10,
-  "expiryDate": "2025-12-31T23:59:59Z",
-  "bounds": {
-    "maxServers": 10,
-    "maxUsers": 100,
-    "maxNodes": 5
+  "status": "valid",
+  "is_in_grace_period": false,
+  "license": {
+    "key": "LICENSE_KEY",
+    "plan": "professional",
+    "max_servers": 10,
+    "used_servers": 2,
+    "expiry_date": "2025-12-31T23:59:59Z",
+    "days_remaining": 365,
+    "billing_cycle": "monthly",
+    "bound_server_id": "abc123",
+    "bound_server_ip": "192.168.1.100"
   },
-  "features": {
-    "plugins": true,
-    "prioritySupport": true,
-    "customBranding": false
-  }
+  "user": {...},
+  "payment": {...},
+  "validation": {...}
 }
 ```
 
-**Struct:**
+**Structs:**
 ```go
-type LicenseVerification struct {
-    Valid       bool
-    Plan        string
-    MaxServers  int
-    ExpiryDate  *time.Time
-    Bounds      LicenseBounds
-    Features    LicenseFeatures
+type LicenseVerifyResponse struct {
+    Status           string         `json:"status"`
+    IsInGracePeriod  bool           `json:"is_in_grace_period"`
+    License          LicenseInfo    `json:"license"`
+    User             UserInfo       `json:"user"`
+    Payment          PaymentInfo    `json:"payment"`
+    Validation       ValidationInfo `json:"validation"`
 }
 
-type LicenseBounds struct {
-    MaxServers int
-    MaxUsers   int
-    MaxNodes   int
-}
-
-type LicenseFeatures struct {
-    Plugins          bool
-    PrioritySupport  bool
-    CustomBranding   bool
+type LicenseInfo struct {
+    Key              string `json:"key"`
+    Plan             string `json:"plan"`
+    MaxServers       int    `json:"max_servers"`
+    UsedServers      int    `json:"used_servers"`
+    ExpiryDate       string `json:"expiry_date"`
+    DaysRemaining    int    `json:"days_remaining"`
+    BillingCycle     string `json:"billing_cycle"`
+    BoundServerID    string `json:"bound_server_id"`
+    BoundServerIP    string `json:"bound_server_ip"`
 }
 ```
 
 **Error Handling:**
-- Invalid key → `valid: false`
-- Expired → `valid: false`, check `ExpiryDate`
+- Invalid key → `status: "invalid"`
+- Expired → `status: "expired"`, check `license.expiry_date`
 - Network error → returns error, falls back to cached status
 
 ---
@@ -125,7 +128,7 @@ type LicenseFeatures struct {
 ## BindLicense()
 
 ```go
-func (s *LicenseService) BindLicense(licenseKey, serverID, serverIP string) (*LicenseBindResult, error)
+func (s *LicenseService) BindLicense(licenseKey, serverID, serverIP string) (*LicenseVerifyResponse, error)
 ```
 
 **Request:** `POST /api/public/licenses/verify` with body:
@@ -142,9 +145,8 @@ func (s *LicenseService) BindLicense(licenseKey, serverID, serverIP string) (*Li
 **Response:**
 ```json
 {
-  "success": true,
-  "message": "License bound to server abc123",
-  "verification": { ... }
+  "status": "valid",
+  "license": { ... }
 }
 ```
 
@@ -158,18 +160,18 @@ func (s *LicenseService) BindLicense(licenseKey, serverID, serverIP string) (*Li
 ## ExtractPermissions()
 
 ```go
-func (s *LicenseService) ExtractPermissions(verification *LicenseVerification) LicensePermissions
+func (s *LicenseService) ExtractPermissions(verifyResp *LicenseVerifyResponse) *LicensePermissions
 
 type LicensePermissions struct {
-    HasPlugins bool
+    HasPlugins bool `json:"has_plugins"`
 }
 ```
 
 **Logic:**
 ```go
-func (s *LicenseService) ExtractPermissions(v *LicenseVerification) LicensePermissions {
-    return LicensePermissions{
-        HasPlugins: v.Features.Plugins || v.Plan == "professional" || v.Plan == "enterprise",
+func (s *LicenseService) ExtractPermissions(verifyResp *LicenseVerifyResponse) *LicensePermissions {
+    return &LicensePermissions{
+        HasPlugins: verifyResp.License.Plan == "professional" || verifyResp.License.Plan == "enterprise",
     }
 }
 ```
@@ -181,7 +183,7 @@ func (s *LicenseService) ExtractPermissions(v *LicenseVerification) LicensePermi
 ## GetLicenseType()
 
 ```go
-func (s *LicenseService) GetLicenseType(verification *LicenseVerification) string
+func (s *LicenseService) GetLicenseType(verifyResp *LicenseVerifyResponse) string
 ```
 
 **Mapping:**
@@ -190,7 +192,9 @@ func (s *LicenseService) GetLicenseType(verification *LicenseVerification) strin
 | `personal` | `free` |
 | `professional` | `pro` |
 | `enterprise` | `enterprise` |
-| (unknown) | `free` |
+| (unknown) | `pro` |
+
+**Note:** Default returns `"pro"` (not `"free"`)
 
 **Used for:** Display in Settings → License panel.
 
@@ -252,12 +256,12 @@ if !licenseService.ExtractPermissions(verification).HasPlugins {
 **Response:**
 ```json
 {
-  "valid": true,
+  "status": "valid",
   "plan": "pro",
   "expiryDate": "2025-12-31T23:59:59Z",
   "maxServers": 10,
   "features": {
-    "plugins": true
+    "hasPlugins": true
   }
 }
 ```
@@ -288,8 +292,8 @@ if !licenseService.ExtractPermissions(verification).HasPlugins {
 
 | Scenario | Behavior |
 |----------|----------|
-| Invalid key | `valid: false`, shows error in UI |
-| Expired license | `valid: false`, shows expiry date, falls back to free |
+| Invalid key | `status: "invalid"`, shows error in UI |
+| Expired license | `status: "invalid"`, shows expiry date, falls back to free |
 | API unreachable | Uses cache if < 24h, else `free` |
 | Max servers exceeded | Blocks server creation, shows limit error |
 | Key bound to different server | Bind fails, shows conflict error |
@@ -308,7 +312,7 @@ if !licenseService.ExtractPermissions(verification).HasPlugins {
 ## API Examples
 
 ```bash
-# Verify license
+# Activate license
 curl -X POST http://panel/api/settings/license/activate \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \

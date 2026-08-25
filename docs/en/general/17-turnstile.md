@@ -42,16 +42,16 @@ Aether Panel integrates Cloudflare Turnstile for CAPTCHA-free bot protection on 
 
 ---
 
-## Backend Verification (`internal/auth/turnstile.go`)
+## Backend Verification (`internal/web/auth/turnstile.go`)
 
 ```go
-func verifyTurnstile(token string) error {
+func verifyTurnstile(token, remoteIP string) error {
     resp, err := http.PostForm(
         "https://challenges.cloudflare.com/turnstile/v0/siteverify",
         url.Values{
-            "secret": {config.TurnstileSecretKey},
+            "secret":   {config.TurnstileSecretKey},
             "response": {token},
-            "remoteip": {clientIP},
+            "remoteip": {remoteIP},
         },
     )
     // Parse response: { "success": true, "challenge_ts": "...", "hostname": "..." }
@@ -65,13 +65,13 @@ func verifyTurnstile(token string) error {
 **Flow:**
 1. User submits login/register form
 2. Frontend includes Turnstile token in request
-3. Backend verifies token with Cloudflare
+3. Backend verifies token with Cloudflare (includes `remoteip`)
 4. On success: continue with login/registration
 5. On failure: return error, prompt retry
 
 ---
 
-## Frontend Integration (`components/Turnstile.tsx`)
+## Frontend Integration (`client/frontend/src/components/Turnstile.tsx`)
 
 ```tsx
 import { Turnstile } from '@/components/Turnstile';
@@ -80,6 +80,8 @@ import { Turnstile } from '@/components/Turnstile';
   <Turnstile 
     siteKey={config.turnstileSiteKey}
     onVerify={setTurnstileToken}
+    theme="auto"
+    size="normal"
   />
   <button type="submit">Login</button>
 </form>
@@ -94,7 +96,7 @@ import { Turnstile } from '@/components/Turnstile';
 | `size` | `'normal' \| 'compact'` | No |
 
 **Script Loading:**
-- Loads `https://challenges.cloudflare.com/turnstile/v0/api.js` dynamically
+- Loads `https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit` dynamically
 - Renders invisible widget (no checkbox)
 - Calls `onVerify(token)` when challenge completes
 

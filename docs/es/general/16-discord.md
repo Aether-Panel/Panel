@@ -6,7 +6,7 @@ Aether Panel sends rich Discord embed notifications for server events, system st
 
 ## Overview
 
-- **4 separate webhook URLs** for different notification categories
+- **3 separate webhook URLs** for different notification categories
 - **Rich embeds** with colors, fields, timestamps
 - **Per-event customization** of title, description, fields
 - **System status aggregates** with per-server details
@@ -21,8 +21,7 @@ Aether Panel sends rich Discord embed notifications for server events, system st
     "notifications": {
       "discordWebhook": "https://discord.com/api/webhooks/xxx/yyy",
       "discordWebhookSystem": "https://discord.com/api/webhooks/aaa/bbb",
-      "discordWebhookNode": "https://discord.com/api/webhooks/ccc/ddd",
-      "discordWebhookExTransfer": "https://discord.com/api/webhooks/eee/fff"
+      "discordWebhookNode": "https://discord.com/api/webhooks/ccc/ddd"
     }
   }
 }
@@ -34,7 +33,8 @@ Aether Panel sends rich Discord embed notifications for server events, system st
 | `SKYPANEL_PANEL_NOTIFICATIONS_DISCORDWEBHOOK` | `panel.notifications.discordWebhook` | General alerts |
 | `SKYPANEL_PANEL_NOTIFICATIONS_DISCORDWEBHOOKSYSTEM` | `panel.notifications.discordWebhookSystem` | System status (hourly) |
 | `SKYPANEL_PANEL_NOTIFICATIONS_DISCORDWEBHOOKNODE` | `panel.notifications.discordWebhookNode` | Node alerts |
-| `SKYPANEL_PANEL_NOTIFICATIONS_DISCORDWEBHOOKEXTRANSFER` | `panel.notations.discordWebhookExTransfer` | External transfers |
+
+**Note:** Only 3 webhooks are used (no ExTransfer webhook in code).
 
 ---
 
@@ -45,7 +45,6 @@ Aether Panel sends rich Discord embed notifications for server events, system st
 | **General** | `discordWebhook` | Server offline/online, resource alerts, backup success/fail, license expiry |
 | **System** | `discordWebhookSystem` | Hourly system status summary |
 | **Node** | `discordWebhookNode` | Node offline/online, node resource alerts |
-| **External Transfer** | `discordWebhookExTransfer` | Transfer created/validated/consumed/completed/cancelled |
 
 **Fallback Logic:** If specific webhook not set, falls back to `discordWebhook`.
 
@@ -54,28 +53,28 @@ Aether Panel sends rich Discord embed notifications for server events, system st
 ## DiscordService (`internal/services/discord.go`)
 
 ```go
-type DiscordService struct {
-    DB *gorm.DB
-}
+type DiscordService struct{}
 
-type DiscordField struct {
+type DiscordEmbedField struct {
     Name   string
     Value  string
     Inline bool
 }
 
-func (s *DiscordService) SendWebhook(webhookURL, title, description string, color int, fields []DiscordField) error
-func (s *DiscordService) SendWebhookToURL(webhookURL, title, description string, color int, fields []DiscordField) error
+func (s *DiscordService) SendWebhook(title, description string, color int, fields []DiscordEmbedField) error
+func (s *DiscordService) SendWebhookToURL(webhookURL, title, description string, color int, fields []DiscordEmbedField) error
 
 // Convenience methods
 func (s *DiscordService) SendAlert(title, description string) error
 func (s *DiscordService) SendServerOfflineAlert(serverName, serverID string) error
 func (s *DiscordService) SendServerOnlineAlert(serverName, serverID string) error
 func (s *DiscordService) SendResourceAlert(serverName, serverID, resource string, current, threshold float64) error
-func (s *DiscordService) SendBackupAlert(serverName, serverID, status, backupName string) error
-func (s *DiscordService) SendSystemStatus(servers []ServerStatusSummary) error
-func (s *DiscordService) SendNodeStatus(nodeName string, info SystemInfo, servers []ServerStatusSummary) error
+func (s *DiscordService) SendBackupAlert(serverName, serverID, status string, isSuccess bool) error
+func (s *DiscordService) SendSystemStatus(servers []ServerInfo) error
+func (s *DiscordService) SendNodeStatus(nodeName string, cpuModel string, cpuCores int, cpuThreads int, cpuGHz float64, osName string, memoryTotal uint64, memoryUsed uint64, memoryFree uint64, servers []ServerInfo) error
 ```
+
+**Note:** No `DB` field in struct - stateless service.
 
 ---
 
@@ -106,6 +105,8 @@ func (s *DiscordService) SendNodeStatus(nodeName string, info SystemInfo, server
 | Yellow | `#FFFF00` | 16776960 | Warning, resource threshold |
 | Blue | `#0000FF` | 255 | Info, system status |
 | Orange | `#FFA500` | 16753920 | Warning, maintenance |
+
+**Type:** `DiscordEmbedField` (not `DiscordField`)
 
 ---
 
@@ -143,13 +144,13 @@ SendResourceAlert("MyServer", "abc123", "CPU", 95.5, 80.0)
 
 ### 4. Backup Alert
 ```go
-SendBackupAlert("MyServer", "abc123", "failed", "backup_20240115.tar.gz")
+SendBackupAlert("MyServer", "abc123", "failed", false)
 ```
-**Status:** `success` (Green) / `failed` (Red)
+**Status:** `isSuccess` boolean (true = green, false = red)
 
 ### 5. System Status (Hourly)
 ```go
-SendSystemStatus([]ServerStatusSummary{
+SendSystemStatus([]ServerInfo{
     {Name: "Server1", ID: "abc", Running: true, CPU: 45.2, Memory: 60.1},
     {Name: "Server2", ID: "def", Running: false, CPU: 0, Memory: 0},
 })
@@ -161,9 +162,9 @@ SendSystemStatus([]ServerStatusSummary{
 
 ### 6. Node Status
 ```go
-SendNodeStatus("Node-01", SystemInfo{...}, servers)
+SendNodeStatus("Node-01", "Intel Core", 8, 16, 3.2, "Ubuntu 22.04", 17179869184, 8589934592, 8589934592, servers)
 ```
-**Includes:** Node specs (CPU model, cores, RAM), server counts, per-server status
+**Includes:** Node specs (CPU model, cores, threads, GHz), RAM total/used/free, server counts, per-server status
 
 ---
 
@@ -193,23 +194,12 @@ Discord expects:
 
 ```go
 func (s *DiscordService) SendWebhook(
-    webhookURL, title, description string,
-    color int, fields []DiscordField
+    title, description string,
+    color int, fields []DiscordEmbedField
 ) error
 ```
 
-**Usage:**
-```go
-s.SendWebhook(
-    config.DiscordWebhook,
-    "Custom Alert",
-    "Something happened",
-    16776960, // Yellow
-    []DiscordField{
-        {Name: "Key", Value: "Value", Inline: true},
-    },
-)
-```
+**Uses config webhooks automatically** (falls back to general webhook if specific not set).
 
 ---
 
@@ -230,7 +220,7 @@ func (s *Server) checkServerAlerts(running bool) {
         s.wasRunning[serverID] = running
     }
     
-    // Resource thresholds (configurable)
+    // Resource thresholds (hardcoded)
     if cpu > 80 && !alertedCPU {
         discord.SendResourceAlert(s.Name, s.Identifier, "CPU", cpu, 80)
         alertedCPU = true
@@ -247,9 +237,9 @@ func (s *Server) checkServerAlerts(running bool) {
 func (s *Server) StartBackup() error {
     // ... backup logic ...
     if err != nil {
-        discord.SendBackupAlert(s.Name, s.Identifier, "failed", backupName)
+        discord.SendBackupAlert(s.Name, s.Identifier, "failed", false)
     } else {
-        discord.SendBackupAlert(s.Name, s.Identifier, "success", backupName)
+        discord.SendBackupAlert(s.Name, s.Identifier, "success", true)
     }
 }
 ```
@@ -359,7 +349,7 @@ func (s *DiscordService) SendWebhook(...) error {
 **Request:**
 ```json
 {
-  "webhookType": "general" // or "system", "node", "extransfer"
+  "webhookType": "general" // or "system", "node"
 }
 ```
 
