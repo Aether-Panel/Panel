@@ -140,11 +140,11 @@ func createSession(c *gin.Context, user *models.User) {
 	data := &LoginResponse{}
 	data.Scopes = allScopes
 	data.Session = session // Expose session token for external App auth
-	secure := isRequestSecure(c)
 
 	maxAge := int(services.SessionLength / time.Second)
 
-	c.SetCookie("skypanel_auth", session, maxAge, "/", "", secure, true)
+	// Always set Secure=true for session cookie to prevent transmission over HTTP
+	c.SetCookie("skypanel_auth", session, maxAge, "/", "", true, true)
 
 	c.JSON(http.StatusOK, data)
 }

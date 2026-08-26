@@ -31,8 +31,6 @@ func LogoutPost(c *gin.Context) {
 
 	_ = ss.Expire(cookie)
 
-	secure := isRequestSecure(c)
-
-	c.SetCookie("skypanel_auth", "", 0, "/", "", secure, true)
+	c.SetCookie("skypanel_auth", "", 0, "/", "", true, true)
 	c.Status(http.StatusNoContent)
 }
