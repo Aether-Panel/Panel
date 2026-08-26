@@ -2,12 +2,10 @@ package middleware
 
 import (
 	"errors"
-	"net"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/database"
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
@@ -107,44 +105,6 @@ func AuthMiddleware(c *gin.Context) {
 	// (background/API clients manage their own token lifetime).
 	if fromCookie {
 		maxAge := int(services.SessionLength / time.Second)
-		c.SetCookie("skypanel_auth", token, maxAge, "/", "", isSecureRequest(c), true)
+		c.SetCookie("skypanel_auth", token, maxAge, "/", "", true, true)
 	}
-}
-
-// isSecureRequest reports whether the request reached the panel over a secure
-// connection (direct TLS or a trusted reverse proxy declaring HTTPS). Mirrors
-// the logic used when the auth cookie is first set at login so the cookie's
-// Secure flag stays consistent on every sliding refresh.
-func isSecureRequest(c *gin.Context) bool {
-	if c.Request.TLS != nil {
-		return true
-	}
-
-	host, _, err := net.SplitHostPort(c.Request.RemoteAddr)
-	if err != nil {
-		return false
-	}
-	ip := net.ParseIP(host)
-	if ip == nil || !isTrustedProxy(ip) {
-		return false
-	}
-
-	return strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https")
-}
-
-// isTrustedProxy reports whether ip matches one of the configured trusted
-// reverse proxy addresses or CIDRs (security.trustedProxies).
-func isTrustedProxy(ip net.IP) bool {
-	for _, entry := range config.SecurityTrustedProxies.Value() {
-		if _, cidr, err := net.ParseCIDR(entry); err == nil {
-			if cidr.Contains(ip) {
-				return true
-			}
-		} else if trusted := net.ParseIP(entry); trusted != nil {
-			if trusted.Equal(ip) {
-				return true
-			}
-		}
-	}
-	return false
 }
