@@ -702,11 +702,6 @@ Edits user-editable variables. **Body:** flat object `{ "key": "value" }`. **Res
 ### `PUT /api/servers/:serverId/data`
 Admin data editing (includes server.data.edit.admin variables). **Body:** full object. **Response:** `202`.
 
-### `PUT /api/servers/:serverId/port-settings`
-Manages port metadata (primary port + notes). Requires `server.data.view`.
-**Body:** `{ "primaryPort": 25565, "portNotes": { "25575": "RCON" } }`
-**Response:** `{ "success": true }`
-
 ### `POST /api/servers/:serverId/process`
 Gets process info. **Response:** `204`.
 

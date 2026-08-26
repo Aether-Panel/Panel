@@ -363,7 +363,7 @@ export SKYPANEL_PANEL_SETTINGS_GEMINIAPIKEY=tu-api-key-de-gemini
 
 **Causa:** El contenedor del servidor se creaba en la red `bridge` por defecto de Docker, mientras que MySQL corre en la red interna `skypanel-network`. Los contenedores en redes diferentes no se resuelven por hostname.
 
-**Solución Implementada (v2.0.1+):**
+**Solución Implementada (v2.0.0+):**
 Aether Panel ahora detecta automáticamente la red Docker del contenedor Panel (`skypanel-network` o `panel_skypanel-network` según el project name de docker-compose) y conecta todos los servidores a esa red.
 
 **Verificación:**

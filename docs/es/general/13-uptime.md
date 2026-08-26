@@ -46,7 +46,7 @@ type UptimeStatus struct {
 Called every 5 seconds by `processStats()` in `server.go`:
 
 ```go
-func (s *UptimeService) TrackStatus(serverID string, isRunning bool) error
+func (s *UptimeService) TrackStatus(serverID string, isRunning bool) (uptimeSeconds, downtimeSeconds int64, uptimePercent float64, err error)
 ```
 
 **Logic:**
@@ -55,7 +55,8 @@ func (s *UptimeService) TrackStatus(serverID string, isRunning bool) error
    - Close previous record: set `EndTime = now`, `Duration = now - StartTime`
    - Create new record with `StartTime = now`, `IsRunning = newState`
 3. If first record ever: create new record
-4. No-op if state unchanged
+4. If state unchanged: no-op
+5. Returns: `uptimeSeconds, downtimeSeconds, uptimePercent`
 
 **Edge Cases:**
 - Server deleted: cascade deletes uptime records
@@ -67,41 +68,43 @@ func (s *UptimeService) TrackStatus(serverID string, isRunning bool) error
 ## Statistics (`GetUptimeStats`)
 
 ```go
-func (s *UptimeService) GetUptimeStats(serverID string, days int) (*UptimeStats, error)
-
-type UptimeStats struct {
-    TotalUptime     time.Duration // Sum of all running durations
-    TotalDowntime   time.Duration // Sum of all stopped durations
-    UptimePercent   float64       // TotalUptime / (TotalUptime + TotalDowntime) * 100
-    CurrentStatus   bool          // Current running state
-    CurrentStart    time.Time     // Start of current active record
-    Records         []*models.UptimeStatus // All records in period
-}
+func (s *UptimeService) GetUptimeStats(serverID string, since time.Time) (uptimeSeconds, downtimeSeconds int64, uptimePercent float64, err error)
 ```
+
+**Parameters:**
+- `serverID`: Server identifier
+- `since`: Time threshold (records after this time)
+
+**Returns:**
+| Return Value | Type | Description |
+|--------------|------|-------------|
+| `uptimeSeconds` | `int64` | Total running seconds |
+| `downtimeSeconds` | `int64` | Total stopped seconds |
+| `uptimePercent` | `float64` | Uptime percentage (0-100) |
 
 **Calculation:**
 ```go
 for _, record := range records {
     if record.IsRunning {
-        stats.TotalUptime += record.Duration
+        totalUptime += record.Duration
     } else {
-        stats.TotalDowntime += record.Duration
+        totalDowntime += record.Duration
     }
 }
 
 // Active record handling
 if activeRecord != nil && activeRecord.IsRunning {
     activeDuration := time.Since(activeRecord.StartTime)
-    stats.TotalUptime += activeDuration
-    stats.CurrentStatus = true
-    stats.CurrentStart = activeRecord.StartTime
+    totalUptime += activeDuration
 }
 
-total := stats.TotalUptime + stats.TotalDowntime
+total := totalUptime + totalDowntime
 if total > 0 {
-    stats.UptimePercent = float64(stats.TotalUptime) / float64(total) * 100
+    uptimePercent = float64(totalUptime) / float64(total) * 100
 }
 ```
+
+**Note:** No `UptimeStats` struct - returns multiple values directly.
 
 ---
 
@@ -121,21 +124,9 @@ if total > 0 {
 **Response (Single Server):**
 ```json
 {
-  "totalUptime": 7200000000000,
-  "totalDowntime": 3600000000000,
-  "uptimePercent": 66.67,
-  "currentStatus": true,
-  "currentStart": "2024-01-15T10:30:00Z",
-  "records": [
-    {
-      "id": 1,
-      "server_id": "abc123",
-      "is_running": true,
-      "start_time": "2024-01-15T10:30:00Z",
-      "end_time": "2024-01-15T12:00:00Z",
-      "duration": 5400
-    }
-  ]
+  "uptime_seconds": 7200000,
+  "downtime_seconds": 3600000,
+  "uptime_percent": 66.67
 }
 ```
 
@@ -143,8 +134,8 @@ if total > 0 {
 ```json
 {
   "servers": {
-    "abc123": { "uptimePercent": 99.5, "currentStatus": true, ... },
-    "def456": { "uptimePercent": 45.2, "currentStatus": false, ... }
+    "abc123": { "uptime_percent": 99.5, "uptime_seconds": 7200000, "downtime_seconds": 3600000 },
+    "def456": { "uptime_percent": 45.2, "uptime_seconds": 3600000, "downtime_seconds": 7200000 }
   }
 }
 ```
@@ -279,7 +270,7 @@ WHERE server_id = ? AND start_time >= ?
 ## Frontend Integration
 
 ### Dashboard Uptime Cards
-- Shows `uptimePercent` with color coding:
+- Shows `uptime_percent` with color coding:
   - Green: ≥ 99%
   - Yellow: 95-99%
   - Red: < 95%
@@ -293,24 +284,6 @@ WHERE server_id = ? AND start_time >= ?
 - All servers table with sortable uptime %
 - Date range picker
 - Export to CSV
-
----
-
-## Troubleshooting
-
-### Uptime Not Tracking
-1. Check `processStats()` is running (logs: `[INFO] Processing stats`)
-2. Verify `UptimeService.TrackStatus` called (add debug log)
-3. Check DB for `uptime_status` records
-
-### Incorrect Percentages
-1. Active record not counted → verify `EndTime IS NULL` logic
-2. Duration calculation → check `time.Since()` vs `EndTime - StartTime`
-3. Timezone issues → all times stored as UTC
-
-### Missing Records
-1. Cascade delete on server delete → expected
-3. Panel restart during transition → active record preserved
 
 ---
 
@@ -335,6 +308,6 @@ r = requests.get(
     params={"days": 7, "limit": 50}
 )
 stats = r.json()
-print(f"Uptime: {stats['uptimePercent']:.2f}%")
-print(f"Current: {'Running' if stats['currentStatus'] else 'Stopped'}")
+print(f"Uptime: {stats['uptime_percent']:.2f}%")
+print(f"Current: {'Running' if stats['current_status'] else 'Stopped'}")
 ```

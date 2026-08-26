@@ -49,12 +49,9 @@ Aether Panel uses a template-based email system with support for multiple provid
 ## EmailService (`internal/services/email.go`)
 
 ```go
-type EmailService struct {
-    DB       *gorm.DB
-    provider EmailProvider
+type EmailService interface {
+    SendEmail(to, templateName string, data map[string]interface{}, async bool) error
 }
-
-func (s *EmailService) SendEmail(to, templateName string, data map[string]interface{}, async bool) error
 ```
 
 **Parameters:**
@@ -64,6 +61,189 @@ func (s *EmailService) SendEmail(to, templateName string, data map[string]interf
 - `async`: `true` = goroutine (non-blocking), `false` = blocking
 
 **Returns:** Error only on sync send or provider init failure
+
+---
+
+## Provider Interface (`internal/email/provider.go`)
+
+```go
+type Provider interface {
+    Send(to, subject, body string) error
+}
+```
+
+**Note:** No `Name()` method - providers are registered by name in map.
+
+---
+
+## Provider Registration
+
+```go
+// In each provider file (smtp.go, sendgrid.go, etc.)
+func init() {
+    providers["smtp"] = NewSMTPProvider
+    providers["sendgrid"] = NewSendGridProvider
+    // ...
+}
+
+func GetProvider(name string) (Provider, error) {
+    if f, ok := providers[name]; ok {
+        return f(), nil
+    }
+    return nil, errors.New("provider not found")
+}
+```
+
+**Pattern:** Each provider file registers itself in `init()` - no central `RegisterProvider` function.
+
+---
+
+## Providers (`internal/email/`)
+
+### 1. SMTP (`internal/email/smtp.go`)
+
+Uses `wneessen/go-mail`.
+
+```go
+type SMTPProvider struct {
+    client *mail.Client
+    from   string
+}
+```
+
+**Config:**
+```json
+{
+  "provider": "smtp",
+  "host": "smtp.gmail.com",
+  "key": "app_password",
+  "username": "user@gmail.com",
+  "password": "app_password",
+  "from": "panel@example.com"
+}
+```
+
+**Features:**
+- SSL/TLS (port 465) or STARTTLS (port 587) auto-detected via `mail.WithSSLPort(true)`
+- Authentication: PLAIN
+- **Note:** No port config - uses `mail.WithSSLPort(true)` which auto-detects SSL (port 465) or STARTTLS (port 587)
+
+---
+
+### 2. SendGrid (`internal/email/sendgrid.go`)
+
+Uses `sendgrid-go`.
+
+```go
+type SendGridProvider struct {
+    client *sendgrid.Client
+    from   string
+}
+```
+
+**Config:**
+```json
+{
+  "provider": "sendgrid",
+  "key": "SG.xxxxx",
+  "from": "panel@example.com"
+}
+```
+
+---
+
+### 3. Mailjet (`internal/email/mailjet.go`)
+
+Uses `mailjet-go`.
+
+```go
+type MailjetProvider struct {
+    client *mailjet.Client
+    from   string
+}
+```
+
+**Config:**
+```json
+{
+  "provider": "mailjet",
+  "key": "api_key",
+  "password": "api_secret",
+  "from": "panel@example.com"
+}
+```
+
+---
+
+### 4. Mailgun (`internal/email/mailgun.go`)
+
+Uses `mailgun-go`.
+
+```go
+type MailgunProvider struct {
+    client *mailgun.MailgunImpl
+    from   string
+}
+```
+
+**Config:**
+```json
+{
+  "provider": "mailgun",
+  "key": "api_key",
+  "domain": "mg.example.com",
+  "from": "panel@example.com"
+}
+```
+
+---
+
+### 5. Debug (`internal/email/debug.go`)
+
+Logs email to stdout (development only).
+
+```go
+type DebugProvider struct{}
+```
+
+**Output:**
+```
+=== EMAIL DEBUG ===
+To: user@example.com
+Subject: Password Reset
+Body: <html><h1>Password Reset</h1><p>Hello user,...</p></html>
+===================
+```
+
+---
+
+## Provider Registration
+
+Each provider registers itself in its own `init()`:
+
+```go
+// internal/email/smtp.go
+func init() {
+    providers["smtp"] = NewSMTPProvider
+}
+
+// internal/email/sendgrid.go
+func init() {
+    providers["sendgrid"] = NewSendGridProvider
+}
+```
+
+**GetProvider:**
+```go
+func GetProvider(name string) (Provider, error) {
+    if f, ok := providers[name]; ok {
+        return f(), nil
+    }
+    return nil, errors.New("provider not found")
+}
+```
+
+**Custom Provider:** Add new file with `init()` registering to `providers` map.
 
 ---
 
@@ -121,172 +301,19 @@ func (s *EmailService) SendEmail(to, templateName string, data map[string]interf
 
 ---
 
-## Providers (`internal/email/`)
-
-### Provider Interface
-
-```go
-type EmailProvider interface {
-    Send(to, subject, body string) error
-    Name() string
-}
-```
-
-### 1. SMTP (`internal/email/smtp.go`)
-
-Uses `wneessen/go-mail`.
-
-```go
-type SMTPProvider struct {
-    host     string
-    port     int
-    username string
-    password string
-    from     string
-    tls      bool
-}
-```
-
-**Config:**
-```json
-{
-  "provider": "smtp",
-  "host": "smtp.gmail.com",
-  "port": 587,
-  "username": "user@gmail.com",
-  "password": "app_password",
-  "from": "panel@example.com"
-}
-```
-
-**Features:**
-- STARTTLS (port 587) or SSL (port 465)
-- Authentication: PLAIN/LOGIN
-- Connection pooling
-
----
-
-### 2. SendGrid (`internal/email/sendgrid.go`)
-
-Uses `sendgrid-go`.
-
-```go
-type SendGridProvider struct {
-    apiKey string
-    from   string
-}
-```
-
-**Config:**
-```json
-{
-  "provider": "sendgrid",
-  "key": "SG.xxxxx",
-  "from": "panel@example.com"
-}
-```
-
----
-
-### 3. Mailjet (`internal/email/mailjet.go`)
-
-Uses `mailjet-go`.
-
-```go
-type MailjetProvider struct {
-    apiKey    string
-    apiSecret string
-    from      string
-}
-```
-
-**Config:**
-```json
-{
-  "provider": "mailjet",
-  "key": "api_key",
-  "password": "api_secret",
-  "from": "panel@example.com"
-}
-```
-
----
-
-### 4. Mailgun (`internal/email/mailgun.go`)
-
-Uses `mailgun-go`.
-
-```go
-type MailgunProvider struct {
-    apiKey string
-    domain string
-    from   string
-}
-```
-
-**Config:**
-```json
-{
-  "provider": "mailgun",
-  "key": "api_key",
-  "domain": "mg.example.com",
-  "from": "panel@example.com"
-}
-```
-
----
-
-### 5. Debug (`internal/email/debug.go`)
-
-Logs email to stdout (development only).
-
-```go
-type DebugProvider struct{}
-```
-
-**Output:**
-```
-=== EMAIL DEBUG ===
-To: user@example.com
-Subject: Password Reset
-Body: <html>...</html>
-===================
-```
-
----
-
-## Provider Registration
-
-```go
-// internal/email/provider.go
-func init() {
-    RegisterProvider("smtp", NewSMTPProvider)
-    RegisterProvider("sendgrid", NewSendGridProvider)
-    RegisterProvider("mailjet", NewMailjetProvider)
-    RegisterProvider("mailgun", NewMailgunProvider)
-    RegisterProvider("debug", NewDebugProvider)
-}
-
-func GetProvider(name string) (EmailProvider, error)
-```
-
-**Custom Provider:** Add to `init()` and implement `EmailProvider` interface.
-
----
-
 ## Async Sending
 
 ```go
-func (s *EmailService) SendEmail(to, templateName string, data map[string]interface{}, async bool) error {
+func (es *emailService) SendEmail(to, templateName string, data map[string]interface{}, async bool) error {
     if async {
         go func() {
-            if err := s.sendEmailSync(to, templateName, data); err != nil {
+            if err := es.sendEmailSync(to, templateName, data); err != nil {
                 logging.Errorf("Async email failed: %v", err)
             }
         }()
         return nil
     }
-    return s.sendEmailSync(to, templateName, data)
+    return es.sendEmailSync(to, templateName, data)
 }
 ```
 
@@ -325,14 +352,31 @@ func (s *EmailService) SendEmail(to, templateName string, data map[string]interf
 If email fails and Discord webhook configured, sends to Discord instead:
 
 ```go
-func (s *EmailService) SendEmail(...) error {
-    err := s.provider.Send(...)
-    if err != nil && s.hasDiscordWebhook() {
-        s.discord.SendAlert("Email Failed", fmt.Sprintf("To: %s, Template: %s, Error: %v", to, templateName, err))
+func (es *emailService) SendEmail(...) error {
+    err := svc.Send(...)
+    if err != nil && hasDiscordWebhook() {
+        discord.SendAlert("Email Failed", fmt.Sprintf("To: %s, Template: %s, Error: %v", to, templateName, err))
     }
     return err
 }
 ```
+
+---
+
+## API Endpoints
+
+| Method | Path | Scope | Description |
+|--------|------|-------|-------------|
+| POST | `/api/settings/test/email` | `settings.edit` | Send test email |
+
+**Request:**
+```json
+{
+  "to": "test@example.com"
+}
+```
+
+**Response:** `204` on success, error details on failure
 
 ---
 
@@ -372,35 +416,6 @@ Body: <html><h1>Password Reset</h1><p>Hello user,...</p></html>
 
 ---
 
-## API Endpoints
-
-| Method | Path | Scope | Description |
-|--------|------|-------|-------------|
-| POST | `/api/settings/test/email` | `settings.edit` | Send test email |
-
-**Request:**
-```json
-{
-  "to": "test@example.com"
-}
-```
-
-**Response:** `204` on success, error details on failure
-
----
-
-## Troubleshooting
-
-| Issue | Cause | Fix |
-|-------|-------|-----|
-| `connection refused` | Wrong host/port | Verify host:port, firewall |
-| `authentication failed` | Wrong credentials | Check username/password/API key |
-| `certificate verify failed` | TLS cert issue | Use `InsecureSkipVerify` (dev only) |
-| `template not found` | Missing template | Check `emails.json` + file exists |
-| `rate limit exceeded` | Provider limit | Reduce frequency, check limits |
-
----
-
 ## Custom Provider Example
 
 ```go
@@ -412,11 +427,11 @@ type CustomProvider struct {
     apiKey      string
 }
 
-func NewCustomProvider(config map[string]string) (EmailProvider, error) {
+func NewCustomProvider(config map[string]string) Provider {
     return &CustomProvider{
         apiEndpoint: config["endpoint"],
         apiKey:      config["key"],
-    }, nil
+    }
 }
 
 func (c *CustomProvider) Send(to, subject, body string) error {
@@ -424,8 +439,8 @@ func (c *CustomProvider) Send(to, subject, body string) error {
     return nil
 }
 
-func (c *CustomProvider) Name() string { return "custom" }
+// Note: No Name() method needed - providers registered by init()
 
 // Register in provider.go init():
-// RegisterProvider("custom", NewCustomProvider)
+// providers["custom"] = func() Provider { return NewCustomProvider(config) }
 ```

@@ -16,9 +16,10 @@ var (
     startQueueTicker *time.Ticker     // Processes queue every 1s
     statTicker      *time.Ticker      // Collects metrics every 5s
     systemStatusTicker *time.Ticker   // System metrics every 1min
-    trackUptimeTicker *time.Ticker   // Uptime tracking every 5s
 )
 ```
+
+**Note:** No `trackUptimeTicker` variable - uptime tracking is done inside `processStats()`.
 
 ### Queue Processing (`processQueue()`)
 
@@ -27,8 +28,8 @@ func processQueue() {
     for {
         select {
         case <-startQueueTicker.C:
-            // Process next operation if under concurrency limit
-            if runningOps < concurrentLimit {
+            // Process next operation if slot available
+            if len(running) < maxConcurrent {
                 op := queue.Front()
                 if op != nil {
                     queue.Remove(op)
@@ -42,7 +43,7 @@ func processQueue() {
 
 ### Concurrency Control
 
-- **Limit**: Configurable per-scheduler (`ConcurrentLimit`, default 1)
+- **Limit**: Configurable per-scheduler via `ConcurrentLimit` (default 1)
 - **Modes**: 
   - `wait` - queue operations until slot available
   - `skip` - skip if at limit
@@ -77,14 +78,14 @@ func processStats() {
             // 2. Broadcast via WebSocket (StatsTracker)
             env.StatsTracker.Broadcast(ServerStatsMessage(stats))
             
-            // 3. Update uptime
+            // 2. Update uptime
             uptimeService.TrackStatus(serverID, stats.Running)
             
-            // 4. Check disk limit
+            // 3. Check disk limit
             checkDiskLimit(server, stats.Storage)
             
-            // 5. Check resource alerts
-            checkServerAlerts(server, stats.CPU, stats.Memory)
+            // 4. Check resource alerts
+            checkServerAlerts(server, stats)
         }
     }
 }
@@ -94,22 +95,24 @@ func processStats() {
 
 ```go
 type ServerStats struct {
-    CPU            float64       // CPU percentage
-    Memory         int64         // Used bytes
-    MaxMemory      int64         // Limit bytes
-    Storage        int64         // Used bytes
-    MaxStorage     int64         // Limit bytes
-    NetworkRx      int64         // Bytes received
-    NetworkTx      int64         // Bytes sent
-    JVM            *JVMStats     // Java heap/metaspace (if applicable)
-    Running        bool          // Server state
+    CPU        float64       // CPU percentage
+    Memory     int64         // Used bytes
+    MaxMemory  int64         // Limit bytes
+    Disk       int64         // Used bytes
+    MaxDisk    int64         // Limit bytes
+    NetworkRx  int64         // Bytes received
+    NetworkTx  int64         // Bytes sent
+    JVM        *JvmStats     // Java heap/metaspace (if applicable)
+    Running    bool          // Server state
 }
 ```
+
+**Note:** No `MaxMemory` field - uses `MaxMemory` from config for limits. No `NetworkRx`/`NetworkTx` in current struct - network stats may be nil.
 
 ### JVM Stats (Java Servers)
 
 ```go
-type JVMStats struct {
+type JvmStats struct {
     HeapUsed      int64
     HeapTotal     int64
     MetaspaceUsed int64
@@ -117,7 +120,7 @@ type JVMStats struct {
 }
 ```
 
-**Parsing**: `internal/utils/jvm.go:ParseJCMDResponse()` - parses `jcmd PID VM.native_memory` output
+**Parsing:** `internal/utils/jvm.go:ParseJCMDResponse()` - parses `jcmd PID VM.native_memory` output
 
 ---
 
@@ -125,38 +128,44 @@ type JVMStats struct {
 
 Monitors CPU, RAM, Disk thresholds and sends Discord notifications.
 
-### Thresholds (Hardcoded)
+### Thresholds (Hardcoded in Code)
 
-| Resource | Warning Threshold | Critical Threshold |
-|----------|------------------|-------------------|
-| CPU | 80% | 95% |
-| RAM | 90% | 98% |
-| Disk | 90% | 95% |
+| Resource | Warning | Critical (Auto-stop) |
+|----------|---------|---------------------|
+| CPU | 80% | - |
+| RAM | 90% | - |
+| Disk | 95% | 100% (auto-stop) |
+
+**Note:** Only CPU and RAM have warning thresholds. Disk has auto-stop at 100%.
 
 ### Deduplication
 
 ```go
-type ServerAlertState struct {
-    LastCPUAlert    time.Time
-    LastRAMAlert    time.Time
-    LastDiskAlert   time.Time
-    WasRunning      bool
+var serverStateTracking = make(map[string]*serverState)
+type serverState struct {
+    wasRunning   bool
+    cpuAlerted   bool
+    memoryAlerted bool
+    diskAlerted  bool
 }
 ```
 
 - Only alerts on threshold **crossing** (not every 5s tick)
-- 5-minute cooldown between same-resource alerts
-- Resets when usage drops below threshold
+- No explicit cooldown - tracks `wasRunning` and alerted flags per server
 
 ### Discord Integration
 
 ```go
-func checkServerAlerts(server *Server, cpu, mem float64, storage int64) {
-    if cpu > 80 && time.Since(state.LastCPUAlert) > 5*time.Minute {
-        discord.SendResourceAlert(server.Name, server.Identifier, "CPU", cpu, 80)
-        state.LastCPUAlert = time.Now()
+func checkServerAlerts(server *Server, stats *skypanel.ServerStats) {
+    // CPU
+    if stats.CPU > 80 && !state.cpuAlerted {
+        discord.SendResourceAlert(server.Name, server.Identifier, "CPU", stats.CPU, 80)
+        state.cpuAlerted = true
     }
-    // ... RAM, Disk similar
+    if stats.CPU <= 80 {
+        state.cpuAlerted = false
+    }
+    // ... RAM (90%), Disk (95%) similar
 }
 ```
 
@@ -173,18 +182,16 @@ func checkDiskLimit(server *Server, usedBytes int64) {
         return
     }
     
-    percent := float64(usedBytes) / float64(limit) * 100
-    
-    if percent >= 95 && percent < 100 {
-        // Warning (Discord + log)
-        discord.SendResourceAlert(s.Name, s.Identifier, "Disk", percent, 95)
-    } else if percent >= 100 {
-        // AUTO-STOP
-        s.Stop()
-        discord.SendAlert("Disk Full", fmt.Sprintf("Server %s stopped: disk at %.1f%%", s.Name, percent))
+    if stats.MaxDisk > 0 {
+        // Check against max disk from stats
+        if stats.Disk > stats.MaxDisk+1024*1024 { // 1MB buffer
+            server.Stop()
+        }
     }
 }
 ```
+
+**Logic:** Auto-stops when `stats.Disk > stats.MaxDisk + 1MB` (no percentage-based warning in current code).
 
 ---
 
@@ -197,8 +204,7 @@ Hourly system-wide metrics broadcast via Discord webhook.
 ```go
 func processSystemStatus() {
     for range systemStatusTicker.C {
-        info := getSystemInfo()
-        sendSystemStatusToDiscord(info)
+        sendSystemStatusToDiscord()
     }
 }
 ```
@@ -231,11 +237,10 @@ type SystemInfo struct {
 - Total servers, online/offline counts
 - Average CPU/RAM across online servers
 - Per-server fields (max 25 per Discord limit)
-- Node resource summary
 
 ---
 
-## Scheduler / Cron (`internal/servers/scheduler.go`)
+## Scheduler / Cron
 
 Per-server gocron-based scheduler persisted in JSON.
 
@@ -269,15 +274,11 @@ type Task struct {
 - Loaded on server creation/start
 - CRUD via API: `GET/PUT/DELETE /api/servers/:id/tasks/:taskId`
 - Manual run: `POST /api/servers/:id/tasks/:taskId/run`
-- Integrates with process queue for concurrency control
-
-### Supported Operations
-
-Same as installation operations (command, console, download, etc.)
+- Integration with process queue for concurrency control
 
 ---
 
-## KeepAlive (`internal/servers/keepalive.go`)
+## KeepAlive
 
 Prevents server process from idling out by sending periodic commands.
 
@@ -292,15 +293,19 @@ Prevents server process from idling out by sending periodic commands.
 }
 ```
 
-### Implementation
+### Implementation (in `server.go` lines 789-813)
 
 ```go
-func (k *KeepAlive) Start(env *Environment) {
-    ticker := time.NewTicker(k.Frequency)
+func (s *Server) startKeepAlive() {
+    if s.Execution.KeepAlive.Frequency == "" || s.Execution.KeepAlive.Command == "" {
+        return
+    }
+    d, _ := time.ParseDuration(s.Execution.KeepAlive.Frequency)
+    ticker := time.NewTicker(d)
     go func() {
         for range ticker.C {
-            if env.IsRunning() {
-                env.ExecuteInMainProcess(k.Command)
+            if s.IsRunning() {
+                s.ExecuteInMainProcess(s.Execution.KeepAlive.Command)
             }
         }
     }()
@@ -322,7 +327,11 @@ Called from `processStats()` every 5 seconds.
 ```go
 func (s *ServerService) processStats() {
     // ... get stats ...
-    uptimeService.TrackStatus(server.Identifier, stats.Running)
+    
+    // Track uptime
+    if uptimeService := services.NewUptimeService(); uptimeService != nil {
+        uptimeService.TrackStatus(server.Identifier, running)
+    }
 }
 ```
 
@@ -392,35 +401,17 @@ func CreateServer(def ServerDefinition) (*Server, error) {
 }
 ```
 
-### Parent/Child Server Limits
-
-```go
-func updateParentServerLimitsOnNode(...) {
-    // When server created with parent_server_id:
-    // 1. Update parent's available CPU/Memory/Disk
-    // 2. Child servers inherit parent's remaining resources
-}
-```
-
 ---
 
 ## Port Management
 
-```go
-func collectPortsFromVariables(vars map[string]interface{}) []uint16 {
-    // Collects port, port2, port3... from variables
-}
+Port management is handled in API handlers, not in server.go:
 
-func validatePortsAgainstNode(db, nodeID, serverID, ports []uint16) error {
-    // Checks against other servers on same node
-    // Range: 1024-65535
-    // No duplicates
-}
+- `internal/web/api/servers.go:editPortSettings()` - handles primary port + notes
+- `internal/web/api/servers.go:editServerDataAdmin()` - handles full port list + proxy to daemon
+- Daemon creates `port`, `port2`, `port3` variables from `ports` array
 
-func syncPortVarsToDaemon(c *gin.Context, server *models.Server) {
-    // Sends port, port2, port3... to daemon
-}
-```
+**Note:** The functions `collectPortsFromVariables`, `validatePortsAgainstNode`, `syncPortVarsToDaemon` documented in previous version **do not exist in server.go** - they are in `internal/web/api/servers.go`.
 
 ---
 

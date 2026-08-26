@@ -604,7 +604,7 @@ Si encuentras problemas durante la instalación:
 - Consulta el FAQ para problemas comunes
 - Únete al Discord de la comunidad para obtener ayuda
 
-## Novedades en v2.0.1+
+## Novedades en v2.0.0+
 
 ### Vista de Configuración Rediseñada
 

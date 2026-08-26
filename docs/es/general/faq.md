@@ -100,13 +100,13 @@ Puedes contribuir de varias formas: reportando errores en GitHub, enviando pull 
 
 Tenemos varios canales: el servidor de Discord de la comunidad para soporte y discusión, los issues de GitHub para reportes de errores y solicitudes de características, y la documentación en esta misma web. Como proyecto open source, el soporte es comunitario.
 
-¿Qué novedades trae la vista de configuración rediseñada (v2.0.1+)?
+¿Qué novedades trae la vista de configuración rediseñada (v2.0.0+)?
 
 La pestaña Settings de cada servidor ahora tiene layout de 2 columnas, tarjetas con identidad visual propia por sección, sticky save bar, y permisos por rol. Admin ve todo + CRUD; Usuario ve Información General, Grupos/Variables, Plugins, Auto-start, Puertos (ver + primario + notas), pero NO Límites, Metadatos, Admin tab. Los puertos extra se gestionan con notas por puerto y selección de primario.
 
 ¿Por qué mi servidor Docker no conecta a MySQL (`mysql:3306`)?
 
-Antes los contenedores se creaban en la red `bridge` y no resolvían `mysql`. Desde v2.0.1 el Panel detecta automáticamente su red Docker (`skypanel-network`) y conecta todos los servidores a esa red. Si el servidor ya existía, elimínalo y recrea para que se una a la red correcta.
+Antes los contenedores se creaban en la red `bridge` y no resolvían `mysql`. Desde v2.0.0 el Panel detecta automáticamente su red Docker (`skypanel-network`) y conecta todos los servidores a esa red. Si el servidor ya existía, elimínalo y recrea para que se una a la red correcta.
 
 ¿Qué cambió en los permisos del rol "Usuario"?
 

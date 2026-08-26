@@ -100,55 +100,17 @@ in_path("/usr/bin/java")
 
 ---
 
-### 3. `is_server_running(server_id)`
+### 3. `is_server_running()`
 
 ```cel
-is_server_running("abc123")
+is_server_running()
 ```
 
-**Returns:** `bool` - true if server is currently running
+**Returns:** `bool` - true if any server is currently running (checks all servers)
 
-**Implementation:** Checks server cache and process state
+**Implementation:** Checks server cache for running processes
 
----
-
-### 4. `file_size(path)`
-
-```cel
-file_size("{{rootDir}}/server.jar") > 10000000
-```
-
-**Returns:** `int` - file size in bytes, -1 if not found
-
----
-
-### 4. `dir_exists(path)`
-
-```cel
-dir_exists("{{rootDir}}/plugins")
-```
-
-**Returns:** `bool` - true if directory exists
-
----
-
-### 5. `read_file(path)`
-
-```cel
-read_file("{{rootDir}}/version.txt").contains("1.20.1")
-```
-
-**Returns:** `string` - file content (max 10KB), empty if not found
-
----
-
-### 6. `env_var(name)`
-
-```cel
-env_var("JAVA_HOME") != ""
-```
-
-**Returns:** `string` - environment variable value, empty if not set
+**Note:** Takes **no arguments** - checks if ANY server is running.
 
 ---
 
@@ -243,7 +205,7 @@ variables := map[string]interface{}{
 ```json
 {
   "type": "fabricdl",
-  "if": "is_server_running('other_server') == false"
+  "if": "is_server_running() == false"
 }
 ```
 
@@ -276,8 +238,8 @@ variables := map[string]interface{}{
 
 ### Test Expressions
 
-```bash
-# In Go REPL or test
+```go
+// In Go REPL or test
 env, _ := cel.NewEnv(cel.Variable("x", cel.IntType))
 ast, iss := env.Compile("x > 10")
 prog, _ := env.Program(ast)
