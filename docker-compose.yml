@@ -59,7 +59,6 @@ services:
       # - SKYPANEL_TOKEN_PUBLIC=http://<MASTER-IP>:8080/auth/publickey
 
       - SKYPANEL_PANEL_REGISTRATIONENABLED=true
-      - SKYPANEL_PANEL_SETTINGS_COMPANYNAME=Aether Panel 1
       - SKYPANEL_PANEL_SETTINGS_DEFAULTTHEME=SkyPanel
       - SKYPANEL_PANEL_DATABASE_DIALECT=mysql
       - SKYPANEL_PANEL_DATABASE_URL=${DB_USER:-skypanel}:${DB_PASSWORD:-skypanel_secret}@tcp(mysql:3306)/${DB_DATABASE:-skypanel}?charset=utf8&parseTime=true
