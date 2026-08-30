@@ -28,6 +28,6 @@
     "@opentelemetry/auto-instrumentations-node": "^0.79.0",
     "@opentelemetry/sdk-node": "^0.221.0",
     "astro": "^7.2.4",
-    "js-yaml": "^4.1.1"
+    "js-yaml": "^5.4.1"
   }
 }
