@@ -12,7 +12,7 @@
   "dependencies": {
     "@astrojs/react": "^6.0.1",
     "@astrojs/tailwind": "^6.0.2",
-    "@genkit-ai/google-genai": "^1.40.1",
+    "@genkit-ai/google-genai": "^1.41.0",
     "@hookform/resolvers": "^5.7.1",
     "@monaco-editor/react": "^4.6.1",
     "@radix-ui/react-accordion": "^1.2.20",
