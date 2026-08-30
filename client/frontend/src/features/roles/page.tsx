@@ -479,8 +479,7 @@ export default function RolesPage() {
         </DialogContent>
       </Dialog>
 
-      <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50">
-        <Card className="border-0">
+      <Card className="border border-border/60 rounded-xl overflow-hidden">
           <CardHeader>
             <CardTitle>{t('roles.availableRoles')}</CardTitle>
           </CardHeader>
@@ -581,7 +580,6 @@ export default function RolesPage() {
             </Table>
           </CardContent>
         </Card>
-      </div>
     </div>
   );
 }

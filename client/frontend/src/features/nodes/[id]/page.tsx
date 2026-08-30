@@ -61,8 +61,7 @@ const CopyableCode = ({ command, t }: { command: string, t: any }) => {
 
 function SystemInfoCard({ node, t }: { node: any; t: any }) {
   return (
-    <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50">
-      <Card className="border-0">
+    <Card className="border border-border/60 rounded-xl overflow-hidden">
         <CardHeader>
           <CardTitle>{t('nodes.detail.systemInfo.title')}</CardTitle>
         </CardHeader>
@@ -93,14 +92,12 @@ function SystemInfoCard({ node, t }: { node: any; t: any }) {
           </div>
         </CardContent>
       </Card>
-    </div>
   );
 }
 
 function DisksCard({ disks, t }: { disks: any[]; t: any }) {
   return (
-    <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50">
-      <Card className="border-0">
+    <Card className="border border-border/60 rounded-xl overflow-hidden">
         <CardHeader>
           <CardTitle>{t('nodes.detail.disks.title')}</CardTitle>
         </CardHeader>
@@ -121,7 +118,6 @@ function DisksCard({ disks, t }: { disks: any[]; t: any }) {
           ))}
         </CardContent>
       </Card>
-    </div>
   );
 }
 
@@ -134,8 +130,7 @@ function ServersCard({ serversOnNode, t }: { serversOnNode: any[]; t: any }) {
   const totalPages = Math.ceil(serversOnNode.length / serversPerPage);
 
   return (
-    <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50">
-      <Card className="border-0">
+    <Card className="border border-border/60 rounded-xl overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
           <CardTitle>{t('nodes.detail.serversOnNode.title')}</CardTitle>
           <Badge variant="secondary" className="font-semibold">
@@ -183,7 +178,6 @@ function ServersCard({ serversOnNode, t }: { serversOnNode: any[]; t: any }) {
           )}
         </CardContent>
       </Card>
-    </div>
   );
 }
 
@@ -331,8 +325,8 @@ function EditNodeCard({ node, t }: { node: any; t: any }) {
   };
 
   return (
-    <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50">
-      <Card className="border-0">
+    <>
+    <Card className="border border-border/60 rounded-xl overflow-hidden">
         <CardHeader>
           <CardTitle>{t('nodes.detail.editNode.title')}</CardTitle>
         </CardHeader>
@@ -433,7 +427,7 @@ function EditNodeCard({ node, t }: { node: any; t: any }) {
         </CardContent>
       </Card>
       <DeployDialog isDeployDialogOpen={isDeployDialogOpen} setIsDeployDialogOpen={setIsDeployDialogOpen} node={node} t={t}  />
-    </div>
+      </>
   );
 }
 
@@ -509,8 +503,7 @@ export default function NodeDetailPage({ params }: { params: { id: string } }) {
       <PageHeader title={node.name} />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50">
-          <Card className="border-0 h-full">
+        <Card className="border border-border/60 rounded-xl overflow-hidden h-full">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t('nodes.detail.totalServers')}</CardTitle>
               <ServerIcon className="h-4 w-4 text-muted-foreground" />
@@ -519,9 +512,7 @@ export default function NodeDetailPage({ params }: { params: { id: string } }) {
               <div className="text-2xl font-bold">{serversOnNode.length}</div>
             </CardContent>
           </Card>
-        </div>
-        <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50">
-          <Card className="border-0 h-full">
+        <Card className="border border-border/60 rounded-xl overflow-hidden h-full">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{t('nodes.detail.serverStatus')}</CardTitle>
               <ServerIcon className="h-4 w-4 text-muted-foreground" />
@@ -531,9 +522,7 @@ export default function NodeDetailPage({ params }: { params: { id: string } }) {
               <p className="text-xs text-muted-foreground">{t('nodes.detail.offline', { count: offlineServersCount })}</p>
             </CardContent>
           </Card>
-        </div>
-        <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50">
-          <Card className="border-0 h-full">
+        <Card className="border border-border/60 rounded-xl overflow-hidden h-full">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 {t('nodes.detail.memoryUsage')}
@@ -549,9 +538,7 @@ export default function NodeDetailPage({ params }: { params: { id: string } }) {
               )}
             </CardContent>
           </Card>
-        </div>
-        <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50">
-          <Card className="border-0 h-full">
+        <Card className="border border-border/60 rounded-xl overflow-hidden h-full">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 {t('nodes.detail.cpuUsage')}
@@ -583,7 +570,6 @@ export default function NodeDetailPage({ params }: { params: { id: string } }) {
               )}
             </CardContent>
           </Card>
-        </div>
       </div>
 
       <Alert variant="default" className="border-green-500/50 bg-green-500/10 text-green-200">

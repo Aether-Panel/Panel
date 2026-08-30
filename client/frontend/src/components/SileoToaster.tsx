@@ -8,7 +8,7 @@ export default function SileoToaster() {
             position="bottom-right"
             offset={16}
             options={{
-                fill: '#181b26',
+                fill: 'hsl(224 22% 9%)',
                 roundness: 10,
                 duration: 4500,
                 styles: {

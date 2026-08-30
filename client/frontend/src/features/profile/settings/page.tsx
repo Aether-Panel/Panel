@@ -195,7 +195,7 @@ export default function ProfileSettingsPage() {
           ))}
         </TabsList>
         <TabsContent value="settings">
-          <div className="mt-6 rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50">
+          <div className="mt-6 rounded-lg border">
             <Card className="border-0">
               <CardHeader>
                 <CardTitle>{t('profileSettings.general.title')}</CardTitle>
@@ -224,7 +224,7 @@ export default function ProfileSettingsPage() {
           </div>
         </TabsContent>
         <TabsContent value="details">
-          <div className="mt-6 rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50">
+          <div className="mt-6 rounded-lg border">
             <Card className="border-0">
               <CardHeader>
                 <CardTitle>{t('profileSettings.accountDetails.title')}</CardTitle>
@@ -253,7 +253,7 @@ export default function ProfileSettingsPage() {
           </div>
         </TabsContent>
         <TabsContent value="password">
-          <div className="mt-6 rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50">
+          <div className="mt-6 rounded-lg border">
             <Card className="border-0">
               <CardHeader>
                 <CardTitle>{t('profileSettings.changePassword.title')}</CardTitle>
@@ -282,7 +282,7 @@ export default function ProfileSettingsPage() {
           </div>
         </TabsContent>
         <TabsContent value="2fa">
-          <div className="mt-6 rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50">
+          <div className="mt-6 rounded-lg border">
             <Card className="border-0">
               <CardHeader>
                 <CardTitle>{t('profileSettings.twoFactor.title')}</CardTitle>
@@ -398,7 +398,7 @@ export default function ProfileSettingsPage() {
           </Dialog>
         </TabsContent>
         <TabsContent value="oauth">
-          <div className="mt-6 rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50">
+          <div className="mt-6 rounded-lg border">
             <Card className="border-0">
               <CardHeader>
                 <CardTitle>{t('profileSettings.oauth.title')}</CardTitle>
