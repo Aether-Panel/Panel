@@ -1,6 +1,6 @@
 module github.com/SkyPanel/SkyPanel/v3
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/MicahParks/jwkset v0.11.3
@@ -45,7 +45,7 @@ require (
 	github.com/swaggo/gin-swagger v1.6.1
 	github.com/swaggo/swag v1.16.6
 	github.com/wneessen/go-mail v0.8.1
-	golang.org/x/crypto v0.55.0
+	golang.org/x/crypto v0.56.0
 	golang.org/x/sys v0.47.0
 	google.golang.org/genai v1.69.0
 	gopkg.in/go-playground/validator.v9 v9.31.0
