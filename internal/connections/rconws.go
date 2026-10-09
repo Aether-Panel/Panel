@@ -82,7 +82,7 @@ func (tc *RCONWSConnection) reconnector() {
 			Port: cast.ToInt(tc.Port),
 		}
 
-		conn, _, err := websocket.DefaultDialer.Dial(fmt.Sprintf("ws://%s/%s", ipAddr, tc.Password), nil)
+		conn, _, err := websocket.DefaultDialer.Dial(fmt.Sprintf("wss://%s/%s", ipAddr, tc.Password), nil)
 		if err != nil {
 			logging.Debug.Printf("Error waiting for RCON WS socket: %s", err.Error())
 			continue

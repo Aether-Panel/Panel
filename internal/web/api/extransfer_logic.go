@@ -682,7 +682,7 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 func parseOriginURL(rawURL string) (*url.URL, error) {
 	rawURL = strings.TrimSpace(rawURL)
 	if !strings.HasPrefix(rawURL, "http://") && !strings.HasPrefix(rawURL, "https://") {
-		rawURL = "http://" + rawURL
+		rawURL = "https://" + rawURL
 	}
 	if err := utils.ValidateExternalURL(rawURL); err != nil {
 		return nil, err
