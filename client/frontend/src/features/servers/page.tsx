@@ -1,17 +1,13 @@
 'use client';
 import { useAuth } from '@/contexts/providers';
 import { useEffect, useState } from 'react';
-import type { Server } from '@/lib/data';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { MoreHorizontal, PlusCircle, Server as ServerIcon, Globe, Activity } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { PlusCircle, Server as ServerIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 import { useTranslations } from '@/contexts/translations-context';
 import { useServers } from '@/hooks/use-servers';
-import { cn, formatBytes } from '@/lib/utils';
 import { CreateServerStepper } from './create-server-stepper';
 
 import { ServerCard } from '@/components/server-card';
@@ -48,7 +44,7 @@ export default function ServersPage() {
   }
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       <PageHeader title={t('servers.title')} description={t('servers.description')}>
         {hasScope('server.create') && (
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
@@ -74,11 +70,25 @@ export default function ServersPage() {
         )}
       </PageHeader>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 2xl:grid-cols-3">
-        {servers.map((server) => (
-          <ServerCard key={server.id} server={server} t={t} />
-        ))}
-      </div>
+      {servers.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border/60 bg-card/50 p-12 text-center">
+          <ServerIcon className="mx-auto h-10 w-10 text-muted-foreground/40 mb-4" />
+          <p className="text-sm font-medium text-foreground mb-1">{t('servers.empty.title')}</p>
+          <p className="text-xs text-muted-foreground mb-4">{t('servers.empty.description')}</p>
+          {hasScope('server.create') && (
+            <Button onClick={() => setIsCreateOpen(true)}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              {t('servers.addServer')}
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {servers.map((server) => (
+            <ServerCard key={server.id} server={server} t={t} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

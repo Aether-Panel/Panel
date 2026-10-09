@@ -262,14 +262,14 @@ export default function AdminView({ serverId }: { serverId: string }) {
                             </div>
 
                             <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
-                                <DialogContent className="w-[90vw] max-w-[90vw] h-[80vh] flex flex-col">
-                                    <DialogHeader>
+                                <DialogContent className="w-[90vw] max-w-[90vw] h-[85vh] flex flex-col gap-0 p-0 overflow-hidden">
+                                    <DialogHeader className="px-5 pt-5 pb-3">
                                         <DialogTitle>{t('servers.admin.editDefinition.title')}</DialogTitle>
                                         <DialogDescription>
                                             {t('servers.admin.editDefinition.description')}
                                         </DialogDescription>
                                     </DialogHeader>
-                                    <div className="flex-grow min-h-0 border rounded-md">
+                                    <div className="flex-grow min-h-0">
                                         <Suspense fallback={<div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
                                             <CodeEditor
                                                 language="json"
@@ -279,7 +279,7 @@ export default function AdminView({ serverId }: { serverId: string }) {
                                             />
                                         </Suspense>
                                     </div>
-                                    <DialogFooter className="mt-4 gap-2">
+                                    <DialogFooter className="px-5 py-3 gap-2 border-t border-border/60">
                                         <Button variant="outline" onClick={() => setEditorOpen(false)}>
                                             {t('common.cancel')}
                                         </Button>

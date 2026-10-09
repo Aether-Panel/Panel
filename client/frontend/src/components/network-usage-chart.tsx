@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer, Legend } from 'recharts';
 import { useTranslations } from '@/contexts/translations-context';
+import { Network } from 'lucide-react';
 
 type NetworkMetric = {
   time: string;
@@ -35,8 +36,10 @@ export default function NetworkUsageChart({ serverMetrics, className }: NetworkU
       </CardHeader>
       <CardContent>
         {!hasData ? (
-          <div className="flex h-[250px] items-center justify-center text-muted-foreground text-sm">
-            Waiting for network data…
+          <div className="flex h-[250px] flex-col items-center justify-center gap-3 text-muted-foreground">
+            <Network className="h-8 w-8 text-muted-foreground/40" />
+            <p className="text-sm font-medium">No network data available</p>
+            <p className="text-xs text-muted-foreground/70">Metrics will appear once servers are online</p>
           </div>
         ) : (
           <ChartContainer config={chartConfig} className="h-[250px] w-full">

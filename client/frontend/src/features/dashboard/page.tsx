@@ -2,7 +2,7 @@
 import { useAuth } from '@/contexts/providers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Server } from '@/lib/data';
-import { Activity, Cpu, Network } from 'lucide-react';
+import { Activity, Cpu, Network, ServerIcon } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { PageHeader } from '@/components/page-header';
 import ResourceUsageChart from '@/components/resource-usage-chart';
@@ -58,16 +58,16 @@ type StatCardProps = {
 
 function StatCard({ label, value, icon: Icon, dot }: StatCardProps) {
   return (
-    <div className="flex flex-col gap-5 rounded-xl border border-border/80 bg-card p-5 transition-colors hover:border-border">
-      <div className="flex items-center justify-between gap-3">
-        <p className="truncate text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
-        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-border/80 bg-muted/40 text-muted-foreground">
-          <Icon className="h-4 w-4" />
+    <div className="flex flex-col gap-3 rounded-xl border border-border/50 bg-card p-5 transition-all duration-200 hover:border-border/80 hover:shadow-sm">
+      <div className="flex items-center gap-3">
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+          <Icon className="h-5 w-5" />
         </div>
+        <p className="text-xs font-medium text-muted-foreground">{label}</p>
       </div>
-      <div className="flex items-end justify-between gap-2">
-        <p className="font-mono text-3xl font-medium leading-none tracking-tight text-foreground">{value}</p>
-        {dot && <span className={cn('mb-1 h-2 w-2 rounded-full', dot === 'success' ? 'bg-success' : 'bg-destructive')} />}
+      <div className="flex items-baseline gap-2">
+        <p className="font-mono text-4xl font-semibold tracking-tight text-foreground">{value}</p>
+        {dot && <span className={cn('h-2.5 w-2.5 rounded-full', dot === 'success' ? 'bg-success' : 'bg-destructive')} />}
       </div>
     </div>
   );
@@ -88,13 +88,20 @@ function AdminDashboard({ user, t, canSeeNodes, canSeeUsers, allServers, usersCo
   const avgMemoryUsage = calculateMemoryUsage(nodeResources, onlineServers, onlineCount);
   const avgStorageUsage = calculateStorageUsage(nodeResources, onlineServers, onlineCount);
 
+  const systemInfoItems = [
+    { label: t('dashboard.admin.panelVersion'), value: 'AetherPanel' },
+    { label: t('dashboard.admin.totalServers'), value: totalServers },
+    ...(canSeeUsers ? [{ label: t('dashboard.admin.totalUsers'), value: totalUsers }] : []),
+    ...(canSeeNodes ? [{ label: t('dashboard.admin.totalNodes'), value: totalNodes }] : []),
+  ];
+
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={t('dashboard.welcome', { name: user?.username || t('dashboard.defaultName') })}
         description={t('dashboard.admin.description')}
       />
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {canSeeNodes && (
           <StatCard label={t('dashboard.admin.totalNodes')} value={totalNodes} icon={Network} />
         )}
@@ -118,32 +125,18 @@ function AdminDashboard({ user, t, canSeeNodes, canSeeUsers, allServers, usersCo
         </div>
         <div className="lg:col-span-1">
           <Card className="h-fit">
-            <CardHeader className="border-b border-border/70 px-6">
-              <CardTitle className="font-headline text-lg">{t('dashboard.admin.systemInfo')}</CardTitle>
+            <CardHeader className="px-6 pb-4">
+              <CardTitle className="font-headline text-base font-semibold">{t('dashboard.admin.systemInfo')}</CardTitle>
             </CardHeader>
-            <CardContent className="p-0">
-              <dl className="divide-y divide-border/70">
-                <div className="flex items-center justify-between gap-4 px-6 py-3.5">
-                  <dt className="text-sm text-muted-foreground">{t('dashboard.admin.panelVersion')}</dt>
-                  <dd className="font-mono text-sm text-foreground">AetherPanel</dd>
-                </div>
-                <div className="flex items-center justify-between gap-4 px-6 py-3.5">
-                  <dt className="text-sm text-muted-foreground">{t('dashboard.admin.totalServers')}</dt>
-                  <dd className="font-mono text-sm text-foreground">{totalServers}</dd>
-                </div>
-                {canSeeUsers && (
-                  <div className="flex items-center justify-between gap-4 px-6 py-3.5">
-                    <dt className="text-sm text-muted-foreground">{t('dashboard.admin.totalUsers')}</dt>
-                    <dd className="font-mono text-sm text-foreground">{totalUsers}</dd>
+            <CardContent className="px-6 pb-6">
+              <div className="space-y-4">
+                {systemInfoItems.map((item, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">{item.label}</span>
+                    <span className="font-mono text-sm font-medium text-foreground">{item.value}</span>
                   </div>
-                )}
-                {canSeeNodes && (
-                  <div className="flex items-center justify-between gap-4 px-6 py-3.5">
-                    <dt className="text-sm text-muted-foreground">{t('dashboard.admin.totalNodes')}</dt>
-                    <dd className="font-mono text-sm text-foreground">{totalNodes}</dd>
-                  </div>
-                )}
-              </dl>
+                ))}
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -156,13 +149,13 @@ function AdminDashboard({ user, t, canSeeNodes, canSeeUsers, allServers, usersCo
 
 function UserDashboard({ user, t, userServers }: any) {
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={t('dashboard.welcome', { name: user?.username || t('dashboard.defaultName') })}
         description={t('dashboard.user.description')}
       />
       <div>
-        <h2 className="text-xl font-semibold tracking-tight mb-4">{t('dashboard.user.myServers')}</h2>
+        <h2 className="text-lg font-semibold tracking-tight text-foreground mb-4">{t('dashboard.user.myServers')}</h2>
         {userServers.length > 0 ? (
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 2xl:grid-cols-3">
             {userServers.map((server: any) => (
@@ -170,8 +163,10 @@ function UserDashboard({ user, t, userServers }: any) {
             ))}
           </div>
         ) : (
-          <div className="rounded-xl border border-border/80 bg-card p-12 text-center shadow-sm">
-            <p className="text-sm text-muted-foreground">{t('dashboard.user.noServers')}</p>
+          <div className="rounded-xl border border-dashed border-border/60 bg-card/50 p-12 text-center">
+            <ServerIcon className="mx-auto h-10 w-10 text-muted-foreground/40 mb-4" />
+            <p className="text-sm font-medium text-foreground mb-1">{t('dashboard.user.noServers')}</p>
+            <p className="text-xs text-muted-foreground">Contact your administrator to get started</p>
           </div>
         )}
       </div>

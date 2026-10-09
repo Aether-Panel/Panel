@@ -9,8 +9,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        body: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        headline: ['"Space Grotesk"', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        body: ['Outfit', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        headline: ['"Space Grotesk"', 'Outfit', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       colors: {

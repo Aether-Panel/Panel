@@ -50,6 +50,14 @@ const tokyoNight = {
     'editorLineNumber.foreground': '#565f89',
     'editorLineNumber.activeForeground': '#7aa2f7',
     'editorGutter.background': '#1a1b26',
+    'editorIndentGuide.background': '#292e42',
+    'editorIndentGuide.activeBackground': '#3b4261',
+    'editorBracketMatch.background': '#33467c40',
+    'editorBracketMatch.border': '#7aa2f780',
+    'scrollbar.shadow': '#00000000',
+    'scrollbarSlider.background': '#41486840',
+    'scrollbarSlider.hoverBackground': '#41486860',
+    'scrollbarSlider.activeBackground': '#41486880',
   },
 };
 
@@ -115,13 +123,13 @@ export default function CodeEditor({ language, value, onChange, onSave }: CodeEd
 
   const loadingFallback = (
     <div className="flex h-full w-full flex-col items-center justify-center gap-4 bg-[#1a1b26]">
-      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      <p className="text-sm text-muted-foreground">Loading Editor...</p>
+      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground/60" />
+      <p className="text-xs text-muted-foreground/60">Loading Editor...</p>
     </div>
   );
 
   return (
-    <div className="monaco-editor-host relative h-full w-full min-h-[300px] overflow-hidden rounded-md border border-input bg-[#1a1b26]">
+    <div className="monaco-editor-host relative h-full w-full overflow-hidden rounded-lg bg-[#1a1b26]">
       <Editor
         height="100%"
         width="100%"
@@ -140,8 +148,7 @@ export default function CodeEditor({ language, value, onChange, onSave }: CodeEd
             tabSize: 2,
             wordWrap: 'on',
             minimap: {
-              enabled: true,
-              maxColumn: 80,
+              enabled: false,
             },
             lineNumbers: 'on',
             roundedSelection: false,
@@ -151,8 +158,8 @@ export default function CodeEditor({ language, value, onChange, onSave }: CodeEd
             cursorSmoothCaretAnimation: 'on',
             cursorWidth: 2,
             padding: {
-              top: 16,
-              bottom: 16,
+              top: 8,
+              bottom: 8,
             },
             bracketPairColorization: {
               enabled: true,
@@ -161,9 +168,16 @@ export default function CodeEditor({ language, value, onChange, onSave }: CodeEd
               bracketPairs: true,
               indentation: true,
             },
-            renderLineHighlight: 'all',
+            renderLineHighlight: 'gutter',
             unusualLineTerminators: 'off',
             readOnly: false,
+            overviewRulerBorder: false,
+            hideCursorInOverviewRuler: true,
+            scrollbar: {
+              verticalScrollbarSize: 8,
+              horizontalScrollbarSize: 8,
+              useShadows: false,
+            },
           }}
       />
     </div>

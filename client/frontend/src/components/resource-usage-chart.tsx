@@ -26,8 +26,8 @@ export default function ResourceUsageChart({ cpuUsage, memoryUsage, storageUsage
     const Icon = config.icon;
 
     return (
-      <div className="flex flex-col items-center gap-4">
-        <div className="relative mx-auto h-[150px] w-[150px]">
+      <div className="flex flex-col items-center gap-3">
+        <div className="relative mx-auto h-[120px] w-[120px]">
           <ChartContainer
             config={chartConfig}
             className="aspect-square h-full w-full"
@@ -37,7 +37,7 @@ export default function ResourceUsageChart({ cpuUsage, memoryUsage, storageUsage
               endAngle={0}
               innerRadius="80%"
               outerRadius="100%"
-              barSize={10}
+              barSize={8}
               data={[{ name, value, fill: `var(--color-${name})` }]}
               cx="50%"
               cy="65%"
@@ -56,15 +56,15 @@ export default function ResourceUsageChart({ cpuUsage, memoryUsage, storageUsage
               />
             </RadialBarChart>
           </ChartContainer>
-          <div className="absolute inset-0 flex flex-col items-center justify-center pt-8">
-            <span className="font-mono text-3xl font-medium tracking-tight text-foreground">
+          <div className="absolute inset-0 flex flex-col items-center justify-center pt-6">
+            <span className="font-mono text-2xl font-semibold tracking-tight text-foreground">
               {value}
-              <span className="text-sm text-muted-foreground">%</span>
+              <span className="text-xs text-muted-foreground">%</span>
             </span>
           </div>
         </div>
-        <div className="flex items-center gap-2 text-center text-sm font-medium text-muted-foreground">
-          <Icon className="h-4 w-4" />
+        <div className="flex items-center gap-1.5 text-center text-xs font-medium text-muted-foreground">
+          <Icon className="h-3.5 w-3.5" />
           {config.label}
         </div>
       </div>
@@ -77,7 +77,7 @@ export default function ResourceUsageChart({ cpuUsage, memoryUsage, storageUsage
         <CardTitle>{t('dashboard.admin.resourceOverview.title')}</CardTitle>
         <CardDescription>{t('dashboard.admin.resourceOverview.description')}</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-8 p-6 pt-2 sm:flex-row sm:justify-around sm:items-center">
+      <CardContent className="flex flex-col gap-6 p-6 pt-2 sm:flex-row sm:justify-around sm:items-center">
         <SingleGauge name="cpu" value={cpuUsage} />
         <SingleGauge name="memory" value={memoryUsage} />
         <SingleGauge name="storage" value={storageUsage} />

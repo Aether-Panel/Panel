@@ -358,8 +358,7 @@ export default function TemplatesPage() {
                   const Icon = getIconForCategory(template.type);
                   const categoryLabel = template.type || 'Other';
                   return (
-                    <div key={`local-${template.name}-${idx}`} className="rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50 transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-primary/10">
-                    <Card className="flex h-full cursor-pointer flex-col justify-between overflow-hidden border-0">
+                    <Card key={`local-${template.name}-${idx}`} className="flex h-full cursor-pointer flex-col justify-between overflow-hidden border border-border/60 rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-primary/10">
                       <CardHeader>
                         <div className="flex items-start justify-between">
                           <Icon className="h-10 w-10 text-muted-foreground" />
@@ -396,7 +395,6 @@ export default function TemplatesPage() {
                           </Button>
                         </div>
                       </Card>
-                    </div>
                   );
                 })}
               </div>
@@ -414,8 +412,7 @@ export default function TemplatesPage() {
                   const Icon = getIconForCategory(template.type);
                   const categoryLabel = template.type || 'Other';
                   return (
-                    <div key={`com-${template.repoId}-${template.name}-${idx}`} className="rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50 transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-primary/10">
-                      <Card className="flex h-full cursor-pointer flex-col justify-between overflow-hidden border-0">
+                    <Card key={`com-${template.repoId}-${template.name}-${idx}`} className="flex h-full cursor-pointer flex-col justify-between overflow-hidden border border-border/60 rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-primary/10">
                         <CardHeader>
                           <div className="flex items-start justify-between">
                             <Icon className="h-10 w-10 text-muted-foreground" />
@@ -436,7 +433,6 @@ export default function TemplatesPage() {
                           </Button>
                         </div>
                       </Card>
-                    </div>
                   );
                 })}
               </div>

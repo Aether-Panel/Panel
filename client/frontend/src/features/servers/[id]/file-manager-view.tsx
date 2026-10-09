@@ -810,7 +810,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
             </div>
           </div>
 
-          <div className="min-h-0 flex-1">
+          <div className="min-h-0 flex-1 [&_.monaco-editor-host]:rounded-none [&_.monaco-editor-host]:border-0">
             {editingFile && (
               <Suspense fallback={<div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
                 <CodeEditor

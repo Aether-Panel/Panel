@@ -131,7 +131,7 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
                         aria-hidden="true"
                         className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-30"
                     />
-                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-sidebar" />
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-transparent/50 to-sidebar" />
                     {showHeaderDecorations && (
                         <>
                             <img
@@ -243,7 +243,7 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
 
             <SidebarInset>
                 {/* Mobile top bar with menu button — desktop hidden */}
-                <header className="flex h-12 items-center gap-3 border-b border-border/50 bg-background/95 backdrop-blur px-4 sticky top-0 z-40 md:hidden">
+                <header className="flex h-14 items-center gap-3 border-b border-border/40 bg-background/95 backdrop-blur px-4 sticky top-0 z-40 md:hidden">
                     <SidebarTrigger className="h-8 w-8" />
                     <span className="text-sm font-medium text-muted-foreground">Menú</span>
                 </header>

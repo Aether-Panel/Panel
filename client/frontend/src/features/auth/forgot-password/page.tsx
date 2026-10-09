@@ -19,7 +19,7 @@ const formSchema = z.object({
 });
 
 const inputClass =
-  'px-3 py-2.5 text-sm text-foreground rounded-md bg-background/60 border border-border/60 placeholder:text-muted-foreground/50 focus:border-primary focus:bg-background/80 focus:ring-0';
+  'px-3 py-2.5 text-sm text-foreground rounded-lg bg-background border border-input placeholder:text-muted-foreground/60 focus:border-primary focus:ring-1 focus:ring-primary/20 focus:ring-0';
 
 export default function ForgotPasswordPage() {
   const { config } = useConfig();
@@ -48,7 +48,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <main className="md:min-h-screen flex items-center justify-center py-4 px-4 md:px-8 bg-background">
-      <div className="w-full max-w-5xl bg-card [box-shadow:0_2px_10px_-3px_rgba(0,0,0,0.3)] rounded-2xl overflow-hidden border border-border">
+      <div className="w-full max-w-5xl bg-card [box-shadow:0_4px_20px_-4px_rgba(0,0,0,0.4)] rounded-2xl overflow-hidden border border-border/60">
         <div className="grid items-center w-full gap-0 md:grid-cols-2">
           <div className="relative md:aspect-[8/10] w-full h-full overflow-hidden">
             <img
@@ -79,7 +79,7 @@ export default function ForgotPasswordPage() {
                   <Button
                     type="button"
                     onClick={() => setSent(false)}
-                    className="w-full py-2 px-3.5 text-sm rounded-md font-semibold cursor-pointer text-primary-foreground bg-primary hover:bg-primary/90 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary h-auto"
+                    className="w-full py-2 px-3.5 text-sm rounded-lg font-semibold cursor-pointer text-primary-foreground bg-primary hover:bg-primary/90 transition-all duration-200 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary h-auto shadow-sm shadow-primary/20"
                   >
                     Send another email
                   </Button>
@@ -110,7 +110,7 @@ export default function ForgotPasswordPage() {
 
                       <Button
                         type="submit"
-                        className="w-full py-2 px-3.5 text-sm rounded-md font-semibold cursor-pointer text-primary-foreground bg-primary hover:bg-primary/90 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary h-auto"
+                        className="w-full py-2 px-3.5 text-sm rounded-lg font-semibold cursor-pointer text-primary-foreground bg-primary hover:bg-primary/90 transition-all duration-200 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary h-auto shadow-sm shadow-primary/20"
                         disabled={loading}
                       >
                         {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

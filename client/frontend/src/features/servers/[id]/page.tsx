@@ -194,28 +194,26 @@ function ServerOverviewCards({ server, queryData, t }: any) {
       </Card>
 
       {queryData?.minecraft && (
-        <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/30 via-accent/20 to-primary/10">
-          <Card className="border-0">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                {t('servers.detail.overview.playersOnline')}: {queryData.minecraft.numPlayers} / {queryData.minecraft.maxPlayers}
-              </CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Progress value={(queryData.minecraft.numPlayers / Math.max(queryData.minecraft.maxPlayers, 1)) * 100} className="h-2" />
-              {queryData.minecraft.players && queryData.minecraft.players.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {queryData.minecraft.players.map((player: string) => (
-                    <Badge key={player} variant="secondary">
-                      {player}
-                    </Badge>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+        <Card className="border border-border/60 rounded-xl">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              {t('servers.detail.overview.playersOnline')}: {queryData.minecraft.numPlayers} / {queryData.minecraft.maxPlayers}
+            </CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Progress value={(queryData.minecraft.numPlayers / Math.max(queryData.minecraft.maxPlayers, 1)) * 100} className="h-2" />
+            {queryData.minecraft.players && queryData.minecraft.players.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {queryData.minecraft.players.map((player: string) => (
+                  <Badge key={player} variant="secondary">
+                    {player}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
     </div>
   );
@@ -571,10 +569,10 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
           <ErrorBoundary name="OverviewView">
             <ServerOverviewCards server={server} queryData={queryData} t={t} />
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/30 via-accent/20 to-primary/10">
+              <div className="border border-border/60 rounded-xl">
                 <MetricsCharts serverMetrics={server.metrics} className="border-0" />
               </div>
-              <div className="rounded-lg p-[1px] bg-gradient-to-br from-primary/30 via-accent/20 to-primary/10">
+              <div className="border border-border/60 rounded-xl">
                 <NetworkUsageChart serverMetrics={server.metrics} className="border-0" />
               </div>
             </div>
