@@ -47,9 +47,9 @@ git checkout "$GIT_BRANCH" 2>/dev/null || git checkout main
 git pull
 
 # Re-aplicar configuración de esclavo sobre el yml recién actualizado
-if [ "$IS_SLAVE" = "true" ]; then
+if [[ "$IS_SLAVE" = "true" ]]; then
     sed -i 's|^[[:space:]]*# - SKYPANEL_PANEL_ENABLE=false|      - SKYPANEL_PANEL_ENABLE=false|' docker-compose.yml
-    if [ -n "$SLAVE_TOKEN_PUBLIC" ]; then
+    if [[ -n "$SLAVE_TOKEN_PUBLIC" ]]; then
         sed -i "s|^[[:space:]]*# - SKYPANEL_TOKEN_PUBLIC=.*|      - SKYPANEL_TOKEN_PUBLIC=${SLAVE_TOKEN_PUBLIC}|" docker-compose.yml
     fi
     echo "[✓] Configuración de nodo esclavo re-aplicada en docker-compose.yml."
