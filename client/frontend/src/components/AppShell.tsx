@@ -80,7 +80,7 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
             }
         };
 
-        checkGlobalUpdate();
+        void checkGlobalUpdate();
     }, [config?.version, hasScope]);
 
     const navItems = [
@@ -146,7 +146,6 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
                                 muted
                                 loop
                                 playsInline
-                                aria-hidden="true"
                                 className="pointer-events-none absolute bottom-1 right-1 h-8 w-8 rounded object-cover opacity-60"
                             />
                         </>

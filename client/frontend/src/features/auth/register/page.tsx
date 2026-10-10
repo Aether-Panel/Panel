@@ -94,11 +94,11 @@ export default function RegisterPage() {
                     name="username"
                     render={({ field }) => (
                       <FormItem>
-                        <label className="mb-2 text-foreground font-medium text-sm inline-block">
+                        <label htmlFor="username" className="mb-2 text-foreground font-medium text-sm inline-block">
                           Username
                         </label>
                         <FormControl>
-                          <Input {...field} type="text" placeholder="yourusername" className={inputClass} />
+                          <Input {...field} id="username" type="text" placeholder="yourusername" className={inputClass} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -110,11 +110,11 @@ export default function RegisterPage() {
                     name="email"
                     render={({ field }) => (
                       <FormItem>
-                        <label className="mb-2 text-foreground font-medium text-sm inline-block">
+                        <label htmlFor="email" className="mb-2 text-foreground font-medium text-sm inline-block">
                           Email
                         </label>
                         <FormControl>
-                          <Input {...field} type="email" placeholder="you@example.com" className={inputClass} />
+                          <Input {...field} id="email" type="email" placeholder="you@example.com" className={inputClass} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -126,11 +126,11 @@ export default function RegisterPage() {
                     name="password"
                     render={({ field }) => (
                       <FormItem>
-                        <label className="mb-2 text-foreground font-medium text-sm inline-block">
+                        <label htmlFor="password" className="mb-2 text-foreground font-medium text-sm inline-block">
                           Password
                         </label>
                         <FormControl>
-                          <Input {...field} type="password" placeholder="••••••••" className={inputClass} />
+                          <Input {...field} id="password" type="password" placeholder="••••••••" className={inputClass} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -142,11 +142,11 @@ export default function RegisterPage() {
                     name="confirmPassword"
                     render={({ field }) => (
                       <FormItem>
-                        <label className="mb-2 text-foreground font-medium text-sm inline-block">
+                        <label htmlFor="confirmPassword" className="mb-2 text-foreground font-medium text-sm inline-block">
                           Confirm Password
                         </label>
                         <FormControl>
-                          <Input {...field} type="password" placeholder="••••••••" className={inputClass} />
+                          <Input {...field} id="confirmPassword" type="password" placeholder="••••••••" className={inputClass} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
