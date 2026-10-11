@@ -3799,6 +3799,13 @@ dompurify@3.4.15:
   optionalDependencies:
     "@types/trusted-types" "^2.0.7"
 
+dompurify@^3.4.16:
+  version "3.4.16"
+  resolved "https://registry.yarnpkg.com/dompurify/-/dompurify-3.4.16.tgz#c51b3709ea15ee9abb07e804f2ef30ea9b953128"
+  integrity sha512-sqo+pNp3qRhCIpbgRi1y8Tgk27Bo2Ry7w0dC1NBeNTdZChWjz9Xb/KOoZbRP/R6pQZ80Qw8YhXw13hWWBbMRnQ==
+  optionalDependencies:
+    "@types/trusted-types" "^2.0.7"
+
 domutils@^3.2.2:
   version "3.2.2"
   resolved "https://registry.yarnpkg.com/domutils/-/domutils-3.2.2.tgz#edbfe2b668b0c1d97c24baf0f1062b132221bc78"
@@ -3816,9 +3823,9 @@ dot-prop@^6.0.0:
     is-obj "^2.0.0"
 
 dotenv@^18.0.6:
-  version "18.0.6"
-  resolved "https://registry.yarnpkg.com/dotenv/-/dotenv-18.0.6.tgz#4be6fbb5dfad109aa10edc59c42e369bf4243ce8"
-  integrity sha512-ZMVmohV6CvAJtj++pZNyggluUt6hbRdQAxc2+Z635RL6/AG/ruXv5lHnybUFoxMPL/yrTL/tsF4paZu2l7RA6Q==
+  version "18.0.7"
+  resolved "https://registry.yarnpkg.com/dotenv/-/dotenv-18.0.7.tgz#ee6bec88c59298d9b218acdf49377f2c110a7698"
+  integrity sha512-QEvMEF8ca3GNZJJnAbOgxpj5ULhBvnMcURp+XKrtvqFNPgjBvYoswQ0Jl2cO7JzCjxZjJhr9ZuIEhlrRxMft/Q==
 
 dotprompt@^1.1.1:
   version "1.1.2"
@@ -4107,9 +4114,9 @@ fast-string-width@^3.0.2:
     fast-string-truncated-width "^3.0.2"
 
 fast-uri@^3.0.1, fast-uri@^4.2.1:
-  version "4.2.1"
-  resolved "https://registry.yarnpkg.com/fast-uri/-/fast-uri-4.2.1.tgz#816fb0fd61f511adcc35aadbbc1bcbf656d9e72a"
-  integrity sha512-TmHQgewjHtMq1E5QKA0tOE0yeYGQs25KZC/ziJpubRtWI15W92e6vPFydWOeZBVROSHBYw/QhD9d5OefdD6LDg==
+  version "4.2.2"
+  resolved "https://registry.yarnpkg.com/fast-uri/-/fast-uri-4.2.2.tgz#428437b7ff49d069f1e16be3bdb6597e8cd72cb9"
+  integrity sha512-EwVpUMzLVNOmcWW0zi5G3JJwkopB6XXjnVvNBGfqrMMsVew2hkQWl5e/pe/CfYUeS6jt4cIO2MnamEW7v/7wPw==
 
 fast-wrap-ansi@^0.2.0:
   version "0.2.2"
@@ -5648,6 +5655,14 @@ postcss-selector-parser@^6.1.1, postcss-selector-parser@^6.1.2:
     cssesc "^3.0.0"
     util-deprecate "^1.0.2"
 
+postcss-selector-parser@^7.1.6:
+  version "7.1.6"
+  resolved "https://registry.yarnpkg.com/postcss-selector-parser/-/postcss-selector-parser-7.1.6.tgz#45e970f2d93d4547d6754167ed1132f43012c4bf"
+  integrity sha512-7qASPzhKF2l2KLboRZux8CCTRMdGiV08vWmyKzPz22qZ7ZjQBOeY7rNzNoCLSUiftJ7HUq0GERHmxw/t0dCdMw==
+  dependencies:
+    cssesc "^3.0.0"
+    util-deprecate "^1.0.2"
+
 postcss-value-parser@^4.0.0, postcss-value-parser@^4.2.0:
   version "4.2.0"
   resolved "https://registry.yarnpkg.com/postcss-value-parser/-/postcss-value-parser-4.2.0.tgz#723c09920836ba6d3e5af019f92bc0971c02e514"
@@ -5685,9 +5700,9 @@ postgres-interval@^1.1.0:
     xtend "^4.0.0"
 
 prettier@^3.8.1:
-  version "3.9.9"
-  resolved "https://registry.yarnpkg.com/prettier/-/prettier-3.9.9.tgz#09b826918c91cd4cbc80e0cbd1d2a922ff04f233"
-  integrity sha512-Z/CJHIkdujO/OtN7nXUii0Rf3VT5SRuhjBA82Xvu2XhBUgX3nhP67T0LHceBdQLex7OOFGTox+Q5Yg8Jk2Qivg==
+  version "3.9.10"
+  resolved "https://registry.yarnpkg.com/prettier/-/prettier-3.9.10.tgz#ac378e432f1a7381518f2e080816bbaefa38d585"
+  integrity sha512-skGHTH1Yb9QvaTC4hWnRTzEYtCpApF0UMBPz+t/0ZPzP8ihefo/btKd+QA7pUE0fEwA1SbS/NmhyEcstdXOIdA==
 
 prismjs@^1.30.0:
   version "1.30.0"
