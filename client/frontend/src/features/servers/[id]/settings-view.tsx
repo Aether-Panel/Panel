@@ -190,7 +190,7 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: S
         return (
           <div key={name} className="space-y-1.5">
             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{displayName}</Label>
-            <Input type="number" value={(variable.value as number) ?? 0} onChange={(e) => handleVariableChange(name, parseInt(e.target.value) || 0)} className="h-9 bg-accent/5 border-border/60 text-sm font-mono" />
+            <Input type="number" value={(variable.value as number) ?? 0} onChange={(e) => handleVariableChange(name, Number.parseInt(e.target.value) || 0)} className="h-9 bg-accent/5 border-border/60 text-sm font-mono" />
             {description && <p className="text-xs text-muted-foreground">{description}</p>}
           </div>
         );
@@ -308,7 +308,7 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: S
                           <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
                         </div>
                         <div className="relative">
-                          <Input type="number" value={val} onChange={(e) => handleVariableChange(key, parseInt(e.target.value) || 0)}
+                          <Input type="number" value={val} onChange={(e) => handleVariableChange(key, Number.parseInt(e.target.value) || 0)}
                             className="h-8 w-28 bg-card border-border/60 pr-9 text-right font-mono text-sm font-semibold focus:bg-accent/10 transition-colors" />
                           <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-medium text-muted-foreground/60">{unit}</span>
                         </div>
@@ -363,7 +363,7 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: S
                       </span>
                       {canManagePorts ? (
                         <Input type="number" value={p || ''} placeholder="25565"
-                          onChange={(e) => { const next = [...ports]; next[idx] = parseInt(e.target.value) || 0; setPorts(next); }}
+                          onChange={(e) => { const next = [...ports]; next[idx] = Number.parseInt(e.target.value) || 0; setPorts(next); }}
                           className="h-8 bg-card border-border/60 font-mono text-xs focus:bg-accent/10 transition-colors" />
                       ) : (
                         <div className="flex h-8 items-center rounded-md border border-border/60 bg-card px-3 font-mono text-xs">

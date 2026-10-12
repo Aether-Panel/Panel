@@ -360,7 +360,7 @@ export default function DatabaseHostsPage() {
                                             id="host-port"
                                             type="number"
                                             value={formData.port}
-                                            onChange={(e) => setFormData(prev => ({ ...prev, port: parseInt(e.target.value) || 0 }))}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, port: Number.parseInt(e.target.value) || 0 }))}
                                         />
                                         <p className="text-sm text-muted-foreground">{t('databaseHosts.addDialog.step3.portDescription')}</p>
                                     </div>
@@ -370,7 +370,7 @@ export default function DatabaseHostsPage() {
                                             id="host-max-db"
                                             type="number"
                                             value={formData.max_databases}
-                                            onChange={(e) => setFormData(prev => ({ ...prev, max_databases: parseInt(e.target.value) || 0 }))}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, max_databases: Number.parseInt(e.target.value) || 0 }))}
                                         />
                                         <p className="text-sm text-muted-foreground">{t('databaseHosts.addDialog.step3.dbLimitDescription')}</p>
                                     </div>
@@ -378,7 +378,7 @@ export default function DatabaseHostsPage() {
                                         <Label>{t('databaseHosts.addDialog.step3.linkedNodesLabel')}</Label>
                                         <Select
                                             value={formData.node_id?.toString() || "none"}
-                                            onValueChange={(v) => setFormData(p => ({ ...p, node_id: v === "none" ? null : parseInt(v) }))}
+                                            onValueChange={(v) => setFormData(p => ({ ...p, node_id: v === "none" ? null : Number.parseInt(v) }))}
                                         >
                                             <SelectTrigger>
                                                 <SelectValue placeholder={t('databaseHosts.addDialog.step3.linkedNodesPlaceholder')} />

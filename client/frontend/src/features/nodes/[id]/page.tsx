@@ -462,7 +462,7 @@ export default function NodeDetailPage({ params }: { params: { id: string } }) {
         // silently ignore; keep last known values
       }
     };
-    fetchLive();
+    void fetchLive();
     pollingRef.current = setInterval(fetchLive, 3000);
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);

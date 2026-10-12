@@ -9,7 +9,7 @@ export function ServerAddress({ ip, port }: { ip: string; port: number }) {
   const address = `${ip}:${port}`;
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(address);
+    void navigator.clipboard.writeText(address);
     sileo.success({
       title: t('servers.address.copyToastTitle'),
       description: t('servers.address.copyToastDescription', { address }),

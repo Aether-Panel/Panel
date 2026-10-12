@@ -62,7 +62,7 @@ export default function SFTPView({ server }: SFTPViewProps) {
     const command = `sftp -P ${sftpPort} ${sftpUser}@${sftpHost}`;
 
     const copyToClipboard = (text: string, field: string) => {
-        navigator.clipboard.writeText(text);
+        void navigator.clipboard.writeText(text);
         setCopiedField(field);
         setTimeout(() => setCopiedField(null), 2000);
         sileo.success({
