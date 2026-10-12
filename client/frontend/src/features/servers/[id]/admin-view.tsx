@@ -118,7 +118,7 @@ export default function AdminView({ serverId }: { serverId: string }) {
         setIsTransferring(true);
         const startedAt = Date.now();
         try {
-            await api.post(`/api/servers/${serverId}/transfer`, { nodeId: parseInt(selectedNode) });
+            await api.post(`/api/servers/${serverId}/transfer`, { nodeId: Number.parseInt(selectedNode) });
             sileo.success({ title: t('common.success'), description: 'Transfer started successfully.' });
             setSelectedNode('');
             setTransferOpen(false);

@@ -112,11 +112,11 @@ export default function ResetPasswordPage() {
                         name="password"
                         render={({ field }) => (
                           <FormItem>
-                            <label className="mb-2 text-foreground font-medium text-sm inline-block">
+                            <label htmlFor="password" className="mb-2 text-foreground font-medium text-sm inline-block">
                               New Password
                             </label>
                             <FormControl>
-                              <Input {...field} type="password" placeholder="••••••••" className={inputClass} />
+                              <Input {...field} id="password" type="password" placeholder="••••••••" className={inputClass} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -128,11 +128,11 @@ export default function ResetPasswordPage() {
                         name="confirmPassword"
                         render={({ field }) => (
                           <FormItem>
-                            <label className="mb-2 text-foreground font-medium text-sm inline-block">
+                            <label htmlFor="confirmPassword" className="mb-2 text-foreground font-medium text-sm inline-block">
                               Confirm New Password
                             </label>
                             <FormControl>
-                              <Input {...field} type="password" placeholder="••••••••" className={inputClass} />
+                              <Input {...field} id="confirmPassword" type="password" placeholder="••••••••" className={inputClass} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>

@@ -123,7 +123,7 @@ export default function DatabaseView({ serverId }: DatabaseViewProps) {
     const timeoutId = setTimeout(() => controller.abort(), 25000);
     try {
       const result = await api.post(`/api/servers/${serverId}/databases`, {
-        database_host_id: parseInt(selectedHost),
+        database_host_id: Number.parseInt(selectedHost),
         database_name: newDbName
       }, controller.signal);
 
@@ -176,7 +176,7 @@ export default function DatabaseView({ serverId }: DatabaseViewProps) {
   };
 
   const copyToClipboard = (text: string, field: string) => {
-    navigator.clipboard.writeText(text);
+    void navigator.clipboard.writeText(text);
     setCopiedField(field);
     setTimeout(() => setCopiedField(null), 2000);
     sileo.success({

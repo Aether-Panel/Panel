@@ -100,7 +100,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    fetchSelf();
+    void fetchSelf();
   }, []);
 
   const normalizedPath = typeof window !== 'undefined' ? (window.location.pathname.replace(/\/$/, '') || '/') : '';

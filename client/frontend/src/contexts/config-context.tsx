@@ -45,7 +45,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     };
 
     useEffect(() => {
-        fetchConfig();
+        void fetchConfig();
     }, []);
 
     return (

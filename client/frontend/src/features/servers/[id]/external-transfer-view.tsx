@@ -169,7 +169,7 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
   };
 
   const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
+    void navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
     sileo.success({ title: 'Copied to clipboard' });

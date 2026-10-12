@@ -99,7 +99,7 @@ export default function UsersPage() {
         username: formUsername,
         email: formEmail,
         password: formPassword,
-        roleId: formRoleId === 'none' ? null : parseInt(formRoleId)
+        roleId: formRoleId === 'none' ? null : Number.parseInt(formRoleId)
       });
       sileo.success({ title: t('common.success'), description: 'User created successfully.' });
       setIsAddUserDialogOpen(false);
@@ -116,7 +116,7 @@ export default function UsersPage() {
         username: formUsername,
         email: formEmail,
         password: formPassword || undefined,
-        roleId: formRoleId === 'none' ? null : parseInt(formRoleId)
+        roleId: formRoleId === 'none' ? null : Number.parseInt(formRoleId)
       });
       sileo.success({ title: t('common.success'), description: 'User updated successfully.' });
 
