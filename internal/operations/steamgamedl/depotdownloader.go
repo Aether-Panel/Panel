@@ -18,6 +18,12 @@ import (
 const DownloadBaseURL = "https://github.com/SteamRE/DepotDownloader/releases/download/DepotDownloader_${version}/"
 const RepoReleases = "https://api.github.com/repos/SteamRE/DepotDownloader/releases?per_page=1"
 
+// repoReleasesURL is a variable (not the const above) so tests can point it at
+// a local server instead of the real GitHub API. The unauthenticated API is
+// rate limited on shared CI runners and answers with HTTP 403, which used to
+// make the test suite fail.
+var repoReleasesURL = RepoReleases
+
 func downloadDD(rootBinaryFolder string, version string) error {
 	downloader.Lock()
 	defer downloader.Unlock()
@@ -57,7 +63,7 @@ func getLatestVersion() (string, error) {
 	request := &http.Request{}
 
 	var err error
-	request.URL, err = url.Parse(RepoReleases)
+	request.URL, err = url.Parse(repoReleasesURL)
 	if err != nil {
 		return "", err
 	}

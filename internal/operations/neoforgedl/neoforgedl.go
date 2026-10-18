@@ -15,6 +15,11 @@ import (
 const InstallerURL = "https://maven.neoforged.net/releases/net/neoforged/neoforge/${version}/neoforge-${version}-installer.jar"
 const MetadataURL = "https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml"
 
+// metadataURL is a variable (not the const above) so tests can point it at a
+// local server instead of the real Maven host, which makes the test suite
+// depend on network availability.
+var metadataURL = MetadataURL
+
 type NeoforgeDL struct {
 	Version          string
 	Filename         string
@@ -52,7 +57,7 @@ func (op NeoforgeDL) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult
 }
 
 func getLatestForMCVersion(minecraftVersion string) (string, error) {
-	response, err := skypanel.HTTPGet(MetadataURL)
+	response, err := skypanel.HTTPGet(metadataURL)
 	defer utils.CloseResponse(response)
 	if err != nil {
 		return "", err
