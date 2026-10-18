@@ -57,7 +57,7 @@ export default function ResetPasswordPage() {
             <img
               src="/img/Fondos/minecraft-shaders-anime-hd-wallpaper-preview.jpg"
               className="h-full w-full object-cover"
-              alt="reset password image"
+              alt=""
             />
             <div className="absolute inset-0 flex items-end justify-center">
               <div className="w-full bg-gradient-to-t from-black/70 via-black/50 to-transparent absolute bottom-0 p-6 max-md:hidden">

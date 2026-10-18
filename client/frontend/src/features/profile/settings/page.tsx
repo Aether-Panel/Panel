@@ -405,7 +405,7 @@ export default function ProfileSettingsPage() {
                 <CardDescription>
                   {t('profileSettings.oauth.description')}{' '}
                   {t('profileSettings.oauth.apiDocs')}{' '}
-                  <a href="#" className="text-primary hover:underline">{t('profileSettings.oauth.here')}</a>.
+                  <a href="/swagger/index.html" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{t('profileSettings.oauth.here')}</a>.
                 </CardDescription>
               </CardHeader>
               <CardContent>

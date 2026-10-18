@@ -26,7 +26,7 @@ export type SummarizeServerAlertsOutput = z.infer<
   typeof SummarizeServerAlertsOutputSchema
 >;
 
-export async function summarizeServerAlerts(
+export function summarizeServerAlerts(
   input: SummarizeServerAlertsInput
 ): Promise<SummarizeServerAlertsOutput> {
   return summarizeServerAlertsFlow(input);

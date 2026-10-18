@@ -22,7 +22,7 @@ function findNode(realNodes: any[], idParam: string) {
   return realNodes.find((n: any) =>
     String(n.id) === idParam ||
     (idParam === 'node-local' && (n.isLocal || n.name === 'Nodo Local')) ||
-    n.name.toLowerCase().replace(/\s/g, '') === idParam.toLowerCase() ||
+    n.name.toLowerCase().replaceAll(/\s/g, '') === idParam.toLowerCase() ||
     n.name.toLowerCase() === idParam.toLowerCase()
   );
 }

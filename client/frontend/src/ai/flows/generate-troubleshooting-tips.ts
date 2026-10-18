@@ -21,7 +21,7 @@ const GenerateTroubleshootingTipsOutputSchema = z.object({
 });
 export type GenerateTroubleshootingTipsOutput = z.infer<typeof GenerateTroubleshootingTipsOutputSchema>;
 
-export async function generateTroubleshootingTips(
+export function generateTroubleshootingTips(
   input: GenerateTroubleshootingTipsInput
 ): Promise<GenerateTroubleshootingTipsOutput> {
   return generateTroubleshootingTipsFlow(input);

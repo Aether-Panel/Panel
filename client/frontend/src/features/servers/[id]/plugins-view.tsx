@@ -130,7 +130,7 @@ export default function PluginsView({ serverId }: PluginsViewProps) {
   const isInstalled = (pluginName: string) => {
     // Modrinth usually provides slugs or clean names.
     // This is a fuzzy check to see if we already have it.
-    const normalizedName = pluginName.toLowerCase().replace(/\s+/g, '_');
+    const normalizedName = pluginName.toLowerCase().replaceAll(/\s+/g, '_');
     return installedPlugins.some(p => p.name.toLowerCase().includes(normalizedName));
   };
 

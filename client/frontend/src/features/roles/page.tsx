@@ -208,7 +208,7 @@ export default function RolesPage() {
   const [editDescription, setEditDescription] = useState('');
   const [editPermissions, setEditPermissions] = useState<string[]>([]);
 
-  const openEditDialog = useCallback(async (role: Role) => {
+  const openEditDialog = useCallback((role: Role) => {
     setEditRole(role);
     setEditName(role.name);
     setEditDescription(role.description || '');

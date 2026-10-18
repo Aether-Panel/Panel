@@ -550,7 +550,7 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
     const handleCreate = async () => {
         setLoading(true);
         try {
-            const identifier = name.toLowerCase().replace(/\s+/g, '-').slice(0, 20);
+            const identifier = name.toLowerCase().replaceAll(/\s+/g, '-').slice(0, 20);
 
             const vars: Record<string, any> = {};
             Object.entries(configData).forEach(([k, v]) => {

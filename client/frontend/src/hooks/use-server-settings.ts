@@ -206,7 +206,7 @@ async function syncServerProperties(serverId: string, data: Record<string, any>)
         const lines = content.split('\n');
         const propsToUpdate: Record<string, string> = {};
 
-        if (data.motd !== undefined) propsToUpdate['motd'] = String(data.motd).replace(/\n/g, '\\n');
+        if (data.motd !== undefined) propsToUpdate['motd'] = String(data.motd).replaceAll(/\n/g, '\\n');
         if (data.ip !== undefined) propsToUpdate['server-ip'] = String(data.ip);
         if (data.port !== undefined) propsToUpdate['server-port'] = String(data.port);
 
