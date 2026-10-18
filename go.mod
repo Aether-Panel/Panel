@@ -50,7 +50,7 @@ require (
 	google.golang.org/genai v1.73.0
 	gopkg.in/go-playground/validator.v9 v9.31.0
 	gorm.io/driver/mysql v1.6.0
-	gorm.io/driver/postgres v1.6.2
+	gorm.io/driver/postgres v1.6.3
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/driver/sqlserver v1.6.4
 	gorm.io/gorm v1.31.2
