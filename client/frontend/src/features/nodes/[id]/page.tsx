@@ -44,7 +44,7 @@ const InfoItem = ({ label, value, children }: { label: string, value?: React.Rea
 
 const CopyableCode = ({ command, t }: { command: string, t: any }) => {
   const handleCopy = () => {
-    navigator.clipboard.writeText(command);
+    void navigator.clipboard.writeText(command);
     sileo.success({ title: t('common.copied') });
   };
 

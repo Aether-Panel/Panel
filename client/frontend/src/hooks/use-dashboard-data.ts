@@ -47,9 +47,9 @@ export function useNodes(skip = false) {
     useEffect(() => {
         if (skip) return;
         
-        fetchNodes();
+        void fetchNodes();
         const interval = setInterval(() => {
-            fetchNodes();
+            void fetchNodes();
         }, 5000);
         
         return () => clearInterval(interval);
@@ -144,7 +144,7 @@ export function useGlobalNetworkMetrics() {
 
     useEffect(() => {
         // Kick off immediately, then every 5 seconds
-        poll();
+        void poll();
         const interval = setInterval(poll, 5000);
         return () => clearInterval(interval);
     }, [poll]);

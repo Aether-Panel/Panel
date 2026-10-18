@@ -210,7 +210,7 @@ export default function AdminView({ serverId }: { serverId: string }) {
                                         <DialogTrigger asChild>
                                             <Button variant="outline" onClick={() => {
                                                 setSelectedNode('');
-                                                fetchNodes();
+                                                void fetchNodes();
                                                 setTransferOpen(true);
                                             }}>Transfer</Button>
                                         </DialogTrigger>
@@ -335,7 +335,7 @@ export default function AdminView({ serverId }: { serverId: string }) {
                                                 disabled={isSuspending}
                                                 onClick={(e) => {
                                                     e.preventDefault();
-                                                    handleSuspend();
+                                                    void handleSuspend();
                                                 }}
                                             >
                                                 {isSuspending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -374,7 +374,7 @@ export default function AdminView({ serverId }: { serverId: string }) {
                                                 disabled={isDeleting}
                                                 onClick={(e) => {
                                                     e.preventDefault();
-                                                    handleDelete();
+                                                    void handleDelete();
                                                 }}
                                             >
                                                 {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

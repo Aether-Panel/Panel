@@ -187,7 +187,7 @@ export default function TemplatesPage() {
     if (!hasScope('templates.view')) return;
 
     if (repos && repos.length > 0) {
-      loadAllTemplates();
+      void loadAllTemplates();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [repos, hasScope]);
@@ -374,7 +374,7 @@ export default function TemplatesPage() {
                                 title={`Delete ${template.name}`}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleDeleteTemplate(template);
+                                  void handleDeleteTemplate(template);
                                 }}
                               >
                                 <Trash2 className="h-4 w-4" />

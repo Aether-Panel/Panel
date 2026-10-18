@@ -179,7 +179,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
   };
 
   useEffect(() => {
-    fetchFiles(currentPath);
+    void fetchFiles(currentPath);
   }, [currentPath, serverId]);
 
   const handleFileClick = async (file: FileItemResource) => {
@@ -243,7 +243,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
 
       // Wait for Radix UI to finish closing and cleanup the body
       setTimeout(() => {
-        fetchFiles(currentPath);
+        void fetchFiles(currentPath);
         setIsCreating(false);
         // Safety cleanup to ensure UI is not blocked
         document.body.style.pointerEvents = 'auto';
@@ -276,7 +276,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
       });
 
       sileo.success({ title: t('common.success'), description: t('servers.fileManager.toast.uploaded') });
-      fetchFiles(currentPath);
+      void fetchFiles(currentPath);
     } catch (e: any) {
       sileo.error({ title: t('common.error'), description: e.message || 'Error al subir el archivo.' });
     } finally {
@@ -380,7 +380,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
           ? t('servers.fileManager.toast.moved')
           : t('servers.fileManager.toast.pasted')
       });
-      fetchFiles(currentPath);
+      void fetchFiles(currentPath);
     } catch (e: any) {
       sileo.error({ title: t('common.error'), description: e.message || 'Error en la operación.' });
     } finally {
@@ -395,7 +395,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
       const filePath = currentPath ? `${currentPath}/${pendingFile.name}` : pendingFile.name;
       await api.delete(`/api/servers/${serverId}/file/${filePath}`);
       sileo.success({ title: t('common.success'), description: t('servers.fileManager.toast.deleted') });
-      fetchFiles(currentPath);
+      void fetchFiles(currentPath);
     } catch (e: any) {
       sileo.error({ title: t('common.error'), description: e.message || 'Error al eliminar.' });
     } finally {
@@ -446,7 +446,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
         document.body.style.pointerEvents = 'auto';
         document.body.style.overflow = 'auto';
       }, 100);
-      fetchFiles(currentPath);
+      void fetchFiles(currentPath);
     } catch (e: any) {
       sileo.error({ title: t('common.error'), description: e.message || 'Error al renombrar.' });
       setIsRenaming(false);
@@ -459,7 +459,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
       const filePath = currentPath ? `${currentPath}/${file.name}` : file.name;
       await api.post(`/api/servers/${serverId}/extract/${filePath}?destination=.&skipRoot`, {});
       sileo.success({ title: t('common.success'), description: t('servers.fileManager.toast.extracted') });
-      fetchFiles(currentPath);
+      void fetchFiles(currentPath);
     } catch (e: any) {
       sileo.error({ title: t('common.error'), description: e.message || 'Error al descomprimir.' });
     } finally {
@@ -493,7 +493,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
-        handleSaveChanges();
+        void handleSaveChanges();
       }
     };
     window.addEventListener('keydown', handler);

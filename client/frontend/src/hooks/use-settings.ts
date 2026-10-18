@@ -56,7 +56,7 @@ export function useSettings() {
     };
 
     useEffect(() => {
-        fetchSettings();
+        void fetchSettings();
     }, []);
 
     return {

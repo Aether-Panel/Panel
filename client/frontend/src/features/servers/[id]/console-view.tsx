@@ -45,7 +45,7 @@ export default function ConsoleView({ serverId, logs, addLog }: { serverId: stri
 
   const handleKeyPress = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') {
-      handleSendCommand();
+      void handleSendCommand();
     }
   };
 

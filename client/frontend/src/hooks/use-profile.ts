@@ -107,8 +107,8 @@ export function useProfile() {
     };
 
     useEffect(() => {
-        fetchOtpStatus();
-        fetchOauthClients();
+        void fetchOtpStatus();
+        void fetchOauthClients();
     }, []);
 
     return {

@@ -129,7 +129,7 @@ export default function RolesPage() {
     if (role && !hasScope('admin')) {
       window.location.href = '/dashboard';
     }
-    fetchRoles();
+    void fetchRoles();
   }, [role, hasScope, fetchRoles]);
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -182,7 +182,7 @@ export default function RolesPage() {
       setNewRolePermissions([]);
       setSearchQuery('');
       setIsAddDialogOpen(false);
-      fetchRoles();
+      void fetchRoles();
     } catch (e: any) {
       sileo.error({ title: t('common.error'), description: e.message || 'Failed to create role.' });
     } finally {
@@ -194,7 +194,7 @@ export default function RolesPage() {
     try {
       await api.delete(`/api/roles/${id}`);
       sileo.success({ title: t('common.success'), description: 'Role deleted successfully.' });
-      fetchRoles();
+      void fetchRoles();
     } catch (e: any) {
       sileo.error({ title: t('common.error'), description: e.message || 'Failed to delete role.' });
     }
@@ -248,7 +248,7 @@ export default function RolesPage() {
       sileo.success({ title: t('common.success'), description: 'Role updated successfully.' });
       setIsEditDialogOpen(false);
       setEditRole(null);
-      fetchRoles();
+      void fetchRoles();
     } catch (e: any) {
       sileo.error({ title: t('common.error'), description: e.message || 'Failed to update role.' });
     } finally {

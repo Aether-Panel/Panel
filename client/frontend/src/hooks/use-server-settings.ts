@@ -141,7 +141,7 @@ export function useServerSettings(serverId: string) {
 
     useEffect(() => {
         if (serverId) {
-            fetchSettings();
+            void fetchSettings();
         }
     }, [serverId]);
 

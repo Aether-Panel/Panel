@@ -111,7 +111,7 @@ export default function DatabaseView({ serverId }: DatabaseViewProps) {
   }, [serverId]);
 
   useEffect(() => {
-    fetchData();
+    void fetchData();
   }, [fetchData]);
 
   const handleCreate = async () => {
@@ -138,7 +138,7 @@ export default function DatabaseView({ serverId }: DatabaseViewProps) {
       setNewDbName('');
       setSelectedHost('');
       setIsDialogOpen(false);
-      fetchData();
+      void fetchData();
     } catch (err: any) {
       clearTimeout(timeoutId);
       console.error('Failed to create database:', err);
@@ -163,7 +163,7 @@ export default function DatabaseView({ serverId }: DatabaseViewProps) {
         title: t('common.success'),
         description: t('servers.database.deleteSuccess')
       });
-      fetchData();
+      void fetchData();
     } catch (err) {
       console.error('Failed to delete database:', err);
       sileo.error({

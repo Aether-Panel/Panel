@@ -108,7 +108,7 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
       }
     };
 
-    checkStatus();
+    void checkStatus();
     const interval = setInterval(checkStatus, 2000);
     return () => clearInterval(interval);
   }, [serverId]);

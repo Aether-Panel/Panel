@@ -85,7 +85,7 @@ export function useTemplates() {
     };
 
     useEffect(() => {
-        fetchRepos();
+        void fetchRepos();
     }, []);
 
     return { repos, loading, error, refresh: fetchRepos, getTemplatesForRepo, getTemplateDetails, saveTemplate, uploadTemplates, deleteTemplate };

@@ -25,7 +25,7 @@ export function ApiKeysView() {
     };
 
     useEffect(() => {
-        fetchKeys();
+        void fetchKeys();
     }, []);
 
     const handleCreate = async () => {
@@ -34,7 +34,7 @@ export function ApiKeysView() {
             setNewKeyData(data);
             setName('');
             setIsCreating(false);
-            fetchKeys();
+            void fetchKeys();
             sileo.success({ title: 'Success', description: 'API Key generated successfully' });
         } catch (e) {
             console.error(e);
@@ -46,7 +46,7 @@ export function ApiKeysView() {
         if (!confirm('Are you sure you want to delete this key?')) return;
         try {
             await api.delete(`/api/settings/apikeys/${id}`);
-            fetchKeys();
+            void fetchKeys();
             sileo.success({ title: 'Success', description: 'API Key deleted' });
         } catch (e) {
             console.error(e);
@@ -54,7 +54,7 @@ export function ApiKeysView() {
     };
 
     const copyToClipboard = (text: string) => {
-        navigator.clipboard.writeText(text);
+        void navigator.clipboard.writeText(text);
         sileo.success({ title: 'Copied', description: 'API Key copied to clipboard' });
     };
 

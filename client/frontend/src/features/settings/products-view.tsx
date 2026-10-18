@@ -44,7 +44,7 @@ export function ProductsView() {
     };
 
     useEffect(() => {
-        fetchData();
+        void fetchData();
     }, []);
 
     const handleSubmit = async () => {
@@ -67,7 +67,7 @@ export function ProductsView() {
                 await api.post(url, payload);
             }
 
-            fetchData();
+            void fetchData();
             setIsDialogOpen(false);
             sileo.success({ title: 'Success', description: 'Product saved successfully' });
         } catch (e) {
@@ -80,7 +80,7 @@ export function ProductsView() {
         if (!confirm('Are you sure you want to delete this product?')) return;
         try {
             await api.delete(`/api/provision/products/${id}`);
-            fetchData();
+            void fetchData();
             sileo.success({ title: 'Success', description: 'Product deleted' });
         } catch (e) {
             console.error(e);

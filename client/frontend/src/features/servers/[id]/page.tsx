@@ -242,7 +242,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
         console.error('Failed to fetch server detail:', e);
       }
     };
-    fetchDetail();
+    void fetchDetail();
   }, [params.id]);
 
   const { t } = useTranslations();
@@ -267,7 +267,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
         if (data) setQueryData(data);
       } catch (e) { }
     };
-    fetchQuery();
+    void fetchQuery();
     const interval = setInterval(fetchQuery, 30000);
     return () => clearInterval(interval);
   }, [server?.id, server?.status, serverUnavailable]);
@@ -367,7 +367,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
       connect();
     };
 
-    run();
+    void run();
     return () => {
       cancelled = true;
       if (reconnectTimer) clearTimeout(reconnectTimer);

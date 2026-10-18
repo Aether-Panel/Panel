@@ -56,7 +56,7 @@ export default function PluginsView({ serverId }: PluginsViewProps) {
   }, [serverId]);
 
   useEffect(() => {
-    fetchInstalled();
+    void fetchInstalled();
   }, [fetchInstalled]);
 
   const handleSearch = async (e?: React.FormEvent) => {
@@ -87,7 +87,7 @@ export default function PluginsView({ serverId }: PluginsViewProps) {
         title: t('common.success'),
         description: t('servers.plugins.notifications.installSuccess', { name: plugin.name })
       });
-      fetchInstalled();
+      void fetchInstalled();
     } catch (err) {
       console.error('Failed to install project:', err);
       sileo.error({
@@ -107,7 +107,7 @@ export default function PluginsView({ serverId }: PluginsViewProps) {
         title: t('common.success'),
         description: t('servers.plugins.notifications.uninstallSuccess')
       });
-      fetchInstalled();
+      void fetchInstalled();
     } catch (err) {
       console.error('Failed to delete plugin:', err);
       sileo.error({

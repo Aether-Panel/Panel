@@ -117,7 +117,7 @@ export default function NodesPage() {
       setCreateSftpPort('5657'); setCreateUseDifferentHost(false);
       setCreatePrivateHost(''); setCreatePrivatePort('8080');
       setIsCreateOpen(false);
-      refresh();
+      void refresh();
     } catch (e: any) {
       sileo.error({ title: 'Error al crear nodo', description: e?.message || 'Error desconocido.' });
     } finally {
@@ -146,7 +146,7 @@ export default function NodesPage() {
       });
       sileo.success({ title: t('nodes.editDialog.save'), description: `Nodo "${editName}" actualizado.` });
       setEditingNode(null);
-      refresh();
+      void refresh();
     } catch (e: any) {
       sileo.error({ title: 'Error al actualizar', description: e?.message || 'Error desconocido.' });
     } finally {
@@ -161,7 +161,7 @@ export default function NodesPage() {
       await api.delete(`/api/nodes/${deletingNode.id}`);
       sileo.success({ title: 'Nodo eliminado', description: `"${deletingNode.name}" fue eliminado correctamente.` });
       setDeletingNode(null);
-      refresh();
+      void refresh();
     } catch (e: any) {
       sileo.error({ title: 'Error al eliminar', description: e?.message || 'Error desconocido.' });
     } finally {
@@ -180,7 +180,7 @@ export default function NodesPage() {
 
   const CopyableCode = ({ command }: { command: string }) => {
     const handleCopy = () => {
-      navigator.clipboard.writeText(command);
+      void navigator.clipboard.writeText(command);
       sileo.success({ title: t('common.copied') });
     };
 

@@ -62,7 +62,7 @@ export function useDatabaseHosts() {
     };
 
     useEffect(() => {
-        fetchHosts();
+        void fetchHosts();
     }, []);
 
     return { hosts, loading, error, createHost, updateHost, deleteHost, refresh: fetchHosts };

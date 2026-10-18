@@ -58,7 +58,7 @@ export default function BackupsView({ serverId }: BackupsViewProps) {
   }, [serverId]);
 
   useEffect(() => {
-    fetchBackups();
+    void fetchBackups();
   }, [fetchBackups]);
 
   const handleCreate = async () => {
@@ -73,7 +73,7 @@ export default function BackupsView({ serverId }: BackupsViewProps) {
       });
       setBackupName('');
       setIsDialogOpen(false);
-      fetchBackups();
+      void fetchBackups();
     } catch (err) {
       console.error('Failed to create backup:', err);
       sileo.error({
@@ -112,7 +112,7 @@ export default function BackupsView({ serverId }: BackupsViewProps) {
         title: t('common.success'),
         description: t('servers.backups.delete.success')
       });
-      fetchBackups();
+      void fetchBackups();
     } catch (err) {
       console.error('Failed to delete backup:', err);
       sileo.error({

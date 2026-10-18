@@ -48,7 +48,7 @@ export default function UsersView({ serverId }: UsersViewProps) {
   }, [serverId, t]);
 
   useEffect(() => {
-    fetchUsers();
+    void fetchUsers();
   }, [fetchUsers]);
 
   const handleAddUser = async (e: React.FormEvent) => {
@@ -75,7 +75,7 @@ export default function UsersView({ serverId }: UsersViewProps) {
       });
       setEmail('');
       setIsDialogOpen(false);
-      fetchUsers();
+      void fetchUsers();
     } catch (err: any) {
       console.error('Failed to add user:', err);
       sileo.error({
@@ -94,7 +94,7 @@ export default function UsersView({ serverId }: UsersViewProps) {
         title: t('common.success') || 'Success',
         description: t('servers.users.revokeSuccess') || 'Access revoked successfully'
       });
-      fetchUsers();
+      void fetchUsers();
     } catch (err: any) {
       console.error('Failed to revoke access:', err);
       sileo.error({

@@ -73,8 +73,8 @@ export default function UsersPage() {
     if (role && !hasScope('users.info.view')) {
       window.location.href = '/dashboard';
     }
-    fetchUsers();
-    fetchRoles();
+    void fetchUsers();
+    void fetchRoles();
   }, [role, hasScope]);
 
   useEffect(() => {
@@ -103,7 +103,7 @@ export default function UsersPage() {
       });
       sileo.success({ title: t('common.success'), description: 'User created successfully.' });
       setIsAddUserDialogOpen(false);
-      fetchUsers();
+      void fetchUsers();
     } catch (e: any) {
       sileo.error({ title: t('common.error'), description: e.message || 'Failed to create user.' });
     }
@@ -127,7 +127,7 @@ export default function UsersPage() {
       }
 
       setEditingUser(null);
-      fetchUsers();
+      void fetchUsers();
     } catch (e: any) {
       sileo.error({ title: t('common.error'), description: e.message || 'Failed to update user.' });
     }
@@ -137,7 +137,7 @@ export default function UsersPage() {
     try {
       await api.delete(`/api/users/${id}`);
       sileo.success({ title: t('common.success'), description: 'User deleted successfully.' });
-      fetchUsers();
+      void fetchUsers();
     } catch (e: any) {
       sileo.error({ title: t('common.error'), description: e.message || 'Failed to delete user.' });
     }

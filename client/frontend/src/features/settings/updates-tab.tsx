@@ -52,7 +52,7 @@ export function UpdatesTab() {
     }, []);
 
     useEffect(() => {
-        checkUpdates();
+        void checkUpdates();
     }, [checkUpdates]);
 
     // Poll the update status of the whole fleet while an update is running.

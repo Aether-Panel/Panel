@@ -153,7 +153,7 @@ export default function DatabaseHostsPage() {
 
     const CopyableCode = ({ command }: { command: string }) => {
         const handleCopy = () => {
-            navigator.clipboard.writeText(command);
+            void navigator.clipboard.writeText(command);
             sileo.success({ title: t('databaseHosts.addDialog.step2.copyToast') });
         };
 

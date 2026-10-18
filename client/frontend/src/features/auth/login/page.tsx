@@ -54,7 +54,7 @@ export default function LoginPage() {
   });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    login({ ...values, turnstileToken: turnstileToken || undefined });
+    void login({ ...values, turnstileToken: turnstileToken || undefined });
   }
 
   const demoEmail = `admin@${panelName.toLowerCase().replace(/\s+/g, '')}.com`;

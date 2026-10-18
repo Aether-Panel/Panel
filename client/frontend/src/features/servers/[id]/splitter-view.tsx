@@ -217,7 +217,7 @@ export default function SplitterView({ serverId }: SplitterViewProps) {
                 forcedNodeId={String(currentServerInfo?.nodeId || '')}
                 onComplete={() => {
                   setIsDialogOpen(false);
-                  refresh();
+                  void refresh();
                 }}
               />
             </DialogContent>

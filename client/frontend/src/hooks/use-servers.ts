@@ -47,7 +47,7 @@ export function useServers() {
             setError(null);
 
             // Start fetching stats for each server
-            updateAllStats(mappedServers);
+            void updateAllStats(mappedServers);
         } catch (e: any) {
             console.error('Failed to fetch servers:', e);
             setError(e);
@@ -144,18 +144,18 @@ export function useServers() {
     };
 
     useEffect(() => {
-        fetchServers();
+        void fetchServers();
     }, []);
 
     useEffect(() => {
         if (servers.length === 0) return;
 
         const interval = setInterval(() => {
-            updateAllStats(servers);
+            void updateAllStats(servers);
         }, 5000);
 
         // Initial update
-        updateAllStats(servers);
+        void updateAllStats(servers);
 
         return () => clearInterval(interval);
     }, [servers.length]); // Only reset interval if server count changes
