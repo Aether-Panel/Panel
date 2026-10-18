@@ -28,7 +28,7 @@ export function useUsers(skip = false) {
     };
 
     useEffect(() => {
-        if (!skip) fetchUsers();
+        if (!skip) void fetchUsers();
     }, [skip]);
 
     return { users, loading, error, refresh: fetchUsers };

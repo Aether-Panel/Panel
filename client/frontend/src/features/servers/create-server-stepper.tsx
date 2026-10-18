@@ -174,7 +174,10 @@ function Step2Template({
                     {repos.map((r: any) => (
                         <div
                             key={r.id}
+                            role="button"
+                            tabIndex={0}
                             onClick={() => setSelectedRepo(r.id)}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedRepo(r.id); } }}
                             className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedRepo === r.id ? 'border-primary bg-primary/5 ring-4 ring-primary/10' : 'border-muted hover:border-primary/50'
                                 }`}
                         >
@@ -216,7 +219,10 @@ function Step2Template({
                                 {templateList.map((t: any) => (
                                     <div
                                         key={t.name}
+                                        role="button"
+                                        tabIndex={0}
                                         onClick={() => setSelectedTemplateName(t.name)}
+                                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedTemplateName(t.name); } }}
                                         className={`p-2 rounded-lg border text-xs flex items-center gap-2 cursor-pointer transition-all min-w-0 ${selectedTemplateName === t.name ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted'
                                             }`}
                                     >
@@ -339,8 +345,11 @@ function Step3Configuration({
                             </Select>
                         ) : variable.type === 'boolean' ? (
                             <div
+                                role="button"
+                                tabIndex={0}
                                 className="flex items-center gap-2 px-3 rounded-lg border bg-background/30 cursor-pointer h-8"
                                 onClick={() => setConfigData((prev: any) => ({ ...prev, [key]: !currentVal }))}
+                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setConfigData((prev: any) => ({ ...prev, [key]: !currentVal })); } }}
                             >
                                 <div className={`h-3.5 w-3.5 rounded border shrink-0 flex items-center justify-center ${currentVal ? 'bg-primary border-primary' : 'border-muted-foreground/40'}`}>
                                     {currentVal && <Check className="h-2.5 w-2.5 text-primary-foreground stroke-[3px]" />}

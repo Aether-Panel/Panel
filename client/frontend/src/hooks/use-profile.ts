@@ -123,6 +123,6 @@ export function useProfile() {
         regenerateRecoveryCodes,
         createOauthClient,
         deleteOauthClient,
-        refresh: () => { fetchOtpStatus(); fetchOauthClients(); }
+        refresh: () => { void fetchOtpStatus(); void fetchOauthClients(); }
     };
 }

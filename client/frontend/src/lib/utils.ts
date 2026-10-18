@@ -11,5 +11,5 @@ export function formatBytes(bytes: number): string {
   const k = 1024
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   const idx = Math.min(i, units.length - 1)
-  return parseFloat((bytes / Math.pow(k, idx)).toFixed(1)) + ' ' + units[idx]
+  return Number.parseFloat((bytes / Math.pow(k, idx)).toFixed(1)) + ' ' + units[idx]
 }

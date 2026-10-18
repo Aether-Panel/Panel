@@ -119,8 +119,11 @@ export default function AISummary({ logs, serverId }: { logs?: LogEntry[], serve
                   return (
                     <div 
                       key={err.id} 
+                      role="button"
+                      tabIndex={0}
                       className={`flex gap-3 items-start p-2 rounded cursor-pointer transition-colors ${isSelected ? 'bg-primary/10 border border-primary/20' : 'hover:bg-white/5 border border-transparent'}`}
                       onClick={() => toggleError(err.id)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleError(err.id); } }}
                     >
                       <div className="mt-0.5 text-primary">
                         {isSelected ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4 opacity-50" />}

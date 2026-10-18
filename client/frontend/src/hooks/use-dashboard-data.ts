@@ -131,8 +131,8 @@ export function useGlobalNetworkMetrics() {
                     ...prev,
                     {
                         time,
-                        networkIn: parseFloat(totalRxRate.toFixed(2)),
-                        networkOut: parseFloat(totalTxRate.toFixed(2)),
+                        networkIn: Number.parseFloat(totalRxRate.toFixed(2)),
+                        networkOut: Number.parseFloat(totalTxRate.toFixed(2)),
                     },
                 ];
                 return next.slice(-60);

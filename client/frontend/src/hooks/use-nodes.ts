@@ -30,7 +30,7 @@ export function useNodes(skip = false) {
     };
 
     useEffect(() => {
-        if (!skip) fetchNodes();
+        if (!skip) void fetchNodes();
     }, [skip]);
 
     return { nodes, loading, error, refresh: fetchNodes };
