@@ -1558,7 +1558,7 @@ func installPlugin(c *gin.Context) {
 		response.HandleError(c, err, http.StatusInternalServerError)
 		return
 	}
-	defer utils.CloseResponse(pluginResp)
+	defer pluginResp.Body.Close()
 
 	if pluginResp.StatusCode != http.StatusOK {
 		response.HandleError(c, fmt.Errorf("failed to download plugin from %s", downloadURL), http.StatusInternalServerError)
