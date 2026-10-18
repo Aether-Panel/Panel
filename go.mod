@@ -29,7 +29,7 @@ require (
 	github.com/mailgun/mailgun-go/v4 v4.23.0
 	github.com/mailjet/mailjet-apiv3-go/v4 v4.0.8
 	github.com/mholt/archives v0.1.5
-	github.com/moby/moby/api v1.55.0
+	github.com/moby/moby/api v1.56.1
 	github.com/moby/moby/client v0.5.1
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/pkg/sftp v1.13.11
