@@ -114,8 +114,8 @@ func summariseUserAgent(userAgent string) string {
 
 // ActivitySearch is the query accepted by GET /api/activity.
 type ActivitySearch struct {
-	Limit uint `form:"limit"`
-	Page  uint `form:"page"`
+	Limit uint   `form:"limit"`
+	Page  uint   `form:"page"`
 	Event string `form:"event"`
 } // @name ActivitySearch
 
