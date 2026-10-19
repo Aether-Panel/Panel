@@ -39,6 +39,11 @@ func LoginPost(c *gin.Context) {
 	}
 
 	user, otpNeeded, err := us.ValidateLogin(request.Email, request.Password)
+	if err != nil && user != nil && user.ID != 0 {
+		// Only a known account is recorded: an unknown address would mean
+		// storing input the caller chose, and a public form can be spammed.
+		middleware.RecordActivity(c, models.ActivityLoginFailed, user)
+	}
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
@@ -97,6 +102,9 @@ func OtpPost(c *gin.Context) {
 	}
 
 	user, err := us.ValidOtp(email, request.Token)
+	if err != nil && user != nil && user.ID != 0 {
+		middleware.RecordActivity(c, models.ActivityLoginFailed, user)
+	}
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
@@ -136,6 +144,8 @@ func createSession(c *gin.Context, user *models.User) {
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
+
+	middleware.RecordActivity(c, models.ActivityLogin, user)
 
 	data := &LoginResponse{}
 	data.Scopes = allScopes

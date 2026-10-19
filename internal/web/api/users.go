@@ -110,6 +110,8 @@ func createUser(c *gin.Context) {
 		return
 	}
 
+	middleware.RecordActivity(c, models.ActivityRegister, user)
+
 	resultModel := models.FromUser(user)
 
 	c.JSON(http.StatusOK, resultModel)

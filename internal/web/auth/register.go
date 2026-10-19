@@ -67,6 +67,8 @@ func RegisterPost(c *gin.Context) {
 		return
 	}
 
+	middleware.RecordActivity(c, models.ActivityRegister, user)
+
 	ps := &services.Permission{DB: db}
 	perms, err := ps.GetForUserAndServer(user.ID, "")
 	if response.HandleError(c, err, http.StatusInternalServerError) {

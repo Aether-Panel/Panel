@@ -39,6 +39,7 @@ var dbObjects = []interface{}{
 	&models.APIKey{},
 	&models.ProvisionProduct{},
 	&models.PasswordReset{},
+	&models.ActivityLog{},
 }
 
 func Upgrade(dbConn *gorm.DB, prettyPrint bool) error {

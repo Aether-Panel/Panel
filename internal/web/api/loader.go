@@ -27,6 +27,7 @@ func RegisterRoutes(rg *gin.RouterGroup) {
 	registerServers(rg.Group("/servers"))
 	registerDatabases(rg.Group("/servers"))
 	registerUsers(rg.Group("/users"))
+	registerActivity(rg.Group("/activity"))
 	registerTemplates(rg.Group("/templates"))
 	registerSelf(rg.Group("/self"))
 	registerSettings(rg.Group("/settings"))
