@@ -1,6 +1,8 @@
 package models
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"strings"
 	"time"
@@ -91,4 +93,21 @@ func init() {
 		panic(err)
 	}
 	LocalNode.Secret = strings.ReplaceAll(u.String(), "-", "")
+}
+
+// SetLocalNodeSecretFromSeed derives a stable local-node secret from a
+// persistent seed (typically the persisted panel session key) and applies it to
+// LocalNode.
+//
+// The local node is never stored in the database, so its secret is generated in
+// memory at package init. Without calling this, that secret changes on every
+// restart, which invalidates any session or token issued for the local node
+// across reboots. Deriving it from a persisted seed keeps it stable per
+// installation. Call it once during startup, after the config has been loaded.
+func SetLocalNodeSecretFromSeed(seed string) {
+	if LocalNode == nil || seed == "" {
+		return
+	}
+	sum := sha256.Sum256([]byte("skypanel-local-node-secret:" + seed))
+	LocalNode.Secret = hex.EncodeToString(sum[:])
 }

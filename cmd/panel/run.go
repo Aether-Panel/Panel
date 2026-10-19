@@ -16,6 +16,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/database"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
+	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers"
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers/docker"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
@@ -115,6 +116,11 @@ func internalRun() (terminate chan bool, success bool) {
 			terminate <- true
 			return
 		}
+
+		// Derive the local node secret from the persisted session key so the
+		// local node keeps a stable identity across restarts (the secret is
+		// otherwise regenerated in memory on every boot).
+		models.SetLocalNodeSecretFromSeed(config.SessionKey.Value())
 
 		sameSite := config.PanelWebCookiesSameSite.Value()
 		var sameSiteID http.SameSite

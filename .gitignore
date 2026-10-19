@@ -57,6 +57,9 @@ data/servers/
 # Development Data and Volumes
 dev-data/
 skypanel.db
+test/integration/testing.db
+test/integration/testing.db-shm
+test/integration/testing.db-wal
 internal/storage/
 internal/storage2/
 internal/storage3/

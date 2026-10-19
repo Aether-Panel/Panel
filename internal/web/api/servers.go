@@ -322,11 +322,14 @@ func createServer(c *gin.Context) {
 
 	serverID := c.Param("serverId")
 	if serverID == "" {
-		gen, err := uuid.NewV4()
+		generated, err := models.GenerateServerIdentifier()
 		if response.HandleError(c, err, http.StatusInternalServerError) {
 			return
 		}
-		serverID = gen.String()[:8]
+		serverID = generated
+	} else if !models.IsValidServerIdentifier(serverID) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid server id: only letters, digits, '-' and '_' are allowed (1-20 characters, must not start with '-' or '_')"})
+		return
 	}
 
 	postBody := &models.ServerCreation{}

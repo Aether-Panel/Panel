@@ -68,7 +68,7 @@ Real migration IDs (date/timestamp as versioning):
 
 | Model | File | PK | Key Columns |
 |---|---|---|---|
-| `Server` | `server.go` | `identifier` (string, 20) | `name`, `node_id` (nullable, write-only), `ip`, `port`, `type`, `icon`, `parent_server_id`, `total_cpu`, `total_memory`, `total_disk`, `suspended`, `external_id` |
+| `Server` | `server.go` | `identifier` (string, 20) | `internal_id` (UUIDv7, not null, unique), `name`, `node_id` (nullable, write-only), `ip`, `port`, `type`, `icon`, `parent_server_id`, `total_cpu`, `total_memory`, `total_disk`, `suspended`, `external_id` |
 | `ServerView` | `serverview.go` | — | View model (no table) |
 | `ServerAPI` | `serverapi.go` | — | DTO |
 
@@ -186,7 +186,7 @@ Each service encapsulates GORM queries and business logic. They receive `*gorm.D
 |---|---|---|
 | `Session` | `session.go` | `CreateForUser`, `CreateForClient`, `Validate`, `ValidateNode`, `Expire` |
 | `User` | `user.go` | `Get`, `GetByID`, `GetByEmail`, `ValidateLogin`, `ValidOtp`, `IsValidCredentials`, `Create`, `Update`, `Delete`, `ChangePassword`, `CreatePasswordResetToken`, `ConsumePasswordResetToken`, `GetOtpStatus`, `StartOtpEnroll`, `ValidateOtpEnroll`, `RegenerateOtpRecoveryCodes`, `DisableOtp`, `Search`, `IsSecurePassword` |
-| `Server` | `server.go` | `Search`, `Get`, `Create`, `Update`, `Delete` |
+| `Server` | `server.go` | `Search`, `Get`, `GetByInternalID`, `Create`, `Update`, `Delete` |
 | `Node` | `node.go` | `GetAll`, `Get`, `Create`, `Update`, `Delete`, `CallNode`, `OpenSocket` |
 | `Permission` | `permission.go` | `GetForUser`, `GetForServer`, `GetForUserAndServer`, `HasPermission`, `GetForClient`, `GetForClientAndServer`, `UpdatePermissions`, `Remove` |
 | `Role` | `role.go` | `Get`, `List`, `GetByName`, `Create`, `Update`, `Delete` |

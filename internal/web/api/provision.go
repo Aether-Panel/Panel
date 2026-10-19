@@ -18,7 +18,6 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	skypanel "github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-gonic/gin"
-	"github.com/gofrs/uuid/v5"
 	"gorm.io/gorm"
 )
 
@@ -118,6 +117,32 @@ func provisionServer(c *gin.Context) {
 	var req ProvisionRequest
 	if err := c.ShouldBindJSON(&req); response.HandleError(c, err, http.StatusBadRequest) {
 		return
+	}
+
+	// 0. Idempotency: ExternalID is the billing provider's identifier for the
+	// service. Never provision the same service twice — if a server already
+	// carries that ExternalID, return it instead of creating a duplicate.
+	if req.ServiceID != "" {
+		var existing models.Server
+		err := db.Where("external_id = ?", req.ServiceID).First(&existing).Error
+		switch {
+		case err == nil:
+			// Keep the same response shape as a successful provisioning so
+			// billing integrations don't receive missing/misparsed fields. The
+			// generated password is only available on the first call, so it is
+			// intentionally returned empty on repeated (idempotent) calls.
+			c.JSON(http.StatusOK, gin.H{
+				"success":   true,
+				"server_id": existing.Identifier,
+				"username":  req.Username,
+				"password":  "",
+				"port":      existing.Port,
+			})
+			return
+		case !errors.Is(err, gorm.ErrRecordNotFound):
+			response.HandleError(c, err, http.StatusInternalServerError)
+			return
+		}
 	}
 
 	// 1. Find Product
@@ -221,8 +246,10 @@ func provisionServer(c *gin.Context) {
 	}
 
 	// 5. Create Server Models
-	uid, _ := uuid.NewV4()
-	serverID := uid.String()[:8]
+	serverID, err := models.GenerateServerIdentifier()
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
 
 	serverName := req.ServerName
 	if serverName == "" {
