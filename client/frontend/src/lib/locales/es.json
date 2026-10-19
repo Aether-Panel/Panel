@@ -230,8 +230,29 @@
       "createButton": "Crear Servidor"
     },
     "allServers": "Todos los Servidores",
+    "search": {
+      "label": "Buscar servidores",
+      "placeholder": "Buscar por nombre, IP o ID…",
+      "hint": "/",
+      "clear": "Limpiar búsqueda"
+    },
+    "filter": {
+      "label": "Filtrar por estado",
+      "all": "Todos"
+    },
+    "noResults": {
+      "title": "Sin resultados",
+      "description": "Ningún servidor coincide con la búsqueda o el filtro actual.",
+      "clear": "Limpiar filtros"
+    },
+    "empty": {
+      "title": "Todavía no hay servidores",
+      "description": "Crea tu primer servidor para empezar a gestionarlo desde aquí."
+    },
     "card": {
-      "activity": "Actividad reciente"
+      "activity": "Actividad reciente",
+      "console": "Consola",
+      "overview": "Resumen"
     },
     "table": {
       "server": "Servidor",
@@ -249,6 +270,8 @@
     },
     "detail": {
       "description": "Métricas detalladas y estado de este servidor.",
+      "suspended": "Suspendido",
+      "notFound": "Servidor no encontrado.",
       "start": "Iniciar",
       "restart": "Reiniciar",
       "stop": "Detener",
@@ -284,6 +307,12 @@
     },
     "console": {
       "title": "Consola en Vivo",
+      "windowLabel": "consola",
+      "status": {
+        "connected": "Conectado",
+        "connecting": "Conectando…",
+        "disconnected": "Desconectado"
+      },
       "commandPlaceholder": "Introduce un comando...",
       "sendButton": "Enviar",
       "waitingOutput": "Esperando la salida del servidor..."

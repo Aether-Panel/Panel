@@ -1,11 +1,10 @@
 'use client';
-import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Cpu, HardDrive, MemoryStick, Network, Terminal, Folder, Settings as SettingsIcon, Users, Database, Archive, Shield, Puzzle, Play, RefreshCw, Square, ShieldAlert, Key, ArrowRightLeft, GitBranch, Activity, type LucideIcon } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import ConsoleView from './console-view';
+import ConsoleView, { type ConsoleStatus } from './console-view';
 import FileManagerView from './file-manager-view';
 import SettingsView from './settings-view';
 import UsersView from './users-view';
@@ -19,7 +18,8 @@ import SplitterView from './splitter-view';
 import { ServerAddress } from './server-address';
 import MetricsCharts from './metrics-charts';
 import NetworkUsageChart from './network-usage-chart';
-import { formatBytes } from '@/lib/utils';
+import { cn, formatBytes } from '@/lib/utils';
+import { StatusIndicator } from '@/components/server-card';
 import { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -226,6 +226,8 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
   const server = allServers.find((s) => s.id === params.id);
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== 'undefined') {
+      const requestedTab = new URLSearchParams(window.location.search).get('tab');
+      if (requestedTab) return requestedTab;
       return localStorage.getItem(`serverTab_${params.id}`) || 'console';
     }
     return 'console';
@@ -249,6 +251,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
   
   const [isActionPending, setIsActionPending] = useState(false);
   const [serverUnavailable, setServerUnavailable] = useState(false);
+  const [consoleStatus, setConsoleStatus] = useState<ConsoleStatus>('connecting');
 
   // State lifted from ConsoleView
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -288,7 +291,10 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
   };
 
   useEffect(() => {
-    if (!server || serverUnavailable) return;
+    if (!server || serverUnavailable) {
+      setConsoleStatus('disconnected');
+      return;
+    }
     let cancelled = false;
     let socket: WebSocket | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -301,6 +307,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
 
     const connect = () => {
       if (cancelled || serverUnavailable) return;
+      setConsoleStatus('connecting');
 
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${protocol}//${window.location.host}/api/servers/${server.id}/socket?console`;
@@ -333,6 +340,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
       socket.onopen = () => {
         attempt = 0;
         connectedOnce = true;
+        setConsoleStatus('connected');
         console.log('[Console WS] Connected');
       };
       socket.onerror = (error) => {
@@ -340,6 +348,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
       };
       socket.onclose = () => {
         socket = null;
+        setConsoleStatus('disconnected');
         if (cancelled || serverUnavailable) return;
         addLogOnce('> Connection to server console lost. Reconnecting...');
         const delay = Math.min(1000 * Math.pow(2, attempt), 15000);
@@ -380,6 +389,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
       setLogs([]);
       setShowKill(false);
       setStopRequestedAt(null);
+      setConsoleStatus('disconnected');
       addLog('> Server is offline.');
     }
   }, [server?.status]);
@@ -448,7 +458,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
     );
   }
   if (!server) {
-    return <div className="flex h-full items-center justify-center"><p>Server not found.</p></div>;
+    return <div className="flex h-full items-center justify-center"><p>{t('servers.detail.notFound')}</p></div>;
   }
 
   const addLog = (message: string) => {
@@ -499,31 +509,45 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
   return (
     <div className="flex flex-col gap-6">
       <Card className="relative overflow-hidden">
-        <div className={`absolute inset-x-0 top-0 h-1 ${server.status === 'online' ? 'bg-green-500' : server.status === 'offline' ? 'bg-red-500' : 'bg-yellow-500'}`} />
+        <span
+          className={cn(
+            'absolute inset-x-0 top-0 h-1',
+            server.status === 'online' ? 'bg-success' : server.status === 'offline' ? 'bg-destructive' : 'bg-warning'
+          )}
+          aria-hidden="true"
+        />
         <CardContent className="p-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold tracking-tight">{server.name}</h1>
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant={server.status === 'online' ? 'default' : server.status === 'offline' ? 'destructive' : 'secondary'} className="capitalize flex items-center gap-1.5">
-                    <span className={`h-2 w-2 rounded-full ${server.status === 'online' ? 'bg-green-400' : server.status === 'offline' ? 'bg-red-400' : 'bg-yellow-400'}`} />
-                    {t(`dashboard.status.${server.status}`)}
-                  </Badge>
-                  {server.suspended && (
-                    <Badge variant="destructive" className="flex items-center gap-1.5 uppercase font-bold bg-red-600">
-                      <ShieldAlert className="w-3 h-3" />
-                      Suspendido
-                    </Badge>
+            <div className="min-w-0 space-y-3">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <h1 className="font-headline text-2xl font-semibold tracking-tight">{server.name}</h1>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    'gap-1.5 border-transparent capitalize',
+                    server.status === 'online'
+                      ? 'bg-success/10 text-success'
+                      : server.status === 'offline'
+                        ? 'bg-destructive/10 text-destructive-bright'
+                        : 'bg-warning/10 text-warning'
                   )}
-                </div>
+                >
+                  <StatusIndicator status={server.status} />
+                  {t(`dashboard.status.${server.status}`)}
+                </Badge>
+                {server.suspended && (
+                  <Badge variant="destructive" className="gap-1.5 font-semibold uppercase">
+                    <ShieldAlert className="h-3 w-3" aria-hidden="true" />
+                    {t('servers.detail.suspended')}
+                  </Badge>
+                )}
               </div>
               <div className="flex items-center gap-3 text-sm text-muted-foreground">
                 <ServerAddress ip={server.ipAddress} port={server.port} />
-                <span className="hidden sm:inline text-muted-foreground/60">{t('servers.detail.description')}</span>
+                <span className="hidden text-muted-foreground/60 sm:inline">{t('servers.detail.description')}</span>
               </div>
             </div>
-            <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
               <ServerActions server={server} isActionPending={isActionPending} handleAction={handleAction} showKill={showKill} t={t} />
             </div>
           </div>
@@ -562,7 +586,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
 
         <TabsContent value="console">
           <ErrorBoundary name="ConsoleView">
-            <ConsoleView serverId={server.id} logs={logs} addLog={addLog} />
+            <ConsoleView serverId={server.id} logs={logs} addLog={addLog} status={consoleStatus} />
           </ErrorBoundary>
         </TabsContent>
         <TabsContent value="overview" className="mt-6 space-y-8">

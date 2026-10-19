@@ -230,8 +230,29 @@
       "createButton": "Create Server"
     },
     "allServers": "All Servers",
+    "search": {
+      "label": "Search servers",
+      "placeholder": "Search by name, IP or ID…",
+      "hint": "/",
+      "clear": "Clear search"
+    },
+    "filter": {
+      "label": "Filter by status",
+      "all": "All"
+    },
+    "noResults": {
+      "title": "No results",
+      "description": "No server matches the current search or filter.",
+      "clear": "Clear filters"
+    },
+    "empty": {
+      "title": "No servers yet",
+      "description": "Create your first server to start managing it from here."
+    },
     "card": {
-      "activity": "Recent activity"
+      "activity": "Recent activity",
+      "console": "Console",
+      "overview": "Overview"
     },
     "table": {
       "server": "Server",
@@ -249,6 +270,8 @@
     },
     "detail": {
       "description": "Detailed metrics and status for this server.",
+      "suspended": "Suspended",
+      "notFound": "Server not found.",
       "start": "Start",
       "restart": "Restart",
       "stop": "Stop",
@@ -284,6 +307,12 @@
     },
     "console": {
       "title": "Live Console",
+      "windowLabel": "console",
+      "status": {
+        "connected": "Connected",
+        "connecting": "Connecting…",
+        "disconnected": "Disconnected"
+      },
       "commandPlaceholder": "Enter a command...",
       "sendButton": "Send",
       "waitingOutput": "Waiting for server output..."
