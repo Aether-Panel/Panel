@@ -113,7 +113,7 @@ function SubServerCard({ sub }: { sub: any }) {
             sub.status === 'online'
               ? 'bg-success/15 text-success'
               : sub.status === 'offline'
-                ? 'bg-destructive/15 text-destructive'
+                ? 'bg-destructive/15 text-destructive-bright'
                 : 'bg-warning/15 text-warning'
           )}
         >

@@ -137,7 +137,7 @@ function Step1Environment({
                                 {selectedUsers.map((id: number) => {
                                     const u = users.find((user: any) => user.id === id);
                                     return (
-                                        <Badge key={id} variant="secondary" className="pl-3 pr-1 py-1 flex items-center gap-2 bg-primary/10 text-primary border-primary/20">
+                                        <Badge key={id} variant="secondary" className="pl-3 pr-1 py-1 flex items-center gap-2 bg-primary/10 text-primary-bright border-primary/20">
                                             {u?.username}
                                             <Button
                                                 variant="ghost"

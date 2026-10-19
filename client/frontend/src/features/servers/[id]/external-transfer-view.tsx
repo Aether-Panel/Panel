@@ -296,7 +296,7 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
                     <div className={cn(
                       'flex items-center gap-2 rounded-full px-3 py-1 font-mono text-sm font-bold backdrop-blur-sm',
                       timeLeft < 120
-                        ? 'bg-destructive/15 text-destructive animate-pulse'
+                        ? 'bg-destructive/15 text-destructive-bright animate-pulse'
                         : 'bg-success/15 text-success'
                     )}>
                       <Clock className="h-3.5 w-3.5" />

@@ -23,6 +23,8 @@ export type Server = {
   playersOnline?: number;
   maxPlayers?: number;
   isMinecraft?: boolean;
+  /** Availability for the last 30 days, as reported by `/api/uptime`. */
+  uptimePercent?: number;
 };
 
 export type User = {

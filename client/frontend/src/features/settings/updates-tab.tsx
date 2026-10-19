@@ -310,7 +310,7 @@ export function UpdatesTab() {
                                             <span className="font-medium">{node.name}</span>
                                             <span className="text-sm text-muted-foreground">{node.address}</span>
                                             {node.local && (
-                                                <span className="text-xs rounded bg-primary/10 text-primary px-2 py-0.5">
+                                                <span className="text-xs rounded bg-primary/10 text-primary-bright px-2 py-0.5">
                                                     This Panel
                                                 </span>
                                             )}

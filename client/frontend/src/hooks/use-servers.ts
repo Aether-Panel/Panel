@@ -40,6 +40,7 @@ export function useServers() {
                     totalCpu: s.total_cpu,
                     totalMemory: s.total_memory,
                     totalDisk: s.total_disk,
+                    uptimePercent: typeof uptime.uptimePercent === 'number' ? uptime.uptimePercent : undefined,
                 };
             });
 

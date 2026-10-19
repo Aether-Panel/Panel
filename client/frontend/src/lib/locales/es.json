@@ -10,6 +10,17 @@
     "checkCredentials": "Revisa tus credenciales e inténtalo de nuevo.",
     "accountCreated": "Cuenta creada e iniciada sesión."
   },
+  "header": {
+    "root": "Panel",
+    "breadcrumbs": "Ruta de navegación",
+    "search": {
+      "label": "Búsqueda rápida",
+      "open": "Abrir búsqueda rápida",
+      "placeholder": "Buscar páginas y secciones…",
+      "hint": "Ctrl K",
+      "noResults": "No hay páginas coincidentes"
+    }
+  },
   "sidebar": {
     "dashboard": "Dashboard",
     "servers": "Servidores",
@@ -19,9 +30,12 @@
     "databaseHosts": "Hosts de BD",
     "templates": "Plantillas",
     "settings": "Configuración",
+    "toggleMenu": "Alternar menú de navegación",
+    "closeMenu": "Cerrar menú de navegación",
     "groups": {
       "overview": "Resumen",
-      "management": "Gestión"
+      "management": "Gestión",
+      "account": "Cuenta"
     },
     "system": {
       "online": "Sistema en línea",
@@ -122,6 +136,59 @@
       "totalServers": "Total de servidores",
       "totalUsers": "Total de usuarios",
       "totalNodes": "Total de nodos",
+      "status": {
+        "serversActive": "Servidores activos",
+        "activeOf": "{{online}} de {{total}}",
+        "health": "Salud global",
+        "network": "Tráfico de red"
+      },
+      "kpi": {
+        "label": "Indicadores de recursos",
+        "averageOf": "Media de {{metric}}",
+        "avgOfServers": "media de {{count}} servidores",
+        "avgOfServersOne": "media de 1 servidor",
+        "avgOfNodes": "media de {{count}} nodos",
+        "avgOfNodesOne": "media de 1 nodo",
+        "noSamples": "Sin datos de recursos todavía"
+      },
+      "panel": {
+        "label": "Información del panel",
+        "servers": "Servidores",
+        "users": "Usuarios",
+        "nodes": "Nodos",
+        "registration": "Altas",
+        "registrationOpen": "Abiertas",
+        "registrationClosed": "Cerradas"
+      },
+      "history": {
+        "title": "Red histórica",
+        "description": "Descarga y subida agregadas de todos los nodos.",
+        "rangeLabel": "Rango de tiempo",
+        "range1h": "1 h",
+        "range6h": "6 h",
+        "range24h": "24 h",
+        "chartLabel": "Tráfico de red agregado a lo largo del tiempo",
+        "samples": "{{count}} muestras · cada {{seconds}} s",
+        "samplesOne": "1 muestra · cada {{seconds}} s",
+        "empty": {
+          "title": "Recopilando historial",
+          "description": "El historial se guarda en este navegador y empieza a dibujarse en cuanto hay unas muestras."
+        }
+      },
+      "access": {
+        "title": "Registros de acceso",
+        "description": "Inicios de sesión y altas de cuenta más recientes.",
+        "retention": "Se conservan los últimos 90 días.",
+        "empty": "Todavía no hay accesos registrados. Se anotará el próximo inicio de sesión.",
+        "denied": "Tu cuenta no tiene permiso para ver los registros de acceso.",
+        "unavailable": "Esta versión del panel todavía no ofrece los registros de acceso.",
+        "events": {
+          "login": "Inicio de sesión",
+          "login_failed": "Intento fallido",
+          "register": "Cuenta creada",
+          "other": "Acceso"
+        }
+      },
       "resourceOverview": {
         "title": "Resumen de Recursos",
         "description": "Instantánea actual de la utilización de recursos."

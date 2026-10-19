@@ -116,7 +116,7 @@ export function ServerCard({ server, t }: { server: Server; t: (key: string) => 
               server.status === 'online'
                 ? 'bg-success/10 text-success'
                 : server.status === 'offline'
-                  ? 'bg-destructive/10 text-destructive'
+                  ? 'bg-destructive/10 text-destructive-bright'
                   : 'bg-warning/10 text-warning'
             )}
           >

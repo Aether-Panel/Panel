@@ -10,6 +10,17 @@
     "checkCredentials": "Please check your credentials and try again.",
     "accountCreated": "Account created and signed in."
   },
+  "header": {
+    "root": "Panel",
+    "breadcrumbs": "Breadcrumb",
+    "search": {
+      "label": "Quick search",
+      "open": "Open quick search",
+      "placeholder": "Search pages and sections…",
+      "hint": "Ctrl K",
+      "noResults": "No matching pages"
+    }
+  },
   "sidebar": {
     "dashboard": "Dashboard",
     "servers": "Servers",
@@ -19,9 +30,12 @@
     "databaseHosts": "Database Hosts",
     "templates": "Templates",
     "settings": "Settings",
+    "toggleMenu": "Toggle navigation menu",
+    "closeMenu": "Close navigation menu",
     "groups": {
       "overview": "Overview",
-      "management": "Management"
+      "management": "Management",
+      "account": "Account"
     },
     "system": {
       "online": "System onlines",
@@ -122,6 +136,59 @@
       "totalServers": "Total Servers",
       "totalUsers": "Total Users",
       "totalNodes": "Total Nodes",
+      "status": {
+        "serversActive": "Active servers",
+        "activeOf": "{{online}} of {{total}}",
+        "health": "Overall health",
+        "network": "Network traffic"
+      },
+      "kpi": {
+        "label": "Resource indicators",
+        "averageOf": "Average {{metric}}",
+        "avgOfServers": "average of {{count}} servers",
+        "avgOfServersOne": "average of 1 server",
+        "avgOfNodes": "average of {{count}} nodes",
+        "avgOfNodesOne": "average of 1 node",
+        "noSamples": "No resource data yet"
+      },
+      "panel": {
+        "label": "Panel information",
+        "servers": "Servers",
+        "users": "Users",
+        "nodes": "Nodes",
+        "registration": "Sign-ups",
+        "registrationOpen": "Open",
+        "registrationClosed": "Closed"
+      },
+      "history": {
+        "title": "Network history",
+        "description": "Download and upload aggregated across every node.",
+        "rangeLabel": "Time range",
+        "range1h": "1 h",
+        "range6h": "6 h",
+        "range24h": "24 h",
+        "chartLabel": "Aggregate network throughput over time",
+        "samples": "{{count}} samples · every {{seconds}} s",
+        "samplesOne": "1 sample · every {{seconds}} s",
+        "empty": {
+          "title": "Collecting history",
+          "description": "History is stored in this browser and starts plotting as soon as a few samples exist."
+        }
+      },
+      "access": {
+        "title": "Access records",
+        "description": "Latest sign-ins and account creations.",
+        "retention": "The last 90 days are kept.",
+        "empty": "No access recorded yet. The next sign-in will show up here.",
+        "denied": "Your account is not allowed to read the access records.",
+        "unavailable": "This panel build does not serve the access records yet.",
+        "events": {
+          "login": "Sign-in",
+          "login_failed": "Failed attempt",
+          "register": "Account created",
+          "other": "Access"
+        }
+      },
       "resourceOverview": {
         "title": "Resource Overview",
         "description": "Current snapshot of resource utilization."

@@ -147,7 +147,7 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: S
             {variable.options?.map((opt: any) => (
               <div key={String(opt.value)} className={cn(
                 'flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-all',
-                String(variable.value) === String(opt.value) ? 'border-primary bg-primary/10 text-primary' : 'border-border/60 bg-accent/5 text-muted-foreground hover:bg-accent/10'
+                String(variable.value) === String(opt.value) ? 'border-primary bg-primary/10 text-primary-bright' : 'border-border/60 bg-accent/5 text-muted-foreground hover:bg-accent/10'
               )}>
                 <RadioGroupItem value={String(opt.value)} id={`${name}-${String(opt.value)}`} className="border-muted-foreground/40" />
                 <Label htmlFor={`${name}-${String(opt.value)}`} className="cursor-pointer">{opt.display}</Label>
@@ -357,7 +357,7 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: S
                       canManagePorts ? "grid grid-cols-[80px_1fr_140px_36px]" : "grid grid-cols-[80px_1fr_140px]"
                     )}>
                       <span className={cn("ml-1 rounded px-1.5 py-0.5 text-center text-[10px] font-bold uppercase",
-                        idx === 0 ? "bg-primary/15 text-primary" : "bg-muted/50 text-muted-foreground"
+                        idx === 0 ? "bg-primary/15 text-primary-bright" : "bg-muted/50 text-muted-foreground"
                       )}>
                         {idx === 0 ? 'Principal' : `#${idx + 1}`}
                       </span>

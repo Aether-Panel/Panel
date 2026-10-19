@@ -500,7 +500,15 @@ export default function NodeDetailPage({ params }: { params: { id: string } }) {
 
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader title={node.name} />
+      <PageHeader
+        title={node.name}
+        badges={
+          <Badge variant={node.systemInfo ? 'default' : 'destructive'} className="capitalize">
+            <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />
+            {t(`dashboard.status.${node.systemInfo ? 'online' : 'offline'}`)}
+          </Badge>
+        }
+      />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="border border-border/60 rounded-xl overflow-hidden h-full">
