@@ -2,6 +2,7 @@ import { Editor, loader } from '@monaco-editor/react';
 import { useEffect, useRef } from 'react';
 import { Loader2 } from 'lucide-react';
 import { ensureMonacoStylesheet, markMonacoInUse } from '@/lib/monaco-setup';
+import { useTranslations } from '@/contexts/translations-context';
 
 loader.config({
   paths: {
@@ -61,6 +62,10 @@ const tokyoNight = {
   },
 };
 
+// Monaco themes only accept hex, so the editor surface colour lives here with
+// the rest of the theme; the host and loading state reuse it to avoid a flash.
+const EDITOR_BACKGROUND = tokyoNight.colors['editor.background'];
+
 function registerTokyoNightTheme(monaco: any) {
   monaco.editor.defineTheme('tokyo-night', tokyoNight as any);
 }
@@ -74,6 +79,7 @@ interface CodeEditorProps {
 
 export default function CodeEditor({ language, value, onChange, onSave }: CodeEditorProps) {
   const editorRef = useRef<any>(null);
+  const { t } = useTranslations();
 
   useEffect(() => {
     markMonacoInUse();
@@ -122,14 +128,14 @@ export default function CodeEditor({ language, value, onChange, onSave }: CodeEd
   };
 
   const loadingFallback = (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-4 bg-[#1a1b26]">
-      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground/60" />
-      <p className="text-xs text-muted-foreground/60">Loading Editor...</p>
+    <div className="flex h-full w-full flex-col items-center justify-center gap-3" style={{ backgroundColor: EDITOR_BACKGROUND }}>
+      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden="true" />
+      <p className="text-xs text-muted-foreground">{t('servers.fileManager.editor.loading')}</p>
     </div>
   );
 
   return (
-    <div className="monaco-editor-host relative h-full w-full overflow-hidden rounded-lg bg-[#1a1b26]">
+    <div className="monaco-editor-host relative h-full w-full overflow-hidden rounded-lg" style={{ backgroundColor: EDITOR_BACKGROUND }}>
       <Editor
         height="100%"
         width="100%"

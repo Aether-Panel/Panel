@@ -1,27 +1,28 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
-import { Form, FormField, FormItem, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/providers';
 import { useConfig } from '@/contexts/config-context';
+import { useTranslations } from '@/contexts/translations-context';
 import { Loader2, Mail, Lock } from 'lucide-react';
 import Turnstile from '@/components/Turnstile';
-import { useState } from 'react';
-import { Logo } from '@/components/logo';
+import { AuthFrame, AuthInput, authLabelClass, authLinkClass, authMessageClass } from '@/components/AuthShell';
 
-const formSchema = z.object({
-  email: z.string().email({
-    message: 'Please enter a valid email address.',
-  }),
-  password: z.string().min(1, {
-    message: 'Password is required.',
-  }),
-});
+/** Same rules as before; only the messages now follow the active language. */
+const createFormSchema = (t: (key: string) => string) =>
+  z.object({
+    email: z.string().email({ message: t('auth.validation.email') }),
+    password: z.string().min(1, { message: t('auth.validation.passwordRequired') }),
+  });
+
+type LoginValues = z.infer<ReturnType<typeof createFormSchema>>;
 
 function DiscordIcon({ className }: { className?: string }) {
   return (
@@ -40,12 +41,14 @@ function SteamIcon({ className }: { className?: string }) {
 }
 
 export default function LoginPage() {
+  const { t } = useTranslations();
   const { login, loading } = useAuth();
   const { config } = useConfig();
   const panelName = config?.branding?.name || 'Aether Panel';
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const formSchema = useMemo(() => createFormSchema(t), [t]);
+  const form = useForm<LoginValues>({
     resolver: zodResolver(formSchema as any),
     defaultValues: {
       email: '',
@@ -53,174 +56,112 @@ export default function LoginPage() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  function onSubmit(values: LoginValues) {
     void login({ ...values, turnstileToken: turnstileToken || undefined });
   }
 
   const demoEmail = `admin@${panelName.toLowerCase().replaceAll(/\s+/g, '')}.com`;
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#0F141D] px-4 py-8">
-      <div className="w-full max-w-5xl overflow-hidden rounded-2xl border border-[#252a36]/60 bg-[#121620] shadow-2xl shadow-black/40">
-        <div className="grid grid-cols-1 md:grid-cols-2">
+    <AuthFrame
+      title={t('auth.login.title')}
+      description={t('auth.login.description')}
+      artTitle={t('auth.login.artTitle', { name: panelName })}
+      artDescription={t('auth.login.artDescription')}
+      footer={
+        config?.registrationEnabled !== false ? (
+          <>
+            {t('auth.login.noAccount')}{' '}
+            <a href="/register" className={authLinkClass}>
+              {t('auth.login.signUp')}
+            </a>
+          </>
+        ) : null
+      }
+    >
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="space-y-5">
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className={authLabelClass}>{t('auth.fields.email')}</FormLabel>
+                <FormControl>
+                  <AuthInput {...field} icon={Mail} type="email" autoComplete="email" placeholder={demoEmail} />
+                </FormControl>
+                <FormMessage className={authMessageClass} />
+              </FormItem>
+            )}
+          />
 
-          {/* ── Left Column: Image + Welcome ── */}
-          <div className="relative hidden md:block">
-            <img
-              src="/img/Fondos/minecraft-shaders-anime-hd-wallpaper-preview.jpg"
-              alt=""
-              className="absolute inset-0 h-full w-full object-cover"
-            />
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className={authLabelClass}>{t('auth.fields.password')}</FormLabel>
+                <FormControl>
+                  <AuthInput {...field} icon={Lock} type="password" autoComplete="current-password" placeholder="••••••••" />
+                </FormControl>
+                <FormMessage className={authMessageClass} />
+              </FormItem>
+            )}
+          />
 
-            {/* Logo */}
-            <div className="absolute top-8 left-8">
-              <Logo />
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            <div className="flex items-center gap-2">
+              <Checkbox id="remember" />
+              <Label htmlFor="remember" className="text-sm font-normal text-muted-foreground">
+                {t('auth.login.remember')}
+              </Label>
             </div>
-
-            {/* Bottom glassmorphism strip */}
-            <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-[#121620] via-[#121620]/70 to-transparent p-10 backdrop-blur-sm">
-              <h2 className="text-2xl font-bold tracking-tight text-white">
-                Welcome Back to {panelName}
-              </h2>
-              <p className="mt-3 max-w-sm text-sm leading-relaxed text-white/70">
-                Manage your game servers, monitor live resources and keep your services online — all in one place.
-              </p>
-            </div>
+            <a href="/forgot-password" className={`text-sm ${authLinkClass}`}>
+              {t('auth.login.forgot')}
+            </a>
           </div>
 
-          {/* ── Right Column: Form ── */}
-          <div className="flex items-center px-8 py-10 sm:px-12">
-            <div className="w-full max-w-[400px]">
-              <h1 className="text-3xl font-bold tracking-tight text-[#f0f1f3]">Sign in</h1>
-              <p className="mt-2 text-sm text-[#8a919c]">
-                Enter your credentials to access your account
-              </p>
+          <Button type="submit" className="h-11 w-full font-semibold" disabled={loading}>
+            {loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+            {t('auth.login.submit')}
+          </Button>
+        </form>
+      </Form>
 
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="mt-8 space-y-5">
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <label htmlFor="email" className="mb-2 inline-block text-xs font-semibold uppercase tracking-wider text-[#f0f1f3]">
-                          Email
-                        </label>
-                        <div className="relative">
-                          <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8a919c]" />
-                          <input
-                            {...field}
-                            id="email"
-                            type="email"
-                            placeholder={demoEmail}
-                            className="w-full rounded-lg border border-[#252a36] bg-[#0a0e14] py-2.5 pl-10 pr-3 text-sm text-[#f0f1f3] transition-colors placeholder:text-[#8a919c]/60 focus:border-[#3b82f6] focus:outline-none focus:ring-1 focus:ring-[#3b82f6]/20"
-                          />
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <label htmlFor="password" className="mb-2 inline-block text-xs font-semibold uppercase tracking-wider text-[#f0f1f3]">
-                          Password
-                        </label>
-                        <div className="relative">
-                          <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8a919c]" />
-                          <input
-                            {...field}
-                            id="password"
-                            type="password"
-                            placeholder="••••••••"
-                            className="w-full rounded-lg border border-[#252a36] bg-[#0a0e14] py-2.5 pl-10 pr-3 text-sm text-[#f0f1f3] transition-colors placeholder:text-[#8a919c]/60 focus:border-[#3b82f6] focus:outline-none focus:ring-1 focus:ring-[#3b82f6]/20"
-                          />
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Checkbox id="remember" className="rounded" />
-                      <Label htmlFor="remember" className="text-sm text-[#8a919c]">
-                        Remember me
-                      </Label>
-                    </div>
-                    <a
-                      href="/forgot-password"
-                      className="text-sm font-medium text-[#22c55e] transition-colors hover:text-[#22c55e]/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#22c55e] rounded"
-                    >
-                      Forgot password?
-                    </a>
-                  </div>
-
-                  <Button
-                    type="submit"
-                    className="h-auto w-full rounded-lg bg-[#3b82f6] py-2.5 px-3.5 text-sm font-semibold text-white shadow-sm shadow-[#3b82f6]/20 transition-all duration-200 hover:bg-[#3b82f6]/90 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#3b82f6] cursor-pointer"
-                    disabled={loading}
-                  >
-                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Sign in
-                  </Button>
-                </form>
-              </Form>
-
-              {/* ── OR Separator ── */}
-              <div className="my-6 flex items-center gap-4">
-                <div className="h-px flex-1 bg-[#252a36]" />
-                <span className="text-xs font-semibold uppercase tracking-wider text-[#8a919c]">OR</span>
-                <div className="h-px flex-1 bg-[#252a36]" />
-              </div>
-
-              {/* ── Social Buttons ── */}
-              <div className="grid grid-cols-2 gap-4">
-                <button
-                  type="button"
-                  className="flex items-center justify-center gap-2.5 rounded-lg border border-[#252a36] bg-transparent py-2.5 text-sm font-medium text-[#f0f1f3] transition-all duration-200 hover:border-[#5865F2]/50 hover:bg-[#5865F2]/10 hover:text-[#5865F2] active:scale-[0.98] cursor-pointer"
-                >
-                  <DiscordIcon className="h-4 w-4" />
-                  Discord
-                </button>
-                <button
-                  type="button"
-                  className="flex items-center justify-center gap-2.5 rounded-lg border border-[#252a36] bg-transparent py-2.5 text-sm font-medium text-[#f0f1f3] transition-all duration-200 hover:border-[#1b2838]/50 hover:bg-[#66c0f4]/10 hover:text-[#66c0f4] active:scale-[0.98] cursor-pointer"
-                >
-                  <SteamIcon className="h-4 w-4" />
-                  Steam
-                </button>
-              </div>
-
-              {config?.turnstileEnabled && (
-                <div className="mt-6 flex justify-center">
-                  <Turnstile
-                    siteKey={config?.turnstileSiteKey || ''}
-                    onVerify={(token) => setTurnstileToken(token)}
-                    theme="dark"
-                  />
-                </div>
-              )}
-
-              {config?.registrationEnabled !== false && (
-                <div className="mt-8 text-center text-sm text-[#8a919c]">
-                  Don&apos;t have an account?{' '}
-                  <a
-                    href="/register"
-                    className="font-semibold text-[#22c55e] transition-colors hover:text-[#22c55e]/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#22c55e] rounded"
-                  >
-                    Sign up
-                  </a>
-                </div>
-              )}
-            </div>
-          </div>
-
-        </div>
+      <div className="my-6 flex items-center gap-3">
+        <div className="h-px flex-1 bg-border/60" />
+        <span className="text-xs text-muted-foreground">{t('auth.login.or')}</span>
+        <div className="h-px flex-1 bg-border/60" />
       </div>
-    </main>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Button
+          type="button"
+          variant="outline"
+          className="h-11 hover:border-[#5865F2]/50 hover:bg-[#5865F2]/10 hover:text-[#5865F2]"
+        >
+          <DiscordIcon className="h-4 w-4" />
+          Discord
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-11 hover:border-[#66c0f4]/50 hover:bg-[#66c0f4]/10 hover:text-[#66c0f4]"
+        >
+          <SteamIcon className="h-4 w-4" />
+          Steam
+        </Button>
+      </div>
+
+      {config?.turnstileEnabled && (
+        <div className="mt-6 flex justify-center">
+          <Turnstile
+            siteKey={config?.turnstileSiteKey || ''}
+            onVerify={(token) => setTurnstileToken(token)}
+            theme="dark"
+          />
+        </div>
+      )}
+    </AuthFrame>
   );
 }

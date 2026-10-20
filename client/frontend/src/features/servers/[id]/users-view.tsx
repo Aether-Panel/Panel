@@ -1,10 +1,11 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { UserAvatar } from '@/components/user-avatar';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { PlusCircle, Loader2, Trash2, Users as UsersIcon, ShieldCheck } from 'lucide-react';
+import { Plus, Loader2, Trash2, Users as UsersIcon, ShieldCheck } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -105,21 +106,16 @@ export default function UsersView({ serverId }: UsersViewProps) {
   };
 
   return (
-    <div className="mt-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-primary/30 bg-gradient-to-br from-primary/25 via-accent/15 to-transparent text-primary shadow-[0_0_20px_rgb(0_0_0/0.3)]">
-            <UsersIcon className="h-5 w-5" />
-          </div>
-          <div>
-            <h2 className="font-headline text-2xl font-bold tracking-tight">{t('servers.users.title')}</h2>
-            <p className="text-muted-foreground">{t('servers.users.description')}</p>
-          </div>
+    <Card className="mt-6">
+      <div className="flex flex-col gap-4 border-b border-border/50 p-5 sm:flex-row sm:items-center sm:justify-between md:p-6">
+        <div className="min-w-0 space-y-1">
+          <h2 className="text-lg font-semibold tracking-[-0.02em]">{t('servers.users.title')}</h2>
+          <p className="text-sm text-muted-foreground">{t('servers.users.description')}</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="shrink-0">
-              <PlusCircle className="mr-2 h-4 w-4" />
+            <Button className="shrink-0 self-start sm:self-auto">
+              <Plus aria-hidden="true" />
               {t('servers.users.addUser')}
             </Button>
           </DialogTrigger>
@@ -130,8 +126,8 @@ export default function UsersView({ serverId }: UsersViewProps) {
                 <DialogDescription>{t('servers.users.addDialog.description')}</DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="email" className="text-right">
+                <div className="space-y-2">
+                  <Label htmlFor="email">
                     {t('servers.users.addDialog.emailLabel')}
                   </Label>
                   <Input
@@ -140,7 +136,6 @@ export default function UsersView({ serverId }: UsersViewProps) {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder={t('servers.users.addDialog.emailPlaceholder')}
-                    className="col-span-3"
                     required
                     disabled={addingUser}
                   />
@@ -148,7 +143,7 @@ export default function UsersView({ serverId }: UsersViewProps) {
               </div>
               <DialogFooter>
                 <Button type="submit" disabled={addingUser || !email}>
-                  {addingUser && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {addingUser && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
                   {t('servers.users.addDialog.addButton')}
                 </Button>
               </DialogFooter>
@@ -157,64 +152,55 @@ export default function UsersView({ serverId }: UsersViewProps) {
         </Dialog>
       </div>
 
-      <div className="mt-6 flex flex-col gap-4">
+      <div className="p-5 md:p-6">
         {loading ? (
           <div className="flex justify-center py-16">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t('common.loading')} />
           </div>
         ) : users.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border/70 bg-card/50 p-14 text-center backdrop-blur-sm">
-            <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/20 via-accent/10 to-transparent text-primary">
-              <UsersIcon className="h-6 w-6" />
-            </div>
-            <h3 className="font-headline text-lg font-semibold">{t('servers.users.noUsers') || 'No users have access to this server yet.'}</h3>
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="mt-6">
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  {t('servers.users.addUser')}
-                </Button>
-              </DialogTrigger>
-            </Dialog>
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 px-6 py-14 text-center">
+            <UsersIcon className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
+            <h3 className="text-base font-semibold">{t('servers.users.noUsers')}</h3>
+            <Button className="mt-6" onClick={() => setIsDialogOpen(true)}>
+              <Plus aria-hidden="true" />
+              {t('servers.users.addUser')}
+            </Button>
           </div>
         ) : (
-          users.map((user) => (
-            <div key={user.email} className="group relative flex items-center justify-between gap-4 overflow-hidden rounded-xl border border-border/80 bg-card p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[0_8px_30px_rgb(0_0_0/0.35)]">
-              <div className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-primary via-accent to-transparent" />
-              <div className="pointer-events-none absolute -right-8 -top-8 opacity-[0.05] transition-transform duration-300 group-hover:scale-110">
-                <UsersIcon className="h-28 w-28" />
-              </div>
-
-              <div className="relative flex min-w-0 items-center gap-4">
-                <Avatar className="h-11 w-11 shrink-0 ring-1 ring-border">
-                  <AvatarFallback className="bg-gradient-to-br from-primary/25 to-accent/20 text-lg font-bold text-primary">
-                    {(user.username || user.email).charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
+          <ul className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60 bg-background/30">
+          {users.map((user) => (
+            <li key={user.email} className="flex items-center justify-between gap-4 px-4 py-3.5 transition-colors duration-150 hover:bg-accent/30">
+              <div className="flex min-w-0 items-center gap-3.5">
+                <UserAvatar
+                  identity={user.email || user.username}
+                  fallback={(user.username || user.email).charAt(0).toUpperCase()}
+                  className="h-10 w-10 ring-1 ring-border/60"
+                />
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="truncate font-headline font-semibold leading-tight">{user.username || user.email.split('@')[0]}</p>
+                    <p className="truncate text-sm font-semibold leading-tight">{user.username || user.email.split('@')[0]}</p>
                     <Badge
                       variant="outline"
-                      className="hidden shrink-0 items-center gap-1 border-primary/25 bg-primary/10 px-1.5 py-px text-[10px] font-medium text-primary sm:inline-flex"
+                      className="hidden shrink-0 items-center gap-1 border-border/60 px-1.5 py-px text-[11px] font-medium text-muted-foreground sm:inline-flex"
                     >
-                      <ShieldCheck className="h-2.5 w-2.5" />
-                      {user.scopes?.length || 0} permisos
+                      <ShieldCheck className="h-2.5 w-2.5" aria-hidden="true" />
+                      {t('servers.users.permissionsCount', { count: user.scopes?.length || 0 })}
                     </Badge>
                   </div>
-                  <p className="truncate font-mono text-xs text-muted-foreground">{user.email}</p>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">{user.email}</p>
                 </div>
               </div>
 
-              <div className="relative shrink-0">
+              <div className="shrink-0">
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      className="h-9 w-9 px-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive-bright sm:w-auto sm:px-3"
+                      aria-label={t('servers.users.revoke')}
                     >
-                      <Trash2 className="h-4 w-4 sm:mr-2" />
+                      <Trash2 aria-hidden="true" />
                       <span className="hidden sm:inline">
                         {t('servers.users.revoke')}
                       </span>
@@ -228,18 +214,19 @@ export default function UsersView({ serverId }: UsersViewProps) {
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>{t('common.cancel') || 'Cancel'}</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => handleRevoke(user.email)} className="bg-red-500 hover:bg-red-600">
+                      <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => handleRevoke(user.email)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                         {t('servers.users.revoke')}
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
               </div>
-            </div>
-          ))
+            </li>
+          ))}
+          </ul>
         )}
       </div>
-    </div>
+    </Card>
   );
 }

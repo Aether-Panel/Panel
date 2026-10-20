@@ -449,7 +449,7 @@ const SidebarGroupLabel = React.forwardRef<
       ref={ref}
       data-sidebar="group-label"
       className={cn(
-        "flex h-7 shrink-0 items-center rounded-md px-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-sidebar-foreground/70 outline-none ring-sidebar-ring transition-[margin,opacity] duration-200 ease-panel focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0",
+        "flex h-7 shrink-0 items-center rounded-md px-2 text-xs font-semibold text-sidebar-foreground/70 outline-none ring-sidebar-ring transition-[margin,opacity] duration-200 ease-panel focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0",
         "group-data-[collapsible=icon]:-mt-7 group-data-[collapsible=icon]:opacity-0",
         className
       )}
@@ -524,9 +524,9 @@ SidebarMenuItem.displayName = "SidebarMenuItem"
 const sidebarMenuButtonVariants = cva(
   [
     "peer/menu-button relative flex w-full items-center gap-2 overflow-hidden rounded-lg p-2 text-left text-sm outline-none ring-sidebar-ring transition-[color,background-color,box-shadow] duration-200 ease-panel hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2 group-data-[collapsible=icon]:transition-all motion-reduce:transition-none [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-sidebar-foreground/60 [&>svg]:transition-colors [&>svg]:duration-200",
-    // Luminous accent rail on the selected item. Drawn with a pseudo-element so
+    // Accent rail on the selected item. Drawn with a pseudo-element so
     // it also shows when the button renders as a child element (`asChild`).
-    "before:absolute before:left-0 before:top-1/2 before:h-4 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-primary before:opacity-0 before:shadow-[0_0_10px_hsl(var(--glow)/0.75)] before:transition-opacity before:duration-200 before:ease-panel motion-reduce:before:transition-none",
+    "before:absolute before:left-0 before:top-1/2 before:h-4 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-primary before:opacity-0 before:transition-opacity before:duration-200 before:ease-panel motion-reduce:before:transition-none",
     "data-[active=true]:bg-sidebar-accent data-[active=true]:bg-gradient-to-r data-[active=true]:from-primary/15 data-[active=true]:to-transparent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[active=true]:before:opacity-100 [&[data-active=true]>svg]:text-primary",
   ].join(" "),
   {

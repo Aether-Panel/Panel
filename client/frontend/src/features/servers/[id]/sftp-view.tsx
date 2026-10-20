@@ -1,57 +1,70 @@
 'use client';
 import { useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/providers';
+import { useTranslations } from '@/contexts/translations-context';
 import { sileo } from "@/lib/toast";
-import { Check, Copy, ExternalLink, Lock } from 'lucide-react';
+import { Check, Copy, ExternalLink, Lock, ServerOff } from 'lucide-react';
 
 type SFTPViewProps = {
     server: any;
 };
 
+function CopyButton({ label, copied, onCopy }: { label: string; copied: boolean; onCopy: () => void }) {
+    return (
+        <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground sm:h-7 sm:w-7"
+            onClick={onCopy}
+            aria-label={label}
+            title={label}
+        >
+            {copied ? <Check className="text-success" aria-hidden="true" /> : <Copy aria-hidden="true" />}
+        </Button>
+    );
+}
+
 function SpecRow({
     label,
     value,
-    copyable,
+    copyLabel,
     copied,
     onCopy,
 }: {
     label: string;
     value: string;
-    copyable?: boolean;
-    copied?: boolean;
-    onCopy?: () => void;
+    copyLabel: string;
+    copied: boolean;
+    onCopy: () => void;
 }) {
     return (
-        <div className="flex items-center justify-between gap-4 px-4 py-3">
-            <span className="shrink-0 text-sm text-muted-foreground">{label}</span>
-            <span className="flex min-w-0 items-center gap-2">
-                <code className="truncate font-mono text-sm text-foreground">{value}</code>
-                {copyable && (
-                    <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground" onClick={onCopy} aria-label={`Copiar ${label}`}>
-                        {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                    </Button>
-                )}
-            </span>
+        <div className="flex items-center gap-3 px-4 py-2.5">
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <span className="shrink-0 text-sm text-muted-foreground">{label}</span>
+                <code className="min-w-0 truncate font-mono text-sm text-foreground">{value}</code>
+            </div>
+            <CopyButton label={copyLabel} copied={copied} onCopy={onCopy} />
         </div>
     );
 }
 
 export default function SFTPView({ server }: SFTPViewProps) {
     const { user } = useAuth();
-    
+    const { t } = useTranslations();
+
     const [copiedField, setCopiedField] = useState<string | null>(null);
 
     if (!server || !server.node) {
         return (
-            <div className="mt-6">
-                <Card className="border-0 bg-card/50 backdrop-blur-sm">
-                    <CardContent className="py-12 text-center text-muted-foreground">
-                        No se pudo cargar la información del nodo para SFTP.
-                    </CardContent>
-                </Card>
-            </div>
+            <Card className="mt-6 p-5 md:p-6">
+                <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
+                    <ServerOff className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
+                    <h3 className="text-base font-semibold">{t('servers.sftp.unavailableTitle')}</h3>
+                    <p className="mt-1 max-w-sm text-sm text-muted-foreground">{t('servers.sftp.unavailableDescription')}</p>
+                </div>
+            </Card>
         );
     }
 
@@ -66,7 +79,7 @@ export default function SFTPView({ server }: SFTPViewProps) {
         setCopiedField(field);
         setTimeout(() => setCopiedField(null), 2000);
         sileo.success({
-            description: "Copiado al portapapeles",
+            description: t('common.copied'),
         });
     };
 
@@ -74,103 +87,84 @@ export default function SFTPView({ server }: SFTPViewProps) {
         const url = `sftp://${encodeURIComponent(sftpUser)}@${sftpHost}:${sftpPort}/`;
         window.location.href = url;
         sileo.success({
-            title: "Lanzando SFTP",
-            description: "Se ha enviado la solicitud a tu cliente SFTP local.",
+            title: t('servers.sftp.launchTitle'),
+            description: t('servers.sftp.launchDescription'),
         });
     };
 
     return (
-        <div className="mt-6 flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-                <div className="space-y-1">
-                    <h2 className="font-headline text-2xl font-bold tracking-tight">Acceso SFTP</h2>
-                    <p className="max-w-xl text-sm text-muted-foreground">
-                        Gestiona los archivos de tu servidor desde un cliente externo como FileZilla o WinSCP.
-                    </p>
+        <Card className="mt-6">
+            <div className="flex flex-col gap-4 border-b border-border/50 p-5 sm:flex-row sm:items-center sm:justify-between md:p-6">
+                <div className="min-w-0 space-y-1">
+                    <h2 className="text-lg font-semibold tracking-[-0.02em]">{t('servers.sftp.title')}</h2>
+                    <p className="text-sm text-muted-foreground">{t('servers.sftp.description')}</p>
                 </div>
-                <Button onClick={handleLaunchSFTP} className="shrink-0">
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                    Conectar con cliente local
+                <Button onClick={handleLaunchSFTP} className="shrink-0 self-start sm:self-auto">
+                    <ExternalLink aria-hidden="true" />
+                    {t('servers.sftp.launch')}
                 </Button>
             </div>
 
-            <div className="overflow-hidden rounded-xl border border-border/80 bg-[#070A12] shadow-[0_24px_70px_rgb(0_0_0/0.35)]">
-                <div className="relative flex items-center justify-between border-b border-border/70 px-4 py-2.5">
-                    <div className="flex items-center gap-1.5">
-                        <span className="h-3 w-3 rounded-full bg-[#FF5F57]" />
-                        <span className="h-3 w-3 rounded-full bg-[#FEBC2E]" />
-                        <span className="h-3 w-3 rounded-full bg-[#28C840]" />
-                    </div>
-                    <span className="absolute left-1/2 -translate-x-1/2 font-mono text-[11px] text-muted-foreground">acceso-sftp comandos</span>
-                </div>
-                <div className="space-y-3 px-5 py-5">
-                    <div className="flex items-start gap-3">
-                        <span className="select-none font-mono text-sm font-bold text-primary">$</span>
-                        <code className="min-w-0 flex-1 break-all font-mono text-sm leading-relaxed text-foreground">
-                            <span className="text-primary">sftp://</span>
-                            {sftpUser}@{sftpHost}:<span className="text-muted-foreground">{sftpPort}</span>/
-                        </code>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground" onClick={() => copyToClipboard(uri, 'uri')} aria-label="Copiar URI SFTP">
-                            {copiedField === 'uri' ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                        </Button>
-                    </div>
-                    <div className="flex items-start gap-3">
-                        <span className="select-none font-mono text-sm font-bold text-primary">$</span>
-                        <code className="min-w-0 flex-1 break-all font-mono text-sm leading-relaxed text-foreground">{command}</code>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground" onClick={() => copyToClipboard(command, 'cmd')} aria-label="Copiar comando">
-                            {copiedField === 'cmd' ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                        </Button>
-                    </div>
-                </div>
-            </div>
-
-            <div className="grid gap-6 md:grid-cols-2">
-                <Card className="overflow-hidden border border-border/80 bg-card">
-                    <div className="flex items-center gap-2 border-b border-border/60 px-4 py-3">
-                        <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                        <span className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Conexión</span>
-                    </div>
-                    <CardContent className="divide-y divide-border/60 p-0">
-                        <SpecRow
-                            label="Host / IP"
-                            value={sftpHost}
-                            copyable
-                            copied={copiedField === 'host'}
-                            onCopy={() => copyToClipboard(sftpHost, 'host')}
-                        />
-                        <SpecRow
-                            label="Puerto"
-                            value={sftpPort.toString()}
-                            copyable
-                            copied={copiedField === 'port'}
-                            onCopy={() => copyToClipboard(sftpPort.toString(), 'port')}
-                        />
-                    </CardContent>
-                </Card>
-
-                <Card className="overflow-hidden border border-border/80 bg-card">
-                    <div className="flex items-center gap-2 border-b border-border/60 px-4 py-3">
-                        <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                        <span className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Credenciales</span>
-                    </div>
-                    <CardContent className="divide-y divide-border/60 p-0">
-                        <SpecRow
-                            label="Usuario"
-                            value={sftpUser}
-                            copyable
-                            copied={copiedField === 'user'}
-                            onCopy={() => copyToClipboard(sftpUser, 'user')}
-                        />
-                        <div className="flex items-center justify-between gap-4 px-4 py-3">
-                            <span className="shrink-0 text-sm text-muted-foreground">Contraseña</span>
-                            <span className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
-                                <Lock className="h-3.5 w-3.5 shrink-0" />
-                                <span className="truncate">La misma contraseña de tu cuenta</span>
-                            </span>
+            <div className="space-y-5 p-5 md:p-6">
+                <div className="divide-y divide-border/50 rounded-xl border border-border/60 bg-background/30">
+                    <div className="flex items-start gap-3 px-4 py-3">
+                        <div className="min-w-0 flex-1 space-y-1">
+                            <p className="text-xs text-muted-foreground">{t('servers.sftp.uriLabel')}</p>
+                            <code className="block break-all font-mono text-sm leading-relaxed text-foreground">{uri}</code>
                         </div>
-                    </CardContent>
-                </Card>
+                        <CopyButton label={t('servers.sftp.copyUri')} copied={copiedField === 'uri'} onCopy={() => copyToClipboard(uri, 'uri')} />
+                    </div>
+                    <div className="flex items-start gap-3 px-4 py-3">
+                        <div className="min-w-0 flex-1 space-y-1">
+                            <p className="text-xs text-muted-foreground">{t('servers.sftp.commandLabel')}</p>
+                            <code className="block break-all font-mono text-sm leading-relaxed text-foreground">{command}</code>
+                        </div>
+                        <CopyButton label={t('servers.sftp.copyCommand')} copied={copiedField === 'cmd'} onCopy={() => copyToClipboard(command, 'cmd')} />
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+                    <section className="min-w-0 space-y-2">
+                        <h3 className="text-sm font-semibold">{t('servers.sftp.connection')}</h3>
+                        <div className="divide-y divide-border/50 rounded-xl border border-border/60 bg-background/30">
+                            <SpecRow
+                                label={t('servers.sftp.host')}
+                                value={sftpHost}
+                                copyLabel={t('servers.sftp.copyHost')}
+                                copied={copiedField === 'host'}
+                                onCopy={() => copyToClipboard(sftpHost, 'host')}
+                            />
+                            <SpecRow
+                                label={t('servers.sftp.port')}
+                                value={sftpPort.toString()}
+                                copyLabel={t('servers.sftp.copyPort')}
+                                copied={copiedField === 'port'}
+                                onCopy={() => copyToClipboard(sftpPort.toString(), 'port')}
+                            />
+                        </div>
+                    </section>
+
+                    <section className="min-w-0 space-y-2">
+                        <h3 className="text-sm font-semibold">{t('servers.sftp.credentials')}</h3>
+                        <div className="divide-y divide-border/50 rounded-xl border border-border/60 bg-background/30">
+                            <SpecRow
+                                label={t('servers.sftp.username')}
+                                value={sftpUser}
+                                copyLabel={t('servers.sftp.copyUsername')}
+                                copied={copiedField === 'user'}
+                                onCopy={() => copyToClipboard(sftpUser, 'user')}
+                            />
+                            <div className="flex min-h-[3rem] flex-col justify-center gap-0.5 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                                <span className="shrink-0 text-sm text-muted-foreground">{t('servers.sftp.password')}</span>
+                                <span className="flex min-w-0 items-center gap-2 text-sm text-foreground/80">
+                                    <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                                    <span className="truncate">{t('servers.sftp.passwordHint')}</span>
+                                </span>
+                            </div>
+                        </div>
+                    </section>
+                </div>
             </div>
-        </div>
+        </Card>
     );
 }

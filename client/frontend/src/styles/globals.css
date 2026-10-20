@@ -207,8 +207,33 @@
   * {
     @apply border-border;
   }
+  /* Browser-drawn surfaces follow the theme too: native controls render
+     dark, the caret and checkable inputs take the accent, and every
+     scrollbar is a thin neutral thumb instead of the OS default. */
+  html {
+    color-scheme: dark;
+    accent-color: hsl(var(--primary));
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--foreground) / 0.16) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background: hsl(var(--foreground) / 0.16) padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--foreground) / 0.28) padding-box;
+  }
   body {
     @apply bg-background text-foreground;
+    caret-color: hsl(var(--primary));
   }
   ::selection {
     background: hsl(var(--primary)/0.3);
@@ -255,11 +280,10 @@
     fill: hsl(var(--card));
   }
 
-  .text-gradient {
-    background: linear-gradient(135deg, hsl(var(--primary)), hsl(250 50% 65%));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+  /* Sileo title-cases every toast title ("Consola Conectada"); our copy is
+     sentence case, so show it as written. */
+  [data-sileo-viewport] [data-sileo-title] {
+    text-transform: none;
   }
 
   /* Micro-interactions. `lift` is for raised, hoverable panels; `press` is
@@ -275,5 +299,164 @@
 
   .press {
     @apply transition-all duration-200 ease-panel active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100;
+  }
+}
+
+/* ===================================================================
+   Finish layer: light, grain and motion on top of the token system.
+   Restraint is the rule: everything stays quiet. Motion answers what the operator
+   does; ambient motion is slow enough to go unnoticed. Every effect
+   animates transform/opacity only and stops under `prefers-reduced-motion`.
+   =================================================================== */
+
+/* Fine grain over the whole app so the navy canvas never reads as a flat fill. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+}
+
+/* Backdrop (`<AmbientBackdrop />`), fixed behind the content column: the
+   panel's Minecraft artwork, blurred and dimmed, in a slow zoom under a
+   navy veil. */
+.ambient {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+}
+.ambient > * {
+  position: absolute;
+  display: block;
+}
+
+.backdrop-art {
+  inset: 0;
+  background: url("/img/Fondos/minecraft-shaders-anime-hd-wallpaper-preview.jpg") center / cover no-repeat;
+  filter: blur(14px) saturate(1.25) brightness(0.7);
+  transform: scale(1.15);
+  will-change: transform;
+  animation: backdrop-zoom 30s ease-in-out infinite alternate;
+}
+@keyframes backdrop-zoom {
+  from { transform: scale(1.15) translate3d(-1.5%, -1%, 0); }
+  to { transform: scale(1.28) translate3d(1.5%, 1.5%, 0); }
+}
+
+/* The veil keeps every surface readable: the art shows most at the top and
+   centre and closes to the canvas colour towards the bottom and edges. */
+.backdrop-veil {
+  inset: 0;
+  background:
+    linear-gradient(to bottom, hsl(var(--background) / 0.35), hsl(var(--background) / 0.75) 70%, hsl(var(--background) / 0.95)),
+    radial-gradient(80% 70% at 50% 30%, transparent, hsl(var(--background) / 0.6));
+}
+
+/* Panel surface: solid L2 with a 1px highlight on the top edge, so panels
+   read as machined objects rather than flat rectangles. In the components
+   layer so a `bg-*` or `shadow-*` utility on a Card still wins. */
+@layer components {
+  .surface-panel {
+    background-color: hsl(var(--card));
+    box-shadow:
+      inset 0 1px 0 0 hsl(var(--foreground) / 0.045),
+      var(--shadow-elevation-1);
+  }
+}
+
+/* Page entry: a short fade when a page mounts. Nothing staggers, nothing
+   blurs: operators move between pages all day. */
+.page-enter {
+  animation: page-fade 240ms ease-out both;
+}
+@keyframes page-fade { from { opacity: 0; } }
+
+/* Skeleton shimmer: a soft band of light travels across the placeholder. */
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.skeleton-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, hsl(var(--foreground) / 0.05), transparent);
+  animation: shimmer 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@keyframes shimmer { to { transform: translateX(100%); } }
+
+/* Meter fill: a solid bar whose start is slightly darker, so it reads as
+   filling towards the value. Grows in once on mount. */
+.meter-fill {
+  background-image: linear-gradient(90deg, hsl(var(--meter) / 0.7), hsl(var(--meter)));
+}
+.meter-grow {
+  animation: meter-grow 900ms cubic-bezier(0.22, 1, 0.36, 1) 120ms backwards;
+}
+@keyframes meter-grow { from { transform: translateX(-100%); } }
+
+/* Sign-in art drifts very slowly, so the welcome column feels alive. */
+.auth-art {
+  transform-origin: 30% 40%;
+  animation: auth-drift 40s ease-in-out infinite alternate;
+}
+@keyframes auth-drift {
+  from { transform: scale(1.02); }
+  to { transform: scale(1.08) translate3d(-1%, -0.6%, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient *,
+  .skeleton-shimmer::after,
+  .meter-grow,
+  .auth-art {
+    animation: none !important;
+  }
+}
+
+/* Dashboard fits one screen on desktop: the page takes the viewport height
+   below the top bar (4rem) minus the lg page padding (2 × 2rem), the bottom
+   row takes what is left and its contents shrink into it. Below 1280px wide
+   (the sidebar leaves under ~1000px of content, so the resource cards wrap to
+   two rows) or 640px tall, the dashboard keeps the normal scrolling layout. */
+@media (min-width: 1280px) and (min-height: 640px) {
+  .dash-fit {
+    height: calc(100svh - 8rem);
+    gap: 1rem;
+  }
+  .dash-fit [data-fit="fill"] {
+    flex: 1 1 0%;
+    min-height: 0;
+  }
+  .dash-fit [data-fit="fill"] > * {
+    min-height: 0;
+  }
+  .dash-fit [data-fit="chart"] {
+    height: 100%;
+    min-height: 0;
+    aspect-ratio: auto;
+  }
+  .dash-fit [data-fit="scroll"] {
+    flex: 1 1 0%;
+    min-height: 0;
+    overflow-y: auto;
+  }
+  /* Rows may stretch to fill the card, but only a little: on tall screens
+     they stay grouped at the top instead of drifting apart. */
+  .dash-fit [data-fit="scroll"] > li {
+    max-height: 4rem;
+  }
+}
+/* On short desktop screens the card descriptions give their height to the chart. */
+@media (min-width: 1280px) and (min-height: 640px) and (max-height: 820px) {
+  .dash-fit [data-fit="hide-short"] {
+    display: none;
   }
 }

@@ -1,20 +1,20 @@
 'use client';
 import { useAuth } from '@/contexts/providers';
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef, useId } from 'react';
 import { PageHeader } from '@/components/page-header';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { PlusCircle, Trash2, Loader2, ShieldCheck, Shield, Search, Pencil } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Check, ChevronDown, Loader2, Lock, Minus, Pencil, Plus, Search, ShieldCheck, Trash2 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
 import { sileo } from "@/lib/toast";
+import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 type Role = {
@@ -23,6 +23,8 @@ type Role = {
   description: string;
   scopes: string[];
 };
+
+type RoleDraft = Pick<Role, 'name' | 'description' | 'scopes'>;
 
 const permissionGroups: { label: string; keys: string[] }[] = [
   {
@@ -102,6 +104,482 @@ const translationKeyOverride: Record<string, string> = {
   'server.admin.assignments.manage': 'server.adminSection.assignmentsManage',
 };
 
+/** The two roles the backend seeds (`internal/database/upgrade.go`) can't be edited or deleted. */
+const isProtectedRole = (role: Role) =>
+  role.name === 'admin' || role.name === 'Administrador' || role.name === 'Usuario';
+
+/** The `admin` super-scope grants everything, so the effective set is every known permission. */
+const isFullAccess = (role: Role) => (role.scopes || []).includes('admin');
+
+const effectiveScopes = (role: Role): Set<string> =>
+  new Set(isFullAccess(role) ? allPermissionKeys : (role.scopes || []));
+
+function usePermissionLabel() {
+  const { t } = useTranslations();
+  return useCallback((permissionKey: string): string => {
+    const mapped = translationKeyOverride[permissionKey] || permissionKey;
+    return t(`permissions.${mapped}`);
+  }, [t]);
+}
+
+/** Thin coverage meter: how much of the permission catalogue a role holds. */
+function CoverageBar({ value, className }: { value: number; className?: string }) {
+  return (
+    <div className={cn('h-1 w-full overflow-hidden rounded-full bg-secondary', className)}>
+      <div
+        className="h-full rounded-full bg-primary transition-[width] duration-500 ease-panel"
+        style={{ width: `${Math.round(Math.min(1, Math.max(0, value)) * 100)}%` }}
+      />
+    </div>
+  );
+}
+
+/**
+ * Create and edit share one editor: name and description on top, then the
+ * permission catalogue grouped by area. Each group has a tri-state checkbox
+ * (all / some / none) and every permission shows its readable name with the
+ * scope key underneath, so operators who know the keys can still find them.
+ */
+function RoleEditorDialog({
+  open,
+  onOpenChange,
+  mode,
+  initial,
+  onSubmit,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  mode: 'create' | 'edit';
+  initial: RoleDraft;
+  onSubmit: (draft: RoleDraft) => Promise<boolean>;
+}) {
+  const { t } = useTranslations();
+  const getPermissionLabel = usePermissionLabel();
+  const [name, setName] = useState(initial.name);
+  const [description, setDescription] = useState(initial.description);
+  const [scopes, setScopes] = useState<string[]>(initial.scopes);
+  const [query, setQuery] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [triedSubmit, setTriedSubmit] = useState(false);
+
+  // Each opening starts from the role being edited (or a blank role).
+  useEffect(() => {
+    if (!open) return;
+    setName(initial.name);
+    setDescription(initial.description);
+    setScopes(initial.scopes);
+    setQuery('');
+    setTriedSubmit(false);
+  }, [open, initial]);
+
+  const selected = useMemo(() => new Set(scopes), [scopes]);
+
+  const filteredGroups = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return permissionGroups;
+    return permissionGroups
+      .map(group => ({
+        ...group,
+        keys: group.keys.filter(k => getPermissionLabel(k).toLowerCase().includes(q) || k.toLowerCase().includes(q)),
+      }))
+      .filter(group => group.keys.length > 0);
+  }, [query, getPermissionLabel]);
+
+  const toggle = useCallback((key: string, checked: boolean) => {
+    setScopes(prev => (checked ? [...new Set([...prev, key])] : prev.filter(p => p !== key)));
+  }, []);
+
+  const toggleMany = useCallback((keys: string[], select: boolean) => {
+    setScopes(prev => {
+      if (select) return [...new Set([...prev, ...keys])];
+      return prev.filter(p => !keys.includes(p));
+    });
+  }, []);
+
+  const visibleKeys = filteredGroups.flatMap(g => g.keys);
+  const allVisibleSelected = visibleKeys.length > 0 && visibleKeys.every(k => selected.has(k));
+  const knownSelected = allPermissionKeys.filter(k => selected.has(k)).length;
+
+  const submit = async () => {
+    setTriedSubmit(true);
+    if (!name.trim()) return;
+    setSaving(true);
+    const ok = await onSubmit({ name: name.trim(), description, scopes });
+    setSaving(false);
+    if (ok) onOpenChange(false);
+  };
+
+  const nameMissing = triedSubmit && !name.trim();
+
+  return (
+    <Dialog open={open} onOpenChange={(next) => { if (!saving) onOpenChange(next); }}>
+      <DialogContent className="flex max-h-[min(90svh,52rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
+        <DialogHeader className="border-b border-border/60 p-6 pb-5 text-left">
+          <DialogTitle className="text-xl font-semibold tracking-[-0.02em]">
+            {mode === 'create' ? t('roles.addDialog.title') : t('roles.editDialog.title')}
+          </DialogTitle>
+          <DialogDescription>
+            {mode === 'create' ? t('roles.addDialog.description') : t('roles.editDialog.description')}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="custom-scrollbar min-h-0 flex-1 space-y-6 overflow-y-auto p-6">
+          <div className="grid gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+            <div className="space-y-2">
+              <Label htmlFor="role-name">{t('roles.addDialog.nameLabel')}</Label>
+              <Input
+                id="role-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={t('roles.addDialog.namePlaceholder')}
+                aria-invalid={nameMissing}
+                className={cn(nameMissing && 'border-destructive focus-visible:ring-destructive/40')}
+                autoFocus
+              />
+              {nameMissing && <p className="text-xs text-destructive-bright">{t('roles.nameRequired')}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="role-description">{t('roles.addDialog.descriptionLabel')}</Label>
+              <Textarea
+                id="role-description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder={t('roles.addDialog.descriptionPlaceholder')}
+                className="min-h-[2.5rem] resize-none"
+                rows={2}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold">{t('roles.addDialog.permissionsLabel')}</h3>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => toggleMany(visibleKeys, !allVisibleSelected)}
+                disabled={visibleKeys.length === 0}
+              >
+                {allVisibleSelected ? t('roles.deselectAll') : t('roles.selectAll')}
+              </Button>
+            </div>
+
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+              <Input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t('roles.searchPermissions')}
+                aria-label={t('roles.searchPermissions')}
+                className="pl-9"
+              />
+            </div>
+
+            {filteredGroups.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-border/60 px-4 py-8 text-center text-sm text-muted-foreground">
+                {t('roles.noMatches', { query: query.trim() })}
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {filteredGroups.map((group) => {
+                  const count = group.keys.filter(k => selected.has(k)).length;
+                  const state: boolean | 'indeterminate' =
+                    count === 0 ? false : count === group.keys.length ? true : 'indeterminate';
+                  const groupId = `group-${group.label}`;
+                  return (
+                    <section key={group.label} aria-labelledby={groupId} className="rounded-xl border border-border/60 bg-background/30">
+                      <div className="flex items-center gap-3 px-4 py-3">
+                        <Checkbox
+                          checked={state}
+                          onCheckedChange={() => toggleMany(group.keys, state !== true)}
+                          aria-labelledby={groupId}
+                        />
+                        <span id={groupId} className="text-sm font-semibold">{t(group.label)}</span>
+                        <span className="ml-auto text-xs tabular-nums text-muted-foreground">
+                          {count}/{group.keys.length}
+                        </span>
+                      </div>
+                      <div className="grid gap-0.5 border-t border-border/50 p-1.5 sm:grid-cols-2">
+                        {group.keys.map(permissionKey => {
+                          const id = `perm-${permissionKey}`;
+                          return (
+                            <label
+                              key={permissionKey}
+                              htmlFor={id}
+                              className="flex cursor-pointer items-start gap-3 rounded-lg px-2.5 py-2 transition-colors duration-150 hover:bg-accent/50"
+                            >
+                              <Checkbox
+                                id={id}
+                                className="mt-0.5"
+                                checked={selected.has(permissionKey)}
+                                onCheckedChange={(checked) => toggle(permissionKey, !!checked)}
+                              />
+                              <span className="min-w-0">
+                                <span className="block text-sm leading-snug text-foreground">{getPermissionLabel(permissionKey)}</span>
+                                <span className="block truncate font-mono text-[11px] text-muted-foreground">{permissionKey}</span>
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter className="flex-row items-center justify-between gap-3 border-t border-border/60 px-6 py-4 sm:justify-between">
+          <span className="text-xs tabular-nums text-muted-foreground">
+            {t('roles.selectedCount', { count: knownSelected, total: allPermissionKeys.length })}
+          </span>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+              {t('roles.addDialog.cancel')}
+            </Button>
+            <Button onClick={submit} disabled={saving}>
+              {saving && <Loader2 className="animate-spin" />}
+              {mode === 'create' ? t('roles.addDialog.create') : t('roles.editDialog.save')}
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** One role in the left-hand list: name, what it is for and how much it can do. */
+function RoleListItem({ role, active, onSelect }: { role: Role; active: boolean; onSelect: () => void }) {
+  const { t } = useTranslations();
+  const granted = effectiveScopes(role).size;
+  const full = isFullAccess(role);
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-current={active ? 'true' : undefined}
+      className={cn(
+        'group relative flex w-full flex-col gap-3 rounded-xl border px-4 py-3.5 text-left transition-colors duration-200 ease-panel focus-ring',
+        active
+          ? 'border-primary/45 bg-primary/[0.07]'
+          : 'border-border/60 bg-card hover:border-border hover:bg-accent/40',
+      )}
+    >
+      <span className="flex w-full items-start gap-3">
+        <span
+          aria-hidden="true"
+          className={cn(
+            'grid h-9 w-9 shrink-0 place-items-center rounded-lg border text-sm font-semibold',
+            full ? 'border-primary/30 bg-primary/10 text-primary-bright' : 'border-border/60 bg-secondary text-foreground',
+          )}
+        >
+          {full ? <ShieldCheck className="h-4 w-4" /> : role.name.trim().charAt(0).toUpperCase()}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-2">
+            <span className="truncate text-sm font-semibold text-foreground">{role.name}</span>
+            {isProtectedRole(role) && (
+              <Lock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-label={t('roles.protected')} />
+            )}
+          </span>
+          <span className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
+            {role.description || t('roles.noDescription')}
+          </span>
+        </span>
+      </span>
+      <span className="flex w-full items-center gap-3">
+        <CoverageBar value={granted / allPermissionKeys.length} className="flex-1" />
+        <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+          {full ? t('roles.fullAccess') : `${granted}/${allPermissionKeys.length}`}
+        </span>
+      </span>
+    </button>
+  );
+}
+
+/**
+ * One permission area in the role detail. On phones it collapses to a single
+ * row (name, count, meter) that opens on tap, so a role doesn't become a wall
+ * of seventy lines; from `lg` up every area is open.
+ */
+function PermissionGroupView({
+  label,
+  keys,
+  granted,
+  getPermissionLabel,
+}: {
+  label: string;
+  keys: string[];
+  granted: Set<string>;
+  getPermissionLabel: (key: string) => string;
+}) {
+  const { t } = useTranslations();
+  const [open, setOpen] = useState(false);
+  const count = keys.filter(k => granted.has(k)).length;
+  const listId = useId();
+
+  return (
+    <section className="rounded-xl border border-border/60 bg-background/30">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+        aria-controls={listId}
+        className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left focus-ring lg:pointer-events-none lg:pb-0"
+      >
+        <h3 className="text-sm font-semibold text-foreground">{label}</h3>
+        <span className={cn('ml-auto text-xs tabular-nums', count > 0 ? 'text-foreground' : 'text-muted-foreground')}>
+          {count}/{keys.length}
+        </span>
+        <ChevronDown
+          aria-hidden="true"
+          className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ease-panel lg:hidden', open && 'rotate-180')}
+        />
+      </button>
+      <ul id={listId} className={cn('p-2 pt-0 lg:block lg:pt-1.5', open ? 'block' : 'hidden')}>
+        {keys.map((permissionKey) => {
+          const has = granted.has(permissionKey);
+          return (
+            <li key={permissionKey} className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm">
+              {has ? (
+                <Check className="h-3.5 w-3.5 shrink-0 text-success" aria-label={t('roles.granted')} />
+              ) : (
+                <Minus className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" aria-label={t('roles.notGranted')} />
+              )}
+              <span className={cn('min-w-0 truncate', has ? 'text-foreground' : 'text-muted-foreground/70')} title={permissionKey}>
+                {getPermissionLabel(permissionKey)}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+/** The selected role: header with actions, then every permission area and what this role holds in it. */
+function RoleDetail({
+  role,
+  onEdit,
+  onDelete,
+}: {
+  role: Role;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const { t } = useTranslations();
+  const getPermissionLabel = usePermissionLabel();
+  const granted = effectiveScopes(role);
+  const full = isFullAccess(role);
+  const locked = isProtectedRole(role);
+
+  return (
+    <Card className="overflow-hidden">
+      <div className="flex flex-col gap-4 border-b border-border/60 p-5 sm:flex-row sm:items-start sm:justify-between md:p-6">
+        <div className="min-w-0 space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-xl font-semibold tracking-[-0.02em] text-foreground">{role.name}</h2>
+            {locked && (
+              <span className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-secondary px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                <Lock className="h-3 w-3" aria-hidden="true" />
+                {t('roles.protected')}
+              </span>
+            )}
+          </div>
+          <p className="max-w-[62ch] text-sm text-muted-foreground">{role.description || t('roles.noDescription')}</p>
+        </div>
+
+        {locked ? (
+          <p className="max-w-[40ch] text-xs text-muted-foreground sm:text-right">{t('roles.protectedNote')}</p>
+        ) : (
+          <div className="flex shrink-0 gap-2">
+            <Button variant="outline" size="sm" onClick={onEdit}>
+              <Pencil aria-hidden="true" />
+              {t('roles.edit')}
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" className="text-destructive-bright hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive-bright">
+                  <Trash2 aria-hidden="true" />
+                  {t('roles.delete')}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{t('roles.deleteDialog.title')}</AlertDialogTitle>
+                  <AlertDialogDescription>{t('roles.deleteDialog.description')}</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={onDelete}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    {t('common.delete')}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-5 p-5 md:p-6">
+        <div className="space-y-2">
+          <div className="flex items-baseline justify-between gap-3 text-sm">
+            <span className="font-medium text-foreground">
+              {full ? t('roles.fullAccess') : t('roles.permissionsCount', { count: granted.size, total: allPermissionKeys.length })}
+            </span>
+          </div>
+          <CoverageBar value={granted.size / allPermissionKeys.length} className="h-1.5" />
+          {full && <p className="text-xs text-muted-foreground">{t('roles.adminNote')}</p>}
+        </div>
+
+        {granted.size === 0 ? (
+          <p className="rounded-xl border border-dashed border-border/60 px-4 py-8 text-center text-sm text-muted-foreground">
+            {t('roles.noPermissions')}
+          </p>
+        ) : (
+          <div className="gap-3 lg:columns-2 [&>*]:mb-3 [&>*]:break-inside-avoid">
+            {permissionGroups.map((group) => (
+              <PermissionGroupView
+                key={group.label}
+                label={t(group.label)}
+                keys={group.keys}
+                granted={granted}
+                getPermissionLabel={getPermissionLabel}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function RolesSkeleton() {
+  return (
+    <div className="flex flex-col gap-8" aria-busy="true">
+      <div className="space-y-2">
+        <Skeleton className="h-9 w-64" />
+        <Skeleton className="h-4 w-96 max-w-full" />
+      </div>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
+        <div className="space-y-2">
+          {Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="h-[5.25rem] rounded-xl" />)}
+        </div>
+        <Skeleton className="h-[32rem] rounded-xl" />
+      </div>
+    </div>
+  );
+}
+
+const EMPTY_DRAFT: RoleDraft = { name: '', description: '', scopes: [] };
 
 export default function RolesPage() {
   const { role, hasScope } = useAuth();
@@ -110,7 +588,11 @@ export default function RolesPage() {
 
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
-  
+  const [selectedId, setSelectedId] = useState<number | undefined>(undefined);
+  // The editor keeps its last mode while it closes, so the title doesn't flip mid-animation.
+  const [editor, setEditor] = useState<{ mode: 'create' | 'edit'; role?: Role }>({ mode: 'create' });
+  const [editorOpen, setEditorOpen] = useState(false);
+  const detailRef = useRef<HTMLDivElement>(null);
 
   const fetchRoles = useCallback(async () => {
     setLoading(true);
@@ -118,7 +600,7 @@ export default function RolesPage() {
       const data = await api.get('/api/roles');
       setRoles(data || []);
     } catch (e: any) {
-      sileo.error({ title: t('common.error'), description: e.message || 'Failed to fetch roles.' });
+      sileo.error({ title: t('common.error'), description: e.message || t('roles.toast.loadFailed') });
     } finally {
       setLoading(false);
     }
@@ -132,454 +614,112 @@ export default function RolesPage() {
     void fetchRoles();
   }, [role, hasScope, fetchRoles]);
 
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [isAdding, setIsAdding] = useState(false);
+  // Keep a valid selection: the first role by default, and a neighbour after a delete.
+  useEffect(() => {
+    if (roles.length === 0) return;
+    if (!roles.some(r => r.id === selectedId)) setSelectedId(roles[0].id);
+  }, [roles, selectedId]);
 
-  // New role form state
-  const [newRoleName, setNewRoleName] = useState('');
-  const [newRoleDescription, setNewRoleDescription] = useState('');
-  const [newRolePermissions, setNewRolePermissions] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  const selectedRole = roles.find(r => r.id === selectedId) ?? roles[0];
 
-  const getPermissionLabel = useCallback((permissionKey: string): string => {
-    const mapped = translationKeyOverride[permissionKey] || permissionKey;
-    return t(`permissions.${mapped}`);
-  }, [t]);
-
-  const handlePermissionChange = useCallback((permissionKey: string, checked: boolean) => {
-    setNewRolePermissions(prev =>
-      checked ? [...prev, permissionKey] : prev.filter(p => p !== permissionKey)
-    );
-  }, []);
-
-  const handleSelectGroup = useCallback((keys: string[], select: boolean) => {
-    setNewRolePermissions(prev => {
-      if (select) {
-        const newSet = new Set(prev);
-        keys.forEach(k => newSet.add(k));
-        return Array.from(newSet);
-      } else {
-        return prev.filter(p => !keys.includes(p));
-      }
-    });
-  }, []);
-
-  const handleAddRole = useCallback(async () => {
-    if (!newRoleName) return;
-
-    setIsAdding(true);
-    try {
-      await api.post('/api/roles', {
-        name: newRoleName,
-        description: newRoleDescription,
-        scopes: newRolePermissions,
-      });
-
-      sileo.success({ title: t('common.success'), description: 'Role created successfully.' });
-
-      setNewRoleName('');
-      setNewRoleDescription('');
-      setNewRolePermissions([]);
-      setSearchQuery('');
-      setIsAddDialogOpen(false);
-      void fetchRoles();
-    } catch (e: any) {
-      sileo.error({ title: t('common.error'), description: e.message || 'Failed to create role.' });
-    } finally {
-      setIsAdding(false);
+  const selectRole = (id?: number) => {
+    setSelectedId(id);
+    // On narrow screens the detail sits below the list: bring it into view.
+    if (window.matchMedia('(max-width: 1279px)').matches) {
+      requestAnimationFrame(() => detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     }
-  }, [newRoleName, newRoleDescription, newRolePermissions, t, fetchRoles]);
+  };
+
+  const handleCreate = useCallback(async (draft: RoleDraft) => {
+    try {
+      await api.post('/api/roles', draft);
+      sileo.success({ title: t('common.success'), description: t('roles.toast.created') });
+      void fetchRoles();
+      return true;
+    } catch (e: any) {
+      sileo.error({ title: t('common.error'), description: e.message || t('roles.toast.createFailed') });
+      return false;
+    }
+  }, [t, fetchRoles]);
+
+  const handleUpdate = useCallback(async (id: number | undefined, draft: RoleDraft) => {
+    try {
+      await api.post(`/api/roles/${id}`, draft);
+      sileo.success({ title: t('common.success'), description: t('roles.toast.updated') });
+      void fetchRoles();
+      return true;
+    } catch (e: any) {
+      sileo.error({ title: t('common.error'), description: e.message || t('roles.toast.updateFailed') });
+      return false;
+    }
+  }, [t, fetchRoles]);
 
   const handleDeleteRole = useCallback(async (id: number) => {
     try {
       await api.delete(`/api/roles/${id}`);
-      sileo.success({ title: t('common.success'), description: 'Role deleted successfully.' });
+      sileo.success({ title: t('common.success'), description: t('roles.toast.deleted') });
       void fetchRoles();
     } catch (e: any) {
-      sileo.error({ title: t('common.error'), description: e.message || 'Failed to delete role.' });
+      sileo.error({ title: t('common.error'), description: e.message || t('roles.toast.deleteFailed') });
     }
   }, [t, fetchRoles]);
 
-  // Edit role state
-  const [editRole, setEditRole] = useState<Role | null>(null);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editName, setEditName] = useState('');
-  const [editDescription, setEditDescription] = useState('');
-  const [editPermissions, setEditPermissions] = useState<string[]>([]);
+  const editorInitial = useMemo<RoleDraft>(() => {
+    if (editor.mode !== 'edit' || !editor.role) return EMPTY_DRAFT;
+    return { name: editor.role.name, description: editor.role.description || '', scopes: editor.role.scopes || [] };
+  }, [editor]);
 
-  const openEditDialog = useCallback((role: Role) => {
-    setEditRole(role);
-    setEditName(role.name);
-    setEditDescription(role.description || '');
-    setEditPermissions(role.scopes || []);
-    setIsEditDialogOpen(true);
-  }, []);
-
-  const handlePermissionChangeEdit = useCallback((permissionKey: string, checked: boolean) => {
-    setEditPermissions(prev =>
-      checked ? [...prev, permissionKey] : prev.filter(p => p !== permissionKey)
-    );
-  }, []);
-
-  const handleSelectGroupEdit = useCallback((keys: string[], select: boolean) => {
-    setEditPermissions(prev => {
-      if (select) {
-        const newSet = new Set(prev);
-        keys.forEach(k => newSet.add(k));
-        return Array.from(newSet);
-      } else {
-        return prev.filter(p => !keys.includes(p));
-      }
-    });
-  }, []);
-
-  const handleSaveEdit = useCallback(async () => {
-    if (!editRole || !editName) return;
-
-    setIsEditing(true);
-    try {
-      await api.post(`/api/roles/${editRole.id}`, {
-        name: editName,
-        description: editDescription,
-        scopes: editPermissions,
-      });
-
-      sileo.success({ title: t('common.success'), description: 'Role updated successfully.' });
-      setIsEditDialogOpen(false);
-      setEditRole(null);
-      void fetchRoles();
-    } catch (e: any) {
-      sileo.error({ title: t('common.error'), description: e.message || 'Failed to update role.' });
-    } finally {
-      setIsEditing(false);
-    }
-  }, [editRole, editName, editDescription, editPermissions, t, fetchRoles]);
-
-  const filteredGroups = useMemo(() => {
-    if (!searchQuery) return permissionGroups;
-    const q = searchQuery.toLowerCase();
-    return permissionGroups
-      .map(group => ({
-        ...group,
-        keys: group.keys.filter(k => {
-          const label = getPermissionLabel(k).toLowerCase();
-          return label.includes(q) || k.toLowerCase().includes(q);
-        })
-      }))
-      .filter(group => group.keys.length > 0);
-  }, [searchQuery, getPermissionLabel]);
-
-  if (!isMounted || !hasScope('admin') || loading) {
-    return (
-      <div className="flex h-full items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+  if (!isMounted || !hasScope('admin') || (loading && roles.length === 0)) {
+    return <RolesSkeleton />;
   }
 
   return (
     <div className="flex flex-col gap-8">
       <PageHeader title={t('roles.title')} description={t('roles.description')}>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <PlusCircle className="mr-2" />
-              {t('roles.addRole')}
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle>{t('roles.addDialog.title')}</DialogTitle>
-              <DialogDescription>
-                {t('roles.addDialog.description')}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="role-name" className="text-right">
-                  {t('roles.addDialog.nameLabel')}
-                </Label>
-                <Input
-                  id="role-name"
-                  value={newRoleName}
-                  onChange={(e) => setNewRoleName(e.target.value)}
-                  className="col-span-3"
-                  placeholder={t('roles.addDialog.namePlaceholder')}
-                />
-              </div>
-              <div className="grid grid-cols-4 items-start gap-4">
-                <Label htmlFor="role-description" className="text-right pt-2">
-                  {t('roles.addDialog.descriptionLabel')}
-                </Label>
-                <Textarea
-                  id="role-description"
-                  value={newRoleDescription}
-                  onChange={(e) => setNewRoleDescription(e.target.value)}
-                  className="col-span-3"
-                  placeholder={t('roles.addDialog.descriptionPlaceholder')}
-                />
-              </div>
-              <div className="grid grid-cols-4 items-start gap-4">
-                <Label className="text-right pt-2">
-                  {t('roles.addDialog.permissionsLabel')}
-                </Label>
-                <div className="col-span-3 space-y-3 max-h-[28rem] overflow-y-auto pr-2">
-                  <div className="relative">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search permissions..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-8"
-                    />
-                  </div>
-                  {filteredGroups.map((group) => {
-                    const selectedCount = group.keys.filter(k => newRolePermissions.includes(k)).length;
-                    const allSelected = selectedCount === group.keys.length;
-                    return (
-                      <div key={group.label} className="rounded-lg border bg-card/50 overflow-hidden">
-                        <div className="flex items-center justify-between px-3 py-2 bg-muted/30 border-b">
-                          <span className="text-sm font-semibold">{t(group.label)}</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-muted-foreground">{selectedCount}/{group.keys.length}</span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 px-2 text-xs"
-                              onClick={() => handleSelectGroup(group.keys, !allSelected)}
-                            >
-                              {allSelected ? 'Deselect all' : 'Select all'}
-                            </Button>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 p-3">
-                          {group.keys.map(permissionKey => (
-                            <div key={permissionKey} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={`perm-${permissionKey}`}
-                                onCheckedChange={(checked) => handlePermissionChange(permissionKey, !!checked)}
-                                checked={newRolePermissions.includes(permissionKey)}
-                              />
-                              <label
-                                htmlFor={`perm-${permissionKey}`}
-                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                              >
-                                {getPermissionLabel(permissionKey)}
-                              </label>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} disabled={isAdding}>{t('roles.addDialog.cancel')}</Button>
-              <Button type="submit" onClick={handleAddRole} disabled={isAdding}>
-                {isAdding && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {t('roles.addDialog.create')}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => { setEditor({ mode: 'create' }); setEditorOpen(true); }}>
+          <Plus aria-hidden="true" />
+          {t('roles.addRole')}
+        </Button>
       </PageHeader>
 
-      <Dialog open={isEditDialogOpen} onOpenChange={(open) => { if (!open) { setIsEditDialogOpen(false); setEditRole(null); } }}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>Edit Role: {editRole?.name}</DialogTitle>
-            <DialogDescription>
-              Update the role name, description, and permissions.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-role-name" className="text-right">
-                {t('roles.addDialog.nameLabel')}
-              </Label>
-              <Input
-                id="edit-role-name"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                className="col-span-3"
-                placeholder={t('roles.addDialog.namePlaceholder')}
-              />
-            </div>
-            <div className="grid grid-cols-4 items-start gap-4">
-              <Label htmlFor="edit-role-description" className="text-right pt-2">
-                {t('roles.addDialog.descriptionLabel')}
-              </Label>
-              <Textarea
-                id="edit-role-description"
-                value={editDescription}
-                onChange={(e) => setEditDescription(e.target.value)}
-                className="col-span-3"
-                placeholder={t('roles.addDialog.descriptionPlaceholder')}
-              />
-            </div>
-            <div className="grid grid-cols-4 items-start gap-4">
-              <Label className="text-right pt-2">
-                {t('roles.addDialog.permissionsLabel')}
-              </Label>
-              <div className="col-span-3 space-y-3 max-h-[28rem] overflow-y-auto pr-2">
-                {permissionGroups.map((group) => {
-                  const selectedCount = group.keys.filter(k => editPermissions.includes(k)).length;
-                  const allSelected = selectedCount === group.keys.length;
-                  return (
-                    <div key={group.label} className="rounded-lg border bg-card/50 overflow-hidden">
-                      <div className="flex items-center justify-between px-3 py-2 bg-muted/30 border-b">
-                        <span className="text-sm font-semibold">{t(group.label)}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">{selectedCount}/{group.keys.length}</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 px-2 text-xs"
-                            onClick={() => handleSelectGroupEdit(group.keys, !allSelected)}
-                          >
-                            {allSelected ? 'Deselect all' : 'Select all'}
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 p-3">
-                        {group.keys.map(permissionKey => (
-                          <div key={permissionKey} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`edit-perm-${permissionKey}`}
-                              onCheckedChange={(checked) => handlePermissionChangeEdit(permissionKey, !!checked)}
-                              checked={editPermissions.includes(permissionKey)}
-                            />
-                            <label
-                              htmlFor={`edit-perm-${permissionKey}`}
-                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                            >
-                              {getPermissionLabel(permissionKey)}
-                            </label>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setIsEditDialogOpen(false); setEditRole(null); }} disabled={isEditing}>
-              {t('roles.addDialog.cancel')}
-            </Button>
-            <Button type="submit" onClick={handleSaveEdit} disabled={isEditing}>
-              {isEditing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save Changes
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Card className="border border-border/60 rounded-xl overflow-hidden">
-          <CardHeader>
-            <CardTitle>{t('roles.availableRoles')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('roles.table.role')}</TableHead>
-                  <TableHead className="hidden md:table-cell">{t('roles.table.description')}</TableHead>
-                  <TableHead className="hidden md:table-cell">{t('roles.table.permissions')}</TableHead>
-                  <TableHead className="text-right">{t('common.actions')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {roles.map((role) => (
-                  <TableRow key={role.id}>
-                    <TableCell>
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Badge
-                            variant={role.name === 'admin' || role.name === 'Administrador' ? 'default' : role.name === 'Usuario' ? 'secondary' : 'outline'}
-                            className="capitalize"
-                          >
-                            {role.name}
-                          </Badge>
-                          {(role.name === 'admin' || role.name === 'Administrador') && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-primary">
-                              <ShieldCheck className="h-3 w-3" /> Admin
-                            </span>
-                          )}
-                          {role.name === 'Usuario' && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
-                              <Shield className="h-3 w-3" /> Predeterminado
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-2 md:hidden">{role.description}</p>
-                        <div className="flex flex-wrap gap-2 mt-2 md:hidden">
-                          {role.scopes?.map(permissionKey => (
-                            <Badge key={permissionKey} variant="outline" className="text-[10px]">{permissionKey}</Badge>
-                          ))}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">{role.description}</TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      <div className="flex flex-wrap gap-2 max-w-sm">
-                        {role.scopes?.map(permissionKey => (
-                          <Badge key={permissionKey} variant="outline" className="text-[10px]">{permissionKey}</Badge>
-                        ))}
-                        {(!role.scopes || role.scopes.length === 0) && <span className="text-xs text-muted-foreground">No permissions</span>}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        {role.name !== 'admin' && role.name !== 'Administrador' && role.name !== 'Usuario' ? (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openEditDialog(role)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>{t('roles.deleteDialog.title')}</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    {t('roles.deleteDialog.description')}
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => role.id && handleDeleteRole(role.id)}
-                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                  >
-                                    {t('common.delete')}
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </>
-                        ) : (
-                          <span className="text-xs text-muted-foreground px-2">Protegido</span>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
+      {roles.length === 0 ? (
+        <Card className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
+          <ShieldCheck className="h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
+          <p className="text-sm text-muted-foreground">{t('roles.empty')}</p>
         </Card>
+      ) : (
+        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
+          <nav aria-label={t('roles.list')} className="grid gap-2 md:grid-cols-2 xl:sticky xl:top-24 xl:grid-cols-1">
+            {roles.map(r => (
+              <RoleListItem
+                key={r.id ?? r.name}
+                role={r}
+                active={r.id === selectedRole?.id}
+                onSelect={() => selectRole(r.id)}
+              />
+            ))}
+          </nav>
+
+          <div ref={detailRef} className="min-w-0 scroll-mt-24">
+            {selectedRole && (
+              <RoleDetail
+                key={selectedRole.id}
+                role={selectedRole}
+                onEdit={() => { setEditor({ mode: 'edit', role: selectedRole }); setEditorOpen(true); }}
+                onDelete={() => selectedRole.id && handleDeleteRole(selectedRole.id)}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      <RoleEditorDialog
+        open={editorOpen}
+        onOpenChange={setEditorOpen}
+        mode={editor.mode}
+        initial={editorInitial}
+        onSubmit={(draft) => (editor.mode === 'edit' ? handleUpdate(editor.role?.id, draft) : handleCreate(draft))}
+      />
     </div>
   );
 }

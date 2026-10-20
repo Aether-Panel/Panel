@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Area, AreaChart, CartesianGrid, Line, XAxis, YAxis } from 'recharts';
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { Activity } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
@@ -53,6 +53,9 @@ export function NetworkHistoryChart({ samples }: { samples: NetworkSample[] }) {
 
     const latest = data[data.length - 1];
     const hasTrend = data.length >= 2;
+    // A young buffer is a handful of points at the right edge: mark them so
+    // they read as samples rather than a stray vertical stroke.
+    const sparse = data.length < 12;
 
     const chartConfig = {
         in: { label: t('dashboard.admin.networkTraffic.download'), color: 'hsl(var(--chart-1))' },
@@ -66,10 +69,10 @@ export function NetworkHistoryChart({ samples }: { samples: NetworkSample[] }) {
 
     return (
         <Card className="flex h-full flex-col">
-            <CardHeader className="flex flex-col gap-3 space-y-0 p-6 pb-4 sm:flex-row sm:items-start sm:justify-between">
+            <CardHeader className="flex flex-col gap-3 space-y-0 p-5 pb-4 sm:flex-row sm:items-start sm:justify-between lg:pb-3">
                 <div className="min-w-0 space-y-1.5">
-                    <CardTitle className="text-base font-semibold">{t('dashboard.admin.history.title')}</CardTitle>
-                    <CardDescription>{t('dashboard.admin.history.description')}</CardDescription>
+                    <CardTitle className="text-base font-semibold tracking-[-0.02em]">{t('dashboard.admin.history.title')}</CardTitle>
+                    <CardDescription data-fit="hide-short">{t('dashboard.admin.history.description')}</CardDescription>
                 </div>
 
                 <div
@@ -86,7 +89,7 @@ export function NetworkHistoryChart({ samples }: { samples: NetworkSample[] }) {
                                 aria-pressed={active}
                                 onClick={() => setRange(entry.id)}
                                 className={cn(
-                                    'rounded-md px-2.5 py-1 font-mono text-[11px] font-medium tabular-nums transition-colors duration-200 ease-panel focus-ring',
+                                    'h-9 min-w-11 rounded-md px-2.5 text-xs font-medium tabular-nums transition-colors duration-200 ease-panel focus-ring sm:h-7',
                                     active ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground',
                                 )}
                             >
@@ -97,17 +100,17 @@ export function NetworkHistoryChart({ samples }: { samples: NetworkSample[] }) {
                 </div>
             </CardHeader>
 
-            <CardContent className="flex flex-1 flex-col p-6 pt-0">
-                <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pb-4 text-[11px] font-medium text-muted-foreground">
+            <CardContent className="flex min-h-0 flex-1 flex-col p-5 pt-0">
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pb-4 text-xs text-muted-foreground lg:pb-2">
                     {series.map((entry) => (
                         <span key={entry.key} className="inline-flex items-center gap-2">
                             <span
                                 aria-hidden="true"
-                                className="h-1.5 w-4 rounded-full"
+                                className="h-2 w-2 rounded-full"
                                 style={{ background: entry.color }}
                             />
                             {t(`dashboard.admin.networkTraffic.${entry.key === 'in' ? 'download' : 'upload'}`)}
-                            <span className="font-mono tabular-nums text-foreground">
+                            <span className="font-medium tabular-nums text-foreground">
                                 {latest ? formatRate(latest[entry.key]) : '—'}
                             </span>
                         </span>
@@ -115,21 +118,26 @@ export function NetworkHistoryChart({ samples }: { samples: NetworkSample[] }) {
                 </div>
 
                 {hasTrend ? (
-                    <div key={range} className="animate-in fade-in duration-300 motion-reduce:animate-none">
+                    <div key={range} data-fit="fill" className="animate-in fade-in duration-300 motion-reduce:animate-none">
                         <ChartContainer
                             config={chartConfig}
                             role="img"
                             aria-label={t('dashboard.admin.history.chartLabel')}
+                            data-fit="chart"
                             className="h-[240px] w-full sm:h-[280px]"
                         >
                             <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                                 <defs>
                                     <linearGradient id="dashboardNetworkInFill" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.28} />
+                                        <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.24} />
                                         <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0} />
                                     </linearGradient>
+                                    <linearGradient id="dashboardNetworkOutFill" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="hsl(var(--chart-2))" stopOpacity={0.12} />
+                                        <stop offset="95%" stopColor="hsl(var(--chart-2))" stopOpacity={0} />
+                                    </linearGradient>
                                 </defs>
-                                <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.12} />
+                                <CartesianGrid vertical={false} />
                                 <XAxis
                                     dataKey="t"
                                     type="number"
@@ -138,8 +146,8 @@ export function NetworkHistoryChart({ samples }: { samples: NetworkSample[] }) {
                                     tickLine={false}
                                     axisLine={false}
                                     tickMargin={8}
-                                    fontSize={10}
-                                    minTickGap={40}
+                                    fontSize={11}
+                                    minTickGap={48}
                                     tickFormatter={(value) => formatClock(Number(value))}
                                 />
                                 <YAxis
@@ -147,8 +155,9 @@ export function NetworkHistoryChart({ samples }: { samples: NetworkSample[] }) {
                                     tickFormatter={(value) => formatRate(Number(value))}
                                     tickLine={false}
                                     axisLine={false}
-                                    tickMargin={8}
-                                    fontSize={10}
+                                    tickMargin={6}
+                                    fontSize={11}
+                                    tickCount={4}
                                     width={72}
                                 />
                                 <ChartTooltip
@@ -167,7 +176,7 @@ export function NetworkHistoryChart({ samples }: { samples: NetworkSample[] }) {
                                                         />
                                                         {chartConfig[name as keyof typeof chartConfig]?.label ?? name}
                                                     </span>
-                                                    <span className="font-mono font-medium tabular-nums text-foreground">
+                                                    <span className="font-medium tabular-nums text-foreground">
                                                         {formatRate(Number(value))}
                                                     </span>
                                                 </div>
@@ -175,38 +184,43 @@ export function NetworkHistoryChart({ samples }: { samples: NetworkSample[] }) {
                                         />
                                     }
                                 />
+                                {/* Upload is drawn as an Area too: AreaChart ignores <Line>
+                                    children, which used to drop the second series. */}
                                 <Area
                                     dataKey="in"
                                     type="monotone"
                                     stroke="hsl(var(--chart-1))"
                                     strokeWidth={2}
                                     fill="url(#dashboardNetworkInFill)"
+                                    dot={sparse ? { r: 2.5, strokeWidth: 0, fill: 'hsl(var(--chart-1))' } : false}
                                     isAnimationActive={false}
-                                    activeDot={{ r: 3, strokeWidth: 0 }}
+                                    activeDot={{ r: 3.5, strokeWidth: 0 }}
                                 />
-                                <Line
+                                <Area
                                     dataKey="out"
                                     type="monotone"
                                     stroke="hsl(var(--chart-2))"
                                     strokeWidth={2}
-                                    dot={false}
+                                    fill="url(#dashboardNetworkOutFill)"
+                                    dot={sparse ? { r: 2.5, strokeWidth: 0, fill: 'hsl(var(--chart-2))' } : false}
                                     isAnimationActive={false}
-                                    activeDot={{ r: 3, strokeWidth: 0 }}
+                                    activeDot={{ r: 3.5, strokeWidth: 0 }}
                                 />
                             </AreaChart>
                         </ChartContainer>
                     </div>
                 ) : (
-                    <div className="flex min-h-[240px] flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border/60 bg-surface-2/30 px-6 text-center sm:min-h-[280px]">
-                        <Activity className="h-6 w-6 text-muted-foreground/50" aria-hidden="true" />
-                        <p className="text-sm font-medium text-foreground">{t('dashboard.admin.history.empty.title')}</p>
-                        <p className="max-w-[44ch] text-xs text-muted-foreground">
+                    <div data-fit="fill" className="flex min-h-[240px] flex-1 flex-col items-center justify-center gap-2 overflow-hidden rounded-xl border border-dashed border-border/60 px-6 py-4 text-center sm:min-h-[280px] [&>*]:shrink-0">
+                        <Activity className="h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
+                        <p className="text-base font-semibold text-foreground">{t('dashboard.admin.history.empty.title')}</p>
+                        {/* Short desktop screens keep the title only, so nothing overlaps. */}
+                        <p data-fit="hide-short" className="max-w-[44ch] text-sm text-muted-foreground">
                             {t('dashboard.admin.history.empty.description')}
                         </p>
                     </div>
                 )}
 
-                <p className="pt-3 text-[11px] text-muted-foreground">
+                <p className="pt-3 text-xs text-muted-foreground">
                     {t(count === 1 ? 'dashboard.admin.history.samplesOne' : 'dashboard.admin.history.samples', {
                         count,
                         seconds: Math.round(NETWORK_SAMPLE_INTERVAL_MS / 1000),

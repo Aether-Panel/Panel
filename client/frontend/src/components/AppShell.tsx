@@ -1,6 +1,6 @@
 'use client';
 import { useAuth, Providers } from '@/contexts/providers';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { UserAvatar } from '@/components/user-avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -39,19 +39,20 @@ import {
     Server,
     Settings,
     ShieldCheck,
-    Sparkles,
     Users,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Logo } from '@/components/logo';
+import { AmbientBackdrop } from '@/components/ambient-backdrop';
 import { QuickSearch, type QuickSearchItem } from '@/components/quick-search';
 import { useTranslations } from '@/contexts/translations-context';
 import { useConfig } from '@/contexts/config-context';
 import SileoToaster from '@/components/SileoToaster';
 import { cn } from '@/lib/utils';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { sileo } from '@/lib/toast';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { api } from '@/lib/api-client';
 
 interface NavItem {
@@ -61,7 +62,10 @@ interface NavItem {
     requiredScopes: string[];
 }
 
-/** i18n key per URL segment; ids (`/servers/42`) fall back to the raw value. */
+/**
+ * i18n key per URL segment. Ids (`/servers/42`) show the entity name once the
+ * detail page publishes it (see BREADCRUMB_EVENT), and the raw id until then.
+ */
 const SEGMENT_LABEL_KEYS: Record<string, string> = {
     dashboard: 'sidebar.dashboard',
     servers: 'sidebar.servers',
@@ -74,6 +78,9 @@ const SEGMENT_LABEL_KEYS: Record<string, string> = {
     profile: 'profileSettings.title',
 };
 
+/** Detail pages dispatch this with `{ id, label }` once the entity name is known. */
+const BREADCRUMB_EVENT = 'aether:breadcrumb';
+
 /**
  * Integrated top bar: navigation breadcrumbs on the left and quick search
  * on the right. Replaces the old mobile-only bar, so desktop and mobile
@@ -82,23 +89,48 @@ const SEGMENT_LABEL_KEYS: Record<string, string> = {
 function AppTopBar({ currentPath, searchItems }: { currentPath: string; searchItems: QuickSearchItem[] }) {
     const { t } = useTranslations();
     const { toggleSidebar } = useSidebar();
+    const [entityLabels, setEntityLabels] = useState<Record<string, string>>({});
+
+    // Layout effect: registered before any page effect can dispatch.
+    useLayoutEffect(() => {
+        const handleLabel = (event: Event) => {
+            const detail = (event as CustomEvent<{ id?: string | number; label?: string }>).detail;
+            if (detail?.id == null || !detail.label) return;
+            const id = String(detail.id);
+            const label = detail.label;
+            setEntityLabels((prev) => (prev[id] === label ? prev : { ...prev, [id]: label }));
+        };
+        window.addEventListener(BREADCRUMB_EVENT, handleLabel);
+        return () => window.removeEventListener(BREADCRUMB_EVENT, handleLabel);
+    }, []);
 
     const crumbs = useMemo(() => {
         const segments = currentPath.split('/').filter(Boolean);
-        const trail = [{ key: 'root', label: t('header.root'), href: '/dashboard/' }];
+        const trail: { key: string; label: string; href: string; isId?: boolean }[] = [
+            { key: 'root', label: t('header.root'), href: '/dashboard/' },
+        ];
+        // `/profile/` has no page of its own: the account settings are one crumb.
+        if (segments[0] === 'profile') {
+            trail.push({ key: 'profile', label: t('profileSettings.title'), href: '/profile/settings/' });
+            return trail;
+        }
         segments.forEach((segment, index) => {
             const labelKey = SEGMENT_LABEL_KEYS[segment];
+            const entityLabel = labelKey ? undefined : entityLabels[segment];
             trail.push({
                 key: `${segment}-${index}`,
-                label: labelKey ? t(labelKey) : segment,
+                label: labelKey ? t(labelKey) : entityLabel ?? segment,
                 href: `/${segments.slice(0, index + 1).join('/')}/`,
+                isId: !labelKey && !entityLabel,
             });
         });
         return trail;
-    }, [currentPath, t]);
+    }, [currentPath, t, entityLabels]);
+    // On phones a deep trail drops the root crumb so the current page keeps its room.
+    const collapseRoot = crumbs.length > 2;
 
     return (
-        <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-2 border-b border-border/60 bg-surface-1/85 px-3 backdrop-blur-xl md:gap-3 md:px-6">
+        <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-2 border-b border-border/60 bg-background/80 px-3 backdrop-blur-xl md:gap-3 md:px-6">
             <Button
                 variant="ghost"
                 size="icon"
@@ -110,28 +142,43 @@ function AppTopBar({ currentPath, searchItems }: { currentPath: string; searchIt
             </Button>
 
             <nav aria-label={t('header.breadcrumbs')} className="min-w-0 flex-1">
-                <ol className="flex min-w-0 items-center gap-1 text-xs sm:gap-1.5 sm:text-sm">
+                <ol className="flex min-w-0 items-center gap-1 text-sm sm:gap-1.5">
                     {crumbs.map((crumb, index) => {
                         const isLast = index === crumbs.length - 1;
                         return (
                             <li
                                 key={crumb.key}
-                                className={cn('flex min-w-0 items-center gap-1 sm:gap-1.5', isLast && 'flex-1')}
+                                className={cn(
+                                    'flex min-w-0 items-center gap-1 sm:gap-1.5',
+                                    isLast ? 'flex-1' : 'max-w-[45%] shrink sm:max-w-none',
+                                    index === 0 && collapseRoot && 'hidden sm:flex',
+                                )}
                             >
                                 {index > 0 && (
                                     <ChevronRight
-                                        className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70"
+                                        className={cn(
+                                            'h-3.5 w-3.5 shrink-0 text-muted-foreground/70',
+                                            index === 1 && collapseRoot && 'hidden sm:block',
+                                        )}
                                         aria-hidden="true"
                                     />
                                 )}
                                 {isLast ? (
-                                    <span aria-current="page" title={crumb.label} className="truncate font-medium text-foreground">
+                                    <span
+                                        aria-current="page"
+                                        title={crumb.label}
+                                        className={cn('truncate px-1 font-medium text-foreground', crumb.isId && 'font-mono text-[13px]')}
+                                    >
                                         {crumb.label}
                                     </span>
                                 ) : (
                                     <a
                                         href={crumb.href}
-                                        className="truncate rounded px-1 py-0.5 text-muted-foreground transition-colors duration-200 ease-panel hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+                                        title={crumb.label}
+                                        className={cn(
+                                            'truncate rounded-md px-1 py-0.5 text-muted-foreground transition-colors duration-200 ease-panel hover:bg-accent/60 hover:text-foreground focus-ring',
+                                            crumb.isId && 'font-mono text-[13px]',
+                                        )}
                                     >
                                         {crumb.label}
                                     </a>
@@ -176,8 +223,8 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
                     // Small delay to ensure toaster is mounted
                     setTimeout(() => {
                         sileo.info({
-                            title: 'Update Available',
-                            description: 'A new version of Aether Panel is available for installation in Settings.',
+                            title: t('header.update.title'),
+                            description: t('header.update.description'),
                         });
                     }, 500);
                 } else {
@@ -190,6 +237,8 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
         };
 
         void checkGlobalUpdate();
+        // `t` is read when the toast fires; re-running the check on a language switch is not wanted.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [config?.version, hasScope]);
 
     const navItems: NavItem[] = [
@@ -231,7 +280,7 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
         ),
         {
             href: '/profile/settings/',
-            label: t('userMenu.settings'),
+            label: t('profileSettings.title'),
             group: t('sidebar.groups.account'),
             icon: Settings,
         },
@@ -241,7 +290,8 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
     const roleLabel = isAdmin ? t('sidebar.roleBadge.admin') : t('sidebar.roleBadge.user');
     const displayName = user?.username || '';
     const initials = displayName.trim().slice(0, 2).toUpperCase() || '?';
-    const avatarSrc = user?.avatar || (user?.email ? `https://avatar.vercel.sh/${user.email}` : undefined);
+    const avatarSrc = user?.avatar || undefined;
+    const isMobile = useIsMobile();
 
     return (
         <SidebarProvider>
@@ -304,15 +354,10 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
                         href="https://www.aetherpanel.es/"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="mt-auto px-2 pb-1 group-data-[collapsible=icon]:hidden"
+                        className="group/powered mx-2 mb-1 mt-auto flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-xs text-sidebar-foreground/55 transition-colors duration-200 ease-panel hover:text-sidebar-foreground focus-ring group-data-[collapsible=icon]:hidden"
                     >
-                        <div className="flex items-center justify-between gap-2 rounded-lg border border-sidebar-border/70 bg-gradient-to-br from-primary/15 via-sidebar-accent/40 to-transparent px-3 py-2.5 transition-colors duration-200 ease-panel hover:border-primary/40 hover:bg-primary/10">
-                            <div className="flex items-center gap-2">
-                                <Sparkles className="h-3.5 w-3.5 text-primary" />
-                                <span className="text-[11px] font-medium text-sidebar-foreground/70">{t('sidebar.system.poweredBy')}</span>
-                            </div>
-                            <ArrowUpRight className="h-3.5 w-3.5 text-sidebar-foreground/40" />
-                        </div>
+                        <span>{t('sidebar.system.poweredBy')}</span>
+                        <ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5 opacity-60 transition-opacity duration-200 ease-panel group-hover/powered:opacity-100" />
                     </a>
                 </SidebarContent>
                 <SidebarFooter className="border-t border-sidebar-border/60 p-3">
@@ -322,61 +367,69 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
                                 variant="ghost"
                                 className="group/user h-14 w-full justify-start gap-3 rounded-xl border border-sidebar-border/60 bg-sidebar-accent/40 px-2.5 text-left hover:border-sidebar-border hover:bg-sidebar-accent data-[state=open]:border-primary/40 data-[state=open]:bg-sidebar-accent"
                             >
-                                <Avatar className="h-9 w-9 ring-1 ring-sidebar-border/70 transition-shadow duration-200 ease-panel group-hover/user:ring-primary/40">
-                                    <AvatarImage src={avatarSrc} alt={displayName} />
-                                    <AvatarFallback className="bg-gradient-to-br from-primary/25 via-sidebar-accent to-sidebar text-[13px] font-semibold text-sidebar-foreground">
-                                        {initials}
-                                    </AvatarFallback>
-                                </Avatar>
+                                <UserAvatar
+                                    identity={user?.email || displayName}
+                                    src={avatarSrc}
+                                    fallback={initials}
+                                    className="h-9 w-9 ring-1 ring-sidebar-border/70 transition-shadow duration-200 ease-panel group-hover/user:ring-primary/40"
+                                    fallbackClassName="bg-primary/15 text-[13px] text-primary-bright"
+                                />
                                 <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
                                     <div className="flex w-full min-w-0 items-center gap-1.5">
                                         <span className="truncate text-sm font-medium leading-none text-sidebar-foreground">{displayName}</span>
                                         <Badge
                                             variant={isAdmin ? 'default' : 'secondary'}
-                                            className="rounded-full px-1.5 py-px text-[9px] uppercase tracking-[0.1em]"
+                                            className="rounded-full px-1.5 py-px text-[10px]"
                                         >
                                             {roleLabel}
                                         </Badge>
                                     </div>
                                     <span className="w-full truncate text-[11px] leading-none text-muted-foreground">{user?.email}</span>
                                 </div>
-                                <ChevronsUpDown className="shrink-0 text-sidebar-foreground/40 transition-colors duration-200 ease-panel group-hover/user:text-sidebar-foreground/70 group-data-[state=open]/user:text-sidebar-foreground/70" />
+                                <ChevronsUpDown aria-hidden="true" className="shrink-0 text-sidebar-foreground/40 transition-colors duration-200 ease-panel group-hover/user:text-sidebar-foreground/70 group-data-[state=open]/user:text-sidebar-foreground/70" />
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent side="right" align="end" sideOffset={8} className="w-64 shadow-elevation-3">
-                            <DropdownMenuLabel className="font-normal">
+                        <DropdownMenuContent
+                            side={isMobile ? 'top' : 'right'}
+                            align="end"
+                            sideOffset={8}
+                            className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-60 rounded-xl p-1.5 shadow-elevation-3 md:w-64"
+                        >
+                            <DropdownMenuLabel className="px-2 py-2 font-normal">
                                 <div className="flex items-center gap-3">
-                                    <Avatar className="h-10 w-10 ring-1 ring-border/60">
-                                        <AvatarImage src={avatarSrc} alt={displayName} />
-                                        <AvatarFallback className="bg-gradient-to-br from-primary/25 via-sidebar-accent to-sidebar text-sm font-semibold">
-                                            {initials}
-                                        </AvatarFallback>
-                                    </Avatar>
-                                    <div className="flex min-w-0 flex-col gap-1">
-                                        <span className="truncate text-sm font-medium leading-none">{displayName}</span>
+                                    <UserAvatar
+                                        identity={user?.email || displayName}
+                                        src={avatarSrc}
+                                        fallback={initials}
+                                        className="h-9 w-9 ring-1 ring-border/60"
+                                        fallbackClassName="bg-primary/15 text-[13px] text-primary-bright"
+                                    />
+                                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                                        <div className="flex min-w-0 items-center gap-1.5">
+                                            <span className="truncate text-sm font-medium leading-none text-foreground">{displayName}</span>
+                                            <Badge
+                                                variant={isAdmin ? 'default' : 'secondary'}
+                                                className="shrink-0 rounded-full px-1.5 py-px text-[10px]"
+                                            >
+                                                {roleLabel}
+                                            </Badge>
+                                        </div>
                                         <span className="truncate text-xs leading-none text-muted-foreground">{user?.email}</span>
                                     </div>
                                 </div>
-                                <Badge
-                                    variant={isAdmin ? 'default' : 'secondary'}
-                                    className="mt-3 w-fit rounded-full px-2 py-px text-[9px] uppercase tracking-[0.1em]"
-                                >
-                                    {roleLabel}
-                                </Badge>
                             </DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem asChild className="cursor-pointer py-2">
+                            <DropdownMenuSeparator className="my-1.5" />
+                            <DropdownMenuItem asChild className="cursor-pointer gap-2.5 rounded-lg px-2 py-2">
                                 <a href="/profile/settings/">
-                                    <Settings />
-                                    <span>{t('userMenu.settings')}</span>
+                                    <Settings aria-hidden="true" className="text-muted-foreground" />
+                                    <span>{t('profileSettings.title')}</span>
                                 </a>
                             </DropdownMenuItem>
-                            <DropdownMenuSeparator />
                             <DropdownMenuItem
                                 onClick={logout}
-                                className="cursor-pointer py-2 text-destructive-bright focus:bg-destructive/10"
+                                className="cursor-pointer gap-2.5 rounded-lg px-2 py-2 text-destructive-bright focus:bg-destructive/10 focus:text-destructive-bright"
                             >
-                                <LogOut />
+                                <LogOut aria-hidden="true" />
                                 <span>{t('userMenu.logout')}</span>
                             </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -385,10 +438,11 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
             </Sidebar>
 
             <SidebarInset>
+                <AmbientBackdrop />
                 <AppTopBar currentPath={currentPath} searchItems={searchItems} />
 
-                <div className="p-4 md:p-6 lg:p-8">
-                    <div className="animate-in fade-in duration-500 space-y-6">
+                <div className="relative z-[1] p-4 md:p-6 lg:p-8">
+                    <div className="page-enter space-y-6">
                         {children}
                     </div>
                 </div>

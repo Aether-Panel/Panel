@@ -1,12 +1,13 @@
 'use client';
 import { useAuth } from '@/contexts/providers';
 import { useEffect, useState } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
-import { Copy, MoreHorizontal, PlusCircle, Loader2, Trash2 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { AlertTriangle, CheckCircle2, Copy, MoreHorizontal, Network, Plus, Loader2, Trash2 } from 'lucide-react';
+import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -14,10 +15,200 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { sileo } from "@/lib/toast";
 import { api } from '@/lib/api-client';
+import { cn } from '@/lib/utils';
 
 import { useTranslations } from '@/contexts/translations-context';
 import { useNodes } from '@/hooks/use-dashboard-data';
 import { useServers } from '@/hooks/use-servers';
+
+type Field<T> = [T, Dispatch<SetStateAction<T>>];
+
+/** The connection fields shared by the create and edit dialogs. */
+function NodeFields({
+  idPrefix,
+  name,
+  publicHost,
+  publicPort,
+  sftpPort,
+  useDifferentHost,
+  privateHost,
+  privatePort,
+  markRequired,
+  onSubmit,
+}: {
+  idPrefix: string;
+  name: Field<string>;
+  publicHost: Field<string>;
+  publicPort: Field<string>;
+  sftpPort: Field<string>;
+  useDifferentHost: Field<boolean>;
+  privateHost: Field<string>;
+  privatePort: Field<string>;
+  markRequired?: boolean;
+  onSubmit?: () => void;
+}) {
+  const { t } = useTranslations();
+  const required = markRequired ? <span className="text-destructive-bright" aria-hidden="true">*</span> : null;
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor={`${idPrefix}-node-name`}>{t('nodes.addDialog.nameLabel')} {required}</Label>
+          <Input
+            id={`${idPrefix}-node-name`}
+            placeholder={markRequired ? t('nodes.addDialog.namePlaceholder') : undefined}
+            value={name[0]}
+            onChange={(e) => name[1](e.target.value)}
+            onKeyDown={onSubmit ? (e) => e.key === 'Enter' && onSubmit() : undefined}
+            aria-required={markRequired || undefined}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor={`${idPrefix}-public-host`}>{t('nodes.addDialog.publicHostLabel')} {required}</Label>
+          <Input
+            id={`${idPrefix}-public-host`}
+            placeholder={markRequired ? t('nodes.addDialog.publicHostPlaceholder') : undefined}
+            value={publicHost[0]}
+            onChange={(e) => publicHost[1](e.target.value)}
+            className="font-mono"
+            aria-required={markRequired || undefined}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor={`${idPrefix}-public-port`}>{t('nodes.addDialog.publicPortLabel')}</Label>
+          <Input
+            id={`${idPrefix}-public-port`}
+            type="number"
+            value={publicPort[0]}
+            onChange={(e) => publicPort[1](e.target.value)}
+            className="font-mono"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor={`${idPrefix}-sftp-port`}>{t('nodes.addDialog.sftpPortLabel')}</Label>
+          <Input
+            id={`${idPrefix}-sftp-port`}
+            type="number"
+            value={sftpPort[0]}
+            onChange={(e) => sftpPort[1](e.target.value)}
+            className="font-mono"
+          />
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border/60 bg-background/30">
+        <div className="flex items-start gap-3 p-4">
+          <Checkbox
+            id={`${idPrefix}-use-different-host`}
+            className="mt-0.5"
+            checked={useDifferentHost[0]}
+            onCheckedChange={(checked) => useDifferentHost[1](Boolean(checked))}
+          />
+          <div className="grid gap-1">
+            <label htmlFor={`${idPrefix}-use-different-host`} className="cursor-pointer text-sm font-medium leading-snug">
+              {t('nodes.addDialog.useDifferentHostLabel')}
+            </label>
+            <p className="text-sm text-muted-foreground">{t('nodes.addDialog.useDifferentHostDescription')}</p>
+          </div>
+        </div>
+        {useDifferentHost[0] && (
+          <div className="grid grid-cols-1 gap-4 border-t border-border/50 p-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor={`${idPrefix}-private-host`}>{t('nodes.addDialog.privateHostLabel')}</Label>
+              <Input
+                id={`${idPrefix}-private-host`}
+                placeholder={t('nodes.addDialog.privateHostPlaceholder')}
+                value={privateHost[0]}
+                onChange={(e) => privateHost[1](e.target.value)}
+                className="font-mono"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={`${idPrefix}-private-port`}>{t('nodes.addDialog.privatePortLabel')}</Label>
+              <Input
+                id={`${idPrefix}-private-port`}
+                type="number"
+                value={privatePort[0]}
+                onChange={(e) => privatePort[1](e.target.value)}
+                className="font-mono"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const STATUS_TONE: Record<string, string> = {
+  online: 'bg-success/10 text-success',
+  offline: 'bg-destructive/10 text-destructive-bright',
+  deploying: 'bg-warning/10 text-warning',
+};
+
+function NodeStatusBadge({ status }: { status: string }) {
+  const { t } = useTranslations();
+  return (
+    <span
+      className={cn(
+        'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium',
+        STATUS_TONE[status] || 'bg-secondary text-muted-foreground',
+      )}
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />
+      <span className="first-letter:uppercase">{t(`dashboard.status.${status}`)}</span>
+    </span>
+  );
+}
+
+function CopyableCode({ command }: { command: string }) {
+  const { t } = useTranslations();
+  const handleCopy = () => {
+    void navigator.clipboard.writeText(command);
+    sileo.success({ title: t('common.copied') });
+  };
+
+  return (
+    <div className="relative rounded-lg border border-border/60 bg-background/50">
+      <pre className="custom-scrollbar overflow-x-auto p-3 pr-12 font-mono text-xs leading-relaxed text-foreground"><code>{command}</code></pre>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="absolute right-1 top-1 h-9 w-9 text-muted-foreground hover:text-foreground"
+        onClick={handleCopy}
+        aria-label={t('common.copy')}
+      >
+        <Copy aria-hidden="true" />
+      </Button>
+    </div>
+  );
+}
+
+const richText = '[&_code]:rounded [&_code]:bg-secondary [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs [&_code]:text-foreground';
+
+function NodesSkeleton() {
+  return (
+    <div className="flex flex-col gap-8" aria-busy="true">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="space-y-2">
+          <Skeleton className="h-9 w-64" />
+          <Skeleton className="h-4 w-80 max-w-full" />
+        </div>
+        <Skeleton className="h-10 w-36 rounded-lg" />
+      </div>
+      <Card className="overflow-hidden">
+        <div className="space-y-2 border-b border-border/50 p-5 md:p-6">
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="h-4 w-56 max-w-full" />
+        </div>
+        <div className="space-y-2 p-5 md:p-6">
+          {Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-14 rounded-xl" />)}
+        </div>
+      </Card>
+    </div>
+  );
+}
 
 export default function NodesPage() {
   const { role, hasScope } = useAuth();
@@ -25,7 +216,7 @@ export default function NodesPage() {
   const { nodes: realNodes, loading: nodesLoading, error, refresh } = useNodes();
   const { servers: allServers, loading: serversLoading } = useServers();
   const [isMounted, setIsMounted] = useState(false);
-  
+
 
   // ── Create state ──────────────────────────────────────────
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -91,11 +282,11 @@ export default function NodesPage() {
 
   const handleCreateNode = async () => {
     if (!createName.trim()) {
-      sileo.error({ title: t('nodes.addDialog.nameLabel'), description: 'El nombre es obligatorio.' });
+      sileo.error({ title: t('nodes.addDialog.nameLabel'), description: t('nodes.toast.nameRequired') });
       return;
     }
     if (!createPublicHost.trim()) {
-      sileo.error({ title: t('nodes.addDialog.publicHostLabel'), description: 'La dirección pública es obligatoria.' });
+      sileo.error({ title: t('nodes.addDialog.publicHostLabel'), description: t('nodes.toast.publicHostRequired') });
       return;
     }
     setIsCreating(true);
@@ -111,7 +302,7 @@ export default function NodesPage() {
         privateHost: pHost,
         privatePort: pPort,
       });
-      sileo.success({ title: t('nodes.addDialog.createButton'), description: `Nodo "${createName}" creado correctamente.` });
+      sileo.success({ title: t('nodes.addDialog.createButton'), description: t('nodes.toast.created', { name: createName }) });
       // reset form
       setCreateName(''); setCreatePublicHost(''); setCreatePublicPort('8080');
       setCreateSftpPort('5657'); setCreateUseDifferentHost(false);
@@ -119,7 +310,7 @@ export default function NodesPage() {
       setIsCreateOpen(false);
       void refresh();
     } catch (e: any) {
-      sileo.error({ title: 'Error al crear nodo', description: e?.message || 'Error desconocido.' });
+      sileo.error({ title: t('nodes.toast.createFailed'), description: e?.message || t('nodes.toast.unknownError') });
     } finally {
       setIsCreating(false);
     }
@@ -128,7 +319,7 @@ export default function NodesPage() {
   const handleUpdateNode = async () => {
     if (!editingNode) return;
     if (!editName.trim()) {
-      sileo.error({ title: 'Error', description: 'El nombre es obligatorio.' });
+      sileo.error({ title: t('common.error'), description: t('nodes.toast.nameRequired') });
       return;
     }
     setIsSaving(true);
@@ -144,11 +335,11 @@ export default function NodesPage() {
         privateHost: pHost,
         privatePort: pPort,
       });
-      sileo.success({ title: t('nodes.editDialog.save'), description: `Nodo "${editName}" actualizado.` });
+      sileo.success({ title: t('nodes.editDialog.save'), description: t('nodes.toast.updated', { name: editName }) });
       setEditingNode(null);
       void refresh();
     } catch (e: any) {
-      sileo.error({ title: 'Error al actualizar', description: e?.message || 'Error desconocido.' });
+      sileo.error({ title: t('nodes.toast.updateFailed'), description: e?.message || t('nodes.toast.unknownError') });
     } finally {
       setIsSaving(false);
     }
@@ -159,40 +350,14 @@ export default function NodesPage() {
     setIsDeleting(true);
     try {
       await api.delete(`/api/nodes/${deletingNode.id}`);
-      sileo.success({ title: 'Nodo eliminado', description: `"${deletingNode.name}" fue eliminado correctamente.` });
+      sileo.success({ title: t('nodes.toast.deleted'), description: t('nodes.toast.deletedDescription', { name: deletingNode.name }) });
       setDeletingNode(null);
       void refresh();
     } catch (e: any) {
-      sileo.error({ title: 'Error al eliminar', description: e?.message || 'Error desconocido.' });
+      sileo.error({ title: t('nodes.toast.deleteFailed'), description: e?.message || t('nodes.toast.unknownError') });
     } finally {
       setIsDeleting(false);
     }
-  };
-
-  const StatusIndicator = ({ status }: { status: string }) => {
-    const statusClasses: Record<string, string> = {
-      online: 'bg-green-500',
-      offline: 'bg-red-500',
-      deploying: 'bg-yellow-500 animate-pulse',
-    };
-    return <div className={`mr-2 h-2.5 w-2.5 rounded-full ${statusClasses[status] || 'bg-gray-400'}`} />;
-  };
-
-  const CopyableCode = ({ command }: { command: string }) => {
-    const handleCopy = () => {
-      void navigator.clipboard.writeText(command);
-      sileo.success({ title: t('common.copied') });
-    };
-
-    return (
-      <div className="flex items-center gap-2 rounded-md bg-muted p-2 my-2 font-mono text-sm">
-        <pre className="flex-grow overflow-x-auto"><code>{command}</code></pre>
-        <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" onClick={handleCopy}>
-          <Copy className="h-4 w-4" />
-          <span className="sr-only">{t('common.copy')}</span>
-        </Button>
-      </div>
-    );
   };
 
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://192.168.0.12:8080';
@@ -225,18 +390,47 @@ export default function NodesPage() {
   ].join('\n') : '';
 
   if (!isMounted || !hasScope('nodes.view') || nodesLoading || serversLoading) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-border border-t-primary border-l-accent" />
-      </div>
-    );
+    return <NodesSkeleton />;
   }
 
   const nodes = realNodes.map((n: any) => ({
     ...n,
     status: n.systemInfo ? 'online' : 'offline',
-    location: n.isLocal ? 'Local' : (n.publicHost || 'Unknown')
+    location: n.isLocal ? 'Local' : (n.publicHost || t('nodes.unknownLocation'))
   }));
+
+  const serverCount = (node: any) => allServers.filter((s: any) => String(s.nodeId) === String(node.id)).length;
+
+  const renderActions = (node: any) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 text-muted-foreground hover:text-foreground"
+          aria-label={t('nodes.actions.openMenu', { name: node.name })}
+        >
+          <MoreHorizontal aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>{t('servers.actions.menuLabel')}</DropdownMenuLabel>
+        <DropdownMenuItem onClick={() => window.location.href = `/nodes/view/?id=${node.id}`}>
+          {t('nodes.actions.viewDetails')}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTimeout(() => setEditingNode(node))}>{t('nodes.actions.edit')}</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTimeout(() => setDeployingNode(node), 50)}>{t('nodes.actions.deploy')}</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          className="text-destructive-bright focus:bg-destructive/10 focus:text-destructive-bright"
+          onClick={() => setTimeout(() => setDeletingNode(node), 50)}
+        >
+          <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
+          {t('nodes.actions.delete')}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
   return (
     <div className="flex flex-col gap-8">
@@ -245,98 +439,35 @@ export default function NodesPage() {
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
             <Button>
-              <PlusCircle className="mr-2" />
+              <Plus aria-hidden="true" />
               {t('nodes.addNode')}
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>{t('nodes.addDialog.title')}</DialogTitle>
+          <DialogContent className="flex max-h-[min(90svh,52rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+            <DialogHeader className="border-b border-border/60 p-6 pb-5 text-left">
+              <DialogTitle className="text-xl font-semibold tracking-[-0.02em]">{t('nodes.addDialog.title')}</DialogTitle>
+              <DialogDescription>{t('nodes.addDialog.description')}</DialogDescription>
             </DialogHeader>
-            <div className="grid gap-6 py-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="node-name">{t('nodes.addDialog.nameLabel')} <span className="text-red-500">*</span></Label>
-                  <Input
-                    id="node-name"
-                    placeholder={t('nodes.addDialog.namePlaceholder')}
-                    value={createName}
-                    onChange={(e) => setCreateName(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleCreateNode()}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="public-host">{t('nodes.addDialog.publicHostLabel')} <span className="text-red-500">*</span></Label>
-                  <Input
-                    id="public-host"
-                    placeholder={t('nodes.addDialog.publicHostPlaceholder')}
-                    value={createPublicHost}
-                    onChange={(e) => setCreatePublicHost(e.target.value)}
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="public-port">{t('nodes.addDialog.publicPortLabel')}</Label>
-                  <Input
-                    id="public-port"
-                    type="number"
-                    value={createPublicPort}
-                    onChange={(e) => setCreatePublicPort(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="sftp-port">{t('nodes.addDialog.sftpPortLabel')}</Label>
-                  <Input
-                    id="sftp-port"
-                    type="number"
-                    value={createSftpPort}
-                    onChange={(e) => setCreateSftpPort(e.target.value)}
-                  />
-                </div>
-              </div>
-              <div className="items-top flex space-x-2">
-                <Checkbox
-                  id="use-different-host"
-                  checked={createUseDifferentHost}
-                  onCheckedChange={(checked) => setCreateUseDifferentHost(Boolean(checked))}
-                />
-                <div className="grid gap-1.5 leading-none">
-                  <label htmlFor="use-different-host" className="text-sm font-medium leading-none">
-                    {t('nodes.addDialog.useDifferentHostLabel')}
-                  </label>
-                  <p className="text-sm text-muted-foreground">{t('nodes.addDialog.useDifferentHostDescription')}</p>
-                </div>
-              </div>
-              {createUseDifferentHost && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-md border bg-muted/50 p-4 animate-in fade-in">
-                  <div className="space-y-2">
-                    <Label htmlFor="private-host">{t('nodes.addDialog.privateHostLabel')}</Label>
-                    <Input
-                      id="private-host"
-                      placeholder={t('nodes.addDialog.privateHostPlaceholder')}
-                      value={createPrivateHost}
-                      onChange={(e) => setCreatePrivateHost(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="private-port">{t('nodes.addDialog.privatePortLabel')}</Label>
-                    <Input
-                      id="private-port"
-                      type="number"
-                      value={createPrivatePort}
-                      onChange={(e) => setCreatePrivatePort(e.target.value)}
-                    />
-                  </div>
-                </div>
-              )}
+            <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-6">
+              <NodeFields
+                idPrefix="create"
+                markRequired
+                onSubmit={handleCreateNode}
+                name={[createName, setCreateName]}
+                publicHost={[createPublicHost, setCreatePublicHost]}
+                publicPort={[createPublicPort, setCreatePublicPort]}
+                sftpPort={[createSftpPort, setCreateSftpPort]}
+                useDifferentHost={[createUseDifferentHost, setCreateUseDifferentHost]}
+                privateHost={[createPrivateHost, setCreatePrivateHost]}
+                privatePort={[createPrivatePort, setCreatePrivatePort]}
+              />
             </div>
-            <DialogFooter>
+            <DialogFooter className="gap-2 border-t border-border/60 px-6 py-4 sm:gap-0">
               <Button variant="outline" onClick={() => setIsCreateOpen(false)} disabled={isCreating}>
                 {t('nodes.editDialog.cancel')}
               </Button>
               <Button onClick={handleCreateNode} disabled={isCreating}>
-                {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isCreating && <Loader2 className="animate-spin" aria-hidden="true" />}
                 {t('nodes.addDialog.createButton')}
               </Button>
             </DialogFooter>
@@ -344,138 +475,124 @@ export default function NodesPage() {
         </Dialog>
       </PageHeader>
 
-      <Card className="border border-border/60 rounded-xl overflow-hidden">
-          <CardHeader>
-            <CardTitle>{t('nodes.allNodes')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('nodes.table.name')}</TableHead>
-                  <TableHead className="hidden sm:table-cell">{t('nodes.table.location')}</TableHead>
-                  <TableHead>{t('dashboard.table.status')}</TableHead>
-                  <TableHead className="hidden md:table-cell">Servidores</TableHead>
-                  <TableHead className="text-right">{t('dashboard.table.actions')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+      <Card className="overflow-hidden">
+        <div className="flex flex-col gap-1 border-b border-border/50 p-5 md:p-6">
+          <h2 className="text-lg font-semibold tracking-[-0.02em]">{t('nodes.allNodes')}</h2>
+          <p className="text-sm text-muted-foreground">{t('nodes.listDescription', { count: nodes.length })}</p>
+        </div>
+
+        <div className="p-5 md:p-6">
+          {error && nodes.length === 0 ? (
+            <div className="flex flex-col items-center rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
+              <AlertTriangle className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
+              <h3 className="text-base font-semibold">{t('nodes.error.title')}</h3>
+              <p className="mt-1 max-w-sm text-sm text-muted-foreground">{t('nodes.error.description')}</p>
+              <Button variant="outline" className="mt-6" onClick={() => void refresh()}>
+                {t('common.retry')}
+              </Button>
+            </div>
+          ) : nodes.length === 0 ? (
+            <div className="flex flex-col items-center rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
+              <Network className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
+              <h3 className="text-base font-semibold">{t('nodes.empty.title')}</h3>
+              <p className="mt-1 max-w-sm text-sm text-muted-foreground">{t('nodes.empty.description')}</p>
+              <Button className="mt-6" onClick={() => setIsCreateOpen(true)}>
+                <Plus aria-hidden="true" />
+                {t('nodes.addNode')}
+              </Button>
+            </div>
+          ) : (
+            <>
+              {/* Phones and tablets (the sidebar leaves too little room for the table): one stacked row per node. */}
+              <ul className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60 bg-background/30 lg:hidden">
                 {nodes.map((node) => (
-                  <TableRow key={node.id}>
-                    <TableCell className="font-medium">
-                      <a href={`/nodes/view/?id=${node.id}`} className="hover:underline">
-                        {node.name}
-                      </a>
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell">{node.location}</TableCell>
-                    <TableCell>
-                      <Badge variant={node.status === 'online' ? 'default' : node.status === 'offline' ? 'destructive' : 'secondary'} className="capitalize flex items-center gap-2 w-fit">
-                        <StatusIndicator status={node.status} />
-                        {t(`dashboard.status.${node.status}`)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      <Badge variant="outline" className="font-mono font-semibold">
-                        {allServers.filter((s: any) => String(s.nodeId) === String(node.id)).length}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>{t('servers.actions.menuLabel')}</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => window.location.href = `/nodes/view/?id=${node.id}`}>
-                            {t('nodes.actions.viewDetails')}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setTimeout(() => setEditingNode(node))}>{t('nodes.actions.edit')}</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setTimeout(() => setDeployingNode(node), 50)}>{t('nodes.actions.deploy')}</DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-red-500 focus:text-red-500"
-                            onClick={() => setTimeout(() => setDeletingNode(node), 50)}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            {t('nodes.actions.delete')}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
+                  <li key={node.id} className="flex items-center gap-2 py-2 pl-4 pr-2">
+                    <div className="min-w-0 flex-1 py-1">
+                      <div className="flex min-w-0 items-center justify-between gap-2">
+                        <a
+                          href={`/nodes/view/?id=${node.id}`}
+                          className="min-w-0 truncate rounded-sm text-sm font-semibold text-foreground hover:underline focus-ring"
+                        >
+                          {node.name}
+                        </a>
+                        <NodeStatusBadge status={node.status} />
+                      </div>
+                      <p className="mt-1 flex flex-wrap items-baseline gap-x-1.5 text-xs text-muted-foreground">
+                        <span className={cn('min-w-0 max-w-full truncate', !node.isLocal && 'font-mono')}>{node.location}</span>
+                        <span aria-hidden="true">·</span>
+                        <span className="whitespace-nowrap tabular-nums">{t('nodes.serversCount', { count: serverCount(node) })}</span>
+                      </p>
+                    </div>
+                    {renderActions(node)}
+                  </li>
                 ))}
-                {nodes.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
-                      No hay nodos registrados. Crea uno con el botón de arriba.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+              </ul>
+
+              {/* Desktop: the full table. */}
+              <div className="hidden overflow-hidden rounded-xl border border-border/60 bg-background/30 lg:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead>{t('nodes.table.name')}</TableHead>
+                      <TableHead>{t('nodes.table.location')}</TableHead>
+                      <TableHead>{t('dashboard.table.status')}</TableHead>
+                      <TableHead className="text-right">{t('nodes.table.servers')}</TableHead>
+                      <TableHead className="w-14"><span className="sr-only">{t('dashboard.table.actions')}</span></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {nodes.map((node) => (
+                      <TableRow key={node.id} className="hover:bg-accent/30">
+                        <TableCell className="max-w-[16rem] font-medium">
+                          <a href={`/nodes/view/?id=${node.id}`} className="block truncate rounded-sm hover:underline focus-ring">
+                            {node.name}
+                          </a>
+                        </TableCell>
+                        <TableCell className={cn('max-w-[16rem] truncate text-muted-foreground', !node.isLocal && 'font-mono text-xs')}>
+                          {node.location}
+                        </TableCell>
+                        <TableCell>
+                          <NodeStatusBadge status={node.status} />
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {serverCount(node)}
+                        </TableCell>
+                        <TableCell className="py-2 text-right">
+                          {renderActions(node)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
+        </div>
+      </Card>
 
       {/* ── Edit Node Dialog ── */}
       <Dialog open={!!editingNode} onOpenChange={(isOpen) => !isOpen && setEditingNode(null)}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{t('nodes.editDialog.title')}</DialogTitle>
+        <DialogContent className="flex max-h-[min(90svh,52rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+          <DialogHeader className="border-b border-border/60 p-6 pb-5 text-left">
+            <DialogTitle className="text-xl font-semibold tracking-[-0.02em]">{t('nodes.editDialog.title')}</DialogTitle>
+            <DialogDescription>{t('nodes.editDialog.description')}</DialogDescription>
           </DialogHeader>
-          <div className="grid gap-6 py-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-node-name">{t('nodes.addDialog.nameLabel')}</Label>
-                <Input id="edit-node-name" value={editName} onChange={(e) => setEditName(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-public-host">{t('nodes.addDialog.publicHostLabel')}</Label>
-                <Input id="edit-public-host" value={editPublicHost} onChange={(e) => setEditPublicHost(e.target.value)} />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-public-port">{t('nodes.addDialog.publicPortLabel')}</Label>
-                <Input id="edit-public-port" type="number" value={editPublicPort} onChange={(e) => setEditPublicPort(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-sftp-port">{t('nodes.addDialog.sftpPortLabel')}</Label>
-                <Input id="edit-sftp-port" type="number" value={editSftpPort} onChange={(e) => setEditSftpPort(e.target.value)} />
-              </div>
-            </div>
-            <div className="items-top flex space-x-2">
-              <Checkbox
-                id="edit-use-different-host"
-                checked={editUseDifferentHost}
-                onCheckedChange={(checked) => setEditUseDifferentHost(Boolean(checked))}
-              />
-              <div className="grid gap-1.5 leading-none">
-                <label htmlFor="edit-use-different-host" className="text-sm font-medium leading-none">
-                  {t('nodes.addDialog.useDifferentHostLabel')}
-                </label>
-                <p className="text-sm text-muted-foreground">{t('nodes.addDialog.useDifferentHostDescription')}</p>
-              </div>
-            </div>
-            {editUseDifferentHost && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-md border bg-muted/50 p-4 animate-in fade-in">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-private-host">{t('nodes.addDialog.privateHostLabel')}</Label>
-                  <Input id="edit-private-host" value={editPrivateHost} onChange={(e) => setEditPrivateHost(e.target.value)} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-private-port">{t('nodes.addDialog.privatePortLabel')}</Label>
-                  <Input id="edit-private-port" type="number" value={editPrivatePort} onChange={(e) => setEditPrivatePort(e.target.value)} />
-                </div>
-              </div>
-            )}
+          <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-6">
+            <NodeFields
+              idPrefix="edit"
+              name={[editName, setEditName]}
+              publicHost={[editPublicHost, setEditPublicHost]}
+              publicPort={[editPublicPort, setEditPublicPort]}
+              sftpPort={[editSftpPort, setEditSftpPort]}
+              useDifferentHost={[editUseDifferentHost, setEditUseDifferentHost]}
+              privateHost={[editPrivateHost, setEditPrivateHost]}
+              privatePort={[editPrivatePort, setEditPrivatePort]}
+            />
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2 border-t border-border/60 px-6 py-4 sm:gap-0">
             <Button variant="outline" onClick={() => setEditingNode(null)} disabled={isSaving}>{t('nodes.editDialog.cancel')}</Button>
             <Button type="submit" onClick={handleUpdateNode} disabled={isSaving}>
-              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isSaving && <Loader2 className="animate-spin" aria-hidden="true" />}
               {t('nodes.editDialog.save')}
             </Button>
           </DialogFooter>
@@ -485,21 +602,17 @@ export default function NodesPage() {
       {/* ── Delete Confirmation Dialog ── */}
       <Dialog open={!!deletingNode} onOpenChange={(isOpen) => !isOpen && setDeletingNode(null)}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Trash2 className="h-5 w-5 text-red-500" />
-              Eliminar nodo
-            </DialogTitle>
+          <DialogHeader className="text-left">
+            <DialogTitle>{t('nodes.deleteDialog.title')}</DialogTitle>
             <DialogDescription>
-              ¿Estás seguro de que quieres eliminar el nodo <strong>"{deletingNode?.name}"</strong>?
-              Esta acción no se puede deshacer y todos los servidores de este nodo quedarán inaccesibles.
+              {t('nodes.deleteDialog.description', { name: deletingNode?.name || '' })}
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setDeletingNode(null)} disabled={isDeleting}>Cancelar</Button>
-            <Button variant="destructive" onClick={handleDeleteNode} disabled={isDeleting}>
-              {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Eliminar nodo
+          <DialogFooter className="mt-2 gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setDeletingNode(null)} disabled={isDeleting}>{t('common.cancel')}</Button>
+            <Button className="bg-destructive text-destructive-foreground hover:bg-destructive/90" variant="destructive" onClick={handleDeleteNode} disabled={isDeleting}>
+              {isDeleting && <Loader2 className="animate-spin" aria-hidden="true" />}
+              {t('nodes.deleteDialog.confirm')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -507,46 +620,39 @@ export default function NodesPage() {
 
       {/* ── Deploy Node Dialog ── */}
       <Dialog open={!!deployingNode} onOpenChange={(isOpen) => !isOpen && setDeployingNode(null)}>
-        <DialogContent className="sm:max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>{t('nodes.deployDialog.title', { name: deployingNode?.name || '' })}</DialogTitle>
-            <DialogDescription>{t('nodes.deployDialog.description')}</DialogDescription>
+        <DialogContent className="flex max-h-[min(90svh,56rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
+          <DialogHeader className="border-b border-border/60 p-6 pb-5 text-left">
+            <DialogTitle className="text-xl font-semibold tracking-[-0.02em]">{t('nodes.deployDialog.title', { name: deployingNode?.name || '' })}</DialogTitle>
+            <DialogDescription className={richText} dangerouslySetInnerHTML={{ __html: t('nodes.deployDialog.description') }} />
           </DialogHeader>
-          <div className="py-4 max-h-[70vh] overflow-y-auto pr-4 space-y-6">
-            <div className="flex gap-4 items-start">
-              <div className="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold mt-1">1</div>
-              <div>
-                <h4 className="font-semibold">{t('nodes.deployDialog.step1')}</h4>
-                <p className="text-sm text-muted-foreground">{t('nodes.deployDialog.step1Description')}</p>
-              </div>
-            </div>
-            <div className="flex gap-4 items-start">
-              <div className="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold mt-1">2</div>
-              <div>
-                <h4 className="font-semibold">{t('nodes.deployDialog.step2')}</h4>
-                <p className="text-sm text-muted-foreground">{t('nodes.deployDialog.step2Description')}</p>
-                <CopyableCode command="mkdir -p /opt/AetherPanel && cd /opt/AetherPanel" />
-              </div>
-            </div>
-            <div className="flex gap-4 items-start">
-              <div className="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold mt-1">3</div>
-              <div>
-                <h4 className="font-semibold">{t('nodes.deployDialog.step3')}</h4>
-                <p className="text-sm text-muted-foreground" dangerouslySetInnerHTML={{ __html: t('nodes.deployDialog.step3Description') }}></p>
-                <CopyableCode command={deployCompose} />
-              </div>
-            </div>
-            <div className="flex gap-4 items-start">
-              <div className="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold mt-1">4</div>
-              <div>
-                <h4 className="font-semibold">{t('nodes.deployDialog.step4')}</h4>
-                <p className="text-sm text-muted-foreground">{t('nodes.deployDialog.step4Description')}</p>
-                <CopyableCode command="docker compose up -d" />
-                <p className="mt-4 text-sm font-semibold text-green-500">{t('nodes.deployDialog.successMessage')}</p>
-              </div>
-            </div>
+          <div className="custom-scrollbar min-h-0 flex-1 space-y-6 overflow-y-auto p-6">
+          <ol className="space-y-6">
+            <li className="space-y-1.5">
+              <h3 className="text-sm font-semibold">{t('nodes.deployDialog.step1')}</h3>
+              <p className="text-sm text-muted-foreground">{t('nodes.deployDialog.step1Description')}</p>
+            </li>
+            <li className="space-y-1.5">
+              <h3 className="text-sm font-semibold">{t('nodes.deployDialog.step2')}</h3>
+              <p className={cn('text-sm text-muted-foreground', richText)} dangerouslySetInnerHTML={{ __html: t('nodes.deployDialog.step2Description') }} />
+              <div className="pt-1.5"><CopyableCode command="mkdir -p /opt/AetherPanel && cd /opt/AetherPanel" /></div>
+            </li>
+            <li className="space-y-1.5">
+              <h3 className="text-sm font-semibold">{t('nodes.deployDialog.step3')}</h3>
+              <p className={cn('text-sm text-muted-foreground', richText)} dangerouslySetInnerHTML={{ __html: t('nodes.deployDialog.step3Description') }} />
+              <div className="pt-1.5"><CopyableCode command={deployCompose} /></div>
+            </li>
+            <li className="space-y-1.5">
+              <h3 className="text-sm font-semibold">{t('nodes.deployDialog.step4')}</h3>
+              <p className="text-sm text-muted-foreground">{t('nodes.deployDialog.step4Description')}</p>
+              <div className="pt-1.5"><CopyableCode command="docker compose up -d" /></div>
+            </li>
+          </ol>
+          <div className="flex items-start gap-2.5 rounded-xl border border-success/25 bg-success/10 px-4 py-3 text-sm text-success">
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            <p>{t('nodes.deployDialog.successMessage')}</p>
           </div>
-          <DialogFooter>
+          </div>
+          <DialogFooter className="border-t border-border/60 px-6 py-4">
             <Button variant="outline" onClick={() => setDeployingNode(null)}>{t('nodes.deployDialog.close')}</Button>
           </DialogFooter>
         </DialogContent>

@@ -1,23 +1,19 @@
 ﻿'use client';
 import { useState, useEffect, useRef } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useTranslations } from '@/contexts/translations-context';
 import { useServerSettings, type ServerSettings, type SettingVariable } from '@/hooks/use-server-settings';
 import { sileo } from "@/lib/toast";
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/contexts/providers';
 import { cn } from '@/lib/utils';
-import {
-  Loader2, Settings, Box, Power, Puzzle, Cpu, MemoryStick, HardDrive,
-  ShieldCheck, Trash2, Plus, Key, Wrench, Clock, Cog, BarChart3,
-} from 'lucide-react';
+import { Box, Loader2, Lock, Plus, X } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 type SettingsViewProps = {
   serverId: string;
@@ -28,6 +24,11 @@ type SettingsViewProps = {
 const isPort = (n: string) => n === 'port' || /^port\d+$/.test(n);
 const isSkipped = (n: string) => n === 'cpu' || n === 'memory' || n === 'disk' || isPort(n);
 const isInternalMeta = (n: string) => isSkipped(n) || /^resolved|^forge|^javaVersion|^build|^git/i.test(n);
+// Values that are real data (versions, addresses, builds, paths) read best in mono.
+const isMonoVar = (n: string) => /version|^ip$|address|build|template|path|repo|^entry$|^branch$/i.test(n);
+// Only plain identifiers can be looked up as translation keys.
+const isTranslatableKey = (n: string) => /^[A-Za-z0-9_-]+$/.test(n);
+const toSlug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
 
 export default function SettingsView({ serverId, serverStatus, onPortsSaved }: SettingsViewProps) {
   const { t } = useTranslations();
@@ -50,11 +51,19 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: S
   const portsInitializedRef = useRef(false);
   const isRunning = serverStatus !== 'offline';
 
+  // Last saved state of everything on this page, to know when there is
+  // something to save (the save bar only shows then) and to discard edits.
+  const baseSettingsRef = useRef('');
+  const baseNotesRef = useRef('{}');
+  const basePluginsRef = useRef(true);
+
   useEffect(() => {
     if (settings) {
       setLocalSettings(JSON.parse(JSON.stringify(settings)));
+      baseSettingsRef.current = JSON.stringify(settings);
       const stored = localStorage.getItem(`pluginsEnabled_${serverId}`);
       if (stored !== null) setPluginsEnabled(stored === 'true');
+      basePluginsRef.current = stored === null ? true : stored === 'true';
       if (!portsInitializedRef.current) {
         const lp: number[] = [];
         for (let i = 1; ; i++) {
@@ -70,18 +79,21 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: S
         portsInitializedRef.current = true;
         if (canViewPorts) {
           api.get(`/api/servers/${serverId}`).then((data: any) => {
-            if (data?.portNotes) setPortNotes(data.portNotes);
+            if (data?.portNotes) {
+              baseNotesRef.current = JSON.stringify(data.portNotes);
+              setPortNotes(data.portNotes);
+            }
           }).catch(() => {});
         }
       }
     }
   }, [settings, serverId, canViewPorts]);
 
-  if (loading) return <div className="flex h-[400px] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  if (loading) return <div className="flex h-[400px] items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t('common.loading')} /></div>;
   if (error || !localSettings) return (
     <div className="flex h-[400px] flex-col items-center justify-center gap-4">
-      <p className="text-destructive font-medium">{t('common.error')}: {error?.message || 'Failed to load settings'}</p>
-      <Button onClick={() => window.location.reload()}>{t('common.retry') || 'Retry'}</Button>
+      <p className="text-destructive font-medium">{t('common.error')}: {error?.message || t('servers.settings.loadError')}</p>
+      <Button onClick={() => window.location.reload()}>{t('common.retry')}</Button>
     </div>
   );
 
@@ -122,6 +134,10 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: S
       }
       initialPrimaryRef.current = validPorts[0] ?? initialPrimaryRef.current;
       savedPortsRef.current = [...validPorts];
+      setPorts(validPorts);
+      baseSettingsRef.current = JSON.stringify(localSettings);
+      baseNotesRef.current = JSON.stringify(portNotes);
+      basePluginsRef.current = pluginsEnabled;
       onPortsSaved?.();
       if (canEditAdminData && isRunning && portsChanged) {
         sileo.success({ title: t('common.success') || 'Success', description: t('servers.settings.portsApplyOnRestart' as any) || 'Port changes will take effect when the server restarts.' });
@@ -133,53 +149,85 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: S
     } finally { setSaving(false); }
   };
 
-  const renderVariable = (name: string, variable?: SettingVariable) => {
-    if (!variable || variable.internal || isSkipped(name)) return null;
-    const displayName = variable.display || name;
-    const description = variable.desc;
-    const isBinaryOption = variable.type === 'option' && variable.options?.length === 2 &&
-      variable.options.every((o: any) => ['true', 'false', true, false].includes(o.value));
-    if (isBinaryOption) {
-      return (
-        <div key={name} className="space-y-2">
-          <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{displayName}</Label>
-          <RadioGroup value={String(variable.value)} onValueChange={(val) => handleVariableChange(name, val)} className="flex gap-2">
-            {variable.options?.map((opt: any) => (
-              <div key={String(opt.value)} className={cn(
-                'flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-all',
-                String(variable.value) === String(opt.value) ? 'border-primary bg-primary/10 text-primary-bright' : 'border-border/60 bg-accent/5 text-muted-foreground hover:bg-accent/10'
-              )}>
-                <RadioGroupItem value={String(opt.value)} id={`${name}-${String(opt.value)}`} className="border-muted-foreground/40" />
-                <Label htmlFor={`${name}-${String(opt.value)}`} className="cursor-pointer">{opt.display}</Label>
-              </div>
-            ))}
-          </RadioGroup>
-          {description && <p className="text-xs text-muted-foreground">{description}</p>}
-        </div>
-      );
-    }
+  const isDirty =
+    JSON.stringify(localSettings) !== baseSettingsRef.current ||
+    ports.length !== savedPortsRef.current.length ||
+    ports.some((p, i) => p !== savedPortsRef.current[i]) ||
+    JSON.stringify(portNotes) !== baseNotesRef.current ||
+    pluginsEnabled !== basePluginsRef.current;
+
+  const onDiscard = () => {
+    setLocalSettings(JSON.parse(baseSettingsRef.current));
+    setPorts([...savedPortsRef.current]);
+    setPortNotes(JSON.parse(baseNotesRef.current));
+    setPluginsEnabled(basePluginsRef.current);
+  };
+
+  // Template variables and groups come from the template definition, usually
+  // in English. Known ones have a translation; anything else keeps the
+  // template's own text so unknown templates still read fine.
+  const translateOr = (key: string, fallback: string) => {
+    const translated = t(key);
+    return translated === key ? fallback : translated;
+  };
+  const varLabel = (name: string, variable: SettingVariable) =>
+    isTranslatableKey(name) ? translateOr(`servers.settings.vars.${name}`, variable.display || name) : (variable.display || name);
+  const varDescription = (name: string, variable: SettingVariable) =>
+    variable.desc && isTranslatableKey(name) ? translateOr(`servers.settings.varDescriptions.${name}`, variable.desc) : variable.desc;
+  const optionLabel = (display: string) => {
+    const slug = toSlug(display);
+    return slug ? translateOr(`servers.settings.optionValues.${slug}`, display) : display;
+  };
+  const groupTitle = (display: string) => {
+    const slug = toSlug(display);
+    return slug ? translateOr(`servers.settings.groups.${slug}`, display) : display;
+  };
+  const groupDescription = (display: string, description?: string) => {
+    const slug = toSlug(display);
+    return description && slug ? translateOr(`servers.settings.groupDescriptions.${slug}`, description) : description;
+  };
+
+  const isVisibleVar = (name: string) => {
+    const v = localSettings.variables[name];
+    return !!v && !v.internal && !isSkipped(name);
+  };
+  // Booleans and two-state true/false options both render as a switch row.
+  const isSwitchVar = (variable: SettingVariable) =>
+    variable.type === 'boolean' || (variable.type === 'option' && variable.options?.length === 2 &&
+      variable.options.every((o: any) => ['true', 'false', true, false].includes(o.value)));
+
+  const renderSwitchRow = (name: string, variable: SettingVariable) => {
+    const fieldId = `var-${name}`;
+    const checked = variable.type === 'boolean' ? !!variable.value : String(variable.value) === 'true';
+    return (
+      <SettingRow key={name} label={varLabel(name, variable)} description={varDescription(name, variable)} htmlFor={fieldId} className="px-4 py-3.5">
+        <Switch
+          id={fieldId}
+          checked={checked}
+          onCheckedChange={(val) => handleVariableChange(name, variable.type === 'boolean' ? val : String(val))}
+        />
+      </SettingRow>
+    );
+  };
+
+  const renderField = (name: string, variable: SettingVariable) => {
+    const displayName = varLabel(name, variable);
+    const description = varDescription(name, variable);
+    const fieldId = `var-${name}`;
+    const mono = isMonoVar(name);
+
     switch (variable.type) {
-      case 'boolean':
-        return (
-          <div key={name} className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-accent/5 px-4 py-3 transition-colors hover:bg-accent/10">
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium">{displayName}</p>
-              {description && <p className="mt-0.5 text-xs text-muted-foreground truncate">{description}</p>}
-            </div>
-            <Switch checked={!!variable.value} onCheckedChange={(val) => handleVariableChange(name, val)} />
-          </div>
-        );
       case 'option':
         return (
-          <div key={name} className="space-y-1.5">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{displayName}</Label>
+          <div key={name} className="space-y-2">
+            <Label htmlFor={fieldId} className="text-sm font-medium">{displayName}</Label>
             <Select value={String(variable.value)} onValueChange={(val) => handleVariableChange(name, val)}>
-              <SelectTrigger className="h-9 bg-accent/5 border-border/60 text-sm">
-                <SelectValue placeholder="Select" />
+              <SelectTrigger id={fieldId} className="h-9 text-sm">
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {variable.options?.map((opt: any) => (
-                  <SelectItem key={opt.value} value={String(opt.value)}>{opt.display}</SelectItem>
+                  <SelectItem key={opt.value} value={String(opt.value)}>{optionLabel(String(opt.display ?? opt.value))}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -188,21 +236,48 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: S
         );
       case 'integer':
         return (
-          <div key={name} className="space-y-1.5">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{displayName}</Label>
-            <Input type="number" value={(variable.value as number) ?? 0} onChange={(e) => handleVariableChange(name, Number.parseInt(e.target.value) || 0)} className="h-9 bg-accent/5 border-border/60 text-sm font-mono" />
+          <div key={name} className="space-y-2">
+            <Label htmlFor={fieldId} className="text-sm font-medium">{displayName}</Label>
+            <Input id={fieldId} type="number" value={(variable.value as number) ?? 0} onChange={(e) => handleVariableChange(name, Number.parseInt(e.target.value) || 0)} className={cn('h-9 text-sm tabular-nums', mono && 'font-mono')} />
             {description && <p className="text-xs text-muted-foreground">{description}</p>}
           </div>
         );
       default:
         return (
-          <div key={name} className="space-y-1.5">
-            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{displayName}</Label>
-            <Input value={(variable.value as string) ?? ""} onChange={(e) => handleVariableChange(name, e.target.value)} className="h-9 bg-accent/5 border-border/60 text-sm" />
+          <div key={name} className="space-y-2">
+            <Label htmlFor={fieldId} className="text-sm font-medium">{displayName}</Label>
+            <Input id={fieldId} value={(variable.value as string) ?? ""} onChange={(e) => handleVariableChange(name, e.target.value)} className={cn('h-9 text-sm', mono && 'font-mono')} />
             {description && <p className="text-xs text-muted-foreground">{description}</p>}
           </div>
         );
     }
+  };
+
+  /** Fields in a two-column grid; consecutive switches share one bordered list. */
+  const renderVariables = (names: string[]) => {
+    const blocks: ReactNode[] = [];
+    let switchRun: string[] = [];
+    const flushSwitches = () => {
+      if (switchRun.length === 0) return;
+      blocks.push(
+        <div key={`switches-${switchRun[0]}`} className="divide-y divide-border/50 rounded-lg border border-border/60 sm:col-span-2">
+          {switchRun.map(n => renderSwitchRow(n, localSettings.variables[n]))}
+        </div>
+      );
+      switchRun = [];
+    };
+    for (const name of names) {
+      if (!isVisibleVar(name)) continue;
+      const variable = localSettings.variables[name];
+      if (isSwitchVar(variable)) {
+        switchRun.push(name);
+      } else {
+        flushSwitches();
+        blocks.push(renderField(name, variable));
+      }
+    }
+    flushSwitches();
+    return <div className="grid gap-5 sm:grid-cols-2">{blocks}</div>;
   };
 
   const groups = localSettings.groups || [];
@@ -214,324 +289,284 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: S
   const adminMetaVars = Object.entries(localSettings.variables).filter(([name, v]) =>
     v.userEdit === false && !v.internal && !isInternalMeta(name) && !groups.some(g => g.variables.includes(name))
   );
+  const showMetadata = (hasScope('admin') || hasScope('server.admin')) && adminMetaVars.length > 0;
+  // Read-only installation values are listed once, under metadata, when that section shows.
+  const editableGrouplessVars = showMetadata
+    ? grouplessVars.filter(name => !adminMetaVars.some(([metaName]) => metaName === name))
+    : grouplessVars;
+
+  const visibleGroups = groups.filter(g => g.variables.some(vn => {
+    const v = localSettings.variables[vn];
+    return v && !v.internal && !isSkipped(vn);
+  }));
+
+  const resourceFields = [
+    { key: 'cpu', label: t('servers.settings.cpuLabel'), unit: '%', defaultVal: 100, hint: t('servers.settings.cpuHint') },
+    { key: 'memory', label: t('servers.settings.memoryLabel'), unit: 'MB', defaultVal: 1024, hint: t('servers.settings.memoryHint') },
+    { key: 'disk', label: t('servers.settings.diskLabel'), unit: 'MB', defaultVal: 10240, hint: t('servers.settings.diskHint') },
+  ];
+
+  const autoStartFlags = [
+    { flag: 'autoStart' as const, label: t('servers.settings.startOnBootLabel'), desc: t('servers.settings.startOnBootDescription') },
+    { flag: 'autoRestartOnCrash' as const, label: t('servers.settings.restartOnCrashLabel'), desc: t('servers.settings.restartOnCrashDescription') },
+    { flag: 'autoRestartOnGraceful' as const, label: t('servers.settings.restartOnStopLabel'), desc: t('servers.settings.restartOnStopDescription') },
+  ];
+
+  // Phones: type, port and remove on one line with the note underneath.
+  const portGrid = canManagePorts
+    ? 'grid-cols-[3.5rem_minmax(0,1fr)_2rem] sm:grid-cols-[4.5rem_minmax(0,7rem)_minmax(0,1fr)_2rem]'
+    : 'grid-cols-[3.5rem_minmax(0,1fr)] sm:grid-cols-[4.5rem_minmax(0,7rem)_minmax(0,1fr)]';
 
   return (
-    <div className="mt-6 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex items-center gap-4">
-        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-primary/30 bg-gradient-to-br from-primary/25 via-accent/15 to-transparent text-primary shadow-lg shadow-primary/5">
-          <Settings className="h-5 w-5" />
-        </div>
-        <div>
-          <h1 className="font-headline text-xl font-bold tracking-tight">{t('servers.settings.title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('servers.settings.description')}</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[400px_1fr]">
-
-        <div className="space-y-6">
-
-          <Card className="border-border/60">
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-3">
-                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
-                  <Settings className="h-4 w-4" />
+    <div className="mt-6 space-y-4">
+      <Card className="divide-y divide-border/50">
+        <SettingsSection title={t('servers.settings.generalTitle')} description={t('servers.settings.generalDescription')}>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="server-display-name" className="text-sm font-medium">{t('servers.settings.nameLabel')}</Label>
+              <Input
+                id="server-display-name"
+                value={localSettings.definition?.display || ''}
+                onChange={(e) => setLocalSettings(prev => prev ? { ...prev, definition: { ...prev.definition, display: e.target.value } } : prev)}
+                className="h-9 text-sm"
+              />
+              <p className="text-xs text-muted-foreground">{t('servers.settings.nameDescription')}</p>
+            </div>
+            {localSettings.definition?.type && (
+              <div className="space-y-2">
+                <span className="block text-sm font-medium">{t('servers.settings.serverTypeLabel')}</span>
+                <div className="flex h-9 items-center gap-2 text-sm text-muted-foreground">
+                  <Box className="h-4 w-4" aria-hidden="true" />
+                  <span className="font-mono text-foreground">{localSettings.definition.type}</span>
                 </div>
-                <CardTitle className="text-sm font-bold uppercase tracking-wider">
-                  {t('servers.settings.generalTitle') || 'Información General'}
-                </CardTitle>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-3 pt-0">
-              <div className="space-y-1.5">
-                <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  {t('servers.settings.nameLabel') || 'Server Name'}
-                </Label>
-                <Input
-                  value={localSettings.definition?.display || ''}
-                  onChange={(e) => setLocalSettings(prev => prev ? { ...prev, definition: { ...prev.definition, display: e.target.value } } : prev)}
-                  className="h-9 bg-accent/5 border-border/60 text-sm"
-                />
-              </div>
-              {localSettings.definition?.type && (
-                <div className="space-y-1.5">
-                  <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    {t('servers.settings.serverTypeLabel')}
-                  </Label>
-                  <div className="flex h-9 items-center gap-2 rounded-lg border border-border/60 bg-accent/5 px-3">
-                    <Box className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="font-mono text-sm">{localSettings.definition.type}</span>
+            )}
+          </div>
+        </SettingsSection>
+
+        {canViewResources && (
+          <SettingsSection
+            title={t('servers.settings.resourcesTitle')}
+            description={t('servers.settings.resourcesDescription')}
+            aside={
+              <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Lock className="h-3 w-3" aria-hidden="true" />
+                {t('servers.settings.resourcesAdminBadge')}
+              </span>
+            }
+          >
+            <div className="grid gap-5 sm:grid-cols-3">
+              {resourceFields.map(({ key, label, unit, defaultVal, hint }) => {
+                const val = (localSettings.variables[key]?.value as number) ?? defaultVal;
+                const id = `resource-${key}`;
+                return (
+                  <div key={key} className="space-y-2">
+                    <Label htmlFor={id} className="text-sm font-medium">{label}</Label>
+                    <div className="relative">
+                      <Input
+                        id={id}
+                        type="number"
+                        value={val}
+                        onChange={(e) => handleVariableChange(key, Number.parseInt(e.target.value) || 0)}
+                        className="h-9 pr-12 text-sm tabular-nums"
+                      />
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">{unit}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{hint}</p>
                   </div>
-                </div>
+                );
+              })}
+            </div>
+          </SettingsSection>
+        )}
+
+        {canViewPorts && (
+          <SettingsSection title={t('servers.settings.portsTitle')} description={t('servers.settings.portsDescription')}>
+            <div className="space-y-3">
+              {isRunning && canManagePorts && (
+                <p className="flex items-start gap-2 text-xs text-muted-foreground">
+                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-warning" aria-hidden="true" />
+                  {t('servers.settings.portsRunningHint')}
+                </p>
               )}
-            </CardContent>
-          </Card>
-
-          {canViewResources && (
-            <Card className="overflow-hidden border-cyan-500/20">
-              <div className="h-1 w-full bg-gradient-to-r from-cyan-500 via-cyan-400 to-cyan-300/0" />
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-cyan-500/10 text-cyan-500">
-                      <BarChart3 className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-sm font-bold uppercase tracking-wider">{t('servers.settings.resourcesTitle')}</CardTitle>
-                      <CardDescription className="text-[11px]">{t('servers.settings.resourcesDescription')}</CardDescription>
-                    </div>
-                  </div>
-                  <span className="flex shrink-0 items-center gap-1 rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-500">
-                    <ShieldCheck className="h-3 w-3" />
-                    Admin
-                  </span>
+              <div className="overflow-hidden rounded-lg border border-border/60">
+                <div className={cn('hidden items-center gap-3 border-b border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground sm:grid', portGrid)}>
+                  <span>{t('servers.settings.portsTypeLabel')}</span>
+                  <span>{t('servers.settings.portLabel')}</span>
+                  <span>{t('servers.settings.portNoteLabel')}</span>
+                  {canManagePorts && <span className="sr-only">{t('servers.settings.portsActionsLabel')}</span>}
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-5 pt-0">
-                {[
-                  { key: 'cpu', icon: Cpu, label: 'CPU', unit: '%', defaultVal: 100, hint: t('servers.settings.cpuHint'), max: 200, color: 'cyan' as const },
-                  { key: 'memory', icon: MemoryStick, label: 'RAM', unit: 'MB', defaultVal: 1024, hint: t('servers.settings.memoryHint'), max: 8192, color: 'emerald' as const },
-                  { key: 'disk', icon: HardDrive, label: 'Disco', unit: 'MB', defaultVal: 10240, hint: t('servers.settings.diskHint'), max: 51200, color: 'violet' as const },
-                ].map(({ key, icon: Icon, label, unit, defaultVal, hint, max, color }) => {
-                  const val = (localSettings.variables[key]?.value as number) ?? defaultVal;
-                  const pct = Math.min((val / max) * 100, 100);
-                  const colorMap = { cyan: 'text-cyan-500', emerald: 'text-emerald-500', violet: 'text-violet-500' };
-                  const barMap = { cyan: 'from-cyan-500 to-cyan-400', emerald: 'from-emerald-500 to-emerald-400', violet: 'from-violet-500 to-violet-400' };
-                  const bgMap = { cyan: 'bg-cyan-500/10', emerald: 'bg-emerald-500/10', violet: 'bg-violet-500/10' };
-                  return (
-                    <div key={key} className="rounded-xl border border-border/40 bg-accent/3 p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2.5">
-                          <div className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-lg", bgMap[color], colorMap[color])}>
-                            <Icon className="h-3.5 w-3.5" />
-                          </div>
-                          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
-                        </div>
-                        <div className="relative">
-                          <Input type="number" value={val} onChange={(e) => handleVariableChange(key, Number.parseInt(e.target.value) || 0)}
-                            className="h-8 w-28 bg-card border-border/60 pr-9 text-right font-mono text-sm font-semibold focus:bg-accent/10 transition-colors" />
-                          <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-medium text-muted-foreground/60">{unit}</span>
-                        </div>
-                      </div>
-                      <Progress value={pct} className={cn("h-1.5 bg-muted/30 [&>div]:bg-gradient-to-r [&>div]:to-transparent", `[&>div]:${barMap[color]}`)} />
-                      <p className="text-[11px] text-muted-foreground/50">{hint}</p>
-                    </div>
-                  );
-                })}
-              </CardContent>
-            </Card>
-          )}
-
-          {canViewPorts && (
-            <Card className="overflow-hidden border-primary/20">
-              <div className="h-1 w-full bg-gradient-to-r from-primary via-primary/70 to-transparent" />
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-3">
-                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
-                    <Key className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-sm font-bold uppercase tracking-wider">{t('servers.settings.portsTitle')}</CardTitle>
-                    <CardDescription className="text-[11px]">{t('servers.settings.portsDescription')}</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3 pt-0">
-                {isRunning && canManagePorts && (
-                  <div className="flex items-center gap-2 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
-                    <Power className="h-3.5 w-3.5 shrink-0" />
-                    <span>{t('servers.settings.portsRunningHint' as any) || 'The server is running. Stop it to change which port is primary.'}</span>
-                  </div>
-                )}
-                <div className={cn("gap-2 px-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50",
-                  canManagePorts ? "grid grid-cols-[80px_1fr_140px_36px]" : "grid grid-cols-[80px_1fr_140px]"
-                )}>
-                  <span>{t('servers.settings.portsTypeLabel') || 'Tipo'}</span>
-                  <span>{t('servers.settings.portPlaceholder') || 'Puerto'}</span>
-                  <span>Nota</span>
-                  {canManagePorts && <span className="text-right">{t('servers.settings.portsActionsLabel') || 'Acción'}</span>}
-                </div>
-                <div className="space-y-1.5">
+                <ul className="divide-y divide-border/50">
                   {ports.map((p, idx) => (
-                    <div key={idx} className={cn("items-center gap-2 rounded-lg border border-border/60 bg-accent/5 px-1 py-1.5 transition-colors hover:bg-accent/10",
-                      canManagePorts ? "grid grid-cols-[80px_1fr_140px_36px]" : "grid grid-cols-[80px_1fr_140px]"
-                    )}>
-                      <span className={cn("ml-1 rounded px-1.5 py-0.5 text-center text-[10px] font-bold uppercase",
-                        idx === 0 ? "bg-primary/15 text-primary-bright" : "bg-muted/50 text-muted-foreground"
-                      )}>
-                        {idx === 0 ? 'Principal' : `#${idx + 1}`}
+                    <li key={idx} className={cn('grid items-center gap-x-3 gap-y-2 px-3 py-2.5 sm:py-2', portGrid)}>
+                      <span className={cn('text-xs', idx === 0 ? 'font-medium text-primary-bright' : 'text-muted-foreground')}>
+                        {idx === 0 ? t('servers.settings.primaryPortLabel') : `#${idx + 1}`}
                       </span>
                       {canManagePorts ? (
-                        <Input type="number" value={p || ''} placeholder="25565"
+                        <Input
+                          type="number"
+                          value={p || ''}
+                          placeholder="25565"
+                          aria-label={`${t('servers.settings.portLabel')} ${idx + 1}`}
                           onChange={(e) => { const next = [...ports]; next[idx] = Number.parseInt(e.target.value) || 0; setPorts(next); }}
-                          className="h-8 bg-card border-border/60 font-mono text-xs focus:bg-accent/10 transition-colors" />
+                          className="h-8 font-mono text-sm tabular-nums"
+                        />
                       ) : (
-                        <div className="flex h-8 items-center rounded-md border border-border/60 bg-card px-3 font-mono text-xs">
-                          {p}
-                        </div>
+                        <span className="font-mono text-sm tabular-nums">{p}</span>
                       )}
                       <Input
                         value={portNotes[String(p)] || ''}
-                        placeholder="Ej: Game, RCON, Query"
+                        placeholder={t('servers.settings.portNotePlaceholder')}
+                        aria-label={`${t('servers.settings.portNoteLabel')} ${idx + 1}`}
                         onChange={(e) => setPortNotes(prev => ({ ...prev, [String(p)]: e.target.value }))}
-                        className="h-8 bg-card border-border/60 text-xs"
+                        className={cn('h-8 text-sm max-sm:col-start-2 max-sm:row-start-2', canManagePorts && 'max-sm:col-span-2')}
                       />
                       {canManagePorts && (
-                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-red-500"
-                          onClick={() => removePort(idx)} title={t('common.delete') || 'Delete'}>
-                          <Trash2 className="h-3.5 w-3.5" />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive-bright max-sm:col-start-3 max-sm:row-start-1"
+                          onClick={() => removePort(idx)}
+                          aria-label={t('servers.settings.removePort')}
+                        >
+                          <X className="h-4 w-4" />
                         </Button>
                       )}
-                    </div>
+                    </li>
                   ))}
-                </div>
-                {canManagePorts && (
-                  <Button variant="outline" size="sm" className="w-full" onClick={() => setPorts(prev => [...prev, 0])}>
-                    <Plus className="mr-1.5 h-3.5 w-3.5" />
-                    {t('servers.settings.addPortLabel')}
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        <div className="space-y-6">
-
-          {(hasScope('admin') || hasScope('server.admin')) && adminMetaVars.length > 0 && (
-            <Card className="overflow-hidden border-amber-500/20">
-              <div className="h-1 w-full bg-gradient-to-r from-amber-500 via-amber-400 to-amber-300/0" />
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-3">
-                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-amber-500/10 text-amber-500">
-                    <Wrench className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-sm font-bold uppercase tracking-wider">
-                      {t('servers.settings.metadataTitle') || 'Metadatos del Servidor'}
-                    </CardTitle>
-                    <CardDescription className="text-[11px]">Solo lectura</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="rounded-lg border border-border/60 divide-y divide-border/60">
-                  {adminMetaVars.map(([name, variable]) => (
-                    <div key={name} className="flex items-center justify-between gap-4 px-4 py-2.5 bg-accent/3 hover:bg-accent/8 transition-colors">
-                      <span className="text-xs font-medium text-muted-foreground">{variable.display || name}</span>
-                      <span className="font-mono text-sm text-foreground/80 truncate max-w-[60%] text-right">
-                        {String(variable.value ?? '—')}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          <Card className="overflow-hidden border-emerald-500/20">
-            <div className="h-1 w-full bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-300/0" />
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-3">
-                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-emerald-500/10 text-emerald-500">
-                  <Clock className="h-4 w-4" />
-                </div>
-                <CardTitle className="text-sm font-bold uppercase tracking-wider">{t('servers.settings.autoStartTitle')}</CardTitle>
+                </ul>
               </div>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                {[
-                  { flag: 'autoStart' as const, label: t('servers.settings.startOnBootLabel'), desc: t('servers.settings.startOnBootDescription') },
-                  { flag: 'autoRestartOnCrash' as const, label: t('servers.settings.restartOnCrashLabel'), desc: t('servers.settings.restartOnCrashDescription') },
-                  { flag: 'autoRestartOnGraceful' as const, label: t('servers.settings.restartOnStopLabel'), desc: t('servers.settings.restartOnStopDescription') },
-                ].map(({ flag, label, desc }) => (
-                  <div key={flag} className="flex flex-col items-center gap-2 rounded-xl border border-emerald-500/15 bg-emerald-500/5 px-3 py-4 text-center transition-colors hover:bg-emerald-500/10">
-                    <Switch checked={localSettings.flags[flag]} onCheckedChange={(val) => handleFlagChange(flag, val)} />
-                    <p className="text-xs font-medium leading-tight">{label}</p>
-                    <p className="text-[10px] text-muted-foreground leading-tight">{desc}</p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+              {canManagePorts && (
+                <Button variant="ghost" size="sm" className="h-8 px-2 text-muted-foreground hover:text-foreground" onClick={() => setPorts(prev => [...prev, 0])}>
+                  <Plus className="h-4 w-4" />
+                  {t('servers.settings.addPortLabel')}
+                </Button>
+              )}
+            </div>
+          </SettingsSection>
+        )}
 
-          {isMinecraftJava && (
-            <Card className="overflow-hidden border-violet-500/20">
-              <div className="h-1 w-full bg-gradient-to-r from-violet-500 via-violet-400 to-violet-300/0" />
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-3">
-                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-violet-500/10 text-violet-500">
-                    <Cog className="h-4 w-4" />
-                  </div>
-                  <CardTitle className="text-sm font-bold uppercase tracking-wider">
-                    {t('servers.settings.pluginsTitle') || 'Configuración de Plugins'}
-                  </CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="flex items-center justify-between gap-3 rounded-xl border border-violet-500/15 bg-violet-500/5 px-4 py-4 transition-colors hover:bg-violet-500/10">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">{t('servers.settings.enablePluginsLabel')}</p>
-                    <p className="text-xs text-muted-foreground truncate">{t('servers.settings.enablePluginsDescription')}</p>
-                  </div>
-                  <Switch checked={pluginsEnabled} onCheckedChange={setPluginsEnabled} />
-                </div>
-              </CardContent>
-            </Card>
-          )}
+        <SettingsSection title={t('servers.settings.autoStartTitle')} description={t('servers.settings.autoStartDescription')}>
+          <div className="divide-y divide-border/50 rounded-lg border border-border/60">
+            {autoStartFlags.map(({ flag, label, desc }) => (
+              <SettingRow key={flag} label={label} description={desc} htmlFor={`flag-${flag}`} className="px-4 py-3.5">
+                <Switch id={`flag-${flag}`} checked={localSettings.flags[flag]} onCheckedChange={(val) => handleFlagChange(flag, val)} />
+              </SettingRow>
+            ))}
+          </div>
+        </SettingsSection>
 
-          {groups.filter(g => g.variables.some(vn => {
-            const v = localSettings.variables[vn];
-            return v && !v.internal && !isSkipped(vn);
-          })).map((group, idx) => (
-            <Card key={idx} className="border-border/60">
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-3">
-                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
-                    <Box className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-sm font-bold uppercase tracking-wider">{group.display}</CardTitle>
-                    {group.description && <CardDescription className="text-xs">{group.description}</CardDescription>}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {group.variables.map(varName => renderVariable(varName, localSettings.variables[varName]))}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        {isMinecraftJava && (
+          <SettingsSection title={t('servers.settings.pluginsTitle')} description={t('servers.settings.pluginsDescription')}>
+            <div className="rounded-lg border border-border/60">
+              <SettingRow
+                label={t('servers.settings.enablePluginsLabel')}
+                description={t('servers.settings.enablePluginsDescription')}
+                htmlFor="plugins-enabled"
+                className="px-4 py-3.5"
+              >
+                <Switch id="plugins-enabled" checked={pluginsEnabled} onCheckedChange={setPluginsEnabled} />
+              </SettingRow>
+            </div>
+          </SettingsSection>
+        )}
 
-          {grouplessVars.length > 0 && (
-            <Card className="border-border/60">
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-3">
-                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
-                    <Puzzle className="h-4 w-4" />
-                  </div>
-                  <CardTitle className="text-sm font-bold uppercase tracking-wider">
-                    {t('templates.categories.NoGroup') || 'Variables'}
-                  </CardTitle>
+        {visibleGroups.map((group, idx) => (
+          <SettingsSection key={idx} title={groupTitle(group.display)} description={groupDescription(group.display, group.description)}>
+            {renderVariables(group.variables)}
+          </SettingsSection>
+        ))}
+
+        {editableGrouplessVars.length > 0 && (
+          <SettingsSection title={t('servers.settings.variablesTitle')} description={t('servers.settings.variablesDescription')}>
+            {renderVariables(editableGrouplessVars)}
+          </SettingsSection>
+        )}
+
+        {showMetadata && (
+          <SettingsSection title={t('servers.settings.metadataTitle')} description={t('servers.settings.metadataDescription')}>
+            <dl className="divide-y divide-border/50 rounded-lg border border-border/60">
+              {adminMetaVars.map(([name, variable]) => (
+                <div key={name} className="flex items-center justify-between gap-4 px-4 py-2.5">
+                  <dt className="min-w-0 text-sm text-muted-foreground">{varLabel(name, variable)}</dt>
+                  <dd className={cn('max-w-[60%] truncate text-right text-sm text-foreground', isMonoVar(name) && 'font-mono')}>{String(variable.value ?? '—')}</dd>
                 </div>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {grouplessVars.map(varName => renderVariable(varName, localSettings.variables[varName]))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+              ))}
+            </dl>
+          </SettingsSection>
+        )}
+      </Card>
+
+      {isDirty && (
+        <div
+          role="region"
+          aria-label={t('servers.settings.unsavedChanges')}
+          className="sticky bottom-4 z-20 flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-popover/95 px-4 py-3 shadow-elevation-3 backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200 sm:px-5"
+        >
+          <span className="text-sm text-muted-foreground">{t('servers.settings.unsavedChanges')}</span>
+          <div className="flex gap-2">
+            <Button variant="ghost" size="sm" onClick={onDiscard} disabled={saving}>
+              {t('servers.settings.discard')}
+            </Button>
+            <Button size="sm" onClick={onSave} disabled={saving}>
+              {saving && <Loader2 className="animate-spin" />}
+              {saving ? t('common.saving') : t('servers.settings.saveButton')}
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
+    </div>
+  );
+}
 
-      <div className="sticky bottom-4 z-20 flex items-center justify-end rounded-xl border border-border/80 bg-card/85 px-5 py-4 shadow-[0_-8px_30px_rgb(0_0_0/0.25)] backdrop-blur-md">
-        <Button size="lg" onClick={onSave} disabled={saving} className="px-10 font-bold">
-          {saving ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t('common.saving') || 'Saving...'}</>) : t('servers.settings.saveButton')}
-        </Button>
+/**
+ * One block of the settings page: what it is and why on the left, the
+ * controls on the right; stacked on narrow screens.
+ */
+function SettingsSection({
+  title,
+  description,
+  aside,
+  children,
+}: {
+  title: string;
+  description?: string;
+  aside?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className="grid gap-5 p-5 md:p-6 lg:grid-cols-[minmax(0,16rem)_minmax(0,1fr)] lg:gap-10">
+      <div className="space-y-1.5">
+        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+        {description && <p className="text-pretty text-sm text-muted-foreground">{description}</p>}
+        {aside && <div className="pt-1">{aside}</div>}
       </div>
+      <div className="min-w-0">{children}</div>
+    </section>
+  );
+}
+
+/** A label + description on the left and a control (usually a switch) on the right. */
+function SettingRow({
+  label,
+  description,
+  htmlFor,
+  className,
+  children,
+}: {
+  label: string;
+  description?: string;
+  htmlFor: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={cn('flex items-center justify-between gap-4', className)}>
+      <div className="min-w-0">
+        <Label htmlFor={htmlFor} className="text-sm font-medium">{label}</Label>
+        {description && <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>}
+      </div>
+      {children}
     </div>
   );
 }

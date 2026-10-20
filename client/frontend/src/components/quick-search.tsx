@@ -121,13 +121,13 @@ export function QuickSearch({ items, className }: { items: QuickSearchItem[]; cl
     };
 
     const resultsList = results.length === 0 ? (
-        <p className="px-3 py-4 text-sm text-muted-foreground">{t('header.search.noResults')}</p>
+        <p className="px-4 py-8 text-center text-sm text-muted-foreground">{t('header.search.noResults')}</p>
     ) : (
         <ul
             id={listId}
             role="listbox"
             aria-label={t('header.search.label')}
-            className="custom-scrollbar max-h-72 space-y-0.5 overflow-auto overscroll-contain p-1"
+            className="custom-scrollbar max-h-[min(23rem,60vh)] space-y-0.5 overflow-auto overscroll-contain p-1.5"
         >
             {results.map((item, index) => {
                 const selected = index === activeIndex;
@@ -141,13 +141,16 @@ export function QuickSearch({ items, className }: { items: QuickSearchItem[]; cl
                             tabIndex={-1}
                             onMouseEnter={() => setActiveIndex(index)}
                             className={cn(
-                                'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors duration-150',
+                                'flex min-h-9 items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors duration-150',
                                 selected ? 'bg-accent text-accent-foreground' : 'text-foreground',
                             )}
                         >
-                            <item.icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                            <item.icon
+                                className={cn('h-4 w-4 shrink-0 transition-colors duration-150', selected ? 'text-foreground' : 'text-muted-foreground')}
+                                aria-hidden="true"
+                            />
                             <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                            <span className="shrink-0 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                            <span className="shrink-0 text-xs font-medium text-muted-foreground">
                                 {item.group}
                             </span>
                         </a>
@@ -185,7 +188,7 @@ export function QuickSearch({ items, className }: { items: QuickSearchItem[]; cl
                     {...fieldProps}
                     ref={inputRef}
                     onFocus={() => setOpen(true)}
-                    className="h-9 w-44 pl-8 pr-14 text-sm transition-[width,box-shadow] duration-200 ease-panel focus-visible:ring-2 focus-visible:ring-ring/70 lg:w-56 lg:focus:w-72"
+                    className="h-9 w-60 bg-background/40 pl-8 pr-3 text-sm hover:border-border lg:w-72 lg:pr-16 [&::-webkit-search-cancel-button]:hidden"
                 />
                 <kbd className="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 rounded border border-border/60 bg-muted/70 px-1.5 py-0.5 font-mono text-[10px] leading-none text-muted-foreground lg:block">
                     {t('header.search.hint')}
@@ -194,6 +197,20 @@ export function QuickSearch({ items, className }: { items: QuickSearchItem[]; cl
                 {open && (
                     <div className="animate-in fade-in-0 zoom-in-95 absolute right-0 top-[calc(100%+8px)] z-50 w-80 overflow-hidden rounded-xl border border-border/60 bg-popover shadow-elevation-3 duration-150">
                         {resultsList}
+                        <div aria-hidden="true" className="flex items-center gap-4 border-t border-border/50 px-3 py-2 text-[11px] text-muted-foreground">
+                            <span className="inline-flex items-center gap-1.5">
+                                <kbd className="rounded border border-border/60 bg-muted/70 px-1 font-mono text-[10px] leading-4">↑↓</kbd>
+                                {t('header.search.navigate')}
+                            </span>
+                            <span className="inline-flex items-center gap-1.5">
+                                <kbd className="rounded border border-border/60 bg-muted/70 px-1 font-mono text-[10px] leading-4">↵</kbd>
+                                {t('header.search.select')}
+                            </span>
+                            <span className="inline-flex items-center gap-1.5">
+                                <kbd className="rounded border border-border/60 bg-muted/70 px-1 font-mono text-[10px] leading-4">Esc</kbd>
+                                {t('header.search.close')}
+                            </span>
+                        </div>
                     </div>
                 )}
             </div>
@@ -209,9 +226,9 @@ export function QuickSearch({ items, className }: { items: QuickSearchItem[]; cl
             </Button>
 
             <Dialog open={open && isMobile} onOpenChange={setOpen}>
-                <DialogContent className="top-[15%] max-w-md translate-y-0 gap-3 p-4">
-                    <DialogHeader>
-                        <DialogTitle className="font-headline text-base">{t('header.search.label')}</DialogTitle>
+                <DialogContent className="top-[12%] w-[calc(100%-2rem)] max-w-md translate-y-0 gap-3 rounded-xl p-4">
+                    <DialogHeader className="text-left">
+                        <DialogTitle className="text-base font-semibold">{t('header.search.label')}</DialogTitle>
                         <DialogDescription className="sr-only">{t('header.search.placeholder')}</DialogDescription>
                     </DialogHeader>
                     <div className="relative">
@@ -219,9 +236,9 @@ export function QuickSearch({ items, className }: { items: QuickSearchItem[]; cl
                             className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
                             aria-hidden="true"
                         />
-                        <Input {...fieldProps} ref={dialogInputRef} autoFocus className="h-10 pl-8 text-sm" />
+                        <Input {...fieldProps} ref={dialogInputRef} autoFocus className="h-11 pl-8 text-base [&::-webkit-search-cancel-button]:hidden" />
                     </div>
-                    <div className="overflow-hidden rounded-xl border border-border/60 bg-surface-2/40">{resultsList}</div>
+                    <div className="overflow-hidden rounded-xl border border-border/60 bg-background/30">{resultsList}</div>
                 </DialogContent>
             </Dialog>
         </div>

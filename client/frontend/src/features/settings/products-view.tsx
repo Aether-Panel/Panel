@@ -4,18 +4,31 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Trash2, Plus, Edit } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Trash2, Plus, Pencil, Package } from 'lucide-react';
 import { sileo } from "@/lib/toast";
 import { api } from '@/lib/api-client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useTranslations } from '@/contexts/translations-context';
+import { SettingsCard, SettingsCardHeader } from './general-tab';
 
 export function ProductsView() {
+    const { t } = useTranslations();
     const [products, setProducts] = useState<any[]>([]);
     const [nodes, setNodes] = useState<any[]>([]);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
-    
+    const [pendingDelete, setPendingDelete] = useState<any | null>(null);
 
     const [form, setForm] = useState({
         product_id: '',
@@ -50,7 +63,7 @@ export function ProductsView() {
     const handleSubmit = async () => {
         try {
             const url = editingId ? `/api/provision/products/${editingId}` : '/api/provision/products';
-            
+
             const payload = {
                 ...form,
                 cpu: Number(form.cpu),
@@ -69,19 +82,18 @@ export function ProductsView() {
 
             void fetchData();
             setIsDialogOpen(false);
-            sileo.success({ title: 'Success', description: 'Product saved successfully' });
+            sileo.success({ title: t('common.success'), description: t('settings.products.toast.saved') });
         } catch (e) {
             console.error(e);
-            sileo.error({ title: 'Error', description: 'Failed to save product' });
+            sileo.error({ title: t('common.error'), description: t('settings.products.toast.saveFailed') });
         }
     };
 
     const handleDelete = async (id: number) => {
-        if (!confirm('Are you sure you want to delete this product?')) return;
         try {
             await api.delete(`/api/provision/products/${id}`);
             void fetchData();
-            sileo.success({ title: 'Success', description: 'Product deleted' });
+            sileo.success({ title: t('common.success'), description: t('settings.products.toast.deleted') });
         } catch (e) {
             console.error(e);
         }
@@ -121,149 +133,231 @@ export function ProductsView() {
         setIsDialogOpen(true);
     };
 
-    return (
-        <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                    <h2 className="text-xl font-semibold tracking-tight">Provision Products</h2>
-                    <p className="text-sm text-muted-foreground mt-1">Define products that can be automatically provisioned by external systems.</p>
-                </div>
-                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                    <DialogTrigger asChild>
-                        <Button onClick={openCreate}><Plus className="w-4 h-4 mr-2"/> Add Product</Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-xl">
-                        <DialogHeader>
-                            <DialogTitle>{editingId ? 'Edit Product' : 'Add New Product'}</DialogTitle>
-                        </DialogHeader>
-                        <div className="grid grid-cols-2 gap-4 py-4">
-                            <div className="space-y-2 col-span-2 sm:col-span-1">
-                                <Label>Product ID (e.g. minecraft_2gb)</Label>
-                                <Input value={form.product_id} onChange={e => setForm({...form, product_id: e.target.value})} />
-                            </div>
-                            <div className="space-y-2 col-span-2 sm:col-span-1">
-                                <Label>Display Name</Label>
-                                <Input value={form.display_name} onChange={e => setForm({...form, display_name: e.target.value})} />
-                            </div>
-                            <div className="space-y-2 col-span-2">
-                                <Label>Template Name</Label>
-                                <Input value={form.template} onChange={e => setForm({...form, template: e.target.value})} placeholder="e.g. minecraft" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>CPU Limit (%)</Label>
-                                <Input type="number" value={form.cpu} onChange={e => setForm({...form, cpu: Number(e.target.value)})} />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Memory Limit (MB)</Label>
-                                <Input type="number" value={form.memory} onChange={e => setForm({...form, memory: Number(e.target.value)})} />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Disk Limit (MB)</Label>
-                                <Input type="number" value={form.disk} onChange={e => setForm({...form, disk: Number(e.target.value)})} />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Default Node</Label>
-                                <Select value={form.default_node.toString()} onValueChange={v => setForm({...form, default_node: Number(v)})}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select a node" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {nodes.map(node => (
-                                            <SelectItem key={node.id} value={node.id.toString()}>{node.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="col-span-2 space-y-3 border border-border/60 rounded-xl p-4 bg-muted/20">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <Label className="text-sm font-medium">Assign Port from Range</Label>
-                                        <p className="text-xs text-muted-foreground mt-0.5">
-                                            A random free port from this range will be assigned on provisioning.
-                                        </p>
-                                    </div>
-                                    <Switch
-                                        checked={usePortRange}
-                                        onCheckedChange={setUsePortRange}
-                                    />
-                                </div>
-                                {usePortRange && (
-                                    <div className="grid grid-cols-2 gap-4 pt-2">
-                                        <div className="space-y-1.5">
-                                            <Label className="text-xs text-muted-foreground">Min Port</Label>
-                                            <Input
-                                                type="number"
-                                                min={1024}
-                                                max={65535}
-                                                placeholder="e.g. 25000"
-                                                value={form.port_range_min || ''}
-                                                onChange={e => setForm({...form, port_range_min: Number(e.target.value)})}
-                                                className="bg-background"
-                                            />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <Label className="text-xs text-muted-foreground">Max Port</Label>
-                                            <Input
-                                                type="number"
-                                                min={1024}
-                                                max={65535}
-                                                placeholder="e.g. 25999"
-                                                value={form.port_range_max || ''}
-                                                onChange={e => setForm({...form, port_range_max: Number(e.target.value)})}
-                                                className="bg-background"
-                                            />
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                        <DialogFooter>
-                            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                            <Button onClick={handleSubmit}>Save Product</Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
-            </div>
+    const addButton = (
+        <Button onClick={openCreate}>
+            <Plus aria-hidden="true" />
+            {t('settings.products.add')}
+        </Button>
+    );
 
-            <div className="rounded-xl border border-border/60 bg-card shadow-sm overflow-hidden">
-                <Table>
-                    <TableHeader className="bg-muted/30">
-                        <TableRow>
-                            <TableHead className="font-medium">Product ID</TableHead>
-                            <TableHead className="font-medium">Name</TableHead>
-                            <TableHead className="font-medium">Template</TableHead>
-                            <TableHead className="font-medium">Limits</TableHead>
-                            <TableHead className="w-[100px] text-right"></TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {products.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No products defined.</TableCell>
-                            </TableRow>
-                        ) : products.map(prod => (
-                            <TableRow key={prod.id}>
-                                <TableCell className="font-mono text-[13px]">{prod.product_id}</TableCell>
-                                <TableCell className="font-medium">{prod.display_name}</TableCell>
-                                <TableCell className="text-muted-foreground">{prod.template}</TableCell>
-                                <TableCell className="text-sm text-muted-foreground">
-                                    CPU: {prod.cpu}%, RAM: {prod.memory}MB, Disk: {prod.disk}MB
-                                </TableCell>
-                                <TableCell className="text-right">
-                                    <div className="flex justify-end gap-1">
-                                        <Button variant="ghost" size="icon" onClick={() => openEdit(prod)} className="text-primary hover:bg-primary/10">
-                                            <Edit className="w-4 h-4" />
-                                        </Button>
-                                        <Button variant="ghost" size="icon" onClick={() => handleDelete(prod.id)} className="text-red-500 hover:text-red-600 hover:bg-red-500/10">
-                                            <Trash2 className="w-4 h-4" />
-                                        </Button>
-                                    </div>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+    const rowActions = (prod: any) => (
+        <div className="flex shrink-0 justify-end gap-1">
+            <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => openEdit(prod)}
+                className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                aria-label={t('settings.products.editAria', { name: prod.display_name })}
+            >
+                <Pencil aria-hidden="true" />
+            </Button>
+            <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setPendingDelete(prod)}
+                className="h-9 w-9 text-muted-foreground hover:bg-destructive/10 hover:text-destructive-bright"
+                aria-label={t('settings.products.deleteAria', { name: prod.display_name })}
+            >
+                <Trash2 aria-hidden="true" />
+            </Button>
+        </div>
+    );
+
+    const numberField = (id: string, label: string, unit: string, key: 'cpu' | 'memory' | 'disk') => (
+        <div className="space-y-2">
+            <Label htmlFor={id}>{label}</Label>
+            <div className="relative">
+                <Input
+                    id={id}
+                    type="number"
+                    inputMode="numeric"
+                    value={form[key]}
+                    onChange={e => setForm({ ...form, [key]: Number(e.target.value) })}
+                    className="pr-12 tabular-nums md:text-[13px]"
+                />
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">{unit}</span>
             </div>
         </div>
+    );
+
+    return (
+        <SettingsCard>
+            <SettingsCardHeader
+                title={t('settings.products.title')}
+                description={t('settings.products.description')}
+                action={products.length > 0 ? addButton : undefined}
+            />
+            <div className="p-5 md:p-6">
+                {products.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
+                        <Package className="mx-auto h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
+                        <h3 className="mt-3 text-base font-semibold">{t('settings.products.emptyTitle')}</h3>
+                        <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">{t('settings.products.emptyDescription')}</p>
+                        <div className="mt-5">{addButton}</div>
+                    </div>
+                ) : (
+                    <>
+                    {/* Phones: stacked rows. */}
+                    <ul className="divide-y divide-border/50 rounded-xl border border-border/60 bg-background/30 sm:hidden">
+                        {products.map(prod => (
+                            <li key={prod.id} className="flex items-start justify-between gap-3 px-4 py-3">
+                                <div className="min-w-0 space-y-1">
+                                    <p className="font-medium">{prod.display_name}</p>
+                                    <p className="truncate font-mono text-xs text-muted-foreground">{prod.product_id} · {prod.template}</p>
+                                    <p className="text-xs tabular-nums text-muted-foreground">
+                                        {t('settings.products.limitsSummary', { cpu: prod.cpu, memory: prod.memory, disk: prod.disk })}
+                                    </p>
+                                    {prod.port_range_min > 0 && prod.port_range_max > 0 && (
+                                        <p className="font-mono text-xs tabular-nums text-muted-foreground">
+                                            {t('settings.products.portsSummary', { min: prod.port_range_min, max: prod.port_range_max })}
+                                        </p>
+                                    )}
+                                </div>
+                                {rowActions(prod)}
+                            </li>
+                        ))}
+                    </ul>
+                    <div className="hidden overflow-hidden rounded-xl border border-border/60 bg-background/30 sm:block">
+                        <Table>
+                            <TableHeader className="bg-transparent">
+                                <TableRow className="hover:bg-transparent">
+                                    <TableHead className="font-medium text-muted-foreground">{t('settings.products.table.product')}</TableHead>
+                                    <TableHead className="font-medium text-muted-foreground">{t('settings.products.table.template')}</TableHead>
+                                    <TableHead className="font-medium text-muted-foreground">{t('settings.products.table.limits')}</TableHead>
+                                    <TableHead className="w-24"><span className="sr-only">{t('common.actions')}</span></TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {products.map(prod => (
+                                    <TableRow key={prod.id} className="hover:bg-accent/30">
+                                        <TableCell>
+                                            <div className="font-medium">{prod.display_name}</div>
+                                            <div className="mt-0.5 font-mono text-xs text-muted-foreground">{prod.product_id}</div>
+                                        </TableCell>
+                                        <TableCell className="font-mono text-[13px] text-muted-foreground">{prod.template}</TableCell>
+                                        <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                                            <span className="tabular-nums">
+                                                {t('settings.products.limitsSummary', { cpu: prod.cpu, memory: prod.memory, disk: prod.disk })}
+                                            </span>
+                                            {prod.port_range_min > 0 && prod.port_range_max > 0 && (
+                                                <div className="mt-0.5 font-mono tabular-nums">
+                                                    {t('settings.products.portsSummary', { min: prod.port_range_min, max: prod.port_range_max })}
+                                                </div>
+                                            )}
+                                        </TableCell>
+                                        <TableCell className="text-right">{rowActions(prod)}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                    </>
+                )}
+            </div>
+
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
+                    <DialogHeader>
+                        <DialogTitle>{editingId ? t('settings.products.editTitle') : t('settings.products.createTitle')}</DialogTitle>
+                        <DialogDescription>{t('settings.products.dialogDescription')}</DialogDescription>
+                    </DialogHeader>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div className="space-y-2">
+                            <Label htmlFor="product-id">{t('settings.products.form.productId')}</Label>
+                            <Input id="product-id" spellCheck={false} value={form.product_id} onChange={e => setForm({...form, product_id: e.target.value})} placeholder="minecraft_2gb" className="font-mono md:text-[13px]" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="product-name">{t('settings.products.form.displayName')}</Label>
+                            <Input id="product-name" value={form.display_name} onChange={e => setForm({...form, display_name: e.target.value})} />
+                        </div>
+                        <div className="space-y-2 sm:col-span-2">
+                            <Label htmlFor="product-template">{t('settings.products.form.template')}</Label>
+                            <Input id="product-template" spellCheck={false} value={form.template} onChange={e => setForm({...form, template: e.target.value})} placeholder="minecraft" className="font-mono md:text-[13px]" />
+                        </div>
+                        {numberField('product-cpu', t('settings.products.form.cpu'), '%', 'cpu')}
+                        {numberField('product-memory', t('settings.products.form.memory'), 'MB', 'memory')}
+                        {numberField('product-disk', t('settings.products.form.disk'), 'MB', 'disk')}
+                        <div className="space-y-2">
+                            <Label htmlFor="product-node">{t('settings.products.form.defaultNode')}</Label>
+                            <Select value={form.default_node.toString()} onValueChange={v => setForm({...form, default_node: Number(v)})}>
+                                <SelectTrigger id="product-node">
+                                    <SelectValue placeholder={t('settings.products.form.selectNode')} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {nodes.map(node => (
+                                        <SelectItem key={node.id} value={node.id.toString()}>{node.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="rounded-xl border border-border/60 bg-background/30 sm:col-span-2">
+                            <div className="flex items-center justify-between gap-4 px-4 py-3.5">
+                                <div className="min-w-0">
+                                    <Label htmlFor="product-port-range" className="text-sm font-medium">{t('settings.products.form.portRange')}</Label>
+                                    <p className="mt-0.5 text-xs text-muted-foreground">{t('settings.products.form.portRangeDescription')}</p>
+                                </div>
+                                <Switch id="product-port-range" checked={usePortRange} onCheckedChange={setUsePortRange} />
+                            </div>
+                            {usePortRange && (
+                                <div className="grid grid-cols-2 gap-4 border-t border-border/50 px-4 py-3.5">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="product-port-min">{t('settings.products.form.minPort')}</Label>
+                                        <Input
+                                            id="product-port-min"
+                                            type="number"
+                                            inputMode="numeric"
+                                            min={1024}
+                                            max={65535}
+                                            placeholder="25000"
+                                            value={form.port_range_min || ''}
+                                            onChange={e => setForm({...form, port_range_min: Number(e.target.value)})}
+                                            className="font-mono tabular-nums md:text-[13px]"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="product-port-max">{t('settings.products.form.maxPort')}</Label>
+                                        <Input
+                                            id="product-port-max"
+                                            type="number"
+                                            inputMode="numeric"
+                                            min={1024}
+                                            max={65535}
+                                            placeholder="25999"
+                                            value={form.port_range_max || ''}
+                                            onChange={e => setForm({...form, port_range_max: Number(e.target.value)})}
+                                            className="font-mono tabular-nums md:text-[13px]"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsDialogOpen(false)}>{t('common.cancel')}</Button>
+                        <Button onClick={handleSubmit}>{t('settings.products.save')}</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <AlertDialog open={!!pendingDelete} onOpenChange={(open) => !open && setPendingDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>{t('settings.products.deleteTitle')}</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {t('settings.products.deleteDescription', { name: pendingDelete?.display_name ?? '' })}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            onClick={() => pendingDelete && void handleDelete(pendingDelete.id)}
+                        >
+                            {t('common.delete')}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </SettingsCard>
     );
 }

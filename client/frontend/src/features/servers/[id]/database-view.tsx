@@ -1,9 +1,9 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { PlusCircle, Trash2, Database, Globe, ExternalLink, Loader2, Eye, EyeOff, Copy, Check, Lock, User as UserIcon, CheckCircle2 } from 'lucide-react';
+import { Plus, Trash2, Database, Globe, ExternalLink, Loader2, Eye, EyeOff, Copy, Check, Lock, User as UserIcon, CheckCircle2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -46,23 +46,24 @@ type CredentialRowProps = {
 };
 
 function CredentialRow({ icon: Icon, label, value, secret, revealed, onToggleReveal, copied, onCopy }: CredentialRowProps) {
+  const { t } = useTranslations();
   return (
-    <div className="flex items-center justify-between gap-4 px-4 py-3">
+    <div className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
       <span className="flex shrink-0 items-center gap-1.5 text-sm text-muted-foreground">
-        <Icon className="h-3.5 w-3.5" />
+        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
         {label}
       </span>
-      <span className="flex min-w-0 items-center gap-2">
-        <code className="truncate font-mono text-sm text-foreground">
+      <span className="flex min-w-0 items-center gap-2 sm:justify-end">
+        <code className="mr-auto min-w-0 truncate font-mono text-sm text-foreground sm:mr-0">
           {secret && !revealed ? '••••••••••••' : value}
         </code>
         {secret && onToggleReveal && (
-          <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground" onClick={onToggleReveal} aria-label={revealed ? 'Ocultar' : 'Mostrar'}>
+          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground sm:h-6 sm:w-6" onClick={onToggleReveal} aria-label={revealed ? t('servers.database.hidePassword') : t('servers.database.showPassword')}>
             {revealed ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
           </Button>
         )}
         {onCopy && (
-          <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground" onClick={onCopy} aria-label={`Copiar ${label}`}>
+          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground sm:h-6 sm:w-6" onClick={onCopy} aria-label={t('servers.database.copyField', { field: label })}>
             {copied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
           </Button>
         )}
@@ -180,7 +181,7 @@ export default function DatabaseView({ serverId }: DatabaseViewProps) {
     setCopiedField(field);
     setTimeout(() => setCopiedField(null), 2000);
     sileo.success({
-      description: "Copiado al portapapeles",
+      description: t('common.copied'),
     });
   };
 
@@ -189,21 +190,17 @@ export default function DatabaseView({ serverId }: DatabaseViewProps) {
   };
 
   return (
-    <div className="mt-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-primary/30 bg-gradient-to-br from-primary/25 via-accent/15 to-transparent text-primary shadow-[0_0_20px_rgb(0_0_0/0.3)]">
-            <Database className="h-5 w-5" />
-          </div>
-          <div>
-            <h2 className="font-headline text-2xl font-bold tracking-tight">{t('servers.database.title')}</h2>
-            <p className="text-muted-foreground">{t('servers.database.description')}</p>
-          </div>
+    <div className="mt-6">
+      <Card>
+      <div className="flex flex-col gap-4 border-b border-border/50 p-5 sm:flex-row sm:items-center sm:justify-between md:p-6">
+        <div className="min-w-0 space-y-1">
+          <h2 className="text-lg font-semibold tracking-[-0.02em]">{t('servers.database.title')}</h2>
+          <p className="text-sm text-muted-foreground">{t('servers.database.description')}</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="shrink-0">
-              <PlusCircle className="mr-2 h-4 w-4" />
+            <Button className="shrink-0 self-start sm:self-auto">
+              <Plus aria-hidden="true" />
               {t('servers.database.newDb')}
             </Button>
           </DialogTrigger>
@@ -240,7 +237,7 @@ export default function DatabaseView({ serverId }: DatabaseViewProps) {
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>{t('common.cancel')}</Button>
               <Button onClick={handleCreate} disabled={isCreating || !newDbName || !selectedHost}>
-                {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isCreating && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
                 {t('servers.database.createDialog.createButton')}
               </Button>
             </DialogFooter>
@@ -248,45 +245,33 @@ export default function DatabaseView({ serverId }: DatabaseViewProps) {
         </Dialog>
       </div>
 
-      <div className="mt-6 flex flex-col gap-6">
+      <div className="flex flex-col gap-4 p-5 md:p-6">
         {loading ? (
           <div className="flex justify-center py-16">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t('common.loading')} />
           </div>
         ) : databases.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border/70 bg-card/50 p-14 text-center backdrop-blur-sm">
-            <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/20 via-accent/10 to-transparent text-primary">
-              <Database className="h-6 w-6" />
-            </div>
-            <h3 className="font-headline text-lg font-semibold">{t('servers.database.empty')}</h3>
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 px-6 py-14 text-center">
+            <Database className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
+            <h3 className="text-base font-semibold">{t('servers.database.empty')}</h3>
             <Button className="mt-6" onClick={() => setIsDialogOpen(true)}>
-              <PlusCircle className="mr-2 h-4 w-4" />
+              <Plus aria-hidden="true" />
               {t('servers.database.newDb')}
             </Button>
           </div>
         ) : (
           databases.map((db: DatabaseInfo) => (
-            <Card key={db.id} className="group relative overflow-hidden border border-border/80 bg-card">
-              <div className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-primary via-accent to-transparent" />
-              <div className="pointer-events-none absolute -right-8 -top-8 opacity-[0.05] transition-transform duration-300 group-hover:scale-110">
-                <Database className="h-32 w-32" />
-              </div>
-
-              <div className="relative flex items-start justify-between gap-4 border-b border-border/60 p-5">
-                <div className="flex min-w-0 items-center gap-4">
-                  <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-primary/25 bg-primary/10 text-primary">
-                    <Database className="h-5 w-5" />
+            <div key={db.id} className="overflow-hidden rounded-xl border border-border/60 bg-background/30">
+              <div className="flex items-center justify-between gap-4 border-b border-border/50 px-4 py-3.5 sm:px-5">
+                <div className="flex min-w-0 items-center gap-3.5">
+                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-border/60 bg-card text-muted-foreground">
+                    <Database className="h-4 w-4" aria-hidden="true" />
                   </div>
                   <div className="min-w-0">
-                    <h4 className="truncate font-headline text-lg font-semibold leading-tight">{db.database_name}</h4>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Globe className="h-3 w-3" />
-                        {db.host_name}
-                      </span>
-                      <span className="font-mono text-xs opacity-70">
-                        {db.host}:{db.port}
-                      </span>
+                    <h4 className="truncate text-[15px] font-semibold leading-tight">{db.database_name}</h4>
+                    <div className="mt-1 flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+                      <Globe className="h-3 w-3 shrink-0" aria-hidden="true" />
+                      <span className="truncate">{db.host_name}</span>
                     </div>
                   </div>
                 </div>
@@ -295,10 +280,11 @@ export default function DatabaseView({ serverId }: DatabaseViewProps) {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      className="shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive-bright"
+                      aria-label={t('common.delete')}
                       onClick={() => setPendingDb(db.id)}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4" aria-hidden="true" />
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
@@ -309,16 +295,16 @@ export default function DatabaseView({ serverId }: DatabaseViewProps) {
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>{t('common.cancel') || 'Cancel'}</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleDelete} className="bg-red-500 hover:bg-red-600">
-                        {t('common.delete') || 'Delete'}
+                      <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                        {t('common.delete')}
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
               </div>
 
-              <CardContent className="divide-y divide-border/60 p-0">
+              <div className="divide-y divide-border/50">
                 <CredentialRow
                   icon={UserIcon}
                   label={t('servers.database.table.user')}
@@ -328,7 +314,7 @@ export default function DatabaseView({ serverId }: DatabaseViewProps) {
                 />
                 <CredentialRow
                   icon={Lock}
-                  label="Contraseña"
+                  label={t('servers.database.password')}
                   value={db.password || ''}
                   secret
                   revealed={!!showPassword[db.id]}
@@ -338,55 +324,56 @@ export default function DatabaseView({ serverId }: DatabaseViewProps) {
                 />
                 <CredentialRow
                   icon={Globe}
-                  label="Host / Puerto"
+                  label={t('servers.database.hostPort')}
                   value={`${db.host}:${db.port}`}
                   copied={copiedField === `host-${db.id}`}
                   onCopy={() => copyToClipboard(`${db.host}:${db.port}`, `host-${db.id}`)}
                 />
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           ))
         )}
       </div>
+      </Card>
 
       <Dialog open={isSuccessOpen} onOpenChange={setIsSuccessOpen}>
-        <DialogContent className="max-w-md border-primary/20 bg-gradient-to-b from-background to-background/50">
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-primary">
-              <CheckCircle2 className="h-5 w-5" />
-              Base de Datos Creada
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-success" aria-hidden="true" />
+              {t('servers.database.createdDialog.title')}
             </DialogTitle>
             <DialogDescription>
-              Guarda estas credenciales. Por seguridad, la contraseña no se volverá a mostrar así de claro.
+              {t('servers.database.createdDialog.description')}
             </DialogDescription>
           </DialogHeader>
 
           {createdDb && (
-            <div className="space-y-3 py-4">
+            <div className="my-2 divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60 bg-background/30">
               {[
-                { label: 'Host', value: createdDb.host, icon: Globe },
-                { label: 'Puerto', value: createdDb.port.toString(), icon: ExternalLink },
-                { label: 'Base de Datos', value: createdDb.database_name, icon: Database },
-                { label: 'Usuario', value: createdDb.username, icon: UserIcon },
-                { label: 'Contraseña', value: createdDb.password || '********', icon: Lock, isSecret: true },
+                { id: 'host', label: t('servers.database.host'), value: createdDb.host, icon: Globe },
+                { id: 'port', label: t('servers.database.port'), value: createdDb.port.toString(), icon: ExternalLink },
+                { id: 'database', label: t('servers.database.table.name'), value: createdDb.database_name, icon: Database },
+                { id: 'user', label: t('servers.database.table.user'), value: createdDb.username, icon: UserIcon },
+                { id: 'password', label: t('servers.database.password'), value: createdDb.password || '********', icon: Lock, isSecret: true },
               ].map((field) => (
                 <CredentialRow
-                  key={field.label}
+                  key={field.id}
                   icon={field.icon as typeof Database}
                   label={field.label}
                   value={field.value}
                   secret={field.isSecret}
                   revealed={field.isSecret ? !!showPassword[0] : undefined}
                   onToggleReveal={field.isSecret ? () => togglePassword(0) : undefined}
-                  copied={copiedField === field.label}
-                  onCopy={() => copyToClipboard(field.value, field.label)}
+                  copied={copiedField === field.id}
+                  onCopy={() => copyToClipboard(field.value, field.id)}
                 />
               ))}
             </div>
           )}
 
           <DialogFooter>
-            <Button className="w-full" onClick={() => setIsSuccessOpen(false)}>Entendido</Button>
+            <Button className="w-full" onClick={() => setIsSuccessOpen(false)}>{t('servers.database.createdDialog.confirm')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -6,20 +6,24 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { cn, formatBytes } from '@/lib/utils';
 
 export const usageColor = (value: number) =>
-  value >= 85 ? 'bg-destructive' : value >= 60 ? 'bg-warning' : 'bg-success';
+  value >= 85
+    ? 'bg-destructive [--meter:var(--destructive)]'
+    : value >= 60
+      ? 'bg-warning [--meter:var(--warning)]'
+      : 'bg-success [--meter:var(--success)]';
 
 export function MetricBar({ label, value, extra }: { label: string; value: number; extra?: string }) {
   return (
     <div>
       <div className="mb-1.5 flex items-baseline justify-between gap-3">
-        <span className="text-xs font-medium text-muted-foreground">{label}</span>
-        <span className="font-mono text-xs tabular-nums text-foreground">
+        <span className="min-w-0 truncate text-xs font-medium text-muted-foreground">{label}</span>
+        <span className="whitespace-nowrap text-xs tabular-nums text-foreground">
           {value}%{extra ? <span className="text-muted-foreground"> · {extra}</span> : null}
         </span>
       </div>
-      <div className="h-1 w-full overflow-hidden rounded-full bg-secondary">
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary/80">
         <div
-          className={cn('h-full rounded-full transition-all duration-500 ease-out', usageColor(value))}
+          className={cn('meter-fill meter-grow h-full rounded-full transition-[width] duration-700 ease-panel', usageColor(value))}
           style={{ width: `${Math.min(Math.max(value, 0), 100)}%` }}
         />
       </div>
@@ -59,92 +63,67 @@ export function Sparkline({ data }: { data: number[] }) {
   );
 }
 
-/** Per-status tone for the pulse dot and the tinted status chip. */
-const STATUS_TONE: Record<Server['status'], { dot: string; halo: string; chip: string; accent: string }> = {
-  online: {
-    dot: 'bg-success shadow-[0_0_8px_hsl(var(--success)/0.9)]',
-    halo: 'bg-success/40',
-    chip: 'bg-success/10 text-success',
-    accent: 'bg-success/70',
-  },
-  offline: {
-    dot: 'bg-destructive',
-    halo: 'bg-destructive/30',
-    chip: 'bg-destructive/10 text-destructive-bright',
-    accent: 'bg-destructive/70',
-  },
-  pending: {
-    dot: 'bg-warning',
-    halo: 'bg-warning/40',
-    chip: 'bg-warning/10 text-warning',
-    accent: 'bg-warning/70',
-  },
+/** Per-status tone for the status dot and the tinted status chip. */
+const STATUS_TONE: Record<Server['status'], { dot: string; chip: string }> = {
+  online: { dot: 'bg-success', chip: 'bg-success/10 text-success' },
+  offline: { dot: 'bg-destructive-bright', chip: 'bg-destructive/10 text-destructive-bright' },
+  pending: { dot: 'bg-warning', chip: 'bg-warning/10 text-warning' },
 };
 
-/**
- * Crisp status pulse: a solid core (with a glow when online) and a sharp
- * `animate-ping` halo. Decorative — the chip next to it carries the label.
- */
+/** Solid status dot. Decorative — the label next to it carries the meaning. */
 export const StatusIndicator = ({ status, className }: { status: Server['status']; className?: string }) => {
   const tone = STATUS_TONE[status] ?? STATUS_TONE.pending;
-  return (
-    <span className={cn('relative inline-flex h-2.5 w-2.5 shrink-0 items-center justify-center', className)} aria-hidden="true">
-      {status === 'online' && (
-        <span className={cn('absolute inset-0 animate-ping rounded-full', tone.halo)} />
-      )}
-      <span className={cn('relative h-2 w-2 rounded-full', tone.dot)} />
-    </span>
-  );
+  return <span className={cn('inline-block h-1.5 w-1.5 shrink-0 rounded-full', tone.dot, className)} aria-hidden="true" />;
 };
+
+/** Dot + label status chip, shared by the card and the server detail header. */
+export function StatusBadge({ status, label, className }: { status: Server['status']; label: string; className?: string }) {
+  const tone = STATUS_TONE[status] ?? STATUS_TONE.pending;
+  return (
+    <Badge variant="outline" className={cn('shrink-0 gap-1.5 border-transparent', tone.chip, className)}>
+      <StatusIndicator status={status} />
+      {label}
+    </Badge>
+  );
+}
 
 export function ServerCard({ server, t }: { server: Server; t: (key: string) => string }) {
   const cpuSeries = (server.metrics || []).map((metric) => metric.cpu ?? 0);
   const playersPercent = Math.min(Math.max(((server.playersOnline || 0) / Math.max(server.maxPlayers || 1, 1)) * 100, 0), 100);
   const detailHref = `/servers/view/?id=${server.id}`;
-  const tone = STATUS_TONE[server.status] ?? STATUS_TONE.pending;
   const lastCpu = cpuSeries.length > 0 ? Math.round(cpuSeries[cpuSeries.length - 1]) : null;
 
   return (
-    <div className="lift group relative flex flex-col overflow-hidden rounded-xl border border-border/60 bg-card hover:border-primary/30">
-      <span className={cn('absolute inset-x-0 top-0 z-20 h-px', tone.accent)} aria-hidden="true" />
-
+    <div className="surface-panel group relative flex flex-col overflow-hidden rounded-xl border border-border/60 transition-colors duration-200 ease-panel hover:border-border">
       {/* Ambient art kept to a shallow top band so the surface stays calm. */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-24 overflow-hidden" aria-hidden="true">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-20 overflow-hidden" aria-hidden="true">
         <img
           src="/img/Fondos/minecraft-shaders-anime-hd-wallpaper-preview.jpg"
           alt=""
-          className="h-full w-full object-cover opacity-30"
+          className="h-full w-full object-cover opacity-20"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-card/30 via-card/70 to-card" />
+        <div className="absolute inset-0 bg-gradient-to-b from-card/40 via-card/80 to-card" />
       </div>
 
       <div className="relative z-10 flex flex-1 flex-col gap-5 p-5">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-start gap-3">
-            <StatusIndicator status={server.status} className="mt-1.5" />
-            <div className="min-w-0 space-y-1">
-              <a
-                href={detailHref}
-                className="block truncate font-headline text-[15px] font-semibold leading-tight text-foreground transition-colors duration-200 hover:text-primary"
-              >
-                {server.name}
-              </a>
-              <p className="flex items-center gap-1.5 font-mono text-xs tabular-nums text-muted-foreground">
-                <Globe className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" aria-hidden="true" />
-                <span className="truncate">
-                  {server.ipAddress}
-                  <span className="text-muted-foreground/50">:</span>
-                  {server.port || '—'}
-                </span>
-              </p>
-            </div>
+          <div className="min-w-0 space-y-1">
+            <a
+              href={detailHref}
+              className="focus-ring block truncate rounded-sm font-headline text-[15px] font-semibold leading-tight text-foreground transition-colors duration-200 hover:text-primary-bright"
+            >
+              {server.name}
+            </a>
+            <p className="flex items-center gap-1.5 font-mono text-xs tabular-nums text-muted-foreground">
+              <Globe className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" aria-hidden="true" />
+              <span className="truncate">
+                {server.ipAddress}
+                <span className="text-muted-foreground/50">:</span>
+                {server.port || '—'}
+              </span>
+            </p>
           </div>
-          <Badge
-            variant="outline"
-            className={cn('shrink-0 gap-1.5 border-transparent capitalize', tone.chip)}
-          >
-            {t(`dashboard.status.${server.status}`)}
-          </Badge>
+          <StatusBadge status={server.status} label={t(`servers.status.${server.status}`)} />
         </div>
 
         <div className="space-y-3.5">
@@ -158,26 +137,29 @@ export function ServerCard({ server, t }: { server: Server; t: (key: string) => 
         </div>
 
         <div className="mt-auto flex flex-col gap-4 border-t border-border/40 pt-4">
+          {/* Players and activity blocks share one height, so every card's footer
+              rule and buttons sit on the same line across a row. */}
           {server.isMinecraft ? (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">{t('servers.detail.overview.playersOnline')}</span>
-                <span className="font-mono font-medium tabular-nums text-foreground">
-                  {server.playersOnline ?? 0} / {server.maxPlayers ?? 0}
+            <div className="flex h-[4.25rem] flex-col">
+              <span className="text-xs font-medium text-muted-foreground">{t('servers.detail.overview.playersOnline')}</span>
+              <p className="mt-auto flex items-baseline gap-1">
+                <span className="text-xl font-semibold leading-none tracking-[-0.02em] tabular-nums text-foreground">
+                  {server.playersOnline ?? 0}
                 </span>
-              </div>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+                <span className="text-xs tabular-nums text-muted-foreground">/ {server.maxPlayers ?? 0}</span>
+              </p>
+              <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-secondary/80">
                 <div
-                  className="h-full rounded-full bg-primary transition-all duration-500 ease-out"
+                  className="meter-fill meter-grow h-full rounded-full bg-primary transition-[width] duration-700 ease-panel [--meter:var(--primary)]"
                   style={{ width: `${playersPercent}%` }}
                 />
               </div>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="flex h-[4.25rem] flex-col justify-between">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">{t('servers.card.activity')}</span>
-                <span className="font-mono font-medium tabular-nums text-foreground">
+                <span className="font-medium text-muted-foreground">{t('servers.card.activity')}</span>
+                <span className="tabular-nums text-foreground">
                   {lastCpu !== null ? `${lastCpu}%` : '—'}
                 </span>
               </div>
@@ -186,13 +168,13 @@ export function ServerCard({ server, t }: { server: Server; t: (key: string) => 
           )}
 
           <div className="flex items-center gap-2">
-            <Button asChild size="sm" className="h-8 flex-1 px-2.5">
+            <Button asChild size="sm" className="h-9 flex-1 px-2.5 sm:h-8">
               <a href={`${detailHref}&tab=console`}>
                 <Terminal aria-hidden="true" />
                 {t('servers.card.console')}
               </a>
             </Button>
-            <Button asChild size="sm" variant="secondary" className="h-8 flex-1 px-2.5">
+            <Button asChild size="sm" variant="secondary" className="h-9 flex-1 px-2.5 sm:h-8">
               <a href={`${detailHref}&tab=overview`}>
                 <LayoutDashboard aria-hidden="true" />
                 {t('servers.card.overview')}
@@ -203,9 +185,9 @@ export function ServerCard({ server, t }: { server: Server; t: (key: string) => 
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 shrink-0 text-muted-foreground opacity-0 transition-opacity duration-200 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100"
+                  aria-label={t('servers.actions.menuLabel')}
+                  className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground sm:h-8 sm:w-8"
                 >
-                  <span className="sr-only">{t('servers.actions.menuLabel')}</span>
                   <MoreHorizontal aria-hidden="true" />
                 </Button>
               </DropdownMenuTrigger>

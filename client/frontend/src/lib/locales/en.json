@@ -8,7 +8,70 @@
     "otpDescription": "Two-factor authentication is enabled for this account.",
     "redirecting": "Redirecting to dashboard...",
     "checkCredentials": "Please check your credentials and try again.",
-    "accountCreated": "Account created and signed in."
+    "accountCreated": "Account created and signed in.",
+    "fields": {
+      "email": "Email",
+      "emailPlaceholder": "you@example.com",
+      "password": "Password",
+      "username": "Username",
+      "usernamePlaceholder": "your_username",
+      "confirmPassword": "Confirm password",
+      "newPassword": "New password",
+      "confirmNewPassword": "Confirm new password"
+    },
+    "validation": {
+      "email": "Please enter a valid email address.",
+      "passwordRequired": "Password is required.",
+      "usernameMin": "Username must be at least 5 characters.",
+      "passwordMin": "Password must be at least 8 characters.",
+      "passwordMismatch": "Passwords do not match."
+    },
+    "links": {
+      "signIn": "Sign in",
+      "goToSignIn": "Go to sign in"
+    },
+    "login": {
+      "title": "Sign in",
+      "description": "Enter your credentials to access your account.",
+      "artTitle": "Welcome back to {{name}}",
+      "artDescription": "Manage your game servers, monitor live resources and keep your services online, all in one place.",
+      "remember": "Remember me",
+      "forgot": "Forgot password?",
+      "submit": "Sign in",
+      "or": "or continue with",
+      "noAccount": "Don't have an account?",
+      "signUp": "Sign up"
+    },
+    "register": {
+      "title": "Create account",
+      "description": "Sign up to access the servers assigned to you.",
+      "artTitle": "Join {{name}}",
+      "artDescription": "Create your account, get your first server assigned and start managing your infrastructure in seconds.",
+      "submit": "Create account",
+      "haveAccount": "Already have an account?"
+    },
+    "forgot": {
+      "title": "Forgot password",
+      "description": "Enter your account email and we'll send you a link to reset your password.",
+      "artTitle": "Get back into {{name}}",
+      "artDescription": "We'll email you a secure link so you can get back into your account in minutes.",
+      "submit": "Send reset link",
+      "sent": "If an account exists for that email address, we've sent you a link to reset your password. Check your inbox and follow the instructions.",
+      "sendAnother": "Send another email",
+      "remembered": "Remembered your password?",
+      "errorFallback": "Unable to send the password reset email."
+    },
+    "reset": {
+      "title": "New password",
+      "description": "Choose a new password for your account.",
+      "artTitle": "Create a new password",
+      "artDescription": "Choose a strong password you haven't used on this account before.",
+      "submit": "Reset password",
+      "done": "Your password has been reset. You can now sign in with your new password.",
+      "missingToken": "This link is missing its reset code. Use the link from your email or request a new one.",
+      "requestNew": "Request a new link",
+      "errorFallback": "Unable to reset your password."
+    }
   },
   "header": {
     "root": "Panel",
@@ -18,11 +81,18 @@
       "open": "Open quick search",
       "placeholder": "Search pages and sections…",
       "hint": "Ctrl K",
-      "noResults": "No matching pages"
+      "noResults": "No matching pages",
+      "navigate": "Navigate",
+      "select": "Open",
+      "close": "Close"
+    },
+    "update": {
+      "title": "Update available",
+      "description": "A new version of Aether Panel is ready to install from Settings."
     }
   },
   "sidebar": {
-    "dashboard": "Dashboard",
+    "dashboard": "Home",
     "servers": "Servers",
     "users": "Users",
     "roles": "Roles",
@@ -68,26 +138,42 @@
       "language_es": "Spanish (Spain)",
       "language_en": "English (US)",
       "language_help": "Help us translate Aether Panel.",
-      "save": "Save settings"
+      "save": "Save settings",
+      "description": "Preferences for this account in the panel.",
+      "languageAppliesNow": "The change applies immediately.",
+      "sectionTitle": "Preferences"
     },
     "accountDetails": {
       "title": "Change account details",
       "username": "Username",
       "email": "Email address",
       "confirmPassword": "Confirm password",
-      "save": "Change account details"
+      "save": "Change account details",
+      "description": "Your username and the email you sign in with.",
+      "confirmPasswordHint": "Required to save changes to your username or email."
     },
     "changePassword": {
       "title": "Change password",
       "oldPassword": "Old password",
       "newPassword": "New password",
       "confirmPassword": "Confirm password",
-      "save": "Change password"
+      "save": "Change password",
+      "description": "Use a long password you don't use anywhere else."
     },
     "twoFactor": {
       "title": "Two-factor authentication",
       "description": "Two-factor authentication adds an extra layer of security to your account by requiring a special code in addition to your password.",
-      "enable": "Enable 2FA"
+      "enable": "Enable 2FA",
+      "statusEnabled": "Enabled",
+      "statusDisabled": "Disabled",
+      "enabledHint": "A code from your authenticator app is required at sign-in.",
+      "disabledHint": "Your account is protected by your password only.",
+      "disable": "Disable 2FA",
+      "regenerateCodes": "Regenerate recovery codes",
+      "disableTitle": "Disable two-factor authentication?",
+      "disableDescription": "Your account will be protected by your password only. Enter a code from your app to confirm.",
+      "regenerateTitle": "Regenerate recovery codes",
+      "regenerateDescription": "Your previous codes will stop working. Enter a code from your app to continue."
     },
     "oauth": {
       "title": "OAuth2 Clients",
@@ -95,14 +181,33 @@
       "apiDocs": "Find the API documentation",
       "here": "here",
       "noClients": "There are no OAuth2 clients configured for this account.",
-      "create": "Create new OAuth2 client"
+      "create": "Create new OAuth2 client",
+      "apiDocsLink": "API documentation",
+      "emptyTitle": "No OAuth2 clients",
+      "createDescription": "The client inherits every permission of your account.",
+      "createAction": "Create client",
+      "nameLabel": "Name",
+      "descriptionLabel": "Description",
+      "created": "OAuth2 client “{{name}}” created",
+      "deleted": "OAuth2 client deleted",
+      "secretTitle": "Save the client secret",
+      "secretDescription": "Credentials for “{{name}}”.",
+      "secretWarning": "Copy it now. For security it won't be shown again.",
+      "clientId": "Client ID",
+      "clientSecret": "Client secret",
+      "copyClientId": "Copy client ID",
+      "copySecret": "Copy secret",
+      "deleteAria": "Delete client {{name}}",
+      "deleteTitle": "Delete this OAuth2 client?",
+      "deleteDescription": "Applications using it lose access immediately. This can't be undone."
     },
     "messages": {
       "infoChanged": "Your information has been changed",
       "passwordChanged": "Your password has been changed",
       "otpEnabled": "2FA has been enabled",
       "otpDisabled": "2FA has been disabled",
-      "recoveryCodesRegenerated": "Recovery codes have been regenerated"
+      "recoveryCodesRegenerated": "Recovery codes have been regenerated",
+      "passwordMismatch": "Passwords do not match"
     },
     "twoFactorSetup": {
       "title": "2FA Setup",
@@ -111,7 +216,14 @@
       "confirmHint": "Enter the 6-digit code from your app to confirm.",
       "recoveryTitle": "Recovery Codes",
       "recoveryHint": "Store these codes in a safe place. They will not be shown again!",
-      "downloadCodes": "Download Recovery Codes"
+      "downloadCodes": "Download Recovery Codes",
+      "codeLabel": "Verification code",
+      "confirm": "Confirm",
+      "copyCodes": "Copy codes",
+      "download": "Download",
+      "done": "Done",
+      "qrAlt": "QR code for your authenticator app",
+      "recoveryWarning": "Each code works once if you lose access to your app."
     }
   },
   "dashboard": {
@@ -120,7 +232,8 @@
     "user": {
       "description": "Here's a list of your assigned servers.",
       "myServers": "My Servers",
-      "noServers": "You have not been assigned to any servers."
+      "noServers": "You have not been assigned to any servers.",
+      "noServersHint": "Ask an administrator to assign one to get started."
     },
     "admin": {
       "description": "Here's a quick overview of your server landscape.",
@@ -140,7 +253,8 @@
         "serversActive": "Active servers",
         "activeOf": "{{online}} of {{total}}",
         "health": "Overall health",
-        "network": "Network traffic"
+        "network": "Network traffic",
+        "live": "Live"
       },
       "kpi": {
         "label": "Resource indicators",
@@ -149,7 +263,10 @@
         "avgOfServersOne": "average of 1 server",
         "avgOfNodes": "average of {{count}} nodes",
         "avgOfNodesOne": "average of 1 node",
-        "noSamples": "No resource data yet"
+        "noSamples": "No resource data yet",
+        "averageCpu": "Average CPU",
+        "averageMemory": "Average memory",
+        "averageStorage": "Average storage"
       },
       "panel": {
         "label": "Panel information",
@@ -197,7 +314,9 @@
         "title": "Network Traffic",
         "description": "Inbound and outbound traffic for the last 30 minutes (KB/s).",
         "download": "Download",
-        "upload": "Upload"
+        "upload": "Upload",
+        "emptyTitle": "No network data",
+        "emptyDescription": "Metrics will appear once servers are online."
       }
     },
     "table": {
@@ -288,7 +407,10 @@
         "backups": "Backups",
         "plugins": "Plugins",
         "sftp": "SFTP Access",
-        "admin": "Administration"
+        "admin": "Administration",
+        "more": "More",
+        "extransfer": "Migration",
+        "splitter": "Splitter"
       },
       "overview": {
         "status": "Status",
@@ -297,8 +419,12 @@
         "storageUsage": "Storage Usage",
         "playersOnline": "Players Online",
         "resourcesTitle": "Live Resources",
-        "resourcesSubtitle": "Current usage against the server's allocated limit"
-      }
+        "resourcesSubtitle": "Current usage against the server's allocated limit",
+        "playersDescription": "Players connected right now.",
+        "noPlayers": "Nobody is online."
+      },
+      "notFoundDescription": "It may have been deleted, or you don't have access to it.",
+      "backToServers": "Back to servers"
     },
     "address": {
       "copyToastTitle": "Copied to clipboard",
@@ -315,7 +441,13 @@
       },
       "commandPlaceholder": "Enter a command...",
       "sendButton": "Send",
-      "waitingOutput": "Waiting for server output..."
+      "waitingOutput": "Waiting for server output...",
+      "copy": "Copy log",
+      "copied": "Log copied",
+      "clear": "Clear view",
+      "cleared": "View cleared. New messages will appear here.",
+      "jumpToEnd": "Jump to latest",
+      "connectedToast": "Console connected"
     },
     "aiSummary": {
       "title": "AI Console Analysis",
@@ -328,7 +460,13 @@
       "summaryTitle": "Summary",
       "fail": "Failed to generate summary. Please check the console for details.",
       "suggestions": "Troubleshooting Suggestions",
-      "rootCauses": "Potential Root Causes"
+      "rootCauses": "Potential Root Causes",
+      "selectDescription": "Pick the errors and warnings detected in the console for the AI to analyse.",
+      "detected": "Detected errors and warnings",
+      "selectAll": "Select all",
+      "selectNone": "Clear selection",
+      "emptyTitle": "No errors detected",
+      "emptyDescription": "Errors and warnings from the console will show up here for analysis."
     },
     "cpuMemoryChart": {
       "title": "CPU & Memory Usage",
@@ -387,7 +525,8 @@
         "cancel": "Cancel",
         "save": "Save Changes",
         "saveSuccess": "File saved successfully.",
-        "saveHint": "Ctrl + S to save"
+        "saveHint": "Ctrl + S to save",
+        "loading": "Loading editor…"
       },
       "toast": {
         "createdFile": "File created successfully.",
@@ -399,8 +538,22 @@
         "pasted": "Pasted successfully.",
         "moved": "Moved successfully.",
         "extracted": "Extracted successfully.",
-        "renamed": "Renamed successfully."
-      }
+        "renamed": "Renamed successfully.",
+        "loadError": "Could not load the files.",
+        "openError": "Could not open the file.",
+        "createError": "Could not create the item.",
+        "uploadError": "Could not upload the file.",
+        "pasteInvalid": "You can't paste here.",
+        "pasteError": "The operation could not be completed.",
+        "deleteError": "Could not delete.",
+        "renameError": "Could not rename.",
+        "extractError": "Could not extract.",
+        "saveError": "Could not save."
+      },
+      "goRoot": "Go to root folder",
+      "pathLabel": "Current path",
+      "rowActions": "Actions for {{name}}",
+      "clearClipboard": "Clear clipboard"
     },
     "settings": {
       "title": "Configuration",
@@ -460,7 +613,63 @@
       "portsApplyOnRestart": "Port changes will take effect when the server restarts.",
       "saveButton": "Save Changes",
       "saveSuccess": "Settings saved successfully",
-      "saveError": "Failed to save settings"
+      "saveError": "Failed to save settings",
+      "generalDescription": "What the server is called and what kind of server it is.",
+      "autoStartDescription": "What the panel does when the node boots or the server stops.",
+      "pluginsDescription": "Extra tools for Minecraft Java servers.",
+      "metadataDescription": "Installation details. Read only.",
+      "variablesDescription": "Template variables that don't belong to a group.",
+      "portNoteLabel": "Note",
+      "portNotePlaceholder": "e.g. Game, RCON, Query",
+      "unsavedChanges": "You have unsaved changes",
+      "discard": "Discard",
+      "removePort": "Remove port",
+      "loadError": "Couldn't load the settings.",
+      "groups": {
+        "server": "Server",
+        "gameplay": "Gameplay",
+        "world": "World",
+        "proxy": "Proxy",
+        "session": "Session",
+        "application": "Application"
+      },
+      "groupDescriptions": {
+        "server": "Version and connection settings.",
+        "gameplay": "World and player rules."
+      },
+      "vars": {
+        "version": "Version",
+        "javaversion": "Java version",
+        "motd": "MOTD",
+        "maxplayers": "Max players",
+        "difficulty": "Difficulty",
+        "onlinemode": "Online mode",
+        "eula": "Accept EULA",
+        "aikar": "Aikar's flags",
+        "ip": "IP",
+        "installedBuild": "Installed build",
+        "templateName": "Template",
+        "hostname": "Server name",
+        "servername": "Server name",
+        "worldname": "World name",
+        "seed": "Map seed"
+      },
+      "varDescriptions": {
+        "version": "Game version to install.",
+        "motd": "Message shown in the server list.",
+        "onlinemode": "Verify players against Mojang's session servers.",
+        "eula": "You accept the Minecraft EULA (aka.ms/MinecraftEULA).",
+        "aikar": "Use the recommended G1GC JVM flags.",
+        "ip": "IP the server binds to."
+      },
+      "optionValues": {
+        "peaceful": "Peaceful",
+        "easy": "Easy",
+        "normal": "Normal",
+        "hard": "Hard",
+        "enabled": "Enabled",
+        "disabled": "Disabled"
+      }
     },
     "users": {
       "title": "User Access",
@@ -485,7 +694,8 @@
       "addSuccess": "User added successfully.",
       "addError": "Failed to add user.",
       "revokeSuccess": "Access revoked successfully.",
-      "revokeError": "Failed to revoke access."
+      "revokeError": "Failed to revoke access.",
+      "permissionsCount": "{{count}} permissions"
     },
     "database": {
       "title": "Databases",
@@ -513,7 +723,19 @@
         "size": "Size"
       },
       "anyHost": "% (Any Host)",
-      "empty": "No databases created for this server."
+      "empty": "No databases created for this server.",
+      "password": "Password",
+      "host": "Host",
+      "port": "Port",
+      "hostPort": "Host and port",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "copyField": "Copy {{field}}",
+      "createdDialog": {
+        "title": "Database created",
+        "description": "Save these credentials. For security, the password won't be shown in plain text again.",
+        "confirm": "Got it"
+      }
     },
     "backups": {
       "title": "Backups",
@@ -569,7 +791,10 @@
         "description": "Manage plugins already on your server.",
         "uninstall": "Uninstall",
         "uninstallConfirm": "Are you sure you want to delete this plugin?",
-        "size": "Size"
+        "size": "Size",
+        "emptyTitle": "No plugins installed",
+        "emptyDescription": "Search Modrinth to install your first one.",
+        "browse": "Browse Modrinth"
       },
       "empty": {
         "title": "No plugins found",
@@ -579,7 +804,8 @@
         "installSuccess": "Plugin {{name}} installed successfully. Restart the server to apply changes.",
         "installError": "Failed to install plugin.",
         "uninstallSuccess": "Plugin deleted successfully.",
-        "uninstallError": "Failed to delete plugin."
+        "uninstallError": "Failed to delete plugin.",
+        "searchError": "Could not search Modrinth."
       }
     },
     "admin": {
@@ -589,30 +815,234 @@
         "title": "Edit Server Definition",
         "description": "Modify the server's fundamental details.",
         "button": "Edit Definition",
-        "success": "Definition saved successfully"
+        "success": "Definition saved successfully",
+        "error": "Invalid JSON or the save failed."
       },
       "installStatus": {
         "title": "Installation Status",
-        "description": "Trigger the server installation or re-installation process.",
+        "description": "Start the server installation or re-installation process.",
         "button": "Install",
-        "success": "Installation process started."
+        "success": "Installation process started.",
+        "error": "Could not start the installation."
       },
       "delete": {
         "title": "Delete Server",
         "description": "This action is permanent. All server files and data will be erased.",
         "button": "Delete",
-        "success": "Server has been deleted."
+        "success": "Server has been deleted.",
+        "error": "Could not delete the server."
       },
       "deleteDialog": {
         "title": "Are you absolutely sure?",
         "description": "This action cannot be undone. This will permanently delete the server and all its data from the platform.",
         "cancel": "Cancel",
         "confirm": "Yes, delete server"
-      }
+      },
+      "tabs": {
+        "install": "Installation",
+        "transfer": "Transfer",
+        "config": "Configuration",
+        "assignments": "Assignments",
+        "danger": "Danger zone"
+      },
+      "transfer": {
+        "title": "Transfer server",
+        "description": "Move this server to a different node.",
+        "button": "Transfer",
+        "dialogDescription": "Choose the node to move this server to.",
+        "nodeLabel": "Target node",
+        "nodePlaceholder": "Select a node…",
+        "start": "Start transfer",
+        "selectRequired": "Select a target node.",
+        "success": "Transfer started.",
+        "error": "Could not start the transfer."
+      },
+      "assignments": {
+        "title": "Server flags",
+        "description": "View and manage server flags and assignments.",
+        "manage": "Manage flags",
+        "view": "View flags"
+      },
+      "suspend": {
+        "title": "Suspend server",
+        "description": "Stops the server and prevents users from starting or changing it. Press again to lift the suspension.",
+        "button": "Suspend / unsuspend",
+        "dialogTitle": "Change suspension state?",
+        "dialogDescription": "If the server is active it will be force-stopped and suspended. If it is already suspended it will be reactivated.",
+        "confirm": "Yes, change state",
+        "success": "Suspension state updated.",
+        "error": "Could not change the suspension state."
+      },
+      "sectionLabel": "Section"
     },
     "resourceChart": {
       "title": "Resource Overview",
       "description": "Current snapshot of resource utilization."
+    },
+    "status": {
+      "online": "Online",
+      "offline": "Offline",
+      "pending": "Pending"
+    },
+    "charts": {
+      "liveDescription": "Live since you opened this page, one sample every 5 s.",
+      "waitingTitle": "Collecting samples",
+      "waitingDescription": "The chart appears as soon as a couple of samples arrive."
+    },
+    "create": {
+      "renderError": "The wizard couldn't be displayed",
+      "reload": "Reload",
+      "stepsLabel": "Steps",
+      "steps": {
+        "environment": "Environment",
+        "template": "Template",
+        "config": "Configuration"
+      },
+      "nameLabel": "Server name",
+      "namePlaceholder": "e.g. My Minecraft server",
+      "inheritedTitle": "Inherited environment",
+      "inheritedDescription": "This sub-server takes its node, environment and users from the parent server.",
+      "nodeLabel": "Node",
+      "nodePlaceholder": "Select a node",
+      "environmentLabel": "Environment",
+      "environment": {
+        "docker": "Docker",
+        "standard": "Standard (child)",
+        "tty": "TTY"
+      },
+      "usersLabel": "Users with access",
+      "usersPlaceholder": "Add a user…",
+      "usersEmpty": "No more users available.",
+      "usersHint": "Selected users get administrator access to the server.",
+      "removeUser": "Remove {{name}}",
+      "repoLabel": "Template repository",
+      "repoLocal": "Local",
+      "repoCommunity": "Community",
+      "loadingRepos": "Loading repositories…",
+      "templateLabel": "Template",
+      "templatesFrom": "Templates from {{repo}}",
+      "templatesEmpty": "There are no templates in this repository.",
+      "loadingTemplate": "Loading details for {{name}}…",
+      "templateErrorTitle": "Template error",
+      "analyzingTitle": "Reading the template",
+      "analyzingDescription": "Fetching configuration parameters…",
+      "resourcesTitle": "Resources",
+      "resourcesHint": "Limits assigned to the server.",
+      "cpuLabel": "CPU",
+      "memoryLabel": "RAM",
+      "diskLabel": "Disk",
+      "variablesTitle": "Template variables",
+      "optionNone": "None",
+      "enable": "Enable",
+      "portsTitle": "Extra ports",
+      "mainPort": "Main port:",
+      "portPlaceholder": "e.g. 25566",
+      "extraPortLabel": "Extra port {{index}}",
+      "removePort": "Remove port",
+      "addPort": "Add port",
+      "submit": "Create server",
+      "requiredFields": "Fill in the required fields.",
+      "selectTemplate": "Select a template.",
+      "templateLoadingTitle": "Loading template…",
+      "templateLoadingDescription": "Hold on while the template details load.",
+      "templateLoadFailed": "The template couldn't be loaded. Check that the template repository is available.",
+      "templateFetchFailed": "Couldn't fetch the template details. Check your connection or permissions.",
+      "success": "Server \"{{name}}\" created.",
+      "createFailed": "Couldn't create the server",
+      "unknownError": "Unknown error."
+    },
+    "extransfer": {
+      "title": "Panel-to-panel migration",
+      "description": "Move this server to another hosting provider, or bring a server here from another panel.",
+      "tabs": {
+        "export": "Export",
+        "import": "Import"
+      },
+      "export": {
+        "infoTitle": "How it works",
+        "infoBody": "Generating a token lets another panel download this server's data. The token is valid for 15 minutes and stays available if you leave this page. Give it only to the provider you are migrating to.",
+        "emptyTitle": "Generate a migration token",
+        "emptyDescription": "Then enter this panel's URL and the token in the destination panel to start the transfer.",
+        "generate": "Generate token",
+        "generating": "Generating…",
+        "sessionTitle": "Migration session active",
+        "expiresIn": "Expires in",
+        "urlLabel": "This panel's URL",
+        "urlHelp": "The destination panel needs it to know where to download the data from.",
+        "copyUrl": "Copy URL",
+        "tokenLabel": "Migration token",
+        "tokenHelp": "Single use. Share it only with the destination provider.",
+        "copyToken": "Copy token",
+        "copied": "Copied",
+        "waiting": "Waiting for the destination panel to start the transfer…",
+        "sessionId": "Session ID:"
+      },
+      "import": {
+        "warningTitle": "This server will be overwritten",
+        "warningBody": "Importing from another provider stops this server and replaces its files and configuration with the incoming data. Make a backup before you continue.",
+        "urlLabel": "Origin panel URL",
+        "urlHelp": "The main or API address of the provider currently hosting the server.",
+        "tokenLabel": "Migration token",
+        "tokenPlaceholder": "Paste the token here",
+        "tokenHelp": "The token generated in the origin panel.",
+        "start": "Start import",
+        "starting": "Starting…",
+        "migrating": "Migrating…"
+      },
+      "toast": {
+        "doneTitle": "Migration complete",
+        "doneDescription": "The server was migrated successfully.",
+        "failedTitle": "Migration failed",
+        "expiredTitle": "Token expired",
+        "expiredDescription": "The 15-minute validity window has passed. Generate a new one if you need it.",
+        "generatedTitle": "Token generated",
+        "generatedDescription": "Valid for 15 minutes. It stays visible if you leave this page.",
+        "generateError": "Could not generate the migration token.",
+        "missingTitle": "Missing details",
+        "missingDescription": "Enter the origin panel URL and the token.",
+        "importError": "Could not start the import.",
+        "importFailedTitle": "Import failed"
+      }
+    },
+    "sftp": {
+      "title": "SFTP access",
+      "description": "Manage the server's files from an external client such as FileZilla or WinSCP.",
+      "launch": "Open in local client",
+      "launchTitle": "Opening SFTP client",
+      "launchDescription": "The request was sent to your local SFTP client.",
+      "uriLabel": "URI",
+      "commandLabel": "Command",
+      "copyUri": "Copy URI",
+      "copyCommand": "Copy command",
+      "connection": "Connection",
+      "credentials": "Credentials",
+      "host": "Host",
+      "port": "Port",
+      "username": "Username",
+      "password": "Password",
+      "passwordHint": "Same as your account password",
+      "copyHost": "Copy host",
+      "copyPort": "Copy port",
+      "copyUsername": "Copy username",
+      "unavailableTitle": "SFTP unavailable",
+      "unavailableDescription": "Could not load this server's node information."
+    },
+    "splitter": {
+      "title": "Server split",
+      "description": "Share this server's resources across several sub-servers.",
+      "alreadySubserver": "This server is already a sub-server. Only main servers can be split.",
+      "create": "Create sub-server",
+      "totalCpu": "Total CPU",
+      "totalMemory": "Total memory",
+      "totalDisk": "Total disk",
+      "used": "Used",
+      "free": "Free",
+      "activeTitle": "Active sub-servers",
+      "emptyTitle": "No sub-servers yet",
+      "emptyDescription": "Create the first one to share this server's resources.",
+      "cpu": "CPU",
+      "ram": "RAM",
+      "disk": "Disk"
     }
   },
   "users": {
@@ -646,7 +1076,8 @@
       "roleAdmin": "Administrator",
       "roleUser": "User",
       "cancel": "Cancel",
-      "save": "Save Changes"
+      "save": "Save Changes",
+      "passwordPlaceholder": "Leave blank to keep the current one"
     },
     "serversDialog": {
       "title": "Servers for {{name}}",
@@ -665,7 +1096,33 @@
       "menuLabel": "Actions",
       "edit": "Edit",
       "viewServers": "View Servers",
-      "delete": "Delete"
+      "delete": "Delete",
+      "openMenu": "Actions for {{name}}"
+    },
+    "listDescription": "{{count}} accounts with panel access",
+    "noRole": "No role",
+    "roleFallback": "Role {{id}}",
+    "explicitPermissionsOnly": "Explicit permissions only",
+    "deleteDialog": {
+      "title": "Delete user",
+      "description": "Delete the account \"{{name}}\"? They will lose access to the panel and this can't be undone.",
+      "confirm": "Delete user"
+    },
+    "empty": {
+      "title": "No users yet",
+      "description": "Create an account to give someone access to the panel."
+    },
+    "error": {
+      "title": "Couldn't load users"
+    },
+    "toast": {
+      "loadFailed": "Couldn't fetch the user list. Try again.",
+      "created": "User created.",
+      "createFailed": "Couldn't create the user.",
+      "updated": "User updated.",
+      "updateFailed": "Couldn't update the user.",
+      "deleted": "User deleted.",
+      "deleteFailed": "Couldn't delete the user."
     }
   },
   "roles": {
@@ -715,6 +1172,39 @@
       "templates": "Templates",
       "users": "Users",
       "other": "Other"
+    },
+    "list": "Roles",
+    "permissionsCount": "{{count}} of {{total}} permissions",
+    "fullAccess": "Full access",
+    "adminNote": "Includes the administrator permission, which grants access to the whole panel: every permission counts as granted.",
+    "protected": "System",
+    "protectedNote": "System role: it can't be edited or deleted.",
+    "edit": "Edit",
+    "delete": "Delete",
+    "noDescription": "No description",
+    "noPermissions": "This role has no permissions.",
+    "empty": "There are no roles yet.",
+    "granted": "Granted",
+    "notGranted": "Not granted",
+    "selectAll": "Select all",
+    "deselectAll": "Clear all",
+    "searchPermissions": "Search permissions…",
+    "selectedCount": "{{count}} of {{total}} selected",
+    "noMatches": "No permission matches “{{query}}”.",
+    "nameRequired": "Give the role a name.",
+    "editDialog": {
+      "title": "Edit role",
+      "description": "Change the name, description and permissions.",
+      "save": "Save changes"
+    },
+    "toast": {
+      "created": "Role created.",
+      "updated": "Changes saved.",
+      "deleted": "Role deleted.",
+      "loadFailed": "Couldn't load the roles.",
+      "createFailed": "Couldn't create the role.",
+      "updateFailed": "Couldn't save the changes.",
+      "deleteFailed": "Couldn't delete the role."
     }
   },
   "permissions": {
@@ -855,25 +1345,29 @@
       "privateHostLabel": "Private Host",
       "privateHostPlaceholder": "Private Host",
       "privatePortLabel": "Private Port",
-      "createButton": "Create Node"
+      "createButton": "Create Node",
+      "description": "Register a machine that will run servers. You can deploy the daemon on it afterwards."
     },
     "allNodes": "All Nodes",
     "table": {
       "name": "Name",
       "location": "Location",
       "status": "Status",
-      "actions": "Actions"
+      "actions": "Actions",
+      "servers": "Servers"
     },
     "actions": {
       "edit": "Edit",
       "deploy": "Deploy",
       "delete": "Delete",
-      "viewDetails": "View Details"
+      "viewDetails": "View Details",
+      "openMenu": "Actions for {{name}}"
     },
     "editDialog": {
       "title": "Edit Node",
       "cancel": "Cancel",
-      "save": "Save Changes"
+      "save": "Save Changes",
+      "description": "Change the node's name and connection addresses."
     },
     "deployDialog": {
       "title": "Deploy Node: {{name}}",
@@ -916,15 +1410,20 @@
         "memory": "Memory",
         "total": "Total",
         "used": "Used",
-        "free": "Free"
+        "free": "Free",
+        "system": "System"
       },
       "disks": {
-        "title": "Disks"
+        "title": "Disks",
+        "empty": "This node hasn't reported any disks."
       },
       "serversOnNode": {
         "title": "Servers on this Node",
         "view": "View",
-        "empty": "There are no servers on this node."
+        "empty": "There are no servers on this node.",
+        "page": "Page {{current}} of {{total}}",
+        "previous": "Previous page",
+        "next": "Next page"
       },
       "editNode": {
         "title": "Edit Node",
@@ -937,7 +1436,39 @@
         "updateButton": "Update Node",
         "deleteButton": "Delete Node",
         "deployButton": "Deploy Node"
-      }
+      },
+      "live": "Live",
+      "coresThreads": "{{cores}} cores / {{threads}} threads",
+      "offlineDescription": "This node can't be reached. Check that the daemon is running and reachable.",
+      "notFoundDescription": "There is no node with the ID \"{{id}}\"."
+    },
+    "listDescription": "{{count}} registered nodes",
+    "serversCount": "{{count}} servers",
+    "unknownLocation": "Unknown",
+    "empty": {
+      "title": "No nodes yet",
+      "description": "Add a node to start deploying servers on it."
+    },
+    "error": {
+      "title": "Couldn't load nodes",
+      "description": "Check the connection to the panel and try again."
+    },
+    "deleteDialog": {
+      "title": "Delete node",
+      "description": "Delete the node \"{{name}}\"? This can't be undone and the servers on this node will become unreachable.",
+      "confirm": "Delete node"
+    },
+    "toast": {
+      "nameRequired": "The name is required.",
+      "publicHostRequired": "The public address is required.",
+      "created": "Node \"{{name}}\" created.",
+      "createFailed": "Couldn't create the node",
+      "updated": "Node \"{{name}}\" updated.",
+      "updateFailed": "Couldn't update the node",
+      "deleted": "Node deleted",
+      "deletedDescription": "\"{{name}}\" was deleted.",
+      "deleteFailed": "Couldn't delete the node",
+      "unknownError": "Unknown error."
     }
   },
   "databaseHosts": {
@@ -1004,6 +1535,48 @@
         "back": "Back",
         "create": "Create Host"
       }
+    },
+    "listDescription": "{{count}} configured hosts",
+    "notAuthorized": "You don't have permission to view this page.",
+    "editDialog": {
+      "title": "Edit database host",
+      "description": "Update this host's name and connection details."
+    },
+    "editMode": {
+      "title": "Credentials",
+      "description": "Leave the username and password empty if you don't want to change them.",
+      "usernameLabel": "New username",
+      "passwordLabel": "New password"
+    },
+    "testConnection": "Test connection",
+    "testing": "Testing…",
+    "actions": {
+      "edit": "Edit {{name}}",
+      "delete": "Delete {{name}}",
+      "openMenu": "Actions for {{name}}"
+    },
+    "deleteDialog": {
+      "title": "Delete database host",
+      "description": "Remove the host \"{{name}}\" from the panel? This can't be undone."
+    },
+    "empty": {
+      "title": "No database hosts yet",
+      "description": "Add a MySQL or MariaDB host so servers can create databases."
+    },
+    "error": {
+      "title": "Couldn't load database hosts",
+      "description": "Check the connection to the panel and try again."
+    },
+    "toast": {
+      "created": "Database host created.",
+      "updated": "Database host updated.",
+      "deleted": "Database host deleted.",
+      "testMissingFields": "Host, username and password are required to test the connection.",
+      "testSuccessTitle": "Connection successful",
+      "testSuccess": "The database host responded correctly.",
+      "testFailedTitle": "Connection failed",
+      "testTimeout": "The connection attempt timed out.",
+      "testFailed": "Couldn't connect to the database host."
     }
   },
   "templates": {
@@ -1020,7 +1593,65 @@
     },
     "General": "General",
     "RunConfig": "Run Configuration",
-    "Json": "JSON"
+    "Json": "JSON",
+    "upload": "Upload",
+    "uploading": "Uploading…",
+    "save": "Save template",
+    "listTitle": "Available templates",
+    "localDescription": "Templates stored on this panel.",
+    "communityDescription": "Templates from community repositories.",
+    "tabs": {
+      "local": "Local",
+      "community": "Community"
+    },
+    "actions": {
+      "delete": "Delete {{name}}",
+      "openMenu": "Actions for {{name}}"
+    },
+    "empty": {
+      "localTitle": "No local templates",
+      "localDescription": "Create a template or upload a JSON file to get started.",
+      "communityTitle": "No community templates",
+      "communityDescription": "Add a community repository to see its templates here."
+    },
+    "deleteDialog": {
+      "title": "Delete template",
+      "description": "Delete the local template \"{{name}}\"? This can't be undone."
+    },
+    "createDialog": {
+      "description": "Define the template parameters. The fields and the JSON stay in sync."
+    },
+    "fields": {
+      "name": "Name (unique ID)",
+      "namePlaceholder": "e.g. spigot",
+      "display": "Display name",
+      "displayPlaceholder": "e.g. Minecraft Spigot",
+      "type": "Category (type)",
+      "typePlaceholder": "e.g. web, game, bot",
+      "startCommand": "Start command",
+      "startCommandPlaceholder": "e.g. java -jar server.jar",
+      "stopCommand": "Stop command",
+      "stopCommandPlaceholder": "e.g. stop",
+      "workingDirectory": "Working directory",
+      "json": "Template JSON",
+      "jsonPlaceholder": "Paste or write the template JSON here…",
+      "loadFromFile": "Load from JSON file"
+    },
+    "toast": {
+      "uploaded": "Uploaded {{count}} templates.",
+      "uploadFailed": "Couldn't upload the templates.",
+      "invalidJson": "The JSON file isn't valid.",
+      "deleted": "Template \"{{name}}\" deleted.",
+      "deleteFailed": "Couldn't delete the template.",
+      "created": "Template created.",
+      "nameRequired": "The template must have a \"name\" field.",
+      "saveFailed": "Invalid JSON or network error.",
+      "updated": "Template updated.",
+      "loadFailed": "Couldn't load the template."
+    },
+    "editDialog": {
+      "title": "Edit template"
+    }
   },
   "common": {
     "copied": "Copied to clipboard",
@@ -1040,7 +1671,8 @@
     "actions": "Actions",
     "delete": "Delete",
     "retry": "Retry",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "edit": "Edit"
   },
   "settings": {
     "title": "Panel Settings",
@@ -1049,7 +1681,12 @@
     "tabs": {
       "general": "General",
       "discord": "Discord Notifications",
-      "mail": "Mail"
+      "mail": "Mail",
+      "discordShort": "Discord",
+      "apiKeys": "API keys",
+      "products": "Products",
+      "updates": "Updates",
+      "sectionLabel": "Settings section"
     },
     "general": {
       "title": "General Settings",
@@ -1077,7 +1714,17 @@
       "turnstileSecretKeyLabel": "Turnstile Secret Key",
       "turnstileSecretKeyDescription": "The secret key used by the server to verify tokens. Never share it.",
       "turnstileSecretKeyPlaceholder": "0x4AAAAAAA...",
-      "saveButton": "Save settings"
+      "saveButton": "Save settings",
+      "sections": {
+        "panelTitle": "Panel",
+        "panelDescription": "Your organization's name and the addresses the panel is reached at.",
+        "aiTitle": "Artificial intelligence",
+        "aiDescription": "Console analysis with Google Gemini.",
+        "appearanceTitle": "Appearance",
+        "appearanceDescription": "Visual details of the interface for every user.",
+        "accessTitle": "Sign-up and security",
+        "accessDescription": "Who can create an account and how sign-in and sign-up are protected."
+      }
     },
     "discord": {
       "title": "Discord Notifications",
@@ -1096,7 +1743,14 @@
       "saveButton": "Save settings",
       "extransferWebhookLabel": "ExTransfer Webhook",
       "extransferWebhookDescription": "Notifications for external transfers (success or failures)",
-      "extransferWebhookPlaceholder": "https://discord.com/api/webhooks/..."
+      "extransferWebhookPlaceholder": "https://discord.com/api/webhooks/...",
+      "sections": {
+        "alerts": "Server alerts",
+        "reports": "System reports",
+        "status": "Node status",
+        "extransfer": "ExTransfer"
+      },
+      "testError": "Failed to send the Discord test message"
     },
     "mail": {
       "title": "Mail Configuration",
@@ -1133,7 +1787,142 @@
       },
       "testButton": "Test Email",
       "testSuccess": "Test email sent successfully",
-      "saveButton": "Save settings"
+      "saveButton": "Save settings",
+      "configTitle": "{{provider}} settings",
+      "configDescription": "Credentials the panel uses to send email.",
+      "testError": "Failed to send the test email"
+    },
+    "saveError": "Failed to save settings",
+    "secret": {
+      "show": "Show value",
+      "hide": "Hide value"
+    },
+    "apiKeys": {
+      "title": "API keys",
+      "description": "Keys for external integrations such as WHMCS or Paymenter.",
+      "generate": "Generate key",
+      "generateAction": "Generate",
+      "createTitle": "Generate an API key",
+      "createDescription": "External systems will use this key to authenticate.",
+      "nameLabel": "Name",
+      "namePlaceholder": "e.g. WHMCS server 1",
+      "createdTitle": "Key generated",
+      "createdDescription": "Paste it into your integration's settings.",
+      "createdWarning": "Copy it now. For security it won't be shown again.",
+      "done": "Done",
+      "emptyTitle": "No API keys",
+      "emptyDescription": "Generate a key to connect a billing system to the panel.",
+      "table": {
+        "name": "Name",
+        "prefix": "Prefix",
+        "created": "Created"
+      },
+      "revoke": "Revoke key",
+      "revokeAria": "Revoke key {{name}}",
+      "revokeTitle": "Revoke this API key?",
+      "revokeDescription": "“{{name}}” stops working immediately and any integration using it will fail to authenticate. This can't be undone.",
+      "toast": {
+        "created": "API key generated",
+        "createFailed": "Failed to generate the key",
+        "revoked": "API key revoked",
+        "copied": "API key copied to clipboard"
+      }
+    },
+    "products": {
+      "title": "Provisioning products",
+      "description": "Products that external systems can provision automatically.",
+      "add": "Add product",
+      "emptyTitle": "No products",
+      "emptyDescription": "Define a product so your billing system can create servers from it.",
+      "table": {
+        "product": "Product",
+        "template": "Template",
+        "limits": "Limits"
+      },
+      "limitsSummary": "CPU {{cpu}}% · RAM {{memory}} MB · Disk {{disk}} MB",
+      "portsSummary": "Ports {{min}}–{{max}}",
+      "editAria": "Edit {{name}}",
+      "deleteAria": "Delete {{name}}",
+      "createTitle": "New product",
+      "editTitle": "Edit product",
+      "dialogDescription": "Resources and node used to create the server when it's provisioned.",
+      "form": {
+        "productId": "Product ID",
+        "displayName": "Display name",
+        "template": "Template",
+        "cpu": "CPU limit",
+        "memory": "Memory limit",
+        "disk": "Disk limit",
+        "defaultNode": "Default node",
+        "selectNode": "Select a node",
+        "portRange": "Assign a port from a range",
+        "portRangeDescription": "A random free port within the range is assigned on provisioning.",
+        "minPort": "Min port",
+        "maxPort": "Max port"
+      },
+      "save": "Save product",
+      "deleteTitle": "Delete this product?",
+      "deleteDescription": "“{{name}}” can no longer be provisioned. Existing servers are not affected.",
+      "toast": {
+        "saved": "Product saved",
+        "saveFailed": "Failed to save the product",
+        "deleted": "Product deleted"
+      }
+    },
+    "updates": {
+      "title": "System updates",
+      "description": "Update the panel and every registered node to the latest version.",
+      "checkButton": "Check for updates",
+      "updateButton": "Update panel",
+      "updating": "Updating…",
+      "current": "Current",
+      "latest": "Latest",
+      "unknown": "Unknown",
+      "unavailable": "Unavailable",
+      "nodesTitle": "Nodes",
+      "note": "The update pulls the latest code from the repository, rebuilds the panel image and restarts the services, including on every registered node. The panel may be unreachable for a few minutes during the process.",
+      "status": {
+        "checking": "Checking for updates…",
+        "restarting": "Panel is restarting…",
+        "restartingDescription": "Waiting for the panel to come back online. This can take a minute while containers rebuild.",
+        "updatingNodes": "Updating {{running}} of {{total}} nodes…",
+        "updatingDescription": "Pulling the latest code and rebuilding images. This usually takes a few minutes.",
+        "finishedWithErrors": "Update finished with errors",
+        "nodesUnreachable": "Some nodes are unreachable",
+        "complete": "Update complete",
+        "failed": "Update failed",
+        "checkFailed": "Couldn't check for updates",
+        "checkFailedDescription": "The panel could not reach GitHub to look for new versions.",
+        "unknownCurrent": "Unable to verify the current version",
+        "unknownCurrentDescription": "The deployed commit could not be determined. You can still update manually.",
+        "available": "Update available",
+        "availableDescription": "A new version of the panel is available.",
+        "upToDate": "System is up to date"
+      },
+      "node": {
+        "updating": "Updating…",
+        "unreachable": "Unreachable",
+        "failed": "Failed (exit {{code}})",
+        "completed": "Completed",
+        "thisPanel": "This panel",
+        "viewLogs": "View logs"
+      },
+      "confirm": {
+        "title": "Update the panel and all nodes?",
+        "description": "The latest version will be pulled, images rebuilt and services restarted on every node. The panel and servers may be unreachable for a few minutes.",
+        "action": "Update now"
+      },
+      "toast": {
+        "issuesTitle": "Update finished with issues",
+        "unreachable": "Some nodes could not be reached. Check the node list.",
+        "nodesFailed": "One or more nodes failed to update. Check the node list.",
+        "completeTitle": "Update complete",
+        "complete": "The panel and all nodes have been updated successfully.",
+        "incompleteTitle": "Update incomplete",
+        "incomplete": "Could not trigger the update on: {{nodes}}.",
+        "failedTitle": "Update failed",
+        "failed": "There was a problem starting the update."
+      }
     }
   },
   "apiKeys": {

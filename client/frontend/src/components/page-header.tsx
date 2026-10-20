@@ -16,7 +16,7 @@ export function PageHeader({ title, description, badges, children, className, ti
     <div className={cn("flex flex-col gap-4 md:flex-row md:items-start md:justify-between", className)}>
       <div className="min-w-0 space-y-1.5">
         <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
-          <h1 className={cn("font-headline text-2xl font-semibold tracking-tight text-balance md:text-3xl md:leading-tight", titleClassName)}>{title}</h1>
+          <h1 className={cn("font-headline text-[1.75rem] font-bold leading-[1.05] tracking-[-0.035em] text-balance md:text-[2.125rem]", titleClassName)}>{title}</h1>
           {badges && <div className="flex shrink-0 flex-wrap items-center gap-2">{badges}</div>}
         </div>
         {description && (

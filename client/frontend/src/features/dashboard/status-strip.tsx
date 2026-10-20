@@ -1,14 +1,10 @@
 'use client';
 
 import { useTranslations } from '@/contexts/translations-context';
+import { AnimatedNumber } from '@/components/animated-number';
 import { formatBytes, cn } from '@/lib/utils';
 
-type Figure = {
-    key: string;
-    label: string;
-    value: string;
-    tone?: 'default' | 'success' | 'warning' | 'destructive' | 'primary';
-};
+type Tone = 'default' | 'success' | 'warning' | 'destructive' | 'primary';
 
 type StatusStripProps = {
     /** Display name of the signed-in operator. */
@@ -21,7 +17,7 @@ type StatusStripProps = {
     networkKbps: number | null;
 };
 
-const toneClass = (tone: Figure['tone']) => {
+const toneClass = (tone: Tone) => {
     switch (tone) {
         case 'success':
             return 'text-success';
@@ -37,7 +33,7 @@ const toneClass = (tone: Figure['tone']) => {
 };
 
 /** Availability inverts the usage scale: high is healthy. */
-const healthToneFor = (percent: number | null): Figure['tone'] => {
+const healthToneFor = (percent: number | null): Tone => {
     if (percent === null) return 'default';
     if (percent >= 99) return 'success';
     if (percent >= 95) return 'warning';
@@ -46,66 +42,59 @@ const healthToneFor = (percent: number | null): Figure['tone'] => {
 
 /**
  * Row 1 — status header. One band that answers "how is the fleet right now?"
- * (availability, health, live traffic) and nothing else: the actions that used
- * to sit here were shortcuts to pages the navigation already reaches, and they
- * competed with the numbers. It is chrome, not a card in the surface ladder:
- * L1 above the L0 canvas, with the panels of rows 2-3 sitting on L2.
+ * (availability, health, live traffic) and nothing else.
  */
 export function StatusStrip({ name, healthPercent, online, total, networkKbps }: StatusStripProps) {
     const { t } = useTranslations();
-
     const healthTone = healthToneFor(healthPercent);
-
-    const figures: Figure[] = [
-        {
-            key: 'servers',
-            label: t('dashboard.admin.status.serversActive'),
-            value: t('dashboard.admin.status.activeOf', { online, total }),
-            tone: online === total && total > 0 ? 'success' : 'default',
-        },
-        {
-            key: 'health',
-            label: t('dashboard.admin.status.health'),
-            value: healthPercent === null ? '—' : `${healthPercent.toFixed(1)}%`,
-            tone: healthTone,
-        },
-        {
-            key: 'network',
-            label: t('dashboard.admin.status.network'),
-            value: networkKbps === null ? '—' : `${formatBytes(networkKbps * 1024)}/s`,
-            tone: 'default',
-        },
-    ];
+    const serversTone: Tone = online === total && total > 0 ? 'success' : 'default';
 
     return (
         <section
-            className="rounded-xl border border-border/60 bg-surface-1 p-5 md:p-6"
+            className="surface-panel relative rounded-xl border border-border/60"
             aria-labelledby="dashboard-status-heading"
         >
-            <div className="min-w-0 space-y-1.5">
-                <h1
-                    id="dashboard-status-heading"
-                    className="font-headline text-2xl font-semibold tracking-tight text-balance text-foreground md:text-3xl md:leading-tight"
-                >
-                    {t('dashboard.welcome', { name: name || t('dashboard.defaultName') })}
-                </h1>
-                <p className="max-w-[62ch] text-pretty text-sm text-muted-foreground">
-                    {t('dashboard.admin.description')}
-                </p>
-            </div>
+            <div className="relative grid gap-6 p-5 md:p-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:gap-10 lg:py-5">
+                <div className="flex flex-wrap items-start justify-between gap-3 lg:block">
+                    <div className="min-w-0 space-y-2">
+                        <h1
+                            id="dashboard-status-heading"
+                            className="font-headline text-[1.75rem] font-bold leading-[1.05] tracking-[-0.035em] text-balance text-foreground md:text-[2.25rem]"
+                        >
+                            {t('dashboard.welcome', { name: name || t('dashboard.defaultName') })}
+                        </h1>
+                        <p className="max-w-[60ch] text-pretty text-sm text-muted-foreground">
+                            {t('dashboard.admin.description')}
+                        </p>
+                    </div>
+                </div>
 
-            <dl className="mt-5 flex flex-wrap items-start gap-x-6 gap-y-4 border-t border-border/60 pt-4 sm:gap-x-10">
-                {figures.map((figure) => (
-                    <div key={figure.key} className="flex min-w-0 flex-col gap-1">
-                        <dt className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                            {figure.label}
-                        </dt>
-                        <dd className={cn('font-mono text-[15px] font-medium leading-none tabular-nums', toneClass(figure.tone))}>
-                            {figure.value}
+                <dl className="grid grid-cols-3 divide-x divide-border/50 lg:pt-6">
+                    <div className="flex min-w-0 flex-col gap-1.5 pr-3 sm:pr-6 lg:pr-8">
+                        <dt className="text-[11px] font-medium leading-snug text-muted-foreground sm:text-xs">{t('dashboard.admin.status.serversActive')}</dt>
+                        <dd className={cn('whitespace-nowrap text-lg font-semibold leading-none tracking-[-0.02em] tabular-nums sm:text-2xl', toneClass(serversTone))}>
+                            {t('dashboard.admin.status.activeOf', { online, total })}
                         </dd>
                     </div>
-                ))}
-            </dl>
+                    <div className="flex min-w-0 flex-col gap-1.5 px-3 sm:px-6 lg:px-8">
+                        <dt className="text-[11px] font-medium leading-snug text-muted-foreground sm:text-xs">{t('dashboard.admin.status.health')}</dt>
+                        <dd className={cn('whitespace-nowrap text-lg font-semibold leading-none tracking-[-0.02em] tabular-nums sm:text-2xl', toneClass(healthTone))}>
+                            {healthPercent === null ? '—' : (
+                                <>
+                                    <AnimatedNumber value={healthPercent} decimals={1} />
+                                    <span className="ml-0.5 text-base font-medium text-muted-foreground">%</span>
+                                </>
+                            )}
+                        </dd>
+                    </div>
+                    <div className="flex min-w-0 flex-col gap-1.5 pl-3 sm:pl-6 lg:pl-8">
+                        <dt className="text-[11px] font-medium leading-snug text-muted-foreground sm:text-xs">{t('dashboard.admin.status.network')}</dt>
+                        <dd className="whitespace-nowrap text-lg font-semibold leading-none tracking-[-0.02em] tabular-nums sm:text-2xl text-foreground">
+                            {networkKbps === null ? '—' : `${formatBytes(networkKbps * 1024)}/s`}
+                        </dd>
+                    </div>
+                </dl>
+            </div>
         </section>
     );
 }

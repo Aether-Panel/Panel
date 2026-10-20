@@ -5,18 +5,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Loader2, ChevronRight, ChevronLeft, Check, Code, Globe, Shield, X, ShieldAlert } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Loader2, ChevronRight, ChevronLeft, Check, Code, Globe, Shield, X, ShieldAlert, Plus } from 'lucide-react';
 import { useNodes } from '@/hooks/use-dashboard-data';
 import { useUsers } from '@/hooks/use-users';
 import { useTemplates } from '@/hooks/use-templates';
 import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
 import { sileo } from "@/lib/toast";
+import { cn } from '@/lib/utils';
+
+type TFn = (key: string, options?: { [key: string]: string | number }) => string;
 
 class ErrorBoundary extends React.Component<
-    { children: React.ReactNode },
+    { children: React.ReactNode; t: TFn },
     { hasError: boolean; errorMsg: string; errorStack: string }
 > {
     constructor(props: any) {
@@ -31,15 +33,16 @@ class ErrorBoundary extends React.Component<
         console.error("[Stepper Error Boundary] Component stack:", errorInfo?.componentStack);
     }
     render() {
+        const { t } = this.props;
         if (this.state.hasError) {
             return (
-                <div className="p-6 border-2 border-dashed border-red-500/50 rounded-xl bg-red-50">
-                    <ShieldAlert className="h-10 w-10 text-red-600 mx-auto mb-3" />
-                    <h3 className="text-base font-bold text-red-700 text-center mb-2">Error en el renderizado</h3>
-                    <pre className="text-xs bg-red-100 rounded p-3 overflow-auto max-h-40 text-red-800 whitespace-pre-wrap break-all">{this.state.errorMsg}{"\n\n"}{this.state.errorStack.slice(0, 500)}</pre>
-                    <div className="flex gap-2 mt-4 justify-center">
-                        <Button variant="outline" size="sm" onClick={() => this.setState({ hasError: false, errorMsg: '', errorStack: '' })}>Reintentar</Button>
-                        <Button variant="outline" size="sm" onClick={() => window.location.reload()}>Recargar</Button>
+                <div className="rounded-xl border border-dashed border-destructive/40 px-6 py-10 text-center">
+                    <ShieldAlert className="mx-auto mb-3 h-6 w-6 text-destructive-bright" aria-hidden="true" />
+                    <h3 className="mb-2 text-base font-semibold">{t('servers.create.renderError')}</h3>
+                    <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-border/60 bg-background/40 p-3 text-left font-mono text-xs text-muted-foreground">{this.state.errorMsg}{"\n\n"}{this.state.errorStack.slice(0, 500)}</pre>
+                    <div className="mt-4 flex justify-center gap-2">
+                        <Button variant="outline" size="sm" onClick={() => this.setState({ hasError: false, errorMsg: '', errorStack: '' })}>{t('common.retry')}</Button>
+                        <Button variant="outline" size="sm" onClick={() => window.location.reload()}>{t('servers.create.reload')}</Button>
                     </div>
                 </div>
             );
@@ -56,51 +59,67 @@ const SafeValue = ({ v, fallback = "" }: { v: any, fallback?: string }) => {
     return String(v);
 };
 
+/** Small section heading used inside the steps (title + optional hint). */
+function StepSection({ title, hint, children }: { title: string; hint?: React.ReactNode; children: React.ReactNode }) {
+    return (
+        <section className="grid gap-3">
+            <div className="space-y-0.5">
+                <h3 className="text-sm font-semibold">{title}</h3>
+                {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+            </div>
+            {children}
+        </section>
+    );
+}
+
+const RequiredMark = () => <span className="ml-0.5 text-destructive-bright" aria-hidden="true">*</span>;
+
 function Step1Environment({
     name, setName, selectedNode, setSelectedNode, selectedEnvironment, setSelectedEnvironment,
-    selectedUsers, setSelectedUsers, forcedParentId, nodes, users
+    selectedUsers, setSelectedUsers, forcedParentId, nodes, users, t
 }: any) {
+    const availableUsers = users.filter((u: any) => !selectedUsers.includes(u.id));
     return (
-        <div className="grid gap-6 animate-in fade-in slide-in-from-right-4 duration-300 w-full">
-            <div className="grid gap-2 w-full">
-                <Label htmlFor="server-name" className="text-sm font-medium">Nombre del Servidor *</Label>
-                <Input id="server-name" placeholder="Ej: Mi Servidor Minecraft" value={name} onChange={(e) => setName(e.target.value)} className="h-10" />
+        <div className="grid w-full gap-5">
+            <div className="grid gap-2">
+                <Label htmlFor="server-name">{t('servers.create.nameLabel')}<RequiredMark /></Label>
+                <Input id="server-name" placeholder={t('servers.create.namePlaceholder')} value={name} onChange={(e) => setName(e.target.value)} required autoComplete="off" />
             </div>
             {forcedParentId ? (
-                <div className="bg-accent/10 border border-accent/20 rounded-lg p-4 mb-4">
-                    <div className="flex items-center gap-2 text-primary font-medium mb-1">
-                        <Shield className="w-5 h-5" />
-                        <span>Entorno Heredado</span>
+                <div className="flex gap-3 rounded-xl border border-border/60 bg-background/30 p-4">
+                    <Shield className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                    <div className="space-y-1">
+                        <p className="text-sm font-medium">{t('servers.create.inheritedTitle')}</p>
+                        <p className="text-sm text-muted-foreground">{t('servers.create.inheritedDescription')}</p>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                        El nodo, entorno y los usuarios de este subservidor se asignarán automáticamente desde el servidor padre.
-                    </p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-4">
                     <div className="grid gap-2">
-                        <Label className="text-sm font-medium">Nodo *</Label>
+                        <Label htmlFor="server-node">{t('servers.create.nodeLabel')}<RequiredMark /></Label>
                         <Select value={selectedNode} onValueChange={setSelectedNode}>
-                            <SelectTrigger className="h-10">
-                                <SelectValue placeholder="Seleccionar nodo" />
+                            <SelectTrigger id="server-node">
+                                <SelectValue placeholder={t('servers.create.nodePlaceholder')} />
                             </SelectTrigger>
-                            <SelectContent className="max-h-80 overflow-y-auto z-[100]">
+                            <SelectContent className="z-[100] max-h-80 overflow-y-auto">
                                 {nodes.map((n: any) => (
-                                    <SelectItem key={n.id} value={String(n.id)}>{n.name} ({n.publicHost})</SelectItem>
+                                    <SelectItem key={n.id} value={String(n.id)}>
+                                        {n.name} <span className="font-mono text-xs text-muted-foreground">{n.publicHost}</span>
+                                    </SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
                     </div>
                     <div className="grid gap-2">
-                        <Label className="text-sm font-medium">Entorno</Label>
+                        <Label htmlFor="server-environment">{t('servers.create.environmentLabel')}</Label>
                         <Select value={selectedEnvironment} onValueChange={setSelectedEnvironment}>
-                            <SelectTrigger className="h-10">
+                            <SelectTrigger id="server-environment">
                                 <SelectValue />
                             </SelectTrigger>
-                            <SelectContent className="max-h-80 overflow-y-auto z-[100]">
-                                <SelectItem value="docker">Docker</SelectItem>
-                                <SelectItem value="standard">Estándar (Hijo)</SelectItem>
-                                <SelectItem value="tty">TTY</SelectItem>
+                            <SelectContent className="z-[100] max-h-80 overflow-y-auto">
+                                <SelectItem value="docker">{t('servers.create.environment.docker')}</SelectItem>
+                                <SelectItem value="standard">{t('servers.create.environment.standard')}</SelectItem>
+                                <SelectItem value="tty">{t('servers.create.environment.tty')}</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -108,52 +127,54 @@ function Step1Environment({
             )}
             {!forcedParentId && (
                 <div className="grid gap-2">
-                    <Label className="text-sm font-medium">Usuarios con acceso</Label>
-                    <div className="flex flex-col gap-3">
-                        <Select
-                            value=""
-                            onValueChange={(val) => {
-                                const id = Number(val);
-                                if (!selectedUsers.includes(id)) {
-                                    setSelectedUsers((prev: any) => [...prev, id]);
-                                }
-                            }}
-                        >
-                            <SelectTrigger className="h-10">
-                                <SelectValue placeholder="Seleccionar usuario para añadir..." />
-                            </SelectTrigger>
-                            <SelectContent className="max-h-80 overflow-y-auto z-[100]">
-                                {users.filter((u: any) => !selectedUsers.includes(u.id)).map((u: any) => (
-                                    <SelectItem key={u.id} value={String(u.id)}>{u.username} ({u.email})</SelectItem>
-                                ))}
-                                {users.filter((u: any) => !selectedUsers.includes(u.id)).length === 0 && (
-                                    <div className="p-2 text-xs text-muted-foreground text-center italic">No hay más usuarios disponibles.</div>
-                                )}
-                            </SelectContent>
-                        </Select>
+                    <Label htmlFor="server-users">{t('servers.create.usersLabel')}</Label>
+                    <Select
+                        value=""
+                        onValueChange={(val) => {
+                            const id = Number(val);
+                            if (!selectedUsers.includes(id)) {
+                                setSelectedUsers((prev: any) => [...prev, id]);
+                            }
+                        }}
+                    >
+                        <SelectTrigger id="server-users" aria-describedby="server-users-hint">
+                            <SelectValue placeholder={t('servers.create.usersPlaceholder')} />
+                        </SelectTrigger>
+                        <SelectContent className="z-[100] max-h-80 overflow-y-auto">
+                            {availableUsers.map((u: any) => (
+                                <SelectItem key={u.id} value={String(u.id)}>
+                                    {u.username} <span className="text-xs text-muted-foreground">{u.email}</span>
+                                </SelectItem>
+                            ))}
+                            {availableUsers.length === 0 && (
+                                <div className="p-2 text-center text-xs text-muted-foreground">{t('servers.create.usersEmpty')}</div>
+                            )}
+                        </SelectContent>
+                    </Select>
 
-                        {selectedUsers.length > 0 && (
-                            <div className="flex flex-wrap gap-2 pt-1">
-                                {selectedUsers.map((id: number) => {
-                                    const u = users.find((user: any) => user.id === id);
-                                    return (
-                                        <Badge key={id} variant="secondary" className="pl-3 pr-1 py-1 flex items-center gap-2 bg-primary/10 text-primary-bright border-primary/20">
-                                            {u?.username}
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-4 w-4 rounded-full hover:bg-red-500 hover:text-white transition-colors"
-                                                onClick={() => setSelectedUsers((prev: any) => prev.filter((uid: number) => uid !== id))}
-                                            >
-                                                <X className="h-3 w-3" />
-                                            </Button>
-                                        </Badge>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
-                    <p className="text-xs text-muted-foreground italic">Los usuarios seleccionados tendrán acceso de administrador al servidor.</p>
+                    {selectedUsers.length > 0 && (
+                        <ul className="flex flex-wrap gap-2 pt-1">
+                            {selectedUsers.map((id: number) => {
+                                const u = users.find((user: any) => user.id === id);
+                                return (
+                                    <li key={id} className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-secondary py-0.5 pl-2.5 pr-0.5 text-xs font-medium">
+                                        {u?.username}
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6 rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive-bright"
+                                            onClick={() => setSelectedUsers((prev: any) => prev.filter((uid: number) => uid !== id))}
+                                            aria-label={t('servers.create.removeUser', { name: u?.username ?? String(id) })}
+                                        >
+                                            <X className="h-3.5 w-3.5" aria-hidden="true" />
+                                        </Button>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    )}
+                    <p id="server-users-hint" className="text-xs text-muted-foreground">{t('servers.create.usersHint')}</p>
                 </div>
             )}
         </div>
@@ -163,89 +184,102 @@ function Step1Environment({
 function Step2Template({
     repos, selectedRepo, setSelectedRepo,
     templateList, selectedTemplateName, setSelectedTemplateName,
-    loadingTemplates, templateDetails, templateError
+    loadingTemplates, templateDetails, templateError, t
 }: any) {
     const activeRepo = repos.find((r: any) => r.id === selectedRepo);
     return (
-        <div className="grid gap-6 animate-in fade-in slide-in-from-right-4 duration-300 w-full">
-            <div className="grid gap-2 w-full">
-                <Label>Repositorio de Plantillas</Label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
-                    {repos.map((r: any) => (
-                        <div
-                            key={r.id}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => setSelectedRepo(r.id)}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedRepo(r.id); } }}
-                            className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedRepo === r.id ? 'border-primary bg-primary/5 ring-4 ring-primary/10' : 'border-muted hover:border-primary/50'
-                                }`}
-                        >
-                            {r.isLocal ? <Shield className="h-6 w-6 text-primary" /> : <Globe className="h-6 w-6 text-blue-400" />}
-                            <div className="text-left">
-                                <p className="font-semibold">{r.name}</p>
-                                <p className="text-xs text-muted-foreground">{r.isLocal ? 'Local' : 'Comunidad'}</p>
-                            </div>
-                        </div>
-                    ))}
+        <div className="grid w-full gap-6">
+            <StepSection title={t('servers.create.repoLabel')}>
+                <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2">
+                    {repos.map((r: any) => {
+                        const active = selectedRepo === r.id;
+                        const RepoIcon = r.isLocal ? Shield : Globe;
+                        return (
+                            <button
+                                key={r.id}
+                                type="button"
+                                aria-pressed={active}
+                                onClick={() => setSelectedRepo(r.id)}
+                                className={cn(
+                                    'focus-ring flex min-w-0 items-center gap-3 rounded-xl border p-3.5 text-left transition-colors duration-200',
+                                    active
+                                        ? 'border-primary/60 bg-primary/10'
+                                        : 'border-border/60 bg-background/30 hover:border-border hover:bg-accent/30'
+                                )}
+                            >
+                                <RepoIcon className={cn('h-4 w-4 shrink-0', active ? 'text-primary-bright' : 'text-muted-foreground')} aria-hidden="true" />
+                                <span className="min-w-0 flex-1">
+                                    <span className="block truncate text-sm font-medium">{r.name}</span>
+                                    <span className="block text-xs text-muted-foreground">{r.isLocal ? t('servers.create.repoLocal') : t('servers.create.repoCommunity')}</span>
+                                </span>
+                                {active && <Check className="h-4 w-4 shrink-0 text-primary-bright" aria-hidden="true" />}
+                            </button>
+                        );
+                    })}
                     {repos.length === 0 && (
-                        <div className="col-span-2 flex items-center justify-center p-8 border-2 border-dashed rounded-xl text-muted-foreground text-sm">
-                            <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                            Cargando repositorios...
+                        <div className="col-span-full flex items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 p-8 text-sm text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                            {t('servers.create.loadingRepos')}
                         </div>
                     )}
                 </div>
-            </div>
+            </StepSection>
 
             {selectedRepo !== null && (
-                <div className="grid gap-2 mt-4 w-full">
-                    <Label>Seleccionar Plantilla</Label>
-                    {activeRepo && (
-                        <p className="text-xs text-muted-foreground">
-                            Mostrando plantillas de: <strong>{activeRepo.name}</strong> ({activeRepo.isLocal ? 'Local' : 'Comunidad'})
-                        </p>
-                    )}
+                <StepSection
+                    title={t('servers.create.templateLabel')}
+                    hint={activeRepo ? t('servers.create.templatesFrom', { repo: activeRepo.name }) : undefined}
+                >
                     {loadingTemplates ? (
-                        <div className="flex items-center justify-center p-8">
-                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        <div className="flex items-center justify-center rounded-xl border border-border/60 bg-background/30 p-8">
+                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t('common.loading')} />
                         </div>
                     ) : templateList.length === 0 ? (
-                        <div className="flex items-center justify-center p-8 border-2 border-dashed rounded-xl text-muted-foreground text-sm">
-                            No hay plantillas disponibles en este repositorio.
+                        <div className="rounded-xl border border-dashed border-border/60 px-6 py-8 text-center text-sm text-muted-foreground">
+                            {t('servers.create.templatesEmpty')}
                         </div>
                     ) : (
-                        <div className="w-full min-w-0 max-h-[280px] overflow-y-auto pr-2">
-                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 w-full">
-                                {templateList.map((t: any) => (
-                                    <div
-                                        key={t.name}
-                                        role="button"
-                                        tabIndex={0}
-                                        onClick={() => setSelectedTemplateName(t.name)}
-                                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedTemplateName(t.name); } }}
-                                        className={`p-2 rounded-lg border text-xs flex items-center gap-2 cursor-pointer transition-all min-w-0 ${selectedTemplateName === t.name ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted'
-                                            }`}
-                                    >
-                                        <Code className="h-3 w-3 shrink-0" />
-                                        <span className="truncate min-w-0">{t.name}</span>
-                                    </div>
-                                ))}
+                        <div className="max-h-[280px] w-full min-w-0 overflow-y-auto rounded-xl border border-border/60 bg-background/30 p-2">
+                            <div className="grid w-full grid-cols-2 gap-1.5 sm:grid-cols-3">
+                                {templateList.map((tpl: any) => {
+                                    const active = selectedTemplateName === tpl.name;
+                                    return (
+                                        <button
+                                            key={tpl.name}
+                                            type="button"
+                                            aria-pressed={active}
+                                            onClick={() => setSelectedTemplateName(tpl.name)}
+                                            title={tpl.name}
+                                            className={cn(
+                                                'focus-ring flex h-9 min-w-0 items-center gap-2 rounded-lg border px-2.5 text-left text-xs transition-colors duration-200',
+                                                active
+                                                    ? 'border-primary/60 bg-primary/15 text-foreground'
+                                                    : 'border-transparent text-muted-foreground hover:bg-accent/40 hover:text-foreground'
+                                            )}
+                                        >
+                                            {active
+                                                ? <Check className="h-3.5 w-3.5 shrink-0 text-primary-bright" aria-hidden="true" />
+                                                : <Code className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
+                                            <span className="min-w-0 truncate font-mono">{tpl.name}</span>
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
                     )}
                     {selectedTemplateName && !templateDetails && !templateError && (
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2 p-2 bg-primary/5 rounded-lg border border-primary/10">
-                            <Loader2 className="h-3 w-3 animate-spin text-primary shrink-0" />
-                            Cargando detalles de la plantilla <strong>{selectedTemplateName}</strong>...
-                        </div>
+                        <p className="flex items-center gap-2 text-xs text-muted-foreground" role="status">
+                            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden="true" />
+                            {t('servers.create.loadingTemplate', { name: selectedTemplateName })}
+                        </p>
                     )}
                     {selectedTemplateName && templateError && (
-                        <div className="flex items-center gap-2 text-xs text-red-600 mt-2 p-2 bg-red-50 rounded-lg border border-red-200">
-                            <ShieldAlert className="h-3 w-3 shrink-0" />
+                        <p className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-2.5 text-xs text-destructive-bright" role="alert">
+                            <ShieldAlert className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                             {templateError}
-                        </div>
+                        </p>
                     )}
-                </div>
+                </StepSection>
             )}
         </div>
     );
@@ -255,32 +289,29 @@ function Step3Configuration({
     templateDetails, templateError, configData, setConfigData,
     cpuLimit, setCpuLimit, memoryLimit, setMemoryLimit, diskLimit, setDiskLimit,
     extraPorts, setExtraPorts,
-    setCurrentStep
+    setCurrentStep, t
 }: any) {
     if (templateError) {
         return (
-            <div className="flex flex-col items-center justify-center p-8 text-center bg-red-500/5 rounded-xl border border-red-500/20">
-                <ShieldAlert className="h-10 w-10 text-red-500 mb-3" />
-                <p className="font-bold text-red-700">Error de Plantilla</p>
-                <p className="text-sm text-red-600 mt-1">{templateError}</p>
+            <div className="rounded-xl border border-dashed border-destructive/40 px-6 py-10 text-center">
+                <ShieldAlert className="mx-auto mb-3 h-6 w-6 text-destructive-bright" aria-hidden="true" />
+                <p className="text-base font-semibold">{t('servers.create.templateErrorTitle')}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{templateError}</p>
                 <Button variant="outline" size="sm" className="mt-4" onClick={() => setCurrentStep(2)}>
-                    <ChevronLeft className="mr-2 h-4 w-4" />
-                    Volver
+                    <ChevronLeft aria-hidden="true" />
+                    {t('common.back')}
                 </Button>
             </div>
         );
     }
-    
+
     if (!templateDetails) {
         return (
-            <div className="flex flex-col items-center justify-center p-20 text-center space-y-4">
-                <div className="relative">
-                    <div className="absolute -inset-4 bg-primary/10 rounded-full blur-xl animate-pulse" />
-                    <Loader2 className="h-12 w-12 animate-spin text-primary relative" />
-                </div>
+            <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center" role="status">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden="true" />
                 <div className="space-y-1">
-                    <p className="font-bold text-lg text-foreground/80">Analizando Plantilla</p>
-                    <p className="text-sm text-muted-foreground">Obteniendo parámetros de configuración...</p>
+                    <p className="text-base font-semibold">{t('servers.create.analyzingTitle')}</p>
+                    <p className="text-sm text-muted-foreground">{t('servers.create.analyzingDescription')}</p>
                 </div>
             </div>
         );
@@ -290,124 +321,140 @@ function Step3Configuration({
     const entries = Object.entries(variables).filter(([key, v]) => v && !v.internal && !['cpu', 'memory', 'disk'].includes(key));
 
     return (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 w-full">
-            <div className="flex flex-col gap-1">
-                <Label className="text-xs font-semibold">CPU <span className="font-normal text-muted-foreground">(%)</span></Label>
-                <Input type="number" value={cpuLimit} onChange={(e) => setCpuLimit(e.target.value === '' ? '' : Number(e.target.value))} className="h-8 bg-background/50 text-sm" />
-            </div>
-            <div className="flex flex-col gap-1">
-                <Label className="text-xs font-semibold">RAM <span className="font-normal text-muted-foreground">(MB)</span></Label>
-                <Input type="number" value={memoryLimit} onChange={(e) => setMemoryLimit(e.target.value === '' ? '' : Number(e.target.value))} className="h-8 bg-background/50 text-sm" />
-            </div>
-            <div className="flex flex-col gap-1">
-                <Label className="text-xs font-semibold">Disco <span className="font-normal text-muted-foreground">(MB)</span></Label>
-                <Input type="number" value={diskLimit} onChange={(e) => setDiskLimit(e.target.value === '' ? '' : Number(e.target.value))} className="h-8 bg-background/50 text-sm" />
-            </div>
-
-            <div className="col-span-full border-t border-border/50 my-1" />
-
-            {entries.map(([key, variable]: [string, any], idx: number) => {
-                if (!variable || typeof variable !== 'object') return null;
-                const currentVal = configData[key] !== undefined ? configData[key] : "";
-                const stringifiedVal = (typeof currentVal === 'object' && currentVal !== null)
-                    ? JSON.stringify(currentVal)
-                    : String(currentVal ?? "");
-
-                const label = variable.display || key;
-                const isWide = (label.toLowerCase().includes('motd') || label.toLowerCase().includes('arguments') || label.toLowerCase().includes('command'));
-
-                return (
-                    <div key={key + idx} className={`flex flex-col gap-1 ${isWide ? 'col-span-2' : ''}`}>
-                        <Label className="text-xs font-semibold truncate" title={label}>
-                            <SafeValue v={label} />
-                            {variable.required && <span className="text-red-500 ml-0.5">*</span>}
-                        </Label>
-                        {Array.isArray(variable.options) && variable.options.length > 0 ? (
-                            <Select
-                                value={stringifiedVal === "" ? "_EMPTY_VALUE_" : stringifiedVal}
-                                onValueChange={(val) => setConfigData((prev: any) => ({ ...prev, [key]: val === "_EMPTY_VALUE_" ? "" : val }))}
-                            >
-                                <SelectTrigger className="h-8 bg-background/50 text-sm">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="max-h-60 z-[100]">
-                                    {variable.options.map((opt: any, oIdx: number) => {
-                                        if (!opt) return null;
-                                        const rawOptVal = opt.value !== undefined ? opt.value : (typeof opt === 'string' ? opt : "");
-                                        const optVal = rawOptVal === "" ? "_EMPTY_VALUE_" : String(rawOptVal);
-                                        return (
-                                            <SelectItem key={oIdx} value={optVal}>
-                                                <SafeValue v={opt.display || (rawOptVal === "" ? "Ninguno" : rawOptVal)} />
-                                            </SelectItem>
-                                        );
-                                    })}
-                                </SelectContent>
-                            </Select>
-                        ) : variable.type === 'boolean' ? (
-                            <div
-                                role="button"
-                                tabIndex={0}
-                                className="flex items-center gap-2 px-3 rounded-lg border bg-background/30 cursor-pointer h-8"
-                                onClick={() => setConfigData((prev: any) => ({ ...prev, [key]: !currentVal }))}
-                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setConfigData((prev: any) => ({ ...prev, [key]: !currentVal })); } }}
-                            >
-                                <div className={`h-3.5 w-3.5 rounded border shrink-0 flex items-center justify-center ${currentVal ? 'bg-primary border-primary' : 'border-muted-foreground/40'}`}>
-                                    {currentVal && <Check className="h-2.5 w-2.5 text-primary-foreground stroke-[3px]" />}
-                                </div>
-                                <span className="text-xs select-none">Habilitar</span>
-                            </div>
-                        ) : (
-                            <Input
-                                type={variable.type === 'integer' ? 'number' : 'text'}
-                                value={stringifiedVal}
-                                onChange={(e) => setConfigData((prev: any) => ({ ...prev, [key]: variable.type === 'integer' ? Number(e.target.value) : e.target.value }))}
-                                className="h-8 bg-background/50 text-sm"
-                            />
-                        )}
+        <div className="grid w-full gap-6">
+            <StepSection title={t('servers.create.resourcesTitle')} hint={t('servers.create.resourcesHint')}>
+                <div className="grid grid-cols-3 gap-3">
+                    <div className="grid min-w-0 gap-2">
+                        <Label htmlFor="limit-cpu">{t('servers.create.cpuLabel')} <span className="font-normal text-muted-foreground">(%)</span></Label>
+                        <Input id="limit-cpu" type="number" inputMode="numeric" value={cpuLimit} onChange={(e) => setCpuLimit(e.target.value === '' ? '' : Number(e.target.value))} className="font-mono tabular-nums" />
                     </div>
-                );
-            })}
-
-        <div className="col-span-full border-t border-border/50 my-1" />
-        <div className="col-span-full space-y-3">
-            <Label className="text-xs font-semibold">Puertos Extra</Label>
-            <p className="text-xs text-muted-foreground">
-                Puerto principal: <span className="font-mono">{configData['port'] || '—'}</span>
-            </p>
-            {extraPorts.map((p: string, idx: number) => (
-                <div key={idx} className="flex items-center gap-2">
-                    <Input
-                        type="number"
-                        value={p}
-                        placeholder="p. ej. 25566"
-                        onChange={(e) => {
-                            const next = [...extraPorts];
-                            next[idx] = e.target.value;
-                            setExtraPorts(next);
-                        }}
-                        className="h-8 bg-background/50 text-sm font-mono"
-                    />
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 shrink-0 text-muted-foreground hover:text-red-500"
-                        onClick={() => setExtraPorts(extraPorts.filter((_: string, i: number) => i !== idx))}
-                    >
-                        <X className="h-4 w-4" />
-                    </Button>
+                    <div className="grid min-w-0 gap-2">
+                        <Label htmlFor="limit-memory">{t('servers.create.memoryLabel')} <span className="font-normal text-muted-foreground">(MB)</span></Label>
+                        <Input id="limit-memory" type="number" inputMode="numeric" value={memoryLimit} onChange={(e) => setMemoryLimit(e.target.value === '' ? '' : Number(e.target.value))} className="font-mono tabular-nums" />
+                    </div>
+                    <div className="grid min-w-0 gap-2">
+                        <Label htmlFor="limit-disk">{t('servers.create.diskLabel')} <span className="font-normal text-muted-foreground">(MB)</span></Label>
+                        <Input id="limit-disk" type="number" inputMode="numeric" value={diskLimit} onChange={(e) => setDiskLimit(e.target.value === '' ? '' : Number(e.target.value))} className="font-mono tabular-nums" />
+                    </div>
                 </div>
-            ))}
-            <Button type="button" variant="outline" size="sm" onClick={() => setExtraPorts([...extraPorts, ''])}>
-                Añadir puerto extra
-            </Button>
-        </div>
+            </StepSection>
+
+            {entries.length > 0 && (
+                <StepSection title={t('servers.create.variablesTitle')}>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {entries.map(([key, variable]: [string, any], idx: number) => {
+                            if (!variable || typeof variable !== 'object') return null;
+                            const currentVal = configData[key] !== undefined ? configData[key] : "";
+                            const stringifiedVal = (typeof currentVal === 'object' && currentVal !== null)
+                                ? JSON.stringify(currentVal)
+                                : String(currentVal ?? "");
+
+                            const label = variable.display || key;
+                            const isWide = (label.toLowerCase().includes('motd') || label.toLowerCase().includes('arguments') || label.toLowerCase().includes('command'));
+                            const fieldId = `tpl-var-${idx}`;
+
+                            return (
+                                <div key={key + idx} className={cn('grid min-w-0 content-start gap-2', isWide && 'sm:col-span-2')}>
+                                    <Label htmlFor={fieldId} className="truncate" title={label}>
+                                        <SafeValue v={label} />
+                                        {variable.required && <RequiredMark />}
+                                    </Label>
+                                    {Array.isArray(variable.options) && variable.options.length > 0 ? (
+                                        <Select
+                                            value={stringifiedVal === "" ? "_EMPTY_VALUE_" : stringifiedVal}
+                                            onValueChange={(val) => setConfigData((prev: any) => ({ ...prev, [key]: val === "_EMPTY_VALUE_" ? "" : val }))}
+                                        >
+                                            <SelectTrigger id={fieldId}>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent className="z-[100] max-h-60">
+                                                {variable.options.map((opt: any, oIdx: number) => {
+                                                    if (!opt) return null;
+                                                    const rawOptVal = opt.value !== undefined ? opt.value : (typeof opt === 'string' ? opt : "");
+                                                    const optVal = rawOptVal === "" ? "_EMPTY_VALUE_" : String(rawOptVal);
+                                                    return (
+                                                        <SelectItem key={oIdx} value={optVal}>
+                                                            <SafeValue v={opt.display || (rawOptVal === "" ? t('servers.create.optionNone') : rawOptVal)} />
+                                                        </SelectItem>
+                                                    );
+                                                })}
+                                            </SelectContent>
+                                        </Select>
+                                    ) : variable.type === 'boolean' ? (
+                                        <label
+                                            htmlFor={fieldId}
+                                            className="flex h-10 cursor-pointer items-center gap-2.5 rounded-lg border border-input bg-background/50 px-3 text-sm transition-colors duration-200 hover:bg-accent/30"
+                                        >
+                                            <Checkbox
+                                                id={fieldId}
+                                                checked={!!currentVal}
+                                                onCheckedChange={() => setConfigData((prev: any) => ({ ...prev, [key]: !currentVal }))}
+                                            />
+                                            <span className="select-none">{t('servers.create.enable')}</span>
+                                        </label>
+                                    ) : (
+                                        <Input
+                                            id={fieldId}
+                                            type={variable.type === 'integer' ? 'number' : 'text'}
+                                            value={stringifiedVal}
+                                            onChange={(e) => setConfigData((prev: any) => ({ ...prev, [key]: variable.type === 'integer' ? Number(e.target.value) : e.target.value }))}
+                                            className={cn(variable.type === 'integer' && 'font-mono tabular-nums')}
+                                        />
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </StepSection>
+            )}
+
+            <StepSection
+                title={t('servers.create.portsTitle')}
+                hint={<>{t('servers.create.mainPort')} <span className="font-mono text-foreground">{configData['port'] || '—'}</span></>}
+            >
+                {extraPorts.length > 0 && (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                        {extraPorts.map((p: string, idx: number) => (
+                            <div key={idx} className="flex items-center gap-2">
+                                <Input
+                                    type="number"
+                                    inputMode="numeric"
+                                    value={p}
+                                    placeholder={t('servers.create.portPlaceholder')}
+                                    aria-label={t('servers.create.extraPortLabel', { index: idx + 1 })}
+                                    onChange={(e) => {
+                                        const next = [...extraPorts];
+                                        next[idx] = e.target.value;
+                                        setExtraPorts(next);
+                                    }}
+                                    className="font-mono tabular-nums"
+                                />
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive-bright"
+                                    onClick={() => setExtraPorts(extraPorts.filter((_: string, i: number) => i !== idx))}
+                                    aria-label={t('servers.create.removePort')}
+                                >
+                                    <X aria-hidden="true" />
+                                </Button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                <Button type="button" variant="outline" size="sm" className="justify-self-start" onClick={() => setExtraPorts([...extraPorts, ''])}>
+                    <Plus aria-hidden="true" />
+                    {t('servers.create.addPort')}
+                </Button>
+            </StepSection>
         </div>
     );
 }
 
 export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }: { onComplete: () => void, forcedParentId?: string, forcedNodeId?: string }) {
-    
+    const { t } = useTranslations();
+
     const isSplitter = !!forcedParentId;
     const { nodes } = useNodes(isSplitter);
     const { users } = useUsers(isSplitter);
@@ -516,13 +563,13 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
             setExtraPorts([]);
             getTemplateDetails(selectedRepo, selectedTemplateName).then(details => {
                 if (!details) {
-                    setTemplateError("No se pudo cargar la información de la plantilla. Comprueba que el repositorio de plantillas esté disponible.");
+                    setTemplateError(t('servers.create.templateLoadFailed'));
                     return;
                 }
                 setTemplateDetails(details);
                 parseTemplateVariables(details);
             }).catch(err => {
-                setTemplateError(err.message || "Error al obtener detalles de la plantilla. Verifica tu conexión o los permisos.");
+                setTemplateError(err.message || t('servers.create.templateFetchFailed'));
             });
         }
     }, [selectedTemplateName, selectedRepo]);
@@ -530,17 +577,17 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
     const handleNext = () => {
         if (currentStep === 1) {
             if (!name || (!selectedNode && !forcedParentId)) {
-                sileo.error({ title: 'Error', description: 'Por favor completa los campos obligatorios.' });
+                sileo.error({ title: t('common.error'), description: t('servers.create.requiredFields') });
                 return;
             }
             setCurrentStep(2);
         } else if (currentStep === 2) {
             if (!selectedTemplateName) {
-                sileo.error({ title: 'Error', description: 'Por favor selecciona una plantilla.' });
+                sileo.error({ title: t('common.error'), description: t('servers.create.selectTemplate') });
                 return;
             }
             if (!templateDetails && !templateError) {
-                sileo.success({ title: 'Cargando plantilla...', description: 'Espera un momento mientras se cargan los detalles de la plantilla.' });
+                sileo.success({ title: t('servers.create.templateLoadingTitle'), description: t('servers.create.templateLoadingDescription') });
                 return;
             }
             setCurrentStep(3);
@@ -598,49 +645,82 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
 
             await api.put(`/api/servers/${identifier}`, serverPayload);
 
-            sileo.success({ title: 'Éxito', description: `Servidor "${name}" creado correctamente.` });
+            sileo.success({ title: t('common.success'), description: t('servers.create.success', { name }) });
             onComplete();
         } catch (e: any) {
-            sileo.error({ title: 'Error al crear servidor', description: e?.message || 'Error desconocido.' });
+            sileo.error({ title: t('servers.create.createFailed'), description: e?.message || t('servers.create.unknownError') });
         } finally {
             setLoading(false);
         }
     };
 
-    return (
-        <ErrorBoundary>
-            <div className="space-y-6 w-full max-w-full overflow-x-hidden">
-                <div className="flex items-center justify-between mb-6 w-full min-w-0">
-                    {[1, 2, 3].map((step) => (
-                        <div key={step} className="flex items-center">
-                            <div className={`flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full border-2 transition-all duration-300 ${currentStep >= step ? 'bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/20' : 'border-muted text-muted-foreground'
-                                }`}>
-                                {currentStep > step ? <Check className="h-4 w-4 sm:h-6 sm:w-6" /> : step}
-                            </div>
-                            <span className={`ml-2 text-xs sm:text-sm font-medium ${currentStep >= step ? 'text-primary' : 'text-muted-foreground'}`}>
-                                {step === 1 ? 'Entorno' : step === 2 ? 'Plantilla' : 'Config.'}
-                            </span>
-                            {step < 3 && <div className={`mx-2 sm:mx-4 h-[2px] w-8 sm:w-24 ${currentStep > step ? 'bg-primary' : 'bg-muted'}`} />}
-                        </div>
-                    ))}
-                </div>
+    const steps: { id: Step; label: string }[] = [
+        { id: 1, label: t('servers.create.steps.environment') },
+        { id: 2, label: t('servers.create.steps.template') },
+        { id: 3, label: t('servers.create.steps.config') },
+    ];
+    const waitingForTemplate = currentStep === 2 && !!selectedTemplateName && !templateDetails && !templateError;
 
-                <Card className="border-0 bg-transparent shadow-none">
-                    <CardContent className="p-0">
+    return (
+        <ErrorBoundary t={t}>
+            {/* Fills its dialog: step indicator and footer stay put, only the step body scrolls. */}
+            <div className="flex min-h-0 w-full max-w-full flex-1 flex-col gap-5">
+                <ol className="flex w-full min-w-0 items-center gap-2 sm:gap-3" aria-label={t('servers.create.stepsLabel')}>
+                    {steps.map((step) => {
+                        const done = currentStep > step.id;
+                        const current = currentStep === step.id;
+                        return (
+                            <React.Fragment key={step.id}>
+                                <li
+                                    className={cn('flex items-center gap-2', current ? 'min-w-0' : 'shrink-0')}
+                                    aria-current={current ? 'step' : undefined}
+                                >
+                                    <span
+                                        className={cn(
+                                            'grid h-7 w-7 shrink-0 place-items-center rounded-full border text-xs font-semibold tabular-nums transition-colors duration-200',
+                                            current && 'border-primary bg-primary text-primary-foreground',
+                                            done && 'border-primary/40 bg-primary/15 text-primary-bright',
+                                            !current && !done && 'border-border text-muted-foreground'
+                                        )}
+                                    >
+                                        {done ? <Check className="h-3.5 w-3.5" aria-hidden="true" /> : step.id}
+                                    </span>
+                                    <span
+                                        className={cn(
+                                            'truncate text-sm font-medium',
+                                            current ? 'text-foreground' : 'hidden text-muted-foreground sm:inline'
+                                        )}
+                                    >
+                                        {step.label}
+                                    </span>
+                                </li>
+                                {step.id < 3 && (
+                                    <li
+                                        aria-hidden="true"
+                                        className={cn('h-px min-w-4 flex-1 transition-colors duration-200', done ? 'bg-primary/50' : 'bg-border')}
+                                    />
+                                )}
+                            </React.Fragment>
+                        );
+                    })}
+                </ol>
+
+                <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 pb-1">
+                    <div key={currentStep} className="animate-in fade-in duration-200 motion-reduce:animate-none">
                         {currentStep === 1 && (
                             <Step1Environment
                                 name={name} setName={setName}
                                 selectedNode={selectedNode} setSelectedNode={setSelectedNode}
                                 selectedEnvironment={selectedEnvironment} setSelectedEnvironment={setSelectedEnvironment}
                                 selectedUsers={selectedUsers} setSelectedUsers={setSelectedUsers}
-                                forcedParentId={forcedParentId} nodes={nodes} users={users}
+                                forcedParentId={forcedParentId} nodes={nodes} users={users} t={t}
                             />
                         )}
                         {currentStep === 2 && (
                             <Step2Template
                                 repos={repoList} selectedRepo={selectedRepo} setSelectedRepo={setSelectedRepo}
                                 templateList={templateList} selectedTemplateName={selectedTemplateName} setSelectedTemplateName={setSelectedTemplateName}
-                                loadingTemplates={loadingTemplates} templateDetails={templateDetails} templateError={templateError}
+                                loadingTemplates={loadingTemplates} templateDetails={templateDetails} templateError={templateError} t={t}
                             />
                         )}
                         {currentStep === 3 && (
@@ -651,42 +731,44 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
                                 memoryLimit={memoryLimit} setMemoryLimit={setMemoryLimit}
                                 diskLimit={diskLimit} setDiskLimit={setDiskLimit}
                                 extraPorts={extraPorts} setExtraPorts={setExtraPorts}
-                                setCurrentStep={setCurrentStep}
+                                setCurrentStep={setCurrentStep} t={t}
                             />
                         )}
-                    </CardContent>
-                    <CardFooter className="flex justify-between items-center mt-8 p-0 w-full">
+                    </div>
+                </div>
+
+                <div className="flex shrink-0 items-center justify-between gap-3 border-t border-border/50 pt-4">
+                    <Button
+                        variant="ghost"
+                        onClick={() => setCurrentStep((prev) => (prev - 1) as Step)}
+                        disabled={currentStep === 1 || loading}
+                        className={cn('shrink-0', currentStep === 1 && 'invisible')}
+                    >
+                        <ChevronLeft aria-hidden="true" />
+                        {t('common.back')}
+                    </Button>
+                    <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground sm:hidden" aria-hidden="true">
+                        {currentStep} / 3
+                    </span>
+                    {currentStep < 3 ? (
                         <Button
-                            variant="ghost"
-                            onClick={() => setCurrentStep((prev) => (prev - 1) as Step)}
-                            disabled={currentStep === 1 || loading}
+                            onClick={handleNext}
+                            disabled={waitingForTemplate}
                             className="shrink-0"
                         >
-                            <ChevronLeft className="mr-2 h-4 w-4" />
-                            Atrás
+                            {waitingForTemplate && <Loader2 className="animate-spin" aria-hidden="true" />}
+                            {t('common.next')}
+                            <ChevronRight aria-hidden="true" />
                         </Button>
-                        {currentStep < 3 ? (
-                            <Button
-                                onClick={handleNext}
-                                disabled={currentStep === 2 && !!selectedTemplateName && !templateDetails && !templateError}
-                                className="shrink-0"
-                            >
-                                {currentStep === 2 && !!selectedTemplateName && !templateDetails && !templateError
-                                    ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    : null
-                                }
-                                Siguiente
-                                <ChevronRight className="ml-2 h-4 w-4" />
-                            </Button>
-                        ) : (
-                            <Button onClick={handleCreate} disabled={loading} className="bg-primary hover:bg-primary/90 shrink-0">
-                                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                <Check className="mr-2 h-4 w-4" />
-                                Crear Servidor
-                            </Button>
-                        )}
-                    </CardFooter>
-                </Card>
+                    ) : (
+                        <Button onClick={handleCreate} disabled={loading} className="shrink-0">
+                            {loading
+                                ? <Loader2 className="animate-spin" aria-hidden="true" />
+                                : <Check aria-hidden="true" />}
+                            {t('servers.create.submit')}
+                        </Button>
+                    )}
+                </div>
             </div>
         </ErrorBoundary>
     );

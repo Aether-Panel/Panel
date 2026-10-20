@@ -9,9 +9,9 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        body: ['Outfit', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        headline: ['"Space Grotesk"', 'Outfit', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+        body: ['Geist', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        headline: ['Geist', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        mono: ['"Geist Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       colors: {
         background: 'hsl(var(--background))',

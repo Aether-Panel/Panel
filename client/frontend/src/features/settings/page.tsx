@@ -2,8 +2,11 @@ import { useAuth } from '@/contexts/providers';
 import { useEffect, useState } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Bell, Mail, Loader2, Key, Package } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Settings, Bell, Mail, Loader2, Key, Package, DownloadCloud } from 'lucide-react';
 import { useTranslations } from '@/contexts/translations-context';
 import { useSettings } from '@/hooks/use-settings';
 import { useConfig } from '@/contexts/config-context';
@@ -14,7 +17,21 @@ import { GeneralTab } from './general-tab';
 import { DiscordTab } from './discord-tab';
 import { MailTab } from './mail-tab';
 import { UpdatesTab } from './updates-tab';
-import { DownloadCloud } from 'lucide-react';
+
+/** Underline tab style shared with the server page tab bar. */
+const triggerClass =
+    "relative h-11 shrink-0 gap-2 rounded-none bg-transparent px-3 text-[13px] font-medium text-muted-foreground shadow-none transition-colors duration-200 hover:text-foreground focus-visible:ring-inset focus-visible:ring-offset-0 data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none after:absolute after:inset-x-3 after:-bottom-px after:h-0.5 after:rounded-full after:bg-primary after:opacity-0 after:transition-opacity after:duration-200 data-[state=active]:after:opacity-100 [&_svg]:size-4 [&_svg]:shrink-0";
+
+const empty = (v: unknown) => (v === undefined || v === null ? '' : v);
+
+/** Whether two settings maps hold the same values, ignoring key order. */
+function sameSettings(a: Record<string, any>, b: Record<string, any>) {
+    const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+    for (const k of keys) {
+        if (JSON.stringify(empty(a[k])) !== JSON.stringify(empty(b[k]))) return false;
+    }
+    return true;
+}
 
 export default function SettingsPage() {
     const { role, hasScope } = useAuth();
@@ -22,7 +39,6 @@ export default function SettingsPage() {
     const { t } = useTranslations();
     const { settings, loading, saving, saveSettings, sendTestEmail, sendTestDiscord } = useSettings();
     const { refresh: refreshConfig } = useConfig();
-    
 
     const [localSettings, setLocalSettings] = useState<Record<string, any>>({});
     const [activeTab, setActiveTab] = useState('general');
@@ -35,11 +51,11 @@ export default function SettingsPage() {
 
     const settingsTabs = [
         { value: 'general', label: t('settings.tabs.general'), icon: Settings },
-        { value: 'discord', label: t('settings.tabs.discord'), icon: Bell },
+        { value: 'discord', label: t('settings.tabs.discordShort'), icon: Bell },
         { value: 'mail', label: t('settings.tabs.mail'), icon: Mail },
-        { value: 'apikeys', label: 'API Keys', icon: Key },
-        { value: 'products', label: 'Provision Products', icon: Package },
-        { value: 'updates', label: 'System Updates', icon: DownloadCloud },
+        { value: 'apikeys', label: t('settings.tabs.apiKeys'), icon: Key },
+        { value: 'products', label: t('settings.tabs.products'), icon: Package },
+        { value: 'updates', label: t('settings.tabs.updates'), icon: DownloadCloud },
     ];
 
     useEffect(() => {
@@ -64,7 +80,7 @@ export default function SettingsPage() {
         } catch (e: any) {
             sileo.error({
                 title: t('common.error'),
-                description: e.message || 'Failed to save settings',
+                description: e.message || t('settings.saveError'),
             });
         }
     };
@@ -79,7 +95,7 @@ export default function SettingsPage() {
         } catch (e: any) {
             sileo.error({
                 title: t('common.error'),
-                description: e.message || 'Failed to send test email',
+                description: e.message || t('settings.mail.testError'),
             });
         }
     };
@@ -94,101 +110,132 @@ export default function SettingsPage() {
         } catch (e: any) {
             sileo.error({
                 title: t('common.error'),
-                description: e.message || 'Failed to send test Discord message',
+                description: e.message || t('settings.discord.testError'),
             });
         }
     };
 
     if (!isMounted || !hasScope('settings.edit') || loading) {
         return (
-            <div className="flex h-full items-center justify-center p-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <span className="ml-2 text-lg">{t('common.loading')}</span>
+            <div className="flex flex-col gap-6 pb-12" aria-busy="true">
+                <PageHeader title={t('settings.title')} description={t('settings.description')} />
+                <span className="sr-only">{t('common.loading')}</span>
+                <Skeleton className="h-11 w-full max-w-2xl" />
+                <Card className="divide-y divide-border/50">
+                    <div className="space-y-2 p-5 md:p-6">
+                        <Skeleton className="h-5 w-48" />
+                        <Skeleton className="h-4 w-72 max-w-full" />
+                    </div>
+                    {[0, 1, 2].map((i) => (
+                        <div key={i} className="grid gap-5 p-5 md:p-6 lg:grid-cols-[minmax(0,16rem)_minmax(0,1fr)] lg:gap-10">
+                            <div className="space-y-2">
+                                <Skeleton className="h-4 w-32" />
+                                <Skeleton className="h-4 w-48 max-w-full" />
+                            </div>
+                            <div className="space-y-3">
+                                <Skeleton className="h-4 w-24" />
+                                <Skeleton className="h-10 w-full" />
+                            </div>
+                        </div>
+                    ))}
+                </Card>
             </div>
         );
     }
 
+    const isDirty = !sameSettings(localSettings, settings);
+    const onDiscard = () => setLocalSettings(settings);
+
     return (
-        <div className="flex flex-col gap-8 pb-12">
+        <div className="flex flex-col gap-6 pb-12">
             <PageHeader title={t('settings.title')} description={t('settings.description')} />
 
-            <div className="flex flex-col lg:flex-row lg:gap-6 w-full">
-                <div className="lg:hidden mb-4">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                {/* Phones and tablets: a select; desktop: one row of underline tabs. */}
+                <div className="lg:hidden">
                     <Select value={activeTab} onValueChange={setActiveTab}>
-                        <SelectTrigger>
-                            <SelectValue placeholder={t('settings.tabs.general')} />
+                        <SelectTrigger aria-label={t('settings.tabs.sectionLabel')}>
+                            <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                             {settingsTabs.map((tab) => (
                                 <SelectItem key={tab.value} value={tab.value}>
-                                    <div className="flex items-center gap-2">
-                                        <tab.icon className="h-4 w-4" />
-                                        <span>{tab.label}</span>
-                                    </div>
+                                    <span className="flex items-center gap-2">
+                                        <tab.icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                                        {tab.label}
+                                    </span>
                                 </SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
                 </div>
 
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="hidden lg:block lg:w-64 lg:shrink-0">
-                    <TabsList className="flex flex-col w-full bg-transparent p-0 h-auto gap-1">
+                <div className="hidden lg:block">
+                    <TabsList className="flex h-auto w-full items-stretch justify-start gap-1 overflow-x-auto rounded-none border-b border-border/60 bg-transparent p-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                         {settingsTabs.map((tab) => (
-                            <TabsTrigger key={tab.value} value={tab.value} className="justify-start gap-3 py-2 px-3 rounded-md border-0 data-[state=active]:bg-muted/50 data-[state=active]:text-foreground text-muted-foreground hover:text-foreground transition-colors font-medium text-sm">
-                                <tab.icon className="h-4 w-4" />
+                            <TabsTrigger key={tab.value} value={tab.value} className={triggerClass}>
+                                <tab.icon aria-hidden="true" />
                                 {tab.label}
                             </TabsTrigger>
                         ))}
                     </TabsList>
-                </Tabs>
-
-                <div className="flex-1 min-w-0">
-                    <Tabs value={activeTab} onValueChange={setActiveTab}>
-                        <TabsContent value="general" className="mt-0">
-                            <GeneralTab
-                                localSettings={localSettings}
-                                handleUpdate={handleUpdate}
-                                handleSave={handleSave}
-                                saving={saving}
-                                t={t}
-                            />
-                        </TabsContent>
-
-                        <TabsContent value="discord" className="mt-0">
-                            <DiscordTab
-                                localSettings={localSettings}
-                                handleUpdate={handleUpdate}
-                                handleSave={handleSave}
-                                handleTestDiscord={handleTestDiscord}
-                                saving={saving}
-                                t={t}
-                            />
-                        </TabsContent>
-
-                        <TabsContent value="mail" className="mt-0">
-                            <MailTab
-                                localSettings={localSettings}
-                                handleUpdate={handleUpdate}
-                                handleSave={handleSave}
-                                handleTestEmail={handleTestEmail}
-                                saving={saving}
-                                t={t}
-                            />
-                        </TabsContent>
-
-                        <TabsContent value="apikeys" className="mt-0">
-                            <ApiKeysView />
-                        </TabsContent>
-
-                        <TabsContent value="products" className="mt-0">
-                            <ProductsView />
-                        </TabsContent>
-                        <TabsContent value="updates" className="mt-0">
-                            <UpdatesTab />
-                        </TabsContent>
-                    </Tabs>
                 </div>
-            </div>
+
+                <TabsContent value="general" className="mt-6">
+                    <GeneralTab localSettings={localSettings} handleUpdate={handleUpdate} t={t} />
+                </TabsContent>
+
+                <TabsContent value="discord" className="mt-6">
+                    <DiscordTab
+                        localSettings={localSettings}
+                        handleUpdate={handleUpdate}
+                        handleTestDiscord={handleTestDiscord}
+                        saving={saving}
+                        t={t}
+                    />
+                </TabsContent>
+
+                <TabsContent value="mail" className="mt-6">
+                    <MailTab
+                        localSettings={localSettings}
+                        handleUpdate={handleUpdate}
+                        handleTestEmail={handleTestEmail}
+                        saving={saving}
+                        t={t}
+                    />
+                </TabsContent>
+
+                <TabsContent value="apikeys" className="mt-6">
+                    <ApiKeysView />
+                </TabsContent>
+
+                <TabsContent value="products" className="mt-6">
+                    <ProductsView />
+                </TabsContent>
+
+                <TabsContent value="updates" className="mt-6">
+                    <UpdatesTab />
+                </TabsContent>
+            </Tabs>
+
+            {isDirty && (
+                <div
+                    role="region"
+                    aria-label={t('servers.settings.unsavedChanges')}
+                    className="sticky bottom-4 z-20 flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-popover/95 px-4 py-3 shadow-elevation-3 backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200 sm:px-5"
+                >
+                    <span className="text-sm text-muted-foreground">{t('servers.settings.unsavedChanges')}</span>
+                    <div className="flex gap-2">
+                        <Button variant="ghost" size="sm" onClick={onDiscard} disabled={saving}>
+                            {t('servers.settings.discard')}
+                        </Button>
+                        <Button size="sm" onClick={handleSave} disabled={saving}>
+                            {saving && <Loader2 className="animate-spin" aria-hidden="true" />}
+                            {saving ? t('common.saving') : t('servers.settings.saveButton')}
+                        </Button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

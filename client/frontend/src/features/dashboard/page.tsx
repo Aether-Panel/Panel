@@ -4,6 +4,7 @@ import { useConfig } from '@/contexts/config-context';
 import type { Server } from '@/lib/data';
 import { Cpu, HardDrive, MemoryStick, ServerIcon } from 'lucide-react';
 import { PageHeader } from '@/components/page-header';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useTranslations } from '@/contexts/translations-context';
 import { ServerCard } from '@/components/server-card';
 import { useServers } from '@/hooks/use-servers';
@@ -104,13 +105,13 @@ function AdminDashboard({ user, t, canSeeNodes, canSeeUsers, allServers, usersCo
   const averageHint = describeSamples(sampleCount, usingNodes, t);
 
   const metrics = [
-    { key: 'cpu', label: t('dashboard.admin.kpi.averageOf', { metric: t('dashboard.table.cpu') }), value: avgCpuUsage, icon: Cpu },
-    { key: 'memory', label: t('dashboard.admin.kpi.averageOf', { metric: t('dashboard.table.memory') }), value: avgMemoryUsage, icon: MemoryStick },
-    { key: 'storage', label: t('dashboard.admin.kpi.averageOf', { metric: t('dashboard.table.storage') }), value: avgStorageUsage, icon: HardDrive },
+    { key: 'cpu', label: t('dashboard.admin.kpi.averageCpu'), value: avgCpuUsage, icon: Cpu },
+    { key: 'memory', label: t('dashboard.admin.kpi.averageMemory'), value: avgMemoryUsage, icon: MemoryStick },
+    { key: 'storage', label: t('dashboard.admin.kpi.averageStorage'), value: avgStorageUsage, icon: HardDrive },
   ];
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="dash-fit flex flex-col gap-4">
       <StatusStrip
         name={user?.username || ''}
         healthPercent={healthPercent}
@@ -121,7 +122,7 @@ function AdminDashboard({ user, t, canSeeNodes, canSeeUsers, allServers, usersCo
 
       <section
         aria-label={t('dashboard.admin.kpi.label')}
-        className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
+        className="grid grid-cols-3 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4"
       >
         {metrics.map((metric) => (
           <KpiCard
@@ -140,10 +141,11 @@ function AdminDashboard({ user, t, canSeeNodes, canSeeUsers, allServers, usersCo
           users={canSeeUsers ? usersCount : null}
           nodes={canSeeNodes ? realNodes.length : null}
           registrationEnabled={registrationEnabled}
+          className="col-span-3 sm:col-span-1"
         />
       </section>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,13fr)_minmax(0,7fr)]">
+      <div data-fit="fill" className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,13fr)_minmax(0,7fr)]">
         <NetworkHistoryChart samples={samples} />
         <AccessLog canRead={canSeeUsers} />
       </div>
@@ -159,20 +161,38 @@ function UserDashboard({ user, t, userServers }: any) {
         description={t('dashboard.user.description')}
       />
       <div>
-        <h2 className="text-lg font-semibold tracking-tight text-foreground mb-4">{t('dashboard.user.myServers')}</h2>
+        <h2 className="mb-4 text-lg font-semibold tracking-[-0.02em] text-foreground">{t('dashboard.user.myServers')}</h2>
         {userServers.length > 0 ? (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 2xl:grid-cols-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(20rem,100%),1fr))] gap-5">
             {userServers.map((server: Server) => (
               <ServerCard key={server.id} server={server} t={t} />
             ))}
           </div>
         ) : (
-          <div className="rounded-xl border border-dashed border-border/60 bg-card/50 p-12 text-center">
-            <ServerIcon className="mx-auto h-10 w-10 text-muted-foreground/40 mb-4" />
-            <p className="text-sm font-medium text-foreground mb-1">{t('dashboard.user.noServers')}</p>
-            <p className="text-xs text-muted-foreground">Contact your administrator to get started</p>
+          <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
+            <ServerIcon className="h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
+            <p className="text-base font-semibold text-foreground">{t('dashboard.user.noServers')}</p>
+            <p className="max-w-[44ch] text-sm text-muted-foreground">{t('dashboard.user.noServersHint')}</p>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+/** Loading state shaped like the page it stands in for, so nothing jumps when data lands. */
+function DashboardSkeleton() {
+  return (
+    <div className="flex flex-col gap-4" aria-busy="true">
+      <Skeleton className="h-40 shrink-0 rounded-xl lg:h-32" />
+      <div className="grid shrink-0 grid-cols-3 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
+        {Array.from({ length: 4 }, (_, i) => (
+          <Skeleton key={i} className={i === 3 ? 'col-span-3 h-40 rounded-xl sm:col-span-1' : 'h-40 rounded-xl'} />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,13fr)_minmax(0,7fr)]">
+        <Skeleton className="h-80 rounded-xl" />
+        <Skeleton className="h-80 rounded-xl" />
       </div>
     </div>
   );
@@ -192,11 +212,7 @@ export default function DashboardPage() {
   const { metrics: globalNetworkMetrics } = useGlobalNetworkMetrics();
 
   if (serversLoading || nodesLoading || usersLoading) {
-    return (
-      <div className="flex h-64 w-full items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-border border-t-primary border-l-accent" />
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   if (isPowerUser) {
