@@ -39,3 +39,21 @@ func TestDownloadFile_RefusesLoopback(t *testing.T) {
 	assert.Error(t, err)
 	assert.Zero(t, hits, "the request must not reach the local service")
 }
+
+func TestRestrictedHTTPClient_RefusesInternalAddresses(t *testing.T) {
+	hits := 0
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		hits++
+	}))
+	defer server.Close()
+
+	_, err := NewRestrictedHTTPClient().Get(server.URL)
+	assert.Error(t, err)
+
+	// "localhost" only becomes an internal address once it is resolved, which is the case
+	// a check made before connecting can be tricked into missing
+	_, port, _ := net.SplitHostPort(server.Listener.Addr().String())
+	_, err = NewRestrictedHTTPClient().Get("http://localhost:" + port)
+	assert.Error(t, err)
+	assert.Zero(t, hits)
+}
