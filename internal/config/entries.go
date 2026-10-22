@@ -93,6 +93,10 @@ var SecurityBlockPrivateDownloads = asBool("security.blockPrivateDownloads", fal
 var DockerRootPath = asString("docker.root", "")
 var DockerDisallowHost = asBool("docker.disallowHost", false)
 
+// DockerServersNetwork is the Docker network for game server containers whose template does
+// not pick one. Empty keeps them on the panel's own network.
+var DockerServersNetwork = asString("docker.serversNetwork", "")
+
 type entry[T ValueType] struct {
 	key string
 }

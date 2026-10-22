@@ -25,8 +25,10 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    # También en la red de los servidores de juego, que la usan para sus bases de datos
     networks:
       - skypanel-network
+      - skypanel-servers
 
   skypanel:
     build:
@@ -56,6 +58,8 @@ services:
       - SKYPANEL_PLATFORM=docker
       - SKYPANEL_DOCKER_ROOT=
       - SKYPANEL_DOCKER_DISALLOWHOST=true
+      # Los servidores de juego van a su propia red: llegan a MariaDB, pero no al panel
+      - SKYPANEL_DOCKER_SERVERSNETWORK=skypanel-servers
       - SKYPANEL_WEB_HOST=0.0.0.0:8080
 
       # Para configurar como nodo esclavo (Daemon only):
@@ -111,4 +115,8 @@ services:
 # Redes
 networks:
   skypanel-network:
+    driver: bridge
+  # Nombre fijo: el panel crea los contenedores de juego en esta red por su nombre
+  skypanel-servers:
+    name: skypanel-servers
     driver: bridge
