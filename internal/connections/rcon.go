@@ -7,6 +7,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/gorcon/rcon"
 	"io"
+	"net"
 	"sync"
 	"time"
 )
@@ -66,7 +67,11 @@ func (tc *RCONConnection) Close() error {
 	if conn == nil {
 		return nil
 	}
-	return conn.Close()
+	// the woken reconnector closes the connection too; whichever goes second is not an error
+	if err := conn.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
+		return err
+	}
+	return nil
 }
 
 func (tc *RCONConnection) readyConnection() *rcon.Conn {
@@ -136,6 +141,8 @@ func (tc *RCONConnection) recon(init bool) {
 	}
 	tc.setReady(conn, true)
 	defer utils.Close(conn)
-	<-closer
+	if err := <-closer; err != nil {
+		logging.Debug.Printf("RCON connection dropped: %s", err.Error())
+	}
 	tc.setReady(nil, false)
 }

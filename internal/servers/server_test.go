@@ -440,8 +440,7 @@ func TestServerCache_ConcurrentAccess(t *testing.T) {
 		}(i)
 		go func() {
 			defer wg.Done()
-			for range GetAll() {
-			}
+			_ = len(GetAll())
 			_ = GetFromCache("srv-1")
 		}()
 	}
