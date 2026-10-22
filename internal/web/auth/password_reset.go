@@ -2,6 +2,7 @@ package auth
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
@@ -84,6 +85,12 @@ func ResetPasswordPost(c *gin.Context) {
 		return
 	}
 
+	// whoever knew the old password must not stay logged in
+	ss := &services.Session{DB: db}
+	if err = ss.ExpireAllForUser(user.ID, ""); err != nil {
+		logging.Error.Printf("Error ending sessions after password reset: %s", err.Error())
+	}
+
 	err = services.GetEmailService().SendEmail(user.Email, "passwordChanged", nil, true)
 	if err != nil {
 		logging.Error.Printf("Error sending password changed email: %s", err.Error())
@@ -102,6 +109,13 @@ type resetPasswordRequestData struct {
 }
 
 func panelBaseURL(c *gin.Context) string {
+	// The link must point at the configured panel: building it from request headers lets
+	// anyone send a reset email whose link delivers the token to their own domain.
+	if masterURL := strings.TrimSuffix(config.MasterURL.Value(), "/"); config.MasterURL.IsSet() && masterURL != "" {
+		return masterURL
+	}
+	logging.Info.Printf("Master URL is not configured; building the password reset link from the request host. Set it in the panel settings.")
+
 	host := c.Request.Header.Get("X-Forwarded-Host")
 	if host == "" {
 		host = c.Request.Host

@@ -105,6 +105,13 @@ func AuthMiddleware(c *gin.Context) {
 	// (background/API clients manage their own token lifetime).
 	if fromCookie {
 		maxAge := int(services.SessionLength / time.Second)
-		c.SetCookie("skypanel_auth", token, maxAge, "/", "", true, true)
+		SetAuthCookie(c, token, maxAge)
 	}
+}
+
+// SetAuthCookie writes the session cookie. SameSite=Lax keeps browsers from attaching it
+// to requests started by other sites, on top of HttpOnly and Secure.
+func SetAuthCookie(c *gin.Context, value string, maxAge int) {
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie("skypanel_auth", value, maxAge, "/", "", true, true)
 }

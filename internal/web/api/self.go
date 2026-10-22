@@ -125,6 +125,14 @@ func updateSelf(c *gin.Context) {
 		return
 	}
 
+	if passwordChanged {
+		// keep this session, end the others that were opened with the old password
+		ss := &services.Session{DB: db}
+		if err := ss.ExpireAllForUser(user.ID, middleware.GetToken(c)); err != nil {
+			logging.Error.Printf("Error ending sessions after password change: %s\n", err)
+		}
+	}
+
 	if oldEmail != "" {
 		err := services.GetEmailService().SendEmail(oldEmail, "emailChanged", map[string]interface{}{
 			"NEW_EMAIL": user.Email,

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
@@ -12,6 +13,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cast"
+	"gorm.io/gorm"
 )
 
 func registerUsers(g *gin.RouterGroup) {
@@ -105,6 +107,9 @@ func createUser(c *gin.Context) {
 
 	user := &models.User{}
 	viewModel.CopyToModel(user)
+	if callerIsAdmin(c) {
+		viewModel.CopyRoleToModel(user)
+	}
 
 	if err = us.Create(user); response.HandleError(c, err, http.StatusInternalServerError) {
 		return
@@ -184,10 +189,25 @@ func updateUser(c *gin.Context) {
 		return
 	}
 
+	isAdmin := callerIsAdmin(c)
+	if !isAdmin && denyEditingAdmin(c, db, user) {
+		return
+	}
+
 	viewModel.CopyToModel(user)
+	if isAdmin {
+		viewModel.CopyRoleToModel(user)
+	}
 
 	if err = us.Update(user); response.HandleError(c, err, http.StatusInternalServerError) {
 		return
+	}
+
+	if viewModel.Password != "" {
+		ss := &services.Session{DB: db}
+		if err = ss.ExpireAllForUser(user.ID, ""); response.HandleError(c, err, http.StatusInternalServerError) {
+			return
+		}
 	}
 
 	c.Status(http.StatusNoContent)
@@ -216,6 +236,10 @@ func deleteUser(c *gin.Context) {
 
 	user, err := us.GetByID(id)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	if !callerIsAdmin(c) && denyEditingAdmin(c, db, user) {
 		return
 	}
 
@@ -300,20 +324,19 @@ func setUserPerms(c *gin.Context) {
 		return
 	}
 
-	// get the current user's scopes
-	editorUser := c.MustGet("user").(*models.User)
-	editorPerms, err := ps.GetForUserAndServer(editorUser.ID, "")
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-		return
-	}
+	// get the current user's scopes, including the ones from their role
+	editorScopes := callerScopes(c)
 
 	// admins can override, so skip our comparers
-	if scopes.ContainsScope(editorPerms.Scopes, scopes.ScopeAdmin) {
+	if scopes.ContainsScope(editorScopes, scopes.ScopeAdmin) {
 		perms.Scopes = viewModel.Scopes
 	} else {
-		allowedScopes := utils.Union(viewModel.Scopes, editorPerms.Scopes)
+		if denyEditingAdmin(c, db, user) {
+			return
+		}
+		allowedScopes := utils.Union(viewModel.Scopes, editorScopes)
 		// update perms to match this "setup", but not stomp over what the user can't change
-		replacement := scopes.UpdateScopesWhereGranted(perms.Scopes, allowedScopes, editorPerms.Scopes)
+		replacement := scopes.UpdateScopesWhereGranted(perms.Scopes, allowedScopes, editorScopes)
 		perms.Scopes = replacement
 	}
 
@@ -332,4 +355,55 @@ func newUserSearch() *models.UserSearch {
 		PageLimit: DefaultPageSize,
 		Page:      1,
 	}
+}
+
+// callerScopes returns the scopes checkPermission resolved for this request (role included)
+func callerScopes(c *gin.Context) []*scopes.Scope {
+	if v, ok := c.Get("scopes"); ok {
+		if granted, ok := v.([]*scopes.Scope); ok {
+			return granted
+		}
+	}
+	return []*scopes.Scope{}
+}
+
+func callerIsAdmin(c *gin.Context) bool {
+	return scopes.ContainsScope(callerScopes(c), scopes.ScopeAdmin)
+}
+
+// denyEditingAdmin stops non-admins from changing an administrator's account, which would
+// let them take it over (new email or password). It aborts and returns true when denied.
+func denyEditingAdmin(c *gin.Context, db *gorm.DB, target *models.User) bool {
+	isAdmin, err := userIsAdmin(db, target)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return true
+	}
+
+	if isAdmin {
+		c.AbortWithStatusJSON(http.StatusForbidden, &skypanel.ErrorResponse{Error: skypanel.FromError(errors.New("only administrators can modify an administrator"))})
+		return true
+	}
+	return false
+}
+
+// userIsAdmin reports whether the user holds the admin scope, globally or through their role
+func userIsAdmin(db *gorm.DB, user *models.User) (bool, error) {
+	ps := &services.Permission{DB: db}
+	perms, err := ps.GetForUserAndServer(user.ID, "")
+	if err != nil {
+		return false, err
+	}
+	userScopes := append([]*scopes.Scope{}, perms.Scopes...)
+
+	if user.RoleID != nil {
+		rs := &services.Role{DB: db}
+		role, err := rs.Get(*user.RoleID)
+		if err == nil && role != nil {
+			for _, s := range role.Scopes {
+				userScopes = scopes.AddScope(userScopes, scopes.GetScope(s))
+			}
+		}
+	}
+
+	return scopes.ContainsScope(userScopes, scopes.ScopeAdmin), nil
 }

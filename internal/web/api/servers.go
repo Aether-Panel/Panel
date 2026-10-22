@@ -63,7 +63,7 @@ func registerServers(g *gin.RouterGroup) {
 	g.PUT("/:serverId/data", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, editServerDataAdmin)
 	g.OPTIONS("/:serverId/data", response.CreateOptions("GET", "POST", "PUT"))
 
-	g.PUT("/:serverId/port-settings", middleware.RequiresPermission(scopes.ScopeServerViewData), middleware.ResolveServerPanel, editPortSettings)
+	g.PUT("/:serverId/port-settings", middleware.RequiresPermission(scopes.ScopeServerEditData), middleware.ResolveServerPanel, editPortSettings)
 	g.OPTIONS("/:serverId/port-settings", response.CreateOptions("PUT"))
 
 	g.POST("/:serverId/transfer", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, transferServer)
@@ -1222,7 +1222,9 @@ func createBackup(c *gin.Context) {
 		return
 	}
 
-	resolvedPath := "/daemon/server/" + strings.TrimPrefix(c.Request.URL.Path, "/api/servers/")
+	// keep the path escaped: it is parsed again for the node, so a decoded "#", "?" or "%"
+	// in a file name would end up as fragment, query or a broken escape
+	resolvedPath := "/daemon/server/" + strings.TrimPrefix(c.Request.URL.EscapedPath(), "/api/servers/")
 	if c.Request.URL.RawQuery != "" {
 		resolvedPath += "?" + c.Request.URL.RawQuery
 	}
@@ -1495,7 +1497,9 @@ func proxyServerRequest(c *gin.Context) {
 	db := middleware.GetDatabase(c)
 	ns := &services.Node{DB: db}
 
-	resolvedPath := "/daemon/server/" + strings.TrimPrefix(c.Request.URL.Path, "/api/servers/")
+	// keep the path escaped: it is parsed again for the node, so a decoded "#", "?" or "%"
+	// in a file name would end up as fragment, query or a broken escape
+	resolvedPath := "/daemon/server/" + strings.TrimPrefix(c.Request.URL.EscapedPath(), "/api/servers/")
 	if c.Request.URL.RawQuery != "" {
 		resolvedPath += "?" + c.Request.URL.RawQuery
 	}

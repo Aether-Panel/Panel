@@ -37,7 +37,9 @@ func RegisterRoutes(e *gin.Engine) {
 	corsConfig.AllowOriginFunc = func(_ string) bool {
 		return true
 	}
-	corsConfig.AllowCredentials = true
+	// Other sites may call the API with a bearer token, but never with the user's session
+	// cookie: the panel itself is same-origin and does not need CORS for that.
+	corsConfig.AllowCredentials = false
 	corsConfig.AddAllowHeaders("Authorization", "Content-Type", "Accept", "Origin")
 	corsConfig.AddAllowMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
 	e.Use(cors.New(corsConfig))

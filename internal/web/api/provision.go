@@ -181,6 +181,16 @@ func provisionServer(c *gin.Context) {
 	case response.HandleError(c, err, http.StatusInternalServerError):
 		return
 	default:
+		// An API key must never be able to take over an administrator's account
+		isAdmin, err := userIsAdmin(db, user)
+		if response.HandleError(c, err, http.StatusInternalServerError) {
+			return
+		}
+		if isAdmin {
+			response.HandleError(c, errors.New("this email belongs to an administrator and cannot be provisioned"), http.StatusConflict)
+			return
+		}
+
 		// User already exists — reset their password so Paymenter can show it
 		generatedPassword, _ = utils.GenerateRandomString(12)
 		_ = user.SetPassword(generatedPassword)

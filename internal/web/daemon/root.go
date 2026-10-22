@@ -32,7 +32,8 @@ func RegisterDaemonRoutes(e *gin.RouterGroup) {
 	e.GET("features", getFeatures)
 	e.Handle("OPTIONS", "features", response.CreateOptions("GET"))
 
-	e.GET("system", getSystemInfo)
+	// host details (hostname, disks, CPU) are only for the panel, and each call blocks for a second
+	e.GET("system", middleware.ValidateJWT, getSystemInfo)
 	e.Handle("OPTIONS", "system", response.CreateOptions("GET"))
 
 	e.POST("update", middleware.ValidateJWT, daemonUpdate)

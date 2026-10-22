@@ -86,8 +86,8 @@ func OtpPost(c *gin.Context) {
 	}
 
 	userSession := sessions.Default(c)
-	email := userSession.Get("user").(string)
-	timestamp := userSession.Get("time").(int64)
+	email, _ := userSession.Get("user").(string)
+	timestamp, _ := userSession.Get("time").(int64)
 
 	if email == "" {
 		response.HandleError(c, skypanel.ErrInvalidSession, http.StatusBadRequest)
@@ -154,7 +154,7 @@ func createSession(c *gin.Context, user *models.User) {
 	maxAge := int(services.SessionLength / time.Second)
 
 	// Always set Secure=true for session cookie to prevent transmission over HTTP
-	c.SetCookie("skypanel_auth", session, maxAge, "/", "", true, true)
+	middleware.SetAuthCookie(c, session, maxAge)
 
 	c.JSON(http.StatusOK, data)
 }
