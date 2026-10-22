@@ -88,7 +88,7 @@ const BREADCRUMB_EVENT = 'aether:breadcrumb';
  */
 function AppTopBar({ currentPath, searchItems }: { currentPath: string; searchItems: QuickSearchItem[] }) {
     const { t } = useTranslations();
-    const { toggleSidebar } = useSidebar();
+    const { toggleSidebar, state } = useSidebar();
     const [entityLabels, setEntityLabels] = useState<Record<string, string>>({});
 
     // Layout effect: registered before any page effect can dispatch.
@@ -136,7 +136,11 @@ function AppTopBar({ currentPath, searchItems }: { currentPath: string; searchIt
                 size="icon"
                 onClick={toggleSidebar}
                 aria-label={t('sidebar.toggleMenu')}
-                className="h-9 w-9 shrink-0 rounded-lg border border-border/60 text-muted-foreground hover:border-border hover:bg-accent/60 hover:text-foreground md:hidden"
+                // on desktop it only shows while the sidebar is hidden, so it can always be brought back
+                className={cn(
+                    "h-9 w-9 shrink-0 rounded-lg border border-border/60 text-muted-foreground hover:border-border hover:bg-accent/60 hover:text-foreground",
+                    state === 'expanded' && "md:hidden"
+                )}
             >
                 <Menu aria-hidden="true" />
             </Button>

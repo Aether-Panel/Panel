@@ -46,6 +46,11 @@ export function TranslationsProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // keep <html lang> in step so screen readers and the browser use the right language
+  useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
+
   const setLanguage = (lang: Locale) => {
     try {
       localStorage.setItem('aether_panel_language', lang);
