@@ -2,6 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Geist and Geist Mono variable fonts, served by the panel (licence: public/fonts/Geist-OFL.txt) */
+@font-face {
+  font-family: 'Geist';
+  src: url('/fonts/Geist.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('/fonts/GeistMono.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 /*
   Aether Panel is dark-only: `:root` and `.dark` are intentionally
   byte-identical, so every token below is declared twice on purpose.
