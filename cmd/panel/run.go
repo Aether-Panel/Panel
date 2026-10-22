@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -24,7 +26,6 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/internal/web"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
-	"github.com/braintree/manners"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
@@ -39,7 +40,7 @@ var runCmd = &cobra.Command{
 	Hidden: true,
 }
 
-var webService *manners.GracefulServer
+var webService *http.Server
 
 func executeRun(_ *cobra.Command, _ []string) {
 	term, _ := internalRun()
@@ -186,10 +187,10 @@ func internalRun() (terminate chan bool, success bool) {
 	}
 
 	logging.Info.Printf("Listening for HTTP requests on %s", l.Addr().String())
-	webService = manners.NewWithServer(&http.Server{
+	webService = &http.Server{
 		Handler:           router,
 		ReadHeaderTimeout: 10 * time.Second,
-	})
+	}
 
 	go func() {
 		err = webService.Serve(l)
@@ -209,7 +210,13 @@ func closePanel() {
 	// used
 	logging.Debug.Printf("stopping http server")
 	if webService != nil {
-		webService.Close()
+		// let requests in progress finish, without holding the shutdown for slow ones
+		ctx, cancel := context.WithTimeout(context.Background(), webShutdownTimeout)
+		if err := webService.Shutdown(ctx); err != nil {
+			logging.Error.Printf("error stopping http server: %s", err.Error())
+			_ = webService.Close()
+		}
+		cancel()
 	}
 
 	logging.Debug.Printf("stopping sftp server")
@@ -217,16 +224,35 @@ func closePanel() {
 
 	logging.Debug.Printf("stopping servers")
 	servers.ShutdownService()
-	for _, p := range servers.GetAll() {
-		_ = p.Stop()
-		err := p.RunningEnvironment.WaitForMainProcessFor(time.Minute) // wait 60 seconds
-		if err != nil {
-			logging.Error.Printf("error stopping server: %s", err.Error())
-		}
-	}
+	stopAllServers(serverStopTimeout)
 
 	logging.Debug.Printf("stopping database connections")
 	database.Close()
+}
+
+const (
+	webShutdownTimeout = 10 * time.Second
+	// serverStopTimeout is how long each game server gets to stop before it is killed; all of
+	// them stop at once, so it is also roughly the whole wait (compose gives the panel 90s)
+	serverStopTimeout = time.Minute
+)
+
+// stopAllServers asks every server to stop at the same time. Stopping them one after
+// another took up to a minute each, so with several servers most were never asked before
+// Docker killed the panel.
+func stopAllServers(timeout time.Duration) {
+	var wg sync.WaitGroup
+	for _, p := range servers.GetAll() {
+		wg.Add(1)
+		go func(p *servers.Server) {
+			defer wg.Done()
+			_ = p.Stop()
+			if err := p.RunningEnvironment.WaitForMainProcessFor(timeout); err != nil {
+				logging.Error.Printf("[%s] error stopping server: %s", p.ID(), err.Error())
+			}
+		}(p)
+	}
+	wg.Wait()
 }
 
 func panel() {

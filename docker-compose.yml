@@ -39,6 +39,9 @@ services:
         - sha=local-build
     container_name: skypanel
     restart: unless-stopped
+    # Al parar, el panel pide a todos los servidores de juego que se detengan (hasta 60s)
+    # para que guarden sus mundos; los 10s por defecto de Docker no daban tiempo
+    stop_grace_period: 90s
     depends_on:
       mysql:
         condition: service_healthy

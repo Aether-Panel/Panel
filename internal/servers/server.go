@@ -99,8 +99,13 @@ func ShutdownService() {
 	}()
 
 	running = false
-	startQueueTicker.Stop()
-	statTicker.Stop()
+	// the tickers are created by their goroutines, so a very early shutdown can find them unset
+	if startQueueTicker != nil {
+		startQueueTicker.Stop()
+	}
+	if statTicker != nil {
+		statTicker.Stop()
+	}
 	if systemStatusTicker != nil {
 		systemStatusTicker.Stop()
 	}
