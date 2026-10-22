@@ -1230,7 +1230,9 @@ func createBackup(c *gin.Context) {
 		return
 	}
 
-	if callResponse.StatusCode == http.StatusBadRequest { // If its a local node, the err will not be set, have to check the status code
+	// any refusal from the node (bad request, server running, backup in progress...) is
+	// passed through; only a 400 used to be, so other errors were reported as success
+	if callResponse.StatusCode >= http.StatusMultipleChoices {
 		newHeaders := cleanHTTPReturnErrors(callResponse.Header)
 
 		c.DataFromReader(callResponse.StatusCode, callResponse.ContentLength, callResponse.Header.Get("Content-Type"), callResponse.Body, newHeaders)
@@ -1290,7 +1292,9 @@ func deleteBackup(c *gin.Context) {
 		return
 	}
 
-	if callResponse.StatusCode == http.StatusBadRequest { // If its a local node, the err will not be set, have to check the status code
+	// any refusal from the node (bad request, server running, backup in progress...) is
+	// passed through; only a 400 used to be, so other errors were reported as success
+	if callResponse.StatusCode >= http.StatusMultipleChoices {
 		newHeaders := cleanHTTPReturnErrors(callResponse.Header)
 
 		c.DataFromReader(callResponse.StatusCode, callResponse.ContentLength, callResponse.Header.Get("Content-Type"), callResponse.Body, newHeaders)
@@ -1343,7 +1347,9 @@ func restoreBackup(c *gin.Context) {
 		return
 	}
 
-	if callResponse.StatusCode == http.StatusBadRequest { // If its a local node, the err will not be set, have to check the status code
+	// any refusal from the node (bad request, server running, backup in progress...) is
+	// passed through; only a 400 used to be, so other errors were reported as success
+	if callResponse.StatusCode >= http.StatusMultipleChoices {
 		newHeaders := cleanHTTPReturnErrors(callResponse.Header)
 
 		c.DataFromReader(callResponse.StatusCode, callResponse.ContentLength, callResponse.Header.Get("Content-Type"), callResponse.Body, newHeaders)
