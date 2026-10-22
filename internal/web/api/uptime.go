@@ -57,7 +57,22 @@ func getAllUptime(c *gin.Context) {
 		PageSize: 1000, // Obtener todos los servidores
 		Page:     1,
 	}
+
+	// Un usuario sin admin solo puede ver los servidores a los que tiene acceso
+	user := c.MustGet("user").(*models.User)
+	isAdmin := scopes.ContainsScope(getUserScopesForSearch(user, &services.Permission{DB: db}), scopes.ScopeAdmin)
+	if !isAdmin {
+		searchCriteria.Username = user.Username
+	}
+
 	allServers, totalServers, err := dbServers.Search(searchCriteria)
+	if err != nil && !isAdmin {
+		response.HandleError(c, err, http.StatusInternalServerError)
+		return
+	}
+	if !isAdmin {
+		uptimeStats = filterUptimeToServers(uptimeStats, allServers)
+	}
 	if err != nil {
 		// Si falla, solo usar los que tienen datos de uptime
 		for serverID := range uptimeStats {
@@ -172,6 +187,17 @@ func getAllUptime(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, uptimeStats)
+}
+
+// filterUptimeToServers deja solo las estadísticas de los servidores indicados
+func filterUptimeToServers(uptimeStats map[string]map[string]interface{}, allowed []*models.Server) map[string]map[string]interface{} {
+	filtered := make(map[string]map[string]interface{}, len(allowed))
+	for _, server := range allowed {
+		if stats, ok := uptimeStats[server.Identifier]; ok {
+			filtered[server.Identifier] = stats
+		}
+	}
+	return filtered
 }
 
 // @Summary Get server uptime

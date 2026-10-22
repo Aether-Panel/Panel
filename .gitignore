@@ -78,3 +78,9 @@ basura_o_desconocido/
 
 # Agent rules (solo en dev2.0)
 .agents/
+# Local secrets and configuration (never commit; see .env.example and config.linux.json)
+.env
+/config.json
+
+# Locally built panel binary
+/panel

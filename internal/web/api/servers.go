@@ -338,6 +338,13 @@ func createServer(c *gin.Context) {
 	}
 	postBody.Identifier = serverID
 
+	user := c.MustGet("user").(*models.User)
+	if !scopes.ContainsScope(getUserScopesForSearch(user, ps), scopes.ScopeAdmin) {
+		if err := restrictSubServerCreation(ps, user, postBody); response.HandleError(c, err, http.StatusForbidden) {
+			return
+		}
+	}
+
 	server, users, err := validateAndBuildServerCreation(c, db, us, postBody)
 	if err != nil {
 		return
@@ -2030,6 +2037,41 @@ func validateAndBuildServerCreation(c *gin.Context, db *gorm.DB, us *services.Us
 	}
 
 	return server, users, nil
+}
+
+// subServerDockerKeys are the docker environment settings a non-admin may choose. Host
+// mounts (bindings), hostConfig (privileged mode, capabilities, devices) and the network
+// are left out because they give the container access to the host.
+var subServerDockerKeys = []string{"image", "portBindings", "containerRoot", "config", "labels"}
+
+// restrictSubServerCreation limits users without admin to the Splitter flow: a child of a
+// server they already have access to, running in a docker container without host access.
+func restrictSubServerCreation(ps *services.Permission, user *models.User, postBody *models.ServerCreation) error {
+	if postBody.ParentServerID == nil || *postBody.ParentServerID == "" {
+		return errors.New("only administrators can create servers without a parent server")
+	}
+
+	parentPerms, err := ps.GetForUserAndServer(user.ID, *postBody.ParentServerID)
+	if err != nil {
+		return err
+	}
+	if parentPerms.ID == 0 {
+		return errors.New("no access to the parent server")
+	}
+
+	if postBody.Environment.Type != "docker" {
+		return errors.New("only docker environments are allowed for sub-servers")
+	}
+
+	allowed := make(map[string]interface{}, len(subServerDockerKeys))
+	for _, k := range subServerDockerKeys {
+		if v, ok := postBody.Environment.Metadata[k]; ok {
+			allowed[k] = v
+		}
+	}
+	postBody.Environment.Metadata = allowed
+
+	return nil
 }
 
 func checkParentServerLimits(tx *gorm.DB, server *models.Server, parentAvailableCPU *int, parentAvailableMemory, parentAvailableDisk *int64) error {

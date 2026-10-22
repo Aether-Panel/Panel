@@ -126,7 +126,8 @@ export default function ServersPage() {
     { value: 'offline', label: t('servers.status.offline'), dot: 'bg-destructive' },
   ];
 
-  const createDialog = hasScope('server.create') && (
+  // Without admin, servers can only be created as sub-servers from the Splitter
+  const createDialog = hasScope('admin') && (
     <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
       <DialogTrigger asChild>
         <Button className="shrink-0">
@@ -225,8 +226,8 @@ export default function ServersPage() {
         <div className="rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
           <ServerIcon className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
           <p className="text-base font-semibold">{t('servers.empty.title')}</p>
-          <p className="mx-auto mt-1 max-w-[48ch] text-sm text-muted-foreground">{t('servers.empty.description')}</p>
-          {hasScope('server.create') && (
+          <p className="mx-auto mt-1 max-w-[48ch] text-sm text-muted-foreground">{t(hasScope('admin') ? 'servers.empty.description' : 'servers.empty.descriptionAssigned')}</p>
+          {hasScope('admin') && (
             <Button className="mt-5" onClick={() => setIsCreateOpen(true)}>
               <Plus aria-hidden="true" />
               {t('servers.addServer')}

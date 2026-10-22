@@ -366,7 +366,8 @@
     },
     "empty": {
       "title": "No servers yet",
-      "description": "Create your first server to start managing it from here."
+      "description": "Create your first server to start managing it from here.",
+      "descriptionAssigned": "Servers assigned to you will show up here."
     },
     "card": {
       "activity": "Recent activity",

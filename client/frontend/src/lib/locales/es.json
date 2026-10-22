@@ -366,7 +366,8 @@
     },
     "empty": {
       "title": "Todavía no hay servidores",
-      "description": "Crea tu primer servidor para empezar a gestionarlo desde aquí."
+      "description": "Crea tu primer servidor para empezar a gestionarlo desde aquí.",
+      "descriptionAssigned": "Cuando te asignen un servidor, aparecerá aquí."
     },
     "card": {
       "activity": "Actividad reciente",
