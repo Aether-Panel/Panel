@@ -219,7 +219,7 @@ export default function DashboardPage() {
 
   const { nodes: realNodes, loading: nodesLoading } = useNodes(!canSeeNodes);
   const { count: usersCount, loading: usersLoading } = useUsersCount(!canSeeUsers);
-  const { metrics: globalNetworkMetrics } = useGlobalNetworkMetrics();
+  const { metrics: globalNetworkMetrics } = useGlobalNetworkMetrics(realNodes);
 
   if (serversLoading || nodesLoading || usersLoading) {
     return <DashboardSkeleton />;

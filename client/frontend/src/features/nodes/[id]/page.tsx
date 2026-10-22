@@ -603,7 +603,11 @@ export default function NodeDetailPage({ params }: { params: { id: string } }) {
       }
     };
     void fetchLive();
-    pollingRef.current = setInterval(fetchLive, 3000);
+    pollingRef.current = setInterval(() => {
+      // a hidden tab does not poll: each /system call keeps the node busy for a second
+      if (document.visibilityState === 'hidden') return;
+      void fetchLive();
+    }, 3000);
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
     };

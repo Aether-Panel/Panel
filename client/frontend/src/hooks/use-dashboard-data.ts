@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '@/lib/api-client';
 
 type NodeNetSnapshot = {
@@ -49,6 +49,8 @@ export function useNodes(skip = false) {
         
         void fetchNodes();
         const interval = setInterval(() => {
+            // a hidden tab does not poll: each /system call keeps the node busy for a second
+            if (document.visibilityState === 'hidden') return;
             void fetchNodes();
         }, 5000);
         
@@ -76,78 +78,55 @@ export function useUsersCount(skip = false) {
 }
 
 /**
- * Polls all nodes every 5s and computes a differential KB/s network rate
- * from the cumulative counters in /api/nodes/:id/system.
+ * Computes a differential KB/s network rate from the cumulative counters in each node's
+ * system info. It reuses the nodes useNodes already polls, instead of fetching
+ * /api/nodes and every node's /system a second time.
  * Returns a time-series array (last 60 points) for the dashboard global chart.
  */
-export function useGlobalNetworkMetrics() {
+export function useGlobalNetworkMetrics(nodes: any[]) {
     const [metrics, setMetrics] = useState<NodeNetMetric[]>([]);
     const lastSnapshotsRef = useRef<Record<number, NodeNetSnapshot>>({});
 
-    const poll = useCallback(async () => {
-        try {
-            const data = await api.get('/api/nodes');
-            const nodesList: any[] = Array.isArray(data) ? data : [];
-            if (nodesList.length === 0) return;
-
-            const now = Date.now();
-            let totalRxRate = 0;
-            let totalTxRate = 0;
-
-            await Promise.all(nodesList.map(async (node: any) => {
-                try {
-                    const sysInfo = await api.get(`/api/nodes/${node.id}/system`).catch(() => null);
-                    if (!sysInfo) return;
-
-                    const bytesRecv: number = sysInfo.networkBytesRecv ?? 0;
-                    const bytesSent: number = sysInfo.networkBytesSent ?? 0;
-
-                    const prev = lastSnapshotsRef.current[node.id];
-                    if (prev && prev.time > 0) {
-                        const elapsed = (now - prev.time) / 1000; // seconds
-                        if (elapsed > 0) {
-                            // Guard against counter resets (daemon restart, etc.)
-                            const rxDiff = bytesRecv >= prev.bytesRecv ? bytesRecv - prev.bytesRecv : bytesRecv;
-                            const txDiff = bytesSent >= prev.bytesSent ? bytesSent - prev.bytesSent : bytesSent;
-                            totalRxRate += (rxDiff / elapsed) / 1024; // KB/s
-                            totalTxRate += (txDiff / elapsed) / 1024; // KB/s
-                        }
-                    }
-
-                    lastSnapshotsRef.current[node.id] = {
-                        bytesRecv,
-                        bytesSent,
-                        time: now,
-                    };
-                } catch (_) {
-                    // silently ignore per-node errors
-                }
-            }));
-
-            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
-            setMetrics(prev => {
-                const next: NodeNetMetric[] = [
-                    ...prev,
-                    {
-                        time,
-                        networkIn: Number.parseFloat(totalRxRate.toFixed(2)),
-                        networkOut: Number.parseFloat(totalTxRate.toFixed(2)),
-                    },
-                ];
-                return next.slice(-60);
-            });
-        } catch (e) {
-            console.error('Failed to poll global network metrics:', e);
-        }
-    }, []);
-
     useEffect(() => {
-        // Kick off immediately, then every 5 seconds
-        void poll();
-        const interval = setInterval(poll, 5000);
-        return () => clearInterval(interval);
-    }, [poll]);
+        if (nodes.length === 0) return;
+
+        const now = Date.now();
+        let totalRxRate = 0;
+        let totalTxRate = 0;
+
+        for (const node of nodes) {
+            const sysInfo = node.systemInfo;
+            if (!sysInfo) continue;
+
+            const bytesRecv: number = sysInfo.networkBytesRecv ?? 0;
+            const bytesSent: number = sysInfo.networkBytesSent ?? 0;
+
+            const prev = lastSnapshotsRef.current[node.id];
+            if (prev && prev.time > 0) {
+                const elapsed = (now - prev.time) / 1000; // seconds
+                if (elapsed > 0) {
+                    // Guard against counter resets (daemon restart, etc.)
+                    const rxDiff = bytesRecv >= prev.bytesRecv ? bytesRecv - prev.bytesRecv : bytesRecv;
+                    const txDiff = bytesSent >= prev.bytesSent ? bytesSent - prev.bytesSent : bytesSent;
+                    totalRxRate += (rxDiff / elapsed) / 1024; // KB/s
+                    totalTxRate += (txDiff / elapsed) / 1024; // KB/s
+                }
+            }
+
+            lastSnapshotsRef.current[node.id] = { bytesRecv, bytesSent, time: now };
+        }
+
+        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+        setMetrics(prev => [
+            ...prev,
+            {
+                time,
+                networkIn: Number.parseFloat(totalRxRate.toFixed(2)),
+                networkOut: Number.parseFloat(totalTxRate.toFixed(2)),
+            },
+        ].slice(-60));
+    }, [nodes]);
 
     return { metrics };
 }

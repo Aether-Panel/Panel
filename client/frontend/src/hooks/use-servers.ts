@@ -163,7 +163,7 @@ export function useServers() {
         // fetchServers already loads stats right after listing, so only poll from here.
         // Skip a tick while the previous round is still running so slow nodes do not pile up requests.
         const interval = setInterval(() => {
-            if (statsInFlightRef.current) return;
+            if (document.visibilityState === 'hidden' || statsInFlightRef.current) return;
             statsInFlightRef.current = true;
             void updateAllStats(servers).finally(() => {
                 statsInFlightRef.current = false;
