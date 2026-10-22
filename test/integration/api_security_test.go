@@ -13,6 +13,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/stretchr/testify/assert"
+	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
@@ -153,4 +154,37 @@ func serve(req *http.Request) *httptest.ResponseRecorder {
 	writer := httptest.NewRecorder()
 	skypanel.Engine.ServeHTTP(writer, req)
 	return writer
+}
+
+func TestSwaggerIsForAdminsOnly(t *testing.T) {
+	// gin-swagger picks the file from RequestURI, which a real server fills in
+	get := func(token string) *httptest.ResponseRecorder {
+		req, _ := http.NewRequest("GET", "/swagger/doc.json", nil)
+		req.RequestURI = "/swagger/doc.json"
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+		return serve(req)
+	}
+
+	res := get("")
+	assert.True(t, res.Code == http.StatusUnauthorized || res.Code == http.StatusForbidden, "anonymous got %d", res.Code)
+
+	_, session := createRoleUser(t, mustDB(t), "swaggeruser")
+	assert.Equal(t, http.StatusForbidden, get(session).Code, "a normal user cannot read it")
+
+	admin, err := createSessionAdmin()
+	if assert.NoError(t, err) {
+		res = get(admin)
+		assert.Equal(t, http.StatusOK, res.Code)
+		assert.Contains(t, res.Body.String(), "\"paths\"")
+	}
+}
+
+func mustDB(t *testing.T) *gorm.DB {
+	db, err := database.GetConnection()
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
+	return db
 }
