@@ -2,7 +2,6 @@
 import { useAuth } from '@/contexts/providers';
 import { useEffect, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import { users as initialUsers, servers } from '@/lib/data';
 import type { User } from '@/lib/data';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
@@ -138,6 +137,7 @@ export default function UsersPage() {
   const [isMounted, setIsMounted] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [viewingUser, setViewingUser] = useState<User | null>(null);
+  const [viewingServers, setViewingServers] = useState<{ id: string; name: string }[] | null>(null);
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
   const { t } = useTranslations();
@@ -256,10 +256,23 @@ export default function UsersPage() {
     }
   };
 
-  const getAssignedServers = (user: User | null) => {
-    if (!user) return [];
-    return servers.filter(server => user.assignedServers.includes(server.id));
-  };
+  // Servers are looked up when the dialog opens: the user list does not include them
+  useEffect(() => {
+    if (!viewingUser) return;
+    let cancelled = false;
+    setViewingServers(null);
+    api.get(`/api/servers?username=${encodeURIComponent(viewingUser.username || viewingUser.name)}&limit=100`)
+      .then((resp: any) => {
+        if (cancelled) return;
+        setViewingServers((resp.servers || []).map((s: any) => ({ id: s.id, name: s.name || s.id })));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setViewingServers([]);
+        sileo.error({ title: t('common.error'), description: t('users.serversDialog.loadFailed') });
+      });
+    return () => { cancelled = true; };
+  }, [viewingUser]);
 
 
   if (!isMounted || !hasScope('users.info.view') || (loading && users.length === 0)) {
@@ -372,7 +385,6 @@ export default function UsersPage() {
                       <p className="truncate text-xs text-muted-foreground">{user.email}</p>
                       <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                         {roleBadge(user)}
-                        <span className="text-xs tabular-nums text-muted-foreground">{t('users.table.serversCount', { count: user.assignedServers.length })}</span>
                       </div>
                     </div>
                     {renderActions(user)}
@@ -387,7 +399,6 @@ export default function UsersPage() {
                     <TableRow className="hover:bg-transparent">
                       <TableHead>{t('users.table.user')}</TableHead>
                       <TableHead>{t('users.table.role')}</TableHead>
-                      <TableHead>{t('users.table.assignedServers')}</TableHead>
                       <TableHead className="w-14"><span className="sr-only">{t('users.table.actions')}</span></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -404,7 +415,6 @@ export default function UsersPage() {
                           </div>
                         </TableCell>
                         <TableCell>{roleBadge(user)}</TableCell>
-                        <TableCell className="tabular-nums text-muted-foreground">{t('users.table.serversCount', { count: user.assignedServers.length })}</TableCell>
                         <TableCell className="py-2 text-right">{renderActions(user)}</TableCell>
                       </TableRow>
                     ))}
@@ -451,10 +461,19 @@ export default function UsersPage() {
             <DialogDescription>{t('users.serversDialog.description')}</DialogDescription>
           </DialogHeader>
           <div className="py-2">
-            {getAssignedServers(viewingUser).length > 0 ? (
+            {viewingServers === null ? (
+              <div className="space-y-2" role="status" aria-label={t('common.loading')}>
+                <Skeleton className="h-11 w-full rounded-xl" />
+                <Skeleton className="h-11 w-full rounded-xl" />
+              </div>
+            ) : viewingServers.length > 0 ? (
               <ul className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60 bg-background/30">
-                {getAssignedServers(viewingUser).map(server => (
-                  <li key={server.id} className="px-4 py-3 text-sm font-medium">{server.name}</li>
+                {viewingServers.map(server => (
+                  <li key={server.id}>
+                    <a href={`/servers/view/?id=${encodeURIComponent(server.id)}`} className="block px-4 py-3 text-sm font-medium transition-colors hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:outline-none">
+                      {server.name}
+                    </a>
+                  </li>
                 ))}
               </ul>
             ) : (

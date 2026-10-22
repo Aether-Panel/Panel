@@ -1100,14 +1100,13 @@
       "title": "Servers for {{name}}",
       "description": "This user has access to the following servers.",
       "noServers": "This user is not assigned to any servers.",
+      "loadFailed": "Could not load this user's servers.",
       "close": "Close"
     },
     "table": {
       "user": "User",
       "role": "Role",
-      "assignedServers": "Assigned Servers",
-      "actions": "Actions",
-      "serversCount": "{{count}} servers"
+      "actions": "Actions"
     },
     "actions": {
       "menuLabel": "Actions",

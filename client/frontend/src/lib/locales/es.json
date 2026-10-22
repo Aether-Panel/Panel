@@ -1100,14 +1100,13 @@
       "title": "Servidores de {{name}}",
       "description": "Este usuario tiene acceso a los siguientes servidores.",
       "noServers": "Este usuario no está asignado a ningún servidor.",
+      "loadFailed": "No se pudieron cargar los servidores de este usuario.",
       "close": "Cerrar"
     },
     "table": {
       "user": "Usuario",
       "role": "Rol",
-      "assignedServers": "Servidores asignados",
-      "actions": "Acciones",
-      "serversCount": "{{count}} servidores"
+      "actions": "Acciones"
     },
     "actions": {
       "menuLabel": "Acciones",
