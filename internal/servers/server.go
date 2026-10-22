@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3/conditions"
@@ -134,10 +135,20 @@ func processStats() {
 	}
 }
 
+// uptimeTracking is set while a round of uptime tracking runs, so a slow database does not
+// make the next tick overlap it and record a server twice
+var uptimeTracking atomic.Bool
+
+// trackUptimeForAllServers is the only place uptime is recorded. It only runs where the
+// panel runs: a daemon-only node has no panel database to write to.
 func trackUptimeForAllServers() {
-	allServers := GetAll()
-	for _, server := range allServers {
-		go trackUptime(server)
+	if !config.PanelEnabled.Value() || !uptimeTracking.CompareAndSwap(false, true) {
+		return
+	}
+	defer uptimeTracking.Store(false)
+
+	for _, server := range GetAll() {
+		trackUptime(server)
 	}
 }
 
@@ -149,7 +160,8 @@ func processSystemStatus() {
 }
 
 func sendSystemStatusToDiscord() {
-	if !running {
+	// the report reads the panel database, which a daemon-only node does not have
+	if !running || !config.PanelEnabled.Value() {
 		return
 	}
 
@@ -523,9 +535,6 @@ func SendStatsForServers() {
 
 			// Monitorear para alertas
 			go checkServerAlerts(p, stats)
-
-			// Trackear uptime/downtime
-			go trackUptime(p)
 
 			// Monitorear límite de disco
 			go checkDiskLimit(p, stats)
