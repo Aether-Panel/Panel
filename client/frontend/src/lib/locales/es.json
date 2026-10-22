@@ -8,6 +8,7 @@
     "otpDescription": "Tu cuenta tiene la autenticación de dos factores habilitada.",
     "redirecting": "Redirigiendo al panel...",
     "checkCredentials": "Revisa tus credenciales e inténtalo de nuevo.",
+    "tooManyAttempts": "Demasiados intentos fallidos. Espera unos minutos e inténtalo de nuevo.",
     "accountCreated": "Cuenta creada e iniciada sesión.",
     "fields": {
       "email": "Correo electrónico",

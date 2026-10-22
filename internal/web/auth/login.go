@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -39,6 +40,10 @@ func LoginPost(c *gin.Context) {
 	}
 
 	user, otpNeeded, err := us.ValidateLogin(request.Email, request.Password)
+	if errors.Is(err, skypanel.ErrTooManyAttempts) {
+		response.HandleError(c, err, http.StatusTooManyRequests)
+		return
+	}
 	if err != nil && user != nil && user.ID != 0 {
 		// Only a known account is recorded: an unknown address would mean
 		// storing input the caller chose, and a public form can be spammed.
@@ -102,6 +107,10 @@ func OtpPost(c *gin.Context) {
 	}
 
 	user, err := us.ValidOtp(email, request.Token)
+	if errors.Is(err, skypanel.ErrTooManyAttempts) {
+		response.HandleError(c, err, http.StatusTooManyRequests)
+		return
+	}
 	if err != nil && user != nil && user.ID != 0 {
 		middleware.RecordActivity(c, models.ActivityLoginFailed, user)
 	}

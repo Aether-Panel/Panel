@@ -158,6 +158,13 @@ func (ns *Node) CallNode(node *models.Node, method string, path string, body io.
 		return nil, err
 	}
 
+	// work on a copy: callers pass the browser's request headers, and the user's session
+	// cookie must never reach a node (it authenticates with the panel's own token)
+	if headers != nil {
+		headers = headers.Clone()
+		headers.Del("Cookie")
+	}
+
 	request := &http.Request{
 		Method: method,
 		URL:    addr,

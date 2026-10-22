@@ -138,7 +138,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
       console.error('Login error:', e);
       sileo.error({
         title: t('auth.loginFailed'),
-        description: e.message || t('auth.checkCredentials'),
+        description: e?.status === 429 ? t('auth.tooManyAttempts') : (e.message || t('auth.checkCredentials')),
       });
       setLoading(false);
     }

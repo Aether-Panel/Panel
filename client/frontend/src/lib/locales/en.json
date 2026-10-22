@@ -8,6 +8,7 @@
     "otpDescription": "Two-factor authentication is enabled for this account.",
     "redirecting": "Redirecting to dashboard...",
     "checkCredentials": "Please check your credentials and try again.",
+    "tooManyAttempts": "Too many failed attempts. Wait a few minutes and try again.",
     "accountCreated": "Account created and signed in.",
     "fields": {
       "email": "Email",

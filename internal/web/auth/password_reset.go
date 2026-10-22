@@ -30,6 +30,14 @@ func ForgotPasswordPost(c *gin.Context) {
 		return
 	}
 
+	// answer the same either way, so the limit does not reveal whether the account exists
+	if !services.PasswordResetRequests.Allowed(request.Email) {
+		logging.Info.Printf("Password reset limit reached for: %s", request.Email)
+		c.Status(http.StatusNoContent)
+		return
+	}
+	services.PasswordResetRequests.Record(request.Email)
+
 	token, err := us.CreatePasswordResetToken(request.Email)
 	if err != nil {
 		logging.Info.Printf("Password reset requested for unknown user: %s", request.Email)
