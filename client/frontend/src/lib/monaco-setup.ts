@@ -1,10 +1,8 @@
-// Use CDN for Monaco CSS and codicon font to avoid build issues with inline imports
-// and version mismatches. Update version here when updating monaco-editor.
-const MONACO_VERSION = '0.57.0';
-const MONACO_STYLE_ID = 'monaco-editor-styles';
+// Monaco's stylesheet ships with the panel (it embeds the codicon font), so the editor
+// works offline and under a strict CSP, and always matches the bundled monaco-editor.
+import monacoCss from 'monaco-editor-main-css?raw';
 
-const MONACO_CSS_CDN = `https://cdn.jsdelivr.net/npm/monaco-editor@${MONACO_VERSION}/min/vs/editor/editor.main.css`;
-const CODICON_TTF_CDN = `https://cdn.jsdelivr.net/npm/monaco-editor@${MONACO_VERSION}/min/vs/base/browser/ui/codicons/codicon/codicon.ttf`;
+const MONACO_STYLE_ID = 'monaco-editor-styles';
 
 let monacoInUse = false;
 
@@ -55,23 +53,8 @@ export async function ensureMonacoStylesheet(): Promise<void> {
     document.documentElement.appendChild(style);
   }
 
-  // Fetch CSS from CDN and inject it
   if (!style.textContent) {
-    try {
-      const response = await fetch(MONACO_CSS_CDN);
-      if (response.ok) {
-        const css = await response.text();
-        // Fix codicon font URL to use CDN
-        style.textContent = css.replace(
-          'url(../base/browser/ui/codicons/codicon/codicon.ttf)',
-          `url(${CODICON_TTF_CDN})`
-        );
-      } else {
-        console.warn('Failed to load Monaco CSS from CDN:', response.status);
-      }
-    } catch (err) {
-      console.warn('Error fetching Monaco CSS:', err);
-    }
+    style.textContent = monacoCss;
   }
 
   return Promise.resolve();
