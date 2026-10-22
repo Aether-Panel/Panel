@@ -82,17 +82,34 @@ func getTransferProgress(serverID string) string {
 var ExTransferSalt = "AETHER_FEDERATED_SALT_v1"
 
 var (
-	ExTransferPrivateKey ed25519.PrivateKey
-	ExTransferPublicKey  ed25519.PublicKey
+	exTransferKeyOnce sync.Once
+	exTransferPrivKey ed25519.PrivateKey
 )
 
-func init() {
-	pub, priv, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		panic(err)
-	}
-	ExTransferPrivateKey = priv
-	ExTransferPublicKey = pub
+// exTransferPrivateKey returns this panel's signing key for federated transfers. The other
+// panel stores the matching public key in the session, so the key must survive restarts: it
+// is generated once and saved in the config file, like panel.token.
+func exTransferPrivateKey() ed25519.PrivateKey {
+	exTransferKeyOnce.Do(func() {
+		if seed, err := base64.StdEncoding.DecodeString(config.ExTransferKey.Value()); err == nil && len(seed) == ed25519.SeedSize {
+			exTransferPrivKey = ed25519.NewKeyFromSeed(seed)
+			return
+		}
+
+		seed := make([]byte, ed25519.SeedSize)
+		if _, err := rand.Read(seed); err != nil {
+			panic(err)
+		}
+		if err := config.ExTransferKey.Set(base64.StdEncoding.EncodeToString(seed), true); err != nil {
+			logging.Error.Printf("Could not save the federated transfer key, transfers will not survive a restart: %s", err)
+		}
+		exTransferPrivKey = ed25519.NewKeyFromSeed(seed)
+	})
+	return exTransferPrivKey
+}
+
+func exTransferPublicKey() ed25519.PublicKey {
+	return exTransferPrivateKey().Public().(ed25519.PublicKey)
 }
 
 type ExTransferAPIError struct {
@@ -129,7 +146,7 @@ func RegisterExTransferRoutes(rg *gin.RouterGroup) {
 }
 
 func WellKnownAetherPanel(c *gin.Context) {
-	pubKeyB64 := base64.StdEncoding.EncodeToString(ExTransferPublicKey)
+	pubKeyB64 := base64.StdEncoding.EncodeToString(exTransferPublicKey())
 	c.JSON(200, gin.H{
 		"panel_name":          "SkyPanel",
 		"version":             "1.0",
@@ -509,7 +526,7 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 	originDownload := originAPI("/api/extransfer/download")
 
 	// 2. Validate token and get nonce
-	pubKeyB64 := base64.StdEncoding.EncodeToString(ExTransferPublicKey)
+	pubKeyB64 := base64.StdEncoding.EncodeToString(exTransferPublicKey())
 
 	validateBody := map[string]string{
 		"token":             token,
@@ -559,7 +576,7 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 	sendStep("Iniciando la transferencia en el servidor origen...")
 	// 3. Consume transfer
 	message := validateRes.Nonce + validateRes.SessionID
-	sig := ed25519.Sign(ExTransferPrivateKey, []byte(message))
+	sig := ed25519.Sign(exTransferPrivateKey(), []byte(message))
 	sigB64 := base64.StdEncoding.EncodeToString(sig)
 
 	consumeBody := map[string]string{
@@ -594,7 +611,7 @@ func performPullTransferAsync(server *models.Server, originURL, token string, db
 
 	// 5. Download file — retry until origin is ready (archive may take time to create)
 	dlMessage := "DOWNLOAD:" + validateRes.SessionID
-	dlSig := ed25519.Sign(ExTransferPrivateKey, []byte(dlMessage))
+	dlSig := ed25519.Sign(exTransferPrivateKey(), []byte(dlMessage))
 	dlSigB64 := base64.StdEncoding.EncodeToString(dlSig)
 
 	dlURL := *originDownload

@@ -56,6 +56,10 @@ var LicenseServerIP = asString("panel.license.serverIp", "")
 var SessionKey = asString("panel.sessionKey", "")
 var RegistrationEnabled = asBool("panel.registrationEnabled", true)
 var PrivateKey = asString("panel.token", "")
+
+// ExTransferKey is the seed of the key this panel signs federated transfer requests with. It
+// is kept so a restart in the middle of a transfer does not invalidate the session.
+var ExTransferKey = asString("panel.exTransferKey", "")
 var TurnstileSiteKey = asString("panel.turnstile.siteKey", "")
 var TurnstileSecretKey = asString("panel.turnstile.secretKey", "")
 var TurnstileEnabled = asBool("panel.turnstile.enabled", false)
