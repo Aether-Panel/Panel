@@ -37,9 +37,15 @@ func HandleError(c *gin.Context, err error, statusCode int) bool {
 	if err != nil {
 		logging.Error.Printf("%s", err.Error())
 
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		var panelErr *skypanel.Error
+		switch {
+		case errors.Is(err, gorm.ErrRecordNotFound):
 			c.AbortWithStatus(http.StatusNotFound)
-		} else {
+		case statusCode >= http.StatusInternalServerError && !errors.As(err, &panelErr):
+			// unexpected failures (database, files, network) are logged in full above but not
+			// sent to the caller, where they would reveal how the panel is built
+			c.AbortWithStatusJSON(statusCode, &skypanel.ErrorResponse{Error: skypanel.ErrInternal})
+		default:
 			c.AbortWithStatusJSON(statusCode, &skypanel.ErrorResponse{Error: skypanel.FromError(err)})
 		}
 

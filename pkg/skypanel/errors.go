@@ -13,6 +13,7 @@ import (
 )
 
 var ErrUnknownError = CreateError("unknown error", "ErrUnknownError")
+var ErrInternal = CreateError("internal error, the details are in the panel log", "ErrInternal")
 var ErrInvalidCredentials = CreateError("invalid credentials", "ErrInvalidCredentials")
 var ErrTooManyAttempts = CreateError("too many failed attempts, wait a few minutes and try again", "ErrTooManyAttempts")
 var ErrServiceNotAvailable = CreateError("service not available", "ErrServiceNotAvailable")
