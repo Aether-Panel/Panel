@@ -27,6 +27,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var (
@@ -216,7 +217,7 @@ func validateExTransfer(c *gin.Context) {
 
 	err := db.Transaction(func(tx *gorm.DB) error {
 		var session models.ExTransferSession
-		if err := tx.Raw("SELECT * FROM ex_transfer_sessions WHERE token_hash = ? FOR UPDATE", hashedToken).Scan(&session).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: clause.LockingStrengthUpdate}).Where("token_hash = ?", hashedToken).Find(&session).Error; err != nil {
 			return err
 		}
 
@@ -280,7 +281,7 @@ func consumeExTransfer(c *gin.Context) {
 	var session models.ExTransferSession
 
 	err := db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Raw("SELECT * FROM ex_transfer_sessions WHERE session_uuid = ? FOR UPDATE", req.SessionID).Scan(&session).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: clause.LockingStrengthUpdate}).Where("session_uuid = ?", req.SessionID).Find(&session).Error; err != nil {
 			return err
 		}
 

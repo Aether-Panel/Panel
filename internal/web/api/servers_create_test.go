@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 func setupSubServerTest(t *testing.T) (*services.Permission, *models.User) {
@@ -110,4 +111,31 @@ func TestFilterUptimeToServers(t *testing.T) {
 	assert.Len(t, got, 1)
 	assert.Contains(t, got, "mine")
 	assert.NotContains(t, got, "theirs")
+}
+
+func TestCheckParentServerLimits_WorksOnSQLite(t *testing.T) {
+	ps, _ := setupSubServerTest(t)
+	db := ps.DB
+	parent := &models.Server{Identifier: "parent01", Name: "parent01", Type: "generic", TotalCPU: 200, TotalMemory: 4096, TotalDisk: 10240}
+	if !assert.NoError(t, db.Omit(clause.Associations).Create(parent).Error) {
+		t.FailNow()
+	}
+	parentID := parent.Identifier
+
+	var cpu int
+	var memory, disk int64
+	child := &models.Server{Identifier: "child01", ParentServerID: &parentID, TotalCPU: 100, TotalMemory: 1024, TotalDisk: 2048}
+	err := db.Transaction(func(tx *gorm.DB) error {
+		return checkParentServerLimits(tx, child, &cpu, &memory, &disk)
+	})
+
+	assert.NoError(t, err, "the raw FOR UPDATE query used to fail with a syntax error on SQLite")
+	assert.Equal(t, 100, cpu)
+	assert.Equal(t, int64(3072), memory)
+
+	tooBig := &models.Server{Identifier: "child02", ParentServerID: &parentID, TotalCPU: 300}
+	err = db.Transaction(func(tx *gorm.DB) error {
+		return checkParentServerLimits(tx, tooBig, &cpu, &memory, &disk)
+	})
+	assert.Error(t, err, "limits are still enforced")
 }

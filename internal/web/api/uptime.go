@@ -1,7 +1,9 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -116,7 +118,7 @@ func getAllUptime(c *gin.Context) {
 
 			// Obtener estado actual desde el daemon para actualizar currentStatus
 			isRunning := false
-			nodeResponse, err := ns.CallNode(&server.Node, "GET", "/daemon/server/"+serverID+"/status", nil, nil)
+			nodeResponse, err := callNodeStatus(c, ns, &server.Node, serverID)
 			if err == nil && nodeResponse != nil {
 				if nodeResponse.StatusCode == http.StatusOK {
 					var statusResponse skypanel.ServerRunning
@@ -136,7 +138,7 @@ func getAllUptime(c *gin.Context) {
 		if !hasUptimeData[server.Identifier] {
 			// Obtener estado actual del servidor desde el daemon
 			isRunning := false
-			nodeResponse, err := ns.CallNode(&server.Node, "GET", "/daemon/server/"+server.Identifier+"/status", nil, nil)
+			nodeResponse, err := callNodeStatus(c, ns, &server.Node, server.Identifier)
 			if err == nil && nodeResponse != nil {
 				if nodeResponse.StatusCode == http.StatusOK {
 					var statusResponse skypanel.ServerRunning
@@ -187,6 +189,32 @@ func getAllUptime(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, uptimeStats)
+}
+
+// nodeStatusTimeout acota cada consulta de estado: un nodo caído no debe dejar colgada la
+// petición, que pregunta por todos los servidores uno tras otro
+const nodeStatusTimeout = 5 * time.Second
+
+func callNodeStatus(c *gin.Context, ns *services.Node, node *models.Node, serverID string) (*http.Response, error) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), nodeStatusTimeout)
+	res, err := ns.CallNodeContext(ctx, node, "GET", "/daemon/server/"+serverID+"/status", nil, nil)
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+	// the body is read by the caller, so the deadline is released when it is closed
+	res.Body = &cancelOnClose{ReadCloser: res.Body, cancel: cancel}
+	return res, nil
+}
+
+type cancelOnClose struct {
+	io.ReadCloser
+	cancel context.CancelFunc
+}
+
+func (b *cancelOnClose) Close() error {
+	defer b.cancel()
+	return b.ReadCloser.Close()
 }
 
 // filterUptimeToServers deja solo las estadísticas de los servidores indicados
@@ -250,7 +278,7 @@ func getServerUptime(c *gin.Context) {
 	// Obtener estado actual del servidor desde el daemon
 	isRunning := false
 	ns := &services.Node{DB: db}
-	nodeResponse, err := ns.CallNode(&server.Node, "GET", "/daemon/server/"+server.Identifier+"/status", nil, nil)
+	nodeResponse, err := callNodeStatus(c, ns, &server.Node, server.Identifier)
 	if err == nil && nodeResponse != nil {
 		defer utils.CloseResponse(nodeResponse)
 		if nodeResponse.StatusCode == http.StatusOK {

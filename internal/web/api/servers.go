@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,6 +30,7 @@ import (
 	"github.com/gofrs/uuid/v5"
 	"github.com/spf13/cast"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 func registerServers(g *gin.RouterGroup) {
@@ -37,8 +39,10 @@ func registerServers(g *gin.RouterGroup) {
 
 	g.Handle("GET", "/:serverId", middleware.RequiresPermission(scopes.ScopeServerView), middleware.ResolveServerPanel, getServer)
 	g.Handle("PUT", "/:serverId", middleware.RequiresPermission(scopes.ScopeServerCreate), middleware.HasTransaction, createServer)
-	g.Handle("DELETE", "/:serverId", middleware.RequiresPermission(scopes.ScopeServerDelete), middleware.ResolveServerPanel, middleware.HasTransaction, deleteServer)
-	g.Handle("POST", "/:serverId/suspend", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, middleware.HasTransaction, toggleServerSuspension)
+	// these two talk to the node outside their own short transactions: stopping a server can
+	// take a while, and holding a request-wide transaction meanwhile blocks SQLite installs
+	g.Handle("DELETE", "/:serverId", middleware.RequiresPermission(scopes.ScopeServerDelete), middleware.ResolveServerPanel, deleteServer)
+	g.Handle("POST", "/:serverId/suspend", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, toggleServerSuspension)
 	g.Handle("OPTIONS", "/:serverId", response.CreateOptions("PUT", "GET", "POST", "DELETE"))
 	g.Handle("OPTIONS", "/:serverId/suspend", response.CreateOptions("POST"))
 
@@ -446,7 +450,9 @@ func editServer(c *gin.Context) {
 	data, _ := json.Marshal(postBody)
 	reader := io.NopCloser(bytes.NewReader(data))
 
-	nodeResponse, err := ns.CallNode(&server.Node, "PUT", "/daemon/server/"+postBody.Identifier+"/definition", reader, c.Request.Header)
+	ctx, cancel := nodeCallContext(c)
+	defer cancel()
+	nodeResponse, err := ns.CallNodeContext(ctx, &server.Node, "PUT", "/daemon/server/"+postBody.Identifier+"/definition", reader, c.Request.Header)
 	defer utils.CloseResponse(nodeResponse)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
@@ -467,9 +473,6 @@ func editServer(c *gin.Context) {
 		return
 	}
 
-	if response.HandleError(c, db.Commit().Error, http.StatusInternalServerError) {
-		return
-	}
 	c.Status(http.StatusNoContent)
 }
 
@@ -734,10 +737,6 @@ func editServerUser(c *gin.Context) {
 		return
 	}
 
-	if response.HandleError(c, db.Commit().Error, http.StatusInternalServerError) {
-		return
-	}
-
 	// now we can send emails to the people
 	if firstTimeAccess {
 		es := services.GetEmailService()
@@ -795,10 +794,6 @@ func removeServerUser(c *gin.Context) {
 	err = ps.Remove(perms)
 
 	if response.HandleError(c, err, http.StatusInternalServerError) {
-		return
-	}
-
-	if response.HandleError(c, db.Commit().Error, http.StatusInternalServerError) {
 		return
 	}
 
@@ -1229,7 +1224,7 @@ func createBackup(c *gin.Context) {
 		resolvedPath += "?" + c.Request.URL.RawQuery
 	}
 
-	callResponse, err := ns.CallNode(node, c.Request.Method, resolvedPath, c.Request.Body, c.Request.Header)
+	callResponse, err := ns.CallNodeContext(c.Request.Context(), node, c.Request.Method, resolvedPath, c.Request.Body, c.Request.Header)
 	defer utils.CloseResponse(callResponse)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
@@ -1603,7 +1598,7 @@ func proxyHTTPRequest(c *gin.Context, path string, ns *services.Node, node *mode
 		}
 	}
 
-	callResponse, err := ns.CallNode(node, c.Request.Method, path, c.Request.Body, c.Request.Header)
+	callResponse, err := ns.CallNodeContext(c.Request.Context(), node, c.Request.Method, path, c.Request.Body, c.Request.Header)
 
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
@@ -2078,9 +2073,25 @@ func restrictSubServerCreation(ps *services.Permission, user *models.User, postB
 	return nil
 }
 
+// nodeCallInTransactionTimeout bounds node calls made while the request's transaction is
+// open (create, definition edit): they are quick on a healthy node, and a hung node must not
+// keep the transaction, and on SQLite the whole panel, waiting forever
+const nodeCallInTransactionTimeout = 60 * time.Second
+
+func nodeCallContext(c *gin.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(c.Request.Context(), nodeCallInTransactionTimeout)
+}
+
+// lockParentServer loads the parent row and locks it until the transaction ends, so two
+// children cannot both pass the resource check. GORM writes FOR UPDATE on MySQL and Postgres
+// and leaves it out on SQLite, which has no row locks and rejected the raw query.
+func lockParentServer(tx *gorm.DB, identifier string, parent *models.Server) error {
+	return tx.Clauses(clause.Locking{Strength: clause.LockingStrengthUpdate}).Where("identifier = ?", identifier).Find(parent).Error
+}
+
 func checkParentServerLimits(tx *gorm.DB, server *models.Server, parentAvailableCPU *int, parentAvailableMemory, parentAvailableDisk *int64) error {
 	var parent models.Server
-	if err := tx.Raw("SELECT * FROM servers WHERE identifier = ? FOR UPDATE", *server.ParentServerID).Scan(&parent).Error; err != nil {
+	if err := lockParentServer(tx, *server.ParentServerID, &parent); err != nil {
 		return err
 	}
 	if parent.Identifier == "" {
@@ -2118,7 +2129,7 @@ func checkParentServerLimits(tx *gorm.DB, server *models.Server, parentAvailable
 
 func checkParentServerLimitsOnUpdate(tx *gorm.DB, server *models.Server, parentAvailableCPU *int, parentAvailableMemory, parentAvailableDisk *int64) error {
 	var parent models.Server
-	if err := tx.Raw("SELECT * FROM servers WHERE identifier = ? FOR UPDATE", *server.ParentServerID).Scan(&parent).Error; err != nil {
+	if err := lockParentServer(tx, *server.ParentServerID, &parent); err != nil {
 		return err
 	}
 	if parent.Identifier == "" {
@@ -2212,7 +2223,9 @@ func notifyNodeOfServerCreation(c *gin.Context, ns *services.Node, node *models.
 		return err
 	}
 
-	nodeResponse, err := ns.CallNode(node, "PUT", "/daemon/server/"+server.Identifier, io.NopCloser(reader), c.Request.Header)
+	ctx, cancel := nodeCallContext(c)
+	defer cancel()
+	nodeResponse, err := ns.CallNodeContext(ctx, node, "PUT", "/daemon/server/"+server.Identifier, io.NopCloser(reader), c.Request.Header)
 	defer utils.CloseResponse(nodeResponse)
 
 	if response.HandleError(c, err, http.StatusInternalServerError) {
@@ -2245,7 +2258,9 @@ func updateParentServerLimitsOnNode(c *gin.Context, db *gorm.DB, ns *services.No
 
 	var parent models.Server
 	db.Where("identifier = ?", *server.ParentServerID).First(&parent)
-	parentRes, _ := ns.CallNode(node, "POST", "/daemon/server/"+parent.Identifier+"/data", parentReqBody, c.Request.Header)
+	ctx, cancel := nodeCallContext(c)
+	defer cancel()
+	parentRes, _ := ns.CallNodeContext(ctx, node, "POST", "/daemon/server/"+parent.Identifier+"/data", parentReqBody, c.Request.Header)
 	if parentRes != nil && parentRes.Body != nil {
 		parentRes.Body.Close()
 	}
