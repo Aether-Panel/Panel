@@ -86,6 +86,10 @@ var SecurityTrustedProxies = asStringArray("security.trustedProxies", []string{}
 var SecurityTrustedProxyHeader = asString("security.trustedProxyHeader", "")
 var SecurityDisableUnshare = asBool("security.disableUnshare", false)
 
+// SecurityBlockPrivateDownloads also refuses template downloads from private network
+// addresses (LAN mirrors); loopback and link-local addresses are always refused
+var SecurityBlockPrivateDownloads = asBool("security.blockPrivateDownloads", false)
+
 var DockerRootPath = asString("docker.root", "")
 var DockerDisallowHost = asBool("docker.disallowHost", false)
 

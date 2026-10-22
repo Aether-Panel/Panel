@@ -4,13 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"regexp"
 	"strings"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
-	"github.com/cavaliergopher/grab/v3"
 )
 
 type ScraperDl struct {
@@ -26,7 +26,11 @@ func (op ScraperDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 	env.DisplayToConsole(true, "Scraping version from %s\n", op.URL)
 	logging.Debug.Printf("Scraping url %s", op.URL)
 
-	response, err := skypanel.HTTPGet(op.URL)
+	warnPrivate := func(ip net.IP) {
+		env.DisplayToConsole(true, "Warning: connecting to private network address %s\n", ip)
+	}
+
+	response, err := utils.NewDownloadHTTPClient(warnPrivate).Get(op.URL)
 	if err != nil {
 		return skypanel.OperationResult{Error: err}
 	}
@@ -57,7 +61,7 @@ func (op ScraperDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 	finalDownloadURL := strings.ReplaceAll(op.DownloadURL, "${match}", match)
 
 	env.DisplayToConsole(true, "Downloading %s\n", finalDownloadURL)
-	_, err = grab.Get(env.GetRootDirectory(), finalDownloadURL)
+	err = utils.DownloadFile(env.GetRootDirectory(), finalDownloadURL, warnPrivate)
 	if err != nil {
 		return skypanel.OperationResult{Error: err}
 	}
