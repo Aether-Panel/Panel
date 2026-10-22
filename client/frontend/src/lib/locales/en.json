@@ -425,7 +425,12 @@
         "noPlayers": "Nobody is online."
       },
       "notFoundDescription": "It may have been deleted, or you don't have access to it.",
-      "backToServers": "Back to servers"
+      "backToServers": "Back to servers",
+      "forceStopDialog": {
+        "title": "Force stop this server?",
+        "description": "The process will be killed immediately, without a graceful shutdown. Unsaved data may be lost.",
+        "confirm": "Yes, force stop"
+      }
     },
     "address": {
       "copyToastTitle": "Copied to clipboard",
@@ -448,7 +453,8 @@
       "clear": "Clear view",
       "cleared": "View cleared. New messages will appear here.",
       "jumpToEnd": "Jump to latest",
-      "connectedToast": "Console connected"
+      "connectedToast": "Console connected",
+      "sendError": "Could not send the command."
     },
     "aiSummary": {
       "title": "AI Console Analysis",
@@ -874,7 +880,12 @@
         "success": "Suspension state updated.",
         "error": "Could not change the suspension state."
       },
-      "sectionLabel": "Section"
+      "sectionLabel": "Section",
+      "installDialog": {
+        "title": "Reinstall this server?",
+        "description": "The installation process will run again and may overwrite the server's files. The server will be unavailable until it finishes.",
+        "confirm": "Yes, reinstall"
+      }
     },
     "resourceChart": {
       "title": "Resource Overview",
@@ -1044,6 +1055,10 @@
       "cpu": "CPU",
       "ram": "RAM",
       "disk": "Disk"
+    },
+    "error": {
+      "title": "Could not load servers",
+      "description": "The server list could not be retrieved. Check your connection and try again."
     }
   },
   "users": {

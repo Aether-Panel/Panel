@@ -2,7 +2,8 @@
 import { useAuth } from '@/contexts/providers';
 import { useConfig } from '@/contexts/config-context';
 import type { Server } from '@/lib/data';
-import { Cpu, HardDrive, MemoryStick, ServerIcon } from 'lucide-react';
+import { AlertTriangle, Cpu, HardDrive, MemoryStick, ServerIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/page-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useTranslations } from '@/contexts/translations-context';
@@ -153,7 +154,7 @@ function AdminDashboard({ user, t, canSeeNodes, canSeeUsers, allServers, usersCo
   );
 }
 
-function UserDashboard({ user, t, userServers }: any) {
+function UserDashboard({ user, t, userServers, loadFailed, onRetry }: any) {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
@@ -162,7 +163,16 @@ function UserDashboard({ user, t, userServers }: any) {
       />
       <div>
         <h2 className="mb-4 text-lg font-semibold tracking-[-0.02em] text-foreground">{t('dashboard.user.myServers')}</h2>
-        {userServers.length > 0 ? (
+        {loadFailed && userServers.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
+            <AlertTriangle className="h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
+            <p className="text-base font-semibold text-foreground">{t('servers.error.title')}</p>
+            <p className="max-w-[44ch] text-sm text-muted-foreground">{t('servers.error.description')}</p>
+            <Button variant="outline" className="mt-4" onClick={onRetry}>
+              {t('common.retry')}
+            </Button>
+          </div>
+        ) : userServers.length > 0 ? (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(min(20rem,100%),1fr))] gap-5">
             {userServers.map((server: Server) => (
               <ServerCard key={server.id} server={server} t={t} />
@@ -202,7 +212,7 @@ export default function DashboardPage() {
   const { hasScope, user } = useAuth();
   const { config } = useConfig();
   const { t } = useTranslations();
-  const { servers: allServers, loading: serversLoading } = useServers();
+  const { servers: allServers, loading: serversLoading, error: serversError, refresh: refreshServers } = useServers();
   const canSeeNodes = hasScope('nodes.view');
   const canSeeUsers = hasScope('users.info.search');
   const isPowerUser = canSeeNodes || canSeeUsers;
@@ -232,5 +242,13 @@ export default function DashboardPage() {
     );
   }
 
-  return <UserDashboard user={user} t={t} userServers={allServers} />;
+  return (
+    <UserDashboard
+      user={user}
+      t={t}
+      userServers={allServers}
+      loadFailed={!!serversError}
+      onRetry={() => void refreshServers()}
+    />
+  );
 }

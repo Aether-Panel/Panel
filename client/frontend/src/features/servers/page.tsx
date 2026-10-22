@@ -5,7 +5,7 @@ import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, Search, Server as ServerIcon, X } from 'lucide-react';
+import { AlertTriangle, Plus, Search, Server as ServerIcon, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 import { useTranslations } from '@/contexts/translations-context';
@@ -19,7 +19,7 @@ type StatusFilter = 'all' | 'online' | 'offline';
 
 export default function ServersPage() {
   const { role, hasScope } = useAuth();
-  const { servers, loading: serversLoading, refresh } = useServers();
+  const { servers, loading: serversLoading, error: serversError, refresh } = useServers();
   const [isMounted, setIsMounted] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -222,7 +222,16 @@ export default function ServersPage() {
         </div>
       </div>
 
-      {servers.length === 0 ? (
+      {serversError && servers.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
+          <AlertTriangle className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
+          <p className="text-base font-semibold">{t('servers.error.title')}</p>
+          <p className="mx-auto mt-1 max-w-[48ch] text-sm text-muted-foreground">{t('servers.error.description')}</p>
+          <Button variant="outline" className="mt-5" onClick={() => void refresh()}>
+            {t('common.retry')}
+          </Button>
+        </div>
+      ) : servers.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
           <ServerIcon className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
           <p className="text-base font-semibold">{t('servers.empty.title')}</p>

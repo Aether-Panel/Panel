@@ -211,10 +211,31 @@ export default function AdminView({ serverId }: { serverId: string }) {
                             description={t('servers.admin.installStatus.description')}
                         >
                             {canManageInstall && (
-                                <Button onClick={handleInstall} disabled={isInstalling}>
-                                    {isInstalling ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Download aria-hidden="true" />}
-                                    {t('servers.admin.installStatus.button')}
-                                </Button>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button disabled={isInstalling}>
+                                            {isInstalling ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Download aria-hidden="true" />}
+                                            {t('servers.admin.installStatus.button')}
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>{t('servers.admin.installDialog.title')}</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                {t('servers.admin.installDialog.description')}
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                                            <AlertDialogAction
+                                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                                onClick={() => void handleInstall()}
+                                            >
+                                                {t('servers.admin.installDialog.confirm')}
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
                             )}
                         </ActionRow>
                     </TabsContent>

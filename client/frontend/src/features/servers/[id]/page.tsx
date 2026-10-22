@@ -25,6 +25,7 @@ import { StatusBadge, usageColor } from '@/components/server-card';
 import { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useTranslations } from '@/contexts/translations-context';
 import { useServers } from '@/hooks/use-servers';
 import { api, ApiError } from '@/lib/api-client';
@@ -97,15 +98,34 @@ function ServerActions({ server, isActionPending, handleAction, showKill, t }: a
           {t('servers.detail.stop')}
         </Button>
       ) : (
-        <Button
-          size="sm"
-          onClick={() => handleAction('kill')}
-          disabled={isActionPending}
-          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-        >
-          {isActionPending ? pendingIcon : <ShieldAlert aria-hidden="true" />}
-          {t('servers.detail.forceStop')}
-        </Button>
+        // Killing skips the graceful shutdown and can lose unsaved world data, so confirm first
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              size="sm"
+              disabled={isActionPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isActionPending ? pendingIcon : <ShieldAlert aria-hidden="true" />}
+              {t('servers.detail.forceStop')}
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t('servers.detail.forceStopDialog.title')}</AlertDialogTitle>
+              <AlertDialogDescription>{t('servers.detail.forceStopDialog.description')}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => handleAction('kill')}
+              >
+                {t('servers.detail.forceStopDialog.confirm')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
     </div>
   );

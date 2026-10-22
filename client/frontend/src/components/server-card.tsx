@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { MoreHorizontal, Globe, Terminal, LayoutDashboard, Eye, Pencil, Trash2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { cn, formatBytes } from '@/lib/utils';
+import { useAuth } from '@/contexts/providers';
 
 export const usageColor = (value: number) =>
   value >= 85
@@ -91,6 +92,9 @@ export function ServerCard({ server, t }: { server: Server; t: (key: string) => 
   const cpuSeries = (server.metrics || []).map((metric) => metric.cpu ?? 0);
   const playersPercent = Math.min(Math.max(((server.playersOnline || 0) / Math.max(server.maxPlayers || 1, 1)) * 100, 0), 100);
   const detailHref = `/servers/view/?id=${server.id}`;
+  const { hasScope } = useAuth();
+  // Deletion lives in the detail page's admin tab, so only offer it to whoever can delete there
+  const canDelete = hasScope('server.delete') || hasScope('server.admin') || hasScope('admin');
   const lastCpu = cpuSeries.length > 0 ? Math.round(cpuSeries[cpuSeries.length - 1]) : null;
 
   return (
@@ -197,15 +201,22 @@ export function ServerCard({ server, t }: { server: Server; t: (key: string) => 
                   <Eye aria-hidden="true" />
                   {t('servers.actions.viewDetails')}
                 </DropdownMenuItem>
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={() => window.location.assign(`${detailHref}&tab=settings`)}>
                   <Pencil aria-hidden="true" />
                   {t('servers.actions.edit')}
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-destructive-bright focus:text-destructive-bright">
-                  <Trash2 aria-hidden="true" />
-                  {t('servers.actions.delete')}
-                </DropdownMenuItem>
+                {canDelete && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-destructive-bright focus:text-destructive-bright"
+                      onClick={() => window.location.assign(`${detailHref}&tab=admin`)}
+                    >
+                      <Trash2 aria-hidden="true" />
+                      {t('servers.actions.delete')}
+                    </DropdownMenuItem>
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

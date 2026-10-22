@@ -103,6 +103,19 @@ function getFileMeta(name: string): FileMeta {
   return match || { icon: File, className: 'text-muted-foreground' };
 }
 
+// Encode each path segment so names with #, ?, % or spaces survive the URL; '/' stays a separator
+function encodePath(path: string) {
+  return path.split('/').map(encodeURIComponent).join('/');
+}
+
+// Raw fetch does not reject on HTTP errors, so surface the server's message (or a fallback) instead
+async function assertOk(res: Response, fallback: string) {
+  if (res.ok) return;
+  const data = await res.json().catch(() => ({}));
+  const error = data?.error;
+  throw new Error(typeof error === 'string' ? error : error?.msg || fallback);
+}
+
 function Breadcrumbs({ path, onNavigate, label }: { path: string; onNavigate: (p: string) => void; label: string }) {
   const parts = path.split('/').filter(Boolean);
   const crumbs = [{ label: '~', path: '' }, ...parts.map((p, i) => ({ label: p, path: parts.slice(0, i + 1).join('/') }))];
@@ -165,12 +178,13 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
   const savingRef = useRef(false);
 
   const { t } = useTranslations();
-  
+
+  const fileUrl = (path: string) => `/api/servers/${serverId}/file/${encodePath(path)}`;
 
   const fetchFiles = async (path: string) => {
     setIsLoading(true);
     try {
-      const data = await api.get(`/api/servers/${serverId}/file/${path}`);
+      const data = await api.get(fileUrl(path));
       if (Array.isArray(data)) {
         setFiles(data);
       }
@@ -198,7 +212,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
     } else {
       try {
         const filePath = currentPath ? `${currentPath}/${file.name}` : file.name;
-        const content = await api.get(`/api/servers/${serverId}/file/${filePath}`);
+        const content = await api.get(fileUrl(filePath));
         if (editorCloseTimeoutRef.current !== null) {
           clearTimeout(editorCloseTimeoutRef.current);
           editorCloseTimeoutRef.current = null;
@@ -222,7 +236,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
     setIsCreating(true);
     try {
       const filePath = currentPath ? `${currentPath}/${newItemName}` : newItemName;
-      const url = `/api/servers/${serverId}/file/${filePath}${newItemDialog.type === 'folder' ? '?folder' : ''}`;
+      const url = `${fileUrl(filePath)}${newItemDialog.type === 'folder' ? '?folder' : ''}`;
 
       const response = await fetch(url, {
         method: 'PUT',
@@ -230,10 +244,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
         credentials: 'include'
       });
 
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || t('servers.fileManager.toast.createError'));
-      }
+      await assertOk(response, t('servers.fileManager.toast.createError'));
 
       sileo.success({
         title: t('common.success'),
@@ -272,11 +283,12 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
       const formData = new FormData();
       formData.append('file', file);
 
-      await fetch(`/api/servers/${serverId}/file/${filePath}`, {
+      const res = await fetch(fileUrl(filePath), {
         method: 'PUT',
         body: formData,
         credentials: 'include'
       });
+      await assertOk(res, t('servers.fileManager.toast.uploadError'));
 
       sileo.success({ title: t('common.success'), description: t('servers.fileManager.toast.uploaded') });
       void fetchFiles(currentPath);
@@ -298,13 +310,13 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
   };
 
   const readFileBlob = async (path: string): Promise<Blob> => {
-    const res = await fetch(`/api/servers/${serverId}/file/${path}`, { credentials: 'include' });
+    const res = await fetch(fileUrl(path), { credentials: 'include' });
     if (!res.ok) throw new Error(`Error al leer: ${path}`);
     return res.blob();
   };
 
   const makeFolder = async (path: string) => {
-    const res = await fetch(`/api/servers/${serverId}/file/${path}?folder`, {
+    const res = await fetch(`${fileUrl(path)}?folder`, {
       method: 'PUT',
       credentials: 'include'
     });
@@ -322,7 +334,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
     if (parent) {
       await makeFolder(parent);
     }
-    const res = await fetch(`/api/servers/${serverId}/file/${path}`, {
+    const res = await fetch(fileUrl(path), {
       method: 'PUT',
       body: blob,
       credentials: 'include'
@@ -331,7 +343,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
   };
 
   const listFolderForCopy = async (path: string): Promise<FileItemResource[]> => {
-    const data = await api.get(`/api/servers/${serverId}/file/${path}`);
+    const data = await api.get(fileUrl(path));
     return Array.isArray(data) ? data : [];
   };
 
@@ -373,7 +385,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
       }
 
       if (clipboard.mode === 'cut') {
-        await api.delete(`/api/servers/${serverId}/file/${sourcePath}`);
+        await api.delete(fileUrl(sourcePath));
         setClipboard(null);
       }
 
@@ -396,7 +408,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
     setIsLoading(true);
     try {
       const filePath = currentPath ? `${currentPath}/${pendingFile.name}` : pendingFile.name;
-      await api.delete(`/api/servers/${serverId}/file/${filePath}`);
+      await api.delete(fileUrl(filePath));
       sileo.success({ title: t('common.success'), description: t('servers.fileManager.toast.deleted') });
       void fetchFiles(currentPath);
     } catch (e: any) {
@@ -434,14 +446,11 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
     try {
       const srcPath = currentPath ? `${currentPath}/${renameTarget.name}` : renameTarget.name;
       const destPath = currentPath ? `${currentPath}/${newName}` : newName;
-      const response = await fetch(`/api/servers/${serverId}/file/${srcPath}?destination=${encodeURIComponent(destPath)}`, {
+      const response = await fetch(`${fileUrl(srcPath)}?destination=${encodeURIComponent(destPath)}`, {
         method: 'POST',
         credentials: 'include'
       });
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || t('servers.fileManager.toast.renameError'));
-      }
+      await assertOk(response, t('servers.fileManager.toast.renameError'));
       sileo.success({ title: t('common.success'), description: t('servers.fileManager.toast.renamed') });
       closeRename();
       // Ensure Radix Dialog/DropdownMenu cleanup finished so the UI is not left blocked
@@ -460,7 +469,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
     setIsLoading(true);
     try {
       const filePath = currentPath ? `${currentPath}/${file.name}` : file.name;
-      await api.post(`/api/servers/${serverId}/extract/${filePath}?destination=.&skipRoot`, {});
+      await api.post(`/api/servers/${serverId}/extract/${encodePath(filePath)}?destination=.&skipRoot`, {});
       sileo.success({ title: t('common.success'), description: t('servers.fileManager.toast.extracted') });
       void fetchFiles(currentPath);
     } catch (e: any) {
@@ -476,11 +485,12 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
     setIsSaving(true);
     try {
       const filePath = currentPath ? `${currentPath}/${editingFile.name}` : editingFile.name;
-      await fetch(`/api/servers/${serverId}/file/${filePath}`, {
+      const res = await fetch(fileUrl(filePath), {
         method: 'PUT',
         body: editedContent,
         credentials: 'include'
       });
+      await assertOk(res, t('servers.fileManager.toast.saveError'));
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 2000);
     } catch (e: any) {
@@ -576,7 +586,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
           </DropdownMenuItem>
         ) : null}
         <DropdownMenuItem asChild>
-          <a href={`/api/servers/${serverId}/file/${currentPath ? `${currentPath}/${file.name}` : file.name}`} download>
+          <a href={fileUrl(currentPath ? `${currentPath}/${file.name}` : file.name)} download>
             <Download className="mr-2 h-4 w-4" aria-hidden="true" />
             {t('servers.fileManager.actions.download')}
           </a>

@@ -207,19 +207,14 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
             }
 
             // Only check once per session to avoid spamming the GitHub API and user
-            // (Temporarily disabled for testing)
-            /*
             if (sessionStorage.getItem('hasCheckedForUpdates')) {
                 return;
             }
-            */
 
             try {
                 const data = await api.get<{ current: string; latest: string; updateAvailable: boolean }>('/api/settings/update-check');
 
                 if (data.updateAvailable) {
-                    console.log("Update available! Firing toast...");
-
                     // Small delay to ensure toaster is mounted
                     setTimeout(() => {
                         sileo.info({
@@ -227,8 +222,6 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
                             description: t('header.update.description'),
                         });
                     }, 500);
-                } else {
-                    console.log("System is up to date. No toast needed.");
                 }
                 sessionStorage.setItem('hasCheckedForUpdates', 'true');
             } catch (err) {

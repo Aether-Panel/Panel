@@ -425,7 +425,12 @@
         "noPlayers": "No hay nadie conectado."
       },
       "notFoundDescription": "Puede que se haya eliminado o que no tengas acceso a él.",
-      "backToServers": "Volver a servidores"
+      "backToServers": "Volver a servidores",
+      "forceStopDialog": {
+        "title": "¿Forzar la detención de este servidor?",
+        "description": "El proceso se terminará de inmediato, sin un apagado ordenado. Se pueden perder datos no guardados.",
+        "confirm": "Sí, forzar detención"
+      }
     },
     "address": {
       "copyToastTitle": "Copiado al portapapeles",
@@ -448,7 +453,8 @@
       "clear": "Limpiar vista",
       "cleared": "Vista limpia. Los mensajes nuevos aparecerán aquí.",
       "jumpToEnd": "Ir al final",
-      "connectedToast": "Consola conectada"
+      "connectedToast": "Consola conectada",
+      "sendError": "No se pudo enviar el comando."
     },
     "aiSummary": {
       "title": "Análisis de consola por IA",
@@ -874,7 +880,12 @@
         "success": "Estado de suspensión actualizado.",
         "error": "No se pudo cambiar el estado de suspensión."
       },
-      "sectionLabel": "Sección"
+      "sectionLabel": "Sección",
+      "installDialog": {
+        "title": "¿Reinstalar este servidor?",
+        "description": "El proceso de instalación se ejecutará de nuevo y puede sobrescribir los archivos del servidor. El servidor no estará disponible hasta que termine.",
+        "confirm": "Sí, reinstalar"
+      }
     },
     "resourceChart": {
       "title": "Resumen de recursos",
@@ -1044,6 +1055,10 @@
       "cpu": "CPU",
       "ram": "RAM",
       "disk": "Disco"
+    },
+    "error": {
+      "title": "No se pudieron cargar los servidores",
+      "description": "No se pudo obtener la lista de servidores. Comprueba tu conexión e inténtalo de nuevo."
     }
   },
   "users": {

@@ -54,13 +54,11 @@ function AuthProvider({ children }: { children: ReactNode }) {
 
   const normalizeScopes = (rawScopes: any[]): string[] => {
     if (!rawScopes) return [];
-    console.log('Normalizing raw scopes:', rawScopes);
     const normalized = rawScopes.map(s => {
       if (typeof s === 'string') return s;
       if (s && typeof s === 'object') return s.value || s.scope || '';
       return '';
     }).filter(s => s !== '');
-    console.log('Normalized scopes:', normalized);
     return normalized;
   };
 
@@ -68,32 +66,16 @@ function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const data = await api.get('/api/self');
       setUser(data);
-      console.log('Fetched self data:', data);
 
-      let currentScopes = forceScopes;
-      if (!currentScopes) {
-        if (data.scopes && data.scopes.length > 0) {
-          currentScopes = normalizeScopes(data.scopes);
-          // Always persist the latest scopes from the server
-          localStorage.setItem('aether_panel_scopes', JSON.stringify(currentScopes));
-        } else {
-          // Backend returned no scopes — still try to use stored ones as fallback
-          // but this usually means the user has no permissions at all
-          const stored = JSON.parse(localStorage.getItem('aether_panel_scopes') || '[]');
-          currentScopes = stored;
-        }
-      } else {
-        localStorage.setItem('aether_panel_scopes', JSON.stringify(currentScopes));
-      }
+      // Scopes only ever come from the server; no scopes means no permissions
+      const currentScopes = forceScopes ?? normalizeScopes(data.scopes || []);
 
-      setScopes(currentScopes || []);
-      setRole(currentScopes?.includes('admin') ? 'admin' : 'user');
-      console.log('Session initialized:', { user: data.username, scopes: currentScopes });
+      setScopes(currentScopes);
+      setRole(currentScopes.includes('admin') ? 'admin' : 'user');
     } catch (e) {
       console.error('Failed to fetch self:', e);
       setRole(null);
       setUser(null);
-      localStorage.removeItem('aether_panel_scopes');
     } finally {
       setLoading(false);
     }
@@ -124,7 +106,6 @@ function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (credentials: LoginCredentials) => {
     setLoading(true);
     try {
-      console.log('Attempting login for:', credentials.email);
       const data = await api.post('/auth/login', {
         email: credentials.email,
         password: credentials.password,
@@ -141,7 +122,6 @@ function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const scopesList = normalizeScopes(data.scopes || []);
-      localStorage.setItem('aether_panel_scopes', JSON.stringify(scopesList));
 
       // Fetch user info and pass current scopes to avoid race conditions
       await fetchSelf(scopesList);
@@ -167,7 +147,6 @@ function AuthProvider({ children }: { children: ReactNode }) {
   const register = async (data: RegisterData) => {
     setLoading(true);
     try {
-      console.log('Attempting registration for:', data.email);
       const res = await api.post('/auth/register', {
         username: data.username,
         email: data.email,
@@ -176,7 +155,6 @@ function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       const scopesList = normalizeScopes(res.scopes || []);
-      localStorage.setItem('aether_panel_scopes', JSON.stringify(scopesList));
 
       await fetchSelf(scopesList);
 
@@ -204,7 +182,6 @@ function AuthProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       console.error('Logout failed:', e);
     } finally {
-      localStorage.removeItem('aether_panel_scopes');
       setRole(null);
       setUser(null);
       window.location.href = '/login/';

@@ -73,13 +73,18 @@ export default function ConsoleView({
     setCommand('');
 
     try {
-      await fetch(`/api/servers/${serverId}/console`, {
+      const res = await fetch(`/api/servers/${serverId}/console`, {
         method: 'POST',
         body: cmdToSend,
         credentials: 'include'
       });
-    } catch (e) {
-      console.error('Failed to send command:', e);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const error = data?.error;
+        throw new Error(typeof error === 'string' ? error : error?.msg || t('servers.console.sendError'));
+      }
+    } catch (e: any) {
+      sileo.error({ title: t('common.error'), description: e.message || t('servers.console.sendError') });
       addLog(`[Error] Failed to send: ${cmdToSend}`);
     }
   };
