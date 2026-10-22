@@ -1,7 +1,7 @@
 package services
 
 import (
-	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
@@ -13,10 +13,11 @@ import (
 	"gorm.io/gorm"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 )
 
 var wsupgrader = websocket.Upgrader{
@@ -141,6 +142,12 @@ func (ns *Node) Create(node *models.Node) error {
 }
 
 func (ns *Node) CallNode(node *models.Node, method string, path string, body io.ReadCloser, headers http.Header) (*http.Response, error) {
+	return ns.CallNodeContext(context.Background(), node, method, path, body, headers)
+}
+
+// CallNodeContext is CallNode bound to ctx: when it ends (for example the browser that made
+// the request went away), the call to the node is cancelled too.
+func (ns *Node) CallNodeContext(ctx context.Context, node *models.Node, method string, path string, body io.ReadCloser, headers http.Header) (*http.Response, error) {
 	var fullURL string
 	var err error
 
@@ -165,11 +172,11 @@ func (ns *Node) CallNode(node *models.Node, method string, path string, body io.
 		headers.Del("Cookie")
 	}
 
-	request := &http.Request{
+	request := (&http.Request{
 		Method: method,
 		URL:    addr,
 		Header: headers,
-	}
+	}).WithContext(ctx)
 
 	if method != "GET" && body != nil {
 		request.Body = body
@@ -192,10 +199,7 @@ func (ns *Node) CallNode(node *models.Node, method string, path string, body io.
 	request.Header.Set("Authorization", "Bearer "+token)
 
 	if node.IsLocal() {
-		w := &httptest.ResponseRecorder{}
-		w.Body = &bytes.Buffer{}
-		skypanel.Engine.ServeHTTP(w, request)
-		return w.Result(), err
+		return serveLocal(request), nil
 	}
 
 	response, err := skypanel.HTTP().Do(request)
@@ -263,10 +267,46 @@ func (ns *Node) OpenSocket(node *models.Node, path string, writer http.ResponseW
 	return nil
 }
 
+// daemonSchemes remembers whether each node answers on https, so every call does not send
+// an extra probe first
+var (
+	daemonSchemes     = make(map[string]daemonScheme)
+	daemonSchemesLock sync.Mutex
+)
+
+type daemonScheme struct {
+	ssl     bool
+	checked time.Time
+}
+
+const daemonSchemeTTL = 5 * time.Minute
+
 func doesDaemonUseSSL(node *models.Node) (bool, error) {
 	if node.IsLocal() {
 		return false, nil
 	}
+
+	key := fmt.Sprintf("%s:%d", node.PrivateHost, node.PrivatePort)
+	daemonSchemesLock.Lock()
+	cached, ok := daemonSchemes[key]
+	daemonSchemesLock.Unlock()
+	if ok && time.Since(cached.checked) < daemonSchemeTTL {
+		return cached.ssl, nil
+	}
+
+	ssl, err := probeDaemonSSL(node)
+	if err == nil {
+		daemonSchemesLock.Lock()
+		daemonSchemes[key] = daemonScheme{ssl: ssl, checked: time.Now()}
+		daemonSchemesLock.Unlock()
+	}
+	return ssl, err
+}
+
+func probeDaemonSSL(node *models.Node) (bool, error) {
+	// an unreachable node must not hold the caller for the client's default timeouts
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
 	path := fmt.Sprintf("://%s:%d/daemon", node.PrivateHost, node.PrivatePort)
 
@@ -276,7 +316,7 @@ func doesDaemonUseSSL(node *models.Node) (bool, error) {
 		return false, err
 	}
 
-	request := &http.Request{Method: http.MethodOptions, URL: u}
+	request := (&http.Request{Method: http.MethodOptions, URL: u}).WithContext(ctx)
 	res, err := skypanel.HTTP().Do(request)
 	utils.CloseResponse(res)
 
@@ -286,7 +326,7 @@ func doesDaemonUseSSL(node *models.Node) (bool, error) {
 			return false, err
 		}
 
-		request = &http.Request{Method: http.MethodOptions, URL: u}
+		request = (&http.Request{Method: http.MethodOptions, URL: u}).WithContext(ctx)
 		res, err = skypanel.HTTP().Do(request)
 		utils.CloseResponse(res)
 		return false, err
