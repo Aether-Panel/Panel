@@ -507,7 +507,7 @@ func getOSName() string {
 
 func SendStatsForServers() {
 	var wg sync.WaitGroup
-	for _, v := range allServers {
+	for _, v := range GetAll() {
 		wg.Add(1)
 		go func(p *Server) {
 			defer wg.Done()

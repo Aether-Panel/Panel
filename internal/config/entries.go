@@ -2,6 +2,7 @@ package config
 
 import (
 	"path/filepath"
+	"sync"
 
 	"github.com/spf13/cast"
 	"github.com/spf13/viper"
@@ -140,6 +141,8 @@ func (se entry[T]) Key() string {
 }
 
 func (se entry[T]) Set(value T, save bool) error {
+	viperLock.Lock()
+	defer viperLock.Unlock()
 	viper.Set(se.Key(), value)
 
 	if save {
@@ -173,8 +176,18 @@ func as[T ValueType](key string, def T) entry[T] {
 	return entry[T]{key: key}
 }
 
+// IsSet reports whether the value comes from the config file or the environment
+// rather than from the built-in default
+func (se entry[T]) IsSet() bool {
+	viperLock.RLock()
+	defer viperLock.RUnlock()
+	return viper.Get(se.Key()) != nil
+}
+
 func (se entry[T]) get() interface{} {
+	viperLock.RLock()
 	val := viper.Get(se.Key())
+	viperLock.RUnlock()
 	if val == nil {
 		val = defaults[se.Key()]
 	}
@@ -183,3 +196,7 @@ func (se entry[T]) get() interface{} {
 }
 
 var defaults = make(map[string]interface{})
+
+// viperLock serialises access to viper, which is not safe for concurrent use: settings
+// are changed from the API while other goroutines keep reading them
+var viperLock sync.RWMutex

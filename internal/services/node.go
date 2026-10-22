@@ -7,6 +7,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
+	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gorilla/websocket"
 	"gorm.io/gorm"
@@ -239,7 +240,9 @@ func (ns *Node) OpenSocket(node *models.Node, path string, writer http.ResponseW
 			_ = client.Close()
 		}()
 
-		ch := make(chan error)
+		// buffered for both readers: after the first one fails and the sockets close, the
+		// second one fails too and must not block forever on the send
+		ch := make(chan error, 2)
 		go proxyRead(daemon, client, ch)
 		go proxyRead(client, daemon, ch)
 
@@ -267,7 +270,8 @@ func doesDaemonUseSSL(node *models.Node) (bool, error) {
 	}
 
 	request := &http.Request{Method: http.MethodOptions, URL: u}
-	_, err = skypanel.HTTP().Do(request)
+	res, err := skypanel.HTTP().Do(request)
+	utils.CloseResponse(res)
 
 	if err != nil {
 		u, err = url.Parse("http" + path)
@@ -276,7 +280,8 @@ func doesDaemonUseSSL(node *models.Node) (bool, error) {
 		}
 
 		request = &http.Request{Method: http.MethodOptions, URL: u}
-		_, err = skypanel.HTTP().Do(request)
+		res, err = skypanel.HTTP().Do(request)
+		utils.CloseResponse(res)
 		return false, err
 	}
 

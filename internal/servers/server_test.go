@@ -3,11 +3,13 @@ package servers
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 )
 
@@ -414,4 +416,40 @@ func TestLoadFromFolder(t *testing.T) {
 	if !assert.NotEmpty(t, allServers) {
 		return
 	}
+}
+
+func TestServerCache_ConcurrentAccess(t *testing.T) {
+	allServersLock.Lock()
+	previous := allServers
+	allServers = make([]*Server, 0)
+	allServersLock.Unlock()
+	t.Cleanup(func() {
+		allServersLock.Lock()
+		allServers = previous
+		allServersLock.Unlock()
+	})
+
+	var wg sync.WaitGroup
+	for i := 0; i < 50; i++ {
+		wg.Add(2)
+		go func(i int) {
+			defer wg.Done()
+			s := CreateProgram()
+			s.Identifier = fmt.Sprintf("srv-%d", i)
+			addToCache(s)
+		}(i)
+		go func() {
+			defer wg.Done()
+			for range GetAll() {
+			}
+			_ = GetFromCache("srv-1")
+		}()
+	}
+	wg.Wait()
+	assert.Len(t, GetAll(), 50)
+
+	removeFromCache("srv-10")
+	assert.Len(t, GetAll(), 49)
+	assert.Nil(t, GetFromCache("srv-10"))
+	assert.NotNil(t, GetFromCache("srv-11"))
 }

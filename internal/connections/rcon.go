@@ -7,6 +7,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/gorcon/rcon"
 	"io"
+	"sync"
 	"time"
 )
 
@@ -19,47 +20,94 @@ type RCONConnection struct {
 	connection *rcon.Conn
 	ready      bool
 	closer     chan error
+	lock       sync.Mutex
 }
 
 func (tc *RCONConnection) Write(p []byte) (n int, err error) {
-	if !tc.ready {
+	conn := tc.readyConnection()
+	if conn == nil {
 		time.Sleep(1 * time.Second)
-		if !tc.ready {
+		conn = tc.readyConnection()
+		if conn == nil {
 			return 0, errors.New("rcon not available")
 		}
 	}
-	if tc.connection != nil {
-		var res string
-		res, err = tc.connection.Execute(string(p))
-		if err != nil {
-			tc.closer <- err
-		}
-		logging.Debug.Printf("RCON Response: %s\n", res)
-		return len(p), err
+
+	var res string
+	res, err = conn.Execute(string(p))
+	if err != nil {
+		// drop this connection so the reconnector opens a new one
+		tc.signalClose(err)
 	}
-	return 0, errors.New("rcon not available")
+	logging.Debug.Printf("RCON Response: %s\n", res)
+	return len(p), err
 }
 
 func (tc *RCONConnection) Start() {
+	tc.lock.Lock()
 	tc.Reconnect = true
 	if tc.IP == "" {
 		tc.IP = "127.0.0.1"
 	}
+	tc.closer = make(chan error, 1)
+	tc.lock.Unlock()
 
 	go tc.reconnector()
 }
 
 func (tc *RCONConnection) Close() error {
+	tc.lock.Lock()
 	tc.Reconnect = false
-	if tc.connection == nil {
+	conn := tc.connection
+	tc.lock.Unlock()
+
+	// wake the reconnector up so it can exit
+	tc.signalClose(nil)
+	if conn == nil {
 		return nil
 	}
-	return tc.connection.Close()
+	return conn.Close()
+}
+
+func (tc *RCONConnection) readyConnection() *rcon.Conn {
+	tc.lock.Lock()
+	defer tc.lock.Unlock()
+	if !tc.ready {
+		return nil
+	}
+	return tc.connection
+}
+
+func (tc *RCONConnection) shouldReconnect() bool {
+	tc.lock.Lock()
+	defer tc.lock.Unlock()
+	return tc.Reconnect
+}
+
+// signalClose tells recon to drop the current connection; it never blocks
+func (tc *RCONConnection) signalClose(err error) {
+	tc.lock.Lock()
+	closer := tc.closer
+	tc.lock.Unlock()
+
+	select {
+	case closer <- err:
+	default:
+	}
+}
+
+func (tc *RCONConnection) setReady(conn *rcon.Conn, ready bool) {
+	tc.lock.Lock()
+	defer tc.lock.Unlock()
+	if conn != nil {
+		tc.connection = conn
+	}
+	tc.ready = ready
 }
 
 func (tc *RCONConnection) reconnector() {
 	init := true
-	for tc.Reconnect {
+	for tc.shouldReconnect() {
 		tc.recon(init)
 		if init {
 			init = false
@@ -68,19 +116,26 @@ func (tc *RCONConnection) reconnector() {
 }
 
 func (tc *RCONConnection) recon(init bool) {
-	tc.ready = false
+	tc.setReady(nil, false)
 	if !init {
 		time.Sleep(5 * time.Second)
 	}
+	if !tc.shouldReconnect() {
+		return
+	}
 
-	var err error
-	tc.connection, err = rcon.Dial(fmt.Sprintf("%s:%s", tc.IP, tc.Port), tc.Password)
+	tc.lock.Lock()
+	address := fmt.Sprintf("%s:%s", tc.IP, tc.Port)
+	closer := tc.closer
+	tc.lock.Unlock()
+
+	conn, err := rcon.Dial(address, tc.Password)
 	if err != nil {
 		logging.Debug.Printf("Error connecting to RCON: %s", err.Error())
 		return
 	}
-	tc.ready = true
-	defer utils.Close(tc.connection)
-	<-tc.closer
-	tc.ready = false
+	tc.setReady(conn, true)
+	defer utils.Close(conn)
+	<-closer
+	tc.setReady(nil, false)
 }
