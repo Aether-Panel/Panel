@@ -5,7 +5,7 @@
     "enable": true,
     "database": {
       "dialect": "mysql",
-      "url": "esteban:2006@tcp(192.168.0.6:3306)/skypanel?charset=utf8mb4&parseTime=true"
+      "url": "skypanel:CHANGE_ME@tcp(mysql:3306)/skypanel?charset=utf8mb4&parseTime=true"
     },
     "web": {
       "files": "/var/www/SkyPanel"

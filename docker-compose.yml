@@ -6,8 +6,12 @@ services:
     image: mariadb:10.11
     container_name: skypanel-mysql
     restart: unless-stopped
+    # Solo accesible desde esta máquina: en Linux, Docker publica los puertos por
+    # delante del firewall (ufw no los bloquea). Si algo externo necesita llegar a
+    # esta base de datos, pon DB_BIND_ADDRESS=0.0.0.0 en el .env del servidor y
+    # limita el acceso con reglas en la cadena DOCKER-USER de iptables.
     ports:
-      - "3307:3306"
+      - "${DB_BIND_ADDRESS:-127.0.0.1}:3307:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-skypanel_secret}
       - MYSQL_DATABASE=${DB_DATABASE:-skypanel}
