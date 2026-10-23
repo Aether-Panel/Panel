@@ -37,12 +37,41 @@ type MetricPoint struct {
 	NetTx     float64 `json:"tx"`
 	// Online is the share of samples taken while the server was running (0 to 1)
 	Online float64 `json:"online"`
+	// Players is the average number of people online and PlayersPeak the most at once;
+	// HasPlayers is false when the game did not answer any query in the bucket
+	Players     float64 `json:"players"`
+	PlayersPeak int     `json:"playersPeak"`
+	MaxPlayers  int     `json:"maxPlayers"`
+	HasPlayers  bool    `json:"hasPlayers"`
 } // @name MetricPoint
 
 type metricBucket struct {
 	start                            time.Time
 	count                            float64
 	cpu, mem, maxMem, rx, tx, online float64
+	playerSamples, players           float64
+	playersPeak, maxPlayers          int
+}
+
+func (b *metricBucket) addPlayers(online, slots int) {
+	b.playerSamples++
+	b.players += float64(online)
+	if online > b.playersPeak {
+		b.playersPeak = online
+	}
+	if slots > b.maxPlayers {
+		b.maxPlayers = slots
+	}
+}
+
+func (b *metricBucket) fillPlayers(point *MetricPoint) {
+	if b.playerSamples == 0 {
+		return
+	}
+	point.HasPlayers = true
+	point.Players = b.players / b.playerSamples
+	point.PlayersPeak = b.playersPeak
+	point.MaxPlayers = b.maxPlayers
 }
 
 func (b *metricBucket) add(s *skypanel.ServerStats) {
@@ -58,27 +87,85 @@ func (b *metricBucket) add(s *skypanel.ServerStats) {
 }
 
 func (b *metricBucket) point() MetricPoint {
-	if b.count == 0 {
-		return MetricPoint{Time: b.start.Unix()}
+	point := MetricPoint{Time: b.start.Unix()}
+	if b.count > 0 {
+		point.CPU = b.cpu / b.count
+		point.Memory = b.mem / b.count
+		point.MaxMemory = b.maxMem / b.count
+		point.NetRx = b.rx / b.count
+		point.NetTx = b.tx / b.count
+		point.Online = b.online / b.count
 	}
-	return MetricPoint{
-		Time:      b.start.Unix(),
-		CPU:       b.cpu / b.count,
-		Memory:    b.mem / b.count,
-		MaxMemory: b.maxMem / b.count,
-		NetRx:     b.rx / b.count,
-		NetTx:     b.tx / b.count,
-		Online:    b.online / b.count,
-	}
+	b.fillPlayers(&point)
+	return point
+}
+
+func (b *metricBucket) empty() bool {
+	return b.count == 0 && b.playerSamples == 0
 }
 
 type metricHistory struct {
 	Minutes []MetricPoint `json:"minutes"`
 	Quarter []MetricPoint `json:"quarter"`
 
+	// RecordPlayers is the most people ever seen online at once, and RecordAt when (Unix seconds)
+	RecordPlayers int   `json:"recordPlayers"`
+	RecordAt      int64 `json:"recordAt"`
+
 	minute  metricBucket
 	quarter metricBucket
 	saved   time.Time
+}
+
+// roll closes the buckets that ended before now and opens the current ones
+func (h *metricHistory) roll(now time.Time) {
+	minuteStart := now.Truncate(minuteStep)
+	if !h.minute.start.Equal(minuteStart) {
+		if !h.minute.empty() {
+			h.Minutes = appendCapped(h.Minutes, h.minute.point(), keepMinutes)
+		}
+		h.minute = metricBucket{start: minuteStart}
+	}
+	quarterStart := now.Truncate(quarterStep)
+	if !h.quarter.start.Equal(quarterStart) {
+		if !h.quarter.empty() {
+			h.Quarter = appendCapped(h.Quarter, h.quarter.point(), keepQuarter)
+		}
+		h.quarter = metricBucket{start: quarterStart}
+	}
+}
+
+func (h *metricHistory) maybeSave(serverID string, now time.Time) {
+	if now.Sub(h.saved) < metricsSaveEvery {
+		return
+	}
+	h.saved = now
+	if err := saveHistory(serverID, h); err != nil {
+		logging.Error.Printf("Error saving performance history for %s: %s", serverID, err)
+	}
+}
+
+// recordPlayers folds one player count into the server's history
+func (p *Server) recordPlayers(online, slots int, now time.Time) {
+	metricHistoriesLock.Lock()
+	defer metricHistoriesLock.Unlock()
+	h := historyFor(p.ID())
+	h.roll(now)
+	h.minute.addPlayers(online, slots)
+	h.quarter.addPlayers(online, slots)
+	if online > h.RecordPlayers {
+		h.RecordPlayers = online
+		h.RecordAt = now.Unix()
+	}
+	h.maybeSave(p.ID(), now)
+}
+
+// PlayerRecord is the most people ever seen online at once, and when
+func (p *Server) PlayerRecord() (players int, at int64) {
+	metricHistoriesLock.Lock()
+	defer metricHistoriesLock.Unlock()
+	h := historyFor(p.ID())
+	return h.RecordPlayers, h.RecordAt
 }
 
 var (
@@ -113,31 +200,10 @@ func (p *Server) recordMetrics(stats *skypanel.ServerStats, now time.Time) {
 	metricHistoriesLock.Lock()
 	defer metricHistoriesLock.Unlock()
 	h := historyFor(p.ID())
-
-	minuteStart := now.Truncate(minuteStep)
-	if !h.minute.start.Equal(minuteStart) {
-		if h.minute.count > 0 {
-			h.Minutes = appendCapped(h.Minutes, h.minute.point(), keepMinutes)
-		}
-		h.minute = metricBucket{start: minuteStart}
-	}
+	h.roll(now)
 	h.minute.add(stats)
-
-	quarterStart := now.Truncate(quarterStep)
-	if !h.quarter.start.Equal(quarterStart) {
-		if h.quarter.count > 0 {
-			h.Quarter = appendCapped(h.Quarter, h.quarter.point(), keepQuarter)
-		}
-		h.quarter = metricBucket{start: quarterStart}
-	}
 	h.quarter.add(stats)
-
-	if now.Sub(h.saved) >= metricsSaveEvery {
-		h.saved = now
-		if err := saveHistory(p.ID(), h); err != nil {
-			logging.Error.Printf("Error saving performance history for %s: %s", p.ID(), err)
-		}
-	}
+	h.maybeSave(p.ID(), now)
 }
 
 func appendCapped(points []MetricPoint, point MetricPoint, keep int) []MetricPoint {
@@ -199,7 +265,7 @@ func (p *Server) Metrics(window, step time.Duration, now time.Time) []MetricPoin
 	}
 	metricHistoriesLock.Unlock()
 
-	if current.count > 0 {
+	if !current.empty() {
 		source = append(source, current.point())
 	}
 	since := now.Add(-window).Unix()
@@ -235,6 +301,16 @@ func resample(points []MetricPoint, since, step int64) []MetricPoint {
 		bucket.rx += pt.NetRx
 		bucket.tx += pt.NetTx
 		bucket.online += pt.Online
+		if pt.HasPlayers {
+			bucket.playerSamples++
+			bucket.players += pt.Players
+			if pt.PlayersPeak > bucket.playersPeak {
+				bucket.playersPeak = pt.PlayersPeak
+			}
+			if pt.MaxPlayers > bucket.maxPlayers {
+				bucket.maxPlayers = pt.MaxPlayers
+			}
+		}
 	}
 	flush()
 	return result

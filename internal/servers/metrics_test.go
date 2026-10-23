@@ -76,3 +76,41 @@ func TestMetrics_HistorySurvivesARestart(t *testing.T) {
 		assert.InDelta(t, 42, points[0].CPU, 0.001)
 	}
 }
+
+func TestMetrics_PlayersAveragePeakAndRecord(t *testing.T) {
+	p := newMetricsTestServer(t)
+	start := time.Date(2026, 10, 22, 20, 0, 0, 0, time.UTC)
+
+	p.recordPlayers(4, 20, start)
+	p.recordPlayers(10, 20, start.Add(20*time.Second))
+	p.recordMetrics(&skypanel.ServerStats{CPU: 5, Running: true}, start.Add(30*time.Second))
+	p.recordPlayers(2, 20, start.Add(70*time.Second))
+
+	points := p.Metrics(time.Hour, time.Minute, start.Add(80*time.Second))
+	if assert.Len(t, points, 2) {
+		assert.True(t, points[0].HasPlayers)
+		assert.InDelta(t, 7, points[0].Players, 0.001)
+		assert.Equal(t, 10, points[0].PlayersPeak)
+		assert.Equal(t, 20, points[0].MaxPlayers)
+		assert.Equal(t, 2, points[1].PlayersPeak)
+	}
+	record, at := p.PlayerRecord()
+	assert.Equal(t, 10, record)
+	assert.Equal(t, start.Add(20*time.Second).Unix(), at)
+
+	// a week of quarters keeps the peak through resampling
+	week := p.Metrics(7*24*time.Hour, time.Hour, start.Add(80*time.Second))
+	if assert.Len(t, week, 1) {
+		assert.Equal(t, 10, week[0].PlayersPeak)
+	}
+}
+
+func TestMetrics_NoPlayersWhenTheGameNeverAnswers(t *testing.T) {
+	p := newMetricsTestServer(t)
+	start := time.Date(2026, 10, 22, 20, 0, 0, 0, time.UTC)
+	p.recordMetrics(&skypanel.ServerStats{CPU: 5, Running: true}, start)
+	points := p.Metrics(time.Hour, time.Minute, start.Add(10*time.Second))
+	if assert.Len(t, points, 1) {
+		assert.False(t, points[0].HasPlayers)
+	}
+}

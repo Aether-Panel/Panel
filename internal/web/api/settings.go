@@ -42,6 +42,7 @@ func registerSettings(g *gin.RouterGroup) {
 
 	g.Handle("POST", "/test/s3", middleware.RequiresPermission(scopes.ScopeSettingsEdit), sendTestS3)
 	g.Handle("OPTIONS", "/test/s3", response.CreateOptions("POST"))
+	g.Handle("POST", "/test/cloudflare", middleware.RequiresPermission(scopes.ScopeSettingsEdit), sendTestCloudflare)
 
 	g.Handle("POST", "/license/activate", middleware.RequiresPermission(scopes.ScopeSettingsEdit), activateLicense)
 	g.Handle("OPTIONS", "/license/activate", response.CreateOptions("POST"))
@@ -569,6 +570,10 @@ var editableStringEntries = []config.StringEntry{
 	config.BackupsS3AccessKey,
 	config.BackupsS3SecretKey,
 	config.BackupsS3Prefix,
+	config.CloudflareAPIToken,
+	config.CloudflareZoneID,
+	config.DNSBaseDomain,
+	config.DNSTarget,
 }
 var editableBoolEntries = []config.BoolEntry{
 	config.RegistrationEnabled,
@@ -576,6 +581,7 @@ var editableBoolEntries = []config.BoolEntry{
 	config.HeaderDecorations,
 	config.BackupsS3Enabled,
 	config.BackupsS3Insecure,
+	config.DNSAutoAssign,
 }
 var editableIntEntries = []config.IntEntry{}
 

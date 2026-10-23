@@ -40,6 +40,7 @@ var dbObjects = []interface{}{
 	&models.ProvisionProduct{},
 	&models.PasswordReset{},
 	&models.ActivityLog{},
+	&models.ServerActivity{},
 }
 
 func Upgrade(dbConn *gorm.DB, prettyPrint bool) error {

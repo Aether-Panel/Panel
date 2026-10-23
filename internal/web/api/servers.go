@@ -34,6 +34,11 @@ import (
 )
 
 func registerServers(g *gin.RouterGroup) {
+	// every change made through these routes lands in the server's activity log
+	g.Use(recordServerActivity)
+	registerServerActivity(g)
+	registerServerDNS(g)
+
 	g.Handle("GET", "", searchServers)
 	g.Handle("OPTIONS", "", response.CreateOptions("GET"))
 
@@ -74,6 +79,7 @@ func registerServers(g *gin.RouterGroup) {
 	g.OPTIONS("/:serverId/transfer", response.CreateOptions("POST"))
 
 	g.POST("/:serverId/ai/analyze", middleware.RequiresPermission(scopes.ScopeServerConsole), middleware.ResolveServerPanel, analyzeServerLogs)
+	g.POST("/:serverId/ai/chat", middleware.RequiresPermission(scopes.ScopeServerConsole), middleware.ResolveServerPanel, chatWithAssistant)
 	g.OPTIONS("/:serverId/ai/analyze", response.CreateOptions("POST"))
 
 	g.POST("/:serverId/extransfer/create", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, CreateExTransfer)
@@ -112,6 +118,11 @@ func registerServers(g *gin.RouterGroup) {
 
 	g.GET("/:serverId/metrics", middleware.RequiresPermission(scopes.ScopeServerStats), middleware.ResolveServerPanel, proxyServerRequest)
 	g.OPTIONS("/:serverId/metrics", response.CreateOptions("GET"))
+
+	g.GET("/:serverId/version", middleware.RequiresPermission(scopes.ScopeServerView), middleware.ResolveServerPanel, proxyServerRequest)
+	// changing the version reinstalls the server, so it needs the same permission as reinstalling
+	g.POST("/:serverId/version", middleware.RequiresPermission(scopes.ScopeServerInstall), middleware.ResolveServerPanel, proxyServerRequest)
+	g.OPTIONS("/:serverId/version", response.CreateOptions("GET", "POST"))
 
 	// a server's own Discord alerts sit with its other owner settings (auto start, auto restart)
 	g.GET("/:serverId/notifications", middleware.RequiresPermission(scopes.ScopeServerEditFlags), middleware.ResolveServerPanel, proxyServerRequest)
@@ -493,6 +504,7 @@ func editServer(c *gin.Context) {
 		return
 	}
 
+	scheduleAutoSubdomain(server.Identifier)
 	c.Status(http.StatusNoContent)
 }
 
@@ -532,6 +544,8 @@ func deleteServer(c *gin.Context) {
 			return
 		}
 	}
+
+	releaseSubdomain(db, server)
 
 	if err := db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("server_identifier = ?", server.Identifier).Delete(&models.Permissions{}).Error; err != nil {

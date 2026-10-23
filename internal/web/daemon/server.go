@@ -17,7 +17,6 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/files"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
-	"github.com/SkyPanel/SkyPanel/v3/internal/query"
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers"
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers/docker"
@@ -119,6 +118,8 @@ func RegisterServerRoutes(e *gin.RouterGroup) {
 
 		l.GET("/:serverId/crashes", middleware.ResolveServerNode, getCrashReports)
 		l.GET("/:serverId/metrics", middleware.ResolveServerNode, getMetrics)
+		l.GET("/:serverId/version", middleware.ResolveServerNode, getGameVersions)
+		l.POST("/:serverId/version", middleware.ResolveServerNode, changeGameVersion)
 		l.GET("/:serverId/notifications", middleware.ResolveServerNode, getNotifications)
 		l.PUT("/:serverId/notifications", middleware.ResolveServerNode, putNotifications)
 		l.POST("/:serverId/notifications/test", middleware.ResolveServerNode, testNotifications)
@@ -1244,26 +1245,6 @@ func canQueryServer(c *gin.Context) {
 	}
 }
 
-// sourceQueryMisses remembers servers without a declared query type that did not answer an
-// A2S query, so they are not asked again on every poll
-var (
-	sourceQueryMisses     = make(map[string]time.Time)
-	sourceQueryMissesLock sync.Mutex
-)
-
-const sourceQueryRetry = 2 * time.Minute
-
-// queryPort is the port a game answers queries on: a template's query port variable when it
-// has one, otherwise the game port
-func queryPort(data map[string]interface{}) int {
-	for _, key := range []string{"queryport", "query_port", "queryPort", "steamqueryport", "steam_query_port"} {
-		if port := cast.ToInt(data[key]); port > 0 {
-			return port
-		}
-	}
-	return cast.ToInt(data["port"])
-}
-
 // @Summary Queries the server for game-specific stats
 // @Description Queries the server using the server's protocol to gather information such as players.
 // @Description Minecraft servers answer the server list ping; Steam servers (query type "source",
@@ -1277,65 +1258,11 @@ func queryPort(data map[string]interface{}) int {
 func queryServer(c *gin.Context) {
 	server := getServerFromGin(c)
 
-	if running, err := server.IsRunning(); err != nil || !running {
+	result, ok := server.QueryGame()
+	if !ok {
 		c.Status(http.StatusNoContent)
 		return
 	}
-
-	data := server.DataToMap()
-	ip := cast.ToString(data["ip"])
-	result := make(map[string]interface{})
-
-	switch server.Query.Type {
-	case "minecraft":
-		port := cast.ToInt(data["port"])
-		if port <= 0 {
-			c.Status(http.StatusNoContent)
-			return
-		}
-
-		res, err := query.Minecraft(ip, port)
-		if err != nil {
-			c.Status(http.StatusNoContent)
-			return
-		}
-		result["minecraft"] = res
-	case "source", "steam", "":
-		port := queryPort(data)
-		if port <= 0 {
-			c.Status(http.StatusNoContent)
-			return
-		}
-
-		// without a declared type this is a guess, so a server that stays silent is left
-		// alone for a while instead of costing a timeout on every poll
-		guess := server.Query.Type == ""
-		if guess {
-			sourceQueryMissesLock.Lock()
-			missed, ok := sourceQueryMisses[server.ID()]
-			sourceQueryMissesLock.Unlock()
-			if ok && time.Since(missed) < sourceQueryRetry {
-				c.Status(http.StatusNoContent)
-				return
-			}
-		}
-
-		res, err := query.Source(ip, port)
-		if err != nil {
-			if guess {
-				sourceQueryMissesLock.Lock()
-				sourceQueryMisses[server.ID()] = time.Now()
-				sourceQueryMissesLock.Unlock()
-			}
-			c.Status(http.StatusNoContent)
-			return
-		}
-		result["source"] = res
-	default:
-		c.Status(http.StatusNoContent)
-		return
-	}
-
 	c.JSON(http.StatusOK, result)
 }
 
@@ -1557,6 +1484,12 @@ func installPlugin(c *gin.Context) {
 		return
 	}
 
+	// a plugin can break the server; a restore point lets the owner go back (a busy backup
+	// only means this install goes ahead without one)
+	if err := server.CreateRestorePoint(servers.RestoreReasonPlugin); err != nil {
+		logging.Info.Printf("[%s] No restore point before installing a plugin: %s", server.ID(), err)
+	}
+
 	// Obtener versiones del proyecto de Modrinth
 	versionURL := fmt.Sprintf("https://api.modrinth.com/v2/project/%s/version", projectID)
 	client := &http.Client{}
@@ -1678,6 +1611,10 @@ func deletePlugin(c *gin.Context) {
 		logging.Error.Printf("deletePlugin: plugin name is required")
 		response.HandleError(c, errors.New("plugin name is required (use ?name=plugin.jar)"), http.StatusBadRequest)
 		return
+	}
+
+	if err := server.CreateRestorePoint(servers.RestoreReasonPlugin); err != nil {
+		logging.Info.Printf("[%s] No restore point before removing a plugin: %s", server.ID(), err)
 	}
 
 	// Asegurar que es un archivo .jar
@@ -1827,9 +1764,62 @@ func getMetrics(c *gin.Context) {
 		response.HandleError(c, errors.New("range must be 1h, 24h or 7d"), http.StatusBadRequest)
 		return
 	}
+	record, recordAt := server.PlayerRecord()
 	c.JSON(http.StatusOK, gin.H{
 		"range":  name,
 		"step":   int64(window.Step / time.Second),
 		"points": server.Metrics(window.Window, window.Step, time.Now()),
+		"record": gin.H{"players": record, "at": recordAt},
 	})
+}
+
+// @Summary Get game versions
+// @Description The server's game version and the stable releases it can switch to (Paper, Folia, Velocity, Waterfall, vanilla)
+// @Success 200 {object} servers.VersionInfo
+// @Param id path string true "Server ID"
+// @Tags Daemon Server
+// @Router /api/servers/{id}/version [get]
+// @Security OAuth2Application[server.view]
+func getGameVersions(c *gin.Context) {
+	server := getServerFromGin(c)
+
+	info, err := server.GameVersions()
+	if errors.Is(err, servers.ErrNoVersionSwitch) {
+		c.Status(http.StatusNoContent)
+		return
+	}
+	// the version lists come from PaperMC and Mojang; when they cannot be reached say so
+	if response.HandleError(c, err, http.StatusBadGateway) {
+		return
+	}
+	c.JSON(http.StatusOK, info)
+}
+
+// @Summary Change game version
+// @Description Stops the server, saves a restore point, sets the new version, reinstalls and starts it again if it was running. Runs in the background; the console shows each step.
+// @Success 202 {object} nil
+// @Param id path string true "Server ID"
+// @Tags Daemon Server
+// @Router /api/servers/{id}/version [post]
+// @Security OAuth2Application[server.install]
+func changeGameVersion(c *gin.Context) {
+	server := getServerFromGin(c)
+
+	var body struct {
+		Version string `json:"version" binding:"required"`
+	}
+	if response.HandleError(c, c.ShouldBindJSON(&body), http.StatusBadRequest) {
+		return
+	}
+	err := server.ChangeVersion(strings.TrimSpace(body.Version))
+	switch {
+	case errors.Is(err, servers.ErrNoVersionSwitch), errors.Is(err, servers.ErrUnknownVersion):
+		response.HandleError(c, err, http.StatusBadRequest)
+	case errors.Is(err, servers.ErrVersionChanging):
+		response.HandleError(c, err, http.StatusConflict)
+	case err != nil:
+		response.HandleError(c, err, http.StatusConflict)
+	default:
+		c.Status(http.StatusAccepted)
+	}
 }

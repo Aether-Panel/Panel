@@ -70,6 +70,9 @@ func analyzeServerLogs(c *gin.Context) {
 		c.JSON(400, gin.H{"error": "No logs provided for analysis"})
 		return
 	}
+	if !aiAllowed(c) {
+		return
+	}
 
 	language := "English"
 	if req.Language == "es" {

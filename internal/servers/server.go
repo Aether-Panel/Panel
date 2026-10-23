@@ -88,6 +88,7 @@ func InitService() {
 	running = true
 	go processQueue()
 	go processStats()
+	go processPlayers()
 	go processSystemStatus()
 	// Trackear uptime inicialmente para todos los servidores
 	go trackUptimeForAllServers()
@@ -147,6 +148,20 @@ func processQueue() {
 				logging.Error.Printf("[%s] Error starting server: %s", program.ID(), err)
 			}
 		}
+	}
+}
+
+// playerSampleEvery is how often the player count of running servers goes into their history
+const playerSampleEvery = time.Minute
+
+func processPlayers() {
+	ticker := time.NewTicker(playerSampleEvery)
+	for now := range ticker.C {
+		if !running {
+			ticker.Stop()
+			return
+		}
+		samplePlayers(now)
 	}
 }
 
@@ -1338,24 +1353,32 @@ func (p *Server) beginBackup(prefix string) (fileName, file string, err error) {
 	return fileName, path.Join(backupDirectory, fileName), nil
 }
 
-// finishBackup writes the archive under a hidden name and moves it into place once it is
-// complete, so a half-written backup is never listed, downloaded or restored. The hidden
-// name keeps the .tar.gz ending because the archive format is picked from it.
+// finishBackup writes the archive, copies it off-site when that is on, and reports the result
 func (p *Server) finishBackup(file string) bool {
+	err := p.writeArchive(file)
+	if err != nil {
+		p.Log(logging.Error, "Error creating backup file: %s", err)
+		p.RunningEnvironment.DisplayToConsole(true, "Failed to create backup file")
+	} else {
+		p.uploadOffsite(file)
+	}
+	p.endBackup(err == nil)
+	return err == nil
+}
+
+// writeArchive compresses the server's files under a hidden name and moves the archive into
+// place once it is complete, so a half-written backup is never listed, downloaded or
+// restored. The hidden name keeps the .tar.gz ending because the format is picked from it.
+func (p *Server) writeArchive(file string) error {
 	partial := filepath.Join(filepath.Dir(file), ".partial-"+filepath.Base(file))
 	err := files.Compress(nil, partial, []string{p.GetFileServer().Prefix()})
 	if err == nil {
 		err = os.Rename(partial, file)
 	}
 	if err != nil {
-		p.Log(logging.Error, "Error creating backup file: %s", err)
-		p.RunningEnvironment.DisplayToConsole(true, "Failed to create backup file")
 		_ = os.Remove(partial)
-	} else {
-		p.uploadOffsite(file)
 	}
-	p.endBackup(err == nil)
-	return err == nil
+	return err
 }
 
 // offsiteTimeout bounds one transfer to or from the bucket
@@ -1584,6 +1607,12 @@ func (p *Server) StartRestore(fileName string) error {
 		if _, err = files.DetermineIfSingleRoot(context.Background(), source, archive); err != nil {
 			p.Log(logging.Error, "Error reading backup: %s", err)
 			p.RunningEnvironment.DisplayToConsole(true, "Backup file cannot be read: %s", err)
+			return
+		}
+
+		// keep the files about to be replaced, so the restore itself can be undone; without
+		// that safety net the restore does not go ahead
+		if err = p.writeRestorePoint(RestoreReasonRestore); err != nil {
 			return
 		}
 		if _, err = archive.Seek(0, io.SeekStart); err != nil {

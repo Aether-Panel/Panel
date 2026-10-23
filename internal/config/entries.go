@@ -90,6 +90,16 @@ var BackupsS3Prefix = asString("daemon.backups.s3.prefix", "aether-backups")
 
 // BackupsS3Insecure talks plain http to the endpoint, for a MinIO on the local network
 var BackupsS3Insecure = asBool("daemon.backups.s3.insecure", false)
+
+// Automatic subdomains: servers get <name>.<base domain> through Cloudflare DNS. The token
+// only needs Zone → DNS → Edit on that zone. DNSTarget is where records point when a node is
+// registered by hostname or a private address; empty uses each node's public address.
+var CloudflareAPIToken = asString("panel.dns.cloudflare.token", "")
+var CloudflareZoneID = asString("panel.dns.cloudflare.zoneId", "")
+var DNSBaseDomain = asString("panel.dns.baseDomain", "")
+var DNSTarget = asString("panel.dns.target", "")
+var DNSAutoAssign = asBool("panel.dns.autoAssign", false)
+
 var CurseForgeKey = asString("daemon.curseforge.key", curseforgeKey)
 var DataRootFolder = asString("daemon.data.root", "")
 var DepotDownloaderVersion = asString("daemon.depotDownloader.version", "latest")

@@ -219,7 +219,7 @@ func syncAutomaticBackups(ctx context.Context, db *gorm.DB, server *models.Serve
 	for _, r := range records {
 		known[r.FileName] = true
 		file, onDisk := present[r.FileName]
-		if strings.HasPrefix(r.FileName, servers.AutoBackupPrefix) && !onDisk {
+		if isSystemBackup(r.FileName) && !onDisk {
 			if err := bs.Delete(r.ID); err != nil {
 				logging.Error.Printf("Error removing the record of deleted backup %s: %s", r.FileName, err)
 			}
@@ -234,12 +234,22 @@ func syncAutomaticBackups(ctx context.Context, db *gorm.DB, server *models.Serve
 		}
 	}
 	for _, f := range onNode {
-		if !strings.HasPrefix(f.FileName, servers.AutoBackupPrefix) || known[f.FileName] {
+		if !isSystemBackup(f.FileName) || known[f.FileName] {
 			continue
 		}
-		record := &models.Backup{Name: "Automatic backup", FileName: f.FileName, FileSize: f.Size, Location: f.Location, ServerID: server.Identifier, CreatedAt: f.ModTime}
+		name := "Automatic backup"
+		if strings.HasPrefix(f.FileName, servers.RestorePointPrefix) {
+			name = "Restore point"
+		}
+		record := &models.Backup{Name: name, FileName: f.FileName, FileSize: f.Size, Location: f.Location, ServerID: server.Identifier, CreatedAt: f.ModTime}
 		if err := bs.Create(record); err != nil {
 			logging.Error.Printf("Error recording automatic backup %s: %s", f.FileName, err)
 		}
 	}
+}
+
+// isSystemBackup tells backups the node makes by itself (scheduled tasks, restore points), which
+// the panel adds and removes as they come and go, from those made by hand
+func isSystemBackup(fileName string) bool {
+	return strings.HasPrefix(fileName, servers.AutoBackupPrefix) || strings.HasPrefix(fileName, servers.RestorePointPrefix)
 }
