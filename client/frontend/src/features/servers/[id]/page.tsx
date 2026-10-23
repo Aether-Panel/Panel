@@ -2,7 +2,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Cpu, HardDrive, MemoryStick, Network, Terminal, Folder, Settings as SettingsIcon, Users, Database, Archive, Shield, Puzzle, Play, RefreshCw, Square, ShieldAlert, Key, ArrowRightLeft, GitBranch, ServerOff, ArrowLeft, CalendarClock, type LucideIcon } from 'lucide-react';
+import { Cpu, HardDrive, MemoryStick, Network, Terminal, Folder, Settings as SettingsIcon, Users, Database, Archive, Shield, Puzzle, Play, RefreshCw, Square, ShieldAlert, Key, ArrowRightLeft, GitBranch, ServerOff, ArrowLeft, CalendarClock, ScrollText, type LucideIcon } from 'lucide-react';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { ServerTabNav } from './server-tab-nav';
 import { Progress } from '@/components/ui/progress';
@@ -13,6 +13,7 @@ import UsersView from './users-view';
 import DatabaseView from './database-view';
 import BackupsView from './backups-view';
 import TasksView from './tasks-view';
+import ActivityView from './activity-view';
 import AdminView from './admin-view';
 import PluginsView from './plugins-view';
 import SFTPView from './sftp-view';
@@ -39,6 +40,8 @@ import { LiveDot, PlayerAvatar } from '@/components/player-presence';
 import { AnimatedNumber } from '@/components/animated-number';
 import { CRASH_EVENT, CrashBanner, CrashHistory, CrashReportDialog, type CrashReport } from './crash-report';
 import PerformanceHistory from './performance-history';
+import PeakHours from './peak-hours';
+import AssistantPanel from './assistant-panel';
 
 type LogEntry = {
   /** Stable across trims of the history, so React (and screen readers) only see new lines. */
@@ -483,6 +486,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
     { value: 'database', label: t('servers.detail.tabs.database'), icon: Database },
     { value: 'backups', label: t('servers.detail.tabs.backups'), icon: Archive },
     { value: 'tasks', label: t('servers.detail.tabs.tasks'), icon: CalendarClock },
+    { value: 'activity', label: t('servers.detail.tabs.activity'), icon: ScrollText },
     { value: 'sftp', label: t('servers.detail.tabs.sftp'), icon: Key },
     { value: 'extransfer', label: t('servers.detail.tabs.extransfer'), icon: ArrowRightLeft },
     { value: 'splitter', label: t('servers.detail.tabs.splitter'), icon: GitBranch },
@@ -618,7 +622,10 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
                 <ServerAddress ip={server.ipAddress} port={server.port} />
               </div>
             </div>
-            <ServerActions server={server} isActionPending={isActionPending} handleAction={handleAction} showKill={showKill} t={t} />
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+              <AssistantPanel serverId={server.id} serverName={server.name} />
+              <ServerActions server={server} isActionPending={isActionPending} handleAction={handleAction} showKill={showKill} t={t} />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -661,6 +668,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
           <ErrorBoundary name="OverviewView">
             <ServerOverviewCards server={server} t={t} />
             <PerformanceHistory serverId={server.id} />
+            <PeakHours serverId={server.id} />
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
               <MetricsCharts serverMetrics={server.metrics} />
               <NetworkUsageChart serverMetrics={server.metrics} />
@@ -691,6 +699,11 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
         <TabsContent value="backups">
           <ErrorBoundary name="BackupsView">
             <BackupsView serverId={server.id} />
+          </ErrorBoundary>
+        </TabsContent>
+        <TabsContent value="activity">
+          <ErrorBoundary name="ActivityView">
+            <ActivityView serverId={server.id} />
           </ErrorBoundary>
         </TabsContent>
         <TabsContent value="tasks">

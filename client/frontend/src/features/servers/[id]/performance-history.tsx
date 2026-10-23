@@ -10,15 +10,21 @@ import { api } from '@/lib/api-client';
 import { cn, formatBytes } from '@/lib/utils';
 import { useCrashReports } from './crash-report';
 
-type Point = { t: number; cpu: number; memory: number; maxMemory: number; rx: number; tx: number; online: number };
+type Point = {
+  t: number; cpu: number; memory: number; maxMemory: number; rx: number; tx: number; online: number;
+  players?: number; playersPeak?: number; maxPlayers?: number; hasPlayers?: boolean;
+};
+type Record = { players: number; at: number };
 type Range = '1h' | '24h' | '7d';
-type View = 'resources' | 'network';
+type View = 'resources' | 'network' | 'players';
 
 const RANGES: Range[] = ['1h', '24h', '7d'];
 const CPU_COLOR = 'hsl(var(--chart-1))';
 const MEM_COLOR = 'hsl(var(--chart-2))';
 const RX_COLOR = 'hsl(var(--chart-3))';
 const TX_COLOR = 'hsl(var(--chart-4))';
+const PLAYERS_COLOR = 'hsl(var(--success))';
+const PEAK_COLOR = 'hsl(var(--chart-5))';
 
 const formatRate = (kbps: number) => (kbps > 0 ? `${formatBytes(kbps * 1024)}/s` : '0 B/s');
 
@@ -46,7 +52,7 @@ export default function PerformanceHistory({ serverId }: { serverId: string }) {
   const locale = language === 'es' ? 'es-ES' : 'en-US';
   const [range, setRange] = useState<Range>('24h');
   const [view, setView] = useState<View>('resources');
-  const [data, setData] = useState<{ step: number; points: Point[] } | null>(null);
+  const [data, setData] = useState<{ step: number; points: Point[]; record?: Record } | null>(null);
   const [loading, setLoading] = useState(true);
   const { reports } = useCrashReports(serverId);
 
@@ -54,8 +60,8 @@ export default function PerformanceHistory({ serverId }: { serverId: string }) {
     let cancelled = false;
     setLoading(true);
     const load = () =>
-      api.get<{ step: number; points: Point[] }>(`/api/servers/${serverId}/metrics?range=${range}`)
-        .then((res) => !cancelled && setData({ step: res.step, points: res.points ?? [] }))
+      api.get<{ step: number; points: Point[]; record?: Record }>(`/api/servers/${serverId}/metrics?range=${range}`)
+        .then((res) => !cancelled && setData({ step: res.step, points: res.points ?? [], record: res.record }))
         .catch(() => !cancelled && setData({ step: 60, points: [] }))
         .finally(() => !cancelled && setLoading(false));
     void load();
@@ -77,6 +83,9 @@ export default function PerformanceHistory({ serverId }: { serverId: string }) {
         // memory as a share of the limit when there is one, so both lines fit one axis
         memoryPct: p.maxMemory > 0 ? Math.min(100, (p.memory / p.maxMemory) * 100) : null,
         cpu: Math.min(100, p.cpu),
+        // gaps where the game did not answer stay gaps instead of dropping to zero
+        playersAvg: p.hasPlayers ? Math.round((p.players ?? 0) * 10) / 10 : null,
+        playersPeakValue: p.hasPlayers ? p.playersPeak ?? 0 : null,
       })),
     [points],
   );
@@ -94,6 +103,8 @@ export default function PerformanceHistory({ serverId }: { serverId: string }) {
       uptime: avg(points.map((p) => p.online)) * 100,
       rxAvg: avg(online.map((p) => p.rx)),
       txAvg: avg(online.map((p) => p.tx)),
+      playersAvg: avg(points.filter((p) => p.hasPlayers).map((p) => p.players ?? 0)),
+      playersPeak: points.reduce((max, p) => Math.max(max, p.hasPlayers ? p.playersPeak ?? 0 : 0), 0),
     };
   }, [points]);
 
@@ -118,10 +129,16 @@ export default function PerformanceHistory({ serverId }: { serverId: string }) {
     memoryPct: { label: t('dashboard.table.memory'), color: MEM_COLOR },
     rx: { label: t('servers.networkChart.download'), color: RX_COLOR },
     tx: { label: t('servers.networkChart.upload'), color: TX_COLOR },
+    playersAvg: { label: t('servers.history.playersAvg'), color: PLAYERS_COLOR },
+    playersPeakValue: { label: t('servers.history.playersPeak'), color: PEAK_COLOR },
   } satisfies ChartConfig;
+  const hasPlayers = points.some((p) => p.hasPlayers) || (data?.record?.players ?? 0) > 0;
   const series = view === 'resources'
     ? [{ key: 'cpu' as const, color: CPU_COLOR }, { key: 'memoryPct' as const, color: MEM_COLOR }]
-    : [{ key: 'rx' as const, color: RX_COLOR }, { key: 'tx' as const, color: TX_COLOR }];
+    : view === 'network'
+      ? [{ key: 'rx' as const, color: RX_COLOR }, { key: 'tx' as const, color: TX_COLOR }]
+      : [{ key: 'playersPeakValue' as const, color: PEAK_COLOR }, { key: 'playersAvg' as const, color: PLAYERS_COLOR }];
+  const record = data?.record && data.record.players > 0 ? data.record : null;
 
   const stats = summary
     ? view === 'resources'
@@ -131,11 +148,23 @@ export default function PerformanceHistory({ serverId }: { serverId: string }) {
           { label: t('servers.history.memAvg'), value: summary.memAvg !== null ? `${Math.round(summary.memAvg)}%` : formatBytes(summary.memAvgBytes) },
           { label: t('servers.history.uptime'), value: `${summary.uptime >= 99.95 ? 100 : summary.uptime.toFixed(1)}%`, good: summary.uptime >= 99 },
         ]
-      : [
-          { label: t('servers.history.rxAvg'), value: formatRate(summary.rxAvg) },
-          { label: t('servers.history.txAvg'), value: formatRate(summary.txAvg) },
-          { label: t('servers.history.uptime'), value: `${summary.uptime >= 99.95 ? 100 : summary.uptime.toFixed(1)}%`, good: summary.uptime >= 99 },
-        ]
+      : view === 'network'
+        ? [
+            { label: t('servers.history.rxAvg'), value: formatRate(summary.rxAvg) },
+            { label: t('servers.history.txAvg'), value: formatRate(summary.txAvg) },
+            { label: t('servers.history.uptime'), value: `${summary.uptime >= 99.95 ? 100 : summary.uptime.toFixed(1)}%`, good: summary.uptime >= 99 },
+          ]
+        : [
+            { label: t('servers.history.playersAvg'), value: summary.playersAvg.toFixed(1) },
+            { label: t('servers.history.playersPeak'), value: String(summary.playersPeak) },
+            {
+              label: t('servers.history.record'),
+              value: record ? String(record.players) : '—',
+              hint: record ? new Date(record.at * 1000).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' }) : undefined,
+              good: true,
+            },
+            { label: t('servers.history.uptime'), value: `${summary.uptime >= 99.95 ? 100 : summary.uptime.toFixed(1)}%`, good: summary.uptime >= 99 },
+          ]
     : [];
 
   return (
@@ -153,6 +182,7 @@ export default function PerformanceHistory({ serverId }: { serverId: string }) {
             options={[
               { value: 'resources', label: t('servers.history.views.resources') },
               { value: 'network', label: t('servers.history.views.network') },
+              ...(hasPlayers ? [{ value: 'players', label: t('servers.history.views.players') }] : []),
             ]}
           />
           <Segmented
@@ -174,6 +204,7 @@ export default function PerformanceHistory({ serverId }: { serverId: string }) {
               >
                 <dt className="text-xs text-muted-foreground">{item.label}</dt>
                 <dd className={cn('mt-1 text-lg font-semibold tabular-nums tracking-[-0.02em]', 'good' in item && item.good && 'text-success')}>{item.value}</dd>
+                {'hint' in item && item.hint && <dd className="text-[11px] text-muted-foreground">{item.hint}</dd>}
               </div>
             ))}
           </dl>
@@ -231,12 +262,13 @@ export default function PerformanceHistory({ serverId }: { serverId: string }) {
                   tick={{ fontSize: 11 }}
                 />
                 <YAxis
-                  width={view === 'resources' ? 36 : 64}
+                  width={view === 'network' ? 64 : 36}
                   tickLine={false}
                   axisLine={false}
                   tick={{ fontSize: 11 }}
                   domain={view === 'resources' ? [0, 100] : [0, 'auto']}
-                  tickFormatter={(value: number) => (view === 'resources' ? `${value}%` : formatRate(value))}
+                  allowDecimals={view !== 'players'}
+                  tickFormatter={(value: number) => (view === 'resources' ? `${value}%` : view === 'network' ? formatRate(value) : String(value))}
                 />
                 {offline.map((run) => (
                   <ReferenceArea key={run.from} x1={run.from} x2={run.to} fill="hsl(var(--muted-foreground))" fillOpacity={0.12} strokeOpacity={0} ifOverflow="hidden" />
@@ -257,11 +289,18 @@ export default function PerformanceHistory({ serverId }: { serverId: string }) {
                             <Row color={CPU_COLOR} label={chartConfig.cpu.label} value={`${Math.round(point.cpu)}%`} />
                             <Row color={MEM_COLOR} label={chartConfig.memoryPct.label} value={point.memoryPct !== null ? `${Math.round(point.memoryPct)}% · ${formatBytes(point.memory)}` : formatBytes(point.memory)} />
                           </>
-                        ) : (
+                        ) : view === 'network' ? (
                           <>
                             <Row color={RX_COLOR} label={chartConfig.rx.label} value={formatRate(point.rx)} />
                             <Row color={TX_COLOR} label={chartConfig.tx.label} value={formatRate(point.tx)} />
                           </>
+                        ) : point.hasPlayers ? (
+                          <>
+                            <Row color={PEAK_COLOR} label={chartConfig.playersPeakValue.label} value={`${point.playersPeak ?? 0}${point.maxPlayers ? ` / ${point.maxPlayers}` : ''}`} />
+                            <Row color={PLAYERS_COLOR} label={chartConfig.playersAvg.label} value={(point.players ?? 0).toFixed(1)} />
+                          </>
+                        ) : (
+                          <p className="text-muted-foreground">{t('servers.history.noPlayerData')}</p>
                         )}
                         {point.online < 0.5 && <p className="mt-1 text-muted-foreground">{t('servers.history.offline')}</p>}
                       </div>

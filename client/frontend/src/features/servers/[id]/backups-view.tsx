@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/empty-state';
 import { Button } from '@/components/ui/button';
-import { Archive, Plus, Download, RotateCcw, Trash2, Loader2, Clock, Cloud, HardDrive } from 'lucide-react';
+import { Archive, Plus, Download, RotateCcw, Trash2, Loader2, Clock, Cloud, HardDrive, ShieldCheck } from 'lucide-react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -29,6 +29,10 @@ type BackupInfo = {
 const isAutomatic = (backup: BackupInfo) => backup.fileName.startsWith('auto-');
 /** The name the panel stores for them, shown translated instead. */
 const AUTOMATIC_BACKUP_NAME = 'Automatic backup';
+/** Restore points: quick backups taken before risky steps, named "restore-<reason>-<id>". */
+const restoreReason = (backup: BackupInfo) =>
+  backup.fileName.startsWith('restore-') ? backup.fileName.split('-')[1] ?? 'other' : null;
+const RESTORE_REASONS = ['plugin', 'version', 'restore'];
 
 type BackupsViewProps = {
   serverId: string;
@@ -59,8 +63,9 @@ export default function BackupsView({ serverId }: BackupsViewProps) {
   const fetchBackups = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await api.get(`/api/servers/${serverId}/backup`);
-      setBackups(data || []);
+      const data: BackupInfo[] = await api.get(`/api/servers/${serverId}/backup`);
+      // newest first: the timeline marks the first entry as the latest
+      setBackups([...(data || [])].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     } catch (err) {
       console.error('Failed to fetch backups:', err);
     } finally {
@@ -203,11 +208,19 @@ export default function BackupsView({ serverId }: BackupsViewProps) {
                           <span className="mt-1 text-[11px] text-muted-foreground">{date.month}</span>
                         </div>
                         <div className="min-w-0">
-                          <div className="flex min-w-0 items-center gap-2">
+                          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                             <h4 className="truncate text-[15px] font-semibold leading-tight">
-                              {isAutomatic(backup) && backup.name === AUTOMATIC_BACKUP_NAME ? t('servers.backups.automatic.name') : backup.name}
+                              {restoreReason(backup)
+                                ? t(`servers.backups.restorePoint.reasons.${RESTORE_REASONS.includes(restoreReason(backup) ?? '') ? restoreReason(backup) : 'other'}`)
+                                : isAutomatic(backup) && backup.name === AUTOMATIC_BACKUP_NAME ? t('servers.backups.automatic.name') : backup.name}
                             </h4>
                             {isAutomatic(backup) && <Badge variant="secondary" className="shrink-0">{t('servers.backups.automatic.badge')}</Badge>}
+                            {restoreReason(backup) && (
+                              <Badge variant="outline" className="shrink-0 gap-1 border-success/40 text-success" title={t('servers.backups.restorePoint.hint')}>
+                                <ShieldCheck className="h-3 w-3" aria-hidden="true" />
+                                {t('servers.backups.restorePoint.badge')}
+                              </Badge>
+                            )}
                           </div>
                           <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                             <span className="flex items-center gap-1 tabular-nums" title={date.full}>

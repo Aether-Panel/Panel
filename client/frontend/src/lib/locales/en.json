@@ -431,7 +431,8 @@
         "admin": "Administration",
         "more": "More",
         "extransfer": "Migration",
-        "splitter": "Splitter"
+        "splitter": "Splitter",
+        "activity": "Activity"
       },
       "overview": {
         "status": "Status",
@@ -494,7 +495,33 @@
         "portInUse": "Error: the port is already in use.",
         "actionFailed": "Could not complete the action.",
         "sendFailed": "Could not send: {{command}}"
-      }
+      },
+      "filters": {
+        "label": "Show",
+        "all": "All",
+        "error": "Errors",
+        "warn": "Warnings",
+        "empty": {
+          "error": "There are no errors in the console.",
+          "warn": "There are no warnings in the console."
+        }
+      },
+      "search": {
+        "open": "Search",
+        "label": "Search the console",
+        "placeholder": "Search…",
+        "previous": "Previous match",
+        "next": "Next match",
+        "close": "Close search"
+      },
+      "favorites": {
+        "label": "Favourite commands",
+        "send": "Send {{command}}",
+        "remove": "Remove {{command}} from favourites",
+        "save": "Save as favourite",
+        "unsave": "Remove from favourites"
+      },
+      "historyHint": "Up and down arrows go through previous commands; Tab completes."
     },
     "aiSummary": {
       "title": "AI Console Analysis",
@@ -827,6 +854,16 @@
         "label": "Space used by backups:",
         "largest": "The largest takes {{size}}",
         "offsite": "{{count}} also off-site"
+      },
+      "restorePoint": {
+        "badge": "Restore point",
+        "hint": "Automatic copy of the state before a risky change. The newest 3 are kept.",
+        "reasons": {
+          "plugin": "Before a plugin change",
+          "version": "Before a version change",
+          "restore": "Before restoring a backup",
+          "other": "Restore point"
+        }
       }
     },
     "tasks": {
@@ -978,7 +1015,8 @@
         "uninstallSuccess": "Plugin deleted successfully.",
         "uninstallError": "Failed to delete plugin.",
         "searchError": "Could not search Modrinth."
-      }
+      },
+      "restorePointNote": "A restore point is saved before installing or removing a plugin."
     },
     "admin": {
       "title": "Administration",
@@ -1366,7 +1404,8 @@
       "rangeLabel": "Period",
       "views": {
         "resources": "CPU and memory",
-        "network": "Network"
+        "network": "Network",
+        "players": "Players"
       },
       "ranges": {
         "1h": "1 h",
@@ -1382,7 +1421,216 @@
       "emptyTitle": "No history yet",
       "emptyDescription": "The node saves a sample every minute while it runs. Come back in a few minutes.",
       "offline": "Offline",
-      "crashes": "Crashes: {{count}}"
+      "crashes": "Crashes: {{count}}",
+      "playersAvg": "Average players",
+      "playersPeak": "Player peak",
+      "record": "All-time record",
+      "noPlayerData": "The game did not answer the player query."
+    },
+    "subdomain": {
+      "title": "Server address",
+      "description": "An easy name to remember instead of the IP and port. The panel creates the DNS records for you.",
+      "currentLabel": "Current address",
+      "srvNote": "Players can connect without the port: Minecraft's SRV record tells their game which one to use.",
+      "portNote": "Includes port {{port}}: this game does not look it up by itself.",
+      "propagation": "DNS changes take about a minute to reach every player.",
+      "recordsLabel": "Show DNS records",
+      "empty": "This server has no address of its own yet. Pick a name below.",
+      "nameLabel": "Name",
+      "changeLabel": "Change name",
+      "hint": "3 to 32 characters: lowercase letters, numbers and hyphens.",
+      "status": {
+        "checking": "Checking…",
+        "available": "Available",
+        "current": "This is the current address",
+        "taken": "Another server already uses it",
+        "invalid": "Only lowercase letters, numbers and hyphens (3–32), not starting or ending with a hyphen",
+        "reserved": "That name is reserved",
+        "error": "Could not check right now; try again"
+      },
+      "wait": "Wait a few seconds before changing it again",
+      "noTarget": "This server's node has no public address. Ask the administrator to set a DNS target.",
+      "savedTitle": "Address saved",
+      "saveError": "Could not save the address",
+      "removedTitle": "Address removed",
+      "removedDescription": "Players connect with the IP and port again.",
+      "removeError": "Could not remove the address",
+      "remove": "Remove",
+      "confirmRemove": "Remove? Click again",
+      "save": "Save"
+    },
+    "activity": {
+      "title": "Activity",
+      "description": "Who did what on this server, and when.",
+      "refresh": "Refresh",
+      "filters": {
+        "label": "Filter by type",
+        "all": "All",
+        "power": "Power",
+        "console": "Console",
+        "files": "Files",
+        "backups": "Backups",
+        "users": "Users",
+        "settings": "Settings",
+        "tasks": "Tasks"
+      },
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "loadMore": "Load more",
+      "loadMoreError": "Couldn't load more activity.",
+      "retention": "Activity is kept for 90 days.",
+      "unknownUser": "Someone",
+      "ip": "IP address",
+      "empty": {
+        "title": "No activity yet",
+        "description": "Changes made to this server show up here: power actions, files, backups and more."
+      },
+      "emptyFiltered": {
+        "title": "Nothing of this kind",
+        "description": "There is no activity of this kind in the last 90 days.",
+        "showAll": "Show all"
+      },
+      "error": {
+        "title": "Couldn't load the activity",
+        "description": "Check your connection and try again.",
+        "retry": "Try again"
+      },
+      "denied": {
+        "title": "You can't see the activity",
+        "description": "Ask the server owner for permission to view users."
+      },
+      "actions": {
+        "server": {
+          "start": "started the server",
+          "stop": "stopped the server",
+          "restart": "restarted the server",
+          "kill": "killed the server",
+          "install": "ran the server install",
+          "reload": "reloaded the server configuration",
+          "create": "created the server",
+          "rename": "renamed the server to",
+          "suspend": "suspended the server",
+          "unsuspend": "unsuspended the server",
+          "transfer": "moved the server to another node",
+          "change": "made a change to the server",
+          "version": "changed the game version to"
+        },
+        "console": {
+          "command": "sent the command"
+        },
+        "file": {
+          "write": "edited the file",
+          "upload": "uploaded the file",
+          "mkdir": "created the folder",
+          "delete": "deleted",
+          "rename": "renamed",
+          "archive": "compressed files into",
+          "extract": "extracted"
+        },
+        "plugin": {
+          "install": "installed the plugin",
+          "delete": "removed the plugin"
+        },
+        "backup": {
+          "create": "created the backup",
+          "restore": "restored the backup",
+          "delete": "deleted the backup"
+        },
+        "user": {
+          "add": "gave access to",
+          "edit": "changed the permissions of",
+          "remove": "removed access for"
+        },
+        "settings": {
+          "data": "changed the server settings",
+          "ports": "changed the ports",
+          "definition": "edited the server definition",
+          "flags": "changed auto start and auto restart",
+          "notifications": "changed the alerts"
+        },
+        "task": {
+          "save": "saved the task",
+          "delete": "deleted the task",
+          "run": "ran the task"
+        },
+        "extransfer": {
+          "create": "prepared a migration",
+          "pull": "started a migration into this server",
+          "cancel": "cancelled a migration"
+        },
+        "unknown": "made a change"
+      }
+    },
+    "peakHours": {
+      "title": "Peak hours",
+      "description": "Average players per day and hour over the last week, in your local time. Use it to pick when to hold events or restarts.",
+      "best": "Busiest: {{day}} at {{time}} ({{count}} on average)",
+      "noData": "no data",
+      "average": "{{count}} players on average",
+      "fewer": "Fewer",
+      "more": "More"
+    },
+    "assistant": {
+      "open": "Assistant",
+      "title": "Server assistant",
+      "description": "Ask anything about {{name}}. It looks at the console, crashes, performance and players to answer.",
+      "emptyTitle": "How can I help?",
+      "emptyDescription": "Try one of these questions or write your own.",
+      "suggestions": {
+        "slow": "Why is my server slow?",
+        "crash": "Why did the server crash last time?",
+        "error": "What do the latest console errors mean?",
+        "restart": "When is the best time to restart it?"
+      },
+      "placeholder": "Type your question…",
+      "send": "Send",
+      "hint": "Enter to send · Shift + Enter for a new line",
+      "clear": "New conversation",
+      "thinking": "The assistant is thinking…",
+      "looked": "Looked at: {{sources}}",
+      "sources": {
+        "status": "status",
+        "players": "players",
+        "performance": "performance",
+        "crashes": "crashes",
+        "console": "console"
+      },
+      "errors": {
+        "generic": "I could not answer right now. Try again in a moment.",
+        "limit": "You asked a lot of questions in a row. Wait a few minutes and try again.",
+        "notConfigured": "The AI is not set up. An administrator can add the Gemini key in Settings.",
+        "noPermission": "You need access to this server's console to use the assistant."
+      }
+    },
+    "version": {
+      "title": "Game version",
+      "description": "Change version in one click. The panel saves a restore point first, in case something goes wrong.",
+      "current": "Installed version:",
+      "upToDate": "It is the newest",
+      "latestIs": "The newest is {{version}}",
+      "changing": "Changing version…",
+      "changingHint": "You can follow each step in the console. Do not stop the server meanwhile.",
+      "pick": "New version",
+      "placeholder": "Pick a version",
+      "newest": "Newest",
+      "installed": "installed",
+      "change": "Change version",
+      "done": "Done: the server now runs version {{version}}.",
+      "failed": "The version could not be changed: {{reason}}. A restore point is waiting in Backups.",
+      "safety": "A restore point is saved in Backups before the change. If the new version gives trouble, restore it and you are back where you were.",
+      "confirmTitle": "Change to version {{version}}?",
+      "confirmIntro": "The server will go from {{from}} to {{to}} in these steps:",
+      "steps": {
+        "stop": "The server stops if it is running.",
+        "restorePoint": "A restore point with all its files is saved.",
+        "install": "The new version is downloaded and installed.",
+        "start": "It starts again if it was running."
+      },
+      "confirmUndo": "Some worlds cannot be opened by an older version: to go back, use the restore point.",
+      "confirm": "Change version",
+      "startedTitle": "Version change started",
+      "started": "Changing to {{version}}. Follow the progress in the console.",
+      "error": "The version change could not start."
     }
   },
   "users": {
@@ -2031,7 +2279,8 @@
       "products": "Products",
       "updates": "Updates",
       "sectionLabel": "Settings section",
-      "offsite": "Off-site backups"
+      "offsite": "Off-site backups",
+      "domains": "Domains"
     },
     "general": {
       "title": "General Settings",
@@ -2297,6 +2546,38 @@
       "secretKey": "Secret key",
       "insecure": "Unencrypted connection (http)",
       "insecureDescription": "Only for a MinIO on your own network. Public providers use https."
+    },
+    "domains": {
+      "title": "Automatic subdomains",
+      "description": "With Cloudflare, every server can have its own address (survival.play.example.com) instead of an IP and port.",
+      "test": "Test connection",
+      "testOk": "Connection OK: the token can edit the zone {{zone}}.",
+      "testError": "Could not check the connection to Cloudflare",
+      "statusTitle": "Assignment",
+      "statusDescription": "Owners can pick the name from their server's settings.",
+      "autoAssign": "Give every new server a subdomain",
+      "autoAssignDescription": "Derived from the server name (My Survival → my-survival); -2, -3… is added when it is taken.",
+      "onHint": "Active: addresses will look like {{example}}",
+      "offHint": "Fill in the domain, the token and the zone ID to turn subdomains on.",
+      "domainTitle": "Domain",
+      "domainDescription": "Where server names are created and what they point to.",
+      "baseDomain": "Base domain",
+      "baseDomainHint": "A domain or subdomain of your Cloudflare zone, for example play.example.com.",
+      "baseDomainInvalid": "Type just the domain, without http:// or slashes.",
+      "target": "DNS target (optional)",
+      "targetHint": "IP or hostname to point at when a node is registered by hostname or a private address. Empty: each node's public IP.",
+      "dnsOnlyNote": "Records are created as DNS only (grey cloud), never proxied: game traffic is not HTTP. If the panel's domain goes through Cloudflare's proxy, put the server's public IP here.",
+      "credentialsTitle": "Cloudflare credentials",
+      "credentialsDescription": "A token allowed only to edit this zone's DNS. The panel never shows it in its logs.",
+      "openCloudflare": "Open API tokens in Cloudflare",
+      "step1": "In Cloudflare, go to My Profile → API Tokens → Create Token and use the \"Edit zone DNS\" template (Zone → DNS → Edit).",
+      "step2": "Under \"Zone Resources\", limit the token to your domain's zone and create it. Copy it: it is shown only once.",
+      "step3": "The zone ID is on the domain's Overview page, in the right-hand column under API.",
+      "token": "API token",
+      "tokenHint": "Required permission: Zone → DNS → Edit.",
+      "zoneId": "Zone ID",
+      "zoneIdHint": "32 hexadecimal characters.",
+      "zoneIdInvalid": "The zone ID has 32 hexadecimal characters (0-9, a-f)."
     }
   },
   "apiKeys": {

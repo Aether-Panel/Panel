@@ -431,7 +431,8 @@
         "admin": "Administración",
         "more": "Más",
         "extransfer": "Migración",
-        "splitter": "Splitter"
+        "splitter": "Splitter",
+        "activity": "Actividad"
       },
       "overview": {
         "status": "Estado",
@@ -494,7 +495,33 @@
         "portInUse": "Error: el puerto ya está en uso.",
         "actionFailed": "No se pudo completar la acción.",
         "sendFailed": "No se pudo enviar: {{command}}"
-      }
+      },
+      "filters": {
+        "label": "Mostrar",
+        "all": "Todo",
+        "error": "Errores",
+        "warn": "Avisos",
+        "empty": {
+          "error": "No hay errores en la consola.",
+          "warn": "No hay avisos en la consola."
+        }
+      },
+      "search": {
+        "open": "Buscar",
+        "label": "Buscar en la consola",
+        "placeholder": "Buscar…",
+        "previous": "Coincidencia anterior",
+        "next": "Coincidencia siguiente",
+        "close": "Cerrar búsqueda"
+      },
+      "favorites": {
+        "label": "Comandos favoritos",
+        "send": "Enviar {{command}}",
+        "remove": "Quitar {{command}} de favoritos",
+        "save": "Guardar como favorito",
+        "unsave": "Quitar de favoritos"
+      },
+      "historyHint": "Flechas arriba y abajo para recorrer los comandos anteriores; Tab para completar."
     },
     "aiSummary": {
       "title": "Análisis de consola por IA",
@@ -827,6 +854,16 @@
         "label": "Espacio usado por copias:",
         "largest": "La mayor ocupa {{size}}",
         "offsite": "{{count}} también en externo"
+      },
+      "restorePoint": {
+        "badge": "Punto de restauración",
+        "hint": "Copia automática del estado anterior a un cambio arriesgado. Se guardan las 3 más recientes.",
+        "reasons": {
+          "plugin": "Antes de un cambio de plugins",
+          "version": "Antes de cambiar de versión",
+          "restore": "Antes de restaurar una copia",
+          "other": "Punto de restauración"
+        }
       }
     },
     "tasks": {
@@ -978,7 +1015,8 @@
         "uninstallSuccess": "Plugin eliminado correctamente.",
         "uninstallError": "Error al eliminar el plugin.",
         "searchError": "No se pudo buscar en Modrinth."
-      }
+      },
+      "restorePointNote": "Antes de instalar o quitar un plugin se guarda un punto de restauración."
     },
     "admin": {
       "title": "Administración",
@@ -1366,7 +1404,8 @@
       "rangeLabel": "Periodo",
       "views": {
         "resources": "CPU y memoria",
-        "network": "Red"
+        "network": "Red",
+        "players": "Jugadores"
       },
       "ranges": {
         "1h": "1 h",
@@ -1382,7 +1421,216 @@
       "emptyTitle": "Todavía no hay historial",
       "emptyDescription": "El nodo guarda una medida cada minuto mientras está en marcha. Vuelve en unos minutos.",
       "offline": "Apagado",
-      "crashes": "Caídas: {{count}}"
+      "crashes": "Caídas: {{count}}",
+      "playersAvg": "Media de jugadores",
+      "playersPeak": "Pico de jugadores",
+      "record": "Récord histórico",
+      "noPlayerData": "El juego no respondió a la consulta de jugadores."
+    },
+    "subdomain": {
+      "title": "Dirección del servidor",
+      "description": "Un nombre fácil de recordar en lugar de la IP y el puerto. El panel crea los registros DNS por ti.",
+      "currentLabel": "Dirección actual",
+      "srvNote": "Los jugadores pueden conectarse sin el puerto: el registro SRV de Minecraft se lo indica a su juego.",
+      "portNote": "Incluye el puerto {{port}}: este juego no lo busca por sí solo.",
+      "propagation": "Los cambios de DNS tardan alrededor de un minuto en llegar a todos los jugadores.",
+      "recordsLabel": "Ver registros DNS",
+      "empty": "Este servidor todavía no tiene dirección propia. Elige un nombre abajo.",
+      "nameLabel": "Nombre",
+      "changeLabel": "Cambiar nombre",
+      "hint": "Entre 3 y 32 caracteres: letras minúsculas, números y guiones.",
+      "status": {
+        "checking": "Comprobando…",
+        "available": "Disponible",
+        "current": "Es la dirección actual",
+        "taken": "Ya lo usa otro servidor",
+        "invalid": "Solo letras minúsculas, números y guiones (3–32), sin guion al principio ni al final",
+        "reserved": "Ese nombre está reservado",
+        "error": "No se pudo comprobar ahora; inténtalo de nuevo"
+      },
+      "wait": "Espera unos segundos antes de volver a cambiarlo",
+      "noTarget": "El nodo de este servidor no tiene una dirección pública. Pide al administrador que configure un destino DNS.",
+      "savedTitle": "Dirección guardada",
+      "saveError": "No se pudo guardar la dirección",
+      "removedTitle": "Dirección eliminada",
+      "removedDescription": "Los jugadores vuelven a conectarse con la IP y el puerto.",
+      "removeError": "No se pudo quitar la dirección",
+      "remove": "Quitar",
+      "confirmRemove": "¿Quitar? Pulsa de nuevo",
+      "save": "Guardar"
+    },
+    "activity": {
+      "title": "Actividad",
+      "description": "Quién hizo qué en este servidor y cuándo.",
+      "refresh": "Actualizar",
+      "filters": {
+        "label": "Filtrar por tipo",
+        "all": "Todo",
+        "power": "Energía",
+        "console": "Consola",
+        "files": "Archivos",
+        "backups": "Copias",
+        "users": "Usuarios",
+        "settings": "Ajustes",
+        "tasks": "Tareas"
+      },
+      "today": "Hoy",
+      "yesterday": "Ayer",
+      "loadMore": "Cargar más",
+      "loadMoreError": "No se pudo cargar más actividad.",
+      "retention": "Se guarda la actividad de los últimos 90 días.",
+      "unknownUser": "Alguien",
+      "ip": "Dirección IP",
+      "empty": {
+        "title": "Aún no hay actividad",
+        "description": "Aquí aparecerán los cambios que se hagan en el servidor: encendidos, archivos, copias y más."
+      },
+      "emptyFiltered": {
+        "title": "Nada de este tipo",
+        "description": "No hay actividad de este tipo en los últimos 90 días.",
+        "showAll": "Ver todo"
+      },
+      "error": {
+        "title": "No se pudo cargar la actividad",
+        "description": "Comprueba la conexión e inténtalo de nuevo.",
+        "retry": "Reintentar"
+      },
+      "denied": {
+        "title": "No tienes acceso a la actividad",
+        "description": "Pide al propietario del servidor permiso para ver los usuarios."
+      },
+      "actions": {
+        "server": {
+          "start": "inició el servidor",
+          "stop": "detuvo el servidor",
+          "restart": "reinició el servidor",
+          "kill": "forzó el apagado del servidor",
+          "install": "ejecutó la instalación del servidor",
+          "reload": "recargó la configuración del servidor",
+          "create": "creó el servidor",
+          "rename": "renombró el servidor a",
+          "suspend": "suspendió el servidor",
+          "unsuspend": "reactivó el servidor",
+          "transfer": "trasladó el servidor a otro nodo",
+          "change": "hizo un cambio en el servidor",
+          "version": "cambió la versión del juego a"
+        },
+        "console": {
+          "command": "envió el comando"
+        },
+        "file": {
+          "write": "editó el archivo",
+          "upload": "subió el archivo",
+          "mkdir": "creó la carpeta",
+          "delete": "eliminó",
+          "rename": "renombró",
+          "archive": "comprimió archivos en",
+          "extract": "descomprimió"
+        },
+        "plugin": {
+          "install": "instaló el plugin",
+          "delete": "eliminó el plugin"
+        },
+        "backup": {
+          "create": "creó la copia",
+          "restore": "restauró la copia",
+          "delete": "eliminó la copia"
+        },
+        "user": {
+          "add": "dio acceso a",
+          "edit": "cambió los permisos de",
+          "remove": "quitó el acceso a"
+        },
+        "settings": {
+          "data": "cambió la configuración del servidor",
+          "ports": "cambió los puertos",
+          "definition": "editó la definición del servidor",
+          "flags": "cambió el inicio y reinicio automáticos",
+          "notifications": "cambió las alertas"
+        },
+        "task": {
+          "save": "guardó la tarea",
+          "delete": "eliminó la tarea",
+          "run": "ejecutó la tarea"
+        },
+        "extransfer": {
+          "create": "preparó una migración",
+          "pull": "inició una migración hacia este servidor",
+          "cancel": "canceló una migración"
+        },
+        "unknown": "hizo un cambio"
+      }
+    },
+    "peakHours": {
+      "title": "Horas punta",
+      "description": "Media de jugadores por día y hora durante la última semana, en tu hora local. Úsalo para elegir cuándo hacer eventos o reinicios.",
+      "best": "Más gente: {{day}} a las {{time}} (media {{count}})",
+      "noData": "sin datos",
+      "average": "media de {{count}} jugadores",
+      "fewer": "Menos",
+      "more": "Más"
+    },
+    "assistant": {
+      "open": "Asistente",
+      "title": "Asistente del servidor",
+      "description": "Pregunta lo que quieras sobre {{name}}. Mira la consola, las caídas, el rendimiento y los jugadores para responderte.",
+      "emptyTitle": "¿En qué te ayudo?",
+      "emptyDescription": "Prueba con una de estas preguntas o escribe la tuya.",
+      "suggestions": {
+        "slow": "¿Por qué va lento mi servidor?",
+        "crash": "¿Por qué se cayó el servidor la última vez?",
+        "error": "¿Qué significan los últimos errores de la consola?",
+        "restart": "¿Cuál es la mejor hora para reiniciarlo?"
+      },
+      "placeholder": "Escribe tu pregunta…",
+      "send": "Enviar",
+      "hint": "Intro para enviar · Mayús + Intro para salto de línea",
+      "clear": "Nueva conversación",
+      "thinking": "El asistente está pensando…",
+      "looked": "Revisó: {{sources}}",
+      "sources": {
+        "status": "estado",
+        "players": "jugadores",
+        "performance": "rendimiento",
+        "crashes": "caídas",
+        "console": "consola"
+      },
+      "errors": {
+        "generic": "No pude responder ahora mismo. Inténtalo de nuevo en un momento.",
+        "limit": "Has hecho muchas preguntas seguidas. Espera unos minutos y vuelve a intentarlo.",
+        "notConfigured": "La IA no está configurada. Un administrador puede añadir la clave de Gemini en Ajustes.",
+        "noPermission": "Necesitas acceso a la consola de este servidor para usar el asistente."
+      }
+    },
+    "version": {
+      "title": "Versión del juego",
+      "description": "Cambia de versión en un clic. El panel guarda un punto de restauración antes, por si algo no va bien.",
+      "current": "Versión instalada:",
+      "upToDate": "Es la más reciente",
+      "latestIs": "La más reciente es {{version}}",
+      "changing": "Cambiando de versión…",
+      "changingHint": "Puedes seguir cada paso en la consola. No apagues el servidor mientras tanto.",
+      "pick": "Nueva versión",
+      "placeholder": "Elige una versión",
+      "newest": "Más reciente",
+      "installed": "instalada",
+      "change": "Cambiar versión",
+      "done": "Listo: el servidor ya usa la versión {{version}}.",
+      "failed": "No se pudo cambiar la versión: {{reason}}. Tienes un punto de restauración en Copias de seguridad.",
+      "safety": "Antes de cambiar se guarda un punto de restauración en Copias de seguridad. Si la nueva versión da problemas, restáuralo y vuelves a como estabas.",
+      "confirmTitle": "¿Cambiar a la versión {{version}}?",
+      "confirmIntro": "El servidor pasará de {{from}} a {{to}} en estos pasos:",
+      "steps": {
+        "stop": "Se detiene el servidor si está encendido.",
+        "restorePoint": "Se guarda un punto de restauración con todos sus archivos.",
+        "install": "Se descarga e instala la nueva versión.",
+        "start": "Se vuelve a encender si estaba encendido."
+      },
+      "confirmUndo": "Algunos mundos no se pueden abrir en una versión más antigua: para volver atrás, usa el punto de restauración.",
+      "confirm": "Cambiar versión",
+      "startedTitle": "Cambio de versión en marcha",
+      "started": "Cambiando a {{version}}. Sigue el progreso en la consola.",
+      "error": "No se pudo empezar el cambio de versión."
     }
   },
   "users": {
@@ -2031,7 +2279,8 @@
       "products": "Productos",
       "updates": "Actualizaciones",
       "sectionLabel": "Sección de la configuración",
-      "offsite": "Copias externas"
+      "offsite": "Copias externas",
+      "domains": "Dominios"
     },
     "general": {
       "title": "Configuración general",
@@ -2297,6 +2546,38 @@
       "secretKey": "Secret key",
       "insecure": "Conexión sin cifrar (http)",
       "insecureDescription": "Solo para un MinIO en tu propia red. Los proveedores públicos usan https."
+    },
+    "domains": {
+      "title": "Subdominios automáticos",
+      "description": "Con Cloudflare, cada servidor puede tener su propia dirección (survival.play.example.com) en lugar de una IP y un puerto.",
+      "test": "Probar conexión",
+      "testOk": "Conexión correcta: el token puede editar la zona {{zone}}.",
+      "testError": "No se pudo comprobar la conexión con Cloudflare",
+      "statusTitle": "Asignación",
+      "statusDescription": "Los propietarios pueden elegir el nombre desde los ajustes de su servidor.",
+      "autoAssign": "Asignar un subdominio a cada servidor nuevo",
+      "autoAssignDescription": "Se deriva del nombre del servidor (Mi Survival → mi-survival); si ya existe se añade -2, -3…",
+      "onHint": "Activo: las direcciones quedarán como {{example}}",
+      "offHint": "Completa el dominio, el token y el ID de zona para activar los subdominios.",
+      "domainTitle": "Dominio",
+      "domainDescription": "Dónde se crean los nombres de los servidores y hacia dónde apuntan.",
+      "baseDomain": "Dominio base",
+      "baseDomainHint": "Un dominio o subdominio de tu zona de Cloudflare, por ejemplo play.example.com.",
+      "baseDomainInvalid": "Escribe solo el dominio, sin http:// ni barras.",
+      "target": "Destino DNS (opcional)",
+      "targetHint": "IP o nombre al que apuntar cuando un nodo está registrado con un nombre o una dirección privada. Vacío: la IP pública de cada nodo.",
+      "dnsOnlyNote": "Los registros se crean como «Solo DNS» (nube gris), nunca con proxy: el tráfico de los juegos no es HTTP. Si el dominio del panel pasa por el proxy de Cloudflare, pon aquí la IP pública del servidor.",
+      "credentialsTitle": "Credenciales de Cloudflare",
+      "credentialsDescription": "Un token con permiso solo para editar el DNS de esta zona. El panel nunca lo muestra en sus registros.",
+      "openCloudflare": "Abrir tokens de API en Cloudflare",
+      "step1": "En Cloudflare, ve a Mi perfil → Tokens de API → Crear token y usa la plantilla «Editar DNS de zona» (Zona → DNS → Editar).",
+      "step2": "En «Recursos de zona», limita el token a la zona de tu dominio y créalo. Cópialo: solo se muestra una vez.",
+      "step3": "El ID de zona está en la página «Información general» del dominio, en la columna derecha, apartado API.",
+      "token": "Token de API",
+      "tokenHint": "Permiso necesario: Zona → DNS → Editar.",
+      "zoneId": "ID de zona",
+      "zoneIdHint": "32 caracteres hexadecimales.",
+      "zoneIdInvalid": "El ID de zona tiene 32 caracteres hexadecimales (0-9, a-f)."
     }
   },
   "apiKeys": {

@@ -15,6 +15,8 @@ import { cn } from '@/lib/utils';
 import { Box, Loader2, Lock, Plus, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import NotificationsCard from './notifications-card';
+import AddressCard from './address-card';
+import VersionCard from './version-card';
 
 type SettingsViewProps = {
   serverId: string;
@@ -497,6 +499,10 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: S
           </SettingsSection>
         )}
       </Card>
+
+      <VersionCard serverId={serverId} />
+
+      <AddressCard serverId={serverId} />
 
       <NotificationsCard serverId={serverId} />
 

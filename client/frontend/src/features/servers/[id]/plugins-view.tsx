@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Puzzle, Search, Download, Trash2, ExternalLink, Loader2, CheckCircle2 } from 'lucide-react';
+import { Puzzle, Search, Download, Trash2, ExternalLink, Loader2, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
 import { sileo } from "@/lib/toast";
@@ -144,6 +144,10 @@ export default function PluginsView({ serverId }: PluginsViewProps) {
           <h2 className="text-lg font-semibold tracking-[-0.02em]">{t('servers.plugins.title')}</h2>
           <p className="text-sm text-muted-foreground">
             {t('servers.plugins.description', { count: installedPlugins.length })}
+          </p>
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" />
+            {t('servers.plugins.restorePointNote')}
           </p>
         </div>
         <form onSubmit={handleSearch} role="search" className="flex w-full items-center gap-2 sm:max-w-sm">
