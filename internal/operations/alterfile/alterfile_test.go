@@ -14,10 +14,10 @@ type stubServer struct {
 	fs files.FileServer
 }
 
-func (s *stubServer) GetFileServer() files.FileServer                  { return s.fs }
-func (s *stubServer) Extract(source, destination string) error         { return nil }
+func (s *stubServer) GetFileServer() files.FileServer                       { return s.fs }
+func (s *stubServer) Extract(source, destination string) error              { return nil }
 func (s *stubServer) ArchiveItems(items []string, destination string) error { return nil }
-func (s *stubServer) DataToMap() map[string]interface{}                { return nil }
+func (s *stubServer) DataToMap() map[string]interface{}                     { return nil }
 
 func setupRun(t *testing.T) (string, skypanel.RunOperatorArgs) {
 	root := t.TempDir()
