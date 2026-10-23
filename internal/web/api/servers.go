@@ -1173,7 +1173,7 @@ func syncPortVarsToDaemon(c *gin.Context, server *models.Server) {
 	if err != nil {
 		return
 	}
-	token, err := ts.GenerateRequest()
+	token, err := ts.GenerateRequest(node)
 	if err != nil {
 		return
 	}
@@ -1560,7 +1560,7 @@ func proxyServerRequest(c *gin.Context) {
 		return
 	}
 
-	token, err := ts.GenerateRequest()
+	token, err := ts.GenerateRequest(node)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
@@ -1762,25 +1762,27 @@ func toggleServerSuspension(c *gin.Context) {
 	if newState {
 		ns := &services.Node{DB: db}
 
-		ts, err := services.NewTokenService()
-		var token string
-		if err == nil {
-			token, _ = ts.GenerateRequest()
-		}
+		ts, tsErr := services.NewTokenService()
 
 		stopServer := func(srvIdentifier string, nodeID uint) {
-			if token != "" {
-				node, err := ns.Get(nodeID)
-				if err != nil {
-					return
-				}
-				headers := make(http.Header)
-				headers.Set("Authorization", "Bearer "+token)
-				stopPath := "/daemon/server/" + srvIdentifier + "/stop"
-				resp, callErr := ns.CallNode(node, "POST", stopPath, nil, headers)
-				if callErr == nil && resp != nil {
-					resp.Body.Close()
-				}
+			if tsErr != nil {
+				return
+			}
+			node, err := ns.Get(nodeID)
+			if err != nil {
+				return
+			}
+			// each node only accepts tokens minted for it
+			token, err := ts.GenerateRequest(node)
+			if err != nil {
+				return
+			}
+			headers := make(http.Header)
+			headers.Set("Authorization", "Bearer "+token)
+			stopPath := "/daemon/server/" + srvIdentifier + "/stop"
+			resp, callErr := ns.CallNode(node, "POST", stopPath, nil, headers)
+			if callErr == nil && resp != nil {
+				resp.Body.Close()
 			}
 		}
 

@@ -25,6 +25,11 @@ type Node struct {
 
 	Secret string `gorm:"column:secret;not null;size=36" json:"-" validate:"required"`
 
+	// SSL pins a node that was seen speaking TLS. Once set, the panel never falls
+	// back to plain http for it, so blocking the TLS handshake cannot downgrade the
+	// connection. Clear the column manually if a node intentionally stops using TLS.
+	SSL bool `gorm:"column:ssl;not null;default:0" json:"-"`
+
 	CreatedAt time.Time `json:"-"`
 	UpdatedAt time.Time `json:"-"`
 

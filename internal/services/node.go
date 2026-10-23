@@ -154,7 +154,7 @@ func (ns *Node) CallNodeContext(ctx context.Context, node *models.Node, method s
 	if node.IsLocal() {
 		fullURL = "http://localhost" + path
 	} else {
-		fullURL, err = createNodeURL(node, path)
+		fullURL, err = ns.createNodeURL(node, path)
 		if err != nil {
 			return nil, err
 		}
@@ -187,8 +187,8 @@ func (ns *Node) CallNodeContext(ctx context.Context, node *models.Node, method s
 		return nil, err
 	}
 
-	// generate a new JWT token
-	token, err := ts.GenerateRequest()
+	// generate a new JWT token, bound to the node it is being sent to
+	token, err := ts.GenerateRequest(node)
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +212,7 @@ func (ns *Node) OpenSocket(node *models.Node, path string, writer http.ResponseW
 		return err
 	}
 
-	ssl, err := doesDaemonUseSSL(node)
+	ssl, err := ns.doesDaemonUseSSL(node)
 	if err != nil {
 		return err
 	}
@@ -230,7 +230,7 @@ func (ns *Node) OpenSocket(node *models.Node, path string, writer http.ResponseW
 	if err != nil {
 		return err
 	}
-	token, err := ts.GenerateRequest()
+	token, err := ts.GenerateRequest(node)
 	if err != nil {
 		return err
 	}
@@ -281,9 +281,15 @@ type daemonScheme struct {
 
 const daemonSchemeTTL = 5 * time.Minute
 
-func doesDaemonUseSSL(node *models.Node) (bool, error) {
+func (ns *Node) doesDaemonUseSSL(node *models.Node) (bool, error) {
 	if node.IsLocal() {
 		return false, nil
+	}
+
+	// a node that was ever seen speaking TLS is pinned to it: blocking the TLS
+	// handshake must fail the call, never silently resend the token over plain http
+	if node.SSL {
+		return true, nil
 	}
 
 	key := fmt.Sprintf("%s:%d", node.PrivateHost, node.PrivatePort)
@@ -299,8 +305,24 @@ func doesDaemonUseSSL(node *models.Node) (bool, error) {
 		daemonSchemesLock.Lock()
 		daemonSchemes[key] = daemonScheme{ssl: ssl, checked: time.Now()}
 		daemonSchemesLock.Unlock()
+		if ssl {
+			ns.pinNodeSSL(node)
+		}
 	}
 	return ssl, err
+}
+
+// pinNodeSSL records that a node speaks TLS so the panel never downgrades it again,
+// surviving restarts via the nodes table.
+func (ns *Node) pinNodeSSL(node *models.Node) {
+	node.SSL = true
+	if ns.DB == nil || node.ID == 0 {
+		return
+	}
+	// UpdateColumn: a one-column flag write must not run the model's save-validation hooks
+	if err := ns.DB.Model(&models.Node{}).Where("id = ?", node.ID).UpdateColumn("ssl", true).Error; err != nil {
+		logging.Error.Printf("Error persisting TLS pin for node %d: %s", node.ID, err)
+	}
 }
 
 func probeDaemonSSL(node *models.Node) (bool, error) {
@@ -335,8 +357,8 @@ func probeDaemonSSL(node *models.Node) (bool, error) {
 	return true, nil
 }
 
-func createNodeURL(node *models.Node, path string) (string, error) {
-	ssl, err := doesDaemonUseSSL(node)
+func (ns *Node) createNodeURL(node *models.Node, path string) (string, error) {
+	ssl, err := ns.doesDaemonUseSSL(node)
 	if err != nil {
 		return "", err
 	}

@@ -257,6 +257,13 @@ func (us *User) StartOtpEnroll(userID uint) (secret string, imgStr string, err e
 		return
 	}
 
+	// changing the active factor requires disabling it first (which demands a valid
+	// code); otherwise any hijacked session could silently weaken 2FA
+	if user.OtpActive {
+		err = skypanel.ErrOtpAlreadyEnabled
+		return
+	}
+
 	var key *otp.Key
 	key, err = totp.Generate(totp.GenerateOpts{
 		Issuer:      config.CompanyName.Value(),
@@ -266,8 +273,8 @@ func (us *User) StartOtpEnroll(userID uint) (secret string, imgStr string, err e
 		return
 	}
 
-	user.OtpSecret = key.Secret()
-	user.OtpActive = false
+	// kept pending until ValidateOtpEnroll proves the user has the new secret
+	user.OtpPendingSecret = key.Secret()
 	err = us.Update(user)
 	if err != nil {
 		return
@@ -317,7 +324,7 @@ func (us *User) ValidateOtpEnroll(userID uint, token string) ([]string, error) {
 		return nil, err
 	}
 
-	if !totp.Validate(token, user.OtpSecret) {
+	if user.OtpPendingSecret == "" || !totp.Validate(token, user.OtpPendingSecret) {
 		return nil, skypanel.ErrInvalidCredentials
 	}
 
@@ -334,14 +341,24 @@ func (us *User) ValidateOtpEnroll(userID uint, token string) ([]string, error) {
 		_ = rcs[i].SetCode(code)
 	}
 
-	err = us.DB.Create(&rcs).Error
+	err = us.DB.Transaction(func(tx *gorm.DB) error {
+		// codes from a previous enrollment must not stay valid
+		if err := tx.Delete(&models.RecoveryCode{}, "user_id = ?", user.ID).Error; err != nil {
+			return err
+		}
+		if err := tx.Create(&rcs).Error; err != nil {
+			return err
+		}
+
+		user.OtpSecret = user.OtpPendingSecret
+		user.OtpPendingSecret = ""
+		user.OtpActive = true
+		return tx.Save(user).Error
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	user.OtpActive = true
-	return codes, us.Update(user)
-
+	return codes, nil
 }
 
 func (us *User) RegenerateOtpRecoveryCodes(userID uint) ([]string, error) {
@@ -388,6 +405,7 @@ func (us *User) DisableOtp(userID uint) error {
 		}
 
 		user.OtpSecret = ""
+		user.OtpPendingSecret = ""
 		user.OtpActive = false
 		return tx.Save(user).Error
 	})

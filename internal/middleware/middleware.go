@@ -95,6 +95,19 @@ func checkPermission(c *gin.Context, perm *scopes.Scope) bool {
 		return false
 	}
 
+	// a session minted from an OAuth2 client credential never grants more than the
+	// client was registered for; the owning user's permissions still apply on top
+	if clientGin, hasClient := c.Get("client"); hasClient {
+		client, ok := clientGin.(*models.Client)
+		if !ok || client == nil {
+			return false
+		}
+		if !clientAllows(client, perm, serverID) {
+			actuallyFinished = true
+			return false
+		}
+	}
+
 	db := GetDatabase(c)
 	ps := &services.Permission{DB: db}
 
@@ -149,6 +162,29 @@ func checkPermission(c *gin.Context, perm *scopes.Scope) bool {
 	}
 
 	return allowed
+}
+
+// clientAllows bounds what an OAuth2 client token may reach. A server-scoped client
+// only operates its own server (identity lookups via the login scope aside) and a
+// client with declared scopes never exceeds them.
+func clientAllows(client *models.Client, perm *scopes.Scope, serverID string) bool {
+	if client.ServerID != nil && *client.ServerID != "" && !perm.Is(scopes.ScopeLogin) {
+		if !perm.ForServer || serverID != *client.ServerID {
+			return false
+		}
+	}
+
+	if client.Scopes != "" {
+		allowed := make([]*scopes.Scope, 0)
+		for _, s := range strings.Fields(client.Scopes) {
+			allowed = scopes.AddScope(allowed, scopes.GetScope(s))
+		}
+		if !scopes.ContainsScope(allowed, perm) {
+			return false
+		}
+	}
+
+	return true
 }
 
 // collectScopes merges the scopes from the user's role and permission rows. A role applies

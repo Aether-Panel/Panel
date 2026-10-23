@@ -175,6 +175,10 @@ func startOtpEnroll(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
 
 	secret, img, err := us.StartOtpEnroll(user.ID)
+	if errors.Is(err, skypanel.ErrOtpAlreadyEnabled) {
+		response.HandleError(c, err, http.StatusBadRequest)
+		return
+	}
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
