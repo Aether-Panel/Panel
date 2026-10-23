@@ -23,6 +23,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/database"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
+	"github.com/SkyPanel/SkyPanel/v3/internal/offsite"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
@@ -48,6 +49,12 @@ type Server struct {
 	// stopRequested is set when someone stops or kills the server, so its exit is not
 	// mistaken for a crash (or answered with an automatic restart)
 	stopRequested atomic.Bool
+	// exitHandled is set once the last exit went through afterExit (a stop someone asked for,
+	// a clean exit, or a crash that was reported), so the admin channel's offline alert only
+	// covers servers that vanished without any of those
+	exitHandled atomic.Bool
+	// startedAt is when the current run began, used to forgive old crashes
+	startedAt     atomic.Int64
 	keepAlive     *time.Ticker
 	keepAliveChan chan bool
 }
@@ -65,7 +72,13 @@ type serverState struct {
 	wasRunning bool
 	lastStats  *skypanel.ServerStats
 	lastAlert  map[string]time.Time // Para evitar spam de alertas
+	// offlineSince is when the server was seen stopped without a known reason; the admin
+	// alert waits a little in case the stop or crash is still being processed
+	offlineSince time.Time
 }
+
+// offlineAlertDelay gives afterExit time to explain an exit before the admin is told
+const offlineAlertDelay = 15 * time.Second
 
 var ErrServerTypeRequired = errors.New("server type is required")
 var ErrEnvironmentTypeRequired = errors.New("environment type is required")
@@ -102,6 +115,7 @@ func ShutdownService() {
 	}()
 
 	running = false
+	SaveAllMetrics()
 	// the tickers are created by their goroutines, so a very early shutdown can find them unset
 	if startQueueTicker != nil {
 		startQueueTicker.Stop()
@@ -543,6 +557,8 @@ func SendStatsForServers() {
 				Type:    skypanel.MessageTypeStats,
 			})
 
+			p.recordMetrics(stats, time.Now())
+
 			// Monitorear para alertas
 			go checkServerAlerts(p, stats)
 
@@ -624,9 +640,17 @@ func checkServerAlerts(server *Server, stats *skypanel.ServerStats) {
 		if isRunning {
 			_ = ds.SendServerOnlineAlert(serverName, serverID)
 		} else {
-			_ = ds.SendServerOfflineAlert(serverName, serverID)
+			// stops someone asked for are not news for the admin channel and crashes are
+			// reported as they happen, so only an unexplained exit is worth an alert
+			state.offlineSince = time.Now()
 		}
 		state.wasRunning = isRunning
+	}
+	if isRunning || server.exitHandled.Load() || server.stopRequested.Load() {
+		state.offlineSince = time.Time{}
+	} else if !state.offlineSince.IsZero() && time.Since(state.offlineSince) > offlineAlertDelay {
+		_ = services.GetDiscordService().SendServerOfflineAlert(serverName, serverID)
+		state.offlineSince = time.Time{}
 	}
 
 	// Verificar uso alto de recursos (solo si está online)
@@ -669,6 +693,15 @@ func checkServerAlerts(server *Server, stats *skypanel.ServerStats) {
 
 	// Actualizar stats anteriores
 	state.lastStats = stats
+}
+
+// crashCounterResetAfter is how long a server must run before a crash counts as the
+// first of a new series
+const crashCounterResetAfter = 10 * time.Minute
+
+func (p *Server) ranLongerThan(d time.Duration) bool {
+	started := p.startedAt.Load()
+	return started > 0 && time.Since(time.Unix(0, started)) > d
 }
 
 // memoryPercent is memory use as a percentage. Docker reports bytes with a limit; other
@@ -732,6 +765,8 @@ func (p *Server) Start() error {
 	}
 
 	p.stopRequested.Store(false)
+	p.startedAt.Store(time.Now().UnixNano())
+	p.exitHandled.Store(false)
 	p.Log(logging.Info, "Starting server %s", p.ID())
 	p.RunningEnvironment.DisplayToConsole(true, "Starting server\n")
 
@@ -1106,7 +1141,10 @@ func (p *Server) afterExit(exitCode int) {
 	// a stop or kill someone asked for is not a crash, whatever exit code it ends with
 	requested := p.stopRequested.Swap(false)
 	crashed := !graceful && !requested
-	if !crashed {
+	p.exitHandled.Store(true)
+	// a server that ran fine for a while before crashing starts a fresh count, so crashes a
+	// week apart do not use up its automatic restarts
+	if !crashed || p.ranLongerThan(crashCounterResetAfter) {
 		p.CrashCounter = 0
 	}
 	autoRestart := crashed && p.Execution.AutoRestartFromCrash && p.CrashCounter < config.CrashLimit.Value()
@@ -1115,7 +1153,22 @@ func (p *Server) afterExit(exitCode int) {
 	}
 	if crashed {
 		p.RunningEnvironment.DisplayToConsole(true, "Server crashed (exit code %d)\n", exitCode)
-		p.notifyCrash(p.recordCrash(exitCode, autoRestart))
+		report := p.recordCrash(exitCode, autoRestart)
+		p.notifyCrash(report)
+		restartText := "No"
+		if autoRestart {
+			restartText = "Sí"
+		}
+		name, id := p.displayName(), p.ID()
+		go func() {
+			_ = services.GetDiscordService().SendAlert("💥 Caída del servidor",
+				fmt.Sprintf("**%s** se ha caído (código de salida %d).", name, exitCode),
+				[]services.DiscordEmbedField{
+					{Name: "Servidor", Value: name, Inline: true},
+					{Name: "ID", Value: id, Inline: true},
+					{Name: "Reinicio automático", Value: restartText, Inline: true},
+				})
+		}()
 	}
 
 	mapping := p.DataToMap()
@@ -1298,9 +1351,33 @@ func (p *Server) finishBackup(file string) bool {
 		p.Log(logging.Error, "Error creating backup file: %s", err)
 		p.RunningEnvironment.DisplayToConsole(true, "Failed to create backup file")
 		_ = os.Remove(partial)
+	} else {
+		p.uploadOffsite(file)
 	}
 	p.endBackup(err == nil)
 	return err == nil
+}
+
+// offsiteTimeout bounds one transfer to or from the bucket
+const offsiteTimeout = 2 * time.Hour
+
+// uploadOffsite copies a finished backup to the bucket when off-site backups are on. The
+// local copy stays: the bucket is for when the node's disk is gone. A failed upload is
+// reported but does not fail the backup, which exists locally.
+func (p *Server) uploadOffsite(file string) {
+	cfg, ok := offsite.FromSettings()
+	if !ok {
+		return
+	}
+	p.RunningEnvironment.DisplayToConsole(true, "Uploading backup to off-site storage")
+	ctx, cancel := context.WithTimeout(context.Background(), offsiteTimeout)
+	defer cancel()
+	if err := offsite.Upload(ctx, cfg, p.ID(), filepath.Base(file), file); err != nil {
+		p.Log(logging.Error, "Error uploading backup off-site: %s", err)
+		p.RunningEnvironment.DisplayToConsole(true, "Off-site upload failed: %s", err)
+		return
+	}
+	p.RunningEnvironment.DisplayToConsole(true, "Backup uploaded to off-site storage")
 }
 
 func (p *Server) endBackup(success bool) {
@@ -1341,10 +1418,39 @@ func (p *Server) ListBackups() ([]skypanel.BackupFile, error) {
 		if err != nil {
 			continue
 		}
-		result = append(result, skypanel.BackupFile{FileName: name, Size: info.Size(), ModTime: info.ModTime()})
+		result = append(result, skypanel.BackupFile{FileName: name, Size: info.Size(), ModTime: info.ModTime(), Location: "local"})
 	}
+	result = p.mergeOffsite(result)
 	sort.Slice(result, func(i, j int) bool { return result[i].ModTime.After(result[j].ModTime) })
 	return result, nil
+}
+
+// mergeOffsite adds the backups only the bucket still has and marks the ones in both places.
+// If the bucket cannot be listed the local list is returned as it is.
+func (p *Server) mergeOffsite(local []skypanel.BackupFile) []skypanel.BackupFile {
+	cfg, ok := offsite.FromSettings()
+	if !ok {
+		return local
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	remote, err := offsite.List(ctx, cfg, p.ID())
+	if err != nil {
+		p.Log(logging.Error, "Error listing off-site backups: %s", err)
+		return local
+	}
+	index := make(map[string]int, len(local))
+	for i, b := range local {
+		index[b.FileName] = i
+	}
+	for _, object := range remote {
+		if i, ok := index[object.FileName]; ok {
+			local[i].Location = "both"
+			continue
+		}
+		local = append(local, skypanel.BackupFile{FileName: object.FileName, Size: object.Size, ModTime: object.ModTime, Location: "offsite"})
+	}
+	return local
 }
 
 // pruneAutoBackups deletes the oldest automatic backups beyond the newest keep
@@ -1387,6 +1493,14 @@ func (p *Server) DeleteBackup(fileName string) error {
 		return err
 	}
 
+	if cfg, ok := offsite.FromSettings(); ok {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		if err := offsite.Delete(ctx, cfg, p.ID(), fileName); err != nil {
+			p.Log(logging.Error, "Error deleting off-site backup %s: %s", fileName, err)
+		}
+	}
+
 	return nil
 }
 
@@ -1402,11 +1516,20 @@ func (p *Server) StartRestore(fileName string) error {
 	// a missing backup must stop here: the restore deletes every server file before
 	// extracting, so going on would leave the server empty
 	backupFile := filepath.Join(p.GetBackupDirectory(), path.Base(fileName))
+	fetchOffsite := false
 	if _, err := os.Stat(backupFile); err != nil {
-		if os.IsNotExist(err) {
+		if !os.IsNotExist(err) {
+			return err
+		}
+		// the local copy is gone (a new disk, say): the bucket may still have it
+		cfg, ok := offsite.FromSettings()
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		exists := ok && offsite.Exists(ctx, cfg, p.ID(), fileName)
+		cancel()
+		if !exists {
 			return skypanel.ErrFileNotFound
 		}
-		return err
+		fetchOffsite = true
 	}
 
 	if !p.backupState.CompareAndSwap(backupIdle, restoreRunning) {
@@ -1431,6 +1554,23 @@ func (p *Server) StartRestore(fileName string) error {
 		defer func() {
 			d <- success
 		}()
+
+		if fetchOffsite {
+			// fetched before anything is touched, so a failed download leaves the server as it was
+			p.RunningEnvironment.DisplayToConsole(true, "Downloading backup from off-site storage")
+			cfg, _ := offsite.FromSettings()
+			ctx, cancel := context.WithTimeout(context.Background(), offsiteTimeout)
+			err := os.MkdirAll(filepath.Dir(source), 0755)
+			if err == nil {
+				err = offsite.Download(ctx, cfg, p.ID(), filepath.Base(source), source)
+			}
+			cancel()
+			if err != nil {
+				p.Log(logging.Error, "Error downloading off-site backup: %s", err)
+				p.RunningEnvironment.DisplayToConsole(true, "Off-site download failed: %s", err)
+				return
+			}
+		}
 
 		archive, err := os.Open(source)
 		if err != nil {
@@ -1511,6 +1651,15 @@ func (p *Server) GetBackupFile(fileName string) (*FileData, error) {
 	backupFile := filepath.Join(p.GetBackupDirectory(), path.Base(fileName))
 
 	file, err := os.Open(backupFile)
+	if os.IsNotExist(err) {
+		if cfg, ok := offsite.FromSettings(); ok {
+			// streamed straight from the bucket; the caller closes it
+			reader, size, remoteErr := offsite.Open(context.Background(), cfg, p.ID(), fileName)
+			if remoteErr == nil {
+				return &FileData{Contents: reader, ContentLength: size, Name: path.Base(fileName)}, nil
+			}
+		}
+	}
 	if err != nil {
 		return nil, err
 	}

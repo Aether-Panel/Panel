@@ -118,6 +118,7 @@ func RegisterServerRoutes(e *gin.RouterGroup) {
 		l.GET("/:serverId/query", middleware.ResolveServerNode, queryServer)
 
 		l.GET("/:serverId/crashes", middleware.ResolveServerNode, getCrashReports)
+		l.GET("/:serverId/metrics", middleware.ResolveServerNode, getMetrics)
 		l.GET("/:serverId/notifications", middleware.ResolveServerNode, getNotifications)
 		l.PUT("/:serverId/notifications", middleware.ResolveServerNode, putNotifications)
 		l.POST("/:serverId/notifications/test", middleware.ResolveServerNode, testNotifications)
@@ -1761,7 +1762,7 @@ func putNotifications(c *gin.Context) {
 		return
 	}
 	err := server.SetNotifications(n)
-	if errors.Is(err, services.ErrInvalidDiscordWebhook) {
+	if errors.Is(err, services.ErrInvalidDiscordWebhook) || errors.Is(err, services.ErrInvalidTelegram) || errors.Is(err, services.ErrInvalidWebhook) {
 		response.HandleError(c, err, http.StatusBadRequest)
 		return
 	}
@@ -1777,8 +1778,8 @@ var (
 )
 
 // @Summary Send a test notification
-// @Description Posts a sample message to the server's Discord webhook
-// @Success 204 {object} nil
+// @Description Posts a sample message to every channel the server has, and reports each one ("ok" or why it failed)
+// @Success 200 {object} map[string]string
 // @Param id path string true "Server ID"
 // @Tags Daemon Server
 // @Router /api/servers/{id}/notifications/test [post]
@@ -1796,13 +1797,39 @@ func testNotifications(c *gin.Context) {
 	testNotificationsLast[server.ID()] = time.Now()
 	testNotificationsLastLock.Unlock()
 
-	err := server.SendTestNotification()
-	if errors.Is(err, services.ErrInvalidDiscordWebhook) {
+	results, err := server.SendTestNotification()
+	if errors.Is(err, servers.ErrNoNotificationChannel) {
 		response.HandleError(c, err, http.StatusBadRequest)
 		return
 	}
-	// Discord refusing the webhook (deleted, wrong token) is the owner's to fix
-	if !response.HandleError(c, err, http.StatusBadGateway) {
-		c.Status(http.StatusNoContent)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
 	}
+	// a channel refusing the message (deleted webhook, wrong token) is the owner's to fix; the
+	// page shows which one
+	c.JSON(http.StatusOK, results)
+}
+
+// @Summary Get performance history
+// @Description CPU, memory, network and uptime over the last hour, day or week, averaged per step
+// @Success 200 {object} map[string]interface{}
+// @Param id path string true "Server ID"
+// @Param range query string false "1h, 24h (default) or 7d"
+// @Tags Daemon Server
+// @Router /api/servers/{id}/metrics [get]
+// @Security OAuth2Application[server.stats]
+func getMetrics(c *gin.Context) {
+	server := getServerFromGin(c)
+
+	name := c.DefaultQuery("range", "24h")
+	window, ok := servers.MetricRanges[name]
+	if !ok {
+		response.HandleError(c, errors.New("range must be 1h, 24h or 7d"), http.StatusBadRequest)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"range":  name,
+		"step":   int64(window.Step / time.Second),
+		"points": server.Metrics(window.Window, window.Step, time.Now()),
+	})
 }

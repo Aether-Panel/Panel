@@ -85,7 +85,11 @@ func registerServers(g *gin.RouterGroup) {
 	g.GET("/:serverId/extransfer/status", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, getExTransferStatus)
 	g.OPTIONS("/:serverId/extransfer/status", response.CreateOptions("GET"))
 
-	g.GET("/:serverId/flags", middleware.RequiresPermission(scopes.ScopeServerViewFlags), middleware.ResolveServerPanel, proxyServerRequest)
+	g.POST("/:serverId/extransfer/cancel", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, cancelExTransferByUser)
+	g.OPTIONS("/:serverId/extransfer/cancel", response.CreateOptions("POST"))
+
+	// owners were only ever given the edit permission, and whoever may change a setting may see it
+	g.GET("/:serverId/flags", middleware.RequiresAnyPermission(scopes.ScopeServerViewFlags, scopes.ScopeServerEditFlags), middleware.ResolveServerPanel, proxyServerRequest)
 	g.POST("/:serverId/flags", middleware.RequiresPermission(scopes.ScopeServerEditFlags), middleware.ResolveServerPanel, proxyServerRequest)
 	g.OPTIONS("/:serverId/flags", response.CreateOptions("GET", "POST"))
 
@@ -105,6 +109,9 @@ func registerServers(g *gin.RouterGroup) {
 	// crash reports carry console output, so they need the same permission as the console
 	g.GET("/:serverId/crashes", middleware.RequiresPermission(scopes.ScopeServerConsole), middleware.ResolveServerPanel, proxyServerRequest)
 	g.OPTIONS("/:serverId/crashes", response.CreateOptions("GET"))
+
+	g.GET("/:serverId/metrics", middleware.RequiresPermission(scopes.ScopeServerStats), middleware.ResolveServerPanel, proxyServerRequest)
+	g.OPTIONS("/:serverId/metrics", response.CreateOptions("GET"))
 
 	// a server's own Discord alerts sit with its other owner settings (auto start, auto restart)
 	g.GET("/:serverId/notifications", middleware.RequiresPermission(scopes.ScopeServerEditFlags), middleware.ResolveServerPanel, proxyServerRequest)
@@ -2200,6 +2207,7 @@ func assignServerPermissions(ps *services.Permission, serverID string, users []*
 			scopes.ScopeServerView,
 			scopes.ScopeServerViewData,
 			scopes.ScopeServerEditData,
+			scopes.ScopeServerViewFlags,
 			scopes.ScopeServerEditFlags,
 			scopes.ScopeServerEditName,
 			scopes.ScopeServerViewData,

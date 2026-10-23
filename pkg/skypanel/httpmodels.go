@@ -84,4 +84,6 @@ type BackupFile struct {
 	FileName string    `json:"fileName"`
 	Size     int64     `json:"size"`
 	ModTime  time.Time `json:"modTime"`
+	// Location is "local", "offsite" or "both"
+	Location string `json:"location"`
 } // @name BackupFile

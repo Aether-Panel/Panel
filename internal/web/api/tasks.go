@@ -181,10 +181,11 @@ func putServerTask(c *gin.Context) {
 // syncAutomaticBackupsLock keeps two requests for the same list from adding a backup twice
 var syncAutomaticBackupsLock sync.Mutex
 
-// syncAutomaticBackups brings the panel's list in line with the backups scheduled tasks made
-// on the node: new ones are added and ones removed by retention are dropped. Backups made by
-// hand are recorded when they are made, so only automatic ones are touched. It is best
-// effort: when the node cannot be reached the stored list is shown as it is.
+// syncAutomaticBackups brings the panel's list in line with the node: backups scheduled tasks
+// made are added and ones removed by retention are dropped, and every backup gets its size
+// once its archive is written. Backups made by hand are recorded when they are made, so only
+// automatic ones are added or removed. It is best effort: when the node cannot be reached the
+// stored list is shown as it is.
 func syncAutomaticBackups(ctx context.Context, db *gorm.DB, server *models.Server) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -210,16 +211,25 @@ func syncAutomaticBackups(ctx context.Context, db *gorm.DB, server *models.Serve
 		return
 	}
 
-	present := make(map[string]bool, len(onNode))
+	present := make(map[string]skypanel.BackupFile, len(onNode))
 	for _, f := range onNode {
-		present[f.FileName] = true
+		present[f.FileName] = f
 	}
 	known := make(map[string]bool, len(records))
 	for _, r := range records {
 		known[r.FileName] = true
-		if strings.HasPrefix(r.FileName, servers.AutoBackupPrefix) && !present[r.FileName] {
+		file, onDisk := present[r.FileName]
+		if strings.HasPrefix(r.FileName, servers.AutoBackupPrefix) && !onDisk {
 			if err := bs.Delete(r.ID); err != nil {
 				logging.Error.Printf("Error removing the record of deleted backup %s: %s", r.FileName, err)
+			}
+			continue
+		}
+		if onDisk && (file.Size != r.FileSize || file.Location != r.Location) {
+			r.FileSize = file.Size
+			r.Location = file.Location
+			if err := bs.Update(r); err != nil {
+				logging.Error.Printf("Error recording the size of backup %s: %s", r.FileName, err)
 			}
 		}
 	}
@@ -227,7 +237,7 @@ func syncAutomaticBackups(ctx context.Context, db *gorm.DB, server *models.Serve
 		if !strings.HasPrefix(f.FileName, servers.AutoBackupPrefix) || known[f.FileName] {
 			continue
 		}
-		record := &models.Backup{Name: "Automatic backup", FileName: f.FileName, ServerID: server.Identifier, CreatedAt: f.ModTime}
+		record := &models.Backup{Name: "Automatic backup", FileName: f.FileName, FileSize: f.Size, Location: f.Location, ServerID: server.Identifier, CreatedAt: f.ModTime}
 		if err := bs.Create(record); err != nil {
 			logging.Error.Printf("Error recording automatic backup %s: %s", f.FileName, err)
 		}

@@ -78,6 +78,18 @@ var ServersFolder = asDataFolder("daemon.data.servers", "servers")
 var BackupsFolder = asDataFolder("daemon.data.backups.folder", "backups")
 var BinariesFolder = asDataFolder("daemon.data.binaries", "binaries")
 var CrashLimit = asInt("daemon.data.crashLimit", 3)
+
+// Off-site backups: every finished backup is also copied to an S3-compatible bucket
+var BackupsS3Enabled = asBool("daemon.backups.s3.enabled", false)
+var BackupsS3Endpoint = asString("daemon.backups.s3.endpoint", "")
+var BackupsS3Region = asString("daemon.backups.s3.region", "")
+var BackupsS3Bucket = asString("daemon.backups.s3.bucket", "")
+var BackupsS3AccessKey = asString("daemon.backups.s3.accessKey", "")
+var BackupsS3SecretKey = asString("daemon.backups.s3.secretKey", "")
+var BackupsS3Prefix = asString("daemon.backups.s3.prefix", "aether-backups")
+
+// BackupsS3Insecure talks plain http to the endpoint, for a MinIO on the local network
+var BackupsS3Insecure = asBool("daemon.backups.s3.insecure", false)
 var CurseForgeKey = asString("daemon.curseforge.key", curseforgeKey)
 var DataRootFolder = asString("daemon.data.root", "")
 var DepotDownloaderVersion = asString("daemon.depotDownloader.version", "latest")

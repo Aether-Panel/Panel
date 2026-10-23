@@ -75,8 +75,9 @@ var discordWebhookPattern = regexp.MustCompile(`^https://(?:(?:ptb|canary)\.)?di
 
 // checkDiscordWebhook and discordHTTPClient are swapped in tests, which post to a local server
 var (
-	checkDiscordWebhook = ValidateDiscordWebhook
-	discordHTTPClient   = utils.NewRestrictedHTTPClient
+	checkDiscordWebhook      = ValidateDiscordWebhook
+	defaultDiscordHTTPClient = utils.NewRestrictedHTTPClient
+	discordHTTPClient        = defaultDiscordHTTPClient
 )
 
 var ErrInvalidDiscordWebhook = errors.New("the URL is not a Discord webhook (https://discord.com/api/webhooks/...)")

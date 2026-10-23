@@ -2,21 +2,31 @@ package servers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 )
 
-// Notifications are a server's own Discord alerts, set by its owner. They live in a
-// separate 0600 file rather than in the server definition, which more users can read.
+// Notifications are a server's own alerts, set by its owner: which events, and where they go
+// (a Discord channel, a Telegram chat, a JSON webhook, or several). They live in a separate
+// 0600 file rather than in the server definition, which more users can read.
 type Notifications struct {
 	DiscordWebhook string `json:"discordWebhook"`
+	// TelegramBotToken and TelegramChatID: the bot from @BotFather and the chat it posts to
+	TelegramBotToken string `json:"telegramBotToken"`
+	TelegramChatID   string `json:"telegramChatId"`
+	// WebhookURL receives every event as JSON; WebhookSecret, when set, signs the body
+	WebhookURL    string `json:"webhookUrl"`
+	WebhookSecret string `json:"webhookSecret"`
+
 	// Crash: the server died on its own (with the last console lines)
 	Crash bool `json:"crash"`
 	// Backup: a backup finished or failed
@@ -27,10 +37,29 @@ type Notifications struct {
 	Power bool `json:"power"`
 }
 
-// DefaultNotifications is what a server starts with: no webhook, and the useful events on
+// DefaultNotifications is what a server starts with: no channel, and the useful events on
 // for when one is added
 func DefaultNotifications() Notifications {
 	return Notifications{Crash: true, Backup: true, Resources: true}
+}
+
+func (n Notifications) hasChannel() bool {
+	return n.DiscordWebhook != "" || n.TelegramBotToken != "" || n.WebhookURL != ""
+}
+
+// Validate checks every channel the owner filled in
+func (n *Notifications) Validate() error {
+	n.DiscordWebhook = strings.TrimSpace(n.DiscordWebhook)
+	n.TelegramBotToken = strings.TrimSpace(n.TelegramBotToken)
+	n.TelegramChatID = strings.TrimSpace(n.TelegramChatID)
+	n.WebhookURL = strings.TrimSpace(n.WebhookURL)
+	if err := services.ValidateDiscordWebhook(n.DiscordWebhook); err != nil {
+		return err
+	}
+	if err := services.ValidateTelegram(n.TelegramBotToken, n.TelegramChatID); err != nil {
+		return err
+	}
+	return services.ValidateWebhook(n.WebhookURL)
 }
 
 var notificationsLock sync.Mutex
@@ -47,8 +76,7 @@ func (p *Server) Notifications() (Notifications, error) {
 
 // SetNotifications validates and saves the server's notification settings
 func (p *Server) SetNotifications(n Notifications) error {
-	n.DiscordWebhook = strings.TrimSpace(n.DiscordWebhook)
-	if err := services.ValidateDiscordWebhook(n.DiscordWebhook); err != nil {
+	if err := n.Validate(); err != nil {
 		return err
 	}
 
@@ -58,7 +86,7 @@ func (p *Server) SetNotifications(n Notifications) error {
 	if err != nil {
 		return err
 	}
-	// the webhook URL is a secret: anyone holding it can post to the owner's channel
+	// webhook URLs and bot tokens are secrets: anyone holding them can post as the owner
 	return os.WriteFile(notificationsFile(p.ID()), data, 0600)
 }
 
@@ -77,7 +105,7 @@ func readNotifications(serverID string) (Notifications, error) {
 	return n, nil
 }
 
-// Embed colours, matching the panel's success, warning and destructive tokens
+// Colours, matching the panel's success, warning and destructive tokens
 const (
 	colorCrash   = 0xF2726B
 	colorWarning = 0xF5A524
@@ -85,21 +113,14 @@ const (
 	colorInfo    = 0x3B9EF5
 )
 
-// notify sends an event to the server's webhook if the owner turned that event on. It runs
-// in the background so a slow Discord never holds up the server.
-func (p *Server) notify(enabled func(Notifications) bool, embed services.DiscordEmbed) {
-	n, err := p.Notifications()
-	if err != nil || n.DiscordWebhook == "" || !enabled(n) {
-		return
-	}
-	if embed.Footer == nil {
-		embed.Footer = &services.DiscordEmbedFooter{Text: "Aether Panel · " + p.ID()}
-	}
-	go func() {
-		if err := services.GetDiscordService().SendEmbedToURL(n.DiscordWebhook, embed); err != nil {
-			p.Log(logging.Error, "Error sending Discord notification: %s", err)
-		}
-	}()
+// notificationEvent is one alert, written once and rendered for each channel
+type notificationEvent struct {
+	Kind    string
+	Title   string
+	Message string
+	Color   int
+	Lines   []string
+	Extra   map[string]interface{}
 }
 
 func (p *Server) displayName() string {
@@ -107,6 +128,92 @@ func (p *Server) displayName() string {
 		return p.Server.Display
 	}
 	return p.ID()
+}
+
+// discordEmbed renders the event for Discord, with the server name in bold
+func (p *Server) discordEmbed(e notificationEvent) services.DiscordEmbed {
+	description := strings.Replace(e.Message, p.displayName(), "**"+p.displayName()+"**", 1)
+	if len(e.Lines) > 0 {
+		log := strings.Join(e.Lines, "\n")
+		// Discord caps an embed description at 4096 characters
+		if len(log) > 3500 {
+			log = log[len(log)-3500:]
+		}
+		description += "\n```\n" + strings.ReplaceAll(log, "```", "ʼʼʼ") + "\n```"
+	}
+	return services.DiscordEmbed{
+		Title:       e.Title,
+		Description: description,
+		Color:       e.Color,
+		Footer:      &services.DiscordEmbedFooter{Text: "Aether Panel · " + p.ID()},
+	}
+}
+
+// telegramText renders the event for Telegram's HTML mode
+func (p *Server) telegramText(e notificationEvent) string {
+	message := services.TelegramHTML(e.Message)
+	name := services.TelegramHTML(p.displayName())
+	message = strings.Replace(message, name, "<b>"+name+"</b>", 1)
+	text := "<b>" + services.TelegramHTML(e.Title) + "</b>\n" + message
+	if len(e.Lines) > 0 {
+		log := strings.Join(e.Lines, "\n")
+		// Telegram caps a message at 4096 characters
+		if len(log) > 3000 {
+			log = log[len(log)-3000:]
+		}
+		text += "\n<pre>" + services.TelegramHTML(log) + "</pre>"
+	}
+	return text + "\n<i>Aether Panel · " + services.TelegramHTML(p.ID()) + "</i>"
+}
+
+// webhookPayload renders the event as the JSON a webhook receives
+func (p *Server) webhookPayload(e notificationEvent) map[string]interface{} {
+	payload := map[string]interface{}{
+		"event":     e.Kind,
+		"title":     e.Title,
+		"message":   e.Message,
+		"server":    map[string]string{"id": p.ID(), "name": p.displayName()},
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
+	}
+	if len(e.Lines) > 0 {
+		payload["lines"] = e.Lines
+	}
+	for k, v := range e.Extra {
+		payload[k] = v
+	}
+	return payload
+}
+
+// deliver sends the event to every channel configured, returning each channel's error
+func (p *Server) deliver(n Notifications, e notificationEvent) map[string]error {
+	results := make(map[string]error)
+	ds := services.GetDiscordService()
+	if n.DiscordWebhook != "" {
+		results["discord"] = ds.SendEmbedToURL(n.DiscordWebhook, p.discordEmbed(e))
+	}
+	if n.TelegramBotToken != "" {
+		results["telegram"] = services.SendTelegram(n.TelegramBotToken, n.TelegramChatID, p.telegramText(e))
+	}
+	if n.WebhookURL != "" {
+		results["webhook"] = services.SendWebhookJSON(n.WebhookURL, n.WebhookSecret, p.webhookPayload(e))
+	}
+	return results
+}
+
+// notify sends an event if the owner turned it on. It runs in the background, so a slow
+// channel never holds up the server.
+func (p *Server) notify(enabled func(Notifications) bool, e notificationEvent) {
+	n, err := p.Notifications()
+	if err != nil || !n.hasChannel() || !enabled(n) {
+		return
+	}
+	go func() {
+		for channel, err := range p.deliver(n, e) {
+			if err != nil {
+				p.Log(logging.Error, "Error sending %s notification: %s", channel, err)
+			}
+		}
+	}()
 }
 
 func (p *Server) notifyCrash(report CrashReport) {
@@ -118,71 +225,85 @@ func (p *Server) notifyCrash(report CrashReport) {
 	if len(tail) > 12 {
 		tail = tail[len(tail)-12:]
 	}
-	log := strings.Join(tail, "\n")
-	// Discord caps an embed description at 4096 characters
-	if len(log) > 3500 {
-		log = log[len(log)-3500:]
-	}
-	description := fmt.Sprintf("**%s** se ha caído (código de salida %d).\n%s", p.displayName(), report.ExitCode, status)
-	if log != "" {
-		description += "\n```\n" + strings.ReplaceAll(log, "```", "ʼʼʼ") + "\n```"
-	}
-	p.notify(func(n Notifications) bool { return n.Crash }, services.DiscordEmbed{
-		Title:       "💥 Caída del servidor",
-		Description: description,
-		Color:       colorCrash,
+	p.notify(func(n Notifications) bool { return n.Crash }, notificationEvent{
+		Kind:    "crash",
+		Title:   "💥 Caída del servidor",
+		Message: fmt.Sprintf("%s se ha caído (código de salida %d). %s", p.displayName(), report.ExitCode, status),
+		Color:   colorCrash,
+		Lines:   tail,
+		Extra:   map[string]interface{}{"exitCode": report.ExitCode, "restarted": report.Restarted},
 	})
 }
 
 func (p *Server) notifyBackup(success bool) {
-	embed := services.DiscordEmbed{
-		Title:       "✅ Copia de seguridad completada",
-		Description: fmt.Sprintf("La copia de seguridad de **%s** se ha guardado correctamente.", p.displayName()),
-		Color:       colorSuccess,
+	e := notificationEvent{
+		Kind:    "backup",
+		Title:   "✅ Copia de seguridad completada",
+		Message: fmt.Sprintf("La copia de seguridad de %s se ha guardado correctamente.", p.displayName()),
+		Color:   colorSuccess,
+		Extra:   map[string]interface{}{"success": true},
 	}
 	if !success {
-		embed.Title = "❌ La copia de seguridad falló"
-		embed.Description = fmt.Sprintf("No se pudo completar la copia de seguridad de **%s**. Revisa la consola del servidor.", p.displayName())
-		embed.Color = colorCrash
+		e.Title = "❌ La copia de seguridad falló"
+		e.Message = fmt.Sprintf("No se pudo completar la copia de seguridad de %s. Revisa la consola del servidor.", p.displayName())
+		e.Color = colorCrash
+		e.Extra["success"] = false
 	}
-	p.notify(func(n Notifications) bool { return n.Backup }, embed)
+	p.notify(func(n Notifications) bool { return n.Backup }, e)
 }
 
 func (p *Server) notifyResource(resource string, value, threshold float64) {
-	p.notify(func(n Notifications) bool { return n.Resources }, services.DiscordEmbed{
-		Title:       "⚠️ Uso alto de " + resource,
-		Description: fmt.Sprintf("**%s** está usando %.0f%% de %s (aviso a partir de %.0f%%).", p.displayName(), value, strings.ToLower(resource), threshold),
-		Color:       colorWarning,
+	p.notify(func(n Notifications) bool { return n.Resources }, notificationEvent{
+		Kind:    "resources",
+		Title:   "⚠️ Uso alto de " + strings.ToLower(resource),
+		Message: fmt.Sprintf("%s está usando el %.0f %% de %s (aviso a partir del %.0f %%).", p.displayName(), value, strings.ToLower(resource), threshold),
+		Color:   colorWarning,
+		Extra:   map[string]interface{}{"resource": resource, "value": value, "threshold": threshold},
 	})
 }
 
 func (p *Server) notifyPower(running bool) {
-	embed := services.DiscordEmbed{
-		Title:       "🟢 Servidor encendido",
-		Description: fmt.Sprintf("**%s** está en línea.", p.displayName()),
-		Color:       colorSuccess,
+	e := notificationEvent{
+		Kind:    "power",
+		Title:   "🟢 Servidor encendido",
+		Message: fmt.Sprintf("%s está en línea.", p.displayName()),
+		Color:   colorSuccess,
+		Extra:   map[string]interface{}{"running": true},
 	}
 	if !running {
-		embed.Title = "⚪ Servidor apagado"
-		embed.Description = fmt.Sprintf("**%s** se ha detenido.", p.displayName())
-		embed.Color = colorInfo
+		e.Title = "⚪ Servidor apagado"
+		e.Message = fmt.Sprintf("%s se ha detenido.", p.displayName())
+		e.Color = colorInfo
+		e.Extra["running"] = false
 	}
-	p.notify(func(n Notifications) bool { return n.Power }, embed)
+	p.notify(func(n Notifications) bool { return n.Power }, e)
 }
 
-// SendTestNotification posts a sample message so the owner can check the webhook
-func (p *Server) SendTestNotification() error {
+// ErrNoNotificationChannel is returned by a test when the owner has not set any channel yet
+var ErrNoNotificationChannel = errors.New("add a Discord webhook, a Telegram bot or a webhook URL first")
+
+// SendTestNotification posts a sample message to every channel, so the owner can check them.
+// It returns each channel's result ("ok" or the reason it failed).
+func (p *Server) SendTestNotification() (map[string]string, error) {
 	n, err := p.Notifications()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if n.DiscordWebhook == "" {
-		return services.ErrInvalidDiscordWebhook
+	if !n.hasChannel() {
+		return nil, ErrNoNotificationChannel
 	}
-	return services.GetDiscordService().SendEmbedToURL(n.DiscordWebhook, services.DiscordEmbed{
-		Title:       "🔔 Notificaciones conectadas",
-		Description: fmt.Sprintf("A partir de ahora recibirás aquí los avisos de **%s**.", p.displayName()),
-		Color:       colorInfo,
-		Footer:      &services.DiscordEmbedFooter{Text: "Aether Panel · " + p.ID()},
-	})
+	results := make(map[string]string)
+	for channel, err := range p.deliver(n, notificationEvent{
+		Kind:    "test",
+		Title:   "🔔 Notificaciones conectadas",
+		Message: fmt.Sprintf("A partir de ahora recibirás aquí los avisos de %s.", p.displayName()),
+		Color:   colorInfo,
+	}) {
+		if err != nil {
+			results[channel] = err.Error()
+		} else {
+			results[channel] = "ok"
+		}
+	}
+	return results, nil
 }

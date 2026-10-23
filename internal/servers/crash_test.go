@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
@@ -102,4 +103,34 @@ func TestNotifications_DefaultsValidationAndPrivateFile(t *testing.T) {
 	}
 
 	assert.NoError(t, p.SetNotifications(Notifications{}), "an empty webhook turns notifications off")
+}
+
+func TestAfterExit_ACrashAfterALongRunStartsAFreshCount(t *testing.T) {
+	p := newCrashTestServer(t)
+	p.Execution.AutoRestartFromCrash = true
+	p.CrashCounter = config.CrashLimit.Value() // the restarts were used up long ago
+	p.startedAt.Store(time.Now().Add(-crashCounterResetAfter - time.Minute).UnixNano())
+
+	p.afterExit(1)
+
+	reports, _ := p.CrashReports()
+	if assert.Len(t, reports, 1) {
+		assert.True(t, reports[0].Restarted, "the old crashes are forgiven")
+		assert.Equal(t, 1, reports[0].Attempt)
+	}
+	assert.True(t, p.exitHandled.Load())
+}
+
+func TestAfterExit_QuickCrashesKeepCounting(t *testing.T) {
+	p := newCrashTestServer(t)
+	p.Execution.AutoRestartFromCrash = true
+	p.CrashCounter = config.CrashLimit.Value()
+	p.startedAt.Store(time.Now().Add(-time.Minute).UnixNano())
+
+	p.afterExit(1)
+
+	reports, _ := p.CrashReports()
+	if assert.Len(t, reports, 1) {
+		assert.False(t, reports[0].Restarted, "the limit still applies to a crash loop")
+	}
 }

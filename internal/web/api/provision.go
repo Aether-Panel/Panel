@@ -300,6 +300,7 @@ func provisionServer(c *gin.Context) {
 		scopes.ScopeServerView,
 		scopes.ScopeServerViewData,
 		scopes.ScopeServerEditData,
+		scopes.ScopeServerViewFlags,
 		scopes.ScopeServerEditFlags,
 		scopes.ScopeServerEditName,
 		scopes.ScopeServerClientView,

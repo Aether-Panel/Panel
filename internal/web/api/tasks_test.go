@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/stretchr/testify/assert"
@@ -158,4 +159,17 @@ func TestAILogs_KeepsTheNewestLinesWithinBudget(t *testing.T) {
 	assert.LessOrEqual(t, len(out), aiMaxLogSize)
 	assert.True(t, strings.HasSuffix(out, "the last line"))
 	assert.Equal(t, "one\ntwo", aiLogs([]string{"one", "two"}))
+}
+
+func TestValidateStringSetting_DiscordWebhooks(t *testing.T) {
+	assert.NoError(t, validateStringSetting(config.DiscordWebhookExTransfer.Key(), ""))
+	assert.NoError(t, validateStringSetting(config.DiscordWebhook.Key(), " https://discord.com/api/webhooks/1/abc "))
+	assert.Error(t, validateStringSetting(config.DiscordWebhookNode.Key(), "http://10.0.0.1/hook"))
+	assert.NoError(t, validateStringSetting(config.CompanyName.Key(), "http://anything"), "other settings are not webhooks")
+
+	found := false
+	for _, entry := range editableStringEntries {
+		found = found || entry.Key() == config.DiscordWebhookExTransfer.Key()
+	}
+	assert.True(t, found, "the transfer webhook can be saved")
 }
