@@ -148,7 +148,7 @@ func (d *Docker) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypa
 
 	ctx := context.Background()
 	// TODO: This logic may not work anymore, it's complicated to use an existing container with install/uninstall
-	exists, err := doesContainerExist(ctx, dockerClient, environment.ServerID)
+	exists, err := waitForContainerRemoval(ctx, dockerClient, environment.ServerID)
 	if err != nil {
 		return err
 	}
@@ -511,6 +511,22 @@ func parseHostPorts(portSpecs []string, variables map[string]interface{}) (map[u
 		}
 	}
 	return hostPorts, nil
+}
+
+// containerRemovalWait is how long a start waits for the previous run's container to go
+// away. Containers are created with AutoRemove and Docker can still be removing one when
+// the panel hears the game exited, so restarts failed with "docker container already exists".
+const containerRemovalWait = 15 * time.Second
+
+func waitForContainerRemoval(ctx context.Context, dockerClient *client.Client, id string) (bool, error) {
+	deadline := time.Now().Add(containerRemovalWait)
+	for {
+		exists, err := doesContainerExist(ctx, dockerClient, id)
+		if err != nil || !exists || time.Now().After(deadline) {
+			return exists, err
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
 }
 
 func doesContainerExist(ctx context.Context, dockerClient *client.Client, id string) (bool, error) {
