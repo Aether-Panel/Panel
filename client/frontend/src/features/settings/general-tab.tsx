@@ -225,6 +225,18 @@ export function GeneralTab({ localSettings, handleUpdate, t }: GeneralTabProps) 
                     </div>
                 </SettingsSection>
 
+                <SettingsSection title={t('settings.general.sections.modpacksTitle')} description={t('settings.general.sections.modpacksDescription')}>
+                    <SettingsField id="curseforge-api-key" label={t('settings.general.curseforgeKeyLabel')} hint={t('settings.general.curseforgeKeyDescription')}>
+                        <SecretInput
+                            id="curseforge-api-key"
+                            value={localSettings['daemon.curseforge.key'] || ''}
+                            onChange={(v) => handleUpdate('daemon.curseforge.key', v)}
+                            placeholder={t('settings.general.curseforgeKeyPlaceholder')}
+                            t={t}
+                        />
+                    </SettingsField>
+                </SettingsSection>
+
                 <SettingsSection title={t('settings.general.sections.appearanceTitle')} description={t('settings.general.sections.appearanceDescription')}>
                     <SettingRows>
                         <SettingRow

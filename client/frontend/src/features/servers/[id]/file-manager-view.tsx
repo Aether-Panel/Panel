@@ -38,6 +38,7 @@ import {
   Edit2,
   Download,
   Check,
+  History,
   type LucideIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -45,12 +46,14 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useState, useEffect, lazy, Suspense, useRef, Fragment } from 'react';
+import { useState, useEffect, lazy, Suspense, useRef, Fragment, useCallback } from 'react';
 import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
 import { sileo } from "@/lib/toast";
 import { cn } from '@/lib/utils';
 import { EmptyState } from '@/components/empty-state';
+import { FileHistorySheet, formatRelative, isHistoryTracked, localeFor, useFileHistory, type FileVersion } from './file-history-sheet';
+import FileDiffView from './file-diff-view';
 
 const CodeEditor = lazy(() => import('./code-editor'));
 
@@ -155,12 +158,20 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
   const [editedContent, setEditedContent] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
+  // the text last read from or written to disk, to tell whether the editor holds unsaved edits
+  const [savedContent, setSavedContent] = useState<string>('');
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [compareVersion, setCompareVersion] = useState<FileVersion | null>(null);
+  const editorInstanceRef = useRef<any>(null);
+  const historyButtonRef = useRef<HTMLButtonElement>(null);
 
   const closeEditor = () => {
     setIsEditorOpen(false);
+    setHistoryOpen(false);
     editorCloseTimeoutRef.current = window.setTimeout(() => {
       editorCloseTimeoutRef.current = null;
       setEditingFile(null);
+      setCompareVersion(null);
     }, 300);
   };
 
@@ -178,9 +189,14 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
   const editorCloseTimeoutRef = useRef<number | null>(null);
   const savingRef = useRef(false);
 
-  const { t } = useTranslations();
+  const { t, language } = useTranslations();
 
   const fileUrl = (path: string) => `/api/servers/${serverId}/file/${encodePath(path)}`;
+
+  const editingPath = editingFile ? (currentPath ? `${currentPath}/${editingFile.name}` : editingFile.name) : null;
+  const historyTracked = !!editingFile && isHistoryTracked(editingFile.name);
+  const fileHistory = useFileHistory(serverId, historyTracked ? editingPath : null);
+  const historyCount = fileHistory.status === 'ready' ? fileHistory.versions.length : 0;
 
   const fetchFiles = async (path: string) => {
     setIsLoading(true);
@@ -218,7 +234,11 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
           clearTimeout(editorCloseTimeoutRef.current);
           editorCloseTimeoutRef.current = null;
         }
-        setEditedContent(typeof content === 'string' ? content : JSON.stringify(content, null, 2));
+        const text = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
+        setEditedContent(text);
+        setSavedContent(text);
+        setCompareVersion(null);
+        setHistoryOpen(false);
         setEditingFile(file);
         setIsEditorOpen(true);
       } catch (e: any) {
@@ -484,16 +504,20 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
     if (!editingFile || savingRef.current) return;
     savingRef.current = true;
     setIsSaving(true);
+    const text = editedContent;
     try {
       const filePath = currentPath ? `${currentPath}/${editingFile.name}` : editingFile.name;
       const res = await fetch(fileUrl(filePath), {
         method: 'PUT',
-        body: editedContent,
+        body: text,
         credentials: 'include'
       });
       await assertOk(res, t('servers.fileManager.toast.saveError'));
+      setSavedContent(text);
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 2000);
+      // the save kept the previous text as a version, so the count moves
+      if (historyTracked) void fileHistory.refresh(true);
     } catch (e: any) {
       sileo.error({ title: t('common.error'), description: e.message || t('servers.fileManager.toast.saveError') });
     } finally {
@@ -561,6 +585,49 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
   const formatDate = (epoch: number) => {
     if (!epoch) return '-';
     return new Date(epoch * 1000).toLocaleString();
+  };
+
+  const focusEditor = () => {
+    requestAnimationFrame(() => {
+      const editor = editorInstanceRef.current;
+      if (!editor) return;
+      try {
+        editor.layout();
+        editor.focus();
+      } catch {
+        /* disposed while switching */
+      }
+    });
+  };
+
+  const handleEditorReady = useCallback((editor: any) => {
+    editorInstanceRef.current = editor;
+  }, []);
+
+  const selectVersion = (version: FileVersion) => {
+    setCompareVersion(version);
+    setHistoryOpen(false);
+  };
+
+  const leaveCompare = () => {
+    setCompareVersion(null);
+    focusEditor();
+  };
+
+  const handleRestoreVersion = async (version: FileVersion, text: string) => {
+    try {
+      await fileHistory.restore(version.id);
+    } catch (e: any) {
+      sileo.error({ title: t('common.error'), description: e?.message || t('servers.fileHistory.toast.restoreError') });
+      throw e;
+    }
+    setEditedContent(text);
+    setSavedContent(text);
+    void fileHistory.refresh(true);
+    sileo.success({
+      title: t('servers.fileHistory.toast.restoredTitle'),
+      description: t('servers.fileHistory.toast.restored', { when: formatRelative(version.savedAt, localeFor(language)) }),
+    });
   };
 
   const editingMeta = editingFile ? getFileMeta(editingFile.name) : { icon: File, className: 'text-muted-foreground' };
@@ -821,30 +888,72 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
                 </DialogDescription>
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-3">
+            <div className="flex shrink-0 items-center gap-2 sm:gap-3">
               {savedFlash && (
                 <span className="flex items-center gap-1.5 text-xs font-medium text-success" role="status">
                   <Check className="h-3.5 w-3.5" aria-hidden="true" />
-                  {t('common.saved')}
+                  <span className="hidden sm:inline">{t('common.saved')}</span>
+                  <span className="sr-only sm:hidden">{t('common.saved')}</span>
                 </span>
               )}
               <span className="hidden rounded-md border border-border/60 px-1.5 py-0.5 font-mono text-xs text-muted-foreground sm:inline">
                 {editingLanguage}
               </span>
+              {historyTracked && (
+                <Button
+                  ref={historyButtonRef}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setHistoryOpen(true)}
+                  aria-haspopup="dialog"
+                  aria-expanded={historyOpen}
+                  aria-label={historyCount > 0 ? t('servers.fileHistory.openWithCount', { count: historyCount }) : t('servers.fileHistory.open')}
+                  title={t('servers.fileHistory.open')}
+                  className={cn('h-8 gap-1.5 px-2 sm:px-2.5', compareVersion && 'border-primary/40 bg-primary/[0.07] text-primary-bright')}
+                >
+                  <History aria-hidden="true" />
+                  <span className="hidden sm:inline">{t('servers.fileHistory.button')}</span>
+                  {historyCount > 0 && (
+                    <span
+                      aria-hidden="true"
+                      className="min-w-[1.25rem] rounded-full bg-secondary px-1.5 text-center text-[11px] font-semibold leading-5 tabular-nums text-muted-foreground animate-in fade-in-0 zoom-in-95 duration-200 ease-panel"
+                    >
+                      {historyCount}
+                    </span>
+                  )}
+                </Button>
+              )}
             </div>
           </div>
 
           <div className="min-h-0 flex-1 [&_.monaco-editor-host]:rounded-none [&_.monaco-editor-host]:border-0">
-            {editingFile && (
-              <Suspense fallback={<div className="flex h-full items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
-                <CodeEditor
-                  key={editingFile.name}
-                  language={editingLanguage}
-                  value={editedContent}
-                  onChange={(value) => setEditedContent(value || '')}
-                  onSave={handleSaveChanges}
-                />
-              </Suspense>
+            {/* the editor stays mounted under the comparison, so its cursor and undo history survive */}
+            <div className={cn('h-full', compareVersion && 'hidden')}>
+              {editingFile && (
+                <Suspense fallback={<div className="flex h-full items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+                  <CodeEditor
+                    key={editingFile.name}
+                    language={editingLanguage}
+                    value={editedContent}
+                    onChange={(value) => setEditedContent(value || '')}
+                    onSave={handleSaveChanges}
+                    onEditorReady={handleEditorReady}
+                  />
+                </Suspense>
+              )}
+            </div>
+            {editingFile && compareVersion && (
+              <FileDiffView
+                key={compareVersion.id}
+                version={compareVersion}
+                language={editingLanguage}
+                current={editedContent}
+                dirty={editedContent !== savedContent}
+                loadContent={fileHistory.getContent}
+                onRestore={handleRestoreVersion}
+                onRestored={leaveCompare}
+                onBack={leaveCompare}
+              />
             )}
           </div>
 
@@ -864,6 +973,21 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {editingFile && historyTracked && (
+        <FileHistorySheet
+          open={historyOpen}
+          onOpenChange={setHistoryOpen}
+          fileName={editingPath ?? editingFile.name}
+          versions={fileHistory.versions}
+          status={fileHistory.status}
+          error={fileHistory.error}
+          selectedId={compareVersion?.id ?? null}
+          onRetry={() => void fileHistory.refresh()}
+          onSelect={selectVersion}
+          returnFocusRef={historyButtonRef}
+        />
+      )}
 
       {/* New Item Dialog */}
       <Dialog open={newItemDialog.open} onOpenChange={(open) => !open && closeNewItemDialog()}>

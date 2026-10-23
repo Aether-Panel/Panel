@@ -32,7 +32,7 @@ const AUTOMATIC_BACKUP_NAME = 'Automatic backup';
 /** Restore points: quick backups taken before risky steps, named "restore-<reason>-<id>". */
 const restoreReason = (backup: BackupInfo) =>
   backup.fileName.startsWith('restore-') ? backup.fileName.split('-')[1] ?? 'other' : null;
-const RESTORE_REASONS = ['plugin', 'version', 'restore'];
+const RESTORE_REASONS = ['plugin', 'version', 'restore', 'modpack'];
 
 type BackupsViewProps = {
   serverId: string;

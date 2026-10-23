@@ -2,7 +2,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Cpu, HardDrive, MemoryStick, Network, Terminal, Folder, Settings as SettingsIcon, Users, Database, Archive, Shield, Puzzle, Play, RefreshCw, Square, ShieldAlert, Key, ArrowRightLeft, GitBranch, ServerOff, ArrowLeft, CalendarClock, ScrollText, type LucideIcon } from 'lucide-react';
+import { Cpu, HardDrive, MemoryStick, Network, Terminal, Folder, Settings as SettingsIcon, Users, Database, Archive, Shield, Puzzle, Play, RefreshCw, Square, ShieldAlert, Key, ArrowRightLeft, GitBranch, ServerOff, ArrowLeft, CalendarClock, ScrollText, Package, Map as MapIcon, SlidersHorizontal, type LucideIcon } from 'lucide-react';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { ServerTabNav } from './server-tab-nav';
 import { Progress } from '@/components/ui/progress';
@@ -39,6 +39,9 @@ import { EmptyState } from '@/components/empty-state';
 import { LiveDot, PlayerAvatar } from '@/components/player-presence';
 import { AnimatedNumber } from '@/components/animated-number';
 import { CRASH_EVENT, CrashBanner, CrashHistory, CrashReportDialog, type CrashReport } from './crash-report';
+import ModpacksView from './modpacks-view';
+import WorldMapView from './world-map-view';
+import PropertiesView from './properties-view';
 import PerformanceHistory from './performance-history';
 import PeakHours from './peak-hours';
 import AssistantPanel from './assistant-panel';
@@ -279,6 +282,8 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
   const { servers: allServers, loading, refresh } = useServers((s) => s.id === params.id);
   const { hasScope } = useAuth();
   const [serverDetail, setServerDetail] = useState<any>(null);
+  // the Minecraft-only tabs appear once the server's type is known
+  const [detailLoaded, setDetailLoaded] = useState(false);
   const server = allServers.find((s) => s.id === params.id);
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -298,6 +303,8 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
         }
       } catch (e) {
         console.error('Failed to fetch server detail:', e);
+      } finally {
+        setDetailLoaded(true);
       }
     };
     void fetchDetail();
@@ -477,11 +484,15 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
     }
   }, [activeTab, params.id]);
 
+  // game settings, modpacks and the world map only make sense for Minecraft: Java Edition
+  const isMinecraftJava = serverDetail?.type === 'minecraft-java';
+
   const serverTabs = [
     { value: 'console', label: t('servers.detail.tabs.console'), icon: Terminal },
     { value: 'overview', label: t('servers.detail.tabs.overview'), icon: Network },
     { value: 'files', label: t('servers.detail.tabs.files'), icon: Folder },
     { value: 'settings', label: t('servers.detail.tabs.settings'), icon: SettingsIcon },
+    ...(isMinecraftJava ? [{ value: 'properties', label: t('servers.detail.tabs.properties'), icon: SlidersHorizontal }] : []),
     { value: 'users', label: t('servers.detail.tabs.users'), icon: Users },
     { value: 'database', label: t('servers.detail.tabs.database'), icon: Database },
     { value: 'backups', label: t('servers.detail.tabs.backups'), icon: Archive },
@@ -491,6 +502,10 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
     { value: 'extransfer', label: t('servers.detail.tabs.extransfer'), icon: ArrowRightLeft },
     { value: 'splitter', label: t('servers.detail.tabs.splitter'), icon: GitBranch },
     ...(pluginsTabEnabled ? [{ value: 'plugins', label: t('servers.detail.tabs.plugins'), icon: Puzzle }] : []),
+    ...(isMinecraftJava ? [
+      { value: 'modpacks', label: t('servers.detail.tabs.modpacks'), icon: Package },
+      { value: 'map', label: t('servers.detail.tabs.map'), icon: MapIcon },
+    ] : []),
     ...(hasScope('admin') || hasScope('server.admin') || hasScope('server.admin.view')
       || hasScope('server.admin.install.view') || hasScope('server.install')
       || hasScope('server.admin.transfer.view') || hasScope('server.data.edit.admin')
@@ -509,10 +524,12 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
   }, [params.id, serverName]);
 
   useEffect(() => {
+    // a remembered Minecraft-only tab waits for the server's type before falling back
+    if (!detailLoaded) return;
     if (!serverTabValues.includes(activeTab)) {
       setActiveTab('console');
     }
-  }, [serverTabValues.join(','), activeTab]);
+  }, [serverTabValues.join(','), activeTab, detailLoaded]);
 
   if (loading) {
     return (
@@ -714,6 +731,21 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
         <TabsContent value="plugins">
           <ErrorBoundary name="PluginsView">
             <PluginsView serverId={server.id} />
+          </ErrorBoundary>
+        </TabsContent>
+        <TabsContent value="properties">
+          <ErrorBoundary name="PropertiesView">
+            <PropertiesView serverId={server.id} serverName={server.name} serverStatus={server.status} />
+          </ErrorBoundary>
+        </TabsContent>
+        <TabsContent value="modpacks">
+          <ErrorBoundary name="ModpacksView">
+            <ModpacksView serverId={server.id} />
+          </ErrorBoundary>
+        </TabsContent>
+        <TabsContent value="map">
+          <ErrorBoundary name="WorldMapView">
+            <WorldMapView serverId={server.id} />
           </ErrorBoundary>
         </TabsContent>
         <TabsContent value="sftp">

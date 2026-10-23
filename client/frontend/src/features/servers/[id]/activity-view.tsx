@@ -52,7 +52,7 @@ const POWER_ACTIONS = new Set(['server.start', 'server.stop', 'server.restart', 
 function familyOf(action: string): Family {
   if (POWER_ACTIONS.has(action)) return 'power';
   if (action.startsWith('console.')) return 'console';
-  if (action.startsWith('file.') || action.startsWith('plugin.')) return 'files';
+  if (action.startsWith('file.') || action.startsWith('plugin.') || action.startsWith('modpack.') || action.startsWith('map.')) return 'files';
   if (action.startsWith('backup.')) return 'backups';
   if (action.startsWith('user.')) return 'users';
   if (action.startsWith('task.')) return 'tasks';
@@ -76,6 +76,7 @@ function detailStyleOf(action: string): DetailStyle {
   if (action.startsWith('console.') || action.startsWith('file.') || action.startsWith('plugin.')) return 'code';
   if (action === 'task.delete' || action === 'task.run' || action === 'server.change' || action === 'server.version') return 'code';
   if (action.startsWith('backup.') || action.startsWith('user.') || action === 'task.save' || action === 'server.rename') return 'name';
+  if (action === 'modpack.install' || action === 'map.install' || action === 'server.clone') return 'name';
   return 'none';
 }
 
