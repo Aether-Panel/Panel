@@ -4,7 +4,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
-	"crypto/sha1"
 	"crypto/sha512"
 	"encoding/hex"
 	"encoding/json"
@@ -24,11 +23,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func mpSHA1(data []byte) string {
-	sum := sha1.Sum(data)
-	return hex.EncodeToString(sum[:])
-}
 
 func mpSHA512(data []byte) string {
 	sum := sha512.Sum512(data)
@@ -260,7 +254,7 @@ func TestApplyMrpack_RejectsHashMismatch(t *testing.T) {
 	fsys, root := mpNewFS(t)
 
 	pack := buildMrpack(t, packIndex([]packFile{{
-		Path: "mods/a.jar", Hashes: map[string]string{"sha1": mpSHA1([]byte("real mod"))}, Downloads: []string{srv.URL + "/a.jar"},
+		Path: "mods/a.jar", Hashes: map[string]string{"sha512": mpSHA512([]byte("real mod"))}, Downloads: []string{srv.URL + "/a.jar"},
 	}}, map[string]string{"minecraft": "1.20.1", "fabric-loader": "0.15.11"}), nil)
 
 	_, err := applyMrpack(context.Background(), fsys, writePack(t, pack), noSteps)
@@ -279,7 +273,7 @@ func TestApplyMrpack_RejectsPathTraversal(t *testing.T) {
 
 	fsys, root := mpNewFS(t)
 	pack := buildMrpack(t, packIndex([]packFile{{
-		Path: "../escape.jar", Hashes: map[string]string{"sha1": mpSHA1([]byte("mod"))}, Downloads: []string{srv.URL + "/a.jar"},
+		Path: "../escape.jar", Hashes: map[string]string{"sha512": mpSHA512([]byte("mod"))}, Downloads: []string{srv.URL + "/a.jar"},
 	}}, deps), nil)
 	_, err := applyMrpack(context.Background(), fsys, writePack(t, pack), noSteps)
 	assert.ErrorIs(t, err, errUnsafePackPath)
@@ -296,7 +290,7 @@ func TestApplyMrpack_RejectsPathTraversal(t *testing.T) {
 func TestApplyMrpack_RefusesHostsOutsideTheAllowList(t *testing.T) {
 	fsys, _ := mpNewFS(t)
 	pack := buildMrpack(t, packIndex([]packFile{{
-		Path: "mods/a.jar", Hashes: map[string]string{"sha1": mpSHA1([]byte("mod"))}, Downloads: []string{"https://evil.example.com/a.jar"},
+		Path: "mods/a.jar", Hashes: map[string]string{"sha512": mpSHA512([]byte("mod"))}, Downloads: []string{"https://evil.example.com/a.jar"},
 	}}, map[string]string{"minecraft": "1.20.1", "fabric-loader": "0.15.11"}), nil)
 	_, err := applyMrpack(context.Background(), fsys, writePack(t, pack), noSteps)
 	require.Error(t, err)
@@ -334,7 +328,7 @@ func fakeModrinth(t *testing.T) *httptest.Server {
 			"game_versions": []string{"1.20.1"}, "loaders": []string{"fabric"},
 			"files": []map[string]interface{}{{
 				"url": base + "/cdn/pack.mrpack", "filename": "fake-1.0.0.mrpack", "primary": true, "size": len(pack),
-				"hashes": map[string]string{"sha1": mpSHA1(pack), "sha512": mpSHA512(pack)},
+				"hashes": map[string]string{"sha512": mpSHA512(pack)},
 			}},
 		})
 	})
@@ -345,9 +339,9 @@ func fakeModrinth(t *testing.T) *httptest.Server {
 		_, _ = w.Write([]byte("fabric launcher"))
 	})
 	pack = buildMrpack(t, packIndex([]packFile{
-		{Path: "mods/a.jar", Hashes: map[string]string{"sha1": mpSHA1(modA), "sha512": mpSHA512(modA)}, Downloads: []string{base + "/cdn/a.jar"}, FileSize: len(modA),
+		{Path: "mods/a.jar", Hashes: map[string]string{"sha512": mpSHA512(modA)}, Downloads: []string{base + "/cdn/a.jar"}, FileSize: len(modA),
 			Env: map[string]string{"client": "required", "server": "required"}},
-		{Path: "mods/client-only.jar", Hashes: map[string]string{"sha1": "00"}, Downloads: []string{base + "/cdn/client-only.jar"},
+		{Path: "mods/client-only.jar", Hashes: map[string]string{"sha512": "00"}, Downloads: []string{base + "/cdn/client-only.jar"},
 			Env: map[string]string{"client": "required", "server": "unsupported"}},
 	}, map[string]string{"minecraft": "1.20.1", "fabric-loader": "0.15.11"}), map[string]string{
 		"overrides/config/a.toml":        "from overrides",

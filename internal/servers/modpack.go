@@ -3,7 +3,7 @@ package servers
 import (
 	"bytes"
 	"context"
-	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -92,11 +92,11 @@ type InstalledModpack struct {
 	Loader      string    `json:"loader"`
 	GameVersion string    `json:"gameVersion"`
 	InstalledAt time.Time `json:"installedAt"`
-	// Launcher and LauncherSHA1 identify the jar the pack starts with; if it changes (a
+	// Launcher and LauncherSHA256 identify the jar the pack starts with; if it changes (a
 	// backup was restored, the server was reinstalled) the pack is no longer considered
 	// installed
-	Launcher     string `json:"launcher,omitempty"`
-	LauncherSHA1 string `json:"launcherSha1,omitempty"`
+	Launcher       string `json:"launcher,omitempty"`
+	LauncherSHA256 string `json:"launcherSha256,omitempty"`
 } // @name InstalledModpack
 
 // ModpackStatus is what the modpacks tab shows
@@ -262,8 +262,8 @@ func (p *Server) InstalledModpack() *InstalledModpack {
 		return nil
 	}
 	if pack.Launcher != "" && p.RunningEnvironment != nil {
-		sum, err := sha1File(filepath.Join(p.RunningEnvironment.GetRootDirectory(), pack.Launcher))
-		if err != nil || sum != pack.LauncherSHA1 {
+		sum, err := sha256File(filepath.Join(p.RunningEnvironment.GetRootDirectory(), pack.Launcher))
+		if err != nil || sum != pack.LauncherSHA256 {
 			return nil
 		}
 	}
@@ -290,13 +290,13 @@ func ForgetModpack(serverID string) {
 	modpackJobs.Delete(serverID)
 }
 
-func sha1File(path string) (string, error) {
+func sha256File(path string) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return "", err
 	}
 	defer utils.Close(f)
-	h := sha1.New()
+	h := sha256.New()
 	if _, err := io.Copy(h, f); err != nil {
 		return "", err
 	}
@@ -504,7 +504,7 @@ func (p *Server) installModpackFiles(plan modpackPlan, state *modpackJob) error 
 		return errModpackNoLauncher
 	}
 	pack.Launcher = launcher
-	pack.LauncherSHA1, _ = sha1File(filepath.Join(root, launcher))
+	pack.LauncherSHA256, _ = sha256File(filepath.Join(root, launcher))
 	pack.InstalledAt = time.Now()
 	if err := p.saveInstalledModpack(pack); err != nil {
 		p.Log(logging.Error, "Could not save the installed modpack: %s", err)

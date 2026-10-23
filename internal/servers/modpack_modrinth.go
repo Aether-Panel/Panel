@@ -3,7 +3,6 @@ package servers
 import (
 	"archive/zip"
 	"context"
-	"crypto/sha1"
 	"crypto/sha512"
 	"encoding/hex"
 	"encoding/json"
@@ -417,7 +416,8 @@ func readMrpackIndex(zr *zip.Reader) (mrpackIndex, error) {
 	return idx, nil
 }
 
-// verifier hashes a download with the strongest hash the source gave
+// verifier checks a download against its SHA-512 (Modrinth lists one for every file; the
+// SHA-1 it also lists is too weak to rely on)
 type verifier struct {
 	name     string
 	expected string
@@ -428,10 +428,7 @@ func newVerifier(hashes map[string]string) (*verifier, error) {
 	if v := strings.ToLower(strings.TrimSpace(hashes["sha512"])); v != "" {
 		return &verifier{name: "sha512", expected: v, h: sha512.New()}, nil
 	}
-	if v := strings.ToLower(strings.TrimSpace(hashes["sha1"])); v != "" {
-		return &verifier{name: "sha1", expected: v, h: sha1.New()}, nil
-	}
-	return nil, errors.New("no hash to check the file against")
+	return nil, errors.New("no SHA-512 hash to check the file against")
 }
 
 func (v *verifier) check(name string) error {
