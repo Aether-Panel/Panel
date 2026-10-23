@@ -3,13 +3,16 @@ package services
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
+	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 )
 
 var discordServiceInstance *DiscordService
@@ -58,50 +61,73 @@ func (ds *DiscordService) SendWebhookToURL(webhookURL, title, description string
 		return nil // Silently skip if webhook is not configured
 	}
 
-	embed := DiscordEmbed{
+	return ds.SendEmbedToURL(webhookURL, DiscordEmbed{
 		Title:       title,
 		Description: description,
 		Color:       color,
 		Fields:      fields,
-		Timestamp:   time.Now().Format(time.RFC3339),
+	})
+}
+
+// discordWebhookPattern is what a Discord webhook URL looks like. Server owners can set
+// their own webhook, so anything else is refused rather than requested by the panel.
+var discordWebhookPattern = regexp.MustCompile(`^https://(?:(?:ptb|canary)\.)?discord(?:app)?\.com/api/webhooks/\d+/[\w-]+$`)
+
+// checkDiscordWebhook and discordHTTPClient are swapped in tests, which post to a local server
+var (
+	checkDiscordWebhook = ValidateDiscordWebhook
+	discordHTTPClient   = utils.NewRestrictedHTTPClient
+)
+
+var ErrInvalidDiscordWebhook = errors.New("the URL is not a Discord webhook (https://discord.com/api/webhooks/...)")
+
+// ValidateDiscordWebhook accepts an empty URL (notifications off) or a Discord webhook URL
+func ValidateDiscordWebhook(webhookURL string) error {
+	if webhookURL == "" || discordWebhookPattern.MatchString(webhookURL) {
+		return nil
+	}
+	return ErrInvalidDiscordWebhook
+}
+
+// SendEmbedToURL posts one embed to a Discord webhook. The URL must be a Discord webhook and
+// the request goes through a client that refuses private addresses, so a webhook setting can
+// never be used to reach the node's own network.
+func (ds *DiscordService) SendEmbedToURL(webhookURL string, embed DiscordEmbed) error {
+	if err := checkDiscordWebhook(webhookURL); err != nil || webhookURL == "" {
+		return err
+	}
+	if embed.Timestamp == "" {
+		embed.Timestamp = time.Now().Format(time.RFC3339)
+	}
+	if embed.Footer == nil {
+		embed.Footer = &DiscordEmbedFooter{Text: "Aether Panel"}
 	}
 
-	payload := DiscordWebhookPayload{
-		Embeds: []DiscordEmbed{embed},
-	}
-
-	jsonData, err := json.Marshal(payload)
+	jsonData, err := json.Marshal(DiscordWebhookPayload{Embeds: []DiscordEmbed{embed}})
 	if err != nil {
 		logging.Error.Printf("Error marshaling Discord webhook payload: %v", err)
 		return err
 	}
 
-	req, err := http.NewRequest("POST", webhookURL, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest(http.MethodPost, webhookURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		logging.Error.Printf("Error creating Discord webhook request: %v", err)
 		return err
 	}
-
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
-
-	resp, err := client.Do(req)
+	resp, err := discordHTTPClient().Do(req)
 	if err != nil {
 		logging.Error.Printf("Error sending Discord webhook: %v", err)
 		return err
 	}
 	defer func() {
-		if resp.Body != nil {
-			_, _ = io.Copy(io.Discard, resp.Body)
-			resp.Body.Close()
-		}
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
 	}()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
 		logging.Error.Printf("Discord webhook returned status %d: %s", resp.StatusCode, string(body))
 		return fmt.Errorf("discord webhook returned status %d", resp.StatusCode)
 	}

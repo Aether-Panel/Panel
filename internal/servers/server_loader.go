@@ -240,6 +240,12 @@ func Delete(id string) (err error) {
 	if err != nil {
 		logging.Error.Printf("Error removing server: %s", err)
 	}
+	// the server's tasks, crash reports and notification settings go with it
+	for _, ext := range []string{".cron", ".crashes", ".notify"} {
+		if err := os.Remove(filepath.Join(config.ServersFolder.Value(), safeID+ext)); err != nil && !os.IsNotExist(err) {
+			logging.Error.Printf("Error removing %s for server %s: %s", ext, safeID, err)
+		}
+	}
 	removeFromCache(id)
 	return
 }

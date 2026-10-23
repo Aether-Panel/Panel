@@ -11,6 +11,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3/files"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
@@ -19,6 +21,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers"
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers/docker"
+	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-contrib/cors"
@@ -113,6 +116,11 @@ func RegisterServerRoutes(e *gin.RouterGroup) {
 
 		l.HEAD("/:serverId/query", middleware.ResolveServerNode, canQueryServer)
 		l.GET("/:serverId/query", middleware.ResolveServerNode, queryServer)
+
+		l.GET("/:serverId/crashes", middleware.ResolveServerNode, getCrashReports)
+		l.GET("/:serverId/notifications", middleware.ResolveServerNode, getNotifications)
+		l.PUT("/:serverId/notifications", middleware.ResolveServerNode, putNotifications)
+		l.POST("/:serverId/notifications/test", middleware.ResolveServerNode, testNotifications)
 
 		l.GET("/:serverId/plugins", middleware.ResolveServerNode, getPlugins)
 		l.DELETE("/:serverId/plugins", middleware.ResolveServerNode, deletePlugin)
@@ -1228,15 +1236,37 @@ func canQueryServer(c *gin.Context) {
 	server := getServerFromGin(c)
 
 	switch server.Query.Type {
-	case "minecraft":
+	case "minecraft", "source", "steam":
 		c.Status(http.StatusAccepted)
 	default:
 		c.Status(http.StatusNoContent)
 	}
 }
 
+// sourceQueryMisses remembers servers without a declared query type that did not answer an
+// A2S query, so they are not asked again on every poll
+var (
+	sourceQueryMisses     = make(map[string]time.Time)
+	sourceQueryMissesLock sync.Mutex
+)
+
+const sourceQueryRetry = 2 * time.Minute
+
+// queryPort is the port a game answers queries on: a template's query port variable when it
+// has one, otherwise the game port
+func queryPort(data map[string]interface{}) int {
+	for _, key := range []string{"queryport", "query_port", "queryPort", "steamqueryport", "steam_query_port"} {
+		if port := cast.ToInt(data[key]); port > 0 {
+			return port
+		}
+	}
+	return cast.ToInt(data["port"])
+}
+
 // @Summary Queries the server for game-specific stats
 // @Description Queries the server using the server's protocol to gather information such as players.
+// @Description Minecraft servers answer the server list ping; Steam servers (query type "source",
+// @Description or no query type at all) answer A2S.
 // @Success 200 {object} interface{}
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
@@ -1251,17 +1281,13 @@ func queryServer(c *gin.Context) {
 		return
 	}
 
+	data := server.DataToMap()
+	ip := cast.ToString(data["ip"])
 	result := make(map[string]interface{})
 
 	switch server.Query.Type {
 	case "minecraft":
-		ip := cast.ToString(server.DataToMap()["ip"])
-		if ip == "" {
-			c.Status(http.StatusNoContent)
-			return
-		}
-
-		port := cast.ToInt(server.DataToMap()["port"])
+		port := cast.ToInt(data["port"])
 		if port <= 0 {
 			c.Status(http.StatusNoContent)
 			return
@@ -1273,6 +1299,37 @@ func queryServer(c *gin.Context) {
 			return
 		}
 		result["minecraft"] = res
+	case "source", "steam", "":
+		port := queryPort(data)
+		if port <= 0 {
+			c.Status(http.StatusNoContent)
+			return
+		}
+
+		// without a declared type this is a guess, so a server that stays silent is left
+		// alone for a while instead of costing a timeout on every poll
+		guess := server.Query.Type == ""
+		if guess {
+			sourceQueryMissesLock.Lock()
+			missed, ok := sourceQueryMisses[server.ID()]
+			sourceQueryMissesLock.Unlock()
+			if ok && time.Since(missed) < sourceQueryRetry {
+				c.Status(http.StatusNoContent)
+				return
+			}
+		}
+
+		res, err := query.Source(ip, port)
+		if err != nil {
+			if guess {
+				sourceQueryMissesLock.Lock()
+				sourceQueryMisses[server.ID()] = time.Now()
+				sourceQueryMissesLock.Unlock()
+			}
+			c.Status(http.StatusNoContent)
+			return
+		}
+		result["source"] = res
 	default:
 		c.Status(http.StatusNoContent)
 		return
@@ -1652,4 +1709,100 @@ func deletePlugin(c *gin.Context) {
 		env.DisplayToConsole(true, fmt.Sprintf("Plugin %s deleted successfully\n", pluginName))
 	}
 	c.Status(http.StatusNoContent)
+}
+
+// @Summary Get crash reports
+// @Description The server's latest crash reports, newest first, each with the console lines before the crash
+// @Success 200 {object} []servers.CrashReport
+// @Param id path string true "Server ID"
+// @Tags Daemon Server
+// @Router /api/servers/{id}/crashes [get]
+// @Security OAuth2Application[server.console]
+func getCrashReports(c *gin.Context) {
+	server := getServerFromGin(c)
+
+	reports, err := server.CrashReports()
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+	c.JSON(http.StatusOK, reports)
+}
+
+// @Summary Get notification settings
+// @Description The server's own Discord notifications
+// @Success 200 {object} servers.Notifications
+// @Param id path string true "Server ID"
+// @Tags Daemon Server
+// @Router /api/servers/{id}/notifications [get]
+// @Security OAuth2Application[server.flags.edit]
+func getNotifications(c *gin.Context) {
+	server := getServerFromGin(c)
+
+	n, err := server.Notifications()
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+	c.JSON(http.StatusOK, n)
+}
+
+// @Summary Save notification settings
+// @Description Saves the server's Discord webhook and which events are sent to it
+// @Success 204 {object} nil
+// @Param id path string true "Server ID"
+// @Param notifications body servers.Notifications true "Notification settings"
+// @Tags Daemon Server
+// @Router /api/servers/{id}/notifications [put]
+// @Security OAuth2Application[server.flags.edit]
+func putNotifications(c *gin.Context) {
+	server := getServerFromGin(c)
+
+	var n servers.Notifications
+	if response.HandleError(c, c.ShouldBindJSON(&n), http.StatusBadRequest) {
+		return
+	}
+	err := server.SetNotifications(n)
+	if errors.Is(err, services.ErrInvalidDiscordWebhook) {
+		response.HandleError(c, err, http.StatusBadRequest)
+		return
+	}
+	if !response.HandleError(c, err, http.StatusInternalServerError) {
+		c.Status(http.StatusNoContent)
+	}
+}
+
+// testNotificationsLast keeps the test button from being used to flood a channel
+var (
+	testNotificationsLast     = make(map[string]time.Time)
+	testNotificationsLastLock sync.Mutex
+)
+
+// @Summary Send a test notification
+// @Description Posts a sample message to the server's Discord webhook
+// @Success 204 {object} nil
+// @Param id path string true "Server ID"
+// @Tags Daemon Server
+// @Router /api/servers/{id}/notifications/test [post]
+// @Security OAuth2Application[server.flags.edit]
+func testNotifications(c *gin.Context) {
+	server := getServerFromGin(c)
+
+	testNotificationsLastLock.Lock()
+	last := testNotificationsLast[server.ID()]
+	if time.Since(last) < 10*time.Second {
+		testNotificationsLastLock.Unlock()
+		response.HandleError(c, errors.New("wait a few seconds before sending another test"), http.StatusTooManyRequests)
+		return
+	}
+	testNotificationsLast[server.ID()] = time.Now()
+	testNotificationsLastLock.Unlock()
+
+	err := server.SendTestNotification()
+	if errors.Is(err, services.ErrInvalidDiscordWebhook) {
+		response.HandleError(c, err, http.StatusBadRequest)
+		return
+	}
+	// Discord refusing the webhook (deleted, wrong token) is the owner's to fix
+	if !response.HandleError(c, err, http.StatusBadGateway) {
+		c.Status(http.StatusNoContent)
+	}
 }

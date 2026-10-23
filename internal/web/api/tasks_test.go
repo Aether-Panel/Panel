@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
@@ -144,4 +145,17 @@ func TestValidateUserTask(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAILogs_KeepsTheNewestLinesWithinBudget(t *testing.T) {
+	lines := make([]string, 0, 500)
+	for i := 0; i < 500; i++ {
+		lines = append(lines, strings.Repeat("a", 300))
+	}
+	lines[len(lines)-1] = "the last line"
+
+	out := aiLogs(lines)
+	assert.LessOrEqual(t, len(out), aiMaxLogSize)
+	assert.True(t, strings.HasSuffix(out, "the last line"))
+	assert.Equal(t, "one\ntwo", aiLogs([]string{"one", "two"}))
 }

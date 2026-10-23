@@ -44,7 +44,10 @@ type Server struct {
 	fileServer         files.FileServer
 	// backupState is backupIdle, backupRunning or restoreRunning. One atomic value, so two
 	// requests cannot both pass the "nothing in progress" check and run at the same time
-	backupState   atomic.Int32
+	backupState atomic.Int32
+	// stopRequested is set when someone stops or kills the server, so its exit is not
+	// mistaken for a crash (or answered with an automatic restart)
+	stopRequested atomic.Bool
 	keepAlive     *time.Ticker
 	keepAliveChan chan bool
 }
@@ -616,6 +619,7 @@ func checkServerAlerts(server *Server, stats *skypanel.ServerStats) {
 
 	// Verificar cambio de estado online/offline
 	if state.wasRunning != isRunning {
+		server.notifyPower(isRunning)
 		ds := services.GetDiscordService()
 		if isRunning {
 			_ = ds.SendServerOnlineAlert(serverName, serverID)
@@ -636,22 +640,20 @@ func checkServerAlerts(server *Server, stats *skypanel.ServerStats) {
 			if !hasAlerted || now.Sub(lastAlert) > 5*time.Minute {
 				ds := services.GetDiscordService()
 				_ = ds.SendResourceAlert(serverName, serverID, "CPU", stats.CPU, 80.0)
+				server.notifyResource("CPU", stats.CPU, 80.0)
 				state.lastAlert[alertKey] = now
 			}
 		}
 
 		// RAM > 90%
-		// El campo Memory puede estar en bytes o porcentaje dependiendo del entorno
-		// Para Docker generalmente es porcentaje (0-100), para TTY puede ser bytes
-		// Si Memory > 100, probablemente está en bytes y no podemos calcular porcentaje fácilmente
-		// Solo alertar si Memory está en formato de porcentaje (0-100)
-		if stats.Memory > 90.0 && stats.Memory <= 100.0 {
-			// Es porcentaje
+		memory := memoryPercent(stats)
+		if memory > 90.0 {
 			alertKey := "memory_high"
 			lastAlert, hasAlerted := state.lastAlert[alertKey]
 			if !hasAlerted || now.Sub(lastAlert) > 5*time.Minute {
 				ds := services.GetDiscordService()
-				_ = ds.SendResourceAlert(serverName, serverID, "Memoria", stats.Memory, 90.0)
+				_ = ds.SendResourceAlert(serverName, serverID, "Memoria", memory, 90.0)
+				server.notifyResource("Memoria", memory, 90.0)
 				state.lastAlert[alertKey] = now
 			}
 		}
@@ -660,13 +662,25 @@ func checkServerAlerts(server *Server, stats *skypanel.ServerStats) {
 		if stats.CPU <= 80.0 {
 			delete(state.lastAlert, "cpu_high")
 		}
-		if stats.Memory <= 90.0 {
+		if memory <= 90.0 {
 			delete(state.lastAlert, "memory_high")
 		}
 	}
 
 	// Actualizar stats anteriores
 	state.lastStats = stats
+}
+
+// memoryPercent is memory use as a percentage. Docker reports bytes with a limit; other
+// environments may already report a percentage (0-100) and no limit.
+func memoryPercent(stats *skypanel.ServerStats) float64 {
+	if stats.MaxMemory > 0 {
+		return stats.Memory / stats.MaxMemory * 100
+	}
+	if stats.Memory <= 100 {
+		return stats.Memory
+	}
+	return 0
 }
 
 type FileData struct {
@@ -717,6 +731,7 @@ func (p *Server) Start() error {
 		return err
 	}
 
+	p.stopRequested.Store(false)
 	p.Log(logging.Info, "Starting server %s", p.ID())
 	p.RunningEnvironment.DisplayToConsole(true, "Starting server\n")
 
@@ -839,6 +854,7 @@ func (p *Server) Stop() error {
 		return err
 	}
 
+	p.stopRequested.Store(true)
 	p.Log(logging.Info, "Stopping server %s", p.ID())
 	if p.Execution.StopCode != 0 {
 		err = p.RunningEnvironment.SendCode(p.Execution.StopCode)
@@ -857,6 +873,7 @@ func (p *Server) Stop() error {
 // Kill Kills the program.
 // This will also stop the environment it is ran in.
 func (p *Server) Kill() (err error) {
+	p.stopRequested.Store(true)
 	p.Log(logging.Info, "Killing server %s", p.ID())
 	err = p.RunningEnvironment.Kill()
 	if err != nil {
@@ -1086,8 +1103,19 @@ func (p *Server) afterExit(exitCode int) {
 	}
 
 	graceful := exitCode == p.Execution.ExpectedExitCode
-	if graceful {
+	// a stop or kill someone asked for is not a crash, whatever exit code it ends with
+	requested := p.stopRequested.Swap(false)
+	crashed := !graceful && !requested
+	if !crashed {
 		p.CrashCounter = 0
+	}
+	autoRestart := crashed && p.Execution.AutoRestartFromCrash && p.CrashCounter < config.CrashLimit.Value()
+	if autoRestart {
+		p.CrashCounter++
+	}
+	if crashed {
+		p.RunningEnvironment.DisplayToConsole(true, "Server crashed (exit code %d)\n", exitCode)
+		p.notifyCrash(p.recordCrash(exitCode, autoRestart))
 	}
 
 	mapping := p.DataToMap()
@@ -1110,10 +1138,7 @@ func (p *Server) afterExit(exitCode int) {
 		return
 	}
 
-	if graceful && p.Execution.AutoRestartFromGraceful {
-		StartViaService(p)
-	} else if !graceful && p.Execution.AutoRestartFromCrash && p.CrashCounter < config.CrashLimit.Value() {
-		p.CrashCounter++
+	if (graceful && !requested && p.Execution.AutoRestartFromGraceful) || autoRestart {
 		StartViaService(p)
 	}
 }
@@ -1285,6 +1310,7 @@ func (p *Server) endBackup(success bool) {
 	if serverName == "" {
 		serverName = p.ID()
 	}
+	p.notifyBackup(success)
 	ds := services.GetDiscordService()
 	if success {
 		p.RunningEnvironment.DisplayToConsole(true, "Backup complete")

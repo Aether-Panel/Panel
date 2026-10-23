@@ -102,6 +102,17 @@ func registerServers(g *gin.RouterGroup) {
 	g.POST("/:serverId/tasks/:taskId/run", middleware.RequiresPermission(scopes.ScopeServerTaskRun), middleware.ResolveServerPanel, proxyServerRequest)
 	g.OPTIONS("/:serverId/tasks/:taskId/run", response.CreateOptions("POST"))
 
+	// crash reports carry console output, so they need the same permission as the console
+	g.GET("/:serverId/crashes", middleware.RequiresPermission(scopes.ScopeServerConsole), middleware.ResolveServerPanel, proxyServerRequest)
+	g.OPTIONS("/:serverId/crashes", response.CreateOptions("GET"))
+
+	// a server's own Discord alerts sit with its other owner settings (auto start, auto restart)
+	g.GET("/:serverId/notifications", middleware.RequiresPermission(scopes.ScopeServerEditFlags), middleware.ResolveServerPanel, proxyServerRequest)
+	g.PUT("/:serverId/notifications", middleware.RequiresPermission(scopes.ScopeServerEditFlags), middleware.ResolveServerPanel, proxyServerRequest)
+	g.OPTIONS("/:serverId/notifications", response.CreateOptions("GET", "PUT"))
+	g.POST("/:serverId/notifications/test", middleware.RequiresPermission(scopes.ScopeServerEditFlags), middleware.ResolveServerPanel, proxyServerRequest)
+	g.OPTIONS("/:serverId/notifications/test", response.CreateOptions("POST"))
+
 	g.POST("/:serverId/reload", middleware.RequiresPermission(scopes.ScopeServerReload), middleware.ResolveServerPanel, proxyServerRequest)
 	g.OPTIONS("/:serverId/reload", response.CreateOptions("POST"))
 

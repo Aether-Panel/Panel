@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
+	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -21,6 +22,17 @@ func TestDiscordService_SendWebhookToURL(t *testing.T) {
 	}))
 	defer server.Close()
 
+	// a real webhook must be a Discord URL reached through the restricted client; this test
+	// posts to a local server, so it first checks that is refused and then lets it through
+	err := GetDiscordService().SendWebhookToURL(server.URL, "Test Title", "", 0, nil)
+	assert.ErrorIs(t, err, ErrInvalidDiscordWebhook)
+	checkDiscordWebhook = func(string) error { return nil }
+	discordHTTPClient = func() *http.Client { return http.DefaultClient }
+	t.Cleanup(func() {
+		checkDiscordWebhook = ValidateDiscordWebhook
+		discordHTTPClient = utils.NewRestrictedHTTPClient
+	})
+
 	// Initialize config for tests
 	config.DiscordWebhook.Set(server.URL, false)
 
@@ -29,7 +41,7 @@ func TestDiscordService_SendWebhookToURL(t *testing.T) {
 		{Name: "Test Field", Value: "Test Value", Inline: true},
 	}
 
-	err := service.SendWebhookToURL(server.URL, "Test Title", "Test Description", 0xFF0000, fields)
+	err = service.SendWebhookToURL(server.URL, "Test Title", "Test Description", 0xFF0000, fields)
 	assert.NoError(t, err)
 
 	// Verify payload
@@ -42,3 +54,29 @@ func TestDiscordService_SendWebhookToURL(t *testing.T) {
 }
 
 /* este archivo interactua con servicios externos como los de discord y hace pruebas de que todo funcione correctamente, este archivo se coloco aqui por que en el archivo main.go se inicializa el servicio de discord como un servicio global */
+
+func TestValidateDiscordWebhook(t *testing.T) {
+	for _, ok := range []string{
+		"",
+		"https://discord.com/api/webhooks/123/abc_DEF-9",
+		"https://discordapp.com/api/webhooks/123/abc",
+		"https://ptb.discord.com/api/webhooks/123/abc",
+		"https://canary.discord.com/api/webhooks/123/abc",
+	} {
+		if err := ValidateDiscordWebhook(ok); err != nil {
+			t.Errorf("%q should be accepted: %v", ok, err)
+		}
+	}
+	for _, bad := range []string{
+		"http://discord.com/api/webhooks/123/abc",
+		"https://discord.com.attacker.example/api/webhooks/123/abc",
+		"https://evil.example/https://discord.com/api/webhooks/1/a",
+		"https://discord.com/api/webhooks/123/abc?wait=true&x=http://127.0.0.1",
+		"https://127.0.0.1/api/webhooks/1/a",
+		"https://discord.com/api/webhooks/notanumber/abc",
+	} {
+		if err := ValidateDiscordWebhook(bad); err == nil {
+			t.Errorf("%q should be refused", bad)
+		}
+	}
+}
