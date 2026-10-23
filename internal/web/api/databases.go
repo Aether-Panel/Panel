@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -10,6 +11,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
 	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-gonic/gin"
 )
 
@@ -107,7 +109,12 @@ func createDatabase(c *gin.Context) {
 		DatabaseName:   model.DatabaseName,
 	}
 
-	if err = ds.Create(create); response.HandleError(c, err, http.StatusInternalServerError) {
+	if err = ds.Create(create); err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, skypanel.ErrDatabaseNameTaken) || errors.Is(err, skypanel.ErrInvalidDatabaseName) {
+			status = http.StatusBadRequest
+		}
+		response.HandleError(c, err, status)
 		return
 	}
 
