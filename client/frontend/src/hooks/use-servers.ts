@@ -19,8 +19,15 @@ async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T)
     return results;
 }
 
-export function useServers() {
+/**
+ * Lists the user's servers and polls live stats for them.
+ * `statsFor` limits the polling to the servers a page shows (the detail page needs one);
+ * without it every listed server is polled.
+ */
+export function useServers(statsFor?: (server: Server) => boolean) {
     const [servers, setServers] = useState<Server[]>([]);
+    const statsForRef = useRef(statsFor);
+    statsForRef.current = statsFor;
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
     const statsInFlightRef = useRef(false);
@@ -72,7 +79,8 @@ export function useServers() {
     };
 
     const updateAllStats = async (currentServers: Server[]) => {
-        const results = await mapWithConcurrency(currentServers, STATS_CONCURRENCY, async (server) => {
+        const wanted = statsForRef.current ? currentServers.filter(statsForRef.current) : currentServers;
+        const results = await mapWithConcurrency(wanted, STATS_CONCURRENCY, async (server) => {
             try {
                 if (globalFailedStatsSet.has(server.id) || server.isGhost) {
                     return { id: server.id, status: 'offline' };

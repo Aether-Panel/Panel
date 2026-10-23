@@ -136,7 +136,8 @@ function SubServerCard({ sub }: { sub: any }) {
 
 export default function SplitterView({ serverId }: SplitterViewProps) {
   const { t } = useTranslations();
-  const { servers: allServers, refresh } = useServers();
+  // the splitter shows this server and its sub-servers, so only those need live stats
+  const { servers: allServers, refresh } = useServers((s) => s.id === serverId || s.parentServerId === serverId);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const currentServerInfo = allServers.find(s => s.id === serverId);

@@ -252,7 +252,8 @@ function ServerOverviewCards({ server, queryData, t }: any) {
 }
 
 export default function ServerDetailPage({ params }: { params: { id: string } }) {
-  const { servers: allServers, loading, refresh } = useServers();
+  // only this server's live stats are needed here, not those of every server in the list
+  const { servers: allServers, loading, refresh } = useServers((s) => s.id === params.id);
   const { hasScope } = useAuth();
   const [serverDetail, setServerDetail] = useState<any>(null);
   const server = allServers.find((s) => s.id === params.id);
