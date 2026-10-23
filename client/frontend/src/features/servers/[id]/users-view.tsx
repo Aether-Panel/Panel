@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
 import { sileo } from "@/lib/toast";
+import { EmptyState } from '@/components/empty-state';
 
 type UsersViewProps = {
   serverId: string;
@@ -40,8 +41,8 @@ export default function UsersView({ serverId }: UsersViewProps) {
     } catch (err) {
       console.error('Failed to fetch users:', err);
       sileo.error({
-        title: t('common.error') || 'Error',
-        description: t('servers.users.fetchError') || 'Failed to load users'
+        title: t('common.error'),
+        description: t('servers.users.fetchError')
       });
     } finally {
       setLoading(false);
@@ -71,8 +72,8 @@ export default function UsersView({ serverId }: UsersViewProps) {
       });
 
       sileo.success({
-        title: t('common.success') || 'Success',
-        description: t('servers.users.addSuccess') || 'User added successfully'
+        title: t('common.success'),
+        description: t('servers.users.addSuccess')
       });
       setEmail('');
       setIsDialogOpen(false);
@@ -80,8 +81,8 @@ export default function UsersView({ serverId }: UsersViewProps) {
     } catch (err: any) {
       console.error('Failed to add user:', err);
       sileo.error({
-        title: t('common.error') || 'Error',
-        description: err.message || t('servers.users.addError') || 'Failed to add user'
+        title: t('common.error'),
+        description: err.message || t('servers.users.addError')
       });
     } finally {
       setAddingUser(false);
@@ -92,15 +93,15 @@ export default function UsersView({ serverId }: UsersViewProps) {
     try {
       await api.delete(`/api/servers/${serverId}/user/${userEmail}`);
       sileo.success({
-        title: t('common.success') || 'Success',
-        description: t('servers.users.revokeSuccess') || 'Access revoked successfully'
+        title: t('common.success'),
+        description: t('servers.users.revokeSuccess')
       });
       void fetchUsers();
     } catch (err: any) {
       console.error('Failed to revoke access:', err);
       sileo.error({
-        title: t('common.error') || 'Error',
-        description: err.message || t('servers.users.revokeError') || 'Failed to revoke access'
+        title: t('common.error'),
+        description: err.message || t('servers.users.revokeError')
       });
     }
   };
@@ -158,14 +159,16 @@ export default function UsersView({ serverId }: UsersViewProps) {
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t('common.loading')} />
           </div>
         ) : users.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 px-6 py-14 text-center">
-            <UsersIcon className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-            <h3 className="text-base font-semibold">{t('servers.users.noUsers')}</h3>
-            <Button className="mt-6" onClick={() => setIsDialogOpen(true)}>
-              <Plus aria-hidden="true" />
-              {t('servers.users.addUser')}
-            </Button>
-          </div>
+          <EmptyState
+            icon={UsersIcon}
+            title={t('servers.users.noUsers')}
+            action={
+              <Button onClick={() => setIsDialogOpen(true)}>
+                <Plus aria-hidden="true" />
+                {t('servers.users.addUser')}
+              </Button>
+            }
+          />
         ) : (
           <ul className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60 bg-background/30">
           {users.map((user) => (

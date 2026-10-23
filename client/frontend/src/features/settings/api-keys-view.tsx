@@ -19,6 +19,7 @@ import { sileo } from "@/lib/toast";
 import { api } from '@/lib/api-client';
 import { useTranslations } from '@/contexts/translations-context';
 import { SettingsCard, SettingsCardHeader } from './general-tab';
+import { EmptyState } from '@/components/empty-state';
 
 export function ApiKeysView() {
     const { t, language } = useTranslations();
@@ -107,12 +108,12 @@ export function ApiKeysView() {
             />
             <div className="p-5 md:p-6">
                 {keys.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
-                        <Key className="mx-auto h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-                        <h3 className="mt-3 text-base font-semibold">{t('settings.apiKeys.emptyTitle')}</h3>
-                        <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">{t('settings.apiKeys.emptyDescription')}</p>
-                        <div className="mt-5">{generateButton}</div>
-                    </div>
+                    <EmptyState
+                        icon={Key}
+                        title={t('settings.apiKeys.emptyTitle')}
+                        description={t('settings.apiKeys.emptyDescription')}
+                        action={generateButton}
+                    />
                 ) : (
                     <div className="overflow-hidden rounded-xl border border-border/60 bg-background/30">
                         <Table>

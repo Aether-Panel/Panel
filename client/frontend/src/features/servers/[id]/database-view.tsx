@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
 import { sileo } from "@/lib/toast";
+import { EmptyState } from '@/components/empty-state';
 
 type DatabaseInfo = {
   id: number;
@@ -180,9 +181,7 @@ export default function DatabaseView({ serverId }: DatabaseViewProps) {
     void navigator.clipboard.writeText(text);
     setCopiedField(field);
     setTimeout(() => setCopiedField(null), 2000);
-    sileo.success({
-      description: t('common.copied'),
-    });
+    sileo.success({ title: t('common.copied') });
   };
 
   const togglePassword = (id: number) => {
@@ -251,14 +250,16 @@ export default function DatabaseView({ serverId }: DatabaseViewProps) {
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t('common.loading')} />
           </div>
         ) : databases.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 px-6 py-14 text-center">
-            <Database className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-            <h3 className="text-base font-semibold">{t('servers.database.empty')}</h3>
-            <Button className="mt-6" onClick={() => setIsDialogOpen(true)}>
-              <Plus aria-hidden="true" />
-              {t('servers.database.newDb')}
-            </Button>
-          </div>
+          <EmptyState
+            icon={Database}
+            title={t('servers.database.empty')}
+            action={
+              <Button onClick={() => setIsDialogOpen(true)}>
+                <Plus aria-hidden="true" />
+                {t('servers.database.newDb')}
+              </Button>
+            }
+          />
         ) : (
           databases.map((db: DatabaseInfo) => (
             <div key={db.id} className="overflow-hidden rounded-xl border border-border/60 bg-background/30">

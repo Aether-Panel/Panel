@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/providers';
 import { cn } from '@/lib/utils';
 import { Box, Loader2, Lock, Plus, X } from 'lucide-react';
 import type { ReactNode } from 'react';
+import NotificationsCard from './notifications-card';
 
 type SettingsViewProps = {
   serverId: string;
@@ -104,7 +105,7 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: S
     setLocalSettings(prev => { if (!prev) return prev; return { ...prev, flags: { ...prev.flags, [flag]: value } }; });
   };
   const removePort = (idx: number) => {
-    if (idx === 0 && isRunning) { sileo.error({ title: t('common.error') || 'Error', description: t('servers.settings.portsRequireOffline' as any) || 'The server must be stopped to change the primary port.' }); return; }
+    if (idx === 0 && isRunning) { sileo.error({ title: t('common.error'), description: t('servers.settings.portsRequireOffline') }); return; }
     setPorts(prev => prev.filter((_, i) => i !== idx));
   };
 
@@ -113,14 +114,14 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: S
       setSaving(true);
       const validPorts = ports.filter(p => p > 0);
       if (canEditAdminData) {
-        if (validPorts.length === 0) { sileo.error({ title: t('common.error') || 'Error', description: t('servers.settings.portRequired' as any) || 'You must assign at least one port.' }); return; }
+        if (validPorts.length === 0) { sileo.error({ title: t('common.error'), description: t('servers.settings.portRequired') }); return; }
         const seen = new Set<number>();
         for (const p of validPorts) {
-          if (p < 1024 || p > 65535) { sileo.error({ title: t('common.error') || 'Error', description: (t('servers.settings.portInvalid' as any) || 'Port {port} is invalid (1024-65535).').replace('{port}', String(p)) }); return; }
-          if (seen.has(p)) { sileo.error({ title: t('common.error') || 'Error', description: (t('servers.settings.portDuplicate' as any) || 'Port {port} is already assigned to this server.').replace('{port}', String(p)) }); return; }
+          if (p < 1024 || p > 65535) { sileo.error({ title: t('common.error'), description: t('servers.settings.portInvalid', { port: p }) }); return; }
+          if (seen.has(p)) { sileo.error({ title: t('common.error'), description: t('servers.settings.portDuplicate', { port: p }) }); return; }
           seen.add(p);
         }
-        if (validPorts[0] !== initialPrimaryRef.current && isRunning) { sileo.error({ title: t('common.error') || 'Error', description: t('servers.settings.portsRequireOffline' as any) || 'The server must be stopped to change the primary port.' }); return; }
+        if (validPorts[0] !== initialPrimaryRef.current && isRunning) { sileo.error({ title: t('common.error'), description: t('servers.settings.portsRequireOffline') }); return; }
       }
       const portsChanged = validPorts.length !== savedPortsRef.current.length || validPorts.some((p, i) => p !== savedPortsRef.current[i]);
       await saveSettings(localSettings, hasScope('server.data.edit.admin'));
@@ -140,12 +141,12 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: S
       basePluginsRef.current = pluginsEnabled;
       onPortsSaved?.();
       if (canEditAdminData && isRunning && portsChanged) {
-        sileo.success({ title: t('common.success') || 'Success', description: t('servers.settings.portsApplyOnRestart' as any) || 'Port changes will take effect when the server restarts.' });
+        sileo.success({ title: t('common.success'), description: t('servers.settings.portsApplyOnRestart') });
       } else {
-        sileo.success({ title: t('common.success') || 'Success', description: t('servers.settings.saveSuccess' as any) || 'Settings saved successfully' });
+        sileo.success({ title: t('common.success'), description: t('servers.settings.saveSuccess') });
       }
     } catch {
-      sileo.error({ title: t('common.error') || 'Error', description: t('servers.settings.saveError' as any) || 'Failed to save settings' });
+      sileo.error({ title: t('common.error'), description: t('servers.settings.saveError') });
     } finally { setSaving(false); }
   };
 
@@ -496,6 +497,8 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: S
           </SettingsSection>
         )}
       </Card>
+
+      <NotificationsCard serverId={serverId} />
 
       {isDirty && (
         <div

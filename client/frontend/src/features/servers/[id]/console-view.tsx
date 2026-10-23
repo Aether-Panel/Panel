@@ -12,6 +12,7 @@ import { useSettings } from '@/hooks/use-settings';
 import { cn } from '@/lib/utils';
 
 type LogEntry = {
+  id: number;
   time: string;
   message: string;
 };
@@ -36,12 +37,14 @@ export default function ConsoleView({
   const scrollRef = useRef<HTMLDivElement>(null);
   const commandId = useId();
 
-  // The only connection feedback is a short toast when the console connects
-  // (again, after a drop); no permanent status chrome on the terminal.
+  // The only connection feedback is a short toast when the console comes back after a
+  // drop; the first connection on opening the page is silent.
   const previousStatus = useRef<ConsoleStatus>(status);
+  const wasConnected = useRef(false);
   useEffect(() => {
     if (status === 'connected' && previousStatus.current !== 'connected') {
-      sileo.success({ title: t('servers.console.connectedToast') });
+      if (wasConnected.current) sileo.success({ title: t('servers.console.connectedToast') });
+      wasConnected.current = true;
     }
     previousStatus.current = status;
   }, [status, t]);
@@ -85,11 +88,11 @@ export default function ConsoleView({
       }
     } catch (e: any) {
       sileo.error({ title: t('common.error'), description: e.message || t('servers.console.sendError') });
-      addLog(`[Error] Failed to send: ${cmdToSend}`);
+      addLog(`> ${t('servers.console.system.sendFailed', { command: cmdToSend })}`);
     }
   };
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: React.SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
     void handleSendCommand();
   };
@@ -149,17 +152,17 @@ export default function ConsoleView({
           className="custom-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 font-mono text-[13px] leading-6 sm:px-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40"
         >
           {/* The scroller stays focusable for keyboard scrolling; the log role lives on its content. */}
-          <div role="log" aria-label={t('servers.console.title')} className={cn(shown.length === 0 && 'h-full')}>
+          <div role="log" aria-label={t('servers.console.title')} aria-relevant="additions" className={cn(shown.length === 0 && 'h-full')}>
             {shown.length === 0 ? (
               <div className="flex h-full select-none flex-col items-center justify-center gap-2 text-muted-foreground">
                 <Terminal className="h-5 w-5 text-muted-foreground/50" aria-hidden="true" />
                 <span className="text-xs">{t('servers.console.waitingOutput')}</span>
               </div>
             ) : (
-              shown.map((log, index) => {
+              shown.map((log) => {
                 const levelColor = getLogLevelColor(log.message);
                 return (
-                  <div key={index} className="flex gap-3">
+                  <div key={log.id} className="flex gap-3">
                     {showTimes && (
                       <span className="hidden shrink-0 select-none text-muted-foreground/50 sm:inline">
                         {log.time}

@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { sileo } from "@/lib/toast";
 import { cn } from '@/lib/utils';
 import { useTranslations } from '@/contexts/translations-context';
+import { EmptyState } from '@/components/empty-state';
 
 function findNode(realNodes: any[], idParam: string) {
   return realNodes.find((n: any) =>
@@ -192,10 +193,7 @@ function DisksCard({ disks }: { disks: any[] }) {
       <SectionHeader title={t('nodes.detail.disks.title')} />
       <div className="p-5 md:p-6">
         {disks.length === 0 ? (
-          <div className="flex flex-col items-center rounded-xl border border-dashed border-border/60 px-6 py-10 text-center">
-            <HardDrive className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-            <p className="text-sm text-muted-foreground">{t('nodes.detail.disks.empty')}</p>
-          </div>
+          <EmptyState icon={HardDrive} size="sm" as="p" title={t('nodes.detail.disks.empty')} />
         ) : (
           <ul className="space-y-5">
             {disks.map((disk: any, index: number) => (
@@ -291,10 +289,7 @@ function ServersCard({ serversOnNode }: { serversOnNode: any[] }) {
             )}
           </>
         ) : (
-          <div className="flex flex-col items-center rounded-xl border border-dashed border-border/60 px-6 py-10 text-center">
-            <ServerIcon className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-            <p className="text-sm text-muted-foreground">{t('nodes.detail.serversOnNode.empty')}</p>
-          </div>
+          <EmptyState icon={ServerIcon} size="sm" as="p" title={t('nodes.detail.serversOnNode.empty')} />
         )}
       </div>
     </Card>
@@ -416,7 +411,7 @@ function EditNodeCard({ node }: { node: any }) {
         privateHost: pHost,
         privatePort: pPort,
       });
-      sileo.success({ title: t('nodes.editDialog.save'), description: t('nodes.toast.updated', { name: editName }) });
+      sileo.success({ title: t('common.success'), description: t('nodes.toast.updated', { name: editName }) });
     } catch (e: any) {
       sileo.error({ title: t('nodes.toast.updateFailed'), description: e?.message || t('nodes.toast.unknownError') });
     } finally {
@@ -428,7 +423,7 @@ function EditNodeCard({ node }: { node: any }) {
     setIsDeleting(true);
     try {
       await api.delete(`/api/nodes/${node.id}`);
-      sileo.success({ title: t('nodes.toast.deleted'), description: t('nodes.toast.deletedDescription', { name: node.name }) });
+      sileo.success({ title: t('common.success'), description: t('nodes.toast.deletedDescription', { name: node.name }) });
       window.location.href = '/nodes/';
     } catch (e: any) {
       sileo.error({ title: t('nodes.toast.deleteFailed'), description: e?.message || t('nodes.toast.unknownError') });

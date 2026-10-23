@@ -80,12 +80,26 @@
     "search": {
       "label": "Búsqueda rápida",
       "open": "Abrir búsqueda rápida",
-      "placeholder": "Buscar páginas y secciones…",
+      "placeholder": "Buscar en el panel…",
       "hint": "Ctrl K",
-      "noResults": "No hay páginas coincidentes",
+      "noResults": "Sin resultados",
       "navigate": "Navegar",
       "select": "Abrir",
-      "close": "Cerrar"
+      "close": "Cerrar",
+      "sections": {
+        "servers": "Servidores",
+        "actions": "Acciones",
+        "pages": "Páginas"
+      },
+      "actions": {
+        "start": "Iniciar {{name}}",
+        "restart": "Reiniciar {{name}}",
+        "stop": "Detener {{name}}",
+        "startDone": "{{name}} se está iniciando.",
+        "restartDone": "{{name}} se está reiniciando.",
+        "stopDone": "{{name}} se está deteniendo.",
+        "failed": "No se pudo completar la acción."
+      }
     },
     "update": {
       "title": "Actualización disponible",
@@ -387,7 +401,11 @@
       "menuLabel": "Acciones",
       "viewDetails": "Ver detalles",
       "edit": "Editar",
-      "delete": "Eliminar"
+      "delete": "Eliminar",
+      "startSuccess": "El servidor se está iniciando.",
+      "stopSuccess": "El servidor se está deteniendo.",
+      "restartSuccess": "El servidor se está reiniciando.",
+      "killSuccess": "El servidor se ha forzado a parar."
     },
     "detail": {
       "description": "Métricas detalladas y estado de este servidor.",
@@ -424,7 +442,8 @@
         "resourcesTitle": "Recursos en vivo",
         "resourcesSubtitle": "Consumo actual frente al límite asignado al servidor",
         "playersDescription": "Jugadores conectados ahora mismo.",
-        "noPlayers": "No hay nadie conectado."
+        "noPlayers": "No hay nadie conectado.",
+        "namesHidden": "Este juego no comparte los nombres de los jugadores."
       },
       "notFoundDescription": "Puede que se haya eliminado o que no tengas acceso a él.",
       "backToServers": "Volver a servidores",
@@ -456,7 +475,26 @@
       "cleared": "Vista limpia. Los mensajes nuevos aparecerán aquí.",
       "jumpToEnd": "Ir al final",
       "connectedToast": "Consola conectada",
-      "sendError": "No se pudo enviar el comando."
+      "sendError": "No se pudo enviar el comando.",
+      "announce": {
+        "online": "El servidor está en línea.",
+        "offline": "El servidor se ha detenido.",
+        "crashed": "El servidor se ha caído (código {{code}})."
+      },
+      "system": {
+        "connectionLost": "Se perdió la conexión con la consola. Reconectando…",
+        "unavailable": "La consola de este servidor no está disponible en el nodo.",
+        "offline": "El servidor está apagado.",
+        "error": "Error: {{message}}",
+        "stopSent": "Señal de parada enviada. Esperando a que el servidor se apague…",
+        "killSent": "Señal de forzar parada enviada. El servidor se está cerrando a la fuerza.",
+        "startSent": "Señal de inicio enviada.",
+        "restartSent": "Señal de reinicio enviada.",
+        "filesMissing": "Faltan los archivos o la configuración del servidor en el nodo.",
+        "portInUse": "Error: el puerto ya está en uso.",
+        "actionFailed": "No se pudo completar la acción.",
+        "sendFailed": "No se pudo enviar: {{command}}"
+      }
     },
     "aiSummary": {
       "title": "Análisis de consola por IA",
@@ -616,8 +654,8 @@
       "portPlaceholder": "p. ej. 25566",
       "portsRequireOffline": "El servidor debe estar apagado para cambiar el puerto principal.",
       "portRequired": "Debes asignar al menos un puerto.",
-      "portInvalid": "El puerto {port} no es válido (debe estar entre 1024 y 65535).",
-      "portDuplicate": "El puerto {port} ya está asignado a este servidor.",
+      "portInvalid": "El puerto {{port}} no es válido (debe estar entre 1024 y 65535).",
+      "portDuplicate": "El puerto {{port}} ya está asignado a este servidor.",
       "portsRunningHint": "El servidor está encendido. Apágalo para cambiar qué puerto es el principal.",
       "portsApplyOnRestart": "Los cambios de puertos se aplicarán cuando el servidor se reinicie.",
       "saveButton": "Guardar cambios",
@@ -1175,6 +1213,92 @@
     "error": {
       "title": "No se pudieron cargar los servidores",
       "description": "No se pudo obtener la lista de servidores. Comprueba tu conexión e inténtalo de nuevo."
+    },
+    "crashes": {
+      "exitCode": "Código {{code}}",
+      "restarted": "se reinició solo (intento {{attempt}} de {{limit}})",
+      "notRestarted": "no se reinició automáticamente",
+      "autoRestarted": "Reiniciado",
+      "exitCodes": {
+        "1": "El juego terminó con un error",
+        "134": "El proceso abortó (SIGABRT)",
+        "137": "Sin memoria o cerrado a la fuerza (SIGKILL)",
+        "139": "Fallo de memoria del programa (segfault)",
+        "143": "Terminado por el sistema (SIGTERM)",
+        "other": "Salida inesperada"
+      },
+      "banner": {
+        "title": "El servidor se cayó a las {{time}}",
+        "open": "Ver informe",
+        "dismiss": "Ocultar aviso"
+      },
+      "history": {
+        "title": "Historial de caídas",
+        "description": "Las últimas caídas del servidor, con lo que mostró la consola justo antes.",
+        "emptyTitle": "Sin caídas registradas",
+        "emptyDescription": "Si el servidor se cae, aquí verás qué pasó y podrás pedir a la IA que lo explique."
+      },
+      "dialog": {
+        "title": "Informe de caída",
+        "exitCode": "Código de salida",
+        "meaning": "Qué significa",
+        "recovery": "Recuperación",
+        "lastLines": "Últimas líneas de la consola",
+        "noLines": "La consola no mostró nada antes de la caída."
+      },
+      "ai": {
+        "title": "Explicación con IA",
+        "explain": "Explicar con IA",
+        "thinking": "Analizando…",
+        "notConfigured": "La IA no está configurada. Un administrador puede añadir la clave de Gemini en Ajustes.",
+        "error": "No se pudo obtener la explicación. Inténtalo de nuevo en un momento.",
+        "causes": "Causas probables",
+        "fixes": "Cómo solucionarlo"
+      }
+    },
+    "notifications": {
+      "title": "Notificaciones de Discord",
+      "description": "Recibe en tu canal de Discord los avisos de este servidor: caídas, copias de seguridad y más.",
+      "webhookLabel": "Webhook del canal",
+      "webhookHelp": "En Discord: ajustes del canal → Integraciones → Webhooks → Nuevo webhook → Copiar URL. Déjalo vacío para desactivarlas.",
+      "webhookInvalid": "Debe ser una URL de webhook de Discord (https://discord.com/api/webhooks/…).",
+      "eventsLabel": "Qué avisar",
+      "events": {
+        "crash": {
+          "label": "Caídas",
+          "description": "Con las últimas líneas de la consola.",
+          "sampleTitle": "💥 Caída del servidor",
+          "sampleText": "Tu servidor se ha caído (código de salida 137). Se está reiniciando solo (intento 1 de 3)."
+        },
+        "backup": {
+          "label": "Copias de seguridad",
+          "description": "Cuando terminan o fallan.",
+          "sampleTitle": "✅ Copia de seguridad completada",
+          "sampleText": "La copia de seguridad de tu servidor se ha guardado correctamente."
+        },
+        "resources": {
+          "label": "Uso alto de recursos",
+          "description": "CPU por encima del 80 % o memoria por encima del 90 %.",
+          "sampleTitle": "⚠️ Uso alto de memoria",
+          "sampleText": "Tu servidor está usando el 94 % de su memoria (aviso a partir del 90 %)."
+        },
+        "power": {
+          "label": "Encendido y apagado",
+          "description": "Cada vez que el servidor arranca o se detiene.",
+          "sampleTitle": "🟢 Servidor encendido",
+          "sampleText": "Tu servidor está en línea."
+        }
+      },
+      "preview": "Vista previa",
+      "previewEmpty": "Activa algún aviso para ver cómo se verá.",
+      "test": "Enviar prueba",
+      "testSent": "Mensaje de prueba enviado. Revisa tu canal de Discord.",
+      "testWait": "Espera unos segundos antes de enviar otra prueba.",
+      "testError": "Discord rechazó el mensaje. Revisa que el webhook siga existiendo.",
+      "save": "Guardar",
+      "saved": "Guardado",
+      "saveError": "No se pudieron guardar las notificaciones.",
+      "saveFirst": "Guarda los cambios antes de enviar una prueba."
     }
   },
   "users": {
@@ -1803,7 +1927,12 @@
     "delete": "Eliminar",
     "retry": "Reintentar",
     "saving": "Guardando...",
-    "edit": "Editar"
+    "edit": "Editar",
+    "errorBoundary": {
+      "title": "Algo ha salido mal",
+      "description": "Se ha producido un error inesperado al mostrar este componente.",
+      "tryAgain": "Volver a intentarlo"
+    }
   },
   "settings": {
     "title": "Configuración del panel",

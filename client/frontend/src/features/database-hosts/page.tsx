@@ -19,6 +19,7 @@ import { sileo } from "@/lib/toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { useTranslations } from '@/contexts/translations-context';
+import { EmptyState } from '@/components/empty-state';
 
 const richText = '[&_code]:rounded [&_code]:bg-secondary [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs [&_code]:text-foreground';
 
@@ -508,24 +509,29 @@ export default function DatabaseHostsPage() {
                             {Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-14 rounded-xl" />)}
                         </div>
                     ) : error && hosts.length === 0 ? (
-                        <div className="flex flex-col items-center rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
-                            <AlertTriangle className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-                            <h3 className="text-base font-semibold">{t('databaseHosts.error.title')}</h3>
-                            <p className="mt-1 max-w-sm text-sm text-muted-foreground">{t('databaseHosts.error.description')}</p>
-                            <Button variant="outline" className="mt-6" onClick={() => void refresh()}>
-                                {t('common.retry')}
-                            </Button>
-                        </div>
+                        <EmptyState
+                            icon={AlertTriangle}
+                            tone="error"
+                            title={t('databaseHosts.error.title')}
+                            description={t('databaseHosts.error.description')}
+                            action={
+                                <Button variant="outline" onClick={() => void refresh()}>
+                                    {t('common.retry')}
+                                </Button>
+                            }
+                        />
                     ) : hosts.length === 0 ? (
-                        <div className="flex flex-col items-center rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
-                            <Database className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-                            <h3 className="text-base font-semibold">{t('databaseHosts.empty.title')}</h3>
-                            <p className="mt-1 max-w-sm text-sm text-muted-foreground">{t('databaseHosts.empty.description')}</p>
-                            <Button className="mt-6" onClick={() => setIsAddDialogOpen(true)}>
-                                <Plus aria-hidden="true" />
-                                {t('databaseHosts.addHost')}
-                            </Button>
-                        </div>
+                        <EmptyState
+                            icon={Database}
+                            title={t('databaseHosts.empty.title')}
+                            description={t('databaseHosts.empty.description')}
+                            action={
+                                <Button onClick={() => setIsAddDialogOpen(true)}>
+                                    <Plus aria-hidden="true" />
+                                    {t('databaseHosts.addHost')}
+                                </Button>
+                            }
+                        />
                     ) : (
                         <>
                             {/* Phones and tablets (the sidebar leaves too little room for the table): stacked rows. */}

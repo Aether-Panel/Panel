@@ -1,6 +1,7 @@
 'use client';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Archive, CalendarClock, Clock, Loader2, Pencil, Play, Plus, RotateCw, Trash2, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, Archive, CalendarClock, Clock, Loader2, Pencil, Play, Plus, RotateCw, Trash2, type LucideIcon } from 'lucide-react';
+import { EmptyState } from '@/components/empty-state';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -234,19 +235,15 @@ export default function TasksView({ serverId }: TasksViewProps) {
               <span className="sr-only">{t('common.loading')}</span>
             </div>
           ) : loadError ? (
-            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 px-6 py-14 text-center">
-              <CalendarClock className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-              <p className="max-w-sm text-sm text-muted-foreground">
-                {loadError === 'forbidden' ? t('servers.tasks.noPermission') : t('servers.tasks.loadError')}
-              </p>
-            </div>
+            <EmptyState
+              icon={loadError === 'forbidden' ? CalendarClock : AlertTriangle}
+              tone={loadError === 'forbidden' ? 'default' : 'error'}
+              as="p"
+              title={loadError === 'forbidden' ? t('servers.tasks.noPermission') : t('servers.tasks.loadError')}
+            />
           ) : entries.length === 0 ? (
             <div className="space-y-6">
-              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 px-6 py-10 text-center">
-                <CalendarClock className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-                <h3 className="text-base font-semibold">{t('servers.tasks.empty.title')}</h3>
-                <p className="mt-1 max-w-md text-sm text-muted-foreground">{t('servers.tasks.empty.description')}</p>
-              </div>
+              <EmptyState icon={CalendarClock} title={t('servers.tasks.empty.title')} description={t('servers.tasks.empty.description')} />
               {presets && (
                 <section aria-labelledby="task-presets-title" className="space-y-3">
                   <h3 id="task-presets-title" className="text-sm font-semibold">{t('servers.tasks.presets.title')}</h3>

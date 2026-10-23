@@ -6,6 +6,7 @@ import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { useTranslations } from '@/contexts/translations-context';
 import { Network } from 'lucide-react';
 import { cn, formatBytes } from '@/lib/utils';
+import { EmptyState } from '@/components/empty-state';
 
 const NET_IN_COLOR = 'hsl(var(--chart-4))';
 const NET_OUT_COLOR = 'hsl(var(--chart-5))';
@@ -61,11 +62,14 @@ export default function NetworkUsageChart({ serverMetrics, className }: NetworkU
         </div>
 
         {!hasTrend ? (
-          <div className="flex min-h-[240px] flex-1 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 px-6 text-center">
-            <Network className="h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-            <p className="text-sm font-medium">{t('servers.charts.waitingTitle')}</p>
-            <p className="max-w-[40ch] text-xs text-muted-foreground">{t('servers.charts.waitingDescription')}</p>
-          </div>
+          <EmptyState
+            icon={Network}
+            size="sm"
+            as="p"
+            title={t('servers.charts.waitingTitle')}
+            description={t('servers.charts.waitingDescription')}
+            className="min-h-[240px] flex-1"
+          />
         ) : (
           <ChartContainer
             config={chartConfig}

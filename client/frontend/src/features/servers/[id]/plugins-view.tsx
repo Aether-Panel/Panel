@@ -10,6 +10,7 @@ import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
 import { sileo } from "@/lib/toast";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { EmptyState } from '@/components/empty-state';
 
 type PluginInfo = {
   name: string;
@@ -176,15 +177,17 @@ export default function PluginsView({ serverId }: PluginsViewProps) {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t('common.loading')} />
             </div>
           ) : installedPlugins.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
-              <Puzzle className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-              <h3 className="text-base font-semibold">{t('servers.plugins.installed.emptyTitle')}</h3>
-              <p className="mt-1 max-w-sm text-sm text-muted-foreground">{t('servers.plugins.installed.emptyDescription')}</p>
-              <Button variant="outline" className="mt-6" onClick={() => setActiveTab('marketplace')}>
-                <Search aria-hidden="true" />
-                {t('servers.plugins.installed.browse')}
-              </Button>
-            </div>
+            <EmptyState
+              icon={Puzzle}
+              title={t('servers.plugins.installed.emptyTitle')}
+              description={t('servers.plugins.installed.emptyDescription')}
+              action={
+                <Button variant="outline" onClick={() => setActiveTab('marketplace')}>
+                  <Search aria-hidden="true" />
+                  {t('servers.plugins.installed.browse')}
+                </Button>
+              }
+            />
           ) : (
             <ul className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60 bg-background/30">
               {installedPlugins.map((plugin) => (
@@ -237,15 +240,11 @@ export default function PluginsView({ serverId }: PluginsViewProps) {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t('common.loading')} />
             </div>
           ) : searchResults.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
-              <Search className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-              <h3 className="text-base font-semibold">
-                {hasSearched ? t('servers.plugins.empty.title') : t('servers.plugins.marketplace.title')}
-              </h3>
-              <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                {hasSearched ? t('servers.plugins.empty.description') : t('servers.plugins.marketplace.description')}
-              </p>
-            </div>
+            <EmptyState
+              icon={Search}
+              title={hasSearched ? t('servers.plugins.empty.title') : t('servers.plugins.marketplace.title')}
+              description={hasSearched ? t('servers.plugins.empty.description') : t('servers.plugins.marketplace.description')}
+            />
           ) : (
             <ul className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60 bg-background/30">
               {searchResults.map((plugin) => (

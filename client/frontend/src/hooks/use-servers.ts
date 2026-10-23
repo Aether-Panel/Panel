@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { api, ApiError } from '@/lib/api-client';
 import type { Server } from '@/lib/data';
+import { parsePlayerQuery } from '@/lib/players';
 const globalFailedStatsSet = new Set<string>();
 
 // Stats are polled for every listed server; cap parallel requests so large lists do not flood the panel
@@ -92,6 +93,7 @@ export function useServers(statsFor?: (server: Server) => boolean) {
                     api.get(`/api/servers/${server.id}/query`).catch(() => null)
                 ]);
 
+                const players = parsePlayerQuery(queryData);
                 if (stats) {
                     const cpu = Math.round(stats.cpu || 0);
                     // If maxMemory is missing or 0, we can't calculate percentage reliably. 
@@ -124,9 +126,11 @@ export function useServers(statsFor?: (server: Server) => boolean) {
                             networkIn: Number.parseFloat((stats.networkRx || 0).toFixed(2)),
                             networkOut: Number.parseFloat((stats.networkTx || 0).toFixed(2)),
                         },
-                        playersOnline: queryData?.minecraft?.numPlayers ?? undefined,
-                        maxPlayers: queryData?.minecraft?.maxPlayers ?? undefined,
-                        isMinecraft: !!queryData?.minecraft
+                        playersOnline: players?.online,
+                        maxPlayers: players?.max,
+                        hasPlayerQuery: players !== null,
+                        playerNames: players?.names,
+                        playerInfo: players ?? undefined
                     };
                 }
             } catch (e: any) {
@@ -154,7 +158,9 @@ export function useServers(statsFor?: (server: Server) => boolean) {
                     memoryUsed: (res as any).memoryUsed ?? s.memoryUsed,
                     playersOnline: (res as any).playersOnline,
                     maxPlayers: (res as any).maxPlayers,
-                    isMinecraft: (res as any).isMinecraft,
+                    hasPlayerQuery: (res as any).hasPlayerQuery,
+                    playerNames: (res as any).playerNames,
+                    playerInfo: (res as any).playerInfo,
                     metrics: newMetrics as any
                 };
             }

@@ -2,6 +2,7 @@
 import { useAuth } from '@/contexts/providers';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { PageHeader } from '@/components/page-header';
+import { EmptyState } from '@/components/empty-state';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -223,37 +224,47 @@ export default function ServersPage() {
       </div>
 
       {serversError && servers.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
-          <AlertTriangle className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-          <p className="text-base font-semibold">{t('servers.error.title')}</p>
-          <p className="mx-auto mt-1 max-w-[48ch] text-sm text-muted-foreground">{t('servers.error.description')}</p>
-          <Button variant="outline" className="mt-5" onClick={() => void refresh()}>
-            {t('common.retry')}
-          </Button>
-        </div>
+        <EmptyState
+          icon={AlertTriangle}
+          tone="error"
+          as="h2"
+          title={t('servers.error.title')}
+          description={t('servers.error.description')}
+          action={
+            <Button variant="outline" onClick={() => void refresh()}>
+              {t('common.retry')}
+            </Button>
+          }
+        />
       ) : servers.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
-          <ServerIcon className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-          <p className="text-base font-semibold">{t('servers.empty.title')}</p>
-          <p className="mx-auto mt-1 max-w-[48ch] text-sm text-muted-foreground">{t(hasScope('admin') ? 'servers.empty.description' : 'servers.empty.descriptionAssigned')}</p>
-          {hasScope('admin') && (
-            <Button className="mt-5" onClick={() => setIsCreateOpen(true)}>
-              <Plus aria-hidden="true" />
-              {t('servers.addServer')}
-            </Button>
-          )}
-        </div>
+        <EmptyState
+          icon={ServerIcon}
+          as="h2"
+          title={t('servers.empty.title')}
+          description={t(hasScope('admin') ? 'servers.empty.description' : 'servers.empty.descriptionAssigned')}
+          action={
+            hasScope('admin') && (
+              <Button onClick={() => setIsCreateOpen(true)}>
+                <Plus aria-hidden="true" />
+                {t('servers.addServer')}
+              </Button>
+            )
+          }
+        />
       ) : filteredServers.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
-          <Search className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-          <p className="text-base font-semibold">{t('servers.noResults.title')}</p>
-          <p className="mx-auto mt-1 max-w-[48ch] text-sm text-muted-foreground">{t('servers.noResults.description')}</p>
-          {hasActiveFilters && (
-            <Button variant="outline" className="mt-5" onClick={resetFilters}>
-              {t('servers.noResults.clear')}
-            </Button>
-          )}
-        </div>
+        <EmptyState
+          icon={Search}
+          as="h2"
+          title={t('servers.noResults.title')}
+          description={t('servers.noResults.description')}
+          action={
+            hasActiveFilters && (
+              <Button variant="outline" onClick={resetFilters}>
+                {t('servers.noResults.clear')}
+              </Button>
+            )
+          }
+        />
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(min(20rem,100%),1fr))] gap-5">
           {filteredServers.map((server) => (

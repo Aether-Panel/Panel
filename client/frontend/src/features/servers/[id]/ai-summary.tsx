@@ -8,6 +8,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { useTranslations } from '@/contexts/translations-context';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { EmptyState } from '@/components/empty-state';
 
 type LogEntry = {
   time: string;
@@ -21,7 +22,7 @@ export default function AISummary({ logs, serverId }: { logs?: LogEntry[], serve
   const [tips, setTips] = useState<{ suggestions: string[]; rootCauses: string[] } | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const { t } = useTranslations();
+  const { t, language } = useTranslations();
 
   // Escanear logs automáticamente
   useEffect(() => {
@@ -71,7 +72,7 @@ export default function AISummary({ logs, serverId }: { logs?: LogEntry[], serve
       const res = await fetch(`/api/servers/${serverId}/ai/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ logs: logsToSend })
+        body: JSON.stringify({ logs: logsToSend, language })
       });
 
       const data = await res.json();
@@ -169,11 +170,13 @@ export default function AISummary({ logs, serverId }: { logs?: LogEntry[], serve
             </ScrollArea>
           </div>
         ) : (
-          <div className="rounded-xl border border-dashed border-border/60 px-6 py-10 text-center">
-            <ListChecks className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-            <p className="text-base font-semibold">{t('servers.aiSummary.emptyTitle')}</p>
-            <p className="mx-auto mt-1 max-w-[48ch] text-sm text-muted-foreground">{t('servers.aiSummary.emptyDescription')}</p>
-          </div>
+          <EmptyState
+            icon={ListChecks}
+            size="sm"
+            as="h4"
+            title={t('servers.aiSummary.emptyTitle')}
+            description={t('servers.aiSummary.emptyDescription')}
+          />
         )}
 
         {errorMsg && (
@@ -184,9 +187,14 @@ export default function AISummary({ logs, serverId }: { logs?: LogEntry[], serve
         )}
 
         {loading && (
-          <div className="flex items-center justify-center gap-3 py-8 text-sm text-muted-foreground" role="status">
-            <Loader2 className="h-6 w-6 animate-spin" aria-hidden="true" />
-            {t('servers.aiSummary.loading')}
+          <div className="space-y-2 py-2" role="status">
+            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              {t('servers.aiSummary.loading')}
+            </p>
+            {[92, 78, 85].map((width, i) => (
+              <div key={i} aria-hidden="true" className="skeleton-shimmer h-3 rounded-full" style={{ width: `${width}%` }} />
+            ))}
           </div>
         )}
 

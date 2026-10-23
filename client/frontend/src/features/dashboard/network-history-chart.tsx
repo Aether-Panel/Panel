@@ -8,6 +8,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } f
 import { useTranslations } from '@/contexts/translations-context';
 import { downsampleNetwork, NETWORK_SAMPLE_INTERVAL_MS, type NetworkSample } from '@/hooks/use-network-history';
 import { cn, formatBytes } from '@/lib/utils';
+import { EmptyState } from '@/components/empty-state';
 
 type RangeId = '1h' | '6h' | '24h';
 
@@ -210,13 +211,17 @@ export function NetworkHistoryChart({ samples }: { samples: NetworkSample[] }) {
                         </ChartContainer>
                     </div>
                 ) : (
-                    <div data-fit="fill" className="flex min-h-[240px] flex-1 flex-col items-center justify-center gap-2 overflow-hidden rounded-xl border border-dashed border-border/60 px-6 py-4 text-center sm:min-h-[280px] [&>*]:shrink-0">
-                        <Activity className="h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-                        <p className="text-base font-semibold text-foreground">{t('dashboard.admin.history.empty.title')}</p>
-                        {/* Short desktop screens keep the title only, so nothing overlaps. */}
-                        <p data-fit="hide-short" className="max-w-[44ch] text-sm text-muted-foreground">
-                            {t('dashboard.admin.history.empty.description')}
-                        </p>
+                    // The wrapper carries data-fit so the dashboard can shrink the box on short desktop screens.
+                    <div data-fit="fill" className="flex flex-1 flex-col">
+                        <EmptyState
+                            icon={Activity}
+                            size="sm"
+                            as="p"
+                            title={t('dashboard.admin.history.empty.title')}
+                            // Short desktop screens keep the title only, so nothing overlaps.
+                            description={<span data-fit="hide-short">{t('dashboard.admin.history.empty.description')}</span>}
+                            className="min-h-[240px] flex-1 overflow-hidden py-4 sm:min-h-[280px] [&>*]:shrink-0"
+                        />
                     </div>
                 )}
 

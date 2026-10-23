@@ -16,6 +16,7 @@ import { KpiCard, usageTone } from '@/features/dashboard/kpi-card';
 import { PanelInfoCard } from '@/features/dashboard/panel-info-card';
 import { NetworkHistoryChart } from '@/features/dashboard/network-history-chart';
 import { AccessLog } from '@/features/dashboard/access-log';
+import { EmptyState } from '@/components/empty-state';
 
 function calculateCpuUsage(nodeResources: any[], onlineServers: any[], onlineCount: number): number {
   if (nodeResources.length > 0) {
@@ -164,14 +165,17 @@ function UserDashboard({ user, t, userServers, loadFailed, onRetry }: any) {
       <div>
         <h2 className="mb-4 text-lg font-semibold tracking-[-0.02em] text-foreground">{t('dashboard.user.myServers')}</h2>
         {loadFailed && userServers.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
-            <AlertTriangle className="h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-            <p className="text-base font-semibold text-foreground">{t('servers.error.title')}</p>
-            <p className="max-w-[44ch] text-sm text-muted-foreground">{t('servers.error.description')}</p>
-            <Button variant="outline" className="mt-4" onClick={onRetry}>
-              {t('common.retry')}
-            </Button>
-          </div>
+          <EmptyState
+            icon={AlertTriangle}
+            tone="error"
+            title={t('servers.error.title')}
+            description={t('servers.error.description')}
+            action={
+              <Button variant="outline" onClick={onRetry}>
+                {t('common.retry')}
+              </Button>
+            }
+          />
         ) : userServers.length > 0 ? (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(min(20rem,100%),1fr))] gap-5">
             {userServers.map((server: Server) => (
@@ -179,11 +183,7 @@ function UserDashboard({ user, t, userServers, loadFailed, onRetry }: any) {
             ))}
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
-            <ServerIcon className="h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-            <p className="text-base font-semibold text-foreground">{t('dashboard.user.noServers')}</p>
-            <p className="max-w-[44ch] text-sm text-muted-foreground">{t('dashboard.user.noServersHint')}</p>
-          </div>
+          <EmptyState icon={ServerIcon} title={t('dashboard.user.noServers')} description={t('dashboard.user.noServersHint')} />
         )}
       </div>
     </div>

@@ -75,7 +75,7 @@ export default function SettingsPage() {
             await refreshConfig();
             sileo.success({
                 title: t('common.success'),
-                description: t('settings.saveSuccess') || 'Settings saved successfully',
+                description: t('settings.saveSuccess'),
             });
         } catch (e: any) {
             sileo.error({
@@ -90,7 +90,7 @@ export default function SettingsPage() {
             await sendTestEmail(localSettings);
             sileo.success({
                 title: t('common.success'),
-                description: t('settings.mail.testSuccess') || 'Test email sent successfully',
+                description: t('settings.mail.testSuccess'),
             });
         } catch (e: any) {
             sileo.error({
@@ -105,7 +105,7 @@ export default function SettingsPage() {
             await sendTestDiscord();
             sileo.success({
                 title: t('common.success'),
-                description: t('settings.discord.testSuccess') || 'Test Discord message sent successfully',
+                description: t('settings.discord.testSuccess'),
             });
         } catch (e: any) {
             sileo.error({

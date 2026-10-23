@@ -6,6 +6,7 @@ import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { useTranslations } from '@/contexts/translations-context';
 import { Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { EmptyState } from '@/components/empty-state';
 
 const CPU_COLOR = 'hsl(var(--chart-1))';
 const MEM_COLOR = 'hsl(var(--chart-2))';
@@ -60,11 +61,14 @@ export default function MetricsCharts({ serverMetrics, className }: MetricsChart
         </div>
 
         {!hasTrend ? (
-          <div className="flex min-h-[240px] flex-1 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 px-6 text-center">
-            <Activity className="h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-            <p className="text-sm font-medium">{t('servers.charts.waitingTitle')}</p>
-            <p className="max-w-[40ch] text-xs text-muted-foreground">{t('servers.charts.waitingDescription')}</p>
-          </div>
+          <EmptyState
+            icon={Activity}
+            size="sm"
+            as="p"
+            title={t('servers.charts.waitingTitle')}
+            description={t('servers.charts.waitingDescription')}
+            className="min-h-[240px] flex-1"
+          />
         ) : (
           <ChartContainer
             config={chartConfig}

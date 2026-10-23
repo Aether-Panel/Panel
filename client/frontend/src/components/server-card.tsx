@@ -5,6 +5,8 @@ import { MoreHorizontal, Globe, Terminal, LayoutDashboard, Eye, Pencil, Trash2 }
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { cn, formatBytes } from '@/lib/utils';
 import { useAuth } from '@/contexts/providers';
+import { AnimatedNumber } from '@/components/animated-number';
+import { LiveDot, PlayerStack } from '@/components/player-presence';
 
 export const usageColor = (value: number) =>
   value >= 85
@@ -143,18 +145,32 @@ export function ServerCard({ server, t }: { server: Server; t: (key: string) => 
         <div className="mt-auto flex flex-col gap-4 border-t border-border/40 pt-4">
           {/* Players and activity blocks share one height, so every card's footer
               rule and buttons sit on the same line across a row. */}
-          {server.isMinecraft ? (
+          {server.hasPlayerQuery ? (
             <div className="flex h-[4.25rem] flex-col">
-              <span className="text-xs font-medium text-muted-foreground">{t('servers.detail.overview.playersOnline')}</span>
-              <p className="mt-auto flex items-baseline gap-1">
-                <span className="text-xl font-semibold leading-none tracking-[-0.02em] tabular-nums text-foreground">
-                  {server.playersOnline ?? 0}
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                  <LiveDot active={(server.playersOnline ?? 0) > 0} />
+                  {t('servers.detail.overview.playersOnline')}
                 </span>
+                <PlayerStack
+                  names={server.playerNames ?? []}
+                  total={server.playersOnline ?? 0}
+                  label={t('servers.detail.overview.playersOnline')}
+                />
+              </div>
+              <p className="mt-auto flex items-baseline gap-1">
+                <AnimatedNumber
+                  value={server.playersOnline ?? 0}
+                  className="text-xl font-semibold leading-none tracking-[-0.02em] text-foreground"
+                />
                 <span className="text-xs tabular-nums text-muted-foreground">/ {server.maxPlayers ?? 0}</span>
               </p>
               <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-secondary/80">
                 <div
-                  className="meter-fill meter-grow h-full rounded-full bg-primary transition-[width] duration-700 ease-panel [--meter:var(--primary)]"
+                  className={cn(
+                    'meter-fill meter-grow h-full rounded-full bg-primary transition-[width] duration-700 ease-panel [--meter:var(--primary)]',
+                    playersPercent > 0 && 'shadow-[0_0_10px_hsl(var(--primary)/0.55)]',
+                  )}
                   style={{ width: `${playersPercent}%` }}
                 />
               </div>

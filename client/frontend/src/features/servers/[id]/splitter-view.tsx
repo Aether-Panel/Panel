@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { CreateServerStepper } from '../create-server-stepper';
 import { cn } from '@/lib/utils';
 import { useTranslations } from '@/contexts/translations-context';
+import { EmptyState } from '@/components/empty-state';
 
 type SplitterViewProps = {
   serverId: string;
@@ -228,15 +229,19 @@ export default function SplitterView({ serverId }: SplitterViewProps) {
             </div>
 
             {subServers.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
-                <ServerIcon className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-                <h4 className="text-base font-semibold">{t('servers.splitter.emptyTitle')}</h4>
-                <p className="mt-1 text-sm text-muted-foreground">{t('servers.splitter.emptyDescription')}</p>
-                <Button className="mt-6" onClick={() => setIsDialogOpen(true)}>
-                  <Plus aria-hidden="true" />
-                  {t('servers.splitter.create')}
-                </Button>
-              </div>
+              <EmptyState
+                icon={ServerIcon}
+                size="sm"
+                as="h4"
+                title={t('servers.splitter.emptyTitle')}
+                description={t('servers.splitter.emptyDescription')}
+                action={
+                  <Button onClick={() => setIsDialogOpen(true)}>
+                    <Plus aria-hidden="true" />
+                    {t('servers.splitter.create')}
+                  </Button>
+                }
+              />
             ) : (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {subServers.map(sub => (

@@ -80,12 +80,26 @@
     "search": {
       "label": "Quick search",
       "open": "Open quick search",
-      "placeholder": "Search pages and sections…",
+      "placeholder": "Search the panel…",
       "hint": "Ctrl K",
-      "noResults": "No matching pages",
+      "noResults": "No results",
       "navigate": "Navigate",
       "select": "Open",
-      "close": "Close"
+      "close": "Close",
+      "sections": {
+        "servers": "Servers",
+        "actions": "Actions",
+        "pages": "Pages"
+      },
+      "actions": {
+        "start": "Start {{name}}",
+        "restart": "Restart {{name}}",
+        "stop": "Stop {{name}}",
+        "startDone": "{{name}} is starting.",
+        "restartDone": "{{name}} is restarting.",
+        "stopDone": "{{name}} is stopping.",
+        "failed": "Could not complete the action."
+      }
     },
     "update": {
       "title": "Update available",
@@ -387,7 +401,11 @@
       "menuLabel": "Actions",
       "viewDetails": "View Details",
       "edit": "Edit",
-      "delete": "Delete"
+      "delete": "Delete",
+      "startSuccess": "The server is starting.",
+      "stopSuccess": "The server is stopping.",
+      "restartSuccess": "The server is restarting.",
+      "killSuccess": "The server was forced to stop."
     },
     "detail": {
       "description": "Detailed metrics and status for this server.",
@@ -424,7 +442,8 @@
         "resourcesTitle": "Live Resources",
         "resourcesSubtitle": "Current usage against the server's allocated limit",
         "playersDescription": "Players connected right now.",
-        "noPlayers": "Nobody is online."
+        "noPlayers": "Nobody is online.",
+        "namesHidden": "This game does not share player names."
       },
       "notFoundDescription": "It may have been deleted, or you don't have access to it.",
       "backToServers": "Back to servers",
@@ -456,7 +475,26 @@
       "cleared": "View cleared. New messages will appear here.",
       "jumpToEnd": "Jump to latest",
       "connectedToast": "Console connected",
-      "sendError": "Could not send the command."
+      "sendError": "Could not send the command.",
+      "announce": {
+        "online": "The server is online.",
+        "offline": "The server has stopped.",
+        "crashed": "The server crashed (code {{code}})."
+      },
+      "system": {
+        "connectionLost": "Connection to the console was lost. Reconnecting…",
+        "unavailable": "This server's console is not available on the node.",
+        "offline": "The server is offline.",
+        "error": "Error: {{message}}",
+        "stopSent": "Stop signal sent. Waiting for the server to shut down…",
+        "killSent": "Kill signal sent. The server is being forcefully terminated.",
+        "startSent": "Start signal sent.",
+        "restartSent": "Restart signal sent.",
+        "filesMissing": "The server's files or configuration are missing on the node.",
+        "portInUse": "Error: the port is already in use.",
+        "actionFailed": "Could not complete the action.",
+        "sendFailed": "Could not send: {{command}}"
+      }
     },
     "aiSummary": {
       "title": "AI Console Analysis",
@@ -616,8 +654,8 @@
       "portPlaceholder": "e.g. 25566",
       "portsRequireOffline": "The server must be stopped to change the primary port.",
       "portRequired": "You must assign at least one port.",
-      "portInvalid": "Port {port} is invalid (must be between 1024 and 65535).",
-      "portDuplicate": "Port {port} is already assigned to this server.",
+      "portInvalid": "Port {{port}} is invalid (must be between 1024 and 65535).",
+      "portDuplicate": "Port {{port}} is already assigned to this server.",
       "portsRunningHint": "The server is running. Stop it to change which port is primary.",
       "portsApplyOnRestart": "Port changes will take effect when the server restarts.",
       "saveButton": "Save Changes",
@@ -1175,6 +1213,92 @@
     "error": {
       "title": "Could not load servers",
       "description": "The server list could not be retrieved. Check your connection and try again."
+    },
+    "crashes": {
+      "exitCode": "Code {{code}}",
+      "restarted": "restarted by itself (attempt {{attempt}} of {{limit}})",
+      "notRestarted": "was not restarted automatically",
+      "autoRestarted": "Restarted",
+      "exitCodes": {
+        "1": "The game exited with an error",
+        "134": "The process aborted (SIGABRT)",
+        "137": "Out of memory or force-killed (SIGKILL)",
+        "139": "The program crashed on memory access (segfault)",
+        "143": "Terminated by the system (SIGTERM)",
+        "other": "Unexpected exit"
+      },
+      "banner": {
+        "title": "The server crashed at {{time}}",
+        "open": "View report",
+        "dismiss": "Dismiss"
+      },
+      "history": {
+        "title": "Crash history",
+        "description": "The server's latest crashes, with what the console showed right before.",
+        "emptyTitle": "No crashes recorded",
+        "emptyDescription": "If the server crashes, you will see what happened here and can ask the AI to explain it."
+      },
+      "dialog": {
+        "title": "Crash report",
+        "exitCode": "Exit code",
+        "meaning": "What it means",
+        "recovery": "Recovery",
+        "lastLines": "Last console lines",
+        "noLines": "The console showed nothing before the crash."
+      },
+      "ai": {
+        "title": "AI explanation",
+        "explain": "Explain with AI",
+        "thinking": "Analysing…",
+        "notConfigured": "The AI is not set up. An administrator can add the Gemini key in Settings.",
+        "error": "Could not get an explanation. Try again in a moment.",
+        "causes": "Likely causes",
+        "fixes": "How to fix it"
+      }
+    },
+    "notifications": {
+      "title": "Discord notifications",
+      "description": "Get this server's alerts in your Discord channel: crashes, backups and more.",
+      "webhookLabel": "Channel webhook",
+      "webhookHelp": "In Discord: channel settings → Integrations → Webhooks → New webhook → Copy URL. Leave it empty to turn them off.",
+      "webhookInvalid": "It must be a Discord webhook URL (https://discord.com/api/webhooks/…).",
+      "eventsLabel": "What to send",
+      "events": {
+        "crash": {
+          "label": "Crashes",
+          "description": "With the last console lines.",
+          "sampleTitle": "💥 Server crashed",
+          "sampleText": "Your server crashed (exit code 137). It is restarting by itself (attempt 1 of 3)."
+        },
+        "backup": {
+          "label": "Backups",
+          "description": "When they finish or fail.",
+          "sampleTitle": "✅ Backup complete",
+          "sampleText": "Your server's backup was saved successfully."
+        },
+        "resources": {
+          "label": "High resource use",
+          "description": "CPU above 80% or memory above 90%.",
+          "sampleTitle": "⚠️ High memory use",
+          "sampleText": "Your server is using 94% of its memory (alert from 90%)."
+        },
+        "power": {
+          "label": "Start and stop",
+          "description": "Every time the server starts or stops.",
+          "sampleTitle": "🟢 Server online",
+          "sampleText": "Your server is online."
+        }
+      },
+      "preview": "Preview",
+      "previewEmpty": "Turn on an alert to see what it looks like.",
+      "test": "Send test",
+      "testSent": "Test message sent. Check your Discord channel.",
+      "testWait": "Wait a few seconds before sending another test.",
+      "testError": "Discord refused the message. Check that the webhook still exists.",
+      "save": "Save",
+      "saved": "Saved",
+      "saveError": "Could not save the notifications.",
+      "saveFirst": "Save your changes before sending a test."
     }
   },
   "users": {
@@ -1803,7 +1927,12 @@
     "delete": "Delete",
     "retry": "Retry",
     "saving": "Saving...",
-    "edit": "Edit"
+    "edit": "Edit",
+    "errorBoundary": {
+      "title": "Something went wrong",
+      "description": "An unexpected error occurred while rendering this component.",
+      "tryAgain": "Try again"
+    }
   },
   "settings": {
     "title": "Panel Settings",

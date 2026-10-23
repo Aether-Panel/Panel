@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { useTranslations } from '@/contexts/translations-context';
 import { useNodes } from '@/hooks/use-dashboard-data';
 import { useServers } from '@/hooks/use-servers';
+import { EmptyState } from '@/components/empty-state';
 
 type Field<T> = [T, Dispatch<SetStateAction<T>>];
 
@@ -282,11 +283,11 @@ export default function NodesPage() {
 
   const handleCreateNode = async () => {
     if (!createName.trim()) {
-      sileo.error({ title: t('nodes.addDialog.nameLabel'), description: t('nodes.toast.nameRequired') });
+      sileo.error({ title: t('common.error'), description: t('nodes.toast.nameRequired') });
       return;
     }
     if (!createPublicHost.trim()) {
-      sileo.error({ title: t('nodes.addDialog.publicHostLabel'), description: t('nodes.toast.publicHostRequired') });
+      sileo.error({ title: t('common.error'), description: t('nodes.toast.publicHostRequired') });
       return;
     }
     setIsCreating(true);
@@ -302,7 +303,7 @@ export default function NodesPage() {
         privateHost: pHost,
         privatePort: pPort,
       });
-      sileo.success({ title: t('nodes.addDialog.createButton'), description: t('nodes.toast.created', { name: createName }) });
+      sileo.success({ title: t('common.success'), description: t('nodes.toast.created', { name: createName }) });
       // reset form
       setCreateName(''); setCreatePublicHost(''); setCreatePublicPort('8080');
       setCreateSftpPort('5657'); setCreateUseDifferentHost(false);
@@ -335,7 +336,7 @@ export default function NodesPage() {
         privateHost: pHost,
         privatePort: pPort,
       });
-      sileo.success({ title: t('nodes.editDialog.save'), description: t('nodes.toast.updated', { name: editName }) });
+      sileo.success({ title: t('common.success'), description: t('nodes.toast.updated', { name: editName }) });
       setEditingNode(null);
       void refresh();
     } catch (e: any) {
@@ -350,7 +351,7 @@ export default function NodesPage() {
     setIsDeleting(true);
     try {
       await api.delete(`/api/nodes/${deletingNode.id}`);
-      sileo.success({ title: t('nodes.toast.deleted'), description: t('nodes.toast.deletedDescription', { name: deletingNode.name }) });
+      sileo.success({ title: t('common.success'), description: t('nodes.toast.deletedDescription', { name: deletingNode.name }) });
       setDeletingNode(null);
       void refresh();
     } catch (e: any) {
@@ -483,24 +484,29 @@ export default function NodesPage() {
 
         <div className="p-5 md:p-6">
           {error && nodes.length === 0 ? (
-            <div className="flex flex-col items-center rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
-              <AlertTriangle className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-              <h3 className="text-base font-semibold">{t('nodes.error.title')}</h3>
-              <p className="mt-1 max-w-sm text-sm text-muted-foreground">{t('nodes.error.description')}</p>
-              <Button variant="outline" className="mt-6" onClick={() => void refresh()}>
-                {t('common.retry')}
-              </Button>
-            </div>
+            <EmptyState
+              icon={AlertTriangle}
+              tone="error"
+              title={t('nodes.error.title')}
+              description={t('nodes.error.description')}
+              action={
+                <Button variant="outline" onClick={() => void refresh()}>
+                  {t('common.retry')}
+                </Button>
+              }
+            />
           ) : nodes.length === 0 ? (
-            <div className="flex flex-col items-center rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
-              <Network className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-              <h3 className="text-base font-semibold">{t('nodes.empty.title')}</h3>
-              <p className="mt-1 max-w-sm text-sm text-muted-foreground">{t('nodes.empty.description')}</p>
-              <Button className="mt-6" onClick={() => setIsCreateOpen(true)}>
-                <Plus aria-hidden="true" />
-                {t('nodes.addNode')}
-              </Button>
-            </div>
+            <EmptyState
+              icon={Network}
+              title={t('nodes.empty.title')}
+              description={t('nodes.empty.description')}
+              action={
+                <Button onClick={() => setIsCreateOpen(true)}>
+                  <Plus aria-hidden="true" />
+                  {t('nodes.addNode')}
+                </Button>
+              }
+            />
           ) : (
             <>
               {/* Phones and tablets (the sidebar leaves too little room for the table): one stacked row per node. */}

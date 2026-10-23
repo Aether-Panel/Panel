@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { EmptyState } from '@/components/empty-state';
 import { Button } from '@/components/ui/button';
 import { Archive, Plus, Download, RotateCcw, Trash2, Loader2, Clock } from 'lucide-react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -154,15 +155,17 @@ export default function BackupsView({ serverId }: BackupsViewProps) {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : backups.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 px-6 py-14 text-center">
-              <Archive className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-              <h3 className="text-base font-semibold">{t('servers.backups.empty.title')}</h3>
-              <p className="mt-1 max-w-sm text-sm text-muted-foreground">{t('servers.backups.empty.description')}</p>
-              <Button onClick={() => setIsDialogOpen(true)} className="mt-6">
-                <Plus aria-hidden="true" />
-                {t('servers.backups.create')}
-              </Button>
-            </div>
+            <EmptyState
+              icon={Archive}
+              title={t('servers.backups.empty.title')}
+              description={t('servers.backups.empty.description')}
+              action={
+                <Button onClick={() => setIsDialogOpen(true)}>
+                  <Plus aria-hidden="true" />
+                  {t('servers.backups.create')}
+                </Button>
+              }
+            />
           ) : (
             /* Timeline: one dot per backup, centred on its date tile (1px border
                + p-4/p-5 + half the 56px tile = 45px / 49px), and a rail from

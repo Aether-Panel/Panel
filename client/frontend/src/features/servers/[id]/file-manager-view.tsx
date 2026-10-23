@@ -50,6 +50,7 @@ import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
 import { sileo } from "@/lib/toast";
 import { cn } from '@/lib/utils';
+import { EmptyState } from '@/components/empty-state';
 
 const CodeEditor = lazy(() => import('./code-editor'));
 
@@ -727,15 +728,17 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t('common.loading')} />
             </div>
           ) : files.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
-              <FolderOpen className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-              <h3 className="text-base font-semibold">{t('servers.fileManager.empty')}</h3>
-              <p className="mt-1 max-w-sm text-sm text-muted-foreground">{t('servers.fileManager.emptyHint')}</p>
-              <Button variant="outline" onClick={handleUploadClick} className="mt-6">
-                <Upload aria-hidden="true" />
-                {t('servers.fileManager.upload')}
-              </Button>
-            </div>
+            <EmptyState
+              icon={FolderOpen}
+              title={t('servers.fileManager.empty')}
+              description={t('servers.fileManager.emptyHint')}
+              action={
+                <Button variant="outline" onClick={handleUploadClick}>
+                  <Upload aria-hidden="true" />
+                  {t('servers.fileManager.upload')}
+                </Button>
+              }
+            />
           ) : (
             <div className="overflow-hidden rounded-xl border border-border/60 bg-background/30">
               <Table>

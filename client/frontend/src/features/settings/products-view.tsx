@@ -21,6 +21,7 @@ import { api } from '@/lib/api-client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTranslations } from '@/contexts/translations-context';
 import { SettingsCard, SettingsCardHeader } from './general-tab';
+import { EmptyState } from '@/components/empty-state';
 
 export function ProductsView() {
     const { t } = useTranslations();
@@ -189,12 +190,12 @@ export function ProductsView() {
             />
             <div className="p-5 md:p-6">
                 {products.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
-                        <Package className="mx-auto h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-                        <h3 className="mt-3 text-base font-semibold">{t('settings.products.emptyTitle')}</h3>
-                        <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">{t('settings.products.emptyDescription')}</p>
-                        <div className="mt-5">{addButton}</div>
-                    </div>
+                    <EmptyState
+                        icon={Package}
+                        title={t('settings.products.emptyTitle')}
+                        description={t('settings.products.emptyDescription')}
+                        action={addButton}
+                    />
                 ) : (
                     <>
                     {/* Phones: stacked rows. */}

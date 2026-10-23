@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useTranslations } from '@/contexts/translations-context';
 import { useAccessLog, type AccessEvent } from '@/hooks/use-access-log';
 import { cn } from '@/lib/utils';
+import { EmptyState } from '@/components/empty-state';
 
 const EVENT_STYLE: Record<string, { icon: LucideIcon; capsule: string; labelKey: string }> = {
     login: {
@@ -96,10 +97,7 @@ export function AccessLog({ canRead }: { canRead: boolean }) {
                         ))}
                     </ul>
                 ) : notice !== null ? (
-                    <div className="mx-3 flex flex-1 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 px-6 py-10 text-center">
-                        <ShieldAlert className="h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-                        <p className="max-w-[36ch] text-sm text-muted-foreground">{notice}</p>
-                    </div>
+                    <EmptyState icon={ShieldAlert} size="sm" as="p" title={notice} className="mx-3 flex-1" />
                 ) : (
                     <ul data-fit="scroll" className="custom-scrollbar flex flex-1 flex-col gap-0.5" aria-label={t('dashboard.admin.access.title')}>
                         {rows.map(({ event, style }) => {

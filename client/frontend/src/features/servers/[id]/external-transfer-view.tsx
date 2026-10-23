@@ -9,6 +9,7 @@ import { Loader2, Copy, Check, CheckCircle2, DownloadCloud, UploadCloud, Clock, 
 import { useTranslations } from '@/contexts/translations-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { EmptyState } from '@/components/empty-state';
 
 type ExternalTransferViewProps = {
   serverId: string;
@@ -119,7 +120,7 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
       setSessionData(null);
       clearTransfer(serverId);
       setTimeLeft(null);
-      sileo.success({ title: t('servers.extransfer.toast.expiredTitle'), description: t('servers.extransfer.toast.expiredDescription') });
+      sileo.info({ title: t('servers.extransfer.toast.expiredTitle'), description: t('servers.extransfer.toast.expiredDescription') });
       return;
     }
     const timer = setTimeout(() => setTimeLeft(prev => (prev !== null ? prev - 1 : null)), 1000);
@@ -234,15 +235,18 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
           </div>
 
           {!sessionData ? (
-            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
-              <KeyRound className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-              <h3 className="text-base font-semibold">{t('servers.extransfer.export.emptyTitle')}</h3>
-              <p className="mt-1 max-w-md text-pretty text-sm text-muted-foreground">{t('servers.extransfer.export.emptyDescription')}</p>
-              <Button onClick={generateTransferToken} disabled={loading} className="mt-6">
-                {loading ? <Loader2 className="animate-spin" aria-hidden="true" /> : <KeyRound aria-hidden="true" />}
-                {loading ? t('servers.extransfer.export.generating') : t('servers.extransfer.export.generate')}
-              </Button>
-            </div>
+            <EmptyState
+              icon={KeyRound}
+              size="sm"
+              title={t('servers.extransfer.export.emptyTitle')}
+              description={t('servers.extransfer.export.emptyDescription')}
+              action={
+                <Button onClick={generateTransferToken} disabled={loading}>
+                  {loading ? <Loader2 className="animate-spin" aria-hidden="true" /> : <KeyRound aria-hidden="true" />}
+                  {loading ? t('servers.extransfer.export.generating') : t('servers.extransfer.export.generate')}
+                </Button>
+              }
+            />
           ) : (
             <div className="overflow-hidden rounded-xl border border-border/60 bg-background/30">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/50 px-4 py-3 sm:px-5">

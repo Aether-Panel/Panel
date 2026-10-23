@@ -24,6 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { EmptyState } from '@/components/empty-state';
 
 /** Copy-to-clipboard icon button with a short "copied" state. */
 function CopyButton({ value, label, copiedLabel, className }: { value: string; label: string; copiedLabel: string; className?: string }) {
@@ -386,15 +387,18 @@ export default function ProfileSettingsPage() {
           }
         >
           {oauthClients.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border/60 px-6 py-10 text-center">
-              <KeyRound className="mx-auto h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-              <h3 className="mt-3 text-base font-semibold">{t('profileSettings.oauth.emptyTitle')}</h3>
-              <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">{t('profileSettings.oauth.noClients')}</p>
-              <Button className="mt-5" onClick={() => setOauthDialog(true)}>
-                <Plus aria-hidden="true" />
-                {t('profileSettings.oauth.create')}
-              </Button>
-            </div>
+            <EmptyState
+              icon={KeyRound}
+              size="sm"
+              title={t('profileSettings.oauth.emptyTitle')}
+              description={t('profileSettings.oauth.noClients')}
+              action={
+                <Button onClick={() => setOauthDialog(true)}>
+                  <Plus aria-hidden="true" />
+                  {t('profileSettings.oauth.create')}
+                </Button>
+              }
+            />
           ) : (
             <div className="space-y-3">
               <ul className="divide-y divide-border/50 rounded-xl border border-border/60 bg-background/30">

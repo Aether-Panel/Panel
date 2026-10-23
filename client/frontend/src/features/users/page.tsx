@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
 import { sileo } from "@/lib/toast";
+import { EmptyState } from '@/components/empty-state';
 
 type Field<T> = [T, Dispatch<SetStateAction<T>>];
 
@@ -355,24 +356,29 @@ export default function UsersPage() {
 
         <div className="p-5 md:p-6">
           {loadFailed && users.length === 0 ? (
-            <div className="flex flex-col items-center rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
-              <AlertTriangle className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-              <h3 className="text-base font-semibold">{t('users.error.title')}</h3>
-              <p className="mt-1 max-w-sm text-sm text-muted-foreground">{t('users.toast.loadFailed')}</p>
-              <Button variant="outline" className="mt-6" onClick={() => void fetchUsers()}>
-                {t('common.retry')}
-              </Button>
-            </div>
+            <EmptyState
+              icon={AlertTriangle}
+              tone="error"
+              title={t('users.error.title')}
+              description={t('users.toast.loadFailed')}
+              action={
+                <Button variant="outline" onClick={() => void fetchUsers()}>
+                  {t('common.retry')}
+                </Button>
+              }
+            />
           ) : users.length === 0 ? (
-            <div className="flex flex-col items-center rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
-              <UsersIcon className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-              <h3 className="text-base font-semibold">{t('users.empty.title')}</h3>
-              <p className="mt-1 max-w-sm text-sm text-muted-foreground">{t('users.empty.description')}</p>
-              <Button className="mt-6" onClick={() => setIsAddUserDialogOpen(true)}>
-                <Plus aria-hidden="true" />
-                {t('users.addUser')}
-              </Button>
-            </div>
+            <EmptyState
+              icon={UsersIcon}
+              title={t('users.empty.title')}
+              description={t('users.empty.description')}
+              action={
+                <Button onClick={() => setIsAddUserDialogOpen(true)}>
+                  <Plus aria-hidden="true" />
+                  {t('users.addUser')}
+                </Button>
+              }
+            />
           ) : (
             <>
               {/* Phones and tablets (the sidebar leaves too little room for the table): stacked rows. */}
@@ -477,10 +483,7 @@ export default function UsersPage() {
                 ))}
               </ul>
             ) : (
-              <div className="flex flex-col items-center rounded-xl border border-dashed border-border/60 px-6 py-10 text-center">
-                <ServerIcon className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-                <p className="text-sm text-muted-foreground">{t('users.serversDialog.noServers')}</p>
-              </div>
+              <EmptyState icon={ServerIcon} size="sm" as="p" title={t('users.serversDialog.noServers')} />
             )}
           </div>
           <DialogFooter>

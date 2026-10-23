@@ -26,7 +26,7 @@ class ErrorBoundary extends React.Component<
         this.state = { hasError: false, errorMsg: '', errorStack: '' };
     }
     static getDerivedStateFromError(error: any) {
-        return { hasError: true, errorMsg: String(error?.message || error || 'Unknown error'), errorStack: String(error?.stack || '') };
+        return { hasError: true, errorMsg: String(error?.message || error || ''), errorStack: String(error?.stack || '') };
     }
     componentDidCatch(error: any, errorInfo: any) {
         console.error("[Stepper Error Boundary] Caught:", error);
@@ -39,7 +39,7 @@ class ErrorBoundary extends React.Component<
                 <div className="rounded-xl border border-dashed border-destructive/40 px-6 py-10 text-center">
                     <ShieldAlert className="mx-auto mb-3 h-6 w-6 text-destructive-bright" aria-hidden="true" />
                     <h3 className="mb-2 text-base font-semibold">{t('servers.create.renderError')}</h3>
-                    <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-border/60 bg-background/40 p-3 text-left font-mono text-xs text-muted-foreground">{this.state.errorMsg}{"\n\n"}{this.state.errorStack.slice(0, 500)}</pre>
+                    <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-border/60 bg-background/40 p-3 text-left font-mono text-xs text-muted-foreground">{this.state.errorMsg || t('servers.create.unknownError')}{"\n\n"}{this.state.errorStack.slice(0, 500)}</pre>
                     <div className="mt-4 flex justify-center gap-2">
                         <Button variant="outline" size="sm" onClick={() => this.setState({ hasError: false, errorMsg: '', errorStack: '' })}>{t('common.retry')}</Button>
                         <Button variant="outline" size="sm" onClick={() => window.location.reload()}>{t('servers.create.reload')}</Button>
@@ -587,7 +587,7 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
                 return;
             }
             if (!templateDetails && !templateError) {
-                sileo.success({ title: t('servers.create.templateLoadingTitle'), description: t('servers.create.templateLoadingDescription') });
+                sileo.info({ title: t('servers.create.templateLoadingTitle'), description: t('servers.create.templateLoadingDescription') });
                 return;
             }
             setCurrentStep(3);
