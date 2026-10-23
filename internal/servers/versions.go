@@ -103,7 +103,8 @@ func (p *Server) versionState() *versionChange {
 // GameVersions describes the version picker for this server
 func (p *Server) GameVersions() (VersionInfo, error) {
 	platform, variable, ok := p.versionTarget()
-	if !ok {
+	// a modpack fixes the game version: changing it would break the pack
+	if !ok || p.modpackLocked() {
 		return VersionInfo{}, ErrNoVersionSwitch
 	}
 	versions, err := availableVersions(platform)
@@ -128,7 +129,7 @@ func (p *Server) GameVersions() (VersionInfo, error) {
 // each step
 func (p *Server) ChangeVersion(target string) error {
 	platform, variable, ok := p.versionTarget()
-	if !ok {
+	if !ok || p.modpackLocked() {
 		return ErrNoVersionSwitch
 	}
 	versions, err := availableVersions(platform)

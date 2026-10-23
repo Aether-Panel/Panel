@@ -26,6 +26,7 @@ const (
 	RestoreReasonPlugin  = "plugin"
 	RestoreReasonVersion = "version"
 	RestoreReasonRestore = "restore"
+	RestoreReasonModpack = "modpack"
 )
 
 // keepRestorePoints is how many restore points a server keeps

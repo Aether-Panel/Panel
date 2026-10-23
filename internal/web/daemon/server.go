@@ -132,6 +132,11 @@ func RegisterServerRoutes(e *gin.RouterGroup) {
 		l.POST("/:serverId/plugins/:pluginId", middleware.ResolveServerNode, installPlugin)
 		l.OPTIONS("/:serverId/plugins/:pluginId", response.CreateOptions("POST"))
 
+		registerModpackRoutes(l)
+		registerWorldMapRoutes(l)
+		registerFileHistoryRoutes(l)
+		registerCloneRoutes(l)
+
 		p := l.Group("/:serverId/socket")
 		{
 			p.GET("", middleware.ResolveServerNode, cors.New(cors.Config{
@@ -793,6 +798,9 @@ func putFile(c *gin.Context) {
 	if err := server.GetFileServer().MkdirAll(parentDir, 0755); response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
+
+	// keep the text being replaced, so a config edit can be compared and undone
+	recordFileVersion(server, targetPath)
 
 	file, err := server.GetFileServer().OpenFile(targetPath, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0644)
 	defer utils.Close(file)

@@ -26,10 +26,10 @@ const ServerActivityMaxLimit = 100
 var ServerActivityFamilies = map[string][]string{
 	"power":    {"server.start", "server.stop", "server.restart", "server.kill", "server.install", "server.reload"},
 	"console":  {"console.*"},
-	"files":    {"file.*", "plugin.*"},
+	"files":    {"file.*", "plugin.*", "modpack.*", "map.*"},
 	"backups":  {"backup.*"},
 	"users":    {"user.*"},
-	"settings": {"settings.*", "server.rename", "server.suspend", "server.unsuspend", "server.transfer", "server.create", "server.change", "extransfer.*"},
+	"settings": {"settings.*", "server.rename", "server.suspend", "server.unsuspend", "server.transfer", "server.create", "server.change", "server.clone", "extransfer.*"},
 	"tasks":    {"task.*"},
 }
 

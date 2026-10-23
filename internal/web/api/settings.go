@@ -556,6 +556,8 @@ var editableStringEntries = []config.StringEntry{
 	config.MasterURL,
 	config.NodeIP,
 	config.GeminiAPIKey,
+	// the node's key for CurseForge modpacks (on remote nodes it is set in their own config)
+	config.CurseForgeKey,
 	config.DiscordWebhook,
 	config.DiscordWebhookSystem,
 	config.DiscordWebhookNode,

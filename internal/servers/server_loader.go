@@ -242,10 +242,15 @@ func Delete(id string) (err error) {
 	}
 	// the server's tasks, crash reports and notification settings go with it
 	forgetMetrics(safeID)
-	for _, ext := range []string{".cron", ".crashes", ".notify", ".metrics"} {
+	for _, ext := range []string{".cron", ".crashes", ".notify", ".metrics", ".worldmap"} {
 		if err := os.Remove(filepath.Join(config.ServersFolder.Value(), safeID+ext)); err != nil && !os.IsNotExist(err) {
 			logging.Error.Printf("Error removing %s for server %s: %s", ext, safeID, err)
 		}
+	}
+	ForgetModpack(safeID)
+	// the saved versions of its files are a folder, not a single file
+	if err := DeleteFileHistory(safeID); err != nil {
+		logging.Error.Printf("Error removing the file history of server %s: %s", safeID, err)
 	}
 	removeFromCache(id)
 	return

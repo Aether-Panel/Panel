@@ -28,43 +28,48 @@ const activityBodyPeek = 64 * 1024
 // serverActivityRoutes maps a mutating route below /:serverId to its action key. Routes left
 // out fall back to "server.change"; routes in serverActivityIgnored are never recorded.
 var serverActivityRoutes = map[string]string{
-	"PUT ":                           "server.create",
-	"DELETE ":                        "server.delete",
-	"POST /suspend":                  "server.suspend",
-	"PUT /name/:name":                "server.rename",
-	"POST /start":                    "server.start",
-	"POST /stop":                     "server.stop",
-	"POST /restart":                  "server.restart",
-	"POST /kill":                     "server.kill",
-	"POST /install":                  "server.install",
-	"POST /reload":                   "server.reload",
-	"POST /transfer":                 "server.transfer",
-	"POST /console":                  "console.command",
-	"PUT /file/*filename":            "file.write",
-	"POST /file/*filename":           "file.rename",
-	"DELETE /file/*filename":         "file.delete",
-	"POST /archive/*filename":        "file.archive",
-	"POST /extract/*filename":        "file.extract",
-	"POST /plugins/:pluginId":        "plugin.install",
-	"DELETE /plugins":                "plugin.delete",
-	"POST /backup/create":            "backup.create",
-	"POST /backup/restore/:backupID": "backup.restore",
-	"DELETE /backup/:backupID":       "backup.delete",
-	"PUT /user/:email":               "user.edit",
-	"DELETE /user/:email":            "user.remove",
-	"POST /data":                     "settings.data",
-	"PUT /data":                      "settings.data",
-	"PUT /port-settings":             "settings.ports",
-	"PUT /definition":                "settings.definition",
-	"POST /flags":                    "settings.flags",
-	"PUT /notifications":             "settings.notifications",
-	"PUT /tasks/:taskId":             "task.save",
-	"DELETE /tasks/:taskId":          "task.delete",
-	"POST /tasks/:taskId/run":        "task.run",
-	"POST /extransfer/create":        "extransfer.create",
-	"POST /extransfer/pull":          "extransfer.pull",
-	"POST /extransfer/cancel":        "extransfer.cancel",
-	"POST /version":                  "server.version",
+	"PUT ":                                  "server.create",
+	"DELETE ":                               "server.delete",
+	"POST /suspend":                         "server.suspend",
+	"PUT /name/:name":                       "server.rename",
+	"POST /start":                           "server.start",
+	"POST /stop":                            "server.stop",
+	"POST /restart":                         "server.restart",
+	"POST /kill":                            "server.kill",
+	"POST /install":                         "server.install",
+	"POST /reload":                          "server.reload",
+	"POST /transfer":                        "server.transfer",
+	"POST /console":                         "console.command",
+	"PUT /file/*filename":                   "file.write",
+	"POST /file/*filename":                  "file.rename",
+	"DELETE /file/*filename":                "file.delete",
+	"POST /archive/*filename":               "file.archive",
+	"POST /extract/*filename":               "file.extract",
+	"POST /plugins/:pluginId":               "plugin.install",
+	"DELETE /plugins":                       "plugin.delete",
+	"POST /backup/create":                   "backup.create",
+	"POST /backup/restore/:backupID":        "backup.restore",
+	"DELETE /backup/:backupID":              "backup.delete",
+	"PUT /user/:email":                      "user.edit",
+	"DELETE /user/:email":                   "user.remove",
+	"POST /data":                            "settings.data",
+	"PUT /data":                             "settings.data",
+	"PUT /port-settings":                    "settings.ports",
+	"PUT /definition":                       "settings.definition",
+	"POST /flags":                           "settings.flags",
+	"PUT /notifications":                    "settings.notifications",
+	"PUT /tasks/:taskId":                    "task.save",
+	"DELETE /tasks/:taskId":                 "task.delete",
+	"POST /tasks/:taskId/run":               "task.run",
+	"POST /extransfer/create":               "extransfer.create",
+	"POST /extransfer/pull":                 "extransfer.pull",
+	"POST /extransfer/cancel":               "extransfer.cancel",
+	"POST /version":                         "server.version",
+	"POST /modpacks/install":                "modpack.install",
+	"POST /map/install":                     "map.install",
+	"DELETE /map":                           "map.remove",
+	"POST /file-history/:versionId/restore": "file.restore",
+	"POST /clone":                           "server.clone",
 }
 
 // serverActivityIgnored are POSTs that change nothing on the server
@@ -85,6 +90,8 @@ type activityCapture struct {
 	version    string
 	backupName string
 	userExists bool
+	// label is the readable name a request carries for the log (a modpack, a map, a clone)
+	label string
 }
 
 // recordServerActivity writes successful changes made below /:serverId to that server's
@@ -198,6 +205,13 @@ func captureServerActivity(c *gin.Context, route string) activityCapture {
 		if json.Unmarshal(peekRequestBody(c, activityBodyPeek), &body) == nil {
 			capture.version = services.TruncateRunes(strings.TrimSpace(body.Version), 40)
 		}
+	case "POST /modpacks/install", "POST /map/install", "POST /clone":
+		var body struct {
+			Label string `json:"label"`
+		}
+		if json.Unmarshal(peekRequestBody(c, activityBodyPeek), &body) == nil {
+			capture.label = services.TruncateRunes(strings.TrimSpace(body.Label), 80)
+		}
 	case "POST /backup/restore/:backupID", "DELETE /backup/:backupID":
 		if db == nil {
 			break
@@ -264,6 +278,10 @@ func describeServerActivity(c *gin.Context, route string, capture activityCaptur
 		return action, capture.command
 	case "server.version":
 		return action, capture.version
+	case "modpack.install", "map.install", "server.clone":
+		return action, capture.label
+	case "file.restore":
+		return action, c.Query("path")
 	case "file.write":
 		if _, folder := c.GetQuery("folder"); folder {
 			return "file.mkdir", filename

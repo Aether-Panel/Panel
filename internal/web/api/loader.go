@@ -39,6 +39,8 @@ func RegisterRoutes(rg *gin.RouterGroup) {
 	registerProducts(rg.Group("/provision/products"))
 
 	RegisterExTransferRoutes(publicRg.Group("/extransfer")) // External federated transfers
+	// the world map viewer is loaded by an iframe with a signed link instead of the session
+	registerWorldMapViewer(publicRg.Group("/map-view"))
 
 	v1 := publicRg.Group("/v1")
 	v1.Use(middleware.APIKeyAuthMiddleware)

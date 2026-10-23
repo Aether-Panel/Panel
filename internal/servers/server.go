@@ -866,6 +866,12 @@ func (p *Server) Start() error {
 		return err
 	}
 
+	// a world map writes its config on first start; fix the port and download consent then,
+	// whether or not someone has the map tab open
+	if p.installedWorldMap() != nil {
+		p.ensureMapConfigured()
+	}
+
 	// keepalive!
 	if p.KeepAlive.Frequency != "" && p.KeepAlive.Command != "" {
 		dur, err := time.ParseDuration(p.KeepAlive.Frequency)

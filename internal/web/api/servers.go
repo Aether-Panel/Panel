@@ -38,6 +38,10 @@ func registerServers(g *gin.RouterGroup) {
 	g.Use(recordServerActivity)
 	registerServerActivity(g)
 	registerServerDNS(g)
+	registerServerModpacks(g)
+	registerServerWorldMap(g)
+	registerServerFileHistory(g)
+	registerServerClone(g)
 
 	g.Handle("GET", "", searchServers)
 	g.Handle("OPTIONS", "", response.CreateOptions("GET"))
