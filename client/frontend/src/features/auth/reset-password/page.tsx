@@ -1,35 +1,39 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
 import { sileo } from '@/lib/toast';
-import { Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import { CircleCheck, Loader2, Lock, TriangleAlert } from 'lucide-react';
+import { AuthFrame, AuthInput, AuthNotice, authLabelClass, authLinkClass, authMessageClass } from '@/components/AuthShell';
 
-const formSchema = z
-  .object({
-    password: z.string().min(8, { message: 'Password must be at least 8 characters.' }),
-    confirmPassword: z.string(),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: 'Passwords do not match.',
-    path: ['confirmPassword'],
-  });
+/** Same rules as before; only the messages now follow the active language. */
+const createFormSchema = (t: (key: string) => string) =>
+  z
+    .object({
+      password: z.string().min(8, { message: t('auth.validation.passwordMin') }),
+      confirmPassword: z.string(),
+    })
+    .refine((data) => data.password === data.confirmPassword, {
+      message: t('auth.validation.passwordMismatch'),
+      path: ['confirmPassword'],
+    });
 
-const inputClass =
-  'px-3 py-2.5 text-sm text-foreground rounded-lg bg-background border border-input placeholder:text-muted-foreground/60 focus:border-primary focus:ring-1 focus:ring-primary/20 focus:ring-0';
+type ResetValues = z.infer<ReturnType<typeof createFormSchema>>;
 
 export default function ResetPasswordPage() {
+  const { t } = useTranslations();
   const [token] = useState(() => new URLSearchParams(window.location.search).get('token') || '');
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const formSchema = useMemo(() => createFormSchema(t), [t]);
+  const form = useForm<ResetValues>({
     resolver: zodResolver(formSchema as any),
     defaultValues: {
       password: '',
@@ -37,124 +41,97 @@ export default function ResetPasswordPage() {
     },
   });
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: ResetValues) {
     setLoading(true);
     try {
       await api.post('/auth/reset-password', { token, password: values.password });
       setDone(true);
     } catch (e: any) {
-      sileo.error({ title: 'Error', description: e.message || 'Unable to reset your password.' });
+      sileo.error({ title: t('common.error'), description: e.message || t('auth.reset.errorFallback') });
     } finally {
       setLoading(false);
     }
   }
 
+  const showForm = !done && Boolean(token);
+
   return (
-    <main className="md:min-h-screen flex items-center justify-center py-4 px-4 md:px-8 bg-background">
-      <div className="w-full max-w-5xl bg-card [box-shadow:0_4px_20px_-4px_rgba(0,0,0,0.4)] rounded-2xl overflow-hidden border border-border/60">
-        <div className="grid items-center w-full gap-0 md:grid-cols-2">
-          <div className="relative md:aspect-[8/10] w-full h-full overflow-hidden">
-            <img
-              src="/img/Fondos/minecraft-shaders-anime-hd-wallpaper-preview.jpg"
-              className="h-full w-full object-cover"
-              alt=""
-            />
-            <div className="absolute inset-0 flex items-end justify-center">
-              <div className="w-full bg-gradient-to-t from-black/70 via-black/50 to-transparent absolute bottom-0 p-6 max-md:hidden">
-                <h2 className="text-white text-2xl font-semibold">Create a new password</h2>
-                <p className="text-slate-200 text-base font-medium mt-4 leading-relaxed">
-                  Choose a strong password that you haven&apos;t used on this account before.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="py-6 px-6 lg:px-8">
-            <div className="max-w-md mx-auto w-full">
-              <h1 className="text-foreground text-3xl font-bold mb-4">Reset password</h1>
-
-              {done ? (
-                <div className="space-y-6">
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    Your password has been reset successfully. You can now sign in with your new password.
-                  </p>
-                  <Button
-                    type="button"
-                    onClick={() => (window.location.href = '/login')}
-                    className="w-full py-2 px-3.5 text-sm rounded-lg font-semibold cursor-pointer text-primary-foreground bg-primary hover:bg-primary/90 transition-all duration-200 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary h-auto shadow-sm shadow-primary/20"
-                  >
-                    Sign in
-                  </Button>
-                </div>
-              ) : !token ? (
-                <div className="space-y-6">
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    This link is missing the reset token. Please use the link you received in your email.
-                  </p>
-                  <Button
-                    type="button"
-                    onClick={() => (window.location.href = '/forgot-password')}
-                    className="w-full py-2 px-3.5 text-sm rounded-lg font-semibold cursor-pointer text-primary-foreground bg-primary hover:bg-primary/90 transition-all duration-200 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary h-auto shadow-sm shadow-primary/20"
-                  >
-                    Request a new link
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
-                    Enter a new password for your account.
-                  </p>
-
-                  <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                      <FormField
-                        control={form.control}
-                        name="password"
-                        render={({ field }) => (
-                          <FormItem>
-                            <label htmlFor="password" className="mb-2 text-foreground font-medium text-sm inline-block">
-                              New Password
-                            </label>
-                            <FormControl>
-                              <Input {...field} id="password" type="password" placeholder="••••••••" className={inputClass} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="confirmPassword"
-                        render={({ field }) => (
-                          <FormItem>
-                            <label htmlFor="confirmPassword" className="mb-2 text-foreground font-medium text-sm inline-block">
-                              Confirm New Password
-                            </label>
-                            <FormControl>
-                              <Input {...field} id="confirmPassword" type="password" placeholder="••••••••" className={inputClass} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <Button
-                        type="submit"
-                        className="w-full py-2 px-3.5 text-sm rounded-lg font-semibold cursor-pointer text-primary-foreground bg-primary hover:bg-primary/90 transition-all duration-200 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary h-auto shadow-sm shadow-primary/20"
-                        disabled={loading}
-                      >
-                        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Reset password
-                      </Button>
-                    </form>
-                  </Form>
-                </>
-              )}
-            </div>
-          </div>
+    <AuthFrame
+      title={t('auth.reset.title')}
+      description={showForm ? t('auth.reset.description') : undefined}
+      artTitle={t('auth.reset.artTitle')}
+      artDescription={t('auth.reset.artDescription')}
+      footer={
+        done ? null : (
+          <>
+            {t('auth.forgot.remembered')}{' '}
+            <a href="/login" className={authLinkClass}>
+              {t('auth.links.signIn')}
+            </a>
+          </>
+        )
+      }
+    >
+      {done ? (
+        <div className="space-y-6">
+          <AuthNotice icon={CircleCheck} tone="success">
+            {t('auth.reset.done')}
+          </AuthNotice>
+          <Button type="button" onClick={() => (window.location.href = '/login')} className="h-11 w-full font-semibold">
+            {t('auth.links.goToSignIn')}
+          </Button>
         </div>
-      </div>
-    </main>
+      ) : !token ? (
+        <div className="space-y-6">
+          <AuthNotice icon={TriangleAlert} tone="warning">
+            {t('auth.reset.missingToken')}
+          </AuthNotice>
+          <Button
+            type="button"
+            onClick={() => (window.location.href = '/forgot-password')}
+            className="h-11 w-full font-semibold"
+          >
+            {t('auth.reset.requestNew')}
+          </Button>
+        </div>
+      ) : (
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="space-y-5">
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className={authLabelClass}>{t('auth.fields.newPassword')}</FormLabel>
+                  <FormControl>
+                    <AuthInput {...field} icon={Lock} type="password" autoComplete="new-password" placeholder="••••••••" />
+                  </FormControl>
+                  <FormMessage className={authMessageClass} />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="confirmPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className={authLabelClass}>{t('auth.fields.confirmNewPassword')}</FormLabel>
+                  <FormControl>
+                    <AuthInput {...field} icon={Lock} type="password" autoComplete="new-password" placeholder="••••••••" />
+                  </FormControl>
+                  <FormMessage className={authMessageClass} />
+                </FormItem>
+              )}
+            />
+
+            <Button type="submit" className="h-11 w-full font-semibold" disabled={loading}>
+              {loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+              {t('auth.reset.submit')}
+            </Button>
+          </form>
+        </Form>
+      )}
+    </AuthFrame>
   );
 }

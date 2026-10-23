@@ -106,6 +106,8 @@ func checkPermission(c *gin.Context, perm *scopes.Scope) bool {
 	}
 
 	perms = append(perms, p)
+	// a stored permission row for this server is what grants the user access to it
+	serverMember := serverID != "" && p.ID != 0
 	if serverID != "" {
 		// if we had a server, also grab global scopes
 		p, err = ps.GetForUserAndServer(user.ID, "")
@@ -115,12 +117,10 @@ func checkPermission(c *gin.Context, perm *scopes.Scope) bool {
 		perms = append(perms, p)
 	}
 
-	allScopes := make([]*scopes.Scope, 0)
-
 	// Check role-based permissions first (Global Roles)
+	var role *models.Role
 	if user.RoleID != nil {
 		// Use preloaded role if available and correct
-		var role *models.Role
 		if user.Role.ID == *user.RoleID {
 			role = &user.Role
 		} else {
@@ -133,18 +133,12 @@ func checkPermission(c *gin.Context, perm *scopes.Scope) bool {
 			if user.Role.ID == 0 {
 				user.Role = *role
 			}
-			for _, s := range role.Scopes {
-				scopeObj := scopes.GetScope(s)
-				allScopes = scopes.AddScope(allScopes, scopeObj)
-			}
+		} else {
+			role = nil
 		}
 	}
 
-	for _, p := range perms {
-		for _, s := range p.Scopes {
-			allScopes = scopes.AddScope(allScopes, s)
-		}
-	}
+	allScopes := collectScopes(role, perms, serverID, serverMember)
 
 	allowed := scopes.ContainsScope(allScopes, perm)
 	if allowed {
@@ -155,6 +149,31 @@ func checkPermission(c *gin.Context, perm *scopes.Scope) bool {
 	}
 
 	return allowed
+}
+
+// collectScopes merges the scopes from the user's role and permission rows. A role applies
+// panel-wide, so its server scopes only count on servers the user was given access to;
+// otherwise every user with the role could operate every server on the panel.
+func collectScopes(role *models.Role, perms []*models.Permissions, serverID string, serverMember bool) []*scopes.Scope {
+	allScopes := make([]*scopes.Scope, 0)
+
+	if role != nil {
+		for _, s := range role.Scopes {
+			scopeObj := scopes.GetScope(s)
+			if scopeObj.ForServer && serverID != "" && !serverMember {
+				continue
+			}
+			allScopes = scopes.AddScope(allScopes, scopeObj)
+		}
+	}
+
+	for _, p := range perms {
+		for _, s := range p.Scopes {
+			allScopes = scopes.AddScope(allScopes, s)
+		}
+	}
+
+	return allScopes
 }
 
 func GetToken(c *gin.Context) string {

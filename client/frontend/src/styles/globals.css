@@ -2,84 +2,221 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Geist and Geist Mono variable fonts, served by the panel (licence: public/fonts/Geist-OFL.txt) */
+@font-face {
+  font-family: 'Geist';
+  src: url('/fonts/Geist.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('/fonts/GeistMono.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/*
+  Aether Panel is dark-only: `:root` and `.dark` are intentionally
+  byte-identical, so every token below is declared twice on purpose.
+  Keep both blocks in sync when adding a token.
+
+  Every token is an HSL triple (`H S% L%`) consumed as `hsl(var(--token))`
+  from `tailwind.config.ts`. Components must style with those utilities,
+  never with hex values.
+
+  Surface ladder (never pure black — three stacked navy levels, L0 → L3):
+
+    L0  --background        222 30%  9%   #10141e  page canvas
+    L1  --surface-1         222 26% 13%   #191e2a  sidebar, top bar, drawers
+    L2  --surface-2         222 24% 18%   #232939  cards, tables, forms
+    L3  --surface-3         222 22% 24%   #30384b  popovers, dropdowns, hover rows
+
+    `--card` mirrors L2 and `--popover` mirrors L3, so the ladder and the
+    component tokens can never drift apart. Level steps measure 1.16–1.32:1
+    between neighbours (a flat-area step, not a text contrast) and every
+    boundary is drawn with `border-border/60` at 1.5–1.7:1.
+
+  Contrast budget (WCAG AA, measured with alpha compositing):
+
+    foreground / background ............ 16.7:1
+    foreground / card .................. 13.2:1
+    muted-foreground / card .............  7.1:1  (fails nothing, down to 5.3:1 on --accent)
+    primary-foreground / primary .......  6.0:1  (filled button labels — dark ink)
+    primary / background ...............  5.9:1  (links, icons on the canvas)
+    primary / card .....................  4.6:1  (accent text on panels)
+    primary / (primary/10 chip) ........  4.6:1  via --primary-bright
+    destructive / card .................  5.2:1
+    destructive / (destructive/10) .....  4.6:1  via --destructive-bright
+    success / card ......................  7.6:1
+    warning / card ......................  7.3:1
+
+  Bright accents carry dark ink: white on a 58% azure is only 3.1:1, ink is
+  6.0:1, so `--*-foreground` on the semantic fills is ink across the board.
+*/
+
 @layer base {
   :root {
-    --background: 225 25% 5%;
-    --foreground: 210 18% 95%;
-    --card: 224 22% 9%;
-    --card-foreground: 210 18% 95%;
-    --popover: 224 22% 9%;
-    --popover-foreground: 210 18% 95%;
-    --primary: 220 85% 62%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 223 18% 12%;
-    --secondary-foreground: 210 18% 92%;
-    --muted: 222 16% 11%;
-    --muted-foreground: 215 10% 60%;
-    --accent: 224 20% 15%;
-    --accent-foreground: 210 18% 95%;
-    --destructive: 0 72% 55%;
-    --destructive-foreground: 0 0% 100%;
-    --success: 152 60% 48%;
-    --success-foreground: 0 0% 100%;
-    --warning: 38 85% 55%;
-    --warning-foreground: 0 0% 100%;
-    --border: 222 18% 18%;
-    --input: 222 18% 18%;
-    --ring: 220 85% 62%;
+    /* L0 — canvas: deep navy, deliberately not black. */
+    --background: 222 30% 9%;
+    --foreground: 213 30% 96%;
+
+    /* The three-level surface ladder (see the header comment). */
+    --surface-1: 222 26% 13%;
+    --surface-2: 222 24% 18%;
+    --surface-3: 222 22% 24%;
+
+    /* Panels: `--card` is L2, `--popover` is L3. */
+    --card: 222 24% 18%;
+    --card-foreground: 213 30% 96%;
+    --popover: 222 22% 24%;
+    --popover-foreground: 213 30% 96%;
+
+    /* Electric azure accent. `-foreground` is dark ink: white on this azure
+       is only 3.1:1, the ink is 6.0:1. */
+    --primary: 210 95% 58%;
+    --primary-foreground: 222 45% 8%;
+    --glow: 210 95% 58%;
+
+    --secondary: 222 22% 24%;
+    --secondary-foreground: 213 28% 95%;
+    --muted: 222 22% 21%;
+    --muted-foreground: 213 18% 72%;
+    --accent: 222 22% 26%;
+    --accent-foreground: 213 30% 96%;
+
+    /* Semantic accents: bright fills with ink labels, so `text-success`
+       stays readable on the panels and `bg-success` stays readable for a
+       label sitting on it. */
+    --destructive: 2 88% 70%;
+    --destructive-foreground: 222 45% 8%;
+    --success: 158 72% 52%;
+    --success-foreground: 222 45% 8%;
+    --warning: 38 96% 58%;
+    --warning-foreground: 40 45% 10%;
+
+    /* Small-text accents for tinted chips and badges: filling a chip with its
+       own accent (`bg-primary/10`) lifts the chip surface, so chip text uses
+       the brighter pair, which clears 4.5:1 on every surface of the ladder. */
+    --primary-bright: 210 95% 72%;
+    --destructive-bright: 2 88% 78%;
+
+    /* Crisp hairlines: visible as a real line, never a muddy smear. */
+    --border: 222 18% 36%;
+    --input: 222 18% 36%;
+    --ring: 210 95% 58%;
+
+    /* Elevation + glow shadows live here so the whole depth system stays
+       themeable; `tailwind.config.ts` only maps them to utility names. */
+    --shadow-color: 222 45% 4%;
+    --shadow-elevation-1: 0 1px 2px 0 hsl(var(--shadow-color) / 0.5);
+    --shadow-elevation-2: 0 6px 18px -6px hsl(var(--shadow-color) / 0.65);
+    --shadow-elevation-3: 0 20px 48px -14px hsl(var(--shadow-color) / 0.8);
+    --shadow-glow-sm: 0 0 0 1px hsl(var(--glow) / 0.3), 0 6px 18px -8px hsl(var(--glow) / 0.45);
+    --shadow-glow: 0 0 28px -6px hsl(var(--glow) / 0.5);
+    --shadow-glow-destructive: 0 0 0 1px hsl(var(--destructive) / 0.3), 0 6px 18px -8px hsl(var(--destructive) / 0.45);
+
     --radius: 0.625rem;
-    --chart-1: 220 85% 62%;
-    --chart-2: 172 65% 52%;
-    --chart-3: 250 42% 60%;
-    --chart-4: 218 55% 55%;
-    --chart-5: 188 58% 50%;
-    --sidebar-background: 225 28% 4%;
-    --sidebar-foreground: 210 18% 95%;
-    --sidebar-primary: 220 85% 62%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 224 20% 10%;
-    --sidebar-accent-foreground: 210 18% 95%;
-    --sidebar-border: 222 18% 16%;
-    --sidebar-ring: 220 85% 62%;
+
+    /* Data viz palette: vivid, every step clears 3:1 on the panel surfaces. */
+    --chart-1: 217 91% 58%;
+    --chart-2: 172 72% 50%;
+    --chart-3: 258 78% 66%;
+    --chart-4: 199 89% 55%;
+    --chart-5: 43 96% 58%;
+
+    /* Navigation rail: L1, one step above the canvas. */
+    --sidebar-background: 222 26% 13%;
+    --sidebar-foreground: 213 30% 96%;
+    --sidebar-primary: 210 95% 58%;
+    --sidebar-primary-foreground: 222 45% 8%;
+    --sidebar-accent: 222 24% 20%;
+    --sidebar-accent-foreground: 213 30% 96%;
+    --sidebar-border: 222 18% 36%;
+    --sidebar-ring: 210 95% 58%;
   }
 
   .dark {
-    --background: 225 25% 5%;
-    --foreground: 210 18% 95%;
-    --card: 224 22% 9%;
-    --card-foreground: 210 18% 95%;
-    --popover: 224 22% 9%;
-    --popover-foreground: 210 18% 95%;
-    --primary: 220 85% 62%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 223 18% 12%;
-    --secondary-foreground: 210 18% 92%;
-    --muted: 222 16% 11%;
-    --muted-foreground: 215 10% 60%;
-    --accent: 224 20% 15%;
-    --accent-foreground: 210 18% 95%;
-    --destructive: 0 72% 55%;
-    --destructive-foreground: 0 0% 100%;
-    --success: 152 60% 48%;
-    --success-foreground: 0 0% 100%;
-    --warning: 38 85% 55%;
-    --warning-foreground: 0 0% 100%;
-    --border: 222 18% 18%;
-    --input: 222 18% 18%;
-    --ring: 220 85% 62%;
-    --chart-1: 220 85% 62%;
-    --chart-2: 172 65% 52%;
-    --chart-3: 250 42% 60%;
-    --chart-4: 218 55% 55%;
-    --chart-5: 188 58% 50%;
-    --sidebar-background: 225 28% 4%;
-    --sidebar-foreground: 210 18% 95%;
-    --sidebar-primary: 220 85% 62%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 224 20% 10%;
-    --sidebar-accent-foreground: 210 18% 95%;
-    --sidebar-border: 222 18% 16%;
-    --sidebar-ring: 220 85% 62%;
+    /* L0 — canvas: deep navy, deliberately not black. */
+    --background: 222 30% 9%;
+    --foreground: 213 30% 96%;
+
+    /* The three-level surface ladder (see the header comment). */
+    --surface-1: 222 26% 13%;
+    --surface-2: 222 24% 18%;
+    --surface-3: 222 22% 24%;
+
+    /* Panels: `--card` is L2, `--popover` is L3. */
+    --card: 222 24% 18%;
+    --card-foreground: 213 30% 96%;
+    --popover: 222 22% 24%;
+    --popover-foreground: 213 30% 96%;
+
+    /* Electric azure accent. `-foreground` is dark ink: white on this azure
+       is only 3.1:1, the ink is 6.0:1. */
+    --primary: 210 95% 58%;
+    --primary-foreground: 222 45% 8%;
+    --glow: 210 95% 58%;
+
+    --secondary: 222 22% 24%;
+    --secondary-foreground: 213 28% 95%;
+    --muted: 222 22% 21%;
+    --muted-foreground: 213 18% 72%;
+    --accent: 222 22% 26%;
+    --accent-foreground: 213 30% 96%;
+
+    /* Semantic accents: bright fills with ink labels, so `text-success`
+       stays readable on the panels and `bg-success` stays readable for a
+       label sitting on it. */
+    --destructive: 2 88% 70%;
+    --destructive-foreground: 222 45% 8%;
+    --success: 158 72% 52%;
+    --success-foreground: 222 45% 8%;
+    --warning: 38 96% 58%;
+    --warning-foreground: 40 45% 10%;
+
+    /* Small-text accents for tinted chips and badges: filling a chip with its
+       own accent (`bg-primary/10`) lifts the chip surface, so chip text uses
+       the brighter pair, which clears 4.5:1 on every surface of the ladder. */
+    --primary-bright: 210 95% 72%;
+    --destructive-bright: 2 88% 78%;
+
+    /* Crisp hairlines: visible as a real line, never a muddy smear. */
+    --border: 222 18% 36%;
+    --input: 222 18% 36%;
+    --ring: 210 95% 58%;
+
+    /* Elevation + glow shadows live here so the whole depth system stays
+       themeable; `tailwind.config.ts` only maps them to utility names. */
+    --shadow-color: 222 45% 4%;
+    --shadow-elevation-1: 0 1px 2px 0 hsl(var(--shadow-color) / 0.5);
+    --shadow-elevation-2: 0 6px 18px -6px hsl(var(--shadow-color) / 0.65);
+    --shadow-elevation-3: 0 20px 48px -14px hsl(var(--shadow-color) / 0.8);
+    --shadow-glow-sm: 0 0 0 1px hsl(var(--glow) / 0.3), 0 6px 18px -8px hsl(var(--glow) / 0.45);
+    --shadow-glow: 0 0 28px -6px hsl(var(--glow) / 0.5);
+    --shadow-glow-destructive: 0 0 0 1px hsl(var(--destructive) / 0.3), 0 6px 18px -8px hsl(var(--destructive) / 0.45);
+
+    --radius: 0.625rem;
+
+    /* Data viz palette: vivid, every step clears 3:1 on the panel surfaces. */
+    --chart-1: 217 91% 58%;
+    --chart-2: 172 72% 50%;
+    --chart-3: 258 78% 66%;
+    --chart-4: 199 89% 55%;
+    --chart-5: 43 96% 58%;
+
+    /* Navigation rail: L1, one step above the canvas. */
+    --sidebar-background: 222 26% 13%;
+    --sidebar-foreground: 213 30% 96%;
+    --sidebar-primary: 210 95% 58%;
+    --sidebar-primary-foreground: 222 45% 8%;
+    --sidebar-accent: 222 24% 20%;
+    --sidebar-accent-foreground: 213 30% 96%;
+    --sidebar-border: 222 18% 36%;
+    --sidebar-ring: 210 95% 58%;
   }
 }
 
@@ -87,8 +224,33 @@
   * {
     @apply border-border;
   }
+  /* Browser-drawn surfaces follow the theme too: native controls render
+     dark, the caret and checkable inputs take the accent, and every
+     scrollbar is a thin neutral thumb instead of the OS default. */
+  html {
+    color-scheme: dark;
+    accent-color: hsl(var(--primary));
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--foreground) / 0.16) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background: hsl(var(--foreground) / 0.16) padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--foreground) / 0.28) padding-box;
+  }
   body {
     @apply bg-background text-foreground;
+    caret-color: hsl(var(--primary));
   }
   ::selection {
     background: hsl(var(--primary)/0.3);
@@ -103,6 +265,10 @@
 }
 
 @layer utilities {
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--foreground) / 0.12) transparent;
+  }
   .custom-scrollbar::-webkit-scrollbar {
     width: 5px;
     height: 5px;
@@ -131,14 +297,183 @@
     fill: hsl(var(--card));
   }
 
-  .text-gradient {
-    background: linear-gradient(135deg, hsl(var(--primary)), hsl(250 50% 65%));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+  /* Sileo title-cases every toast title ("Consola Conectada"); our copy is
+     sentence case, so show it as written. */
+  [data-sileo-viewport] [data-sileo-title] {
+    text-transform: none;
   }
 
+  /* Micro-interactions. `lift` is for raised, hoverable panels; `press` is
+     for click targets that also change elevation; `focus-ring` is the single
+     keyboard-focus recipe (2px ring + 2px offset on the page colour). */
   .focus-ring {
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+
+  .lift {
+    @apply transition-all duration-200 ease-panel hover:-translate-y-0.5 hover:shadow-elevation-2 motion-reduce:transition-none motion-reduce:hover:translate-y-0 motion-reduce:hover:shadow-elevation-1;
+  }
+
+  .press {
+    @apply transition-all duration-200 ease-panel active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100;
+  }
+}
+
+/* ===================================================================
+   Finish layer: light, grain and motion on top of the token system.
+   Restraint is the rule: everything stays quiet. Motion answers what the operator
+   does; ambient motion is slow enough to go unnoticed. Every effect
+   animates transform/opacity only and stops under `prefers-reduced-motion`.
+   =================================================================== */
+
+/* Fine grain over the whole app so the navy canvas never reads as a flat fill. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+}
+
+/* Backdrop (`<AmbientBackdrop />`), fixed behind the content column: the
+   panel's Minecraft artwork, blurred and dimmed, in a slow zoom under a
+   navy veil. */
+.ambient {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+}
+.ambient > * {
+  position: absolute;
+  display: block;
+}
+
+.backdrop-art {
+  inset: 0;
+  background: url("/img/Fondos/minecraft-shaders-anime-hd-wallpaper-preview.jpg") center / cover no-repeat;
+  filter: blur(14px) saturate(1.25) brightness(0.7);
+  transform: scale(1.15);
+  will-change: transform;
+  animation: backdrop-zoom 30s ease-in-out infinite alternate;
+}
+@keyframes backdrop-zoom {
+  from { transform: scale(1.15) translate3d(-1.5%, -1%, 0); }
+  to { transform: scale(1.28) translate3d(1.5%, 1.5%, 0); }
+}
+
+/* The veil keeps every surface readable: the art shows most at the top and
+   centre and closes to the canvas colour towards the bottom and edges. */
+.backdrop-veil {
+  inset: 0;
+  background:
+    linear-gradient(to bottom, hsl(var(--background) / 0.35), hsl(var(--background) / 0.75) 70%, hsl(var(--background) / 0.95)),
+    radial-gradient(80% 70% at 50% 30%, transparent, hsl(var(--background) / 0.6));
+}
+
+/* Panel surface: solid L2 with a 1px highlight on the top edge, so panels
+   read as machined objects rather than flat rectangles. In the components
+   layer so a `bg-*` or `shadow-*` utility on a Card still wins. */
+@layer components {
+  .surface-panel {
+    background-color: hsl(var(--card));
+    box-shadow:
+      inset 0 1px 0 0 hsl(var(--foreground) / 0.045),
+      var(--shadow-elevation-1);
+  }
+}
+
+/* Page entry: a short fade when a page mounts. Nothing staggers, nothing
+   blurs: operators move between pages all day. */
+.page-enter {
+  animation: page-fade 240ms ease-out both;
+}
+@keyframes page-fade { from { opacity: 0; } }
+
+/* Skeleton shimmer: a soft band of light travels across the placeholder. */
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.skeleton-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, hsl(var(--foreground) / 0.05), transparent);
+  animation: shimmer 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@keyframes shimmer { to { transform: translateX(100%); } }
+
+/* Meter fill: a solid bar whose start is slightly darker, so it reads as
+   filling towards the value. Grows in once on mount. */
+.meter-fill {
+  background-image: linear-gradient(90deg, hsl(var(--meter) / 0.7), hsl(var(--meter)));
+}
+.meter-grow {
+  animation: meter-grow 900ms cubic-bezier(0.22, 1, 0.36, 1) 120ms backwards;
+}
+@keyframes meter-grow { from { transform: translateX(-100%); } }
+
+/* Sign-in art drifts very slowly, so the welcome column feels alive. */
+.auth-art {
+  transform-origin: 30% 40%;
+  animation: auth-drift 40s ease-in-out infinite alternate;
+}
+@keyframes auth-drift {
+  from { transform: scale(1.02); }
+  to { transform: scale(1.08) translate3d(-1%, -0.6%, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient *,
+  .skeleton-shimmer::after,
+  .meter-grow,
+  .auth-art {
+    animation: none !important;
+  }
+}
+
+/* Dashboard fits one screen on desktop: the page takes the viewport height
+   below the top bar (4rem) minus the lg page padding (2 × 2rem), the bottom
+   row takes what is left and its contents shrink into it. Below 1280px wide
+   (the sidebar leaves under ~1000px of content, so the resource cards wrap to
+   two rows) or 640px tall, the dashboard keeps the normal scrolling layout. */
+@media (min-width: 1280px) and (min-height: 640px) {
+  .dash-fit {
+    height: calc(100svh - 8rem);
+    gap: 1rem;
+  }
+  .dash-fit [data-fit="fill"] {
+    flex: 1 1 0%;
+    min-height: 0;
+  }
+  .dash-fit [data-fit="fill"] > * {
+    min-height: 0;
+  }
+  .dash-fit [data-fit="chart"] {
+    height: 100%;
+    min-height: 0;
+    aspect-ratio: auto;
+  }
+  .dash-fit [data-fit="scroll"] {
+    flex: 1 1 0%;
+    min-height: 0;
+    overflow-y: auto;
+  }
+  /* Rows may stretch to fill the card, but only a little: on tall screens
+     they stay grouped at the top instead of drifting apart. */
+  .dash-fit [data-fit="scroll"] > li {
+    max-height: 4rem;
+  }
+}
+/* On short desktop screens the card descriptions give their height to the chart. */
+@media (min-width: 1280px) and (min-height: 640px) and (max-height: 820px) {
+  .dash-fit [data-fit="hide-short"] {
+    display: none;
   }
 }

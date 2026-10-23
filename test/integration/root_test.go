@@ -12,6 +12,9 @@ import (
 )
 
 func Test_getFeatures(t *testing.T) {
+	// disallowHost also blocks creating host servers, so later tests need it restored
+	previous := config.DockerDisallowHost.Value()
+	t.Cleanup(func() { _ = config.DockerDisallowHost.Set(previous, false) })
 
 	tests := []struct {
 		name       string

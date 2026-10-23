@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 func validateServerID(id string) (string, error) {
@@ -21,7 +22,8 @@ func validateServerID(id string) (string, error) {
 }
 
 var (
-	allServers = make([]*Server, 0)
+	allServers     = make([]*Server, 0)
+	allServersLock sync.RWMutex
 )
 
 func LoadFromFolder() {
@@ -47,12 +49,35 @@ func LoadFromFolder() {
 		}
 
 		logging.Info.Printf("Loaded server %s", program.ID())
-		allServers = append(allServers, program)
+		addToCache(program)
 	}
 }
 
+// GetAll returns a snapshot of the loaded servers, safe to range over while servers are
+// created or deleted
 func GetAll() []*Server {
-	return allServers
+	allServersLock.RLock()
+	defer allServersLock.RUnlock()
+	return append([]*Server(nil), allServers...)
+}
+
+func addToCache(server *Server) {
+	allServersLock.Lock()
+	defer allServersLock.Unlock()
+	allServers = append(allServers, server)
+}
+
+// removeFromCache drops the server by id; looking it up again matters because the list
+// may have changed while the server was being stopped
+func removeFromCache(id string) {
+	allServersLock.Lock()
+	defer allServersLock.Unlock()
+	for i, element := range allServers {
+		if element.ID() == id {
+			allServers = append(allServers[:i], allServers[i+1:]...)
+			return
+		}
+	}
 }
 
 func Load(id string) (program *Server, err error) {
@@ -173,20 +198,12 @@ func Create(program *Server) (server *Server, err error) {
 		return
 	}
 
-	allServers = append(allServers, server)
+	addToCache(server)
 	return
 }
 
 func Delete(id string) (err error) {
-	var index int
-	var program *Server
-	for i, element := range allServers {
-		if element.ID() == id {
-			program = element
-			index = i
-			break
-		}
-	}
+	program := GetFromCache(id)
 	if program == nil {
 		return
 	}
@@ -223,11 +240,13 @@ func Delete(id string) (err error) {
 	if err != nil {
 		logging.Error.Printf("Error removing server: %s", err)
 	}
-	allServers = append(allServers[:index], allServers[index+1:]...)
+	removeFromCache(id)
 	return
 }
 
 func GetFromCache(id string) *Server {
+	allServersLock.RLock()
+	defer allServersLock.RUnlock()
 	for _, element := range allServers {
 		if element != nil && element.ID() == id {
 			return element

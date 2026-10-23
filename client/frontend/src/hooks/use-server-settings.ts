@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api } from '@/lib/api-client';
+import { api, ApiError } from '@/lib/api-client';
 
 export type SettingVariable = {
     display: string;
@@ -191,35 +191,39 @@ function applyPropertiesToLines(lines: string[], propsToUpdate: Record<string, s
 }
 
 async function syncServerProperties(serverId: string, data: Record<string, any>) {
+    let content = '';
     try {
-        let content = '';
-        try {
-            content = await api.get(`/api/servers/${serverId}/file/server.properties`);
-        } catch (e) {
-            // If file doesn't exist, we'll start with empty
-        }
-
-        if (typeof content !== 'string') {
-            return;
-        }
-
-        const lines = content.split('\n');
-        const propsToUpdate: Record<string, string> = {};
-
-        if (data.motd !== undefined) propsToUpdate['motd'] = String(data.motd).replaceAll(/\n/g, '\\n');
-        if (data.ip !== undefined) propsToUpdate['server-ip'] = String(data.ip);
-        if (data.port !== undefined) propsToUpdate['server-port'] = String(data.port);
-
-        if (Object.keys(propsToUpdate).length === 0) return;
-
-        const updatedLines = applyPropertiesToLines(lines, propsToUpdate);
-
-        await fetch(`/api/servers/${serverId}/file/server.properties`, {
-            method: 'PUT',
-            body: updatedLines.join('\n'),
-            credentials: 'include'
-        });
+        content = await api.get(`/api/servers/${serverId}/file/server.properties`);
     } catch (e) {
-        console.warn('Failed to sync server.properties:', e);
+        // Only a missing file starts from empty; any other failure must not
+        // overwrite the existing server.properties with just these keys
+        if (!(e instanceof ApiError && e.status === 404)) throw e;
+    }
+
+    if (typeof content !== 'string') {
+        return;
+    }
+
+    const lines = content.split('\n');
+    const propsToUpdate: Record<string, string> = {};
+
+    if (data.motd !== undefined) propsToUpdate['motd'] = String(data.motd).replaceAll(/\n/g, '\\n');
+    if (data.ip !== undefined) propsToUpdate['server-ip'] = String(data.ip);
+    if (data.port !== undefined) propsToUpdate['server-port'] = String(data.port);
+
+    if (Object.keys(propsToUpdate).length === 0) return;
+
+    const updatedLines = applyPropertiesToLines(lines, propsToUpdate);
+
+    const res = await fetch(`/api/servers/${serverId}/file/server.properties`, {
+        method: 'PUT',
+        body: updatedLines.join('\n'),
+        credentials: 'include'
+    });
+    // fetch does not reject on HTTP errors; fail the save so the caller shows its error toast
+    if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const error = body?.error;
+        throw new ApiError(res.status, typeof error === 'string' ? error : error?.msg || res.statusText, body);
     }
 }

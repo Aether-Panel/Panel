@@ -13,6 +13,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/files"
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
+	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/internal/web/api"
 	"github.com/SkyPanel/SkyPanel/v3/internal/web/auth"
 	"github.com/SkyPanel/SkyPanel/v3/internal/web/daemon"
@@ -37,7 +38,9 @@ func RegisterRoutes(e *gin.Engine) {
 	corsConfig.AllowOriginFunc = func(_ string) bool {
 		return true
 	}
-	corsConfig.AllowCredentials = true
+	// Other sites may call the API with a bearer token, but never with the user's session
+	// cookie: the panel itself is same-origin and does not need CORS for that.
+	corsConfig.AllowCredentials = false
 	corsConfig.AddAllowHeaders("Authorization", "Content-Type", "Accept", "Origin")
 	corsConfig.AddAllowMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
 	e.Use(cors.New(corsConfig))
@@ -46,13 +49,15 @@ func RegisterRoutes(e *gin.Engine) {
 		middleware.Recover(c)
 	})
 
-	e.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, ginSwagger.DefaultModelsExpandDepth(0), ginSwagger.DeepLinking(false)))
-
 	if config.DaemonEnabled.Value() {
 		daemon.RegisterDaemonRoutes(e.Group("/daemon"))
 	}
 
 	if config.PanelEnabled.Value() {
+
+		// the API docs map every route, so only signed-in administrators can read them
+		e.GET("/swagger/*any", middleware.AuthMiddleware, middleware.RequiresPermission(scopes.ScopeAdmin),
+			ginSwagger.WrapHandler(swaggerFiles.Handler, ginSwagger.DefaultModelsExpandDepth(0), ginSwagger.DeepLinking(false)))
 
 		api.RegisterRoutes(e.Group("/api"))
 		oauth2.RegisterRoutes(e.Group("/oauth2"))

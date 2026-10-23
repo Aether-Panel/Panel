@@ -1,17 +1,21 @@
 'use client';
 import { useAuth } from '@/contexts/providers';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useConfig } from '@/contexts/config-context';
 import type { Server } from '@/lib/data';
-import { Activity, Cpu, Network, ServerIcon } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { AlertTriangle, Cpu, HardDrive, MemoryStick, ServerIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/page-header';
-import ResourceUsageChart from '@/components/resource-usage-chart';
-import NetworkUsageChart from '@/components/network-usage-chart';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useTranslations } from '@/contexts/translations-context';
 import { ServerCard } from '@/components/server-card';
-import { cn } from '@/lib/utils';
 import { useServers } from '@/hooks/use-servers';
 import { useNodes, useUsersCount, useGlobalNetworkMetrics } from '@/hooks/use-dashboard-data';
+import { useNetworkHistory } from '@/hooks/use-network-history';
+import { StatusStrip } from '@/features/dashboard/status-strip';
+import { KpiCard, usageTone } from '@/features/dashboard/kpi-card';
+import { PanelInfoCard } from '@/features/dashboard/panel-info-card';
+import { NetworkHistoryChart } from '@/features/dashboard/network-history-chart';
+import { AccessLog } from '@/features/dashboard/access-log';
 
 function calculateCpuUsage(nodeResources: any[], onlineServers: any[], onlineCount: number): number {
   if (nodeResources.length > 0) {
@@ -49,105 +53,108 @@ function calculateStorageUsage(nodeResources: any[], onlineServers: any[], onlin
   return 0;
 }
 
-type StatCardProps = {
-  label: string;
-  value: React.ReactNode;
-  icon: LucideIcon;
-  dot?: 'success' | 'destructive';
-};
-
-function StatCard({ label, value, icon: Icon, dot }: StatCardProps) {
-  return (
-    <div className="flex flex-col gap-3 rounded-xl border border-border/50 bg-card p-5 transition-all duration-200 hover:border-border/80 hover:shadow-sm">
-      <div className="flex items-center gap-3">
-        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
-          <Icon className="h-5 w-5" />
-        </div>
-        <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      </div>
-      <div className="flex items-baseline gap-2">
-        <p className="font-mono text-4xl font-semibold tracking-tight text-foreground">{value}</p>
-        {dot && <span className={cn('h-2.5 w-2.5 rounded-full', dot === 'success' ? 'bg-success' : 'bg-destructive')} />}
-      </div>
-    </div>
-  );
+/**
+ * What the KPI hint says the average covers: nodes when they report, the online
+ * servers otherwise, and nothing at all when there is no sample. One sample
+ * takes a singular wording — "media de 1 nodos" reads as a bug.
+ */
+function describeSamples(sampleCount: number, usingNodes: boolean, t: (key: string, options?: any) => string): string {
+    if (sampleCount === 0) return t('dashboard.admin.kpi.noSamples');
+    if (sampleCount === 1) {
+        return usingNodes ? t('dashboard.admin.kpi.avgOfNodesOne') : t('dashboard.admin.kpi.avgOfServersOne');
+    }
+    if (usingNodes) return t('dashboard.admin.kpi.avgOfNodes', { count: sampleCount });
+    return t('dashboard.admin.kpi.avgOfServers', { count: sampleCount });
 }
 
-function AdminDashboard({ user, t, canSeeNodes, canSeeUsers, allServers, usersCount, realNodes, globalNetworkMetrics }: any) {
-  const adminServers = allServers;
-  const onlineServers = adminServers.filter((s: any) => s.status === 'online');
+/**
+ * Overview for operators: a status band (row 1), three resource readouts plus
+ * what the panel itself is (row 2), and an asymmetric analysis row — the
+ * network trend at 65 % and the access feed at 35 % (row 3).
+ */
+function AdminDashboard({ user, t, canSeeNodes, canSeeUsers, allServers, usersCount, realNodes, globalNetworkMetrics, panelVersion, registrationEnabled }: any) {
+  const onlineServers = allServers.filter((s: any) => s.status === 'online');
   const onlineCount = onlineServers.length;
-  const offlineCount = adminServers.filter((s: any) => s.status === 'offline').length;
-  const totalServers = adminServers.length;
-  const totalUsers = usersCount;
-  const totalNodes = realNodes.length;
+  const totalServers = allServers.length;
 
+  // Nodes report real utilization; without node data the online servers are
+  // the sample. Both the KPI row and the history chart read the same numbers.
   const nodeResources = realNodes.map((n: any) => n.systemInfo).filter(Boolean);
+  const usingNodes = nodeResources.length > 0;
+  const sampleCount = usingNodes ? nodeResources.length : onlineCount;
 
   const avgCpuUsage = calculateCpuUsage(nodeResources, onlineServers, onlineCount);
   const avgMemoryUsage = calculateMemoryUsage(nodeResources, onlineServers, onlineCount);
   const avgStorageUsage = calculateStorageUsage(nodeResources, onlineServers, onlineCount);
 
-  const systemInfoItems = [
-    { label: t('dashboard.admin.panelVersion'), value: 'AetherPanel' },
-    { label: t('dashboard.admin.totalServers'), value: totalServers },
-    ...(canSeeUsers ? [{ label: t('dashboard.admin.totalUsers'), value: totalUsers }] : []),
-    ...(canSeeNodes ? [{ label: t('dashboard.admin.totalNodes'), value: totalNodes }] : []),
+  // 30-day availability per server from /api/uptime.
+  const uptimeValues = allServers
+    .map((s: any) => s.uptimePercent)
+    .filter((value: unknown): value is number => typeof value === 'number');
+  const healthPercent = uptimeValues.length > 0
+    ? uptimeValues.reduce((acc: number, value: number) => acc + value, 0) / uptimeValues.length
+    : null;
+
+  const lastNetworkSample = globalNetworkMetrics[globalNetworkMetrics.length - 1];
+  const networkKbps = lastNetworkSample ? lastNetworkSample.networkIn + lastNetworkSample.networkOut : null;
+  const networkTotals = lastNetworkSample
+    ? { in: lastNetworkSample.networkIn, out: lastNetworkSample.networkOut }
+    : null;
+
+  const { samples } = useNetworkHistory(networkTotals);
+
+  const averageHint = describeSamples(sampleCount, usingNodes, t);
+
+  const metrics = [
+    { key: 'cpu', label: t('dashboard.admin.kpi.averageCpu'), value: avgCpuUsage, icon: Cpu },
+    { key: 'memory', label: t('dashboard.admin.kpi.averageMemory'), value: avgMemoryUsage, icon: MemoryStick },
+    { key: 'storage', label: t('dashboard.admin.kpi.averageStorage'), value: avgStorageUsage, icon: HardDrive },
   ];
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title={t('dashboard.welcome', { name: user?.username || t('dashboard.defaultName') })}
-        description={t('dashboard.admin.description')}
+    <div className="dash-fit flex flex-col gap-4">
+      <StatusStrip
+        name={user?.username || ''}
+        healthPercent={healthPercent}
+        online={onlineCount}
+        total={totalServers}
+        networkKbps={networkKbps}
       />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {canSeeNodes && (
-          <StatCard label={t('dashboard.admin.totalNodes')} value={totalNodes} icon={Network} />
-        )}
-        <StatCard label={t('dashboard.admin.online')} value={onlineCount} icon={Activity} dot="success" />
-        <StatCard label={t('dashboard.admin.offline')} value={offlineCount} icon={Activity} dot="destructive" />
-        <StatCard
-          label={t('dashboard.admin.overallHealth')}
-          value={totalServers > 0 ? `${Math.round((onlineCount / totalServers) * 100)}%` : 'N/A'}
-          icon={Cpu}
-        />
-      </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-6">
-          <ResourceUsageChart
-            cpuUsage={avgCpuUsage}
-            memoryUsage={avgMemoryUsage}
-            storageUsage={avgStorageUsage}
+      <section
+        aria-label={t('dashboard.admin.kpi.label')}
+        className="grid grid-cols-3 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4"
+      >
+        {metrics.map((metric) => (
+          <KpiCard
+            key={metric.key}
+            label={metric.label}
+            value={metric.value}
+            unit="%"
+            hint={averageHint}
+            icon={metric.icon}
+            tone={usageTone(metric.value)}
           />
-          <NetworkUsageChart serverMetrics={globalNetworkMetrics} />
-        </div>
-        <div className="lg:col-span-1">
-          <Card className="h-fit">
-            <CardHeader className="px-6 pb-4">
-              <CardTitle className="font-headline text-base font-semibold">{t('dashboard.admin.systemInfo')}</CardTitle>
-            </CardHeader>
-            <CardContent className="px-6 pb-6">
-              <div className="space-y-4">
-                {systemInfoItems.map((item, i) => (
-                  <div key={i} className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">{item.label}</span>
-                    <span className="font-mono text-sm font-medium text-foreground">{item.value}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        ))}
+        <PanelInfoCard
+          version={panelVersion}
+          servers={totalServers}
+          users={canSeeUsers ? usersCount : null}
+          nodes={canSeeNodes ? realNodes.length : null}
+          registrationEnabled={registrationEnabled}
+          className="col-span-3 sm:col-span-1"
+        />
+      </section>
+
+      <div data-fit="fill" className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,13fr)_minmax(0,7fr)]">
+        <NetworkHistoryChart samples={samples} />
+        <AccessLog canRead={canSeeUsers} />
       </div>
     </div>
   );
 }
 
-
-
-function UserDashboard({ user, t, userServers }: any) {
+function UserDashboard({ user, t, userServers, loadFailed, onRetry }: any) {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
@@ -155,18 +162,27 @@ function UserDashboard({ user, t, userServers }: any) {
         description={t('dashboard.user.description')}
       />
       <div>
-        <h2 className="text-lg font-semibold tracking-tight text-foreground mb-4">{t('dashboard.user.myServers')}</h2>
-        {userServers.length > 0 ? (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 2xl:grid-cols-3">
-            {userServers.map((server: any) => (
+        <h2 className="mb-4 text-lg font-semibold tracking-[-0.02em] text-foreground">{t('dashboard.user.myServers')}</h2>
+        {loadFailed && userServers.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
+            <AlertTriangle className="h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
+            <p className="text-base font-semibold text-foreground">{t('servers.error.title')}</p>
+            <p className="max-w-[44ch] text-sm text-muted-foreground">{t('servers.error.description')}</p>
+            <Button variant="outline" className="mt-4" onClick={onRetry}>
+              {t('common.retry')}
+            </Button>
+          </div>
+        ) : userServers.length > 0 ? (
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(20rem,100%),1fr))] gap-5">
+            {userServers.map((server: Server) => (
               <ServerCard key={server.id} server={server} t={t} />
             ))}
           </div>
         ) : (
-          <div className="rounded-xl border border-dashed border-border/60 bg-card/50 p-12 text-center">
-            <ServerIcon className="mx-auto h-10 w-10 text-muted-foreground/40 mb-4" />
-            <p className="text-sm font-medium text-foreground mb-1">{t('dashboard.user.noServers')}</p>
-            <p className="text-xs text-muted-foreground">Contact your administrator to get started</p>
+          <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
+            <ServerIcon className="h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
+            <p className="text-base font-semibold text-foreground">{t('dashboard.user.noServers')}</p>
+            <p className="max-w-[44ch] text-sm text-muted-foreground">{t('dashboard.user.noServersHint')}</p>
           </div>
         )}
       </div>
@@ -174,24 +190,39 @@ function UserDashboard({ user, t, userServers }: any) {
   );
 }
 
+/** Loading state shaped like the page it stands in for, so nothing jumps when data lands. */
+function DashboardSkeleton() {
+  return (
+    <div className="flex flex-col gap-4" aria-busy="true">
+      <Skeleton className="h-40 shrink-0 rounded-xl lg:h-32" />
+      <div className="grid shrink-0 grid-cols-3 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
+        {Array.from({ length: 4 }, (_, i) => (
+          <Skeleton key={i} className={i === 3 ? 'col-span-3 h-40 rounded-xl sm:col-span-1' : 'h-40 rounded-xl'} />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,13fr)_minmax(0,7fr)]">
+        <Skeleton className="h-80 rounded-xl" />
+        <Skeleton className="h-80 rounded-xl" />
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { hasScope, user } = useAuth();
+  const { config } = useConfig();
   const { t } = useTranslations();
-  const { servers: allServers, loading: serversLoading } = useServers();
+  const { servers: allServers, loading: serversLoading, error: serversError, refresh: refreshServers } = useServers();
   const canSeeNodes = hasScope('nodes.view');
   const canSeeUsers = hasScope('users.info.search');
   const isPowerUser = canSeeNodes || canSeeUsers;
 
   const { nodes: realNodes, loading: nodesLoading } = useNodes(!canSeeNodes);
   const { count: usersCount, loading: usersLoading } = useUsersCount(!canSeeUsers);
-  const { metrics: globalNetworkMetrics } = useGlobalNetworkMetrics();
+  const { metrics: globalNetworkMetrics } = useGlobalNetworkMetrics(realNodes);
 
   if (serversLoading || nodesLoading || usersLoading) {
-    return (
-      <div className="flex h-64 w-full items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-border border-t-primary border-l-accent" />
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   if (isPowerUser) {
@@ -205,9 +236,19 @@ export default function DashboardPage() {
         usersCount={usersCount}
         realNodes={realNodes}
         globalNetworkMetrics={globalNetworkMetrics}
+        panelVersion={config?.version ?? ''}
+        registrationEnabled={config?.registrationEnabled ?? false}
       />
     );
   }
 
-  return <UserDashboard user={user} t={t} userServers={allServers} />;
+  return (
+    <UserDashboard
+      user={user}
+      t={t}
+      userServers={allServers}
+      loadFailed={!!serversError}
+      onRetry={() => void refreshServers()}
+    />
+  );
 }

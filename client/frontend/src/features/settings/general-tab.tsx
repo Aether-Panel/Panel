@@ -1,194 +1,286 @@
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
+import { Check, Copy, Eye, EyeOff } from 'lucide-react';
 
 interface GeneralTabProps {
     localSettings: Record<string, any>;
     handleUpdate: (key: string, value: any) => void;
-    handleSave: () => void;
-    saving: boolean;
     t: (key: string) => string;
 }
 
-export function SettingsSection({ id, title, description, children }: { id?: string, title: string, description: string | React.ReactNode, children: React.ReactNode }) {
+/* ------------------------------------------------------------------ */
+/* Shared building blocks for the panel settings tabs                  */
+/* ------------------------------------------------------------------ */
+
+/** Header row of a settings tab card: title + description, optional action on the right. */
+export function SettingsCardHeader({ title, description, action }: { title: string; description?: string; action?: ReactNode }) {
     return (
-        <div className="flex flex-col md:flex-row gap-6 py-6 border-b border-border/40 last:border-0">
-            <div className="md:w-1/3 shrink-0">
-                <Label htmlFor={id} className="text-sm font-medium text-foreground mb-1.5 block">{title}</Label>
-                <div className="text-[13px] text-muted-foreground leading-relaxed pr-4">{description}</div>
+        <div className="flex flex-col gap-4 border-b border-border/50 p-5 sm:flex-row sm:items-center sm:justify-between md:p-6">
+            <div className="min-w-0 space-y-1">
+                <h2 className="text-lg font-semibold tracking-[-0.02em]">{title}</h2>
+                {description && <p className="text-pretty text-sm text-muted-foreground">{description}</p>}
             </div>
-            <div className="md:w-2/3 max-w-2xl flex flex-col justify-center">
-                {children}
-            </div>
+            {action && <div className="flex shrink-0 flex-wrap gap-2 self-start sm:self-auto">{action}</div>}
         </div>
     );
 }
 
-export function GeneralTab({ localSettings, handleUpdate, handleSave, saving, t }: GeneralTabProps) {
+/** A settings tab: one card, sections divided by hairlines. */
+export function SettingsCard({ children }: { children: ReactNode }) {
+    return <Card className="overflow-hidden">{children}</Card>;
+}
+
+/**
+ * One block of a settings tab: what it is and why on the left, the
+ * controls on the right; stacked on narrow screens.
+ */
+export function SettingsSection({ title, description, children }: { title: string; description?: ReactNode; children: ReactNode }) {
     return (
-        <div className="space-y-6">
-            <div>
-                <h2 className="text-xl font-semibold tracking-tight">{t('settings.general.title')}</h2>
-                <p className="text-sm text-muted-foreground mt-1">{t('settings.general.description')}</p>
+        <section className="grid gap-5 p-5 md:p-6 lg:grid-cols-[minmax(0,16rem)_minmax(0,1fr)] lg:gap-10">
+            <div className="space-y-1.5">
+                <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+                {description && <div className="text-pretty text-sm text-muted-foreground">{description}</div>}
             </div>
-            
-            <div className="rounded-xl border border-border/60 bg-card shadow-sm">
-                <div className="px-6">
-                    <SettingsSection 
-                        id="base-url" 
-                        title={t('settings.general.baseUrlLabel')} 
-                        description={t('settings.general.baseUrlDescription')}
-                    >
-                        <Input
-                            id="base-url"
-                            value={localSettings['panel.settings.masterUrl'] || ''}
-                            onChange={(e) => handleUpdate('panel.settings.masterUrl', e.target.value)}
-                            className="bg-background/50"
-                        />
-                    </SettingsSection>
+            <div className="min-w-0">{children}</div>
+        </section>
+    );
+}
 
-                    <SettingsSection 
-                        id="master-node-ip" 
-                        title={t('settings.general.masterNodeIpLabel')} 
-                        description={t('settings.general.masterNodeIpDescription')}
-                    >
-                        <Input
-                            id="master-node-ip"
-                            value={localSettings['panel.settings.masterNodeIp'] || ''}
-                            onChange={(e) => handleUpdate('panel.settings.masterNodeIp', e.target.value)}
-                            placeholder="panel.example.com"
-                            className="bg-background/50"
-                        />
-                    </SettingsSection>
+/** Label + control + helper text, stacked. */
+export function SettingsField({ id, label, hint, className, children }: { id: string; label: string; hint?: ReactNode; className?: string; children: ReactNode }) {
+    return (
+        <div className={cn('space-y-2', className)}>
+            <Label htmlFor={id} className="text-sm font-medium">{label}</Label>
+            {children}
+            {hint && <p className="text-pretty text-xs text-muted-foreground">{hint}</p>}
+        </div>
+    );
+}
 
-                    <SettingsSection 
-                        id="company-name" 
-                        title={t('settings.general.companyNameLabel')} 
-                        description={t('settings.general.companyNameDescription')}
-                    >
-                        <Input
-                            id="company-name"
-                            value={localSettings['panel.settings.companyName'] || ''}
-                            onChange={(e) => handleUpdate('panel.settings.companyName', e.target.value)}
-                            className="bg-background/50"
-                        />
-                    </SettingsSection>
+/** A label + description on the left and a switch on the right. */
+export function SettingRow({ id, label, description, checked, onCheckedChange }: { id: string; label: string; description?: string; checked: boolean; onCheckedChange: (v: boolean) => void }) {
+    return (
+        <div className="flex items-center justify-between gap-4 px-4 py-3.5">
+            <div className="min-w-0">
+                <Label htmlFor={id} className="block text-sm font-medium leading-snug">{label}</Label>
+                {description && <p className="mt-1 text-pretty text-xs text-muted-foreground">{description}</p>}
+            </div>
+            <Switch id={id} checked={checked} onCheckedChange={onCheckedChange} />
+        </div>
+    );
+}
 
-                    {!localSettings['panel.settings.hideAiAnalysis'] && (
-                        <SettingsSection 
-                            id="gemini-api-key" 
-                            title={t('settings.general.geminiApiKeyLabel')} 
-                            description={t('settings.general.geminiApiKeyDescription')}
-                        >
+/** Container for a list of switch rows. */
+export function SettingRows({ children }: { children: ReactNode }) {
+    return <div className="divide-y divide-border/50 rounded-xl border border-border/60 bg-background/30">{children}</div>;
+}
+
+/**
+ * Masked input for credentials (API keys, passwords, webhook URLs) with
+ * reveal and copy buttons inside the field.
+ */
+export function SecretInput({
+    id,
+    value,
+    onChange,
+    placeholder,
+    t,
+}: {
+    id: string;
+    value: string;
+    onChange: (value: string) => void;
+    placeholder?: string;
+    t: (key: string) => string;
+}) {
+    const [revealed, setRevealed] = useState(false);
+    const [copied, setCopied] = useState(false);
+    const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+    useEffect(() => () => clearTimeout(timer.current), []);
+
+    const copy = async () => {
+        if (!value) return;
+        try {
+            await navigator.clipboard.writeText(value);
+            setCopied(true);
+            clearTimeout(timer.current);
+            timer.current = setTimeout(() => setCopied(false), 1600);
+        } catch {
+            /* clipboard unavailable */
+        }
+    };
+
+    return (
+        <div className="relative">
+            <Input
+                id={id}
+                type={revealed ? 'text' : 'password'}
+                autoComplete="off"
+                spellCheck={false}
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                placeholder={placeholder}
+                className="pr-[5.25rem] [&:not(:placeholder-shown)]:font-mono [&:not(:placeholder-shown)]:text-[13px]"
+            />
+            <div className="absolute inset-y-0 right-0.5 flex items-center">
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                    onClick={() => setRevealed((v) => !v)}
+                    aria-label={revealed ? t('settings.secret.hide') : t('settings.secret.show')}
+                    aria-pressed={revealed}
+                    aria-controls={id}
+                >
+                    {revealed ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+                </Button>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                    onClick={copy}
+                    disabled={!value}
+                    aria-label={copied ? t('common.copied') : t('common.copy')}
+                >
+                    {copied ? <Check className="text-success" aria-hidden="true" /> : <Copy aria-hidden="true" />}
+                </Button>
+            </div>
+            <span className="sr-only" aria-live="polite">{copied ? t('common.copied') : ''}</span>
+        </div>
+    );
+}
+
+/* ------------------------------------------------------------------ */
+
+export function GeneralTab({ localSettings, handleUpdate, t }: GeneralTabProps) {
+    const hideAi = !!localSettings['panel.settings.hideAiAnalysis'];
+    const turnstile = !!localSettings['panel.turnstile.enabled'];
+
+    return (
+        <SettingsCard>
+            <SettingsCardHeader title={t('settings.general.title')} description={t('settings.general.description')} />
+            <div className="divide-y divide-border/50">
+                <SettingsSection title={t('settings.general.sections.panelTitle')} description={t('settings.general.sections.panelDescription')}>
+                    <div className="space-y-5">
+                        <SettingsField id="company-name" label={t('settings.general.companyNameLabel')} hint={t('settings.general.companyNameDescription')}>
                             <Input
-                                id="gemini-api-key"
-                                type="password"
-                                value={localSettings['panel.settings.geminiApiKey'] || ''}
-                                onChange={(e) => handleUpdate('panel.settings.geminiApiKey', e.target.value)}
-                                placeholder={t('settings.general.geminiApiKeyPlaceholder')}
-                                className="bg-background/50"
+                                id="company-name"
+                                value={localSettings['panel.settings.companyName'] || ''}
+                                onChange={(e) => handleUpdate('panel.settings.companyName', e.target.value)}
                             />
-                        </SettingsSection>
-                    )}
+                        </SettingsField>
+                        <SettingsField id="base-url" label={t('settings.general.baseUrlLabel')} hint={t('settings.general.baseUrlDescription')}>
+                            <Input
+                                id="base-url"
+                                type="url"
+                                inputMode="url"
+                                spellCheck={false}
+                                value={localSettings['panel.settings.masterUrl'] || ''}
+                                onChange={(e) => handleUpdate('panel.settings.masterUrl', e.target.value)}
+                                className="font-mono text-[13px] md:text-[13px]"
+                            />
+                        </SettingsField>
+                        <SettingsField id="master-node-ip" label={t('settings.general.masterNodeIpLabel')} hint={t('settings.general.masterNodeIpDescription')}>
+                            <Input
+                                id="master-node-ip"
+                                spellCheck={false}
+                                value={localSettings['panel.settings.masterNodeIp'] || ''}
+                                onChange={(e) => handleUpdate('panel.settings.masterNodeIp', e.target.value)}
+                                placeholder="panel.example.com"
+                                className="[&:not(:placeholder-shown)]:font-mono [&:not(:placeholder-shown)]:text-[13px]"
+                            />
+                        </SettingsField>
+                    </div>
+                </SettingsSection>
 
-                    <SettingsSection 
-                        id="hide-ai-analysis" 
-                        title={t('settings.general.hideAiAnalysisLabel')} 
-                        description={t('settings.general.hideAiAnalysisDescription')}
-                    >
-                        <div className="flex items-center h-10">
-                            <Switch
+                <SettingsSection title={t('settings.general.sections.aiTitle')} description={t('settings.general.sections.aiDescription')}>
+                    <div className="space-y-5">
+                        <SettingRows>
+                            <SettingRow
                                 id="hide-ai-analysis"
-                                checked={!!localSettings['panel.settings.hideAiAnalysis']}
+                                label={t('settings.general.hideAiAnalysisLabel')}
+                                description={t('settings.general.hideAiAnalysisDescription')}
+                                checked={hideAi}
                                 onCheckedChange={(v) => handleUpdate('panel.settings.hideAiAnalysis', v)}
                             />
-                        </div>
-                    </SettingsSection>
+                        </SettingRows>
+                        {!hideAi && (
+                            <SettingsField id="gemini-api-key" label={t('settings.general.geminiApiKeyLabel')} hint={t('settings.general.geminiApiKeyDescription')}>
+                                <SecretInput
+                                    id="gemini-api-key"
+                                    value={localSettings['panel.settings.geminiApiKey'] || ''}
+                                    onChange={(v) => handleUpdate('panel.settings.geminiApiKey', v)}
+                                    placeholder={t('settings.general.geminiApiKeyPlaceholder')}
+                                    t={t}
+                                />
+                            </SettingsField>
+                        )}
+                    </div>
+                </SettingsSection>
 
-                    <SettingsSection 
-                        id="header-decorations" 
-                        title={t('settings.general.headerDecorationsLabel')} 
-                        description={t('settings.general.headerDecorationsDescription')}
-                    >
-                        <div className="flex items-center h-10">
-                            <Switch
-                                id="header-decorations"
-                                checked={localSettings['panel.settings.headerDecorations'] !== false}
-                                onCheckedChange={(v) => handleUpdate('panel.settings.headerDecorations', v)}
-                            />
-                        </div>
-                    </SettingsSection>
+                <SettingsSection title={t('settings.general.sections.appearanceTitle')} description={t('settings.general.sections.appearanceDescription')}>
+                    <SettingRows>
+                        <SettingRow
+                            id="header-decorations"
+                            label={t('settings.general.headerDecorationsLabel')}
+                            description={t('settings.general.headerDecorationsDescription')}
+                            checked={localSettings['panel.settings.headerDecorations'] !== false}
+                            onCheckedChange={(v) => handleUpdate('panel.settings.headerDecorations', v)}
+                        />
+                    </SettingRows>
+                </SettingsSection>
 
-                    <SettingsSection 
-                        id="allow-registration" 
-                        title={t('settings.general.allowRegistrationLabel')} 
-                        description={t('settings.general.allowRegistrationDescription')}
-                    >
-                        <div className="flex items-center h-10">
-                            <Switch
+                <SettingsSection title={t('settings.general.sections.accessTitle')} description={t('settings.general.sections.accessDescription')}>
+                    <div className="space-y-5">
+                        <SettingRows>
+                            <SettingRow
                                 id="allow-registration"
+                                label={t('settings.general.allowRegistrationLabel')}
+                                description={t('settings.general.allowRegistrationDescription')}
                                 checked={!!localSettings['panel.registrationEnabled']}
                                 onCheckedChange={(v) => handleUpdate('panel.registrationEnabled', v)}
                             />
-                        </div>
-                    </SettingsSection>
-
-                    <SettingsSection 
-                        id="turnstile-enabled" 
-                        title={t('settings.general.turnstileEnabledLabel')} 
-                        description={t('settings.general.turnstileEnabledDescription')}
-                    >
-                        <div className="flex items-center h-10">
-                            <Switch
+                            <SettingRow
                                 id="turnstile-enabled"
-                                checked={!!localSettings['panel.turnstile.enabled']}
+                                label={t('settings.general.turnstileEnabledLabel')}
+                                description={t('settings.general.turnstileEnabledDescription')}
+                                checked={turnstile}
                                 onCheckedChange={(v) => handleUpdate('panel.turnstile.enabled', v)}
                             />
-                        </div>
-                    </SettingsSection>
-
-                    {localSettings['panel.turnstile.enabled'] && (
-                        <>
-                            <SettingsSection 
-                                id="turnstile-site-key" 
-                                title={t('settings.general.turnstileSiteKeyLabel')} 
-                                description={t('settings.general.turnstileSiteKeyDescription')}
-                            >
-                                <Input
-                                    id="turnstile-site-key"
-                                    value={localSettings['panel.turnstile.siteKey'] || ''}
-                                    onChange={(e) => handleUpdate('panel.turnstile.siteKey', e.target.value)}
-                                    placeholder={t('settings.general.turnstileSiteKeyPlaceholder')}
-                                    className="bg-background/50"
-                                />
-                            </SettingsSection>
-
-                            <SettingsSection 
-                                id="turnstile-secret-key" 
-                                title={t('settings.general.turnstileSecretKeyLabel')} 
-                                description={t('settings.general.turnstileSecretKeyDescription')}
-                            >
-                                <Input
-                                    id="turnstile-secret-key"
-                                    type="password"
-                                    value={localSettings['panel.turnstile.secretKey'] || ''}
-                                    onChange={(e) => handleUpdate('panel.turnstile.secretKey', e.target.value)}
-                                    placeholder={t('settings.general.turnstileSecretKeyPlaceholder')}
-                                    className="bg-background/50"
-                                />
-                            </SettingsSection>
-                        </>
-                    )}
-                </div>
-                <div className="flex items-center justify-end px-6 py-4 bg-muted/30 border-t border-border/60 rounded-b-xl">
-                    <Button onClick={handleSave} disabled={saving} className="min-w-[120px]">
-                        {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {t('settings.general.saveButton')}
-                    </Button>
-                </div>
+                        </SettingRows>
+                        {turnstile && (
+                            <div className="grid gap-5 md:grid-cols-2">
+                                <SettingsField id="turnstile-site-key" label={t('settings.general.turnstileSiteKeyLabel')} hint={t('settings.general.turnstileSiteKeyDescription')}>
+                                    <Input
+                                        id="turnstile-site-key"
+                                        spellCheck={false}
+                                        value={localSettings['panel.turnstile.siteKey'] || ''}
+                                        onChange={(e) => handleUpdate('panel.turnstile.siteKey', e.target.value)}
+                                        placeholder={t('settings.general.turnstileSiteKeyPlaceholder')}
+                                        className="font-mono text-[13px] md:text-[13px]"
+                                    />
+                                </SettingsField>
+                                <SettingsField id="turnstile-secret-key" label={t('settings.general.turnstileSecretKeyLabel')} hint={t('settings.general.turnstileSecretKeyDescription')}>
+                                    <SecretInput
+                                        id="turnstile-secret-key"
+                                        value={localSettings['panel.turnstile.secretKey'] || ''}
+                                        onChange={(v) => handleUpdate('panel.turnstile.secretKey', v)}
+                                        placeholder={t('settings.general.turnstileSecretKeyPlaceholder')}
+                                        t={t}
+                                    />
+                                </SettingsField>
+                            </div>
+                        )}
+                    </div>
+                </SettingsSection>
             </div>
-        </div>
+        </SettingsCard>
     );
 }

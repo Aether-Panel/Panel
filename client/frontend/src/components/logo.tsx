@@ -7,9 +7,10 @@ export function Logo({ className }: { className?: string }) {
 
   return (
     <div className={cn("flex items-center gap-2 group-data-[state=collapsed]:justify-center", className)}>
-      <img src="/img/appicons/128.png" alt="Logo" className="h-6 w-6 object-contain" />
+      {/* The panel name sits right beside the mark, so the image itself is decorative. */}
+      <img src="/img/appicons/128.png" alt="" className="h-6 w-6 shrink-0 object-contain" />
 
-      <span className="text-lg font-semibold group-data-[state=collapsed]:hidden text-foreground">
+      <span className="truncate text-lg font-semibold tracking-[-0.02em] text-foreground group-data-[state=collapsed]:hidden">
         {panelName}
       </span>
     </div>

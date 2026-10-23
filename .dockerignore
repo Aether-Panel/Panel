@@ -54,3 +54,7 @@ Dockerfile*
 tmp/
 temp/
 *.tmp
+# Secrets y configuración local
+.env
+/config.json
+/panel

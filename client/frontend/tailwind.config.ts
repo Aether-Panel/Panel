@@ -9,9 +9,9 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        body: ['Outfit', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        headline: ['"Space Grotesk"', 'Outfit', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+        body: ['Geist', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        headline: ['Geist', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        mono: ['"Geist Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       colors: {
         background: 'hsl(var(--background))',
@@ -27,6 +27,8 @@ export default {
         primary: {
           DEFAULT: 'hsl(var(--primary))',
           foreground: 'hsl(var(--primary-foreground))',
+          // Small-text tone for tinted chips/badges (`text-primary-bright`).
+          bright: 'hsl(var(--primary-bright))',
         },
         secondary: {
           DEFAULT: 'hsl(var(--secondary))',
@@ -43,6 +45,7 @@ export default {
         destructive: {
           DEFAULT: 'hsl(var(--destructive))',
           foreground: 'hsl(var(--destructive-foreground))',
+          bright: 'hsl(var(--destructive-bright))',
         },
         success: {
           DEFAULT: 'hsl(var(--success))',
@@ -55,6 +58,13 @@ export default {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
+        // The three-level surface ladder (`bg-surface-1|2|3`): L1 chrome,
+        // L2 panels, L3 raised. `card`/`popover` mirror L2/L3.
+        surface: {
+          '1': 'hsl(var(--surface-1))',
+          '2': 'hsl(var(--surface-2))',
+          '3': 'hsl(var(--surface-3))',
+        },
         chart: {
           '1': 'hsl(var(--chart-1))',
           '2': 'hsl(var(--chart-2))',
@@ -77,6 +87,22 @@ export default {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
+        xl: 'calc(var(--radius) + 2px)',
+        '2xl': 'calc(var(--radius) + 6px)',
+      },
+      // Shadow values are declared as tokens in `src/styles/globals.css` so
+      // the depth system stays themeable; here we only name the utilities.
+      boxShadow: {
+        'elevation-1': 'var(--shadow-elevation-1)',
+        'elevation-2': 'var(--shadow-elevation-2)',
+        'elevation-3': 'var(--shadow-elevation-3)',
+        'glow-sm': 'var(--shadow-glow-sm)',
+        glow: 'var(--shadow-glow)',
+        'glow-destructive': 'var(--shadow-glow-destructive)',
+      },
+      // `ease-panel`: expo-out, the decelerating curve used by `.lift`/`.press`.
+      transitionTimingFunction: {
+        panel: 'cubic-bezier(0.22, 1, 0.36, 1)',
       },
       keyframes: {
         'accordion-down': {

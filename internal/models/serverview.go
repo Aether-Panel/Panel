@@ -7,6 +7,7 @@ import (
 
 type ServerView struct {
 	Identifier     string            `json:"id,omitempty"`
+	InternalID     string            `json:"internalId,omitempty"`
 	Name           string            `json:"name,omitempty"`
 	NodeID         uint              `json:"nodeId"`
 	Node           *NodeView         `json:"node,omitempty"`
@@ -41,6 +42,7 @@ func FromServer(server *Server) *ServerView {
 	model := &ServerView{
 		Name:           server.Name,
 		Identifier:     server.Identifier,
+		InternalID:     server.InternalID,
 		NodeID:         server.NodeID,
 		IP:             server.IP,
 		Port:           server.Port,

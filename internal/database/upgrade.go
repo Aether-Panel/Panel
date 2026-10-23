@@ -39,6 +39,7 @@ var dbObjects = []interface{}{
 	&models.APIKey{},
 	&models.ProvisionProduct{},
 	&models.PasswordReset{},
+	&models.ActivityLog{},
 }
 
 func Upgrade(dbConn *gorm.DB, prettyPrint bool) error {
@@ -236,6 +237,71 @@ var migrations = [][]*gormigrate.Migration{
 			ID: "20260819-server-extra-ports",
 			Migrate: func(db *gorm.DB) error {
 				return db.Migrator().AutoMigrate(&models.Server{})
+			},
+		},
+		{
+			// Backfill internal_id for existing installations and enforce NOT NULL
+			// safely; the unique index is added afterwards by AutoMigrate.
+			//
+			// It must live in this first slice (it runs before the model
+			// AutoMigrate). The column is added *nullable* and populated first on
+			// purpose: if AutoMigrate had to add a NOT NULL column to an already
+			// populated table, MySQL would fill every row with '' and the unique
+			// index creation would then fail. GORM's AutoMigrate also does NOT
+			// change the nullability of an already existing column, so NOT NULL is
+			// enforced here explicitly instead of relying on the model tag.
+			ID: "20261016-server-internal-id",
+			Migrate: func(db *gorm.DB) error {
+				m := db.Migrator()
+
+				// Fresh database: the servers table does not exist yet and
+				// AutoMigrate will create it (with internal_id NOT NULL) correctly.
+				if !m.HasTable(&models.Server{}) {
+					return nil
+				}
+
+				if !m.HasColumn(&models.Server{}, "internal_id") {
+					if err := db.Exec("ALTER TABLE servers ADD COLUMN internal_id varchar(36)").Error; err != nil {
+						return err
+					}
+				}
+
+				// Backfill every row still missing an internal id before enforcing
+				// NOT NULL. Queried via Table() to avoid model hooks and the custom
+				// primary key semantics.
+				var identifiers []string
+				if err := db.Table("servers").
+					Where("internal_id IS NULL OR internal_id = ''").
+					Pluck("identifier", &identifiers).Error; err != nil {
+					return err
+				}
+
+				for _, identifier := range identifiers {
+					internalID, err := models.GenerateInternalID()
+					if err != nil {
+						return err
+					}
+
+					if err := db.Table("servers").
+						Where("identifier = ? AND (internal_id IS NULL OR internal_id = '')", identifier).
+						Update("internal_id", internalID).Error; err != nil {
+						return err
+					}
+				}
+
+				// Enforce NOT NULL explicitly. GORM's AutoMigrate does NOT change
+				// the nullability of an already existing column, so the model tag
+				// alone is not enough for existing installations (verified against
+				// MariaDB). The column is intentionally added as nullable first so
+				// the backfill can populate it without MySQL filling '' everywhere.
+				switch config.DatabaseDialect.Value() {
+				case "mysql":
+					return db.Exec("ALTER TABLE servers MODIFY COLUMN internal_id varchar(36) NOT NULL").Error
+				case "postgres", "postgresql":
+					return db.Exec("ALTER TABLE servers ALTER COLUMN internal_id SET NOT NULL").Error
+				}
+
+				return nil
 			},
 		},
 	},
@@ -722,6 +788,30 @@ var migrations = [][]*gormigrate.Migration{
 			ID: "20260821-server-port-notes",
 			Migrate: func(db *gorm.DB) error {
 				return db.Migrator().AutoMigrate(&models.Server{})
+			},
+		},
+		{
+			ID: "20261016-server-internal-id-verify",
+			Migrate: func(db *gorm.DB) error {
+				// Read-only safety net: after AutoMigrate has enforced NOT NULL on
+				// internal_id there should be no missing values. If there are, log
+				// them loudly instead of failing the upgrade (a hard failure here
+				// would prevent the panel from booting).
+				if !db.Migrator().HasTable(&models.Server{}) {
+					return nil
+				}
+
+				var missing int64
+				if err := db.Table("servers").
+					Where("internal_id IS NULL OR internal_id = ''").
+					Count(&missing).Error; err != nil {
+					return err
+				}
+				if missing > 0 {
+					logging.Error.Printf("server internal id backfill left %d row(s) without internal_id", missing)
+				}
+
+				return nil
 			},
 		},
 	},

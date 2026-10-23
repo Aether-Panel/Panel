@@ -11,6 +11,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/golang-jwt/jwt/v5"
 	"sync"
+	"time"
 )
 
 type TokenService interface {
@@ -101,10 +102,20 @@ func NewTokenService() (TokenService, error) {
 	return &tokenService{}, nil
 }
 
+// requestTokenLifetime bounds how long a token sent to a node stays usable. Every token is
+// used right after it is created, so this only needs to cover clock differences between
+// the panel and its nodes.
+const requestTokenLifetime = 15 * time.Minute
+
 func (ts *tokenService) GenerateRequest() (string, error) {
+	now := time.Now()
 	token := jwt.New(jwt.SigningMethodEdDSA)
 	token.Header[jwkset.HeaderKID] = keyID
-	token.Claims = jwt.MapClaims{}
+	// nodes already reject expired tokens when exp is present, so older nodes accept these too
+	token.Claims = jwt.MapClaims{
+		"iat": now.Unix(),
+		"exp": now.Add(requestTokenLifetime).Unix(),
+	}
 
 	signed, err := token.SignedString(privateKey)
 	if err != nil {
@@ -114,7 +125,9 @@ func (ts *tokenService) GenerateRequest() (string, error) {
 }
 
 func (ts *tokenService) ValidateRequest(token string) error {
-	parsed, err := jwt.Parse(token, ts.GetKeyFunc())
+	// tokens without exp still pass so panels that do not send it keep working; a later
+	// release can require it with jwt.WithExpirationRequired once every panel sends exp
+	parsed, err := jwt.Parse(token, ts.GetKeyFunc(), jwt.WithLeeway(time.Minute))
 	if err != nil {
 		return err
 	}

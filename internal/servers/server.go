@@ -2,6 +2,7 @@ package servers
 
 import (
 	"container/list"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3/conditions"
@@ -40,10 +42,11 @@ type Server struct {
 	stopChan           chan bool
 	waitForConsole     sync.Locker
 	fileServer         files.FileServer
-	backingUp          bool
-	restoring          bool
-	keepAlive          *time.Ticker
-	keepAliveChan      chan bool
+	// backupState is backupIdle, backupRunning or restoreRunning. One atomic value, so two
+	// requests cannot both pass the "nothing in progress" check and run at the same time
+	backupState   atomic.Int32
+	keepAlive     *time.Ticker
+	keepAliveChan chan bool
 }
 
 var queue *list.List
@@ -96,8 +99,13 @@ func ShutdownService() {
 	}()
 
 	running = false
-	startQueueTicker.Stop()
-	statTicker.Stop()
+	// the tickers are created by their goroutines, so a very early shutdown can find them unset
+	if startQueueTicker != nil {
+		startQueueTicker.Stop()
+	}
+	if statTicker != nil {
+		statTicker.Stop()
+	}
 	if systemStatusTicker != nil {
 		systemStatusTicker.Stop()
 	}
@@ -134,10 +142,20 @@ func processStats() {
 	}
 }
 
+// uptimeTracking is set while a round of uptime tracking runs, so a slow database does not
+// make the next tick overlap it and record a server twice
+var uptimeTracking atomic.Bool
+
+// trackUptimeForAllServers is the only place uptime is recorded. It only runs where the
+// panel runs: a daemon-only node has no panel database to write to.
 func trackUptimeForAllServers() {
-	allServers := GetAll()
-	for _, server := range allServers {
-		go trackUptime(server)
+	if !config.PanelEnabled.Value() || !uptimeTracking.CompareAndSwap(false, true) {
+		return
+	}
+	defer uptimeTracking.Store(false)
+
+	for _, server := range GetAll() {
+		trackUptime(server)
 	}
 }
 
@@ -149,7 +167,8 @@ func processSystemStatus() {
 }
 
 func sendSystemStatusToDiscord() {
-	if !running {
+	// the report reads the panel database, which a daemon-only node does not have
+	if !running || !config.PanelEnabled.Value() {
 		return
 	}
 
@@ -507,7 +526,7 @@ func getOSName() string {
 
 func SendStatsForServers() {
 	var wg sync.WaitGroup
-	for _, v := range allServers {
+	for _, v := range GetAll() {
 		wg.Add(1)
 		go func(p *Server) {
 			defer wg.Done()
@@ -523,9 +542,6 @@ func SendStatsForServers() {
 
 			// Monitorear para alertas
 			go checkServerAlerts(p, stats)
-
-			// Trackear uptime/downtime
-			go trackUptime(p)
 
 			// Monitorear límite de disco
 			go checkDiskLimit(p, stats)
@@ -1186,12 +1202,17 @@ func (p *Server) Extract(source, destination string) error {
 	return files.Extract(p.GetFileServer(), source, destination, "*", false, nil)
 }
 
+const (
+	backupIdle int32 = iota
+	backupRunning
+	restoreRunning
+)
+
 func (p *Server) StartBackup() (string, error) {
-	if p.IsBackingUp() || p.IsRestoring() {
+	if !p.backupState.CompareAndSwap(backupIdle, backupRunning) {
 		return "", skypanel.ErrBackupInProgress
 	}
 
-	p.backingUp = true
 	c := make(chan bool)
 	serverName := p.Server.Display
 	if serverName == "" {
@@ -1199,7 +1220,7 @@ func (p *Server) StartBackup() (string, error) {
 	}
 	go func(d chan bool) {
 		r := <-d
-		p.backingUp = false
+		p.backupState.Store(backupIdle)
 		if r {
 			p.RunningEnvironment.DisplayToConsole(true, "Backup complete")
 			// Enviar alerta de backup exitoso
@@ -1237,8 +1258,7 @@ func (p *Server) StartBackup() (string, error) {
 		success := true
 		sourceFiles := []string{p.GetFileServer().Prefix()}
 
-		err = files.Compress(nil, file, sourceFiles)
-		if err != nil {
+		if err := files.Compress(nil, file, sourceFiles); err != nil {
 			p.Log(logging.Error, "Error creating backup file: %s", err)
 			p.RunningEnvironment.DisplayToConsole(true, "Failed to create backup file")
 			success = false
@@ -1272,15 +1292,29 @@ func (p *Server) StartRestore(fileName string) error {
 	if !filepath.IsLocal(fileName) {
 		return fmt.Errorf("invalid backup file name: %s", fileName)
 	}
+	// never restore under a running server or another backup/restore
 	if err := p.IsIdle(); err != nil {
 		return err
 	}
 
-	p.restoring = true
+	// a missing backup must stop here: the restore deletes every server file before
+	// extracting, so going on would leave the server empty
+	backupFile := filepath.Join(p.GetBackupDirectory(), path.Base(fileName))
+	if _, err := os.Stat(backupFile); err != nil {
+		if os.IsNotExist(err) {
+			return skypanel.ErrFileNotFound
+		}
+		return err
+	}
+
+	if !p.backupState.CompareAndSwap(backupIdle, restoreRunning) {
+		return skypanel.ErrBackupInProgress
+	}
+
 	c := make(chan bool)
 	go func(d chan bool) {
 		r := <-d
-		p.restoring = false
+		p.backupState.Store(backupIdle)
 		if r {
 			p.RunningEnvironment.DisplayToConsole(true, "Restore complete")
 		} else {
@@ -1290,18 +1324,30 @@ func (p *Server) StartRestore(fileName string) error {
 
 	p.RunningEnvironment.DisplayToConsole(true, "Restoring server")
 
-	backupFile := filepath.Join(p.GetBackupDirectory(), path.Base(fileName))
-
-	_, err := os.Stat(backupFile)
-	if err != nil && !os.IsNotExist(err) {
-		c <- false
-		return err
-	}
-
 	go func(source string, d chan bool) {
+		success := false
 		defer func() {
-			d <- true
+			d <- success
 		}()
+
+		archive, err := os.Open(source)
+		if err != nil {
+			p.Log(logging.Error, "Error opening backup: %s", err)
+			return
+		}
+		defer utils.Close(archive)
+
+		// read the whole archive before deleting anything: an unreadable backup must fail
+		// here, not after the server's files are gone
+		if _, err = files.DetermineIfSingleRoot(context.Background(), source, archive); err != nil {
+			p.Log(logging.Error, "Error reading backup: %s", err)
+			p.RunningEnvironment.DisplayToConsole(true, "Backup file cannot be read: %s", err)
+			return
+		}
+		if _, err = archive.Seek(0, io.SeekStart); err != nil {
+			p.Log(logging.Error, "Error reading backup: %s", err)
+			return
+		}
 
 		// Check if any files exist, as remove all errors if its empty
 		existingFiles, err := p.GetFileServer().Glob("*")
@@ -1329,11 +1375,15 @@ func (p *Server) StartRestore(fileName string) error {
 			}
 		}
 
-		err = files.Extract(nil, source, p.GetFileServer().Prefix(), "*", true, nil)
+		// Extract needs the archive inside the file server; backups live outside it, so the
+		// opened archive is extracted through the server's file server instead
+		err = files.ExtractReader(p.GetFileServer(), archive, source, "", "*", true)
 		if err != nil {
 			p.Log(logging.Error, "Error restoring files: %s", err)
 			p.RunningEnvironment.DisplayToConsole(true, "Failed to restore files: %s", err)
+			return
 		}
+		success = true
 	}(backupFile, c)
 
 	return nil
@@ -1417,11 +1467,11 @@ func (p *Server) SetFileServer(fs files.FileServer) {
 }
 
 func (p *Server) IsBackingUp() bool {
-	return p.backingUp
+	return p.backupState.Load() == backupRunning
 }
 
 func (p *Server) IsRestoring() bool {
-	return p.restoring
+	return p.backupState.Load() == restoreRunning
 }
 
 func (p *Server) IsIdle() error {

@@ -98,6 +98,16 @@ func Extract(fs FileServer, sourceFile, targetPath, filter string, skipRoot bool
 	return extractFile(file, sourceFile, targetPath, filter, skipRoot, forcedType, fs)
 }
 
+// ExtractReader extracts an archive the caller already opened into fs. Backups live outside
+// the server's file server, so they are opened directly and extracted through fs, which
+// keeps every entry inside the server's root.
+func ExtractReader(fs FileServer, reader io.ReadSeeker, sourceFile, targetPath, filter string, skipRoot bool) error {
+	if fs == nil {
+		return errors.New("fileserver is required")
+	}
+	return extractFile(reader, sourceFile, targetPath, filter, skipRoot, nil, fs)
+}
+
 func ExtractFromReader(reader io.ReadSeeker, sourceFile, targetPath, filter string, skipRoot bool, forcedType archives.Extractor) error {
 	if !filepath.IsLocal(targetPath) {
 		return fmt.Errorf("%w: %s", ErrPathTraversal, targetPath)

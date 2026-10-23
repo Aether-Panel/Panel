@@ -69,8 +69,13 @@ func (model *UserView) CopyToModel(newModel *User) {
 	if model.Password != "" {
 		_ = newModel.SetPassword(model.Password)
 	}
+}
 
+// CopyRoleToModel assigns the requested role. It is kept apart from CopyToModel because
+// only administrators may change roles; callers must check that first.
+func (model *UserView) CopyRoleToModel(newModel *User) {
 	newModel.RoleID = model.RoleID
+	newModel.Role = Role{}
 }
 
 func (model *UserView) Valid(allowEmpty bool) error {

@@ -95,7 +95,14 @@ echo "Variables de entorno:"
 echo "  SKYPANEL_PLATFORM=${SKYPANEL_PLATFORM}"
 echo "  SKYPANEL_WEB_HOST=${SKYPANEL_WEB_HOST}"
 echo "  SKYPANEL_PANEL_DATABASE_DIALECT=${SKYPANEL_PANEL_DATABASE_DIALECT}"
-echo "  SKYPANEL_PANEL_DATABASE_URL=${SKYPANEL_PANEL_DATABASE_URL}"
+# La contraseña no se escribe en los logs
+echo "  SKYPANEL_PANEL_DATABASE_URL=$(echo "$SKYPANEL_PANEL_DATABASE_URL" | sed -E 's#^(([a-z]+://)?[^:/@]*):.*@#\1:****@#')"
+case "$SKYPANEL_PANEL_DATABASE_URL" in
+    *:skypanel_secret@*)
+        echo "AVISO: la base de datos usa la contraseña por defecto (skypanel_secret)."
+        echo "AVISO: define DB_PASSWORD y DB_ROOT_PASSWORD propias en el .env del servidor."
+        ;;
+esac
 
 # Verificar que el binario existe
 if [ ! -f /SkyPanel/bin/SkyPanel ]; then

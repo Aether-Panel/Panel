@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"runtime"
 	"time"
@@ -31,7 +32,8 @@ func RegisterDaemonRoutes(e *gin.RouterGroup) {
 	e.GET("features", getFeatures)
 	e.Handle("OPTIONS", "features", response.CreateOptions("GET"))
 
-	e.GET("system", getSystemInfo)
+	// host details (hostname, disks, CPU) are only for the panel, and each call blocks for a second
+	e.GET("system", middleware.ValidateJWT, getSystemInfo)
 	e.Handle("OPTIONS", "system", response.CreateOptions("GET"))
 
 	e.POST("update", middleware.ValidateJWT, daemonUpdate)
@@ -107,13 +109,29 @@ func getFeatures(c *gin.Context) {
 	}
 
 	if config.DockerDisallowHost.Value() {
-		envs = utils.Remove(envs, "host")
-		envs = utils.Remove(envs, "tty")
-		envs = utils.Remove(envs, "standard")
-		envs = utils.Remove(envs, "bubblewrap")
+		for _, env := range hostEnvironments {
+			envs = utils.Remove(envs, env)
+		}
 	}
 
 	c.JSON(http.StatusOK, Features{Features: features, Environments: envs, OS: runtime.GOOS, Arch: runtime.GOARCH, Version: skypanel.Version})
+}
+
+// hostEnvironments run server processes directly on the node instead of in a container
+var hostEnvironments = []string{"host", "tty", "standard", "bubblewrap"}
+
+// checkEnvironmentAllowed rejects environments that docker.disallowHost turns off, so the
+// setting is enforced when a server is created or redefined, not only hidden from the list
+func checkEnvironmentAllowed(envType string) error {
+	if !config.DockerDisallowHost.Value() {
+		return nil
+	}
+	for _, env := range hostEnvironments {
+		if envType == env {
+			return fmt.Errorf("environment %q is disabled on this node (docker.disallowHost)", envType)
+		}
+	}
+	return nil
 }
 
 func testDocker() bool {

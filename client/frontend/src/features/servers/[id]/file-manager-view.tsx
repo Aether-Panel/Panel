@@ -20,10 +20,11 @@ import {
   Database,
   Palette,
   Globe,
-  FolderTree,
+  FolderOpen,
+  Home,
+  PencilLine,
   ArrowUpToLine,
   ChevronRight,
-  TerminalSquare,
   MoreHorizontal,
   Loader2,
   Plus,
@@ -40,7 +41,6 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -73,26 +73,28 @@ type FileMeta = {
   className: string;
 };
 
+// File-type tint, from the semantic chart palette only: blue for code, teal for
+// config and data, violet for media, amber for folders, neutral for plain text.
 const FILE_META: { match: RegExp; icon: LucideIcon; className: string }[] = [
-  { match: /^(png|jpe?g|gif|webp|svg|bmp|ico)$/, icon: FileImage, className: 'text-violet-400' },
-  { match: /^(js|mjs|cjs|jsx|ts|tsx)$/, icon: FileCode, className: 'text-sky-400' },
-  { match: /^(json|yaml|yml|toml|ini|conf|cfg|properties)$/, icon: FileCog, className: 'text-orange-400' },
-  { match: /^(md|mdx)$/, icon: BookOpenText, className: 'text-sky-300' },
-  { match: /^(txt|log|text)$/, icon: FileText, className: 'text-zinc-400' },
-  { match: /^(zip|tar|gz|bz2|rar|7z|xz)$/, icon: FileArchive, className: 'text-amber-400' },
-  { match: /^(java|class|jar)$/, icon: Coffee, className: 'text-red-400' },
-  { match: /^(sh|bash|zsh|bat|cmd|ps1)$/, icon: FileTerminal, className: 'text-emerald-400' },
-  { match: /^(db|sqlite|sqlite3|sql)$/, icon: Database, className: 'text-teal-400' },
-  { match: /^(css|scss|sass|less)$/, icon: Palette, className: 'text-pink-400' },
-  { match: /^(html|htm|xml)$/, icon: Globe, className: 'text-orange-400' },
-  { match: /^(mp4|webm|mkv|avi|mov|flv)$/, icon: FileVideo, className: 'text-rose-400' },
-  { match: /^(mp3|wav|ogg|flac|m4a)$/, icon: FileAudio, className: 'text-fuchsia-400' },
-  { match: /^(csv|xlsx|xls|ods)$/, icon: FileSpreadsheet, className: 'text-emerald-400' },
-  { match: /^(py|pyw)$/, icon: FileCode, className: 'text-blue-400' },
-  { match: /^(geojson|json5)$/, icon: FileJson, className: 'text-yellow-400' },
+  { match: /^(png|jpe?g|gif|webp|svg|bmp|ico)$/, icon: FileImage, className: 'text-chart-3' },
+  { match: /^(js|mjs|cjs|jsx|ts|tsx)$/, icon: FileCode, className: 'text-chart-4' },
+  { match: /^(json|yaml|yml|toml|ini|conf|cfg|properties)$/, icon: FileCog, className: 'text-chart-2' },
+  { match: /^(md|mdx)$/, icon: BookOpenText, className: 'text-muted-foreground' },
+  { match: /^(txt|log|text)$/, icon: FileText, className: 'text-muted-foreground' },
+  { match: /^(zip|tar|gz|bz2|rar|7z|xz)$/, icon: FileArchive, className: 'text-chart-1' },
+  { match: /^(java|class|jar)$/, icon: Coffee, className: 'text-chart-1' },
+  { match: /^(sh|bash|zsh|bat|cmd|ps1)$/, icon: FileTerminal, className: 'text-chart-4' },
+  { match: /^(db|sqlite|sqlite3|sql)$/, icon: Database, className: 'text-chart-2' },
+  { match: /^(css|scss|sass|less)$/, icon: Palette, className: 'text-chart-4' },
+  { match: /^(html|htm|xml)$/, icon: Globe, className: 'text-chart-4' },
+  { match: /^(mp4|webm|mkv|avi|mov|flv)$/, icon: FileVideo, className: 'text-chart-3' },
+  { match: /^(mp3|wav|ogg|flac|m4a)$/, icon: FileAudio, className: 'text-chart-3' },
+  { match: /^(csv|xlsx|xls|ods)$/, icon: FileSpreadsheet, className: 'text-chart-2' },
+  { match: /^(py|pyw)$/, icon: FileCode, className: 'text-chart-4' },
+  { match: /^(geojson|json5)$/, icon: FileJson, className: 'text-chart-2' },
 ];
 
-const FOLDER_META: FileMeta = { icon: Folder, className: 'text-amber-400' };
+const FOLDER_META: FileMeta = { icon: Folder, className: 'fill-chart-5/15 text-chart-5' };
 const PARENT_META: FileMeta = { icon: ArrowUpToLine, className: 'text-muted-foreground' };
 
 function getFileMeta(name: string): FileMeta {
@@ -101,23 +103,37 @@ function getFileMeta(name: string): FileMeta {
   return match || { icon: File, className: 'text-muted-foreground' };
 }
 
-function Breadcrumbs({ path, onNavigate }: { path: string; onNavigate: (p: string) => void }) {
+// Encode each path segment so names with #, ?, % or spaces survive the URL; '/' stays a separator
+function encodePath(path: string) {
+  return path.split('/').map(encodeURIComponent).join('/');
+}
+
+// Raw fetch does not reject on HTTP errors, so surface the server's message (or a fallback) instead
+async function assertOk(res: Response, fallback: string) {
+  if (res.ok) return;
+  const data = await res.json().catch(() => ({}));
+  const error = data?.error;
+  throw new Error(typeof error === 'string' ? error : error?.msg || fallback);
+}
+
+function Breadcrumbs({ path, onNavigate, label }: { path: string; onNavigate: (p: string) => void; label: string }) {
   const parts = path.split('/').filter(Boolean);
   const crumbs = [{ label: '~', path: '' }, ...parts.map((p, i) => ({ label: p, path: parts.slice(0, i + 1).join('/') }))];
 
   return (
-    <nav className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto font-mono text-sm" aria-label="Breadcrumb">
+    <nav className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto font-mono text-sm" aria-label={label}>
       {crumbs.map((crumb, i) => {
         const isLast = i === crumbs.length - 1;
         return (
           <Fragment key={`${crumb.path}-${i}`}>
-            {i > 0 && <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />}
+            {i > 0 && <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" aria-hidden="true" />}
             <button
               type="button"
               onClick={() => onNavigate(crumb.path)}
+              aria-current={isLast ? 'page' : undefined}
               className={cn(
-                'shrink-0 rounded-md px-1.5 py-1 transition-colors hover:bg-accent/10 hover:text-primary',
-                isLast ? 'font-semibold text-primary' : 'text-muted-foreground'
+                'focus-ring shrink-0 rounded-md px-1.5 py-1 transition-colors duration-150 hover:bg-accent/50 hover:text-foreground',
+                isLast ? 'font-medium text-foreground' : 'text-muted-foreground'
               )}
             >
               {crumb.label}
@@ -162,17 +178,18 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
   const savingRef = useRef(false);
 
   const { t } = useTranslations();
-  
+
+  const fileUrl = (path: string) => `/api/servers/${serverId}/file/${encodePath(path)}`;
 
   const fetchFiles = async (path: string) => {
     setIsLoading(true);
     try {
-      const data = await api.get(`/api/servers/${serverId}/file/${path}`);
+      const data = await api.get(fileUrl(path));
       if (Array.isArray(data)) {
         setFiles(data);
       }
     } catch (e: any) {
-      sileo.error({ title: t('common.error'), description: e.message || 'Failed to load files.' });
+      sileo.error({ title: t('common.error'), description: e.message || t('servers.fileManager.toast.loadError') });
     } finally {
       setIsLoading(false);
     }
@@ -195,7 +212,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
     } else {
       try {
         const filePath = currentPath ? `${currentPath}/${file.name}` : file.name;
-        const content = await api.get(`/api/servers/${serverId}/file/${filePath}`);
+        const content = await api.get(fileUrl(filePath));
         if (editorCloseTimeoutRef.current !== null) {
           clearTimeout(editorCloseTimeoutRef.current);
           editorCloseTimeoutRef.current = null;
@@ -204,7 +221,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
         setEditingFile(file);
         setIsEditorOpen(true);
       } catch (e: any) {
-        sileo.error({ title: t('common.error'), description: e.message || 'Failed to load file content.' });
+        sileo.error({ title: t('common.error'), description: e.message || t('servers.fileManager.toast.openError') });
       }
     }
   };
@@ -219,7 +236,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
     setIsCreating(true);
     try {
       const filePath = currentPath ? `${currentPath}/${newItemName}` : newItemName;
-      const url = `/api/servers/${serverId}/file/${filePath}${newItemDialog.type === 'folder' ? '?folder' : ''}`;
+      const url = `${fileUrl(filePath)}${newItemDialog.type === 'folder' ? '?folder' : ''}`;
 
       const response = await fetch(url, {
         method: 'PUT',
@@ -227,10 +244,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
         credentials: 'include'
       });
 
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || 'No se pudo crear el elemento en el servidor');
-      }
+      await assertOk(response, t('servers.fileManager.toast.createError'));
 
       sileo.success({
         title: t('common.success'),
@@ -250,7 +264,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
         document.body.style.overflow = 'auto';
       }, 300);
     } catch (e: any) {
-      sileo.error({ title: t('common.error'), description: e.message || 'Error al crear el elemento.' });
+      sileo.error({ title: t('common.error'), description: e.message || t('servers.fileManager.toast.createError') });
       setIsCreating(false);
     }
   };
@@ -269,16 +283,17 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
       const formData = new FormData();
       formData.append('file', file);
 
-      await fetch(`/api/servers/${serverId}/file/${filePath}`, {
+      const res = await fetch(fileUrl(filePath), {
         method: 'PUT',
         body: formData,
         credentials: 'include'
       });
+      await assertOk(res, t('servers.fileManager.toast.uploadError'));
 
       sileo.success({ title: t('common.success'), description: t('servers.fileManager.toast.uploaded') });
       void fetchFiles(currentPath);
     } catch (e: any) {
-      sileo.error({ title: t('common.error'), description: e.message || 'Error al subir el archivo.' });
+      sileo.error({ title: t('common.error'), description: e.message || t('servers.fileManager.toast.uploadError') });
     } finally {
       setIsLoading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -295,13 +310,13 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
   };
 
   const readFileBlob = async (path: string): Promise<Blob> => {
-    const res = await fetch(`/api/servers/${serverId}/file/${path}`, { credentials: 'include' });
+    const res = await fetch(fileUrl(path), { credentials: 'include' });
     if (!res.ok) throw new Error(`Error al leer: ${path}`);
     return res.blob();
   };
 
   const makeFolder = async (path: string) => {
-    const res = await fetch(`/api/servers/${serverId}/file/${path}?folder`, {
+    const res = await fetch(`${fileUrl(path)}?folder`, {
       method: 'PUT',
       credentials: 'include'
     });
@@ -319,7 +334,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
     if (parent) {
       await makeFolder(parent);
     }
-    const res = await fetch(`/api/servers/${serverId}/file/${path}`, {
+    const res = await fetch(fileUrl(path), {
       method: 'PUT',
       body: blob,
       credentials: 'include'
@@ -328,7 +343,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
   };
 
   const listFolderForCopy = async (path: string): Promise<FileItemResource[]> => {
-    const data = await api.get(`/api/servers/${serverId}/file/${path}`);
+    const data = await api.get(fileUrl(path));
     return Array.isArray(data) ? data : [];
   };
 
@@ -356,7 +371,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
 
     // Reject pasting onto itself or a folder into its own subtree
     if (sourcePath === destPath || (!clipboard.isFile && destPath.startsWith(`${sourcePath}/`))) {
-      sileo.error({ title: t('common.error'), description: 'No puedes pegar aquí.' });
+      sileo.error({ title: t('common.error'), description: t('servers.fileManager.toast.pasteInvalid') });
       return;
     }
 
@@ -370,7 +385,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
       }
 
       if (clipboard.mode === 'cut') {
-        await api.delete(`/api/servers/${serverId}/file/${sourcePath}`);
+        await api.delete(fileUrl(sourcePath));
         setClipboard(null);
       }
 
@@ -382,7 +397,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
       });
       void fetchFiles(currentPath);
     } catch (e: any) {
-      sileo.error({ title: t('common.error'), description: e.message || 'Error en la operación.' });
+      sileo.error({ title: t('common.error'), description: e.message || t('servers.fileManager.toast.pasteError') });
     } finally {
       setIsLoading(false);
     }
@@ -393,11 +408,11 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
     setIsLoading(true);
     try {
       const filePath = currentPath ? `${currentPath}/${pendingFile.name}` : pendingFile.name;
-      await api.delete(`/api/servers/${serverId}/file/${filePath}`);
+      await api.delete(fileUrl(filePath));
       sileo.success({ title: t('common.success'), description: t('servers.fileManager.toast.deleted') });
       void fetchFiles(currentPath);
     } catch (e: any) {
-      sileo.error({ title: t('common.error'), description: e.message || 'Error al eliminar.' });
+      sileo.error({ title: t('common.error'), description: e.message || t('servers.fileManager.toast.deleteError') });
     } finally {
       setIsLoading(false);
       setPendingFile(null);
@@ -431,14 +446,11 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
     try {
       const srcPath = currentPath ? `${currentPath}/${renameTarget.name}` : renameTarget.name;
       const destPath = currentPath ? `${currentPath}/${newName}` : newName;
-      const response = await fetch(`/api/servers/${serverId}/file/${srcPath}?destination=${encodeURIComponent(destPath)}`, {
+      const response = await fetch(`${fileUrl(srcPath)}?destination=${encodeURIComponent(destPath)}`, {
         method: 'POST',
         credentials: 'include'
       });
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || 'No se pudo renombrar el elemento');
-      }
+      await assertOk(response, t('servers.fileManager.toast.renameError'));
       sileo.success({ title: t('common.success'), description: t('servers.fileManager.toast.renamed') });
       closeRename();
       // Ensure Radix Dialog/DropdownMenu cleanup finished so the UI is not left blocked
@@ -448,7 +460,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
       }, 100);
       void fetchFiles(currentPath);
     } catch (e: any) {
-      sileo.error({ title: t('common.error'), description: e.message || 'Error al renombrar.' });
+      sileo.error({ title: t('common.error'), description: e.message || t('servers.fileManager.toast.renameError') });
       setIsRenaming(false);
     }
   };
@@ -457,11 +469,11 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
     setIsLoading(true);
     try {
       const filePath = currentPath ? `${currentPath}/${file.name}` : file.name;
-      await api.post(`/api/servers/${serverId}/extract/${filePath}?destination=.&skipRoot`, {});
+      await api.post(`/api/servers/${serverId}/extract/${encodePath(filePath)}?destination=.&skipRoot`, {});
       sileo.success({ title: t('common.success'), description: t('servers.fileManager.toast.extracted') });
       void fetchFiles(currentPath);
     } catch (e: any) {
-      sileo.error({ title: t('common.error'), description: e.message || 'Error al descomprimir.' });
+      sileo.error({ title: t('common.error'), description: e.message || t('servers.fileManager.toast.extractError') });
     } finally {
       setIsLoading(false);
     }
@@ -473,15 +485,16 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
     setIsSaving(true);
     try {
       const filePath = currentPath ? `${currentPath}/${editingFile.name}` : editingFile.name;
-      await fetch(`/api/servers/${serverId}/file/${filePath}`, {
+      const res = await fetch(fileUrl(filePath), {
         method: 'PUT',
         body: editedContent,
         credentials: 'include'
       });
+      await assertOk(res, t('servers.fileManager.toast.saveError'));
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 2000);
     } catch (e: any) {
-      sileo.error({ title: t('common.error'), description: e.message || 'Error al guardar.' });
+      sileo.error({ title: t('common.error'), description: e.message || t('servers.fileManager.toast.saveError') });
     } finally {
       savingRef.current = false;
       setIsSaving(false);
@@ -553,266 +566,274 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
   const editingLanguage = editingFile ? getLanguageFromFilename(editingFile.name) : 'plaintext';
   const EditingIcon = editingMeta.icon;
 
+  const renderRowMenu = (file: FileItemResource) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 text-muted-foreground hover:text-foreground"
+          aria-label={t('servers.fileManager.rowActions', { name: file.name })}
+        >
+          <MoreHorizontal aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {file.isFile ? (
+          <DropdownMenuItem onClick={() => setTimeout(() => handleFileClick(file), 50)}>
+            <Edit2 className="mr-2 h-4 w-4" aria-hidden="true" />
+            {t('servers.fileManager.actions.edit')}
+          </DropdownMenuItem>
+        ) : null}
+        <DropdownMenuItem asChild>
+          <a href={fileUrl(currentPath ? `${currentPath}/${file.name}` : file.name)} download>
+            <Download className="mr-2 h-4 w-4" aria-hidden="true" />
+            {t('servers.fileManager.actions.download')}
+          </a>
+        </DropdownMenuItem>
+        {file.isFile && file.name.match(/\.(zip|tar(\.gz)?|tgz|gz|bz2|rar|7z|xz)$/i) ? (
+          <DropdownMenuItem onClick={() => handleExtract(file)}>
+            <FileArchive className="mr-2 h-4 w-4" aria-hidden="true" />
+            {t('servers.fileManager.actions.unarchive')}
+          </DropdownMenuItem>
+        ) : null}
+        <DropdownMenuItem onClick={() => setTimeout(() => openRename(file), 50)}>
+          <PencilLine className="mr-2 h-4 w-4" aria-hidden="true" />
+          {t('servers.fileManager.actions.rename')}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => handleCopy(file, 'copy')}>
+          <Copy className="mr-2 h-4 w-4" aria-hidden="true" />
+          {t('servers.fileManager.actions.copy')}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleCopy(file, 'cut')}>
+          <Scissors className="mr-2 h-4 w-4" aria-hidden="true" />
+          {t('servers.fileManager.actions.cut')}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <AlertDialog open={pendingFile?.name === file.name} onOpenChange={(open) => !open && setPendingFile(null)}>
+          <AlertDialogTrigger asChild>
+            <DropdownMenuItem
+              className="text-destructive-bright focus:bg-destructive/10 focus:text-destructive-bright"
+              onSelect={(e) => { e.preventDefault(); setPendingFile(file); }}
+            >
+              <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
+              {t('servers.fileManager.actions.delete')}
+            </DropdownMenuItem>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t('servers.fileManager.deleteDialog.title')}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t('servers.fileManager.deleteDialog.description', { name: file.name })}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                {t('servers.fileManager.actions.delete')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
   return (
     <>
-      <div className="mt-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <Card className="border-0 bg-transparent shadow-none">
-          <CardHeader className="flex flex-row items-center gap-4 px-0">
-            <div className="flex items-center gap-4">
-              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-primary/30 bg-gradient-to-br from-primary/25 via-accent/15 to-transparent text-primary shadow-[0_0_20px_rgb(0_0_0/0.3)]">
-                <FolderTree className="h-5 w-5" />
-              </div>
-              <div>
-                <CardTitle className="font-headline text-2xl">{t('servers.fileManager.title')}</CardTitle>
-                <CardDescription>{t('servers.fileManager.description')}</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
+      <Card className="mt-6">
+        <CardHeader className="flex flex-col gap-4 space-y-0 border-b border-border/50 p-5 sm:flex-row sm:items-center sm:justify-between md:p-6">
+          <div className="min-w-0 space-y-1">
+            <CardTitle className="text-lg font-semibold tracking-[-0.02em]">{t('servers.fileManager.title')}</CardTitle>
+            <CardDescription>{t('servers.fileManager.description')}</CardDescription>
+          </div>
+          <div className="flex shrink-0 items-center gap-2 self-start sm:self-auto">
+            <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} />
+            <Button variant="outline" onClick={handleUploadClick}>
+              <Upload aria-hidden="true" />
+              {t('servers.fileManager.upload')}
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button>
+                  <Plus aria-hidden="true" />
+                  {t('servers.fileManager.new')}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setNewItemDialog({ open: true, type: 'file' })}>
+                  <FilePlus className="mr-2 h-4 w-4" aria-hidden="true" />
+                  {t('servers.fileManager.newFile')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setNewItemDialog({ open: true, type: 'folder' })}>
+                  <FolderPlus className="mr-2 h-4 w-4" aria-hidden="true" />
+                  {t('servers.fileManager.newFolder')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </CardHeader>
 
-          <CardContent className="mt-4 space-y-4 px-0">
-            {/* Path bar + toolbar */}
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-border/80 bg-card px-2 py-1.5">
+        <CardContent className="space-y-4 p-5 md:p-6">
+          {/* Path bar, plus the pending copy/cut item when there is one */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="flex min-w-0 flex-1 items-center gap-1 rounded-lg border border-border/60 bg-background/30 py-1 pl-1 pr-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+                onClick={() => setCurrentPath('')}
+                disabled={!currentPath}
+                aria-label={t('servers.fileManager.goRoot')}
+                title={t('servers.fileManager.goRoot')}
+              >
+                <Home aria-hidden="true" />
+              </Button>
+              <Breadcrumbs path={currentPath} onNavigate={setCurrentPath} label={t('servers.fileManager.pathLabel')} />
+            </div>
+
+            {clipboard && (
+              <div className="flex min-w-0 items-center gap-1 rounded-lg border border-border/60 bg-background/30 p-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handlePaste}
+                  disabled={isLoading}
+                  className="h-8 min-w-0 flex-1 justify-start px-2 text-xs sm:flex-none"
+                  title={clipboard.mode === 'cut' ? t('servers.fileManager.actions.cut') : t('servers.fileManager.actions.copy')}
+                >
+                  {clipboard.mode === 'cut'
+                    ? <Scissors className="text-muted-foreground" aria-hidden="true" />
+                    : <Copy className="text-muted-foreground" aria-hidden="true" />}
+                  <span className="shrink-0">{t('servers.fileManager.paste')}</span>
+                  <span className="min-w-0 max-w-[160px] truncate font-mono text-muted-foreground">{clipboard.name}</span>
+                </Button>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 shrink-0 text-muted-foreground hover:text-primary"
-                  onClick={() => setCurrentPath('')}
-                  disabled={!currentPath}
-                  title="~/"
+                  className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+                  onClick={() => setClipboard(null)}
+                  aria-label={t('servers.fileManager.clearClipboard')}
                 >
-                  <ArrowUpToLine className="h-4 w-4" />
+                  <X aria-hidden="true" />
                 </Button>
-                <TerminalSquare className="h-4 w-4 shrink-0 text-primary/70" />
-                <Breadcrumbs path={currentPath} onNavigate={setCurrentPath} />
               </div>
+            )}
+          </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} />
-                <Button variant="outline" size="sm" onClick={handleUploadClick}>
-                  <Upload className="h-4 w-4 mr-2" />
-                  {t('servers.fileManager.upload')}
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="default" size="sm">
-                      <Plus className="h-4 w-4 mr-2" />
-                      {t('servers.fileManager.new')}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => setNewItemDialog({ open: true, type: 'file' })}>
-                      <FilePlus className="h-4 w-4 mr-2" />
-                      {t('servers.fileManager.newFile')}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setNewItemDialog({ open: true, type: 'folder' })}>
-                      <FolderPlus className="h-4 w-4 mr-2" />
-                      {t('servers.fileManager.newFolder')}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                {clipboard && (
-                  <div className="flex items-center gap-1 rounded-lg border border-border/80 bg-card px-1 py-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handlePaste}
-                      disabled={isLoading}
-                      className="h-8 text-xs"
-                      title={clipboard.mode === 'cut' ? t('servers.fileManager.actions.cut') : t('servers.fileManager.actions.copy')}
-                    >
-                      {clipboard.mode === 'cut'
-                        ? <Scissors className="h-3.5 w-3.5 mr-1.5 text-amber-400" />
-                        : <Copy className="h-3.5 w-3.5 mr-1.5 text-primary" />}
-                      <span className="max-w-[120px] truncate font-mono">{clipboard.name}</span>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={() => setClipboard(null)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                )}
-              </div>
+          {isLoading ? (
+            <div className="flex justify-center rounded-xl border border-border/60 bg-background/30 py-16">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t('common.loading')} />
             </div>
-
-            {/* File table */}
-            <div className="relative overflow-hidden rounded-xl border border-border/80 bg-card">
-              <div className="pointer-events-none h-0.5 bg-gradient-to-r from-primary via-accent to-transparent" />
+          ) : files.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
+              <FolderOpen className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
+              <h3 className="text-base font-semibold">{t('servers.fileManager.empty')}</h3>
+              <p className="mt-1 max-w-sm text-sm text-muted-foreground">{t('servers.fileManager.emptyHint')}</p>
+              <Button variant="outline" onClick={handleUploadClick} className="mt-6">
+                <Upload aria-hidden="true" />
+                {t('servers.fileManager.upload')}
+              </Button>
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-xl border border-border/60 bg-background/30">
               <Table>
-                <TableHeader>
-                  <TableRow className="border-border/60">
+                <TableHeader className="bg-transparent">
+                  <TableRow className="border-border/50 hover:bg-transparent">
                     <TableHead>{t('servers.fileManager.table.name')}</TableHead>
-                    <TableHead className="hidden sm:table-cell">{t('servers.fileManager.table.size')}</TableHead>
-                    <TableHead className="hidden md:table-cell">{t('servers.fileManager.table.modified')}</TableHead>
-                    <TableHead className="text-right">{t('servers.fileManager.table.actions')}</TableHead>
+                    <TableHead className="hidden w-28 sm:table-cell">{t('servers.fileManager.table.size')}</TableHead>
+                    <TableHead className="hidden w-48 lg:table-cell">{t('servers.fileManager.table.modified')}</TableHead>
+                    <TableHead className="w-14 pr-2 text-right">
+                      <span className="sr-only">{t('servers.fileManager.table.actions')}</span>
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {isLoading ? (
-                    <TableRow className="border-0">
-                      <TableCell colSpan={4} className="h-40 text-center">
-                        <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
-                      </TableCell>
-                    </TableRow>
-                  ) : files.length === 0 ? (
-                    <TableRow className="border-0">
-                      <TableCell colSpan={4} className="h-40 text-center">
-                        <div className="flex flex-col items-center justify-center gap-3 py-4">
-                          <div className="grid h-12 w-12 place-items-center rounded-xl border border-primary/20 bg-gradient-to-br from-primary/15 via-accent/10 to-transparent text-muted-foreground">
-                            <FolderTree className="h-5 w-5" />
-                          </div>
-                          <div>
-                            <p className="font-headline font-semibold">{t('servers.fileManager.empty')}</p>
-                            <p className="mt-0.5 text-sm text-muted-foreground">{t('servers.fileManager.emptyHint')}</p>
-                          </div>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    files.map((file) => {
-                      const isParent = !file.isFile && file.name === '..';
-                      const meta = isParent ? PARENT_META : file.isFile ? getFileMeta(file.name) : FOLDER_META;
-                      const MetaIcon = meta.icon;
-                      return (
-                        <TableRow key={file.name} className="group border-border/60 transition-colors hover:bg-accent/5">
-                          <TableCell
-                            className="cursor-pointer"
+                  {files.map((file) => {
+                    const isParent = !file.isFile && file.name === '..';
+                    const meta = isParent ? PARENT_META : file.isFile ? getFileMeta(file.name) : FOLDER_META;
+                    const MetaIcon = meta.icon;
+                    return (
+                      <TableRow key={file.name} className="group border-border/50 hover:bg-accent/30">
+                        {/* w-full + max-w-0 lets the name column absorb the free width and truncate */}
+                        <TableCell className="w-full max-w-0 py-2.5">
+                          <button
+                            type="button"
                             onClick={() => handleFileClick(file)}
+                            className="focus-ring flex w-full min-w-0 items-center gap-3 rounded-md text-left"
                           >
-                            <div className="flex items-center gap-3">
-                              <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-border/70 bg-background/50 backdrop-blur-sm transition-colors group-hover:border-primary/30">
-                                <MetaIcon className={cn('h-4 w-4', meta.className, !file.isFile && !isParent && 'fill-amber-400/15')} />
-                              </div>
+                            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-border/60 bg-card">
+                              <MetaIcon className={cn('h-4 w-4', meta.className)} aria-hidden="true" />
+                            </span>
+                            <span className="min-w-0">
                               <span
                                 className={cn(
-                                  'truncate font-medium',
-                                  isParent
-                                    ? 'text-muted-foreground'
-                                    : 'transition-colors group-hover:text-primary'
+                                  'block truncate font-medium transition-colors duration-150',
+                                  isParent ? 'text-muted-foreground' : 'group-hover:text-primary-bright'
                                 )}
                               >
                                 {file.name}
                               </span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="hidden font-mono text-xs text-muted-foreground sm:table-cell">
-                            {file.isFile ? formatSize(file.size) : '-'}
-                          </TableCell>
-                          <TableCell className="hidden text-xs text-muted-foreground md:table-cell">
-                            {formatDate(file.modifyTime)}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0 opacity-60 transition-opacity group-hover:opacity-100">
-                                  <span className="sr-only">Open menu</span>
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                {file.isFile ? (
-                                  <DropdownMenuItem onClick={() => setTimeout(() => handleFileClick(file), 50)}>
-                                    <Edit2 className="h-4 w-4 mr-2" />
-                                    {t('servers.fileManager.actions.edit')}
-                                  </DropdownMenuItem>
-                                ) : null}
-                                <DropdownMenuItem asChild>
-                                  <a href={`/api/servers/${serverId}/file/${currentPath ? `${currentPath}/${file.name}` : file.name}`} download>
-                                    <Download className="h-4 w-4 mr-2" />
-                                    {t('servers.fileManager.actions.download')}
-                                  </a>
-                                </DropdownMenuItem>
-                                {file.isFile && file.name.match(/\.(zip|tar(\.gz)?|tgz|gz|bz2|rar|7z|xz)$/i) ? (
-                                  <DropdownMenuItem onClick={() => handleExtract(file)}>
-                                    <FileArchive className="h-4 w-4 mr-2 text-amber-400" />
-                                    {t('servers.fileManager.actions.unarchive')}
-                                  </DropdownMenuItem>
-                                ) : null}
-                                <DropdownMenuItem onClick={() => setTimeout(() => openRename(file), 50)}>
-                                  <Edit2 className="h-4 w-4 mr-2" />
-                                  {t('servers.fileManager.actions.rename')}
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => handleCopy(file, 'copy')}>
-                                  <Copy className="h-4 w-4 mr-2" />
-                                  {t('servers.fileManager.actions.copy')}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleCopy(file, 'cut')}>
-                                  <Scissors className="h-4 w-4 mr-2" />
-                                  {t('servers.fileManager.actions.cut')}
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <AlertDialog open={pendingFile?.name === file.name} onOpenChange={(open) => !open && setPendingFile(null)}>
-                                  <AlertDialogTrigger asChild>
-                                    <DropdownMenuItem className="text-destructive focus:bg-destructive/10" onSelect={(e) => { e.preventDefault(); setPendingFile(file); }}>
-                                      <Trash2 className="h-4 w-4 mr-2" />
-                                      {t('servers.fileManager.actions.delete')}
-                                    </DropdownMenuItem>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>{t('servers.fileManager.deleteDialog.title')}</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        {t('servers.fileManager.deleteDialog.description', { name: file.name })}
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                                      <AlertDialogAction onClick={handleDelete} className="bg-red-500 hover:bg-red-600">
-                                        {t('servers.fileManager.actions.delete')}
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
+                              {!isParent && (
+                                <span className="mt-0.5 block truncate text-xs tabular-nums text-muted-foreground lg:hidden">
+                                  {file.isFile && <span className="sm:hidden">{formatSize(file.size)} · </span>}
+                                  {formatDate(file.modifyTime)}
+                                </span>
+                              )}
+                            </span>
+                          </button>
+                        </TableCell>
+                        <TableCell className="hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground sm:table-cell">
+                          {file.isFile ? formatSize(file.size) : '—'}
+                        </TableCell>
+                        <TableCell className="hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground lg:table-cell">
+                          {formatDate(file.modifyTime)}
+                        </TableCell>
+                        <TableCell className="py-2.5 pr-2 text-right">
+                          {renderRowMenu(file)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Editor Dialog */}
       <Dialog open={isEditorOpen} onOpenChange={(open) => !open && closeEditor()}>
-        <DialogContent className="flex h-[90vh] w-[95vw] max-w-[95vw] flex-col gap-0 overflow-hidden p-0">
-          <div className="flex items-center justify-between gap-3 border-b border-border/80 bg-card px-5 py-4 pr-12">
+        <DialogContent className="flex h-[90dvh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] flex-col gap-0 overflow-hidden p-0 sm:w-[95vw] sm:max-w-[95vw]">
+          <div className="flex items-center justify-between gap-3 border-b border-border/50 bg-card py-3 pl-4 pr-12 sm:pl-5">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-primary/25 bg-gradient-to-br from-primary/20 via-accent/10 to-transparent text-primary">
-                <EditingIcon className={cn('h-5 w-5', editingMeta.className)} />
-              </div>
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-border/60 bg-background/30">
+                <EditingIcon className={cn('h-4 w-4', editingMeta.className)} aria-hidden="true" />
+              </span>
               <div className="min-w-0">
-                <p className="truncate font-headline text-base font-semibold leading-tight">{editingFile?.name}</p>
-                <p className="truncate font-mono text-[11px] text-muted-foreground">
+                <DialogTitle className="truncate text-sm font-semibold leading-tight">{editingFile?.name}</DialogTitle>
+                <DialogDescription className="truncate font-mono text-xs text-muted-foreground">
                   ~{currentPath ? `/${currentPath}` : ''}
-                </p>
+                </DialogDescription>
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-wider text-primary">
-                {editingLanguage}
-              </Badge>
+            <div className="flex shrink-0 items-center gap-3">
               {savedFlash && (
-                <span className="flex items-center gap-1 text-xs font-semibold text-emerald-400">
-                  <Check className="h-3.5 w-3.5" />
-                  {t('common.saved') || 'Saved'}
+                <span className="flex items-center gap-1.5 text-xs font-medium text-success" role="status">
+                  <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                  {t('common.saved')}
                 </span>
               )}
+              <span className="hidden rounded-md border border-border/60 px-1.5 py-0.5 font-mono text-xs text-muted-foreground sm:inline">
+                {editingLanguage}
+              </span>
             </div>
           </div>
 
           <div className="min-h-0 flex-1 [&_.monaco-editor-host]:rounded-none [&_.monaco-editor-host]:border-0">
             {editingFile && (
-              <Suspense fallback={<div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+              <Suspense fallback={<div className="flex h-full items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
                 <CodeEditor
                   key={editingFile.name}
                   language={editingLanguage}
@@ -824,18 +845,16 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
             )}
           </div>
 
-          <div className="flex items-center justify-between gap-3 border-t border-border/80 bg-card px-5 py-3">
-            <p className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:flex">
-              <TerminalSquare className="h-3.5 w-3.5" />
+          <div className="flex items-center justify-between gap-3 border-t border-border/50 bg-card px-4 py-3 sm:px-5">
+            <p className="hidden text-xs text-muted-foreground sm:block">
               {t('servers.fileManager.editor.saveHint')}
             </p>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-1 items-center justify-end gap-2 sm:flex-none">
               <Button variant="outline" onClick={closeEditor}>
                 {t('servers.fileManager.editor.cancel')}
               </Button>
-              <Button onClick={handleSaveChanges} disabled={isSaving} className="min-w-[120px]">
-                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {!isSaving && <Check className="mr-2 h-4 w-4" />}
+              <Button onClick={handleSaveChanges} disabled={isSaving}>
+                {isSaving ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Check aria-hidden="true" />}
                 {t('servers.fileManager.editor.save')}
               </Button>
             </div>
@@ -854,12 +873,13 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="name">{t('servers.fileManager.nameLabel')}</Label>
+              <Label htmlFor="file-manager-new-name">{t('servers.fileManager.nameLabel')}</Label>
               <Input
-                id="name"
+                id="file-manager-new-name"
                 value={newItemName}
                 onChange={(e) => setNewItemName(e.target.value)}
                 placeholder={newItemDialog.type === 'file' ? t('servers.fileManager.createFilePlaceholder') : t('servers.fileManager.createFolderPlaceholder')}
+                className="font-mono"
                 autoFocus
                 onKeyDown={(e) => e.key === 'Enter' && handleCreateItem()}
               />
@@ -870,7 +890,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
               {t('common.cancel')}
             </Button>
             <Button onClick={handleCreateItem} disabled={isCreating || !newItemName}>
-              {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isCreating && <Loader2 className="animate-spin" aria-hidden="true" />}
               {t('servers.fileManager.create')}
             </Button>
           </DialogFooter>
@@ -888,12 +908,13 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="rename">{t('servers.fileManager.nameLabel')}</Label>
+              <Label htmlFor="file-manager-rename">{t('servers.fileManager.nameLabel')}</Label>
               <Input
-                id="rename"
+                id="file-manager-rename"
                 value={renameValue}
                 onChange={(e) => setRenameValue(e.target.value)}
                 placeholder={t('servers.fileManager.renameDialog.placeholder')}
+                className="font-mono"
                 autoFocus
                 onKeyDown={(e) => e.key === 'Enter' && handleRename()}
               />
@@ -904,7 +925,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
               {t('common.cancel')}
             </Button>
             <Button onClick={handleRename} disabled={isRenaming || !renameValue.trim()}>
-              {isRenaming && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isRenaming && <Loader2 className="animate-spin" aria-hidden="true" />}
               {t('servers.fileManager.actions.rename')}
             </Button>
           </DialogFooter>

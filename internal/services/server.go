@@ -1,10 +1,10 @@
 package services
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
-	"github.com/gofrs/uuid/v5"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -74,6 +74,23 @@ func (ss *Server) Get(id string) (*models.Server, error) {
 	return model, nil
 }
 
+// GetByInternalID looks a server up by its immutable internal UUIDv7 identity.
+// It allows callers to reference a server independently of its user-facing
+// Identifier, which is useful for future migrations and integrations.
+func (ss *Server) GetByInternalID(internalID string) (*models.Server, error) {
+	if internalID == "" {
+		return nil, gorm.ErrRecordNotFound
+	}
+
+	model := &models.Server{}
+	err := ss.DB.Preload(clause.Associations).Where("internal_id = ?", internalID).First(model).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return model, nil
+}
+
 func (ss *Server) Update(model *models.Server) error {
 	res := ss.DB.Omit(clause.Associations).Omit("node_id").Save(model)
 	return res.Error
@@ -112,6 +129,14 @@ func (ss *Server) Delete(id string) error {
 		return err
 	}
 
+	// Remove sessions scoped to this server so no orphaned rows survive a
+	// deletion. This mirrors the cleanup performed by the API delete handler and
+	// keeps ServerService.Delete the single source of truth for dependent rows.
+	err = ss.DB.Delete(models.Session{}, "server_identifier = ?", id).Error
+	if err != nil {
+		return err
+	}
+
 	err = ss.DB.Delete(model).Error
 	if err != nil {
 		return err
@@ -122,12 +147,36 @@ func (ss *Server) Delete(id string) error {
 
 func (ss *Server) Create(model *models.Server) error {
 	if model.Identifier == "" {
-		uniqueID, err := uuid.NewV4()
+		// Generate a unique identifier, retrying on the (now extremely unlikely)
+		// event of a collision instead of returning a raw primary-key error.
+		const maxAttempts = 5
+		for attempt := 0; attempt < maxAttempts; attempt++ {
+			generated, err := models.GenerateServerIdentifier()
+			if err != nil {
+				return err
+			}
+
+			var count int64
+			if err := ss.DB.Model(&models.Server{}).Where("identifier = ?", generated).Count(&count).Error; err != nil {
+				return err
+			}
+			if count == 0 {
+				model.Identifier = generated
+				break
+			}
+		}
+
+		if model.Identifier == "" {
+			return errors.New("could not generate a unique server identifier")
+		}
+	}
+
+	if model.InternalID == "" {
+		internalID, err := models.GenerateInternalID()
 		if err != nil {
 			return err
 		}
-		generatedID := strings.ToUpper(uniqueID.String())[0:8]
-		model.Identifier = generatedID
+		model.InternalID = internalID
 	}
 
 	res := ss.DB.Omit(clause.Associations).Create(model)

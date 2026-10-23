@@ -27,6 +27,7 @@ func RegisterRoutes(rg *gin.RouterGroup) {
 	registerServers(rg.Group("/servers"))
 	registerDatabases(rg.Group("/servers"))
 	registerUsers(rg.Group("/users"))
+	registerActivity(rg.Group("/activity"))
 	registerTemplates(rg.Group("/templates"))
 	registerSelf(rg.Group("/self"))
 	registerSettings(rg.Group("/settings"))
@@ -36,7 +37,6 @@ func RegisterRoutes(rg *gin.RouterGroup) {
 	registerDatabaseHosts(rg.Group("/databasehosts"))
 	registerAPIKeys(rg.Group("/settings/apikeys"))
 	registerProducts(rg.Group("/provision/products"))
-	RegisterAIRoutes(rg.Group("/ai"))
 
 	RegisterExTransferRoutes(publicRg.Group("/extransfer")) // External federated transfers
 

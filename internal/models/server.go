@@ -1,15 +1,27 @@
 package models
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"gopkg.in/go-playground/validator.v9"
 	"gorm.io/gorm"
-	"time"
 )
 
 type Server struct {
 	Name       string `gorm:"column:name;not null;size:40" json:"-" validate:"required,printascii"`
 	Identifier string `gorm:"column:identifier;primaryKey;size:20" json:"-" validate:"required,printascii"`
+
+	// InternalID is the immutable, time-ordered internal identity (UUIDv7) of the
+	// server. Unlike Identifier — the user-facing key that is embedded in daemon
+	// URLs and referenced by several tables — InternalID never changes and is
+	// meant to become the canonical internal identity going forward.
+	//
+	// It is generated automatically on create and is also surfaced read-only to
+	// clients as `internalId` (see ServerView) so frontend and integrations can
+	// adopt it, but it must never be used as the public/legacy key.
+	InternalID string `gorm:"column:internal_id;size:36;not null;uniqueIndex" json:"-"`
 
 	RawNodeID *uint `gorm:"column:node_id;index;->;<-:create" json:"-" validate:"-"`
 	NodeID    uint  `gorm:"-" json:"-" validate:"-"`
@@ -61,6 +73,19 @@ func (s *Server) BeforeSave(*gorm.DB) (err error) {
 		s.RawNodeID = nil
 	} else {
 		s.RawNodeID = &s.NodeID
+	}
+	return
+}
+
+// BeforeCreate validates the identifier and guarantees every server gets an
+// internal UUIDv7 identity, even when it is inserted outside the
+// ServerService.Create path (for example directly through the ORM).
+func (s *Server) BeforeCreate(*gorm.DB) (err error) {
+	if !IsValidServerIdentifier(s.Identifier) {
+		return fmt.Errorf("invalid server identifier %q: only letters, digits, '-' and '_' are allowed (1-20 characters)", s.Identifier)
+	}
+	if s.InternalID == "" {
+		s.InternalID, err = GenerateInternalID()
 	}
 	return
 }

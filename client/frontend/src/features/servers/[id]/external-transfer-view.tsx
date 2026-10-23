@@ -1,12 +1,11 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { sileo } from "@/lib/toast";
-import { Loader2, Copy, ShieldAlert, ArrowRightLeft, CheckCircle2, DownloadCloud, UploadCloud, Clock, KeyRound, Globe, ArrowRight } from 'lucide-react';
+import { Loader2, Copy, Check, CheckCircle2, DownloadCloud, UploadCloud, Clock, KeyRound, ArrowRight, Info, TriangleAlert } from 'lucide-react';
 import { useTranslations } from '@/contexts/translations-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
@@ -86,11 +85,11 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
             setActiveTab('import');
 
             if (data.status === 'DONE') {
-              sileo.success({ title: 'Transferencia completa', description: 'El servidor ha sido migrado exitosamente.' });
+              sileo.success({ title: t('servers.extransfer.toast.doneTitle'), description: t('servers.extransfer.toast.doneDescription') });
               setImportStep('');
               setImporting(false);
             } else if (data.status.startsWith('ERROR: ')) {
-              sileo.error({ title: 'Error en la migración', description: data.status.substring(7) });
+              sileo.error({ title: t('servers.extransfer.toast.failedTitle'), description: data.status.substring(7) });
               setImportStep('');
               setImporting(false);
             } else {
@@ -120,7 +119,7 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
       setSessionData(null);
       clearTransfer(serverId);
       setTimeLeft(null);
-      sileo.success({ title: 'Transfer token expired', description: 'The 15-minute window has passed.' });
+      sileo.success({ title: t('servers.extransfer.toast.expiredTitle'), description: t('servers.extransfer.toast.expiredDescription') });
       return;
     }
     const timer = setTimeout(() => setTimeLeft(prev => (prev !== null ? prev - 1 : null)), 1000);
@@ -144,7 +143,7 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to generate transfer token');
+      if (!res.ok) throw new Error(data.message || t('servers.extransfer.toast.generateError'));
 
       const stored: StoredTransfer = {
         token: data.token,
@@ -158,11 +157,11 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
       saveTransfer(serverId, stored); // ← persiste en localStorage
 
       sileo.success({
-        title: 'Token generated',
-        description: 'Valid for 15 minutes. Will remain visible if you navigate away.'
+        title: t('servers.extransfer.toast.generatedTitle'),
+        description: t('servers.extransfer.toast.generatedDescription')
       });
     } catch (e: any) {
-      sileo.error({ title: 'Error', description: e.message });
+      sileo.error({ title: t('common.error'), description: e.message });
     } finally {
       setLoading(false);
     }
@@ -172,17 +171,17 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
     void navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-    sileo.success({ title: 'Copied to clipboard' });
+    sileo.success({ title: t('common.copied') });
   };
 
   const executeImport = async () => {
     if (!importUrl || !importToken) {
-      sileo.error({ title: 'Missing fields', description: 'Please provide both the URL and Token.' });
+      sileo.error({ title: t('servers.extransfer.toast.missingTitle'), description: t('servers.extransfer.toast.missingDescription') });
       return;
     }
     try {
       setImporting(true);
-      setImportStep('Iniciando...');
+      setImportStep(t('servers.extransfer.import.starting'));
       const res = await fetch(`/api/servers/${serverId}/extransfer/pull`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -192,12 +191,12 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || 'Failed to initiate import.');
+        throw new Error(data.message || t('servers.extransfer.toast.importError'));
       }
 
       // El polling (useEffect) se encargará de actualizar el estado a partir de aquí.
     } catch (e: any) {
-      sileo.error({ title: 'Import Failed', description: e.message });
+      sileo.error({ title: t('servers.extransfer.toast.importFailedTitle'), description: e.message });
       setImportStep('');
       setImporting(false);
     }
@@ -206,213 +205,170 @@ export default function ExternalTransferView({ serverId }: ExternalTransferViewP
   const originUrl = typeof window !== 'undefined' ? window.location.origin : '';
 
   return (
-    <div className="mt-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <Card className="border-0 bg-transparent shadow-none">
-        <CardHeader className="px-0">
-          <div className="flex items-center gap-4">
-            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-primary/30 bg-gradient-to-br from-primary/25 via-accent/15 to-transparent text-primary shadow-[0_0_20px_rgb(0_0_0/0.3)]">
-              <ArrowRightLeft className="h-5 w-5" />
-            </div>
-            <div>
-              <CardTitle className="font-headline text-2xl">Federated Server Transfer</CardTitle>
-              <CardDescription className="flex items-center gap-1.5">
-                Zero-Trust migration between hosting providers
-                <span className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/10 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-primary">
-                  <KeyRound className="h-2.5 w-2.5" />
-                  Zero-Trust
-                </span>
-              </CardDescription>
+    <Card className="mt-6">
+      <div className="space-y-1 border-b border-border/50 p-5 md:p-6">
+        <h2 className="text-lg font-semibold tracking-[-0.02em]">{t('servers.extransfer.title')}</h2>
+        <p className="text-sm text-muted-foreground">{t('servers.extransfer.description')}</p>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="p-5 md:p-6">
+        <TabsList className="grid w-full grid-cols-2 sm:inline-grid sm:w-auto">
+          <TabsTrigger value="export" className="gap-2">
+            <UploadCloud className="h-4 w-4" aria-hidden="true" />
+            {t('servers.extransfer.tabs.export')}
+          </TabsTrigger>
+          <TabsTrigger value="import" className="gap-2">
+            <DownloadCloud className="h-4 w-4" aria-hidden="true" />
+            {t('servers.extransfer.tabs.import')}
+          </TabsTrigger>
+        </TabsList>
+
+        {/* EXPORT */}
+        <TabsContent value="export" className="mt-5 space-y-5">
+          <div className="flex gap-3 rounded-xl border border-border/60 bg-background/30 p-4">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            <div className="space-y-1 text-sm">
+              <p className="font-medium">{t('servers.extransfer.export.infoTitle')}</p>
+              <p className="text-pretty text-muted-foreground">{t('servers.extransfer.export.infoBody')}</p>
             </div>
           </div>
-        </CardHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6 w-full">
-          <TabsList className="mb-8 grid h-auto w-full grid-cols-2 overflow-hidden rounded-xl border border-border/70 bg-muted/50 p-0">
-            <TabsTrigger value="export" className="group relative flex h-11 items-center justify-center gap-2 rounded-none border-r border-border/50 px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:bg-accent/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring after:pointer-events-none after:absolute after:bottom-0 after:left-1/2 after:h-0.5 after:w-14 after:-translate-x-1/2 after:rounded-full after:bg-primary after:opacity-0 after:transition-opacity after:duration-200 data-[state=active]:bg-card data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-none data-[state=active]:after:opacity-100">
-              <UploadCloud className="h-4 w-4 text-muted-foreground transition-colors duration-200 group-data-[state=active]:text-primary" />
-              Export to remote panel
-            </TabsTrigger>
-            <TabsTrigger value="import" className="group relative flex h-11 items-center justify-center gap-2 rounded-none px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:bg-accent/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring after:pointer-events-none after:absolute after:bottom-0 after:left-1/2 after:h-0.5 after:w-14 after:-translate-x-1/2 after:rounded-full after:bg-primary after:opacity-0 after:transition-opacity after:duration-200 data-[state=active]:bg-card data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-none data-[state=active]:after:opacity-100">
-              <DownloadCloud className="h-4 w-4 text-muted-foreground transition-colors duration-200 group-data-[state=active]:text-primary" />
-              Import from remote panel
-            </TabsTrigger>
-          </TabsList>
-
-          {/*  EXPORT */}
-          <TabsContent value="export" className="mt-0 space-y-6 px-0">
-            <Alert className="border-primary/20 bg-primary/5">
-              <ShieldAlert className="h-4 w-4 text-primary" />
-              <AlertTitle className="text-primary">How it works</AlertTitle>
-              <AlertDescription className="mt-2 text-muted-foreground">
-                Generating a token will allow another panel to request the transfer of your server&apos;s data.
-                The system uses military-grade cryptographic hashing. Give this token <strong>only</strong> to the provider you are migrating to.
-                The token persists for 15 minutes even if you navigate away.
-              </AlertDescription>
-            </Alert>
-
-            {!sessionData ? (
-              <div className="group relative flex flex-col items-center justify-center overflow-hidden rounded-xl border border-dashed border-border/80 bg-card p-10 text-center">
-                <img
-                  src="/img/Fondos/minecraft-shaders-anime-hd-wallpaper-preview.jpg"
-                  alt=""
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-20"
-                />
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-card via-card/85 to-card/40" />
-                <div className="relative mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/25 via-accent/15 to-transparent shadow-[0_0_30px_rgb(0_0_0/0.4)]">
-                  <ShieldAlert className="h-7 w-7 text-primary" />
+          {!sessionData ? (
+            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
+              <KeyRound className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
+              <h3 className="text-base font-semibold">{t('servers.extransfer.export.emptyTitle')}</h3>
+              <p className="mt-1 max-w-md text-pretty text-sm text-muted-foreground">{t('servers.extransfer.export.emptyDescription')}</p>
+              <Button onClick={generateTransferToken} disabled={loading} className="mt-6">
+                {loading ? <Loader2 className="animate-spin" aria-hidden="true" /> : <KeyRound aria-hidden="true" />}
+                {loading ? t('servers.extransfer.export.generating') : t('servers.extransfer.export.generate')}
+              </Button>
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-xl border border-border/60 bg-background/30">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/50 px-4 py-3 sm:px-5">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-success" aria-hidden="true" />
+                  <h3 className="text-sm font-semibold">{t('servers.extransfer.export.sessionTitle')}</h3>
                 </div>
-                <h3 className="relative mb-2 font-headline text-lg font-semibold">Ready to generate token</h3>
-                <p className="relative mb-6 max-w-md text-sm text-muted-foreground">
-                  The token is valid for exactly 15 minutes. Once generated, head over to your destination hosting panel and enter the token to begin the Zero-Trust handshake.
+                {timeLeft !== null && (
+                  <span
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium',
+                      timeLeft < 120 ? 'bg-destructive/10 text-destructive-bright' : 'bg-success/10 text-success'
+                    )}
+                  >
+                    <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                    {t('servers.extransfer.export.expiresIn')}
+                    <span className="tabular-nums">{formatTime(timeLeft)}</span>
+                  </span>
+                )}
+              </div>
+
+              <div className="grid gap-5 p-4 sm:p-5">
+                <div className="space-y-2">
+                  <Label htmlFor="extransfer-origin-url">{t('servers.extransfer.export.urlLabel')}</Label>
+                  <div className="flex gap-2">
+                    <Input id="extransfer-origin-url" readOnly value={originUrl} className="min-w-0 font-mono" />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="shrink-0"
+                      onClick={() => copyToClipboard(originUrl)}
+                      aria-label={t('servers.extransfer.export.copyUrl')}
+                    >
+                      <Copy aria-hidden="true" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{t('servers.extransfer.export.urlHelp')}</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="extransfer-token">{t('servers.extransfer.export.tokenLabel')}</Label>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Input id="extransfer-token" readOnly value={sessionData.token} className="min-w-0 font-mono" />
+                    <Button onClick={() => copyToClipboard(sessionData.token)} className="shrink-0">
+                      {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
+                      {copied ? t('servers.extransfer.export.copied') : t('servers.extransfer.export.copyToken')}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{t('servers.extransfer.export.tokenHelp')}</p>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2 border-t border-border/50 px-4 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                <p className="flex items-center gap-2" role="status">
+                  <span className="relative flex h-2 w-2" aria-hidden="true">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60 motion-reduce:animate-none" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+                  </span>
+                  {t('servers.extransfer.export.waiting')}
                 </p>
-                <Button size="lg" onClick={generateTransferToken} disabled={loading} className="relative px-8 font-semibold">
-                  {loading
-                    ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...</>
-                    : 'Generate Transfer Token'
-                  }
-                </Button>
-              </div>
-            ) : (
-              <div className="group relative space-y-6 overflow-hidden rounded-xl border border-border/80 bg-card p-6">
-                <img
-                  src="/img/Fondos/minecraft-shaders-anime-hd-wallpaper-preview.jpg"
-                  alt=""
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-15"
-                />
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-card/80 to-card/95" />
-                <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-accent to-transparent" />
-
-                {/* Header con temporizador */}
-                <div className="relative flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="grid h-10 w-10 place-items-center rounded-lg bg-success/15 text-success">
-                      <CheckCircle2 className="h-5 w-5" />
-                    </div>
-                    <h3 className="font-headline text-lg font-bold">Transfer Session Created</h3>
-                  </div>
-                  {timeLeft !== null && (
-                    <div className={cn(
-                      'flex items-center gap-2 rounded-full px-3 py-1 font-mono text-sm font-bold backdrop-blur-sm',
-                      timeLeft < 120
-                        ? 'bg-destructive/15 text-destructive animate-pulse'
-                        : 'bg-success/15 text-success'
-                    )}>
-                      <Clock className="h-3.5 w-3.5" />
-                      {formatTime(timeLeft)}
-                    </div>
-                  )}
-                </div>
-
-                <div className="relative grid gap-4">
-                  <div className="space-y-1.5">
-                    <Label>Destination Import URL</Label>
-                    <p className="text-sm text-muted-foreground">Provide this URL to your new hosting so they know where to pull the data from.</p>
-                    <div className="mt-2 flex gap-2">
-                      <Input readOnly value={originUrl} className="bg-background/60 font-mono backdrop-blur-sm" />
-                      <Button variant="outline" size="icon" className="shrink-0" onClick={() => copyToClipboard(originUrl)}>
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label className="text-primary">Secure Transfer Token</Label>
-                    <p className="text-sm text-muted-foreground">
-                      One-time crypto payload. Expires in {timeLeft !== null ? formatTime(timeLeft) : '—'}.
-                    </p>
-                    <div className="relative mt-2">
-                      <Input readOnly value={sessionData.token} className="bg-background/60 pr-32 font-mono font-bold text-primary backdrop-blur-sm" />
-                      <Button
-                        variant="default"
-                        onClick={() => copyToClipboard(sessionData.token)}
-                        className="absolute right-1 top-1 h-8 px-4"
-                      >
-                        {copied ? 'Copied!' : 'Copy Token'}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="relative mt-6 flex flex-col items-center justify-between gap-4 border-t border-border/60 pt-6 text-sm text-muted-foreground sm:flex-row">
-                  <p className="flex items-center gap-2">
-                    <span className="relative flex h-2 w-2">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
-                      <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
-                    </span>
-                    Waiting for Destination Panel handshake...
-                  </p>
-                  <p className="flex items-center gap-1.5">
-                    Session ID:
-                    <span className="font-mono text-xs opacity-50">{sessionData.session_id}</span>
-                  </p>
-                </div>
-              </div>
-            )}
-          </TabsContent>
-
-          {/*IMPORT*/}
-          <TabsContent value="import" className="mt-0 space-y-6 px-0">
-            <Alert className="border-warning/25 bg-warning/10">
-              <ShieldAlert className="h-4 w-4 text-warning" />
-              <AlertTitle className="text-warning">Warning: Overwrite Server</AlertTitle>
-              <AlertDescription className="mt-2 text-muted-foreground">
-                Initiating a pull from an external provider will stop this current server and <strong>overwrite its files and configuration</strong> with the incoming data. Make sure you have a backup.
-              </AlertDescription>
-            </Alert>
-
-            <div className="group relative space-y-6 overflow-hidden rounded-xl border border-border/80 bg-card p-6">
-              <img
-                src="/img/Fondos/minecraft-shaders-anime-hd-wallpaper-preview.jpg"
-                alt=""
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-15"
-              />
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-card/80 to-card/95" />
-              <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-accent to-transparent" />
-
-              <div className="relative grid gap-6">
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-1.5">
-                    <Globe className="h-3.5 w-3.5 text-primary" />
-                    Origin Panel URL
-                  </Label>
-                  <Input
-                    placeholder="https://panel.other-host.com"
-                    value={importUrl}
-                    onChange={e => setImportUrl(e.target.value)}
-                    className="bg-background/60 backdrop-blur-sm"
-                  />
-                  <p className="text-xs text-muted-foreground">The API endpoint or main URL of the host providing the server.</p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-1.5">
-                    <KeyRound className="h-3.5 w-3.5 text-primary" />
-                    Transfer Token
-                  </Label>
-                  <Input
-                    type="password"
-                    placeholder="Paste the secure transfer token here..."
-                    value={importToken}
-                    onChange={e => setImportToken(e.target.value)}
-                    className="bg-background/60 backdrop-blur-sm"
-                  />
-                  <p className="text-xs text-muted-foreground">The generated cryptographically secure hash provided by the origin panel.</p>
-                </div>
-
-                <Button size="lg" onClick={executeImport} disabled={importing} className="w-full font-semibold sm:w-auto">
-                  {importing
-                    ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {importStep || 'Migrating...'}</>
-                    : <>Initiate Secure Pull <ArrowRight className="ml-2 h-4 w-4" /></>
-                  }
-                </Button>
+                <p className="flex min-w-0 items-center gap-1.5">
+                  <span className="shrink-0">{t('servers.extransfer.export.sessionId')}</span>
+                  <span className="truncate font-mono">{sessionData.session_id}</span>
+                </p>
               </div>
             </div>
-          </TabsContent>
-        </Tabs>
-      </Card>
-    </div>
+          )}
+        </TabsContent>
+
+        {/* IMPORT */}
+        <TabsContent value="import" className="mt-5 space-y-5">
+          <div className="flex gap-3 rounded-xl border border-warning/30 bg-warning/10 p-4" role="note">
+            <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
+            <div className="space-y-1 text-sm">
+              <p className="font-medium text-warning">{t('servers.extransfer.import.warningTitle')}</p>
+              <p className="text-pretty text-muted-foreground">{t('servers.extransfer.import.warningBody')}</p>
+            </div>
+          </div>
+
+          <div className="grid gap-5 rounded-xl border border-border/60 bg-background/30 p-4 sm:p-5">
+            <div className="space-y-2">
+              <Label htmlFor="extransfer-import-url">{t('servers.extransfer.import.urlLabel')}</Label>
+              <Input
+                id="extransfer-import-url"
+                type="url"
+                inputMode="url"
+                placeholder="https://panel.example.com"
+                value={importUrl}
+                onChange={e => setImportUrl(e.target.value)}
+                className="font-mono"
+              />
+              <p className="text-xs text-muted-foreground">{t('servers.extransfer.import.urlHelp')}</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="extransfer-import-token">{t('servers.extransfer.import.tokenLabel')}</Label>
+              <Input
+                id="extransfer-import-token"
+                type="password"
+                autoComplete="off"
+                placeholder={t('servers.extransfer.import.tokenPlaceholder')}
+                value={importToken}
+                onChange={e => setImportToken(e.target.value)}
+                className="font-mono"
+              />
+              <p className="text-xs text-muted-foreground">{t('servers.extransfer.import.tokenHelp')}</p>
+            </div>
+
+            <div>
+              <Button onClick={executeImport} disabled={importing} className="w-full sm:w-auto">
+                {importing ? (
+                  <>
+                    <Loader2 className="animate-spin" aria-hidden="true" />
+                    <span className="truncate">{importStep || t('servers.extransfer.import.migrating')}</span>
+                  </>
+                ) : (
+                  <>
+                    {t('servers.extransfer.import.start')}
+                    <ArrowRight aria-hidden="true" />
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
+    </Card>
   );
 }

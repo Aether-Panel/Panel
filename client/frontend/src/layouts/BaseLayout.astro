@@ -17,12 +17,9 @@ import { ClientRouter } from "astro:transitions";
       content="The next-generation server management dashboard."
     />
     <link rel="icon" type="image/png" href="/favicon.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
-      rel="stylesheet"
-    />
+    <!-- Geist ships with the panel (public/fonts, SIL OFL): no request to Google, which
+         would hand every visitor's IP to a third party, and it works offline -->
+    <link rel="preload" href="/fonts/Geist.woff2" as="font" type="font/woff2" crossorigin />
     <title>{title}</title>
     {
       /* By default, Astro adds a crossfade. To make it instant like Next.js, we can override the CSS or use transition:animate="none" on the body or replace ClientRouter with no fallback or similar if desired. But actually Astro's default *does* apply a fade. Let's just leave it for now or explicitly set transition:animate="none" on the body. */

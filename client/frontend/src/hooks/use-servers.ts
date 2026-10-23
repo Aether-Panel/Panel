@@ -3,13 +3,27 @@ import { api, ApiError } from '@/lib/api-client';
 import type { Server } from '@/lib/data';
 const globalFailedStatsSet = new Set<string>();
 
+// Stats are polled for every listed server; cap parallel requests so large lists do not flood the panel
+const STATS_CONCURRENCY = 6;
+
+async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+    const results = new Array<R>(items.length);
+    let next = 0;
+    const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+        while (next < items.length) {
+            const i = next++;
+            results[i] = await fn(items[i]);
+        }
+    });
+    await Promise.all(workers);
+    return results;
+}
+
 export function useServers() {
     const [servers, setServers] = useState<Server[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
-    const pollerRef = useRef<NodeJS.Timeout | null>(null);
-
-
+    const statsInFlightRef = useRef(false);
 
     const fetchServers = async () => {
         try {
@@ -40,6 +54,7 @@ export function useServers() {
                     totalCpu: s.total_cpu,
                     totalMemory: s.total_memory,
                     totalDisk: s.total_disk,
+                    uptimePercent: typeof uptime.uptimePercent === 'number' ? uptime.uptimePercent : undefined,
                 };
             });
 
@@ -57,10 +72,7 @@ export function useServers() {
     };
 
     const updateAllStats = async (currentServers: Server[]) => {
-        // Only fetch stats for the first 10 servers to avoid overloading
-        const serversToFetch = currentServers.slice(0, 10);
-
-        const statsPromises = serversToFetch.map(async (server) => {
+        const results = await mapWithConcurrency(currentServers, STATS_CONCURRENCY, async (server) => {
             try {
                 if (globalFailedStatsSet.has(server.id) || server.isGhost) {
                     return { id: server.id, status: 'offline' };
@@ -117,8 +129,6 @@ export function useServers() {
             return null;
         });
 
-        const results = await Promise.all(statsPromises);
-
         setServers(prev => prev.map(s => {
             const res = results.find(r => r && r.id === s.id);
             if (res) {
@@ -150,12 +160,15 @@ export function useServers() {
     useEffect(() => {
         if (servers.length === 0) return;
 
+        // fetchServers already loads stats right after listing, so only poll from here.
+        // Skip a tick while the previous round is still running so slow nodes do not pile up requests.
         const interval = setInterval(() => {
-            void updateAllStats(servers);
+            if (document.visibilityState === 'hidden' || statsInFlightRef.current) return;
+            statsInFlightRef.current = true;
+            void updateAllStats(servers).finally(() => {
+                statsInFlightRef.current = false;
+            });
         }, 5000);
-
-        // Initial update
-        void updateAllStats(servers);
 
         return () => clearInterval(interval);
     }, [servers.length]); // Only reset interval if server count changes

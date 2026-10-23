@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, Lightbulb, ListChecks, Loader2, Sparkles, CheckSquare, Square } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { AlertCircle, ListChecks, Loader2, Sparkles } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useTranslations } from '@/contexts/translations-context';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 
 type LogEntry = {
   time: string;
@@ -14,7 +15,7 @@ type LogEntry = {
 };
 
 export default function AISummary({ logs, serverId }: { logs?: LogEntry[], serverId?: string }) {
-  const [detectedErrors, setDetectedErrors] = useState<{ id: string, text: string }[]>([]);
+  const [detectedErrors, setDetectedErrors] = useState<{ id: string, text: string, display: string }[]>([]);
   const [selectedErrors, setSelectedErrors] = useState<Set<string>>(new Set());
   const [summary, setSummary] = useState('');
   const [tips, setTips] = useState<{ suggestions: string[]; rootCauses: string[] } | null>(null);
@@ -29,11 +30,13 @@ export default function AISummary({ logs, serverId }: { logs?: LogEntry[], serve
     
     // Extraer las últimas 50 líneas para no sobrecargar
     const recentLogs = logs.slice(-50);
-    const errorsFound: { id: string, text: string }[] = [];
+    const errorsFound: { id: string, text: string, display: string }[] = [];
     
     recentLogs.forEach((log, index) => {
       if (errorRegex.test(log.message)) {
-        errorsFound.push({ id: `err-${index}-${log.time}`, text: `[${log.time}] ${log.message}` });
+        // `text` (sent to the AI) keeps the detection time; the row shows only the
+        // line itself, which already carries the server's own timestamp.
+        errorsFound.push({ id: `err-${index}-${log.time}`, text: `[${log.time}] ${log.message}`, display: log.message });
       }
     });
 
@@ -74,7 +77,7 @@ export default function AISummary({ logs, serverId }: { logs?: LogEntry[], serve
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to analyze logs');
+        throw new Error(data.error || t('servers.aiSummary.fail'));
       }
 
       setSummary(data.summary);
@@ -90,97 +93,117 @@ export default function AISummary({ logs, serverId }: { logs?: LogEntry[], serve
     }
   };
 
+  const allSelected = detectedErrors.length > 0 && detectedErrors.every((e) => selectedErrors.has(e.id));
+  // Only the visible, checked lines are sent, so that is the count to show.
+  const selectedCount = detectedErrors.filter((e) => selectedErrors.has(e.id)).length;
+
+  // Rendered inside the console's Card, so this is a plain header + body, not another card.
   return (
-    <Card className="border-0">
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <Lightbulb className="text-primary" />
-          <CardTitle>{t('servers.aiSummary.title')}</CardTitle>
+    <div>
+      <div className="flex flex-col gap-4 border-b border-border/50 p-5 sm:flex-row sm:items-center sm:justify-between md:p-6">
+        <div className="min-w-0 space-y-1">
+          <h2 className="text-lg font-semibold tracking-[-0.02em]">{t('servers.aiSummary.title')}</h2>
+          <p className="text-sm text-muted-foreground">{t('servers.aiSummary.selectDescription')}</p>
         </div>
-        <CardDescription>
-          Selecciona los problemas extraídos automáticamente de la consola para que la IA los analice.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        
+        <Button
+          onClick={handleSummarize}
+          disabled={loading || selectedCount === 0}
+          className="shrink-0 self-start sm:self-auto"
+        >
+          {loading ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Sparkles aria-hidden="true" />}
+          {t('servers.aiSummary.analyzeButton')}
+          <span className="text-xs tabular-nums opacity-80">({selectedCount})</span>
+        </Button>
+      </div>
+
+      <div className="flex flex-col gap-4 p-5 md:p-6">
         {detectedErrors.length > 0 ? (
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Errores y Advertencias Detectados</span>
-              <div className="flex gap-2">
-                <Button variant="ghost" size="sm" onClick={selectAll} className="h-7 text-xs">Seleccionar Todos</Button>
-                <Button variant="ghost" size="sm" onClick={deselectAll} className="h-7 text-xs">Ninguno</Button>
-              </div>
+          <div className="overflow-hidden rounded-xl border border-border/60 bg-background/30">
+            <div className="flex items-center justify-between gap-3 border-b border-border/50 px-3 py-2">
+              <span className="text-sm font-medium">
+                {t('servers.aiSummary.detected')}
+                <span className="ml-1.5 text-xs tabular-nums text-muted-foreground">{detectedErrors.length}</span>
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={allSelected ? deselectAll : selectAll}
+                className="h-8 text-xs text-muted-foreground hover:text-foreground"
+              >
+                {allSelected ? t('servers.aiSummary.selectNone') : t('servers.aiSummary.selectAll')}
+              </Button>
             </div>
-            <ScrollArea className="h-[200px] w-full rounded-md border p-4 bg-black/20">
-              <div className="flex flex-col gap-3">
+            <ScrollArea className="h-[220px] w-full">
+              <ul className="divide-y divide-border/50">
                 {detectedErrors.map((err) => {
                   const isSelected = selectedErrors.has(err.id);
+                  const isError = /(error|exception|fail|critical|denied)/i.test(err.text);
                   return (
-                    <div 
-                      key={err.id} 
-                      role="button"
-                      tabIndex={0}
-                      className={`flex gap-3 items-start p-2 rounded cursor-pointer transition-colors ${isSelected ? 'bg-primary/10 border border-primary/20' : 'hover:bg-white/5 border border-transparent'}`}
-                      onClick={() => toggleError(err.id)}
-                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleError(err.id); } }}
-                    >
-                      <div className="mt-0.5 text-primary">
-                        {isSelected ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4 opacity-50" />}
-                      </div>
-                      <span className="font-mono text-xs text-red-400 break-all leading-relaxed">{err.text}</span>
-                    </div>
+                    <li key={err.id}>
+                      <label
+                        htmlFor={err.id}
+                        className={cn(
+                          'flex cursor-pointer items-start gap-3 px-3 py-2.5 transition-colors duration-150 hover:bg-accent/30',
+                          isSelected && 'bg-primary/5'
+                        )}
+                      >
+                        <Checkbox
+                          id={err.id}
+                          checked={isSelected}
+                          onCheckedChange={() => toggleError(err.id)}
+                          className="mt-0.5"
+                        />
+                        <span
+                          className={cn(
+                            'min-w-0 break-words font-mono text-xs leading-relaxed [overflow-wrap:anywhere]',
+                            isError ? 'text-destructive-bright' : 'text-warning'
+                          )}
+                        >
+                          {err.display}
+                        </span>
+                      </label>
+                    </li>
                   );
                 })}
-              </div>
+              </ul>
             </ScrollArea>
           </div>
         ) : (
-           <div className="flex items-center justify-center p-8 border border-dashed rounded-md bg-white/5">
-             <span className="text-sm text-muted-foreground">Esperando detectar errores en la consola...</span>
-           </div>
+          <div className="rounded-xl border border-dashed border-border/60 px-6 py-10 text-center">
+            <ListChecks className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
+            <p className="text-base font-semibold">{t('servers.aiSummary.emptyTitle')}</p>
+            <p className="mx-auto mt-1 max-w-[48ch] text-sm text-muted-foreground">{t('servers.aiSummary.emptyDescription')}</p>
+          </div>
         )}
 
         {errorMsg && (
-          <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-md text-red-400 text-sm flex items-start gap-2">
-            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+          <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive-bright" role="alert">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             <span>{errorMsg}</span>
           </div>
         )}
 
-        <Button onClick={handleSummarize} disabled={loading || selectedErrors.size === 0}>
-          {loading ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Sparkles className="mr-2 h-4 w-4" />
-          )}
-          {t('servers.aiSummary.analyzeButton')} ({selectedErrors.size})
-        </Button>
-
         {loading && (
-          <div className="flex flex-col items-center justify-center gap-4 py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-muted-foreground">{t('servers.aiSummary.loading')}</p>
+          <div className="flex items-center justify-center gap-3 py-8 text-sm text-muted-foreground" role="status">
+            <Loader2 className="h-6 w-6 animate-spin" aria-hidden="true" />
+            {t('servers.aiSummary.loading')}
           </div>
         )}
-        
+
         {summary && (
-          <div className="flex flex-col gap-6 mt-4">
-            <div className="p-4 bg-primary/5 rounded-lg border border-primary/10">
-              <h3 className="mb-3 font-semibold flex items-center gap-2">
-                 <Sparkles className="h-4 w-4 text-primary" />
-                 {t('servers.aiSummary.summaryTitle')}
-              </h3>
-              <p className="text-sm text-foreground/90 leading-relaxed">{summary}</p>
+          <div className="flex flex-col gap-4">
+            <div className="rounded-xl border border-border/60 bg-background/30 p-4">
+              <h3 className="mb-2 text-sm font-semibold">{t('servers.aiSummary.summaryTitle')}</h3>
+              <p className="text-sm leading-relaxed text-foreground/90">{summary}</p>
             </div>
             {tips && (
               <Accordion type="single" collapsible className="w-full" defaultValue="item-1">
                 <AccordionItem value="item-1">
                   <AccordionTrigger>
-                    <div className="flex items-center gap-2">
-                      <ListChecks className="text-blue-400" />
-                      <span>{t('servers.aiSummary.suggestions')}</span>
-                    </div>
+                    <span className="flex items-center gap-2">
+                      <ListChecks className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                      {t('servers.aiSummary.suggestions')}
+                    </span>
                   </AccordionTrigger>
                   <AccordionContent>
                     <ul className="list-disc space-y-2 pl-6">
@@ -192,10 +215,10 @@ export default function AISummary({ logs, serverId }: { logs?: LogEntry[], serve
                 </AccordionItem>
                 <AccordionItem value="item-2">
                   <AccordionTrigger>
-                    <div className="flex items-center gap-2">
-                      <AlertCircle className="text-yellow-400" />
-                      <span>{t('servers.aiSummary.rootCauses')}</span>
-                    </div>
+                    <span className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                      {t('servers.aiSummary.rootCauses')}
+                    </span>
                   </AccordionTrigger>
                   <AccordionContent>
                     <ul className="list-disc space-y-2 pl-6">
@@ -209,7 +232,7 @@ export default function AISummary({ logs, serverId }: { logs?: LogEntry[], serve
             )}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

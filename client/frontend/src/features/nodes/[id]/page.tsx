@@ -4,18 +4,18 @@ import { useNodes } from '@/hooks/use-dashboard-data';
 import { useServers } from '@/hooks/use-servers';
 import { api } from '@/lib/api-client';
 import { PageHeader } from '@/components/page-header';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Cpu, MemoryStick, Server as ServerIcon, CheckCircle, Info, Trash2, Rocket, Copy, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { CheckCircle2, Clock, Cpu, HardDrive, Info, MemoryStick, Server as ServerIcon, SearchX, Trash2, Rocket, Copy, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { sileo } from "@/lib/toast";
+import { cn } from '@/lib/utils';
 import { useTranslations } from '@/contexts/translations-context';
 
 function findNode(realNodes: any[], idParam: string) {
@@ -35,93 +35,194 @@ function formatUptime(s: number | undefined) {
   return `${d}d ${h}h ${m}m`;
 }
 
-const InfoItem = ({ label, value, children }: { label: string, value?: React.ReactNode, children?: React.ReactNode }) => (
-  <div className="flex items-start justify-between text-sm">
-    <p className="text-muted-foreground">{label}</p>
-    {value ? <p className="font-medium text-right text-wrap">{value}</p> : children}
+const GB = 1024 * 1024 * 1024;
+
+const richText = '[&_code]:rounded [&_code]:bg-secondary [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs [&_code]:text-foreground';
+
+/** Usage tone shared by every meter on the page. */
+const usageTone = (percent: number) =>
+  percent > 80 ? 'bg-destructive' : percent > 60 ? 'bg-warning' : 'bg-primary';
+
+function Meter({ value, label, className }: { value: number; label: string; className?: string }) {
+  const clamped = Math.min(100, Math.max(0, value || 0));
+  return (
+    <div
+      role="progressbar"
+      aria-label={label}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(clamped)}
+      className={cn('h-1.5 w-full overflow-hidden rounded-full bg-secondary', className)}
+    >
+      <div
+        className={cn('h-full rounded-full transition-[width,background-color] duration-500 ease-panel', usageTone(clamped))}
+        style={{ width: `${clamped}%` }}
+      />
+    </div>
+  );
+}
+
+/** Title row shared by every section card on the page. */
+function SectionHeader({ title, description, children, inline }: { title: string; description?: string; children?: React.ReactNode; inline?: boolean }) {
+  return (
+    <div className={cn(
+      'flex gap-4 border-b border-border/50 p-5 md:p-6',
+      inline ? 'flex-row items-center justify-between' : 'flex-col sm:flex-row sm:items-center sm:justify-between',
+    )}>
+      <div className="min-w-0 space-y-1">
+        <h2 className="text-lg font-semibold tracking-[-0.02em]">{title}</h2>
+        {description && <p className="text-sm text-muted-foreground">{description}</p>}
+      </div>
+      {children && <div className="shrink-0 self-start sm:self-auto">{children}</div>}
+    </div>
+  );
+}
+
+const InfoItem = ({ label, value, mono, className }: { label: string; value: React.ReactNode; mono?: boolean; className?: string }) => (
+  <div className={cn('flex items-baseline justify-between gap-4 py-1.5 text-sm', className)}>
+    <dt className="shrink-0 text-muted-foreground">{label}</dt>
+    <dd className={cn('min-w-0 break-words text-right font-medium', mono && 'font-mono text-[13px]')}>{value}</dd>
   </div>
 );
 
-const CopyableCode = ({ command, t }: { command: string, t: any }) => {
+function InfoSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="p-5 md:p-6">
+      <h3 className="mb-2 text-sm font-semibold">{title}</h3>
+      <dl className="grid gap-x-10 xl:grid-cols-2">{children}</dl>
+    </section>
+  );
+}
+
+function CopyableCode({ command }: { command: string }) {
+  const { t } = useTranslations();
   const handleCopy = () => {
     void navigator.clipboard.writeText(command);
     sileo.success({ title: t('common.copied') });
   };
 
   return (
-    <div className="flex items-center gap-2 rounded-md bg-muted p-2 my-2 font-mono text-sm">
-      <pre className="flex-grow overflow-x-auto"><code>{command}</code></pre>
-      <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" onClick={handleCopy}>
-        <Copy className="h-4 w-4" />
-        <span className="sr-only">{t('common.copy')}</span>
+    <div className="relative rounded-lg border border-border/60 bg-background/50">
+      <pre className="custom-scrollbar overflow-x-auto p-3 pr-12 font-mono text-xs leading-relaxed text-foreground"><code>{command}</code></pre>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="absolute right-1 top-1 h-9 w-9 text-muted-foreground hover:text-foreground"
+        onClick={handleCopy}
+        aria-label={t('common.copy')}
+      >
+        <Copy aria-hidden="true" />
       </Button>
     </div>
   );
-};
+}
 
-function SystemInfoCard({ node, t }: { node: any; t: any }) {
+function StatCell({
+  icon: Icon,
+  label,
+  value,
+  detail,
+  live,
+  meter,
+  className,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: React.ReactNode;
+  detail?: React.ReactNode;
+  live?: boolean;
+  meter?: number;
+  className?: string;
+}) {
+  const { t } = useTranslations();
   return (
-    <Card className="border border-border/60 rounded-xl overflow-hidden">
-        <CardHeader>
-          <CardTitle>{t('nodes.detail.systemInfo.title')}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <InfoItem label={t('nodes.detail.systemInfo.os')} value={node.systemInfo?.os || '—'} />
-            <InfoItem label={t('nodes.detail.systemInfo.arch')} value={node.systemInfo?.arch || '—'} />
-            <InfoItem label={t('nodes.detail.systemInfo.version')} value={node.systemInfo?.platformVersion || '—'} />
-            <InfoItem label={t('nodes.detail.systemInfo.publicAddress')} value={`${node.publicHost}:${node.publicPort}`} />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 pt-4 border-t">
-            <h4 className="md:col-span-2 font-semibold text-base mb-2">{t('nodes.detail.systemInfo.general')}</h4>
-            <InfoItem label={t('nodes.detail.systemInfo.hostname')} value={node.systemInfo?.hostname || '—'} />
-            <InfoItem label={t('nodes.detail.systemInfo.platform')} value={node.systemInfo?.platform || '—'} />
-            <InfoItem label={t('nodes.detail.systemInfo.uptime')} value={formatUptime(node.systemInfo?.uptime)} />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 pt-4 border-t">
-            <h4 className="md:col-span-2 font-semibold text-base mb-2">{t('nodes.detail.systemInfo.cpu')}</h4>
-            <InfoItem label={t('nodes.detail.systemInfo.model')} value={node.systemInfo?.cpuModel || '—'} />
-            <InfoItem label={t('nodes.detail.systemInfo.physicalCores')} value={node.systemInfo?.cpuCores != null ? String(node.systemInfo.cpuCores) : '—'} />
-            <InfoItem label={t('nodes.detail.systemInfo.logicalCores')} value={node.systemInfo?.cpuThreads != null ? String(node.systemInfo.cpuThreads) : '—'} />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 pt-4 border-t">
-            <h4 className="md:col-span-2 font-semibold text-base mb-2">{t('nodes.detail.systemInfo.memory')}</h4>
-            <InfoItem label={t('nodes.detail.systemInfo.total')} value={node.systemInfo?.memoryTotal ? `${(node.systemInfo.memoryTotal / 1024 / 1024 / 1024).toFixed(1)} GB` : '—'} />
-            <InfoItem label={t('nodes.detail.systemInfo.used')} value={node.systemInfo?.memoryUsed ? `${(node.systemInfo.memoryUsed / 1024 / 1024).toFixed(0)} MB` : '—'} />
-            <InfoItem label={t('nodes.detail.systemInfo.free')} value={node.systemInfo?.memoryFree ? `${(node.systemInfo.memoryFree / 1024 / 1024 / 1024).toFixed(1)} GB` : '—'} />
-          </div>
-        </CardContent>
-      </Card>
+    <div className={cn('flex min-w-0 flex-col gap-1 border-border/50 p-4 md:p-5', className)}>
+      <dt className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Icon className="hidden h-4 w-4 shrink-0 sm:block" aria-hidden="true" />
+        <span className="truncate">{label}</span>
+      </dt>
+      <dd className="truncate text-2xl font-semibold tabular-nums tracking-[-0.02em] text-foreground">{value}</dd>
+      {detail && <dd className="text-pretty text-xs tabular-nums text-muted-foreground">{detail}</dd>}
+      {meter !== undefined && (
+        <dd className="pt-2">
+          <Meter value={meter} label={label} />
+        </dd>
+      )}
+    </div>
   );
 }
 
-function DisksCard({ disks, t }: { disks: any[]; t: any }) {
+function SystemInfoCard({ node }: { node: any }) {
+  const { t } = useTranslations();
+  const info = node.systemInfo;
   return (
-    <Card className="border border-border/60 rounded-xl overflow-hidden">
-        <CardHeader>
-          <CardTitle>{t('nodes.detail.disks.title')}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {disks.map((disk: any, index: number) => (
-            <div key={index} className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <p className="font-mono">{disk.path}</p>
-                <p className="text-muted-foreground">
-                  {disk.used != null ? `${(disk.used / 1024 / 1024 / 1024).toFixed(1)} GB` : '?'}
-                  {' / '}
-                  {disk.total != null ? `${(disk.total / 1024 / 1024 / 1024).toFixed(1)} GB` : '?'}
-                  {disk.usedPercent != null ? ` (${disk.usedPercent.toFixed(1)}%)` : ''}
-                </p>
-              </div>
-              <Progress value={disk.usedPercent || 0} />
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+    <Card className="overflow-hidden">
+      <SectionHeader title={t('nodes.detail.systemInfo.title')} />
+      <div className="divide-y divide-border/50">
+        <InfoSection title={t('nodes.detail.systemInfo.system')}>
+          <InfoItem label={t('nodes.detail.systemInfo.os')} value={info?.os || '—'} />
+          <InfoItem label={t('nodes.detail.systemInfo.arch')} value={info?.arch || '—'} mono />
+          <InfoItem label={t('nodes.detail.systemInfo.version')} value={info?.platformVersion || '—'} mono />
+          <InfoItem label={t('nodes.detail.systemInfo.publicAddress')} value={`${node.publicHost}:${node.publicPort}`} mono />
+        </InfoSection>
+        <InfoSection title={t('nodes.detail.systemInfo.general')}>
+          <InfoItem label={t('nodes.detail.systemInfo.hostname')} value={info?.hostname || '—'} mono />
+          <InfoItem label={t('nodes.detail.systemInfo.platform')} value={info?.platform || '—'} />
+          <InfoItem label={t('nodes.detail.systemInfo.uptime')} value={formatUptime(info?.uptime)} />
+        </InfoSection>
+        <InfoSection title={t('nodes.detail.systemInfo.cpu')}>
+          <InfoItem className="xl:col-span-2" label={t('nodes.detail.systemInfo.model')} value={info?.cpuModel || '—'} />
+          <InfoItem label={t('nodes.detail.systemInfo.physicalCores')} value={info?.cpuCores != null ? String(info.cpuCores) : '—'} />
+          <InfoItem label={t('nodes.detail.systemInfo.logicalCores')} value={info?.cpuThreads != null ? String(info.cpuThreads) : '—'} />
+        </InfoSection>
+        <InfoSection title={t('nodes.detail.systemInfo.memory')}>
+          <InfoItem label={t('nodes.detail.systemInfo.total')} value={info?.memoryTotal ? `${(info.memoryTotal / GB).toFixed(1)} GB` : '—'} />
+          <InfoItem label={t('nodes.detail.systemInfo.used')} value={info?.memoryUsed ? `${(info.memoryUsed / GB).toFixed(1)} GB` : '—'} />
+          <InfoItem label={t('nodes.detail.systemInfo.free')} value={info?.memoryFree ? `${(info.memoryFree / GB).toFixed(1)} GB` : '—'} />
+        </InfoSection>
+      </div>
+    </Card>
   );
 }
 
-function ServersCard({ serversOnNode, t }: { serversOnNode: any[]; t: any }) {
+function DisksCard({ disks }: { disks: any[] }) {
+  const { t } = useTranslations();
+  return (
+    <Card className="overflow-hidden">
+      <SectionHeader title={t('nodes.detail.disks.title')} />
+      <div className="p-5 md:p-6">
+        {disks.length === 0 ? (
+          <div className="flex flex-col items-center rounded-xl border border-dashed border-border/60 px-6 py-10 text-center">
+            <HardDrive className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
+            <p className="text-sm text-muted-foreground">{t('nodes.detail.disks.empty')}</p>
+          </div>
+        ) : (
+          <ul className="space-y-5">
+            {disks.map((disk: any, index: number) => (
+              <li key={index} className="space-y-2">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 text-sm">
+                  <span className="min-w-0 truncate font-mono text-[13px] text-foreground">{disk.path}</span>
+                  <span className="tabular-nums text-muted-foreground">
+                    {disk.used != null ? `${(disk.used / GB).toFixed(1)} GB` : '?'}
+                    {' / '}
+                    {disk.total != null ? `${(disk.total / GB).toFixed(1)} GB` : '?'}
+                    {disk.usedPercent != null && (
+                      <span className="ml-2 font-medium text-foreground">{disk.usedPercent.toFixed(1)}%</span>
+                    )}
+                  </span>
+                </div>
+                <Meter value={disk.usedPercent || 0} label={disk.path} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function ServersCard({ serversOnNode }: { serversOnNode: any[] }) {
+  const { t } = useTranslations();
   const [currentPage, setCurrentPage] = useState(1);
   const serversPerPage = 5;
   const indexOfLastServer = currentPage * serversPerPage;
@@ -130,58 +231,78 @@ function ServersCard({ serversOnNode, t }: { serversOnNode: any[]; t: any }) {
   const totalPages = Math.ceil(serversOnNode.length / serversPerPage);
 
   return (
-    <Card className="border border-border/60 rounded-xl overflow-hidden">
-        <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-          <CardTitle>{t('nodes.detail.serversOnNode.title')}</CardTitle>
-          <Badge variant="secondary" className="font-semibold">
-            {serversOnNode.length}
-          </Badge>
-        </CardHeader>
-        <CardContent>
-          {serversOnNode.length > 0 ? (
-            <>
-              <ul className="space-y-2">
-                {currentServers.map((server: any) => (
-                  <li key={server.id} className="flex items-center justify-between rounded-md border p-3 text-sm hover:bg-muted/50 transition-colors">
-                    <div className="overflow-hidden mr-2">
-                      <p className="font-medium truncate">{server.name}</p>
-                      <p className="text-xs text-muted-foreground font-mono truncate">{server.id}</p>
-                    </div>
-                    <a href={`/servers/view/?id=${server.id}`} className="flex-shrink-0">
-                      <Button variant="ghost" size="sm">{t('nodes.detail.serversOnNode.view')}</Button>
+    <Card className="overflow-hidden">
+      <SectionHeader inline title={t('nodes.detail.serversOnNode.title')}>
+        <Badge variant="secondary" className="tabular-nums">{serversOnNode.length}</Badge>
+      </SectionHeader>
+      <div className="p-5 md:p-6">
+        {serversOnNode.length > 0 ? (
+          <>
+            <ul className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60 bg-background/30">
+              {currentServers.map((server: any) => {
+                const online = server.status === 'online';
+                return (
+                  <li key={server.id}>
+                    <a
+                      href={`/servers/view/?id=${server.id}`}
+                      className="group flex items-center gap-3 px-4 py-3 text-sm transition-colors duration-150 hover:bg-accent/30 focus-ring"
+                    >
+                      <span
+                        className={cn('h-2 w-2 shrink-0 rounded-full', online ? 'bg-success' : 'bg-muted-foreground/40')}
+                        title={t(`dashboard.status.${online ? 'online' : 'offline'}`)}
+                        aria-hidden="true"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-medium text-foreground">{server.name}</span>
+                        <span className="block truncate font-mono text-xs text-muted-foreground">{server.id}</span>
+                      </span>
+                      <span className="sr-only">{t(`dashboard.status.${online ? 'online' : 'offline'}`)}</span>
+                      <span className="shrink-0 text-xs font-medium text-muted-foreground transition-colors duration-150 group-hover:text-foreground">
+                        {t('nodes.detail.serversOnNode.view')}
+                      </span>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                     </a>
                   </li>
-                ))}
-              </ul>
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between pt-4 border-t mt-4">
-                  <Button
-                    variant="outline" size="sm"
-                    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                    disabled={currentPage === 1} className="h-8 w-8 p-0"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <span className="text-xs text-muted-foreground font-medium">Pág. {currentPage} de {totalPages}</span>
-                  <Button
-                    variant="outline" size="sm"
-                    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                    disabled={currentPage === totalPages} className="h-8 w-8 p-0"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-            </>
-          ) : (
-            <p className="text-sm text-muted-foreground text-center py-4">{t('nodes.detail.serversOnNode.empty')}</p>
-          )}
-        </CardContent>
-      </Card>
+                );
+              })}
+            </ul>
+            {totalPages > 1 && (
+              <div className="mt-4 flex items-center justify-between">
+                <Button
+                  variant="outline" size="icon"
+                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1} className="h-9 w-9"
+                  aria-label={t('nodes.detail.serversOnNode.previous')}
+                >
+                  <ChevronLeft aria-hidden="true" />
+                </Button>
+                <span className="text-xs tabular-nums text-muted-foreground">
+                  {t('nodes.detail.serversOnNode.page', { current: currentPage, total: totalPages })}
+                </span>
+                <Button
+                  variant="outline" size="icon"
+                  onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages} className="h-9 w-9"
+                  aria-label={t('nodes.detail.serversOnNode.next')}
+                >
+                  <ChevronRight aria-hidden="true" />
+                </Button>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="flex flex-col items-center rounded-xl border border-dashed border-border/60 px-6 py-10 text-center">
+            <ServerIcon className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
+            <p className="text-sm text-muted-foreground">{t('nodes.detail.serversOnNode.empty')}</p>
+          </div>
+        )}
+      </div>
+    </Card>
   );
 }
 
-function DeployDialog({ isDeployDialogOpen, setIsDeployDialogOpen, node, t }: any) {
+function DeployDialog({ isDeployDialogOpen, setIsDeployDialogOpen, node }: any) {
+  const { t } = useTranslations();
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://192.168.0.12:8080';
   const clientId = node ? `.node_${String(node.id).includes('-') ? String(node.id).split('-')[1] : node.id}` : '';
   const deployCompose = node ? [
@@ -213,48 +334,39 @@ function DeployDialog({ isDeployDialogOpen, setIsDeployDialogOpen, node, t }: an
 
   return (
     <Dialog open={isDeployDialogOpen} onOpenChange={setIsDeployDialogOpen}>
-      <DialogContent className="sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>{t('nodes.deployDialog.title', { name: node?.name || '' })}</DialogTitle>
-          <DialogDescription>
-            {t('nodes.deployDialog.description')}
-          </DialogDescription>
+      <DialogContent className="flex max-h-[min(90svh,56rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
+        <DialogHeader className="border-b border-border/60 p-6 pb-5 text-left">
+          <DialogTitle className="text-xl font-semibold tracking-[-0.02em]">{t('nodes.deployDialog.title', { name: node?.name || '' })}</DialogTitle>
+          <DialogDescription className={richText} dangerouslySetInnerHTML={{ __html: t('nodes.deployDialog.description') }} />
         </DialogHeader>
-        <div className="py-4 max-h-[70vh] overflow-y-auto pr-4 space-y-6">
-          <div className="flex gap-4 items-start">
-            <div className="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold mt-1">1</div>
-            <div>
-              <h4 className="font-semibold">{t('nodes.deployDialog.step1')}</h4>
+        <div className="custom-scrollbar min-h-0 flex-1 space-y-6 overflow-y-auto p-6">
+          <ol className="space-y-6">
+            <li className="space-y-1.5">
+              <h3 className="text-sm font-semibold">{t('nodes.deployDialog.step1')}</h3>
               <p className="text-sm text-muted-foreground">{t('nodes.deployDialog.step1Description')}</p>
-            </div>
-          </div>
-          <div className="flex gap-4 items-start">
-            <div className="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold mt-1">2</div>
-            <div>
-              <h4 className="font-semibold">{t('nodes.deployDialog.step2')}</h4>
-              <p className="text-sm text-muted-foreground">{t('nodes.deployDialog.step2Description')}</p>
-              <CopyableCode command="mkdir -p /opt/AetherPanel && cd /opt/AetherPanel" t={t}  />
-            </div>
-          </div>
-          <div className="flex gap-4 items-start">
-            <div className="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold mt-1">3</div>
-            <div>
-              <h4 className="font-semibold">{t('nodes.deployDialog.step3')}</h4>
-              <p className="text-sm text-muted-foreground" dangerouslySetInnerHTML={{ __html: t('nodes.deployDialog.step3Description') }}></p>
-              <CopyableCode command={deployCompose} t={t}  />
-            </div>
-          </div>
-          <div className="flex gap-4 items-start">
-            <div className="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold mt-1">4</div>
-            <div>
-              <h4 className="font-semibold">{t('nodes.deployDialog.step4')}</h4>
+            </li>
+            <li className="space-y-1.5">
+              <h3 className="text-sm font-semibold">{t('nodes.deployDialog.step2')}</h3>
+              <p className={cn('text-sm text-muted-foreground', richText)} dangerouslySetInnerHTML={{ __html: t('nodes.deployDialog.step2Description') }} />
+              <div className="pt-1.5"><CopyableCode command="mkdir -p /opt/AetherPanel && cd /opt/AetherPanel" /></div>
+            </li>
+            <li className="space-y-1.5">
+              <h3 className="text-sm font-semibold">{t('nodes.deployDialog.step3')}</h3>
+              <p className={cn('text-sm text-muted-foreground', richText)} dangerouslySetInnerHTML={{ __html: t('nodes.deployDialog.step3Description') }} />
+              <div className="pt-1.5"><CopyableCode command={deployCompose} /></div>
+            </li>
+            <li className="space-y-1.5">
+              <h3 className="text-sm font-semibold">{t('nodes.deployDialog.step4')}</h3>
               <p className="text-sm text-muted-foreground">{t('nodes.deployDialog.step4Description')}</p>
-              <CopyableCode command="docker compose up -d" t={t}  />
-              <p className="mt-4 text-sm font-semibold text-green-500">{t('nodes.deployDialog.successMessage')}</p>
-            </div>
+              <div className="pt-1.5"><CopyableCode command="docker compose up -d" /></div>
+            </li>
+          </ol>
+          <div className="flex items-start gap-2.5 rounded-xl border border-success/25 bg-success/10 px-4 py-3 text-sm text-success">
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            <p>{t('nodes.deployDialog.successMessage')}</p>
           </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="border-t border-border/60 px-6 py-4">
           <Button variant="outline" onClick={() => setIsDeployDialogOpen(false)}>{t('nodes.deployDialog.close')}</Button>
         </DialogFooter>
       </DialogContent>
@@ -262,7 +374,8 @@ function DeployDialog({ isDeployDialogOpen, setIsDeployDialogOpen, node, t }: an
   );
 }
 
-function EditNodeCard({ node, t }: { node: any; t: any }) {
+function EditNodeCard({ node }: { node: any }) {
+  const { t } = useTranslations();
   const [editName, setEditName] = useState(node.name || '');
   const [editPublicHost, setEditPublicHost] = useState(node.publicHost || '');
   const [editPublicPort, setEditPublicPort] = useState(String(node.publicPort || '8080'));
@@ -270,7 +383,6 @@ function EditNodeCard({ node, t }: { node: any; t: any }) {
   const [editUseDifferentHost, setEditUseDifferentHost] = useState(!!node.privateHost);
   const [editPrivateHost, setEditPrivateHost] = useState(node.privateHost || '');
   const [editPrivatePort, setEditPrivatePort] = useState(String(node.privatePort || '8080'));
-  const [isDeployDialogOpen, setIsDeployDialogOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -289,7 +401,7 @@ function EditNodeCard({ node, t }: { node: any; t: any }) {
 
   const handleUpdateNode = async () => {
     if (!editName.trim()) {
-      sileo.error({ title: 'Error', description: 'El nombre es obligatorio.' });
+      sileo.error({ title: t('common.error'), description: t('nodes.toast.nameRequired') });
       return;
     }
     setIsSaving(true);
@@ -304,9 +416,9 @@ function EditNodeCard({ node, t }: { node: any; t: any }) {
         privateHost: pHost,
         privatePort: pPort,
       });
-      sileo.success({ title: t('nodes.editDialog.save'), description: `Nodo "${editName}" actualizado.` });
+      sileo.success({ title: t('nodes.editDialog.save'), description: t('nodes.toast.updated', { name: editName }) });
     } catch (e: any) {
-      sileo.error({ title: 'Error al actualizar', description: e?.message || 'Error desconocido.' });
+      sileo.error({ title: t('nodes.toast.updateFailed'), description: e?.message || t('nodes.toast.unknownError') });
     } finally {
       setIsSaving(false);
     }
@@ -316,58 +428,61 @@ function EditNodeCard({ node, t }: { node: any; t: any }) {
     setIsDeleting(true);
     try {
       await api.delete(`/api/nodes/${node.id}`);
-      sileo.success({ title: 'Nodo eliminado', description: `"${node.name}" fue eliminado correctamente.` });
+      sileo.success({ title: t('nodes.toast.deleted'), description: t('nodes.toast.deletedDescription', { name: node.name }) });
       window.location.href = '/nodes/';
     } catch (e: any) {
-      sileo.error({ title: 'Error al eliminar', description: e?.message || 'Error desconocido.' });
+      sileo.error({ title: t('nodes.toast.deleteFailed'), description: e?.message || t('nodes.toast.unknownError') });
       setIsDeleting(false);
     }
   };
 
   return (
-    <>
-    <Card className="border border-border/60 rounded-xl overflow-hidden">
-        <CardHeader>
-          <CardTitle>{t('nodes.detail.editNode.title')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {node?.isLocal ? (
-            <Alert variant="default">
-              <Info className="h-4 w-4" />
-              <AlertTitle>{t('nodes.detail.editNode.localNodeAlertTitle')}</AlertTitle>
-              <AlertDescription>
-                {t('nodes.detail.editNode.localNodeAlertDescription')}
-              </AlertDescription>
-            </Alert>
-          ) : (
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="edit-node-name">{t('nodes.detail.editNode.nameLabel')}</Label>
-                <Input id="edit-node-name" value={editName} onChange={(e) => setEditName(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-public-host">{t('nodes.detail.editNode.publicHostLabel')}</Label>
-                <Input id="edit-public-host" value={editPublicHost} onChange={(e) => setEditPublicHost(e.target.value)} />
-              </div>
+    <Card className="overflow-hidden">
+      <SectionHeader
+        title={t('nodes.detail.editNode.title')}
+        description={node?.isLocal ? undefined : t('nodes.editDialog.description')}
+      />
+      {node?.isLocal ? (
+        <div className="p-5 md:p-6">
+          <div className="flex gap-3 rounded-xl border border-border/60 bg-background/30 p-4">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            <div className="space-y-1">
+              <p className="text-sm font-medium">{t('nodes.detail.editNode.localNodeAlertTitle')}</p>
+              <p className="text-sm text-muted-foreground">{t('nodes.detail.editNode.localNodeAlertDescription')}</p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="space-y-5 p-5 md:p-6">
+            <div className="space-y-2">
+              <Label htmlFor="edit-node-name">{t('nodes.detail.editNode.nameLabel')}</Label>
+              <Input id="edit-node-name" value={editName} onChange={(e) => setEditName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-public-host">{t('nodes.detail.editNode.publicHostLabel')}</Label>
+              <Input id="edit-public-host" className="font-mono" value={editPublicHost} onChange={(e) => setEditPublicHost(e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="edit-public-port">{t('nodes.detail.editNode.publicPortLabel')}</Label>
-                <Input id="edit-public-port" type="number" value={editPublicPort} onChange={(e) => setEditPublicPort(e.target.value)} />
+                <Input id="edit-public-port" type="number" className="font-mono" value={editPublicPort} onChange={(e) => setEditPublicPort(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-sftp-port">{t('nodes.detail.editNode.sftpPortLabel')}</Label>
-                <Input id="edit-sftp-port" type="number" value={editSftpPort} onChange={(e) => setEditSftpPort(e.target.value)} />
+                <Input id="edit-sftp-port" type="number" className="font-mono" value={editSftpPort} onChange={(e) => setEditSftpPort(e.target.value)} />
               </div>
-              <div className="items-top flex space-x-2">
+            </div>
+            <div className="rounded-xl border border-border/60 bg-background/30">
+              <div className="flex items-start gap-3 p-4">
                 <Checkbox
                   id="edit-use-different-host"
+                  className="mt-0.5"
                   checked={editUseDifferentHost}
                   onCheckedChange={(checked) => setEditUseDifferentHost(Boolean(checked))}
                 />
-                <div className="grid gap-1.5 leading-none">
-                  <label
-                    htmlFor="edit-use-different-host"
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  >
+                <div className="grid gap-1">
+                  <label htmlFor="edit-use-different-host" className="cursor-pointer text-sm font-medium leading-snug">
                     {t('nodes.addDialog.useDifferentHostLabel')}
                   </label>
                   <p className="text-sm text-muted-foreground">
@@ -376,58 +491,76 @@ function EditNodeCard({ node, t }: { node: any; t: any }) {
                 </div>
               </div>
               {editUseDifferentHost && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-md border bg-muted/50 p-4 animate-in fade-in">
+                <div className="grid grid-cols-1 gap-4 border-t border-border/50 p-4">
                   <div className="space-y-2">
                     <Label htmlFor="edit-private-host">{t('nodes.addDialog.privateHostLabel')}</Label>
-                    <Input id="edit-private-host" value={editPrivateHost} onChange={(e) => setEditPrivateHost(e.target.value)} />
+                    <Input id="edit-private-host" className="font-mono" value={editPrivateHost} onChange={(e) => setEditPrivateHost(e.target.value)} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="edit-private-port">{t('nodes.addDialog.privatePortLabel')}</Label>
-                    <Input id="edit-private-port" type="number" value={editPrivatePort} onChange={(e) => setEditPrivatePort(e.target.value)} />
+                    <Input id="edit-private-port" type="number" className="font-mono" value={editPrivatePort} onChange={(e) => setEditPrivatePort(e.target.value)} />
                   </div>
                 </div>
               )}
-              <Button className="w-full" onClick={handleUpdateNode} disabled={isSaving}>
-                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {t('nodes.detail.editNode.updateButton')}
-              </Button>
-              <Separator />
-              <div className="flex flex-col space-y-2">
-                <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="destructive" className="w-full">
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      {t('nodes.detail.editNode.deleteButton')}
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Eliminar nodo</DialogTitle>
-                      <DialogDescription>
-                        ¿Estás seguro de que quieres eliminar este nodo? Esta acción no se puede deshacer.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setIsDeleteConfirmOpen(false)} disabled={isDeleting}>Cancelar</Button>
-                      <Button variant="destructive" onClick={handleDeleteNode} disabled={isDeleting}>
-                        {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Eliminar nodo
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-
-                <Button variant="secondary" className="w-full" onClick={() => setIsDeployDialogOpen(true)}>
-                  <Rocket className="mr-2" />
-                  {t('nodes.detail.editNode.deployButton')}
-                </Button>
-              </div>
             </div>
-          )}
-        </CardContent>
-      </Card>
-      <DeployDialog isDeployDialogOpen={isDeployDialogOpen} setIsDeployDialogOpen={setIsDeployDialogOpen} node={node} t={t}  />
-      </>
+            <Button className="w-full" onClick={handleUpdateNode} disabled={isSaving}>
+              {isSaving && <Loader2 className="animate-spin" aria-hidden="true" />}
+              {t('nodes.detail.editNode.updateButton')}
+            </Button>
+          </div>
+          <div className="border-t border-border/50 p-5 md:p-6">
+            <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full text-destructive-bright hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive-bright"
+                >
+                  <Trash2 aria-hidden="true" />
+                  {t('nodes.detail.editNode.deleteButton')}
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader className="text-left">
+                  <DialogTitle>{t('nodes.deleteDialog.title')}</DialogTitle>
+                  <DialogDescription>
+                    {t('nodes.deleteDialog.description', { name: node.name })}
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter className="mt-2 gap-2 sm:gap-0">
+                  <Button variant="outline" onClick={() => setIsDeleteConfirmOpen(false)} disabled={isDeleting}>{t('common.cancel')}</Button>
+                  <Button variant="destructive" className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={handleDeleteNode} disabled={isDeleting}>
+                    {isDeleting && <Loader2 className="animate-spin" aria-hidden="true" />}
+                    {t('nodes.deleteDialog.confirm')}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </>
+      )}
+    </Card>
+  );
+}
+
+function NodeDetailSkeleton() {
+  return (
+    <div className="flex flex-col gap-8" aria-busy="true">
+      <div className="space-y-2">
+        <Skeleton className="h-9 w-56" />
+        <Skeleton className="h-4 w-80 max-w-full" />
+      </div>
+      <Skeleton className="h-[8.5rem] rounded-xl" />
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <div className="space-y-6 xl:col-span-2">
+          <Skeleton className="h-[26rem] rounded-xl" />
+          <Skeleton className="h-48 rounded-xl" />
+        </div>
+        <div className="space-y-6">
+          <Skeleton className="h-72 rounded-xl" />
+          <Skeleton className="h-56 rounded-xl" />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -436,7 +569,7 @@ export default function NodeDetailPage({ params }: { params: { id: string } }) {
   const { nodes: realNodes, loading: nodesLoading } = useNodes();
   const { servers: allServers, loading: serversLoading } = useServers();
   const { t } = useTranslations();
-  
+  const [isDeployDialogOpen, setIsDeployDialogOpen] = useState(false);
 
   const [liveStats, setLiveStats] = useState<any>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -445,6 +578,13 @@ export default function NodeDetailPage({ params }: { params: { id: string } }) {
   const serversOnNode = allServers.filter((s: any) =>
     String(s.nodeId) === (node?.id ? String(node.id) : params.id)
   );
+
+  // Hand the node name to the shell breadcrumb, which otherwise shows the raw id.
+  const nodeName = node?.name;
+  useEffect(() => {
+    if (!nodeName) return;
+    window.dispatchEvent(new CustomEvent('aether:breadcrumb', { detail: { id: params.id, label: nodeName } }));
+  }, [params.id, nodeName]);
 
   useEffect(() => {
     if (node?.systemInfo && !liveStats) {
@@ -463,131 +603,117 @@ export default function NodeDetailPage({ params }: { params: { id: string } }) {
       }
     };
     void fetchLive();
-    pollingRef.current = setInterval(fetchLive, 3000);
+    pollingRef.current = setInterval(() => {
+      // a hidden tab does not poll: each /system call keeps the node busy for a second
+      if (document.visibilityState === 'hidden') return;
+      void fetchLive();
+    }, 3000);
     return () => {
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
   }, [node?.id]);
 
   if (nodesLoading || serversLoading) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-border border-t-primary border-l-accent" />
-      </div>
-    );
+    return <NodeDetailSkeleton />;
   }
 
   if (!node) {
     return (
-      <div className="flex h-screen w-full items-center justify-center flex-col gap-4 text-center p-4">
-        <p className="text-xl font-semibold text-muted-foreground">{t('common.notFound')}</p>
-        <div className="bg-muted p-4 rounded-lg text-left max-w-md w-full space-y-2">
-          <p className="text-sm font-mono text-muted-foreground">ID buscado: <span className="text-primary font-bold">{params.id}</span></p>
-          <p className="text-xs text-muted-foreground">Nodos disponibles ({realNodes.length}):</p>
-          <ul className="text-xs font-mono text-muted-foreground list-disc list-inside">
-            {realNodes.map((n: any) => (
-              <li key={n.id}>ID: <span className="font-bold">{n.id}</span> - {n.name} (isLocal: {String(n.isLocal)})</li>
-            ))}
-          </ul>
-        </div>
-        <Button onClick={() => window.location.href = '/nodes/'}>{t('common.back')}</Button>
-      </div>
+      <Card className="flex flex-col items-center px-6 py-16 text-center">
+        <SearchX className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
+        <h1 className="text-base font-semibold">{t('common.notFound')}</h1>
+        <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+          {t('nodes.detail.notFoundDescription', { id: params.id })}
+        </p>
+        <Button variant="outline" className="mt-6" onClick={() => window.location.href = '/nodes/'}>
+          <ChevronLeft aria-hidden="true" />
+          {t('common.back')}
+        </Button>
+      </Card>
     );
   }
 
   const onlineServersCount = serversOnNode.filter((s: any) => s.status === 'online').length;
   const offlineServersCount = serversOnNode.length - onlineServersCount;
+  const isOnline = !!node.systemInfo;
+  const memoryPercent = liveStats && liveStats.memoryTotal > 0 ? (liveStats.memoryUsed / liveStats.memoryTotal) * 100 : undefined;
+  const cpuPercent = liveStats ? (liveStats.cpuUsage || 0) : undefined;
+  const uptime = liveStats?.uptime ?? node.systemInfo?.uptime;
 
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader title={node.name} />
+      <PageHeader
+        title={node.name}
+        description={isOnline ? t('nodes.detail.successAlertTitle') : t('nodes.detail.offlineDescription')}
+        badges={
+          <span
+            className={cn(
+              'inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium',
+              isOnline ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive-bright',
+            )}
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />
+            <span className="first-letter:uppercase">{t(`dashboard.status.${isOnline ? 'online' : 'offline'}`)}</span>
+          </span>
+        }
+      >
+        {!node.isLocal && (
+          <Button variant="outline" onClick={() => setIsDeployDialogOpen(true)}>
+            <Rocket aria-hidden="true" />
+            {t('nodes.detail.editNode.deployButton')}
+          </Button>
+        )}
+      </PageHeader>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="border border-border/60 rounded-xl overflow-hidden h-full">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t('nodes.detail.totalServers')}</CardTitle>
-              <ServerIcon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{serversOnNode.length}</div>
-            </CardContent>
-          </Card>
-        <Card className="border border-border/60 rounded-xl overflow-hidden h-full">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{t('nodes.detail.serverStatus')}</CardTitle>
-              <ServerIcon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-xl font-bold">{t('nodes.detail.online', { count: onlineServersCount })}</div>
-              <p className="text-xs text-muted-foreground">{t('nodes.detail.offline', { count: offlineServersCount })}</p>
-            </CardContent>
-          </Card>
-        <Card className="border border-border/60 rounded-xl overflow-hidden h-full">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                {t('nodes.detail.memoryUsage')}
-                {liveStats && <span className="inline-block h-2 w-2 rounded-full bg-green-500 animate-pulse" title="En vivo" />}
-              </CardTitle>
-              <MemoryStick className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{liveStats ? `${Math.round((liveStats.memoryUsed || 0) / 1024 / 1024)} MB` : '—'}</div>
-              <p className="text-xs text-muted-foreground">{t('nodes.detail.of')} {liveStats ? `${Math.round((liveStats.memoryTotal || 0) / 1024 / 1024 / 1024)} GB` : '∞'}</p>
-              {liveStats && liveStats.memoryTotal > 0 && (
-                <Progress className="mt-2 h-1.5" value={(liveStats.memoryUsed / liveStats.memoryTotal) * 100} />
-              )}
-            </CardContent>
-          </Card>
-        <Card className="border border-border/60 rounded-xl overflow-hidden h-full">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                {t('nodes.detail.cpuUsage')}
-                {liveStats && (
-                  <span
-                    className={`inline-block h-2 w-2 rounded-full animate-pulse ${(liveStats.cpuUsage || 0) > 80 ? 'bg-red-500' :
-                      (liveStats.cpuUsage || 0) > 50 ? 'bg-yellow-500' : 'bg-green-500'
-                      }`}
-                    title="En vivo"
-                  />
-                )}
-              </CardTitle>
-              <Cpu className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold transition-all duration-500">
-                {liveStats ? `${(liveStats.cpuUsage || 0).toFixed(1)}%` : '—'}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {liveStats ? `${liveStats.cpuCores || 0} núcleos / ${liveStats.cpuThreads || 0} hilos` : '—'}
-              </p>
-              {liveStats && (
-                <Progress
-                  className={`mt-2 h-1.5 transition-all duration-500 ${(liveStats.cpuUsage || 0) > 80 ? '[&>div]:bg-red-500' :
-                    (liveStats.cpuUsage || 0) > 50 ? '[&>div]:bg-yellow-500' : ''
-                    }`}
-                  value={liveStats.cpuUsage || 0}
-                />
-              )}
-            </CardContent>
-          </Card>
-      </div>
+      <Card className="overflow-hidden">
+        <dl className="grid grid-cols-2 xl:grid-cols-4">
+          <StatCell
+            icon={ServerIcon}
+            label={t('nodes.detail.totalServers')}
+            value={serversOnNode.length}
+            detail={`${t('nodes.detail.online', { count: onlineServersCount })} · ${t('nodes.detail.offline', { count: offlineServersCount })}`}
+            className="border-b border-r xl:border-b-0"
+          />
+          <StatCell
+            icon={Clock}
+            label={t('nodes.detail.systemInfo.uptime')}
+            value={formatUptime(uptime)}
+            detail={[node.systemInfo?.platform, node.systemInfo?.platformVersion].filter(Boolean).join(' ') || undefined}
+            className="border-b xl:border-b-0 xl:border-r"
+          />
+          <StatCell
+            icon={MemoryStick}
+            label={t('nodes.detail.memoryUsage')}
+            live={!!liveStats}
+            value={liveStats ? `${((liveStats.memoryUsed || 0) / GB).toFixed(1)} GB` : '—'}
+            detail={`${t('nodes.detail.of')} ${liveStats ? `${Math.round((liveStats.memoryTotal || 0) / GB)} GB` : '∞'}${memoryPercent !== undefined ? ` · ${Math.round(memoryPercent)}%` : ''}`}
+            meter={memoryPercent}
+            className="border-r"
+          />
+          <StatCell
+            icon={Cpu}
+            label={t('nodes.detail.cpuUsage')}
+            live={!!liveStats}
+            value={cpuPercent !== undefined ? `${cpuPercent.toFixed(1)}%` : '—'}
+            detail={liveStats ? t('nodes.detail.coresThreads', { cores: liveStats.cpuCores || 0, threads: liveStats.cpuThreads || 0 }) : '—'}
+            meter={cpuPercent}
+          />
+        </dl>
+      </Card>
 
-      <Alert variant="default" className="border-green-500/50 bg-green-500/10 text-green-200">
-        <CheckCircle className="h-4 w-4 !text-green-500" />
-        <AlertTitle className="text-green-400">{t('nodes.detail.successAlertTitle')}</AlertTitle>
-      </Alert>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-6">
-          <SystemInfoCard node={node} t={t} />
-          <DisksCard disks={node.systemInfo?.disks || []} t={t} />
+      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-3">
+        <div className="space-y-6 xl:col-span-2">
+          <SystemInfoCard node={node} />
+          <DisksCard disks={node.systemInfo?.disks || []} />
         </div>
 
-        <div className="lg:col-span-1 space-y-6">
-          <ServersCard serversOnNode={serversOnNode} t={t} />
-          <EditNodeCard node={node} t={t}  />
+        <div className="space-y-6 xl:col-span-1">
+          <ServersCard serversOnNode={serversOnNode} />
+          <EditNodeCard node={node} />
         </div>
       </div>
+
+      <DeployDialog isDeployDialogOpen={isDeployDialogOpen} setIsDeployDialogOpen={setIsDeployDialogOpen} node={node} />
     </div>
   );
 }

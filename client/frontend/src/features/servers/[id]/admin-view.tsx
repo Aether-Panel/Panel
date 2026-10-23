@@ -1,14 +1,17 @@
 'use client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Shield, Loader2, Settings, ArrowRightLeft, Trash2, HardDrive, Flag } from 'lucide-react';
+import { Loader2, Settings, ArrowRightLeft, Trash2, HardDrive, Flag, TriangleAlert, Download, FileCode, Ban } from 'lucide-react';
 import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
 import { sileo } from "@/lib/toast";
-import { useState, lazy, Suspense } from 'react';
+import { useState, lazy, Suspense, type ReactNode } from 'react';
+import { cn } from '@/lib/utils';
 import { useServerSettings } from '@/hooks/use-server-settings';
 import { useAuth } from '@/contexts/providers';
 
@@ -63,10 +66,10 @@ export default function AdminView({ serverId }: { serverId: string }) {
                 ...settings,
                 definition: parsed
             }, hasScope('server.data.edit.admin'));
-            sileo.success({ title: t('common.success'), description: t('servers.admin.editDefinition.success') || 'Definition saved.' });
+            sileo.success({ title: t('common.success'), description: t('servers.admin.editDefinition.success') });
             setEditorOpen(false);
         } catch (e: any) {
-            sileo.error({ title: t('common.error'), description: e.message || 'Invalid JSON or save failed.' });
+            sileo.error({ title: t('common.error'), description: e.message || t('servers.admin.editDefinition.error') });
         } finally {
             setIsSaving(false);
         }
@@ -76,9 +79,9 @@ export default function AdminView({ serverId }: { serverId: string }) {
         setIsInstalling(true);
         try {
             await api.post(`/api/servers/${serverId}/install`, {});
-            sileo.success({ title: t('common.success'), description: t('servers.admin.installStatus.success') || 'Installation started.' });
+            sileo.success({ title: t('common.success'), description: t('servers.admin.installStatus.success') });
         } catch (e: any) {
-            sileo.error({ title: t('common.error'), description: e.message || 'Installation failed.' });
+            sileo.error({ title: t('common.error'), description: e.message || t('servers.admin.installStatus.error') });
         } finally {
             setIsInstalling(false);
         }
@@ -88,10 +91,10 @@ export default function AdminView({ serverId }: { serverId: string }) {
         setIsDeleting(true);
         try {
             await api.delete(`/api/servers/${serverId}`);
-            sileo.success({ title: t('common.success'), description: t('servers.admin.delete.success') || 'Server deleted.' });
+            sileo.success({ title: t('common.success'), description: t('servers.admin.delete.success') });
             window.location.href = '/servers';
         } catch (e: any) {
-            sileo.error({ title: t('common.error'), description: e.message || 'Delete failed.' });
+            sileo.error({ title: t('common.error'), description: e.message || t('servers.admin.delete.error') });
         } finally {
             setIsDeleting(false);
         }
@@ -101,10 +104,10 @@ export default function AdminView({ serverId }: { serverId: string }) {
         setIsSuspending(true);
         try {
             await api.post(`/api/servers/${serverId}/suspend`, {});
-            sileo.success({ title: t('common.success'), description: 'Server suspension state toggled.' });
+            sileo.success({ title: t('common.success'), description: t('servers.admin.suspend.success') });
             window.location.reload();
         } catch (e: any) {
-            sileo.error({ title: t('common.error'), description: e.message || 'Suspension failed.' });
+            sileo.error({ title: t('common.error'), description: e.message || t('servers.admin.suspend.error') });
         } finally {
             setIsSuspending(false);
         }
@@ -112,18 +115,18 @@ export default function AdminView({ serverId }: { serverId: string }) {
 
     const handleTransfer = async () => {
         if (!selectedNode) {
-            sileo.error({ title: t('common.error'), description: 'Please select a target node.' });
+            sileo.error({ title: t('common.error'), description: t('servers.admin.transfer.selectRequired') });
             return;
         }
         setIsTransferring(true);
         const startedAt = Date.now();
         try {
             await api.post(`/api/servers/${serverId}/transfer`, { nodeId: Number.parseInt(selectedNode) });
-            sileo.success({ title: t('common.success'), description: 'Transfer started successfully.' });
+            sileo.success({ title: t('common.success'), description: t('servers.admin.transfer.success') });
             setSelectedNode('');
             setTransferOpen(false);
         } catch (e: any) {
-            sileo.error({ title: t('common.error'), description: e.message || 'Transfer failed.' });
+            sileo.error({ title: t('common.error'), description: e.message || t('servers.admin.transfer.error') });
         } finally {
             const remaining = Math.max(0, 1200 - (Date.now() - startedAt));
             setTimeout(() => setIsTransferring(false), remaining);
@@ -144,192 +147,237 @@ export default function AdminView({ serverId }: { serverId: string }) {
     if (loading) {
         return (
             <div className="flex h-[400px] items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t('common.loading')} />
             </div>
         );
     }
 
     const adminTabs = [
-        ...(canViewInstall ? [{ value: 'install', label: 'Installation', icon: HardDrive }] : []),
-        ...(canViewTransfer ? [{ value: 'transfer', label: 'Transfer', icon: ArrowRightLeft }] : []),
-        ...(canViewConfig ? [{ value: 'config', label: 'Configuration', icon: Settings }] : []),
-        ...(canViewAssignments ? [{ value: 'assignments', label: 'Assignments', icon: Flag }] : []),
-        ...(canViewDelete ? [{ value: 'delete', label: 'Danger Zone', icon: Trash2 }] : []),
+        ...(canViewInstall ? [{ value: 'install', label: t('servers.admin.tabs.install'), icon: HardDrive }] : []),
+        ...(canViewTransfer ? [{ value: 'transfer', label: t('servers.admin.tabs.transfer'), icon: ArrowRightLeft }] : []),
+        ...(canViewConfig ? [{ value: 'config', label: t('servers.admin.tabs.config'), icon: Settings }] : []),
+        ...(canViewAssignments ? [{ value: 'assignments', label: t('servers.admin.tabs.assignments'), icon: Flag }] : []),
+        ...(canViewDelete ? [{ value: 'delete', label: t('servers.admin.tabs.danger'), icon: TriangleAlert }] : []),
     ];
 
     return (
-        <div className="mt-6 rounded-lg p-[1px] bg-gradient-to-br from-primary/50 via-accent/40 to-secondary/50">
-            <Card className="border-0">
-                <CardHeader>
-                    <div className="flex items-center gap-2">
-                        <Shield className="h-6 w-6" />
-                        <CardTitle>{t('servers.admin.title')}</CardTitle>
+        <Card className="mt-6">
+            <div className="space-y-1 border-b border-border/50 p-5 md:p-6">
+                <h2 className="text-lg font-semibold tracking-[-0.02em]">{t('servers.admin.title')}</h2>
+                <p className="text-sm text-muted-foreground">{t('servers.admin.description')}</p>
+            </div>
+
+            <Tabs value={adminTab} onValueChange={setAdminTab}>
+                <div className="border-b border-border/50 px-5 py-3 md:px-6">
+                    {/* Below lg (sidebar + card padding leave too little room) the sections
+                        collapse into a select instead of a clipped or wrapping strip. */}
+                    <div className="lg:hidden">
+                        <Select value={adminTab} onValueChange={setAdminTab}>
+                            <SelectTrigger aria-label={t('servers.admin.sectionLabel')}>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {adminTabs.map(tab => (
+                                    <SelectItem key={tab.value} value={tab.value}>
+                                        <div className="flex items-center gap-2">
+                                            <tab.icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                                            <span>{tab.label}</span>
+                                        </div>
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
-                    <CardDescription>
-                        {t('servers.admin.description')}
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Tabs value={adminTab} onValueChange={setAdminTab}>
-                        <TabsList className="mb-6">
-                            {adminTabs.map(tab => (
-                                <TabsTrigger key={tab.value} value={tab.value} className="flex items-center gap-2">
-                                    <tab.icon className="h-4 w-4" />
-                                    {tab.label}
-                                </TabsTrigger>
-                            ))}
-                        </TabsList>
-
-                        <TabsContent value="install" className="space-y-4">
-                            <div className="flex items-center justify-between rounded-lg border p-4">
-                                <div>
-                                    <h3 className="font-medium">{t('servers.admin.installStatus.title')}</h3>
-                                    <p className="text-sm text-muted-foreground">
-                                        {t('servers.admin.installStatus.description')}
-                                    </p>
-                                </div>
-                                {canManageInstall && (
-                                    <Button onClick={handleInstall} disabled={isInstalling}>
-                                        {isInstalling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                        {t('servers.admin.installStatus.button')}
-                                    </Button>
+                    <TabsList className="hidden h-auto w-max max-w-full flex-wrap justify-start lg:inline-flex">
+                        {adminTabs.map(tab => (
+                            <TabsTrigger
+                                key={tab.value}
+                                value={tab.value}
+                                className={cn(
+                                    'h-8',
+                                    tab.value === 'delete' && 'data-[state=active]:text-destructive-bright',
                                 )}
-                            </div>
-                        </TabsContent>
+                            >
+                                {tab.label}
+                            </TabsTrigger>
+                        ))}
+                    </TabsList>
+                </div>
 
-                        <TabsContent value="transfer" className="space-y-4">
-                            <div className="flex items-center justify-between rounded-lg border p-4">
-                                <div>
-                                    <h3 className="font-medium">Transfer Server</h3>
-                                    <p className="text-sm text-muted-foreground">
-                                        Move this server to a different node.
-                                    </p>
-                                </div>
-                                {canManageTransfer && (
-                                    <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
-                                        <DialogTrigger asChild>
-                                            <Button variant="outline" onClick={() => {
-                                                setSelectedNode('');
-                                                void fetchNodes();
-                                                setTransferOpen(true);
-                                            }}>Transfer</Button>
-                                        </DialogTrigger>
-                                        <DialogContent>
-                                            <DialogHeader>
-                                                <DialogTitle>Transfer Server</DialogTitle>
-                                                <DialogDescription>
-                                                    Select the target node to move this server to.
-                                                </DialogDescription>
-                                            </DialogHeader>
-                                            <div className="space-y-4 py-4">
-                                                <select
-                                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                                    value={selectedNode}
-                                                    onChange={(e) => setSelectedNode(e.target.value)}
-                                                    disabled={nodes.length === 0}
-                                                >
-                                                    <option value="" disabled>Select Target Node...</option>
-                                                    {nodes.map(node => (
-                                                        <option key={node.id} value={node.id}>
-                                                            {node.name}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                            <DialogFooter>
-                                                <Button onClick={handleTransfer} disabled={!selectedNode || isTransferring || nodes.length === 0}>
-                                                    {isTransferring && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                                    Start Transfer
-                                                </Button>
-                                            </DialogFooter>
-                                        </DialogContent>
-                                    </Dialog>
-                                )}
-                            </div>
-                        </TabsContent>
-
-                        <TabsContent value="config" className="space-y-4">
-                            <div className="flex items-center justify-between rounded-lg border p-4">
-                                <div>
-                                    <h3 className="font-medium">{t('servers.admin.editDefinition.title')}</h3>
-                                    <p className="text-sm text-muted-foreground">
-                                        {t('servers.admin.editDefinition.description')}
-                                    </p>
-                                </div>
-                                {canManageConfig && (
-                                    <Button variant="outline" onClick={handleEditDefinition}>{t('servers.admin.editDefinition.button')}</Button>
-                                )}
-                            </div>
-
-                            <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
-                                <DialogContent className="w-[90vw] max-w-[90vw] h-[85vh] flex flex-col gap-0 p-0 overflow-hidden">
-                                    <DialogHeader className="px-5 pt-5 pb-3">
-                                        <DialogTitle>{t('servers.admin.editDefinition.title')}</DialogTitle>
-                                        <DialogDescription>
-                                            {t('servers.admin.editDefinition.description')}
-                                        </DialogDescription>
-                                    </DialogHeader>
-                                    <div className="flex-grow min-h-0">
-                                        <Suspense fallback={<div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
-                                            <CodeEditor
-                                                language="json"
-                                                value={editContent}
-                                                onChange={(val) => setEditContent(val || '')}
-                                                onSave={handleSaveDefinition}
-                                            />
-                                        </Suspense>
-                                    </div>
-                                    <DialogFooter className="px-5 py-3 gap-2 border-t border-border/60">
-                                        <Button variant="outline" onClick={() => setEditorOpen(false)}>
-                                            {t('common.cancel')}
-                                        </Button>
-                                        <Button onClick={handleSaveDefinition} disabled={isSaving}>
-                                            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                            {t('common.save')}
-                                        </Button>
-                                    </DialogFooter>
-                                </DialogContent>
-                            </Dialog>
-                        </TabsContent>
-
-                        <TabsContent value="assignments" className="space-y-4">
-                            <div className="flex items-center justify-between rounded-lg border p-4">
-                                <div>
-                                    <h3 className="font-medium">Server Flags</h3>
-                                    <p className="text-sm text-muted-foreground">
-                                        View and manage server flags and assignments.
-                                    </p>
-                                </div>
-                                <Button variant="outline" disabled>
-                                    {canManageAssignments ? 'Manage Flags' : 'View Flags'}
-                                </Button>
-                            </div>
-                        </TabsContent>
-
-                        <TabsContent value="delete" className="space-y-4">
-                            <div className="flex items-center justify-between rounded-lg border border-destructive/50 bg-destructive/5 p-4">
-                                <div>
-                                    <h3 className="font-medium text-destructive">Suspend Server</h3>
-                                    <p className="text-sm text-muted-foreground">
-                                        Suspending a server will stop it and prevent users from starting or modifying it.
-                                    </p>
-                                </div>
-                                <AlertDialog open={isSuspending ? true : undefined}>
+                <div className="p-5 md:p-6">
+                    <TabsContent value="install" className="mt-0">
+                        <ActionRow
+                            title={t('servers.admin.installStatus.title')}
+                            description={t('servers.admin.installStatus.description')}
+                        >
+                            {canManageInstall && (
+                                <AlertDialog>
                                     <AlertDialogTrigger asChild>
-                                        <Button variant="destructive" disabled={isSuspending}>
-                                            {isSuspending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                            Suspend / Unsuspend
+                                        <Button disabled={isInstalling}>
+                                            {isInstalling ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Download aria-hidden="true" />}
+                                            {t('servers.admin.installStatus.button')}
                                         </Button>
                                     </AlertDialogTrigger>
                                     <AlertDialogContent>
                                         <AlertDialogHeader>
-                                            <AlertDialogTitle>Toggle Suspension</AlertDialogTitle>
+                                            <AlertDialogTitle>{t('servers.admin.installDialog.title')}</AlertDialogTitle>
                                             <AlertDialogDescription>
-                                                Are you sure you want to toggle the suspension state of this server? If suspended, the server will be forcibly stopped.
+                                                {t('servers.admin.installDialog.description')}
                                             </AlertDialogDescription>
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>
-                                            <AlertDialogCancel disabled={isSuspending}>Cancel</AlertDialogCancel>
+                                            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                                            <AlertDialogAction
+                                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                                onClick={() => void handleInstall()}
+                                            >
+                                                {t('servers.admin.installDialog.confirm')}
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            )}
+                        </ActionRow>
+                    </TabsContent>
+
+                    <TabsContent value="transfer" className="mt-0">
+                        <ActionRow
+                            title={t('servers.admin.transfer.title')}
+                            description={t('servers.admin.transfer.description')}
+                        >
+                            {canManageTransfer && (
+                                <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
+                                    <DialogTrigger asChild>
+                                        <Button variant="outline" onClick={() => {
+                                            setSelectedNode('');
+                                            void fetchNodes();
+                                            setTransferOpen(true);
+                                        }}>
+                                            <ArrowRightLeft aria-hidden="true" />
+                                            {t('servers.admin.transfer.button')}
+                                        </Button>
+                                    </DialogTrigger>
+                                    <DialogContent>
+                                        <DialogHeader>
+                                            <DialogTitle>{t('servers.admin.transfer.title')}</DialogTitle>
+                                            <DialogDescription>
+                                                {t('servers.admin.transfer.dialogDescription')}
+                                            </DialogDescription>
+                                        </DialogHeader>
+                                        <div className="space-y-2 py-4">
+                                            <Label htmlFor="admin-transfer-node">{t('servers.admin.transfer.nodeLabel')}</Label>
+                                            <select
+                                                id="admin-transfer-node"
+                                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                                value={selectedNode}
+                                                onChange={(e) => setSelectedNode(e.target.value)}
+                                                disabled={nodes.length === 0}
+                                            >
+                                                <option value="" disabled>{t('servers.admin.transfer.nodePlaceholder')}</option>
+                                                {nodes.map(node => (
+                                                    <option key={node.id} value={node.id}>
+                                                        {node.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <DialogFooter>
+                                            <Button variant="outline" onClick={() => setTransferOpen(false)}>
+                                                {t('common.cancel')}
+                                            </Button>
+                                            <Button onClick={handleTransfer} disabled={!selectedNode || isTransferring || nodes.length === 0}>
+                                                {isTransferring && <Loader2 className="animate-spin" aria-hidden="true" />}
+                                                {t('servers.admin.transfer.start')}
+                                            </Button>
+                                        </DialogFooter>
+                                    </DialogContent>
+                                </Dialog>
+                            )}
+                        </ActionRow>
+                    </TabsContent>
+
+                    <TabsContent value="config" className="mt-0">
+                        <ActionRow
+                            title={t('servers.admin.editDefinition.title')}
+                            description={t('servers.admin.editDefinition.description')}
+                        >
+                            {canManageConfig && (
+                                <Button variant="outline" onClick={handleEditDefinition}>
+                                    <FileCode aria-hidden="true" />
+                                    {t('servers.admin.editDefinition.button')}
+                                </Button>
+                            )}
+                        </ActionRow>
+
+                        <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
+                            <DialogContent className="flex h-[85dvh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] flex-col gap-0 overflow-hidden p-0 sm:w-[90vw] sm:max-w-[90vw]">
+                                <DialogHeader className="border-b border-border/50 px-5 py-4 pr-12 text-left">
+                                    <DialogTitle className="text-base">{t('servers.admin.editDefinition.title')}</DialogTitle>
+                                    <DialogDescription>
+                                        {t('servers.admin.editDefinition.description')}
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div className="min-h-0 flex-grow [&_.monaco-editor-host]:rounded-none">
+                                    <Suspense fallback={<div className="flex h-full items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+                                        <CodeEditor
+                                            language="json"
+                                            value={editContent}
+                                            onChange={(val) => setEditContent(val || '')}
+                                            onSave={handleSaveDefinition}
+                                        />
+                                    </Suspense>
+                                </div>
+                                <DialogFooter className="gap-2 border-t border-border/50 px-5 py-3">
+                                    <Button variant="outline" onClick={() => setEditorOpen(false)}>
+                                        {t('common.cancel')}
+                                    </Button>
+                                    <Button onClick={handleSaveDefinition} disabled={isSaving}>
+                                        {isSaving && <Loader2 className="animate-spin" aria-hidden="true" />}
+                                        {t('common.save')}
+                                    </Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    </TabsContent>
+
+                    <TabsContent value="assignments" className="mt-0">
+                        <ActionRow
+                            title={t('servers.admin.assignments.title')}
+                            description={t('servers.admin.assignments.description')}
+                        >
+                            <Button variant="outline" disabled>
+                                {canManageAssignments ? t('servers.admin.assignments.manage') : t('servers.admin.assignments.view')}
+                            </Button>
+                        </ActionRow>
+                    </TabsContent>
+
+                    <TabsContent value="delete" className="mt-0">
+                        <div className="divide-y divide-destructive/20 overflow-hidden rounded-xl border border-destructive/30 bg-destructive/5">
+                            <ActionRow
+                                bare
+                                title={t('servers.admin.suspend.title')}
+                                description={t('servers.admin.suspend.description')}
+                            >
+                                <AlertDialog open={isSuspending ? true : undefined}>
+                                    <AlertDialogTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            disabled={isSuspending}
+                                            className="border-destructive/40 text-destructive-bright hover:border-destructive/60 hover:bg-destructive/10 hover:text-destructive-bright"
+                                        >
+                                            {isSuspending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Ban aria-hidden="true" />}
+                                            {t('servers.admin.suspend.button')}
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>{t('servers.admin.suspend.dialogTitle')}</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                {t('servers.admin.suspend.dialogDescription')}
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel disabled={isSuspending}>{t('common.cancel')}</AlertDialogCancel>
                                             <Button
                                                 variant="destructive"
                                                 disabled={isSuspending}
@@ -338,25 +386,23 @@ export default function AdminView({ serverId }: { serverId: string }) {
                                                     void handleSuspend();
                                                 }}
                                             >
-                                                {isSuspending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                                Confirm Toggle
+                                                {isSuspending && <Loader2 className="animate-spin" aria-hidden="true" />}
+                                                {t('servers.admin.suspend.confirm')}
                                             </Button>
                                         </AlertDialogFooter>
                                     </AlertDialogContent>
                                 </AlertDialog>
-                            </div>
+                            </ActionRow>
 
-                            <div className="flex items-center justify-between rounded-lg border border-destructive/50 bg-destructive/5 p-4 mt-4">
-                                <div>
-                                    <h3 className="font-medium text-destructive">{t('servers.admin.delete.title')}</h3>
-                                    <p className="text-sm text-muted-foreground">
-                                        {t('servers.admin.delete.description')}
-                                    </p>
-                                </div>
+                            <ActionRow
+                                bare
+                                title={t('servers.admin.delete.title')}
+                                description={t('servers.admin.delete.description')}
+                            >
                                 <AlertDialog open={isDeleting ? true : undefined}>
                                     <AlertDialogTrigger asChild>
                                         <Button variant="destructive" disabled={isDeleting}>
-                                            {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                            {isDeleting ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Trash2 aria-hidden="true" />}
                                             {t('servers.admin.delete.button')}
                                         </Button>
                                     </AlertDialogTrigger>
@@ -377,17 +423,46 @@ export default function AdminView({ serverId }: { serverId: string }) {
                                                     void handleDelete();
                                                 }}
                                             >
-                                                {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                                {isDeleting && <Loader2 className="animate-spin" aria-hidden="true" />}
                                                 {t('servers.admin.deleteDialog.confirm')}
                                             </Button>
                                         </AlertDialogFooter>
                                     </AlertDialogContent>
                                 </AlertDialog>
-                            </div>
-                        </TabsContent>
-                    </Tabs>
-                </CardContent>
-            </Card>
+                            </ActionRow>
+                        </div>
+                    </TabsContent>
+                </div>
+            </Tabs>
+        </Card>
+    );
+}
+
+/** Title + description on the left, the action on the right (stacked on phones). */
+function ActionRow({
+    title,
+    description,
+    bare,
+    children,
+}: {
+    title: string;
+    description: string;
+    /** Skip the item frame when the row already sits inside a framed list. */
+    bare?: boolean;
+    children?: ReactNode;
+}) {
+    return (
+        <div
+            className={cn(
+                'flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5',
+                !bare && 'rounded-xl border border-border/60 bg-background/30',
+            )}
+        >
+            <div className="min-w-0 space-y-1">
+                <h3 className="text-sm font-semibold">{title}</h3>
+                <p className="text-pretty text-sm text-muted-foreground">{description}</p>
+            </div>
+            {children && <div className="shrink-0 self-start sm:self-auto">{children}</div>}
         </div>
     );
 }

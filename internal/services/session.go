@@ -125,6 +125,20 @@ func (ss *Session) Expire(token string) error {
 	return err
 }
 
+// ExpireAllForUser ends every session of the user, except the one keepToken belongs to
+// (pass "" to end them all). Used when the password changes so old logins stop working.
+func (ss *Session) ExpireAllForUser(userID uint, keepToken string) error {
+	query := ss.DB.Where("user_id = ?", userID)
+	if keepToken != "" {
+		hashed, err := HashToken(keepToken)
+		if err != nil {
+			return err
+		}
+		query = query.Where("token <> ?", hashed)
+	}
+	return query.Delete(&models.Session{}).Error
+}
+
 func HashToken(source string) (result string, err error) {
 	h := sha256.New()
 	_, err = h.Write([]byte(source))

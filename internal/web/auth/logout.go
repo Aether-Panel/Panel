@@ -31,6 +31,6 @@ func LogoutPost(c *gin.Context) {
 
 	_ = ss.Expire(cookie)
 
-	c.SetCookie("skypanel_auth", "", 0, "/", "", true, true)
+	middleware.SetAuthCookie(c, "", 0)
 	c.Status(http.StatusNoContent)
 }

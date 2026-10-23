@@ -1,11 +1,12 @@
 'use client';
-import { PageHeader } from '@/components/page-header';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Cpu, HardDrive, MemoryStick, Network, Terminal, Folder, Settings as SettingsIcon, Users, Database, Archive, Shield, Puzzle, Play, RefreshCw, Square, ShieldAlert, Key, ArrowRightLeft, GitBranch, Activity, type LucideIcon } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Cpu, HardDrive, MemoryStick, Network, Terminal, Folder, Settings as SettingsIcon, Users, Database, Archive, Shield, Puzzle, Play, RefreshCw, Square, ShieldAlert, Key, ArrowRightLeft, GitBranch, ServerOff, ArrowLeft, type LucideIcon } from 'lucide-react';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { ServerTabNav } from './server-tab-nav';
 import { Progress } from '@/components/ui/progress';
-import ConsoleView from './console-view';
+import ConsoleView, { type ConsoleStatus } from './console-view';
 import FileManagerView from './file-manager-view';
 import SettingsView from './settings-view';
 import UsersView from './users-view';
@@ -19,10 +20,12 @@ import SplitterView from './splitter-view';
 import { ServerAddress } from './server-address';
 import MetricsCharts from './metrics-charts';
 import NetworkUsageChart from './network-usage-chart';
-import { formatBytes } from '@/lib/utils';
+import { cn, formatBytes } from '@/lib/utils';
+import { StatusBadge, usageColor } from '@/components/server-card';
 import { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useTranslations } from '@/contexts/translations-context';
 import { useServers } from '@/hooks/use-servers';
 import { api, ApiError } from '@/lib/api-client';
@@ -63,15 +66,16 @@ const decodeLogLines = (lines: string[]): string[] => {
 };
 
 function ServerActions({ server, isActionPending, handleAction, showKill, t }: any) {
+  const pendingIcon = <Loader2 className="animate-spin" aria-hidden="true" />;
   return (
-    <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
+    <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end [&>button]:flex-1 sm:[&>button]:flex-none">
       <Button
         size="sm"
         variant="default"
         onClick={() => handleAction('start')}
         disabled={isActionPending || server.status === 'online' || server.suspended}
       >
-        {isActionPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
+        {isActionPending ? pendingIcon : <Play aria-hidden="true" />}
         {t('servers.detail.start')}
       </Button>
       <Button
@@ -80,7 +84,7 @@ function ServerActions({ server, isActionPending, handleAction, showKill, t }: a
         onClick={() => handleAction('restart')}
         disabled={isActionPending || server.suspended}
       >
-        {isActionPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+        {isActionPending ? pendingIcon : <RefreshCw aria-hidden="true" />}
         {t('servers.detail.restart')}
       </Button>
       {!showKill ? (
@@ -90,54 +94,77 @@ function ServerActions({ server, isActionPending, handleAction, showKill, t }: a
           onClick={() => handleAction('stop')}
           disabled={isActionPending || server.status === 'offline'}
         >
-          {isActionPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Square className="mr-2 h-4 w-4" />}
+          {isActionPending ? pendingIcon : <Square aria-hidden="true" />}
           {t('servers.detail.stop')}
         </Button>
       ) : (
-        <Button
-          size="sm"
-          variant="destructive"
-          onClick={() => handleAction('kill')}
-          disabled={isActionPending}
-        >
-          {isActionPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldAlert className="mr-2 h-4 w-4" />}
-          {t('servers.detail.forceStop')}
-        </Button>
+        // Killing skips the graceful shutdown and can lose unsaved world data, so confirm first
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              size="sm"
+              disabled={isActionPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isActionPending ? pendingIcon : <ShieldAlert aria-hidden="true" />}
+              {t('servers.detail.forceStop')}
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t('servers.detail.forceStopDialog.title')}</AlertDialogTitle>
+              <AlertDialogDescription>{t('servers.detail.forceStopDialog.description')}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => handleAction('kill')}
+              >
+                {t('servers.detail.forceStopDialog.confirm')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
     </div>
   );
 }
 
-function ResourceGauge({ icon: Icon, label, used, allocated, pct }: {
+function ResourceGauge({ icon: Icon, label, used, allocated, pct, showPct = true }: {
   icon: LucideIcon;
   label: string;
   used: string;
   allocated: string;
   pct: number;
+  /** Off when `used` is already a percentage, so the figure is not printed twice. */
+  showPct?: boolean;
 }) {
-  const bar =
-    pct > 85
-      ? 'from-rose-500 via-rose-400 to-rose-400/60'
-      : 'from-primary via-accent to-accent/60';
-
+  const clamped = Math.min(100, Math.max(0, pct));
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-primary/25 bg-gradient-to-br from-primary/20 via-accent/10 to-transparent text-primary">
-            <Icon className="h-4 w-4" />
-          </div>
-          <span className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
-        </div>
-        <div className="flex items-baseline gap-1.5">
-          <span className="font-mono text-xl font-semibold tabular-nums tracking-tight">{used}</span>
-          <span className="font-mono text-xs text-muted-foreground/70">/ {allocated}</span>
-        </div>
+    <div className="flex min-w-0 flex-col gap-2.5">
+      <div className="flex items-center justify-between gap-2 text-sm">
+        <span className="flex min-w-0 items-center gap-2 font-medium text-muted-foreground">
+          <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span className="truncate">{label}</span>
+        </span>
+        {showPct && <span className="text-xs tabular-nums text-muted-foreground">{Math.round(clamped)}%</span>}
       </div>
-      <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-muted/50">
+      <div className="flex items-baseline gap-1.5">
+        <span className="text-xl font-semibold tabular-nums tracking-[-0.02em]">{used}</span>
+        <span className="text-xs tabular-nums text-muted-foreground">/ {allocated}</span>
+      </div>
+      <div
+        className="h-1.5 w-full overflow-hidden rounded-full bg-secondary/80"
+        role="meter"
+        aria-label={label}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(clamped)}
+      >
         <div
-          className={`h-full rounded-full bg-gradient-to-r ${bar} transition-all duration-700`}
-          style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
+          className={cn('meter-fill h-full rounded-full transition-[width] duration-700 ease-panel', usageColor(clamped))}
+          style={{ width: `${clamped}%` }}
         />
       </div>
     </div>
@@ -151,30 +178,23 @@ function ServerOverviewCards({ server, queryData, t }: any) {
     : server.memoryUsage > 0 && server.memoryUsed
       ? server.memoryUsed / (server.memoryUsage / 100)
       : 0;
+  const minecraft = queryData?.minecraft;
 
   return (
     <div className="grid gap-6">
-      <Card className="relative overflow-hidden">
-        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-accent to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-        <CardHeader className="pb-5">
-          <div className="flex items-center gap-3">
-            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-primary/25 bg-gradient-to-br from-primary/20 via-accent/10 to-transparent text-primary">
-              <Activity className="h-4 w-4" />
-            </div>
-            <div className="space-y-0.5">
-              <h3 className="font-headline text-base font-semibold leading-tight">{t('servers.detail.overview.resourcesTitle')}</h3>
-              <p className="text-xs leading-relaxed text-muted-foreground">{t('servers.detail.overview.resourcesSubtitle')}</p>
-            </div>
-          </div>
+      <Card>
+        <CardHeader className="space-y-1 border-b border-border/50 p-5 md:p-6">
+          <CardTitle className="text-lg font-semibold tracking-[-0.02em]">{t('servers.detail.overview.resourcesTitle')}</CardTitle>
+          <CardDescription>{t('servers.detail.overview.resourcesSubtitle')}</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-x-8 gap-y-6 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+        <CardContent className="grid grid-cols-1 gap-x-8 gap-y-6 p-5 sm:grid-cols-3 md:p-6">
           <ResourceGauge
             icon={Cpu}
             label={t('dashboard.table.cpu')}
             used={`${server.cpuUsage}%`}
             allocated={`${cpuAllocated}%`}
             pct={server.cpuUsage}
+            showPct={false}
           />
           <ResourceGauge
             icon={MemoryStick}
@@ -193,24 +213,36 @@ function ServerOverviewCards({ server, queryData, t }: any) {
         </CardContent>
       </Card>
 
-      {queryData?.minecraft && (
-        <Card className="border border-border/60 rounded-xl">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              {t('servers.detail.overview.playersOnline')}: {queryData.minecraft.numPlayers} / {queryData.minecraft.maxPlayers}
-            </CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+      {minecraft && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0 border-b border-border/50 p-5 md:p-6">
+            <div className="min-w-0 space-y-1">
+              <CardTitle className="text-lg font-semibold tracking-[-0.02em]">{t('servers.detail.overview.playersOnline')}</CardTitle>
+              <CardDescription>{t('servers.detail.overview.playersDescription')}</CardDescription>
+            </div>
+            <p className="shrink-0 text-xl font-semibold tabular-nums tracking-[-0.02em]">
+              {minecraft.numPlayers}
+              <span className="text-sm font-normal text-muted-foreground"> / {minecraft.maxPlayers}</span>
+            </p>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <Progress value={(queryData.minecraft.numPlayers / Math.max(queryData.minecraft.maxPlayers, 1)) * 100} className="h-2" />
-            {queryData.minecraft.players && queryData.minecraft.players.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {queryData.minecraft.players.map((player: string) => (
-                  <Badge key={player} variant="secondary">
-                    {player}
-                  </Badge>
+          <CardContent className="space-y-4 p-5 md:p-6">
+            <Progress
+              value={(minecraft.numPlayers / Math.max(minecraft.maxPlayers, 1)) * 100}
+              className="h-1.5"
+              aria-label={t('servers.detail.overview.playersOnline')}
+            />
+            {minecraft.players && minecraft.players.length > 0 ? (
+              <ul className="flex flex-wrap gap-2">
+                {minecraft.players.map((player: string) => (
+                  <li key={player}>
+                    <Badge variant="secondary">
+                      {player}
+                    </Badge>
+                  </li>
                 ))}
-              </div>
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">{t('servers.detail.overview.noPlayers')}</p>
             )}
           </CardContent>
         </Card>
@@ -226,6 +258,8 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
   const server = allServers.find((s) => s.id === params.id);
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== 'undefined') {
+      const requestedTab = new URLSearchParams(window.location.search).get('tab');
+      if (requestedTab) return requestedTab;
       return localStorage.getItem(`serverTab_${params.id}`) || 'console';
     }
     return 'console';
@@ -249,6 +283,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
   
   const [isActionPending, setIsActionPending] = useState(false);
   const [serverUnavailable, setServerUnavailable] = useState(false);
+  const [consoleStatus, setConsoleStatus] = useState<ConsoleStatus>('connecting');
 
   // State lifted from ConsoleView
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -288,7 +323,10 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
   };
 
   useEffect(() => {
-    if (!server || serverUnavailable) return;
+    if (!server || serverUnavailable) {
+      setConsoleStatus('disconnected');
+      return;
+    }
     let cancelled = false;
     let socket: WebSocket | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -301,6 +339,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
 
     const connect = () => {
       if (cancelled || serverUnavailable) return;
+      setConsoleStatus('connecting');
 
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${protocol}//${window.location.host}/api/servers/${server.id}/socket?console`;
@@ -333,6 +372,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
       socket.onopen = () => {
         attempt = 0;
         connectedOnce = true;
+        setConsoleStatus('connected');
         console.log('[Console WS] Connected');
       };
       socket.onerror = (error) => {
@@ -340,6 +380,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
       };
       socket.onclose = () => {
         socket = null;
+        setConsoleStatus('disconnected');
         if (cancelled || serverUnavailable) return;
         addLogOnce('> Connection to server console lost. Reconnecting...');
         const delay = Math.min(1000 * Math.pow(2, attempt), 15000);
@@ -380,6 +421,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
       setLogs([]);
       setShowKill(false);
       setStopRequestedAt(null);
+      setConsoleStatus('disconnected');
       addLog('> Server is offline.');
     }
   }, [server?.status]);
@@ -421,8 +463,8 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
     { value: 'database', label: t('servers.detail.tabs.database'), icon: Database },
     { value: 'backups', label: t('servers.detail.tabs.backups'), icon: Archive },
     { value: 'sftp', label: t('servers.detail.tabs.sftp'), icon: Key },
-    { value: 'extransfer', label: 'Migration', icon: ArrowRightLeft },
-    { value: 'splitter', label: 'Splitter', icon: GitBranch },
+    { value: 'extransfer', label: t('servers.detail.tabs.extransfer'), icon: ArrowRightLeft },
+    { value: 'splitter', label: t('servers.detail.tabs.splitter'), icon: GitBranch },
     ...(pluginsTabEnabled ? [{ value: 'plugins', label: t('servers.detail.tabs.plugins'), icon: Puzzle }] : []),
     ...(hasScope('admin') || hasScope('server.admin') || hasScope('server.admin.view')
       || hasScope('server.admin.install.view') || hasScope('server.install')
@@ -434,6 +476,13 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
 
   const serverTabValues = serverTabs.map((tab) => tab.value);
 
+  // Hand the server name to the shell breadcrumb, which otherwise shows the raw id.
+  const serverName = server?.name;
+  useEffect(() => {
+    if (!serverName) return;
+    window.dispatchEvent(new CustomEvent('aether:breadcrumb', { detail: { id: params.id, label: serverName } }));
+  }, [params.id, serverName]);
+
   useEffect(() => {
     if (!serverTabValues.includes(activeTab)) {
       setActiveTab('console');
@@ -442,13 +491,40 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
 
   if (loading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-border border-t-primary border-l-accent" />
+      <div className="flex flex-col gap-6" aria-busy="true">
+        <span className="sr-only">{t('common.loading')}</span>
+        <Card>
+          <CardContent className="flex flex-col gap-5 p-5 md:p-6 xl:flex-row xl:items-center xl:justify-between">
+            <div className="space-y-3">
+              <Skeleton className="h-7 w-56 max-w-full" />
+              <Skeleton className="h-8 w-48 max-w-full" />
+            </div>
+            <div className="flex gap-2">
+              <Skeleton className="h-9 w-24" />
+              <Skeleton className="h-9 w-28" />
+              <Skeleton className="h-9 w-24" />
+            </div>
+          </CardContent>
+        </Card>
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-[420px] w-full rounded-xl" />
       </div>
     );
   }
   if (!server) {
-    return <div className="flex h-full items-center justify-center"><p>Server not found.</p></div>;
+    return (
+      <div className="rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
+        <ServerOff className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
+        <p className="text-base font-semibold">{t('servers.detail.notFound')}</p>
+        <p className="mx-auto mt-1 max-w-[48ch] text-sm text-muted-foreground">{t('servers.detail.notFoundDescription')}</p>
+        <Button asChild variant="outline" className="mt-5">
+          <a href="/servers/">
+            <ArrowLeft aria-hidden="true" />
+            {t('servers.detail.backToServers')}
+          </a>
+        </Button>
+      </div>
+    );
   }
 
   const addLog = (message: string) => {
@@ -498,40 +574,33 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
 
   return (
     <div className="flex flex-col gap-6">
-      <Card className="relative overflow-hidden">
-        <div className={`absolute inset-x-0 top-0 h-1 ${server.status === 'online' ? 'bg-green-500' : server.status === 'offline' ? 'bg-red-500' : 'bg-yellow-500'}`} />
-        <CardContent className="p-6">
+      <Card>
+        <CardContent className="p-5 md:p-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold tracking-tight">{server.name}</h1>
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant={server.status === 'online' ? 'default' : server.status === 'offline' ? 'destructive' : 'secondary'} className="capitalize flex items-center gap-1.5">
-                    <span className={`h-2 w-2 rounded-full ${server.status === 'online' ? 'bg-green-400' : server.status === 'offline' ? 'bg-red-400' : 'bg-yellow-400'}`} />
-                    {t(`dashboard.status.${server.status}`)}
-                  </Badge>
+            <div className="min-w-0 space-y-3">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <h1 className="min-w-0 break-words font-headline text-2xl font-semibold tracking-[-0.03em]">{server.name}</h1>
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusBadge status={server.status} label={t(`servers.status.${server.status}`)} />
                   {server.suspended && (
-                    <Badge variant="destructive" className="flex items-center gap-1.5 uppercase font-bold bg-red-600">
-                      <ShieldAlert className="w-3 h-3" />
-                      Suspendido
+                    <Badge variant="destructive" className="gap-1.5">
+                      <ShieldAlert className="h-3 w-3" aria-hidden="true" />
+                      {t('servers.detail.suspended')}
                     </Badge>
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+              <div className="flex min-w-0">
                 <ServerAddress ip={server.ipAddress} port={server.port} />
-                <span className="hidden sm:inline text-muted-foreground/60">{t('servers.detail.description')}</span>
               </div>
             </div>
-            <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
-              <ServerActions server={server} isActionPending={isActionPending} handleAction={handleAction} showKill={showKill} t={t} />
-            </div>
+            <ServerActions server={server} isActionPending={isActionPending} handleAction={handleAction} showKill={showKill} t={t} />
           </div>
         </CardContent>
       </Card>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <div className="xl:hidden mb-4">
+        <div className="mb-4 md:hidden">
           <Select value={activeTab} onValueChange={setActiveTab}>
             <SelectTrigger>
               <SelectValue placeholder={t('servers.detail.selectPage')} />
@@ -549,32 +618,26 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
           </Select>
         </div>
 
-        <div className="hidden xl:block">
-          <TabsList className="flex flex-wrap w-full justify-center gap-2 bg-muted/50 p-1 h-auto">
-            {serverTabs.map(tab => (
-              <TabsTrigger key={tab.value} value={tab.value} className="flex items-center gap-2 px-3 py-2 text-sm font-medium whitespace-nowrap data-[state=active]:shadow-sm">
-                <tab.icon className="h-4 w-4" />
-                <span>{tab.label}</span>
-              </TabsTrigger>
-            ))}
-          </TabsList>
+        <div className="hidden md:block">
+          <ServerTabNav
+            tabs={serverTabs}
+            value={activeTab}
+            onValueChange={setActiveTab}
+            moreLabel={t('servers.detail.tabs.more')}
+          />
         </div>
 
         <TabsContent value="console">
           <ErrorBoundary name="ConsoleView">
-            <ConsoleView serverId={server.id} logs={logs} addLog={addLog} />
+            <ConsoleView serverId={server.id} logs={logs} addLog={addLog} status={consoleStatus} />
           </ErrorBoundary>
         </TabsContent>
-        <TabsContent value="overview" className="mt-6 space-y-8">
+        <TabsContent value="overview" className="mt-6 space-y-6">
           <ErrorBoundary name="OverviewView">
             <ServerOverviewCards server={server} queryData={queryData} t={t} />
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <div className="border border-border/60 rounded-xl">
-                <MetricsCharts serverMetrics={server.metrics} className="border-0" />
-              </div>
-              <div className="border border-border/60 rounded-xl">
-                <NetworkUsageChart serverMetrics={server.metrics} className="border-0" />
-              </div>
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+              <MetricsCharts serverMetrics={server.metrics} />
+              <NetworkUsageChart serverMetrics={server.metrics} />
             </div>
           </ErrorBoundary>
         </TabsContent>

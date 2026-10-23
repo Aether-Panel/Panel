@@ -5768,6 +5768,9 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "internalId": {
+                    "type": "string"
+                },
                 "ip": {
                     "type": "string"
                 },

@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -39,6 +40,15 @@ func LoginPost(c *gin.Context) {
 	}
 
 	user, otpNeeded, err := us.ValidateLogin(request.Email, request.Password)
+	if errors.Is(err, skypanel.ErrTooManyAttempts) {
+		response.HandleError(c, err, http.StatusTooManyRequests)
+		return
+	}
+	if err != nil && user != nil && user.ID != 0 {
+		// Only a known account is recorded: an unknown address would mean
+		// storing input the caller chose, and a public form can be spammed.
+		middleware.RecordActivity(c, models.ActivityLoginFailed, user)
+	}
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
@@ -81,8 +91,8 @@ func OtpPost(c *gin.Context) {
 	}
 
 	userSession := sessions.Default(c)
-	email := userSession.Get("user").(string)
-	timestamp := userSession.Get("time").(int64)
+	email, _ := userSession.Get("user").(string)
+	timestamp, _ := userSession.Get("time").(int64)
 
 	if email == "" {
 		response.HandleError(c, skypanel.ErrInvalidSession, http.StatusBadRequest)
@@ -97,6 +107,13 @@ func OtpPost(c *gin.Context) {
 	}
 
 	user, err := us.ValidOtp(email, request.Token)
+	if errors.Is(err, skypanel.ErrTooManyAttempts) {
+		response.HandleError(c, err, http.StatusTooManyRequests)
+		return
+	}
+	if err != nil && user != nil && user.ID != 0 {
+		middleware.RecordActivity(c, models.ActivityLoginFailed, user)
+	}
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
@@ -137,6 +154,8 @@ func createSession(c *gin.Context, user *models.User) {
 		return
 	}
 
+	middleware.RecordActivity(c, models.ActivityLogin, user)
+
 	data := &LoginResponse{}
 	data.Scopes = allScopes
 	data.Session = session // Expose session token for external App auth
@@ -144,7 +163,7 @@ func createSession(c *gin.Context, user *models.User) {
 	maxAge := int(services.SessionLength / time.Second)
 
 	// Always set Secure=true for session cookie to prevent transmission over HTTP
-	c.SetCookie("skypanel_auth", session, maxAge, "/", "", true, true)
+	middleware.SetAuthCookie(c, session, maxAge)
 
 	c.JSON(http.StatusOK, data)
 }

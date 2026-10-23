@@ -201,3 +201,25 @@ func TestSession_ValidateNode(t *testing.T) {
 	_, err = ss.ValidateNode("definitely-not-a-valid-secret")
 	assert.Error(t, err)
 }
+
+func TestSession_ExpireAllForUserKeepsOnlyTheCurrentSession(t *testing.T) {
+	db := setupSessionTestDB(t)
+	user := createTestUser(t, db)
+	ss := &Session{DB: db}
+
+	current, err := ss.CreateForUser(user)
+	assert.NoError(t, err)
+	other, err := ss.CreateForUser(user)
+	assert.NoError(t, err)
+
+	assert.NoError(t, ss.ExpireAllForUser(user.ID, current))
+
+	_, err = ss.Validate(current)
+	assert.NoError(t, err, "the session that changed the password stays open")
+	_, err = ss.Validate(other)
+	assert.Error(t, err, "other sessions are closed")
+
+	assert.NoError(t, ss.ExpireAllForUser(user.ID, ""))
+	_, err = ss.Validate(current)
+	assert.Error(t, err)
+}

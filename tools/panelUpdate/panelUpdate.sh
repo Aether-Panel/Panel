@@ -40,11 +40,34 @@ if grep -qE '^[[:space:]]*- SKYPANEL_PANEL_ENABLE=false' docker-compose.yml 2>/d
     echo "[INFO] Nodo esclavo detectado: se preservará la configuración de daemon en el yml."
 fi
 
+# Conservar los archivos propios de este servidor (contraseñas en .env) para que
+# ni el git checkout ni el git pull los reviertan o borren.
+readonly LOCAL_FILES=(.env)
+LOCAL_BACKUP_DIR=$(mktemp -d)
+for f in "${LOCAL_FILES[@]}"; do
+    if [[ -f "$f" ]]; then
+        cp -p "$f" "$LOCAL_BACKUP_DIR/"
+    fi
+done
+restore_local_files() {
+    for f in "${LOCAL_FILES[@]}"; do
+        if [[ -f "$LOCAL_BACKUP_DIR/$f" ]]; then
+            cp -p "$LOCAL_BACKUP_DIR/$f" "$f"
+        fi
+    done
+    rm -rf "$LOCAL_BACKUP_DIR"
+}
+trap restore_local_files EXIT
+
 echo "[INFO] Obteniendo últimos cambios de GitHub..."
 git checkout -- . 2>/dev/null || true
 git fetch origin
 git checkout "$GIT_BRANCH" 2>/dev/null || git checkout main
 git pull
+
+restore_local_files
+trap - EXIT
+echo "[✓] Archivos locales del servidor conservados: ${LOCAL_FILES[*]}"
 
 # Re-aplicar configuración de esclavo sobre el yml recién actualizado
 if [[ "$IS_SLAVE" = "true" ]]; then

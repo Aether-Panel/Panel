@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
@@ -12,6 +11,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -119,32 +119,29 @@ func isPrivateIP(ip net.IP) bool {
 }
 
 // NewRestrictedHTTPClient creates an *http.Client that blocks connections to
-// private/internal IPs as an SSRF mitigation. The transport resolves hostnames
-// and rejects any connection that resolves to a private, loopback, or link-local address.
+// private/internal IPs as an SSRF mitigation. The address is checked on the connection
+// itself, after DNS resolution, so a host name that resolves to a public IP when checked
+// and to an internal one when dialled (DNS rebinding) is refused as well.
 func NewRestrictedHTTPClient() *http.Client {
-	transport := &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
-		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			host, _, err := net.SplitHostPort(addr)
+	dialer := &net.Dialer{
+		Timeout:   10 * time.Second,
+		KeepAlive: 30 * time.Second,
+		Control: func(_, address string, _ syscall.RawConn) error {
+			host, _, err := net.SplitHostPort(address)
 			if err != nil {
-				return nil, err
+				return err
 			}
-
-			// Resolve all IPs for the host
-			ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
-			if err != nil {
-				return nil, err
+			ip := net.ParseIP(host)
+			if ip == nil || ip.IsUnspecified() || isPrivateIP(ip) {
+				return errors.New("connection refused: target resolves to a private or loopback IP address")
 			}
-
-			for _, ip := range ips {
-				if isPrivateIP(ip.IP) {
-					return nil, errors.New("connection refused: target resolves to a private or loopback IP address")
-				}
-			}
-
-			var dialer net.Dialer
-			return dialer.DialContext(ctx, network, addr)
+			return nil
 		},
+	}
+
+	transport := &http.Transport{
+		Proxy:                 http.ProxyFromEnvironment,
+		DialContext:           dialer.DialContext,
 		ForceAttemptHTTP2:     true,
 		MaxIdleConns:          5,
 		IdleConnTimeout:       30 * time.Second,

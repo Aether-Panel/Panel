@@ -51,6 +51,19 @@ func (us *User) GetByID(id uint) (*models.User, error) {
 }
 
 func (us *User) ValidateLogin(email string, password string) (user *models.User, otpNeeded bool, err error) {
+	limitKey := "password:" + email
+	if !LoginAttempts.Allowed(limitKey) {
+		err = skypanel.ErrTooManyAttempts
+		return
+	}
+	defer func() {
+		if errors.Is(err, skypanel.ErrInvalidCredentials) {
+			LoginAttempts.Record(limitKey)
+		} else if err == nil {
+			LoginAttempts.Reset(limitKey)
+		}
+	}()
+
 	user = &models.User{
 		Email: email,
 	}
@@ -79,6 +92,20 @@ func (us *User) ValidateLogin(email string, password string) (user *models.User,
 }
 
 func (us *User) ValidOtp(email string, token string) (user *models.User, err error) {
+	// 2FA codes are only 6 digits, so guessing them must be throttled too
+	limitKey := "otp:" + email
+	if !LoginAttempts.Allowed(limitKey) {
+		err = skypanel.ErrTooManyAttempts
+		return
+	}
+	defer func() {
+		if errors.Is(err, skypanel.ErrInvalidCredentials) {
+			LoginAttempts.Record(limitKey)
+		} else if err == nil {
+			LoginAttempts.Reset(limitKey)
+		}
+	}()
+
 	user = &models.User{
 		Email: email,
 	}

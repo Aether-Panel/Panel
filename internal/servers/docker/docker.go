@@ -91,6 +91,20 @@ func detectPanelNetwork() string {
 	return panelNetworkName
 }
 
+// defaultServerNetwork picks the network for containers whose template does not choose one.
+// docker.serversNetwork keeps game servers off the panel's network, so code uploaded to a
+// server cannot reach the panel or other services there; the database joins both networks.
+// Without it, or when that network does not exist, servers join the panel's network as before.
+func (d *Docker) defaultServerNetwork(ctx context.Context) string {
+	if name := config.DockerServersNetwork.Value(); name != "" {
+		if _, err := d.cli.NetworkInspect(ctx, name, client.NetworkInspectOptions{}); err == nil {
+			return name
+		}
+		logging.Error.Printf("Docker network %q from docker.serversNetwork does not exist, using the panel's network", name)
+	}
+	return detectPanelNetwork()
+}
+
 // ResolvedPortBindings resolves template port specs against the given variables.
 func ResolvedPortBindings(portSpecs []string, variables map[string]interface{}) []string {
 	return utils.ReplaceTokensInArr(portSpecs, variables)
@@ -728,7 +742,7 @@ func (d *Docker) createContainer(ctx context.Context, environment *skypanel.Envi
 	if hostConfig.NetworkMode == "" {
 		networkName := utils.ReplaceTokens(d.Network, data.Variables)
 		if networkName == "" || networkName == "bridge" {
-			networkName = detectPanelNetwork()
+			networkName = d.defaultServerNetwork(ctx)
 		}
 		hostConfig.NetworkMode = container.NetworkMode(networkName)
 	}

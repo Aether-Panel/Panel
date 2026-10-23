@@ -318,6 +318,10 @@ func createServer(c *gin.Context) {
 	}
 	prg.Identifier = serverID
 
+	if err = checkEnvironmentAllowed(prg.Environment.Type); response.HandleError(c, err, http.StatusBadRequest) {
+		return
+	}
+
 	err = prg.Requirements.Test(prg.Server)
 	if err != nil {
 		response.HandleError(c, err, http.StatusBadRequest)
@@ -668,6 +672,10 @@ func editServerAdmin(c *gin.Context) {
 	replacement := &skypanel.Server{}
 	err := c.BindJSON(replacement)
 	if response.HandleError(c, err, http.StatusBadRequest) {
+		return
+	}
+
+	if err = checkEnvironmentAllowed(replacement.Environment.Type); response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
 

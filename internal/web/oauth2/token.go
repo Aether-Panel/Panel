@@ -1,7 +1,6 @@
 package oauth2
 
 import (
-	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/internal/oauth2"
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
@@ -151,7 +150,6 @@ func handleTokenRequest(c *gin.Context) {
 			}
 
 			// validate their credentials
-			var token string
 			user, _, err = us.ValidateLogin(user.Email, request.Password)
 			if err != nil {
 				c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: "no access"})
@@ -171,20 +169,13 @@ func handleTokenRequest(c *gin.Context) {
 				return
 			}
 
-			// at this point, their login credentials were valid, and we need to shortcut because otp
-			sessionService := &services.Session{DB: db}
-			token, err = sessionService.CreateForUser(user)
-			if err != nil {
-				logging.Error.Printf("Error generating token: %s", err.Error())
-				c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: "no access"})
-				return
-			}
-
+			// The node only needs to know the SFTP login is allowed for this server: it reads
+			// the scope and never uses a token. A real panel session here would hand out full
+			// account access from just a password, skipping the account's 2FA.
 			c.JSON(http.StatusOK, &oauth2.TokenResponse{
-				AccessToken: token,
-				TokenType:   "Bearer",
-				Scope:       server.Identifier + ":" + scopes.ScopeServerSftp.String(),
-				ExpiresIn:   expiresIn,
+				TokenType: "Bearer",
+				Scope:     server.Identifier + ":" + scopes.ScopeServerSftp.String(),
+				ExpiresIn: expiresIn,
 			})
 		}
 	default:

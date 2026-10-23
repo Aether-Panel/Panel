@@ -11,7 +11,6 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/sftp"
 	"github.com/SkyPanel/SkyPanel/v3/internal/web"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
-	"github.com/braintree/manners"
 	"github.com/gin-gonic/gin"
 	"math/rand"
 	"net"
@@ -89,7 +88,7 @@ func TestMain(m *testing.M) {
 			panic(fmt.Sprintf("Error starting web services: %s", err.Error()))
 		}
 
-		webService := manners.NewWithServer(&http.Server{Handler: router})
+		webService := &http.Server{Handler: router, ReadHeaderTimeout: 10 * time.Second}
 		skypanel.Engine = router
 
 		go func() {

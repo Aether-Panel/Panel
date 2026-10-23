@@ -1,5 +1,6 @@
 'use client';
 import { Copy } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { sileo } from "@/lib/toast";
 import { useTranslations } from '@/contexts/translations-context';
 
@@ -17,15 +18,19 @@ export function ServerAddress({ ip, port }: { ip: string; port: number }) {
   };
 
   return (
-    <div className="flex items-center gap-2 rounded-md bg-muted px-3 py-1.5 text-sm text-muted-foreground shadow-inner">
-      <span className="font-mono">{address}</span>
-      <button
+    <div className="flex items-center gap-1.5 rounded-lg border border-border/60 bg-muted/50 py-1 pl-3 pr-1 text-sm text-muted-foreground">
+      <span className="font-mono tabular-nums">{address}</span>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
         onClick={handleCopy}
-        className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-background/50 hover:text-foreground"
+        aria-label={t('servers.address.copyButtonTitle')}
         title={t('servers.address.copyButtonTitle')}
+        className="h-6 w-6 text-muted-foreground hover:text-foreground"
       >
-        <Copy className="h-3 w-3" />
-      </button>
+        <Copy aria-hidden="true" />
+      </Button>
     </div>
   );
 }

@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,6 +30,7 @@ import (
 	"github.com/gofrs/uuid/v5"
 	"github.com/spf13/cast"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 func registerServers(g *gin.RouterGroup) {
@@ -37,8 +39,10 @@ func registerServers(g *gin.RouterGroup) {
 
 	g.Handle("GET", "/:serverId", middleware.RequiresPermission(scopes.ScopeServerView), middleware.ResolveServerPanel, getServer)
 	g.Handle("PUT", "/:serverId", middleware.RequiresPermission(scopes.ScopeServerCreate), middleware.HasTransaction, createServer)
-	g.Handle("DELETE", "/:serverId", middleware.RequiresPermission(scopes.ScopeServerDelete), middleware.ResolveServerPanel, middleware.HasTransaction, deleteServer)
-	g.Handle("POST", "/:serverId/suspend", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, middleware.HasTransaction, toggleServerSuspension)
+	// these two talk to the node outside their own short transactions: stopping a server can
+	// take a while, and holding a request-wide transaction meanwhile blocks SQLite installs
+	g.Handle("DELETE", "/:serverId", middleware.RequiresPermission(scopes.ScopeServerDelete), middleware.ResolveServerPanel, deleteServer)
+	g.Handle("POST", "/:serverId/suspend", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, toggleServerSuspension)
 	g.Handle("OPTIONS", "/:serverId", response.CreateOptions("PUT", "GET", "POST", "DELETE"))
 	g.Handle("OPTIONS", "/:serverId/suspend", response.CreateOptions("POST"))
 
@@ -63,7 +67,7 @@ func registerServers(g *gin.RouterGroup) {
 	g.PUT("/:serverId/data", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, editServerDataAdmin)
 	g.OPTIONS("/:serverId/data", response.CreateOptions("GET", "POST", "PUT"))
 
-	g.PUT("/:serverId/port-settings", middleware.RequiresPermission(scopes.ScopeServerViewData), middleware.ResolveServerPanel, editPortSettings)
+	g.PUT("/:serverId/port-settings", middleware.RequiresPermission(scopes.ScopeServerEditData), middleware.ResolveServerPanel, editPortSettings)
 	g.OPTIONS("/:serverId/port-settings", response.CreateOptions("PUT"))
 
 	g.POST("/:serverId/transfer", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, transferServer)
@@ -322,11 +326,14 @@ func createServer(c *gin.Context) {
 
 	serverID := c.Param("serverId")
 	if serverID == "" {
-		gen, err := uuid.NewV4()
+		generated, err := models.GenerateServerIdentifier()
 		if response.HandleError(c, err, http.StatusInternalServerError) {
 			return
 		}
-		serverID = gen.String()[:8]
+		serverID = generated
+	} else if !models.IsValidServerIdentifier(serverID) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid server id: only letters, digits, '-' and '_' are allowed (1-20 characters, must not start with '-' or '_')"})
+		return
 	}
 
 	postBody := &models.ServerCreation{}
@@ -334,6 +341,13 @@ func createServer(c *gin.Context) {
 		return
 	}
 	postBody.Identifier = serverID
+
+	user := c.MustGet("user").(*models.User)
+	if !scopes.ContainsScope(getUserScopesForSearch(user, ps), scopes.ScopeAdmin) {
+		if err := restrictSubServerCreation(ps, user, postBody); response.HandleError(c, err, http.StatusForbidden) {
+			return
+		}
+	}
 
 	server, users, err := validateAndBuildServerCreation(c, db, us, postBody)
 	if err != nil {
@@ -436,7 +450,9 @@ func editServer(c *gin.Context) {
 	data, _ := json.Marshal(postBody)
 	reader := io.NopCloser(bytes.NewReader(data))
 
-	nodeResponse, err := ns.CallNode(&server.Node, "PUT", "/daemon/server/"+postBody.Identifier+"/definition", reader, c.Request.Header)
+	ctx, cancel := nodeCallContext(c)
+	defer cancel()
+	nodeResponse, err := ns.CallNodeContext(ctx, &server.Node, "PUT", "/daemon/server/"+postBody.Identifier+"/definition", reader, c.Request.Header)
 	defer utils.CloseResponse(nodeResponse)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
@@ -457,9 +473,6 @@ func editServer(c *gin.Context) {
 		return
 	}
 
-	if response.HandleError(c, db.Commit().Error, http.StatusInternalServerError) {
-		return
-	}
 	c.Status(http.StatusNoContent)
 }
 
@@ -724,10 +737,6 @@ func editServerUser(c *gin.Context) {
 		return
 	}
 
-	if response.HandleError(c, db.Commit().Error, http.StatusInternalServerError) {
-		return
-	}
-
 	// now we can send emails to the people
 	if firstTimeAccess {
 		es := services.GetEmailService()
@@ -785,10 +794,6 @@ func removeServerUser(c *gin.Context) {
 	err = ps.Remove(perms)
 
 	if response.HandleError(c, err, http.StatusInternalServerError) {
-		return
-	}
-
-	if response.HandleError(c, db.Commit().Error, http.StatusInternalServerError) {
 		return
 	}
 
@@ -1212,18 +1217,22 @@ func createBackup(c *gin.Context) {
 		return
 	}
 
-	resolvedPath := "/daemon/server/" + strings.TrimPrefix(c.Request.URL.Path, "/api/servers/")
+	// keep the path escaped: it is parsed again for the node, so a decoded "#", "?" or "%"
+	// in a file name would end up as fragment, query or a broken escape
+	resolvedPath := "/daemon/server/" + strings.TrimPrefix(c.Request.URL.EscapedPath(), "/api/servers/")
 	if c.Request.URL.RawQuery != "" {
 		resolvedPath += "?" + c.Request.URL.RawQuery
 	}
 
-	callResponse, err := ns.CallNode(node, c.Request.Method, resolvedPath, c.Request.Body, c.Request.Header)
+	callResponse, err := ns.CallNodeContext(c.Request.Context(), node, c.Request.Method, resolvedPath, c.Request.Body, c.Request.Header)
 	defer utils.CloseResponse(callResponse)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
 
-	if callResponse.StatusCode == http.StatusBadRequest { // If its a local node, the err will not be set, have to check the status code
+	// any refusal from the node (bad request, server running, backup in progress...) is
+	// passed through; only a 400 used to be, so other errors were reported as success
+	if callResponse.StatusCode >= http.StatusMultipleChoices {
 		newHeaders := cleanHTTPReturnErrors(callResponse.Header)
 
 		c.DataFromReader(callResponse.StatusCode, callResponse.ContentLength, callResponse.Header.Get("Content-Type"), callResponse.Body, newHeaders)
@@ -1283,7 +1292,9 @@ func deleteBackup(c *gin.Context) {
 		return
 	}
 
-	if callResponse.StatusCode == http.StatusBadRequest { // If its a local node, the err will not be set, have to check the status code
+	// any refusal from the node (bad request, server running, backup in progress...) is
+	// passed through; only a 400 used to be, so other errors were reported as success
+	if callResponse.StatusCode >= http.StatusMultipleChoices {
 		newHeaders := cleanHTTPReturnErrors(callResponse.Header)
 
 		c.DataFromReader(callResponse.StatusCode, callResponse.ContentLength, callResponse.Header.Get("Content-Type"), callResponse.Body, newHeaders)
@@ -1336,7 +1347,9 @@ func restoreBackup(c *gin.Context) {
 		return
 	}
 
-	if callResponse.StatusCode == http.StatusBadRequest { // If its a local node, the err will not be set, have to check the status code
+	// any refusal from the node (bad request, server running, backup in progress...) is
+	// passed through; only a 400 used to be, so other errors were reported as success
+	if callResponse.StatusCode >= http.StatusMultipleChoices {
 		newHeaders := cleanHTTPReturnErrors(callResponse.Header)
 
 		c.DataFromReader(callResponse.StatusCode, callResponse.ContentLength, callResponse.Header.Get("Content-Type"), callResponse.Body, newHeaders)
@@ -1485,7 +1498,9 @@ func proxyServerRequest(c *gin.Context) {
 	db := middleware.GetDatabase(c)
 	ns := &services.Node{DB: db}
 
-	resolvedPath := "/daemon/server/" + strings.TrimPrefix(c.Request.URL.Path, "/api/servers/")
+	// keep the path escaped: it is parsed again for the node, so a decoded "#", "?" or "%"
+	// in a file name would end up as fragment, query or a broken escape
+	resolvedPath := "/daemon/server/" + strings.TrimPrefix(c.Request.URL.EscapedPath(), "/api/servers/")
 	if c.Request.URL.RawQuery != "" {
 		resolvedPath += "?" + c.Request.URL.RawQuery
 	}
@@ -1589,7 +1604,7 @@ func proxyHTTPRequest(c *gin.Context, path string, ns *services.Node, node *mode
 		}
 	}
 
-	callResponse, err := ns.CallNode(node, c.Request.Method, path, c.Request.Body, c.Request.Header)
+	callResponse, err := ns.CallNodeContext(c.Request.Context(), node, c.Request.Method, path, c.Request.Body, c.Request.Header)
 
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
@@ -2029,9 +2044,60 @@ func validateAndBuildServerCreation(c *gin.Context, db *gorm.DB, us *services.Us
 	return server, users, nil
 }
 
+// subServerDockerKeys are the docker environment settings a non-admin may choose. Host
+// mounts (bindings), hostConfig (privileged mode, capabilities, devices) and the network
+// are left out because they give the container access to the host.
+var subServerDockerKeys = []string{"image", "portBindings", "containerRoot", "config", "labels"}
+
+// restrictSubServerCreation limits users without admin to the Splitter flow: a child of a
+// server they already have access to, running in a docker container without host access.
+func restrictSubServerCreation(ps *services.Permission, user *models.User, postBody *models.ServerCreation) error {
+	if postBody.ParentServerID == nil || *postBody.ParentServerID == "" {
+		return errors.New("only administrators can create servers without a parent server")
+	}
+
+	parentPerms, err := ps.GetForUserAndServer(user.ID, *postBody.ParentServerID)
+	if err != nil {
+		return err
+	}
+	if parentPerms.ID == 0 {
+		return errors.New("no access to the parent server")
+	}
+
+	if postBody.Environment.Type != "docker" {
+		return errors.New("only docker environments are allowed for sub-servers")
+	}
+
+	allowed := make(map[string]interface{}, len(subServerDockerKeys))
+	for _, k := range subServerDockerKeys {
+		if v, ok := postBody.Environment.Metadata[k]; ok {
+			allowed[k] = v
+		}
+	}
+	postBody.Environment.Metadata = allowed
+
+	return nil
+}
+
+// nodeCallInTransactionTimeout bounds node calls made while the request's transaction is
+// open (create, definition edit): they are quick on a healthy node, and a hung node must not
+// keep the transaction, and on SQLite the whole panel, waiting forever
+const nodeCallInTransactionTimeout = 60 * time.Second
+
+func nodeCallContext(c *gin.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(c.Request.Context(), nodeCallInTransactionTimeout)
+}
+
+// lockParentServer loads the parent row and locks it until the transaction ends, so two
+// children cannot both pass the resource check. GORM writes FOR UPDATE on MySQL and Postgres
+// and leaves it out on SQLite, which has no row locks and rejected the raw query.
+func lockParentServer(tx *gorm.DB, identifier string, parent *models.Server) error {
+	return tx.Clauses(clause.Locking{Strength: clause.LockingStrengthUpdate}).Where("identifier = ?", identifier).Find(parent).Error
+}
+
 func checkParentServerLimits(tx *gorm.DB, server *models.Server, parentAvailableCPU *int, parentAvailableMemory, parentAvailableDisk *int64) error {
 	var parent models.Server
-	if err := tx.Raw("SELECT * FROM servers WHERE identifier = ? FOR UPDATE", *server.ParentServerID).Scan(&parent).Error; err != nil {
+	if err := lockParentServer(tx, *server.ParentServerID, &parent); err != nil {
 		return err
 	}
 	if parent.Identifier == "" {
@@ -2069,7 +2135,7 @@ func checkParentServerLimits(tx *gorm.DB, server *models.Server, parentAvailable
 
 func checkParentServerLimitsOnUpdate(tx *gorm.DB, server *models.Server, parentAvailableCPU *int, parentAvailableMemory, parentAvailableDisk *int64) error {
 	var parent models.Server
-	if err := tx.Raw("SELECT * FROM servers WHERE identifier = ? FOR UPDATE", *server.ParentServerID).Scan(&parent).Error; err != nil {
+	if err := lockParentServer(tx, *server.ParentServerID, &parent); err != nil {
 		return err
 	}
 	if parent.Identifier == "" {
@@ -2163,7 +2229,9 @@ func notifyNodeOfServerCreation(c *gin.Context, ns *services.Node, node *models.
 		return err
 	}
 
-	nodeResponse, err := ns.CallNode(node, "PUT", "/daemon/server/"+server.Identifier, io.NopCloser(reader), c.Request.Header)
+	ctx, cancel := nodeCallContext(c)
+	defer cancel()
+	nodeResponse, err := ns.CallNodeContext(ctx, node, "PUT", "/daemon/server/"+server.Identifier, io.NopCloser(reader), c.Request.Header)
 	defer utils.CloseResponse(nodeResponse)
 
 	if response.HandleError(c, err, http.StatusInternalServerError) {
@@ -2196,7 +2264,9 @@ func updateParentServerLimitsOnNode(c *gin.Context, db *gorm.DB, ns *services.No
 
 	var parent models.Server
 	db.Where("identifier = ?", *server.ParentServerID).First(&parent)
-	parentRes, _ := ns.CallNode(node, "POST", "/daemon/server/"+parent.Identifier+"/data", parentReqBody, c.Request.Header)
+	ctx, cancel := nodeCallContext(c)
+	defer cancel()
+	parentRes, _ := ns.CallNodeContext(ctx, node, "POST", "/daemon/server/"+parent.Identifier+"/data", parentReqBody, c.Request.Header)
 	if parentRes != nil && parentRes.Body != nil {
 		parentRes.Body.Close()
 	}
