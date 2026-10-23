@@ -310,15 +310,18 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
                                 // a GIF cannot be paused, so it is hidden when the user asks for less motion
                                 className="pointer-events-none absolute bottom-1 left-1 h-8 w-8 rounded object-cover opacity-60 motion-reduce:hidden"
                             />
-                            <video
-                                src="/img/Gifs/b810142e63c0e12ac415d884e1e01ff5_t1.webm"
-                                aria-hidden="true"
-                                autoPlay
-                                muted
-                                loop
-                                playsInline
-                                className="pointer-events-none absolute bottom-1 right-1 h-8 w-8 rounded object-cover opacity-60 motion-reduce:hidden"
-                            />
+                            {/* hidden through a wrapper: aria-hidden is not allowed on the (focusable) video itself */}
+                            <div aria-hidden="true" className="pointer-events-none absolute bottom-1 right-1 h-8 w-8 motion-reduce:hidden">
+                                <video
+                                    src="/img/Gifs/b810142e63c0e12ac415d884e1e01ff5_t1.webm"
+                                    tabIndex={-1}
+                                    autoPlay
+                                    muted
+                                    loop
+                                    playsInline
+                                    className="h-full w-full rounded object-cover opacity-60"
+                                />
+                            </div>
                         </>
                     )}
                     <div className={cn("relative px-4 pt-5", showHeaderDecorations ? "pb-14" : "pb-4")}>

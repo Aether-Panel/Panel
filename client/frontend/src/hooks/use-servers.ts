@@ -79,7 +79,8 @@ export function useServers(statsFor?: (server: Server) => boolean) {
     };
 
     const updateAllStats = async (currentServers: Server[]) => {
-        const wanted = statsForRef.current ? currentServers.filter(statsForRef.current) : currentServers;
+        const statsFor = statsForRef.current;
+        const wanted = statsFor ? currentServers.filter((server) => statsFor(server)) : currentServers;
         const results = await mapWithConcurrency(wanted, STATS_CONCURRENCY, async (server) => {
             try {
                 if (globalFailedStatsSet.has(server.id) || server.isGhost) {
