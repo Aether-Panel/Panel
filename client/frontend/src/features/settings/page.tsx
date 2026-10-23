@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Settings, Bell, Mail, Loader2, Key, Package, DownloadCloud } from 'lucide-react';
+import { Settings, Bell, Mail, Loader2, Key, Package, DownloadCloud, CloudUpload } from 'lucide-react';
 import { useTranslations } from '@/contexts/translations-context';
 import { useSettings } from '@/hooks/use-settings';
 import { useConfig } from '@/contexts/config-context';
@@ -17,6 +17,7 @@ import { GeneralTab } from './general-tab';
 import { DiscordTab } from './discord-tab';
 import { MailTab } from './mail-tab';
 import { UpdatesTab } from './updates-tab';
+import { OffsiteTab } from './offsite-tab';
 
 /** Underline tab style shared with the server page tab bar. */
 const triggerClass =
@@ -53,6 +54,7 @@ export default function SettingsPage() {
         { value: 'general', label: t('settings.tabs.general'), icon: Settings },
         { value: 'discord', label: t('settings.tabs.discordShort'), icon: Bell },
         { value: 'mail', label: t('settings.tabs.mail'), icon: Mail },
+        { value: 'offsite', label: t('settings.tabs.offsite'), icon: CloudUpload },
         { value: 'apikeys', label: t('settings.tabs.apiKeys'), icon: Key },
         { value: 'products', label: t('settings.tabs.products'), icon: Package },
         { value: 'updates', label: t('settings.tabs.updates'), icon: DownloadCloud },
@@ -203,6 +205,10 @@ export default function SettingsPage() {
                         saving={saving}
                         t={t}
                     />
+                </TabsContent>
+
+                <TabsContent value="offsite" className="mt-6">
+                    <OffsiteTab localSettings={localSettings} handleUpdate={handleUpdate} t={t} />
                 </TabsContent>
 
                 <TabsContent value="apikeys" className="mt-6">

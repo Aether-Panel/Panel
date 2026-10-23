@@ -816,6 +816,17 @@
       "automatic": {
         "badge": "Automatic",
         "name": "Automatic backup"
+      },
+      "offsite": {
+        "both": "Off-site",
+        "bothHint": "Also kept in off-site storage.",
+        "only": "Off-site only",
+        "onlyHint": "The local copy is gone; it is fetched from off-site storage when restored or downloaded."
+      },
+      "usage": {
+        "label": "Space used by backups:",
+        "largest": "The largest takes {{size}}",
+        "offsite": "{{count}} also off-site"
       }
     },
     "tasks": {
@@ -1141,7 +1152,16 @@
         "copyToken": "Copy token",
         "copied": "Copied",
         "waiting": "Waiting for the destination panel to start the transfer…",
-        "sessionId": "Session ID:"
+        "sessionId": "Session ID:",
+        "inProgressTitle": "Transfer in progress",
+        "inProgressBody": "The destination panel is downloading this server's data.",
+        "lastHeartbeat": "Last signal from the destination:",
+        "noHeartbeat": "Waiting for the first signal from the destination…",
+        "tokenElsewhere": "A migration token generated from another browser or session is active. Cancel it if you no longer need it.",
+        "completedTitle": "Migration completed",
+        "completedBody": "The destination panel confirmed it received this server's data. The token can no longer be used.",
+        "cancelledTitle": "Transfer cancelled",
+        "cancelledBody": "This migration session was cancelled and its token is no longer valid. Generate a new one if you want to try again."
       },
       "import": {
         "warningTitle": "This server will be overwritten",
@@ -1153,7 +1173,10 @@
         "tokenHelp": "The token generated in the origin panel.",
         "start": "Start import",
         "starting": "Starting…",
-        "migrating": "Migrating…"
+        "migrating": "Migrating…",
+        "cancelledTitle": "Import cancelled",
+        "cancelledBody": "You cancelled the import. The temporary files were deleted.",
+        "cancelledByOriginBody": "The origin panel cancelled the transfer before it finished. The temporary files were deleted."
       },
       "toast": {
         "doneTitle": "Migration complete",
@@ -1167,7 +1190,21 @@
         "missingTitle": "Missing details",
         "missingDescription": "Enter the origin panel URL and the token.",
         "importError": "Could not start the import.",
-        "importFailedTitle": "Import failed"
+        "importFailedTitle": "Import failed",
+        "cancelledTitle": "Transfer cancelled",
+        "cancelledDescription": "The transfer has been stopped.",
+        "cancelledByOriginDescription": "The origin panel cancelled the transfer.",
+        "cancelError": "Could not cancel the transfer.",
+        "nothingToCancel": "There is no transfer in progress."
+      },
+      "cancel": {
+        "button": "Cancel transfer",
+        "cancelling": "Cancelling…",
+        "title": "Cancel the transfer?",
+        "exportDescription": "The token will stop working and the destination panel will no longer be able to download this server's data. You will need a new token to try again.",
+        "importDescription": "The download will stop and the temporary files will be deleted. Files already unpacked on this server are not restored.",
+        "confirm": "Yes, cancel",
+        "keep": "Keep transferring"
       }
     },
     "sftp": {
@@ -1257,9 +1294,9 @@
       }
     },
     "notifications": {
-      "title": "Discord notifications",
-      "description": "Get this server's alerts in your Discord channel: crashes, backups and more.",
-      "webhookLabel": "Channel webhook",
+      "title": "Notifications",
+      "description": "Get this server's alerts where you already are: Discord, Telegram or your own system through a webhook.",
+      "webhookLabel": "Discord webhook",
       "webhookHelp": "In Discord: channel settings → Integrations → Webhooks → New webhook → Copy URL. Leave it empty to turn them off.",
       "webhookInvalid": "It must be a Discord webhook URL (https://discord.com/api/webhooks/…).",
       "eventsLabel": "What to send",
@@ -1298,7 +1335,54 @@
       "save": "Save",
       "saved": "Saved",
       "saveError": "Could not save the notifications.",
-      "saveFirst": "Save your changes before sending a test."
+      "saveFirst": "Save your changes before sending a test.",
+      "channelsLabel": "Channels",
+      "channels": {
+        "discord": "Discord",
+        "telegram": "Telegram",
+        "webhook": "Webhook"
+      },
+      "configured": "Configured",
+      "telegram": {
+        "tokenLabel": "Bot token",
+        "tokenHelp": "Talk to @BotFather on Telegram, create a bot with /newbot and paste its token here.",
+        "chatLabel": "Chat or channel ID",
+        "chatHelp": "Where the bot will post: a number (groups start with -100) or @your_channel. Add the bot to the group or channel first.",
+        "invalid": "Check the token (123456789:AA…) and the chat ID."
+      },
+      "webhook": {
+        "urlLabel": "Webhook URL",
+        "urlHelp": "Each alert arrives as a JSON POST: event, server, message and, for crashes, the last console lines.",
+        "secretLabel": "Signing secret (optional)",
+        "secretHelp": "If set, each request carries an X-Aether-Signature header (sha256 HMAC of the body) so you can check it came from here.",
+        "invalid": "It must be an https:// URL."
+      },
+      "testFailedOn": "It did not reach: {{channels}}. Check their settings."
+    },
+    "history": {
+      "title": "Performance history",
+      "description": "How the server behaved, even while nobody was watching. Grey areas are time offline and red lines are crashes.",
+      "viewLabel": "What to show",
+      "rangeLabel": "Period",
+      "views": {
+        "resources": "CPU and memory",
+        "network": "Network"
+      },
+      "ranges": {
+        "1h": "1 h",
+        "24h": "24 h",
+        "7d": "7 days"
+      },
+      "cpuAvg": "Average CPU",
+      "cpuPeak": "CPU peak",
+      "memAvg": "Average memory",
+      "uptime": "Availability",
+      "rxAvg": "Average download",
+      "txAvg": "Average upload",
+      "emptyTitle": "No history yet",
+      "emptyDescription": "The node saves a sample every minute while it runs. Come back in a few minutes.",
+      "offline": "Offline",
+      "crashes": "Crashes: {{count}}"
     }
   },
   "users": {
@@ -1946,7 +2030,8 @@
       "apiKeys": "API keys",
       "products": "Products",
       "updates": "Updates",
-      "sectionLabel": "Settings section"
+      "sectionLabel": "Settings section",
+      "offsite": "Off-site backups"
     },
     "general": {
       "title": "General Settings",
@@ -2183,6 +2268,35 @@
         "failedTitle": "Update failed",
         "failed": "There was a problem starting the update."
       }
+    },
+    "offsite": {
+      "title": "Off-site backups",
+      "description": "Keep a copy of every backup in S3-compatible storage. If the node's disk fails, the backups are still safe.",
+      "test": "Test connection",
+      "testOk": "Connected: a file was written to and deleted from the bucket.",
+      "testError": "Could not connect to the storage.",
+      "statusTitle": "Status",
+      "statusDescription": "Local backups are kept; the bucket is a second copy.",
+      "enabled": "Upload backups to the bucket",
+      "enabledDescription": "Each finished backup is uploaded right away. Deleting it removes it from both places.",
+      "onHint": "On: new backups will be uploaded to the bucket.",
+      "offHint": "Off: backups are only kept on the node.",
+      "bucketTitle": "Bucket",
+      "bucketDescription": "Works with AWS S3, Backblaze B2, Cloudflare R2, Wasabi, MinIO and any S3-compatible service.",
+      "providers": "Providers",
+      "endpoint": "Endpoint",
+      "endpointHint": "The provider's S3 server, without the bucket name. You can include https://.",
+      "bucket": "Bucket name",
+      "region": "Region",
+      "regionHint": "Some providers need it; on R2 use \"auto\".",
+      "prefix": "Folder in the bucket",
+      "prefixHint": "Backups are stored under folder/server-ID/.",
+      "keysTitle": "Credentials",
+      "keysDescription": "A key allowed to read, write and delete in that bucket.",
+      "accessKey": "Access key",
+      "secretKey": "Secret key",
+      "insecure": "Unencrypted connection (http)",
+      "insecureDescription": "Only for a MinIO on your own network. Public providers use https."
     }
   },
   "apiKeys": {

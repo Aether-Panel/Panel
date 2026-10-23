@@ -38,6 +38,7 @@ import { EmptyState } from '@/components/empty-state';
 import { LiveDot, PlayerAvatar } from '@/components/player-presence';
 import { AnimatedNumber } from '@/components/animated-number';
 import { CRASH_EVENT, CrashBanner, CrashHistory, CrashReportDialog, type CrashReport } from './crash-report';
+import PerformanceHistory from './performance-history';
 
 type LogEntry = {
   /** Stable across trims of the history, so React (and screen readers) only see new lines. */
@@ -659,6 +660,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
         <TabsContent value="overview" className="mt-6 space-y-6">
           <ErrorBoundary name="OverviewView">
             <ServerOverviewCards server={server} t={t} />
+            <PerformanceHistory serverId={server.id} />
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
               <MetricsCharts serverMetrics={server.metrics} />
               <NetworkUsageChart serverMetrics={server.metrics} />

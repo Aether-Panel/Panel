@@ -816,6 +816,17 @@
       "automatic": {
         "badge": "Automática",
         "name": "Copia automática"
+      },
+      "offsite": {
+        "both": "Externa",
+        "bothHint": "También está guardada en el almacenamiento externo.",
+        "only": "Solo externa",
+        "onlyHint": "La copia local ya no existe; se descargará del almacenamiento externo al restaurar o descargar."
+      },
+      "usage": {
+        "label": "Espacio usado por copias:",
+        "largest": "La mayor ocupa {{size}}",
+        "offsite": "{{count}} también en externo"
       }
     },
     "tasks": {
@@ -1141,7 +1152,16 @@
         "copyToken": "Copiar token",
         "copied": "Copiado",
         "waiting": "Esperando a que el panel de destino inicie la transferencia…",
-        "sessionId": "ID de sesión:"
+        "sessionId": "ID de sesión:",
+        "inProgressTitle": "Transferencia en curso",
+        "inProgressBody": "El panel de destino está descargando los datos de este servidor.",
+        "lastHeartbeat": "Última señal del destino:",
+        "noHeartbeat": "Esperando la primera señal del destino…",
+        "tokenElsewhere": "Hay un token de migración activo generado desde otro navegador o sesión. Cancélalo si ya no lo necesitas.",
+        "completedTitle": "Migración completada",
+        "completedBody": "El panel de destino confirmó que recibió los datos de este servidor. El token ya no se puede usar.",
+        "cancelledTitle": "Transferencia cancelada",
+        "cancelledBody": "Esta sesión de migración se canceló y su token ya no es válido. Genera uno nuevo si quieres volver a intentarlo."
       },
       "import": {
         "warningTitle": "Se sobrescribirá este servidor",
@@ -1153,7 +1173,10 @@
         "tokenHelp": "El token generado en el panel de origen.",
         "start": "Iniciar importación",
         "starting": "Iniciando…",
-        "migrating": "Migrando…"
+        "migrating": "Migrando…",
+        "cancelledTitle": "Importación cancelada",
+        "cancelledBody": "Cancelaste la importación. Se borraron los archivos temporales.",
+        "cancelledByOriginBody": "El panel de origen canceló la transferencia antes de que terminara. Se borraron los archivos temporales."
       },
       "toast": {
         "doneTitle": "Migración completada",
@@ -1167,7 +1190,21 @@
         "missingTitle": "Faltan datos",
         "missingDescription": "Introduce la URL del panel de origen y el token.",
         "importError": "No se pudo iniciar la importación.",
-        "importFailedTitle": "Error al importar"
+        "importFailedTitle": "Error al importar",
+        "cancelledTitle": "Transferencia cancelada",
+        "cancelledDescription": "La transferencia se ha detenido.",
+        "cancelledByOriginDescription": "El panel de origen canceló la transferencia.",
+        "cancelError": "No se pudo cancelar la transferencia.",
+        "nothingToCancel": "No hay ninguna transferencia en curso."
+      },
+      "cancel": {
+        "button": "Cancelar transferencia",
+        "cancelling": "Cancelando…",
+        "title": "¿Cancelar la transferencia?",
+        "exportDescription": "El token dejará de funcionar y el panel de destino no podrá seguir descargando los datos de este servidor. Tendrás que generar un token nuevo para volver a intentarlo.",
+        "importDescription": "La descarga se detendrá y se borrarán los archivos temporales. Los archivos que ya se hayan descomprimido en este servidor no se restauran.",
+        "confirm": "Sí, cancelar",
+        "keep": "Seguir con la transferencia"
       }
     },
     "sftp": {
@@ -1257,9 +1294,9 @@
       }
     },
     "notifications": {
-      "title": "Notificaciones de Discord",
-      "description": "Recibe en tu canal de Discord los avisos de este servidor: caídas, copias de seguridad y más.",
-      "webhookLabel": "Webhook del canal",
+      "title": "Notificaciones",
+      "description": "Recibe los avisos de este servidor donde ya estás: Discord, Telegram o tu propio sistema mediante un webhook.",
+      "webhookLabel": "Webhook de Discord",
       "webhookHelp": "En Discord: ajustes del canal → Integraciones → Webhooks → Nuevo webhook → Copiar URL. Déjalo vacío para desactivarlas.",
       "webhookInvalid": "Debe ser una URL de webhook de Discord (https://discord.com/api/webhooks/…).",
       "eventsLabel": "Qué avisar",
@@ -1298,7 +1335,54 @@
       "save": "Guardar",
       "saved": "Guardado",
       "saveError": "No se pudieron guardar las notificaciones.",
-      "saveFirst": "Guarda los cambios antes de enviar una prueba."
+      "saveFirst": "Guarda los cambios antes de enviar una prueba.",
+      "channelsLabel": "Canales",
+      "channels": {
+        "discord": "Discord",
+        "telegram": "Telegram",
+        "webhook": "Webhook"
+      },
+      "configured": "Configurado",
+      "telegram": {
+        "tokenLabel": "Token del bot",
+        "tokenHelp": "Habla con @BotFather en Telegram, crea un bot con /newbot y pega aquí el token.",
+        "chatLabel": "ID del chat o canal",
+        "chatHelp": "El chat donde el bot escribirá: un número (los grupos empiezan por -100) o @tu_canal. Añade el bot al grupo o canal antes.",
+        "invalid": "Revisa el token (123456789:AA…) y el ID del chat."
+      },
+      "webhook": {
+        "urlLabel": "URL del webhook",
+        "urlHelp": "Cada aviso llega como JSON por POST: evento, servidor, mensaje y, en las caídas, las últimas líneas de la consola.",
+        "secretLabel": "Secreto para firmar (opcional)",
+        "secretHelp": "Si lo pones, cada envío lleva la cabecera X-Aether-Signature (sha256 HMAC del cuerpo) para que compruebes que viene de aquí.",
+        "invalid": "Tiene que ser una URL https://."
+      },
+      "testFailedOn": "No llegó a: {{channels}}. Revisa su configuración."
+    },
+    "history": {
+      "title": "Historial de rendimiento",
+      "description": "Cómo se ha comportado el servidor, aunque nadie estuviera mirando. Las zonas grises son ratos apagado y las líneas rojas, caídas.",
+      "viewLabel": "Qué mostrar",
+      "rangeLabel": "Periodo",
+      "views": {
+        "resources": "CPU y memoria",
+        "network": "Red"
+      },
+      "ranges": {
+        "1h": "1 h",
+        "24h": "24 h",
+        "7d": "7 días"
+      },
+      "cpuAvg": "CPU media",
+      "cpuPeak": "Pico de CPU",
+      "memAvg": "Memoria media",
+      "uptime": "Disponibilidad",
+      "rxAvg": "Descarga media",
+      "txAvg": "Subida media",
+      "emptyTitle": "Todavía no hay historial",
+      "emptyDescription": "El nodo guarda una medida cada minuto mientras está en marcha. Vuelve en unos minutos.",
+      "offline": "Apagado",
+      "crashes": "Caídas: {{count}}"
     }
   },
   "users": {
@@ -1946,7 +2030,8 @@
       "apiKeys": "Claves API",
       "products": "Productos",
       "updates": "Actualizaciones",
-      "sectionLabel": "Sección de la configuración"
+      "sectionLabel": "Sección de la configuración",
+      "offsite": "Copias externas"
     },
     "general": {
       "title": "Configuración general",
@@ -2183,6 +2268,35 @@
         "failedTitle": "La actualización falló",
         "failed": "Hubo un problema al iniciar la actualización."
       }
+    },
+    "offsite": {
+      "title": "Copias de seguridad externas",
+      "description": "Guarda una copia de cada copia de seguridad en un almacenamiento compatible con S3. Si el disco del nodo falla, las copias siguen a salvo.",
+      "test": "Probar conexión",
+      "testOk": "Conexión correcta: se pudo escribir y borrar en el bucket.",
+      "testError": "No se pudo conectar con el almacenamiento.",
+      "statusTitle": "Estado",
+      "statusDescription": "Las copias locales se mantienen; el bucket es una segunda copia.",
+      "enabled": "Subir las copias al bucket",
+      "enabledDescription": "Cada copia terminada se sube al momento. Al borrarla, se borra en los dos sitios.",
+      "onHint": "Activado: las copias nuevas se subirán al bucket.",
+      "offHint": "Desactivado: las copias solo se guardan en el nodo.",
+      "bucketTitle": "Bucket",
+      "bucketDescription": "Funciona con AWS S3, Backblaze B2, Cloudflare R2, Wasabi, MinIO y cualquier servicio compatible con S3.",
+      "providers": "Proveedores",
+      "endpoint": "Endpoint",
+      "endpointHint": "El servidor S3 del proveedor, sin el nombre del bucket. Puedes poner https:// delante.",
+      "bucket": "Nombre del bucket",
+      "region": "Región",
+      "regionHint": "Algunos proveedores la piden; en R2 usa «auto».",
+      "prefix": "Carpeta dentro del bucket",
+      "prefixHint": "Las copias se guardan en carpeta/ID-del-servidor/.",
+      "keysTitle": "Credenciales",
+      "keysDescription": "Una clave con permiso para leer, escribir y borrar en ese bucket.",
+      "accessKey": "Access key",
+      "secretKey": "Secret key",
+      "insecure": "Conexión sin cifrar (http)",
+      "insecureDescription": "Solo para un MinIO en tu propia red. Los proveedores públicos usan https."
     }
   },
   "apiKeys": {
