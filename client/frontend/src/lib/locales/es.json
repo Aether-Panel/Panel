@@ -407,6 +407,7 @@
         "users": "Usuarios",
         "database": "Base de datos",
         "backups": "Copias de seguridad",
+        "tasks": "Tareas",
         "plugins": "Plugins",
         "sftp": "Acceso SFTP",
         "admin": "Administración",
@@ -773,6 +774,120 @@
       "empty": {
         "title": "No hay copias de seguridad",
         "description": "Crea tu primer backup para comenzar."
+      },
+      "automatic": {
+        "badge": "Automática",
+        "name": "Copia automática"
+      }
+    },
+    "tasks": {
+      "title": "Tareas programadas",
+      "description": "{{count}} tareas · se ejecutan solas en el nodo, aunque no tengas el panel abierto",
+      "create": "Nueva tarea",
+      "loadError": "No se pudieron cargar las tareas.",
+      "noPermission": "No tienes permiso para ver las tareas de este servidor.",
+      "empty": {
+        "title": "Todavía no hay tareas",
+        "description": "Automatiza reinicios, copias de seguridad y comandos. Empieza con una plantilla o crea la tuya."
+      },
+      "presets": {
+        "title": "Plantillas",
+        "dailyRestart": {
+          "name": "Reinicio diario",
+          "description": "Reinicia el servidor todos los días a las 05:00."
+        },
+        "dailyBackup": {
+          "name": "Copia de seguridad diaria",
+          "description": "Copia cada día a las 04:00 y guarda las 7 últimas."
+        },
+        "warnRestart": {
+          "name": "Aviso y reinicio",
+          "description": "Avisa a los jugadores, espera 5 minutos y reinicia.",
+          "message": "say El servidor se reiniciará en 5 minutos"
+        }
+      },
+      "schedule": {
+        "label": "Cuándo",
+        "kind": "Frecuencia",
+        "daily": "Todos los días",
+        "weekly": "Días de la semana",
+        "interval": "Cada pocas horas",
+        "custom": "Personalizada (cron)",
+        "manual": "Solo a mano",
+        "time": "Hora",
+        "days": "Días",
+        "everyHours": "Cada",
+        "hoursOption": "{{count}} h",
+        "cron": "Expresión cron",
+        "cronHelp": "Cinco campos: minuto, hora, día del mes, mes y día de la semana. Ejemplo: 30 4 * * 1",
+        "timezone": "Las horas son de tu zona horaria ({{zone}}).",
+        "describe": {
+          "daily": "Todos los días a las {{time}}",
+          "weekly": "{{days}} a las {{time}}",
+          "interval": "Cada {{count}} h",
+          "intervalOne": "Cada hora",
+          "custom": "Cron: {{expression}}",
+          "manual": "Solo a mano",
+          "zone": "hora de {{zone}}"
+        },
+        "next": "Próxima: {{when}}",
+        "today": "hoy {{time}}",
+        "tomorrow": "mañana {{time}}"
+      },
+      "steps": {
+        "label": "Qué hace",
+        "help": "Los pasos se ejecutan en orden.",
+        "add": "Añadir paso",
+        "empty": "Añade al menos un paso.",
+        "moveUp": "Subir paso",
+        "moveDown": "Bajar paso",
+        "remove": "Quitar paso",
+        "stdin": "Enviar comando",
+        "sleep": "Esperar",
+        "restart": "Reiniciar",
+        "stop": "Detener",
+        "start": "Iniciar",
+        "backup": "Copia de seguridad",
+        "commandPlaceholder": "say Hola a todos",
+        "minutes": "{{count}} min",
+        "keep": "Guardar las últimas",
+        "keepHelp": "Las copias automáticas más antiguas se borran solas. Las que haces a mano no se tocan.",
+        "describe": {
+          "stdin": "Comando: {{command}}",
+          "sleep": "Esperar {{duration}}",
+          "backup": "Copia (guarda {{count}})",
+          "restartNote": "Solo si está encendido"
+        },
+        "adminOnly": "Paso de administrador: {{type}}"
+      },
+      "dialog": {
+        "createTitle": "Nueva tarea",
+        "editTitle": "Editar tarea",
+        "name": "Nombre",
+        "namePlaceholder": "Reinicio de madrugada",
+        "save": "Guardar tarea"
+      },
+      "validation": {
+        "name": "Ponle un nombre a la tarea.",
+        "steps": "La tarea necesita al menos un paso.",
+        "command": "Escribe el comando que quieres enviar.",
+        "days": "Elige al menos un día.",
+        "cron": "La expresión necesita cinco campos."
+      },
+      "run": {
+        "button": "Ejecutar ahora",
+        "success": "La tarea se está ejecutando. Sigue el progreso en la consola.",
+        "error": "No se pudo ejecutar la tarea."
+      },
+      "edit": "Editar",
+      "saveSuccess": "Tarea guardada.",
+      "saveError": "No se pudo guardar la tarea.",
+      "delete": {
+        "button": "Eliminar",
+        "title": "Eliminar tarea",
+        "confirm": "Se eliminará «{{name}}» y dejará de ejecutarse.",
+        "success": "Tarea eliminada.",
+        "error": "No se pudo eliminar la tarea."
       }
     },
     "plugins": {

@@ -1208,65 +1208,141 @@ const (
 	restoreRunning
 )
 
-func (p *Server) StartBackup() (string, error) {
-	if !p.backupState.CompareAndSwap(backupIdle, backupRunning) {
-		return "", skypanel.ErrBackupInProgress
-	}
+// AutoBackupPrefix starts the file name of every backup made by a scheduled task, so
+// retention only ever removes those and never a backup somebody made by hand
+const AutoBackupPrefix = "auto-"
 
-	c := make(chan bool)
-	serverName := p.Server.Display
-	if serverName == "" {
-		serverName = p.ID()
+// StartBackup begins a backup and returns its file name straight away; the archive is
+// written in the background and the console reports when it is done
+func (p *Server) StartBackup() (string, error) {
+	fileName, file, err := p.beginBackup("")
+	if err != nil {
+		return "", err
 	}
-	go func(d chan bool) {
-		r := <-d
-		p.backupState.Store(backupIdle)
-		if r {
-			p.RunningEnvironment.DisplayToConsole(true, "Backup complete")
-			// Enviar alerta de backup exitoso
-			ds := services.GetDiscordService()
-			_ = ds.SendBackupAlert(serverName, p.ID(), "Completado exitosamente", true)
-		} else {
-			p.RunningEnvironment.DisplayToConsole(true, "Backup failed")
-			// Enviar alerta de backup fallido
-			ds := services.GetDiscordService()
-			_ = ds.SendBackupAlert(serverName, p.ID(), "Falló durante la creación", false)
-		}
-	}(c)
+	go p.finishBackup(file)
+	return fileName, nil
+}
+
+// RunAutoBackup backs the server up for a scheduled task. It waits for the archive, so the
+// task's next step sees it finished, then keeps only the newest keep automatic backups.
+func (p *Server) RunAutoBackup(keep int) (string, error) {
+	fileName, file, err := p.beginBackup(AutoBackupPrefix)
+	if err != nil {
+		return "", err
+	}
+	if !p.finishBackup(file) {
+		return "", errors.New("backup failed")
+	}
+	if err := p.pruneAutoBackups(keep); err != nil {
+		p.Log(logging.Error, "Error removing old automatic backups: %s", err)
+	}
+	return fileName, nil
+}
+
+func (p *Server) beginBackup(prefix string) (fileName, file string, err error) {
+	if !p.backupState.CompareAndSwap(backupIdle, backupRunning) {
+		return "", "", skypanel.ErrBackupInProgress
+	}
 
 	p.RunningEnvironment.DisplayToConsole(true, "Backing up server")
 	backupDirectory := p.GetBackupDirectory()
-
-	_, err := os.Stat(backupDirectory)
-	if err != nil && os.IsNotExist(err) {
-		err = os.MkdirAll(backupDirectory, 0755)
-		if err != nil && !os.IsExist(err) {
-			c <- false
-			return "", err
-		}
+	if err = os.MkdirAll(backupDirectory, 0755); err != nil {
+		p.endBackup(false)
+		return "", "", err
 	}
 
 	backupID, err := uuid.NewV4()
 	if err != nil {
-		c <- false
-		return "", err
+		p.endBackup(false)
+		return "", "", err
 	}
-	backupFileName := backupID.String() + ".tar.gz"
-	backupFile := path.Join(backupDirectory, backupFileName)
+	fileName = prefix + backupID.String() + ".tar.gz"
+	return fileName, path.Join(backupDirectory, fileName), nil
+}
 
-	go func(file string, d chan bool) {
-		success := true
-		sourceFiles := []string{p.GetFileServer().Prefix()}
+// finishBackup writes the archive under a hidden name and moves it into place once it is
+// complete, so a half-written backup is never listed, downloaded or restored. The hidden
+// name keeps the .tar.gz ending because the archive format is picked from it.
+func (p *Server) finishBackup(file string) bool {
+	partial := filepath.Join(filepath.Dir(file), ".partial-"+filepath.Base(file))
+	err := files.Compress(nil, partial, []string{p.GetFileServer().Prefix()})
+	if err == nil {
+		err = os.Rename(partial, file)
+	}
+	if err != nil {
+		p.Log(logging.Error, "Error creating backup file: %s", err)
+		p.RunningEnvironment.DisplayToConsole(true, "Failed to create backup file")
+		_ = os.Remove(partial)
+	}
+	p.endBackup(err == nil)
+	return err == nil
+}
 
-		if err := files.Compress(nil, file, sourceFiles); err != nil {
-			p.Log(logging.Error, "Error creating backup file: %s", err)
-			p.RunningEnvironment.DisplayToConsole(true, "Failed to create backup file")
-			success = false
+func (p *Server) endBackup(success bool) {
+	p.backupState.Store(backupIdle)
+
+	serverName := p.Server.Display
+	if serverName == "" {
+		serverName = p.ID()
+	}
+	ds := services.GetDiscordService()
+	if success {
+		p.RunningEnvironment.DisplayToConsole(true, "Backup complete")
+		_ = ds.SendBackupAlert(serverName, p.ID(), "Completado exitosamente", true)
+	} else {
+		p.RunningEnvironment.DisplayToConsole(true, "Backup failed")
+		_ = ds.SendBackupAlert(serverName, p.ID(), "Falló durante la creación", false)
+	}
+}
+
+// ListBackups returns the finished backups in the server's backup folder, newest first
+func (p *Server) ListBackups() ([]skypanel.BackupFile, error) {
+	entries, err := os.ReadDir(p.GetBackupDirectory())
+	if os.IsNotExist(err) {
+		return []skypanel.BackupFile{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]skypanel.BackupFile, 0, len(entries))
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || strings.HasPrefix(name, ".") || !strings.HasSuffix(name, ".tar.gz") {
+			continue
 		}
-		d <- success
-	}(backupFile, c)
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		result = append(result, skypanel.BackupFile{FileName: name, Size: info.Size(), ModTime: info.ModTime()})
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].ModTime.After(result[j].ModTime) })
+	return result, nil
+}
 
-	return backupFileName, nil
+// pruneAutoBackups deletes the oldest automatic backups beyond the newest keep
+func (p *Server) pruneAutoBackups(keep int) error {
+	if keep < 1 {
+		return nil
+	}
+	backups, err := p.ListBackups()
+	if err != nil {
+		return err
+	}
+	kept := 0
+	for _, b := range backups {
+		if !strings.HasPrefix(b.FileName, AutoBackupPrefix) {
+			continue
+		}
+		kept++
+		if kept > keep {
+			if err := p.DeleteBackup(b.FileName); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (p *Server) DeleteBackup(fileName string) error {

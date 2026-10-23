@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Archive, Plus, Download, RotateCcw, Trash2, Loader2, Clock } from 'lucide-react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -18,6 +19,11 @@ type BackupInfo = {
   fileName: string;
   createdAt: string;
 };
+
+/** Backups made by scheduled tasks; the node names their files with this prefix. */
+const isAutomatic = (backup: BackupInfo) => backup.fileName.startsWith('auto-');
+/** The name the panel stores for them, shown translated instead. */
+const AUTOMATIC_BACKUP_NAME = 'Automatic backup';
 
 type BackupsViewProps = {
   serverId: string;
@@ -188,7 +194,12 @@ export default function BackupsView({ serverId }: BackupsViewProps) {
                           <span className="mt-1 text-[11px] text-muted-foreground">{date.month}</span>
                         </div>
                         <div className="min-w-0">
-                          <h4 className="truncate text-[15px] font-semibold leading-tight">{backup.name}</h4>
+                          <div className="flex min-w-0 items-center gap-2">
+                            <h4 className="truncate text-[15px] font-semibold leading-tight">
+                              {isAutomatic(backup) && backup.name === AUTOMATIC_BACKUP_NAME ? t('servers.backups.automatic.name') : backup.name}
+                            </h4>
+                            {isAutomatic(backup) && <Badge variant="secondary" className="shrink-0">{t('servers.backups.automatic.badge')}</Badge>}
+                          </div>
                           <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                             <span className="flex items-center gap-1 tabular-nums" title={date.full}>
                               <Clock className="h-3 w-3" aria-hidden="true" />

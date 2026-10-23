@@ -92,8 +92,10 @@ func registerServers(g *gin.RouterGroup) {
 	g.GET("/:serverId/tasks", middleware.RequiresPermission(scopes.ScopeServerTaskView), middleware.ResolveServerPanel, proxyServerRequest)
 	g.OPTIONS("/:serverId/tasks", response.CreateOptions("GET"))
 
-	g.GET("/:serverId/tasks/:taskId", middleware.RequiresPermission(scopes.ScopeServerTaskRun), middleware.ResolveServerPanel, proxyServerRequest)
-	g.PUT("/:serverId/tasks/:taskId", middleware.RequiresPermission(scopes.ScopeServerTaskEdit), middleware.ResolveServerPanel, proxyServerRequest)
+	g.GET("/:serverId/tasks/:taskId", middleware.RequiresPermission(scopes.ScopeServerTaskView), middleware.ResolveServerPanel, proxyServerRequest)
+	// one PUT both creates and edits, so either permission lets it through; server owners were
+	// only ever given the create one
+	g.PUT("/:serverId/tasks/:taskId", middleware.RequiresAnyPermission(scopes.ScopeServerTaskCreate, scopes.ScopeServerTaskEdit), middleware.ResolveServerPanel, putServerTask)
 	g.DELETE("/:serverId/tasks/:taskId", middleware.RequiresPermission(scopes.ScopeServerTaskDelete), middleware.ResolveServerPanel, proxyServerRequest)
 	g.OPTIONS("/:serverId/tasks/:taskId", response.CreateOptions("GET", "PUT", "DELETE"))
 
@@ -1164,6 +1166,8 @@ func getBackups(c *gin.Context) {
 	db := middleware.GetDatabase(c)
 	bs := &services.Backup{DB: db}
 
+	syncAutomaticBackups(c.Request.Context(), db, server)
+
 	records, err := bs.GetAllForServer(server.Identifier)
 
 	if !response.HandleError(c, err, http.StatusInternalServerError) {
@@ -2199,6 +2203,7 @@ func assignServerPermissions(ps *services.Permission, serverID string, users []*
 			scopes.ScopeServerTaskView,
 			scopes.ScopeServerTaskRun,
 			scopes.ScopeServerTaskCreate,
+			scopes.ScopeServerTaskEdit,
 			scopes.ScopeServerTaskDelete,
 			scopes.ScopeServerReload,
 			scopes.ScopeServerStart,

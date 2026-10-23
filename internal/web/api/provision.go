@@ -313,6 +313,7 @@ func provisionServer(c *gin.Context) {
 		scopes.ScopeServerTaskView,
 		scopes.ScopeServerTaskRun,
 		scopes.ScopeServerTaskCreate,
+		scopes.ScopeServerTaskEdit,
 		scopes.ScopeServerTaskDelete,
 		scopes.ScopeServerReload,
 		scopes.ScopeServerStart,

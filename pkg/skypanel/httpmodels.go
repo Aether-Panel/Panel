@@ -1,6 +1,10 @@
 package skypanel
 
-import "github.com/SkyPanel/SkyPanel/v3/internal/utils"
+import (
+	"time"
+
+	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+)
 
 type ServerIDResponse struct {
 	ID string `json:"id"`
@@ -74,3 +78,10 @@ type ServerFlags struct {
 type ServerBackupResponse struct {
 	BackupFileName string `json:"backupFileName"`
 } // @name ServerBackup
+
+// BackupFile is a finished backup archive in a server's backup folder on the node
+type BackupFile struct {
+	FileName string    `json:"fileName"`
+	Size     int64     `json:"size"`
+	ModTime  time.Time `json:"modTime"`
+} // @name BackupFile

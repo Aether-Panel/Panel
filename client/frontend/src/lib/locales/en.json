@@ -407,6 +407,7 @@
         "users": "Users",
         "database": "Database",
         "backups": "Backups",
+        "tasks": "Tasks",
         "plugins": "Plugins",
         "sftp": "SFTP Access",
         "admin": "Administration",
@@ -773,6 +774,120 @@
       "empty": {
         "title": "No backups",
         "description": "Create your first backup to get started."
+      },
+      "automatic": {
+        "badge": "Automatic",
+        "name": "Automatic backup"
+      }
+    },
+    "tasks": {
+      "title": "Scheduled tasks",
+      "description": "{{count}} tasks · they run on the node by themselves, even with the panel closed",
+      "create": "New task",
+      "loadError": "Could not load the tasks.",
+      "noPermission": "You do not have permission to see this server's tasks.",
+      "empty": {
+        "title": "No tasks yet",
+        "description": "Automate restarts, backups and commands. Start from a template or build your own."
+      },
+      "presets": {
+        "title": "Templates",
+        "dailyRestart": {
+          "name": "Daily restart",
+          "description": "Restarts the server every day at 05:00."
+        },
+        "dailyBackup": {
+          "name": "Daily backup",
+          "description": "Backs up every day at 04:00 and keeps the last 7."
+        },
+        "warnRestart": {
+          "name": "Warn and restart",
+          "description": "Warns the players, waits 5 minutes and restarts.",
+          "message": "say The server restarts in 5 minutes"
+        }
+      },
+      "schedule": {
+        "label": "When",
+        "kind": "Frequency",
+        "daily": "Every day",
+        "weekly": "Days of the week",
+        "interval": "Every few hours",
+        "custom": "Custom (cron)",
+        "manual": "Manual only",
+        "time": "Time",
+        "days": "Days",
+        "everyHours": "Every",
+        "hoursOption": "{{count}} h",
+        "cron": "Cron expression",
+        "cronHelp": "Five fields: minute, hour, day of month, month and day of week. Example: 30 4 * * 1",
+        "timezone": "Times are in your time zone ({{zone}}).",
+        "describe": {
+          "daily": "Every day at {{time}}",
+          "weekly": "{{days}} at {{time}}",
+          "interval": "Every {{count}} h",
+          "intervalOne": "Every hour",
+          "custom": "Cron: {{expression}}",
+          "manual": "Manual only",
+          "zone": "{{zone}} time"
+        },
+        "next": "Next: {{when}}",
+        "today": "today {{time}}",
+        "tomorrow": "tomorrow {{time}}"
+      },
+      "steps": {
+        "label": "What it does",
+        "help": "Steps run in order.",
+        "add": "Add step",
+        "empty": "Add at least one step.",
+        "moveUp": "Move step up",
+        "moveDown": "Move step down",
+        "remove": "Remove step",
+        "stdin": "Send command",
+        "sleep": "Wait",
+        "restart": "Restart",
+        "stop": "Stop",
+        "start": "Start",
+        "backup": "Backup",
+        "commandPlaceholder": "say Hello everyone",
+        "minutes": "{{count}} min",
+        "keep": "Keep the last",
+        "keepHelp": "Older automatic backups are deleted by themselves. Backups you make by hand are never touched.",
+        "describe": {
+          "stdin": "Command: {{command}}",
+          "sleep": "Wait {{duration}}",
+          "backup": "Backup (keeps {{count}})",
+          "restartNote": "Only if it is running"
+        },
+        "adminOnly": "Administrator step: {{type}}"
+      },
+      "dialog": {
+        "createTitle": "New task",
+        "editTitle": "Edit task",
+        "name": "Name",
+        "namePlaceholder": "Early morning restart",
+        "save": "Save task"
+      },
+      "validation": {
+        "name": "Give the task a name.",
+        "steps": "The task needs at least one step.",
+        "command": "Type the command you want to send.",
+        "days": "Pick at least one day.",
+        "cron": "The expression needs five fields."
+      },
+      "run": {
+        "button": "Run now",
+        "success": "The task is running. Follow it in the console.",
+        "error": "Could not run the task."
+      },
+      "edit": "Edit",
+      "saveSuccess": "Task saved.",
+      "saveError": "Could not save the task.",
+      "delete": {
+        "button": "Delete",
+        "title": "Delete task",
+        "confirm": "“{{name}}” will be deleted and will stop running.",
+        "success": "Task deleted.",
+        "error": "Could not delete the task."
       }
     },
     "plugins": {

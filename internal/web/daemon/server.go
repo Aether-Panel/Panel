@@ -105,6 +105,7 @@ func RegisterServerRoutes(e *gin.RouterGroup) {
 		l.POST("/:serverId/archive/*filename", middleware.ResolveServerNode, archive)
 		l.POST("/:serverId/extract/*filename", middleware.ResolveServerNode, extract)
 
+		l.GET("/:serverId/backup", middleware.ResolveServerNode, listBackups)
 		l.POST("/:serverId/backup/create", middleware.ResolveServerNode, createBackup)
 		l.DELETE("/:serverId/backup", middleware.ResolveServerNode, deleteBackup)
 		l.POST("/:serverId/backup/restore", middleware.ResolveServerNode, restoreBackup)
@@ -195,15 +196,7 @@ func checkPortConflicts(server *servers.Server) error {
 }
 
 func doRestart(server *servers.Server) error {
-	err := server.Stop()
-	if err != nil {
-		return err
-	}
-	err = server.GetEnvironment().WaitForMainProcess()
-	if err != nil {
-		return err
-	}
-	return server.Start()
+	return server.Restart()
 }
 
 // @Summary Restart server
@@ -476,19 +469,14 @@ func editServerDataAdmin(c *gin.Context) {
 func getServerTasks(c *gin.Context) {
 	server := getServerFromGin(c)
 
+	tasks := server.Scheduler.GetTasks()
 	result := skypanel.ServerTasks{
-		Tasks: make(map[string]skypanel.ServerTask),
+		Tasks: make(map[string]skypanel.ServerTask, len(tasks)),
 	}
 
-	for k, v := range server.Scheduler.Tasks {
-		result.Tasks[k] = skypanel.ServerTask{
-			Task: skypanel.Task{
-				Name:         v.Name,
-				CronSchedule: v.CronSchedule,
-				Description:  v.Description,
-			},
-			// IsRunning: server.Scheduler.IsTaskRunning(k),
-		}
+	// the steps are included so the panel can describe and edit each task without a request per task
+	for k, v := range tasks {
+		result.Tasks[k] = skypanel.ServerTask{Task: v}
 	}
 
 	c.JSON(http.StatusOK, result)
@@ -505,20 +493,13 @@ func getServerTasks(c *gin.Context) {
 func getServerTask(c *gin.Context) {
 	server := getServerFromGin(c)
 
-	var result *skypanel.ServerTask
-
-	for _, v := range server.Scheduler.Tasks {
-		result = &skypanel.ServerTask{
-			Task: v,
-			// IsRunning: server.Scheduler.IsTaskRunning(k),
-		}
-	}
-
-	if result != nil {
-		c.JSON(http.StatusOK, result)
-	} else {
+	task, ok := server.Scheduler.GetTask(c.Param("taskID"))
+	if !ok {
 		c.Status(http.StatusNotFound)
+		return
 	}
+
+	c.JSON(http.StatusOK, &skypanel.ServerTask{Task: task})
 }
 
 // @Summary Run server task
@@ -565,15 +546,11 @@ func editServerTask(c *gin.Context) {
 		return
 	}
 
-	err = server.Scheduler.RemoveTask(taskID)
-	if errors.Is(err, gocron.ErrJobNotFound) {
-		err = nil
-	}
-	if response.HandleError(c, err, http.StatusInternalServerError) {
+	err = server.Scheduler.SetTask(taskID, task)
+	if errors.Is(err, servers.ErrInvalidTask) {
+		response.HandleError(c, err, http.StatusBadRequest)
 		return
 	}
-
-	err = server.Scheduler.AddTask(taskID, task)
 	if !response.HandleError(c, err, http.StatusInternalServerError) {
 		c.Status(http.StatusNoContent)
 	}
@@ -1095,6 +1072,23 @@ func createBackup(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, &skypanel.ServerBackupResponse{BackupFileName: id})
+}
+
+// @Summary List backup files
+// @Description Lists the finished backup archives in the server's backup folder, newest first
+// @Success 200 {object} []skypanel.BackupFile
+// @Param id path string true "Server ID"
+// @Tags Daemon Server
+// @Router /daemon/server/{id}/backup [get]
+// @Security OAuth2Application[server.backup.view]
+func listBackups(c *gin.Context) {
+	server := getServerFromGin(c)
+
+	backups, err := server.ListBackups()
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+	c.JSON(http.StatusOK, backups)
 }
 
 // @Summary Delete backup

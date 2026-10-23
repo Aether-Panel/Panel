@@ -68,6 +68,9 @@ func init() {
 	for _, v := range factories {
 		commandMapping[v.Key()] = v
 	}
+	for _, v := range serverOperationFactories {
+		commandMapping[v.Key()] = v
+	}
 }
 
 func GenerateProcess(directions []skypanel.ConditionalMetadataType, environment *skypanel.Environment, dataMapping map[string]interface{}, env map[string]string) (OperationProcess, error) {

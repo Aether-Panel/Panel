@@ -2,7 +2,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Cpu, HardDrive, MemoryStick, Network, Terminal, Folder, Settings as SettingsIcon, Users, Database, Archive, Shield, Puzzle, Play, RefreshCw, Square, ShieldAlert, Key, ArrowRightLeft, GitBranch, ServerOff, ArrowLeft, type LucideIcon } from 'lucide-react';
+import { Cpu, HardDrive, MemoryStick, Network, Terminal, Folder, Settings as SettingsIcon, Users, Database, Archive, Shield, Puzzle, Play, RefreshCw, Square, ShieldAlert, Key, ArrowRightLeft, GitBranch, ServerOff, ArrowLeft, CalendarClock, type LucideIcon } from 'lucide-react';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { ServerTabNav } from './server-tab-nav';
 import { Progress } from '@/components/ui/progress';
@@ -12,6 +12,7 @@ import SettingsView from './settings-view';
 import UsersView from './users-view';
 import DatabaseView from './database-view';
 import BackupsView from './backups-view';
+import TasksView from './tasks-view';
 import AdminView from './admin-view';
 import PluginsView from './plugins-view';
 import SFTPView from './sftp-view';
@@ -463,6 +464,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
     { value: 'users', label: t('servers.detail.tabs.users'), icon: Users },
     { value: 'database', label: t('servers.detail.tabs.database'), icon: Database },
     { value: 'backups', label: t('servers.detail.tabs.backups'), icon: Archive },
+    { value: 'tasks', label: t('servers.detail.tabs.tasks'), icon: CalendarClock },
     { value: 'sftp', label: t('servers.detail.tabs.sftp'), icon: Key },
     { value: 'extransfer', label: t('servers.detail.tabs.extransfer'), icon: ArrowRightLeft },
     { value: 'splitter', label: t('servers.detail.tabs.splitter'), icon: GitBranch },
@@ -665,6 +667,11 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
         <TabsContent value="backups">
           <ErrorBoundary name="BackupsView">
             <BackupsView serverId={server.id} />
+          </ErrorBoundary>
+        </TabsContent>
+        <TabsContent value="tasks">
+          <ErrorBoundary name="TasksView">
+            <TasksView serverId={server.id} />
           </ErrorBoundary>
         </TabsContent>
         <TabsContent value="plugins">
