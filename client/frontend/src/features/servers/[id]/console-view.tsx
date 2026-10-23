@@ -144,34 +144,35 @@ export default function ConsoleView({
       >
         <div
           ref={scrollRef}
-          role="log"
           tabIndex={0}
           onScroll={onScroll}
-          aria-label={t('servers.console.title')}
           className="custom-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 font-mono text-[13px] leading-6 sm:px-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40"
         >
-          {shown.length === 0 ? (
-            <div className="flex h-full select-none flex-col items-center justify-center gap-2 text-muted-foreground">
-              <Terminal className="h-5 w-5 text-muted-foreground/50" aria-hidden="true" />
-              <span className="text-xs">{t('servers.console.waitingOutput')}</span>
-            </div>
-          ) : (
-            shown.map((log, index) => {
-              const levelColor = getLogLevelColor(log.message);
-              return (
-                <div key={index} className="flex gap-3">
-                  {showTimes && (
-                    <span className="hidden shrink-0 select-none text-muted-foreground/50 sm:inline">
-                      {log.time}
+          {/* The scroller stays focusable for keyboard scrolling; the log role lives on its content. */}
+          <div role="log" aria-label={t('servers.console.title')} className={cn(shown.length === 0 && 'h-full')}>
+            {shown.length === 0 ? (
+              <div className="flex h-full select-none flex-col items-center justify-center gap-2 text-muted-foreground">
+                <Terminal className="h-5 w-5 text-muted-foreground/50" aria-hidden="true" />
+                <span className="text-xs">{t('servers.console.waitingOutput')}</span>
+              </div>
+            ) : (
+              shown.map((log, index) => {
+                const levelColor = getLogLevelColor(log.message);
+                return (
+                  <div key={index} className="flex gap-3">
+                    {showTimes && (
+                      <span className="hidden shrink-0 select-none text-muted-foreground/50 sm:inline">
+                        {log.time}
+                      </span>
+                    )}
+                    <span className={cn('min-w-0 whitespace-pre-wrap break-words', levelColor)}>
+                      <AnsiText text={log.message} />
                     </span>
-                  )}
-                  <span className={cn('min-w-0 whitespace-pre-wrap break-words', levelColor)}>
-                    <AnsiText text={log.message} />
-                  </span>
-                </div>
-              );
-            })
-          )}
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
 
         {!pinned && shown.length > 0 && (
