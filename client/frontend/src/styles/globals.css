@@ -436,6 +436,19 @@ body::after {
   .auth-art {
     animation: none !important;
   }
+
+  /* Everything else (dialog zoom and slide, menus, page fade, meter widths) settles
+     at once. The durations are near zero rather than none so components that wait
+     for animationend/transitionend still finish. Spinners keep turning: they tell
+     the user something is loading. */
+  *:not(.animate-spin),
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Dashboard fits one screen on desktop: the page takes the viewport height
