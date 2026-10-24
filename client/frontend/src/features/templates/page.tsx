@@ -350,7 +350,7 @@ export default function TemplatesPage() {
   );
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="stagger flex flex-col gap-8">
       <PageHeader title={t('templates.title')} description={t('templates.description')}>
         {canEditLocal && (
           <>

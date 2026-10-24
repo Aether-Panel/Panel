@@ -287,7 +287,7 @@ export default function DatabaseHostsPage() {
     );
 
     return (
-        <div className="flex flex-col gap-8">
+        <div className="stagger flex flex-col gap-8">
             <PageHeader title={t('databaseHosts.title')} description={t('databaseHosts.description')}>
                 <Dialog open={isAddDialogOpen} onOpenChange={handleDialogChange}>
                     <DialogTrigger asChild>

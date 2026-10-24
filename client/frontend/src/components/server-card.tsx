@@ -76,7 +76,12 @@ const STATUS_TONE: Record<Server['status'], { dot: string; chip: string }> = {
 /** Solid status dot. Decorative — the label next to it carries the meaning. */
 export const StatusIndicator = ({ status, className }: { status: Server['status']; className?: string }) => {
   const tone = STATUS_TONE[status] ?? STATUS_TONE.pending;
-  return <span className={cn('inline-block h-1.5 w-1.5 shrink-0 rounded-full', tone.dot, className)} aria-hidden="true" />;
+  return (
+    <span
+      className={cn('inline-block h-1.5 w-1.5 shrink-0 rounded-full', tone.dot, status === 'online' && 'pulse-dot', className)}
+      aria-hidden="true"
+    />
+  );
 };
 
 /** Dot + label status chip, shared by the card and the server detail header. */
@@ -100,7 +105,10 @@ export function ServerCard({ server, t }: { server: Server; t: (key: string) => 
   const lastCpu = cpuSeries.length > 0 ? Math.round(cpuSeries[cpuSeries.length - 1]) : null;
 
   return (
-    <div className="surface-panel group relative flex flex-col overflow-hidden rounded-xl border border-border/60 transition-colors duration-200 ease-panel hover:border-border">
+    <div
+      data-spotlight=""
+      className="surface-panel group relative flex flex-col overflow-hidden rounded-xl border border-border/60 transition-[border-color,transform,box-shadow] duration-300 ease-panel hover:-translate-y-0.5 hover:border-border hover:shadow-elevation-2 motion-reduce:hover:translate-y-0"
+    >
       {/* Ambient art kept to a shallow top band so the surface stays calm. */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-20 overflow-hidden" aria-hidden="true">
         <img

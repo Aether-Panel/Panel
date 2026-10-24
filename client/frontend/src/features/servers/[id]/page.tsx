@@ -618,7 +618,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="stagger flex flex-col gap-6">
       <Card>
         <CardContent className="p-5 md:p-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">

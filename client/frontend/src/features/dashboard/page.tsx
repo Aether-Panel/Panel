@@ -113,7 +113,7 @@ function AdminDashboard({ user, t, canSeeNodes, canSeeUsers, allServers, usersCo
   ];
 
   return (
-    <div className="dash-fit flex flex-col gap-4">
+    <div className="dash-fit stagger flex flex-col gap-4">
       <StatusStrip
         name={user?.username || ''}
         healthPercent={healthPercent}
@@ -124,7 +124,7 @@ function AdminDashboard({ user, t, canSeeNodes, canSeeUsers, allServers, usersCo
 
       <section
         aria-label={t('dashboard.admin.kpi.label')}
-        className="grid grid-cols-3 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4"
+        className="stagger grid grid-cols-3 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4"
       >
         {metrics.map((metric) => (
           <KpiCard
@@ -157,7 +157,7 @@ function AdminDashboard({ user, t, canSeeNodes, canSeeUsers, allServers, usersCo
 
 function UserDashboard({ user, t, userServers, loadFailed, onRetry }: any) {
   return (
-    <div className="flex flex-col gap-6">
+    <div className="stagger flex flex-col gap-6">
       <PageHeader
         title={t('dashboard.welcome', { name: user?.username || t('dashboard.defaultName') })}
         description={t('dashboard.user.description')}

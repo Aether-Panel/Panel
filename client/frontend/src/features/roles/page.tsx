@@ -674,7 +674,7 @@ export default function RolesPage() {
   }
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="stagger flex flex-col gap-8">
       <PageHeader title={t('roles.title')} description={t('roles.description')}>
         <Button onClick={() => { setEditor({ mode: 'create' }); setEditorOpen(true); }}>
           <Plus aria-hidden="true" />

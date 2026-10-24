@@ -20,7 +20,6 @@ import {
     SidebarGroupLabel,
     SidebarHeader,
     SidebarInset,
-    SidebarMenu,
     SidebarMenuItem,
     SidebarMenuButton,
     SidebarProvider,
@@ -44,6 +43,8 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { AmbientBackdrop } from '@/components/ambient-backdrop';
+import { SpotlightTracker } from '@/components/spotlight';
+import { GlideMenu } from '@/components/glide-menu';
 import { QuickSearch, type QuickSearchItem } from '@/components/quick-search';
 import { useTranslations } from '@/contexts/translations-context';
 import { useConfig } from '@/contexts/config-context';
@@ -333,13 +334,15 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
                         <SidebarGroup key={section.id}>
                             <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
                             <SidebarGroupContent>
-                                <SidebarMenu>
+                                <GlideMenu>
                                     {section.items.map((item) => (
                                         <SidebarMenuItem key={item.href}>
                                             <SidebarMenuButton
                                                 asChild
                                                 isActive={currentPath.startsWith(item.href)}
                                                 tooltip={item.label}
+                                                // the glide pill is the hover surface; the active gradient stays
+                                                className="hover:bg-transparent data-[active=true]:bg-transparent data-[active=true]:bg-gradient-to-r"
                                             >
                                                 <a href={item.href}>
                                                     <item.icon />
@@ -348,7 +351,7 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
                                             </SidebarMenuButton>
                                         </SidebarMenuItem>
                                     ))}
-                                </SidebarMenu>
+                                </GlideMenu>
                             </SidebarGroupContent>
                         </SidebarGroup>
                     ))}
@@ -441,6 +444,7 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
 
             <SidebarInset>
                 <AmbientBackdrop />
+                <SpotlightTracker />
                 <AppTopBar currentPath={currentPath} searchItems={searchItems} />
 
                 <div className="relative z-[1] p-4 md:p-6 lg:p-8">

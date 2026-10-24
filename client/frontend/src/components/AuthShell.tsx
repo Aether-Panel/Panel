@@ -43,7 +43,7 @@ type AuthFrameProps = {
 export function AuthFrame({ title, description, artTitle, artDescription, footer, children }: AuthFrameProps) {
     return (
         <div className="flex min-h-[100svh] items-center justify-center px-4 py-6 sm:py-10">
-            <div className="surface-panel w-full max-w-5xl overflow-hidden rounded-2xl border border-border/60 shadow-elevation-3">
+            <div className="auth-glow surface-panel relative w-full max-w-5xl overflow-hidden rounded-2xl border border-border/60 shadow-elevation-3">
                 <div className="grid grid-cols-1 md:min-h-[620px] md:grid-cols-2">
                     <div className="relative h-28 overflow-hidden sm:h-36 md:h-auto">
                         <img

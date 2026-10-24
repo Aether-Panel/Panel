@@ -434,7 +434,7 @@ export default function NodesPage() {
   );
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="stagger flex flex-col gap-8">
       <PageHeader title={t('nodes.title')} description={t('nodes.description')}>
         {/* ── Create Node Dialog ── */}
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>

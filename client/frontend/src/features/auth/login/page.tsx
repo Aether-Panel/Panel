@@ -62,7 +62,7 @@ export default function LoginPage() {
       }
     >
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="space-y-5">
+        <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="stagger space-y-5">
           <FormField
             control={form.control}
             name="email"

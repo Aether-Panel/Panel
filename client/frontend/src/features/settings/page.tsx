@@ -151,7 +151,7 @@ export default function SettingsPage() {
     const onDiscard = () => setLocalSettings(settings);
 
     return (
-        <div className="flex flex-col gap-6 pb-12">
+        <div className="stagger flex flex-col gap-6 pb-12">
             <PageHeader title={t('settings.title')} description={t('settings.description')} />
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

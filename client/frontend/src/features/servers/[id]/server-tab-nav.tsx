@@ -18,7 +18,7 @@ export type ServerTab = { value: string; label: string; icon: LucideIcon };
 const GAP = 4;
 
 const triggerClass =
-    "relative h-11 shrink-0 gap-2 rounded-none bg-transparent px-3 text-[13px] font-medium text-muted-foreground shadow-none transition-colors duration-200 hover:text-foreground focus-visible:ring-inset focus-visible:ring-offset-0 data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none after:absolute after:inset-x-3 after:-bottom-px after:h-0.5 after:rounded-full after:bg-primary after:opacity-0 after:transition-opacity after:duration-200 data-[state=active]:after:opacity-100 [&_svg]:size-4 [&_svg]:shrink-0";
+    "relative h-11 shrink-0 gap-2 rounded-none bg-transparent px-3 text-[13px] font-medium text-muted-foreground shadow-none transition-colors duration-200 hover:text-foreground focus-visible:ring-inset focus-visible:ring-offset-0 data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:transition-colors [&_svg]:duration-200 data-[state=active]:[&_svg]:text-primary";
 
 /**
  * One-row tab bar for the server page ("priority+" navigation): as many tabs
@@ -43,7 +43,10 @@ export function ServerTabNav({
 }) {
     const rowRef = useRef<HTMLDivElement>(null);
     const measureRef = useRef<HTMLDivElement>(null);
+    const listRef = useRef<HTMLDivElement>(null);
     const [visibleCount, setVisibleCount] = useState(tabs.length);
+    // The single underline slides to whichever tab is active, instead of each tab drawing its own.
+    const [indicator, setIndicator] = useState<{ left: number; width: number } | null>(null);
 
     useLayoutEffect(() => {
         const row = rowRef.current;
@@ -84,6 +87,25 @@ export function ServerTabNav({
     const overflow = tabs.slice(visibleCount);
     const activeOverflow = overflow.find((tab) => tab.value === value);
 
+    useLayoutEffect(() => {
+        const list = listRef.current;
+        if (!list) return;
+        const place = () => {
+            const active = list.querySelector<HTMLElement>('[role="tab"][data-state="active"]');
+            if (!active) {
+                setIndicator(null);
+                return;
+            }
+            // 12px inset on each side matches the trigger's horizontal padding.
+            setIndicator({ left: active.offsetLeft + 12, width: Math.max(0, active.offsetWidth - 24) });
+        };
+        place();
+        const observer = new ResizeObserver(place);
+        observer.observe(list);
+        void document.fonts?.ready.then(place);
+        return () => observer.disconnect();
+    }, [value, visibleCount, tabs]);
+
     return (
         <div ref={rowRef} className="relative">
             {/* Invisible copy of the full row, used only for measuring. The
@@ -112,7 +134,15 @@ export function ServerTabNav({
             </div>
 
             <div className="flex items-stretch gap-1 border-b border-border/60">
-                <TabsList className="flex h-auto items-stretch justify-start gap-1 rounded-none bg-transparent p-0">
+                <TabsList ref={listRef} className="relative flex h-auto items-stretch justify-start gap-1 rounded-none bg-transparent p-0">
+                    <span
+                        aria-hidden="true"
+                        className={cn(
+                            'glide pointer-events-none absolute -bottom-px left-0 h-0.5 rounded-full bg-primary shadow-[0_0_10px_hsl(var(--primary)/0.7)]',
+                            indicator ? 'opacity-100' : 'opacity-0',
+                        )}
+                        style={indicator ? { transform: `translateX(${indicator.left}px)`, width: indicator.width } : undefined}
+                    />
                     {visible.map((tab) => (
                         <TabsTrigger key={tab.value} value={tab.value} className={triggerClass}>
                             <tab.icon aria-hidden="true" />

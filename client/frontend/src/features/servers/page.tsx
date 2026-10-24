@@ -150,7 +150,7 @@ export default function ServersPage() {
   );
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="stagger flex flex-col gap-6">
       <PageHeader title={t('servers.title')} description={t('servers.description')}>
         {createDialog}
       </PageHeader>
@@ -266,7 +266,7 @@ export default function ServersPage() {
           }
         />
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(20rem,100%),1fr))] gap-5">
+        <div className="stagger grid grid-cols-[repeat(auto-fill,minmax(min(20rem,100%),1fr))] gap-5">
           {filteredServers.map((server) => (
             <ServerCard key={server.id} server={server} t={t} />
           ))}

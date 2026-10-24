@@ -238,7 +238,7 @@ export default function ProfileSettingsPage() {
   const otpInputClass = 'h-12 text-center font-mono text-xl tracking-[0.4em] tabular-nums md:text-xl';
 
   return (
-    <div className="flex flex-col gap-6 pb-12">
+    <div className="stagger flex flex-col gap-6 pb-12">
       <PageHeader title={t('profileSettings.title')} description={t('profileSettings.description')} />
 
       <Card className="divide-y divide-border/50">

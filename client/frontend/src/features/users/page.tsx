@@ -315,7 +315,7 @@ export default function UsersPage() {
   );
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="stagger flex flex-col gap-8">
       <PageHeader title={t('users.title')} description={t('users.description')}>
         <Dialog open={isAddUserDialogOpen} onOpenChange={setIsAddUserDialogOpen}>
           <DialogTrigger asChild>
