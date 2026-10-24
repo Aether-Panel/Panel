@@ -584,6 +584,9 @@ var editableBoolEntries = []config.BoolEntry{
 	config.BackupsS3Enabled,
 	config.BackupsS3Insecure,
 	config.DNSAutoAssign,
+	config.ExperimentalVersionSwitch,
+	config.ExperimentalPropertiesEditor,
+	config.ExperimentalServerClone,
 }
 var editableIntEntries = []config.IntEntry{}
 

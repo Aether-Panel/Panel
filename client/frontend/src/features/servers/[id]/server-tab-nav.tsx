@@ -11,8 +11,10 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { BetaBadge } from '@/components/beta-badge';
 
-export type ServerTab = { value: string; label: string; icon: LucideIcon };
+/** `beta` marks a tab for an experimental feature. */
+export type ServerTab = { value: string; label: string; icon: LucideIcon; beta?: boolean };
 
 /** Gap between triggers, in px (matches `gap-1`). */
 const GAP = 4;
@@ -116,6 +118,7 @@ export function ServerTabNav({
                     <span key={tab.value} data-measure="tab" className={cn(triggerClass, 'inline-flex items-center')}>
                         <tab.icon />
                         {tab.label}
+                        {tab.beta && <BetaBadge />}
                     </span>
                 ))}
                 {/* Worst case after the visible tabs: the longest tab shown as the
@@ -124,6 +127,7 @@ export function ServerTabNav({
                     <span className={cn(triggerClass, 'inline-flex items-center')}>
                         <ChevronDown />
                         {tabs.reduce((longest, tab) => (tab.label.length > longest.length ? tab.label : longest), '')}
+                        {tabs.some((tab) => tab.beta) && <BetaBadge />}
                     </span>
                     <span className={cn(triggerClass, 'inline-flex items-center')}>
                         {moreLabel}
@@ -147,12 +151,14 @@ export function ServerTabNav({
                         <TabsTrigger key={tab.value} value={tab.value} className={triggerClass}>
                             <tab.icon aria-hidden="true" />
                             {tab.label}
+                            {tab.beta && <BetaBadge />}
                         </TabsTrigger>
                     ))}
                     {activeOverflow && (
                         <TabsTrigger value={activeOverflow.value} className={triggerClass}>
                             <activeOverflow.icon aria-hidden="true" />
                             {activeOverflow.label}
+                            {activeOverflow.beta && <BetaBadge />}
                         </TabsTrigger>
                     )}
                 </TabsList>
@@ -174,6 +180,7 @@ export function ServerTabNav({
                                 >
                                     <tab.icon aria-hidden="true" />
                                     {tab.label}
+                                    {tab.beta && <BetaBadge className="ml-auto" />}
                                 </DropdownMenuItem>
                             ))}
                         </DropdownMenuContent>

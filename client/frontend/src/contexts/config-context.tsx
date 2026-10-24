@@ -17,8 +17,18 @@ export interface Config {
     headerDecorations: boolean;
     turnstileSiteKey: string;
     turnstileEnabled: boolean;
+    experimental?: ExperimentalFeatures;
     version: string;
 }
+
+/** Features an admin turns on in Settings › General › Experimental features. */
+export interface ExperimentalFeatures {
+    versionSwitch: boolean;
+    propertiesEditor: boolean;
+    serverClone: boolean;
+}
+
+const NO_EXPERIMENTAL: ExperimentalFeatures = { versionSwitch: false, propertiesEditor: false, serverClone: false };
 
 interface ConfigContextType {
     config: Config | null;
@@ -61,4 +71,13 @@ export function useConfig() {
         throw new Error('useConfig must be used within a ConfigProvider');
     }
     return context;
+}
+
+/**
+ * Which experimental features are on. Everything reads as off until the config
+ * has loaded (and on panels too old to send it), so nothing flashes in and out.
+ */
+export function useExperimental(): { features: ExperimentalFeatures; ready: boolean } {
+    const { config, loading } = useConfig();
+    return { features: config?.experimental ?? NO_EXPERIMENTAL, ready: !loading };
 }

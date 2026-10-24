@@ -45,6 +45,12 @@ var NodeIP = asString("panel.settings.nodeIp", "0.0.0.0")
 var GeminiAPIKey = asString("panel.settings.geminiApiKey", "")
 var HideAIAnalysis = asBool("panel.settings.hideAiAnalysis", false)
 var HeaderDecorations = asBool("panel.settings.headerDecorations", true)
+
+// Experimental features are off until an admin turns them on in the panel settings
+var ExperimentalVersionSwitch = asBool("panel.experimental.versionSwitch", false)
+var ExperimentalPropertiesEditor = asBool("panel.experimental.propertiesEditor", false)
+var ExperimentalServerClone = asBool("panel.experimental.serverClone", false)
+
 var DiscordWebhook = asString("panel.notifications.discordWebhook", "")
 var DiscordWebhookSystem = asString("panel.notifications.discordWebhookSystem", "")
 var DiscordWebhookNode = asString("panel.notifications.discordWebhookNode", "")

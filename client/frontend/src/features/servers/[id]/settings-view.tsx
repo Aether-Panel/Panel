@@ -17,6 +17,7 @@ import type { ReactNode } from 'react';
 import NotificationsCard from './notifications-card';
 import AddressCard from './address-card';
 import VersionCard from './version-card';
+import { useExperimental } from '@/contexts/config-context';
 
 type SettingsViewProps = {
   serverId: string;
@@ -35,6 +36,7 @@ const toSlug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
 
 export default function SettingsView({ serverId, serverStatus, onPortsSaved }: SettingsViewProps) {
   const { t } = useTranslations();
+  const { features: experimental } = useExperimental();
   const { hasScope } = useAuth();
   const { settings, loading, error, saveSettings, isMinecraftJava } = useServerSettings(serverId);
 
@@ -500,7 +502,7 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: S
         )}
       </Card>
 
-      <VersionCard serverId={serverId} />
+      {experimental.versionSwitch && <VersionCard serverId={serverId} />}
 
       <AddressCard serverId={serverId} />
 

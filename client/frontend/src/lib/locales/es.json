@@ -2923,7 +2923,8 @@
       "title": "Algo ha salido mal",
       "description": "Se ha producido un error inesperado al mostrar este componente.",
       "tryAgain": "Volver a intentarlo"
-    }
+    },
+    "beta": "Beta"
   },
   "settings": {
     "title": "Configuración del panel",
@@ -2978,11 +2979,24 @@
         "accessTitle": "Registro y seguridad",
         "accessDescription": "Quién puede crear una cuenta y cómo se protegen el inicio de sesión y el registro.",
         "modpacksTitle": "Modpacks",
-        "modpacksDescription": "Clave para buscar e instalar modpacks de CurseForge. Modrinth no necesita ninguna."
+        "modpacksDescription": "Clave para buscar e instalar modpacks de CurseForge. Modrinth no necesita ninguna.",
+        "experimentalTitle": "Funciones experimentales",
+        "experimentalDescription": "Funciones nuevas que todavía estamos afinando. Vienen apagadas: enciende las que quieras probar. Si las apagas se vuelven a ocultar y no se borra nada."
       },
       "curseforgeKeyLabel": "Clave de API de CurseForge",
       "curseforgeKeyPlaceholder": "Pega la clave de API",
-      "curseforgeKeyDescription": "Créala en console.curseforge.com. La usa el nodo principal; los nodos remotos leen la de su propia configuración (daemon.curseforge.key)."
+      "curseforgeKeyDescription": "Créala en console.curseforge.com. La usa el nodo principal; los nodos remotos leen la de su propia configuración (daemon.curseforge.key).",
+      "experimental": {
+        "versionSwitchLabel": "Cambio de versión del juego",
+        "versionSwitchDescription": "Cambiar la versión de Minecraft de un servidor en un clic, con un punto de restauración antes.",
+        "versionSwitchWhere": "En la pestaña Ajustes de cada servidor",
+        "propertiesEditorLabel": "Editor de propiedades",
+        "propertiesEditorDescription": "Editar server.properties como un formulario, con cada opción explicada.",
+        "propertiesEditorWhere": "Pestaña Propiedades, en servidores de Minecraft Java",
+        "serverCloneLabel": "Clonar servidor",
+        "serverCloneDescription": "Duplicar un servidor para probar cambios sin tocar el original.",
+        "serverCloneWhere": "En Administración › Clonar de cada servidor"
+      }
     },
     "discord": {
       "title": "Notificaciones Discord",

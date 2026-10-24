@@ -10,6 +10,7 @@ import { useTranslations } from '@/contexts/translations-context';
 import { ApiError, api } from '@/lib/api-client';
 import { sileo } from '@/lib/toast';
 import { cn } from '@/lib/utils';
+import { BetaBadge } from '@/components/beta-badge';
 
 type VersionInfo = {
   platform: string;
@@ -104,7 +105,10 @@ export default function VersionCard({ serverId }: { serverId: string }) {
             <Layers className="h-5 w-5" />
           </span>
           <div className="space-y-1.5">
-            <h2 className="text-sm font-semibold text-foreground">{t('servers.version.title')}</h2>
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              {t('servers.version.title')}
+              <BetaBadge />
+            </h2>
             <p className="text-pretty text-sm text-muted-foreground">{t('servers.version.description')}</p>
           </div>
         </div>

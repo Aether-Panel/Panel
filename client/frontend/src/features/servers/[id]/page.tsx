@@ -29,6 +29,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useTranslations } from '@/contexts/translations-context';
+import { useExperimental } from '@/contexts/config-context';
+import { BetaBadge } from '@/components/beta-badge';
 import { useServers } from '@/hooks/use-servers';
 import { api, ApiError } from '@/lib/api-client';
 import { sileo } from "@/lib/toast";
@@ -486,13 +488,14 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
 
   // game settings, modpacks and the world map only make sense for Minecraft: Java Edition
   const isMinecraftJava = serverDetail?.type === 'minecraft-java';
+  const { features: experimental, ready: experimentalReady } = useExperimental();
 
   const serverTabs = [
     { value: 'console', label: t('servers.detail.tabs.console'), icon: Terminal },
     { value: 'overview', label: t('servers.detail.tabs.overview'), icon: Network },
     { value: 'files', label: t('servers.detail.tabs.files'), icon: Folder },
     { value: 'settings', label: t('servers.detail.tabs.settings'), icon: SettingsIcon },
-    ...(isMinecraftJava ? [{ value: 'properties', label: t('servers.detail.tabs.properties'), icon: SlidersHorizontal }] : []),
+    ...(isMinecraftJava && experimental.propertiesEditor ? [{ value: 'properties', label: t('servers.detail.tabs.properties'), icon: SlidersHorizontal, beta: true }] : []),
     { value: 'users', label: t('servers.detail.tabs.users'), icon: Users },
     { value: 'database', label: t('servers.detail.tabs.database'), icon: Database },
     { value: 'backups', label: t('servers.detail.tabs.backups'), icon: Archive },
@@ -524,12 +527,13 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
   }, [params.id, serverName]);
 
   useEffect(() => {
-    // a remembered Minecraft-only tab waits for the server's type before falling back
-    if (!detailLoaded) return;
+    // a remembered Minecraft-only or experimental tab waits for the server's type and the
+    // panel config before falling back
+    if (!detailLoaded || !experimentalReady) return;
     if (!serverTabValues.includes(activeTab)) {
       setActiveTab('console');
     }
-  }, [serverTabValues.join(','), activeTab, detailLoaded]);
+  }, [serverTabValues.join(','), activeTab, detailLoaded, experimentalReady]);
 
   if (loading) {
     return (
@@ -659,6 +663,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
                   <div className="flex items-center gap-2">
                     <tab.icon className="h-4 w-4" />
                     <span>{tab.label}</span>
+                    {tab.beta && <BetaBadge />}
                   </div>
                 </SelectItem>
               ))}
@@ -733,11 +738,13 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
             <PluginsView serverId={server.id} />
           </ErrorBoundary>
         </TabsContent>
-        <TabsContent value="properties">
-          <ErrorBoundary name="PropertiesView">
-            <PropertiesView serverId={server.id} serverName={server.name} serverStatus={server.status} />
-          </ErrorBoundary>
-        </TabsContent>
+        {experimental.propertiesEditor && (
+          <TabsContent value="properties">
+            <ErrorBoundary name="PropertiesView">
+              <PropertiesView serverId={server.id} serverName={server.name} serverStatus={server.status} />
+            </ErrorBoundary>
+          </TabsContent>
+        )}
         <TabsContent value="modpacks">
           <ErrorBoundary name="ModpacksView">
             <ModpacksView serverId={server.id} />

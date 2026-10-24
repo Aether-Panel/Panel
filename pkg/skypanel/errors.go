@@ -17,6 +17,7 @@ var ErrInternal = CreateError("internal error, the details are in the panel log"
 var ErrInvalidCredentials = CreateError("invalid credentials", "ErrInvalidCredentials")
 var ErrTooManyAttempts = CreateError("too many failed attempts, wait a few minutes and try again", "ErrTooManyAttempts")
 var ErrServiceNotAvailable = CreateError("service not available", "ErrServiceNotAvailable")
+var ErrFeatureDisabled = CreateError("this experimental feature is turned off in the panel settings", "ErrFeatureDisabled")
 var ErrEmailNotConfigured = CreateError("email not configured", "ErrEmailNotConfigured")
 var ErrTokenInvalid = CreateError("token is invalid", "ErrTokenInvalid")
 var ErrClientNotFound = CreateError("client not found", "ErrClientNotFound")

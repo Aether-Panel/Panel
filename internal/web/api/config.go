@@ -40,19 +40,44 @@ func panelConfig(c *gin.Context) {
 		HeaderDecorations:   config.HeaderDecorations.Value(),
 		TurnstileSiteKey:    config.TurnstileSiteKey.Value(),
 		TurnstileEnabled:    config.TurnstileEnabled.Value(),
-		Version:             skypanel.Version,
+		Experimental: ExperimentalConfig{
+			VersionSwitch:    config.ExperimentalVersionSwitch.Value(),
+			PropertiesEditor: config.ExperimentalPropertiesEditor.Value(),
+			ServerClone:      config.ExperimentalServerClone.Value(),
+		},
+		Version: skypanel.Version,
 	})
 }
 
 type EditableConfig struct {
-	Themes              ThemeConfig    `json:"themes"`
-	Branding            BrandingConfig `json:"branding"`
-	RegistrationEnabled bool           `json:"registrationEnabled"`
-	HeaderDecorations   bool           `json:"headerDecorations"`
-	TurnstileSiteKey    string         `json:"turnstileSiteKey"`
-	TurnstileEnabled    bool           `json:"turnstileEnabled"`
-	Version             string         `json:"version"`
+	Themes              ThemeConfig        `json:"themes"`
+	Branding            BrandingConfig     `json:"branding"`
+	RegistrationEnabled bool               `json:"registrationEnabled"`
+	HeaderDecorations   bool               `json:"headerDecorations"`
+	TurnstileSiteKey    string             `json:"turnstileSiteKey"`
+	TurnstileEnabled    bool               `json:"turnstileEnabled"`
+	Experimental        ExperimentalConfig `json:"experimental"`
+	Version             string             `json:"version"`
 } // @name EditableConfigSettings
+
+// ExperimentalConfig says which experimental features an admin has turned on
+type ExperimentalConfig struct {
+	VersionSwitch    bool `json:"versionSwitch"`
+	PropertiesEditor bool `json:"propertiesEditor"`
+	ServerClone      bool `json:"serverClone"`
+} // @name ExperimentalConfig
+
+// requiresExperimental refuses a request while the experimental feature behind it is off,
+// so turning a feature off in the settings stops it, not just hides its button
+func requiresExperimental(feature config.BoolEntry) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if !feature.Value() {
+			c.AbortWithStatusJSON(http.StatusForbidden, &skypanel.ErrorResponse{Error: skypanel.ErrFeatureDisabled})
+			return
+		}
+		c.Next()
+	}
+}
 
 type ThemeConfig struct {
 	Active    string   `json:"active" example:"default"`

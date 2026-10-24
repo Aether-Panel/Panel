@@ -12,6 +12,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
@@ -45,7 +46,7 @@ var (
 
 // registerServerClone adds the route that duplicates a server
 func registerServerClone(g *gin.RouterGroup) {
-	g.POST("/:serverId/clone", middleware.RequiresPermission(scopes.ScopeServerCreate), middleware.ResolveServerPanel, cloneServer)
+	g.POST("/:serverId/clone", requiresExperimental(config.ExperimentalServerClone), middleware.RequiresPermission(scopes.ScopeServerCreate), middleware.ResolveServerPanel, cloneServer)
 	g.OPTIONS("/:serverId/clone", response.CreateOptions("POST"))
 }
 

@@ -2923,7 +2923,8 @@
       "title": "Something went wrong",
       "description": "An unexpected error occurred while rendering this component.",
       "tryAgain": "Try again"
-    }
+    },
+    "beta": "Beta"
   },
   "settings": {
     "title": "Panel Settings",
@@ -2978,11 +2979,24 @@
         "accessTitle": "Sign-up and security",
         "accessDescription": "Who can create an account and how sign-in and sign-up are protected.",
         "modpacksTitle": "Modpacks",
-        "modpacksDescription": "Key to search and install CurseForge modpacks. Modrinth does not need one."
+        "modpacksDescription": "Key to search and install CurseForge modpacks. Modrinth does not need one.",
+        "experimentalTitle": "Experimental features",
+        "experimentalDescription": "New features we are still refining. They start turned off: switch on the ones you want to try. Turning one off hides it again and deletes nothing."
       },
       "curseforgeKeyLabel": "CurseForge API key",
       "curseforgeKeyPlaceholder": "Paste the API key",
-      "curseforgeKeyDescription": "Create it at console.curseforge.com. The main node uses it; remote nodes read the one in their own configuration (daemon.curseforge.key)."
+      "curseforgeKeyDescription": "Create it at console.curseforge.com. The main node uses it; remote nodes read the one in their own configuration (daemon.curseforge.key).",
+      "experimental": {
+        "versionSwitchLabel": "Game version switch",
+        "versionSwitchDescription": "Change a server's Minecraft version in one click, with a restore point saved first.",
+        "versionSwitchWhere": "In each server's Settings tab",
+        "propertiesEditorLabel": "Properties editor",
+        "propertiesEditorDescription": "Edit server.properties as a form, with every option explained.",
+        "propertiesEditorWhere": "Properties tab, on Minecraft Java servers",
+        "serverCloneLabel": "Clone server",
+        "serverCloneDescription": "Duplicate a server to try changes without touching the original.",
+        "serverCloneWhere": "In each server's Administration › Clone"
+      }
     },
     "discord": {
       "title": "Discord Notifications",

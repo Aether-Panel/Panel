@@ -15,6 +15,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
+	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/database"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
@@ -125,7 +126,7 @@ func registerServers(g *gin.RouterGroup) {
 
 	g.GET("/:serverId/version", middleware.RequiresPermission(scopes.ScopeServerView), middleware.ResolveServerPanel, proxyServerRequest)
 	// changing the version reinstalls the server, so it needs the same permission as reinstalling
-	g.POST("/:serverId/version", middleware.RequiresPermission(scopes.ScopeServerInstall), middleware.ResolveServerPanel, proxyServerRequest)
+	g.POST("/:serverId/version", requiresExperimental(config.ExperimentalVersionSwitch), middleware.RequiresPermission(scopes.ScopeServerInstall), middleware.ResolveServerPanel, proxyServerRequest)
 	g.OPTIONS("/:serverId/version", response.CreateOptions("GET", "POST"))
 
 	// a server's own Discord alerts sit with its other owner settings (auto start, auto restart)

@@ -5,7 +5,7 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { Check, Copy, Eye, EyeOff } from 'lucide-react';
+import { Check, Copy, CopyPlus, Eye, EyeOff, Layers, MapPin, SlidersHorizontal, type LucideIcon } from 'lucide-react';
 
 interface GeneralTabProps {
     localSettings: Record<string, any>;
@@ -78,6 +78,43 @@ export function SettingRow({ id, label, description, checked, onCheckedChange }:
 /** Container for a list of switch rows. */
 export function SettingRows({ children }: { children: ReactNode }) {
     return <div className="divide-y divide-border/50 rounded-xl border border-border/60 bg-background/30">{children}</div>;
+}
+
+/**
+ * Switch row for an experimental feature: what it does and where it shows up
+ * once it is on. The icon lights up with the switch.
+ */
+function ExperimentalRow({ id, icon: Icon, label, description, where, checked, onCheckedChange }: {
+    id: string;
+    icon: LucideIcon;
+    label: string;
+    description: string;
+    where: string;
+    checked: boolean;
+    onCheckedChange: (v: boolean) => void;
+}) {
+    return (
+        <div className="flex items-start gap-3.5 px-4 py-3.5">
+            <span
+                aria-hidden="true"
+                className={cn(
+                    'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors duration-300',
+                    checked ? 'border-primary/40 bg-primary/10 text-primary-bright' : 'border-border/60 bg-card text-muted-foreground',
+                )}
+            >
+                <Icon className="h-4 w-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+                <Label htmlFor={id} className="block text-sm font-medium leading-snug">{label}</Label>
+                <p className="mt-1 text-pretty text-xs text-muted-foreground">{description}</p>
+                <p className="mt-1.5 flex items-center gap-1 text-[11px] text-muted-foreground/80">
+                    <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />
+                    {where}
+                </p>
+            </div>
+            <Switch id={id} checked={checked} onCheckedChange={onCheckedChange} className="mt-1" />
+        </div>
+    );
 }
 
 /**
@@ -158,6 +195,13 @@ export function SecretInput({
 }
 
 /* ------------------------------------------------------------------ */
+
+/** Experimental features, in the order they are listed; each is a panel setting that starts off. */
+const EXPERIMENTAL_FEATURES: { key: string; name: string; icon: LucideIcon }[] = [
+    { key: 'panel.experimental.versionSwitch', name: 'versionSwitch', icon: Layers },
+    { key: 'panel.experimental.propertiesEditor', name: 'propertiesEditor', icon: SlidersHorizontal },
+    { key: 'panel.experimental.serverClone', name: 'serverClone', icon: CopyPlus },
+];
 
 export function GeneralTab({ localSettings, handleUpdate, t }: GeneralTabProps) {
     const hideAi = !!localSettings['panel.settings.hideAiAnalysis'];
@@ -291,6 +335,23 @@ export function GeneralTab({ localSettings, handleUpdate, t }: GeneralTabProps) 
                             </div>
                         )}
                     </div>
+                </SettingsSection>
+
+                <SettingsSection title={t('settings.general.sections.experimentalTitle')} description={t('settings.general.sections.experimentalDescription')}>
+                    <SettingRows>
+                        {EXPERIMENTAL_FEATURES.map((feature) => (
+                            <ExperimentalRow
+                                key={feature.key}
+                                id={`experimental-${feature.name}`}
+                                icon={feature.icon}
+                                label={t(`settings.general.experimental.${feature.name}Label`)}
+                                description={t(`settings.general.experimental.${feature.name}Description`)}
+                                where={t(`settings.general.experimental.${feature.name}Where`)}
+                                checked={!!localSettings[feature.key]}
+                                onCheckedChange={(v) => handleUpdate(feature.key, v)}
+                            />
+                        ))}
+                    </SettingRows>
                 </SettingsSection>
             </div>
         </SettingsCard>
