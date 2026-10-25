@@ -52,41 +52,14 @@ function checkedStatus(res: { available: boolean; reason: string }): Status {
   return res.reason === 'taken' || res.reason === 'reserved' ? res.reason : 'invalid';
 }
 
-export default function AddressCard({ serverId }: Readonly<{ serverId: string }>) {
-  const { t } = useTranslations();
-  const ids = useId();
-  const [info, setInfo] = useState<SubdomainInfo | null>(null);
-  const [hidden, setHidden] = useState(false);
-  const [draft, setDraft] = useState('');
+/**
+ * Live availability of the name being typed: local rules right away, the panel ~400 ms after
+ * the last keystroke. A save that finds the name taken can set the status directly.
+ */
+function useNameStatus(serverId: string, info: SubdomainInfo | null, draft: string) {
   const [status, setStatus] = useState<Status>('idle');
-  const [saving, setSaving] = useState(false);
-  const [removing, setRemoving] = useState(false);
-  const [confirmRemove, setConfirmRemove] = useState(false);
-  const [propagating, setPropagating] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
   const checkSeq = useRef(0);
 
-  useEffect(() => {
-    let alive = true;
-    fetchSubdomain(serverId)
-      .then((data) => {
-        if (!alive) return;
-        if (!data.enabled) {
-          setHidden(true);
-          return;
-        }
-        setInfo(data);
-        setDraft(data.subdomain);
-      })
-      // 403 (no permission) or an older panel: the card is simply not offered
-      .catch(() => alive && setHidden(true));
-    return () => {
-      alive = false;
-    };
-  }, [serverId]);
-
-  // live availability: local rules right away, the panel ~400 ms after the last keystroke
   useEffect(() => {
     if (!info) return;
     const seq = ++checkSeq.current;
@@ -115,6 +88,43 @@ export default function AddressCard({ serverId }: Readonly<{ serverId: string }>
     }, 400);
     return () => clearTimeout(timer);
   }, [draft, info, serverId]);
+
+  return [status, setStatus] as const;
+}
+
+export default function AddressCard({ serverId }: Readonly<{ serverId: string }>) {
+  const { t } = useTranslations();
+  const ids = useId();
+  const [info, setInfo] = useState<SubdomainInfo | null>(null);
+  const [hidden, setHidden] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [propagating, setPropagating] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [status, setStatus] = useNameStatus(serverId, info, draft);
+
+  useEffect(() => {
+    let alive = true;
+    fetchSubdomain(serverId)
+      .then((data) => {
+        if (!alive) return;
+        if (!data.enabled) {
+          setHidden(true);
+          return;
+        }
+        setInfo(data);
+        setDraft(data.subdomain);
+      })
+      // 403 (no permission) or an older panel: the card is simply not offered
+      .catch(() => alive && setHidden(true));
+    return () => {
+      alive = false;
+    };
+  }, [serverId]);
+
 
   useEffect(() => {
     if (!confirmRemove) return;
