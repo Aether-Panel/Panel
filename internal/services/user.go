@@ -442,10 +442,13 @@ func (us *User) Search(usernameFilter, emailFilter string, pageSize, page uint) 
 	return users, count, res.Error
 }
 
+// maxPasswordBytes is bcrypt's limit: longer passwords cannot be hashed at all
+const maxPasswordBytes = 72
+
 func (us *User) IsSecurePassword(password string) error {
-	// TODO: Change to use validator
-	if len(password) < 8 {
-		return skypanel.ErrFieldLength("password", 8, 72)
+	// len counts bytes, which is what bcrypt limits (accented letters and emoji take more than one)
+	if len(password) < 8 || len(password) > maxPasswordBytes {
+		return skypanel.ErrFieldLength("password", 8, maxPasswordBytes)
 	}
 	return nil
 }

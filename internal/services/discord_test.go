@@ -2,6 +2,7 @@ package services
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -78,5 +79,26 @@ func TestValidateDiscordWebhook(t *testing.T) {
 		if err := ValidateDiscordWebhook(bad); err == nil {
 			t.Errorf("%q should be refused", bad)
 		}
+	}
+}
+
+func TestPostDiscordPayloadRefusesNonDiscordURLs(t *testing.T) {
+	// the system status report must not be a way around the webhook check either
+	var hit bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hit = true
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	err := postDiscordPayload(server.URL+"/api/webhooks/1/token", DiscordWebhookPayload{Content: "status"})
+	if !errors.Is(err, ErrInvalidDiscordWebhook) {
+		t.Fatalf("got %v, want ErrInvalidDiscordWebhook", err)
+	}
+	if hit {
+		t.Fatal("the payload was posted to a URL that is not a Discord webhook")
+	}
+	if err := postDiscordPayload("", DiscordWebhookPayload{}); err != nil {
+		t.Fatalf("an empty webhook means notifications are off, got %v", err)
 	}
 }

@@ -212,6 +212,7 @@ func (t *tty) GetStatsImpl(environment *skypanel.Environment) (*skypanel.ServerS
 	}
 
 	t.lastStats = stats
+	t.lastStatTime = time.Now()
 
 	return stats, nil
 }
@@ -278,6 +279,9 @@ func (t *tty) jcmdStats() *utils.JvmStats {
 	if err != nil || socket == nil {
 		return nil
 	}
+	defer func() { _ = socket.Close() }()
+	// a JVM that never answers must not hold the stats lock forever
+	_ = socket.SetDeadline(time.Now().Add(5 * time.Second))
 
 	for _, s := range []string{"1", "\x00", "jcmd", "\x00", "GC.heap_info", "\x00", "\x00", "\x00"} {
 		_, err = socket.Write([]byte(s))

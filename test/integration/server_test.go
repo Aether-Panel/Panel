@@ -106,11 +106,12 @@ type serverTestCtx struct {
 	taskID    string
 }
 
-// socketFlags records which websocket message types arrived
+// socketFlags records which websocket message types arrived. The reader goroutine sets them
+// while the test reads them, so they are atomic.
 type socketFlags struct {
-	statsReceived   bool
-	messageReceived bool
-	statusReceived  bool
+	statsReceived   atomic.Bool
+	messageReceived atomic.Bool
+	statusReceived  atomic.Bool
 }
 
 func runServerLocationTests(t *testing.T, c *serverTestCtx) {
@@ -211,9 +212,9 @@ func runServerLocationTests(t *testing.T, c *serverTestCtx) {
 	t.Run("Delete", c.testDeleteServer)
 
 	t.Run("WebSocketReceivedAll", func(t *testing.T) {
-		assert.True(t, flags.statsReceived, "Stats were not received")
-		assert.True(t, flags.statusReceived, "Status was not received")
-		assert.True(t, flags.messageReceived, "Console messages were not received")
+		assert.True(t, flags.statsReceived.Load(), "Stats were not received")
+		assert.True(t, flags.statusReceived.Load(), "Status was not received")
+		assert.True(t, flags.messageReceived.Load(), "Console messages were not received")
 	})
 }
 
@@ -256,11 +257,11 @@ func (f *socketFlags) handle(data []byte) {
 			fmt.Printf("[WEBSOCKET] %s\n", ms.Logs)
 		}
 
-		f.messageReceived = true
+		f.messageReceived.Store(true)
 	case skypanel.MessageTypeStatus:
-		f.statusReceived = true
+		f.statusReceived.Store(true)
 	case skypanel.MessageTypeStats:
-		f.statsReceived = true
+		f.statsReceived.Store(true)
 	default:
 		fmt.Printf("unknown message type: %s\n", msg["type"])
 	}
@@ -438,7 +439,7 @@ func (c *serverTestCtx) assertSubUserScopes(t *testing.T, email string, expected
 		return
 	}
 
-	if assert.NotEmpty(t, perms) {
+	if !assert.NotEmpty(t, perms) {
 		return
 	}
 	found := false

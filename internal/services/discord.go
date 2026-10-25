@@ -327,15 +327,19 @@ func serverStatusField(s ServerInfo) DiscordEmbedField {
 	}
 }
 
-// postDiscordPayload sends the system status payload to the webhook
+// postDiscordPayload sends the system status payload to the webhook. Like SendEmbedToURL it
+// only posts to a Discord webhook and through the client that refuses private addresses.
 func postDiscordPayload(webhookURL string, payload DiscordWebhookPayload) error {
+	if err := checkDiscordWebhook(webhookURL); err != nil || webhookURL == "" {
+		return err
+	}
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
 		logging.Error.Printf("Error marshaling Discord webhook payload: %v", err)
 		return err
 	}
 
-	req, err := http.NewRequest("POST", webhookURL, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest(http.MethodPost, webhookURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		logging.Error.Printf("Error creating Discord webhook request: %v", err)
 		return err
@@ -343,24 +347,18 @@ func postDiscordPayload(webhookURL string, payload DiscordWebhookPayload) error 
 
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
-
-	resp, err := client.Do(req)
+	resp, err := discordHTTPClient().Do(req)
 	if err != nil {
 		logging.Error.Printf("Error sending Discord webhook: %v", err)
 		return err
 	}
 	defer func() {
-		if resp.Body != nil {
-			_, _ = io.Copy(io.Discard, resp.Body)
-			resp.Body.Close()
-		}
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
 	}()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
 		logging.Error.Printf("Discord webhook returned status %d: %s", resp.StatusCode, string(body))
 		return fmt.Errorf("discord webhook returned status %d", resp.StatusCode)
 	}
