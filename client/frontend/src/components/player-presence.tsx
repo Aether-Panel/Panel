@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 /** A steady hue per name, so the same player keeps the same colour everywhere. */
 function nameHue(name: string) {
   let hash = 0;
-  for (const char of name) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  for (const char of name) hash = (hash * 31 + (char.codePointAt(0) ?? 0)) >>> 0;
   return hash % 360;
 }
 
@@ -16,7 +16,7 @@ function initials(name: string) {
 }
 
 /** A small round badge with a player's initials on their own hue. */
-export function PlayerAvatar({ name, className }: { name: string; className?: string }) {
+export function PlayerAvatar({ name, className }: Readonly<{ name: string; className?: string }>) {
   const hue = nameHue(name);
   return (
     <span
@@ -33,7 +33,7 @@ export function PlayerAvatar({ name, className }: { name: string; className?: st
  * The faces of who is online, overlapping, with everyone's name on hover. Shows up to
  * `limit` and a "+N" for the rest.
  */
-export function PlayerStack({ names, total, limit = 4, label }: { names: string[]; total: number; limit?: number; label: string }) {
+export function PlayerStack({ names, total, limit = 4, label }: Readonly<{ names: string[]; total: number; limit?: number; label: string }>) {
   if (names.length === 0) return null;
   const shown = names.slice(0, limit);
   const more = Math.max(total, names.length) - shown.length;
@@ -81,7 +81,7 @@ export function PlayerStack({ names, total, limit = 4, label }: { names: string[
 }
 
 /** A dot that breathes while people are playing and rests when nobody is. */
-export function LiveDot({ active, className }: { active: boolean; className?: string }) {
+export function LiveDot({ active, className }: Readonly<{ active: boolean; className?: string }>) {
   return (
     <span aria-hidden="true" className={cn('relative flex h-2 w-2 shrink-0', className)}>
       {active && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" />}

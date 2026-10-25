@@ -23,11 +23,40 @@ function defaultCloneName(name: string, suffix: string) {
   return `${name.slice(0, room).trimEnd()}${suffix}`;
 }
 
+type Translate = (key: string, options?: { [key: string]: string | number }) => string;
+
+function runStateOf(status: { running?: boolean; installing?: boolean } | null | undefined): RunState {
+  if (status?.installing) return 'installing';
+  if (status?.running) return 'running';
+  return 'stopped';
+}
+
+/** Why the copy's name cannot be used, or null when it can. */
+function nameErrorOf(trimmed: string, t: Translate): string | null {
+  if (!trimmed) return t('servers.clone.errors.nameRequired');
+  if (trimmed.length > MAX_NAME) return t('servers.clone.errors.nameTooLong', { max: MAX_NAME });
+  if (!PRINTABLE_ASCII.test(trimmed)) return t('servers.clone.errors.nameCharacters');
+  return null;
+}
+
+function cloneErrorTitle(status: number, t: Translate): string {
+  if (status === 403) return t('servers.clone.errors.forbidden');
+  if (status === 409) return t('servers.clone.errors.conflict');
+  if (status === 422) return t('servers.clone.errors.resources');
+  return t('servers.clone.errors.generic');
+}
+
+function runHintKey(runState: RunState): string {
+  if (runState === 'running') return 'servers.clone.runningHint';
+  if (runState === 'installing') return 'servers.clone.installingHint';
+  return 'servers.clone.stopHint';
+}
+
 /**
  * Duplicates the server on the same node (template, settings, resources and users, with new
  * ports), optionally with all its files and world, so changes can be tried on the copy.
  */
-export default function CloneServerCard({ serverId }: { serverId: string }) {
+export default function CloneServerCard({ serverId }: Readonly<{ serverId: string }>) {
   const { t } = useTranslations();
   const ids = useId();
   const [sourceName, setSourceName] = useState('');
@@ -52,7 +81,7 @@ export default function CloneServerCard({ serverId }: { serverId: string }) {
       .catch(() => { /* the field just starts empty */ });
     api.get<{ running?: boolean; installing?: boolean }>(`/api/servers/${serverId}/status`)
       .then((s) => {
-        if (!cancelled) setRunState(s?.installing ? 'installing' : s?.running ? 'running' : 'stopped');
+        if (!cancelled) setRunState(runStateOf(s));
       })
       .catch(() => { /* without the status permission the generic advice stays */ });
     return () => { cancelled = true; };
@@ -61,13 +90,7 @@ export default function CloneServerCard({ serverId }: { serverId: string }) {
   }, [serverId]);
 
   const trimmed = name.trim();
-  const nameError = !trimmed
-    ? t('servers.clone.errors.nameRequired')
-    : trimmed.length > MAX_NAME
-      ? t('servers.clone.errors.nameTooLong', { max: MAX_NAME })
-      : !PRINTABLE_ASCII.test(trimmed)
-        ? t('servers.clone.errors.nameCharacters')
-        : null;
+  const nameError = nameErrorOf(trimmed, t);
   const showNameError = touched && !!nameError;
 
   const submit = (e: { preventDefault: () => void }) => {
@@ -86,12 +109,7 @@ export default function CloneServerCard({ serverId }: { serverId: string }) {
       sileo.success({ title: t('servers.clone.successTitle'), description: t('servers.clone.successToast', { name: trimmed }) });
     } catch (err) {
       const status = err instanceof ApiError ? err.status : 0;
-      const title =
-        status === 403 ? t('servers.clone.errors.forbidden')
-          : status === 409 ? t('servers.clone.errors.conflict')
-            : status === 422 ? t('servers.clone.errors.resources')
-              : t('servers.clone.errors.generic');
-      sileo.error({ title, description: err instanceof ApiError && err.message ? err.message : t('servers.clone.errors.tryAgain') });
+      sileo.error({ title: cloneErrorTitle(status, t), description: err instanceof ApiError && err.message ? err.message : t('servers.clone.errors.tryAgain') });
     } finally {
       setBusy(false);
     }
@@ -103,8 +121,6 @@ export default function CloneServerCard({ serverId }: { serverId: string }) {
     setName(sourceName ? defaultCloneName(sourceName, t('servers.clone.nameSuffix')) : '');
   };
 
-  const copied = ['template', 'settings', 'resources', 'users'] as const;
-  const notCopied = ['address', 'subdomain', 'backups', 'tasks'] as const;
   const counter = `${trimmed.length}/${MAX_NAME}`;
 
   return (
@@ -124,39 +140,7 @@ export default function CloneServerCard({ serverId }: { serverId: string }) {
         </div>
 
         {result ? (
-          <div
-            role="status"
-            aria-live="polite"
-            className="min-w-0 space-y-4 rounded-xl border border-success/30 bg-success/[0.06] p-4 animate-in fade-in-0 slide-in-from-bottom-1 duration-300 ease-panel motion-reduce:animate-none sm:p-5"
-          >
-            <div className="flex items-start gap-3">
-              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-success" aria-hidden="true" />
-              <div className="min-w-0 space-y-1">
-                <p className="break-words text-sm font-semibold text-foreground">{t('servers.clone.doneTitle', { name: result.name })}</p>
-                <p className="text-pretty text-sm text-muted-foreground">
-                  {result.copyFiles ? t('servers.clone.doneCopying') : t('servers.clone.doneEmpty')}
-                </p>
-              </div>
-            </div>
-            {result.port ? (
-              <dl className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-                <dt className="text-muted-foreground">{t('servers.clone.newPort')}</dt>
-                <dd className="rounded-md border border-border/60 bg-secondary/60 px-2 py-0.5 font-mono text-xs font-semibold tabular-nums text-foreground">{result.port}</dd>
-              </dl>
-            ) : null}
-            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-              <Button asChild>
-                <a href={`/servers/view/?id=${encodeURIComponent(result.id)}`}>
-                  {t('servers.clone.open')}
-                  <ArrowRight aria-hidden="true" />
-                </a>
-              </Button>
-              <Button variant="ghost" onClick={reset}>
-                <RotateCcw aria-hidden="true" />
-                {t('servers.clone.another')}
-              </Button>
-            </div>
-          </div>
+          <CloneDone result={result} onReset={reset} />
         ) : (
           <form onSubmit={submit} noValidate className="min-w-0 space-y-5">
             <div className="space-y-2">
@@ -203,57 +187,9 @@ export default function CloneServerCard({ serverId }: { serverId: string }) {
               <Switch id={`${ids}-files`} checked={copyFiles} onCheckedChange={setCopyFiles} disabled={busy} />
             </label>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="min-w-0 space-y-2">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('servers.clone.copiedTitle')}</p>
-                <ul className="space-y-1.5 text-sm">
-                  {copied.map((key) => (
-                    <li key={key} className="flex items-start gap-2">
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden="true" />
-                      <span className="min-w-0">{t(`servers.clone.copied.${key}`)}</span>
-                    </li>
-                  ))}
-                  {copyFiles && (
-                    <li className="flex items-start gap-2 animate-in fade-in-0 duration-200 motion-reduce:animate-none">
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden="true" />
-                      <span className="min-w-0">{t('servers.clone.copied.files')}</span>
-                    </li>
-                  )}
-                </ul>
-              </div>
-              <div className="min-w-0 space-y-2">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('servers.clone.notCopiedTitle')}</p>
-                <ul className="space-y-1.5 text-sm text-muted-foreground">
-                  {notCopied.map((key) => (
-                    <li key={key} className="flex items-start gap-2">
-                      <Minus className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                      <span className="min-w-0">{t(`servers.clone.notCopied.${key}`)}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+            <CloneSummary copyFiles={copyFiles} />
 
-            {copyFiles && runState !== 'stopped' && (
-              <div
-                className={cn(
-                  'flex items-start gap-3 rounded-xl border px-4 py-3 text-sm',
-                  runState === 'running' ? 'border-warning/30 bg-warning/10' : 'border-border/60 bg-secondary/40',
-                )}
-              >
-                <TriangleAlert className={cn('mt-0.5 h-4 w-4 shrink-0', runState === 'running' ? 'text-warning' : 'text-muted-foreground')} aria-hidden="true" />
-                <div className="min-w-0 space-y-0.5">
-                  {runState === 'running' && <p className="font-medium text-foreground">{t('servers.clone.runningTitle')}</p>}
-                  <p className="text-pretty text-muted-foreground">
-                    {runState === 'running'
-                      ? t('servers.clone.runningHint')
-                      : runState === 'installing'
-                        ? t('servers.clone.installingHint')
-                        : t('servers.clone.stopHint')}
-                  </p>
-                </div>
-              </div>
-            )}
+            {copyFiles && runState !== 'stopped' && <RunWarning runState={runState} />}
 
             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-muted-foreground">{t('servers.clone.sameNode')}</p>
@@ -269,35 +205,158 @@ export default function CloneServerCard({ serverId }: { serverId: string }) {
         )}
       </div>
 
-      <AlertDialog open={confirming} onOpenChange={setConfirming}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('servers.clone.confirmTitle')}</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-3 text-sm text-muted-foreground">
-                <p className="break-words">
-                  {copyFiles
-                    ? t('servers.clone.confirmWithFiles', { name: trimmed, source: sourceName || serverId })
-                    : t('servers.clone.confirmWithoutFiles', { name: trimmed, source: sourceName || serverId })}
-                </p>
-                {copyFiles && runState === 'running' && (
-                  <p className="flex items-start gap-2 text-xs">
-                    <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" aria-hidden="true" />
-                    {t('servers.clone.confirmRunning')}
-                  </p>
-                )}
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            <Button onClick={() => void clone()}>
-              <Copy aria-hidden="true" />
-              {t('servers.clone.confirm')}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmCloneDialog
+        open={confirming}
+        onOpenChange={setConfirming}
+        copyFiles={copyFiles}
+        running={runState === 'running'}
+        name={trimmed}
+        source={sourceName || serverId}
+        onConfirm={() => void clone()}
+      />
     </section>
+  );
+}
+
+function CloneDone({ result, onReset }: Readonly<{ result: CloneResult; onReset: () => void }>) {
+  const { t } = useTranslations();
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="min-w-0 space-y-4 rounded-xl border border-success/30 bg-success/[0.06] p-4 animate-in fade-in-0 slide-in-from-bottom-1 duration-300 ease-panel motion-reduce:animate-none sm:p-5"
+    >
+      <div className="flex items-start gap-3">
+        <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-success" aria-hidden="true" />
+        <div className="min-w-0 space-y-1">
+          <p className="break-words text-sm font-semibold text-foreground">{t('servers.clone.doneTitle', { name: result.name })}</p>
+          <p className="text-pretty text-sm text-muted-foreground">
+            {result.copyFiles ? t('servers.clone.doneCopying') : t('servers.clone.doneEmpty')}
+          </p>
+        </div>
+      </div>
+      {result.port ? (
+        <dl className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+          <dt className="text-muted-foreground">{t('servers.clone.newPort')}</dt>
+          <dd className="rounded-md border border-border/60 bg-secondary/60 px-2 py-0.5 font-mono text-xs font-semibold tabular-nums text-foreground">{result.port}</dd>
+        </dl>
+      ) : null}
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <Button asChild>
+          <a href={`/servers/view/?id=${encodeURIComponent(result.id)}`}>
+            {t('servers.clone.open')}
+            <ArrowRight aria-hidden="true" />
+          </a>
+        </Button>
+        <Button variant="ghost" onClick={onReset}>
+          <RotateCcw aria-hidden="true" />
+          {t('servers.clone.another')}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+const COPIED = ['template', 'settings', 'resources', 'users'] as const;
+const NOT_COPIED = ['address', 'subdomain', 'backups', 'tasks'] as const;
+
+/** What the copy takes along and what it leaves behind. */
+function CloneSummary({ copyFiles }: Readonly<{ copyFiles: boolean }>) {
+  const { t } = useTranslations();
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <div className="min-w-0 space-y-2">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('servers.clone.copiedTitle')}</p>
+        <ul className="space-y-1.5 text-sm">
+          {COPIED.map((key) => (
+            <li key={key} className="flex items-start gap-2">
+              <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden="true" />
+              <span className="min-w-0">{t(`servers.clone.copied.${key}`)}</span>
+            </li>
+          ))}
+          {copyFiles && (
+            <li className="flex items-start gap-2 animate-in fade-in-0 duration-200 motion-reduce:animate-none">
+              <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden="true" />
+              <span className="min-w-0">{t('servers.clone.copied.files')}</span>
+            </li>
+          )}
+        </ul>
+      </div>
+      <div className="min-w-0 space-y-2">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('servers.clone.notCopiedTitle')}</p>
+        <ul className="space-y-1.5 text-sm text-muted-foreground">
+          {NOT_COPIED.map((key) => (
+            <li key={key} className="flex items-start gap-2">
+              <Minus className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <span className="min-w-0">{t(`servers.clone.notCopied.${key}`)}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+/** Copying a live world can catch files mid-write: the advice depends on what the server is doing. */
+function RunWarning({ runState }: Readonly<{ runState: RunState }>) {
+  const { t } = useTranslations();
+  return (
+    <div
+      className={cn(
+        'flex items-start gap-3 rounded-xl border px-4 py-3 text-sm',
+        runState === 'running' ? 'border-warning/30 bg-warning/10' : 'border-border/60 bg-secondary/40',
+      )}
+    >
+      <TriangleAlert className={cn('mt-0.5 h-4 w-4 shrink-0', runState === 'running' ? 'text-warning' : 'text-muted-foreground')} aria-hidden="true" />
+      <div className="min-w-0 space-y-0.5">
+        {runState === 'running' && <p className="font-medium text-foreground">{t('servers.clone.runningTitle')}</p>}
+        <p className="text-pretty text-muted-foreground">{t(runHintKey(runState))}</p>
+      </div>
+    </div>
+  );
+}
+
+type ConfirmCloneDialogProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  copyFiles: boolean;
+  running: boolean;
+  name: string;
+  source: string;
+  onConfirm: () => void;
+};
+
+function ConfirmCloneDialog({ open, onOpenChange, copyFiles, running, name, source, onConfirm }: Readonly<ConfirmCloneDialogProps>) {
+  const { t } = useTranslations();
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t('servers.clone.confirmTitle')}</AlertDialogTitle>
+          <AlertDialogDescription asChild>
+            <div className="space-y-3 text-sm text-muted-foreground">
+              <p className="break-words">
+                {copyFiles
+                  ? t('servers.clone.confirmWithFiles', { name, source })
+                  : t('servers.clone.confirmWithoutFiles', { name, source })}
+              </p>
+              {copyFiles && running && (
+                <p className="flex items-start gap-2 text-xs">
+                  <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" aria-hidden="true" />
+                  {t('servers.clone.confirmRunning')}
+                </p>
+              )}
+            </div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+          <Button onClick={onConfirm}>
+            <Copy aria-hidden="true" />
+            {t('servers.clone.confirm')}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

@@ -533,7 +533,7 @@ body::after {
   background: linear-gradient(115deg, transparent 32%, hsl(0 0% 100% / 0.26) 50%, transparent 68%);
   transform: translateX(-130%);
 }
-@media (hover: hover) {
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
   .btn-sheen:hover::after {
     transform: translateX(130%);
     transition: transform 700ms cubic-bezier(0.16, 1, 0.3, 1);

@@ -37,6 +37,9 @@ const clonePortSearch = 200
 // maxDefinitionSize bounds the server definition read from the node
 const maxDefinitionSize = 8 << 20
 
+// daemonServerPrefix starts the node's routes for one server
+const daemonServerPrefix = "/daemon/server/"
+
 var (
 	errCloneNoFreePort = errors.New("there is no free port left on this node for the copy")
 	errCloneNotOnNode  = errors.New("the server's files are not on its node, so it cannot be copied")
@@ -146,19 +149,7 @@ func cloneServer(c *gin.Context) {
 	server.TotalCPU, server.TotalMemory, server.TotalDisk = source.TotalCPU, source.TotalMemory, source.TotalDisk
 	server.PortNotes = remapPortNotes(source.PortNotes, mapping)
 
-	var parentCPU int
-	var parentMemory, parentDisk int64
-	err = db.Transaction(func(tx *gorm.DB) error {
-		if server.ParentServerID != nil && *server.ParentServerID != "" {
-			if err := checkParentServerLimits(tx, server, &parentCPU, &parentMemory, &parentDisk); err != nil {
-				return err
-			}
-		}
-		if err := tx.Create(server).Error; err != nil {
-			return err
-		}
-		return copyServerPermissions(tx, source.Identifier, server.Identifier)
-	})
+	parentCPU, parentMemory, parentDisk, err := saveClone(db, source, server)
 	if response.HandleError(c, err, http.StatusUnprocessableEntity) {
 		return
 	}
@@ -180,6 +171,25 @@ func cloneServer(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, &cloneServerResponse{ID: server.Identifier, Port: server.Port})
+}
+
+// saveClone stores the copy with the original's permissions, checking the parent server's
+// limits first when it is a sub-server; it returns what that check found the parent has left
+func saveClone(db *gorm.DB, source, server *models.Server) (int, int64, int64, error) {
+	var parentCPU int
+	var parentMemory, parentDisk int64
+	err := db.Transaction(func(tx *gorm.DB) error {
+		if server.ParentServerID != nil && *server.ParentServerID != "" {
+			if err := checkParentServerLimits(tx, server, &parentCPU, &parentMemory, &parentDisk); err != nil {
+				return err
+			}
+		}
+		if err := tx.Create(server).Error; err != nil {
+			return err
+		}
+		return copyServerPermissions(tx, source.Identifier, server.Identifier)
+	})
+	return parentCPU, parentMemory, parentDisk, err
 }
 
 // authorizeClone tells whether the user is a panel admin and refuses the copy to anyone else
@@ -208,7 +218,7 @@ func authorizeClone(ps *services.Permission, user *models.User, source *models.S
 func fetchServerDefinition(c *gin.Context, ns *services.Node, node *models.Node, id string) (*skypanel.Server, error) {
 	ctx, cancel := nodeCallContext(c)
 	defer cancel()
-	res, err := ns.CallNodeContext(ctx, node, http.MethodGet, "/daemon/server/"+id+"/definition", nil, nil)
+	res, err := ns.CallNodeContext(ctx, node, http.MethodGet, daemonServerPrefix+id+"/definition", nil, nil)
 	defer utils.CloseResponse(res)
 	if err != nil {
 		return nil, fmt.Errorf("the node of this server is not reachable: %w", err)
@@ -430,7 +440,7 @@ func startCloneCopy(c *gin.Context, ns *services.Node, node *models.Node, newID 
 	body, _ := json.Marshal(map[string]string{"sourceName": source.Name})
 	ctx, cancel := nodeCallContext(c)
 	defer cancel()
-	res, err := ns.CallNodeContext(ctx, node, http.MethodPost, "/daemon/server/"+newID+"/clone-from/"+source.Identifier, io.NopCloser(bytes.NewReader(body)), http.Header{"Content-Type": {"application/json"}})
+	res, err := ns.CallNodeContext(ctx, node, http.MethodPost, daemonServerPrefix+newID+"/clone-from/"+source.Identifier, io.NopCloser(bytes.NewReader(body)), http.Header{"Content-Type": {"application/json"}})
 	defer utils.CloseResponse(res)
 	if err != nil {
 		return fmt.Errorf("the node of this server is not reachable: %w", err)
@@ -449,7 +459,7 @@ func startCloneCopy(c *gin.Context, ns *services.Node, node *models.Node, newID 
 // rollbackClone removes a copy that could not be finished, from the node and the panel
 func rollbackClone(db *gorm.DB, ns *services.Node, node *models.Node, server *models.Server) {
 	// the node may not have it yet; it then answers 404, which is fine
-	res, err := ns.CallNode(node, http.MethodDelete, "/daemon/server/"+server.Identifier, nil, nil)
+	res, err := ns.CallNode(node, http.MethodDelete, daemonServerPrefix+server.Identifier, nil, nil)
 	utils.CloseResponse(res)
 	if err != nil {
 		logging.Error.Printf("Error removing unfinished copy %s from its node: %s", server.Identifier, err)

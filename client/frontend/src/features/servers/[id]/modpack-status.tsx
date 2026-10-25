@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { PackIcon, PackTag, SOURCE_NAMES, loaderLabel, projectUrl, type ModpackStatus } from './modpack-shared';
 
 /** The pack on the server, or an intro that says what the tab does when there is none. */
-export function InstalledPack({ status }: { status: ModpackStatus }) {
+export function InstalledPack({ status }: Readonly<{ status: ModpackStatus }>) {
   const { t, language } = useTranslations();
   const pack = status.installed;
 
@@ -63,15 +63,14 @@ export function InstalledPack({ status }: { status: ModpackStatus }) {
 }
 
 /** The running install: the step in words, and a bar while files are counted. */
-export function InstallProgress({ status }: { status: ModpackStatus }) {
+export function InstallProgress({ status }: Readonly<{ status: ModpackStatus }>) {
   const { t } = useTranslations();
   const counted = status.step === 'downloadFiles' && status.total > 0;
   const percent = counted ? Math.round((status.current / status.total) * 100) : 0;
-  const label = counted
-    ? t('servers.modpacks.progress.steps.downloadFiles', { current: status.current, total: status.total })
-    : status.step === 'downloadFiles'
-      ? t('servers.modpacks.progress.steps.downloadFilesNoCount')
-      : t(`servers.modpacks.progress.steps.${status.step || 'preparing'}`);
+  let label: string;
+  if (counted) label = t('servers.modpacks.progress.steps.downloadFiles', { current: status.current, total: status.total });
+  else if (status.step === 'downloadFiles') label = t('servers.modpacks.progress.steps.downloadFilesNoCount');
+  else label = t(`servers.modpacks.progress.steps.${status.step || 'preparing'}`);
 
   return (
     <div className="space-y-3 rounded-xl border border-primary/30 bg-primary/[0.06] px-4 py-3.5 animate-in fade-in-0 slide-in-from-top-1 duration-300 ease-panel">
@@ -94,13 +93,12 @@ export function InstallProgress({ status }: { status: ModpackStatus }) {
 }
 
 /** How the last install went, until dismissed. */
-export function InstallOutcome({ status, outcome, onDismiss }: { status: ModpackStatus; outcome: 'done' | 'failed'; onDismiss: () => void }) {
+export function InstallOutcome({ status, outcome, onDismiss }: Readonly<{ status: ModpackStatus; outcome: 'done' | 'failed'; onDismiss: () => void }>) {
   const { t } = useTranslations();
   const done = outcome === 'done';
   const title = status.installed?.title ?? status.target?.title ?? '';
   return (
-    <div
-      role="status"
+    <output
       className={cn(
         'flex items-start gap-3 rounded-xl border px-4 py-3.5 text-sm',
         done ? 'border-success/30 bg-success/[0.06]' : 'border-destructive/30 bg-destructive/[0.06]',
@@ -117,6 +115,6 @@ export function InstallOutcome({ status, outcome, onDismiss }: { status: Modpack
       <Button variant="ghost" size="icon" className="-mr-1 -mt-1 h-8 w-8 shrink-0 text-muted-foreground" onClick={onDismiss} aria-label={t('servers.modpacks.result.dismiss')}>
         <X aria-hidden="true" />
       </Button>
-    </div>
+    </output>
   );
 }

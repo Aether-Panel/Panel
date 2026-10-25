@@ -95,14 +95,17 @@ export function javaFor(gameVersion: string): string {
 export function versionRange(versions: string[]): string {
   if (versions.length === 0) return '';
   if (versions.length === 1) return versions[0];
-  return `${versions[versions.length - 1]} – ${versions[0]}`;
+  return `${versions.at(-1)} – ${versions[0]}`;
 }
 
+const ICON_BOX = { sm: 'h-9 w-9 rounded-lg', md: 'h-12 w-12 rounded-xl', lg: 'h-16 w-16 rounded-2xl' } as const;
+const ICON_GLYPH = { sm: 'h-4 w-4', md: 'h-5 w-5', lg: 'h-7 w-7' } as const;
+
 /** The pack's icon, with a quiet fallback when it has none or it fails to load. */
-export function PackIcon({ src, size = 'md', className }: { src?: string; size?: 'sm' | 'md' | 'lg'; className?: string }) {
+export function PackIcon({ src, size = 'md', className }: Readonly<{ src?: string; size?: 'sm' | 'md' | 'lg'; className?: string }>) {
   const [failed, setFailed] = useState(false);
-  const box = size === 'lg' ? 'h-16 w-16 rounded-2xl' : size === 'md' ? 'h-12 w-12 rounded-xl' : 'h-9 w-9 rounded-lg';
-  const icon = size === 'lg' ? 'h-7 w-7' : size === 'md' ? 'h-5 w-5' : 'h-4 w-4';
+  const box = ICON_BOX[size];
+  const icon = ICON_GLYPH[size];
   return (
     <span className={cn('relative grid shrink-0 place-items-center overflow-hidden border border-border/60 bg-secondary/60', box, className)}>
       {src && !failed ? (
@@ -115,7 +118,7 @@ export function PackIcon({ src, size = 'md', className }: { src?: string; size?:
 }
 
 /** Small neutral tag for a loader or a game version. */
-export function PackTag({ children, mono, className }: { children: ReactNode; mono?: boolean; className?: string }) {
+export function PackTag({ children, mono, className }: Readonly<{ children: ReactNode; mono?: boolean; className?: string }>) {
   return (
     <span
       className={cn(

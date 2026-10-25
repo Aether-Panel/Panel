@@ -29,7 +29,7 @@ function unescape(text: string): string {
       case 'u': {
         const hex = text.slice(i + 1, i + 5);
         if (/^[0-9a-fA-F]{4}$/.test(hex)) {
-          out += String.fromCharCode(parseInt(hex, 16));
+          out += String.fromCodePoint(Number.parseInt(hex, 16));
           i += 4;
         } else {
           out += 'u';
@@ -47,15 +47,15 @@ export function escapeValue(value: string): string {
   let out = '';
   for (let i = 0; i < value.length; i++) {
     const ch = value[i];
-    const code = ch.charCodeAt(0);
+    const code = ch.codePointAt(0) ?? 0;
     if (ch === '\\') out += '\\\\';
-    else if (ch === '\n') out += '\\n';
-    else if (ch === '\r') out += '\\r';
-    else if (ch === '\t') out += '\\t';
-    else if (ch === '\f') out += '\\f';
-    else if (ch === ' ' && i === 0) out += '\\ ';
+    else if (ch === '\n') out += String.raw`\n`;
+    else if (ch === '\r') out += String.raw`\r`;
+    else if (ch === '\t') out += String.raw`\t`;
+    else if (ch === '\f') out += String.raw`\f`;
+    else if (ch === ' ' && i === 0) out += String.raw`\ `;
     else if (ch === '=' || ch === ':' || ch === '#' || ch === '!') out += '\\' + ch;
-    else if (code < 0x20 || code > 0x7e) out += '\\u' + code.toString(16).toUpperCase().padStart(4, '0');
+    else if (code < 0x20 || code > 0x7e) out += String.raw`\u` + code.toString(16).toUpperCase().padStart(4, '0');
     else out += ch;
   }
   return out;
@@ -91,7 +91,7 @@ function continues(line: string): boolean {
 export function parseProperties(text: string): ParsedProperties {
   const rawLines = text.replace(/\r\n?/g, '\n').split('\n');
   // a trailing newline leaves an empty last entry that is not a real line
-  if (rawLines.length > 0 && rawLines[rawLines.length - 1] === '') rawLines.pop();
+  if (rawLines.length > 0 && rawLines.at(-1) === '') rawLines.pop();
 
   const lines: PropertiesLine[] = [];
   const values: Record<string, string> = {};
@@ -171,7 +171,7 @@ export function parseMotdLine(line: string): MotdSegment[] {
     // §x§r§r§g§g§b§b: a hex colour, one digit per §
     if (code === 'x' && /^(§[0-9a-fA-F]){6}$/.test(line.slice(i + 2, i + 14))) {
       flush();
-      const hex = line.slice(i + 2, i + 14).replace(/§/g, '');
+      const hex = line.slice(i + 2, i + 14).replaceAll('§', '');
       style = { color: `#${hex}` };
       i += 13;
       continue;

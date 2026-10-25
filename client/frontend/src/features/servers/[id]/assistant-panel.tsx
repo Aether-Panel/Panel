@@ -38,61 +38,95 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
   return parts;
 }
 
-function Markdown({ text }: { text: string }) {
+const BULLET = /^\s*[-*•]\s+/;
+const NUMBERED = /^\s*\d+[.)]\s+/;
+
+function isFence(line: string) {
+  return line.trim().startsWith('```');
+}
+
+/** A fenced code block opening at `start`; `next` is the line after the closing fence. */
+function readFence(lines: string[], start: number): { code: string[]; next: number } {
+  const code: string[] = [];
+  let i = start + 1;
+  while (i < lines.length && !isFence(lines[i])) code.push(lines[i++]);
+  return { code, next: i + 1 };
+}
+
+/** The run of list items starting at `start`, all of the first item's kind. */
+function readList(lines: string[], start: number): { ordered: boolean; items: string[]; next: number } {
+  const ordered = NUMBERED.test(lines[start]);
+  const marker = ordered ? NUMBERED : BULLET;
+  const items: string[] = [];
+  let i = start;
+  while (i < lines.length && marker.test(lines[i])) {
+    items.push(lines[i].replace(marker, ''));
+    i++;
+  }
+  return { ordered, items, next: i };
+}
+
+/** Consecutive text lines up to a blank line, a list or a code block. */
+function readParagraph(lines: string[], start: number): { paragraph: string[]; next: number } {
+  const paragraph: string[] = [];
+  let i = start;
+  while (i < lines.length && lines[i].trim() !== '' && !BULLET.test(lines[i]) && !NUMBERED.test(lines[i]) && !isFence(lines[i])) {
+    paragraph.push(lines[i++]);
+  }
+  return { paragraph, next: i };
+}
+
+function renderList(ordered: boolean, items: string[], key: number): ReactNode {
+  const List = ordered ? 'ol' : 'ul';
+  return (
+    <List key={key} className={cn('space-y-1 pl-5', ordered ? 'list-decimal' : 'list-disc marker:text-primary')}>
+      {items.map((item, j) => <li key={j}>{renderInline(item, `${key}-${j}`)}</li>)}
+    </List>
+  );
+}
+
+function Markdown({ text }: Readonly<{ text: string }>) {
   const blocks: ReactNode[] = [];
-  const lines = text.replace(/\r/g, '').split('\n');
+  const lines = text.replaceAll('\r', '').split('\n');
   let i = 0;
   while (i < lines.length) {
     const line = lines[i];
-    if (line.trim().startsWith('```')) {
-      const code: string[] = [];
-      i++;
-      while (i < lines.length && !lines[i].trim().startsWith('```')) code.push(lines[i++]);
-      i++;
+    const key = blocks.length;
+    if (isFence(line)) {
+      const { code, next } = readFence(lines, i);
+      i = next;
       blocks.push(
-        <pre key={blocks.length} className="custom-scrollbar overflow-x-auto rounded-lg border border-border/60 bg-background/70 px-3 py-2 font-mono text-[12px] leading-5 text-foreground">
+        <pre key={key} className="custom-scrollbar overflow-x-auto rounded-lg border border-border/60 bg-background/70 px-3 py-2 font-mono text-[12px] leading-5 text-foreground">
           {code.join('\n')}
         </pre>,
       );
       continue;
     }
-    const bullet = /^\s*[-*•]\s+/;
-    const numbered = /^\s*\d+[.)]\s+/;
-    if (bullet.test(line) || numbered.test(line)) {
-      const ordered = numbered.test(line);
-      const items: string[] = [];
-      while (i < lines.length && (ordered ? numbered : bullet).test(lines[i])) {
-        items.push(lines[i].replace(ordered ? numbered : bullet, ''));
-        i++;
-      }
-      const List = ordered ? 'ol' : 'ul';
-      blocks.push(
-        <List key={blocks.length} className={cn('space-y-1 pl-5', ordered ? 'list-decimal' : 'list-disc marker:text-primary')}>
-          {items.map((item, j) => <li key={j}>{renderInline(item, `${blocks.length}-${j}`)}</li>)}
-        </List>,
-      );
+    if (BULLET.test(line) || NUMBERED.test(line)) {
+      const { ordered, items, next } = readList(lines, i);
+      i = next;
+      blocks.push(renderList(ordered, items, key));
       continue;
     }
     if (line.trim() === '') {
       i++;
       continue;
     }
-    const heading = /^#{1,4}\s+(.*)$/.exec(line);
+    // one whitespace in the pattern and the rest trimmed: the same capture, without backtracking
+    const heading = /^#{1,4}\s(.*)$/.exec(line);
     if (heading) {
-      blocks.push(<p key={blocks.length} className="font-semibold text-foreground">{renderInline(heading[1], String(blocks.length))}</p>);
+      blocks.push(<p key={key} className="font-semibold text-foreground">{renderInline(heading[1].trimStart(), String(key))}</p>);
       i++;
       continue;
     }
-    const paragraph: string[] = [];
-    while (i < lines.length && lines[i].trim() !== '' && !bullet.test(lines[i]) && !numbered.test(lines[i]) && !lines[i].trim().startsWith('```')) {
-      paragraph.push(lines[i++]);
-    }
+    const { paragraph, next } = readParagraph(lines, i);
+    i = next;
     blocks.push(
-      <p key={blocks.length}>
+      <p key={key}>
         {paragraph.map((l, j) => (
           <Fragment key={j}>
             {j > 0 && <br />}
-            {renderInline(l, `${blocks.length}-${j}`)}
+            {renderInline(l, `${key}-${j}`)}
           </Fragment>
         ))}
       </p>,
@@ -109,7 +143,7 @@ function storageKey(serverId: string) {
  * The server assistant: a side panel with a chat that looks at the server's console,
  * crashes, performance and players to answer in plain words. Opened from the server header.
  */
-export default function AssistantPanel({ serverId, serverName }: { serverId: string; serverName: string }) {
+export default function AssistantPanel({ serverId, serverName }: Readonly<{ serverId: string; serverName: string }>) {
   const { t, language } = useTranslations();
   const ids = useId();
   const [open, setOpen] = useState(false);

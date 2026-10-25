@@ -108,6 +108,11 @@ function getFileMeta(name: string): FileMeta {
 }
 
 // Encode each path segment so names with #, ?, % or spaces survive the URL; '/' stays a separator
+/** A child path inside the folder being browsed (the root is the empty string). */
+function joinPath(dir: string, name: string) {
+  return dir ? `${dir}/${name}` : name;
+}
+
 function encodePath(path: string) {
   return path.split('/').map(encodeURIComponent).join('/');
 }
@@ -193,7 +198,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
 
   const fileUrl = (path: string) => `/api/servers/${serverId}/file/${encodePath(path)}`;
 
-  const editingPath = editingFile ? (currentPath ? `${currentPath}/${editingFile.name}` : editingFile.name) : null;
+  const editingPath = editingFile ? joinPath(currentPath, editingFile.name) : null;
   const historyTracked = !!editingFile && isHistoryTracked(editingFile.name);
   const fileHistory = useFileHistory(serverId, historyTracked ? editingPath : null);
   const historyCount = fileHistory.status === 'ready' ? fileHistory.versions.length : 0;
@@ -762,31 +767,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
             </div>
 
             {clipboard && (
-              <div className="flex min-w-0 items-center gap-1 rounded-lg border border-border/60 bg-background/30 p-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handlePaste}
-                  disabled={isLoading}
-                  className="h-8 min-w-0 flex-1 justify-start px-2 text-xs sm:flex-none"
-                  title={clipboard.mode === 'cut' ? t('servers.fileManager.actions.cut') : t('servers.fileManager.actions.copy')}
-                >
-                  {clipboard.mode === 'cut'
-                    ? <Scissors className="text-muted-foreground" aria-hidden="true" />
-                    : <Copy className="text-muted-foreground" aria-hidden="true" />}
-                  <span className="shrink-0">{t('servers.fileManager.paste')}</span>
-                  <span className="min-w-0 max-w-[160px] truncate font-mono text-muted-foreground">{clipboard.name}</span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
-                  onClick={() => setClipboard(null)}
-                  aria-label={t('servers.fileManager.clearClipboard')}
-                >
-                  <X aria-hidden="true" />
-                </Button>
-              </div>
+              <ClipboardBar clipboard={clipboard} disabled={isLoading} onPaste={handlePaste} onClear={() => setClipboard(null)} />
             )}
           </div>
 
@@ -990,39 +971,15 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
       )}
 
       {/* New Item Dialog */}
-      <Dialog open={newItemDialog.open} onOpenChange={(open) => !open && closeNewItemDialog()}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>
-              {newItemDialog.type === 'file' ? t('servers.fileManager.createFileTitle') : t('servers.fileManager.createFolderTitle')}
-            </DialogTitle>
-            <DialogDescription>{t('servers.fileManager.createDescription')}</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="file-manager-new-name">{t('servers.fileManager.nameLabel')}</Label>
-              <Input
-                id="file-manager-new-name"
-                value={newItemName}
-                onChange={(e) => setNewItemName(e.target.value)}
-                placeholder={newItemDialog.type === 'file' ? t('servers.fileManager.createFilePlaceholder') : t('servers.fileManager.createFolderPlaceholder')}
-                className="font-mono"
-                autoFocus
-                onKeyDown={(e) => e.key === 'Enter' && handleCreateItem()}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={closeNewItemDialog}>
-              {t('common.cancel')}
-            </Button>
-            <Button onClick={handleCreateItem} disabled={isCreating || !newItemName}>
-              {isCreating && <Loader2 className="animate-spin" aria-hidden="true" />}
-              {t('servers.fileManager.create')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <NewItemDialog
+        open={newItemDialog.open}
+        type={newItemDialog.type}
+        name={newItemName}
+        onNameChange={setNewItemName}
+        creating={isCreating}
+        onCreate={handleCreateItem}
+        onClose={closeNewItemDialog}
+      />
 
       {/* Rename Dialog */}
       <Dialog open={!!renameTarget} onOpenChange={(open) => !open && closeRename()}>
@@ -1059,5 +1016,85 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+function ClipboardBar({ clipboard, disabled, onPaste, onClear }: Readonly<{ clipboard: ClipboardItem; disabled: boolean; onPaste: () => void; onClear: () => void }>) {
+  const { t } = useTranslations();
+  return (
+    <div className="flex min-w-0 items-center gap-1 rounded-lg border border-border/60 bg-background/30 p-1">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={onPaste}
+        disabled={disabled}
+        className="h-8 min-w-0 flex-1 justify-start px-2 text-xs sm:flex-none"
+        title={clipboard.mode === 'cut' ? t('servers.fileManager.actions.cut') : t('servers.fileManager.actions.copy')}
+      >
+        {clipboard.mode === 'cut'
+          ? <Scissors className="text-muted-foreground" aria-hidden="true" />
+          : <Copy className="text-muted-foreground" aria-hidden="true" />}
+        <span className="shrink-0">{t('servers.fileManager.paste')}</span>
+        <span className="min-w-0 max-w-[160px] truncate font-mono text-muted-foreground">{clipboard.name}</span>
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+        onClick={onClear}
+        aria-label={t('servers.fileManager.clearClipboard')}
+      >
+        <X aria-hidden="true" />
+      </Button>
+    </div>
+  );
+}
+
+type NewItemDialogProps = {
+  open: boolean;
+  type: 'file' | 'folder';
+  name: string;
+  onNameChange: (name: string) => void;
+  creating: boolean;
+  onCreate: () => void;
+  onClose: () => void;
+};
+
+function NewItemDialog({ open, type, name, onNameChange, creating, onCreate, onClose }: Readonly<NewItemDialogProps>) {
+  const { t } = useTranslations();
+  return (
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>
+            {type === 'file' ? t('servers.fileManager.createFileTitle') : t('servers.fileManager.createFolderTitle')}
+          </DialogTitle>
+          <DialogDescription>{t('servers.fileManager.createDescription')}</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="file-manager-new-name">{t('servers.fileManager.nameLabel')}</Label>
+            <Input
+              id="file-manager-new-name"
+              value={name}
+              onChange={(e) => onNameChange(e.target.value)}
+              placeholder={type === 'file' ? t('servers.fileManager.createFilePlaceholder') : t('servers.fileManager.createFolderPlaceholder')}
+              className="font-mono"
+              autoFocus
+              onKeyDown={(e) => e.key === 'Enter' && onCreate()}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button onClick={onCreate} disabled={creating || !name}>
+            {creating && <Loader2 className="animate-spin" aria-hidden="true" />}
+            {t('servers.fileManager.create')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -51,54 +51,67 @@ func (f *fakeCloudflare) handler(t *testing.T) http.Handler {
 			_, _ = w.Write([]byte(`{"success":false,"errors":[{"code":10000,"message":"Authentication error"}]}`))
 			return
 		}
-		ok := func(result interface{}) {
-			data, _ := json.Marshal(map[string]interface{}{"success": true, "errors": []interface{}{}, "result": result})
-			_, _ = w.Write(data)
-		}
 		prefix := "/zones/" + testCFZone
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == prefix:
-			ok(CloudflareZone{ID: testCFZone, Name: "example.com", Status: "active"})
+			writeCFResult(w, CloudflareZone{ID: testCFZone, Name: "example.com", Status: "active"})
 		case r.Method == http.MethodGet && r.URL.Path == prefix+"/dns_records":
-			var found []CloudflareRecord
-			for _, rec := range f.records {
-				if rec.Name == r.URL.Query().Get("name") {
-					found = append(found, rec)
-				}
-			}
-			ok(found)
+			writeCFResult(w, f.findRecords(r.URL.Query().Get("name")))
 		case r.Method == http.MethodPost && r.URL.Path == prefix+"/dns_records":
-			if f.fail != "" {
-				w.WriteHeader(http.StatusBadRequest)
-				data, _ := json.Marshal(map[string]interface{}{"success": false, "errors": []map[string]interface{}{{"code": 9109, "message": f.fail}}})
-				_, _ = w.Write(data)
-				return
-			}
-			var rec CloudflareRecord
-			data, _ := json.Marshal(call.Body)
-			_ = json.Unmarshal(data, &rec)
-			f.next++
-			rec.ID = fmt.Sprintf("%032x", f.next)
-			if f.records == nil {
-				f.records = map[string]CloudflareRecord{}
-			}
-			f.records[rec.ID] = rec
-			ok(rec)
+			f.createRecord(w, call.Body)
 		case r.Method == http.MethodDelete && strings.HasPrefix(r.URL.Path, prefix+"/dns_records/"):
-			id := strings.TrimPrefix(r.URL.Path, prefix+"/dns_records/")
-			if _, exists := f.records[id]; !exists {
-				w.WriteHeader(http.StatusNotFound)
-				_, _ = w.Write([]byte(`{"success":false,"errors":[{"code":81044,"message":"Record does not exist."}]}`))
-				return
-			}
-			delete(f.records, id)
-			ok(map[string]string{"id": id})
+			f.deleteRecord(w, strings.TrimPrefix(r.URL.Path, prefix+"/dns_records/"))
 		default:
 			t.Errorf("unexpected call %s %s", r.Method, r.URL.Path)
 			w.WriteHeader(http.StatusNotFound)
 			_, _ = w.Write([]byte(`{"success":false,"errors":[{"code":7003,"message":"No route"}]}`))
 		}
 	})
+}
+
+// writeCFResult answers a successful API call
+func writeCFResult(w http.ResponseWriter, result interface{}) {
+	data, _ := json.Marshal(map[string]interface{}{"success": true, "errors": []interface{}{}, "result": result})
+	_, _ = w.Write(data)
+}
+
+func (f *fakeCloudflare) findRecords(name string) []CloudflareRecord {
+	var found []CloudflareRecord
+	for _, rec := range f.records {
+		if rec.Name == name {
+			found = append(found, rec)
+		}
+	}
+	return found
+}
+
+func (f *fakeCloudflare) createRecord(w http.ResponseWriter, body map[string]interface{}) {
+	if f.fail != "" {
+		w.WriteHeader(http.StatusBadRequest)
+		data, _ := json.Marshal(map[string]interface{}{"success": false, "errors": []map[string]interface{}{{"code": 9109, "message": f.fail}}})
+		_, _ = w.Write(data)
+		return
+	}
+	var rec CloudflareRecord
+	data, _ := json.Marshal(body)
+	_ = json.Unmarshal(data, &rec)
+	f.next++
+	rec.ID = fmt.Sprintf("%032x", f.next)
+	if f.records == nil {
+		f.records = map[string]CloudflareRecord{}
+	}
+	f.records[rec.ID] = rec
+	writeCFResult(w, rec)
+}
+
+func (f *fakeCloudflare) deleteRecord(w http.ResponseWriter, id string) {
+	if _, exists := f.records[id]; !exists {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"success":false,"errors":[{"code":81044,"message":"Record does not exist."}]}`))
+		return
+	}
+	delete(f.records, id)
+	writeCFResult(w, map[string]string{"id": id})
 }
 
 func newTestCloudflare(t *testing.T) (*Cloudflare, *fakeCloudflare) {

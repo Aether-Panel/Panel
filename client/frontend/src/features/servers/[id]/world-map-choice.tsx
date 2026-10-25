@@ -21,7 +21,7 @@ type Props = {
 };
 
 /** Pick BlueMap or Dynmap and install it; BlueMap needs the owner's consent to Mojang's download. */
-export default function WorldMapChoice({ status, busy, onInstall }: Props) {
+export default function WorldMapChoice({ status, busy, onInstall }: Readonly<Props>) {
   const { t } = useTranslations();
   const ids = useId();
   const [kind, setKind] = useState<MapKind>('bluemap');
@@ -138,10 +138,10 @@ export default function WorldMapChoice({ status, busy, onInstall }: Props) {
         )}
 
         {status.lastError && (
-          <p role="status" className="flex items-start gap-2 text-sm text-destructive-bright animate-in fade-in-0 duration-300">
+          <output className="flex items-start gap-2 text-sm text-destructive-bright animate-in fade-in-0 duration-300">
             <XCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             <span className="min-w-0 break-words">{t('servers.map.failed', { reason: status.lastError })}</span>
-          </p>
+          </output>
         )}
 
         <div className="flex flex-col-reverse gap-3 border-t border-border/60 pt-5 sm:flex-row sm:items-center sm:justify-between">

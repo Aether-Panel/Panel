@@ -96,28 +96,33 @@ func validateUserTask(task *skypanel.Task, granted []*scopes.Scope) error {
 	}
 
 	for _, op := range task.Operations {
-		allowed, ok := userTaskOperations[op.Type]
-		if !ok {
-			return fmt.Errorf("only administrators can use %q steps", op.Type)
-		}
-		if op.If != "" {
-			return errors.New("only administrators can use conditions")
-		}
-		for key := range op.Metadata {
-			if !slices.Contains(allowed.keys, key) {
-				return fmt.Errorf("%q steps do not take %q", op.Type, key)
-			}
-		}
-		for _, scope := range allowed.scopes {
-			if !scopes.ContainsScope(granted, scope) {
-				return fmt.Errorf("you need the %s permission for %q steps", scope.Value, op.Type)
-			}
-		}
-		if err := validateUserTaskStep(op); err != nil {
+		if err := validateUserTaskOperation(op, granted); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// validateUserTaskOperation checks one step: its type, arguments and the permissions it needs
+func validateUserTaskOperation(op skypanel.ConditionalMetadataType, granted []*scopes.Scope) error {
+	allowed, ok := userTaskOperations[op.Type]
+	if !ok {
+		return fmt.Errorf("only administrators can use %q steps", op.Type)
+	}
+	if op.If != "" {
+		return errors.New("only administrators can use conditions")
+	}
+	for key := range op.Metadata {
+		if !slices.Contains(allowed.keys, key) {
+			return fmt.Errorf("%q steps do not take %q", op.Type, key)
+		}
+	}
+	for _, scope := range allowed.scopes {
+		if !scopes.ContainsScope(granted, scope) {
+			return fmt.Errorf("you need the %s permission for %q steps", scope.Value, op.Type)
+		}
+	}
+	return validateUserTaskStep(op)
 }
 
 func validateUserTaskStep(op skypanel.ConditionalMetadataType) error {
@@ -233,6 +238,11 @@ func syncAutomaticBackups(ctx context.Context, db *gorm.DB, server *models.Serve
 			}
 		}
 	}
+	addSystemBackups(bs, server, onNode, known)
+}
+
+// addSystemBackups records the backups the node made by itself that the panel does not list yet
+func addSystemBackups(bs *services.Backup, server *models.Server, onNode []skypanel.BackupFile, known map[string]bool) {
 	for _, f := range onNode {
 		if !isSystemBackup(f.FileName) || known[f.FileName] {
 			continue

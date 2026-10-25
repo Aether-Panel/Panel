@@ -1,5 +1,5 @@
 'use client';
-import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { AlertTriangle, ArrowLeft, GitCompareArrows, Loader2, RotateCcw, RotateCw } from 'lucide-react';
 import {
   AlertDialog,
@@ -36,7 +36,7 @@ interface FileDiffViewProps {
 type ContentState = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; text: string };
 
 /** Shown in place of the editor: a stored version next to the current text, with a way back. */
-export default function FileDiffView({ version, language, current, dirty, loadContent, onRestore, onRestored, onBack }: FileDiffViewProps) {
+export default function FileDiffView({ version, language, current, dirty, loadContent, onRestore, onRestored, onBack }: Readonly<FileDiffViewProps>) {
   const { t, language: uiLanguage } = useTranslations();
   const locale = localeFor(uiLanguage);
   const headingId = useId();
@@ -93,6 +93,47 @@ export default function FileDiffView({ version, language, current, dirty, loadCo
     }
   };
 
+  let body: ReactNode;
+  if (content.status === 'loading') {
+    body = (
+      <div className="flex h-full items-center justify-center" role="status" aria-live="polite">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden="true" />
+        <span className="sr-only">{t('servers.fileHistory.diff.loading')}</span>
+      </div>
+    );
+  } else if (content.status === 'error') {
+    body = (
+      <div className="flex h-full items-center justify-center p-4">
+        <EmptyState
+          size="sm"
+          tone="error"
+          icon={AlertTriangle}
+          title={t('servers.fileHistory.diff.errorTitle')}
+          description={content.message || t('servers.fileHistory.errorDescription')}
+          action={
+            <Button variant="outline" size="sm" onClick={() => void load()}>
+              <RotateCw aria-hidden="true" />
+              {t('common.retry')}
+            </Button>
+          }
+          className="w-full max-w-md"
+        />
+      </div>
+    );
+  } else {
+    body = (
+      <Suspense
+        fallback={
+          <div className="flex h-full items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t('servers.fileHistory.diff.loading')} />
+          </div>
+        }
+      >
+        <FileDiffEditor key={version.id} language={language} original={content.text} modified={current} />
+      </Suspense>
+    );
+  }
+
   return (
     <section aria-labelledby={headingId} className="flex h-full min-h-0 flex-col animate-in fade-in-0 duration-200 ease-panel">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border/50 bg-card/80 px-3 py-2 sm:px-4">
@@ -129,39 +170,7 @@ export default function FileDiffView({ version, language, current, dirty, loadCo
       </div>
 
       <div className="relative min-h-0 flex-1">
-        {content.status === 'loading' ? (
-          <div className="flex h-full items-center justify-center" role="status" aria-live="polite">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden="true" />
-            <span className="sr-only">{t('servers.fileHistory.diff.loading')}</span>
-          </div>
-        ) : content.status === 'error' ? (
-          <div className="flex h-full items-center justify-center p-4">
-            <EmptyState
-              size="sm"
-              tone="error"
-              icon={AlertTriangle}
-              title={t('servers.fileHistory.diff.errorTitle')}
-              description={content.message || t('servers.fileHistory.errorDescription')}
-              action={
-                <Button variant="outline" size="sm" onClick={() => void load()}>
-                  <RotateCw aria-hidden="true" />
-                  {t('common.retry')}
-                </Button>
-              }
-              className="w-full max-w-md"
-            />
-          </div>
-        ) : (
-          <Suspense
-            fallback={
-              <div className="flex h-full items-center justify-center">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t('servers.fileHistory.diff.loading')} />
-              </div>
-            }
-          >
-            <FileDiffEditor key={version.id} language={language} original={content.text} modified={current} />
-          </Suspense>
-        )}
+        {body}
       </div>
 
       <AlertDialog open={confirmOpen} onOpenChange={(open) => !restoring && setConfirmOpen(open)}>

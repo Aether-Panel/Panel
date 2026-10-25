@@ -35,6 +35,13 @@ const SECTION_ICONS: Record<PropertySection, LucideIcon> = {
 
 type LoadState = 'loading' | 'ready' | 'missing' | 'denied' | 'error';
 
+/** Which empty state a failed read of the file shows. */
+function loadFailure(status: number): LoadState {
+  if (status === 404) return 'missing';
+  if (status === 403) return 'denied';
+  return 'error';
+}
+
 type Props = {
   serverId: string;
   serverName?: string;
@@ -46,7 +53,7 @@ type Props = {
  * about, with a live preview of how the server looks in the game's server list. Saving
  * rewrites only the keys that changed, so comments and unknown options survive.
  */
-export default function PropertiesView({ serverId, serverName, serverStatus }: Props) {
+export default function PropertiesView({ serverId, serverName, serverStatus }: Readonly<Props>) {
   const { t } = useTranslations();
   const [state, setState] = useState<LoadState>('loading');
   const [parsed, setParsed] = useState<ParsedProperties | null>(null);
@@ -74,7 +81,7 @@ export default function PropertiesView({ serverId, serverName, serverStatus }: P
       setState('ready');
     } catch (err) {
       const status = err instanceof ApiError ? err.status : 0;
-      setState(status === 404 ? 'missing' : status === 403 ? 'denied' : 'error');
+      setState(loadFailure(status));
     }
   }, [fetchText]);
 
@@ -251,7 +258,7 @@ export default function PropertiesView({ serverId, serverName, serverStatus }: P
       </Card>
 
       {savedWhile && (
-        <div role="status" className="flex flex-col gap-3 rounded-xl border border-success/30 bg-success/[0.06] px-4 py-3 text-sm animate-in fade-in-0 slide-in-from-top-1 duration-300 ease-panel sm:flex-row sm:items-center sm:justify-between">
+        <output className="flex flex-col gap-3 rounded-xl border border-success/30 bg-success/[0.06] px-4 py-3 text-sm animate-in fade-in-0 slide-in-from-top-1 duration-300 ease-panel sm:flex-row sm:items-center sm:justify-between">
           <p className="flex items-start gap-2.5">
             <RotateCw className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden="true" />
             <span>
@@ -270,7 +277,7 @@ export default function PropertiesView({ serverId, serverName, serverStatus }: P
               <X aria-hidden="true" />
             </Button>
           </div>
-        </div>
+        </output>
       )}
 
       {motdVisible && (
@@ -358,9 +365,63 @@ export default function PropertiesView({ serverId, serverName, serverStatus }: P
   );
 }
 
+/** The input that edits a field, by its type; null for a switch, which sits beside the label. */
+function propertyControl({
+  field, id, value, error, unknown, onChange, optionLabel,
+}: {
+  field: PropertyField;
+  id: string;
+  value: string;
+  error?: string;
+  unknown?: boolean;
+  onChange: (value: string) => void;
+  optionLabel: (option: string) => string;
+}): ReactNode {
+  if (field.locked) {
+    return (
+      <p className="flex h-9 items-center gap-2 rounded-md border border-dashed border-border/60 px-3 font-mono text-[13px] text-muted-foreground">
+        <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        <span className="truncate">{value || '—'}</span>
+      </p>
+    );
+  }
+  if (field.type === 'bool') return null;
+  if (field.type === 'enum') {
+    const options = field.options ?? [];
+    // a value from an older version (e.g. "0" for survival) stays selectable
+    const all = value && !options.includes(value) ? [...options, value] : options;
+    return (
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger id={id} className="h-9">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {all.map((option) => (
+            <SelectItem key={option} value={option}>{optionLabel(option)}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  }
+  return (
+    <Input
+      id={id}
+      type={field.type === 'secret' ? 'password' : 'text'}
+      inputMode={field.type === 'number' ? 'numeric' : undefined}
+      autoComplete="off"
+      spellCheck={false}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      aria-invalid={!!error}
+      aria-describedby={`${id}-desc`}
+      className={cn('h-9', (field.type === 'number' || unknown) && 'font-mono text-[13px] tabular-nums', error && 'border-destructive focus-visible:ring-destructive')}
+    />
+  );
+}
+
 function PropertyRow({
   field, value, changed, inFile, error, unknown, onChange, onReset,
-}: {
+}: Readonly<{
   field: PropertyField;
   value: string;
   changed: boolean;
@@ -369,7 +430,7 @@ function PropertyRow({
   unknown?: boolean;
   onChange: (value: string) => void;
   onReset: () => void;
-}) {
+}>) {
   const { t } = useTranslations();
   const id = useId();
   const fid = fieldId(field.key);
@@ -382,48 +443,7 @@ function PropertyRow({
     return text === key ? option : text;
   };
 
-  let control: ReactNode;
-  if (field.locked) {
-    control = (
-      <p className="flex h-9 items-center gap-2 rounded-md border border-dashed border-border/60 px-3 font-mono text-[13px] text-muted-foreground">
-        <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        <span className="truncate">{value || '—'}</span>
-      </p>
-    );
-  } else if (field.type === 'bool') {
-    control = null;
-  } else if (field.type === 'enum') {
-    const options = field.options ?? [];
-    // a value from an older version (e.g. "0" for survival) stays selectable
-    const all = value && !options.includes(value) ? [...options, value] : options;
-    control = (
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger id={id} className="h-9">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {all.map((option) => (
-            <SelectItem key={option} value={option}>{optionLabel(option)}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    );
-  } else {
-    control = (
-      <Input
-        id={id}
-        type={field.type === 'secret' ? 'password' : 'text'}
-        inputMode={field.type === 'number' ? 'numeric' : undefined}
-        autoComplete="off"
-        spellCheck={false}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        aria-invalid={!!error}
-        aria-describedby={`${id}-desc`}
-        className={cn('h-9', (field.type === 'number' || unknown) && 'font-mono text-[13px] tabular-nums', error && 'border-destructive focus-visible:ring-destructive')}
-      />
-    );
-  }
+  const control = propertyControl({ field, id, value, error, unknown, onChange, optionLabel });
 
   return (
     <div className={cn('group rounded-lg px-3 py-3 transition-colors duration-200 hover:bg-secondary/30', changed && 'bg-primary/[0.04]')}>
@@ -491,7 +511,7 @@ const FORMAT_CODES = [
 
 function MotdCard({
   serverId, serverName, value, changed, maxPlayers, hidePlayers, onChange, onReset,
-}: {
+}: Readonly<{
   serverId: string;
   serverName?: string;
   value: string;
@@ -500,7 +520,7 @@ function MotdCard({
   hidePlayers: boolean;
   onChange: (value: string) => void;
   onReset: () => void;
-}) {
+}>) {
   const { t } = useTranslations();
   const id = useId();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -553,7 +573,7 @@ function MotdCard({
             spellCheck={false}
             className="min-h-[4.25rem] resize-none font-mono text-[13px] leading-relaxed"
           />
-          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={t('servers.properties.motd.palette')}>
+          <fieldset className="flex min-w-0 flex-wrap items-center gap-1.5" aria-label={t('servers.properties.motd.palette')}>
             {Object.entries(MC_COLORS).map(([code, color]) => (
               <button
                 key={code}
@@ -580,7 +600,7 @@ function MotdCard({
               </button>
             ))}
             </span>
-          </div>
+          </fieldset>
         </div>
 
         <div className="min-w-0 space-y-2">

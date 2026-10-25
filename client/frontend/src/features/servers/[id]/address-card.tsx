@@ -33,12 +33,20 @@ function errorKey(err: unknown): string | null {
   return null;
 }
 
+/** What the owner reads when a change is refused: the mapped code, the panel's message, or the fallback. */
+function failureMessage(err: unknown, t: (key: string) => string, fallbackKey: string): string {
+  const key = errorKey(err);
+  if (key) return t(key);
+  if (err instanceof ApiError && err.message) return err.message;
+  return t(fallbackKey);
+}
+
 /**
  * The server's own address under the panel's domain (survival.play.example.com), kept in
  * Cloudflare by the panel. Hidden when the admin has not set Cloudflare up, or when the user
  * cannot change the server's settings.
  */
-export default function AddressCard({ serverId }: { serverId: string }) {
+export default function AddressCard({ serverId }: Readonly<{ serverId: string }>) {
   const { t } = useTranslations();
   const ids = useId();
   const [info, setInfo] = useState<SubdomainInfo | null>(null);
@@ -129,9 +137,8 @@ export default function AddressCard({ serverId }: { serverId: string }) {
       announceSubdomain(serverId, next);
       sileo.success({ title: t('servers.subdomain.savedTitle'), description: t('servers.subdomain.propagation') });
     } catch (err) {
-      const key = errorKey(err);
-      if (key === 'servers.subdomain.status.taken') setStatus('taken');
-      setSaveError(key ? t(key) : err instanceof ApiError && err.message ? err.message : t('servers.subdomain.saveError'));
+      if (errorKey(err) === 'servers.subdomain.status.taken') setStatus('taken');
+      setSaveError(failureMessage(err, t, 'servers.subdomain.saveError'));
     } finally {
       setSaving(false);
     }
@@ -154,8 +161,7 @@ export default function AddressCard({ serverId }: { serverId: string }) {
       announceSubdomain(serverId, null);
       sileo.success({ title: t('servers.subdomain.removedTitle'), description: t('servers.subdomain.removedDescription') });
     } catch (err) {
-      const key = errorKey(err);
-      setSaveError(key ? t(key) : err instanceof ApiError && err.message ? err.message : t('servers.subdomain.removeError'));
+      setSaveError(failureMessage(err, t, 'servers.subdomain.removeError'));
     } finally {
       setRemoving(false);
     }
@@ -212,10 +218,10 @@ export default function AddressCard({ serverId }: { serverId: string }) {
                 <span>{info.srv ? t('servers.subdomain.srvNote') : t('servers.subdomain.portNote', { port: info.port })}</span>
               </p>
               {propagating && (
-                <p role="status" className="flex items-start gap-2 text-xs text-success animate-in fade-in-0 duration-300">
+                <output className="flex items-start gap-2 text-xs text-success animate-in fade-in-0 duration-300">
                   <CheckCircle2 className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                   <span>{t('servers.subdomain.propagation')}</span>
-                </p>
+                </output>
               )}
               {info.records.length > 0 && (
                 <details className="group text-xs">
@@ -308,7 +314,7 @@ export default function AddressCard({ serverId }: { serverId: string }) {
   );
 }
 
-function StatusLine({ id, status, t }: { id: string; status: Status; t: (key: string) => string }) {
+function StatusLine({ id, status, t }: Readonly<{ id: string; status: Status; t: (key: string) => string }>) {
   const content: Record<Status, { icon: React.ReactNode; text: string; className: string }> = {
     idle: { icon: null, text: t('servers.subdomain.hint'), className: 'text-muted-foreground' },
     checking: { icon: <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />, text: t('servers.subdomain.status.checking'), className: 'text-muted-foreground' },

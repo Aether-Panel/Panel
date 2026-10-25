@@ -21,6 +21,8 @@ import (
 const (
 	curseForgeMinecraft = 432
 	curseForgeModpacks  = 4471
+	// curseForgeModsPath prefixes every per-project API route
+	curseForgeModsPath = "/v1/mods/"
 )
 
 // curseForgeAPI is a variable so tests can use a local server
@@ -162,7 +164,7 @@ func curseForgeVersions(ctx context.Context, project string) ([]ModpackVersion, 
 	var res struct {
 		Data []curseForgeFile `json:"data"`
 	}
-	if err := getModpackJSON(ctx, "CurseForge", curseForgeAPI+"/v1/mods/"+project+"/files?pageSize=50", curseForgeHeaders(), &res); err != nil {
+	if err := getModpackJSON(ctx, "CurseForge", curseForgeAPI+curseForgeModsPath+project+"/files?pageSize=50", curseForgeHeaders(), &res); err != nil {
 		return nil, err
 	}
 	listed := make(map[int]bool, len(res.Data))
@@ -198,20 +200,23 @@ func curseForgeVersions(ctx context.Context, project string) ([]ModpackVersion, 
 	return versions, nil
 }
 
+// curseForgeLogo is the logo object the API attaches to a project
+type curseForgeLogo struct {
+	ThumbnailURL string `json:"thumbnailUrl"`
+}
+
 func resolveCurseForgePlan(ctx context.Context, req ModpackInstallRequest) (modpackPlan, error) {
 	var mod struct {
 		Data struct {
-			ID      int    `json:"id"`
-			GameID  int    `json:"gameId"`
-			ClassID int    `json:"classId"`
-			Name    string `json:"name"`
-			Logo    *struct {
-				ThumbnailURL string `json:"thumbnailUrl"`
-			} `json:"logo"`
-			AllowModDistribution *bool `json:"allowModDistribution"`
+			ID                   int             `json:"id"`
+			GameID               int             `json:"gameId"`
+			ClassID              int             `json:"classId"`
+			Name                 string          `json:"name"`
+			Logo                 *curseForgeLogo `json:"logo"`
+			AllowModDistribution *bool           `json:"allowModDistribution"`
 		} `json:"data"`
 	}
-	if err := getModpackJSON(ctx, "CurseForge", curseForgeAPI+"/v1/mods/"+req.ProjectID, curseForgeHeaders(), &mod); err != nil {
+	if err := getModpackJSON(ctx, "CurseForge", curseForgeAPI+curseForgeModsPath+req.ProjectID, curseForgeHeaders(), &mod); err != nil {
 		return modpackPlan{}, err
 	}
 	if mod.Data.GameID != curseForgeMinecraft || mod.Data.ClassID != curseForgeModpacks {
@@ -223,7 +228,7 @@ func resolveCurseForgePlan(ctx context.Context, req ModpackInstallRequest) (modp
 	var file struct {
 		Data curseForgeFile `json:"data"`
 	}
-	if err := getModpackJSON(ctx, "CurseForge", curseForgeAPI+"/v1/mods/"+req.ProjectID+"/files/"+req.VersionID, curseForgeHeaders(), &file); err != nil {
+	if err := getModpackJSON(ctx, "CurseForge", curseForgeAPI+curseForgeModsPath+req.ProjectID+"/files/"+req.VersionID, curseForgeHeaders(), &file); err != nil {
 		return modpackPlan{}, err
 	}
 	if strconv.Itoa(file.Data.ModID) != req.ProjectID {

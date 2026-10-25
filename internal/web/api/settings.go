@@ -533,7 +533,7 @@ var discordWebhookEntries = []config.StringEntry{
 	config.DiscordWebhookExTransfer,
 }
 
-func validateStringSetting(key string, value string) error {
+func validateStringSetting(key, value string) error {
 	for _, v := range discordWebhookEntries {
 		if v.Key() == key {
 			return services.ValidateDiscordWebhook(strings.TrimSpace(value))

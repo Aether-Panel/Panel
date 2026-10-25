@@ -32,7 +32,15 @@ const AUTOMATIC_BACKUP_NAME = 'Automatic backup';
 /** Restore points: quick backups taken before risky steps, named "restore-<reason>-<id>". */
 const restoreReason = (backup: BackupInfo) =>
   backup.fileName.startsWith('restore-') ? backup.fileName.split('-')[1] ?? 'other' : null;
-const RESTORE_REASONS = ['plugin', 'version', 'restore', 'modpack'];
+const RESTORE_REASONS = new Set(['plugin', 'version', 'restore', 'modpack']);
+
+/** The title a backup reads by: its restore reason, the translated automatic name, or its own name. */
+function backupTitle(backup: BackupInfo, t: (key: string) => string): string {
+  const reason = restoreReason(backup);
+  if (reason) return t(`servers.backups.restorePoint.reasons.${RESTORE_REASONS.has(reason) ? reason : 'other'}`);
+  if (isAutomatic(backup) && backup.name === AUTOMATIC_BACKUP_NAME) return t('servers.backups.automatic.name');
+  return backup.name;
+}
 
 type BackupsViewProps = {
   serverId: string;
@@ -210,9 +218,7 @@ export default function BackupsView({ serverId }: BackupsViewProps) {
                         <div className="min-w-0">
                           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                             <h4 className="truncate text-[15px] font-semibold leading-tight">
-                              {restoreReason(backup)
-                                ? t(`servers.backups.restorePoint.reasons.${RESTORE_REASONS.includes(restoreReason(backup) ?? '') ? restoreReason(backup) : 'other'}`)
-                                : isAutomatic(backup) && backup.name === AUTOMATIC_BACKUP_NAME ? t('servers.backups.automatic.name') : backup.name}
+                              {backupTitle(backup, t)}
                             </h4>
                             {isAutomatic(backup) && <Badge variant="secondary" className="shrink-0">{t('servers.backups.automatic.badge')}</Badge>}
                             {restoreReason(backup) && (
@@ -329,7 +335,7 @@ export default function BackupsView({ serverId }: BackupsViewProps) {
  * How much room the backups take: the total, and a bar split by backup (automatic ones in
  * a lighter tone) so the big ones stand out.
  */
-function BackupUsage({ backups, t }: { backups: BackupInfo[]; t: (key: string, options?: Record<string, string | number>) => string }) {
+function BackupUsage({ backups, t }: Readonly<{ backups: BackupInfo[]; t: (key: string, options?: Record<string, string | number>) => string }>) {
   const sized = backups.filter((b) => (b.fileSize ?? 0) > 0);
   const total = sized.reduce((sum, b) => sum + (b.fileSize ?? 0), 0);
   if (total === 0) return null;

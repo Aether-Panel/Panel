@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { ArrowRight, CheckCircle2, Layers, Loader2, RotateCcw, ShieldCheck, XCircle } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
@@ -34,7 +34,7 @@ const PLATFORM_NAMES: Record<string, string> = {
  * point, installs the new version and starts it again. Hidden for templates whose version
  * the panel cannot change.
  */
-export default function VersionCard({ serverId }: { serverId: string }) {
+export default function VersionCard({ serverId }: Readonly<{ serverId: string }>) {
   const { t } = useTranslations();
   const ids = useId();
   const [info, setInfo] = useState<VersionInfo | null>(null);
@@ -97,6 +97,18 @@ export default function VersionCard({ serverId }: { serverId: string }) {
     }
   };
 
+  let versionNote: ReactNode = null;
+  if (isLatest) {
+    versionNote = (
+      <span className="inline-flex items-center gap-1 text-xs text-success">
+        <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+        {t('servers.version.upToDate')}
+      </span>
+    );
+  } else if (latest) {
+    versionNote = <span className="text-xs text-muted-foreground">{t('servers.version.latestIs', { version: latest })}</span>;
+  }
+
   return (
     <Card className="overflow-hidden">
       <section className="grid gap-5 p-5 md:p-6 lg:grid-cols-[minmax(0,16rem)_minmax(0,1fr)] lg:gap-10">
@@ -120,24 +132,17 @@ export default function VersionCard({ serverId }: { serverId: string }) {
               {t('servers.version.current')}{' '}
               <span className="font-mono font-semibold tabular-nums text-foreground">{info.current || '—'}</span>
             </p>
-            {isLatest ? (
-              <span className="inline-flex items-center gap-1 text-xs text-success">
-                <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-                {t('servers.version.upToDate')}
-              </span>
-            ) : latest ? (
-              <span className="text-xs text-muted-foreground">{t('servers.version.latestIs', { version: latest })}</span>
-            ) : null}
+            {versionNote}
           </div>
 
           {info.changing ? (
-            <div role="status" className="flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/[0.06] px-4 py-3 text-sm animate-in fade-in-0 duration-300">
+            <output className="flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/[0.06] px-4 py-3 text-sm animate-in fade-in-0 duration-300">
               <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary-bright" aria-hidden="true" />
               <div className="min-w-0">
                 <p className="font-medium text-foreground">{t('servers.version.changing')}</p>
                 <p className="text-xs text-muted-foreground">{t('servers.version.changingHint')}</p>
               </div>
-            </div>
+            </output>
           ) : (
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
               <div className="min-w-0 flex-1 space-y-2">
@@ -167,13 +172,12 @@ export default function VersionCard({ serverId }: { serverId: string }) {
           )}
 
           {outcome && !info.changing && (
-            <p
-              role="status"
+            <output
               className={cn('flex items-start gap-2 text-sm animate-in fade-in-0 slide-in-from-top-1 duration-300', outcome === 'done' ? 'text-success' : 'text-destructive-bright')}
             >
               {outcome === 'done' ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" /> : <XCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />}
               <span>{outcome === 'done' ? t('servers.version.done', { version: info.current }) : t('servers.version.failed', { reason: info.lastError ?? '' })}</span>
-            </p>
+            </output>
           )}
 
           <p className="flex items-start gap-2 text-xs text-muted-foreground">

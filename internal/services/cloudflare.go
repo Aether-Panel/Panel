@@ -20,6 +20,9 @@ const CloudflareAPIBase = "https://api.cloudflare.com/client/v4"
 // cloudflareTimeout bounds every call, so a slow API never holds a request (or a lock) for long
 const cloudflareTimeout = 15 * time.Second
 
+// cloudflareZonesPath prefixes every zone route of the API
+const cloudflareZonesPath = "/zones/"
+
 // ErrCloudflareNotConfigured is returned when the token or the zone is missing
 var ErrCloudflareNotConfigured = errors.New("faltan el token de la API o el ID de zona de Cloudflare")
 
@@ -108,7 +111,7 @@ func (cf *Cloudflare) Zone(ctx context.Context) (CloudflareZone, error) {
 	if err := cf.check(); err != nil {
 		return zone, err
 	}
-	err := cf.do(ctx, http.MethodGet, "/zones/"+cf.ZoneID, nil, &zone)
+	err := cf.do(ctx, http.MethodGet, cloudflareZonesPath+cf.ZoneID, nil, &zone)
 	return zone, err
 }
 
@@ -121,7 +124,7 @@ func (cf *Cloudflare) ListRecords(ctx context.Context, name string) ([]Cloudflar
 	query.Set("name", name)
 	query.Set("per_page", "100")
 	var records []CloudflareRecord
-	err := cf.do(ctx, http.MethodGet, "/zones/"+cf.ZoneID+"/dns_records?"+query.Encode(), nil, &records)
+	err := cf.do(ctx, http.MethodGet, cloudflareZonesPath+cf.ZoneID+"/dns_records?"+query.Encode(), nil, &records)
 	return records, err
 }
 
@@ -132,7 +135,7 @@ func (cf *Cloudflare) CreateRecord(ctx context.Context, record CloudflareRecord)
 		return created, err
 	}
 	record.ID = ""
-	err := cf.do(ctx, http.MethodPost, "/zones/"+cf.ZoneID+"/dns_records", record, &created)
+	err := cf.do(ctx, http.MethodPost, cloudflareZonesPath+cf.ZoneID+"/dns_records", record, &created)
 	return created, err
 }
 
@@ -146,7 +149,7 @@ func (cf *Cloudflare) UpdateRecord(ctx context.Context, id string, record Cloudf
 		return updated, fmt.Errorf("ID de registro DNS no válido: %q", id)
 	}
 	record.ID = ""
-	err := cf.do(ctx, http.MethodPut, "/zones/"+cf.ZoneID+"/dns_records/"+id, record, &updated)
+	err := cf.do(ctx, http.MethodPut, cloudflareZonesPath+cf.ZoneID+"/dns_records/"+id, record, &updated)
 	return updated, err
 }
 
@@ -158,7 +161,7 @@ func (cf *Cloudflare) DeleteRecord(ctx context.Context, id string) error {
 	if !cloudflareID.MatchString(id) {
 		return fmt.Errorf("ID de registro DNS no válido: %q", id)
 	}
-	err := cf.do(ctx, http.MethodDelete, "/zones/"+cf.ZoneID+"/dns_records/"+id, nil, nil)
+	err := cf.do(ctx, http.MethodDelete, cloudflareZonesPath+cf.ZoneID+"/dns_records/"+id, nil, nil)
 	if IsCloudflareNotFound(err) {
 		return nil
 	}

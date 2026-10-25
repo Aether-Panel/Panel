@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useId, useState } from 'react';
+import { useCallback, useEffect, useId, useState, type ReactNode } from 'react';
 import { AlertTriangle, Download, Loader2, MemoryStick, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -30,7 +30,7 @@ type Props = {
  * Pick a version of a pack and confirm the install: what happens is spelled out step by step,
  * with the one choice that destroys data (a new world) behind a switch that is off by default.
  */
-export default function ModpackInstallDialog({ serverId, source, pack, memory, onOpenChange, onStarted }: Props) {
+export default function ModpackInstallDialog({ serverId, source, pack, memory, onOpenChange, onStarted }: Readonly<Props>) {
   const { t, language } = useTranslations();
   const ids = useId();
   const [versions, setVersions] = useState<ModpackVersion[] | null>(null);
@@ -99,6 +99,57 @@ export default function ModpackInstallDialog({ serverId, source, pack, memory, o
       : t('servers.modpacks.dialog.steps.startUnknown'),
   ];
 
+  // the version picker, or what stands in for it while the list loads or when there is none
+  let versionField: ReactNode;
+  if (loadError) {
+    versionField = (
+      <EmptyState
+        size="sm"
+        tone="error"
+        icon={AlertTriangle}
+        title={t('servers.modpacks.dialog.versionsError')}
+        description={loadError}
+        action={<Button variant="outline" size="sm" onClick={() => void load()}>{t('common.retry')}</Button>}
+      />
+    );
+  } else if (versions === null) {
+    versionField = <Skeleton className="h-9 w-full" aria-label={t('servers.modpacks.dialog.loadingVersions')} />;
+  } else if (versions.length === 0) {
+    versionField = <p className="rounded-xl border border-dashed border-border/60 px-4 py-3 text-sm text-muted-foreground">{t('servers.modpacks.dialog.noVersions')}</p>;
+  } else {
+    versionField = (
+      <Select value={versionId} onValueChange={setVersionId}>
+        <SelectTrigger id={`${ids}-version`} className="h-auto min-h-11 py-2 text-left">
+          <SelectValue placeholder={t('servers.modpacks.dialog.versionPlaceholder')} />
+        </SelectTrigger>
+        <SelectContent className="max-h-80">
+          {versions.map((version, index) => (
+            <SelectItem key={version.id} value={version.id} textValue={version.versionNumber || version.name}>
+              <span className="flex min-w-0 flex-col gap-1 py-0.5">
+                <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+                  <span className="truncate font-medium">{version.versionNumber || version.name}</span>
+                  {index === 0 && (
+                    <span className="rounded bg-success/15 px-1.5 py-px text-[10px] font-medium text-success">{t('servers.modpacks.dialog.newest')}</span>
+                  )}
+                  {(version.type === 'beta' || version.type === 'alpha') && (
+                    <span className="rounded bg-warning/15 px-1.5 py-px text-[10px] font-medium text-warning">{t(`servers.modpacks.dialog.${version.type}`)}</span>
+                  )}
+                </span>
+                <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                  {version.gameVersions[0] && <span className="font-mono tabular-nums">MC {version.gameVersions[0]}</span>}
+                  {version.loaders.map((l) => (
+                    <span key={l}>· {loaderLabel(t, l)}</span>
+                  ))}
+                  {version.publishedAt && <span>· {date(version.publishedAt)}</span>}
+                </span>
+              </span>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  }
+
   return (
     <Dialog open={!!pack} onOpenChange={(open) => !submitting && onOpenChange(open)}>
       <DialogContent className="sm:max-w-xl">
@@ -117,50 +168,7 @@ export default function ModpackInstallDialog({ serverId, source, pack, memory, o
             <div className="min-w-0 space-y-5">
               <div className="space-y-2">
                 <Label htmlFor={`${ids}-version`}>{t('servers.modpacks.dialog.version')}</Label>
-                {loadError ? (
-                  <EmptyState
-                    size="sm"
-                    tone="error"
-                    icon={AlertTriangle}
-                    title={t('servers.modpacks.dialog.versionsError')}
-                    description={loadError}
-                    action={<Button variant="outline" size="sm" onClick={() => void load()}>{t('common.retry')}</Button>}
-                  />
-                ) : versions === null ? (
-                  <Skeleton className="h-9 w-full" aria-label={t('servers.modpacks.dialog.loadingVersions')} />
-                ) : versions.length === 0 ? (
-                  <p className="rounded-xl border border-dashed border-border/60 px-4 py-3 text-sm text-muted-foreground">{t('servers.modpacks.dialog.noVersions')}</p>
-                ) : (
-                  <Select value={versionId} onValueChange={setVersionId}>
-                    <SelectTrigger id={`${ids}-version`} className="h-auto min-h-11 py-2 text-left">
-                      <SelectValue placeholder={t('servers.modpacks.dialog.versionPlaceholder')} />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-80">
-                      {versions.map((version, index) => (
-                        <SelectItem key={version.id} value={version.id} textValue={version.versionNumber || version.name}>
-                          <span className="flex min-w-0 flex-col gap-1 py-0.5">
-                            <span className="flex min-w-0 flex-wrap items-center gap-1.5">
-                              <span className="truncate font-medium">{version.versionNumber || version.name}</span>
-                              {index === 0 && (
-                                <span className="rounded bg-success/15 px-1.5 py-px text-[10px] font-medium text-success">{t('servers.modpacks.dialog.newest')}</span>
-                              )}
-                              {(version.type === 'beta' || version.type === 'alpha') && (
-                                <span className="rounded bg-warning/15 px-1.5 py-px text-[10px] font-medium text-warning">{t(`servers.modpacks.dialog.${version.type}`)}</span>
-                              )}
-                            </span>
-                            <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                              {version.gameVersions[0] && <span className="font-mono tabular-nums">MC {version.gameVersions[0]}</span>}
-                              {version.loaders.map((l) => (
-                                <span key={l}>· {loaderLabel(t, l)}</span>
-                              ))}
-                              {version.publishedAt && <span>· {date(version.publishedAt)}</span>}
-                            </span>
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+                {versionField}
                 {chosen && (
                   <div className="flex flex-wrap items-center gap-1.5">
                     {loader && <PackTag>{loaderLabel(t, loader)}</PackTag>}

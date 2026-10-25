@@ -115,6 +115,21 @@ func (zeroReader) Read(p []byte) (int, error) {
 	return len(p), nil
 }
 
+// checkMapSandboxHeaders fails the test unless the answer carries the sandbox and dropped the
+// map's other headers
+func checkMapSandboxHeaders(t *testing.T, h http.Header) {
+	t.Helper()
+	if h.Get("Content-Security-Policy") != mapViewSandbox || strings.Contains(mapViewSandbox, "allow-same-origin") {
+		t.Fatalf("missing sandbox: %q", h.Get("Content-Security-Policy"))
+	}
+	if h.Get("X-Content-Type-Options") != "nosniff" || h.Get("Set-Cookie") != "" || h.Get("X-Other") != "" {
+		t.Fatalf("unexpected headers %v", h)
+	}
+	if h.Get("Access-Control-Allow-Origin") != "*" || h.Get("Referrer-Policy") != "no-referrer" {
+		t.Fatalf("unexpected headers %v", h)
+	}
+}
+
 func TestWriteMapResponseHeaders(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	for _, tt := range []struct {
@@ -142,15 +157,7 @@ func TestWriteMapResponseHeaders(t *testing.T) {
 			}
 			writeMapResponse(c, upstream, "")
 			h := rec.Header()
-			if h.Get("Content-Security-Policy") != mapViewSandbox || strings.Contains(mapViewSandbox, "allow-same-origin") {
-				t.Fatalf("missing sandbox: %q", h.Get("Content-Security-Policy"))
-			}
-			if h.Get("X-Content-Type-Options") != "nosniff" || h.Get("Set-Cookie") != "" || h.Get("X-Other") != "" {
-				t.Fatalf("unexpected headers %v", h)
-			}
-			if h.Get("Access-Control-Allow-Origin") != "*" || h.Get("Referrer-Policy") != "no-referrer" {
-				t.Fatalf("unexpected headers %v", h)
-			}
+			checkMapSandboxHeaders(t, h)
 			if got := strings.Contains(rec.Body.String(), mapStorageShim); got != tt.wantShim {
 				t.Fatalf("shim present %v, want %v", got, tt.wantShim)
 			}

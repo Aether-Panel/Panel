@@ -16,7 +16,7 @@ const WEEK = [1, 2, 3, 4, 5, 6, 0];
  * viewer's own time, so owners know when to hold events and when a restart hurts least.
  * Hidden for servers that never reported players.
  */
-export default function PeakHours({ serverId }: { serverId: string }) {
+export default function PeakHours({ serverId }: Readonly<{ serverId: string }>) {
   const { t, language } = useTranslations();
   const locale = language === 'es' ? 'es-ES' : 'en-US';
   const [points, setPoints] = useState<Point[] | null>(null);

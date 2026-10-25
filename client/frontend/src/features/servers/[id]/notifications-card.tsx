@@ -85,7 +85,7 @@ const DISCORD_BG = '#313338';
  * A server's own Discord alerts: the owner pastes a channel webhook and picks which events
  * reach it. A live preview shows what the messages look like.
  */
-export default function NotificationsCard({ serverId }: { serverId: string }) {
+export default function NotificationsCard({ serverId }: Readonly<{ serverId: string }>) {
   const { t, language } = useTranslations();
   const ids = useId();
   const [saved, setSaved] = useState<Notifications | null>(null);
@@ -160,6 +160,10 @@ export default function NotificationsCard({ serverId }: { serverId: string }) {
       setTesting(false);
     }
   };
+
+  let saveIcon: React.ReactNode = null;
+  if (saving) saveIcon = <Loader2 className="animate-spin" aria-hidden="true" />;
+  else if (justSaved) saveIcon = <Check className="animate-in zoom-in-50 duration-300" aria-hidden="true" />;
 
   return (
     <Card className="overflow-hidden">
@@ -319,7 +323,7 @@ export default function NotificationsCard({ serverId }: { serverId: string }) {
               {t('servers.notifications.test')}
             </Button>
             <Button size="sm" onClick={save} disabled={saving || !dirty || !valid}>
-              {saving ? <Loader2 className="animate-spin" aria-hidden="true" /> : justSaved ? <Check className="animate-in zoom-in-50 duration-300" aria-hidden="true" /> : null}
+              {saveIcon}
               {justSaved ? t('servers.notifications.saved') : t('servers.notifications.save')}
             </Button>
           </div>
@@ -330,7 +334,7 @@ export default function NotificationsCard({ serverId }: { serverId: string }) {
 }
 
 /** Discord's mark, drawn inline (no external requests). */
-function DiscordIcon({ className, style }: { className?: string; style?: React.CSSProperties }) {
+function DiscordIcon({ className, style }: Readonly<{ className?: string; style?: React.CSSProperties }>) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" className={className} style={style} aria-hidden="true">
       <path d="M20.32 4.37a19.8 19.8 0 0 0-4.89-1.52.07.07 0 0 0-.08.04c-.21.38-.44.87-.61 1.25a18.27 18.27 0 0 0-5.49 0 12.64 12.64 0 0 0-.62-1.25.08.08 0 0 0-.08-.04 19.74 19.74 0 0 0-4.88 1.52.07.07 0 0 0-.03.03C.53 9.05-.32 13.58.1 18.06a.08.08 0 0 0 .03.06 19.9 19.9 0 0 0 5.99 3.03.08.08 0 0 0 .08-.03c.46-.63.87-1.3 1.22-2a.08.08 0 0 0-.04-.1 13.1 13.1 0 0 1-1.87-.9.08.08 0 0 1 0-.13l.37-.29a.07.07 0 0 1 .08-.01c3.93 1.8 8.18 1.8 12.07 0a.07.07 0 0 1 .08.01l.37.29a.08.08 0 0 1 0 .13 12.3 12.3 0 0 1-1.87.9.08.08 0 0 0-.04.1c.36.7.77 1.37 1.22 2a.08.08 0 0 0 .08.03 19.84 19.84 0 0 0 6-3.03.08.08 0 0 0 .03-.06c.5-5.18-.84-9.67-3.55-13.66a.06.06 0 0 0-.03-.03ZM8.02 15.33c-1.18 0-2.16-1.08-2.16-2.42s.96-2.42 2.16-2.42c1.21 0 2.18 1.1 2.16 2.42 0 1.34-.96 2.42-2.16 2.42Zm7.97 0c-1.18 0-2.15-1.08-2.15-2.42s.95-2.42 2.15-2.42c1.21 0 2.18 1.1 2.16 2.42 0 1.34-.95 2.42-2.16 2.42Z" />
@@ -339,7 +343,7 @@ function DiscordIcon({ className, style }: { className?: string; style?: React.C
 }
 
 /** Telegram's paper plane, drawn inline. */
-function TelegramIcon({ className, style }: { className?: string; style?: React.CSSProperties }) {
+function TelegramIcon({ className, style }: Readonly<{ className?: string; style?: React.CSSProperties }>) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" className={className} style={style} aria-hidden="true">
       <path d="M21.94 4.3a1.5 1.5 0 0 0-2.04-1.5L2.86 9.38a1.2 1.2 0 0 0 .08 2.26l4.2 1.33 1.6 5.05a1.1 1.1 0 0 0 1.84.45l2.37-2.28 4.15 3.04a1.5 1.5 0 0 0 2.34-.9L21.94 4.3ZM17.2 7.6l-7.56 6.82-.3 3.18-1.26-4.02 9.12-5.98Z" />
@@ -350,7 +354,7 @@ function TelegramIcon({ className, style }: { className?: string; style?: React.
 type FieldProps = { id: string; 'aria-invalid'?: boolean; 'aria-describedby': string; autoComplete: string; spellCheck: boolean; className: string };
 
 /** A labelled input with its help line, which turns into the error when there is one. */
-function Field({ id, label, help, error, children }: { id: string; label: string; help: string; error?: string | null; children: (props: FieldProps) => React.ReactNode }) {
+function Field({ id, label, help, error, children }: Readonly<{ id: string; label: string; help: string; error?: string | null; children: (props: FieldProps) => React.ReactNode }>) {
   return (
     <div className="space-y-2">
       <Label htmlFor={id}>{label}</Label>

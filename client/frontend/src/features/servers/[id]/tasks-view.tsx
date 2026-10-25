@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AlertTriangle, Archive, CalendarClock, Clock, Loader2, Pencil, Play, Plus, RotateCw, Trash2, type LucideIcon } from 'lucide-react';
 import { EmptyState } from '@/components/empty-state';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -71,7 +71,35 @@ function scopeValues(raw: unknown): string[] {
   return raw.map((s) => (typeof s === 'string' ? s : (s as { value?: string })?.value ?? '')).filter(Boolean);
 }
 
-export default function TasksView({ serverId }: TasksViewProps) {
+type Translate = ReturnType<typeof useTranslations>['t'];
+
+/** A step's field as text; only plain values are shown. */
+function fieldText(value: unknown): string {
+  return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' ? String(value) : '';
+}
+
+/** One step in a few words, for the chips under a task's name. */
+function describeStep(step: TaskStep, t: Translate) {
+  switch (step.type) {
+    case 'stdin':
+      return t('servers.tasks.steps.describe.stdin', { command: fieldText(step.command) });
+    case 'sleep': {
+      const minutes = sleepMinutes(step);
+      const duration = minutes === null ? fieldText(step.duration) : t('servers.tasks.steps.minutes', { count: minutes });
+      return t('servers.tasks.steps.describe.sleep', { duration });
+    }
+    case 'backup':
+      return t('servers.tasks.steps.describe.backup', { count: Number(step.keep ?? DEFAULT_BACKUP_KEEP) });
+    case 'restart':
+    case 'stop':
+    case 'start':
+      return t(`servers.tasks.steps.${step.type}`);
+    default:
+      return t('servers.tasks.steps.adminOnly', { type: step.type });
+  }
+}
+
+export default function TasksView({ serverId }: Readonly<TasksViewProps>) {
   const { t, language } = useTranslations();
   const { hasScope } = useAuth();
   const locale = language === 'es' ? 'es-ES' : 'en-US';
@@ -167,26 +195,6 @@ export default function TasksView({ serverId }: TasksViewProps) {
     }
   };
 
-  const describeStep = (step: TaskStep) => {
-    switch (step.type) {
-      case 'stdin':
-        return t('servers.tasks.steps.describe.stdin', { command: String(step.command ?? '') });
-      case 'sleep': {
-        const minutes = sleepMinutes(step);
-        const duration = minutes === null ? String(step.duration ?? '') : t('servers.tasks.steps.minutes', { count: minutes });
-        return t('servers.tasks.steps.describe.sleep', { duration });
-      }
-      case 'backup':
-        return t('servers.tasks.steps.describe.backup', { count: Number(step.keep ?? DEFAULT_BACKUP_KEEP) });
-      case 'restart':
-      case 'stop':
-      case 'start':
-        return t(`servers.tasks.steps.${step.type}`);
-      default:
-        return t('servers.tasks.steps.adminOnly', { type: step.type });
-    }
-  };
-
   const entries = Object.entries(tasks).sort(([, a], [, b]) => a.name.localeCompare(b.name, locale));
   const zone = localTimeZone();
 
@@ -212,6 +220,57 @@ export default function TasksView({ serverId }: TasksViewProps) {
     </div>
   );
 
+  let body: ReactNode;
+  if (loading) {
+    body = (
+      <div className="flex justify-center py-16" aria-busy="true">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden="true" />
+        <span className="sr-only">{t('common.loading')}</span>
+      </div>
+    );
+  } else if (loadError) {
+    body = (
+      <EmptyState
+        icon={loadError === 'forbidden' ? CalendarClock : AlertTriangle}
+        tone={loadError === 'forbidden' ? 'default' : 'error'}
+        as="p"
+        title={loadError === 'forbidden' ? t('servers.tasks.noPermission') : t('servers.tasks.loadError')}
+      />
+    );
+  } else if (entries.length === 0) {
+    body = (
+      <div className="space-y-6">
+        <EmptyState icon={CalendarClock} title={t('servers.tasks.empty.title')} description={t('servers.tasks.empty.description')} />
+        {presets && (
+          <section aria-labelledby="task-presets-title" className="space-y-3">
+            <h3 id="task-presets-title" className="text-sm font-semibold">{t('servers.tasks.presets.title')}</h3>
+            {presets}
+          </section>
+        )}
+      </div>
+    );
+  } else {
+    body = (
+      <ul className="space-y-3">
+        {entries.map(([id, task]) => (
+          <TaskRow
+            key={id}
+            task={task}
+            zone={zone}
+            locale={locale}
+            canRun={canRun}
+            canEdit={canEdit}
+            canDelete={canDelete}
+            running={running === id}
+            onRun={() => handleRun(id)}
+            onEdit={() => openEditor(id, task)}
+            onDelete={() => setPendingDelete(id)}
+          />
+        ))}
+      </ul>
+    );
+  }
+
   return (
     <div className="mt-6">
       <Card>
@@ -229,105 +288,7 @@ export default function TasksView({ serverId }: TasksViewProps) {
         </CardHeader>
 
         <CardContent className="p-5 md:p-6">
-          {loading ? (
-            <div className="flex justify-center py-16" aria-busy="true">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden="true" />
-              <span className="sr-only">{t('common.loading')}</span>
-            </div>
-          ) : loadError ? (
-            <EmptyState
-              icon={loadError === 'forbidden' ? CalendarClock : AlertTriangle}
-              tone={loadError === 'forbidden' ? 'default' : 'error'}
-              as="p"
-              title={loadError === 'forbidden' ? t('servers.tasks.noPermission') : t('servers.tasks.loadError')}
-            />
-          ) : entries.length === 0 ? (
-            <div className="space-y-6">
-              <EmptyState icon={CalendarClock} title={t('servers.tasks.empty.title')} description={t('servers.tasks.empty.description')} />
-              {presets && (
-                <section aria-labelledby="task-presets-title" className="space-y-3">
-                  <h3 id="task-presets-title" className="text-sm font-semibold">{t('servers.tasks.presets.title')}</h3>
-                  {presets}
-                </section>
-              )}
-            </div>
-          ) : (
-            <ul className="space-y-3">
-              {entries.map(([id, task]) => {
-                const { schedule, zone: taskZone } = fromCron(task.cronSchedule);
-                const next = nextRun(schedule, taskZone);
-                const otherZone = taskZone && taskZone !== zone ? taskZone : null;
-                const steps = task.operations ?? [];
-                return (
-                  <li
-                    key={id}
-                    className="flex min-w-0 flex-col gap-4 rounded-xl border border-border/60 bg-background/30 p-4 transition-colors duration-200 hover:border-border sm:p-5 lg:flex-row lg:items-center lg:justify-between"
-                  >
-                    <div className="flex min-w-0 items-start gap-4">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-card text-muted-foreground">
-                        <CalendarClock className="h-5 w-5" aria-hidden="true" />
-                      </div>
-                      <div className="min-w-0 space-y-2">
-                        <div>
-                          <h4 className="truncate text-[15px] font-semibold leading-tight">{task.name}</h4>
-                          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                            <span className="first-letter:uppercase">
-                              {describeSchedule(schedule, t, locale)}
-                              {otherZone && ` (${t('servers.tasks.schedule.describe.zone', { zone: otherZone })})`}
-                            </span>
-                            {next && (
-                              <>
-                                <span aria-hidden="true">·</span>
-                                <span className="tabular-nums">{t('servers.tasks.schedule.next', { when: describeNextRun(next, t, locale) })}</span>
-                              </>
-                            )}
-                          </p>
-                        </div>
-                        {steps.length > 0 && (
-                          <ol className="flex flex-wrap gap-1.5" aria-label={t('servers.tasks.steps.label')}>
-                            {steps.map((step, index) => {
-                              const Icon = STEP_ICONS[step.type] ?? CalendarClock;
-                              return (
-                                <li
-                                  key={`${index}-${step.type}`}
-                                  className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-border/50 bg-secondary/60 px-2 py-0.5 text-xs text-secondary-foreground"
-                                >
-                                  <Icon className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />
-                                  <span className={step.type === 'stdin' ? 'truncate font-mono' : 'truncate'}>{describeStep(step)}</span>
-                                </li>
-                              );
-                            })}
-                          </ol>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="grid w-full shrink-0 grid-cols-[1fr_auto_auto] items-center gap-2 lg:flex lg:w-auto">
-                      {canRun ? (
-                        <Button variant="outline" size="sm" className="min-w-0" disabled={running === id} onClick={() => handleRun(id)}>
-                          {running === id ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Play aria-hidden="true" />}
-                          {t('servers.tasks.run.button')}
-                        </Button>
-                      ) : <span />}
-                      {canEdit && (
-                        <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-muted-foreground"
-                          aria-label={`${t('servers.tasks.edit')}: ${task.name}`} onClick={() => openEditor(id, task)}>
-                          <Pencil aria-hidden="true" />
-                        </Button>
-                      )}
-                      {canDelete && (
-                        <Button variant="ghost" size="icon"
-                          className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive-bright"
-                          aria-label={`${t('servers.tasks.delete.button')}: ${task.name}`} onClick={() => setPendingDelete(id)}>
-                          <Trash2 aria-hidden="true" />
-                        </Button>
-                      )}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+          {body}
         </CardContent>
       </Card>
 
@@ -358,5 +319,94 @@ export default function TasksView({ serverId }: TasksViewProps) {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+type TaskRowProps = {
+  task: Task;
+  /** The viewer's own time zone. */
+  zone: string;
+  locale: string;
+  canRun: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+  running: boolean;
+  onRun: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+};
+
+/** One task: its name, when it runs next, its steps and what the viewer may do with it. */
+function TaskRow({ task, zone, locale, canRun, canEdit, canDelete, running, onRun, onEdit, onDelete }: Readonly<TaskRowProps>) {
+  const { t } = useTranslations();
+  const { schedule, zone: taskZone } = fromCron(task.cronSchedule);
+  const next = nextRun(schedule, taskZone);
+  const otherZone = taskZone && taskZone !== zone ? taskZone : null;
+  const steps = task.operations ?? [];
+  return (
+    <li
+      className="flex min-w-0 flex-col gap-4 rounded-xl border border-border/60 bg-background/30 p-4 transition-colors duration-200 hover:border-border sm:p-5 lg:flex-row lg:items-center lg:justify-between"
+    >
+      <div className="flex min-w-0 items-start gap-4">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-card text-muted-foreground">
+          <CalendarClock className="h-5 w-5" aria-hidden="true" />
+        </div>
+        <div className="min-w-0 space-y-2">
+          <div>
+            <h4 className="truncate text-[15px] font-semibold leading-tight">{task.name}</h4>
+            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+              <span className="first-letter:uppercase">
+                {describeSchedule(schedule, t, locale)}
+                {otherZone && ` (${t('servers.tasks.schedule.describe.zone', { zone: otherZone })})`}
+              </span>
+              {next && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span className="tabular-nums">{t('servers.tasks.schedule.next', { when: describeNextRun(next, t, locale) })}</span>
+                </>
+              )}
+            </p>
+          </div>
+          {steps.length > 0 && (
+            <ol className="flex flex-wrap gap-1.5" aria-label={t('servers.tasks.steps.label')}>
+              {steps.map((step, index) => {
+                const Icon = STEP_ICONS[step.type] ?? CalendarClock;
+                return (
+                  <li
+                    key={`${index}-${step.type}`}
+                    className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-border/50 bg-secondary/60 px-2 py-0.5 text-xs text-secondary-foreground"
+                  >
+                    <Icon className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden="true" />
+                    <span className={step.type === 'stdin' ? 'truncate font-mono' : 'truncate'}>{describeStep(step, t)}</span>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </div>
+      </div>
+
+      <div className="grid w-full shrink-0 grid-cols-[1fr_auto_auto] items-center gap-2 lg:flex lg:w-auto">
+        {canRun ? (
+          <Button variant="outline" size="sm" className="min-w-0" disabled={running} onClick={onRun}>
+            {running ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Play aria-hidden="true" />}
+            {t('servers.tasks.run.button')}
+          </Button>
+        ) : <span />}
+        {canEdit && (
+          <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-muted-foreground"
+            aria-label={`${t('servers.tasks.edit')}: ${task.name}`} onClick={onEdit}>
+            <Pencil aria-hidden="true" />
+          </Button>
+        )}
+        {canDelete && (
+          <Button variant="ghost" size="icon"
+            className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive-bright"
+            aria-label={`${t('servers.tasks.delete.button')}: ${task.name}`} onClick={onDelete}>
+            <Trash2 aria-hidden="true" />
+          </Button>
+        )}
+      </div>
+    </li>
   );
 }

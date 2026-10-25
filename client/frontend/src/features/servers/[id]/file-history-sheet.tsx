@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { AlertTriangle, ChevronRight, History, RotateCw } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -147,6 +147,12 @@ interface FileHistorySheetProps {
   returnFocusRef?: RefObject<HTMLElement | null>;
 }
 
+/** The timeline dot: the picked version, the newest one, or any other. */
+function dotColor(selected: boolean, latest: boolean) {
+  if (selected) return 'bg-primary-bright';
+  return latest ? 'bg-foreground/70' : 'bg-muted-foreground/60';
+}
+
 /** Side panel listing a file's stored versions, newest first. */
 export function FileHistorySheet({
   open,
@@ -159,7 +165,7 @@ export function FileHistorySheet({
   onRetry,
   onSelect,
   returnFocusRef,
-}: FileHistorySheetProps) {
+}: Readonly<FileHistorySheetProps>) {
   const { t, language } = useTranslations();
   const locale = localeFor(language);
   // picking a version hands the focus to the comparison instead of back to the trigger
@@ -170,6 +176,110 @@ export function FileHistorySheet({
     pickedRef.current = true;
     onSelect(version);
   };
+
+  let body: ReactNode;
+  if (status === 'loading' || status === 'idle') {
+    body = (
+      <div role="status" aria-live="polite">
+        <span className="sr-only">{t('servers.fileHistory.loading')}</span>
+        <HistorySkeleton />
+      </div>
+    );
+  } else if (status === 'error') {
+    body = (
+      <EmptyState
+        size="sm"
+        tone="error"
+        icon={AlertTriangle}
+        title={t('servers.fileHistory.errorTitle')}
+        description={error || t('servers.fileHistory.errorDescription')}
+        action={
+          <Button variant="outline" size="sm" onClick={onRetry}>
+            <RotateCw aria-hidden="true" />
+            {t('common.retry')}
+          </Button>
+        }
+        className="mx-1 mt-1"
+      />
+    );
+  } else if (versions.length === 0) {
+    body = (
+      <EmptyState
+        size="sm"
+        icon={History}
+        title={t('servers.fileHistory.emptyTitle')}
+        description={t('servers.fileHistory.emptyDescription')}
+        className="mx-1 mt-1"
+      />
+    );
+  } else {
+    body = (
+      <ol className="space-y-0.5" aria-label={t('servers.fileHistory.listLabel')}>
+        {versions.map((version, index) => {
+          const when = formatRelative(version.savedAt, locale, now);
+          const relative = capitalize(when, locale);
+          const exact = formatExact(version.savedAt, locale);
+          const size = formatBytes(version.size);
+          const selected = version.id === selectedId;
+          const isLast = index === versions.length - 1;
+          return (
+            <li key={version.id} className="relative">
+              {/* a rail ties the versions together, newest at the top */}
+              {!isLast && <span aria-hidden="true" className="absolute bottom-[-6px] left-[23px] top-[30px] w-px bg-border/70" />}
+              <button
+                type="button"
+                onClick={() => pick(version)}
+                aria-current={selected ? 'true' : undefined}
+                aria-label={t('servers.fileHistory.itemLabel', { when, size })}
+                className={cn(
+                  'focus-ring group flex w-full items-start gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors duration-200 ease-panel',
+                  selected
+                    ? 'border-primary/40 bg-primary/[0.07]'
+                    : 'border-transparent hover:border-border/60 hover:bg-background/40',
+                )}
+              >
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    'relative mt-1.5 grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border bg-card transition-colors duration-200',
+                    selected ? 'border-primary/60' : 'border-border/80 group-hover:border-border',
+                  )}
+                >
+                  <span className={cn('h-1.5 w-1.5 rounded-full', dotColor(selected, index === 0))} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                    <time
+                      dateTime={new Date(version.savedAt).toISOString()}
+                      title={exact}
+                      className="text-sm font-medium text-foreground"
+                    >
+                      {relative}
+                    </time>
+                    {index === 0 && (
+                      <span className="rounded-md border border-border/60 bg-secondary/60 px-1.5 py-px text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                        {t('servers.fileHistory.latest')}
+                      </span>
+                    )}
+                  </span>
+                  <span className="mt-0.5 block truncate text-xs tabular-nums text-muted-foreground" title={exact}>
+                    {formatShort(version.savedAt, locale)} · {size}
+                  </span>
+                </span>
+                <ChevronRight
+                  aria-hidden="true"
+                  className={cn(
+                    'mt-2 h-4 w-4 shrink-0 text-muted-foreground transition-[opacity,transform] duration-200 ease-panel',
+                    selected ? 'opacity-100' : 'opacity-0 group-hover:translate-x-0.5 group-hover:opacity-100 group-focus-visible:opacity-100',
+                  )}
+                />
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+    );
+  }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -199,100 +309,7 @@ export function FileHistorySheet({
         </SheetHeader>
 
         <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-4">
-          {status === 'loading' || status === 'idle' ? (
-            <div role="status" aria-live="polite">
-              <span className="sr-only">{t('servers.fileHistory.loading')}</span>
-              <HistorySkeleton />
-            </div>
-          ) : status === 'error' ? (
-            <EmptyState
-              size="sm"
-              tone="error"
-              icon={AlertTriangle}
-              title={t('servers.fileHistory.errorTitle')}
-              description={error || t('servers.fileHistory.errorDescription')}
-              action={
-                <Button variant="outline" size="sm" onClick={onRetry}>
-                  <RotateCw aria-hidden="true" />
-                  {t('common.retry')}
-                </Button>
-              }
-              className="mx-1 mt-1"
-            />
-          ) : versions.length === 0 ? (
-            <EmptyState
-              size="sm"
-              icon={History}
-              title={t('servers.fileHistory.emptyTitle')}
-              description={t('servers.fileHistory.emptyDescription')}
-              className="mx-1 mt-1"
-            />
-          ) : (
-            <ol className="space-y-0.5" aria-label={t('servers.fileHistory.listLabel')}>
-              {versions.map((version, index) => {
-                const when = formatRelative(version.savedAt, locale, now);
-                const relative = capitalize(when, locale);
-                const exact = formatExact(version.savedAt, locale);
-                const size = formatBytes(version.size);
-                const selected = version.id === selectedId;
-                const isLast = index === versions.length - 1;
-                return (
-                  <li key={version.id} className="relative">
-                    {/* a rail ties the versions together, newest at the top */}
-                    {!isLast && <span aria-hidden="true" className="absolute bottom-[-6px] left-[23px] top-[30px] w-px bg-border/70" />}
-                    <button
-                      type="button"
-                      onClick={() => pick(version)}
-                      aria-current={selected ? 'true' : undefined}
-                      aria-label={t('servers.fileHistory.itemLabel', { when, size })}
-                      className={cn(
-                        'focus-ring group flex w-full items-start gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors duration-200 ease-panel',
-                        selected
-                          ? 'border-primary/40 bg-primary/[0.07]'
-                          : 'border-transparent hover:border-border/60 hover:bg-background/40',
-                      )}
-                    >
-                      <span
-                        aria-hidden="true"
-                        className={cn(
-                          'relative mt-1.5 grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border bg-card transition-colors duration-200',
-                          selected ? 'border-primary/60' : 'border-border/80 group-hover:border-border',
-                        )}
-                      >
-                        <span className={cn('h-1.5 w-1.5 rounded-full', selected ? 'bg-primary-bright' : index === 0 ? 'bg-foreground/70' : 'bg-muted-foreground/60')} />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                          <time
-                            dateTime={new Date(version.savedAt).toISOString()}
-                            title={exact}
-                            className="text-sm font-medium text-foreground"
-                          >
-                            {relative}
-                          </time>
-                          {index === 0 && (
-                            <span className="rounded-md border border-border/60 bg-secondary/60 px-1.5 py-px text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                              {t('servers.fileHistory.latest')}
-                            </span>
-                          )}
-                        </span>
-                        <span className="mt-0.5 block truncate text-xs tabular-nums text-muted-foreground" title={exact}>
-                          {formatShort(version.savedAt, locale)} · {size}
-                        </span>
-                      </span>
-                      <ChevronRight
-                        aria-hidden="true"
-                        className={cn(
-                          'mt-2 h-4 w-4 shrink-0 text-muted-foreground transition-[opacity,transform] duration-200 ease-panel',
-                          selected ? 'opacity-100' : 'opacity-0 group-hover:translate-x-0.5 group-hover:opacity-100 group-focus-visible:opacity-100',
-                        )}
-                      />
-                    </button>
-                  </li>
-                );
-              })}
-            </ol>
-          )}
+          {body}
         </div>
 
         <p className="border-t border-border/50 px-5 py-3 text-xs leading-relaxed text-muted-foreground">

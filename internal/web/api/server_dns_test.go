@@ -60,13 +60,7 @@ func (f *dnsFake) serve(w http.ResponseWriter, r *http.Request) {
 		reply(http.StatusOK, map[string]interface{}{"success": true, "result": map[string]string{"id": dnsTestZone, "name": "example.com"}})
 	case r.Method == http.MethodGet && r.URL.Path == prefix+"/dns_records":
 		f.listCalls++
-		found := []services.CloudflareRecord{}
-		for _, rec := range f.records {
-			if rec.Name == r.URL.Query().Get("name") {
-				found = append(found, rec)
-			}
-		}
-		reply(http.StatusOK, map[string]interface{}{"success": true, "result": found})
+		reply(http.StatusOK, map[string]interface{}{"success": true, "result": f.recordsNamed(r.URL.Query().Get("name"))})
 	case r.Method == http.MethodPost && r.URL.Path == prefix+"/dns_records":
 		var rec services.CloudflareRecord
 		_ = json.NewDecoder(r.Body).Decode(&rec)
@@ -91,6 +85,17 @@ func (f *dnsFake) serve(w http.ResponseWriter, r *http.Request) {
 	default:
 		reply(http.StatusNotFound, map[string]interface{}{"success": false, "errors": []map[string]interface{}{{"code": 7003, "message": "no route"}}})
 	}
+}
+
+// recordsNamed lists the records with that name, never nil; the caller holds f.mu
+func (f *dnsFake) recordsNamed(name string) []services.CloudflareRecord {
+	found := []services.CloudflareRecord{}
+	for _, rec := range f.records {
+		if rec.Name == name {
+			found = append(found, rec)
+		}
+	}
+	return found
 }
 
 func (f *dnsFake) addExternal(rec services.CloudflareRecord) {

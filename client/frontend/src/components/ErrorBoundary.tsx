@@ -16,7 +16,7 @@ interface State {
 }
 
 /** The default fallback is a function component so it can read the translations. */
-function ErrorFallback({ message, onReset }: { message?: string; onReset: () => void }) {
+function ErrorFallback({ message, onReset }: Readonly<{ message?: string; onReset: () => void }>) {
     const { t } = useTranslations();
     return (
         <div className="flex flex-col items-center justify-center p-8 text-center bg-destructive/5 rounded-lg border border-destructive/20 gap-4 mt-6">

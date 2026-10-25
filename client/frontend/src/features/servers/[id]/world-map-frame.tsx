@@ -22,7 +22,7 @@ type Props = {
   removing: boolean;
 };
 
-function ToolbarButton({ label, onClick, children, href, disabled }: { label: string; onClick?: () => void; children: ReactNode; href?: string; disabled?: boolean }) {
+function ToolbarButton({ label, onClick, children, href, disabled }: Readonly<{ label: string; onClick?: () => void; children: ReactNode; href?: string; disabled?: boolean }>) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -44,7 +44,7 @@ function ToolbarButton({ label, onClick, children, href, disabled }: { label: st
 }
 
 /** The live map in a sandboxed frame, with a slim toolbar above it. */
-export default function WorldMapFrame({ kind, version, viewUrl, onRemove, removing }: Props) {
+export default function WorldMapFrame({ kind, version, viewUrl, onRemove, removing }: Readonly<Props>) {
   const { t } = useTranslations();
   const wrapper = useRef<HTMLDivElement>(null);
   // the address is kept until a reload, so the hourly change of the signed link does not

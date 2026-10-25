@@ -60,7 +60,7 @@ var modpackReplacedPatterns = []*regexp.Regexp{
 // modpackKeptFiles survive the install even when the pack ships its own copy: they hold the
 // owner's settings and player lists
 var modpackKeptFiles = []string{
-	"server.properties",
+	serverPropertiesFile,
 	"whitelist.json",
 	"ops.json",
 	"banned-players.json",
@@ -76,6 +76,9 @@ var keptProperties = []string{
 }
 
 const keptFileLimit = 1 << 20
+
+// serverPropertiesFile is the Minecraft settings file in the server root
+const serverPropertiesFile = "server.properties"
 
 func isReplacedByModpack(name string, dir bool) bool {
 	if dir {
@@ -113,7 +116,7 @@ func cleanForModpack(fsys files.FileServer, root string, freshWorld bool) error 
 	}
 	worlds := map[string]bool{}
 	if freshWorld {
-		properties, _ := readSmallFile(fsys, "server.properties")
+		properties, _ := readSmallFile(fsys, serverPropertiesFile)
 		for _, name := range worldFolders(properties) {
 			worlds[name] = true
 		}
@@ -175,7 +178,7 @@ func readKeptFiles(fsys files.FileServer) (map[string][]byte, error) {
 // owner's address, ports and access rules.
 func restoreKeptFiles(fsys files.FileServer, kept map[string][]byte, freshWorld bool) error {
 	for name, data := range kept {
-		if name == "server.properties" && freshWorld {
+		if name == serverPropertiesFile && freshWorld {
 			if packProperties, err := readSmallFile(fsys, name); err == nil {
 				data = mergeProperties(packProperties, data, keptProperties)
 			}

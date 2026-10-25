@@ -154,25 +154,50 @@ func gatherServerContext(ctx context.Context, ns *services.Node, server *models.
 		return json.NewDecoder(io.LimitReader(res.Body, 2<<20)).Decode(target) == nil
 	}
 
+	pieces := []struct {
+		source string
+		write  func(*strings.Builder, aiContextFetch) bool
+	}{
+		{"status", writeStatusContext},
+		{"players", writePlayersContext},
+		{"performance", writePerformanceContext},
+		{"crashes", writeCrashesContext},
+		{"console", writeConsoleContext},
+	}
+	for _, piece := range pieces {
+		if piece.write(&b, fetch) {
+			sources = append(sources, piece.source)
+		}
+	}
+	return b.String(), sources
+}
+
+// aiContextFetch decodes a daemon endpoint of the server into target; false when it failed
+type aiContextFetch func(path string, target interface{}) bool
+
+func writeStatusContext(b *strings.Builder, fetch aiContextFetch) bool {
 	var stats struct {
 		CPU       float64 `json:"cpu"`
 		Memory    float64 `json:"memory"`
 		MaxMemory float64 `json:"maxMemory"`
 		Running   bool    `json:"running"`
 	}
-	if fetch("/stats", &stats) {
-		status := "offline"
-		if stats.Running {
-			status = "online"
-		}
-		fmt.Fprintf(&b, "Now: %s, CPU %.0f%%, memory %.0f MB", status, stats.CPU, stats.Memory/1024/1024)
-		if stats.MaxMemory > 0 {
-			fmt.Fprintf(&b, " of %.0f MB (%.0f%%)", stats.MaxMemory/1024/1024, stats.Memory/stats.MaxMemory*100)
-		}
-		b.WriteString("\n")
-		sources = append(sources, "status")
+	if !fetch("/stats", &stats) {
+		return false
 	}
+	status := "offline"
+	if stats.Running {
+		status = "online"
+	}
+	fmt.Fprintf(b, "Now: %s, CPU %.0f%%, memory %.0f MB", status, stats.CPU, stats.Memory/1024/1024)
+	if stats.MaxMemory > 0 {
+		fmt.Fprintf(b, " of %.0f MB (%.0f%%)", stats.MaxMemory/1024/1024, stats.Memory/stats.MaxMemory*100)
+	}
+	b.WriteString("\n")
+	return true
+}
 
+func writePlayersContext(b *strings.Builder, fetch aiContextFetch) bool {
 	var query map[string]struct {
 		NumPlayers int      `json:"numPlayers"`
 		MaxPlayers int      `json:"maxPlayers"`
@@ -180,20 +205,23 @@ func gatherServerContext(ctx context.Context, ns *services.Node, server *models.
 		Map        string   `json:"map"`
 		Players    []string `json:"players"`
 	}
-	if fetch("/query", &query) {
-		for game, q := range query {
-			fmt.Fprintf(&b, "Players (%s query): %d of %d online", game, q.NumPlayers, q.MaxPlayers)
-			if q.Version != "" {
-				fmt.Fprintf(&b, ", version %s", q.Version)
-			}
-			if q.Map != "" {
-				fmt.Fprintf(&b, ", map %s", q.Map)
-			}
-			b.WriteString("\n")
-		}
-		sources = append(sources, "players")
+	if !fetch("/query", &query) {
+		return false
 	}
+	for game, q := range query {
+		fmt.Fprintf(b, "Players (%s query): %d of %d online", game, q.NumPlayers, q.MaxPlayers)
+		if q.Version != "" {
+			fmt.Fprintf(b, ", version %s", q.Version)
+		}
+		if q.Map != "" {
+			fmt.Fprintf(b, ", map %s", q.Map)
+		}
+		b.WriteString("\n")
+	}
+	return true
+}
 
+func writePerformanceContext(b *strings.Builder, fetch aiContextFetch) bool {
 	var metrics struct {
 		Points []struct {
 			CPU         float64 `json:"cpu"`
@@ -204,85 +232,98 @@ func gatherServerContext(ctx context.Context, ns *services.Node, server *models.
 			HasPlayers  bool    `json:"hasPlayers"`
 		} `json:"points"`
 	}
-	if fetch("/metrics?range=24h", &metrics) && len(metrics.Points) > 0 {
-		var cpuSum, cpuPeak, memPctSum, onlineSum float64
-		var memSamples, playersPeak int
-		for _, p := range metrics.Points {
-			cpuSum += p.CPU
-			if p.CPU > cpuPeak {
-				cpuPeak = p.CPU
-			}
-			if p.MaxMemory > 0 {
-				memPctSum += p.Memory / p.MaxMemory * 100
-				memSamples++
-			}
-			onlineSum += p.Online
-			if p.HasPlayers && p.PlayersPeak > playersPeak {
-				playersPeak = p.PlayersPeak
-			}
-		}
-		n := float64(len(metrics.Points))
-		fmt.Fprintf(&b, "Last 24 h: CPU average %.0f%%, peak %.0f%%; online %.1f%% of the time", cpuSum/n, cpuPeak, onlineSum/n*100)
-		if memSamples > 0 {
-			fmt.Fprintf(&b, "; memory average %.0f%% of the limit", memPctSum/float64(memSamples))
-		}
-		if playersPeak > 0 {
-			fmt.Fprintf(&b, "; most players at once %d", playersPeak)
-		}
-		b.WriteString("\n")
-		sources = append(sources, "performance")
+	if !fetch("/metrics?range=24h", &metrics) || len(metrics.Points) == 0 {
+		return false
 	}
+	var cpuSum, cpuPeak, memPctSum, onlineSum float64
+	var memSamples, playersPeak int
+	for _, p := range metrics.Points {
+		cpuSum += p.CPU
+		if p.CPU > cpuPeak {
+			cpuPeak = p.CPU
+		}
+		if p.MaxMemory > 0 {
+			memPctSum += p.Memory / p.MaxMemory * 100
+			memSamples++
+		}
+		onlineSum += p.Online
+		if p.HasPlayers && p.PlayersPeak > playersPeak {
+			playersPeak = p.PlayersPeak
+		}
+	}
+	n := float64(len(metrics.Points))
+	fmt.Fprintf(b, "Last 24 h: CPU average %.0f%%, peak %.0f%%; online %.1f%% of the time", cpuSum/n, cpuPeak, onlineSum/n*100)
+	if memSamples > 0 {
+		fmt.Fprintf(b, "; memory average %.0f%% of the limit", memPctSum/float64(memSamples))
+	}
+	if playersPeak > 0 {
+		fmt.Fprintf(b, "; most players at once %d", playersPeak)
+	}
+	b.WriteString("\n")
+	return true
+}
 
+func writeCrashesContext(b *strings.Builder, fetch aiContextFetch) bool {
 	var crashes []struct {
 		Time      time.Time `json:"time"`
 		ExitCode  int       `json:"exitCode"`
 		Restarted bool      `json:"restarted"`
 		Lines     []string  `json:"lines"`
 	}
-	if fetch("/crashes", &crashes) && len(crashes) > 0 {
-		b.WriteString("Recent crashes (newest first):\n")
-		for i, cr := range crashes {
-			if i == 3 {
-				break
-			}
-			fmt.Fprintf(&b, "- %s, exit code %d, restarted automatically: %t\n", cr.Time.UTC().Format(time.RFC3339), cr.ExitCode, cr.Restarted)
-			if i == 0 && len(cr.Lines) > 0 {
-				tail := cr.Lines
-				if len(tail) > 20 {
-					tail = tail[len(tail)-20:]
-				}
-				b.WriteString("  Console before the newest crash:\n")
-				for _, line := range tail {
-					b.WriteString("  | " + ansiPattern.ReplaceAllString(line, "") + "\n")
-				}
-			}
-		}
-		sources = append(sources, "crashes")
+	if !fetch("/crashes", &crashes) || len(crashes) == 0 {
+		return false
 	}
+	b.WriteString("Recent crashes (newest first):\n")
+	for i, cr := range crashes {
+		if i == 3 {
+			break
+		}
+		fmt.Fprintf(b, "- %s, exit code %d, restarted automatically: %t\n", cr.Time.UTC().Format(time.RFC3339), cr.ExitCode, cr.Restarted)
+		if i == 0 && len(cr.Lines) > 0 {
+			writeCrashConsole(b, cr.Lines)
+		}
+	}
+	return true
+}
 
+// writeCrashConsole adds the last console lines before the newest crash
+func writeCrashConsole(b *strings.Builder, lines []string) {
+	tail := lines
+	if len(tail) > 20 {
+		tail = tail[len(tail)-20:]
+	}
+	b.WriteString("  Console before the newest crash:\n")
+	for _, line := range tail {
+		b.WriteString("  | " + ansiPattern.ReplaceAllString(line, "") + "\n")
+	}
+}
+
+func writeConsoleContext(b *strings.Builder, fetch aiContextFetch) bool {
 	var console struct {
 		Logs string `json:"logs"`
 	}
-	if fetch("/console", &console) && console.Logs != "" {
-		if raw, err := base64.StdEncoding.DecodeString(console.Logs); err == nil {
-			lines := strings.Split(ansiPattern.ReplaceAllString(string(raw), ""), "\n")
-			kept := make([]string, 0, aiContextLines)
-			for i := len(lines) - 1; i >= 0 && len(kept) < aiContextLines; i-- {
-				if line := strings.TrimSpace(lines[i]); line != "" {
-					if len(line) > 300 {
-						line = line[:300] + "…"
-					}
-					kept = append(kept, line)
-				}
+	if !fetch("/console", &console) || console.Logs == "" {
+		return false
+	}
+	raw, err := base64.StdEncoding.DecodeString(console.Logs)
+	if err != nil {
+		return false
+	}
+	lines := strings.Split(ansiPattern.ReplaceAllString(string(raw), ""), "\n")
+	kept := make([]string, 0, aiContextLines)
+	for i := len(lines) - 1; i >= 0 && len(kept) < aiContextLines; i-- {
+		if line := strings.TrimSpace(lines[i]); line != "" {
+			if len(line) > 300 {
+				line = line[:300] + "…"
 			}
-			b.WriteString("Recent console (oldest first):\n")
-			for i := len(kept) - 1; i >= 0; i-- {
-				b.WriteString("| " + kept[i] + "\n")
-			}
-			sources = append(sources, "console")
+			kept = append(kept, line)
 		}
 	}
-	return b.String(), sources
+	b.WriteString("Recent console (oldest first):\n")
+	for i := len(kept) - 1; i >= 0; i-- {
+		b.WriteString("| " + kept[i] + "\n")
+	}
+	return true
 }
 
 // geminiChatEndpoint is swapped in tests

@@ -84,7 +84,7 @@ export function SettingRows({ children }: { children: ReactNode }) {
  * Switch row for an experimental feature: what it does and where it shows up
  * once it is on. The icon lights up with the switch.
  */
-function ExperimentalRow({ id, icon: Icon, label, description, where, checked, onCheckedChange }: {
+function ExperimentalRow({ id, icon: Icon, label, description, where, checked, onCheckedChange }: Readonly<{
     id: string;
     icon: LucideIcon;
     label: string;
@@ -92,7 +92,7 @@ function ExperimentalRow({ id, icon: Icon, label, description, where, checked, o
     where: string;
     checked: boolean;
     onCheckedChange: (v: boolean) => void;
-}) {
+}>) {
     return (
         <div className="flex items-start gap-3.5 px-4 py-3.5">
             <span

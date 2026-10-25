@@ -43,6 +43,13 @@ var (
 
 const maxLauncherSize = 64 << 20
 
+const (
+	// serverJarName is the jar the start command launches
+	serverJarName = "server.jar"
+	// installerJarSuffix ends the name a loader installer is saved under
+	installerJarSuffix = "-installer.jar"
+)
+
 // installerFor is the installer URL and the name it gets in the server folder
 func installerFor(loader, mc, loaderVersion string) (address, jarName string, err error) {
 	if !loaderVersionPattern.MatchString(loaderVersion) || !loaderVersionPattern.MatchString(mc) {
@@ -54,15 +61,15 @@ func installerFor(loader, mc, loaderVersion string) (address, jarName string, er
 		if !strings.HasPrefix(full, mc+"-") {
 			full = mc + "-" + loaderVersion
 		}
-		return fmt.Sprintf("%s/net/minecraftforge/forge/%s/forge-%s-installer.jar", forgeMaven, full, full), "forge-" + full + "-installer.jar", nil
+		return fmt.Sprintf("%s/net/minecraftforge/forge/%s/forge-%s-installer.jar", forgeMaven, full, full), "forge-" + full + installerJarSuffix, nil
 	case "neoforge":
 		// NeoForge for 1.20.1 was still published as "forge" under the neoforged group
 		if mc == "1.20.1" {
 			full := strings.TrimPrefix(loaderVersion, "1.20.1-")
 			full = "1.20.1-" + full
-			return fmt.Sprintf("%s/net/neoforged/forge/%s/forge-%s-installer.jar", neoforgeMaven, full, full), "forge-" + full + "-installer.jar", nil
+			return fmt.Sprintf("%s/net/neoforged/forge/%s/forge-%s-installer.jar", neoforgeMaven, full, full), "forge-" + full + installerJarSuffix, nil
 		}
-		return fmt.Sprintf("%s/net/neoforged/neoforge/%s/neoforge-%s-installer.jar", neoforgeMaven, loaderVersion, loaderVersion), "neoforge-" + loaderVersion + "-installer.jar", nil
+		return fmt.Sprintf("%s/net/neoforged/neoforge/%s/neoforge-%s-installer.jar", neoforgeMaven, loaderVersion, loaderVersion), "neoforge-" + loaderVersion + installerJarSuffix, nil
 	}
 	return "", "", ErrModpackUnsupported
 }
@@ -103,7 +110,7 @@ func installFabricLauncher(ctx context.Context, fsys files.FileServer, mc, loade
 	}
 	address := fmt.Sprintf("%s/versions/loader/%s/%s/%s/server/jar", fabricMetaAPI, mc, loaderVersion, installer)
 	return downloadTrusted(ctx, "Fabric", address, func(r io.Reader) error {
-		_, err := writeFileFS(fsys, "server.jar", r, maxLauncherSize)
+		_, err := writeFileFS(fsys, serverJarName, r, maxLauncherSize)
 		return err
 	})
 }
@@ -178,12 +185,12 @@ func (p *Server) installForgeLike(ctx context.Context, loader, mc, loaderVersion
 		return fmt.Errorf("the %s installer failed: %w", name, err)
 	}
 
-	if fileExists(root, "server.jar") {
+	if fileExists(root, serverJarName) {
 		return nil
 	}
 	// very old Forge leaves a "-universal" jar
 	if matches, _ := filepath.Glob(filepath.Join(root, "forge-*-universal.jar")); len(matches) > 0 {
-		return fsys.Rename(filepath.Base(matches[0]), "server.jar")
+		return fsys.Rename(filepath.Base(matches[0]), serverJarName)
 	}
 	if !fileExists(root, "run.sh") {
 		return fmt.Errorf("the %s installer did not produce a server to start", name)
@@ -197,7 +204,7 @@ func (p *Server) installForgeLike(ctx context.Context, loader, mc, loaderVersion
 
 // installServerStarter copies NeoForged's ServerStarterJar, cached once per node, as server.jar
 func installServerStarter(ctx context.Context, fsys files.FileServer) error {
-	cachePath := filepath.Join(config.CacheFolder.Value(), "github.com", "neoforgedl", "serverstarter", curseforge.NeoForgeServerStarterVersion, "server.jar")
+	cachePath := filepath.Join(config.CacheFolder.Value(), "github.com", "neoforgedl", "serverstarter", curseforge.NeoForgeServerStarterVersion, serverJarName)
 	if fi, err := os.Stat(cachePath); err != nil || fi.Size() == 0 {
 		if err := cacheDownload(ctx, "GitHub", serverStarter, cachePath); err != nil {
 			return err
@@ -208,7 +215,7 @@ func installServerStarter(ctx context.Context, fsys files.FileServer) error {
 		return err
 	}
 	defer utils.Close(f)
-	_, err = writeFileFS(fsys, "server.jar", f, maxLauncherSize)
+	_, err = writeFileFS(fsys, serverJarName, f, maxLauncherSize)
 	return err
 }
 

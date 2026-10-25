@@ -1533,6 +1533,28 @@ func (p *Server) DeleteBackup(fileName string) error {
 	return nil
 }
 
+// locateBackup finds the backup to restore and whether it must first be fetched from off-site
+// storage. A missing backup must stop the restore: it deletes every server file before
+// extracting, so going on would leave the server empty
+func (p *Server) locateBackup(fileName string) (backupFile string, fetchOffsite bool, err error) {
+	backupFile = filepath.Join(p.GetBackupDirectory(), path.Base(fileName))
+	if _, err = os.Stat(backupFile); err != nil {
+		if !os.IsNotExist(err) {
+			return "", false, err
+		}
+		// the local copy is gone (a new disk, say): the bucket may still have it
+		cfg, ok := offsite.FromSettings()
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		exists := ok && offsite.Exists(ctx, cfg, p.ID(), fileName)
+		cancel()
+		if !exists {
+			return "", false, skypanel.ErrFileNotFound
+		}
+		return backupFile, true, nil
+	}
+	return backupFile, false, nil
+}
+
 func (p *Server) StartRestore(fileName string) error {
 	if !filepath.IsLocal(fileName) {
 		return fmt.Errorf("invalid backup file name: %s", fileName)
@@ -1542,23 +1564,9 @@ func (p *Server) StartRestore(fileName string) error {
 		return err
 	}
 
-	// a missing backup must stop here: the restore deletes every server file before
-	// extracting, so going on would leave the server empty
-	backupFile := filepath.Join(p.GetBackupDirectory(), path.Base(fileName))
-	fetchOffsite := false
-	if _, err := os.Stat(backupFile); err != nil {
-		if !os.IsNotExist(err) {
-			return err
-		}
-		// the local copy is gone (a new disk, say): the bucket may still have it
-		cfg, ok := offsite.FromSettings()
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		exists := ok && offsite.Exists(ctx, cfg, p.ID(), fileName)
-		cancel()
-		if !exists {
-			return skypanel.ErrFileNotFound
-		}
-		fetchOffsite = true
+	backupFile, fetchOffsite, err := p.locateBackup(fileName)
+	if err != nil {
+		return err
 	}
 
 	if !p.backupState.CompareAndSwap(backupIdle, restoreRunning) {

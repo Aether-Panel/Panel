@@ -37,7 +37,7 @@ type OffsiteTabProps = {
  * dead disk does not take the backups with it. The test checks the values on screen, saved
  * or not.
  */
-export function OffsiteTab({ localSettings, handleUpdate, t }: OffsiteTabProps) {
+export function OffsiteTab({ localSettings, handleUpdate, t }: Readonly<OffsiteTabProps>) {
   const [testing, setTesting] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
   const value = (key: string) => (localSettings[key] ?? '') as string;
@@ -70,8 +70,7 @@ export function OffsiteTab({ localSettings, handleUpdate, t }: OffsiteTabProps) 
       />
 
       {result && (
-        <div
-          role="status"
+        <output
           className={cn(
             'flex items-start gap-2.5 border-b px-5 py-3 text-sm animate-in fade-in-0 slide-in-from-top-1 duration-300 md:px-6',
             result.ok ? 'border-success/30 bg-success/[0.07] text-success' : 'border-destructive/30 bg-destructive/[0.07] text-destructive-bright',
@@ -79,7 +78,7 @@ export function OffsiteTab({ localSettings, handleUpdate, t }: OffsiteTabProps) 
         >
           {result.ok ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" /> : <XCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />}
           <span>{result.message}</span>
-        </div>
+        </output>
       )}
 
       <div className="divide-y divide-border/50">

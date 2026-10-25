@@ -37,6 +37,9 @@ var (
 	externalHTTPClient    = utils.NewRestrictedHTTPClient()
 )
 
+// serverIdentifierQuery looks a server up by its identifier
+const serverIdentifierQuery = "identifier = ?"
+
 func sendWebhookReport(serverName, status, details string, isError bool) {
 	webhookURL := config.DiscordWebhookExTransfer.Value()
 	if webhookURL == "" {
@@ -466,7 +469,7 @@ func logExTransfer(tx *gorm.DB, sessionID, action, ip, details string, isError b
 func reportExTransfer(db *gorm.DB, serverID, status, details string, isError bool) {
 	name := serverID
 	var names []string
-	if err := db.Model(&models.Server{}).Where("identifier = ?", serverID).Limit(1).Pluck("name", &names).Error; err == nil && len(names) == 1 && names[0] != "" {
+	if err := db.Model(&models.Server{}).Where(serverIdentifierQuery, serverID).Limit(1).Pluck("name", &names).Error; err == nil && len(names) == 1 && names[0] != "" {
 		name = names[0]
 	}
 	go sendWebhookReport(name, status, details, isError)
@@ -476,7 +479,7 @@ func reportExTransfer(db *gorm.DB, serverID, status, details string, isError boo
 // files. It is a variable so tests can keep away from the node.
 var removeOriginArchive = func(db *gorm.DB, serverID string) {
 	var server models.Server
-	if err := db.Preload("Node").Where("identifier = ?", serverID).First(&server).Error; err != nil {
+	if err := db.Preload("Node").Where(serverIdentifierQuery, serverID).First(&server).Error; err != nil {
 		return
 	}
 	ns := &services.Node{DB: db}
@@ -747,7 +750,7 @@ func downloadExTransfer(c *gin.Context) {
 
 	// Get server
 	var server models.Server
-	if err := db.Preload("Node").Where("identifier = ?", session.ServerID).First(&server).Error; err != nil {
+	if err := db.Preload("Node").Where(serverIdentifierQuery, session.ServerID).First(&server).Error; err != nil {
 		c.JSON(500, ExTransferAPIError{ErrorCode: "INTERNAL_ERROR", Message: "Failed to get server", Retryable: false})
 		return
 	}
@@ -776,7 +779,7 @@ func StartDataPlaneMigration(session models.ExTransferSession, db *gorm.DB) {
 	logging.Info.Printf("Starting data plane migration for session %s", session.SessionUUID)
 
 	var server models.Server
-	if err := db.Preload("Node").Where("identifier = ?", session.ServerID).First(&server).Error; err != nil {
+	if err := db.Preload("Node").Where(serverIdentifierQuery, session.ServerID).First(&server).Error; err != nil {
 		logging.Error.Printf("Failed to get server for migration: %v", err)
 		return
 	}
@@ -1086,9 +1089,7 @@ func performPullTransferAsync(parent context.Context, server *models.Server, ori
 	// origin is the one that cancelled) and reports a cancel or errMsg to the owner.
 	fail := func(errMsg string) {
 		if archiveTouched {
-			if res, err := ns.CallNode(&server.Node, "DELETE", archivePath, nil, nil); err == nil && res.Body != nil {
-				_ = res.Body.Close()
-			}
+			deleteTransferArchive(ns, server, archivePath)
 		}
 		switch cause := context.Cause(ctx); {
 		case errors.Is(cause, errPullCancelledByOrigin):
@@ -1120,77 +1121,27 @@ func performPullTransferAsync(parent context.Context, server *models.Server, ori
 		return baseURL.ResolveReference(&url.URL{Path: path})
 	}
 	postOrigin := func(path string, body interface{}) (*http.Response, error) {
-		bodyBytes, _ := json.Marshal(body)
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, originAPI(path).String(), bytes.NewReader(bodyBytes))
-		if err != nil {
-			return nil, err
-		}
-		req.Header.Set("Content-Type", "application/json")
-		return externalHTTPClient.Do(req)
+		return postToOrigin(ctx, originAPI(path), body)
 	}
 
 	// 2. Validate token and get nonce
-	pubKeyB64 := base64.StdEncoding.EncodeToString(exTransferPublicKey())
-	resp, err := postOrigin("/api/extransfer/validate", map[string]string{
-		"token":             token,
-		"target_public_key": pubKeyB64,
-		"protocol_version":  "1.0",
-	})
-	if err != nil {
-		logging.Error.Printf("Failed to call validate on origin: %v", err)
-		fail("ERROR: Fallo de red al conectar con origen")
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
-		logging.Error.Printf("Origin validate failed with status %d: %s", resp.StatusCode, string(body))
-		fail(fmt.Sprintf("ERROR: Token inválido o expirado (Status %d)", resp.StatusCode))
-		return
-	}
-
-	var validateRes struct {
-		SessionID string `json:"session_id"`
-		Nonce     string `json:"nonce"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&validateRes); err != nil {
-		logging.Error.Printf("Failed to decode validate response: %v", err)
-		fail("ERROR: Respuesta inválida del origen")
-		return
-	}
-
-	if _, err := uuid.Parse(validateRes.SessionID); err != nil {
-		logging.Error.Printf("Origin returned invalid session_id: %v", err)
-		fail("ERROR: El origen devolvió un ID de sesión inválido")
+	validateRes, errMsg := validateOriginToken(postOrigin, token)
+	if errMsg != "" {
+		fail(errMsg)
 		return
 	}
 	origin = &originSession{client: externalHTTPClient, base: baseURL, id: validateRes.SessionID, key: exTransferPrivateKey()}
 
 	sendStep("Iniciando la transferencia en el servidor origen...")
 	// 3. Consume transfer
-	message := validateRes.Nonce + validateRes.SessionID
-	sig := ed25519.Sign(exTransferPrivateKey(), []byte(message))
-	resp, err = postOrigin("/api/extransfer/consume", map[string]string{
-		"session_id": validateRes.SessionID,
-		"signature":  base64.StdEncoding.EncodeToString(sig),
-	})
-	if err != nil {
-		logging.Error.Printf("Failed to call consume on origin: %v", err)
-		fail("ERROR: Fallo al iniciar transferencia en origen")
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 202 {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
-		logging.Error.Printf("Origin consume failed with status %d: %s", resp.StatusCode, string(body))
-		fail("ERROR: El origen rechazó la transferencia")
+	if errMsg := consumeOriginSession(postOrigin, validateRes); errMsg != "" {
+		fail(errMsg)
 		return
 	}
 
 	// 4. From here on the origin waits for heartbeats, and stops us through them
 	beatsCtx, stopBeats := context.WithCancel(ctx)
+	defer stopBeats()
 	beatsDone := make(chan struct{})
 	go func() {
 		defer close(beatsDone)
@@ -1212,66 +1163,20 @@ func performPullTransferAsync(parent context.Context, server *models.Server, ori
 		"signature":  {base64.StdEncoding.EncodeToString(dlSig)},
 	}.Encode()
 
-	const maxWait = 90 * time.Second
-	const pollInterval = 5 * time.Second
-	deadline := time.Now().Add(maxWait)
-
-	for {
-		select {
-		case <-ctx.Done():
-			fail("")
-			return
-		case <-time.After(pollInterval):
-		}
-		sendStep("Descargando paquete de datos desde el origen...")
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, dlURL.String(), nil)
-		if err == nil {
-			resp, err = exTransferDownloadClient.Do(req)
-		}
-		if err != nil {
-			logging.Error.Printf("Failed to call download on origin: %v", err)
-			fail("ERROR: Error de red al descargar paquete")
-			return
-		}
-		if resp.StatusCode == 200 {
-			break
-		}
-		resp.Body.Close()
-		if resp.StatusCode >= 400 && resp.StatusCode < 500 {
-			// the origin refuses the session (cancelled, failed or expired): waiting will not help
-			logging.Error.Printf("Origin refused the download with status %d", resp.StatusCode)
-			fail(fmt.Sprintf("ERROR: El origen rechazó la descarga (Status %d)", resp.StatusCode))
-			return
-		}
-		if time.Now().After(deadline) {
-			logging.Error.Printf("Origin download timed out after %s", maxWait)
-			fail(fmt.Sprintf("ERROR: El origen no preparó el paquete a tiempo (timeout %s)", maxWait))
-			return
-		}
-		logging.Info.Printf("Origin not ready yet (status %d), retrying...", resp.StatusCode)
+	resp, errMsg := waitForOriginArchive(ctx, dlURL.String(), sendStep)
+	if resp == nil {
+		fail(errMsg)
+		return
 	}
 	defer resp.Body.Close()
 
 	sendStep("Subiendo archivos al daemon local (esto puede tardar)...")
 
 	// 6. Stream to daemon
-	headersTransfer := http.Header{}
-	headersTransfer.Set("Content-Type", "application/octet-stream")
-
 	archiveTouched = true
-	uploadRes, err := ns.CallNodeContext(ctx, &server.Node, "PUT", archivePath, resp.Body, headersTransfer)
-	if err != nil || uploadRes.StatusCode != http.StatusNoContent {
-		var body []byte
-		if uploadRes != nil && uploadRes.Body != nil {
-			body, _ = io.ReadAll(io.LimitReader(uploadRes.Body, 64<<10))
-			uploadRes.Body.Close()
-		}
-		logging.Error.Printf("Failed to upload archive to daemon: %v %s", err, string(body))
+	if !uploadTransferArchive(ctx, ns, server, archivePath, resp.Body) {
 		fail("ERROR: Error al subir archivo al daemon")
 		return
-	}
-	if uploadRes.Body != nil {
-		uploadRes.Body.Close()
 	}
 
 	if ctx.Err() != nil {
@@ -1282,27 +1187,14 @@ func performPullTransferAsync(parent context.Context, server *models.Server, ori
 	sendStep("Descomprimiendo archivos...")
 	// 7. Extract on daemon
 	logging.Info.Printf("Extracting files on daemon for server %s", server.Identifier)
-	extractRes, err := ns.CallNodeContext(ctx, &server.Node, "POST", fmt.Sprintf("/daemon/server/%s/extract/transfer.tar.gz?destination=.", server.Identifier), nil, nil)
-	if err != nil || (extractRes != nil && extractRes.StatusCode != http.StatusNoContent && extractRes.StatusCode != http.StatusOK) {
-		var body string
-		if extractRes != nil && extractRes.Body != nil {
-			b, _ := io.ReadAll(io.LimitReader(extractRes.Body, 64<<10))
-			body = string(b)
-			extractRes.Body.Close()
-		}
-		logging.Error.Printf("Failed to extract on daemon: %v, body: %s", err, body)
-		fail(fmt.Sprintf("ERROR: Error al descomprimir en el destino: %s", body))
+	if errMsg := extractTransferArchive(ctx, ns, server); errMsg != "" {
+		fail(errMsg)
 		return
-	}
-	if extractRes != nil && extractRes.Body != nil {
-		extractRes.Body.Close()
 	}
 
 	sendStep("Limpiando archivos temporales...")
 	// Clean up transfer file on daemon
-	if res, err := ns.CallNode(&server.Node, "DELETE", archivePath, nil, nil); err == nil && res.Body != nil {
-		_ = res.Body.Close()
-	}
+	deleteTransferArchive(ns, server, archivePath)
 
 	// 8. The data is here: close the session on the origin so it cannot be downloaded again
 	stopHeartbeats()
@@ -1313,6 +1205,168 @@ func performPullTransferAsync(parent context.Context, server *models.Server, ori
 	logging.Info.Printf("Pull transfer for server %s completed successfully", server.Identifier)
 	sendWebhookReport(server.Name, "Completada", "La transferencia externa finalizó correctamente.", false)
 	sendStep(exTransferProgressDone)
+}
+
+// originPoster sends a JSON body to one of the origin's federated transfer routes
+type originPoster func(path string, body interface{}) (*http.Response, error)
+
+func postToOrigin(ctx context.Context, target *url.URL, body interface{}) (*http.Response, error) {
+	bodyBytes, _ := json.Marshal(body)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, target.String(), bytes.NewReader(bodyBytes))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	return externalHTTPClient.Do(req)
+}
+
+// originValidateResponse is the session the origin opens for a valid token
+type originValidateResponse struct {
+	SessionID string `json:"session_id"`
+	Nonce     string `json:"nonce"`
+}
+
+// validateOriginToken presents the token to the origin; errMsg is what to report when the
+// origin does not accept it
+func validateOriginToken(postOrigin originPoster, token string) (validateRes originValidateResponse, errMsg string) {
+	pubKeyB64 := base64.StdEncoding.EncodeToString(exTransferPublicKey())
+	resp, err := postOrigin("/api/extransfer/validate", map[string]string{
+		"token":             token,
+		"target_public_key": pubKeyB64,
+		"protocol_version":  "1.0",
+	})
+	if err != nil {
+		logging.Error.Printf("Failed to call validate on origin: %v", err)
+		return validateRes, "ERROR: Fallo de red al conectar con origen"
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
+		logging.Error.Printf("Origin validate failed with status %d: %s", resp.StatusCode, string(body))
+		return validateRes, fmt.Sprintf("ERROR: Token inválido o expirado (Status %d)", resp.StatusCode)
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&validateRes); err != nil {
+		logging.Error.Printf("Failed to decode validate response: %v", err)
+		return validateRes, "ERROR: Respuesta inválida del origen"
+	}
+
+	if _, err := uuid.Parse(validateRes.SessionID); err != nil {
+		logging.Error.Printf("Origin returned invalid session_id: %v", err)
+		return validateRes, "ERROR: El origen devolvió un ID de sesión inválido"
+	}
+	return validateRes, ""
+}
+
+// consumeOriginSession asks the origin to start the transfer, signing its nonce; errMsg is
+// what to report when it refuses
+func consumeOriginSession(postOrigin originPoster, validateRes originValidateResponse) (errMsg string) {
+	message := validateRes.Nonce + validateRes.SessionID
+	sig := ed25519.Sign(exTransferPrivateKey(), []byte(message))
+	resp, err := postOrigin("/api/extransfer/consume", map[string]string{
+		"session_id": validateRes.SessionID,
+		"signature":  base64.StdEncoding.EncodeToString(sig),
+	})
+	if err != nil {
+		logging.Error.Printf("Failed to call consume on origin: %v", err)
+		return "ERROR: Fallo al iniciar transferencia en origen"
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 202 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
+		logging.Error.Printf("Origin consume failed with status %d: %s", resp.StatusCode, string(body))
+		return "ERROR: El origen rechazó la transferencia"
+	}
+	return ""
+}
+
+// waitForOriginArchive polls the origin until it serves the archive. A nil response means the
+// pull stops with errMsg, which is empty when ctx was cancelled
+func waitForOriginArchive(ctx context.Context, dlURL string, sendStep func(string)) (resp *http.Response, errMsg string) {
+	const maxWait = 90 * time.Second
+	const pollInterval = 5 * time.Second
+	deadline := time.Now().Add(maxWait)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ""
+		case <-time.After(pollInterval):
+		}
+		sendStep("Descargando paquete de datos desde el origen...")
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, dlURL, nil)
+		if err == nil {
+			resp, err = exTransferDownloadClient.Do(req)
+		}
+		if err != nil {
+			logging.Error.Printf("Failed to call download on origin: %v", err)
+			return nil, "ERROR: Error de red al descargar paquete"
+		}
+		if resp.StatusCode == 200 {
+			return resp, ""
+		}
+		resp.Body.Close()
+		if resp.StatusCode >= 400 && resp.StatusCode < 500 {
+			// the origin refuses the session (cancelled, failed or expired): waiting will not help
+			logging.Error.Printf("Origin refused the download with status %d", resp.StatusCode)
+			return nil, fmt.Sprintf("ERROR: El origen rechazó la descarga (Status %d)", resp.StatusCode)
+		}
+		if time.Now().After(deadline) {
+			logging.Error.Printf("Origin download timed out after %s", maxWait)
+			return nil, fmt.Sprintf("ERROR: El origen no preparó el paquete a tiempo (timeout %s)", maxWait)
+		}
+		logging.Info.Printf("Origin not ready yet (status %d), retrying...", resp.StatusCode)
+	}
+}
+
+// uploadTransferArchive streams the downloaded archive to the local daemon
+func uploadTransferArchive(ctx context.Context, ns *services.Node, server *models.Server, archivePath string, archive io.ReadCloser) bool {
+	headersTransfer := http.Header{}
+	headersTransfer.Set("Content-Type", "application/octet-stream")
+
+	uploadRes, err := ns.CallNodeContext(ctx, &server.Node, "PUT", archivePath, archive, headersTransfer)
+	if err != nil || uploadRes.StatusCode != http.StatusNoContent {
+		var body []byte
+		if uploadRes != nil && uploadRes.Body != nil {
+			body, _ = io.ReadAll(io.LimitReader(uploadRes.Body, 64<<10))
+			uploadRes.Body.Close()
+		}
+		logging.Error.Printf("Failed to upload archive to daemon: %v %s", err, string(body))
+		return false
+	}
+	if uploadRes.Body != nil {
+		uploadRes.Body.Close()
+	}
+	return true
+}
+
+// extractTransferArchive unpacks the archive into the server folder; errMsg is what to report
+// when the daemon could not
+func extractTransferArchive(ctx context.Context, ns *services.Node, server *models.Server) (errMsg string) {
+	extractRes, err := ns.CallNodeContext(ctx, &server.Node, "POST", fmt.Sprintf("/daemon/server/%s/extract/transfer.tar.gz?destination=.", server.Identifier), nil, nil)
+	if err != nil || (extractRes != nil && extractRes.StatusCode != http.StatusNoContent && extractRes.StatusCode != http.StatusOK) {
+		var body string
+		if extractRes != nil && extractRes.Body != nil {
+			b, _ := io.ReadAll(io.LimitReader(extractRes.Body, 64<<10))
+			body = string(b)
+			extractRes.Body.Close()
+		}
+		logging.Error.Printf("Failed to extract on daemon: %v, body: %s", err, body)
+		return fmt.Sprintf("ERROR: Error al descomprimir en el destino: %s", body)
+	}
+	if extractRes != nil && extractRes.Body != nil {
+		extractRes.Body.Close()
+	}
+	return ""
+}
+
+// deleteTransferArchive removes the transfer archive from the server folder, best effort
+func deleteTransferArchive(ns *services.Node, server *models.Server, archivePath string) {
+	if res, err := ns.CallNode(&server.Node, "DELETE", archivePath, nil, nil); err == nil && res.Body != nil {
+		_ = res.Body.Close()
+	}
 }
 
 // clearTransferProgressIf clears the server's progress unless something newer replaced it.

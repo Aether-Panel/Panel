@@ -341,27 +341,31 @@ func pruneFileHistory(root string) error {
 
 	var errs []error
 	for folder, ids := range drop {
-		index := indexes[folder]
-		kept := index.Versions[:0]
-		for _, v := range index.Versions {
-			if !ids[v.ID] {
-				kept = append(kept, v)
-			}
-		}
-		index.Versions = kept
-		if len(kept) == 0 {
-			errs = append(errs, os.RemoveAll(folder))
-			continue
-		}
-		if err := saveFileHistoryIndex(folder, index); err != nil {
-			errs = append(errs, err)
-			continue
-		}
-		for id := range ids {
-			_ = os.Remove(versionFile(folder, id))
-		}
+		errs = append(errs, dropFileVersions(folder, indexes[folder], ids))
 	}
 	return errors.Join(errs...)
+}
+
+// dropFileVersions removes the given versions from one file's history, deleting the folder
+// when nothing is left
+func dropFileVersions(folder string, index *fileHistoryIndex, ids map[string]bool) error {
+	kept := index.Versions[:0]
+	for _, v := range index.Versions {
+		if !ids[v.ID] {
+			kept = append(kept, v)
+		}
+	}
+	index.Versions = kept
+	if len(kept) == 0 {
+		return os.RemoveAll(folder)
+	}
+	if err := saveFileHistoryIndex(folder, index); err != nil {
+		return err
+	}
+	for id := range ids {
+		_ = os.Remove(versionFile(folder, id))
+	}
+	return nil
 }
 
 // FileVersions lists the stored versions of a file, newest first; empty when there are none

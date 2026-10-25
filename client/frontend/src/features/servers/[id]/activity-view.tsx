@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   AlertTriangle,
   Archive,
@@ -96,10 +96,46 @@ function formatRelative(then: number, locale: string): string {
   return formatter.format(Math.round(seconds / 3600), 'hour');
 }
 
+type DayGroup = { key: string; label: string; isToday: boolean; rows: { entry: ActivityEntry; index: number }[] };
+
+/** Splits the (newest first) entries into calendar days, labelled "today", "yesterday" or the date. */
+function groupByDay(entries: ActivityEntry[], locale: string, t: (key: string) => string): DayGroup[] {
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const todayKey = dayKey(today);
+  const yesterdayKey = dayKey(yesterday);
+
+  const result: DayGroup[] = [];
+  entries.forEach((entry, index) => {
+    const date = new Date(entry.createdAt);
+    const key = dayKey(date);
+    let group = result.at(-1);
+    if (group?.key !== key) {
+      let label: string;
+      if (key === todayKey) label = t('servers.activity.today');
+      else if (key === yesterdayKey) label = t('servers.activity.yesterday');
+      else {
+        label = date.toLocaleDateString(locale, {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          ...(date.getFullYear() !== today.getFullYear() ? { year: 'numeric' } : {}),
+        });
+        label = label.charAt(0).toLocaleUpperCase(locale) + label.slice(1);
+      }
+      group = { key, label, isToday: key === todayKey, rows: [] };
+      result.push(group);
+    }
+    group.rows.push({ entry, index });
+  });
+  return result;
+}
+
 type ViewState = 'loading' | 'ready' | 'error' | 'denied';
 
 /** The server's activity log: who changed what, grouped by day, newest first. */
-export default function ActivityView({ serverId }: { serverId: string }) {
+export default function ActivityView({ serverId }: Readonly<{ serverId: string }>) {
   const { t, language } = useTranslations();
   const { user } = useAuth();
   const locale = language === 'es' ? 'es-ES' : 'en-US';
@@ -190,43 +226,71 @@ export default function ActivityView({ serverId }: { serverId: string }) {
     }
   };
 
-  const groups = useMemo(() => {
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
-    const todayKey = dayKey(today);
-    const yesterdayKey = dayKey(yesterday);
-
-    const result: { key: string; label: string; isToday: boolean; rows: { entry: ActivityEntry; index: number }[] }[] = [];
-    entries.forEach((entry, index) => {
-      const date = new Date(entry.createdAt);
-      const key = dayKey(date);
-      let group = result[result.length - 1];
-      if (!group || group.key !== key) {
-        let label: string;
-        if (key === todayKey) label = t('servers.activity.today');
-        else if (key === yesterdayKey) label = t('servers.activity.yesterday');
-        else {
-          label = date.toLocaleDateString(locale, {
-            weekday: 'long',
-            day: 'numeric',
-            month: 'long',
-            ...(date.getFullYear() !== today.getFullYear() ? { year: 'numeric' } : {}),
-          });
-          label = label.charAt(0).toLocaleUpperCase(locale) + label.slice(1);
-        }
-        group = { key, label, isToday: key === todayKey, rows: [] };
-        result.push(group);
-      }
-      group.rows.push({ entry, index });
-    });
-    return result;
-  }, [entries, locale, t]);
+  const groups = useMemo(() => groupByDay(entries, locale, t), [entries, locale, t]);
 
   const identityFor = (entry: ActivityEntry) => {
-    if (user && entry.userId === user.id) return { identity: user.email || user.username, src: user.avatar };
+    if (entry.userId === user?.id) return { identity: user.email || user.username, src: user.avatar };
     return { identity: emails.get(entry.username) || entry.username || undefined, src: undefined };
   };
+
+  let content: ReactNode;
+  if (state === 'loading') {
+    content = <ActivitySkeleton />;
+  } else if (state === 'denied') {
+    content = <EmptyState icon={Lock} title={t('servers.activity.denied.title')} description={t('servers.activity.denied.description')} />;
+  } else if (state === 'error') {
+    content = (
+      <EmptyState
+        icon={AlertTriangle}
+        tone="error"
+        title={t('servers.activity.error.title')}
+        description={t('servers.activity.error.description')}
+        action={
+          <Button variant="outline" onClick={() => void loadFirstPage()}>
+            <RotateCw aria-hidden="true" />
+            {t('servers.activity.error.retry')}
+          </Button>
+        }
+      />
+    );
+  } else if (entries.length === 0) {
+    content = <ActivityEmpty filtered={filter !== 'all'} onShowAll={() => setFilter('all')} />;
+  } else {
+    content = (
+      <div className="space-y-5">
+        {groups.map((group) => (
+          <section key={group.key} aria-labelledby={`activity-day-${group.key}`} className="space-y-2">
+            <h3 id={`activity-day-${group.key}`} className="px-1 text-xs font-medium text-muted-foreground">
+              {group.label}
+            </h3>
+            <ol className="rounded-xl border border-border/60 bg-background/30 px-3 sm:px-4">
+              {group.rows.map(({ entry, index }, position) => (
+                <ActivityRow
+                  key={entry.id}
+                  entry={entry}
+                  isLast={position === group.rows.length - 1}
+                  relative={group.isToday}
+                  delay={Math.min(Math.max(index - batchStart, 0), 6) * 40}
+                  locale={locale}
+                  avatar={identityFor(entry)}
+                />
+              ))}
+            </ol>
+          </section>
+        ))}
+
+        <div className="flex flex-col items-center gap-3 pt-1">
+          {cursor !== null && (
+            <Button variant="outline" onClick={() => void loadMore()} disabled={loadingMore}>
+              {loadingMore && <Loader2 className="animate-spin" aria-hidden="true" />}
+              {t('servers.activity.loadMore')}
+            </Button>
+          )}
+          <p className="text-center text-xs text-muted-foreground">{t('servers.activity.retention')}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-6">
@@ -250,10 +314,9 @@ export default function ActivityView({ serverId }: { serverId: string }) {
         </CardHeader>
 
         <CardContent className="space-y-5 p-5 md:p-6">
-          <div
-            role="group"
+          <fieldset
             aria-label={t('servers.activity.filters.label')}
-            className="grid grid-cols-4 gap-0.5 rounded-lg border border-border/60 bg-background/40 p-0.5 sm:inline-flex sm:flex-wrap"
+            className="grid min-w-0 grid-cols-4 gap-0.5 rounded-lg border border-border/60 bg-background/40 p-0.5 sm:inline-flex sm:flex-wrap"
           >
             {FILTERS.map((value) => {
               const active = filter === value;
@@ -272,77 +335,32 @@ export default function ActivityView({ serverId }: { serverId: string }) {
                 </button>
               );
             })}
-          </div>
+          </fieldset>
 
-          {state === 'loading' ? (
-            <ActivitySkeleton />
-          ) : state === 'denied' ? (
-            <EmptyState icon={Lock} title={t('servers.activity.denied.title')} description={t('servers.activity.denied.description')} />
-          ) : state === 'error' ? (
-            <EmptyState
-              icon={AlertTriangle}
-              tone="error"
-              title={t('servers.activity.error.title')}
-              description={t('servers.activity.error.description')}
-              action={
-                <Button variant="outline" onClick={() => void loadFirstPage()}>
-                  <RotateCw aria-hidden="true" />
-                  {t('servers.activity.error.retry')}
-                </Button>
-              }
-            />
-          ) : entries.length === 0 ? (
-            filter === 'all' ? (
-              <EmptyState icon={History} title={t('servers.activity.empty.title')} description={t('servers.activity.empty.description')} />
-            ) : (
-              <EmptyState
-                icon={History}
-                title={t('servers.activity.emptyFiltered.title')}
-                description={t('servers.activity.emptyFiltered.description')}
-                action={
-                  <Button variant="outline" onClick={() => setFilter('all')}>
-                    {t('servers.activity.emptyFiltered.showAll')}
-                  </Button>
-                }
-              />
-            )
-          ) : (
-            <div className="space-y-5">
-              {groups.map((group) => (
-                <section key={group.key} aria-labelledby={`activity-day-${group.key}`} className="space-y-2">
-                  <h3 id={`activity-day-${group.key}`} className="px-1 text-xs font-medium text-muted-foreground">
-                    {group.label}
-                  </h3>
-                  <ol className="rounded-xl border border-border/60 bg-background/30 px-3 sm:px-4">
-                    {group.rows.map(({ entry, index }, position) => (
-                      <ActivityRow
-                        key={entry.id}
-                        entry={entry}
-                        isLast={position === group.rows.length - 1}
-                        relative={group.isToday}
-                        delay={Math.min(Math.max(index - batchStart, 0), 6) * 40}
-                        locale={locale}
-                        avatar={identityFor(entry)}
-                      />
-                    ))}
-                  </ol>
-                </section>
-              ))}
-
-              <div className="flex flex-col items-center gap-3 pt-1">
-                {cursor !== null && (
-                  <Button variant="outline" onClick={() => void loadMore()} disabled={loadingMore}>
-                    {loadingMore && <Loader2 className="animate-spin" aria-hidden="true" />}
-                    {t('servers.activity.loadMore')}
-                  </Button>
-                )}
-                <p className="text-center text-xs text-muted-foreground">{t('servers.activity.retention')}</p>
-              </div>
-            </div>
-          )}
+          {content}
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/** Nothing logged yet, or nothing under the chosen filter. */
+function ActivityEmpty({ filtered, onShowAll }: Readonly<{ filtered: boolean; onShowAll: () => void }>) {
+  const { t } = useTranslations();
+  if (!filtered) {
+    return <EmptyState icon={History} title={t('servers.activity.empty.title')} description={t('servers.activity.empty.description')} />;
+  }
+  return (
+    <EmptyState
+      icon={History}
+      title={t('servers.activity.emptyFiltered.title')}
+      description={t('servers.activity.emptyFiltered.description')}
+      action={
+        <Button variant="outline" onClick={onShowAll}>
+          {t('servers.activity.emptyFiltered.showAll')}
+        </Button>
+      }
+    />
   );
 }
 
@@ -356,7 +374,7 @@ type ActivityRowProps = {
   avatar: { identity?: string; src?: string };
 };
 
-function ActivityRow({ entry, isLast, relative, delay, locale, avatar }: ActivityRowProps) {
+function ActivityRow({ entry, isLast, relative, delay, locale, avatar }: Readonly<ActivityRowProps>) {
   const { t } = useTranslations();
   const family = familyOf(entry.action);
   const Icon = FAMILY_ICONS[family];
@@ -368,11 +386,10 @@ function ActivityRow({ entry, isLast, relative, delay, locale, avatar }: Activit
 
   const date = new Date(entry.createdAt);
   const valid = Number.isFinite(date.getTime());
-  const when = !valid
-    ? ''
-    : relative
-      ? formatRelative(date.getTime(), locale)
-      : date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  let when = '';
+  if (valid) {
+    when = relative ? formatRelative(date.getTime(), locale) : date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  }
   const exact = valid ? date.toLocaleString(locale, { dateStyle: 'full', timeStyle: 'medium' }) : undefined;
 
   const style = detailStyleOf(entry.action);
@@ -439,6 +456,8 @@ function ActivityRow({ entry, isLast, relative, delay, locale, avatar }: Activit
   );
 }
 
+const SKELETON_WIDTHS = ['w-3/4', 'w-1/2', 'w-2/3'];
+
 function ActivitySkeleton() {
   return (
     <div aria-hidden="true" className="space-y-2">
@@ -448,7 +467,7 @@ function ActivitySkeleton() {
           <div key={index} className="flex gap-3 py-3">
             <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
             <div className="flex-1 space-y-2 pt-0.5">
-              <Skeleton className={cn('h-3.5', index % 3 === 0 ? 'w-3/4' : index % 3 === 1 ? 'w-1/2' : 'w-2/3')} />
+              <Skeleton className={cn('h-3.5', SKELETON_WIDTHS[index % 3])} />
               <Skeleton className="h-2.5 w-20" />
             </div>
           </div>

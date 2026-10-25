@@ -22,7 +22,7 @@ function errorMessage(err: unknown, fallback: string) {
 }
 
 /** A calm status box for the in-between states (installing, server off, map warming up). */
-function StatusPanel({ icon, title, hint, children }: { icon: ReactNode; title: string; hint: string; children?: ReactNode }) {
+function StatusPanel({ icon, title, hint, children }: Readonly<{ icon: ReactNode; title: string; hint: string; children?: ReactNode }>) {
   return (
     <div className="flex min-h-[420px] flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-border/60 px-6 py-12 text-center animate-in fade-in-0 duration-300 ease-panel">
       <span aria-hidden="true" className="flex h-12 w-12 items-center justify-center rounded-2xl border border-border/60 bg-card text-primary-bright">
@@ -37,12 +37,96 @@ function StatusPanel({ icon, title, hint, children }: { icon: ReactNode; title: 
   );
 }
 
+/** Before the first answer: a skeleton, or the error with a retry. */
+function MapLoadState({ error, onRetry }: Readonly<{ error: string | null; onRetry: () => void }>) {
+  const { t } = useTranslations();
+  if (error) {
+    return (
+      <EmptyState
+        icon={AlertTriangle}
+        tone="error"
+        title={t('servers.map.loadErrorTitle')}
+        description={error}
+        action={
+          <Button variant="outline" onClick={onRetry}>
+            <RefreshCw aria-hidden="true" />
+            {t('servers.map.retry')}
+          </Button>
+        }
+      />
+    );
+  }
+  return (
+    <Card className="space-y-5 p-5 md:p-6" aria-busy="true">
+      <div className="flex items-center gap-3">
+        <Skeleton className="h-10 w-10 rounded-xl" />
+        <div className="flex-1 space-y-2">
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-3 w-full max-w-sm" />
+        </div>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        <Skeleton className="h-36 rounded-xl" />
+        <Skeleton className="h-36 rounded-xl" />
+      </div>
+    </Card>
+  );
+}
+
+/** The server runs a loader no map plugin or mod supports. */
+function UnsupportedMap({ reason }: Readonly<{ reason: WorldMapStatus['reason'] }>) {
+  const { t } = useTranslations();
+  return (
+    <EmptyState
+      icon={MapIcon}
+      title={t('servers.map.unsupportedTitle')}
+      description={reason === 'vanilla' ? t('servers.map.unsupportedVanilla') : t('servers.map.unsupportedUnknown')}
+      action={
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <Button asChild variant="outline">
+            <a href="?tab=settings">
+              <Settings2 aria-hidden="true" />
+              {t('servers.map.changeLoader')}
+            </a>
+          </Button>
+          <Button asChild variant="ghost">
+            <a href="?tab=modpacks">
+              <Package aria-hidden="true" />
+              {t('servers.map.useModpack')}
+            </a>
+          </Button>
+        </div>
+      }
+    />
+  );
+}
+
+function RemoveMapDialog({ name, open, onOpenChange, onConfirm }: Readonly<{ name: string; open: boolean; onOpenChange: (open: boolean) => void; onConfirm: () => void }>) {
+  const { t } = useTranslations();
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t('servers.map.removeTitle', { name })}</AlertDialogTitle>
+          <AlertDialogDescription>{t('servers.map.removeDescription')}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+          <AlertDialogAction onClick={onConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            {t('servers.map.removeConfirm')}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 /**
  * The world map tab: install BlueMap (3D) or Dynmap (2D) in one click and watch the live map
  * right here. The map is served through a signed, sandboxed link, so its scripts never touch
  * the panel's session.
  */
-export default function WorldMapView({ serverId }: { serverId: string }) {
+export default function WorldMapView({ serverId }: Readonly<{ serverId: string }>) {
   const { t } = useTranslations();
   const [status, setStatus] = useState<WorldMapStatus | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -127,82 +211,8 @@ export default function WorldMapView({ serverId }: { serverId: string }) {
     }
   };
 
-  if (!status) {
-    if (loadError) {
-      return (
-        <EmptyState
-          icon={AlertTriangle}
-          tone="error"
-          title={t('servers.map.loadErrorTitle')}
-          description={loadError}
-          action={
-            <Button variant="outline" onClick={() => void load()}>
-              <RefreshCw aria-hidden="true" />
-              {t('servers.map.retry')}
-            </Button>
-          }
-        />
-      );
-    }
-    return (
-      <Card className="space-y-5 p-5 md:p-6" aria-busy="true">
-        <div className="flex items-center gap-3">
-          <Skeleton className="h-10 w-10 rounded-xl" />
-          <div className="flex-1 space-y-2">
-            <Skeleton className="h-4 w-40" />
-            <Skeleton className="h-3 w-full max-w-sm" />
-          </div>
-        </div>
-        <div className="grid gap-3 md:grid-cols-2">
-          <Skeleton className="h-36 rounded-xl" />
-          <Skeleton className="h-36 rounded-xl" />
-        </div>
-      </Card>
-    );
-  }
-
-  if (!status.supported) {
-    return (
-      <EmptyState
-        icon={MapIcon}
-        title={t('servers.map.unsupportedTitle')}
-        description={status.reason === 'vanilla' ? t('servers.map.unsupportedVanilla') : t('servers.map.unsupportedUnknown')}
-        action={
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            <Button asChild variant="outline">
-              <a href="?tab=settings">
-                <Settings2 aria-hidden="true" />
-                {t('servers.map.changeLoader')}
-              </a>
-            </Button>
-            <Button asChild variant="ghost">
-              <a href="?tab=modpacks">
-                <Package aria-hidden="true" />
-                {t('servers.map.useModpack')}
-              </a>
-            </Button>
-          </div>
-        }
-      />
-    );
-  }
-
-  const removeDialog = status.installed && (
-    <AlertDialog open={confirmRemove} onOpenChange={setConfirmRemove}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{t('servers.map.removeTitle', { name: MAP_NAMES[status.installed] })}</AlertDialogTitle>
-          <AlertDialogDescription>{t('servers.map.removeDescription')}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-          <AlertDialogAction onClick={() => void remove()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-            {t('servers.map.removeConfirm')}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
+  if (!status) return <MapLoadState error={loadError} onRetry={() => void load()} />;
+  if (!status.supported) return <UnsupportedMap reason={status.reason} />;
 
   if (status.installing) {
     return (
@@ -219,6 +229,7 @@ export default function WorldMapView({ serverId }: { serverId: string }) {
   }
 
   const name = MAP_NAMES[status.installed];
+  const removeDialog = <RemoveMapDialog name={name} open={confirmRemove} onOpenChange={setConfirmRemove} onConfirm={() => void remove()} />;
   const removeButton = (
     <Button variant="ghost" className="text-muted-foreground hover:text-destructive-bright" onClick={() => setConfirmRemove(true)} disabled={removing}>
       {removing ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Trash2 aria-hidden="true" />}

@@ -58,9 +58,38 @@ export function toCron(schedule: Schedule, zone: string): string {
 const pad = (n: number) => String(n).padStart(2, '0');
 const isNumber = (value: string, max: number) => /^\d{1,2}$/.test(value) && Number(value) <= max;
 
+/** Daily or weekly at a fixed time, from cron's minute, hour and day-of-week fields. */
+function timedSchedule(minute: string, hour: string, dow: string): Schedule | null {
+  if (!isNumber(minute, 59) || !isNumber(hour, 23)) return null;
+  const time = `${pad(Number(hour))}:${pad(Number(minute))}`;
+  if (dow === '*') return { kind: 'daily', time };
+  if (/^[0-6](,[0-6])*$/.test(dow)) {
+    const days = [...new Set(dow.split(',').map(Number))];
+    return { kind: 'weekly', time, days };
+  }
+  return null;
+}
+
+/** Every N hours on the hour, from cron's minute, hour and day-of-week fields. */
+function intervalSchedule(minute: string, hour: string, dow: string): Schedule | null {
+  if (minute !== '0' || dow !== '*') return null;
+  if (hour === '*') return { kind: 'interval', hours: 1 };
+  const step = /^\*\/(\d+)$/.exec(hour);
+  if (step && INTERVAL_HOURS.includes(Number(step[1]))) return { kind: 'interval', hours: Number(step[1]) };
+  return null;
+}
+
+/** One of the simple choices for five cron fields, or null when it takes custom cron. */
+function simpleSchedule(fields: string[]): Schedule | null {
+  if (fields.length !== 5) return null;
+  const [minute, hour, dom, month, dow] = fields;
+  if (dom !== '*' || month !== '*') return null;
+  return timedSchedule(minute, hour, dow) ?? intervalSchedule(minute, hour, dow);
+}
+
 /** Reads a stored cron back into a choice, falling back to "custom" for anything else. */
 export function fromCron(spec: string | undefined): { schedule: Schedule; zone: string | null } {
-  if (!spec || !spec.trim()) return { schedule: { kind: 'manual' }, zone: null };
+  if (!spec?.trim()) return { schedule: { kind: 'manual' }, zone: null };
 
   let fields = spec.trim().split(/\s+/);
   let zone: string | null = null;
@@ -70,27 +99,8 @@ export function fromCron(spec: string | undefined): { schedule: Schedule; zone: 
     fields = fields.slice(1);
   }
 
-  if (fields.length === 5) {
-    const [minute, hour, dom, month, dow] = fields;
-    if (dom === '*' && month === '*') {
-      if (isNumber(minute, 59) && isNumber(hour, 23)) {
-        const time = `${pad(Number(hour))}:${pad(Number(minute))}`;
-        if (dow === '*') return { schedule: { kind: 'daily', time }, zone };
-        if (/^[0-6](,[0-6])*$/.test(dow)) {
-          const days = [...new Set(dow.split(',').map(Number))];
-          return { schedule: { kind: 'weekly', time, days }, zone };
-        }
-      }
-      if (minute === '0' && dow === '*') {
-        if (hour === '*') return { schedule: { kind: 'interval', hours: 1 }, zone };
-        const step = /^\*\/(\d+)$/.exec(hour);
-        if (step && INTERVAL_HOURS.includes(Number(step[1]))) {
-          return { schedule: { kind: 'interval', hours: Number(step[1]) }, zone };
-        }
-      }
-    }
-  }
-  return { schedule: { kind: 'custom', expression: fields.join(' ') }, zone };
+  const schedule: Schedule = simpleSchedule(fields) ?? { kind: 'custom', expression: fields.join(' ') };
+  return { schedule, zone };
 }
 
 type Translate = (key: string, params?: Record<string, string | number>) => string;

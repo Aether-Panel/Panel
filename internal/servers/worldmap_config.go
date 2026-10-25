@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/SkyPanel/SkyPanel/v3/files"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers/docker"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
@@ -163,26 +164,9 @@ func (p *Server) patchMapConfig(sidecar *worldMapSidecar) (done, reloaded bool, 
 	}
 	edits := mapConfigEdits(sidecar, port)
 	fs := p.GetFileServer()
-	contents := make(map[string]string)
-	missing := make(map[string]bool)
-	for _, edit := range edits {
-		if _, ok := contents[edit.file]; ok || missing[edit.file] {
-			continue
-		}
-		file, err := fs.OpenFile(edit.file, os.O_RDONLY, 0644)
-		if errors.Is(err, os.ErrNotExist) {
-			missing[edit.file] = true
-			continue
-		}
-		if err != nil {
-			return false, false, err
-		}
-		data, err := io.ReadAll(io.LimitReader(file, maxMapConfig))
-		utils.Close(file)
-		if err != nil {
-			return false, false, err
-		}
-		contents[edit.file] = string(data)
+	contents, missing, err := readMapConfigFiles(fs, edits)
+	if err != nil {
+		return false, false, err
 	}
 
 	changedFiles := make(map[string]bool)
@@ -201,19 +185,8 @@ func (p *Server) patchMapConfig(sidecar *worldMapSidecar) (done, reloaded bool, 
 			portChanged = true
 		}
 	}
-	for file := range changedFiles {
-		out, err := fs.OpenFile(file, os.O_WRONLY|os.O_TRUNC, 0644)
-		if err != nil {
-			return false, false, err
-		}
-		_, err = io.WriteString(out, contents[file])
-		closeErr := out.Close()
-		if err == nil {
-			err = closeErr
-		}
-		if err != nil {
-			return false, false, fmt.Errorf("writing %s: %w", file, err)
-		}
+	if err := writeMapConfigFiles(fs, contents, changedFiles); err != nil {
+		return false, false, err
 	}
 	if sidecar.Port != port {
 		sidecar.Port = port
@@ -238,28 +211,59 @@ func (p *Server) patchMapConfig(sidecar *worldMapSidecar) (done, reloaded bool, 
 	return len(missing) == 0, true, nil
 }
 
+// readMapConfigFiles loads every file the edits touch; the ones that do not exist yet are
+// reported in missing
+func readMapConfigFiles(fs files.FileServer, edits []mapConfigEdit) (contents map[string]string, missing map[string]bool, err error) {
+	contents = make(map[string]string)
+	missing = make(map[string]bool)
+	for _, edit := range edits {
+		if _, ok := contents[edit.file]; ok || missing[edit.file] {
+			continue
+		}
+		file, err := fs.OpenFile(edit.file, os.O_RDONLY, 0644)
+		if errors.Is(err, os.ErrNotExist) {
+			missing[edit.file] = true
+			continue
+		}
+		if err != nil {
+			return nil, nil, err
+		}
+		data, err := io.ReadAll(io.LimitReader(file, maxMapConfig))
+		utils.Close(file)
+		if err != nil {
+			return nil, nil, err
+		}
+		contents[edit.file] = string(data)
+	}
+	return contents, missing, nil
+}
+
+// writeMapConfigFiles saves the files the edits changed
+func writeMapConfigFiles(fs files.FileServer, contents map[string]string, changedFiles map[string]bool) error {
+	for file := range changedFiles {
+		out, err := fs.OpenFile(file, os.O_WRONLY|os.O_TRUNC, 0644)
+		if err != nil {
+			return err
+		}
+		_, err = io.WriteString(out, contents[file])
+		closeErr := out.Close()
+		if err == nil {
+			err = closeErr
+		}
+		if err != nil {
+			return fmt.Errorf("writing %s: %w", file, err)
+		}
+	}
+	return nil
+}
+
 // mapCandidates are the addresses the map's web server may answer on, most likely first
 func (p *Server) mapCandidates(ctx context.Context, port int) []string {
 	portText := strconv.Itoa(port)
 	env := p.GetEnvironment()
 	if env != nil {
 		if d, ok := env.Implementation.(*docker.Docker); ok {
-			ips, gateways, err := d.ContainerAddresses(ctx, env.ServerID)
-			if err != nil {
-				p.Log(logging.Debug, "Could not inspect the container for the world map: %s", err)
-			}
-			candidates := make([]string, 0, len(ips)+len(gateways)+1)
-			for _, ip := range ips {
-				candidates = append(candidates, net.JoinHostPort(ip, portText))
-			}
-			// an extra port is also published on the host
-			if port != blueMapDefaultPort && port != dynmapDefaultPort {
-				candidates = append(candidates, net.JoinHostPort("127.0.0.1", portText))
-				for _, gateway := range gateways {
-					candidates = append(candidates, net.JoinHostPort(gateway, portText))
-				}
-			}
-			return candidates
+			return p.containerMapCandidates(ctx, d, env.ServerID, port)
 		}
 	}
 	ip := strings.TrimSpace(cast.ToString(p.DataToMap()["ip"]))
@@ -267,6 +271,28 @@ func (p *Server) mapCandidates(ctx context.Context, port int) []string {
 		ip = "127.0.0.1"
 	}
 	return []string{net.JoinHostPort(strings.Trim(ip, "[]"), portText)}
+}
+
+// containerMapCandidates are the addresses of the server's container, plus the host's when the
+// map uses an extra published port
+func (p *Server) containerMapCandidates(ctx context.Context, d *docker.Docker, containerName string, port int) []string {
+	portText := strconv.Itoa(port)
+	ips, gateways, err := d.ContainerAddresses(ctx, containerName)
+	if err != nil {
+		p.Log(logging.Debug, "Could not inspect the container for the world map: %s", err)
+	}
+	candidates := make([]string, 0, len(ips)+len(gateways)+1)
+	for _, ip := range ips {
+		candidates = append(candidates, net.JoinHostPort(ip, portText))
+	}
+	// an extra port is also published on the host
+	if port != blueMapDefaultPort && port != dynmapDefaultPort {
+		candidates = append(candidates, net.JoinHostPort("127.0.0.1", portText))
+		for _, gateway := range gateways {
+			candidates = append(candidates, net.JoinHostPort(gateway, portText))
+		}
+	}
+	return candidates
 }
 
 // WorldMapTarget is the host:port the map's web server answers on

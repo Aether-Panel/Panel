@@ -41,6 +41,14 @@ type PaletteItem = {
 
 type ServerSummary = { id: string; name: string; ip?: string; port?: number };
 
+/** A server row's trailing hint: its address, or just the port when it listens everywhere. */
+function serverHint({ ip, port }: ServerSummary): string | undefined {
+    const portSuffix = port ? `:${port}` : '';
+    // a listen-everywhere address says nothing; the port is what players type
+    if (ip && ip !== '0.0.0.0') return `${ip}${portSuffix}`;
+    return portSuffix || undefined;
+}
+
 /** Case- and accent-insensitive so "configuracion" finds "Configuración". */
 const normalize = (value: string) =>
     value.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -56,7 +64,7 @@ function score(item: PaletteItem, needle: string) {
 }
 
 /** The label with the typed text picked out. */
-function Highlight({ text, needle }: { text: string; needle: string }): ReactNode {
+function Highlight({ text, needle }: Readonly<{ text: string; needle: string }>): ReactNode {
     if (!needle) return text;
     const index = normalize(text).indexOf(needle);
     if (index < 0) return text;
@@ -136,16 +144,16 @@ export function QuickSearch({ items, className }: { items: QuickSearchItem[]; cl
                 id: `server:${server.id}`,
                 label: server.name,
                 section: sections.servers,
-                // a listen-everywhere address says nothing; the port is what players type
-                hint: server.ip && server.ip !== '0.0.0.0' ? `${server.ip}${server.port ? `:${server.port}` : ''}` : server.port ? `:${server.port}` : undefined,
+                hint: serverHint(server),
                 icon: ServerIcon,
                 href,
                 keywords: server.id,
             });
             for (const { tab, icon } of SERVER_TABS) {
+                const tabLabel = t(`servers.detail.tabs.${tab}`);
                 serverRows.push({
                     id: `server:${server.id}:${tab}`,
-                    label: `${server.name} › ${t(`servers.detail.tabs.${tab}`)}`,
+                    label: `${server.name} › ${tabLabel}`,
                     section: sections.servers,
                     icon,
                     href: `${href}&tab=${tab}`,

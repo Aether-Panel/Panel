@@ -49,7 +49,7 @@ function serverIdFromUrl() {
   return new URLSearchParams(window.location.search).get('id') ?? '';
 }
 
-export function ServerAddress({ ip, port, serverId }: { ip: string; port: number; serverId?: string }) {
+export function ServerAddress({ ip, port, serverId }: Readonly<{ ip: string; port: number; serverId?: string }>) {
   const { t } = useTranslations();
   const id = serverId || serverIdFromUrl();
   const [subdomain, setSubdomain] = useState<string | null>(null);
@@ -66,7 +66,7 @@ export function ServerAddress({ ip, port, serverId }: { ip: string; port: number
     const onChange = (event: Event) => {
       const { detail } = event as CustomEvent<SubdomainEventDetail>;
       if (detail.serverId !== id) return;
-      setSubdomain(detail.info && detail.info.address ? playerAddress(detail.info) : null);
+      setSubdomain(detail.info?.address ? playerAddress(detail.info) : null);
     };
     window.addEventListener(SUBDOMAIN_EVENT, onChange);
     return () => {

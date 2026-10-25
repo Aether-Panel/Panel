@@ -268,12 +268,7 @@ func describeServerActivity(c *gin.Context, route string, capture activityCaptur
 	case "server.rename":
 		return action, c.Param("name")
 	case "server.suspend":
-		if v, ok := c.Get("server"); ok {
-			if server, isServer := v.(*models.Server); isServer && server != nil && !server.Suspended {
-				return "server.unsuspend", ""
-			}
-		}
-		return action, ""
+		return suspendActivity(c, action), ""
 	case "console.command":
 		return action, capture.command
 	case "server.version":
@@ -327,6 +322,16 @@ func describeServerActivity(c *gin.Context, route string, capture activityCaptur
 	// settings and other changes: their bodies may hold secrets (webhooks, passwords), so
 	// only the fact that they changed is kept
 	return action, ""
+}
+
+// suspendActivity tells a suspension from a lift by the state of the request's server
+func suspendActivity(c *gin.Context, action string) string {
+	if v, ok := c.Get("server"); ok {
+		if server, isServer := v.(*models.Server); isServer && server != nil && !server.Suspended {
+			return "server.unsuspend"
+		}
+	}
+	return action
 }
 
 // serverActivityDB is the connection to write with once the handler is done; a request-wide

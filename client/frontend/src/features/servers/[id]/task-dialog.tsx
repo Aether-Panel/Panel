@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTranslations } from '@/contexts/translations-context';
 import { cn } from '@/lib/utils';
-import { INTERVAL_HOURS, fromCron, localTimeZone, toCron, weekdayLabels, type ScheduleKind } from './task-schedule';
+import { INTERVAL_HOURS, fromCron, localTimeZone, toCron, weekdayLabels, type Schedule, type ScheduleKind } from './task-schedule';
 
 export type TaskStep = { type: string; [key: string]: unknown };
 
@@ -37,7 +37,7 @@ export const DEFAULT_BACKUP_KEEP = 5;
 const MAX_BACKUP_KEEP = 50;
 
 export function sleepMinutes(step: TaskStep): number | null {
-  const match = /^(\d+)m$/.exec(String(step.duration ?? ''));
+  const match = /^(\d+)m$/.exec(typeof step.duration === 'string' ? step.duration : '');
   return match ? Number(match[1]) : null;
 }
 
@@ -69,9 +69,25 @@ type TaskDialogProps = {
 /** A step plus a key that follows it when it moves, so React keeps focus on the right row. */
 type Row = { key: number; step: TaskStep };
 
+/** The schedule the form describes, with only the fields its kind uses. */
+function buildSchedule(kind: ScheduleKind, fields: { time: string; days: number[]; hours: number; expression: string }): Schedule {
+  switch (kind) {
+    case 'daily':
+      return { kind, time: fields.time };
+    case 'weekly':
+      return { kind, time: fields.time, days: fields.days };
+    case 'interval':
+      return { kind, hours: fields.hours };
+    case 'custom':
+      return { kind, expression: fields.expression };
+    default:
+      return { kind: 'manual' };
+  }
+}
+
 type Errors = Partial<Record<'name' | 'steps' | 'days' | 'cron' | `command-${number}`, string>>;
 
-export default function TaskDialog({ open, onOpenChange, initial, isEditing, allowedSteps, saving, onSave }: TaskDialogProps) {
+export default function TaskDialog({ open, onOpenChange, initial, isEditing, allowedSteps, saving, onSave }: Readonly<TaskDialogProps>) {
   const { t, language } = useTranslations();
   const locale = language === 'es' ? 'es-ES' : 'en-US';
   const ids = useId();
@@ -119,16 +135,11 @@ export default function TaskDialog({ open, onOpenChange, initial, isEditing, all
     setSubmitted(true);
     if (Object.keys(errors).length > 0) return;
 
-    const schedule =
-      kind === 'daily' ? { kind, time }
-        : kind === 'weekly' ? { kind, time, days }
-          : kind === 'interval' ? { kind, hours }
-            : kind === 'custom' ? { kind, expression }
-              : { kind };
+    const schedule = buildSchedule(kind, { time, days, hours, expression });
     onSave({
       ...initial,
       name: name.trim(),
-      cronSchedule: toCron(schedule as Parameters<typeof toCron>[0], zone),
+      cronSchedule: toCron(schedule, zone),
       operations: steps.map((step) => (step.type === 'stdin' ? { ...step, command: String(step.command).trim() } : step)),
     });
   };
@@ -215,7 +226,7 @@ export default function TaskDialog({ open, onOpenChange, initial, isEditing, all
             {kind === 'weekly' && (
               <div className="space-y-2">
                 <span id={`${ids}-days`} className="text-sm font-medium leading-none">{t('servers.tasks.schedule.days')}</span>
-                <div role="group" aria-labelledby={`${ids}-days`} className="grid grid-cols-7 gap-1.5">
+                <fieldset aria-labelledby={`${ids}-days`} className="grid min-w-0 grid-cols-7 gap-1.5">
                   {weekdayLabels(locale).map(({ day, label }) => {
                     const active = days.includes(day);
                     return (
@@ -235,7 +246,7 @@ export default function TaskDialog({ open, onOpenChange, initial, isEditing, all
                       </button>
                     );
                   })}
-                </div>
+                </fieldset>
                 {shown.days && <p className="text-xs text-destructive-bright">{shown.days}</p>}
               </div>
             )}

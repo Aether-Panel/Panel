@@ -49,6 +49,15 @@ const (
 	mapNodeCacheFor  = time.Minute
 )
 
+// headers the viewer reads or rewrites
+const (
+	headerContentType     = "Content-Type"
+	headerCacheControl    = "Cache-Control"
+	headerContentEncoding = "Content-Encoding"
+	headerContentLength   = "Content-Length"
+	headerAcceptEncoding  = "Accept-Encoding"
+)
+
 var (
 	mapTokenSecret = newMapTokenSecret()
 	mapServerID    = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
@@ -150,7 +159,7 @@ func getWorldMap(c *gin.Context) {
 	}
 	defer utils.CloseResponse(res)
 	if res.StatusCode != http.StatusOK {
-		c.DataFromReader(res.StatusCode, -1, res.Header.Get("Content-Type"), io.LimitReader(res.Body, 64*1024), nil)
+		c.DataFromReader(res.StatusCode, -1, res.Header.Get(headerContentType), io.LimitReader(res.Body, 64*1024), nil)
 		return
 	}
 	var status servers.WorldMapStatus
@@ -235,12 +244,12 @@ func setMapViewHeaders(h http.Header) {
 
 func mapViewError(c *gin.Context, status int, message string) {
 	setMapViewHeaders(c.Writer.Header())
-	c.Header("Cache-Control", "no-store")
+	c.Header(headerCacheControl, "no-store")
 	c.AbortWithStatusJSON(status, gin.H{"error": message})
 }
 
 // mapResponseHeaders are the map's headers that reach the browser
-var mapResponseHeaders = []string{"Content-Type", "Content-Encoding", "Content-Length", "Cache-Control", "ETag", "Last-Modified", "Expires", "Content-Range", "Accept-Ranges", "Vary"}
+var mapResponseHeaders = []string{headerContentType, headerContentEncoding, headerContentLength, headerCacheControl, "ETag", "Last-Modified", "Expires", "Content-Range", "Accept-Ranges", "Vary"}
 
 // viewWorldMap serves the map's web app to the iframe; no session, the signed link decides
 func viewWorldMap(c *gin.Context) {
@@ -252,19 +261,7 @@ func viewWorldMap(c *gin.Context) {
 	}
 
 	if c.Request.Method == http.MethodOptions {
-		setMapViewHeaders(c.Writer.Header())
-		c.Header("Access-Control-Allow-Methods", "GET, HEAD")
-		if requested := c.GetHeader("Access-Control-Request-Headers"); requested != "" {
-			allowed := make([]string, 0)
-			for _, name := range strings.Split(requested, ",") {
-				if name = strings.TrimSpace(name); headerToken.MatchString(name) && len(allowed) < 16 {
-					allowed = append(allowed, name)
-				}
-			}
-			c.Header("Access-Control-Allow-Headers", strings.Join(allowed, ", "))
-		}
-		c.Header("Access-Control-Max-Age", "600")
-		c.AbortWithStatus(http.StatusNoContent)
+		answerMapPreflight(c)
 		return
 	}
 
@@ -300,18 +297,7 @@ func viewWorldMap(c *gin.Context) {
 	if c.Request.URL.RawQuery != "" && len(c.Request.URL.RawQuery) < 2048 {
 		target += "?" + c.Request.URL.RawQuery
 	}
-	headers := http.Header{}
-	for _, name := range []string{"Accept", "Accept-Language", "Range", "If-None-Match", "If-Modified-Since"} {
-		if value := c.GetHeader(name); value != "" {
-			headers.Set(name, value)
-		}
-	}
-	// only gzip: the panel has to be able to unpack a page to add the storage shim
-	if strings.Contains(strings.ToLower(c.GetHeader("Accept-Encoding")), "gzip") {
-		headers.Set("Accept-Encoding", "gzip")
-	} else {
-		headers.Set("Accept-Encoding", "identity")
-	}
+	headers := mapNodeHeaders(c)
 
 	ns := &services.Node{DB: middleware.GetDatabase(c)}
 	res, err := ns.CallNodeContext(c.Request.Context(), node, c.Request.Method, target, nil, headers)
@@ -323,6 +309,40 @@ func viewWorldMap(c *gin.Context) {
 	writeMapResponse(c, res, path.Ext(decoded))
 }
 
+// answerMapPreflight answers the browser's CORS preflight for a viewer request
+func answerMapPreflight(c *gin.Context) {
+	setMapViewHeaders(c.Writer.Header())
+	c.Header("Access-Control-Allow-Methods", "GET, HEAD")
+	if requested := c.GetHeader("Access-Control-Request-Headers"); requested != "" {
+		allowed := make([]string, 0)
+		for _, name := range strings.Split(requested, ",") {
+			if name = strings.TrimSpace(name); headerToken.MatchString(name) && len(allowed) < 16 {
+				allowed = append(allowed, name)
+			}
+		}
+		c.Header("Access-Control-Allow-Headers", strings.Join(allowed, ", "))
+	}
+	c.Header("Access-Control-Max-Age", "600")
+	c.AbortWithStatus(http.StatusNoContent)
+}
+
+// mapNodeHeaders are the browser's request headers passed on to the node
+func mapNodeHeaders(c *gin.Context) http.Header {
+	headers := http.Header{}
+	for _, name := range []string{"Accept", "Accept-Language", "Range", "If-None-Match", "If-Modified-Since"} {
+		if value := c.GetHeader(name); value != "" {
+			headers.Set(name, value)
+		}
+	}
+	// only gzip: the panel has to be able to unpack a page to add the storage shim
+	if strings.Contains(strings.ToLower(c.GetHeader(headerAcceptEncoding)), "gzip") {
+		headers.Set(headerAcceptEncoding, "gzip")
+	} else {
+		headers.Set(headerAcceptEncoding, "identity")
+	}
+	return headers
+}
+
 // writeMapResponse copies the map's answer to the browser with the sandbox headers, adding the
 // storage shim to pages
 func writeMapResponse(c *gin.Context, res *http.Response, ext string) {
@@ -332,19 +352,19 @@ func writeMapResponse(c *gin.Context, res *http.Response, ext string) {
 			out.Set(name, value)
 		}
 	}
-	if out.Get("Content-Type") == "" && res.StatusCode == http.StatusOK {
+	if out.Get(headerContentType) == "" && res.StatusCode == http.StatusOK {
 		if guess := mime.TypeByExtension(ext); guess != "" {
-			out.Set("Content-Type", guess)
+			out.Set(headerContentType, guess)
 		} else {
-			out.Set("Content-Type", "application/octet-stream")
+			out.Set(headerContentType, "application/octet-stream")
 		}
 	}
-	if out.Get("Cache-Control") == "" {
-		out.Set("Cache-Control", "private, no-cache")
+	if out.Get(headerCacheControl) == "" {
+		out.Set(headerCacheControl, "private, no-cache")
 	}
 	setMapViewHeaders(out)
 
-	isHTML := strings.HasPrefix(strings.ToLower(out.Get("Content-Type")), "text/html")
+	isHTML := strings.HasPrefix(strings.ToLower(out.Get(headerContentType)), "text/html")
 	if !isHTML || c.Request.Method != http.MethodGet || res.StatusCode != http.StatusOK {
 		c.Status(res.StatusCode)
 		if c.Request.Method != http.MethodHead {
@@ -353,18 +373,18 @@ func writeMapResponse(c *gin.Context, res *http.Response, ext string) {
 		return
 	}
 
-	page, err := prepareMapHTML(res.Body, res.Header.Get("Content-Encoding"))
+	page, err := prepareMapHTML(res.Body, res.Header.Get(headerContentEncoding))
 	if err != nil {
-		out.Del("Content-Length")
-		out.Del("Content-Encoding")
+		out.Del(headerContentLength)
+		out.Del(headerContentEncoding)
 		mapViewError(c, http.StatusBadGateway, err.Error())
 		return
 	}
-	out.Del("Content-Encoding")
+	out.Del(headerContentEncoding)
 	out.Del("Content-Range")
 	out.Del("ETag")
-	out.Set("Content-Length", strconv.Itoa(len(page)))
-	out.Set("Cache-Control", "no-cache")
+	out.Set(headerContentLength, strconv.Itoa(len(page)))
+	out.Set(headerCacheControl, "no-cache")
 	c.Status(http.StatusOK)
 	_, _ = c.Writer.Write(page)
 }

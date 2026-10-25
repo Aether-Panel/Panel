@@ -2,7 +2,7 @@ import { useTranslations } from '@/contexts/translations-context';
 import { cn } from '@/lib/utils';
 
 /** Small "Beta" tag for an experimental feature an admin has turned on in the panel settings. */
-export function BetaBadge({ className }: { className?: string }) {
+export function BetaBadge({ className }: Readonly<{ className?: string }>) {
     const { t } = useTranslations();
     return (
         <span

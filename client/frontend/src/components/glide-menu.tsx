@@ -13,7 +13,7 @@ type Rect = { top: number; height: number };
  * active item, or fades out if the menu has none. Items are found through
  * `[data-sidebar="menu-button"]`, so the sidebar primitives need no changes.
  */
-export function GlideMenu({ className, children }: { className?: string; children: ReactNode }) {
+export function GlideMenu({ className, children }: Readonly<{ className?: string; children: ReactNode }>) {
     const listRef = useRef<HTMLUListElement>(null);
     const [rect, setRect] = useState<Rect | null>(null);
     const [visible, setVisible] = useState(false);

@@ -114,7 +114,7 @@ export const SPECIAL_KEYS = new Set(['motd']);
 export const KNOWN_KEYS = new Set([...PROPERTY_FIELDS.map((f) => f.key), ...SPECIAL_KEYS]);
 
 /** The locale id of a key: dots would split the translation path */
-export const fieldId = (key: string) => key.replace(/\./g, '_');
+export const fieldId = (key: string) => key.replaceAll('.', '_');
 
 /** Checks a value against the field's rules; returns a locale key for the problem, or null */
 export function validateField(field: PropertyField, value: string): string | null {

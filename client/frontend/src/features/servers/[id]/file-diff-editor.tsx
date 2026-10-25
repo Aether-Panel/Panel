@@ -18,7 +18,7 @@ interface FileDiffEditorProps {
  * room, a single inline column on narrow screens; long runs of unchanged lines fold away so
  * the changes in a big config stand out.
  */
-export default function FileDiffEditor({ language, original, modified }: FileDiffEditorProps) {
+export default function FileDiffEditor({ language, original, modified }: Readonly<FileDiffEditorProps>) {
   const { t } = useTranslations();
 
   useEffect(() => {

@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { AlertOctagon, Bot, ChevronRight, Lightbulb, Loader2, RotateCw, SearchCheck, ShieldCheck, Sparkles, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -77,7 +77,7 @@ function dismissKey(serverId: string) {
 }
 
 /** The newest crash, shown above the console until it is dismissed or a day passes. */
-export function CrashBanner({ serverId, onOpen }: { serverId: string; onOpen: (report: CrashReport) => void }) {
+export function CrashBanner({ serverId, onOpen }: Readonly<{ serverId: string; onOpen: (report: CrashReport) => void }>) {
   const { reports } = useCrashReports(serverId);
   const { t, time, exitMeaning, restartText } = useFormat();
   const [dismissed, setDismissed] = useState<string | null>(null);
@@ -103,9 +103,8 @@ export function CrashBanner({ serverId, onOpen }: { serverId: string; onOpen: (r
   };
 
   return (
-    <div
-      role="status"
-      className="relative mt-6 overflow-hidden rounded-xl border border-destructive/30 bg-destructive/[0.06] p-4 shadow-[0_0_32px_-12px_hsl(var(--destructive)/0.6)] animate-in fade-in-0 slide-in-from-top-2 duration-500 ease-panel sm:p-5"
+    <output
+      className="relative mt-6 block overflow-hidden rounded-xl border border-destructive/30 bg-destructive/[0.06] p-4 shadow-[0_0_32px_-12px_hsl(var(--destructive)/0.6)] animate-in fade-in-0 slide-in-from-top-2 duration-500 ease-panel sm:p-5"
     >
       {/* a faint wash from the left edge, like light from the warning icon */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 w-48 bg-gradient-to-r from-destructive/15 to-transparent" />
@@ -130,14 +129,68 @@ export function CrashBanner({ serverId, onOpen }: { serverId: string; onOpen: (r
           </Button>
         </div>
       </div>
-    </div>
+    </output>
   );
 }
 
 /** Recent crashes for the overview tab, newest first. */
-export function CrashHistory({ serverId, onOpen }: { serverId: string; onOpen: (report: CrashReport) => void }) {
+export function CrashHistory({ serverId, onOpen }: Readonly<{ serverId: string; onOpen: (report: CrashReport) => void }>) {
   const { reports, loaded } = useCrashReports(serverId);
   const { t, date, exitMeaning } = useFormat();
+
+  let content: ReactNode;
+  if (!loaded) {
+    content = (
+      <div className="flex justify-center py-8">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden="true" />
+        <span className="sr-only">{t('common.loading')}</span>
+      </div>
+    );
+  } else if (reports.length === 0) {
+    content = (
+      <EmptyState
+        icon={ShieldCheck}
+        size="sm"
+        title={t('servers.crashes.history.emptyTitle')}
+        description={t('servers.crashes.history.emptyDescription')}
+      />
+    );
+  } else {
+    content = (
+      <ul className="space-y-2">
+        {reports.map((report, index) => (
+          <li
+            key={report.id}
+            className="animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-both duration-300 ease-panel"
+            style={{ animationDelay: `${Math.min(index, 6) * 40}ms` }}
+          >
+            <button
+              type="button"
+              onClick={() => onOpen(report)}
+              className="focus-ring group flex w-full items-center gap-4 rounded-xl border border-border/60 bg-background/30 p-3.5 text-left transition-colors duration-200 hover:border-destructive/40 hover:bg-destructive/[0.04]"
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-destructive/30 bg-destructive/10 text-destructive-bright">
+                <AlertOctagon className="h-4 w-4" aria-hidden="true" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">{date(report.time)}</span>
+                <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                  {t('servers.crashes.exitCode', { code: report.exitCode })} · {exitMeaning(report.exitCode)}
+                </span>
+              </span>
+              {report.restarted && (
+                <span className="hidden shrink-0 items-center gap-1 rounded-md border border-border/50 bg-secondary/60 px-2 py-0.5 text-xs text-secondary-foreground sm:inline-flex">
+                  <RotateCw className="h-3 w-3" aria-hidden="true" />
+                  {t('servers.crashes.autoRestarted')}
+                </span>
+              )}
+              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
+            </button>
+          </li>
+        ))}
+      </ul>
+    );
+  }
 
   return (
     <Card>
@@ -146,59 +199,14 @@ export function CrashHistory({ serverId, onOpen }: { serverId: string; onOpen: (
         <CardDescription>{t('servers.crashes.history.description')}</CardDescription>
       </CardHeader>
       <CardContent className="p-5 md:p-6">
-        {!loaded ? (
-          <div className="flex justify-center py-8">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden="true" />
-            <span className="sr-only">{t('common.loading')}</span>
-          </div>
-        ) : reports.length === 0 ? (
-          <EmptyState
-            icon={ShieldCheck}
-            size="sm"
-            title={t('servers.crashes.history.emptyTitle')}
-            description={t('servers.crashes.history.emptyDescription')}
-          />
-        ) : (
-          <ul className="space-y-2">
-            {reports.map((report, index) => (
-              <li
-                key={report.id}
-                className="animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-both duration-300 ease-panel"
-                style={{ animationDelay: `${Math.min(index, 6) * 40}ms` }}
-              >
-                <button
-                  type="button"
-                  onClick={() => onOpen(report)}
-                  className="focus-ring group flex w-full items-center gap-4 rounded-xl border border-border/60 bg-background/30 p-3.5 text-left transition-colors duration-200 hover:border-destructive/40 hover:bg-destructive/[0.04]"
-                >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-destructive/30 bg-destructive/10 text-destructive-bright">
-                    <AlertOctagon className="h-4 w-4" aria-hidden="true" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium">{date(report.time)}</span>
-                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                      {t('servers.crashes.exitCode', { code: report.exitCode })} · {exitMeaning(report.exitCode)}
-                    </span>
-                  </span>
-                  {report.restarted && (
-                    <span className="hidden shrink-0 items-center gap-1 rounded-md border border-border/50 bg-secondary/60 px-2 py-0.5 text-xs text-secondary-foreground sm:inline-flex">
-                      <RotateCw className="h-3 w-3" aria-hidden="true" />
-                      {t('servers.crashes.autoRestarted')}
-                    </span>
-                  )}
-                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
+        {content}
       </CardContent>
     </Card>
   );
 }
 
 /** One crash in full: what happened, the console before it, and the AI's reading of it. */
-export function CrashReportDialog({ serverId, report, onOpenChange }: { serverId: string; report: CrashReport | null; onOpenChange: (open: boolean) => void }) {
+export function CrashReportDialog({ serverId, report, onOpenChange }: Readonly<{ serverId: string; report: CrashReport | null; onOpenChange: (open: boolean) => void }>) {
   const { t, language, date, exitMeaning, restartText } = useFormat();
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [analysing, setAnalysing] = useState(false);

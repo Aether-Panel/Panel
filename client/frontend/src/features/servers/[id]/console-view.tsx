@@ -26,6 +26,13 @@ type Filter = 'all' | 'error' | 'warn';
 const HISTORY_LIMIT = 50;
 const FAVORITES_LIMIT = 12;
 
+/** How many lines the filter's chip counts; "all" shows no count. */
+function filterCount(option: Filter, counts: { error: number; warn: number }): number | null {
+  if (option === 'error') return counts.error;
+  if (option === 'warn') return counts.warn;
+  return null;
+}
+
 function levelOf(message: string): Level {
   const upper = message.toUpperCase();
   if (upper.includes('ERROR') || upper.includes('FATAL') || upper.includes('EXCEPTION')) return 'error';
@@ -262,6 +269,9 @@ export default function ConsoleView({
     return stamped / sample.length < 0.5;
   }, [shown]);
 
+  let matchLabel = '';
+  if (needle) matchLabel = matches.length ? `${Math.min(activeMatch, matches.length - 1) + 1}/${matches.length}` : '0/0';
+
   return (
     <div ref={containerRef} className="mt-6">
       <div
@@ -278,7 +288,7 @@ export default function ConsoleView({
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border/50 px-2 py-1.5 sm:px-3">
           <div role="radiogroup" aria-label={t('servers.console.filters.label')} className="flex items-center gap-1">
             {(['all', 'error', 'warn'] as Filter[]).map((option) => {
-              const count = option === 'error' ? counts.error : option === 'warn' ? counts.warn : null;
+              const count = filterCount(option, counts);
               const active = filter === option;
               return (
                 <button
@@ -327,7 +337,7 @@ export default function ConsoleView({
                 />
               </div>
               <span className="w-12 shrink-0 text-center text-[11px] tabular-nums text-muted-foreground" aria-live="polite">
-                {needle ? (matches.length ? `${Math.min(activeMatch, matches.length - 1) + 1}/${matches.length}` : '0/0') : ''}
+                {matchLabel}
               </span>
               <Button type="button" size="icon" variant="ghost" className="h-7 w-7" disabled={matches.length === 0} onClick={() => stepMatch(-1)} aria-label={t('servers.console.search.previous')}>
                 <ChevronUp aria-hidden="true" />
@@ -404,7 +414,7 @@ export default function ConsoleView({
         )}
 
         {favorites.length > 0 && (
-          <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto border-t border-border/50 px-3 py-1.5 [scrollbar-width:none] sm:px-4 [&::-webkit-scrollbar]:hidden" aria-label={t('servers.console.favorites.label')} role="group">
+          <fieldset className="flex min-w-0 shrink-0 items-center gap-1.5 overflow-x-auto border-t border-border/50 px-3 py-1.5 [scrollbar-width:none] sm:px-4 [&::-webkit-scrollbar]:hidden" aria-label={t('servers.console.favorites.label')}>
             <Star className="h-3 w-3 shrink-0 fill-warning text-warning" aria-hidden="true" />
             {favorites.map((favorite) => (
               <span key={favorite} className="group inline-flex shrink-0 items-center rounded-md border border-border/60 bg-background/60 transition-colors duration-200 hover:border-primary/40">
@@ -426,7 +436,7 @@ export default function ConsoleView({
                 </button>
               </span>
             ))}
-          </div>
+          </fieldset>
         )}
 
         {/* Pinned command bar */}

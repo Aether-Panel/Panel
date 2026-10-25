@@ -70,6 +70,33 @@ func TestMapPort(t *testing.T) {
 	}
 }
 
+// fakeMapVersions is what the fake Modrinth API answers for a project's versions
+func fakeMapVersions(path, loaders, games string) []map[string]interface{} {
+	var versions []map[string]interface{}
+	switch {
+	case path == "/project/bluemap/version" && loaders == `["paper"]` && games == `["1.21.4"]`:
+		versions = []map[string]interface{}{
+			{"version_number": "5.6-beta", "version_type": "beta", "files": []map[string]interface{}{{"url": "https://cdn.modrinth.com/b.jar", "filename": "bluemap-5.6-beta-paper.jar", "primary": true}}},
+			{"version_number": "5.5", "version_type": "release", "files": []map[string]interface{}{
+				{"url": "https://cdn.modrinth.com/sources.jar", "filename": "bluemap-5.5-sources.jar", "primary": false},
+				{"url": "https://cdn.modrinth.com/main.jar", "filename": "bluemap-5.5-paper.jar", "primary": true},
+			}},
+		}
+	case path == "/project/dynmap/version" && loaders == `["spigot","bukkit"]`:
+		versions = []map[string]interface{}{
+			{"version_number": "3.7-beta-8", "version_type": "beta", "files": []map[string]interface{}{{"url": "https://cdn.modrinth.com/d.jar", "filename": "Dynmap-3.7-beta-8-spigot.jar", "primary": true}}},
+		}
+	case path == "/project/bluemap/version" && loaders == `["fabric"]`:
+		versions = []map[string]interface{}{
+			{"version_number": "evil", "version_type": "release", "files": []map[string]interface{}{{"url": "https://cdn.modrinth.com/x", "filename": "../../evil.jar", "primary": true}}},
+		}
+	}
+	if versions == nil {
+		versions = []map[string]interface{}{}
+	}
+	return versions
+}
+
 func TestFindMapRelease(t *testing.T) {
 	var queries []string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -83,28 +110,7 @@ func TestFindMapRelease(t *testing.T) {
 		loaders := r.URL.Query().Get("loaders")
 		games := r.URL.Query().Get("game_versions")
 		queries = append(queries, r.URL.Path+" "+loaders+" "+games)
-		var versions []map[string]interface{}
-		switch {
-		case r.URL.Path == "/project/bluemap/version" && loaders == `["paper"]` && games == `["1.21.4"]`:
-			versions = []map[string]interface{}{
-				{"version_number": "5.6-beta", "version_type": "beta", "files": []map[string]interface{}{{"url": "https://cdn.modrinth.com/b.jar", "filename": "bluemap-5.6-beta-paper.jar", "primary": true}}},
-				{"version_number": "5.5", "version_type": "release", "files": []map[string]interface{}{
-					{"url": "https://cdn.modrinth.com/sources.jar", "filename": "bluemap-5.5-sources.jar", "primary": false},
-					{"url": "https://cdn.modrinth.com/main.jar", "filename": "bluemap-5.5-paper.jar", "primary": true},
-				}},
-			}
-		case r.URL.Path == "/project/dynmap/version" && loaders == `["spigot","bukkit"]`:
-			versions = []map[string]interface{}{
-				{"version_number": "3.7-beta-8", "version_type": "beta", "files": []map[string]interface{}{{"url": "https://cdn.modrinth.com/d.jar", "filename": "Dynmap-3.7-beta-8-spigot.jar", "primary": true}}},
-			}
-		case r.URL.Path == "/project/bluemap/version" && loaders == `["fabric"]`:
-			versions = []map[string]interface{}{
-				{"version_number": "evil", "version_type": "release", "files": []map[string]interface{}{{"url": "https://cdn.modrinth.com/x", "filename": "../../evil.jar", "primary": true}}},
-			}
-		}
-		if versions == nil {
-			versions = []map[string]interface{}{}
-		}
+		versions := fakeMapVersions(r.URL.Path, loaders, games)
 		_ = json.NewEncoder(w).Encode(versions)
 	}))
 	defer server.Close()

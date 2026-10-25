@@ -432,7 +432,7 @@ func newVerifier(hashes map[string]string) (*verifier, error) {
 }
 
 func (v *verifier) check(name string) error {
-	if got := hex.EncodeToString(v.h.Sum(nil)); got != v.expected {
+	if hex.EncodeToString(v.h.Sum(nil)) != v.expected {
 		return fmt.Errorf("%s did not match its %s hash; the download is damaged or was changed", name, v.name)
 	}
 	return nil
@@ -612,26 +612,7 @@ func extractMrpackOverrides(fsys files.FileServer, zr *zip.Reader) error {
 			if entry.Mode()&os.ModeSymlink != 0 {
 				continue
 			}
-			target, err := cleanPackPath(strings.TrimSuffix(rel, "/"))
-			if err != nil {
-				return err
-			}
-			if entry.FileInfo().IsDir() {
-				if err := fsys.MkdirAll(target, 0755); err != nil {
-					return err
-				}
-				continue
-			}
-			remaining := int64(maxOverridesSize) - written
-			if remaining <= 0 {
-				return errors.New("the pack's files are larger than allowed")
-			}
-			rc, err := entry.Open()
-			if err != nil {
-				return err
-			}
-			n, err := writeFileFS(fsys, target, rc, remaining)
-			utils.Close(rc)
+			n, err := extractMrpackOverride(fsys, entry, rel, int64(maxOverridesSize)-written)
 			if err != nil {
 				return err
 			}
@@ -639,6 +620,28 @@ func extractMrpackOverrides(fsys files.FileServer, zr *zip.Reader) error {
 		}
 	}
 	return nil
+}
+
+// extractMrpackOverride writes one overrides entry, keeping files within the remaining size
+// budget; it returns the bytes written
+func extractMrpackOverride(fsys files.FileServer, entry *zip.File, rel string, remaining int64) (int64, error) {
+	target, err := cleanPackPath(strings.TrimSuffix(rel, "/"))
+	if err != nil {
+		return 0, err
+	}
+	if entry.FileInfo().IsDir() {
+		return 0, fsys.MkdirAll(target, 0755)
+	}
+	if remaining <= 0 {
+		return 0, errors.New("the pack's files are larger than allowed")
+	}
+	rc, err := entry.Open()
+	if err != nil {
+		return 0, err
+	}
+	n, err := writeFileFS(fsys, target, rc, remaining)
+	utils.Close(rc)
+	return n, err
 }
 
 // applyMrpack installs the files of a downloaded .mrpack and returns its index

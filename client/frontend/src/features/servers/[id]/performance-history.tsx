@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Area, AreaChart, CartesianGrid, ReferenceArea, ReferenceLine, XAxis, YAxis } from 'recharts';
 import { History, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -43,11 +43,68 @@ function offlineRuns(points: Point[], step: number) {
   return runs;
 }
 
+type SeriesKey = 'cpu' | 'memoryPct' | 'rx' | 'tx' | 'playersAvg' | 'playersPeakValue';
+type Series = { key: SeriesKey; color: string }[];
+type HistoryChartConfig = { [K in SeriesKey]: { label: string; color: string } };
+type ChartPoint = Point & { memoryPct: number | null; playersAvg: number | null; playersPeakValue: number | null };
+type Summary = {
+  cpuAvg: number; cpuPeak: number; memAvg: number | null; memAvgBytes: number; uptime: number;
+  rxAvg: number; txAvg: number; playersAvg: number; playersPeak: number;
+};
+type Stat = { label: string; value: string; hint?: string; good?: boolean };
+type Translate = ReturnType<typeof useTranslations>['t'];
+
+/** The lines each view draws, back to front. */
+function seriesFor(view: View): Series {
+  if (view === 'resources') return [{ key: 'cpu', color: CPU_COLOR }, { key: 'memoryPct', color: MEM_COLOR }];
+  if (view === 'network') return [{ key: 'rx', color: RX_COLOR }, { key: 'tx', color: TX_COLOR }];
+  return [{ key: 'playersPeakValue', color: PEAK_COLOR }, { key: 'playersAvg', color: PLAYERS_COLOR }];
+}
+
+/** The figures above the chart for the chosen view. */
+function buildStats(summary: Summary | null, view: View, record: Record | null, t: Translate, locale: string): Stat[] {
+  if (!summary) return [];
+  const uptime: Stat = { label: t('servers.history.uptime'), value: `${summary.uptime >= 99.95 ? 100 : summary.uptime.toFixed(1)}%`, good: summary.uptime >= 99 };
+  if (view === 'resources') {
+    return [
+      { label: t('servers.history.cpuAvg'), value: `${Math.round(summary.cpuAvg)}%` },
+      { label: t('servers.history.cpuPeak'), value: `${Math.round(summary.cpuPeak)}%` },
+      { label: t('servers.history.memAvg'), value: summary.memAvg !== null ? `${Math.round(summary.memAvg)}%` : formatBytes(summary.memAvgBytes) },
+      uptime,
+    ];
+  }
+  if (view === 'network') {
+    return [
+      { label: t('servers.history.rxAvg'), value: formatRate(summary.rxAvg) },
+      { label: t('servers.history.txAvg'), value: formatRate(summary.txAvg) },
+      uptime,
+    ];
+  }
+  return [
+    { label: t('servers.history.playersAvg'), value: summary.playersAvg.toFixed(1) },
+    { label: t('servers.history.playersPeak'), value: String(summary.playersPeak) },
+    {
+      label: t('servers.history.record'),
+      value: record ? String(record.players) : '—',
+      hint: record ? new Date(record.at * 1000).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' }) : undefined,
+      good: true,
+    },
+    uptime,
+  ];
+}
+
+/** A Y axis label in the unit of the chosen view. */
+function formatAxisValue(view: View, value: number) {
+  if (view === 'resources') return `${value}%`;
+  if (view === 'network') return formatRate(value);
+  return String(value);
+}
+
 /**
  * How the server behaved over the last hour, day or week: CPU and memory (or network), with
  * the stretches it was off shaded and its crashes marked.
  */
-export default function PerformanceHistory({ serverId }: { serverId: string }) {
+export default function PerformanceHistory({ serverId }: Readonly<{ serverId: string }>) {
   const { t, language } = useTranslations();
   const locale = language === 'es' ? 'es-ES' : 'en-US';
   const [range, setRange] = useState<Range>('24h');
@@ -76,7 +133,7 @@ export default function PerformanceHistory({ serverId }: { serverId: string }) {
   const points = data?.points ?? [];
   const step = data?.step ?? 60;
 
-  const chartData = useMemo(
+  const chartData = useMemo<ChartPoint[]>(
     () =>
       points.map((p) => ({
         ...p,
@@ -90,7 +147,7 @@ export default function PerformanceHistory({ serverId }: { serverId: string }) {
     [points],
   );
 
-  const summary = useMemo(() => {
+  const summary = useMemo((): Summary | null => {
     const online = points.filter((p) => p.online > 0);
     if (points.length === 0) return null;
     const avg = (values: number[]) => (values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0);
@@ -131,41 +188,40 @@ export default function PerformanceHistory({ serverId }: { serverId: string }) {
     tx: { label: t('servers.networkChart.upload'), color: TX_COLOR },
     playersAvg: { label: t('servers.history.playersAvg'), color: PLAYERS_COLOR },
     playersPeakValue: { label: t('servers.history.playersPeak'), color: PEAK_COLOR },
-  } satisfies ChartConfig;
+  } satisfies HistoryChartConfig & ChartConfig;
   const hasPlayers = points.some((p) => p.hasPlayers) || (data?.record?.players ?? 0) > 0;
-  const series = view === 'resources'
-    ? [{ key: 'cpu' as const, color: CPU_COLOR }, { key: 'memoryPct' as const, color: MEM_COLOR }]
-    : view === 'network'
-      ? [{ key: 'rx' as const, color: RX_COLOR }, { key: 'tx' as const, color: TX_COLOR }]
-      : [{ key: 'playersPeakValue' as const, color: PEAK_COLOR }, { key: 'playersAvg' as const, color: PLAYERS_COLOR }];
+  const series = seriesFor(view);
   const record = data?.record && data.record.players > 0 ? data.record : null;
 
-  const stats = summary
-    ? view === 'resources'
-      ? [
-          { label: t('servers.history.cpuAvg'), value: `${Math.round(summary.cpuAvg)}%` },
-          { label: t('servers.history.cpuPeak'), value: `${Math.round(summary.cpuPeak)}%` },
-          { label: t('servers.history.memAvg'), value: summary.memAvg !== null ? `${Math.round(summary.memAvg)}%` : formatBytes(summary.memAvgBytes) },
-          { label: t('servers.history.uptime'), value: `${summary.uptime >= 99.95 ? 100 : summary.uptime.toFixed(1)}%`, good: summary.uptime >= 99 },
-        ]
-      : view === 'network'
-        ? [
-            { label: t('servers.history.rxAvg'), value: formatRate(summary.rxAvg) },
-            { label: t('servers.history.txAvg'), value: formatRate(summary.txAvg) },
-            { label: t('servers.history.uptime'), value: `${summary.uptime >= 99.95 ? 100 : summary.uptime.toFixed(1)}%`, good: summary.uptime >= 99 },
-          ]
-        : [
-            { label: t('servers.history.playersAvg'), value: summary.playersAvg.toFixed(1) },
-            { label: t('servers.history.playersPeak'), value: String(summary.playersPeak) },
-            {
-              label: t('servers.history.record'),
-              value: record ? String(record.players) : '—',
-              hint: record ? new Date(record.at * 1000).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' }) : undefined,
-              good: true,
-            },
-            { label: t('servers.history.uptime'), value: `${summary.uptime >= 99.95 ? 100 : summary.uptime.toFixed(1)}%`, good: summary.uptime >= 99 },
-          ]
-    : [];
+  const stats = buildStats(summary, view, record, t, locale);
+
+  let body: ReactNode;
+  if (loading && !data) {
+    body = (
+      <div className="flex h-[260px] items-center justify-center">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden="true" />
+        <span className="sr-only">{t('common.loading')}</span>
+      </div>
+    );
+  } else if (points.length < 2) {
+    body = <EmptyState icon={History} size="sm" as="p" title={t('servers.history.emptyTitle')} description={t('servers.history.emptyDescription')} className="min-h-[260px]" />;
+  } else {
+    body = (
+      <HistoryChart
+        chartData={chartData}
+        chartConfig={chartConfig}
+        series={series}
+        view={view}
+        from={from}
+        to={to}
+        offline={offline}
+        crashes={crashes}
+        loading={loading}
+        formatTick={formatTick}
+        formatFull={formatFull}
+      />
+    );
+  }
 
   return (
     <Card>
@@ -210,126 +266,163 @@ export default function PerformanceHistory({ serverId }: { serverId: string }) {
           </dl>
         )}
 
-        {loading && !data ? (
-          <div className="flex h-[260px] items-center justify-center">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden="true" />
-            <span className="sr-only">{t('common.loading')}</span>
-          </div>
-        ) : points.length < 2 ? (
-          <EmptyState icon={History} size="sm" as="p" title={t('servers.history.emptyTitle')} description={t('servers.history.emptyDescription')} className="min-h-[260px]" />
-        ) : (
-          <div className={cn('transition-opacity duration-300', loading && 'opacity-60')}>
-            <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-medium text-muted-foreground">
-              {series.map((entry) => (
-                <span key={entry.key} className="inline-flex items-center gap-2">
-                  <span aria-hidden="true" className="h-1.5 w-4 rounded-full" style={{ background: entry.color }} />
-                  {chartConfig[entry.key].label}
-                </span>
-              ))}
-              {offline.length > 0 && (
-                <span className="inline-flex items-center gap-2">
-                  <span aria-hidden="true" className="h-2.5 w-4 rounded-sm bg-muted-foreground/20" />
-                  {t('servers.history.offline')}
-                </span>
-              )}
-              {crashes.length > 0 && (
-                <span className="inline-flex items-center gap-2">
-                  <span aria-hidden="true" className="h-3 w-0 border-l-2 border-dashed border-destructive-bright" />
-                  {t('servers.history.crashes', { count: crashes.length })}
-                </span>
-              )}
-            </div>
-            <ChartContainer config={chartConfig} className="aspect-auto h-[260px] w-full">
-              <AreaChart data={chartData} margin={{ left: 4, right: 8, top: 8, bottom: 0 }}>
-                <defs>
-                  {series.map((entry) => (
-                    <linearGradient key={entry.key} id={`history-${entry.key}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={entry.color} stopOpacity={0.35} />
-                      <stop offset="100%" stopColor={entry.color} stopOpacity={0} />
-                    </linearGradient>
-                  ))}
-                </defs>
-                <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-border/40" />
-                <XAxis
-                  dataKey="t"
-                  type="number"
-                  scale="time"
-                  domain={[from, to]}
-                  tickFormatter={formatTick}
-                  tickLine={false}
-                  axisLine={false}
-                  minTickGap={40}
-                  tick={{ fontSize: 11 }}
-                />
-                <YAxis
-                  width={view === 'network' ? 64 : 36}
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fontSize: 11 }}
-                  domain={view === 'resources' ? [0, 100] : [0, 'auto']}
-                  allowDecimals={view !== 'players'}
-                  tickFormatter={(value: number) => (view === 'resources' ? `${value}%` : view === 'network' ? formatRate(value) : String(value))}
-                />
-                {offline.map((run) => (
-                  <ReferenceArea key={run.from} x1={run.from} x2={run.to} fill="hsl(var(--muted-foreground))" fillOpacity={0.12} strokeOpacity={0} ifOverflow="hidden" />
-                ))}
-                {crashes.map((crash) => (
-                  <ReferenceLine key={crash.id} x={crash.t} stroke="hsl(var(--destructive))" strokeDasharray="4 3" strokeWidth={1.5} ifOverflow="hidden" />
-                ))}
-                <ChartTooltip
-                  cursor={{ stroke: 'hsl(var(--border))' }}
-                  content={({ active, payload }) => {
-                    if (!active || !payload?.length) return null;
-                    const point = payload[0].payload as Point & { memoryPct: number | null };
-                    return (
-                      <div className="min-w-[11rem] rounded-lg border border-border/60 bg-popover/95 px-3 py-2 text-xs shadow-elevation-2 backdrop-blur-md">
-                        <p className="mb-1.5 font-medium text-foreground">{formatFull(point.t)}</p>
-                        {view === 'resources' ? (
-                          <>
-                            <Row color={CPU_COLOR} label={chartConfig.cpu.label} value={`${Math.round(point.cpu)}%`} />
-                            <Row color={MEM_COLOR} label={chartConfig.memoryPct.label} value={point.memoryPct !== null ? `${Math.round(point.memoryPct)}% · ${formatBytes(point.memory)}` : formatBytes(point.memory)} />
-                          </>
-                        ) : view === 'network' ? (
-                          <>
-                            <Row color={RX_COLOR} label={chartConfig.rx.label} value={formatRate(point.rx)} />
-                            <Row color={TX_COLOR} label={chartConfig.tx.label} value={formatRate(point.tx)} />
-                          </>
-                        ) : point.hasPlayers ? (
-                          <>
-                            <Row color={PEAK_COLOR} label={chartConfig.playersPeakValue.label} value={`${point.playersPeak ?? 0}${point.maxPlayers ? ` / ${point.maxPlayers}` : ''}`} />
-                            <Row color={PLAYERS_COLOR} label={chartConfig.playersAvg.label} value={(point.players ?? 0).toFixed(1)} />
-                          </>
-                        ) : (
-                          <p className="text-muted-foreground">{t('servers.history.noPlayerData')}</p>
-                        )}
-                        {point.online < 0.5 && <p className="mt-1 text-muted-foreground">{t('servers.history.offline')}</p>}
-                      </div>
-                    );
-                  }}
-                />
-                {series.map((entry) => (
-                  <Area
-                    key={entry.key}
-                    dataKey={entry.key}
-                    type="monotone"
-                    stroke={entry.color}
-                    strokeWidth={2}
-                    fill={`url(#history-${entry.key})`}
-                    connectNulls
-                    isAnimationActive
-                    animationDuration={700}
-                  />
-                ))}
-              </AreaChart>
-            </ChartContainer>
-          </div>
-        )}
+        {body}
       </CardContent>
     </Card>
   );
 }
 
-function Row({ color, label, value }: { color: string; label: string; value: string }) {
+type HistoryChartProps = {
+  chartData: ChartPoint[];
+  chartConfig: HistoryChartConfig;
+  series: Series;
+  view: View;
+  from: number;
+  to: number;
+  offline: { from: number; to: number }[];
+  crashes: { id: string; t: number }[];
+  loading: boolean;
+  formatTick: (seconds: number) => string;
+  formatFull: (seconds: number) => string;
+};
+
+/** The legend and the chart itself, with offline stretches shaded and crashes marked. */
+function HistoryChart({ chartData, chartConfig, series, view, from, to, offline, crashes, loading, formatTick, formatFull }: Readonly<HistoryChartProps>) {
+  const { t } = useTranslations();
+  return (
+    <div className={cn('transition-opacity duration-300', loading && 'opacity-60')}>
+      <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-medium text-muted-foreground">
+        {series.map((entry) => (
+          <span key={entry.key} className="inline-flex items-center gap-2">
+            <span aria-hidden="true" className="h-1.5 w-4 rounded-full" style={{ background: entry.color }} />
+            {chartConfig[entry.key].label}
+          </span>
+        ))}
+        {offline.length > 0 && (
+          <span className="inline-flex items-center gap-2">
+            <span aria-hidden="true" className="h-2.5 w-4 rounded-sm bg-muted-foreground/20" />
+            {t('servers.history.offline')}
+          </span>
+        )}
+        {crashes.length > 0 && (
+          <span className="inline-flex items-center gap-2">
+            <span aria-hidden="true" className="h-3 w-0 border-l-2 border-dashed border-destructive-bright" />
+            {t('servers.history.crashes', { count: crashes.length })}
+          </span>
+        )}
+      </div>
+      <ChartContainer config={chartConfig} className="aspect-auto h-[260px] w-full">
+        <AreaChart data={chartData} margin={{ left: 4, right: 8, top: 8, bottom: 0 }}>
+          <defs>
+            {series.map((entry) => (
+              <linearGradient key={entry.key} id={`history-${entry.key}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={entry.color} stopOpacity={0.35} />
+                <stop offset="100%" stopColor={entry.color} stopOpacity={0} />
+              </linearGradient>
+            ))}
+          </defs>
+          <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-border/40" />
+          <XAxis
+            dataKey="t"
+            type="number"
+            scale="time"
+            domain={[from, to]}
+            tickFormatter={formatTick}
+            tickLine={false}
+            axisLine={false}
+            minTickGap={40}
+            tick={{ fontSize: 11 }}
+          />
+          <YAxis
+            width={view === 'network' ? 64 : 36}
+            tickLine={false}
+            axisLine={false}
+            tick={{ fontSize: 11 }}
+            domain={view === 'resources' ? [0, 100] : [0, 'auto']}
+            allowDecimals={view !== 'players'}
+            tickFormatter={(value: number) => formatAxisValue(view, value)}
+          />
+          {offline.map((run) => (
+            <ReferenceArea key={run.from} x1={run.from} x2={run.to} fill="hsl(var(--muted-foreground))" fillOpacity={0.12} strokeOpacity={0} ifOverflow="hidden" />
+          ))}
+          {crashes.map((crash) => (
+            <ReferenceLine key={crash.id} x={crash.t} stroke="hsl(var(--destructive))" strokeDasharray="4 3" strokeWidth={1.5} ifOverflow="hidden" />
+          ))}
+          <ChartTooltip
+            cursor={{ stroke: 'hsl(var(--border))' }}
+            content={<HistoryTooltip view={view} chartConfig={chartConfig} formatFull={formatFull} />}
+          />
+          {series.map((entry) => (
+            <Area
+              key={entry.key}
+              dataKey={entry.key}
+              type="monotone"
+              stroke={entry.color}
+              strokeWidth={2}
+              fill={`url(#history-${entry.key})`}
+              connectNulls
+              isAnimationActive
+              animationDuration={700}
+            />
+          ))}
+        </AreaChart>
+      </ChartContainer>
+    </div>
+  );
+}
+
+type HistoryTooltipProps = {
+  view: View;
+  chartConfig: HistoryChartConfig;
+  formatFull: (seconds: number) => string;
+  // filled in by recharts when it renders the tooltip
+  active?: boolean;
+  payload?: { payload?: unknown }[];
+};
+
+/** The hovered point: its time, the values of the chosen view and whether the server was off. */
+function HistoryTooltip({ view, chartConfig, formatFull, active, payload }: Readonly<HistoryTooltipProps>) {
+  const { t } = useTranslations();
+  if (!active || !payload?.length) return null;
+  const point = payload[0].payload as Point & { memoryPct: number | null };
+  return (
+    <div className="min-w-[11rem] rounded-lg border border-border/60 bg-popover/95 px-3 py-2 text-xs shadow-elevation-2 backdrop-blur-md">
+      <p className="mb-1.5 font-medium text-foreground">{formatFull(point.t)}</p>
+      <TooltipRows view={view} chartConfig={chartConfig} point={point} />
+      {point.online < 0.5 && <p className="mt-1 text-muted-foreground">{t('servers.history.offline')}</p>}
+    </div>
+  );
+}
+
+function TooltipRows({ view, chartConfig, point }: Readonly<{ view: View; chartConfig: HistoryChartConfig; point: Point & { memoryPct: number | null } }>) {
+  const { t } = useTranslations();
+  if (view === 'resources') {
+    return (
+      <>
+        <Row color={CPU_COLOR} label={chartConfig.cpu.label} value={`${Math.round(point.cpu)}%`} />
+        <Row color={MEM_COLOR} label={chartConfig.memoryPct.label} value={point.memoryPct !== null ? `${Math.round(point.memoryPct)}% · ${formatBytes(point.memory)}` : formatBytes(point.memory)} />
+      </>
+    );
+  }
+  if (view === 'network') {
+    return (
+      <>
+        <Row color={RX_COLOR} label={chartConfig.rx.label} value={formatRate(point.rx)} />
+        <Row color={TX_COLOR} label={chartConfig.tx.label} value={formatRate(point.tx)} />
+      </>
+    );
+  }
+  if (!point.hasPlayers) return <p className="text-muted-foreground">{t('servers.history.noPlayerData')}</p>;
+  const maxPlayers = point.maxPlayers ? ` / ${point.maxPlayers}` : '';
+  return (
+    <>
+      <Row color={PEAK_COLOR} label={chartConfig.playersPeakValue.label} value={`${point.playersPeak ?? 0}${maxPlayers}`} />
+      <Row color={PLAYERS_COLOR} label={chartConfig.playersAvg.label} value={(point.players ?? 0).toFixed(1)} />
+    </>
+  );
+}
+
+function Row({ color, label, value }: Readonly<{ color: string; label: string; value: string }>) {
   return (
     <p className="flex items-center justify-between gap-4">
       <span className="flex items-center gap-1.5 text-muted-foreground">
@@ -341,8 +434,15 @@ function Row({ color, label, value }: { color: string; label: string; value: str
   );
 }
 
+/** +1 for the next option, -1 for the previous one, 0 for any other key. */
+function arrowDelta(key: string): number {
+  if (key === 'ArrowRight' || key === 'ArrowDown') return 1;
+  if (key === 'ArrowLeft' || key === 'ArrowUp') return -1;
+  return 0;
+}
+
 /** A small segmented control whose highlight slides to the chosen option. */
-function Segmented({ label, value, options, onChange }: { label: string; value: string; options: { value: string; label: string }[]; onChange: (value: string) => void }) {
+function Segmented({ label, value, options, onChange }: Readonly<{ label: string; value: string; options: { value: string; label: string }[]; onChange: (value: string) => void }>) {
   const index = Math.max(0, options.findIndex((o) => o.value === value));
   return (
     <div
@@ -350,7 +450,7 @@ function Segmented({ label, value, options, onChange }: { label: string; value: 
       aria-label={label}
       // arrow keys move between the options, as in any radio group
       onKeyDown={(event) => {
-        const delta = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 0;
+        const delta = arrowDelta(event.key);
         if (!delta) return;
         event.preventDefault();
         const next = options[(index + delta + options.length) % options.length];

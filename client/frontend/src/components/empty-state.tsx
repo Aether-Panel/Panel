@@ -31,7 +31,7 @@ export function EmptyState({
   size = 'md',
   as: Title = 'h3',
   className,
-}: EmptyStateProps) {
+}: Readonly<EmptyStateProps>) {
   return (
     <div
       className={cn(

@@ -603,7 +603,8 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
         setStopRequestedAt(null);
         addLog(`> ${t('servers.console.system.killSent')}`);
       } else {
-        addLog(`> ${t(`servers.console.system.${action}Sent`)}`);
+        const sentKey = `servers.console.system.${action}Sent`;
+        addLog(`> ${t(sentKey)}`);
       }
       setTimeout(refresh, 2000);
     } catch (e: any) {

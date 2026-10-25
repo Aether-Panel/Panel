@@ -187,7 +187,7 @@ export default function AISummary({ logs, serverId }: { logs?: LogEntry[], serve
         )}
 
         {loading && (
-          <div className="space-y-2 py-2" role="status">
+          <output className="block space-y-2 py-2">
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               {t('servers.aiSummary.loading')}
@@ -195,7 +195,7 @@ export default function AISummary({ logs, serverId }: { logs?: LogEntry[], serve
             {[92, 78, 85].map((width, i) => (
               <div key={i} aria-hidden="true" className="skeleton-shimmer h-3 rounded-full" style={{ width: `${width}%` }} />
             ))}
-          </div>
+          </output>
         )}
 
         {summary && (

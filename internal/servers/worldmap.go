@@ -221,14 +221,7 @@ func detectMapPlatform(modpackLoader string, launcher *string, steps []string) (
 		kind, project, _ := strings.Cut(step, ":")
 		switch kind {
 		case "paperdl":
-			if project == "" {
-				project = "paper"
-			}
-			if mapPlatformFor(project) == "paper" {
-				return "paper", ""
-			}
-			// Velocity and Waterfall are proxies without a world
-			return "", "unknown"
+			return paperMapPlatform(project)
 		case "fabricdl":
 			return "fabric", ""
 		case "forgedl":
@@ -242,6 +235,18 @@ func detectMapPlatform(modpackLoader string, launcher *string, steps []string) (
 	if vanilla || (launcher != nil && strings.TrimSpace(*launcher) == "") {
 		return "", "vanilla"
 	}
+	return "", "unknown"
+}
+
+// paperMapPlatform maps the project of a paperdl step to a map platform
+func paperMapPlatform(project string) (platform, reason string) {
+	if project == "" {
+		project = "paper"
+	}
+	if mapPlatformFor(project) == "paper" {
+		return "paper", ""
+	}
+	// Velocity and Waterfall are proxies without a world
 	return "", "unknown"
 }
 
@@ -266,19 +271,24 @@ func (p *Server) mapPlatform() (platform, reason, modpackVersion string) {
 		}
 		step := op.Type
 		if op.Type == "paperdl" {
-			project := ""
-			if raw, ok := op.Metadata["project"]; ok && raw != nil {
-				project = strings.TrimSpace(cast.ToString(raw))
-				if match := tokenVariable.FindStringSubmatch(project); match != nil {
-					project = cast.ToString(p.Variables[match[1]].Value)
-				}
-			}
-			step += ":" + strings.ToLower(project)
+			step += ":" + strings.ToLower(p.paperdlProject(op.Metadata))
 		}
 		steps = append(steps, step)
 	}
 	platform, reason = detectMapPlatform(loader, launcher, steps)
 	return platform, reason, modpackVersion
+}
+
+// paperdlProject is the project a paperdl step downloads, with a ${variable} resolved
+func (p *Server) paperdlProject(metadata map[string]interface{}) string {
+	project := ""
+	if raw, ok := metadata["project"]; ok && raw != nil {
+		project = strings.TrimSpace(cast.ToString(raw))
+		if match := tokenVariable.FindStringSubmatch(project); match != nil {
+			project = cast.ToString(p.Variables[match[1]].Value)
+		}
+	}
+	return project
 }
 
 // stableGameVersion keeps "1.21.4"-like versions and drops "latest", snapshots and blanks

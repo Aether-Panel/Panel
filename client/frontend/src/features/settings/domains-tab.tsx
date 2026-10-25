@@ -19,6 +19,15 @@ const ZONE_ID = /^[a-f0-9]{32}$/i;
 const DOMAIN = /^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z0-9]([a-z0-9-]*[a-z0-9])?$/i;
 const TOKEN_PAGE = 'https://dash.cloudflare.com/profile/api-tokens';
 
+/** Drops leading and trailing dots (".example.com." -> "example.com") without a backtracking regex. */
+function trimDots(text: string) {
+  let start = 0;
+  let end = text.length;
+  while (start < end && text[start] === '.') start++;
+  while (end > start && text[end - 1] === '.') end--;
+  return text.slice(start, end);
+}
+
 type DomainsTabProps = {
   localSettings: Record<string, any>;
   handleUpdate: (key: string, value: any) => void;
@@ -29,11 +38,11 @@ type DomainsTabProps = {
  * Automatic subdomains: with a Cloudflare token and zone, servers get name.<base domain>
  * instead of an IP and a port. The test checks the values on screen, saved or not.
  */
-export function DomainsTab({ localSettings, handleUpdate, t }: DomainsTabProps) {
+export function DomainsTab({ localSettings, handleUpdate, t }: Readonly<DomainsTabProps>) {
   const [testing, setTesting] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
   const value = (key: string) => String(localSettings[key] ?? '');
-  const domain = value(KEYS.baseDomain).trim().toLowerCase().replace(/^\.+|\.+$/g, '');
+  const domain = trimDots(value(KEYS.baseDomain).trim().toLowerCase());
   const zoneId = value(KEYS.zoneId).trim();
   const token = value(KEYS.token).trim();
   const configured = token !== '' && ZONE_ID.test(zoneId) && DOMAIN.test(domain);
@@ -72,8 +81,7 @@ export function DomainsTab({ localSettings, handleUpdate, t }: DomainsTabProps) 
       />
 
       {result && (
-        <div
-          role="status"
+        <output
           className={cn(
             'flex items-start gap-2.5 border-b px-5 py-3 text-sm animate-in fade-in-0 slide-in-from-top-1 duration-300 md:px-6',
             result.ok ? 'border-success/30 bg-success/[0.07] text-success' : 'border-destructive/30 bg-destructive/[0.07] text-destructive-bright',
@@ -81,7 +89,7 @@ export function DomainsTab({ localSettings, handleUpdate, t }: DomainsTabProps) 
         >
           {result.ok ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" /> : <XCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />}
           <span className="min-w-0 break-words">{result.message}</span>
-        </div>
+        </output>
       )}
 
       <div className="divide-y divide-border/50">

@@ -114,7 +114,7 @@ export function registerTokyoNightTheme(monaco: any) {
 }
 
 /** Spinner shown while Monaco loads, on the editor's own background so nothing flashes. */
-export function EditorLoading({ label }: { label: string }) {
+export function EditorLoading({ label }: Readonly<{ label: string }>) {
   return (
     <div className="flex h-full w-full flex-col items-center justify-center gap-3" style={{ backgroundColor: EDITOR_BACKGROUND }}>
       <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden="true" />
@@ -129,10 +129,10 @@ interface CodeEditorProps {
   onChange: (value: string | undefined) => void;
   onSave?: () => void;
   /** Hands the Monaco instance to the parent, e.g. to move focus back after another view. */
-  onEditorReady?: (editor: any | null) => void;
+  onEditorReady?: (editor: any) => void;
 }
 
-export default function CodeEditor({ language, value, onChange, onSave, onEditorReady }: CodeEditorProps) {
+export default function CodeEditor({ language, value, onChange, onSave, onEditorReady }: Readonly<CodeEditorProps>) {
   const editorRef = useRef<any>(null);
   // Monaco keeps the command it was given at mount, so it reads the latest save handler from here
   const onSaveRef = useRef(onSave);
