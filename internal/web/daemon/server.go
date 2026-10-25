@@ -11,14 +11,16 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3/files"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
-	"github.com/SkyPanel/SkyPanel/v3/internal/query"
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers"
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers/docker"
+	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-contrib/cors"
@@ -105,6 +107,7 @@ func RegisterServerRoutes(e *gin.RouterGroup) {
 		l.POST("/:serverId/archive/*filename", middleware.ResolveServerNode, archive)
 		l.POST("/:serverId/extract/*filename", middleware.ResolveServerNode, extract)
 
+		l.GET("/:serverId/backup", middleware.ResolveServerNode, listBackups)
 		l.POST("/:serverId/backup/create", middleware.ResolveServerNode, createBackup)
 		l.DELETE("/:serverId/backup", middleware.ResolveServerNode, deleteBackup)
 		l.POST("/:serverId/backup/restore", middleware.ResolveServerNode, restoreBackup)
@@ -113,6 +116,14 @@ func RegisterServerRoutes(e *gin.RouterGroup) {
 		l.HEAD("/:serverId/query", middleware.ResolveServerNode, canQueryServer)
 		l.GET("/:serverId/query", middleware.ResolveServerNode, queryServer)
 
+		l.GET("/:serverId/crashes", middleware.ResolveServerNode, getCrashReports)
+		l.GET("/:serverId/metrics", middleware.ResolveServerNode, getMetrics)
+		l.GET("/:serverId/version", middleware.ResolveServerNode, getGameVersions)
+		l.POST("/:serverId/version", middleware.ResolveServerNode, changeGameVersion)
+		l.GET("/:serverId/notifications", middleware.ResolveServerNode, getNotifications)
+		l.PUT("/:serverId/notifications", middleware.ResolveServerNode, putNotifications)
+		l.POST("/:serverId/notifications/test", middleware.ResolveServerNode, testNotifications)
+
 		l.GET("/:serverId/plugins", middleware.ResolveServerNode, getPlugins)
 		l.DELETE("/:serverId/plugins", middleware.ResolveServerNode, deletePlugin)
 		l.OPTIONS("/:serverId/plugins", response.CreateOptions("GET", "DELETE"))
@@ -120,6 +131,11 @@ func RegisterServerRoutes(e *gin.RouterGroup) {
 		l.OPTIONS("/:serverId/plugins/search", response.CreateOptions("GET"))
 		l.POST("/:serverId/plugins/:pluginId", middleware.ResolveServerNode, installPlugin)
 		l.OPTIONS("/:serverId/plugins/:pluginId", response.CreateOptions("POST"))
+
+		registerModpackRoutes(l)
+		registerWorldMapRoutes(l)
+		registerFileHistoryRoutes(l)
+		registerCloneRoutes(l)
 
 		p := l.Group("/:serverId/socket")
 		{
@@ -195,15 +211,7 @@ func checkPortConflicts(server *servers.Server) error {
 }
 
 func doRestart(server *servers.Server) error {
-	err := server.Stop()
-	if err != nil {
-		return err
-	}
-	err = server.GetEnvironment().WaitForMainProcess()
-	if err != nil {
-		return err
-	}
-	return server.Start()
+	return server.Restart()
 }
 
 // @Summary Restart server
@@ -416,53 +424,78 @@ func editServerDataAdmin(c *gin.Context) {
 	// "primaryPort". Mirror them into the port/port2/... variables so the
 	// container binds all of them, and remove stale extra-port variables.
 	if portsField, hasPorts := data["ports"]; hasPorts {
-		var ports []uint16
-		if rawList, ok := portsField.([]interface{}); ok {
-			for _, raw := range rawList {
-				if p, perr := cast.ToUint16E(raw); perr == nil && p > 0 {
-					ports = append(ports, p)
-				}
-			}
-		}
-
-		var primary uint16
-		if rawPrimary, ok := data["primaryPort"]; ok {
-			primary = cast.ToUint16(rawPrimary)
-		} else if len(ports) > 0 {
-			primary = ports[0]
-		}
-
-		if primary > 0 {
-			for i, p := range ports {
-				if p == primary {
-					ports[0], ports[i] = ports[i], ports[0]
-					break
-				}
-			}
-		}
-
-		if len(ports) > 0 {
-			data["port"] = ports[0]
-			for i := 1; i < len(ports); i++ {
-				data[fmt.Sprintf("port%d", i+1)] = ports[i]
-			}
-			// Remove variables beyond the new list so dropped ports unbind.
-			for i := len(ports) + 1; ; i++ {
-				key := fmt.Sprintf("port%d", i)
-				if _, exists := server.Variables[key]; exists {
-					delete(server.Variables, key)
-				} else {
-					break
-				}
-			}
-		}
-		delete(data, "ports")
-		delete(data, "primaryPort")
+		mirrorPortsIntoData(server, data, portsField)
 	}
 
 	err = server.EditData(data, true)
 	if !response.HandleError(c, err, http.StatusInternalServerError) {
 		c.Status(http.StatusNoContent)
+	}
+}
+
+// mirrorPortsIntoData replaces the panel's "ports" and "primaryPort" fields
+// with the port/port2/... variables, primary port first.
+func mirrorPortsIntoData(server *servers.Server, data map[string]interface{}, portsField interface{}) {
+	ports := parseValidPorts(portsField)
+
+	var primary uint16
+	if rawPrimary, ok := data["primaryPort"]; ok {
+		primary = cast.ToUint16(rawPrimary)
+	} else if len(ports) > 0 {
+		primary = ports[0]
+	}
+
+	if primary > 0 {
+		movePortFirst(ports, primary)
+	}
+
+	if len(ports) > 0 {
+		setPortVariables(server, data, ports)
+	}
+	delete(data, "ports")
+	delete(data, "primaryPort")
+}
+
+// parseValidPorts keeps the entries of the "ports" array that are valid,
+// non-zero ports.
+func parseValidPorts(portsField interface{}) []uint16 {
+	rawList, ok := portsField.([]interface{})
+	if !ok {
+		return nil
+	}
+	var ports []uint16
+	for _, raw := range rawList {
+		if p, perr := cast.ToUint16E(raw); perr == nil && p > 0 {
+			ports = append(ports, p)
+		}
+	}
+	return ports
+}
+
+// movePortFirst swaps the given port into the first slot when it is listed.
+func movePortFirst(ports []uint16, port uint16) {
+	for i, p := range ports {
+		if p == port {
+			ports[0], ports[i] = ports[i], ports[0]
+			return
+		}
+	}
+}
+
+// setPortVariables writes the ports as port, port2, port3... and removes the
+// variables of ports that are no longer assigned.
+func setPortVariables(server *servers.Server, data map[string]interface{}, ports []uint16) {
+	data["port"] = ports[0]
+	for i := 1; i < len(ports); i++ {
+		data[fmt.Sprintf("port%d", i+1)] = ports[i]
+	}
+	// Remove variables beyond the new list so dropped ports unbind.
+	for i := len(ports) + 1; ; i++ {
+		key := fmt.Sprintf("port%d", i)
+		if _, exists := server.Variables[key]; !exists {
+			break
+		}
+		delete(server.Variables, key)
 	}
 }
 
@@ -476,19 +509,14 @@ func editServerDataAdmin(c *gin.Context) {
 func getServerTasks(c *gin.Context) {
 	server := getServerFromGin(c)
 
+	tasks := server.Scheduler.GetTasks()
 	result := skypanel.ServerTasks{
-		Tasks: make(map[string]skypanel.ServerTask),
+		Tasks: make(map[string]skypanel.ServerTask, len(tasks)),
 	}
 
-	for k, v := range server.Scheduler.Tasks {
-		result.Tasks[k] = skypanel.ServerTask{
-			Task: skypanel.Task{
-				Name:         v.Name,
-				CronSchedule: v.CronSchedule,
-				Description:  v.Description,
-			},
-			// IsRunning: server.Scheduler.IsTaskRunning(k),
-		}
+	// the steps are included so the panel can describe and edit each task without a request per task
+	for k, v := range tasks {
+		result.Tasks[k] = skypanel.ServerTask{Task: v}
 	}
 
 	c.JSON(http.StatusOK, result)
@@ -505,20 +533,13 @@ func getServerTasks(c *gin.Context) {
 func getServerTask(c *gin.Context) {
 	server := getServerFromGin(c)
 
-	var result *skypanel.ServerTask
-
-	for _, v := range server.Scheduler.Tasks {
-		result = &skypanel.ServerTask{
-			Task: v,
-			// IsRunning: server.Scheduler.IsTaskRunning(k),
-		}
-	}
-
-	if result != nil {
-		c.JSON(http.StatusOK, result)
-	} else {
+	task, ok := server.Scheduler.GetTask(c.Param("taskID"))
+	if !ok {
 		c.Status(http.StatusNotFound)
+		return
 	}
+
+	c.JSON(http.StatusOK, &skypanel.ServerTask{Task: task})
 }
 
 // @Summary Run server task
@@ -565,15 +586,11 @@ func editServerTask(c *gin.Context) {
 		return
 	}
 
-	err = server.Scheduler.RemoveTask(taskID)
-	if errors.Is(err, gocron.ErrJobNotFound) {
-		err = nil
-	}
-	if response.HandleError(c, err, http.StatusInternalServerError) {
+	err = server.Scheduler.SetTask(taskID, task)
+	if errors.Is(err, servers.ErrInvalidTask) {
+		response.HandleError(c, err, http.StatusBadRequest)
 		return
 	}
-
-	err = server.Scheduler.AddTask(taskID, task)
 	if !response.HandleError(c, err, http.StatusInternalServerError) {
 		c.Status(http.StatusNoContent)
 	}
@@ -806,6 +823,9 @@ func putFile(c *gin.Context) {
 	if err := server.GetFileServer().MkdirAll(parentDir, 0755); response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
+
+	// keep the text being replaced, so a config edit can be compared and undone
+	recordFileVersion(server, targetPath)
 
 	file, err := server.GetFileServer().OpenFile(targetPath, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0644)
 	defer utils.Close(file)
@@ -1097,6 +1117,23 @@ func createBackup(c *gin.Context) {
 	c.JSON(http.StatusOK, &skypanel.ServerBackupResponse{BackupFileName: id})
 }
 
+// @Summary List backup files
+// @Description Lists the finished backup archives in the server's backup folder, newest first
+// @Success 200 {object} []skypanel.BackupFile
+// @Param id path string true "Server ID"
+// @Tags Daemon Server
+// @Router /daemon/server/{id}/backup [get]
+// @Security OAuth2Application[server.backup.view]
+func listBackups(c *gin.Context) {
+	server := getServerFromGin(c)
+
+	backups, err := server.ListBackups()
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+	c.JSON(http.StatusOK, backups)
+}
+
 // @Summary Delete backup
 // @Description Delete a backup of the server
 // @Success 204 {object} nil
@@ -1234,7 +1271,7 @@ func canQueryServer(c *gin.Context) {
 	server := getServerFromGin(c)
 
 	switch server.Query.Type {
-	case "minecraft":
+	case "minecraft", "source", "steam":
 		c.Status(http.StatusAccepted)
 	default:
 		c.Status(http.StatusNoContent)
@@ -1243,6 +1280,8 @@ func canQueryServer(c *gin.Context) {
 
 // @Summary Queries the server for game-specific stats
 // @Description Queries the server using the server's protocol to gather information such as players.
+// @Description Minecraft servers answer the server list ping; Steam servers (query type "source",
+// @Description or no query type at all) answer A2S.
 // @Success 200 {object} interface{}
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
@@ -1252,38 +1291,11 @@ func canQueryServer(c *gin.Context) {
 func queryServer(c *gin.Context) {
 	server := getServerFromGin(c)
 
-	if running, err := server.IsRunning(); err != nil || !running {
+	result, ok := server.QueryGame()
+	if !ok {
 		c.Status(http.StatusNoContent)
 		return
 	}
-
-	result := make(map[string]interface{})
-
-	switch server.Query.Type {
-	case "minecraft":
-		ip := cast.ToString(server.DataToMap()["ip"])
-		if ip == "" {
-			c.Status(http.StatusNoContent)
-			return
-		}
-
-		port := cast.ToInt(server.DataToMap()["port"])
-		if port <= 0 {
-			c.Status(http.StatusNoContent)
-			return
-		}
-
-		res, err := query.Minecraft(ip, port)
-		if err != nil {
-			c.Status(http.StatusNoContent)
-			return
-		}
-		result["minecraft"] = res
-	default:
-		c.Status(http.StatusNoContent)
-		return
-	}
-
 	c.JSON(http.StatusOK, result)
 }
 
@@ -1505,59 +1517,15 @@ func installPlugin(c *gin.Context) {
 		return
 	}
 
-	// Obtener versiones del proyecto de Modrinth
-	versionURL := fmt.Sprintf("https://api.modrinth.com/v2/project/%s/version", projectID)
-	client := &http.Client{}
-	req, _ := http.NewRequest("GET", versionURL, nil)
-	req.Header.Set("User-Agent", "PufferPanel/SkyPanel Plugin Manager")
+	// a plugin can break the server; a restore point lets the owner go back (a busy backup
+	// only means this install goes ahead without one)
+	if err := server.CreateRestorePoint(servers.RestoreReasonPlugin); err != nil {
+		logging.Info.Printf("[%s] No restore point before installing a plugin: %s", server.ID(), err)
+	}
 
-	resp, err := client.Do(req)
-	if response.HandleError(c, err, http.StatusInternalServerError) {
+	downloadURL, fileName, ok := fetchLatestModrinthFile(c, projectID)
+	if !ok {
 		return
-	}
-	defer utils.CloseResponse(resp)
-
-	if resp.StatusCode != http.StatusOK {
-		response.HandleError(c, fmt.Errorf("project or versions not found on Modrinth"), http.StatusNotFound)
-		return
-	}
-
-	var versions []struct {
-		ID    string `json:"id"`
-		Name  string `json:"name"`
-		Files []struct {
-			URL      string `json:"url"`
-			FileName string `json:"filename"`
-			Primary  bool   `json:"primary"`
-		} `json:"files"`
-		VersionNumber string `json:"version_number"`
-	}
-
-	err = json.NewDecoder(resp.Body).Decode(&versions)
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-		return
-	}
-
-	if len(versions) == 0 {
-		response.HandleError(c, fmt.Errorf("no versions found for this project"), http.StatusNotFound)
-		return
-	}
-
-	// Seleccionar la versión más reciente (primera en la lista)
-	latestVersion := versions[0]
-	if len(latestVersion.Files) == 0 {
-		response.HandleError(c, fmt.Errorf("no files found in the latest version"), http.StatusNotFound)
-		return
-	}
-
-	// Buscar el archivo primario o el primero
-	var downloadURL string
-	var fileName string
-	for _, file := range latestVersion.Files {
-		if file.Primary || downloadURL == "" {
-			downloadURL = file.URL
-			fileName = file.FileName
-		}
 	}
 
 	// Descargar el plugin
@@ -1602,6 +1570,67 @@ func installPlugin(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// fetchLatestModrinthFile looks up the newest version of a Modrinth project and
+// returns the download URL and name of its primary file (or the first one). It
+// writes the error response itself and returns false when the request must stop.
+func fetchLatestModrinthFile(c *gin.Context, projectID string) (string, string, bool) {
+	// Obtener versiones del proyecto de Modrinth
+	versionURL := fmt.Sprintf("https://api.modrinth.com/v2/project/%s/version", projectID)
+	client := &http.Client{}
+	req, _ := http.NewRequest("GET", versionURL, nil)
+	req.Header.Set("User-Agent", "PufferPanel/SkyPanel Plugin Manager")
+
+	resp, err := client.Do(req)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return "", "", false
+	}
+	defer utils.CloseResponse(resp)
+
+	if resp.StatusCode != http.StatusOK {
+		response.HandleError(c, fmt.Errorf("project or versions not found on Modrinth"), http.StatusNotFound)
+		return "", "", false
+	}
+
+	var versions []struct {
+		ID    string `json:"id"`
+		Name  string `json:"name"`
+		Files []struct {
+			URL      string `json:"url"`
+			FileName string `json:"filename"`
+			Primary  bool   `json:"primary"`
+		} `json:"files"`
+		VersionNumber string `json:"version_number"`
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(&versions)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return "", "", false
+	}
+
+	if len(versions) == 0 {
+		response.HandleError(c, fmt.Errorf("no versions found for this project"), http.StatusNotFound)
+		return "", "", false
+	}
+
+	// Seleccionar la versión más reciente (primera en la lista)
+	latestVersion := versions[0]
+	if len(latestVersion.Files) == 0 {
+		response.HandleError(c, fmt.Errorf("no files found in the latest version"), http.StatusNotFound)
+		return "", "", false
+	}
+
+	// Buscar el archivo primario o el primero
+	var downloadURL string
+	var fileName string
+	for _, file := range latestVersion.Files {
+		if file.Primary || downloadURL == "" {
+			downloadURL = file.URL
+			fileName = file.FileName
+		}
+	}
+	return downloadURL, fileName, true
+}
+
 // @Summary Delete plugin
 // @Description Deletes a plugin from the server
 // @Success 204 {object} nil
@@ -1626,6 +1655,10 @@ func deletePlugin(c *gin.Context) {
 		logging.Error.Printf("deletePlugin: plugin name is required")
 		response.HandleError(c, errors.New("plugin name is required (use ?name=plugin.jar)"), http.StatusBadRequest)
 		return
+	}
+
+	if err := server.CreateRestorePoint(servers.RestoreReasonPlugin); err != nil {
+		logging.Info.Printf("[%s] No restore point before removing a plugin: %s", server.ID(), err)
 	}
 
 	// Asegurar que es un archivo .jar
@@ -1658,4 +1691,179 @@ func deletePlugin(c *gin.Context) {
 		env.DisplayToConsole(true, fmt.Sprintf("Plugin %s deleted successfully\n", pluginName))
 	}
 	c.Status(http.StatusNoContent)
+}
+
+// @Summary Get crash reports
+// @Description The server's latest crash reports, newest first, each with the console lines before the crash
+// @Success 200 {object} []servers.CrashReport
+// @Param id path string true "Server ID"
+// @Tags Daemon Server
+// @Router /api/servers/{id}/crashes [get]
+// @Security OAuth2Application[server.console]
+func getCrashReports(c *gin.Context) {
+	server := getServerFromGin(c)
+
+	reports, err := server.CrashReports()
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+	c.JSON(http.StatusOK, reports)
+}
+
+// @Summary Get notification settings
+// @Description The server's own Discord notifications
+// @Success 200 {object} servers.Notifications
+// @Param id path string true "Server ID"
+// @Tags Daemon Server
+// @Router /api/servers/{id}/notifications [get]
+// @Security OAuth2Application[server.flags.edit]
+func getNotifications(c *gin.Context) {
+	server := getServerFromGin(c)
+
+	n, err := server.Notifications()
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+	c.JSON(http.StatusOK, n)
+}
+
+// @Summary Save notification settings
+// @Description Saves the server's Discord webhook and which events are sent to it
+// @Success 204 {object} nil
+// @Param id path string true "Server ID"
+// @Param notifications body servers.Notifications true "Notification settings"
+// @Tags Daemon Server
+// @Router /api/servers/{id}/notifications [put]
+// @Security OAuth2Application[server.flags.edit]
+func putNotifications(c *gin.Context) {
+	server := getServerFromGin(c)
+
+	var n servers.Notifications
+	if response.HandleError(c, c.ShouldBindJSON(&n), http.StatusBadRequest) {
+		return
+	}
+	err := server.SetNotifications(n)
+	if errors.Is(err, services.ErrInvalidDiscordWebhook) || errors.Is(err, services.ErrInvalidTelegram) || errors.Is(err, services.ErrInvalidWebhook) {
+		response.HandleError(c, err, http.StatusBadRequest)
+		return
+	}
+	if !response.HandleError(c, err, http.StatusInternalServerError) {
+		c.Status(http.StatusNoContent)
+	}
+}
+
+// testNotificationsLast keeps the test button from being used to flood a channel
+var (
+	testNotificationsLast     = make(map[string]time.Time)
+	testNotificationsLastLock sync.Mutex
+)
+
+// @Summary Send a test notification
+// @Description Posts a sample message to every channel the server has, and reports each one ("ok" or why it failed)
+// @Success 200 {object} map[string]string
+// @Param id path string true "Server ID"
+// @Tags Daemon Server
+// @Router /api/servers/{id}/notifications/test [post]
+// @Security OAuth2Application[server.flags.edit]
+func testNotifications(c *gin.Context) {
+	server := getServerFromGin(c)
+
+	testNotificationsLastLock.Lock()
+	last := testNotificationsLast[server.ID()]
+	if time.Since(last) < 10*time.Second {
+		testNotificationsLastLock.Unlock()
+		response.HandleError(c, errors.New("wait a few seconds before sending another test"), http.StatusTooManyRequests)
+		return
+	}
+	testNotificationsLast[server.ID()] = time.Now()
+	testNotificationsLastLock.Unlock()
+
+	results, err := server.SendTestNotification()
+	if errors.Is(err, servers.ErrNoNotificationChannel) {
+		response.HandleError(c, err, http.StatusBadRequest)
+		return
+	}
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+	// a channel refusing the message (deleted webhook, wrong token) is the owner's to fix; the
+	// page shows which one
+	c.JSON(http.StatusOK, results)
+}
+
+// @Summary Get performance history
+// @Description CPU, memory, network and uptime over the last hour, day or week, averaged per step
+// @Success 200 {object} map[string]interface{}
+// @Param id path string true "Server ID"
+// @Param range query string false "1h, 24h (default) or 7d"
+// @Tags Daemon Server
+// @Router /api/servers/{id}/metrics [get]
+// @Security OAuth2Application[server.stats]
+func getMetrics(c *gin.Context) {
+	server := getServerFromGin(c)
+
+	name := c.DefaultQuery("range", "24h")
+	window, ok := servers.MetricRanges[name]
+	if !ok {
+		response.HandleError(c, errors.New("range must be 1h, 24h or 7d"), http.StatusBadRequest)
+		return
+	}
+	record, recordAt := server.PlayerRecord()
+	c.JSON(http.StatusOK, gin.H{
+		"range":  name,
+		"step":   int64(window.Step / time.Second),
+		"points": server.Metrics(window.Window, window.Step, time.Now()),
+		"record": gin.H{"players": record, "at": recordAt},
+	})
+}
+
+// @Summary Get game versions
+// @Description The server's game version and the stable releases it can switch to (Paper, Folia, Velocity, Waterfall, vanilla)
+// @Success 200 {object} servers.VersionInfo
+// @Param id path string true "Server ID"
+// @Tags Daemon Server
+// @Router /api/servers/{id}/version [get]
+// @Security OAuth2Application[server.view]
+func getGameVersions(c *gin.Context) {
+	server := getServerFromGin(c)
+
+	info, err := server.GameVersions()
+	if errors.Is(err, servers.ErrNoVersionSwitch) {
+		c.Status(http.StatusNoContent)
+		return
+	}
+	// the version lists come from PaperMC and Mojang; when they cannot be reached say so
+	if response.HandleError(c, err, http.StatusBadGateway) {
+		return
+	}
+	c.JSON(http.StatusOK, info)
+}
+
+// @Summary Change game version
+// @Description Stops the server, saves a restore point, sets the new version, reinstalls and starts it again if it was running. Runs in the background; the console shows each step.
+// @Success 202 {object} nil
+// @Param id path string true "Server ID"
+// @Tags Daemon Server
+// @Router /api/servers/{id}/version [post]
+// @Security OAuth2Application[server.install]
+func changeGameVersion(c *gin.Context) {
+	server := getServerFromGin(c)
+
+	var body struct {
+		Version string `json:"version" binding:"required"`
+	}
+	if response.HandleError(c, c.ShouldBindJSON(&body), http.StatusBadRequest) {
+		return
+	}
+	err := server.ChangeVersion(strings.TrimSpace(body.Version))
+	switch {
+	case errors.Is(err, servers.ErrNoVersionSwitch), errors.Is(err, servers.ErrUnknownVersion):
+		response.HandleError(c, err, http.StatusBadRequest)
+	case errors.Is(err, servers.ErrVersionChanging):
+		response.HandleError(c, err, http.StatusConflict)
+	case err != nil:
+		response.HandleError(c, err, http.StatusConflict)
+	default:
+		c.Status(http.StatusAccepted)
+	}
 }

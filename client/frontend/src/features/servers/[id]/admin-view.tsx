@@ -6,18 +6,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Loader2, Settings, ArrowRightLeft, Trash2, HardDrive, Flag, TriangleAlert, Download, FileCode, Ban } from 'lucide-react';
+import { Loader2, Settings, ArrowRightLeft, Trash2, HardDrive, Flag, TriangleAlert, Download, FileCode, Ban, Copy } from 'lucide-react';
 import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
 import { sileo } from "@/lib/toast";
 import { useState, lazy, Suspense, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { useExperimental } from '@/contexts/config-context';
+import { BetaBadge } from '@/components/beta-badge';
 import { useServerSettings } from '@/hooks/use-server-settings';
 import { useAuth } from '@/contexts/providers';
 
 const CodeEditor = lazy(() => import('./code-editor'));
+const CloneServerCard = lazy(() => import('./clone-server-card'));
 
-export default function AdminView({ serverId }: { serverId: string }) {
+export default function AdminView({ serverId }: Readonly<{ serverId: string }>) {
     const { t } = useTranslations();
     
     const { hasScope } = useAuth();
@@ -36,6 +39,7 @@ export default function AdminView({ serverId }: { serverId: string }) {
     const [nodesLoaded, setNodesLoaded] = useState(false);
 
     const [adminTab, setAdminTab] = useState('install');
+    const { features: experimental } = useExperimental();
 
     const fetchNodes = async () => {
         if (nodesLoaded) return;
@@ -133,7 +137,6 @@ export default function AdminView({ serverId }: { serverId: string }) {
         }
     };
 
-    const canViewAdmin = hasScope('server.admin.view') || hasScope('server.admin') || hasScope('admin');
     const canViewInstall = hasScope('server.admin.install.view') || hasScope('server.install') || hasScope('server.admin') || hasScope('admin');
     const canManageInstall = hasScope('server.admin.install.manage') || hasScope('server.install') || hasScope('server.admin') || hasScope('admin');
     const canViewTransfer = hasScope('server.admin.transfer.view') || hasScope('server.data.edit.admin') || hasScope('server.admin') || hasScope('admin');
@@ -143,6 +146,8 @@ export default function AdminView({ serverId }: { serverId: string }) {
     const canViewAssignments = hasScope('server.admin.assignments.view') || hasScope('server.flags.view') || hasScope('server.admin') || hasScope('admin');
     const canManageAssignments = hasScope('server.admin.assignments.manage') || hasScope('server.flags.edit') || hasScope('server.admin') || hasScope('admin');
     const canViewDelete = hasScope('server.delete') || hasScope('server.admin') || hasScope('admin');
+    // cloning creates a server, so it needs the same permission as creating one
+    const canClone = experimental.serverClone && (hasScope('server.create') || hasScope('admin'));
 
     if (loading) {
         return (
@@ -155,10 +160,13 @@ export default function AdminView({ serverId }: { serverId: string }) {
     const adminTabs = [
         ...(canViewInstall ? [{ value: 'install', label: t('servers.admin.tabs.install'), icon: HardDrive }] : []),
         ...(canViewTransfer ? [{ value: 'transfer', label: t('servers.admin.tabs.transfer'), icon: ArrowRightLeft }] : []),
+        ...(canClone ? [{ value: 'clone', label: t('servers.clone.tab'), icon: Copy, beta: true }] : []),
         ...(canViewConfig ? [{ value: 'config', label: t('servers.admin.tabs.config'), icon: Settings }] : []),
         ...(canViewAssignments ? [{ value: 'assignments', label: t('servers.admin.tabs.assignments'), icon: Flag }] : []),
         ...(canViewDelete ? [{ value: 'delete', label: t('servers.admin.tabs.danger'), icon: TriangleAlert }] : []),
     ];
+    // a section that is not offered (no permission, or an experimental feature switched off) falls back to the first one
+    const currentTab = adminTabs.some(tab => tab.value === adminTab) ? adminTab : adminTabs[0]?.value ?? adminTab;
 
     return (
         <Card className="mt-6">
@@ -167,12 +175,12 @@ export default function AdminView({ serverId }: { serverId: string }) {
                 <p className="text-sm text-muted-foreground">{t('servers.admin.description')}</p>
             </div>
 
-            <Tabs value={adminTab} onValueChange={setAdminTab}>
+            <Tabs value={currentTab} onValueChange={setAdminTab}>
                 <div className="border-b border-border/50 px-5 py-3 md:px-6">
                     {/* Below lg (sidebar + card padding leave too little room) the sections
                         collapse into a select instead of a clipped or wrapping strip. */}
                     <div className="lg:hidden">
-                        <Select value={adminTab} onValueChange={setAdminTab}>
+                        <Select value={currentTab} onValueChange={setAdminTab}>
                             <SelectTrigger aria-label={t('servers.admin.sectionLabel')}>
                                 <SelectValue />
                             </SelectTrigger>
@@ -182,6 +190,7 @@ export default function AdminView({ serverId }: { serverId: string }) {
                                         <div className="flex items-center gap-2">
                                             <tab.icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                                             <span>{tab.label}</span>
+                                            {tab.beta && <BetaBadge />}
                                         </div>
                                     </SelectItem>
                                 ))}
@@ -199,6 +208,7 @@ export default function AdminView({ serverId }: { serverId: string }) {
                                 )}
                             >
                                 {tab.label}
+                                {tab.beta && <BetaBadge className="ml-2" />}
                             </TabsTrigger>
                         ))}
                     </TabsList>
@@ -295,6 +305,14 @@ export default function AdminView({ serverId }: { serverId: string }) {
                             )}
                         </ActionRow>
                     </TabsContent>
+
+                    {canClone && (
+                        <TabsContent value="clone" className="mt-0">
+                            <Suspense fallback={<div className="flex h-40 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-label={t('common.loading')} /></div>}>
+                                <CloneServerCard serverId={serverId} />
+                            </Suspense>
+                        </TabsContent>
+                    )}
 
                     <TabsContent value="config" className="mt-0">
                         <ActionRow
@@ -444,13 +462,13 @@ function ActionRow({
     description,
     bare,
     children,
-}: {
+}: Readonly<{
     title: string;
     description: string;
     /** Skip the item frame when the row already sits inside a framed list. */
     bare?: boolean;
     children?: ReactNode;
-}) {
+}>) {
     return (
         <div
             className={cn(

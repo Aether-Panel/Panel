@@ -80,12 +80,26 @@
     "search": {
       "label": "Búsqueda rápida",
       "open": "Abrir búsqueda rápida",
-      "placeholder": "Buscar páginas y secciones…",
+      "placeholder": "Buscar en el panel…",
       "hint": "Ctrl K",
-      "noResults": "No hay páginas coincidentes",
+      "noResults": "Sin resultados",
       "navigate": "Navegar",
       "select": "Abrir",
-      "close": "Cerrar"
+      "close": "Cerrar",
+      "sections": {
+        "servers": "Servidores",
+        "actions": "Acciones",
+        "pages": "Páginas"
+      },
+      "actions": {
+        "start": "Iniciar {{name}}",
+        "restart": "Reiniciar {{name}}",
+        "stop": "Detener {{name}}",
+        "startDone": "{{name}} se está iniciando.",
+        "restartDone": "{{name}} se está reiniciando.",
+        "stopDone": "{{name}} se está deteniendo.",
+        "failed": "No se pudo completar la acción."
+      }
     },
     "update": {
       "title": "Actualización disponible",
@@ -387,7 +401,11 @@
       "menuLabel": "Acciones",
       "viewDetails": "Ver detalles",
       "edit": "Editar",
-      "delete": "Eliminar"
+      "delete": "Eliminar",
+      "startSuccess": "El servidor se está iniciando.",
+      "stopSuccess": "El servidor se está deteniendo.",
+      "restartSuccess": "El servidor se está reiniciando.",
+      "killSuccess": "El servidor se ha forzado a parar."
     },
     "detail": {
       "description": "Métricas detalladas y estado de este servidor.",
@@ -407,12 +425,17 @@
         "users": "Usuarios",
         "database": "Base de datos",
         "backups": "Copias de seguridad",
+        "tasks": "Tareas",
         "plugins": "Plugins",
         "sftp": "Acceso SFTP",
         "admin": "Administración",
         "more": "Más",
         "extransfer": "Migración",
-        "splitter": "Splitter"
+        "splitter": "Splitter",
+        "activity": "Actividad",
+        "properties": "Propiedades",
+        "modpacks": "Modpacks",
+        "map": "Mapa"
       },
       "overview": {
         "status": "Estado",
@@ -423,7 +446,8 @@
         "resourcesTitle": "Recursos en vivo",
         "resourcesSubtitle": "Consumo actual frente al límite asignado al servidor",
         "playersDescription": "Jugadores conectados ahora mismo.",
-        "noPlayers": "No hay nadie conectado."
+        "noPlayers": "No hay nadie conectado.",
+        "namesHidden": "Este juego no comparte los nombres de los jugadores."
       },
       "notFoundDescription": "Puede que se haya eliminado o que no tengas acceso a él.",
       "backToServers": "Volver a servidores",
@@ -455,7 +479,52 @@
       "cleared": "Vista limpia. Los mensajes nuevos aparecerán aquí.",
       "jumpToEnd": "Ir al final",
       "connectedToast": "Consola conectada",
-      "sendError": "No se pudo enviar el comando."
+      "sendError": "No se pudo enviar el comando.",
+      "announce": {
+        "online": "El servidor está en línea.",
+        "offline": "El servidor se ha detenido.",
+        "crashed": "El servidor se ha caído (código {{code}})."
+      },
+      "system": {
+        "connectionLost": "Se perdió la conexión con la consola. Reconectando…",
+        "unavailable": "La consola de este servidor no está disponible en el nodo.",
+        "offline": "El servidor está apagado.",
+        "error": "Error: {{message}}",
+        "stopSent": "Señal de parada enviada. Esperando a que el servidor se apague…",
+        "killSent": "Señal de forzar parada enviada. El servidor se está cerrando a la fuerza.",
+        "startSent": "Señal de inicio enviada.",
+        "restartSent": "Señal de reinicio enviada.",
+        "filesMissing": "Faltan los archivos o la configuración del servidor en el nodo.",
+        "portInUse": "Error: el puerto ya está en uso.",
+        "actionFailed": "No se pudo completar la acción.",
+        "sendFailed": "No se pudo enviar: {{command}}"
+      },
+      "filters": {
+        "label": "Mostrar",
+        "all": "Todo",
+        "error": "Errores",
+        "warn": "Avisos",
+        "empty": {
+          "error": "No hay errores en la consola.",
+          "warn": "No hay avisos en la consola."
+        }
+      },
+      "search": {
+        "open": "Buscar",
+        "label": "Buscar en la consola",
+        "placeholder": "Buscar…",
+        "previous": "Coincidencia anterior",
+        "next": "Coincidencia siguiente",
+        "close": "Cerrar búsqueda"
+      },
+      "favorites": {
+        "label": "Comandos favoritos",
+        "send": "Enviar {{command}}",
+        "remove": "Quitar {{command}} de favoritos",
+        "save": "Guardar como favorito",
+        "unsave": "Quitar de favoritos"
+      },
+      "historyHint": "Flechas arriba y abajo para recorrer los comandos anteriores; Tab para completar."
     },
     "aiSummary": {
       "title": "Análisis de consola por IA",
@@ -615,8 +684,8 @@
       "portPlaceholder": "p. ej. 25566",
       "portsRequireOffline": "El servidor debe estar apagado para cambiar el puerto principal.",
       "portRequired": "Debes asignar al menos un puerto.",
-      "portInvalid": "El puerto {port} no es válido (debe estar entre 1024 y 65535).",
-      "portDuplicate": "El puerto {port} ya está asignado a este servidor.",
+      "portInvalid": "El puerto {{port}} no es válido (debe estar entre 1024 y 65535).",
+      "portDuplicate": "El puerto {{port}} ya está asignado a este servidor.",
       "portsRunningHint": "El servidor está encendido. Apágalo para cambiar qué puerto es el principal.",
       "portsApplyOnRestart": "Los cambios de puertos se aplicarán cuando el servidor se reinicie.",
       "saveButton": "Guardar cambios",
@@ -773,6 +842,142 @@
       "empty": {
         "title": "No hay copias de seguridad",
         "description": "Crea tu primer backup para comenzar."
+      },
+      "automatic": {
+        "badge": "Automática",
+        "name": "Copia automática"
+      },
+      "offsite": {
+        "both": "Externa",
+        "bothHint": "También está guardada en el almacenamiento externo.",
+        "only": "Solo externa",
+        "onlyHint": "La copia local ya no existe; se descargará del almacenamiento externo al restaurar o descargar."
+      },
+      "usage": {
+        "label": "Espacio usado por copias:",
+        "largest": "La mayor ocupa {{size}}",
+        "offsite": "{{count}} también en externo"
+      },
+      "restorePoint": {
+        "badge": "Punto de restauración",
+        "hint": "Copia automática del estado anterior a un cambio arriesgado. Se guardan las 3 más recientes.",
+        "reasons": {
+          "plugin": "Antes de un cambio de plugins",
+          "version": "Antes de cambiar de versión",
+          "restore": "Antes de restaurar una copia",
+          "other": "Punto de restauración",
+          "modpack": "Antes de instalar un modpack"
+        }
+      }
+    },
+    "tasks": {
+      "title": "Tareas programadas",
+      "description": "{{count}} tareas · se ejecutan solas en el nodo, aunque no tengas el panel abierto",
+      "create": "Nueva tarea",
+      "loadError": "No se pudieron cargar las tareas.",
+      "noPermission": "No tienes permiso para ver las tareas de este servidor.",
+      "empty": {
+        "title": "Todavía no hay tareas",
+        "description": "Automatiza reinicios, copias de seguridad y comandos. Empieza con una plantilla o crea la tuya."
+      },
+      "presets": {
+        "title": "Plantillas",
+        "dailyRestart": {
+          "name": "Reinicio diario",
+          "description": "Reinicia el servidor todos los días a las 05:00."
+        },
+        "dailyBackup": {
+          "name": "Copia de seguridad diaria",
+          "description": "Copia cada día a las 04:00 y guarda las 7 últimas."
+        },
+        "warnRestart": {
+          "name": "Aviso y reinicio",
+          "description": "Avisa a los jugadores, espera 5 minutos y reinicia.",
+          "message": "say El servidor se reiniciará en 5 minutos"
+        }
+      },
+      "schedule": {
+        "label": "Cuándo",
+        "kind": "Frecuencia",
+        "daily": "Todos los días",
+        "weekly": "Días de la semana",
+        "interval": "Cada pocas horas",
+        "custom": "Personalizada (cron)",
+        "manual": "Solo a mano",
+        "time": "Hora",
+        "days": "Días",
+        "everyHours": "Cada",
+        "hoursOption": "{{count}} h",
+        "cron": "Expresión cron",
+        "cronHelp": "Cinco campos: minuto, hora, día del mes, mes y día de la semana. Ejemplo: 30 4 * * 1",
+        "timezone": "Las horas son de tu zona horaria ({{zone}}).",
+        "describe": {
+          "daily": "Todos los días a las {{time}}",
+          "weekly": "{{days}} a las {{time}}",
+          "interval": "Cada {{count}} h",
+          "intervalOne": "Cada hora",
+          "custom": "Cron: {{expression}}",
+          "manual": "Solo a mano",
+          "zone": "hora de {{zone}}"
+        },
+        "next": "Próxima: {{when}}",
+        "today": "hoy {{time}}",
+        "tomorrow": "mañana {{time}}"
+      },
+      "steps": {
+        "label": "Qué hace",
+        "help": "Los pasos se ejecutan en orden.",
+        "add": "Añadir paso",
+        "empty": "Añade al menos un paso.",
+        "moveUp": "Subir paso",
+        "moveDown": "Bajar paso",
+        "remove": "Quitar paso",
+        "stdin": "Enviar comando",
+        "sleep": "Esperar",
+        "restart": "Reiniciar",
+        "stop": "Detener",
+        "start": "Iniciar",
+        "backup": "Copia de seguridad",
+        "commandPlaceholder": "say Hola a todos",
+        "minutes": "{{count}} min",
+        "keep": "Guardar las últimas",
+        "keepHelp": "Las copias automáticas más antiguas se borran solas. Las que haces a mano no se tocan.",
+        "describe": {
+          "stdin": "Comando: {{command}}",
+          "sleep": "Esperar {{duration}}",
+          "backup": "Copia (guarda {{count}})",
+          "restartNote": "Solo si está encendido"
+        },
+        "adminOnly": "Paso de administrador: {{type}}"
+      },
+      "dialog": {
+        "createTitle": "Nueva tarea",
+        "editTitle": "Editar tarea",
+        "name": "Nombre",
+        "namePlaceholder": "Reinicio de madrugada",
+        "save": "Guardar tarea"
+      },
+      "validation": {
+        "name": "Ponle un nombre a la tarea.",
+        "steps": "La tarea necesita al menos un paso.",
+        "command": "Escribe el comando que quieres enviar.",
+        "days": "Elige al menos un día.",
+        "cron": "La expresión necesita cinco campos."
+      },
+      "run": {
+        "button": "Ejecutar ahora",
+        "success": "La tarea se está ejecutando. Sigue el progreso en la consola.",
+        "error": "No se pudo ejecutar la tarea."
+      },
+      "edit": "Editar",
+      "saveSuccess": "Tarea guardada.",
+      "saveError": "No se pudo guardar la tarea.",
+      "delete": {
+        "button": "Eliminar",
+        "title": "Eliminar tarea",
+        "confirm": "Se eliminará «{{name}}» y dejará de ejecutarse.",
+        "success": "Tarea eliminada.",
+        "error": "No se pudo eliminar la tarea."
       }
     },
     "plugins": {
@@ -814,7 +1019,8 @@
         "uninstallSuccess": "Plugin eliminado correctamente.",
         "uninstallError": "Error al eliminar el plugin.",
         "searchError": "No se pudo buscar en Modrinth."
-      }
+      },
+      "restorePointNote": "Antes de instalar o quitar un plugin se guarda un punto de restauración."
     },
     "admin": {
       "title": "Administración",
@@ -988,7 +1194,16 @@
         "copyToken": "Copiar token",
         "copied": "Copiado",
         "waiting": "Esperando a que el panel de destino inicie la transferencia…",
-        "sessionId": "ID de sesión:"
+        "sessionId": "ID de sesión:",
+        "inProgressTitle": "Transferencia en curso",
+        "inProgressBody": "El panel de destino está descargando los datos de este servidor.",
+        "lastHeartbeat": "Última señal del destino:",
+        "noHeartbeat": "Esperando la primera señal del destino…",
+        "tokenElsewhere": "Hay un token de migración activo generado desde otro navegador o sesión. Cancélalo si ya no lo necesitas.",
+        "completedTitle": "Migración completada",
+        "completedBody": "El panel de destino confirmó que recibió los datos de este servidor. El token ya no se puede usar.",
+        "cancelledTitle": "Transferencia cancelada",
+        "cancelledBody": "Esta sesión de migración se canceló y su token ya no es válido. Genera uno nuevo si quieres volver a intentarlo."
       },
       "import": {
         "warningTitle": "Se sobrescribirá este servidor",
@@ -1000,7 +1215,10 @@
         "tokenHelp": "El token generado en el panel de origen.",
         "start": "Iniciar importación",
         "starting": "Iniciando…",
-        "migrating": "Migrando…"
+        "migrating": "Migrando…",
+        "cancelledTitle": "Importación cancelada",
+        "cancelledBody": "Cancelaste la importación. Se borraron los archivos temporales.",
+        "cancelledByOriginBody": "El panel de origen canceló la transferencia antes de que terminara. Se borraron los archivos temporales."
       },
       "toast": {
         "doneTitle": "Migración completada",
@@ -1014,7 +1232,21 @@
         "missingTitle": "Faltan datos",
         "missingDescription": "Introduce la URL del panel de origen y el token.",
         "importError": "No se pudo iniciar la importación.",
-        "importFailedTitle": "Error al importar"
+        "importFailedTitle": "Error al importar",
+        "cancelledTitle": "Transferencia cancelada",
+        "cancelledDescription": "La transferencia se ha detenido.",
+        "cancelledByOriginDescription": "El panel de origen canceló la transferencia.",
+        "cancelError": "No se pudo cancelar la transferencia.",
+        "nothingToCancel": "No hay ninguna transferencia en curso."
+      },
+      "cancel": {
+        "button": "Cancelar transferencia",
+        "cancelling": "Cancelando…",
+        "title": "¿Cancelar la transferencia?",
+        "exportDescription": "El token dejará de funcionar y el panel de destino no podrá seguir descargando los datos de este servidor. Tendrás que generar un token nuevo para volver a intentarlo.",
+        "importDescription": "La descarga se detendrá y se borrarán los archivos temporales. Los archivos que ya se hayan descomprimido en este servidor no se restauran.",
+        "confirm": "Sí, cancelar",
+        "keep": "Seguir con la transferencia"
       }
     },
     "sftp": {
@@ -1060,6 +1292,1004 @@
     "error": {
       "title": "No se pudieron cargar los servidores",
       "description": "No se pudo obtener la lista de servidores. Comprueba tu conexión e inténtalo de nuevo."
+    },
+    "crashes": {
+      "exitCode": "Código {{code}}",
+      "restarted": "se reinició solo (intento {{attempt}} de {{limit}})",
+      "notRestarted": "no se reinició automáticamente",
+      "autoRestarted": "Reiniciado",
+      "exitCodes": {
+        "1": "El juego terminó con un error",
+        "134": "El proceso abortó (SIGABRT)",
+        "137": "Sin memoria o cerrado a la fuerza (SIGKILL)",
+        "139": "Fallo de memoria del programa (segfault)",
+        "143": "Terminado por el sistema (SIGTERM)",
+        "other": "Salida inesperada"
+      },
+      "banner": {
+        "title": "El servidor se cayó a las {{time}}",
+        "open": "Ver informe",
+        "dismiss": "Ocultar aviso"
+      },
+      "history": {
+        "title": "Historial de caídas",
+        "description": "Las últimas caídas del servidor, con lo que mostró la consola justo antes.",
+        "emptyTitle": "Sin caídas registradas",
+        "emptyDescription": "Si el servidor se cae, aquí verás qué pasó y podrás pedir a la IA que lo explique."
+      },
+      "dialog": {
+        "title": "Informe de caída",
+        "exitCode": "Código de salida",
+        "meaning": "Qué significa",
+        "recovery": "Recuperación",
+        "lastLines": "Últimas líneas de la consola",
+        "noLines": "La consola no mostró nada antes de la caída."
+      },
+      "ai": {
+        "title": "Explicación con IA",
+        "explain": "Explicar con IA",
+        "thinking": "Analizando…",
+        "notConfigured": "La IA no está configurada. Un administrador puede añadir la clave de Gemini en Ajustes.",
+        "error": "No se pudo obtener la explicación. Inténtalo de nuevo en un momento.",
+        "causes": "Causas probables",
+        "fixes": "Cómo solucionarlo"
+      }
+    },
+    "notifications": {
+      "title": "Notificaciones",
+      "description": "Recibe los avisos de este servidor donde ya estás: Discord, Telegram o tu propio sistema mediante un webhook.",
+      "webhookLabel": "Webhook de Discord",
+      "webhookHelp": "En Discord: ajustes del canal → Integraciones → Webhooks → Nuevo webhook → Copiar URL. Déjalo vacío para desactivarlas.",
+      "webhookInvalid": "Debe ser una URL de webhook de Discord (https://discord.com/api/webhooks/…).",
+      "eventsLabel": "Qué avisar",
+      "events": {
+        "crash": {
+          "label": "Caídas",
+          "description": "Con las últimas líneas de la consola.",
+          "sampleTitle": "💥 Caída del servidor",
+          "sampleText": "Tu servidor se ha caído (código de salida 137). Se está reiniciando solo (intento 1 de 3)."
+        },
+        "backup": {
+          "label": "Copias de seguridad",
+          "description": "Cuando terminan o fallan.",
+          "sampleTitle": "✅ Copia de seguridad completada",
+          "sampleText": "La copia de seguridad de tu servidor se ha guardado correctamente."
+        },
+        "resources": {
+          "label": "Uso alto de recursos",
+          "description": "CPU por encima del 80 % o memoria por encima del 90 %.",
+          "sampleTitle": "⚠️ Uso alto de memoria",
+          "sampleText": "Tu servidor está usando el 94 % de su memoria (aviso a partir del 90 %)."
+        },
+        "power": {
+          "label": "Encendido y apagado",
+          "description": "Cada vez que el servidor arranca o se detiene.",
+          "sampleTitle": "🟢 Servidor encendido",
+          "sampleText": "Tu servidor está en línea."
+        }
+      },
+      "preview": "Vista previa",
+      "previewEmpty": "Activa algún aviso para ver cómo se verá.",
+      "test": "Enviar prueba",
+      "testSent": "Mensaje de prueba enviado. Revisa tu canal de Discord.",
+      "testWait": "Espera unos segundos antes de enviar otra prueba.",
+      "testError": "Discord rechazó el mensaje. Revisa que el webhook siga existiendo.",
+      "save": "Guardar",
+      "saved": "Guardado",
+      "saveError": "No se pudieron guardar las notificaciones.",
+      "saveFirst": "Guarda los cambios antes de enviar una prueba.",
+      "channelsLabel": "Canales",
+      "channels": {
+        "discord": "Discord",
+        "telegram": "Telegram",
+        "webhook": "Webhook"
+      },
+      "configured": "Configurado",
+      "telegram": {
+        "tokenLabel": "Token del bot",
+        "tokenHelp": "Habla con @BotFather en Telegram, crea un bot con /newbot y pega aquí el token.",
+        "chatLabel": "ID del chat o canal",
+        "chatHelp": "El chat donde el bot escribirá: un número (los grupos empiezan por -100) o @tu_canal. Añade el bot al grupo o canal antes.",
+        "invalid": "Revisa el token (123456789:AA…) y el ID del chat."
+      },
+      "webhook": {
+        "urlLabel": "URL del webhook",
+        "urlHelp": "Cada aviso llega como JSON por POST: evento, servidor, mensaje y, en las caídas, las últimas líneas de la consola.",
+        "secretLabel": "Secreto para firmar (opcional)",
+        "secretHelp": "Si lo pones, cada envío lleva la cabecera X-Aether-Signature (sha256 HMAC del cuerpo) para que compruebes que viene de aquí.",
+        "invalid": "Tiene que ser una URL https://."
+      },
+      "testFailedOn": "No llegó a: {{channels}}. Revisa su configuración."
+    },
+    "history": {
+      "title": "Historial de rendimiento",
+      "description": "Cómo se ha comportado el servidor, aunque nadie estuviera mirando. Las zonas grises son ratos apagado y las líneas rojas, caídas.",
+      "viewLabel": "Qué mostrar",
+      "rangeLabel": "Periodo",
+      "views": {
+        "resources": "CPU y memoria",
+        "network": "Red",
+        "players": "Jugadores"
+      },
+      "ranges": {
+        "1h": "1 h",
+        "24h": "24 h",
+        "7d": "7 días"
+      },
+      "cpuAvg": "CPU media",
+      "cpuPeak": "Pico de CPU",
+      "memAvg": "Memoria media",
+      "uptime": "Disponibilidad",
+      "rxAvg": "Descarga media",
+      "txAvg": "Subida media",
+      "emptyTitle": "Todavía no hay historial",
+      "emptyDescription": "El nodo guarda una medida cada minuto mientras está en marcha. Vuelve en unos minutos.",
+      "offline": "Apagado",
+      "crashes": "Caídas: {{count}}",
+      "playersAvg": "Media de jugadores",
+      "playersPeak": "Pico de jugadores",
+      "record": "Récord histórico",
+      "noPlayerData": "El juego no respondió a la consulta de jugadores."
+    },
+    "subdomain": {
+      "title": "Dirección del servidor",
+      "description": "Un nombre fácil de recordar en lugar de la IP y el puerto. El panel crea los registros DNS por ti.",
+      "currentLabel": "Dirección actual",
+      "srvNote": "Los jugadores pueden conectarse sin el puerto: el registro SRV de Minecraft se lo indica a su juego.",
+      "portNote": "Incluye el puerto {{port}}: este juego no lo busca por sí solo.",
+      "propagation": "Los cambios de DNS tardan alrededor de un minuto en llegar a todos los jugadores.",
+      "recordsLabel": "Ver registros DNS",
+      "empty": "Este servidor todavía no tiene dirección propia. Elige un nombre abajo.",
+      "nameLabel": "Nombre",
+      "changeLabel": "Cambiar nombre",
+      "hint": "Entre 3 y 32 caracteres: letras minúsculas, números y guiones.",
+      "status": {
+        "checking": "Comprobando…",
+        "available": "Disponible",
+        "current": "Es la dirección actual",
+        "taken": "Ya lo usa otro servidor",
+        "invalid": "Solo letras minúsculas, números y guiones (3–32), sin guion al principio ni al final",
+        "reserved": "Ese nombre está reservado",
+        "error": "No se pudo comprobar ahora; inténtalo de nuevo"
+      },
+      "wait": "Espera unos segundos antes de volver a cambiarlo",
+      "noTarget": "El nodo de este servidor no tiene una dirección pública. Pide al administrador que configure un destino DNS.",
+      "savedTitle": "Dirección guardada",
+      "saveError": "No se pudo guardar la dirección",
+      "removedTitle": "Dirección eliminada",
+      "removedDescription": "Los jugadores vuelven a conectarse con la IP y el puerto.",
+      "removeError": "No se pudo quitar la dirección",
+      "remove": "Quitar",
+      "confirmRemove": "¿Quitar? Pulsa de nuevo",
+      "save": "Guardar"
+    },
+    "activity": {
+      "title": "Actividad",
+      "description": "Quién hizo qué en este servidor y cuándo.",
+      "refresh": "Actualizar",
+      "filters": {
+        "label": "Filtrar por tipo",
+        "all": "Todo",
+        "power": "Energía",
+        "console": "Consola",
+        "files": "Archivos",
+        "backups": "Copias",
+        "users": "Usuarios",
+        "settings": "Ajustes",
+        "tasks": "Tareas"
+      },
+      "today": "Hoy",
+      "yesterday": "Ayer",
+      "loadMore": "Cargar más",
+      "loadMoreError": "No se pudo cargar más actividad.",
+      "retention": "Se guarda la actividad de los últimos 90 días.",
+      "unknownUser": "Alguien",
+      "ip": "Dirección IP",
+      "empty": {
+        "title": "Aún no hay actividad",
+        "description": "Aquí aparecerán los cambios que se hagan en el servidor: encendidos, archivos, copias y más."
+      },
+      "emptyFiltered": {
+        "title": "Nada de este tipo",
+        "description": "No hay actividad de este tipo en los últimos 90 días.",
+        "showAll": "Ver todo"
+      },
+      "error": {
+        "title": "No se pudo cargar la actividad",
+        "description": "Comprueba la conexión e inténtalo de nuevo.",
+        "retry": "Reintentar"
+      },
+      "denied": {
+        "title": "No tienes acceso a la actividad",
+        "description": "Pide al propietario del servidor permiso para ver los usuarios."
+      },
+      "actions": {
+        "server": {
+          "start": "inició el servidor",
+          "stop": "detuvo el servidor",
+          "restart": "reinició el servidor",
+          "kill": "forzó el apagado del servidor",
+          "install": "ejecutó la instalación del servidor",
+          "reload": "recargó la configuración del servidor",
+          "create": "creó el servidor",
+          "rename": "renombró el servidor a",
+          "suspend": "suspendió el servidor",
+          "unsuspend": "reactivó el servidor",
+          "transfer": "trasladó el servidor a otro nodo",
+          "change": "hizo un cambio en el servidor",
+          "version": "cambió la versión del juego a",
+          "clone": "clonó el servidor como"
+        },
+        "console": {
+          "command": "envió el comando"
+        },
+        "file": {
+          "write": "editó el archivo",
+          "upload": "subió el archivo",
+          "mkdir": "creó la carpeta",
+          "delete": "eliminó",
+          "rename": "renombró",
+          "archive": "comprimió archivos en",
+          "extract": "descomprimió",
+          "restore": "restauró una versión anterior de"
+        },
+        "plugin": {
+          "install": "instaló el plugin",
+          "delete": "eliminó el plugin"
+        },
+        "backup": {
+          "create": "creó la copia",
+          "restore": "restauró la copia",
+          "delete": "eliminó la copia"
+        },
+        "user": {
+          "add": "dio acceso a",
+          "edit": "cambió los permisos de",
+          "remove": "quitó el acceso a"
+        },
+        "settings": {
+          "data": "cambió la configuración del servidor",
+          "ports": "cambió los puertos",
+          "definition": "editó la definición del servidor",
+          "flags": "cambió el inicio y reinicio automáticos",
+          "notifications": "cambió las alertas"
+        },
+        "task": {
+          "save": "guardó la tarea",
+          "delete": "eliminó la tarea",
+          "run": "ejecutó la tarea"
+        },
+        "extransfer": {
+          "create": "preparó una migración",
+          "pull": "inició una migración hacia este servidor",
+          "cancel": "canceló una migración"
+        },
+        "unknown": "hizo un cambio",
+        "modpack": {
+          "install": "instaló el modpack"
+        },
+        "map": {
+          "install": "instaló el mapa del mundo",
+          "remove": "quitó el mapa del mundo"
+        }
+      }
+    },
+    "peakHours": {
+      "title": "Horas punta",
+      "description": "Media de jugadores por día y hora durante la última semana, en tu hora local. Úsalo para elegir cuándo hacer eventos o reinicios.",
+      "best": "Más gente: {{day}} a las {{time}} (media {{count}})",
+      "noData": "sin datos",
+      "average": "media de {{count}} jugadores",
+      "fewer": "Menos",
+      "more": "Más"
+    },
+    "assistant": {
+      "open": "Asistente",
+      "title": "Asistente del servidor",
+      "description": "Pregunta lo que quieras sobre {{name}}. Mira la consola, las caídas, el rendimiento y los jugadores para responderte.",
+      "emptyTitle": "¿En qué te ayudo?",
+      "emptyDescription": "Prueba con una de estas preguntas o escribe la tuya.",
+      "suggestions": {
+        "slow": "¿Por qué va lento mi servidor?",
+        "crash": "¿Por qué se cayó el servidor la última vez?",
+        "error": "¿Qué significan los últimos errores de la consola?",
+        "restart": "¿Cuál es la mejor hora para reiniciarlo?"
+      },
+      "placeholder": "Escribe tu pregunta…",
+      "send": "Enviar",
+      "hint": "Intro para enviar · Mayús + Intro para salto de línea",
+      "clear": "Nueva conversación",
+      "thinking": "El asistente está pensando…",
+      "looked": "Revisó: {{sources}}",
+      "sources": {
+        "status": "estado",
+        "players": "jugadores",
+        "performance": "rendimiento",
+        "crashes": "caídas",
+        "console": "consola"
+      },
+      "errors": {
+        "generic": "No pude responder ahora mismo. Inténtalo de nuevo en un momento.",
+        "limit": "Has hecho muchas preguntas seguidas. Espera unos minutos y vuelve a intentarlo.",
+        "notConfigured": "La IA no está configurada. Un administrador puede añadir la clave de Gemini en Ajustes.",
+        "noPermission": "Necesitas acceso a la consola de este servidor para usar el asistente."
+      }
+    },
+    "version": {
+      "title": "Versión del juego",
+      "description": "Cambia de versión en un clic. El panel guarda un punto de restauración antes, por si algo no va bien.",
+      "current": "Versión instalada:",
+      "upToDate": "Es la más reciente",
+      "latestIs": "La más reciente es {{version}}",
+      "changing": "Cambiando de versión…",
+      "changingHint": "Puedes seguir cada paso en la consola. No apagues el servidor mientras tanto.",
+      "pick": "Nueva versión",
+      "placeholder": "Elige una versión",
+      "newest": "Más reciente",
+      "installed": "instalada",
+      "change": "Cambiar versión",
+      "done": "Listo: el servidor ya usa la versión {{version}}.",
+      "failed": "No se pudo cambiar la versión: {{reason}}. Tienes un punto de restauración en Copias de seguridad.",
+      "safety": "Antes de cambiar se guarda un punto de restauración en Copias de seguridad. Si la nueva versión da problemas, restáuralo y vuelves a como estabas.",
+      "confirmTitle": "¿Cambiar a la versión {{version}}?",
+      "confirmIntro": "El servidor pasará de {{from}} a {{to}} en estos pasos:",
+      "steps": {
+        "stop": "Se detiene el servidor si está encendido.",
+        "restorePoint": "Se guarda un punto de restauración con todos sus archivos.",
+        "install": "Se descarga e instala la nueva versión.",
+        "start": "Se vuelve a encender si estaba encendido."
+      },
+      "confirmUndo": "Algunos mundos no se pueden abrir en una versión más antigua: para volver atrás, usa el punto de restauración.",
+      "confirm": "Cambiar versión",
+      "startedTitle": "Cambio de versión en marcha",
+      "started": "Cambiando a {{version}}. Sigue el progreso en la consola.",
+      "error": "No se pudo empezar el cambio de versión."
+    },
+    "properties": {
+      "title": "Propiedades del servidor",
+      "description": "Las opciones de server.properties explicadas una a una. Solo se reescriben las que cambies; comentarios y opciones desconocidas se conservan.",
+      "search": "Buscar una opción…",
+      "missingTitle": "Aún no hay server.properties",
+      "missing": "Minecraft crea este archivo la primera vez que arranca el servidor. Enciéndelo una vez y vuelve aquí.",
+      "deniedTitle": "Sin acceso a los archivos",
+      "denied": "Necesitas permiso para ver los archivos de este servidor.",
+      "errorTitle": "No se pudo leer server.properties",
+      "error": "Comprueba que el servidor está disponible e inténtalo de nuevo.",
+      "saveError": "No se pudieron guardar los cambios.",
+      "savedTitle": "Cambios guardados.",
+      "savedOnline": "Se aplicarán cuando reinicies el servidor.",
+      "savedOffline": "Se aplicarán la próxima vez que arranque.",
+      "restartNow": "Reiniciar ahora",
+      "restartedTitle": "Reiniciando",
+      "restarted": "El servidor se está reiniciando con la nueva configuración.",
+      "restartError": "No se pudo reiniciar el servidor.",
+      "noMatchTitle": "Ninguna opción coincide",
+      "noMatch": "No hay opciones que contengan «{{query}}».",
+      "showAdvanced": "Mostrar opciones avanzadas ({{count}})",
+      "hideAdvanced": "Ocultar opciones avanzadas",
+      "unsaved": "Cambios sin guardar: {{count}}",
+      "fixErrors": "Corrige los valores marcados.",
+      "saveHint": "Ctrl+S para guardar",
+      "discard": "Descartar",
+      "save": "Guardar cambios",
+      "unknownField": "Opción del archivo que el panel no conoce; se guarda tal cual.",
+      "changed": "Modificado",
+      "locked": "Lo gestiona el panel desde Ajustes → Dirección, para que coincida con el puerto asignado.",
+      "undo": "Deshacer el cambio en {{name}}",
+      "default": "valor por defecto",
+      "newWorldsOnly": "Solo afecta a mundos nuevos",
+      "errors": {
+        "number": "Escribe un número entero.",
+        "min": "El mínimo es {{min}}.",
+        "max": "El máximo es {{max}}."
+      },
+      "motd": {
+        "palette": "Colores y formato",
+        "color": "Insertar el color §{{code}}",
+        "format": {
+          "l": "Negrita",
+          "o": "Cursiva",
+          "n": "Subrayado",
+          "m": "Tachado",
+          "r": "Quitar el formato"
+        },
+        "preview": "Vista previa en la lista de servidores",
+        "serverName": "Servidor de Minecraft",
+        "previewHint": "Aproximada: el juego usa su propia fuente."
+      },
+      "fields": {
+        "gamemode": {
+          "label": "Modo de juego",
+          "desc": "El modo con el que entran los jugadores nuevos."
+        },
+        "difficulty": {
+          "label": "Dificultad",
+          "desc": "Cuánto daño hacen los monstruos y si aparecen."
+        },
+        "hardcore": {
+          "label": "Extremo (hardcore)",
+          "desc": "Dificultad máxima fija y una sola vida.",
+          "warning": "Al morir, los jugadores pasan a modo espectador y no pueden volver a jugar."
+        },
+        "pvp": {
+          "label": "Combate entre jugadores",
+          "desc": "Permite que los jugadores se hagan daño entre sí."
+        },
+        "force-gamemode": {
+          "label": "Forzar modo de juego",
+          "desc": "Cada vez que alguien entra, se le pone el modo de juego del servidor."
+        },
+        "allow-flight": {
+          "label": "Permitir volar",
+          "desc": "Evita que el servidor expulse a quien vuela (necesario con algunos mods o plugins)."
+        },
+        "allow-nether": {
+          "label": "Permitir el Nether",
+          "desc": "Si los portales llevan al Nether."
+        },
+        "enable-command-block": {
+          "label": "Bloques de comandos",
+          "desc": "Permite que funcionen los bloques de comandos."
+        },
+        "spawn-monsters": {
+          "label": "Aparición de monstruos",
+          "desc": "Si aparecen criaturas hostiles."
+        },
+        "spawn-animals": {
+          "label": "Aparición de animales",
+          "desc": "Si aparecen animales."
+        },
+        "spawn-npcs": {
+          "label": "Aparición de aldeanos",
+          "desc": "Si aparecen aldeanos."
+        },
+        "max-players": {
+          "label": "Jugadores máximos",
+          "desc": "Cuántas personas pueden estar conectadas a la vez."
+        },
+        "white-list": {
+          "label": "Lista blanca",
+          "desc": "Solo pueden entrar los jugadores de la lista blanca."
+        },
+        "enforce-whitelist": {
+          "label": "Aplicar la lista blanca al momento",
+          "desc": "Expulsa a quien no esté en la lista al recargarla."
+        },
+        "online-mode": {
+          "label": "Cuentas oficiales",
+          "desc": "Comprueba que cada jugador tiene una cuenta de Minecraft real.",
+          "warning": "Sin esta comprobación cualquiera puede entrar con cualquier nombre, incluido el de un administrador."
+        },
+        "spawn-protection": {
+          "label": "Protección del punto de aparición",
+          "desc": "Radio en bloques alrededor del spawn que solo los operadores pueden modificar (0 lo desactiva)."
+        },
+        "player-idle-timeout": {
+          "label": "Expulsar por inactividad",
+          "desc": "Minutos sin moverse antes de expulsar a un jugador (0 nunca)."
+        },
+        "op-permission-level": {
+          "label": "Nivel de los operadores",
+          "desc": "Qué pueden hacer los operadores: 1 saltarse la protección, 2 comandos de juego, 3 gestionar jugadores, 4 todo."
+        },
+        "enforce-secure-profile": {
+          "label": "Chat firmado",
+          "desc": "Exige que los mensajes del chat estén firmados por Mojang."
+        },
+        "hide-online-players": {
+          "label": "Ocultar jugadores conectados",
+          "desc": "No muestra quién está conectado en la lista de servidores."
+        },
+        "level-name": {
+          "label": "Nombre del mundo",
+          "desc": "La carpeta del mundo que se carga. Si no existe, se crea uno nuevo."
+        },
+        "level-seed": {
+          "label": "Semilla",
+          "desc": "La semilla del mundo. Vacía para una al azar."
+        },
+        "level-type": {
+          "label": "Tipo de mundo",
+          "desc": "Cómo se genera el terreno."
+        },
+        "generate-structures": {
+          "label": "Generar estructuras",
+          "desc": "Aldeas, templos, fortalezas y demás estructuras."
+        },
+        "view-distance": {
+          "label": "Distancia de visión",
+          "desc": "Chunks que se envían a cada jugador (3–32). Más distancia, más memoria."
+        },
+        "simulation-distance": {
+          "label": "Distancia de simulación",
+          "desc": "Chunks alrededor de cada jugador donde el mundo sigue funcionando (3–32)."
+        },
+        "max-world-size": {
+          "label": "Tamaño máximo del mundo",
+          "desc": "Radio en bloques del borde del mundo."
+        },
+        "generator-settings": {
+          "label": "Ajustes del generador",
+          "desc": "Configuración en JSON para mundos planos o personalizados."
+        },
+        "enable-status": {
+          "label": "Aparecer en la lista de servidores",
+          "desc": "Responde a la lista de servidores del juego. Si lo desactivas, el servidor sale como desconectado."
+        },
+        "resource-pack": {
+          "label": "Paquete de recursos",
+          "desc": "Enlace directo a un .zip que se ofrece al entrar."
+        },
+        "resource-pack-sha1": {
+          "label": "SHA-1 del paquete",
+          "desc": "Huella del .zip, para que el juego compruebe la descarga."
+        },
+        "require-resource-pack": {
+          "label": "Exigir el paquete",
+          "desc": "Quien rechace el paquete de recursos no puede entrar."
+        },
+        "resource-pack-prompt": {
+          "label": "Mensaje del paquete",
+          "desc": "Texto que se muestra al ofrecer el paquete de recursos."
+        },
+        "server-port": {
+          "label": "Puerto",
+          "desc": "El puerto en el que escucha el servidor."
+        },
+        "server-ip": {
+          "label": "Dirección IP",
+          "desc": "La dirección en la que escucha el servidor."
+        },
+        "network-compression-threshold": {
+          "label": "Umbral de compresión",
+          "desc": "Tamaño en bytes a partir del cual se comprimen los paquetes (-1 desactiva)."
+        },
+        "rate-limit": {
+          "label": "Límite de paquetes",
+          "desc": "Paquetes por segundo antes de expulsar a un cliente (0 sin límite)."
+        },
+        "max-tick-time": {
+          "label": "Tiempo máximo por tick",
+          "desc": "Milisegundos que puede tardar un tick antes de que el servidor se detenga por bloqueo (-1 nunca)."
+        },
+        "entity-broadcast-range-percentage": {
+          "label": "Alcance de entidades",
+          "desc": "Porcentaje de la distancia a la que se ven las entidades."
+        },
+        "pause-when-empty-seconds": {
+          "label": "Pausar cuando está vacío",
+          "desc": "Segundos sin jugadores antes de pausar el mundo (0 nunca)."
+        },
+        "region-file-compression": {
+          "label": "Compresión de regiones",
+          "desc": "Cómo se comprimen los archivos del mundo."
+        },
+        "sync-chunk-writes": {
+          "label": "Escritura segura de chunks",
+          "desc": "Guarda los chunks de forma síncrona: más seguro, algo más lento."
+        },
+        "use-native-transport": {
+          "label": "Red optimizada de Linux",
+          "desc": "Usa la pila de red nativa de Linux cuando está disponible."
+        },
+        "prevent-proxy-connections": {
+          "label": "Bloquear proxies y VPN",
+          "desc": "Rechaza a quien se conecta desde una IP distinta a la de su cuenta."
+        },
+        "accepts-transfers": {
+          "label": "Aceptar transferencias",
+          "desc": "Permite que otros servidores envíen jugadores a este."
+        },
+        "enable-rcon": {
+          "label": "Consola remota (RCON)",
+          "desc": "Permite controlar el servidor desde fuera con una contraseña."
+        },
+        "rcon_port": {
+          "label": "Puerto de RCON",
+          "desc": "Puerto de la consola remota."
+        },
+        "rcon_password": {
+          "label": "Contraseña de RCON",
+          "desc": "Contraseña de la consola remota. Usa una larga y única."
+        },
+        "enable-query": {
+          "label": "Consultas GameSpy",
+          "desc": "Responde al protocolo de consulta que usan algunas webs de listas."
+        },
+        "query_port": {
+          "label": "Puerto de consultas",
+          "desc": "Puerto del protocolo de consulta."
+        },
+        "broadcast-console-to-ops": {
+          "label": "Avisar a los operadores (consola)",
+          "desc": "Los operadores ven los comandos que se lanzan desde la consola."
+        },
+        "broadcast-rcon-to-ops": {
+          "label": "Avisar a los operadores (RCON)",
+          "desc": "Los operadores ven los comandos lanzados por RCON."
+        },
+        "function-permission-level": {
+          "label": "Nivel de las funciones",
+          "desc": "Permisos con los que se ejecutan las funciones de los datapacks."
+        },
+        "log-ips": {
+          "label": "Guardar IPs en el registro",
+          "desc": "Escribe la IP de cada jugador en el registro al entrar."
+        },
+        "enable-jmx-monitoring": {
+          "label": "Monitorización JMX",
+          "desc": "Expone métricas del servidor por JMX."
+        },
+        "bug-report-link": {
+          "label": "Enlace para informar de errores",
+          "desc": "Página que se ofrece a los jugadores para reportar problemas."
+        },
+        "initial-enabled-packs": {
+          "label": "Datapacks activos al crear",
+          "desc": "Datapacks que se activan al crear un mundo nuevo."
+        },
+        "initial-disabled-packs": {
+          "label": "Datapacks desactivados al crear",
+          "desc": "Datapacks que no se activan al crear un mundo nuevo."
+        },
+        "text-filtering-config": {
+          "label": "Filtro de texto",
+          "desc": "Configuración del filtro de chat."
+        },
+        "motd": {
+          "label": "Mensaje del día (MOTD)",
+          "desc": "Lo que aparece bajo el nombre del servidor en la lista del juego. Dos líneas como máximo; usa los colores para darle estilo."
+        }
+      },
+      "options": {
+        "gamemode": {
+          "survival": "Supervivencia",
+          "creative": "Creativo",
+          "adventure": "Aventura",
+          "spectator": "Espectador"
+        },
+        "difficulty": {
+          "peaceful": "Pacífico",
+          "easy": "Fácil",
+          "normal": "Normal",
+          "hard": "Difícil"
+        },
+        "level-type": {
+          "minecraft_normal": "Normal",
+          "minecraft_flat": "Plano",
+          "minecraft_large_biomes": "Biomas grandes",
+          "minecraft_amplified": "Amplificado",
+          "minecraft_single_biome_surface": "Un solo bioma"
+        },
+        "region-file-compression": {
+          "deflate": "Deflate (por defecto)",
+          "lz4": "LZ4 (más rápido)",
+          "none": "Sin compresión"
+        },
+        "op-permission-level": {
+          "1": "1 · Saltarse la protección",
+          "2": "2 · Comandos de juego",
+          "3": "3 · Gestionar jugadores",
+          "4": "4 · Todo"
+        },
+        "function-permission-level": {
+          "1": "1",
+          "2": "2 (por defecto)",
+          "3": "3",
+          "4": "4"
+        }
+      },
+      "sections": {
+        "game": {
+          "title": "La partida",
+          "description": "Modo, dificultad y reglas del juego."
+        },
+        "players": {
+          "title": "Jugadores",
+          "description": "Quién puede entrar y qué puede hacer."
+        },
+        "world": {
+          "title": "El mundo",
+          "description": "Generación, nombre y alcance del mundo."
+        },
+        "display": {
+          "title": "Presentación",
+          "description": "Cómo aparece el servidor y su paquete de recursos."
+        },
+        "network": {
+          "title": "Red y rendimiento",
+          "description": "Conexión, compresión y ritmo del servidor."
+        },
+        "advanced": {
+          "title": "Avanzado",
+          "description": "Consola remota, consultas y el resto de opciones del archivo."
+        }
+      }
+    },
+    "fileHistory": {
+      "button": "Historial",
+      "open": "Ver el historial de versiones",
+      "openWithCount": "Ver el historial de versiones ({{count}})",
+      "title": "Historial de versiones",
+      "description": "Versiones anteriores de {{name}}. Elige una para compararla con el texto actual.",
+      "loading": "Cargando versiones…",
+      "errorTitle": "No se pudo cargar el historial",
+      "errorDescription": "Comprueba la conexión con el nodo e inténtalo de nuevo.",
+      "emptyTitle": "Todavía no hay versiones",
+      "emptyDescription": "Cada vez que guardes este archivo, el texto anterior se guardará aquí para que puedas compararlo o recuperarlo.",
+      "listLabel": "Versiones guardadas, de la más reciente a la más antigua",
+      "itemLabel": "Versión de {{when}}, {{size}}",
+      "latest": "Última",
+      "retention": "Se guardan las {{count}} versiones más recientes de cada archivo de configuración.",
+      "diff": {
+        "comparing": "Comparando con la versión de {{when}}",
+        "identical": "Esta versión es igual al texto actual.",
+        "legendSides": "Izquierda: esa versión · Derecha: el texto actual del editor",
+        "legendInline": "Líneas con −: esa versión · con +: el texto actual",
+        "back": "Volver al editor",
+        "backShort": "Volver",
+        "restore": "Restaurar esta versión",
+        "restoreShort": "Restaurar",
+        "loading": "Cargando la comparación…",
+        "errorTitle": "No se pudo cargar esta versión"
+      },
+      "confirm": {
+        "title": "¿Restaurar esta versión?",
+        "description": "El archivo volverá a tener el texto de {{when}}. Antes, el texto que tiene ahora se guardará como una versión más, así que podrás deshacerlo desde el historial.",
+        "unsaved": "Los cambios sin guardar del editor se perderán.",
+        "action": "Restaurar"
+      },
+      "toast": {
+        "restoredTitle": "Versión restaurada",
+        "restored": "El archivo vuelve a tener el texto de {{when}}. El anterior quedó guardado en el historial.",
+        "restoreError": "No se pudo restaurar la versión."
+      }
+    },
+    "clone": {
+      "tab": "Clonar",
+      "title": "Clonar servidor",
+      "description": "Crea una copia de este servidor en el mismo nodo para probar cambios sin tocar el original.",
+      "nameSuffix": " (copia)",
+      "nameLabel": "Nombre de la copia",
+      "namePlaceholder": "Mi servidor (copia)",
+      "copyFiles": "Copiar archivos y mundo",
+      "copyFilesOn": "Se copian todos los archivos: mundos, plugins y configuración. Si el mundo es grande, puede tardar unos minutos.",
+      "copyFilesOff": "La copia empieza vacía, con la misma plantilla. Tendrás que instalarla desde Administración.",
+      "copiedTitle": "Se copia",
+      "copied": {
+        "template": "Plantilla y versión",
+        "settings": "Ajustes y variables",
+        "resources": "Recursos (CPU, memoria y disco)",
+        "users": "Usuarios y sus permisos",
+        "files": "Archivos y mundo"
+      },
+      "notCopiedTitle": "No se copia",
+      "notCopied": {
+        "address": "Dirección y puerto (se asigna uno nuevo)",
+        "subdomain": "Subdominio",
+        "backups": "Copias de seguridad",
+        "tasks": "Tareas programadas y alertas"
+      },
+      "runningTitle": "El servidor está encendido",
+      "runningHint": "Si lo copias ahora, el mundo puede quedar a medio guardar. Para una copia limpia, detenlo antes.",
+      "installingHint": "El servidor se está instalando. Espera a que termine para copiar todos sus archivos.",
+      "stopHint": "Para una copia limpia del mundo, detén el servidor antes de clonarlo.",
+      "sameNode": "La copia se crea en el mismo nodo que el original.",
+      "button": "Clonar servidor",
+      "cloning": "Creando la copia…",
+      "confirmTitle": "¿Clonar este servidor?",
+      "confirmWithFiles": "Se creará «{{name}}» con la configuración, los usuarios y todos los archivos de «{{source}}». El original no cambia.",
+      "confirmWithoutFiles": "Se creará «{{name}}» con la configuración y los usuarios de «{{source}}», sin archivos. El original no cambia.",
+      "confirmRunning": "El servidor está encendido: el mundo puede copiarse a medio guardar.",
+      "confirm": "Clonar",
+      "successTitle": "Copia creada",
+      "successToast": "Se ha creado «{{name}}».",
+      "doneTitle": "Se ha creado «{{name}}»",
+      "doneCopying": "Los archivos se están copiando en segundo plano. Sigue el progreso en la consola de la copia; podrás iniciarla en cuanto termine.",
+      "doneEmpty": "La copia está vacía. Ábrela e instálala desde Administración para empezar.",
+      "newPort": "Puerto nuevo",
+      "open": "Abrir la copia",
+      "another": "Crear otra copia",
+      "errors": {
+        "nameRequired": "Ponle un nombre a la copia.",
+        "nameTooLong": "Máximo {{max}} caracteres.",
+        "nameCharacters": "Usa solo letras sin tildes, números, espacios y símbolos comunes.",
+        "forbidden": "No tienes permiso para clonar este servidor",
+        "conflict": "No se pudo crear la copia en el nodo",
+        "resources": "No hay recursos suficientes para la copia",
+        "generic": "No se pudo clonar el servidor",
+        "tryAgain": "Inténtalo de nuevo en unos segundos."
+      }
+    },
+    "map": {
+      "title": "Mapa del mundo",
+      "description": "Instala un mapa web en un clic y recorre tu mundo desde el panel, con los jugadores en directo.",
+      "pick": "Elige el mapa",
+      "kinds": {
+        "bluemap": {
+          "tagline": "3D, recomendado",
+          "description": "Recorre el mundo en 3D como si volaras por encima. La primera vez tarda en dibujarlo todo y usa CPU mientras tanto.",
+          "points": {
+            "a": "Vista 3D",
+            "b": "Jugadores en directo",
+            "c": "Descarga recursos de Mojang"
+          }
+        },
+        "dynmap": {
+          "tagline": "2D clásico",
+          "description": "El mapa plano de toda la vida, ligero y conocido. Menos vistoso, pero va bien en servidores modestos.",
+          "points": {
+            "a": "Vista cenital 2D",
+            "b": "Jugadores y chat",
+            "c": "Más ligero"
+          }
+        }
+      },
+      "eula": "Acepto que BlueMap descargue recursos de Minecraft (EULA de Mojang)",
+      "eulaHint": "BlueMap necesita las texturas del juego para dibujar el mapa y las descarga de los servidores de Mojang.",
+      "eulaLink": "Leer el EULA",
+      "install": "Instalar {{name}}",
+      "restartNote": "El servidor está encendido: se reiniciará para cargar el mapa.",
+      "offNote": "El mapa se pondrá en marcha la próxima vez que enciendas el servidor.",
+      "restoreNote": "Antes se guarda un punto de restauración, por si quieres volver atrás.",
+      "failed": "No se pudo instalar: {{reason}}",
+      "failedTitle": "No se pudo instalar el mapa",
+      "installError": "No se pudo empezar la instalación.",
+      "startedTitle": "Instalando el mapa",
+      "started": "{{name}} se está instalando. Puedes seguir los pasos en la consola.",
+      "installedTitle": "Mapa instalado",
+      "installedDescription": "{{name}} ya está instalado.",
+      "installingTitle": "Instalando {{name}}…",
+      "installingGeneric": "Instalando el mapa…",
+      "installingHint": "Se descarga de Modrinth y, si el servidor está encendido, se reinicia para cargarlo. Puedes seguir cada paso en la consola.",
+      "offTitle": "Enciende el servidor para ver el mapa",
+      "offHint": "{{name}} está instalado y arranca junto con el servidor.",
+      "start": "Encender servidor",
+      "startingTitle": "Encendiendo el servidor",
+      "starting": "El mapa aparecerá aquí en cuanto esté listo.",
+      "startError": "No se pudo encender el servidor.",
+      "preparingTitle": "El mapa se está preparando…",
+      "preparingHint": {
+        "bluemap": "BlueMap se está configurando y descargando los recursos del juego. La primera vez puede tardar un par de minutos; esta página se actualiza sola.",
+        "dynmap": "Dynmap está arrancando su servidor web. Puede tardar un minuto; esta página se actualiza sola."
+      },
+      "live": "En directo",
+      "openTab": "Abrir en una pestaña nueva",
+      "fullscreen": "Pantalla completa",
+      "exitFullscreen": "Salir de pantalla completa",
+      "reload": "Recargar el mapa",
+      "loading": "Cargando el mapa…",
+      "frameTitle": "Mapa del mundo ({{name}})",
+      "remove": "Quitar mapa",
+      "removeTitle": "¿Quitar {{name}}?",
+      "removeDescription": "Se borra el plugin o mod del mapa. Lo que ya está dibujado se queda en los archivos, por si lo vuelves a instalar. El cambio se aplica la próxima vez que reinicies el servidor.",
+      "removeConfirm": "Quitar mapa",
+      "removedTitle": "Mapa quitado",
+      "removed": "Reinicia el servidor para que deje de cargarse.",
+      "removeError": "No se pudo quitar el mapa.",
+      "loadErrorTitle": "No se pudo cargar el mapa",
+      "loadError": "El nodo no ha respondido. Inténtalo de nuevo en un momento.",
+      "retry": "Reintentar",
+      "unsupportedTitle": "El mapa necesita Paper, Fabric o Forge",
+      "unsupportedVanilla": "Este servidor usa Minecraft vanilla, que no carga plugins ni mods. Cambia el cargador a Paper, Fabric, Forge o NeoForge para poder instalar el mapa.",
+      "unsupportedUnknown": "No sabemos qué cargador usa este servidor. El mapa funciona con Paper, Fabric, Forge y NeoForge.",
+      "changeLoader": "Cambiar el cargador",
+      "useModpack": "Instalar un modpack"
+    },
+    "modpacks": {
+      "title": "Modpacks",
+      "description": "Instala un modpack completo de Modrinth o CurseForge con un clic. El panel pone el cargador, la versión de Minecraft y la de Java que necesita.",
+      "loading": "Cargando modpacks…",
+      "statusError": "No se pudo cargar el estado de los modpacks.",
+      "current": "Ahora mismo: {{platform}}",
+      "minecraft": "Minecraft {{version}}",
+      "loaders": {
+        "fabric": "Fabric",
+        "forge": "Forge",
+        "neoforge": "NeoForge",
+        "vanilla": "Vanilla",
+        "paper": "Paper",
+        "spigot": "Spigot"
+      },
+      "installed": {
+        "eyebrow": "Modpack instalado",
+        "installedOn": "Instalado el {{date}}",
+        "openSource": "Ver en {{source}}",
+        "versionLocked": "La versión de Minecraft la fija el modpack; para cambiarla, instala otra versión del modpack.",
+        "reinstall": "Instalar otra versión"
+      },
+      "intro": {
+        "title": "Sin modpack instalado",
+        "description": "Elige un modpack de la lista. Antes de instalarlo se guarda un punto de restauración, así que siempre puedes volver atrás."
+      },
+      "source": {
+        "label": "Origen de los modpacks",
+        "modrinth": "Modrinth",
+        "curseforge": "CurseForge",
+        "curseforgeMissing": "CurseForge necesita una clave de API que el administrador aún no ha configurado.",
+        "curseforgeMissingAdmin": "Para usar CurseForge, añade la clave de API en los ajustes del panel.",
+        "openSettings": "Abrir ajustes"
+      },
+      "search": {
+        "label": "Buscar modpacks",
+        "placeholder": "Busca un modpack, p. ej. All the Mods",
+        "popular": "Los más populares",
+        "results": "Resultados para «{{query}}»",
+        "count": "{{count}} modpacks",
+        "loadMore": "Cargar más",
+        "loadingMore": "Cargando…",
+        "emptyTitle": "No hay modpacks con ese nombre",
+        "emptyDescription": "Prueba con otras palabras o busca en el otro origen.",
+        "errorTitle": "No se pudo buscar",
+        "errorDescription": "Modrinth o CurseForge no respondieron. Inténtalo de nuevo en un momento."
+      },
+      "card": {
+        "by": "de {{author}}",
+        "downloads": "{{count}} descargas",
+        "choose": "Elegir {{title}}",
+        "installed": "Instalado"
+      },
+      "dialog": {
+        "title": "Instalar {{title}}",
+        "description": "Elige la versión del modpack. El panel se encarga del resto.",
+        "version": "Versión",
+        "versionPlaceholder": "Elige una versión",
+        "loadingVersions": "Cargando versiones…",
+        "noVersions": "Este modpack no tiene versiones que el panel pueda instalar (Fabric, Forge o NeoForge con server pack).",
+        "versionsError": "No se pudieron cargar las versiones.",
+        "newest": "Más reciente",
+        "beta": "Beta",
+        "alpha": "Alfa",
+        "serverPack": "Server pack",
+        "freshWorld": "Mundo nuevo",
+        "freshWorldHint": "Borra el mundo actual y genera uno nuevo con el modpack. Desactivado, tu mundo se conserva.",
+        "whatHappens": "Qué va a pasar",
+        "steps": {
+          "stop": "El servidor se detiene si está encendido.",
+          "restorePoint": "Se guarda un punto de restauración en Copias de seguridad.",
+          "replace": "Los mods, la configuración y el cargador se sustituyen por los del modpack.",
+          "world": "Tu mundo, server.properties y las listas de jugadores se conservan.",
+          "worldFresh": "El mundo actual se borra y se crea uno nuevo; server.properties y las listas de jugadores se conservan.",
+          "start": "Se usa Java {{java}} con {{loader}} para Minecraft {{version}} y el servidor vuelve a arrancar si estaba encendido.",
+          "startUnknown": "Se ajustan Java y la versión de Minecraft, y el servidor vuelve a arrancar si estaba encendido."
+        },
+        "memoryHint": "Este servidor tiene {{memory}} MB de memoria. La mayoría de modpacks necesitan al menos 4096 MB y con menos pueden no arrancar.",
+        "confirm": "Instalar modpack",
+        "starting": "Empezando…"
+      },
+      "progress": {
+        "title": "Instalando {{title}}",
+        "titleGeneric": "Instalando el modpack",
+        "hint": "Puedes seguir cada paso en la consola. No arranques el servidor hasta que termine.",
+        "steps": {
+          "preparing": "Preparando la instalación…",
+          "stopping": "Deteniendo el servidor…",
+          "restorePoint": "Guardando un punto de restauración…",
+          "cleaning": "Quitando los mods y la configuración anteriores…",
+          "downloadPack": "Descargando el modpack…",
+          "downloadFiles": "Descargando mods: {{current}} de {{total}}",
+          "downloadFilesNoCount": "Descargando mods…",
+          "extracting": "Copiando la configuración del modpack…",
+          "loader": "Instalando el cargador (puede tardar unos minutos)…",
+          "curseforge": "Descargando e instalando el server pack de CurseForge…",
+          "starting": "Arrancando el servidor…",
+          "done": "Instalación terminada",
+          "failed": "La instalación falló"
+        }
+      },
+      "result": {
+        "done": "{{title}} está instalado.",
+        "doneHint": "El primer arranque de un modpack tarda más de lo normal mientras genera sus archivos.",
+        "failed": "No se pudo instalar el modpack.",
+        "failedHint": "Antes de empezar se guardó un punto de restauración: puedes volver al estado anterior desde Copias de seguridad.",
+        "dismiss": "Cerrar aviso"
+      },
+      "toast": {
+        "startedTitle": "Instalando modpack",
+        "started": "{{title}} se está instalando. Sigue el progreso aquí o en la consola.",
+        "error": "No se pudo empezar la instalación."
+      },
+      "safety": "Antes de instalar se guarda un punto de restauración en Copias de seguridad. Si el modpack da problemas, restáuralo y vuelves a como estabas."
     }
   },
   "users": {
@@ -1688,7 +2918,13 @@
     "delete": "Eliminar",
     "retry": "Reintentar",
     "saving": "Guardando...",
-    "edit": "Editar"
+    "edit": "Editar",
+    "errorBoundary": {
+      "title": "Algo ha salido mal",
+      "description": "Se ha producido un error inesperado al mostrar este componente.",
+      "tryAgain": "Volver a intentarlo"
+    },
+    "beta": "Beta"
   },
   "settings": {
     "title": "Configuración del panel",
@@ -1702,7 +2938,9 @@
       "apiKeys": "Claves API",
       "products": "Productos",
       "updates": "Actualizaciones",
-      "sectionLabel": "Sección de la configuración"
+      "sectionLabel": "Sección de la configuración",
+      "offsite": "Copias externas",
+      "domains": "Dominios"
     },
     "general": {
       "title": "Configuración general",
@@ -1739,7 +2977,25 @@
         "appearanceTitle": "Apariencia",
         "appearanceDescription": "Detalles visuales de la interfaz para todos los usuarios.",
         "accessTitle": "Registro y seguridad",
-        "accessDescription": "Quién puede crear una cuenta y cómo se protegen el inicio de sesión y el registro."
+        "accessDescription": "Quién puede crear una cuenta y cómo se protegen el inicio de sesión y el registro.",
+        "modpacksTitle": "Modpacks",
+        "modpacksDescription": "Clave para buscar e instalar modpacks de CurseForge. Modrinth no necesita ninguna.",
+        "experimentalTitle": "Funciones experimentales",
+        "experimentalDescription": "Funciones nuevas que todavía estamos afinando. Vienen apagadas: enciende las que quieras probar. Si las apagas se vuelven a ocultar y no se borra nada."
+      },
+      "curseforgeKeyLabel": "Clave de API de CurseForge",
+      "curseforgeKeyPlaceholder": "Pega la clave de API",
+      "curseforgeKeyDescription": "Créala en console.curseforge.com. La usa el nodo principal; los nodos remotos leen la de su propia configuración (daemon.curseforge.key).",
+      "experimental": {
+        "versionSwitchLabel": "Cambio de versión del juego",
+        "versionSwitchDescription": "Cambiar la versión de Minecraft de un servidor en un clic, con un punto de restauración antes.",
+        "versionSwitchWhere": "En la pestaña Ajustes de cada servidor",
+        "propertiesEditorLabel": "Editor de propiedades",
+        "propertiesEditorDescription": "Editar server.properties como un formulario, con cada opción explicada.",
+        "propertiesEditorWhere": "Pestaña Propiedades, en servidores de Minecraft Java",
+        "serverCloneLabel": "Clonar servidor",
+        "serverCloneDescription": "Duplicar un servidor para probar cambios sin tocar el original.",
+        "serverCloneWhere": "En Administración › Clonar de cada servidor"
       }
     },
     "discord": {
@@ -1939,6 +3195,67 @@
         "failedTitle": "La actualización falló",
         "failed": "Hubo un problema al iniciar la actualización."
       }
+    },
+    "offsite": {
+      "title": "Copias de seguridad externas",
+      "description": "Guarda una copia de cada copia de seguridad en un almacenamiento compatible con S3. Si el disco del nodo falla, las copias siguen a salvo.",
+      "test": "Probar conexión",
+      "testOk": "Conexión correcta: se pudo escribir y borrar en el bucket.",
+      "testError": "No se pudo conectar con el almacenamiento.",
+      "statusTitle": "Estado",
+      "statusDescription": "Las copias locales se mantienen; el bucket es una segunda copia.",
+      "enabled": "Subir las copias al bucket",
+      "enabledDescription": "Cada copia terminada se sube al momento. Al borrarla, se borra en los dos sitios.",
+      "onHint": "Activado: las copias nuevas se subirán al bucket.",
+      "offHint": "Desactivado: las copias solo se guardan en el nodo.",
+      "bucketTitle": "Bucket",
+      "bucketDescription": "Funciona con AWS S3, Backblaze B2, Cloudflare R2, Wasabi, MinIO y cualquier servicio compatible con S3.",
+      "providers": "Proveedores",
+      "endpoint": "Endpoint",
+      "endpointHint": "El servidor S3 del proveedor, sin el nombre del bucket. Puedes poner https:// delante.",
+      "bucket": "Nombre del bucket",
+      "region": "Región",
+      "regionHint": "Algunos proveedores la piden; en R2 usa «auto».",
+      "prefix": "Carpeta dentro del bucket",
+      "prefixHint": "Las copias se guardan en carpeta/ID-del-servidor/.",
+      "keysTitle": "Credenciales",
+      "keysDescription": "Una clave con permiso para leer, escribir y borrar en ese bucket.",
+      "accessKey": "Access key",
+      "secretKey": "Secret key",
+      "insecure": "Conexión sin cifrar (http)",
+      "insecureDescription": "Solo para un MinIO en tu propia red. Los proveedores públicos usan https."
+    },
+    "domains": {
+      "title": "Subdominios automáticos",
+      "description": "Con Cloudflare, cada servidor puede tener su propia dirección (survival.play.example.com) en lugar de una IP y un puerto.",
+      "test": "Probar conexión",
+      "testOk": "Conexión correcta: el token puede editar la zona {{zone}}.",
+      "testError": "No se pudo comprobar la conexión con Cloudflare",
+      "statusTitle": "Asignación",
+      "statusDescription": "Los propietarios pueden elegir el nombre desde los ajustes de su servidor.",
+      "autoAssign": "Asignar un subdominio a cada servidor nuevo",
+      "autoAssignDescription": "Se deriva del nombre del servidor (Mi Survival → mi-survival); si ya existe se añade -2, -3…",
+      "onHint": "Activo: las direcciones quedarán como {{example}}",
+      "offHint": "Completa el dominio, el token y el ID de zona para activar los subdominios.",
+      "domainTitle": "Dominio",
+      "domainDescription": "Dónde se crean los nombres de los servidores y hacia dónde apuntan.",
+      "baseDomain": "Dominio base",
+      "baseDomainHint": "Un dominio o subdominio de tu zona de Cloudflare, por ejemplo play.example.com.",
+      "baseDomainInvalid": "Escribe solo el dominio, sin http:// ni barras.",
+      "target": "Destino DNS (opcional)",
+      "targetHint": "IP o nombre al que apuntar cuando un nodo está registrado con un nombre o una dirección privada. Vacío: la IP pública de cada nodo.",
+      "dnsOnlyNote": "Los registros se crean como «Solo DNS» (nube gris), nunca con proxy: el tráfico de los juegos no es HTTP. Si el dominio del panel pasa por el proxy de Cloudflare, pon aquí la IP pública del servidor.",
+      "credentialsTitle": "Credenciales de Cloudflare",
+      "credentialsDescription": "Un token con permiso solo para editar el DNS de esta zona. El panel nunca lo muestra en sus registros.",
+      "openCloudflare": "Abrir tokens de API en Cloudflare",
+      "step1": "En Cloudflare, ve a Mi perfil → Tokens de API → Crear token y usa la plantilla «Editar DNS de zona» (Zona → DNS → Editar).",
+      "step2": "En «Recursos de zona», limita el token a la zona de tu dominio y créalo. Cópialo: solo se muestra una vez.",
+      "step3": "El ID de zona está en la página «Información general» del dominio, en la columna derecha, apartado API.",
+      "token": "Token de API",
+      "tokenHint": "Permiso necesario: Zona → DNS → Editar.",
+      "zoneId": "ID de zona",
+      "zoneIdHint": "32 caracteres hexadecimales.",
+      "zoneIdInvalid": "El ID de zona tiene 32 caracteres hexadecimales (0-9, a-f)."
     }
   },
   "apiKeys": {

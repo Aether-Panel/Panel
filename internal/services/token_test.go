@@ -24,7 +24,7 @@ func Test_tokenService_GenerateRequest(t *testing.T) {
 			if !assert.NoError(t, err) {
 				return
 			}
-			got, err := ts.GenerateRequest()
+			got, err := ts.GenerateRequest(nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GenerateRequest() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -60,7 +60,7 @@ func Test_tokenService_RequestTokensExpire(t *testing.T) {
 		return
 	}
 
-	signed, err := ts.GenerateRequest()
+	signed, err := ts.GenerateRequest(nil)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -76,7 +76,7 @@ func Test_tokenService_RequestTokensExpire(t *testing.T) {
 	expired := signTestToken(t, jwt.MapClaims{"exp": time.Now().Add(-time.Hour).Unix()})
 	assert.Error(t, ts.ValidateRequest(expired), "an expired token must be rejected")
 
-	// tokens from panels that do not send exp yet keep working
+	// a token without exp never expires, so it is no longer accepted anywhere
 	legacy := signTestToken(t, jwt.MapClaims{})
-	assert.NoError(t, ts.ValidateRequest(legacy))
+	assert.Error(t, ts.ValidateRequest(legacy), "a token without exp must be rejected")
 }

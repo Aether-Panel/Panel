@@ -22,7 +22,12 @@ export type Server = {
   nodeId?: number | string;
   playersOnline?: number;
   maxPlayers?: number;
-  isMinecraft?: boolean;
+  /** The game answered a player query (Minecraft server list ping or Steam A2S). */
+  hasPlayerQuery?: boolean;
+  /** Names the game shares, when it shares them. */
+  playerNames?: string[];
+  /** Everything the game reported about its players (map, game name...). */
+  playerInfo?: import('./players').PlayerInfo;
   /** Availability for the last 30 days, as reported by `/api/uptime`. */
   uptimePercent?: number;
 };

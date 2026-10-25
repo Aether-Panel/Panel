@@ -8,6 +8,9 @@ import (
 	"github.com/spf13/cobra"
 	"os"
 	"runtime/debug"
+	// the image ships without a zoneinfo database, and scheduled tasks run in the time zone
+	// of the person who created them (CRON_TZ=...)
+	_ "time/tzdata"
 )
 
 func main() {

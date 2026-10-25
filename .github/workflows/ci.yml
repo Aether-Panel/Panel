@@ -1,10 +1,12 @@
 name: CI
 
 on:
+  # fide-dev2.0 is a working branch merged into dev2.0 by review; it runs the same checks,
+  # and the image publishing steps below stay limited to main and dev2.0
   push:
-    branches: [ "main", "dev2.0" ]
+    branches: [ "main", "dev2.0", "fide-dev2.0" ]
   pull_request:
-    branches: [ "main", "dev2.0" ]
+    branches: [ "main", "dev2.0", "fide-dev2.0" ]
 
 # Cancels in-progress runs on the same branch when a new push arrives
 concurrency:

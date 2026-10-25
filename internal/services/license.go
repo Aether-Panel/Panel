@@ -11,6 +11,9 @@ import (
 
 const LicenseAPIBaseURL = "https://prueba.skyhostingcloud.com/api/public/licenses"
 
+// contentTypeJSON is the media type the license API speaks
+const contentTypeJSON = "application/json"
+
 type LicenseService struct {
 	httpClient *http.Client
 }
@@ -80,8 +83,8 @@ func (ls *LicenseService) VerifyLicense(licenseKey string) (*LicenseVerifyRespon
 		return nil, fmt.Errorf("error creating request: %w", err)
 	}
 
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", contentTypeJSON)
+	req.Header.Set("Accept", contentTypeJSON)
 
 	resp, err := ls.httpClient.Do(req)
 	if err != nil {
@@ -126,8 +129,8 @@ func (ls *LicenseService) BindLicense(licenseKey, serverID, serverIP string) (*L
 		return nil, fmt.Errorf("error creating request: %w", err)
 	}
 
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", contentTypeJSON)
+	req.Header.Set("Accept", contentTypeJSON)
 
 	resp, err := ls.httpClient.Do(req)
 	if err != nil {

@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
  * Decorative only: it never receives events, animates transform alone, and
  * holds still under `prefers-reduced-motion` (see `.ambient` in `globals.css`).
  */
-export function AmbientBackdrop({ className }: { className?: string }) {
+export function AmbientBackdrop({ className }: Readonly<{ className?: string }>) {
     return (
         <div className={cn('ambient', className)} aria-hidden="true">
             <i className="backdrop-art" />

@@ -2,11 +2,13 @@ package alterfile
 
 import (
 	"bytes"
-	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
+	"io"
 	"os"
-	"path/filepath"
 	"regexp"
+
+	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
+	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 )
 
 type AlterFile struct {
@@ -18,11 +20,19 @@ type AlterFile struct {
 
 func (c AlterFile) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	env := args.Environment
+	// all I/O goes through the confined file server so the target can neither point
+	// outside the server root nor follow a symlink out of it
+	fs := args.Server.GetFileServer()
 
 	logging.Info.Printf("Changing data in file: %s", c.TargetFile)
 	env.DisplayToConsole(true, "Changing some data in file: %s\n ", c.TargetFile)
-	target := filepath.Join(env.GetRootDirectory(), c.TargetFile)
-	data, err := os.ReadFile(target)
+
+	file, err := fs.OpenFile(c.TargetFile, os.O_RDONLY, 0644)
+	if err != nil {
+		return skypanel.OperationResult{Error: err}
+	}
+	data, err := io.ReadAll(file)
+	utils.Close(file)
 	if err != nil {
 		return skypanel.OperationResult{Error: err}
 	}
@@ -38,6 +48,12 @@ func (c AlterFile) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 		out = bytes.ReplaceAll(data, []byte(c.Search), []byte(c.Replace))
 	}
 
-	err = os.WriteFile(target, out, 0644)
+	file, err = fs.OpenFile(c.TargetFile, os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		return skypanel.OperationResult{Error: err}
+	}
+	defer utils.Close(file)
+
+	_, err = file.Write(out)
 	return skypanel.OperationResult{Error: err}
 }

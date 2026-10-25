@@ -17,11 +17,14 @@
 package resolveforgeversion
 
 import (
-	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
-	"github.com/hashicorp/go-version"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/SkyPanel/SkyPanel/v3/files"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
+	"github.com/hashicorp/go-version"
 )
 
 type ResolveForgeVersion struct {
@@ -47,32 +50,7 @@ func (op ResolveForgeVersion) Run(args skypanel.RunOperatorArgs) skypanel.Operat
 			return skypanel.OperationResult{Error: err}
 		}
 
-		var ver *version.Version
-		for _, v := range folders {
-			// look for folders
-			if v.IsDir() {
-				folderName := v.Name()
-				// look for the unix file to accurately confirm this to be supported
-				desiredFile := filepath.Join(dir, folderName, "unix_args.txt")
-				if _, err = fs.Stat(desiredFile); err != nil {
-					continue
-				}
-				switch {
-				case op.Version == "":
-					op.Version = v.Name()
-					ver, _ = version.NewVersion(op.Version)
-				case !strings.HasPrefix(folderName, op.MinecraftVersion):
-					// we need a different version of MC
-					continue
-				case ver != nil:
-					// time to check to see if this a newer version
-					if ver2, _ := version.NewVersion(op.Version); ver2 != nil && ver.LessThan(ver2) {
-						op.Version = v.Name()
-						ver = ver2
-					}
-				}
-			}
-		}
+		op.Version = latestForgeVersion(fs, dir, folders, op.MinecraftVersion)
 	}
 
 	if op.Version != "" {
@@ -82,4 +60,43 @@ func (op ResolveForgeVersion) Run(args skypanel.RunOperatorArgs) skypanel.Operat
 	return skypanel.OperationResult{VariableOverrides: map[string]interface{}{
 		op.OutputVariable: op.Version,
 	}}
+}
+
+// latestForgeVersion picks a version folder that has a unix_args.txt, so it is supported.
+func latestForgeVersion(fileServer files.FileServer, dir string, folders []fs.DirEntry, mcVersion string) string {
+	var current string
+	var ver *version.Version
+	for _, v := range folders {
+		// look for folders
+		if !v.IsDir() {
+			continue
+		}
+		folderName := v.Name()
+		// look for the unix file to accurately confirm this to be supported
+		desiredFile := filepath.Join(dir, folderName, "unix_args.txt")
+		if _, err := fileServer.Stat(desiredFile); err != nil {
+			continue
+		}
+		current, ver = pickVersion(current, ver, folderName, mcVersion)
+	}
+	return current
+}
+
+// pickVersion keeps the first folder found, then only looks at folders for the wanted
+// Minecraft version.
+func pickVersion(current string, ver *version.Version, folderName, mcVersion string) (string, *version.Version) {
+	switch {
+	case current == "":
+		current = folderName
+		ver, _ = version.NewVersion(current)
+	case !strings.HasPrefix(folderName, mcVersion):
+		// we need a different version of MC
+	case ver != nil:
+		// time to check to see if this a newer version
+		if ver2, _ := version.NewVersion(current); ver2 != nil && ver.LessThan(ver2) {
+			current = folderName
+			ver = ver2
+		}
+	}
+	return current, ver
 }

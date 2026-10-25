@@ -115,8 +115,8 @@ func getAllDatabaseHosts(c *gin.Context) {
 			Username:     host.Username,
 			MaxDatabases: host.MaxDatabases,
 			NodeID:       host.NodeID,
-			CreatedAt:    host.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-			UpdatedAt:    host.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			CreatedAt:    host.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:    host.UpdatedAt.Format(time.RFC3339),
 		}
 	}
 
@@ -158,8 +158,8 @@ func getDatabaseHost(c *gin.Context) {
 		Username:     host.Username,
 		MaxDatabases: host.MaxDatabases,
 		NodeID:       host.NodeID,
-		CreatedAt:    host.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt:    host.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		CreatedAt:    host.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:    host.UpdatedAt.Format(time.RFC3339),
 	}
 
 	c.JSON(http.StatusOK, data)
@@ -208,8 +208,8 @@ func createDatabaseHost(c *gin.Context) {
 		Username:     create.Username,
 		MaxDatabases: create.MaxDatabases,
 		NodeID:       create.NodeID,
-		CreatedAt:    create.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt:    create.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		CreatedAt:    create.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:    create.UpdatedAt.Format(time.RFC3339),
 	}
 
 	c.JSON(http.StatusOK, data)

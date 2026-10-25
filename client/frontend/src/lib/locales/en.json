@@ -80,12 +80,26 @@
     "search": {
       "label": "Quick search",
       "open": "Open quick search",
-      "placeholder": "Search pages and sections…",
+      "placeholder": "Search the panel…",
       "hint": "Ctrl K",
-      "noResults": "No matching pages",
+      "noResults": "No results",
       "navigate": "Navigate",
       "select": "Open",
-      "close": "Close"
+      "close": "Close",
+      "sections": {
+        "servers": "Servers",
+        "actions": "Actions",
+        "pages": "Pages"
+      },
+      "actions": {
+        "start": "Start {{name}}",
+        "restart": "Restart {{name}}",
+        "stop": "Stop {{name}}",
+        "startDone": "{{name}} is starting.",
+        "restartDone": "{{name}} is restarting.",
+        "stopDone": "{{name}} is stopping.",
+        "failed": "Could not complete the action."
+      }
     },
     "update": {
       "title": "Update available",
@@ -387,7 +401,11 @@
       "menuLabel": "Actions",
       "viewDetails": "View Details",
       "edit": "Edit",
-      "delete": "Delete"
+      "delete": "Delete",
+      "startSuccess": "The server is starting.",
+      "stopSuccess": "The server is stopping.",
+      "restartSuccess": "The server is restarting.",
+      "killSuccess": "The server was forced to stop."
     },
     "detail": {
       "description": "Detailed metrics and status for this server.",
@@ -407,12 +425,17 @@
         "users": "Users",
         "database": "Database",
         "backups": "Backups",
+        "tasks": "Tasks",
         "plugins": "Plugins",
         "sftp": "SFTP Access",
         "admin": "Administration",
         "more": "More",
         "extransfer": "Migration",
-        "splitter": "Splitter"
+        "splitter": "Splitter",
+        "activity": "Activity",
+        "properties": "Properties",
+        "modpacks": "Modpacks",
+        "map": "Map"
       },
       "overview": {
         "status": "Status",
@@ -423,7 +446,8 @@
         "resourcesTitle": "Live Resources",
         "resourcesSubtitle": "Current usage against the server's allocated limit",
         "playersDescription": "Players connected right now.",
-        "noPlayers": "Nobody is online."
+        "noPlayers": "Nobody is online.",
+        "namesHidden": "This game does not share player names."
       },
       "notFoundDescription": "It may have been deleted, or you don't have access to it.",
       "backToServers": "Back to servers",
@@ -455,7 +479,52 @@
       "cleared": "View cleared. New messages will appear here.",
       "jumpToEnd": "Jump to latest",
       "connectedToast": "Console connected",
-      "sendError": "Could not send the command."
+      "sendError": "Could not send the command.",
+      "announce": {
+        "online": "The server is online.",
+        "offline": "The server has stopped.",
+        "crashed": "The server crashed (code {{code}})."
+      },
+      "system": {
+        "connectionLost": "Connection to the console was lost. Reconnecting…",
+        "unavailable": "This server's console is not available on the node.",
+        "offline": "The server is offline.",
+        "error": "Error: {{message}}",
+        "stopSent": "Stop signal sent. Waiting for the server to shut down…",
+        "killSent": "Kill signal sent. The server is being forcefully terminated.",
+        "startSent": "Start signal sent.",
+        "restartSent": "Restart signal sent.",
+        "filesMissing": "The server's files or configuration are missing on the node.",
+        "portInUse": "Error: the port is already in use.",
+        "actionFailed": "Could not complete the action.",
+        "sendFailed": "Could not send: {{command}}"
+      },
+      "filters": {
+        "label": "Show",
+        "all": "All",
+        "error": "Errors",
+        "warn": "Warnings",
+        "empty": {
+          "error": "There are no errors in the console.",
+          "warn": "There are no warnings in the console."
+        }
+      },
+      "search": {
+        "open": "Search",
+        "label": "Search the console",
+        "placeholder": "Search…",
+        "previous": "Previous match",
+        "next": "Next match",
+        "close": "Close search"
+      },
+      "favorites": {
+        "label": "Favourite commands",
+        "send": "Send {{command}}",
+        "remove": "Remove {{command}} from favourites",
+        "save": "Save as favourite",
+        "unsave": "Remove from favourites"
+      },
+      "historyHint": "Up and down arrows go through previous commands; Tab completes."
     },
     "aiSummary": {
       "title": "AI Console Analysis",
@@ -615,8 +684,8 @@
       "portPlaceholder": "e.g. 25566",
       "portsRequireOffline": "The server must be stopped to change the primary port.",
       "portRequired": "You must assign at least one port.",
-      "portInvalid": "Port {port} is invalid (must be between 1024 and 65535).",
-      "portDuplicate": "Port {port} is already assigned to this server.",
+      "portInvalid": "Port {{port}} is invalid (must be between 1024 and 65535).",
+      "portDuplicate": "Port {{port}} is already assigned to this server.",
       "portsRunningHint": "The server is running. Stop it to change which port is primary.",
       "portsApplyOnRestart": "Port changes will take effect when the server restarts.",
       "saveButton": "Save Changes",
@@ -773,6 +842,142 @@
       "empty": {
         "title": "No backups",
         "description": "Create your first backup to get started."
+      },
+      "automatic": {
+        "badge": "Automatic",
+        "name": "Automatic backup"
+      },
+      "offsite": {
+        "both": "Off-site",
+        "bothHint": "Also kept in off-site storage.",
+        "only": "Off-site only",
+        "onlyHint": "The local copy is gone; it is fetched from off-site storage when restored or downloaded."
+      },
+      "usage": {
+        "label": "Space used by backups:",
+        "largest": "The largest takes {{size}}",
+        "offsite": "{{count}} also off-site"
+      },
+      "restorePoint": {
+        "badge": "Restore point",
+        "hint": "Automatic copy of the state before a risky change. The newest 3 are kept.",
+        "reasons": {
+          "plugin": "Before a plugin change",
+          "version": "Before a version change",
+          "restore": "Before restoring a backup",
+          "other": "Restore point",
+          "modpack": "Before installing a modpack"
+        }
+      }
+    },
+    "tasks": {
+      "title": "Scheduled tasks",
+      "description": "{{count}} tasks · they run on the node by themselves, even with the panel closed",
+      "create": "New task",
+      "loadError": "Could not load the tasks.",
+      "noPermission": "You do not have permission to see this server's tasks.",
+      "empty": {
+        "title": "No tasks yet",
+        "description": "Automate restarts, backups and commands. Start from a template or build your own."
+      },
+      "presets": {
+        "title": "Templates",
+        "dailyRestart": {
+          "name": "Daily restart",
+          "description": "Restarts the server every day at 05:00."
+        },
+        "dailyBackup": {
+          "name": "Daily backup",
+          "description": "Backs up every day at 04:00 and keeps the last 7."
+        },
+        "warnRestart": {
+          "name": "Warn and restart",
+          "description": "Warns the players, waits 5 minutes and restarts.",
+          "message": "say The server restarts in 5 minutes"
+        }
+      },
+      "schedule": {
+        "label": "When",
+        "kind": "Frequency",
+        "daily": "Every day",
+        "weekly": "Days of the week",
+        "interval": "Every few hours",
+        "custom": "Custom (cron)",
+        "manual": "Manual only",
+        "time": "Time",
+        "days": "Days",
+        "everyHours": "Every",
+        "hoursOption": "{{count}} h",
+        "cron": "Cron expression",
+        "cronHelp": "Five fields: minute, hour, day of month, month and day of week. Example: 30 4 * * 1",
+        "timezone": "Times are in your time zone ({{zone}}).",
+        "describe": {
+          "daily": "Every day at {{time}}",
+          "weekly": "{{days}} at {{time}}",
+          "interval": "Every {{count}} h",
+          "intervalOne": "Every hour",
+          "custom": "Cron: {{expression}}",
+          "manual": "Manual only",
+          "zone": "{{zone}} time"
+        },
+        "next": "Next: {{when}}",
+        "today": "today {{time}}",
+        "tomorrow": "tomorrow {{time}}"
+      },
+      "steps": {
+        "label": "What it does",
+        "help": "Steps run in order.",
+        "add": "Add step",
+        "empty": "Add at least one step.",
+        "moveUp": "Move step up",
+        "moveDown": "Move step down",
+        "remove": "Remove step",
+        "stdin": "Send command",
+        "sleep": "Wait",
+        "restart": "Restart",
+        "stop": "Stop",
+        "start": "Start",
+        "backup": "Backup",
+        "commandPlaceholder": "say Hello everyone",
+        "minutes": "{{count}} min",
+        "keep": "Keep the last",
+        "keepHelp": "Older automatic backups are deleted by themselves. Backups you make by hand are never touched.",
+        "describe": {
+          "stdin": "Command: {{command}}",
+          "sleep": "Wait {{duration}}",
+          "backup": "Backup (keeps {{count}})",
+          "restartNote": "Only if it is running"
+        },
+        "adminOnly": "Administrator step: {{type}}"
+      },
+      "dialog": {
+        "createTitle": "New task",
+        "editTitle": "Edit task",
+        "name": "Name",
+        "namePlaceholder": "Early morning restart",
+        "save": "Save task"
+      },
+      "validation": {
+        "name": "Give the task a name.",
+        "steps": "The task needs at least one step.",
+        "command": "Type the command you want to send.",
+        "days": "Pick at least one day.",
+        "cron": "The expression needs five fields."
+      },
+      "run": {
+        "button": "Run now",
+        "success": "The task is running. Follow it in the console.",
+        "error": "Could not run the task."
+      },
+      "edit": "Edit",
+      "saveSuccess": "Task saved.",
+      "saveError": "Could not save the task.",
+      "delete": {
+        "button": "Delete",
+        "title": "Delete task",
+        "confirm": "“{{name}}” will be deleted and will stop running.",
+        "success": "Task deleted.",
+        "error": "Could not delete the task."
       }
     },
     "plugins": {
@@ -814,7 +1019,8 @@
         "uninstallSuccess": "Plugin deleted successfully.",
         "uninstallError": "Failed to delete plugin.",
         "searchError": "Could not search Modrinth."
-      }
+      },
+      "restorePointNote": "A restore point is saved before installing or removing a plugin."
     },
     "admin": {
       "title": "Administration",
@@ -988,7 +1194,16 @@
         "copyToken": "Copy token",
         "copied": "Copied",
         "waiting": "Waiting for the destination panel to start the transfer…",
-        "sessionId": "Session ID:"
+        "sessionId": "Session ID:",
+        "inProgressTitle": "Transfer in progress",
+        "inProgressBody": "The destination panel is downloading this server's data.",
+        "lastHeartbeat": "Last signal from the destination:",
+        "noHeartbeat": "Waiting for the first signal from the destination…",
+        "tokenElsewhere": "A migration token generated from another browser or session is active. Cancel it if you no longer need it.",
+        "completedTitle": "Migration completed",
+        "completedBody": "The destination panel confirmed it received this server's data. The token can no longer be used.",
+        "cancelledTitle": "Transfer cancelled",
+        "cancelledBody": "This migration session was cancelled and its token is no longer valid. Generate a new one if you want to try again."
       },
       "import": {
         "warningTitle": "This server will be overwritten",
@@ -1000,7 +1215,10 @@
         "tokenHelp": "The token generated in the origin panel.",
         "start": "Start import",
         "starting": "Starting…",
-        "migrating": "Migrating…"
+        "migrating": "Migrating…",
+        "cancelledTitle": "Import cancelled",
+        "cancelledBody": "You cancelled the import. The temporary files were deleted.",
+        "cancelledByOriginBody": "The origin panel cancelled the transfer before it finished. The temporary files were deleted."
       },
       "toast": {
         "doneTitle": "Migration complete",
@@ -1014,7 +1232,21 @@
         "missingTitle": "Missing details",
         "missingDescription": "Enter the origin panel URL and the token.",
         "importError": "Could not start the import.",
-        "importFailedTitle": "Import failed"
+        "importFailedTitle": "Import failed",
+        "cancelledTitle": "Transfer cancelled",
+        "cancelledDescription": "The transfer has been stopped.",
+        "cancelledByOriginDescription": "The origin panel cancelled the transfer.",
+        "cancelError": "Could not cancel the transfer.",
+        "nothingToCancel": "There is no transfer in progress."
+      },
+      "cancel": {
+        "button": "Cancel transfer",
+        "cancelling": "Cancelling…",
+        "title": "Cancel the transfer?",
+        "exportDescription": "The token will stop working and the destination panel will no longer be able to download this server's data. You will need a new token to try again.",
+        "importDescription": "The download will stop and the temporary files will be deleted. Files already unpacked on this server are not restored.",
+        "confirm": "Yes, cancel",
+        "keep": "Keep transferring"
       }
     },
     "sftp": {
@@ -1060,6 +1292,1004 @@
     "error": {
       "title": "Could not load servers",
       "description": "The server list could not be retrieved. Check your connection and try again."
+    },
+    "crashes": {
+      "exitCode": "Code {{code}}",
+      "restarted": "restarted by itself (attempt {{attempt}} of {{limit}})",
+      "notRestarted": "was not restarted automatically",
+      "autoRestarted": "Restarted",
+      "exitCodes": {
+        "1": "The game exited with an error",
+        "134": "The process aborted (SIGABRT)",
+        "137": "Out of memory or force-killed (SIGKILL)",
+        "139": "The program crashed on memory access (segfault)",
+        "143": "Terminated by the system (SIGTERM)",
+        "other": "Unexpected exit"
+      },
+      "banner": {
+        "title": "The server crashed at {{time}}",
+        "open": "View report",
+        "dismiss": "Dismiss"
+      },
+      "history": {
+        "title": "Crash history",
+        "description": "The server's latest crashes, with what the console showed right before.",
+        "emptyTitle": "No crashes recorded",
+        "emptyDescription": "If the server crashes, you will see what happened here and can ask the AI to explain it."
+      },
+      "dialog": {
+        "title": "Crash report",
+        "exitCode": "Exit code",
+        "meaning": "What it means",
+        "recovery": "Recovery",
+        "lastLines": "Last console lines",
+        "noLines": "The console showed nothing before the crash."
+      },
+      "ai": {
+        "title": "AI explanation",
+        "explain": "Explain with AI",
+        "thinking": "Analysing…",
+        "notConfigured": "The AI is not set up. An administrator can add the Gemini key in Settings.",
+        "error": "Could not get an explanation. Try again in a moment.",
+        "causes": "Likely causes",
+        "fixes": "How to fix it"
+      }
+    },
+    "notifications": {
+      "title": "Notifications",
+      "description": "Get this server's alerts where you already are: Discord, Telegram or your own system through a webhook.",
+      "webhookLabel": "Discord webhook",
+      "webhookHelp": "In Discord: channel settings → Integrations → Webhooks → New webhook → Copy URL. Leave it empty to turn them off.",
+      "webhookInvalid": "It must be a Discord webhook URL (https://discord.com/api/webhooks/…).",
+      "eventsLabel": "What to send",
+      "events": {
+        "crash": {
+          "label": "Crashes",
+          "description": "With the last console lines.",
+          "sampleTitle": "💥 Server crashed",
+          "sampleText": "Your server crashed (exit code 137). It is restarting by itself (attempt 1 of 3)."
+        },
+        "backup": {
+          "label": "Backups",
+          "description": "When they finish or fail.",
+          "sampleTitle": "✅ Backup complete",
+          "sampleText": "Your server's backup was saved successfully."
+        },
+        "resources": {
+          "label": "High resource use",
+          "description": "CPU above 80% or memory above 90%.",
+          "sampleTitle": "⚠️ High memory use",
+          "sampleText": "Your server is using 94% of its memory (alert from 90%)."
+        },
+        "power": {
+          "label": "Start and stop",
+          "description": "Every time the server starts or stops.",
+          "sampleTitle": "🟢 Server online",
+          "sampleText": "Your server is online."
+        }
+      },
+      "preview": "Preview",
+      "previewEmpty": "Turn on an alert to see what it looks like.",
+      "test": "Send test",
+      "testSent": "Test message sent. Check your Discord channel.",
+      "testWait": "Wait a few seconds before sending another test.",
+      "testError": "Discord refused the message. Check that the webhook still exists.",
+      "save": "Save",
+      "saved": "Saved",
+      "saveError": "Could not save the notifications.",
+      "saveFirst": "Save your changes before sending a test.",
+      "channelsLabel": "Channels",
+      "channels": {
+        "discord": "Discord",
+        "telegram": "Telegram",
+        "webhook": "Webhook"
+      },
+      "configured": "Configured",
+      "telegram": {
+        "tokenLabel": "Bot token",
+        "tokenHelp": "Talk to @BotFather on Telegram, create a bot with /newbot and paste its token here.",
+        "chatLabel": "Chat or channel ID",
+        "chatHelp": "Where the bot will post: a number (groups start with -100) or @your_channel. Add the bot to the group or channel first.",
+        "invalid": "Check the token (123456789:AA…) and the chat ID."
+      },
+      "webhook": {
+        "urlLabel": "Webhook URL",
+        "urlHelp": "Each alert arrives as a JSON POST: event, server, message and, for crashes, the last console lines.",
+        "secretLabel": "Signing secret (optional)",
+        "secretHelp": "If set, each request carries an X-Aether-Signature header (sha256 HMAC of the body) so you can check it came from here.",
+        "invalid": "It must be an https:// URL."
+      },
+      "testFailedOn": "It did not reach: {{channels}}. Check their settings."
+    },
+    "history": {
+      "title": "Performance history",
+      "description": "How the server behaved, even while nobody was watching. Grey areas are time offline and red lines are crashes.",
+      "viewLabel": "What to show",
+      "rangeLabel": "Period",
+      "views": {
+        "resources": "CPU and memory",
+        "network": "Network",
+        "players": "Players"
+      },
+      "ranges": {
+        "1h": "1 h",
+        "24h": "24 h",
+        "7d": "7 days"
+      },
+      "cpuAvg": "Average CPU",
+      "cpuPeak": "CPU peak",
+      "memAvg": "Average memory",
+      "uptime": "Availability",
+      "rxAvg": "Average download",
+      "txAvg": "Average upload",
+      "emptyTitle": "No history yet",
+      "emptyDescription": "The node saves a sample every minute while it runs. Come back in a few minutes.",
+      "offline": "Offline",
+      "crashes": "Crashes: {{count}}",
+      "playersAvg": "Average players",
+      "playersPeak": "Player peak",
+      "record": "All-time record",
+      "noPlayerData": "The game did not answer the player query."
+    },
+    "subdomain": {
+      "title": "Server address",
+      "description": "An easy name to remember instead of the IP and port. The panel creates the DNS records for you.",
+      "currentLabel": "Current address",
+      "srvNote": "Players can connect without the port: Minecraft's SRV record tells their game which one to use.",
+      "portNote": "Includes port {{port}}: this game does not look it up by itself.",
+      "propagation": "DNS changes take about a minute to reach every player.",
+      "recordsLabel": "Show DNS records",
+      "empty": "This server has no address of its own yet. Pick a name below.",
+      "nameLabel": "Name",
+      "changeLabel": "Change name",
+      "hint": "3 to 32 characters: lowercase letters, numbers and hyphens.",
+      "status": {
+        "checking": "Checking…",
+        "available": "Available",
+        "current": "This is the current address",
+        "taken": "Another server already uses it",
+        "invalid": "Only lowercase letters, numbers and hyphens (3–32), not starting or ending with a hyphen",
+        "reserved": "That name is reserved",
+        "error": "Could not check right now; try again"
+      },
+      "wait": "Wait a few seconds before changing it again",
+      "noTarget": "This server's node has no public address. Ask the administrator to set a DNS target.",
+      "savedTitle": "Address saved",
+      "saveError": "Could not save the address",
+      "removedTitle": "Address removed",
+      "removedDescription": "Players connect with the IP and port again.",
+      "removeError": "Could not remove the address",
+      "remove": "Remove",
+      "confirmRemove": "Remove? Click again",
+      "save": "Save"
+    },
+    "activity": {
+      "title": "Activity",
+      "description": "Who did what on this server, and when.",
+      "refresh": "Refresh",
+      "filters": {
+        "label": "Filter by type",
+        "all": "All",
+        "power": "Power",
+        "console": "Console",
+        "files": "Files",
+        "backups": "Backups",
+        "users": "Users",
+        "settings": "Settings",
+        "tasks": "Tasks"
+      },
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "loadMore": "Load more",
+      "loadMoreError": "Couldn't load more activity.",
+      "retention": "Activity is kept for 90 days.",
+      "unknownUser": "Someone",
+      "ip": "IP address",
+      "empty": {
+        "title": "No activity yet",
+        "description": "Changes made to this server show up here: power actions, files, backups and more."
+      },
+      "emptyFiltered": {
+        "title": "Nothing of this kind",
+        "description": "There is no activity of this kind in the last 90 days.",
+        "showAll": "Show all"
+      },
+      "error": {
+        "title": "Couldn't load the activity",
+        "description": "Check your connection and try again.",
+        "retry": "Try again"
+      },
+      "denied": {
+        "title": "You can't see the activity",
+        "description": "Ask the server owner for permission to view users."
+      },
+      "actions": {
+        "server": {
+          "start": "started the server",
+          "stop": "stopped the server",
+          "restart": "restarted the server",
+          "kill": "killed the server",
+          "install": "ran the server install",
+          "reload": "reloaded the server configuration",
+          "create": "created the server",
+          "rename": "renamed the server to",
+          "suspend": "suspended the server",
+          "unsuspend": "unsuspended the server",
+          "transfer": "moved the server to another node",
+          "change": "made a change to the server",
+          "version": "changed the game version to",
+          "clone": "cloned the server as"
+        },
+        "console": {
+          "command": "sent the command"
+        },
+        "file": {
+          "write": "edited the file",
+          "upload": "uploaded the file",
+          "mkdir": "created the folder",
+          "delete": "deleted",
+          "rename": "renamed",
+          "archive": "compressed files into",
+          "extract": "extracted",
+          "restore": "restored an earlier version of"
+        },
+        "plugin": {
+          "install": "installed the plugin",
+          "delete": "removed the plugin"
+        },
+        "backup": {
+          "create": "created the backup",
+          "restore": "restored the backup",
+          "delete": "deleted the backup"
+        },
+        "user": {
+          "add": "gave access to",
+          "edit": "changed the permissions of",
+          "remove": "removed access for"
+        },
+        "settings": {
+          "data": "changed the server settings",
+          "ports": "changed the ports",
+          "definition": "edited the server definition",
+          "flags": "changed auto start and auto restart",
+          "notifications": "changed the alerts"
+        },
+        "task": {
+          "save": "saved the task",
+          "delete": "deleted the task",
+          "run": "ran the task"
+        },
+        "extransfer": {
+          "create": "prepared a migration",
+          "pull": "started a migration into this server",
+          "cancel": "cancelled a migration"
+        },
+        "unknown": "made a change",
+        "modpack": {
+          "install": "installed the modpack"
+        },
+        "map": {
+          "install": "installed the world map",
+          "remove": "removed the world map"
+        }
+      }
+    },
+    "peakHours": {
+      "title": "Peak hours",
+      "description": "Average players per day and hour over the last week, in your local time. Use it to pick when to hold events or restarts.",
+      "best": "Busiest: {{day}} at {{time}} ({{count}} on average)",
+      "noData": "no data",
+      "average": "{{count}} players on average",
+      "fewer": "Fewer",
+      "more": "More"
+    },
+    "assistant": {
+      "open": "Assistant",
+      "title": "Server assistant",
+      "description": "Ask anything about {{name}}. It looks at the console, crashes, performance and players to answer.",
+      "emptyTitle": "How can I help?",
+      "emptyDescription": "Try one of these questions or write your own.",
+      "suggestions": {
+        "slow": "Why is my server slow?",
+        "crash": "Why did the server crash last time?",
+        "error": "What do the latest console errors mean?",
+        "restart": "When is the best time to restart it?"
+      },
+      "placeholder": "Type your question…",
+      "send": "Send",
+      "hint": "Enter to send · Shift + Enter for a new line",
+      "clear": "New conversation",
+      "thinking": "The assistant is thinking…",
+      "looked": "Looked at: {{sources}}",
+      "sources": {
+        "status": "status",
+        "players": "players",
+        "performance": "performance",
+        "crashes": "crashes",
+        "console": "console"
+      },
+      "errors": {
+        "generic": "I could not answer right now. Try again in a moment.",
+        "limit": "You asked a lot of questions in a row. Wait a few minutes and try again.",
+        "notConfigured": "The AI is not set up. An administrator can add the Gemini key in Settings.",
+        "noPermission": "You need access to this server's console to use the assistant."
+      }
+    },
+    "version": {
+      "title": "Game version",
+      "description": "Change version in one click. The panel saves a restore point first, in case something goes wrong.",
+      "current": "Installed version:",
+      "upToDate": "It is the newest",
+      "latestIs": "The newest is {{version}}",
+      "changing": "Changing version…",
+      "changingHint": "You can follow each step in the console. Do not stop the server meanwhile.",
+      "pick": "New version",
+      "placeholder": "Pick a version",
+      "newest": "Newest",
+      "installed": "installed",
+      "change": "Change version",
+      "done": "Done: the server now runs version {{version}}.",
+      "failed": "The version could not be changed: {{reason}}. A restore point is waiting in Backups.",
+      "safety": "A restore point is saved in Backups before the change. If the new version gives trouble, restore it and you are back where you were.",
+      "confirmTitle": "Change to version {{version}}?",
+      "confirmIntro": "The server will go from {{from}} to {{to}} in these steps:",
+      "steps": {
+        "stop": "The server stops if it is running.",
+        "restorePoint": "A restore point with all its files is saved.",
+        "install": "The new version is downloaded and installed.",
+        "start": "It starts again if it was running."
+      },
+      "confirmUndo": "Some worlds cannot be opened by an older version: to go back, use the restore point.",
+      "confirm": "Change version",
+      "startedTitle": "Version change started",
+      "started": "Changing to {{version}}. Follow the progress in the console.",
+      "error": "The version change could not start."
+    },
+    "properties": {
+      "title": "Server properties",
+      "description": "The options in server.properties, each one explained. Only the ones you change are rewritten; comments and unknown options are kept.",
+      "search": "Search an option…",
+      "missingTitle": "No server.properties yet",
+      "missing": "Minecraft creates this file the first time the server starts. Start it once and come back.",
+      "deniedTitle": "No access to the files",
+      "denied": "You need permission to view this server's files.",
+      "errorTitle": "Could not read server.properties",
+      "error": "Check that the server is available and try again.",
+      "saveError": "The changes could not be saved.",
+      "savedTitle": "Changes saved.",
+      "savedOnline": "They apply when you restart the server.",
+      "savedOffline": "They apply the next time it starts.",
+      "restartNow": "Restart now",
+      "restartedTitle": "Restarting",
+      "restarted": "The server is restarting with the new settings.",
+      "restartError": "The server could not be restarted.",
+      "noMatchTitle": "No option matches",
+      "noMatch": "No options contain “{{query}}”.",
+      "showAdvanced": "Show advanced options ({{count}})",
+      "hideAdvanced": "Hide advanced options",
+      "unsaved": "Unsaved changes: {{count}}",
+      "fixErrors": "Fix the highlighted values.",
+      "saveHint": "Ctrl+S to save",
+      "discard": "Discard",
+      "save": "Save changes",
+      "unknownField": "An option the panel does not know; it is kept as is.",
+      "changed": "Changed",
+      "locked": "Managed by the panel in Settings → Address, so it matches the assigned port.",
+      "undo": "Undo the change to {{name}}",
+      "default": "default value",
+      "newWorldsOnly": "Only affects new worlds",
+      "errors": {
+        "number": "Enter a whole number.",
+        "min": "The minimum is {{min}}.",
+        "max": "The maximum is {{max}}."
+      },
+      "motd": {
+        "palette": "Colours and formatting",
+        "color": "Insert colour §{{code}}",
+        "format": {
+          "l": "Bold",
+          "o": "Italic",
+          "n": "Underline",
+          "m": "Strikethrough",
+          "r": "Clear formatting"
+        },
+        "preview": "Preview in the server list",
+        "serverName": "Minecraft Server",
+        "previewHint": "Approximate: the game uses its own font."
+      },
+      "fields": {
+        "gamemode": {
+          "label": "Game mode",
+          "desc": "The mode new players join in."
+        },
+        "difficulty": {
+          "label": "Difficulty",
+          "desc": "How much damage monsters deal and whether they spawn."
+        },
+        "hardcore": {
+          "label": "Hardcore",
+          "desc": "Locked to the hardest difficulty with a single life.",
+          "warning": "Players who die become spectators and cannot play again."
+        },
+        "pvp": {
+          "label": "Player vs player",
+          "desc": "Lets players hurt each other."
+        },
+        "force-gamemode": {
+          "label": "Force game mode",
+          "desc": "Puts everyone back in the server's game mode when they join."
+        },
+        "allow-flight": {
+          "label": "Allow flight",
+          "desc": "Stops the server kicking players who fly (some mods and plugins need it)."
+        },
+        "allow-nether": {
+          "label": "Allow the Nether",
+          "desc": "Whether portals lead to the Nether."
+        },
+        "enable-command-block": {
+          "label": "Command blocks",
+          "desc": "Lets command blocks run."
+        },
+        "spawn-monsters": {
+          "label": "Spawn monsters",
+          "desc": "Whether hostile mobs spawn."
+        },
+        "spawn-animals": {
+          "label": "Spawn animals",
+          "desc": "Whether animals spawn."
+        },
+        "spawn-npcs": {
+          "label": "Spawn villagers",
+          "desc": "Whether villagers spawn."
+        },
+        "max-players": {
+          "label": "Max players",
+          "desc": "How many people can be online at once."
+        },
+        "white-list": {
+          "label": "Whitelist",
+          "desc": "Only whitelisted players can join."
+        },
+        "enforce-whitelist": {
+          "label": "Enforce whitelist",
+          "desc": "Kicks players who are not on the list when it is reloaded."
+        },
+        "online-mode": {
+          "label": "Online mode",
+          "desc": "Checks that every player has a real Minecraft account.",
+          "warning": "Without this check anyone can join with any name, including an admin's."
+        },
+        "spawn-protection": {
+          "label": "Spawn protection",
+          "desc": "Radius in blocks around spawn that only operators can change (0 turns it off)."
+        },
+        "player-idle-timeout": {
+          "label": "Idle timeout",
+          "desc": "Minutes without moving before a player is kicked (0 never)."
+        },
+        "op-permission-level": {
+          "label": "Operator level",
+          "desc": "What operators can do: 1 bypass protection, 2 game commands, 3 manage players, 4 everything."
+        },
+        "enforce-secure-profile": {
+          "label": "Secure chat",
+          "desc": "Requires chat messages to be signed by Mojang."
+        },
+        "hide-online-players": {
+          "label": "Hide online players",
+          "desc": "Hides who is online from the server list."
+        },
+        "level-name": {
+          "label": "World name",
+          "desc": "The world folder to load. A new world is created if it does not exist."
+        },
+        "level-seed": {
+          "label": "Seed",
+          "desc": "The world seed. Empty for a random one."
+        },
+        "level-type": {
+          "label": "World type",
+          "desc": "How the terrain is generated."
+        },
+        "generate-structures": {
+          "label": "Generate structures",
+          "desc": "Villages, temples, strongholds and other structures."
+        },
+        "view-distance": {
+          "label": "View distance",
+          "desc": "Chunks sent to each player (3–32). More distance, more memory."
+        },
+        "simulation-distance": {
+          "label": "Simulation distance",
+          "desc": "Chunks around each player where the world keeps ticking (3–32)."
+        },
+        "max-world-size": {
+          "label": "Max world size",
+          "desc": "Radius in blocks of the world border."
+        },
+        "generator-settings": {
+          "label": "Generator settings",
+          "desc": "JSON settings for flat or customised worlds."
+        },
+        "enable-status": {
+          "label": "Show in the server list",
+          "desc": "Answers the game's server list. Turned off, the server shows as offline."
+        },
+        "resource-pack": {
+          "label": "Resource pack",
+          "desc": "Direct link to a .zip offered when players join."
+        },
+        "resource-pack-sha1": {
+          "label": "Resource pack SHA-1",
+          "desc": "The .zip's hash, so the game can check the download."
+        },
+        "require-resource-pack": {
+          "label": "Require the pack",
+          "desc": "Players who decline the resource pack cannot join."
+        },
+        "resource-pack-prompt": {
+          "label": "Resource pack prompt",
+          "desc": "Text shown when the resource pack is offered."
+        },
+        "server-port": {
+          "label": "Port",
+          "desc": "The port the server listens on."
+        },
+        "server-ip": {
+          "label": "IP address",
+          "desc": "The address the server listens on."
+        },
+        "network-compression-threshold": {
+          "label": "Compression threshold",
+          "desc": "Packet size in bytes above which packets are compressed (-1 off)."
+        },
+        "rate-limit": {
+          "label": "Packet rate limit",
+          "desc": "Packets per second before a client is kicked (0 no limit)."
+        },
+        "max-tick-time": {
+          "label": "Max tick time",
+          "desc": "Milliseconds a tick may take before the watchdog stops the server (-1 never)."
+        },
+        "entity-broadcast-range-percentage": {
+          "label": "Entity range",
+          "desc": "Percentage of the distance at which entities are visible."
+        },
+        "pause-when-empty-seconds": {
+          "label": "Pause when empty",
+          "desc": "Seconds without players before the world pauses (0 never)."
+        },
+        "region-file-compression": {
+          "label": "Region compression",
+          "desc": "How world files are compressed."
+        },
+        "sync-chunk-writes": {
+          "label": "Synchronous chunk writes",
+          "desc": "Saves chunks synchronously: safer, a little slower."
+        },
+        "use-native-transport": {
+          "label": "Native transport",
+          "desc": "Uses the native Linux network stack when available."
+        },
+        "prevent-proxy-connections": {
+          "label": "Block proxies",
+          "desc": "Refuses players connecting from an IP other than their account's."
+        },
+        "accepts-transfers": {
+          "label": "Accept transfers",
+          "desc": "Lets other servers send players here."
+        },
+        "enable-rcon": {
+          "label": "Remote console (RCON)",
+          "desc": "Allows controlling the server remotely with a password."
+        },
+        "rcon_port": {
+          "label": "RCON port",
+          "desc": "The remote console port."
+        },
+        "rcon_password": {
+          "label": "RCON password",
+          "desc": "The remote console password. Use a long, unique one."
+        },
+        "enable-query": {
+          "label": "GameSpy query",
+          "desc": "Answers the query protocol some listing sites use."
+        },
+        "query_port": {
+          "label": "Query port",
+          "desc": "The query protocol port."
+        },
+        "broadcast-console-to-ops": {
+          "label": "Show console commands to ops",
+          "desc": "Operators see commands run from the console."
+        },
+        "broadcast-rcon-to-ops": {
+          "label": "Show RCON commands to ops",
+          "desc": "Operators see commands run through RCON."
+        },
+        "function-permission-level": {
+          "label": "Function level",
+          "desc": "Permission level datapack functions run with."
+        },
+        "log-ips": {
+          "label": "Log IPs",
+          "desc": "Writes each player's IP to the log when they join."
+        },
+        "enable-jmx-monitoring": {
+          "label": "JMX monitoring",
+          "desc": "Exposes server metrics over JMX."
+        },
+        "bug-report-link": {
+          "label": "Bug report link",
+          "desc": "A page offered to players for reporting problems."
+        },
+        "initial-enabled-packs": {
+          "label": "Initial datapacks",
+          "desc": "Datapacks enabled when a new world is created."
+        },
+        "initial-disabled-packs": {
+          "label": "Initially disabled datapacks",
+          "desc": "Datapacks left off when a new world is created."
+        },
+        "text-filtering-config": {
+          "label": "Text filtering",
+          "desc": "Chat filter configuration."
+        },
+        "motd": {
+          "label": "Message of the day (MOTD)",
+          "desc": "What shows under the server name in the game's list. Two lines at most; use the colours to style it."
+        }
+      },
+      "options": {
+        "gamemode": {
+          "survival": "Survival",
+          "creative": "Creative",
+          "adventure": "Adventure",
+          "spectator": "Spectator"
+        },
+        "difficulty": {
+          "peaceful": "Peaceful",
+          "easy": "Easy",
+          "normal": "Normal",
+          "hard": "Hard"
+        },
+        "level-type": {
+          "minecraft_normal": "Normal",
+          "minecraft_flat": "Flat",
+          "minecraft_large_biomes": "Large biomes",
+          "minecraft_amplified": "Amplified",
+          "minecraft_single_biome_surface": "Single biome"
+        },
+        "region-file-compression": {
+          "deflate": "Deflate (default)",
+          "lz4": "LZ4 (faster)",
+          "none": "No compression"
+        },
+        "op-permission-level": {
+          "1": "1 · Bypass protection",
+          "2": "2 · Game commands",
+          "3": "3 · Manage players",
+          "4": "4 · Everything"
+        },
+        "function-permission-level": {
+          "1": "1",
+          "2": "2 (default)",
+          "3": "3",
+          "4": "4"
+        }
+      },
+      "sections": {
+        "game": {
+          "title": "The game",
+          "description": "Mode, difficulty and game rules."
+        },
+        "players": {
+          "title": "Players",
+          "description": "Who can join and what they can do."
+        },
+        "world": {
+          "title": "The world",
+          "description": "Generation, name and reach of the world."
+        },
+        "display": {
+          "title": "Presentation",
+          "description": "How the server shows up and its resource pack."
+        },
+        "network": {
+          "title": "Network and performance",
+          "description": "Connection, compression and server pacing."
+        },
+        "advanced": {
+          "title": "Advanced",
+          "description": "Remote console, queries and every other option in the file."
+        }
+      }
+    },
+    "fileHistory": {
+      "button": "History",
+      "open": "View version history",
+      "openWithCount": "View version history ({{count}})",
+      "title": "Version history",
+      "description": "Earlier versions of {{name}}. Pick one to compare it with the current text.",
+      "loading": "Loading versions…",
+      "errorTitle": "Couldn't load the history",
+      "errorDescription": "Check the connection to the node and try again.",
+      "emptyTitle": "No versions yet",
+      "emptyDescription": "Each time you save this file, the previous text is kept here so you can compare it or bring it back.",
+      "listLabel": "Saved versions, newest first",
+      "itemLabel": "Version from {{when}}, {{size}}",
+      "latest": "Latest",
+      "retention": "The {{count}} most recent versions of each config file are kept.",
+      "diff": {
+        "comparing": "Comparing with the version from {{when}}",
+        "identical": "This version matches the current text.",
+        "legendSides": "Left: that version · Right: the editor's current text",
+        "legendInline": "Lines marked −: that version · marked +: the current text",
+        "back": "Back to editor",
+        "backShort": "Back",
+        "restore": "Restore this version",
+        "restoreShort": "Restore",
+        "loading": "Loading the comparison…",
+        "errorTitle": "Couldn't load this version"
+      },
+      "confirm": {
+        "title": "Restore this version?",
+        "description": "The file will go back to its text from {{when}}. Its current text is kept as a version first, so you can undo this from the history.",
+        "unsaved": "Unsaved changes in the editor will be lost.",
+        "action": "Restore"
+      },
+      "toast": {
+        "restoredTitle": "Version restored",
+        "restored": "The file is back to its text from {{when}}. The previous text was kept in the history.",
+        "restoreError": "Couldn't restore the version."
+      }
+    },
+    "clone": {
+      "tab": "Clone",
+      "title": "Clone server",
+      "description": "Create a copy of this server on the same node to try changes without touching the original.",
+      "nameSuffix": " (copy)",
+      "nameLabel": "Name of the copy",
+      "namePlaceholder": "My server (copy)",
+      "copyFiles": "Copy files and world",
+      "copyFilesOn": "Every file is copied: worlds, plugins and configuration. A large world can take a few minutes.",
+      "copyFilesOff": "The copy starts empty, with the same template. You will need to install it from Administration.",
+      "copiedTitle": "Copied",
+      "copied": {
+        "template": "Template and version",
+        "settings": "Settings and variables",
+        "resources": "Resources (CPU, memory and disk)",
+        "users": "Users and their permissions",
+        "files": "Files and world"
+      },
+      "notCopiedTitle": "Not copied",
+      "notCopied": {
+        "address": "Address and port (a new one is assigned)",
+        "subdomain": "Subdomain",
+        "backups": "Backups",
+        "tasks": "Scheduled tasks and alerts"
+      },
+      "runningTitle": "The server is running",
+      "runningHint": "If you copy it now, the world may be caught mid-save. Stop it first for a clean copy.",
+      "installingHint": "The server is installing. Wait until it finishes to copy all of its files.",
+      "stopHint": "For a clean copy of the world, stop the server before cloning it.",
+      "sameNode": "The copy is created on the same node as the original.",
+      "button": "Clone server",
+      "cloning": "Creating the copy…",
+      "confirmTitle": "Clone this server?",
+      "confirmWithFiles": "“{{name}}” will be created with the settings, users and all the files of “{{source}}”. The original does not change.",
+      "confirmWithoutFiles": "“{{name}}” will be created with the settings and users of “{{source}}”, without files. The original does not change.",
+      "confirmRunning": "The server is running: the world may be copied mid-save.",
+      "confirm": "Clone",
+      "successTitle": "Copy created",
+      "successToast": "“{{name}}” has been created.",
+      "doneTitle": "“{{name}}” has been created",
+      "doneCopying": "The files are being copied in the background. Follow the progress on the copy's console; you can start it as soon as it finishes.",
+      "doneEmpty": "The copy is empty. Open it and install it from Administration to get started.",
+      "newPort": "New port",
+      "open": "Open the copy",
+      "another": "Make another copy",
+      "errors": {
+        "nameRequired": "Give the copy a name.",
+        "nameTooLong": "At most {{max}} characters.",
+        "nameCharacters": "Use only unaccented letters, digits, spaces and common symbols.",
+        "forbidden": "You are not allowed to clone this server",
+        "conflict": "The copy could not be created on the node",
+        "resources": "There are not enough resources for the copy",
+        "generic": "The server could not be cloned",
+        "tryAgain": "Try again in a few seconds."
+      }
+    },
+    "map": {
+      "title": "World map",
+      "description": "Install a web map in one click and explore your world from the panel, with players live.",
+      "pick": "Choose the map",
+      "kinds": {
+        "bluemap": {
+          "tagline": "3D, recommended",
+          "description": "Explore the world in 3D as if flying over it. The first render takes a while and uses CPU meanwhile.",
+          "points": {
+            "a": "3D view",
+            "b": "Live players",
+            "c": "Downloads Mojang's resources"
+          }
+        },
+        "dynmap": {
+          "tagline": "Classic 2D",
+          "description": "The familiar flat map, light and well known. Less striking, but fine on modest servers.",
+          "points": {
+            "a": "2D top-down view",
+            "b": "Players and chat",
+            "c": "Lighter"
+          }
+        }
+      },
+      "eula": "I agree to BlueMap downloading Minecraft's resources (Mojang's EULA)",
+      "eulaHint": "BlueMap needs the game's textures to draw the map and downloads them from Mojang's servers.",
+      "eulaLink": "Read the EULA",
+      "install": "Install {{name}}",
+      "restartNote": "The server is on: it will restart to load the map.",
+      "offNote": "The map starts the next time you turn the server on.",
+      "restoreNote": "A restore point is saved first, in case you want to go back.",
+      "failed": "Could not install: {{reason}}",
+      "failedTitle": "The map could not be installed",
+      "installError": "The install could not start.",
+      "startedTitle": "Installing the map",
+      "started": "{{name}} is being installed. You can follow the steps in the console.",
+      "installedTitle": "Map installed",
+      "installedDescription": "{{name}} is installed.",
+      "installingTitle": "Installing {{name}}…",
+      "installingGeneric": "Installing the map…",
+      "installingHint": "It is downloaded from Modrinth and, if the server is on, the server restarts to load it. You can follow each step in the console.",
+      "offTitle": "Turn the server on to see the map",
+      "offHint": "{{name}} is installed and starts with the server.",
+      "start": "Start server",
+      "startingTitle": "Starting the server",
+      "starting": "The map shows up here as soon as it is ready.",
+      "startError": "The server could not be started.",
+      "preparingTitle": "The map is getting ready…",
+      "preparingHint": {
+        "bluemap": "BlueMap is being configured and is downloading the game's resources. The first time can take a couple of minutes; this page updates by itself.",
+        "dynmap": "Dynmap is starting its web server. It can take a minute; this page updates by itself."
+      },
+      "live": "Live",
+      "openTab": "Open in a new tab",
+      "fullscreen": "Fullscreen",
+      "exitFullscreen": "Exit fullscreen",
+      "reload": "Reload the map",
+      "loading": "Loading the map…",
+      "frameTitle": "World map ({{name}})",
+      "remove": "Remove map",
+      "removeTitle": "Remove {{name}}?",
+      "removeDescription": "The map's plugin or mod is deleted. What is already drawn stays in the files, in case you install it again. The change applies the next time you restart the server.",
+      "removeConfirm": "Remove map",
+      "removedTitle": "Map removed",
+      "removed": "Restart the server so it stops loading.",
+      "removeError": "The map could not be removed.",
+      "loadErrorTitle": "The map could not be loaded",
+      "loadError": "The node did not answer. Try again in a moment.",
+      "retry": "Retry",
+      "unsupportedTitle": "The map needs Paper, Fabric or Forge",
+      "unsupportedVanilla": "This server runs vanilla Minecraft, which loads no plugins or mods. Switch the loader to Paper, Fabric, Forge or NeoForge to install the map.",
+      "unsupportedUnknown": "We cannot tell which loader this server uses. The map works with Paper, Fabric, Forge and NeoForge.",
+      "changeLoader": "Change the loader",
+      "useModpack": "Install a modpack"
+    },
+    "modpacks": {
+      "title": "Modpacks",
+      "description": "Install a whole modpack from Modrinth or CurseForge in one click. The panel sets up the loader, the Minecraft version and the Java version it needs.",
+      "loading": "Loading modpacks…",
+      "statusError": "Could not load the modpack status.",
+      "current": "Right now: {{platform}}",
+      "minecraft": "Minecraft {{version}}",
+      "loaders": {
+        "fabric": "Fabric",
+        "forge": "Forge",
+        "neoforge": "NeoForge",
+        "vanilla": "Vanilla",
+        "paper": "Paper",
+        "spigot": "Spigot"
+      },
+      "installed": {
+        "eyebrow": "Installed modpack",
+        "installedOn": "Installed on {{date}}",
+        "openSource": "View on {{source}}",
+        "versionLocked": "The modpack sets the Minecraft version; to change it, install another version of the pack.",
+        "reinstall": "Install another version"
+      },
+      "intro": {
+        "title": "No modpack installed",
+        "description": "Pick a modpack from the list. A restore point is saved before it is installed, so you can always go back."
+      },
+      "source": {
+        "label": "Modpack source",
+        "modrinth": "Modrinth",
+        "curseforge": "CurseForge",
+        "curseforgeMissing": "CurseForge needs an API key that the administrator has not set up yet.",
+        "curseforgeMissingAdmin": "To use CurseForge, add the API key in the panel settings.",
+        "openSettings": "Open settings"
+      },
+      "search": {
+        "label": "Search modpacks",
+        "placeholder": "Search a modpack, e.g. All the Mods",
+        "popular": "Most popular",
+        "results": "Results for “{{query}}”",
+        "count": "{{count}} modpacks",
+        "loadMore": "Load more",
+        "loadingMore": "Loading…",
+        "emptyTitle": "No modpacks with that name",
+        "emptyDescription": "Try other words or search the other source.",
+        "errorTitle": "The search failed",
+        "errorDescription": "Modrinth or CurseForge did not answer. Try again in a moment."
+      },
+      "card": {
+        "by": "by {{author}}",
+        "downloads": "{{count}} downloads",
+        "choose": "Choose {{title}}",
+        "installed": "Installed"
+      },
+      "dialog": {
+        "title": "Install {{title}}",
+        "description": "Pick the version of the modpack. The panel takes care of the rest.",
+        "version": "Version",
+        "versionPlaceholder": "Pick a version",
+        "loadingVersions": "Loading versions…",
+        "noVersions": "This modpack has no versions the panel can install (Fabric, Forge or NeoForge with a server pack).",
+        "versionsError": "Could not load the versions.",
+        "newest": "Newest",
+        "beta": "Beta",
+        "alpha": "Alpha",
+        "serverPack": "Server pack",
+        "freshWorld": "New world",
+        "freshWorldHint": "Deletes the current world and generates a new one with the modpack. Off, your world is kept.",
+        "whatHappens": "What will happen",
+        "steps": {
+          "stop": "The server stops if it is running.",
+          "restorePoint": "A restore point is saved in Backups.",
+          "replace": "Mods, configuration and the loader are replaced with the modpack's.",
+          "world": "Your world, server.properties and the player lists are kept.",
+          "worldFresh": "The current world is deleted and a new one is created; server.properties and the player lists are kept.",
+          "start": "Java {{java}} with {{loader}} for Minecraft {{version}} is used, and the server starts again if it was running.",
+          "startUnknown": "Java and the Minecraft version are set, and the server starts again if it was running."
+        },
+        "memoryHint": "This server has {{memory}} MB of memory. Most modpacks need at least 4096 MB and may not start with less.",
+        "confirm": "Install modpack",
+        "starting": "Starting…"
+      },
+      "progress": {
+        "title": "Installing {{title}}",
+        "titleGeneric": "Installing the modpack",
+        "hint": "You can follow every step in the console. Do not start the server until it finishes.",
+        "steps": {
+          "preparing": "Preparing the install…",
+          "stopping": "Stopping the server…",
+          "restorePoint": "Saving a restore point…",
+          "cleaning": "Removing the previous mods and configuration…",
+          "downloadPack": "Downloading the modpack…",
+          "downloadFiles": "Downloading mods: {{current}} of {{total}}",
+          "downloadFilesNoCount": "Downloading mods…",
+          "extracting": "Copying the modpack's configuration…",
+          "loader": "Installing the loader (this can take a few minutes)…",
+          "curseforge": "Downloading and installing the CurseForge server pack…",
+          "starting": "Starting the server…",
+          "done": "Install finished",
+          "failed": "The install failed"
+        }
+      },
+      "result": {
+        "done": "{{title}} is installed.",
+        "doneHint": "The first start of a modpack takes longer than usual while it generates its files.",
+        "failed": "The modpack could not be installed.",
+        "failedHint": "A restore point was saved before starting: you can go back to the previous state from Backups.",
+        "dismiss": "Dismiss"
+      },
+      "toast": {
+        "startedTitle": "Installing modpack",
+        "started": "{{title}} is being installed. Follow the progress here or in the console.",
+        "error": "Could not start the install."
+      },
+      "safety": "A restore point is saved in Backups before the install. If the modpack gives trouble, restore it and you are back where you were."
     }
   },
   "users": {
@@ -1688,7 +2918,13 @@
     "delete": "Delete",
     "retry": "Retry",
     "saving": "Saving...",
-    "edit": "Edit"
+    "edit": "Edit",
+    "errorBoundary": {
+      "title": "Something went wrong",
+      "description": "An unexpected error occurred while rendering this component.",
+      "tryAgain": "Try again"
+    },
+    "beta": "Beta"
   },
   "settings": {
     "title": "Panel Settings",
@@ -1702,7 +2938,9 @@
       "apiKeys": "API keys",
       "products": "Products",
       "updates": "Updates",
-      "sectionLabel": "Settings section"
+      "sectionLabel": "Settings section",
+      "offsite": "Off-site backups",
+      "domains": "Domains"
     },
     "general": {
       "title": "General Settings",
@@ -1739,7 +2977,25 @@
         "appearanceTitle": "Appearance",
         "appearanceDescription": "Visual details of the interface for every user.",
         "accessTitle": "Sign-up and security",
-        "accessDescription": "Who can create an account and how sign-in and sign-up are protected."
+        "accessDescription": "Who can create an account and how sign-in and sign-up are protected.",
+        "modpacksTitle": "Modpacks",
+        "modpacksDescription": "Key to search and install CurseForge modpacks. Modrinth does not need one.",
+        "experimentalTitle": "Experimental features",
+        "experimentalDescription": "New features we are still refining. They start turned off: switch on the ones you want to try. Turning one off hides it again and deletes nothing."
+      },
+      "curseforgeKeyLabel": "CurseForge API key",
+      "curseforgeKeyPlaceholder": "Paste the API key",
+      "curseforgeKeyDescription": "Create it at console.curseforge.com. The main node uses it; remote nodes read the one in their own configuration (daemon.curseforge.key).",
+      "experimental": {
+        "versionSwitchLabel": "Game version switch",
+        "versionSwitchDescription": "Change a server's Minecraft version in one click, with a restore point saved first.",
+        "versionSwitchWhere": "In each server's Settings tab",
+        "propertiesEditorLabel": "Properties editor",
+        "propertiesEditorDescription": "Edit server.properties as a form, with every option explained.",
+        "propertiesEditorWhere": "Properties tab, on Minecraft Java servers",
+        "serverCloneLabel": "Clone server",
+        "serverCloneDescription": "Duplicate a server to try changes without touching the original.",
+        "serverCloneWhere": "In each server's Administration › Clone"
       }
     },
     "discord": {
@@ -1939,6 +3195,67 @@
         "failedTitle": "Update failed",
         "failed": "There was a problem starting the update."
       }
+    },
+    "offsite": {
+      "title": "Off-site backups",
+      "description": "Keep a copy of every backup in S3-compatible storage. If the node's disk fails, the backups are still safe.",
+      "test": "Test connection",
+      "testOk": "Connected: a file was written to and deleted from the bucket.",
+      "testError": "Could not connect to the storage.",
+      "statusTitle": "Status",
+      "statusDescription": "Local backups are kept; the bucket is a second copy.",
+      "enabled": "Upload backups to the bucket",
+      "enabledDescription": "Each finished backup is uploaded right away. Deleting it removes it from both places.",
+      "onHint": "On: new backups will be uploaded to the bucket.",
+      "offHint": "Off: backups are only kept on the node.",
+      "bucketTitle": "Bucket",
+      "bucketDescription": "Works with AWS S3, Backblaze B2, Cloudflare R2, Wasabi, MinIO and any S3-compatible service.",
+      "providers": "Providers",
+      "endpoint": "Endpoint",
+      "endpointHint": "The provider's S3 server, without the bucket name. You can include https://.",
+      "bucket": "Bucket name",
+      "region": "Region",
+      "regionHint": "Some providers need it; on R2 use \"auto\".",
+      "prefix": "Folder in the bucket",
+      "prefixHint": "Backups are stored under folder/server-ID/.",
+      "keysTitle": "Credentials",
+      "keysDescription": "A key allowed to read, write and delete in that bucket.",
+      "accessKey": "Access key",
+      "secretKey": "Secret key",
+      "insecure": "Unencrypted connection (http)",
+      "insecureDescription": "Only for a MinIO on your own network. Public providers use https."
+    },
+    "domains": {
+      "title": "Automatic subdomains",
+      "description": "With Cloudflare, every server can have its own address (survival.play.example.com) instead of an IP and port.",
+      "test": "Test connection",
+      "testOk": "Connection OK: the token can edit the zone {{zone}}.",
+      "testError": "Could not check the connection to Cloudflare",
+      "statusTitle": "Assignment",
+      "statusDescription": "Owners can pick the name from their server's settings.",
+      "autoAssign": "Give every new server a subdomain",
+      "autoAssignDescription": "Derived from the server name (My Survival → my-survival); -2, -3… is added when it is taken.",
+      "onHint": "Active: addresses will look like {{example}}",
+      "offHint": "Fill in the domain, the token and the zone ID to turn subdomains on.",
+      "domainTitle": "Domain",
+      "domainDescription": "Where server names are created and what they point to.",
+      "baseDomain": "Base domain",
+      "baseDomainHint": "A domain or subdomain of your Cloudflare zone, for example play.example.com.",
+      "baseDomainInvalid": "Type just the domain, without http:// or slashes.",
+      "target": "DNS target (optional)",
+      "targetHint": "IP or hostname to point at when a node is registered by hostname or a private address. Empty: each node's public IP.",
+      "dnsOnlyNote": "Records are created as DNS only (grey cloud), never proxied: game traffic is not HTTP. If the panel's domain goes through Cloudflare's proxy, put the server's public IP here.",
+      "credentialsTitle": "Cloudflare credentials",
+      "credentialsDescription": "A token allowed only to edit this zone's DNS. The panel never shows it in its logs.",
+      "openCloudflare": "Open API tokens in Cloudflare",
+      "step1": "In Cloudflare, go to My Profile → API Tokens → Create Token and use the \"Edit zone DNS\" template (Zone → DNS → Edit).",
+      "step2": "Under \"Zone Resources\", limit the token to your domain's zone and create it. Copy it: it is shown only once.",
+      "step3": "The zone ID is on the domain's Overview page, in the right-hand column under API.",
+      "token": "API token",
+      "tokenHint": "Required permission: Zone → DNS → Edit.",
+      "zoneId": "Zone ID",
+      "zoneIdHint": "32 hexadecimal characters.",
+      "zoneIdInvalid": "The zone ID has 32 hexadecimal characters (0-9, a-f)."
     }
   },
   "apiKeys": {

@@ -7,6 +7,9 @@ import (
 	"gorm.io/gorm"
 )
 
+// newestStartFirst orders uptime rows with the latest one first
+const newestStartFirst = "start_time DESC"
+
 type Uptime struct {
 	DB *gorm.DB
 }
@@ -25,7 +28,7 @@ func (us *Uptime) TrackStatus(serverID string, isRunning bool) error {
 
 	// Buscar si hay un registro activo (sin EndTime) para este servidor
 	var currentStatus *models.UptimeStatus
-	err := us.DB.Where("server_id = ? AND end_time IS NULL", serverID).Order("start_time DESC").First(&currentStatus).Error
+	err := us.DB.Where("server_id = ? AND end_time IS NULL", serverID).Order(newestStartFirst).First(&currentStatus).Error
 
 	now := time.Now()
 
@@ -97,7 +100,7 @@ func (us *Uptime) GetUptimeStats(serverID string, since time.Time) (uptimeSecond
 	// Si hay un registro activo sin EndTime, calcular su duración hasta ahora
 	var activeStatus *models.UptimeStatus
 	activeErr := us.DB.Where("server_id = ? AND end_time IS NULL", serverID).
-		Order("start_time DESC").First(&activeStatus).Error
+		Order(newestStartFirst).First(&activeStatus).Error
 
 	if activeErr == nil && activeStatus != nil {
 		activeDuration := int64(time.Since(activeStatus.StartTime).Seconds())
@@ -122,7 +125,7 @@ func (us *Uptime) GetUptimeStats(serverID string, since time.Time) (uptimeSecond
 func (us *Uptime) GetRecentHistory(serverID string, limit int) ([]*models.UptimeStatus, error) {
 	var records []*models.UptimeStatus
 	err := us.DB.Where("server_id = ?", serverID).
-		Order("start_time DESC").
+		Order(newestStartFirst).
 		Limit(limit).
 		Find(&records).Error
 	return records, err
@@ -164,31 +167,13 @@ func (us *Uptime) GetAllServerUptime(since time.Time) (map[string]map[string]int
 	// Agrupar por servidor
 	serverStats := make(map[string]map[string]interface{})
 	for _, result := range results {
-		if _, exists := serverStats[result.ServerID]; !exists {
-			serverStats[result.ServerID] = make(map[string]interface{})
-			serverStats[result.ServerID]["uptime"] = int64(0)
-			serverStats[result.ServerID]["downtime"] = int64(0)
-		}
-		if result.IsRunning {
-			serverStats[result.ServerID]["uptime"] = serverStats[result.ServerID]["uptime"].(int64) + result.TotalDuration
-		} else {
-			serverStats[result.ServerID]["downtime"] = serverStats[result.ServerID]["downtime"].(int64) + result.TotalDuration
-		}
+		addUptimeDuration(serverStats, result.ServerID, result.IsRunning, result.TotalDuration)
 	}
 
 	// Agregar estados actuales
 	for serverID, status := range activeMap {
-		if _, exists := serverStats[serverID]; !exists {
-			serverStats[serverID] = make(map[string]interface{})
-			serverStats[serverID]["uptime"] = int64(0)
-			serverStats[serverID]["downtime"] = int64(0)
-		}
 		activeDuration := int64(time.Since(status.StartTime).Seconds())
-		if status.IsRunning {
-			serverStats[serverID]["uptime"] = serverStats[serverID]["uptime"].(int64) + activeDuration
-		} else {
-			serverStats[serverID]["downtime"] = serverStats[serverID]["downtime"].(int64) + activeDuration
-		}
+		addUptimeDuration(serverStats, serverID, status.IsRunning, activeDuration)
 		serverStats[serverID]["currentStatus"] = status.IsRunning
 		serverStats[serverID]["currentStartTime"] = status.StartTime
 	}
@@ -207,4 +192,18 @@ func (us *Uptime) GetAllServerUptime(since time.Time) (map[string]map[string]int
 	}
 
 	return serverStats, nil
+}
+
+// addUptimeDuration adds the seconds to the server's uptime or downtime, creating its entry if needed
+func addUptimeDuration(serverStats map[string]map[string]interface{}, serverID string, running bool, duration int64) {
+	if _, exists := serverStats[serverID]; !exists {
+		serverStats[serverID] = make(map[string]interface{})
+		serverStats[serverID]["uptime"] = int64(0)
+		serverStats[serverID]["downtime"] = int64(0)
+	}
+	if running {
+		serverStats[serverID]["uptime"] = serverStats[serverID]["uptime"].(int64) + duration
+	} else {
+		serverStats[serverID]["downtime"] = serverStats[serverID]["downtime"].(int64) + duration
+	}
 }

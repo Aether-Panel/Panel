@@ -1,7 +1,7 @@
 'use client';
 import { useAuth } from '@/contexts/providers';
 import { useEffect, useState } from 'react';
-import type { Dispatch, SetStateAction } from 'react';
+import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, CheckCircle2, Copy, MoreHorizontal, Network, Plus, Loader2, Trash2 } from 'lucide-react';
@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { useTranslations } from '@/contexts/translations-context';
 import { useNodes } from '@/hooks/use-dashboard-data';
 import { useServers } from '@/hooks/use-servers';
+import { EmptyState } from '@/components/empty-state';
 
 type Field<T> = [T, Dispatch<SetStateAction<T>>];
 
@@ -35,7 +36,7 @@ function NodeFields({
   privatePort,
   markRequired,
   onSubmit,
-}: {
+}: Readonly<{
   idPrefix: string;
   name: Field<string>;
   publicHost: Field<string>;
@@ -46,7 +47,7 @@ function NodeFields({
   privatePort: Field<string>;
   markRequired?: boolean;
   onSubmit?: () => void;
-}) {
+}>) {
   const { t } = useTranslations();
   const required = markRequired ? <span className="text-destructive-bright" aria-hidden="true">*</span> : null;
 
@@ -147,7 +148,7 @@ const STATUS_TONE: Record<string, string> = {
   deploying: 'bg-warning/10 text-warning',
 };
 
-function NodeStatusBadge({ status }: { status: string }) {
+function NodeStatusBadge({ status }: Readonly<{ status: string }>) {
   const { t } = useTranslations();
   return (
     <span
@@ -162,7 +163,7 @@ function NodeStatusBadge({ status }: { status: string }) {
   );
 }
 
-function CopyableCode({ command }: { command: string }) {
+function CopyableCode({ command }: Readonly<{ command: string }>) {
   const { t } = useTranslations();
   const handleCopy = () => {
     void navigator.clipboard.writeText(command);
@@ -186,6 +187,12 @@ function CopyableCode({ command }: { command: string }) {
 }
 
 const richText = '[&_code]:rounded [&_code]:bg-secondary [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs [&_code]:text-foreground';
+
+/** The part of a node id the daemon's OAuth client is named after ("node-3" → "3"). */
+function nodeClientSuffix(id: unknown) {
+  const raw = String(id);
+  return raw.includes('-') ? raw.split('-')[1] : id;
+}
 
 function NodesSkeleton() {
   return (
@@ -230,7 +237,7 @@ export default function NodesPage() {
   const [isCreating, setIsCreating] = useState(false);
 
   // ── Edit state ────────────────────────────────────────────
-  const [editingNode, setEditingNode] = useState<any | null>(null);
+  const [editingNode, setEditingNode] = useState<any>(null);
   const [editName, setEditName] = useState('');
   const [editPublicHost, setEditPublicHost] = useState('');
   const [editPublicPort, setEditPublicPort] = useState('8080');
@@ -241,10 +248,10 @@ export default function NodesPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   // ── Deploy state ──────────────────────────────────────────
-  const [deployingNode, setDeployingNode] = useState<any | null>(null);
+  const [deployingNode, setDeployingNode] = useState<any>(null);
 
   // ── Delete state ──────────────────────────────────────────
-  const [deletingNode, setDeletingNode] = useState<any | null>(null);
+  const [deletingNode, setDeletingNode] = useState<any>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
@@ -282,11 +289,11 @@ export default function NodesPage() {
 
   const handleCreateNode = async () => {
     if (!createName.trim()) {
-      sileo.error({ title: t('nodes.addDialog.nameLabel'), description: t('nodes.toast.nameRequired') });
+      sileo.error({ title: t('common.error'), description: t('nodes.toast.nameRequired') });
       return;
     }
     if (!createPublicHost.trim()) {
-      sileo.error({ title: t('nodes.addDialog.publicHostLabel'), description: t('nodes.toast.publicHostRequired') });
+      sileo.error({ title: t('common.error'), description: t('nodes.toast.publicHostRequired') });
       return;
     }
     setIsCreating(true);
@@ -302,7 +309,7 @@ export default function NodesPage() {
         privateHost: pHost,
         privatePort: pPort,
       });
-      sileo.success({ title: t('nodes.addDialog.createButton'), description: t('nodes.toast.created', { name: createName }) });
+      sileo.success({ title: t('common.success'), description: t('nodes.toast.created', { name: createName }) });
       // reset form
       setCreateName(''); setCreatePublicHost(''); setCreatePublicPort('8080');
       setCreateSftpPort('5657'); setCreateUseDifferentHost(false);
@@ -335,7 +342,7 @@ export default function NodesPage() {
         privateHost: pHost,
         privatePort: pPort,
       });
-      sileo.success({ title: t('nodes.editDialog.save'), description: t('nodes.toast.updated', { name: editName }) });
+      sileo.success({ title: t('common.success'), description: t('nodes.toast.updated', { name: editName }) });
       setEditingNode(null);
       void refresh();
     } catch (e: any) {
@@ -350,7 +357,7 @@ export default function NodesPage() {
     setIsDeleting(true);
     try {
       await api.delete(`/api/nodes/${deletingNode.id}`);
-      sileo.success({ title: t('nodes.toast.deleted'), description: t('nodes.toast.deletedDescription', { name: deletingNode.name }) });
+      sileo.success({ title: t('common.success'), description: t('nodes.toast.deletedDescription', { name: deletingNode.name }) });
       setDeletingNode(null);
       void refresh();
     } catch (e: any) {
@@ -361,7 +368,7 @@ export default function NodesPage() {
   };
 
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://192.168.0.12:8080';
-  const clientId = deployingNode ? `.node_${String(deployingNode.id).includes('-') ? String(deployingNode.id).split('-')[1] : deployingNode.id}` : '';
+  const clientId = deployingNode ? `.node_${nodeClientSuffix(deployingNode.id)}` : '';
   const deployCompose = deployingNode ? [
     'services:',
     '  skypanel:',
@@ -432,8 +439,106 @@ export default function NodesPage() {
     </DropdownMenu>
   );
 
+  let nodeList: ReactNode;
+  if (error && nodes.length === 0) {
+    nodeList = (
+      <EmptyState
+        icon={AlertTriangle}
+        tone="error"
+        title={t('nodes.error.title')}
+        description={t('nodes.error.description')}
+        action={
+          <Button variant="outline" onClick={() => void refresh()}>
+            {t('common.retry')}
+          </Button>
+        }
+      />
+    );
+  } else if (nodes.length === 0) {
+    nodeList = (
+      <EmptyState
+        icon={Network}
+        title={t('nodes.empty.title')}
+        description={t('nodes.empty.description')}
+        action={
+          <Button onClick={() => setIsCreateOpen(true)}>
+            <Plus aria-hidden="true" />
+            {t('nodes.addNode')}
+          </Button>
+        }
+      />
+    );
+  } else {
+    nodeList = (
+      <>
+        {/* Phones and tablets (the sidebar leaves too little room for the table): one stacked row per node. */}
+        <ul className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60 bg-background/30 lg:hidden">
+          {nodes.map((node) => (
+            <li key={node.id} className="flex items-center gap-2 py-2 pl-4 pr-2">
+              <div className="min-w-0 flex-1 py-1">
+                <div className="flex min-w-0 items-center justify-between gap-2">
+                  <a
+                    href={`/nodes/view/?id=${node.id}`}
+                    className="min-w-0 truncate rounded-sm text-sm font-semibold text-foreground hover:underline focus-ring"
+                  >
+                    {node.name}
+                  </a>
+                  <NodeStatusBadge status={node.status} />
+                </div>
+                <p className="mt-1 flex flex-wrap items-baseline gap-x-1.5 text-xs text-muted-foreground">
+                  <span className={cn('min-w-0 max-w-full truncate', !node.isLocal && 'font-mono')}>{node.location}</span>
+                  <span aria-hidden="true">·</span>
+                  <span className="whitespace-nowrap tabular-nums">{t('nodes.serversCount', { count: serverCount(node) })}</span>
+                </p>
+              </div>
+              {renderActions(node)}
+            </li>
+          ))}
+        </ul>
+
+        {/* Desktop: the full table. */}
+        <div className="hidden overflow-hidden rounded-xl border border-border/60 bg-background/30 lg:block">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead>{t('nodes.table.name')}</TableHead>
+                <TableHead>{t('nodes.table.location')}</TableHead>
+                <TableHead>{t('dashboard.table.status')}</TableHead>
+                <TableHead className="text-right">{t('nodes.table.servers')}</TableHead>
+                <TableHead className="w-14"><span className="sr-only">{t('dashboard.table.actions')}</span></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {nodes.map((node) => (
+                <TableRow key={node.id} className="hover:bg-accent/30">
+                  <TableCell className="max-w-[16rem] font-medium">
+                    <a href={`/nodes/view/?id=${node.id}`} className="block truncate rounded-sm hover:underline focus-ring">
+                      {node.name}
+                    </a>
+                  </TableCell>
+                  <TableCell className={cn('max-w-[16rem] truncate text-muted-foreground', !node.isLocal && 'font-mono text-xs')}>
+                    {node.location}
+                  </TableCell>
+                  <TableCell>
+                    <NodeStatusBadge status={node.status} />
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {serverCount(node)}
+                  </TableCell>
+                  <TableCell className="py-2 text-right">
+                    {renderActions(node)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </>
+    );
+  }
+
   return (
-    <div className="flex flex-col gap-8">
+    <div className="stagger flex flex-col gap-8">
       <PageHeader title={t('nodes.title')} description={t('nodes.description')}>
         {/* ── Create Node Dialog ── */}
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
@@ -482,91 +587,7 @@ export default function NodesPage() {
         </div>
 
         <div className="p-5 md:p-6">
-          {error && nodes.length === 0 ? (
-            <div className="flex flex-col items-center rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
-              <AlertTriangle className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-              <h3 className="text-base font-semibold">{t('nodes.error.title')}</h3>
-              <p className="mt-1 max-w-sm text-sm text-muted-foreground">{t('nodes.error.description')}</p>
-              <Button variant="outline" className="mt-6" onClick={() => void refresh()}>
-                {t('common.retry')}
-              </Button>
-            </div>
-          ) : nodes.length === 0 ? (
-            <div className="flex flex-col items-center rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
-              <Network className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-              <h3 className="text-base font-semibold">{t('nodes.empty.title')}</h3>
-              <p className="mt-1 max-w-sm text-sm text-muted-foreground">{t('nodes.empty.description')}</p>
-              <Button className="mt-6" onClick={() => setIsCreateOpen(true)}>
-                <Plus aria-hidden="true" />
-                {t('nodes.addNode')}
-              </Button>
-            </div>
-          ) : (
-            <>
-              {/* Phones and tablets (the sidebar leaves too little room for the table): one stacked row per node. */}
-              <ul className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60 bg-background/30 lg:hidden">
-                {nodes.map((node) => (
-                  <li key={node.id} className="flex items-center gap-2 py-2 pl-4 pr-2">
-                    <div className="min-w-0 flex-1 py-1">
-                      <div className="flex min-w-0 items-center justify-between gap-2">
-                        <a
-                          href={`/nodes/view/?id=${node.id}`}
-                          className="min-w-0 truncate rounded-sm text-sm font-semibold text-foreground hover:underline focus-ring"
-                        >
-                          {node.name}
-                        </a>
-                        <NodeStatusBadge status={node.status} />
-                      </div>
-                      <p className="mt-1 flex flex-wrap items-baseline gap-x-1.5 text-xs text-muted-foreground">
-                        <span className={cn('min-w-0 max-w-full truncate', !node.isLocal && 'font-mono')}>{node.location}</span>
-                        <span aria-hidden="true">·</span>
-                        <span className="whitespace-nowrap tabular-nums">{t('nodes.serversCount', { count: serverCount(node) })}</span>
-                      </p>
-                    </div>
-                    {renderActions(node)}
-                  </li>
-                ))}
-              </ul>
-
-              {/* Desktop: the full table. */}
-              <div className="hidden overflow-hidden rounded-xl border border-border/60 bg-background/30 lg:block">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead>{t('nodes.table.name')}</TableHead>
-                      <TableHead>{t('nodes.table.location')}</TableHead>
-                      <TableHead>{t('dashboard.table.status')}</TableHead>
-                      <TableHead className="text-right">{t('nodes.table.servers')}</TableHead>
-                      <TableHead className="w-14"><span className="sr-only">{t('dashboard.table.actions')}</span></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {nodes.map((node) => (
-                      <TableRow key={node.id} className="hover:bg-accent/30">
-                        <TableCell className="max-w-[16rem] font-medium">
-                          <a href={`/nodes/view/?id=${node.id}`} className="block truncate rounded-sm hover:underline focus-ring">
-                            {node.name}
-                          </a>
-                        </TableCell>
-                        <TableCell className={cn('max-w-[16rem] truncate text-muted-foreground', !node.isLocal && 'font-mono text-xs')}>
-                          {node.location}
-                        </TableCell>
-                        <TableCell>
-                          <NodeStatusBadge status={node.status} />
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {serverCount(node)}
-                        </TableCell>
-                        <TableCell className="py-2 text-right">
-                          {renderActions(node)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </>
-          )}
+          {nodeList}
         </div>
       </Card>
 

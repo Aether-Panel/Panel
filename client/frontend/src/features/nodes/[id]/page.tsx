@@ -17,6 +17,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { sileo } from "@/lib/toast";
 import { cn } from '@/lib/utils';
 import { useTranslations } from '@/contexts/translations-context';
+import { EmptyState } from '@/components/empty-state';
+import { keyedByContent } from '@/lib/keyed';
 
 function findNode(realNodes: any[], idParam: string) {
   return realNodes.find((n: any) =>
@@ -40,10 +42,13 @@ const GB = 1024 * 1024 * 1024;
 const richText = '[&_code]:rounded [&_code]:bg-secondary [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs [&_code]:text-foreground';
 
 /** Usage tone shared by every meter on the page. */
-const usageTone = (percent: number) =>
-  percent > 80 ? 'bg-destructive' : percent > 60 ? 'bg-warning' : 'bg-primary';
+const usageTone = (percent: number) => {
+  if (percent > 80) return 'bg-destructive';
+  if (percent > 60) return 'bg-warning';
+  return 'bg-primary';
+};
 
-function Meter({ value, label, className }: { value: number; label: string; className?: string }) {
+function Meter({ value, label, className }: Readonly<{ value: number; label: string; className?: string }>) {
   const clamped = Math.min(100, Math.max(0, value || 0));
   return (
     <div
@@ -63,7 +68,7 @@ function Meter({ value, label, className }: { value: number; label: string; clas
 }
 
 /** Title row shared by every section card on the page. */
-function SectionHeader({ title, description, children, inline }: { title: string; description?: string; children?: React.ReactNode; inline?: boolean }) {
+function SectionHeader({ title, description, children, inline }: Readonly<{ title: string; description?: string; children?: React.ReactNode; inline?: boolean }>) {
   return (
     <div className={cn(
       'flex gap-4 border-b border-border/50 p-5 md:p-6',
@@ -85,7 +90,7 @@ const InfoItem = ({ label, value, mono, className }: { label: string; value: Rea
   </div>
 );
 
-function InfoSection({ title, children }: { title: string; children: React.ReactNode }) {
+function InfoSection({ title, children }: Readonly<{ title: string; children: React.ReactNode }>) {
   return (
     <section className="p-5 md:p-6">
       <h3 className="mb-2 text-sm font-semibold">{title}</h3>
@@ -94,7 +99,7 @@ function InfoSection({ title, children }: { title: string; children: React.React
   );
 }
 
-function CopyableCode({ command }: { command: string }) {
+function CopyableCode({ command }: Readonly<{ command: string }>) {
   const { t } = useTranslations();
   const handleCopy = () => {
     void navigator.clipboard.writeText(command);
@@ -125,7 +130,7 @@ function StatCell({
   live,
   meter,
   className,
-}: {
+}: Readonly<{
   icon: LucideIcon;
   label: string;
   value: React.ReactNode;
@@ -133,8 +138,7 @@ function StatCell({
   live?: boolean;
   meter?: number;
   className?: string;
-}) {
-  const { t } = useTranslations();
+}>) {
   return (
     <div className={cn('flex min-w-0 flex-col gap-1 border-border/50 p-4 md:p-5', className)}>
       <dt className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -152,7 +156,7 @@ function StatCell({
   );
 }
 
-function SystemInfoCard({ node }: { node: any }) {
+function SystemInfoCard({ node }: Readonly<{ node: any }>) {
   const { t } = useTranslations();
   const info = node.systemInfo;
   return (
@@ -185,21 +189,18 @@ function SystemInfoCard({ node }: { node: any }) {
   );
 }
 
-function DisksCard({ disks }: { disks: any[] }) {
+function DisksCard({ disks }: Readonly<{ disks: any[] }>) {
   const { t } = useTranslations();
   return (
     <Card className="overflow-hidden">
       <SectionHeader title={t('nodes.detail.disks.title')} />
       <div className="p-5 md:p-6">
         {disks.length === 0 ? (
-          <div className="flex flex-col items-center rounded-xl border border-dashed border-border/60 px-6 py-10 text-center">
-            <HardDrive className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-            <p className="text-sm text-muted-foreground">{t('nodes.detail.disks.empty')}</p>
-          </div>
+          <EmptyState icon={HardDrive} size="sm" as="p" title={t('nodes.detail.disks.empty')} />
         ) : (
           <ul className="space-y-5">
-            {disks.map((disk: any, index: number) => (
-              <li key={index} className="space-y-2">
+            {keyedByContent(disks, (disk: any) => String(disk.path)).map(({ key, item: disk }) => (
+              <li key={key} className="space-y-2">
                 <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 text-sm">
                   <span className="min-w-0 truncate font-mono text-[13px] text-foreground">{disk.path}</span>
                   <span className="tabular-nums text-muted-foreground">
@@ -221,7 +222,7 @@ function DisksCard({ disks }: { disks: any[] }) {
   );
 }
 
-function ServersCard({ serversOnNode }: { serversOnNode: any[] }) {
+function ServersCard({ serversOnNode }: Readonly<{ serversOnNode: any[] }>) {
   const { t } = useTranslations();
   const [currentPage, setCurrentPage] = useState(1);
   const serversPerPage = 5;
@@ -291,20 +292,23 @@ function ServersCard({ serversOnNode }: { serversOnNode: any[] }) {
             )}
           </>
         ) : (
-          <div className="flex flex-col items-center rounded-xl border border-dashed border-border/60 px-6 py-10 text-center">
-            <ServerIcon className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-            <p className="text-sm text-muted-foreground">{t('nodes.detail.serversOnNode.empty')}</p>
-          </div>
+          <EmptyState icon={ServerIcon} size="sm" as="p" title={t('nodes.detail.serversOnNode.empty')} />
         )}
       </div>
     </Card>
   );
 }
 
+/** The part of a node id the daemon's OAuth client is named after ("node-3" → "3"). */
+function nodeClientSuffix(id: unknown) {
+  const raw = String(id);
+  return raw.includes('-') ? raw.split('-')[1] : id;
+}
+
 function DeployDialog({ isDeployDialogOpen, setIsDeployDialogOpen, node }: any) {
   const { t } = useTranslations();
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://192.168.0.12:8080';
-  const clientId = node ? `.node_${String(node.id).includes('-') ? String(node.id).split('-')[1] : node.id}` : '';
+  const clientId = node ? `.node_${nodeClientSuffix(node.id)}` : '';
   const deployCompose = node ? [
     'services:',
     '  skypanel:',
@@ -374,7 +378,7 @@ function DeployDialog({ isDeployDialogOpen, setIsDeployDialogOpen, node }: any) 
   );
 }
 
-function EditNodeCard({ node }: { node: any }) {
+function EditNodeCard({ node }: Readonly<{ node: any }>) {
   const { t } = useTranslations();
   const [editName, setEditName] = useState(node.name || '');
   const [editPublicHost, setEditPublicHost] = useState(node.publicHost || '');
@@ -416,7 +420,7 @@ function EditNodeCard({ node }: { node: any }) {
         privateHost: pHost,
         privatePort: pPort,
       });
-      sileo.success({ title: t('nodes.editDialog.save'), description: t('nodes.toast.updated', { name: editName }) });
+      sileo.success({ title: t('common.success'), description: t('nodes.toast.updated', { name: editName }) });
     } catch (e: any) {
       sileo.error({ title: t('nodes.toast.updateFailed'), description: e?.message || t('nodes.toast.unknownError') });
     } finally {
@@ -428,7 +432,7 @@ function EditNodeCard({ node }: { node: any }) {
     setIsDeleting(true);
     try {
       await api.delete(`/api/nodes/${node.id}`);
-      sileo.success({ title: t('nodes.toast.deleted'), description: t('nodes.toast.deletedDescription', { name: node.name }) });
+      sileo.success({ title: t('common.success'), description: t('nodes.toast.deletedDescription', { name: node.name }) });
       window.location.href = '/nodes/';
     } catch (e: any) {
       sileo.error({ title: t('nodes.toast.deleteFailed'), description: e?.message || t('nodes.toast.unknownError') });
@@ -565,7 +569,7 @@ function NodeDetailSkeleton() {
 }
 
 
-export default function NodeDetailPage({ params }: { params: { id: string } }) {
+export default function NodeDetailPage({ params }: Readonly<{ params: { id: string } }>) {
   const { nodes: realNodes, loading: nodesLoading } = useNodes();
   const { servers: allServers, loading: serversLoading } = useServers();
   const { t } = useTranslations();
@@ -638,6 +642,8 @@ export default function NodeDetailPage({ params }: { params: { id: string } }) {
   const isOnline = !!node.systemInfo;
   const memoryPercent = liveStats && liveStats.memoryTotal > 0 ? (liveStats.memoryUsed / liveStats.memoryTotal) * 100 : undefined;
   const cpuPercent = liveStats ? (liveStats.cpuUsage || 0) : undefined;
+  const memoryTotalLabel = liveStats ? `${Math.round((liveStats.memoryTotal || 0) / GB)} GB` : '∞';
+  const memoryPercentLabel = memoryPercent !== undefined ? ` · ${Math.round(memoryPercent)}%` : '';
   const uptime = liveStats?.uptime ?? node.systemInfo?.uptime;
 
   return (
@@ -686,7 +692,7 @@ export default function NodeDetailPage({ params }: { params: { id: string } }) {
             label={t('nodes.detail.memoryUsage')}
             live={!!liveStats}
             value={liveStats ? `${((liveStats.memoryUsed || 0) / GB).toFixed(1)} GB` : '—'}
-            detail={`${t('nodes.detail.of')} ${liveStats ? `${Math.round((liveStats.memoryTotal || 0) / GB)} GB` : '∞'}${memoryPercent !== undefined ? ` · ${Math.round(memoryPercent)}%` : ''}`}
+            detail={`${t('nodes.detail.of')} ${memoryTotalLabel}${memoryPercentLabel}`}
             meter={memoryPercent}
             className="border-r"
           />

@@ -79,7 +79,9 @@ func (w *localResponseWriter) Write(b []byte) (int, error) {
 }
 
 // Flush is a no-op: data reaches the caller as soon as it reads
-func (w *localResponseWriter) Flush() {}
+func (w *localResponseWriter) Flush() {
+	// nothing is held back, so there is nothing to flush
+}
 
 func (w *localResponseWriter) finish() {
 	if w.pipe != nil {

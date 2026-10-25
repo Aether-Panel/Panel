@@ -38,6 +38,7 @@ import {
   Edit2,
   Download,
   Check,
+  History,
   type LucideIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -45,11 +46,14 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useState, useEffect, lazy, Suspense, useRef, Fragment } from 'react';
+import { useState, useEffect, lazy, Suspense, useRef, Fragment, useCallback, type ReactNode } from 'react';
 import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
 import { sileo } from "@/lib/toast";
 import { cn } from '@/lib/utils';
+import { EmptyState } from '@/components/empty-state';
+import { FileHistorySheet, formatRelative, isHistoryTracked, localeFor, useFileHistory, type FileVersion } from './file-history-sheet';
+import FileDiffView from './file-diff-view';
 
 const CodeEditor = lazy(() => import('./code-editor'));
 
@@ -103,7 +107,18 @@ function getFileMeta(name: string): FileMeta {
   return match || { icon: File, className: 'text-muted-foreground' };
 }
 
+/** The icon of a listing row: the ".." entry, a folder, or a file by its extension. */
+function rowMeta(file: FileItemResource, isParent: boolean): FileMeta {
+  if (isParent) return PARENT_META;
+  return file.isFile ? getFileMeta(file.name) : FOLDER_META;
+}
+
 // Encode each path segment so names with #, ?, % or spaces survive the URL; '/' stays a separator
+/** A child path inside the folder being browsed (the root is the empty string). */
+function joinPath(dir: string, name: string) {
+  return dir ? `${dir}/${name}` : name;
+}
+
 function encodePath(path: string) {
   return path.split('/').map(encodeURIComponent).join('/');
 }
@@ -116,7 +131,7 @@ async function assertOk(res: Response, fallback: string) {
   throw new Error(typeof error === 'string' ? error : error?.msg || fallback);
 }
 
-function Breadcrumbs({ path, onNavigate, label }: { path: string; onNavigate: (p: string) => void; label: string }) {
+function Breadcrumbs({ path, onNavigate, label }: Readonly<{ path: string; onNavigate: (p: string) => void; label: string }>) {
   const parts = path.split('/').filter(Boolean);
   const crumbs = [{ label: '~', path: '' }, ...parts.map((p, i) => ({ label: p, path: parts.slice(0, i + 1).join('/') }))];
 
@@ -145,7 +160,7 @@ function Breadcrumbs({ path, onNavigate, label }: { path: string; onNavigate: (p
   );
 }
 
-export default function FileManagerView({ serverId }: { serverId: string }) {
+export default function FileManagerView({ serverId }: Readonly<{ serverId: string }>) {
   const [currentPath, setCurrentPath] = useState('');
   const [files, setFiles] = useState<FileItemResource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -154,12 +169,20 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
   const [editedContent, setEditedContent] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
+  // the text last read from or written to disk, to tell whether the editor holds unsaved edits
+  const [savedContent, setSavedContent] = useState<string>('');
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [compareVersion, setCompareVersion] = useState<FileVersion | null>(null);
+  const editorInstanceRef = useRef<any>(null);
+  const historyButtonRef = useRef<HTMLButtonElement>(null);
 
   const closeEditor = () => {
     setIsEditorOpen(false);
+    setHistoryOpen(false);
     editorCloseTimeoutRef.current = window.setTimeout(() => {
       editorCloseTimeoutRef.current = null;
       setEditingFile(null);
+      setCompareVersion(null);
     }, 300);
   };
 
@@ -177,9 +200,14 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
   const editorCloseTimeoutRef = useRef<number | null>(null);
   const savingRef = useRef(false);
 
-  const { t } = useTranslations();
+  const { t, language } = useTranslations();
 
   const fileUrl = (path: string) => `/api/servers/${serverId}/file/${encodePath(path)}`;
+
+  const editingPath = editingFile ? joinPath(currentPath, editingFile.name) : null;
+  const historyTracked = !!editingFile && isHistoryTracked(editingFile.name);
+  const fileHistory = useFileHistory(serverId, historyTracked ? editingPath : null);
+  const historyCount = fileHistory.status === 'ready' ? fileHistory.versions.length : 0;
 
   const fetchFiles = async (path: string) => {
     setIsLoading(true);
@@ -199,30 +227,42 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
     void fetchFiles(currentPath);
   }, [currentPath, serverId]);
 
-  const handleFileClick = async (file: FileItemResource) => {
-    if (!file.isFile) {
-      if (file.name === '..') {
-        const parts = currentPath.split('/').filter(Boolean);
-        parts.pop();
-        setCurrentPath(parts.join('/'));
-      } else {
-        const newPath = currentPath ? `${currentPath}/${file.name}` : file.name;
-        setCurrentPath(newPath);
-      }
+  const openFolder = (name: string) => {
+    if (name === '..') {
+      const parts = currentPath.split('/').filter(Boolean);
+      parts.pop();
+      setCurrentPath(parts.join('/'));
     } else {
-      try {
-        const filePath = currentPath ? `${currentPath}/${file.name}` : file.name;
-        const content = await api.get(fileUrl(filePath));
-        if (editorCloseTimeoutRef.current !== null) {
-          clearTimeout(editorCloseTimeoutRef.current);
-          editorCloseTimeoutRef.current = null;
-        }
-        setEditedContent(typeof content === 'string' ? content : JSON.stringify(content, null, 2));
-        setEditingFile(file);
-        setIsEditorOpen(true);
-      } catch (e: any) {
-        sileo.error({ title: t('common.error'), description: e.message || t('servers.fileManager.toast.openError') });
+      const newPath = currentPath ? `${currentPath}/${name}` : name;
+      setCurrentPath(newPath);
+    }
+  };
+
+  const openFileInEditor = async (file: FileItemResource) => {
+    try {
+      const filePath = currentPath ? `${currentPath}/${file.name}` : file.name;
+      const content = await api.get(fileUrl(filePath));
+      if (editorCloseTimeoutRef.current !== null) {
+        clearTimeout(editorCloseTimeoutRef.current);
+        editorCloseTimeoutRef.current = null;
       }
+      const text = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
+      setEditedContent(text);
+      setSavedContent(text);
+      setCompareVersion(null);
+      setHistoryOpen(false);
+      setEditingFile(file);
+      setIsEditorOpen(true);
+    } catch (e: any) {
+      sileo.error({ title: t('common.error'), description: e.message || t('servers.fileManager.toast.openError') });
+    }
+  };
+
+  const handleFileClick = async (file: FileItemResource) => {
+    if (file.isFile) {
+      await openFileInEditor(file);
+    } else {
+      openFolder(file.name);
     }
   };
 
@@ -350,6 +390,8 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
   const copyFolderRecursive = async (src: string, dest: string) => {
     await makeFolder(dest);
     const items = await listFolderForCopy(src);
+    // one entry at a time on purpose: a parallel walk would fire an unbounded burst of
+    // reads/writes at the daemon for big trees
     for (const item of items) {
       if (item.name === '.' || item.name === '..') continue;
       const srcChild = `${src}/${item.name}`;
@@ -483,16 +525,20 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
     if (!editingFile || savingRef.current) return;
     savingRef.current = true;
     setIsSaving(true);
+    const text = editedContent;
     try {
       const filePath = currentPath ? `${currentPath}/${editingFile.name}` : editingFile.name;
       const res = await fetch(fileUrl(filePath), {
         method: 'PUT',
-        body: editedContent,
+        body: text,
         credentials: 'include'
       });
       await assertOk(res, t('servers.fileManager.toast.saveError'));
+      setSavedContent(text);
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 2000);
+      // the save kept the previous text as a version, so the count moves
+      if (historyTracked) void fileHistory.refresh(true);
     } catch (e: any) {
       sileo.error({ title: t('common.error'), description: e.message || t('servers.fileManager.toast.saveError') });
     } finally {
@@ -562,6 +608,49 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
     return new Date(epoch * 1000).toLocaleString();
   };
 
+  const focusEditor = () => {
+    requestAnimationFrame(() => {
+      const editor = editorInstanceRef.current;
+      if (!editor) return;
+      try {
+        editor.layout();
+        editor.focus();
+      } catch {
+        /* disposed while switching */
+      }
+    });
+  };
+
+  const handleEditorReady = useCallback((editor: any) => {
+    editorInstanceRef.current = editor;
+  }, []);
+
+  const selectVersion = (version: FileVersion) => {
+    setCompareVersion(version);
+    setHistoryOpen(false);
+  };
+
+  const leaveCompare = () => {
+    setCompareVersion(null);
+    focusEditor();
+  };
+
+  const handleRestoreVersion = async (version: FileVersion, text: string) => {
+    try {
+      await fileHistory.restore(version.id);
+    } catch (e: any) {
+      sileo.error({ title: t('common.error'), description: e?.message || t('servers.fileHistory.toast.restoreError') });
+      throw e;
+    }
+    setEditedContent(text);
+    setSavedContent(text);
+    void fileHistory.refresh(true);
+    sileo.success({
+      title: t('servers.fileHistory.toast.restoredTitle'),
+      description: t('servers.fileHistory.toast.restored', { when: formatRelative(version.savedAt, localeFor(language)) }),
+    });
+  };
+
   const editingMeta = editingFile ? getFileMeta(editingFile.name) : { icon: File, className: 'text-muted-foreground' };
   const editingLanguage = editingFile ? getLanguageFromFilename(editingFile.name) : 'plaintext';
   const EditingIcon = editingMeta.icon;
@@ -591,7 +680,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
             {t('servers.fileManager.actions.download')}
           </a>
         </DropdownMenuItem>
-        {file.isFile && file.name.match(/\.(zip|tar(\.gz)?|tgz|gz|bz2|rar|7z|xz)$/i) ? (
+        {file.isFile && /\.(zip|tar(\.gz)?|tgz|gz|bz2|rar|7z|xz)$/i.test(file.name) ? (
           <DropdownMenuItem onClick={() => handleExtract(file)}>
             <FileArchive className="mr-2 h-4 w-4" aria-hidden="true" />
             {t('servers.fileManager.actions.unarchive')}
@@ -639,6 +728,94 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
       </DropdownMenuContent>
     </DropdownMenu>
   );
+
+  let body: ReactNode;
+  if (isLoading) {
+    body = (
+      <div className="flex justify-center rounded-xl border border-border/60 bg-background/30 py-16">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t('common.loading')} />
+      </div>
+    );
+  } else if (files.length === 0) {
+    body = (
+      <EmptyState
+        icon={FolderOpen}
+        title={t('servers.fileManager.empty')}
+        description={t('servers.fileManager.emptyHint')}
+        action={
+          <Button variant="outline" onClick={handleUploadClick}>
+            <Upload aria-hidden="true" />
+            {t('servers.fileManager.upload')}
+          </Button>
+        }
+      />
+    );
+  } else {
+    body = (
+      <div className="overflow-hidden rounded-xl border border-border/60 bg-background/30">
+        <Table>
+          <TableHeader className="bg-transparent">
+            <TableRow className="border-border/50 hover:bg-transparent">
+              <TableHead>{t('servers.fileManager.table.name')}</TableHead>
+              <TableHead className="hidden w-28 sm:table-cell">{t('servers.fileManager.table.size')}</TableHead>
+              <TableHead className="hidden w-48 lg:table-cell">{t('servers.fileManager.table.modified')}</TableHead>
+              <TableHead className="w-14 pr-2 text-right">
+                <span className="sr-only">{t('servers.fileManager.table.actions')}</span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {files.map((file) => {
+              const isParent = !file.isFile && file.name === '..';
+              const meta = rowMeta(file, isParent);
+              const MetaIcon = meta.icon;
+              return (
+                <TableRow key={file.name} className="group border-border/50 hover:bg-accent/30">
+                  {/* w-full + max-w-0 lets the name column absorb the free width and truncate */}
+                  <TableCell className="w-full max-w-0 py-2.5">
+                    <button
+                      type="button"
+                      onClick={() => handleFileClick(file)}
+                      className="focus-ring flex w-full min-w-0 items-center gap-3 rounded-md text-left"
+                    >
+                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-border/60 bg-card">
+                        <MetaIcon className={cn('h-4 w-4', meta.className)} aria-hidden="true" />
+                      </span>
+                      <span className="min-w-0">
+                        <span
+                          className={cn(
+                            'block truncate font-medium transition-colors duration-150',
+                            isParent ? 'text-muted-foreground' : 'group-hover:text-primary-bright'
+                          )}
+                        >
+                          {file.name}
+                        </span>
+                        {!isParent && (
+                          <span className="mt-0.5 block truncate text-xs tabular-nums text-muted-foreground lg:hidden">
+                            {file.isFile && <span className="sm:hidden">{formatSize(file.size)} · </span>}
+                            {formatDate(file.modifyTime)}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  </TableCell>
+                  <TableCell className="hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground sm:table-cell">
+                    {file.isFile ? formatSize(file.size) : '—'}
+                  </TableCell>
+                  <TableCell className="hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground lg:table-cell">
+                    {formatDate(file.modifyTime)}
+                  </TableCell>
+                  <TableCell className="py-2.5 pr-2 text-right">
+                    {renderRowMenu(file)}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -694,112 +871,11 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
             </div>
 
             {clipboard && (
-              <div className="flex min-w-0 items-center gap-1 rounded-lg border border-border/60 bg-background/30 p-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handlePaste}
-                  disabled={isLoading}
-                  className="h-8 min-w-0 flex-1 justify-start px-2 text-xs sm:flex-none"
-                  title={clipboard.mode === 'cut' ? t('servers.fileManager.actions.cut') : t('servers.fileManager.actions.copy')}
-                >
-                  {clipboard.mode === 'cut'
-                    ? <Scissors className="text-muted-foreground" aria-hidden="true" />
-                    : <Copy className="text-muted-foreground" aria-hidden="true" />}
-                  <span className="shrink-0">{t('servers.fileManager.paste')}</span>
-                  <span className="min-w-0 max-w-[160px] truncate font-mono text-muted-foreground">{clipboard.name}</span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
-                  onClick={() => setClipboard(null)}
-                  aria-label={t('servers.fileManager.clearClipboard')}
-                >
-                  <X aria-hidden="true" />
-                </Button>
-              </div>
+              <ClipboardBar clipboard={clipboard} disabled={isLoading} onPaste={handlePaste} onClear={() => setClipboard(null)} />
             )}
           </div>
 
-          {isLoading ? (
-            <div className="flex justify-center rounded-xl border border-border/60 bg-background/30 py-16">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t('common.loading')} />
-            </div>
-          ) : files.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
-              <FolderOpen className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-              <h3 className="text-base font-semibold">{t('servers.fileManager.empty')}</h3>
-              <p className="mt-1 max-w-sm text-sm text-muted-foreground">{t('servers.fileManager.emptyHint')}</p>
-              <Button variant="outline" onClick={handleUploadClick} className="mt-6">
-                <Upload aria-hidden="true" />
-                {t('servers.fileManager.upload')}
-              </Button>
-            </div>
-          ) : (
-            <div className="overflow-hidden rounded-xl border border-border/60 bg-background/30">
-              <Table>
-                <TableHeader className="bg-transparent">
-                  <TableRow className="border-border/50 hover:bg-transparent">
-                    <TableHead>{t('servers.fileManager.table.name')}</TableHead>
-                    <TableHead className="hidden w-28 sm:table-cell">{t('servers.fileManager.table.size')}</TableHead>
-                    <TableHead className="hidden w-48 lg:table-cell">{t('servers.fileManager.table.modified')}</TableHead>
-                    <TableHead className="w-14 pr-2 text-right">
-                      <span className="sr-only">{t('servers.fileManager.table.actions')}</span>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {files.map((file) => {
-                    const isParent = !file.isFile && file.name === '..';
-                    const meta = isParent ? PARENT_META : file.isFile ? getFileMeta(file.name) : FOLDER_META;
-                    const MetaIcon = meta.icon;
-                    return (
-                      <TableRow key={file.name} className="group border-border/50 hover:bg-accent/30">
-                        {/* w-full + max-w-0 lets the name column absorb the free width and truncate */}
-                        <TableCell className="w-full max-w-0 py-2.5">
-                          <button
-                            type="button"
-                            onClick={() => handleFileClick(file)}
-                            className="focus-ring flex w-full min-w-0 items-center gap-3 rounded-md text-left"
-                          >
-                            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-border/60 bg-card">
-                              <MetaIcon className={cn('h-4 w-4', meta.className)} aria-hidden="true" />
-                            </span>
-                            <span className="min-w-0">
-                              <span
-                                className={cn(
-                                  'block truncate font-medium transition-colors duration-150',
-                                  isParent ? 'text-muted-foreground' : 'group-hover:text-primary-bright'
-                                )}
-                              >
-                                {file.name}
-                              </span>
-                              {!isParent && (
-                                <span className="mt-0.5 block truncate text-xs tabular-nums text-muted-foreground lg:hidden">
-                                  {file.isFile && <span className="sm:hidden">{formatSize(file.size)} · </span>}
-                                  {formatDate(file.modifyTime)}
-                                </span>
-                              )}
-                            </span>
-                          </button>
-                        </TableCell>
-                        <TableCell className="hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground sm:table-cell">
-                          {file.isFile ? formatSize(file.size) : '—'}
-                        </TableCell>
-                        <TableCell className="hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground lg:table-cell">
-                          {formatDate(file.modifyTime)}
-                        </TableCell>
-                        <TableCell className="py-2.5 pr-2 text-right">
-                          {renderRowMenu(file)}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+          {body}
         </CardContent>
       </Card>
 
@@ -818,30 +894,72 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
                 </DialogDescription>
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-3">
+            <div className="flex shrink-0 items-center gap-2 sm:gap-3">
               {savedFlash && (
-                <span className="flex items-center gap-1.5 text-xs font-medium text-success" role="status">
+                <output className="flex items-center gap-1.5 text-xs font-medium text-success">
                   <Check className="h-3.5 w-3.5" aria-hidden="true" />
-                  {t('common.saved')}
-                </span>
+                  <span className="hidden sm:inline">{t('common.saved')}</span>
+                  <span className="sr-only sm:hidden">{t('common.saved')}</span>
+                </output>
               )}
               <span className="hidden rounded-md border border-border/60 px-1.5 py-0.5 font-mono text-xs text-muted-foreground sm:inline">
                 {editingLanguage}
               </span>
+              {historyTracked && (
+                <Button
+                  ref={historyButtonRef}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setHistoryOpen(true)}
+                  aria-haspopup="dialog"
+                  aria-expanded={historyOpen}
+                  aria-label={historyCount > 0 ? t('servers.fileHistory.openWithCount', { count: historyCount }) : t('servers.fileHistory.open')}
+                  title={t('servers.fileHistory.open')}
+                  className={cn('h-8 gap-1.5 px-2 sm:px-2.5', compareVersion && 'border-primary/40 bg-primary/[0.07] text-primary-bright')}
+                >
+                  <History aria-hidden="true" />
+                  <span className="hidden sm:inline">{t('servers.fileHistory.button')}</span>
+                  {historyCount > 0 && (
+                    <span
+                      aria-hidden="true"
+                      className="min-w-[1.25rem] rounded-full bg-secondary px-1.5 text-center text-[11px] font-semibold leading-5 tabular-nums text-muted-foreground animate-in fade-in-0 zoom-in-95 duration-200 ease-panel"
+                    >
+                      {historyCount}
+                    </span>
+                  )}
+                </Button>
+              )}
             </div>
           </div>
 
           <div className="min-h-0 flex-1 [&_.monaco-editor-host]:rounded-none [&_.monaco-editor-host]:border-0">
-            {editingFile && (
-              <Suspense fallback={<div className="flex h-full items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
-                <CodeEditor
-                  key={editingFile.name}
-                  language={editingLanguage}
-                  value={editedContent}
-                  onChange={(value) => setEditedContent(value || '')}
-                  onSave={handleSaveChanges}
-                />
-              </Suspense>
+            {/* the editor stays mounted under the comparison, so its cursor and undo history survive */}
+            <div className={cn('h-full', compareVersion && 'hidden')}>
+              {editingFile && (
+                <Suspense fallback={<div className="flex h-full items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+                  <CodeEditor
+                    key={editingFile.name}
+                    language={editingLanguage}
+                    value={editedContent}
+                    onChange={(value) => setEditedContent(value || '')}
+                    onSave={handleSaveChanges}
+                    onEditorReady={handleEditorReady}
+                  />
+                </Suspense>
+              )}
+            </div>
+            {editingFile && compareVersion && (
+              <FileDiffView
+                key={compareVersion.id}
+                version={compareVersion}
+                language={editingLanguage}
+                current={editedContent}
+                dirty={editedContent !== savedContent}
+                loadContent={fileHistory.getContent}
+                onRestore={handleRestoreVersion}
+                onRestored={leaveCompare}
+                onBack={leaveCompare}
+              />
             )}
           </div>
 
@@ -862,40 +980,31 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
         </DialogContent>
       </Dialog>
 
+      {editingFile && historyTracked && (
+        <FileHistorySheet
+          open={historyOpen}
+          onOpenChange={setHistoryOpen}
+          fileName={editingPath ?? editingFile.name}
+          versions={fileHistory.versions}
+          status={fileHistory.status}
+          error={fileHistory.error}
+          selectedId={compareVersion?.id ?? null}
+          onRetry={() => void fileHistory.refresh()}
+          onSelect={selectVersion}
+          returnFocusRef={historyButtonRef}
+        />
+      )}
+
       {/* New Item Dialog */}
-      <Dialog open={newItemDialog.open} onOpenChange={(open) => !open && closeNewItemDialog()}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>
-              {newItemDialog.type === 'file' ? t('servers.fileManager.createFileTitle') : t('servers.fileManager.createFolderTitle')}
-            </DialogTitle>
-            <DialogDescription>{t('servers.fileManager.createDescription')}</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="file-manager-new-name">{t('servers.fileManager.nameLabel')}</Label>
-              <Input
-                id="file-manager-new-name"
-                value={newItemName}
-                onChange={(e) => setNewItemName(e.target.value)}
-                placeholder={newItemDialog.type === 'file' ? t('servers.fileManager.createFilePlaceholder') : t('servers.fileManager.createFolderPlaceholder')}
-                className="font-mono"
-                autoFocus
-                onKeyDown={(e) => e.key === 'Enter' && handleCreateItem()}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={closeNewItemDialog}>
-              {t('common.cancel')}
-            </Button>
-            <Button onClick={handleCreateItem} disabled={isCreating || !newItemName}>
-              {isCreating && <Loader2 className="animate-spin" aria-hidden="true" />}
-              {t('servers.fileManager.create')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <NewItemDialog
+        open={newItemDialog.open}
+        type={newItemDialog.type}
+        name={newItemName}
+        onNameChange={setNewItemName}
+        creating={isCreating}
+        onCreate={handleCreateItem}
+        onClose={closeNewItemDialog}
+      />
 
       {/* Rename Dialog */}
       <Dialog open={!!renameTarget} onOpenChange={(open) => !open && closeRename()}>
@@ -932,5 +1041,85 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+function ClipboardBar({ clipboard, disabled, onPaste, onClear }: Readonly<{ clipboard: ClipboardItem; disabled: boolean; onPaste: () => void; onClear: () => void }>) {
+  const { t } = useTranslations();
+  return (
+    <div className="flex min-w-0 items-center gap-1 rounded-lg border border-border/60 bg-background/30 p-1">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={onPaste}
+        disabled={disabled}
+        className="h-8 min-w-0 flex-1 justify-start px-2 text-xs sm:flex-none"
+        title={clipboard.mode === 'cut' ? t('servers.fileManager.actions.cut') : t('servers.fileManager.actions.copy')}
+      >
+        {clipboard.mode === 'cut'
+          ? <Scissors className="text-muted-foreground" aria-hidden="true" />
+          : <Copy className="text-muted-foreground" aria-hidden="true" />}
+        <span className="shrink-0">{t('servers.fileManager.paste')}</span>
+        <span className="min-w-0 max-w-[160px] truncate font-mono text-muted-foreground">{clipboard.name}</span>
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+        onClick={onClear}
+        aria-label={t('servers.fileManager.clearClipboard')}
+      >
+        <X aria-hidden="true" />
+      </Button>
+    </div>
+  );
+}
+
+type NewItemDialogProps = {
+  open: boolean;
+  type: 'file' | 'folder';
+  name: string;
+  onNameChange: (name: string) => void;
+  creating: boolean;
+  onCreate: () => void;
+  onClose: () => void;
+};
+
+function NewItemDialog({ open, type, name, onNameChange, creating, onCreate, onClose }: Readonly<NewItemDialogProps>) {
+  const { t } = useTranslations();
+  return (
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>
+            {type === 'file' ? t('servers.fileManager.createFileTitle') : t('servers.fileManager.createFolderTitle')}
+          </DialogTitle>
+          <DialogDescription>{t('servers.fileManager.createDescription')}</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="file-manager-new-name">{t('servers.fileManager.nameLabel')}</Label>
+            <Input
+              id="file-manager-new-name"
+              value={name}
+              onChange={(e) => onNameChange(e.target.value)}
+              placeholder={type === 'file' ? t('servers.fileManager.createFilePlaceholder') : t('servers.fileManager.createFolderPlaceholder')}
+              className="font-mono"
+              autoFocus
+              onKeyDown={(e) => e.key === 'Enter' && onCreate()}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button onClick={onCreate} disabled={creating || !name}>
+            {creating && <Loader2 className="animate-spin" aria-hidden="true" />}
+            {t('servers.fileManager.create')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

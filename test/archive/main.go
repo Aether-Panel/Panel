@@ -8,6 +8,9 @@ import (
 	"github.com/mholt/archives"
 )
 
+// testArchiveName is the archive this test writes and reads back
+const testArchiveName = "test_transfer.tar.gz"
+
 func main() {
 	err := os.MkdirAll("test_server_dir/some_folder", 0755)
 	if err != nil {
@@ -32,13 +35,13 @@ func main() {
 		panic(err)
 	}
 
-	out, err := os.Create("test_transfer.tar.gz")
+	out, err := os.Create(testArchiveName)
 	if err != nil {
 		panic(err)
 	}
 	defer out.Close()
 
-	format, _, err := archives.Identify(ctx, "test_transfer.tar.gz", nil)
+	format, _, err := archives.Identify(ctx, testArchiveName, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -49,6 +52,6 @@ func main() {
 		panic(err)
 	}
 
-	info, _ := os.Stat("test_transfer.tar.gz")
+	info, _ := os.Stat(testArchiveName)
 	fmt.Printf("Archive size: %d bytes\n", info.Size())
 }

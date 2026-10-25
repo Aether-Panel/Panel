@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import { useConfig } from "@/contexts/config-context";
 
-export function Logo({ className }: { className?: string }) {
+export function Logo({ className }: Readonly<{ className?: string }>) {
   const { config } = useConfig();
   const panelName = config?.branding?.name || "Aether Panel";
 

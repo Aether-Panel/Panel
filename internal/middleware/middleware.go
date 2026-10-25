@@ -14,6 +14,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 func ResponseAndRecover(c *gin.Context) {
@@ -95,48 +96,23 @@ func checkPermission(c *gin.Context, perm *scopes.Scope) bool {
 		return false
 	}
 
-	db := GetDatabase(c)
-	ps := &services.Permission{DB: db}
-
-	var perms []*models.Permissions
-
-	p, err := ps.GetForUserAndServer(user.ID, serverID)
-	if response.HandleError(c, err, http.StatusInternalServerError) {
+	// a session minted from an OAuth2 client credential never grants more than the
+	// client was registered for; the owning user's permissions still apply on top
+	if permitted, finished := clientPermits(c, perm, serverID); !permitted {
+		actuallyFinished = finished
 		return false
 	}
 
-	perms = append(perms, p)
-	// a stored permission row for this server is what grants the user access to it
-	serverMember := serverID != "" && p.ID != 0
-	if serverID != "" {
-		// if we had a server, also grab global scopes
-		p, err = ps.GetForUserAndServer(user.ID, "")
-		if response.HandleError(c, err, http.StatusInternalServerError) {
-			return false
-		}
-		perms = append(perms, p)
+	db := GetDatabase(c)
+	ps := &services.Permission{DB: db}
+
+	perms, serverMember, ok := loadUserPermissions(c, ps, user.ID, serverID)
+	if !ok {
+		return false
 	}
 
 	// Check role-based permissions first (Global Roles)
-	var role *models.Role
-	if user.RoleID != nil {
-		// Use preloaded role if available and correct
-		if user.Role.ID == *user.RoleID {
-			role = &user.Role
-		} else {
-			rs := &services.Role{DB: db}
-			role, err = rs.Get(*user.RoleID)
-		}
-
-		if err == nil && role != nil {
-			// Update the user object with the fetched role so subsequent handlers see it
-			if user.Role.ID == 0 {
-				user.Role = *role
-			}
-		} else {
-			role = nil
-		}
-	}
+	role := resolveUserRole(db, user)
 
 	allScopes := collectScopes(role, perms, serverID, serverMember)
 
@@ -149,6 +125,94 @@ func checkPermission(c *gin.Context, perm *scopes.Scope) bool {
 	}
 
 	return allowed
+}
+
+// clientPermits applies the OAuth2 client bounds when the session came from a client.
+// finished is false when the client is malformed, so the fail-safe still aborts.
+func clientPermits(c *gin.Context, perm *scopes.Scope, serverID string) (permitted bool, finished bool) {
+	clientGin, hasClient := c.Get("client")
+	if !hasClient {
+		return true, false
+	}
+	client, ok := clientGin.(*models.Client)
+	if !ok || client == nil {
+		return false, false
+	}
+	if !clientAllows(client, perm, serverID) {
+		return false, true
+	}
+	return true, false
+}
+
+// loadUserPermissions fetches the server permissions plus the global ones when a server is set.
+// ok is false when the request has already been aborted.
+func loadUserPermissions(c *gin.Context, ps *services.Permission, userID uint, serverID string) (perms []*models.Permissions, serverMember bool, ok bool) {
+	p, err := ps.GetForUserAndServer(userID, serverID)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return nil, false, false
+	}
+
+	perms = append(perms, p)
+	// a stored permission row for this server is what grants the user access to it
+	serverMember = serverID != "" && p.ID != 0
+	if serverID != "" {
+		// if we had a server, also grab global scopes
+		p, err = ps.GetForUserAndServer(userID, "")
+		if response.HandleError(c, err, http.StatusInternalServerError) {
+			return nil, false, false
+		}
+		perms = append(perms, p)
+	}
+	return perms, serverMember, true
+}
+
+// resolveUserRole returns the user's global role, or nil when there is none or it cannot be loaded
+func resolveUserRole(db *gorm.DB, user *models.User) *models.Role {
+	if user.RoleID == nil {
+		return nil
+	}
+
+	var role *models.Role
+	var err error
+	// Use preloaded role if available and correct
+	if user.Role.ID == *user.RoleID {
+		role = &user.Role
+	} else {
+		rs := &services.Role{DB: db}
+		role, err = rs.Get(*user.RoleID)
+	}
+
+	if err != nil || role == nil {
+		return nil
+	}
+	// Update the user object with the fetched role so subsequent handlers see it
+	if user.Role.ID == 0 {
+		user.Role = *role
+	}
+	return role
+}
+
+// clientAllows bounds what an OAuth2 client token may reach. A server-scoped client
+// only operates its own server (identity lookups via the login scope aside) and a
+// client with declared scopes never exceeds them.
+func clientAllows(client *models.Client, perm *scopes.Scope, serverID string) bool {
+	if client.ServerID != nil && *client.ServerID != "" && !perm.Is(scopes.ScopeLogin) {
+		if !perm.ForServer || serverID != *client.ServerID {
+			return false
+		}
+	}
+
+	if client.Scopes != "" {
+		allowed := make([]*scopes.Scope, 0)
+		for _, s := range strings.Fields(client.Scopes) {
+			allowed = scopes.AddScope(allowed, scopes.GetScope(s))
+		}
+		if !scopes.ContainsScope(allowed, perm) {
+			return false
+		}
+	}
+
+	return true
 }
 
 // collectScopes merges the scopes from the user's role and permission rows. A role applies

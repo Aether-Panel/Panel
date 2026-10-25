@@ -17,6 +17,9 @@ import (
 	"gorm.io/gorm"
 )
 
+// nameQuery looks a row up by its name
+const nameQuery = "name = ?"
+
 var dbObjects = []interface{}{
 	&models.Node{},
 	&models.Server{},
@@ -40,6 +43,7 @@ var dbObjects = []interface{}{
 	&models.ProvisionProduct{},
 	&models.PasswordReset{},
 	&models.ActivityLog{},
+	&models.ServerActivity{},
 }
 
 func Upgrade(dbConn *gorm.DB, prettyPrint bool) error {
@@ -64,36 +68,16 @@ func Upgrade(dbConn *gorm.DB, prettyPrint bool) error {
 
 	for k, v := range migrations {
 		for _, z := range v {
-			if printer != nil {
-				printer.UpdateTitle("Upgrading " + z.ID)
-			}
-
-			time.Sleep(time.Millisecond * 100)
-
-			if err := gormigrate.New(session, options, []*gormigrate.Migration{z}).Migrate(); err != nil {
+			if err := runMigration(session, options, z, printer); err != nil {
 				return err
-			}
-			if printer != nil {
-				pterm.Success.Printfln("Upgrading %s", z.ID)
-				if printer.Total == printer.Current+1 {
-					printer.UpdateTitle("Upgrade complete")
-				}
-				_ = printer.Increment()
 			}
 		}
 
 		// these are migrations we need done first before we can do models
 		// now we can do the models directly
 		if k == 0 {
-			if printer != nil {
-				printer.UpdateTitle("Upgrading models")
-			}
-			if err := migrator.AutoMigrate(dbObjects...); err != nil {
+			if err := migrateModels(migrator, printer); err != nil {
 				return err
-			}
-			if printer != nil {
-				pterm.Success.Println("Upgrading models")
-				_ = printer.Increment()
 			}
 		}
 	}
@@ -104,6 +88,42 @@ func Upgrade(dbConn *gorm.DB, prettyPrint bool) error {
 	}
 
 	time.Sleep(time.Millisecond * 100)
+	return nil
+}
+
+// runMigration applies a single migration, reporting progress when a printer is set
+func runMigration(session *gorm.DB, options *gormigrate.Options, z *gormigrate.Migration, printer *pterm.ProgressbarPrinter) error {
+	if printer != nil {
+		printer.UpdateTitle("Upgrading " + z.ID)
+	}
+
+	time.Sleep(time.Millisecond * 100)
+
+	if err := gormigrate.New(session, options, []*gormigrate.Migration{z}).Migrate(); err != nil {
+		return err
+	}
+	if printer != nil {
+		pterm.Success.Printfln("Upgrading %s", z.ID)
+		if printer.Total == printer.Current+1 {
+			printer.UpdateTitle("Upgrade complete")
+		}
+		_ = printer.Increment()
+	}
+	return nil
+}
+
+// migrateModels auto-migrates every model once the first migration batch is done
+func migrateModels(migrator gorm.Migrator, printer *pterm.ProgressbarPrinter) error {
+	if printer != nil {
+		printer.UpdateTitle("Upgrading models")
+	}
+	if err := migrator.AutoMigrate(dbObjects...); err != nil {
+		return err
+	}
+	if printer != nil {
+		pterm.Success.Println("Upgrading models")
+		_ = printer.Increment()
+	}
 	return nil
 }
 
@@ -616,7 +636,7 @@ var migrations = [][]*gormigrate.Migration{
 			Migrate: func(db *gorm.DB) error {
 				// Update existing "Usuario" role to include templates.view and uptime.view
 				var role models.Role
-				err := db.Where("name = ?", "Usuario").First(&role).Error
+				err := db.Where(nameQuery, "Usuario").First(&role).Error
 				if err != nil {
 					return nil
 				}
@@ -658,7 +678,7 @@ var migrations = [][]*gormigrate.Migration{
 				// Patch: assign "Usuario" role to users that still have role_id = NULL
 				// Covers users created by Paymenter before the role assignment fix
 				var role models.Role
-				if err := db.Where("name = ?", "Usuario").First(&role).Error; err != nil {
+				if err := db.Where(nameQuery, "Usuario").First(&role).Error; err != nil {
 					return nil // Role doesn't exist, skip
 				}
 				return db.Exec(
@@ -672,7 +692,7 @@ var migrations = [][]*gormigrate.Migration{
 			Migrate: func(db *gorm.DB) error {
 				// Add server.create to "Usuario" role so users can create sub-servers via Splitter
 				var role models.Role
-				if err := db.Where("name = ?", "Usuario").First(&role).Error; err != nil {
+				if err := db.Where(nameQuery, "Usuario").First(&role).Error; err != nil {
 					return nil
 				}
 				existing := strings.Split(role.RawScopes, ",")
@@ -689,7 +709,7 @@ var migrations = [][]*gormigrate.Migration{
 			ID: "20260820-usuario-role-config-ports",
 			Migrate: func(db *gorm.DB) error {
 				var role models.Role
-				if err := db.Where("name = ?", "Usuario").First(&role).Error; err != nil {
+				if err := db.Where(nameQuery, "Usuario").First(&role).Error; err != nil {
 					return nil
 				}
 				existing := strings.Split(role.RawScopes, ",")
@@ -723,7 +743,7 @@ var migrations = [][]*gormigrate.Migration{
 			ID: "20260821-fix-usuario-role-scopes",
 			Migrate: func(db *gorm.DB) error {
 				var role models.Role
-				if err := db.Where("name = ?", "Usuario").First(&role).Error; err != nil {
+				if err := db.Where(nameQuery, "Usuario").First(&role).Error; err != nil {
 					return nil
 				}
 				existing := strings.Split(role.RawScopes, ",")

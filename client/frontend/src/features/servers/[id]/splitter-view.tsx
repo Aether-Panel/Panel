@@ -9,15 +9,25 @@ import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { CreateServerStepper } from '../create-server-stepper';
 import { cn } from '@/lib/utils';
 import { useTranslations } from '@/contexts/translations-context';
+import { EmptyState } from '@/components/empty-state';
 
 type SplitterViewProps = {
   serverId: string;
 };
 
-const usageColor = (value: number) =>
-  value >= 85 ? 'bg-destructive' : value >= 60 ? 'bg-warning' : 'bg-success';
+const usageColor = (value: number) => {
+  if (value >= 85) return 'bg-destructive';
+  return value >= 60 ? 'bg-warning' : 'bg-success';
+};
 
-function ResourceBar({ used, total }: { used: number; total: number }) {
+/** Badge and dot colours for a sub-server's status; anything but online/offline reads as in progress. */
+function statusTone(status: string) {
+  if (status === 'online') return { badge: 'bg-success/10 text-success', dot: 'bg-success' };
+  if (status === 'offline') return { badge: 'bg-destructive/10 text-destructive-bright', dot: 'bg-destructive' };
+  return { badge: 'bg-warning/10 text-warning', dot: 'bg-warning' };
+}
+
+function ResourceBar({ used, total }: Readonly<{ used: number; total: number }>) {
   const pct = total > 0 ? Math.min(Math.max((used / total) * 100, 0), 100) : 0;
   return (
     <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
@@ -39,7 +49,7 @@ type ResourceCardProps = {
 };
 
 /** One cell of the resource strip: the parent's total, and how much the sub-servers already took. */
-function ResourceCard({ icon: Icon, label, value, unit, used, total }: ResourceCardProps) {
+function ResourceCard({ icon: Icon, label, value, unit, used, total }: Readonly<ResourceCardProps>) {
   const { t } = useTranslations();
   const free = Math.max(total - used, 0);
   return (
@@ -63,11 +73,12 @@ function ResourceCard({ icon: Icon, label, value, unit, used, total }: ResourceC
   );
 }
 
-function SubServerCard({ sub }: { sub: any }) {
+function SubServerCard({ sub }: Readonly<{ sub: any }>) {
   const { t } = useTranslations();
   const pctCpu = sub.totalCpu ? sub.cpuUsage : 0;
   const pctMem = sub.totalMemory ? sub.memoryUsage : 0;
   const pctDisk = sub.totalDisk ? sub.storageUsage : 0;
+  const tone = statusTone(sub.status);
 
   const rows = [
     { id: 'cpu', icon: Cpu, label: t('servers.splitter.cpu'), pct: pctCpu, amount: `${sub.totalCpu}%` },
@@ -96,20 +107,10 @@ function SubServerCard({ sub }: { sub: any }) {
       <div className="flex items-center gap-2">
         <Badge
           variant="outline"
-          className={cn(
-            'gap-1.5 border-transparent',
-            sub.status === 'online'
-              ? 'bg-success/10 text-success'
-              : sub.status === 'offline'
-                ? 'bg-destructive/10 text-destructive-bright'
-                : 'bg-warning/10 text-warning'
-          )}
+          className={cn('gap-1.5 border-transparent', tone.badge)}
         >
           <span
-            className={cn(
-              'h-1.5 w-1.5 rounded-full',
-              sub.status === 'online' ? 'bg-success' : sub.status === 'offline' ? 'bg-destructive' : 'bg-warning'
-            )}
+            className={cn('h-1.5 w-1.5 rounded-full', tone.dot)}
           />
           {t(`dashboard.status.${sub.status}`)}
         </Badge>
@@ -134,9 +135,10 @@ function SubServerCard({ sub }: { sub: any }) {
   );
 }
 
-export default function SplitterView({ serverId }: SplitterViewProps) {
+export default function SplitterView({ serverId }: Readonly<SplitterViewProps>) {
   const { t } = useTranslations();
-  const { servers: allServers, refresh } = useServers();
+  // the splitter shows this server and its sub-servers, so only those need live stats
+  const { servers: allServers, refresh } = useServers((s) => s.id === serverId || s.parentServerId === serverId);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const currentServerInfo = allServers.find(s => s.id === serverId);
@@ -227,15 +229,19 @@ export default function SplitterView({ serverId }: SplitterViewProps) {
             </div>
 
             {subServers.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
-                <ServerIcon className="mx-auto mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-                <h4 className="text-base font-semibold">{t('servers.splitter.emptyTitle')}</h4>
-                <p className="mt-1 text-sm text-muted-foreground">{t('servers.splitter.emptyDescription')}</p>
-                <Button className="mt-6" onClick={() => setIsDialogOpen(true)}>
-                  <Plus aria-hidden="true" />
-                  {t('servers.splitter.create')}
-                </Button>
-              </div>
+              <EmptyState
+                icon={ServerIcon}
+                size="sm"
+                as="h4"
+                title={t('servers.splitter.emptyTitle')}
+                description={t('servers.splitter.emptyDescription')}
+                action={
+                  <Button onClick={() => setIsDialogOpen(true)}>
+                    <Plus aria-hidden="true" />
+                    {t('servers.splitter.create')}
+                  </Button>
+                }
+              />
             ) : (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {subServers.map(sub => (

@@ -429,12 +429,243 @@ body::after {
   to { transform: scale(1.08) translate3d(-1%, -0.6%, 0); }
 }
 
+/* ===================================================================
+   Motion system. Four jobs, one voice:
+     arrival   — content lands in a cascade (`.stagger`), blur-to-sharp;
+     depth     — hoverable panels light up where the pointer is (`[data-spotlight]`);
+     feedback  — controls answer the hand (`.btn-sheen`, `.pulse-dot`);
+     continuity— overlays and tab panels arrive from where they belong
+                 (`.dialog-content`, `.tab-enter`).
+   Every entrance fills `backwards` only: the rest state is the element's own
+   styles, so hover transforms and positioning utilities keep working after.
+   =================================================================== */
+
+/* Arrival: each direct child of a `.stagger` container rises 8px and sharpens,
+   45ms after the one before. Capped at twelve steps so long lists do not make
+   the operator wait. `.stagger-fade` is the opacity-only variant for table
+   rows (transforms and filters are unreliable on `<tr>`). */
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(8px); filter: blur(4px); }
+}
+@keyframes fade-up {
+  from { opacity: 0; }
+}
+.stagger > *,
+.stagger-fade > * {
+  --i: 12;
+  animation: rise-in 520ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  animation-delay: calc(var(--stagger-base, 40ms) + var(--i) * 45ms);
+}
+.stagger-fade > * {
+  animation-name: fade-up;
+  animation-duration: 400ms;
+}
+.stagger > :nth-child(1), .stagger-fade > :nth-child(1) { --i: 0; }
+.stagger > :nth-child(2), .stagger-fade > :nth-child(2) { --i: 1; }
+.stagger > :nth-child(3), .stagger-fade > :nth-child(3) { --i: 2; }
+.stagger > :nth-child(4), .stagger-fade > :nth-child(4) { --i: 3; }
+.stagger > :nth-child(5), .stagger-fade > :nth-child(5) { --i: 4; }
+.stagger > :nth-child(6), .stagger-fade > :nth-child(6) { --i: 5; }
+.stagger > :nth-child(7), .stagger-fade > :nth-child(7) { --i: 6; }
+.stagger > :nth-child(8), .stagger-fade > :nth-child(8) { --i: 7; }
+.stagger > :nth-child(9), .stagger-fade > :nth-child(9) { --i: 8; }
+.stagger > :nth-child(10), .stagger-fade > :nth-child(10) { --i: 9; }
+.stagger > :nth-child(11), .stagger-fade > :nth-child(11) { --i: 10; }
+.stagger > :nth-child(12), .stagger-fade > :nth-child(12) { --i: 11; }
+
+/* Depth: a hoverable panel lights up under the pointer. `<SpotlightTracker />`
+   writes `--mx`/`--my` on the nearest `[data-spotlight]`; the glow is a soft
+   fill plus a 1px lit rim drawn with a masked gradient. Pointer devices only:
+   touch never hovers, so the layers simply stay transparent. */
+[data-spotlight] {
+  position: relative;
+}
+[data-spotlight]::before,
+[data-spotlight]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+[data-spotlight]::before {
+  z-index: 1;
+  background: radial-gradient(
+    380px circle at var(--mx, 50%) var(--my, 50%),
+    hsl(var(--primary) / 0.11),
+    transparent 62%
+  );
+}
+[data-spotlight]::after {
+  z-index: 20;
+  padding: 1px;
+  background: radial-gradient(
+    260px circle at var(--mx, 50%) var(--my, 50%),
+    hsl(var(--primary) / 0.6),
+    transparent 72%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+@media (hover: hover) {
+  [data-spotlight]:hover::before,
+  [data-spotlight]:hover::after {
+    opacity: 1;
+  }
+}
+
+/* Feedback: a filled button catches a band of light once when the pointer
+   arrives, and resets silently when it leaves. */
+.btn-sheen {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.btn-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 32%, hsl(0 0% 100% / 0.26) 50%, transparent 68%);
+  transform: translateX(-130%);
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .btn-sheen:hover::after {
+    transform: translateX(130%);
+    transition: transform 700ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+/* Feedback: an "online" dot breathes — a ring of its own colour swells out and
+   fades, every 2.4s, so a live state reads as live at a glance. */
+.pulse-dot {
+  position: relative;
+}
+.pulse-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: inherit;
+  animation: dot-pulse 2.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+@keyframes dot-pulse {
+  from { transform: scale(1); opacity: 0.6; }
+  to { transform: scale(3.2); opacity: 0; }
+}
+
+/* Continuity: dialogs arrive from slightly below, sharpening as they settle,
+   and leave quickly. The centring translate is part of the keyframe because a
+   transform animation replaces the element's own transform. */
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 14px)) scale(0.96);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+    filter: blur(0);
+  }
+}
+@keyframes dialog-out {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 8px)) scale(0.98);
+  }
+}
+.dialog-content[data-state="open"] {
+  animation: dialog-in 400ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.dialog-content[data-state="closed"] {
+  animation: dialog-out 170ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+/* Continuity: a tab panel rises into place when selected. */
+@keyframes panel-in {
+  from { opacity: 0; transform: translateY(6px); filter: blur(3px); }
+}
+.tab-enter[data-state="active"] {
+  animation: panel-in 340ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+/* Continuity: the sliding highlight behind sidebar items and under server
+   tabs. Both move with the same curve so the navigation feels like one piece. */
+.glide {
+  transition:
+    transform 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    width 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    height 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 200ms ease-out;
+}
+
+/* Sign-in card: a thin arc of light travels the rim, slowly, so the welcome
+   screen feels switched on without moving anything the eye reads. */
+@property --auth-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+.auth-glow::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  background: conic-gradient(
+    from var(--auth-angle),
+    transparent 0 58%,
+    hsl(var(--primary) / 0.7) 74%,
+    hsl(var(--chart-2) / 0.55) 82%,
+    transparent 92%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: auth-spin 10s linear infinite;
+}
+@keyframes auth-spin {
+  to { --auth-angle: 360deg; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ambient *,
   .skeleton-shimmer::after,
   .meter-grow,
-  .auth-art {
+  .auth-art,
+  .auth-glow::before,
+  .pulse-dot::after {
     animation: none !important;
+  }
+  /* Panels light up on hover without the pointer-tracking glow. */
+  [data-spotlight]::before,
+  [data-spotlight]::after {
+    display: none;
+  }
+
+  /* Everything else (dialog zoom and slide, menus, page fade, meter widths) settles
+     at once. The durations are near zero rather than none so components that wait
+     for animationend/transitionend still finish. Spinners keep turning: they tell
+     the user something is loading. */
+  *:not(.animate-spin),
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

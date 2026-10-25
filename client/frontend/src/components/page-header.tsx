@@ -11,7 +11,7 @@ interface PageHeaderProps {
   titleClassName?: string;
 }
 
-export function PageHeader({ title, description, badges, children, className, titleClassName }: PageHeaderProps) {
+export function PageHeader({ title, description, badges, children, className, titleClassName }: Readonly<PageHeaderProps>) {
   return (
     <div className={cn("flex flex-col gap-4 md:flex-row md:items-start md:justify-between", className)}>
       <div className="min-w-0 space-y-1.5">

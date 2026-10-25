@@ -44,7 +44,7 @@ const healthToneFor = (percent: number | null): Tone => {
  * Row 1 — status header. One band that answers "how is the fleet right now?"
  * (availability, health, live traffic) and nothing else.
  */
-export function StatusStrip({ name, healthPercent, online, total, networkKbps }: StatusStripProps) {
+export function StatusStrip({ name, healthPercent, online, total, networkKbps }: Readonly<StatusStripProps>) {
     const { t } = useTranslations();
     const healthTone = healthToneFor(healthPercent);
     const serversTone: Tone = online === total && total > 0 ? 'success' : 'default';

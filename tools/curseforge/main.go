@@ -93,69 +93,73 @@ func main() {
 	results := make(map[UnitTest]error)
 
 	for _, unitTest := range tests {
-		test := unitTest.Data
-
-		if specificID != 0 {
-			if test.ProjectID != specificID {
-				continue
-			}
-		}
-
-		fmt.Printf("Testing %d\n", test.ProjectID)
-		if test.JavaBinary == "" {
-			test.JavaBinary = "java"
-		}
-		serverID := fmt.Sprintf("%d-%d", test.ProjectID, test.FileID)
-
-		_ = os.RemoveAll(serverID)
-		_ = os.Mkdir(serverID, 0755)
-
-		server := servers.CreateProgram()
-		server.Identifier = serverID
-
-		env, err := servers.CreateEnvironment("host", serverID, "", server.Server)
-		if err != nil {
-			results[unitTest] = err
+		if specificID != 0 && unitTest.Data.ProjectID != specificID {
 			continue
 		}
-		server.RunningEnvironment = env
-
-		fs, err := files.NewFileServer(serverID, os.Getuid(), os.Getgid())
-		if err != nil {
-			results[unitTest] = err
-			continue
-		}
-
-		server.SetFileServer(fs)
-
-		arg := skypanel.RunOperatorArgs{
-			Environment: env,
-			Server:      server,
-		}
-
-		result := test.Run(arg)
-		if result.Error != nil {
-			results[unitTest] = result.Error
-			continue
-		}
-		var fi os.FileInfo
-		if fi, err = os.Lstat(filepath.Join(server.RunningEnvironment.GetRootDirectory(), "server.jar")); err == nil && !fi.IsDir() {
-			results[unitTest] = nil
-		} else {
-			op := resolveforgeversion.ResolveForgeVersion{OutputVariable: "result"}
-			result = op.Run(arg)
-			if result.Error != nil && !os.IsNotExist(err) {
-				results[unitTest] = result.Error
-				continue
-			}
-			if result.VariableOverrides == nil || result.VariableOverrides["result"] == "" {
-				results[unitTest] = errors.New("failed to resolve to specific version based on unix_args.txt")
-			} else {
-				results[unitTest] = nil
-			}
-		}
+		results[unitTest] = runUnitTest(unitTest)
 	}
 
+	if reportResults(results) {
+		os.Exit(1)
+	}
+}
+
+// runUnitTest installs one modpack into a scratch server and returns why it failed, if it did
+func runUnitTest(unitTest UnitTest) error {
+	test := unitTest.Data
+
+	fmt.Printf("Testing %d\n", test.ProjectID)
+	if test.JavaBinary == "" {
+		test.JavaBinary = "java"
+	}
+	serverID := fmt.Sprintf("%d-%d", test.ProjectID, test.FileID)
+
+	_ = os.RemoveAll(serverID)
+	_ = os.Mkdir(serverID, 0755)
+
+	server := servers.CreateProgram()
+	server.Identifier = serverID
+
+	env, err := servers.CreateEnvironment("host", serverID, "", server.Server)
+	if err != nil {
+		return err
+	}
+	server.RunningEnvironment = env
+
+	fs, err := files.NewFileServer(serverID, os.Getuid(), os.Getgid())
+	if err != nil {
+		return err
+	}
+
+	server.SetFileServer(fs)
+
+	arg := skypanel.RunOperatorArgs{
+		Environment: env,
+		Server:      server,
+	}
+
+	result := test.Run(arg)
+	if result.Error != nil {
+		return result.Error
+	}
+	var fi os.FileInfo
+	if fi, err = os.Lstat(filepath.Join(server.RunningEnvironment.GetRootDirectory(), "server.jar")); err == nil && !fi.IsDir() {
+		return nil
+	}
+
+	op := resolveforgeversion.ResolveForgeVersion{OutputVariable: "result"}
+	result = op.Run(arg)
+	if result.Error != nil && !os.IsNotExist(err) {
+		return result.Error
+	}
+	if result.VariableOverrides == nil || result.VariableOverrides["result"] == "" {
+		return errors.New("failed to resolve to specific version based on unix_args.txt")
+	}
+	return nil
+}
+
+// reportResults prints each project's outcome and reports whether a must-pass project failed
+func reportResults(results map[UnitTest]error) bool {
 	failed := false
 	for k, v := range results {
 		fmt.Printf("Project: %d\n", k.Data.ProjectID)
@@ -168,10 +172,7 @@ func main() {
 			}
 		}
 	}
-
-	if failed {
-		os.Exit(1)
-	}
+	return failed
 }
 
 type UnitTest struct {

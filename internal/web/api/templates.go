@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -266,40 +267,11 @@ func uploadTemplates(c *gin.Context) {
 
 	created := make([]*models.Template, 0, len(files))
 	for _, fh := range files {
-		if !strings.HasSuffix(strings.ToLower(fh.Filename), ".json") {
-			response.HandleError(c, skypanel.CreateError("file "+fh.Filename+" is not a JSON template", "ErrInvalidTemplate"), http.StatusBadRequest)
-			return
-		}
-
-		f, err := fh.Open()
-		if response.HandleError(c, err, http.StatusBadRequest) {
-			return
-		}
-		data, err := io.ReadAll(io.LimitReader(f, maxTemplateFileSize))
-		_ = f.Close()
+		template, err := parseUploadedTemplate(fh)
 		if response.HandleError(c, err, http.StatusBadRequest) {
 			return
 		}
 
-		var server skypanel.Server
-		if err := json.Unmarshal(data, &server); response.HandleError(c, err, http.StatusBadRequest) {
-			return
-		}
-
-		if len(server.Installation) == 0 && server.Execution.Command == nil {
-			response.HandleError(c, skypanel.CreateError("template "+fh.Filename+" has no install steps or run command", "ErrInvalidTemplate"), http.StatusBadRequest)
-			return
-		}
-
-		name := strings.TrimSuffix(filepath.Base(fh.Filename), filepath.Ext(fh.Filename))
-		if name == "" {
-			name = server.Type.Type
-		}
-		if server.Display == "" {
-			server.Display = name
-		}
-
-		template := &models.Template{Name: name, Server: server}
 		if err := ts.Save(template); response.HandleError(c, err, http.StatusInternalServerError) {
 			return
 		}
@@ -307,4 +279,41 @@ func uploadTemplates(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, created)
+}
+
+// parseUploadedTemplate reads one uploaded .json file into a template named
+// after the file.
+func parseUploadedTemplate(fh *multipart.FileHeader) (*models.Template, error) {
+	if !strings.HasSuffix(strings.ToLower(fh.Filename), ".json") {
+		return nil, skypanel.CreateError("file "+fh.Filename+" is not a JSON template", "ErrInvalidTemplate")
+	}
+
+	f, err := fh.Open()
+	if err != nil {
+		return nil, err
+	}
+	data, err := io.ReadAll(io.LimitReader(f, maxTemplateFileSize))
+	_ = f.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	var server skypanel.Server
+	if err := json.Unmarshal(data, &server); err != nil {
+		return nil, err
+	}
+
+	if len(server.Installation) == 0 && server.Execution.Command == nil {
+		return nil, skypanel.CreateError("template "+fh.Filename+" has no install steps or run command", "ErrInvalidTemplate")
+	}
+
+	name := strings.TrimSuffix(filepath.Base(fh.Filename), filepath.Ext(fh.Filename))
+	if name == "" {
+		name = server.Type.Type
+	}
+	if server.Display == "" {
+		server.Display = name
+	}
+
+	return &models.Template{Name: name, Server: server}, nil
 }

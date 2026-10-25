@@ -55,6 +55,15 @@ type Server struct {
 	// External integration ID (e.g. Paymenter service ID)
 	ExternalID string `gorm:"column:external_id;size:64;index" json:"-"`
 
+	// Subdomain is the server's own name under the panel's DNS base domain (survival →
+	// survival.play.example.com); empty when it has none. Two servers never share one: the
+	// panel checks that before creating the records (a unique index would refuse the many
+	// servers that have none).
+	Subdomain string `gorm:"column:subdomain;size:63;index" json:"-" validate:"-"`
+
+	// DNSRecordIDs are the Cloudflare records created for Subdomain, so they can be removed
+	DNSRecordIDs []string `gorm:"column:dns_record_ids;serializer:json" json:"-" validate:"-"`
+
 	CreatedAt time.Time `json:"-"`
 	UpdatedAt time.Time `json:"-"`
 }

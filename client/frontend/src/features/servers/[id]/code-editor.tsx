@@ -85,15 +85,42 @@ const tokyoNight = {
     'scrollbarSlider.background': '#41486840',
     'scrollbarSlider.hoverBackground': '#41486860',
     'scrollbarSlider.activeBackground': '#41486880',
+    // used by the version comparison (file-diff-editor.tsx)
+    'diffEditor.insertedTextBackground': '#9ece6a2e',
+    'diffEditor.removedTextBackground': '#f7768e2e',
+    'diffEditor.insertedLineBackground': '#9ece6a14',
+    'diffEditor.removedLineBackground': '#f7768e14',
+    'diffEditorGutter.insertedLineBackground': '#9ece6a24',
+    'diffEditorGutter.removedLineBackground': '#f7768e24',
+    'diffEditorOverview.insertedForeground': '#9ece6a80',
+    'diffEditorOverview.removedForeground': '#f7768e80',
+    'diffEditor.diagonalFill': '#292e4280',
+    'diffEditor.border': '#292e42',
+    'diffEditor.unchangedRegionBackground': '#16161e',
+    'diffEditor.unchangedRegionForeground': '#787c99',
+    'diffEditor.unchangedCodeBackground': '#1e202e80',
   },
 };
 
 // Monaco themes only accept hex, so the editor surface colour lives here with
 // the rest of the theme; the host and loading state reuse it to avoid a flash.
-const EDITOR_BACKGROUND = tokyoNight.colors['editor.background'];
+export const EDITOR_BACKGROUND = tokyoNight.colors['editor.background'];
 
-function registerTokyoNightTheme(monaco: any) {
+export const EDITOR_FONT_FAMILY = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
+
+/** Shared with the diff editor, which loads through this module so the workers are set up once. */
+export function registerTokyoNightTheme(monaco: any) {
   monaco.editor.defineTheme('tokyo-night', tokyoNight as any);
+}
+
+/** Spinner shown while Monaco loads, on the editor's own background so nothing flashes. */
+export function EditorLoading({ label }: Readonly<{ label: string }>) {
+  return (
+    <div className="flex h-full w-full flex-col items-center justify-center gap-3" style={{ backgroundColor: EDITOR_BACKGROUND }}>
+      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden="true" />
+      <p className="text-xs text-muted-foreground">{label}</p>
+    </div>
+  );
 }
 
 interface CodeEditorProps {
@@ -101,10 +128,17 @@ interface CodeEditorProps {
   value: string;
   onChange: (value: string | undefined) => void;
   onSave?: () => void;
+  /** Hands the Monaco instance to the parent, e.g. to move focus back after another view. */
+  onEditorReady?: (editor: any) => void;
 }
 
-export default function CodeEditor({ language, value, onChange, onSave }: CodeEditorProps) {
+export default function CodeEditor({ language, value, onChange, onSave, onEditorReady }: Readonly<CodeEditorProps>) {
   const editorRef = useRef<any>(null);
+  // Monaco keeps the command it was given at mount, so it reads the latest save handler from here
+  const onSaveRef = useRef(onSave);
+  useEffect(() => {
+    onSaveRef.current = onSave;
+  }, [onSave]);
   const { t } = useTranslations();
 
   useEffect(() => {
@@ -118,6 +152,7 @@ export default function CodeEditor({ language, value, onChange, onSave }: CodeEd
 
   const handleOnMount = (editor: any, monaco: any) => {
     editorRef.current = editor;
+    onEditorReady?.(editor);
     registerTokyoNightTheme(monaco);
     monaco.editor.setTheme('tokyo-night');
 
@@ -144,21 +179,17 @@ export default function CodeEditor({ language, value, onChange, onSave }: CodeEd
     editor.onDidDispose(() => {
       resizeObserver?.disconnect();
       editorRef.current = null;
+      onEditorReady?.(null);
     });
 
     if (onSave) {
       editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
-        onSave();
+        onSaveRef.current?.();
       });
     }
   };
 
-  const loadingFallback = (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-3" style={{ backgroundColor: EDITOR_BACKGROUND }}>
-      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden="true" />
-      <p className="text-xs text-muted-foreground">{t('servers.fileManager.editor.loading')}</p>
-    </div>
-  );
+  const loadingFallback = <EditorLoading label={t('servers.fileManager.editor.loading')} />;
 
   return (
     <div className="monaco-editor-host relative h-full w-full overflow-hidden rounded-lg" style={{ backgroundColor: EDITOR_BACKGROUND }}>
@@ -175,7 +206,7 @@ export default function CodeEditor({ language, value, onChange, onSave }: CodeEd
         options={{
             automaticLayout: true,
             fontSize: 14,
-            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace',
+            fontFamily: EDITOR_FONT_FAMILY,
             fontLigatures: true,
             tabSize: 2,
             wordWrap: 'on',

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"os"
 	"path"
@@ -23,6 +24,8 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/database"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
+	"github.com/SkyPanel/SkyPanel/v3/internal/models"
+	"github.com/SkyPanel/SkyPanel/v3/internal/offsite"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
@@ -30,6 +33,12 @@ import (
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
 	"github.com/spf13/cast"
+)
+
+// messages for a failed uninstall
+const (
+	uninstallErrorFmt  = "Error uninstalling server: %s"
+	uninstallFailedMsg = "Failed to uninstall server\n"
 )
 
 type Server struct {
@@ -44,7 +53,16 @@ type Server struct {
 	fileServer         files.FileServer
 	// backupState is backupIdle, backupRunning or restoreRunning. One atomic value, so two
 	// requests cannot both pass the "nothing in progress" check and run at the same time
-	backupState   atomic.Int32
+	backupState atomic.Int32
+	// stopRequested is set when someone stops or kills the server, so its exit is not
+	// mistaken for a crash (or answered with an automatic restart)
+	stopRequested atomic.Bool
+	// exitHandled is set once the last exit went through afterExit (a stop someone asked for,
+	// a clean exit, or a crash that was reported), so the admin channel's offline alert only
+	// covers servers that vanished without any of those
+	exitHandled atomic.Bool
+	// startedAt is when the current run began, used to forgive old crashes
+	startedAt     atomic.Int64
 	keepAlive     *time.Ticker
 	keepAliveChan chan bool
 }
@@ -62,7 +80,13 @@ type serverState struct {
 	wasRunning bool
 	lastStats  *skypanel.ServerStats
 	lastAlert  map[string]time.Time // Para evitar spam de alertas
+	// offlineSince is when the server was seen stopped without a known reason; the admin
+	// alert waits a little in case the stop or crash is still being processed
+	offlineSince time.Time
 }
+
+// offlineAlertDelay gives afterExit time to explain an exit before the admin is told
+const offlineAlertDelay = 15 * time.Second
 
 var ErrServerTypeRequired = errors.New("server type is required")
 var ErrEnvironmentTypeRequired = errors.New("environment type is required")
@@ -72,6 +96,7 @@ func InitService() {
 	running = true
 	go processQueue()
 	go processStats()
+	go processPlayers()
 	go processSystemStatus()
 	// Trackear uptime inicialmente para todos los servidores
 	go trackUptimeForAllServers()
@@ -99,6 +124,7 @@ func ShutdownService() {
 	}()
 
 	running = false
+	SaveAllMetrics()
 	// the tickers are created by their goroutines, so a very early shutdown can find them unset
 	if startQueueTicker != nil {
 		startQueueTicker.Stop()
@@ -130,6 +156,20 @@ func processQueue() {
 				logging.Error.Printf("[%s] Error starting server: %s", program.ID(), err)
 			}
 		}
+	}
+}
+
+// playerSampleEvery is how often the player count of running servers goes into their history
+const playerSampleEvery = time.Minute
+
+func processPlayers() {
+	ticker := time.NewTicker(playerSampleEvery)
+	for now := range ticker.C {
+		if !running {
+			ticker.Stop()
+			return
+		}
+		samplePlayers(now)
 	}
 }
 
@@ -198,6 +238,35 @@ func sendSystemStatusToDiscord() {
 	}
 
 	// Crear un mapa de servidor ID a node ID desde la base de datos
+	serverNodeMap := serverNodeIDs(ss, allServers)
+
+	serverInfos := make([]services.ServerInfo, 0, len(allServers))
+	nodeServerMap := make(map[uint][]services.ServerInfo)
+
+	for _, server := range allServers {
+		serverInfo := systemStatusInfo(server)
+		serverInfos = append(serverInfos, serverInfo)
+
+		// Agrupar por nodo
+		nodeID := serverNodeMap[server.ID()]
+		nodeServerMap[nodeID] = append(nodeServerMap[nodeID], serverInfo)
+	}
+
+	// Enviar el reporte del sistema a Discord
+	err = ds.SendSystemStatus(serverInfos)
+	if err != nil {
+		logging.Error.Printf("Error sending system status to Discord: %s", err)
+	}
+
+	// Enviar estado de cada nodo a Discord
+	for _, node := range nodes {
+		sendNodeStatusToDiscord(ds, node, nodeServerMap[node.ID])
+	}
+}
+
+// serverNodeIDs maps each server to its node from the database; servers missing there,
+// or without a node, count as the local node (0)
+func serverNodeIDs(ss *services.Server, allServers []*Server) map[string]uint {
 	serverNodeMap := make(map[string]uint)
 	for _, server := range allServers {
 		serverModel, err := ss.Get(server.ID())
@@ -212,209 +281,205 @@ func sendSystemStatusToDiscord() {
 		}
 		serverNodeMap[server.ID()] = nodeID
 	}
+	return serverNodeMap
+}
 
-	serverInfos := make([]services.ServerInfo, 0, len(allServers))
-	nodeServerMap := make(map[uint][]services.ServerInfo)
-
-	for _, server := range allServers {
-		isRunning, err := server.IsRunning()
-		if err != nil {
-			logging.Error.Printf("[%s] Error checking server status for system status: %s", server.ID(), err)
-			isRunning = false
-		}
-
-		serverName := server.Server.Display
-		if serverName == "" {
-			serverName = server.ID()
-		}
-
-		serverInfo := services.ServerInfo{
-			Name:      serverName,
-			ID:        server.ID(),
-			IsRunning: isRunning,
-			CPU:       0.0,
-			Memory:    0.0,
-		}
-
-		// Obtener estadísticas si el servidor está corriendo
-		if isRunning {
-			stats, err := server.GetEnvironment().GetStats()
-			if err == nil && stats != nil {
-				serverInfo.CPU = stats.CPU
-				serverInfo.Memory = stats.Memory
-			}
-		}
-
-		serverInfos = append(serverInfos, serverInfo)
-
-		// Agrupar por nodo
-		nodeID := serverNodeMap[server.ID()]
-		if nodeServerMap[nodeID] == nil {
-			nodeServerMap[nodeID] = make([]services.ServerInfo, 0)
-		}
-		nodeServerMap[nodeID] = append(nodeServerMap[nodeID], serverInfo)
-	}
-
-	// Enviar el reporte del sistema a Discord
-	err = ds.SendSystemStatus(serverInfos)
+// systemStatusInfo is one server's line in the system status report
+func systemStatusInfo(server *Server) services.ServerInfo {
+	isRunning, err := server.IsRunning()
 	if err != nil {
-		logging.Error.Printf("Error sending system status to Discord: %s", err)
+		logging.Error.Printf("[%s] Error checking server status for system status: %s", server.ID(), err)
+		isRunning = false
 	}
 
-	// Enviar estado de cada nodo a Discord
-	for _, node := range nodes {
-		serversForNode := nodeServerMap[node.ID]
-		if serversForNode == nil {
-			serversForNode = make([]services.ServerInfo, 0)
+	serverName := server.Server.Display
+	if serverName == "" {
+		serverName = server.ID()
+	}
+
+	serverInfo := services.ServerInfo{
+		Name:      serverName,
+		ID:        server.ID(),
+		IsRunning: isRunning,
+		CPU:       0.0,
+		Memory:    0.0,
+	}
+
+	// Obtener estadísticas si el servidor está corriendo
+	if isRunning {
+		stats, err := server.GetEnvironment().GetStats()
+		if err == nil && stats != nil {
+			serverInfo.CPU = stats.CPU
+			serverInfo.Memory = stats.Memory
 		}
+	}
+	return serverInfo
+}
 
-		totalServers := len(serversForNode)
-		onlineServers := 0
-		offlineServers := 0
+func sendNodeStatusToDiscord(ds *services.DiscordService, node *models.Node, serversForNode []services.ServerInfo) {
+	totalServers := len(serversForNode)
+	onlineServers := 0
+	offlineServers := 0
 
-		for _, info := range serversForNode {
-			if info.IsRunning {
-				onlineServers++
-			} else {
-				offlineServers++
+	for _, info := range serversForNode {
+		if info.IsRunning {
+			onlineServers++
+		} else {
+			offlineServers++
+		}
+	}
+
+	nodeName := node.Name
+	if nodeName == "" || node.IsLocal() {
+		nodeName = "Nodo Local"
+	}
+
+	// Obtener información del sistema
+	cpuModel, cpuCores, cpuThreads, cpuGhz := hostCPUSummary()
+
+	// Obtener información de memoria
+	memInfo, err := mem.VirtualMemory()
+	memTotal := uint64(0)
+	memUsed := uint64(0)
+	if err == nil {
+		memTotal = memInfo.Total
+		memUsed = memInfo.Used
+	}
+
+	// Sistema operativo - obtener información detallada como neofetch/fastfetch
+	osName := getOSName()
+
+	err = ds.SendNodeStatus(totalServers, onlineServers, offlineServers, nodeName, node.PublicHost, node.PublicPort, cpuModel, cpuCores, cpuThreads, cpuGhz, memTotal, memUsed, osName)
+	if err != nil {
+		logging.Error.Printf("Error sending node status to Discord for node %s: %s", nodeName, err)
+	}
+}
+
+// hostCPUSummary returns the CPU model, physical cores, threads and GHz of this machine
+func hostCPUSummary() (string, int, int, float64) {
+	cpuInfo, err := cpu.Info()
+	haveInfo := err == nil && len(cpuInfo) > 0
+	cpuThreads := int(runtime.NumCPU()) // Núcleos lógicos (hilos) - esto siempre es correcto
+
+	cpuCores := 0
+	// Obtener cores físicos leyendo /proc/cpuinfo en Linux
+	if runtime.GOOS == "linux" {
+		cpuCores = linuxPhysicalCores()
+	}
+
+	// Si no se pudo obtener cores físicos, usar cpu.Info como fallback
+	if cpuCores == 0 {
+		cpuCores = cpuInfoCores(cpuInfo, haveInfo, cpuThreads)
+	}
+
+	// Obtener modelo y frecuencia del CPU
+	cpuModel := "Desconocido"
+	cpuGhz := 0.0
+	if haveInfo {
+		cpuModel = cpuInfo[0].ModelName
+		for _, info := range cpuInfo {
+			if info.Mhz > 0 {
+				cpuGhz = info.Mhz / 1000.0 // Convertir MHz a GHz
+				break
 			}
 		}
+	}
+	return cpuModel, cpuCores, cpuThreads, cpuGhz
+}
 
-		nodeName := node.Name
-		if nodeName == "" || node.IsLocal() {
-			nodeName = "Nodo Local"
-		}
-
-		// Obtener información del sistema
-		cpuInfo, err := cpu.Info()
-		cpuModel := "Desconocido"
-		cpuCores := 0
-		cpuThreads := int(runtime.NumCPU()) // Núcleos lógicos (hilos) - esto siempre es correcto
-		cpuGhz := 0.0
-
-		// Obtener cores físicos leyendo /proc/cpuinfo en Linux
-		if runtime.GOOS == "linux" {
-			if data, err := os.ReadFile("/proc/cpuinfo"); err == nil {
-				// /proc/cpuinfo está organizado en bloques separados por líneas vacías
-				// Cada bloque representa un procesador lógico (thread)
-				physicalCores := make(map[string]bool)
-				coresPerSocket := make(map[string]int)
-
-				// Dividir en bloques (cada bloque es un procesador lógico)
-				blocks := strings.Split(string(data), "\n\n")
-				for _, block := range blocks {
-					block = strings.TrimSpace(block)
-					if block == "" {
-						continue
-					}
-
-					var physicalID, coreID string
-
-					// Procesar cada línea del bloque
-					lines := strings.Split(block, "\n")
-					for _, line := range lines {
-						line = strings.TrimSpace(line)
-						if strings.Contains(line, ":") {
-							parts := strings.SplitN(line, ":", 2)
-							if len(parts) != 2 {
-								continue
-							}
-							key := strings.TrimSpace(parts[0])
-							value := strings.TrimSpace(parts[1])
-
-							switch key {
-							case "physical id":
-								physicalID = value
-							case "core id":
-								coreID = value
-							case "cpu cores":
-								if physicalID != "" {
-									if val, err := cast.ToIntE(value); err == nil {
-										coresPerSocket[physicalID] = val
-									}
-								}
-							}
-						}
-					}
-
-					// Si tenemos physical id y core id, crear clave única para core físico
-					if physicalID != "" && coreID != "" {
-						physicalCores[physicalID+"-"+coreID] = true
-					}
-				}
-
-				// Si encontramos cores físicos únicos, usarlos
-				if len(physicalCores) > 0 {
-					cpuCores = len(physicalCores)
-				} else if len(coresPerSocket) > 0 {
-					// Calcular: sumar cores de todos los sockets
-					totalCores := 0
-					for _, cores := range coresPerSocket {
-						totalCores += cores
-					}
-					if totalCores > 0 {
-						cpuCores = totalCores
-					}
-				}
-			}
-		}
-
-		// Si no se pudo obtener cores físicos, usar cpu.Info como fallback
+// cpuInfoCores adds up the cores cpu.Info reports, or guesses threads / 2 without it
+func cpuInfoCores(cpuInfo []cpu.InfoStat, haveInfo bool, cpuThreads int) int {
+	if !haveInfo {
+		// Fallback final: usar hilos / 2 (asume hyperthreading)
+		cpuCores := cpuThreads / 2
 		if cpuCores == 0 {
-			if err == nil && len(cpuInfo) > 0 {
-				cpuModel = cpuInfo[0].ModelName
-				// Para sistemas con múltiples CPUs físicos, sumar los cores
-				totalCores := int(0)
-				for _, info := range cpuInfo {
-					totalCores += int(info.Cores)
-					if cpuGhz == 0 && info.Mhz > 0 {
-						cpuGhz = info.Mhz / 1000.0 // Convertir MHz a GHz
-					}
-				}
-				if totalCores > 0 {
-					cpuCores = totalCores
-				}
-			} else {
-				// Fallback final: usar hilos / 2 (asume hyperthreading)
-				cpuCores = cpuThreads / 2
-				if cpuCores == 0 {
-					cpuCores = 1
-				}
-			}
+			cpuCores = 1
+		}
+		return cpuCores
+	}
+
+	// Para sistemas con múltiples CPUs físicos, sumar los cores
+	totalCores := int(0)
+	for _, info := range cpuInfo {
+		totalCores += int(info.Cores)
+	}
+	if totalCores > 0 {
+		return totalCores
+	}
+	return 0
+}
+
+// linuxPhysicalCores counts the physical cores in /proc/cpuinfo, 0 when it cannot tell
+func linuxPhysicalCores() int {
+	data, err := os.ReadFile("/proc/cpuinfo")
+	if err != nil {
+		return 0
+	}
+
+	// /proc/cpuinfo está organizado en bloques separados por líneas vacías
+	// Cada bloque representa un procesador lógico (thread)
+	physicalCores := make(map[string]bool)
+	coresPerSocket := make(map[string]int)
+
+	// Dividir en bloques (cada bloque es un procesador lógico)
+	blocks := strings.Split(string(data), "\n\n")
+	for _, block := range blocks {
+		block = strings.TrimSpace(block)
+		if block == "" {
+			continue
 		}
 
-		// Obtener modelo y frecuencia del CPU si no se obtuvo antes
-		if err == nil && len(cpuInfo) > 0 {
-			if cpuModel == "Desconocido" {
-				cpuModel = cpuInfo[0].ModelName
-			}
-			if cpuGhz == 0 {
-				for _, info := range cpuInfo {
-					if info.Mhz > 0 {
-						cpuGhz = info.Mhz / 1000.0 // Convertir MHz a GHz
-						break
-					}
-				}
-			}
-		}
+		physicalID, coreID := parseCPUInfoBlock(block, coresPerSocket)
 
-		// Obtener información de memoria
-		memInfo, err := mem.VirtualMemory()
-		memTotal := uint64(0)
-		memUsed := uint64(0)
-		if err == nil {
-			memTotal = memInfo.Total
-			memUsed = memInfo.Used
-		}
-
-		// Sistema operativo - obtener información detallada como neofetch/fastfetch
-		osName := getOSName()
-
-		err = ds.SendNodeStatus(totalServers, onlineServers, offlineServers, nodeName, node.PublicHost, node.PublicPort, cpuModel, cpuCores, cpuThreads, cpuGhz, memTotal, memUsed, osName)
-		if err != nil {
-			logging.Error.Printf("Error sending node status to Discord for node %s: %s", nodeName, err)
+		// Si tenemos physical id y core id, crear clave única para core físico
+		if physicalID != "" && coreID != "" {
+			physicalCores[physicalID+"-"+coreID] = true
 		}
 	}
+
+	// Si encontramos cores físicos únicos, usarlos
+	if len(physicalCores) > 0 {
+		return len(physicalCores)
+	}
+
+	// Calcular: sumar cores de todos los sockets
+	totalCores := 0
+	for _, cores := range coresPerSocket {
+		totalCores += cores
+	}
+	if totalCores > 0 {
+		return totalCores
+	}
+	return 0
+}
+
+// parseCPUInfoBlock reads one processor block of /proc/cpuinfo, recording its socket's
+// "cpu cores" in coresPerSocket
+func parseCPUInfoBlock(block string, coresPerSocket map[string]int) (physicalID, coreID string) {
+	// Procesar cada línea del bloque
+	for _, line := range strings.Split(block, "\n") {
+		key, value, found := strings.Cut(strings.TrimSpace(line), ":")
+		if !found {
+			continue
+		}
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
+
+		switch key {
+		case "physical id":
+			physicalID = value
+		case "core id":
+			coreID = value
+		case "cpu cores":
+			if physicalID == "" {
+				continue
+			}
+			if val, err := cast.ToIntE(value); err == nil {
+				coresPerSocket[physicalID] = val
+			}
+		}
+	}
+	return physicalID, coreID
 }
 
 // getOSName obtiene el nombre detallado del sistema operativo como neofetch/fastfetch
@@ -423,96 +488,11 @@ func getOSName() string {
 
 	switch goos {
 	case "linux":
-		// Intentar leer /etc/os-release primero (estándar systemd)
-		if data, err := os.ReadFile("/etc/os-release"); err == nil {
-			lines := strings.Split(string(data), "\n")
-			var prettyName, name, version string
-			for _, line := range lines {
-				line = strings.TrimSpace(line)
-				if line == "" || strings.HasPrefix(line, "#") {
-					continue
-				}
-				switch {
-				case strings.HasPrefix(line, "PRETTY_NAME="):
-					val := strings.TrimPrefix(line, "PRETTY_NAME=")
-					// Remover comillas simples o dobles
-					prettyName = strings.Trim(val, "\"'")
-				case strings.HasPrefix(line, "NAME=") && name == "":
-					val := strings.TrimPrefix(line, "NAME=")
-					// Remover comillas simples o dobles
-					name = strings.Trim(val, "\"'")
-				case strings.HasPrefix(line, "VERSION=") && version == "":
-					val := strings.TrimPrefix(line, "VERSION=")
-					// Remover comillas simples o dobles
-					version = strings.Trim(val, "\"'")
-				}
-			}
-			if prettyName != "" {
-				return prettyName
-			}
-			if name != "" && version != "" {
-				return name + " " + version
-			}
-			if name != "" {
-				return name
-			}
-		}
-
-		// Intentar /etc/lsb-release (Ubuntu/Debian)
-		if data, err := os.ReadFile("/etc/lsb-release"); err == nil {
-			lines := strings.Split(string(data), "\n")
-			var dist, release string
-			for _, line := range lines {
-				line = strings.TrimSpace(line)
-				if strings.HasPrefix(line, "DISTRIB_ID=") {
-					dist = strings.TrimPrefix(line, "DISTRIB_ID=")
-				} else if strings.HasPrefix(line, "DISTRIB_RELEASE=") {
-					release = strings.TrimPrefix(line, "DISTRIB_RELEASE=")
-				}
-			}
-			if dist != "" && release != "" {
-				return dist + " " + release
-			}
-			if dist != "" {
-				return dist
-			}
-		}
-
-		// Intentar /etc/redhat-release (RedHat/CentOS/Fedora)
-		if data, err := os.ReadFile("/etc/redhat-release"); err == nil {
-			return strings.TrimSpace(string(data))
-		}
-
-		// Intentar /etc/debian_version (Debian)
-		if data, err := os.ReadFile("/etc/debian_version"); err == nil {
-			return "Debian " + strings.TrimSpace(string(data))
-		}
-
-		// Intentar /etc/arch-release (Arch Linux)
-		if _, err := os.Stat("/etc/arch-release"); err == nil {
-			return "Arch Linux"
-		}
-
-		// Fallback
-		return "Linux"
+		return linuxOSName()
 	case "windows":
 		return "Windows"
 	case "darwin":
-		// Intentar obtener la versión de macOS
-		if data, err := os.ReadFile("/System/Library/CoreServices/SystemVersion.plist"); err == nil {
-			content := string(data)
-			// Buscar ProductVersion
-			if idx := strings.Index(content, "<key>ProductVersion</key>"); idx != -1 {
-				if idx2 := strings.Index(content[idx:], "<string>"); idx2 != -1 {
-					start := idx + idx2 + 8
-					if idx3 := strings.Index(content[start:], "</string>"); idx3 != -1 {
-						version := strings.TrimSpace(content[start : start+idx3])
-						return "macOS " + version
-					}
-				}
-			}
-		}
-		return "macOS"
+		return macOSName()
 	case "freebsd":
 		return "FreeBSD"
 	case "openbsd":
@@ -522,6 +502,115 @@ func getOSName() string {
 	default:
 		return goos
 	}
+}
+
+func linuxOSName() string {
+	// Intentar leer /etc/os-release primero (estándar systemd)
+	if name := osReleaseName(); name != "" {
+		return name
+	}
+
+	// Intentar /etc/lsb-release (Ubuntu/Debian)
+	if name := lsbReleaseName(); name != "" {
+		return name
+	}
+
+	// Intentar /etc/redhat-release (RedHat/CentOS/Fedora)
+	if data, err := os.ReadFile("/etc/redhat-release"); err == nil {
+		return strings.TrimSpace(string(data))
+	}
+
+	// Intentar /etc/debian_version (Debian)
+	if data, err := os.ReadFile("/etc/debian_version"); err == nil {
+		return "Debian " + strings.TrimSpace(string(data))
+	}
+
+	// Intentar /etc/arch-release (Arch Linux)
+	if _, err := os.Stat("/etc/arch-release"); err == nil {
+		return "Arch Linux"
+	}
+
+	// Fallback
+	return "Linux"
+}
+
+// osReleaseName reads /etc/os-release, empty when it is missing or names nothing
+func osReleaseName() string {
+	data, err := os.ReadFile("/etc/os-release")
+	if err != nil {
+		return ""
+	}
+	lines := strings.Split(string(data), "\n")
+	var prettyName, name, version string
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		switch {
+		case strings.HasPrefix(line, "PRETTY_NAME="):
+			val := strings.TrimPrefix(line, "PRETTY_NAME=")
+			// Remover comillas simples o dobles
+			prettyName = strings.Trim(val, "\"'")
+		case strings.HasPrefix(line, "NAME=") && name == "":
+			val := strings.TrimPrefix(line, "NAME=")
+			// Remover comillas simples o dobles
+			name = strings.Trim(val, "\"'")
+		case strings.HasPrefix(line, "VERSION=") && version == "":
+			val := strings.TrimPrefix(line, "VERSION=")
+			// Remover comillas simples o dobles
+			version = strings.Trim(val, "\"'")
+		}
+	}
+	if prettyName != "" {
+		return prettyName
+	}
+	if name != "" && version != "" {
+		return name + " " + version
+	}
+	return name
+}
+
+// lsbReleaseName reads /etc/lsb-release, empty when it is missing or names nothing
+func lsbReleaseName() string {
+	data, err := os.ReadFile("/etc/lsb-release")
+	if err != nil {
+		return ""
+	}
+	lines := strings.Split(string(data), "\n")
+	var dist, release string
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "DISTRIB_ID=") {
+			dist = strings.TrimPrefix(line, "DISTRIB_ID=")
+		} else if strings.HasPrefix(line, "DISTRIB_RELEASE=") {
+			release = strings.TrimPrefix(line, "DISTRIB_RELEASE=")
+		}
+	}
+	if dist != "" && release != "" {
+		return dist + " " + release
+	}
+	return dist
+}
+
+func macOSName() string {
+	// Intentar obtener la versión de macOS
+	data, err := os.ReadFile("/System/Library/CoreServices/SystemVersion.plist")
+	if err != nil {
+		return "macOS"
+	}
+	content := string(data)
+	// Buscar ProductVersion
+	if idx := strings.Index(content, "<key>ProductVersion</key>"); idx != -1 {
+		if idx2 := strings.Index(content[idx:], "<string>"); idx2 != -1 {
+			start := idx + idx2 + 8
+			if idx3 := strings.Index(content[start:], "</string>"); idx3 != -1 {
+				version := strings.TrimSpace(content[start : start+idx3])
+				return "macOS " + version
+			}
+		}
+	}
+	return "macOS"
 }
 
 func SendStatsForServers() {
@@ -539,6 +628,8 @@ func SendStatsForServers() {
 				Message: stats,
 				Type:    skypanel.MessageTypeStats,
 			})
+
+			p.recordMetrics(stats, time.Now())
 
 			// Monitorear para alertas
 			go checkServerAlerts(p, stats)
@@ -615,58 +706,102 @@ func checkServerAlerts(server *Server, stats *skypanel.ServerStats) {
 	}
 
 	// Verificar cambio de estado online/offline
-	if state.wasRunning != isRunning {
-		ds := services.GetDiscordService()
-		if isRunning {
-			_ = ds.SendServerOnlineAlert(serverName, serverID)
-		} else {
-			_ = ds.SendServerOfflineAlert(serverName, serverID)
-		}
-		state.wasRunning = isRunning
-	}
+	trackPowerChange(server, state, isRunning, serverName)
 
 	// Verificar uso alto de recursos (solo si está online)
 	if isRunning && stats != nil {
-		now := time.Now()
-
-		// CPU > 80%
-		if stats.CPU > 80.0 {
-			alertKey := "cpu_high"
-			lastAlert, hasAlerted := state.lastAlert[alertKey]
-			if !hasAlerted || now.Sub(lastAlert) > 5*time.Minute {
-				ds := services.GetDiscordService()
-				_ = ds.SendResourceAlert(serverName, serverID, "CPU", stats.CPU, 80.0)
-				state.lastAlert[alertKey] = now
-			}
-		}
-
-		// RAM > 90%
-		// El campo Memory puede estar en bytes o porcentaje dependiendo del entorno
-		// Para Docker generalmente es porcentaje (0-100), para TTY puede ser bytes
-		// Si Memory > 100, probablemente está en bytes y no podemos calcular porcentaje fácilmente
-		// Solo alertar si Memory está en formato de porcentaje (0-100)
-		if stats.Memory > 90.0 && stats.Memory <= 100.0 {
-			// Es porcentaje
-			alertKey := "memory_high"
-			lastAlert, hasAlerted := state.lastAlert[alertKey]
-			if !hasAlerted || now.Sub(lastAlert) > 5*time.Minute {
-				ds := services.GetDiscordService()
-				_ = ds.SendResourceAlert(serverName, serverID, "Memoria", stats.Memory, 90.0)
-				state.lastAlert[alertKey] = now
-			}
-		}
-
-		// Limpiar alertas antiguas si el recurso ya no está alto
-		if stats.CPU <= 80.0 {
-			delete(state.lastAlert, "cpu_high")
-		}
-		if stats.Memory <= 90.0 {
-			delete(state.lastAlert, "memory_high")
-		}
+		checkResourceAlerts(server, state, stats, serverName)
 	}
 
 	// Actualizar stats anteriores
 	state.lastStats = stats
+}
+
+// trackPowerChange alerts when the server comes online and, once offlineAlertDelay passes,
+// when it went offline without a stop, clean exit or reported crash. Callers hold stateTrackingLock.
+func trackPowerChange(server *Server, state *serverState, isRunning bool, serverName string) {
+	serverID := server.ID()
+	if state.wasRunning != isRunning {
+		server.notifyPower(isRunning)
+		ds := services.GetDiscordService()
+		if isRunning {
+			_ = ds.SendServerOnlineAlert(serverName, serverID)
+		} else {
+			// stops someone asked for are not news for the admin channel and crashes are
+			// reported as they happen, so only an unexplained exit is worth an alert
+			state.offlineSince = time.Now()
+		}
+		state.wasRunning = isRunning
+	}
+	if isRunning || server.exitHandled.Load() || server.stopRequested.Load() {
+		state.offlineSince = time.Time{}
+	} else if !state.offlineSince.IsZero() && time.Since(state.offlineSince) > offlineAlertDelay {
+		_ = services.GetDiscordService().SendServerOfflineAlert(serverName, serverID)
+		state.offlineSince = time.Time{}
+	}
+}
+
+// checkResourceAlerts alerts on high CPU or memory at most every 5 minutes per resource.
+// Callers hold stateTrackingLock.
+func checkResourceAlerts(server *Server, state *serverState, stats *skypanel.ServerStats, serverName string) {
+	now := time.Now()
+
+	// CPU > 80%
+	if stats.CPU > 80.0 {
+		sendResourceAlert(server, state, now, serverName, resourceAlert{key: "cpu_high", resource: "CPU", value: stats.CPU, limit: 80.0})
+	}
+
+	// RAM > 90%
+	memory := memoryPercent(stats)
+	if memory > 90.0 {
+		sendResourceAlert(server, state, now, serverName, resourceAlert{key: "memory_high", resource: "Memoria", value: memory, limit: 90.0})
+	}
+
+	// Limpiar alertas antiguas si el recurso ya no está alto
+	if stats.CPU <= 80.0 {
+		delete(state.lastAlert, "cpu_high")
+	}
+	if memory <= 90.0 {
+		delete(state.lastAlert, "memory_high")
+	}
+}
+
+// resourceAlert is one resource over its limit: which alert it is, what is high and by how much
+type resourceAlert struct {
+	key, resource string
+	value, limit  float64
+}
+
+func sendResourceAlert(server *Server, state *serverState, now time.Time, serverName string, alert resourceAlert) {
+	lastAlert, hasAlerted := state.lastAlert[alert.key]
+	if hasAlerted && now.Sub(lastAlert) <= 5*time.Minute {
+		return
+	}
+	ds := services.GetDiscordService()
+	_ = ds.SendResourceAlert(serverName, server.ID(), alert.resource, alert.value, alert.limit)
+	server.notifyResource(alert.resource, alert.value, alert.limit)
+	state.lastAlert[alert.key] = now
+}
+
+// crashCounterResetAfter is how long a server must run before a crash counts as the
+// first of a new series
+const crashCounterResetAfter = 10 * time.Minute
+
+func (p *Server) ranLongerThan(d time.Duration) bool {
+	started := p.startedAt.Load()
+	return started > 0 && time.Since(time.Unix(0, started)) > d
+}
+
+// memoryPercent is memory use as a percentage. Docker reports bytes with a limit; other
+// environments may already report a percentage (0-100) and no limit.
+func memoryPercent(stats *skypanel.ServerStats) float64 {
+	if stats.MaxMemory > 0 {
+		return stats.Memory / stats.MaxMemory * 100
+	}
+	if stats.Memory <= 100 {
+		return stats.Memory
+	}
+	return 0
 }
 
 type FileData struct {
@@ -717,6 +852,9 @@ func (p *Server) Start() error {
 		return err
 	}
 
+	p.stopRequested.Store(false)
+	p.startedAt.Store(time.Now().UnixNano())
+	p.exitHandled.Store(false)
 	p.Log(logging.Info, "Starting server %s", p.ID())
 	p.RunningEnvironment.DisplayToConsole(true, "Starting server\n")
 
@@ -734,50 +872,9 @@ func (p *Server) Start() error {
 		return err
 	}
 
-	var command skypanel.Command
-
-	if c, ok := p.Execution.Command.(string); ok {
-		command = skypanel.Command{Command: c}
-	} else {
-		// we have a list
-		var possibleCommands []skypanel.Command
-		err = utils.UnmarshalTo(p.Execution.Command, &possibleCommands)
-		if err != nil {
-			return err
-		}
-
-		var defaultCommand skypanel.Command
-		var commandToRun skypanel.Command
-		for _, v := range possibleCommands {
-			if v.If == "" {
-				defaultCommand = v
-				break
-			}
-		}
-
-		for _, v := range possibleCommands {
-			// now... we see which command to use
-			if v.If == "" {
-				continue
-			}
-			useThis, err := p.RunCondition(v.If, nil)
-			if err != nil {
-				p.Log(logging.Error, "error starting server %s: %s", p.ID(), err)
-				p.RunningEnvironment.DisplayToConsole(true, " Failed to start server\n")
-				return err
-			}
-			if useThis {
-				commandToRun = v
-				break
-			}
-		}
-
-		command = commandToRun
-
-		// if no command, use default
-		if command.Command == "" {
-			command = defaultCommand
-		}
+	command, err := p.resolveCommand()
+	if err != nil {
+		return err
 	}
 
 	if command.StdIn.Type == "" {
@@ -801,34 +898,99 @@ func (p *Server) Start() error {
 		return err
 	}
 
+	// a world map writes its config on first start; fix the port and download consent then,
+	// whether or not someone has the map tab open
+	if p.installedWorldMap() != nil {
+		p.ensureMapConfigured()
+	}
+
 	// keepalive!
 	if p.KeepAlive.Frequency != "" && p.KeepAlive.Command != "" {
-		dur, err := time.ParseDuration(p.KeepAlive.Frequency)
-		if err != nil {
-			p.RunningEnvironment.DisplayToConsole(true, " Failed to enable keep-alive: %s", err)
-			return nil
-		}
-		if p.keepAlive == nil {
-			p.keepAlive = time.NewTicker(dur)
-		} else {
-			p.keepAlive.Reset(dur)
-		}
-
-		if p.keepAlive != nil {
-			go func() {
-				for {
-					select {
-					case <-p.keepAliveChan:
-						return
-					case <-p.keepAlive.C:
-						_ = p.RunningEnvironment.ExecuteInMainProcess(p.KeepAlive.Command)
-					}
-				}
-			}()
-		}
+		p.startKeepAlive()
 	}
 
 	return err
+}
+
+// resolveCommand picks the command to run: a plain string, or the first entry of the list
+// whose condition holds, falling back to the entry without a condition
+func (p *Server) resolveCommand() (skypanel.Command, error) {
+	if c, ok := p.Execution.Command.(string); ok {
+		return skypanel.Command{Command: c}, nil
+	}
+
+	// we have a list
+	var possibleCommands []skypanel.Command
+	err := utils.UnmarshalTo(p.Execution.Command, &possibleCommands)
+	if err != nil {
+		return skypanel.Command{}, err
+	}
+
+	var defaultCommand skypanel.Command
+	for _, v := range possibleCommands {
+		if v.If == "" {
+			defaultCommand = v
+			break
+		}
+	}
+
+	command, err := p.firstMatchingCommand(possibleCommands)
+	if err != nil {
+		return skypanel.Command{}, err
+	}
+
+	// if no command, use default
+	if command.Command == "" {
+		command = defaultCommand
+	}
+	return command, nil
+}
+
+// firstMatchingCommand returns the first conditional command whose condition holds
+func (p *Server) firstMatchingCommand(possibleCommands []skypanel.Command) (skypanel.Command, error) {
+	for _, v := range possibleCommands {
+		// now... we see which command to use
+		if v.If == "" {
+			continue
+		}
+		useThis, err := p.RunCondition(v.If, nil)
+		if err != nil {
+			p.Log(logging.Error, "error starting server %s: %s", p.ID(), err)
+			p.RunningEnvironment.DisplayToConsole(true, " Failed to start server\n")
+			return skypanel.Command{}, err
+		}
+		if useThis {
+			return v, nil
+		}
+	}
+	return skypanel.Command{}, nil
+}
+
+// startKeepAlive sends the keep-alive command on its interval until the server exits
+func (p *Server) startKeepAlive() {
+	dur, err := time.ParseDuration(p.KeepAlive.Frequency)
+	if err != nil {
+		p.RunningEnvironment.DisplayToConsole(true, " Failed to enable keep-alive: %s", err)
+		return
+	}
+	if p.keepAlive == nil {
+		p.keepAlive = time.NewTicker(dur)
+	} else {
+		p.keepAlive.Reset(dur)
+	}
+
+	if p.keepAlive != nil {
+		go func() {
+			for {
+				select {
+				case <-p.keepAliveChan:
+					return
+				case <-p.keepAlive.C:
+					_ = p.RunningEnvironment.ExecuteInMainProcess(p.KeepAlive.Command)
+				}
+			}
+		}()
+	}
 }
 
 // Stop Stops the program.
@@ -839,6 +1001,7 @@ func (p *Server) Stop() error {
 		return err
 	}
 
+	p.stopRequested.Store(true)
 	p.Log(logging.Info, "Stopping server %s", p.ID())
 	if p.Execution.StopCode != 0 {
 		err = p.RunningEnvironment.SendCode(p.Execution.StopCode)
@@ -857,6 +1020,7 @@ func (p *Server) Stop() error {
 // Kill Kills the program.
 // This will also stop the environment it is ran in.
 func (p *Server) Kill() (err error) {
+	p.stopRequested.Store(true)
 	p.Log(logging.Info, "Killing server %s", p.ID())
 	err = p.RunningEnvironment.Kill()
 	if err != nil {
@@ -901,23 +1065,23 @@ func (p *Server) Destroy() (err error) {
 	p.Log(logging.Debug, "Starting uninstall processes")
 	process, err := GenerateProcess(p.Uninstallation, p.RunningEnvironment, p.DataToMap(), p.Execution.EnvironmentVariables)
 	if err != nil {
-		p.Log(logging.Error, "Error uninstalling server: %s", err)
-		p.RunningEnvironment.DisplayToConsole(true, "Failed to uninstall server\n")
+		p.Log(logging.Error, uninstallErrorFmt, err)
+		p.RunningEnvironment.DisplayToConsole(true, uninstallFailedMsg)
 		return
 	}
 
 	err = process.Run(p)
 	if err != nil {
-		p.Log(logging.Error, "Error uninstalling server: %s", err)
-		p.RunningEnvironment.DisplayToConsole(true, "Failed to uninstall server\n")
+		p.Log(logging.Error, uninstallErrorFmt, err)
+		p.RunningEnvironment.DisplayToConsole(true, uninstallFailedMsg)
 		return
 	}
 
 	p.Log(logging.Debug, "Deleting environment")
 	err = p.RunningEnvironment.Delete()
 	if err != nil {
-		p.Log(logging.Error, "Error uninstalling server: %s", err)
-		p.RunningEnvironment.DisplayToConsole(true, "Failed to uninstall server\n")
+		p.Log(logging.Error, uninstallErrorFmt, err)
+		p.RunningEnvironment.DisplayToConsole(true, uninstallFailedMsg)
 	}
 
 	return
@@ -1086,8 +1250,37 @@ func (p *Server) afterExit(exitCode int) {
 	}
 
 	graceful := exitCode == p.Execution.ExpectedExitCode
-	if graceful {
+	// a stop or kill someone asked for is not a crash, whatever exit code it ends with
+	requested := p.stopRequested.Swap(false)
+	crashed := !graceful && !requested
+	p.exitHandled.Store(true)
+	// a server that ran fine for a while before crashing starts a fresh count, so crashes a
+	// week apart do not use up its automatic restarts
+	if !crashed || p.ranLongerThan(crashCounterResetAfter) {
 		p.CrashCounter = 0
+	}
+	autoRestart := crashed && p.Execution.AutoRestartFromCrash && p.CrashCounter < config.CrashLimit.Value()
+	if autoRestart {
+		p.CrashCounter++
+	}
+	if crashed {
+		p.RunningEnvironment.DisplayToConsole(true, "Server crashed (exit code %d)\n", exitCode)
+		report := p.recordCrash(exitCode, autoRestart)
+		p.notifyCrash(report)
+		restartText := "No"
+		if autoRestart {
+			restartText = "Sí"
+		}
+		name, id := p.displayName(), p.ID()
+		go func() {
+			_ = services.GetDiscordService().SendAlert("💥 Caída del servidor",
+				fmt.Sprintf("**%s** se ha caído (código de salida %d).", name, exitCode),
+				[]services.DiscordEmbedField{
+					{Name: "Servidor", Value: name, Inline: true},
+					{Name: "ID", Value: id, Inline: true},
+					{Name: "Reinicio automático", Value: restartText, Inline: true},
+				})
+		}()
 	}
 
 	mapping := p.DataToMap()
@@ -1110,10 +1303,7 @@ func (p *Server) afterExit(exitCode int) {
 		return
 	}
 
-	if graceful && p.Execution.AutoRestartFromGraceful {
-		StartViaService(p)
-	} else if !graceful && p.Execution.AutoRestartFromCrash && p.CrashCounter < config.CrashLimit.Value() {
-		p.CrashCounter++
+	if (graceful && !requested && p.Execution.AutoRestartFromGraceful) || autoRestart {
 		StartViaService(p)
 	}
 }
@@ -1125,69 +1315,84 @@ func (p *Server) GetItem(name string) (*FileData, error) {
 	}
 
 	if info.IsDir() {
-		fileList, _ := p.GetFileServer().ReadDir(name)
-		var fileNames []skypanel.FileDesc
-		offset := 0
-		if name == "" || name == "." || name == "/" {
-			fileNames = make([]skypanel.FileDesc, len(fileList))
-		} else {
-			fileNames = make([]skypanel.FileDesc, len(fileList)+1)
-			fileNames[0] = skypanel.FileDesc{
-				Name: "..",
-				File: false,
-			}
-			offset = 1
-		}
-
-		// validate any symlinks are valid
-
-		for i, file := range fileList {
-			newFile := skypanel.FileDesc{
-				Name: file.Name(),
-				File: !file.IsDir(),
-			}
-
-			if !file.IsDir() && file.Type()&os.ModeSymlink == 0 {
-				infoData, err := p.GetFileServer().Stat(filepath.Join(name, file.Name()))
-				if err != nil {
-					continue
-				}
-				newFile.Size = infoData.Size()
-				newFile.Modified = infoData.ModTime().Unix()
-				newFile.Extension = filepath.Ext(file.Name())
-			}
-
-			fileNames[i+offset] = newFile
-		}
-		// Ordenar (carpetas primero, luego archivos, y alfabéticamente)
-		sort.Slice(fileNames, func(i, j int) bool {
-			// ".." siempre de primero
-			if fileNames[i].Name == ".." {
-				return true
-			}
-			if fileNames[j].Name == ".." {
-				return false
-			}
-
-			// Si uno es carpeta y el otro archivo, la carpeta va primero
-			if !fileNames[i].File && fileNames[j].File {
-				return true
-			}
-			if fileNames[i].File && !fileNames[j].File {
-				return false
-			}
-
-			// Si ambos son del mismo tipo, orden alfabético sin distinguir mayúsculas
-			return strings.ToLower(fileNames[i].Name) < strings.ToLower(fileNames[j].Name)
-		})
-
-		return &FileData{FileList: fileNames}, nil
+		return &FileData{FileList: p.listDirectory(name)}, nil
 	}
 	file, err := p.GetFileServer().Open(name)
 	if err != nil {
 		return nil, err
 	}
 	return &FileData{Contents: file, ContentLength: info.Size(), Name: info.Name()}, nil
+}
+
+// listDirectory lists a folder for the file manager: ".." first (outside the root), then
+// folders, then files, alphabetically
+func (p *Server) listDirectory(name string) []skypanel.FileDesc {
+	fileList, _ := p.GetFileServer().ReadDir(name)
+	var fileNames []skypanel.FileDesc
+	offset := 0
+	if name == "" || name == "." || name == "/" {
+		fileNames = make([]skypanel.FileDesc, len(fileList))
+	} else {
+		fileNames = make([]skypanel.FileDesc, len(fileList)+1)
+		fileNames[0] = skypanel.FileDesc{
+			Name: "..",
+			File: false,
+		}
+		offset = 1
+	}
+
+	// validate any symlinks are valid
+
+	for i, file := range fileList {
+		newFile, ok := p.describeFile(name, file)
+		if !ok {
+			continue
+		}
+		fileNames[i+offset] = newFile
+	}
+	// Ordenar (carpetas primero, luego archivos, y alfabéticamente)
+	sort.Slice(fileNames, func(i, j int) bool {
+		return fileDescLess(fileNames[i], fileNames[j])
+	})
+	return fileNames
+}
+
+// describeFile builds the listing entry for one file; ok is false when a regular file
+// cannot be stat'ed, which leaves its slot empty as before
+func (p *Server) describeFile(dir string, file fs.DirEntry) (skypanel.FileDesc, bool) {
+	newFile := skypanel.FileDesc{
+		Name: file.Name(),
+		File: !file.IsDir(),
+	}
+
+	if !file.IsDir() && file.Type()&os.ModeSymlink == 0 {
+		infoData, err := p.GetFileServer().Stat(filepath.Join(dir, file.Name()))
+		if err != nil {
+			return newFile, false
+		}
+		newFile.Size = infoData.Size()
+		newFile.Modified = infoData.ModTime().Unix()
+		newFile.Extension = filepath.Ext(file.Name())
+	}
+	return newFile, true
+}
+
+func fileDescLess(a, b skypanel.FileDesc) bool {
+	// ".." siempre de primero
+	if a.Name == ".." {
+		return true
+	}
+	if b.Name == ".." {
+		return false
+	}
+
+	// Si uno es carpeta y el otro archivo, la carpeta va primero
+	if a.File != b.File {
+		return !a.File
+	}
+
+	// Si ambos son del mismo tipo, orden alfabético sin distinguir mayúsculas
+	return strings.ToLower(a.Name) < strings.ToLower(b.Name)
 }
 
 func (p *Server) ArchiveItems(sourceFiles []string, destination string) error {
@@ -1208,65 +1413,203 @@ const (
 	restoreRunning
 )
 
-func (p *Server) StartBackup() (string, error) {
-	if !p.backupState.CompareAndSwap(backupIdle, backupRunning) {
-		return "", skypanel.ErrBackupInProgress
-	}
+// AutoBackupPrefix starts the file name of every backup made by a scheduled task, so
+// retention only ever removes those and never a backup somebody made by hand
+const AutoBackupPrefix = "auto-"
 
-	c := make(chan bool)
-	serverName := p.Server.Display
-	if serverName == "" {
-		serverName = p.ID()
+// StartBackup begins a backup and returns its file name straight away; the archive is
+// written in the background and the console reports when it is done
+func (p *Server) StartBackup() (string, error) {
+	fileName, file, err := p.beginBackup("")
+	if err != nil {
+		return "", err
 	}
-	go func(d chan bool) {
-		r := <-d
-		p.backupState.Store(backupIdle)
-		if r {
-			p.RunningEnvironment.DisplayToConsole(true, "Backup complete")
-			// Enviar alerta de backup exitoso
-			ds := services.GetDiscordService()
-			_ = ds.SendBackupAlert(serverName, p.ID(), "Completado exitosamente", true)
-		} else {
-			p.RunningEnvironment.DisplayToConsole(true, "Backup failed")
-			// Enviar alerta de backup fallido
-			ds := services.GetDiscordService()
-			_ = ds.SendBackupAlert(serverName, p.ID(), "Falló durante la creación", false)
-		}
-	}(c)
+	go p.finishBackup(file)
+	return fileName, nil
+}
+
+// RunAutoBackup backs the server up for a scheduled task. It waits for the archive, so the
+// task's next step sees it finished, then keeps only the newest keep automatic backups.
+func (p *Server) RunAutoBackup(keep int) (string, error) {
+	fileName, file, err := p.beginBackup(AutoBackupPrefix)
+	if err != nil {
+		return "", err
+	}
+	if !p.finishBackup(file) {
+		return "", errors.New("backup failed")
+	}
+	if err := p.pruneAutoBackups(keep); err != nil {
+		p.Log(logging.Error, "Error removing old automatic backups: %s", err)
+	}
+	return fileName, nil
+}
+
+func (p *Server) beginBackup(prefix string) (fileName, file string, err error) {
+	if !p.backupState.CompareAndSwap(backupIdle, backupRunning) {
+		return "", "", skypanel.ErrBackupInProgress
+	}
 
 	p.RunningEnvironment.DisplayToConsole(true, "Backing up server")
 	backupDirectory := p.GetBackupDirectory()
-
-	_, err := os.Stat(backupDirectory)
-	if err != nil && os.IsNotExist(err) {
-		err = os.MkdirAll(backupDirectory, 0755)
-		if err != nil && !os.IsExist(err) {
-			c <- false
-			return "", err
-		}
+	if err = os.MkdirAll(backupDirectory, 0755); err != nil {
+		p.endBackup(false)
+		return "", "", err
 	}
 
 	backupID, err := uuid.NewV4()
 	if err != nil {
-		c <- false
-		return "", err
+		p.endBackup(false)
+		return "", "", err
 	}
-	backupFileName := backupID.String() + ".tar.gz"
-	backupFile := path.Join(backupDirectory, backupFileName)
+	fileName = prefix + backupID.String() + ".tar.gz"
+	return fileName, path.Join(backupDirectory, fileName), nil
+}
 
-	go func(file string, d chan bool) {
-		success := true
-		sourceFiles := []string{p.GetFileServer().Prefix()}
+// finishBackup writes the archive, copies it off-site when that is on, and reports the result
+func (p *Server) finishBackup(file string) bool {
+	err := p.writeArchive(file)
+	if err != nil {
+		p.Log(logging.Error, "Error creating backup file: %s", err)
+		p.RunningEnvironment.DisplayToConsole(true, "Failed to create backup file")
+	} else {
+		p.uploadOffsite(file)
+	}
+	p.endBackup(err == nil)
+	return err == nil
+}
 
-		if err := files.Compress(nil, file, sourceFiles); err != nil {
-			p.Log(logging.Error, "Error creating backup file: %s", err)
-			p.RunningEnvironment.DisplayToConsole(true, "Failed to create backup file")
-			success = false
+// writeArchive compresses the server's files under a hidden name and moves the archive into
+// place once it is complete, so a half-written backup is never listed, downloaded or
+// restored. The hidden name keeps the .tar.gz ending because the format is picked from it.
+func (p *Server) writeArchive(file string) error {
+	partial := filepath.Join(filepath.Dir(file), ".partial-"+filepath.Base(file))
+	err := files.Compress(nil, partial, []string{p.GetFileServer().Prefix()})
+	if err == nil {
+		err = os.Rename(partial, file)
+	}
+	if err != nil {
+		_ = os.Remove(partial)
+	}
+	return err
+}
+
+// offsiteTimeout bounds one transfer to or from the bucket
+const offsiteTimeout = 2 * time.Hour
+
+// uploadOffsite copies a finished backup to the bucket when off-site backups are on. The
+// local copy stays: the bucket is for when the node's disk is gone. A failed upload is
+// reported but does not fail the backup, which exists locally.
+func (p *Server) uploadOffsite(file string) {
+	cfg, ok := offsite.FromSettings()
+	if !ok {
+		return
+	}
+	p.RunningEnvironment.DisplayToConsole(true, "Uploading backup to off-site storage")
+	ctx, cancel := context.WithTimeout(context.Background(), offsiteTimeout)
+	defer cancel()
+	if err := offsite.Upload(ctx, cfg, p.ID(), filepath.Base(file), file); err != nil {
+		p.Log(logging.Error, "Error uploading backup off-site: %s", err)
+		p.RunningEnvironment.DisplayToConsole(true, "Off-site upload failed: %s", err)
+		return
+	}
+	p.RunningEnvironment.DisplayToConsole(true, "Backup uploaded to off-site storage")
+}
+
+func (p *Server) endBackup(success bool) {
+	p.backupState.Store(backupIdle)
+
+	serverName := p.Server.Display
+	if serverName == "" {
+		serverName = p.ID()
+	}
+	p.notifyBackup(success)
+	ds := services.GetDiscordService()
+	if success {
+		p.RunningEnvironment.DisplayToConsole(true, "Backup complete")
+		_ = ds.SendBackupAlert(serverName, p.ID(), "Completado exitosamente", true)
+	} else {
+		p.RunningEnvironment.DisplayToConsole(true, "Backup failed")
+		_ = ds.SendBackupAlert(serverName, p.ID(), "Falló durante la creación", false)
+	}
+}
+
+// ListBackups returns the finished backups in the server's backup folder, newest first
+func (p *Server) ListBackups() ([]skypanel.BackupFile, error) {
+	entries, err := os.ReadDir(p.GetBackupDirectory())
+	if os.IsNotExist(err) {
+		return []skypanel.BackupFile{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]skypanel.BackupFile, 0, len(entries))
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || strings.HasPrefix(name, ".") || !strings.HasSuffix(name, ".tar.gz") {
+			continue
 		}
-		d <- success
-	}(backupFile, c)
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		result = append(result, skypanel.BackupFile{FileName: name, Size: info.Size(), ModTime: info.ModTime(), Location: "local"})
+	}
+	result = p.mergeOffsite(result)
+	sort.Slice(result, func(i, j int) bool { return result[i].ModTime.After(result[j].ModTime) })
+	return result, nil
+}
 
-	return backupFileName, nil
+// mergeOffsite adds the backups only the bucket still has and marks the ones in both places.
+// If the bucket cannot be listed the local list is returned as it is.
+func (p *Server) mergeOffsite(local []skypanel.BackupFile) []skypanel.BackupFile {
+	cfg, ok := offsite.FromSettings()
+	if !ok {
+		return local
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	remote, err := offsite.List(ctx, cfg, p.ID())
+	if err != nil {
+		p.Log(logging.Error, "Error listing off-site backups: %s", err)
+		return local
+	}
+	index := make(map[string]int, len(local))
+	for i, b := range local {
+		index[b.FileName] = i
+	}
+	for _, object := range remote {
+		if i, ok := index[object.FileName]; ok {
+			local[i].Location = "both"
+			continue
+		}
+		local = append(local, skypanel.BackupFile{FileName: object.FileName, Size: object.Size, ModTime: object.ModTime, Location: "offsite"})
+	}
+	return local
+}
+
+// pruneAutoBackups deletes the oldest automatic backups beyond the newest keep
+func (p *Server) pruneAutoBackups(keep int) error {
+	if keep < 1 {
+		return nil
+	}
+	backups, err := p.ListBackups()
+	if err != nil {
+		return err
+	}
+	kept := 0
+	for _, b := range backups {
+		if !strings.HasPrefix(b.FileName, AutoBackupPrefix) {
+			continue
+		}
+		kept++
+		if kept > keep {
+			if err := p.DeleteBackup(b.FileName); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (p *Server) DeleteBackup(fileName string) error {
@@ -1285,7 +1628,37 @@ func (p *Server) DeleteBackup(fileName string) error {
 		return err
 	}
 
+	if cfg, ok := offsite.FromSettings(); ok {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		if err := offsite.Delete(ctx, cfg, p.ID(), fileName); err != nil {
+			p.Log(logging.Error, "Error deleting off-site backup %s: %s", fileName, err)
+		}
+	}
+
 	return nil
+}
+
+// locateBackup finds the backup to restore and whether it must first be fetched from off-site
+// storage. A missing backup must stop the restore: it deletes every server file before
+// extracting, so going on would leave the server empty
+func (p *Server) locateBackup(fileName string) (backupFile string, fetchOffsite bool, err error) {
+	backupFile = filepath.Join(p.GetBackupDirectory(), path.Base(fileName))
+	if _, err = os.Stat(backupFile); err != nil {
+		if !os.IsNotExist(err) {
+			return "", false, err
+		}
+		// the local copy is gone (a new disk, say): the bucket may still have it
+		cfg, ok := offsite.FromSettings()
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		exists := ok && offsite.Exists(ctx, cfg, p.ID(), fileName)
+		cancel()
+		if !exists {
+			return "", false, skypanel.ErrFileNotFound
+		}
+		return backupFile, true, nil
+	}
+	return backupFile, false, nil
 }
 
 func (p *Server) StartRestore(fileName string) error {
@@ -1297,13 +1670,8 @@ func (p *Server) StartRestore(fileName string) error {
 		return err
 	}
 
-	// a missing backup must stop here: the restore deletes every server file before
-	// extracting, so going on would leave the server empty
-	backupFile := filepath.Join(p.GetBackupDirectory(), path.Base(fileName))
-	if _, err := os.Stat(backupFile); err != nil {
-		if os.IsNotExist(err) {
-			return skypanel.ErrFileNotFound
-		}
+	backupFile, fetchOffsite, err := p.locateBackup(fileName)
+	if err != nil {
 		return err
 	}
 
@@ -1330,6 +1698,23 @@ func (p *Server) StartRestore(fileName string) error {
 			d <- success
 		}()
 
+		if fetchOffsite {
+			// fetched before anything is touched, so a failed download leaves the server as it was
+			p.RunningEnvironment.DisplayToConsole(true, "Downloading backup from off-site storage")
+			cfg, _ := offsite.FromSettings()
+			ctx, cancel := context.WithTimeout(context.Background(), offsiteTimeout)
+			err := os.MkdirAll(filepath.Dir(source), 0755)
+			if err == nil {
+				err = offsite.Download(ctx, cfg, p.ID(), filepath.Base(source), source)
+			}
+			cancel()
+			if err != nil {
+				p.Log(logging.Error, "Error downloading off-site backup: %s", err)
+				p.RunningEnvironment.DisplayToConsole(true, "Off-site download failed: %s", err)
+				return
+			}
+		}
+
 		archive, err := os.Open(source)
 		if err != nil {
 			p.Log(logging.Error, "Error opening backup: %s", err)
@@ -1342,6 +1727,12 @@ func (p *Server) StartRestore(fileName string) error {
 		if _, err = files.DetermineIfSingleRoot(context.Background(), source, archive); err != nil {
 			p.Log(logging.Error, "Error reading backup: %s", err)
 			p.RunningEnvironment.DisplayToConsole(true, "Backup file cannot be read: %s", err)
+			return
+		}
+
+		// keep the files about to be replaced, so the restore itself can be undone; without
+		// that safety net the restore does not go ahead
+		if err = p.writeRestorePoint(RestoreReasonRestore); err != nil {
 			return
 		}
 		if _, err = archive.Seek(0, io.SeekStart); err != nil {
@@ -1409,6 +1800,15 @@ func (p *Server) GetBackupFile(fileName string) (*FileData, error) {
 	backupFile := filepath.Join(p.GetBackupDirectory(), path.Base(fileName))
 
 	file, err := os.Open(backupFile)
+	if os.IsNotExist(err) {
+		if cfg, ok := offsite.FromSettings(); ok {
+			// streamed straight from the bucket; the caller closes it
+			reader, size, remoteErr := offsite.Open(context.Background(), cfg, p.ID(), fileName)
+			if remoteErr == nil {
+				return &FileData{Contents: reader, ContentLength: size, Name: path.Base(fileName)}, nil
+			}
+		}
+	}
 	if err != nil {
 		return nil, err
 	}

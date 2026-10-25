@@ -147,8 +147,8 @@ func (d *Docker) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypa
 	}
 
 	ctx := context.Background()
-	// TODO: This logic may not work anymore, it's complicated to use an existing container with install/uninstall
-	exists, err := doesContainerExist(ctx, dockerClient, environment.ServerID)
+	// a leftover container is never reused; wait for the previous run's to be removed
+	exists, err := waitForContainerRemoval(ctx, dockerClient, environment.ServerID)
 	if err != nil {
 		return err
 	}
@@ -258,16 +258,7 @@ func (d *Docker) GetStatsImpl(environment *skypanel.Environment) (*skypanel.Serv
 	}
 
 	if !running {
-		stats := &skypanel.ServerStats{
-			CPU:    0,
-			Memory: 0,
-		}
-
-		if environment.Server.Stats.Type == "jcmd" {
-			stats.Jvm = &utils.JvmStats{}
-		}
-
-		return stats, nil
+		return stoppedStats(environment), nil
 	}
 
 	d.statLocker.Lock()
@@ -303,9 +294,51 @@ func (d *Docker) GetStatsImpl(environment *skypanel.Environment) (*skypanel.Serv
 		return nil, err
 	}
 
-	// for java, we can get some extra data from the jcmd command
-	// as such, we'll see if we can
+	rxRate, txRate := d.networkRates(data)
+	d.refreshDirSize(environment)
 
+	stats := &skypanel.ServerStats{
+		Memory:     float64(data.MemoryStats.Usage),
+		MaxMemory:  float64(data.MemoryStats.Limit),
+		CPU:        calculateCPUPercent(data),
+		Disk:       float64(d.dirSize),
+		MaxStorage: maxStorageBytes(environment),
+		NetworkRx:  rxRate,
+		NetworkTx:  txRate,
+		Running:    true,
+	}
+
+	// for java, we can get some extra data from the jcmd command
+	if !d.disableSpecialStats && environment.Server.Stats.Type == "jcmd" {
+		stats.Jvm = jcmdStats(dockerClient, environment)
+		if stats.Jvm == nil {
+			stats.Jvm = &utils.JvmStats{}
+		}
+	}
+
+	d.lastStats = stats
+	d.lastStatTime = time.Now()
+
+	return stats, nil
+}
+
+// stoppedStats is what a server that is not running reports.
+func stoppedStats(environment *skypanel.Environment) *skypanel.ServerStats {
+	stats := &skypanel.ServerStats{
+		CPU:    0,
+		Memory: 0,
+	}
+
+	if environment.Server.Stats.Type == "jcmd" {
+		stats.Jvm = &utils.JvmStats{}
+	}
+
+	return stats
+}
+
+// networkRates returns the rx/tx rate in KiB/s since the previous sample and stores
+// this sample for the next call. Callers must hold statLocker.
+func (d *Docker) networkRates(data *container.StatsResponse) (float64, float64) {
 	var totalRx, totalTx uint64
 	for _, netStats := range data.Networks {
 		totalRx += netStats.RxBytes
@@ -324,70 +357,61 @@ func (d *Docker) GetStatsImpl(environment *skypanel.Environment) (*skypanel.Serv
 	d.lastNetworkRx = totalRx
 	d.lastNetworkTx = totalTx
 	d.lastNetTime = now
+	return rxRate, txRate
+}
 
+// refreshDirSize walks the server folder at most every 30 seconds, it is slow on big servers.
+// Callers must hold statLocker.
+func (d *Docker) refreshDirSize(environment *skypanel.Environment) {
 	if !d.disableSpecialStats && (d.dirSizeTime.IsZero() || time.Since(d.dirSizeTime) > 30*time.Second) {
 		d.dirSize = getDirSize(environment.GetRootDirectory())
 		d.dirSizeTime = time.Now()
 	}
+}
 
-	var maxStorage float64
+// maxStorageBytes converts the server's "disk" variable (MB) to bytes, 0 when unset.
+func maxStorageBytes(environment *skypanel.Environment) float64 {
 	if diskVar, ok := environment.Server.Variables["disk"]; ok {
 		if limit, err := cast.ToInt64E(diskVar.Value); err == nil && limit > 0 {
-			maxStorage = float64(limit) * 1024 * 1024
+			return float64(limit) * 1024 * 1024
 		}
 	}
+	return 0
+}
 
-	stats := &skypanel.ServerStats{
-		Memory:     float64(data.MemoryStats.Usage),
-		MaxMemory:  float64(data.MemoryStats.Limit),
-		CPU:        calculateCPUPercent(data),
-		Disk:       float64(d.dirSize),
-		MaxStorage: maxStorage,
-		NetworkRx:  rxRate,
-		NetworkTx:  txRate,
-		Running:    true,
+// jcmdStats runs jcmd inside the container to read the JVM heap, nil when it cannot.
+func jcmdStats(dockerClient *client.Client, environment *skypanel.Environment) *utils.JvmStats {
+	cmd, _ := environment.Server.Stats.Metadata["cmd"].(string)
+	if cmd == "" {
+		cmd = "jcmd"
 	}
 
-	if !d.disableSpecialStats && environment.Server.Stats.Type == "jcmd" {
-		cmd, _ := environment.Server.Stats.Metadata["cmd"].(string)
-		if cmd == "" {
-			cmd = "jcmd"
-		}
-
-		r, e := dockerClient.ExecCreate(context.Background(), environment.ServerID, client.ExecCreateOptions{
-			AttachStderr: true,
-			AttachStdout: true,
-			Cmd:          []string{cmd, "1", "GC.heap_info"},
-		})
-
-		if e == nil {
-			rw, e := dockerClient.ExecAttach(context.Background(), r.ID, client.ExecAttachOptions{
-				TTY: false,
-			})
-			if e != nil {
-				logging.Error.Printf("Could not exec JCMD: %s", e.Error())
-			} else {
-				defer func(z client.HijackedResponse) {
-					z.Close()
-				}(rw.HijackedResponse)
-
-				jcmdData, err := io.ReadAll(rw.Reader)
-				if err != nil {
-					logging.Error.Printf("Could not get result of JCMD: %s", err.Error())
-				}
-
-				stats.Jvm = utils.ParseJCMDResponse(jcmdData)
-			}
-		}
-		if stats.Jvm == nil {
-			stats.Jvm = &utils.JvmStats{}
-		}
+	r, e := dockerClient.ExecCreate(context.Background(), environment.ServerID, client.ExecCreateOptions{
+		AttachStderr: true,
+		AttachStdout: true,
+		Cmd:          []string{cmd, "1", "GC.heap_info"},
+	})
+	if e != nil {
+		return nil
 	}
 
-	d.lastStats = stats
-	d.lastStatTime = time.Now()
+	rw, e := dockerClient.ExecAttach(context.Background(), r.ID, client.ExecAttachOptions{
+		TTY: false,
+	})
+	if e != nil {
+		logging.Error.Printf("Could not exec JCMD: %s", e.Error())
+		return nil
+	}
+	defer func(z client.HijackedResponse) {
+		z.Close()
+	}(rw.HijackedResponse)
 
-	return stats, nil
+	jcmdData, err := io.ReadAll(rw.Reader)
+	if err != nil {
+		logging.Error.Printf("Could not get result of JCMD: %s", err.Error())
+	}
+
+	return utils.ParseJCMDResponse(jcmdData)
 }
 
 func (d *Docker) getClient() (*client.Client, error) {
@@ -413,15 +437,7 @@ func CheckBindingsConflict(portSpecs []string, variables map[string]interface{},
 	if err != nil {
 		// Without docker access we can't list containers, so probe the host for
 		// any port that is already bound by a non-Docker process.
-		for host := range hostPorts {
-			if host == 0 {
-				continue
-			}
-			if !hostPortFree(host) {
-				return portConflictError(host)
-			}
-		}
-		return nil
+		return firstBusyHostPort(hostPorts, func(host uint16) bool { return host == 0 })
 	}
 
 	opts := client.ContainerListOptions{
@@ -436,40 +452,58 @@ func CheckBindingsConflict(portSpecs []string, variables map[string]interface{},
 		return nil
 	}
 
-	excludedPorts := make(map[uint16]bool)
-	for _, cont := range existingContainers.Items {
-		names := cont.Names
-		if slices.Contains(names, "/"+excludedID) {
-			for _, p := range cont.Ports {
-				if p.PublicPort != 0 {
-					excludedPorts[p.PublicPort] = true
-				}
-			}
-			continue
-		}
-		for _, p := range cont.Ports {
-			host := p.PublicPort
-			if host == 0 {
-				continue
-			}
-			if _, conflict := hostPorts[host]; conflict {
-				return portConflictError(host)
-			}
-		}
+	excludedPorts, err := containerPortConflicts(existingContainers.Items, hostPorts, excludedID)
+	if err != nil {
+		return err
 	}
 
 	// Also detect host ports held by non-Docker processes (e.g. another daemon
 	// or a random service), which never show up in the container list. Ports
 	// already bound by the excluded (restarting) server must be skipped.
+	return firstBusyHostPort(hostPorts, func(host uint16) bool { return excludedPorts[host] })
+}
+
+// containerPortConflicts fails when a running container other than excludedID publishes
+// one of hostPorts, and returns the ports the excluded container itself publishes.
+func containerPortConflicts(containers []container.Summary, hostPorts map[uint16]bool, excludedID string) (map[uint16]bool, error) {
+	excludedPorts := make(map[uint16]bool)
+	for _, cont := range containers {
+		if slices.Contains(cont.Names, "/"+excludedID) {
+			for _, host := range publishedPorts(cont) {
+				excludedPorts[host] = true
+			}
+			continue
+		}
+		for _, host := range publishedPorts(cont) {
+			if _, conflict := hostPorts[host]; conflict {
+				return nil, portConflictError(host)
+			}
+		}
+	}
+	return excludedPorts, nil
+}
+
+// publishedPorts lists the host ports a container publishes
+func publishedPorts(cont container.Summary) []uint16 {
+	hosts := make([]uint16, 0, len(cont.Ports))
+	for _, p := range cont.Ports {
+		if p.PublicPort != 0 {
+			hosts = append(hosts, p.PublicPort)
+		}
+	}
+	return hosts
+}
+
+// firstBusyHostPort probes every host port not skipped and reports the first one in use.
+func firstBusyHostPort(hostPorts map[uint16]bool, skip func(uint16) bool) error {
 	for host := range hostPorts {
-		if excludedPorts[host] {
+		if skip(host) {
 			continue
 		}
 		if !hostPortFree(host) {
 			return portConflictError(host)
 		}
 	}
-
 	return nil
 }
 
@@ -513,6 +547,22 @@ func parseHostPorts(portSpecs []string, variables map[string]interface{}) (map[u
 	return hostPorts, nil
 }
 
+// containerRemovalWait is how long a start waits for the previous run's container to go
+// away. Containers are created with AutoRemove and Docker can still be removing one when
+// the panel hears the game exited, so restarts failed with "docker container already exists".
+const containerRemovalWait = 15 * time.Second
+
+func waitForContainerRemoval(ctx context.Context, dockerClient *client.Client, id string) (bool, error) {
+	deadline := time.Now().Add(containerRemovalWait)
+	for {
+		exists, err := doesContainerExist(ctx, dockerClient, id)
+		if err != nil || !exists || time.Now().After(deadline) {
+			return exists, err
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+}
+
 func doesContainerExist(ctx context.Context, dockerClient *client.Client, id string) (bool, error) {
 	opts := client.ContainerListOptions{
 		All:     true,
@@ -541,34 +591,14 @@ func (d *Docker) PullImage(ctx context.Context, environment *skypanel.Environmen
 	}
 
 	if !force {
-		exists := false
-
 		parts := strings.SplitN(imageName, ":", 2)
 		if len(parts) != 2 {
 			imageName += ":latest"
 		}
 
-		opts := client.ImageListOptions{
-			All:     true,
-			Filters: make(client.Filters),
-		}
-		opts.Filters.Add("reference", imageName)
-		listResult, err := d.cli.ImageList(ctx, opts)
-
+		exists, err := d.imageExists(ctx, imageName)
 		if err != nil {
 			return err
-		}
-
-		for _, v := range listResult.Items {
-			for _, z := range v.RepoTags {
-				if z == imageName {
-					exists = true
-					break
-				}
-			}
-			if exists {
-				break
-			}
 		}
 
 		environment.Log(logging.Debug, "Does image %v exist? %v", imageName, exists)
@@ -606,6 +636,26 @@ func (d *Docker) PullImage(ctx context.Context, environment *skypanel.Environmen
 	return err
 }
 
+// imageExists reports whether an image tagged exactly imageName is already local.
+func (d *Docker) imageExists(ctx context.Context, imageName string) (bool, error) {
+	opts := client.ImageListOptions{
+		All:     true,
+		Filters: make(client.Filters),
+	}
+	opts.Filters.Add("reference", imageName)
+	listResult, err := d.cli.ImageList(ctx, opts)
+	if err != nil {
+		return false, err
+	}
+
+	for _, v := range listResult.Items {
+		if slices.Contains(v.RepoTags, imageName) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func (d *Docker) createContainer(ctx context.Context, environment *skypanel.Environment, data skypanel.ExecutionData) error {
 	environment.Log(logging.Debug, "Creating container")
 	containerRoot := d.ContainerRoot
@@ -627,13 +677,7 @@ func (d *Docker) createContainer(ctx context.Context, environment *skypanel.Envi
 		return err
 	}
 
-	cmd, args := utils.SplitArguments(data.Command)
-
-	var cmdSlice []string
-	if data.Command != "" {
-		cmdSlice = append(cmdSlice, cmd)
-	}
-	cmdSlice = append(cmdSlice, args...)
+	cmdSlice := commandSlice(data.Command)
 
 	environment.Log(logging.Debug, "Container command: %s\n", cmdSlice)
 
@@ -667,29 +711,7 @@ func (d *Docker) createContainer(ctx context.Context, environment *skypanel.Envi
 	}
 
 	// append anything the container config added
-	var envVars = make(map[string]string)
-
-	for _, v := range containerConfig.Env {
-		key, value, valid := strings.Cut(v, "=")
-		if !valid {
-			continue
-		}
-		if strings.HasPrefix(key, "SKYPANEL_") {
-			continue
-		}
-		envVars[key] = value
-	}
-	envVars["HOME"] = containerRoot
-	envVars["TERM"] = "xterm-256color"
-
-	for k, v := range data.Environment {
-		envVars[k] = v
-	}
-
-	containerConfig.Env = make([]string, 0)
-	for k, v := range envVars {
-		containerConfig.Env = append(containerConfig.Env, fmt.Sprintf("%s=%s", k, utils.ReplaceTokens(v, data.Variables)))
-	}
+	containerConfig.Env = containerEnv(containerConfig.Env, containerRoot, data)
 
 	if len(containerConfig.Entrypoint) == 0 && len(cmdSlice) > 0 {
 		containerConfig.Entrypoint = cmdSlice
@@ -699,40 +721,9 @@ func (d *Docker) createContainer(ctx context.Context, environment *skypanel.Envi
 		containerConfig.User = fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid())
 	}
 
-	var dir string
-	if containerMountSource != "" {
-		dir = filepath.Join(containerMountSource, "servers", environment.ServerID)
-	} else {
-		dir = environment.GetRootDirectory()
-	}
-
-	// convert root dir to a full path, so we can bind it
-	if !filepath.IsAbs(dir) {
-		dir, err = filepath.Abs(dir)
-		if err != nil {
-			return err
-		}
-	}
-
-	bindDirs := []string{convertToBind(dir) + ":" + containerRoot}
-
-	binaryFolder := config.BinariesFolder.Value()
-	if containerMountSource != "" {
-		binaryFolder = filepath.Join(containerMountSource, "binaries")
-	} else if !filepath.IsAbs(binaryFolder) {
-		var ef error
-		binaryFolder, ef = filepath.Abs(binaryFolder)
-		if ef != nil {
-			logging.Error.Printf("Failed to resolve binary folder to absolute path: %s", ef)
-			binaryFolder = ""
-		}
-	}
-	if binaryFolder != "" {
-		bindDirs = append(bindDirs, convertToBind(binaryFolder)+":"+"/var/lib/SkyPanel/binaries")
-	}
-
-	for k, v := range d.Binds {
-		bindDirs = append(bindDirs, convertToBind(k)+":"+v)
+	bindDirs, err := d.serverBinds(environment, containerRoot)
+	if err != nil {
+		return err
 	}
 
 	baseConfig := d.HostConfig
@@ -740,11 +731,7 @@ func (d *Docker) createContainer(ctx context.Context, environment *skypanel.Envi
 	hostConfig := &baseConfig
 	hostConfig.AutoRemove = true
 	if hostConfig.NetworkMode == "" {
-		networkName := utils.ReplaceTokens(d.Network, data.Variables)
-		if networkName == "" || networkName == "bridge" {
-			networkName = d.defaultServerNetwork(ctx)
-		}
-		hostConfig.NetworkMode = container.NetworkMode(networkName)
+		hostConfig.NetworkMode = container.NetworkMode(d.networkName(ctx, data.Variables))
 	}
 
 	hostConfig.Binds = append(hostConfig.Binds, bindDirs...)
@@ -762,17 +749,7 @@ func (d *Docker) createContainer(ctx context.Context, environment *skypanel.Envi
 	}
 
 	if data.StdInConfig.Port != "" {
-		p := network.MustParsePort(data.StdInConfig.Port + "/tcp")
-		if _, exists := hostConfig.PortBindings[p]; !exists {
-			hostIP := netip.Addr{}
-			if ip, ipErr := netip.ParseAddr("127.0.0.1"); ipErr == nil {
-				hostIP = ip
-			}
-			// we have a port defined for stdin, we need to also export it
-			hostConfig.PortBindings[p] = []network.PortBinding{{
-				HostIP: hostIP, HostPort: data.StdInConfig.Port,
-			}}
-		}
+		addStdinPortBinding(hostConfig.PortBindings, data.StdInConfig.Port)
 	}
 
 	containerConfig.ExposedPorts = exposedPorts
@@ -784,20 +761,7 @@ func (d *Docker) createContainer(ctx context.Context, environment *skypanel.Envi
 		containerConfig.ExposedPorts[k] = struct{}{}
 	}
 
-	// Apply CPU limit from variables
-	if cpuVal, ok := data.Variables["cpu"]; ok {
-		if cpu, err := cast.ToIntE(cpuVal); err == nil && cpu > 0 {
-			hostConfig.NanoCPUs = int64(cpu) * 10000000
-		}
-	}
-
-	// Apply Memory limit from variables (MB to Bytes)
-	if memVal, ok := data.Variables["memory"]; ok {
-		if mem, err := cast.ToInt64E(memVal); err == nil && mem > 0 {
-			hostConfig.Memory = mem * 1024 * 1024
-			hostConfig.MemorySwap = mem * 1024 * 1024 // Equal to Memory to disable swap
-		}
-	}
+	applyResourceLimits(hostConfig, data.Variables)
 
 	networkConfig := &network.NetworkingConfig{}
 
@@ -810,6 +774,136 @@ func (d *Docker) createContainer(ctx context.Context, environment *skypanel.Envi
 		Name:             environment.ServerID,
 	})
 	return err
+}
+
+// commandSlice splits the template command into the container entrypoint.
+func commandSlice(command string) []string {
+	cmd, args := utils.SplitArguments(command)
+
+	var cmdSlice []string
+	if command != "" {
+		cmdSlice = append(cmdSlice, cmd)
+	}
+	return append(cmdSlice, args...)
+}
+
+// containerEnv merges the image config env (minus SKYPANEL_ keys), the panel defaults
+// and the execution env, replacing tokens in the values.
+func containerEnv(configEnv []string, containerRoot string, data skypanel.ExecutionData) []string {
+	var envVars = make(map[string]string)
+
+	for _, v := range configEnv {
+		key, value, valid := strings.Cut(v, "=")
+		if !valid {
+			continue
+		}
+		if strings.HasPrefix(key, "SKYPANEL_") {
+			continue
+		}
+		envVars[key] = value
+	}
+	envVars["HOME"] = containerRoot
+	envVars["TERM"] = "xterm-256color"
+
+	for k, v := range data.Environment {
+		envVars[k] = v
+	}
+
+	env := make([]string, 0)
+	for k, v := range envVars {
+		env = append(env, fmt.Sprintf("%s=%s", k, utils.ReplaceTokens(v, data.Variables)))
+	}
+	return env
+}
+
+// serverBinds returns the volume binds: the server folder, the shared binaries folder
+// and the template's own binds.
+func (d *Docker) serverBinds(environment *skypanel.Environment, containerRoot string) ([]string, error) {
+	var dir string
+	if containerMountSource != "" {
+		dir = filepath.Join(containerMountSource, "servers", environment.ServerID)
+	} else {
+		dir = environment.GetRootDirectory()
+	}
+
+	// convert root dir to a full path, so we can bind it
+	if !filepath.IsAbs(dir) {
+		var err error
+		dir, err = filepath.Abs(dir)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	bindDirs := []string{convertToBind(dir) + ":" + containerRoot}
+
+	if binaryFolder := binariesBindSource(); binaryFolder != "" {
+		bindDirs = append(bindDirs, convertToBind(binaryFolder)+":"+"/var/lib/SkyPanel/binaries")
+	}
+
+	for k, v := range d.Binds {
+		bindDirs = append(bindDirs, convertToBind(k)+":"+v)
+	}
+	return bindDirs, nil
+}
+
+// binariesBindSource is the host path of the binaries folder, empty when it cannot be resolved.
+func binariesBindSource() string {
+	binaryFolder := config.BinariesFolder.Value()
+	if containerMountSource != "" {
+		binaryFolder = filepath.Join(containerMountSource, "binaries")
+	} else if !filepath.IsAbs(binaryFolder) {
+		var ef error
+		binaryFolder, ef = filepath.Abs(binaryFolder)
+		if ef != nil {
+			logging.Error.Printf("Failed to resolve binary folder to absolute path: %s", ef)
+			binaryFolder = ""
+		}
+	}
+	return binaryFolder
+}
+
+// networkName resolves the template network, falling back to the default servers network.
+func (d *Docker) networkName(ctx context.Context, variables map[string]interface{}) string {
+	networkName := utils.ReplaceTokens(d.Network, variables)
+	if networkName == "" || networkName == "bridge" {
+		networkName = d.defaultServerNetwork(ctx)
+	}
+	return networkName
+}
+
+// addStdinPortBinding publishes the stdin port on localhost unless the template already binds it.
+func addStdinPortBinding(bindings network.PortMap, port string) {
+	p := network.MustParsePort(port + "/tcp")
+	if _, exists := bindings[p]; exists {
+		return
+	}
+	hostIP := netip.Addr{}
+	if ip, ipErr := netip.ParseAddr("127.0.0.1"); ipErr == nil {
+		hostIP = ip
+	}
+	// we have a port defined for stdin, we need to also export it
+	bindings[p] = []network.PortBinding{{
+		HostIP: hostIP, HostPort: port,
+	}}
+}
+
+// applyResourceLimits sets the CPU and memory limits from the server variables.
+func applyResourceLimits(hostConfig *container.HostConfig, variables map[string]interface{}) {
+	// Apply CPU limit from variables
+	if cpuVal, ok := variables["cpu"]; ok {
+		if cpu, err := cast.ToIntE(cpuVal); err == nil && cpu > 0 {
+			hostConfig.NanoCPUs = int64(cpu) * 10000000
+		}
+	}
+
+	// Apply Memory limit from variables (MB to Bytes)
+	if memVal, ok := variables["memory"]; ok {
+		if mem, err := cast.ToInt64E(memVal); err == nil && mem > 0 {
+			hostConfig.Memory = mem * 1024 * 1024
+			hostConfig.MemorySwap = mem * 1024 * 1024 // Equal to Memory to disable swap
+		}
+	}
 }
 
 func (d *Docker) SendCodeImpl(environment *skypanel.Environment, code int) error {
@@ -939,38 +1033,7 @@ func parsePortSpecs(specs []string) (network.PortSet, network.PortMap, error) {
 				continue
 			}
 
-			var proto string
-			host := ""
-			parts := strings.SplitN(part, "->", 2)
-			if len(parts) == 2 {
-				host = parts[0]
-				part = parts[1]
-			}
-
-			if idx := strings.LastIndex(part, "/"); idx != -1 {
-				proto = part[idx+1:]
-				part = part[:idx]
-				if proto == "" {
-					proto = "tcp"
-				}
-			} else {
-				proto = "tcp"
-			}
-
-			// The container port is everything after the final ":".
-			if idx := strings.LastIndex(part, ":"); idx != -1 {
-				// Without an explicit "HOST->CONTAINER" separator, interpret the
-				// leading part as the host binding using Docker's classic
-				// "[IP:]HOST_PORT:CONTAINER_PORT[/PROTO]" syntax (e.g.
-				// "0.0.0.0:25565:25565/tcp" from the templates). This keeps
-				// both the legacy PufferPanel format and the template format working.
-				if len(parts) != 2 {
-					host = part[:idx]
-				}
-				part = part[idx+1:]
-			}
-
-			containerPort, err := network.ParsePort(part + "/" + proto)
+			containerPort, host, err := parsePortSpec(part)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -980,24 +1043,61 @@ func parsePortSpecs(specs []string) (network.PortSet, network.PortMap, error) {
 				continue
 			}
 
-			hostPort := host
-			if idx := strings.LastIndex(host, ":"); idx != -1 {
-				hostPort = host[idx+1:]
-			}
-
-			hostIP := netip.Addr{}
-			if idx := strings.LastIndex(host, ":"); idx != -1 {
-				if ip, ipErr := netip.ParseAddr(host[:idx]); ipErr == nil {
-					hostIP = ip
-				}
-			}
-
-			bindings[containerPort] = append(bindings[containerPort], network.PortBinding{
-				HostIP:   hostIP,
-				HostPort: hostPort,
-			})
+			bindings[containerPort] = append(bindings[containerPort], hostPortBinding(host))
 		}
 	}
 
 	return exposed, bindings, nil
+}
+
+// parsePortSpec parses one "[HOST->]CONTAINER[/PROTO]" or "[IP:]HOST_PORT:CONTAINER_PORT[/PROTO]"
+// spec into the container port and the host part ("" when not published).
+func parsePortSpec(part string) (network.Port, string, error) {
+	host := ""
+	parts := strings.SplitN(part, "->", 2)
+	if len(parts) == 2 {
+		host = parts[0]
+		part = parts[1]
+	}
+
+	proto := "tcp"
+	if idx := strings.LastIndex(part, "/"); idx != -1 {
+		if p := part[idx+1:]; p != "" {
+			proto = p
+		}
+		part = part[:idx]
+	}
+
+	// The container port is everything after the final ":".
+	if idx := strings.LastIndex(part, ":"); idx != -1 {
+		// Without an explicit "HOST->CONTAINER" separator, interpret the
+		// leading part as the host binding using Docker's classic
+		// "[IP:]HOST_PORT:CONTAINER_PORT[/PROTO]" syntax (e.g.
+		// "0.0.0.0:25565:25565/tcp" from the templates). This keeps
+		// both the legacy PufferPanel format and the template format working.
+		if len(parts) != 2 {
+			host = part[:idx]
+		}
+		part = part[idx+1:]
+	}
+
+	containerPort, err := network.ParsePort(part + "/" + proto)
+	return containerPort, host, err
+}
+
+// hostPortBinding turns "[IP:]PORT" into a binding; an unparsable IP binds all interfaces.
+func hostPortBinding(host string) network.PortBinding {
+	hostPort := host
+	hostIP := netip.Addr{}
+	if idx := strings.LastIndex(host, ":"); idx != -1 {
+		hostPort = host[idx+1:]
+		if ip, ipErr := netip.ParseAddr(host[:idx]); ipErr == nil {
+			hostIP = ip
+		}
+	}
+
+	return network.PortBinding{
+		HostIP:   hostIP,
+		HostPort: hostPort,
+	}
 }

@@ -24,7 +24,7 @@ const RepoReleases = "https://api.github.com/repos/SteamRE/DepotDownloader/relea
 // make the test suite fail.
 var repoReleasesURL = RepoReleases
 
-func downloadDD(rootBinaryFolder string, version string) error {
+func downloadDD(rootBinaryFolder, version string) error {
 	downloader.Lock()
 	defer downloader.Unlock()
 
@@ -89,19 +89,23 @@ func getLatestVersion() (string, error) {
 
 	for _, release := range data {
 		for _, asset := range release.Assets {
-			assetName := strings.ToLower(asset.Name)
-			if strings.Contains(assetName, strings.ToLower(runtime.GOOS)) {
-				if runtime.GOARCH == "amd64" {
-					if strings.Contains(assetName, "x64") {
-						return asset.DownloadURL, nil
-					}
-				} else if strings.Contains(assetName, strings.ToLower(runtime.GOARCH)) {
-					return asset.DownloadURL, nil
-				}
+			if isPlatformAsset(strings.ToLower(asset.Name)) {
+				return asset.DownloadURL, nil
 			}
 		}
 	}
 	return "", errors.New("failed to find latest version for DepotDownloader")
+}
+
+// isPlatformAsset reports whether a release asset is built for this OS and architecture.
+func isPlatformAsset(assetName string) bool {
+	if !strings.Contains(assetName, strings.ToLower(runtime.GOOS)) {
+		return false
+	}
+	if runtime.GOARCH == "amd64" {
+		return strings.Contains(assetName, "x64")
+	}
+	return strings.Contains(assetName, strings.ToLower(runtime.GOARCH))
 }
 
 type GithubRelease struct {

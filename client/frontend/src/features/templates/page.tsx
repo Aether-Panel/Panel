@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useTranslations } from '@/contexts/translations-context';
-import { useTemplates, type TemplateRepo } from '@/hooks/use-templates';
+import { useTemplates } from '@/hooks/use-templates';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { sileo } from "@/lib/toast";
@@ -21,6 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { EmptyState } from '@/components/empty-state';
 
 // Optional icon mapping if we want to guess icon by category later, or just a default
 function getIconForCategory(category?: string): LucideIcon {
@@ -66,13 +67,13 @@ function TemplateItem({
   canManage,
   onEdit,
   onDelete,
-}: {
+}: Readonly<{
   template: any;
   /** Local templates the user may edit get an actions menu (edit / delete). */
   canManage: boolean;
   onEdit?: () => void;
   onDelete?: () => void;
-}) {
+}>) {
   const { t } = useTranslations();
   const Icon = getIconForCategory(template.type);
   const categoryLabel = template.type || t('templates.categories.other');
@@ -132,7 +133,8 @@ function TemplateItem({
           size="sm"
           className="shrink-0"
           onClick={() => {
-            window.location.href = `/servers/?create=true&template=${encodeURIComponent(template.name)}${template.repoId ? `&repo=${template.repoId}` : ''}`;
+            const repoParam = template.repoId ? '&repo=' + template.repoId : '';
+            window.location.href = `/servers/?create=true&template=${encodeURIComponent(template.name)}${repoParam}`;
           }}
         >
           {t('templates.use')}
@@ -142,19 +144,25 @@ function TemplateItem({
   );
 }
 
-function TemplateGrid({ children }: { children: React.ReactNode }) {
+function TemplateGrid({ children }: Readonly<{ children: React.ReactNode }>) {
   return <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{children}</div>;
 }
 
-function EmptyTemplates({ title, description, action }: { title: string; description: string; action?: React.ReactNode }) {
-  return (
-    <div className="flex flex-col items-center rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
-      <LayoutTemplate className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-      <h3 className="text-base font-semibold">{title}</h3>
-      <p className="mt-1 max-w-sm text-sm text-muted-foreground">{description}</p>
-      {action && <div className="mt-6">{action}</div>}
-    </div>
-  );
+function EmptyTemplates({ title, description, action }: Readonly<{ title: string; description: string; action?: React.ReactNode }>) {
+  return <EmptyState icon={LayoutTemplate} title={title} description={description} action={action} />;
+}
+
+/** One tab's body: the skeleton grid while loading, the empty state when there is nothing, the grid otherwise. */
+function TemplateTabBody({ loading, placeholder, isEmpty, empty, children }: Readonly<{
+  loading: boolean;
+  placeholder: React.ReactNode;
+  isEmpty: boolean;
+  empty: React.ReactNode;
+  children: React.ReactNode;
+}>) {
+  if (loading) return <>{placeholder}</>;
+  if (isEmpty) return <>{empty}</>;
+  return <TemplateGrid>{children}</TemplateGrid>;
 }
 
 function TemplatesSkeleton() {
@@ -193,7 +201,7 @@ export default function TemplatesPage() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [activeTab, setActiveTab] = useState('local');
-  const [deletingTemplate, setDeletingTemplate] = useState<any | null>(null);
+  const [deletingTemplate, setDeletingTemplate] = useState<any>(null);
   // Name of the local template open in the editor; null while creating a new one.
   const [editingName, setEditingName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -206,7 +214,7 @@ export default function TemplatesPage() {
   };
 
   const updateRunField = (field: string, value: string) => {
-    const newObj = { ...templateObj, run: { ...(templateObj.run || {}), [field]: value } };
+    const newObj = { ...templateObj, run: { ...templateObj.run, [field]: value } };
     setTemplateObj(newObj);
     setTemplateJson(JSON.stringify(newObj, null, 2));
   };
@@ -215,7 +223,9 @@ export default function TemplatesPage() {
     setTemplateJson(val);
     try {
       setTemplateObj(JSON.parse(val));
-    } catch (e) { }
+    } catch {
+      // Half-typed JSON is expected while editing; the form keeps the last valid object.
+    }
   };
 
   const { t } = useTranslations();
@@ -228,8 +238,11 @@ export default function TemplatesPage() {
     setLoadingTemplates(true);
     try {
       const loaded: any[] = [];
-      for (const repo of repos) {
-        const tpls = await getTemplatesForRepo(repo.id);
+      // Each repo is its own request (and never throws), so they can load side by side;
+      // Promise.all keeps the results in repo order.
+      const perRepo = await Promise.all(repos.map((repo) => getTemplatesForRepo(repo.id)));
+      perRepo.forEach((tpls, index) => {
+        const repo = repos[index];
         tpls.forEach((t: any) => {
           loaded.push({
             ...t,
@@ -237,7 +250,7 @@ export default function TemplatesPage() {
             repoName: repo.name
           });
         });
-      }
+      });
 
       const localTpls = await getTemplatesForRepo(0);
       localTpls.forEach((t: any) => {
@@ -279,6 +292,7 @@ export default function TemplatesPage() {
       setTemplateJson(JSON.stringify(parsed, null, 2));
       setTemplateObj(parsed);
     } catch (e) {
+      console.error('Failed to read template file:', e);
       sileo.error({ title: t('common.error'), description: t('templates.toast.invalidJson') });
     } finally {
       if (loadFileRef.current) loadFileRef.current.value = '';
@@ -356,7 +370,7 @@ export default function TemplatesPage() {
   );
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="stagger flex flex-col gap-8">
       <PageHeader title={t('templates.title')} description={t('templates.description')}>
         {canEditLocal && (
           <>
@@ -503,49 +517,55 @@ export default function TemplatesPage() {
           </div>
 
           <TabsContent value="local" className="mt-0 p-5 md:p-6">
-            {loadingTemplates ? loadingGrid : localTemplates.length === 0 ? (
-              <EmptyTemplates
-                title={t('templates.empty.localTitle')}
-                description={t('templates.empty.localDescription')}
-                action={canCreate ? (
-                  <Button onClick={openCreate}>
-                    <Plus aria-hidden="true" />
-                    {t('templates.create')}
-                  </Button>
-                ) : undefined}
-              />
-            ) : (
-              <TemplateGrid>
-                {localTemplates.map((template, idx) => (
-                  <TemplateItem
-                    key={`local-${template.name}-${idx}`}
-                    template={template}
-                    canManage={canEditLocal}
-                    onEdit={() => void openEdit(template)}
-                    onDelete={() => setDeletingTemplate(template)}
-                  />
-                ))}
-              </TemplateGrid>
-            )}
+            <TemplateTabBody
+              loading={loadingTemplates}
+              placeholder={loadingGrid}
+              isEmpty={localTemplates.length === 0}
+              empty={
+                <EmptyTemplates
+                  title={t('templates.empty.localTitle')}
+                  description={t('templates.empty.localDescription')}
+                  action={canCreate ? (
+                    <Button onClick={openCreate}>
+                      <Plus aria-hidden="true" />
+                      {t('templates.create')}
+                    </Button>
+                  ) : undefined}
+                />
+              }
+            >
+              {localTemplates.map((template, idx) => (
+                <TemplateItem
+                  key={`local-${template.name}-${idx}`}
+                  template={template}
+                  canManage={canEditLocal}
+                  onEdit={() => void openEdit(template)}
+                  onDelete={() => setDeletingTemplate(template)}
+                />
+              ))}
+            </TemplateTabBody>
           </TabsContent>
 
           <TabsContent value="community" className="mt-0 p-5 md:p-6">
-            {loadingTemplates ? loadingGrid : communityTemplates.length === 0 ? (
-              <EmptyTemplates
-                title={t('templates.empty.communityTitle')}
-                description={t('templates.empty.communityDescription')}
-              />
-            ) : (
-              <TemplateGrid>
-                {communityTemplates.map((template, idx) => (
-                  <TemplateItem
-                    key={`com-${template.repoId}-${template.name}-${idx}`}
-                    template={template}
-                    canManage={false}
-                  />
-                ))}
-              </TemplateGrid>
-            )}
+            <TemplateTabBody
+              loading={loadingTemplates}
+              placeholder={loadingGrid}
+              isEmpty={communityTemplates.length === 0}
+              empty={
+                <EmptyTemplates
+                  title={t('templates.empty.communityTitle')}
+                  description={t('templates.empty.communityDescription')}
+                />
+              }
+            >
+              {communityTemplates.map((template, idx) => (
+                <TemplateItem
+                  key={`com-${template.repoId}-${template.name}-${idx}`}
+                  template={template}
+                  canManage={false}
+                />
+              ))}
+            </TemplateTabBody>
           </TabsContent>
         </Card>
       </Tabs>

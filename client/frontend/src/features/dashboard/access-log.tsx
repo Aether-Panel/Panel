@@ -2,11 +2,13 @@
 
 import { LogIn, ShieldAlert, UserPlus } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useTranslations } from '@/contexts/translations-context';
 import { useAccessLog, type AccessEvent } from '@/hooks/use-access-log';
 import { cn } from '@/lib/utils';
+import { EmptyState } from '@/components/empty-state';
 
 const EVENT_STYLE: Record<string, { icon: LucideIcon; capsule: string; labelKey: string }> = {
     login: {
@@ -63,7 +65,7 @@ function formatRelative(iso: string, locale: string): string {
  * non-list answers (empty, refused, not served yet) each get their own message
  * instead of a misleading blank.
  */
-export function AccessLog({ canRead }: { canRead: boolean }) {
+export function AccessLog({ canRead }: Readonly<{ canRead: boolean }>) {
     const { t, language } = useTranslations();
     const locale = language === 'es' ? 'es-ES' : 'en-US';
     const { events, loading, denied, unavailable } = useAccessLog(ROWS, !canRead);
@@ -75,6 +77,81 @@ export function AccessLog({ canRead }: { canRead: boolean }) {
 
     const notice = noticeFor(loading, rows.length, denied, unavailable, t);
 
+    let content: ReactNode;
+    if (loading) {
+        content = (
+            <ul aria-hidden="true" className="flex flex-1 flex-col gap-0.5">
+                {Array.from({ length: 4 }).map((_, index) => (
+                    <li key={index} className="flex items-center gap-3 px-3 py-2">
+                        <Skeleton className="h-8 w-8 shrink-0 rounded-lg" />
+                        <span className="flex-1 space-y-2">
+                            <Skeleton className="h-3 w-1/3" />
+                            <Skeleton className="h-2.5 w-2/3" />
+                        </span>
+                    </li>
+                ))}
+            </ul>
+        );
+    } else if (notice !== null) {
+        content = (
+            <EmptyState icon={ShieldAlert} size="sm" as="p" title={notice} className="mx-3 flex-1" />
+        );
+    } else {
+        content = (
+            <ul data-fit="scroll" className="custom-scrollbar flex flex-1 flex-col gap-0.5" aria-label={t('dashboard.admin.access.title')}>
+                {rows.map(({ event, style }) => {
+                    const Icon = style.icon;
+                    const who = event.username || event.email || '—';
+                    const when = formatRelative(event.createdAt, locale);
+
+                    // Two lines, both full width: who + when, then what + where.
+                    // The timestamp no longer takes a column of its own, so the
+                    // IP keeps its room on narrow cards and phones.
+                    return (
+                        <li
+                            key={event.id}
+                            className="flex flex-1 items-center gap-3 rounded-lg px-3 py-1.5"
+                        >
+                            <span
+                                aria-hidden="true"
+                                className={cn(
+                                    'grid h-8 w-8 shrink-0 place-items-center rounded-lg border',
+                                    style.capsule,
+                                )}
+                            >
+                                <Icon className="h-4 w-4" />
+                            </span>
+
+                            <span className="min-w-0 flex-1 space-y-0.5">
+                                <span className="flex items-baseline justify-between gap-3">
+                                    <span className="truncate text-sm font-medium leading-5 text-foreground">
+                                        {who}
+                                    </span>
+                                    <time
+                                        dateTime={event.createdAt}
+                                        title={new Date(event.createdAt).toLocaleString(locale)}
+                                        className="shrink-0 whitespace-nowrap text-xs leading-5 tabular-nums text-muted-foreground"
+                                    >
+                                        {when}
+                                    </time>
+                                </span>
+                                <span className="flex min-w-0 items-baseline gap-1.5 text-xs leading-4 text-muted-foreground">
+                                    <span className="shrink-0">{t(style.labelKey)}</span>
+                                    {event.ip ? (
+                                        <>
+                                            <span aria-hidden="true" className="text-muted-foreground/50">·</span>
+                                            <span className="truncate font-mono text-[11px]">{event.ip}</span>
+                                        </>
+                                    ) : null}
+                                </span>
+                            </span>
+                        </li>
+                    );
+                })}
+            </ul>
+        );
+    }
+
     return (
         <Card className="flex h-full flex-col">
             <CardHeader className="space-y-1.5 p-5 pb-4 lg:pb-3">
@@ -83,76 +160,7 @@ export function AccessLog({ canRead }: { canRead: boolean }) {
             </CardHeader>
 
             <CardContent className="flex min-h-0 flex-1 flex-col px-2 pb-5 pt-0 sm:px-3">
-                {loading ? (
-                    <ul aria-hidden="true" className="flex flex-1 flex-col gap-0.5">
-                        {Array.from({ length: 4 }).map((_, index) => (
-                            <li key={index} className="flex items-center gap-3 px-3 py-2">
-                                <Skeleton className="h-8 w-8 shrink-0 rounded-lg" />
-                                <span className="flex-1 space-y-2">
-                                    <Skeleton className="h-3 w-1/3" />
-                                    <Skeleton className="h-2.5 w-2/3" />
-                                </span>
-                            </li>
-                        ))}
-                    </ul>
-                ) : notice !== null ? (
-                    <div className="mx-3 flex flex-1 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 px-6 py-10 text-center">
-                        <ShieldAlert className="h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-                        <p className="max-w-[36ch] text-sm text-muted-foreground">{notice}</p>
-                    </div>
-                ) : (
-                    <ul data-fit="scroll" className="custom-scrollbar flex flex-1 flex-col gap-0.5" aria-label={t('dashboard.admin.access.title')}>
-                        {rows.map(({ event, style }) => {
-                            const Icon = style.icon;
-                            const who = event.username || event.email || '—';
-                            const when = formatRelative(event.createdAt, locale);
-
-                            // Two lines, both full width: who + when, then what + where.
-                            // The timestamp no longer takes a column of its own, so the
-                            // IP keeps its room on narrow cards and phones.
-                            return (
-                                <li
-                                    key={event.id}
-                                    className="flex flex-1 items-center gap-3 rounded-lg px-3 py-1.5"
-                                >
-                                    <span
-                                        aria-hidden="true"
-                                        className={cn(
-                                            'grid h-8 w-8 shrink-0 place-items-center rounded-lg border',
-                                            style.capsule,
-                                        )}
-                                    >
-                                        <Icon className="h-4 w-4" />
-                                    </span>
-
-                                    <span className="min-w-0 flex-1 space-y-0.5">
-                                        <span className="flex items-baseline justify-between gap-3">
-                                            <span className="truncate text-sm font-medium leading-5 text-foreground">
-                                                {who}
-                                            </span>
-                                            <time
-                                                dateTime={event.createdAt}
-                                                title={new Date(event.createdAt).toLocaleString(locale)}
-                                                className="shrink-0 whitespace-nowrap text-xs leading-5 tabular-nums text-muted-foreground"
-                                            >
-                                                {when}
-                                            </time>
-                                        </span>
-                                        <span className="flex min-w-0 items-baseline gap-1.5 text-xs leading-4 text-muted-foreground">
-                                            <span className="shrink-0">{t(style.labelKey)}</span>
-                                            {event.ip ? (
-                                                <>
-                                                    <span aria-hidden="true" className="text-muted-foreground/50">·</span>
-                                                    <span className="truncate font-mono text-[11px]">{event.ip}</span>
-                                                </>
-                                            ) : null}
-                                        </span>
-                                    </span>
-                                </li>
-                            );
-                        })}
-                    </ul>
-                )}
+                {content}
 
                 <p className="px-3 pt-3 text-xs text-muted-foreground">
                     {t('dashboard.admin.access.retention')}

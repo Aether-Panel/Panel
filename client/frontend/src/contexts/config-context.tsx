@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api } from '@/lib/api-client';
 
@@ -17,8 +17,18 @@ export interface Config {
     headerDecorations: boolean;
     turnstileSiteKey: string;
     turnstileEnabled: boolean;
+    experimental?: ExperimentalFeatures;
     version: string;
 }
+
+/** Features an admin turns on in Settings › General › Experimental features. */
+export interface ExperimentalFeatures {
+    versionSwitch: boolean;
+    propertiesEditor: boolean;
+    serverClone: boolean;
+}
+
+const NO_EXPERIMENTAL: ExperimentalFeatures = { versionSwitch: false, propertiesEditor: false, serverClone: false };
 
 interface ConfigContextType {
     config: Config | null;
@@ -28,11 +38,11 @@ interface ConfigContextType {
 
 const ConfigContext = createContext<ConfigContextType | undefined>(undefined);
 
-export function ConfigProvider({ children }: { children: ReactNode }) {
+export function ConfigProvider({ children }: Readonly<{ children: ReactNode }>) {
     const [config, setConfig] = useState<Config | null>(null);
     const [loading, setLoading] = useState(true);
 
-    const fetchConfig = async () => {
+    const fetchConfig = useCallback(async () => {
         try {
             setLoading(true);
             const data = await api.get('/api/config');
@@ -42,14 +52,16 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
         void fetchConfig();
-    }, []);
+    }, [fetchConfig]);
+
+    const value = useMemo(() => ({ config, loading, refresh: fetchConfig }), [config, loading, fetchConfig]);
 
     return (
-        <ConfigContext.Provider value={{ config, loading, refresh: fetchConfig }}>
+        <ConfigContext.Provider value={value}>
             {children}
         </ConfigContext.Provider>
     );
@@ -61,4 +73,13 @@ export function useConfig() {
         throw new Error('useConfig must be used within a ConfigProvider');
     }
     return context;
+}
+
+/**
+ * Which experimental features are on. Everything reads as off until the config
+ * has loaded (and on panels too old to send it), so nothing flashes in and out.
+ */
+export function useExperimental(): { features: ExperimentalFeatures; ready: boolean } {
+    const { config, loading } = useConfig();
+    return { features: config?.experimental ?? NO_EXPERIMENTAL, ready: !loading };
 }

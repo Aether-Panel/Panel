@@ -20,6 +20,9 @@ import (
 	"gorm.io/gorm"
 )
 
+// userIDQuery picks the rows that belong to a user
+const userIDQuery = "user_id = ?"
+
 type User struct {
 	DB *gorm.DB
 }
@@ -50,7 +53,7 @@ func (us *User) GetByID(id uint) (*models.User, error) {
 	return model, nil
 }
 
-func (us *User) ValidateLogin(email string, password string) (user *models.User, otpNeeded bool, err error) {
+func (us *User) ValidateLogin(email, password string) (user *models.User, otpNeeded bool, err error) {
 	limitKey := "password:" + email
 	if !LoginAttempts.Allowed(limitKey) {
 		err = skypanel.ErrTooManyAttempts
@@ -91,7 +94,7 @@ func (us *User) ValidateLogin(email string, password string) (user *models.User,
 	return
 }
 
-func (us *User) ValidOtp(email string, token string) (user *models.User, err error) {
+func (us *User) ValidOtp(email, token string) (user *models.User, err error) {
 	// 2FA codes are only 6 digits, so guessing them must be throttled too
 	limitKey := "otp:" + email
 	if !LoginAttempts.Allowed(limitKey) {
@@ -162,9 +165,9 @@ func (us *User) Update(model *models.User) error {
 
 func (us *User) Delete(model *models.User) (err error) {
 	return us.DB.Transaction(func(tx *gorm.DB) error {
-		tx.Delete(models.Permissions{}, "user_id = ?", model.ID)
-		tx.Delete(models.Client{}, "user_id = ?", model.ID)
-		tx.Delete(models.Session{}, "user_id = ?", model.ID)
+		tx.Delete(models.Permissions{}, userIDQuery, model.ID)
+		tx.Delete(models.Client{}, userIDQuery, model.ID)
+		tx.Delete(models.Session{}, userIDQuery, model.ID)
 		tx.Delete(models.User{}, "id = ?", model.ID)
 		return nil
 	})
@@ -174,7 +177,7 @@ func (us *User) Create(user *models.User) error {
 	return us.DB.Create(user).Error
 }
 
-func (us *User) ChangePassword(username string, newPass string) error {
+func (us *User) ChangePassword(username, newPass string) error {
 	user, err := us.Get(username)
 
 	if err != nil {
@@ -206,7 +209,7 @@ func (us *User) CreatePasswordResetToken(email string) (string, error) {
 	}
 
 	err = us.DB.Transaction(func(tx *gorm.DB) error {
-		tx.Delete(models.PasswordReset{}, "user_id = ?", user.ID)
+		tx.Delete(models.PasswordReset{}, userIDQuery, user.ID)
 		return tx.Create(model).Error
 	})
 	if err != nil {
@@ -257,6 +260,13 @@ func (us *User) StartOtpEnroll(userID uint) (secret string, imgStr string, err e
 		return
 	}
 
+	// changing the active factor requires disabling it first (which demands a valid
+	// code); otherwise any hijacked session could silently weaken 2FA
+	if user.OtpActive {
+		err = skypanel.ErrOtpAlreadyEnabled
+		return
+	}
+
 	var key *otp.Key
 	key, err = totp.Generate(totp.GenerateOpts{
 		Issuer:      config.CompanyName.Value(),
@@ -266,8 +276,8 @@ func (us *User) StartOtpEnroll(userID uint) (secret string, imgStr string, err e
 		return
 	}
 
-	user.OtpSecret = key.Secret()
-	user.OtpActive = false
+	// kept pending until ValidateOtpEnroll proves the user has the new secret
+	user.OtpPendingSecret = key.Secret()
 	err = us.Update(user)
 	if err != nil {
 		return
@@ -317,7 +327,7 @@ func (us *User) ValidateOtpEnroll(userID uint, token string) ([]string, error) {
 		return nil, err
 	}
 
-	if !totp.Validate(token, user.OtpSecret) {
+	if user.OtpPendingSecret == "" || !totp.Validate(token, user.OtpPendingSecret) {
 		return nil, skypanel.ErrInvalidCredentials
 	}
 
@@ -334,14 +344,24 @@ func (us *User) ValidateOtpEnroll(userID uint, token string) ([]string, error) {
 		_ = rcs[i].SetCode(code)
 	}
 
-	err = us.DB.Create(&rcs).Error
+	err = us.DB.Transaction(func(tx *gorm.DB) error {
+		// codes from a previous enrollment must not stay valid
+		if err := tx.Delete(&models.RecoveryCode{}, userIDQuery, user.ID).Error; err != nil {
+			return err
+		}
+		if err := tx.Create(&rcs).Error; err != nil {
+			return err
+		}
+
+		user.OtpSecret = user.OtpPendingSecret
+		user.OtpPendingSecret = ""
+		user.OtpActive = true
+		return tx.Save(user).Error
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	user.OtpActive = true
-	return codes, us.Update(user)
-
+	return codes, nil
 }
 
 func (us *User) RegenerateOtpRecoveryCodes(userID uint) ([]string, error) {
@@ -364,7 +384,7 @@ func (us *User) RegenerateOtpRecoveryCodes(userID uint) ([]string, error) {
 	}
 
 	err = us.DB.Transaction(func(tx *gorm.DB) error {
-		err := tx.Delete(&models.RecoveryCode{}, "user_id = ?", user.ID).Error
+		err := tx.Delete(&models.RecoveryCode{}, userIDQuery, user.ID).Error
 		if err != nil {
 			return err
 		}
@@ -382,12 +402,13 @@ func (us *User) DisableOtp(userID uint) error {
 	}
 
 	return us.DB.Transaction(func(tx *gorm.DB) error {
-		err := tx.Delete(&models.RecoveryCode{}, "user_id = ?", user.ID).Error
+		err := tx.Delete(&models.RecoveryCode{}, userIDQuery, user.ID).Error
 		if err != nil {
 			return err
 		}
 
 		user.OtpSecret = ""
+		user.OtpPendingSecret = ""
 		user.OtpActive = false
 		return tx.Save(user).Error
 	})
@@ -421,10 +442,13 @@ func (us *User) Search(usernameFilter, emailFilter string, pageSize, page uint) 
 	return users, count, res.Error
 }
 
+// maxPasswordBytes is bcrypt's limit: longer passwords cannot be hashed at all
+const maxPasswordBytes = 72
+
 func (us *User) IsSecurePassword(password string) error {
-	// TODO: Change to use validator
-	if len(password) < 8 {
-		return skypanel.ErrFieldLength("password", 8, 72)
+	// len counts bytes, which is what bcrypt limits (accented letters and emoji take more than one)
+	if len(password) < 8 || len(password) > maxPasswordBytes {
+		return skypanel.ErrFieldLength("password", 8, maxPasswordBytes)
 	}
 	return nil
 }

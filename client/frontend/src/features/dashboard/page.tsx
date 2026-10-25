@@ -1,6 +1,7 @@
 'use client';
 import { useAuth } from '@/contexts/providers';
 import { useConfig } from '@/contexts/config-context';
+import type { ReactNode } from 'react';
 import type { Server } from '@/lib/data';
 import { AlertTriangle, Cpu, HardDrive, MemoryStick, ServerIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,7 @@ import { KpiCard, usageTone } from '@/features/dashboard/kpi-card';
 import { PanelInfoCard } from '@/features/dashboard/panel-info-card';
 import { NetworkHistoryChart } from '@/features/dashboard/network-history-chart';
 import { AccessLog } from '@/features/dashboard/access-log';
+import { EmptyState } from '@/components/empty-state';
 
 function calculateCpuUsage(nodeResources: any[], onlineServers: any[], onlineCount: number): number {
   if (nodeResources.length > 0) {
@@ -112,7 +114,7 @@ function AdminDashboard({ user, t, canSeeNodes, canSeeUsers, allServers, usersCo
   ];
 
   return (
-    <div className="dash-fit flex flex-col gap-4">
+    <div className="dash-fit stagger flex flex-col gap-4">
       <StatusStrip
         name={user?.username || ''}
         healthPercent={healthPercent}
@@ -123,7 +125,7 @@ function AdminDashboard({ user, t, canSeeNodes, canSeeUsers, allServers, usersCo
 
       <section
         aria-label={t('dashboard.admin.kpi.label')}
-        className="grid grid-cols-3 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4"
+        className="stagger grid grid-cols-3 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4"
       >
         {metrics.map((metric) => (
           <KpiCard
@@ -155,36 +157,44 @@ function AdminDashboard({ user, t, canSeeNodes, canSeeUsers, allServers, usersCo
 }
 
 function UserDashboard({ user, t, userServers, loadFailed, onRetry }: any) {
+  let serverList: ReactNode;
+  if (loadFailed && userServers.length === 0) {
+    serverList = (
+      <EmptyState
+        icon={AlertTriangle}
+        tone="error"
+        title={t('servers.error.title')}
+        description={t('servers.error.description')}
+        action={
+          <Button variant="outline" onClick={onRetry}>
+            {t('common.retry')}
+          </Button>
+        }
+      />
+    );
+  } else if (userServers.length > 0) {
+    serverList = (
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(min(20rem,100%),1fr))] gap-5">
+        {userServers.map((server: Server) => (
+          <ServerCard key={server.id} server={server} t={t} />
+        ))}
+      </div>
+    );
+  } else {
+    serverList = (
+      <EmptyState icon={ServerIcon} title={t('dashboard.user.noServers')} description={t('dashboard.user.noServersHint')} />
+    );
+  }
+
   return (
-    <div className="flex flex-col gap-6">
+    <div className="stagger flex flex-col gap-6">
       <PageHeader
         title={t('dashboard.welcome', { name: user?.username || t('dashboard.defaultName') })}
         description={t('dashboard.user.description')}
       />
       <div>
         <h2 className="mb-4 text-lg font-semibold tracking-[-0.02em] text-foreground">{t('dashboard.user.myServers')}</h2>
-        {loadFailed && userServers.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
-            <AlertTriangle className="h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-            <p className="text-base font-semibold text-foreground">{t('servers.error.title')}</p>
-            <p className="max-w-[44ch] text-sm text-muted-foreground">{t('servers.error.description')}</p>
-            <Button variant="outline" className="mt-4" onClick={onRetry}>
-              {t('common.retry')}
-            </Button>
-          </div>
-        ) : userServers.length > 0 ? (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(20rem,100%),1fr))] gap-5">
-            {userServers.map((server: Server) => (
-              <ServerCard key={server.id} server={server} t={t} />
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
-            <ServerIcon className="h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-            <p className="text-base font-semibold text-foreground">{t('dashboard.user.noServers')}</p>
-            <p className="max-w-[44ch] text-sm text-muted-foreground">{t('dashboard.user.noServersHint')}</p>
-          </div>
-        )}
+        {serverList}
       </div>
     </div>
   );

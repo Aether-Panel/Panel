@@ -20,20 +20,8 @@ const WWWAuthenticateHeader = "WWW-Authenticate"
 const WWWAuthenticateHeaderContents = "Bearer realm=\"\""
 
 func AuthMiddleware(c *gin.Context) {
-	for _, v := range noLogin {
-		if strings.HasPrefix(c.Request.URL.Path, v) {
-			// and now we see if it's actually one we override
-			skip := false
-			for _, o := range overrideRequireLogin {
-				if o == c.Request.URL.Path {
-					skip = true
-					break
-				}
-			}
-			if !skip {
-				return
-			}
-		}
+	if skipsLogin(c.Request.URL.Path) {
+		return
 	}
 
 	db, err := database.GetConnection()
@@ -43,41 +31,8 @@ func AuthMiddleware(c *gin.Context) {
 
 	ss := services.Session{DB: db}
 
-	var token string
-	fromCookie := false
-
-	// order of priority, use auth headers first
-	// check for token Auth header
-	authHeader := c.Request.Header.Get("Authorization")
-	authHeader = strings.TrimSpace(authHeader)
-
-	if authHeader == "" {
-		token, err = c.Cookie("skypanel_auth")
-		fromCookie = true
-
-		if errors.Is(err, http.ErrNoCookie) || token == "" {
-			c.Header(WWWAuthenticateHeader, WWWAuthenticateHeaderContents)
-			c.AbortWithStatus(http.StatusUnauthorized)
-			return
-		}
-	} else {
-		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) != 2 {
-			c.Header(WWWAuthenticateHeader, WWWAuthenticateHeaderContents)
-			c.AbortWithStatus(http.StatusUnauthorized)
-			return
-		}
-
-		if parts[0] != "Bearer" || parts[1] == "" {
-			c.Header(WWWAuthenticateHeader, WWWAuthenticateHeaderContents)
-			c.AbortWithStatus(http.StatusUnauthorized)
-			return
-		}
-
-		token = parts[1]
-	}
-
-	if response.HandleError(c, err, http.StatusInternalServerError) {
+	token, fromCookie, ok := readAuthToken(c)
+	if !ok {
 		return
 	}
 
@@ -85,8 +40,7 @@ func AuthMiddleware(c *gin.Context) {
 	sess, err := ss.Validate(token)
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		c.Header(WWWAuthenticateHeader, WWWAuthenticateHeaderContents)
-		c.AbortWithStatus(http.StatusUnauthorized)
+		abortUnauthorized(c)
 		return
 	} else if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
@@ -107,6 +61,70 @@ func AuthMiddleware(c *gin.Context) {
 		maxAge := int(services.SessionLength / time.Second)
 		SetAuthCookie(c, token, maxAge)
 	}
+}
+
+// skipsLogin reports whether the path is public, unless it is one of the overrides
+func skipsLogin(path string) bool {
+	for _, v := range noLogin {
+		if strings.HasPrefix(path, v) {
+			// and now we see if it's actually one we override
+			skip := false
+			for _, o := range overrideRequireLogin {
+				if o == path {
+					skip = true
+					break
+				}
+			}
+			if !skip {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// readAuthToken pulls the token from the Authorization header, falling back to the cookie.
+// ok is false when the request has already been aborted.
+func readAuthToken(c *gin.Context) (token string, fromCookie bool, ok bool) {
+	var err error
+
+	// order of priority, use auth headers first
+	// check for token Auth header
+	authHeader := c.Request.Header.Get("Authorization")
+	authHeader = strings.TrimSpace(authHeader)
+
+	if authHeader == "" {
+		token, err = c.Cookie("skypanel_auth")
+		fromCookie = true
+
+		if errors.Is(err, http.ErrNoCookie) || token == "" {
+			abortUnauthorized(c)
+			return "", fromCookie, false
+		}
+	} else {
+		parts := strings.SplitN(authHeader, " ", 2)
+		if len(parts) != 2 {
+			abortUnauthorized(c)
+			return "", fromCookie, false
+		}
+
+		if parts[0] != "Bearer" || parts[1] == "" {
+			abortUnauthorized(c)
+			return "", fromCookie, false
+		}
+
+		token = parts[1]
+	}
+
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return "", fromCookie, false
+	}
+	return token, fromCookie, true
+}
+
+func abortUnauthorized(c *gin.Context) {
+	c.Header(WWWAuthenticateHeader, WWWAuthenticateHeaderContents)
+	c.AbortWithStatus(http.StatusUnauthorized)
 }
 
 // SetAuthCookie writes the session cookie. SameSite=Lax keeps browsers from attaching it
