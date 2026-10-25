@@ -748,13 +748,13 @@ func checkResourceAlerts(server *Server, state *serverState, stats *skypanel.Ser
 
 	// CPU > 80%
 	if stats.CPU > 80.0 {
-		sendResourceAlert(server, state, now, "cpu_high", serverName, "CPU", stats.CPU, 80.0)
+		sendResourceAlert(server, state, now, serverName, resourceAlert{key: "cpu_high", resource: "CPU", value: stats.CPU, limit: 80.0})
 	}
 
 	// RAM > 90%
 	memory := memoryPercent(stats)
 	if memory > 90.0 {
-		sendResourceAlert(server, state, now, "memory_high", serverName, "Memoria", memory, 90.0)
+		sendResourceAlert(server, state, now, serverName, resourceAlert{key: "memory_high", resource: "Memoria", value: memory, limit: 90.0})
 	}
 
 	// Limpiar alertas antiguas si el recurso ya no está alto
@@ -766,15 +766,21 @@ func checkResourceAlerts(server *Server, state *serverState, stats *skypanel.Ser
 	}
 }
 
-func sendResourceAlert(server *Server, state *serverState, now time.Time, alertKey, serverName, resource string, value, limit float64) {
-	lastAlert, hasAlerted := state.lastAlert[alertKey]
+// resourceAlert is one resource over its limit: which alert it is, what is high and by how much
+type resourceAlert struct {
+	key, resource string
+	value, limit  float64
+}
+
+func sendResourceAlert(server *Server, state *serverState, now time.Time, serverName string, alert resourceAlert) {
+	lastAlert, hasAlerted := state.lastAlert[alert.key]
 	if hasAlerted && now.Sub(lastAlert) <= 5*time.Minute {
 		return
 	}
 	ds := services.GetDiscordService()
-	_ = ds.SendResourceAlert(serverName, server.ID(), resource, value, limit)
-	server.notifyResource(resource, value, limit)
-	state.lastAlert[alertKey] = now
+	_ = ds.SendResourceAlert(serverName, server.ID(), alert.resource, alert.value, alert.limit)
+	server.notifyResource(alert.resource, alert.value, alert.limit)
+	state.lastAlert[alert.key] = now
 }
 
 // crashCounterResetAfter is how long a server must run before a crash counts as the

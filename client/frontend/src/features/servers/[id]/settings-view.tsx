@@ -43,7 +43,7 @@ function readPorts(variables: ServerSettings['variables']): number[] {
     const v = variables[key]?.value;
     if (v === undefined || v === null || v === '') break;
     const num = Number(v);
-    if (!(num > 0)) break; // also stops on a non-numeric value
+    if (Number.isNaN(num) || num <= 0) break;
     lp.push(num);
   }
   return lp;

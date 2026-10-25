@@ -47,7 +47,7 @@ func getAllUptime(c *gin.Context) {
 		return
 	}
 
-	// Obtener TODOS los servidores de la base de datos para incluir los que no tienen datos de uptime
+	// Obtener todos los servidores de la base de datos para incluir los que no tienen datos de uptime
 	dbServers := &services.Server{DB: db}
 	searchCriteria := services.ServerSearch{
 		PageSize: 1000, // Obtener todos los servidores

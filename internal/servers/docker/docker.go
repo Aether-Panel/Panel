@@ -468,26 +468,30 @@ func CheckBindingsConflict(portSpecs []string, variables map[string]interface{},
 func containerPortConflicts(containers []container.Summary, hostPorts map[uint16]bool, excludedID string) (map[uint16]bool, error) {
 	excludedPorts := make(map[uint16]bool)
 	for _, cont := range containers {
-		names := cont.Names
-		if slices.Contains(names, "/"+excludedID) {
-			for _, p := range cont.Ports {
-				if p.PublicPort != 0 {
-					excludedPorts[p.PublicPort] = true
-				}
+		if slices.Contains(cont.Names, "/"+excludedID) {
+			for _, host := range publishedPorts(cont) {
+				excludedPorts[host] = true
 			}
 			continue
 		}
-		for _, p := range cont.Ports {
-			host := p.PublicPort
-			if host == 0 {
-				continue
-			}
+		for _, host := range publishedPorts(cont) {
 			if _, conflict := hostPorts[host]; conflict {
 				return nil, portConflictError(host)
 			}
 		}
 	}
 	return excludedPorts, nil
+}
+
+// publishedPorts lists the host ports a container publishes
+func publishedPorts(cont container.Summary) []uint16 {
+	hosts := make([]uint16, 0, len(cont.Ports))
+	for _, p := range cont.Ports {
+		if p.PublicPort != 0 {
+			hosts = append(hosts, p.PublicPort)
+		}
+	}
+	return hosts
 }
 
 // firstBusyHostPort probes every host port not skipped and reports the first one in use.
