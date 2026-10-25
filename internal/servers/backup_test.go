@@ -1,6 +1,7 @@
 package servers
 
 import (
+	"crypto/rand"
 	"os"
 	"path/filepath"
 	"strings"
@@ -116,15 +117,22 @@ func TestStartRestore_UnreadableBackupLeavesFilesAlone(t *testing.T) {
 
 func TestStartBackup_OnlyOneRunsAtATime(t *testing.T) {
 	p, dir := newBackupTestServer(t)
-	assert.NoError(t, os.WriteFile(filepath.Join(dir, "a.txt"), []byte("a"), 0644))
+	// incompressible data keeps the first backup busy long enough for every request to
+	// arrive while it runs; a tiny file finished before the slowest goroutines got going
+	noise := make([]byte, 8<<20)
+	_, _ = rand.Read(noise)
+	assert.NoError(t, os.WriteFile(filepath.Join(dir, "a.bin"), noise, 0644))
 
 	var wg sync.WaitGroup
 	var lock sync.Mutex
 	started := 0
+	// every goroutine waits here, so the requests really are simultaneous
+	start := make(chan struct{})
 	for i := 0; i < 20; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			<-start
 			if _, err := p.StartBackup(); err == nil {
 				lock.Lock()
 				started++
@@ -132,6 +140,7 @@ func TestStartBackup_OnlyOneRunsAtATime(t *testing.T) {
 			}
 		}()
 	}
+	close(start)
 	wg.Wait()
 	waitIdle(t, p)
 
