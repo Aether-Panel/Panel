@@ -9,6 +9,9 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// serverIDQuery picks the rows that belong to a server
+const serverIDQuery = "server_id = ?"
+
 type Server struct {
 	DB *gorm.DB
 }
@@ -109,22 +112,22 @@ func (ss *Server) Delete(id string) error {
 		return err
 	}
 
-	err = ss.DB.Delete(models.Client{}, "server_id = ?", id).Error
+	err = ss.DB.Delete(models.Client{}, serverIDQuery, id).Error
 	if err != nil {
 		return err
 	}
 
-	err = ss.DB.Delete(models.Backup{}, "server_id = ?", id).Error
+	err = ss.DB.Delete(models.Backup{}, serverIDQuery, id).Error
 	if err != nil {
 		return err
 	}
 
-	err = ss.DB.Delete(models.Database{}, "server_id = ?", id).Error
+	err = ss.DB.Delete(models.Database{}, serverIDQuery, id).Error
 	if err != nil {
 		return err
 	}
 
-	err = ss.DB.Delete(models.UptimeStatus{}, "server_id = ?", id).Error
+	err = ss.DB.Delete(models.UptimeStatus{}, serverIDQuery, id).Error
 	if err != nil {
 		return err
 	}

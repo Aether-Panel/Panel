@@ -41,11 +41,11 @@ export default function Turnstile({
   siteKey,
   onVerify,
   theme = 'dark',
-}: {
+}: Readonly<{
   siteKey: string;
   onVerify: (token: string | null) => void;
   theme?: 'light' | 'dark' | 'auto';
-}) {
+}>) {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
 

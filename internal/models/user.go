@@ -16,6 +16,9 @@ type User struct {
 	HashedPassword string `gorm:"column:password;NOT NULL;size:200" json:"-" validate:"required,max=200"`
 	OtpSecret      string `gorm:"column:otp_secret;size:32" json:"-"`
 	OtpActive      bool   `gorm:"column:otp_active;not null;DEFAULT:0" json:"-"`
+	// OtpPendingSecret holds a 2FA enrollment the user has not confirmed yet; the
+	// active secret only changes once ValidateOtpEnroll proves they have this one
+	OtpPendingSecret string `gorm:"column:otp_pending_secret;size:32" json:"-"`
 
 	RoleID      *uint         `gorm:"column:role_id;index" json:"-"`
 	Role        Role          `gorm:"ASSOCIATION_SAVE_REFERENCE:false" json:"-" validate:"-"`

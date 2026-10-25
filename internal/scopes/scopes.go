@@ -202,16 +202,7 @@ func UpdateScopesWhereGranted(source, desired, changer []*Scope) []*Scope {
 		if !ContainsScope(changer, v) {
 			continue
 		}
-		needsAdding := true
-		for _, z := range replacement {
-			if v.Is(z) {
-				needsAdding = false
-				break
-			}
-		}
-		if needsAdding {
-			replacement = append(replacement, v)
-		}
+		replacement = AddScope(replacement, v)
 	}
 	return replacement
 }

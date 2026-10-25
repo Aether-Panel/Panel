@@ -45,6 +45,12 @@ var NodeIP = asString("panel.settings.nodeIp", "0.0.0.0")
 var GeminiAPIKey = asString("panel.settings.geminiApiKey", "")
 var HideAIAnalysis = asBool("panel.settings.hideAiAnalysis", false)
 var HeaderDecorations = asBool("panel.settings.headerDecorations", true)
+
+// Experimental features are off until an admin turns them on in the panel settings
+var ExperimentalVersionSwitch = asBool("panel.experimental.versionSwitch", false)
+var ExperimentalPropertiesEditor = asBool("panel.experimental.propertiesEditor", false)
+var ExperimentalServerClone = asBool("panel.experimental.serverClone", false)
+
 var DiscordWebhook = asString("panel.notifications.discordWebhook", "")
 var DiscordWebhookSystem = asString("panel.notifications.discordWebhookSystem", "")
 var DiscordWebhookNode = asString("panel.notifications.discordWebhookNode", "")
@@ -78,6 +84,28 @@ var ServersFolder = asDataFolder("daemon.data.servers", "servers")
 var BackupsFolder = asDataFolder("daemon.data.backups.folder", "backups")
 var BinariesFolder = asDataFolder("daemon.data.binaries", "binaries")
 var CrashLimit = asInt("daemon.data.crashLimit", 3)
+
+// Off-site backups: every finished backup is also copied to an S3-compatible bucket
+var BackupsS3Enabled = asBool("daemon.backups.s3.enabled", false)
+var BackupsS3Endpoint = asString("daemon.backups.s3.endpoint", "")
+var BackupsS3Region = asString("daemon.backups.s3.region", "")
+var BackupsS3Bucket = asString("daemon.backups.s3.bucket", "")
+var BackupsS3AccessKey = asString("daemon.backups.s3.accessKey", "")
+var BackupsS3SecretKey = asString("daemon.backups.s3.secretKey", "")
+var BackupsS3Prefix = asString("daemon.backups.s3.prefix", "aether-backups")
+
+// BackupsS3Insecure talks plain http to the endpoint, for a MinIO on the local network
+var BackupsS3Insecure = asBool("daemon.backups.s3.insecure", false)
+
+// Automatic subdomains: servers get <name>.<base domain> through Cloudflare DNS. The token
+// only needs Zone → DNS → Edit on that zone. DNSTarget is where records point when a node is
+// registered by hostname or a private address; empty uses each node's public address.
+var CloudflareAPIToken = asString("panel.dns.cloudflare.token", "")
+var CloudflareZoneID = asString("panel.dns.cloudflare.zoneId", "")
+var DNSBaseDomain = asString("panel.dns.baseDomain", "")
+var DNSTarget = asString("panel.dns.target", "")
+var DNSAutoAssign = asBool("panel.dns.autoAssign", false)
+
 var CurseForgeKey = asString("daemon.curseforge.key", curseforgeKey)
 var DataRootFolder = asString("daemon.data.root", "")
 var DepotDownloaderVersion = asString("daemon.depotDownloader.version", "latest")
@@ -163,10 +191,10 @@ func (se entry[T]) Set(value T, save bool) error {
 	return nil
 }
 
-func asDataFolder(key string, def string) DataFolder {
+func asDataFolder(key, def string) DataFolder {
 	return DataFolder{StringEntry{entry: as[string](key, def)}}
 }
-func asString(key string, def string) StringEntry {
+func asString(key, def string) StringEntry {
 	return StringEntry{entry: as[string](key, def)}
 }
 func asBool(key string, def bool) BoolEntry {

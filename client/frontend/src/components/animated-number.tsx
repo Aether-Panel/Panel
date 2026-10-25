@@ -19,7 +19,7 @@ const easeOutExpo = (t: number) => (t >= 1 ? 1 : 1 - Math.pow(2, -10 * t));
  * keep the width steady while it counts. Shows the final value straight away
  * under `prefers-reduced-motion`.
  */
-export function AnimatedNumber({ value, decimals = 0, duration = 1100, className }: AnimatedNumberProps) {
+export function AnimatedNumber({ value, decimals = 0, duration = 1100, className }: Readonly<AnimatedNumberProps>) {
     const [display, setDisplay] = useState(0);
     const from = useRef(0);
     const first = useRef(true);

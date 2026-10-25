@@ -65,19 +65,59 @@ func performInternalTransfer(server *models.Server, targetNode *models.Node, db 
 
 	ns := &services.Node{DB: db}
 
+	// 1+2. Copy the server definition from the source node to the target node
+	if !copyDefinitionToTarget(ns, server, targetNode) {
+		return
+	}
+
+	// 3+4. Stop the server and archive its files on the source node
+	if !stopAndArchiveOnSource(ns, server) {
+		return
+	}
+
+	// 5. Download from Source and stream to Target Node via io.Pipe
+	if !streamArchiveToTarget(ns, server, targetNode) {
+		return
+	}
+
+	// 6. Extract on target node
+	if !extractArchiveOnTarget(ns, server, targetNode) {
+		return
+	}
+
+	// Clean up transfer file on target node
+	_, _ = ns.CallNode(targetNode, "DELETE", fmt.Sprintf("/daemon/server/%s/file/transfer.tar.gz", server.Identifier), nil, nil)
+
+	// 7. Change DB record
+	logging.Info.Printf("Updating database for %s", server.Identifier)
+
+	oldNode := server.Node
+	if !moveServerRecordToNode(db, server, targetNode) {
+		return
+	}
+
+	// 8. Ask source node to delete the server
+	_, _ = ns.CallNode(&oldNode, "DELETE", fmt.Sprintf("/daemon/server/%s", server.Identifier), nil, nil)
+
+	logging.Info.Printf("Transfer of %s completed successfully", server.Identifier)
+}
+
+// copyDefinitionToTarget reads the server definition from the source node and
+// creates the server with it on the target node.
+func copyDefinitionToTarget(ns *services.Node, server *models.Server, targetNode *models.Node) bool {
 	// 1. Get the server definition from the source node
 	logging.Info.Printf("Getting server definition from source node")
 	defRes, err := ns.CallNode(&server.Node, "GET", fmt.Sprintf("/daemon/server/%s/definition", server.Identifier), nil, nil)
 	if err != nil || defRes.StatusCode != 200 {
 		logging.Error.Printf("Failed to get server definition for %s: %v", server.Identifier, err)
-		return
+		return false
 	}
 	defer defRes.Body.Close()
 
 	// 2. Create the server on the target node
 	logging.Info.Printf("Creating server on target node")
 	headers := http.Header{}
-	headers.Set("Content-Type", "application/json")
+	headers.Set(headerContentType, "application/json")
 	createRes, err := ns.CallNode(targetNode, "PUT", fmt.Sprintf("/daemon/server/%s", server.Identifier), defRes.Body, headers)
 	if err != nil || createRes.StatusCode != 200 {
 		var errorBody string
@@ -87,16 +127,40 @@ func performInternalTransfer(server *models.Server, targetNode *models.Node, db 
 			}
 		}
 		logging.Error.Printf("Failed to create server on target node for %s: err=%v, status=%d, body=%s",
-			server.Identifier, err, func() int {
-				if createRes != nil {
-					return createRes.StatusCode
-				}
-				return 0
-			}(), errorBody)
-		return
+			server.Identifier, err, statusCodeOf(createRes), errorBody)
+		return false
 	}
 	defer createRes.Body.Close()
+	return true
+}
 
+// statusCodeOf is the response's status code, or 0 when there is no response.
+func statusCodeOf(res *http.Response) int {
+	if res != nil {
+		return res.StatusCode
+	}
+	return 0
+}
+
+// isDaemonSuccess reports whether a daemon action answered with 200 or 204.
+// A missing response without an error counts as success, as it always has.
+func isDaemonSuccess(res *http.Response, err error) bool {
+	return err == nil && (res == nil || res.StatusCode == http.StatusNoContent || res.StatusCode == http.StatusOK)
+}
+
+// readFailureBody reads and closes the body of a failed daemon response.
+func readFailureBody(res *http.Response) string {
+	if res == nil {
+		return "unknown error"
+	}
+	body, _ := io.ReadAll(res.Body)
+	res.Body.Close()
+	return string(body)
+}
+
+// stopAndArchiveOnSource stops the server on the source node and packs its
+// files into transfer.tar.gz.
+func stopAndArchiveOnSource(ns *services.Node, server *models.Server) bool {
 	// 3. Stop the server on Source Node
 	logging.Info.Printf("Stopping server %s on source node", server.Identifier)
 	_, _ = ns.CallNode(&server.Node, "POST", fmt.Sprintf("/daemon/server/%s/power/stop", server.Identifier), nil, nil)
@@ -110,28 +174,26 @@ func performInternalTransfer(server *models.Server, targetNode *models.Node, db 
 	logging.Info.Printf("Archiving files for %s on source node", server.Identifier)
 	archiveBody := bytes.NewReader([]byte(`["*"]`))
 	headersArch := http.Header{}
-	headersArch.Set("Content-Type", "application/json")
+	headersArch.Set(headerContentType, "application/json")
 	res, err := ns.CallNode(&server.Node, "POST", fmt.Sprintf("/daemon/server/%s/archive/transfer.tar.gz", server.Identifier), io.NopCloser(archiveBody), headersArch)
-	if err != nil || (res != nil && res.StatusCode != http.StatusNoContent && res.StatusCode != http.StatusOK) {
-		errorMsg := "unknown error"
-		if res != nil {
-			body, _ := io.ReadAll(res.Body)
-			errorMsg = string(body)
-			res.Body.Close()
-		}
-		logging.Error.Printf("Failed to archive server %s: %v - %s", server.Identifier, err, errorMsg)
-		return
+	if !isDaemonSuccess(res, err) {
+		logging.Error.Printf("Failed to archive server %s: %v - %s", server.Identifier, err, readFailureBody(res))
+		return false
 	}
 	if res != nil && res.Body != nil {
 		res.Body.Close()
 	}
+	return true
+}
 
-	// 5. Download from Source and stream to Target Node via io.Pipe
+// streamArchiveToTarget downloads transfer.tar.gz from the source node and
+// uploads it to the target node through a pipe, without buffering it.
+func streamArchiveToTarget(ns *services.Node, server *models.Server, targetNode *models.Node) bool {
 	logging.Info.Printf("Streaming archive for %s from source to target node", server.Identifier)
 	downloadRes, err := ns.CallNode(&server.Node, "GET", fmt.Sprintf("/daemon/server/%s/file/transfer.tar.gz", server.Identifier), nil, nil)
 	if err != nil || downloadRes.StatusCode != 200 {
 		logging.Error.Printf("Failed to start download for %s: %s or status", server.Identifier, err)
-		return
+		return false
 	}
 	defer downloadRes.Body.Close()
 
@@ -155,49 +217,49 @@ func performInternalTransfer(server *models.Server, targetNode *models.Node, db 
 	}()
 
 	headersTransfer := http.Header{}
-	headersTransfer.Set("Content-Type", writer.FormDataContentType())
+	headersTransfer.Set(headerContentType, writer.FormDataContentType())
 
 	uploadRes, err := ns.CallNode(targetNode, "PUT", fmt.Sprintf("/daemon/server/%s/file/transfer.tar.gz", server.Identifier), pr, headersTransfer)
 	if err != nil || uploadRes.StatusCode != http.StatusNoContent {
-		body, _ := io.ReadAll(uploadRes.Body)
+		// uploadRes is nil when the call itself failed
+		var body []byte
+		if uploadRes != nil {
+			body, _ = io.ReadAll(uploadRes.Body)
+		}
 		logging.Error.Printf("Failed to upload archive to target node for %s: %v %s", server.Identifier, err, string(body))
-		return
+		return false
 	}
 	if uploadRes.Body != nil {
 		uploadRes.Body.Close()
 	}
+	return true
+}
 
-	// 6. Extract on target node
+// extractArchiveOnTarget unpacks transfer.tar.gz into the server's folder on
+// the target node.
+func extractArchiveOnTarget(ns *services.Node, server *models.Server, targetNode *models.Node) bool {
 	logging.Info.Printf("Extracting files on target node for %s", server.Identifier)
 	extractRes, err := ns.CallNode(targetNode, "POST", fmt.Sprintf("/daemon/server/%s/extract/transfer.tar.gz?destination=.", server.Identifier), nil, nil)
-	if err != nil || (extractRes != nil && extractRes.StatusCode != http.StatusNoContent && extractRes.StatusCode != http.StatusOK) {
-		errorMsg := "unknown error"
-		if extractRes != nil {
-			body, _ := io.ReadAll(extractRes.Body)
-			errorMsg = string(body)
-			extractRes.Body.Close()
-		}
-		logging.Error.Printf("Failed to extract on target node for %s: %v - %s", server.Identifier, err, errorMsg)
-		return
+	if !isDaemonSuccess(extractRes, err) {
+		logging.Error.Printf("Failed to extract on target node for %s: %v - %s", server.Identifier, err, readFailureBody(extractRes))
+		return false
 	}
 	if extractRes.Body != nil {
 		extractRes.Body.Close()
 	}
+	return true
+}
 
-	// Clean up transfer file on target node
-	_, _ = ns.CallNode(targetNode, "DELETE", fmt.Sprintf("/daemon/server/%s/file/transfer.tar.gz", server.Identifier), nil, nil)
-
-	// 7. Change DB record
-	logging.Info.Printf("Updating database for %s", server.Identifier)
-
-	oldNode := server.Node
+// moveServerRecordToNode points the server's database record at the target
+// node.
+func moveServerRecordToNode(db *gorm.DB, server *models.Server, targetNode *models.Node) bool {
 	server.NodeID = targetNode.ID
 	server.Node = *targetNode
 
 	ss := &services.Server{DB: db}
 	if err := ss.Update(server); err != nil {
 		logging.Error.Printf("Failed to update server config in DB: %v", err)
-		return
+		return false
 	}
 
 	// ss.Update explicitly omits 'node_id' for security, and gorm has it marked as '<-:create' only.
@@ -208,12 +270,8 @@ func performInternalTransfer(server *models.Server, targetNode *models.Node, db 
 	}
 	if err := db.Exec("UPDATE servers SET node_id = ? WHERE identifier = ?", rawNodeID, server.Identifier).Error; err != nil {
 		logging.Error.Printf("Failed to update server node_id in DB via raw SQL: %v", err)
-		return
+		return false
 	}
 	server.RawNodeID = rawNodeID
-
-	// 8. Ask source node to delete the server
-	_, _ = ns.CallNode(&oldNode, "DELETE", fmt.Sprintf("/daemon/server/%s", server.Identifier), nil, nil)
-
-	logging.Info.Printf("Transfer of %s completed successfully", server.Identifier)
+	return true
 }

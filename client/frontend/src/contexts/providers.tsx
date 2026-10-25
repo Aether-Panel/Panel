@@ -1,10 +1,10 @@
 'use client';
-import { useState, useEffect, createContext, useContext } from 'react';
+import { useState, useEffect, createContext, useContext, useCallback, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { sileo } from "@/lib/toast";
 import { TranslationsProvider, useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
-import { useConfig } from '@/contexts/config-context';
+import { ConfigProvider, useConfig } from '@/contexts/config-context';
 
 export type UserRole = 'admin' | 'user';
 
@@ -44,25 +44,24 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-function AuthProvider({ children }: { children: ReactNode }) {
+const normalizeScopes = (rawScopes: any[]): string[] => {
+  if (!rawScopes) return [];
+  const normalized = rawScopes.map(s => {
+    if (typeof s === 'string') return s;
+    if (s && typeof s === 'object') return s.value || s.scope || '';
+    return '';
+  }).filter(s => s !== '');
+  return normalized;
+};
+
+function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   const { t } = useTranslations();
   const [role, setRole] = useState<UserRole | null>(null);
   const [user, setUser] = useState<UserData | null>(null);
   const [scopes, setScopes] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  
 
-  const normalizeScopes = (rawScopes: any[]): string[] => {
-    if (!rawScopes) return [];
-    const normalized = rawScopes.map(s => {
-      if (typeof s === 'string') return s;
-      if (s && typeof s === 'object') return s.value || s.scope || '';
-      return '';
-    }).filter(s => s !== '');
-    return normalized;
-  };
-
-  const fetchSelf = async (forceScopes?: string[]) => {
+  const fetchSelf = useCallback(async (forceScopes?: string[]) => {
     try {
       const data = await api.get('/api/self');
       setUser(data);
@@ -79,11 +78,11 @@ function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     void fetchSelf();
-  }, []);
+  }, [fetchSelf]);
 
   const normalizedPath = typeof window !== 'undefined' ? (window.location.pathname.replace(/\/$/, '') || '/') : '';
   const isAuthPage =
@@ -103,7 +102,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [role, loading]);
 
-  const login = async (credentials: LoginCredentials) => {
+  const login = useCallback(async (credentials: LoginCredentials) => {
     setLoading(true);
     try {
       const data = await api.post('/auth/login', {
@@ -142,9 +141,9 @@ function AuthProvider({ children }: { children: ReactNode }) {
       });
       setLoading(false);
     }
-  };
+  }, [t, fetchSelf]);
 
-  const register = async (data: RegisterData) => {
+  const register = useCallback(async (data: RegisterData) => {
     setLoading(true);
     try {
       const res = await api.post('/auth/register', {
@@ -174,9 +173,9 @@ function AuthProvider({ children }: { children: ReactNode }) {
       });
       setLoading(false);
     }
-  };
+  }, [t, fetchSelf]);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await api.post('/auth/logout', {});
     } catch (e) {
@@ -186,18 +185,21 @@ function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       window.location.href = '/login/';
     }
-  };
+  }, []);
 
-  const hasScope = (scope: string) => {
+  const hasScope = useCallback((scope: string) => {
     if (role === 'admin') return true;
     if (scopes.includes(scope)) return true;
     if (scope.startsWith('server.') && scope !== 'server.create' && scope !== 'server.admin') {
       if (scopes.includes('server.admin')) return true;
     }
     return false;
-  };
+  }, [role, scopes]);
 
-  const value = { role, user, scopes, login, register, logout, hasScope, loading, fetchSelf };
+  const value = useMemo(
+    () => ({ role, user, scopes, login, register, logout, hasScope, loading, fetchSelf }),
+    [role, user, scopes, login, register, logout, hasScope, loading, fetchSelf],
+  );
 
   const { config } = useConfig();
   const panelName = config?.branding?.name || "Aether Panel";
@@ -228,9 +230,7 @@ export function useAuth() {
   return context;
 }
 
-import { ConfigProvider } from '@/contexts/config-context';
-
-export function Providers({ children }: { children: ReactNode }) {
+export function Providers({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <TranslationsProvider>
       <ConfigProvider>

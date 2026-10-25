@@ -33,17 +33,7 @@ var clientFiles fs.FS
 
 // RegisterRoutes Registers all routes
 func RegisterRoutes(e *gin.Engine) {
-	// Configuración de CORS Global
-	corsConfig := cors.DefaultConfig()
-	corsConfig.AllowOriginFunc = func(_ string) bool {
-		return true
-	}
-	// Other sites may call the API with a bearer token, but never with the user's session
-	// cookie: the panel itself is same-origin and does not need CORS for that.
-	corsConfig.AllowCredentials = false
-	corsConfig.AddAllowHeaders("Authorization", "Content-Type", "Accept", "Origin")
-	corsConfig.AddAllowMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-	e.Use(cors.New(corsConfig))
+	e.Use(corsMiddleware())
 
 	e.Use(func(c *gin.Context) {
 		middleware.Recover(c)
@@ -54,121 +44,169 @@ func RegisterRoutes(e *gin.Engine) {
 	}
 
 	if config.PanelEnabled.Value() {
+		registerPanelRoutes(e)
+	}
+}
 
-		// the API docs map every route, so only signed-in administrators can read them
-		e.GET("/swagger/*any", middleware.AuthMiddleware, middleware.RequiresPermission(scopes.ScopeAdmin),
-			ginSwagger.WrapHandler(swaggerFiles.Handler, ginSwagger.DefaultModelsExpandDepth(0), ginSwagger.DeepLinking(false)))
+// corsMiddleware is the global CORS configuration
+func corsMiddleware() gin.HandlerFunc {
+	// Configuración de CORS Global
+	corsConfig := cors.DefaultConfig()
+	corsConfig.AllowOriginFunc = func(_ string) bool {
+		return true
+	}
+	// Other sites may call the API with a bearer token, but never with the user's session
+	// cookie: the panel itself is same-origin and does not need CORS for that.
+	corsConfig.AllowCredentials = false
+	corsConfig.AddAllowHeaders("Authorization", "Content-Type", "Accept", "Origin")
+	corsConfig.AddAllowMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+	return cors.New(corsConfig)
+}
 
-		api.RegisterRoutes(e.Group("/api"))
-		oauth2.RegisterRoutes(e.Group("/oauth2"))
-		auth.RegisterRoutes(e.Group("/auth"))
+// registerPanelRoutes registers the panel API, the API docs and the web client
+func registerPanelRoutes(e *gin.Engine) {
+	// the API docs map every route, so only signed-in administrators can read them
+	e.GET("/swagger/*any", middleware.AuthMiddleware, middleware.RequiresPermission(scopes.ScopeAdmin),
+		ginSwagger.WrapHandler(swaggerFiles.Handler, ginSwagger.DefaultModelsExpandDepth(0), ginSwagger.DeepLinking(false)))
 
-		sub, err := fs.Sub(frontend.ClientFiles, "dist")
-		if err != nil {
-			panic(err)
+	api.RegisterRoutes(e.Group("/api"))
+	oauth2.RegisterRoutes(e.Group("/oauth2"))
+	auth.RegisterRoutes(e.Group("/auth"))
+
+	sub, err := fs.Sub(frontend.ClientFiles, "dist")
+	if err != nil {
+		panic(err)
+	}
+	clientFiles = sub
+
+	if config.WebRoot.Value() != "" {
+		clientFiles = files.NewMergedFS(os.DirFS(config.WebRoot.Value()), clientFiles)
+	}
+
+	// Generic static file serving (Optimized for Astro)
+	e.Use(serveClientFiles)
+
+	// Favicon principal: devolver un SVG embebido si no existe archivo físico
+	e.GET("/favicon.ico", serveFavicon)
+
+	// Para manifest.json
+	e.GET("/manifest.json", func(c *gin.Context) {
+		webManifest(c)
+	})
+
+	e.StaticFileFS("/favicon.png", "favicon.png", http.FS(clientFiles))
+	e.NoRoute(handle404)
+}
+
+// serveClientFiles serves the web client's static files; anything it does not find falls
+// through to the routes and finally to handle404 (SPA)
+func serveClientFiles(c *gin.Context) {
+	reqPath := c.Request.URL.Path
+
+	// Skip for API, OAuth2, and Daemon routes
+	for _, prefix := range noHTMLRedirectOn404 {
+		if strings.HasPrefix(reqPath, prefix) {
+			return
 		}
-		clientFiles = sub
+	}
 
-		if config.WebRoot.Value() != "" {
-			clientFiles = files.NewMergedFS(os.DirFS(config.WebRoot.Value()), clientFiles)
+	fPath := clientFSPath(reqPath)
+
+	// Validate path to prevent directory traversal attacks (fixes SonarQube vulnerability)
+	if !fs.ValidPath(fPath) {
+		return
+	}
+
+	// Try to open the path in our embedded FS
+	f, err := clientFiles.Open(fPath)
+	if err != nil {
+		// If not found, let it fall through to handle404 (SPA)
+		return
+	}
+	defer f.Close()
+
+	stat, err := f.Stat()
+	if err != nil {
+		return
+	}
+
+	if stat.IsDir() {
+		serveClientDirectory(c, reqPath, fPath)
+		return
+	}
+
+	// If it's a regular file, serve it normally
+	c.FileFromFS(fPath, http.FS(clientFiles))
+	c.Abort()
+}
+
+// clientFSPath turns a request path into an fs.FS path: cleaned, no leading or trailing
+// slash, "." for the root
+func clientFSPath(reqPath string) string {
+	// Use path.Clean to prevent path traversal attacks
+	cleanedPath := path.Clean(reqPath)
+
+	// Clean path for fs.FS (no leading slash, "." for root)
+	fPath := strings.TrimPrefix(cleanedPath, "/")
+	if fPath == "" || fPath == "." {
+		return "."
+	}
+	// fs.FS.Open doesn't like trailing slashes for directory names
+	return strings.TrimSuffix(fPath, "/")
+}
+
+// serveClientDirectory serves a directory's index.html, after redirecting to the URL with a
+// trailing slash; a directory without index.html falls through
+func serveClientDirectory(c *gin.Context, reqPath, fPath string) {
+	// If it's a directory, we REQUIRE a trailing slash in the URL
+	if !strings.HasSuffix(reqPath, "/") {
+		// Construct target strictly from validated fPath to clear SonarQube taint
+		target := "/"
+		if fPath != "." && fPath != "" {
+			target = "/" + fPath + "/"
 		}
 
-		// Generic static file serving (Optimized for Astro)
-		e.Use(func(c *gin.Context) {
-			reqPath := c.Request.URL.Path
+		c.Redirect(http.StatusMovedPermanently, validRedirectPath(target))
+		c.Abort()
+		return
+	}
 
-			// Skip for API, OAuth2, and Daemon routes
-			for _, prefix := range noHTMLRedirectOn404 {
-				if strings.HasPrefix(reqPath, prefix) {
-					return
-				}
-			}
+	// Look for index.html inside the directory
+	indexPath := fPath
+	if indexPath == "." {
+		indexPath = "index.html"
+	} else {
+		indexPath += "/index.html"
+	}
 
-			// Use path.Clean to prevent path traversal attacks
-			cleanedPath := path.Clean(reqPath)
+	// Verify index.html exists
+	ifile, ierr := clientFiles.Open(indexPath)
+	if ierr != nil {
+		// If directory but no index.html, fall through
+		return
+	}
+	_ = ifile.Close()
+	// Serve the index.html content directly to bypass Gin's smart redirects
+	content, rerr := fs.ReadFile(clientFiles, indexPath)
+	if rerr == nil {
+		c.Data(http.StatusOK, "text/html; charset=utf-8", content)
+		c.Abort()
+	}
+}
 
-			// Clean path for fs.FS (no leading slash, "." for root)
-			fPath := strings.TrimPrefix(cleanedPath, "/")
-			if fPath == "" || fPath == "." {
-				fPath = "."
-			} else {
-				// fs.FS.Open doesn't like trailing slashes for directory names
-				fPath = strings.TrimSuffix(fPath, "/")
-			}
+// serveFavicon serves the client's favicon.ico, or a small built-in SVG when there is none
+func serveFavicon(c *gin.Context) {
+	// Intentar servir desde los archivos del cliente si existe
+	f, err := clientFiles.Open("favicon.ico")
+	if err == nil {
+		_ = f.Close()
+		c.FileFromFS("favicon.ico", http.FS(clientFiles))
+		return
+	}
 
-			// Validate path to prevent directory traversal attacks (fixes SonarQube vulnerability)
-			if !fs.ValidPath(fPath) {
-				return
-			}
-
-			// Try to open the path in our embedded FS
-			f, err := clientFiles.Open(fPath)
-			if err != nil {
-				// If not found, let it fall through to handle404 (SPA)
-				return
-			}
-			defer f.Close()
-
-			stat, err := f.Stat()
-			if err != nil {
-				return
-			}
-
-			if stat.IsDir() {
-				// If it's a directory, we REQUIRE a trailing slash in the URL
-				if !strings.HasSuffix(reqPath, "/") {
-					// Construct target strictly from validated fPath to clear SonarQube taint
-					target := "/"
-					if fPath != "." && fPath != "" {
-						target = "/" + fPath + "/"
-					}
-
-					c.Redirect(http.StatusMovedPermanently, validRedirectPath(target))
-					c.Abort()
-					return
-				}
-
-				// Look for index.html inside the directory
-				indexPath := fPath
-				if indexPath == "." {
-					indexPath = "index.html"
-				} else {
-					indexPath += "/index.html"
-				}
-
-				// Verify index.html exists
-				if ifile, ierr := clientFiles.Open(indexPath); ierr == nil {
-					_ = ifile.Close()
-					// Serve the index.html content directly to bypass Gin's smart redirects
-					content, rerr := fs.ReadFile(clientFiles, indexPath)
-					if rerr == nil {
-						c.Data(http.StatusOK, "text/html; charset=utf-8", content)
-						c.Abort()
-						return
-					}
-				}
-				// If directory but no index.html, fall through
-				return
-			}
-
-			// If it's a regular file, serve it normally
-			c.FileFromFS(fPath, http.FS(clientFiles))
-			c.Abort()
-		})
-
-		// Favicon principal: devolver un SVG embebido si no existe archivo físico
-		e.GET("/favicon.ico", func(c *gin.Context) {
-			// Intentar servir desde los archivos del cliente si existe
-			f, err := clientFiles.Open("favicon.ico")
-			if err == nil {
-				_ = f.Close()
-				c.FileFromFS("favicon.ico", http.FS(clientFiles))
-				return
-			}
-
-			// Fallback: pequeño favicon SVG integrado para evitar 404
-			c.Header("Content-Type", "image/svg+xml")
-			c.String(http.StatusOK, `<?xml version="1.0" encoding="UTF-8"?>
+	// Fallback: pequeño favicon SVG integrado para evitar 404
+	c.Header("Content-Type", "image/svg+xml")
+	c.String(http.StatusOK, `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
     <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -179,16 +217,6 @@ func RegisterRoutes(e *gin.Engine) {
   <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#g)"/>
   <path d="M20 40L28 24L36 40L44 24" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>`)
-		})
-
-		// Para manifest.json
-		e.GET("/manifest.json", func(c *gin.Context) {
-			webManifest(c)
-		})
-
-		e.StaticFileFS("/favicon.png", "favicon.png", http.FS(clientFiles))
-		e.NoRoute(handle404)
-	}
 }
 
 func handle404(c *gin.Context) {

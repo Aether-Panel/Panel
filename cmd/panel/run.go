@@ -69,112 +69,24 @@ func internalRun() (terminate chan bool, success bool) {
 	router.Use(gin.Recovery())
 	router.Use(gin.LoggerWithWriter(logging.Info.Writer()))
 
-	// do not trust proxies by default
-	_ = router.SetTrustedProxies(nil)
-	if proxies := config.SecurityTrustedProxies.Value(); proxies != nil {
-		err := router.SetTrustedProxies(proxies)
-		if err != nil {
-			logging.Error.Printf("Failed to add trusted proxies: %s", err.Error())
-		}
-	}
-	if header := config.SecurityTrustedProxyHeader.Value(); header != "" {
-		router.TrustedPlatform = header
-	}
+	configureTrustedProxies(router)
 
 	gin.DefaultWriter = logging.Info.Writer()
 	gin.DefaultErrorWriter = logging.Error.Writer()
 	skypanel.Engine = router
 
-	if config.PanelEnabled.Value() {
-		panel()
-
-		db, err := database.GetConnection()
-		if err != nil {
-			logging.Error.Printf("error connecting to database: %s", err.Error())
-			terminate <- true
-			return
-		}
-
-		err = database.Upgrade(db, false)
-		if err != nil {
-			logging.Error.Printf("error upgrading database: %s", err.Error())
-			terminate <- true
-			return
-		}
-
-		if config.SessionKey.Value() == "" {
-			k := securecookie.GenerateRandomKey(32)
-			if err := config.SessionKey.Set(hex.EncodeToString(k), true); err != nil {
-				logging.Error.Printf("error saving session key: %s", err.Error())
-				terminate <- true
-				return
-			}
-		}
-
-		result, err := hex.DecodeString(config.SessionKey.Value())
-		if err != nil {
-			logging.Error.Printf("error decoding session key: %s", err.Error())
-			terminate <- true
-			return
-		}
-
-		// Derive the local node secret from the persisted session key so the
-		// local node keeps a stable identity across restarts (the secret is
-		// otherwise regenerated in memory on every boot).
-		models.SetLocalNodeSecretFromSeed(config.SessionKey.Value())
-
-		sameSite := config.PanelWebCookiesSameSite.Value()
-		var sameSiteID http.SameSite
-
-		switch sameSite {
-		case "Strict":
-			sameSiteID = http.SameSiteStrictMode
-		case "None":
-			sameSiteID = http.SameSiteNoneMode
-		case "Lax":
-			sameSiteID = http.SameSiteLaxMode
-		default:
-			sameSiteID = http.SameSiteStrictMode
-		}
-
-		sessionStore := cookie.NewStore(result)
-		sessionStore.Options(sessions.Options{
-			Path:     config.PanelWebCookiesPath.Value(),
-			Domain:   config.PanelWebCookiesDomain.Value(),
-			MaxAge:   config.PanelWebCookiesAge.Value(),
-			Secure:   config.PanelWebCookiesSecure.Value(),
-			HttpOnly: config.PanelWebCookiesHTTPOnly.Value(),
-			SameSite: sameSiteID,
-		})
-		router.Use(sessions.Sessions("session", sessionStore))
-
-		if config.DaemonEnabled.Value() {
-			services.SyncNodeToConfig()
-		}
+	if config.PanelEnabled.Value() && !setupPanel(router) {
+		terminate <- true
+		return
 	}
 
-	if config.DaemonEnabled.Value() {
-		err := daemon()
-		if err != nil {
-			logging.Error.Printf("error starting daemon server: %s", err.Error())
-			// En Docker, si el daemon falla por permisos del socket, continuar sin el daemon
-			// El panel web y Gatus pueden funcionar sin el daemon
-			if os.Getenv("SKYPANEL_PLATFORM") == "docker" {
-				logging.Info.Printf("Continuing without daemon in Docker environment")
-			} else {
-				terminate <- true
-				return
-			}
-		}
+	if config.DaemonEnabled.Value() && !startDaemon() {
+		terminate <- true
+		return
 	}
 
 	if !config.PanelEnabled.Value() {
-		logging.Info.Printf("Panel web routes are disabled. Only Daemon API is active.")
-		if config.TokenPublicURL.Value() == "" {
-			logging.Error.Printf("WARNING: Panel is disabled but token.public (TokenPublicURL) is empty!")
-			logging.Error.Printf("This node will not be able to authenticate requests from the Master Panel.")
-			logging.Error.Printf("Please configure it in config.json or set SKYPANEL_TOKEN_PUBLIC in docker-compose.")
-		}
+		warnPanelDisabled()
 	}
 
 	web.RegisterRoutes(router)
@@ -202,6 +114,111 @@ func internalRun() (terminate chan bool, success bool) {
 
 	success = true
 	return
+}
+
+// configureTrustedProxies trusts no proxies unless the config lists some.
+func configureTrustedProxies(router *gin.Engine) {
+	// do not trust proxies by default
+	_ = router.SetTrustedProxies(nil)
+	if proxies := config.SecurityTrustedProxies.Value(); proxies != nil {
+		err := router.SetTrustedProxies(proxies)
+		if err != nil {
+			logging.Error.Printf("Failed to add trusted proxies: %s", err.Error())
+		}
+	}
+	if header := config.SecurityTrustedProxyHeader.Value(); header != "" {
+		router.TrustedPlatform = header
+	}
+}
+
+// startDaemon starts the daemon and returns false when the panel has to stop.
+func startDaemon() bool {
+	err := daemon()
+	if err == nil {
+		return true
+	}
+	logging.Error.Printf("error starting daemon server: %s", err.Error())
+	// En Docker, si el daemon falla por permisos del socket, continuar sin el daemon
+	// El panel web y Gatus pueden funcionar sin el daemon
+	if os.Getenv("SKYPANEL_PLATFORM") == "docker" {
+		logging.Info.Printf("Continuing without daemon in Docker environment")
+		return true
+	}
+	return false
+}
+
+func warnPanelDisabled() {
+	logging.Info.Printf("Panel web routes are disabled. Only Daemon API is active.")
+	if config.TokenPublicURL.Value() == "" {
+		logging.Error.Printf("WARNING: Panel is disabled but token.public (TokenPublicURL) is empty!")
+		logging.Error.Printf("This node will not be able to authenticate requests from the Master Panel.")
+		logging.Error.Printf("Please configure it in config.json or set SKYPANEL_TOKEN_PUBLIC in docker-compose.")
+	}
+}
+
+// setupPanel prepares the database and the session store for the web panel. It logs and
+// returns false when the panel cannot start.
+func setupPanel(router *gin.Engine) bool {
+	panel()
+
+	db, err := database.GetConnection()
+	if err != nil {
+		logging.Error.Printf("error connecting to database: %s", err.Error())
+		return false
+	}
+
+	err = database.Upgrade(db, false)
+	if err != nil {
+		logging.Error.Printf("error upgrading database: %s", err.Error())
+		return false
+	}
+
+	if config.SessionKey.Value() == "" {
+		k := securecookie.GenerateRandomKey(32)
+		if err := config.SessionKey.Set(hex.EncodeToString(k), true); err != nil {
+			logging.Error.Printf("error saving session key: %s", err.Error())
+			return false
+		}
+	}
+
+	result, err := hex.DecodeString(config.SessionKey.Value())
+	if err != nil {
+		logging.Error.Printf("error decoding session key: %s", err.Error())
+		return false
+	}
+
+	// Derive the local node secret from the persisted session key so the
+	// local node keeps a stable identity across restarts (the secret is
+	// otherwise regenerated in memory on every boot).
+	models.SetLocalNodeSecretFromSeed(config.SessionKey.Value())
+
+	sessionStore := cookie.NewStore(result)
+	sessionStore.Options(sessions.Options{
+		Path:     config.PanelWebCookiesPath.Value(),
+		Domain:   config.PanelWebCookiesDomain.Value(),
+		MaxAge:   config.PanelWebCookiesAge.Value(),
+		Secure:   config.PanelWebCookiesSecure.Value(),
+		HttpOnly: config.PanelWebCookiesHTTPOnly.Value(),
+		SameSite: cookieSameSite(config.PanelWebCookiesSameSite.Value()),
+	})
+	router.Use(sessions.Sessions("session", sessionStore))
+
+	if config.DaemonEnabled.Value() {
+		services.SyncNodeToConfig()
+	}
+	return true
+}
+
+// cookieSameSite maps the configured SameSite name, falling back to Strict.
+func cookieSameSite(name string) http.SameSite {
+	switch name {
+	case "None":
+		return http.SameSiteNoneMode
+	case "Lax":
+		return http.SameSiteLaxMode
+	default:
+		return http.SameSiteStrictMode
+	}
 }
 
 func closePanel() {

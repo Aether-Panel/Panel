@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
+	"github.com/SkyPanel/SkyPanel/v3/internal/offsite"
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
 	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
@@ -21,7 +23,14 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cast"
+	"gorm.io/gorm"
 )
+
+// masterNodeIPKey is the setting that holds the master node's address
+const masterNodeIPKey = "panel.settings.masterNodeIp"
+
+// loopbackIP is the fallback when no local address is found
+const loopbackIP = "127.0.0.1"
 
 func registerSettings(g *gin.RouterGroup) {
 	g.Handle("GET", "", middleware.RequiresPermission(scopes.ScopeSettingsEdit), getSettings)
@@ -37,6 +46,10 @@ func registerSettings(g *gin.RouterGroup) {
 
 	g.Handle("POST", "/test/discord", middleware.RequiresPermission(scopes.ScopeSettingsEdit), sendTestDiscord)
 	g.Handle("OPTIONS", "/test/discord", response.CreateOptions("POST"))
+
+	g.Handle("POST", "/test/s3", middleware.RequiresPermission(scopes.ScopeSettingsEdit), sendTestS3)
+	g.Handle("OPTIONS", "/test/s3", response.CreateOptions("POST"))
+	g.Handle("POST", "/test/cloudflare", middleware.RequiresPermission(scopes.ScopeSettingsEdit), sendTestCloudflare)
 
 	g.Handle("POST", "/license/activate", middleware.RequiresPermission(scopes.ScopeSettingsEdit), activateLicense)
 	g.Handle("OPTIONS", "/license/activate", response.CreateOptions("POST"))
@@ -104,12 +117,8 @@ func setSetting(c *gin.Context) {
 		return
 	}
 
-	if key == "panel.settings.masterNodeIp" {
-		db := middleware.GetDatabase(c)
-		err = db.Save(&models.PanelSetting{
-			Key:   "master_node_ip",
-			Value: cast.ToString(model.Value),
-		}).Error
+	if key == masterNodeIPKey {
+		err = saveMasterNodeIP(middleware.GetDatabase(c), model.Value)
 		if response.HandleError(c, err, http.StatusInternalServerError) {
 			return
 		}
@@ -117,41 +126,57 @@ func setSetting(c *gin.Context) {
 		return
 	}
 
-	for _, v := range editableStringEntries {
-		if v.Key() == key {
-			err = v.Set(cast.ToString(model.Value), true)
-			if response.HandleError(c, err, http.StatusInternalServerError) {
-				return
-			}
-
-		}
+	if response.HandleError(c, validateStringSetting(key, cast.ToString(model.Value)), http.StatusBadRequest) {
+		return
 	}
 
-	for _, v := range editableBoolEntries {
-		if v.Key() == key {
-			err = v.Set(cast.ToBool(model.Value), true)
-			if response.HandleError(c, err, http.StatusInternalServerError) {
-				return
-			}
-		}
-	}
-
-	for _, v := range editableIntEntries {
-		if v.Key() == key {
-			err = v.Set(cast.ToInt(model.Value), true)
-			if response.HandleError(c, err, http.StatusInternalServerError) {
-				return
-			}
-		}
+	if err = applyEditableSetting(key, model.Value); response.HandleError(c, err, http.StatusInternalServerError) {
+		return
 	}
 
 	services.SyncNodeToConfig()
 
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-		return
-	}
-
 	c.Status(http.StatusNoContent)
+}
+
+// saveMasterNodeIP stores the global master node ip, which lives in the
+// database instead of the config file.
+func saveMasterNodeIP(db *gorm.DB, value interface{}) error {
+	return db.Save(&models.PanelSetting{
+		Key:   "master_node_ip",
+		Value: cast.ToString(value),
+	}).Error
+}
+
+// applyEditableSetting writes the value to the editable config entry with
+// the given key, converted to that entry's type. Unknown keys are ignored.
+func applyEditableSetting(key string, value interface{}) error {
+	if err := setMatchingEntries(editableStringEntries, key, strings.TrimSpace(cast.ToString(value))); err != nil {
+		return err
+	}
+	if err := setMatchingEntries(editableBoolEntries, key, cast.ToBool(value)); err != nil {
+		return err
+	}
+	return setMatchingEntries(editableIntEntries, key, cast.ToInt(value))
+}
+
+// settableEntry is a config entry the settings API can change.
+type settableEntry[T any] interface {
+	Key() string
+	Set(value T, save bool) error
+}
+
+// setMatchingEntries saves the value to every entry with the given key.
+func setMatchingEntries[T any, E settableEntry[T]](entries []E, key string, value T) error {
+	for _, v := range entries {
+		if v.Key() != key {
+			continue
+		}
+		if err := v.Set(value, true); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // @Summary Update multiple panel setting
@@ -172,42 +197,22 @@ func setSettings(c *gin.Context) {
 
 	db := middleware.GetDatabase(c)
 
+	// check everything first, so a bad value does not leave the settings half saved
+	for key, value := range *settings {
+		if response.HandleError(c, validateStringSetting(key, cast.ToString(value)), http.StatusBadRequest) {
+			return
+		}
+	}
+
 	for key, value := range *settings {
 		// Intercept the custom global setting
-		if key == "panel.settings.masterNodeIp" {
-			db.Save(&models.PanelSetting{
-				Key:   "master_node_ip",
-				Value: cast.ToString(value),
-			})
+		if key == masterNodeIPKey {
+			_ = saveMasterNodeIP(db, value)
 			continue
 		}
 
-		for _, v := range editableStringEntries {
-			if v.Key() == key {
-				err = v.Set(cast.ToString(value), true)
-				if response.HandleError(c, err, http.StatusInternalServerError) {
-					return
-				}
-
-			}
-		}
-
-		for _, v := range editableBoolEntries {
-			if v.Key() == key {
-				err = v.Set(cast.ToBool(value), true)
-				if response.HandleError(c, err, http.StatusInternalServerError) {
-					return
-				}
-			}
-		}
-
-		for _, v := range editableIntEntries {
-			if v.Key() == key {
-				err = v.Set(cast.ToInt(value), true)
-				if response.HandleError(c, err, http.StatusInternalServerError) {
-					return
-				}
-			}
+		if err = applyEditableSetting(key, value); response.HandleError(c, err, http.StatusInternalServerError) {
+			return
 		}
 	}
 
@@ -235,9 +240,9 @@ func getSettings(c *gin.Context) {
 	db := middleware.GetDatabase(c)
 	var masterSetting models.PanelSetting
 	if err := db.Where("`key` = ?", "master_node_ip").First(&masterSetting).Error; err == nil {
-		settings["panel.settings.masterNodeIp"] = masterSetting.Value
+		settings[masterNodeIPKey] = masterSetting.Value
 	} else {
-		settings["panel.settings.masterNodeIp"] = ""
+		settings[masterNodeIPKey] = ""
 	}
 
 	c.JSON(http.StatusOK, settings)
@@ -312,44 +317,41 @@ func sendTestDiscord(c *gin.Context) {
 	description := "Este es un mensaje de prueba para verificar que el webhook de Discord está configurado correctamente."
 	color := 0x0099FF
 
-	// Enviar a los 3 webhooks si están configurados
-	var errors []string
+	// send to every configured webhook and report the ones that failed: a test that always
+	// says OK hides a wrong or deleted webhook until a real alert goes missing
+	targets := []struct {
+		name  string
+		entry config.StringEntry
+		title string
+	}{
+		{"principal", config.DiscordWebhook, title},
+		{"sistema", config.DiscordWebhookSystem, title + " (Sistema)"},
+		{"nodo", config.DiscordWebhookNode, title + " (Nodo)"},
+		{"migraciones", config.DiscordWebhookExTransfer, title + " (Migraciones)"},
+	}
 
-	// Webhook principal
-	if config.DiscordWebhook.Value() != "" {
-		err := ds.SendWebhookToURL(config.DiscordWebhook.Value(), title, description, color, fields)
-		if err != nil {
-			errors = append(errors, fmt.Sprintf("Webhook principal: %v", err))
-			logging.Error.Printf("Error enviando test al webhook principal: %v", err)
+	var failed []string
+	sent := 0
+	for _, target := range targets {
+		hook := target.entry.Value()
+		if hook == "" {
+			continue
+		}
+		sent++
+		if err := ds.SendWebhookToURL(hook, target.title, description, color, fields); err != nil {
+			logging.Error.Printf("Error enviando test al webhook %s: %v", target.name, err)
+			failed = append(failed, target.name)
 		}
 	}
 
-	// Webhook del sistema
-	if config.DiscordWebhookSystem.Value() != "" {
-		err := ds.SendWebhookToURL(config.DiscordWebhookSystem.Value(), title+" (Sistema)", description+" Este es el webhook del sistema.", color, fields)
-		if err != nil {
-			errors = append(errors, fmt.Sprintf("Webhook sistema: %v", err))
-			logging.Error.Printf("Error enviando test al webhook del sistema: %v", err)
-		}
+	if sent == 0 {
+		response.HandleError(c, errors.New("no hay webhooks de Discord configurados"), http.StatusBadRequest)
+		return
 	}
-
-	// Webhook del nodo
-	if config.DiscordWebhookNode.Value() != "" {
-		err := ds.SendWebhookToURL(config.DiscordWebhookNode.Value(), title+" (Nodo)", description+" Este es el webhook del nodo.", color, fields)
-		if err != nil {
-			errors = append(errors, fmt.Sprintf("Webhook nodo: %v", err))
-			logging.Error.Printf("Error enviando test al webhook del nodo: %v", err)
-		}
-	}
-
-	// Si hay errores y no se envió a ningún webhook, retornar error
-	if len(errors) > 0 {
-		if config.DiscordWebhook.Value() == "" && config.DiscordWebhookSystem.Value() == "" && config.DiscordWebhookNode.Value() == "" {
-			response.HandleError(c, fmt.Errorf("no hay webhooks configurados"), http.StatusBadRequest)
-			return
-		}
-		// Si hay al menos un webhook configurado pero falló, loguear pero no fallar
-		logging.Info.Printf("Algunos webhooks fallaron al enviar test: %v", errors)
+	if len(failed) > 0 {
+		// 422 rather than 502: the panel hides the text of 5xx errors, and the admin needs it
+		response.HandleError(c, fmt.Errorf("el mensaje de prueba no llegó al webhook %s; revisa que siga existiendo en Discord", strings.Join(failed, ", ")), http.StatusUnprocessableEntity)
+		return
 	}
 
 	c.Status(http.StatusNoContent)
@@ -424,7 +426,7 @@ func activateLicense(c *gin.Context) {
 		ip, err := getServerIP()
 		if err != nil {
 			// Usar la IP privada como fallback
-			ip = "127.0.0.1"
+			ip = loopbackIP
 		}
 		serverIP = ip
 		_ = config.LicenseServerIP.Set(serverIP, true)
@@ -496,7 +498,7 @@ func getServerIP() (string, error) {
 func getLocalIP() (string, error) {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
-		return "127.0.0.1", err
+		return loopbackIP, err
 	}
 
 	for _, addr := range addrs {
@@ -507,7 +509,25 @@ func getLocalIP() (string, error) {
 		}
 	}
 
-	return "127.0.0.1", fmt.Errorf("no local IP found")
+	return loopbackIP, fmt.Errorf("no local IP found")
+}
+
+// discordWebhookEntries only take Discord webhook URLs; anything else would be refused when a
+// message is sent, so it is refused when saved instead
+var discordWebhookEntries = []config.StringEntry{
+	config.DiscordWebhook,
+	config.DiscordWebhookSystem,
+	config.DiscordWebhookNode,
+	config.DiscordWebhookExTransfer,
+}
+
+func validateStringSetting(key, value string) error {
+	for _, v := range discordWebhookEntries {
+		if v.Key() == key {
+			return services.ValidateDiscordWebhook(strings.TrimSpace(value))
+		}
+	}
+	return nil
 }
 
 var editableStringEntries = []config.StringEntry{
@@ -524,18 +544,37 @@ var editableStringEntries = []config.StringEntry{
 	config.MasterURL,
 	config.NodeIP,
 	config.GeminiAPIKey,
+	// the node's key for CurseForge modpacks (on remote nodes it is set in their own config)
+	config.CurseForgeKey,
 	config.DiscordWebhook,
 	config.DiscordWebhookSystem,
 	config.DiscordWebhookNode,
+	config.DiscordWebhookExTransfer,
 	config.LicenseKey,
 	config.LicenseStatus,
 	config.LicenseServerID,
 	config.LicenseServerIP,
+	config.BackupsS3Endpoint,
+	config.BackupsS3Region,
+	config.BackupsS3Bucket,
+	config.BackupsS3AccessKey,
+	config.BackupsS3SecretKey,
+	config.BackupsS3Prefix,
+	config.CloudflareAPIToken,
+	config.CloudflareZoneID,
+	config.DNSBaseDomain,
+	config.DNSTarget,
 }
 var editableBoolEntries = []config.BoolEntry{
 	config.RegistrationEnabled,
 	config.HideAIAnalysis,
 	config.HeaderDecorations,
+	config.BackupsS3Enabled,
+	config.BackupsS3Insecure,
+	config.DNSAutoAssign,
+	config.ExperimentalVersionSwitch,
+	config.ExperimentalPropertiesEditor,
+	config.ExperimentalServerClone,
 }
 var editableIntEntries = []config.IntEntry{}
 
@@ -810,4 +849,51 @@ func updateStatus(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"nodes": statuses})
+}
+
+// @Summary Off-site backup test
+// @Description Checks the S3 settings by writing and deleting a small object in the bucket. The values sent override the saved ones, so they can be tried before saving.
+// @Success 204 {object} nil
+// @Tags Panel Settings
+// @Router /api/settings/test/s3 [post]
+// @Security OAuth2Application[settings.edit]
+func sendTestS3(c *gin.Context) {
+	cfg, _ := offsite.FromSettings()
+	var overrides map[string]interface{}
+	_ = c.ShouldBindJSON(&overrides)
+	if v, ok := overrides[config.BackupsS3Endpoint.Key()]; ok {
+		cfg.Endpoint = strings.TrimSpace(cast.ToString(v))
+	}
+	if v, ok := overrides[config.BackupsS3Region.Key()]; ok {
+		cfg.Region = strings.TrimSpace(cast.ToString(v))
+	}
+	if v, ok := overrides[config.BackupsS3Bucket.Key()]; ok {
+		cfg.Bucket = strings.TrimSpace(cast.ToString(v))
+	}
+	if v, ok := overrides[config.BackupsS3AccessKey.Key()]; ok {
+		cfg.AccessKey = strings.TrimSpace(cast.ToString(v))
+	}
+	if v, ok := overrides[config.BackupsS3SecretKey.Key()]; ok {
+		cfg.SecretKey = cast.ToString(v)
+	}
+	if v, ok := overrides[config.BackupsS3Prefix.Key()]; ok {
+		cfg.Prefix = strings.Trim(strings.TrimSpace(cast.ToString(v)), "/")
+	}
+	if v, ok := overrides[config.BackupsS3Insecure.Key()]; ok {
+		cfg.Insecure = cast.ToBool(v)
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 20*time.Second)
+	defer cancel()
+	if err := offsite.Test(ctx, cfg); err != nil {
+		// 422 rather than 502: the panel hides the text of 5xx errors, and the admin needs
+		// to read what the storage answered (wrong key, missing bucket...)
+		status := http.StatusUnprocessableEntity
+		if errors.Is(err, offsite.ErrNotConfigured) {
+			status = http.StatusBadRequest
+		}
+		response.HandleError(c, err, status)
+		return
+	}
+	c.Status(http.StatusNoContent)
 }

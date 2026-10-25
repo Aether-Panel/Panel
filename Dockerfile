@@ -56,7 +56,11 @@ ARG TARGETPLATFORM=linux/amd64
 ARG curseforgeKey=''
 
 RUN xx-apk add musl-dev gcc
-RUN xx-go build -buildvcs=false -tags "$tags" -ldflags "-X 'github.com/SkyPanel/SkyPanel/v3/internal/config.curseforgeKey=$curseforgeKey' -X 'github.com/SkyPanel/SkyPanel/v3/pkg/skypanel.Hash=$sha' -X 'github.com/SkyPanel/SkyPanel/v3/pkg/skypanel.Version=$version'" -o /SkyPanel/SkyPanel github.com/SkyPanel/SkyPanel/v3/cmd/panel
+RUN xx-go build -buildvcs=false -tags "$tags" \
+    -ldflags "-X 'github.com/SkyPanel/SkyPanel/v3/internal/config.curseforgeKey=$curseforgeKey' \
+    -X 'github.com/SkyPanel/SkyPanel/v3/pkg/skypanel.Hash=$sha' \
+    -X 'github.com/SkyPanel/SkyPanel/v3/pkg/skypanel.Version=$version'" \
+    -o /SkyPanel/SkyPanel github.com/SkyPanel/SkyPanel/v3/cmd/panel
 # RUN go test ./...
 RUN xx-verify /SkyPanel/SkyPanel
 
@@ -68,11 +72,11 @@ FROM alpine:3.24
 
 EXPOSE 8080 5657
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 CMD nc -z localhost 8080 || exit 1
-RUN apk add --no-cache netcat-openbsd git
-RUN mkdir -p /etc/SkyPanel && \
+RUN apk add --no-cache netcat-openbsd git && \
+    mkdir -p /etc/SkyPanel && \
     mkdir -p /var/lib/SkyPanel /var/lib/SkyPanel/servers /var/lib/SkyPanel/binaries /var/lib/SkyPanel/cache && \
-    mkdir -p /var/log/SkyPanel
-RUN addgroup -S -g 1000 SkyPanel && \
+    mkdir -p /var/log/SkyPanel && \
+    addgroup -S -g 1000 SkyPanel && \
     adduser -D -H -h /var/lib/SkyPanel -G SkyPanel -u 1000 SkyPanel && \
     chown -R SkyPanel:SkyPanel /etc/SkyPanel /var/lib/SkyPanel /var/log/SkyPanel
 
@@ -85,8 +89,10 @@ ENV GIN_MODE=release \
 #COPY --from=builder --chown=SkyPanel:SkyPanel /build/SkyPanel/entrypoint.sh /SkyPanel/bin/entrypoint.sh
 #COPY --from=builder --chown=SkyPanel:SkyPanel /build/SkyPanel/config.docker.json /etc/SkyPanel/config.json
 COPY --from=builder /SkyPanel/SkyPanel /SkyPanel/bin/SkyPanel
-RUN chmod 755 /SkyPanel/bin/SkyPanel
-RUN cat <<'EOF' > /SkyPanel/bin/entrypoint.sh
+RUN chmod 755 /SkyPanel/bin/SkyPanel && \
+    cat <<'EOF' > /SkyPanel/bin/entrypoint.sh && \
+    chmod 755 /SkyPanel/bin/entrypoint.sh && \
+    sed -i 's/\r$//' /SkyPanel/bin/entrypoint.sh
 #!/usr/bin/env sh
 
 echo "=== Iniciando Aether Panel ==="
@@ -96,7 +102,8 @@ echo "  SKYPANEL_PLATFORM=${SKYPANEL_PLATFORM}"
 echo "  SKYPANEL_WEB_HOST=${SKYPANEL_WEB_HOST}"
 echo "  SKYPANEL_PANEL_DATABASE_DIALECT=${SKYPANEL_PANEL_DATABASE_DIALECT}"
 # La contraseña no se escribe en los logs
-echo "  SKYPANEL_PANEL_DATABASE_URL=$(echo "$SKYPANEL_PANEL_DATABASE_URL" | sed -E 's#^(([a-z]+://)?[^:/@]*):.*@#\1:****@#')"
+echo "  SKYPANEL_PANEL_DATABASE_URL=$(echo "$SKYPANEL_PANEL_DATABASE_URL" \
+    | sed -E 's#^(([a-z]+://)?[^:/@]*):.*@#\1:****@#')"
 case "$SKYPANEL_PANEL_DATABASE_URL" in
     *:skypanel_secret@*)
         echo "AVISO: la base de datos usa la contraseña por defecto (skypanel_secret)."
@@ -157,7 +164,6 @@ echo "Iniciando panel..."
 echo "Ejecutando: /SkyPanel/bin/SkyPanel run"
 exec /SkyPanel/bin/SkyPanel run
 EOF
-RUN chmod 755 /SkyPanel/bin/entrypoint.sh && sed -i 's/\r$//' /SkyPanel/bin/entrypoint.sh
 COPY --from=builder /build/SkyPanel/config.docker.json /etc/SkyPanel/config.json
 RUN chmod 644 /etc/SkyPanel/config.json
 COPY --from=builder /build/SkyPanel/client/frontend/dist /var/www/SkyPanel

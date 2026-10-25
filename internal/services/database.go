@@ -10,9 +10,35 @@ import (
 	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
 )
+
+// MySQL caps schema names at 64 characters
+const mysqlMaxDatabaseNameLength = 64
+
+// buildDatabaseName namespaces a user-requested database name under its server
+// (s_<serverId>_<name>), so one tenant can never claim or drop another tenant's
+// database or a system schema on a shared host.
+func buildDatabaseName(serverID, requested string) (string, error) {
+	if !validIdentifier.MatchString(serverID) || !validIdentifier.MatchString(requested) {
+		return "", skypanel.ErrInvalidDatabaseName
+	}
+
+	name := fmt.Sprintf("s_%s_%s", serverID, requested)
+	if len(name) > mysqlMaxDatabaseNameLength {
+		return "", skypanel.ErrInvalidDatabaseName
+	}
+	return name, nil
+}
+
+// createDatabaseStatement deliberately omits IF NOT EXISTS: colliding with a schema
+// the panel does not track must fail loudly instead of granting the caller
+// privileges over someone else's database.
+func createDatabaseStatement(name string) string {
+	return fmt.Sprintf("CREATE DATABASE `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci", name)
+}
 
 var (
 	validIdentifier = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
@@ -59,11 +85,38 @@ func (ds *Database) Delete(id uint) error {
 	return res.Error
 }
 
+// ensureDatabaseNameAvailable refuses names already tracked on that host, no matter
+// which server owns them.
+func (ds *Database) ensureDatabaseNameAvailable(hostID uint, name string) error {
+	var count int64
+	err := ds.DB.Model(&models.Database{}).
+		Where("database_host_id = ? AND database_name = ?", hostID, name).
+		Count(&count).Error
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return skypanel.ErrDatabaseNameTaken
+	}
+	return nil
+}
+
 func (ds *Database) Create(database *models.Database) error {
 	// Obtener el database host
 	host := &models.DatabaseHost{}
 	err := ds.DB.First(host, database.DatabaseHostID).Error
 	if err != nil {
+		return err
+	}
+
+	// El nombre físico queda bajo el namespace del servidor y debe ser único en el host
+	name, err := buildDatabaseName(database.ServerID, database.DatabaseName)
+	if err != nil {
+		return err
+	}
+	database.DatabaseName = name
+
+	if err = ds.ensureDatabaseNameAvailable(database.DatabaseHostID, name); err != nil {
 		return err
 	}
 
@@ -114,10 +167,10 @@ func (ds *Database) createInMySQL(database *models.Database, host *models.Databa
 		return fmt.Errorf("failed to connect to MySQL host (check credentials and host permissions): %w", err)
 	}
 
-	// Crear la base de datos
-	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci", databaseName)) /* #nosec G201 */ // NOSONAR
+	// Crear la base de datos (sin IF NOT EXISTS: chocar con un schema existente debe fallar)
+	_, err = db.Exec(createDatabaseStatement(databaseName)) /* #nosec G201 */ // NOSONAR
 	if err != nil {
-		return fmt.Errorf("failed to create database (ensure user has CREATE permissions): %w", err)
+		return fmt.Errorf("failed to create database (ensure user has CREATE permissions and the name is free): %w", err)
 	}
 
 	// Crear el usuario (permitir conexión desde cualquier host)

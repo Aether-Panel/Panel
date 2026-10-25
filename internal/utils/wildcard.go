@@ -34,7 +34,7 @@ func WildCardToRegexp(pattern string) string {
 	return result.String()
 }
 
-func matchRegex(pattern string, value string) bool {
+func matchRegex(pattern, value string) bool {
 	result, _ := regexp.MatchString("^"+WildCardToRegexp(pattern)+"$", value)
 	return result
 }

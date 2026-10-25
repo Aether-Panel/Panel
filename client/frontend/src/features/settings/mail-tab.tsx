@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Mail, Send } from 'lucide-react';
 import { SecretInput, SettingsCard, SettingsCardHeader, SettingsField, SettingsSection } from './general-tab';
+import { EmptyState } from '@/components/empty-state';
 
 interface MailTabProps {
     localSettings: Record<string, any>;
@@ -14,7 +15,7 @@ interface MailTabProps {
 
 const PROVIDER_NAMES: Record<string, string> = { smtp: 'SMTP', mailgun: 'Mailgun', mailjet: 'Mailjet' };
 
-export function MailTab({ localSettings, handleUpdate, handleTestEmail, saving, t }: MailTabProps) {
+export function MailTab({ localSettings, handleUpdate, handleTestEmail, saving, t }: Readonly<MailTabProps>) {
     const provider: string | undefined = localSettings['panel.email.provider'];
     const providerName = provider ? PROVIDER_NAMES[provider] ?? provider : '';
 
@@ -67,10 +68,7 @@ export function MailTab({ localSettings, handleUpdate, handleTestEmail, saving, 
 
                 {!provider && (
                     <div className="p-5 md:p-6">
-                        <div className="rounded-xl border border-dashed border-border/60 px-6 py-10 text-center">
-                            <Mail className="mx-auto h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-                            <p className="mx-auto mt-3 max-w-sm text-sm text-muted-foreground">{t('settings.mail.selectProviderPrompt')}</p>
-                        </div>
+                        <EmptyState icon={Mail} size="sm" as="p" title={t('settings.mail.selectProviderPrompt')} />
                     </div>
                 )}
 

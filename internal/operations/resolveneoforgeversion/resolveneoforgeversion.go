@@ -17,6 +17,7 @@
 package resolveneoforgeversion
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -35,7 +36,7 @@ func (op ResolveNeoForgeVersion) Run(args skypanel.RunOperatorArgs) skypanel.Ope
 	// if a specific version wasn't specified, we have to dig around through the files....
 	if op.Version == "" {
 		cleanRoot := filepath.Clean(args.Environment.GetRootDirectory())
-		dir := filepath.Join(cleanRoot, "libraries", "net", "neoforged", "neoforgedl")
+		dir := filepath.Join(cleanRoot, "libraries", "net", "neoforged", "neoforge")
 		cleanDir := filepath.Clean(dir)
 		if !strings.HasPrefix(cleanDir, cleanRoot+string(filepath.Separator)) {
 			return skypanel.OperationResult{VariableOverrides: map[string]interface{}{
@@ -52,36 +53,7 @@ func (op ResolveNeoForgeVersion) Run(args skypanel.RunOperatorArgs) skypanel.Ope
 			return skypanel.OperationResult{Error: err}
 		}
 
-		var ver *version.Version
-		for _, v := range folders {
-			// look for folders
-			if v.IsDir() {
-				folderName := v.Name()
-				// look for the unix file to accurately confirm this to be supported
-				cleanFolderName := filepath.Clean(folderName)
-				if strings.Contains(cleanFolderName, "/") || strings.Contains(cleanFolderName, "\\") || cleanFolderName == ".." {
-					continue
-				}
-				desiredFile := filepath.Join(cleanDir, cleanFolderName, "unix_args.txt")
-				if _, err = os.Lstat(desiredFile); err != nil {
-					continue
-				}
-				// nolint:gocritic
-				if op.Version == "" {
-					op.Version = v.Name()
-					ver, _ = version.NewVersion(op.Version)
-				} else if !strings.HasPrefix(folderName, op.MinecraftVersion) {
-					// we need a different version of MC
-					continue
-				} else if ver != nil {
-					// time to check to see if this a newer version
-					if ver2, _ := version.NewVersion(op.Version); ver2 != nil && ver.LessThan(ver2) {
-						op.Version = v.Name()
-						ver = ver2
-					}
-				}
-			}
-		}
+		op.Version = latestNeoForgeVersion(cleanDir, folders, op.MinecraftVersion)
 	}
 
 	if op.Version != "" {
@@ -91,4 +63,51 @@ func (op ResolveNeoForgeVersion) Run(args skypanel.RunOperatorArgs) skypanel.Ope
 	return skypanel.OperationResult{VariableOverrides: map[string]interface{}{
 		op.OutputVariable: op.Version,
 	}}
+}
+
+// latestNeoForgeVersion picks a version folder that has a unix_args.txt, so it is supported.
+func latestNeoForgeVersion(cleanDir string, folders []fs.DirEntry, mcVersion string) string {
+	var current string
+	var ver *version.Version
+	for _, v := range folders {
+		// look for folders
+		if !v.IsDir() {
+			continue
+		}
+		folderName := v.Name()
+		// look for the unix file to accurately confirm this to be supported
+		cleanFolderName := filepath.Clean(folderName)
+		if !isPlainFolderName(cleanFolderName) {
+			continue
+		}
+		desiredFile := filepath.Join(cleanDir, cleanFolderName, "unix_args.txt")
+		if _, err := os.Lstat(desiredFile); err != nil {
+			continue
+		}
+		current, ver = pickVersion(current, ver, folderName, mcVersion)
+	}
+	return current
+}
+
+func isPlainFolderName(name string) bool {
+	return !strings.Contains(name, "/") && !strings.Contains(name, "\\") && name != ".."
+}
+
+// pickVersion keeps the first folder found, then only looks at folders for the wanted
+// Minecraft version.
+func pickVersion(current string, ver *version.Version, folderName, mcVersion string) (string, *version.Version) {
+	switch {
+	case current == "":
+		current = folderName
+		ver, _ = version.NewVersion(current)
+	case !strings.HasPrefix(folderName, mcVersion):
+		// we need a different version of MC
+	case ver != nil:
+		// time to check to see if this a newer version
+		if ver2, _ := version.NewVersion(current); ver2 != nil && ver.LessThan(ver2) {
+			current = folderName
+			ver = ver2
+		}
+	}
+	return current, ver
 }

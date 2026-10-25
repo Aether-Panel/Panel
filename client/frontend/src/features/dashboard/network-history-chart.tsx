@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import type { ComponentProps } from 'react';
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { Activity } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +9,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } f
 import { useTranslations } from '@/contexts/translations-context';
 import { downsampleNetwork, NETWORK_SAMPLE_INTERVAL_MS, type NetworkSample } from '@/hooks/use-network-history';
 import { cn, formatBytes } from '@/lib/utils';
+import { EmptyState } from '@/components/empty-state';
 
 type RangeId = '1h' | '6h' | '24h';
 
@@ -26,6 +28,27 @@ const formatRate = (kbps: number) => `${formatBytes(kbps * 1024)}/s`;
 const formatClock = (epochMs: number) =>
     new Date(epochMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+type TooltipFormatter = NonNullable<ComponentProps<typeof ChartTooltipContent>['formatter']>;
+
+/** Tooltip row: the series dot and label on the left, the rate on the right. */
+const tooltipFormatter =
+    (config: ChartConfig): TooltipFormatter =>
+    (value, name, item) => (
+        <div className="flex w-full items-center justify-between gap-4">
+            <span className="flex items-center gap-2 text-muted-foreground">
+                <span
+                    aria-hidden="true"
+                    className="h-2 w-2 rounded-full"
+                    style={{ backgroundColor: item?.color }}
+                />
+                {config[name]?.label ?? name}
+            </span>
+            <span className="font-medium tabular-nums text-foreground">
+                {formatRate(Number(value))}
+            </span>
+        </div>
+    );
+
 /**
  * Row 3 (65 %) — the network trend. The panel has no metrics-history endpoint,
  * so the series is a real client-side buffer (5 s points while this view is
@@ -33,7 +56,7 @@ const formatClock = (epochMs: number) =>
  * keeps gaps honest instead of spacing points evenly, and the footer states the
  * cadence and sample count.
  */
-export function NetworkHistoryChart({ samples }: { samples: NetworkSample[] }) {
+export function NetworkHistoryChart({ samples }: Readonly<{ samples: NetworkSample[] }>) {
     const { t } = useTranslations();
     const [range, setRange] = useState<RangeId>('1h');
 
@@ -75,10 +98,9 @@ export function NetworkHistoryChart({ samples }: { samples: NetworkSample[] }) {
                     <CardDescription data-fit="hide-short">{t('dashboard.admin.history.description')}</CardDescription>
                 </div>
 
-                <div
-                    role="group"
+                <fieldset
                     aria-label={t('dashboard.admin.history.rangeLabel')}
-                    className="inline-flex shrink-0 items-center gap-0.5 self-start rounded-lg border border-border/60 bg-background/50 p-0.5"
+                    className="inline-flex min-w-0 shrink-0 items-center gap-0.5 self-start rounded-lg border border-border/60 bg-background/50 p-0.5"
                 >
                     {RANGES.map((entry) => {
                         const active = entry.id === range;
@@ -97,7 +119,7 @@ export function NetworkHistoryChart({ samples }: { samples: NetworkSample[] }) {
                             </button>
                         );
                     })}
-                </div>
+                </fieldset>
             </CardHeader>
 
             <CardContent className="flex min-h-0 flex-1 flex-col p-5 pt-0">
@@ -166,21 +188,7 @@ export function NetworkHistoryChart({ samples }: { samples: NetworkSample[] }) {
                                         <ChartTooltipContent
                                             indicator="dot"
                                             labelFormatter={(value) => formatClock(Number(value))}
-                                            formatter={(value, name, item) => (
-                                                <div className="flex w-full items-center justify-between gap-4">
-                                                    <span className="flex items-center gap-2 text-muted-foreground">
-                                                        <span
-                                                            aria-hidden="true"
-                                                            className="h-2 w-2 rounded-full"
-                                                            style={{ backgroundColor: item?.color }}
-                                                        />
-                                                        {chartConfig[name as keyof typeof chartConfig]?.label ?? name}
-                                                    </span>
-                                                    <span className="font-medium tabular-nums text-foreground">
-                                                        {formatRate(Number(value))}
-                                                    </span>
-                                                </div>
-                                            )}
+                                            formatter={tooltipFormatter(chartConfig)}
                                         />
                                     }
                                 />
@@ -210,13 +218,17 @@ export function NetworkHistoryChart({ samples }: { samples: NetworkSample[] }) {
                         </ChartContainer>
                     </div>
                 ) : (
-                    <div data-fit="fill" className="flex min-h-[240px] flex-1 flex-col items-center justify-center gap-2 overflow-hidden rounded-xl border border-dashed border-border/60 px-6 py-4 text-center sm:min-h-[280px] [&>*]:shrink-0">
-                        <Activity className="h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-                        <p className="text-base font-semibold text-foreground">{t('dashboard.admin.history.empty.title')}</p>
-                        {/* Short desktop screens keep the title only, so nothing overlaps. */}
-                        <p data-fit="hide-short" className="max-w-[44ch] text-sm text-muted-foreground">
-                            {t('dashboard.admin.history.empty.description')}
-                        </p>
+                    // The wrapper carries data-fit so the dashboard can shrink the box on short desktop screens.
+                    <div data-fit="fill" className="flex flex-1 flex-col">
+                        <EmptyState
+                            icon={Activity}
+                            size="sm"
+                            as="p"
+                            title={t('dashboard.admin.history.empty.title')}
+                            // Short desktop screens keep the title only, so nothing overlaps.
+                            description={<span data-fit="hide-short">{t('dashboard.admin.history.empty.description')}</span>}
+                            className="min-h-[240px] flex-1 overflow-hidden py-4 sm:min-h-[280px] [&>*]:shrink-0"
+                        />
                     </div>
                 )}
 

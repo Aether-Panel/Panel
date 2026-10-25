@@ -20,7 +20,6 @@ import {
     SidebarGroupLabel,
     SidebarHeader,
     SidebarInset,
-    SidebarMenu,
     SidebarMenuItem,
     SidebarMenuButton,
     SidebarProvider,
@@ -44,6 +43,8 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { AmbientBackdrop } from '@/components/ambient-backdrop';
+import { SpotlightTracker } from '@/components/spotlight';
+import { GlideMenu } from '@/components/glide-menu';
 import { QuickSearch, type QuickSearchItem } from '@/components/quick-search';
 import { useTranslations } from '@/contexts/translations-context';
 import { useConfig } from '@/contexts/config-context';
@@ -86,7 +87,7 @@ const BREADCRUMB_EVENT = 'aether:breadcrumb';
  * on the right. Replaces the old mobile-only bar, so desktop and mobile
  * share one header.
  */
-function AppTopBar({ currentPath, searchItems }: { currentPath: string; searchItems: QuickSearchItem[] }) {
+function AppTopBar({ currentPath, searchItems }: Readonly<{ currentPath: string; searchItems: QuickSearchItem[] }>) {
     const { t } = useTranslations();
     const { toggleSidebar, state } = useSidebar();
     const [entityLabels, setEntityLabels] = useState<Record<string, string>>({});
@@ -198,7 +199,7 @@ function AppTopBar({ currentPath, searchItems }: { currentPath: string; searchIt
     );
 }
 
-function AppLayoutInner({ children, currentPath }: { children: ReactNode; currentPath: string }) {
+function AppLayoutInner({ children, currentPath }: Readonly<{ children: ReactNode; currentPath: string }>) {
     const { role, user, logout, hasScope } = useAuth();
     const { t } = useTranslations();
     const { config } = useConfig();
@@ -307,16 +308,21 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
                                 src="/img/Gifs/animepixel1.gif"
                                 alt=""
                                 aria-hidden="true"
-                                className="pointer-events-none absolute bottom-1 left-1 h-8 w-8 rounded object-cover opacity-60"
+                                // a GIF cannot be paused, so it is hidden when the user asks for less motion
+                                className="pointer-events-none absolute bottom-1 left-1 h-8 w-8 rounded object-cover opacity-60 motion-reduce:hidden"
                             />
-                            <video
-                                src="/img/Gifs/b810142e63c0e12ac415d884e1e01ff5_t1.webm"
-                                autoPlay
-                                muted
-                                loop
-                                playsInline
-                                className="pointer-events-none absolute bottom-1 right-1 h-8 w-8 rounded object-cover opacity-60"
-                            />
+                            {/* hidden through a wrapper: aria-hidden is not allowed on the (focusable) video itself */}
+                            <div aria-hidden="true" className="pointer-events-none absolute bottom-1 right-1 h-8 w-8 motion-reduce:hidden">
+                                <video
+                                    src="/img/Gifs/b810142e63c0e12ac415d884e1e01ff5_t1.webm"
+                                    tabIndex={-1}
+                                    autoPlay
+                                    muted
+                                    loop
+                                    playsInline
+                                    className="h-full w-full rounded object-cover opacity-60"
+                                />
+                            </div>
                         </>
                     )}
                     <div className={cn("relative px-4 pt-5", showHeaderDecorations ? "pb-14" : "pb-4")}>
@@ -328,13 +334,15 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
                         <SidebarGroup key={section.id}>
                             <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
                             <SidebarGroupContent>
-                                <SidebarMenu>
+                                <GlideMenu>
                                     {section.items.map((item) => (
                                         <SidebarMenuItem key={item.href}>
                                             <SidebarMenuButton
                                                 asChild
                                                 isActive={currentPath.startsWith(item.href)}
                                                 tooltip={item.label}
+                                                // the glide pill is the hover surface; the active gradient stays
+                                                className="hover:bg-transparent data-[active=true]:bg-transparent data-[active=true]:bg-gradient-to-r"
                                             >
                                                 <a href={item.href}>
                                                     <item.icon />
@@ -343,7 +351,7 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
                                             </SidebarMenuButton>
                                         </SidebarMenuItem>
                                     ))}
-                                </SidebarMenu>
+                                </GlideMenu>
                             </SidebarGroupContent>
                         </SidebarGroup>
                     ))}
@@ -436,6 +444,7 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
 
             <SidebarInset>
                 <AmbientBackdrop />
+                <SpotlightTracker />
                 <AppTopBar currentPath={currentPath} searchItems={searchItems} />
 
                 <div className="relative z-[1] p-4 md:p-6 lg:p-8">
@@ -448,7 +457,7 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
     );
 }
 
-export default function AppShell({ children, currentPath }: { children: ReactNode; currentPath: string }) {
+export default function AppShell({ children, currentPath }: Readonly<{ children: ReactNode; currentPath: string }>) {
     return (
         <Providers>
             <AppLayoutInner currentPath={currentPath}>

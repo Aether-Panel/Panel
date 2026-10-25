@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { api, ApiError } from '@/lib/api-client';
 import type { Server } from '@/lib/data';
+import { parsePlayerQuery } from '@/lib/players';
 const globalFailedStatsSet = new Set<string>();
 
 // Stats are polled for every listed server; cap parallel requests so large lists do not flood the panel
@@ -19,8 +20,15 @@ async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T)
     return results;
 }
 
-export function useServers() {
+/**
+ * Lists the user's servers and polls live stats for them.
+ * `statsFor` limits the polling to the servers a page shows (the detail page needs one);
+ * without it every listed server is polled.
+ */
+export function useServers(statsFor?: (server: Server) => boolean) {
     const [servers, setServers] = useState<Server[]>([]);
+    const statsForRef = useRef(statsFor);
+    statsForRef.current = statsFor;
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
     const statsInFlightRef = useRef(false);
@@ -37,7 +45,7 @@ export function useServers() {
                 return {
                     id: s.id,
                     name: s.name,
-                    nodeId: s.nodeId !== undefined && s.nodeId !== null ? s.nodeId : (s.node && s.node.id !== undefined ? s.node.id : 0),
+                    nodeId: s.nodeId ?? (s.node?.id !== undefined ? s.node.id : 0),
                     ipAddress: s.ip && s.ip !== '0.0.0.0' ? s.ip : (s.node?.publicHost || '0.0.0.0'),
                     port: s.port || 0,
                     status: uptime.currentStatus ? 'online' : 'offline',
@@ -72,7 +80,9 @@ export function useServers() {
     };
 
     const updateAllStats = async (currentServers: Server[]) => {
-        const results = await mapWithConcurrency(currentServers, STATS_CONCURRENCY, async (server) => {
+        const statsFor = statsForRef.current;
+        const wanted = statsFor ? currentServers.filter((server) => statsFor(server)) : currentServers;
+        const results = await mapWithConcurrency(wanted, STATS_CONCURRENCY, async (server) => {
             try {
                 if (globalFailedStatsSet.has(server.id) || server.isGhost) {
                     return { id: server.id, status: 'offline' };
@@ -83,6 +93,7 @@ export function useServers() {
                     api.get(`/api/servers/${server.id}/query`).catch(() => null)
                 ]);
 
+                const players = parsePlayerQuery(queryData);
                 if (stats) {
                     const cpu = Math.round(stats.cpu || 0);
                     // If maxMemory is missing or 0, we can't calculate percentage reliably. 
@@ -115,9 +126,11 @@ export function useServers() {
                             networkIn: Number.parseFloat((stats.networkRx || 0).toFixed(2)),
                             networkOut: Number.parseFloat((stats.networkTx || 0).toFixed(2)),
                         },
-                        playersOnline: queryData?.minecraft?.numPlayers ?? undefined,
-                        maxPlayers: queryData?.minecraft?.maxPlayers ?? undefined,
-                        isMinecraft: !!queryData?.minecraft
+                        playersOnline: players?.online,
+                        maxPlayers: players?.max,
+                        hasPlayerQuery: players !== null,
+                        playerNames: players?.names,
+                        playerInfo: players ?? undefined
                     };
                 }
             } catch (e: any) {
@@ -145,7 +158,9 @@ export function useServers() {
                     memoryUsed: (res as any).memoryUsed ?? s.memoryUsed,
                     playersOnline: (res as any).playersOnline,
                     maxPlayers: (res as any).maxPlayers,
-                    isMinecraft: (res as any).isMinecraft,
+                    hasPlayerQuery: (res as any).hasPlayerQuery,
+                    playerNames: (res as any).playerNames,
+                    playerInfo: (res as any).playerInfo,
                     metrics: newMetrics as any
                 };
             }

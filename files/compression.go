@@ -166,50 +166,17 @@ func Compress(fs FileServer, targetFile string, filesToCompress []string) error 
 			return err
 		}
 
-		var expandedFiles []string
-		for _, v := range filesToCompress {
-			fullPath, err := safeJoin(p, v)
-			if err != nil {
-				return err
-			}
-			if strings.Contains(v, "*") {
-				matches, _ := filepath.Glob(fullPath)
-				for _, match := range matches {
-					if match != targetFile {
-						expandedFiles = append(expandedFiles, match)
-					}
-				}
-			} else if fullPath != targetFile {
-				expandedFiles = append(expandedFiles, fullPath)
-			}
+		filesToCompress, err = expandCompressFiles(p, targetFile, filesToCompress)
+		if err != nil {
+			return err
 		}
-		filesToCompress = expandedFiles
 	}
 
 	ctx := context.Background()
 
-	// Create mapping for archives.FilesFromDisk
-	// The second value in the map is the NameInArchive (relative path inside the tar).
-	// When a FileServer is used, we MUST set this to the path relative to the server
-	// root, otherwise archives.FilesFromDisk will use the absolute disk path's last
-	// component (e.g. "mc-pc-local") as the root directory name inside the archive.
-	// This causes "path traversal detected" errors during extraction on the destination.
-	filenames := make(map[string]string)
-	if fs != nil {
-		prefix := filepath.Clean(fs.Prefix())
-		for _, f := range filesToCompress {
-			rel, err := filepath.Rel(prefix, f)
-			if err != nil {
-				return err
-			}
-			// Normalize separators to forward slashes for cross-platform tarballs
-			rel = filepath.ToSlash(rel)
-			filenames[f] = rel
-		}
-	} else {
-		for _, f := range filesToCompress {
-			filenames[f] = ""
-		}
+	filenames, err := archiveNames(fs, filesToCompress)
+	if err != nil {
+		return err
 	}
 
 	filesList, err := archives.FilesFromDisk(ctx, nil, filenames)
@@ -236,6 +203,57 @@ func Compress(fs FileServer, targetFile string, filesToCompress []string) error 
 	return archiver.Archive(ctx, out, filesList)
 }
 
+// expandCompressFiles resolves the requested files inside the server root, expanding globs
+// and leaving out the archive being written.
+func expandCompressFiles(prefix, targetFile string, filesToCompress []string) ([]string, error) {
+	var expandedFiles []string
+	for _, v := range filesToCompress {
+		fullPath, err := safeJoin(prefix, v)
+		if err != nil {
+			return nil, err
+		}
+		if strings.Contains(v, "*") {
+			matches, _ := filepath.Glob(fullPath)
+			for _, match := range matches {
+				if match != targetFile {
+					expandedFiles = append(expandedFiles, match)
+				}
+			}
+		} else if fullPath != targetFile {
+			expandedFiles = append(expandedFiles, fullPath)
+		}
+	}
+	return expandedFiles, nil
+}
+
+// archiveNames builds the mapping for archives.FilesFromDisk.
+// The second value in the map is the NameInArchive (relative path inside the tar).
+// When a FileServer is used, we MUST set this to the path relative to the server
+// root, otherwise archives.FilesFromDisk will use the absolute disk path's last
+// component (e.g. "mc-pc-local") as the root directory name inside the archive.
+// This causes "path traversal detected" errors during extraction on the destination.
+func archiveNames(fs FileServer, filesToCompress []string) (map[string]string, error) {
+	filenames := make(map[string]string)
+	if fs == nil {
+		for _, f := range filesToCompress {
+			filenames[f] = ""
+		}
+		return filenames, nil
+	}
+
+	prefix := filepath.Clean(fs.Prefix())
+	for _, f := range filesToCompress {
+		rel, err := filepath.Rel(prefix, f)
+		if err != nil {
+			return nil, err
+		}
+		// Normalize separators to forward slashes for cross-platform tarballs
+		rel = filepath.ToSlash(rel)
+		filenames[f] = rel
+	}
+	return filenames, nil
+}
+
 func walker(fs FileServer, targetPath, filter string, skipRoot bool) archives.FileHandler {
 	return func(_ context.Context, file archives.FileInfo) (err error) {
 		path := getCompressedItemName(file)
@@ -248,12 +266,7 @@ func walker(fs FileServer, targetPath, filter string, skipRoot bool) archives.Fi
 		}
 
 		if skipRoot {
-			parts := strings.Split(path, PathSeparator)
-			if len(parts) > 1 {
-				path = strings.Join(parts[1:], PathSeparator)
-			} else {
-				path = ""
-			}
+			path = stripArchiveRoot(path)
 		}
 
 		if path == "" {
@@ -263,113 +276,128 @@ func walker(fs FileServer, targetPath, filter string, skipRoot bool) archives.Fi
 			return ErrPathTraversal
 		}
 
-		root, err := filepath.Abs(targetPath)
-		if err != nil {
+		dest, err := resolveExtractTarget(fs, targetPath, path)
+		if err != nil || dest == nil {
 			return err
 		}
-		joined := path
-		if targetPath != "" {
-			joined = filepath.Join(targetPath, path)
-		}
-		absPath, err := filepath.Abs(joined)
-		if err != nil {
-			return err
-		}
-		if absPath == root {
-			return nil
-		}
-		relPath := filepath.Clean(joined)
-
-		if fs != nil {
-			if filepath.IsLocal(relPath) {
-				path = relPath
-			} else {
-				return ErrPathTraversal
-			}
-		} else {
-			if strings.HasPrefix(absPath, root+string(filepath.Separator)) {
-				path = absPath
-			} else {
-				return ErrPathTraversal
-			}
-		}
-		parent := filepath.Dir(path)
-		absParent := filepath.Dir(absPath)
 
 		switch {
 		case file.IsDir():
-			if fs != nil {
-				if err = fs.MkdirAll(path, 0755); err != nil {
-					return err
-				}
-			} else {
-				if err = os.MkdirAll(path, 0755); err != nil {
-					return err
-				}
-			}
+			return extractMkdirAll(fs, dest.path)
 		case file.Mode().IsRegular():
-			if fs != nil {
-				if err = fs.MkdirAll(parent, 0755); err != nil {
-					return err
-				}
-			} else {
-				if err = os.MkdirAll(parent, 0755); err != nil {
-					return err
-				}
-			}
-			var outFile *os.File
-			if fs != nil {
-				outFile, err = fs.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, file.Mode()|0600)
-			} else {
-				outFile, err = os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, file.Mode()|0600)
-			}
-
-			if err != nil {
-				return err
-			}
-			defer utils.Close(outFile)
-
-			r, err := file.Open()
-			if err != nil {
-				return err
-			}
-			defer utils.Close(r)
-
-			if _, err = io.Copy(outFile, r); err != nil {
-				return err
-			}
+			return extractRegularFile(fs, file, dest)
 		case file.Mode()&os.ModeSymlink != 0:
-			target, err := getLinkTarget(file)
-			if err != nil {
-				return err
-			}
-			resolvedTarget, err := filepath.Abs(filepath.Join(absParent, target))
-			if err != nil {
-				return err
-			}
-			if filepath.IsLocal(target) && (resolvedTarget == root || strings.HasPrefix(resolvedTarget, root+string(filepath.Separator))) {
-				if fs != nil {
-					if err = fs.MkdirAll(parent, 0755); err != nil {
-						return err
-					}
-					if err = fs.Symlink(target, path); err != nil {
-						return err
-					}
-				} else {
-					if err = os.MkdirAll(parent, 0755); err != nil {
-						return err
-					}
-					if err = os.Symlink(target, path); err != nil {
-						return err
-					}
-				}
-			} else {
-				return ErrPathTraversal
-			}
+			return extractSymlink(fs, file, dest)
 		}
 
 		return
 	}
+}
+
+// extractTarget is where one archive entry lands: path is what gets written (relative to
+// the file server, or absolute without one), absPath and root are used for the checks.
+type extractTarget struct {
+	path    string
+	absPath string
+	root    string
+}
+
+// stripArchiveRoot drops the first path element of an archive entry.
+func stripArchiveRoot(path string) string {
+	parts := strings.Split(path, PathSeparator)
+	if len(parts) > 1 {
+		return strings.Join(parts[1:], PathSeparator)
+	}
+	return ""
+}
+
+// resolveExtractTarget joins the entry onto the target path and rejects anything that
+// escapes it. It returns nil (and no error) for the target root itself, which is skipped.
+func resolveExtractTarget(fs FileServer, targetPath, path string) (*extractTarget, error) {
+	root, err := filepath.Abs(targetPath)
+	if err != nil {
+		return nil, err
+	}
+	joined := path
+	if targetPath != "" {
+		joined = filepath.Join(targetPath, path)
+	}
+	absPath, err := filepath.Abs(joined)
+	if err != nil {
+		return nil, err
+	}
+	if absPath == root {
+		return nil, nil
+	}
+	relPath := filepath.Clean(joined)
+
+	if fs != nil {
+		if !filepath.IsLocal(relPath) {
+			return nil, ErrPathTraversal
+		}
+		path = relPath
+	} else {
+		if !strings.HasPrefix(absPath, root+string(filepath.Separator)) {
+			return nil, ErrPathTraversal
+		}
+		path = absPath
+	}
+	return &extractTarget{path: path, absPath: absPath, root: root}, nil
+}
+
+func extractMkdirAll(fs FileServer, path string) error {
+	if fs != nil {
+		return fs.MkdirAll(path, 0755)
+	}
+	return os.MkdirAll(path, 0755)
+}
+
+func extractRegularFile(fs FileServer, file archives.FileInfo, dest *extractTarget) error {
+	if err := extractMkdirAll(fs, filepath.Dir(dest.path)); err != nil {
+		return err
+	}
+	var outFile *os.File
+	var err error
+	if fs != nil {
+		outFile, err = fs.OpenFile(dest.path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, file.Mode()|0600)
+	} else {
+		outFile, err = os.OpenFile(dest.path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, file.Mode()|0600)
+	}
+
+	if err != nil {
+		return err
+	}
+	defer utils.Close(outFile)
+
+	r, err := file.Open()
+	if err != nil {
+		return err
+	}
+	defer utils.Close(r)
+
+	_, err = io.Copy(outFile, r)
+	return err
+}
+
+func extractSymlink(fs FileServer, file archives.FileInfo, dest *extractTarget) error {
+	target, err := getLinkTarget(file)
+	if err != nil {
+		return err
+	}
+	resolvedTarget, err := filepath.Abs(filepath.Join(filepath.Dir(dest.absPath), target))
+	if err != nil {
+		return err
+	}
+	if !filepath.IsLocal(target) || (resolvedTarget != dest.root && !strings.HasPrefix(resolvedTarget, dest.root+string(filepath.Separator))) {
+		return ErrPathTraversal
+	}
+	if err = extractMkdirAll(fs, filepath.Dir(dest.path)); err != nil {
+		return err
+	}
+	if fs != nil {
+		return fs.Symlink(target, dest.path)
+	}
+	return os.Symlink(target, dest.path)
 }
 
 // getCompressedItemName Resolves headers in the event the wrapped interface fails

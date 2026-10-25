@@ -24,9 +24,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { EmptyState } from '@/components/empty-state';
 
 /** Copy-to-clipboard icon button with a short "copied" state. */
-function CopyButton({ value, label, copiedLabel, className }: { value: string; label: string; copiedLabel: string; className?: string }) {
+function CopyButton({ value, label, copiedLabel, className }: Readonly<{ value: string; label: string; copiedLabel: string; className?: string }>) {
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -54,7 +55,7 @@ function CopyButton({ value, label, copiedLabel, className }: { value: string; l
 }
 
 /** Title + description on the left, controls on the right; stacked on narrow screens. */
-function ProfileSection({ id, title, description, children }: { id: string; title: string; description?: ReactNode; children: ReactNode }) {
+function ProfileSection({ id, title, description, children }: Readonly<{ id: string; title: string; description?: ReactNode; children: ReactNode }>) {
   return (
     <section aria-labelledby={id} className="grid gap-5 p-5 md:p-6 lg:grid-cols-[minmax(0,16rem)_minmax(0,1fr)] lg:gap-10">
       <div className="space-y-1.5">
@@ -66,7 +67,7 @@ function ProfileSection({ id, title, description, children }: { id: string; titl
   );
 }
 
-function Field({ id, label, children }: { id: string; label: string; children: ReactNode }) {
+function Field({ id, label, children }: Readonly<{ id: string; label: string; children: ReactNode }>) {
   return (
     <div className="space-y-2">
       <Label htmlFor={id} className="text-sm font-medium">{label}</Label>
@@ -237,7 +238,7 @@ export default function ProfileSettingsPage() {
   const otpInputClass = 'h-12 text-center font-mono text-xl tracking-[0.4em] tabular-nums md:text-xl';
 
   return (
-    <div className="flex flex-col gap-6 pb-12">
+    <div className="stagger flex flex-col gap-6 pb-12">
       <PageHeader title={t('profileSettings.title')} description={t('profileSettings.description')} />
 
       <Card className="divide-y divide-border/50">
@@ -386,15 +387,18 @@ export default function ProfileSettingsPage() {
           }
         >
           {oauthClients.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border/60 px-6 py-10 text-center">
-              <KeyRound className="mx-auto h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-              <h3 className="mt-3 text-base font-semibold">{t('profileSettings.oauth.emptyTitle')}</h3>
-              <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">{t('profileSettings.oauth.noClients')}</p>
-              <Button className="mt-5" onClick={() => setOauthDialog(true)}>
-                <Plus aria-hidden="true" />
-                {t('profileSettings.oauth.create')}
-              </Button>
-            </div>
+            <EmptyState
+              icon={KeyRound}
+              size="sm"
+              title={t('profileSettings.oauth.emptyTitle')}
+              description={t('profileSettings.oauth.noClients')}
+              action={
+                <Button onClick={() => setOauthDialog(true)}>
+                  <Plus aria-hidden="true" />
+                  {t('profileSettings.oauth.create')}
+                </Button>
+              }
+            />
           ) : (
             <div className="space-y-3">
               <ul className="divide-y divide-border/50 rounded-xl border border-border/60 bg-background/30">

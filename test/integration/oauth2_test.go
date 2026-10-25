@@ -35,33 +35,37 @@ func TestOauth(t *testing.T) {
 	})
 
 	t.Run("GetClient", func(t *testing.T) {
-		response := CallAPI("GET", "/api/self/oauth2", nil, session)
-		if !assert.Equal(t, http.StatusOK, response.Code) {
-			return
-		}
+		testGetOauthClient(t, session, clientID, name, description)
+	})
+}
 
-		var clients []models.Client
-		err = json.NewDecoder(response.Body).Decode(&clients)
-		if !assert.NoError(t, err) {
-			return
-		}
+func testGetOauthClient(t *testing.T, session, clientID, name, description string) {
+	response := CallAPI("GET", "/api/self/oauth2", nil, session)
+	if !assert.Equal(t, http.StatusOK, response.Code) {
+		return
+	}
 
-		if !assert.NotEmpty(t, clients) {
-			return
-		}
+	var clients []models.Client
+	err := json.NewDecoder(response.Body).Decode(&clients)
+	if !assert.NoError(t, err) {
+		return
+	}
 
-		found := false
-		for _, v := range clients {
-			if v.ClientID == clientID {
-				found = true
-				if !assert.Equal(t, name, v.Name) {
-					return
-				}
-				if !assert.Equal(t, description, v.Description) {
-					return
-				}
+	if !assert.NotEmpty(t, clients) {
+		return
+	}
+
+	found := false
+	for _, v := range clients {
+		if v.ClientID == clientID {
+			found = true
+			if !assert.Equal(t, name, v.Name) {
+				return
+			}
+			if !assert.Equal(t, description, v.Description) {
+				return
 			}
 		}
-		assert.True(t, found)
-	})
+	}
+	assert.True(t, found)
 }

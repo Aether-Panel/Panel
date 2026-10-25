@@ -11,36 +11,44 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { BetaBadge } from '@/components/beta-badge';
 
-export type ServerTab = { value: string; label: string; icon: LucideIcon };
+/** `beta` marks a tab for an experimental feature. */
+export type ServerTab = { value: string; label: string; icon: LucideIcon; beta?: boolean };
 
 /** Gap between triggers, in px (matches `gap-1`). */
 const GAP = 4;
 
 const triggerClass =
-    "relative h-11 shrink-0 gap-2 rounded-none bg-transparent px-3 text-[13px] font-medium text-muted-foreground shadow-none transition-colors duration-200 hover:text-foreground focus-visible:ring-inset focus-visible:ring-offset-0 data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none after:absolute after:inset-x-3 after:-bottom-px after:h-0.5 after:rounded-full after:bg-primary after:opacity-0 after:transition-opacity after:duration-200 data-[state=active]:after:opacity-100 [&_svg]:size-4 [&_svg]:shrink-0";
+    "relative h-11 shrink-0 gap-2 rounded-none bg-transparent px-3 text-[13px] font-medium text-muted-foreground shadow-none transition-colors duration-200 hover:text-foreground focus-visible:ring-inset focus-visible:ring-offset-0 data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:transition-colors [&_svg]:duration-200 data-[state=active]:[&_svg]:text-primary";
 
 /**
  * One-row tab bar for the server page ("priority+" navigation): as many tabs
  * as fit are shown in order, the rest move into a "More" menu at the end. The
  * split is measured from an invisible copy of the row, so it follows the
  * available width (window size, sidebar open or closed) without wrapping.
- * When the active tab lives in the menu, the menu button carries its name.
+ * When the active tab lives in the menu it is still shown as a real tab, next
+ * to the menu button, so assistive tech always finds the selected tab and the
+ * panel it labels. The menu button sits outside the tablist, which may only
+ * contain tabs.
  */
 export function ServerTabNav({
     tabs,
     value,
     onValueChange,
     moreLabel,
-}: {
+}: Readonly<{
     tabs: ServerTab[];
     value: string;
     onValueChange: (value: string) => void;
     moreLabel: string;
-}) {
+}>) {
     const rowRef = useRef<HTMLDivElement>(null);
     const measureRef = useRef<HTMLDivElement>(null);
+    const listRef = useRef<HTMLDivElement>(null);
     const [visibleCount, setVisibleCount] = useState(tabs.length);
+    // The single underline slides to whichever tab is active, instead of each tab drawing its own.
+    const [indicator, setIndicator] = useState<{ left: number; width: number } | null>(null);
 
     useLayoutEffect(() => {
         const row = rowRef.current;
@@ -81,6 +89,25 @@ export function ServerTabNav({
     const overflow = tabs.slice(visibleCount);
     const activeOverflow = overflow.find((tab) => tab.value === value);
 
+    useLayoutEffect(() => {
+        const list = listRef.current;
+        if (!list) return;
+        const place = () => {
+            const active = list.querySelector<HTMLElement>('[role="tab"][data-state="active"]');
+            if (!active) {
+                setIndicator(null);
+                return;
+            }
+            // 12px inset on each side matches the trigger's horizontal padding.
+            setIndicator({ left: active.offsetLeft + 12, width: Math.max(0, active.offsetWidth - 24) });
+        };
+        place();
+        const observer = new ResizeObserver(place);
+        observer.observe(list);
+        void document.fonts?.ready.then(place);
+        return () => observer.disconnect();
+    }, [value, visibleCount, tabs]);
+
     return (
         <div ref={rowRef} className="relative">
             {/* Invisible copy of the full row, used only for measuring. The
@@ -91,37 +118,57 @@ export function ServerTabNav({
                     <span key={tab.value} data-measure="tab" className={cn(triggerClass, 'inline-flex items-center')}>
                         <tab.icon />
                         {tab.label}
+                        {tab.beta && <BetaBadge />}
                     </span>
                 ))}
-                <span data-measure="more" className={cn(triggerClass, 'inline-flex items-center')}>
-                    {moreLabel}: {tabs.reduce((longest, tab) => (tab.label.length > longest.length ? tab.label : longest), '')}
-                    <ChevronDown />
+                {/* Worst case after the visible tabs: the longest tab shown as the
+                    active one, plus the menu button. */}
+                <span data-measure="more" className="inline-flex gap-1">
+                    <span className={cn(triggerClass, 'inline-flex items-center')}>
+                        <ChevronDown />
+                        {tabs.reduce((longest, tab) => (tab.label.length > longest.length ? tab.label : longest), '')}
+                        {tabs.some((tab) => tab.beta) && <BetaBadge />}
+                    </span>
+                    <span className={cn(triggerClass, 'inline-flex items-center')}>
+                        {moreLabel}
+                        <ChevronDown />
+                    </span>
                 </span>
             </div>
             </div>
 
-            <TabsList className="flex h-auto w-full items-stretch justify-start gap-1 rounded-none border-b border-border/60 bg-transparent p-0">
-                {visible.map((tab) => (
-                    <TabsTrigger key={tab.value} value={tab.value} className={triggerClass}>
-                        <tab.icon aria-hidden="true" />
-                        {tab.label}
-                    </TabsTrigger>
-                ))}
+            <div className="flex items-stretch gap-1 border-b border-border/60">
+                <TabsList ref={listRef} className="relative flex h-auto items-stretch justify-start gap-1 rounded-none bg-transparent p-0">
+                    <span
+                        aria-hidden="true"
+                        className={cn(
+                            'glide pointer-events-none absolute -bottom-px left-0 h-0.5 rounded-full bg-primary shadow-[0_0_10px_hsl(var(--primary)/0.7)]',
+                            indicator ? 'opacity-100' : 'opacity-0',
+                        )}
+                        style={indicator ? { transform: `translateX(${indicator.left}px)`, width: indicator.width } : undefined}
+                    />
+                    {visible.map((tab) => (
+                        <TabsTrigger key={tab.value} value={tab.value} className={triggerClass}>
+                            <tab.icon aria-hidden="true" />
+                            {tab.label}
+                            {tab.beta && <BetaBadge />}
+                        </TabsTrigger>
+                    ))}
+                    {activeOverflow && (
+                        <TabsTrigger value={activeOverflow.value} className={triggerClass}>
+                            <activeOverflow.icon aria-hidden="true" />
+                            {activeOverflow.label}
+                            {activeOverflow.beta && <BetaBadge />}
+                        </TabsTrigger>
+                    )}
+                </TabsList>
 
                 {overflow.length > 0 && (
                     <DropdownMenu>
                         <DropdownMenuTrigger
-                            data-active={activeOverflow ? 'true' : undefined}
-                            className={cn(triggerClass, 'inline-flex items-center outline-none focus-visible:ring-2 focus-visible:ring-ring data-[active=true]:text-foreground data-[active=true]:after:opacity-100')}
+                            className={cn(triggerClass, 'inline-flex items-center outline-none focus-visible:ring-2 focus-visible:ring-ring')}
                         >
-                            {activeOverflow ? (
-                                <>
-                                    <activeOverflow.icon aria-hidden="true" />
-                                    {activeOverflow.label}
-                                </>
-                            ) : (
-                                moreLabel
-                            )}
+                            {moreLabel}
                             <ChevronDown aria-hidden="true" className="!size-3.5 opacity-70" />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="min-w-48">
@@ -133,12 +180,13 @@ export function ServerTabNav({
                                 >
                                     <tab.icon aria-hidden="true" />
                                     {tab.label}
+                                    {tab.beta && <BetaBadge className="ml-auto" />}
                                 </DropdownMenuItem>
                             ))}
                         </DropdownMenuContent>
                     </DropdownMenu>
                 )}
-            </TabsList>
+            </div>
         </div>
     );
 }

@@ -35,6 +35,8 @@ type ExTransferSession struct {
 	CreatedAt       time.Time      `json:"created_at"`
 	UpdatedAt       time.Time      `json:"updated_at"`
 	ExpiresAt       time.Time      `gorm:"index;not null" json:"expires_at"`
+	// LastHeartbeatAt is when the destination last said it is still transferring
+	LastHeartbeatAt *time.Time `json:"last_heartbeat_at,omitempty"`
 }
 
 type ExTransferLog struct {

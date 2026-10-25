@@ -16,6 +16,9 @@ import (
 	uuid "github.com/gofrs/uuid/v5"
 )
 
+// emailSendErrorFmt logs a mail that could not be sent
+const emailSendErrorFmt = "Error sending email: %s\n"
+
 func registerSelf(g *gin.RouterGroup) {
 	g.Handle("GET", "", middleware.RequiresPermission(scopes.ScopeLogin), getSelf)
 	g.Handle("PUT", "", middleware.RequiresPermission(scopes.ScopeSelfEdit), updateSelf)
@@ -138,14 +141,14 @@ func updateSelf(c *gin.Context) {
 			"NEW_EMAIL": user.Email,
 		}, true)
 		if err != nil {
-			logging.Error.Printf("Error sending email: %s\n", err)
+			logging.Error.Printf(emailSendErrorFmt, err)
 		}
 	}
 
 	if passwordChanged {
 		err := services.GetEmailService().SendEmail(user.Email, "passwordChanged", nil, true)
 		if err != nil {
-			logging.Error.Printf("Error sending email: %s\n", err)
+			logging.Error.Printf(emailSendErrorFmt, err)
 		}
 	}
 
@@ -175,6 +178,10 @@ func startOtpEnroll(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
 
 	secret, img, err := us.StartOtpEnroll(user.ID)
+	if errors.Is(err, skypanel.ErrOtpAlreadyEnabled) {
+		response.HandleError(c, err, http.StatusBadRequest)
+		return
+	}
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
@@ -209,7 +216,7 @@ func validateOtpEnroll(c *gin.Context) {
 
 	err = services.GetEmailService().SendEmail(user.Email, "otpEnabled", nil, true)
 	if err != nil {
-		logging.Error.Printf("Error sending email: %s\n", err)
+		logging.Error.Printf(emailSendErrorFmt, err)
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"recoveryCodes": recoveryCodes,
@@ -241,7 +248,7 @@ func regenerateOtpRecoveryCodes(c *gin.Context) {
 
 	err = services.GetEmailService().SendEmail(user.Email, "recoveryCodesRegenerated", nil, true)
 	if err != nil {
-		logging.Error.Printf("Error sending email: %s\n", err)
+		logging.Error.Printf(emailSendErrorFmt, err)
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"recoveryCodes": recoveryCodes,
@@ -267,7 +274,7 @@ func disableOtp(c *gin.Context) {
 
 	err = services.GetEmailService().SendEmail(user.Email, "otpDisabled", nil, true)
 	if err != nil {
-		logging.Error.Printf("Error sending email: %s\n", err)
+		logging.Error.Printf(emailSendErrorFmt, err)
 	}
 	c.Status(http.StatusNoContent)
 }
@@ -348,7 +355,7 @@ func createPersonalOAuth2Client(c *gin.Context) {
 
 	err = services.GetEmailService().SendEmail(user.Email, "oauthCreated", nil, true)
 	if err != nil {
-		logging.Error.Printf("Error sending email: %s\n", err)
+		logging.Error.Printf(emailSendErrorFmt, err)
 	}
 
 	c.JSON(http.StatusOK, client)
@@ -389,7 +396,7 @@ func deletePersonalOAuth2Client(c *gin.Context) {
 
 	err = services.GetEmailService().SendEmail(user.Email, "oauthDeleted", nil, true)
 	if err != nil {
-		logging.Error.Printf("Error sending email: %s\n", err)
+		logging.Error.Printf(emailSendErrorFmt, err)
 	}
 	c.Status(http.StatusNoContent)
 }

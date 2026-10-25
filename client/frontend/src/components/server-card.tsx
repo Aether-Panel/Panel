@@ -5,15 +5,16 @@ import { MoreHorizontal, Globe, Terminal, LayoutDashboard, Eye, Pencil, Trash2 }
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { cn, formatBytes } from '@/lib/utils';
 import { useAuth } from '@/contexts/providers';
+import { AnimatedNumber } from '@/components/animated-number';
+import { LiveDot, PlayerStack } from '@/components/player-presence';
 
-export const usageColor = (value: number) =>
-  value >= 85
-    ? 'bg-destructive [--meter:var(--destructive)]'
-    : value >= 60
-      ? 'bg-warning [--meter:var(--warning)]'
-      : 'bg-success [--meter:var(--success)]';
+export const usageColor = (value: number) => {
+  if (value >= 85) return 'bg-destructive [--meter:var(--destructive)]';
+  if (value >= 60) return 'bg-warning [--meter:var(--warning)]';
+  return 'bg-success [--meter:var(--success)]';
+};
 
-export function MetricBar({ label, value, extra }: { label: string; value: number; extra?: string }) {
+export function MetricBar({ label, value, extra }: Readonly<{ label: string; value: number; extra?: string }>) {
   return (
     <div>
       <div className="mb-1.5 flex items-baseline justify-between gap-3">
@@ -32,7 +33,7 @@ export function MetricBar({ label, value, extra }: { label: string; value: numbe
   );
 }
 
-export function Sparkline({ data }: { data: number[] }) {
+export function Sparkline({ data }: Readonly<{ data: number[] }>) {
   const values = data.length > 0 ? data.slice(-32) : [0];
   const w = 300;
   const h = 44;
@@ -74,11 +75,16 @@ const STATUS_TONE: Record<Server['status'], { dot: string; chip: string }> = {
 /** Solid status dot. Decorative — the label next to it carries the meaning. */
 export const StatusIndicator = ({ status, className }: { status: Server['status']; className?: string }) => {
   const tone = STATUS_TONE[status] ?? STATUS_TONE.pending;
-  return <span className={cn('inline-block h-1.5 w-1.5 shrink-0 rounded-full', tone.dot, className)} aria-hidden="true" />;
+  return (
+    <span
+      className={cn('inline-block h-1.5 w-1.5 shrink-0 rounded-full', tone.dot, status === 'online' && 'pulse-dot', className)}
+      aria-hidden="true"
+    />
+  );
 };
 
 /** Dot + label status chip, shared by the card and the server detail header. */
-export function StatusBadge({ status, label, className }: { status: Server['status']; label: string; className?: string }) {
+export function StatusBadge({ status, label, className }: Readonly<{ status: Server['status']; label: string; className?: string }>) {
   const tone = STATUS_TONE[status] ?? STATUS_TONE.pending;
   return (
     <Badge variant="outline" className={cn('shrink-0 gap-1.5 border-transparent', tone.chip, className)}>
@@ -88,17 +94,20 @@ export function StatusBadge({ status, label, className }: { status: Server['stat
   );
 }
 
-export function ServerCard({ server, t }: { server: Server; t: (key: string) => string }) {
+export function ServerCard({ server, t }: Readonly<{ server: Server; t: (key: string) => string }>) {
   const cpuSeries = (server.metrics || []).map((metric) => metric.cpu ?? 0);
   const playersPercent = Math.min(Math.max(((server.playersOnline || 0) / Math.max(server.maxPlayers || 1, 1)) * 100, 0), 100);
   const detailHref = `/servers/view/?id=${server.id}`;
   const { hasScope } = useAuth();
   // Deletion lives in the detail page's admin tab, so only offer it to whoever can delete there
   const canDelete = hasScope('server.delete') || hasScope('server.admin') || hasScope('admin');
-  const lastCpu = cpuSeries.length > 0 ? Math.round(cpuSeries[cpuSeries.length - 1]) : null;
+  const lastCpu = cpuSeries.length > 0 ? Math.round(cpuSeries.at(-1) ?? 0) : null;
 
   return (
-    <div className="surface-panel group relative flex flex-col overflow-hidden rounded-xl border border-border/60 transition-colors duration-200 ease-panel hover:border-border">
+    <div
+      data-spotlight=""
+      className="surface-panel group relative flex flex-col overflow-hidden rounded-xl border border-border/60 transition-[border-color,transform,box-shadow] duration-300 ease-panel hover:-translate-y-0.5 hover:border-border hover:shadow-elevation-2 motion-reduce:hover:translate-y-0"
+    >
       {/* Ambient art kept to a shallow top band so the surface stays calm. */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-20 overflow-hidden" aria-hidden="true">
         <img
@@ -143,18 +152,32 @@ export function ServerCard({ server, t }: { server: Server; t: (key: string) => 
         <div className="mt-auto flex flex-col gap-4 border-t border-border/40 pt-4">
           {/* Players and activity blocks share one height, so every card's footer
               rule and buttons sit on the same line across a row. */}
-          {server.isMinecraft ? (
+          {server.hasPlayerQuery ? (
             <div className="flex h-[4.25rem] flex-col">
-              <span className="text-xs font-medium text-muted-foreground">{t('servers.detail.overview.playersOnline')}</span>
-              <p className="mt-auto flex items-baseline gap-1">
-                <span className="text-xl font-semibold leading-none tracking-[-0.02em] tabular-nums text-foreground">
-                  {server.playersOnline ?? 0}
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                  <LiveDot active={(server.playersOnline ?? 0) > 0} />
+                  {t('servers.detail.overview.playersOnline')}
                 </span>
+                <PlayerStack
+                  names={server.playerNames ?? []}
+                  total={server.playersOnline ?? 0}
+                  label={t('servers.detail.overview.playersOnline')}
+                />
+              </div>
+              <p className="mt-auto flex items-baseline gap-1">
+                <AnimatedNumber
+                  value={server.playersOnline ?? 0}
+                  className="text-xl font-semibold leading-none tracking-[-0.02em] text-foreground"
+                />
                 <span className="text-xs tabular-nums text-muted-foreground">/ {server.maxPlayers ?? 0}</span>
               </p>
               <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-secondary/80">
                 <div
-                  className="meter-fill meter-grow h-full rounded-full bg-primary transition-[width] duration-700 ease-panel [--meter:var(--primary)]"
+                  className={cn(
+                    'meter-fill meter-grow h-full rounded-full bg-primary transition-[width] duration-700 ease-panel [--meter:var(--primary)]',
+                    playersPercent > 0 && 'shadow-[0_0_10px_hsl(var(--primary)/0.55)]',
+                  )}
                   style={{ width: `${playersPercent}%` }}
                 />
               </div>

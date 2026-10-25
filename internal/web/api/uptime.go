@@ -16,6 +16,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 func registerUptime(g *gin.RouterGroup) {
@@ -36,15 +37,8 @@ func getAllUptime(c *gin.Context) {
 	us := &services.Uptime{DB: db}
 	ns := &services.Node{DB: db}
 
-	// Obtener período desde query parameter (por defecto últimos 30 días)
-	daysStr := c.DefaultQuery("days", "30")
-	days, err := strconv.Atoi(daysStr)
-	if err != nil || days < 1 {
-		days = 30
-	}
-	if days > 365 {
-		days = 365 // Límite máximo de 1 año
-	}
+	// Obtener período desde query parameter (por defecto últimos 30 días, máximo 1 año)
+	days := clampedQueryInt(c, "days", 30, 365)
 
 	since := time.Now().AddDate(0, 0, -days)
 
@@ -53,7 +47,7 @@ func getAllUptime(c *gin.Context) {
 		return
 	}
 
-	// Obtener TODOS los servidores de la base de datos para incluir los que no tienen datos de uptime
+	// Obtener todos los servidores de la base de datos para incluir los que no tienen datos de uptime
 	dbServers := &services.Server{DB: db}
 	searchCriteria := services.ServerSearch{
 		PageSize: 1000, // Obtener todos los servidores
@@ -78,15 +72,7 @@ func getAllUptime(c *gin.Context) {
 	if err != nil {
 		// Si falla, solo usar los que tienen datos de uptime
 		for serverID := range uptimeStats {
-			server, err := dbServers.Get(serverID)
-			if err == nil && server != nil {
-				uptimeStats[serverID]["serverName"] = server.Name
-				nodeName := server.Node.Name
-				if nodeName == "" || server.Node.IsLocal() {
-					nodeName = "LocalNode"
-				}
-				uptimeStats[serverID]["nodeName"] = nodeName
-			}
+			describeUptimeServer(dbServers, uptimeStats, serverID)
 		}
 		c.JSON(http.StatusOK, uptimeStats)
 		return
@@ -107,88 +93,110 @@ func getAllUptime(c *gin.Context) {
 	// Agregar información de nodos y nombres a servidores existentes
 	// Y obtener estado actual desde el daemon para servidores con datos históricos
 	for serverID := range uptimeStats {
-		server, err := dbServers.Get(serverID)
-		if err == nil && server != nil {
-			uptimeStats[serverID]["serverName"] = server.Name
-			nodeName := server.Node.Name
-			if nodeName == "" || server.Node.IsLocal() {
-				nodeName = "LocalNode"
-			}
-			uptimeStats[serverID]["nodeName"] = nodeName
-
-			// Obtener estado actual desde el daemon para actualizar currentStatus
-			isRunning := false
-			nodeResponse, err := callNodeStatus(c, ns, &server.Node, serverID)
-			if err == nil && nodeResponse != nil {
-				if nodeResponse.StatusCode == http.StatusOK {
-					var statusResponse skypanel.ServerRunning
-					if err := json.NewDecoder(nodeResponse.Body).Decode(&statusResponse); err == nil {
-						isRunning = statusResponse.Running
-					}
-				}
-				utils.CloseResponse(nodeResponse)
-			}
-			uptimeStats[serverID]["currentStatus"] = isRunning
+		if server := describeUptimeServer(dbServers, uptimeStats, serverID); server != nil {
+			uptimeStats[serverID]["currentStatus"] = fetchServerRunning(c, ns, &server.Node, serverID)
 		}
 	}
 
 	// Para servidores sin datos de uptime, obtener estado actual y crear entrada mínima
-	now := time.Now()
-	for _, server := range allServers {
-		if !hasUptimeData[server.Identifier] {
-			// Obtener estado actual del servidor desde el daemon
-			isRunning := false
-			nodeResponse, err := callNodeStatus(c, ns, &server.Node, server.Identifier)
-			if err == nil && nodeResponse != nil {
-				if nodeResponse.StatusCode == http.StatusOK {
-					var statusResponse skypanel.ServerRunning
-					if err := json.NewDecoder(nodeResponse.Body).Decode(&statusResponse); err == nil {
-						isRunning = statusResponse.Running
-					}
-				}
-				utils.CloseResponse(nodeResponse)
-			}
-
-			nodeName := server.Node.Name
-			if nodeName == "" || server.Node.IsLocal() {
-				nodeName = "LocalNode"
-			}
-
-			// Crear entrada con datos mínimos (desde ahora)
-			// Para servidores sin datos históricos, mostrar uptime actual desde inicio del período
-			var currentUptime int64
-			currentStartTime := now
-
-			// Si está online, calcular uptime desde el inicio del período
-			if isRunning {
-				currentUptime = int64(time.Since(since).Seconds())
-				currentStartTime = since
-			}
-
-			uptimeStats[server.Identifier] = map[string]interface{}{
-				"serverName":       server.Name,
-				"nodeName":         nodeName,
-				"uptime":           currentUptime,
-				"downtime":         int64(0),
-				"uptimePercent":    100.0, // Si está online, 100%, si está offline, será actualizado
-				"currentStatus":    isRunning,
-				"currentStartTime": currentStartTime,
-			}
-
-			// Si está offline, ajustar porcentaje
-			if !isRunning {
-				periodDuration := int64(time.Since(since).Seconds())
-				if periodDuration > 0 {
-					uptimeStats[server.Identifier]["downtime"] = periodDuration
-					uptimeStats[server.Identifier]["uptimePercent"] = 0.0
-				} else {
-					uptimeStats[server.Identifier]["uptimePercent"] = 0.0
-				}
-			}
-		}
-	}
+	addMissingUptimeEntries(c, ns, uptimeStats, hasUptimeData, allServers, since)
 
 	c.JSON(http.StatusOK, uptimeStats)
+}
+
+// addMissingUptimeEntries crea una entrada mínima, con su estado actual, para cada servidor
+// que no tiene datos de uptime
+func addMissingUptimeEntries(c *gin.Context, ns *services.Node, uptimeStats map[string]map[string]interface{}, hasUptimeData map[string]bool, allServers []*models.Server, since time.Time) {
+	now := time.Now()
+	for _, server := range allServers {
+		if hasUptimeData[server.Identifier] {
+			continue
+		}
+		isRunning := fetchServerRunning(c, ns, &server.Node, server.Identifier)
+		uptimeStats[server.Identifier] = minimalUptimeEntry(server, isRunning, since, now)
+	}
+}
+
+// clampedQueryInt lee un entero de la query: def si falta o es menor que 1, max como tope
+func clampedQueryInt(c *gin.Context, name string, def, maxValue int) int {
+	value, err := strconv.Atoi(c.DefaultQuery(name, strconv.Itoa(def)))
+	if err != nil || value < 1 {
+		value = def
+	}
+	if value > maxValue {
+		value = maxValue
+	}
+	return value
+}
+
+// uptimeNodeName es el nombre del nodo tal como se muestra en las estadísticas
+func uptimeNodeName(node *models.Node) string {
+	if node.Name == "" || node.IsLocal() {
+		return "LocalNode"
+	}
+	return node.Name
+}
+
+// describeUptimeServer añade el nombre del servidor y de su nodo a sus estadísticas; devuelve
+// el servidor, o nil si no se encuentra
+func describeUptimeServer(dbServers *services.Server, uptimeStats map[string]map[string]interface{}, serverID string) *models.Server {
+	server, err := dbServers.Get(serverID)
+	if err != nil || server == nil {
+		return nil
+	}
+	uptimeStats[serverID]["serverName"] = server.Name
+	uptimeStats[serverID]["nodeName"] = uptimeNodeName(&server.Node)
+	return server
+}
+
+// fetchServerRunning pregunta al daemon si el servidor está encendido; cualquier fallo cuenta
+// como apagado
+func fetchServerRunning(c *gin.Context, ns *services.Node, node *models.Node, serverID string) bool {
+	nodeResponse, err := callNodeStatus(c, ns, node, serverID)
+	if err != nil || nodeResponse == nil {
+		return false
+	}
+	defer utils.CloseResponse(nodeResponse)
+	if nodeResponse.StatusCode != http.StatusOK {
+		return false
+	}
+	var statusResponse skypanel.ServerRunning
+	if err := json.NewDecoder(nodeResponse.Body).Decode(&statusResponse); err != nil {
+		return false
+	}
+	return statusResponse.Running
+}
+
+// minimalUptimeEntry crea la entrada de un servidor sin datos históricos: según su estado
+// actual cuenta como encendido o apagado durante el período entero
+func minimalUptimeEntry(server *models.Server, isRunning bool, since, now time.Time) map[string]interface{} {
+	var currentUptime int64
+	currentStartTime := now
+
+	// Si está online, calcular uptime desde el inicio del período
+	if isRunning {
+		currentUptime = int64(time.Since(since).Seconds())
+		currentStartTime = since
+	}
+
+	entry := map[string]interface{}{
+		"serverName":       server.Name,
+		"nodeName":         uptimeNodeName(&server.Node),
+		"uptime":           currentUptime,
+		"downtime":         int64(0),
+		"uptimePercent":    100.0, // Si está online, 100%, si está offline, será actualizado
+		"currentStatus":    isRunning,
+		"currentStartTime": currentStartTime,
+	}
+
+	// Si está offline, ajustar porcentaje
+	if !isRunning {
+		if periodDuration := int64(time.Since(since).Seconds()); periodDuration > 0 {
+			entry["downtime"] = periodDuration
+		}
+		entry["uptimePercent"] = 0.0
+	}
+	return entry
 }
 
 // nodeStatusTimeout acota cada consulta de estado: un nodo caído no debe dejar colgada la
@@ -242,15 +250,8 @@ func getServerUptime(c *gin.Context) {
 	db := middleware.GetDatabase(c)
 	us := &services.Uptime{DB: db}
 
-	// Obtener período desde query parameter (por defecto últimos 30 días)
-	daysStr := c.DefaultQuery("days", "30")
-	days, err := strconv.Atoi(daysStr)
-	if err != nil || days < 1 {
-		days = 30
-	}
-	if days > 365 {
-		days = 365 // Límite máximo de 1 año
-	}
+	// Obtener período desde query parameter (por defecto últimos 30 días, máximo 1 año)
+	days := clampedQueryInt(c, "days", 30, 365)
 
 	since := time.Now().AddDate(0, 0, -days)
 
@@ -261,14 +262,7 @@ func getServerUptime(c *gin.Context) {
 	}
 
 	// Obtener historial reciente
-	limitStr := c.DefaultQuery("limit", "50")
-	limit, err := strconv.Atoi(limitStr)
-	if err != nil || limit < 1 {
-		limit = 50
-	}
-	if limit > 200 {
-		limit = 200
-	}
+	limit := clampedQueryInt(c, "limit", 50, 200)
 
 	history, err := us.GetRecentHistory(server.Identifier, limit)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
@@ -276,31 +270,14 @@ func getServerUptime(c *gin.Context) {
 	}
 
 	// Obtener estado actual del servidor desde el daemon
-	isRunning := false
 	ns := &services.Node{DB: db}
-	nodeResponse, err := callNodeStatus(c, ns, &server.Node, server.Identifier)
-	if err == nil && nodeResponse != nil {
-		defer utils.CloseResponse(nodeResponse)
-		if nodeResponse.StatusCode == http.StatusOK {
-			var statusResponse skypanel.ServerRunning
-			if err := json.NewDecoder(nodeResponse.Body).Decode(&statusResponse); err == nil {
-				isRunning = statusResponse.Running
-			}
-		}
-	}
+	isRunning := fetchServerRunning(c, ns, &server.Node, server.Identifier)
 
 	// Calcular tiempo actual si está corriendo
 	currentUptime := int64(0)
 	var currentStartTime *time.Time
 	if isRunning {
-		// Buscar cuando empezó el estado actual
-		var currentStatus *models.UptimeStatus
-		err = db.Where("server_id = ? AND end_time IS NULL", server.Identifier).
-			Order("start_time DESC").First(&currentStatus).Error
-		if err == nil && currentStatus != nil {
-			currentUptime = int64(time.Since(currentStatus.StartTime).Seconds())
-			currentStartTime = &currentStatus.StartTime
-		}
+		currentUptime, currentStartTime = currentRunSince(db, server.Identifier)
 	}
 
 	totalSeconds := uptimeSeconds + downtimeSeconds
@@ -308,10 +285,7 @@ func getServerUptime(c *gin.Context) {
 		totalSeconds += currentUptime
 	}
 
-	nodeName := server.Node.Name
-	if nodeName == "" || server.Node.IsLocal() {
-		nodeName = "LocalNode"
-	}
+	nodeName := uptimeNodeName(&server.Node)
 
 	c.JSON(http.StatusOK, gin.H{
 		"serverId":         server.Identifier,
@@ -331,4 +305,17 @@ func getServerUptime(c *gin.Context) {
 		},
 		"history": history,
 	})
+}
+
+// currentRunSince devuelve cuánto lleva el servidor en su estado actual y desde cuándo; cero y
+// nil si no hay un estado abierto
+func currentRunSince(db *gorm.DB, serverID string) (int64, *time.Time) {
+	// Buscar cuando empezó el estado actual
+	var currentStatus *models.UptimeStatus
+	err := db.Where("server_id = ? AND end_time IS NULL", serverID).
+		Order("start_time DESC").First(&currentStatus).Error
+	if err != nil || currentStatus == nil {
+		return 0, nil
+	}
+	return int64(time.Since(currentStatus.StartTime).Seconds()), &currentStatus.StartTime
 }

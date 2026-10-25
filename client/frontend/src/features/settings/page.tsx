@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Settings, Bell, Mail, Loader2, Key, Package, DownloadCloud } from 'lucide-react';
+import { Settings, Bell, Mail, Loader2, Key, Package, DownloadCloud, CloudUpload, Globe } from 'lucide-react';
 import { useTranslations } from '@/contexts/translations-context';
 import { useSettings } from '@/hooks/use-settings';
 import { useConfig } from '@/contexts/config-context';
@@ -17,12 +17,14 @@ import { GeneralTab } from './general-tab';
 import { DiscordTab } from './discord-tab';
 import { MailTab } from './mail-tab';
 import { UpdatesTab } from './updates-tab';
+import { OffsiteTab } from './offsite-tab';
+import { DomainsTab } from './domains-tab';
 
 /** Underline tab style shared with the server page tab bar. */
 const triggerClass =
     "relative h-11 shrink-0 gap-2 rounded-none bg-transparent px-3 text-[13px] font-medium text-muted-foreground shadow-none transition-colors duration-200 hover:text-foreground focus-visible:ring-inset focus-visible:ring-offset-0 data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none after:absolute after:inset-x-3 after:-bottom-px after:h-0.5 after:rounded-full after:bg-primary after:opacity-0 after:transition-opacity after:duration-200 data-[state=active]:after:opacity-100 [&_svg]:size-4 [&_svg]:shrink-0";
 
-const empty = (v: unknown) => (v === undefined || v === null ? '' : v);
+const empty = (v: unknown) => v ?? '';
 
 /** Whether two settings maps hold the same values, ignoring key order. */
 function sameSettings(a: Record<string, any>, b: Record<string, any>) {
@@ -53,6 +55,8 @@ export default function SettingsPage() {
         { value: 'general', label: t('settings.tabs.general'), icon: Settings },
         { value: 'discord', label: t('settings.tabs.discordShort'), icon: Bell },
         { value: 'mail', label: t('settings.tabs.mail'), icon: Mail },
+        { value: 'offsite', label: t('settings.tabs.offsite'), icon: CloudUpload },
+        { value: 'domains', label: t('settings.tabs.domains'), icon: Globe },
         { value: 'apikeys', label: t('settings.tabs.apiKeys'), icon: Key },
         { value: 'products', label: t('settings.tabs.products'), icon: Package },
         { value: 'updates', label: t('settings.tabs.updates'), icon: DownloadCloud },
@@ -75,7 +79,7 @@ export default function SettingsPage() {
             await refreshConfig();
             sileo.success({
                 title: t('common.success'),
-                description: t('settings.saveSuccess') || 'Settings saved successfully',
+                description: t('settings.saveSuccess'),
             });
         } catch (e: any) {
             sileo.error({
@@ -90,7 +94,7 @@ export default function SettingsPage() {
             await sendTestEmail(localSettings);
             sileo.success({
                 title: t('common.success'),
-                description: t('settings.mail.testSuccess') || 'Test email sent successfully',
+                description: t('settings.mail.testSuccess'),
             });
         } catch (e: any) {
             sileo.error({
@@ -105,7 +109,7 @@ export default function SettingsPage() {
             await sendTestDiscord();
             sileo.success({
                 title: t('common.success'),
-                description: t('settings.discord.testSuccess') || 'Test Discord message sent successfully',
+                description: t('settings.discord.testSuccess'),
             });
         } catch (e: any) {
             sileo.error({
@@ -147,7 +151,7 @@ export default function SettingsPage() {
     const onDiscard = () => setLocalSettings(settings);
 
     return (
-        <div className="flex flex-col gap-6 pb-12">
+        <div className="stagger flex flex-col gap-6 pb-12">
             <PageHeader title={t('settings.title')} description={t('settings.description')} />
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -205,6 +209,14 @@ export default function SettingsPage() {
                     />
                 </TabsContent>
 
+                <TabsContent value="offsite" className="mt-6">
+                    <OffsiteTab localSettings={localSettings} handleUpdate={handleUpdate} t={t} />
+                </TabsContent>
+
+                <TabsContent value="domains" className="mt-6">
+                    <DomainsTab localSettings={localSettings} handleUpdate={handleUpdate} t={t} />
+                </TabsContent>
+
                 <TabsContent value="apikeys" className="mt-6">
                     <ApiKeysView />
                 </TabsContent>
@@ -219,8 +231,7 @@ export default function SettingsPage() {
             </Tabs>
 
             {isDirty && (
-                <div
-                    role="region"
+                <section
                     aria-label={t('servers.settings.unsavedChanges')}
                     className="sticky bottom-4 z-20 flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-popover/95 px-4 py-3 shadow-elevation-3 backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200 sm:px-5"
                 >
@@ -234,7 +245,7 @@ export default function SettingsPage() {
                             {saving ? t('common.saving') : t('servers.settings.saveButton')}
                         </Button>
                     </div>
-                </div>
+                </section>
             )}
         </div>
     );

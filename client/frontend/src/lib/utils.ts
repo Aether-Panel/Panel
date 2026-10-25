@@ -7,7 +7,7 @@ export function cn(...inputs: ClassValue[]) {
 
 export function formatBytes(bytes: number): string {
   // Below one byte (or non-finite) there is no unit to show.
-  if (!(bytes >= 1)) return '0 B'
+  if (Number.isNaN(bytes) || bytes < 1) return '0 B'
   const units = ['B', 'KB', 'MB', 'GB', 'TB']
   const k = 1024
   const i = Math.floor(Math.log(bytes) / Math.log(k))

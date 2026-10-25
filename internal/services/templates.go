@@ -63,98 +63,114 @@ func (t *Template) GetRepos() ([]*models.TemplateRepo, error) {
 }
 
 func (t *Template) GetAllFromRepo(repoID uint) ([]*models.Template, error) {
-	var templates []*models.Template
-	var err error
-
 	if repoID == localRepo.ID {
-		err = t.DB.Find(&templates).Error
-		if err != nil {
-			return nil, err
-		}
-
-		// because we don't want to return a ton of data, we'll only return a few select fields
-		replacement := make([]*models.Template, len(templates))
-
-		for k, v := range templates {
-			replacement[k] = &models.Template{
-				Name: v.Name,
-				Server: skypanel.Server{
-					Display:               v.Server.Display,
-					Type:                  v.Server.Type,
-					Environment:           v.Server.Environment,
-					SupportedEnvironments: v.Server.SupportedEnvironments,
-					Requirements:          v.Server.Requirements,
-				},
-			}
-		}
-
-		templates = replacement
-	} else {
-		// Si hay URL de VPS configurada, resolvemos contra índice JSON en vez de Git
-		if u := config.TemplatesURL.Value(); u != "" {
-			return t.getAllFromVps(u)
-		}
-		repoDb := &models.TemplateRepo{
-			ID: repoID,
-		}
-
-		err = t.DB.First(repoDb).Error
-		if err != nil {
-			return nil, err
-		}
-
-		path, err := validateRepoOnDisk(repoDb)
-		if err != nil {
-			return nil, err
-		}
-
-		folders, err := os.ReadDir(path)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, folder := range folders {
-			if !folder.IsDir() || strings.HasPrefix(folder.Name(), ".") {
-				continue
-			}
-
-			jsonFolder, err := os.ReadDir(filepath.Join(path, folder.Name()))
-			if err != nil {
-				return nil, err
-			}
-
-			for _, v := range jsonFolder {
-				if !strings.HasSuffix(v.Name(), ".json") {
-					continue
-				}
-
-				if v.Name() == "data.json" {
-					continue
-				}
-
-				name := strings.TrimSuffix(v.Name(), ".json")
-				templatePath := filepath.Join(path, folder.Name(), v.Name())
-				template, err := readTemplateFromDisk(name, templatePath)
-				if err != nil {
-					logging.Error.Printf("Error reading template from %s: %s", templatePath, err.Error())
-					continue
-				}
-
-				templates = append(templates, &models.Template{
-					Name: name,
-					Server: skypanel.Server{
-						Display:               template.Server.Display,
-						Type:                  template.Server.Type,
-						Environment:           template.Server.Environment,
-						SupportedEnvironments: template.Server.SupportedEnvironments,
-						Requirements:          template.Server.Requirements,
-					},
-				})
-			}
-		}
+		return t.getAllLocal()
 	}
 
-	return templates, err
+	// Si hay URL de VPS configurada, resolvemos contra índice JSON en vez de Git
+	if u := config.TemplatesURL.Value(); u != "" {
+		return t.getAllFromVps(u)
+	}
+	repoDb := &models.TemplateRepo{
+		ID: repoID,
+	}
+
+	err := t.DB.First(repoDb).Error
+	if err != nil {
+		return nil, err
+	}
+
+	path, err := validateRepoOnDisk(repoDb)
+	if err != nil {
+		return nil, err
+	}
+
+	return listTemplatesOnDisk(path)
+}
+
+func (t *Template) getAllLocal() ([]*models.Template, error) {
+	var templates []*models.Template
+	err := t.DB.Find(&templates).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// because we don't want to return a ton of data, we'll only return a few select fields
+	replacement := make([]*models.Template, len(templates))
+
+	for k, v := range templates {
+		replacement[k] = summarizeTemplate(v.Name, v)
+	}
+
+	return replacement, nil
+}
+
+// summarizeTemplate keeps only the fields needed to list templates
+func summarizeTemplate(name string, v *models.Template) *models.Template {
+	return &models.Template{
+		Name: name,
+		Server: skypanel.Server{
+			Display:               v.Server.Display,
+			Type:                  v.Server.Type,
+			Environment:           v.Server.Environment,
+			SupportedEnvironments: v.Server.SupportedEnvironments,
+			Requirements:          v.Server.Requirements,
+		},
+	}
+}
+
+// listTemplatesOnDisk reads every template json from the folders of a checked out repo
+func listTemplatesOnDisk(path string) ([]*models.Template, error) {
+	var templates []*models.Template
+
+	folders, err := os.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, folder := range folders {
+		if !folder.IsDir() || strings.HasPrefix(folder.Name(), ".") {
+			continue
+		}
+
+		found, err := listTemplatesInFolder(filepath.Join(path, folder.Name()))
+		if err != nil {
+			return nil, err
+		}
+		templates = append(templates, found...)
+	}
+
+	return templates, nil
+}
+
+// listTemplatesInFolder skips data.json and any template that fails to parse
+func listTemplatesInFolder(folderPath string) ([]*models.Template, error) {
+	jsonFolder, err := os.ReadDir(folderPath)
+	if err != nil {
+		return nil, err
+	}
+
+	var templates []*models.Template
+	for _, v := range jsonFolder {
+		if !strings.HasSuffix(v.Name(), ".json") {
+			continue
+		}
+
+		if v.Name() == "data.json" {
+			continue
+		}
+
+		name := strings.TrimSuffix(v.Name(), ".json")
+		templatePath := filepath.Join(folderPath, v.Name())
+		template, err := readTemplateFromDisk(name, templatePath)
+		if err != nil {
+			logging.Error.Printf("Error reading template from %s: %s", templatePath, err.Error())
+			continue
+		}
+
+		templates = append(templates, summarizeTemplate(name, template))
+	}
+	return templates, nil
 }
 
 func (t *Template) Get(repoID uint, name string) (*models.Template, error) {
@@ -166,70 +182,78 @@ func (t *Template) Get(repoID uint, name string) (*models.Template, error) {
 		if err != nil {
 			return nil, err
 		}
+		return template, nil
+	}
+
+	// Si hay URL de VPS configurada, resolvemos contra índice JSON en vez de Git
+	if u := config.TemplatesURL.Value(); u != "" {
+		return t.getFromVps(u, name)
+	}
+	repoDb := &models.TemplateRepo{
+		ID: repoID,
+	}
+
+	err := t.DB.First(repoDb).Error
+	if err != nil {
+		return nil, err
+	}
+
+	path, err := validateRepoOnDisk(repoDb)
+	if err != nil {
+		return nil, err
+	}
+
+	folderName, exists, err := findTemplateFolder(path, name)
+	if err != nil {
+		return nil, err
+	}
+
+	if !exists {
+		return nil, skypanel.ErrNoTemplate(name)
+	}
+
+	templatePath := filepath.Join(path, folderName, name+".json")
+	template, err = readTemplateFromDisk(name, templatePath)
+	if err != nil {
+		return nil, err
+	}
+
+	readmePath := filepath.Join(path, folderName, "README.md")
+	readme, err := os.ReadFile(readmePath)
+	if err != nil {
+		logging.Error.Printf("Error reading readme %s: %s", readmePath, err.Error())
 	} else {
-		// Si hay URL de VPS configurada, resolvemos contra índice JSON en vez de Git
-		if u := config.TemplatesURL.Value(); u != "" {
-			return t.getFromVps(u, name)
-		}
-		repoDb := &models.TemplateRepo{
-			ID: repoID,
-		}
-
-		err := t.DB.First(repoDb).Error
-		if err != nil {
-			return nil, err
-		}
-
-		path, err := validateRepoOnDisk(repoDb)
-		if err != nil {
-			return nil, err
-		}
-
-		var folderName string
-		var exists bool
-		folders, err := os.ReadDir(path)
-		if err != nil {
-			return nil, err
-		}
-		for _, folder := range folders {
-			if !folder.IsDir() || strings.HasPrefix(folder.Name(), ".") {
-				continue
-			}
-
-			jsonFolder, err := os.ReadDir(filepath.Join(path, folder.Name()))
-			if err != nil {
-				return nil, err
-			}
-
-			for _, v := range jsonFolder {
-				if v.Name() == name+".json" {
-					folderName = folder.Name()
-					exists = true
-					break
-				}
-			}
-		}
-
-		if !exists {
-			return nil, skypanel.ErrNoTemplate(name)
-		}
-
-		templatePath := filepath.Join(path, folderName, name+".json")
-		template, err = readTemplateFromDisk(name, templatePath)
-		if err != nil {
-			return nil, err
-		}
-
-		readmePath := filepath.Join(path, folderName, "README.md")
-		readme, err := os.ReadFile(readmePath)
-		if err != nil {
-			logging.Error.Printf("Error reading readme %s: %s", readmePath, err.Error())
-		} else {
-			template.Readme = string(readme)
-		}
+		template.Readme = string(readme)
 	}
 
 	return template, nil
+}
+
+// findTemplateFolder scans every folder of the repo; the last folder holding the template wins
+func findTemplateFolder(path, name string) (folderName string, exists bool, err error) {
+	folders, err := os.ReadDir(path)
+	if err != nil {
+		return "", false, err
+	}
+	for _, folder := range folders {
+		if !folder.IsDir() || strings.HasPrefix(folder.Name(), ".") {
+			continue
+		}
+
+		jsonFolder, err := os.ReadDir(filepath.Join(path, folder.Name()))
+		if err != nil {
+			return "", false, err
+		}
+
+		for _, v := range jsonFolder {
+			if v.Name() == name+".json" {
+				folderName = folder.Name()
+				exists = true
+				break
+			}
+		}
+	}
+	return folderName, exists, nil
 }
 
 func (t *Template) Save(template *models.Template) error {
@@ -299,64 +323,78 @@ func validateRepoOnDisk(repo *models.TemplateRepo) (string, error) {
 			return cache.Path, nil
 		}
 
-		logging.Debug.Printf("Updating local git repo for %s: %s", repo.Name, cache)
-
-		r, err := git.PlainOpen(cache.Path)
-		if err != nil {
+		if err := pullRepo(repo, cache); err != nil {
 			return "", err
 		}
-
-		w, err := r.Worktree()
-		if err != nil {
-			return "", err
-		}
-
-		err = w.Pull(&git.PullOptions{
-			SingleBranch:  true,
-			ReferenceName: plumbing.ReferenceName("refs/heads/" + repo.Branch),
-			RemoteName:    "origin"},
-		)
-		if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
-			return "", err
-		}
-
-		existingPaths[repo.ID] = repoCache{
-			LastRefreshed: time.Now(),
-			Path:          cache.Path,
-		}
-	} else {
-		path := filepath.Join(config.CacheFolder.Value(), "template-repos", fmt.Sprintf("%d", repo.ID))
-
-		// if the directory already exists, we may need to nuke it
-		fi, err := os.Stat(path)
-		if err != nil && !os.IsNotExist(err) {
-			return "", err
-		} else if fi != nil {
-			_ = os.RemoveAll(path)
-		}
-
-		err = os.MkdirAll(path, 0755)
-		if err != nil && !os.IsExist(err) {
-			return "", err
-		}
-
-		logging.Debug.Printf("Checking out repo %s: %s", repo.Name, path)
-		_, err = git.PlainClone(path, false, &git.CloneOptions{
-			URL:           repo.URL,
-			SingleBranch:  true,
-			ReferenceName: plumbing.ReferenceName("refs/heads/" + repo.Branch),
-		})
-		if err != nil {
-			return "", err
-		}
-
-		existingPaths[repo.ID] = repoCache{
-			LastRefreshed: time.Now(),
-			Path:          path,
-		}
+	} else if err := cloneRepo(repo); err != nil {
+		return "", err
 	}
 
 	return existingPaths[repo.ID].Path, nil
+}
+
+// pullRepo refreshes a cached checkout; callers must hold pathLock
+func pullRepo(repo *models.TemplateRepo, cache repoCache) error {
+	logging.Debug.Printf("Updating local git repo for %s: %s", repo.Name, cache)
+
+	r, err := git.PlainOpen(cache.Path)
+	if err != nil {
+		return err
+	}
+
+	w, err := r.Worktree()
+	if err != nil {
+		return err
+	}
+
+	err = w.Pull(&git.PullOptions{
+		SingleBranch:  true,
+		ReferenceName: plumbing.ReferenceName("refs/heads/" + repo.Branch),
+		RemoteName:    "origin"},
+	)
+	if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
+		return err
+	}
+
+	existingPaths[repo.ID] = repoCache{
+		LastRefreshed: time.Now(),
+		Path:          cache.Path,
+	}
+	return nil
+}
+
+// cloneRepo makes a fresh checkout of the repo; callers must hold pathLock
+func cloneRepo(repo *models.TemplateRepo) error {
+	path := filepath.Join(config.CacheFolder.Value(), "template-repos", fmt.Sprintf("%d", repo.ID))
+
+	// if the directory already exists, we may need to nuke it
+	fi, err := os.Stat(path)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	} else if fi != nil {
+		_ = os.RemoveAll(path)
+	}
+
+	err = os.MkdirAll(path, 0755)
+	if err != nil && !os.IsExist(err) {
+		return err
+	}
+
+	logging.Debug.Printf("Checking out repo %s: %s", repo.Name, path)
+	_, err = git.PlainClone(path, false, &git.CloneOptions{
+		URL:           repo.URL,
+		SingleBranch:  true,
+		ReferenceName: plumbing.ReferenceName("refs/heads/" + repo.Branch),
+	})
+	if err != nil {
+		return err
+	}
+
+	existingPaths[repo.ID] = repoCache{
+		LastRefreshed: time.Now(),
+		Path:          path,
+	}
+	return nil
 }
 
 // --- Origen alternativo: índice JSON remoto (VPS) ---

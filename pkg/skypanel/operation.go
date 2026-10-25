@@ -16,6 +16,17 @@ type CreateOperation struct {
 	DataMap              map[string]interface{}
 }
 
+// Arg returns the first of names the template set, nil when it set none. Templates spell
+// some keys differently from Go's naming (appId, fileId), so a factory can accept both.
+func (c CreateOperation) Arg(names ...string) interface{} {
+	for _, name := range names {
+		if v, ok := c.OperationArgs[name]; ok {
+			return v
+		}
+	}
+	return nil
+}
+
 type RunOperatorArgs struct {
 	Environment *Environment
 	Server      DaemonServer

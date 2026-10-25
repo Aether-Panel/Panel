@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import en from '@/lib/locales/en.json';
 import es from '@/lib/locales/es.json';
@@ -30,7 +30,7 @@ interface TranslationsContextType {
 
 const TranslationsContext = createContext<TranslationsContextType | undefined>(undefined);
 
-export function TranslationsProvider({ children }: { children: ReactNode }) {
+export function TranslationsProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [language, setLanguageState] = useState<Locale>('es');
 
   useEffect(() => {
@@ -51,22 +51,20 @@ export function TranslationsProvider({ children }: { children: ReactNode }) {
     document.documentElement.lang = language;
   }, [language]);
 
-  const setLanguage = (lang: Locale) => {
+  const setLanguage = useCallback((lang: Locale) => {
     try {
       localStorage.setItem('aether_panel_language', lang);
     } catch (e) {
       console.error('localStorage is not available');
     }
     setLanguageState(lang);
-  };
+  }, []);
 
   const t = useCallback((key: string, options?: { [key: string]: string | number }): string => {
     let translation = getNestedTranslation(language, key);
 
     // If translation is not found in the current language, fallback to English.
-    if (translation === undefined) {
-      translation = getNestedTranslation('en', key);
-    }
+    translation ??= getNestedTranslation('en', key);
 
     let result = translation ?? key;
 
@@ -80,9 +78,10 @@ export function TranslationsProvider({ children }: { children: ReactNode }) {
     return result;
   }, [language]);
 
+  const value = useMemo(() => ({ language, setLanguage, t }), [language, setLanguage, t]);
 
   return (
-    <TranslationsContext.Provider value={{ language, setLanguage, t }}>
+    <TranslationsContext.Provider value={value}>
       {children}
     </TranslationsContext.Provider>
   );

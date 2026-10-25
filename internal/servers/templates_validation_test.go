@@ -46,8 +46,25 @@ func TestTemplates_AllRegisteredAndStructured(t *testing.T) {
 		t.Fatalf("Templates directory not found: %v", err)
 	}
 
+	paths := templateJSONPaths(t, templatesDir)
+
+	if len(commandMapping) == 0 {
+		t.Fatal("commandMapping is empty; the operation factories did not register")
+	}
+
+	for _, p := range paths {
+		name := strings.TrimSuffix(filepath.Base(p), ".json")
+		t.Run(name, func(t *testing.T) {
+			checkTemplateFile(t, p, name)
+		})
+	}
+}
+
+// templateJSONPaths lists every template json under dir, skipping the index files.
+func templateJSONPaths(t *testing.T, dir string) []string {
+	t.Helper()
 	var paths []string
-	err = filepath.WalkDir(templatesDir, func(p string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -63,76 +80,79 @@ func TestTemplates_AllRegisteredAndStructured(t *testing.T) {
 	if len(paths) == 0 {
 		t.Fatal("no template json files found")
 	}
+	return paths
+}
 
-	if len(commandMapping) == 0 {
-		t.Fatal("commandMapping is empty; the operation factories did not register")
+func checkTemplateFile(t *testing.T, p, name string) {
+	t.Helper()
+	raw, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatalf("reading %s: %v", p, err)
 	}
 
-	for _, p := range paths {
-		name := strings.TrimSuffix(filepath.Base(p), ".json")
-		t.Run(name, func(t *testing.T) {
-			raw, err := os.ReadFile(p)
-			if err != nil {
-				t.Fatalf("reading %s: %v", p, err)
-			}
+	var srv skypanel.Server
+	if err := json.Unmarshal(raw, &srv); err != nil {
+		t.Fatalf("parsing %s as Server: %v", p, err)
+	}
 
-			var srv skypanel.Server
-			if err := json.Unmarshal(raw, &srv); err != nil {
-				t.Fatalf("parsing %s as Server: %v", p, err)
-			}
+	if srv.Type.Type == "" {
+		t.Errorf("template %s: missing top-level \"type\"", p)
+	}
 
-			if srv.Type.Type == "" {
-				t.Errorf("template %s: missing top-level \"type\"", p)
-			}
+	for opType := range templateOpTypes(&srv) {
+		if opType == "" {
+			continue
+		}
+		if _, ok := commandMapping[opType]; !ok {
+			t.Errorf("template %s references unregistered operation type %q", name, opType)
+		}
+	}
 
-			opTypes := map[string]bool{}
-			for _, c := range srv.Installation {
-				opTypes[c.Type] = true
-			}
-			for _, c := range srv.Uninstallation {
-				opTypes[c.Type] = true
-			}
-			for _, c := range srv.Execution.PreExecution {
-				opTypes[c.Type] = true
-			}
-			for _, c := range srv.Execution.PostExecution {
-				opTypes[c.Type] = true
-			}
+	for _, se := range srv.SupportedEnvironments {
+		if se.Type == "docker" {
+			checkDockerPortBindings(t, name, se.Metadata["portBindings"])
+		}
+	}
+}
 
-			for opType := range opTypes {
-				if opType == "" {
-					continue
-				}
-				if _, ok := commandMapping[opType]; !ok {
-					t.Errorf("template %s references unregistered operation type %q", name, opType)
-				}
-			}
+// templateOpTypes collects the operation types used by install/uninstall/run.pre/run.post.
+func templateOpTypes(srv *skypanel.Server) map[string]bool {
+	opTypes := map[string]bool{}
+	for _, c := range srv.Installation {
+		opTypes[c.Type] = true
+	}
+	for _, c := range srv.Uninstallation {
+		opTypes[c.Type] = true
+	}
+	for _, c := range srv.Execution.PreExecution {
+		opTypes[c.Type] = true
+	}
+	for _, c := range srv.Execution.PostExecution {
+		opTypes[c.Type] = true
+	}
+	return opTypes
+}
 
-			for _, se := range srv.SupportedEnvironments {
-				if se.Type == "docker" {
-					pb, ok := se.Metadata["portBindings"]
-					if !ok || pb == nil {
-						// Some docker templates (e.g. outbound Discord bots) do not
-						// expose a listening port, so portBindings is optional.
-						continue
-					}
-					arr, ok := pb.([]interface{})
-					if !ok {
-						t.Errorf("template %s: portBindings is not a list", name)
-						continue
-					}
-					if len(arr) == 0 {
-						t.Errorf("template %s: portBindings is empty for docker environment", name)
-						continue
-					}
-					for _, p := range arr {
-						s, _ := p.(string)
-						if s == "" || !strings.Contains(s, ":") {
-							t.Errorf("template %s: malformed portBinding %q", name, s)
-						}
-					}
-				}
-			}
-		})
+func checkDockerPortBindings(t *testing.T, name string, pb interface{}) {
+	t.Helper()
+	if pb == nil {
+		// Some docker templates (e.g. outbound Discord bots) do not
+		// expose a listening port, so portBindings is optional.
+		return
+	}
+	arr, ok := pb.([]interface{})
+	if !ok {
+		t.Errorf("template %s: portBindings is not a list", name)
+		return
+	}
+	if len(arr) == 0 {
+		t.Errorf("template %s: portBindings is empty for docker environment", name)
+		return
+	}
+	for _, p := range arr {
+		s, _ := p.(string)
+		if s == "" || !strings.Contains(s, ":") {
+			t.Errorf("template %s: malformed portBinding %q", name, s)
+		}
 	}
 }

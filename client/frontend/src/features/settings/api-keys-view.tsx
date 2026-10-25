@@ -19,6 +19,7 @@ import { sileo } from "@/lib/toast";
 import { api } from '@/lib/api-client';
 import { useTranslations } from '@/contexts/translations-context';
 import { SettingsCard, SettingsCardHeader } from './general-tab';
+import { EmptyState } from '@/components/empty-state';
 
 export function ApiKeysView() {
     const { t, language } = useTranslations();
@@ -26,7 +27,7 @@ export function ApiKeysView() {
     const [name, setName] = useState('');
     const [isCreating, setIsCreating] = useState(false);
     const [newKeyData, setNewKeyData] = useState<{token: string, key: any} | null>(null);
-    const [pendingDelete, setPendingDelete] = useState<any | null>(null);
+    const [pendingDelete, setPendingDelete] = useState<any>(null);
     const [copied, setCopied] = useState(false);
     const copyTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -79,7 +80,8 @@ export function ApiKeysView() {
 
     const formatDate = (value: string) => {
         const d = new Date(value);
-        return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', { dateStyle: 'medium' });
+        if (Number.isNaN(d.getTime())) return '—';
+        return d.toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', { dateStyle: 'medium' });
     };
 
     // One dialog: the name form first, then the generated key (shown once).
@@ -107,12 +109,12 @@ export function ApiKeysView() {
             />
             <div className="p-5 md:p-6">
                 {keys.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
-                        <Key className="mx-auto h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-                        <h3 className="mt-3 text-base font-semibold">{t('settings.apiKeys.emptyTitle')}</h3>
-                        <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">{t('settings.apiKeys.emptyDescription')}</p>
-                        <div className="mt-5">{generateButton}</div>
-                    </div>
+                    <EmptyState
+                        icon={Key}
+                        title={t('settings.apiKeys.emptyTitle')}
+                        description={t('settings.apiKeys.emptyDescription')}
+                        action={generateButton}
+                    />
                 ) : (
                     <div className="overflow-hidden rounded-xl border border-border/60 bg-background/30">
                         <Table>

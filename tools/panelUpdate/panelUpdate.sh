@@ -79,11 +79,9 @@ if [[ "$IS_SLAVE" = "true" ]]; then
 fi
 
 # Reasignar puerto MySQL del host si 3306 está ocupado (ej. mysql-server local)
-if command -v ss &>/dev/null; then
-    if ss -ltn 2>/dev/null | grep -q ":3306\b"; then
-        echo "[!] El puerto 3306 del host está en uso. Reasignando contenedor MySQL al puerto 3307."
-        sed -i 's/- "3306:3306"/- "3307:3306"/' docker-compose.yml 2>/dev/null || true
-    fi
+if command -v ss &>/dev/null && ss -ltn 2>/dev/null | grep -q ":3306\b"; then
+    echo "[!] El puerto 3306 del host está en uso. Reasignando contenedor MySQL al puerto 3307."
+    sed -i 's/- "3306:3306"/- "3307:3306"/' docker-compose.yml 2>/dev/null || true
 fi
 
 echo "[INFO] Reconstruyendo imagen Docker (esto puede tardar varios minutos)..."

@@ -47,8 +47,8 @@ export function useServerSettings(serverId: string) {
             ]);
 
             const variables = {
-                ...(serverData.data || {}),
-                ...(definitionData.data || {})
+                ...serverData.data,
+                ...definitionData.data
             };
             const groups = definitionData.groups || serverData.groups || [];
             const type = definitionData.type || '';
@@ -94,8 +94,8 @@ export function useServerSettings(serverId: string) {
             const definition = newSettings.definition ? {
                 ...newSettings.definition,
                 data: {
-                    ...(newSettings.definition.data || {}),
-                    ...(newSettings.variables || {})
+                    ...newSettings.definition.data,
+                    ...newSettings.variables
                 }
             } : null;
 
@@ -207,7 +207,7 @@ async function syncServerProperties(serverId: string, data: Record<string, any>)
     const lines = content.split('\n');
     const propsToUpdate: Record<string, string> = {};
 
-    if (data.motd !== undefined) propsToUpdate['motd'] = String(data.motd).replaceAll(/\n/g, '\\n');
+    if (data.motd !== undefined) propsToUpdate['motd'] = String(data.motd).replaceAll('\n', String.raw`\n`);
     if (data.ip !== undefined) propsToUpdate['server-ip'] = String(data.ip);
     if (data.port !== undefined) propsToUpdate['server-port'] = String(data.port);
 

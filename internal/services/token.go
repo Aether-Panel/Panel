@@ -5,10 +5,13 @@ import (
 	"crypto"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"github.com/MicahParks/jwkset"
 	"github.com/MicahParks/keyfunc/v3"
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
+	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/golang-jwt/jwt/v5"
 	"sync"
 	"time"
@@ -17,7 +20,7 @@ import (
 type TokenService interface {
 	GetKeyFunc() jwt.Keyfunc
 	GetTokenStore() jwkset.Storage
-	GenerateRequest() (string, error)
+	GenerateRequest(node *models.Node) (string, error)
 	ValidateRequest(string) error
 }
 
@@ -107,15 +110,34 @@ func NewTokenService() (TokenService, error) {
 // the panel and its nodes.
 const requestTokenLifetime = 15 * time.Minute
 
-func (ts *tokenService) GenerateRequest() (string, error) {
+// nodeAudience derives a token audience from a node secret. Both sides already share
+// that secret (the panel stores it, the daemon has it as daemon.auth.clientSecret),
+// and hashing it keeps the secret itself out of the (signed, not encrypted) token.
+func nodeAudience(secret string) string {
+	sum := sha256.Sum256([]byte("skypanel-daemon-aud:" + secret))
+	return hex.EncodeToString(sum[:])
+}
+
+// requestClaims builds the claims for a panel→daemon token: short-lived and bound to
+// the one node it is meant for, so a captured token cannot replay against other nodes.
+func requestClaims(node *models.Node) jwt.MapClaims {
 	now := time.Now()
-	token := jwt.New(jwt.SigningMethodEdDSA)
-	token.Header[jwkset.HeaderKID] = keyID
-	// nodes already reject expired tokens when exp is present, so older nodes accept these too
-	token.Claims = jwt.MapClaims{
+
+	secret := models.LocalNode.Secret
+	if node != nil && !node.IsLocal() {
+		secret = node.Secret
+	}
+
+	return jwt.MapClaims{
 		"iat": now.Unix(),
 		"exp": now.Add(requestTokenLifetime).Unix(),
+		"aud": nodeAudience(secret),
 	}
+}
+
+func (ts *tokenService) GenerateRequest(node *models.Node) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodEdDSA, requestClaims(node))
+	token.Header[jwkset.HeaderKID] = keyID
 
 	signed, err := token.SignedString(privateKey)
 	if err != nil {
@@ -124,17 +146,50 @@ func (ts *tokenService) GenerateRequest() (string, error) {
 	return signed, nil
 }
 
+// requestParseOptions are the checks every panel→daemon token must pass: only the
+// panel's EdDSA signature and a mandatory, bounded expiry.
+func requestParseOptions() []jwt.ParserOption {
+	return []jwt.ParserOption{
+		jwt.WithValidMethods([]string{jwt.SigningMethodEdDSA.Alg()}),
+		jwt.WithExpirationRequired(),
+		jwt.WithLeeway(time.Minute),
+	}
+}
+
+// checkRequestAudience confirms the token was minted for this node and not captured
+// from traffic to another one.
+func checkRequestAudience(claims jwt.Claims) error {
+	auds, err := claims.GetAudience()
+	if err != nil || len(auds) == 0 {
+		return jwt.ErrTokenRequiredClaimMissing
+	}
+
+	// a combined panel+daemon install answers as the local node; a deployed daemon
+	// answers as the node secret it was provisioned with
+	expected := []string{nodeAudience(models.LocalNode.Secret)}
+	if s := config.ClientSecret.Value(); s != "" {
+		expected = append(expected, nodeAudience(s))
+	}
+
+	for _, aud := range auds {
+		for _, want := range expected {
+			if aud == want {
+				return nil
+			}
+		}
+	}
+	return jwt.ErrTokenInvalidAudience
+}
+
 func (ts *tokenService) ValidateRequest(token string) error {
-	// tokens without exp still pass so panels that do not send it keep working; a later
-	// release can require it with jwt.WithExpirationRequired once every panel sends exp
-	parsed, err := jwt.Parse(token, ts.GetKeyFunc(), jwt.WithLeeway(time.Minute))
+	parsed, err := jwt.Parse(token, ts.GetKeyFunc(), requestParseOptions()...)
 	if err != nil {
 		return err
 	}
 	if !parsed.Valid {
 		return jwt.ErrTokenSignatureInvalid
 	}
-	return nil
+	return checkRequestAudience(parsed.Claims)
 }
 
 func (ts *tokenService) GetKeyFunc() jwt.Keyfunc {

@@ -43,7 +43,7 @@ func getAddonData(projectID uint) (AddonResponse, error) {
 	return addon, nil
 }
 
-func getAddonFileData(projectID uint, fileID uint) (FileResponse, error) {
+func getAddonFileData(projectID, fileID uint) (FileResponse, error) {
 	u := fmt.Sprintf("https://api.curseforge.com/v1/mods/%d/files/%d", projectID, fileID)
 
 	response, err := callCurseForge(u)
@@ -81,7 +81,7 @@ func getLatestFiles(projectID uint) ([]File, error) {
 	return addon.Data.LatestFiles, err
 }
 
-func getFileByID(projectID uint, fileID uint) (File, error) {
+func getFileByID(projectID, fileID uint) (File, error) {
 	addon, addonErr := getAddonData(projectID)
 
 	if addonErr != nil {

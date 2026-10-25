@@ -114,6 +114,13 @@ const isFullAccess = (role: Role) => (role.scopes || []).includes('admin');
 const effectiveScopes = (role: Role): Set<string> =>
   new Set(isFullAccess(role) ? allPermissionKeys : (role.scopes || []));
 
+/** Group checkbox: off when nothing is picked, on when everything is, indeterminate in between. */
+function groupCheckState(count: number, total: number): boolean | 'indeterminate' {
+  if (count === 0) return false;
+  if (count === total) return true;
+  return 'indeterminate';
+}
+
 function usePermissionLabel() {
   const { t } = useTranslations();
   return useCallback((permissionKey: string): string => {
@@ -123,7 +130,7 @@ function usePermissionLabel() {
 }
 
 /** Thin coverage meter: how much of the permission catalogue a role holds. */
-function CoverageBar({ value, className }: { value: number; className?: string }) {
+function CoverageBar({ value, className }: Readonly<{ value: number; className?: string }>) {
   return (
     <div className={cn('h-1 w-full overflow-hidden rounded-full bg-secondary', className)}>
       <div
@@ -146,13 +153,13 @@ function RoleEditorDialog({
   mode,
   initial,
   onSubmit,
-}: {
+}: Readonly<{
   open: boolean;
   onOpenChange: (open: boolean) => void;
   mode: 'create' | 'edit';
   initial: RoleDraft;
   onSubmit: (draft: RoleDraft) => Promise<boolean>;
-}) {
+}>) {
   const { t } = useTranslations();
   const getPermissionLabel = usePermissionLabel();
   const [name, setName] = useState(initial.name);
@@ -286,8 +293,7 @@ function RoleEditorDialog({
               <div className="space-y-3">
                 {filteredGroups.map((group) => {
                   const count = group.keys.filter(k => selected.has(k)).length;
-                  const state: boolean | 'indeterminate' =
-                    count === 0 ? false : count === group.keys.length ? true : 'indeterminate';
+                  const state = groupCheckState(count, group.keys.length);
                   const groupId = `group-${group.label}`;
                   return (
                     <section key={group.label} aria-labelledby={groupId} className="rounded-xl border border-border/60 bg-background/30">
@@ -353,7 +359,7 @@ function RoleEditorDialog({
 }
 
 /** One role in the left-hand list: name, what it is for and how much it can do. */
-function RoleListItem({ role, active, onSelect }: { role: Role; active: boolean; onSelect: () => void }) {
+function RoleListItem({ role, active, onSelect }: Readonly<{ role: Role; active: boolean; onSelect: () => void }>) {
   const { t } = useTranslations();
   const granted = effectiveScopes(role).size;
   const full = isFullAccess(role);
@@ -412,12 +418,12 @@ function PermissionGroupView({
   keys,
   granted,
   getPermissionLabel,
-}: {
+}: Readonly<{
   label: string;
   keys: string[];
   granted: Set<string>;
   getPermissionLabel: (key: string) => string;
-}) {
+}>) {
   const { t } = useTranslations();
   const [open, setOpen] = useState(false);
   const count = keys.filter(k => granted.has(k)).length;
@@ -467,11 +473,11 @@ function RoleDetail({
   role,
   onEdit,
   onDelete,
-}: {
+}: Readonly<{
   role: Role;
   onEdit: () => void;
   onDelete: () => void;
-}) {
+}>) {
   const { t } = useTranslations();
   const getPermissionLabel = usePermissionLabel();
   const granted = effectiveScopes(role);
@@ -674,7 +680,7 @@ export default function RolesPage() {
   }
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="stagger flex flex-col gap-8">
       <PageHeader title={t('roles.title')} description={t('roles.description')}>
         <Button onClick={() => { setEditor({ mode: 'create' }); setEditorOpen(true); }}>
           <Plus aria-hidden="true" />

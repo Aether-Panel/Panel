@@ -8,12 +8,16 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
+	"gorm.io/gorm"
 	"net/http"
 	"strings"
 	"time"
 )
 
 const expiresIn = int64(time.Hour / time.Second)
+
+// noAccessMsg answers a token request the client is not allowed to make
+const noAccessMsg = "no access"
 
 // @Summary Authenticate
 // @Description Get a OAuth2 token to consume this API
@@ -44,143 +48,154 @@ func handleTokenRequest(c *gin.Context) {
 
 	switch strings.ToLower(request.GrantType) {
 	case "client_credentials":
-		{
-			os := &services.OAuth2{DB: db}
-			client, err := os.Get(request.ClientID)
-			if err != nil {
-				c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: err.Error()})
-				return
-			}
-
-			if !client.ValidateSecret(request.ClientSecret) {
-				c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_client"})
-				return
-			}
-
-			token, err := session.CreateForClient(client)
-			if err != nil {
-				if response.HandleError(c, err, http.StatusInternalServerError) {
-					return
-				}
-			}
-
-			var serverID string
-			if client.Server != nil {
-				serverID = client.Server.Identifier
-			}
-
-			var allScopes []string
-			ps := &services.Permission{DB: db}
-			perms, err := ps.GetForUserAndServer(client.UserID, serverID)
-			if response.HandleError(c, err, http.StatusInternalServerError) {
-				return
-			}
-
-			if !scopes.ContainsScope(perms.Scopes, scopes.ScopeLogin) {
-				// because servers don't have an explicit login scope, we need to check the root user
-				if serverID == "" {
-					c.AbortWithStatus(http.StatusForbidden)
-					return
-				}
-
-				userPerms, err := ps.GetForUserAndServer(client.UserID, "")
-				if response.HandleError(c, err, http.StatusInternalServerError) {
-					return
-				}
-
-				if !scopes.ContainsScope(userPerms.Scopes, scopes.ScopeLogin) {
-					c.AbortWithStatus(http.StatusForbidden)
-					return
-				}
-			}
-			for _, v := range perms.Scopes {
-				allScopes = append(allScopes, v.String())
-			}
-
-			c.JSON(http.StatusOK, &oauth2.TokenResponse{
-				AccessToken: token,
-				TokenType:   "Bearer",
-				Scope:       strings.Join(allScopes, " "),
-				ExpiresIn:   expiresIn,
-			})
-			return
-		}
+		handleClientCredentialsGrant(c, db, session, &request)
 	case "password":
-		{
-			auth := strings.TrimSpace(c.GetHeader("Authorization"))
-			if auth == "" || !strings.HasPrefix(auth, "Bearer ") {
-				c.Header("WWW-Authenticate", "Bearer")
-				c.JSON(http.StatusUnauthorized, &oauth2.ErrorResponse{Error: "invalid_client"})
-				return
-			}
-
-			// validate this is a bearer token and a good JWT token
-			auth = strings.TrimPrefix(auth, "Bearer ")
-			node, err := session.ValidateNode(auth)
-			if err != nil {
-				c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: err.Error()})
-				return
-			}
-
-			us := &services.User{DB: db}
-			ss := &services.Server{DB: db}
-
-			// get user and server information
-			parts := strings.SplitN(request.Username, "#", 2)
-			if len(parts) != 2 {
-				c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: "bad username"})
-				return
-			}
-			user, err := us.GetByEmail(parts[0])
-			if err != nil {
-				c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: err.Error()})
-				return
-			}
-
-			server, err := ss.Get(parts[1])
-			if err != nil {
-				c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: err.Error()})
-				return
-			}
-
-			// ensure the node asking for the credential check is where this server is
-			if server.Node.ID != node.ID {
-				c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: "no access"})
-				return
-			}
-
-			// validate their credentials
-			user, _, err = us.ValidateLogin(user.Email, request.Password)
-			if err != nil {
-				c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: "no access"})
-				return
-			}
-
-			// confirm user has access to this server
-			ps := &services.Permission{DB: db}
-			allowed, err := ps.HasPermission(user.ID, server.Identifier, scopes.ScopeServerSftp)
-			if err != nil {
-				c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: err.Error()})
-				return
-			}
-
-			if !allowed {
-				c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: "no access"})
-				return
-			}
-
-			// The node only needs to know the SFTP login is allowed for this server: it reads
-			// the scope and never uses a token. A real panel session here would hand out full
-			// account access from just a password, skipping the account's 2FA.
-			c.JSON(http.StatusOK, &oauth2.TokenResponse{
-				TokenType: "Bearer",
-				Scope:     server.Identifier + ":" + scopes.ScopeServerSftp.String(),
-				ExpiresIn: expiresIn,
-			})
-		}
+		handlePasswordGrant(c, db, session, &request)
 	default:
 		c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "unsupported_grant_type"})
 	}
+}
+
+// handleClientCredentialsGrant issues a token for an OAuth2 client of the panel
+func handleClientCredentialsGrant(c *gin.Context, db *gorm.DB, session *services.Session, request *TokenRequest) {
+	os := &services.OAuth2{DB: db}
+	client, err := os.Get(request.ClientID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: err.Error()})
+		return
+	}
+
+	if !client.ValidateSecret(request.ClientSecret) {
+		c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_client"})
+		return
+	}
+
+	token, err := session.CreateForClient(client)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	var serverID string
+	if client.Server != nil {
+		serverID = client.Server.Identifier
+	}
+
+	var allScopes []string
+	ps := &services.Permission{DB: db}
+	perms, err := ps.GetForUserAndServer(client.UserID, serverID)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	if !scopes.ContainsScope(perms.Scopes, scopes.ScopeLogin) && !serverClientMayLogin(c, ps, client.UserID, serverID) {
+		return
+	}
+	for _, v := range perms.Scopes {
+		allScopes = append(allScopes, v.String())
+	}
+
+	c.JSON(http.StatusOK, &oauth2.TokenResponse{
+		AccessToken: token,
+		TokenType:   "Bearer",
+		Scope:       strings.Join(allScopes, " "),
+		ExpiresIn:   expiresIn,
+	})
+}
+
+// serverClientMayLogin checks the login scope for a client without one of its own: servers
+// don't have an explicit login scope, so the client's user needs it globally. It writes the
+// response itself and returns false when the request must stop.
+func serverClientMayLogin(c *gin.Context, ps *services.Permission, userID uint, serverID string) bool {
+	// because servers don't have an explicit login scope, we need to check the root user
+	if serverID == "" {
+		c.AbortWithStatus(http.StatusForbidden)
+		return false
+	}
+
+	userPerms, err := ps.GetForUserAndServer(userID, "")
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return false
+	}
+
+	if !scopes.ContainsScope(userPerms.Scopes, scopes.ScopeLogin) {
+		c.AbortWithStatus(http.StatusForbidden)
+		return false
+	}
+	return true
+}
+
+// handlePasswordGrant lets a node check a user's SFTP login for one of its servers
+func handlePasswordGrant(c *gin.Context, db *gorm.DB, session *services.Session, request *TokenRequest) {
+	auth := strings.TrimSpace(c.GetHeader("Authorization"))
+	if auth == "" || !strings.HasPrefix(auth, "Bearer ") {
+		c.Header("WWW-Authenticate", "Bearer")
+		c.JSON(http.StatusUnauthorized, &oauth2.ErrorResponse{Error: "invalid_client"})
+		return
+	}
+
+	// validate this is a bearer token and a good JWT token
+	auth = strings.TrimPrefix(auth, "Bearer ")
+	node, err := session.ValidateNode(auth)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: err.Error()})
+		return
+	}
+
+	us := &services.User{DB: db}
+	ss := &services.Server{DB: db}
+
+	// get user and server information
+	parts := strings.SplitN(request.Username, "#", 2)
+	if len(parts) != 2 {
+		c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: "bad username"})
+		return
+	}
+	user, err := us.GetByEmail(parts[0])
+	if err != nil {
+		c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: err.Error()})
+		return
+	}
+
+	server, err := ss.Get(parts[1])
+	if err != nil {
+		c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: err.Error()})
+		return
+	}
+
+	// ensure the node asking for the credential check is where this server is
+	if server.Node.ID != node.ID {
+		c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: noAccessMsg})
+		return
+	}
+
+	// validate their credentials
+	user, _, err = us.ValidateLogin(user.Email, request.Password)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: noAccessMsg})
+		return
+	}
+
+	// confirm user has access to this server
+	ps := &services.Permission{DB: db}
+	allowed, err := ps.HasPermission(user.ID, server.Identifier, scopes.ScopeServerSftp)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: err.Error()})
+		return
+	}
+
+	if !allowed {
+		c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: noAccessMsg})
+		return
+	}
+
+	// The node only needs to know the SFTP login is allowed for this server: it reads
+	// the scope and never uses a token. A real panel session here would hand out full
+	// account access from just a password, skipping the account's 2FA.
+	c.JSON(http.StatusOK, &oauth2.TokenResponse{
+		TokenType: "Bearer",
+		Scope:     server.Identifier + ":" + scopes.ScopeServerSftp.String(),
+		ExpiresIn: expiresIn,
+	})
 }
 
 type TokenRequest struct {

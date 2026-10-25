@@ -6,12 +6,13 @@ import { useAuth } from '@/contexts/providers';
 import { useTranslations } from '@/contexts/translations-context';
 import { sileo } from "@/lib/toast";
 import { Check, Copy, ExternalLink, Lock, ServerOff } from 'lucide-react';
+import { EmptyState } from '@/components/empty-state';
 
 type SFTPViewProps = {
     server: any;
 };
 
-function CopyButton({ label, copied, onCopy }: { label: string; copied: boolean; onCopy: () => void }) {
+function CopyButton({ label, copied, onCopy }: Readonly<{ label: string; copied: boolean; onCopy: () => void }>) {
     return (
         <Button
             variant="ghost"
@@ -32,13 +33,13 @@ function SpecRow({
     copyLabel,
     copied,
     onCopy,
-}: {
+}: Readonly<{
     label: string;
     value: string;
     copyLabel: string;
     copied: boolean;
     onCopy: () => void;
-}) {
+}>) {
     return (
         <div className="flex items-center gap-3 px-4 py-2.5">
             <div className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
@@ -50,20 +51,20 @@ function SpecRow({
     );
 }
 
-export default function SFTPView({ server }: SFTPViewProps) {
+export default function SFTPView({ server }: Readonly<SFTPViewProps>) {
     const { user } = useAuth();
     const { t } = useTranslations();
 
     const [copiedField, setCopiedField] = useState<string | null>(null);
 
-    if (!server || !server.node) {
+    if (!server?.node) {
         return (
             <Card className="mt-6 p-5 md:p-6">
-                <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
-                    <ServerOff className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-                    <h3 className="text-base font-semibold">{t('servers.sftp.unavailableTitle')}</h3>
-                    <p className="mt-1 max-w-sm text-sm text-muted-foreground">{t('servers.sftp.unavailableDescription')}</p>
-                </div>
+                <EmptyState
+                    icon={ServerOff}
+                    title={t('servers.sftp.unavailableTitle')}
+                    description={t('servers.sftp.unavailableDescription')}
+                />
             </Card>
         );
     }
@@ -78,9 +79,7 @@ export default function SFTPView({ server }: SFTPViewProps) {
         void navigator.clipboard.writeText(text);
         setCopiedField(field);
         setTimeout(() => setCopiedField(null), 2000);
-        sileo.success({
-            description: t('common.copied'),
-        });
+        sileo.success({ title: t('common.copied') });
     };
 
     const handleLaunchSFTP = () => {

@@ -4,6 +4,7 @@ import { api } from '@/lib/api-client';
 import { useAuth } from '@/contexts/providers';
 import { useNodes } from '@/hooks/use-nodes';
 import { useEffect, useState, Fragment } from 'react';
+import type { ReactNode } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -19,10 +20,11 @@ import { sileo } from "@/lib/toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { useTranslations } from '@/contexts/translations-context';
+import { EmptyState } from '@/components/empty-state';
 
 const richText = '[&_code]:rounded [&_code]:bg-secondary [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs [&_code]:text-foreground';
 
-function CopyableCode({ command }: { command: string }) {
+function CopyableCode({ command }: Readonly<{ command: string }>) {
     const { t } = useTranslations();
     const handleCopy = () => {
         void navigator.clipboard.writeText(command);
@@ -45,7 +47,7 @@ function CopyableCode({ command }: { command: string }) {
     );
 }
 
-function Stepper({ currentStep, steps }: { currentStep: number; steps: string[] }) {
+function Stepper({ currentStep, steps }: Readonly<{ currentStep: number; steps: string[] }>) {
     return (
         <ol className="flex items-center gap-3">
             {steps.map((step, index) => {
@@ -285,8 +287,95 @@ export default function DatabaseHostsPage() {
         </DropdownMenu>
     );
 
+    let hostList: ReactNode;
+    if (loading && hosts.length === 0) {
+        hostList = (
+            <div className="space-y-2" aria-busy="true">
+                {Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-14 rounded-xl" />)}
+            </div>
+        );
+    } else if (error && hosts.length === 0) {
+        hostList = (
+            <EmptyState
+                icon={AlertTriangle}
+                tone="error"
+                title={t('databaseHosts.error.title')}
+                description={t('databaseHosts.error.description')}
+                action={
+                    <Button variant="outline" onClick={() => void refresh()}>
+                        {t('common.retry')}
+                    </Button>
+                }
+            />
+        );
+    } else if (hosts.length === 0) {
+        hostList = (
+            <EmptyState
+                icon={Database}
+                title={t('databaseHosts.empty.title')}
+                description={t('databaseHosts.empty.description')}
+                action={
+                    <Button onClick={() => setIsAddDialogOpen(true)}>
+                        <Plus aria-hidden="true" />
+                        {t('databaseHosts.addHost')}
+                    </Button>
+                }
+            />
+        );
+    } else {
+        hostList = (
+            <>
+                {/* Phones and tablets (the sidebar leaves too little room for the table): stacked rows. */}
+                <ul className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60 bg-background/30 lg:hidden">
+                    {hosts.map((host) => (
+                        <li key={host.id} className="flex items-center gap-3 py-3 pl-4 pr-2">
+                            <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-semibold">{host.name}</p>
+                                <p className="mt-0.5 break-all font-mono text-xs text-muted-foreground">{host.username}@{host.host}:{host.port}</p>
+                                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                                    {t('databaseHosts.table.linkedNode')}: <span className="text-foreground">{nodeName(host)}</span>
+                                </p>
+                            </div>
+                            {rowActions(host)}
+                        </li>
+                    ))}
+                </ul>
+
+                {/* Desktop: the full table. */}
+                <div className="hidden overflow-hidden rounded-xl border border-border/60 bg-background/30 lg:block">
+                    <Table>
+                        <TableHeader>
+                            <TableRow className="hover:bg-transparent">
+                                <TableHead>{t('databaseHosts.table.name')}</TableHead>
+                                <TableHead>{t('databaseHosts.table.host')}</TableHead>
+                                <TableHead className="hidden xl:table-cell">{t('databaseHosts.table.port')}</TableHead>
+                                <TableHead className="hidden xl:table-cell">{t('databaseHosts.table.username')}</TableHead>
+                                <TableHead>{t('databaseHosts.table.linkedNode')}</TableHead>
+                                <TableHead className="w-14"><span className="sr-only">{t('databaseHosts.table.actions')}</span></TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {hosts.map((host) => (
+                                <TableRow key={host.id} className="hover:bg-accent/30">
+                                    <TableCell className="max-w-[14rem] truncate font-medium">{host.name}</TableCell>
+                                    <TableCell className="max-w-[16rem] break-all font-mono text-xs text-muted-foreground">
+                                        {host.host}<span className="xl:hidden">:{host.port}</span>
+                                    </TableCell>
+                                    <TableCell className="hidden font-mono text-xs tabular-nums text-muted-foreground xl:table-cell">{host.port}</TableCell>
+                                    <TableCell className="hidden font-mono text-xs text-muted-foreground xl:table-cell">{host.username}</TableCell>
+                                    <TableCell className="max-w-[12rem] truncate">{nodeName(host)}</TableCell>
+                                    <TableCell className="py-2 text-right">{rowActions(host)}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+            </>
+        );
+    }
+
     return (
-        <div className="flex flex-col gap-8">
+        <div className="stagger flex flex-col gap-8">
             <PageHeader title={t('databaseHosts.title')} description={t('databaseHosts.description')}>
                 <Dialog open={isAddDialogOpen} onOpenChange={handleDialogChange}>
                     <DialogTrigger asChild>
@@ -503,78 +592,7 @@ export default function DatabaseHostsPage() {
                 </div>
 
                 <div className="p-5 md:p-6">
-                    {loading && hosts.length === 0 ? (
-                        <div className="space-y-2" aria-busy="true">
-                            {Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-14 rounded-xl" />)}
-                        </div>
-                    ) : error && hosts.length === 0 ? (
-                        <div className="flex flex-col items-center rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
-                            <AlertTriangle className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-                            <h3 className="text-base font-semibold">{t('databaseHosts.error.title')}</h3>
-                            <p className="mt-1 max-w-sm text-sm text-muted-foreground">{t('databaseHosts.error.description')}</p>
-                            <Button variant="outline" className="mt-6" onClick={() => void refresh()}>
-                                {t('common.retry')}
-                            </Button>
-                        </div>
-                    ) : hosts.length === 0 ? (
-                        <div className="flex flex-col items-center rounded-xl border border-dashed border-border/60 px-6 py-12 text-center">
-                            <Database className="mb-3 h-6 w-6 text-muted-foreground/60" aria-hidden="true" />
-                            <h3 className="text-base font-semibold">{t('databaseHosts.empty.title')}</h3>
-                            <p className="mt-1 max-w-sm text-sm text-muted-foreground">{t('databaseHosts.empty.description')}</p>
-                            <Button className="mt-6" onClick={() => setIsAddDialogOpen(true)}>
-                                <Plus aria-hidden="true" />
-                                {t('databaseHosts.addHost')}
-                            </Button>
-                        </div>
-                    ) : (
-                        <>
-                            {/* Phones and tablets (the sidebar leaves too little room for the table): stacked rows. */}
-                            <ul className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60 bg-background/30 lg:hidden">
-                                {hosts.map((host) => (
-                                    <li key={host.id} className="flex items-center gap-3 py-3 pl-4 pr-2">
-                                        <div className="min-w-0 flex-1">
-                                            <p className="truncate text-sm font-semibold">{host.name}</p>
-                                            <p className="mt-0.5 break-all font-mono text-xs text-muted-foreground">{host.username}@{host.host}:{host.port}</p>
-                                            <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                                                {t('databaseHosts.table.linkedNode')}: <span className="text-foreground">{nodeName(host)}</span>
-                                            </p>
-                                        </div>
-                                        {rowActions(host)}
-                                    </li>
-                                ))}
-                            </ul>
-
-                            {/* Desktop: the full table. */}
-                            <div className="hidden overflow-hidden rounded-xl border border-border/60 bg-background/30 lg:block">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow className="hover:bg-transparent">
-                                            <TableHead>{t('databaseHosts.table.name')}</TableHead>
-                                            <TableHead>{t('databaseHosts.table.host')}</TableHead>
-                                            <TableHead className="hidden xl:table-cell">{t('databaseHosts.table.port')}</TableHead>
-                                            <TableHead className="hidden xl:table-cell">{t('databaseHosts.table.username')}</TableHead>
-                                            <TableHead>{t('databaseHosts.table.linkedNode')}</TableHead>
-                                            <TableHead className="w-14"><span className="sr-only">{t('databaseHosts.table.actions')}</span></TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {hosts.map((host) => (
-                                            <TableRow key={host.id} className="hover:bg-accent/30">
-                                                <TableCell className="max-w-[14rem] truncate font-medium">{host.name}</TableCell>
-                                                <TableCell className="max-w-[16rem] break-all font-mono text-xs text-muted-foreground">
-                                                    {host.host}<span className="xl:hidden">:{host.port}</span>
-                                                </TableCell>
-                                                <TableCell className="hidden font-mono text-xs tabular-nums text-muted-foreground xl:table-cell">{host.port}</TableCell>
-                                                <TableCell className="hidden font-mono text-xs text-muted-foreground xl:table-cell">{host.username}</TableCell>
-                                                <TableCell className="max-w-[12rem] truncate">{nodeName(host)}</TableCell>
-                                                <TableCell className="py-2 text-right">{rowActions(host)}</TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        </>
-                    )}
+                    {hostList}
                 </div>
             </Card>
 

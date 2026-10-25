@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -162,17 +163,7 @@ func (t *tty) GetStatsImpl(environment *skypanel.Environment) (*skypanel.ServerS
 		return nil, err
 	}
 	if !running {
-		stats := &skypanel.ServerStats{
-			CPU:     0,
-			Memory:  0,
-			Running: false,
-		}
-
-		if environment.Server.Stats.Type == "jcmd" {
-			stats.Jvm = &utils.JvmStats{}
-		}
-
-		return stats, nil
+		return stoppedStats(environment), nil
 	}
 
 	t.statLocker.Lock()
@@ -200,6 +191,51 @@ func (t *tty) GetStatsImpl(environment *skypanel.Environment) (*skypanel.ServerS
 
 	memInfo, _ := mem.VirtualMemory()
 
+	rxRate, txRate := t.networkRates()
+	t.refreshDirSize(environment)
+
+	stats := &skypanel.ServerStats{
+		CPU:        cpu,
+		Memory:     cast.ToFloat64(memMap.RSS),
+		MaxMemory:  cast.ToFloat64(memInfo.Total),
+		Disk:       float64(t.dirSize),
+		MaxStorage: maxStorageBytes(environment),
+		NetworkRx:  rxRate,
+		NetworkTx:  txRate,
+		Running:    true,
+	}
+
+	if !t.disableSpecialStats && environment.Server.Stats.Type == "jcmd" {
+		stats.Jvm = t.jcmdStats()
+		if stats.Jvm == nil {
+			stats.Jvm = &utils.JvmStats{}
+		}
+	}
+
+	t.lastStats = stats
+	t.lastStatTime = time.Now()
+
+	return stats, nil
+}
+
+// stoppedStats is what a server that is not running reports.
+func stoppedStats(environment *skypanel.Environment) *skypanel.ServerStats {
+	stats := &skypanel.ServerStats{
+		CPU:     0,
+		Memory:  0,
+		Running: false,
+	}
+
+	if environment.Server.Stats.Type == "jcmd" {
+		stats.Jvm = &utils.JvmStats{}
+	}
+
+	return stats
+}
+
+// networkRates returns the host rx/tx rate in KiB/s since the previous sample and stores
+// this sample for the next call. Callers must hold statLocker.
+func (t *tty) networkRates() (float64, float64) {
 	now := time.Now()
 	var rxRate, txRate float64
 	if netStats, err := psnet.IOCounters(false); err == nil && len(netStats) > 0 {
@@ -216,59 +252,53 @@ func (t *tty) GetStatsImpl(environment *skypanel.Environment) (*skypanel.ServerS
 		t.lastNetworkTx = totalTx
 	}
 	t.lastNetTime = now
+	return rxRate, txRate
+}
 
+// refreshDirSize walks the server folder at most every 30 seconds, it is slow on big servers.
+// Callers must hold statLocker.
+func (t *tty) refreshDirSize(environment *skypanel.Environment) {
 	if t.dirSizeTime.IsZero() || time.Since(t.dirSizeTime) > 30*time.Second {
 		t.dirSize = getDirSize(environment.GetRootDirectory())
 		t.dirSizeTime = time.Now()
 	}
+}
 
-	var maxStorage float64
+// maxStorageBytes converts the server's "disk" variable (MB) to bytes, 0 when unset.
+func maxStorageBytes(environment *skypanel.Environment) float64 {
 	if diskVar, ok := environment.Server.Variables["disk"]; ok {
 		if limit, err := cast.ToInt64E(diskVar.Value); err == nil && limit > 0 {
-			maxStorage = float64(limit) * 1024 * 1024
+			return float64(limit) * 1024 * 1024
 		}
 	}
+	return 0
+}
 
-	stats := &skypanel.ServerStats{
-		CPU:        cpu,
-		Memory:     cast.ToFloat64(memMap.RSS),
-		MaxMemory:  cast.ToFloat64(memInfo.Total),
-		Disk:       float64(t.dirSize),
-		MaxStorage: maxStorage,
-		NetworkRx:  rxRate,
-		NetworkTx:  txRate,
-		Running:    true,
+// jcmdStats asks the JVM for its heap through the attach socket, nil when it cannot.
+func (t *tty) jcmdStats() *utils.JvmStats {
+	socket, err := t.initiateJCMD()
+	if err != nil || socket == nil {
+		return nil
 	}
+	defer func() { _ = socket.Close() }()
+	// a JVM that never answers must not hold the stats lock forever
+	_ = socket.SetDeadline(time.Now().Add(5 * time.Second))
 
-	if !t.disableSpecialStats && environment.Server.Stats.Type == "jcmd" {
-		var socket *net.UnixConn
-		if socket, err = t.initiateJCMD(); err == nil && socket != nil {
-			for _, s := range []string{"1", "\x00", "jcmd", "\x00", "GC.heap_info", "\x00", "\x00", "\x00"} {
-				_, err = socket.Write([]byte(s))
-				if err != nil {
-					logging.Error.Printf("unable to send command to Java process: %v", err)
-					break
-				}
-			}
+	for _, s := range []string{"1", "\x00", "jcmd", "\x00", "GC.heap_info", "\x00", "\x00", "\x00"} {
+		_, err = socket.Write([]byte(s))
+		if err != nil {
+			logging.Error.Printf("unable to send command to Java process: %v", err)
 			// only continue parsing if no errors sending command
-			if err == nil {
-				var jcmdData []byte
-				jcmdData, err = io.ReadAll(socket)
-				if err != nil {
-					logging.Error.Printf("Could not get result of JCMD: %s", err.Error())
-				}
-
-				stats.Jvm = utils.ParseJCMDResponse(jcmdData)
-			}
-		}
-		if stats.Jvm == nil {
-			stats.Jvm = &utils.JvmStats{}
+			return nil
 		}
 	}
 
-	t.lastStats = stats
+	jcmdData, err := io.ReadAll(socket)
+	if err != nil {
+		logging.Error.Printf("Could not get result of JCMD: %s", err.Error())
+	}
 
-	return stats, nil
+	return utils.ParseJCMDResponse(jcmdData)
 }
 
 func (t *tty) SendCodeImpl(environment *skypanel.Environment, code int) error {
@@ -466,9 +496,24 @@ var cmdList = []string{
 	"mount --rbind /proc proc",
 }
 
+// startCommandPattern is the shape of a start command. The command is split into an argv
+// slice and handed to exec.Command, so shell metacharacters are inert (there is no shell).
+// A NUL cannot be part of an argument, and a line break would only smuggle entries into the
+// console and the logs; both are rejected, as is an empty command.
+var startCommandPattern = regexp.MustCompile(`^[^\x00\n\r]+$`)
+
 func (t *tty) createCmd(workDir, cmd string) (pr *exec.Cmd, err error) {
+	if !startCommandPattern.MatchString(cmd) {
+		return nil, errors.New("the start command is empty or contains a NUL or a line break")
+	}
+
 	if t.DisableUnshare || config.SecurityDisableUnshare.Value() {
 		c, args := utils.SplitArguments(cmd)
+		// check the executable itself as well: it is the value exec.Command receives, and
+		// it comes from the same start command.
+		if !startCommandPattern.MatchString(c) {
+			return nil, errors.New("the start command has an empty or invalid executable")
+		}
 		pr = exec.Command(c, args...)
 		pr.SysProcAttr = &syscall.SysProcAttr{Setctty: true, Setsid: true}
 		pr.Dir = workDir

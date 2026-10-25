@@ -16,11 +16,7 @@ func Minecraft(ip string, port int) (MinecraftResponse, error) {
 	if port == 0 {
 		return MinecraftResponse{}, fmt.Errorf("port is required")
 	}
-	if ip == "" || ip == "0.0.0.0" {
-		ip = "127.0.0.1"
-	}
-
-	res, err := minequery.Ping17(ip, port)
+	res, err := minequery.Ping17(hostOrLocal(ip), port)
 	if err != nil {
 		return MinecraftResponse{}, err
 	}

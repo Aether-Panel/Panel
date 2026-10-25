@@ -38,26 +38,24 @@ function relocateMonacoStylesToRoot() {
  */
 export async function ensureMonacoStylesheet(): Promise<void> {
   if (typeof document === 'undefined') {
-    return Promise.resolve();
+    return;
   }
 
   let style = document.getElementById(MONACO_STYLE_ID) as HTMLStyleElement | null;
   if (style?.sheet?.cssRules?.length) {
-    return Promise.resolve();
+    return;
   }
 
   if (!style) {
     style = document.createElement('style');
     style.id = MONACO_STYLE_ID;
-    style.setAttribute('data-monaco-editor', '');
+    style.dataset.monacoEditor = '';
     document.documentElement.appendChild(style);
   }
 
   if (!style.textContent) {
     style.textContent = monacoCss;
   }
-
-  return Promise.resolve();
 }
 
 function handleStyleRefresh() {
