@@ -17,6 +17,9 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 )
 
+// dataJSONFile is the test definition each template folder holds
+const dataJSONFile = "data.json"
+
 func panicIf(err error) {
 	if err != nil {
 		panic(err)
@@ -96,7 +99,7 @@ func buildTests() []*TestScenario {
 		panicIf(err)
 
 		for _, file := range files {
-			if file.Name() == "data.json" {
+			if file.Name() == dataJSONFile {
 				continue
 			}
 
@@ -136,10 +139,10 @@ func buildTests() []*TestScenario {
 				err = json.NewDecoder(bytes.NewReader(tmp.Template)).Decode(&template)
 				panicIf(err)
 
-				_, err = os.Stat(filepath.Join(templateFolder, folder.Name(), "data.json"))
+				_, err = os.Stat(filepath.Join(templateFolder, folder.Name(), dataJSONFile))
 				switch {
 				case err == nil:
-					tests, err := readDataJSONFile(filepath.Join(templateFolder, folder.Name(), "data.json"))
+					tests, err := readDataJSONFile(filepath.Join(templateFolder, folder.Name(), dataJSONFile))
 					for _, v := range tests {
 						log.Printf("  Considering %s", v.Name)
 						testScenarios = append(testScenarios, &TestScenario{

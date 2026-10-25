@@ -17,7 +17,7 @@ const WEBHOOKS = [
     { key: 'panel.notifications.discordWebhookExTransfer', id: 'webhook-extransfer', prefix: 'settings.discord.extransferWebhook', title: 'settings.discord.sections.extransfer' },
 ] as const;
 
-export function DiscordTab({ localSettings, handleUpdate, handleTestDiscord, saving, t }: DiscordTabProps) {
+export function DiscordTab({ localSettings, handleUpdate, handleTestDiscord, saving, t }: Readonly<DiscordTabProps>) {
     return (
         <SettingsCard>
             <SettingsCardHeader

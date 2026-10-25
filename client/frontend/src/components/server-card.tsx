@@ -15,7 +15,7 @@ export const usageColor = (value: number) =>
       ? 'bg-warning [--meter:var(--warning)]'
       : 'bg-success [--meter:var(--success)]';
 
-export function MetricBar({ label, value, extra }: { label: string; value: number; extra?: string }) {
+export function MetricBar({ label, value, extra }: Readonly<{ label: string; value: number; extra?: string }>) {
   return (
     <div>
       <div className="mb-1.5 flex items-baseline justify-between gap-3">
@@ -34,7 +34,7 @@ export function MetricBar({ label, value, extra }: { label: string; value: numbe
   );
 }
 
-export function Sparkline({ data }: { data: number[] }) {
+export function Sparkline({ data }: Readonly<{ data: number[] }>) {
   const values = data.length > 0 ? data.slice(-32) : [0];
   const w = 300;
   const h = 44;
@@ -85,7 +85,7 @@ export const StatusIndicator = ({ status, className }: { status: Server['status'
 };
 
 /** Dot + label status chip, shared by the card and the server detail header. */
-export function StatusBadge({ status, label, className }: { status: Server['status']; label: string; className?: string }) {
+export function StatusBadge({ status, label, className }: Readonly<{ status: Server['status']; label: string; className?: string }>) {
   const tone = STATUS_TONE[status] ?? STATUS_TONE.pending;
   return (
     <Badge variant="outline" className={cn('shrink-0 gap-1.5 border-transparent', tone.chip, className)}>
@@ -95,14 +95,14 @@ export function StatusBadge({ status, label, className }: { status: Server['stat
   );
 }
 
-export function ServerCard({ server, t }: { server: Server; t: (key: string) => string }) {
+export function ServerCard({ server, t }: Readonly<{ server: Server; t: (key: string) => string }>) {
   const cpuSeries = (server.metrics || []).map((metric) => metric.cpu ?? 0);
   const playersPercent = Math.min(Math.max(((server.playersOnline || 0) / Math.max(server.maxPlayers || 1, 1)) * 100, 0), 100);
   const detailHref = `/servers/view/?id=${server.id}`;
   const { hasScope } = useAuth();
   // Deletion lives in the detail page's admin tab, so only offer it to whoever can delete there
   const canDelete = hasScope('server.delete') || hasScope('server.admin') || hasScope('admin');
-  const lastCpu = cpuSeries.length > 0 ? Math.round(cpuSeries[cpuSeries.length - 1]) : null;
+  const lastCpu = cpuSeries.length > 0 ? Math.round(cpuSeries.at(-1) ?? 0) : null;
 
   return (
     <div

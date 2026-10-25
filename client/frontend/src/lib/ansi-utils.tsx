@@ -57,9 +57,9 @@ function applyAnsiCode(code: number, codes: number[], i: number, state: AnsiStat
 
 export function parseAnsi(text: string): AnsiSegment[] {
     const segments: AnsiSegment[] = [];
-    // ESC (U+001B) is built with String.fromCharCode so the pattern contains no
+    // ESC (U+001B) is built with String.fromCodePoint so the pattern contains no
     // control-character escape (Sonar S6324); note \c[ is not a valid JS escape.
-    const ansiRegex = new RegExp('(?:' + String.fromCharCode(27) + '|\\\\x1b|\\\\u001b)\\[([0-9;]*)m', 'g');
+    const ansiRegex = new RegExp('(?:' + String.fromCodePoint(27) + String.raw`|\\x1b|\\u001b)\[([0-9;]*)m`, 'g');
 
     let lastIndex = 0;
     const state: AnsiState = { bold: false, italic: false, underline: false };

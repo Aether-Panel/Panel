@@ -78,7 +78,7 @@ type UserAvatarProps = {
  * set, otherwise their Kodama face, with initials while it loads or if the
  * service can't be reached.
  */
-export function UserAvatar({ identity, src, fallback, className, fallbackClassName }: UserAvatarProps) {
+export function UserAvatar({ identity, src, fallback, className, fallbackClassName }: Readonly<UserAvatarProps>) {
     const generated = useKodamaAvatar(src ? undefined : identity);
     const image = src || generated;
 

@@ -362,7 +362,7 @@ func provisionServer(c *gin.Context) {
 	reader := &bytes.Buffer{}
 	_ = json.NewEncoder(reader).Encode(&serverCreation)
 
-	nodeResponse, err := ns.CallNode(node, "PUT", "/daemon/server/"+server.Identifier, io.NopCloser(reader), c.Request.Header)
+	nodeResponse, err := ns.CallNode(node, "PUT", daemonServerPrefix+server.Identifier, io.NopCloser(reader), c.Request.Header)
 	defer utils.CloseResponse(nodeResponse)
 
 	if response.HandleError(c, err, http.StatusInternalServerError) {
@@ -427,13 +427,13 @@ func provisionTerminate(c *gin.Context) {
 		node := &srv.Node
 
 		// Stop if running
-		statusRes, err := ns.CallNode(node, "GET", "/daemon/server/"+srv.Identifier+"/status", nil, nil)
+		statusRes, err := ns.CallNode(node, "GET", daemonServerPrefix+srv.Identifier+"/status", nil, nil)
 		if err == nil && statusRes != nil && statusRes.StatusCode == http.StatusOK {
 			var statusData struct {
 				Running bool `json:"running"`
 			}
 			if err := json.NewDecoder(statusRes.Body).Decode(&statusData); err == nil && statusData.Running {
-				stopRes, err := ns.CallNode(node, "POST", "/daemon/server/"+srv.Identifier+"/stop?wait=true", nil, nil)
+				stopRes, err := ns.CallNode(node, "POST", daemonServerPrefix+srv.Identifier+"/stop?wait=true", nil, nil)
 				if err == nil && stopRes != nil && stopRes.Body != nil {
 					stopRes.Body.Close()
 				}
@@ -442,7 +442,7 @@ func provisionTerminate(c *gin.Context) {
 		}
 
 		// Delete from daemon
-		nodeRes, err := ns.CallNode(node, "DELETE", "/daemon/server/"+srv.Identifier, nil, nil)
+		nodeRes, err := ns.CallNode(node, "DELETE", daemonServerPrefix+srv.Identifier, nil, nil)
 		if err == nil && nodeRes != nil && nodeRes.Body != nil {
 			nodeRes.Body.Close()
 		}
@@ -453,7 +453,7 @@ func provisionTerminate(c *gin.Context) {
 
 	// 1. Find and terminate all children first (avoids FK constraint failure)
 	var children []models.Server
-	if err := db.Preload("Node").Where("parent_server_id = ?", server.Identifier).Find(&children).Error; err == nil {
+	if err := db.Preload("Node").Where(parentServerIDQuery, server.Identifier).Find(&children).Error; err == nil {
 		for i := range children {
 			terminateOne(&children[i])
 		}
@@ -485,7 +485,7 @@ func provisionSuspend(c *gin.Context) {
 		}
 
 		var children []models.Server
-		if err := tx.Where("parent_server_id = ?", server.Identifier).Find(&children).Error; err != nil {
+		if err := tx.Where(parentServerIDQuery, server.Identifier).Find(&children).Error; err != nil {
 			return err
 		}
 
@@ -504,7 +504,7 @@ func provisionSuspend(c *gin.Context) {
 
 	ns := &services.Node{DB: db}
 	node := &server.Node
-	stopRes, err := ns.CallNode(node, "POST", "/daemon/server/"+server.Identifier+"/stop", nil, nil)
+	stopRes, err := ns.CallNode(node, "POST", daemonServerPrefix+server.Identifier+"/stop", nil, nil)
 	if err == nil && stopRes != nil && stopRes.Body != nil {
 		stopRes.Body.Close()
 	}
@@ -532,7 +532,7 @@ func provisionUnsuspend(c *gin.Context) {
 		}
 
 		var children []models.Server
-		if err := tx.Where("parent_server_id = ?", server.Identifier).Find(&children).Error; err != nil {
+		if err := tx.Where(parentServerIDQuery, server.Identifier).Find(&children).Error; err != nil {
 			return err
 		}
 

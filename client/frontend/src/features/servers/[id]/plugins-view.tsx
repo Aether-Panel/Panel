@@ -32,7 +32,7 @@ type PluginsViewProps = {
   serverId: string;
 };
 
-export default function PluginsView({ serverId }: PluginsViewProps) {
+export default function PluginsView({ serverId }: Readonly<PluginsViewProps>) {
   const [activeTab, setActiveTab] = useState('installed');
   const [installedPlugins, setInstalledPlugins] = useState<PluginInfo[]>([]);
   const [searchResults, setSearchResults] = useState<PluginSearchResult[]>([]);

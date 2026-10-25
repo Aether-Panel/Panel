@@ -25,6 +25,9 @@ import (
 	"time"
 )
 
+// statusPath is the daemon route that reports a server's state
+const statusPath = "/status"
+
 // The purpose of this is to simply test all templates in our repo to the best of our ability
 // This will download all the templates, spin up a fake server using it, and attempt to run everything
 // For now, it will just test that we can create, install, start, and stop the server
@@ -213,7 +216,7 @@ func runTest(client *http.Client, session string, test *TestScenario) {
 		time.Sleep(30 * time.Second)
 		data, err = call(client, &http.Request{
 			Method: "GET",
-			URL:    createURL(urlPrefix + "/status"),
+			URL:    createURL(urlPrefix + statusPath),
 			Header: createHeaders(session),
 		})
 		panicIf(err)
@@ -241,7 +244,7 @@ func runTest(client *http.Client, session string, test *TestScenario) {
 		time.Sleep(1 * time.Minute)
 		data, err = call(client, &http.Request{
 			Method: "GET",
-			URL:    createURL(urlPrefix + "/status"),
+			URL:    createURL(urlPrefix + statusPath),
 			Header: createHeaders(session),
 		})
 		panicIf(err)
@@ -275,7 +278,7 @@ func runTest(client *http.Client, session string, test *TestScenario) {
 		time.Sleep(1 * time.Minute)
 		data, err = call(client, &http.Request{
 			Method: "GET",
-			URL:    createURL(urlPrefix + "/status"),
+			URL:    createURL(urlPrefix + statusPath),
 			Header: createHeaders(session),
 		})
 		panicIf(err)

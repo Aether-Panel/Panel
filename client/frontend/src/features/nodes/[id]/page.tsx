@@ -44,7 +44,7 @@ const richText = '[&_code]:rounded [&_code]:bg-secondary [&_code]:px-1 [&_code]:
 const usageTone = (percent: number) =>
   percent > 80 ? 'bg-destructive' : percent > 60 ? 'bg-warning' : 'bg-primary';
 
-function Meter({ value, label, className }: { value: number; label: string; className?: string }) {
+function Meter({ value, label, className }: Readonly<{ value: number; label: string; className?: string }>) {
   const clamped = Math.min(100, Math.max(0, value || 0));
   return (
     <div
@@ -64,7 +64,7 @@ function Meter({ value, label, className }: { value: number; label: string; clas
 }
 
 /** Title row shared by every section card on the page. */
-function SectionHeader({ title, description, children, inline }: { title: string; description?: string; children?: React.ReactNode; inline?: boolean }) {
+function SectionHeader({ title, description, children, inline }: Readonly<{ title: string; description?: string; children?: React.ReactNode; inline?: boolean }>) {
   return (
     <div className={cn(
       'flex gap-4 border-b border-border/50 p-5 md:p-6',
@@ -86,7 +86,7 @@ const InfoItem = ({ label, value, mono, className }: { label: string; value: Rea
   </div>
 );
 
-function InfoSection({ title, children }: { title: string; children: React.ReactNode }) {
+function InfoSection({ title, children }: Readonly<{ title: string; children: React.ReactNode }>) {
   return (
     <section className="p-5 md:p-6">
       <h3 className="mb-2 text-sm font-semibold">{title}</h3>
@@ -95,7 +95,7 @@ function InfoSection({ title, children }: { title: string; children: React.React
   );
 }
 
-function CopyableCode({ command }: { command: string }) {
+function CopyableCode({ command }: Readonly<{ command: string }>) {
   const { t } = useTranslations();
   const handleCopy = () => {
     void navigator.clipboard.writeText(command);
@@ -126,7 +126,7 @@ function StatCell({
   live,
   meter,
   className,
-}: {
+}: Readonly<{
   icon: LucideIcon;
   label: string;
   value: React.ReactNode;
@@ -134,8 +134,7 @@ function StatCell({
   live?: boolean;
   meter?: number;
   className?: string;
-}) {
-  const { t } = useTranslations();
+}>) {
   return (
     <div className={cn('flex min-w-0 flex-col gap-1 border-border/50 p-4 md:p-5', className)}>
       <dt className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -153,7 +152,7 @@ function StatCell({
   );
 }
 
-function SystemInfoCard({ node }: { node: any }) {
+function SystemInfoCard({ node }: Readonly<{ node: any }>) {
   const { t } = useTranslations();
   const info = node.systemInfo;
   return (
@@ -186,7 +185,7 @@ function SystemInfoCard({ node }: { node: any }) {
   );
 }
 
-function DisksCard({ disks }: { disks: any[] }) {
+function DisksCard({ disks }: Readonly<{ disks: any[] }>) {
   const { t } = useTranslations();
   return (
     <Card className="overflow-hidden">
@@ -219,7 +218,7 @@ function DisksCard({ disks }: { disks: any[] }) {
   );
 }
 
-function ServersCard({ serversOnNode }: { serversOnNode: any[] }) {
+function ServersCard({ serversOnNode }: Readonly<{ serversOnNode: any[] }>) {
   const { t } = useTranslations();
   const [currentPage, setCurrentPage] = useState(1);
   const serversPerPage = 5;
@@ -369,7 +368,7 @@ function DeployDialog({ isDeployDialogOpen, setIsDeployDialogOpen, node }: any) 
   );
 }
 
-function EditNodeCard({ node }: { node: any }) {
+function EditNodeCard({ node }: Readonly<{ node: any }>) {
   const { t } = useTranslations();
   const [editName, setEditName] = useState(node.name || '');
   const [editPublicHost, setEditPublicHost] = useState(node.publicHost || '');
@@ -560,7 +559,7 @@ function NodeDetailSkeleton() {
 }
 
 
-export default function NodeDetailPage({ params }: { params: { id: string } }) {
+export default function NodeDetailPage({ params }: Readonly<{ params: { id: string } }>) {
   const { nodes: realNodes, loading: nodesLoading } = useNodes();
   const { servers: allServers, loading: serversLoading } = useServers();
   const { t } = useTranslations();
@@ -633,6 +632,8 @@ export default function NodeDetailPage({ params }: { params: { id: string } }) {
   const isOnline = !!node.systemInfo;
   const memoryPercent = liveStats && liveStats.memoryTotal > 0 ? (liveStats.memoryUsed / liveStats.memoryTotal) * 100 : undefined;
   const cpuPercent = liveStats ? (liveStats.cpuUsage || 0) : undefined;
+  const memoryTotalLabel = liveStats ? `${Math.round((liveStats.memoryTotal || 0) / GB)} GB` : '∞';
+  const memoryPercentLabel = memoryPercent !== undefined ? ` · ${Math.round(memoryPercent)}%` : '';
   const uptime = liveStats?.uptime ?? node.systemInfo?.uptime;
 
   return (
@@ -681,7 +682,7 @@ export default function NodeDetailPage({ params }: { params: { id: string } }) {
             label={t('nodes.detail.memoryUsage')}
             live={!!liveStats}
             value={liveStats ? `${((liveStats.memoryUsed || 0) / GB).toFixed(1)} GB` : '—'}
-            detail={`${t('nodes.detail.of')} ${liveStats ? `${Math.round((liveStats.memoryTotal || 0) / GB)} GB` : '∞'}${memoryPercent !== undefined ? ` · ${Math.round(memoryPercent)}%` : ''}`}
+            detail={`${t('nodes.detail.of')} ${memoryTotalLabel}${memoryPercentLabel}`}
             meter={memoryPercent}
             className="border-r"
           />

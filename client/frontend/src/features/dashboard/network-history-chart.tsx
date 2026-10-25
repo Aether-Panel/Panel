@@ -34,7 +34,7 @@ const formatClock = (epochMs: number) =>
  * keeps gaps honest instead of spacing points evenly, and the footer states the
  * cadence and sample count.
  */
-export function NetworkHistoryChart({ samples }: { samples: NetworkSample[] }) {
+export function NetworkHistoryChart({ samples }: Readonly<{ samples: NetworkSample[] }>) {
     const { t } = useTranslations();
     const [range, setRange] = useState<RangeId>('1h');
 

@@ -46,7 +46,7 @@ type CredentialRowProps = {
   onCopy?: () => void;
 };
 
-function CredentialRow({ icon: Icon, label, value, secret, revealed, onToggleReveal, copied, onCopy }: CredentialRowProps) {
+function CredentialRow({ icon: Icon, label, value, secret, revealed, onToggleReveal, copied, onCopy }: Readonly<CredentialRowProps>) {
   const { t } = useTranslations();
   return (
     <div className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
@@ -73,7 +73,7 @@ function CredentialRow({ icon: Icon, label, value, secret, revealed, onToggleRev
   );
 }
 
-export default function DatabaseView({ serverId }: DatabaseViewProps) {
+export default function DatabaseView({ serverId }: Readonly<DatabaseViewProps>) {
   const [databases, setDatabases] = useState<DatabaseInfo[]>([]);
   const [hosts, setHosts] = useState<DatabaseHost[]>([]);
   const [loading, setLoading] = useState(false);

@@ -77,7 +77,7 @@ func performInternalTransfer(server *models.Server, targetNode *models.Node, db 
 	// 2. Create the server on the target node
 	logging.Info.Printf("Creating server on target node")
 	headers := http.Header{}
-	headers.Set("Content-Type", "application/json")
+	headers.Set(headerContentType, "application/json")
 	createRes, err := ns.CallNode(targetNode, "PUT", fmt.Sprintf("/daemon/server/%s", server.Identifier), defRes.Body, headers)
 	if err != nil || createRes.StatusCode != 200 {
 		var errorBody string
@@ -110,7 +110,7 @@ func performInternalTransfer(server *models.Server, targetNode *models.Node, db 
 	logging.Info.Printf("Archiving files for %s on source node", server.Identifier)
 	archiveBody := bytes.NewReader([]byte(`["*"]`))
 	headersArch := http.Header{}
-	headersArch.Set("Content-Type", "application/json")
+	headersArch.Set(headerContentType, "application/json")
 	res, err := ns.CallNode(&server.Node, "POST", fmt.Sprintf("/daemon/server/%s/archive/transfer.tar.gz", server.Identifier), io.NopCloser(archiveBody), headersArch)
 	if err != nil || (res != nil && res.StatusCode != http.StatusNoContent && res.StatusCode != http.StatusOK) {
 		errorMsg := "unknown error"
@@ -155,7 +155,7 @@ func performInternalTransfer(server *models.Server, targetNode *models.Node, db 
 	}()
 
 	headersTransfer := http.Header{}
-	headersTransfer.Set("Content-Type", writer.FormDataContentType())
+	headersTransfer.Set(headerContentType, writer.FormDataContentType())
 
 	uploadRes, err := ns.CallNode(targetNode, "PUT", fmt.Sprintf("/daemon/server/%s/file/transfer.tar.gz", server.Identifier), pr, headersTransfer)
 	if err != nil || uploadRes.StatusCode != http.StatusNoContent {

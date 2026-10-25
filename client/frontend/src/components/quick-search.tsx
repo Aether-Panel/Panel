@@ -97,7 +97,7 @@ const POWER_ACTIONS: { action: 'start' | 'restart' | 'stop'; icon: LucideIcon; k
  * server's tabs), and quick power actions on a server. Desktop gets an inline field with a
  * dropdown, mobile a dialog with the same list.
  */
-export function QuickSearch({ items, className }: { items: QuickSearchItem[]; className?: string }) {
+export function QuickSearch({ items, className }: Readonly<{ items: QuickSearchItem[]; className?: string }>) {
     const { t } = useTranslations();
     const isMobile = useIsMobile();
     const [open, setOpen] = useState(false);

@@ -15,7 +15,7 @@ type LogEntry = {
   message: string;
 };
 
-export default function AISummary({ logs, serverId }: { logs?: LogEntry[], serverId?: string }) {
+export default function AISummary({ logs, serverId }: Readonly<{ logs?: LogEntry[], serverId?: string }>) {
   const [detectedErrors, setDetectedErrors] = useState<{ id: string, text: string, display: string }[]>([]);
   const [selectedErrors, setSelectedErrors] = useState<Set<string>>(new Set());
   const [summary, setSummary] = useState('');

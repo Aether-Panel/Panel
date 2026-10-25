@@ -20,7 +20,7 @@ import { useAuth } from '@/contexts/providers';
 const CodeEditor = lazy(() => import('./code-editor'));
 const CloneServerCard = lazy(() => import('./clone-server-card'));
 
-export default function AdminView({ serverId }: { serverId: string }) {
+export default function AdminView({ serverId }: Readonly<{ serverId: string }>) {
     const { t } = useTranslations();
     
     const { hasScope } = useAuth();
@@ -137,7 +137,6 @@ export default function AdminView({ serverId }: { serverId: string }) {
         }
     };
 
-    const canViewAdmin = hasScope('server.admin.view') || hasScope('server.admin') || hasScope('admin');
     const canViewInstall = hasScope('server.admin.install.view') || hasScope('server.install') || hasScope('server.admin') || hasScope('admin');
     const canManageInstall = hasScope('server.admin.install.manage') || hasScope('server.install') || hasScope('server.admin') || hasScope('admin');
     const canViewTransfer = hasScope('server.admin.transfer.view') || hasScope('server.data.edit.admin') || hasScope('server.admin') || hasScope('admin');
@@ -463,13 +462,13 @@ function ActionRow({
     description,
     bare,
     children,
-}: {
+}: Readonly<{
     title: string;
     description: string;
     /** Skip the item frame when the row already sits inside a framed list. */
     bare?: boolean;
     children?: ReactNode;
-}) {
+}>) {
     return (
         <div
             className={cn(

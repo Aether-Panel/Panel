@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { sileo } from "@/lib/toast";
 import { TranslationsProvider, useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
-import { useConfig } from '@/contexts/config-context';
+import { ConfigProvider, useConfig } from '@/contexts/config-context';
 
 export type UserRole = 'admin' | 'user';
 
@@ -44,7 +44,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-function AuthProvider({ children }: { children: ReactNode }) {
+function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   const { t } = useTranslations();
   const [role, setRole] = useState<UserRole | null>(null);
   const [user, setUser] = useState<UserData | null>(null);
@@ -228,9 +228,7 @@ export function useAuth() {
   return context;
 }
 
-import { ConfigProvider } from '@/contexts/config-context';
-
-export function Providers({ children }: { children: ReactNode }) {
+export function Providers({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <TranslationsProvider>
       <ConfigProvider>

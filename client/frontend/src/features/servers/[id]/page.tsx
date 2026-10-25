@@ -74,7 +74,7 @@ const decodeLogLines = (lines: string[]): string[] => {
   return lines.map(line => {
     if (!line.includes(' ') && line.length % 4 === 0 && /^[A-Za-z0-9+/=]+$/.test(line)) {
       try {
-        return new TextDecoder().decode(Uint8Array.from(atob(line), c => c.charCodeAt(0)));
+        return new TextDecoder().decode(Uint8Array.from(atob(line), c => c.codePointAt(0) ?? 0));
       } catch {
         return line;
       }
@@ -149,7 +149,7 @@ function ServerActions({ server, isActionPending, handleAction, showKill, t }: a
   );
 }
 
-function ResourceGauge({ icon: Icon, label, used, allocated, pct, showPct = true }: {
+function ResourceGauge({ icon: Icon, label, used, allocated, pct, showPct = true }: Readonly<{
   icon: LucideIcon;
   label: string;
   used: string;
@@ -157,7 +157,7 @@ function ResourceGauge({ icon: Icon, label, used, allocated, pct, showPct = true
   pct: number;
   /** Off when `used` is already a percentage, so the figure is not printed twice. */
   showPct?: boolean;
-}) {
+}>) {
   const clamped = Math.min(100, Math.max(0, pct));
   return (
     <div className="flex min-w-0 flex-col gap-2.5">
@@ -279,7 +279,7 @@ function ServerOverviewCards({ server, t }: any) {
   );
 }
 
-export default function ServerDetailPage({ params }: { params: { id: string } }) {
+export default function ServerDetailPage({ params }: Readonly<{ params: { id: string } }>) {
   // only this server's live stats are needed here, not those of every server in the list
   const { servers: allServers, loading, refresh } = useServers((s) => s.id === params.id);
   const { hasScope } = useAuth();
@@ -300,7 +300,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
     const fetchDetail = async () => {
       try {
         const data = await api.get(`/api/servers/${params.id}`);
-        if (data && data.server) {
+        if (data?.server) {
           setServerDetail(data.server);
         }
       } catch (e) {
@@ -425,7 +425,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
       try {
         const data = await api.get(`/api/servers/${server.id}/console`);
         if (cancelled) return;
-        if (data && data.logs) appendLogs(data.logs);
+        if (data?.logs) appendLogs(data.logs);
       } catch (e) {
         if (e instanceof ApiError && e.status === 404) {
           if (!cancelled) {
@@ -587,7 +587,7 @@ export default function ServerDetailPage({ params }: { params: { id: string } })
 
     try {
       const res = await api.post(`/api/servers/${server.id}/${action}`, {});
-      if (res && res.error) {
+      if (res?.error) {
         addLog(`> ${t('servers.console.system.error', { message: res.error })}`);
         sileo.error({ title: t('common.error'), description: res.error });
         setTimeout(refresh, 2000);

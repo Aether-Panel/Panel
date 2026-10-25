@@ -23,7 +23,7 @@ import { EmptyState } from '@/components/empty-state';
 
 const richText = '[&_code]:rounded [&_code]:bg-secondary [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs [&_code]:text-foreground';
 
-function CopyableCode({ command }: { command: string }) {
+function CopyableCode({ command }: Readonly<{ command: string }>) {
     const { t } = useTranslations();
     const handleCopy = () => {
         void navigator.clipboard.writeText(command);
@@ -46,7 +46,7 @@ function CopyableCode({ command }: { command: string }) {
     );
 }
 
-function Stepper({ currentStep, steps }: { currentStep: number; steps: string[] }) {
+function Stepper({ currentStep, steps }: Readonly<{ currentStep: number; steps: string[] }>) {
     return (
         <ol className="flex items-center gap-3">
             {steps.map((step, index) => {

@@ -60,7 +60,7 @@ const SafeValue = ({ v, fallback = "" }: { v: any, fallback?: string }) => {
 };
 
 /** Small section heading used inside the steps (title + optional hint). */
-function StepSection({ title, hint, children }: { title: string; hint?: React.ReactNode; children: React.ReactNode }) {
+function StepSection({ title, hint, children }: Readonly<{ title: string; hint?: React.ReactNode; children: React.ReactNode }>) {
     return (
         <section className="grid gap-3">
             <div className="space-y-0.5">
@@ -452,7 +452,7 @@ function Step3Configuration({
     );
 }
 
-export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }: { onComplete: () => void, forcedParentId?: string, forcedNodeId?: string }) {
+export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }: Readonly<{ onComplete: () => void, forcedParentId?: string, forcedNodeId?: string }>) {
     const { t } = useTranslations();
 
     const isSplitter = !!forcedParentId;

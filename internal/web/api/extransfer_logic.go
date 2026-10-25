@@ -40,6 +40,9 @@ var (
 // serverIdentifierQuery looks a server up by its identifier
 const serverIdentifierQuery = "identifier = ?"
 
+// invalidJSONPayloadMsg answers a request whose body is not valid JSON
+const invalidJSONPayloadMsg = "Invalid JSON payload"
+
 func sendWebhookReport(serverName, status, details string, isError bool) {
 	webhookURL := config.DiscordWebhookExTransfer.Value()
 	if webhookURL == "" {
@@ -222,7 +225,7 @@ func CreateExTransfer(c *gin.Context) {
 func validateExTransfer(c *gin.Context) {
 	var req ExValidateReq
 	if err := c.BindJSON(&req); err != nil {
-		c.JSON(400, ExTransferAPIError{ErrorCode: "BAD_REQUEST", Message: "Invalid JSON payload", Retryable: false})
+		c.JSON(400, ExTransferAPIError{ErrorCode: "BAD_REQUEST", Message: invalidJSONPayloadMsg, Retryable: false})
 		return
 	}
 
@@ -294,7 +297,7 @@ func validateExTransfer(c *gin.Context) {
 func consumeExTransfer(c *gin.Context) {
 	var req ExConsumeReq
 	if err := c.BindJSON(&req); err != nil {
-		c.JSON(400, ExTransferAPIError{ErrorCode: "BAD_REQUEST", Message: "Invalid JSON payload", Retryable: false})
+		c.JSON(400, ExTransferAPIError{ErrorCode: "BAD_REQUEST", Message: invalidJSONPayloadMsg, Retryable: false})
 		return
 	}
 
@@ -405,7 +408,7 @@ func writeExTransferError(c *gin.Context, err error) bool {
 func bindExSignedReq(c *gin.Context) (ExSignedReq, bool) {
 	var req ExSignedReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, ExTransferAPIError{ErrorCode: "BAD_REQUEST", Message: "Invalid JSON payload", Retryable: false})
+		c.JSON(http.StatusBadRequest, ExTransferAPIError{ErrorCode: "BAD_REQUEST", Message: invalidJSONPayloadMsg, Retryable: false})
 		return req, false
 	}
 	if r := []rune(strings.TrimSpace(req.Reason)); len(r) > 500 {
@@ -767,7 +770,7 @@ func downloadExTransfer(c *gin.Context) {
 	defer downloadRes.Body.Close()
 
 	c.Header("Content-Disposition", "attachment; filename=transfer.tar.gz")
-	c.Header("Content-Type", "application/octet-stream")
+	c.Header(headerContentType, "application/octet-stream")
 
 	_, err = io.Copy(c.Writer, downloadRes.Body)
 	if err != nil {
@@ -792,7 +795,7 @@ func StartDataPlaneMigration(session models.ExTransferSession, db *gorm.DB) {
 	// Archive files
 	archiveBody := bytes.NewReader([]byte(`["*"]`))
 	headersArch := http.Header{}
-	headersArch.Set("Content-Type", "application/json")
+	headersArch.Set(headerContentType, contentTypeJSON)
 	res, err := ns.CallNode(&server.Node, "POST", fmt.Sprintf("/daemon/server/%s/archive/transfer.tar.gz", server.Identifier), io.NopCloser(archiveBody), headersArch)
 	if err != nil || (res != nil && res.StatusCode != http.StatusNoContent && res.StatusCode != http.StatusOK) {
 		logging.Error.Printf("Failed to archive server %s: %v", server.Identifier, err)
@@ -872,7 +875,7 @@ func pullExTransfer(c *gin.Context) {
 	server := c.MustGet("server").(*models.Server)
 	var req ExPullReq
 	if err := c.BindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": "Invalid JSON payload"})
+		c.JSON(400, gin.H{"error": invalidJSONPayloadMsg})
 		return
 	}
 
@@ -982,7 +985,7 @@ func (o *originSession) post(ctx context.Context, path, action, reason string) (
 	if err != nil {
 		return 0, answer, err
 	}
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(headerContentType, contentTypeJSON)
 
 	resp, err := o.client.Do(req)
 	if err != nil {
@@ -1216,7 +1219,7 @@ func postToOrigin(ctx context.Context, target *url.URL, body interface{}) (*http
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(headerContentType, contentTypeJSON)
 	return externalHTTPClient.Do(req)
 }
 
@@ -1324,7 +1327,7 @@ func waitForOriginArchive(ctx context.Context, dlURL string, sendStep func(strin
 // uploadTransferArchive streams the downloaded archive to the local daemon
 func uploadTransferArchive(ctx context.Context, ns *services.Node, server *models.Server, archivePath string, archive io.ReadCloser) bool {
 	headersTransfer := http.Header{}
-	headersTransfer.Set("Content-Type", "application/octet-stream")
+	headersTransfer.Set(headerContentType, "application/octet-stream")
 
 	uploadRes, err := ns.CallNodeContext(ctx, &server.Node, "PUT", archivePath, archive, headersTransfer)
 	if err != nil || uploadRes.StatusCode != http.StatusNoContent {

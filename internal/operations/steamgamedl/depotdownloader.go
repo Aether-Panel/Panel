@@ -24,7 +24,7 @@ const RepoReleases = "https://api.github.com/repos/SteamRE/DepotDownloader/relea
 // make the test suite fail.
 var repoReleasesURL = RepoReleases
 
-func downloadDD(rootBinaryFolder string, version string) error {
+func downloadDD(rootBinaryFolder, version string) error {
 	downloader.Lock()
 	defer downloader.Unlock()
 

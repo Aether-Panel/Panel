@@ -57,7 +57,7 @@ function formatBackupDate(iso: string, lang: string) {
   };
 }
 
-export default function BackupsView({ serverId }: BackupsViewProps) {
+export default function BackupsView({ serverId }: Readonly<BackupsViewProps>) {
   const [backups, setBackups] = useState<BackupInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -110,7 +110,7 @@ export default function BackupsView({ serverId }: BackupsViewProps) {
   };
 
   const handleRestore = async () => {
-    if (!pendingAction || pendingAction.type !== 'restore') return;
+    if (pendingAction?.type !== 'restore') return;
     try {
       await api.post(`/api/servers/${serverId}/backup/restore/${pendingAction.backupId}`, {});
       sileo.success({
@@ -129,7 +129,7 @@ export default function BackupsView({ serverId }: BackupsViewProps) {
   };
 
   const handleDelete = async () => {
-    if (!pendingAction || pendingAction.type !== 'delete') return;
+    if (pendingAction?.type !== 'delete') return;
     try {
       await api.delete(`/api/servers/${serverId}/backup/${pendingAction.backupId}`);
       sileo.success({

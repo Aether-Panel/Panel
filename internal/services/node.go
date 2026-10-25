@@ -245,7 +245,7 @@ func (ns *Node) OpenSocket(node *models.Node, path string, writer http.ResponseW
 		return err
 	}
 
-	go func(daemon *websocket.Conn, client *websocket.Conn) {
+	go func(daemon, client *websocket.Conn) {
 		defer func() {
 			_ = daemon.Close()
 			_ = client.Close()

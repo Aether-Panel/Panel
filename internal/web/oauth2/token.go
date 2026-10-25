@@ -15,6 +15,9 @@ import (
 
 const expiresIn = int64(time.Hour / time.Second)
 
+// noAccessMsg answers a token request the client is not allowed to make
+const noAccessMsg = "no access"
+
 // @Summary Authenticate
 // @Description Get a OAuth2 token to consume this API
 // @Param request formData TokenRequest true "OAuth2 token request"
@@ -145,14 +148,14 @@ func handleTokenRequest(c *gin.Context) {
 
 			// ensure the node asking for the credential check is where this server is
 			if server.Node.ID != node.ID {
-				c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: "no access"})
+				c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: noAccessMsg})
 				return
 			}
 
 			// validate their credentials
 			user, _, err = us.ValidateLogin(user.Email, request.Password)
 			if err != nil {
-				c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: "no access"})
+				c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: noAccessMsg})
 				return
 			}
 
@@ -165,7 +168,7 @@ func handleTokenRequest(c *gin.Context) {
 			}
 
 			if !allowed {
-				c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: "no access"})
+				c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: noAccessMsg})
 				return
 			}
 

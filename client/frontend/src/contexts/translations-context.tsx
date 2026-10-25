@@ -30,7 +30,7 @@ interface TranslationsContextType {
 
 const TranslationsContext = createContext<TranslationsContextType | undefined>(undefined);
 
-export function TranslationsProvider({ children }: { children: ReactNode }) {
+export function TranslationsProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [language, setLanguageState] = useState<Locale>('es');
 
   useEffect(() => {
@@ -64,9 +64,7 @@ export function TranslationsProvider({ children }: { children: ReactNode }) {
     let translation = getNestedTranslation(language, key);
 
     // If translation is not found in the current language, fallback to English.
-    if (translation === undefined) {
-      translation = getNestedTranslation('en', key);
-    }
+    translation ??= getNestedTranslation('en', key);
 
     let result = translation ?? key;
 

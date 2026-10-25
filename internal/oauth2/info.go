@@ -7,7 +7,7 @@ import (
 	"net/url"
 )
 
-func GetInfo(token string, hint string) (TokenInfoResponse, error) {
+func GetInfo(token, hint string) (TokenInfoResponse, error) {
 	data := url.Values{}
 	data.Set("token", token)
 

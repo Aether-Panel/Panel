@@ -20,6 +20,9 @@ import (
 	"gorm.io/gorm"
 )
 
+// userIDQuery picks the rows that belong to a user
+const userIDQuery = "user_id = ?"
+
 type User struct {
 	DB *gorm.DB
 }
@@ -50,7 +53,7 @@ func (us *User) GetByID(id uint) (*models.User, error) {
 	return model, nil
 }
 
-func (us *User) ValidateLogin(email string, password string) (user *models.User, otpNeeded bool, err error) {
+func (us *User) ValidateLogin(email, password string) (user *models.User, otpNeeded bool, err error) {
 	limitKey := "password:" + email
 	if !LoginAttempts.Allowed(limitKey) {
 		err = skypanel.ErrTooManyAttempts
@@ -91,7 +94,7 @@ func (us *User) ValidateLogin(email string, password string) (user *models.User,
 	return
 }
 
-func (us *User) ValidOtp(email string, token string) (user *models.User, err error) {
+func (us *User) ValidOtp(email, token string) (user *models.User, err error) {
 	// 2FA codes are only 6 digits, so guessing them must be throttled too
 	limitKey := "otp:" + email
 	if !LoginAttempts.Allowed(limitKey) {
@@ -162,9 +165,9 @@ func (us *User) Update(model *models.User) error {
 
 func (us *User) Delete(model *models.User) (err error) {
 	return us.DB.Transaction(func(tx *gorm.DB) error {
-		tx.Delete(models.Permissions{}, "user_id = ?", model.ID)
-		tx.Delete(models.Client{}, "user_id = ?", model.ID)
-		tx.Delete(models.Session{}, "user_id = ?", model.ID)
+		tx.Delete(models.Permissions{}, userIDQuery, model.ID)
+		tx.Delete(models.Client{}, userIDQuery, model.ID)
+		tx.Delete(models.Session{}, userIDQuery, model.ID)
 		tx.Delete(models.User{}, "id = ?", model.ID)
 		return nil
 	})
@@ -174,7 +177,7 @@ func (us *User) Create(user *models.User) error {
 	return us.DB.Create(user).Error
 }
 
-func (us *User) ChangePassword(username string, newPass string) error {
+func (us *User) ChangePassword(username, newPass string) error {
 	user, err := us.Get(username)
 
 	if err != nil {
@@ -206,7 +209,7 @@ func (us *User) CreatePasswordResetToken(email string) (string, error) {
 	}
 
 	err = us.DB.Transaction(func(tx *gorm.DB) error {
-		tx.Delete(models.PasswordReset{}, "user_id = ?", user.ID)
+		tx.Delete(models.PasswordReset{}, userIDQuery, user.ID)
 		return tx.Create(model).Error
 	})
 	if err != nil {
@@ -343,7 +346,7 @@ func (us *User) ValidateOtpEnroll(userID uint, token string) ([]string, error) {
 
 	err = us.DB.Transaction(func(tx *gorm.DB) error {
 		// codes from a previous enrollment must not stay valid
-		if err := tx.Delete(&models.RecoveryCode{}, "user_id = ?", user.ID).Error; err != nil {
+		if err := tx.Delete(&models.RecoveryCode{}, userIDQuery, user.ID).Error; err != nil {
 			return err
 		}
 		if err := tx.Create(&rcs).Error; err != nil {
@@ -381,7 +384,7 @@ func (us *User) RegenerateOtpRecoveryCodes(userID uint) ([]string, error) {
 	}
 
 	err = us.DB.Transaction(func(tx *gorm.DB) error {
-		err := tx.Delete(&models.RecoveryCode{}, "user_id = ?", user.ID).Error
+		err := tx.Delete(&models.RecoveryCode{}, userIDQuery, user.ID).Error
 		if err != nil {
 			return err
 		}
@@ -399,7 +402,7 @@ func (us *User) DisableOtp(userID uint) error {
 	}
 
 	return us.DB.Transaction(func(tx *gorm.DB) error {
-		err := tx.Delete(&models.RecoveryCode{}, "user_id = ?", user.ID).Error
+		err := tx.Delete(&models.RecoveryCode{}, userIDQuery, user.ID).Error
 		if err != nil {
 			return err
 		}

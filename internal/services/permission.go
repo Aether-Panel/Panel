@@ -8,6 +8,9 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// userGlobalPermsQuery picks a user's permissions that are not tied to a server
+const userGlobalPermsQuery = "user_id = ? AND server_identifier IS NULL"
+
 type Permission struct {
 	DB *gorm.DB
 }
@@ -50,7 +53,7 @@ func (ps *Permission) GetForUserAndServer(userID uint, serverID string) (*models
 	if id != nil {
 		query = query.Where("user_id = ? AND server_identifier = ?", userID, *id)
 	} else {
-		query = query.Where("user_id = ? AND server_identifier IS NULL", userID)
+		query = query.Where(userGlobalPermsQuery, userID)
 	}
 
 	err := query.First(permissions).Error
@@ -68,9 +71,9 @@ func (ps *Permission) HasPermission(userID uint, serverID string, permission *sc
 	if serverID != "" {
 		query = ps.DB.Preload(clause.Associations).
 			Where("user_id = ? AND server_identifier = ?", userID, serverID).
-			Or("user_id = ? AND server_identifier IS NULL", userID)
+			Or(userGlobalPermsQuery, userID)
 	} else {
-		query = ps.DB.Preload(clause.Associations).Where("user_id = ? AND server_identifier IS NULL", userID)
+		query = ps.DB.Preload(clause.Associations).Where(userGlobalPermsQuery, userID)
 	}
 
 	var perms []*models.Permissions

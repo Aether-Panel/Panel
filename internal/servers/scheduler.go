@@ -266,7 +266,7 @@ func (s *Scheduler) GetTask(id string) (skypanel.Task, bool) {
 	return task, ok
 }
 
-func _executeTask(serverID string, id string) {
+func _executeTask(serverID, id string) {
 	p := GetFromCache(serverID)
 	if p == nil || p.Scheduler == nil {
 		return

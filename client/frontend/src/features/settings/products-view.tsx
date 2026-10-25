@@ -29,7 +29,7 @@ export function ProductsView() {
     const [nodes, setNodes] = useState<any[]>([]);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
-    const [pendingDelete, setPendingDelete] = useState<any | null>(null);
+    const [pendingDelete, setPendingDelete] = useState<any>(null);
 
     const [form, setForm] = useState({
         product_id: '',

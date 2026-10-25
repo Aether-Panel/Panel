@@ -34,7 +34,7 @@ const isMonoVar = (n: string) => /version|^ip$|address|build|template|path|repo|
 const isTranslatableKey = (n: string) => /^[A-Za-z0-9_-]+$/.test(n);
 const toSlug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
 
-export default function SettingsView({ serverId, serverStatus, onPortsSaved }: SettingsViewProps) {
+export default function SettingsView({ serverId, serverStatus, onPortsSaved }: Readonly<SettingsViewProps>) {
   const { t } = useTranslations();
   const { features: experimental } = useExperimental();
   const { hasScope } = useAuth();
@@ -539,12 +539,12 @@ function SettingsSection({
   description,
   aside,
   children,
-}: {
+}: Readonly<{
   title: string;
   description?: string;
   aside?: ReactNode;
   children: ReactNode;
-}) {
+}>) {
   return (
     <section className="grid gap-5 p-5 md:p-6 lg:grid-cols-[minmax(0,16rem)_minmax(0,1fr)] lg:gap-10">
       <div className="space-y-1.5">
@@ -564,13 +564,13 @@ function SettingRow({
   htmlFor,
   className,
   children,
-}: {
+}: Readonly<{
   label: string;
   description?: string;
   htmlFor: string;
   className?: string;
   children: ReactNode;
-}) {
+}>) {
   return (
     <div className={cn('flex items-center justify-between gap-4', className)}>
       <div className="min-w-0">

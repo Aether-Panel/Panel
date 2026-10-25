@@ -15,7 +15,7 @@ interface MailTabProps {
 
 const PROVIDER_NAMES: Record<string, string> = { smtp: 'SMTP', mailgun: 'Mailgun', mailjet: 'Mailjet' };
 
-export function MailTab({ localSettings, handleUpdate, handleTestEmail, saving, t }: MailTabProps) {
+export function MailTab({ localSettings, handleUpdate, handleTestEmail, saving, t }: Readonly<MailTabProps>) {
     const provider: string | undefined = localSettings['panel.email.provider'];
     const providerName = provider ? PROVIDER_NAMES[provider] ?? provider : '';
 

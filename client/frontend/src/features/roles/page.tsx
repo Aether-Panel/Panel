@@ -123,7 +123,7 @@ function usePermissionLabel() {
 }
 
 /** Thin coverage meter: how much of the permission catalogue a role holds. */
-function CoverageBar({ value, className }: { value: number; className?: string }) {
+function CoverageBar({ value, className }: Readonly<{ value: number; className?: string }>) {
   return (
     <div className={cn('h-1 w-full overflow-hidden rounded-full bg-secondary', className)}>
       <div
@@ -146,13 +146,13 @@ function RoleEditorDialog({
   mode,
   initial,
   onSubmit,
-}: {
+}: Readonly<{
   open: boolean;
   onOpenChange: (open: boolean) => void;
   mode: 'create' | 'edit';
   initial: RoleDraft;
   onSubmit: (draft: RoleDraft) => Promise<boolean>;
-}) {
+}>) {
   const { t } = useTranslations();
   const getPermissionLabel = usePermissionLabel();
   const [name, setName] = useState(initial.name);
@@ -353,7 +353,7 @@ function RoleEditorDialog({
 }
 
 /** One role in the left-hand list: name, what it is for and how much it can do. */
-function RoleListItem({ role, active, onSelect }: { role: Role; active: boolean; onSelect: () => void }) {
+function RoleListItem({ role, active, onSelect }: Readonly<{ role: Role; active: boolean; onSelect: () => void }>) {
   const { t } = useTranslations();
   const granted = effectiveScopes(role).size;
   const full = isFullAccess(role);
@@ -412,12 +412,12 @@ function PermissionGroupView({
   keys,
   granted,
   getPermissionLabel,
-}: {
+}: Readonly<{
   label: string;
   keys: string[];
   granted: Set<string>;
   getPermissionLabel: (key: string) => string;
-}) {
+}>) {
   const { t } = useTranslations();
   const [open, setOpen] = useState(false);
   const count = keys.filter(k => granted.has(k)).length;
@@ -467,11 +467,11 @@ function RoleDetail({
   role,
   onEdit,
   onDelete,
-}: {
+}: Readonly<{
   role: Role;
   onEdit: () => void;
   onDelete: () => void;
-}) {
+}>) {
   const { t } = useTranslations();
   const getPermissionLabel = usePermissionLabel();
   const granted = effectiveScopes(role);

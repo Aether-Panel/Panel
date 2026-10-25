@@ -27,7 +27,7 @@ export function ApiKeysView() {
     const [name, setName] = useState('');
     const [isCreating, setIsCreating] = useState(false);
     const [newKeyData, setNewKeyData] = useState<{token: string, key: any} | null>(null);
-    const [pendingDelete, setPendingDelete] = useState<any | null>(null);
+    const [pendingDelete, setPendingDelete] = useState<any>(null);
     const [copied, setCopied] = useState(false);
     const copyTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 

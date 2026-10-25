@@ -25,6 +25,12 @@ import (
 	"github.com/spf13/cast"
 )
 
+// masterNodeIPKey is the setting that holds the master node's address
+const masterNodeIPKey = "panel.settings.masterNodeIp"
+
+// loopbackIP is the fallback when no local address is found
+const loopbackIP = "127.0.0.1"
+
 func registerSettings(g *gin.RouterGroup) {
 	g.Handle("GET", "", middleware.RequiresPermission(scopes.ScopeSettingsEdit), getSettings)
 	g.Handle("POST", "", middleware.RequiresPermission(scopes.ScopeSettingsEdit), setSettings)
@@ -110,7 +116,7 @@ func setSetting(c *gin.Context) {
 		return
 	}
 
-	if key == "panel.settings.masterNodeIp" {
+	if key == masterNodeIPKey {
 		db := middleware.GetDatabase(c)
 		err = db.Save(&models.PanelSetting{
 			Key:   "master_node_ip",
@@ -191,7 +197,7 @@ func setSettings(c *gin.Context) {
 
 	for key, value := range *settings {
 		// Intercept the custom global setting
-		if key == "panel.settings.masterNodeIp" {
+		if key == masterNodeIPKey {
 			db.Save(&models.PanelSetting{
 				Key:   "master_node_ip",
 				Value: cast.ToString(value),
@@ -252,9 +258,9 @@ func getSettings(c *gin.Context) {
 	db := middleware.GetDatabase(c)
 	var masterSetting models.PanelSetting
 	if err := db.Where("`key` = ?", "master_node_ip").First(&masterSetting).Error; err == nil {
-		settings["panel.settings.masterNodeIp"] = masterSetting.Value
+		settings[masterNodeIPKey] = masterSetting.Value
 	} else {
-		settings["panel.settings.masterNodeIp"] = ""
+		settings[masterNodeIPKey] = ""
 	}
 
 	c.JSON(http.StatusOK, settings)
@@ -438,7 +444,7 @@ func activateLicense(c *gin.Context) {
 		ip, err := getServerIP()
 		if err != nil {
 			// Usar la IP privada como fallback
-			ip = "127.0.0.1"
+			ip = loopbackIP
 		}
 		serverIP = ip
 		_ = config.LicenseServerIP.Set(serverIP, true)
@@ -510,7 +516,7 @@ func getServerIP() (string, error) {
 func getLocalIP() (string, error) {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
-		return "127.0.0.1", err
+		return loopbackIP, err
 	}
 
 	for _, addr := range addrs {
@@ -521,7 +527,7 @@ func getLocalIP() (string, error) {
 		}
 	}
 
-	return "127.0.0.1", fmt.Errorf("no local IP found")
+	return loopbackIP, fmt.Errorf("no local IP found")
 }
 
 // discordWebhookEntries only take Discord webhook URLs; anything else would be refused when a

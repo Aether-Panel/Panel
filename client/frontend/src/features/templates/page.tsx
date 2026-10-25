@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useTranslations } from '@/contexts/translations-context';
-import { useTemplates, type TemplateRepo } from '@/hooks/use-templates';
+import { useTemplates } from '@/hooks/use-templates';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { sileo } from "@/lib/toast";
@@ -67,13 +67,13 @@ function TemplateItem({
   canManage,
   onEdit,
   onDelete,
-}: {
+}: Readonly<{
   template: any;
   /** Local templates the user may edit get an actions menu (edit / delete). */
   canManage: boolean;
   onEdit?: () => void;
   onDelete?: () => void;
-}) {
+}>) {
   const { t } = useTranslations();
   const Icon = getIconForCategory(template.type);
   const categoryLabel = template.type || t('templates.categories.other');
@@ -133,7 +133,8 @@ function TemplateItem({
           size="sm"
           className="shrink-0"
           onClick={() => {
-            window.location.href = `/servers/?create=true&template=${encodeURIComponent(template.name)}${template.repoId ? `&repo=${template.repoId}` : ''}`;
+            const repoParam = template.repoId ? '&repo=' + template.repoId : '';
+            window.location.href = `/servers/?create=true&template=${encodeURIComponent(template.name)}${repoParam}`;
           }}
         >
           {t('templates.use')}
@@ -143,11 +144,11 @@ function TemplateItem({
   );
 }
 
-function TemplateGrid({ children }: { children: React.ReactNode }) {
+function TemplateGrid({ children }: Readonly<{ children: React.ReactNode }>) {
   return <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{children}</div>;
 }
 
-function EmptyTemplates({ title, description, action }: { title: string; description: string; action?: React.ReactNode }) {
+function EmptyTemplates({ title, description, action }: Readonly<{ title: string; description: string; action?: React.ReactNode }>) {
   return <EmptyState icon={LayoutTemplate} title={title} description={description} action={action} />;
 }
 
@@ -187,7 +188,7 @@ export default function TemplatesPage() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [activeTab, setActiveTab] = useState('local');
-  const [deletingTemplate, setDeletingTemplate] = useState<any | null>(null);
+  const [deletingTemplate, setDeletingTemplate] = useState<any>(null);
   // Name of the local template open in the editor; null while creating a new one.
   const [editingName, setEditingName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -200,7 +201,7 @@ export default function TemplatesPage() {
   };
 
   const updateRunField = (field: string, value: string) => {
-    const newObj = { ...templateObj, run: { ...(templateObj.run || {}), [field]: value } };
+    const newObj = { ...templateObj, run: { ...templateObj.run, [field]: value } };
     setTemplateObj(newObj);
     setTemplateJson(JSON.stringify(newObj, null, 2));
   };

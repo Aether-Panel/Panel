@@ -26,7 +26,7 @@ const DASH = '—';
  * each so the card stays the same size as the three meters beside it; there is
  * no meter here because nothing has a threshold.
  */
-export function PanelInfoCard({ version, servers, users, nodes, registrationEnabled, className }: PanelInfoCardProps) {
+export function PanelInfoCard({ version, servers, users, nodes, registrationEnabled, className }: Readonly<PanelInfoCardProps>) {
     const { t } = useTranslations();
 
     const items = [

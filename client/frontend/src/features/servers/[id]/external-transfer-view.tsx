@@ -99,7 +99,7 @@ const formatTime = (s: number) => {
   return `${m}:${sec}`;
 };
 
-export default function ExternalTransferView({ serverId }: ExternalTransferViewProps) {
+export default function ExternalTransferView({ serverId }: Readonly<ExternalTransferViewProps>) {
   const { t } = useTranslations();
 
   const [loading, setLoading] = useState(false);

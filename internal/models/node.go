@@ -14,6 +14,9 @@ import (
 	"gorm.io/gorm"
 )
 
+// anyHost is the unset host a node starts with
+const anyHost = "0.0.0.0"
+
 type Node struct {
 	ID          uint   `json:"-"`
 	Name        string `gorm:"column:name;not null;size:100;uniqueIndex;unique" json:"-" validate:"required,printascii"`
@@ -59,18 +62,18 @@ func (n *Node) IsLocal() bool {
 	nodeIP := config.NodeIP.Value()
 
 	// If the node IP matches our explicitly configured local NodeIP, it is ALWAYS local to us
-	if nodeIP != "" && nodeIP != "0.0.0.0" {
+	if nodeIP != "" && nodeIP != anyHost {
 		if n.PublicHost == nodeIP || n.PrivateHost == nodeIP {
 			return true
 		}
 	}
 
 	if n.Local {
-		if nodeIP != "" && nodeIP != "0.0.0.0" {
+		if nodeIP != "" && nodeIP != anyHost {
 			// If we have a specific NodeIP, but the LocalNode's host (set via MasterURL)
 			// doesn't match our NodeIP, AND MasterURL isn't generic localhost,
 			// it means LocalNode represents the Master Panel, and WE are a secondary node!
-			if n.PublicHost != "0.0.0.0" && n.PublicHost != "127.0.0.1" && n.PublicHost != "localhost" && n.PublicHost != nodeIP {
+			if n.PublicHost != anyHost && n.PublicHost != "127.0.0.1" && n.PublicHost != "localhost" && n.PublicHost != nodeIP {
 				return false
 			}
 		}
@@ -84,8 +87,8 @@ func (n *Node) IsLocal() bool {
 var LocalNode = &Node{
 	ID:          0,
 	Name:        "LocalNode",
-	PublicHost:  "0.0.0.0",
-	PrivateHost: "0.0.0.0",
+	PublicHost:  anyHost,
+	PrivateHost: anyHost,
 	PublicPort:  8080,
 	PrivatePort: 8080,
 	SFTPPort:    5657,

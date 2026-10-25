@@ -64,7 +64,7 @@ function formatRelative(iso: string, locale: string): string {
  * non-list answers (empty, refused, not served yet) each get their own message
  * instead of a misleading blank.
  */
-export function AccessLog({ canRead }: { canRead: boolean }) {
+export function AccessLog({ canRead }: Readonly<{ canRead: boolean }>) {
     const { t, language } = useTranslations();
     const locale = language === 'es' ? 'es-ES' : 'en-US';
     const { events, loading, denied, unavailable } = useAccessLog(ROWS, !canRead);

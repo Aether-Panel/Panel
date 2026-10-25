@@ -9,7 +9,7 @@ async function handleResponse(response: Response) {
     const contentType = response.headers.get('content-type');
     let data = null;
 
-    if (contentType && contentType.includes('application/json')) {
+    if (contentType?.includes('application/json')) {
         data = await response.json();
     } else {
         data = await response.text();

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
@@ -71,8 +72,8 @@ func getAllDatabasesForServer(c *gin.Context) {
 			Host:             host,
 			Port:             port,
 			HostName:         hostName,
-			CreatedAt:        database.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-			UpdatedAt:        database.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			CreatedAt:        database.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:        database.UpdatedAt.Format(time.RFC3339),
 		}
 	}
 
@@ -146,8 +147,8 @@ func createDatabase(c *gin.Context) {
 		Host:             host,
 		Port:             port,
 		HostName:         hostName,
-		CreatedAt:        created.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt:        created.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		CreatedAt:        created.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:        created.UpdatedAt.Format(time.RFC3339),
 	}
 
 	c.JSON(http.StatusOK, data)

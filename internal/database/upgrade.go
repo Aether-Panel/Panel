@@ -17,6 +17,9 @@ import (
 	"gorm.io/gorm"
 )
 
+// nameQuery looks a row up by its name
+const nameQuery = "name = ?"
+
 var dbObjects = []interface{}{
 	&models.Node{},
 	&models.Server{},
@@ -617,7 +620,7 @@ var migrations = [][]*gormigrate.Migration{
 			Migrate: func(db *gorm.DB) error {
 				// Update existing "Usuario" role to include templates.view and uptime.view
 				var role models.Role
-				err := db.Where("name = ?", "Usuario").First(&role).Error
+				err := db.Where(nameQuery, "Usuario").First(&role).Error
 				if err != nil {
 					return nil
 				}
@@ -659,7 +662,7 @@ var migrations = [][]*gormigrate.Migration{
 				// Patch: assign "Usuario" role to users that still have role_id = NULL
 				// Covers users created by Paymenter before the role assignment fix
 				var role models.Role
-				if err := db.Where("name = ?", "Usuario").First(&role).Error; err != nil {
+				if err := db.Where(nameQuery, "Usuario").First(&role).Error; err != nil {
 					return nil // Role doesn't exist, skip
 				}
 				return db.Exec(
@@ -673,7 +676,7 @@ var migrations = [][]*gormigrate.Migration{
 			Migrate: func(db *gorm.DB) error {
 				// Add server.create to "Usuario" role so users can create sub-servers via Splitter
 				var role models.Role
-				if err := db.Where("name = ?", "Usuario").First(&role).Error; err != nil {
+				if err := db.Where(nameQuery, "Usuario").First(&role).Error; err != nil {
 					return nil
 				}
 				existing := strings.Split(role.RawScopes, ",")
@@ -690,7 +693,7 @@ var migrations = [][]*gormigrate.Migration{
 			ID: "20260820-usuario-role-config-ports",
 			Migrate: func(db *gorm.DB) error {
 				var role models.Role
-				if err := db.Where("name = ?", "Usuario").First(&role).Error; err != nil {
+				if err := db.Where(nameQuery, "Usuario").First(&role).Error; err != nil {
 					return nil
 				}
 				existing := strings.Split(role.RawScopes, ",")
@@ -724,7 +727,7 @@ var migrations = [][]*gormigrate.Migration{
 			ID: "20260821-fix-usuario-role-scopes",
 			Migrate: func(db *gorm.DB) error {
 				var role models.Role
-				if err := db.Where("name = ?", "Usuario").First(&role).Error; err != nil {
+				if err := db.Where(nameQuery, "Usuario").First(&role).Error; err != nil {
 					return nil
 				}
 				existing := strings.Split(role.RawScopes, ",")

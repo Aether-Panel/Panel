@@ -191,10 +191,10 @@ func (se entry[T]) Set(value T, save bool) error {
 	return nil
 }
 
-func asDataFolder(key string, def string) DataFolder {
+func asDataFolder(key, def string) DataFolder {
 	return DataFolder{StringEntry{entry: as[string](key, def)}}
 }
-func asString(key string, def string) StringEntry {
+func asString(key, def string) StringEntry {
 	return StringEntry{entry: as[string](key, def)}
 }
 func asBool(key string, def bool) BoolEntry {

@@ -18,7 +18,7 @@ interface GeneralTabProps {
 /* ------------------------------------------------------------------ */
 
 /** Header row of a settings tab card: title + description, optional action on the right. */
-export function SettingsCardHeader({ title, description, action }: { title: string; description?: string; action?: ReactNode }) {
+export function SettingsCardHeader({ title, description, action }: Readonly<{ title: string; description?: string; action?: ReactNode }>) {
     return (
         <div className="flex flex-col gap-4 border-b border-border/50 p-5 sm:flex-row sm:items-center sm:justify-between md:p-6">
             <div className="min-w-0 space-y-1">
@@ -31,7 +31,7 @@ export function SettingsCardHeader({ title, description, action }: { title: stri
 }
 
 /** A settings tab: one card, sections divided by hairlines. */
-export function SettingsCard({ children }: { children: ReactNode }) {
+export function SettingsCard({ children }: Readonly<{ children: ReactNode }>) {
     return <Card className="overflow-hidden">{children}</Card>;
 }
 
@@ -39,7 +39,7 @@ export function SettingsCard({ children }: { children: ReactNode }) {
  * One block of a settings tab: what it is and why on the left, the
  * controls on the right; stacked on narrow screens.
  */
-export function SettingsSection({ title, description, children }: { title: string; description?: ReactNode; children: ReactNode }) {
+export function SettingsSection({ title, description, children }: Readonly<{ title: string; description?: ReactNode; children: ReactNode }>) {
     return (
         <section className="grid gap-5 p-5 md:p-6 lg:grid-cols-[minmax(0,16rem)_minmax(0,1fr)] lg:gap-10">
             <div className="space-y-1.5">
@@ -52,7 +52,7 @@ export function SettingsSection({ title, description, children }: { title: strin
 }
 
 /** Label + control + helper text, stacked. */
-export function SettingsField({ id, label, hint, className, children }: { id: string; label: string; hint?: ReactNode; className?: string; children: ReactNode }) {
+export function SettingsField({ id, label, hint, className, children }: Readonly<{ id: string; label: string; hint?: ReactNode; className?: string; children: ReactNode }>) {
     return (
         <div className={cn('space-y-2', className)}>
             <Label htmlFor={id} className="text-sm font-medium">{label}</Label>
@@ -63,7 +63,7 @@ export function SettingsField({ id, label, hint, className, children }: { id: st
 }
 
 /** A label + description on the left and a switch on the right. */
-export function SettingRow({ id, label, description, checked, onCheckedChange }: { id: string; label: string; description?: string; checked: boolean; onCheckedChange: (v: boolean) => void }) {
+export function SettingRow({ id, label, description, checked, onCheckedChange }: Readonly<{ id: string; label: string; description?: string; checked: boolean; onCheckedChange: (v: boolean) => void }>) {
     return (
         <div className="flex items-center justify-between gap-4 px-4 py-3.5">
             <div className="min-w-0">
@@ -76,7 +76,7 @@ export function SettingRow({ id, label, description, checked, onCheckedChange }:
 }
 
 /** Container for a list of switch rows. */
-export function SettingRows({ children }: { children: ReactNode }) {
+export function SettingRows({ children }: Readonly<{ children: ReactNode }>) {
     return <div className="divide-y divide-border/50 rounded-xl border border-border/60 bg-background/30">{children}</div>;
 }
 
@@ -127,13 +127,13 @@ export function SecretInput({
     onChange,
     placeholder,
     t,
-}: {
+}: Readonly<{
     id: string;
     value: string;
     onChange: (value: string) => void;
     placeholder?: string;
     t: (key: string) => string;
-}) {
+}>) {
     const [revealed, setRevealed] = useState(false);
     const [copied, setCopied] = useState(false);
     const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -203,7 +203,7 @@ const EXPERIMENTAL_FEATURES: { key: string; name: string; icon: LucideIcon }[] =
     { key: 'panel.experimental.serverClone', name: 'serverClone', icon: CopyPlus },
 ];
 
-export function GeneralTab({ localSettings, handleUpdate, t }: GeneralTabProps) {
+export function GeneralTab({ localSettings, handleUpdate, t }: Readonly<GeneralTabProps>) {
     const hideAi = !!localSettings['panel.settings.hideAiAnalysis'];
     const turnstile = !!localSettings['panel.turnstile.enabled'];
 

@@ -21,7 +21,11 @@ var downloader sync.Mutex
 
 const SteamMetadataServerLink = "https://media.steampowered.com/client/"
 
+// manifestDir is where depotdownloader drops the manifests, relative to the server root
+const manifestDir = ".manifest"
+
 func init() {
+	// nothing to set up at load time
 }
 
 type SteamGameDl struct {
@@ -56,13 +60,13 @@ func (c SteamGameDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult
 	loginID := cast.ToString(n.Int64())
 
 	cleanRoot := filepath.Clean(env.GetRootDirectory())
-	manifestFolder := filepath.Join(cleanRoot, ".manifest")
+	manifestFolder := filepath.Join(cleanRoot, manifestDir)
 	cleanManifest := filepath.Clean(manifestFolder)
 	if strings.HasPrefix(cleanManifest, cleanRoot+string(filepath.Separator)) {
 		_ = os.RemoveAll(cleanManifest)
 	}
 
-	cmdArgs := []string{filepath.Join(rootBinaryFolder, "depotdownloader", DepotDownloaderBinary), "-app", c.AppID, "-dir", ".manifest", "-loginid", loginID, "-manifest-only"}
+	cmdArgs := []string{filepath.Join(rootBinaryFolder, "depotdownloader", DepotDownloaderBinary), "-app", c.AppID, "-dir", manifestDir, "-loginid", loginID, "-manifest-only"}
 	if c.Username != "" {
 		cmdArgs = append(cmdArgs, "-username", c.Username, "-remember-password")
 		if c.Password != "" {
@@ -180,7 +184,7 @@ func downloadMetadata(env *skypanel.Environment) error {
 }
 
 func walkManifest(folder, filename string) error {
-	file, err := os.Open(filepath.Join(folder, ".manifest", filepath.Base(filename)))
+	file, err := os.Open(filepath.Join(folder, manifestDir, filepath.Base(filename)))
 	defer utils.Close(file)
 	if err != nil {
 		return err

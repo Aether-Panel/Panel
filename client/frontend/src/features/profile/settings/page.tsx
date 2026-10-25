@@ -27,7 +27,7 @@ import {
 import { EmptyState } from '@/components/empty-state';
 
 /** Copy-to-clipboard icon button with a short "copied" state. */
-function CopyButton({ value, label, copiedLabel, className }: { value: string; label: string; copiedLabel: string; className?: string }) {
+function CopyButton({ value, label, copiedLabel, className }: Readonly<{ value: string; label: string; copiedLabel: string; className?: string }>) {
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -55,7 +55,7 @@ function CopyButton({ value, label, copiedLabel, className }: { value: string; l
 }
 
 /** Title + description on the left, controls on the right; stacked on narrow screens. */
-function ProfileSection({ id, title, description, children }: { id: string; title: string; description?: ReactNode; children: ReactNode }) {
+function ProfileSection({ id, title, description, children }: Readonly<{ id: string; title: string; description?: ReactNode; children: ReactNode }>) {
   return (
     <section aria-labelledby={id} className="grid gap-5 p-5 md:p-6 lg:grid-cols-[minmax(0,16rem)_minmax(0,1fr)] lg:gap-10">
       <div className="space-y-1.5">
@@ -67,7 +67,7 @@ function ProfileSection({ id, title, description, children }: { id: string; titl
   );
 }
 
-function Field({ id, label, children }: { id: string; label: string; children: ReactNode }) {
+function Field({ id, label, children }: Readonly<{ id: string; label: string; children: ReactNode }>) {
   return (
     <div className="space-y-2">
       <Label htmlFor={id} className="text-sm font-medium">{label}</Label>

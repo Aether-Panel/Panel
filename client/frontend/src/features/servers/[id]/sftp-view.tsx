@@ -12,7 +12,7 @@ type SFTPViewProps = {
     server: any;
 };
 
-function CopyButton({ label, copied, onCopy }: { label: string; copied: boolean; onCopy: () => void }) {
+function CopyButton({ label, copied, onCopy }: Readonly<{ label: string; copied: boolean; onCopy: () => void }>) {
     return (
         <Button
             variant="ghost"
@@ -33,13 +33,13 @@ function SpecRow({
     copyLabel,
     copied,
     onCopy,
-}: {
+}: Readonly<{
     label: string;
     value: string;
     copyLabel: string;
     copied: boolean;
     onCopy: () => void;
-}) {
+}>) {
     return (
         <div className="flex items-center gap-3 px-4 py-2.5">
             <div className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
@@ -51,13 +51,13 @@ function SpecRow({
     );
 }
 
-export default function SFTPView({ server }: SFTPViewProps) {
+export default function SFTPView({ server }: Readonly<SFTPViewProps>) {
     const { user } = useAuth();
     const { t } = useTranslations();
 
     const [copiedField, setCopiedField] = useState<string | null>(null);
 
-    if (!server || !server.node) {
+    if (!server?.node) {
         return (
             <Card className="mt-6 p-5 md:p-6">
                 <EmptyState

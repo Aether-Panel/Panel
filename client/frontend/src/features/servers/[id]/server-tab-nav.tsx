@@ -37,12 +37,12 @@ export function ServerTabNav({
     value,
     onValueChange,
     moreLabel,
-}: {
+}: Readonly<{
     tabs: ServerTab[];
     value: string;
     onValueChange: (value: string) => void;
     moreLabel: string;
-}) {
+}>) {
     const rowRef = useRef<HTMLDivElement>(null);
     const measureRef = useRef<HTMLDivElement>(null);
     const listRef = useRef<HTMLDivElement>(null);

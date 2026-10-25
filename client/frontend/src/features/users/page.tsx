@@ -33,7 +33,7 @@ function UserFields({
   roleId,
   roles,
   mode,
-}: {
+}: Readonly<{
   ids: { username: string; email: string; password: string; role: string };
   username: Field<string>;
   email: Field<string>;
@@ -41,7 +41,7 @@ function UserFields({
   roleId: Field<string>;
   roles: any[];
   mode: 'add' | 'edit';
-}) {
+}>) {
   const { t } = useTranslations();
   const dialog = mode === 'add' ? 'addDialog' : 'editDialog';
   return (
@@ -96,7 +96,7 @@ function UserFields({
   );
 }
 
-function UserAvatar({ user }: { user: User }) {
+function UserAvatar({ user }: Readonly<{ user: User }>) {
   return (
     <AccountAvatar
       identity={user.email || user.name}
@@ -145,7 +145,6 @@ export default function UsersPage() {
 
 
   // State for the form
-  const [formName, setFormName] = useState('');
   const [formUsername, setFormUsername] = useState('');
   const [formEmail, setFormEmail] = useState('');
   const [formPassword, setFormPassword] = useState('');
@@ -193,13 +192,11 @@ export default function UsersPage() {
 
   useEffect(() => {
     if (editingUser) {
-      setFormName(editingUser.username || editingUser.name);
       setFormUsername(editingUser.username || editingUser.name);
       setFormEmail(editingUser.email);
       setFormRoleId(editingUser.roleId?.toString() || 'none');
       setFormPassword('');
     } else {
-      setFormName('');
       setFormUsername('');
       setFormEmail('');
       setFormPassword('');

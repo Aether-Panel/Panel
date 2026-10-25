@@ -6,6 +6,12 @@ import (
 	"net/url"
 )
 
+// validation rules for node ports
+const (
+	portOrZeroRule = "min=0,max=65535"
+	portRule       = "min=1,max=65535"
+)
+
 type NodeView struct {
 	ID          uint   `json:"id"`
 	Name        string `json:"name,omitempty"`
@@ -101,27 +107,27 @@ func (n *NodeView) Valid(allowEmpty bool) error {
 	}
 
 	if allowEmpty {
-		if validate.Var(n.PublicPort, "min=0,max=65535") != nil {
+		if validate.Var(n.PublicPort, portOrZeroRule) != nil {
 			return skypanel.ErrFieldTooLarge("publicPort", 65535)
 		}
 
-		if validate.Var(n.PrivatePort, "min=0,max=65535") != nil {
+		if validate.Var(n.PrivatePort, portOrZeroRule) != nil {
 			return skypanel.ErrFieldTooLarge("privatePort", 65535)
 		}
 
-		if validate.Var(n.SFTPPort, "min=0,max=65535") != nil {
+		if validate.Var(n.SFTPPort, portOrZeroRule) != nil {
 			return skypanel.ErrFieldTooLarge("sftpPort", 65535)
 		}
 	} else {
-		if validate.Var(n.PublicPort, "min=1,max=65535") != nil {
+		if validate.Var(n.PublicPort, portRule) != nil {
 			return skypanel.ErrFieldNotBetween("publicPort", 1, 65535)
 		}
 
-		if validate.Var(n.PrivatePort, "min=1,max=65535") != nil {
+		if validate.Var(n.PrivatePort, portRule) != nil {
 			return skypanel.ErrFieldNotBetween("privatePort", 1, 65535)
 		}
 
-		if validate.Var(n.SFTPPort, "min=1,max=65535") != nil {
+		if validate.Var(n.SFTPPort, portRule) != nil {
 			return skypanel.ErrFieldNotBetween("sftpPort", 1, 65535)
 		}
 	}

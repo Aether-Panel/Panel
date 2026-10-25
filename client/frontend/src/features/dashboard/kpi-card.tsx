@@ -53,7 +53,7 @@ type KpiCardProps = {
  * Static surface: a readout, not a target, so it does not react to hover;
  * the figure counts up on first paint instead.
  */
-export function KpiCard({ label, value, unit, hint, icon: Icon, tone, meter }: KpiCardProps) {
+export function KpiCard({ label, value, unit, hint, icon: Icon, tone, meter }: Readonly<KpiCardProps>) {
     const palette = TONE[tone];
     const fill = Math.min(100, Math.max(0, meter ?? (Number(value) || 0)));
 

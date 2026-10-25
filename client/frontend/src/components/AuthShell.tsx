@@ -9,7 +9,7 @@ import { forwardRef } from 'react';
 import type { ComponentProps, ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 
-export default function AuthShell({ children }: { children: ReactNode }) {
+export default function AuthShell({ children }: Readonly<{ children: ReactNode }>) {
     return (
         <Providers>
             <AmbientBackdrop />
@@ -40,7 +40,7 @@ type AuthFrameProps = {
  * one place is what makes sign-in, sign-up and both password screens read as
  * the same product.
  */
-export function AuthFrame({ title, description, artTitle, artDescription, footer, children }: AuthFrameProps) {
+export function AuthFrame({ title, description, artTitle, artDescription, footer, children }: Readonly<AuthFrameProps>) {
     return (
         <div className="flex min-h-[100svh] items-center justify-center px-4 py-6 sm:py-10">
             <div className="auth-glow surface-panel relative w-full max-w-5xl overflow-hidden rounded-2xl border border-border/60 shadow-elevation-3">
@@ -131,7 +131,7 @@ type AuthNoticeProps = {
 };
 
 /** Result panel for the "email sent" / "password changed" / "link broken" states. */
-export function AuthNotice({ icon: Icon, tone, children }: AuthNoticeProps) {
+export function AuthNotice({ icon: Icon, tone, children }: Readonly<AuthNoticeProps>) {
     return (
         <div
             role="status"

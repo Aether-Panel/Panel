@@ -24,7 +24,7 @@ import { DomainsTab } from './domains-tab';
 const triggerClass =
     "relative h-11 shrink-0 gap-2 rounded-none bg-transparent px-3 text-[13px] font-medium text-muted-foreground shadow-none transition-colors duration-200 hover:text-foreground focus-visible:ring-inset focus-visible:ring-offset-0 data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none after:absolute after:inset-x-3 after:-bottom-px after:h-0.5 after:rounded-full after:bg-primary after:opacity-0 after:transition-opacity after:duration-200 data-[state=active]:after:opacity-100 [&_svg]:size-4 [&_svg]:shrink-0";
 
-const empty = (v: unknown) => (v === undefined || v === null ? '' : v);
+const empty = (v: unknown) => v ?? '';
 
 /** Whether two settings maps hold the same values, ignoring key order. */
 function sameSettings(a: Record<string, any>, b: Record<string, any>) {

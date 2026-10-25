@@ -34,6 +34,23 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// literals shared by the server handlers
+const (
+	// contentTypeJSON is the media type of JSON bodies
+	contentTypeJSON = "application/json"
+	// parentServerIDQuery picks the sub-servers of a server
+	parentServerIDQuery = "parent_server_id = ?"
+	// serverIdentifierRefQuery picks the rows that point at a server by its identifier
+	serverIdentifierRefQuery = "server_identifier = ?"
+	// serverIDQuery picks the rows that belong to a server
+	serverIDQuery       = "server_id = ?"
+	bearerPrefix        = "Bearer "
+	fileNameParam       = "?fileName="
+	statusSuffix        = "/status"
+	daemonParseErrorFmt = "Failed to parse response from daemon\n%s"
+	daemonUnexpectedFmt = "Unexpected response from daemon: %+v\n%s"
+)
+
 func registerServers(g *gin.RouterGroup) {
 	// every change made through these routes lands in the server's activity log
 	g.Use(recordServerActivity)
@@ -488,7 +505,7 @@ func editServer(c *gin.Context) {
 
 	ctx, cancel := nodeCallContext(c)
 	defer cancel()
-	nodeResponse, err := ns.CallNodeContext(ctx, &server.Node, "PUT", "/daemon/server/"+postBody.Identifier+"/definition", reader, c.Request.Header)
+	nodeResponse, err := ns.CallNodeContext(ctx, &server.Node, "PUT", daemonServerPrefix+postBody.Identifier+"/definition", reader, c.Request.Header)
 	defer utils.CloseResponse(nodeResponse)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
@@ -497,11 +514,11 @@ func editServer(c *gin.Context) {
 	if nodeResponse.StatusCode != http.StatusNoContent {
 		resData, err := io.ReadAll(nodeResponse.Body)
 		if err != nil {
-			logging.Error.Printf("Failed to parse response from daemon\n%s", err.Error())
+			logging.Error.Printf(daemonParseErrorFmt, err.Error())
 		}
-		logging.Error.Printf("Unexpected response from daemon: %+v\n%s", nodeResponse.StatusCode, string(resData))
+		logging.Error.Printf(daemonUnexpectedFmt, nodeResponse.StatusCode, string(resData))
 		// assume daemon gives us a valid response, directly forward to client
-		c.Header("Content-Type", "application/json")
+		c.Header(headerContentType, contentTypeJSON)
 		c.Status(nodeResponse.StatusCode)
 		_, _ = c.Writer.Write(resData)
 		e := c.Error(errors.New("unexpected response from daemon"))
@@ -534,7 +551,7 @@ func deleteServer(c *gin.Context) {
 	}
 
 	var childrenCount int64
-	if err := db.Model(&models.Server{}).Where("parent_server_id = ?", server.Identifier).Count(&childrenCount).Error; err == nil && childrenCount > 0 {
+	if err := db.Model(&models.Server{}).Where(parentServerIDQuery, server.Identifier).Count(&childrenCount).Error; err == nil && childrenCount > 0 {
 		response.HandleError(c, errors.New("cannot delete server because it has active child servers"), http.StatusBadRequest)
 		return
 	}
@@ -553,27 +570,27 @@ func deleteServer(c *gin.Context) {
 	releaseSubdomain(db, server)
 
 	if err := db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("server_identifier = ?", server.Identifier).Delete(&models.Permissions{}).Error; err != nil {
+		if err := tx.Where(serverIdentifierRefQuery, server.Identifier).Delete(&models.Permissions{}).Error; err != nil {
 			return err
 		}
 
 		var clientIDs []uint
-		if err := tx.Model(&models.Client{}).Where("server_id = ?", server.Identifier).Pluck("id", &clientIDs).Error; err == nil && len(clientIDs) > 0 {
+		if err := tx.Model(&models.Client{}).Where(serverIDQuery, server.Identifier).Pluck("id", &clientIDs).Error; err == nil && len(clientIDs) > 0 {
 			if err := tx.Where("client_id IN ?", clientIDs).Delete(&models.Permissions{}).Error; err != nil {
 				return err
 			}
 		}
 
-		if err := tx.Where("server_id = ?", server.Identifier).Delete(&models.UptimeStatus{}).Error; err != nil {
+		if err := tx.Where(serverIDQuery, server.Identifier).Delete(&models.UptimeStatus{}).Error; err != nil {
 			return err
 		}
-		if err := tx.Where("server_id = ?", server.Identifier).Delete(&models.Backup{}).Error; err != nil {
+		if err := tx.Where(serverIDQuery, server.Identifier).Delete(&models.Backup{}).Error; err != nil {
 			return err
 		}
-		if err := tx.Where("server_id = ?", server.Identifier).Delete(&models.Client{}).Error; err != nil {
+		if err := tx.Where(serverIDQuery, server.Identifier).Delete(&models.Client{}).Error; err != nil {
 			return err
 		}
-		if err := tx.Where("server_identifier = ?", server.Identifier).Delete(&models.Session{}).Error; err != nil {
+		if err := tx.Where(serverIdentifierRefQuery, server.Identifier).Delete(&models.Session{}).Error; err != nil {
 			return err
 		}
 
@@ -1159,7 +1176,7 @@ func syncPortVarsToDaemon(c *gin.Context, server *models.Server) {
 	ns := &services.Node{DB: db}
 
 	node := &server.Node
-	daemonPath := "/daemon/server/" + server.Identifier + "/data"
+	daemonPath := daemonServerPrefix + server.Identifier + "/data"
 
 	syncBody := map[string]interface{}{
 		"ports":       server.Ports,
@@ -1180,8 +1197,8 @@ func syncPortVarsToDaemon(c *gin.Context, server *models.Server) {
 	}
 
 	headers := http.Header{
-		"Content-Type":  {"application/json"},
-		"Authorization": {"Bearer " + token},
+		headerContentType: {contentTypeJSON},
+		"Authorization":   {bearerPrefix + token},
 	}
 
 	resp, err := ns.CallNode(node, http.MethodPut, daemonPath, io.NopCloser(bytes.NewReader(bodyBytes)), headers)
@@ -1260,7 +1277,7 @@ func createBackup(c *gin.Context) {
 
 	// keep the path escaped: it is parsed again for the node, so a decoded "#", "?" or "%"
 	// in a file name would end up as fragment, query or a broken escape
-	resolvedPath := "/daemon/server/" + strings.TrimPrefix(c.Request.URL.EscapedPath(), "/api/servers/")
+	resolvedPath := daemonServerPrefix + strings.TrimPrefix(c.Request.URL.EscapedPath(), "/api/servers/")
 	if c.Request.URL.RawQuery != "" {
 		resolvedPath += "?" + c.Request.URL.RawQuery
 	}
@@ -1276,7 +1293,7 @@ func createBackup(c *gin.Context) {
 	if callResponse.StatusCode >= http.StatusMultipleChoices {
 		newHeaders := cleanHTTPReturnErrors(callResponse.Header)
 
-		c.DataFromReader(callResponse.StatusCode, callResponse.ContentLength, callResponse.Header.Get("Content-Type"), callResponse.Body, newHeaders)
+		c.DataFromReader(callResponse.StatusCode, callResponse.ContentLength, callResponse.Header.Get(headerContentType), callResponse.Body, newHeaders)
 		c.Abort()
 		return
 	}
@@ -1325,7 +1342,7 @@ func deleteBackup(c *gin.Context) {
 		return
 	}
 
-	resolvedPath := "/daemon/server/" + server.Identifier + "/backup" + "?fileName=" + backup.FileName
+	resolvedPath := daemonServerPrefix + server.Identifier + "/backup" + fileNameParam + backup.FileName
 
 	callResponse, err := ns.CallNode(node, "DELETE", resolvedPath, nil, nil)
 	defer utils.CloseResponse(callResponse)
@@ -1338,7 +1355,7 @@ func deleteBackup(c *gin.Context) {
 	if callResponse.StatusCode >= http.StatusMultipleChoices {
 		newHeaders := cleanHTTPReturnErrors(callResponse.Header)
 
-		c.DataFromReader(callResponse.StatusCode, callResponse.ContentLength, callResponse.Header.Get("Content-Type"), callResponse.Body, newHeaders)
+		c.DataFromReader(callResponse.StatusCode, callResponse.ContentLength, callResponse.Header.Get(headerContentType), callResponse.Body, newHeaders)
 		c.Abort()
 		return
 	}
@@ -1380,7 +1397,7 @@ func restoreBackup(c *gin.Context) {
 		return
 	}
 
-	resolvedPath := "/daemon/server/" + server.Identifier + "/backup/restore" + "?fileName=" + backup.FileName
+	resolvedPath := daemonServerPrefix + server.Identifier + "/backup/restore" + fileNameParam + backup.FileName
 
 	callResponse, err := ns.CallNode(node, "POST", resolvedPath, nil, nil)
 	defer utils.CloseResponse(callResponse)
@@ -1393,7 +1410,7 @@ func restoreBackup(c *gin.Context) {
 	if callResponse.StatusCode >= http.StatusMultipleChoices {
 		newHeaders := cleanHTTPReturnErrors(callResponse.Header)
 
-		c.DataFromReader(callResponse.StatusCode, callResponse.ContentLength, callResponse.Header.Get("Content-Type"), callResponse.Body, newHeaders)
+		c.DataFromReader(callResponse.StatusCode, callResponse.ContentLength, callResponse.Header.Get(headerContentType), callResponse.Body, newHeaders)
 		c.Abort()
 		return
 	}
@@ -1430,7 +1447,7 @@ func downloadBackup(c *gin.Context) {
 		return
 	}
 
-	resolvedPath := "/daemon/server/" + server.Identifier + "/backup/download" + "?fileName=" + backup.FileName
+	resolvedPath := daemonServerPrefix + server.Identifier + "/backup/download" + fileNameParam + backup.FileName
 
 	callResponse, err := ns.CallNode(node, "GET", resolvedPath, nil, nil)
 	defer utils.CloseResponse(callResponse)
@@ -1440,7 +1457,7 @@ func downloadBackup(c *gin.Context) {
 
 	newHeaders := cleanHTTPReturnErrors(callResponse.Header)
 
-	c.DataFromReader(callResponse.StatusCode, callResponse.ContentLength, callResponse.Header.Get("Content-Type"), callResponse.Body, newHeaders)
+	c.DataFromReader(callResponse.StatusCode, callResponse.ContentLength, callResponse.Header.Get(headerContentType), callResponse.Body, newHeaders)
 }
 
 func getFromData(variables map[string]skypanel.Variable, key string) (result interface{}, exists bool) {
@@ -1541,7 +1558,7 @@ func proxyServerRequest(c *gin.Context) {
 
 	// keep the path escaped: it is parsed again for the node, so a decoded "#", "?" or "%"
 	// in a file name would end up as fragment, query or a broken escape
-	resolvedPath := "/daemon/server/" + strings.TrimPrefix(c.Request.URL.EscapedPath(), "/api/servers/")
+	resolvedPath := daemonServerPrefix + strings.TrimPrefix(c.Request.URL.EscapedPath(), "/api/servers/")
 	if c.Request.URL.RawQuery != "" {
 		resolvedPath += "?" + c.Request.URL.RawQuery
 	}
@@ -1567,7 +1584,7 @@ func proxyServerRequest(c *gin.Context) {
 	}
 
 	// switch to our token for auth
-	c.Request.Header.Set("Authorization", "Bearer "+token)
+	c.Request.Header.Set("Authorization", bearerPrefix+token)
 
 	if c.IsWebsocket() {
 		// for websocket, nuke the query params to avoid trying to escalate
@@ -1628,7 +1645,7 @@ func proxyHTTPRequest(c *gin.Context, path string, ns *services.Node, node *mode
 					c.JSON(http.StatusOK, skypanel.ServerStats{Running: false})
 					return
 				}
-				if strings.HasSuffix(path, "/status") {
+				if strings.HasSuffix(path, statusSuffix) {
 					c.JSON(http.StatusOK, skypanel.ServerRunning{Running: false, Installing: false})
 					return
 				}
@@ -1659,7 +1676,7 @@ func proxyHTTPRequest(c *gin.Context, path string, ns *services.Node, node *mode
 			c.JSON(http.StatusOK, skypanel.ServerStats{Running: false})
 			return
 		}
-		if strings.HasSuffix(path, "/status") {
+		if strings.HasSuffix(path, statusSuffix) {
 			c.JSON(http.StatusOK, skypanel.ServerRunning{Running: false, Installing: false})
 			return
 		}
@@ -1671,7 +1688,7 @@ func proxyHTTPRequest(c *gin.Context, path string, ns *services.Node, node *mode
 
 	newHeaders := cleanHTTPReturnErrors(callResponse.Header)
 
-	c.DataFromReader(callResponse.StatusCode, callResponse.ContentLength, callResponse.Header.Get("Content-Type"), callResponse.Body, newHeaders)
+	c.DataFromReader(callResponse.StatusCode, callResponse.ContentLength, callResponse.Header.Get(headerContentType), callResponse.Body, newHeaders)
 }
 
 func cleanHTTPReturnErrors(currentHeaders http.Header) map[string]string {
@@ -1680,7 +1697,7 @@ func cleanHTTPReturnErrors(currentHeaders http.Header) map[string]string {
 	for k, v := range currentHeaders {
 		switch k {
 		case "Transfer-Encoding":
-		case "Content-Type":
+		case headerContentType:
 		case "Content-Length":
 			continue
 		default:
@@ -1741,7 +1758,7 @@ func toggleServerSuspension(c *gin.Context) {
 		}
 
 		var children []models.Server
-		if err := tx.Where("parent_server_id = ?", server.Identifier).Find(&children).Error; err != nil {
+		if err := tx.Where(parentServerIDQuery, server.Identifier).Find(&children).Error; err != nil {
 			return err
 		}
 
@@ -1779,8 +1796,8 @@ func toggleServerSuspension(c *gin.Context) {
 				return
 			}
 			headers := make(http.Header)
-			headers.Set("Authorization", "Bearer "+token)
-			stopPath := "/daemon/server/" + srvIdentifier + "/stop"
+			headers.Set("Authorization", bearerPrefix+token)
+			stopPath := daemonServerPrefix + srvIdentifier + "/stop"
 			resp, callErr := ns.CallNode(node, "POST", stopPath, nil, headers)
 			if callErr == nil && resp != nil {
 				resp.Body.Close()
@@ -1792,7 +1809,7 @@ func toggleServerSuspension(c *gin.Context) {
 
 		// Find children and stop them
 		var children []models.Server
-		if err := db.Where("parent_server_id = ?", server.Identifier).Find(&children).Error; err == nil {
+		if err := db.Where(parentServerIDQuery, server.Identifier).Find(&children).Error; err == nil {
 			for _, child := range children {
 				stopServer(child.Identifier, child.NodeID)
 			}
@@ -1909,13 +1926,13 @@ func getImpactedUsersByServerDeletion(db *gorm.DB, identifier string) ([]models.
 }
 
 func shutdownServerOnNodeBeforeDeletion(ns *services.Node, node *models.Node, identifier string) error {
-	statusRes, err := ns.CallNode(node, "GET", "/daemon/server/"+identifier+"/status", nil, nil)
+	statusRes, err := ns.CallNode(node, "GET", daemonServerPrefix+identifier+statusSuffix, nil, nil)
 	if err == nil && statusRes.StatusCode == http.StatusOK {
 		var statusData struct {
 			Running bool `json:"running"`
 		}
 		if err := json.NewDecoder(statusRes.Body).Decode(&statusData); err == nil && statusData.Running {
-			stopRes, err := ns.CallNode(node, "POST", "/daemon/server/"+identifier+"/stop?wait=true", nil, nil)
+			stopRes, err := ns.CallNode(node, "POST", daemonServerPrefix+identifier+"/stop?wait=true", nil, nil)
 			if err != nil {
 				logging.Error.Printf("Error stopping server before deletion: %s", err)
 				return err
@@ -1932,7 +1949,7 @@ func shutdownServerOnNodeBeforeDeletion(ns *services.Node, node *models.Node, id
 }
 
 func executeServerDeletionOnNode(c *gin.Context, ns *services.Node, node *models.Node, identifier string) error {
-	nodeResponse, err := ns.CallNode(node, "DELETE", "/daemon/server/"+identifier, nil, c.Request.Header)
+	nodeResponse, err := ns.CallNode(node, "DELETE", daemonServerPrefix+identifier, nil, c.Request.Header)
 	defer utils.CloseResponse(nodeResponse)
 
 	if err != nil {
@@ -1942,10 +1959,10 @@ func executeServerDeletionOnNode(c *gin.Context, ns *services.Node, node *models
 	if nodeResponse.StatusCode != http.StatusNoContent && nodeResponse.StatusCode != http.StatusNotFound {
 		resData, err := io.ReadAll(nodeResponse.Body)
 		if err != nil {
-			logging.Error.Printf("Failed to parse response from daemon\n%s", err.Error())
+			logging.Error.Printf(daemonParseErrorFmt, err.Error())
 		}
-		logging.Error.Printf("Unexpected response from daemon: %+v\n%s", nodeResponse.StatusCode, string(resData))
-		c.Header("Content-Type", "application/json")
+		logging.Error.Printf(daemonUnexpectedFmt, nodeResponse.StatusCode, string(resData))
+		c.Header(headerContentType, contentTypeJSON)
 		c.Status(nodeResponse.StatusCode)
 		_, _ = c.Writer.Write(resData)
 		e := c.Error(errors.New("unexpected response from daemon"))
@@ -1957,11 +1974,11 @@ func executeServerDeletionOnNode(c *gin.Context, ns *services.Node, node *models
 
 func updateParentServerLimitsAfterDeletion(db *gorm.DB, ns *services.Node, node *models.Node, server *models.Server) {
 	var parent models.Server
-	if err := db.Where("identifier = ?", *server.ParentServerID).First(&parent).Error; err != nil {
+	if err := db.Where(serverIdentifierQuery, *server.ParentServerID).First(&parent).Error; err != nil {
 		return
 	}
 	var children []*models.Server
-	if err := db.Where("parent_server_id = ?", parent.Identifier).Find(&children).Error; err != nil {
+	if err := db.Where(parentServerIDQuery, parent.Identifier).Find(&children).Error; err != nil {
 		return
 	}
 
@@ -1980,7 +1997,7 @@ func updateParentServerLimitsAfterDeletion(db *gorm.DB, ns *services.Node, node 
 	}
 	updateBytes, _ := json.Marshal(parentDataUpdate)
 	parentReqBody := io.NopCloser(bytes.NewReader(updateBytes))
-	parentRes, _ := ns.CallNode(node, "POST", "/daemon/server/"+parent.Identifier+"/data", parentReqBody, nil)
+	parentRes, _ := ns.CallNode(node, "POST", daemonServerPrefix+parent.Identifier+"/data", parentReqBody, nil)
 	if parentRes != nil && parentRes.Body != nil {
 		parentRes.Body.Close()
 	}
@@ -2003,7 +2020,7 @@ func sendServerDeletionEmails(users []models.User, server *models.Server) {
 func validateAndBuildServerCreation(c *gin.Context, db *gorm.DB, us *services.User, postBody *models.ServerCreation) (*models.Server, []*models.User, error) {
 	if postBody.ParentServerID != nil && *postBody.ParentServerID != "" {
 		var parent models.Server
-		if err := db.Where("identifier = ?", *postBody.ParentServerID).First(&parent).Error; err != nil {
+		if err := db.Where(serverIdentifierQuery, *postBody.ParentServerID).First(&parent).Error; err != nil {
 			response.HandleError(c, errors.New("parent server not found"), http.StatusBadRequest)
 			return nil, nil, err
 		}
@@ -2011,7 +2028,7 @@ func validateAndBuildServerCreation(c *gin.Context, db *gorm.DB, us *services.Us
 		postBody.NodeID = parent.NodeID
 
 		var parentPerms []models.Permissions
-		db.Where("server_identifier = ?", parent.Identifier).Find(&parentPerms)
+		db.Where(serverIdentifierRefQuery, parent.Identifier).Find(&parentPerms)
 
 		var inheritedUsers []string
 		for _, p := range parentPerms {
@@ -2135,7 +2152,7 @@ func nodeCallContext(c *gin.Context) (context.Context, context.CancelFunc) {
 // children cannot both pass the resource check. GORM writes FOR UPDATE on MySQL and Postgres
 // and leaves it out on SQLite, which has no row locks and rejected the raw query.
 func lockParentServer(tx *gorm.DB, identifier string, parent *models.Server) error {
-	return tx.Clauses(clause.Locking{Strength: clause.LockingStrengthUpdate}).Where("identifier = ?", identifier).Find(parent).Error
+	return tx.Clauses(clause.Locking{Strength: clause.LockingStrengthUpdate}).Where(serverIdentifierQuery, identifier).Find(parent).Error
 }
 
 func checkParentServerLimits(tx *gorm.DB, server *models.Server, parentAvailableCPU *int, parentAvailableMemory, parentAvailableDisk *int64) error {
@@ -2148,7 +2165,7 @@ func checkParentServerLimits(tx *gorm.DB, server *models.Server, parentAvailable
 	}
 
 	var children []*models.Server
-	if err := tx.Where("parent_server_id = ?", parent.Identifier).Find(&children).Error; err != nil {
+	if err := tx.Where(parentServerIDQuery, parent.Identifier).Find(&children).Error; err != nil {
 		return err
 	}
 
@@ -2186,7 +2203,7 @@ func checkParentServerLimitsOnUpdate(tx *gorm.DB, server *models.Server, parentA
 	}
 
 	var children []*models.Server
-	if err := tx.Where("parent_server_id = ?", parent.Identifier).Find(&children).Error; err != nil {
+	if err := tx.Where(parentServerIDQuery, parent.Identifier).Find(&children).Error; err != nil {
 		return err
 	}
 
@@ -2276,7 +2293,7 @@ func notifyNodeOfServerCreation(c *gin.Context, ns *services.Node, node *models.
 
 	ctx, cancel := nodeCallContext(c)
 	defer cancel()
-	nodeResponse, err := ns.CallNodeContext(ctx, node, "PUT", "/daemon/server/"+server.Identifier, io.NopCloser(reader), c.Request.Header)
+	nodeResponse, err := ns.CallNodeContext(ctx, node, "PUT", daemonServerPrefix+server.Identifier, io.NopCloser(reader), c.Request.Header)
 	defer utils.CloseResponse(nodeResponse)
 
 	if response.HandleError(c, err, http.StatusInternalServerError) {
@@ -2286,10 +2303,10 @@ func notifyNodeOfServerCreation(c *gin.Context, ns *services.Node, node *models.
 	if nodeResponse.StatusCode != http.StatusOK {
 		resData, err := io.ReadAll(nodeResponse.Body)
 		if err != nil {
-			logging.Error.Printf("Failed to parse response from daemon\n%s", err.Error())
+			logging.Error.Printf(daemonParseErrorFmt, err.Error())
 		}
-		logging.Error.Printf("Unexpected response from daemon: %+v\n%s", nodeResponse.StatusCode, string(resData))
-		c.Header("Content-Type", "application/json")
+		logging.Error.Printf(daemonUnexpectedFmt, nodeResponse.StatusCode, string(resData))
+		c.Header(headerContentType, contentTypeJSON)
 		c.Status(nodeResponse.StatusCode)
 		_, _ = c.Writer.Write(resData)
 		c.Abort()
@@ -2308,10 +2325,10 @@ func updateParentServerLimitsOnNode(c *gin.Context, db *gorm.DB, ns *services.No
 	parentReqBody := io.NopCloser(bytes.NewReader(updateBytes))
 
 	var parent models.Server
-	db.Where("identifier = ?", *server.ParentServerID).First(&parent)
+	db.Where(serverIdentifierQuery, *server.ParentServerID).First(&parent)
 	ctx, cancel := nodeCallContext(c)
 	defer cancel()
-	parentRes, _ := ns.CallNodeContext(ctx, node, "POST", "/daemon/server/"+parent.Identifier+"/data", parentReqBody, c.Request.Header)
+	parentRes, _ := ns.CallNodeContext(ctx, node, "POST", daemonServerPrefix+parent.Identifier+"/data", parentReqBody, c.Request.Header)
 	if parentRes != nil && parentRes.Body != nil {
 		parentRes.Body.Close()
 	}

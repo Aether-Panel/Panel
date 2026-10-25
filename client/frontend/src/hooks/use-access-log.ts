@@ -6,7 +6,7 @@ export type AccessEventKind = 'login' | 'login_failed' | 'register';
 
 export type AccessEvent = {
     id: number;
-    event: AccessEventKind | string;
+    event: string;
     username?: string;
     email?: string;
     ip?: string;

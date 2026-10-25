@@ -38,7 +38,7 @@ interface ConfigContextType {
 
 const ConfigContext = createContext<ConfigContextType | undefined>(undefined);
 
-export function ConfigProvider({ children }: { children: ReactNode }) {
+export function ConfigProvider({ children }: Readonly<{ children: ReactNode }>) {
     const [config, setConfig] = useState<Config | null>(null);
     const [loading, setLoading] = useState(true);
 

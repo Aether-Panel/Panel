@@ -7,6 +7,9 @@ import (
 	"gorm.io/gorm"
 )
 
+// newestStartFirst orders uptime rows with the latest one first
+const newestStartFirst = "start_time DESC"
+
 type Uptime struct {
 	DB *gorm.DB
 }
@@ -25,7 +28,7 @@ func (us *Uptime) TrackStatus(serverID string, isRunning bool) error {
 
 	// Buscar si hay un registro activo (sin EndTime) para este servidor
 	var currentStatus *models.UptimeStatus
-	err := us.DB.Where("server_id = ? AND end_time IS NULL", serverID).Order("start_time DESC").First(&currentStatus).Error
+	err := us.DB.Where("server_id = ? AND end_time IS NULL", serverID).Order(newestStartFirst).First(&currentStatus).Error
 
 	now := time.Now()
 
@@ -97,7 +100,7 @@ func (us *Uptime) GetUptimeStats(serverID string, since time.Time) (uptimeSecond
 	// Si hay un registro activo sin EndTime, calcular su duración hasta ahora
 	var activeStatus *models.UptimeStatus
 	activeErr := us.DB.Where("server_id = ? AND end_time IS NULL", serverID).
-		Order("start_time DESC").First(&activeStatus).Error
+		Order(newestStartFirst).First(&activeStatus).Error
 
 	if activeErr == nil && activeStatus != nil {
 		activeDuration := int64(time.Since(activeStatus.StartTime).Seconds())
@@ -122,7 +125,7 @@ func (us *Uptime) GetUptimeStats(serverID string, since time.Time) (uptimeSecond
 func (us *Uptime) GetRecentHistory(serverID string, limit int) ([]*models.UptimeStatus, error) {
 	var records []*models.UptimeStatus
 	err := us.DB.Where("server_id = ?", serverID).
-		Order("start_time DESC").
+		Order(newestStartFirst).
 		Limit(limit).
 		Find(&records).Error
 	return records, err

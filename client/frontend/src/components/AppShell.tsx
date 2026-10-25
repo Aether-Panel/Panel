@@ -87,7 +87,7 @@ const BREADCRUMB_EVENT = 'aether:breadcrumb';
  * on the right. Replaces the old mobile-only bar, so desktop and mobile
  * share one header.
  */
-function AppTopBar({ currentPath, searchItems }: { currentPath: string; searchItems: QuickSearchItem[] }) {
+function AppTopBar({ currentPath, searchItems }: Readonly<{ currentPath: string; searchItems: QuickSearchItem[] }>) {
     const { t } = useTranslations();
     const { toggleSidebar, state } = useSidebar();
     const [entityLabels, setEntityLabels] = useState<Record<string, string>>({});
@@ -199,7 +199,7 @@ function AppTopBar({ currentPath, searchItems }: { currentPath: string; searchIt
     );
 }
 
-function AppLayoutInner({ children, currentPath }: { children: ReactNode; currentPath: string }) {
+function AppLayoutInner({ children, currentPath }: Readonly<{ children: ReactNode; currentPath: string }>) {
     const { role, user, logout, hasScope } = useAuth();
     const { t } = useTranslations();
     const { config } = useConfig();
@@ -457,7 +457,7 @@ function AppLayoutInner({ children, currentPath }: { children: ReactNode; curren
     );
 }
 
-export default function AppShell({ children, currentPath }: { children: ReactNode; currentPath: string }) {
+export default function AppShell({ children, currentPath }: Readonly<{ children: ReactNode; currentPath: string }>) {
     return (
         <Providers>
             <AppLayoutInner currentPath={currentPath}>

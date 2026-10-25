@@ -36,7 +36,7 @@ function NodeFields({
   privatePort,
   markRequired,
   onSubmit,
-}: {
+}: Readonly<{
   idPrefix: string;
   name: Field<string>;
   publicHost: Field<string>;
@@ -47,7 +47,7 @@ function NodeFields({
   privatePort: Field<string>;
   markRequired?: boolean;
   onSubmit?: () => void;
-}) {
+}>) {
   const { t } = useTranslations();
   const required = markRequired ? <span className="text-destructive-bright" aria-hidden="true">*</span> : null;
 
@@ -148,7 +148,7 @@ const STATUS_TONE: Record<string, string> = {
   deploying: 'bg-warning/10 text-warning',
 };
 
-function NodeStatusBadge({ status }: { status: string }) {
+function NodeStatusBadge({ status }: Readonly<{ status: string }>) {
   const { t } = useTranslations();
   return (
     <span
@@ -163,7 +163,7 @@ function NodeStatusBadge({ status }: { status: string }) {
   );
 }
 
-function CopyableCode({ command }: { command: string }) {
+function CopyableCode({ command }: Readonly<{ command: string }>) {
   const { t } = useTranslations();
   const handleCopy = () => {
     void navigator.clipboard.writeText(command);
@@ -231,7 +231,7 @@ export default function NodesPage() {
   const [isCreating, setIsCreating] = useState(false);
 
   // ── Edit state ────────────────────────────────────────────
-  const [editingNode, setEditingNode] = useState<any | null>(null);
+  const [editingNode, setEditingNode] = useState<any>(null);
   const [editName, setEditName] = useState('');
   const [editPublicHost, setEditPublicHost] = useState('');
   const [editPublicPort, setEditPublicPort] = useState('8080');
@@ -242,10 +242,10 @@ export default function NodesPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   // ── Deploy state ──────────────────────────────────────────
-  const [deployingNode, setDeployingNode] = useState<any | null>(null);
+  const [deployingNode, setDeployingNode] = useState<any>(null);
 
   // ── Delete state ──────────────────────────────────────────
-  const [deletingNode, setDeletingNode] = useState<any | null>(null);
+  const [deletingNode, setDeletingNode] = useState<any>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {

@@ -125,7 +125,7 @@ async function assertOk(res: Response, fallback: string) {
   throw new Error(typeof error === 'string' ? error : error?.msg || fallback);
 }
 
-function Breadcrumbs({ path, onNavigate, label }: { path: string; onNavigate: (p: string) => void; label: string }) {
+function Breadcrumbs({ path, onNavigate, label }: Readonly<{ path: string; onNavigate: (p: string) => void; label: string }>) {
   const parts = path.split('/').filter(Boolean);
   const crumbs = [{ label: '~', path: '' }, ...parts.map((p, i) => ({ label: p, path: parts.slice(0, i + 1).join('/') }))];
 
@@ -154,7 +154,7 @@ function Breadcrumbs({ path, onNavigate, label }: { path: string; onNavigate: (p
   );
 }
 
-export default function FileManagerView({ serverId }: { serverId: string }) {
+export default function FileManagerView({ serverId }: Readonly<{ serverId: string }>) {
   const [currentPath, setCurrentPath] = useState('');
   const [files, setFiles] = useState<FileItemResource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -664,7 +664,7 @@ export default function FileManagerView({ serverId }: { serverId: string }) {
             {t('servers.fileManager.actions.download')}
           </a>
         </DropdownMenuItem>
-        {file.isFile && file.name.match(/\.(zip|tar(\.gz)?|tgz|gz|bz2|rar|7z|xz)$/i) ? (
+        {file.isFile && /\.(zip|tar(\.gz)?|tgz|gz|bz2|rar|7z|xz)$/i.test(file.name) ? (
           <DropdownMenuItem onClick={() => handleExtract(file)}>
             <FileArchive className="mr-2 h-4 w-4" aria-hidden="true" />
             {t('servers.fileManager.actions.unarchive')}

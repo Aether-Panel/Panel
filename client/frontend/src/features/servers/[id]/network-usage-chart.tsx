@@ -19,7 +19,7 @@ type NetworkUsageChartProps = {
   className?: string;
 };
 
-export default function NetworkUsageChart({ serverMetrics, className }: NetworkUsageChartProps) {
+export default function NetworkUsageChart({ serverMetrics, className }: Readonly<NetworkUsageChartProps>) {
   const { t } = useTranslations();
 
   const chartConfig = {
@@ -32,7 +32,7 @@ export default function NetworkUsageChart({ serverMetrics, className }: NetworkU
     { key: 'networkOut' as const, color: NET_OUT_COLOR },
   ];
 
-  const latest = serverMetrics && serverMetrics.length > 0 ? serverMetrics[serverMetrics.length - 1] : null;
+  const latest = serverMetrics?.at(-1) ?? null;
   // A single sample draws nothing useful; wait for a second point.
   const hasTrend = !!serverMetrics && serverMetrics.length >= 2;
   // Two polls can land in the same second, so the axis runs on the sample index

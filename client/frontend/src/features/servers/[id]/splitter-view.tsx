@@ -18,7 +18,7 @@ type SplitterViewProps = {
 const usageColor = (value: number) =>
   value >= 85 ? 'bg-destructive' : value >= 60 ? 'bg-warning' : 'bg-success';
 
-function ResourceBar({ used, total }: { used: number; total: number }) {
+function ResourceBar({ used, total }: Readonly<{ used: number; total: number }>) {
   const pct = total > 0 ? Math.min(Math.max((used / total) * 100, 0), 100) : 0;
   return (
     <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
@@ -40,7 +40,7 @@ type ResourceCardProps = {
 };
 
 /** One cell of the resource strip: the parent's total, and how much the sub-servers already took. */
-function ResourceCard({ icon: Icon, label, value, unit, used, total }: ResourceCardProps) {
+function ResourceCard({ icon: Icon, label, value, unit, used, total }: Readonly<ResourceCardProps>) {
   const { t } = useTranslations();
   const free = Math.max(total - used, 0);
   return (
@@ -64,7 +64,7 @@ function ResourceCard({ icon: Icon, label, value, unit, used, total }: ResourceC
   );
 }
 
-function SubServerCard({ sub }: { sub: any }) {
+function SubServerCard({ sub }: Readonly<{ sub: any }>) {
   const { t } = useTranslations();
   const pctCpu = sub.totalCpu ? sub.cpuUsage : 0;
   const pctMem = sub.totalMemory ? sub.memoryUsage : 0;
@@ -135,7 +135,7 @@ function SubServerCard({ sub }: { sub: any }) {
   );
 }
 
-export default function SplitterView({ serverId }: SplitterViewProps) {
+export default function SplitterView({ serverId }: Readonly<SplitterViewProps>) {
   const { t } = useTranslations();
   // the splitter shows this server and its sub-servers, so only those need live stats
   const { servers: allServers, refresh } = useServers((s) => s.id === serverId || s.parentServerId === serverId);

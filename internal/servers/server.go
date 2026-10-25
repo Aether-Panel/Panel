@@ -33,6 +33,12 @@ import (
 	"github.com/spf13/cast"
 )
 
+// messages for a failed uninstall
+const (
+	uninstallErrorFmt  = "Error uninstalling server: %s"
+	uninstallFailedMsg = "Failed to uninstall server\n"
+)
+
 type Server struct {
 	skypanel.DaemonServer
 	skypanel.Server
@@ -974,23 +980,23 @@ func (p *Server) Destroy() (err error) {
 	p.Log(logging.Debug, "Starting uninstall processes")
 	process, err := GenerateProcess(p.Uninstallation, p.RunningEnvironment, p.DataToMap(), p.Execution.EnvironmentVariables)
 	if err != nil {
-		p.Log(logging.Error, "Error uninstalling server: %s", err)
-		p.RunningEnvironment.DisplayToConsole(true, "Failed to uninstall server\n")
+		p.Log(logging.Error, uninstallErrorFmt, err)
+		p.RunningEnvironment.DisplayToConsole(true, uninstallFailedMsg)
 		return
 	}
 
 	err = process.Run(p)
 	if err != nil {
-		p.Log(logging.Error, "Error uninstalling server: %s", err)
-		p.RunningEnvironment.DisplayToConsole(true, "Failed to uninstall server\n")
+		p.Log(logging.Error, uninstallErrorFmt, err)
+		p.RunningEnvironment.DisplayToConsole(true, uninstallFailedMsg)
 		return
 	}
 
 	p.Log(logging.Debug, "Deleting environment")
 	err = p.RunningEnvironment.Delete()
 	if err != nil {
-		p.Log(logging.Error, "Error uninstalling server: %s", err)
-		p.RunningEnvironment.DisplayToConsole(true, "Failed to uninstall server\n")
+		p.Log(logging.Error, uninstallErrorFmt, err)
+		p.RunningEnvironment.DisplayToConsole(true, uninstallFailedMsg)
 	}
 
 	return

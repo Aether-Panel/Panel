@@ -24,7 +24,7 @@ interface ServerUser {
   scopes: string[];
 }
 
-export default function UsersView({ serverId }: UsersViewProps) {
+export default function UsersView({ serverId }: Readonly<UsersViewProps>) {
   const [users, setUsers] = useState<ServerUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [addingUser, setAddingUser] = useState(false);

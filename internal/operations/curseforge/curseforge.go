@@ -19,6 +19,12 @@ import (
 	"strings"
 )
 
+// serverJarName is the jar the server is started from
+const serverJarName = "server.jar"
+
+// failedDeleteInstallerMsg is shown when the leftover installer cannot be removed
+const failedDeleteInstallerMsg = "Failed to delete installer"
+
 type CurseForge struct {
 	ProjectID  uint
 	FileID     uint
@@ -237,10 +243,10 @@ func (c CurseForge) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 
 			// grab the ServerStarter if there isn't a server.jar, just to help out
 			// would prefer Forge's variant, but this will do
-			runJarFile := filepath.Join(env.GetRootDirectory(), "server.jar")
+			runJarFile := filepath.Join(env.GetRootDirectory(), serverJarName)
 			if _, err = os.Stat(runJarFile); os.IsNotExist(err) {
 				env.DisplayToConsole(true, "Grabbing ServerStarter")
-				var cachePath = filepath.Join(config.CacheFolder.Value(), "github.com", "neoforgedl", "serverstarter", NeoForgeServerStarterVersion, "server.jar")
+				var cachePath = filepath.Join(config.CacheFolder.Value(), "github.com", "neoforgedl", "serverstarter", NeoForgeServerStarterVersion, serverJarName)
 				if _, err = os.Stat(cachePath); os.IsNotExist(err) {
 					env.DisplayToConsole(true, "Downloading "+NeoForgeServerStarter)
 					err = skypanel.DownloadFileToCache(NeoForgeServerStarter, cachePath)
@@ -311,7 +317,7 @@ func installViaJar(server skypanel.DaemonServer, env *skypanel.Environment, jarF
 	if strings.HasPrefix(cleanJarPath, rootPrefix) {
 		err = os.Remove(cleanJarPath)
 		if err != nil {
-			env.DisplayToConsole(true, "Failed to delete installer")
+			env.DisplayToConsole(true, failedDeleteInstallerMsg)
 		}
 	}
 	logPath := filepath.Join(cleanRoot, cleanJar+".log")
@@ -319,7 +325,7 @@ func installViaJar(server skypanel.DaemonServer, env *skypanel.Environment, jarF
 	if strings.HasPrefix(cleanLogPath, rootPrefix) {
 		err = os.Remove(cleanLogPath)
 		if err != nil {
-			env.DisplayToConsole(true, "Failed to delete installer")
+			env.DisplayToConsole(true, failedDeleteInstallerMsg)
 		}
 	}
 
@@ -334,15 +340,10 @@ func installViaJar(server skypanel.DaemonServer, env *skypanel.Environment, jarF
 	for _, f := range possibleRenames {
 		fPath := filepath.Join(cleanRoot, f)
 		cleanFPath := filepath.Clean(fPath)
-		serverPath := filepath.Join(cleanRoot, "server.jar")
+		serverPath := filepath.Join(cleanRoot, serverJarName)
 		cleanServerPath := filepath.Clean(serverPath)
 		if strings.HasPrefix(cleanFPath, rootPrefix) && strings.HasPrefix(cleanServerPath, rootPrefix) {
 			if fi, err = os.Lstat(cleanFPath); err == nil && !fi.IsDir() {
-				err = os.Rename(cleanFPath, cleanServerPath)
-				if err != nil {
-					return err
-				}
-			} else if fi, err = os.Lstat(cleanFPath); err == nil && !fi.IsDir() {
 				err = os.Rename(cleanFPath, cleanServerPath)
 				if err != nil {
 					return err
@@ -364,7 +365,7 @@ func installFabric(env *skypanel.Environment, data map[string]string, javaBinary
 
 	// see if improved is available
 	fabricURL := replaceTokens(ImprovedFabricInstallerURL, data)
-	targetFile := filepath.Join(cleanRoot, "server.jar")
+	targetFile := filepath.Join(cleanRoot, serverJarName)
 	cleanTarget := filepath.Clean(targetFile)
 
 	env.DisplayToConsole(true, "Downloading %s to %s", fabricURL, cleanTarget)
@@ -408,11 +409,11 @@ func installFabric(env *skypanel.Environment, data map[string]string, javaBinary
 		if strings.HasPrefix(cleanInstaller, rootPrefix) {
 			err = os.Remove(cleanInstaller)
 			if err != nil {
-				env.DisplayToConsole(true, "Failed to delete installer")
+				env.DisplayToConsole(true, failedDeleteInstallerMsg)
 			}
 		}
 
-		removePath := filepath.Join(cleanRoot, "server.jar")
+		removePath := filepath.Join(cleanRoot, serverJarName)
 		removeClean := filepath.Clean(removePath)
 		renameFrom := filepath.Join(cleanRoot, "fabric-server-launch.jar")
 		renameFromClean := filepath.Clean(renameFrom)

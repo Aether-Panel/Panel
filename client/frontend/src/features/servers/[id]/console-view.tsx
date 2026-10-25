@@ -71,12 +71,12 @@ export default function ConsoleView({
   logs,
   addLog,
   status = 'disconnected',
-}: {
+}: Readonly<{
   serverId: string;
   logs: LogEntry[];
   addLog: (message: string) => void;
   status?: ConsoleStatus;
-}) {
+}>) {
   const [command, setCommand] = useState('');
   const { t } = useTranslations();
   const [history, saveHistory] = useStoredList(`consoleHistory_${serverId}`, HISTORY_LIMIT);
