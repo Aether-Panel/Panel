@@ -92,6 +92,65 @@ function useNameStatus(serverId: string, info: SubdomainInfo | null, draft: stri
   return [status, setStatus] as const;
 }
 
+/** The address players use now, with a copy button and the DNS records behind it. */
+function CurrentAddress({ info, address, copied, propagating, onCopy, t }: Readonly<{
+  info: SubdomainInfo;
+  address: string;
+  copied: boolean;
+  propagating: boolean;
+  onCopy: () => void;
+  t: (key: string, vars?: Record<string, string | number>) => string;
+}>) {
+  return (
+    <div className="space-y-3 rounded-xl border border-border/60 bg-background/30 p-4 animate-in fade-in-0 duration-300">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('servers.subdomain.currentLabel')}</p>
+          <p className="mt-1 break-all font-mono text-[15px] text-foreground">{address}</p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={onCopy}
+          aria-label={t('servers.address.copyButtonTitle')}
+          title={t('servers.address.copyButtonTitle')}
+          className="h-8 w-8 shrink-0"
+        >
+          {copied ? <Check className="text-success animate-in zoom-in-50 duration-200" aria-hidden="true" /> : <Copy aria-hidden="true" />}
+        </Button>
+      </div>
+      <p className="flex items-start gap-2 text-xs text-muted-foreground">
+        <Info className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        <span>{info.srv ? t('servers.subdomain.srvNote') : t('servers.subdomain.portNote', { port: info.port })}</span>
+      </p>
+      {propagating && (
+        <output className="flex items-start gap-2 text-xs text-success animate-in fade-in-0 duration-300">
+          <CheckCircle2 className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span>{t('servers.subdomain.propagation')}</span>
+        </output>
+      )}
+      {info.records.length > 0 && (
+        <details className="group text-xs">
+          <summary className="cursor-pointer select-none rounded text-muted-foreground transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70">
+            {t('servers.subdomain.recordsLabel')}
+          </summary>
+          <ul className="mt-2 divide-y divide-border/50 rounded-lg border border-border/60">
+            {info.records.map((record) => (
+              <li key={`${record.type}-${record.name}`} className="flex flex-col gap-1 px-3 py-2 sm:flex-row sm:items-baseline sm:gap-3">
+                <span className="w-14 shrink-0 font-mono font-semibold text-foreground">{record.type}</span>
+                <span className="min-w-0 break-all font-mono text-muted-foreground">
+                  {record.name} → {record.content}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </div>
+  );
+}
+
 export default function AddressCard({ serverId }: Readonly<{ serverId: string }>) {
   const { t } = useTranslations();
   const ids = useId();
@@ -209,52 +268,7 @@ export default function AddressCard({ serverId }: Readonly<{ serverId: string }>
 
         <div className="min-w-0 space-y-5">
           {hasAddress ? (
-            <div key={info.address} className="space-y-3 rounded-xl border border-border/60 bg-background/30 p-4 animate-in fade-in-0 duration-300">
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('servers.subdomain.currentLabel')}</p>
-                  <p className="mt-1 break-all font-mono text-[15px] text-foreground">{address}</p>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={copy}
-                  aria-label={t('servers.address.copyButtonTitle')}
-                  title={t('servers.address.copyButtonTitle')}
-                  className="h-8 w-8 shrink-0"
-                >
-                  {copied ? <Check className="text-success animate-in zoom-in-50 duration-200" aria-hidden="true" /> : <Copy aria-hidden="true" />}
-                </Button>
-              </div>
-              <p className="flex items-start gap-2 text-xs text-muted-foreground">
-                <Info className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                <span>{info.srv ? t('servers.subdomain.srvNote') : t('servers.subdomain.portNote', { port: info.port })}</span>
-              </p>
-              {propagating && (
-                <output className="flex items-start gap-2 text-xs text-success animate-in fade-in-0 duration-300">
-                  <CheckCircle2 className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                  <span>{t('servers.subdomain.propagation')}</span>
-                </output>
-              )}
-              {info.records.length > 0 && (
-                <details className="group text-xs">
-                  <summary className="cursor-pointer select-none rounded text-muted-foreground transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70">
-                    {t('servers.subdomain.recordsLabel')}
-                  </summary>
-                  <ul className="mt-2 divide-y divide-border/50 rounded-lg border border-border/60">
-                    {info.records.map((record) => (
-                      <li key={`${record.type}-${record.name}`} className="flex flex-col gap-1 px-3 py-2 sm:flex-row sm:items-baseline sm:gap-3">
-                        <span className="w-14 shrink-0 font-mono font-semibold text-foreground">{record.type}</span>
-                        <span className="min-w-0 break-all font-mono text-muted-foreground">
-                          {record.name} → {record.content}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              )}
-            </div>
+            <CurrentAddress key={info.address} info={info} address={address} copied={copied} propagating={propagating} onCopy={copy} t={t} />
           ) : (
             <p className="rounded-xl border border-dashed border-border/60 bg-background/30 px-4 py-3 text-sm text-muted-foreground">
               {t('servers.subdomain.empty')}
