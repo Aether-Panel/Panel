@@ -15,6 +15,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -1381,19 +1383,56 @@ func clearTransferProgressIf(serverID, expected string) {
 	}
 }
 
+// originURLPattern pins the whole shape of the URL an origin panel may be reached at:
+// http(s), a host (name, IPv4 or bracketed IPv6) and an optional port. Anything else (a
+// path, query, fragment, credentials or encoded separators) is rejected instead of being
+// silently dropped, so the request URL can only ever be built from these components.
+var originURLPattern = regexp.MustCompile(`^https?://(?:[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?|\[[0-9A-Fa-f:.]+\])(?::[0-9]{1,5})?/?$`)
+
+// originAuthorityPattern is the host[:port] part of originURLPattern, checked again on the
+// parsed URL so the value that ends up in net/url.URL.Host is the one that was validated.
+var originAuthorityPattern = regexp.MustCompile(`^(?:[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?|\[[0-9A-Fa-f:.]+\])(?::[0-9]{1,5})?$`)
+
 func parseOriginURL(rawURL string) (*url.URL, error) {
 	rawURL = strings.TrimSpace(rawURL)
-	if !strings.HasPrefix(rawURL, "http://") && !strings.HasPrefix(rawURL, "https://") {
+	if !strings.Contains(rawURL, "://") {
 		rawURL = "https://" + rawURL
 	}
-	if err := utils.ValidateExternalURL(rawURL); err != nil {
-		return nil, err
+
+	// Only scheme, host and an optional port are meaningful here: pin the whole shape
+	// before parsing so nothing else can reach the requests built from it.
+	if !originURLPattern.MatchString(rawURL) {
+		return nil, errors.New("invalid origin URL: expected http(s)://host[:port]")
 	}
+
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return nil, err
 	}
-	return &url.URL{Scheme: u.Scheme, Host: u.Host}, nil
+
+	if err := utils.ValidateExternalURL(rawURL); err != nil {
+		return nil, err
+	}
+
+	// Keep only the authority: path, query, fragment and any credentials are dropped. The
+	// value is validated again so the URL's Host field is exactly the validated one.
+	authority := u.Host
+	if !originAuthorityPattern.MatchString(authority) {
+		return nil, errors.New("invalid origin host")
+	}
+	if port := u.Port(); port != "" {
+		n, err := strconv.Atoi(port)
+		if err != nil || n < 1 || n > 65535 {
+			return nil, errors.New("invalid origin port")
+		}
+	}
+
+	scheme := "https"
+	if u.Scheme == "http" {
+		scheme = "http"
+	}
+
+	return &url.URL{Scheme: scheme, Host: authority}, nil
 }
 
 // @Summary Cancel federated transfer from the panel
