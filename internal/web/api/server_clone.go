@@ -408,11 +408,12 @@ func remapPortNotes(notes map[string]string, mapping map[uint16]uint16) map[stri
 	}
 	moved := make(map[string]string, len(notes))
 	for port, note := range notes {
-		p, err := strconv.Atoi(port)
-		if err != nil {
+		// parsing straight to 16 bits refuses anything that is not a port
+		p, err := strconv.ParseUint(port, 10, 16)
+		if err != nil || p == 0 {
 			continue
 		}
-		if next, ok := mapping[uint16(p)]; ok && p > 0 && p <= 65535 {
+		if next, ok := mapping[uint16(p)]; ok {
 			moved[strconv.Itoa(int(next))] = note
 		}
 	}

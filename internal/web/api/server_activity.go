@@ -380,7 +380,8 @@ func getServerActivity(c *gin.Context) {
 
 	var before uint64
 	if raw := c.Query("before"); raw != "" {
-		parsed, err := strconv.ParseUint(raw, 10, 64)
+		// the cursor is an id, which fits in this platform's uint
+		parsed, err := strconv.ParseUint(raw, 10, strconv.IntSize)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid cursor"})
 			return

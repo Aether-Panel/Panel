@@ -123,6 +123,10 @@ func TestRemapPortNotes(t *testing.T) {
 	notes := remapPortNotes(map[string]string{"25565": "Java", "19132": "Bedrock", "x": "bad"}, map[uint16]uint16{25565: 25568})
 	assert.Equal(t, map[string]string{"25568": "Java"}, notes)
 	assert.Nil(t, remapPortNotes(nil, nil))
+
+	// 91101 would wrap around to 25565 in 16 bits; it must not borrow that port's note
+	wrapped := remapPortNotes(map[string]string{"91101": "out of range", "0": "zero"}, map[uint16]uint16{25565: 25568, 0: 1})
+	assert.Empty(t, wrapped)
 }
 
 func TestCopyServerPermissions_KeepsEachUsersScopes(t *testing.T) {
