@@ -34,7 +34,7 @@ require (
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/pkg/sftp v1.13.11
 	github.com/pquerna/otp v1.5.0
-	github.com/pterm/pterm v0.12.83
+	github.com/pterm/pterm v0.12.84
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/sendgrid/sendgrid-go v3.16.1+incompatible
 	github.com/shirou/gopsutil v3.21.11+incompatible
@@ -59,7 +59,7 @@ require (
 
 require (
 	atomicgo.dev/cursor v0.2.0 // indirect
-	atomicgo.dev/keyboard v0.2.9 // indirect
+	atomicgo.dev/keyboard v0.2.10 // indirect
 	atomicgo.dev/schedule v0.1.0 // indirect
 	cel.dev/expr v0.25.2 // indirect
 	cloud.google.com/go v0.116.0 // indirect
@@ -124,7 +124,6 @@ require (
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.11 // indirect
 	github.com/googleapis/gax-go/v2 v2.17.0 // indirect
-	github.com/gookit/color v1.6.0 // indirect
 	github.com/gorilla/context v1.1.2 // indirect
 	github.com/gorilla/sessions v1.4.0 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
@@ -188,7 +187,6 @@ require (
 	github.com/ulikunitz/xz v0.5.15 // indirect
 	github.com/urfave/cli/v2 v2.3.0 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
-	github.com/xo/terminfo v1.0.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	github.com/zeebo/xxh3 v1.1.0 // indirect
 	go.mongodb.org/mongo-driver/v2 v2.8.0 // indirect
