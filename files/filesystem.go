@@ -81,13 +81,13 @@ func (sfp *fileServer) ReadDir(name string) ([]fs.DirEntry, error) {
 	return folder.ReadDir(0)
 }
 
+// Glob matches the last element of pattern inside its folder, so "mods/*.jar" and
+// "pack/resources" work as well as patterns in the server root
 func (sfp *fileServer) Glob(pattern string) ([]string, error) {
-	parent := filepath.Base(pattern)
-	if parent == pattern {
-		parent = "."
-	}
+	dir, base := filepath.Split(pattern)
+	dir = filepath.Clean(dir)
 
-	files, err := sfp.ReadDir(parent)
+	files, err := sfp.ReadDir(dir)
 
 	if err != nil {
 		return nil, err
@@ -95,8 +95,8 @@ func (sfp *fileServer) Glob(pattern string) ([]string, error) {
 
 	results := make([]string, 0)
 	for _, v := range files {
-		if matches, _ := filepath.Match(pattern, v.Name()); matches {
-			results = append(results, v.Name())
+		if matches, _ := filepath.Match(base, v.Name()); matches {
+			results = append(results, filepath.Join(dir, v.Name()))
 		}
 	}
 	return results, nil
