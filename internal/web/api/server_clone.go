@@ -47,6 +47,14 @@ var (
 	errCloneSuspended  = errors.New("a suspended server cannot be copied")
 )
 
+// cloneAuthorizationStatus is the status a refused or failed authorizeClone answers with
+func cloneAuthorizationStatus(err error) int {
+	if errors.Is(err, errCloneNotMember) || errors.Is(err, errCloneSuspended) {
+		return http.StatusForbidden
+	}
+	return http.StatusInternalServerError
+}
+
 // registerServerClone adds the route that duplicates a server
 func registerServerClone(g *gin.RouterGroup) {
 	g.POST("/:serverId/clone", requiresExperimental(config.ExperimentalServerClone), middleware.RequiresPermission(scopes.ScopeServerCreate), middleware.ResolveServerPanel, cloneServer)
@@ -107,10 +115,8 @@ func cloneServer(c *gin.Context) {
 	}
 
 	admin, err := authorizeClone(ps, user, source)
-	if errors.Is(err, errCloneNotMember) || errors.Is(err, errCloneSuspended) {
-		response.HandleError(c, err, http.StatusForbidden)
-		return
-	} else if response.HandleError(c, err, http.StatusInternalServerError) {
+	if err != nil {
+		response.HandleError(c, err, cloneAuthorizationStatus(err))
 		return
 	}
 

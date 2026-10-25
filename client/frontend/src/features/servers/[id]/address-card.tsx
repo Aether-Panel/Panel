@@ -46,6 +46,12 @@ function failureMessage(err: unknown, t: (key: string) => string, fallbackKey: s
  * Cloudflare by the panel. Hidden when the admin has not set Cloudflare up, or when the user
  * cannot change the server's settings.
  */
+/** What the panel's availability check says about a name. */
+function checkedStatus(res: { available: boolean; reason: string }): Status {
+  if (res.available) return res.reason === 'current' ? 'current' : 'available';
+  return res.reason === 'taken' || res.reason === 'reserved' ? res.reason : 'invalid';
+}
+
 export default function AddressCard({ serverId }: Readonly<{ serverId: string }>) {
   const { t } = useTranslations();
   const ids = useId();
@@ -103,9 +109,7 @@ export default function AddressCard({ serverId }: Readonly<{ serverId: string }>
     const timer = setTimeout(() => {
       api.get<{ available: boolean; reason: string }>(`/api/servers/${serverId}/subdomain/check?name=${encodeURIComponent(draft)}`)
         .then((res) => {
-          if (seq !== checkSeq.current) return;
-          if (res.available) setStatus(res.reason === 'current' ? 'current' : 'available');
-          else setStatus(res.reason === 'taken' || res.reason === 'reserved' ? res.reason : 'invalid');
+          if (seq === checkSeq.current) setStatus(checkedStatus(res));
         })
         .catch(() => seq === checkSeq.current && setStatus('error'));
     }, 400);

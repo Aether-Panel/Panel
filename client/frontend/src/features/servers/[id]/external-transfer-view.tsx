@@ -100,7 +100,7 @@ const formatTime = (s: number) => {
 };
 
 export default function ExternalTransferView({ serverId }: ExternalTransferViewProps) {
-  const { t, language } = useTranslations();
+  const { t } = useTranslations();
 
   const [loading, setLoading] = useState(false);
   const [sessionData, setSessionData] = useState<StoredTransfer | null>(null);

@@ -90,13 +90,16 @@ export default function ModpackInstallDialog({ serverId, source, pack, memory, o
   };
 
   const steps = [
-    t('servers.modpacks.dialog.steps.stop'),
-    t('servers.modpacks.dialog.steps.restorePoint'),
-    t('servers.modpacks.dialog.steps.replace'),
-    freshWorld ? t('servers.modpacks.dialog.steps.worldFresh') : t('servers.modpacks.dialog.steps.world'),
-    gameVersion && loader
-      ? t('servers.modpacks.dialog.steps.start', { java: javaFor(gameVersion), loader: loaderLabel(t, loader), version: gameVersion })
-      : t('servers.modpacks.dialog.steps.startUnknown'),
+    { id: 'stop', text: t('servers.modpacks.dialog.steps.stop') },
+    { id: 'restorePoint', text: t('servers.modpacks.dialog.steps.restorePoint') },
+    { id: 'replace', text: t('servers.modpacks.dialog.steps.replace') },
+    { id: 'world', text: freshWorld ? t('servers.modpacks.dialog.steps.worldFresh') : t('servers.modpacks.dialog.steps.world') },
+    {
+      id: 'start',
+      text: gameVersion && loader
+        ? t('servers.modpacks.dialog.steps.start', { java: javaFor(gameVersion), loader: loaderLabel(t, loader), version: gameVersion })
+        : t('servers.modpacks.dialog.steps.startUnknown'),
+    },
   ];
 
   // the version picker, or what stands in for it while the list loads or when there is none
@@ -191,9 +194,9 @@ export default function ModpackInstallDialog({ serverId, source, pack, memory, o
                 <h3 className="text-sm font-semibold text-foreground">{t('servers.modpacks.dialog.whatHappens')}</h3>
                 <ol className="space-y-2 text-sm text-muted-foreground">
                   {steps.map((step, index) => (
-                    <li key={index} className={cn('flex items-start gap-2.5', index === 3 && freshWorld && 'text-destructive-bright')}>
+                    <li key={step.id} className={cn('flex items-start gap-2.5', step.id === 'world' && freshWorld && 'text-destructive-bright')}>
                       <span className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-secondary text-[11px] font-semibold tabular-nums text-foreground">{index + 1}</span>
-                      <span className="text-pretty">{step}</span>
+                      <span className="text-pretty">{step.text}</span>
                     </li>
                   ))}
                 </ol>
