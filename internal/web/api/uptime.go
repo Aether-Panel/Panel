@@ -168,7 +168,7 @@ func fetchServerRunning(c *gin.Context, ns *services.Node, node *models.Node, se
 }
 
 // minimalUptimeEntry crea la entrada de un servidor sin datos históricos: según su estado
-// actual cuenta como encendido o apagado durante todo el período
+// actual cuenta como encendido o apagado durante el período entero
 func minimalUptimeEntry(server *models.Server, isRunning bool, since, now time.Time) map[string]interface{} {
 	var currentUptime int64
 	currentStartTime := now
