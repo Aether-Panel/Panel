@@ -36,7 +36,7 @@ func (op ResolveNeoForgeVersion) Run(args skypanel.RunOperatorArgs) skypanel.Ope
 	// if a specific version wasn't specified, we have to dig around through the files....
 	if op.Version == "" {
 		cleanRoot := filepath.Clean(args.Environment.GetRootDirectory())
-		dir := filepath.Join(cleanRoot, "libraries", "net", "neoforged", "neoforgedl")
+		dir := filepath.Join(cleanRoot, "libraries", "net", "neoforged", "neoforge")
 		cleanDir := filepath.Clean(dir)
 		if !strings.HasPrefix(cleanDir, cleanRoot+string(filepath.Separator)) {
 			return skypanel.OperationResult{VariableOverrides: map[string]interface{}{
