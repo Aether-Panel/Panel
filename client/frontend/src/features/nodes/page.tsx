@@ -1,7 +1,7 @@
 'use client';
 import { useAuth } from '@/contexts/providers';
 import { useEffect, useState } from 'react';
-import type { Dispatch, SetStateAction } from 'react';
+import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, CheckCircle2, Copy, MoreHorizontal, Network, Plus, Loader2, Trash2 } from 'lucide-react';
@@ -188,6 +188,12 @@ function CopyableCode({ command }: Readonly<{ command: string }>) {
 
 const richText = '[&_code]:rounded [&_code]:bg-secondary [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs [&_code]:text-foreground';
 
+/** The part of a node id the daemon's OAuth client is named after ("node-3" → "3"). */
+function nodeClientSuffix(id: unknown) {
+  const raw = String(id);
+  return raw.includes('-') ? raw.split('-')[1] : id;
+}
+
 function NodesSkeleton() {
   return (
     <div className="flex flex-col gap-8" aria-busy="true">
@@ -362,7 +368,7 @@ export default function NodesPage() {
   };
 
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://192.168.0.12:8080';
-  const clientId = deployingNode ? `.node_${String(deployingNode.id).includes('-') ? String(deployingNode.id).split('-')[1] : deployingNode.id}` : '';
+  const clientId = deployingNode ? `.node_${nodeClientSuffix(deployingNode.id)}` : '';
   const deployCompose = deployingNode ? [
     'services:',
     '  skypanel:',
@@ -433,6 +439,104 @@ export default function NodesPage() {
     </DropdownMenu>
   );
 
+  let nodeList: ReactNode;
+  if (error && nodes.length === 0) {
+    nodeList = (
+      <EmptyState
+        icon={AlertTriangle}
+        tone="error"
+        title={t('nodes.error.title')}
+        description={t('nodes.error.description')}
+        action={
+          <Button variant="outline" onClick={() => void refresh()}>
+            {t('common.retry')}
+          </Button>
+        }
+      />
+    );
+  } else if (nodes.length === 0) {
+    nodeList = (
+      <EmptyState
+        icon={Network}
+        title={t('nodes.empty.title')}
+        description={t('nodes.empty.description')}
+        action={
+          <Button onClick={() => setIsCreateOpen(true)}>
+            <Plus aria-hidden="true" />
+            {t('nodes.addNode')}
+          </Button>
+        }
+      />
+    );
+  } else {
+    nodeList = (
+      <>
+        {/* Phones and tablets (the sidebar leaves too little room for the table): one stacked row per node. */}
+        <ul className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60 bg-background/30 lg:hidden">
+          {nodes.map((node) => (
+            <li key={node.id} className="flex items-center gap-2 py-2 pl-4 pr-2">
+              <div className="min-w-0 flex-1 py-1">
+                <div className="flex min-w-0 items-center justify-between gap-2">
+                  <a
+                    href={`/nodes/view/?id=${node.id}`}
+                    className="min-w-0 truncate rounded-sm text-sm font-semibold text-foreground hover:underline focus-ring"
+                  >
+                    {node.name}
+                  </a>
+                  <NodeStatusBadge status={node.status} />
+                </div>
+                <p className="mt-1 flex flex-wrap items-baseline gap-x-1.5 text-xs text-muted-foreground">
+                  <span className={cn('min-w-0 max-w-full truncate', !node.isLocal && 'font-mono')}>{node.location}</span>
+                  <span aria-hidden="true">·</span>
+                  <span className="whitespace-nowrap tabular-nums">{t('nodes.serversCount', { count: serverCount(node) })}</span>
+                </p>
+              </div>
+              {renderActions(node)}
+            </li>
+          ))}
+        </ul>
+
+        {/* Desktop: the full table. */}
+        <div className="hidden overflow-hidden rounded-xl border border-border/60 bg-background/30 lg:block">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead>{t('nodes.table.name')}</TableHead>
+                <TableHead>{t('nodes.table.location')}</TableHead>
+                <TableHead>{t('dashboard.table.status')}</TableHead>
+                <TableHead className="text-right">{t('nodes.table.servers')}</TableHead>
+                <TableHead className="w-14"><span className="sr-only">{t('dashboard.table.actions')}</span></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {nodes.map((node) => (
+                <TableRow key={node.id} className="hover:bg-accent/30">
+                  <TableCell className="max-w-[16rem] font-medium">
+                    <a href={`/nodes/view/?id=${node.id}`} className="block truncate rounded-sm hover:underline focus-ring">
+                      {node.name}
+                    </a>
+                  </TableCell>
+                  <TableCell className={cn('max-w-[16rem] truncate text-muted-foreground', !node.isLocal && 'font-mono text-xs')}>
+                    {node.location}
+                  </TableCell>
+                  <TableCell>
+                    <NodeStatusBadge status={node.status} />
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {serverCount(node)}
+                  </TableCell>
+                  <TableCell className="py-2 text-right">
+                    {renderActions(node)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </>
+    );
+  }
+
   return (
     <div className="stagger flex flex-col gap-8">
       <PageHeader title={t('nodes.title')} description={t('nodes.description')}>
@@ -483,96 +587,7 @@ export default function NodesPage() {
         </div>
 
         <div className="p-5 md:p-6">
-          {error && nodes.length === 0 ? (
-            <EmptyState
-              icon={AlertTriangle}
-              tone="error"
-              title={t('nodes.error.title')}
-              description={t('nodes.error.description')}
-              action={
-                <Button variant="outline" onClick={() => void refresh()}>
-                  {t('common.retry')}
-                </Button>
-              }
-            />
-          ) : nodes.length === 0 ? (
-            <EmptyState
-              icon={Network}
-              title={t('nodes.empty.title')}
-              description={t('nodes.empty.description')}
-              action={
-                <Button onClick={() => setIsCreateOpen(true)}>
-                  <Plus aria-hidden="true" />
-                  {t('nodes.addNode')}
-                </Button>
-              }
-            />
-          ) : (
-            <>
-              {/* Phones and tablets (the sidebar leaves too little room for the table): one stacked row per node. */}
-              <ul className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60 bg-background/30 lg:hidden">
-                {nodes.map((node) => (
-                  <li key={node.id} className="flex items-center gap-2 py-2 pl-4 pr-2">
-                    <div className="min-w-0 flex-1 py-1">
-                      <div className="flex min-w-0 items-center justify-between gap-2">
-                        <a
-                          href={`/nodes/view/?id=${node.id}`}
-                          className="min-w-0 truncate rounded-sm text-sm font-semibold text-foreground hover:underline focus-ring"
-                        >
-                          {node.name}
-                        </a>
-                        <NodeStatusBadge status={node.status} />
-                      </div>
-                      <p className="mt-1 flex flex-wrap items-baseline gap-x-1.5 text-xs text-muted-foreground">
-                        <span className={cn('min-w-0 max-w-full truncate', !node.isLocal && 'font-mono')}>{node.location}</span>
-                        <span aria-hidden="true">·</span>
-                        <span className="whitespace-nowrap tabular-nums">{t('nodes.serversCount', { count: serverCount(node) })}</span>
-                      </p>
-                    </div>
-                    {renderActions(node)}
-                  </li>
-                ))}
-              </ul>
-
-              {/* Desktop: the full table. */}
-              <div className="hidden overflow-hidden rounded-xl border border-border/60 bg-background/30 lg:block">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead>{t('nodes.table.name')}</TableHead>
-                      <TableHead>{t('nodes.table.location')}</TableHead>
-                      <TableHead>{t('dashboard.table.status')}</TableHead>
-                      <TableHead className="text-right">{t('nodes.table.servers')}</TableHead>
-                      <TableHead className="w-14"><span className="sr-only">{t('dashboard.table.actions')}</span></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {nodes.map((node) => (
-                      <TableRow key={node.id} className="hover:bg-accent/30">
-                        <TableCell className="max-w-[16rem] font-medium">
-                          <a href={`/nodes/view/?id=${node.id}`} className="block truncate rounded-sm hover:underline focus-ring">
-                            {node.name}
-                          </a>
-                        </TableCell>
-                        <TableCell className={cn('max-w-[16rem] truncate text-muted-foreground', !node.isLocal && 'font-mono text-xs')}>
-                          {node.location}
-                        </TableCell>
-                        <TableCell>
-                          <NodeStatusBadge status={node.status} />
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {serverCount(node)}
-                        </TableCell>
-                        <TableCell className="py-2 text-right">
-                          {renderActions(node)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </>
-          )}
+          {nodeList}
         </div>
       </Card>
 

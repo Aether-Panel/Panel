@@ -80,7 +80,8 @@ export function ApiKeysView() {
 
     const formatDate = (value: string) => {
         const d = new Date(value);
-        return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', { dateStyle: 'medium' });
+        if (Number.isNaN(d.getTime())) return '—';
+        return d.toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', { dateStyle: 'medium' });
     };
 
     // One dialog: the name form first, then the generated key (shown once).

@@ -67,6 +67,38 @@ func (c SteamGameDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult
 	}
 
 	cmdArgs := []string{filepath.Join(rootBinaryFolder, "depotdownloader", DepotDownloaderBinary), "-app", c.AppID, "-dir", manifestDir, "-loginid", loginID, "-manifest-only"}
+	cmdArgs = c.appendLoginArgs(cmdArgs)
+	cmdArgs = append(cmdArgs, c.ExtraArgs...)
+
+	err = runDepotDownloader(env, cmdArgs, nil)
+	if err != nil {
+		return skypanel.OperationResult{Error: err}
+	}
+
+	// download game itself now
+	cmdArgs = []string{filepath.Join(rootBinaryFolder, "depotdownloader", DepotDownloaderBinary), "-app", c.AppID, "-dir", ".", "-loginid", loginID, "-validate"}
+	cmdArgs = c.appendLoginArgs(cmdArgs)
+	cmdArgs = append(cmdArgs, c.ExtraArgs...)
+
+	err = runDepotDownloader(env, cmdArgs, map[string]string{
+		"TERM": "SkyPanel", // we use a fake TERM because DD will use a display that is not supported by us directly
+	})
+	if err != nil {
+		return skypanel.OperationResult{Error: err}
+	}
+
+	// for each file we download, we need to just... chmod +x the files
+	// we rely on the manifests for this
+	err = chmodFromManifests(cleanRoot, cleanManifest)
+	if err != nil {
+		return skypanel.OperationResult{Error: err}
+	}
+
+	return skypanel.OperationResult{Error: nil}
+}
+
+// appendLoginArgs adds the steam login and the lancache flag.
+func (c SteamGameDl) appendLoginArgs(cmdArgs []string) []string {
 	if c.Username != "" {
 		cmdArgs = append(cmdArgs, "-username", c.Username, "-remember-password")
 		if c.Password != "" {
@@ -76,66 +108,35 @@ func (c SteamGameDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult
 	if !config.DepotDownloaderDisableLancache.Value() {
 		cmdArgs = append(cmdArgs, "-use-lancache")
 	}
-	cmdArgs = append(cmdArgs, c.ExtraArgs...)
+	return cmdArgs
+}
 
+// runDepotDownloader runs depotdownloader and waits for it to exit.
+func runDepotDownloader(env *skypanel.Environment, cmdArgs []string, environment map[string]string) error {
 	ch := make(chan int, 1)
 	steps := skypanel.ExecutionData{
 		Command: utils.MergeArguments(cmdArgs),
 		Callback: func(exitCode int) {
 			ch <- exitCode
 		},
+		Environment: environment,
 	}
-	err = env.Execute(steps)
+	err := env.Execute(steps)
 	if err != nil {
-		return skypanel.OperationResult{Error: err}
+		return err
 	}
 	exitCode := <-ch
 	if exitCode != 0 {
-		err = fmt.Errorf("depotdownloader exited with non-zero code %d", exitCode)
-		return skypanel.OperationResult{Error: err}
+		return fmt.Errorf("depotdownloader exited with non-zero code %d", exitCode)
 	}
+	return nil
+}
 
-	// download game itself now
-	cmdArgs = []string{filepath.Join(rootBinaryFolder, "depotdownloader", DepotDownloaderBinary), "-app", c.AppID, "-dir", ".", "-loginid", loginID, "-validate"}
-	if c.Username != "" {
-		cmdArgs = append(cmdArgs, "-username", c.Username, "-remember-password")
-		if c.Password != "" {
-			cmdArgs = append(cmdArgs, "-password", c.Password)
-		}
-	}
-
-	if !config.DepotDownloaderDisableLancache.Value() {
-		cmdArgs = append(cmdArgs, "-use-lancache")
-	}
-
-	if len(c.ExtraArgs) > 0 {
-		cmdArgs = append(cmdArgs, c.ExtraArgs...)
-	}
-
-	steps = skypanel.ExecutionData{
-		Command: utils.MergeArguments(cmdArgs),
-		Callback: func(exitCode int) {
-			ch <- exitCode
-		},
-		Environment: map[string]string{
-			"TERM": "SkyPanel", // we use a fake TERM because DD will use a display that is not supported by us directly
-		},
-	}
-	err = env.Execute(steps)
-	if err != nil {
-		return skypanel.OperationResult{Error: err}
-	}
-	exitCode = <-ch
-	if exitCode != 0 {
-		err = fmt.Errorf("depotdownloader exited with non-zero code %d", exitCode)
-		return skypanel.OperationResult{Error: err}
-	}
-
-	// for each file we download, we need to just... chmod +x the files
-	// we rely on the manifests for this
+// chmodFromManifests marks the downloaded files executable, as listed in the manifests.
+func chmodFromManifests(cleanRoot, cleanManifest string) error {
 	manifests, err := os.ReadDir(cleanManifest)
 	if err != nil {
-		return skypanel.OperationResult{Error: err}
+		return err
 	}
 	for _, manifest := range manifests {
 		if manifest.Type().IsDir() || !strings.HasSuffix(manifest.Name(), ".txt") {
@@ -143,11 +144,10 @@ func (c SteamGameDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult
 		}
 		err = walkManifest(cleanRoot, manifest.Name())
 		if err != nil {
-			return skypanel.OperationResult{Error: err}
+			return err
 		}
 	}
-
-	return skypanel.OperationResult{Error: nil}
+	return nil
 }
 
 func downloadMetadata(env *skypanel.Environment) error {

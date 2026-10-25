@@ -8,12 +8,11 @@ import { useAuth } from '@/contexts/providers';
 import { AnimatedNumber } from '@/components/animated-number';
 import { LiveDot, PlayerStack } from '@/components/player-presence';
 
-export const usageColor = (value: number) =>
-  value >= 85
-    ? 'bg-destructive [--meter:var(--destructive)]'
-    : value >= 60
-      ? 'bg-warning [--meter:var(--warning)]'
-      : 'bg-success [--meter:var(--success)]';
+export const usageColor = (value: number) => {
+  if (value >= 85) return 'bg-destructive [--meter:var(--destructive)]';
+  if (value >= 60) return 'bg-warning [--meter:var(--warning)]';
+  return 'bg-success [--meter:var(--success)]';
+};
 
 export function MetricBar({ label, value, extra }: Readonly<{ label: string; value: number; extra?: string }>) {
   return (

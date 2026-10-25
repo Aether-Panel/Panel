@@ -77,6 +77,26 @@ func (n *NodeView) CopyToModel(newModel *Node) {
 func (n *NodeView) Valid(allowEmpty bool) error {
 	validate := validator.New()
 
+	if err := n.validateNameAndHosts(validate, allowEmpty); err != nil {
+		return err
+	}
+
+	if err := n.validatePorts(validate, allowEmpty); err != nil {
+		return err
+	}
+
+	if n.SFTPPort != 0 && n.SFTPPort == n.PublicPort {
+		return skypanel.ErrFieldEqual("sftpPort", "publicPort")
+	}
+
+	if n.SFTPPort != 0 && n.SFTPPort == n.PrivatePort {
+		return skypanel.ErrFieldEqual("sftpPort", "privatePort")
+	}
+
+	return nil
+}
+
+func (n *NodeView) validateNameAndHosts(validate *validator.Validate, allowEmpty bool) error {
 	if !allowEmpty && validate.Var(n.Name, "required") != nil {
 		return skypanel.ErrFieldRequired("name")
 	}
@@ -106,6 +126,11 @@ func (n *NodeView) Valid(allowEmpty bool) error {
 		return skypanel.ErrFieldIsInvalidHost("privateHost")
 	}
 
+	return nil
+}
+
+// validatePorts allows zero (keep current) when partial updates are allowed
+func (n *NodeView) validatePorts(validate *validator.Validate, allowEmpty bool) error {
 	if allowEmpty {
 		if validate.Var(n.PublicPort, portOrZeroRule) != nil {
 			return skypanel.ErrFieldTooLarge("publicPort", 65535)
@@ -118,26 +143,19 @@ func (n *NodeView) Valid(allowEmpty bool) error {
 		if validate.Var(n.SFTPPort, portOrZeroRule) != nil {
 			return skypanel.ErrFieldTooLarge("sftpPort", 65535)
 		}
-	} else {
-		if validate.Var(n.PublicPort, portRule) != nil {
-			return skypanel.ErrFieldNotBetween("publicPort", 1, 65535)
-		}
-
-		if validate.Var(n.PrivatePort, portRule) != nil {
-			return skypanel.ErrFieldNotBetween("privatePort", 1, 65535)
-		}
-
-		if validate.Var(n.SFTPPort, portRule) != nil {
-			return skypanel.ErrFieldNotBetween("sftpPort", 1, 65535)
-		}
+		return nil
 	}
 
-	if n.SFTPPort != 0 && n.SFTPPort == n.PublicPort {
-		return skypanel.ErrFieldEqual("sftpPort", "publicPort")
+	if validate.Var(n.PublicPort, portRule) != nil {
+		return skypanel.ErrFieldNotBetween("publicPort", 1, 65535)
 	}
 
-	if n.SFTPPort != 0 && n.SFTPPort == n.PrivatePort {
-		return skypanel.ErrFieldEqual("sftpPort", "privatePort")
+	if validate.Var(n.PrivatePort, portRule) != nil {
+		return skypanel.ErrFieldNotBetween("privatePort", 1, 65535)
+	}
+
+	if validate.Var(n.SFTPPort, portRule) != nil {
+		return skypanel.ErrFieldNotBetween("sftpPort", 1, 65535)
 	}
 
 	return nil

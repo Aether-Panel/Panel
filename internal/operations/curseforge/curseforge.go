@@ -60,52 +60,9 @@ var errNoFile = errors.New("status code 404")
 func (c CurseForge) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	env := args.Environment
 
-	var clientFile, serverFile File
-	var err error
-	if c.FileID == 0 {
-		// we need to get the latest file id to do our calls
-		files, err := getLatestFiles(c.ProjectID)
-		if err != nil {
-			return skypanel.OperationResult{Error: err}
-		}
-
-		for _, v := range files {
-			if !IsAllowedFile(v.FileStatus) {
-				continue
-			}
-			if v.ReleaseType != ReleaseFileType {
-				continue
-			}
-			if serverFile.FileDate.Before(v.FileDate) {
-				serverFile = v
-				continue
-			}
-		}
-
-		if serverFile.ID == 0 {
-			err = errors.New("no files available on CurseForge")
-			return skypanel.OperationResult{Error: err}
-		}
-	} else {
-		serverFile, err = getFileByID(c.ProjectID, c.FileID)
-		if err != nil {
-			return skypanel.OperationResult{Error: err}
-		}
-	}
-
-	if !serverFile.IsServerPack && serverFile.ServerPackFileID != 0 {
-		clientFile = serverFile
-		serverFile, err = getFileByID(c.ProjectID, serverFile.ServerPackFileID)
-		if err != nil {
-			return skypanel.OperationResult{Error: err}
-		}
-	}
-
-	if clientFile.ID == 0 && serverFile.ParentProjectFileID != 0 {
-		clientFile, err = getFileByID(c.ProjectID, serverFile.ParentProjectFileID)
-		if err != nil {
-			return skypanel.OperationResult{Error: err}
-		}
+	serverFile, clientFile, err := c.resolveFiles()
+	if err != nil {
+		return skypanel.OperationResult{Error: err}
 	}
 
 	if !serverFile.IsServerPack {
@@ -130,19 +87,7 @@ func (c CurseForge) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 		}
 	}*/
 
-	serverZipPath := getCacheFilePath(serverFile)
-	logging.Debug.Printf("Extracting modpack from %s\n", serverZipPath)
-	env.DisplayToConsole(true, "Extracting modpack from %s", serverZipPath)
-
-	f, err := os.Open(serverZipPath)
-	if err != nil {
-		return skypanel.OperationResult{Error: err}
-	}
-	singleRoot, _ := files.DetermineIfSingleRoot(context.Background(), serverZipPath, f)
-	_, _ = f.Seek(0, io.SeekStart)
-
-	err = files.ExtractFromReader(f, serverZipPath, env.GetRootDirectory(), "*", singleRoot, nil)
-	_ = f.Close()
+	err = extractModpack(env, serverFile)
 	if err != nil {
 		return skypanel.OperationResult{Error: err}
 	}
@@ -152,42 +97,8 @@ func (c CurseForge) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 	// best case, we can get the modpack set up how we need it
 
 	// set 1: resolve the pack to a "modloader"
-	var modLoader string
-	var data = make(map[string]string)
-	var jar string
-	var vars map[string]string
-	var manifest Manifest
-	if jar, err = findInstallerJar(env); err == nil {
-		logging.Debug.Printf("Found jar: %s\n", jar)
-		if strings.HasPrefix(jar, "neoforgedl") {
-			modLoader = "neoforgedl"
-		} else {
-			modLoader = "forge"
-		}
-		data["jar"] = jar
-	} else if vars, err = readVariableFile(serverFile); err == nil {
-		logging.Debug.Printf("Reading variables.txt\n")
-		modLoader = strings.ToLower(vars["MODLOADER"])
-		data["mcVersion"] = vars["MINECRAFT_VERSION"]
-		data["version"] = vars["MODLOADER_VERSION"]
-		data["installerVersion"] = vars["FABRIC_INSTALLER_VERSION"]
-		logging.Debug.Printf("Resolved: %v\n", data)
-	} else if manifest, err = getManifest(clientFile); err == nil {
-		logging.Debug.Printf("Using manifest: %v\n", manifest.Minecraft)
-		mcVersion := manifest.Minecraft.Version
-		var loaderVersion string
-		for _, v := range manifest.Minecraft.ModLoaders {
-			if v.Primary {
-				loaderVersion = v.ID
-				break
-			}
-		}
-		parts := strings.SplitN(loaderVersion, "-", 2)
-		modLoader = parts[0]
-		data["mcVersion"] = mcVersion
-		data["version"] = parts[1]
-		logging.Debug.Printf("Resolved: %v\n", data)
-	} else {
+	modLoader, data, ok := resolveModLoader(env, serverFile, clientFile)
+	if !ok {
 		// give up
 		env.DisplayToConsole(true, "Unknown server type. Could not prepare server for actual execution")
 		return skypanel.OperationResult{Error: nil}
@@ -206,58 +117,9 @@ func (c CurseForge) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 		fallthrough
 	case "neoforge":
 		{
-			jarFile := data["jar"]
-			if jarFile == "" {
-				var downloadURL string
-				var installerJar = "installer.jar"
-				version := data["version"]
-
-				if modLoader == "neoforge" {
-					downloadURL = replaceTokens(neoforgedl.InstallerURL, map[string]string{"version": version})
-				} else {
-					// because forge has the version in the url, handle it
-					mcVersion := data["mcVersion"]
-					if !strings.HasPrefix(version, mcVersion) {
-						version = mcVersion + "-" + version
-					}
-					downloadURL = replaceTokens(forgedl.InstallerURL, map[string]string{"version": version})
-				}
-
-				dl, err := skypanel.DownloadViaMaven(downloadURL, env)
-				defer utils.Close(dl)
-				if err != nil {
-					return skypanel.OperationResult{Error: err}
-				}
-				// copy to server
-				err = files.WriteFile(dl, filepath.Join(env.GetRootDirectory(), installerJar))
-				if err != nil {
-					return skypanel.OperationResult{Error: err}
-				}
-				jarFile = installerJar
-			}
-
-			err = installViaJar(args.Server, env, jarFile, c.JavaBinary)
+			err = c.installForge(args, modLoader, data)
 			if err != nil {
 				return skypanel.OperationResult{Error: err}
-			}
-
-			// grab the ServerStarter if there isn't a server.jar, just to help out
-			// would prefer Forge's variant, but this will do
-			runJarFile := filepath.Join(env.GetRootDirectory(), serverJarName)
-			if _, err = os.Stat(runJarFile); os.IsNotExist(err) {
-				env.DisplayToConsole(true, "Grabbing ServerStarter")
-				var cachePath = filepath.Join(config.CacheFolder.Value(), "github.com", "neoforgedl", "serverstarter", NeoForgeServerStarterVersion, serverJarName)
-				if _, err = os.Stat(cachePath); os.IsNotExist(err) {
-					env.DisplayToConsole(true, "Downloading "+NeoForgeServerStarter)
-					err = skypanel.DownloadFileToCache(NeoForgeServerStarter, cachePath)
-					if err != nil {
-						return skypanel.OperationResult{Error: err}
-					}
-				}
-				err = files.CopyFile(cachePath, runJarFile)
-				if err != nil {
-					return skypanel.OperationResult{Error: err}
-				}
 			}
 		}
 	default:
@@ -270,6 +132,189 @@ func (c CurseForge) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 	// loaders installed, at this stage, we're "done"
 	env.DisplayToConsole(true, "Pack installed and should be good to go!")
 	return skypanel.OperationResult{Error: nil}
+}
+
+// resolveFiles looks up the server pack to install and, when there is one, the client
+// pack it belongs to.
+func (c CurseForge) resolveFiles() (serverFile, clientFile File, err error) {
+	if c.FileID == 0 {
+		// we need to get the latest file id to do our calls
+		serverFile, err = c.latestReleaseFile()
+	} else {
+		serverFile, err = getFileByID(c.ProjectID, c.FileID)
+	}
+	if err != nil {
+		return
+	}
+
+	if !serverFile.IsServerPack && serverFile.ServerPackFileID != 0 {
+		clientFile = serverFile
+		serverFile, err = getFileByID(c.ProjectID, serverFile.ServerPackFileID)
+		if err != nil {
+			return
+		}
+	}
+
+	if clientFile.ID == 0 && serverFile.ParentProjectFileID != 0 {
+		clientFile, err = getFileByID(c.ProjectID, serverFile.ParentProjectFileID)
+	}
+	return
+}
+
+// latestReleaseFile picks the newest allowed release file of the project.
+func (c CurseForge) latestReleaseFile() (File, error) {
+	var serverFile File
+	files, err := getLatestFiles(c.ProjectID)
+	if err != nil {
+		return serverFile, err
+	}
+
+	for _, v := range files {
+		if !IsAllowedFile(v.FileStatus) {
+			continue
+		}
+		if v.ReleaseType != ReleaseFileType {
+			continue
+		}
+		if serverFile.FileDate.Before(v.FileDate) {
+			serverFile = v
+			continue
+		}
+	}
+
+	if serverFile.ID == 0 {
+		return serverFile, errors.New("no files available on CurseForge")
+	}
+	return serverFile, nil
+}
+
+// extractModpack unpacks the cached server pack into the server directory.
+func extractModpack(env *skypanel.Environment, serverFile File) error {
+	serverZipPath := getCacheFilePath(serverFile)
+	logging.Debug.Printf("Extracting modpack from %s\n", serverZipPath)
+	env.DisplayToConsole(true, "Extracting modpack from %s", serverZipPath)
+
+	f, err := os.Open(serverZipPath)
+	if err != nil {
+		return err
+	}
+	singleRoot, _ := files.DetermineIfSingleRoot(context.Background(), serverZipPath, f)
+	_, _ = f.Seek(0, io.SeekStart)
+
+	err = files.ExtractFromReader(f, serverZipPath, env.GetRootDirectory(), "*", singleRoot, nil)
+	_ = f.Close()
+	return err
+}
+
+// resolveModLoader works out the mod loader from an installer jar, the variables.txt or
+// the client manifest, in that order. ok is false when none of them is there.
+func resolveModLoader(env *skypanel.Environment, serverFile, clientFile File) (modLoader string, data map[string]string, ok bool) {
+	data = make(map[string]string)
+	if jar, err := findInstallerJar(env); err == nil {
+		logging.Debug.Printf("Found jar: %s\n", jar)
+		if strings.HasPrefix(jar, "neoforgedl") {
+			modLoader = "neoforgedl"
+		} else {
+			modLoader = "forge"
+		}
+		data["jar"] = jar
+	} else if vars, err := readVariableFile(serverFile); err == nil {
+		logging.Debug.Printf("Reading variables.txt\n")
+		modLoader = strings.ToLower(vars["MODLOADER"])
+		data["mcVersion"] = vars["MINECRAFT_VERSION"]
+		data["version"] = vars["MODLOADER_VERSION"]
+		data["installerVersion"] = vars["FABRIC_INSTALLER_VERSION"]
+		logging.Debug.Printf("Resolved: %v\n", data)
+	} else if manifest, err := getManifest(clientFile); err == nil {
+		logging.Debug.Printf("Using manifest: %v\n", manifest.Minecraft)
+		mcVersion := manifest.Minecraft.Version
+		parts := strings.SplitN(primaryLoaderID(manifest), "-", 2)
+		modLoader = parts[0]
+		data["mcVersion"] = mcVersion
+		data["version"] = parts[1]
+		logging.Debug.Printf("Resolved: %v\n", data)
+	} else {
+		return "", nil, false
+	}
+	return modLoader, data, true
+}
+
+func primaryLoaderID(manifest Manifest) string {
+	for _, v := range manifest.Minecraft.ModLoaders {
+		if v.Primary {
+			return v.ID
+		}
+	}
+	return ""
+}
+
+// installForge runs the forge or neoforge installer, downloading it first when the pack
+// did not ship one.
+func (c CurseForge) installForge(args skypanel.RunOperatorArgs, modLoader string, data map[string]string) error {
+	env := args.Environment
+	jarFile := data["jar"]
+	if jarFile == "" {
+		var err error
+		jarFile, err = downloadForgeInstaller(env, modLoader, data)
+		if err != nil {
+			return err
+		}
+	}
+
+	err := installViaJar(args.Server, env, jarFile, c.JavaBinary)
+	if err != nil {
+		return err
+	}
+
+	return grabServerStarter(env)
+}
+
+func downloadForgeInstaller(env *skypanel.Environment, modLoader string, data map[string]string) (string, error) {
+	var downloadURL string
+	var installerJar = "installer.jar"
+	version := data["version"]
+
+	if modLoader == "neoforge" {
+		downloadURL = replaceTokens(neoforgedl.InstallerURL, map[string]string{"version": version})
+	} else {
+		// because forge has the version in the url, handle it
+		mcVersion := data["mcVersion"]
+		if !strings.HasPrefix(version, mcVersion) {
+			version = mcVersion + "-" + version
+		}
+		downloadURL = replaceTokens(forgedl.InstallerURL, map[string]string{"version": version})
+	}
+
+	dl, err := skypanel.DownloadViaMaven(downloadURL, env)
+	defer utils.Close(dl)
+	if err != nil {
+		return "", err
+	}
+	// copy to server
+	err = files.WriteFile(dl, filepath.Join(env.GetRootDirectory(), installerJar))
+	if err != nil {
+		return "", err
+	}
+	return installerJar, nil
+}
+
+// grabServerStarter grabs the ServerStarter if there isn't a server.jar, just to help out
+// would prefer Forge's variant, but this will do
+func grabServerStarter(env *skypanel.Environment) error {
+	runJarFile := filepath.Join(env.GetRootDirectory(), serverJarName)
+	if _, err := os.Stat(runJarFile); !os.IsNotExist(err) {
+		return nil
+	}
+	env.DisplayToConsole(true, "Grabbing ServerStarter")
+	var cachePath = filepath.Join(config.CacheFolder.Value(), "github.com", "neoforgedl", "serverstarter", NeoForgeServerStarterVersion, serverJarName)
+	if _, err := os.Stat(cachePath); os.IsNotExist(err) {
+		env.DisplayToConsole(true, "Downloading "+NeoForgeServerStarter)
+		err = skypanel.DownloadFileToCache(NeoForgeServerStarter, cachePath)
+		if err != nil {
+			return err
+		}
+	}
+	return files.CopyFile(cachePath, runJarFile)
 }
 
 func findInstallerJar(env *skypanel.Environment) (string, error) {
@@ -312,22 +357,8 @@ func installViaJar(server skypanel.DaemonServer, env *skypanel.Environment, jarF
 
 	// delete installer now
 	cleanJar := filepath.Base(jarFile)
-	jarPath := filepath.Join(cleanRoot, cleanJar)
-	cleanJarPath := filepath.Clean(jarPath)
-	if strings.HasPrefix(cleanJarPath, rootPrefix) {
-		err = os.Remove(cleanJarPath)
-		if err != nil {
-			env.DisplayToConsole(true, failedDeleteInstallerMsg)
-		}
-	}
-	logPath := filepath.Join(cleanRoot, cleanJar+".log")
-	cleanLogPath := filepath.Clean(logPath)
-	if strings.HasPrefix(cleanLogPath, rootPrefix) {
-		err = os.Remove(cleanLogPath)
-		if err != nil {
-			env.DisplayToConsole(true, failedDeleteInstallerMsg)
-		}
-	}
+	removeInRoot(env, filepath.Join(cleanRoot, cleanJar), rootPrefix)
+	removeInRoot(env, filepath.Join(cleanRoot, cleanJar+".log"), rootPrefix)
 
 	// if this is before 1.16, we have a root jar
 	// or if there's a shim
@@ -336,20 +367,34 @@ func installViaJar(server skypanel.DaemonServer, env *skypanel.Environment, jarF
 		strings.Replace(cleanJar, "-installer", "-shim", 1), // forge shim
 	}
 
-	var fi os.FileInfo
 	for _, f := range possibleRenames {
-		fPath := filepath.Join(cleanRoot, f)
-		cleanFPath := filepath.Clean(fPath)
-		serverPath := filepath.Join(cleanRoot, serverJarName)
-		cleanServerPath := filepath.Clean(serverPath)
-		if strings.HasPrefix(cleanFPath, rootPrefix) && strings.HasPrefix(cleanServerPath, rootPrefix) {
-			if fi, err = os.Lstat(cleanFPath); err == nil && !fi.IsDir() {
-				err = os.Rename(cleanFPath, cleanServerPath)
-				if err != nil {
-					return err
-				}
-			}
+		if err = renameToServerJar(cleanRoot, rootPrefix, f); err != nil {
+			return err
 		}
+	}
+	return nil
+}
+
+// removeInRoot deletes an installer leftover, only when it is inside the server root.
+func removeInRoot(env *skypanel.Environment, path, rootPrefix string) {
+	cleanPath := filepath.Clean(path)
+	if !strings.HasPrefix(cleanPath, rootPrefix) {
+		return
+	}
+	if err := os.Remove(cleanPath); err != nil {
+		env.DisplayToConsole(true, failedDeleteInstallerMsg)
+	}
+}
+
+// renameToServerJar moves name to server.jar when it exists as a file in the server root.
+func renameToServerJar(cleanRoot, rootPrefix, name string) error {
+	cleanFPath := filepath.Clean(filepath.Join(cleanRoot, name))
+	cleanServerPath := filepath.Clean(filepath.Join(cleanRoot, serverJarName))
+	if !strings.HasPrefix(cleanFPath, rootPrefix) || !strings.HasPrefix(cleanServerPath, rootPrefix) {
+		return nil
+	}
+	if fi, err := os.Lstat(cleanFPath); err == nil && !fi.IsDir() {
+		return os.Rename(cleanFPath, cleanServerPath)
 	}
 	return nil
 }

@@ -47,21 +47,31 @@ func (m *MergedFS) ReadDir(name string) ([]fs.DirEntry, error) {
 				return nil, err
 			}
 
-			for _, v := range secondary {
-				inPrimary := false
-				for _, z := range results {
-					if v.Name() == z.Name() {
-						inPrimary = true
-					}
-				}
-				if !inPrimary {
-					results = append(results, v)
-				}
-			}
+			results = appendMissingEntries(results, secondary)
 		}
 	}
 
 	return results, nil
+}
+
+// appendMissingEntries adds the entries whose name is not in results yet, so earlier file
+// systems win.
+func appendMissingEntries(results, entries []fs.DirEntry) []fs.DirEntry {
+	for _, v := range entries {
+		if !containsEntry(results, v.Name()) {
+			results = append(results, v)
+		}
+	}
+	return results
+}
+
+func containsEntry(entries []fs.DirEntry, name string) bool {
+	for _, z := range entries {
+		if z.Name() == name {
+			return true
+		}
+	}
+	return false
 }
 
 func (m *MergedFS) ReadFile(name string) (data []byte, err error) {

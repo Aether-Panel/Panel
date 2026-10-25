@@ -68,6 +68,118 @@ const toneDot: Record<Tone, string> = {
     destructive: 'bg-destructive-bright',
 };
 
+type Translate = ReturnType<typeof useTranslations>['t'];
+
+interface StatusView {
+    statusTitle: string;
+    StatusIcon: typeof Loader2;
+    spin: boolean;
+    tone: Tone;
+    statusDescription: string;
+}
+
+/** Status headline while an update is running across the fleet. */
+function updatingStatus(nodes: NodeUpdateStatus[], reconnecting: boolean, t: Translate): StatusView {
+    const base = { StatusIcon: Loader2, spin: true, tone: 'primary' as Tone, statusDescription: '' };
+    if (reconnecting) {
+        return {
+            ...base,
+            statusTitle: t('settings.updates.status.restarting'),
+            statusDescription: t('settings.updates.status.restartingDescription'),
+        };
+    }
+    if (nodes.some((n) => n.running)) {
+        return {
+            ...base,
+            statusTitle: t('settings.updates.status.updatingNodes', { running: nodes.filter((n) => n.running).length, total: nodes.length }),
+            statusDescription: t('settings.updates.status.updatingDescription'),
+        };
+    }
+    if (nodes.some((n) => n.online && n.exitCode !== 0)) {
+        return { ...base, statusTitle: t('settings.updates.status.finishedWithErrors'), StatusIcon: XCircle, spin: false, tone: 'destructive' };
+    }
+    if (nodes.some((n) => !n.online)) {
+        return { ...base, statusTitle: t('settings.updates.status.nodesUnreachable'), StatusIcon: Info, spin: false, tone: 'warning' };
+    }
+    return { ...base, statusTitle: t('settings.updates.status.complete'), StatusIcon: CheckCircle2, spin: false, tone: 'success' };
+}
+
+/** Status headline once the version check has answered and nothing is running. */
+function idleStatus(
+    flags: { updateFailed: boolean; checkFailed: boolean; unknownCurrent: boolean; updateAvailable: boolean },
+    t: Translate,
+): StatusView {
+    const base = { spin: false, statusDescription: '' };
+    if (flags.updateFailed) {
+        return { ...base, statusTitle: t('settings.updates.status.failed'), StatusIcon: XCircle, tone: 'destructive' };
+    }
+    if (flags.checkFailed) {
+        return {
+            ...base,
+            statusTitle: t('settings.updates.status.checkFailed'),
+            StatusIcon: XCircle,
+            tone: 'destructive',
+            statusDescription: t('settings.updates.status.checkFailedDescription'),
+        };
+    }
+    if (flags.unknownCurrent) {
+        return {
+            ...base,
+            statusTitle: t('settings.updates.status.unknownCurrent'),
+            StatusIcon: Info,
+            tone: 'warning',
+            statusDescription: t('settings.updates.status.unknownCurrentDescription'),
+        };
+    }
+    if (flags.updateAvailable) {
+        return {
+            ...base,
+            statusTitle: t('settings.updates.status.available'),
+            StatusIcon: ArrowUpCircle,
+            tone: 'primary',
+            statusDescription: t('settings.updates.status.availableDescription'),
+        };
+    }
+    return { ...base, statusTitle: t('settings.updates.status.upToDate'), StatusIcon: CheckCircle2, tone: 'success' };
+}
+
+/** Label, tone and icon for one node's row in the fleet list. */
+function nodeRowState(node: NodeUpdateStatus, t: Translate): { label: string; nodeTone: Tone; icon: ReactNode } {
+    if (node.running) {
+        return {
+            label: t('settings.updates.node.updating'),
+            nodeTone: 'primary',
+            icon: <Loader2 className="h-4 w-4 animate-spin text-primary-bright" aria-hidden="true" />,
+        };
+    }
+    if (!node.online) {
+        return {
+            label: node.error || t('settings.updates.node.unreachable'),
+            nodeTone: 'destructive',
+            icon: <XCircle className="h-4 w-4 text-destructive-bright" aria-hidden="true" />,
+        };
+    }
+    if (node.exitCode !== 0) {
+        return {
+            label: t('settings.updates.node.failed', { code: node.exitCode }),
+            nodeTone: 'destructive',
+            icon: <XCircle className="h-4 w-4 text-destructive-bright" aria-hidden="true" />,
+        };
+    }
+    return {
+        label: t('settings.updates.node.completed'),
+        nodeTone: 'success',
+        icon: <CheckCircle2 className="h-4 w-4 text-success" aria-hidden="true" />,
+    };
+}
+
+/** Current shows the panel version with the deployed commit between parens. */
+function formatCurrent(current: string, panelVersion: string): string | null {
+    if (!current) return null;
+    if (panelVersion) return `${panelVersion} (${current.substring(0, 7)})`;
+    return current.substring(0, 7);
+}
+
 export function UpdatesTab() {
     const { t } = useTranslations();
     const [check, setCheck] = useState<UpdateCheckResult | null>(null);
@@ -187,65 +299,24 @@ export function UpdatesTab() {
     const updateAvailable = Boolean(check?.updateAvailable);
 
     const nodes = updateStatus?.nodes ?? [];
-    const anyRunning = nodes.some((n) => n.running);
-    const anyFailed = nodes.some((n) => n.online && n.exitCode !== 0);
-    const anyUnreachable = nodes.some((n) => !n.online);
 
-    let statusTitle = t('settings.updates.status.checking');
-    let StatusIcon: typeof Loader2 = Loader2;
-    let spin = true;
-    let tone: Tone = 'muted';
-    let statusDescription = '';
-
+    let status: StatusView = {
+        statusTitle: t('settings.updates.status.checking'),
+        StatusIcon: Loader2,
+        spin: true,
+        tone: 'muted',
+        statusDescription: '',
+    };
     if (updating) {
-        if (reconnecting) {
-            statusTitle = t('settings.updates.status.restarting');
-            tone = 'primary';
-            statusDescription = t('settings.updates.status.restartingDescription');
-        } else if (anyRunning) {
-            statusTitle = t('settings.updates.status.updatingNodes', { running: nodes.filter((n) => n.running).length, total: nodes.length });
-            tone = 'primary';
-            statusDescription = t('settings.updates.status.updatingDescription');
-        } else if (anyFailed) {
-            statusTitle = t('settings.updates.status.finishedWithErrors');
-            StatusIcon = XCircle; spin = false; tone = 'destructive';
-        } else if (anyUnreachable) {
-            statusTitle = t('settings.updates.status.nodesUnreachable');
-            StatusIcon = Info; spin = false; tone = 'warning';
-        } else {
-            statusTitle = t('settings.updates.status.complete');
-            StatusIcon = CheckCircle2; spin = false; tone = 'success';
-        }
+        status = updatingStatus(nodes, reconnecting, t);
     } else if (!checking) {
-        spin = false;
-        if (updateFailed) {
-            statusTitle = t('settings.updates.status.failed');
-            StatusIcon = XCircle; tone = 'destructive';
-        } else if (checkFailed) {
-            statusTitle = t('settings.updates.status.checkFailed');
-            StatusIcon = XCircle; tone = 'destructive';
-            statusDescription = t('settings.updates.status.checkFailedDescription');
-        } else if (unknownCurrent) {
-            statusTitle = t('settings.updates.status.unknownCurrent');
-            StatusIcon = Info; tone = 'warning';
-            statusDescription = t('settings.updates.status.unknownCurrentDescription');
-        } else if (updateAvailable) {
-            statusTitle = t('settings.updates.status.available');
-            StatusIcon = ArrowUpCircle; tone = 'primary';
-            statusDescription = t('settings.updates.status.availableDescription');
-        } else {
-            statusTitle = t('settings.updates.status.upToDate');
-            StatusIcon = CheckCircle2; tone = 'success';
-        }
+        status = idleStatus({ updateFailed, checkFailed, unknownCurrent: Boolean(unknownCurrent), updateAvailable }, t);
     }
+    const { statusTitle, StatusIcon, spin, tone, statusDescription } = status;
 
     // Current shows the panel version with the deployed commit between parens,
     // while Latest shows the most recent commit available.
-    const currentDisplay = current
-        ? panelVersion
-            ? `${panelVersion} (${current.substring(0, 7)})`
-            : current.substring(0, 7)
-        : null;
+    const currentDisplay = formatCurrent(current, panelVersion);
     const latestDisplay = latest ? latest.substring(0, 7) : null;
 
     return (
@@ -299,26 +370,7 @@ export function UpdatesTab() {
                         <h4 className="text-sm font-semibold">{t('settings.updates.nodesTitle')}</h4>
                         <ul className="divide-y divide-border/50 rounded-xl border border-border/60 bg-background/30">
                             {nodes.map((node) => {
-                                let label: string;
-                                let nodeTone: Tone;
-                                let icon: ReactNode;
-                                if (node.running) {
-                                    label = t('settings.updates.node.updating');
-                                    nodeTone = 'primary';
-                                    icon = <Loader2 className="h-4 w-4 animate-spin text-primary-bright" aria-hidden="true" />;
-                                } else if (!node.online) {
-                                    label = node.error || t('settings.updates.node.unreachable');
-                                    nodeTone = 'destructive';
-                                    icon = <XCircle className="h-4 w-4 text-destructive-bright" aria-hidden="true" />;
-                                } else if (node.exitCode !== 0) {
-                                    label = t('settings.updates.node.failed', { code: node.exitCode });
-                                    nodeTone = 'destructive';
-                                    icon = <XCircle className="h-4 w-4 text-destructive-bright" aria-hidden="true" />;
-                                } else {
-                                    label = t('settings.updates.node.completed');
-                                    nodeTone = 'success';
-                                    icon = <CheckCircle2 className="h-4 w-4 text-success" aria-hidden="true" />;
-                                }
+                                const { label, nodeTone, icon } = nodeRowState(node, t);
 
                                 return (
                                     <li key={node.name} className="px-4 py-3">

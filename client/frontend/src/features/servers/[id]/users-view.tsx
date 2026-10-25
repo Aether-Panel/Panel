@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { UserAvatar } from '@/components/user-avatar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -106,6 +106,89 @@ export default function UsersView({ serverId }: Readonly<UsersViewProps>) {
     }
   };
 
+  let body: ReactNode;
+  if (loading) {
+    body = (
+      <div className="flex justify-center py-16">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t('common.loading')} />
+      </div>
+    );
+  } else if (users.length === 0) {
+    body = (
+      <EmptyState
+        icon={UsersIcon}
+        title={t('servers.users.noUsers')}
+        action={
+          <Button onClick={() => setIsDialogOpen(true)}>
+            <Plus aria-hidden="true" />
+            {t('servers.users.addUser')}
+          </Button>
+        }
+      />
+    );
+  } else {
+    body = (
+      <ul className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60 bg-background/30">
+      {users.map((user) => (
+        <li key={user.email} className="flex items-center justify-between gap-4 px-4 py-3.5 transition-colors duration-150 hover:bg-accent/30">
+          <div className="flex min-w-0 items-center gap-3.5">
+            <UserAvatar
+              identity={user.email || user.username}
+              fallback={(user.username || user.email).charAt(0).toUpperCase()}
+              className="h-10 w-10 ring-1 ring-border/60"
+            />
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="truncate text-sm font-semibold leading-tight">{user.username || user.email.split('@')[0]}</p>
+                <Badge
+                  variant="outline"
+                  className="hidden shrink-0 items-center gap-1 border-border/60 px-1.5 py-px text-[11px] font-medium text-muted-foreground sm:inline-flex"
+                >
+                  <ShieldCheck className="h-2.5 w-2.5" aria-hidden="true" />
+                  {t('servers.users.permissionsCount', { count: user.scopes?.length || 0 })}
+                </Badge>
+              </div>
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">{user.email}</p>
+            </div>
+          </div>
+
+          <div className="shrink-0">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 w-9 px-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive-bright sm:w-auto sm:px-3"
+                  aria-label={t('servers.users.revoke')}
+                >
+                  <Trash2 aria-hidden="true" />
+                  <span className="hidden sm:inline">
+                    {t('servers.users.revoke')}
+                  </span>
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{t('servers.users.revoke')}</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {t('servers.users.revokeConfirm')}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => handleRevoke(user.email)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    {t('servers.users.revoke')}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </li>
+      ))}
+      </ul>
+    );
+  }
+
   return (
     <Card className="mt-6">
       <div className="flex flex-col gap-4 border-b border-border/50 p-5 sm:flex-row sm:items-center sm:justify-between md:p-6">
@@ -154,81 +237,7 @@ export default function UsersView({ serverId }: Readonly<UsersViewProps>) {
       </div>
 
       <div className="p-5 md:p-6">
-        {loading ? (
-          <div className="flex justify-center py-16">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t('common.loading')} />
-          </div>
-        ) : users.length === 0 ? (
-          <EmptyState
-            icon={UsersIcon}
-            title={t('servers.users.noUsers')}
-            action={
-              <Button onClick={() => setIsDialogOpen(true)}>
-                <Plus aria-hidden="true" />
-                {t('servers.users.addUser')}
-              </Button>
-            }
-          />
-        ) : (
-          <ul className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60 bg-background/30">
-          {users.map((user) => (
-            <li key={user.email} className="flex items-center justify-between gap-4 px-4 py-3.5 transition-colors duration-150 hover:bg-accent/30">
-              <div className="flex min-w-0 items-center gap-3.5">
-                <UserAvatar
-                  identity={user.email || user.username}
-                  fallback={(user.username || user.email).charAt(0).toUpperCase()}
-                  className="h-10 w-10 ring-1 ring-border/60"
-                />
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate text-sm font-semibold leading-tight">{user.username || user.email.split('@')[0]}</p>
-                    <Badge
-                      variant="outline"
-                      className="hidden shrink-0 items-center gap-1 border-border/60 px-1.5 py-px text-[11px] font-medium text-muted-foreground sm:inline-flex"
-                    >
-                      <ShieldCheck className="h-2.5 w-2.5" aria-hidden="true" />
-                      {t('servers.users.permissionsCount', { count: user.scopes?.length || 0 })}
-                    </Badge>
-                  </div>
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">{user.email}</p>
-                </div>
-              </div>
-
-              <div className="shrink-0">
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-9 w-9 px-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive-bright sm:w-auto sm:px-3"
-                      aria-label={t('servers.users.revoke')}
-                    >
-                      <Trash2 aria-hidden="true" />
-                      <span className="hidden sm:inline">
-                        {t('servers.users.revoke')}
-                      </span>
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>{t('servers.users.revoke')}</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        {t('servers.users.revokeConfirm')}
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => handleRevoke(user.email)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                        {t('servers.users.revoke')}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-            </li>
-          ))}
-          </ul>
-        )}
+        {body}
       </div>
     </Card>
   );

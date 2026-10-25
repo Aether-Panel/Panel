@@ -9,6 +9,7 @@ import { useTranslations } from '@/contexts/translations-context';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { EmptyState } from '@/components/empty-state';
+import { keyedByContent } from '@/lib/keyed';
 
 type LogEntry = {
   time: string;
@@ -192,8 +193,8 @@ export default function AISummary({ logs, serverId }: Readonly<{ logs?: LogEntry
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               {t('servers.aiSummary.loading')}
             </p>
-            {[92, 78, 85].map((width, i) => (
-              <div key={i} aria-hidden="true" className="skeleton-shimmer h-3 rounded-full" style={{ width: `${width}%` }} />
+            {[92, 78, 85].map((width) => (
+              <div key={width} aria-hidden="true" className="skeleton-shimmer h-3 rounded-full" style={{ width: `${width}%` }} />
             ))}
           </output>
         )}
@@ -215,8 +216,8 @@ export default function AISummary({ logs, serverId }: Readonly<{ logs?: LogEntry
                   </AccordionTrigger>
                   <AccordionContent>
                     <ul className="list-disc space-y-2 pl-6">
-                      {tips.suggestions.map((tip, i) => (
-                        <li key={i} className="text-sm text-foreground/80">{tip}</li>
+                      {keyedByContent(tips.suggestions).map(({ key, item: tip }) => (
+                        <li key={key} className="text-sm text-foreground/80">{tip}</li>
                       ))}
                     </ul>
                   </AccordionContent>
@@ -230,8 +231,8 @@ export default function AISummary({ logs, serverId }: Readonly<{ logs?: LogEntry
                   </AccordionTrigger>
                   <AccordionContent>
                     <ul className="list-disc space-y-2 pl-6">
-                      {tips.rootCauses.map((cause, i) => (
-                        <li key={i} className="text-sm text-foreground/80">{cause}</li>
+                      {keyedByContent(tips.rootCauses).map(({ key, item: cause }) => (
+                        <li key={key} className="text-sm text-foreground/80">{cause}</li>
                       ))}
                     </ul>
                   </AccordionContent>

@@ -1,4 +1,5 @@
 'use client';
+import type { ComponentProps } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import type { Server } from '@/lib/data';
@@ -10,6 +11,21 @@ import { EmptyState } from '@/components/empty-state';
 
 const CPU_COLOR = 'hsl(var(--chart-1))';
 const MEM_COLOR = 'hsl(var(--chart-2))';
+
+type TooltipFormatter = NonNullable<ComponentProps<typeof ChartTooltipContent>['formatter']>;
+
+/** Tooltip row: the series dot and label on the left, the value on the right. */
+const tooltipFormatter =
+  (config: ChartConfig): TooltipFormatter =>
+  (value, name, item) => (
+    <div className="flex w-full items-center justify-between gap-4">
+      <span className="flex items-center gap-2 text-muted-foreground">
+        <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ backgroundColor: item?.color }} />
+        {config[name]?.label ?? name}
+      </span>
+      <span className="font-medium tabular-nums text-foreground">{Math.round(Number(value))}%</span>
+    </div>
+  );
 
 type MetricsChartsProps = {
   serverMetrics: Server['metrics'];
@@ -114,15 +130,7 @@ export default function MetricsCharts({ serverMetrics, className }: Readonly<Met
                   <ChartTooltipContent
                     indicator="dot"
                     labelFormatter={(_, payload) => payload?.[0]?.payload?.time ?? ''}
-                    formatter={(value, name, item) => (
-                      <div className="flex w-full items-center justify-between gap-4">
-                        <span className="flex items-center gap-2 text-muted-foreground">
-                          <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ backgroundColor: item?.color }} />
-                          {chartConfig[name as keyof typeof chartConfig]?.label ?? name}
-                        </span>
-                        <span className="font-medium tabular-nums text-foreground">{Math.round(Number(value))}%</span>
-                      </div>
-                    )}
+                    formatter={tooltipFormatter(chartConfig)}
                   />
                 }
               />

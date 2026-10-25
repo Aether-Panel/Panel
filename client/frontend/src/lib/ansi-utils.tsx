@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { keyedByContent } from '@/lib/keyed';
 
 interface AnsiSegment {
     text: string;
@@ -29,29 +30,37 @@ function processExtendedColor(codes: number[], i: number): { color?: string, ski
     return { skip: 0 };
 }
 
+function resetState(state: AnsiState): void {
+    state.fg = undefined;
+    state.bg = undefined;
+    state.bold = false;
+    state.italic = false;
+    state.underline = false;
+}
+
+/** Standard colour codes: 30–37 / 90–97 set the foreground, 40–47 / 100–107 the background. */
+function applyStandardColor(code: number, state: AnsiState): void {
+    if (code >= 30 && code <= 37) state.fg = getStandardColor(code - 30);
+    else if (code >= 40 && code <= 47) state.bg = getStandardColor(code - 40);
+    else if (code >= 90 && code <= 97) state.fg = getStandardColor(code - 90, true);
+    else if (code >= 100 && code <= 107) state.bg = getStandardColor(code - 100, true);
+}
+
 function applyAnsiCode(code: number, codes: number[], i: number, state: AnsiState): number {
-    if (code === 0) {
-        state.fg = undefined;
-        state.bg = undefined;
-        state.bold = false;
-        state.italic = false;
-        state.underline = false;
-    } else if (code === 1) state.bold = true;
+    // 38 / 48 take extra codes (256-colour or RGB); report how many to skip.
+    if (code === 38 || code === 48) {
+        const { color, skip } = processExtendedColor(codes, i);
+        if (color && code === 38) state.fg = color;
+        if (color && code === 48) state.bg = color;
+        return skip;
+    }
+
+    if (code === 0) resetState(state);
+    else if (code === 1) state.bold = true;
     else if (code === 3) state.italic = true;
     else if (code === 4) state.underline = true;
-    else if (code >= 30 && code <= 37) state.fg = getStandardColor(code - 30);
-    else if (code === 38) {
-        const { color, skip } = processExtendedColor(codes, i);
-        if (color) state.fg = color;
-        return skip;
-    } else if (code >= 40 && code <= 47) state.bg = getStandardColor(code - 40);
-    else if (code === 48) {
-        const { color, skip } = processExtendedColor(codes, i);
-        if (color) state.bg = color;
-        return skip;
-    } else if (code >= 90 && code <= 97) state.fg = getStandardColor(code - 90, true);
-    else if (code >= 100 && code <= 107) state.bg = getStandardColor(code - 100, true);
-    
+    else applyStandardColor(code, state);
+
     return 0;
 }
 
@@ -118,9 +127,9 @@ export const AnsiText: React.FC<{ text: string }> = ({ text }) => {
 
     return (
         <>
-            {segments.map((segment, i) => (
+            {keyedByContent(segments, (segment) => segment.text).map(({ key, item: segment }) => (
                 <span
-                    key={i}
+                    key={key}
                     style={{
                         color: segment.fg,
                         backgroundColor: segment.bg,

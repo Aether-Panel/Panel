@@ -1,6 +1,6 @@
 'use client';
 import { useAuth } from '@/contexts/providers';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { PageHeader } from '@/components/page-header';
 import { EmptyState } from '@/components/empty-state';
 import { Button } from '@/components/ui/button';
@@ -149,6 +149,65 @@ export default function ServersPage() {
     </Dialog>
   );
 
+  let body: ReactNode;
+  if (serversError && servers.length === 0) {
+    body = (
+      <EmptyState
+        icon={AlertTriangle}
+        tone="error"
+        as="h2"
+        title={t('servers.error.title')}
+        description={t('servers.error.description')}
+        action={
+          <Button variant="outline" onClick={() => void refresh()}>
+            {t('common.retry')}
+          </Button>
+        }
+      />
+    );
+  } else if (servers.length === 0) {
+    body = (
+      <EmptyState
+        icon={ServerIcon}
+        as="h2"
+        title={t('servers.empty.title')}
+        description={t(hasScope('admin') ? 'servers.empty.description' : 'servers.empty.descriptionAssigned')}
+        action={
+          hasScope('admin') && (
+            <Button onClick={() => setIsCreateOpen(true)}>
+              <Plus aria-hidden="true" />
+              {t('servers.addServer')}
+            </Button>
+          )
+        }
+      />
+    );
+  } else if (filteredServers.length === 0) {
+    body = (
+      <EmptyState
+        icon={Search}
+        as="h2"
+        title={t('servers.noResults.title')}
+        description={t('servers.noResults.description')}
+        action={
+          hasActiveFilters && (
+            <Button variant="outline" onClick={resetFilters}>
+              {t('servers.noResults.clear')}
+            </Button>
+          )
+        }
+      />
+    );
+  } else {
+    body = (
+      <div className="stagger grid grid-cols-[repeat(auto-fill,minmax(min(20rem,100%),1fr))] gap-5">
+        {filteredServers.map((server) => (
+          <ServerCard key={server.id} server={server} t={t} />
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="stagger flex flex-col gap-6">
       <PageHeader title={t('servers.title')} description={t('servers.description')}>
@@ -192,10 +251,9 @@ export default function ServersPage() {
           )}
         </div>
 
-        <div
-          role="group"
+        <fieldset
           aria-label={t('servers.filter.label')}
-          className="flex items-center gap-0.5 rounded-lg border border-border/60 bg-background/40 p-0.5"
+          className="flex min-w-0 items-center gap-0.5 rounded-lg border border-border/60 bg-background/40 p-0.5"
         >
           {statusFilters.map((filter) => {
             const active = statusFilter === filter.value;
@@ -220,58 +278,10 @@ export default function ServersPage() {
               </button>
             );
           })}
-        </div>
+        </fieldset>
       </div>
 
-      {serversError && servers.length === 0 ? (
-        <EmptyState
-          icon={AlertTriangle}
-          tone="error"
-          as="h2"
-          title={t('servers.error.title')}
-          description={t('servers.error.description')}
-          action={
-            <Button variant="outline" onClick={() => void refresh()}>
-              {t('common.retry')}
-            </Button>
-          }
-        />
-      ) : servers.length === 0 ? (
-        <EmptyState
-          icon={ServerIcon}
-          as="h2"
-          title={t('servers.empty.title')}
-          description={t(hasScope('admin') ? 'servers.empty.description' : 'servers.empty.descriptionAssigned')}
-          action={
-            hasScope('admin') && (
-              <Button onClick={() => setIsCreateOpen(true)}>
-                <Plus aria-hidden="true" />
-                {t('servers.addServer')}
-              </Button>
-            )
-          }
-        />
-      ) : filteredServers.length === 0 ? (
-        <EmptyState
-          icon={Search}
-          as="h2"
-          title={t('servers.noResults.title')}
-          description={t('servers.noResults.description')}
-          action={
-            hasActiveFilters && (
-              <Button variant="outline" onClick={resetFilters}>
-                {t('servers.noResults.clear')}
-              </Button>
-            )
-          }
-        />
-      ) : (
-        <div className="stagger grid grid-cols-[repeat(auto-fill,minmax(min(20rem,100%),1fr))] gap-5">
-          {filteredServers.map((server) => (
-            <ServerCard key={server.id} server={server} t={t} />
-          ))}
-        </div>
-      )}
+      {body}
     </div>
   );
 }

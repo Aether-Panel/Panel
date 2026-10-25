@@ -231,8 +231,7 @@ export default function SettingsPage() {
             </Tabs>
 
             {isDirty && (
-                <div
-                    role="region"
+                <section
                     aria-label={t('servers.settings.unsavedChanges')}
                     className="sticky bottom-4 z-20 flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-popover/95 px-4 py-3 shadow-elevation-3 backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200 sm:px-5"
                 >
@@ -246,7 +245,7 @@ export default function SettingsPage() {
                             {saving ? t('common.saving') : t('servers.settings.saveButton')}
                         </Button>
                     </div>
-                </div>
+                </section>
             )}
         </div>
     );

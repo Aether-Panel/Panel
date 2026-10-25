@@ -23,6 +23,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cast"
+	"gorm.io/gorm"
 )
 
 // masterNodeIPKey is the setting that holds the master node's address
@@ -117,11 +118,7 @@ func setSetting(c *gin.Context) {
 	}
 
 	if key == masterNodeIPKey {
-		db := middleware.GetDatabase(c)
-		err = db.Save(&models.PanelSetting{
-			Key:   "master_node_ip",
-			Value: cast.ToString(model.Value),
-		}).Error
+		err = saveMasterNodeIP(middleware.GetDatabase(c), model.Value)
 		if response.HandleError(c, err, http.StatusInternalServerError) {
 			return
 		}
@@ -133,41 +130,53 @@ func setSetting(c *gin.Context) {
 		return
 	}
 
-	for _, v := range editableStringEntries {
-		if v.Key() == key {
-			err = v.Set(strings.TrimSpace(cast.ToString(model.Value)), true)
-			if response.HandleError(c, err, http.StatusInternalServerError) {
-				return
-			}
-
-		}
-	}
-
-	for _, v := range editableBoolEntries {
-		if v.Key() == key {
-			err = v.Set(cast.ToBool(model.Value), true)
-			if response.HandleError(c, err, http.StatusInternalServerError) {
-				return
-			}
-		}
-	}
-
-	for _, v := range editableIntEntries {
-		if v.Key() == key {
-			err = v.Set(cast.ToInt(model.Value), true)
-			if response.HandleError(c, err, http.StatusInternalServerError) {
-				return
-			}
-		}
+	if err = applyEditableSetting(key, model.Value); response.HandleError(c, err, http.StatusInternalServerError) {
+		return
 	}
 
 	services.SyncNodeToConfig()
 
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-		return
-	}
-
 	c.Status(http.StatusNoContent)
+}
+
+// saveMasterNodeIP stores the global master node ip, which lives in the
+// database instead of the config file.
+func saveMasterNodeIP(db *gorm.DB, value interface{}) error {
+	return db.Save(&models.PanelSetting{
+		Key:   "master_node_ip",
+		Value: cast.ToString(value),
+	}).Error
+}
+
+// applyEditableSetting writes the value to the editable config entry with
+// the given key, converted to that entry's type. Unknown keys are ignored.
+func applyEditableSetting(key string, value interface{}) error {
+	if err := setMatchingEntries(editableStringEntries, key, strings.TrimSpace(cast.ToString(value))); err != nil {
+		return err
+	}
+	if err := setMatchingEntries(editableBoolEntries, key, cast.ToBool(value)); err != nil {
+		return err
+	}
+	return setMatchingEntries(editableIntEntries, key, cast.ToInt(value))
+}
+
+// settableEntry is a config entry the settings API can change.
+type settableEntry[T any] interface {
+	Key() string
+	Set(value T, save bool) error
+}
+
+// setMatchingEntries saves the value to every entry with the given key.
+func setMatchingEntries[T any, E settableEntry[T]](entries []E, key string, value T) error {
+	for _, v := range entries {
+		if v.Key() != key {
+			continue
+		}
+		if err := v.Set(value, true); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // @Summary Update multiple panel setting
@@ -198,39 +207,12 @@ func setSettings(c *gin.Context) {
 	for key, value := range *settings {
 		// Intercept the custom global setting
 		if key == masterNodeIPKey {
-			db.Save(&models.PanelSetting{
-				Key:   "master_node_ip",
-				Value: cast.ToString(value),
-			})
+			_ = saveMasterNodeIP(db, value)
 			continue
 		}
 
-		for _, v := range editableStringEntries {
-			if v.Key() == key {
-				err = v.Set(strings.TrimSpace(cast.ToString(value)), true)
-				if response.HandleError(c, err, http.StatusInternalServerError) {
-					return
-				}
-
-			}
-		}
-
-		for _, v := range editableBoolEntries {
-			if v.Key() == key {
-				err = v.Set(cast.ToBool(value), true)
-				if response.HandleError(c, err, http.StatusInternalServerError) {
-					return
-				}
-			}
-		}
-
-		for _, v := range editableIntEntries {
-			if v.Key() == key {
-				err = v.Set(cast.ToInt(value), true)
-				if response.HandleError(c, err, http.StatusInternalServerError) {
-					return
-				}
-			}
+		if err = applyEditableSetting(key, value); response.HandleError(c, err, http.StatusInternalServerError) {
+			return
 		}
 	}
 

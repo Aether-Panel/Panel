@@ -68,36 +68,16 @@ func Upgrade(dbConn *gorm.DB, prettyPrint bool) error {
 
 	for k, v := range migrations {
 		for _, z := range v {
-			if printer != nil {
-				printer.UpdateTitle("Upgrading " + z.ID)
-			}
-
-			time.Sleep(time.Millisecond * 100)
-
-			if err := gormigrate.New(session, options, []*gormigrate.Migration{z}).Migrate(); err != nil {
+			if err := runMigration(session, options, z, printer); err != nil {
 				return err
-			}
-			if printer != nil {
-				pterm.Success.Printfln("Upgrading %s", z.ID)
-				if printer.Total == printer.Current+1 {
-					printer.UpdateTitle("Upgrade complete")
-				}
-				_ = printer.Increment()
 			}
 		}
 
 		// these are migrations we need done first before we can do models
 		// now we can do the models directly
 		if k == 0 {
-			if printer != nil {
-				printer.UpdateTitle("Upgrading models")
-			}
-			if err := migrator.AutoMigrate(dbObjects...); err != nil {
+			if err := migrateModels(migrator, printer); err != nil {
 				return err
-			}
-			if printer != nil {
-				pterm.Success.Println("Upgrading models")
-				_ = printer.Increment()
 			}
 		}
 	}
@@ -108,6 +88,42 @@ func Upgrade(dbConn *gorm.DB, prettyPrint bool) error {
 	}
 
 	time.Sleep(time.Millisecond * 100)
+	return nil
+}
+
+// runMigration applies a single migration, reporting progress when a printer is set
+func runMigration(session *gorm.DB, options *gormigrate.Options, z *gormigrate.Migration, printer *pterm.ProgressbarPrinter) error {
+	if printer != nil {
+		printer.UpdateTitle("Upgrading " + z.ID)
+	}
+
+	time.Sleep(time.Millisecond * 100)
+
+	if err := gormigrate.New(session, options, []*gormigrate.Migration{z}).Migrate(); err != nil {
+		return err
+	}
+	if printer != nil {
+		pterm.Success.Printfln("Upgrading %s", z.ID)
+		if printer.Total == printer.Current+1 {
+			printer.UpdateTitle("Upgrade complete")
+		}
+		_ = printer.Increment()
+	}
+	return nil
+}
+
+// migrateModels auto-migrates every model once the first migration batch is done
+func migrateModels(migrator gorm.Migrator, printer *pterm.ProgressbarPrinter) error {
+	if printer != nil {
+		printer.UpdateTitle("Upgrading models")
+	}
+	if err := migrator.AutoMigrate(dbObjects...); err != nil {
+		return err
+	}
+	if printer != nil {
+		pterm.Success.Println("Upgrading models")
+		_ = printer.Increment()
+	}
 	return nil
 }
 

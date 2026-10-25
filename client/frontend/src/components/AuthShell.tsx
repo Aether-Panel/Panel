@@ -133,8 +133,7 @@ type AuthNoticeProps = {
 /** Result panel for the "email sent" / "password changed" / "link broken" states. */
 export function AuthNotice({ icon: Icon, tone, children }: Readonly<AuthNoticeProps>) {
     return (
-        <div
-            role="status"
+        <output
             className={cn(
                 'flex gap-3 rounded-xl border p-4 text-sm leading-relaxed',
                 tone === 'success' ? 'border-success/25 bg-success/10' : 'border-warning/25 bg-warning/10',
@@ -145,6 +144,6 @@ export function AuthNotice({ icon: Icon, tone, children }: Readonly<AuthNoticePr
                 className={cn('mt-0.5 h-4 w-4 shrink-0', tone === 'success' ? 'text-success' : 'text-warning')}
             />
             <p className="text-foreground/90">{children}</p>
-        </div>
+        </output>
     );
 }

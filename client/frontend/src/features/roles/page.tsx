@@ -114,6 +114,13 @@ const isFullAccess = (role: Role) => (role.scopes || []).includes('admin');
 const effectiveScopes = (role: Role): Set<string> =>
   new Set(isFullAccess(role) ? allPermissionKeys : (role.scopes || []));
 
+/** Group checkbox: off when nothing is picked, on when everything is, indeterminate in between. */
+function groupCheckState(count: number, total: number): boolean | 'indeterminate' {
+  if (count === 0) return false;
+  if (count === total) return true;
+  return 'indeterminate';
+}
+
 function usePermissionLabel() {
   const { t } = useTranslations();
   return useCallback((permissionKey: string): string => {
@@ -286,8 +293,7 @@ function RoleEditorDialog({
               <div className="space-y-3">
                 {filteredGroups.map((group) => {
                   const count = group.keys.filter(k => selected.has(k)).length;
-                  const state: boolean | 'indeterminate' =
-                    count === 0 ? false : count === group.keys.length ? true : 'indeterminate';
+                  const state = groupCheckState(count, group.keys.length);
                   const groupId = `group-${group.label}`;
                   return (
                     <section key={group.label} aria-labelledby={groupId} className="rounded-xl border border-border/60 bg-background/30">

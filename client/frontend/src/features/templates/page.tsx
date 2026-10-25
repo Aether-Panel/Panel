@@ -152,6 +152,19 @@ function EmptyTemplates({ title, description, action }: Readonly<{ title: string
   return <EmptyState icon={LayoutTemplate} title={title} description={description} action={action} />;
 }
 
+/** One tab's body: the skeleton grid while loading, the empty state when there is nothing, the grid otherwise. */
+function TemplateTabBody({ loading, placeholder, isEmpty, empty, children }: Readonly<{
+  loading: boolean;
+  placeholder: React.ReactNode;
+  isEmpty: boolean;
+  empty: React.ReactNode;
+  children: React.ReactNode;
+}>) {
+  if (loading) return <>{placeholder}</>;
+  if (isEmpty) return <>{empty}</>;
+  return <TemplateGrid>{children}</TemplateGrid>;
+}
+
 function TemplatesSkeleton() {
   return (
     <div className="flex flex-col gap-8" aria-busy="true">
@@ -210,7 +223,9 @@ export default function TemplatesPage() {
     setTemplateJson(val);
     try {
       setTemplateObj(JSON.parse(val));
-    } catch (e) { }
+    } catch {
+      // Half-typed JSON is expected while editing; the form keeps the last valid object.
+    }
   };
 
   const { t } = useTranslations();
@@ -223,8 +238,11 @@ export default function TemplatesPage() {
     setLoadingTemplates(true);
     try {
       const loaded: any[] = [];
-      for (const repo of repos) {
-        const tpls = await getTemplatesForRepo(repo.id);
+      // Each repo is its own request (and never throws), so they can load side by side;
+      // Promise.all keeps the results in repo order.
+      const perRepo = await Promise.all(repos.map((repo) => getTemplatesForRepo(repo.id)));
+      perRepo.forEach((tpls, index) => {
+        const repo = repos[index];
         tpls.forEach((t: any) => {
           loaded.push({
             ...t,
@@ -232,7 +250,7 @@ export default function TemplatesPage() {
             repoName: repo.name
           });
         });
-      }
+      });
 
       const localTpls = await getTemplatesForRepo(0);
       localTpls.forEach((t: any) => {
@@ -274,6 +292,7 @@ export default function TemplatesPage() {
       setTemplateJson(JSON.stringify(parsed, null, 2));
       setTemplateObj(parsed);
     } catch (e) {
+      console.error('Failed to read template file:', e);
       sileo.error({ title: t('common.error'), description: t('templates.toast.invalidJson') });
     } finally {
       if (loadFileRef.current) loadFileRef.current.value = '';
@@ -498,49 +517,55 @@ export default function TemplatesPage() {
           </div>
 
           <TabsContent value="local" className="mt-0 p-5 md:p-6">
-            {loadingTemplates ? loadingGrid : localTemplates.length === 0 ? (
-              <EmptyTemplates
-                title={t('templates.empty.localTitle')}
-                description={t('templates.empty.localDescription')}
-                action={canCreate ? (
-                  <Button onClick={openCreate}>
-                    <Plus aria-hidden="true" />
-                    {t('templates.create')}
-                  </Button>
-                ) : undefined}
-              />
-            ) : (
-              <TemplateGrid>
-                {localTemplates.map((template, idx) => (
-                  <TemplateItem
-                    key={`local-${template.name}-${idx}`}
-                    template={template}
-                    canManage={canEditLocal}
-                    onEdit={() => void openEdit(template)}
-                    onDelete={() => setDeletingTemplate(template)}
-                  />
-                ))}
-              </TemplateGrid>
-            )}
+            <TemplateTabBody
+              loading={loadingTemplates}
+              placeholder={loadingGrid}
+              isEmpty={localTemplates.length === 0}
+              empty={
+                <EmptyTemplates
+                  title={t('templates.empty.localTitle')}
+                  description={t('templates.empty.localDescription')}
+                  action={canCreate ? (
+                    <Button onClick={openCreate}>
+                      <Plus aria-hidden="true" />
+                      {t('templates.create')}
+                    </Button>
+                  ) : undefined}
+                />
+              }
+            >
+              {localTemplates.map((template, idx) => (
+                <TemplateItem
+                  key={`local-${template.name}-${idx}`}
+                  template={template}
+                  canManage={canEditLocal}
+                  onEdit={() => void openEdit(template)}
+                  onDelete={() => setDeletingTemplate(template)}
+                />
+              ))}
+            </TemplateTabBody>
           </TabsContent>
 
           <TabsContent value="community" className="mt-0 p-5 md:p-6">
-            {loadingTemplates ? loadingGrid : communityTemplates.length === 0 ? (
-              <EmptyTemplates
-                title={t('templates.empty.communityTitle')}
-                description={t('templates.empty.communityDescription')}
-              />
-            ) : (
-              <TemplateGrid>
-                {communityTemplates.map((template, idx) => (
-                  <TemplateItem
-                    key={`com-${template.repoId}-${template.name}-${idx}`}
-                    template={template}
-                    canManage={false}
-                  />
-                ))}
-              </TemplateGrid>
-            )}
+            <TemplateTabBody
+              loading={loadingTemplates}
+              placeholder={loadingGrid}
+              isEmpty={communityTemplates.length === 0}
+              empty={
+                <EmptyTemplates
+                  title={t('templates.empty.communityTitle')}
+                  description={t('templates.empty.communityDescription')}
+                />
+              }
+            >
+              {communityTemplates.map((template, idx) => (
+                <TemplateItem
+                  key={`com-${template.repoId}-${template.name}-${idx}`}
+                  template={template}
+                  canManage={false}
+                />
+              ))}
+            </TemplateTabBody>
           </TabsContent>
         </Card>
       </Tabs>

@@ -424,53 +424,78 @@ func editServerDataAdmin(c *gin.Context) {
 	// "primaryPort". Mirror them into the port/port2/... variables so the
 	// container binds all of them, and remove stale extra-port variables.
 	if portsField, hasPorts := data["ports"]; hasPorts {
-		var ports []uint16
-		if rawList, ok := portsField.([]interface{}); ok {
-			for _, raw := range rawList {
-				if p, perr := cast.ToUint16E(raw); perr == nil && p > 0 {
-					ports = append(ports, p)
-				}
-			}
-		}
-
-		var primary uint16
-		if rawPrimary, ok := data["primaryPort"]; ok {
-			primary = cast.ToUint16(rawPrimary)
-		} else if len(ports) > 0 {
-			primary = ports[0]
-		}
-
-		if primary > 0 {
-			for i, p := range ports {
-				if p == primary {
-					ports[0], ports[i] = ports[i], ports[0]
-					break
-				}
-			}
-		}
-
-		if len(ports) > 0 {
-			data["port"] = ports[0]
-			for i := 1; i < len(ports); i++ {
-				data[fmt.Sprintf("port%d", i+1)] = ports[i]
-			}
-			// Remove variables beyond the new list so dropped ports unbind.
-			for i := len(ports) + 1; ; i++ {
-				key := fmt.Sprintf("port%d", i)
-				if _, exists := server.Variables[key]; exists {
-					delete(server.Variables, key)
-				} else {
-					break
-				}
-			}
-		}
-		delete(data, "ports")
-		delete(data, "primaryPort")
+		mirrorPortsIntoData(server, data, portsField)
 	}
 
 	err = server.EditData(data, true)
 	if !response.HandleError(c, err, http.StatusInternalServerError) {
 		c.Status(http.StatusNoContent)
+	}
+}
+
+// mirrorPortsIntoData replaces the panel's "ports" and "primaryPort" fields
+// with the port/port2/... variables, primary port first.
+func mirrorPortsIntoData(server *servers.Server, data map[string]interface{}, portsField interface{}) {
+	ports := parseValidPorts(portsField)
+
+	var primary uint16
+	if rawPrimary, ok := data["primaryPort"]; ok {
+		primary = cast.ToUint16(rawPrimary)
+	} else if len(ports) > 0 {
+		primary = ports[0]
+	}
+
+	if primary > 0 {
+		movePortFirst(ports, primary)
+	}
+
+	if len(ports) > 0 {
+		setPortVariables(server, data, ports)
+	}
+	delete(data, "ports")
+	delete(data, "primaryPort")
+}
+
+// parseValidPorts keeps the entries of the "ports" array that are valid,
+// non-zero ports.
+func parseValidPorts(portsField interface{}) []uint16 {
+	rawList, ok := portsField.([]interface{})
+	if !ok {
+		return nil
+	}
+	var ports []uint16
+	for _, raw := range rawList {
+		if p, perr := cast.ToUint16E(raw); perr == nil && p > 0 {
+			ports = append(ports, p)
+		}
+	}
+	return ports
+}
+
+// movePortFirst swaps the given port into the first slot when it is listed.
+func movePortFirst(ports []uint16, port uint16) {
+	for i, p := range ports {
+		if p == port {
+			ports[0], ports[i] = ports[i], ports[0]
+			return
+		}
+	}
+}
+
+// setPortVariables writes the ports as port, port2, port3... and removes the
+// variables of ports that are no longer assigned.
+func setPortVariables(server *servers.Server, data map[string]interface{}, ports []uint16) {
+	data["port"] = ports[0]
+	for i := 1; i < len(ports); i++ {
+		data[fmt.Sprintf("port%d", i+1)] = ports[i]
+	}
+	// Remove variables beyond the new list so dropped ports unbind.
+	for i := len(ports) + 1; ; i++ {
+		key := fmt.Sprintf("port%d", i)
+		if _, exists := server.Variables[key]; !exists {
+			break
+		}
+		delete(server.Variables, key)
 	}
 }
 
@@ -1498,59 +1523,9 @@ func installPlugin(c *gin.Context) {
 		logging.Info.Printf("[%s] No restore point before installing a plugin: %s", server.ID(), err)
 	}
 
-	// Obtener versiones del proyecto de Modrinth
-	versionURL := fmt.Sprintf("https://api.modrinth.com/v2/project/%s/version", projectID)
-	client := &http.Client{}
-	req, _ := http.NewRequest("GET", versionURL, nil)
-	req.Header.Set("User-Agent", "PufferPanel/SkyPanel Plugin Manager")
-
-	resp, err := client.Do(req)
-	if response.HandleError(c, err, http.StatusInternalServerError) {
+	downloadURL, fileName, ok := fetchLatestModrinthFile(c, projectID)
+	if !ok {
 		return
-	}
-	defer utils.CloseResponse(resp)
-
-	if resp.StatusCode != http.StatusOK {
-		response.HandleError(c, fmt.Errorf("project or versions not found on Modrinth"), http.StatusNotFound)
-		return
-	}
-
-	var versions []struct {
-		ID    string `json:"id"`
-		Name  string `json:"name"`
-		Files []struct {
-			URL      string `json:"url"`
-			FileName string `json:"filename"`
-			Primary  bool   `json:"primary"`
-		} `json:"files"`
-		VersionNumber string `json:"version_number"`
-	}
-
-	err = json.NewDecoder(resp.Body).Decode(&versions)
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-		return
-	}
-
-	if len(versions) == 0 {
-		response.HandleError(c, fmt.Errorf("no versions found for this project"), http.StatusNotFound)
-		return
-	}
-
-	// Seleccionar la versión más reciente (primera en la lista)
-	latestVersion := versions[0]
-	if len(latestVersion.Files) == 0 {
-		response.HandleError(c, fmt.Errorf("no files found in the latest version"), http.StatusNotFound)
-		return
-	}
-
-	// Buscar el archivo primario o el primero
-	var downloadURL string
-	var fileName string
-	for _, file := range latestVersion.Files {
-		if file.Primary || downloadURL == "" {
-			downloadURL = file.URL
-			fileName = file.FileName
-		}
 	}
 
 	// Descargar el plugin
@@ -1593,6 +1568,67 @@ func installPlugin(c *gin.Context) {
 		env.DisplayToConsole(true, fmt.Sprintf("Plugin/Mod %s installed successfully as %s\n", projectID, fileName))
 	}
 	c.Status(http.StatusNoContent)
+}
+
+// fetchLatestModrinthFile looks up the newest version of a Modrinth project and
+// returns the download URL and name of its primary file (or the first one). It
+// writes the error response itself and returns false when the request must stop.
+func fetchLatestModrinthFile(c *gin.Context, projectID string) (string, string, bool) {
+	// Obtener versiones del proyecto de Modrinth
+	versionURL := fmt.Sprintf("https://api.modrinth.com/v2/project/%s/version", projectID)
+	client := &http.Client{}
+	req, _ := http.NewRequest("GET", versionURL, nil)
+	req.Header.Set("User-Agent", "PufferPanel/SkyPanel Plugin Manager")
+
+	resp, err := client.Do(req)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return "", "", false
+	}
+	defer utils.CloseResponse(resp)
+
+	if resp.StatusCode != http.StatusOK {
+		response.HandleError(c, fmt.Errorf("project or versions not found on Modrinth"), http.StatusNotFound)
+		return "", "", false
+	}
+
+	var versions []struct {
+		ID    string `json:"id"`
+		Name  string `json:"name"`
+		Files []struct {
+			URL      string `json:"url"`
+			FileName string `json:"filename"`
+			Primary  bool   `json:"primary"`
+		} `json:"files"`
+		VersionNumber string `json:"version_number"`
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(&versions)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return "", "", false
+	}
+
+	if len(versions) == 0 {
+		response.HandleError(c, fmt.Errorf("no versions found for this project"), http.StatusNotFound)
+		return "", "", false
+	}
+
+	// Seleccionar la versión más reciente (primera en la lista)
+	latestVersion := versions[0]
+	if len(latestVersion.Files) == 0 {
+		response.HandleError(c, fmt.Errorf("no files found in the latest version"), http.StatusNotFound)
+		return "", "", false
+	}
+
+	// Buscar el archivo primario o el primero
+	var downloadURL string
+	var fileName string
+	for _, file := range latestVersion.Files {
+		if file.Primary || downloadURL == "" {
+			downloadURL = file.URL
+			fileName = file.FileName
+		}
+	}
+	return downloadURL, fileName, true
 }
 
 // @Summary Delete plugin

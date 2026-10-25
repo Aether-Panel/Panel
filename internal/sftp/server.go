@@ -153,17 +153,7 @@ func handleConn(conn net.Conn, serverConfig *ssh.ServerConfig) error {
 		// Sessions have out-of-band requests such as "shell",
 		// "pty-req" and "env".  Here we handle only the
 		// "subsystem" request.
-		go func(in <-chan *ssh.Request) {
-			for req := range in {
-				ok := false
-				if req.Type == "subsystem" {
-					if string(req.Payload[4:]) == "sftp" {
-						ok = true
-					}
-				}
-				_ = req.Reply(ok, nil)
-			}
-		}(requests)
+		go replySubsystemRequests(requests)
 
 		serverID := sc.Permissions.Extensions["server_id"]
 		server := servers.GetFromCache(serverID)
@@ -180,6 +170,19 @@ func handleConn(conn net.Conn, serverConfig *ssh.ServerConfig) error {
 		}
 	}
 	return nil
+}
+
+// replySubsystemRequests accepts only the sftp subsystem request and refuses everything else
+func replySubsystemRequests(in <-chan *ssh.Request) {
+	for req := range in {
+		ok := false
+		if req.Type == "subsystem" {
+			if string(req.Payload[4:]) == "sftp" {
+				ok = true
+			}
+		}
+		_ = req.Reply(ok, nil)
+	}
 }
 
 func PrintDiscardRequests(in <-chan *ssh.Request) {

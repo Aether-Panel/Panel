@@ -122,27 +122,8 @@ func provisionServer(c *gin.Context) {
 	// 0. Idempotency: ExternalID is the billing provider's identifier for the
 	// service. Never provision the same service twice — if a server already
 	// carries that ExternalID, return it instead of creating a duplicate.
-	if req.ServiceID != "" {
-		var existing models.Server
-		err := db.Where("external_id = ?", req.ServiceID).First(&existing).Error
-		switch {
-		case err == nil:
-			// Keep the same response shape as a successful provisioning so
-			// billing integrations don't receive missing/misparsed fields. The
-			// generated password is only available on the first call, so it is
-			// intentionally returned empty on repeated (idempotent) calls.
-			c.JSON(http.StatusOK, gin.H{
-				"success":   true,
-				"server_id": existing.Identifier,
-				"username":  req.Username,
-				"password":  "",
-				"port":      existing.Port,
-			})
-			return
-		case !errors.Is(err, gorm.ErrRecordNotFound):
-			response.HandleError(c, err, http.StatusInternalServerError)
-			return
-		}
+	if req.ServiceID != "" && answerAlreadyProvisioned(c, db, req) {
+		return
 	}
 
 	// 1. Find Product
@@ -152,75 +133,10 @@ func provisionServer(c *gin.Context) {
 	}
 
 	// 2. Find or create user
-	us := &services.User{DB: db}
 	ps := &services.Permission{DB: db}
-	user, err := us.GetByEmail(req.Email)
-	generatedPassword := req.Password
-	isNewUser := false
-
-	switch {
-	case errors.Is(err, gorm.ErrRecordNotFound):
-		// New user — generate credentials
-		isNewUser = true
-		if generatedPassword == "" {
-			generatedPassword, _ = utils.GenerateRandomString(12)
-		}
-		username := req.Username
-		if username == "" {
-			randStr, _ := utils.GenerateRandomString(6)
-			username = "user_" + strings.ReplaceAll(randStr, "-", "")
-		}
-		user = &models.User{
-			Email:    req.Email,
-			Username: username,
-		}
-		_ = user.SetPassword(generatedPassword)
-		if err := us.Create(user); response.HandleError(c, err, http.StatusInternalServerError) {
-			return
-		}
-	case response.HandleError(c, err, http.StatusInternalServerError):
+	user, generatedPassword, ok := provisionAccount(c, db, ps, req)
+	if !ok {
 		return
-	default:
-		// An API key must never be able to take over an administrator's account
-		isAdmin, err := userIsAdmin(db, user)
-		if response.HandleError(c, err, http.StatusInternalServerError) {
-			return
-		}
-		if isAdmin {
-			response.HandleError(c, errors.New("this email belongs to an administrator and cannot be provisioned"), http.StatusConflict)
-			return
-		}
-
-		// User already exists — reset their password so Paymenter can show it
-		generatedPassword, _ = utils.GenerateRandomString(12)
-		_ = user.SetPassword(generatedPassword)
-		if err := us.Update(user); response.HandleError(c, err, http.StatusInternalServerError) {
-			return
-		}
-	}
-
-	// Grant global login scope to new users and assign default "Usuario" role
-	if isNewUser {
-		// Assign the "Usuario" role so they get all standard scopes automatically
-		// (templates.view, uptime.view, server.view, etc.)
-		rs := &services.Role{DB: db}
-		userRole, roleErr := rs.GetByName("Usuario")
-		if roleErr == nil && userRole != nil {
-			user.RoleID = &userRole.ID
-			if err := us.Update(user); response.HandleError(c, err, http.StatusInternalServerError) {
-				return
-			}
-		}
-
-		// Always ensure login scope is set directly as well
-		globalPerms, err := ps.GetForUserAndServer(user.ID, "")
-		if response.HandleError(c, err, http.StatusInternalServerError) {
-			return
-		}
-		globalPerms.Scopes = scopes.AddScope(globalPerms.Scopes, scopes.ScopeLogin)
-		if err := ps.UpdatePermissions(globalPerms); response.HandleError(c, err, http.StatusInternalServerError) {
-			return
-		}
 	}
 
 	// 3. Find Template
@@ -230,27 +146,15 @@ func provisionServer(c *gin.Context) {
 		return
 	}
 
-	var template *models.Template
-	for _, repo := range repos {
-		tmpl, err := ts.Get(repo.ID, product.Template)
-		if err == nil && tmpl != nil {
-			template = tmpl
-			break
-		}
-	}
+	template := findTemplateInRepos(ts, repos, product.Template)
 	if template == nil {
 		response.HandleError(c, errors.New("template not found"), http.StatusBadRequest)
 		return
 	}
 
 	// 4. Determine Node
-	nodeID := product.DefaultNode
-	if product.NodeID != nil && *product.NodeID != 0 {
-		nodeID = *product.NodeID
-	}
-
 	ns := &services.Node{DB: db}
-	node, err := ns.Get(nodeID)
+	node, err := ns.Get(provisionNodeID(&product))
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
@@ -291,9 +195,220 @@ func provisionServer(c *gin.Context) {
 	}
 
 	// 6. Grant Permissions
-	perm, err := ps.GetForUserAndServer(user.ID, server.Identifier)
+	if err := grantProvisionedServerScopes(ps, user.ID, server.Identifier); response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	// 7. Call Daemon
+	serverCreation := &models.ServerCreation{
+		Server: template.Server,
+		NodeID: node.ID,
+		Name:   server.Name,
+		Users:  []string{user.Username},
+	}
+	serverCreation.Identifier = server.Identifier
+
+	// Inject the assigned port into the template variables so the server starts on it
+	injectAssignedPort(db, serverCreation, server.Identifier, assignedPort)
+
+	reader := &bytes.Buffer{}
+	_ = json.NewEncoder(reader).Encode(&serverCreation)
+
+	nodeResponse, err := ns.CallNode(node, "PUT", daemonServerPrefix+server.Identifier, io.NopCloser(reader), c.Request.Header)
+	defer utils.CloseResponse(nodeResponse)
+
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
+	}
+
+	if nodeResponse.StatusCode != http.StatusOK {
+		resData, _ := io.ReadAll(nodeResponse.Body)
+		c.AbortWithStatusJSON(nodeResponse.StatusCode, gin.H{"error": "Daemon error", "details": string(resData)})
+		return
+	}
+
+	// Send Email
+	es := services.GetEmailService()
+	_ = es.SendEmail(user.Email, "addedToServer", map[string]interface{}{
+		"Server":        server,
+		"RegisterToken": "",
+	}, true)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":   true,
+		"server_id": serverID,
+		"username":  user.Username,
+		"password":  generatedPassword,
+		"port":      assignedPort,
+	})
+}
+
+// answerAlreadyProvisioned answers with the server that already carries the
+// request's service id; true when a response has been written.
+func answerAlreadyProvisioned(c *gin.Context, db *gorm.DB, req ProvisionRequest) bool {
+	var existing models.Server
+	err := db.Where("external_id = ?", req.ServiceID).First(&existing).Error
+	switch {
+	case err == nil:
+		// Keep the same response shape as a successful provisioning so
+		// billing integrations don't receive missing/misparsed fields. The
+		// generated password is only available on the first call, so it is
+		// intentionally returned empty on repeated (idempotent) calls.
+		c.JSON(http.StatusOK, gin.H{
+			"success":   true,
+			"server_id": existing.Identifier,
+			"username":  req.Username,
+			"password":  "",
+			"port":      existing.Port,
+		})
+		return true
+	case !errors.Is(err, gorm.ErrRecordNotFound):
+		response.HandleError(c, err, http.StatusInternalServerError)
+		return true
+	}
+	return false
+}
+
+// provisionAccount finds the customer's account by email or creates it, and
+// returns it with the password to hand back to the billing panel. It writes
+// the error response itself and returns false when the request must stop.
+func provisionAccount(c *gin.Context, db *gorm.DB, ps *services.Permission, req ProvisionRequest) (*models.User, string, bool) {
+	us := &services.User{DB: db}
+	user, err := us.GetByEmail(req.Email)
+
+	switch {
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		// New user — generate credentials
+		created, generatedPassword, ok := createProvisionedUser(c, us, req)
+		if !ok || !setupNewProvisionedUser(c, db, us, ps, created) {
+			return nil, "", false
+		}
+		return created, generatedPassword, true
+	case response.HandleError(c, err, http.StatusInternalServerError):
+		return nil, "", false
+	default:
+		generatedPassword, ok := resetProvisionedUserPassword(c, db, us, user)
+		return user, generatedPassword, ok
+	}
+}
+
+// createProvisionedUser creates the account for a new customer, generating
+// the username and password the request leaves empty.
+func createProvisionedUser(c *gin.Context, us *services.User, req ProvisionRequest) (*models.User, string, bool) {
+	generatedPassword := req.Password
+	if generatedPassword == "" {
+		generatedPassword, _ = utils.GenerateRandomString(12)
+	}
+	username := req.Username
+	if username == "" {
+		randStr, _ := utils.GenerateRandomString(6)
+		username = "user_" + strings.ReplaceAll(randStr, "-", "")
+	}
+	user := &models.User{
+		Email:    req.Email,
+		Username: username,
+	}
+	_ = user.SetPassword(generatedPassword)
+	if err := us.Create(user); response.HandleError(c, err, http.StatusInternalServerError) {
+		return nil, "", false
+	}
+	return user, generatedPassword, true
+}
+
+// resetProvisionedUserPassword gives an existing (non-admin) customer a fresh
+// password so the billing panel can show it.
+func resetProvisionedUserPassword(c *gin.Context, db *gorm.DB, us *services.User, user *models.User) (string, bool) {
+	// An API key must never be able to take over an administrator's account
+	isAdmin, err := userIsAdmin(db, user)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return "", false
+	}
+	if isAdmin {
+		response.HandleError(c, errors.New("this email belongs to an administrator and cannot be provisioned"), http.StatusConflict)
+		return "", false
+	}
+
+	// User already exists — reset their password so Paymenter can show it
+	generatedPassword, _ := utils.GenerateRandomString(12)
+	_ = user.SetPassword(generatedPassword)
+	if err := us.Update(user); response.HandleError(c, err, http.StatusInternalServerError) {
+		return "", false
+	}
+	return generatedPassword, true
+}
+
+// setupNewProvisionedUser grants a new customer the global login scope and
+// assigns the default "Usuario" role.
+func setupNewProvisionedUser(c *gin.Context, db *gorm.DB, us *services.User, ps *services.Permission, user *models.User) bool {
+	// Assign the "Usuario" role so they get all standard scopes automatically
+	// (templates.view, uptime.view, server.view, etc.)
+	rs := &services.Role{DB: db}
+	userRole, roleErr := rs.GetByName("Usuario")
+	if roleErr == nil && userRole != nil {
+		user.RoleID = &userRole.ID
+		if err := us.Update(user); response.HandleError(c, err, http.StatusInternalServerError) {
+			return false
+		}
+	}
+
+	// Always ensure login scope is set directly as well
+	globalPerms, err := ps.GetForUserAndServer(user.ID, "")
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return false
+	}
+	globalPerms.Scopes = scopes.AddScope(globalPerms.Scopes, scopes.ScopeLogin)
+	if err := ps.UpdatePermissions(globalPerms); response.HandleError(c, err, http.StatusInternalServerError) {
+		return false
+	}
+	return true
+}
+
+// findTemplateInRepos returns the first repo's template with the given name,
+// or nil when no repo has it.
+func findTemplateInRepos(ts *services.Template, repos []*models.TemplateRepo, name string) *models.Template {
+	for _, repo := range repos {
+		tmpl, err := ts.Get(repo.ID, name)
+		if err == nil && tmpl != nil {
+			return tmpl
+		}
+	}
+	return nil
+}
+
+// provisionNodeID is the product's pinned node, or its fallback node.
+func provisionNodeID(product *models.ProvisionProduct) uint {
+	if product.NodeID != nil && *product.NodeID != 0 {
+		return *product.NodeID
+	}
+	return product.DefaultNode
+}
+
+// injectAssignedPort makes the server start on the port picked from the
+// product's range and stores that port on the server record as well.
+func injectAssignedPort(db *gorm.DB, serverCreation *models.ServerCreation, identifier string, assignedPort uint16) {
+	if assignedPort == 0 {
+		return
+	}
+	if serverCreation.Server.Variables == nil {
+		serverCreation.Server.Variables = make(map[string]skypanel.Variable)
+	}
+	// Always override the port variable with the assigned port
+	existing := serverCreation.Server.Variables["port"]
+	existing.Value = assignedPort
+	serverCreation.Server.Variables["port"] = existing
+
+	// Also update the server record in DB so the panel shows the correct port
+	db.Model(&models.Server{}).
+		Where("identifier = ?", identifier).
+		Update("port", assignedPort)
+}
+
+// grantProvisionedServerScopes gives the customer the standard owner scopes
+// on their new server.
+func grantProvisionedServerScopes(ps *services.Permission, userID uint, identifier string) error {
+	perm, err := ps.GetForUserAndServer(userID, identifier)
+	if err != nil {
+		return err
 	}
 
 	perm.Scopes = []*scopes.Scope{
@@ -329,66 +444,7 @@ func provisionServer(c *gin.Context) {
 		scopes.ScopeServerStats,
 		scopes.ScopeServerStatus,
 	}
-
-	if err := ps.UpdatePermissions(perm); response.HandleError(c, err, http.StatusInternalServerError) {
-		return
-	}
-
-	// 7. Call Daemon
-	serverCreation := &models.ServerCreation{
-		Server: template.Server,
-		NodeID: node.ID,
-		Name:   server.Name,
-		Users:  []string{user.Username},
-	}
-	serverCreation.Identifier = server.Identifier
-
-	// Inject the assigned port into the template variables so the server starts on it
-	if assignedPort > 0 {
-		if serverCreation.Server.Variables == nil {
-			serverCreation.Server.Variables = make(map[string]skypanel.Variable)
-		}
-		// Always override the port variable with the assigned port
-		existing := serverCreation.Server.Variables["port"]
-		existing.Value = assignedPort
-		serverCreation.Server.Variables["port"] = existing
-
-		// Also update the server record in DB so the panel shows the correct port
-		db.Model(&models.Server{}).
-			Where("identifier = ?", server.Identifier).
-			Update("port", assignedPort)
-	}
-
-	reader := &bytes.Buffer{}
-	_ = json.NewEncoder(reader).Encode(&serverCreation)
-
-	nodeResponse, err := ns.CallNode(node, "PUT", daemonServerPrefix+server.Identifier, io.NopCloser(reader), c.Request.Header)
-	defer utils.CloseResponse(nodeResponse)
-
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-		return
-	}
-
-	if nodeResponse.StatusCode != http.StatusOK {
-		resData, _ := io.ReadAll(nodeResponse.Body)
-		c.AbortWithStatusJSON(nodeResponse.StatusCode, gin.H{"error": "Daemon error", "details": string(resData)})
-		return
-	}
-
-	// Send Email
-	es := services.GetEmailService()
-	_ = es.SendEmail(user.Email, "addedToServer", map[string]interface{}{
-		"Server":        server,
-		"RegisterToken": "",
-	}, true)
-
-	c.JSON(http.StatusOK, gin.H{
-		"success":   true,
-		"server_id": serverID,
-		"username":  user.Username,
-		"password":  generatedPassword,
-		"port":      assignedPort,
-	})
+	return ps.UpdatePermissions(perm)
 }
 
 // getServerByRequest finds a server using either service_id (Paymenter) or server_id (legacy)
@@ -422,47 +478,55 @@ func provisionTerminate(c *gin.Context) {
 
 	ns := &services.Node{DB: db}
 
-	// terminateOne stops and deletes a single server from daemon + DB
-	terminateOne := func(srv *models.Server) {
-		node := &srv.Node
-
-		// Stop if running
-		statusRes, err := ns.CallNode(node, "GET", daemonServerPrefix+srv.Identifier+"/status", nil, nil)
-		if err == nil && statusRes != nil && statusRes.StatusCode == http.StatusOK {
-			var statusData struct {
-				Running bool `json:"running"`
-			}
-			if err := json.NewDecoder(statusRes.Body).Decode(&statusData); err == nil && statusData.Running {
-				stopRes, err := ns.CallNode(node, "POST", daemonServerPrefix+srv.Identifier+"/stop?wait=true", nil, nil)
-				if err == nil && stopRes != nil && stopRes.Body != nil {
-					stopRes.Body.Close()
-				}
-			}
-			statusRes.Body.Close()
-		}
-
-		// Delete from daemon
-		nodeRes, err := ns.CallNode(node, "DELETE", daemonServerPrefix+srv.Identifier, nil, nil)
-		if err == nil && nodeRes != nil && nodeRes.Body != nil {
-			nodeRes.Body.Close()
-		}
-
-		// Delete from DB
-		_ = ss.Delete(srv.Identifier)
-	}
-
 	// 1. Find and terminate all children first (avoids FK constraint failure)
 	var children []models.Server
 	if err := db.Preload("Node").Where(parentServerIDQuery, server.Identifier).Find(&children).Error; err == nil {
 		for i := range children {
-			terminateOne(&children[i])
+			terminateProvisionedServer(ns, ss, &children[i])
 		}
 	}
 
 	// 2. Now terminate the parent
-	terminateOne(server)
+	terminateProvisionedServer(ns, ss, server)
 
 	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+// terminateProvisionedServer stops and deletes a single server from daemon + DB
+func terminateProvisionedServer(ns *services.Node, ss *services.Server, srv *models.Server) {
+	node := &srv.Node
+
+	// Stop if running
+	stopServerIfRunning(ns, node, srv.Identifier)
+
+	// Delete from daemon
+	nodeRes, err := ns.CallNode(node, "DELETE", daemonServerPrefix+srv.Identifier, nil, nil)
+	if err == nil && nodeRes != nil && nodeRes.Body != nil {
+		nodeRes.Body.Close()
+	}
+
+	// Delete from DB
+	_ = ss.Delete(srv.Identifier)
+}
+
+// stopServerIfRunning asks the daemon for the server's status and, when it is
+// running, stops it and waits for it to finish. Failures are ignored, the
+// server is deleted either way.
+func stopServerIfRunning(ns *services.Node, node *models.Node, identifier string) {
+	statusRes, err := ns.CallNode(node, "GET", daemonServerPrefix+identifier+"/status", nil, nil)
+	if err != nil || statusRes == nil || statusRes.StatusCode != http.StatusOK {
+		return
+	}
+	var statusData struct {
+		Running bool `json:"running"`
+	}
+	if err := json.NewDecoder(statusRes.Body).Decode(&statusData); err == nil && statusData.Running {
+		stopRes, err := ns.CallNode(node, "POST", daemonServerPrefix+identifier+"/stop?wait=true", nil, nil)
+		if err == nil && stopRes != nil && stopRes.Body != nil {
+			stopRes.Body.Close()
+		}
+	}
+	statusRes.Body.Close()
 }
 
 func provisionSuspend(c *gin.Context) {

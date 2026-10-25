@@ -206,7 +206,7 @@ func (s *Scheduler) addTask(id string, task skypanel.Task) error {
 		opt = gocron.OneTimeJob(gocron.OneTimeJobStartDateTime(time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC)))
 	}
 
-	_, err := s.scheduler.NewJob(opt, gocron.NewTask(_executeTask, s.serverID, id), gocron.WithName(id))
+	_, err := s.scheduler.NewJob(opt, gocron.NewTask(runScheduledTask, s.serverID, id), gocron.WithName(id))
 	if err != nil {
 		return err
 	}
@@ -266,7 +266,8 @@ func (s *Scheduler) GetTask(id string) (skypanel.Task, bool) {
 	return task, ok
 }
 
-func _executeTask(serverID, id string) {
+// runScheduledTask is what gocron calls when one of a server's tasks is due
+func runScheduledTask(serverID, id string) {
 	p := GetFromCache(serverID)
 	if p == nil || p.Scheduler == nil {
 		return

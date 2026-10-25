@@ -23,6 +23,7 @@ import { ServerAddress } from './server-address';
 import MetricsCharts from './metrics-charts';
 import NetworkUsageChart from './network-usage-chart';
 import { cn, formatBytes } from '@/lib/utils';
+import { keyedByContent } from '@/lib/keyed';
 import { StatusBadge, usageColor } from '@/components/server-card';
 import { useState, useEffect, useRef } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -172,14 +173,9 @@ function ResourceGauge({ icon: Icon, label, used, allocated, pct, showPct = true
         <span className="text-xl font-semibold tabular-nums tracking-[-0.02em]">{used}</span>
         <span className="text-xs tabular-nums text-muted-foreground">/ {allocated}</span>
       </div>
-      <div
-        className="h-1.5 w-full overflow-hidden rounded-full bg-secondary/80"
-        role="meter"
-        aria-label={label}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={Math.round(clamped)}
-      >
+      {/* the native meter carries the semantics; the bar below is only its visual */}
+      <meter className="sr-only" aria-label={label} min={0} max={100} value={Math.round(clamped)} />
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary/80" aria-hidden="true">
         <div
           className={cn('meter-fill h-full rounded-full transition-[width] duration-700 ease-panel', usageColor(clamped))}
           style={{ width: `${clamped}%` }}
@@ -189,13 +185,15 @@ function ResourceGauge({ icon: Icon, label, used, allocated, pct, showPct = true
   );
 }
 
+/** The memory limit in bytes: the configured one, else worked back from usage and its percentage. */
+function allocatedMemoryBytes(server: any): number {
+  if (server.totalMemory) return server.totalMemory * 1024 * 1024;
+  return server.memoryUsage > 0 && server.memoryUsed ? server.memoryUsed / (server.memoryUsage / 100) : 0;
+}
+
 function ServerOverviewCards({ server, t }: any) {
   const cpuAllocated = server.totalCpu ?? 100;
-  const memAllocatedBytes = server.totalMemory
-    ? server.totalMemory * 1024 * 1024
-    : server.memoryUsage > 0 && server.memoryUsed
-      ? server.memoryUsed / (server.memoryUsage / 100)
-      : 0;
+  const memAllocatedBytes = allocatedMemoryBytes(server);
   const players = server.playerInfo as import('@/lib/players').PlayerInfo | undefined;
 
   return (
@@ -256,9 +254,9 @@ function ServerOverviewCards({ server, t }: any) {
             />
             {players.names.length > 0 ? (
               <ul className="flex flex-wrap gap-2">
-                {players.names.map((player, index) => (
+                {keyedByContent(players.names).map(({ key, item: player }, index) => (
                   <li
-                    key={`${index}-${player}`}
+                    key={key}
                     className="flex items-center gap-2 rounded-full border border-border/60 bg-secondary/50 py-1 pl-1 pr-3 text-sm animate-in fade-in-0 zoom-in-95 fill-mode-both duration-300 ease-panel"
                     style={{ animationDelay: `${Math.min(index, 12) * 35}ms` }}
                   >

@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -152,6 +152,122 @@ export default function BackupsView({ serverId }: Readonly<BackupsViewProps>) {
     window.open(`/api/servers/${serverId}/backup/download/${backupId}`, '_blank');
   };
 
+  let body: ReactNode;
+  if (loading) {
+    body = (
+      <div className="flex justify-center py-16">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  } else if (backups.length === 0) {
+    body = (
+      <EmptyState
+        icon={Archive}
+        title={t('servers.backups.empty.title')}
+        description={t('servers.backups.empty.description')}
+        action={
+          <Button onClick={() => setIsDialogOpen(true)}>
+            <Plus aria-hidden="true" />
+            {t('servers.backups.create')}
+          </Button>
+        }
+      />
+    );
+  } else {
+    body = (
+      /* Timeline: one dot per backup, centred on its date tile (1px border
+         + p-4/p-5 + half the 56px tile = 45px / 49px), and a rail from
+         each dot's centre to the next one's, so it reads as one line. */
+      <ol className="relative">
+        {backups.map((backup, index) => {
+          const date = formatBackupDate(backup.createdAt, language);
+          const isLast = index === backups.length - 1;
+          return (
+            <li key={backup.id} className={cn('relative pl-8 sm:pl-10', !isLast && 'pb-4')}>
+              {!isLast && (
+                <span
+                  aria-hidden="true"
+                  className="absolute -bottom-[45px] left-[5px] top-[45px] w-px bg-border sm:-bottom-[49px] sm:top-[49px]"
+                />
+              )}
+              <span
+                aria-hidden="true"
+                className={cn(
+                  'absolute left-0 top-[40px] z-10 h-[11px] w-[11px] rounded-full border-2 sm:top-[44px]',
+                  index === 0 ? 'border-primary bg-primary' : 'border-border bg-card',
+                )}
+              />
+
+              <div className="flex min-w-0 flex-col gap-4 rounded-xl border border-border/60 bg-background/30 p-4 transition-colors duration-200 hover:border-border sm:flex-row sm:items-center sm:justify-between sm:p-5">
+                <div className="flex min-w-0 items-center gap-4">
+                  <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-lg border border-border/60 bg-card">
+                    <span className="text-xl font-semibold leading-none tabular-nums text-foreground">{date.day}</span>
+                    <span className="mt-1 text-[11px] text-muted-foreground">{date.month}</span>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                      <h4 className="truncate text-[15px] font-semibold leading-tight">
+                        {backupTitle(backup, t)}
+                      </h4>
+                      {isAutomatic(backup) && <Badge variant="secondary" className="shrink-0">{t('servers.backups.automatic.badge')}</Badge>}
+                      {restoreReason(backup) && (
+                        <Badge variant="outline" className="shrink-0 gap-1 border-success/40 text-success" title={t('servers.backups.restorePoint.hint')}>
+                          <ShieldCheck className="h-3 w-3" aria-hidden="true" />
+                          {t('servers.backups.restorePoint.badge')}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1 tabular-nums" title={date.full}>
+                        <Clock className="h-3 w-3" aria-hidden="true" />
+                        {date.time}
+                      </span>
+                      {(backup.fileSize ?? 0) > 0 && (
+                        <span className="flex items-center gap-1 tabular-nums">
+                          <HardDrive className="h-3 w-3" aria-hidden="true" />
+                          {formatBytes(backup.fileSize ?? 0)}
+                        </span>
+                      )}
+                      {(backup.location === 'both' || backup.location === 'offsite') && (
+                        <span
+                          className="flex items-center gap-1 text-primary-bright"
+                          title={backup.location === 'offsite' ? t('servers.backups.offsite.onlyHint') : t('servers.backups.offsite.bothHint')}
+                        >
+                          <Cloud className="h-3 w-3" aria-hidden="true" />
+                          {backup.location === 'offsite' ? t('servers.backups.offsite.only') : t('servers.backups.offsite.both')}
+                        </span>
+                      )}
+                      <span className="min-w-0 truncate font-mono">{backup.fileName}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid w-full shrink-0 grid-cols-[1fr_1fr_auto] items-center gap-2 sm:flex sm:w-auto">
+                  <Button variant="outline" size="sm" className="min-w-0" onClick={() => handleDownload(backup.id)}>
+                    <Download aria-hidden="true" />
+                    {t('servers.backups.download')}
+                  </Button>
+                  <Button variant="outline" size="sm" className="min-w-0" onClick={() => setPendingAction({ type: 'restore', backupId: backup.id })}>
+                    <RotateCcw aria-hidden="true" />
+                    {t('servers.backups.restore.button')}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive-bright"
+                    aria-label={t('servers.backups.delete.button')}
+                    onClick={() => setPendingAction({ type: 'delete', backupId: backup.id })}
+                  >
+                    <Trash2 aria-hidden="true" />
+                  </Button>
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    );
+  }
+
   return (
     <div className="mt-6">
       <Card>
@@ -169,114 +285,7 @@ export default function BackupsView({ serverId }: Readonly<BackupsViewProps>) {
         {backups.length > 0 && <BackupUsage backups={backups} t={t} />}
 
         <CardContent className="p-5 md:p-6">
-          {loading ? (
-            <div className="flex justify-center py-16">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : backups.length === 0 ? (
-            <EmptyState
-              icon={Archive}
-              title={t('servers.backups.empty.title')}
-              description={t('servers.backups.empty.description')}
-              action={
-                <Button onClick={() => setIsDialogOpen(true)}>
-                  <Plus aria-hidden="true" />
-                  {t('servers.backups.create')}
-                </Button>
-              }
-            />
-          ) : (
-            /* Timeline: one dot per backup, centred on its date tile (1px border
-               + p-4/p-5 + half the 56px tile = 45px / 49px), and a rail from
-               each dot's centre to the next one's, so it reads as one line. */
-            <ol className="relative">
-              {backups.map((backup, index) => {
-                const date = formatBackupDate(backup.createdAt, language);
-                const isLast = index === backups.length - 1;
-                return (
-                  <li key={backup.id} className={cn('relative pl-8 sm:pl-10', !isLast && 'pb-4')}>
-                    {!isLast && (
-                      <span
-                        aria-hidden="true"
-                        className="absolute -bottom-[45px] left-[5px] top-[45px] w-px bg-border sm:-bottom-[49px] sm:top-[49px]"
-                      />
-                    )}
-                    <span
-                      aria-hidden="true"
-                      className={cn(
-                        'absolute left-0 top-[40px] z-10 h-[11px] w-[11px] rounded-full border-2 sm:top-[44px]',
-                        index === 0 ? 'border-primary bg-primary' : 'border-border bg-card',
-                      )}
-                    />
-
-                    <div className="flex min-w-0 flex-col gap-4 rounded-xl border border-border/60 bg-background/30 p-4 transition-colors duration-200 hover:border-border sm:flex-row sm:items-center sm:justify-between sm:p-5">
-                      <div className="flex min-w-0 items-center gap-4">
-                        <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-lg border border-border/60 bg-card">
-                          <span className="text-xl font-semibold leading-none tabular-nums text-foreground">{date.day}</span>
-                          <span className="mt-1 text-[11px] text-muted-foreground">{date.month}</span>
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                            <h4 className="truncate text-[15px] font-semibold leading-tight">
-                              {backupTitle(backup, t)}
-                            </h4>
-                            {isAutomatic(backup) && <Badge variant="secondary" className="shrink-0">{t('servers.backups.automatic.badge')}</Badge>}
-                            {restoreReason(backup) && (
-                              <Badge variant="outline" className="shrink-0 gap-1 border-success/40 text-success" title={t('servers.backups.restorePoint.hint')}>
-                                <ShieldCheck className="h-3 w-3" aria-hidden="true" />
-                                {t('servers.backups.restorePoint.badge')}
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1 tabular-nums" title={date.full}>
-                              <Clock className="h-3 w-3" aria-hidden="true" />
-                              {date.time}
-                            </span>
-                            {(backup.fileSize ?? 0) > 0 && (
-                              <span className="flex items-center gap-1 tabular-nums">
-                                <HardDrive className="h-3 w-3" aria-hidden="true" />
-                                {formatBytes(backup.fileSize ?? 0)}
-                              </span>
-                            )}
-                            {(backup.location === 'both' || backup.location === 'offsite') && (
-                              <span
-                                className="flex items-center gap-1 text-primary-bright"
-                                title={backup.location === 'offsite' ? t('servers.backups.offsite.onlyHint') : t('servers.backups.offsite.bothHint')}
-                              >
-                                <Cloud className="h-3 w-3" aria-hidden="true" />
-                                {backup.location === 'offsite' ? t('servers.backups.offsite.only') : t('servers.backups.offsite.both')}
-                              </span>
-                            )}
-                            <span className="min-w-0 truncate font-mono">{backup.fileName}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="grid w-full shrink-0 grid-cols-[1fr_1fr_auto] items-center gap-2 sm:flex sm:w-auto">
-                        <Button variant="outline" size="sm" className="min-w-0" onClick={() => handleDownload(backup.id)}>
-                          <Download aria-hidden="true" />
-                          {t('servers.backups.download')}
-                        </Button>
-                        <Button variant="outline" size="sm" className="min-w-0" onClick={() => setPendingAction({ type: 'restore', backupId: backup.id })}>
-                          <RotateCcw aria-hidden="true" />
-                          {t('servers.backups.restore.button')}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive-bright"
-                          aria-label={t('servers.backups.delete.button')}
-                          onClick={() => setPendingAction({ type: 'delete', backupId: backup.id })}
-                        >
-                          <Trash2 aria-hidden="true" />
-                        </Button>
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
-            </ol>
-          )}
+          {body}
         </CardContent>
       </Card>
 

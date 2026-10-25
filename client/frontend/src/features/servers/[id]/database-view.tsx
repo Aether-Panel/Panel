@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -188,6 +188,103 @@ export default function DatabaseView({ serverId }: Readonly<DatabaseViewProps>) 
     setShowPassword((prev: Record<number, boolean>) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  let body: ReactNode;
+  if (loading) {
+    body = (
+      <div className="flex justify-center py-16">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t('common.loading')} />
+      </div>
+    );
+  } else if (databases.length === 0) {
+    body = (
+      <EmptyState
+        icon={Database}
+        title={t('servers.database.empty')}
+        action={
+          <Button onClick={() => setIsDialogOpen(true)}>
+            <Plus aria-hidden="true" />
+            {t('servers.database.newDb')}
+          </Button>
+        }
+      />
+    );
+  } else {
+    body = (
+      databases.map((db: DatabaseInfo) => (
+        <div key={db.id} className="overflow-hidden rounded-xl border border-border/60 bg-background/30">
+          <div className="flex items-center justify-between gap-4 border-b border-border/50 px-4 py-3.5 sm:px-5">
+            <div className="flex min-w-0 items-center gap-3.5">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-border/60 bg-card text-muted-foreground">
+                <Database className="h-4 w-4" aria-hidden="true" />
+              </div>
+              <div className="min-w-0">
+                <h4 className="truncate text-[15px] font-semibold leading-tight">{db.database_name}</h4>
+                <div className="mt-1 flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+                  <Globe className="h-3 w-3 shrink-0" aria-hidden="true" />
+                  <span className="truncate">{db.host_name}</span>
+                </div>
+              </div>
+            </div>
+            <AlertDialog open={pendingDb === db.id} onOpenChange={(open) => !open && setPendingDb(null)}>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive-bright"
+                  aria-label={t('common.delete')}
+                  onClick={() => setPendingDb(db.id)}
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{t('common.confirmDelete')}</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {t('servers.database.deleteConfirm')}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    {t('common.delete')}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+
+          <div className="divide-y divide-border/50">
+            <CredentialRow
+              icon={UserIcon}
+              label={t('servers.database.table.user')}
+              value={db.username}
+              copied={copiedField === `user-${db.id}`}
+              onCopy={() => copyToClipboard(db.username, `user-${db.id}`)}
+            />
+            <CredentialRow
+              icon={Lock}
+              label={t('servers.database.password')}
+              value={db.password || ''}
+              secret
+              revealed={!!showPassword[db.id]}
+              onToggleReveal={() => togglePassword(db.id)}
+              copied={copiedField === `pass-${db.id}`}
+              onCopy={() => copyToClipboard(db.password || '', `pass-${db.id}`)}
+            />
+            <CredentialRow
+              icon={Globe}
+              label={t('servers.database.hostPort')}
+              value={`${db.host}:${db.port}`}
+              copied={copiedField === `host-${db.id}`}
+              onCopy={() => copyToClipboard(`${db.host}:${db.port}`, `host-${db.id}`)}
+            />
+          </div>
+        </div>
+      ))
+    );
+  }
+
   return (
     <div className="mt-6">
       <Card>
@@ -245,95 +342,7 @@ export default function DatabaseView({ serverId }: Readonly<DatabaseViewProps>) 
       </div>
 
       <div className="flex flex-col gap-4 p-5 md:p-6">
-        {loading ? (
-          <div className="flex justify-center py-16">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t('common.loading')} />
-          </div>
-        ) : databases.length === 0 ? (
-          <EmptyState
-            icon={Database}
-            title={t('servers.database.empty')}
-            action={
-              <Button onClick={() => setIsDialogOpen(true)}>
-                <Plus aria-hidden="true" />
-                {t('servers.database.newDb')}
-              </Button>
-            }
-          />
-        ) : (
-          databases.map((db: DatabaseInfo) => (
-            <div key={db.id} className="overflow-hidden rounded-xl border border-border/60 bg-background/30">
-              <div className="flex items-center justify-between gap-4 border-b border-border/50 px-4 py-3.5 sm:px-5">
-                <div className="flex min-w-0 items-center gap-3.5">
-                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-border/60 bg-card text-muted-foreground">
-                    <Database className="h-4 w-4" aria-hidden="true" />
-                  </div>
-                  <div className="min-w-0">
-                    <h4 className="truncate text-[15px] font-semibold leading-tight">{db.database_name}</h4>
-                    <div className="mt-1 flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
-                      <Globe className="h-3 w-3 shrink-0" aria-hidden="true" />
-                      <span className="truncate">{db.host_name}</span>
-                    </div>
-                  </div>
-                </div>
-                <AlertDialog open={pendingDb === db.id} onOpenChange={(open) => !open && setPendingDb(null)}>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive-bright"
-                      aria-label={t('common.delete')}
-                      onClick={() => setPendingDb(db.id)}
-                    >
-                      <Trash2 className="h-4 w-4" aria-hidden="true" />
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>{t('common.confirmDelete')}</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        {t('servers.database.deleteConfirm')}
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                        {t('common.delete')}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-
-              <div className="divide-y divide-border/50">
-                <CredentialRow
-                  icon={UserIcon}
-                  label={t('servers.database.table.user')}
-                  value={db.username}
-                  copied={copiedField === `user-${db.id}`}
-                  onCopy={() => copyToClipboard(db.username, `user-${db.id}`)}
-                />
-                <CredentialRow
-                  icon={Lock}
-                  label={t('servers.database.password')}
-                  value={db.password || ''}
-                  secret
-                  revealed={!!showPassword[db.id]}
-                  onToggleReveal={() => togglePassword(db.id)}
-                  copied={copiedField === `pass-${db.id}`}
-                  onCopy={() => copyToClipboard(db.password || '', `pass-${db.id}`)}
-                />
-                <CredentialRow
-                  icon={Globe}
-                  label={t('servers.database.hostPort')}
-                  value={`${db.host}:${db.port}`}
-                  copied={copiedField === `host-${db.id}`}
-                  onCopy={() => copyToClipboard(`${db.host}:${db.port}`, `host-${db.id}`)}
-                />
-              </div>
-            </div>
-          ))
-        )}
+        {body}
       </div>
       </Card>
 

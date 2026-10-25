@@ -32,48 +32,48 @@ func ParseJCMDResponse(data []byte) *JvmStats {
 		// older jvms start the lines we want with a space, newer ones don't
 		line = strings.TrimPrefix(line, " ")
 
-		if z, had := strings.CutPrefix(line, "garbage-first heap"); had {
-			// heap could have array stuff in it, remove it
-			results := parseLine(z)
-			if num, exists := results["used"]; exists {
-				stats.HeapUsed += num
-			}
-			if num, exists := results["total"]; exists {
-				stats.HeapTotal += num
-			}
-			if num, exists := results["committed"]; exists {
-				stats.HeapTotal += num
-			}
-		} else if z, had := strings.CutPrefix(line, "def new generation"); had {
-			// heap could have array stuff in it, remove it
-			results := parseLine(z)
-			if num, exists := results["used"]; exists {
-				stats.HeapUsed += num
-			}
-			if num, exists := results["total"]; exists {
-				stats.HeapTotal += num
-			}
-		} else if z, had := strings.CutPrefix(line, "tenured generation"); had {
-			// heap could have array stuff in it, remove it
-			results := parseLine(z)
-			if num, exists := results["used"]; exists {
-				stats.HeapUsed += num
-			}
-			if num, exists := results["total"]; exists {
-				stats.HeapTotal += num
-			}
-		} else if z, had = strings.CutPrefix(line, "Metaspace"); had {
-			results := parseLine(z)
-			if num, exists := results["used"]; exists {
-				stats.MetaspaceUsed += num
-			}
-			if num, exists := results["committed"]; exists {
-				stats.MetaspaceTotal += num
-			}
-		}
+		applyJCMDLine(stats, line)
 	}
 
 	return stats
+}
+
+// applyJCMDLine adds the usage reported on one jcmd line to stats.
+func applyJCMDLine(stats *JvmStats, line string) {
+	if z, had := strings.CutPrefix(line, "garbage-first heap"); had {
+		// heap could have array stuff in it, remove it
+		addHeapUsage(stats, parseLine(z), true)
+	} else if z, had := strings.CutPrefix(line, "def new generation"); had {
+		// heap could have array stuff in it, remove it
+		addHeapUsage(stats, parseLine(z), false)
+	} else if z, had := strings.CutPrefix(line, "tenured generation"); had {
+		// heap could have array stuff in it, remove it
+		addHeapUsage(stats, parseLine(z), false)
+	} else if z, had := strings.CutPrefix(line, "Metaspace"); had {
+		results := parseLine(z)
+		if num, exists := results["used"]; exists {
+			stats.MetaspaceUsed += num
+		}
+		if num, exists := results["committed"]; exists {
+			stats.MetaspaceTotal += num
+		}
+	}
+}
+
+// addHeapUsage adds a heap region; G1 reports its size as committed rather than total.
+func addHeapUsage(stats *JvmStats, results map[string]int64, withCommitted bool) {
+	if num, exists := results["used"]; exists {
+		stats.HeapUsed += num
+	}
+	if num, exists := results["total"]; exists {
+		stats.HeapTotal += num
+	}
+	if !withCommitted {
+		return
+	}
+	if num, exists := results["committed"]; exists {
+		stats.HeapTotal += num
+	}
 }
 
 func parseLine(line string) map[string]int64 {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -55,6 +56,74 @@ export default function ResetPasswordPage() {
 
   const showForm = !done && Boolean(token);
 
+  let body: ReactNode;
+  if (done) {
+    body = (
+      <div className="space-y-6">
+        <AuthNotice icon={CircleCheck} tone="success">
+          {t('auth.reset.done')}
+        </AuthNotice>
+        <Button type="button" onClick={() => (window.location.href = '/login')} className="h-11 w-full font-semibold">
+          {t('auth.links.goToSignIn')}
+        </Button>
+      </div>
+    );
+  } else if (!token) {
+    body = (
+      <div className="space-y-6">
+        <AuthNotice icon={TriangleAlert} tone="warning">
+          {t('auth.reset.missingToken')}
+        </AuthNotice>
+        <Button
+          type="button"
+          onClick={() => (window.location.href = '/forgot-password')}
+          className="h-11 w-full font-semibold"
+        >
+          {t('auth.reset.requestNew')}
+        </Button>
+      </div>
+    );
+  } else {
+    body = (
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="space-y-5">
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className={authLabelClass}>{t('auth.fields.newPassword')}</FormLabel>
+                <FormControl>
+                  <AuthInput {...field} icon={Lock} type="password" autoComplete="new-password" placeholder="••••••••" />
+                </FormControl>
+                <FormMessage className={authMessageClass} />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="confirmPassword"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className={authLabelClass}>{t('auth.fields.confirmNewPassword')}</FormLabel>
+                <FormControl>
+                  <AuthInput {...field} icon={Lock} type="password" autoComplete="new-password" placeholder="••••••••" />
+                </FormControl>
+                <FormMessage className={authMessageClass} />
+              </FormItem>
+            )}
+          />
+
+          <Button type="submit" className="h-11 w-full font-semibold" disabled={loading}>
+            {loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+            {t('auth.reset.submit')}
+          </Button>
+        </form>
+      </Form>
+    );
+  }
+
   return (
     <AuthFrame
       title={t('auth.reset.title')}
@@ -72,66 +141,7 @@ export default function ResetPasswordPage() {
         )
       }
     >
-      {done ? (
-        <div className="space-y-6">
-          <AuthNotice icon={CircleCheck} tone="success">
-            {t('auth.reset.done')}
-          </AuthNotice>
-          <Button type="button" onClick={() => (window.location.href = '/login')} className="h-11 w-full font-semibold">
-            {t('auth.links.goToSignIn')}
-          </Button>
-        </div>
-      ) : !token ? (
-        <div className="space-y-6">
-          <AuthNotice icon={TriangleAlert} tone="warning">
-            {t('auth.reset.missingToken')}
-          </AuthNotice>
-          <Button
-            type="button"
-            onClick={() => (window.location.href = '/forgot-password')}
-            className="h-11 w-full font-semibold"
-          >
-            {t('auth.reset.requestNew')}
-          </Button>
-        </div>
-      ) : (
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="space-y-5">
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className={authLabelClass}>{t('auth.fields.newPassword')}</FormLabel>
-                  <FormControl>
-                    <AuthInput {...field} icon={Lock} type="password" autoComplete="new-password" placeholder="••••••••" />
-                  </FormControl>
-                  <FormMessage className={authMessageClass} />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="confirmPassword"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className={authLabelClass}>{t('auth.fields.confirmNewPassword')}</FormLabel>
-                  <FormControl>
-                    <AuthInput {...field} icon={Lock} type="password" autoComplete="new-password" placeholder="••••••••" />
-                  </FormControl>
-                  <FormMessage className={authMessageClass} />
-                </FormItem>
-              )}
-            />
-
-            <Button type="submit" className="h-11 w-full font-semibold" disabled={loading}>
-              {loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-              {t('auth.reset.submit')}
-            </Button>
-          </form>
-        </Form>
-      )}
+      {body}
     </AuthFrame>
   );
 }

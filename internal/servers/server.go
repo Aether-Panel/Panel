@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"os"
 	"path"
@@ -23,6 +24,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/database"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
+	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/SkyPanel/SkyPanel/v3/internal/offsite"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
@@ -236,6 +238,35 @@ func sendSystemStatusToDiscord() {
 	}
 
 	// Crear un mapa de servidor ID a node ID desde la base de datos
+	serverNodeMap := serverNodeIDs(ss, allServers)
+
+	serverInfos := make([]services.ServerInfo, 0, len(allServers))
+	nodeServerMap := make(map[uint][]services.ServerInfo)
+
+	for _, server := range allServers {
+		serverInfo := systemStatusInfo(server)
+		serverInfos = append(serverInfos, serverInfo)
+
+		// Agrupar por nodo
+		nodeID := serverNodeMap[server.ID()]
+		nodeServerMap[nodeID] = append(nodeServerMap[nodeID], serverInfo)
+	}
+
+	// Enviar el reporte del sistema a Discord
+	err = ds.SendSystemStatus(serverInfos)
+	if err != nil {
+		logging.Error.Printf("Error sending system status to Discord: %s", err)
+	}
+
+	// Enviar estado de cada nodo a Discord
+	for _, node := range nodes {
+		sendNodeStatusToDiscord(ds, node, nodeServerMap[node.ID])
+	}
+}
+
+// serverNodeIDs maps each server to its node from the database; servers missing there,
+// or without a node, count as the local node (0)
+func serverNodeIDs(ss *services.Server, allServers []*Server) map[string]uint {
 	serverNodeMap := make(map[string]uint)
 	for _, server := range allServers {
 		serverModel, err := ss.Get(server.ID())
@@ -250,209 +281,205 @@ func sendSystemStatusToDiscord() {
 		}
 		serverNodeMap[server.ID()] = nodeID
 	}
+	return serverNodeMap
+}
 
-	serverInfos := make([]services.ServerInfo, 0, len(allServers))
-	nodeServerMap := make(map[uint][]services.ServerInfo)
-
-	for _, server := range allServers {
-		isRunning, err := server.IsRunning()
-		if err != nil {
-			logging.Error.Printf("[%s] Error checking server status for system status: %s", server.ID(), err)
-			isRunning = false
-		}
-
-		serverName := server.Server.Display
-		if serverName == "" {
-			serverName = server.ID()
-		}
-
-		serverInfo := services.ServerInfo{
-			Name:      serverName,
-			ID:        server.ID(),
-			IsRunning: isRunning,
-			CPU:       0.0,
-			Memory:    0.0,
-		}
-
-		// Obtener estadísticas si el servidor está corriendo
-		if isRunning {
-			stats, err := server.GetEnvironment().GetStats()
-			if err == nil && stats != nil {
-				serverInfo.CPU = stats.CPU
-				serverInfo.Memory = stats.Memory
-			}
-		}
-
-		serverInfos = append(serverInfos, serverInfo)
-
-		// Agrupar por nodo
-		nodeID := serverNodeMap[server.ID()]
-		if nodeServerMap[nodeID] == nil {
-			nodeServerMap[nodeID] = make([]services.ServerInfo, 0)
-		}
-		nodeServerMap[nodeID] = append(nodeServerMap[nodeID], serverInfo)
-	}
-
-	// Enviar el reporte del sistema a Discord
-	err = ds.SendSystemStatus(serverInfos)
+// systemStatusInfo is one server's line in the system status report
+func systemStatusInfo(server *Server) services.ServerInfo {
+	isRunning, err := server.IsRunning()
 	if err != nil {
-		logging.Error.Printf("Error sending system status to Discord: %s", err)
+		logging.Error.Printf("[%s] Error checking server status for system status: %s", server.ID(), err)
+		isRunning = false
 	}
 
-	// Enviar estado de cada nodo a Discord
-	for _, node := range nodes {
-		serversForNode := nodeServerMap[node.ID]
-		if serversForNode == nil {
-			serversForNode = make([]services.ServerInfo, 0)
+	serverName := server.Server.Display
+	if serverName == "" {
+		serverName = server.ID()
+	}
+
+	serverInfo := services.ServerInfo{
+		Name:      serverName,
+		ID:        server.ID(),
+		IsRunning: isRunning,
+		CPU:       0.0,
+		Memory:    0.0,
+	}
+
+	// Obtener estadísticas si el servidor está corriendo
+	if isRunning {
+		stats, err := server.GetEnvironment().GetStats()
+		if err == nil && stats != nil {
+			serverInfo.CPU = stats.CPU
+			serverInfo.Memory = stats.Memory
 		}
+	}
+	return serverInfo
+}
 
-		totalServers := len(serversForNode)
-		onlineServers := 0
-		offlineServers := 0
+func sendNodeStatusToDiscord(ds *services.DiscordService, node *models.Node, serversForNode []services.ServerInfo) {
+	totalServers := len(serversForNode)
+	onlineServers := 0
+	offlineServers := 0
 
-		for _, info := range serversForNode {
-			if info.IsRunning {
-				onlineServers++
-			} else {
-				offlineServers++
+	for _, info := range serversForNode {
+		if info.IsRunning {
+			onlineServers++
+		} else {
+			offlineServers++
+		}
+	}
+
+	nodeName := node.Name
+	if nodeName == "" || node.IsLocal() {
+		nodeName = "Nodo Local"
+	}
+
+	// Obtener información del sistema
+	cpuModel, cpuCores, cpuThreads, cpuGhz := hostCPUSummary()
+
+	// Obtener información de memoria
+	memInfo, err := mem.VirtualMemory()
+	memTotal := uint64(0)
+	memUsed := uint64(0)
+	if err == nil {
+		memTotal = memInfo.Total
+		memUsed = memInfo.Used
+	}
+
+	// Sistema operativo - obtener información detallada como neofetch/fastfetch
+	osName := getOSName()
+
+	err = ds.SendNodeStatus(totalServers, onlineServers, offlineServers, nodeName, node.PublicHost, node.PublicPort, cpuModel, cpuCores, cpuThreads, cpuGhz, memTotal, memUsed, osName)
+	if err != nil {
+		logging.Error.Printf("Error sending node status to Discord for node %s: %s", nodeName, err)
+	}
+}
+
+// hostCPUSummary returns the CPU model, physical cores, threads and GHz of this machine
+func hostCPUSummary() (string, int, int, float64) {
+	cpuInfo, err := cpu.Info()
+	haveInfo := err == nil && len(cpuInfo) > 0
+	cpuThreads := int(runtime.NumCPU()) // Núcleos lógicos (hilos) - esto siempre es correcto
+
+	cpuCores := 0
+	// Obtener cores físicos leyendo /proc/cpuinfo en Linux
+	if runtime.GOOS == "linux" {
+		cpuCores = linuxPhysicalCores()
+	}
+
+	// Si no se pudo obtener cores físicos, usar cpu.Info como fallback
+	if cpuCores == 0 {
+		cpuCores = cpuInfoCores(cpuInfo, haveInfo, cpuThreads)
+	}
+
+	// Obtener modelo y frecuencia del CPU
+	cpuModel := "Desconocido"
+	cpuGhz := 0.0
+	if haveInfo {
+		cpuModel = cpuInfo[0].ModelName
+		for _, info := range cpuInfo {
+			if info.Mhz > 0 {
+				cpuGhz = info.Mhz / 1000.0 // Convertir MHz a GHz
+				break
 			}
 		}
+	}
+	return cpuModel, cpuCores, cpuThreads, cpuGhz
+}
 
-		nodeName := node.Name
-		if nodeName == "" || node.IsLocal() {
-			nodeName = "Nodo Local"
-		}
-
-		// Obtener información del sistema
-		cpuInfo, err := cpu.Info()
-		cpuModel := "Desconocido"
-		cpuCores := 0
-		cpuThreads := int(runtime.NumCPU()) // Núcleos lógicos (hilos) - esto siempre es correcto
-		cpuGhz := 0.0
-
-		// Obtener cores físicos leyendo /proc/cpuinfo en Linux
-		if runtime.GOOS == "linux" {
-			if data, err := os.ReadFile("/proc/cpuinfo"); err == nil {
-				// /proc/cpuinfo está organizado en bloques separados por líneas vacías
-				// Cada bloque representa un procesador lógico (thread)
-				physicalCores := make(map[string]bool)
-				coresPerSocket := make(map[string]int)
-
-				// Dividir en bloques (cada bloque es un procesador lógico)
-				blocks := strings.Split(string(data), "\n\n")
-				for _, block := range blocks {
-					block = strings.TrimSpace(block)
-					if block == "" {
-						continue
-					}
-
-					var physicalID, coreID string
-
-					// Procesar cada línea del bloque
-					lines := strings.Split(block, "\n")
-					for _, line := range lines {
-						line = strings.TrimSpace(line)
-						if strings.Contains(line, ":") {
-							parts := strings.SplitN(line, ":", 2)
-							if len(parts) != 2 {
-								continue
-							}
-							key := strings.TrimSpace(parts[0])
-							value := strings.TrimSpace(parts[1])
-
-							switch key {
-							case "physical id":
-								physicalID = value
-							case "core id":
-								coreID = value
-							case "cpu cores":
-								if physicalID != "" {
-									if val, err := cast.ToIntE(value); err == nil {
-										coresPerSocket[physicalID] = val
-									}
-								}
-							}
-						}
-					}
-
-					// Si tenemos physical id y core id, crear clave única para core físico
-					if physicalID != "" && coreID != "" {
-						physicalCores[physicalID+"-"+coreID] = true
-					}
-				}
-
-				// Si encontramos cores físicos únicos, usarlos
-				if len(physicalCores) > 0 {
-					cpuCores = len(physicalCores)
-				} else if len(coresPerSocket) > 0 {
-					// Calcular: sumar cores de todos los sockets
-					totalCores := 0
-					for _, cores := range coresPerSocket {
-						totalCores += cores
-					}
-					if totalCores > 0 {
-						cpuCores = totalCores
-					}
-				}
-			}
-		}
-
-		// Si no se pudo obtener cores físicos, usar cpu.Info como fallback
+// cpuInfoCores adds up the cores cpu.Info reports, or guesses threads / 2 without it
+func cpuInfoCores(cpuInfo []cpu.InfoStat, haveInfo bool, cpuThreads int) int {
+	if !haveInfo {
+		// Fallback final: usar hilos / 2 (asume hyperthreading)
+		cpuCores := cpuThreads / 2
 		if cpuCores == 0 {
-			if err == nil && len(cpuInfo) > 0 {
-				cpuModel = cpuInfo[0].ModelName
-				// Para sistemas con múltiples CPUs físicos, sumar los cores
-				totalCores := int(0)
-				for _, info := range cpuInfo {
-					totalCores += int(info.Cores)
-					if cpuGhz == 0 && info.Mhz > 0 {
-						cpuGhz = info.Mhz / 1000.0 // Convertir MHz a GHz
-					}
-				}
-				if totalCores > 0 {
-					cpuCores = totalCores
-				}
-			} else {
-				// Fallback final: usar hilos / 2 (asume hyperthreading)
-				cpuCores = cpuThreads / 2
-				if cpuCores == 0 {
-					cpuCores = 1
-				}
-			}
+			cpuCores = 1
+		}
+		return cpuCores
+	}
+
+	// Para sistemas con múltiples CPUs físicos, sumar los cores
+	totalCores := int(0)
+	for _, info := range cpuInfo {
+		totalCores += int(info.Cores)
+	}
+	if totalCores > 0 {
+		return totalCores
+	}
+	return 0
+}
+
+// linuxPhysicalCores counts the physical cores in /proc/cpuinfo, 0 when it cannot tell
+func linuxPhysicalCores() int {
+	data, err := os.ReadFile("/proc/cpuinfo")
+	if err != nil {
+		return 0
+	}
+
+	// /proc/cpuinfo está organizado en bloques separados por líneas vacías
+	// Cada bloque representa un procesador lógico (thread)
+	physicalCores := make(map[string]bool)
+	coresPerSocket := make(map[string]int)
+
+	// Dividir en bloques (cada bloque es un procesador lógico)
+	blocks := strings.Split(string(data), "\n\n")
+	for _, block := range blocks {
+		block = strings.TrimSpace(block)
+		if block == "" {
+			continue
 		}
 
-		// Obtener modelo y frecuencia del CPU si no se obtuvo antes
-		if err == nil && len(cpuInfo) > 0 {
-			if cpuModel == "Desconocido" {
-				cpuModel = cpuInfo[0].ModelName
-			}
-			if cpuGhz == 0 {
-				for _, info := range cpuInfo {
-					if info.Mhz > 0 {
-						cpuGhz = info.Mhz / 1000.0 // Convertir MHz a GHz
-						break
-					}
-				}
-			}
-		}
+		physicalID, coreID := parseCPUInfoBlock(block, coresPerSocket)
 
-		// Obtener información de memoria
-		memInfo, err := mem.VirtualMemory()
-		memTotal := uint64(0)
-		memUsed := uint64(0)
-		if err == nil {
-			memTotal = memInfo.Total
-			memUsed = memInfo.Used
-		}
-
-		// Sistema operativo - obtener información detallada como neofetch/fastfetch
-		osName := getOSName()
-
-		err = ds.SendNodeStatus(totalServers, onlineServers, offlineServers, nodeName, node.PublicHost, node.PublicPort, cpuModel, cpuCores, cpuThreads, cpuGhz, memTotal, memUsed, osName)
-		if err != nil {
-			logging.Error.Printf("Error sending node status to Discord for node %s: %s", nodeName, err)
+		// Si tenemos physical id y core id, crear clave única para core físico
+		if physicalID != "" && coreID != "" {
+			physicalCores[physicalID+"-"+coreID] = true
 		}
 	}
+
+	// Si encontramos cores físicos únicos, usarlos
+	if len(physicalCores) > 0 {
+		return len(physicalCores)
+	}
+
+	// Calcular: sumar cores de todos los sockets
+	totalCores := 0
+	for _, cores := range coresPerSocket {
+		totalCores += cores
+	}
+	if totalCores > 0 {
+		return totalCores
+	}
+	return 0
+}
+
+// parseCPUInfoBlock reads one processor block of /proc/cpuinfo, recording its socket's
+// "cpu cores" in coresPerSocket
+func parseCPUInfoBlock(block string, coresPerSocket map[string]int) (physicalID, coreID string) {
+	// Procesar cada línea del bloque
+	for _, line := range strings.Split(block, "\n") {
+		key, value, found := strings.Cut(strings.TrimSpace(line), ":")
+		if !found {
+			continue
+		}
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
+
+		switch key {
+		case "physical id":
+			physicalID = value
+		case "core id":
+			coreID = value
+		case "cpu cores":
+			if physicalID == "" {
+				continue
+			}
+			if val, err := cast.ToIntE(value); err == nil {
+				coresPerSocket[physicalID] = val
+			}
+		}
+	}
+	return physicalID, coreID
 }
 
 // getOSName obtiene el nombre detallado del sistema operativo como neofetch/fastfetch
@@ -461,96 +488,11 @@ func getOSName() string {
 
 	switch goos {
 	case "linux":
-		// Intentar leer /etc/os-release primero (estándar systemd)
-		if data, err := os.ReadFile("/etc/os-release"); err == nil {
-			lines := strings.Split(string(data), "\n")
-			var prettyName, name, version string
-			for _, line := range lines {
-				line = strings.TrimSpace(line)
-				if line == "" || strings.HasPrefix(line, "#") {
-					continue
-				}
-				switch {
-				case strings.HasPrefix(line, "PRETTY_NAME="):
-					val := strings.TrimPrefix(line, "PRETTY_NAME=")
-					// Remover comillas simples o dobles
-					prettyName = strings.Trim(val, "\"'")
-				case strings.HasPrefix(line, "NAME=") && name == "":
-					val := strings.TrimPrefix(line, "NAME=")
-					// Remover comillas simples o dobles
-					name = strings.Trim(val, "\"'")
-				case strings.HasPrefix(line, "VERSION=") && version == "":
-					val := strings.TrimPrefix(line, "VERSION=")
-					// Remover comillas simples o dobles
-					version = strings.Trim(val, "\"'")
-				}
-			}
-			if prettyName != "" {
-				return prettyName
-			}
-			if name != "" && version != "" {
-				return name + " " + version
-			}
-			if name != "" {
-				return name
-			}
-		}
-
-		// Intentar /etc/lsb-release (Ubuntu/Debian)
-		if data, err := os.ReadFile("/etc/lsb-release"); err == nil {
-			lines := strings.Split(string(data), "\n")
-			var dist, release string
-			for _, line := range lines {
-				line = strings.TrimSpace(line)
-				if strings.HasPrefix(line, "DISTRIB_ID=") {
-					dist = strings.TrimPrefix(line, "DISTRIB_ID=")
-				} else if strings.HasPrefix(line, "DISTRIB_RELEASE=") {
-					release = strings.TrimPrefix(line, "DISTRIB_RELEASE=")
-				}
-			}
-			if dist != "" && release != "" {
-				return dist + " " + release
-			}
-			if dist != "" {
-				return dist
-			}
-		}
-
-		// Intentar /etc/redhat-release (RedHat/CentOS/Fedora)
-		if data, err := os.ReadFile("/etc/redhat-release"); err == nil {
-			return strings.TrimSpace(string(data))
-		}
-
-		// Intentar /etc/debian_version (Debian)
-		if data, err := os.ReadFile("/etc/debian_version"); err == nil {
-			return "Debian " + strings.TrimSpace(string(data))
-		}
-
-		// Intentar /etc/arch-release (Arch Linux)
-		if _, err := os.Stat("/etc/arch-release"); err == nil {
-			return "Arch Linux"
-		}
-
-		// Fallback
-		return "Linux"
+		return linuxOSName()
 	case "windows":
 		return "Windows"
 	case "darwin":
-		// Intentar obtener la versión de macOS
-		if data, err := os.ReadFile("/System/Library/CoreServices/SystemVersion.plist"); err == nil {
-			content := string(data)
-			// Buscar ProductVersion
-			if idx := strings.Index(content, "<key>ProductVersion</key>"); idx != -1 {
-				if idx2 := strings.Index(content[idx:], "<string>"); idx2 != -1 {
-					start := idx + idx2 + 8
-					if idx3 := strings.Index(content[start:], "</string>"); idx3 != -1 {
-						version := strings.TrimSpace(content[start : start+idx3])
-						return "macOS " + version
-					}
-				}
-			}
-		}
-		return "macOS"
+		return macOSName()
 	case "freebsd":
 		return "FreeBSD"
 	case "openbsd":
@@ -560,6 +502,115 @@ func getOSName() string {
 	default:
 		return goos
 	}
+}
+
+func linuxOSName() string {
+	// Intentar leer /etc/os-release primero (estándar systemd)
+	if name := osReleaseName(); name != "" {
+		return name
+	}
+
+	// Intentar /etc/lsb-release (Ubuntu/Debian)
+	if name := lsbReleaseName(); name != "" {
+		return name
+	}
+
+	// Intentar /etc/redhat-release (RedHat/CentOS/Fedora)
+	if data, err := os.ReadFile("/etc/redhat-release"); err == nil {
+		return strings.TrimSpace(string(data))
+	}
+
+	// Intentar /etc/debian_version (Debian)
+	if data, err := os.ReadFile("/etc/debian_version"); err == nil {
+		return "Debian " + strings.TrimSpace(string(data))
+	}
+
+	// Intentar /etc/arch-release (Arch Linux)
+	if _, err := os.Stat("/etc/arch-release"); err == nil {
+		return "Arch Linux"
+	}
+
+	// Fallback
+	return "Linux"
+}
+
+// osReleaseName reads /etc/os-release, empty when it is missing or names nothing
+func osReleaseName() string {
+	data, err := os.ReadFile("/etc/os-release")
+	if err != nil {
+		return ""
+	}
+	lines := strings.Split(string(data), "\n")
+	var prettyName, name, version string
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		switch {
+		case strings.HasPrefix(line, "PRETTY_NAME="):
+			val := strings.TrimPrefix(line, "PRETTY_NAME=")
+			// Remover comillas simples o dobles
+			prettyName = strings.Trim(val, "\"'")
+		case strings.HasPrefix(line, "NAME=") && name == "":
+			val := strings.TrimPrefix(line, "NAME=")
+			// Remover comillas simples o dobles
+			name = strings.Trim(val, "\"'")
+		case strings.HasPrefix(line, "VERSION=") && version == "":
+			val := strings.TrimPrefix(line, "VERSION=")
+			// Remover comillas simples o dobles
+			version = strings.Trim(val, "\"'")
+		}
+	}
+	if prettyName != "" {
+		return prettyName
+	}
+	if name != "" && version != "" {
+		return name + " " + version
+	}
+	return name
+}
+
+// lsbReleaseName reads /etc/lsb-release, empty when it is missing or names nothing
+func lsbReleaseName() string {
+	data, err := os.ReadFile("/etc/lsb-release")
+	if err != nil {
+		return ""
+	}
+	lines := strings.Split(string(data), "\n")
+	var dist, release string
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "DISTRIB_ID=") {
+			dist = strings.TrimPrefix(line, "DISTRIB_ID=")
+		} else if strings.HasPrefix(line, "DISTRIB_RELEASE=") {
+			release = strings.TrimPrefix(line, "DISTRIB_RELEASE=")
+		}
+	}
+	if dist != "" && release != "" {
+		return dist + " " + release
+	}
+	return dist
+}
+
+func macOSName() string {
+	// Intentar obtener la versión de macOS
+	data, err := os.ReadFile("/System/Library/CoreServices/SystemVersion.plist")
+	if err != nil {
+		return "macOS"
+	}
+	content := string(data)
+	// Buscar ProductVersion
+	if idx := strings.Index(content, "<key>ProductVersion</key>"); idx != -1 {
+		if idx2 := strings.Index(content[idx:], "<string>"); idx2 != -1 {
+			start := idx + idx2 + 8
+			if idx3 := strings.Index(content[start:], "</string>"); idx3 != -1 {
+				version := strings.TrimSpace(content[start : start+idx3])
+				return "macOS " + version
+			}
+		}
+	}
+	return "macOS"
 }
 
 func SendStatsForServers() {
@@ -655,6 +706,21 @@ func checkServerAlerts(server *Server, stats *skypanel.ServerStats) {
 	}
 
 	// Verificar cambio de estado online/offline
+	trackPowerChange(server, state, isRunning, serverName)
+
+	// Verificar uso alto de recursos (solo si está online)
+	if isRunning && stats != nil {
+		checkResourceAlerts(server, state, stats, serverName)
+	}
+
+	// Actualizar stats anteriores
+	state.lastStats = stats
+}
+
+// trackPowerChange alerts when the server comes online and, once offlineAlertDelay passes,
+// when it went offline without a stop, clean exit or reported crash. Callers hold stateTrackingLock.
+func trackPowerChange(server *Server, state *serverState, isRunning bool, serverName string) {
+	serverID := server.ID()
 	if state.wasRunning != isRunning {
 		server.notifyPower(isRunning)
 		ds := services.GetDiscordService()
@@ -673,47 +739,42 @@ func checkServerAlerts(server *Server, stats *skypanel.ServerStats) {
 		_ = services.GetDiscordService().SendServerOfflineAlert(serverName, serverID)
 		state.offlineSince = time.Time{}
 	}
+}
 
-	// Verificar uso alto de recursos (solo si está online)
-	if isRunning && stats != nil {
-		now := time.Now()
+// checkResourceAlerts alerts on high CPU or memory at most every 5 minutes per resource.
+// Callers hold stateTrackingLock.
+func checkResourceAlerts(server *Server, state *serverState, stats *skypanel.ServerStats, serverName string) {
+	now := time.Now()
 
-		// CPU > 80%
-		if stats.CPU > 80.0 {
-			alertKey := "cpu_high"
-			lastAlert, hasAlerted := state.lastAlert[alertKey]
-			if !hasAlerted || now.Sub(lastAlert) > 5*time.Minute {
-				ds := services.GetDiscordService()
-				_ = ds.SendResourceAlert(serverName, serverID, "CPU", stats.CPU, 80.0)
-				server.notifyResource("CPU", stats.CPU, 80.0)
-				state.lastAlert[alertKey] = now
-			}
-		}
-
-		// RAM > 90%
-		memory := memoryPercent(stats)
-		if memory > 90.0 {
-			alertKey := "memory_high"
-			lastAlert, hasAlerted := state.lastAlert[alertKey]
-			if !hasAlerted || now.Sub(lastAlert) > 5*time.Minute {
-				ds := services.GetDiscordService()
-				_ = ds.SendResourceAlert(serverName, serverID, "Memoria", memory, 90.0)
-				server.notifyResource("Memoria", memory, 90.0)
-				state.lastAlert[alertKey] = now
-			}
-		}
-
-		// Limpiar alertas antiguas si el recurso ya no está alto
-		if stats.CPU <= 80.0 {
-			delete(state.lastAlert, "cpu_high")
-		}
-		if memory <= 90.0 {
-			delete(state.lastAlert, "memory_high")
-		}
+	// CPU > 80%
+	if stats.CPU > 80.0 {
+		sendResourceAlert(server, state, now, "cpu_high", serverName, "CPU", stats.CPU, 80.0)
 	}
 
-	// Actualizar stats anteriores
-	state.lastStats = stats
+	// RAM > 90%
+	memory := memoryPercent(stats)
+	if memory > 90.0 {
+		sendResourceAlert(server, state, now, "memory_high", serverName, "Memoria", memory, 90.0)
+	}
+
+	// Limpiar alertas antiguas si el recurso ya no está alto
+	if stats.CPU <= 80.0 {
+		delete(state.lastAlert, "cpu_high")
+	}
+	if memory <= 90.0 {
+		delete(state.lastAlert, "memory_high")
+	}
+}
+
+func sendResourceAlert(server *Server, state *serverState, now time.Time, alertKey, serverName, resource string, value, limit float64) {
+	lastAlert, hasAlerted := state.lastAlert[alertKey]
+	if hasAlerted && now.Sub(lastAlert) <= 5*time.Minute {
+		return
+	}
+	ds := services.GetDiscordService()
+	_ = ds.SendResourceAlert(serverName, server.ID(), resource, value, limit)
+	server.notifyResource(resource, value, limit)
+	state.lastAlert[alertKey] = now
 }
 
 // crashCounterResetAfter is how long a server must run before a crash counts as the
@@ -805,50 +866,9 @@ func (p *Server) Start() error {
 		return err
 	}
 
-	var command skypanel.Command
-
-	if c, ok := p.Execution.Command.(string); ok {
-		command = skypanel.Command{Command: c}
-	} else {
-		// we have a list
-		var possibleCommands []skypanel.Command
-		err = utils.UnmarshalTo(p.Execution.Command, &possibleCommands)
-		if err != nil {
-			return err
-		}
-
-		var defaultCommand skypanel.Command
-		var commandToRun skypanel.Command
-		for _, v := range possibleCommands {
-			if v.If == "" {
-				defaultCommand = v
-				break
-			}
-		}
-
-		for _, v := range possibleCommands {
-			// now... we see which command to use
-			if v.If == "" {
-				continue
-			}
-			useThis, err := p.RunCondition(v.If, nil)
-			if err != nil {
-				p.Log(logging.Error, "error starting server %s: %s", p.ID(), err)
-				p.RunningEnvironment.DisplayToConsole(true, " Failed to start server\n")
-				return err
-			}
-			if useThis {
-				commandToRun = v
-				break
-			}
-		}
-
-		command = commandToRun
-
-		// if no command, use default
-		if command.Command == "" {
-			command = defaultCommand
-		}
+	command, err := p.resolveCommand()
+	if err != nil {
+		return err
 	}
 
 	if command.StdIn.Type == "" {
@@ -880,32 +900,91 @@ func (p *Server) Start() error {
 
 	// keepalive!
 	if p.KeepAlive.Frequency != "" && p.KeepAlive.Command != "" {
-		dur, err := time.ParseDuration(p.KeepAlive.Frequency)
-		if err != nil {
-			p.RunningEnvironment.DisplayToConsole(true, " Failed to enable keep-alive: %s", err)
-			return nil
-		}
-		if p.keepAlive == nil {
-			p.keepAlive = time.NewTicker(dur)
-		} else {
-			p.keepAlive.Reset(dur)
-		}
-
-		if p.keepAlive != nil {
-			go func() {
-				for {
-					select {
-					case <-p.keepAliveChan:
-						return
-					case <-p.keepAlive.C:
-						_ = p.RunningEnvironment.ExecuteInMainProcess(p.KeepAlive.Command)
-					}
-				}
-			}()
-		}
+		p.startKeepAlive()
 	}
 
 	return err
+}
+
+// resolveCommand picks the command to run: a plain string, or the first entry of the list
+// whose condition holds, falling back to the entry without a condition
+func (p *Server) resolveCommand() (skypanel.Command, error) {
+	if c, ok := p.Execution.Command.(string); ok {
+		return skypanel.Command{Command: c}, nil
+	}
+
+	// we have a list
+	var possibleCommands []skypanel.Command
+	err := utils.UnmarshalTo(p.Execution.Command, &possibleCommands)
+	if err != nil {
+		return skypanel.Command{}, err
+	}
+
+	var defaultCommand skypanel.Command
+	for _, v := range possibleCommands {
+		if v.If == "" {
+			defaultCommand = v
+			break
+		}
+	}
+
+	command, err := p.firstMatchingCommand(possibleCommands)
+	if err != nil {
+		return skypanel.Command{}, err
+	}
+
+	// if no command, use default
+	if command.Command == "" {
+		command = defaultCommand
+	}
+	return command, nil
+}
+
+// firstMatchingCommand returns the first conditional command whose condition holds
+func (p *Server) firstMatchingCommand(possibleCommands []skypanel.Command) (skypanel.Command, error) {
+	for _, v := range possibleCommands {
+		// now... we see which command to use
+		if v.If == "" {
+			continue
+		}
+		useThis, err := p.RunCondition(v.If, nil)
+		if err != nil {
+			p.Log(logging.Error, "error starting server %s: %s", p.ID(), err)
+			p.RunningEnvironment.DisplayToConsole(true, " Failed to start server\n")
+			return skypanel.Command{}, err
+		}
+		if useThis {
+			return v, nil
+		}
+	}
+	return skypanel.Command{}, nil
+}
+
+// startKeepAlive sends the keep-alive command on its interval until the server exits
+func (p *Server) startKeepAlive() {
+	dur, err := time.ParseDuration(p.KeepAlive.Frequency)
+	if err != nil {
+		p.RunningEnvironment.DisplayToConsole(true, " Failed to enable keep-alive: %s", err)
+		return
+	}
+	if p.keepAlive == nil {
+		p.keepAlive = time.NewTicker(dur)
+	} else {
+		p.keepAlive.Reset(dur)
+	}
+
+	if p.keepAlive != nil {
+		go func() {
+			for {
+				select {
+				case <-p.keepAliveChan:
+					return
+				case <-p.keepAlive.C:
+					_ = p.RunningEnvironment.ExecuteInMainProcess(p.KeepAlive.Command)
+				}
+			}
+		}()
+	}
 }
 
 // Stop Stops the program.
@@ -1230,69 +1309,84 @@ func (p *Server) GetItem(name string) (*FileData, error) {
 	}
 
 	if info.IsDir() {
-		fileList, _ := p.GetFileServer().ReadDir(name)
-		var fileNames []skypanel.FileDesc
-		offset := 0
-		if name == "" || name == "." || name == "/" {
-			fileNames = make([]skypanel.FileDesc, len(fileList))
-		} else {
-			fileNames = make([]skypanel.FileDesc, len(fileList)+1)
-			fileNames[0] = skypanel.FileDesc{
-				Name: "..",
-				File: false,
-			}
-			offset = 1
-		}
-
-		// validate any symlinks are valid
-
-		for i, file := range fileList {
-			newFile := skypanel.FileDesc{
-				Name: file.Name(),
-				File: !file.IsDir(),
-			}
-
-			if !file.IsDir() && file.Type()&os.ModeSymlink == 0 {
-				infoData, err := p.GetFileServer().Stat(filepath.Join(name, file.Name()))
-				if err != nil {
-					continue
-				}
-				newFile.Size = infoData.Size()
-				newFile.Modified = infoData.ModTime().Unix()
-				newFile.Extension = filepath.Ext(file.Name())
-			}
-
-			fileNames[i+offset] = newFile
-		}
-		// Ordenar (carpetas primero, luego archivos, y alfabéticamente)
-		sort.Slice(fileNames, func(i, j int) bool {
-			// ".." siempre de primero
-			if fileNames[i].Name == ".." {
-				return true
-			}
-			if fileNames[j].Name == ".." {
-				return false
-			}
-
-			// Si uno es carpeta y el otro archivo, la carpeta va primero
-			if !fileNames[i].File && fileNames[j].File {
-				return true
-			}
-			if fileNames[i].File && !fileNames[j].File {
-				return false
-			}
-
-			// Si ambos son del mismo tipo, orden alfabético sin distinguir mayúsculas
-			return strings.ToLower(fileNames[i].Name) < strings.ToLower(fileNames[j].Name)
-		})
-
-		return &FileData{FileList: fileNames}, nil
+		return &FileData{FileList: p.listDirectory(name)}, nil
 	}
 	file, err := p.GetFileServer().Open(name)
 	if err != nil {
 		return nil, err
 	}
 	return &FileData{Contents: file, ContentLength: info.Size(), Name: info.Name()}, nil
+}
+
+// listDirectory lists a folder for the file manager: ".." first (outside the root), then
+// folders, then files, alphabetically
+func (p *Server) listDirectory(name string) []skypanel.FileDesc {
+	fileList, _ := p.GetFileServer().ReadDir(name)
+	var fileNames []skypanel.FileDesc
+	offset := 0
+	if name == "" || name == "." || name == "/" {
+		fileNames = make([]skypanel.FileDesc, len(fileList))
+	} else {
+		fileNames = make([]skypanel.FileDesc, len(fileList)+1)
+		fileNames[0] = skypanel.FileDesc{
+			Name: "..",
+			File: false,
+		}
+		offset = 1
+	}
+
+	// validate any symlinks are valid
+
+	for i, file := range fileList {
+		newFile, ok := p.describeFile(name, file)
+		if !ok {
+			continue
+		}
+		fileNames[i+offset] = newFile
+	}
+	// Ordenar (carpetas primero, luego archivos, y alfabéticamente)
+	sort.Slice(fileNames, func(i, j int) bool {
+		return fileDescLess(fileNames[i], fileNames[j])
+	})
+	return fileNames
+}
+
+// describeFile builds the listing entry for one file; ok is false when a regular file
+// cannot be stat'ed, which leaves its slot empty as before
+func (p *Server) describeFile(dir string, file fs.DirEntry) (skypanel.FileDesc, bool) {
+	newFile := skypanel.FileDesc{
+		Name: file.Name(),
+		File: !file.IsDir(),
+	}
+
+	if !file.IsDir() && file.Type()&os.ModeSymlink == 0 {
+		infoData, err := p.GetFileServer().Stat(filepath.Join(dir, file.Name()))
+		if err != nil {
+			return newFile, false
+		}
+		newFile.Size = infoData.Size()
+		newFile.Modified = infoData.ModTime().Unix()
+		newFile.Extension = filepath.Ext(file.Name())
+	}
+	return newFile, true
+}
+
+func fileDescLess(a, b skypanel.FileDesc) bool {
+	// ".." siempre de primero
+	if a.Name == ".." {
+		return true
+	}
+	if b.Name == ".." {
+		return false
+	}
+
+	// Si uno es carpeta y el otro archivo, la carpeta va primero
+	if a.File != b.File {
+		return !a.File
+	}
+
+	// Si ambos son del mismo tipo, orden alfabético sin distinguir mayúsculas
+	return strings.ToLower(a.Name) < strings.ToLower(b.Name)
 }
 
 func (p *Server) ArchiveItems(sourceFiles []string, destination string) error {

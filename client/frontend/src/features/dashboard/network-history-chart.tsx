@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import type { ComponentProps } from 'react';
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { Activity } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,6 +27,27 @@ const formatRate = (kbps: number) => `${formatBytes(kbps * 1024)}/s`;
 
 const formatClock = (epochMs: number) =>
     new Date(epochMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+type TooltipFormatter = NonNullable<ComponentProps<typeof ChartTooltipContent>['formatter']>;
+
+/** Tooltip row: the series dot and label on the left, the rate on the right. */
+const tooltipFormatter =
+    (config: ChartConfig): TooltipFormatter =>
+    (value, name, item) => (
+        <div className="flex w-full items-center justify-between gap-4">
+            <span className="flex items-center gap-2 text-muted-foreground">
+                <span
+                    aria-hidden="true"
+                    className="h-2 w-2 rounded-full"
+                    style={{ backgroundColor: item?.color }}
+                />
+                {config[name]?.label ?? name}
+            </span>
+            <span className="font-medium tabular-nums text-foreground">
+                {formatRate(Number(value))}
+            </span>
+        </div>
+    );
 
 /**
  * Row 3 (65 %) — the network trend. The panel has no metrics-history endpoint,
@@ -76,10 +98,9 @@ export function NetworkHistoryChart({ samples }: Readonly<{ samples: NetworkSamp
                     <CardDescription data-fit="hide-short">{t('dashboard.admin.history.description')}</CardDescription>
                 </div>
 
-                <div
-                    role="group"
+                <fieldset
                     aria-label={t('dashboard.admin.history.rangeLabel')}
-                    className="inline-flex shrink-0 items-center gap-0.5 self-start rounded-lg border border-border/60 bg-background/50 p-0.5"
+                    className="inline-flex min-w-0 shrink-0 items-center gap-0.5 self-start rounded-lg border border-border/60 bg-background/50 p-0.5"
                 >
                     {RANGES.map((entry) => {
                         const active = entry.id === range;
@@ -98,7 +119,7 @@ export function NetworkHistoryChart({ samples }: Readonly<{ samples: NetworkSamp
                             </button>
                         );
                     })}
-                </div>
+                </fieldset>
             </CardHeader>
 
             <CardContent className="flex min-h-0 flex-1 flex-col p-5 pt-0">
@@ -167,21 +188,7 @@ export function NetworkHistoryChart({ samples }: Readonly<{ samples: NetworkSamp
                                         <ChartTooltipContent
                                             indicator="dot"
                                             labelFormatter={(value) => formatClock(Number(value))}
-                                            formatter={(value, name, item) => (
-                                                <div className="flex w-full items-center justify-between gap-4">
-                                                    <span className="flex items-center gap-2 text-muted-foreground">
-                                                        <span
-                                                            aria-hidden="true"
-                                                            className="h-2 w-2 rounded-full"
-                                                            style={{ backgroundColor: item?.color }}
-                                                        />
-                                                        {chartConfig[name as keyof typeof chartConfig]?.label ?? name}
-                                                    </span>
-                                                    <span className="font-medium tabular-nums text-foreground">
-                                                        {formatRate(Number(value))}
-                                                    </span>
-                                                </div>
-                                            )}
+                                            formatter={tooltipFormatter(chartConfig)}
                                         />
                                     }
                                 />

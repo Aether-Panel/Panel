@@ -18,6 +18,7 @@ import { sileo } from "@/lib/toast";
 import { cn } from '@/lib/utils';
 import { useTranslations } from '@/contexts/translations-context';
 import { EmptyState } from '@/components/empty-state';
+import { keyedByContent } from '@/lib/keyed';
 
 function findNode(realNodes: any[], idParam: string) {
   return realNodes.find((n: any) =>
@@ -41,8 +42,11 @@ const GB = 1024 * 1024 * 1024;
 const richText = '[&_code]:rounded [&_code]:bg-secondary [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs [&_code]:text-foreground';
 
 /** Usage tone shared by every meter on the page. */
-const usageTone = (percent: number) =>
-  percent > 80 ? 'bg-destructive' : percent > 60 ? 'bg-warning' : 'bg-primary';
+const usageTone = (percent: number) => {
+  if (percent > 80) return 'bg-destructive';
+  if (percent > 60) return 'bg-warning';
+  return 'bg-primary';
+};
 
 function Meter({ value, label, className }: Readonly<{ value: number; label: string; className?: string }>) {
   const clamped = Math.min(100, Math.max(0, value || 0));
@@ -195,8 +199,8 @@ function DisksCard({ disks }: Readonly<{ disks: any[] }>) {
           <EmptyState icon={HardDrive} size="sm" as="p" title={t('nodes.detail.disks.empty')} />
         ) : (
           <ul className="space-y-5">
-            {disks.map((disk: any, index: number) => (
-              <li key={index} className="space-y-2">
+            {keyedByContent(disks, (disk: any) => String(disk.path)).map(({ key, item: disk }) => (
+              <li key={key} className="space-y-2">
                 <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 text-sm">
                   <span className="min-w-0 truncate font-mono text-[13px] text-foreground">{disk.path}</span>
                   <span className="tabular-nums text-muted-foreground">
@@ -295,10 +299,16 @@ function ServersCard({ serversOnNode }: Readonly<{ serversOnNode: any[] }>) {
   );
 }
 
+/** The part of a node id the daemon's OAuth client is named after ("node-3" → "3"). */
+function nodeClientSuffix(id: unknown) {
+  const raw = String(id);
+  return raw.includes('-') ? raw.split('-')[1] : id;
+}
+
 function DeployDialog({ isDeployDialogOpen, setIsDeployDialogOpen, node }: any) {
   const { t } = useTranslations();
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://192.168.0.12:8080';
-  const clientId = node ? `.node_${String(node.id).includes('-') ? String(node.id).split('-')[1] : node.id}` : '';
+  const clientId = node ? `.node_${nodeClientSuffix(node.id)}` : '';
   const deployCompose = node ? [
     'services:',
     '  skypanel:',

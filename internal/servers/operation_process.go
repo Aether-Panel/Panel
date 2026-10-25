@@ -152,42 +152,50 @@ func (p *OperationProcess) Run(server *Server) error {
 			return err
 		}
 
-		if shouldRun {
-			factory := commandMapping[v.Type]
-			if factory == nil {
-				return skypanel.ErrMissingFactory
-			}
-			op, err := factory.Create(v.Operation)
-			if err != nil {
-				return skypanel.ErrFactoryError(v.Type, err)
-			}
-
-			result := op.Run(skypanel.RunOperatorArgs{
-				Environment: server.RunningEnvironment,
-				Server:      server,
-			})
-
-			if result.Error != nil {
-				logging.Error.Printf("Error running command: %s", result.Error.Error())
-				// TODO: Implement success checking more accurately here
-				/*if firstError == nil {
-					firstError = result.Error
-					return result.Error
-				}
-				// extraData[conditions.VariableSuccess] = false
-				*/
-				return result.Error
-			}
-			extraData[conditions.VariableSuccess] = true
-
-			if result.VariableOverrides != nil {
-				for k, val := range result.VariableOverrides {
-					variable := server.Variables[k]
-					variable.Value = val
-					server.Variables[k] = variable
-				}
-			}
+		if !shouldRun {
+			continue
 		}
+
+		if err = v.run(server); err != nil {
+			return err
+		}
+		extraData[conditions.VariableSuccess] = true
 	}
 	return firstError
+}
+
+// run executes the task and applies the variable overrides it returns.
+func (v *OperationTask) run(server *Server) error {
+	factory := commandMapping[v.Type]
+	if factory == nil {
+		return skypanel.ErrMissingFactory
+	}
+	op, err := factory.Create(v.Operation)
+	if err != nil {
+		return skypanel.ErrFactoryError(v.Type, err)
+	}
+
+	result := op.Run(skypanel.RunOperatorArgs{
+		Environment: server.RunningEnvironment,
+		Server:      server,
+	})
+
+	if result.Error != nil {
+		logging.Error.Printf("Error running command: %s", result.Error.Error())
+		// TODO: Implement success checking more accurately here
+		/*if firstError == nil {
+			firstError = result.Error
+			return result.Error
+		}
+		// extraData[conditions.VariableSuccess] = false
+		*/
+		return result.Error
+	}
+
+	for k, val := range result.VariableOverrides {
+		variable := server.Variables[k]
+		variable.Value = val
+		server.Variables[k] = variable
+	}
+	return nil
 }

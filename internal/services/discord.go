@@ -212,6 +212,31 @@ func (ds *DiscordService) SendSystemStatus(servers []ServerInfo) error {
 		return nil // No hay servidores para reportar
 	}
 
+	description := systemStatusDescription(servers)
+	fields := systemStatusFields(servers)
+
+	color := 0x3498DB // Azul para status general
+
+	embed := DiscordEmbed{
+		Title:       "📊 Estado del Sistema",
+		Description: description,
+		Color:       color,
+		Fields:      fields,
+		Timestamp:   time.Now().Format(time.RFC3339),
+		Footer: &DiscordEmbedFooter{
+			Text: "Actualizado cada minuto",
+		},
+	}
+
+	payload := DiscordWebhookPayload{
+		Embeds: []DiscordEmbed{embed},
+	}
+
+	return postDiscordPayload(webhookURL, payload)
+}
+
+// systemStatusDescription builds the summary line with online/offline counts and average usage
+func systemStatusDescription(servers []ServerInfo) string {
 	// Calcular estadísticas generales
 	totalServers := len(servers)
 	onlineServers := 0
@@ -247,7 +272,11 @@ func (ds *DiscordService) SendSystemStatus(servers []ServerInfo) error {
 		description += fmt.Sprintf("• CPU: %.1f%%\n", avgCPU)
 		description += fmt.Sprintf("• Memoria: %.1f MB\n", avgMemory/1024/1024) // Convertir bytes a MB si es necesario
 	}
+	return description
+}
 
+// systemStatusFields builds one field per server, capped by Discord's field limit
+func systemStatusFields(servers []ServerInfo) []DiscordEmbedField {
 	// Crear campos para cada servidor (limitado a 25 por limitación de Discord)
 	maxFields := 25
 	serversToShow := len(servers)
@@ -257,34 +286,7 @@ func (ds *DiscordService) SendSystemStatus(servers []ServerInfo) error {
 
 	fields := make([]DiscordEmbedField, 0)
 	for i := 0; i < serversToShow; i++ {
-		s := servers[i]
-
-		statusEmoji := "🔴"
-		if s.IsRunning {
-			statusEmoji = "🟢"
-		}
-
-		memoryStr := fmt.Sprintf("%.1f MB", s.Memory/1024/1024)
-		if s.Memory < 1024*1024*10 { // Si es menor a 10 MB, mostrar como porcentaje
-			memoryStr = fmt.Sprintf("%.1f%%", s.Memory)
-		}
-
-		statusText := "Offline"
-		if s.IsRunning {
-			statusText = "Online"
-		}
-
-		value := fmt.Sprintf("%s %s\nCPU: %.1f%% | RAM: %s",
-			statusEmoji,
-			statusText,
-			s.CPU,
-			memoryStr)
-
-		fields = append(fields, DiscordEmbedField{
-			Name:   s.Name,
-			Value:  value,
-			Inline: true,
-		})
+		fields = append(fields, serverStatusField(servers[i]))
 	}
 
 	if len(servers) > maxFields {
@@ -293,24 +295,40 @@ func (ds *DiscordService) SendSystemStatus(servers []ServerInfo) error {
 			Value: fmt.Sprintf("Mostrando %d de %d servidores", serversToShow, len(servers)),
 		})
 	}
+	return fields
+}
 
-	color := 0x3498DB // Azul para status general
-
-	embed := DiscordEmbed{
-		Title:       "📊 Estado del Sistema",
-		Description: description,
-		Color:       color,
-		Fields:      fields,
-		Timestamp:   time.Now().Format(time.RFC3339),
-		Footer: &DiscordEmbedFooter{
-			Text: "Actualizado cada minuto",
-		},
+func serverStatusField(s ServerInfo) DiscordEmbedField {
+	statusEmoji := "🔴"
+	if s.IsRunning {
+		statusEmoji = "🟢"
 	}
 
-	payload := DiscordWebhookPayload{
-		Embeds: []DiscordEmbed{embed},
+	memoryStr := fmt.Sprintf("%.1f MB", s.Memory/1024/1024)
+	if s.Memory < 1024*1024*10 { // Si es menor a 10 MB, mostrar como porcentaje
+		memoryStr = fmt.Sprintf("%.1f%%", s.Memory)
 	}
 
+	statusText := "Offline"
+	if s.IsRunning {
+		statusText = "Online"
+	}
+
+	value := fmt.Sprintf("%s %s\nCPU: %.1f%% | RAM: %s",
+		statusEmoji,
+		statusText,
+		s.CPU,
+		memoryStr)
+
+	return DiscordEmbedField{
+		Name:   s.Name,
+		Value:  value,
+		Inline: true,
+	}
+}
+
+// postDiscordPayload sends the system status payload to the webhook
+func postDiscordPayload(webhookURL string, payload DiscordWebhookPayload) error {
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
 		logging.Error.Printf("Error marshaling Discord webhook payload: %v", err)
@@ -386,11 +404,7 @@ func (ds *DiscordService) SendNodeStatus(totalServers, onlineServers, offlineSer
 
 	description := fmt.Sprintf("**Nodo:** %s\n", nodeName)
 	if publicHost != "" {
-		if publicPort > 0 {
-			description += fmt.Sprintf("**Dirección:** %s:%d\n", publicHost, publicPort)
-		} else {
-			description += fmt.Sprintf("**Dirección:** %s\n", publicHost)
-		}
+		description += fmt.Sprintf("**Dirección:** %s\n", nodeAddress(publicHost, publicPort))
 	}
 	description += fmt.Sprintf("**Total de Servidores:** %d\n", totalServers)
 	description += fmt.Sprintf("🟢 **Online:** %d | 🔴 **Offline:** %d\n", onlineServers, offlineServers)
@@ -403,11 +417,7 @@ func (ds *DiscordService) SendNodeStatus(totalServers, onlineServers, offlineSer
 	}
 
 	if publicHost != "" {
-		if publicPort > 0 {
-			fields = append(fields, DiscordEmbedField{Name: "Host", Value: fmt.Sprintf("%s:%d", publicHost, publicPort), Inline: true})
-		} else {
-			fields = append(fields, DiscordEmbedField{Name: "Host", Value: publicHost, Inline: true})
-		}
+		fields = append(fields, DiscordEmbedField{Name: "Host", Value: nodeAddress(publicHost, publicPort), Inline: true})
 	}
 
 	// Información del CPU
@@ -437,12 +447,23 @@ func (ds *DiscordService) SendNodeStatus(totalServers, onlineServers, offlineSer
 		fields = append(fields, DiscordEmbedField{Name: "Sistema Operativo", Value: osName, Inline: true})
 	}
 
+	return ds.SendWebhookToURL(webhookURL, "🖥️ Estado del Nodo", description, nodeStatusColor(onlineServers, offlineServers), fields)
+}
+
+// nodeAddress is host:port, or just the host when no port is known
+func nodeAddress(publicHost string, publicPort uint16) string {
+	if publicPort > 0 {
+		return fmt.Sprintf("%s:%d", publicHost, publicPort)
+	}
+	return publicHost
+}
+
+func nodeStatusColor(onlineServers, offlineServers int) int {
 	color := 0x00FF00 // Verde para nodo activo
 	if offlineServers > onlineServers && onlineServers == 0 {
 		color = 0xFF0000 // Rojo si todos están offline
 	} else if offlineServers > 0 {
 		color = 0xFFA500 // Naranja si hay algunos offline
 	}
-
-	return ds.SendWebhookToURL(webhookURL, "🖥️ Estado del Nodo", description, color, fields)
+	return color
 }

@@ -232,33 +232,46 @@ func getSystemInfo(c *gin.Context) {
 	}
 
 	// Get disk info
-	if partitions, err := disk.Partitions(false); err == nil {
-		for _, partition := range partitions {
-			if usage, err := disk.Usage(partition.Mountpoint); err == nil {
-				diskInfo := &DiskInfo{
-					Path:        partition.Mountpoint,
-					Total:       usage.Total,
-					Used:        usage.Used,
-					Free:        usage.Free,
-					UsedPercent: usage.UsedPercent,
-				}
-				sysInfo.Disks = append(sysInfo.Disks, diskInfo)
-			}
-		}
-	}
+	sysInfo.Disks = append(sysInfo.Disks, collectDiskInfo()...)
 
 	// Get network statistics
-	if netStats, err := net.IOCounters(false); err == nil && len(netStats) > 0 {
-		// Sum all network interfaces
-		var totalBytesSent uint64
-		var totalBytesRecv uint64
-		for _, stat := range netStats {
-			totalBytesSent += stat.BytesSent
-			totalBytesRecv += stat.BytesRecv
-		}
-		sysInfo.NetworkBytesSent = totalBytesSent
-		sysInfo.NetworkBytesRecv = totalBytesRecv
-	}
+	sysInfo.NetworkBytesSent, sysInfo.NetworkBytesRecv = totalNetworkBytes()
 
 	c.JSON(http.StatusOK, sysInfo)
+}
+
+// collectDiskInfo reports the usage of every mounted partition that can be read
+func collectDiskInfo() []*DiskInfo {
+	disks := make([]*DiskInfo, 0)
+	partitions, err := disk.Partitions(false)
+	if err != nil {
+		return disks
+	}
+	for _, partition := range partitions {
+		if usage, err := disk.Usage(partition.Mountpoint); err == nil {
+			diskInfo := &DiskInfo{
+				Path:        partition.Mountpoint,
+				Total:       usage.Total,
+				Used:        usage.Used,
+				Free:        usage.Free,
+				UsedPercent: usage.UsedPercent,
+			}
+			disks = append(disks, diskInfo)
+		}
+	}
+	return disks
+}
+
+// totalNetworkBytes sums the bytes sent and received over all network
+// interfaces; zero when the counters cannot be read
+func totalNetworkBytes() (sent, recv uint64) {
+	netStats, err := net.IOCounters(false)
+	if err != nil {
+		return 0, 0
+	}
+	for _, stat := range netStats {
+		sent += stat.BytesSent
+		recv += stat.BytesRecv
+	}
+	return sent, recv
 }

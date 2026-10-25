@@ -79,43 +79,43 @@ func isPrivateIP(ip net.IP) bool {
 
 	// Check for private ranges
 	if ip4 := ip.To4(); ip4 != nil {
-		// 10.0.0.0/8
-		if ip4[0] == 10 {
-			return true
-		}
-		// 172.16.0.0/12
-		if ip4[0] == 172 && ip4[1] >= 16 && ip4[1] <= 31 {
-			return true
-		}
-		// 192.168.0.0/16
-		if ip4[0] == 192 && ip4[1] == 168 {
-			return true
-		}
-		// 169.254.0.0/16 (link-local)
-		if ip4[0] == 169 && ip4[1] == 254 {
-			return true
-		}
-		// 100.64.0.0/10 (CGNAT)
-		if ip4[0] == 100 && ip4[1] >= 64 && ip4[1] <= 127 {
-			return true
-		}
-		// 127.0.0.0/8
-		if ip4[0] == 127 {
-			return true
-		}
-		// 0.0.0.0/8
-		if ip4[0] == 0 {
-			return true
-		}
-		// 198.18.0.0/15 (benchmarking)
-		if ip4[0] == 198 && ip4[1] >= 18 && ip4[1] <= 19 {
-			return true
-		}
-	} else if ip.IsPrivate() {
+		return isPrivateIPv4(ip4)
+	}
+	return ip.IsPrivate()
+}
+
+// isPrivateIPv4 reports whether ip4 is in a private, reserved or internal IPv4 range.
+func isPrivateIPv4(ip4 net.IP) bool {
+	// 10.0.0.0/8
+	if ip4[0] == 10 {
 		return true
 	}
-
-	return false
+	// 172.16.0.0/12
+	if ip4[0] == 172 && ip4[1] >= 16 && ip4[1] <= 31 {
+		return true
+	}
+	// 192.168.0.0/16
+	if ip4[0] == 192 && ip4[1] == 168 {
+		return true
+	}
+	// 169.254.0.0/16 (link-local)
+	if ip4[0] == 169 && ip4[1] == 254 {
+		return true
+	}
+	// 100.64.0.0/10 (CGNAT)
+	if ip4[0] == 100 && ip4[1] >= 64 && ip4[1] <= 127 {
+		return true
+	}
+	// 127.0.0.0/8
+	if ip4[0] == 127 {
+		return true
+	}
+	// 0.0.0.0/8
+	if ip4[0] == 0 {
+		return true
+	}
+	// 198.18.0.0/15 (benchmarking)
+	return ip4[0] == 198 && ip4[1] >= 18 && ip4[1] <= 19
 }
 
 // NewRestrictedHTTPClient creates an *http.Client that blocks connections to

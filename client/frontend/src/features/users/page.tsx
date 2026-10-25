@@ -1,7 +1,7 @@
 'use client';
 import { useAuth } from '@/contexts/providers';
 import { useEffect, useState } from 'react';
-import type { Dispatch, SetStateAction } from 'react';
+import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import type { User } from '@/lib/data';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
@@ -163,10 +163,11 @@ export default function UsersPage() {
         email: u.email,
         roleId: u.roleId,
         role: u.role?.name || (u.roleId ? t('users.roleFallback', { id: u.roleId }) : t('users.noRole')),
-        assignedServers: [] // TODO: fetch permissions if needed
+        assignedServers: [] // not listed here; the servers dialog loads them on demand
       })));
       setLoadFailed(false);
     } catch (e: any) {
+      console.error('Failed to fetch users:', e);
       setLoadFailed(true);
       sileo.error({ title: t('common.error'), description: t('users.toast.loadFailed') });
     } finally {
@@ -178,7 +179,9 @@ export default function UsersPage() {
     try {
       const data = await api.get('/api/roles');
       setRoles(data || []);
-    } catch (e: any) { }
+    } catch (e: any) {
+      console.error('Failed to fetch roles:', e);
+    }
   };
 
   useEffect(() => {
@@ -311,6 +314,114 @@ export default function UsersPage() {
     </DropdownMenu>
   );
 
+  let serversDialogBody: ReactNode;
+  if (viewingServers === null) {
+    serversDialogBody = (
+      <output className="block space-y-2" aria-label={t('common.loading')}>
+        <Skeleton className="h-11 w-full rounded-xl" />
+        <Skeleton className="h-11 w-full rounded-xl" />
+      </output>
+    );
+  } else if (viewingServers.length > 0) {
+    serversDialogBody = (
+      <ul className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60 bg-background/30">
+        {viewingServers.map(server => (
+          <li key={server.id}>
+            <a href={`/servers/view/?id=${encodeURIComponent(server.id)}`} className="block px-4 py-3 text-sm font-medium transition-colors hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:outline-none">
+              {server.name}
+            </a>
+          </li>
+        ))}
+      </ul>
+    );
+  } else {
+    serversDialogBody = (
+      <EmptyState icon={ServerIcon} size="sm" as="p" title={t('users.serversDialog.noServers')} />
+    );
+  }
+
+  let userList: ReactNode;
+  if (loadFailed && users.length === 0) {
+    userList = (
+      <EmptyState
+        icon={AlertTriangle}
+        tone="error"
+        title={t('users.error.title')}
+        description={t('users.toast.loadFailed')}
+        action={
+          <Button variant="outline" onClick={() => void fetchUsers()}>
+            {t('common.retry')}
+          </Button>
+        }
+      />
+    );
+  } else if (users.length === 0) {
+    userList = (
+      <EmptyState
+        icon={UsersIcon}
+        title={t('users.empty.title')}
+        description={t('users.empty.description')}
+        action={
+          <Button onClick={() => setIsAddUserDialogOpen(true)}>
+            <Plus aria-hidden="true" />
+            {t('users.addUser')}
+          </Button>
+        }
+      />
+    );
+  } else {
+    userList = (
+      <>
+        {/* Phones and tablets (the sidebar leaves too little room for the table): stacked rows. */}
+        <ul className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60 bg-background/30 lg:hidden">
+          {users.map((user) => (
+            <li key={user.id} className="flex items-center gap-3 py-3 pl-4 pr-2">
+              <UserAvatar user={user} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold">{user.name}</p>
+                <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                  {roleBadge(user)}
+                </div>
+              </div>
+              {renderActions(user)}
+            </li>
+          ))}
+        </ul>
+
+        {/* Desktop: the full table. */}
+        <div className="hidden overflow-hidden rounded-xl border border-border/60 bg-background/30 lg:block">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead>{t('users.table.user')}</TableHead>
+                <TableHead>{t('users.table.role')}</TableHead>
+                <TableHead className="w-14"><span className="sr-only">{t('users.table.actions')}</span></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {users.map((user) => (
+                <TableRow key={user.id} className="hover:bg-accent/30">
+                  <TableCell>
+                    <div className="flex min-w-0 items-center gap-3">
+                      <UserAvatar user={user} />
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{user.name}</p>
+                        <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>{roleBadge(user)}</TableCell>
+                  <TableCell className="py-2 text-right">{renderActions(user)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </>
+    );
+  }
+
   return (
     <div className="stagger flex flex-col gap-8">
       <PageHeader title={t('users.title')} description={t('users.description')}>
@@ -352,80 +463,7 @@ export default function UsersPage() {
         </div>
 
         <div className="p-5 md:p-6">
-          {loadFailed && users.length === 0 ? (
-            <EmptyState
-              icon={AlertTriangle}
-              tone="error"
-              title={t('users.error.title')}
-              description={t('users.toast.loadFailed')}
-              action={
-                <Button variant="outline" onClick={() => void fetchUsers()}>
-                  {t('common.retry')}
-                </Button>
-              }
-            />
-          ) : users.length === 0 ? (
-            <EmptyState
-              icon={UsersIcon}
-              title={t('users.empty.title')}
-              description={t('users.empty.description')}
-              action={
-                <Button onClick={() => setIsAddUserDialogOpen(true)}>
-                  <Plus aria-hidden="true" />
-                  {t('users.addUser')}
-                </Button>
-              }
-            />
-          ) : (
-            <>
-              {/* Phones and tablets (the sidebar leaves too little room for the table): stacked rows. */}
-              <ul className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60 bg-background/30 lg:hidden">
-                {users.map((user) => (
-                  <li key={user.id} className="flex items-center gap-3 py-3 pl-4 pr-2">
-                    <UserAvatar user={user} />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold">{user.name}</p>
-                      <p className="truncate text-xs text-muted-foreground">{user.email}</p>
-                      <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-                        {roleBadge(user)}
-                      </div>
-                    </div>
-                    {renderActions(user)}
-                  </li>
-                ))}
-              </ul>
-
-              {/* Desktop: the full table. */}
-              <div className="hidden overflow-hidden rounded-xl border border-border/60 bg-background/30 lg:block">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead>{t('users.table.user')}</TableHead>
-                      <TableHead>{t('users.table.role')}</TableHead>
-                      <TableHead className="w-14"><span className="sr-only">{t('users.table.actions')}</span></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {users.map((user) => (
-                      <TableRow key={user.id} className="hover:bg-accent/30">
-                        <TableCell>
-                          <div className="flex min-w-0 items-center gap-3">
-                            <UserAvatar user={user} />
-                            <div className="min-w-0">
-                              <p className="truncate font-medium">{user.name}</p>
-                              <p className="truncate text-xs text-muted-foreground">{user.email}</p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>{roleBadge(user)}</TableCell>
-                        <TableCell className="py-2 text-right">{renderActions(user)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </>
-          )}
+          {userList}
         </div>
       </Card>
 
@@ -464,24 +502,7 @@ export default function UsersPage() {
             <DialogDescription>{t('users.serversDialog.description')}</DialogDescription>
           </DialogHeader>
           <div className="py-2">
-            {viewingServers === null ? (
-              <div className="space-y-2" role="status" aria-label={t('common.loading')}>
-                <Skeleton className="h-11 w-full rounded-xl" />
-                <Skeleton className="h-11 w-full rounded-xl" />
-              </div>
-            ) : viewingServers.length > 0 ? (
-              <ul className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60 bg-background/30">
-                {viewingServers.map(server => (
-                  <li key={server.id}>
-                    <a href={`/servers/view/?id=${encodeURIComponent(server.id)}`} className="block px-4 py-3 text-sm font-medium transition-colors hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:outline-none">
-                      {server.name}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <EmptyState icon={ServerIcon} size="sm" as="p" title={t('users.serversDialog.noServers')} />
-            )}
+            {serversDialogBody}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setViewingUser(null)}>{t('users.serversDialog.close')}</Button>

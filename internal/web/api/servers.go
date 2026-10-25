@@ -377,15 +377,8 @@ func createServer(c *gin.Context) {
 	us := &services.User{DB: db}
 	ps := &services.Permission{DB: db}
 
-	serverID := c.Param("serverId")
-	if serverID == "" {
-		generated, err := models.GenerateServerIdentifier()
-		if response.HandleError(c, err, http.StatusInternalServerError) {
-			return
-		}
-		serverID = generated
-	} else if !models.IsValidServerIdentifier(serverID) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid server id: only letters, digits, '-' and '_' are allowed (1-20 characters, must not start with '-' or '_')"})
+	serverID, ok := resolveCreateServerID(c)
+	if !ok {
 		return
 	}
 
@@ -419,14 +412,7 @@ func createServer(c *gin.Context) {
 	var parentAvailableMemory int64
 	var parentAvailableDisk int64
 
-	err = db.Transaction(func(tx *gorm.DB) error {
-		if server.ParentServerID != nil && *server.ParentServerID != "" {
-			if err := checkParentServerLimits(tx, server, &parentAvailableCPU, &parentAvailableMemory, &parentAvailableDisk); err != nil {
-				return err
-			}
-		}
-		return tx.Create(server).Error
-	})
+	err = insertServerWithinParentLimits(db, server, &parentAvailableCPU, &parentAvailableMemory, &parentAvailableDisk)
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
@@ -439,12 +425,49 @@ func createServer(c *gin.Context) {
 		return
 	}
 
-	if server.ParentServerID != nil && *server.ParentServerID != "" {
+	if hasParentServer(server) {
 		updateParentServerLimitsOnNode(c, db, ns, node, server, parentAvailableCPU, parentAvailableMemory, parentAvailableDisk)
 	}
 
 	sendServerCreationEmails(users, server)
 	c.JSON(http.StatusOK, &models.CreateServerResponse{ID: serverID})
+}
+
+// resolveCreateServerID returns the identifier requested in the path, or a
+// freshly generated one when the path leaves it empty. It writes the error
+// response itself and returns false when the request must stop.
+func resolveCreateServerID(c *gin.Context) (string, bool) {
+	serverID := c.Param("serverId")
+	if serverID == "" {
+		generated, err := models.GenerateServerIdentifier()
+		if response.HandleError(c, err, http.StatusInternalServerError) {
+			return "", false
+		}
+		return generated, true
+	}
+	if !models.IsValidServerIdentifier(serverID) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid server id: only letters, digits, '-' and '_' are allowed (1-20 characters, must not start with '-' or '_')"})
+		return "", false
+	}
+	return serverID, true
+}
+
+// hasParentServer reports whether the server is a sub-server.
+func hasParentServer(server *models.Server) bool {
+	return server.ParentServerID != nil && *server.ParentServerID != ""
+}
+
+// insertServerWithinParentLimits creates the server row; for a sub-server the
+// parent's remaining resources are checked (and locked) in the same transaction.
+func insertServerWithinParentLimits(db *gorm.DB, server *models.Server, parentAvailableCPU *int, parentAvailableMemory, parentAvailableDisk *int64) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		if hasParentServer(server) {
+			if err := checkParentServerLimits(tx, server, parentAvailableCPU, parentAvailableMemory, parentAvailableDisk); err != nil {
+				return err
+			}
+		}
+		return tx.Create(server).Error
+	})
 }
 
 // @Summary Update server definition
@@ -649,6 +672,23 @@ func getServerUsers(c *gin.Context) {
 		return
 	}
 
+	users := groupScopesByUser(perms)
+
+	data := make([]*models.UserPermissionsView, 0)
+	for k, v := range users {
+		data = append(data, &models.UserPermissionsView{
+			Username: k.Username,
+			Email:    k.Email,
+			Scopes:   v,
+		})
+	}
+
+	c.JSON(http.StatusOK, data)
+}
+
+// groupScopesByUser merges the permission rows that belong to the same user
+// into a single entry with all of their scopes.
+func groupScopesByUser(perms []*models.Permissions) map[*models.User][]*scopes.Scope {
 	users := map[*models.User][]*scopes.Scope{}
 
 	for _, v := range perms {
@@ -675,17 +715,7 @@ func getServerUsers(c *gin.Context) {
 			users[&v.User] = p
 		}
 	}
-
-	data := make([]*models.UserPermissionsView, 0)
-	for k, v := range users {
-		data = append(data, &models.UserPermissionsView{
-			Username: k.Username,
-			Email:    k.Email,
-			Scopes:   v,
-		})
-	}
-
-	c.JSON(http.StatusOK, data)
+	return users
 }
 
 // @Summary Edits access to a server
@@ -727,45 +757,9 @@ func editServerUser(c *gin.Context) {
 		return
 	}
 
-	var registerToken string
-	var user *models.User
-	if email != "" {
-		user, err = us.GetByEmail(email)
-	} else {
-		user, err = us.Get(username)
-	}
-
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) && response.HandleError(c, err, http.StatusInternalServerError) {
+	user, registerToken, ok := findOrInviteServerUser(c, us, email, username)
+	if !ok {
 		return
-	} else if errors.Is(err, gorm.ErrRecordNotFound) {
-		if email == "" {
-			response.HandleError(c, err, http.StatusBadRequest)
-			return
-		}
-		// we need to create the user here, since it's a new email we've not seen
-
-		un, err := uuid.NewV4()
-		if response.HandleError(c, err, http.StatusInternalServerError) {
-			return
-		}
-		user = &models.User{
-			Username: un.String(),
-			Email:    email,
-		}
-		token, err := uuid.NewV4()
-		if response.HandleError(c, err, http.StatusInternalServerError) {
-			return
-		}
-		registerToken = token.String()
-		err = user.SetPassword(registerToken)
-		if response.HandleError(c, err, http.StatusInternalServerError) {
-			return
-		}
-
-		err = us.Create(user)
-		if response.HandleError(c, err, http.StatusInternalServerError) {
-			return
-		}
 	}
 
 	existing, err := ps.GetForUserAndServer(user.ID, server.Identifier)
@@ -773,13 +767,10 @@ func editServerUser(c *gin.Context) {
 		return
 	}
 
-	var firstTimeAccess = false
-	if existing.ID == 0 {
-		firstTimeAccess = true
-	}
+	firstTimeAccess := existing.ID == 0
 
 	// update perms to match this "setup", but not stomp over what the user can't change
-	if scopes.ContainsScope(currentPerms.Scopes, scopes.ScopeServerAdmin) || scopes.ContainsScope(currentGlobalPerms.Scopes, scopes.ScopeServerAdmin) || scopes.ContainsScope(currentGlobalPerms.Scopes, scopes.ScopeAdmin) {
+	if canGrantAnyServerScope(currentPerms, currentGlobalPerms) {
 		existing.Scopes = perms.Scopes
 	} else {
 		// update perms to match this "setup", but not stomp over what the user can't change
@@ -795,19 +786,86 @@ func editServerUser(c *gin.Context) {
 
 	// now we can send emails to the people
 	if firstTimeAccess {
-		es := services.GetEmailService()
-		err = es.SendEmail(user.Email, "addedToServer", map[string]interface{}{
-			"Server":        server,
-			"RegisterToken": registerToken,
-			"Email":         user.Email,
-		}, true)
-		if err != nil {
-			// since we don't want to tell the user it failed, we'll log and move on
-			logging.Error.Printf("Error sending email: %s\n", err)
-		}
+		sendAddedToServerEmail(user, server, registerToken)
 	}
 
 	c.Status(http.StatusNoContent)
+}
+
+// findOrInviteServerUser looks the target user up by email or username; an
+// unknown email gets a new invited account plus its register token. It writes
+// the error response itself and returns false when the request must stop.
+func findOrInviteServerUser(c *gin.Context, us *services.User, email, username string) (*models.User, string, bool) {
+	var user *models.User
+	var err error
+	if email != "" {
+		user, err = us.GetByEmail(email)
+	} else {
+		user, err = us.Get(username)
+	}
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		if email == "" {
+			response.HandleError(c, err, http.StatusBadRequest)
+			return nil, "", false
+		}
+		// we need to create the user here, since it's a new email we've not seen
+		invited, registerToken, err := createInvitedUser(us, email)
+		if response.HandleError(c, err, http.StatusInternalServerError) {
+			return nil, "", false
+		}
+		return invited, registerToken, true
+	}
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return nil, "", false
+	}
+	return user, "", true
+}
+
+// createInvitedUser creates a placeholder account for a new email; the
+// returned token is its initial password and goes out in the invite email.
+func createInvitedUser(us *services.User, email string) (*models.User, string, error) {
+	un, err := uuid.NewV4()
+	if err != nil {
+		return nil, "", err
+	}
+	user := &models.User{
+		Username: un.String(),
+		Email:    email,
+	}
+	token, err := uuid.NewV4()
+	if err != nil {
+		return nil, "", err
+	}
+	registerToken := token.String()
+	if err = user.SetPassword(registerToken); err != nil {
+		return nil, "", err
+	}
+	if err = us.Create(user); err != nil {
+		return nil, "", err
+	}
+	return user, registerToken, nil
+}
+
+// canGrantAnyServerScope reports whether the caller may set every scope on a
+// server user instead of only the ones they hold themselves.
+func canGrantAnyServerScope(serverPerms, globalPerms *models.Permissions) bool {
+	return scopes.ContainsScope(serverPerms.Scopes, scopes.ScopeServerAdmin) ||
+		scopes.ContainsScope(globalPerms.Scopes, scopes.ScopeServerAdmin) ||
+		scopes.ContainsScope(globalPerms.Scopes, scopes.ScopeAdmin)
+}
+
+func sendAddedToServerEmail(user *models.User, server *models.Server, registerToken string) {
+	es := services.GetEmailService()
+	err := es.SendEmail(user.Email, "addedToServer", map[string]interface{}{
+		"Server":        server,
+		"RegisterToken": registerToken,
+		"Email":         user.Email,
+	}, true)
+	if err != nil {
+		// since we don't want to tell the user it failed, we'll log and move on
+		logging.Error.Printf("Error sending email: %s\n", err)
+	}
 }
 
 // @Summary Removes access to a server
@@ -910,14 +968,57 @@ func editServerData(c *gin.Context) {
 func editServerDataAdmin(c *gin.Context) {
 	server := getServerFromGin(c)
 
-	// clone request body, so we can re-set it for the proxy call
+	postBody, ok := readAndRestoreJSONBody(c)
+	if !ok {
+		return
+	}
+
+	dirty, ok := applyAddressFields(c, server, postBody)
+	if !ok {
+		return
+	}
+
+	resourcesChanged, ok := applyResourceFields(c, server, postBody)
+	if !ok {
+		return
+	}
+	dirty = dirty || resourcesChanged
+
+	// Extra ports management: the frontend sends "ports" (full list) and
+	// "primaryPort" (which one is primary). These are mirrored to the daemon
+	// as the port/port2/port3... variables so the container binds them.
+	db := middleware.GetDatabase(c)
+	portsChanged, ok := applyPortListFields(c, db, server, postBody)
+	if !ok {
+		return
+	}
+	dirty = dirty || portsChanged
+
+	// Port notes: user-defined labels per port (e.g. "Game", "RCON", "Query")
+	if notes, hasNotes := parsePortNotes(postBody); hasNotes {
+		server.PortNotes = notes
+		dirty = true
+	}
+
+	if dirty && !saveAdminServerChanges(c, db, server, resourcesChanged) {
+		return
+	}
+
+	// The ports/primaryPort fields are left in the body so the daemon can
+	// reconcile its port/port2/... variables (removing stale ones too).
+	proxyServerRequest(c)
+}
+
+// readAndRestoreJSONBody decodes the request body as a JSON object and puts an
+// unread copy back on the request, so it can still be proxied to the daemon.
+func readAndRestoreJSONBody(c *gin.Context) (map[string]interface{}, bool) {
 	useHere := &bytes.Buffer{}
 	useThere := &bytes.Buffer{}
 
 	multi := io.MultiWriter(useHere, useThere)
 	_, err := io.Copy(multi, c.Request.Body)
 	if err != nil && response.HandleError(c, err, http.StatusBadRequest) {
-		return
+		return nil, false
 	}
 
 	_ = c.Request.Body.Close()
@@ -926,183 +1027,201 @@ func editServerDataAdmin(c *gin.Context) {
 	var postBody map[string]interface{}
 	err = json.NewDecoder(useHere).Decode(&postBody)
 	if response.HandleError(c, err, http.StatusBadRequest) {
-		return
+		return nil, false
 	}
+	return postBody, true
+}
 
+// applyAddressFields copies the port and ip fields onto the server. The bool
+// pair is (changed, ok); ok is false once an error response has been written.
+func applyAddressFields(c *gin.Context, server *models.Server, postBody map[string]interface{}) (bool, bool) {
 	dirty := false
-	port, exist := postBody["port"]
-	if exist {
+	if port, exist := postBody["port"]; exist {
 		portVal, err := cast.ToUint16E(port)
 		if response.HandleError(c, err, http.StatusBadRequest) {
-			return
+			return false, false
 		}
 		server.Port = portVal
 		dirty = true
 	}
 
-	ip, exist := postBody["ip"]
-	if exist {
-		if response.HandleError(c, err, http.StatusBadRequest) {
-			return
-		}
+	if ip, exist := postBody["ip"]; exist {
 		server.IP = cast.ToString(ip)
 		dirty = true
 	}
+	return dirty, true
+}
 
-	resourcesChanged := false
-	cpuVal, cpuExist := postBody["cpu"]
-	memoryVal, memoryExist := postBody["memory"]
-	diskVal, diskExist := postBody["disk"]
-	if cpuExist {
-		newCPU, err := cast.ToIntE(cpuVal)
+// applyResourceFields copies the cpu, memory and disk limits onto the server.
+// The bool pair is (changed, ok); ok is false once an error response has been
+// written.
+func applyResourceFields(c *gin.Context, server *models.Server, postBody map[string]interface{}) (bool, bool) {
+	changed := false
+	if raw, exist := postBody["cpu"]; exist {
+		newCPU, err := parseResourceValue(raw, cast.ToIntE)
 		if response.HandleError(c, err, http.StatusBadRequest) {
-			return
-		}
-		if newCPU < 0 {
-			response.HandleError(c, errors.New("resources cannot be negative"), http.StatusBadRequest)
-			return
+			return false, false
 		}
 		server.TotalCPU = newCPU
-		resourcesChanged = true
+		changed = true
 	}
-	if memoryExist {
-		newMemory, err := cast.ToInt64E(memoryVal)
+	if raw, exist := postBody["memory"]; exist {
+		newMemory, err := parseResourceValue(raw, cast.ToInt64E)
 		if response.HandleError(c, err, http.StatusBadRequest) {
-			return
-		}
-		if newMemory < 0 {
-			response.HandleError(c, errors.New("resources cannot be negative"), http.StatusBadRequest)
-			return
+			return false, false
 		}
 		server.TotalMemory = newMemory
-		resourcesChanged = true
+		changed = true
 	}
-	if diskExist {
-		newDisk, err := cast.ToInt64E(diskVal)
+	if raw, exist := postBody["disk"]; exist {
+		newDisk, err := parseResourceValue(raw, cast.ToInt64E)
 		if response.HandleError(c, err, http.StatusBadRequest) {
-			return
-		}
-		if newDisk < 0 {
-			response.HandleError(c, errors.New("resources cannot be negative"), http.StatusBadRequest)
-			return
+			return false, false
 		}
 		server.TotalDisk = newDisk
-		resourcesChanged = true
+		changed = true
 	}
-	dirty = dirty || resourcesChanged
+	return changed, true
+}
 
-	// Extra ports management: the frontend sends "ports" (full list) and
-	// "primaryPort" (which one is primary). These are mirrored to the daemon
-	// as the port/port2/port3... variables so the container binds them.
-	db := middleware.GetDatabase(c)
-	portsChanged := false
+// parseResourceValue converts a resource limit from the request body and
+// rejects negative amounts.
+func parseResourceValue[T int | int64](raw interface{}, convert func(interface{}) (T, error)) (T, error) {
+	value, err := convert(raw)
+	if err != nil {
+		return 0, err
+	}
+	if value < 0 {
+		return 0, errors.New("resources cannot be negative")
+	}
+	return value, nil
+}
+
+// applyPortListFields applies the "ports" and "primaryPort" fields: the list
+// is validated against the node and the primary port is moved to the front.
+// The bool pair is (changed, ok); ok is false once an error response has been
+// written.
+func applyPortListFields(c *gin.Context, db *gorm.DB, server *models.Server, postBody map[string]interface{}) (bool, bool) {
 	portsField, portsExist := postBody["ports"]
 	primaryField, primaryExist := postBody["primaryPort"]
-	if portsExist || primaryExist {
-		var ports []uint16
-		if portsExist {
-			rawList, ok := portsField.([]interface{})
-			if !ok {
-				response.HandleError(c, errors.New("ports must be an array of numbers"), http.StatusBadRequest)
-				return
-			}
-			for _, raw := range rawList {
-				p, err := cast.ToUint16E(raw)
-				if err != nil {
-					response.HandleError(c, errors.New("ports must be an array of numbers"), http.StatusBadRequest)
-					return
-				}
-				if p > 0 {
-					ports = append(ports, p)
-				}
-			}
-		}
-		if len(ports) == 0 {
-			ports = []uint16{server.Port}
-		}
-
-		var primary uint16
-		if primaryExist {
-			primary = cast.ToUint16(primaryField)
-		} else if len(ports) > 0 {
-			primary = ports[0]
-		}
-
-		if primary > 0 {
-			found := false
-			for i, p := range ports {
-				if p == primary {
-					if i != 0 {
-						ports[0], ports[i] = ports[i], ports[0]
-					}
-					found = true
-					break
-				}
-			}
-			if !found {
-				response.HandleError(c, errors.New("primaryPort must be one of the assigned ports"), http.StatusBadRequest)
-				return
-			}
-		}
-
-		if len(ports) > 0 {
-			if err := validatePortsAgainstNode(db, server.NodeID, server.Identifier, ports); err != nil {
-				response.HandleError(c, err, http.StatusBadRequest)
-				return
-			}
-			server.Port = ports[0]
-			server.Ports = ports
-			portsChanged = true
-		}
-	}
-	dirty = dirty || portsChanged
-
-	// Port notes: user-defined labels per port (e.g. "Game", "RCON", "Query")
-	if notesField, hasNotes := postBody["portNotes"]; hasNotes {
-		if notesMap, ok := notesField.(map[string]interface{}); ok {
-			converted := make(map[string]string, len(notesMap))
-			for k, v := range notesMap {
-				if str, ok := v.(string); ok {
-					converted[k] = str
-				}
-			}
-			server.PortNotes = converted
-			dirty = true
-		}
+	if !portsExist && !primaryExist {
+		return false, true
 	}
 
-	if dirty {
-		if resourcesChanged && server.ParentServerID != nil && *server.ParentServerID != "" {
-			var parentAvailableCPU int
-			var parentAvailableMemory, parentAvailableDisk int64
-
-			err := db.Transaction(func(tx *gorm.DB) error {
-				if err := checkParentServerLimitsOnUpdate(tx, server, &parentAvailableCPU, &parentAvailableMemory, &parentAvailableDisk); err != nil {
-					return err
-				}
-				ss := &services.Server{DB: tx}
-				return ss.Update(server)
-			})
-			if response.HandleError(c, err, http.StatusBadRequest) {
-				return
-			}
-
-			node, nodeErr := (&services.Node{DB: db}).Get(server.NodeID)
-			if nodeErr == nil && node != nil {
-				updateParentServerLimitsOnNode(c, db, &services.Node{DB: db}, node, server, parentAvailableCPU, parentAvailableMemory, parentAvailableDisk)
-			}
-		} else {
-			ss := &services.Server{DB: db}
-			err = ss.Update(server)
-			if response.HandleError(c, err, http.StatusInternalServerError) {
-				return
-			}
+	var ports []uint16
+	if portsExist {
+		var err error
+		ports, err = parsePortList(portsField)
+		if err != nil {
+			response.HandleError(c, err, http.StatusBadRequest)
+			return false, false
 		}
 	}
+	if len(ports) == 0 {
+		ports = []uint16{server.Port}
+	}
 
-	// The ports/primaryPort fields are left in the body so the daemon can
-	// reconcile its port/port2/... variables (removing stale ones too).
-	proxyServerRequest(c)
+	// the list is never empty here, so the first port is the default primary
+	primary := ports[0]
+	if primaryExist {
+		primary = cast.ToUint16(primaryField)
+	}
+
+	if primary > 0 {
+		i := portIndex(ports, primary)
+		if i < 0 {
+			response.HandleError(c, errors.New("primaryPort must be one of the assigned ports"), http.StatusBadRequest)
+			return false, false
+		}
+		ports[0], ports[i] = ports[i], ports[0]
+	}
+
+	if err := validatePortsAgainstNode(db, server.NodeID, server.Identifier, ports); err != nil {
+		response.HandleError(c, err, http.StatusBadRequest)
+		return false, false
+	}
+	server.Port = ports[0]
+	server.Ports = ports
+	return true, true
+}
+
+var errPortsNotNumbers = errors.New("ports must be an array of numbers")
+
+// parsePortList reads the "ports" array from the request body, dropping zeros.
+func parsePortList(raw interface{}) ([]uint16, error) {
+	rawList, ok := raw.([]interface{})
+	if !ok {
+		return nil, errPortsNotNumbers
+	}
+	var ports []uint16
+	for _, item := range rawList {
+		p, err := cast.ToUint16E(item)
+		if err != nil {
+			return nil, errPortsNotNumbers
+		}
+		if p > 0 {
+			ports = append(ports, p)
+		}
+	}
+	return ports, nil
+}
+
+// portIndex returns the position of port in ports, or -1 when it is missing.
+func portIndex(ports []uint16, port uint16) int {
+	for i, p := range ports {
+		if p == port {
+			return i
+		}
+	}
+	return -1
+}
+
+// parsePortNotes reads the user-defined labels per port from the body; false
+// when the body carries no portNotes object.
+func parsePortNotes(postBody map[string]interface{}) (map[string]string, bool) {
+	notesMap, ok := postBody["portNotes"].(map[string]interface{})
+	if !ok {
+		return nil, false
+	}
+	converted := make(map[string]string, len(notesMap))
+	for k, v := range notesMap {
+		if str, ok := v.(string); ok {
+			converted[k] = str
+		}
+	}
+	return converted, true
+}
+
+// saveAdminServerChanges stores the edited server. Resource changes on a
+// sub-server are checked against the parent's limits in the same transaction,
+// and the parent's new limits are pushed to its node afterwards. It returns
+// false once an error response has been written.
+func saveAdminServerChanges(c *gin.Context, db *gorm.DB, server *models.Server, resourcesChanged bool) bool {
+	if !resourcesChanged || !hasParentServer(server) {
+		ss := &services.Server{DB: db}
+		err := ss.Update(server)
+		return !response.HandleError(c, err, http.StatusInternalServerError)
+	}
+
+	var parentAvailableCPU int
+	var parentAvailableMemory, parentAvailableDisk int64
+
+	err := db.Transaction(func(tx *gorm.DB) error {
+		if err := checkParentServerLimitsOnUpdate(tx, server, &parentAvailableCPU, &parentAvailableMemory, &parentAvailableDisk); err != nil {
+			return err
+		}
+		ss := &services.Server{DB: tx}
+		return ss.Update(server)
+	})
+	if response.HandleError(c, err, http.StatusBadRequest) {
+		return false
+	}
+
+	node, nodeErr := (&services.Node{DB: db}).Get(server.NodeID)
+	if nodeErr == nil && node != nil {
+		updateParentServerLimitsOnNode(c, db, &services.Node{DB: db}, node, server, parentAvailableCPU, parentAvailableMemory, parentAvailableDisk)
+	}
+	return true
 }
 
 // editPortSettings allows users to manage port metadata (primary port + notes)
@@ -1120,34 +1239,14 @@ func editPortSettings(c *gin.Context) {
 	dirty := false
 
 	// Primary port: user selects which port is primary (reorders the list)
-	if primaryField, has := postBody["primaryPort"]; has {
-		primary := cast.ToUint16(primaryField)
-		if primary > 0 && server.Ports != nil {
-			for i, p := range server.Ports {
-				if p == primary {
-					if i != 0 {
-						server.Ports[0], server.Ports[i] = server.Ports[i], server.Ports[0]
-						server.Port = primary
-						dirty = true
-					}
-					break
-				}
-			}
-		}
+	if primaryField, has := postBody["primaryPort"]; has && promotePrimaryPort(server, cast.ToUint16(primaryField)) {
+		dirty = true
 	}
 
 	// Port notes: user-defined labels per port
-	if notesField, has := postBody["portNotes"]; has {
-		if notesMap, ok := notesField.(map[string]interface{}); ok {
-			converted := make(map[string]string, len(notesMap))
-			for k, v := range notesMap {
-				if str, ok := v.(string); ok {
-					converted[k] = str
-				}
-			}
-			server.PortNotes = converted
-			dirty = true
-		}
+	if notes, hasNotes := parsePortNotes(postBody); hasNotes {
+		server.PortNotes = notes
+		dirty = true
 	}
 
 	if dirty {
@@ -1163,6 +1262,21 @@ func editPortSettings(c *gin.Context) {
 	syncPortVarsToDaemon(c, server)
 
 	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+// promotePrimaryPort moves an already assigned port to the front of the list
+// and makes it the main port; false when nothing had to change.
+func promotePrimaryPort(server *models.Server, primary uint16) bool {
+	if primary == 0 || server.Ports == nil {
+		return false
+	}
+	i := portIndex(server.Ports, primary)
+	if i <= 0 {
+		return false
+	}
+	server.Ports[0], server.Ports[i] = server.Ports[i], server.Ports[0]
+	server.Port = primary
+	return true
 }
 
 // syncPortVarsToDaemon sends the current port list to the daemon so it
@@ -1505,31 +1619,9 @@ func collectPortsFromVariables(variables map[string]skypanel.Variable) []uint16 
 // range, contain no duplicates, and are not already assigned to another server
 // on the same node.
 func validatePortsAgainstNode(db *gorm.DB, nodeID uint, excludeIdentifier string, ports []uint16) error {
-	query := db.Model(&models.Server{})
-	if nodeID == 0 {
-		query = query.Where("node_id IS NULL")
-	} else {
-		query = query.Where("node_id = ?", nodeID)
-	}
-
-	var serversOnNode []*models.Server
-	if err := query.Find(&serversOnNode).Error; err != nil {
+	used, err := portsTakenByOtherServers(db, nodeID, excludeIdentifier)
+	if err != nil {
 		return err
-	}
-
-	used := make(map[uint16]bool)
-	for _, s := range serversOnNode {
-		if s.Identifier == excludeIdentifier {
-			continue
-		}
-		if s.Port > 0 {
-			used[s.Port] = true
-		}
-		for _, p := range s.Ports {
-			if p > 0 {
-				used[p] = true
-			}
-		}
 	}
 
 	seen := make(map[uint16]bool)
@@ -1550,6 +1642,38 @@ func validatePortsAgainstNode(db *gorm.DB, nodeID uint, excludeIdentifier string
 		used[p] = true
 	}
 	return nil
+}
+
+// portsTakenByOtherServers collects every port already assigned to the
+// servers on the node, skipping the server being edited.
+func portsTakenByOtherServers(db *gorm.DB, nodeID uint, excludeIdentifier string) (map[uint16]bool, error) {
+	query := db.Model(&models.Server{})
+	if nodeID == 0 {
+		query = query.Where("node_id IS NULL")
+	} else {
+		query = query.Where("node_id = ?", nodeID)
+	}
+
+	var serversOnNode []*models.Server
+	if err := query.Find(&serversOnNode).Error; err != nil {
+		return nil, err
+	}
+
+	used := make(map[uint16]bool)
+	for _, s := range serversOnNode {
+		if s.Identifier == excludeIdentifier {
+			continue
+		}
+		if s.Port > 0 {
+			used[s.Port] = true
+		}
+		for _, p := range s.Ports {
+			if p > 0 {
+				used[p] = true
+			}
+		}
+	}
+	return used, nil
 }
 
 func proxyServerRequest(c *gin.Context) {
@@ -1587,46 +1711,55 @@ func proxyServerRequest(c *gin.Context) {
 	c.Request.Header.Set("Authorization", bearerPrefix+token)
 
 	if c.IsWebsocket() {
-		// for websocket, nuke the query params to avoid trying to escalate
-		resolvedPath = strings.SplitN(resolvedPath, "?", 2)[0]
-		if !strings.HasPrefix(resolvedPath, "/") {
-			resolvedPath = "/" + resolvedPath
-		}
-
-		permService := &services.Permission{DB: db}
-		perms, err := permService.GetForUserAndServer(user.ID, server.Identifier)
-		if response.HandleError(c, err, http.StatusInternalServerError) {
+		socketPath, ok := websocketPathWithGrants(c, db, user, server, resolvedPath)
+		if !ok {
 			return
 		}
-
-		allScopes := perms.Scopes
-
-		perms, err = permService.GetForUserAndServer(user.ID, "")
-		if response.HandleError(c, err, http.StatusInternalServerError) {
-			return
-		}
-
-		allScopes = append(allScopes, perms.Scopes...)
-
-		// add the params we can grant for this request
-		var params []string
-		if scopes.ContainsScope(allScopes, scopes.ScopeServerConsole) {
-			params = append(params, "console")
-		}
-		if scopes.ContainsScope(allScopes, scopes.ScopeServerStatus) {
-			params = append(params, "status")
-		}
-		if scopes.ContainsScope(allScopes, scopes.ScopeServerStats) {
-			params = append(params, "stats")
-		}
-		resolvedPath = resolvedPath + "?" + strings.Join(params, "&")
-
-		proxySocketRequest(c, resolvedPath, ns, node)
+		proxySocketRequest(c, socketPath, ns, node)
 	} else {
 		proxyHTTPRequest(c, resolvedPath, ns, node)
 	}
 
 	c.Abort()
+}
+
+// websocketPathWithGrants replaces the query of a websocket path with the
+// streams (console, status, stats) the user is allowed to receive. It writes
+// the error response itself and returns false when the request must stop.
+func websocketPathWithGrants(c *gin.Context, db *gorm.DB, user *models.User, server *models.Server, resolvedPath string) (string, bool) {
+	// for websocket, nuke the query params to avoid trying to escalate
+	resolvedPath = strings.SplitN(resolvedPath, "?", 2)[0]
+	if !strings.HasPrefix(resolvedPath, "/") {
+		resolvedPath = "/" + resolvedPath
+	}
+
+	permService := &services.Permission{DB: db}
+	perms, err := permService.GetForUserAndServer(user.ID, server.Identifier)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return "", false
+	}
+
+	allScopes := perms.Scopes
+
+	perms, err = permService.GetForUserAndServer(user.ID, "")
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return "", false
+	}
+
+	allScopes = append(allScopes, perms.Scopes...)
+
+	// add the params we can grant for this request
+	var params []string
+	if scopes.ContainsScope(allScopes, scopes.ScopeServerConsole) {
+		params = append(params, "console")
+	}
+	if scopes.ContainsScope(allScopes, scopes.ScopeServerStatus) {
+		params = append(params, "status")
+	}
+	if scopes.ContainsScope(allScopes, scopes.ScopeServerStats) {
+		params = append(params, "stats")
+	}
+	return resolvedPath + "?" + strings.Join(params, "&"), true
 }
 
 var wsupgrader = websocket.Upgrader{
@@ -1637,29 +1770,8 @@ var wsupgrader = websocket.Upgrader{
 
 func proxyHTTPRequest(c *gin.Context, path string, ns *services.Node, node *models.Node) {
 	// If it's a local node, check if the server is a ghost (in DB but not on disk)
-	if node.IsLocal() {
-		serverID := c.Param("serverId")
-		if servers.GetFromCache(serverID) == nil {
-			if c.Request.Method == "GET" {
-				if strings.HasSuffix(path, "/stats") {
-					c.JSON(http.StatusOK, skypanel.ServerStats{Running: false})
-					return
-				}
-				if strings.HasSuffix(path, statusSuffix) {
-					c.JSON(http.StatusOK, skypanel.ServerRunning{Running: false, Installing: false})
-					return
-				}
-				if strings.HasSuffix(path, "/console") {
-					c.JSON(http.StatusOK, skypanel.ServerLogs{Logs: []byte("")})
-					return
-				}
-			}
-			// For ghost servers, return 200 with an error description instead of a red 404
-			c.JSON(http.StatusOK, gin.H{
-				"error": "El servidor existe en la base de datos pero sus archivos no se encuentran en este nodo. Por favor, reintenta instalarlo o elimínalo.",
-			})
-			return
-		}
+	if answerLocalGhostServer(c, path, node) {
+		return
 	}
 
 	callResponse, err := ns.CallNodeContext(c.Request.Context(), node, c.Request.Method, path, c.Request.Body, c.Request.Header)
@@ -1671,24 +1783,46 @@ func proxyHTTPRequest(c *gin.Context, path string, ns *services.Node, node *mode
 	defer utils.CloseResponse(callResponse)
 
 	// Intercept 404 for stats/status/console to avoid errors in console for "ghost" servers (non-local or fallback)
-	if callResponse.StatusCode == http.StatusNotFound && c.Request.Method == "GET" {
-		if strings.HasSuffix(path, "/stats") {
-			c.JSON(http.StatusOK, skypanel.ServerStats{Running: false})
-			return
-		}
-		if strings.HasSuffix(path, statusSuffix) {
-			c.JSON(http.StatusOK, skypanel.ServerRunning{Running: false, Installing: false})
-			return
-		}
-		if strings.HasSuffix(path, "/console") {
-			c.JSON(http.StatusOK, skypanel.ServerLogs{Logs: []byte("")})
-			return
-		}
+	if callResponse.StatusCode == http.StatusNotFound && c.Request.Method == "GET" && writeIdleServerStub(c, path) {
+		return
 	}
 
 	newHeaders := cleanHTTPReturnErrors(callResponse.Header)
 
 	c.DataFromReader(callResponse.StatusCode, callResponse.ContentLength, callResponse.Header.Get(headerContentType), callResponse.Body, newHeaders)
+}
+
+// answerLocalGhostServer answers for a server on the local node that is in the
+// database but not on disk; true when the response has been written.
+func answerLocalGhostServer(c *gin.Context, path string, node *models.Node) bool {
+	if !node.IsLocal() || servers.GetFromCache(c.Param("serverId")) != nil {
+		return false
+	}
+	if c.Request.Method == "GET" && writeIdleServerStub(c, path) {
+		return true
+	}
+	// For ghost servers, return 200 with an error description instead of a red 404
+	c.JSON(http.StatusOK, gin.H{
+		"error": "El servidor existe en la base de datos pero sus archivos no se encuentran en este nodo. Por favor, reintenta instalarlo o elimínalo.",
+	})
+	return true
+}
+
+// writeIdleServerStub answers the polling endpoints (stats, status, console)
+// of a server the node does not have with a stopped, empty payload; false for
+// any other path.
+func writeIdleServerStub(c *gin.Context, path string) bool {
+	switch {
+	case strings.HasSuffix(path, "/stats"):
+		c.JSON(http.StatusOK, skypanel.ServerStats{Running: false})
+	case strings.HasSuffix(path, statusSuffix):
+		c.JSON(http.StatusOK, skypanel.ServerRunning{Running: false, Installing: false})
+	case strings.HasSuffix(path, "/console"):
+		c.JSON(http.StatusOK, skypanel.ServerLogs{Logs: []byte("")})
+	default:
+		return false
+	}
+	return true
 }
 
 func cleanHTTPReturnErrors(currentHeaders http.Header) map[string]string {
@@ -2018,28 +2152,8 @@ func sendServerDeletionEmails(users []models.User, server *models.Server) {
 // --- Helpers for Create Server ---
 
 func validateAndBuildServerCreation(c *gin.Context, db *gorm.DB, us *services.User, postBody *models.ServerCreation) (*models.Server, []*models.User, error) {
-	if postBody.ParentServerID != nil && *postBody.ParentServerID != "" {
-		var parent models.Server
-		if err := db.Where(serverIdentifierQuery, *postBody.ParentServerID).First(&parent).Error; err != nil {
-			response.HandleError(c, errors.New("parent server not found"), http.StatusBadRequest)
-			return nil, nil, err
-		}
-
-		postBody.NodeID = parent.NodeID
-
-		var parentPerms []models.Permissions
-		db.Where(serverIdentifierRefQuery, parent.Identifier).Find(&parentPerms)
-
-		var inheritedUsers []string
-		for _, p := range parentPerms {
-			if p.UserID != nil {
-				user, err := us.GetByID(*p.UserID)
-				if err == nil && user != nil {
-					inheritedUsers = append(inheritedUsers, user.Username)
-				}
-			}
-		}
-		postBody.Users = inheritedUsers
+	if err := inheritParentServer(c, db, us, postBody); err != nil {
+		return nil, nil, err
 	}
 
 	port, err := getFromDataOrDefault(postBody.Variables, "port", uint16(0))
@@ -2102,6 +2216,39 @@ func validateAndBuildServerCreation(c *gin.Context, db *gorm.DB, us *services.Us
 	}
 
 	return server, users, nil
+}
+
+// inheritParentServer puts a sub-server on its parent's node and gives access
+// to the parent's users; it does nothing for a top-level server. It writes the
+// error response itself.
+func inheritParentServer(c *gin.Context, db *gorm.DB, us *services.User, postBody *models.ServerCreation) error {
+	if postBody.ParentServerID == nil || *postBody.ParentServerID == "" {
+		return nil
+	}
+
+	var parent models.Server
+	if err := db.Where(serverIdentifierQuery, *postBody.ParentServerID).First(&parent).Error; err != nil {
+		response.HandleError(c, errors.New("parent server not found"), http.StatusBadRequest)
+		return err
+	}
+
+	postBody.NodeID = parent.NodeID
+
+	var parentPerms []models.Permissions
+	db.Where(serverIdentifierRefQuery, parent.Identifier).Find(&parentPerms)
+
+	var inheritedUsers []string
+	for _, p := range parentPerms {
+		if p.UserID == nil {
+			continue
+		}
+		user, err := us.GetByID(*p.UserID)
+		if err == nil && user != nil {
+			inheritedUsers = append(inheritedUsers, user.Username)
+		}
+	}
+	postBody.Users = inheritedUsers
+	return nil
 }
 
 // subServerDockerKeys are the docker environment settings a non-admin may choose. Host

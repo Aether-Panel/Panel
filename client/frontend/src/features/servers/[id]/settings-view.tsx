@@ -12,6 +12,7 @@ import { sileo } from "@/lib/toast";
 import { api } from '@/lib/api-client';
 import { useAuth } from '@/contexts/providers';
 import { cn } from '@/lib/utils';
+import { keyedByContent } from '@/lib/keyed';
 import { Box, Loader2, Lock, Plus, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import NotificationsCard from './notifications-card';
@@ -33,6 +34,20 @@ const isMonoVar = (n: string) => /version|^ip$|address|build|template|path|repo|
 // Only plain identifiers can be looked up as translation keys.
 const isTranslatableKey = (n: string) => /^[A-Za-z0-9_-]+$/.test(n);
 const toSlug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
+
+/** The ports saved as port, port2, port3… up to the first empty or non-positive one. */
+function readPorts(variables: ServerSettings['variables']): number[] {
+  const lp: number[] = [];
+  for (let i = 1; ; i++) {
+    const key = i === 1 ? 'port' : `port${i}`;
+    const v = variables[key]?.value;
+    if (v === undefined || v === null || v === '') break;
+    const num = Number(v);
+    if (!(num > 0)) break; // also stops on a non-numeric value
+    lp.push(num);
+  }
+  return lp;
+}
 
 export default function SettingsView({ serverId, serverStatus, onPortsSaved }: Readonly<SettingsViewProps>) {
   const { t } = useTranslations();
@@ -62,36 +77,30 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: R
   const baseNotesRef = useRef('{}');
   const basePluginsRef = useRef(true);
 
-  useEffect(() => {
-    if (settings) {
-      setLocalSettings(JSON.parse(JSON.stringify(settings)));
-      baseSettingsRef.current = JSON.stringify(settings);
-      const stored = localStorage.getItem(`pluginsEnabled_${serverId}`);
-      if (stored !== null) setPluginsEnabled(stored === 'true');
-      basePluginsRef.current = stored === null ? true : stored === 'true';
-      if (!portsInitializedRef.current) {
-        const lp: number[] = [];
-        for (let i = 1; ; i++) {
-          const key = i === 1 ? 'port' : `port${i}`;
-          const v = settings.variables[key]?.value;
-          if (v === undefined || v === null || v === '') break;
-          const num = Number(v);
-          if (num > 0) lp.push(num); else break;
-        }
-        setPorts(lp);
-        initialPrimaryRef.current = lp[0] ?? null;
-        savedPortsRef.current = [...lp];
-        portsInitializedRef.current = true;
-        if (canViewPorts) {
-          api.get(`/api/servers/${serverId}`).then((data: any) => {
-            if (data?.portNotes) {
-              baseNotesRef.current = JSON.stringify(data.portNotes);
-              setPortNotes(data.portNotes);
-            }
-          }).catch(() => {});
-        }
+  // Port notes come with the server detail, not with the settings.
+  const loadPortNotes = () => {
+    api.get(`/api/servers/${serverId}`).then((data: any) => {
+      if (data?.portNotes) {
+        baseNotesRef.current = JSON.stringify(data.portNotes);
+        setPortNotes(data.portNotes);
       }
-    }
+    }).catch(() => {});
+  };
+
+  useEffect(() => {
+    if (!settings) return;
+    setLocalSettings(JSON.parse(JSON.stringify(settings)));
+    baseSettingsRef.current = JSON.stringify(settings);
+    const stored = localStorage.getItem(`pluginsEnabled_${serverId}`);
+    if (stored !== null) setPluginsEnabled(stored === 'true');
+    basePluginsRef.current = stored === null || stored === 'true';
+    if (portsInitializedRef.current) return;
+    const lp = readPorts(settings.variables);
+    setPorts(lp);
+    initialPrimaryRef.current = lp[0] ?? null;
+    savedPortsRef.current = [...lp];
+    portsInitializedRef.current = true;
+    if (canViewPorts) loadPortNotes();
   }, [settings, serverId, canViewPorts]);
 
   if (loading) return <div className="flex h-[400px] items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t('common.loading')} /></div>;
@@ -103,30 +112,35 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: R
   );
 
   const handleVariableChange = (name: string, value: any) => {
-    setLocalSettings(prev => { if (!prev) return prev; return { ...prev, variables: { ...prev.variables, [name]: { ...prev.variables[name], value } } }; });
+    setLocalSettings(prev => (prev ? { ...prev, variables: { ...prev.variables, [name]: { ...prev.variables[name], value } } } : prev));
   };
   const handleFlagChange = (flag: keyof ServerSettings['flags'], value: boolean) => {
-    setLocalSettings(prev => { if (!prev) return prev; return { ...prev, flags: { ...prev.flags, [flag]: value } }; });
+    setLocalSettings(prev => (prev ? { ...prev, flags: { ...prev.flags, [flag]: value } } : prev));
   };
   const removePort = (idx: number) => {
     if (idx === 0 && isRunning) { sileo.error({ title: t('common.error'), description: t('servers.settings.portsRequireOffline') }); return; }
     setPorts(prev => prev.filter((_, i) => i !== idx));
   };
 
+  /** Why the ports cannot be saved as they are, or null when they are fine. */
+  const portsError = (validPorts: number[]): string | null => {
+    if (validPorts.length === 0) return t('servers.settings.portRequired');
+    const seen = new Set<number>();
+    for (const p of validPorts) {
+      if (p < 1024 || p > 65535) return t('servers.settings.portInvalid', { port: p });
+      if (seen.has(p)) return t('servers.settings.portDuplicate', { port: p });
+      seen.add(p);
+    }
+    if (validPorts[0] !== initialPrimaryRef.current && isRunning) return t('servers.settings.portsRequireOffline');
+    return null;
+  };
+
   const onSave = async () => {
     try {
       setSaving(true);
       const validPorts = ports.filter(p => p > 0);
-      if (canEditAdminData) {
-        if (validPorts.length === 0) { sileo.error({ title: t('common.error'), description: t('servers.settings.portRequired') }); return; }
-        const seen = new Set<number>();
-        for (const p of validPorts) {
-          if (p < 1024 || p > 65535) { sileo.error({ title: t('common.error'), description: t('servers.settings.portInvalid', { port: p }) }); return; }
-          if (seen.has(p)) { sileo.error({ title: t('common.error'), description: t('servers.settings.portDuplicate', { port: p }) }); return; }
-          seen.add(p);
-        }
-        if (validPorts[0] !== initialPrimaryRef.current && isRunning) { sileo.error({ title: t('common.error'), description: t('servers.settings.portsRequireOffline') }); return; }
-      }
+      const portProblem = canEditAdminData ? portsError(validPorts) : null;
+      if (portProblem !== null) { sileo.error({ title: t('common.error'), description: portProblem }); return; }
       const portsChanged = validPorts.length !== savedPortsRef.current.length || validPorts.some((p, i) => p !== savedPortsRef.current[i]);
       await saveSettings(localSettings, hasScope('server.data.edit.admin'));
       localStorage.setItem(`pluginsEnabled_${serverId}`, pluginsEnabled.toString());
@@ -476,8 +490,8 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: R
           </SettingsSection>
         )}
 
-        {visibleGroups.map((group, idx) => (
-          <SettingsSection key={idx} title={groupTitle(group.display)} description={groupDescription(group.display, group.description)}>
+        {keyedByContent(visibleGroups, (group) => group.display).map(({ key, item: group }) => (
+          <SettingsSection key={key} title={groupTitle(group.display)} description={groupDescription(group.display, group.description)}>
             {renderVariables(group.variables)}
           </SettingsSection>
         ))}
@@ -509,8 +523,7 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: R
       <NotificationsCard serverId={serverId} />
 
       {isDirty && (
-        <div
-          role="region"
+        <section
           aria-label={t('servers.settings.unsavedChanges')}
           className="sticky bottom-4 z-20 flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-popover/95 px-4 py-3 shadow-elevation-3 backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200 sm:px-5"
         >
@@ -524,7 +537,7 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: R
               {saving ? t('common.saving') : t('servers.settings.saveButton')}
             </Button>
           </div>
-        </div>
+        </section>
       )}
     </div>
   );

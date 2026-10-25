@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -137,6 +137,155 @@ export default function PluginsView({ serverId }: Readonly<PluginsViewProps>) {
     return installedPlugins.some(p => p.name.toLowerCase().includes(normalizedName));
   };
 
+  let installedBody: ReactNode;
+  if (loading && installedPlugins.length === 0) {
+    installedBody = (
+      <div className="flex justify-center py-16">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t('common.loading')} />
+      </div>
+    );
+  } else if (installedPlugins.length === 0) {
+    installedBody = (
+      <EmptyState
+        icon={Puzzle}
+        title={t('servers.plugins.installed.emptyTitle')}
+        description={t('servers.plugins.installed.emptyDescription')}
+        action={
+          <Button variant="outline" onClick={() => setActiveTab('marketplace')}>
+            <Search aria-hidden="true" />
+            {t('servers.plugins.installed.browse')}
+          </Button>
+        }
+      />
+    );
+  } else {
+    installedBody = (
+      <ul className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60 bg-background/30">
+        {installedPlugins.map((plugin) => (
+          <li key={plugin.name} className="flex items-center justify-between gap-4 px-4 py-3 transition-colors duration-150 hover:bg-accent/30">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-border/60 bg-card">
+                <Puzzle className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">{plugin.name}</p>
+                <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">{formatSize(plugin.size)}</p>
+              </div>
+            </div>
+            <AlertDialog open={pendingPlugin === plugin.name} onOpenChange={(open) => !open && setPendingPlugin(null)}>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive-bright"
+                  aria-label={`${t('servers.plugins.installed.uninstall')} ${plugin.name}`}
+                  onClick={() => setPendingPlugin(plugin.name)}
+                >
+                  <Trash2 aria-hidden="true" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{t('servers.plugins.installed.uninstall')}</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {t('servers.plugins.installed.uninstallConfirm')}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    {t('servers.plugins.installed.uninstall')}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  let marketplaceBody: ReactNode;
+  if (loading) {
+    marketplaceBody = (
+      <div className="flex justify-center py-16">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t('common.loading')} />
+      </div>
+    );
+  } else if (searchResults.length === 0) {
+    marketplaceBody = (
+      <EmptyState
+        icon={Search}
+        title={hasSearched ? t('servers.plugins.empty.title') : t('servers.plugins.marketplace.title')}
+        description={hasSearched ? t('servers.plugins.empty.description') : t('servers.plugins.marketplace.description')}
+      />
+    );
+  } else {
+    marketplaceBody = (
+      <ul className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60 bg-background/30">
+        {searchResults.map((plugin) => (
+          <li key={plugin.id} className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 flex-1 items-start gap-3.5">
+              <Avatar className="h-10 w-10 shrink-0 rounded-lg ring-1 ring-border/60">
+                <AvatarImage src={plugin.iconUrl} alt="" />
+                <AvatarFallback className="rounded-lg bg-card">
+                  <Puzzle className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 space-y-1">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <h4 className="truncate text-sm font-semibold">{plugin.name}</h4>
+                  {plugin.version && (
+                    <span className="rounded-md border border-border/60 px-1.5 py-px font-mono text-[11px] text-muted-foreground">
+                      {plugin.version}
+                    </span>
+                  )}
+                </div>
+                <p className="line-clamp-2 text-sm text-muted-foreground">{plugin.description}</p>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                  <span>{t('servers.plugins.marketplace.author')}: <span className="text-foreground/80">{plugin.author}</span></span>
+                  <span className="tabular-nums">{t('servers.plugins.marketplace.downloads')}: {plugin.downloads.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-2 pl-[3.375rem] sm:pl-0">
+              <Button variant="outline" size="sm" asChild>
+                <a href={`https://modrinth.com/project/${plugin.id}`} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink aria-hidden="true" />
+                  Modrinth
+                </a>
+              </Button>
+              {isInstalled(plugin.name) ? (
+                <span className="inline-flex h-9 items-center gap-1.5 rounded-md bg-success/10 px-3 text-sm font-medium text-success">
+                  <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                  {t('servers.plugins.marketplace.installed')}
+                </span>
+              ) : (
+                <Button
+                  size="sm"
+                  disabled={installingId === plugin.id}
+                  onClick={() => handleInstall(plugin)}
+                >
+                  {installingId === plugin.id ? (
+                    <>
+                      <Loader2 className="animate-spin" aria-hidden="true" />
+                      {t('servers.plugins.marketplace.installing')}
+                    </>
+                  ) : (
+                    <>
+                      <Download aria-hidden="true" />
+                      {t('servers.plugins.marketplace.install')}
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
   return (
     <Card className="mt-6">
       <div className="flex flex-col gap-4 border-b border-border/50 p-5 sm:flex-row sm:items-center sm:justify-between md:p-6">
@@ -176,142 +325,11 @@ export default function PluginsView({ serverId }: Readonly<PluginsViewProps>) {
         </TabsList>
 
         <TabsContent value="installed" className="mt-5">
-          {loading && installedPlugins.length === 0 ? (
-            <div className="flex justify-center py-16">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t('common.loading')} />
-            </div>
-          ) : installedPlugins.length === 0 ? (
-            <EmptyState
-              icon={Puzzle}
-              title={t('servers.plugins.installed.emptyTitle')}
-              description={t('servers.plugins.installed.emptyDescription')}
-              action={
-                <Button variant="outline" onClick={() => setActiveTab('marketplace')}>
-                  <Search aria-hidden="true" />
-                  {t('servers.plugins.installed.browse')}
-                </Button>
-              }
-            />
-          ) : (
-            <ul className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60 bg-background/30">
-              {installedPlugins.map((plugin) => (
-                <li key={plugin.name} className="flex items-center justify-between gap-4 px-4 py-3 transition-colors duration-150 hover:bg-accent/30">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-border/60 bg-card">
-                      <Puzzle className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{plugin.name}</p>
-                      <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">{formatSize(plugin.size)}</p>
-                    </div>
-                  </div>
-                  <AlertDialog open={pendingPlugin === plugin.name} onOpenChange={(open) => !open && setPendingPlugin(null)}>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive-bright"
-                        aria-label={`${t('servers.plugins.installed.uninstall')} ${plugin.name}`}
-                        onClick={() => setPendingPlugin(plugin.name)}
-                      >
-                        <Trash2 aria-hidden="true" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>{t('servers.plugins.installed.uninstall')}</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          {t('servers.plugins.installed.uninstallConfirm')}
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                          {t('servers.plugins.installed.uninstall')}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </li>
-              ))}
-            </ul>
-          )}
+          {installedBody}
         </TabsContent>
 
         <TabsContent value="marketplace" className="mt-5">
-          {loading ? (
-            <div className="flex justify-center py-16">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t('common.loading')} />
-            </div>
-          ) : searchResults.length === 0 ? (
-            <EmptyState
-              icon={Search}
-              title={hasSearched ? t('servers.plugins.empty.title') : t('servers.plugins.marketplace.title')}
-              description={hasSearched ? t('servers.plugins.empty.description') : t('servers.plugins.marketplace.description')}
-            />
-          ) : (
-            <ul className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60 bg-background/30">
-              {searchResults.map((plugin) => (
-                <li key={plugin.id} className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex min-w-0 flex-1 items-start gap-3.5">
-                    <Avatar className="h-10 w-10 shrink-0 rounded-lg ring-1 ring-border/60">
-                      <AvatarImage src={plugin.iconUrl} alt="" />
-                      <AvatarFallback className="rounded-lg bg-card">
-                        <Puzzle className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 space-y-1">
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <h4 className="truncate text-sm font-semibold">{plugin.name}</h4>
-                        {plugin.version && (
-                          <span className="rounded-md border border-border/60 px-1.5 py-px font-mono text-[11px] text-muted-foreground">
-                            {plugin.version}
-                          </span>
-                        )}
-                      </div>
-                      <p className="line-clamp-2 text-sm text-muted-foreground">{plugin.description}</p>
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                        <span>{t('servers.plugins.marketplace.author')}: <span className="text-foreground/80">{plugin.author}</span></span>
-                        <span className="tabular-nums">{t('servers.plugins.marketplace.downloads')}: {plugin.downloads.toLocaleString()}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2 pl-[3.375rem] sm:pl-0">
-                    <Button variant="outline" size="sm" asChild>
-                      <a href={`https://modrinth.com/project/${plugin.id}`} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink aria-hidden="true" />
-                        Modrinth
-                      </a>
-                    </Button>
-                    {isInstalled(plugin.name) ? (
-                      <span className="inline-flex h-9 items-center gap-1.5 rounded-md bg-success/10 px-3 text-sm font-medium text-success">
-                        <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-                        {t('servers.plugins.marketplace.installed')}
-                      </span>
-                    ) : (
-                      <Button
-                        size="sm"
-                        disabled={installingId === plugin.id}
-                        onClick={() => handleInstall(plugin)}
-                      >
-                        {installingId === plugin.id ? (
-                          <>
-                            <Loader2 className="animate-spin" aria-hidden="true" />
-                            {t('servers.plugins.marketplace.installing')}
-                          </>
-                        ) : (
-                          <>
-                            <Download aria-hidden="true" />
-                            {t('servers.plugins.marketplace.install')}
-                          </>
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+          {marketplaceBody}
         </TabsContent>
       </Tabs>
     </Card>

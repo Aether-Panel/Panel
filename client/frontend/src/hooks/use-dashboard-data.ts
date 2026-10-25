@@ -29,7 +29,8 @@ export function useNodes(skip = false) {
                 try {
                     const systemInfo = await api.get(`/api/nodes/${node.id}/system`).catch(() => null);
                     return { ...node, systemInfo };
-                } catch (e) {
+                } catch {
+                    // Stats are optional: a node whose /system call fails is still listed, just without them.
                     return node;
                 }
             }));
@@ -77,6 +78,12 @@ export function useUsersCount(skip = false) {
     return { count, loading };
 }
 
+/** Converts an elapsed counter pair into KB/s, treating a lower reading as a counter reset (daemon restart, etc.). */
+function rateKBps(current: number, previous: number, elapsedSeconds: number): number {
+    const diff = current >= previous ? current - previous : current;
+    return (diff / elapsedSeconds) / 1024;
+}
+
 /**
  * Computes a differential KB/s network rate from the cumulative counters in each node's
  * system info. It reuses the nodes useNodes already polls, instead of fetching
@@ -102,15 +109,10 @@ export function useGlobalNetworkMetrics(nodes: any[]) {
             const bytesSent: number = sysInfo.networkBytesSent ?? 0;
 
             const prev = lastSnapshotsRef.current[node.id];
-            if (prev && prev.time > 0) {
-                const elapsed = (now - prev.time) / 1000; // seconds
-                if (elapsed > 0) {
-                    // Guard against counter resets (daemon restart, etc.)
-                    const rxDiff = bytesRecv >= prev.bytesRecv ? bytesRecv - prev.bytesRecv : bytesRecv;
-                    const txDiff = bytesSent >= prev.bytesSent ? bytesSent - prev.bytesSent : bytesSent;
-                    totalRxRate += (rxDiff / elapsed) / 1024; // KB/s
-                    totalTxRate += (txDiff / elapsed) / 1024; // KB/s
-                }
+            const elapsed = prev && prev.time > 0 ? (now - prev.time) / 1000 : 0; // seconds
+            if (elapsed > 0) {
+                totalRxRate += rateKBps(bytesRecv, prev.bytesRecv, elapsed);
+                totalTxRate += rateKBps(bytesSent, prev.bytesSent, elapsed);
             }
 
             lastSnapshotsRef.current[node.id] = { bytesRecv, bytesSent, time: now };

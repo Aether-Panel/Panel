@@ -167,31 +167,13 @@ func (us *Uptime) GetAllServerUptime(since time.Time) (map[string]map[string]int
 	// Agrupar por servidor
 	serverStats := make(map[string]map[string]interface{})
 	for _, result := range results {
-		if _, exists := serverStats[result.ServerID]; !exists {
-			serverStats[result.ServerID] = make(map[string]interface{})
-			serverStats[result.ServerID]["uptime"] = int64(0)
-			serverStats[result.ServerID]["downtime"] = int64(0)
-		}
-		if result.IsRunning {
-			serverStats[result.ServerID]["uptime"] = serverStats[result.ServerID]["uptime"].(int64) + result.TotalDuration
-		} else {
-			serverStats[result.ServerID]["downtime"] = serverStats[result.ServerID]["downtime"].(int64) + result.TotalDuration
-		}
+		addUptimeDuration(serverStats, result.ServerID, result.IsRunning, result.TotalDuration)
 	}
 
 	// Agregar estados actuales
 	for serverID, status := range activeMap {
-		if _, exists := serverStats[serverID]; !exists {
-			serverStats[serverID] = make(map[string]interface{})
-			serverStats[serverID]["uptime"] = int64(0)
-			serverStats[serverID]["downtime"] = int64(0)
-		}
 		activeDuration := int64(time.Since(status.StartTime).Seconds())
-		if status.IsRunning {
-			serverStats[serverID]["uptime"] = serverStats[serverID]["uptime"].(int64) + activeDuration
-		} else {
-			serverStats[serverID]["downtime"] = serverStats[serverID]["downtime"].(int64) + activeDuration
-		}
+		addUptimeDuration(serverStats, serverID, status.IsRunning, activeDuration)
 		serverStats[serverID]["currentStatus"] = status.IsRunning
 		serverStats[serverID]["currentStartTime"] = status.StartTime
 	}
@@ -210,4 +192,18 @@ func (us *Uptime) GetAllServerUptime(since time.Time) (map[string]map[string]int
 	}
 
 	return serverStats, nil
+}
+
+// addUptimeDuration adds the seconds to the server's uptime or downtime, creating its entry if needed
+func addUptimeDuration(serverStats map[string]map[string]interface{}, serverID string, running bool, duration int64) {
+	if _, exists := serverStats[serverID]; !exists {
+		serverStats[serverID] = make(map[string]interface{})
+		serverStats[serverID]["uptime"] = int64(0)
+		serverStats[serverID]["downtime"] = int64(0)
+	}
+	if running {
+		serverStats[serverID]["uptime"] = serverStats[serverID]["uptime"].(int64) + duration
+	} else {
+		serverStats[serverID]["downtime"] = serverStats[serverID]["downtime"].(int64) + duration
+	}
 }

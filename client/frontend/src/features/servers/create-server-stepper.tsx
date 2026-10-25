@@ -14,6 +14,7 @@ import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
 import { sileo } from "@/lib/toast";
 import { cn } from '@/lib/utils';
+import { keyedByContent } from '@/lib/keyed';
 
 type TFn = (key: string, options?: { [key: string]: string | number }) => string;
 
@@ -52,6 +53,29 @@ class ErrorBoundary extends React.Component<
 }
 
 type Step = 1 | 2 | 3;
+
+/** Template variables that fill the resource inputs, with the value used when the template leaves them empty. */
+const RESOURCE_DEFAULTS: Record<string, number> = { cpu: 100, memory: 1024, disk: 10240 };
+const isResourceKey = (key: string) => Object.hasOwn(RESOURCE_DEFAULTS, key);
+
+/** A template variable's starting value: its value, else its default, coerced to the variable's type. */
+function templateVariableValue(val: any) {
+    let rawValue: any = "";
+    if (val.value !== undefined) rawValue = val.value;
+    else if (val.default !== undefined) rawValue = val.default;
+
+    if (val.type === 'boolean') {
+        rawValue = rawValue !== 'false' && rawValue !== false && !!rawValue;
+    }
+    if (val.type === 'integer') {
+        rawValue = Number(rawValue) || 0;
+    }
+    return rawValue;
+}
+
+/** What the config form holds for a variable: objects as JSON, anything else as is. */
+const toConfigValue = (rawValue: any) =>
+    (typeof rawValue === 'object' && rawValue !== null) ? JSON.stringify(rawValue) : (rawValue ?? "");
 
 const SafeValue = ({ v, fallback = "" }: { v: any, fallback?: string }) => {
     if (v === null || v === undefined) return fallback;
@@ -181,6 +205,53 @@ function Step1Environment({
     );
 }
 
+/** The template grid of the chosen repository, or its loading / empty state. */
+function TemplatePicker({ loadingTemplates, templateList, selectedTemplateName, setSelectedTemplateName, t }: any) {
+    if (loadingTemplates) {
+        return (
+            <div className="flex items-center justify-center rounded-xl border border-border/60 bg-background/30 p-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t('common.loading')} />
+            </div>
+        );
+    }
+    if (templateList.length === 0) {
+        return (
+            <div className="rounded-xl border border-dashed border-border/60 px-6 py-8 text-center text-sm text-muted-foreground">
+                {t('servers.create.templatesEmpty')}
+            </div>
+        );
+    }
+    return (
+        <div className="max-h-[280px] w-full min-w-0 overflow-y-auto rounded-xl border border-border/60 bg-background/30 p-2">
+            <div className="grid w-full grid-cols-2 gap-1.5 sm:grid-cols-3">
+                {templateList.map((tpl: any) => {
+                    const active = selectedTemplateName === tpl.name;
+                    return (
+                        <button
+                            key={tpl.name}
+                            type="button"
+                            aria-pressed={active}
+                            onClick={() => setSelectedTemplateName(tpl.name)}
+                            title={tpl.name}
+                            className={cn(
+                                'focus-ring flex h-9 min-w-0 items-center gap-2 rounded-lg border px-2.5 text-left text-xs transition-colors duration-200',
+                                active
+                                    ? 'border-primary/60 bg-primary/15 text-foreground'
+                                    : 'border-transparent text-muted-foreground hover:bg-accent/40 hover:text-foreground'
+                            )}
+                        >
+                            {active
+                                ? <Check className="h-3.5 w-3.5 shrink-0 text-primary-bright" aria-hidden="true" />
+                                : <Code className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
+                            <span className="min-w-0 truncate font-mono">{tpl.name}</span>
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
 function Step2Template({
     repos, selectedRepo, setSelectedRepo,
     templateList, selectedTemplateName, setSelectedTemplateName,
@@ -230,48 +301,18 @@ function Step2Template({
                     title={t('servers.create.templateLabel')}
                     hint={activeRepo ? t('servers.create.templatesFrom', { repo: activeRepo.name }) : undefined}
                 >
-                    {loadingTemplates ? (
-                        <div className="flex items-center justify-center rounded-xl border border-border/60 bg-background/30 p-8">
-                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t('common.loading')} />
-                        </div>
-                    ) : templateList.length === 0 ? (
-                        <div className="rounded-xl border border-dashed border-border/60 px-6 py-8 text-center text-sm text-muted-foreground">
-                            {t('servers.create.templatesEmpty')}
-                        </div>
-                    ) : (
-                        <div className="max-h-[280px] w-full min-w-0 overflow-y-auto rounded-xl border border-border/60 bg-background/30 p-2">
-                            <div className="grid w-full grid-cols-2 gap-1.5 sm:grid-cols-3">
-                                {templateList.map((tpl: any) => {
-                                    const active = selectedTemplateName === tpl.name;
-                                    return (
-                                        <button
-                                            key={tpl.name}
-                                            type="button"
-                                            aria-pressed={active}
-                                            onClick={() => setSelectedTemplateName(tpl.name)}
-                                            title={tpl.name}
-                                            className={cn(
-                                                'focus-ring flex h-9 min-w-0 items-center gap-2 rounded-lg border px-2.5 text-left text-xs transition-colors duration-200',
-                                                active
-                                                    ? 'border-primary/60 bg-primary/15 text-foreground'
-                                                    : 'border-transparent text-muted-foreground hover:bg-accent/40 hover:text-foreground'
-                                            )}
-                                        >
-                                            {active
-                                                ? <Check className="h-3.5 w-3.5 shrink-0 text-primary-bright" aria-hidden="true" />
-                                                : <Code className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
-                                            <span className="min-w-0 truncate font-mono">{tpl.name}</span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
+                    <TemplatePicker
+                        loadingTemplates={loadingTemplates}
+                        templateList={templateList}
+                        selectedTemplateName={selectedTemplateName}
+                        setSelectedTemplateName={setSelectedTemplateName}
+                        t={t}
+                    />
                     {selectedTemplateName && !templateDetails && !templateError && (
-                        <p className="flex items-center gap-2 text-xs text-muted-foreground" role="status">
+                        <output className="flex items-center gap-2 text-xs text-muted-foreground">
                             <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden="true" />
                             {t('servers.create.loadingTemplate', { name: selectedTemplateName })}
-                        </p>
+                        </output>
                     )}
                     {selectedTemplateName && templateError && (
                         <p className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-2.5 text-xs text-destructive-bright" role="alert">
@@ -282,6 +323,64 @@ function Step2Template({
                 </StepSection>
             )}
         </div>
+    );
+}
+
+/** A template option's raw value: its `value`, or the option itself when it is a plain string. */
+function rawOptionValue(opt: any) {
+    if (opt.value !== undefined) return opt.value;
+    return typeof opt === 'string' ? opt : "";
+}
+
+/** The input for one template variable: a select for its options, a checkbox for booleans, a text or number field otherwise. */
+function TemplateVariableInput({ fieldId, varKey, variable, currentVal, stringifiedVal, setConfigData, t }: any) {
+    if (Array.isArray(variable.options) && variable.options.length > 0) {
+        return (
+            <Select
+                value={stringifiedVal === "" ? "_EMPTY_VALUE_" : stringifiedVal}
+                onValueChange={(val) => setConfigData((prev: any) => ({ ...prev, [varKey]: val === "_EMPTY_VALUE_" ? "" : val }))}
+            >
+                <SelectTrigger id={fieldId}>
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="z-[100] max-h-60">
+                    {keyedByContent(variable.options as any[], (opt) => (opt ? String(rawOptionValue(opt)) : '')).map(({ key: optKey, item: opt }) => {
+                        if (!opt) return null;
+                        const rawOptVal = rawOptionValue(opt);
+                        const optVal = rawOptVal === "" ? "_EMPTY_VALUE_" : String(rawOptVal);
+                        return (
+                            <SelectItem key={optKey} value={optVal}>
+                                <SafeValue v={opt.display || (rawOptVal === "" ? t('servers.create.optionNone') : rawOptVal)} />
+                            </SelectItem>
+                        );
+                    })}
+                </SelectContent>
+            </Select>
+        );
+    }
+    if (variable.type === 'boolean') {
+        return (
+            <label
+                htmlFor={fieldId}
+                className="flex h-10 cursor-pointer items-center gap-2.5 rounded-lg border border-input bg-background/50 px-3 text-sm transition-colors duration-200 hover:bg-accent/30"
+            >
+                <Checkbox
+                    id={fieldId}
+                    checked={!!currentVal}
+                    onCheckedChange={() => setConfigData((prev: any) => ({ ...prev, [varKey]: !currentVal }))}
+                />
+                <span className="select-none">{t('servers.create.enable')}</span>
+            </label>
+        );
+    }
+    return (
+        <Input
+            id={fieldId}
+            type={variable.type === 'integer' ? 'number' : 'text'}
+            value={stringifiedVal}
+            onChange={(e) => setConfigData((prev: any) => ({ ...prev, [varKey]: variable.type === 'integer' ? Number(e.target.value) : e.target.value }))}
+            className={cn(variable.type === 'integer' && 'font-mono tabular-nums')}
+        />
     );
 }
 
@@ -307,13 +406,13 @@ function Step3Configuration({
 
     if (!templateDetails) {
         return (
-            <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center" role="status">
+            <output className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden="true" />
                 <div className="space-y-1">
                     <p className="text-base font-semibold">{t('servers.create.analyzingTitle')}</p>
                     <p className="text-sm text-muted-foreground">{t('servers.create.analyzingDescription')}</p>
                 </div>
-            </div>
+            </output>
         );
     }
 
@@ -359,48 +458,15 @@ function Step3Configuration({
                                         <SafeValue v={label} />
                                         {variable.required && <RequiredMark />}
                                     </Label>
-                                    {Array.isArray(variable.options) && variable.options.length > 0 ? (
-                                        <Select
-                                            value={stringifiedVal === "" ? "_EMPTY_VALUE_" : stringifiedVal}
-                                            onValueChange={(val) => setConfigData((prev: any) => ({ ...prev, [key]: val === "_EMPTY_VALUE_" ? "" : val }))}
-                                        >
-                                            <SelectTrigger id={fieldId}>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent className="z-[100] max-h-60">
-                                                {variable.options.map((opt: any, oIdx: number) => {
-                                                    if (!opt) return null;
-                                                    const rawOptVal = opt.value !== undefined ? opt.value : (typeof opt === 'string' ? opt : "");
-                                                    const optVal = rawOptVal === "" ? "_EMPTY_VALUE_" : String(rawOptVal);
-                                                    return (
-                                                        <SelectItem key={oIdx} value={optVal}>
-                                                            <SafeValue v={opt.display || (rawOptVal === "" ? t('servers.create.optionNone') : rawOptVal)} />
-                                                        </SelectItem>
-                                                    );
-                                                })}
-                                            </SelectContent>
-                                        </Select>
-                                    ) : variable.type === 'boolean' ? (
-                                        <label
-                                            htmlFor={fieldId}
-                                            className="flex h-10 cursor-pointer items-center gap-2.5 rounded-lg border border-input bg-background/50 px-3 text-sm transition-colors duration-200 hover:bg-accent/30"
-                                        >
-                                            <Checkbox
-                                                id={fieldId}
-                                                checked={!!currentVal}
-                                                onCheckedChange={() => setConfigData((prev: any) => ({ ...prev, [key]: !currentVal }))}
-                                            />
-                                            <span className="select-none">{t('servers.create.enable')}</span>
-                                        </label>
-                                    ) : (
-                                        <Input
-                                            id={fieldId}
-                                            type={variable.type === 'integer' ? 'number' : 'text'}
-                                            value={stringifiedVal}
-                                            onChange={(e) => setConfigData((prev: any) => ({ ...prev, [key]: variable.type === 'integer' ? Number(e.target.value) : e.target.value }))}
-                                            className={cn(variable.type === 'integer' && 'font-mono tabular-nums')}
-                                        />
-                                    )}
+                                    <TemplateVariableInput
+                                        fieldId={fieldId}
+                                        varKey={key}
+                                        variable={variable}
+                                        currentVal={currentVal}
+                                        stringifiedVal={stringifiedVal}
+                                        setConfigData={setConfigData}
+                                        t={t}
+                                    />
                                 </div>
                             );
                         })}
@@ -519,6 +585,12 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
         }
     }, [selectedRepo]);
 
+    const setResourceLimit = (key: string, value: number) => {
+        if (key === 'cpu') setCpuLimit(value);
+        else if (key === 'memory') setMemoryLimit(value);
+        else setDiskLimit(value);
+    };
+
     const parseTemplateVariables = (details: any) => {
         const initial: Record<string, any> = {};
         const rawVars = details.data || details.variables || details.Variables || {};
@@ -526,30 +598,14 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
 
         Object.entries(variables).forEach(([key, val]: [string, any]) => {
             if (val && typeof val === 'object') {
-                let rawValue = val.value !== undefined ? val.value : (val.default !== undefined ? val.default : "");
-
-                if (val.type === 'boolean') {
-                    rawValue = rawValue !== 'false' && rawValue !== false && !!rawValue;
-                }
-                if (val.type === 'integer') {
-                    rawValue = Number(rawValue) || 0;
-                }
-
-                if (key === 'cpu') {
-                    setCpuLimit(rawValue ? Number(rawValue) : 100);
-                } else if (key === 'memory') {
-                    setMemoryLimit(rawValue ? Number(rawValue) : 1024);
-                } else if (key === 'disk') {
-                    setDiskLimit(rawValue ? Number(rawValue) : 10240);
+                const rawValue = templateVariableValue(val);
+                if (isResourceKey(key)) {
+                    setResourceLimit(key, rawValue ? Number(rawValue) : RESOURCE_DEFAULTS[key]);
                 } else {
-                    initial[key] = (typeof rawValue === 'object' && rawValue !== null)
-                        ? JSON.stringify(rawValue)
-                        : (rawValue ?? "");
+                    initial[key] = toConfigValue(rawValue);
                 }
             } else if (val !== undefined && val !== null) {
-                if (key === 'cpu') setCpuLimit(Number(val));
-                else if (key === 'memory') setMemoryLimit(Number(val));
-                else if (key === 'disk') setDiskLimit(Number(val));
+                if (isResourceKey(key)) setResourceLimit(key, Number(val));
                 else initial[key] = String(val);
             }
         });
@@ -630,7 +686,9 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
                 }
             }
 
-            const resolvedNode = selectedNode !== '' ? Number(selectedNode) : (forcedNodeId ? Number(forcedNodeId) : 0);
+            let resolvedNode = 0;
+            if (selectedNode !== '') resolvedNode = Number(selectedNode);
+            else if (forcedNodeId) resolvedNode = Number(forcedNodeId);
 
             const serverPayload = {
                 ...templateDetails,

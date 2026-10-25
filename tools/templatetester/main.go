@@ -36,33 +36,8 @@ const statusPath = "/status"
 // Arguments are templates to ignore, for ones which require data that we cannot actually safely test
 // such as ones which need Steam credentials or to actually own the game
 func main() {
-	if len(CmdFlags.Skip) != 0 {
-		log.Printf("Skip rules: %s", strings.Join(CmdFlags.Skip, " "))
-	}
-	if len(CmdFlags.Required) != 0 {
-		log.Printf("Require rules: %s", strings.Join(CmdFlags.Required, " "))
-	}
-	if len(CmdFlags.Files) != 0 {
-		log.Printf("Files to test rules: %s", strings.Join(CmdFlags.Files, " "))
-	}
-
-	var err error
-	if CmdFlags.WorkingDir == "" {
-		pattern := "skypaneltemplatetest"
-
-		CmdFlags.WorkingDir, err = os.MkdirTemp("", pattern)
-		panicIf(err)
-	} else {
-		err = filepath.WalkDir(CmdFlags.WorkingDir, func(path string, _ fs.DirEntry, err error) error {
-			if path == CmdFlags.WorkingDir {
-				return err
-			}
-			return os.RemoveAll(path)
-		})
-		if err != nil && !os.IsNotExist(err) {
-			panicIf(err)
-		}
-	}
+	logRules()
+	prepareWorkingDir()
 
 	if CmdFlags.DeleteTemp {
 		defer func() {
@@ -78,23 +53,7 @@ func main() {
 	}
 
 	if CmdFlags.PrintTests {
-		data := make([]string, 0)
-		for _, v := range tests {
-			data = append(data, "\""+v.Name+"\"")
-		}
-		msg := fmt.Sprintf("TEMPLATES=%s\n", strings.Join(data, ","))
-		envFile := os.ExpandEnv("$GITHUB_ENV")
-		log.Println(msg)
-		if envFile != "" {
-			log.Printf("Writing data to %s", envFile)
-			file, err := os.OpenFile(envFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-			panicIf(err)
-			defer func() {
-				_ = file.Close()
-			}()
-			_, err = file.WriteString(msg)
-			panicIf(err)
-		}
+		printTests(tests)
 		return
 	}
 
@@ -124,37 +83,7 @@ func main() {
 		_ = os.Remove(unixSocketPath)
 	}()
 
-	go func() {
-		c.Dir = CmdFlags.WorkingDir
-		c.Env = append(
-			os.Environ(),
-			"SKYPANEL_PANEL_DATABASE_URL="+dbConn,
-			"SKYPANEL_LOGS=logs",
-			"SKYPANEL_DAEMON_CONSOLE_FORWARD=true",
-			"SKYPANEL_DAEMON_DATA_ROOT="+CmdFlags.WorkingDir,
-			"SKYPANEL_WEB_HOST=127.0.0.1:8080",
-			"NOTIFY_SOCKET="+unixSocketPath,
-			"GIN_MODE=release",
-		)
-		stdout, err := c.StdoutPipe()
-		panicIf(err)
-		stderr, err := c.StderrPipe()
-		panicIf(err)
-
-		panicIf(c.Start())
-
-		go ioCopy(os.Stdout, stdout)
-		go ioCopy(os.Stderr, stderr)
-
-		e := c.Wait()
-		var d *exec.ExitError
-		if errors.As(e, &d) {
-			if d.Error() == "signal: killed" {
-				e = nil
-			}
-		}
-		panicIf(e)
-	}()
+	go runPanel(c, dbConn, unixSocketPath)
 
 	// wait for panel to be up, so the db is fully created and we're good to go
 	<-waiter
@@ -177,6 +106,93 @@ func main() {
 	for i := range tests {
 		runTest(client, session, tests[i])
 	}
+}
+
+// logRules prints the skip/require/file filters this run was given
+func logRules() {
+	if len(CmdFlags.Skip) != 0 {
+		log.Printf("Skip rules: %s", strings.Join(CmdFlags.Skip, " "))
+	}
+	if len(CmdFlags.Required) != 0 {
+		log.Printf("Require rules: %s", strings.Join(CmdFlags.Required, " "))
+	}
+	if len(CmdFlags.Files) != 0 {
+		log.Printf("Files to test rules: %s", strings.Join(CmdFlags.Files, " "))
+	}
+}
+
+// prepareWorkingDir creates a temp working dir, or empties the one that was given
+func prepareWorkingDir() {
+	var err error
+	if CmdFlags.WorkingDir == "" {
+		pattern := "skypaneltemplatetest"
+
+		CmdFlags.WorkingDir, err = os.MkdirTemp("", pattern)
+		panicIf(err)
+		return
+	}
+
+	err = filepath.WalkDir(CmdFlags.WorkingDir, func(path string, _ fs.DirEntry, err error) error {
+		if path == CmdFlags.WorkingDir {
+			return err
+		}
+		return os.RemoveAll(path)
+	})
+	if err != nil && !os.IsNotExist(err) {
+		panicIf(err)
+	}
+}
+
+// printTests logs the template names and appends them to $GITHUB_ENV when set
+func printTests(tests []*TestScenario) {
+	data := make([]string, 0)
+	for _, v := range tests {
+		data = append(data, "\""+v.Name+"\"")
+	}
+	msg := fmt.Sprintf("TEMPLATES=%s\n", strings.Join(data, ","))
+	envFile := os.ExpandEnv("$GITHUB_ENV")
+	log.Println(msg)
+	if envFile != "" {
+		log.Printf("Writing data to %s", envFile)
+		file, err := os.OpenFile(envFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		panicIf(err)
+		defer func() {
+			_ = file.Close()
+		}()
+		_, err = file.WriteString(msg)
+		panicIf(err)
+	}
+}
+
+// runPanel starts the panel binary and blocks until it exits; being killed is not an error
+func runPanel(c *exec.Cmd, dbConn, unixSocketPath string) {
+	c.Dir = CmdFlags.WorkingDir
+	c.Env = append(
+		os.Environ(),
+		"SKYPANEL_PANEL_DATABASE_URL="+dbConn,
+		"SKYPANEL_LOGS=logs",
+		"SKYPANEL_DAEMON_CONSOLE_FORWARD=true",
+		"SKYPANEL_DAEMON_DATA_ROOT="+CmdFlags.WorkingDir,
+		"SKYPANEL_WEB_HOST=127.0.0.1:8080",
+		"NOTIFY_SOCKET="+unixSocketPath,
+		"GIN_MODE=release",
+	)
+	stdout, err := c.StdoutPipe()
+	panicIf(err)
+	stderr, err := c.StderrPipe()
+	panicIf(err)
+
+	panicIf(c.Start())
+
+	go ioCopy(os.Stdout, stdout)
+	go ioCopy(os.Stderr, stderr)
+
+	e := c.Wait()
+	var d *exec.ExitError
+	if errors.As(e, &d) && d.Error() == "signal: killed" {
+		e = nil
+	}
+	panicIf(e)
 }
 
 func runTest(client *http.Client, session string, test *TestScenario) {

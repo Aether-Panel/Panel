@@ -46,7 +46,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useState, useEffect, lazy, Suspense, useRef, Fragment, useCallback } from 'react';
+import { useState, useEffect, lazy, Suspense, useRef, Fragment, useCallback, type ReactNode } from 'react';
 import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
 import { sileo } from "@/lib/toast";
@@ -105,6 +105,12 @@ function getFileMeta(name: string): FileMeta {
   const ext = name.split('.').pop()?.toLowerCase() || '';
   const match = FILE_META.find((m) => m.match.test(ext));
   return match || { icon: File, className: 'text-muted-foreground' };
+}
+
+/** The icon of a listing row: the ".." entry, a folder, or a file by its extension. */
+function rowMeta(file: FileItemResource, isParent: boolean): FileMeta {
+  if (isParent) return PARENT_META;
+  return file.isFile ? getFileMeta(file.name) : FOLDER_META;
 }
 
 // Encode each path segment so names with #, ?, % or spaces survive the URL; '/' stays a separator
@@ -221,34 +227,42 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
     void fetchFiles(currentPath);
   }, [currentPath, serverId]);
 
-  const handleFileClick = async (file: FileItemResource) => {
-    if (!file.isFile) {
-      if (file.name === '..') {
-        const parts = currentPath.split('/').filter(Boolean);
-        parts.pop();
-        setCurrentPath(parts.join('/'));
-      } else {
-        const newPath = currentPath ? `${currentPath}/${file.name}` : file.name;
-        setCurrentPath(newPath);
-      }
+  const openFolder = (name: string) => {
+    if (name === '..') {
+      const parts = currentPath.split('/').filter(Boolean);
+      parts.pop();
+      setCurrentPath(parts.join('/'));
     } else {
-      try {
-        const filePath = currentPath ? `${currentPath}/${file.name}` : file.name;
-        const content = await api.get(fileUrl(filePath));
-        if (editorCloseTimeoutRef.current !== null) {
-          clearTimeout(editorCloseTimeoutRef.current);
-          editorCloseTimeoutRef.current = null;
-        }
-        const text = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
-        setEditedContent(text);
-        setSavedContent(text);
-        setCompareVersion(null);
-        setHistoryOpen(false);
-        setEditingFile(file);
-        setIsEditorOpen(true);
-      } catch (e: any) {
-        sileo.error({ title: t('common.error'), description: e.message || t('servers.fileManager.toast.openError') });
+      const newPath = currentPath ? `${currentPath}/${name}` : name;
+      setCurrentPath(newPath);
+    }
+  };
+
+  const openFileInEditor = async (file: FileItemResource) => {
+    try {
+      const filePath = currentPath ? `${currentPath}/${file.name}` : file.name;
+      const content = await api.get(fileUrl(filePath));
+      if (editorCloseTimeoutRef.current !== null) {
+        clearTimeout(editorCloseTimeoutRef.current);
+        editorCloseTimeoutRef.current = null;
       }
+      const text = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
+      setEditedContent(text);
+      setSavedContent(text);
+      setCompareVersion(null);
+      setHistoryOpen(false);
+      setEditingFile(file);
+      setIsEditorOpen(true);
+    } catch (e: any) {
+      sileo.error({ title: t('common.error'), description: e.message || t('servers.fileManager.toast.openError') });
+    }
+  };
+
+  const handleFileClick = async (file: FileItemResource) => {
+    if (file.isFile) {
+      await openFileInEditor(file);
+    } else {
+      openFolder(file.name);
     }
   };
 
@@ -376,6 +390,8 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
   const copyFolderRecursive = async (src: string, dest: string) => {
     await makeFolder(dest);
     const items = await listFolderForCopy(src);
+    // one entry at a time on purpose: a parallel walk would fire an unbounded burst of
+    // reads/writes at the daemon for big trees
     for (const item of items) {
       if (item.name === '.' || item.name === '..') continue;
       const srcChild = `${src}/${item.name}`;
@@ -713,6 +729,94 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
     </DropdownMenu>
   );
 
+  let body: ReactNode;
+  if (isLoading) {
+    body = (
+      <div className="flex justify-center rounded-xl border border-border/60 bg-background/30 py-16">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t('common.loading')} />
+      </div>
+    );
+  } else if (files.length === 0) {
+    body = (
+      <EmptyState
+        icon={FolderOpen}
+        title={t('servers.fileManager.empty')}
+        description={t('servers.fileManager.emptyHint')}
+        action={
+          <Button variant="outline" onClick={handleUploadClick}>
+            <Upload aria-hidden="true" />
+            {t('servers.fileManager.upload')}
+          </Button>
+        }
+      />
+    );
+  } else {
+    body = (
+      <div className="overflow-hidden rounded-xl border border-border/60 bg-background/30">
+        <Table>
+          <TableHeader className="bg-transparent">
+            <TableRow className="border-border/50 hover:bg-transparent">
+              <TableHead>{t('servers.fileManager.table.name')}</TableHead>
+              <TableHead className="hidden w-28 sm:table-cell">{t('servers.fileManager.table.size')}</TableHead>
+              <TableHead className="hidden w-48 lg:table-cell">{t('servers.fileManager.table.modified')}</TableHead>
+              <TableHead className="w-14 pr-2 text-right">
+                <span className="sr-only">{t('servers.fileManager.table.actions')}</span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {files.map((file) => {
+              const isParent = !file.isFile && file.name === '..';
+              const meta = rowMeta(file, isParent);
+              const MetaIcon = meta.icon;
+              return (
+                <TableRow key={file.name} className="group border-border/50 hover:bg-accent/30">
+                  {/* w-full + max-w-0 lets the name column absorb the free width and truncate */}
+                  <TableCell className="w-full max-w-0 py-2.5">
+                    <button
+                      type="button"
+                      onClick={() => handleFileClick(file)}
+                      className="focus-ring flex w-full min-w-0 items-center gap-3 rounded-md text-left"
+                    >
+                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-border/60 bg-card">
+                        <MetaIcon className={cn('h-4 w-4', meta.className)} aria-hidden="true" />
+                      </span>
+                      <span className="min-w-0">
+                        <span
+                          className={cn(
+                            'block truncate font-medium transition-colors duration-150',
+                            isParent ? 'text-muted-foreground' : 'group-hover:text-primary-bright'
+                          )}
+                        >
+                          {file.name}
+                        </span>
+                        {!isParent && (
+                          <span className="mt-0.5 block truncate text-xs tabular-nums text-muted-foreground lg:hidden">
+                            {file.isFile && <span className="sm:hidden">{formatSize(file.size)} · </span>}
+                            {formatDate(file.modifyTime)}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  </TableCell>
+                  <TableCell className="hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground sm:table-cell">
+                    {file.isFile ? formatSize(file.size) : '—'}
+                  </TableCell>
+                  <TableCell className="hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground lg:table-cell">
+                    {formatDate(file.modifyTime)}
+                  </TableCell>
+                  <TableCell className="py-2.5 pr-2 text-right">
+                    {renderRowMenu(file)}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+    );
+  }
+
   return (
     <>
       <Card className="mt-6">
@@ -771,86 +875,7 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
             )}
           </div>
 
-          {isLoading ? (
-            <div className="flex justify-center rounded-xl border border-border/60 bg-background/30 py-16">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-label={t('common.loading')} />
-            </div>
-          ) : files.length === 0 ? (
-            <EmptyState
-              icon={FolderOpen}
-              title={t('servers.fileManager.empty')}
-              description={t('servers.fileManager.emptyHint')}
-              action={
-                <Button variant="outline" onClick={handleUploadClick}>
-                  <Upload aria-hidden="true" />
-                  {t('servers.fileManager.upload')}
-                </Button>
-              }
-            />
-          ) : (
-            <div className="overflow-hidden rounded-xl border border-border/60 bg-background/30">
-              <Table>
-                <TableHeader className="bg-transparent">
-                  <TableRow className="border-border/50 hover:bg-transparent">
-                    <TableHead>{t('servers.fileManager.table.name')}</TableHead>
-                    <TableHead className="hidden w-28 sm:table-cell">{t('servers.fileManager.table.size')}</TableHead>
-                    <TableHead className="hidden w-48 lg:table-cell">{t('servers.fileManager.table.modified')}</TableHead>
-                    <TableHead className="w-14 pr-2 text-right">
-                      <span className="sr-only">{t('servers.fileManager.table.actions')}</span>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {files.map((file) => {
-                    const isParent = !file.isFile && file.name === '..';
-                    const meta = isParent ? PARENT_META : file.isFile ? getFileMeta(file.name) : FOLDER_META;
-                    const MetaIcon = meta.icon;
-                    return (
-                      <TableRow key={file.name} className="group border-border/50 hover:bg-accent/30">
-                        {/* w-full + max-w-0 lets the name column absorb the free width and truncate */}
-                        <TableCell className="w-full max-w-0 py-2.5">
-                          <button
-                            type="button"
-                            onClick={() => handleFileClick(file)}
-                            className="focus-ring flex w-full min-w-0 items-center gap-3 rounded-md text-left"
-                          >
-                            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-border/60 bg-card">
-                              <MetaIcon className={cn('h-4 w-4', meta.className)} aria-hidden="true" />
-                            </span>
-                            <span className="min-w-0">
-                              <span
-                                className={cn(
-                                  'block truncate font-medium transition-colors duration-150',
-                                  isParent ? 'text-muted-foreground' : 'group-hover:text-primary-bright'
-                                )}
-                              >
-                                {file.name}
-                              </span>
-                              {!isParent && (
-                                <span className="mt-0.5 block truncate text-xs tabular-nums text-muted-foreground lg:hidden">
-                                  {file.isFile && <span className="sm:hidden">{formatSize(file.size)} · </span>}
-                                  {formatDate(file.modifyTime)}
-                                </span>
-                              )}
-                            </span>
-                          </button>
-                        </TableCell>
-                        <TableCell className="hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground sm:table-cell">
-                          {file.isFile ? formatSize(file.size) : '—'}
-                        </TableCell>
-                        <TableCell className="hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground lg:table-cell">
-                          {formatDate(file.modifyTime)}
-                        </TableCell>
-                        <TableCell className="py-2.5 pr-2 text-right">
-                          {renderRowMenu(file)}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+          {body}
         </CardContent>
       </Card>
 
@@ -871,11 +896,11 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
             </div>
             <div className="flex shrink-0 items-center gap-2 sm:gap-3">
               {savedFlash && (
-                <span className="flex items-center gap-1.5 text-xs font-medium text-success" role="status">
+                <output className="flex items-center gap-1.5 text-xs font-medium text-success">
                   <Check className="h-3.5 w-3.5" aria-hidden="true" />
                   <span className="hidden sm:inline">{t('common.saved')}</span>
                   <span className="sr-only sm:hidden">{t('common.saved')}</span>
-                </span>
+                </output>
               )}
               <span className="hidden rounded-md border border-border/60 px-1.5 py-0.5 font-mono text-xs text-muted-foreground sm:inline">
                 {editingLanguage}

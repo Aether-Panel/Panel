@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api } from '@/lib/api-client';
 
@@ -42,7 +42,7 @@ export function ConfigProvider({ children }: Readonly<{ children: ReactNode }>) 
     const [config, setConfig] = useState<Config | null>(null);
     const [loading, setLoading] = useState(true);
 
-    const fetchConfig = async () => {
+    const fetchConfig = useCallback(async () => {
         try {
             setLoading(true);
             const data = await api.get('/api/config');
@@ -52,14 +52,16 @@ export function ConfigProvider({ children }: Readonly<{ children: ReactNode }>) 
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
         void fetchConfig();
-    }, []);
+    }, [fetchConfig]);
+
+    const value = useMemo(() => ({ config, loading, refresh: fetchConfig }), [config, loading, fetchConfig]);
 
     return (
-        <ConfigContext.Provider value={{ config, loading, refresh: fetchConfig }}>
+        <ConfigContext.Provider value={value}>
             {children}
         </ConfigContext.Provider>
     );

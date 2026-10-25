@@ -618,13 +618,13 @@ function TokenCard({ sessionData, timeLeft, copied, originUrl, onCopy, cancelAct
       </div>
 
       <div className="flex flex-col gap-2 border-t border-border/50 px-4 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-5">
-        <p className="flex items-center gap-2" role="status">
+        <output className="flex items-center gap-2">
           <span className="relative flex h-2 w-2" aria-hidden="true">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60 motion-reduce:animate-none" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
           </span>
           {t('servers.extransfer.export.waiting')}
-        </p>
+        </output>
         <p className="flex min-w-0 items-center gap-1.5">
           <span className="shrink-0">{t('servers.extransfer.export.sessionId')}</span>
           <span className="truncate font-mono">{sessionData.session_id}</span>

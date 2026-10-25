@@ -16,84 +16,21 @@ func TestUserApi(t *testing.T) {
 	}
 
 	t.Run("TestUserWithPerms", func(t *testing.T) {
-		url := fmt.Sprintf("/api/users/%d/perms", loginNoServerViewUser.ID)
-		response := CallAPI("GET", url, nil, session)
-		if !assert.Equal(t, http.StatusOK, response.Code) {
-			return
-		}
-
-		perms := &models.PermissionView{}
-		err = json.NewDecoder(response.Body).Decode(perms)
-		if !assert.NoError(t, err) {
-			return
-		}
-
-		if !assert.NotEmpty(t, perms.Scopes) {
-			return
-		}
+		testUserPerms(t, session, loginNoServerViewUser.ID, false)
 	})
 
 	var newUserID uint
 
 	t.Run("CreateUser", func(t *testing.T) {
-		response := CallAPI("POST", "/api/users", map[string]string{
-			"username": "apicreateduser",
-			"email":    "none@example.com",
-			"password": "testing123!",
-		}, session)
-		if !assert.Equal(t, http.StatusOK, response.Code) {
-			return
-		}
-
-		user := &models.UserView{}
-		err = json.NewDecoder(response.Body).Decode(user)
-		if !assert.NoError(t, err) {
-			return
-		}
-		newUserID = user.ID
+		newUserID = testCreateUser(t, session, newUserID)
 	})
 
 	t.Run("TestEmptyUserPerms", func(t *testing.T) {
-		url := fmt.Sprintf("/api/users/%d/perms", newUserID)
-		response := CallAPI("GET", url, nil, session)
-		if !assert.Equal(t, http.StatusOK, response.Code) {
-			return
-		}
-
-		perms := &models.PermissionView{}
-		err = json.NewDecoder(response.Body).Decode(perms)
-		if !assert.NoError(t, err) {
-			return
-		}
-
-		if !assert.Empty(t, perms.Scopes) {
-			return
-		}
+		testUserPerms(t, session, newUserID, true)
 	})
 
 	t.Run("TestSetEmptyPerms", func(t *testing.T) {
-		url := fmt.Sprintf("/api/users/%d/perms", newUserID)
-		response := CallAPI("PUT", url, map[string]interface{}{
-			"scopes": []string{},
-		}, session)
-		if !assert.Equal(t, http.StatusNoContent, response.Code) {
-			return
-		}
-
-		response = CallAPI("GET", url, nil, session)
-		if !assert.Equal(t, http.StatusOK, response.Code) {
-			return
-		}
-
-		perms := &models.PermissionView{}
-		err = json.NewDecoder(response.Body).Decode(perms)
-		if !assert.NoError(t, err) {
-			return
-		}
-
-		if !assert.Empty(t, perms.Scopes) {
-			return
-		}
+		testSetEmptyUserPerms(t, session, newUserID)
 	})
 
 	t.Run("TestDelete", func(t *testing.T) {
@@ -103,4 +40,67 @@ func TestUserApi(t *testing.T) {
 			return
 		}
 	})
+}
+
+// testUserPerms fetches a user's perms and checks whether its scopes are empty
+func testUserPerms(t *testing.T, session string, userID uint, expectEmpty bool) {
+	url := fmt.Sprintf("/api/users/%d/perms", userID)
+	response := CallAPI("GET", url, nil, session)
+	if !assert.Equal(t, http.StatusOK, response.Code) {
+		return
+	}
+
+	perms := &models.PermissionView{}
+	err := json.NewDecoder(response.Body).Decode(perms)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	if expectEmpty {
+		assert.Empty(t, perms.Scopes)
+	} else {
+		assert.NotEmpty(t, perms.Scopes)
+	}
+}
+
+// testCreateUser returns the new user id, or the previous one when creation fails
+func testCreateUser(t *testing.T, session string, previousID uint) uint {
+	response := CallAPI("POST", "/api/users", map[string]string{
+		"username": "apicreateduser",
+		"email":    "none@example.com",
+		"password": "testing123!",
+	}, session)
+	if !assert.Equal(t, http.StatusOK, response.Code) {
+		return previousID
+	}
+
+	user := &models.UserView{}
+	err := json.NewDecoder(response.Body).Decode(user)
+	if !assert.NoError(t, err) {
+		return previousID
+	}
+	return user.ID
+}
+
+func testSetEmptyUserPerms(t *testing.T, session string, userID uint) {
+	url := fmt.Sprintf("/api/users/%d/perms", userID)
+	response := CallAPI("PUT", url, map[string]interface{}{
+		"scopes": []string{},
+	}, session)
+	if !assert.Equal(t, http.StatusNoContent, response.Code) {
+		return
+	}
+
+	response = CallAPI("GET", url, nil, session)
+	if !assert.Equal(t, http.StatusOK, response.Code) {
+		return
+	}
+
+	perms := &models.PermissionView{}
+	err := json.NewDecoder(response.Body).Decode(perms)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	assert.Empty(t, perms.Scopes)
 }

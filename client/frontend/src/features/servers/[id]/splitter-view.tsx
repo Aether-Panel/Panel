@@ -15,8 +15,17 @@ type SplitterViewProps = {
   serverId: string;
 };
 
-const usageColor = (value: number) =>
-  value >= 85 ? 'bg-destructive' : value >= 60 ? 'bg-warning' : 'bg-success';
+const usageColor = (value: number) => {
+  if (value >= 85) return 'bg-destructive';
+  return value >= 60 ? 'bg-warning' : 'bg-success';
+};
+
+/** Badge and dot colours for a sub-server's status; anything but online/offline reads as in progress. */
+function statusTone(status: string) {
+  if (status === 'online') return { badge: 'bg-success/10 text-success', dot: 'bg-success' };
+  if (status === 'offline') return { badge: 'bg-destructive/10 text-destructive-bright', dot: 'bg-destructive' };
+  return { badge: 'bg-warning/10 text-warning', dot: 'bg-warning' };
+}
 
 function ResourceBar({ used, total }: Readonly<{ used: number; total: number }>) {
   const pct = total > 0 ? Math.min(Math.max((used / total) * 100, 0), 100) : 0;
@@ -69,6 +78,7 @@ function SubServerCard({ sub }: Readonly<{ sub: any }>) {
   const pctCpu = sub.totalCpu ? sub.cpuUsage : 0;
   const pctMem = sub.totalMemory ? sub.memoryUsage : 0;
   const pctDisk = sub.totalDisk ? sub.storageUsage : 0;
+  const tone = statusTone(sub.status);
 
   const rows = [
     { id: 'cpu', icon: Cpu, label: t('servers.splitter.cpu'), pct: pctCpu, amount: `${sub.totalCpu}%` },
@@ -97,20 +107,10 @@ function SubServerCard({ sub }: Readonly<{ sub: any }>) {
       <div className="flex items-center gap-2">
         <Badge
           variant="outline"
-          className={cn(
-            'gap-1.5 border-transparent',
-            sub.status === 'online'
-              ? 'bg-success/10 text-success'
-              : sub.status === 'offline'
-                ? 'bg-destructive/10 text-destructive-bright'
-                : 'bg-warning/10 text-warning'
-          )}
+          className={cn('gap-1.5 border-transparent', tone.badge)}
         >
           <span
-            className={cn(
-              'h-1.5 w-1.5 rounded-full',
-              sub.status === 'online' ? 'bg-success' : sub.status === 'offline' ? 'bg-destructive' : 'bg-warning'
-            )}
+            className={cn('h-1.5 w-1.5 rounded-full', tone.dot)}
           />
           {t(`dashboard.status.${sub.status}`)}
         </Badge>
