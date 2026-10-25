@@ -20,11 +20,12 @@ func (of OperationFactory) Create(op skypanel.CreateOperation) (skypanel.Operati
 	if err != nil {
 		return nil, err
 	}
-	fileID, err := cast.ToUintE(op.OperationArgs["fileID"])
-	if op.OperationArgs["fileID"] != "" && err != nil {
-		return nil, err
-	} else if op.OperationArgs["fileID"] == "" {
-		fileID = 0
+	// the templates write fileId; an empty one means the newest file of the project
+	var fileID uint
+	if raw := op.Arg("fileId", "fileID"); raw != nil && raw != "" {
+		if fileID, err = cast.ToUintE(raw); err != nil {
+			return nil, err
+		}
 	}
 
 	javaBinary := cast.ToString(op.OperationArgs["java"])
