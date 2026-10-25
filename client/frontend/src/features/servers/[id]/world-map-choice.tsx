@@ -54,7 +54,9 @@ export default function WorldMapChoice({ status, busy, onInstall }: Readonly<Pro
         <div
           role="radiogroup"
           aria-label={t('servers.map.pick')}
-          className="grid gap-3 md:grid-cols-2"
+          // reachable by script but not by Tab, which lands on the checked option
+          tabIndex={-1}
+          className="grid gap-3 outline-none md:grid-cols-2"
           onKeyDown={(event) => {
             // arrow keys move between the two choices, as in any radio group
             if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(event.key)) return;

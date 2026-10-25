@@ -17,12 +17,16 @@ import { useTranslations } from '@/contexts/translations-context';
 import { ApiError, api } from '@/lib/api-client';
 import { sileo } from '@/lib/toast';
 import { cn } from '@/lib/utils';
-import { MC_COLORS, parseMotdLine, parseProperties, serializeProperties, type ParsedProperties } from './server-properties';
+import { keyedByContent } from '@/lib/keyed';
+import { MC_COLORS, parseMotdLine, parseProperties, serializeProperties, type MotdSegment, type ParsedProperties } from './server-properties';
 import {
   KNOWN_KEYS, PROPERTY_FIELDS, PROPERTY_SECTIONS, fieldId, validateField, type PropertyField, type PropertySection,
 } from './server-properties-catalog';
 
 const FILE = 'server.properties';
+
+/** A MOTD run is identified by its text and its styling together. */
+const motdSegmentText = (segment: MotdSegment) => JSON.stringify(segment);
 
 const SECTION_ICONS: Record<PropertySection, LucideIcon> = {
   game: Gamepad2,
@@ -627,11 +631,11 @@ function MotdCard({
                   <SignalHigh className="h-3.5 w-3.5 text-[#55ff55]" aria-hidden="true" />
                 </span>
               </div>
-              {lines.map((line, index) => (
-                <p key={index} className="truncate text-[#aaaaaa]">
-                  {parseMotdLine(line).map((segment, i) => (
+              {keyedByContent(lines).map(({ key: lineKey, item: line }) => (
+                <p key={lineKey} className="truncate text-[#aaaaaa]">
+                  {keyedByContent(parseMotdLine(line), motdSegmentText).map(({ key: segmentKey, item: segment }) => (
                     <span
-                      key={i}
+                      key={segmentKey}
                       style={{ color: segment.color }}
                       className={cn(segment.bold && 'font-bold', segment.italic && 'italic', segment.underline && 'underline', segment.strike && 'line-through', segment.obfuscated && 'blur-[1.5px]')}
                     >

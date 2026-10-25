@@ -254,6 +254,25 @@ export default function ConsoleView({
     setSearchOpen(true);
     requestAnimationFrame(() => searchRef.current?.focus());
   };
+  // Ctrl/⌘+F inside the console searches it instead of the page. The frame is not a control
+  // itself, so it listens natively for the shortcut bubbling up from the controls inside it.
+  const frameRef = useRef<HTMLDivElement>(null);
+  const openSearchRef = useRef(openSearch);
+  useEffect(() => {
+    openSearchRef.current = openSearch;
+  });
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() === 'f' && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        openSearchRef.current();
+      }
+    };
+    frame.addEventListener('keydown', onKeyDown);
+    return () => frame.removeEventListener('keydown', onKeyDown);
+  }, []);
   const closeSearch = () => {
     setSearchOpen(false);
     setQuery('');
@@ -276,14 +295,8 @@ export default function ConsoleView({
     <div ref={containerRef} className="mt-6">
       <div
         className="relative flex flex-col overflow-hidden rounded-xl border border-border/60 bg-background shadow-elevation-1"
+        ref={frameRef}
         style={{ height: termHeight }}
-        // Ctrl/⌘+F inside the console searches it instead of the page
-        onKeyDown={(event) => {
-          if (event.key.toLowerCase() === 'f' && (event.ctrlKey || event.metaKey)) {
-            event.preventDefault();
-            openSearch();
-          }
-        }}
       >
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border/50 px-2 py-1.5 sm:px-3">
           <div role="radiogroup" aria-label={t('servers.console.filters.label')} className="flex items-center gap-1">

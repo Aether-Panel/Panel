@@ -448,6 +448,8 @@ function Segmented({ label, value, options, onChange }: Readonly<{ label: string
     <div
       role="radiogroup"
       aria-label={label}
+      // reachable by script but not by Tab, which lands on the checked option
+      tabIndex={-1}
       // arrow keys move between the options, as in any radio group
       onKeyDown={(event) => {
         const delta = arrowDelta(event.key);
@@ -457,7 +459,7 @@ function Segmented({ label, value, options, onChange }: Readonly<{ label: string
         onChange(next.value);
         (event.currentTarget.querySelector(`[data-value="${next.value}"]`) as HTMLElement | null)?.focus();
       }}
-      className="relative inline-grid rounded-lg border border-border/60 bg-background/40 p-0.5" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
+      className="relative inline-grid rounded-lg border border-border/60 bg-background/40 p-0.5 outline-none" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
       <span
         aria-hidden="true"
         className="absolute inset-y-0.5 left-0.5 rounded-md bg-secondary shadow-elevation-1 transition-transform duration-300 ease-panel"

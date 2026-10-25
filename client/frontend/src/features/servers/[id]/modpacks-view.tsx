@@ -418,6 +418,8 @@ function SourceToggle({ value, onChange, label, options }: Readonly<{ value: Mod
     <div
       role="radiogroup"
       aria-label={label}
+      // reachable by script but not by Tab, which lands on the checked option
+      tabIndex={-1}
       onKeyDown={(event) => {
         const delta = arrowDelta(event.key);
         if (!delta) return;
@@ -426,7 +428,7 @@ function SourceToggle({ value, onChange, label, options }: Readonly<{ value: Mod
         onChange(next.value);
         (event.currentTarget.querySelector(`[data-value="${next.value}"]`) as HTMLElement | null)?.focus();
       }}
-      className="relative grid shrink-0 grid-cols-2 rounded-lg border border-border/60 bg-background/40 p-0.5"
+      className="relative grid shrink-0 grid-cols-2 rounded-lg border border-border/60 bg-background/40 p-0.5 outline-none"
     >
       <span
         aria-hidden="true"

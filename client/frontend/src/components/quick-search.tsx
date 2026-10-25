@@ -308,7 +308,8 @@ export function QuickSearch({ items, className }: { items: QuickSearchItem[]; cl
                 return (
                     <Fragment key={item.id}>
                         {firstOfSection && (
-                            <li role="presentation" className={cn('px-2.5 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/80', index > 0 ? 'pt-3' : 'pt-1.5')}>
+                            // a visual divider only: a listbox may hold nothing but options, so it is hidden from assistive tech
+                            <li aria-hidden="true" className={cn('px-2.5 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/80', index > 0 ? 'pt-3' : 'pt-1.5')}>
                                 {item.section}
                             </li>
                         )}

@@ -6,8 +6,13 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { useTranslations } from '@/contexts/translations-context';
 import { ApiError, api } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
+import { keyedByContent } from '@/lib/keyed';
 
-type Message = { role: 'user' | 'assistant'; content: string; sources?: string[]; error?: boolean };
+type Message = { id: string; role: 'user' | 'assistant'; content: string; sources?: string[]; error?: boolean };
+
+// ids only need to be unique within one conversation; crypto.randomUUID is missing on plain-HTTP panels
+let messageSeq = 0;
+const messageId = () => `${Date.now().toString(36)}-${messageSeq++}`;
 
 const MAX_LENGTH = 2000;
 const SUGGESTIONS = ['slow', 'crash', 'error', 'restart'] as const;
@@ -80,7 +85,7 @@ function renderList(ordered: boolean, items: string[], key: number): ReactNode {
   const List = ordered ? 'ol' : 'ul';
   return (
     <List key={key} className={cn('space-y-1 pl-5', ordered ? 'list-decimal' : 'list-disc marker:text-primary')}>
-      {items.map((item, j) => <li key={j}>{renderInline(item, `${key}-${j}`)}</li>)}
+      {keyedByContent(items).map(({ key: itemKey, item }, j) => <li key={itemKey}>{renderInline(item, `${key}-${j}`)}</li>)}
     </List>
   );
 }
@@ -123,8 +128,8 @@ function Markdown({ text }: Readonly<{ text: string }>) {
     i = next;
     blocks.push(
       <p key={key}>
-        {paragraph.map((l, j) => (
-          <Fragment key={j}>
+        {keyedByContent(paragraph).map(({ key: lineKey, item: l }, j) => (
+          <Fragment key={lineKey}>
             {j > 0 && <br />}
             {renderInline(l, `${key}-${j}`)}
           </Fragment>
@@ -157,7 +162,8 @@ export default function AssistantPanel({ serverId, serverName }: Readonly<{ serv
   useEffect(() => {
     try {
       const stored = sessionStorage.getItem(storageKey(serverId));
-      if (stored) setMessages(JSON.parse(stored));
+      // conversations saved before messages had ids get them now
+      if (stored) setMessages((JSON.parse(stored) as Message[]).map((m) => (m.id ? m : { ...m, id: messageId() })));
     } catch {
       setMessages([]);
     }
@@ -178,7 +184,7 @@ export default function AssistantPanel({ serverId, serverName }: Readonly<{ serv
     const question = text.trim();
     if (!question || thinking) return;
     const history = [...messages.filter((m) => !m.error), { role: 'user' as const, content: question }];
-    setMessages((current) => [...current, { role: 'user', content: question }]);
+    setMessages((current) => [...current, { id: messageId(), role: 'user', content: question }]);
     setDraft('');
     setThinking(true);
     try {
@@ -186,13 +192,13 @@ export default function AssistantPanel({ serverId, serverName }: Readonly<{ serv
         messages: history.slice(-20).map(({ role, content }) => ({ role, content })),
         language,
       });
-      setMessages((current) => [...current, { role: 'assistant', content: res.reply, sources: res.sources ?? [] }]);
+      setMessages((current) => [...current, { id: messageId(), role: 'assistant', content: res.reply, sources: res.sources ?? [] }]);
     } catch (err) {
       let content = t('servers.assistant.errors.generic');
       if (err instanceof ApiError && err.status === 429) content = t('servers.assistant.errors.limit');
       else if (err instanceof ApiError && err.status === 403) content = t('servers.assistant.errors.noPermission');
       else if (err instanceof ApiError && err.status === 400 && /api key/i.test(err.message)) content = t('servers.assistant.errors.notConfigured');
-      setMessages((current) => [...current, { role: 'assistant', content, error: true }]);
+      setMessages((current) => [...current, { id: messageId(), role: 'assistant', content, error: true }]);
     } finally {
       setThinking(false);
       inputRef.current?.focus();
@@ -263,9 +269,9 @@ export default function AssistantPanel({ serverId, serverName }: Readonly<{ serv
             </div>
           ) : (
             <ol className="space-y-4">
-              {messages.map((message, index) => (
+              {messages.map((message) => (
                 <li
-                  key={index}
+                  key={message.id}
                   className={cn('flex animate-in fade-in-0 slide-in-from-bottom-1 duration-300 ease-panel', message.role === 'user' ? 'justify-end' : 'justify-start')}
                 >
                   {message.role === 'user' ? (

@@ -10,6 +10,7 @@ type Point = { t: number; players?: number; hasPlayers?: boolean };
 
 /** Days in the order the week is shown, Monday first; values are Date.getDay(). */
 const WEEK = [1, 2, 3, 4, 5, 6, 0];
+const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 
 /**
  * When people play: the last week's average players for every weekday and hour, in the
@@ -82,7 +83,8 @@ export default function PeakHours({ serverId }: Readonly<{ serverId: string }>) 
             <div key={day} className="contents">
               <span className="self-center text-[11px] capitalize text-muted-foreground">{dayName(day, 'short').replace('.', '')}</span>
               <div className="grid gap-[3px]" style={{ gridTemplateColumns: 'repeat(24, minmax(0, 1fr))' }}>
-                {grid.values[day].map((value, hour) => {
+                {HOURS.map((hour) => {
+                  const value = grid.values[day][hour];
                   const level = value === null || grid.max === 0 ? 0 : value / grid.max;
                   const isBest = best.day === day && best.hour === hour;
                   return (

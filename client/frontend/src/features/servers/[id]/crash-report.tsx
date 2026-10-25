@@ -8,6 +8,7 @@ import { EmptyState } from '@/components/empty-state';
 import { useTranslations } from '@/contexts/translations-context';
 import { ApiError, api } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
+import { keyedByContent } from '@/lib/keyed';
 import { AnsiText } from '@/lib/ansi-utils';
 
 export type CrashReport = {
@@ -269,9 +270,9 @@ export function CrashReportDialog({ serverId, report, onOpenChange }: Readonly<{
                 <p className="text-sm text-muted-foreground">{t('servers.crashes.dialog.noLines')}</p>
               ) : (
                 <ol className="custom-scrollbar max-h-64 overflow-auto rounded-lg border border-border/60 bg-background py-2 font-mono text-[12px] leading-5" tabIndex={0} aria-labelledby="crash-log-title">
-                  {report.lines.map((line, index) => (
+                  {keyedByContent(report.lines).map(({ key: lineKey, item: line }, index) => (
                     <li
-                      key={index}
+                      key={lineKey}
                       className={cn(
                         'flex gap-3 px-3',
                         ERROR_LINE.test(line) && 'bg-destructive/10 text-destructive-bright',
@@ -322,9 +323,9 @@ export function CrashReportDialog({ serverId, report, onOpenChange }: Readonly<{
                         {group.title}
                       </h4>
                       <ul className="space-y-1.5">
-                        {group.items.map((item, i) => (
+                        {keyedByContent(group.items).map(({ key: itemKey, item }, i) => (
                           <li
-                            key={i}
+                            key={itemKey}
                             className="flex gap-2 rounded-lg bg-background/40 px-3 py-2 text-foreground animate-in fade-in-0 slide-in-from-left-1 fill-mode-both duration-300 ease-panel"
                             style={{ animationDelay: `${(groupIndex * 3 + i) * 70 + 150}ms` }}
                           >
