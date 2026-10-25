@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
@@ -341,7 +342,9 @@ func (p *Server) worldMapReady() bool {
 	if err != nil {
 		return false
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+target+"/", nil)
+	// the map's own web server only speaks plain HTTP, and the request never leaves the node
+	probe := url.URL{Scheme: "http", Host: target, Path: "/"}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, probe.String(), nil)
 	if err != nil {
 		return false
 	}

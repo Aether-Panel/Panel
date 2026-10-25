@@ -313,6 +313,13 @@ export function QuickSearch({ items, className }: { items: QuickSearchItem[]; cl
                             // keep focus in the field, so typing carries on after a click
                             onMouseDown={(event) => event.preventDefault()}
                             onClick={() => void choose(item)}
+                            // the field drives the list with the arrow keys; this covers an option reached directly
+                            onKeyDown={(event) => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                    event.preventDefault();
+                                    void choose(item);
+                                }
+                            }}
                             className={cn(
                                 'relative flex min-h-9 cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors duration-150 animate-in fade-in-0 duration-200',
                                 selected ? 'bg-accent text-accent-foreground' : 'text-foreground',
