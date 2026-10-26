@@ -3172,6 +3172,16 @@
       "createDescription": "External systems will use this key to authenticate.",
       "nameLabel": "Name",
       "namePlaceholder": "e.g. WHMCS server 1",
+      "actionsLabel": "What it can do",
+      "actionsHint": "Tick only what the integration needs. Keys created before this can do everything.",
+      "actions": {
+        "all": "Every action",
+        "create": "Create servers",
+        "terminate": "Terminate",
+        "suspend": "Suspend and unsuspend",
+        "change-package": "Change plan",
+        "sso": "Sign-in links"
+      },
       "createdTitle": "Key generated",
       "createdDescription": "Paste it into your integration's settings.",
       "createdWarning": "Copy it now. For security it won't be shown again.",
@@ -3427,7 +3437,9 @@
     "ErrSSHKeyName": "Give the key a name of up to 100 characters.",
     "ErrCaptchaFailed": "The anti-bot check failed. Please try again.",
     "ErrSSONotForAdmins": "Sign-in links are not issued for administrator accounts.",
-    "ErrServerOwner": "The server's owner cannot be removed or limited. An administrator can give the server to someone else."
+    "ErrServerOwner": "The server's owner cannot be removed or limited. An administrator can give the server to someone else.",
+    "ErrAPIKeyPermissions": "Tick at least one action for the key.",
+    "ErrAPIKeyNotAllowed": "This API key is not allowed to do that."
   },
   "extensions": {
     "title": "Extensions",

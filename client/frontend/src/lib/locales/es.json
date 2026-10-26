@@ -3172,6 +3172,16 @@
       "createDescription": "Los sistemas externos usarán esta clave para autenticarse.",
       "nameLabel": "Nombre",
       "namePlaceholder": "p. ej. WHMCS servidor 1",
+      "actionsLabel": "Qué puede hacer",
+      "actionsHint": "Marca solo lo que la integración necesite. Las claves creadas antes de esto pueden hacerlo todo.",
+      "actions": {
+        "all": "Todas las acciones",
+        "create": "Crear servidores",
+        "terminate": "Dar de baja",
+        "suspend": "Suspender y reactivar",
+        "change-package": "Cambiar de plan",
+        "sso": "Acceso directo"
+      },
       "createdTitle": "Clave generada",
       "createdDescription": "Pégala en la configuración de tu integración.",
       "createdWarning": "Cópiala ahora. Por seguridad no se volverá a mostrar.",
@@ -3427,7 +3437,9 @@
     "ErrSSHKeyName": "Ponle a la clave un nombre de hasta 100 caracteres.",
     "ErrCaptchaFailed": "La comprobación anti-bots ha fallado. Vuelve a intentarlo.",
     "ErrSSONotForAdmins": "No se crean enlaces de acceso para cuentas de administrador.",
-    "ErrServerOwner": "El propietario del servidor no se puede quitar ni limitar. Un administrador puede pasar el servidor a otra persona."
+    "ErrServerOwner": "El propietario del servidor no se puede quitar ni limitar. Un administrador puede pasar el servidor a otra persona.",
+    "ErrAPIKeyPermissions": "Marca al menos una acción para la clave.",
+    "ErrAPIKeyNotAllowed": "Esta clave API no tiene permiso para hacer eso."
   },
   "extensions": {
     "title": "Extensiones",

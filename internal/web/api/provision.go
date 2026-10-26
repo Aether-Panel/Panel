@@ -28,12 +28,12 @@ import (
 
 func registerProvision(g *gin.RouterGroup) {
 	g.Handle("GET", "/ping", provisionPing)
-	g.Handle("POST", "/provision", provisionServer)
-	g.Handle("POST", "/terminate", provisionTerminate)
-	g.Handle("POST", "/suspend", provisionSuspend)
-	g.Handle("POST", "/unsuspend", provisionUnsuspend)
-	g.Handle("POST", "/change-package", provisionChangePackage)
-	g.Handle("POST", "/sso", provisionSSO)
+	g.Handle("POST", "/provision", middleware.RequiresAPIKeyPermission(models.APIKeyCreate), provisionServer)
+	g.Handle("POST", "/terminate", middleware.RequiresAPIKeyPermission(models.APIKeyTerminate), provisionTerminate)
+	g.Handle("POST", "/suspend", middleware.RequiresAPIKeyPermission(models.APIKeySuspend), provisionSuspend)
+	g.Handle("POST", "/unsuspend", middleware.RequiresAPIKeyPermission(models.APIKeySuspend), provisionUnsuspend)
+	g.Handle("POST", "/change-package", middleware.RequiresAPIKeyPermission(models.APIKeyChangePackage), provisionChangePackage)
+	g.Handle("POST", "/sso", middleware.RequiresAPIKeyPermission(models.APIKeySSO), provisionSSO)
 }
 
 func provisionPing(c *gin.Context) {

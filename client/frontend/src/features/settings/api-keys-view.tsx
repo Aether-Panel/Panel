@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
@@ -21,10 +22,16 @@ import { useTranslations } from '@/contexts/translations-context';
 import { SettingsCard, SettingsCardHeader } from './general-tab';
 import { EmptyState } from '@/components/empty-state';
 
+// what a billing key may do on /api/v1 (models.APIKeyActions); "provision" on an older key
+// means all of them
+const KEY_ACTIONS = ['create', 'terminate', 'suspend', 'change-package', 'sso'] as const;
+const ALL_ACTIONS = 'provision';
+
 export function ApiKeysView() {
     const { t, language } = useTranslations();
     const [keys, setKeys] = useState<any[]>([]);
     const [name, setName] = useState('');
+    const [actions, setActions] = useState<Set<string>>(() => new Set(KEY_ACTIONS));
     const [isCreating, setIsCreating] = useState(false);
     const [newKeyData, setNewKeyData] = useState<{token: string, key: any} | null>(null);
     const [pendingDelete, setPendingDelete] = useState<any>(null);
@@ -48,9 +55,10 @@ export function ApiKeysView() {
 
     const handleCreate = async () => {
         try {
-            const data = await api.post('/api/settings/apikeys', { name, permissions: ['provision'] });
+            const data = await api.post('/api/settings/apikeys', { name, permissions: KEY_ACTIONS.filter((a) => actions.has(a)) });
             setNewKeyData(data);
             setName('');
+            setActions(new Set(KEY_ACTIONS));
             setIsCreating(false);
             void fetchKeys();
             sileo.success({ title: t('common.success'), description: t('settings.apiKeys.toast.created') });
@@ -83,6 +91,20 @@ export function ApiKeysView() {
         if (Number.isNaN(d.getTime())) return '—';
         return d.toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', { dateStyle: 'medium' });
     };
+
+    /** The actions a key may do, in words; an older key (or one with no list) may do all. */
+    const keyActionsLabel = (permissions?: string[]) => {
+        if (!permissions?.length || permissions.includes(ALL_ACTIONS)) return t('settings.apiKeys.actions.all');
+        return KEY_ACTIONS.filter((a) => permissions.includes(a)).map((a) => t(`settings.apiKeys.actions.${a}`)).join(' · ');
+    };
+
+    const toggleAction = (action: string, on: boolean) =>
+        setActions((prev) => {
+            const next = new Set(prev);
+            if (on) next.add(action);
+            else next.delete(action);
+            return next;
+        });
 
     // One dialog: the name form first, then the generated key (shown once).
     const dialogOpen = isCreating || !!newKeyData;
@@ -131,6 +153,7 @@ export function ApiKeysView() {
                                     <TableRow key={key.id} className="hover:bg-accent/30">
                                         <TableCell>
                                             <div className="font-medium">{key.name}</div>
+                                            <div className="mt-0.5 text-xs text-muted-foreground">{keyActionsLabel(key.permissions)}</div>
                                             <div className="mt-0.5 text-xs text-muted-foreground sm:hidden">{formatDate(key.created_at)}</div>
                                         </TableCell>
                                         <TableCell className="whitespace-nowrap font-mono text-[13px] text-muted-foreground">{key.prefix}…</TableCell>
@@ -191,7 +214,7 @@ export function ApiKeysView() {
                             className="grid gap-4"
                             onSubmit={(e) => {
                                 e.preventDefault();
-                                if (name) void handleCreate();
+                                if (name && actions.size > 0) void handleCreate();
                             }}
                         >
                             <DialogHeader>
@@ -202,9 +225,24 @@ export function ApiKeysView() {
                                 <Label htmlFor="api-key-name">{t('settings.apiKeys.nameLabel')}</Label>
                                 <Input id="api-key-name" value={name} onChange={e => setName(e.target.value)} placeholder={t('settings.apiKeys.namePlaceholder')} autoComplete="off" />
                             </div>
+                            <fieldset className="space-y-2">
+                                <legend className="text-sm font-medium">{t('settings.apiKeys.actionsLabel')}</legend>
+                                <p className="text-xs text-muted-foreground">{t('settings.apiKeys.actionsHint')}</p>
+                                <ul className="grid gap-2 sm:grid-cols-2">
+                                    {KEY_ACTIONS.map((action) => {
+                                        const id = `api-key-action-${action}`;
+                                        return (
+                                            <li key={action} className="flex items-center gap-2">
+                                                <Checkbox id={id} checked={actions.has(action)} onCheckedChange={(v) => toggleAction(action, v === true)} />
+                                                <Label htmlFor={id} className="text-sm font-normal">{t(`settings.apiKeys.actions.${action}`)}</Label>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            </fieldset>
                             <DialogFooter>
                                 <Button type="button" variant="outline" onClick={() => setIsCreating(false)}>{t('common.cancel')}</Button>
-                                <Button type="submit" disabled={!name}>{t('settings.apiKeys.generateAction')}</Button>
+                                <Button type="submit" disabled={!name || actions.size === 0}>{t('settings.apiKeys.generateAction')}</Button>
                             </DialogFooter>
                         </form>
                     )}

@@ -1196,6 +1196,8 @@ Products define server templates for automated provisioning (WHMCS integration, 
 
 API Key authentication in header. Endpoints for integration with external systems (WHMCS, etc.).
 
+Each key says what it may do; a route it is not allowed answers `403 ErrAPIKeyNotAllowed`. Actions: `create` (`/provision`), `terminate`, `suspend` (`/suspend` and `/unsuspend`), `change-package` and `sso`; `/ping` needs none. Keys created before keys could be limited hold `provision`, which means every action, so existing integrations keep working. Create keys in Settings → API Keys and tick only what the integration needs (`POST /api/settings/apikeys` with `{ "name": "WHMCS", "permissions": ["create", "suspend"] }`; without a list the key gets every action, as before; a list that names no known action is refused with `ErrAPIKeyPermissions`).
+
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/v1/ping` | Check connectivity |
@@ -1222,7 +1224,7 @@ Creates a server automatically based on a product.
 ```
 
 **Flow:**
-1. Validates API key permissions (`provision`, `terminate`, `suspend`)
+1. Checks the key may `create`
 2. Finds product by `product_id`
 3. Creates/finds user by email (generates random password if new; an existing customer keeps theirs and the response's `password` is empty)
 4. Assigns "Usuario" role + login scope
