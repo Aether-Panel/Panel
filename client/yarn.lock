@@ -1749,6 +1749,11 @@
   resolved "https://registry.yarnpkg.com/@radix-ui/react-direction/-/react-direction-1.1.5.tgz#ab683848146e405332fdc1b023a62f3ea6338a1a"
   integrity sha512-/NlO/rOqQabmg+GGr86vCmbJVhqTv85NfM9g6Gknf/JVygXeZ6e6HM/RW1omerW9HsFtecwNqgEAKV6UqDsvpA==
 
+"@radix-ui/react-direction@1.2.0":
+  version "1.2.0"
+  resolved "https://registry.yarnpkg.com/@radix-ui/react-direction/-/react-direction-1.2.0.tgz#0f1c3e0fa8623008af3f362723ff6c390d2e846d"
+  integrity sha512-FtRA52a/r+LKStFT+neLUm+8vSe7wbzkbQGGeU8ixFiwC8NU14Evoq9ATECqL3eGbcUzJR4fyfA4KkK/q6dfqg==
+
 "@radix-ui/react-dismissable-layer@1.1.20":
   version "1.1.20"
   resolved "https://registry.yarnpkg.com/@radix-ui/react-dismissable-layer/-/react-dismissable-layer-1.1.20.tgz#41839e75e409d47f86e2fed706f571547515fde1"
@@ -1895,20 +1900,20 @@
     "@radix-ui/react-use-is-hydrated" "0.1.3"
     "@radix-ui/react-use-layout-effect" "1.1.4"
 
-"@radix-ui/react-scroll-area@^1.2.3":
-  version "1.3.0"
-  resolved "https://registry.yarnpkg.com/@radix-ui/react-scroll-area/-/react-scroll-area-1.3.0.tgz#4af680ac5c3ae8660234b81e31e88be07d950f17"
-  integrity sha512-1WSuAXaahfeLmFX/dfYo/ftg1filMfaWjVye2d40VlgtWMMq/NOVocfukZEXkG+dwrAoNI+qpo9bjhNSJ/XC8g==
+"@radix-ui/react-scroll-area@^1.4.0":
+  version "1.4.0"
+  resolved "https://registry.yarnpkg.com/@radix-ui/react-scroll-area/-/react-scroll-area-1.4.0.tgz#2441c06836b6f81b086a28ce5e6a2da64d0c43e2"
+  integrity sha512-CFrLqHNejWq5FhKAcj9V/WPGRsol76HBQto81NdOBVFEOqIEkJkKIJt0Z824A/9hHLCtoiR/Kw3euRgzXP2pxg==
   dependencies:
     "@radix-ui/number" "1.1.3"
-    "@radix-ui/primitive" "1.1.7"
+    "@radix-ui/primitive" "1.2.0"
     "@radix-ui/react-compose-refs" "1.1.5"
-    "@radix-ui/react-context" "1.2.2"
-    "@radix-ui/react-direction" "1.1.5"
+    "@radix-ui/react-context" "1.3.0"
+    "@radix-ui/react-direction" "1.2.0"
     "@radix-ui/react-presence" "1.1.11"
-    "@radix-ui/react-primitive" "2.1.11"
-    "@radix-ui/react-slot" "1.4.0"
-    "@radix-ui/react-use-callback-ref" "1.1.4"
+    "@radix-ui/react-primitive" "2.2.0"
+    "@radix-ui/react-slot" "1.5.0"
+    "@radix-ui/react-use-callback-ref" "1.1.5"
     "@radix-ui/react-use-layout-effect" "1.1.4"
 
 "@radix-ui/react-select@^2.3.7":
@@ -2009,6 +2014,13 @@
   version "1.1.4"
   resolved "https://registry.yarnpkg.com/@radix-ui/react-use-callback-ref/-/react-use-callback-ref-1.1.4.tgz#1e55d37148e60a3f47de4bc7ea7cff6fa3f425ae"
   integrity sha512-R6OUY2e2fA6Yn6s+VSx5KBV6Nx8LQEhu+cz7LCej18rQ1HLyg9PSC9jP/ZNx0o6FAIK9c0F1kHylzSxKsdlkrQ==
+
+"@radix-ui/react-use-callback-ref@1.1.5":
+  version "1.1.5"
+  resolved "https://registry.yarnpkg.com/@radix-ui/react-use-callback-ref/-/react-use-callback-ref-1.1.5.tgz#af6a37e94eb8fb38d870ce90c936a292f23a5e86"
+  integrity sha512-Y5GBf4NKeADoXI1geiMlMuMoURT3k9MizzzKhGb/m55H94aGigZ01PIpkvsO6lML13BA6XYAXSJ6gza7vTn5nw==
+  dependencies:
+    "@radix-ui/react-use-layout-effect" "1.1.4"
 
 "@radix-ui/react-use-controllable-state@1.2.6":
   version "1.2.6"
