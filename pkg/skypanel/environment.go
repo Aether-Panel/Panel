@@ -31,6 +31,13 @@ type EnvironmentImpl interface {
 	IsRunningImpl(environment *Environment) (isRunning bool, err error)
 }
 
+// Reattacher is an environment that can connect again to a process it started before the
+// daemon restarted. A container keeps running across that restart; a host process started
+// by the old daemon does not, so only some environments implement it.
+type Reattacher interface {
+	ReattachImpl(environment *Environment, steps ExecutionData) error
+}
+
 type Environment struct {
 	Type            string          `json:"type"`
 	RootDirectory   string          `json:"root,omitempty"`
@@ -86,6 +93,18 @@ func (e *Environment) ExecuteAsync(steps ExecutionData) (err error) {
 	steps.StdInConfig = steps.StdInConfig.Replace(steps.Variables)
 
 	return e.Implementation.ExecuteAsyncImpl(e, steps)
+}
+
+// Reattach connects the console and the exit handling again to a process still running from
+// before a daemon restart; steps carries the callback and console settings of a normal start.
+// It returns ErrNotImplemented when the environment cannot do it.
+func (e *Environment) Reattach(steps ExecutionData) error {
+	r, ok := e.Implementation.(Reattacher)
+	if !ok {
+		return ErrNotImplemented
+	}
+	steps.StdInConfig = steps.StdInConfig.Replace(steps.Variables)
+	return r.ReattachImpl(e, steps)
 }
 
 func (e *Environment) CreateConsoleStdinProxy(config StdinConsoleConfiguration, base io.WriteCloser) {

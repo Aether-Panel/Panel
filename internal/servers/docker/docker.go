@@ -217,6 +217,51 @@ func (d *Docker) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypa
 	return err
 }
 
+// ReattachImpl connects to the server's container when it is still running from before a
+// daemon restart: its output streams to the console again, commands reach it, and its exit
+// goes through steps.Callback once, as after a normal start. The container was created with
+// AutoRemove, so handleClose's wait for its removal still fires when it exits.
+func (d *Docker) ReattachImpl(environment *skypanel.Environment, steps skypanel.ExecutionData) error {
+	dockerClient, err := d.getClient()
+	if err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	inspectResult, err := dockerClient.ContainerInspect(ctx, environment.ServerID, client.ContainerInspectOptions{})
+	if err != nil {
+		return err
+	}
+	if !inspectResult.Container.State.Running {
+		return skypanel.ErrServerOffline
+	}
+
+	attachResult, err := dockerClient.ContainerAttach(ctx, environment.ServerID, client.ContainerAttachOptions{
+		Stdin:  true,
+		Stdout: true,
+		Stderr: true,
+		Stream: true,
+	})
+	if err != nil {
+		return err
+	}
+	conn := attachResult.HijackedResponse
+	d.connection = conn
+	d.disableSpecialStats = steps.DisableStats
+
+	environment.Wait.Add(1)
+	go func() {
+		defer conn.Close()
+		_, _ = io.Copy(environment.Wrapper, conn.Reader)
+	}()
+
+	environment.CreateConsoleStdinProxy(steps.StdInConfig, conn.Conn)
+	environment.Console.Start()
+
+	go d.handleClose(environment, dockerClient, steps.Callback)
+	return nil
+}
+
 // removeContainer force-removes the server's container after a start that failed half way
 func removeContainer(dockerClient *client.Client, environment *skypanel.Environment) {
 	_, err := dockerClient.ContainerRemove(context.Background(), environment.ServerID, client.ContainerRemoveOptions{Force: true})

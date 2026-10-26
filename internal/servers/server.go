@@ -71,6 +71,9 @@ type Server struct {
 	keepAliveMu   sync.Mutex
 	// disk is the folder size the disk limit is checked against
 	disk diskUsage
+	// attachMu stops the boot-time re-attach and a command arriving at the same moment from
+	// both attaching to the same running container
+	attachMu sync.Mutex
 }
 
 var queue *list.List
@@ -104,6 +107,8 @@ func InitService() {
 	go processStats()
 	go processPlayers()
 	go processSystemStatus()
+	// servers that kept running while the daemon was down get their console back
+	go reattachRunningServers()
 	// Trackear uptime inicialmente para todos los servidores
 	go trackUptimeForAllServers()
 }
@@ -1038,6 +1043,10 @@ func (p *Server) Stop() error {
 		return err
 	}
 
+	// still running from before a daemon restart: reconnect first, so the exit that follows
+	// is seen (crash handling, restart, Restart's wait) and a stop command can be typed
+	_ = p.Reattach()
+
 	p.stopRequested.Store(true)
 	p.Log(logging.Info, "Stopping server %s", p.ID())
 	if p.Execution.StopCode != 0 {
@@ -1057,6 +1066,7 @@ func (p *Server) Stop() error {
 // Kill Kills the program.
 // This will also stop the environment it is ran in.
 func (p *Server) Kill() (err error) {
+	_ = p.Reattach()
 	p.stopRequested.Store(true)
 	p.Log(logging.Info, "Killing server %s", p.ID())
 	err = p.RunningEnvironment.Kill()
@@ -1192,6 +1202,7 @@ func (p *Server) IsRunning() (bool, error) {
 }
 
 func (p *Server) Execute(command string) (err error) {
+	_ = p.Reattach()
 	err = p.RunningEnvironment.ExecuteInMainProcess(command)
 	return
 }
