@@ -9,6 +9,9 @@ import (
 )
 
 var LogsFolder = asString("logs", "logs")
+
+// LogRetentionDays is how many days of rotated panel logs are kept; 0 keeps them forever
+var LogRetentionDays = asInt("logRetentionDays", 14)
 var WebHost = asString("web.host", "0.0.0.0:8080")
 
 // Templates source (custom VPS JSON index)

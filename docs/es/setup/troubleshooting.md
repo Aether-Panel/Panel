@@ -205,6 +205,7 @@ Este documento detalla las soluciones a problemas comunes encontrados durante el
 | `SKYPANEL_PANEL_DATABASE_URL` | `panel.database.url` |
 | `SKYPANEL_PANEL_DATABASE_DIALECT` | `panel.database.dialect` |
 | `SKYPANEL_LOGS` | `logs` |
+| `SKYPANEL_LOGRETENTIONDAYS` | `logRetentionDays` |
 | `SKYPANEL_PANEL_SETTINGS_COMPANYNAME` | `panel.settings.companyName` |
 
 Las variables de entorno **tienen prioridad** sobre el archivo `config.json`.
@@ -215,7 +216,13 @@ Las variables de entorno **tienen prioridad** sobre el archivo `config.json`.
 
 **Problema:** Necesitas más información para diagnosticar un error.
 
-**Comportamiento:** El panel escribe logs en `logs/skypanel.log` con rotación automática al recibir `SIGUSR1`.
+**Comportamiento:** El panel escribe el día actual en `skypanel.log`, dentro de la carpeta `logs` (`/var/log/SkyPanel` en Linux y en Docker; con Docker Compose, `./storage/skypanel-logs` en el host).
+
+Rotación diaria, como en Pterodactyl, sin instalar `logrotate`:
+- Al cambiar de día el archivo pasa a `skypanel-AAAA-MM-DD.log.gz` (comprimido) y se empieza uno nuevo.
+- Si un solo día pasa de 100 MB, se archiva antes como `skypanel-AAAA-MM-DD.1.log.gz`, `.2`, etc.
+- Los archivos de más de `logRetentionDays` días (14 por defecto) se borran solos. Con `0` se guardan todos.
+- Solo toca archivos `skypanel-*`; el resto de la carpeta no se borra.
 
 **Niveles de log:**
 | Prefijo | Nivel | Destino |
@@ -231,7 +238,11 @@ Las variables de entorno **tienen prioridad** sobre el archivo `config.json`.
     ```bash
     tail -f logs/skypanel.log
     ```
-*   **Forzar rotación de logs** (sin reiniciar el panel):
+*   **Ver un día anterior:**
+    ```bash
+    zcat /var/log/SkyPanel/skypanel-2026-10-25.log.gz | grep ERROR
+    ```
+*   **Usar un `logrotate` externo:** pon `logRetentionDays` a `0` y, después de rotar, envía `SIGUSR1` para que el panel reabra `skypanel.log`:
     ```bash
     kill -USR1 $(pidof SkyPanel)
     ```

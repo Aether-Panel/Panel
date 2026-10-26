@@ -5,7 +5,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"path"
 )
 
 var rotation *Rotator
@@ -16,6 +15,7 @@ var Debug = log.New(os.Stdout, "[DEBUG] ", flags)
 var Info = log.New(os.Stdout, "[INFO] ", flags)
 var Server = log.New(os.Stdout, "[SERVER] ", flags)
 var OriginalStdOut = os.Stdout
+var OriginalStdErr = os.Stderr
 
 func Initialize(useFiles bool) {
 	if useFiles {
@@ -29,12 +29,11 @@ func Initialize(useFiles bool) {
 			panic(err)
 		}
 
-		logFile, err := os.OpenFile(path.Join(directory, "skypanel.log"), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+		rotator, err := NewRotator(directory, config.LogRetentionDays.Value())
 		if err != nil {
 			panic(err)
 		}
-
-		rotation = &Rotator{backer: logFile}
+		rotation = rotator
 		rotation.StartRotation(directory)
 	}
 
