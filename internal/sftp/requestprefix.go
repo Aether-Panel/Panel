@@ -48,7 +48,7 @@ func (rp requestPrefix) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 	if err != nil {
 		return nil, err
 	}
-	return rp.server.DiskFile(file), nil
+	return rp.server.DiskFile(file, request.Filepath), nil
 }
 
 func (rp requestPrefix) Filecmd(request *sftp.Request) error {

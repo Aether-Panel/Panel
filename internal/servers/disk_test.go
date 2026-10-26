@@ -69,8 +69,7 @@ func TestDiskFile_OnlyGrowingTheFileCounts(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
-	d := p.DiskFile(f)
-	defer func() { _ = d.Close() }()
+	d := p.DiskFile(f, "upload.bin")
 
 	_, err = d.WriteAt(make([]byte, 256*1024), 0)
 	assert.NoError(t, err)
@@ -79,6 +78,25 @@ func TestDiskFile_OnlyGrowingTheFileCounts(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = d.WriteAt(make([]byte, 512*1024), 256*1024)
 	assert.ErrorIs(t, err, skypanel.ErrDiskLimitExceeded)
+
+	assert.NoError(t, d.Close())
+	_, err = os.Stat(filepath.Join(dir, "upload.bin"))
+	assert.True(t, os.IsNotExist(err), "an upload the limit cut short is deleted")
+}
+
+func TestDiskFile_AFinishedUploadStays(t *testing.T) {
+	p, dir := newDiskTestServer(t, 0)
+	f, err := os.Create(filepath.Join(dir, "small.bin"))
+	if !assert.NoError(t, err) {
+		return
+	}
+	d := p.DiskFile(f, "small.bin")
+	_, err = d.WriteAt([]byte("hello"), 0)
+	assert.NoError(t, err)
+	assert.NoError(t, d.Close())
+	content, err := os.ReadFile(filepath.Join(dir, "small.bin"))
+	assert.NoError(t, err)
+	assert.Equal(t, "hello", string(content))
 }
 
 func TestStart_RefusesAFullDisk(t *testing.T) {
