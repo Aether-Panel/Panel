@@ -14,8 +14,10 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
  */
 
 const SIZE = 3.3; // emblem width in scene units
-const PLATE = 0.1;
-const PIECE = 0.11;
+// the volume is in the plate; the coloured pieces stay a shallow relief so the black
+// outlines between them still read as engraved lines
+const PLATE = 0.16;
+const PIECE = 0.035;
 const LAYER_STEP = 0.0012;
 // curves in the drawing are a few units long out of 2976, so 4 divisions look identical
 const CURVE_DIVISIONS = 4;
@@ -140,8 +142,9 @@ async function buildEmblem(isCancelled: () => boolean): Promise<{ group: THREE.G
     }
 
     const materials: Record<Layer, THREE.Material> = {
-        black: new THREE.MeshBasicMaterial({ color: 0x07090c }),
-        gold: new THREE.MeshPhysicalMaterial({ color: 0xe3aa2b, metalness: 1, roughness: 0.26, clearcoat: 0.5, clearcoatRoughness: 0.2 }),
+        // dark lacquered metal: lit, so the plate's edge shows its depth when it turns
+        black: new THREE.MeshStandardMaterial({ color: 0x07090c, metalness: 0.45, roughness: 0.5, envMapIntensity: 0.28 }),
+        gold: new THREE.MeshPhysicalMaterial({ color: 0xebbd52, metalness: 1, roughness: 0.22, clearcoat: 0.5, clearcoatRoughness: 0.2 }),
         blue: new THREE.MeshPhysicalMaterial({ color: 0x1670ab, roughness: 0.35, metalness: 0, clearcoat: 0.8, clearcoatRoughness: 0.1, envMapIntensity: 0.3 }),
         ivory: new THREE.MeshPhysicalMaterial({ color: 0xeae7dc, roughness: 0.45, metalness: 0, clearcoat: 0.5, clearcoatRoughness: 0.15, envMapIntensity: 0.45 }),
     };
@@ -298,7 +301,7 @@ export function mountEmblem({ canvas, onReady, onFail }: MountOptions): () => vo
             // arrives with a short rise, then floats and sways a little
             const enter = still ? 1 : 1 - Math.pow(1 - Math.min(1, s / 1.1), 4);
             holder.position.y = (still ? 0 : Math.sin(s * 0.7) * 0.06) - (1 - enter) * 0.35;
-            holder.rotation.set(pos.y * 0.12, (still ? -0.18 : Math.sin(s * 0.35) * 0.22) + pos.x * 0.3, 0);
+            holder.rotation.set(pos.y * 0.1, (still ? -0.14 : Math.sin(s * 0.35) * 0.15) + pos.x * 0.22, 0);
             holder.scale.setScalar(0.001 + enter * 0.999);
             renderer.render(scene, camera);
         };
