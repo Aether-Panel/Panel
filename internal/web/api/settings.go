@@ -293,7 +293,10 @@ func sendTestEmail(c *gin.Context) {
 
 	es := services.GetEmailService()
 	err := es.SendEmail(user.Email, "test", nil, false)
-	if response.HandleError(c, err, http.StatusInternalServerError) {
+	// 422 rather than 500: the panel hides the text of 5xx errors, and the admin needs the
+	// mail server's reason (wrong password, port, TLS) to fix the settings
+	if err != nil {
+		response.HandleError(c, fmt.Errorf("the test email could not be sent: %w", err), http.StatusUnprocessableEntity)
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -307,6 +310,10 @@ func sendTestEmail(c *gin.Context) {
 // @Security OAuth2Application[settings.edit]
 func sendTestDiscord(c *gin.Context) {
 	ds := services.GetDiscordService()
+
+	// webhooks typed in the form but not saved yet are tested too, like the email test does
+	var overrides map[string]interface{}
+	_ = c.ShouldBindJSON(&overrides)
 
 	fields := []services.DiscordEmbedField{
 		{Name: "Tipo", Value: "Mensaje de Prueba", Inline: true},
@@ -334,6 +341,13 @@ func sendTestDiscord(c *gin.Context) {
 	sent := 0
 	for _, target := range targets {
 		hook := target.entry.Value()
+		if v, ok := overrides[target.entry.Key()].(string); ok {
+			hook = strings.TrimSpace(v)
+			if err := services.ValidateDiscordWebhook(hook); err != nil {
+				response.HandleError(c, fmt.Errorf("webhook %s: %w", target.name, err), http.StatusBadRequest)
+				return
+			}
+		}
 		if hook == "" {
 			continue
 		}

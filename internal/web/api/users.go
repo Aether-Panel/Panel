@@ -401,6 +401,60 @@ func denyEditingAdmin(c *gin.Context, db *gorm.DB, target *models.User) bool {
 }
 
 // userIsAdmin reports whether the user holds the admin scope, globally or through their role
+// userIsPrivileged is true for an account with a panel-wide power beyond a customer's
+// (admin, settings, users, nodes, templates…), directly or through its role. Sign-in links
+// from the billing API are refused for these: a leaked billing key must not open them.
+func userIsPrivileged(db *gorm.DB, user *models.User) (bool, error) {
+	ps := &services.Permission{DB: db}
+	perms, err := ps.GetForUserAndServer(user.ID, "")
+	if err != nil {
+		return false, err
+	}
+	held := append([]*scopes.Scope{}, perms.Scopes...)
+	if user.RoleID != nil {
+		rs := &services.Role{DB: db}
+		role, err := rs.Get(*user.RoleID)
+		if err != nil {
+			return false, err
+		}
+		for _, s := range role.Scopes {
+			held = scopes.AddScope(held, scopes.GetScope(s))
+		}
+	}
+	for _, s := range held {
+		if isPrivilegedScope(s) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// privilegedScopes change the panel or other people's accounts. Customers hold read-only
+// panel-wide scopes too (templates.view, uptime.view), so the test is this list, not "any
+// scope that is not tied to a server".
+var privilegedScopes = []*scopes.Scope{
+	scopes.ScopeAdmin,
+	scopes.ScopeSettingsEdit,
+	scopes.ScopeNodesCreate, scopes.ScopeNodesEdit, scopes.ScopeNodesDelete, scopes.ScopeNodesDeploy,
+	scopes.ScopeTemplatesLocalEdit, scopes.ScopeTemplatesRepoCreate, scopes.ScopeTemplatesRepoDelete,
+	scopes.ScopeUserInfoEdit, scopes.ScopeUserPermsEdit,
+	scopes.ScopeOAuth2Auth,
+}
+
+// isPrivilegedScope is a panel-wide power a customer does not get. Compared one by one:
+// ContainsScope would count admin in the list as a match for anything.
+func isPrivilegedScope(s *scopes.Scope) bool {
+	if s == nil {
+		return false
+	}
+	for _, p := range privilegedScopes {
+		if p.Is(s.Value) {
+			return true
+		}
+	}
+	return false
+}
+
 func userIsAdmin(db *gorm.DB, user *models.User) (bool, error) {
 	ps := &services.Permission{DB: db}
 	perms, err := ps.GetForUserAndServer(user.ID, "")

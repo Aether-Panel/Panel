@@ -258,7 +258,15 @@ var migrations = [][]*gormigrate.Migration{
 		{
 			ID: "20260819-server-extra-ports",
 			Migrate: func(db *gorm.DB) error {
-				return db.Migrator().AutoMigrate(&models.Server{})
+				// Only its own column. AutoMigrate here would apply today's whole Server model
+				// before 20261016-server-internal-id runs, adding internal_id NOT NULL with no
+				// value to existing rows: SQLite refuses that, MySQL fills '' and then fails the
+				// unique index. A fresh database gets the table from the model AutoMigrate.
+				m := db.Migrator()
+				if !m.HasTable(&models.Server{}) || m.HasColumn(&models.Server{}, "Ports") {
+					return nil
+				}
+				return m.AddColumn(&models.Server{}, "Ports")
 			},
 		},
 		{

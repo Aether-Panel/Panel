@@ -898,11 +898,16 @@ Creates a compressed backup of the server files.
 |--------|------|-------|
 | GET | `/api/servers/:serverId/databases` | `server.view` |
 | POST | `/api/servers/:serverId/databases` | `server.data.edit` |
+| GET | `/api/servers/:serverId/databasehosts` | `server.data.edit` |
 | DELETE | `/api/servers/:serverId/databases/:id` | `server.data.edit` |
+
+### `GET /api/servers/:serverId/databasehosts`
+The hosts this server can create databases on: those serving its node (or any node) with room left under their `max_databases`. Only `[{ "id": 1, "name": "Main MySQL" }]`, never addresses or credentials.
 
 ### `POST /api/servers/:serverId/databases`
 **Body:** `{ "database_host_id": 1, "database_name": "my_db" }`
 **Response:** `DatabaseView` (with generated username/password).
+A host that is full (`ErrDatabaseHostFull`) or tied to another node (`ErrDatabaseHostOtherNode`) answers 400. If a step after `CREATE DATABASE` fails, the database and user are dropped again, so the name can be retried. Deleting the server drops its databases and users from the host.
 
 ---
 
@@ -1213,7 +1218,7 @@ Creates a server automatically based on a product.
 **Flow:**
 1. Validates API key permissions (`provision`, `terminate`, `suspend`)
 2. Finds product by `product_id`
-3. Creates/finds user by email (generates random password if new)
+3. Creates/finds user by email (generates random password if new; an existing customer keeps theirs and the response's `password` is empty)
 4. Assigns "Usuario" role + login scope
 5. Picks free port from product's port range
 6. Creates server with product resources (CPU/Memory/Disk), which become the container's limits
@@ -1225,11 +1230,11 @@ Creates a server automatically based on a product.
 
 ### `POST /api/v1/terminate`
 **Body:** `{ "server_id": "abc123" }`
-Stops and deletes the server AND all child servers (parent_server_id).
+Stops and deletes the server AND all child servers (parent_server_id), and removes their subdomain records. If a node does not delete a server, the answer is an error (502) and the server stays in the panel, so the call can be retried.
 
 ### `POST /api/v1/suspend`
 **Body:** `{ "server_id": "abc123" }`
-Toggles `Suspended` flag on server + children, stops if suspending.
+Sets the `Suspended` flag on server + children and stops the ones running. If a node cannot stop one, the answer is an error (502): the server is suspended in the panel but may still be running.
 
 ### `POST /api/v1/unsuspend`
 **Body:** `{ "server_id": "abc123" }`
@@ -1249,7 +1254,7 @@ For the billing system's "go to the panel" button.
 
 **Body:** `{ "email": "customer@example.com", "service_id": "42" }` (`service_id`/`server_id` optional: with one, the customer lands on that server, which they must be able to open).
 
-**Response:** `{ "success": true, "url": "https://panel.example.com/auth/sso?token=...", "expires_in": 60 }`. Send the customer's browser to `url`: it signs them in once, within a minute, without their password or 2FA code, and then the link is spent. Links are refused (403) for administrator accounts, so a leaked API key cannot open the admin panel. Pending links are kept in memory, so a panel restart cancels them.
+**Response:** `{ "success": true, "url": "https://panel.example.com/auth/sso?token=...", "expires_in": 60 }`. Send the customer's browser to `url`: it signs them in once, within a minute, without their password or 2FA code, and then the link is spent. Links are refused (403) for accounts with panel-wide powers (admin, settings, users, nodes, templates), so a leaked API key cannot open them. Pending links are kept in memory, so a panel restart cancels them.
 
 ---
 

@@ -431,6 +431,8 @@ func createServer(c *gin.Context) {
 	}
 
 	sendServerCreationEmails(users, server)
+	// a new server gets its subdomain once; editing it later must not give back one the owner removed
+	scheduleAutoSubdomain(server.Identifier)
 	extensions.Publish(extensions.EventServerCreated, extensions.ServerData(server.Identifier, server.Name))
 	c.JSON(http.StatusOK, &models.CreateServerResponse{ID: serverID})
 }
@@ -542,16 +544,16 @@ func editServer(c *gin.Context) {
 			logging.Error.Printf(daemonParseErrorFmt, err.Error())
 		}
 		logging.Error.Printf(daemonUnexpectedFmt, nodeResponse.StatusCode, string(resData))
-		// assume daemon gives us a valid response, directly forward to client
+		// forward the daemon's answer as it is, once: answering again after it would put two
+		// JSON documents in one body. The recorded error rolls the transaction back.
 		c.Header(headerContentType, contentTypeJSON)
 		c.Status(nodeResponse.StatusCode)
 		_, _ = c.Writer.Write(resData)
-		e := c.Error(errors.New("unexpected response from daemon"))
-		response.HandleError(c, e, http.StatusInternalServerError)
+		_ = c.Error(errors.New("unexpected response from daemon"))
+		c.Abort()
 		return
 	}
 
-	scheduleAutoSubdomain(server.Identifier)
 	c.Status(http.StatusNoContent)
 }
 
@@ -1003,13 +1005,136 @@ func editServerDataAdmin(c *gin.Context) {
 		dirty = true
 	}
 
-	if dirty && !saveAdminServerChanges(c, db, server, resourcesChanged) {
+	// limits are checked before anything is sent or saved
+	limits, ok := checkAdminResourceChange(c, db, server, resourcesChanged)
+	if !ok {
+		return
+	}
+	if limits.childrenUse != nil {
+		// a parent's container only gets what its sub-servers leave free
+		limitsForParentNode(postBody, server, limits.childrenUse)
+	}
+
+	// The node first: if it refuses (or is down), the panel must not show ports and limits
+	// the server does not have. The ports/primaryPort fields stay in the body so the daemon
+	// can reconcile its port/port2/... variables (removing stale ones too).
+	if !sendDataToNode(c, db, server, postBody) {
 		return
 	}
 
-	// The ports/primaryPort fields are left in the body so the daemon can
-	// reconcile its port/port2/... variables (removing stale ones too).
-	proxyServerRequest(c)
+	if dirty && !saveAdminServerChanges(c, db, server, resourcesChanged) {
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// resourceUse is the cpu, memory and disk a set of servers holds
+type resourceUse struct {
+	cpu          int
+	memory, disk int64
+}
+
+// adminResourceLimits is what checkAdminResourceChange found: for a server with sub-servers,
+// what they hold (nil otherwise)
+type adminResourceLimits struct {
+	childrenUse *resourceUse
+}
+
+// checkAdminResourceChange refuses new limits that do not fit: a sub-server must fit in what
+// its parent has left, and a parent cannot go below what its sub-servers already hold.
+// ok is false once an error response has been written.
+func checkAdminResourceChange(c *gin.Context, db *gorm.DB, server *models.Server, resourcesChanged bool) (adminResourceLimits, bool) {
+	var limits adminResourceLimits
+	if !resourcesChanged {
+		return limits, true
+	}
+	if hasParentServer(server) {
+		var cpu int
+		var memory, disk int64
+		err := db.Transaction(func(tx *gorm.DB) error {
+			return checkParentServerLimitsOnUpdate(tx, server, &cpu, &memory, &disk)
+		})
+		return limits, !response.HandleError(c, err, http.StatusBadRequest)
+	}
+
+	use, err := childrenResourceUse(db, server.Identifier)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return limits, false
+	}
+	if use == nil {
+		return limits, true
+	}
+	if server.TotalCPU < use.cpu || server.TotalMemory < use.memory || server.TotalDisk < use.disk {
+		response.HandleError(c, errors.New("the sub-servers of this server already use more than that"), http.StatusBadRequest)
+		return limits, false
+	}
+	limits.childrenUse = use
+	return limits, true
+}
+
+// childrenResourceUse adds up the limits of a server's sub-servers, nil when it has none
+func childrenResourceUse(db *gorm.DB, identifier string) (*resourceUse, error) {
+	var children []*models.Server
+	if err := db.Where(parentServerIDQuery, identifier).Find(&children).Error; err != nil {
+		return nil, err
+	}
+	if len(children) == 0 {
+		return nil, nil
+	}
+	use := &resourceUse{}
+	for _, child := range children {
+		use.cpu += child.TotalCPU
+		use.memory += child.TotalMemory
+		use.disk += child.TotalDisk
+	}
+	return use, nil
+}
+
+// limitsForParentNode rewrites the resource fields sent to the node: the panel stores the
+// parent's whole plan, but its container must only get what the sub-servers leave free
+func limitsForParentNode(postBody map[string]interface{}, server *models.Server, children *resourceUse) {
+	free := parentLimitsData(server.TotalCPU-children.cpu, server.TotalMemory-children.memory, server.TotalDisk-children.disk)
+	for _, key := range []string{"cpu", "memory", "disk"} {
+		if _, sent := postBody[key]; sent {
+			postBody[key] = free[key]
+		}
+	}
+}
+
+// parentLimitsData is the cpu, memory and disk a parent keeps for itself. Docker treats 0 as
+// "no limit", so a parent whose plan is fully split keeps the smallest real limit instead.
+func parentLimitsData(cpu int, memory, disk int64) map[string]interface{} {
+	return map[string]interface{}{
+		"cpu":    max(cpu, 1),
+		"memory": max(memory, 1),
+		"disk":   max(disk, 1),
+	}
+}
+
+// sendDataToNode sends the edited data to the server's node and answers with the node's
+// refusal when it does not accept it. It returns false once a response has been written.
+func sendDataToNode(c *gin.Context, db *gorm.DB, server *models.Server, postBody map[string]interface{}) bool {
+	body, err := json.Marshal(postBody)
+	if response.HandleError(c, err, http.StatusBadRequest) {
+		return false
+	}
+	ns := &services.Node{DB: db}
+	ctx, cancel := nodeCallContext(c)
+	defer cancel()
+	res, err := ns.CallNodeContext(ctx, &server.Node, "PUT", daemonServerPrefix+server.Identifier+"/data", io.NopCloser(bytes.NewReader(body)), c.Request.Header)
+	defer utils.CloseResponse(res)
+	if response.HandleError(c, err, http.StatusBadGateway) {
+		return false
+	}
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		details, _ := io.ReadAll(res.Body)
+		c.Header(headerContentType, res.Header.Get(headerContentType))
+		c.Status(res.StatusCode)
+		_, _ = c.Writer.Write(details)
+		c.Abort()
+		return false
+	}
+	return true
 }
 
 // readAndRestoreJSONBody decodes the request body as a JSON object and puts an
@@ -1196,9 +1321,10 @@ func parsePortNotes(postBody map[string]interface{}) (map[string]string, bool) {
 }
 
 // saveAdminServerChanges stores the edited server. Resource changes on a
-// sub-server are checked against the parent's limits in the same transaction,
-// and the parent's new limits are pushed to its node afterwards. It returns
-// false once an error response has been written.
+// sub-server are checked again against the parent's limits in the same
+// transaction (another edit may have landed since), and the parent's new limits
+// are pushed to its node afterwards. It returns false once an error response has
+// been written.
 func saveAdminServerChanges(c *gin.Context, db *gorm.DB, server *models.Server, resourcesChanged bool) bool {
 	if !resourcesChanged || !hasParentServer(server) {
 		ss := &services.Server{DB: db}
@@ -2089,7 +2215,7 @@ func executeServerDeletionOnNode(c *gin.Context, ns *services.Node, node *models
 	nodeResponse, err := ns.CallNode(node, "DELETE", daemonServerPrefix+identifier, nil, c.Request.Header)
 	defer utils.CloseResponse(nodeResponse)
 
-	if err != nil {
+	if response.HandleError(c, err, http.StatusBadGateway) {
 		return err
 	}
 
@@ -2103,7 +2229,7 @@ func executeServerDeletionOnNode(c *gin.Context, ns *services.Node, node *models
 		c.Status(nodeResponse.StatusCode)
 		_, _ = c.Writer.Write(resData)
 		e := c.Error(errors.New("unexpected response from daemon"))
-		response.HandleError(c, e, http.StatusInternalServerError)
+		c.Abort()
 		return e
 	}
 	return nil
@@ -2127,14 +2253,10 @@ func updateParentServerLimitsAfterDeletion(db *gorm.DB, ns *services.Node, node 
 		usedDisk += child.TotalDisk
 	}
 
-	parentDataUpdate := map[string]interface{}{
-		"cpu":    parent.TotalCPU - usedCPU,
-		"memory": parent.TotalMemory - usedMemory,
-		"disk":   parent.TotalDisk - usedDisk,
-	}
-	updateBytes, _ := json.Marshal(parentDataUpdate)
+	// the admin PUT: the plain POST only changes values the owner may edit, which these are not
+	updateBytes, _ := json.Marshal(parentLimitsData(parent.TotalCPU-usedCPU, parent.TotalMemory-usedMemory, parent.TotalDisk-usedDisk))
 	parentReqBody := io.NopCloser(bytes.NewReader(updateBytes))
-	parentRes, _ := ns.CallNode(node, "POST", daemonServerPrefix+parent.Identifier+"/data", parentReqBody, nil)
+	parentRes, _ := ns.CallNode(node, "PUT", daemonServerPrefix+parent.Identifier+"/data", parentReqBody, nil)
 	if parentRes != nil && parentRes.Body != nil {
 		parentRes.Body.Close()
 	}
@@ -2192,6 +2314,13 @@ func validateAndBuildServerCreation(c *gin.Context, db *gorm.DB, us *services.Us
 	if totalCPU < 0 || totalMemory < 0 || totalDisk < 0 {
 		response.HandleError(c, errors.New("resources cannot be negative"), http.StatusBadRequest)
 		return nil, nil, errors.New("resources cannot be negative")
+	}
+	// a sub-server takes its limits out of its parent's plan; 0 would mean "no limit" to
+	// Docker, so it could use the whole node while counting as nothing against the parent
+	if hasParentServer(&models.Server{ParentServerID: postBody.ParentServerID}) && (totalCPU == 0 || totalMemory == 0 || totalDisk == 0) {
+		err := errors.New("a sub-server needs a CPU, memory and disk limit")
+		response.HandleError(c, err, http.StatusBadRequest)
+		return nil, nil, err
 	}
 
 	server := &models.Server{
@@ -2466,19 +2595,15 @@ func notifyNodeOfServerCreation(c *gin.Context, ns *services.Node, node *models.
 }
 
 func updateParentServerLimitsOnNode(c *gin.Context, db *gorm.DB, ns *services.Node, node *models.Node, server *models.Server, parentAvailableCPU int, parentAvailableMemory int64, parentAvailableDisk int64) {
-	parentDataUpdate := map[string]interface{}{
-		"cpu":    parentAvailableCPU,
-		"memory": parentAvailableMemory,
-		"disk":   parentAvailableDisk,
-	}
-	updateBytes, _ := json.Marshal(parentDataUpdate)
+	// the admin PUT: the plain POST only changes values the owner may edit, which these are not
+	updateBytes, _ := json.Marshal(parentLimitsData(parentAvailableCPU, parentAvailableMemory, parentAvailableDisk))
 	parentReqBody := io.NopCloser(bytes.NewReader(updateBytes))
 
 	var parent models.Server
 	db.Where(serverIdentifierQuery, *server.ParentServerID).First(&parent)
 	ctx, cancel := nodeCallContext(c)
 	defer cancel()
-	parentRes, _ := ns.CallNodeContext(ctx, node, "POST", daemonServerPrefix+parent.Identifier+"/data", parentReqBody, c.Request.Header)
+	parentRes, _ := ns.CallNodeContext(ctx, node, "PUT", daemonServerPrefix+parent.Identifier+"/data", parentReqBody, nil)
 	if parentRes != nil && parentRes.Body != nil {
 		parentRes.Body.Close()
 	}

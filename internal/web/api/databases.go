@@ -23,6 +23,37 @@ func registerDatabases(g *gin.RouterGroup) {
 
 	g.Handle("DELETE", "/:serverId/databases/:id", middleware.RequiresPermission(scopes.ScopeServerEditData), deleteDatabase)
 	g.Handle("OPTIONS", "/:serverId/databases/:id", response.CreateOptions("DELETE"))
+
+	g.Handle("GET", "/:serverId/databasehosts", middleware.RequiresPermission(scopes.ScopeServerEditData), getDatabaseHostsForServer)
+	g.Handle("OPTIONS", "/:serverId/databasehosts", response.CreateOptions("GET"))
+}
+
+// DatabaseHostChoice is a host a server's owner can pick: its name only, never its address
+// or credentials, which the host list for administrators carries
+type DatabaseHostChoice struct {
+	ID   uint   `json:"id"`
+	Name string `json:"name"`
+} // @name DatabaseHostChoice
+
+// @Summary Database hosts for a server
+// @Description The database hosts this server can create databases on (serving its node, with room left)
+// @Success 200 {array} DatabaseHostChoice
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Param serverId path string true "Server Id"
+// @Tags Databases
+// @Router /api/servers/{serverId}/databasehosts [get]
+// @Security OAuth2Application[server.data.edit]
+func getDatabaseHostsForServer(c *gin.Context) {
+	ds := &services.Database{DB: middleware.GetDatabase(c)}
+	hosts, err := ds.UsableHosts(c.Param("serverId"))
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+	choices := make([]DatabaseHostChoice, 0, len(hosts))
+	for _, h := range hosts {
+		choices = append(choices, DatabaseHostChoice{ID: h.ID, Name: h.Name})
+	}
+	c.JSON(http.StatusOK, choices)
 }
 
 // @Summary Get databases for server
@@ -112,7 +143,8 @@ func createDatabase(c *gin.Context) {
 
 	if err = ds.Create(create); err != nil {
 		status := http.StatusInternalServerError
-		if errors.Is(err, skypanel.ErrDatabaseNameTaken) || errors.Is(err, skypanel.ErrInvalidDatabaseName) {
+		if errors.Is(err, skypanel.ErrDatabaseNameTaken) || errors.Is(err, skypanel.ErrInvalidDatabaseName) ||
+			errors.Is(err, skypanel.ErrDatabaseHostFull) || errors.Is(err, skypanel.ErrDatabaseHostOtherNode) {
 			status = http.StatusBadRequest
 		}
 		response.HandleError(c, err, status)

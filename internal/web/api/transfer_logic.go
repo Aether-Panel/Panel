@@ -14,6 +14,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
+	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -158,14 +159,45 @@ func readFailureBody(res *http.Response) string {
 	return string(body)
 }
 
+// stopForTransfer stops the server and waits for it; one that does not stop in time is killed
+func stopForTransfer(ns *services.Node, server *models.Server) error {
+	running, err := serverRunningOnNode(ns, &server.Node, server.Identifier)
+	if err != nil {
+		return fmt.Errorf("could not read its status: %w", err)
+	}
+	if !running {
+		return nil
+	}
+	res, err := ns.CallNode(&server.Node, "POST", daemonServerPrefix+server.Identifier+"/stop?wait=true", nil, nil)
+	utils.CloseResponse(res)
+	if err == nil {
+		if running, err = serverRunningOnNode(ns, &server.Node, server.Identifier); err == nil && !running {
+			return nil
+		}
+	}
+	res, err = ns.CallNode(&server.Node, "POST", daemonServerPrefix+server.Identifier+"/kill", nil, nil)
+	utils.CloseResponse(res)
+	if err != nil {
+		return fmt.Errorf("could not kill it: %w", err)
+	}
+	time.Sleep(2 * time.Second)
+	if running, err = serverRunningOnNode(ns, &server.Node, server.Identifier); err != nil || running {
+		return errors.New("it is still running")
+	}
+	return nil
+}
+
 // stopAndArchiveOnSource stops the server on the source node and packs its
 // files into transfer.tar.gz.
 func stopAndArchiveOnSource(ns *services.Node, server *models.Server) bool {
-	// 3. Stop the server on Source Node
+	// 3. Stop the server on Source Node. Archiving a running server copies a world that is
+	// still being written, and anything saved after the archive is lost, so the transfer only
+	// goes on once the node says it is stopped.
 	logging.Info.Printf("Stopping server %s on source node", server.Identifier)
-	_, _ = ns.CallNode(&server.Node, "POST", fmt.Sprintf("/daemon/server/%s/power/stop", server.Identifier), nil, nil)
-	time.Sleep(5 * time.Second) // Give it some time to stop
-	_, _ = ns.CallNode(&server.Node, "POST", fmt.Sprintf("/daemon/server/%s/power/kill", server.Identifier), nil, nil)
+	if err := stopForTransfer(ns, server); err != nil {
+		logging.Error.Printf("Transfer of %s cancelled: %s", server.Identifier, err)
+		return false
+	}
 
 	// Clean up old transfer files if they existed
 	_, _ = ns.CallNode(&server.Node, "DELETE", fmt.Sprintf("/daemon/server/%s/file/transfer.tar.gz", server.Identifier), nil, nil)
