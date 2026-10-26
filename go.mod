@@ -26,7 +26,7 @@ require (
 	github.com/hashicorp/go-version v1.9.0
 	github.com/klauspost/compress v1.20.3
 	github.com/mailgun/mailgun-go/v4 v4.23.0
-	github.com/mailjet/mailjet-apiv3-go/v4 v4.0.8
+	github.com/mailjet/mailjet-apiv3-go/v4 v4.0.9
 	github.com/mholt/archives v0.1.5
 	github.com/minio/minio-go/v7 v7.4.1
 	github.com/moby/moby/api v1.56.1
