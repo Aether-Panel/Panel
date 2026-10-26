@@ -517,6 +517,7 @@ func editServer(c *gin.Context) {
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
+	oldPort, oldType := server.Port, server.Type
 	server.Port = cast.ToUint16(port)
 
 	ip, err := getFromDataOrDefault(postBody.Variables, "ip", "0.0.0.0")
@@ -579,6 +580,10 @@ func editServer(c *gin.Context) {
 		return
 	}
 
+	// the SRV record carries the main port, and the type decides whether there is one
+	if server.Port != oldPort || server.Type != oldType {
+		scheduleSubdomainRefresh(server.Identifier)
+	}
 	c.Status(http.StatusNoContent)
 }
 
@@ -1045,6 +1050,7 @@ func editServerDataAdmin(c *gin.Context) {
 	if !ok {
 		return
 	}
+	oldPort := server.Port
 
 	dirty, ok := applyAddressFields(c, server, postBody)
 	if !ok {
@@ -1092,6 +1098,9 @@ func editServerDataAdmin(c *gin.Context) {
 
 	if dirty && !saveAdminServerChanges(c, db, server, resourcesChanged) {
 		return
+	}
+	if server.Port != oldPort {
+		scheduleSubdomainRefresh(server.Identifier)
 	}
 	c.Status(http.StatusNoContent)
 }
@@ -1434,10 +1443,12 @@ func editPortSettings(c *gin.Context) {
 	}
 
 	dirty := false
+	portChanged := false
 
 	// Primary port: user selects which port is primary (reorders the list)
 	if primaryField, has := postBody["primaryPort"]; has && promotePrimaryPort(server, cast.ToUint16(primaryField)) {
 		dirty = true
+		portChanged = true
 	}
 
 	// Port notes: user-defined labels per port
@@ -1458,6 +1469,9 @@ func editPortSettings(c *gin.Context) {
 	// binds all assigned ports on next start.
 	syncPortVarsToDaemon(c, server)
 
+	if portChanged {
+		scheduleSubdomainRefresh(server.Identifier)
+	}
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 

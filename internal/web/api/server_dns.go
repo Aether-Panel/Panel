@@ -818,3 +818,141 @@ func releaseSubdomain(_ *gorm.DB, server *models.Server) {
 		logging.Error.Printf("server %s: %d DNS records could not be removed: %v", server.Identifier, len(remaining), err)
 	}
 }
+
+// isAddressRecord is the record that carries the subdomain's own name (A, AAAA or CNAME)
+func isAddressRecord(kind string) bool {
+	return kind == "A" || kind == "AAAA" || kind == "CNAME"
+}
+
+// refreshSubdomainRecords brings a server's records in line with where it now is: its node's
+// address and its main port (the SRV record). It runs after the port or the node changed and
+// edits the server's own records in place, creating or removing the SRV record when that rule
+// changed; the subdomain itself stays the same.
+func refreshSubdomainRecords(ctx context.Context, db *gorm.DB, server *models.Server, s dnsSettings) error {
+	if server.Subdomain == "" || len(server.DNSRecordIDs) == 0 || !s.configured() {
+		return nil
+	}
+
+	subdomainLock.Lock()
+	defer subdomainLock.Unlock()
+
+	kind, content, err := resolveDNSTarget(server, s)
+	if err != nil {
+		return err
+	}
+	fqdn := server.Subdomain + "." + s.Domain
+	planned := planSubdomainRecords(server, fqdn, kind, content)
+	cf := s.client()
+
+	current, err := ownSubdomainRecords(ctx, cf, server, fqdn)
+	if err != nil {
+		return err
+	}
+
+	kept := make([]string, 0, len(planned))
+	used := map[string]bool{}
+	for _, want := range planned {
+		match := matchingRecord(current, used, want.Type)
+		if match != nil {
+			used[match.ID] = true
+			updated, err := cf.UpdateRecord(ctx, match.ID, want)
+			if err != nil {
+				return providerError(err)
+			}
+			if updated.ID == "" {
+				updated.ID = match.ID
+			}
+			kept = append(kept, updated.ID)
+			continue
+		}
+		created, err := cf.CreateRecord(ctx, want)
+		if err != nil {
+			return providerError(err)
+		}
+		kept = append(kept, created.ID)
+	}
+
+	// what the server no longer needs (the SRV record once its port is gone, say), plus any id
+	// it still listed whose record had already disappeared
+	var stale []string
+	for _, id := range server.DNSRecordIDs {
+		if !containsString(kept, id) {
+			stale = append(stale, id)
+		}
+	}
+	if remaining, err := deleteDNSRecords(ctx, cf, stale); err != nil {
+		logging.Error.Printf("subdomain of server %s: %d old DNS records could not be removed: %v", server.Identifier, len(remaining), err)
+	}
+	return saveSubdomain(db, server.Identifier, server.Subdomain, kept)
+}
+
+// ownSubdomainRecords lists the server's records under the names a subdomain uses
+func ownSubdomainRecords(ctx context.Context, cf *services.Cloudflare, server *models.Server, fqdn string) ([]services.CloudflareRecord, error) {
+	own := make(map[string]bool, len(server.DNSRecordIDs))
+	for _, id := range server.DNSRecordIDs {
+		own[id] = true
+	}
+	var current []services.CloudflareRecord
+	for _, name := range []string{fqdn, "_minecraft._tcp." + fqdn} {
+		existing, err := cf.ListRecords(ctx, name)
+		if err != nil {
+			return nil, providerError(err)
+		}
+		for _, e := range existing {
+			if own[e.ID] {
+				current = append(current, e)
+			}
+		}
+	}
+	return current, nil
+}
+
+// matchingRecord finds an unused record of the same kind: the SRV record, or the address
+// record whatever its type (a node moved behind a hostname turns an A record into a CNAME)
+func matchingRecord(records []services.CloudflareRecord, used map[string]bool, kind string) *services.CloudflareRecord {
+	for i := range records {
+		rec := &records[i]
+		if used[rec.ID] {
+			continue
+		}
+		if (kind == "SRV" && rec.Type == "SRV") || (isAddressRecord(kind) && isAddressRecord(rec.Type)) {
+			return rec
+		}
+	}
+	return nil
+}
+
+// subdomainRefreshDelay lets the request that changed the server commit first
+var subdomainRefreshDelay = 500 * time.Millisecond
+
+// scheduleSubdomainRefresh updates a server's DNS records in the background after its main
+// port or its node changed. It is best effort: a failure is logged and never undoes the change.
+func scheduleSubdomainRefresh(serverID string) {
+	s := currentDNSSettings()
+	if !s.configured() {
+		return
+	}
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				logging.Error.Printf("updating the DNS records of server %s failed: %v", serverID, r)
+			}
+		}()
+		time.Sleep(subdomainRefreshDelay)
+		db, err := database.GetConnection()
+		if err != nil {
+			logging.Error.Printf("updating the DNS records of server %s: %v", serverID, err)
+			return
+		}
+		server, err := (&services.Server{DB: db}).Get(serverID)
+		if err != nil {
+			logging.Error.Printf("updating the DNS records of server %s: %v", serverID, err)
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), subdomainRequestTimeout)
+		defer cancel()
+		if err := refreshSubdomainRecords(ctx, db, server, s); err != nil {
+			logging.Error.Printf("updating the DNS records of server %s: %v", serverID, err)
+		}
+	}()
+}

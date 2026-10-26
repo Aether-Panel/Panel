@@ -96,6 +96,8 @@ func performInternalTransfer(server *models.Server, targetNode *models.Node, db 
 	if !moveServerRecordToNode(db, server, targetNode) {
 		return
 	}
+	// its subdomain follows it to the new node's address
+	scheduleSubdomainRefresh(server.Identifier)
 
 	// 8. Ask source node to delete the server
 	_, _ = ns.CallNode(&oldNode, "DELETE", fmt.Sprintf("/daemon/server/%s", server.Identifier), nil, nil)
