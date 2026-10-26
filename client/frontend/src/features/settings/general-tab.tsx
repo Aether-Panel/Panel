@@ -281,18 +281,6 @@ export function GeneralTab({ localSettings, handleUpdate, t }: Readonly<GeneralT
                     </SettingsField>
                 </SettingsSection>
 
-                <SettingsSection title={t('settings.general.sections.appearanceTitle')} description={t('settings.general.sections.appearanceDescription')}>
-                    <SettingRows>
-                        <SettingRow
-                            id="header-decorations"
-                            label={t('settings.general.headerDecorationsLabel')}
-                            description={t('settings.general.headerDecorationsDescription')}
-                            checked={localSettings['panel.settings.headerDecorations'] !== false}
-                            onCheckedChange={(v) => handleUpdate('panel.settings.headerDecorations', v)}
-                        />
-                    </SettingRows>
-                </SettingsSection>
-
                 <SettingsSection title={t('settings.general.sections.accessTitle')} description={t('settings.general.sections.accessDescription')}>
                     <div className="space-y-5">
                         <SettingRows>

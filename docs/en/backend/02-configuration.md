@@ -57,7 +57,6 @@ All nested keys with `.` are converted to `_`. `SKYPANEL_` prefix:
 | `panel.settings.nodeIp` | string | `0.0.0.0` | Node IP |
 | `panel.settings.geminiApiKey` | string | — | Google Gemini API Key |
 | `panel.settings.hideAiAnalysis` | bool | `false` | Hides AI Analysis functionality |
-| `panel.settings.headerDecorations` | bool | `true` | Enables header decorations |
 | `panel.notifications.discordWebhook` | string | — | Discord Webhook (notifications) |
 | `panel.notifications.discordWebhookSystem` | string | — | Discord Webhook (system) |
 | `panel.notifications.discordWebhookNode` | string | — | Discord Webhook (nodes) |
@@ -124,7 +123,6 @@ All nested keys with `.` are converted to `_`. `SKYPANEL_` prefix:
 | `panel.settings.nodeIp` | string | `0.0.0.0` | Local node IP |
 | `panel.settings.geminiApiKey` | string | — | Google GenAI API Key |
 | `panel.settings.hideAiAnalysis` | bool | `false` | Hides AI Analysis functionality |
-| `panel.settings.headerDecorations` | bool | `true` | Enables header decorations |
 | `panel.settings.branding` | object | `{}` | Custom branding JSON |
 | `panel.settings.turnstileEnabled` | bool | `false` | Enable Cloudflare Turnstile |
 | `panel.settings.turnstileSiteKey` | string | — | Turnstile site key |
@@ -192,7 +190,6 @@ All nested keys with `.` are converted to `_`. `SKYPANEL_` prefix:
 | `panel.settings.sentryDSN` | string | — | Sentry DSN |
 | `panel.settings.geminiApiKey` | string | — | Google GenAI API key |
 | `panel.settings.hideAiAnalysis` | bool | `false` | Hide AI Analysis button |
-| `panel.settings.headerDecorations` | bool | `true` | Header decorations |
 | `panel.settings.masterUrl` | string | `http://localhost:8080` | Master panel URL |
 | `panel.settings.nodeIp` | string | `0.0.0.0` | Local node IP |
 

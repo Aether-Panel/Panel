@@ -4,8 +4,6 @@
     "loginFailed": "Login failed",
     "registerSuccess": "Account created successfully",
     "registerFailed": "Failed to create account",
-    "otpRequired": "OTP required",
-    "otpDescription": "Two-factor authentication is enabled for this account.",
     "redirecting": "Redirecting to dashboard...",
     "checkCredentials": "Please check your credentials and try again.",
     "tooManyAttempts": "Too many failed attempts. Wait a few minutes and try again.",
@@ -72,6 +70,32 @@
       "missingToken": "This link is missing its reset code. Use the link from your email or request a new one.",
       "requestNew": "Request a new link",
       "errorFallback": "Unable to reset your password."
+    },
+    "password": {
+      "show": "Show password",
+      "hide": "Hide password",
+      "capsLock": "Caps Lock is on",
+      "strength": {
+        "weak": "Weak",
+        "fair": "Fair",
+        "good": "Good",
+        "strong": "Strong"
+      }
+    },
+    "otp": {
+      "title": "Two-step verification",
+      "description": "Your account {{email}} has two-step verification turned on.",
+      "appHint": "Open your authenticator app and enter the 6-digit code.",
+      "recoveryHint": "Enter one of the recovery codes you saved when you turned it on. Each code works once.",
+      "codeLabel": "6-digit verification code",
+      "recoveryLabel": "Recovery code",
+      "submit": "Verify",
+      "back": "Use another account",
+      "useRecovery": "Use a recovery code",
+      "useApp": "Use the authenticator app",
+      "wrongCode": "That code isn't right. Check that your phone's clock is correct and try the new code.",
+      "expiredTitle": "More than 5 minutes have passed",
+      "expiredDescription": "For your security, enter your password again."
     }
   },
   "header": {
@@ -2956,8 +2980,6 @@
       "geminiApiKeyDescription": "Enter your Google Gemini API key to enable artificial intelligence features.",
       "hideAiAnalysisLabel": "Hide AI Console Analysis",
       "hideAiAnalysisDescription": "If enabled, the AI console analysis feature will be hidden for all servers.",
-      "headerDecorationsLabel": "Header decorations",
-      "headerDecorationsDescription": "Shows the decorative animations (gif and video) at the bottom of the sidebar header.",
       "allowRegistrationLabel": "Allow users to register",
       "allowRegistrationDescription": "Self-registered users cannot perform any actions until permissions are granted. Disabling this only prevents direct registration, server invitations and the Users page are not affected.",
       "turnstileEnabledLabel": "Cloudflare Turnstile Protection",
@@ -2974,8 +2996,6 @@
         "panelDescription": "Your organization's name and the addresses the panel is reached at.",
         "aiTitle": "Artificial intelligence",
         "aiDescription": "Console analysis with Google Gemini.",
-        "appearanceTitle": "Appearance",
-        "appearanceDescription": "Visual details of the interface for every user.",
         "accessTitle": "Sign-up and security",
         "accessDescription": "Who can create an account and how sign-in and sign-up are protected.",
         "modpacksTitle": "Modpacks",

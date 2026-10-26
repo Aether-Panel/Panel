@@ -47,7 +47,6 @@ var MasterURL = asString("panel.settings.masterUrl", "http://localhost:8080")
 var NodeIP = asString("panel.settings.nodeIp", "0.0.0.0")
 var GeminiAPIKey = asString("panel.settings.geminiApiKey", "")
 var HideAIAnalysis = asBool("panel.settings.hideAiAnalysis", false)
-var HeaderDecorations = asBool("panel.settings.headerDecorations", true)
 
 // Experimental features are off until an admin turns them on in the panel settings
 var ExperimentalVersionSwitch = asBool("panel.experimental.versionSwitch", false)

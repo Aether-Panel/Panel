@@ -14,7 +14,6 @@ export interface Config {
         name: string;
     };
     registrationEnabled: boolean;
-    headerDecorations: boolean;
     turnstileSiteKey: string;
     turnstileEnabled: boolean;
     experimental?: ExperimentalFeatures;

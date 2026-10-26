@@ -8,6 +8,9 @@ import { ConfigProvider, useConfig } from '@/contexts/config-context';
 
 export type UserRole = 'admin' | 'user';
 
+/** How a sign-in step ended: 'otp' means the account needs its 2FA code next. */
+export type LoginResult = 'success' | 'otp' | 'expired' | 'limited' | 'failed';
+
 interface LoginCredentials {
   email: string;
   password?: string;
@@ -34,7 +37,9 @@ interface AuthContextType {
   role: UserRole | null;
   user: UserData | null;
   scopes: string[];
-  login: (credentials: LoginCredentials) => Promise<void>;
+  login: (credentials: LoginCredentials) => Promise<LoginResult>;
+  /** Second step of a sign-in on an account with two-factor authentication. */
+  verifyOtp: (token: string) => Promise<LoginResult>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => void;
   hasScope: (scope: string) => boolean;
@@ -102,7 +107,24 @@ function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
     }
   }, [role, loading]);
 
-  const login = useCallback(async (credentials: LoginCredentials) => {
+  // Shared tail of a successful sign-in, with or without a second step
+  const finishLogin = useCallback(async (data: { scopes?: unknown[] }) => {
+    const scopesList = normalizeScopes(data.scopes || []);
+
+    // Fetch user info and pass current scopes to avoid race conditions
+    await fetchSelf(scopesList);
+
+    sileo.success({
+      title: t('auth.loginSuccess'),
+      description: t('auth.redirecting'),
+    });
+
+    setTimeout(() => {
+      window.location.href = '/dashboard/';
+    }, 500);
+  }, [t, fetchSelf]);
+
+  const login = useCallback(async (credentials: LoginCredentials): Promise<LoginResult> => {
     setLoading(true);
     try {
       const data = await api.post('/auth/login', {
@@ -112,27 +134,13 @@ function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
       });
 
       if (data.otpNeeded) {
-        sileo.success({
-          title: t('auth.otpRequired'),
-          description: t('auth.otpDescription'),
-        });
+        // the login page asks for the code; the server keeps the attempt for 5 minutes
         setLoading(false);
-        return;
+        return 'otp';
       }
 
-      const scopesList = normalizeScopes(data.scopes || []);
-
-      // Fetch user info and pass current scopes to avoid race conditions
-      await fetchSelf(scopesList);
-
-      sileo.success({
-        title: t('auth.loginSuccess'),
-        description: t('auth.redirecting'),
-      });
-
-      setTimeout(() => {
-        window.location.href = '/dashboard/';
-      }, 500);
+      await finishLogin(data);
+      return 'success';
     } catch (e: any) {
       console.error('Login error:', e);
       sileo.error({
@@ -140,8 +148,31 @@ function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
         description: e?.status === 429 ? t('auth.tooManyAttempts') : (e.message || t('auth.checkCredentials')),
       });
       setLoading(false);
+      return 'failed';
     }
-  }, [t, fetchSelf]);
+  }, [t, finishLogin]);
+
+  const verifyOtp = useCallback(async (token: string): Promise<LoginResult> => {
+    setLoading(true);
+    try {
+      const data = await api.post('/auth/otp', { token });
+      await finishLogin(data);
+      return 'success';
+    } catch (e: any) {
+      const code = e?.data?.error?.code;
+      setLoading(false);
+      if (code === 'ErrSessionExpired' || code === 'ErrInvalidSession') {
+        sileo.error({ title: t('auth.otp.expiredTitle'), description: t('auth.otp.expiredDescription') });
+        return 'expired';
+      }
+      // a wrong code is shown under the boxes; only throttling needs a toast
+      if (e?.status === 429) {
+        sileo.error({ title: t('auth.loginFailed'), description: t('auth.tooManyAttempts') });
+        return 'limited';
+      }
+      return 'failed';
+    }
+  }, [t, finishLogin]);
 
   const register = useCallback(async (data: RegisterData) => {
     setLoading(true);
@@ -197,8 +228,8 @@ function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   }, [role, scopes]);
 
   const value = useMemo(
-    () => ({ role, user, scopes, login, register, logout, hasScope, loading, fetchSelf }),
-    [role, user, scopes, login, register, logout, hasScope, loading, fetchSelf],
+    () => ({ role, user, scopes, login, verifyOtp, register, logout, hasScope, loading, fetchSelf }),
+    [role, user, scopes, login, verifyOtp, register, logout, hasScope, loading, fetchSelf],
   );
 
   const { config } = useConfig();

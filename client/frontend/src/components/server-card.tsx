@@ -108,16 +108,6 @@ export function ServerCard({ server, t }: Readonly<{ server: Server; t: (key: st
       data-spotlight=""
       className="surface-panel group relative flex flex-col overflow-hidden rounded-xl border border-border/60 transition-[border-color,transform,box-shadow] duration-300 ease-panel hover:-translate-y-0.5 hover:border-border hover:shadow-elevation-2 motion-reduce:hover:translate-y-0"
     >
-      {/* Ambient art kept to a shallow top band so the surface stays calm. */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-20 overflow-hidden" aria-hidden="true">
-        <img
-          src="/img/Fondos/minecraft-shaders-anime-hd-wallpaper-preview.jpg"
-          alt=""
-          className="h-full w-full object-cover opacity-20"
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-card/40 via-card/80 to-card" />
-      </div>
-
       <div className="relative z-10 flex flex-1 flex-col gap-5 p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 space-y-1">

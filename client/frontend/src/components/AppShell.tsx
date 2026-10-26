@@ -203,7 +203,6 @@ function AppLayoutInner({ children, currentPath }: Readonly<{ children: ReactNod
     const { role, user, logout, hasScope } = useAuth();
     const { t } = useTranslations();
     const { config } = useConfig();
-    const showHeaderDecorations = config?.headerDecorations !== false;
 
     useEffect(() => {
         const checkGlobalUpdate = async () => {
@@ -295,37 +294,7 @@ function AppLayoutInner({ children, currentPath }: Readonly<{ children: ReactNod
         <SidebarProvider>
             <Sidebar collapsible="offcanvas" mobileCloseLabel={t('sidebar.closeMenu')}>
                 <SidebarHeader className="relative overflow-hidden border-b border-sidebar-border/60 p-0">
-                    <img
-                        src="/img/Fondos/minecraft-shaders-anime-hd-wallpaper-preview.jpg"
-                        alt=""
-                        aria-hidden="true"
-                        className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-30"
-                    />
-                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-sidebar/40 to-sidebar" />
-                    {showHeaderDecorations && (
-                        <>
-                            <img
-                                src="/img/Gifs/animepixel1.gif"
-                                alt=""
-                                aria-hidden="true"
-                                // a GIF cannot be paused, so it is hidden when the user asks for less motion
-                                className="pointer-events-none absolute bottom-1 left-1 h-8 w-8 rounded object-cover opacity-60 motion-reduce:hidden"
-                            />
-                            {/* hidden through a wrapper: aria-hidden is not allowed on the (focusable) video itself */}
-                            <div aria-hidden="true" className="pointer-events-none absolute bottom-1 right-1 h-8 w-8 motion-reduce:hidden">
-                                <video
-                                    src="/img/Gifs/b810142e63c0e12ac415d884e1e01ff5_t1.webm"
-                                    tabIndex={-1}
-                                    autoPlay
-                                    muted
-                                    loop
-                                    playsInline
-                                    className="h-full w-full rounded object-cover opacity-60"
-                                />
-                            </div>
-                        </>
-                    )}
-                    <div className={cn("relative px-4 pt-5", showHeaderDecorations ? "pb-14" : "pb-4")}>
+                    <div className="relative px-4 pb-4 pt-5">
                         <Logo />
                     </div>
                 </SidebarHeader>

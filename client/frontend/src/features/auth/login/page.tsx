@@ -1,17 +1,18 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useAuth } from '@/contexts/providers';
+import type { LoginResult } from '@/contexts/providers';
 import { useConfig } from '@/contexts/config-context';
 import { useTranslations } from '@/contexts/translations-context';
-import { Loader2, Mail, Lock } from 'lucide-react';
+import { ArrowLeft, KeyRound, Loader2, Mail, Lock, ShieldCheck } from 'lucide-react';
 import Turnstile from '@/components/Turnstile';
-import { AuthFrame, AuthInput, authLabelClass, authLinkClass, authMessageClass } from '@/components/AuthShell';
+import { AuthFrame, AuthInput, AuthPasswordInput, OtpInput, authLabelClass, authLinkClass, authMessageClass } from '@/components/AuthShell';
 
 /** Same rules as before; only the messages now follow the active language. */
 const createFormSchema = (t: (key: string) => string) =>
@@ -24,7 +25,7 @@ type LoginValues = z.infer<ReturnType<typeof createFormSchema>>;
 
 export default function LoginPage() {
   const { t } = useTranslations();
-  const { login, loading } = useAuth();
+  const { login, verifyOtp, loading } = useAuth();
   const { config } = useConfig();
   const panelName = config?.branding?.name || 'Aether Panel';
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
@@ -38,11 +39,35 @@ export default function LoginPage() {
     },
   });
 
-  function onSubmit(values: LoginValues) {
-    void login({ ...values, turnstileToken: turnstileToken || undefined });
+  // Accounts with two-factor authentication get a second step on the same page
+  const [step, setStep] = useState<'credentials' | 'otp'>('credentials');
+
+  async function onSubmit(values: LoginValues) {
+    const result = await login({ ...values, turnstileToken: turnstileToken || undefined });
+    if (result === 'otp') {
+      setStep('otp');
+    }
+  }
+
+  function backToCredentials() {
+    form.resetField('password');
+    setStep('credentials');
   }
 
   const demoEmail = `admin@${panelName.toLowerCase().replaceAll(/\s+/g, '')}.com`;
+
+  if (step === 'otp') {
+    return (
+      <AuthFrame
+        title={t('auth.otp.title')}
+        description={t('auth.otp.description', { email: form.getValues('email') })}
+        artTitle={t('auth.login.artTitle', { name: panelName })}
+        artDescription={t('auth.login.artDescription')}
+      >
+        <OtpStep loading={loading} verify={verifyOtp} onExpired={backToCredentials} onBack={backToCredentials} />
+      </AuthFrame>
+    );
+  }
 
   return (
     <AuthFrame
@@ -84,7 +109,7 @@ export default function LoginPage() {
               <FormItem>
                 <FormLabel className={authLabelClass}>{t('auth.fields.password')}</FormLabel>
                 <FormControl>
-                  <AuthInput {...field} icon={Lock} type="password" autoComplete="current-password" placeholder="••••••••" />
+                  <AuthPasswordInput {...field} icon={Lock} autoComplete="current-password" placeholder="••••••••" />
                 </FormControl>
                 <FormMessage className={authMessageClass} />
               </FormItem>
@@ -114,5 +139,128 @@ export default function LoginPage() {
         </div>
       )}
     </AuthFrame>
+  );
+}
+
+type OtpStepProps = {
+  loading: boolean;
+  verify: (token: string) => Promise<LoginResult>;
+  onExpired: () => void;
+  onBack: () => void;
+};
+
+/** Second sign-in step: the 6-digit code from the app, or one of the recovery codes. */
+function OtpStep({ loading, verify, onExpired, onBack }: Readonly<OtpStepProps>) {
+  const { t } = useTranslations();
+  const [mode, setMode] = useState<'app' | 'recovery'>('app');
+  const [code, setCode] = useState('');
+  const [error, setError] = useState<'wrong' | 'limited' | null>(null);
+  const failed = error !== null;
+  const codeRef = useRef<HTMLInputElement>(null);
+
+  // back to the code after switching mode or after a failed try (the input is disabled while checking)
+  useEffect(() => {
+    if (!loading) {
+      codeRef.current?.focus();
+    }
+  }, [mode, loading]);
+
+  async function submit(token: string) {
+    const trimmed = token.trim();
+    if (!trimmed || loading) {
+      return;
+    }
+    const result = await verify(trimmed);
+    if (result === 'expired') {
+      onExpired();
+      return;
+    }
+    if (result === 'failed' || result === 'limited') {
+      setError(result === 'failed' ? 'wrong' : 'limited');
+      setCode('');
+    }
+  }
+
+  function switchMode() {
+    setMode((current) => (current === 'app' ? 'recovery' : 'app'));
+    setCode('');
+    setError(null);
+  }
+
+  const ready = mode === 'app' ? code.length === 6 : code.trim().length > 0;
+
+  return (
+    <form
+      noValidate
+      className="stagger space-y-5"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void submit(code);
+      }}
+    >
+      <div className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/[0.06] p-3.5 text-sm text-foreground/85">
+        <ShieldCheck className="h-5 w-5 shrink-0 text-primary-bright" aria-hidden="true" />
+        <p>{mode === 'app' ? t('auth.otp.appHint') : t('auth.otp.recoveryHint')}</p>
+      </div>
+
+      {mode === 'app' ? (
+        <OtpInput
+          ref={codeRef}
+          value={code}
+          onChange={(value) => {
+            setCode(value);
+            setError(null);
+          }}
+          onComplete={(value) => void submit(value)}
+          disabled={loading}
+          invalid={failed}
+          aria-label={t('auth.otp.codeLabel')}
+        />
+      ) : (
+        <div className="space-y-2">
+          <label htmlFor="recovery-code" className={authLabelClass}>
+            {t('auth.otp.recoveryLabel')}
+          </label>
+          <AuthInput
+            id="recovery-code"
+            ref={codeRef}
+            icon={KeyRound}
+            value={code}
+            onChange={(event) => {
+              setCode(event.target.value);
+              setError(null);
+            }}
+            aria-invalid={failed || undefined}
+            autoComplete="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            maxLength={32}
+            className="font-mono tracking-wider"
+            placeholder="A1b2C3d4E5f6"
+          />
+        </div>
+      )}
+
+      {failed ? (
+        <p role="alert" className={authMessageClass}>
+          {error === 'limited' ? t('auth.tooManyAttempts') : t('auth.otp.wrongCode')}
+        </p>
+      ) : null}
+
+      <Button type="submit" className="h-11 w-full font-semibold" disabled={loading || !ready}>
+        {loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+        {t('auth.otp.submit')}
+      </Button>
+
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm">
+        <button type="button" onClick={onBack} className="inline-flex items-center gap-1.5 rounded-sm font-medium text-muted-foreground transition-colors duration-200 ease-panel hover:text-foreground focus-ring">
+          <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+          {t('auth.otp.back')}
+        </button>
+        <button type="button" onClick={switchMode} className={authLinkClass}>
+          {mode === 'app' ? t('auth.otp.useRecovery') : t('auth.otp.useApp')}
+        </button>
+      </div>
+    </form>
   );
 }
