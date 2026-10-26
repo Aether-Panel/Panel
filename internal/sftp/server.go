@@ -181,10 +181,10 @@ func handleConn(conn net.Conn, serverConfig *ssh.ServerConfig) error {
 func replySubsystemRequests(in <-chan *ssh.Request) {
 	for req := range in {
 		ok := false
-		if req.Type == "subsystem" {
-			if string(req.Payload[4:]) == "sftp" {
-				ok = true
-			}
+		// the payload is a length-prefixed name sent by the client: check its length first,
+		// a short one would otherwise panic and take the whole daemon down
+		if req.Type == "subsystem" && len(req.Payload) >= 4 && string(req.Payload[4:]) == "sftp" {
+			ok = true
 		}
 		_ = req.Reply(ok, nil)
 	}

@@ -27,12 +27,14 @@ type User struct {
 	DB *gorm.DB
 }
 
+// Get finds a user by username. The conditions are written out: with a struct condition an
+// empty value is dropped and the query would return the first user, usually the admin.
 func (us *User) Get(username string) (*models.User, error) {
-	model := &models.User{
-		Username: username,
+	if username == "" {
+		return nil, gorm.ErrRecordNotFound
 	}
-
-	err := us.DB.Where(model).First(model).Error
+	model := &models.User{}
+	err := us.DB.Where("username = ?", username).First(model).Error
 
 	if err != nil {
 		return nil, err
@@ -41,11 +43,11 @@ func (us *User) Get(username string) (*models.User, error) {
 }
 
 func (us *User) GetByID(id uint) (*models.User, error) {
-	model := &models.User{
-		ID: id,
+	if id == 0 {
+		return nil, gorm.ErrRecordNotFound
 	}
-
-	err := us.DB.Where(model).First(model).Error
+	model := &models.User{}
+	err := us.DB.Where("id = ?", id).First(model).Error
 
 	if err != nil {
 		return nil, err
@@ -54,24 +56,23 @@ func (us *User) GetByID(id uint) (*models.User, error) {
 }
 
 func (us *User) ValidateLogin(email, password string) (user *models.User, otpNeeded bool, err error) {
+	if email == "" {
+		err = skypanel.ErrInvalidCredentials
+		return
+	}
 	limitKey := "password:" + email
-	if !LoginAttempts.Allowed(limitKey) {
+	if !LoginAttempts.Take(limitKey) {
 		err = skypanel.ErrTooManyAttempts
 		return
 	}
 	defer func() {
-		if errors.Is(err, skypanel.ErrInvalidCredentials) {
-			LoginAttempts.Record(limitKey)
-		} else if err == nil {
+		if err == nil {
 			LoginAttempts.Reset(limitKey)
 		}
 	}()
 
-	user = &models.User{
-		Email: email,
-	}
-
-	err = us.DB.Where(user).First(user).Error
+	user = &models.User{}
+	err = us.DB.Where("email = ?", email).First(user).Error
 
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return
@@ -96,24 +97,23 @@ func (us *User) ValidateLogin(email, password string) (user *models.User, otpNee
 
 func (us *User) ValidOtp(email, token string) (user *models.User, err error) {
 	// 2FA codes are only 6 digits, so guessing them must be throttled too
+	if email == "" {
+		err = skypanel.ErrInvalidCredentials
+		return
+	}
 	limitKey := "otp:" + email
-	if !LoginAttempts.Allowed(limitKey) {
+	if !LoginAttempts.Take(limitKey) {
 		err = skypanel.ErrTooManyAttempts
 		return
 	}
 	defer func() {
-		if errors.Is(err, skypanel.ErrInvalidCredentials) {
-			LoginAttempts.Record(limitKey)
-		} else if err == nil {
+		if err == nil {
 			LoginAttempts.Reset(limitKey)
 		}
 	}()
 
-	user = &models.User{
-		Email: email,
-	}
-
-	err = us.DB.Where(user).First(user).Error
+	user = &models.User{}
+	err = us.DB.Where("email = ?", email).First(user).Error
 
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return
@@ -147,11 +147,11 @@ func (us *User) IsValidCredentials(user *models.User, password string) bool {
 }
 
 func (us *User) GetByEmail(email string) (*models.User, error) {
-	model := &models.User{
-		Email: email,
+	if email == "" {
+		return nil, gorm.ErrRecordNotFound
 	}
-
-	err := us.DB.Where(model).First(model).Error
+	model := &models.User{}
+	err := us.DB.Where("email = ?", email).First(model).Error
 
 	if err != nil {
 		return nil, err
@@ -202,13 +202,16 @@ func (us *User) ChangePassword(username, newPass string) error {
 	return us.Update(user)
 }
 
-func (us *User) CreatePasswordResetToken(email string) (string, error) {
+// CreatePasswordResetToken returns a reset token for the account with that email, and the
+// address stored on the account: the email must go there, not to what the requester typed,
+// which a case- or accent-insensitive database collation can match to someone else's account.
+func (us *User) CreatePasswordResetToken(email string) (token string, accountEmail string, err error) {
 	user, err := us.GetByEmail(email)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	token := rand.Text()
+	token = rand.Text()
 
 	model := &models.PasswordReset{
 		UserID:    user.ID,
@@ -216,7 +219,7 @@ func (us *User) CreatePasswordResetToken(email string) (string, error) {
 	}
 	err = model.SetToken(token)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	err = us.DB.Transaction(func(tx *gorm.DB) error {
@@ -224,10 +227,10 @@ func (us *User) CreatePasswordResetToken(email string) (string, error) {
 		return tx.Create(model).Error
 	})
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	return token, nil
+	return token, user.Email, nil
 }
 
 func (us *User) ConsumePasswordResetToken(token string) (*models.User, error) {

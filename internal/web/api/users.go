@@ -334,9 +334,12 @@ func setUserPerms(c *gin.Context) {
 		if denyEditingAdmin(c, db, user) {
 			return
 		}
-		allowedScopes := utils.Union(viewModel.Scopes, editorScopes)
+		// server scopes in the global row apply on every server; only an administrator may
+		// grant those, or a user with this permission could open every customer's server
+		editable := panelWideScopes(editorScopes)
+		allowedScopes := utils.Union(viewModel.Scopes, editable)
 		// update perms to match this "setup", but not stomp over what the user can't change
-		replacement := scopes.UpdateScopesWhereGranted(perms.Scopes, allowedScopes, editorScopes)
+		replacement := scopes.UpdateScopesWhereGranted(perms.Scopes, allowedScopes, editable)
 		perms.Scopes = replacement
 	}
 
@@ -365,6 +368,17 @@ func callerScopes(c *gin.Context) []*scopes.Scope {
 		}
 	}
 	return []*scopes.Scope{}
+}
+
+// panelWideScopes leaves out the scopes that act on a server
+func panelWideScopes(list []*scopes.Scope) []*scopes.Scope {
+	out := make([]*scopes.Scope, 0, len(list))
+	for _, s := range list {
+		if !s.ForServer {
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 func callerIsAdmin(c *gin.Context) bool {
