@@ -23,7 +23,7 @@ export default function FileDiffEditor({ language, original, modified }: Readonl
 
   useEffect(() => {
     markMonacoInUse();
-    void ensureMonacoStylesheet();
+    ensureMonacoStylesheet();
   }, []);
 
   const handleMount = (editor: any, monaco: any) => {
