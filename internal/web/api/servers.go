@@ -522,6 +522,16 @@ func editServer(c *gin.Context) {
 		server.Icon = postBody.Icon
 	}
 
+	// the environment decides what the container may touch on the node (host mounts,
+	// privileged mode, running on the host itself): only an administrator may change it
+	if !scopes.ContainsScope(callerScopes(c), scopes.ScopeServerEditDataAdmin) {
+		current, err := currentDefinition(c, ns, server)
+		if response.HandleError(c, err, http.StatusBadGateway) {
+			return
+		}
+		postBody.Environment = lockEnvironment(current.Environment, postBody.Environment)
+	}
+
 	err = ss.Update(server)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
@@ -2387,6 +2397,42 @@ func inheritParentServer(c *gin.Context, db *gorm.DB, us *services.User, postBod
 // mounts (bindings), hostConfig (privileged mode, capabilities, devices) and the network
 // are left out because they give the container access to the host.
 var subServerDockerKeys = []string{"image", "portBindings", "containerRoot", "config", "labels"}
+
+// lockEnvironment keeps the server's environment as it is except for the docker settings a
+// non-admin may choose (subServerDockerKeys)
+func lockEnvironment(current, wanted skypanel.MetadataType) skypanel.MetadataType {
+	locked := skypanel.MetadataType{Type: current.Type, Metadata: make(map[string]interface{}, len(current.Metadata))}
+	for k, v := range current.Metadata {
+		locked.Metadata[k] = v
+	}
+	if current.Type != "docker" || wanted.Type != current.Type {
+		return locked
+	}
+	for _, k := range subServerDockerKeys {
+		if v, ok := wanted.Metadata[k]; ok {
+			locked.Metadata[k] = v
+		} else {
+			delete(locked.Metadata, k)
+		}
+	}
+	return locked
+}
+
+// currentDefinition reads the server's definition from its node
+func currentDefinition(c *gin.Context, ns *services.Node, server *models.Server) (*skypanel.Server, error) {
+	ctx, cancel := nodeCallContext(c)
+	defer cancel()
+	res, err := ns.CallNodeContext(ctx, &server.Node, "GET", daemonServerPrefix+server.Identifier+"/definition", nil, nil)
+	defer utils.CloseResponse(res)
+	if err != nil {
+		return nil, err
+	}
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("the node answered %d reading the definition", res.StatusCode)
+	}
+	definition := &skypanel.Server{}
+	return definition, json.NewDecoder(res.Body).Decode(definition)
+}
 
 // restrictSubServerCreation limits users without admin to the Splitter flow: a child of a
 // server they already have access to, running in a docker container without host access.
