@@ -65,6 +65,8 @@ type Server struct {
 	startedAt     atomic.Int64
 	keepAlive     *time.Ticker
 	keepAliveChan chan bool
+	// disk is the folder size the disk limit is checked against
+	disk diskUsage
 }
 
 var queue *list.List
@@ -851,6 +853,11 @@ func (p *Server) Start() error {
 	if err := p.IsIdle(); err != nil {
 		return err
 	}
+	// like Pterodactyl, a server that already filled its disk does not boot until files are deleted
+	if err := p.CheckDiskSpace(true); err != nil {
+		p.RunningEnvironment.DisplayToConsole(true, "The server has used all of its disk space. Delete files to free some before starting it.\n")
+		return err
+	}
 
 	p.stopRequested.Store(false)
 	p.startedAt.Store(time.Now().UnixNano())
@@ -1400,10 +1407,18 @@ func (p *Server) ArchiveItems(sourceFiles []string, destination string) error {
 	if _, err := os.Stat(destination); err != nil && !os.IsNotExist(err) {
 		return skypanel.ErrFileExists
 	}
+	if err := p.CheckDiskSpace(false); err != nil {
+		return err
+	}
+	defer p.ForgetDiskUsage()
 	return files.Compress(p.GetFileServer(), destination, sourceFiles)
 }
 
 func (p *Server) Extract(source, destination string) error {
+	if err := p.CheckDiskSpace(false); err != nil {
+		return err
+	}
+	defer p.ForgetDiskUsage()
 	return files.Extract(p.GetFileServer(), source, destination, "*", false, nil)
 }
 

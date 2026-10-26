@@ -30,6 +30,11 @@ func ForgotPasswordPost(c *gin.Context) {
 		return
 	}
 
+	// without it, the form could be used to flood any address with reset emails
+	if err := verifyTurnstile(request.TurnstileToken, c.ClientIP()); response.HandleError(c, err, http.StatusBadRequest) {
+		return
+	}
+
 	// answer the same either way, so the limit does not reveal whether the account exists
 	if !services.PasswordResetRequests.Allowed(request.Email) {
 		logging.Info.Printf("Password reset limit reached for: %s", request.Email)
@@ -108,7 +113,8 @@ func ResetPasswordPost(c *gin.Context) {
 }
 
 type forgotPasswordRequestData struct {
-	Email string `json:"email" validate:"required,email"`
+	Email          string `json:"email" validate:"required,email"`
+	TurnstileToken string `json:"turnstileToken"`
 }
 
 type resetPasswordRequestData struct {

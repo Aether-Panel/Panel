@@ -888,8 +888,16 @@ func addStdinPortBinding(bindings network.PortMap, port string) {
 	}}
 }
 
-// applyResourceLimits sets the CPU and memory limits from the server variables.
+// applyResourceLimits sets the CPU, memory and disk I/O limits from the server variables.
 func applyResourceLimits(hostConfig *container.HostConfig, variables map[string]interface{}) {
+	// Disk I/O share against the node's other servers, 10 to 1000 like Pterodactyl (500 is
+	// an even share). Docker applies it where the host's I/O scheduler supports weights.
+	if ioVal, ok := variables["io"]; ok {
+		if weight, err := cast.ToUint16E(ioVal); err == nil && weight > 0 {
+			hostConfig.BlkioWeight = min(max(weight, 10), 1000)
+		}
+	}
+
 	// Apply CPU limit from variables
 	if cpuVal, ok := variables["cpu"]; ok {
 		if cpu, err := cast.ToIntE(cpuVal); err == nil && cpu > 0 {

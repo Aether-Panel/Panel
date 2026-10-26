@@ -27,7 +27,7 @@ type SettingsViewProps = {
 };
 
 const isPort = (n: string) => n === 'port' || /^port\d+$/.test(n);
-const isSkipped = (n: string) => n === 'cpu' || n === 'memory' || n === 'disk' || isPort(n);
+const isSkipped = (n: string) => n === 'cpu' || n === 'memory' || n === 'disk' || n === 'io' || isPort(n);
 const isInternalMeta = (n: string) => isSkipped(n) || /^resolved|^forge|^javaVersion|^build|^git/i.test(n);
 // Values that are real data (versions, addresses, builds, paths) read best in mono.
 const isMonoVar = (n: string) => /version|^ip$|address|build|template|path|repo|^entry$|^branch$/i.test(n);
@@ -323,6 +323,7 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: R
     { key: 'cpu', label: t('servers.settings.cpuLabel'), unit: '%', defaultVal: 100, hint: t('servers.settings.cpuHint') },
     { key: 'memory', label: t('servers.settings.memoryLabel'), unit: 'MB', defaultVal: 1024, hint: t('servers.settings.memoryHint') },
     { key: 'disk', label: t('servers.settings.diskLabel'), unit: 'MB', defaultVal: 10240, hint: t('servers.settings.diskHint') },
+    { key: 'io', label: t('servers.settings.ioLabel'), unit: '', defaultVal: 500, hint: t('servers.settings.ioHint') },
   ];
 
   const autoStartFlags = [
@@ -374,7 +375,7 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: R
               </span>
             }
           >
-            <div className="grid gap-5 sm:grid-cols-3">
+            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
               {resourceFields.map(({ key, label, unit, defaultVal, hint }) => {
                 const val = (localSettings.variables[key]?.value as number) ?? defaultVal;
                 const id = `resource-${key}`;
@@ -387,9 +388,9 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: R
                         type="number"
                         value={val}
                         onChange={(e) => handleVariableChange(key, Number.parseInt(e.target.value) || 0)}
-                        className="h-9 pr-12 text-sm tabular-nums"
+                        className={cn('h-9 text-sm tabular-nums', unit && 'pr-12')}
                       />
-                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">{unit}</span>
+                      {unit && <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">{unit}</span>}
                     </div>
                     <p className="text-xs text-muted-foreground">{hint}</p>
                   </div>

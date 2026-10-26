@@ -214,6 +214,30 @@
       "regenerateTitle": "Regenerate recovery codes",
       "regenerateDescription": "Your previous codes will stop working. Enter a code from your app to continue."
     },
+    "sshKeys": {
+      "title": "SSH keys",
+      "description": "Sign in to SFTP with a key instead of your password. The username is still your email#server.",
+      "emptyTitle": "No SSH keys",
+      "emptyDescription": "Add your computer's public key to sign in to SFTP without typing your password.",
+      "add": "Add key",
+      "addTitle": "Add SSH key",
+      "addDescription": "Paste your public key: the contents of the file ending in .pub. Never paste the private key.",
+      "nameLabel": "Name",
+      "namePlaceholder": "Home laptop",
+      "keyLabel": "Public key",
+      "keyHint": "It is usually ~/.ssh/id_ed25519.pub. Without a name, the key's comment is used.",
+      "save": "Add key",
+      "added": "SSH key added.",
+      "addError": "The key could not be added.",
+      "loadError": "Your SSH keys could not be loaded.",
+      "addedOn": "added {{date}}",
+      "deleteAria": "Delete the key {{name}}",
+      "deleteTitle": "Delete this SSH key?",
+      "deleteDescription": "\"{{name}}\" will no longer sign in to SFTP. This cannot be undone.",
+      "deleteConfirm": "Delete key",
+      "deleted": "SSH key deleted.",
+      "deleteError": "The key could not be deleted."
+    },
     "oauth": {
       "title": "OAuth2 Clients",
       "description": "OAuth2 clients listed here inherit all permissions from their accounts.",
@@ -521,7 +545,8 @@
         "filesMissing": "The server's files or configuration are missing on the node.",
         "portInUse": "Error: the port is already in use.",
         "actionFailed": "Could not complete the action.",
-        "sendFailed": "Could not send: {{command}}"
+        "sendFailed": "Could not send: {{command}}",
+        "diskFullTitle": "Disk full"
       },
       "filters": {
         "label": "Show",
@@ -697,7 +722,9 @@
       "cpuHint": "100% equals 1 processor thread.",
       "memoryHint": "Strict container memory limit.",
       "diskLabel": "Disk Space",
-      "diskHint": "Container storage limit.",
+      "diskHint": "When it fills up, the server stops and will not start or accept new files until space is freed.",
+      "ioLabel": "Disk priority",
+      "ioHint": "Share of disk reads and writes against the node's other servers: 10 to 1000, 500 is an even share.",
       "portsTitle": "Ports",
       "portsDescription": "Ports assigned to this server. The first one is the primary port.",
       "portsTypeLabel": "Type",
@@ -1174,6 +1201,7 @@
       "cpuLabel": "CPU",
       "memoryLabel": "RAM",
       "diskLabel": "Disk",
+      "ioLabel": "Disk priority",
       "variablesTitle": "Template variables",
       "optionNone": "None",
       "enable": "Enable",
@@ -1294,7 +1322,9 @@
       "copyPort": "Copy port",
       "copyUsername": "Copy username",
       "unavailableTitle": "SFTP unavailable",
-      "unavailableDescription": "Could not load this server's node information."
+      "unavailableDescription": "Could not load this server's node information.",
+      "sshKeyHint": "Rather not use your password? Sign in with an SSH key: the username stays the same.",
+      "sshKeyLink": "Add an SSH key"
     },
     "splitter": {
       "title": "Server split",
@@ -3342,5 +3372,15 @@
       "empty": "No products defined.",
       "limitsFormat": "CPU: {{cpu}}%, RAM: {{memory}}MB, Disk: {{disk}}MB"
     }
+  },
+  "apiErrors": {
+    "ErrDiskLimitExceeded": "The server has used all of its disk space. Delete files to free some before starting it or uploading more.",
+    "ErrSSHKeyInvalid": "That is not a valid SSH public key. Paste one line, such as the contents of id_ed25519.pub.",
+    "ErrSSHKeyIsPrivate": "That is a private key. Paste the public key (the .pub file) and never share the private one.",
+    "ErrSSHKeyWeak": "RSA keys need at least 2048 bits. Better create an ed25519 key.",
+    "ErrSSHKeyExists": "That key is already added to your account.",
+    "ErrSSHKeyLimit": "You have reached the maximum number of SSH keys. Delete one before adding another.",
+    "ErrSSHKeyName": "Give the key a name of up to 100 characters.",
+    "ErrCaptchaFailed": "The anti-bot check failed. Please try again."
   }
 }

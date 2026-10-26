@@ -35,7 +35,7 @@ func LoginPost(c *gin.Context) {
 		return
 	}
 
-	if err := verifyTurnstile(request.TurnstileToken); response.HandleError(c, err, http.StatusBadRequest) {
+	if err := verifyTurnstile(request.TurnstileToken, c.ClientIP()); response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
 

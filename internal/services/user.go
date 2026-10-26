@@ -174,6 +174,7 @@ func (us *User) Delete(model *models.User) (err error) {
 			models.Session{},
 			models.RecoveryCode{},
 			models.PasswordReset{},
+			models.SSHKey{},
 		} {
 			if err := tx.Delete(owned, userIDQuery, model.ID).Error; err != nil {
 				return err

@@ -214,6 +214,30 @@
       "regenerateTitle": "Regenerar códigos de recuperación",
       "regenerateDescription": "Los códigos anteriores dejarán de funcionar. Introduce un código de tu aplicación para continuar."
     },
+    "sshKeys": {
+      "title": "Claves SSH",
+      "description": "Entra por SFTP con una clave en lugar de tu contraseña. El usuario sigue siendo tu correo#servidor.",
+      "emptyTitle": "Sin claves SSH",
+      "emptyDescription": "Añade la clave pública de tu equipo para entrar por SFTP sin escribir la contraseña.",
+      "add": "Añadir clave",
+      "addTitle": "Añadir clave SSH",
+      "addDescription": "Pega tu clave pública: el contenido del archivo que acaba en .pub. Nunca pegues la clave privada.",
+      "nameLabel": "Nombre",
+      "namePlaceholder": "Portátil de casa",
+      "keyLabel": "Clave pública",
+      "keyHint": "Normalmente está en ~/.ssh/id_ed25519.pub. Si no pones nombre, se usa el comentario de la clave.",
+      "save": "Añadir clave",
+      "added": "Clave SSH añadida.",
+      "addError": "No se pudo añadir la clave.",
+      "loadError": "No se pudieron cargar tus claves SSH.",
+      "addedOn": "añadida el {{date}}",
+      "deleteAria": "Borrar la clave {{name}}",
+      "deleteTitle": "¿Borrar esta clave SSH?",
+      "deleteDescription": "«{{name}}» dejará de poder entrar por SFTP. Esto no se puede deshacer.",
+      "deleteConfirm": "Borrar clave",
+      "deleted": "Clave SSH borrada.",
+      "deleteError": "No se pudo borrar la clave."
+    },
     "oauth": {
       "title": "Clientes de OAuth2",
       "description": "Los clientes de OAuth2 listados aquí heredan todos los permisos de sus cuentas.",
@@ -521,7 +545,8 @@
         "filesMissing": "Faltan los archivos o la configuración del servidor en el nodo.",
         "portInUse": "Error: el puerto ya está en uso.",
         "actionFailed": "No se pudo completar la acción.",
-        "sendFailed": "No se pudo enviar: {{command}}"
+        "sendFailed": "No se pudo enviar: {{command}}",
+        "diskFullTitle": "Disco lleno"
       },
       "filters": {
         "label": "Mostrar",
@@ -697,7 +722,9 @@
       "cpuHint": "100% equivale a 1 hilo del procesador.",
       "memoryHint": "Límite estricto de memoria del contenedor.",
       "diskLabel": "Espacio en disco",
-      "diskHint": "Límite de almacenamiento del contenedor.",
+      "diskHint": "Al llenarse, el servidor se detiene y no arranca ni acepta archivos nuevos hasta que se libere espacio.",
+      "ioLabel": "Prioridad de disco",
+      "ioHint": "Reparto de lectura y escritura de disco frente a los demás servidores del nodo: de 10 a 1000, 500 es un reparto igual.",
       "portsTitle": "Puertos",
       "portsDescription": "Puertos asignados a este servidor. El primero es el puerto principal.",
       "portsTypeLabel": "Tipo",
@@ -1174,6 +1201,7 @@
       "cpuLabel": "CPU",
       "memoryLabel": "RAM",
       "diskLabel": "Disco",
+      "ioLabel": "Prioridad de disco",
       "variablesTitle": "Variables de la plantilla",
       "optionNone": "Ninguno",
       "enable": "Habilitar",
@@ -1294,7 +1322,9 @@
       "copyPort": "Copiar puerto",
       "copyUsername": "Copiar usuario",
       "unavailableTitle": "SFTP no disponible",
-      "unavailableDescription": "No se pudo cargar la información del nodo de este servidor."
+      "unavailableDescription": "No se pudo cargar la información del nodo de este servidor.",
+      "sshKeyHint": "¿Prefieres no usar la contraseña? Entra con una clave SSH: el usuario es el mismo.",
+      "sshKeyLink": "Añadir clave SSH"
     },
     "splitter": {
       "title": "División del servidor",
@@ -3342,5 +3372,15 @@
       "empty": "No hay productos definidos.",
       "limitsFormat": "CPU: {{cpu}}%, RAM: {{memory}}MB, Disco: {{disk}}MB"
     }
+  },
+  "apiErrors": {
+    "ErrDiskLimitExceeded": "El servidor ha usado todo su espacio en disco. Borra archivos para liberar espacio antes de arrancarlo o subir más.",
+    "ErrSSHKeyInvalid": "Eso no es una clave pública SSH válida. Pega una sola línea, como el contenido de id_ed25519.pub.",
+    "ErrSSHKeyIsPrivate": "Eso es una clave privada. Pega la clave pública (el archivo .pub) y no compartas nunca la privada.",
+    "ErrSSHKeyWeak": "Las claves RSA deben tener al menos 2048 bits. Mejor crea una ed25519.",
+    "ErrSSHKeyExists": "Esa clave ya está añadida a tu cuenta.",
+    "ErrSSHKeyLimit": "Has llegado al máximo de claves SSH. Borra alguna antes de añadir otra.",
+    "ErrSSHKeyName": "Ponle a la clave un nombre de hasta 100 caracteres.",
+    "ErrCaptchaFailed": "La comprobación anti-bots ha fallado. Vuelve a intentarlo."
   }
 }

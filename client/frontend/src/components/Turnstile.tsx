@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useConfig } from '@/contexts/config-context';
 
 declare global {
   interface Window {
@@ -14,27 +15,49 @@ declare global {
 
 const TURNSTILE_SCRIPT_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
 
-let scriptLoaded = false;
+// one load shared by every widget; a failed load is forgotten so the next widget retries
+let scriptPromise: Promise<void> | null = null;
 
 function loadTurnstileScript(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (window.turnstile) {
-      resolve();
-      return;
-    }
-    if (scriptLoaded) {
-      window.addEventListener('load', () => resolve(), { once: true });
-      return;
-    }
-    scriptLoaded = true;
+  if (window.turnstile) return Promise.resolve();
+  scriptPromise ??= new Promise<void>((resolve, reject) => {
     const script = document.createElement('script');
     script.src = TURNSTILE_SCRIPT_SRC;
     script.async = true;
     script.defer = true;
     script.onload = () => resolve();
-    script.onerror = () => reject(new Error('Failed to load Cloudflare Turnstile script'));
+    script.onerror = () => {
+      scriptPromise = null;
+      script.remove();
+      reject(new Error('Failed to load Cloudflare Turnstile script'));
+    };
     document.head.appendChild(script);
   });
+  return scriptPromise;
+}
+
+/**
+ * Turnstile for an auth form, when the panel has it turned on. A token is good for one
+ * request only, so `reset` puts up a fresh widget after every attempt that used it.
+ */
+export function useCaptcha() {
+  const { config } = useConfig();
+  const siteKey = config?.turnstileEnabled ? config?.turnstileSiteKey || '' : '';
+  const [token, setToken] = useState<string | null>(null);
+  const [round, setRound] = useState(0);
+
+  const reset = useCallback(() => {
+    setToken(null);
+    setRound((r) => r + 1);
+  }, []);
+
+  return {
+    token: token ?? undefined,
+    // forms wait for the check before they can be sent
+    ready: !siteKey || token !== null,
+    reset,
+    widget: siteKey ? <Turnstile key={round} siteKey={siteKey} onVerify={setToken} /> : null,
+  };
 }
 
 export default function Turnstile({

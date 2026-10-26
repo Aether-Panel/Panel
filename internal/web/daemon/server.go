@@ -156,6 +156,15 @@ func getServerFromGin(c *gin.Context) *servers.Server {
 	return c.MustGet("program").(*servers.Server)
 }
 
+// diskStatus answers a write the disk limit refused with 409, so the caller is told the
+// disk is full instead of seeing a server error
+func diskStatus(err error, fallback int) int {
+	if errors.Is(err, skypanel.ErrDiskLimitExceeded) {
+		return http.StatusConflict
+	}
+	return fallback
+}
+
 // @Summary Start server
 // @Description Start server
 // @Success 202 {object} nil
@@ -168,8 +177,11 @@ func startServer(c *gin.Context) {
 	server := getServerFromGin(c)
 	_, wait := c.GetQuery("wait")
 
-	// Pre-check for port conflicts so the user gets a clear error instead of a
-	// generic 202 that later fails asynchronously on the docker daemon.
+	// a full disk and port conflicts are answered here, instead of a 202 that later
+	// fails asynchronously on the docker daemon
+	if err := server.CheckDiskSpace(false); response.HandleError(c, err, http.StatusConflict) {
+		return
+	}
 	if err := checkPortConflicts(server); err != nil {
 		response.HandleError(c, err, http.StatusConflict)
 		return
@@ -226,8 +238,11 @@ func restartServer(c *gin.Context) {
 	server := getServerFromGin(c)
 	_, wait := c.GetQuery("wait")
 
-	// Pre-check for port conflicts so the user gets a clear error instead of a
-	// generic 202 that later fails asynchronously on the docker daemon.
+	// a full disk and port conflicts are answered here, instead of a 202 that later
+	// fails asynchronously on the docker daemon
+	if err := server.CheckDiskSpace(false); response.HandleError(c, err, http.StatusConflict) {
+		return
+	}
 	if err := checkPortConflicts(server); err != nil {
 		response.HandleError(c, err, http.StatusConflict)
 		return
@@ -824,8 +839,17 @@ func putFile(c *gin.Context) {
 		return
 	}
 
+	if err := server.CheckDiskSpace(false); response.HandleError(c, err, http.StatusConflict) {
+		return
+	}
+
 	// keep the text being replaced, so a config edit can be compared and undone
 	recordFileVersion(server, targetPath)
+
+	// the old content is about to be truncated, so it stops counting against the disk limit
+	if fi, err := server.GetFileServer().Stat(targetPath); err == nil && !fi.IsDir() {
+		server.ReleaseDisk(fi.Size())
+	}
 
 	file, err := server.GetFileServer().OpenFile(targetPath, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0644)
 	defer utils.Close(file)
@@ -833,7 +857,15 @@ func putFile(c *gin.Context) {
 		return
 	}
 
-	_, err = io.Copy(file, sourceFile)
+	_, err = io.Copy(server.DiskWriter(file), sourceFile)
+	if errors.Is(err, skypanel.ErrDiskLimitExceeded) {
+		// a half-written upload is useless and would keep the disk full
+		utils.Close(file)
+		_ = server.GetFileServer().Remove(targetPath)
+		server.ForgetDiskUsage()
+		response.HandleError(c, err, http.StatusConflict)
+		return
+	}
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
@@ -864,6 +896,8 @@ func deleteFile(c *gin.Context) {
 	} else {
 		err = server.GetFileServer().Remove(targetPath)
 	}
+	// freed space counts at once, so a server stopped for a full disk can start again
+	server.ForgetDiskUsage()
 
 	if !response.HandleError(c, err, http.StatusInternalServerError) {
 		c.Status(http.StatusNoContent)
@@ -1048,7 +1082,7 @@ func archive(c *gin.Context) {
 	}
 
 	err := server.ArchiveItems(files, destination)
-	if !response.HandleError(c, err, http.StatusInternalServerError) {
+	if !response.HandleError(c, err, diskStatus(err, http.StatusInternalServerError)) {
 		c.Status(http.StatusNoContent)
 	}
 }
@@ -1081,12 +1115,15 @@ func extract(c *gin.Context) {
 
 	var err error
 	if skipRoot {
-		err = files.Extract(server.GetFileServer(), targetPath, destination, "*", true, nil)
+		if err = server.CheckDiskSpace(false); err == nil {
+			err = files.Extract(server.GetFileServer(), targetPath, destination, "*", true, nil)
+			server.ForgetDiskUsage()
+		}
 	} else {
 		err = server.Extract(targetPath, destination)
 	}
 
-	if !response.HandleError(c, err, http.StatusInternalServerError) {
+	if !response.HandleError(c, err, diskStatus(err, http.StatusInternalServerError)) {
 		c.Status(http.StatusNoContent)
 	}
 }
@@ -1541,6 +1578,10 @@ func installPlugin(c *gin.Context) {
 		return
 	}
 
+	if err := server.CheckDiskSpace(false); response.HandleError(c, err, http.StatusConflict) {
+		return
+	}
+
 	// Crear carpeta plugins si no existe
 	pluginsDir := "plugins"
 	_, err = server.GetFileServer().Stat(pluginsDir)
@@ -1559,8 +1600,13 @@ func installPlugin(c *gin.Context) {
 	}
 	defer utils.Close(file)
 
-	_, err = io.Copy(file, pluginResp.Body)
-	if response.HandleError(c, err, http.StatusInternalServerError) {
+	_, err = io.Copy(server.DiskWriter(file), pluginResp.Body)
+	if errors.Is(err, skypanel.ErrDiskLimitExceeded) {
+		utils.Close(file)
+		_ = server.GetFileServer().Remove(pluginPath)
+		server.ForgetDiskUsage()
+	}
+	if response.HandleError(c, err, diskStatus(err, http.StatusInternalServerError)) {
 		return
 	}
 

@@ -55,7 +55,7 @@ class ErrorBoundary extends React.Component<
 type Step = 1 | 2 | 3;
 
 /** Template variables that fill the resource inputs, with the value used when the template leaves them empty. */
-const RESOURCE_DEFAULTS: Record<string, number> = { cpu: 100, memory: 1024, disk: 10240 };
+const RESOURCE_DEFAULTS: Record<string, number> = { cpu: 100, memory: 1024, disk: 10240, io: 500 };
 const isResourceKey = (key: string) => Object.hasOwn(RESOURCE_DEFAULTS, key);
 
 /** A template variable's starting value: its value, else its default, coerced to the variable's type. */
@@ -386,7 +386,7 @@ function TemplateVariableInput({ fieldId, varKey, variable, currentVal, stringif
 
 function Step3Configuration({
     templateDetails, templateError, configData, setConfigData,
-    cpuLimit, setCpuLimit, memoryLimit, setMemoryLimit, diskLimit, setDiskLimit,
+    cpuLimit, setCpuLimit, memoryLimit, setMemoryLimit, diskLimit, setDiskLimit, ioLimit, setIoLimit,
     extraPorts, setExtraPorts,
     setCurrentStep, t
 }: any) {
@@ -417,12 +417,12 @@ function Step3Configuration({
     }
 
     const variables = (templateDetails.data || templateDetails.variables || templateDetails.Variables || {}) as Record<string, any>;
-    const entries = Object.entries(variables).filter(([key, v]) => v && !v.internal && !['cpu', 'memory', 'disk'].includes(key));
+    const entries = Object.entries(variables).filter(([key, v]) => v && !v.internal && !isResourceKey(key));
 
     return (
         <div className="grid w-full gap-6">
             <StepSection title={t('servers.create.resourcesTitle')} hint={t('servers.create.resourcesHint')}>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                     <div className="grid min-w-0 gap-2">
                         <Label htmlFor="limit-cpu">{t('servers.create.cpuLabel')} <span className="font-normal text-muted-foreground">(%)</span></Label>
                         <Input id="limit-cpu" type="number" inputMode="numeric" value={cpuLimit} onChange={(e) => setCpuLimit(e.target.value === '' ? '' : Number(e.target.value))} className="font-mono tabular-nums" />
@@ -434,6 +434,10 @@ function Step3Configuration({
                     <div className="grid min-w-0 gap-2">
                         <Label htmlFor="limit-disk">{t('servers.create.diskLabel')} <span className="font-normal text-muted-foreground">(MB)</span></Label>
                         <Input id="limit-disk" type="number" inputMode="numeric" value={diskLimit} onChange={(e) => setDiskLimit(e.target.value === '' ? '' : Number(e.target.value))} className="font-mono tabular-nums" />
+                    </div>
+                    <div className="grid min-w-0 gap-2">
+                        <Label htmlFor="limit-io">{t('servers.create.ioLabel')} <span className="font-normal text-muted-foreground">(10–1000)</span></Label>
+                        <Input id="limit-io" type="number" inputMode="numeric" min={10} max={1000} value={ioLimit} onChange={(e) => setIoLimit(e.target.value === '' ? '' : Number(e.target.value))} className="font-mono tabular-nums" />
                     </div>
                 </div>
             </StepSection>
@@ -561,6 +565,7 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
     const [cpuLimit, setCpuLimit] = useState<number | ''>(100);
     const [memoryLimit, setMemoryLimit] = useState<number | ''>(1024);
     const [diskLimit, setDiskLimit] = useState<number | ''>(10240);
+    const [ioLimit, setIoLimit] = useState<number | ''>(500);
     const [extraPorts, setExtraPorts] = useState<string[]>([]);
 
     useEffect(() => {
@@ -588,6 +593,7 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
     const setResourceLimit = (key: string, value: number) => {
         if (key === 'cpu') setCpuLimit(value);
         else if (key === 'memory') setMemoryLimit(value);
+        else if (key === 'io') setIoLimit(value);
         else setDiskLimit(value);
     };
 
@@ -663,6 +669,7 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
             vars['cpu'] = { value: cpuLimit === '' ? 100 : cpuLimit };
             vars['memory'] = { value: memoryLimit === '' ? 1024 : memoryLimit };
             vars['disk'] = { value: diskLimit === '' ? 10240 : diskLimit };
+            vars['io'] = { value: ioLimit === '' ? 500 : ioLimit };
 
             // Inject extra ports as port2, port3, ... so the daemon binds them
             extraPorts.map(Number).filter(p => p > 0).forEach((p, i) => {
@@ -788,6 +795,7 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
                                 cpuLimit={cpuLimit} setCpuLimit={setCpuLimit}
                                 memoryLimit={memoryLimit} setMemoryLimit={setMemoryLimit}
                                 diskLimit={diskLimit} setDiskLimit={setDiskLimit}
+                                ioLimit={ioLimit} setIoLimit={setIoLimit}
                                 extraPorts={extraPorts} setExtraPorts={setExtraPorts}
                                 setCurrentStep={setCurrentStep} t={t}
                             />

@@ -609,6 +609,9 @@ export default function ServerDetailPage({ params }: Readonly<{ params: { id: st
       if (e instanceof ApiError && e.status === 404) {
         addLog(`> ${t('servers.console.system.filesMissing')}`);
         sileo.error({ title: t('common.error'), description: t('servers.console.system.filesMissing') });
+      } else if (e instanceof ApiError && e.data?.error?.code === 'ErrDiskLimitExceeded') {
+        addLog(`> ${t('apiErrors.ErrDiskLimitExceeded')}`);
+        sileo.error({ title: t('servers.console.system.diskFullTitle'), description: t('apiErrors.ErrDiskLimitExceeded') });
       } else if (e instanceof ApiError && e.status === 409) {
         addLog(`> ${t('servers.console.system.portInUse')}`);
         sileo.error({ title: t('common.error'), description: e.message || t('servers.detail.portInUse') });

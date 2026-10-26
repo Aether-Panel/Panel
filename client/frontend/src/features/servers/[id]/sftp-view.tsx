@@ -161,6 +161,10 @@ export default function SFTPView({ server }: Readonly<SFTPViewProps>) {
                                 </span>
                             </div>
                         </div>
+                        <p className="text-pretty text-xs text-muted-foreground">
+                            {t('servers.sftp.sshKeyHint')}{' '}
+                            <a href="/profile/settings/#profile-ssh" className="rounded text-primary-bright hover:underline focus-ring">{t('servers.sftp.sshKeyLink')}</a>
+                        </p>
                     </section>
                 </div>
             </div>

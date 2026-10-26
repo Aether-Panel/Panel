@@ -25,6 +25,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { EmptyState } from '@/components/empty-state';
+import { SSHKeys } from './ssh-keys';
 
 /** Copy-to-clipboard icon button with a short "copied" state. */
 function CopyButton({ value, label, copiedLabel, className }: Readonly<{ value: string; label: string; copiedLabel: string; className?: string }>) {
@@ -365,6 +366,11 @@ export default function ProfileSettingsPage() {
               )}
             </div>
           </div>
+        </ProfileSection>
+
+        {/* SSH keys for SFTP */}
+        <ProfileSection id="profile-ssh" title={t('profileSettings.sshKeys.title')} description={t('profileSettings.sshKeys.description')}>
+          <SSHKeys />
         </ProfileSection>
 
         {/* OAuth2 clients */}

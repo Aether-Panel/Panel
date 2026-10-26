@@ -11,7 +11,7 @@ import type { LoginResult } from '@/contexts/providers';
 import { useConfig } from '@/contexts/config-context';
 import { useTranslations } from '@/contexts/translations-context';
 import { ArrowLeft, KeyRound, Loader2, Mail, Lock, ShieldCheck } from 'lucide-react';
-import Turnstile from '@/components/Turnstile';
+import { useCaptcha } from '@/components/Turnstile';
 import { AuthFrame, AuthInput, AuthPasswordInput, OtpInput, authLabelClass, authLinkClass, authMessageClass } from '@/components/AuthShell';
 
 /** Same rules as before; only the messages now follow the active language. */
@@ -28,7 +28,7 @@ export default function LoginPage() {
   const { login, verifyOtp, loading } = useAuth();
   const { config } = useConfig();
   const panelName = config?.branding?.name || 'Aether Panel';
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const captcha = useCaptcha();
 
   const formSchema = useMemo(() => createFormSchema(t), [t]);
   const form = useForm<LoginValues>({
@@ -43,9 +43,11 @@ export default function LoginPage() {
   const [step, setStep] = useState<'credentials' | 'otp'>('credentials');
 
   async function onSubmit(values: LoginValues) {
-    const result = await login({ ...values, turnstileToken: turnstileToken || undefined });
+    const result = await login({ ...values, turnstileToken: captcha.token });
     if (result === 'otp') {
       setStep('otp');
+    } else if (result !== 'success') {
+      captcha.reset();
     }
   }
 
@@ -122,22 +124,14 @@ export default function LoginPage() {
             </a>
           </div>
 
-          <Button type="submit" className="h-11 w-full font-semibold" disabled={loading}>
+          {captcha.widget}
+
+          <Button type="submit" className="h-11 w-full font-semibold" disabled={loading || !captcha.ready}>
             {loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
             {t('auth.login.submit')}
           </Button>
         </form>
       </Form>
-
-      {config?.turnstileEnabled && (
-        <div className="mt-6 flex justify-center">
-          <Turnstile
-            siteKey={config?.turnstileSiteKey || ''}
-            onVerify={(token) => setTurnstileToken(token)}
-            theme="dark"
-          />
-        </div>
-      )}
     </AuthFrame>
   );
 }

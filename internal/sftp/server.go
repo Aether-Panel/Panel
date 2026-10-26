@@ -47,6 +47,11 @@ func runServer() error {
 			return auth.Validate(c.User(), string(pass))
 		},
 	}
+	if keys, ok := auth.(skypanel.SFTPKeyAuthorization); ok {
+		serverConfig.PublicKeyCallback = func(c ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
+			return keys.ValidateKey(c.User(), key)
+		}
+	}
 
 	serverKeyFile := config.SftpKey.Value()
 
@@ -162,7 +167,7 @@ func handleConn(conn net.Conn, serverConfig *ssh.ServerConfig) error {
 			return nil
 		}
 
-		fs := CreateRequestPrefix(sc.Conn.RemoteAddr(), server.ID(), server.GetFileServer())
+		fs := CreateRequestPrefix(sc.Conn.RemoteAddr(), server)
 		s := sftp.NewRequestServer(channel, fs)
 
 		if err = s.Serve(); err != nil {
