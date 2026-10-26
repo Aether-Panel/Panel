@@ -54,3 +54,18 @@ func TestCollectScopes_GlobalPermissionRowStillGrantsServerScopes(t *testing.T) 
 
 	assert.True(t, scopes.ContainsScope(got, scopes.ScopeServerConsole))
 }
+
+func TestMayStillSignIn(t *testing.T) {
+	roleID := uint(2)
+	server := "abc"
+	withRole := &models.User{RoleID: &roleID, Role: *userRole()}
+	assert.True(t, mayStillSignIn(withRole), "the role gives login")
+
+	globalRow := &models.User{Permissions: []models.Permissions{{Scopes: []*scopes.Scope{scopes.ScopeLogin}}}}
+	assert.True(t, mayStillSignIn(globalRow), "the panel-wide row gives login")
+
+	onlyServer := &models.User{Permissions: []models.Permissions{{ServerIdentifier: &server, Scopes: []*scopes.Scope{scopes.ScopeLogin}}}}
+	assert.False(t, mayStillSignIn(onlyServer), "a server row does not")
+
+	assert.False(t, mayStillSignIn(&models.User{}), "nothing left: the session ends")
+}

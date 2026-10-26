@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/database"
+	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
+	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -47,6 +49,13 @@ func AuthMiddleware(c *gin.Context) {
 	}
 
 	if sess.UserID != nil {
+		// login is checked again on every request: taking it away (or the role that gave
+		// it) must end the sessions already open, not only stop new sign-ins
+		if !mayStillSignIn(&sess.User) {
+			_ = ss.Expire(token)
+			abortUnauthorized(c)
+			return
+		}
 		c.Set("user", &sess.User)
 	}
 	if sess.ClientID != nil {
@@ -61,6 +70,23 @@ func AuthMiddleware(c *gin.Context) {
 		maxAge := int(services.SessionLength / time.Second)
 		SetAuthCookie(c, token, maxAge)
 	}
+}
+
+// mayStillSignIn is the same test opening a session makes: the login scope in the user's
+// panel-wide permissions or in their role
+func mayStillSignIn(user *models.User) bool {
+	granted := make([]*scopes.Scope, 0)
+	for _, p := range user.Permissions {
+		if p.ServerIdentifier == nil || *p.ServerIdentifier == "" {
+			granted = append(granted, p.Scopes...)
+		}
+	}
+	if user.RoleID != nil && user.Role.ID == *user.RoleID {
+		for _, s := range user.Role.Scopes {
+			granted = scopes.AddScope(granted, scopes.GetScope(s))
+		}
+	}
+	return scopes.ContainsScope(granted, scopes.ScopeLogin)
 }
 
 // skipsLogin reports whether the path is public, unless it is one of the overrides
