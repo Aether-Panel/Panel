@@ -92,6 +92,23 @@ function flipFaces(geometry: THREE.BufferGeometry) {
     }
 }
 
+// ExtrudeGeometry keeps its front and back faces in group 0 and its walls in group 1: split
+// them so the plate's face can stay flat ink while its edge is lit
+function splitCapsAndSides(geometry: THREE.BufferGeometry): [THREE.BufferGeometry, THREE.BufferGeometry] {
+    const parts = [new THREE.BufferGeometry(), new THREE.BufferGeometry()];
+    for (const [name, attribute] of Object.entries(geometry.attributes) as [string, THREE.BufferAttribute][]) {
+        const n = attribute.itemSize;
+        const chunks: number[][] = [[], []];
+        for (const group of geometry.groups) {
+            const slice = attribute.array.slice(group.start * n, (group.start + group.count) * n);
+            chunks[group.materialIndex === 1 ? 1 : 0].push(...slice);
+        }
+        chunks.forEach((values, i) => parts[i].setAttribute(name, new THREE.Float32BufferAttribute(values, n)));
+    }
+    geometry.dispose();
+    return [parts[0], parts[1]];
+}
+
 async function buildEmblem(isCancelled: () => boolean): Promise<{ group: THREE.Group; dispose: () => void } | null> {
     const svg = await fetch('/img/emblem.svg').then((r) => r.text());
     const next = yieldEvery();
@@ -103,6 +120,7 @@ async function buildEmblem(isCancelled: () => boolean): Promise<{ group: THREE.G
 
     const pieces: Record<Layer, THREE.BufferGeometry[]> = { black: [], gold: [], blue: [], ivory: [] };
     const strokes: THREE.BufferGeometry[] = [];
+    const plateEdges: THREE.BufferGeometry[] = [];
 
     let order = 0;
     for (const path of data.paths) {
@@ -121,7 +139,13 @@ async function buildEmblem(isCancelled: () => boolean): Promise<{ group: THREE.G
             await next();
             const geometry = new THREE.ExtrudeGeometry(shape, { depth: depth / scale, bevelEnabled: false, curveSegments: 3 });
             geometry.translate(0, 0, z / scale);
-            pieces[layer].push(geometry);
+            if (layer === 'black') {
+                const [face, edge] = splitCapsAndSides(geometry);
+                pieces.black.push(face);
+                plateEdges.push(edge);
+            } else {
+                pieces[layer].push(geometry);
+            }
         }
         // the black outline's 44-unit stroke widens the silhouette: draw it on the plate's face
         if (layer === 'black' && style?.stroke && style.stroke !== 'none') {
@@ -142,12 +166,16 @@ async function buildEmblem(isCancelled: () => boolean): Promise<{ group: THREE.G
     }
 
     const materials: Record<Layer, THREE.Material> = {
-        // dark lacquered metal: lit, so the plate's edge shows its depth when it turns
-        black: new THREE.MeshStandardMaterial({ color: 0x07090c, metalness: 0.45, roughness: 0.5, envMapIntensity: 0.28 }),
-        gold: new THREE.MeshPhysicalMaterial({ color: 0xebbd52, metalness: 1, roughness: 0.22, clearcoat: 0.5, clearcoatRoughness: 0.2 }),
+        // the face is ink, as in the drawing, so the outlines stay black seen from the front
+        black: new THREE.MeshBasicMaterial({ color: 0x07090c }),
+        // seen head-on the gold mirrors the bright room; a little less of it keeps its colour
+        gold: new THREE.MeshPhysicalMaterial({ color: 0xe8b445, metalness: 1, roughness: 0.3, clearcoat: 0.4, clearcoatRoughness: 0.25, envMapIntensity: 0.75 }),
         blue: new THREE.MeshPhysicalMaterial({ color: 0x1670ab, roughness: 0.35, metalness: 0, clearcoat: 0.8, clearcoatRoughness: 0.1, envMapIntensity: 0.3 }),
         ivory: new THREE.MeshPhysicalMaterial({ color: 0xeae7dc, roughness: 0.45, metalness: 0, clearcoat: 0.5, clearcoatRoughness: 0.15, envMapIntensity: 0.45 }),
     };
+
+    // the plate's edge is dark lacquered metal, lit, so its depth shows when the emblem turns
+    const edgeMaterial = new THREE.MeshStandardMaterial({ color: 0x0b0e14, metalness: 0.3, roughness: 0.6, envMapIntensity: 0.18 });
 
     const group = new THREE.Group();
     const geometries: THREE.BufferGeometry[] = [];
@@ -171,6 +199,14 @@ async function buildEmblem(isCancelled: () => boolean): Promise<{ group: THREE.G
             group.add(new THREE.Mesh(place(merged), materials[layer]));
         }
     }
+    if (plateEdges.length > 0) {
+        await next();
+        const merged = mergeGeometries(plateEdges, false);
+        plateEdges.forEach((g) => g.dispose());
+        if (merged) {
+            group.add(new THREE.Mesh(place(merged), edgeMaterial));
+        }
+    }
     if (strokes.length > 0) {
         await next();
         const merged = mergeGeometries(strokes, false);
@@ -185,6 +221,7 @@ async function buildEmblem(isCancelled: () => boolean): Promise<{ group: THREE.G
         dispose: () => {
             geometries.forEach((g) => g.dispose());
             Object.values(materials).forEach((m) => m.dispose());
+            edgeMaterial.dispose();
         },
     };
 }
@@ -222,7 +259,7 @@ export function mountEmblem({ canvas, onReady, onFail }: MountOptions): () => vo
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.05;
+    renderer.toneMappingExposure = 0.95;
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 40);
