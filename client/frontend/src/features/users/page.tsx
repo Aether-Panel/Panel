@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
+import { fetchAllPages } from '@/lib/paged';
 import { sileo } from "@/lib/toast";
 import { EmptyState } from '@/components/empty-state';
 
@@ -153,16 +154,16 @@ export default function UsersPage() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const resp = await api.get('/api/users');
-      // The API returns { users: [...], metadata: {...} }
-      const usersData = resp.users || [];
+      // every page: without a limit the API answers only the first 20
+      const { items: usersData } = await fetchAllPages('/api/users', 'users');
       setUsers(usersData.map((u: any) => ({
         id: u.id,
         name: u.username, // Using username as name
         username: u.username,
         email: u.email,
         roleId: u.roleId,
-        role: u.role?.name || (u.roleId ? t('users.roleFallback', { id: u.roleId }) : t('users.noRole')),
+        // the role's name; when the API only sends its id, the badge looks it up in the roles list
+        role: u.roleName || '',
         assignedServers: [] // not listed here; the servers dialog loads them on demand
       })));
       setLoadFailed(false);
@@ -186,7 +187,8 @@ export default function UsersPage() {
 
   useEffect(() => {
     setIsMounted(true);
-    if (role && !hasScope('users.info.view')) {
+    // the list needs the search permission its endpoint checks
+    if (role && !hasScope('users.info.search')) {
       window.location.href = '/dashboard';
     }
     void fetchUsers();
@@ -276,13 +278,18 @@ export default function UsersPage() {
   }, [viewingUser]);
 
 
-  if (!isMounted || !hasScope('users.info.view') || (loading && users.length === 0)) {
+  if (!isMounted || !hasScope('users.info.search') || (loading && users.length === 0)) {
     return <UsersSkeleton />;
   }
 
+  const roleLabel = (user: User) =>
+    user.role
+    || roles.find((r: any) => r.id === user.roleId)?.name
+    || (user.roleId ? t('users.roleFallback', { id: user.roleId }) : t('users.noRole'));
+
   const roleBadge = (user: User) => (
     <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="max-w-[12rem] truncate">
-      {user.role}
+      {roleLabel(user)}
     </Badge>
   );
 

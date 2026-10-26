@@ -244,7 +244,7 @@ function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-border border-t-primary border-l-accent" />
-          <p className="text-muted-foreground animate-pulse">Initializing {panelName}...</p>
+          <p className="text-muted-foreground animate-pulse">{t('common.initializing', { name: panelName })}</p>
         </div>
       </div>
     );

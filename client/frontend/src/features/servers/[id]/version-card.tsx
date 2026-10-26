@@ -57,6 +57,9 @@ export default function VersionCard({ serverId }: Readonly<{ serverId: string }>
       if (wasChanging.current && !data.changing) setOutcome(data.lastError ? 'failed' : 'done');
       wasChanging.current = data.changing;
     } catch (err) {
+      // while a change runs, one failed poll must not lose its progress: keep the card and
+      // the last answer, the next poll tries again
+      if (wasChanging.current) return;
       // no permission, an older node, or the version lists are unreachable right now
       if (!(err instanceof ApiError) || err.status !== 502) setHidden(true);
       else setInfo(null);

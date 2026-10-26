@@ -903,6 +903,10 @@
         "title": "No hay copias de seguridad",
         "description": "Crea tu primer backup para comenzar."
       },
+      "loadError": {
+        "title": "No se pudieron cargar las copias",
+        "description": "El nodo no ha respondido. Tus copias de seguridad siguen ahí: vuelve a intentarlo en un momento."
+      },
       "automatic": {
         "badge": "Automática",
         "name": "Copia automática"
@@ -2606,7 +2610,10 @@
         "configManage": "Gestionar configuración",
         "assignmentsView": "Ver sección de asignaciones",
         "assignmentsManage": "Gestionar asignaciones"
-      }
+      },
+      "consoleView": "Ver la consola y su historial",
+      "dataEdit": "Editar variables y bases de datos",
+      "portsEdit": "Editar notas de los puertos"
     },
     "settings": {
       "edit": "Editar configuración global del Panel"
@@ -2987,7 +2994,8 @@
       "description": "Se ha producido un error inesperado al mostrar este componente.",
       "tryAgain": "Volver a intentarlo"
     },
-    "beta": "Beta"
+    "beta": "Beta",
+    "initializing": "Iniciando {{name}}…"
   },
   "settings": {
     "title": "Configuración del panel",

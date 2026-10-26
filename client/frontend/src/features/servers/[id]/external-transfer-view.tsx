@@ -210,6 +210,14 @@ export default function ExternalTransferView({ serverId }: Readonly<ExternalTran
     return () => clearTimeout(timer);
   }, [timeLeft, serverId]);
 
+  // the API answers {error:{msg}}, this feature's own handlers {error:"..."} or {message}
+  const errorText = (data: any, fallback: string) => {
+    const error = data?.error;
+    if (typeof error === 'string' && error) return error;
+    if (typeof error?.msg === 'string' && error.msg) return error.msg;
+    return typeof data?.message === 'string' && data.message ? data.message : fallback;
+  };
+
   // Generar token (usa cookies del panel, sin necesidad de Bearer)
   const generateTransferToken = async () => {
     try {
@@ -220,8 +228,9 @@ export default function ExternalTransferView({ serverId }: Readonly<ExternalTran
         credentials: 'include' // usa la cookie de sesión del panel
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || t('servers.extransfer.toast.generateError'));
+      // a 403 comes with an empty body
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(errorText(data, t('servers.extransfer.toast.generateError')));
 
       const stored: StoredTransfer = {
         token: data.token,
@@ -270,7 +279,7 @@ export default function ExternalTransferView({ serverId }: Readonly<ExternalTran
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || t('servers.extransfer.toast.importError'));
+        throw new Error(errorText(data, t('servers.extransfer.toast.importError')));
       }
 
       // El polling (useEffect) se encargará de actualizar el estado a partir de aquí.

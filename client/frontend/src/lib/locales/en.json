@@ -903,6 +903,10 @@
         "title": "No backups",
         "description": "Create your first backup to get started."
       },
+      "loadError": {
+        "title": "The backups could not be loaded",
+        "description": "The node did not answer. Your backups are still there: try again in a moment."
+      },
       "automatic": {
         "badge": "Automatic",
         "name": "Automatic backup"
@@ -2606,7 +2610,10 @@
         "configManage": "Manage Configuration",
         "assignmentsView": "View Assignments Section",
         "assignmentsManage": "Manage Assignments"
-      }
+      },
+      "consoleView": "View the console and its history",
+      "dataEdit": "Edit variables and databases",
+      "portsEdit": "Edit port notes"
     },
     "settings": {
       "edit": "Edit Global Panel Settings"
@@ -2987,7 +2994,8 @@
       "description": "An unexpected error occurred while rendering this component.",
       "tryAgain": "Try again"
     },
-    "beta": "Beta"
+    "beta": "Beta",
+    "initializing": "Starting {{name}}…"
   },
   "settings": {
     "title": "Panel Settings",

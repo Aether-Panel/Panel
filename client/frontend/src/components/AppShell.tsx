@@ -243,8 +243,9 @@ function AppLayoutInner({ children, currentPath }: Readonly<{ children: ReactNod
 
     const navItems: NavItem[] = [
         { href: '/dashboard/', label: t('sidebar.dashboard'), icon: LayoutDashboard, requiredScopes: [] },
-        { href: '/servers/', label: t('sidebar.servers'), icon: Server, requiredScopes: ['server.view'] },
-        { href: '/users/', label: t('sidebar.users'), icon: Users, requiredScopes: ['users.info.view'] },
+        // the server list only shows servers the user can open, so every signed-in user gets it
+        { href: '/servers/', label: t('sidebar.servers'), icon: Server, requiredScopes: ['login'] },
+        { href: '/users/', label: t('sidebar.users'), icon: Users, requiredScopes: ['users.info.search'] },
         { href: '/roles/', label: t('sidebar.roles'), icon: ShieldCheck, requiredScopes: ['admin'] },
         { href: '/nodes/', label: t('sidebar.nodes'), icon: Network, requiredScopes: ['nodes.view'] },
         { href: '/database-hosts/', label: t('sidebar.databaseHosts'), icon: Database, requiredScopes: ['admin'] },

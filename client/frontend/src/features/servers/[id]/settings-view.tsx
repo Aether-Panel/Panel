@@ -62,6 +62,8 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: R
   const canViewResources = hasScope('admin') || hasScope('server.admin') || hasScope('server.admin.config.view') || hasScope('server.admin.config.manage');
   const canEditAdminData = hasScope('server.data.edit.admin');
   const canViewPorts = hasScope('server.data.view');
+  // saving notes goes through PUT /port-settings, which checks server.data.edit
+  const canEditPortNotes = hasScope('server.data.edit');
   const canManagePorts = canEditAdminData;
 
   const [ports, setPorts] = useState<number[]>([]);
@@ -80,9 +82,11 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: R
   // Port notes come with the server detail, not with the settings.
   const loadPortNotes = () => {
     api.get(`/api/servers/${serverId}`).then((data: any) => {
-      if (data?.portNotes) {
-        baseNotesRef.current = JSON.stringify(data.portNotes);
-        setPortNotes(data.portNotes);
+      // the detail answers { server: { portNotes } }
+      const notes = data?.server?.portNotes ?? data?.portNotes;
+      if (notes) {
+        baseNotesRef.current = JSON.stringify(notes);
+        setPortNotes(notes);
       }
     }).catch(() => {});
   };
@@ -148,7 +152,8 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: R
       if (canEditAdminData && validPorts.length > 0) {
         await api.put(`/api/servers/${serverId}/data`, { ports: validPorts, primaryPort: validPorts[0] });
       }
-      if (canViewPorts && Object.keys(portNotes).length > 0) {
+      // the whole map is sent (it replaces the stored one), and only when it changed
+      if (canEditPortNotes && JSON.stringify(portNotes) !== baseNotesRef.current) {
         await api.put(`/api/servers/${serverId}/port-settings`, { primaryPort: validPorts[0], portNotes });
       }
       initialPrimaryRef.current = validPorts[0] ?? initialPrimaryRef.current;

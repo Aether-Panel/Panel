@@ -511,7 +511,8 @@ export default function ServerDetailPage({ params }: Readonly<{ params: { id: st
     { value: 'tasks', label: t('servers.detail.tabs.tasks'), icon: CalendarClock },
     { value: 'activity', label: t('servers.detail.tabs.activity'), icon: ScrollText },
     { value: 'sftp', label: t('servers.detail.tabs.sftp'), icon: Key },
-    { value: 'extransfer', label: t('servers.detail.tabs.extransfer'), icon: ArrowRightLeft },
+    // every external transfer route checks server.data.edit.admin
+    ...(hasScope('server.data.edit.admin') ? [{ value: 'extransfer', label: t('servers.detail.tabs.extransfer'), icon: ArrowRightLeft }] : []),
     { value: 'splitter', label: t('servers.detail.tabs.splitter'), icon: GitBranch },
     ...(pluginsTabEnabled ? [{ value: 'plugins', label: t('servers.detail.tabs.plugins'), icon: Puzzle }] : []),
     ...(isMinecraftJava ? [

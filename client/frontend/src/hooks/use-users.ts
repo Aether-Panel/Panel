@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api } from '@/lib/api-client';
+import { fetchAllPages } from '@/lib/paged';
 
 export type User = {
     id: number;
@@ -16,8 +16,9 @@ export function useUsers(skip = false) {
         if (skip) return;
         try {
             setLoading(true);
-            const data = await api.get('/api/users');
-            setUsers(Array.isArray(data.users) ? data.users : []);
+            // every page: the owner picker must offer every user, not the first 20
+            const { items } = await fetchAllPages<User>('/api/users', 'users');
+            setUsers(items);
             setError(null);
         } catch (e: any) {
             setError(e);

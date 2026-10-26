@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -57,6 +57,24 @@ type Step = 1 | 2 | 3;
 /** Template variables that fill the resource inputs, with the value used when the template leaves them empty. */
 const RESOURCE_DEFAULTS: Record<string, number> = { cpu: 100, memory: 1024, disk: 10240, io: 500 };
 const isResourceKey = (key: string) => Object.hasOwn(RESOURCE_DEFAULTS, key);
+
+/**
+ * The server id the API accepts (letters, digits, '-' and '_', up to 20, not starting with
+ * '-' or '_'), from the name plus a random suffix so two servers named alike never collide.
+ * The name itself stays the display name, with any characters it likes.
+ */
+function serverIdFromName(name: string) {
+    const suffix = crypto.getRandomValues(new Uint32Array(1))[0].toString(36).padStart(6, '0').slice(0, 6);
+    const base = name
+        .normalize('NFD')
+        .replaceAll(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replaceAll(/[^a-z0-9_-]+/g, '-')
+        .replaceAll(/^[-_]+|[-_]+$/g, '')
+        .slice(0, 13)
+        .replaceAll(/[-_]+$/g, '');
+    return base ? `${base}-${suffix}` : `srv-${suffix}`;
+}
 
 /** A template variable's starting value: its value, else its default, coerced to the variable's type. */
 function templateVariableValue(val: any) {
@@ -522,7 +540,14 @@ function Step3Configuration({
     );
 }
 
-export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }: Readonly<{ onComplete: () => void, forcedParentId?: string, forcedNodeId?: string }>) {
+export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId, initialRepo, initialTemplate }: Readonly<{
+    onComplete: () => void,
+    forcedParentId?: string,
+    forcedNodeId?: string,
+    /** opened from a template's "Use" button: that repo and template start selected */
+    initialRepo?: number,
+    initialTemplate?: string,
+}>) {
     const { t } = useTranslations();
 
     const isSplitter = !!forcedParentId;
@@ -544,7 +569,9 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
         }
     }, [forcedNodeId]);
 
-    const [selectedRepo, setSelectedRepo] = useState<number | null>(null);
+    const [selectedRepo, setSelectedRepo] = useState<number | null>(initialTemplate ? initialRepo ?? 0 : null);
+    // picked once the chosen repo's templates arrive
+    const pendingTemplate = useRef(initialTemplate ?? '');
     const [templateList, setTemplateList] = useState<any[]>([]);
     const [selectedTemplateName, setSelectedTemplateName] = useState('');
     const [loadingTemplates, setLoadingTemplates] = useState(false);
@@ -575,19 +602,30 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
     }, [repoList]);
 
     useEffect(() => {
-        if (selectedRepo !== null) {
-            setLoadingTemplates(true);
-            setSelectedTemplateName('');
-            setTemplateDetails(null);
-            setTemplateError(null);
-            getTemplatesForRepo(selectedRepo).then(list => {
-                setTemplateList(list);
-                setLoadingTemplates(false);
-            }).catch(() => {
-                setTemplateList([]);
-                setLoadingTemplates(false);
-            });
-        }
+        if (selectedRepo === null) return;
+        // a repo picked after this one makes this answer out of date
+        let cancelled = false;
+        setLoadingTemplates(true);
+        setSelectedTemplateName('');
+        setTemplateDetails(null);
+        setTemplateError(null);
+        getTemplatesForRepo(selectedRepo).then(list => {
+            if (cancelled) return;
+            setTemplateList(list);
+            setLoadingTemplates(false);
+            const wanted = pendingTemplate.current;
+            pendingTemplate.current = '';
+            if (wanted && list.some((tpl: any) => tpl.name === wanted)) {
+                setSelectedTemplateName(wanted);
+            }
+        }).catch(() => {
+            if (cancelled) return;
+            setTemplateList([]);
+            setLoadingTemplates(false);
+        });
+        return () => {
+            cancelled = true;
+        };
     }, [selectedRepo]);
 
     const setResourceLimit = (key: string, value: number) => {
@@ -619,21 +657,27 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
     };
 
     useEffect(() => {
-        if (selectedTemplateName && selectedRepo !== null) {
-            setTemplateError(null);
-            setTemplateDetails(null);
-            setExtraPorts([]);
-            getTemplateDetails(selectedRepo, selectedTemplateName).then(details => {
-                if (!details) {
-                    setTemplateError(t('servers.create.templateLoadFailed'));
-                    return;
-                }
-                setTemplateDetails(details);
-                parseTemplateVariables(details);
-            }).catch(err => {
-                setTemplateError(err.message || t('servers.create.templateFetchFailed'));
-            });
-        }
+        if (!selectedTemplateName || selectedRepo === null) return;
+        // switching template quickly must not let the earlier one's answer win
+        let cancelled = false;
+        setTemplateError(null);
+        setTemplateDetails(null);
+        setExtraPorts([]);
+        getTemplateDetails(selectedRepo, selectedTemplateName).then(details => {
+            if (cancelled) return;
+            if (!details) {
+                setTemplateError(t('servers.create.templateLoadFailed'));
+                return;
+            }
+            setTemplateDetails(details);
+            parseTemplateVariables(details);
+        }).catch(err => {
+            if (cancelled) return;
+            setTemplateError(err.message || t('servers.create.templateFetchFailed'));
+        });
+        return () => {
+            cancelled = true;
+        };
     }, [selectedTemplateName, selectedRepo]);
 
     const handleNext = () => {
@@ -648,7 +692,11 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
                 sileo.error({ title: t('common.error'), description: t('servers.create.selectTemplate') });
                 return;
             }
-            if (!templateDetails && !templateError) {
+            if (templateError) {
+                sileo.error({ title: t('common.error'), description: templateError });
+                return;
+            }
+            if (!templateDetails) {
                 sileo.info({ title: t('servers.create.templateLoadingTitle'), description: t('servers.create.templateLoadingDescription') });
                 return;
             }
@@ -659,7 +707,8 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
     const handleCreate = async () => {
         setLoading(true);
         try {
-            const identifier = name.toLowerCase().replaceAll(/\s+/g, '-').slice(0, 20);
+            if (!templateDetails) return;
+            const identifier = serverIdFromName(name);
 
             const vars: Record<string, any> = {};
             Object.entries(configData).forEach(([k, v]) => {

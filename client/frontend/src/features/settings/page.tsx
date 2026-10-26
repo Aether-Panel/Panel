@@ -58,9 +58,12 @@ export default function SettingsPage() {
         { value: 'mail', label: t('settings.tabs.mail'), icon: Mail },
         { value: 'offsite', label: t('settings.tabs.offsite'), icon: CloudUpload },
         { value: 'domains', label: t('settings.tabs.domains'), icon: Globe },
-        { value: 'apikeys', label: t('settings.tabs.apiKeys'), icon: Key },
-        { value: 'products', label: t('settings.tabs.products'), icon: Package },
-        ...(hasScope('admin') ? [{ value: 'extensions', label: t('settings.tabs.extensions'), icon: Blocks }] : []),
+        // these three are administrator-only on the API, so they only show to administrators
+        ...(hasScope('admin') ? [
+            { value: 'apikeys', label: t('settings.tabs.apiKeys'), icon: Key },
+            { value: 'products', label: t('settings.tabs.products'), icon: Package },
+            { value: 'extensions', label: t('settings.tabs.extensions'), icon: Blocks },
+        ] : []),
         { value: 'updates', label: t('settings.tabs.updates'), icon: DownloadCloud },
     ];
 
@@ -108,7 +111,7 @@ export default function SettingsPage() {
 
     const handleTestDiscord = async () => {
         try {
-            await sendTestDiscord();
+            await sendTestDiscord(localSettings);
             sileo.success({
                 title: t('common.success'),
                 description: t('settings.discord.testSuccess'),

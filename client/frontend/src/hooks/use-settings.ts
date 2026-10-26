@@ -45,9 +45,14 @@ export function useSettings() {
         }
     };
 
-    const sendTestDiscord = async () => {
+    /** Tests the webhooks as they are in the form, saved or not (keys panel.notifications.discordWebhook*). */
+    const sendTestDiscord = async (unsaved: Record<string, any> = {}) => {
+        const webhooks: Record<string, string> = {};
+        for (const [key, value] of Object.entries(unsaved)) {
+            if (key.startsWith('panel.notifications.discordWebhook')) webhooks[key] = String(value ?? '');
+        }
         try {
-            await api.post('/api/settings/test/discord', {});
+            await api.post('/api/settings/test/discord', webhooks);
             return true;
         } catch (e: any) {
             console.error('Failed to send test discord webhook:', e);
