@@ -90,6 +90,9 @@ func registerServers(g *gin.RouterGroup) {
 	g.Handle("DELETE", "/:serverId/user/:email", middleware.RequiresPermission(scopes.ScopeServerUserDelete), middleware.ResolveServerPanel, middleware.HasTransaction, removeServerUser)
 	g.Handle("OPTIONS", "/:serverId/user/:email", response.CreateOptions("GET", "PUT", "DELETE"))
 
+	g.Handle("PUT", "/:serverId/owner/:email", middleware.RequiresPermission(scopes.ScopeAdmin), middleware.ResolveServerPanel, middleware.HasTransaction, setServerOwner)
+	g.Handle("OPTIONS", "/:serverId/owner/:email", response.CreateOptions("PUT"))
+
 	g.GET("/:serverId/data", middleware.RequiresPermission(scopes.ScopeServerViewData), middleware.ResolveServerPanel, proxyServerRequest)
 	g.POST("/:serverId/data", middleware.RequiresPermission(scopes.ScopeServerEditData), middleware.ResolveServerPanel, editServerData)
 	g.PUT("/:serverId/data", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, editServerDataAdmin)
@@ -324,11 +327,13 @@ func getServer(c *gin.Context) {
 	ps := &services.Permission{DB: db}
 
 	if includePerms {
-		p, err := ps.GetForUserAndServer(u.ID, server.Identifier)
-		if response.HandleError(c, err, http.StatusInternalServerError) {
-			return
+		// what the caller may really do here: their rows, plus the owner's set when it is
+		// theirs (resolved by the permission check that let this request in)
+		perms = &models.PermissionView{
+			ServerIdentifier: server.Identifier,
+			Scopes:           callerScopes(c),
+			Owner:            server.OwnerID != nil && *server.OwnerID == u.ID,
 		}
-		perms = models.FromPermission(p)
 	}
 
 	userScopes := make([]*scopes.Scope, 0)
@@ -400,6 +405,10 @@ func createServer(c *gin.Context) {
 	if err != nil {
 		return
 	}
+	server.OwnerID, err = ownerOfNewServer(db, user, users, server.ParentServerID)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
 
 	node, err := ns.Get(postBody.NodeID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -420,6 +429,12 @@ func createServer(c *gin.Context) {
 
 	if err := assignServerPermissions(ps, server.Identifier, users); response.HandleError(c, err, http.StatusInternalServerError) {
 		return
+	}
+	// the owner is a member too, also when it came from the parent server
+	if server.OwnerID != nil {
+		if err := ps.SetServerOwner(server.Identifier, *server.OwnerID); response.HandleError(c, err, http.StatusInternalServerError) {
+			return
+		}
 	}
 
 	if err := notifyNodeOfServerCreation(c, ns, node, postBody, server); err != nil {
@@ -691,11 +706,18 @@ func getServerUsers(c *gin.Context) {
 
 	data := make([]*models.UserPermissionsView, 0)
 	for k, v := range users {
-		data = append(data, &models.UserPermissionsView{
+		view := &models.UserPermissionsView{
 			Username: k.Username,
 			Email:    k.Email,
 			Scopes:   v,
-		})
+		}
+		if server.OwnerID != nil && *server.OwnerID == k.ID {
+			view.Owner = true
+			for _, s := range scopes.OwnerScopes {
+				view.Scopes = scopes.AddScope(view.Scopes, s)
+			}
+		}
+		data = append(data, view)
 	}
 
 	c.JSON(http.StatusOK, data)
@@ -777,6 +799,11 @@ func editServerUser(c *gin.Context) {
 		return
 	}
 
+	if server.OwnerID != nil && *server.OwnerID == user.ID {
+		response.HandleError(c, skypanel.ErrServerOwner, http.StatusConflict)
+		return
+	}
+
 	existing, err := ps.GetForUserAndServer(user.ID, server.Identifier)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
@@ -788,8 +815,9 @@ func editServerUser(c *gin.Context) {
 	if canGrantAnyServerScope(currentPerms, currentGlobalPerms) {
 		existing.Scopes = perms.Scopes
 	} else {
-		// update perms to match this "setup", but not stomp over what the user can't change
-		replacement := scopes.UpdateScopesWhereGranted(existing.Scopes, perms.Scopes, currentPerms.Scopes)
+		// nobody gives more than they hold on this server: the owner holds OwnerScopes, a
+		// sub-user only what was given to them
+		replacement := scopes.UpdateScopesWhereGranted(existing.Scopes, perms.Scopes, callerScopes(c))
 		existing.Scopes = replacement
 	}
 
@@ -883,6 +911,31 @@ func sendAddedToServerEmail(user *models.User, server *models.Server, registerTo
 	}
 }
 
+// @Summary Give a server to another user
+// @Description Makes the user the server's owner (they also become a member). The previous
+// @Description owner stays as a sub-user with the scopes their row already had.
+// @Success 204 {object} nil
+// @Param id path string true "Server ID"
+// @Param email path string true "Email of the new owner"
+// @Tags Daemon Servers
+// @Router /api/servers/{id}/owner/{email} [put]
+// @Security OAuth2Application[admin]
+func setServerOwner(c *gin.Context) {
+	db := middleware.GetDatabase(c)
+	us := &services.User{DB: db}
+	ps := &services.Permission{DB: db}
+	server := getServerFromGin(c)
+
+	user, err := us.GetByEmail(c.Param("email"))
+	if response.HandleError(c, err, http.StatusNotFound) {
+		return
+	}
+	if response.HandleError(c, ps.SetServerOwner(server.Identifier, user.ID), http.StatusInternalServerError) {
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
 // @Summary Removes access to a server
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
@@ -912,6 +965,11 @@ func removeServerUser(c *gin.Context) {
 	}
 
 	if err != nil && response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	if server.OwnerID != nil && *server.OwnerID == user.ID {
+		response.HandleError(c, skypanel.ErrServerOwner, http.StatusConflict)
 		return
 	}
 
@@ -2434,6 +2492,29 @@ func currentDefinition(c *gin.Context, ns *services.Node, server *models.Server)
 	return definition, json.NewDecoder(res.Body).Decode(definition)
 }
 
+// ownerOfNewServer decides who owns a server being created: a sub-server belongs to its
+// parent's owner, otherwise the first user it is created for, otherwise its creator unless
+// that is an administrator making a server of their own (it then has no owner).
+func ownerOfNewServer(db *gorm.DB, creator *models.User, users []*models.User, parentID *string) (*uint, error) {
+	if parentID != nil && *parentID != "" {
+		var parent models.Server
+		if err := db.Select("identifier", "owner_id").First(&parent, "identifier = ?", *parentID).Error; err != nil {
+			return nil, err
+		}
+		if parent.OwnerID != nil {
+			return parent.OwnerID, nil
+		}
+	}
+	if len(users) > 0 && users[0] != nil {
+		return &users[0].ID, nil
+	}
+	isAdmin, err := userIsAdmin(db, creator)
+	if err != nil || isAdmin {
+		return nil, err
+	}
+	return &creator.ID, nil
+}
+
 // restrictSubServerCreation limits users without admin to the Splitter flow: a child of a
 // server they already have access to, running in a docker container without host access.
 func restrictSubServerCreation(ps *services.Permission, user *models.User, postBody *models.ServerCreation) error {
@@ -2441,12 +2522,14 @@ func restrictSubServerCreation(ps *services.Permission, user *models.User, postB
 		return errors.New("only administrators can create servers without a parent server")
 	}
 
-	parentPerms, err := ps.GetForUserAndServer(user.ID, *postBody.ParentServerID)
+	// splitting takes resources out of the parent's plan, so it is the owner's call: a
+	// sub-user of the parent cannot carve servers of their own out of it
+	owner, err := ps.IsServerOwner(user.ID, *postBody.ParentServerID)
 	if err != nil {
 		return err
 	}
-	if parentPerms.ID == 0 {
-		return errors.New("no access to the parent server")
+	if !owner {
+		return errors.New("only the parent server's owner can split it")
 	}
 
 	if postBody.Environment.Type != "docker" {

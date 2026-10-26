@@ -821,6 +821,10 @@ var migrations = [][]*gormigrate.Migration{
 			},
 		},
 		{
+			ID:      "20261026-server-owners",
+			Migrate: backfillServerOwners,
+		},
+		{
 			ID: "20261016-server-internal-id-verify",
 			Migrate: func(db *gorm.DB) error {
 				// Read-only safety net: after AutoMigrate has enforced NOT NULL on
@@ -845,4 +849,54 @@ var migrations = [][]*gormigrate.Migration{
 			},
 		},
 	},
+}
+
+// backfillServerOwners names an owner for every server that has none. Before owners existed,
+// the "Usuario" role gave every member of a server full control of it, and customers relied
+// on that; from now on only the owner gets it. The owner is the member with the most scopes
+// on the server (provisioned customers have the full set), the earliest one on a tie.
+func backfillServerOwners(db *gorm.DB) error {
+	if !db.Migrator().HasColumn(&models.Server{}, "OwnerID") {
+		if err := db.Migrator().AddColumn(&models.Server{}, "OwnerID"); err != nil {
+			return err
+		}
+	}
+
+	type row struct {
+		ID               uint
+		UserID           uint
+		ServerIdentifier string
+		Scopes           string
+	}
+	var rows []row
+	err := db.Table("permissions").
+		Select("permissions.id, permissions.user_id, permissions.server_identifier, permissions.scopes").
+		Joins("JOIN servers ON servers.identifier = permissions.server_identifier").
+		Where("servers.owner_id IS NULL AND permissions.user_id IS NOT NULL").
+		Order("permissions.id").
+		Scan(&rows).Error
+	if err != nil {
+		return err
+	}
+
+	best := map[string]row{}
+	count := func(scopes string) int {
+		if strings.TrimSpace(scopes) == "" {
+			return 0
+		}
+		return len(strings.Split(scopes, ","))
+	}
+	for _, r := range rows {
+		current, seen := best[r.ServerIdentifier]
+		if !seen || count(r.Scopes) > count(current.Scopes) {
+			best[r.ServerIdentifier] = r
+		}
+	}
+
+	for serverID, r := range best {
+		if err := db.Table("servers").Where("identifier = ?", serverID).Update("owner_id", r.UserID).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }

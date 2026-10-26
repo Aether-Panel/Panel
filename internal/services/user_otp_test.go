@@ -121,7 +121,7 @@ func TestValidateOtpEnroll_RejectsWithoutPendingEnrollment(t *testing.T) {
 
 func TestDelete_RemovesTheUsersRecoveryCodesAndPasswordResets(t *testing.T) {
 	db := setupOtpTestDB(t)
-	if !assert.NoError(t, db.AutoMigrate(&models.Client{}, &models.Session{}, &models.PasswordReset{}, &models.SSHKey{})) {
+	if !assert.NoError(t, db.AutoMigrate(&models.Client{}, &models.Session{}, &models.PasswordReset{}, &models.SSHKey{}, &models.Server{})) {
 		t.FailNow()
 	}
 	us := &User{DB: db}

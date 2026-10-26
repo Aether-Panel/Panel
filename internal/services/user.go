@@ -180,6 +180,11 @@ func (us *User) Delete(model *models.User) (err error) {
 				return err
 			}
 		}
+		// their servers lose their owner: SQLite can hand a deleted user's id to the next one,
+		// who must not inherit them
+		if err := tx.Model(&models.Server{}).Where("owner_id = ?", model.ID).UpdateColumn("owner_id", nil).Error; err != nil {
+			return err
+		}
 		return tx.Delete(models.User{}, "id = ?", model.ID).Error
 	})
 }

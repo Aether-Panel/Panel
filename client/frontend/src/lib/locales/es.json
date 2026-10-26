@@ -582,7 +582,8 @@
         "save": "Guardar como favorito",
         "unsave": "Quitar de favoritos"
       },
-      "historyHint": "Flechas arriba y abajo para recorrer los comandos anteriores; Tab para completar."
+      "historyHint": "Flechas arriba y abajo para recorrer los comandos anteriores; Tab para completar.",
+      "readOnly": "Puedes ver la consola, pero no enviar comandos. El propietario del servidor puede darte ese permiso."
     },
     "aiSummary": {
       "title": "Análisis de consola por IA",
@@ -810,11 +811,11 @@
     },
     "users": {
       "title": "Acceso de usuarios",
-      "description": "Usuarios que tienen permiso para gestionar este servidor.",
+      "description": "Quién puede entrar en este servidor. El propietario lo controla todo; cada subusuario solo puede hacer lo que le marques.",
       "addUser": "Añadir usuario",
       "addDialog": {
         "title": "Añadir usuario al servidor",
-        "description": "Conceder acceso a un usuario a este servidor.",
+        "description": "Invita a alguien por su correo y elige qué puede hacer. Si aún no tiene cuenta, le llegará una invitación.",
         "emailLabel": "Correo electrónico",
         "emailPlaceholder": "usuario@ejemplo.com",
         "addButton": "Añadir usuario"
@@ -832,7 +833,30 @@
       "addError": "Error al añadir el usuario.",
       "revokeSuccess": "Acceso revocado correctamente.",
       "revokeError": "Error al revocar el acceso.",
-      "permissionsCount": "{{count}} permisos"
+      "permissionsCount": "{{count}} permisos",
+      "owner": "Propietario",
+      "ownerHint": "Control total. Solo un administrador puede cambiarlo.",
+      "edit": "Permisos",
+      "editAria": "Editar los permisos de {{name}}",
+      "editSuccess": "Permisos actualizados.",
+      "editDialog": {
+        "title": "Permisos del subusuario",
+        "description": "Qué puede hacer {{email}} en este servidor.",
+        "save": "Guardar permisos"
+      },
+      "permissionsTitle": "Permisos",
+      "permissionsHint": "Siempre puede ver el servidor. No puedes dar permisos que tú no tengas.",
+      "groups": {
+        "power": "Encendido e instalación",
+        "settings": "Configuración",
+        "tasks": "Tareas programadas"
+      },
+      "makeOwner": "Hacer propietario",
+      "makeOwnerAria": "Hacer propietario a {{name}}",
+      "makeOwnerTitle": "¿Cambiar el propietario?",
+      "makeOwnerDescription": "{{name}} pasará a controlar el servidor por completo. El propietario actual se queda como subusuario con los permisos que ya tenía.",
+      "ownerChanged": "{{name}} es ahora el propietario.",
+      "ownerError": "No se pudo cambiar el propietario."
     },
     "database": {
       "title": "Bases de datos",
@@ -3402,7 +3426,8 @@
     "ErrSSHKeyLimit": "Has llegado al máximo de claves SSH. Borra alguna antes de añadir otra.",
     "ErrSSHKeyName": "Ponle a la clave un nombre de hasta 100 caracteres.",
     "ErrCaptchaFailed": "La comprobación anti-bots ha fallado. Vuelve a intentarlo.",
-    "ErrSSONotForAdmins": "No se crean enlaces de acceso para cuentas de administrador."
+    "ErrSSONotForAdmins": "No se crean enlaces de acceso para cuentas de administrador.",
+    "ErrServerOwner": "El propietario del servidor no se puede quitar ni limitar. Un administrador puede pasar el servidor a otra persona."
   },
   "extensions": {
     "title": "Extensiones",

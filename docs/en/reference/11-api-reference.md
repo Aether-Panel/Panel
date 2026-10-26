@@ -919,15 +919,21 @@ A host that is full (`ErrDatabaseHostFull`) or tied to another node (`ErrDatabas
 | GET | `/api/servers/:serverId/user/:email` | `server.users.view` |
 | PUT | `/api/servers/:serverId/user/:email` | `server.users.edit` |
 | DELETE | `/api/servers/:serverId/user/:email` | `server.users.delete` |
+| PUT | `/api/servers/:serverId/owner/:email` | `admin` |
+
+Every server has an **owner** (the customer it was created or provisioned for). The owner holds the full owner set on it (console, power, files, SFTP, backups, settings, tasks, sub-users, OAuth2 clients) whatever their permission row says; deleting the server, its resources and environment, its ports and the admin section stay with administrators. **Sub-users** get exactly the scopes the owner (or a sub-user allowed to manage users) gives them, never more than the giver holds. A role's server scopes do not apply on servers. Only the owner can split a server (Splitter).
 
 ### `GET /api/servers/:serverId/user`
 ```json
-[{ "username": "admin", "email": "admin@example.com", "scopes": ["server.view", "server.console"] }]
+[{ "username": "admin", "email": "admin@example.com", "scopes": ["server.view", "server.console"], "owner": true }]
 ```
 
 ### `PUT /api/servers/:serverId/user/:email`
-**Body:** `{ "permissions": { "scopes": ["server.view", "server.console"] } }`
-**Response:** `204`.
+**Body:** `{ "scopes": ["server.view", "server.console"] }`
+**Response:** `204`. The owner cannot be limited or removed here (`409 ErrServerOwner`).
+
+### `PUT /api/servers/:serverId/owner/:email`
+Gives the server to that user (administrators only). The previous owner stays as a sub-user with the scopes their row already had.
 
 ---
 

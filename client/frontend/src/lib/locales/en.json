@@ -582,7 +582,8 @@
         "save": "Save as favourite",
         "unsave": "Remove from favourites"
       },
-      "historyHint": "Up and down arrows go through previous commands; Tab completes."
+      "historyHint": "Up and down arrows go through previous commands; Tab completes.",
+      "readOnly": "You can read the console but not send commands. The server's owner can give you that permission."
     },
     "aiSummary": {
       "title": "AI Console Analysis",
@@ -810,11 +811,11 @@
     },
     "users": {
       "title": "User Access",
-      "description": "Users who have permission to manage this server.",
+      "description": "Who can access this server. The owner controls everything; each sub-user can only do what you tick for them.",
       "addUser": "Add User",
       "addDialog": {
         "title": "Add User to Server",
-        "description": "Grant a user access to this server.",
+        "description": "Invite someone by email and choose what they can do. Without an account yet, they get an invitation.",
         "emailLabel": "Email",
         "emailPlaceholder": "user@example.com",
         "addButton": "Add User"
@@ -832,7 +833,30 @@
       "addError": "Failed to add user.",
       "revokeSuccess": "Access revoked successfully.",
       "revokeError": "Failed to revoke access.",
-      "permissionsCount": "{{count}} permissions"
+      "permissionsCount": "{{count}} permissions",
+      "owner": "Owner",
+      "ownerHint": "Full control. Only an administrator can change it.",
+      "edit": "Permissions",
+      "editAria": "Edit {{name}}'s permissions",
+      "editSuccess": "Permissions updated.",
+      "editDialog": {
+        "title": "Sub-user permissions",
+        "description": "What {{email}} can do on this server.",
+        "save": "Save permissions"
+      },
+      "permissionsTitle": "Permissions",
+      "permissionsHint": "They can always see the server. You cannot give permissions you do not have.",
+      "groups": {
+        "power": "Power and installation",
+        "settings": "Settings",
+        "tasks": "Scheduled tasks"
+      },
+      "makeOwner": "Make owner",
+      "makeOwnerAria": "Make {{name}} the owner",
+      "makeOwnerTitle": "Change the owner?",
+      "makeOwnerDescription": "{{name}} will fully control the server. The current owner stays as a sub-user with the permissions they already had.",
+      "ownerChanged": "{{name}} is now the owner.",
+      "ownerError": "The owner could not be changed."
     },
     "database": {
       "title": "Databases",
@@ -3402,7 +3426,8 @@
     "ErrSSHKeyLimit": "You have reached the maximum number of SSH keys. Delete one before adding another.",
     "ErrSSHKeyName": "Give the key a name of up to 100 characters.",
     "ErrCaptchaFailed": "The anti-bot check failed. Please try again.",
-    "ErrSSONotForAdmins": "Sign-in links are not issued for administrator accounts."
+    "ErrSSONotForAdmins": "Sign-in links are not issued for administrator accounts.",
+    "ErrServerOwner": "The server's owner cannot be removed or limited. An administrator can give the server to someone else."
   },
   "extensions": {
     "title": "Extensions",

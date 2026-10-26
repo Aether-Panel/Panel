@@ -188,6 +188,8 @@ func provisionServer(c *gin.Context) {
 		TotalMemory: product.Memory,
 		TotalDisk:   product.Disk,
 		ExternalID:  req.ServiceID,
+		// the customer the service was bought for owns it
+		OwnerID: &user.ID,
 	}
 
 	err = db.Transaction(func(tx *gorm.DB) error {

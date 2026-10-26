@@ -29,14 +29,28 @@ func TestCollectScopes_RoleServerScopesNeedServerAccess(t *testing.T) {
 	assert.True(t, scopes.ContainsScope(got, scopes.ScopeServerCreate))
 }
 
-func TestCollectScopes_RoleServerScopesApplyToOwnServer(t *testing.T) {
+func TestCollectScopes_ASubUserGetsOnlyWhatTheOwnerGave(t *testing.T) {
 	serverPerms := &models.Permissions{ID: 10, Scopes: []*scopes.Scope{scopes.ScopeServerView}}
 	globalPerms := &models.Permissions{}
 
-	got := collectScopes(userRole(), []*models.Permissions{serverPerms, globalPerms}, "mine", true)
+	got := collectScopes(userRole(), []*models.Permissions{serverPerms, globalPerms}, "theirs", false)
+
+	assert.True(t, scopes.ContainsScope(got, scopes.ScopeServerView))
+	assert.False(t, scopes.ContainsScope(got, scopes.ScopeServerSendCommand), "the role adds nothing on a server")
+	assert.False(t, scopes.ContainsScope(got, scopes.ScopeServerFileEdit))
+}
+
+func TestCollectScopes_TheOwnerRunsTheirServer(t *testing.T) {
+	serverPerms := &models.Permissions{ID: 10, Scopes: []*scopes.Scope{scopes.ScopeServerView}}
+
+	got := collectScopes(userRole(), []*models.Permissions{serverPerms, {}}, "mine", true)
 
 	assert.True(t, scopes.ContainsScope(got, scopes.ScopeServerSendCommand))
 	assert.True(t, scopes.ContainsScope(got, scopes.ScopeServerFileEdit))
+	assert.True(t, scopes.ContainsScope(got, scopes.ScopeServerUserEdit), "the owner manages sub-users")
+	assert.False(t, scopes.ContainsScope(got, scopes.ScopeServerDelete), "deleting stays with administrators")
+	assert.False(t, scopes.ContainsScope(got, scopes.ScopeServerEditDataAdmin), "so do resources")
+	assert.False(t, scopes.ContainsScope(got, scopes.ScopeServerEditDefinition), "and the environment")
 }
 
 func TestCollectScopes_AdminRoleKeepsAccessToEveryServer(t *testing.T) {

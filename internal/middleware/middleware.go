@@ -106,15 +106,20 @@ func checkPermission(c *gin.Context, perm *scopes.Scope) bool {
 	db := GetDatabase(c)
 	ps := &services.Permission{DB: db}
 
-	perms, serverMember, ok := loadUserPermissions(c, ps, user.ID, serverID)
+	perms, ok := loadUserPermissions(c, ps, user.ID, serverID)
 	if !ok {
+		return false
+	}
+
+	owner, err := ps.IsServerOwner(user.ID, serverID)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return false
 	}
 
 	// Check role-based permissions first (Global Roles)
 	role := resolveUserRole(db, user)
 
-	allScopes := collectScopes(role, perms, serverID, serverMember)
+	allScopes := collectScopes(role, perms, serverID, owner)
 
 	allowed := scopes.ContainsScope(allScopes, perm)
 	if allowed {
@@ -146,24 +151,22 @@ func clientPermits(c *gin.Context, perm *scopes.Scope, serverID string) (permitt
 
 // loadUserPermissions fetches the server permissions plus the global ones when a server is set.
 // ok is false when the request has already been aborted.
-func loadUserPermissions(c *gin.Context, ps *services.Permission, userID uint, serverID string) (perms []*models.Permissions, serverMember bool, ok bool) {
+func loadUserPermissions(c *gin.Context, ps *services.Permission, userID uint, serverID string) (perms []*models.Permissions, ok bool) {
 	p, err := ps.GetForUserAndServer(userID, serverID)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
-		return nil, false, false
+		return nil, false
 	}
 
 	perms = append(perms, p)
-	// a stored permission row for this server is what grants the user access to it
-	serverMember = serverID != "" && p.ID != 0
 	if serverID != "" {
 		// if we had a server, also grab global scopes
 		p, err = ps.GetForUserAndServer(userID, "")
 		if response.HandleError(c, err, http.StatusInternalServerError) {
-			return nil, false, false
+			return nil, false
 		}
 		perms = append(perms, p)
 	}
-	return perms, serverMember, true
+	return perms, true
 }
 
 // resolveUserRole returns the user's global role, or nil when there is none or it cannot be loaded
@@ -215,19 +218,26 @@ func clientAllows(client *models.Client, perm *scopes.Scope, serverID string) bo
 	return true
 }
 
-// collectScopes merges the scopes from the user's role and permission rows. A role applies
-// panel-wide, so its server scopes only count on servers the user was given access to;
-// otherwise every user with the role could operate every server on the panel.
-func collectScopes(role *models.Role, perms []*models.Permissions, serverID string, serverMember bool) []*scopes.Scope {
+// collectScopes merges the scopes from the user's role and permission rows. On a server, what
+// the user may do is that server's row (and the panel-wide row an administrator set), plus
+// OwnerScopes for its owner. A role's server scopes never count there: they would give every
+// sub-user the owner's powers, whatever the owner chose for them.
+func collectScopes(role *models.Role, perms []*models.Permissions, serverID string, owner bool) []*scopes.Scope {
 	allScopes := make([]*scopes.Scope, 0)
 
 	if role != nil {
 		for _, s := range role.Scopes {
 			scopeObj := scopes.GetScope(s)
-			if scopeObj.ForServer && serverID != "" && !serverMember {
+			if scopeObj.ForServer && serverID != "" {
 				continue
 			}
 			allScopes = scopes.AddScope(allScopes, scopeObj)
+		}
+	}
+
+	if owner && serverID != "" {
+		for _, s := range scopes.OwnerScopes {
+			allScopes = scopes.AddScope(allScopes, s)
 		}
 	}
 

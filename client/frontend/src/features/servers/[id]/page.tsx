@@ -86,29 +86,38 @@ const decodeLogLines = (lines: string[]): string[] => {
   }).flatMap(line => line.split(/\r?\n/).filter(Boolean));
 };
 
-function ServerActions({ server, isActionPending, handleAction, showKill, t }: any) {
+function ServerActions({ server, isActionPending, handleAction, showKill, can, t }: any) {
   const pendingIcon = <Loader2 className="animate-spin" aria-hidden="true" />;
+  // a sub-user only gets the buttons for what the owner allowed them
+  const canStart = can('server.start');
+  const canStop = can('server.stop');
+  const canKill = can('server.kill');
+  if (!canStart && !canStop && !canKill) return null;
   return (
     <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end [&>button]:flex-1 sm:[&>button]:flex-none">
-      <Button
-        size="sm"
-        variant="default"
-        onClick={() => handleAction('start')}
-        disabled={isActionPending || server.status === 'online' || server.suspended}
-      >
-        {isActionPending ? pendingIcon : <Play aria-hidden="true" />}
-        {t('servers.detail.start')}
-      </Button>
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={() => handleAction('restart')}
-        disabled={isActionPending || server.suspended}
-      >
-        {isActionPending ? pendingIcon : <RefreshCw aria-hidden="true" />}
-        {t('servers.detail.restart')}
-      </Button>
-      {!showKill ? (
+      {canStart && (
+        <Button
+          size="sm"
+          variant="default"
+          onClick={() => handleAction('start')}
+          disabled={isActionPending || server.status === 'online' || server.suspended}
+        >
+          {isActionPending ? pendingIcon : <Play aria-hidden="true" />}
+          {t('servers.detail.start')}
+        </Button>
+      )}
+      {canStart && canStop && (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => handleAction('restart')}
+          disabled={isActionPending || server.suspended}
+        >
+          {isActionPending ? pendingIcon : <RefreshCw aria-hidden="true" />}
+          {t('servers.detail.restart')}
+        </Button>
+      )}
+      {!canStop && !canKill ? null : !showKill || !canKill ? canStop && (
         <Button
           size="sm"
           variant="outline"
@@ -284,6 +293,9 @@ export default function ServerDetailPage({ params }: Readonly<{ params: { id: st
   const { servers: allServers, loading, refresh } = useServers((s) => s.id === params.id);
   const { hasScope } = useAuth();
   const [serverDetail, setServerDetail] = useState<any>(null);
+  // what the user may do on this server (owner or sub-user); null until it is known
+  const [serverScopes, setServerScopes] = useState<Set<string> | null>(null);
+  const [isOwner, setIsOwner] = useState(false);
   // the Minecraft-only tabs appear once the server's type is known
   const [detailLoaded, setDetailLoaded] = useState(false);
   const server = allServers.find((s) => s.id === params.id);
@@ -299,9 +311,13 @@ export default function ServerDetailPage({ params }: Readonly<{ params: { id: st
   useEffect(() => {
     const fetchDetail = async () => {
       try {
-        const data = await api.get(`/api/servers/${params.id}`);
+        const data = await api.get(`/api/servers/${params.id}?perms`);
         if (data?.server) {
           setServerDetail(data.server);
+        }
+        if (Array.isArray(data?.permissions?.scopes)) {
+          setServerScopes(new Set(data.permissions.scopes.map((s: any) => (typeof s === 'string' ? s : s?.value))));
+          setIsOwner(!!data.permissions.owner);
         }
       } catch (e) {
         console.error('Failed to fetch server detail:', e);
@@ -499,31 +515,38 @@ export default function ServerDetailPage({ params }: Readonly<{ params: { id: st
     page,
   }));
 
+  // a server scope as this user holds it here: a sub-user only has what the owner gave them,
+  // so the panel-wide scopes (from the role) do not tell. Until it is known, fall back to them.
+  const can = (scope: string) => {
+    if (!serverScopes) return hasScope(scope);
+    return serverScopes.has('admin') || serverScopes.has('server.admin') || serverScopes.has(scope);
+  };
+
   const serverTabs = [
-    { value: 'console', label: t('servers.detail.tabs.console'), icon: Terminal },
+    ...(can('server.console') ? [{ value: 'console', label: t('servers.detail.tabs.console'), icon: Terminal }] : []),
     { value: 'overview', label: t('servers.detail.tabs.overview'), icon: Network },
-    { value: 'files', label: t('servers.detail.tabs.files'), icon: Folder },
-    { value: 'settings', label: t('servers.detail.tabs.settings'), icon: SettingsIcon },
-    ...(isMinecraftJava && experimental.propertiesEditor ? [{ value: 'properties', label: t('servers.detail.tabs.properties'), icon: SlidersHorizontal, beta: true }] : []),
-    { value: 'users', label: t('servers.detail.tabs.users'), icon: Users },
-    { value: 'database', label: t('servers.detail.tabs.database'), icon: Database },
-    { value: 'backups', label: t('servers.detail.tabs.backups'), icon: Archive },
-    { value: 'tasks', label: t('servers.detail.tabs.tasks'), icon: CalendarClock },
+    ...(can('server.files.view') ? [{ value: 'files', label: t('servers.detail.tabs.files'), icon: Folder }] : []),
+    ...(can('server.data.view') || can('server.flags.view') ? [{ value: 'settings', label: t('servers.detail.tabs.settings'), icon: SettingsIcon }] : []),
+    ...(isMinecraftJava && experimental.propertiesEditor && can('server.files.edit') ? [{ value: 'properties', label: t('servers.detail.tabs.properties'), icon: SlidersHorizontal, beta: true }] : []),
+    ...(can('server.users.view') ? [{ value: 'users', label: t('servers.detail.tabs.users'), icon: Users }] : []),
+    ...(can('server.data.edit') ? [{ value: 'database', label: t('servers.detail.tabs.database'), icon: Database }] : []),
+    ...(can('server.backup.view') ? [{ value: 'backups', label: t('servers.detail.tabs.backups'), icon: Archive }] : []),
+    ...(can('server.tasks.view') ? [{ value: 'tasks', label: t('servers.detail.tabs.tasks'), icon: CalendarClock }] : []),
     { value: 'activity', label: t('servers.detail.tabs.activity'), icon: ScrollText },
-    { value: 'sftp', label: t('servers.detail.tabs.sftp'), icon: Key },
+    ...(can('server.sftp') ? [{ value: 'sftp', label: t('servers.detail.tabs.sftp'), icon: Key }] : []),
     // every external transfer route checks server.data.edit.admin
-    ...(hasScope('server.data.edit.admin') ? [{ value: 'extransfer', label: t('servers.detail.tabs.extransfer'), icon: ArrowRightLeft }] : []),
-    { value: 'splitter', label: t('servers.detail.tabs.splitter'), icon: GitBranch },
-    ...(pluginsTabEnabled ? [{ value: 'plugins', label: t('servers.detail.tabs.plugins'), icon: Puzzle }] : []),
+    ...(can('server.data.edit.admin') ? [{ value: 'extransfer', label: t('servers.detail.tabs.extransfer'), icon: ArrowRightLeft }] : []),
+    // splitting takes resources out of the plan: the owner's (or an administrator's) call
+    ...(isOwner || can('server.data.edit.admin') ? [{ value: 'splitter', label: t('servers.detail.tabs.splitter'), icon: GitBranch }] : []),
+    ...(pluginsTabEnabled && can('server.files.edit') ? [{ value: 'plugins', label: t('servers.detail.tabs.plugins'), icon: Puzzle }] : []),
     ...(isMinecraftJava ? [
       { value: 'modpacks', label: t('servers.detail.tabs.modpacks'), icon: Package },
       { value: 'map', label: t('servers.detail.tabs.map'), icon: MapIcon },
     ] : []),
-    ...(hasScope('admin') || hasScope('server.admin') || hasScope('server.admin.view')
-      || hasScope('server.admin.install.view') || hasScope('server.install')
-      || hasScope('server.admin.transfer.view') || hasScope('server.data.edit.admin')
-      || hasScope('server.admin.config.view') || hasScope('server.definition.edit')
-      || hasScope('server.admin.assignments.view') || hasScope('server.delete')
+    ...(can('server.admin.view') || can('server.admin.install.view') || can('server.install')
+      || can('server.admin.transfer.view') || can('server.data.edit.admin')
+      || can('server.admin.config.view') || can('server.definition.edit')
+      || can('server.admin.assignments.view') || can('server.delete')
       ? [{ value: 'admin', label: t('servers.detail.tabs.admin'), icon: Shield }] : []),
     ...extensionTabs.map(({ value, label, icon }) => ({ value, label, icon })),
   ];
@@ -542,7 +565,7 @@ export default function ServerDetailPage({ params }: Readonly<{ params: { id: st
     // panel config before falling back
     if (!detailLoaded || !experimentalReady || !extensionsReady) return;
     if (!serverTabValues.includes(activeTab)) {
-      setActiveTab('console');
+      setActiveTab(serverTabValues[0] ?? 'overview');
     }
   }, [serverTabValues.join(','), activeTab, detailLoaded, experimentalReady, extensionsReady]);
 
@@ -659,8 +682,8 @@ export default function ServerDetailPage({ params }: Readonly<{ params: { id: st
               </div>
             </div>
             <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-              <AssistantPanel serverId={server.id} serverName={server.name} />
-              <ServerActions server={server} isActionPending={isActionPending} handleAction={handleAction} showKill={showKill} t={t} />
+              {can('server.console') && <AssistantPanel serverId={server.id} serverName={server.name} />}
+              <ServerActions server={server} isActionPending={isActionPending} handleAction={handleAction} showKill={showKill} can={can} t={t} />
             </div>
           </div>
         </CardContent>
@@ -698,7 +721,7 @@ export default function ServerDetailPage({ params }: Readonly<{ params: { id: st
         <TabsContent value="console">
           <CrashBanner serverId={server.id} onOpen={setOpenCrash} />
           <ErrorBoundary name="ConsoleView">
-            <ConsoleView serverId={server.id} logs={logs} addLog={addLog} status={consoleStatus} />
+            <ConsoleView serverId={server.id} logs={logs} addLog={addLog} status={consoleStatus} canSend={can('server.console.send')} />
           </ErrorBoundary>
         </TabsContent>
         <TabsContent value="overview" className="mt-6 space-y-6">
