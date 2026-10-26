@@ -87,6 +87,9 @@ var BackupsFolder = asDataFolder("daemon.data.backups.folder", "backups")
 var BinariesFolder = asDataFolder("daemon.data.binaries", "binaries")
 var CrashLimit = asInt("daemon.data.crashLimit", 3)
 
+// ExtensionsFolder holds the files of the installed panel extensions, one folder each
+var ExtensionsFolder = asDataFolder("panel.extensions.folder", "extensions")
+
 // Off-site backups: every finished backup is also copied to an S3-compatible bucket
 var BackupsS3Enabled = asBool("daemon.backups.s3.enabled", false)
 var BackupsS3Endpoint = asString("daemon.backups.s3.endpoint", "")

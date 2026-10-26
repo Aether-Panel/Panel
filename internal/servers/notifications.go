@@ -200,9 +200,43 @@ func (p *Server) deliver(n Notifications, e notificationEvent) map[string]error 
 	return results
 }
 
+// EventSink, when set, also receives every server event, whatever the owner's alerts are.
+// The panel hands them to the installed extensions; it stays nil on a node without a panel.
+var EventSink func(event string, data map[string]interface{})
+
+// extensionEvents names each alert kind as the extensions know it
+var extensionEvents = map[string]string{
+	"crash":     "server.crashed",
+	"backup":    "server.backup",
+	"resources": "server.resources",
+}
+
+// publish passes the event on to EventSink
+func (p *Server) publish(e notificationEvent) {
+	sink := EventSink
+	if sink == nil {
+		return
+	}
+	name, ok := extensionEvents[e.Kind]
+	if e.Kind == "power" {
+		name, ok = "server.stopped", true
+		if running, _ := e.Extra["running"].(bool); running {
+			name = "server.started"
+		}
+	}
+	if !ok {
+		return
+	}
+	data := p.webhookPayload(e)
+	delete(data, "event")
+	delete(data, "timestamp")
+	sink(name, data)
+}
+
 // notify sends an event if the owner turned it on. It runs in the background, so a slow
 // channel never holds up the server.
 func (p *Server) notify(enabled func(Notifications) bool, e notificationEvent) {
+	p.publish(e)
 	n, err := p.Notifications()
 	if err != nil || !n.hasChannel() || !enabled(n) {
 		return

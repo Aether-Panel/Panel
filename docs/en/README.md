@@ -55,3 +55,4 @@ Welcome to the official technical documentation of Aether Panel. Here you will f
 ### References
 *   [API Reference](./reference/11-api-reference.md): General schema for programmatic usage.
 *   [CLI Commands Reference](./reference/14-cli-commands.md): Detailed list of console subcommands and flags.
+*   [Extensions](./reference/15-extensions.md): How to build and install extensions (pages and events).

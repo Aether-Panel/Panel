@@ -145,7 +145,8 @@
     "groups": {
       "overview": "Resumen",
       "management": "Gestión",
-      "account": "Cuenta"
+      "account": "Cuenta",
+      "extensions": "Extensiones"
     },
     "system": {
       "online": "Sistema en línea",
@@ -2996,7 +2997,8 @@
       "updates": "Actualizaciones",
       "sectionLabel": "Sección de la configuración",
       "offsite": "Copias externas",
-      "domains": "Dominios"
+      "domains": "Dominios",
+      "extensions": "Extensiones"
     },
     "general": {
       "title": "Configuración general",
@@ -3385,5 +3387,46 @@
     "ErrSSHKeyName": "Ponle a la clave un nombre de hasta 100 caracteres.",
     "ErrCaptchaFailed": "La comprobación anti-bots ha fallado. Vuelve a intentarlo.",
     "ErrSSONotForAdmins": "No se crean enlaces de acceso para cuentas de administrador."
+  },
+  "extensions": {
+    "title": "Extensiones",
+    "description": "Añade funciones al panel sin tocar su código: páginas propias y avisos de lo que pasa en los servidores.",
+    "install": "Instalar extensión",
+    "installed": "Extensión instalada",
+    "installedDescription": "«{{name}}» está instalada y apagada. Enciéndela cuando la hayas revisado.",
+    "installFailed": "No se pudo instalar la extensión",
+    "loadError": "No se pudieron cargar las extensiones.",
+    "saveError": "No se pudo guardar el cambio.",
+    "emptyTitle": "Sin extensiones",
+    "emptyDescription": "Sube el .zip de una extensión. Sus páginas se muestran aisladas: no pueden ver tu sesión ni usar el panel en tu nombre.",
+    "by": "de {{author}}",
+    "enabled": "Encendida",
+    "disabled": "Apagada",
+    "pages": "Páginas",
+    "noPages": "No añade páginas.",
+    "placementServer": "Pestaña de servidor",
+    "placementAdmin": "Administración",
+    "events": "Eventos",
+    "noEvents": "No recibe eventos.",
+    "webhook": "Dirección de los eventos",
+    "webhookHint": "Adónde se envían los eventos, firmados. Debe empezar por https://.",
+    "webhookSaved": "Dirección guardada.",
+    "secret": "Clave de firma",
+    "secretHint": "Cada evento lleva la cabecera X-Aether-Signature: el HMAC-SHA256 del cuerpo con esta clave. La extensión la usa para comprobar que el aviso viene de tu panel.",
+    "test": "Enviar prueba",
+    "testOk": "Prueba entregada",
+    "testOkDescription": "La extensión ha recibido el evento de prueba.",
+    "testFailed": "La prueba no llegó",
+    "remove": "Desinstalar",
+    "removeTitle": "¿Desinstalar esta extensión?",
+    "removeDescription": "Se borran los archivos de «{{name}}» y deja de recibir eventos. Lo que la extensión guardó fuera del panel no se toca.",
+    "removeConfirm": "Desinstalar",
+    "removed": "«{{name}}» desinstalada.",
+    "removeError": "No se pudo desinstalar.",
+    "page": {
+      "from": "Página de la extensión «{{name}}».",
+      "notFoundTitle": "Página no disponible",
+      "notFoundDescription": "La extensión está apagada, se desinstaló o esta página no existe."
+    }
   }
 }

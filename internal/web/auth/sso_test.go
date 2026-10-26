@@ -7,7 +7,7 @@ import (
 )
 
 func TestSafeRedirect_StaysInsideThePanel(t *testing.T) {
-	assert.Equal(t, "/servers/abc/", safeRedirect("/servers/abc/"))
+	assert.Equal(t, "/servers/view/?id=abc", safeRedirect("/servers/view/?id=abc"))
 	for _, outside := range []string{"", "https://evil.example", "//evil.example", "/\\evil.example", "servers"} {
 		assert.Equal(t, "/", safeRedirect(outside), outside)
 	}

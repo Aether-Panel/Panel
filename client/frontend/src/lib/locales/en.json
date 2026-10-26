@@ -145,7 +145,8 @@
     "groups": {
       "overview": "Overview",
       "management": "Management",
-      "account": "Account"
+      "account": "Account",
+      "extensions": "Extensions"
     },
     "system": {
       "online": "System onlines",
@@ -2996,7 +2997,8 @@
       "updates": "Updates",
       "sectionLabel": "Settings section",
       "offsite": "Off-site backups",
-      "domains": "Domains"
+      "domains": "Domains",
+      "extensions": "Extensions"
     },
     "general": {
       "title": "General Settings",
@@ -3385,5 +3387,46 @@
     "ErrSSHKeyName": "Give the key a name of up to 100 characters.",
     "ErrCaptchaFailed": "The anti-bot check failed. Please try again.",
     "ErrSSONotForAdmins": "Sign-in links are not issued for administrator accounts."
+  },
+  "extensions": {
+    "title": "Extensions",
+    "description": "Add features to the panel without touching its code: pages of their own and notices of what happens on the servers.",
+    "install": "Install extension",
+    "installed": "Extension installed",
+    "installedDescription": "\"{{name}}\" is installed and switched off. Switch it on once you have reviewed it.",
+    "installFailed": "The extension could not be installed",
+    "loadError": "The extensions could not be loaded.",
+    "saveError": "The change could not be saved.",
+    "emptyTitle": "No extensions",
+    "emptyDescription": "Upload an extension's .zip. Its pages are shown isolated: they cannot see your session or use the panel on your behalf.",
+    "by": "by {{author}}",
+    "enabled": "On",
+    "disabled": "Off",
+    "pages": "Pages",
+    "noPages": "Adds no pages.",
+    "placementServer": "Server tab",
+    "placementAdmin": "Administration",
+    "events": "Events",
+    "noEvents": "Receives no events.",
+    "webhook": "Events address",
+    "webhookHint": "Where events are sent, signed. It must start with https://.",
+    "webhookSaved": "Address saved.",
+    "secret": "Signing key",
+    "secretHint": "Every event carries the X-Aether-Signature header: the HMAC-SHA256 of the body with this key. The extension uses it to check the notice comes from your panel.",
+    "test": "Send test",
+    "testOk": "Test delivered",
+    "testOkDescription": "The extension received the test event.",
+    "testFailed": "The test did not arrive",
+    "remove": "Uninstall",
+    "removeTitle": "Uninstall this extension?",
+    "removeDescription": "The files of \"{{name}}\" are deleted and it stops receiving events. What the extension stored outside the panel is not touched.",
+    "removeConfirm": "Uninstall",
+    "removed": "\"{{name}}\" uninstalled.",
+    "removeError": "It could not be uninstalled.",
+    "page": {
+      "from": "Page of the \"{{name}}\" extension.",
+      "notFoundTitle": "Page not available",
+      "notFoundDescription": "The extension is switched off, was uninstalled, or this page does not exist."
+    }
   }
 }

@@ -45,6 +45,7 @@ var dbObjects = []interface{}{
 	&models.ActivityLog{},
 	&models.ServerActivity{},
 	&models.SSHKey{},
+	&models.Extension{},
 }
 
 func Upgrade(dbConn *gorm.DB, prettyPrint bool) error {

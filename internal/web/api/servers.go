@@ -17,6 +17,7 @@ import (
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/database"
+	"github.com/SkyPanel/SkyPanel/v3/internal/extensions"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
@@ -430,6 +431,7 @@ func createServer(c *gin.Context) {
 	}
 
 	sendServerCreationEmails(users, server)
+	extensions.Publish(extensions.EventServerCreated, extensions.ServerData(server.Identifier, server.Name))
 	c.JSON(http.StatusOK, &models.CreateServerResponse{ID: serverID})
 }
 
@@ -629,6 +631,7 @@ func deleteServer(c *gin.Context) {
 	}
 
 	sendServerDeletionEmails(users, server)
+	extensions.Publish(extensions.EventServerDeleted, extensions.ServerData(server.Identifier, server.Name))
 	c.Status(http.StatusNoContent)
 }
 

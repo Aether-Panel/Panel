@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/sidebar';
 import {
     ArrowUpRight,
+    Blocks,
     ChevronRight,
     ChevronsUpDown,
     Database,
@@ -55,6 +56,7 @@ import type { ReactNode } from 'react';
 import { sileo } from '@/lib/toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { api } from '@/lib/api-client';
+import { useActiveExtensions, pagesFor } from '@/hooks/use-extensions';
 
 interface NavItem {
     href: string;
@@ -77,6 +79,7 @@ const SEGMENT_LABEL_KEYS: Record<string, string> = {
     templates: 'sidebar.templates',
     settings: 'sidebar.settings',
     profile: 'profileSettings.title',
+    extension: 'sidebar.groups.extensions',
 };
 
 /** Detail pages dispatch this with `{ id, label }` once the entity name is known. */
@@ -255,11 +258,27 @@ function AppLayoutInner({ children, currentPath }: Readonly<{ children: ReactNod
         return item.requiredScopes.some(s => hasScope(s));
     };
 
+    // administration pages of the switched-on extensions (the API lists them to administrators only)
+    const { extensions } = useActiveExtensions();
+    const extensionItems: NavItem[] = pagesFor(extensions, 'admin').map(({ extension, page }) => ({
+        href: `/extension/?id=${encodeURIComponent(extension.id)}&page=${encodeURIComponent(page.id)}`,
+        label: page.title,
+        icon: Blocks,
+        requiredScopes: ['admin'],
+    }));
+
+    // a link with a query (an extension page) is current only for that exact page
+    const isCurrent = (href: string) => {
+        if (!href.includes('?')) return currentPath.startsWith(href);
+        return typeof window !== 'undefined' && window.location.pathname + window.location.search === href;
+    };
+
     // Sections are only rendered once they hold at least one permitted item, so
     // a limited user never sees an orphaned group heading.
     const sections = [
         { id: 'overview', label: t('sidebar.groups.overview'), items: navItems.filter((item) => item.requiredScopes.length === 0) },
         { id: 'management', label: t('sidebar.groups.management'), items: navItems.filter((item) => item.requiredScopes.length > 0) },
+        { id: 'extensions', label: t('sidebar.groups.extensions'), items: extensionItems },
     ]
         .map((section) => ({ ...section, items: section.items.filter(hasPermission) }))
         .filter((section) => section.items.length > 0);
@@ -308,7 +327,7 @@ function AppLayoutInner({ children, currentPath }: Readonly<{ children: ReactNod
                                         <SidebarMenuItem key={item.href}>
                                             <SidebarMenuButton
                                                 asChild
-                                                isActive={currentPath.startsWith(item.href)}
+                                                isActive={isCurrent(item.href)}
                                                 tooltip={item.label}
                                                 // the glide pill is the hover surface; the active gradient stays
                                                 className="hover:bg-transparent data-[active=true]:bg-transparent data-[active=true]:bg-gradient-to-r"

@@ -8,9 +8,11 @@ import (
 	"io"
 	"math/big"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
+	"github.com/SkyPanel/SkyPanel/v3/internal/extensions"
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
@@ -239,6 +241,7 @@ func provisionServer(c *gin.Context) {
 		"RegisterToken": "",
 	}, true)
 
+	extensions.Publish(extensions.EventServerCreated, extensions.ServerData(server.Identifier, server.Name))
 	c.JSON(http.StatusOK, gin.H{
 		"success":   true,
 		"server_id": serverID,
@@ -539,7 +542,9 @@ func terminateProvisionedServer(ns *services.Node, ss *services.Server, srv *mod
 	}
 
 	// Delete from DB
-	_ = ss.Delete(srv.Identifier)
+	if ss.Delete(srv.Identifier) == nil {
+		extensions.Publish(extensions.EventServerDeleted, extensions.ServerData(srv.Identifier, srv.Name))
+	}
 }
 
 // stopServerIfRunning asks the daemon for the server's status and, when it is
@@ -724,7 +729,8 @@ func provisionChangePackage(c *gin.Context) {
 	if disk > 0 {
 		updates["total_disk"] = disk
 	}
-	if err := db.Model(&models.Server{}).Where("identifier = ?", server.Identifier).Updates(updates).Error; response.HandleError(c, err, http.StatusInternalServerError) {
+	// UpdateColumns: the save hook would validate an empty model and refuse
+	if err := db.Model(&models.Server{}).Where("identifier = ?", server.Identifier).UpdateColumns(updates).Error; response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
 
@@ -780,11 +786,15 @@ func provisionSSO(c *gin.Context) {
 		return
 	}
 
-	ps := &services.Permission{DB: db}
-	if isAdministrator(db, ps, user) {
+	isAdmin, err := userIsAdmin(db, user)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+	if isAdmin {
 		response.HandleError(c, skypanel.ErrSSONotForAdmins, http.StatusForbidden)
 		return
 	}
+	ps := &services.Permission{DB: db}
 
 	redirect := "/servers/"
 	if req.ServiceID != "" || req.ServerID != "" {
@@ -802,7 +812,7 @@ func provisionSSO(c *gin.Context) {
 			response.HandleError(c, skypanel.ErrNoPermission, http.StatusForbidden)
 			return
 		}
-		redirect = "/servers/" + server.Identifier + "/"
+		redirect = "/servers/view/?id=" + url.QueryEscape(server.Identifier)
 	}
 
 	token, err := services.SSOLinks.Create(user.ID, redirect)
@@ -815,31 +825,6 @@ func provisionSSO(c *gin.Context) {
 		"url":        panelURL(c) + "/auth/sso?token=" + token,
 		"expires_in": int(services.SSOLinkLifetime.Seconds()),
 	})
-}
-
-// isAdministrator is true when the user holds the admin scope, directly or through a role
-func isAdministrator(db *gorm.DB, ps *services.Permission, user *models.User) bool {
-	perms, err := ps.GetForUserAndServer(user.ID, "")
-	if err != nil {
-		// unsure: treat as an administrator, the safe answer here
-		return true
-	}
-	if scopes.ContainsScope(perms.Scopes, scopes.ScopeAdmin) {
-		return true
-	}
-	if user.RoleID != nil {
-		rs := &services.Role{DB: db}
-		role, err := rs.Get(*user.RoleID)
-		if err != nil {
-			return true
-		}
-		for _, s := range role.Scopes {
-			if scopes.ScopeAdmin.Is(s) {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 // panelURL is the address customers reach the panel at: the configured master URL, else

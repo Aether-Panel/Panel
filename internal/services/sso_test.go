@@ -8,7 +8,7 @@ import (
 )
 
 func TestSSOLinks_WorkOnce(t *testing.T) {
-	token, err := SSOLinks.Create(7, "/servers/abc/")
+	token, err := SSOLinks.Create(7, "/servers/view/?id=abc")
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -16,7 +16,7 @@ func TestSSOLinks_WorkOnce(t *testing.T) {
 	userID, redirect, ok := SSOLinks.Consume(token)
 	assert.True(t, ok)
 	assert.Equal(t, uint(7), userID)
-	assert.Equal(t, "/servers/abc/", redirect)
+	assert.Equal(t, "/servers/view/?id=abc", redirect)
 
 	_, _, ok = SSOLinks.Consume(token)
 	assert.False(t, ok, "a link is good for one sign-in only")

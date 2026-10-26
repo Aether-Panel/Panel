@@ -2,7 +2,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Cpu, HardDrive, MemoryStick, Network, Terminal, Folder, Settings as SettingsIcon, Users, Database, Archive, Shield, Puzzle, Play, RefreshCw, Square, ShieldAlert, Key, ArrowRightLeft, GitBranch, ServerOff, ArrowLeft, CalendarClock, ScrollText, Package, Map as MapIcon, SlidersHorizontal, type LucideIcon } from 'lucide-react';
+import { Blocks, Cpu, HardDrive, MemoryStick, Network, Terminal, Folder, Settings as SettingsIcon, Users, Database, Archive, Shield, Puzzle, Play, RefreshCw, Square, ShieldAlert, Key, ArrowRightLeft, GitBranch, ServerOff, ArrowLeft, CalendarClock, ScrollText, Package, Map as MapIcon, SlidersHorizontal, type LucideIcon } from 'lucide-react';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { ServerTabNav } from './server-tab-nav';
 import { Progress } from '@/components/ui/progress';
@@ -37,6 +37,8 @@ import { api, ApiError } from '@/lib/api-client';
 import { sileo } from "@/lib/toast";
 import { Loader2 } from 'lucide-react';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import { useActiveExtensions, pagesFor } from '@/hooks/use-extensions';
+import { ExtensionFrame } from '@/features/extensions/extension-frame';
 import { useAuth } from '@/contexts/providers';
 import { EmptyState } from '@/components/empty-state';
 import { LiveDot, PlayerAvatar } from '@/components/player-presence';
@@ -487,6 +489,15 @@ export default function ServerDetailPage({ params }: Readonly<{ params: { id: st
   // game settings, modpacks and the world map only make sense for Minecraft: Java Edition
   const isMinecraftJava = serverDetail?.type === 'minecraft-java';
   const { features: experimental, ready: experimentalReady } = useExperimental();
+  // pages that installed extensions add to every server
+  const { extensions, ready: extensionsReady } = useActiveExtensions();
+  const extensionTabs = pagesFor(extensions, 'server').map(({ extension, page }) => ({
+    value: `ext:${extension.id}:${page.id}`,
+    label: page.title,
+    icon: Blocks,
+    extension,
+    page,
+  }));
 
   const serverTabs = [
     { value: 'console', label: t('servers.detail.tabs.console'), icon: Terminal },
@@ -513,6 +524,7 @@ export default function ServerDetailPage({ params }: Readonly<{ params: { id: st
       || hasScope('server.admin.config.view') || hasScope('server.definition.edit')
       || hasScope('server.admin.assignments.view') || hasScope('server.delete')
       ? [{ value: 'admin', label: t('servers.detail.tabs.admin'), icon: Shield }] : []),
+    ...extensionTabs.map(({ value, label, icon }) => ({ value, label, icon })),
   ];
 
   const serverTabValues = serverTabs.map((tab) => tab.value);
@@ -527,11 +539,11 @@ export default function ServerDetailPage({ params }: Readonly<{ params: { id: st
   useEffect(() => {
     // a remembered Minecraft-only or experimental tab waits for the server's type and the
     // panel config before falling back
-    if (!detailLoaded || !experimentalReady) return;
+    if (!detailLoaded || !experimentalReady || !extensionsReady) return;
     if (!serverTabValues.includes(activeTab)) {
       setActiveTab('console');
     }
-  }, [serverTabValues.join(','), activeTab, detailLoaded, experimentalReady]);
+  }, [serverTabValues.join(','), activeTab, detailLoaded, experimentalReady, extensionsReady]);
 
   if (loading) {
     return (
@@ -777,6 +789,13 @@ export default function ServerDetailPage({ params }: Readonly<{ params: { id: st
             <SplitterView serverId={server.id} />
           </ErrorBoundary>
         </TabsContent>
+        {extensionTabs.map(({ value, page, extension }) => (
+          <TabsContent key={value} value={value} className="mt-6">
+            {activeTab === value && (
+              <ExtensionFrame src={page.url} title={`${page.title} · ${extension.name}`} serverId={server.id} />
+            )}
+          </TabsContent>
+        ))}
       </Tabs>
 
       <CrashReportDialog serverId={server.id} report={openCrash} onOpenChange={(open) => !open && setOpenCrash(null)} />
