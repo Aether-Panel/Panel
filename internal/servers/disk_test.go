@@ -69,7 +69,7 @@ func TestDiskFile_OnlyGrowingTheFileCounts(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
-	d := p.DiskFile(f, "upload.bin")
+	d := p.DiskFile(f, "upload.bin", true)
 
 	_, err = d.WriteAt(make([]byte, 256*1024), 0)
 	assert.NoError(t, err)
@@ -90,13 +90,35 @@ func TestDiskFile_AFinishedUploadStays(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
-	d := p.DiskFile(f, "small.bin")
+	d := p.DiskFile(f, "small.bin", true)
 	_, err = d.WriteAt([]byte("hello"), 0)
 	assert.NoError(t, err)
 	assert.NoError(t, d.Close())
 	content, err := os.ReadFile(filepath.Join(dir, "small.bin"))
 	assert.NoError(t, err)
 	assert.Equal(t, "hello", string(content))
+}
+
+func TestDiskFile_AResumedUploadKeepsWhatWasThere(t *testing.T) {
+	p, dir := newDiskTestServer(t, 0)
+	path := filepath.Join(dir, "resume.bin")
+	assert.NoError(t, os.WriteFile(path, make([]byte, 512*1024), 0644))
+	f, err := os.OpenFile(path, os.O_WRONLY, 0644)
+	if !assert.NoError(t, err) {
+		return
+	}
+	d := p.DiskFile(f, "resume.bin", false)
+
+	// the bytes the file already has are free; growing it past the limit is refused
+	_, err = d.WriteAt(make([]byte, 256*1024), 256*1024)
+	assert.NoError(t, err)
+	_, err = d.WriteAt(make([]byte, 1024*1024), 512*1024)
+	assert.ErrorIs(t, err, skypanel.ErrDiskLimitExceeded)
+
+	assert.NoError(t, d.Close())
+	info, err := os.Stat(path)
+	assert.NoError(t, err, "a resumed upload is not deleted")
+	assert.Equal(t, int64(512*1024), info.Size())
 }
 
 func TestStart_RefusesAFullDisk(t *testing.T) {

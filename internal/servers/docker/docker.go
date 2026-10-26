@@ -174,6 +174,7 @@ func (d *Docker) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypa
 
 	attachResult, err := dockerClient.ContainerAttach(ctx, environment.ServerID, cfg)
 	if err != nil {
+		removeContainer(dockerClient, environment)
 		return err
 	}
 	d.connection = attachResult.HijackedResponse
@@ -207,10 +208,21 @@ func (d *Docker) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypa
 	environment.DisplayToConsole(true, "Starting container\n")
 	_, err = dockerClient.ContainerStart(ctx, environment.ServerID, startOpts)
 	if err != nil {
+		// a container that never ran is not auto-removed: left behind, it blocked every later
+		// start ("container already exists"). Removing it also ends handleClose's wait.
+		removeContainer(dockerClient, environment)
 		return err
 	}
 
 	return err
+}
+
+// removeContainer force-removes the server's container after a start that failed half way
+func removeContainer(dockerClient *client.Client, environment *skypanel.Environment) {
+	_, err := dockerClient.ContainerRemove(context.Background(), environment.ServerID, client.ContainerRemoveOptions{Force: true})
+	if err != nil {
+		environment.Log(logging.Error, "Could not remove the container of a failed start: %s", err)
+	}
 }
 
 func (d *Docker) KillImpl(environment *skypanel.Environment) error {

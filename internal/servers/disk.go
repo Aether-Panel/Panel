@@ -116,9 +116,14 @@ func (d *diskWriter) Write(b []byte) (int, error) {
 
 // DiskFile wraps a file opened for writing (by SFTP, which writes at offsets) so growing
 // it counts against the disk limit. Rewriting bytes the file already had is free. name is
-// the file's path in the server folder: an upload cut short by the limit is deleted on Close.
-func (p *Server) DiskFile(f *os.File, name string) *DiskFile {
-	return &DiskFile{File: f, server: p, name: name}
+// the file's path in the server folder; fresh says the upload started from an empty file,
+// and then an upload cut short by the limit is deleted on Close (a resumed one is kept).
+func (p *Server) DiskFile(f *os.File, name string, fresh bool) *DiskFile {
+	d := &DiskFile{File: f, server: p, name: name, fresh: fresh}
+	if info, err := f.Stat(); err == nil {
+		d.end = info.Size()
+	}
+	return d
 }
 
 type DiskFile struct {
@@ -128,6 +133,7 @@ type DiskFile struct {
 	mu      sync.Mutex
 	end     int64
 	refused bool
+	fresh   bool
 }
 
 func (d *DiskFile) WriteAt(b []byte, off int64) (int, error) {
@@ -151,10 +157,12 @@ func (d *DiskFile) Close() error {
 	d.mu.Lock()
 	refused := d.refused
 	d.mu.Unlock()
-	if refused {
+	if refused && d.fresh {
 		if fs := d.server.GetFileServer(); fs != nil {
 			_ = fs.Remove(d.name)
 		}
+	}
+	if refused {
 		d.server.ForgetDiskUsage()
 	}
 	return err

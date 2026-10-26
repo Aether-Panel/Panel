@@ -62,9 +62,13 @@ type Server struct {
 	// covers servers that vanished without any of those
 	exitHandled atomic.Bool
 	// startedAt is when the current run began, used to forgive old crashes
-	startedAt     atomic.Int64
-	keepAlive     *time.Ticker
-	keepAliveChan chan bool
+	startedAt atomic.Int64
+	// installRunning is claimed for the whole install: checking IsIdle and then setting the
+	// environment's flag let two requests both pass and install over each other
+	installRunning atomic.Bool
+	// keepAliveStop ends the current run's keep-alive sender; nil when none is running
+	keepAliveStop chan struct{}
+	keepAliveMu   sync.Mutex
 	// disk is the folder size the disk limit is checked against
 	disk diskUsage
 }
@@ -634,10 +638,17 @@ func SendStatsForServers() {
 			p.recordMetrics(stats, time.Now())
 
 			// Monitorear para alertas
-			go checkServerAlerts(p, stats)
+			go func() {
+				// a panic here would take every server on the node down with it
+				defer skypanel.Recover()
+				checkServerAlerts(p, stats)
+			}()
 
 			// Monitorear límite de disco
-			go checkDiskLimit(p, stats)
+			go func() {
+				defer skypanel.Recover()
+				checkDiskLimit(p, stats)
+			}()
 		}(v)
 	}
 	wg.Wait()
@@ -843,7 +854,6 @@ func CreateProgram() *Server {
 	}
 	p.stopChan = make(chan bool, 1)
 	p.waitForConsole = &sync.Mutex{}
-	p.keepAliveChan = make(chan bool)
 	return p
 }
 
@@ -890,6 +900,12 @@ func (p *Server) Start() error {
 
 	data := p.DataToMap()
 
+	// started before the process, so afterExit always finds it to stop, even when the game
+	// exits at once; commands sent before the process is up are simply refused
+	if p.KeepAlive.Frequency != "" && p.KeepAlive.Command != "" {
+		p.startKeepAlive()
+	}
+
 	commandLine := utils.ReplaceTokens(command.Command, data)
 	err = p.RunningEnvironment.ExecuteAsync(skypanel.ExecutionData{
 		Command:     commandLine,
@@ -900,6 +916,7 @@ func (p *Server) Start() error {
 	})
 
 	if err != nil {
+		p.stopKeepAlive()
 		p.Log(logging.Error, "error starting server %s: %s", p.ID(), err)
 		p.RunningEnvironment.DisplayToConsole(true, " Failed to start server\n")
 		return err
@@ -909,11 +926,6 @@ func (p *Server) Start() error {
 	// whether or not someone has the map tab open
 	if p.installedWorldMap() != nil {
 		p.ensureMapConfigured()
-	}
-
-	// keepalive!
-	if p.KeepAlive.Frequency != "" && p.KeepAlive.Command != "" {
-		p.startKeepAlive()
 	}
 
 	return err
@@ -973,30 +985,48 @@ func (p *Server) firstMatchingCommand(possibleCommands []skypanel.Command) (skyp
 	return skypanel.Command{}, nil
 }
 
-// startKeepAlive sends the keep-alive command on its interval until the server exits
+// startKeepAlive sends the keep-alive command on its interval until stopKeepAlive. Each run
+// has its own ticker and stop channel: a shared unbuffered channel blocked the exit handler
+// forever once keep-alive was turned off between runs.
 func (p *Server) startKeepAlive() {
 	dur, err := time.ParseDuration(p.KeepAlive.Frequency)
-	if err != nil {
-		p.RunningEnvironment.DisplayToConsole(true, " Failed to enable keep-alive: %s", err)
+	if err != nil || dur <= 0 {
+		p.RunningEnvironment.DisplayToConsole(true, " Failed to enable keep-alive: invalid frequency %q", p.KeepAlive.Frequency)
 		return
 	}
-	if p.keepAlive == nil {
-		p.keepAlive = time.NewTicker(dur)
-	} else {
-		p.keepAlive.Reset(dur)
+
+	stop := make(chan struct{})
+	p.keepAliveMu.Lock()
+	previous := p.keepAliveStop
+	p.keepAliveStop = stop
+	p.keepAliveMu.Unlock()
+	if previous != nil {
+		close(previous)
 	}
 
-	if p.keepAlive != nil {
-		go func() {
-			for {
-				select {
-				case <-p.keepAliveChan:
-					return
-				case <-p.keepAlive.C:
-					_ = p.RunningEnvironment.ExecuteInMainProcess(p.KeepAlive.Command)
-				}
+	command := p.KeepAlive.Command
+	go func() {
+		ticker := time.NewTicker(dur)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-stop:
+				return
+			case <-ticker.C:
+				_ = p.RunningEnvironment.ExecuteInMainProcess(command)
 			}
-		}()
+		}
+	}()
+}
+
+// stopKeepAlive ends the keep-alive sender of the current run, if there is one
+func (p *Server) stopKeepAlive() {
+	p.keepAliveMu.Lock()
+	stop := p.keepAliveStop
+	p.keepAliveStop = nil
+	p.keepAliveMu.Unlock()
+	if stop != nil {
+		close(stop)
 	}
 }
 
@@ -1095,6 +1125,11 @@ func (p *Server) Destroy() (err error) {
 }
 
 func (p *Server) Install() error {
+	if !p.installRunning.CompareAndSwap(false, true) {
+		return skypanel.ErrServerRunning
+	}
+	defer p.installRunning.Store(false)
+
 	if err := p.IsIdle(); err != nil {
 		return err
 	}
@@ -1206,7 +1241,7 @@ func (p *Server) Save() (err error) {
 		return
 	}
 
-	err = os.WriteFile(file, data, 0664)
+	err = writeFileAtomic(file, data, 0664)
 	return
 }
 
@@ -1251,10 +1286,7 @@ func (p *Server) GetNetwork() string {
 }
 
 func (p *Server) afterExit(exitCode int) {
-	if p.keepAlive != nil {
-		p.keepAlive.Stop()
-		p.keepAliveChan <- true
-	}
+	p.stopKeepAlive()
 
 	graceful := exitCode == p.Execution.ExpectedExitCode
 	// a stop or kill someone asked for is not a crash, whatever exit code it ends with
@@ -1403,15 +1435,16 @@ func fileDescLess(a, b skypanel.FileDesc) bool {
 }
 
 func (p *Server) ArchiveItems(sourceFiles []string, destination string) error {
-	// This may technically error out in other cases
-	if _, err := os.Stat(destination); err != nil && !os.IsNotExist(err) {
-		return skypanel.ErrFileExists
-	}
+	// an existing destination is refused by Compress itself, inside the server folder
 	if err := p.CheckDiskSpace(false); err != nil {
 		return err
 	}
 	defer p.ForgetDiskUsage()
-	return files.Compress(p.GetFileServer(), destination, sourceFiles)
+	err := files.Compress(p.GetFileServer(), destination, sourceFiles)
+	if errors.Is(err, files.ErrFileExists) {
+		return skypanel.ErrFileExists
+	}
+	return err
 }
 
 func (p *Server) Extract(source, destination string) error {
@@ -1419,7 +1452,7 @@ func (p *Server) Extract(source, destination string) error {
 		return err
 	}
 	defer p.ForgetDiskUsage()
-	return files.Extract(p.GetFileServer(), source, destination, "*", false, nil)
+	return files.ExtractLimited(p.GetFileServer(), source, destination, "*", false, p.DiskWriter)
 }
 
 const (
@@ -1486,10 +1519,13 @@ func (p *Server) finishBackup(file string) bool {
 	if err != nil {
 		p.Log(logging.Error, "Error creating backup file: %s", err)
 		p.RunningEnvironment.DisplayToConsole(true, "Failed to create backup file")
-	} else {
-		p.uploadOffsite(file)
 	}
+	// the backup is done once the local archive exists; the off-site copy (up to two hours)
+	// runs after, so it no longer keeps the server from starting or being restarted
 	p.endBackup(err == nil)
+	if err == nil {
+		go p.uploadOffsite(file)
+	}
 	return err == nil
 }
 

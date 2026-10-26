@@ -40,15 +40,31 @@ func (rp requestPrefix) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 	if err := rp.server.CheckDiskSpace(false); err != nil {
 		return nil, err
 	}
-	// the old content is truncated, so it stops counting against the disk limit
-	if fi, err := rp.fs.Stat(request.Filepath); err == nil && !fi.IsDir() {
-		rp.server.ReleaseDisk(fi.Size())
+
+	// open the way the client asked: resuming or appending must keep what is there, and
+	// "only create" must not overwrite. O_APPEND itself is left out, since every SFTP write
+	// comes with its own offset and WriteAt refuses an append-mode file.
+	pflags := request.Pflags()
+	flags := os.O_WRONLY
+	if pflags.Creat {
+		flags |= os.O_CREATE
 	}
-	file, err := rp.getFile(request.Filepath, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
+	if pflags.Excl {
+		flags |= os.O_EXCL
+	}
+	fresh := pflags.Trunc
+	if fresh {
+		flags |= os.O_TRUNC
+		// the old content is truncated, so it stops counting against the disk limit
+		if fi, err := rp.fs.Stat(request.Filepath); err == nil && !fi.IsDir() {
+			rp.server.ReleaseDisk(fi.Size())
+		}
+	}
+	file, err := rp.getFile(request.Filepath, flags, 0644)
 	if err != nil {
 		return nil, err
 	}
-	return rp.server.DiskFile(file, request.Filepath), nil
+	return rp.server.DiskFile(file, request.Filepath, fresh), nil
 }
 
 func (rp requestPrefix) Filecmd(request *sftp.Request) error {

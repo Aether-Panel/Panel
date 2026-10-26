@@ -1,7 +1,6 @@
 package curseforge
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"github.com/SkyPanel/SkyPanel/v3/files"
@@ -87,7 +86,7 @@ func (c CurseForge) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 		}
 	}*/
 
-	err = extractModpack(env, serverFile)
+	err = extractModpack(args.Server, env, serverFile)
 	if err != nil {
 		return skypanel.OperationResult{Error: err}
 	}
@@ -188,8 +187,13 @@ func (c CurseForge) latestReleaseFile() (File, error) {
 	return serverFile, nil
 }
 
-// extractModpack unpacks the cached server pack into the server directory.
-func extractModpack(env *skypanel.Environment, serverFile File) error {
+// extractModpack unpacks the cached server pack into the server directory. It goes through
+// the server's file server: the server root is an absolute path on real installs, which the
+// path-based extractor refused as a traversal, so every CurseForge install failed there.
+func extractModpack(server skypanel.DaemonServer, env *skypanel.Environment, serverFile File) error {
+	if server == nil || server.GetFileServer() == nil {
+		return errors.New("no file server for this server")
+	}
 	serverZipPath := getCacheFilePath(serverFile)
 	logging.Debug.Printf("Extracting modpack from %s\n", serverZipPath)
 	env.DisplayToConsole(true, "Extracting modpack from %s", serverZipPath)
@@ -198,12 +202,10 @@ func extractModpack(env *skypanel.Environment, serverFile File) error {
 	if err != nil {
 		return err
 	}
-	singleRoot, _ := files.DetermineIfSingleRoot(context.Background(), serverZipPath, f)
-	_, _ = f.Seek(0, io.SeekStart)
+	defer utils.Close(f)
 
-	err = files.ExtractFromReader(f, serverZipPath, env.GetRootDirectory(), "*", singleRoot, nil)
-	_ = f.Close()
-	return err
+	// a pack with a single top folder is unpacked from inside it
+	return files.ExtractReader(server.GetFileServer(), f, serverZipPath, "", "*", true)
 }
 
 // resolveModLoader works out the mod loader from an installer jar, the variables.txt or

@@ -306,6 +306,12 @@ func (e *Environment) ExecuteInMainProcess(cmd string) (err error) {
 		err = ErrServerOffline
 		return
 	}
+	// a server still running from before a daemon restart has no console attached yet:
+	// writing to the nil connection used to panic the whole daemon
+	if e.Console == nil {
+		err = ErrConsoleDetached
+		return
+	}
 	_, err = io.WriteString(e.Console, cmd+"\n")
 	return
 }

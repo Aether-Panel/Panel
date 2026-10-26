@@ -1116,7 +1116,7 @@ func extract(c *gin.Context) {
 	var err error
 	if skipRoot {
 		if err = server.CheckDiskSpace(false); err == nil {
-			err = files.Extract(server.GetFileServer(), targetPath, destination, "*", true, nil)
+			err = files.ExtractLimited(server.GetFileServer(), targetPath, destination, "*", true, server.DiskWriter)
 			server.ForgetDiskUsage()
 		}
 	} else {
