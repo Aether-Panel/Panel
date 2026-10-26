@@ -72,6 +72,11 @@ var TurnstileSiteKey = asString("panel.turnstile.siteKey", "")
 var TurnstileSecretKey = asString("panel.turnstile.secretKey", "")
 var TurnstileEnabled = asBool("panel.turnstile.enabled", false)
 
+// CaptchaBuiltin is the panel's own anti-bot check on sign-in, sign-up and password resets:
+// the browser solves a small proof of work, with no outside service or keys. Turnstile,
+// once configured, is used instead.
+var CaptchaBuiltin = asBool("panel.captcha.builtin", true)
+
 var DaemonEnabled = asBool("daemon.enable", true)
 var ConsoleBuffer = asInt("daemon.console.buffer", 50)
 var ConsoleForward = asBool("daemon.console.forward", false)

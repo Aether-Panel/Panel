@@ -15,6 +15,7 @@ interface LoginCredentials {
   email: string;
   password?: string;
   turnstileToken?: string;
+  captchaToken?: string;
 }
 
 interface UserData {
@@ -31,6 +32,7 @@ interface RegisterData {
   email: string;
   password?: string;
   turnstileToken?: string;
+  captchaToken?: string;
 }
 
 interface AuthContextType {
@@ -130,7 +132,8 @@ function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
       const data = await api.post('/auth/login', {
         email: credentials.email,
         password: credentials.password,
-        turnstileToken: credentials.turnstileToken
+        turnstileToken: credentials.turnstileToken,
+        captchaToken: credentials.captchaToken,
       });
 
       if (data.otpNeeded) {
@@ -181,7 +184,8 @@ function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
         username: data.username,
         email: data.email,
         password: data.password,
-        turnstileToken: data.turnstileToken
+        turnstileToken: data.turnstileToken,
+        captchaToken: data.captchaToken,
       });
 
       const scopesList = normalizeScopes(res.scopes || []);

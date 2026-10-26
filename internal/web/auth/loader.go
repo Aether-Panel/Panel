@@ -17,6 +17,7 @@ func RegisterRoutes(rg *gin.RouterGroup) {
 	rg.POST("reset-password", middleware.NeedsDatabase, ResetPasswordPost)
 	rg.POST("reauth", middleware.AuthMiddleware, middleware.NeedsDatabase, Reauth)
 	rg.GET("sso", middleware.NeedsDatabase, SSOGet)
+	rg.GET("challenge", ChallengeGet)
 
 	rg.GET("publickey", TokenServiceGetPublicKey)
 }

@@ -41,7 +41,7 @@ export default function ForgotPasswordPage() {
   async function onSubmit(values: ForgotValues) {
     setLoading(true);
     try {
-      await api.post('/auth/forgot-password', { email: values.email, turnstileToken: captcha.token });
+      await api.post('/auth/forgot-password', { email: values.email, ...captcha.fields });
       setSent(true);
     } catch (e: any) {
       captcha.reset();

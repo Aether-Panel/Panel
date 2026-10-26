@@ -97,6 +97,12 @@
       "wrongCode": "El código no es correcto. Comprueba que la hora de tu teléfono esté bien y prueba con el código nuevo.",
       "expiredTitle": "Han pasado más de 5 minutos",
       "expiredDescription": "Por seguridad, vuelve a escribir tu contraseña."
+    },
+    "captcha": {
+      "checking": "Comprobando que no eres un bot…",
+      "done": "Comprobación anti-bots completada",
+      "failed": "No se pudo hacer la comprobación anti-bots.",
+      "retry": "Reintentar"
     }
   },
   "header": {
@@ -3016,8 +3022,10 @@
       "hideAiAnalysisDescription": "Si se activa, se ocultará la función de análisis de la consola por IA para todos los servidores.",
       "allowRegistrationLabel": "Permitir que los usuarios se puedan registrar",
       "allowRegistrationDescription": "Los usuarios autorregistrados no pueden realizar ninguna acción hasta que se les otorguen permisos. Deshabilitar esto solo impide el registro directo, las invitaciones a un servidor y la página de Usuarios no se ven afectadas.",
+      "captchaBuiltinLabel": "Comprobación anti-bots integrada",
+      "captchaBuiltinDescription": "Al entrar, registrarse o pedir un cambio de contraseña, el navegador resuelve un pequeño cálculo en segundo plano: sin casillas, sin imágenes y sin servicios externos. Activada por defecto; si configuras Cloudflare Turnstile, se usa Turnstile en su lugar.",
       "turnstileEnabledLabel": "Protección Cloudflare Turnstile",
-      "turnstileEnabledDescription": "Activa el widget de Cloudflare Turnstile en el inicio de sesión y el registro para bloquear bots. Desactivado por defecto.",
+      "turnstileEnabledDescription": "Usa el widget de Cloudflare Turnstile (con tus claves) en lugar de la comprobación integrada, en el inicio de sesión, el registro y el cambio de contraseña.",
       "turnstileSiteKeyLabel": "Site key de Turnstile",
       "turnstileSiteKeyDescription": "La clave pública de sitio de tu widget Turnstile de Cloudflare.",
       "turnstileSiteKeyPlaceholder": "0x4AAAAAAA...",

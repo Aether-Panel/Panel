@@ -292,6 +292,13 @@ export function GeneralTab({ localSettings, handleUpdate, t }: Readonly<GeneralT
                                 onCheckedChange={(v) => handleUpdate('panel.registrationEnabled', v)}
                             />
                             <SettingRow
+                                id="captcha-builtin"
+                                label={t('settings.general.captchaBuiltinLabel')}
+                                description={t('settings.general.captchaBuiltinDescription')}
+                                checked={localSettings['panel.captcha.builtin'] !== false}
+                                onCheckedChange={(v) => handleUpdate('panel.captcha.builtin', v)}
+                            />
+                            <SettingRow
                                 id="turnstile-enabled"
                                 label={t('settings.general.turnstileEnabledLabel')}
                                 description={t('settings.general.turnstileEnabledDescription')}

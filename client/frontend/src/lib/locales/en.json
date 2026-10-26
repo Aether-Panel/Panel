@@ -97,6 +97,12 @@
       "wrongCode": "That code isn't right. Check that your phone's clock is correct and try the new code.",
       "expiredTitle": "More than 5 minutes have passed",
       "expiredDescription": "For your security, enter your password again."
+    },
+    "captcha": {
+      "checking": "Checking you are not a bot…",
+      "done": "Anti-bot check complete",
+      "failed": "The anti-bot check could not run.",
+      "retry": "Retry"
     }
   },
   "header": {
@@ -3016,8 +3022,10 @@
       "hideAiAnalysisDescription": "If enabled, the AI console analysis feature will be hidden for all servers.",
       "allowRegistrationLabel": "Allow users to register",
       "allowRegistrationDescription": "Self-registered users cannot perform any actions until permissions are granted. Disabling this only prevents direct registration, server invitations and the Users page are not affected.",
+      "captchaBuiltinLabel": "Built-in anti-bot check",
+      "captchaBuiltinDescription": "When signing in, signing up or asking for a password reset, the browser solves a small calculation in the background: no checkboxes, no images and no outside services. On by default; once Cloudflare Turnstile is configured, Turnstile is used instead.",
       "turnstileEnabledLabel": "Cloudflare Turnstile Protection",
-      "turnstileEnabledDescription": "Enables the Cloudflare Turnstile widget on login and registration to block bots. Disabled by default.",
+      "turnstileEnabledDescription": "Use the Cloudflare Turnstile widget (with your keys) instead of the built-in check, on sign-in, sign-up and password reset.",
       "turnstileSiteKeyLabel": "Turnstile Site Key",
       "turnstileSiteKeyDescription": "The public site key of your Cloudflare Turnstile widget.",
       "turnstileSiteKeyPlaceholder": "0x4AAAAAAA...",

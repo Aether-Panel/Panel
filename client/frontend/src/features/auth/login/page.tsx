@@ -45,7 +45,7 @@ export default function LoginPage() {
   const [step, setStep] = useState<'credentials' | 'otp'>('credentials');
 
   async function onSubmit(values: LoginValues) {
-    const result = await login({ ...values, turnstileToken: captcha.token });
+    const result = await login({ ...values, ...captcha.fields });
     if (result === 'otp') {
       setStep('otp');
     } else if (result !== 'success') {

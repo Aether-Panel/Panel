@@ -34,6 +34,8 @@ func TestMain(m *testing.M) {
 	_ = config.DatabaseURL.Set("file:testing.db", false)
 	_ = config.DaemonEnabled.Set(true, false)
 	_ = config.PanelEnabled.Set(true, false)
+	// the tests sign in directly, without solving the built-in anti-bot check
+	_ = config.CaptchaBuiltin.Set(false, false)
 	// _ = config.DatabaseLoggingEnabled.Set(false, false)
 
 	_ = os.Remove("testing.db")

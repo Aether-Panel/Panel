@@ -41,7 +41,7 @@ func RegisterPost(c *gin.Context) {
 		return
 	}
 
-	if err := verifyTurnstile(request.TurnstileToken, c.ClientIP()); response.HandleError(c, err, http.StatusBadRequest) {
+	if err := verifyCaptcha(c, request.TurnstileToken, request.CaptchaToken); response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
 
@@ -96,4 +96,5 @@ type registerRequestData struct {
 	Email          string `json:"email" validate:"required,email"`
 	Password       string `json:"password" validate:"required"`
 	TurnstileToken string `json:"turnstileToken"`
+	CaptchaToken   string `json:"captchaToken"`
 }

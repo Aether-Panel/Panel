@@ -36,7 +36,7 @@ func LoginPost(c *gin.Context) {
 		return
 	}
 
-	if err := verifyTurnstile(request.TurnstileToken, c.ClientIP()); response.HandleError(c, err, http.StatusBadRequest) {
+	if err := verifyCaptcha(c, request.TurnstileToken, request.CaptchaToken); response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
 
@@ -188,6 +188,8 @@ type LoginRequestData struct {
 	Email          string `json:"email"`
 	Password       string `json:"password"`
 	TurnstileToken string `json:"turnstileToken"`
+	// CaptchaToken answers the built-in anti-bot check (see GET /auth/challenge)
+	CaptchaToken string `json:"captchaToken"`
 }
 
 type LoginResponse struct {

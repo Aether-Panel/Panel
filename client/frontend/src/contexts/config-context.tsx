@@ -16,6 +16,8 @@ export interface Config {
     registrationEnabled: boolean;
     turnstileSiteKey: string;
     turnstileEnabled: boolean;
+    /** The anti-bot check the sign-in forms use */
+    captcha?: 'turnstile' | 'builtin' | '';
     experimental?: ExperimentalFeatures;
     version: string;
 }

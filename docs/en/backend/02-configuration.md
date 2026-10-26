@@ -71,6 +71,7 @@ All nested keys with `.` are converted to `_`. `SKYPANEL_` prefix:
 | `panel.turnstile.siteKey` | string | — | Cloudflare Turnstile Site Key |
 | `panel.turnstile.secretKey` | string | — | Cloudflare Turnstile Secret Key |
 | `panel.turnstile.enabled` | bool | `false` | Enables Cloudflare Turnstile on register/login |
+| `panel.captcha.builtin` | bool | `true` | Built-in anti-bot check (proof of work, no keys) on login, register and password reset; Turnstile replaces it once configured |
 | `panel.settings.branding` | object | `{}` | Custom branding JSON |
 | `panel.settings.turnstileSiteKey` | string | — | Turnstile site key (alias) |
 | `panel.settings.turnstileSecretKey` | string | — | Turnstile secret key (alias) |

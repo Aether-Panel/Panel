@@ -1,7 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Loader2, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { useConfig } from '@/contexts/config-context';
+import { useTranslations } from '@/contexts/translations-context';
+import { api } from '@/lib/api-client';
+import { solveChallenge, type Challenge } from '@/lib/proof-of-work';
 
 declare global {
   interface Window {
@@ -37,13 +41,17 @@ function loadTurnstileScript(): Promise<void> {
 }
 
 /**
- * Turnstile for an auth form, when the panel has it turned on. A token is good for one
- * request only, so `reset` puts up a fresh widget after every attempt that used it.
+ * The anti-bot check of an auth form: the panel's built-in one (a proof of work solved in
+ * the background), Turnstile when the administrator configured it, or none. Spread `fields`
+ * into the request; a token is good for one request, so `reset` starts a new check after
+ * every attempt that used it.
  */
 export function useCaptcha() {
   const { config } = useConfig();
-  const siteKey = config?.turnstileEnabled ? config?.turnstileSiteKey || '' : '';
+  const provider = config?.captcha ?? (config?.turnstileEnabled && config?.turnstileSiteKey ? 'turnstile' : '');
+  const siteKey = provider === 'turnstile' ? config?.turnstileSiteKey || '' : '';
   const [token, setToken] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
   const [round, setRound] = useState(0);
 
   const reset = useCallback(() => {
@@ -51,13 +59,62 @@ export function useCaptcha() {
     setRound((r) => r + 1);
   }, []);
 
+  useEffect(() => {
+    if (provider !== 'builtin') return;
+    const controller = new AbortController();
+    setFailed(false);
+    api.get<Challenge>('/auth/challenge')
+      .then((challenge) => solveChallenge(challenge, controller.signal))
+      .then((solved) => {
+        if (!controller.signal.aborted) setToken(solved);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setFailed(true);
+      });
+    return () => controller.abort();
+  }, [provider, round]);
+
+  let fields: { turnstileToken?: string; captchaToken?: string } = {};
+  if (provider === 'turnstile') fields = { turnstileToken: token ?? undefined };
+  else if (provider === 'builtin') fields = { captchaToken: token ?? undefined };
+
+  let widget: ReactNode = null;
+  if (siteKey) widget = <Turnstile key={round} siteKey={siteKey} onVerify={setToken} />;
+  else if (provider === 'builtin') widget = <BuiltinCheck done={token !== null} failed={failed} onRetry={reset} />;
+
   return {
-    token: token ?? undefined,
+    fields,
     // forms wait for the check before they can be sent
-    ready: !siteKey || token !== null,
+    ready: !provider || token !== null,
     reset,
-    widget: siteKey ? <Turnstile key={round} siteKey={siteKey} onVerify={setToken} /> : null,
+    widget,
   };
+}
+
+/** One quiet line under the form while the built-in check runs; nothing to click. */
+function BuiltinCheck({ done, failed, onRetry }: Readonly<{ done: boolean; failed: boolean; onRetry: () => void }>) {
+  const { t } = useTranslations();
+  if (failed) {
+    return (
+      <p role="alert" className="flex items-center justify-center gap-2 text-xs text-destructive-bright">
+        <ShieldAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        {t('auth.captcha.failed')}
+        <button type="button" onClick={onRetry} className="rounded font-medium underline underline-offset-2 focus-ring">
+          {t('auth.captcha.retry')}
+        </button>
+      </p>
+    );
+  }
+  return (
+    <p role="status" className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+      {done ? (
+        <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" />
+      ) : (
+        <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden="true" />
+      )}
+      {done ? t('auth.captcha.done') : t('auth.captcha.checking')}
+    </p>
+  );
 }
 
 export default function Turnstile({

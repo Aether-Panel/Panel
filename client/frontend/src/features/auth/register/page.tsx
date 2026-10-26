@@ -55,7 +55,7 @@ export default function RegisterPage() {
         username: values.username,
         email: values.email,
         password: values.password,
-        turnstileToken: captcha.token,
+        ...captcha.fields,
       });
     } catch (e: any) {
       captcha.reset();
