@@ -163,13 +163,23 @@ func (us *User) Update(model *models.User) error {
 	return us.DB.Save(model).Error
 }
 
+// Delete removes the user and every row that points at it. Each step's error is
+// returned: a row left behind (2FA recovery codes, a pending password reset) makes
+// the database refuse the delete, and the caller must not report success then.
 func (us *User) Delete(model *models.User) (err error) {
 	return us.DB.Transaction(func(tx *gorm.DB) error {
-		tx.Delete(models.Permissions{}, userIDQuery, model.ID)
-		tx.Delete(models.Client{}, userIDQuery, model.ID)
-		tx.Delete(models.Session{}, userIDQuery, model.ID)
-		tx.Delete(models.User{}, "id = ?", model.ID)
-		return nil
+		for _, owned := range []interface{}{
+			models.Permissions{},
+			models.Client{},
+			models.Session{},
+			models.RecoveryCode{},
+			models.PasswordReset{},
+		} {
+			if err := tx.Delete(owned, userIDQuery, model.ID).Error; err != nil {
+				return err
+			}
+		}
+		return tx.Delete(models.User{}, "id = ?", model.ID).Error
 	})
 }
 
