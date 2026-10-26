@@ -457,3 +457,56 @@ func TestOriginSession_ConfirmAndCancel(t *testing.T) {
 	var noSession *originSession
 	noSession.notifyCancel("nothing to tell")
 }
+
+func TestParseOriginURL(t *testing.T) {
+	t.Parallel()
+
+	valid := []struct {
+		name   string
+		raw    string
+		scheme string
+		host   string
+	}{
+		{"bare host", "203.0.113.5", "https", "203.0.113.5"},
+		{"http with port", "http://203.0.113.5:8080", "http", "203.0.113.5:8080"},
+		{"https with trailing slash", "https://203.0.113.5/", "https", "203.0.113.5"},
+		{"ipv6 with port", "https://[2001:db8::1]:8443", "https", "[2001:db8::1]:8443"},
+	}
+	for _, tc := range valid {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			u, err := parseOriginURL(tc.raw)
+			require.NoError(t, err)
+			assert.Equal(t, tc.scheme, u.Scheme)
+			assert.Equal(t, tc.host, u.Host)
+			assert.Empty(t, u.Path)
+			assert.Empty(t, u.RawQuery)
+			assert.Nil(t, u.User)
+		})
+	}
+
+	invalid := []struct {
+		name string
+		raw  string
+	}{
+		{"empty", ""},
+		{"path", "https://203.0.113.5/panel"},
+		{"query", "https://203.0.113.5?x=1"},
+		{"fragment", "https://203.0.113.5#frag"},
+		{"credentials", "https://user:pass@203.0.113.5"},
+		{"other scheme", "file:///etc/passwd"},
+		{"port out of range", "https://203.0.113.5:99999"},
+		{"port zero", "https://203.0.113.5:0"},
+		{"loopback", "https://127.0.0.1"},
+		{"link local", "https://169.254.169.254"},
+		{"ipv6 loopback", "https://[::1]"},
+		{"localhost", "https://localhost"},
+	}
+	for _, tc := range invalid {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := parseOriginURL(tc.raw)
+			assert.Error(t, err)
+		})
+	}
+}

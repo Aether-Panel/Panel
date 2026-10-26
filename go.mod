@@ -14,7 +14,7 @@ require (
 	github.com/gin-gonic/gin v1.12.0
 	github.com/go-co-op/gocron/v2 v2.22.0
 	github.com/go-git/go-git/v5 v5.19.3
-	github.com/go-gormigrate/gormigrate/v2 v2.1.6
+	github.com/go-gormigrate/gormigrate/v2 v2.1.7
 	github.com/go-sql-driver/mysql v1.10.1
 	github.com/gofrs/uuid/v5 v5.5.1
 	github.com/golang-jwt/jwt/v5 v5.3.1
@@ -26,7 +26,7 @@ require (
 	github.com/hashicorp/go-version v1.9.0
 	github.com/klauspost/compress v1.20.3
 	github.com/mailgun/mailgun-go/v4 v4.23.0
-	github.com/mailjet/mailjet-apiv3-go/v4 v4.0.8
+	github.com/mailjet/mailjet-apiv3-go/v4 v4.0.9
 	github.com/mholt/archives v0.1.5
 	github.com/minio/minio-go/v7 v7.4.1
 	github.com/moby/moby/api v1.56.1
@@ -34,7 +34,7 @@ require (
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/pkg/sftp v1.13.11
 	github.com/pquerna/otp v1.5.0
-	github.com/pterm/pterm v0.12.83
+	github.com/pterm/pterm v0.12.84
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/sendgrid/sendgrid-go v3.16.1+incompatible
 	github.com/shirou/gopsutil v3.21.11+incompatible
@@ -48,7 +48,7 @@ require (
 	github.com/wneessen/go-mail v0.8.1
 	golang.org/x/crypto v0.58.0
 	golang.org/x/sys v0.49.0
-	google.golang.org/genai v1.73.0
+	google.golang.org/genai v1.75.0
 	gopkg.in/go-playground/validator.v9 v9.31.0
 	gorm.io/driver/mysql v1.6.0
 	gorm.io/driver/postgres v1.6.3
@@ -59,7 +59,7 @@ require (
 
 require (
 	atomicgo.dev/cursor v0.2.0 // indirect
-	atomicgo.dev/keyboard v0.2.9 // indirect
+	atomicgo.dev/keyboard v0.2.10 // indirect
 	atomicgo.dev/schedule v0.1.0 // indirect
 	cel.dev/expr v0.25.2 // indirect
 	cloud.google.com/go v0.116.0 // indirect
@@ -124,7 +124,6 @@ require (
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.11 // indirect
 	github.com/googleapis/gax-go/v2 v2.17.0 // indirect
-	github.com/gookit/color v1.6.0 // indirect
 	github.com/gorilla/context v1.1.2 // indirect
 	github.com/gorilla/sessions v1.4.0 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
@@ -188,7 +187,6 @@ require (
 	github.com/ulikunitz/xz v0.5.15 // indirect
 	github.com/urfave/cli/v2 v2.3.0 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
-	github.com/xo/terminfo v1.0.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	github.com/zeebo/xxh3 v1.1.0 // indirect
 	go.mongodb.org/mongo-driver/v2 v2.8.0 // indirect

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -495,9 +496,24 @@ var cmdList = []string{
 	"mount --rbind /proc proc",
 }
 
+// startCommandPattern is the shape of a start command. The command is split into an argv
+// slice and handed to exec.Command, so shell metacharacters are inert (there is no shell).
+// A NUL cannot be part of an argument, and a line break would only smuggle entries into the
+// console and the logs; both are rejected, as is an empty command.
+var startCommandPattern = regexp.MustCompile(`^[^\x00\n\r]+$`)
+
 func (t *tty) createCmd(workDir, cmd string) (pr *exec.Cmd, err error) {
+	if !startCommandPattern.MatchString(cmd) {
+		return nil, errors.New("the start command is empty or contains a NUL or a line break")
+	}
+
 	if t.DisableUnshare || config.SecurityDisableUnshare.Value() {
 		c, args := utils.SplitArguments(cmd)
+		// check the executable itself as well: it is the value exec.Command receives, and
+		// it comes from the same start command.
+		if !startCommandPattern.MatchString(c) {
+			return nil, errors.New("the start command has an empty or invalid executable")
+		}
 		pr = exec.Command(c, args...)
 		pr.SysProcAttr = &syscall.SysProcAttr{Setctty: true, Setsid: true}
 		pr.Dir = workDir
