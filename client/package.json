@@ -45,7 +45,7 @@
     "svgo": "^4.0.2"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.10",
+    "@astrojs/check": "^0.9.12",
     "@emnapi/runtime": "^1.11.3"
   }
 }
