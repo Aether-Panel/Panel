@@ -10,9 +10,9 @@ import { useAuth } from '@/contexts/providers';
 import type { LoginResult } from '@/contexts/providers';
 import { useConfig } from '@/contexts/config-context';
 import { useTranslations } from '@/contexts/translations-context';
-import { ArrowLeft, KeyRound, Loader2, Mail, Lock, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Clock, KeyRound, Loader2, Mail, Lock, ShieldCheck } from 'lucide-react';
 import { useCaptcha } from '@/components/Turnstile';
-import { AuthFrame, AuthInput, AuthPasswordInput, OtpInput, authLabelClass, authLinkClass, authMessageClass } from '@/components/AuthShell';
+import { AuthFrame, AuthInput, AuthNotice, AuthPasswordInput, OtpInput, authLabelClass, authLinkClass, authMessageClass } from '@/components/AuthShell';
 
 /** Same rules as before; only the messages now follow the active language. */
 const createFormSchema = (t: (key: string) => string) =>
@@ -29,6 +29,8 @@ export default function LoginPage() {
   const { config } = useConfig();
   const panelName = config?.branding?.name || 'Aether Panel';
   const captcha = useCaptcha();
+  // the billing system's sign-in link was used already or came too late
+  const [ssoExpired] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('sso') === 'expired');
 
   const formSchema = useMemo(() => createFormSchema(t), [t]);
   const form = useForm<LoginValues>({
@@ -88,6 +90,11 @@ export default function LoginPage() {
         ) : null
       }
     >
+      {ssoExpired && (
+        <div className="mb-5">
+          <AuthNotice icon={Clock} tone="warning">{t('auth.login.ssoExpired')}</AuthNotice>
+        </div>
+      )}
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="stagger space-y-5">
           <FormField

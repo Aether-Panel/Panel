@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
@@ -27,6 +28,8 @@ func registerProvision(g *gin.RouterGroup) {
 	g.Handle("POST", "/terminate", provisionTerminate)
 	g.Handle("POST", "/suspend", provisionSuspend)
 	g.Handle("POST", "/unsuspend", provisionUnsuspend)
+	g.Handle("POST", "/change-package", provisionChangePackage)
+	g.Handle("POST", "/sso", provisionSSO)
 }
 
 func provisionPing(c *gin.Context) {
@@ -210,6 +213,8 @@ func provisionServer(c *gin.Context) {
 
 	// Inject the assigned port into the template variables so the server starts on it
 	injectAssignedPort(db, serverCreation, server.Identifier, assignedPort)
+	// and the plan's limits, or the container would run with the template's defaults
+	injectResourceLimits(serverCreation, product.CPU, product.Memory, product.Disk)
 
 	reader := &bytes.Buffer{}
 	_ = json.NewEncoder(reader).Encode(&serverCreation)
@@ -401,6 +406,34 @@ func injectAssignedPort(db *gorm.DB, serverCreation *models.ServerCreation, iden
 	db.Model(&models.Server{}).
 		Where("identifier = ?", identifier).
 		Update("port", assignedPort)
+}
+
+// injectResourceLimits sets the cpu, memory and disk variables the daemon builds the
+// container's limits from. A zero leaves the template's own value.
+func injectResourceLimits(serverCreation *models.ServerCreation, cpu int, memory, disk int64) {
+	if serverCreation.Server.Variables == nil {
+		serverCreation.Server.Variables = make(map[string]skypanel.Variable)
+	}
+	for name, value := range resourceLimitData(cpu, memory, disk) {
+		v := serverCreation.Server.Variables[name]
+		v.Value = value
+		serverCreation.Server.Variables[name] = v
+	}
+}
+
+// resourceLimitData is the variable map for the limits that are set (above zero)
+func resourceLimitData(cpu int, memory, disk int64) map[string]interface{} {
+	data := map[string]interface{}{}
+	if cpu > 0 {
+		data["cpu"] = cpu
+	}
+	if memory > 0 {
+		data["memory"] = memory
+	}
+	if disk > 0 {
+		data["disk"] = disk
+	}
+	return data
 }
 
 // grantProvisionedServerScopes gives the customer the standard owner scopes
@@ -614,4 +647,210 @@ func provisionUnsuspend(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+// ChangePackageRequest names the service and either the product it moves to or the new
+// limits themselves (cpu in %, memory and disk in MB).
+type ChangePackageRequest struct {
+	ProvisionActionRequest
+	ProductID string `json:"product_id"`
+	CPU       int    `json:"cpu"`
+	Memory    int64  `json:"memory"`
+	Disk      int64  `json:"disk"`
+}
+
+// @Summary Change a service's plan
+// @Description Moves a provisioned server to another product's limits, or to the cpu, memory
+// @Description and disk given. The server keeps its files; a running server gets the new
+// @Description CPU and memory on its next restart (restart_required), the disk limit counts at once.
+// @Param request body ChangePackageRequest true "Service and its new plan"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Tags Provision
+// @Router /api/v1/change-package [post]
+func provisionChangePackage(c *gin.Context) {
+	db := middleware.GetDatabase(c)
+	var req ChangePackageRequest
+	if err := c.ShouldBindJSON(&req); response.HandleError(c, err, http.StatusBadRequest) {
+		return
+	}
+
+	cpu, memory, disk := req.CPU, req.Memory, req.Disk
+	if req.ProductID != "" {
+		var product models.ProvisionProduct
+		if err := db.Where("product_id = ?", req.ProductID).First(&product).Error; response.HandleError(c, err, http.StatusBadRequest) {
+			return
+		}
+		cpu, memory, disk = product.CPU, product.Memory, product.Disk
+	}
+	if cpu < 0 || memory < 0 || disk < 0 {
+		response.HandleError(c, errors.New("resources cannot be negative"), http.StatusBadRequest)
+		return
+	}
+	data := resourceLimitData(cpu, memory, disk)
+	if len(data) == 0 {
+		response.HandleError(c, errors.New("give a product_id or at least one of cpu, memory and disk"), http.StatusBadRequest)
+		return
+	}
+
+	ss := &services.Server{DB: db}
+	server, err := getServerByRequest(db, req.ProvisionActionRequest, ss)
+	if response.HandleError(c, err, http.StatusNotFound) {
+		return
+	}
+
+	// the node first: if it refuses, the panel must not show limits the server does not have
+	body, _ := json.Marshal(data)
+	ns := &services.Node{DB: db}
+	nodeResponse, err := ns.CallNode(&server.Node, "PUT", daemonServerPrefix+server.Identifier+"/data", io.NopCloser(bytes.NewReader(body)), nil)
+	defer utils.CloseResponse(nodeResponse)
+	if response.HandleError(c, err, http.StatusBadGateway) {
+		return
+	}
+	if nodeResponse.StatusCode != http.StatusNoContent && nodeResponse.StatusCode != http.StatusOK {
+		details, _ := io.ReadAll(nodeResponse.Body)
+		c.AbortWithStatusJSON(nodeResponse.StatusCode, gin.H{"error": "Daemon error", "details": string(details)})
+		return
+	}
+
+	updates := map[string]interface{}{}
+	if cpu > 0 {
+		updates["total_cpu"] = cpu
+	}
+	if memory > 0 {
+		updates["total_memory"] = memory
+	}
+	if disk > 0 {
+		updates["total_disk"] = disk
+	}
+	if err := db.Model(&models.Server{}).Where("identifier = ?", server.Identifier).Updates(updates).Error; response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":          true,
+		"server_id":        server.Identifier,
+		"restart_required": serverIsRunning(ns, &server.Node, server.Identifier),
+	})
+}
+
+// serverIsRunning asks the node; when it cannot tell, it says yes so the caller restarts to be safe
+func serverIsRunning(ns *services.Node, node *models.Node, identifier string) bool {
+	res, err := ns.CallNode(node, "GET", daemonServerPrefix+identifier+"/status", nil, nil)
+	defer utils.CloseResponse(res)
+	if err != nil || res.StatusCode != http.StatusOK {
+		return true
+	}
+	var status skypanel.ServerRunning
+	if err := json.NewDecoder(res.Body).Decode(&status); err != nil {
+		return true
+	}
+	return status.Running
+}
+
+// SSORequest names who signs in: the account's email, and optionally the service whose
+// server the browser lands on.
+type SSORequest struct {
+	ProvisionActionRequest
+	Email string `json:"email" binding:"required,email"`
+}
+
+// @Summary One-time sign-in link
+// @Description For the billing system's "go to the panel" button: returns a link that signs
+// @Description the customer in without their password, once, within a minute. Administrator
+// @Description accounts are refused, so a leaked billing key cannot open the admin panel.
+// @Param request body SSORequest true "Customer email and optional service"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Tags Provision
+// @Router /api/v1/sso [post]
+func provisionSSO(c *gin.Context) {
+	db := middleware.GetDatabase(c)
+	var req SSORequest
+	if err := c.ShouldBindJSON(&req); response.HandleError(c, err, http.StatusBadRequest) {
+		return
+	}
+
+	us := &services.User{DB: db}
+	user, err := us.GetByEmail(req.Email)
+	if response.HandleError(c, err, http.StatusNotFound) {
+		return
+	}
+
+	ps := &services.Permission{DB: db}
+	if isAdministrator(db, ps, user) {
+		response.HandleError(c, skypanel.ErrSSONotForAdmins, http.StatusForbidden)
+		return
+	}
+
+	redirect := "/servers/"
+	if req.ServiceID != "" || req.ServerID != "" {
+		ss := &services.Server{DB: db}
+		server, err := getServerByRequest(db, req.ProvisionActionRequest, ss)
+		if response.HandleError(c, err, http.StatusNotFound) {
+			return
+		}
+		// the link only goes to a server the customer can open
+		allowed, err := ps.HasPermission(user.ID, server.Identifier, scopes.ScopeServerView)
+		if response.HandleError(c, err, http.StatusInternalServerError) {
+			return
+		}
+		if !allowed {
+			response.HandleError(c, skypanel.ErrNoPermission, http.StatusForbidden)
+			return
+		}
+		redirect = "/servers/" + server.Identifier + "/"
+	}
+
+	token, err := services.SSOLinks.Create(user.ID, redirect)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":    true,
+		"url":        panelURL(c) + "/auth/sso?token=" + token,
+		"expires_in": int(services.SSOLinkLifetime.Seconds()),
+	})
+}
+
+// isAdministrator is true when the user holds the admin scope, directly or through a role
+func isAdministrator(db *gorm.DB, ps *services.Permission, user *models.User) bool {
+	perms, err := ps.GetForUserAndServer(user.ID, "")
+	if err != nil {
+		// unsure: treat as an administrator, the safe answer here
+		return true
+	}
+	if scopes.ContainsScope(perms.Scopes, scopes.ScopeAdmin) {
+		return true
+	}
+	if user.RoleID != nil {
+		rs := &services.Role{DB: db}
+		role, err := rs.Get(*user.RoleID)
+		if err != nil {
+			return true
+		}
+		for _, s := range role.Scopes {
+			if scopes.ScopeAdmin.Is(s) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// panelURL is the address customers reach the panel at: the configured master URL, else
+// the address the billing system called.
+func panelURL(c *gin.Context) string {
+	if master := strings.TrimSuffix(config.MasterURL.Value(), "/"); config.MasterURL.IsSet() && master != "" {
+		return master
+	}
+	scheme := "http"
+	if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
+		scheme = "https"
+	}
+	return scheme + "://" + c.Request.Host
 }

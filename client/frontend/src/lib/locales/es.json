@@ -39,7 +39,8 @@
       "submit": "Iniciar sesión",
       "or": "o continúa con",
       "noAccount": "¿No tienes cuenta?",
-      "signUp": "Regístrate"
+      "signUp": "Regístrate",
+      "ssoExpired": "El enlace de acceso ya se usó o ha caducado. Vuelve a pulsar el botón en tu área de cliente o entra con tu contraseña."
     },
     "register": {
       "title": "Crear cuenta",
@@ -365,6 +366,7 @@
         "events": {
           "login": "Inicio de sesión",
           "login_failed": "Intento fallido",
+          "login_sso": "Acceso desde facturación",
           "register": "Cuenta creada",
           "other": "Acceso"
         }
@@ -3381,6 +3383,7 @@
     "ErrSSHKeyExists": "Esa clave ya está añadida a tu cuenta.",
     "ErrSSHKeyLimit": "Has llegado al máximo de claves SSH. Borra alguna antes de añadir otra.",
     "ErrSSHKeyName": "Ponle a la clave un nombre de hasta 100 caracteres.",
-    "ErrCaptchaFailed": "La comprobación anti-bots ha fallado. Vuelve a intentarlo."
+    "ErrCaptchaFailed": "La comprobación anti-bots ha fallado. Vuelve a intentarlo.",
+    "ErrSSONotForAdmins": "No se crean enlaces de acceso para cuentas de administrador."
   }
 }

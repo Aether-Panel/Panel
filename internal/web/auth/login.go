@@ -13,6 +13,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // @Summary User Login
@@ -122,18 +123,21 @@ func OtpPost(c *gin.Context) {
 }
 
 func createSession(c *gin.Context, user *models.User) {
-	db := middleware.GetDatabase(c)
-	ps := &services.Permission{DB: db}
-	ss := &services.Session{DB: db}
+	data, ok := openSession(c, user, models.ActivityLogin)
+	if ok {
+		c.JSON(http.StatusOK, data)
+	}
+}
 
+// userScopes is every panel-wide scope the user holds, their own plus their role's.
+func userScopes(db *gorm.DB, user *models.User) ([]*scopes.Scope, error) {
+	ps := &services.Permission{DB: db}
 	perms, err := ps.GetForUserAndServer(user.ID, "")
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-		return
+	if err != nil {
+		return nil, err
 	}
 
-	// Aggregate scopes from individual permissions and roles
 	allScopes := perms.Scopes
-
 	if user.RoleID != nil {
 		rs := &services.Role{DB: db}
 		role, err := rs.Get(*user.RoleID)
@@ -143,18 +147,31 @@ func createSession(c *gin.Context, user *models.User) {
 			}
 		}
 	}
+	return allScopes, nil
+}
+
+// openSession signs the user in: it checks they may log in, sets the session cookie and
+// records the event. ok is false once an error response has been written.
+func openSession(c *gin.Context, user *models.User, event models.ActivityEvent) (*LoginResponse, bool) {
+	db := middleware.GetDatabase(c)
+	ss := &services.Session{DB: db}
+
+	allScopes, err := userScopes(db, user)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return nil, false
+	}
 
 	if !scopes.ContainsScope(allScopes, scopes.ScopeLogin) {
 		response.HandleError(c, skypanel.ErrLoginNotPermitted, http.StatusForbidden)
-		return
+		return nil, false
 	}
 
 	session, err := ss.CreateForUser(user)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
-		return
+		return nil, false
 	}
 
-	middleware.RecordActivity(c, models.ActivityLogin, user)
+	middleware.RecordActivity(c, event, user)
 
 	data := &LoginResponse{}
 	data.Scopes = allScopes
@@ -164,8 +181,7 @@ func createSession(c *gin.Context, user *models.User) {
 
 	// Always set Secure=true for session cookie to prevent transmission over HTTP
 	middleware.SetAuthCookie(c, session, maxAge)
-
-	c.JSON(http.StatusOK, data)
+	return data, true
 }
 
 type LoginRequestData struct {

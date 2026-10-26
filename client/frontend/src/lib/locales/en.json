@@ -39,7 +39,8 @@
       "submit": "Sign in",
       "or": "or continue with",
       "noAccount": "Don't have an account?",
-      "signUp": "Sign up"
+      "signUp": "Sign up",
+      "ssoExpired": "That sign-in link was already used or has expired. Press the button in your client area again or sign in with your password."
     },
     "register": {
       "title": "Create account",
@@ -365,6 +366,7 @@
         "events": {
           "login": "Sign-in",
           "login_failed": "Failed attempt",
+          "login_sso": "Billing sign-in",
           "register": "Account created",
           "other": "Access"
         }
@@ -3381,6 +3383,7 @@
     "ErrSSHKeyExists": "That key is already added to your account.",
     "ErrSSHKeyLimit": "You have reached the maximum number of SSH keys. Delete one before adding another.",
     "ErrSSHKeyName": "Give the key a name of up to 100 characters.",
-    "ErrCaptchaFailed": "The anti-bot check failed. Please try again."
+    "ErrCaptchaFailed": "The anti-bot check failed. Please try again.",
+    "ErrSSONotForAdmins": "Sign-in links are not issued for administrator accounts."
   }
 }

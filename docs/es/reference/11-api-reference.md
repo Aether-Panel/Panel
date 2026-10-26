@@ -1192,6 +1192,8 @@ API Key authentication in header. Endpoints for integration with external system
 | POST | `/api/v1/terminate` | Terminate server |
 | POST | `/api/v1/suspend` | Suspend server |
 | POST | `/api/v1/unsuspend` | Reactivate server |
+| POST | `/api/v1/change-package` | Move a server to another plan |
+| POST | `/api/v1/sso` | One-time sign-in link for the customer |
 
 ### `POST /api/v1/provision`
 Creates a server automatically based on a product.
@@ -1214,7 +1216,7 @@ Creates a server automatically based on a product.
 3. Creates/finds user by email (generates random password if new)
 4. Assigns "Usuario" role + login scope
 5. Picks free port from product's port range
-6. Creates server with product resources (CPU/Memory/Disk)
+6. Creates server with product resources (CPU/Memory/Disk), which become the container's limits
 7. Grants server scopes to user
 8. Calls daemon to create server
 9. Sends credentials email
@@ -1232,6 +1234,22 @@ Toggles `Suspended` flag on server + children, stops if suspending.
 ### `POST /api/v1/unsuspend`
 **Body:** `{ "server_id": "abc123" }`
 Reactivates suspended server + children.
+
+Every action also accepts `"service_id"` (the billing system's id, stored when the server was provisioned) in place of `"server_id"`.
+
+### `POST /api/v1/change-package`
+Moves a server to another plan (upgrade or downgrade) without touching its files.
+
+**Body:** `{ "service_id": "42", "product_id": "minecraft_4gb" }`, or the limits themselves: `{ "server_id": "abc123", "cpu": 200, "memory": 4096, "disk": 20480 }` (cpu in %, memory and disk in MB; a 0 or missing value is left as it is).
+
+**Response:** `{ "success": true, "server_id": "abc123", "restart_required": true }`. The disk limit counts at once; CPU and memory apply when the server next starts, so restart it when `restart_required` is true.
+
+### `POST /api/v1/sso`
+For the billing system's "go to the panel" button.
+
+**Body:** `{ "email": "customer@example.com", "service_id": "42" }` (`service_id`/`server_id` optional: with one, the customer lands on that server, which they must be able to open).
+
+**Response:** `{ "success": true, "url": "https://panel.example.com/auth/sso?token=...", "expires_in": 60 }`. Send the customer's browser to `url`: it signs them in once, within a minute, without their password or 2FA code, and then the link is spent. Links are refused (403) for administrator accounts, so a leaked API key cannot open the admin panel. Pending links are kept in memory, so a panel restart cancels them.
 
 ---
 

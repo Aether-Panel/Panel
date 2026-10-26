@@ -61,6 +61,7 @@ var ErrSSHKeyExists = CreateError("that key is already added to your account", "
 var ErrSSHKeyLimit = CreateError("you have reached the maximum number of SSH keys", "ErrSSHKeyLimit")
 var ErrSSHKeyName = CreateError("give the key a name of up to 100 characters", "ErrSSHKeyName")
 var ErrCaptchaFailed = CreateError("the anti-bot check failed, try it again", "ErrCaptchaFailed")
+var ErrSSONotForAdmins = CreateError("sign-in links are not issued for administrator accounts", "ErrSSONotForAdmins")
 var ErrDiskLimitExceeded = CreateError("the server has used all of its disk space, delete files to free some", "ErrDiskLimitExceeded")
 var ErrNoCommand = CreateError("command could not be determined", "ErrNoCommand")
 var ErrRepoExists = CreateError("repo already exists with given name", "ErrRepoExists")
