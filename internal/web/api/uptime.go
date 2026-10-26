@@ -50,10 +50,7 @@ func getAllUptime(c *gin.Context) {
 
 	// Obtener todos los servidores de la base de datos para incluir los que no tienen datos de uptime
 	dbServers := &services.Server{DB: db}
-	searchCriteria := services.ServerSearch{
-		PageSize: 1000, // Obtener todos los servidores
-		Page:     1,
-	}
+	searchCriteria := services.ServerSearch{}
 
 	// Un usuario sin admin solo puede ver los servidores a los que tiene acceso
 	user := c.MustGet("user").(*models.User)
@@ -62,7 +59,7 @@ func getAllUptime(c *gin.Context) {
 		searchCriteria.Username = user.Username
 	}
 
-	allServers, totalServers, err := dbServers.Search(searchCriteria)
+	allServers, totalServers, err := searchAllServers(dbServers, searchCriteria)
 	if err != nil && !isAdmin {
 		response.HandleError(c, err, http.StatusInternalServerError)
 		return
@@ -119,6 +116,29 @@ func getAllUptime(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, uptimeStats)
+}
+
+// uptimeSearchPage es cuántos servidores se leen por consulta al juntarlos todos; los tests lo bajan
+var uptimeSearchPage = 1000
+
+// searchAllServers junta todas las páginas de la búsqueda: antes se pedía una sola página de
+// 1000 y los servidores a partir de ahí desaparecían del resumen sin avisar
+func searchAllServers(dbServers *services.Server, criteria services.ServerSearch) ([]*models.Server, int64, error) {
+	criteria.PageSize = uint(uptimeSearchPage)
+	var all []*models.Server
+	var total int64
+	for page := uint(1); ; page++ {
+		criteria.Page = page
+		batch, count, err := dbServers.Search(criteria)
+		if err != nil {
+			return all, total, err
+		}
+		total = count
+		all = append(all, batch...)
+		if len(batch) < uptimeSearchPage || int64(len(all)) >= total {
+			return all, total, nil
+		}
+	}
 }
 
 // missingUptimeServers son los servidores que todavía no tienen datos de uptime
