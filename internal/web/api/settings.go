@@ -564,6 +564,8 @@ var editableStringEntries = []config.StringEntry{
 	config.CloudflareZoneID,
 	config.DNSBaseDomain,
 	config.DNSTarget,
+	config.TurnstileSiteKey,
+	config.TurnstileSecretKey,
 }
 var editableBoolEntries = []config.BoolEntry{
 	config.RegistrationEnabled,
@@ -574,6 +576,8 @@ var editableBoolEntries = []config.BoolEntry{
 	config.ExperimentalVersionSwitch,
 	config.ExperimentalPropertiesEditor,
 	config.ExperimentalServerClone,
+	config.TurnstileEnabled,
+	config.CaptchaBuiltin,
 }
 var editableIntEntries = []config.IntEntry{}
 
