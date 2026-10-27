@@ -30,7 +30,8 @@ export function ExtensionFrame({
 
     useEffect(() => {
         const onMessage = (event: MessageEvent) => {
-            if (event.source !== frameRef.current?.contentWindow) return;
+            // only this frame's page, which is sandboxed and so always has the opaque origin "null"
+            if (event.origin !== 'null' || event.source !== frameRef.current?.contentWindow) return;
             const data = event.data;
             if (data?.type === 'aether:resize' && typeof data.height === 'number' && Number.isFinite(data.height)) {
                 setHeight(Math.min(Math.max(Math.round(data.height), 200), 4000));
