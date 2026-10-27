@@ -2,7 +2,7 @@
 
 ###############################################################################
 # Aether Panel - Script de Instalación Automática (Docker)
-# Versión: 4.1.0
+# Versión: 4.1.1
 # Repositorio: https://github.com/Aether-Panel/Panel.git
 # Nota: Aether Panel es el nombre oficial. SkyPanel es el nombre en clave.
 # Soporte: Solo instalación vía Docker. No existe modo nativo.
@@ -29,7 +29,7 @@ umask 022
 # CONFIGURACIÓN Y VARIABLES GLOBALES
 # =============================================================================
 
-readonly SCRIPT_VERSION="4.1.0"
+readonly SCRIPT_VERSION="4.1.1"
 readonly SCRIPT_BUILD="20261026-hardening"
 readonly PROJECT_NAME="Aether Panel"
 readonly PROJECT_CODENAME="SkyPanel"
@@ -588,8 +588,9 @@ detect_os() {
     local major="${OS_VERSION%%.*}"
     if [[ "$major" =~ ^[0-9]+$ ]]; then
         case "$OS_TYPE" in
-            ubuntu) (( major >= 20 )) || log_warning "Ubuntu $OS_VERSION es anterior a 20.04 (no soportado)" ;;
-            debian) (( major >= 11 )) || log_warning "Debian $OS_VERSION es anterior a 11 (no soportado)" ;;
+            # 20.04 y Debian 11 ya no reciben parches de seguridad, y Docker dejó de publicarse para ellas
+            ubuntu) (( major >= 22 )) || log_warning "Ubuntu $OS_VERSION ya no tiene soporte; usa 22.04 o posterior" ;;
+            debian) (( major >= 12 )) || log_warning "Debian $OS_VERSION ya no tiene soporte; usa Debian 12 o posterior" ;;
             rhel|centos|rocky|alma|almalinux) (( major >= 8 )) || log_warning "$OS_TYPE $OS_VERSION es anterior a 8 (no soportado)" ;;
         esac
     fi
@@ -2129,15 +2130,24 @@ configure_firewall() {
                 log_warning "firewalld no está instalado; no se configura el firewall"
                 return 0
             fi
+            local started_firewalld=false
             if [[ "$HAS_SYSTEMD" == "true" ]] && ! systemctl is-active --quiet firewalld; then
                 # Primero las reglas permanentes de SSH, luego se arranca
                 for p in "${SSH_PORTS[@]}"; do run firewall-offline-cmd --add-port="$p/tcp" || true; done
                 svc enable --now firewalld
+                started_firewalld=true
             fi
             run firewall-cmd --permanent --add-service=ssh
             for p in "${SSH_PORTS[@]}"; do run firewall-cmd --permanent --add-port="$p/tcp"; done
             for p in "${tcp_ports[@]}"; do run firewall-cmd --permanent --add-port="$p/tcp"; done
             run firewall-cmd --reload
+            # firewalld borra al arrancar las reglas que Docker creó para sus redes, y Docker
+            # solo las repone cuando ya encontró firewalld en marcha al iniciarse. Sin esto los
+            # contenedores no se ven entre sí y el panel no llega a MySQL.
+            if [[ "$started_firewalld" == "true" ]] && systemctl is-active --quiet docker; then
+                log_info "Reiniciando Docker para que recree sus reglas en firewalld"
+                svc restart docker
+            fi
             ;;
     esac
 

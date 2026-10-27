@@ -91,3 +91,32 @@ func TestExtractLimited_StopsAtTheLimit(t *testing.T) {
 	})
 	assert.ErrorIs(t, err, errQuota)
 }
+
+func TestCompressLimited_DeletesAnArchiveTheLimitCutShort(t *testing.T) {
+	fs, root, _ := newSafetyServer(t)
+	assert.NoError(t, os.WriteFile(filepath.Join(root, "big.bin"), make([]byte, 64*1024), 0644))
+
+	shared := &limitedWriter{max: 1024}
+	// a plain tar does not shrink the zeros, so the archive is bigger than the limit
+	err := CompressLimited(fs, "big.tar", []string{"big.bin"}, func(w io.Writer) io.Writer {
+		shared.w = w
+		return shared
+	})
+	assert.ErrorIs(t, err, errQuota)
+
+	_, statErr := os.Stat(filepath.Join(root, "big.tar"))
+	assert.True(t, os.IsNotExist(statErr), "half an archive is not left behind")
+}
+
+func TestCompressLimited_KeepsAnArchiveThatFits(t *testing.T) {
+	fs, root, _ := newSafetyServer(t)
+
+	shared := &limitedWriter{max: 1 << 20}
+	err := CompressLimited(fs, "world.tar.gz", []string{"world.dat"}, func(w io.Writer) io.Writer {
+		shared.w = w
+		return shared
+	})
+	assert.NoError(t, err)
+	_, statErr := os.Stat(filepath.Join(root, "world.tar.gz"))
+	assert.NoError(t, statErr)
+}

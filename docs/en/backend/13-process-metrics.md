@@ -82,7 +82,7 @@ func processStats() {
             uptimeService.TrackStatus(serverID, stats.Running)
             
             // 3. Check disk limit
-            checkDiskLimit(server, stats.Storage)
+            checkDiskLimit(server, stats)
             
             // 4. Check resource alerts
             checkServerAlerts(server, stats)
@@ -134,9 +134,9 @@ Monitors CPU, RAM, Disk thresholds and sends Discord notifications.
 |----------|---------|---------------------|
 | CPU | 80% | - |
 | RAM | 90% | - |
-| Disk | 95% | 100% (auto-stop) |
+| Disk | - | limit + 1 MB (auto-stop) |
 
-**Note:** Only CPU and RAM have warning thresholds. Disk has auto-stop at 100%.
+**Note:** Only CPU and RAM have warning thresholds. Disk has auto-stop past its limit plus 1 MB.
 
 ### Deduplication
 
@@ -165,7 +165,7 @@ func checkServerAlerts(server *Server, stats *skypanel.ServerStats) {
     if stats.CPU <= 80 {
         state.cpuAlerted = false
     }
-    // ... RAM (90%), Disk (95%) similar
+    // ... RAM (90%) similar
 }
 ```
 
@@ -173,25 +173,22 @@ func checkServerAlerts(server *Server, stats *skypanel.ServerStats) {
 
 ## Disk Enforcement (`checkDiskLimit()`)
 
-Enforces per-server disk limits with auto-stop at 100%.
+While the server runs, every stats pass (5 s) compares disk usage with the limit.
 
 ```go
-func checkDiskLimit(server *Server, usedBytes int64) {
-    limit := server.TotalDisk // bytes, 0 = unlimited
-    if limit == 0 {
-        return
+func checkDiskLimit(server *Server, stats *skypanel.ServerStats) {
+    if stats == nil || stats.MaxStorage <= 0 {
+        return // no limit
     }
-    
-    if stats.MaxDisk > 0 {
-        // Check against max disk from stats
-        if stats.Disk > stats.MaxDisk+1024*1024 { // 1MB buffer
-            server.Stop()
-        }
+    if stats.Disk > stats.MaxStorage+(1024*1024) { // 1 MB margin
+        // console warning, Stop() and, if that fails, Kill()
     }
 }
 ```
 
-**Logic:** Auto-stops when `stats.Disk > stats.MaxDisk + 1MB` (no percentage-based warning in current code).
+`MaxStorage` is the server's `disk` variable (MB) in bytes; `0` or empty = no limit. On Docker, `Disk` is recalculated at most every 30 s.
+
+This only stops a server that is already running. The limit is also enforced before writing: a server whose disk is full does not start, and uploads, SFTP, extraction and plugins stop at the limit. See [Servers: Disk limit](./04-servers.md#disk-limit).
 
 ---
 
@@ -432,7 +429,7 @@ Port management is handled in API handlers, not in server.go:
 | Issue | Cause | Fix |
 |-------|-------|-----|
 | Metrics not updating | `statTicker` stopped | Check `InitService()` called |
-| Disk enforcement not working | `TotalDisk = 0` | Set `server.TotalDisk` in config |
+| Disk enforcement not working | The server's `disk` variable is empty or `0` | Set the limit in MB in the `disk` variable (server settings → Disk) |
 | Alerts not firing | Discord webhook not configured | Add `DiscordWebhook` in config |
 | Scheduler not running | `InitService()` not called | Ensure daemon started |
 | KeepAlive not sending | Frequency parse error | Use `5m`, `30s` format (time.ParseDuration) |

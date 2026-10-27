@@ -176,6 +176,16 @@ func extractFile(file io.ReadSeeker, sourceFile, targetPath, filter string, skip
 }
 
 func Compress(fs FileServer, targetFile string, filesToCompress []string) error {
+	return compress(fs, targetFile, filesToCompress, nil)
+}
+
+// CompressLimited is Compress with the archive written through limit, so it counts against
+// the server's disk quota as it grows. An archive the limit cut short is deleted.
+func CompressLimited(fs FileServer, targetFile string, filesToCompress []string, limit WriteLimit) error {
+	return compress(fs, targetFile, filesToCompress, limit)
+}
+
+func compress(fs FileServer, targetFile string, filesToCompress []string, limit WriteLimit) error {
 	if len(filesToCompress) == 0 {
 		return errors.New("no files to compress")
 	}
@@ -235,7 +245,21 @@ func Compress(fs FileServer, targetFile string, filesToCompress []string) error 
 		return errors.New("format is not an archiver")
 	}
 
-	return archiver.Archive(ctx, out, filesList)
+	var w io.Writer = out
+	if limit != nil {
+		w = limit(out)
+	}
+	err = archiver.Archive(ctx, w, filesList)
+	if err != nil && limit != nil {
+		// half an archive is no use to anyone, and it is what took the disk past the limit
+		utils.Close(out)
+		if fs != nil {
+			_ = fs.Remove(relativeTarget)
+		} else {
+			_ = os.Remove(targetFile)
+		}
+	}
+	return err
 }
 
 // insideRealRoot checks that dir, with every symlink resolved, is still inside root

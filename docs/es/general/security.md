@@ -32,19 +32,7 @@ El panel incluye un servidor OAuth2. El endpoint está en `/oauth2/token` (gener
 
 #### Autenticación de Dos Factores (2FA/TOTP)
 
-Aether Panel soporta TOTP (Time-based One-Time Password) para autenticación de dos factores. Cuando un usuario tiene 2FA habilitado, al iniciar sesión se le solicita el código OTP. El código debe ingresarse dentro de una ventana de 5 minutos desde el inicio de sesión. Compatible con Google Authenticator, Authy, Microsoft Authenticator, etc.
-
-##### Configurar 2FA
-
-- Ve a tu perfil en el panel
-- Haz clic en 'Configurar 2FA'
-- Escanea el código QR con tu aplicación de autenticación
-- Ingresa el código de verificación para confirmar
-- Guarda los códigos de recuperación en un lugar seguro
-
-##### Códigos de Recuperación
-
-Cuando configuras 2FA, se generan códigos de recuperación únicos. Puedes regenerarlos desde `/api/self/otp/recovery`. Si pierdes acceso a tu dispositivo 2FA, los códigos de recuperación son la única forma de recuperar tu cuenta.
+Aether Panel soporta TOTP (Time-based One-Time Password) para autenticación de dos factores. Cómo se activa, los códigos de recuperación y la API están en [Verificación en dos pasos (2FA)](#verificación-en-dos-pasos-2fa).
 
 ### Seguridad de Contraseñas
 
@@ -52,7 +40,7 @@ Las contraseñas en Aether Panel están protegidas con:
 
 - Hashing con bcrypt (costo por defecto: 10) — nunca se almacenan en texto plano
 - Cada llamada a SetPassword() genera un nuevo hash con salt automático
-- El campo de contraseña tiene tamaño máximo de 200 caracteres en BD
+- Las contraseñas deben tener entre 8 y 72 bytes (el límite de bcrypt)
 
 #### Recomendaciones para Contraseñas
 
@@ -61,6 +49,133 @@ Las contraseñas en Aether Panel están protegidas con:
 - No reutilices contraseñas de otros servicios
 - Usa un gestor de contraseñas (Bitwarden, 1Password, etc.)
 - Cambia las contraseñas regularmente, especialmente las de administrador
+
+## Inicio de sesión y cuenta
+
+Los formularios de inicio de sesión, registro y cambio de contraseña pasan una comprobación anti-bots. Está en [Captcha / anti-bots](17-turnstile.md).
+
+### Límite de intentos
+
+| Qué | Límite | Respuesta al pasarlo |
+|-----|--------|----------------------|
+| Contraseña (panel y SFTP comparten contador) | 10 fallos en 15 minutos por cuenta | `429` `ErrTooManyAttempts` |
+| Código 2FA | 10 fallos en 15 minutos por cuenta | `429` `ErrTooManyAttempts` |
+| Correos de cambio de contraseña | 5 por dirección y hora | `204`, sin enviar correo |
+
+El contador va por cuenta (correo), no por IP, así que funciona igual detrás de un proxy. Vive en memoria: se pone a cero al reiniciar el panel. Un inicio de sesión correcto lo pone a cero para esa cuenta.
+
+### Verificación en dos pasos (2FA)
+
+Códigos TOTP de 6 dígitos, compatibles con Google Authenticator, Authy, Microsoft Authenticator y similares.
+
+**Activarla**: **Configuración de la cuenta → Autenticación de dos pasos → Habilitar 2FA**. Escanea el código QR y escribe el código que da la aplicación. Hasta que no lo confirmas, la 2FA no se activa.
+
+Al confirmarla, el panel muestra **10 códigos de recuperación** de 12 caracteres. Guárdalos: el panel solo guarda su hash y no los puede volver a mostrar. Cada uno sirve **una vez** en lugar del código de la aplicación.
+
+| Acción | Qué pide | Qué pasa |
+|--------|----------|----------|
+| Regenerar códigos | Un código de la aplicación o de recuperación | Los anteriores dejan de funcionar. |
+| Desactivar | Un código de la aplicación o de recuperación | Se borran la clave y los códigos. |
+| Cambiar de teléfono | Desactívala y vuelve a activarla | No se puede activar otra encima de una activa (`ErrOtpAlreadyEnabled`). |
+
+Si el correo está configurado, el panel avisa al activarla, al desactivarla y al regenerar los códigos.
+
+**Si se pierden el teléfono y los códigos**, un administrador la quita desde el servidor con `SkyPanel user edit` → **Remove 2FA** (ver [CLI](../backend/07-cli.md)).
+
+**Al iniciar sesión**, `POST /auth/login` responde `{"otpNeeded": true}` y el código se envía a `POST /auth/otp` en la misma sesión del navegador, antes de **5 minutos**. Pasado ese tiempo hay que volver a escribir la contraseña (`ErrSessionExpired`).
+
+```bash
+# 1. Contraseña (más el token anti-bots): responde {"otpNeeded": true}
+curl -c cookies.txt -X POST https://panel.example.com/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email": "ana@example.com", "password": "<tu-contraseña>", "captchaToken": "<token>"}'
+
+# 2. Código de la aplicación (o uno de recuperación), con la misma cookie
+curl -b cookies.txt -X POST https://panel.example.com/auth/otp \
+  -H 'Content-Type: application/json' \
+  -d '{"token": "123456"}'
+```
+
+| Método y ruta | Cuerpo | Respuesta |
+|---------------|--------|-----------|
+| `GET /api/self/otp` | — | `{"otpEnabled": true}` |
+| `POST /api/self/otp` | — | `{"secret": "...", "img": "data:image/png;base64,..."}` |
+| `PUT /api/self/otp` | `{"token": "123456"}` | `{"recoveryCodes": ["...", ...]}` |
+| `POST /api/self/otp/recovery` | `{"token": "123456"}` | `{"recoveryCodes": ["...", ...]}` |
+| `DELETE /api/self/otp/{token}` | — | `204` |
+
+Todas necesitan el permiso `self.edit`.
+
+El SFTP no pide el código 2FA: entra con la contraseña o con una [clave SSH](#claves-ssh-para-sftp).
+
+### Quitar el permiso de entrar
+
+El panel comprueba el permiso `login` en **cada petición**, no solo al iniciar sesión. Cuenta el `login` de los permisos generales del usuario o el de su rol; el de un servidor concreto no cuenta.
+
+Si se lo quitas a un usuario (o le quitas el rol que se lo daba), su sesión se cierra en la siguiente petición: el panel la borra y responde `401`.
+
+Otras situaciones que cierran sesiones:
+
+| Qué | Sesiones que se cierran |
+|-----|-------------------------|
+| El usuario cambia su contraseña en su perfil | Todas menos la actual |
+| Un administrador le pone una contraseña nueva | Todas |
+| Restablece la contraseña con el enlace del correo | Todas |
+
+Quitar `login` también cierra el SFTP: el panel lo comprueba en cada conexión, con contraseña o con clave SSH, además de `server.sftp`.
+
+### Claves SSH para SFTP
+
+Un usuario puede entrar por SFTP con una clave pública en lugar de su contraseña. El usuario sigue siendo `correo#idServidor`.
+
+**Añadir una clave**: **Configuración de la cuenta → Claves SSH → Añadir clave**. Pega la línea de tu archivo `.pub` (por ejemplo `~/.ssh/id_ed25519.pub`). Si no le pones nombre, se usa el comentario de la clave.
+
+| Regla | Detalle |
+|-------|---------|
+| Tipos aceptados | `ssh-ed25519`, ECDSA (256, 384 y 521), llaves de seguridad (`sk-ssh-ed25519@openssh.com`, `sk-ecdsa-sha2-nistp256@openssh.com`) y RSA de 2048 bits o más. |
+| Rechazadas | DSA, certificados, líneas con opciones (`from=`, `command=`…) y claves privadas. |
+| Nombre | Hasta 100 caracteres. |
+| Máximo | 25 claves por cuenta. La misma clave no se puede añadir dos veces. |
+
+El panel muestra la huella SHA256 de cada clave, la misma que imprime `ssh-keygen -l`.
+
+**Conectar**:
+
+```bash
+sftp -P 5657 -i ~/.ssh/id_ed25519 -o User='ana@example.com#1a2b3c4d' panel.example.com
+```
+
+El usuario necesita igualmente `server.sftp` en ese servidor (o ser su dueño). Borrar una clave impide las conexiones nuevas con ella; borrar el usuario borra sus claves.
+
+Las claves solo sirven en el nodo donde corre el panel. Los nodos remotos comprueban el SFTP contra el panel con usuario y contraseña, así que en sus servidores hay que entrar con la contraseña.
+
+| Método y ruta | Cuerpo | Respuesta |
+|---------------|--------|-----------|
+| `GET /api/self/sshkeys` | — | Lista de claves |
+| `POST /api/self/sshkeys` | `{"name": "Portátil", "publicKey": "ssh-ed25519 AAAA... ana@portatil"}` | La clave creada |
+| `DELETE /api/self/sshkeys/{id}` | — | `204` |
+
+```json
+{
+  "id": 3,
+  "name": "Portátil",
+  "fingerprint": "SHA256:…",
+  "type": "ssh-ed25519",
+  "createdAt": "2026-10-26T16:00:00Z"
+}
+```
+
+Todas necesitan el permiso `self.edit`. Errores: `ErrSSHKeyInvalid`, `ErrSSHKeyIsPrivate`, `ErrSSHKeyWeak`, `ErrSSHKeyExists`, `ErrSSHKeyLimit`, `ErrSSHKeyName`.
+
+### Restablecer la contraseña
+
+- El formulario **He olvidado mi contraseña** pasa la comprobación anti-bots.
+- Responde siempre `204`, exista o no la cuenta y aunque se haya pasado el límite de correos.
+- El correo va a la dirección guardada en la cuenta, no a lo que se escribió en el formulario.
+- El enlace se construye con la **URL principal** del panel (`panel.settings.masterUrl`), nunca con las cabeceras de la petición. Configúrala: si no, el enlace usa `http://localhost:8080` y el panel lo avisa en el log.
+- El enlace caduca a los **30 minutos** y sirve **una vez**. Pedir otro anula el anterior. En la base de datos solo se guarda su hash.
+- La contraseña nueva debe tener entre 8 y 72 bytes. Se comprueba antes de gastar el enlace, así que una contraseña demasiado corta se puede volver a escribir.
+- Al cambiarla se cierran todas las sesiones de la cuenta y se envía un correo de aviso.
 
 ## Autorización y Permisos
 

@@ -40,7 +40,8 @@
       "or": "or continue with",
       "noAccount": "Don't have an account?",
       "signUp": "Sign up",
-      "ssoExpired": "That sign-in link was already used or has expired. Press the button in your client area again or sign in with your password."
+      "ssoExpired": "That sign-in link was already used or has expired. Press the button in your client area again or sign in with your password.",
+      "ssoDenied": "This account is not allowed to sign in to the panel. Please contact support."
     },
     "register": {
       "title": "Create account",

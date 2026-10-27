@@ -73,9 +73,8 @@ func (ds *DiscordService) SendWebhookToURL(webhookURL, title, description string
 // their own webhook, so anything else is refused rather than requested by the panel.
 var discordWebhookPattern = regexp.MustCompile(`^https://(?:(?:ptb|canary)\.)?discord(?:app)?\.com/api/webhooks/\d+/[\w-]+$`)
 
-// checkDiscordWebhook and discordHTTPClient are swapped in tests, which post to a local server
+// discordWebhookPattern and discordHTTPClient are swapped in tests, which post to a local server
 var (
-	checkDiscordWebhook      = ValidateDiscordWebhook
 	defaultDiscordHTTPClient = utils.NewRestrictedHTTPClient
 	discordHTTPClient        = defaultDiscordHTTPClient
 )
@@ -94,8 +93,11 @@ func ValidateDiscordWebhook(webhookURL string) error {
 // the request goes through a client that refuses private addresses, so a webhook setting can
 // never be used to reach the node's own network.
 func (ds *DiscordService) SendEmbedToURL(webhookURL string, embed DiscordEmbed) error {
-	if err := checkDiscordWebhook(webhookURL); err != nil || webhookURL == "" {
-		return err
+	if webhookURL == "" {
+		return nil
+	}
+	if !discordWebhookPattern.MatchString(webhookURL) {
+		return ErrInvalidDiscordWebhook
 	}
 	if embed.Timestamp == "" {
 		embed.Timestamp = time.Now().Format(time.RFC3339)
@@ -330,8 +332,11 @@ func serverStatusField(s ServerInfo) DiscordEmbedField {
 // postDiscordPayload sends the system status payload to the webhook. Like SendEmbedToURL it
 // only posts to a Discord webhook and through the client that refuses private addresses.
 func postDiscordPayload(webhookURL string, payload DiscordWebhookPayload) error {
-	if err := checkDiscordWebhook(webhookURL); err != nil || webhookURL == "" {
-		return err
+	if webhookURL == "" {
+		return nil
+	}
+	if !discordWebhookPattern.MatchString(webhookURL) {
+		return ErrInvalidDiscordWebhook
 	}
 	jsonData, err := json.Marshal(payload)
 	if err != nil {

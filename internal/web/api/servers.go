@@ -427,7 +427,7 @@ func createServer(c *gin.Context) {
 		return
 	}
 
-	if err := assignServerPermissions(ps, server.Identifier, users); response.HandleError(c, err, http.StatusInternalServerError) {
+	if err := assignServerPermissions(ps, server.Identifier, users, server.ParentServerID); response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
 	// the owner is a member too, also when it came from the parent server
@@ -870,8 +870,9 @@ func findOrInviteServerUser(c *gin.Context, us *services.User, email, username s
 	return user, "", true
 }
 
-// createInvitedUser creates a placeholder account for a new email; the
-// returned token is its initial password and goes out in the invite email.
+// createInvitedUser creates an account for a new email. Its password is a random value
+// nobody is told: the invite email sends them to choose their own with a password reset.
+// The returned token only tells the email that the account is new.
 func createInvitedUser(us *services.User, email string) (*models.User, string, error) {
 	un, err := uuid.NewV4()
 	if err != nil {
@@ -890,6 +891,11 @@ func createInvitedUser(us *services.User, email string) (*models.User, string, e
 		return nil, "", err
 	}
 	if err = us.Create(user); err != nil {
+		return nil, "", err
+	}
+	// like a self-registered account, so they can sign in once they have a password
+	ps := &services.Permission{DB: us.DB}
+	if err = ps.UpdatePermissions(&models.Permissions{UserID: &user.ID, Scopes: []*scopes.Scope{scopes.ScopeLogin}}); err != nil {
 		return nil, "", err
 	}
 	return user, registerToken, nil
@@ -969,7 +975,11 @@ func removeServerUser(c *gin.Context) {
 		user, err = us.Get(username)
 	}
 
-	if err != nil && response.HandleError(c, err, http.StatusInternalServerError) {
+	if errors.Is(err, gorm.ErrRecordNotFound) || (err == nil && user == nil) {
+		response.HandleError(c, skypanel.ErrUserNotFound, http.StatusNotFound)
+		return
+	}
+	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
 
@@ -2507,17 +2517,18 @@ func currentDefinition(c *gin.Context, ns *services.Node, server *models.Server)
 }
 
 // ownerOfNewServer decides who owns a server being created: a sub-server belongs to its
-// parent's owner, otherwise the first user it is created for, otherwise its creator unless
-// that is an administrator making a server of their own (it then has no owner).
+// parent's owner (none if the parent has none), otherwise the first user it is created for,
+// otherwise its creator unless that is an administrator making a server of their own (it
+// then has no owner).
 func ownerOfNewServer(db *gorm.DB, creator *models.User, users []*models.User, parentID *string) (*uint, error) {
 	if parentID != nil && *parentID != "" {
+		// a sub-server's users are the parent's members in no set order, so the first of
+		// them is not a choice anyone made
 		var parent models.Server
 		if err := db.Select("identifier", "owner_id").First(&parent, "identifier = ?", *parentID).Error; err != nil {
 			return nil, err
 		}
-		if parent.OwnerID != nil {
-			return parent.OwnerID, nil
-		}
+		return parent.OwnerID, nil
 	}
 	if len(users) > 0 && users[0] != nil {
 		return &users[0].ID, nil
@@ -2656,11 +2667,29 @@ func checkParentServerLimitsOnUpdate(tx *gorm.DB, server *models.Server, parentA
 	return nil
 }
 
-func assignServerPermissions(ps *services.Permission, serverID string, users []*models.User) error {
+// assignServerPermissions gives the users of a new server their access. On a sub-server they
+// are the parent's members, and each keeps exactly what they had on the parent: a sub-user
+// who could only watch the console there must not get full control of the split.
+func assignServerPermissions(ps *services.Permission, serverID string, users []*models.User, parentID *string) error {
 	for _, v := range users {
 		perm, err := ps.GetForUserAndServer(v.ID, serverID)
 		if err != nil {
 			return err
+		}
+
+		if parentID != nil && *parentID != "" {
+			parentPerm, err := ps.GetForUserAndServer(v.ID, *parentID)
+			if err != nil {
+				return err
+			}
+			if len(parentPerm.Scopes) == 0 {
+				continue
+			}
+			perm.Scopes = parentPerm.Scopes
+			if err = ps.UpdatePermissions(perm); err != nil {
+				return err
+			}
+			continue
 		}
 
 		perm.Scopes = []*scopes.Scope{

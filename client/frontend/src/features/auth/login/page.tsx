@@ -29,8 +29,9 @@ export default function LoginPage() {
   const { config } = useConfig();
   const panelName = config?.branding?.name || 'Aether Panel';
   const captcha = useCaptcha();
-  // the billing system's sign-in link was used already or came too late
-  const [ssoExpired] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('sso') === 'expired');
+  // the billing system's sign-in link was used already, came too late, or is for an account
+  // that may not sign in
+  const [ssoNotice] = useState(() => (typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('sso')));
 
   const formSchema = useMemo(() => createFormSchema(t), [t]);
   const form = useForm<LoginValues>({
@@ -90,9 +91,11 @@ export default function LoginPage() {
         ) : null
       }
     >
-      {ssoExpired && (
+      {(ssoNotice === 'expired' || ssoNotice === 'denied') && (
         <div className="mb-5">
-          <AuthNotice icon={Clock} tone="warning">{t('auth.login.ssoExpired')}</AuthNotice>
+          <AuthNotice icon={Clock} tone="warning">
+            {t(ssoNotice === 'denied' ? 'auth.login.ssoDenied' : 'auth.login.ssoExpired')}
+          </AuthNotice>
         </div>
       )}
       <Form {...form}>

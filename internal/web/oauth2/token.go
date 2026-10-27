@@ -175,9 +175,12 @@ func handlePasswordGrant(c *gin.Context, db *gorm.DB, session *services.Session,
 		return
 	}
 
-	// confirm user has access to this server
+	// confirm user may still sign in at all and has access to this server
 	ps := &services.Permission{DB: db}
-	allowed, err := ps.HasPermission(user.ID, server.Identifier, scopes.ScopeServerSftp)
+	allowed, err := ps.MaySignIn(user.ID)
+	if err == nil && allowed {
+		allowed, err = ps.HasPermission(user.ID, server.Identifier, scopes.ScopeServerSftp)
+	}
 	if err != nil {
 		c.JSON(http.StatusBadRequest, &oauth2.ErrorResponse{Error: "invalid_request", ErrorDescription: err.Error()})
 		return

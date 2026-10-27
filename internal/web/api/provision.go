@@ -490,7 +490,26 @@ func getServerByRequest(db *gorm.DB, req ProvisionActionRequest, ss *services.Se
 	if req.ServerID != "" {
 		return ss.Get(req.ServerID)
 	}
-	return nil, errors.New("either service_id or server_id is required")
+	return nil, errNoServerRef
+}
+
+// errNoServerRef is a request that does not say which server it is about
+var errNoServerRef = skypanel.CreateError("either service_id or server_id is required", "ErrServerRequired")
+
+// requestServer finds the server a billing call is about and writes the error response itself
+// when it cannot: 400 if the request names none, 404 if there is no such server.
+func requestServer(c *gin.Context, db *gorm.DB, req ProvisionActionRequest, ss *services.Server) (*models.Server, bool) {
+	server, err := getServerByRequest(db, req, ss)
+	switch {
+	case errors.Is(err, errNoServerRef):
+		response.HandleError(c, err, http.StatusBadRequest)
+	case err == nil && server == nil:
+		response.HandleError(c, gorm.ErrRecordNotFound, http.StatusNotFound)
+	case response.HandleError(c, err, http.StatusInternalServerError):
+	default:
+		return server, true
+	}
+	return nil, false
 }
 
 func provisionTerminate(c *gin.Context) {
@@ -501,8 +520,8 @@ func provisionTerminate(c *gin.Context) {
 	}
 
 	ss := &services.Server{DB: db}
-	server, err := getServerByRequest(db, req, ss)
-	if response.HandleError(c, err, http.StatusInternalServerError) || server == nil {
+	server, ok := requestServer(c, db, req, ss)
+	if !ok {
 		return
 	}
 
@@ -585,12 +604,12 @@ func provisionSuspend(c *gin.Context) {
 	}
 
 	ss := &services.Server{DB: db}
-	server, err := getServerByRequest(db, req, ss)
-	if response.HandleError(c, err, http.StatusInternalServerError) || server == nil {
+	server, ok := requestServer(c, db, req, ss)
+	if !ok {
 		return
 	}
 
-	err = db.Transaction(func(tx *gorm.DB) error {
+	err := db.Transaction(func(tx *gorm.DB) error {
 		server.Suspended = true
 		if err := tx.Save(server).Error; err != nil {
 			return err
@@ -675,12 +694,12 @@ func provisionUnsuspend(c *gin.Context) {
 	}
 
 	ss := &services.Server{DB: db}
-	server, err := getServerByRequest(db, req, ss)
-	if response.HandleError(c, err, http.StatusInternalServerError) || server == nil {
+	server, ok := requestServer(c, db, req, ss)
+	if !ok {
 		return
 	}
 
-	err = db.Transaction(func(tx *gorm.DB) error {
+	err := db.Transaction(func(tx *gorm.DB) error {
 		server.Suspended = false
 		if err := tx.Save(server).Error; err != nil {
 			return err
@@ -753,8 +772,8 @@ func provisionChangePackage(c *gin.Context) {
 	}
 
 	ss := &services.Server{DB: db}
-	server, err := getServerByRequest(db, req.ProvisionActionRequest, ss)
-	if response.HandleError(c, err, http.StatusNotFound) {
+	server, ok := requestServer(c, db, req.ProvisionActionRequest, ss)
+	if !ok {
 		return
 	}
 
@@ -844,8 +863,8 @@ func provisionSSO(c *gin.Context) {
 	redirect := "/servers/"
 	if req.ServiceID != "" || req.ServerID != "" {
 		ss := &services.Server{DB: db}
-		server, err := getServerByRequest(db, req.ProvisionActionRequest, ss)
-		if response.HandleError(c, err, http.StatusNotFound) {
+		server, ok := requestServer(c, db, req.ProvisionActionRequest, ss)
+		if !ok {
 			return
 		}
 		// the link only goes to a server the customer can open

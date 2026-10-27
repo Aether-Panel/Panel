@@ -38,7 +38,7 @@ Interactive OpenAPI/Swagger documentation available at `http://localhost:8080/sw
 - [Database Hosts](#database-hosts)
 - [Templates](#templates)
 - [Provision Products](#provision-products)
-- [Provision API v1](#provision-api-v1)
+- [Provisioning / billing](#provisioning--billing)
 - [Uptime](#uptime)
 - [Daemon](#daemon)
 - [WebSocket](#websocket)
@@ -1171,7 +1171,7 @@ Products define server templates for automated provisioning (WHMCS integration, 
   "cpu": 100,
   "memory": 2048,
   "disk": 10240,
-  "default_node": true,
+  "default_node": 1,
   "port_range_min": 25565,
   "port_range_max": 25665
 }
@@ -1182,87 +1182,215 @@ Products define server templates for automated provisioning (WHMCS integration, 
 | `product_id` | string | Unique identifier (e.g., `minecraft_2gb`) |
 | `display_name` | string | Display name for UI |
 | `template` | string | Template name (e.g., `minecraft-java`) |
-| `node_id` | uint | Specific node (null = auto-select) |
+| `node_id` | uint | Node the servers are created on. When `null` or `0`, `default_node` is used. |
 | `cpu` | int | CPU limit (percentage) |
 | `memory` | int | Memory limit (MB) |
 | `disk` | int | Disk limit (MB) |
-| `default_node` | bool | Auto-select node with resources |
+| `default_node` | uint | Id of the fallback node when there is no `node_id`. It does not pick a node by resources. |
 | `port_range_min` | int | Min port for auto-assignment |
 | `port_range_max` | int | Max port for auto-assignment |
 
 ---
 
-## Provision API v1
+## Provisioning / billing
 
-API Key authentication in header. Endpoints for integration with external systems (WHMCS, etc.).
+Routes for billing systems (WHMCS, Paymenter…): create, suspend, change the plan of and delete servers, and open the panel for the customer without a password. They all live under `/api/v1` and use an **API key**, not a session. Code: `internal/web/api/provision.go`.
 
-Each key says what it may do; a route it is not allowed answers `403 ErrAPIKeyNotAllowed`. Actions: `create` (`/provision`), `terminate`, `suspend` (`/suspend` and `/unsuspend`), `change-package` and `sso`; `/ping` needs none. Keys created before keys could be limited hold `provision`, which means every action, so existing integrations keep working. Create keys in Settings → API Keys and tick only what the integration needs (`POST /api/settings/apikeys` with `{ "name": "WHMCS", "permissions": ["create", "suspend"] }`; without a list the key gets every action, as before; a list that names no known action is refused with `ErrAPIKeyPermissions`).
+### Authentication
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/v1/ping` | Check connectivity |
-| POST | `/api/v1/provision` | Automatically create server |
-| POST | `/api/v1/terminate` | Terminate server |
-| POST | `/api/v1/suspend` | Suspend server |
-| POST | `/api/v1/unsuspend` | Reactivate server |
-| POST | `/api/v1/change-package` | Move a server to another plan |
-| POST | `/api/v1/sso` | One-time sign-in link for the customer |
+Keys are created in **Settings → API Keys** (or with `POST /api/settings/apikeys`, which needs `admin`). A key starts with `ak_` and is shown only once. Send it in one of these headers:
+
+```
+X-Api-Key: ak_YOUR_KEY
+Authorization: Bearer ak_YOUR_KEY
+```
+
+| Response | When |
+|----------|------|
+| `401` | The key is missing, does not start with `ak_` or is not valid. |
+| `403 ErrAPIKeyNotAllowed` | The key is valid but lacks the permission for that route. |
+
+Each key says what it may do:
+
+| Permission | Routes |
+|------------|--------|
+| `create` | `POST /api/v1/provision` |
+| `terminate` | `POST /api/v1/terminate` |
+| `suspend` | `POST /api/v1/suspend` and `POST /api/v1/unsuspend` |
+| `change-package` | `POST /api/v1/change-package` |
+| `sso` | `POST /api/v1/sso` |
+| `provision` | All of them. Keys created before keys could be limited hold it, and so does a new key created without a list. |
+
+`GET /api/v1/ping` needs no permission; it answers `{ "success": true, "message": "Pong" }`.
+
+To create a limited key:
+
+```bash
+curl -X POST https://panel.example.com/api/settings/apikeys \
+  -H "Content-Type: application/json" \
+  -b "<an administrator's session cookie>" \
+  -d '{ "name": "WHMCS", "permissions": ["create", "suspend", "terminate", "change-package", "sso"] }'
+```
+
+Repeated or unknown values are ignored. A list with no known permission is refused with `400 ErrAPIKeyPermissions`. The response carries `token` (the full key, only this once) and `key` (its details).
+
+### Identifying the service
+
+Routes that act on a server accept one of these fields:
+
+| Field | What it is |
+|-------|------------|
+| `service_id` | The service's id in the billing system. Stored when the server is created with `/provision`. Wins when both are sent. |
+| `server_id` | The server's identifier in the panel. |
+
+A request with neither `service_id` nor `server_id` answers `400` (`ErrServerRequired`). A server that does not exist answers `404`.
 
 ### `POST /api/v1/provision`
-Creates a server automatically based on a product.
 
-**Headers:** `X-Api-Key: ak_...` or `Authorization: Bearer ak_...`
+Permission: `create`. Creates a server with the limits of a plan (product, see [Provision Products](#provision-products)).
 
-**Body:**
+| Field | Required | What it is |
+|-------|----------|------------|
+| `product_id` | yes | The product's `product_id`, a string (for example `"minecraft_2gb"`). |
+| `email` | yes | The customer's email. |
+| `service_id` | no | The service's id in the billing system. Makes the call idempotent (see below). |
+| `server_name` | no | Server name. Defaults to the product's `display_name`. |
+| `username` | no | Username for a new account. Defaults to `user_` plus random letters. |
+| `password` | no | Password for a new account. Defaults to a random 12-character one. |
+
+Steps:
+
+1. If `service_id` is sent and a server already has it, the answer is that server and no other is created. `password` comes back empty.
+2. Finds the product. If it does not exist, `404`.
+3. Finds the account by email. If there is none, creates it, gives it the `Usuario` role and the login permission. An existing account keeps its password and `password` comes back empty.
+4. Picks the node: the product's `node_id` or, when it has none, `default_node`.
+5. Picks a free port in the product's range (no range: 1024 to 65535).
+6. Creates the server owned by the customer and grants the usual server permissions.
+7. Passes the product's `cpu`, `memory` and `disk` variables to the node, so the container starts with the plan's limits and not the template's. A `0` keeps the template's value. `disk` is the real [disk limit](../backend/04-servers.md#disk-limit).
+8. If the node fails, the server is removed from the panel and the call can be retried.
+9. Assigns a subdomain when that is enabled and emails the customer.
+
+Response `200`:
+
 ```json
 {
-  "product_id": 1,
-  "email": "customer@example.com",
-  "server_name": "My Server",
-  "password": "optional_password"
+  "success": true,
+  "server_id": "a1b2c3d4",
+  "username": "user_x7k2p9",
+  "password": "generated_password",
+  "port": 25570
 }
 ```
 
-**Flow:**
-1. Checks the key may `create`
-2. Finds product by `product_id`
-3. Creates/finds user by email (generates random password if new; an existing customer keeps theirs and the response's `password` is empty)
-4. Assigns "Usuario" role + login scope
-5. Picks free port from product's port range
-6. Creates server with product resources (CPU/Memory/Disk), which become the container's limits
-7. Grants server scopes to user
-8. Calls daemon to create server
-9. Sends credentials email
+| Field | What it is |
+|-------|------------|
+| `server_id` | The server's identifier. |
+| `username` | The account's username. On a repeated call it is the `username` sent (may be empty). |
+| `password` | Only for a new account, and only the first time. Empty otherwise. |
+| `port` | The assigned port. `0` when the range had none free. |
 
-**Response:** `{ "server_id": "abc123", "password": "generated_password" }`
+```bash
+curl -X POST https://panel.example.com/api/v1/provision \
+  -H "X-Api-Key: ak_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "product_id": "minecraft_2gb", "email": "customer@example.com", "service_id": "42", "server_name": "Survival" }'
+```
 
 ### `POST /api/v1/terminate`
-**Body:** `{ "server_id": "abc123" }`
-Stops and deletes the server AND all child servers (parent_server_id), and removes their subdomain records. If a node does not delete a server, the answer is an error (502) and the server stays in the panel, so the call can be retried.
 
-### `POST /api/v1/suspend`
-**Body:** `{ "server_id": "abc123" }`
-Sets the `Suspended` flag on server + children and stops the ones running. If a node cannot stop one, the answer is an error (502): the server is suspended in the panel but may still be running.
+Permission: `terminate`. Body: `{ "service_id": "42" }` or `{ "server_id": "a1b2c3d4" }`.
 
-### `POST /api/v1/unsuspend`
-**Body:** `{ "server_id": "abc123" }`
-Reactivates suspended server + children.
+Stops and deletes the server and its child servers (`parent_server_id`), and removes their subdomain records. If a node does not delete a server, the answer is `502` and the server stays in the panel, so the call can be retried. A server the node no longer knows counts as deleted.
 
-Every action also accepts `"service_id"` (the billing system's id, stored when the server was provisioned) in place of `"server_id"`.
+Response: `{ "success": true }`.
+
+### `POST /api/v1/suspend` and `POST /api/v1/unsuspend`
+
+Permission: `suspend`. Body: `{ "service_id": "42" }` or `{ "server_id": "a1b2c3d4" }`.
+
+- `suspend` marks the server and its children as suspended and stops the ones running. If a node cannot stop them, the answer is `502`: the server is suspended in the panel but may still be running.
+- `unsuspend` lifts the suspension of the server and its children. It does not start them.
+
+Response: `{ "success": true }`.
 
 ### `POST /api/v1/change-package`
-Moves a server to another plan (upgrade or downgrade) without touching its files.
 
-**Body:** `{ "service_id": "42", "product_id": "minecraft_4gb" }`, or the limits themselves: `{ "server_id": "abc123", "cpu": 200, "memory": 4096, "disk": 20480 }` (cpu in %, memory and disk in MB; a 0 or missing value is left as it is).
+Permission: `change-package`. Moves a server to another plan (upgrade or downgrade) without touching its files.
 
-**Response:** `{ "success": true, "server_id": "abc123", "restart_required": true }`. The disk limit counts at once; CPU and memory apply when the server next starts, so restart it when `restart_required` is true.
+| Field | What it is |
+|-------|------------|
+| `service_id` / `server_id` | The server (see [Identifying the service](#identifying-the-service)). |
+| `product_id` | Target product. When sent, its `cpu`, `memory` and `disk` are used and the fields below are ignored. |
+| `cpu` | CPU in % (100 = 1 core). |
+| `memory` | Memory in MB. |
+| `disk` | Disk in MB. |
+
+A `0` or a missing field leaves that limit as it is. A negative value, or no limit at all, is refused with `400`. A `product_id` that does not exist answers `404`.
+
+The panel sends the limits to the node first. If the node refuses them, its error is returned and the panel changes nothing.
+
+Response `200`:
+
+```json
+{ "success": true, "server_id": "a1b2c3d4", "restart_required": true }
+```
+
+The disk limit counts at once. CPU and memory apply on the next start: when `restart_required` is `true` (the server is running, or the node could not tell), restart it.
+
+```bash
+curl -X POST https://panel.example.com/api/v1/change-package \
+  -H "X-Api-Key: ak_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "service_id": "42", "product_id": "minecraft_4gb" }'
+
+curl -X POST https://panel.example.com/api/v1/change-package \
+  -H "X-Api-Key: ak_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "server_id": "a1b2c3d4", "cpu": 200, "memory": 4096, "disk": 20480 }'
+```
 
 ### `POST /api/v1/sso`
-For the billing system's "go to the panel" button.
 
-**Body:** `{ "email": "customer@example.com", "service_id": "42" }` (`service_id`/`server_id` optional: with one, the customer lands on that server, which they must be able to open).
+Permission: `sso`. For the billing system's "go to the panel" button: returns a link that opens the customer's session without their password or 2FA code.
 
-**Response:** `{ "success": true, "url": "https://panel.example.com/auth/sso?token=...", "expires_in": 60 }`. Send the customer's browser to `url`: it signs them in once, within a minute, without their password or 2FA code, and then the link is spent. Links are refused (403) for accounts with panel-wide powers (admin, settings, users, nodes, templates), so a leaked API key cannot open them. Pending links are kept in memory, so a panel restart cancels them.
+| Field | Required | What it is |
+|-------|----------|------------|
+| `email` | yes | The account's email. |
+| `service_id` / `server_id` | no | With one, the link goes to that server. The customer must be able to view it (`server.view`). With neither, it goes to the server list. |
+
+Response `200`:
+
+```json
+{
+  "success": true,
+  "url": "https://panel.example.com/auth/sso?token=ONE_TIME_TOKEN",
+  "expires_in": 60
+}
+```
+
+| Response | When |
+|----------|------|
+| `404` | No account has that email, or the server does not exist. |
+| `403 ErrSSONotForAdmins` | The account has panel-wide powers: `admin`, editing settings, creating/editing/deleting/deploying nodes, editing templates or repositories, editing users or their permissions, or `oauth2.auth`. This way a leaked key cannot open the admin panel. |
+| `403 ErrNoPermission` | The customer cannot view the requested server. |
+
+Link rules:
+
+- It works **once**. The first use spends it, even if signing in then fails.
+- It expires after **60 seconds**.
+- It is kept in memory, and only as a hash. Restarting the panel cancels pending links.
+- The address is `panel.settings.masterUrl` when it is set; otherwise, the address the billing system called.
+
+Opening `GET /auth/sso?token=…` creates the session, records it in the access log as `login_sso` and redirects (`303`) to the server or to `/servers/`. A used, expired or unknown link redirects to `/login/?sso=expired`, where the customer is told. The account needs the login permission; without it the link redirects to `/login/?sso=denied`, where the customer is told to contact support.
+
+```bash
+curl -X POST https://panel.example.com/api/v1/sso \
+  -H "X-Api-Key: ak_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "customer@example.com", "service_id": "42" }'
+```
+
+The billing system sends the customer's browser to `url` right away; it should not store or display it.
 
 ---
 
@@ -1479,12 +1607,14 @@ FIFO queue for server operations (install/start/stop/restart) to prevent overloa
 ### Disk Enforcement
 **File:** `internal/servers/disk.go`
 
-Enforces per-server disk limits.
+Enforces each server's disk limit, the `disk` variable in MB (`0` or empty = no limit).
 
-- Runs `du` periodically on server directory
-- At 95% usage: sends Discord webhook alert + logs warning
-- At 100%: auto-stops server (`server.Stop()`)
-- Configurable via `server.TotalDisk` (bytes, 0 = unlimited)
+- Measures the server folder by walking it; the measure is trusted for 15 s and what the panel writes is added at once.
+- A server whose disk is full does not start (`409 ErrDiskLimitExceeded`).
+- Uploads, SFTP writes, extraction, compression and plugin installs stop at the limit. An upload cut short is deleted (over SFTP, only when it started from an empty file).
+- A running server more than 1 MB over the limit is stopped (`checkDiskLimit` in `server.go`, every 5 s).
+
+Details in [Servers: Disk limit](../backend/04-servers.md#disk-limit).
 
 ### Resource Alerts
 **File:** `internal/servers/alerts.go`
@@ -1729,9 +1859,10 @@ All `config.json` options (environment variables: `SKYPANEL_` prefix, dots → u
 | `defaultTheme` | `SKYPANEL_PANEL_SETTINGS_DEFAULTTHEME` | `SkyPanel` | Default UI theme |
 | `registrationEnabled` | `SKYPANEL_PANEL_SETTINGS_REGISTRATIONENABLED` | `true` | Allow public registration |
 | `branding` | `SKYPANEL_PANEL_SETTINGS_BRANDING` | `{}` | Custom branding JSON |
-| `turnstile.enabled` | `SKYPANEL_PANEL_TURNSTILE_ENABLED` | `false` | Cloudflare Turnstile captcha |
-| `turnstile.siteKey` | `SKYPANEL_PANEL_TURNSTILE_SITEKEY` | `` | Turnstile site key |
-| `turnstile.secretKey` | `SKYPANEL_PANEL_TURNSTILE_SECRETKEY` | `` | Turnstile secret key |
+| `panel.turnstile.enabled` | `SKYPANEL_PANEL_TURNSTILE_ENABLED` | `false` | Cloudflare Turnstile captcha |
+| `panel.turnstile.siteKey` | `SKYPANEL_PANEL_TURNSTILE_SITEKEY` | `` | Turnstile site key |
+| `panel.turnstile.secretKey` | `SKYPANEL_PANEL_TURNSTILE_SECRETKEY` | `` | Turnstile secret key |
+| `panel.captcha.builtin` | `SKYPANEL_PANEL_CAPTCHA_BUILTIN` | `true` | Built-in anti-bot check (no keys); Turnstile replaces it once configured |
 | `licenseKey` | `SKYPANEL_PANEL_SETTINGS_LICENSEKEY` | `` | License key (future) |
 | `sentryDSN` | `SKYPANEL_PANEL_SETTINGS_SENTRYDSN` | `` | Sentry error tracking DSN |
 | `geminiApiKey` | `SKYPANEL_PANEL_SETTINGS_GEMINIAPIKEY` | `` | Google GenAI API key |
@@ -1858,7 +1989,7 @@ All `config.json` options (environment variables: `SKYPANEL_` prefix, dots → u
 curl -X POST http://panel/api/v1/provision \
   -H "X-Api-Key: ak_abc123" \
   -H "Content-Type: application/json" \
-  -d '{"product_id":1,"email":"client@example.com","server_name":"My Server"}'
+  -d '{"product_id":"minecraft_2gb","email":"client@example.com","server_name":"My Server","service_id":"42"}'
 
 # Terminate
 curl -X POST http://panel/api/v1/terminate \

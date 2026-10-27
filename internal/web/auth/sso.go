@@ -13,7 +13,8 @@ import (
 // @Summary Sign in with a billing system link
 // @Description Opens a session from a one-time link the billing system asked for with
 // @Description POST /api/v1/sso, then sends the browser on to the panel. A used, expired or
-// @Description unknown link goes to the login page instead.
+// @Description unknown link goes to the login page instead, and so does one for an account
+// @Description that may not sign in.
 // @Param token query string true "One-time token"
 // @Success 303 {object} nil
 // @Tags Auth
@@ -33,6 +34,13 @@ func SSOGet(c *gin.Context) {
 	var user models.User
 	if err := db.First(&user, userID).Error; err != nil {
 		c.Redirect(http.StatusSeeOther, "/login/?sso=expired")
+		return
+	}
+
+	// openSession would refuse too, but with a JSON error the browser shows as a bare page
+	ps := &services.Permission{DB: db}
+	if allowed, err := ps.MaySignIn(user.ID); err != nil || !allowed {
+		c.Redirect(http.StatusSeeOther, "/login/?sso=denied")
 		return
 	}
 

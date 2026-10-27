@@ -161,10 +161,13 @@ export default function SFTPView({ server }: Readonly<SFTPViewProps>) {
                                 </span>
                             </div>
                         </div>
-                        <p className="text-pretty text-xs text-muted-foreground">
-                            {t('servers.sftp.sshKeyHint')}{' '}
-                            <a href="/profile/settings/#profile-ssh" className="rounded text-primary-bright hover:underline focus-ring">{t('servers.sftp.sshKeyLink')}</a>
-                        </p>
+                        {/* SSH keys are checked by the panel itself, so a remote node only takes the password */}
+                        {server.node.isLocal && (
+                            <p className="text-pretty text-xs text-muted-foreground">
+                                {t('servers.sftp.sshKeyHint')}{' '}
+                                <a href="/profile/settings/#profile-ssh" className="rounded text-primary-bright hover:underline focus-ring">{t('servers.sftp.sshKeyLink')}</a>
+                            </p>
+                        )}
                     </section>
                 </div>
             </div>

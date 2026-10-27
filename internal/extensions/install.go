@@ -192,6 +192,11 @@ func readLimited(f *zip.File, limit int64) ([]byte, error) {
 // unpack writes the files into a fresh folder and then swaps it in, so a failed update
 // leaves the installed version untouched
 func unpack(files map[string]*zip.File, prefix, id string) error {
+	// the manifest check already did this; it is repeated where the id becomes a folder name
+	// so nothing can reach here with one that climbs out of the extensions folder
+	if !idPattern.MatchString(id) || strings.Contains(id, "..") {
+		return fmt.Errorf("%q is not a valid extension id", id)
+	}
 	root := config.ExtensionsFolder.Value()
 	if err := os.MkdirAll(root, 0755); err != nil {
 		return err

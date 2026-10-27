@@ -70,12 +70,9 @@ All nested keys with `.` are converted to `_`. `SKYPANEL_` prefix:
 | `panel.token` | string | — | Ed25519 private key (JWT) |
 | `panel.turnstile.siteKey` | string | — | Cloudflare Turnstile Site Key |
 | `panel.turnstile.secretKey` | string | — | Cloudflare Turnstile Secret Key |
-| `panel.turnstile.enabled` | bool | `false` | Enables Cloudflare Turnstile on register/login |
+| `panel.turnstile.enabled` | bool | `false` | Enables Cloudflare Turnstile on login, register and password reset |
 | `panel.captcha.builtin` | bool | `true` | Built-in anti-bot check (proof of work, no keys) on login, register and password reset; Turnstile replaces it once configured |
 | `panel.settings.branding` | object | `{}` | Custom branding JSON |
-| `panel.settings.turnstileSiteKey` | string | — | Turnstile site key (alias) |
-| `panel.settings.turnstileSecretKey` | string | — | Turnstile secret key (alias) |
-| `panel.settings.turnstileEnabled` | bool | `false` | Turnstile enabled (alias) |
 | `panel.settings.licenseKey` | string | — | License key (alias) |
 | `panel.settings.sentryDSN` | string | — | Sentry DSN for error tracking |
 | `panel.curseforgeKey` | string | — | CurseForge API key (internal) |
@@ -125,9 +122,6 @@ All nested keys with `.` are converted to `_`. `SKYPANEL_` prefix:
 | `panel.settings.geminiApiKey` | string | — | Google GenAI API Key |
 | `panel.settings.hideAiAnalysis` | bool | `false` | Hides AI Analysis functionality |
 | `panel.settings.branding` | object | `{}` | Custom branding JSON |
-| `panel.settings.turnstileEnabled` | bool | `false` | Enable Cloudflare Turnstile |
-| `panel.settings.turnstileSiteKey` | string | — | Turnstile site key |
-| `panel.settings.turnstileSecretKey` | string | — | Turnstile secret key |
 | `panel.settings.licenseKey` | string | — | License key |
 | `panel.settings.sentryDSN` | string | — | Sentry DSN for error tracking |
 
@@ -184,9 +178,6 @@ All nested keys with `.` are converted to `_`. `SKYPANEL_` prefix:
 | `panel.settings.companyName` | string | `SkyPanel` | Company name |
 | `panel.settings.defaultTheme` | string | `SkyPanel` | Default theme |
 | `panel.settings.branding` | object | `{}` | Custom branding JSON |
-| `panel.settings.turnstileEnabled` | bool | `false` | Enable Cloudflare Turnstile |
-| `panel.settings.turnstileSiteKey` | string | — | Turnstile site key |
-| `panel.settings.turnstileSecretKey` | string | — | Turnstile secret key |
 | `panel.settings.licenseKey` | string | — | License key |
 | `panel.settings.sentryDSN` | string | — | Sentry DSN |
 | `panel.settings.geminiApiKey` | string | — | Google GenAI API key |
@@ -310,9 +301,9 @@ All nested keys with `.` are converted to `_`. `SKYPANEL_` prefix:
 | Key | Type | Default | Description |
 |---|---|---|---|
 | `logs` | string | `logs` | Logs folder |
-| `logs.level` | string | `info` | Log level: `debug`/`info`/`warn`/`error` |
-| `logs.format` | string | `text` | Format: `text`/`json` |
-| `logs.output` | string | `stdout` | Output: `stdout`/`file`/`both` |
+| `logRetentionDays` | int | `14` | Days of rotated panel logs kept (`skypanel-YYYY-MM-DD.log.gz`); `0` keeps them all. Env: `SKYPANEL_LOGRETENTIONDAYS` |
+
+The panel writes the current day to `skypanel.log`, inside the `logs` folder. When the day changes (or a single day goes past 100 MB) it archives the file as `skypanel-YYYY-MM-DD.log.gz` (`.1`, `.2`… when that day already has an archive) and starts a new one. `skypanel-*` files last written more than `logRetentionDays` days ago are deleted. No `logrotate` is needed; if you use one, set `logRetentionDays` to `0` and send `SIGUSR1` to the panel so it reopens the file.
 
 ### Web
 
