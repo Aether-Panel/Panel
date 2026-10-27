@@ -2026,7 +2026,7 @@ wait_for_panel() {
     while (( SECONDS - start < 300 )); do
         code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 "$url" 2>/dev/null || true) # NOSONAR: misma comprobación local
         if [[ "$code" =~ ^[1-5][0-9][0-9]$ ]]; then
-            log_success "Panel respondiendo en $url (HTTP $code)"
+            log_success "Panel respondiendo en $url (HTTP $code)" # NOSONAR: dirección local, ver arriba
             return 0
         fi
         status=$(docker inspect -f '{{.State.Status}}' "$PANEL_CONTAINER" 2>/dev/null || echo "missing")
