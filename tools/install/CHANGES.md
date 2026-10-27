@@ -130,13 +130,16 @@ sigue funcionando al ejecutar 4.1.0, y repetir el instalador no borra datos ni r
 
 ## Para decidir (fuera del instalador)
 
-- **Dockerfile y arm64 (encontrado en la prueba real):** la etapa `builder` declara `ARG TARGETPLATFORM=linux/amd64`. En un host arm64, BuildKit compila un binario amd64 y lo mete en una imagen Alpine arm64, así que el contenedor entra en bucle de reinicios con `Dynamic loader not found: /lib/ld-musl-x86_64.so.1`. Esto contradice "amd64 o arm64" de la documentación. La corrección es declarar `ARG TARGETPLATFORM` sin valor por defecto, y lo mismo con `BUILDPLATFORM`. Mientras tanto, el instalador detecta este Dockerfile en arm64 y avisa **antes** de compilar (y se detiene en modo no interactivo salvo `--force`). No fuerza `--build-arg`, porque la siguiente actualización desde el panel (`panelUpdate.sh`) volvería a romperlo.
-
-- **Distribución del script:** publicar un SHA-256 o una firma junto a `install.sh` y poner en la documentación `curl -fsSL` y "descargar, revisar, ejecutar".
-- **`panelUpdate.sh`:**
-  - Tiene la rama `dev2.0` fija, con caída a `main`. Una instalación hecha con `-b main` vuelve a `dev2.0` al actualizar desde el panel. Convendría que usara la rama actual del clon o `installer.conf`.
-  - Su `sed` de `"3306:3306"` ya no hace nada.
-  - Hace `down` antes de compilar, así que el panel queda caído durante la compilación.
-- **`docker-compose.yml`:** `SKYPANEL_PANEL_REGISTRATIONENABLED=true` como variable de entorno tiene prioridad sobre el `config.json`. Si un admin desactiva el registro en Ajustes, vuelve a activarse en cada reinicio. Lo mismo pasaría con cualquier ajuste editable que se fije por entorno.
+- **Distribución del script:** publicar un SHA-256 o una firma junto a `install.sh`.
 - **MariaDB en la red `skypanel-servers`:** los servidores de juego llegan a la base de datos del panel. Con contraseñas propias el riesgo baja mucho, pero conviene un usuario o instancia aparte para los servidores.
-- **Documentación** (`docs/*/setup/01-installation.md`): actualizar los requisitos (2 GB de RAM o swap para compilar, Compose ≥ 2.24.4 si se cambian puertos), las nuevas opciones y el comportamiento de la desinstalación.
+
+Ya resuelto en el repositorio: el `Dockerfile` en arm64 (sin valores por defecto en `BUILDPLATFORM`/`TARGETPLATFORM`), `panelUpdate.sh` (usa la rama instalada, compila antes de parar el panel y sin el `sed` de 3306), el registro y el tema forzados en `docker-compose.yml`, y la documentación de instalación.
+
+# install.sh 4.1.0 → 4.1.1
+
+Arreglos encontrados al instalar de verdad en Ubuntu 22.04, 24.04, 26.04 y 26.10, Debian 12 y Rocky Linux 9 (máquinas con systemd, instalación completa hasta el inicio de sesión del administrador).
+
+- **Rocky/Alma 9: el panel no llegaba a MySQL.** El instalador encendía firewalld después de instalar Docker. Al arrancar, firewalld borra las reglas que Docker creó para sus redes, y Docker solo las repone si ya encontró firewalld en marcha. Ahora, si el instalador acaba de encender firewalld, reinicia Docker. Los servidores donde firewalld ya estaba activo no cambian.
+- **Rocky/Alma 9: `dnf` fallaba por `curl` frente a `curl-minimal`.** curl solo se instala si falta.
+- **Límite de descargas de Docker Hub.** Las imágenes se descargan antes de arrancar, con 3 intentos. Si Docker Hub responde 429, el instalador lo explica (esperar o `docker login`) en vez de fallar sin más.
+- **Versiones sin soporte.** El aviso ahora sale con Ubuntu anterior a 22.04 y Debian anterior a 12: ya no tienen parches de seguridad (Debian 11 terminó en agosto de 2026 y sus repositorios se archivaron).
