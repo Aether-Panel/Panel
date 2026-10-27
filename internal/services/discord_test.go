@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"testing"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
@@ -27,10 +28,11 @@ func TestDiscordService_SendWebhookToURL(t *testing.T) {
 	// posts to a local server, so it first checks that is refused and then lets it through
 	err := GetDiscordService().SendWebhookToURL(server.URL, "Test Title", "", 0, nil)
 	assert.ErrorIs(t, err, ErrInvalidDiscordWebhook)
-	checkDiscordWebhook = func(string) error { return nil }
+	realPattern := discordWebhookPattern
+	discordWebhookPattern = regexp.MustCompile(`^` + regexp.QuoteMeta(server.URL) + `$`)
 	discordHTTPClient = func() *http.Client { return http.DefaultClient }
 	t.Cleanup(func() {
-		checkDiscordWebhook = ValidateDiscordWebhook
+		discordWebhookPattern = realPattern
 		discordHTTPClient = utils.NewRestrictedHTTPClient
 	})
 
