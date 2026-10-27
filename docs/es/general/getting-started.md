@@ -60,7 +60,7 @@ Aether Panel puede instalarse de tres formas diferentes. Elige la que mejor se a
 - **linuxTitle**: Método 1: Instalación Automática con Script
 - **linuxP1**: Este es el método más recomendado. El script instala Docker (si falta), clona el repositorio, construye la imagen y configura el servicio.
 - **linuxP2**: Ejecuta el siguiente comando como root o con sudo para iniciar la instalación:
-- **linuxCode**: bash -c "$(curl -s https://install.aetherpanel.es/install.sh)"
+- **linuxCode**: bash -c "$(curl -fsSL https://install.aetherpanel.es/install.sh)"
 - **linuxP3**: O descarga el script primero y luego ejecútalo:
 - **linuxCode2**: # Descargar el script
 wget https://install.aetherpanel.es/install.sh
