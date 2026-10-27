@@ -132,7 +132,40 @@ func (ps *Permission) HasPermission(userID uint, serverID string, permission *sc
 		}
 	}
 
-	return false, nil
+	return ps.roleGrants(userID, serverID, permission)
+}
+
+// roleGrants checks the user's role the way a web request does (see middleware.collectScopes):
+// all of the role counts panel-wide, but its server scopes never apply on a server. So an
+// administrator by role is one everywhere, also on SFTP and sign-in links.
+func (ps *Permission) roleGrants(userID uint, serverID string, permission *scopes.Scope) (bool, error) {
+	var user models.User
+	err := ps.DB.Select("id", "role_id").First(&user, userID).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) || (err == nil && user.RoleID == nil) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	role, err := (&Role{DB: ps.DB}).Get(*user.RoleID)
+	if err != nil || role == nil {
+		return false, nil
+	}
+	granted := make([]*scopes.Scope, 0, len(role.Scopes))
+	for _, s := range role.Scopes {
+		scope := scopes.GetScope(s)
+		if scope.ForServer && serverID != "" {
+			continue
+		}
+		granted = append(granted, scope)
+	}
+	return scopes.ContainsScope(granted, permission), nil
+}
+
+// MaySignIn says whether the user still holds the login permission, panel-wide or by role.
+// Every way in checks it: the web, OAuth2 and SFTP.
+func (ps *Permission) MaySignIn(userID uint) (bool, error) {
+	return ps.HasPermission(userID, "", scopes.ScopeLogin)
 }
 
 func (ps *Permission) GetForClient(id uint) ([]*models.Permissions, error) {

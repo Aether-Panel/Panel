@@ -79,10 +79,14 @@ func (s *DatabaseSFTPAuthorization) ValidateKey(username string, key ssh.PublicK
 	return sftpPermissions(db, user.ID, serverID)
 }
 
-// sftpPermissions lets a signed-in user into the server's files when they hold its SFTP scope
+// sftpPermissions lets a user into the server's files when they may still sign in to the
+// panel and hold the server's SFTP scope
 func sftpPermissions(db *gorm.DB, userID uint, serverID string) (*ssh.Permissions, error) {
 	ps := &Permission{DB: db}
-	allowed, err := ps.HasPermission(userID, serverID, scopes.ScopeServerSftp)
+	allowed, err := ps.MaySignIn(userID)
+	if err == nil && allowed {
+		allowed, err = ps.HasPermission(userID, serverID, scopes.ScopeServerSftp)
+	}
 	if err != nil || !allowed {
 		return nil, errSFTPRefused
 	}

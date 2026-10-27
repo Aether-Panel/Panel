@@ -40,7 +40,8 @@
       "or": "o continúa con",
       "noAccount": "¿No tienes cuenta?",
       "signUp": "Regístrate",
-      "ssoExpired": "El enlace de acceso ya se usó o ha caducado. Vuelve a pulsar el botón en tu área de cliente o entra con tu contraseña."
+      "ssoExpired": "El enlace de acceso ya se usó o ha caducado. Vuelve a pulsar el botón en tu área de cliente o entra con tu contraseña.",
+      "ssoDenied": "Esta cuenta no tiene permiso para entrar al panel. Contacta con el soporte."
     },
     "register": {
       "title": "Crear cuenta",

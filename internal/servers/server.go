@@ -1451,7 +1451,7 @@ func (p *Server) ArchiveItems(sourceFiles []string, destination string) error {
 		return err
 	}
 	defer p.ForgetDiskUsage()
-	err := files.Compress(p.GetFileServer(), destination, sourceFiles)
+	err := files.CompressLimited(p.GetFileServer(), destination, sourceFiles, p.DiskWriter)
 	if errors.Is(err, files.ErrFileExists) {
 		return skypanel.ErrFileExists
 	}
