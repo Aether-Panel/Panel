@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Settings, Bell, Mail, Loader2, Key, Package, DownloadCloud, CloudUpload, Globe } from 'lucide-react';
+import { Settings, Bell, Mail, Loader2, Key, Package, DownloadCloud, CloudUpload, Globe, Blocks } from 'lucide-react';
 import { useTranslations } from '@/contexts/translations-context';
 import { useSettings } from '@/hooks/use-settings';
 import { useConfig } from '@/contexts/config-context';
@@ -19,6 +19,7 @@ import { MailTab } from './mail-tab';
 import { UpdatesTab } from './updates-tab';
 import { OffsiteTab } from './offsite-tab';
 import { DomainsTab } from './domains-tab';
+import { ExtensionsView } from './extensions-view';
 
 /** Underline tab style shared with the server page tab bar. */
 const triggerClass =
@@ -57,8 +58,12 @@ export default function SettingsPage() {
         { value: 'mail', label: t('settings.tabs.mail'), icon: Mail },
         { value: 'offsite', label: t('settings.tabs.offsite'), icon: CloudUpload },
         { value: 'domains', label: t('settings.tabs.domains'), icon: Globe },
-        { value: 'apikeys', label: t('settings.tabs.apiKeys'), icon: Key },
-        { value: 'products', label: t('settings.tabs.products'), icon: Package },
+        // these three are administrator-only on the API, so they only show to administrators
+        ...(hasScope('admin') ? [
+            { value: 'apikeys', label: t('settings.tabs.apiKeys'), icon: Key },
+            { value: 'products', label: t('settings.tabs.products'), icon: Package },
+            { value: 'extensions', label: t('settings.tabs.extensions'), icon: Blocks },
+        ] : []),
         { value: 'updates', label: t('settings.tabs.updates'), icon: DownloadCloud },
     ];
 
@@ -106,7 +111,7 @@ export default function SettingsPage() {
 
     const handleTestDiscord = async () => {
         try {
-            await sendTestDiscord();
+            await sendTestDiscord(localSettings);
             sileo.success({
                 title: t('common.success'),
                 description: t('settings.discord.testSuccess'),
@@ -223,6 +228,10 @@ export default function SettingsPage() {
 
                 <TabsContent value="products" className="mt-6">
                     <ProductsView />
+                </TabsContent>
+
+                <TabsContent value="extensions" className="mt-6">
+                    <ExtensionsView />
                 </TabsContent>
 
                 <TabsContent value="updates" className="mt-6">

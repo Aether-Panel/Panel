@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
+	"github.com/SkyPanel/SkyPanel/v3/internal/web/auth"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-gonic/gin"
 )
@@ -37,9 +38,9 @@ func panelConfig(c *gin.Context) {
 			Name: config.CompanyName.Value(),
 		},
 		RegistrationEnabled: config.RegistrationEnabled.Value(),
-		HeaderDecorations:   config.HeaderDecorations.Value(),
 		TurnstileSiteKey:    config.TurnstileSiteKey.Value(),
 		TurnstileEnabled:    config.TurnstileEnabled.Value(),
+		Captcha:             auth.CaptchaProvider(),
 		Experimental: ExperimentalConfig{
 			VersionSwitch:    config.ExperimentalVersionSwitch.Value(),
 			PropertiesEditor: config.ExperimentalPropertiesEditor.Value(),
@@ -50,14 +51,15 @@ func panelConfig(c *gin.Context) {
 }
 
 type EditableConfig struct {
-	Themes              ThemeConfig        `json:"themes"`
-	Branding            BrandingConfig     `json:"branding"`
-	RegistrationEnabled bool               `json:"registrationEnabled"`
-	HeaderDecorations   bool               `json:"headerDecorations"`
-	TurnstileSiteKey    string             `json:"turnstileSiteKey"`
-	TurnstileEnabled    bool               `json:"turnstileEnabled"`
-	Experimental        ExperimentalConfig `json:"experimental"`
-	Version             string             `json:"version"`
+	Themes              ThemeConfig    `json:"themes"`
+	Branding            BrandingConfig `json:"branding"`
+	RegistrationEnabled bool           `json:"registrationEnabled"`
+	TurnstileSiteKey    string         `json:"turnstileSiteKey"`
+	TurnstileEnabled    bool           `json:"turnstileEnabled"`
+	// Captcha is the anti-bot check the sign-in forms show: "turnstile", "builtin" or ""
+	Captcha      string             `json:"captcha"`
+	Experimental ExperimentalConfig `json:"experimental"`
+	Version      string             `json:"version"`
 } // @name EditableConfigSettings
 
 // ExperimentalConfig says which experimental features an admin has turned on

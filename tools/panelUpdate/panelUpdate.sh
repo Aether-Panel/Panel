@@ -9,7 +9,9 @@ set -e
 
 readonly PROJECT_NAME="Aether Panel"
 readonly INSTALL_DIR="/opt/skypanel"
-GIT_BRANCH="dev2.0"
+readonly DEFAULT_GIT_BRANCH="dev2.0"
+# Opciones guardadas por el instalador (install.sh 4.1+): de ahí sale la rama instalada
+readonly INSTALLER_STATE="/etc/SkyPanel/installer.conf"
 
 # Detectar docker compose
 if command -v docker-compose &>/dev/null; then
@@ -29,6 +31,25 @@ if ! docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q "^skypanel$"; then
 fi
 
 cd "$INSTALL_DIR"
+
+# La rama que usa este servidor: AETHER_BRANCH si se indica, la que guardó el instalador o la
+# que tiene el repositorio. Una actualización nunca cambia de rama: antes se forzaba dev2.0
+# y una instalación en otra rama se pasaba a dev2.0 (o a main) sin avisar.
+GIT_BRANCH="${AETHER_BRANCH:-}"
+if [[ -z "$GIT_BRANCH" && -r "$INSTALLER_STATE" ]]; then
+    GIT_BRANCH=$(sed -n 's/^GIT_BRANCH=//p' "$INSTALLER_STATE" | tail -n 1)
+fi
+if [[ -z "$GIT_BRANCH" ]]; then
+    GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+fi
+if [[ -z "$GIT_BRANCH" || "$GIT_BRANCH" == "HEAD" ]]; then
+    GIT_BRANCH="$DEFAULT_GIT_BRANCH"
+fi
+if [[ ! "$GIT_BRANCH" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+    echo "[✗] Nombre de rama inválido: $GIT_BRANCH"
+    exit 1
+fi
+echo "[INFO] Rama: $GIT_BRANCH"
 
 # Preservar la configuración de nodo esclavo (Daemon only) si está activada
 # para que los cambios personalizados sobrevivan al git pull que revierte el yml.
@@ -62,8 +83,12 @@ trap restore_local_files EXIT
 echo "[INFO] Obteniendo últimos cambios de GitHub..."
 git checkout -- . 2>/dev/null || true
 git fetch origin
-git checkout "$GIT_BRANCH" 2>/dev/null || git checkout main
-git pull
+if ! git rev-parse --verify --quiet "origin/$GIT_BRANCH" >/dev/null; then
+    echo "[✗] La rama $GIT_BRANCH no existe en GitHub. No se actualiza nada."
+    exit 1
+fi
+git checkout "$GIT_BRANCH"
+git pull --ff-only origin "$GIT_BRANCH"
 
 restore_local_files
 trap - EXIT
@@ -78,14 +103,15 @@ if [[ "$IS_SLAVE" = "true" ]]; then
     echo "[✓] Configuración de nodo esclavo re-aplicada en docker-compose.yml."
 fi
 
-# Reasignar puerto MySQL del host si 3306 está ocupado (ej. mysql-server local)
-if command -v ss &>/dev/null && ss -ltn 2>/dev/null | grep -q ":3306\b"; then
-    echo "[!] El puerto 3306 del host está en uso. Reasignando contenedor MySQL al puerto 3307."
-    sed -i 's/- "3306:3306"/- "3307:3306"/' docker-compose.yml 2>/dev/null || true
-fi
+# (MariaDB ya se publica en 127.0.0.1:3307 en docker-compose.yml: no choca con un MySQL
+# del host, así que no hay que reasignar nada.)
 
-echo "[INFO] Reconstruyendo imagen Docker (esto puede tardar varios minutos)..."
-$DOCKER_COMPOSE down 2>/dev/null || true
-COMPOSE_PROFILES=local-db $DOCKER_COMPOSE up -d --build 2>&1
+# Primero se construye, con el panel aún en marcha: la compilación tarda varios minutos y,
+# si falla, el panel sigue funcionando con la versión anterior.
+echo "[INFO] Construyendo la nueva imagen (esto puede tardar varios minutos)..."
+COMPOSE_PROFILES=local-db $DOCKER_COMPOSE build 2>&1
+
+echo "[INFO] Reiniciando con la versión nueva..."
+COMPOSE_PROFILES=local-db $DOCKER_COMPOSE up -d 2>&1
 
 echo "[✓] $PROJECT_NAME actualizado correctamente."

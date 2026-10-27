@@ -87,7 +87,12 @@ func Load(id string) (program *Server, err error) {
 	}
 	var data []byte
 	data, err = os.ReadFile(filepath.Join(config.ServersFolder.Value(), safeID+".json"))
-	if len(data) == 0 || err != nil {
+	if err != nil {
+		return
+	}
+	// an empty file used to return no server and no error, and the boot loop then crashed on it
+	if len(data) == 0 {
+		err = errors.New("server definition is empty")
 		return
 	}
 	program, err = LoadFromData(id, data)
@@ -134,7 +139,10 @@ func LoadFromData(id string, source []byte) (*Server, error) {
 		return nil, err
 	}
 
-	data.Scheduler, _ = LoadScheduler(data.ID())
+	data.Scheduler, err = LoadScheduler(data.ID())
+	if err != nil {
+		logging.Error.Printf("[%s] Could not read the scheduled tasks, starting with none: %s", data.ID(), err)
+	}
 	if data.Scheduler == nil {
 		data.Scheduler = NewDefaultScheduler(data.ID())
 		err = data.Scheduler.Init()
@@ -284,6 +292,12 @@ func Reload(id string) (err error) {
 		return
 	}
 
+	// the new environment is not attached to a running process: reloading a running server
+	// would leave it without console, stop or crash handling until the daemon restarts
+	if err = program.IsIdle(); err != nil {
+		return
+	}
+
 	logging.Info.Printf("Reloading server %s", program.ID())
 	newVersion, err := Load(id)
 	if err != nil {
@@ -294,20 +308,14 @@ func Reload(id string) (err error) {
 	program.RunningEnvironment = newVersion.RunningEnvironment
 	program.Server = newVersion.Server
 
+	// Load opened the server folder again and started a scheduler of its own. The server
+	// takes that scheduler (stopping its old one) and keeps its folder handle, so neither is
+	// left running behind: every leaked scheduler fired each task once more
 	program.Scheduler.Stop()
-	logging.Debug.Println("Rebuilding scheduler")
-
-	program.Scheduler, err = LoadScheduler(program.ID())
-	if err != nil {
-		return err
+	program.Scheduler = newVersion.Scheduler
+	if newVersion.fileServer != nil {
+		_ = newVersion.fileServer.Close()
 	}
-	if program.Scheduler == nil {
-		program.Scheduler = NewDefaultScheduler(program.ID())
-		_ = program.Scheduler.Init()
-	}
-
-	logging.Debug.Println("Starting scheduler")
-	program.Scheduler.Start()
 
 	return
 }

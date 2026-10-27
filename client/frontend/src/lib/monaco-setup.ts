@@ -36,7 +36,7 @@ function relocateMonacoStylesToRoot() {
  * rules it does nothing. Re-applied (synchronously, no network) after every
  * Astro swap / page load / bfcache restore as a safety net.
  */
-export async function ensureMonacoStylesheet(): Promise<void> {
+export function ensureMonacoStylesheet(): void {
   if (typeof document === 'undefined') {
     return;
   }
@@ -59,7 +59,7 @@ export async function ensureMonacoStylesheet(): Promise<void> {
 }
 
 function handleStyleRefresh() {
-  void ensureMonacoStylesheet();
+  ensureMonacoStylesheet();
   relocateMonacoStylesToRoot();
 }
 
@@ -85,4 +85,4 @@ function initMonacoHandlers() {
 }
 
 initMonacoHandlers();
-void ensureMonacoStylesheet();
+ensureMonacoStylesheet();

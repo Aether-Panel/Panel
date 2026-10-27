@@ -7,12 +7,15 @@ import (
 )
 
 type UserView struct {
-	ID        uint            `json:"id,omitempty"`
-	Username  string          `json:"username,omitempty"`
-	Email     string          `json:"email,omitempty"`
-	OtpActive bool            `json:"otpActive"`
-	RoleID    *uint           `json:"roleId,omitempty"`
-	Scopes    []*scopes.Scope `json:"scopes,omitempty"`
+	ID        uint   `json:"id,omitempty"`
+	Username  string `json:"username,omitempty"`
+	Email     string `json:"email,omitempty"`
+	OtpActive bool   `json:"otpActive"`
+	RoleID    *uint  `json:"roleId,omitempty"`
+	// RoleName is filled when the role was loaded with the user (the users list), so the list
+	// can show it without a lookup per row
+	RoleName string          `json:"roleName,omitempty"`
+	Scopes   []*scopes.Scope `json:"scopes,omitempty"`
 	// ONLY SHOW WHEN COPYING
 	Password    string `json:"password,omitempty"`
 	NewPassword string `json:"newPassword,omitempty"`
@@ -39,6 +42,7 @@ func FromUser(model *User) *UserView {
 
 	// Add role-based permissions
 	if model.RoleID != nil && model.Role.ID != 0 {
+		view.RoleName = model.Role.Name
 		for _, s := range model.Role.Scopes {
 			view.Scopes = scopes.AddScope(view.Scopes, scopes.GetScope(s))
 		}

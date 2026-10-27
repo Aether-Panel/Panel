@@ -21,6 +21,11 @@ const EVENT_STYLE: Record<string, { icon: LucideIcon; capsule: string; labelKey:
         capsule: 'border-success/25 bg-success/10 text-success',
         labelKey: 'dashboard.admin.access.events.register',
     },
+    login_sso: {
+        icon: LogIn,
+        capsule: 'border-primary/25 bg-primary/10 text-primary-bright',
+        labelKey: 'dashboard.admin.access.events.login_sso',
+    },
     login_failed: {
         icon: ShieldAlert,
         capsule: 'border-destructive/25 bg-destructive/10 text-destructive-bright',

@@ -3,12 +3,14 @@ package services
 import (
 	"crypto/rand"
 	"database/sql"
+	"errors"
 	"fmt"
 	"math/big"
 	"regexp"
 	"strings"
 	"time"
 
+	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/go-sql-driver/mysql"
@@ -85,6 +87,67 @@ func (ds *Database) Delete(id uint) error {
 	return res.Error
 }
 
+// UsableHosts lists the database hosts a server may create databases on: the ones serving
+// its node (or every node) that still have room
+func (ds *Database) UsableHosts(serverID string) ([]*models.DatabaseHost, error) {
+	var hosts []*models.DatabaseHost
+	if err := ds.DB.Order("name").Find(&hosts).Error; err != nil {
+		return nil, err
+	}
+	usable := make([]*models.DatabaseHost, 0, len(hosts))
+	for _, h := range hosts {
+		err := ds.checkHostAccepts(h, serverID)
+		if err == nil {
+			usable = append(usable, h)
+			continue
+		}
+		if !errors.Is(err, skypanel.ErrDatabaseHostFull) && !errors.Is(err, skypanel.ErrDatabaseHostOtherNode) {
+			return nil, err
+		}
+	}
+	return usable, nil
+}
+
+// checkHostAccepts applies the host's limits: MaxDatabases (0 is no limit) and, when the
+// host is tied to a node, that the server runs on that node
+func (ds *Database) checkHostAccepts(host *models.DatabaseHost, serverID string) error {
+	if host.NodeID != nil {
+		var server models.Server
+		if err := ds.DB.Where("identifier = ?", serverID).First(&server).Error; err != nil {
+			return err
+		}
+		if server.NodeID != *host.NodeID {
+			return skypanel.ErrDatabaseHostOtherNode
+		}
+	}
+	if host.MaxDatabases > 0 {
+		var count int64
+		if err := ds.DB.Model(&models.Database{}).Where("database_host_id = ?", host.ID).Count(&count).Error; err != nil {
+			return err
+		}
+		if count >= int64(host.MaxDatabases) {
+			return skypanel.ErrDatabaseHostFull
+		}
+	}
+	return nil
+}
+
+// DropAllForServer drops every database and user of a server from its MySQL host, before
+// the server's rows go. It is best effort: a host that cannot be reached must not stop the
+// server from being deleted, so that failure is logged for the administrator to clean up.
+func (ds *Database) DropAllForServer(serverID string) error {
+	databases, err := ds.GetAllForServer(serverID)
+	if err != nil {
+		return err
+	}
+	for _, d := range databases {
+		if err := ds.deleteFromMySQL(d); err != nil {
+			logging.Error.Printf("server %s: database %s and its user could not be dropped from host %d, remove them by hand: %s", serverID, d.DatabaseName, d.DatabaseHostID, err)
+		}
+	}
+	return nil
+}
+
 // ensureDatabaseNameAvailable refuses names already tracked on that host, no matter
 // which server owns them.
 func (ds *Database) ensureDatabaseNameAvailable(hostID uint, name string) error {
@@ -106,6 +169,9 @@ func (ds *Database) Create(database *models.Database) error {
 	host := &models.DatabaseHost{}
 	err := ds.DB.First(host, database.DatabaseHostID).Error
 	if err != nil {
+		return err
+	}
+	if err = ds.checkHostAccepts(host, database.ServerID); err != nil {
 		return err
 	}
 
@@ -173,6 +239,17 @@ func (ds *Database) createInMySQL(database *models.Database, host *models.Databa
 		return fmt.Errorf("failed to create database (ensure user has CREATE permissions and the name is free): %w", err)
 	}
 
+	// From here a failure undoes what was created: a schema left behind with no panel row
+	// would make every retry with the same name fail at CREATE DATABASE.
+	created := false
+	defer func() {
+		if created {
+			return
+		}
+		_, _ = db.Exec(fmt.Sprintf("DROP USER IF EXISTS '%s'@'%%'", database.Username)) /* #nosec G201 */ // NOSONAR
+		_, _ = db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS `%s`", databaseName))       /* #nosec G201 */ // NOSONAR
+	}()
+
 	// Crear el usuario (permitir conexión desde cualquier host)
 	_, err = db.Exec(fmt.Sprintf("CREATE USER IF NOT EXISTS '%s'@'%%' IDENTIFIED BY '%s'", database.Username, database.Password)) /* #nosec G201 */ // NOSONAR
 	if err != nil {
@@ -191,6 +268,7 @@ func (ds *Database) createInMySQL(database *models.Database, host *models.Databa
 		return fmt.Errorf("failed to flush privileges: %w", err)
 	}
 
+	created = true
 	return nil
 }
 

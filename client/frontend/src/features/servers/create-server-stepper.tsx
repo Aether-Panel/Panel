@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -55,8 +55,26 @@ class ErrorBoundary extends React.Component<
 type Step = 1 | 2 | 3;
 
 /** Template variables that fill the resource inputs, with the value used when the template leaves them empty. */
-const RESOURCE_DEFAULTS: Record<string, number> = { cpu: 100, memory: 1024, disk: 10240 };
+const RESOURCE_DEFAULTS: Record<string, number> = { cpu: 100, memory: 1024, disk: 10240, io: 500 };
 const isResourceKey = (key: string) => Object.hasOwn(RESOURCE_DEFAULTS, key);
+
+/**
+ * The server id the API accepts (letters, digits, '-' and '_', up to 20, not starting with
+ * '-' or '_'), from the name plus a random suffix so two servers named alike never collide.
+ * The name itself stays the display name, with any characters it likes.
+ */
+function serverIdFromName(name: string) {
+    const suffix = crypto.getRandomValues(new Uint32Array(1))[0].toString(36).padStart(6, '0').slice(0, 6);
+    const base = name
+        .normalize('NFD')
+        .replaceAll(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replaceAll(/[^a-z0-9_-]+/g, '-')
+        .replaceAll(/^[-_]+|[-_]+$/g, '')
+        .slice(0, 13)
+        .replaceAll(/[-_]+$/g, '');
+    return base ? `${base}-${suffix}` : `srv-${suffix}`;
+}
 
 /** A template variable's starting value: its value, else its default, coerced to the variable's type. */
 function templateVariableValue(val: any) {
@@ -386,7 +404,7 @@ function TemplateVariableInput({ fieldId, varKey, variable, currentVal, stringif
 
 function Step3Configuration({
     templateDetails, templateError, configData, setConfigData,
-    cpuLimit, setCpuLimit, memoryLimit, setMemoryLimit, diskLimit, setDiskLimit,
+    cpuLimit, setCpuLimit, memoryLimit, setMemoryLimit, diskLimit, setDiskLimit, ioLimit, setIoLimit,
     extraPorts, setExtraPorts,
     setCurrentStep, t
 }: any) {
@@ -417,12 +435,12 @@ function Step3Configuration({
     }
 
     const variables = (templateDetails.data || templateDetails.variables || templateDetails.Variables || {}) as Record<string, any>;
-    const entries = Object.entries(variables).filter(([key, v]) => v && !v.internal && !['cpu', 'memory', 'disk'].includes(key));
+    const entries = Object.entries(variables).filter(([key, v]) => v && !v.internal && !isResourceKey(key));
 
     return (
         <div className="grid w-full gap-6">
             <StepSection title={t('servers.create.resourcesTitle')} hint={t('servers.create.resourcesHint')}>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                     <div className="grid min-w-0 gap-2">
                         <Label htmlFor="limit-cpu">{t('servers.create.cpuLabel')} <span className="font-normal text-muted-foreground">(%)</span></Label>
                         <Input id="limit-cpu" type="number" inputMode="numeric" value={cpuLimit} onChange={(e) => setCpuLimit(e.target.value === '' ? '' : Number(e.target.value))} className="font-mono tabular-nums" />
@@ -434,6 +452,10 @@ function Step3Configuration({
                     <div className="grid min-w-0 gap-2">
                         <Label htmlFor="limit-disk">{t('servers.create.diskLabel')} <span className="font-normal text-muted-foreground">(MB)</span></Label>
                         <Input id="limit-disk" type="number" inputMode="numeric" value={diskLimit} onChange={(e) => setDiskLimit(e.target.value === '' ? '' : Number(e.target.value))} className="font-mono tabular-nums" />
+                    </div>
+                    <div className="grid min-w-0 gap-2">
+                        <Label htmlFor="limit-io">{t('servers.create.ioLabel')} <span className="font-normal text-muted-foreground">(10–1000)</span></Label>
+                        <Input id="limit-io" type="number" inputMode="numeric" min={10} max={1000} value={ioLimit} onChange={(e) => setIoLimit(e.target.value === '' ? '' : Number(e.target.value))} className="font-mono tabular-nums" />
                     </div>
                 </div>
             </StepSection>
@@ -518,7 +540,14 @@ function Step3Configuration({
     );
 }
 
-export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }: Readonly<{ onComplete: () => void, forcedParentId?: string, forcedNodeId?: string }>) {
+export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId, initialRepo, initialTemplate }: Readonly<{
+    onComplete: () => void,
+    forcedParentId?: string,
+    forcedNodeId?: string,
+    /** opened from a template's "Use" button: that repo and template start selected */
+    initialRepo?: number,
+    initialTemplate?: string,
+}>) {
     const { t } = useTranslations();
 
     const isSplitter = !!forcedParentId;
@@ -540,7 +569,9 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
         }
     }, [forcedNodeId]);
 
-    const [selectedRepo, setSelectedRepo] = useState<number | null>(null);
+    const [selectedRepo, setSelectedRepo] = useState<number | null>(initialTemplate ? initialRepo ?? 0 : null);
+    // picked once the chosen repo's templates arrive
+    const pendingTemplate = useRef(initialTemplate ?? '');
     const [templateList, setTemplateList] = useState<any[]>([]);
     const [selectedTemplateName, setSelectedTemplateName] = useState('');
     const [loadingTemplates, setLoadingTemplates] = useState(false);
@@ -561,6 +592,7 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
     const [cpuLimit, setCpuLimit] = useState<number | ''>(100);
     const [memoryLimit, setMemoryLimit] = useState<number | ''>(1024);
     const [diskLimit, setDiskLimit] = useState<number | ''>(10240);
+    const [ioLimit, setIoLimit] = useState<number | ''>(500);
     const [extraPorts, setExtraPorts] = useState<string[]>([]);
 
     useEffect(() => {
@@ -570,24 +602,36 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
     }, [repoList]);
 
     useEffect(() => {
-        if (selectedRepo !== null) {
-            setLoadingTemplates(true);
-            setSelectedTemplateName('');
-            setTemplateDetails(null);
-            setTemplateError(null);
-            getTemplatesForRepo(selectedRepo).then(list => {
-                setTemplateList(list);
-                setLoadingTemplates(false);
-            }).catch(() => {
-                setTemplateList([]);
-                setLoadingTemplates(false);
-            });
-        }
+        if (selectedRepo === null) return;
+        // a repo picked after this one makes this answer out of date
+        let cancelled = false;
+        setLoadingTemplates(true);
+        setSelectedTemplateName('');
+        setTemplateDetails(null);
+        setTemplateError(null);
+        getTemplatesForRepo(selectedRepo).then(list => {
+            if (cancelled) return;
+            setTemplateList(list);
+            setLoadingTemplates(false);
+            const wanted = pendingTemplate.current;
+            pendingTemplate.current = '';
+            if (wanted && list.some((tpl: any) => tpl.name === wanted)) {
+                setSelectedTemplateName(wanted);
+            }
+        }).catch(() => {
+            if (cancelled) return;
+            setTemplateList([]);
+            setLoadingTemplates(false);
+        });
+        return () => {
+            cancelled = true;
+        };
     }, [selectedRepo]);
 
     const setResourceLimit = (key: string, value: number) => {
         if (key === 'cpu') setCpuLimit(value);
         else if (key === 'memory') setMemoryLimit(value);
+        else if (key === 'io') setIoLimit(value);
         else setDiskLimit(value);
     };
 
@@ -613,21 +657,27 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
     };
 
     useEffect(() => {
-        if (selectedTemplateName && selectedRepo !== null) {
-            setTemplateError(null);
-            setTemplateDetails(null);
-            setExtraPorts([]);
-            getTemplateDetails(selectedRepo, selectedTemplateName).then(details => {
-                if (!details) {
-                    setTemplateError(t('servers.create.templateLoadFailed'));
-                    return;
-                }
-                setTemplateDetails(details);
-                parseTemplateVariables(details);
-            }).catch(err => {
-                setTemplateError(err.message || t('servers.create.templateFetchFailed'));
-            });
-        }
+        if (!selectedTemplateName || selectedRepo === null) return;
+        // switching template quickly must not let the earlier one's answer win
+        let cancelled = false;
+        setTemplateError(null);
+        setTemplateDetails(null);
+        setExtraPorts([]);
+        getTemplateDetails(selectedRepo, selectedTemplateName).then(details => {
+            if (cancelled) return;
+            if (!details) {
+                setTemplateError(t('servers.create.templateLoadFailed'));
+                return;
+            }
+            setTemplateDetails(details);
+            parseTemplateVariables(details);
+        }).catch(err => {
+            if (cancelled) return;
+            setTemplateError(err.message || t('servers.create.templateFetchFailed'));
+        });
+        return () => {
+            cancelled = true;
+        };
     }, [selectedTemplateName, selectedRepo]);
 
     const handleNext = () => {
@@ -642,7 +692,11 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
                 sileo.error({ title: t('common.error'), description: t('servers.create.selectTemplate') });
                 return;
             }
-            if (!templateDetails && !templateError) {
+            if (templateError) {
+                sileo.error({ title: t('common.error'), description: templateError });
+                return;
+            }
+            if (!templateDetails) {
                 sileo.info({ title: t('servers.create.templateLoadingTitle'), description: t('servers.create.templateLoadingDescription') });
                 return;
             }
@@ -653,7 +707,8 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
     const handleCreate = async () => {
         setLoading(true);
         try {
-            const identifier = name.toLowerCase().replaceAll(/\s+/g, '-').slice(0, 20);
+            if (!templateDetails) return;
+            const identifier = serverIdFromName(name);
 
             const vars: Record<string, any> = {};
             Object.entries(configData).forEach(([k, v]) => {
@@ -663,6 +718,7 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
             vars['cpu'] = { value: cpuLimit === '' ? 100 : cpuLimit };
             vars['memory'] = { value: memoryLimit === '' ? 1024 : memoryLimit };
             vars['disk'] = { value: diskLimit === '' ? 10240 : diskLimit };
+            vars['io'] = { value: ioLimit === '' ? 500 : ioLimit };
 
             // Inject extra ports as port2, port3, ... so the daemon binds them
             extraPorts.map(Number).filter(p => p > 0).forEach((p, i) => {
@@ -788,6 +844,7 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId }
                                 cpuLimit={cpuLimit} setCpuLimit={setCpuLimit}
                                 memoryLimit={memoryLimit} setMemoryLimit={setMemoryLimit}
                                 diskLimit={diskLimit} setDiskLimit={setDiskLimit}
+                                ioLimit={ioLimit} setIoLimit={setIoLimit}
                                 extraPorts={extraPorts} setExtraPorts={setExtraPorts}
                                 setCurrentStep={setCurrentStep} t={t}
                             />

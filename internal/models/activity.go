@@ -21,6 +21,8 @@ const (
 	ActivityRegister ActivityEvent = "register"
 	// ActivityPasswordReset is a completed password reset.
 	ActivityPasswordReset ActivityEvent = "password_reset"
+	// ActivityLoginSSO is a sign-in through a one-time link from the billing system.
+	ActivityLoginSSO ActivityEvent = "login_sso"
 )
 
 // ActivityLog is one recorded access event. The username and email are copied

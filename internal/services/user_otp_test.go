@@ -118,3 +118,36 @@ func TestValidateOtpEnroll_RejectsWithoutPendingEnrollment(t *testing.T) {
 	_, err = us.ValidateOtpEnroll(user.ID, code)
 	assert.Error(t, err)
 }
+
+func TestDelete_RemovesTheUsersRecoveryCodesAndPasswordResets(t *testing.T) {
+	db := setupOtpTestDB(t)
+	if !assert.NoError(t, db.AutoMigrate(&models.Client{}, &models.Session{}, &models.PasswordReset{}, &models.SSHKey{}, &models.Server{})) {
+		t.FailNow()
+	}
+	us := &User{DB: db}
+	user := createOtpTestUser(t, db, "EXISTINGSECRETEXISTINGSECRET", true)
+
+	code := &models.RecoveryCode{UserID: user.ID}
+	assert.NoError(t, code.SetCode("A1b2C3d4E5f6"))
+	assert.NoError(t, db.Create(code).Error)
+	assert.NoError(t, db.Create(&models.PasswordReset{UserID: user.ID, TokenHash: "reset-token-hash", ExpiresAt: time.Now().Add(time.Hour)}).Error)
+
+	assert.NoError(t, us.Delete(user))
+
+	var users, codes, resets int64
+	db.Model(&models.User{}).Where("id = ?", user.ID).Count(&users)
+	db.Model(&models.RecoveryCode{}).Where(userIDQuery, user.ID).Count(&codes)
+	db.Model(&models.PasswordReset{}).Where(userIDQuery, user.ID).Count(&resets)
+	assert.Zero(t, users)
+	assert.Zero(t, codes)
+	assert.Zero(t, resets)
+}
+
+func TestDelete_ReportsADatabaseError(t *testing.T) {
+	db := setupOtpTestDB(t)
+	us := &User{DB: db}
+	user := createOtpTestUser(t, db, "", false)
+
+	// the sessions table was never created, so a step fails and Delete must say so
+	assert.Error(t, us.Delete(user))
+}

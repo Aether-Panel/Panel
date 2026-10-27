@@ -11,7 +11,7 @@ import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
 import { sileo } from '@/lib/toast';
 import { CircleCheck, Loader2, Lock, TriangleAlert } from 'lucide-react';
-import { AuthFrame, AuthInput, AuthNotice, authLabelClass, authLinkClass, authMessageClass } from '@/components/AuthShell';
+import { AuthFrame, PasswordStrength, AuthPasswordInput, AuthNotice, authLabelClass, authLinkClass, authMessageClass } from '@/components/AuthShell';
 
 /** Same rules as before; only the messages now follow the active language. */
 const createFormSchema = (t: (key: string) => string) =>
@@ -94,8 +94,9 @@ export default function ResetPasswordPage() {
               <FormItem>
                 <FormLabel className={authLabelClass}>{t('auth.fields.newPassword')}</FormLabel>
                 <FormControl>
-                  <AuthInput {...field} icon={Lock} type="password" autoComplete="new-password" placeholder="••••••••" />
+                  <AuthPasswordInput {...field} icon={Lock} autoComplete="new-password" placeholder="••••••••" />
                 </FormControl>
+                <PasswordStrength password={field.value ?? ''} />
                 <FormMessage className={authMessageClass} />
               </FormItem>
             )}
@@ -108,7 +109,7 @@ export default function ResetPasswordPage() {
               <FormItem>
                 <FormLabel className={authLabelClass}>{t('auth.fields.confirmNewPassword')}</FormLabel>
                 <FormControl>
-                  <AuthInput {...field} icon={Lock} type="password" autoComplete="new-password" placeholder="••••••••" />
+                  <AuthPasswordInput {...field} icon={Lock} autoComplete="new-password" placeholder="••••••••" />
                 </FormControl>
                 <FormMessage className={authMessageClass} />
               </FormItem>

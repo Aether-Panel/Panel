@@ -17,6 +17,7 @@ import (
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/database"
+	"github.com/SkyPanel/SkyPanel/v3/internal/extensions"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers"
@@ -277,6 +278,9 @@ func panel() {
 
 	// if we have the web, then let's use our sftp auth instead
 	sftp.SetAuthorization(&services.DatabaseSFTPAuthorization{})
+
+	// server events also go to the installed extensions
+	servers.EventSink = extensions.Publish
 }
 
 func daemon() error {

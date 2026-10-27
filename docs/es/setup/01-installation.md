@@ -23,28 +23,50 @@ Nuestro script de instalación automático maneja la instalación de Docker, la 
 Ejecute el siguiente comando como usuario root o con privilegios sudo:
 
 ```bash
-bash -c "$(curl -s https://install.aetherpanel.es/install.sh)"
+bash -c "$(curl -fsSL https://install.aetherpanel.es/install.sh)"
 ```
 
 Alternativas (evitan el process substitution):
 
 ```bash
 # Modo automático (sin preguntas)
-curl -s https://install.aetherpanel.es/install.sh | sudo bash
+curl -fsSL https://install.aetherpanel.es/install.sh | sudo bash
 
 # Descargar y ejecutar
-curl -s https://install.aetherpanel.es/install.sh -o /tmp/install.sh
+curl -fsSL https://install.aetherpanel.es/install.sh -o /tmp/install.sh
 sudo bash /tmp/install.sh
 ```
 
 El instalador le guiará a través del proceso:
-1.  Verificación de dependencias y recursos (RAM mínima 1GB, espacio ≥10GB).
-2.  Instalación de Docker y Docker Compose (si no están presentes).
-3.  Clonado del repositorio desde `https://github.com/Aether-Panel/Panel.git`.
-4.  Construcción de la imagen con `docker compose build` (rama `dev2.0`).
-5.  Configuración de puertos, dominio y SSL (opcional).
-6.  Creación del usuario administrador inicial.
-7.  Inicio del servicio Aether Panel.
+1.  Verificación del sistema: arquitectura, RAM (2 GB o swap), espacio, puertos libres.
+2.  Instalación de Docker y Docker Compose (si no están presentes), con la clave GPG de Docker verificada.
+3.  Clonado del repositorio desde `https://github.com/Aether-Panel/Panel.git` (rama `dev2.0`, o la ya instalada).
+4.  Contraseñas aleatorias para la base de datos (en `.env`, solo legible por root).
+5.  Construcción de la imagen y configuración de puertos, dominio, SSL y cortafuegos (opcional).
+6.  URL del panel (para los enlaces de cambio de contraseña y de acceso directo) y cuenta de administrador.
+7.  Inicio de Aether Panel y un resumen con la dirección y dónde quedan las credenciales (`/etc/SkyPanel/credenciales.txt`).
+
+Volver a ejecutarlo sobre una instalación existente es seguro: conserva los datos, las contraseñas y la cuenta de administrador.
+
+### Opciones útiles
+
+```bash
+# Ver todas las opciones
+curl -fsSL https://install.aetherpanel.es/install.sh | sudo bash -s -- --help
+
+# Instalación desatendida con dominio y SSL
+curl -fsSL https://install.aetherpanel.es/install.sh | sudo bash -s -- --non-interactive \
+  --domain panel.ejemplo.com --ssl --email admin@ejemplo.com --admin-email admin@ejemplo.com
+
+# Ver qué haría, sin cambiar nada
+curl -fsSL https://install.aetherpanel.es/install.sh | sudo bash -s -- --dry-run
+
+# Actualizar o desinstalar (conservando los datos)
+curl -fsSL https://install.aetherpanel.es/install.sh | sudo bash -s -- --update
+curl -fsSL https://install.aetherpanel.es/install.sh | sudo bash -s -- --uninstall
+```
+
+También puede dejar configurados Turnstile (`--turnstile-site-key`, `--turnstile-secret-key`), los subdominios automáticos de Cloudflare (`--cf-dns-token`, `--cf-zone-id`, `--dns-base-domain`), las copias en S3 (`--s3-*`) y la clave de CurseForge; todo se puede cambiar después en Ajustes. Cambiar los puertos (`--port`, `--sftp-port`) necesita Docker Compose 2.24.4 o superior. El código del instalador está en `tools/install/install.sh`.
 
 ---
 

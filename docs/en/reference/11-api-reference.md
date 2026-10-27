@@ -898,11 +898,16 @@ Creates a compressed backup of the server files.
 |--------|------|-------|
 | GET | `/api/servers/:serverId/databases` | `server.view` |
 | POST | `/api/servers/:serverId/databases` | `server.data.edit` |
+| GET | `/api/servers/:serverId/databasehosts` | `server.data.edit` |
 | DELETE | `/api/servers/:serverId/databases/:id` | `server.data.edit` |
+
+### `GET /api/servers/:serverId/databasehosts`
+The hosts this server can create databases on: those serving its node (or any node) with room left under their `max_databases`. Only `[{ "id": 1, "name": "Main MySQL" }]`, never addresses or credentials.
 
 ### `POST /api/servers/:serverId/databases`
 **Body:** `{ "database_host_id": 1, "database_name": "my_db" }`
 **Response:** `DatabaseView` (with generated username/password).
+A host that is full (`ErrDatabaseHostFull`) or tied to another node (`ErrDatabaseHostOtherNode`) answers 400. If a step after `CREATE DATABASE` fails, the database and user are dropped again, so the name can be retried. Deleting the server drops its databases and users from the host.
 
 ---
 
@@ -914,15 +919,21 @@ Creates a compressed backup of the server files.
 | GET | `/api/servers/:serverId/user/:email` | `server.users.view` |
 | PUT | `/api/servers/:serverId/user/:email` | `server.users.edit` |
 | DELETE | `/api/servers/:serverId/user/:email` | `server.users.delete` |
+| PUT | `/api/servers/:serverId/owner/:email` | `admin` |
+
+Every server has an **owner** (the customer it was created or provisioned for). The owner holds the full owner set on it (console, power, files, SFTP, backups, settings, tasks, sub-users, OAuth2 clients) whatever their permission row says; deleting the server, its resources and environment, its ports and the admin section stay with administrators. **Sub-users** get exactly the scopes the owner (or a sub-user allowed to manage users) gives them, never more than the giver holds. A role's server scopes do not apply on servers. Only the owner can split a server (Splitter).
 
 ### `GET /api/servers/:serverId/user`
 ```json
-[{ "username": "admin", "email": "admin@example.com", "scopes": ["server.view", "server.console"] }]
+[{ "username": "admin", "email": "admin@example.com", "scopes": ["server.view", "server.console"], "owner": true }]
 ```
 
 ### `PUT /api/servers/:serverId/user/:email`
-**Body:** `{ "permissions": { "scopes": ["server.view", "server.console"] } }`
-**Response:** `204`.
+**Body:** `{ "scopes": ["server.view", "server.console"] }`
+**Response:** `204`. The owner cannot be limited or removed here (`409 ErrServerOwner`).
+
+### `PUT /api/servers/:serverId/owner/:email`
+Gives the server to that user (administrators only). The previous owner stays as a sub-user with the scopes their row already had.
 
 ---
 
@@ -1185,6 +1196,8 @@ Products define server templates for automated provisioning (WHMCS integration, 
 
 API Key authentication in header. Endpoints for integration with external systems (WHMCS, etc.).
 
+Each key says what it may do; a route it is not allowed answers `403 ErrAPIKeyNotAllowed`. Actions: `create` (`/provision`), `terminate`, `suspend` (`/suspend` and `/unsuspend`), `change-package` and `sso`; `/ping` needs none. Keys created before keys could be limited hold `provision`, which means every action, so existing integrations keep working. Create keys in Settings → API Keys and tick only what the integration needs (`POST /api/settings/apikeys` with `{ "name": "WHMCS", "permissions": ["create", "suspend"] }`; without a list the key gets every action, as before; a list that names no known action is refused with `ErrAPIKeyPermissions`).
+
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/v1/ping` | Check connectivity |
@@ -1192,6 +1205,8 @@ API Key authentication in header. Endpoints for integration with external system
 | POST | `/api/v1/terminate` | Terminate server |
 | POST | `/api/v1/suspend` | Suspend server |
 | POST | `/api/v1/unsuspend` | Reactivate server |
+| POST | `/api/v1/change-package` | Move a server to another plan |
+| POST | `/api/v1/sso` | One-time sign-in link for the customer |
 
 ### `POST /api/v1/provision`
 Creates a server automatically based on a product.
@@ -1209,12 +1224,12 @@ Creates a server automatically based on a product.
 ```
 
 **Flow:**
-1. Validates API key permissions (`provision`, `terminate`, `suspend`)
+1. Checks the key may `create`
 2. Finds product by `product_id`
-3. Creates/finds user by email (generates random password if new)
+3. Creates/finds user by email (generates random password if new; an existing customer keeps theirs and the response's `password` is empty)
 4. Assigns "Usuario" role + login scope
 5. Picks free port from product's port range
-6. Creates server with product resources (CPU/Memory/Disk)
+6. Creates server with product resources (CPU/Memory/Disk), which become the container's limits
 7. Grants server scopes to user
 8. Calls daemon to create server
 9. Sends credentials email
@@ -1223,15 +1238,31 @@ Creates a server automatically based on a product.
 
 ### `POST /api/v1/terminate`
 **Body:** `{ "server_id": "abc123" }`
-Stops and deletes the server AND all child servers (parent_server_id).
+Stops and deletes the server AND all child servers (parent_server_id), and removes their subdomain records. If a node does not delete a server, the answer is an error (502) and the server stays in the panel, so the call can be retried.
 
 ### `POST /api/v1/suspend`
 **Body:** `{ "server_id": "abc123" }`
-Toggles `Suspended` flag on server + children, stops if suspending.
+Sets the `Suspended` flag on server + children and stops the ones running. If a node cannot stop one, the answer is an error (502): the server is suspended in the panel but may still be running.
 
 ### `POST /api/v1/unsuspend`
 **Body:** `{ "server_id": "abc123" }`
 Reactivates suspended server + children.
+
+Every action also accepts `"service_id"` (the billing system's id, stored when the server was provisioned) in place of `"server_id"`.
+
+### `POST /api/v1/change-package`
+Moves a server to another plan (upgrade or downgrade) without touching its files.
+
+**Body:** `{ "service_id": "42", "product_id": "minecraft_4gb" }`, or the limits themselves: `{ "server_id": "abc123", "cpu": 200, "memory": 4096, "disk": 20480 }` (cpu in %, memory and disk in MB; a 0 or missing value is left as it is).
+
+**Response:** `{ "success": true, "server_id": "abc123", "restart_required": true }`. The disk limit counts at once; CPU and memory apply when the server next starts, so restart it when `restart_required` is true.
+
+### `POST /api/v1/sso`
+For the billing system's "go to the panel" button.
+
+**Body:** `{ "email": "customer@example.com", "service_id": "42" }` (`service_id`/`server_id` optional: with one, the customer lands on that server, which they must be able to open).
+
+**Response:** `{ "success": true, "url": "https://panel.example.com/auth/sso?token=...", "expires_in": 60 }`. Send the customer's browser to `url`: it signs them in once, within a minute, without their password or 2FA code, and then the link is spent. Links are refused (403) for accounts with panel-wide powers (admin, settings, users, nodes, templates), so a leaked API key cannot open them. Pending links are kept in memory, so a panel restart cancels them.
 
 ---
 

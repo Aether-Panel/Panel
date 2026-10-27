@@ -45,6 +45,21 @@ func (l *AttemptLimiter) Allowed(key string) bool {
 	return len(l.recent(normalizeAttemptKey(key))) < l.max
 }
 
+// Take checks and counts an attempt in one step: it reports false, counting nothing, when
+// the key has no attempts left. Checking and counting separately would let a burst of
+// parallel requests all pass the check before any of them is counted.
+func (l *AttemptLimiter) Take(key string) bool {
+	l.lock.Lock()
+	defer l.lock.Unlock()
+	key = normalizeAttemptKey(key)
+	if len(l.recent(key)) >= l.max {
+		return false
+	}
+	l.attempts[key] = append(l.attempts[key], l.now())
+	l.sweep()
+	return true
+}
+
 // Record counts an attempt (a failed login, or a reset email sent) for the key
 func (l *AttemptLimiter) Record(key string) {
 	l.lock.Lock()
@@ -52,7 +67,11 @@ func (l *AttemptLimiter) Record(key string) {
 
 	key = normalizeAttemptKey(key)
 	l.attempts[key] = append(l.recent(key), l.now())
+	l.sweep()
+}
 
+// sweep drops expired keys once there are many; callers must hold the lock
+func (l *AttemptLimiter) sweep() {
 	if len(l.attempts) > limiterSweepSize {
 		for k := range l.attempts {
 			if len(l.recent(k)) == 0 {

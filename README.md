@@ -88,7 +88,7 @@ Aether Panel opera como una aplicación monolítica modular con capacidad de des
 El método recomendado para la mayoría de los usuarios en sistemas Linux (Ubuntu/Debian/CentOS).
 
 ```bash
-bash <(curl -s https://install.aetherpanel.es/install.sh)
+bash <(curl -fsSL https://install.aetherpanel.es/install.sh)
 ```
 
 ### Opción 2: Despliegue con Docker

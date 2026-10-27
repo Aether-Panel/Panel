@@ -494,14 +494,13 @@ var Server *log.Logger  // [SERVER] tag
 
 ### Rotator (`rotator.go`)
 
-File `skypanel.log` in `LogsFolder` with rotation via `SIGUSR1` signal:
+File `skypanel.log` in `LogsFolder`, rotated daily (or past 100 MB) to `skypanel-<day>.log.gz`; archives older than `logRetentionDays` (default 14, 0 = forever) are deleted. `SIGUSR1` still reopens the file for external logrotate setups:
 
 ```go
-type Rotator struct {
-    io.WriteCloser
-}
-func (r *Rotator) Rotate(newBackend)     // atomic swap of the backend
-func (r *Rotator) StartRotation(dir)     // goroutine that listens for SIGUSR1
+func NewRotator(dir string, keepDays int) (*Rotator, error) // archives a leftover file from an earlier day
+func (r *Rotator) Write(p []byte) (int, error)               // rotates when the day changes or the file is full
+func (r *Rotator) Rotate(newBackend)                         // atomic swap of the backend
+func (r *Rotator) StartRotation(dir)                         // goroutine that listens for SIGUSR1
 ```
 
 ### MultiWriter (`multi.go`)

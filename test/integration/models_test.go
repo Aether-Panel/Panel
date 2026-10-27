@@ -189,11 +189,10 @@ func initLoginDifferentUser(db *gorm.DB) error {
 	if err != nil {
 		return err
 	}
-	var str = "secondserver"
+	// may sign in, but has no server of its own (the row used to name another user)
 	var perms = &models.Permissions{
-		Scopes:           []*scopes.Scope{scopes.ScopeLogin},
-		UserID:           &loginSftpUser.ID,
-		ServerIdentifier: &str,
+		Scopes: []*scopes.Scope{scopes.ScopeLogin},
+		UserID: &loginDifferentServerUser.ID,
 	}
 	return db.Create(perms).Error
 }

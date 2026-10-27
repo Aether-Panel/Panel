@@ -4,8 +4,6 @@
     "loginFailed": "Error al iniciar sesión",
     "registerSuccess": "Cuenta creada correctamente",
     "registerFailed": "Error al crear la cuenta",
-    "otpRequired": "Código OTP requerido",
-    "otpDescription": "Tu cuenta tiene la autenticación de dos factores habilitada.",
     "redirecting": "Redirigiendo al panel...",
     "checkCredentials": "Revisa tus credenciales e inténtalo de nuevo.",
     "tooManyAttempts": "Demasiados intentos fallidos. Espera unos minutos e inténtalo de nuevo.",
@@ -41,7 +39,8 @@
       "submit": "Iniciar sesión",
       "or": "o continúa con",
       "noAccount": "¿No tienes cuenta?",
-      "signUp": "Regístrate"
+      "signUp": "Regístrate",
+      "ssoExpired": "El enlace de acceso ya se usó o ha caducado. Vuelve a pulsar el botón en tu área de cliente o entra con tu contraseña."
     },
     "register": {
       "title": "Crear cuenta",
@@ -72,6 +71,38 @@
       "missingToken": "A este enlace le falta el código de restablecimiento. Usa el enlace que recibiste por correo o solicita uno nuevo.",
       "requestNew": "Solicitar un enlace nuevo",
       "errorFallback": "No se pudo restablecer la contraseña."
+    },
+    "password": {
+      "show": "Mostrar contraseña",
+      "hide": "Ocultar contraseña",
+      "capsLock": "Bloq Mayús está activado",
+      "strength": {
+        "weak": "Débil",
+        "fair": "Aceptable",
+        "good": "Buena",
+        "strong": "Fuerte"
+      }
+    },
+    "otp": {
+      "title": "Verificación en dos pasos",
+      "description": "Tu cuenta {{email}} tiene activada la verificación en dos pasos.",
+      "appHint": "Abre tu app de autenticación y escribe el código de 6 dígitos.",
+      "recoveryHint": "Escribe uno de los códigos de recuperación que guardaste al activarla. Cada código solo sirve una vez.",
+      "codeLabel": "Código de verificación de 6 dígitos",
+      "recoveryLabel": "Código de recuperación",
+      "submit": "Verificar",
+      "back": "Usar otra cuenta",
+      "useRecovery": "Usar un código de recuperación",
+      "useApp": "Usar la app de autenticación",
+      "wrongCode": "El código no es correcto. Comprueba que la hora de tu teléfono esté bien y prueba con el código nuevo.",
+      "expiredTitle": "Han pasado más de 5 minutos",
+      "expiredDescription": "Por seguridad, vuelve a escribir tu contraseña."
+    },
+    "captcha": {
+      "checking": "Comprobando que no eres un bot…",
+      "done": "Comprobación anti-bots completada",
+      "failed": "No se pudo hacer la comprobación anti-bots.",
+      "retry": "Reintentar"
     }
   },
   "header": {
@@ -120,7 +151,8 @@
     "groups": {
       "overview": "Resumen",
       "management": "Gestión",
-      "account": "Cuenta"
+      "account": "Cuenta",
+      "extensions": "Extensiones"
     },
     "system": {
       "online": "Sistema en línea",
@@ -189,6 +221,30 @@
       "disableDescription": "Tu cuenta quedará protegida solo por la contraseña. Introduce un código de tu aplicación para confirmarlo.",
       "regenerateTitle": "Regenerar códigos de recuperación",
       "regenerateDescription": "Los códigos anteriores dejarán de funcionar. Introduce un código de tu aplicación para continuar."
+    },
+    "sshKeys": {
+      "title": "Claves SSH",
+      "description": "Entra por SFTP con una clave en lugar de tu contraseña. El usuario sigue siendo tu correo#servidor.",
+      "emptyTitle": "Sin claves SSH",
+      "emptyDescription": "Añade la clave pública de tu equipo para entrar por SFTP sin escribir la contraseña.",
+      "add": "Añadir clave",
+      "addTitle": "Añadir clave SSH",
+      "addDescription": "Pega tu clave pública: el contenido del archivo que acaba en .pub. Nunca pegues la clave privada.",
+      "nameLabel": "Nombre",
+      "namePlaceholder": "Portátil de casa",
+      "keyLabel": "Clave pública",
+      "keyHint": "Normalmente está en ~/.ssh/id_ed25519.pub. Si no pones nombre, se usa el comentario de la clave.",
+      "save": "Añadir clave",
+      "added": "Clave SSH añadida.",
+      "addError": "No se pudo añadir la clave.",
+      "loadError": "No se pudieron cargar tus claves SSH.",
+      "addedOn": "añadida el {{date}}",
+      "deleteAria": "Borrar la clave {{name}}",
+      "deleteTitle": "¿Borrar esta clave SSH?",
+      "deleteDescription": "«{{name}}» dejará de poder entrar por SFTP. Esto no se puede deshacer.",
+      "deleteConfirm": "Borrar clave",
+      "deleted": "Clave SSH borrada.",
+      "deleteError": "No se pudo borrar la clave."
     },
     "oauth": {
       "title": "Clientes de OAuth2",
@@ -317,6 +373,7 @@
         "events": {
           "login": "Inicio de sesión",
           "login_failed": "Intento fallido",
+          "login_sso": "Acceso desde facturación",
           "register": "Cuenta creada",
           "other": "Acceso"
         }
@@ -497,7 +554,8 @@
         "filesMissing": "Faltan los archivos o la configuración del servidor en el nodo.",
         "portInUse": "Error: el puerto ya está en uso.",
         "actionFailed": "No se pudo completar la acción.",
-        "sendFailed": "No se pudo enviar: {{command}}"
+        "sendFailed": "No se pudo enviar: {{command}}",
+        "diskFullTitle": "Disco lleno"
       },
       "filters": {
         "label": "Mostrar",
@@ -524,7 +582,8 @@
         "save": "Guardar como favorito",
         "unsave": "Quitar de favoritos"
       },
-      "historyHint": "Flechas arriba y abajo para recorrer los comandos anteriores; Tab para completar."
+      "historyHint": "Flechas arriba y abajo para recorrer los comandos anteriores; Tab para completar.",
+      "readOnly": "Puedes ver la consola, pero no enviar comandos. El propietario del servidor puede darte ese permiso."
     },
     "aiSummary": {
       "title": "Análisis de consola por IA",
@@ -673,7 +732,9 @@
       "cpuHint": "100% equivale a 1 hilo del procesador.",
       "memoryHint": "Límite estricto de memoria del contenedor.",
       "diskLabel": "Espacio en disco",
-      "diskHint": "Límite de almacenamiento del contenedor.",
+      "diskHint": "Al llenarse, el servidor se detiene y no arranca ni acepta archivos nuevos hasta que se libere espacio.",
+      "ioLabel": "Prioridad de disco",
+      "ioHint": "Reparto de lectura y escritura de disco frente a los demás servidores del nodo: de 10 a 1000, 500 es un reparto igual.",
       "portsTitle": "Puertos",
       "portsDescription": "Puertos asignados a este servidor. El primero es el puerto principal.",
       "portsTypeLabel": "Tipo",
@@ -750,11 +811,11 @@
     },
     "users": {
       "title": "Acceso de usuarios",
-      "description": "Usuarios que tienen permiso para gestionar este servidor.",
+      "description": "Quién puede entrar en este servidor. El propietario lo controla todo; cada subusuario solo puede hacer lo que le marques.",
       "addUser": "Añadir usuario",
       "addDialog": {
         "title": "Añadir usuario al servidor",
-        "description": "Conceder acceso a un usuario a este servidor.",
+        "description": "Invita a alguien por su correo y elige qué puede hacer. Si aún no tiene cuenta, le llegará una invitación.",
         "emailLabel": "Correo electrónico",
         "emailPlaceholder": "usuario@ejemplo.com",
         "addButton": "Añadir usuario"
@@ -772,7 +833,30 @@
       "addError": "Error al añadir el usuario.",
       "revokeSuccess": "Acceso revocado correctamente.",
       "revokeError": "Error al revocar el acceso.",
-      "permissionsCount": "{{count}} permisos"
+      "permissionsCount": "{{count}} permisos",
+      "owner": "Propietario",
+      "ownerHint": "Control total. Solo un administrador puede cambiarlo.",
+      "edit": "Permisos",
+      "editAria": "Editar los permisos de {{name}}",
+      "editSuccess": "Permisos actualizados.",
+      "editDialog": {
+        "title": "Permisos del subusuario",
+        "description": "Qué puede hacer {{email}} en este servidor.",
+        "save": "Guardar permisos"
+      },
+      "permissionsTitle": "Permisos",
+      "permissionsHint": "Siempre puede ver el servidor. No puedes dar permisos que tú no tengas.",
+      "groups": {
+        "power": "Encendido e instalación",
+        "settings": "Configuración",
+        "tasks": "Tareas programadas"
+      },
+      "makeOwner": "Hacer propietario",
+      "makeOwnerAria": "Hacer propietario a {{name}}",
+      "makeOwnerTitle": "¿Cambiar el propietario?",
+      "makeOwnerDescription": "{{name}} pasará a controlar el servidor por completo. El propietario actual se queda como subusuario con los permisos que ya tenía.",
+      "ownerChanged": "{{name}} es ahora el propietario.",
+      "ownerError": "No se pudo cambiar el propietario."
     },
     "database": {
       "title": "Bases de datos",
@@ -842,6 +926,10 @@
       "empty": {
         "title": "No hay copias de seguridad",
         "description": "Crea tu primer backup para comenzar."
+      },
+      "loadError": {
+        "title": "No se pudieron cargar las copias",
+        "description": "El nodo no ha respondido. Tus copias de seguridad siguen ahí: vuelve a intentarlo en un momento."
       },
       "automatic": {
         "badge": "Automática",
@@ -1150,6 +1238,7 @@
       "cpuLabel": "CPU",
       "memoryLabel": "RAM",
       "diskLabel": "Disco",
+      "ioLabel": "Prioridad de disco",
       "variablesTitle": "Variables de la plantilla",
       "optionNone": "Ninguno",
       "enable": "Habilitar",
@@ -1270,7 +1359,9 @@
       "copyPort": "Copiar puerto",
       "copyUsername": "Copiar usuario",
       "unavailableTitle": "SFTP no disponible",
-      "unavailableDescription": "No se pudo cargar la información del nodo de este servidor."
+      "unavailableDescription": "No se pudo cargar la información del nodo de este servidor.",
+      "sshKeyHint": "¿Prefieres no usar la contraseña? Entra con una clave SSH: el usuario es el mismo.",
+      "sshKeyLink": "Añadir clave SSH"
     },
     "splitter": {
       "title": "División del servidor",
@@ -2543,7 +2634,10 @@
         "configManage": "Gestionar configuración",
         "assignmentsView": "Ver sección de asignaciones",
         "assignmentsManage": "Gestionar asignaciones"
-      }
+      },
+      "consoleView": "Ver la consola y su historial",
+      "dataEdit": "Editar variables y bases de datos",
+      "portsEdit": "Editar notas de los puertos"
     },
     "settings": {
       "edit": "Editar configuración global del Panel"
@@ -2924,7 +3018,8 @@
       "description": "Se ha producido un error inesperado al mostrar este componente.",
       "tryAgain": "Volver a intentarlo"
     },
-    "beta": "Beta"
+    "beta": "Beta",
+    "initializing": "Iniciando {{name}}…"
   },
   "settings": {
     "title": "Configuración del panel",
@@ -2940,7 +3035,8 @@
       "updates": "Actualizaciones",
       "sectionLabel": "Sección de la configuración",
       "offsite": "Copias externas",
-      "domains": "Dominios"
+      "domains": "Dominios",
+      "extensions": "Extensiones"
     },
     "general": {
       "title": "Configuración general",
@@ -2956,12 +3052,12 @@
       "geminiApiKeyDescription": "Introduce tu clave API de Google Gemini para habilitar las funciones de inteligencia artificial.",
       "hideAiAnalysisLabel": "Ocultar análisis IA de la consola",
       "hideAiAnalysisDescription": "Si se activa, se ocultará la función de análisis de la consola por IA para todos los servidores.",
-      "headerDecorationsLabel": "Decoraciones de la cabecera",
-      "headerDecorationsDescription": "Muestra las animaciones decorativas (gif y vídeo) en la parte inferior de la cabecera del sidebar.",
       "allowRegistrationLabel": "Permitir que los usuarios se puedan registrar",
       "allowRegistrationDescription": "Los usuarios autorregistrados no pueden realizar ninguna acción hasta que se les otorguen permisos. Deshabilitar esto solo impide el registro directo, las invitaciones a un servidor y la página de Usuarios no se ven afectadas.",
+      "captchaBuiltinLabel": "Comprobación anti-bots integrada",
+      "captchaBuiltinDescription": "Al entrar, registrarse o pedir un cambio de contraseña, el navegador resuelve un pequeño cálculo en segundo plano: sin casillas, sin imágenes y sin servicios externos. Activada por defecto; si configuras Cloudflare Turnstile, se usa Turnstile en su lugar.",
       "turnstileEnabledLabel": "Protección Cloudflare Turnstile",
-      "turnstileEnabledDescription": "Activa el widget de Cloudflare Turnstile en el inicio de sesión y el registro para bloquear bots. Desactivado por defecto.",
+      "turnstileEnabledDescription": "Usa el widget de Cloudflare Turnstile (con tus claves) en lugar de la comprobación integrada, en el inicio de sesión, el registro y el cambio de contraseña.",
       "turnstileSiteKeyLabel": "Site key de Turnstile",
       "turnstileSiteKeyDescription": "La clave pública de sitio de tu widget Turnstile de Cloudflare.",
       "turnstileSiteKeyPlaceholder": "0x4AAAAAAA...",
@@ -2974,8 +3070,6 @@
         "panelDescription": "Nombre de tu organización y direcciones desde las que se accede al panel.",
         "aiTitle": "Inteligencia artificial",
         "aiDescription": "Análisis de la consola con Google Gemini.",
-        "appearanceTitle": "Apariencia",
-        "appearanceDescription": "Detalles visuales de la interfaz para todos los usuarios.",
         "accessTitle": "Registro y seguridad",
         "accessDescription": "Quién puede crear una cuenta y cómo se protegen el inicio de sesión y el registro.",
         "modpacksTitle": "Modpacks",
@@ -3078,6 +3172,16 @@
       "createDescription": "Los sistemas externos usarán esta clave para autenticarse.",
       "nameLabel": "Nombre",
       "namePlaceholder": "p. ej. WHMCS servidor 1",
+      "actionsLabel": "Qué puede hacer",
+      "actionsHint": "Marca solo lo que la integración necesite. Las claves creadas antes de esto pueden hacerlo todo.",
+      "actions": {
+        "all": "Todas las acciones",
+        "create": "Crear servidores",
+        "terminate": "Dar de baja",
+        "suspend": "Suspender y reactivar",
+        "change-package": "Cambiar de plan",
+        "sso": "Acceso directo"
+      },
       "createdTitle": "Clave generada",
       "createdDescription": "Pégala en la configuración de tu integración.",
       "createdWarning": "Cópiala ahora. Por seguridad no se volverá a mostrar.",
@@ -3321,6 +3425,61 @@
       "limits": "Límites",
       "empty": "No hay productos definidos.",
       "limitsFormat": "CPU: {{cpu}}%, RAM: {{memory}}MB, Disco: {{disk}}MB"
+    }
+  },
+  "apiErrors": {
+    "ErrDiskLimitExceeded": "El servidor ha usado todo su espacio en disco. Borra archivos para liberar espacio antes de arrancarlo o subir más.",
+    "ErrSSHKeyInvalid": "Eso no es una clave pública SSH válida. Pega una sola línea, como el contenido de id_ed25519.pub.",
+    "ErrSSHKeyIsPrivate": "Eso es una clave privada. Pega la clave pública (el archivo .pub) y no compartas nunca la privada.",
+    "ErrSSHKeyWeak": "Las claves RSA deben tener al menos 2048 bits. Mejor crea una ed25519.",
+    "ErrSSHKeyExists": "Esa clave ya está añadida a tu cuenta.",
+    "ErrSSHKeyLimit": "Has llegado al máximo de claves SSH. Borra alguna antes de añadir otra.",
+    "ErrSSHKeyName": "Ponle a la clave un nombre de hasta 100 caracteres.",
+    "ErrCaptchaFailed": "La comprobación anti-bots ha fallado. Vuelve a intentarlo.",
+    "ErrSSONotForAdmins": "No se crean enlaces de acceso para cuentas de administrador.",
+    "ErrServerOwner": "El propietario del servidor no se puede quitar ni limitar. Un administrador puede pasar el servidor a otra persona.",
+    "ErrAPIKeyPermissions": "Marca al menos una acción para la clave.",
+    "ErrAPIKeyNotAllowed": "Esta clave API no tiene permiso para hacer eso."
+  },
+  "extensions": {
+    "title": "Extensiones",
+    "description": "Añade funciones al panel sin tocar su código: páginas propias y avisos de lo que pasa en los servidores.",
+    "install": "Instalar extensión",
+    "installed": "Extensión instalada",
+    "installedDescription": "«{{name}}» está instalada y apagada. Enciéndela cuando la hayas revisado.",
+    "installFailed": "No se pudo instalar la extensión",
+    "loadError": "No se pudieron cargar las extensiones.",
+    "saveError": "No se pudo guardar el cambio.",
+    "emptyTitle": "Sin extensiones",
+    "emptyDescription": "Sube el .zip de una extensión. Sus páginas se muestran aisladas: no pueden ver tu sesión ni usar el panel en tu nombre.",
+    "by": "de {{author}}",
+    "enabled": "Encendida",
+    "disabled": "Apagada",
+    "pages": "Páginas",
+    "noPages": "No añade páginas.",
+    "placementServer": "Pestaña de servidor",
+    "placementAdmin": "Administración",
+    "events": "Eventos",
+    "noEvents": "No recibe eventos.",
+    "webhook": "Dirección de los eventos",
+    "webhookHint": "Adónde se envían los eventos, firmados. Debe empezar por https://.",
+    "webhookSaved": "Dirección guardada.",
+    "secret": "Clave de firma",
+    "secretHint": "Cada evento lleva la cabecera X-Aether-Signature: el HMAC-SHA256 del cuerpo con esta clave. La extensión la usa para comprobar que el aviso viene de tu panel.",
+    "test": "Enviar prueba",
+    "testOk": "Prueba entregada",
+    "testOkDescription": "La extensión ha recibido el evento de prueba.",
+    "testFailed": "La prueba no llegó",
+    "remove": "Desinstalar",
+    "removeTitle": "¿Desinstalar esta extensión?",
+    "removeDescription": "Se borran los archivos de «{{name}}» y deja de recibir eventos. Lo que la extensión guardó fuera del panel no se toca.",
+    "removeConfirm": "Desinstalar",
+    "removed": "«{{name}}» desinstalada.",
+    "removeError": "No se pudo desinstalar.",
+    "page": {
+      "from": "Página de la extensión «{{name}}».",
+      "notFoundTitle": "Página no disponible",
+      "notFoundDescription": "La extensión está apagada, se desinstaló o esta página no existe."
     }
   }
 }

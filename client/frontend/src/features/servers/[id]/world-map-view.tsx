@@ -73,6 +73,13 @@ function MapLoadState({ error, onRetry }: Readonly<{ error: string | null; onRet
   );
 }
 
+/** This page's address with another tab open, keeping the server id. */
+function tabHref(tab: string) {
+  const params = new URLSearchParams(window.location.search);
+  params.set('tab', tab);
+  return `${window.location.pathname}?${params.toString()}`;
+}
+
 /** The server runs a loader no map plugin or mod supports. */
 function UnsupportedMap({ reason }: Readonly<{ reason: WorldMapStatus['reason'] }>) {
   const { t } = useTranslations();
@@ -84,13 +91,13 @@ function UnsupportedMap({ reason }: Readonly<{ reason: WorldMapStatus['reason'] 
       action={
         <div className="flex flex-wrap items-center justify-center gap-2">
           <Button asChild variant="outline">
-            <a href="?tab=settings">
+            <a href={tabHref('settings')}>
               <Settings2 aria-hidden="true" />
               {t('servers.map.changeLoader')}
             </a>
           </Button>
           <Button asChild variant="ghost">
-            <a href="?tab=modpacks">
+            <a href={tabHref('modpacks')}>
               <Package aria-hidden="true" />
               {t('servers.map.useModpack')}
             </a>

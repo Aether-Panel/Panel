@@ -37,10 +37,13 @@ func RegisterRoutes(rg *gin.RouterGroup) {
 	registerDatabaseHosts(rg.Group("/databasehosts"))
 	registerAPIKeys(rg.Group("/settings/apikeys"))
 	registerProducts(rg.Group("/provision/products"))
+	registerExtensions(rg.Group("/extensions"))
 
 	RegisterExTransferRoutes(publicRg.Group("/extransfer")) // External federated transfers
 	// the world map viewer is loaded by an iframe with a signed link instead of the session
 	registerWorldMapViewer(publicRg.Group("/map-view"))
+	// extension pages are framed sandboxed, without the session
+	registerExtensionFiles(publicRg.Group("/extension-files"))
 
 	v1 := publicRg.Group("/v1")
 	v1.Use(middleware.APIKeyAuthMiddleware)

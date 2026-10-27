@@ -65,7 +65,47 @@ func (ps *Permission) GetForUserAndServer(userID uint, serverID string) (*models
 	return permissions, err
 }
 
+// IsServerOwner says whether the user owns the server (see models.Server.OwnerID)
+func (ps *Permission) IsServerOwner(userID uint, serverID string) (bool, error) {
+	if serverID == "" || userID == 0 {
+		return false, nil
+	}
+	var count int64
+	err := ps.DB.Model(&models.Server{}).Where("identifier = ? AND owner_id = ?", serverID, userID).Count(&count).Error
+	return count > 0, err
+}
+
+// SetServerOwner gives the server to the user, who also becomes a member of it (a
+// permission row is what lists a server as theirs). The previous owner stays as a member
+// with the scopes their row already had.
+func (ps *Permission) SetServerOwner(serverID string, userID uint) error {
+	return ps.DB.Transaction(func(tx *gorm.DB) error {
+		tp := &Permission{DB: tx}
+		perms, err := tp.GetForUserAndServer(userID, serverID)
+		if err != nil {
+			return err
+		}
+		if perms.ID == 0 {
+			perms.Scopes = []*scopes.Scope{scopes.ScopeServerView}
+			if err = tp.UpdatePermissions(perms); err != nil {
+				return err
+			}
+		}
+		return tx.Model(&models.Server{}).Where("identifier = ?", serverID).UpdateColumn("owner_id", userID).Error
+	})
+}
+
 func (ps *Permission) HasPermission(userID uint, serverID string, permission *scopes.Scope) (bool, error) {
+	if permission.ForServer {
+		owner, err := ps.IsServerOwner(userID, serverID)
+		if err != nil {
+			return false, err
+		}
+		if owner && scopes.ContainsScope(scopes.OwnerScopes, permission) {
+			return true, nil
+		}
+	}
+
 	var query *gorm.DB
 
 	if serverID != "" {

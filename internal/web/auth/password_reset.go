@@ -30,23 +30,27 @@ func ForgotPasswordPost(c *gin.Context) {
 		return
 	}
 
+	// without it, the form could be used to flood any address with reset emails
+	if err := verifyCaptcha(c, request.TurnstileToken, request.CaptchaToken); response.HandleError(c, err, http.StatusBadRequest) {
+		return
+	}
+
 	// answer the same either way, so the limit does not reveal whether the account exists
-	if !services.PasswordResetRequests.Allowed(request.Email) {
+	if !services.PasswordResetRequests.Take(request.Email) {
 		logging.Info.Printf("Password reset limit reached for: %s", request.Email)
 		c.Status(http.StatusNoContent)
 		return
 	}
-	services.PasswordResetRequests.Record(request.Email)
 
-	token, err := us.CreatePasswordResetToken(request.Email)
+	token, accountEmail, err := us.CreatePasswordResetToken(request.Email)
 	if err != nil {
 		logging.Info.Printf("Password reset requested for unknown user: %s", request.Email)
 		c.Status(http.StatusNoContent)
 		return
 	}
 
-	resetLink := panelBaseURL(c) + "/reset-password/?token=" + token
-	err = services.GetEmailService().SendEmail(request.Email, "passwordReset", map[string]interface{}{
+	resetLink := panelBaseURL() + "/reset-password/?token=" + token
+	err = services.GetEmailService().SendEmail(accountEmail, "passwordReset", map[string]interface{}{
 		"RESET_LINK": resetLink,
 	}, true)
 	if err != nil {
@@ -72,14 +76,15 @@ func ResetPasswordPost(c *gin.Context) {
 		return
 	}
 
-	user, err := us.ConsumePasswordResetToken(request.Token)
-	if err != nil {
-		response.HandleError(c, skypanel.ErrTokenInvalid, http.StatusBadRequest)
+	// checked before the token is spent, so a too-short password can simply be retyped
+	if us.IsSecurePassword(request.Password) != nil {
+		response.HandleError(c, skypanel.ErrPasswordRequirements, http.StatusBadRequest)
 		return
 	}
 
-	if us.IsSecurePassword(request.Password) != nil {
-		response.HandleError(c, skypanel.ErrPasswordRequirements, http.StatusBadRequest)
+	user, err := us.ConsumePasswordResetToken(request.Token)
+	if err != nil {
+		response.HandleError(c, skypanel.ErrTokenInvalid, http.StatusBadRequest)
 		return
 	}
 
@@ -108,7 +113,9 @@ func ResetPasswordPost(c *gin.Context) {
 }
 
 type forgotPasswordRequestData struct {
-	Email string `json:"email" validate:"required,email"`
+	Email          string `json:"email" validate:"required,email"`
+	TurnstileToken string `json:"turnstileToken"`
+	CaptchaToken   string `json:"captchaToken"`
 }
 
 type resetPasswordRequestData struct {
@@ -116,28 +123,14 @@ type resetPasswordRequestData struct {
 	Password string `json:"password" validate:"required"`
 }
 
-func panelBaseURL(c *gin.Context) string {
+func panelBaseURL() string {
 	// The link must point at the configured panel: building it from request headers lets
 	// anyone send a reset email whose link delivers the token to their own domain.
 	if masterURL := strings.TrimSuffix(config.MasterURL.Value(), "/"); config.MasterURL.IsSet() && masterURL != "" {
 		return masterURL
 	}
-	logging.Info.Printf("Master URL is not configured; building the password reset link from the request host. Set it in the panel settings.")
-
-	host := c.Request.Header.Get("X-Forwarded-Host")
-	if host == "" {
-		host = c.Request.Host
-	}
-
-	if host != "" {
-		scheme := "http"
-		if proto := c.Request.Header.Get("X-Forwarded-Proto"); proto != "" {
-			scheme = proto
-		} else if c.Request.TLS != nil {
-			scheme = "https"
-		}
-		return scheme + "://" + host
-	}
-
-	return config.MasterURL.Value()
+	// headers are the requester's to choose: a link built from them would carry the victim's
+	// token to whatever host the attacker named, so the configured (or default) URL is used
+	logging.Info.Printf("Master URL is not configured; the password reset link uses %s. Set it in the panel settings.", config.MasterURL.Value())
+	return strings.TrimSuffix(config.MasterURL.Value(), "/")
 }

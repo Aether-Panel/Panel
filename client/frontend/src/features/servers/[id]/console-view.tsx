@@ -71,10 +71,13 @@ export default function ConsoleView({
   logs,
   addLog,
   status = 'disconnected',
+  canSend = true,
 }: Readonly<{
   serverId: string;
   logs: LogEntry[];
   addLog: (message: string) => void;
+  /** false for a sub-user who may read the console but not type in it */
+  canSend?: boolean;
   status?: ConsoleStatus;
 }>) {
   const [command, setCommand] = useState('');
@@ -453,6 +456,9 @@ export default function ConsoleView({
         )}
 
         {/* Pinned command bar */}
+        {!canSend ? (
+          <p className="shrink-0 border-t border-border/60 px-4 py-2.5 text-xs text-muted-foreground">{t('servers.console.readOnly')}</p>
+        ) : (
         <form
           onSubmit={handleSubmit}
           className="flex shrink-0 items-center gap-3 border-t border-border/60 px-3 py-2.5 transition-colors duration-200 focus-within:bg-surface-1/50 sm:px-4"
@@ -501,6 +507,7 @@ export default function ConsoleView({
             <Send aria-hidden="true" />
           </Button>
         </form>
+        )}
       </div>
 
       {!settings['panel.settings.hideAiAnalysis'] && (

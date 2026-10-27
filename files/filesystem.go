@@ -81,13 +81,13 @@ func (sfp *fileServer) ReadDir(name string) ([]fs.DirEntry, error) {
 	return folder.ReadDir(0)
 }
 
+// Glob matches the last element of pattern inside its folder, so "mods/*.jar" and
+// "pack/resources" work as well as patterns in the server root
 func (sfp *fileServer) Glob(pattern string) ([]string, error) {
-	parent := filepath.Base(pattern)
-	if parent == pattern {
-		parent = "."
-	}
+	dir, base := filepath.Split(pattern)
+	dir = filepath.Clean(dir)
 
-	files, err := sfp.ReadDir(parent)
+	files, err := sfp.ReadDir(dir)
 
 	if err != nil {
 		return nil, err
@@ -95,8 +95,8 @@ func (sfp *fileServer) Glob(pattern string) ([]string, error) {
 
 	results := make([]string, 0)
 	for _, v := range files {
-		if matches, _ := filepath.Match(pattern, v.Name()); matches {
-			results = append(results, v.Name())
+		if matches, _ := filepath.Match(base, v.Name()); matches {
+			results = append(results, filepath.Join(dir, v.Name()))
 		}
 	}
 	return results, nil
@@ -161,10 +161,12 @@ func (sfp *fileServer) OpenFile(path string, flags int, mode os.FileMode) (*os.F
 	}
 
 	file := os.NewFile(uintptr(fd), filepath.Base(path))
-	if flags&os.O_CREATE == 1 && sfp.uid != -1 {
-		err = file.Chown(sfp.uid, sfp.gid)
+	// O_CREATE is 0x40, so the old "== 1" test never matched and new files kept the daemon's
+	// owner. The chown is best effort: a file that opened fine is still usable without it.
+	if flags&os.O_CREATE != 0 && sfp.uid != -1 {
+		_ = file.Chown(sfp.uid, sfp.gid)
 	}
-	return file, err
+	return file, nil
 }
 
 func (sfp *fileServer) MkdirAll(path string, mode os.FileMode) error {
@@ -227,7 +229,8 @@ func (sfp *fileServer) Mkdir(path string, mode os.FileMode) error {
 			return err
 		}
 		if sfp.uid != -1 {
-			err = unix.Fchown(getFd(sfp.root), sfp.uid, sfp.gid)
+			// the new folder, not the one it was made in
+			err = unix.Fchownat(getFd(sfp.root), f, sfp.uid, sfp.gid, unix.AT_SYMLINK_NOFOLLOW)
 		}
 
 		return err
@@ -243,7 +246,8 @@ func (sfp *fileServer) Mkdir(path string, mode os.FileMode) error {
 		return err
 	}
 	if sfp.uid != -1 {
-		err = unix.Fchown(getFd(folder), sfp.uid, sfp.gid)
+		// the new folder, not the one it was made in
+		err = unix.Fchownat(getFd(folder), f, sfp.uid, sfp.gid, unix.AT_SYMLINK_NOFOLLOW)
 	}
 	return err
 }

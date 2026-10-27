@@ -3,12 +3,10 @@
 import { cn } from '@/lib/utils';
 
 /**
- * Backdrop behind the workspace: the panel's own Minecraft artwork, blurred
- * and dimmed, drifting in a slow zoom under a navy veil so every surface on
- * top stays readable.
+ * Backdrop behind the workspace: soft pools of the brand colours under a veil
+ * so every surface on top stays readable.
  *
- * Decorative only: it never receives events, animates transform alone, and
- * holds still under `prefers-reduced-motion` (see `.ambient` in `globals.css`).
+ * Decorative only and static: it never receives events (see `.ambient` in `globals.css`).
  */
 export function AmbientBackdrop({ className }: Readonly<{ className?: string }>) {
     return (

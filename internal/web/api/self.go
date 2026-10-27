@@ -14,6 +14,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-gonic/gin"
 	uuid "github.com/gofrs/uuid/v5"
+	"github.com/spf13/cast"
 )
 
 // emailSendErrorFmt logs a mail that could not be sent
@@ -39,6 +40,13 @@ func registerSelf(g *gin.RouterGroup) {
 
 	g.Handle("DELETE", "/oauth2/:clientID", middleware.RequiresPermission(scopes.ScopeSelfClients), deletePersonalOAuth2Client)
 	g.Handle("OPTIONS", "/oauth2/:clientID", response.CreateOptions("DELETE"))
+
+	g.Handle("GET", "/sshkeys", middleware.RequiresPermission(scopes.ScopeSelfEdit), getSSHKeys)
+	g.Handle("POST", "/sshkeys", middleware.RequiresPermission(scopes.ScopeSelfEdit), addSSHKey)
+	g.Handle("OPTIONS", "/sshkeys", response.CreateOptions("GET", "POST"))
+
+	g.Handle("DELETE", "/sshkeys/:id", middleware.RequiresPermission(scopes.ScopeSelfEdit), deleteSSHKey)
+	g.Handle("OPTIONS", "/sshkeys/:id", response.CreateOptions("DELETE"))
 }
 
 // @Summary Get your user info
@@ -397,6 +405,87 @@ func deletePersonalOAuth2Client(c *gin.Context) {
 	err = services.GetEmailService().SendEmail(user.Email, "oauthDeleted", nil, true)
 	if err != nil {
 		logging.Error.Printf(emailSendErrorFmt, err)
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// @Summary Get your SSH keys
+// @Description The public keys you can sign in to SFTP with instead of your password
+// @Success 200 {object} []models.SSHKey
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
+// @Tags Self
+// @Router /api/self/sshkeys [GET]
+// @Security OAuth2Application[self.edit]
+func getSSHKeys(c *gin.Context) {
+	user := c.MustGet("user").(*models.User)
+
+	ks := &services.SSHKey{DB: middleware.GetDatabase(c)}
+	keys, err := ks.GetForUser(user.ID)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+	c.JSON(http.StatusOK, keys)
+}
+
+type AddSSHKeyRequest struct {
+	Name string `json:"name"`
+	// PublicKey is one authorized_keys line, such as the contents of id_ed25519.pub
+	PublicKey string `json:"publicKey"`
+}
+
+// @Summary Add an SSH key
+// @Description Adds a public key to sign in to SFTP with. The username stays email#serverID.
+// @Success 200 {object} models.SSHKey
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
+// @Param key body AddSSHKeyRequest true "The key and a name for it"
+// @Tags Self
+// @Router /api/self/sshkeys [POST]
+// @Security OAuth2Application[self.edit]
+func addSSHKey(c *gin.Context) {
+	user := c.MustGet("user").(*models.User)
+
+	var request AddSSHKeyRequest
+	if err := c.BindJSON(&request); response.HandleError(c, err, http.StatusBadRequest) {
+		return
+	}
+
+	ks := &services.SSHKey{DB: middleware.GetDatabase(c)}
+	key, err := ks.Add(user.ID, request.Name, request.PublicKey)
+	var panelErr *skypanel.Error
+	if errors.As(err, &panelErr) {
+		response.HandleError(c, err, http.StatusBadRequest)
+		return
+	}
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+	c.JSON(http.StatusOK, key)
+}
+
+// @Summary Delete an SSH key
+// @Success 204 {object} nil
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 500 {object} skypanel.ErrorResponse
+// @Param id path int true "Key ID"
+// @Tags Self
+// @Router /api/self/sshkeys/{id} [DELETE]
+// @Security OAuth2Application[self.edit]
+func deleteSSHKey(c *gin.Context) {
+	user := c.MustGet("user").(*models.User)
+
+	id, err := cast.ToUintE(c.Param("id"))
+	if err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	ks := &services.SSHKey{DB: middleware.GetDatabase(c)}
+	if response.HandleError(c, ks.Delete(user.ID, id), http.StatusInternalServerError) {
+		return
 	}
 	c.Status(http.StatusNoContent)
 }

@@ -47,6 +47,11 @@ func runServer() error {
 			return auth.Validate(c.User(), string(pass))
 		},
 	}
+	if keys, ok := auth.(skypanel.SFTPKeyAuthorization); ok {
+		serverConfig.PublicKeyCallback = func(c ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
+			return keys.ValidateKey(c.User(), key)
+		}
+	}
 
 	serverKeyFile := config.SftpKey.Value()
 
@@ -162,7 +167,7 @@ func handleConn(conn net.Conn, serverConfig *ssh.ServerConfig) error {
 			return nil
 		}
 
-		fs := CreateRequestPrefix(sc.Conn.RemoteAddr(), server.ID(), server.GetFileServer())
+		fs := CreateRequestPrefix(sc.Conn.RemoteAddr(), server)
 		s := sftp.NewRequestServer(channel, fs)
 
 		if err = s.Serve(); err != nil {
@@ -176,10 +181,10 @@ func handleConn(conn net.Conn, serverConfig *ssh.ServerConfig) error {
 func replySubsystemRequests(in <-chan *ssh.Request) {
 	for req := range in {
 		ok := false
-		if req.Type == "subsystem" {
-			if string(req.Payload[4:]) == "sftp" {
-				ok = true
-			}
+		// the payload is a length-prefixed name sent by the client: check its length first,
+		// a short one would otherwise panic and take the whole daemon down
+		if req.Type == "subsystem" && len(req.Payload) >= 4 && string(req.Payload[4:]) == "sftp" {
+			ok = true
 		}
 		_ = req.Reply(ok, nil)
 	}

@@ -28,11 +28,13 @@ type ServerSearch struct {
 func (ss *Server) Search(searchCriteria ServerSearch) (records []*models.Server, total int64, err error) {
 	query := ss.DB
 
+	// explicit conditions: NodeID is not a column (gorm:"-") and a nil RawNodeID is a zero
+	// value, so as struct conditions both were dropped and every server came back
 	if searchCriteria.NodeID != 0 {
-		query = query.Where(&models.Server{NodeID: searchCriteria.NodeID})
+		query = query.Where("servers.node_id = ?", searchCriteria.NodeID)
 	} else if searchCriteria.NodeName != "" {
 		if searchCriteria.NodeName == "LocalNode" {
-			query = query.Where(&models.Server{NodeID: 0, RawNodeID: nil})
+			query = query.Where("servers.node_id IS NULL")
 		} else {
 			query = query.Joins("JOIN nodes n ON servers.node_id = n.id AND n.name = ?", searchCriteria.NodeName)
 		}
@@ -122,6 +124,11 @@ func (ss *Server) Delete(id string) error {
 		return err
 	}
 
+	// drop the MySQL databases too: their rows going away left the schemas and users (with
+	// working passwords) on the host, and a new server with this id failing to create them
+	if err = (&Database{DB: ss.DB}).DropAllForServer(id); err != nil {
+		return err
+	}
 	err = ss.DB.Delete(models.Database{}, serverIDQuery, id).Error
 	if err != nil {
 		return err

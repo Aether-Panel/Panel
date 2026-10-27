@@ -42,6 +42,14 @@ func setupSubServerTest(t *testing.T) (*services.Permission, *models.User) {
 	return ps, user
 }
 
+// ownParent makes the test user the owner of parent01: splitting is the owner's call
+func ownParent(t *testing.T, ps *services.Permission, user *models.User) {
+	parent := &models.Server{Identifier: "parent01", Name: "parent01", Type: "generic", OwnerID: &user.ID}
+	if !assert.NoError(t, ps.DB.Omit(clause.Associations).Create(parent).Error) {
+		t.FailNow()
+	}
+}
+
 func subServerBody(parent string, env skypanel.MetadataType) *models.ServerCreation {
 	body := &models.ServerCreation{}
 	if parent != "" {
@@ -67,8 +75,21 @@ func TestRestrictSubServerCreation_RequiresAccessToParent(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestRestrictSubServerCreation_OnlyTheParentsOwnerSplitsIt(t *testing.T) {
+	ps, user := setupSubServerTest(t)
+	parent := &models.Server{Identifier: "parent01", Name: "parent01", Type: "generic"}
+	if !assert.NoError(t, ps.DB.Omit(clause.Associations).Create(parent).Error) {
+		t.FailNow()
+	}
+
+	err := restrictSubServerCreation(ps, user, subServerBody("parent01", skypanel.MetadataType{Type: "docker"}))
+
+	assert.Error(t, err, "a sub-user of the parent cannot carve servers out of its plan")
+}
+
 func TestRestrictSubServerCreation_RejectsHostEnvironments(t *testing.T) {
 	ps, user := setupSubServerTest(t)
+	ownParent(t, ps, user)
 
 	for _, env := range []string{"host", "tty", "standard", "bubblewrap", ""} {
 		err := restrictSubServerCreation(ps, user, subServerBody("parent01", skypanel.MetadataType{Type: env}))
@@ -78,6 +99,7 @@ func TestRestrictSubServerCreation_RejectsHostEnvironments(t *testing.T) {
 
 func TestRestrictSubServerCreation_StripsHostAccessFromDocker(t *testing.T) {
 	ps, user := setupSubServerTest(t)
+	ownParent(t, ps, user)
 	body := subServerBody("parent01", skypanel.MetadataType{
 		Type: "docker",
 		Metadata: map[string]interface{}{
