@@ -11,8 +11,8 @@ import { useConfig } from '@/contexts/config-context';
 import { useTranslations } from '@/contexts/translations-context';
 import { sileo } from "@/lib/toast";
 import { Loader2, Lock, Mail, User } from 'lucide-react';
-import Turnstile from '@/components/Turnstile';
-import { AuthFrame, AuthInput, authLabelClass, authLinkClass, authMessageClass } from '@/components/AuthShell';
+import { useCaptcha } from '@/components/Turnstile';
+import { AuthFrame, AuthInput, PasswordStrength, AuthPasswordInput, authLabelClass, authLinkClass, authMessageClass } from '@/components/AuthShell';
 
 /** Same rules as before; only the messages now follow the active language. */
 const createFormSchema = (t: (key: string) => string) =>
@@ -34,7 +34,7 @@ export default function RegisterPage() {
   const { config } = useConfig();
   const panelName = config?.branding?.name || 'Aether Panel';
   const [loading, setLoading] = React.useState(false);
-  const [turnstileToken, setTurnstileToken] = React.useState<string | null>(null);
+  const captcha = useCaptcha();
 
   React.useEffect(() => {
     if (config?.registrationEnabled === false) {
@@ -55,9 +55,10 @@ export default function RegisterPage() {
         username: values.username,
         email: values.email,
         password: values.password,
-        turnstileToken: turnstileToken || undefined,
+        ...captcha.fields,
       });
     } catch (e: any) {
+      captcha.reset();
       sileo.error({ title: t('auth.registerFailed'), description: e.message || t('auth.checkCredentials') });
     } finally {
       setLoading(false);
@@ -128,8 +129,9 @@ export default function RegisterPage() {
               <FormItem>
                 <FormLabel className={authLabelClass}>{t('auth.fields.password')}</FormLabel>
                 <FormControl>
-                  <AuthInput {...field} icon={Lock} type="password" autoComplete="new-password" placeholder="••••••••" />
+                  <AuthPasswordInput {...field} icon={Lock} autoComplete="new-password" placeholder="••••••••" />
                 </FormControl>
+                <PasswordStrength password={field.value ?? ''} />
                 <FormMessage className={authMessageClass} />
               </FormItem>
             )}
@@ -142,24 +144,16 @@ export default function RegisterPage() {
               <FormItem>
                 <FormLabel className={authLabelClass}>{t('auth.fields.confirmPassword')}</FormLabel>
                 <FormControl>
-                  <AuthInput {...field} icon={Lock} type="password" autoComplete="new-password" placeholder="••••••••" />
+                  <AuthPasswordInput {...field} icon={Lock} autoComplete="new-password" placeholder="••••••••" />
                 </FormControl>
                 <FormMessage className={authMessageClass} />
               </FormItem>
             )}
           />
 
-          {config?.turnstileEnabled && (
-            <div className="flex justify-center">
-              <Turnstile
-                siteKey={config?.turnstileSiteKey || ''}
-                onVerify={(token) => setTurnstileToken(token)}
-                theme="dark"
-              />
-            </div>
-          )}
+          {captcha.widget}
 
-          <Button type="submit" className="h-11 w-full font-semibold" disabled={loading}>
+          <Button type="submit" className="h-11 w-full font-semibold" disabled={loading || !captcha.ready}>
             {loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
             {t('auth.register.submit')}
           </Button>

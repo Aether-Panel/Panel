@@ -11,6 +11,7 @@ La autenticación SFTP se realiza contra el panel:
 2. El daemon valida las credenciales contra el panel vía el endpoint OAuth2 (`grant_type=password`, `scope=sftp`) — ver `internal/oauth2/ssh.go:validateSSH`
 3. El panel devuelve los scopes concedidos en formato `<serverId>:<scope>`; el daemon otorga acceso solo si incluye `server.sftp`
 4. Modo local (`DatabaseSFTPAuthorization`, `internal/services/sftp.go`): el username usa formato `<email>#<serverId>` y verifica el scope `server.sftp` directamente contra la BD
+5. Claves SSH: en el nodo del panel también se puede entrar con una clave pública que el usuario haya añadido en su cuenta (`/api/self/sshkeys`). Los nodos remotos solo aceptan contraseña. Ver [Seguridad](../general/security.md)
 
 ### Server Key
 

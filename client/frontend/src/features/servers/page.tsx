@@ -23,6 +23,8 @@ export default function ServersPage() {
   const { servers, loading: serversLoading, error: serversError, refresh } = useServers();
   const [isMounted, setIsMounted] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  // a template's "Use" button opens the dialog with that template picked
+  const [createFrom, setCreateFrom] = useState<{ repo?: number; template?: string }>({});
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const searchRef = useRef<HTMLInputElement>(null);
@@ -34,12 +36,18 @@ export default function ServersPage() {
     // Check if we should automatically open the create dialog
     const searchParams = new URLSearchParams(window.location.search);
     if (searchParams.get('create') === 'true') {
+      const repo = searchParams.get('repo');
+      setCreateFrom({
+        template: searchParams.get('template') || undefined,
+        repo: repo !== null && repo !== '' && !Number.isNaN(Number(repo)) ? Number(repo) : undefined,
+      });
       setIsCreateOpen(true);
     }
   }, []);
 
   useEffect(() => {
-    if (isMounted && role && !hasScope('server.view')) {
+    // the list only holds servers the user can open, so any signed-in user may see it
+    if (isMounted && role && !hasScope('login')) {
       window.location.href = '/dashboard/';
     }
   }, [role, isMounted, hasScope]);
@@ -141,7 +149,7 @@ export default function ServersPage() {
           <DialogTitle>{t('servers.addDialog.title')}</DialogTitle>
           <DialogDescription>{t('servers.addDialog.description')}</DialogDescription>
         </DialogHeader>
-        <CreateServerStepper onComplete={() => {
+        <CreateServerStepper initialRepo={createFrom.repo} initialTemplate={createFrom.template} onComplete={() => {
           setIsCreateOpen(false);
           void refresh();
         }} />

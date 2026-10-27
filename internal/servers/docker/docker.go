@@ -174,6 +174,7 @@ func (d *Docker) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypa
 
 	attachResult, err := dockerClient.ContainerAttach(ctx, environment.ServerID, cfg)
 	if err != nil {
+		removeContainer(dockerClient, environment)
 		return err
 	}
 	d.connection = attachResult.HijackedResponse
@@ -207,10 +208,66 @@ func (d *Docker) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypa
 	environment.DisplayToConsole(true, "Starting container\n")
 	_, err = dockerClient.ContainerStart(ctx, environment.ServerID, startOpts)
 	if err != nil {
+		// a container that never ran is not auto-removed: left behind, it blocked every later
+		// start ("container already exists"). Removing it also ends handleClose's wait.
+		removeContainer(dockerClient, environment)
 		return err
 	}
 
 	return err
+}
+
+// ReattachImpl connects to the server's container when it is still running from before a
+// daemon restart: its output streams to the console again, commands reach it, and its exit
+// goes through steps.Callback once, as after a normal start. The container was created with
+// AutoRemove, so handleClose's wait for its removal still fires when it exits.
+func (d *Docker) ReattachImpl(environment *skypanel.Environment, steps skypanel.ExecutionData) error {
+	dockerClient, err := d.getClient()
+	if err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	inspectResult, err := dockerClient.ContainerInspect(ctx, environment.ServerID, client.ContainerInspectOptions{})
+	if err != nil {
+		return err
+	}
+	if !inspectResult.Container.State.Running {
+		return skypanel.ErrServerOffline
+	}
+
+	attachResult, err := dockerClient.ContainerAttach(ctx, environment.ServerID, client.ContainerAttachOptions{
+		Stdin:  true,
+		Stdout: true,
+		Stderr: true,
+		Stream: true,
+	})
+	if err != nil {
+		return err
+	}
+	conn := attachResult.HijackedResponse
+	d.connection = conn
+	d.disableSpecialStats = steps.DisableStats
+
+	environment.Wait.Add(1)
+	go func() {
+		defer conn.Close()
+		_, _ = io.Copy(environment.Wrapper, conn.Reader)
+	}()
+
+	environment.CreateConsoleStdinProxy(steps.StdInConfig, conn.Conn)
+	environment.Console.Start()
+
+	go d.handleClose(environment, dockerClient, steps.Callback)
+	return nil
+}
+
+// removeContainer force-removes the server's container after a start that failed half way
+func removeContainer(dockerClient *client.Client, environment *skypanel.Environment) {
+	_, err := dockerClient.ContainerRemove(context.Background(), environment.ServerID, client.ContainerRemoveOptions{Force: true})
+	if err != nil {
+		environment.Log(logging.Error, "Could not remove the container of a failed start: %s", err)
+	}
 }
 
 func (d *Docker) KillImpl(environment *skypanel.Environment) error {
@@ -888,8 +945,16 @@ func addStdinPortBinding(bindings network.PortMap, port string) {
 	}}
 }
 
-// applyResourceLimits sets the CPU and memory limits from the server variables.
+// applyResourceLimits sets the CPU, memory and disk I/O limits from the server variables.
 func applyResourceLimits(hostConfig *container.HostConfig, variables map[string]interface{}) {
+	// Disk I/O share against the node's other servers, 10 to 1000 like Pterodactyl (500 is
+	// an even share). Docker applies it where the host's I/O scheduler supports weights.
+	if ioVal, ok := variables["io"]; ok {
+		if weight, err := cast.ToUint16E(ioVal); err == nil && weight > 0 {
+			hostConfig.BlkioWeight = min(max(weight, 10), 1000)
+		}
+	}
+
 	// Apply CPU limit from variables
 	if cpuVal, ok := variables["cpu"]; ok {
 		if cpu, err := cast.ToIntE(cpuVal); err == nil && cpu > 0 {

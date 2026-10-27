@@ -67,9 +67,10 @@ export function useUsersCount(skip = false) {
 
     useEffect(() => {
         if (skip) return;
-        api.get('/api/users?pageSize=1')
+        // one row is enough: the total comes in paging.total
+        api.get('/api/users?limit=1')
             .then(data => {
-                setCount(data.metadata?.total || (Array.isArray(data.users) ? data.users.length : 0));
+                setCount(data.paging?.total ?? (Array.isArray(data.users) ? data.users.length : 0));
             })
             .catch(() => setCount(0))
             .finally(() => setLoading(false));

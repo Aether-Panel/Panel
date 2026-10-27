@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/sidebar';
 import {
     ArrowUpRight,
+    Blocks,
     ChevronRight,
     ChevronsUpDown,
     Database,
@@ -55,6 +56,7 @@ import type { ReactNode } from 'react';
 import { sileo } from '@/lib/toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { api } from '@/lib/api-client';
+import { useActiveExtensions, pagesFor } from '@/hooks/use-extensions';
 
 interface NavItem {
     href: string;
@@ -77,6 +79,7 @@ const SEGMENT_LABEL_KEYS: Record<string, string> = {
     templates: 'sidebar.templates',
     settings: 'sidebar.settings',
     profile: 'profileSettings.title',
+    extension: 'sidebar.groups.extensions',
 };
 
 /** Detail pages dispatch this with `{ id, label }` once the entity name is known. */
@@ -203,7 +206,6 @@ function AppLayoutInner({ children, currentPath }: Readonly<{ children: ReactNod
     const { role, user, logout, hasScope } = useAuth();
     const { t } = useTranslations();
     const { config } = useConfig();
-    const showHeaderDecorations = config?.headerDecorations !== false;
 
     useEffect(() => {
         const checkGlobalUpdate = async () => {
@@ -241,8 +243,9 @@ function AppLayoutInner({ children, currentPath }: Readonly<{ children: ReactNod
 
     const navItems: NavItem[] = [
         { href: '/dashboard/', label: t('sidebar.dashboard'), icon: LayoutDashboard, requiredScopes: [] },
-        { href: '/servers/', label: t('sidebar.servers'), icon: Server, requiredScopes: ['server.view'] },
-        { href: '/users/', label: t('sidebar.users'), icon: Users, requiredScopes: ['users.info.view'] },
+        // the server list only shows servers the user can open, so every signed-in user gets it
+        { href: '/servers/', label: t('sidebar.servers'), icon: Server, requiredScopes: ['login'] },
+        { href: '/users/', label: t('sidebar.users'), icon: Users, requiredScopes: ['users.info.search'] },
         { href: '/roles/', label: t('sidebar.roles'), icon: ShieldCheck, requiredScopes: ['admin'] },
         { href: '/nodes/', label: t('sidebar.nodes'), icon: Network, requiredScopes: ['nodes.view'] },
         { href: '/database-hosts/', label: t('sidebar.databaseHosts'), icon: Database, requiredScopes: ['admin'] },
@@ -256,11 +259,27 @@ function AppLayoutInner({ children, currentPath }: Readonly<{ children: ReactNod
         return item.requiredScopes.some(s => hasScope(s));
     };
 
+    // administration pages of the switched-on extensions (the API lists them to administrators only)
+    const { extensions } = useActiveExtensions();
+    const extensionItems: NavItem[] = pagesFor(extensions, 'admin').map(({ extension, page }) => ({
+        href: `/extension/?id=${encodeURIComponent(extension.id)}&page=${encodeURIComponent(page.id)}`,
+        label: page.title,
+        icon: Blocks,
+        requiredScopes: ['admin'],
+    }));
+
+    // a link with a query (an extension page) is current only for that exact page
+    const isCurrent = (href: string) => {
+        if (!href.includes('?')) return currentPath.startsWith(href);
+        return typeof window !== 'undefined' && window.location.pathname + window.location.search === href;
+    };
+
     // Sections are only rendered once they hold at least one permitted item, so
     // a limited user never sees an orphaned group heading.
     const sections = [
         { id: 'overview', label: t('sidebar.groups.overview'), items: navItems.filter((item) => item.requiredScopes.length === 0) },
         { id: 'management', label: t('sidebar.groups.management'), items: navItems.filter((item) => item.requiredScopes.length > 0) },
+        { id: 'extensions', label: t('sidebar.groups.extensions'), items: extensionItems },
     ]
         .map((section) => ({ ...section, items: section.items.filter(hasPermission) }))
         .filter((section) => section.items.length > 0);
@@ -295,37 +314,7 @@ function AppLayoutInner({ children, currentPath }: Readonly<{ children: ReactNod
         <SidebarProvider>
             <Sidebar collapsible="offcanvas" mobileCloseLabel={t('sidebar.closeMenu')}>
                 <SidebarHeader className="relative overflow-hidden border-b border-sidebar-border/60 p-0">
-                    <img
-                        src="/img/Fondos/minecraft-shaders-anime-hd-wallpaper-preview.jpg"
-                        alt=""
-                        aria-hidden="true"
-                        className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-30"
-                    />
-                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-sidebar/40 to-sidebar" />
-                    {showHeaderDecorations && (
-                        <>
-                            <img
-                                src="/img/Gifs/animepixel1.gif"
-                                alt=""
-                                aria-hidden="true"
-                                // a GIF cannot be paused, so it is hidden when the user asks for less motion
-                                className="pointer-events-none absolute bottom-1 left-1 h-8 w-8 rounded object-cover opacity-60 motion-reduce:hidden"
-                            />
-                            {/* hidden through a wrapper: aria-hidden is not allowed on the (focusable) video itself */}
-                            <div aria-hidden="true" className="pointer-events-none absolute bottom-1 right-1 h-8 w-8 motion-reduce:hidden">
-                                <video
-                                    src="/img/Gifs/b810142e63c0e12ac415d884e1e01ff5_t1.webm"
-                                    tabIndex={-1}
-                                    autoPlay
-                                    muted
-                                    loop
-                                    playsInline
-                                    className="h-full w-full rounded object-cover opacity-60"
-                                />
-                            </div>
-                        </>
-                    )}
-                    <div className={cn("relative px-4 pt-5", showHeaderDecorations ? "pb-14" : "pb-4")}>
+                    <div className="relative px-4 pb-4 pt-5">
                         <Logo />
                     </div>
                 </SidebarHeader>
@@ -339,7 +328,7 @@ function AppLayoutInner({ children, currentPath }: Readonly<{ children: ReactNod
                                         <SidebarMenuItem key={item.href}>
                                             <SidebarMenuButton
                                                 asChild
-                                                isActive={currentPath.startsWith(item.href)}
+                                                isActive={isCurrent(item.href)}
                                                 tooltip={item.label}
                                                 // the glide pill is the hover surface; the active gradient stays
                                                 className="hover:bg-transparent data-[active=true]:bg-transparent data-[active=true]:bg-gradient-to-r"

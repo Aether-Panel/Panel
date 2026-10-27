@@ -262,6 +262,12 @@ func handleEditEmail(user *models.User, us *services.User) {
 func handleEditPassword(user *models.User, us *services.User) {
 	password, _ := pterm.DefaultInteractiveTextInput.WithMask("*").WithDefaultText("Change password to").Show()
 
+	// the same rule as the web, which also rejects what bcrypt cannot hash
+	if err := us.IsSecurePassword(password); err != nil {
+		pterm.Error.Printfln("Error updating password: %s", err.Error())
+		return
+	}
+
 	err := user.SetPassword(password)
 	if err != nil {
 		pterm.Error.Printfln("Error updating password: %s", err.Error())
@@ -270,9 +276,15 @@ func handleEditPassword(user *models.User, us *services.User) {
 	err = us.Update(user)
 	if err != nil {
 		pterm.Error.Printfln("Error updating password: %s", err.Error())
-	} else {
-		pterm.Info.Printfln("Password updated")
+		return
 	}
+	// whoever knew the old password is signed out, as when it is changed on the web
+	ss := &services.Session{DB: us.DB}
+	if err = ss.ExpireAllForUser(user.ID, ""); err != nil {
+		pterm.Warning.Printfln("Password updated, but open sessions could not be ended: %s", err.Error())
+		return
+	}
+	pterm.Info.Printfln("Password updated; open sessions were ended")
 }
 
 func handleEditAdminStatus(user *models.User, db *gorm.DB) {

@@ -102,7 +102,7 @@ We have several channels: the Discord community server for support and discussio
 
 What's new in the redesigned Settings view (v2.0.1+)?
 
-The server Settings tab now has a 2-column layout, per-section visual identity, sticky save bar, and role-based permissions. Admin sees all + CRUD; User sees General Info, Groups/Variables, Plugins, Auto-start, Ports (view + primary + notes), but NOT Limits, Metadata, Admin tab. Extra ports are managed with per-port notes and primary selection.
+The server Settings tab now has a 2-column layout, per-section visual identity, sticky save bar, and each section is shown according to the permissions of whoever opens it. The administrator sees everything; the owner and sub-users see only what their permissions allow (never Limits, Metadata or the Admin tab). Extra ports are managed with per-port notes and primary selection.
 
 Why doesn't my Docker server connect to MySQL (`mysql:3306`)?
 
@@ -110,7 +110,7 @@ Previously containers were created in the `bridge` network and couldn't resolve 
 
 What changed in the "User" role permissions?
 
-Improper admin accesses were revoked (`server.admin.config.view/manage`, `server.data.edit.admin`) and correct permissions granted: `server.definition.view/edit`, `server.flags.view/edit`. Users can now view/edit server definition and flags, but not admin config or limits.
+A role's server permissions no longer apply on servers. Every server has an owner, who gives each sub-user only the permissions they choose. See [Scopes reference](./scopes-reference.md).
 
 Why does the build fail with `monaco-editor/min/vs/editor/editor.main.css?inline`?
 

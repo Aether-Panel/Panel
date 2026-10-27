@@ -43,15 +43,16 @@ export function useServerSettings(serverId: string) {
             const [serverData, flagsData, definitionData] = await Promise.all([
                 api.get(`/api/servers/${serverId}/data`).catch(() => ({ data: {} })),
                 api.get(`/api/servers/${serverId}/flags`).catch(() => ({})),
-                api.get(`/api/servers/${serverId}/definition`).catch(() => ({}))
+                // null when it cannot be read (no permission): it must not be sent back either
+                api.get(`/api/servers/${serverId}/definition`).catch(() => null)
             ]);
 
             const variables = {
                 ...serverData.data,
-                ...definitionData.data
+                ...definitionData?.data
             };
-            const groups = definitionData.groups || serverData.groups || [];
-            const type = definitionData.type || '';
+            const groups = definitionData?.groups || serverData.groups || [];
+            const type = definitionData?.type || '';
 
             setIsMinecraftJava(type === 'minecraft' || type === 'minecraft-java');
 
@@ -90,15 +91,6 @@ export function useServerSettings(serverId: string) {
                 }
             });
 
-            // Sync variables into definition before saving if definition exists
-            const definition = newSettings.definition ? {
-                ...newSettings.definition,
-                data: {
-                    ...newSettings.definition.data,
-                    ...newSettings.variables
-                }
-            } : null;
-
             // Save user-editable variables
             await api.post(`/api/servers/${serverId}/data`, data);
 
@@ -107,24 +99,20 @@ export function useServerSettings(serverId: string) {
                 await api.put(`/api/servers/${serverId}/data`, adminData);
             }
 
-            // If we have a definition, update its internal run flags to match the new flags
-            // This prevents overwriting the flags when saving the definition
-            let finalDefinition = definition;
-            if (finalDefinition) {
-                if (!finalDefinition.run) finalDefinition.run = {};
-                finalDefinition.run.autostart = newSettings.flags.autoStart;
-                finalDefinition.run.autorecover = newSettings.flags.autoRestartOnCrash;
-                finalDefinition.run.autorestart = newSettings.flags.autoRestartOnGraceful;
-
-                await api.put(`/api/servers/${serverId}/definition`, finalDefinition);
-            }
-
-            // Also save via flags endpoint for consistency/completeness
+            // Variables (above) and flags (here) have their own endpoints. The definition is
+            // not sent: the daemon refuses it while the server runs, it needs a permission
+            // most owners lack, and it would write stale values over the ones just saved.
             await api.post(`/api/servers/${serverId}/flags`, {
                 autoStart: newSettings.flags.autoStart,
                 autoRestartOnCrash: newSettings.flags.autoRestartOnCrash,
                 autoRestartOnGraceful: newSettings.flags.autoRestartOnGraceful,
             });
+
+            // the name field renames the server through its own endpoint
+            const newName = String(newSettings.definition?.display ?? '').trim();
+            if (newName && newName !== String(settings?.definition?.display ?? '').trim()) {
+                await api.put(`/api/servers/${serverId}/name/${encodeURIComponent(newName)}`, {});
+            }
 
             // If Minecraft Java, sync server.properties
             if (isMinecraftJava) {
@@ -139,13 +127,19 @@ export function useServerSettings(serverId: string) {
         }
     };
 
+    /** The admin's raw definition editor: saved exactly as written, then read back. */
+    const saveDefinition = async (definition: any) => {
+        await api.put(`/api/servers/${serverId}/definition`, definition);
+        await fetchSettings();
+    };
+
     useEffect(() => {
         if (serverId) {
             void fetchSettings();
         }
     }, [serverId]);
 
-    return { settings, loading, error, saveSettings, isMinecraftJava, refresh: fetchSettings };
+    return { settings, loading, error, saveSettings, saveDefinition, isMinecraftJava, refresh: fetchSettings };
 }
 
 function applyPropertiesToLines(lines: string[], propsToUpdate: Record<string, string>): string[] {

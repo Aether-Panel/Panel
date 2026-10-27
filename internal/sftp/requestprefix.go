@@ -5,6 +5,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/files"
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
+	"github.com/SkyPanel/SkyPanel/v3/internal/servers"
 	"github.com/pkg/sftp"
 	"io"
 	"net"
@@ -16,10 +17,12 @@ type requestPrefix struct {
 	fs         files.FileServer
 	remoteAddr net.Addr
 	serverID   string
+	// server is checked so uploads stop at its disk limit
+	server *servers.Server
 }
 
-func CreateRequestPrefix(remoteAddr net.Addr, serverID string, fs files.FileServer) sftp.Handlers {
-	h := requestPrefix{fs: fs, serverID: serverID, remoteAddr: remoteAddr}
+func CreateRequestPrefix(remoteAddr net.Addr, server *servers.Server) sftp.Handlers {
+	h := requestPrefix{fs: server.GetFileServer(), serverID: server.ID(), remoteAddr: remoteAddr, server: server}
 
 	return sftp.Handlers{FileCmd: h, FileGet: h, FileList: h, FilePut: h}
 }
@@ -34,8 +37,34 @@ func (rp requestPrefix) Fileread(request *sftp.Request) (io.ReaderAt, error) {
 func (rp requestPrefix) Filewrite(request *sftp.Request) (io.WriterAt, error) {
 	rp.log(request)
 
-	file, err := rp.getFile(request.Filepath, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
-	return file, err
+	if err := rp.server.CheckDiskSpace(false); err != nil {
+		return nil, err
+	}
+
+	// open the way the client asked: resuming or appending must keep what is there, and
+	// "only create" must not overwrite. O_APPEND itself is left out, since every SFTP write
+	// comes with its own offset and WriteAt refuses an append-mode file.
+	pflags := request.Pflags()
+	flags := os.O_WRONLY
+	if pflags.Creat {
+		flags |= os.O_CREATE
+	}
+	if pflags.Excl {
+		flags |= os.O_EXCL
+	}
+	fresh := pflags.Trunc
+	if fresh {
+		flags |= os.O_TRUNC
+		// the old content is truncated, so it stops counting against the disk limit
+		if fi, err := rp.fs.Stat(request.Filepath); err == nil && !fi.IsDir() {
+			rp.server.ReleaseDisk(fi.Size())
+		}
+	}
+	file, err := rp.getFile(request.Filepath, flags, 0644)
+	if err != nil {
+		return nil, err
+	}
+	return rp.server.DiskFile(file, request.Filepath, fresh), nil
 }
 
 func (rp requestPrefix) Filecmd(request *sftp.Request) error {
@@ -52,6 +81,7 @@ func (rp requestPrefix) Filecmd(request *sftp.Request) error {
 		}
 	case "Rmdir":
 		{
+			defer rp.server.ForgetDiskUsage()
 			return rp.fs.RemoveAll(request.Filepath)
 		}
 	case "Mkdir":
@@ -64,6 +94,7 @@ func (rp requestPrefix) Filecmd(request *sftp.Request) error {
 		}
 	case "Remove":
 		{
+			defer rp.server.ForgetDiskUsage()
 			return rp.fs.Remove(request.Filepath)
 		}
 	default:

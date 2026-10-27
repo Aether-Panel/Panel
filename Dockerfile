@@ -1,7 +1,10 @@
 ###
 # Builder container
 ###
-ARG BUILDPLATFORM=linux/amd64
+# BUILDPLATFORM and TARGETPLATFORM are filled in by BuildKit from the machine and --platform.
+# They must not have defaults: a default replaces the real value, and an arm64 build then
+# ships an x86 binary that cannot start.
+ARG BUILDPLATFORM
 FROM --platform=${BUILDPLATFORM} node:26-alpine AS node
 
 WORKDIR /build
@@ -16,10 +19,10 @@ RUN rm -rf node_modules/.cache
 
 RUN yarn build
 
-ARG BUILDPLATFORM=linux/amd64
+ARG BUILDPLATFORM
 FROM --platform=${BUILDPLATFORM} tonistiigi/xx:1.10.0 AS xx
 
-ARG BUILDPLATFORM=linux/amd64
+ARG BUILDPLATFORM
 FROM --platform=${BUILDPLATFORM} golang:1.27-alpine AS builder
 
 RUN apk add --no-cache clang lld
@@ -52,7 +55,7 @@ RUN /go/bin/swag init -o internal/web/swagger -g internal/web/loader.go
 
 COPY --from=node /build/frontend/dist /build/SkyPanel/client/frontend/dist
 
-ARG TARGETPLATFORM=linux/amd64
+ARG TARGETPLATFORM
 ARG curseforgeKey=''
 
 RUN xx-apk add musl-dev gcc

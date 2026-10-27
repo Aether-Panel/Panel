@@ -143,7 +143,7 @@ export default function CodeEditor({ language, value, onChange, onSave, onEditor
 
   useEffect(() => {
     markMonacoInUse();
-    void ensureMonacoStylesheet();
+    ensureMonacoStylesheet();
   }, []);
 
   const handleBeforeMount = (monaco: any) => {

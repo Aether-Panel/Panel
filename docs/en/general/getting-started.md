@@ -12,14 +12,14 @@ It is important to note that Aether Panel requires at least 2 CPU vcores, 2GB of
 
 - **cardTitle**: Hardware and Software
 - **cardTitle2**: Minimum
-- Operating System: Linux (Ubuntu 20.04+, Debian 11+, CentOS 8+).
+- Operating System: Linux (Ubuntu 22.04+, Debian 12+, Rocky/Alma 9).
 - Architecture: amd64 or arm64.
 - Virtualization: KVM, OpenVZ, LXC or dedicated server (for nodes).
 - Software: Docker and Docker Compose (v20.10.0+, optional).
 - Hardware: 2 CPU vcores, 2GB RAM, 5GB storage (minimum).
 
 - **cardTitle3**: Recommended
-- Operating System: Linux (Ubuntu 20.04+, Debian 11+, CentOS 8+).
+- Operating System: Linux (Ubuntu 22.04+, Debian 12+, Rocky/Alma 9).
 - Architecture: amd64 or arm64.
 - Virtualization: KVM, OpenVZ, LXC or dedicated server (for nodes).
 - Software: Docker and Docker Compose (v20.10.0+, optional).
@@ -60,7 +60,7 @@ Aether Panel can be installed in three different ways. Choose the one that best 
 - **linuxTitle**: Method 1: Automatic Installation with Script
 - **linuxP1**: This is the most recommended method. The script installs Docker (if missing), clones the repository, builds the image, and configures the service.
 - **linuxP2**: Run the following command as root or with sudo to start the installation:
-- **linuxCode**: bash -c "$(curl -s https://install.aetherpanel.es/install.sh)"
+- **linuxCode**: bash -c "$(curl -fsSL https://install.aetherpanel.es/install.sh)"
 - **linuxP3**: Or download the script first and then run it:
 - **linuxCode2**: # Download the script
 wget https://install.aetherpanel.es/install.sh

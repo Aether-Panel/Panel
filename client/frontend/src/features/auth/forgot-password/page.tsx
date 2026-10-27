@@ -12,6 +12,7 @@ import { api } from '@/lib/api-client';
 import { sileo } from '@/lib/toast';
 import { Loader2, Mail, MailCheck } from 'lucide-react';
 import { AuthFrame, AuthInput, AuthNotice, authLabelClass, authLinkClass, authMessageClass } from '@/components/AuthShell';
+import { useCaptcha } from '@/components/Turnstile';
 
 /** Same rule as before; only the message now follows the active language. */
 const createFormSchema = (t: (key: string) => string) =>
@@ -27,6 +28,7 @@ export default function ForgotPasswordPage() {
   const panelName = config?.branding?.name || 'Aether Panel';
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const captcha = useCaptcha();
 
   const formSchema = useMemo(() => createFormSchema(t), [t]);
   const form = useForm<ForgotValues>({
@@ -39,9 +41,10 @@ export default function ForgotPasswordPage() {
   async function onSubmit(values: ForgotValues) {
     setLoading(true);
     try {
-      await api.post('/auth/forgot-password', { email: values.email });
+      await api.post('/auth/forgot-password', { email: values.email, ...captcha.fields });
       setSent(true);
     } catch (e: any) {
+      captcha.reset();
       sileo.error({ title: t('common.error'), description: e.message || t('auth.forgot.errorFallback') });
     } finally {
       setLoading(false);
@@ -68,7 +71,7 @@ export default function ForgotPasswordPage() {
           <AuthNotice icon={MailCheck} tone="success">
             {t('auth.forgot.sent')}
           </AuthNotice>
-          <Button type="button" variant="outline" onClick={() => setSent(false)} className="h-11 w-full">
+          <Button type="button" variant="outline" onClick={() => { captcha.reset(); setSent(false); }} className="h-11 w-full">
             {t('auth.forgot.sendAnother')}
           </Button>
         </div>
@@ -95,7 +98,9 @@ export default function ForgotPasswordPage() {
               )}
             />
 
-            <Button type="submit" className="h-11 w-full font-semibold" disabled={loading}>
+            {captcha.widget}
+
+            <Button type="submit" className="h-11 w-full font-semibold" disabled={loading || !captcha.ready}>
               {loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
               {t('auth.forgot.submit')}
             </Button>

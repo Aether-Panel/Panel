@@ -76,10 +76,12 @@ export default function AISummary({ logs, serverId }: Readonly<{ logs?: LogEntry
         body: JSON.stringify({ logs: logsToSend, language })
       });
 
-      const data = await res.json();
+      // a refused request (403) has no body: reading it as JSON would show a parse error
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        throw new Error(data.error || t('servers.aiSummary.fail'));
+        const error = data?.error;
+        throw new Error((typeof error === 'string' ? error : error?.msg) || t('servers.aiSummary.fail'));
       }
 
       setSummary(data.summary);

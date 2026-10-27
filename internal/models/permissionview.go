@@ -6,6 +6,8 @@ import (
 
 type PermissionView struct {
 	ServerIdentifier string `json:"serverIdentifier,omitempty"`
+	// Owner is set when the caller owns the server (only in a server's own answer)
+	Owner bool `json:"owner,omitempty"`
 
 	Scopes []*scopes.Scope `json:"scopes"`
 } // @name Permissions
@@ -26,4 +28,6 @@ type UserPermissionsView struct {
 	Username string          `json:"username,omitempty"`
 	Email    string          `json:"email"`
 	Scopes   []*scopes.Scope `json:"scopes"`
+	// Owner marks the server's owner, who holds scopes.OwnerScopes and cannot be limited
+	Owner bool `json:"owner,omitempty"`
 }

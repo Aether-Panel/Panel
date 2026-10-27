@@ -9,6 +9,9 @@ import (
 )
 
 var LogsFolder = asString("logs", "logs")
+
+// LogRetentionDays is how many days of rotated panel logs are kept; 0 keeps them forever
+var LogRetentionDays = asInt("logRetentionDays", 14)
 var WebHost = asString("web.host", "0.0.0.0:8080")
 
 // Templates source (custom VPS JSON index)
@@ -44,7 +47,6 @@ var MasterURL = asString("panel.settings.masterUrl", "http://localhost:8080")
 var NodeIP = asString("panel.settings.nodeIp", "0.0.0.0")
 var GeminiAPIKey = asString("panel.settings.geminiApiKey", "")
 var HideAIAnalysis = asBool("panel.settings.hideAiAnalysis", false)
-var HeaderDecorations = asBool("panel.settings.headerDecorations", true)
 
 // Experimental features are off until an admin turns them on in the panel settings
 var ExperimentalVersionSwitch = asBool("panel.experimental.versionSwitch", false)
@@ -70,6 +72,11 @@ var TurnstileSiteKey = asString("panel.turnstile.siteKey", "")
 var TurnstileSecretKey = asString("panel.turnstile.secretKey", "")
 var TurnstileEnabled = asBool("panel.turnstile.enabled", false)
 
+// CaptchaBuiltin is the panel's own anti-bot check on sign-in, sign-up and password resets:
+// the browser solves a small proof of work, with no outside service or keys. Turnstile,
+// once configured, is used instead.
+var CaptchaBuiltin = asBool("panel.captcha.builtin", true)
+
 var DaemonEnabled = asBool("daemon.enable", true)
 var ConsoleBuffer = asInt("daemon.console.buffer", 50)
 var ConsoleForward = asBool("daemon.console.forward", false)
@@ -84,6 +91,9 @@ var ServersFolder = asDataFolder("daemon.data.servers", "servers")
 var BackupsFolder = asDataFolder("daemon.data.backups.folder", "backups")
 var BinariesFolder = asDataFolder("daemon.data.binaries", "binaries")
 var CrashLimit = asInt("daemon.data.crashLimit", 3)
+
+// ExtensionsFolder holds the files of the installed panel extensions, one folder each
+var ExtensionsFolder = asDataFolder("panel.extensions.folder", "extensions")
 
 // Off-site backups: every finished backup is also copied to an S3-compatible bucket
 var BackupsS3Enabled = asBool("daemon.backups.s3.enabled", false)

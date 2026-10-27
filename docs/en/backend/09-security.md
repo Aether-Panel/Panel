@@ -11,6 +11,7 @@ SFTP authentication is performed against the panel:
 2. The daemon validates the credentials against the panel via the OAuth2 endpoint (`grant_type=password`, `scope=sftp`) — see `internal/oauth2/ssh.go:validateSSH`
 3. The panel returns the granted scopes in `<serverId>:<scope>` format; the daemon grants access only if it includes `server.sftp`
 4. Local mode (`DatabaseSFTPAuthorization`, `internal/services/sftp.go`): the username uses the `<email>#<serverId>` format and verifies the `server.sftp` scope directly against the DB
+5. SSH keys: on the panel's own node you can also sign in with a public key the user added to their account (`/api/self/sshkeys`). Remote nodes accept passwords only. See [Security](../general/security.md)
 
 ### Server Key
 

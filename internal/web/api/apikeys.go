@@ -3,11 +3,14 @@ package api
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
+	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
 	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-gonic/gin"
 )
 
@@ -44,8 +47,12 @@ func createAPIKey(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
+	permissions, err := normalizeAPIKeyPermissions(req.Permissions)
+	if response.HandleError(c, err, http.StatusBadRequest) {
+		return
+	}
 
-	token, apiKey, err := ss.GenerateKey(req.Name, req.Permissions)
+	token, apiKey, err := ss.GenerateKey(req.Name, permissions)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
@@ -72,4 +79,31 @@ func deleteAPIKey(c *gin.Context) {
 	}
 
 	c.Status(http.StatusNoContent)
+}
+
+// normalizeAPIKeyPermissions keeps the known actions, once each. A key created without a list
+// gets every action, as keys always did ("provision"), so existing callers keep working; a list
+// that names nothing known is refused rather than turned into an all-powerful key.
+func normalizeAPIKeyPermissions(requested []string) ([]string, error) {
+	if len(requested) == 0 {
+		return []string{models.APIKeyAll}, nil
+	}
+	known := map[string]bool{models.APIKeyAll: true}
+	for _, a := range models.APIKeyActions {
+		known[a] = true
+	}
+	seen := map[string]bool{}
+	out := make([]string, 0, len(requested))
+	for _, p := range requested {
+		p = strings.TrimSpace(p)
+		if !known[p] || seen[p] {
+			continue
+		}
+		seen[p] = true
+		out = append(out, p)
+	}
+	if len(out) == 0 {
+		return nil, skypanel.ErrAPIKeyPermissions
+	}
+	return out, nil
 }

@@ -9,6 +9,17 @@ export type OAuthClient = {
     clientSecret?: string;
 };
 
+/** The API sends client_id and client_secret; the page works with camelCase. */
+function toOAuthClient(raw: any): OAuthClient {
+    return {
+        clientId: raw?.client_id ?? raw?.clientId ?? '',
+        userId: raw?.userId ?? 0,
+        name: raw?.name ?? '',
+        description: raw?.description ?? '',
+        clientSecret: raw?.client_secret ?? raw?.clientSecret ?? undefined,
+    };
+}
+
 export function useProfile() {
     const [otpEnabled, setOtpEnabled] = useState(false);
     const [oauthClients, setOauthClients] = useState<OAuthClient[]>([]);
@@ -27,7 +38,7 @@ export function useProfile() {
     const fetchOauthClients = async () => {
         try {
             const data = await api.get('/api/self/oauth2');
-            setOauthClients(Array.isArray(data) ? data : []);
+            setOauthClients(Array.isArray(data) ? data.map(toOAuthClient) : []);
         } catch (e: any) {
             console.error('Failed to fetch OAuth clients:', e);
         }
@@ -89,7 +100,8 @@ export function useProfile() {
         try {
             const res = await api.post('/api/self/oauth2', client);
             await fetchOauthClients();
-            return res;
+            // the secret is only in this answer: the page shows it once
+            return toOAuthClient(res);
         } catch (e: any) {
             console.error('Failed to create OAuth client:', e);
             throw e;
@@ -98,7 +110,7 @@ export function useProfile() {
 
     const deleteOauthClient = async (clientId: string) => {
         try {
-            await api.delete(`/api/self/oauth2/${clientId}`);
+            await api.delete(`/api/self/oauth2/${encodeURIComponent(clientId)}`);
             await fetchOauthClients();
         } catch (e: any) {
             console.error('Failed to delete OAuth client:', e);

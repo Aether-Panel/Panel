@@ -1,577 +1,295 @@
-# Complete Scopes Reference
+# Permissions reference (scopes)
 
-Complete reference of all **75** permission scopes in Aether Panel (verified against `internal/scopes/scopes.go`).
+A **scope** is a named permission, for example `server.start`. Every API route asks for one, and the request goes through only if the user holds it. The full list is in `internal/scopes/scopes.go`: 73 scopes, 23 panel scopes and 50 server scopes.
 
----
+- **Panel scopes**: apply to the whole panel (`nodes.view`, `settings.edit`…).
+- **Server scopes**: apply to one server. The route must carry `:serverId`; without it, the request is refused.
 
-## Scope Categories
+Two scopes cover others: `admin` covers all of them, and `server.admin` covers every server scope on that server.
 
-| Category | Count |
-|----------|-------|
-| **Server Scopes** | 51 |
-| **Global Scopes** | 24 |
+Billing API keys do not use scopes: they have their own list of actions (see [API keys](#api-keys)).
 
-**Total: 75 scopes**
+## Where permissions come from
 
----
+On every request the panel gathers the user's permissions from these sources:
 
-## Server Scopes (51)
+| Source | On panel routes | On a server's routes |
+|--------|-----------------|----------------------|
+| The user's role | Counts | Only its panel scopes count (for example `admin`). Its server scopes **do not count**. |
+| The user's global row (permissions with no server) | Counts | Counts |
+| Owning the server | — | Gives the owner set (see below) |
+| The user's row on that server | — | Counts |
 
-### Server Lifecycle (9)
-| Scope | Description |
-|-------|-------------|
-| `server.view` | View server details |
-| `server.delete` | Delete server |
-| `server.start` | Start server |
-| `server.stop` | Stop server |
-| `server.kill` | Force kill server |
-| `server.install` | Run installation |
-| `server.reload` | Reload configuration |
-| `server.status` | View running/stopped status |
-| `server.stats` | View CPU/RAM/disk/network stats |
+If the session comes from an OAuth2 client, the client sets another limit on top: a client tied to a server only acts on that server, and a client with declared scopes never goes beyond them.
 
-### Server Data (6)
-| Scope | Description |
-|-------|-------------|
-| `server.data.view` | View server variables |
-| `server.data.edit` | Edit user-editable variables |
-| `server.data.edit.admin` | Edit admin-only variables (port, CPU, memory, disk) |
-| `server.ports.edit` | Manage port list + primary selection |
-| `server.definition.view` | View server definition JSON |
-| `server.definition.edit` | Edit server definition JSON |
+## Owner and sub-users
 
-### Server Flags (2)
-| Scope | Description |
-|-------|-------------|
-| `server.flags.view` | View auto-start/restart flags |
-| `server.flags.edit` | Edit auto-start/restart flags |
+Every server has an **owner** (`servers.owner_id`): the customer it belongs to. Everyone else with access is a **sub-user**.
 
-### Console & Commands (2)
-| Scope | Description |
-|-------|-------------|
-| `server.console` | View console output |
-| `server.console.send` | Send commands to console |
+### Who owns a new server
 
-### Files & SFTP (4)
-| Scope | Description |
-|-------|-------------|
-| `server.files.view` | List/download files |
-| `server.files.edit` | Upload/edit/delete/move files |
-| `server.sftp` | SFTP access |
-| `server.archive` | Create/extract archives |
+| How it is created | Owner |
+|-------------------|-------|
+| From billing (`POST /api/v1/provision`) | The customer it was bought for |
+| Sub-server (Splitter) | The parent server's owner |
+| Copy of a server (clone) | The original's owner |
+| An administrator creates it for other users | The first user in the list |
+| An administrator creates it with no users | Nobody: it is the administrator's own server |
 
-### Backups (4)
-| Scope | Description |
-|-------|-------------|
-| `server.backup.view` | View backup list |
-| `server.backup.create` | Create backup |
-| `server.backup.restore` | Restore backup |
-| `server.backup.delete` | Delete backup |
+The owner is always a member of the server too (they have a permission row on it), so the server shows up in their list.
 
-### Statistics & Status (2)
-| Scope | Description |
-|-------|-------------|
-| `server.stats` | View CPU/RAM/disk/network stats |
-| `server.status` | View running/stopped status |
+### What the owner can do
 
-### Tasks / Scheduler (5)
-| Scope | Description |
-|-------|-------------|
-| `server.tasks.view` | View scheduled tasks |
-| `server.tasks.run` | Manually run task |
-| `server.tasks.create` | Create task |
-| `server.tasks.edit` | Edit task |
-| `server.tasks.delete` | Delete task |
+The owner holds the `scopes.OwnerScopes` set on their server, whatever their row says:
 
-### Database (3)
-| Scope | Description |
-|-------|-------------|
-| `server.database.view` | View databases |
-| `server.database.create` | Create database |
-| `server.database.delete` | Delete database |
+| Group | Scopes |
+|-------|--------|
+| View | `server.view`, `server.status`, `server.stats` |
+| Console | `server.console`, `server.console.send` |
+| Power and installation | `server.start`, `server.stop`, `server.kill`, `server.reload`, `server.install` |
+| Files | `server.files.view`, `server.files.edit`, `server.sftp` |
+| Backups | `server.backup.view`, `server.backup.create`, `server.backup.restore`, `server.backup.delete` |
+| Settings | `server.data.view`, `server.data.edit`, `server.flags.view`, `server.flags.edit`, `server.name.edit`, `server.definition.view` |
+| Tasks | `server.tasks.view`, `server.tasks.run`, `server.tasks.create`, `server.tasks.edit`, `server.tasks.delete` |
+| Users and clients | `server.users.view`, `server.users.create`, `server.users.edit`, `server.users.delete`, `server.clients.view`, `server.clients.create`, `server.clients.edit`, `server.clients.delete` |
 
-### Users / Permissions (4)
-| Scope | Description |
-|-------|-------------|
-| `server.users.view` | View server users |
-| `server.users.edit` | Edit server user permissions |
-| `server.users.create` | Add user to server |
-| `server.users.delete` | Remove user from server |
+Also, only the owner (or an administrator) can **split** the server with Splitter: splitting takes resources out of their plan.
 
-### Plugins (2)
-| Scope | Description |
-|-------|-------------|
-| `server.plugins.view` | View installed plugins |
-| `server.plugins.edit` | Install/remove plugins |
+What is left out is the administrator's call:
 
-### Transfers (4)
-| Scope | Description |
-|-------|-------------|
-| `server.transfer.view` | View internal transfers |
-| `server.transfer.manage` | Manage internal transfers |
-| `server.extransfer.view` | View external transfers |
-| `server.extransfer.manage` | Manage external transfers |
+- Deleting the server (`server.delete`).
+- Resources and admin variables, suspending and transferring (`server.data.edit.admin`).
+- Editing the definition and the environment (`server.definition.edit`).
+- Ports (`server.ports.edit`) and the admin section (`server.admin.*`).
 
-### Clients / OAuth2 (4)
-| Scope | Description |
-|-------|-------------|
-| `server.clients.view` | View OAuth2 clients |
-| `server.clients.edit` | Edit OAuth2 clients |
-| `server.clients.create` | Create OAuth2 clients |
-| `server.clients.delete` | Delete OAuth2 clients |
+The owner cannot be limited or removed from the server: the API answers `409 ErrServerOwner`.
 
-### Admin Scopes (19)
-| Scope | Description |
-|-------|-------------|
-| `server.admin` | Full server admin (all below) |
-| `server.admin.view` | View admin panel |
-| `server.admin.config.view` | View admin config (ports, limits, metadata) |
-| `server.admin.config.manage` | Manage admin config (ports, limits, metadata) |
-| `server.admin.install.view` | View installation steps |
-| `server.admin.install.manage` | Manage installation steps |
-| `server.admin.transfer.view` | View transfer details |
-| `server.admin.transfer.manage` | Manage transfers |
-| `server.admin.assignments.view` | View user assignments |
-| `server.admin.assignments.manage` | Manage user assignments |
-| `server.admin.clients.view` | View OAuth2 clients |
-| `server.admin.clients.edit` | Edit OAuth2 clients |
-| `server.admin.clients.create` | Create OAuth2 clients |
-| `server.admin.clients.delete` | Delete OAuth2 clients |
-| `server.admin.env.view` | View environment config |
-| `server.admin.env.manage` | Manage environment config |
-| `server.admin.data.view` | View all server data |
-| `server.admin.data.edit` | Edit all server data |
-| `server.admin.backup.view` | View all backups |
-| `server.admin.backup.manage` | Manage all backups |
+### Changing the owner
 
-### Clients / OAuth2 (4)
-| Scope | Description |
-|-------|-------------|
-| `server.clients.view` | View OAuth2 clients |
-| `server.clients.edit` | Edit OAuth2 clients |
-| `server.clients.create` | Create OAuth2 clients |
-| `server.clients.delete` | Delete OAuth2 clients |
-
----
-
-## Global Scopes (24)
-
-### System Administration (6)
-| Scope | Description |
-|-------|-------------|
-| `admin` | Superadmin - all permissions |
-| `panel` | Access panel UI |
-| `login` | Authenticate (login) |
-| `settings.edit` | Edit global panel settings |
-| `oauth2.auth` | Validate OAuth2 credentials |
-| `license` | Manage license |
-
-### User Management (6)
-| Scope | Description |
-|-------|-------------|
-| `users.info.search` | Search users |
-| `users.info.view` | View user details |
-| `users.info.edit` | Create/edit/delete users |
-| `users.perms.view` | View user permissions |
-| `users.perms.edit` | Edit user permissions |
-| `self.edit` | Edit own profile |
-
-### Node Management (4)
-| Scope | Description |
-|-------|-------------|
-| `nodes.view` | View nodes |
-| `nodes.create` | Create node |
-| `nodes.edit` | Edit node |
-| `nodes.delete` | Delete node |
-| `nodes.deploy` | Get deployment data |
-
-### Template Management (4)
-| Scope | Description |
-|-------|-------------|
-| `templates.view` | View templates |
-| `templates.local.edit` | Edit local templates (repo 0) |
-| `templates.repo.create` | Add template repositories |
-| `templates.repo.delete` | Delete template repositories |
-
-### Database Hosts (1)
-| Scope | Description |
-|-------|-------------|
-| `databasehosts.manage` | CRUD database hosts |
-
-### Provisioning (2)
-| Scope | Description |
-|-------|-------------|
-| `provision.manage` | Manage provision products |
-| `provision.view` | View provision products |
-
-### Uptime / Monitoring (1)
-| Scope | Description |
-|-------|-------------|
-| `uptime.view` | View uptime statistics |
-
-### Role Management (2)
-| Scope | Description |
-|-------|-------------|
-| `roles.view` | View roles |
-| `roles.edit` | Create/edit/delete roles |
-
-### Server Creation (1)
-| Scope | Description |
-|-------|-------------|
-| `server.create` | Create new server (global scope, not per-server) |
-
----
-
-## Scope Hierarchy
+Administrators only. In the server's **Users** tab, each sub-user has a **Make owner** button (only administrators see it). Through the API:
 
 ```
-admin (superadmin)
-├── Global scopes (24)
-└── Server scopes via server.admin (51)
-    ├── server.view
-    ├── server.start/stop/kill
-    ├── server.data.edit.admin
-    ├── server.definition.edit
-    ├── server.flags.edit
-    ├── server.files.edit
-    ├── server.backup.*
-    ├── server.tasks.*
-    ├── server.database.*
-    ├── server.users.*
-    ├── server.plugins.*
-    ├── server.transfer.*
-    ├── server.extransfer.*
-    ├── server.plugins.*
-    ├── server.clients.*
-    └── server.admin.* (all 19 admin sub-permissions)
+PUT /api/servers/:serverId/owner/:email
 ```
 
-### ForServer Flag
+Requires `admin`. If the user was not a member, they become one with `server.view`. The previous owner stays as a sub-user with the permissions their row already had. The owner cannot give the server away on their own.
 
-Most server scopes have `ForServer: true` meaning they require a specific `serverId` in the route:
+### Sub-users
 
-```go
-// Route definition
-servers.GET("/:serverId", middleware.RequiresPermission(scopes.ScopeServerView), handler)
+A sub-user holds **exactly** the scopes of their row on that server. Their role's server scopes do not count: before, the "Usuario" role gave every member full control, even when the owner had only given them "view".
 
-// Middleware checks:
-// 1. User has global scope
-// 2. User has server-specific scope for that serverId
-// 3. User has server.admin for that serverId
-// 4. User has admin (global)
+- Whoever holds `server.users.edit` on the server adds and edits sub-users (the owner holds it). Both use the same route: `PUT /api/servers/:serverId/user/:email`.
+- Whoever holds `server.users.delete` removes sub-users.
+- Nobody gives more than they hold: the editor can only set or clear the scopes they hold on that server themselves. The other scopes in the row stay as they were. The exceptions are users with `server.admin` (on the server or in their global row) or `admin` in their global row: they can set any scope.
+- If the email has no account, the panel creates an invited account (allowed to sign in) and emails it the link to choose its password (`/forgot-password/`).
+
+### The permission editor
+
+In the server's **Users** tab, the owner sees the list of members. The owner comes first, with the **Owner** badge and no buttons. Each sub-user has **Permissions** (edit), **Revoke** and, for administrators, **Make owner**.
+
+When adding or editing, permissions are ticked by group. Each group has a checkbox that ticks or clears the whole group:
+
+| Group | Scopes |
+|-------|--------|
+| Console | `server.console`, `server.console.send`, `server.stats`, `server.status` |
+| Power and installation | `server.start`, `server.stop`, `server.kill`, `server.reload`, `server.install` |
+| Files & SFTP | `server.files.view`, `server.files.edit`, `server.sftp` |
+| Backups | `server.backup.view`, `server.backup.create`, `server.backup.restore`, `server.backup.delete` |
+| Settings | `server.data.view`, `server.data.edit`, `server.flags.view`, `server.flags.edit`, `server.name.edit`, `server.definition.view` |
+| Scheduled tasks | `server.tasks.view`, `server.tasks.run`, `server.tasks.create`, `server.tasks.edit`, `server.tasks.delete` |
+| Users & Clients | `server.users.view`, `server.users.create`, `server.users.edit`, `server.users.delete`, `server.clients.view`, `server.clients.create`, `server.clients.edit`, `server.clients.delete` |
+
+These are the same scopes the owner holds. A new sub-user starts with `server.console`, `server.stats`, `server.status`, `server.start` and `server.stop`. The web always adds `server.view`: without it the server is not in their list.
+
+### What each person sees on the web
+
+The server page asks for `GET /api/servers/:serverId?perms`. The answer carries the scopes the user holds on that server and `owner: true` if they are the owner. With that, the web only shows what the user can use:
+
+| Tab or action | Shown with |
+|---------------|------------|
+| Console | `server.console` |
+| Typing in the console | `server.console.send` (without it, the console is read-only) |
+| Start, Restart, Stop, Kill | `server.start`, `server.start` + `server.stop`, `server.stop`, `server.kill` |
+| Files | `server.files.view` |
+| Settings | `server.data.view` or `server.flags.view` |
+| Users | `server.users.view` |
+| Database | `server.data.edit` |
+| Backups | `server.backup.view` |
+| Tasks | `server.tasks.view` |
+| SFTP | `server.sftp` |
+| External transfer | `server.data.edit.admin` |
+| Splitter | Being the owner or `server.data.edit.admin` |
+| Plugins | `server.files.edit` |
+
+`admin` or `server.admin` show everything. Hiding is only a convenience: the API checks every request anyway.
+
+### Environment and definition
+
+The environment decides what the container may touch on the node (host folders, privileged mode, running on the host). That is why:
+
+- Editing the definition (`PUT /api/servers/:serverId/definition`) asks for `server.definition.edit`, which the owner does not hold.
+- Even with `server.definition.edit`, without `server.data.edit.admin` too the environment stays as it is. In a `docker` environment only `image`, `portBindings`, `containerRoot`, `config` and `labels` can change. The environment type cannot change.
+- A non-administrator can only create sub-servers: of a server they own, in `docker` and with those same keys. `bindings`, `hostConfig` and `networkName` are dropped.
+
+### Sub-servers and copies
+
+- A sub-server belongs to the parent's owner (if the parent has no owner, neither does the child). The parent's members join the child with exactly the permissions they had on the parent.
+- A copy belongs to the original's owner and copies its users' permission rows as they are.
+
+### Servers that already existed
+
+On upgrade, the `20261026-server-owners` migration names an owner for every server that has none: the member with the most scopes on that server and, on a tie, the one added first. Billing customers hold the full set, so it is usually them.
+
+A server with no members stays without an owner. After upgrading, check in the **Users** tab that each server has the right owner, and change it with **Make owner** if needed.
+
+## Roles
+
+A role gives panel scopes to all its users. Its server scopes do not count on any server: what a user can do on a server comes from owning it or from their row on it.
+
+Roles the panel creates:
+
+| Role | Panel scopes |
+|------|--------------|
+| Administrador | `admin` |
+| Usuario | `login`, `self.edit`, `self.clients`, `server.create`, `templates.view`, `uptime.view` |
+
+The "Usuario" role still stores server scopes from earlier versions; they no longer have any effect on servers. `server.create` lets it split its own servers; creating a server with no parent is for administrators only.
+
+## API keys
+
+API keys are for billing systems (WHMCS, Paymenter…). They only work on `/api/v1` and each key only does the actions it was given.
+
+An administrator creates them in **Settings → API keys**. When creating one, tick **What it can do**; all actions start ticked. The full key (`ak_...`) is shown only once; the panel stores only its hash. To change a key's actions, create a new one and revoke the old one: a key cannot be edited.
+
+The key goes in the `X-Api-Key: ak_...` header or in `Authorization: Bearer ak_...`.
+
+| Action | Routes | In Settings |
+|--------|--------|-------------|
+| `create` | `POST /api/v1/provision` | Create servers |
+| `terminate` | `POST /api/v1/terminate` | Terminate |
+| `suspend` | `POST /api/v1/suspend`, `POST /api/v1/unsuspend` | Suspend and unsuspend |
+| `change-package` | `POST /api/v1/change-package` | Change plan |
+| `sso` | `POST /api/v1/sso` | Sign-in links |
+
+- `GET /api/v1/ping` needs no action.
+- A route the key does not hold answers `403 ErrAPIKeyNotAllowed`.
+- Keys created before this hold `provision` (or no list). That means every action, so existing integrations keep working. Settings shows them as **Every action**.
+
+Through the API (requires `admin`):
+
+```
+POST /api/settings/apikeys
+{ "name": "WHMCS", "permissions": ["create", "suspend"] }
 ```
 
----
+Without `permissions`, the key gets `provision` (every action). Unknown or repeated names are dropped. If no known name is left, it answers `400 ErrAPIKeyPermissions`.
 
-## Role Default Scopes
+Limits on `sso` even when the key holds it:
 
-### Admin (Role ID: 1)
-```json
-["admin"]
-```
+- The link only goes to a server the customer can open (`server.view`).
+- It is refused for accounts with panel powers, directly or through their role: `admin`, `settings.edit`, `oauth2.auth` and the scopes that change nodes, templates, users or their permissions. That way a leaked key cannot open an administrator's account.
 
-### Usuario (Role ID: 2) - After Migration `20260821-fix-usuario-role-scopes`
-```json
-[
-  "server.view",
-  "server.definition.view",
-  "server.definition.edit",
-  "server.flags.view",
-  "server.flags.edit",
-  "server.data.view",
-  "server.data.edit",
-  "server.files.view",
-  "server.files.edit",
-  "server.plugins.view",
-  "server.plugins.edit",
-  "server.backup.view",
-  "server.backup.create",
-  "server.backup.restore",
-  "server.backup.delete",
-  "server.tasks.view",
-  "server.tasks.run",
-  "server.tasks.create",
-  "server.tasks.edit",
-  "server.tasks.delete",
-  "server.database.view",
-  "server.database.create",
-  "server.database.delete",
-  "server.users.view",
-  "server.users.edit",
-  "server.users.create",
-  "server.users.delete",
-  "server.stats",
-  "server.status",
-  "server.console",
-  "server.console.send",
-  "server.sftp",
-  "server.archive",
-  "server.flags.view",
-  "server.flags.edit"
-]
-```
+## Server scopes (50)
 
-**Revoked from Usuario (v2.0.1):**
-- `server.admin.config.view`
-- `server.admin.config.manage`
-- `server.data.edit.admin`
-- `server.data.edit`
+The **Owner** column says whether it is in the owner set.
 
----
+### View and power
 
-## API Endpoint → Scope Mapping
+| Scope | What it allows | Owner |
+|-------|----------------|-------|
+| `server.view` | See the server, its version, its map and the list of databases. Connect to the socket. | yes |
+| `server.status` | See whether it is running. | yes |
+| `server.stats` | Statistics, metrics and `query`. | yes |
+| `server.console` | See the console and the crash history, and use the AI assistant. | yes |
+| `server.console.send` | Send commands to the console. | yes |
+| `server.start` | Start. Restart asks for `server.start` and `server.stop`. | yes |
+| `server.stop` | Stop. | yes |
+| `server.kill` | Force stop. | yes |
+| `server.reload` | Reload the configuration. | yes |
+| `server.install` | Install or reinstall, install modpacks and switch versions. | yes |
 
-### Server Endpoints
-| Endpoint | Scope |
-|----------|-------|
-| `GET /api/servers` | `server.view` (global) or auth |
-| `GET /api/servers/:id` | `server.view` |
-| `PUT /api/servers/:id` | `server.create` |
-| `DELETE /api/servers/:id` | `server.delete` |
-| `POST /api/servers/:id/start` | `server.start` |
-| `POST /api/servers/:id/stop` | `server.stop` |
-| `POST /api/servers/:id/restart` | `server.start` + `server.stop` |
-| `POST /api/servers/:id/kill` | `server.kill` |
-| `POST /api/servers/:id/install` | `server.install` |
-| `POST /api/servers/:id/reload` | `server.reload` |
-| `GET /api/servers/:id/data` | `server.data.view` |
-| `POST /api/servers/:id/data` | `server.data.edit` |
-| `PUT /api/servers/:id/data` | `server.data.edit.admin` |
-| `GET /api/servers/:id/definition` | `server.definition.view` |
-| `PUT /api/servers/:id/definition` | `server.definition.edit` |
-| `GET /api/servers/:id/flags` | `server.flags.view` |
-| `POST /api/servers/:id/flags` | `server.flags.edit` |
-| `POST /api/servers/:id/start` | `server.start` |
-| `POST /api/servers/:id/stop` | `server.stop` |
-| `POST /api/servers/:id/restart` | `server.start` + `server.stop` |
-| `POST /api/servers/:id/kill` | `server.kill` |
-| `POST /api/servers/:id/install` | `server.install` |
-| `POST /api/servers/:id/reload` | `server.reload` |
-| `GET /api/servers/:id/console` | `server.console` |
-| `POST /api/servers/:id/console` | `server.console.send` |
-| `GET /api/servers/:id/status` | `server.status` |
-| `GET /api/servers/:id/stats` | `server.stats` |
-| `GET /api/servers/:id/query` | `server.stats` |
-| `GET /api/servers/:id/socket` | `server.view` |
-| `GET /api/servers/:id/backup` | `server.backup.view` |
-| `POST /api/servers/:id/backup/create` | `server.backup.create` |
-| `POST /api/servers/:id/backup/restore/:id` | `server.backup.restore` |
-| `DELETE /api/servers/:id/backup/:id` | `server.backup.delete` |
-| `GET /api/servers/:id/tasks` | `server.tasks.view` |
-| `PUT /api/servers/:id/tasks/:taskId` | `server.tasks.edit` |
-| `POST /api/servers/:id/tasks/:taskId/run` | `server.tasks.run` |
-| `GET /api/servers/:id/databases` | `server.database.view` |
-| `POST /api/servers/:id/databases` | `server.data.edit` |
-| `DELETE /api/servers/:id/databases/:id` | `server.data.edit` |
-| `GET /api/servers/:id/user` | `server.users.view` |
-| `PUT /api/servers/:id/user/:email` | `server.users.edit` |
-| `GET /api/servers/:id/plugins` | `server.plugins.view` |
-| `POST /api/servers/:id/plugins/:pluginId` | `server.plugins.edit` |
+### Files and backups
 
-### Global Endpoints
-| Endpoint | Scope |
-|----------|-------|
-| `GET /api/nodes` | `nodes.view` |
-| `POST /api/nodes` | `nodes.create` |
-| `GET /api/users` | `users.info.search` |
-| `POST /api/users` | `users.info.edit` |
-| `GET /api/settings` | `settings.edit` |
-| `POST /api/settings` | `settings.edit` |
-| `GET /api/templates` | `templates.view` |
-| `POST /api/templates` | `templates.repo.create` |
-| `GET /api/databasehosts` | `databasehosts.manage` |
-| `POST /api/databasehosts` | `databasehosts.manage` |
-| `GET /api/uptime` | `uptime.view` |
-| `POST /api/v1/provision` | API Key with `provision` permission |
-| `POST /api/extransfer/validate` | Public (no auth) |
+| Scope | What it allows | Owner |
+|-------|----------------|-------|
+| `server.files.view` | List and read files, their history, plugins and modpacks. | yes |
+| `server.files.edit` | Upload, edit, delete, compress and extract files; restore versions; install or remove plugins and the map. | yes |
+| `server.sftp` | Sign in over SFTP. | yes |
+| `server.backup.view` | See and download backups. | yes |
+| `server.backup.create` | Create backups. | yes |
+| `server.backup.restore` | Restore backups. | yes |
+| `server.backup.delete` | Delete backups. | yes |
 
----
+### Settings
 
-## Scope Constants (`internal/scopes/scopes.go`)
+| Scope | What it allows | Owner |
+|-------|----------------|-------|
+| `server.data.view` | See the variables. | yes |
+| `server.data.edit` | Edit the user variables, the primary port and port notes, databases and the subdomain. | yes |
+| `server.data.edit.admin` | Admin variables (resources), suspending, transferring between nodes and external transfers. Unlocks the environment when editing the definition. | no |
+| `server.flags.view` | See auto start and auto restart. `server.flags.edit` is also enough. | yes |
+| `server.flags.edit` | Edit auto start and auto restart, the server's Discord alerts and the subdomain. | yes |
+| `server.name.edit` | Rename. | yes |
+| `server.definition.view` | See the definition. | yes |
+| `server.definition.edit` | Edit the definition (see [Environment and definition](#environment-and-definition)). | no |
+| `server.ports.edit` | No API route checks it; the web uses it. | no |
+| `server.delete` | Delete the server. | no |
 
-All 75 scopes defined as constants:
+### Tasks
 
-```go
-package scopes
+| Scope | What it allows | Owner |
+|-------|----------------|-------|
+| `server.tasks.view` | See tasks. | yes |
+| `server.tasks.run` | Run a task by hand. | yes |
+| `server.tasks.create` | Create tasks. Creating and editing use the same route, which accepts either one. | yes |
+| `server.tasks.edit` | Edit tasks. | yes |
+| `server.tasks.delete` | Delete tasks. | yes |
 
-const (
-    // Global
-    ScopeAdmin              = "admin"
-    ScopeLogin              = "login"
-    ScopeOAuth2Auth         = "oauth2.auth"
-    ScopeNodesView          = "nodes.view"
-    ScopeNodesCreate        = "nodes.create"
-    ScopeNodesEdit          = "nodes.edit"
-    ScopeNodesDelete        = "nodes.delete"
-    ScopeNodesDeploy        = "nodes.deploy"
-    ScopeSelfEdit           = "self.edit"
-    ScopeSelfClients        = "self.clients"
-    ScopeServerCreate       = "server.create"  // Non-server scope!
-    
-    // Server lifecycle
-    ScopeServerView         = "server.view"
-    ScopeServerAdmin        = "server.admin"
-    ScopeServerDelete       = "server.delete"
-    ScopeServerStart        = "server.start"
-    ScopeServerStop         = "server.stop"
-    ScopeServerKill         = "server.kill"
-    ScopeServerInstall      = "server.install"
-    ScopeServerReload       = "server.reload"
-    ScopeServerStatus       = "server.status"
-    ScopeServerStats        = "server.stats"
-    
-    // Server data
-    ScopeServerViewData     = "server.data.view"
-    ScopeServerEditData     = "server.data.edit"
-    ScopeServerEditDataAdmin = "server.data.edit.admin"
-    ScopeServerPortsEdit    = "server.ports.edit"
-    ScopeServerDefinitionView = "server.definition.view"
-    ScopeServerDefinitionEdit = "server.definition.edit"
-    
-    // Server flags
-    ScopeServerFlagsView    = "server.flags.view"
-    ScopeServerFlagsEdit    = "server.flags.edit"
-    
-    // Console & commands
-    ScopeServerConsole      = "server.console"
-    ScopeServerConsoleSend  = "server.console.send"
-    
-    // Files & SFTP
-    ScopeServerFilesView    = "server.files.view"
-    ScopeServerFilesEdit    = "server.files.edit"
-    ScopeServerSftp         = "server.sftp"
-    ScopeServerArchive      = "server.archive"
-    
-    // Backups
-    ScopeServerBackupView   = "server.backup.view"
-    ScopeServerBackupCreate = "server.backup.create"
-    ScopeServerBackupRestore = "server.backup.restore"
-    ScopeServerBackupDelete = "server.backup.delete"
-    
-    // Statistics & Status
-    ScopeServerStats        = "server.stats"
-    ScopeServerStatus       = "server.status"
-    
-    // Tasks / Scheduler
-    ScopeServerTasksView    = "server.tasks.view"
-    ScopeServerTasksRun     = "server.tasks.run"
-    ScopeServerTasksCreate  = "server.tasks.create"
-    ScopeServerTasksEdit    = "server.tasks.edit"
-    ScopeServerTasksDelete  = "server.tasks.delete"
-    
-    // Database
-    ScopeServerDatabaseView = "server.database.view"
-    ScopeServerDatabaseCreate = "server.database.create"
-    ScopeServerDatabaseDelete = "server.database.delete"
-    
-    // Users / Permissions
-    ScopeServerUsersView    = "server.users.view"
-    ScopeServerUsersEdit    = "server.users.edit"
-    ScopeServerUsersCreate  = "server.users.create"
-    ScopeServerUsersDelete  = "server.users.delete"
-    
-    // Plugins
-    ScopeServerPluginsView  = "server.plugins.view"
-    ScopeServerPluginsEdit  = "server.plugins.edit"
-    
-    // Transfers
-    ScopeServerTransferView = "server.transfer.view"
-    ScopeServerTransferManage = "server.transfer.manage"
-    ScopeServerExTransferView = "server.extransfer.view"
-    ScopeServerExTransferManage = "server.extransfer.manage"
-    
-    // Clients / OAuth2
-    ScopeServerClientsView  = "server.clients.view"
-    ScopeServerClientsEdit  = "server.clients.edit"
-    ScopeServerClientsCreate = "server.clients.create"
-    ScopeServerClientsDelete = "server.clients.delete"
-    
-    // Admin scopes
-    ScopeServerAdmin        = "server.admin"
-    ScopeServerAdminView    = "server.admin.view"
-    ScopeServerAdminConfigView = "server.admin.config.view"
-    ScopeServerAdminConfigManage = "server.admin.config.manage"
-    ScopeServerAdminInstallView = "server.admin.install.view"
-    ScopeServerAdminInstallManage = "server.admin.install.manage"
-    ScopeServerAdminTransferView = "server.admin.transfer.view"
-    ScopeServerAdminTransferManage = "server.admin.transfer.manage"
-    ScopeServerAdminAssignmentsView = "server.admin.assignments.view"
-    ScopeServerAdminAssignmentsManage = "server.admin.assignments.manage"
-    ScopeServerAdminClientsView = "server.admin.clients.view"
-    ScopeServerAdminClientsEdit = "server.admin.clients.edit"
-    ScopeServerAdminClientsCreate = "server.admin.clients.create"
-    ScopeServerAdminClientsDelete = "server.admin.clients.delete"
-    ScopeServerAdminEnvView = "server.admin.env.view"
-    ScopeServerAdminEnvManage = "server.admin.env.manage"
-    ScopeServerAdminDataView = "server.admin.data.view"
-    ScopeServerAdminDataEdit = "server.admin.data.edit"
-    ScopeServerAdminBackupView = "server.admin.backup.view"
-    ScopeServerAdminBackupManage = "server.admin.backup.manage"
-    ScopeServerAdminTasksView = "server.admin.tasks.view"
-    ScopeServerAdminTasksManage = "server.admin.tasks.manage"
-    
-    // Clients / OAuth2
-    ScopeServerClientsView  = "server.clients.view"
-    ScopeServerClientsEdit  = "server.clients.edit"
-    ScopeServerClientsCreate = "server.clients.create"
-    ScopeServerClientsDelete = "server.clients.delete"
-    
-    // Global
-    ScopeLogin              = "login"
-    ScopePanel              = "panel"
-    ScopeSettingsEdit       = "settings.edit"
-    ScopeOAuth2Auth         = "oauth2.auth"
-    ScopeLicense            = "license"
-    ScopeUsersInfoSearch    = "users.info.search"
-    ScopeUsersInfoView      = "users.info.view"
-    ScopeUsersInfoEdit      = "users.info.edit"
-    ScopeUsersPermsView     = "users.perms.view"
-    ScopeUsersPermsEdit     = "users.perms.edit"
-    ScopeSelfEdit           = "self.edit"
-    ScopeSelfClients        = "self.clients"
-    ScopeNodesView          = "nodes.view"
-    ScopeNodesCreate        = "nodes.create"
-    ScopeNodesEdit          = "nodes.edit"
-    ScopeNodesDelete        = "nodes.delete"
-    ScopeNodesDeploy        = "nodes.deploy"
-    ScopeTemplatesView      = "templates.view"
-    ScopeTemplatesLocalEdit = "templates.local.edit"
-    ScopeTemplatesRepoCreate = "templates.repo.create"
-    ScopeTemplatesRepoDelete = "templates.repo.delete"
-    ScopeDatabaseHostsManage = "databasehosts.manage"
-    ScopeProvisionManage    = "provision.manage"
-    ScopeProvisionView      = "provision.view"
-    ScopeUptimeView         = "uptime.view"
-    ScopeRolesView          = "roles.view"
-    ScopeRolesEdit          = "roles.edit"
-    ScopeDatabaseHostsManage = "databasehosts.manage"
-    ScopeProvisionManage    = "provision.manage"
-    ScopeProvisionView      = "provision.view"
-    ScopeUptimeView         = "uptime.view"
-    ScopeRolesView          = "roles.view"
-    ScopeRolesEdit          = "roles.edit"
-    ScopeDatabaseHostsManage = "databasehosts.manage"
-    ScopeProvisionManage    = "provision.manage"
-    ScopeProvisionView      = "provision.view"
-    ScopeUptimeView         = "uptime.view"
-    ScopeRolesView          = "roles.view"
-    ScopeRolesEdit          = "roles.edit"
-    ScopeDatabaseHostsManage = "databasehosts.manage"
-    ScopeProvisionManage    = "provision.manage"
-    ScopeProvisionView      = "provision.view"
-    ScopeUptimeView         = "uptime.view"
-    ScopeRolesView          = "roles.view"
-    ScopeRolesEdit          = "roles.edit"
-    ScopeDatabaseHostsManage = "databasehosts.manage"
-)
-```
+### Users and clients
 
----
+| Scope | What it allows | Owner |
+|-------|----------------|-------|
+| `server.users.view` | See the members and the server's activity. | yes |
+| `server.users.edit` | Add sub-users and change their permissions. | yes |
+| `server.users.delete` | Remove sub-users. | yes |
+| `server.users.create` | No API route checks it: adding uses `server.users.edit`. | yes |
+| `server.clients.view`, `server.clients.create`, `server.clients.edit`, `server.clients.delete` | No API route checks them today. | yes |
 
-## Best Practices
+### Administration
 
-1. **Use most specific scope** - Prefer `server.data.edit` over `server.data.edit.admin` when possible
-2. **Combine with roles** - Assign roles instead of individual scopes to users
-3. **Audit regularly** - Review permissions quarterly
-4. **Principle of least privilege** - Grant minimum scopes needed
-5. **Document custom scopes** - If adding new scopes, update this doc
+| Scope | What it allows | Owner |
+|-------|----------------|-------|
+| `server.admin` | Every server scope on that server. It also allows giving any scope to sub-users. | no |
+| `server.admin.view` | No API route checks it; the web uses it for the Admin tab. | no |
+| `server.admin.install.view`, `server.admin.install.manage` | Same as above. | no |
+| `server.admin.transfer.view`, `server.admin.transfer.manage` | Same as above. | no |
+| `server.admin.config.view`, `server.admin.config.manage` | Same as above. | no |
+| `server.admin.assignments.view`, `server.admin.assignments.manage` | Same as above. | no |
+
+## Panel scopes (23)
+
+| Scope | What it allows |
+|-------|----------------|
+| `admin` | Everything. Managing roles, API keys, extensions, database hosts, products and server owners. |
+| `login` | Signing in, seeing your own profile and reading templates. |
+| `panel` | No API route checks it. |
+| `self.edit` | Editing your own profile, 2FA and SSH keys. |
+| `self.clients` | Creating and deleting your own OAuth2 clients. |
+| `oauth2.auth` | Validating users' credentials over OAuth2. |
+| `server.create` | Creating servers. Without `admin`, only sub-servers of a server you own. Also cloning (experimental). |
+| `settings.edit` | Editing the panel settings and activating the license. |
+| `nodes.view` | Seeing nodes. |
+| `nodes.create` | Creating nodes. |
+| `nodes.edit` | Editing nodes. |
+| `nodes.delete` | Deleting nodes. |
+| `nodes.deploy` | Seeing a node's deployment data (it includes secrets). |
+| `templates.view` | No API route checks it: reading templates asks for `login`. |
+| `templates.local.edit` | Uploading and editing local templates. |
+| `templates.repo.create` | Adding template repositories. |
+| `templates.repo.delete` | Deleting template repositories. |
+| `users.info.search` | Searching users and seeing the panel's activity. |
+| `users.info.view` | Seeing a user. |
+| `users.info.edit` | Creating, editing and deleting users. |
+| `users.perms.view` | Seeing a user's permissions. |
+| `users.perms.edit` | Changing a user's permissions. |
+| `uptime.view` | Seeing the uptime history. |

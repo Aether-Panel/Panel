@@ -17,6 +17,9 @@ import (
 
 var ErrPathTraversal = errors.New("path traversal detected")
 
+// ErrFileExists is an archive destination that is already there
+var ErrFileExists = errors.New("file already exists")
+
 const PathSeparator = "/"
 
 type ExtractOptions struct {
@@ -95,7 +98,27 @@ func Extract(fs FileServer, sourceFile, targetPath, filter string, skipRoot bool
 	}
 	defer utils.Close(file)
 
-	return extractFile(file, sourceFile, targetPath, filter, skipRoot, forcedType, fs)
+	return extractFile(file, sourceFile, targetPath, filter, skipRoot, forcedType, fs, nil)
+}
+
+// WriteLimit wraps the writer of every extracted file, so the caller can count the bytes
+// against a quota and stop the extraction (returning an error from Write) once it is used up
+type WriteLimit func(io.Writer) io.Writer
+
+// ExtractLimited is Extract with every file written through limit: a small archive can
+// unpack to gigabytes, and without a cap it could fill the whole node's disk
+func ExtractLimited(fs FileServer, sourceFile, targetPath, filter string, skipRoot bool, limit WriteLimit) error {
+	if fs == nil {
+		return errors.New("fileserver is required")
+	}
+
+	file, err := fs.OpenFile(sourceFile, os.O_RDONLY, 0)
+	if err != nil {
+		return err
+	}
+	defer utils.Close(file)
+
+	return extractFile(file, sourceFile, targetPath, filter, skipRoot, nil, fs, limit)
 }
 
 // ExtractReader extracts an archive the caller already opened into fs. Backups live outside
@@ -105,17 +128,17 @@ func ExtractReader(fs FileServer, reader io.ReadSeeker, sourceFile, targetPath, 
 	if fs == nil {
 		return errors.New("fileserver is required")
 	}
-	return extractFile(reader, sourceFile, targetPath, filter, skipRoot, nil, fs)
+	return extractFile(reader, sourceFile, targetPath, filter, skipRoot, nil, fs, nil)
 }
 
 func ExtractFromReader(reader io.ReadSeeker, sourceFile, targetPath, filter string, skipRoot bool, forcedType archives.Extractor) error {
 	if !filepath.IsLocal(targetPath) {
 		return fmt.Errorf("%w: %s", ErrPathTraversal, targetPath)
 	}
-	return extractFile(reader, sourceFile, targetPath, filter, skipRoot, forcedType, nil)
+	return extractFile(reader, sourceFile, targetPath, filter, skipRoot, forcedType, nil, nil)
 }
 
-func extractFile(file io.ReadSeeker, sourceFile, targetPath, filter string, skipRoot bool, forcedType archives.Extractor, fs FileServer) error {
+func extractFile(file io.ReadSeeker, sourceFile, targetPath, filter string, skipRoot bool, forcedType archives.Extractor, fs FileServer, limit WriteLimit) error {
 	ctx := context.Background()
 
 	if skipRoot {
@@ -149,14 +172,25 @@ func extractFile(file io.ReadSeeker, sourceFile, targetPath, filter string, skip
 		}
 	}
 
-	return extractor.Extract(ctx, file, walker(fs, targetPath, filter, skipRoot))
+	return extractor.Extract(ctx, file, walker(fs, targetPath, filter, skipRoot, limit))
 }
 
 func Compress(fs FileServer, targetFile string, filesToCompress []string) error {
+	return compress(fs, targetFile, filesToCompress, nil)
+}
+
+// CompressLimited is Compress with the archive written through limit, so it counts against
+// the server's disk quota as it grows. An archive the limit cut short is deleted.
+func CompressLimited(fs FileServer, targetFile string, filesToCompress []string, limit WriteLimit) error {
+	return compress(fs, targetFile, filesToCompress, limit)
+}
+
+func compress(fs FileServer, targetFile string, filesToCompress []string, limit WriteLimit) error {
 	if len(filesToCompress) == 0 {
 		return errors.New("no files to compress")
 	}
 
+	relativeTarget := targetFile
 	if fs != nil {
 		p := fs.Prefix()
 
@@ -184,7 +218,18 @@ func Compress(fs FileServer, targetFile string, filesToCompress []string) error 
 		return err
 	}
 
-	out, err := os.Create(targetFile)
+	// through the file server, the archive cannot be written through a symlink that points
+	// outside the server (the path check above only reads the text), and O_EXCL refuses to
+	// overwrite an existing file
+	var out *os.File
+	if fs != nil {
+		out, err = fs.OpenFile(relativeTarget, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
+	} else {
+		out, err = os.OpenFile(targetFile, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
+	}
+	if os.IsExist(err) {
+		return ErrFileExists
+	}
 	if err != nil {
 		return err
 	}
@@ -200,7 +245,40 @@ func Compress(fs FileServer, targetFile string, filesToCompress []string) error 
 		return errors.New("format is not an archiver")
 	}
 
-	return archiver.Archive(ctx, out, filesList)
+	var w io.Writer = out
+	if limit != nil {
+		w = limit(out)
+	}
+	err = archiver.Archive(ctx, w, filesList)
+	if err != nil && limit != nil {
+		// half an archive is no use to anyone, and it is what took the disk past the limit
+		utils.Close(out)
+		if fs != nil {
+			_ = fs.Remove(relativeTarget)
+		} else {
+			_ = os.Remove(targetFile)
+		}
+	}
+	return err
+}
+
+// insideRealRoot checks that dir, with every symlink resolved, is still inside root
+func insideRealRoot(root, dir string) error {
+	realRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return err
+	}
+	realDir, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	if realDir != realRoot && !strings.HasPrefix(realDir, realRoot+string(filepath.Separator)) {
+		return fmt.Errorf("%w: %s", ErrPathTraversal, dir)
+	}
+	return nil
 }
 
 // expandCompressFiles resolves the requested files inside the server root, expanding globs
@@ -210,6 +288,11 @@ func expandCompressFiles(prefix, targetFile string, filesToCompress []string) ([
 	for _, v := range filesToCompress {
 		fullPath, err := safeJoin(prefix, v)
 		if err != nil {
+			return nil, err
+		}
+		// the files are read by path from disk: a symlinked folder on the way could point
+		// anywhere on the host and its files would land in an archive the user downloads
+		if err = insideRealRoot(prefix, filepath.Dir(fullPath)); err != nil {
 			return nil, err
 		}
 		if strings.Contains(v, "*") {
@@ -254,7 +337,7 @@ func archiveNames(fs FileServer, filesToCompress []string) (map[string]string, e
 	return filenames, nil
 }
 
-func walker(fs FileServer, targetPath, filter string, skipRoot bool) archives.FileHandler {
+func walker(fs FileServer, targetPath, filter string, skipRoot bool, limit WriteLimit) archives.FileHandler {
 	return func(_ context.Context, file archives.FileInfo) (err error) {
 		path := getCompressedItemName(file)
 
@@ -285,7 +368,7 @@ func walker(fs FileServer, targetPath, filter string, skipRoot bool) archives.Fi
 		case file.IsDir():
 			return extractMkdirAll(fs, dest.path)
 		case file.Mode().IsRegular():
-			return extractRegularFile(fs, file, dest)
+			return extractRegularFile(fs, file, dest, limit)
 		case file.Mode()&os.ModeSymlink != 0:
 			return extractSymlink(fs, file, dest)
 		}
@@ -352,7 +435,7 @@ func extractMkdirAll(fs FileServer, path string) error {
 	return os.MkdirAll(path, 0755)
 }
 
-func extractRegularFile(fs FileServer, file archives.FileInfo, dest *extractTarget) error {
+func extractRegularFile(fs FileServer, file archives.FileInfo, dest *extractTarget, limit WriteLimit) error {
 	if err := extractMkdirAll(fs, filepath.Dir(dest.path)); err != nil {
 		return err
 	}
@@ -375,7 +458,11 @@ func extractRegularFile(fs FileServer, file archives.FileInfo, dest *extractTarg
 	}
 	defer utils.Close(r)
 
-	_, err = io.Copy(outFile, r)
+	var w io.Writer = outFile
+	if limit != nil {
+		w = limit(outFile)
+	}
+	_, err = io.Copy(w, r)
 	return err
 }
 

@@ -65,7 +65,47 @@ func (ps *Permission) GetForUserAndServer(userID uint, serverID string) (*models
 	return permissions, err
 }
 
+// IsServerOwner says whether the user owns the server (see models.Server.OwnerID)
+func (ps *Permission) IsServerOwner(userID uint, serverID string) (bool, error) {
+	if serverID == "" || userID == 0 {
+		return false, nil
+	}
+	var count int64
+	err := ps.DB.Model(&models.Server{}).Where("identifier = ? AND owner_id = ?", serverID, userID).Count(&count).Error
+	return count > 0, err
+}
+
+// SetServerOwner gives the server to the user, who also becomes a member of it (a
+// permission row is what lists a server as theirs). The previous owner stays as a member
+// with the scopes their row already had.
+func (ps *Permission) SetServerOwner(serverID string, userID uint) error {
+	return ps.DB.Transaction(func(tx *gorm.DB) error {
+		tp := &Permission{DB: tx}
+		perms, err := tp.GetForUserAndServer(userID, serverID)
+		if err != nil {
+			return err
+		}
+		if perms.ID == 0 {
+			perms.Scopes = []*scopes.Scope{scopes.ScopeServerView}
+			if err = tp.UpdatePermissions(perms); err != nil {
+				return err
+			}
+		}
+		return tx.Model(&models.Server{}).Where("identifier = ?", serverID).UpdateColumn("owner_id", userID).Error
+	})
+}
+
 func (ps *Permission) HasPermission(userID uint, serverID string, permission *scopes.Scope) (bool, error) {
+	if permission.ForServer {
+		owner, err := ps.IsServerOwner(userID, serverID)
+		if err != nil {
+			return false, err
+		}
+		if owner && scopes.ContainsScope(scopes.OwnerScopes, permission) {
+			return true, nil
+		}
+	}
+
 	var query *gorm.DB
 
 	if serverID != "" {
@@ -92,7 +132,40 @@ func (ps *Permission) HasPermission(userID uint, serverID string, permission *sc
 		}
 	}
 
-	return false, nil
+	return ps.roleGrants(userID, serverID, permission)
+}
+
+// roleGrants checks the user's role the way a web request does (see middleware.collectScopes):
+// all of the role counts panel-wide, but its server scopes never apply on a server. So an
+// administrator by role is one everywhere, also on SFTP and sign-in links.
+func (ps *Permission) roleGrants(userID uint, serverID string, permission *scopes.Scope) (bool, error) {
+	var user models.User
+	err := ps.DB.Select("id", "role_id").First(&user, userID).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) || (err == nil && user.RoleID == nil) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	role, err := (&Role{DB: ps.DB}).Get(*user.RoleID)
+	if err != nil || role == nil {
+		return false, nil
+	}
+	granted := make([]*scopes.Scope, 0, len(role.Scopes))
+	for _, s := range role.Scopes {
+		scope := scopes.GetScope(s)
+		if scope.ForServer && serverID != "" {
+			continue
+		}
+		granted = append(granted, scope)
+	}
+	return scopes.ContainsScope(granted, permission), nil
+}
+
+// MaySignIn says whether the user still holds the login permission, panel-wide or by role.
+// Every way in checks it: the web, OAuth2 and SFTP.
+func (ps *Permission) MaySignIn(userID uint) (bool, error) {
+	return ps.HasPermission(userID, "", scopes.ScopeLogin)
 }
 
 func (ps *Permission) GetForClient(id uint) ([]*models.Permissions, error) {

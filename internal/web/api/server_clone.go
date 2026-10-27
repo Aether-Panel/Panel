@@ -153,6 +153,7 @@ func cloneServer(c *gin.Context) {
 		return
 	}
 	server.TotalCPU, server.TotalMemory, server.TotalDisk = source.TotalCPU, source.TotalMemory, source.TotalDisk
+	server.OwnerID = source.OwnerID
 	server.PortNotes = remapPortNotes(source.PortNotes, mapping)
 
 	parentCPU, parentMemory, parentDisk, err := saveClone(db, source, server)

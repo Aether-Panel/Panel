@@ -102,7 +102,7 @@ Tenemos varios canales: el servidor de Discord de la comunidad para soporte y di
 
 ¿Qué novedades trae la vista de configuración rediseñada (v2.0.0+)?
 
-La pestaña Settings de cada servidor ahora tiene layout de 2 columnas, tarjetas con identidad visual propia por sección, sticky save bar, y permisos por rol. Admin ve todo + CRUD; Usuario ve Información General, Grupos/Variables, Plugins, Auto-start, Puertos (ver + primario + notas), pero NO Límites, Metadatos, Admin tab. Los puertos extra se gestionan con notas por puerto y selección de primario.
+La pestaña Settings de cada servidor ahora tiene layout de 2 columnas, tarjetas con identidad visual propia por sección, sticky save bar, y cada sección se muestra según los permisos de quien la abre. El administrador ve todo; el propietario y los subusuarios ven solo lo que sus permisos permiten (nunca Límites, Metadatos ni la pestaña Admin). Los puertos extra se gestionan con notas por puerto y selección de primario.
 
 ¿Por qué mi servidor Docker no conecta a MySQL (`mysql:3306`)?
 
@@ -110,7 +110,7 @@ Antes los contenedores se creaban en la red `bridge` y no resolvían `mysql`. De
 
 ¿Qué cambió en los permisos del rol "Usuario"?
 
-Se revocaron accesos de admin indebidos (`server.admin.config.view/manage`, `server.data.edit.admin`) y se otorgaron permisos correctos: `server.definition.view/edit`, `server.flags.view/edit`. Ahora el Usuario puede ver/editar definición y flags del servidor, pero no config de admin ni límites.
+Los permisos de servidor de un rol ya no se aplican sobre los servidores. Cada servidor tiene un propietario, que da a cada subusuario solo los permisos que elija. Ver [Referencia de permisos](./scopes-reference.md).
 
 ¿Por qué falla el build con `monaco-editor/min/vs/editor/editor.main.css?inline`?
 

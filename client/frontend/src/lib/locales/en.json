@@ -4,8 +4,6 @@
     "loginFailed": "Login failed",
     "registerSuccess": "Account created successfully",
     "registerFailed": "Failed to create account",
-    "otpRequired": "OTP required",
-    "otpDescription": "Two-factor authentication is enabled for this account.",
     "redirecting": "Redirecting to dashboard...",
     "checkCredentials": "Please check your credentials and try again.",
     "tooManyAttempts": "Too many failed attempts. Wait a few minutes and try again.",
@@ -41,7 +39,9 @@
       "submit": "Sign in",
       "or": "or continue with",
       "noAccount": "Don't have an account?",
-      "signUp": "Sign up"
+      "signUp": "Sign up",
+      "ssoExpired": "That sign-in link was already used or has expired. Press the button in your client area again or sign in with your password.",
+      "ssoDenied": "This account is not allowed to sign in to the panel. Please contact support."
     },
     "register": {
       "title": "Create account",
@@ -72,6 +72,38 @@
       "missingToken": "This link is missing its reset code. Use the link from your email or request a new one.",
       "requestNew": "Request a new link",
       "errorFallback": "Unable to reset your password."
+    },
+    "password": {
+      "show": "Show password",
+      "hide": "Hide password",
+      "capsLock": "Caps Lock is on",
+      "strength": {
+        "weak": "Weak",
+        "fair": "Fair",
+        "good": "Good",
+        "strong": "Strong"
+      }
+    },
+    "otp": {
+      "title": "Two-step verification",
+      "description": "Your account {{email}} has two-step verification turned on.",
+      "appHint": "Open your authenticator app and enter the 6-digit code.",
+      "recoveryHint": "Enter one of the recovery codes you saved when you turned it on. Each code works once.",
+      "codeLabel": "6-digit verification code",
+      "recoveryLabel": "Recovery code",
+      "submit": "Verify",
+      "back": "Use another account",
+      "useRecovery": "Use a recovery code",
+      "useApp": "Use the authenticator app",
+      "wrongCode": "That code isn't right. Check that your phone's clock is correct and try the new code.",
+      "expiredTitle": "More than 5 minutes have passed",
+      "expiredDescription": "For your security, enter your password again."
+    },
+    "captcha": {
+      "checking": "Checking you are not a bot…",
+      "done": "Anti-bot check complete",
+      "failed": "The anti-bot check could not run.",
+      "retry": "Retry"
     }
   },
   "header": {
@@ -120,7 +152,8 @@
     "groups": {
       "overview": "Overview",
       "management": "Management",
-      "account": "Account"
+      "account": "Account",
+      "extensions": "Extensions"
     },
     "system": {
       "online": "System onlines",
@@ -189,6 +222,30 @@
       "disableDescription": "Your account will be protected by your password only. Enter a code from your app to confirm.",
       "regenerateTitle": "Regenerate recovery codes",
       "regenerateDescription": "Your previous codes will stop working. Enter a code from your app to continue."
+    },
+    "sshKeys": {
+      "title": "SSH keys",
+      "description": "Sign in to SFTP with a key instead of your password. The username is still your email#server.",
+      "emptyTitle": "No SSH keys",
+      "emptyDescription": "Add your computer's public key to sign in to SFTP without typing your password.",
+      "add": "Add key",
+      "addTitle": "Add SSH key",
+      "addDescription": "Paste your public key: the contents of the file ending in .pub. Never paste the private key.",
+      "nameLabel": "Name",
+      "namePlaceholder": "Home laptop",
+      "keyLabel": "Public key",
+      "keyHint": "It is usually ~/.ssh/id_ed25519.pub. Without a name, the key's comment is used.",
+      "save": "Add key",
+      "added": "SSH key added.",
+      "addError": "The key could not be added.",
+      "loadError": "Your SSH keys could not be loaded.",
+      "addedOn": "added {{date}}",
+      "deleteAria": "Delete the key {{name}}",
+      "deleteTitle": "Delete this SSH key?",
+      "deleteDescription": "\"{{name}}\" will no longer sign in to SFTP. This cannot be undone.",
+      "deleteConfirm": "Delete key",
+      "deleted": "SSH key deleted.",
+      "deleteError": "The key could not be deleted."
     },
     "oauth": {
       "title": "OAuth2 Clients",
@@ -317,6 +374,7 @@
         "events": {
           "login": "Sign-in",
           "login_failed": "Failed attempt",
+          "login_sso": "Billing sign-in",
           "register": "Account created",
           "other": "Access"
         }
@@ -497,7 +555,8 @@
         "filesMissing": "The server's files or configuration are missing on the node.",
         "portInUse": "Error: the port is already in use.",
         "actionFailed": "Could not complete the action.",
-        "sendFailed": "Could not send: {{command}}"
+        "sendFailed": "Could not send: {{command}}",
+        "diskFullTitle": "Disk full"
       },
       "filters": {
         "label": "Show",
@@ -524,7 +583,8 @@
         "save": "Save as favourite",
         "unsave": "Remove from favourites"
       },
-      "historyHint": "Up and down arrows go through previous commands; Tab completes."
+      "historyHint": "Up and down arrows go through previous commands; Tab completes.",
+      "readOnly": "You can read the console but not send commands. The server's owner can give you that permission."
     },
     "aiSummary": {
       "title": "AI Console Analysis",
@@ -673,7 +733,9 @@
       "cpuHint": "100% equals 1 processor thread.",
       "memoryHint": "Strict container memory limit.",
       "diskLabel": "Disk Space",
-      "diskHint": "Container storage limit.",
+      "diskHint": "When it fills up, the server stops and will not start or accept new files until space is freed.",
+      "ioLabel": "Disk priority",
+      "ioHint": "Share of disk reads and writes against the node's other servers: 10 to 1000, 500 is an even share.",
       "portsTitle": "Ports",
       "portsDescription": "Ports assigned to this server. The first one is the primary port.",
       "portsTypeLabel": "Type",
@@ -750,11 +812,11 @@
     },
     "users": {
       "title": "User Access",
-      "description": "Users who have permission to manage this server.",
+      "description": "Who can access this server. The owner controls everything; each sub-user can only do what you tick for them.",
       "addUser": "Add User",
       "addDialog": {
         "title": "Add User to Server",
-        "description": "Grant a user access to this server.",
+        "description": "Invite someone by email and choose what they can do. Without an account yet, they get an invitation.",
         "emailLabel": "Email",
         "emailPlaceholder": "user@example.com",
         "addButton": "Add User"
@@ -772,7 +834,30 @@
       "addError": "Failed to add user.",
       "revokeSuccess": "Access revoked successfully.",
       "revokeError": "Failed to revoke access.",
-      "permissionsCount": "{{count}} permissions"
+      "permissionsCount": "{{count}} permissions",
+      "owner": "Owner",
+      "ownerHint": "Full control. Only an administrator can change it.",
+      "edit": "Permissions",
+      "editAria": "Edit {{name}}'s permissions",
+      "editSuccess": "Permissions updated.",
+      "editDialog": {
+        "title": "Sub-user permissions",
+        "description": "What {{email}} can do on this server.",
+        "save": "Save permissions"
+      },
+      "permissionsTitle": "Permissions",
+      "permissionsHint": "They can always see the server. You cannot give permissions you do not have.",
+      "groups": {
+        "power": "Power and installation",
+        "settings": "Settings",
+        "tasks": "Scheduled tasks"
+      },
+      "makeOwner": "Make owner",
+      "makeOwnerAria": "Make {{name}} the owner",
+      "makeOwnerTitle": "Change the owner?",
+      "makeOwnerDescription": "{{name}} will fully control the server. The current owner stays as a sub-user with the permissions they already had.",
+      "ownerChanged": "{{name}} is now the owner.",
+      "ownerError": "The owner could not be changed."
     },
     "database": {
       "title": "Databases",
@@ -842,6 +927,10 @@
       "empty": {
         "title": "No backups",
         "description": "Create your first backup to get started."
+      },
+      "loadError": {
+        "title": "The backups could not be loaded",
+        "description": "The node did not answer. Your backups are still there: try again in a moment."
       },
       "automatic": {
         "badge": "Automatic",
@@ -1150,6 +1239,7 @@
       "cpuLabel": "CPU",
       "memoryLabel": "RAM",
       "diskLabel": "Disk",
+      "ioLabel": "Disk priority",
       "variablesTitle": "Template variables",
       "optionNone": "None",
       "enable": "Enable",
@@ -1270,7 +1360,9 @@
       "copyPort": "Copy port",
       "copyUsername": "Copy username",
       "unavailableTitle": "SFTP unavailable",
-      "unavailableDescription": "Could not load this server's node information."
+      "unavailableDescription": "Could not load this server's node information.",
+      "sshKeyHint": "Rather not use your password? Sign in with an SSH key: the username stays the same.",
+      "sshKeyLink": "Add an SSH key"
     },
     "splitter": {
       "title": "Server split",
@@ -2543,7 +2635,10 @@
         "configManage": "Manage Configuration",
         "assignmentsView": "View Assignments Section",
         "assignmentsManage": "Manage Assignments"
-      }
+      },
+      "consoleView": "View the console and its history",
+      "dataEdit": "Edit variables and databases",
+      "portsEdit": "Edit port notes"
     },
     "settings": {
       "edit": "Edit Global Panel Settings"
@@ -2924,7 +3019,8 @@
       "description": "An unexpected error occurred while rendering this component.",
       "tryAgain": "Try again"
     },
-    "beta": "Beta"
+    "beta": "Beta",
+    "initializing": "Starting {{name}}…"
   },
   "settings": {
     "title": "Panel Settings",
@@ -2940,7 +3036,8 @@
       "updates": "Updates",
       "sectionLabel": "Settings section",
       "offsite": "Off-site backups",
-      "domains": "Domains"
+      "domains": "Domains",
+      "extensions": "Extensions"
     },
     "general": {
       "title": "General Settings",
@@ -2956,12 +3053,12 @@
       "geminiApiKeyDescription": "Enter your Google Gemini API key to enable artificial intelligence features.",
       "hideAiAnalysisLabel": "Hide AI Console Analysis",
       "hideAiAnalysisDescription": "If enabled, the AI console analysis feature will be hidden for all servers.",
-      "headerDecorationsLabel": "Header decorations",
-      "headerDecorationsDescription": "Shows the decorative animations (gif and video) at the bottom of the sidebar header.",
       "allowRegistrationLabel": "Allow users to register",
       "allowRegistrationDescription": "Self-registered users cannot perform any actions until permissions are granted. Disabling this only prevents direct registration, server invitations and the Users page are not affected.",
+      "captchaBuiltinLabel": "Built-in anti-bot check",
+      "captchaBuiltinDescription": "When signing in, signing up or asking for a password reset, the browser solves a small calculation in the background: no checkboxes, no images and no outside services. On by default; once Cloudflare Turnstile is configured, Turnstile is used instead.",
       "turnstileEnabledLabel": "Cloudflare Turnstile Protection",
-      "turnstileEnabledDescription": "Enables the Cloudflare Turnstile widget on login and registration to block bots. Disabled by default.",
+      "turnstileEnabledDescription": "Use the Cloudflare Turnstile widget (with your keys) instead of the built-in check, on sign-in, sign-up and password reset.",
       "turnstileSiteKeyLabel": "Turnstile Site Key",
       "turnstileSiteKeyDescription": "The public site key of your Cloudflare Turnstile widget.",
       "turnstileSiteKeyPlaceholder": "0x4AAAAAAA...",
@@ -2974,8 +3071,6 @@
         "panelDescription": "Your organization's name and the addresses the panel is reached at.",
         "aiTitle": "Artificial intelligence",
         "aiDescription": "Console analysis with Google Gemini.",
-        "appearanceTitle": "Appearance",
-        "appearanceDescription": "Visual details of the interface for every user.",
         "accessTitle": "Sign-up and security",
         "accessDescription": "Who can create an account and how sign-in and sign-up are protected.",
         "modpacksTitle": "Modpacks",
@@ -3078,6 +3173,16 @@
       "createDescription": "External systems will use this key to authenticate.",
       "nameLabel": "Name",
       "namePlaceholder": "e.g. WHMCS server 1",
+      "actionsLabel": "What it can do",
+      "actionsHint": "Tick only what the integration needs. Keys created before this can do everything.",
+      "actions": {
+        "all": "Every action",
+        "create": "Create servers",
+        "terminate": "Terminate",
+        "suspend": "Suspend and unsuspend",
+        "change-package": "Change plan",
+        "sso": "Sign-in links"
+      },
       "createdTitle": "Key generated",
       "createdDescription": "Paste it into your integration's settings.",
       "createdWarning": "Copy it now. For security it won't be shown again.",
@@ -3321,6 +3426,61 @@
       "limits": "Limits",
       "empty": "No products defined.",
       "limitsFormat": "CPU: {{cpu}}%, RAM: {{memory}}MB, Disk: {{disk}}MB"
+    }
+  },
+  "apiErrors": {
+    "ErrDiskLimitExceeded": "The server has used all of its disk space. Delete files to free some before starting it or uploading more.",
+    "ErrSSHKeyInvalid": "That is not a valid SSH public key. Paste one line, such as the contents of id_ed25519.pub.",
+    "ErrSSHKeyIsPrivate": "That is a private key. Paste the public key (the .pub file) and never share the private one.",
+    "ErrSSHKeyWeak": "RSA keys need at least 2048 bits. Better create an ed25519 key.",
+    "ErrSSHKeyExists": "That key is already added to your account.",
+    "ErrSSHKeyLimit": "You have reached the maximum number of SSH keys. Delete one before adding another.",
+    "ErrSSHKeyName": "Give the key a name of up to 100 characters.",
+    "ErrCaptchaFailed": "The anti-bot check failed. Please try again.",
+    "ErrSSONotForAdmins": "Sign-in links are not issued for administrator accounts.",
+    "ErrServerOwner": "The server's owner cannot be removed or limited. An administrator can give the server to someone else.",
+    "ErrAPIKeyPermissions": "Tick at least one action for the key.",
+    "ErrAPIKeyNotAllowed": "This API key is not allowed to do that."
+  },
+  "extensions": {
+    "title": "Extensions",
+    "description": "Add features to the panel without touching its code: pages of their own and notices of what happens on the servers.",
+    "install": "Install extension",
+    "installed": "Extension installed",
+    "installedDescription": "\"{{name}}\" is installed and switched off. Switch it on once you have reviewed it.",
+    "installFailed": "The extension could not be installed",
+    "loadError": "The extensions could not be loaded.",
+    "saveError": "The change could not be saved.",
+    "emptyTitle": "No extensions",
+    "emptyDescription": "Upload an extension's .zip. Its pages are shown isolated: they cannot see your session or use the panel on your behalf.",
+    "by": "by {{author}}",
+    "enabled": "On",
+    "disabled": "Off",
+    "pages": "Pages",
+    "noPages": "Adds no pages.",
+    "placementServer": "Server tab",
+    "placementAdmin": "Administration",
+    "events": "Events",
+    "noEvents": "Receives no events.",
+    "webhook": "Events address",
+    "webhookHint": "Where events are sent, signed. It must start with https://.",
+    "webhookSaved": "Address saved.",
+    "secret": "Signing key",
+    "secretHint": "Every event carries the X-Aether-Signature header: the HMAC-SHA256 of the body with this key. The extension uses it to check the notice comes from your panel.",
+    "test": "Send test",
+    "testOk": "Test delivered",
+    "testOkDescription": "The extension received the test event.",
+    "testFailed": "The test did not arrive",
+    "remove": "Uninstall",
+    "removeTitle": "Uninstall this extension?",
+    "removeDescription": "The files of \"{{name}}\" are deleted and it stops receiving events. What the extension stored outside the panel is not touched.",
+    "removeConfirm": "Uninstall",
+    "removed": "\"{{name}}\" uninstalled.",
+    "removeError": "It could not be uninstalled.",
+    "page": {
+      "from": "Page of the \"{{name}}\" extension.",
+      "notFoundTitle": "Page not available",
+      "notFoundDescription": "The extension is switched off, was uninstalled, or this page does not exist."
     }
   }
 }

@@ -102,14 +102,11 @@ func (s *Scheduler) Save() error {
 }
 
 func (s *Scheduler) save() error {
-	file, err := os.OpenFile(filepath.Join(config.ServersFolder.Value(), s.serverID+".cron"), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	data, err := json.Marshal(s)
 	if err != nil {
 		return err
 	}
-	defer utils.Close(file)
-
-	err = json.NewEncoder(file).Encode(s)
-	return err
+	return writeFileAtomic(filepath.Join(config.ServersFolder.Value(), s.serverID+".cron"), append(data, '\n'), 0600)
 }
 
 func (s *Scheduler) Init() error {

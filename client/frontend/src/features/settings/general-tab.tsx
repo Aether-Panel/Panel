@@ -281,18 +281,6 @@ export function GeneralTab({ localSettings, handleUpdate, t }: Readonly<GeneralT
                     </SettingsField>
                 </SettingsSection>
 
-                <SettingsSection title={t('settings.general.sections.appearanceTitle')} description={t('settings.general.sections.appearanceDescription')}>
-                    <SettingRows>
-                        <SettingRow
-                            id="header-decorations"
-                            label={t('settings.general.headerDecorationsLabel')}
-                            description={t('settings.general.headerDecorationsDescription')}
-                            checked={localSettings['panel.settings.headerDecorations'] !== false}
-                            onCheckedChange={(v) => handleUpdate('panel.settings.headerDecorations', v)}
-                        />
-                    </SettingRows>
-                </SettingsSection>
-
                 <SettingsSection title={t('settings.general.sections.accessTitle')} description={t('settings.general.sections.accessDescription')}>
                     <div className="space-y-5">
                         <SettingRows>
@@ -302,6 +290,13 @@ export function GeneralTab({ localSettings, handleUpdate, t }: Readonly<GeneralT
                                 description={t('settings.general.allowRegistrationDescription')}
                                 checked={!!localSettings['panel.registrationEnabled']}
                                 onCheckedChange={(v) => handleUpdate('panel.registrationEnabled', v)}
+                            />
+                            <SettingRow
+                                id="captcha-builtin"
+                                label={t('settings.general.captchaBuiltinLabel')}
+                                description={t('settings.general.captchaBuiltinDescription')}
+                                checked={localSettings['panel.captcha.builtin'] !== false}
+                                onCheckedChange={(v) => handleUpdate('panel.captcha.builtin', v)}
                             />
                             <SettingRow
                                 id="turnstile-enabled"

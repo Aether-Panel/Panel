@@ -41,13 +41,13 @@ const permissionGroups: { label: string; keys: string[] }[] = [
   },
   {
     label: "roles.permissionGroups.serverConsole",
-    keys: ["server.console.send"]
+    keys: ["server.console", "server.console.send"]
   },
   {
     label: "roles.permissionGroups.serverManagement",
     keys: ["server.start", "server.stop", "server.kill", "server.reload", "server.install",
            "server.definition.view", "server.definition.edit",
-           "server.data.view", "server.data.edit.admin",
+           "server.data.view", "server.data.edit", "server.data.edit.admin", "server.ports.edit",
            "server.flags.view", "server.flags.edit",
            "server.tasks.view", "server.tasks.run", "server.tasks.create", "server.tasks.edit", "server.tasks.delete"]
   },
@@ -93,6 +93,10 @@ const permissionGroups: { label: string; keys: string[] }[] = [
 const allPermissionKeys = permissionGroups.flatMap(g => g.keys);
 
 const translationKeyOverride: Record<string, string> = {
+  // these scopes are also the prefix of others, so their own label lives under another key
+  'server.console': 'server.consoleView',
+  'server.data.edit': 'server.dataEdit',
+  'server.ports.edit': 'server.portsEdit',
   'server.admin.view': 'server.adminSection.view',
   'server.admin.install.view': 'server.adminSection.installView',
   'server.admin.install.manage': 'server.adminSection.installManage',

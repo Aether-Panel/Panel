@@ -410,7 +410,14 @@ func (c *serverTestCtx) testGrantUserPermissions(t *testing.T) {
 }
 
 func (c *serverTestCtx) testSubuserGrantUserPermissions(t *testing.T) {
-	// first get a session for the fake user
+	// a session needs the login scope (it is checked on every request), so the sub-user
+	// may sign in for this test only; the login tests expect this user to be refused
+	signIn := &models.Permissions{UserID: &loginNoLoginUser.ID, Scopes: []*scopes.Scope{scopes.ScopeLogin}}
+	if !assert.NoError(t, c.db.Create(signIn).Error) {
+		return
+	}
+	t.Cleanup(func() { c.db.Delete(signIn) })
+
 	testSession, err := createSession(c.db, loginNoLoginUser)
 	if !assert.NoError(t, err) {
 		return

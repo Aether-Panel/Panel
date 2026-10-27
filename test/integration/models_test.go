@@ -163,9 +163,15 @@ func initLoginSftp(db *gorm.DB) error {
 		return err
 	}
 
+	// signing in is panel-wide, for SFTP as for the web
+	err = db.Create(&models.Permissions{UserID: &loginSftpUser.ID, Scopes: []*scopes.Scope{scopes.ScopeLogin}}).Error
+	if err != nil {
+		return err
+	}
+
 	var str = "testserver-local"
 	var perms = &models.Permissions{
-		Scopes:           []*scopes.Scope{scopes.ScopeServerSftp, scopes.ScopeLogin},
+		Scopes:           []*scopes.Scope{scopes.ScopeServerSftp},
 		UserID:           &loginSftpUser.ID,
 		ServerIdentifier: &str,
 	}
@@ -176,7 +182,7 @@ func initLoginSftp(db *gorm.DB) error {
 
 	str = "testserver-remote"
 	perms = &models.Permissions{
-		Scopes:           []*scopes.Scope{scopes.ScopeServerSftp, scopes.ScopeLogin},
+		Scopes:           []*scopes.Scope{scopes.ScopeServerSftp},
 		UserID:           &loginSftpUser.ID,
 		ServerIdentifier: &str,
 	}
@@ -189,11 +195,10 @@ func initLoginDifferentUser(db *gorm.DB) error {
 	if err != nil {
 		return err
 	}
-	var str = "secondserver"
+	// may sign in, but has no server of its own (the row used to name another user)
 	var perms = &models.Permissions{
-		Scopes:           []*scopes.Scope{scopes.ScopeLogin},
-		UserID:           &loginSftpUser.ID,
-		ServerIdentifier: &str,
+		Scopes: []*scopes.Scope{scopes.ScopeLogin},
+		UserID: &loginDifferentServerUser.ID,
 	}
 	return db.Create(perms).Error
 }

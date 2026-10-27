@@ -33,9 +33,9 @@ services:
       - GIN_MODE=debug
       - SKYPANEL_PLATFORM=docker
       - SKYPANEL_WEB_HOST=0.0.0.0:8080
-      - SKYPANEL_PANEL_REGISTRATIONENABLED=true
+      # Registro público y tema: se cambian en Ajustes. Una variable aquí ganaría siempre a
+      # lo guardado allí (el panel da prioridad al entorno), así que no se fijan.
       - SKYPANEL_PANEL_SETTINGS_COMPANYNAME=Aether Panel
-      - SKYPANEL_PANEL_SETTINGS_DEFAULTTHEME=SkyPanel
       - SKYPANEL_LOGS_LEVEL=DEBUG
 
     networks:

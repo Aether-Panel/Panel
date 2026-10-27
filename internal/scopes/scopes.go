@@ -92,6 +92,22 @@ var (
 	ScopePanel = registerNonServerScope("panel")
 )
 
+// OwnerScopes is what a server's owner may do on it. It is everything a customer needs to run
+// their server; it leaves out what only an administrator decides: deleting the server, its
+// resources and environment (server.data.edit.admin, server.definition.edit), its ports and
+// the admin section. Sub-users get exactly the scopes the owner gives them.
+var OwnerScopes = []*Scope{
+	ScopeServerView, ScopeServerViewData, ScopeServerEditData, ScopeServerViewFlags,
+	ScopeServerEditFlags, ScopeServerEditName, ScopeServerViewDefinition,
+	ScopeServerClientView, ScopeServerClientEdit, ScopeServerClientCreate, ScopeServerClientDelete,
+	ScopeServerUserView, ScopeServerUserCreate, ScopeServerUserEdit, ScopeServerUserDelete,
+	ScopeServerTaskView, ScopeServerTaskRun, ScopeServerTaskCreate, ScopeServerTaskDelete, ScopeServerTaskEdit,
+	ScopeServerReload, ScopeServerStart, ScopeServerStop, ScopeServerKill, ScopeServerInstall,
+	ScopeServerFileView, ScopeServerFileEdit, ScopeServerSftp, ScopeServerConsole, ScopeServerSendCommand,
+	ScopeServerStats, ScopeServerStatus,
+	ScopeServerBackupView, ScopeServerBackupCreate, ScopeServerBackupRestore, ScopeServerBackupDelete,
+}
+
 func (s *Scope) String() string {
 	return s.Value
 }

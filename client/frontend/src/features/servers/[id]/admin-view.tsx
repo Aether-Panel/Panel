@@ -24,7 +24,7 @@ export default function AdminView({ serverId }: Readonly<{ serverId: string }>) 
     const { t } = useTranslations();
     
     const { hasScope } = useAuth();
-    const { settings, loading, saveSettings } = useServerSettings(serverId);
+    const { settings, loading, saveDefinition } = useServerSettings(serverId);
     const [isInstalling, setIsInstalling] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isSuspending, setIsSuspending] = useState(false);
@@ -66,10 +66,7 @@ export default function AdminView({ serverId }: Readonly<{ serverId: string }>) 
         setIsSaving(true);
         try {
             const parsed = JSON.parse(editContent);
-            await saveSettings({
-                ...settings,
-                definition: parsed
-            }, hasScope('server.data.edit.admin'));
+            await saveDefinition(parsed);
             sileo.success({ title: t('common.success'), description: t('servers.admin.editDefinition.success') });
             setEditorOpen(false);
         } catch (e: any) {
@@ -138,14 +135,17 @@ export default function AdminView({ serverId }: Readonly<{ serverId: string }>) 
     };
 
     const canViewInstall = hasScope('server.admin.install.view') || hasScope('server.install') || hasScope('server.admin') || hasScope('admin');
-    const canManageInstall = hasScope('server.admin.install.manage') || hasScope('server.install') || hasScope('server.admin') || hasScope('admin');
+    // the buttons follow the scopes their routes check, so none shows only to answer 403
+    const canManageInstall = hasScope('server.install') || hasScope('admin');
     const canViewTransfer = hasScope('server.admin.transfer.view') || hasScope('server.data.edit.admin') || hasScope('server.admin') || hasScope('admin');
-    const canManageTransfer = hasScope('server.admin.transfer.manage') || hasScope('server.data.edit.admin') || hasScope('server.admin') || hasScope('admin');
+    const canManageTransfer = hasScope('server.data.edit.admin') || hasScope('admin');
     const canViewConfig = hasScope('server.admin.config.view') || hasScope('server.definition.edit') || hasScope('server.admin') || hasScope('admin');
-    const canManageConfig = hasScope('server.admin.config.manage') || hasScope('server.definition.edit') || hasScope('server.admin') || hasScope('admin');
+    const canManageConfig = hasScope('server.definition.edit') || hasScope('admin');
     const canViewAssignments = hasScope('server.admin.assignments.view') || hasScope('server.flags.view') || hasScope('server.admin') || hasScope('admin');
-    const canManageAssignments = hasScope('server.admin.assignments.manage') || hasScope('server.flags.edit') || hasScope('server.admin') || hasScope('admin');
-    const canViewDelete = hasScope('server.delete') || hasScope('server.admin') || hasScope('admin');
+    const canManageAssignments = hasScope('server.flags.edit') || hasScope('admin');
+    const canSuspend = hasScope('server.data.edit.admin') || hasScope('admin');
+    const canDelete = hasScope('server.delete') || hasScope('admin');
+    const canViewDelete = canSuspend || canDelete;
     // cloning creates a server, so it needs the same permission as creating one
     const canClone = experimental.serverClone && (hasScope('server.create') || hasScope('admin'));
 
@@ -371,6 +371,7 @@ export default function AdminView({ serverId }: Readonly<{ serverId: string }>) 
 
                     <TabsContent value="delete" className="mt-0">
                         <div className="divide-y divide-destructive/20 overflow-hidden rounded-xl border border-destructive/30 bg-destructive/5">
+                            {canSuspend && (
                             <ActionRow
                                 bare
                                 title={t('servers.admin.suspend.title')}
@@ -411,7 +412,9 @@ export default function AdminView({ serverId }: Readonly<{ serverId: string }>) 
                                     </AlertDialogContent>
                                 </AlertDialog>
                             </ActionRow>
+                            )}
 
+                            {canDelete && (
                             <ActionRow
                                 bare
                                 title={t('servers.admin.delete.title')}
@@ -448,6 +451,7 @@ export default function AdminView({ serverId }: Readonly<{ serverId: string }>) 
                                     </AlertDialogContent>
                                 </AlertDialog>
                             </ActionRow>
+                            )}
                         </div>
                     </TabsContent>
                 </div>

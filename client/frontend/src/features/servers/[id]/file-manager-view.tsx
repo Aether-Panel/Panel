@@ -209,17 +209,24 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
   const fileHistory = useFileHistory(serverId, historyTracked ? editingPath : null);
   const historyCount = fileHistory.status === 'ready' ? fileHistory.versions.length : 0;
 
+  // only the newest listing may land: a slow answer for a folder the user already left would
+  // otherwise replace the list, and actions would then build paths from the wrong folder
+  const listRequestRef = useRef(0);
+
   const fetchFiles = async (path: string) => {
+    const request = ++listRequestRef.current;
     setIsLoading(true);
     try {
       const data = await api.get(fileUrl(path));
-      if (Array.isArray(data)) {
-        setFiles(data);
-      }
+      if (request !== listRequestRef.current) return;
+      setFiles(Array.isArray(data) ? data : []);
     } catch (e: any) {
+      if (request !== listRequestRef.current) return;
+      // the previous folder's files must not stay on screen under the new path
+      setFiles([]);
       sileo.error({ title: t('common.error'), description: e.message || t('servers.fileManager.toast.loadError') });
     } finally {
-      setIsLoading(false);
+      if (request === listRequestRef.current) setIsLoading(false);
     }
   };
 
@@ -511,7 +518,8 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
     setIsLoading(true);
     try {
       const filePath = currentPath ? `${currentPath}/${file.name}` : file.name;
-      await api.post(`/api/servers/${serverId}/extract/${encodePath(filePath)}?destination=.&skipRoot`, {});
+      // the daemon reads the destination from the server root: unpack next to the archive
+      await api.post(`/api/servers/${serverId}/extract/${encodePath(filePath)}?destination=${encodeURIComponent(currentPath || '.')}&skipRoot`, {});
       sileo.success({ title: t('common.success'), description: t('servers.fileManager.toast.extracted') });
       void fetchFiles(currentPath);
     } catch (e: any) {

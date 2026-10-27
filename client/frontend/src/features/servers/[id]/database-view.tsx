@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useTranslations } from '@/contexts/translations-context';
-import { api } from '@/lib/api-client';
+import { api, ApiError } from '@/lib/api-client';
 import { sileo } from "@/lib/toast";
 import { EmptyState } from '@/components/empty-state';
 
@@ -24,11 +24,12 @@ type DatabaseInfo = {
   remote_connection?: string;
 };
 
+// the server's host list only carries id and name; the admin list adds the address
 type DatabaseHost = {
   id: number;
   name: string;
-  host: string;
-  port: number;
+  host?: string;
+  port?: number;
 };
 
 type DatabaseViewProps = {
@@ -95,7 +96,12 @@ export default function DatabaseView({ serverId }: Readonly<DatabaseViewProps>) 
       setLoading(true);
       const [dbResult, hostResult] = await Promise.allSettled([
         api.get(`/api/servers/${serverId}/databases`),
-        api.get('/api/databasehosts')
+        // the hosts this server may use, readable by whoever may create its databases
+        // (/api/databasehosts is administrators only); older panels only have that one
+        api.get(`/api/servers/${serverId}/databasehosts`).catch((e) => {
+          if (e instanceof ApiError && e.status === 404) return api.get('/api/databasehosts');
+          throw e;
+        })
       ]);
       if (dbResult.status === 'fulfilled') {
         setDatabases(Array.isArray(dbResult.value) ? dbResult.value : []);
@@ -323,7 +329,7 @@ export default function DatabaseView({ serverId }: Readonly<DatabaseViewProps>) 
                   <SelectContent>
                     {hosts.map((host: DatabaseHost) => (
                       <SelectItem key={host.id} value={host.id.toString()}>
-                        {host.name} ({host.host})
+                        {host.host ? `${host.name} (${host.host})` : host.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -1,207 +1,168 @@
-# Cloudflare Turnstile
+# Captcha / anti-bot
 
-Aether Panel integrates Cloudflare Turnstile for CAPTCHA-free bot protection on login and registration forms.
+The panel checks that whoever fills in its public forms is not a bot. There are two checks:
 
----
+- **Built-in**: the browser solves a small calculation (a proof of work) in the background. No checkboxes, no images, no keys and no outside services. It is **on by default**.
+- **Cloudflare Turnstile**: optional. It needs a Cloudflare account and two keys.
 
-## Overview
+Only one is used at a time.
 
-- **Invisible CAPTCHA**: No user interaction required (behavioral analysis)
-- **Privacy-friendly**: No personal data collected
-- **Fallback**: Falls back to checkbox if needed
+## Where it applies
 
----
+| Form | Endpoint |
+|------|----------|
+| Sign in | `POST /auth/login` |
+| Sign up | `POST /auth/register` |
+| Forgot password | `POST /auth/forgot-password` |
 
-## Configuration
+The check runs before the password or the email is looked at. It is not asked for in the second sign-in step (`POST /auth/otp`), in the link of the password reset email (`POST /auth/reset-password`) or when confirming your password inside the panel (`POST /auth/reauth`).
+
+## Which check is used
+
+| Situation | Check |
+|-----------|-------|
+| Turnstile switched on and both keys set (site key and secret key) | Turnstile |
+| Otherwise, if the built-in check is on | Built-in |
+| Neither | None |
+
+If you switch Turnstile on but one key is missing, the panel keeps using the built-in check. While Turnstile is configured, the built-in switch has no effect.
+
+The panel publishes which one it uses in `GET /api/config` (no session needed), in the `captcha` field: `"turnstile"`, `"builtin"` or `""`.
+
+## Settings
+
+Change them in **Settings → General → Sign-up and security**, or in `config.json` and environment variables:
+
+| Key | Environment variable | Default | What it does |
+|-----|----------------------|---------|--------------|
+| `panel.captcha.builtin` | `SKYPANEL_PANEL_CAPTCHA_BUILTIN` | `true` | Turns the built-in check on. |
+| `panel.turnstile.enabled` | `SKYPANEL_PANEL_TURNSTILE_ENABLED` | `false` | Switches Turnstile on. |
+| `panel.turnstile.siteKey` | `SKYPANEL_PANEL_TURNSTILE_SITEKEY` | empty | The widget's public key. |
+| `panel.turnstile.secretKey` | `SKYPANEL_PANEL_TURNSTILE_SECRETKEY` | empty | The secret key the panel verifies tokens with. |
 
 ```json
 {
   "panel": {
+    "captcha": { "builtin": true },
     "turnstile": {
-      "enabled": true,
-      "siteKey": "0x4AAAAA...",
-      "secretKey": "0x4AAAAA..."
+      "enabled": false,
+      "siteKey": "",
+      "secretKey": ""
     }
   }
 }
 ```
 
-**Environment Variables:**
-| Variable | Config Key | Required |
-|----------|------------|----------|
-| `SKYPANEL_PANEL_TURNSTILE_ENABLED` | `panel.turnstile.enabled` | Yes |
-| `SKYPANEL_PANEL_TURNSTILE_SITEKEY` | `panel.turnstile.siteKey` | Yes |
-| `SKYPANEL_PANEL_TURNSTILE_SECRETKEY` | `panel.turnstile.secretKey` | Yes |
+### Turning the check off
 
-**Aliases (Panel Settings):**
-| Config Key | Alias For |
-|------------|-----------|
-| `panel.settings.turnstileEnabled` | `panel.turnstile.enabled` |
-| `panel.settings.turnstileSiteKey` | `panel.turnstile.siteKey` |
-| `panel.settings.turnstileSecretKey` | `panel.turnstile.secretKey` |
+Switch off **Built-in anti-bot check** and leave Turnstile off (or without keys). The forms stop asking for anything. We do not recommend it on a panel open to the internet: the per-account attempt limit still applies, but the sign-up and password reset forms are left without protection against bots.
 
----
+## Built-in check
 
-## Backend Verification (`internal/web/auth/turnstile.go`)
+It uses the same scheme as ALTCHA:
 
-```go
-const turnstileVerifyURL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+1. The browser asks `GET /auth/challenge` for a challenge.
+2. The panel secretly picks a number between 0 and 100,000 and sends the SHA-256 of `salt + number`, signed with an HMAC.
+3. The browser tries numbers until it finds the one that gives that hash. A person does not notice; a bot sending thousands of attempts pays that cost on each one.
+4. The form sends the solution in the `captchaToken` field.
 
-type turnstileVerifyResponse struct {
-	Success bool `json:"success"`
-}
+Worth knowing:
 
-// verifyTurnstile validates a Cloudflare Turnstile token against Cloudflare's
-// siteverify endpoint. If Turnstile is disabled or no secret key is configured,
-// validation is skipped so the panel keeps working without it.
-func verifyTurnstile(token string) error {
-	if !config.TurnstileEnabled.Value() {
-		return nil
-	}
+- A challenge expires after **10 minutes** and each solution works **only once**.
+- The key that signs challenges is generated when the panel starts. A restart cancels the challenges handed out before it; reloading the page is enough.
+- The key lives in memory. If you run several panel instances behind a load balancer, the challenge and the form must reach the same instance.
+- Nothing leaves the panel and no cookie is stored.
+- It also works on `http://<ip>:8080`: the browser does not need `https` to compute the hash.
+- The form's button waits until the check is done. If it fails, a **Retry** button appears. After each submit a new check starts.
 
-	secret := config.TurnstileSecretKey.Value()
-	if secret == "" {
-		return nil
-	}
+### From the API
 
-	params := url.Values{}
-	params.Set("secret", secret)
-	params.Set("response", token)
+A client using `/auth/login`, `/auth/register` or `/auth/forgot-password` has to solve the challenge. For automation, an OAuth2 client or an API key is simpler, since they do not go through these forms.
 
-	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.PostForm(turnstileVerifyURL, params)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
+Ask for a challenge:
 
-	var result turnstileVerifyResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return err
-	}
-
-	if !result.Success {
-		return errors.New("turnstile verification failed")
-	}
-	return nil
-}
-```
-
-**Called from:**
-- `LoginPost` (after password validation)
-- `RegisterPost` (before user creation)
-
-**Flow:**
-1. User submits login/register form
-2. Frontend includes Turnstile token in request
-3. Backend verifies token with Cloudflare (sends `secret` and `response`)
-4. On success: continue with login/registration
-5. On failure: return error, prompt retry
-
-**Note:** The verification does NOT send `remoteip` - only `secret` and `response` are sent to Cloudflare.
-
----
-
-## Frontend Integration (`client/frontend/src/components/Turnstile.tsx`)
-
-```tsx
-import { Turnstile } from '@/components/Turnstile';
-
-<form onSubmit={handleSubmit}>
-  <Turnstile 
-    siteKey={config.turnstileSiteKey}
-    onVerify={setTurnstileToken}
-    theme="auto"
-    size="normal"
-  />
-  <button type="submit">Login</button>
-</form>
-```
-
-**Component Props:**
-| Prop | Type | Required |
-|------|------|----------|
-| `siteKey` | string | Yes |
-| `onVerify` | `(token: string) => void` | Yes |
-| `theme` | `'light' \| 'dark' \| 'auto'` | No |
-| `size` | `'normal' \| 'compact'` | No |
-
-**Script Loading:**
-- Loads `https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit` dynamically
-- Renders invisible widget (no checkbox)
-- Calls `onVerify(token)` when challenge completes
-
----
-
-## Getting Turnstile Keys
-
-1. Go to [Cloudflare Turnstile Dashboard](https://dash.cloudflare.com/turnstile)
-2. Create a new site
-3. Add your domain(s)
-4. Copy **Site Key** and **Secret Key**
-5. Add to Panel config
-
-**Widget Types:**
-| Type | Description |
-|------|-------------|
-| Managed | Invisible, automatic |
-| Non-interactive | Background only |
-| Invisible | Challenge on demand |
-
----
-
-## Testing
-
-### Development (Disabled)
-```json
-{
-  "panel": {
-    "turnstile": {
-      "enabled": false
-    }
-  }
-}
-```
-
-### Verification
 ```bash
-# Check config
-curl -H "Authorization: Bearer $TOKEN" http://panel/api/config
-
-# Response includes:
-# { "turnstile": { "enabled": true, "siteKey": "0x4AAAAA..." } }
+curl https://panel.example.com/auth/challenge
 ```
 
----
+```json
+{
+  "algorithm": "SHA-256",
+  "challenge": "3f1c…",
+  "salt": "9b2e…?expires=1793030400",
+  "maxnumber": 100000,
+  "signature": "a7d0…"
+}
+```
 
-## Troubleshooting
+Find the number `n` between 0 and `maxnumber` for which `sha256(salt + n)`, in hex, equals `challenge`. The token is the solution's JSON, base64-encoded:
 
-| Issue | Cause | Fix |
-|-------|-------|-----|
-| `invalid site key` | Wrong site key | Verify domain matches Cloudflare dashboard |
-| `invalid secret key` | Wrong secret key | Copy secret key from Cloudflare dashboard |
-| `timeout` | Network issue | Check firewall, allow outbound to `challenges.cloudflare.com` |
-| `token expired` | Token > 30 min old | Frontend auto-refreshes; check clock sync |
-| `hostname mismatch` | Domain mismatch | Add panel domain to Turnstile site config |
+```python
+import base64, hashlib, json, requests
 
----
+ch = requests.get("https://panel.example.com/auth/challenge").json()
+n = next(i for i in range(ch["maxnumber"] + 1)
+         if hashlib.sha256(f'{ch["salt"]}{i}'.encode()).hexdigest() == ch["challenge"])
+token = base64.b64encode(json.dumps({
+    "algorithm": ch["algorithm"],
+    "challenge": ch["challenge"],
+    "number": n,
+    "salt": ch["salt"],
+    "signature": ch["signature"],
+}).encode()).decode()
 
-## Security Notes
+requests.post("https://panel.example.com/auth/login", json={
+    "email": "ana@example.com",
+    "password": "<your-password>",
+    "captchaToken": token,
+})
+```
 
-- **Secret key**: Never exposed to frontend (only backend verification)
-- **Site key**: Public, safe to expose in HTML
-- **Tokens**: Single-use, 30-minute expiry
-- **IP validation**: Not implemented (only `secret` and `response` sent)
-- **Rate limiting**: Cloudflare handles rate limiting
+If the token is missing, expired, already used or wrong, the answer is `400`:
 
----
+```json
+{ "error": { "msg": "the anti-bot check failed, try it again", "code": "ErrCaptchaFailed" } }
+```
 
-## API Response Codes
+## Cloudflare Turnstile
 
-| Code | Meaning |
-|------|---------|
-| `success: true` | Valid token |
-| `success: false` | Invalid/expired token |
-| `error-codes: ["timeout-or-duplicate"]` | Token already used or timeout |
-| `error-codes: ["invalid-input-secret"]` | Wrong secret key |
-| `error-codes: ["invalid-input-response"]` | Invalid/missing token |
+### Getting the keys
+
+1. Open the [Cloudflare Turnstile dashboard](https://dash.cloudflare.com/turnstile).
+2. Create a site and add the panel's domain.
+3. Copy the **Site Key** and the **Secret Key**.
+4. Paste them in **Settings → General → Sign-up and security** and switch on **Cloudflare Turnstile Protection**.
+
+### How it is verified
+
+- The browser loads `https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit` and shows the widget in the form.
+- The form sends the token in the `turnstileToken` field.
+- The panel verifies it at `https://challenges.cloudflare.com/turnstile/v0/siteverify`, sending `secret`, `response` and `remoteip` (the client's IP). It waits at most 5 seconds.
+- A missing token is refused without asking Cloudflare.
+- If Cloudflare does not answer, the form is refused with `ErrCaptchaFailed`: while Cloudflare is unavailable nobody can sign in. The panel logs `Could not reach Cloudflare Turnstile`.
+- After each submit the widget is shown again, because a token is good for one request.
+
+The IP sent as `remoteip` is the one the panel sees. Behind a proxy, set `security.trustedProxies` (and `security.trustedProxyHeader` if needed) so it is the user's and not the proxy's.
+
+The site key is public (it appears in `GET /api/config`). The secret key never leaves the server.
+
+### Common problems
+
+| Problem | Likely cause | Fix |
+|---------|--------------|-----|
+| The widget does not show | The browser blocks `challenges.cloudflare.com` | Check blocking extensions or the proxy's content policy. |
+| Always `ErrCaptchaFailed` | The panel cannot reach `challenges.cloudflare.com` | Allow outbound HTTPS to that domain from the server. |
+| Always `ErrCaptchaFailed` | Wrong secret key | Copy it again from Cloudflare. |
+| The widget shows a domain error | The panel's domain is not in the Turnstile site | Add it in Cloudflare. |
+| Built-in check: "The anti-bot check could not run." | `GET /auth/challenge` failed | Click **Retry**; check that the proxy lets `/auth/` through. |
+| Built-in check: `ErrCaptchaFailed` after a restart | The challenge was fetched before the restart | Reload the page. |
+
+## Files
+
+| File | What it holds |
+|------|---------------|
+| `internal/web/auth/captcha.go` | Choosing the check, `GET /auth/challenge` and verifying the built-in one. |
+| `internal/web/auth/turnstile.go` | Verification with Cloudflare. |
+| `internal/config/entries.go` | The configuration keys. |
+| `client/frontend/src/components/Turnstile.tsx` | `useCaptcha()`: the Turnstile widget or the built-in check's line. |
+| `client/frontend/src/lib/proof-of-work.ts` | The calculation the browser does. |

@@ -5,11 +5,16 @@ import (
 	cryptoRand "crypto/rand"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"math/big"
 	"net/http"
+	"net/url"
 	"strings"
 
+	"github.com/SkyPanel/SkyPanel/v3/internal/config"
+	"github.com/SkyPanel/SkyPanel/v3/internal/extensions"
+	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
@@ -23,10 +28,12 @@ import (
 
 func registerProvision(g *gin.RouterGroup) {
 	g.Handle("GET", "/ping", provisionPing)
-	g.Handle("POST", "/provision", provisionServer)
-	g.Handle("POST", "/terminate", provisionTerminate)
-	g.Handle("POST", "/suspend", provisionSuspend)
-	g.Handle("POST", "/unsuspend", provisionUnsuspend)
+	g.Handle("POST", "/provision", middleware.RequiresAPIKeyPermission(models.APIKeyCreate), provisionServer)
+	g.Handle("POST", "/terminate", middleware.RequiresAPIKeyPermission(models.APIKeyTerminate), provisionTerminate)
+	g.Handle("POST", "/suspend", middleware.RequiresAPIKeyPermission(models.APIKeySuspend), provisionSuspend)
+	g.Handle("POST", "/unsuspend", middleware.RequiresAPIKeyPermission(models.APIKeySuspend), provisionUnsuspend)
+	g.Handle("POST", "/change-package", middleware.RequiresAPIKeyPermission(models.APIKeyChangePackage), provisionChangePackage)
+	g.Handle("POST", "/sso", middleware.RequiresAPIKeyPermission(models.APIKeySSO), provisionSSO)
 }
 
 func provisionPing(c *gin.Context) {
@@ -63,15 +70,11 @@ func pickFreePort(db *gorm.DB, nodeID uint, portMin, portMax uint16) uint16 {
 		return 0
 	}
 
-	// Fetch ports already in use on this node
-	var usedPorts []uint16
-	db.Model(&models.Server{}).
-		Where("node_id = ? AND port > 0", nodeID).
-		Pluck("port", &usedPorts)
-
-	used := make(map[uint16]bool, len(usedPorts))
-	for _, p := range usedPorts {
-		used[p] = true
+	// every port a server on this node holds, extra ports and the local node (node_id NULL)
+	// included; a node that cannot be read gives no port rather than a taken one
+	used, err := usedPortsOnNode(db, nodeID)
+	if err != nil {
+		return 0
 	}
 
 	rangeSize := int(portMax-portMin) + 1
@@ -185,6 +188,8 @@ func provisionServer(c *gin.Context) {
 		TotalMemory: product.Memory,
 		TotalDisk:   product.Disk,
 		ExternalID:  req.ServiceID,
+		// the customer the service was bought for owns it
+		OwnerID: &user.ID,
 	}
 
 	err = db.Transaction(func(tx *gorm.DB) error {
@@ -193,6 +198,17 @@ func provisionServer(c *gin.Context) {
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
+
+	// The row carries the service id, so a retry from the billing system would be answered
+	// "already provisioned". Until the node has the server, any failure takes it out again.
+	provisioned := false
+	defer func() {
+		if !provisioned {
+			if err := (&services.Server{DB: db}).Delete(server.Identifier); err != nil {
+				logging.Error.Printf("provisioning of %s failed and its record could not be removed: %s", server.Identifier, err)
+			}
+		}
+	}()
 
 	// 6. Grant Permissions
 	if err := grantProvisionedServerScopes(ps, user.ID, server.Identifier); response.HandleError(c, err, http.StatusInternalServerError) {
@@ -210,14 +226,17 @@ func provisionServer(c *gin.Context) {
 
 	// Inject the assigned port into the template variables so the server starts on it
 	injectAssignedPort(db, serverCreation, server.Identifier, assignedPort)
+	// and the plan's limits, or the container would run with the template's defaults
+	injectResourceLimits(serverCreation, product.CPU, product.Memory, product.Disk)
 
 	reader := &bytes.Buffer{}
 	_ = json.NewEncoder(reader).Encode(&serverCreation)
 
-	nodeResponse, err := ns.CallNode(node, "PUT", daemonServerPrefix+server.Identifier, io.NopCloser(reader), c.Request.Header)
+	// no request headers: they hold the billing system's API key, which the node has no use for
+	nodeResponse, err := ns.CallNode(node, "PUT", daemonServerPrefix+server.Identifier, io.NopCloser(reader), nil)
 	defer utils.CloseResponse(nodeResponse)
 
-	if response.HandleError(c, err, http.StatusInternalServerError) {
+	if response.HandleError(c, err, http.StatusBadGateway) {
 		return
 	}
 
@@ -226,6 +245,8 @@ func provisionServer(c *gin.Context) {
 		c.AbortWithStatusJSON(nodeResponse.StatusCode, gin.H{"error": "Daemon error", "details": string(resData)})
 		return
 	}
+	provisioned = true
+	scheduleAutoSubdomain(server.Identifier)
 
 	// Send Email
 	es := services.GetEmailService()
@@ -234,6 +255,7 @@ func provisionServer(c *gin.Context) {
 		"RegisterToken": "",
 	}, true)
 
+	extensions.Publish(extensions.EventServerCreated, extensions.ServerData(server.Identifier, server.Name))
 	c.JSON(http.StatusOK, gin.H{
 		"success":   true,
 		"server_id": serverID,
@@ -287,8 +309,10 @@ func provisionAccount(c *gin.Context, db *gorm.DB, ps *services.Permission, req 
 	case response.HandleError(c, err, http.StatusInternalServerError):
 		return nil, "", false
 	default:
-		generatedPassword, ok := resetProvisionedUserPassword(c, db, us, user)
-		return user, generatedPassword, ok
+		// An existing customer keeps their password: resetting it on every new order locked
+		// them out of their other servers, and let any API key take over an account. The
+		// billing panel gets no password for them; they sign in as before.
+		return user, "", true
 	}
 }
 
@@ -313,28 +337,6 @@ func createProvisionedUser(c *gin.Context, us *services.User, req ProvisionReque
 		return nil, "", false
 	}
 	return user, generatedPassword, true
-}
-
-// resetProvisionedUserPassword gives an existing (non-admin) customer a fresh
-// password so the billing panel can show it.
-func resetProvisionedUserPassword(c *gin.Context, db *gorm.DB, us *services.User, user *models.User) (string, bool) {
-	// An API key must never be able to take over an administrator's account
-	isAdmin, err := userIsAdmin(db, user)
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-		return "", false
-	}
-	if isAdmin {
-		response.HandleError(c, errors.New("this email belongs to an administrator and cannot be provisioned"), http.StatusConflict)
-		return "", false
-	}
-
-	// User already exists — reset their password so Paymenter can show it
-	generatedPassword, _ := utils.GenerateRandomString(12)
-	_ = user.SetPassword(generatedPassword)
-	if err := us.Update(user); response.HandleError(c, err, http.StatusInternalServerError) {
-		return "", false
-	}
-	return generatedPassword, true
 }
 
 // setupNewProvisionedUser grants a new customer the global login scope and
@@ -403,6 +405,34 @@ func injectAssignedPort(db *gorm.DB, serverCreation *models.ServerCreation, iden
 		Update("port", assignedPort)
 }
 
+// injectResourceLimits sets the cpu, memory and disk variables the daemon builds the
+// container's limits from. A zero leaves the template's own value.
+func injectResourceLimits(serverCreation *models.ServerCreation, cpu int, memory, disk int64) {
+	if serverCreation.Server.Variables == nil {
+		serverCreation.Server.Variables = make(map[string]skypanel.Variable)
+	}
+	for name, value := range resourceLimitData(cpu, memory, disk) {
+		v := serverCreation.Server.Variables[name]
+		v.Value = value
+		serverCreation.Server.Variables[name] = v
+	}
+}
+
+// resourceLimitData is the variable map for the limits that are set (above zero)
+func resourceLimitData(cpu int, memory, disk int64) map[string]interface{} {
+	data := map[string]interface{}{}
+	if cpu > 0 {
+		data["cpu"] = cpu
+	}
+	if memory > 0 {
+		data["memory"] = memory
+	}
+	if disk > 0 {
+		data["disk"] = disk
+	}
+	return data
+}
+
 // grantProvisionedServerScopes gives the customer the standard owner scopes
 // on their new server.
 func grantProvisionedServerScopes(ps *services.Permission, userID uint, identifier string) error {
@@ -460,7 +490,26 @@ func getServerByRequest(db *gorm.DB, req ProvisionActionRequest, ss *services.Se
 	if req.ServerID != "" {
 		return ss.Get(req.ServerID)
 	}
-	return nil, errors.New("either service_id or server_id is required")
+	return nil, errNoServerRef
+}
+
+// errNoServerRef is a request that does not say which server it is about
+var errNoServerRef = skypanel.CreateError("either service_id or server_id is required", "ErrServerRequired")
+
+// requestServer finds the server a billing call is about and writes the error response itself
+// when it cannot: 400 if the request names none, 404 if there is no such server.
+func requestServer(c *gin.Context, db *gorm.DB, req ProvisionActionRequest, ss *services.Server) (*models.Server, bool) {
+	server, err := getServerByRequest(db, req, ss)
+	switch {
+	case errors.Is(err, errNoServerRef):
+		response.HandleError(c, err, http.StatusBadRequest)
+	case err == nil && server == nil:
+		response.HandleError(c, gorm.ErrRecordNotFound, http.StatusNotFound)
+	case response.HandleError(c, err, http.StatusInternalServerError):
+	default:
+		return server, true
+	}
+	return nil, false
 }
 
 func provisionTerminate(c *gin.Context) {
@@ -471,8 +520,8 @@ func provisionTerminate(c *gin.Context) {
 	}
 
 	ss := &services.Server{DB: db}
-	server, err := getServerByRequest(db, req, ss)
-	if response.HandleError(c, err, http.StatusInternalServerError) || server == nil {
+	server, ok := requestServer(c, db, req, ss)
+	if !ok {
 		return
 	}
 
@@ -480,33 +529,51 @@ func provisionTerminate(c *gin.Context) {
 
 	// 1. Find and terminate all children first (avoids FK constraint failure)
 	var children []models.Server
-	if err := db.Preload("Node").Where(parentServerIDQuery, server.Identifier).Find(&children).Error; err == nil {
-		for i := range children {
-			terminateProvisionedServer(ns, ss, &children[i])
+	if err := db.Preload("Node").Where(parentServerIDQuery, server.Identifier).Find(&children).Error; response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+	for i := range children {
+		if err := terminateProvisionedServer(db, ns, ss, &children[i]); response.HandleError(c, err, http.StatusBadGateway) {
+			return
 		}
 	}
 
 	// 2. Now terminate the parent
-	terminateProvisionedServer(ns, ss, server)
+	if err := terminateProvisionedServer(db, ns, ss, server); response.HandleError(c, err, http.StatusBadGateway) {
+		return
+	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
-// terminateProvisionedServer stops and deletes a single server from daemon + DB
-func terminateProvisionedServer(ns *services.Node, ss *services.Server, srv *models.Server) {
+// terminateProvisionedServer stops and deletes a single server from daemon + DB. When the
+// node does not delete it, the record stays, so the billing system sees the failure and the
+// next attempt finds the server again.
+func terminateProvisionedServer(db *gorm.DB, ns *services.Node, ss *services.Server, srv *models.Server) error {
 	node := &srv.Node
 
 	// Stop if running
 	stopServerIfRunning(ns, node, srv.Identifier)
 
-	// Delete from daemon
+	// Delete from daemon; one it no longer knows is already gone
 	nodeRes, err := ns.CallNode(node, "DELETE", daemonServerPrefix+srv.Identifier, nil, nil)
-	if err == nil && nodeRes != nil && nodeRes.Body != nil {
-		nodeRes.Body.Close()
+	defer utils.CloseResponse(nodeRes)
+	if err != nil {
+		return fmt.Errorf("the node could not delete server %s: %w", srv.Identifier, err)
+	}
+	if nodeRes.StatusCode != http.StatusNoContent && nodeRes.StatusCode != http.StatusNotFound {
+		return fmt.Errorf("the node refused to delete server %s (status %d)", srv.Identifier, nodeRes.StatusCode)
 	}
 
+	// its subdomain records would keep pointing at the node after the service ended
+	releaseSubdomain(db, srv)
+
 	// Delete from DB
-	_ = ss.Delete(srv.Identifier)
+	if err := ss.Delete(srv.Identifier); err != nil {
+		return err
+	}
+	extensions.Publish(extensions.EventServerDeleted, extensions.ServerData(srv.Identifier, srv.Name))
+	return nil
 }
 
 // stopServerIfRunning asks the daemon for the server's status and, when it is
@@ -537,12 +604,12 @@ func provisionSuspend(c *gin.Context) {
 	}
 
 	ss := &services.Server{DB: db}
-	server, err := getServerByRequest(db, req, ss)
-	if response.HandleError(c, err, http.StatusInternalServerError) || server == nil {
+	server, ok := requestServer(c, db, req, ss)
+	if !ok {
 		return
 	}
 
-	err = db.Transaction(func(tx *gorm.DB) error {
+	err := db.Transaction(func(tx *gorm.DB) error {
 		server.Suspended = true
 		if err := tx.Save(server).Error; err != nil {
 			return err
@@ -566,14 +633,57 @@ func provisionSuspend(c *gin.Context) {
 		return
 	}
 
+	// the panel refuses to start a suspended server, but one already running must be stopped
+	// on its node; when that fails the billing system has to know the service still runs
 	ns := &services.Node{DB: db}
-	node := &server.Node
-	stopRes, err := ns.CallNode(node, "POST", daemonServerPrefix+server.Identifier+"/stop", nil, nil)
-	if err == nil && stopRes != nil && stopRes.Body != nil {
-		stopRes.Body.Close()
+	var children []models.Server
+	if err := db.Preload("Node").Where(parentServerIDQuery, server.Identifier).Find(&children).Error; response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+	for _, s := range append([]models.Server{*server}, children...) {
+		if err := stopOnNode(ns, &s.Node, s.Identifier); response.HandleError(c, err, http.StatusBadGateway) {
+			return
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+// stopOnNode stops a server if it is running; nil when it is stopped or stopping
+func stopOnNode(ns *services.Node, node *models.Node, identifier string) error {
+	running, err := serverRunningOnNode(ns, node, identifier)
+	if err != nil {
+		return fmt.Errorf("server %s is suspended, but its node could not be reached to stop it: %w", identifier, err)
+	}
+	if !running {
+		return nil
+	}
+	res, err := ns.CallNode(node, "POST", daemonServerPrefix+identifier+"/stop", nil, nil)
+	defer utils.CloseResponse(res)
+	if err != nil {
+		return fmt.Errorf("server %s is suspended, but its node could not stop it: %w", identifier, err)
+	}
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		return fmt.Errorf("server %s is suspended, but its node refused to stop it (status %d)", identifier, res.StatusCode)
+	}
+	return nil
+}
+
+// serverRunningOnNode asks the node whether the server is running
+func serverRunningOnNode(ns *services.Node, node *models.Node, identifier string) (bool, error) {
+	res, err := ns.CallNode(node, "GET", daemonServerPrefix+identifier+"/status", nil, nil)
+	defer utils.CloseResponse(res)
+	if err != nil {
+		return false, err
+	}
+	if res.StatusCode != http.StatusOK {
+		return false, fmt.Errorf("status %d", res.StatusCode)
+	}
+	var status skypanel.ServerRunning
+	if err := json.NewDecoder(res.Body).Decode(&status); err != nil {
+		return false, err
+	}
+	return status.Running, nil
 }
 
 func provisionUnsuspend(c *gin.Context) {
@@ -584,12 +694,12 @@ func provisionUnsuspend(c *gin.Context) {
 	}
 
 	ss := &services.Server{DB: db}
-	server, err := getServerByRequest(db, req, ss)
-	if response.HandleError(c, err, http.StatusInternalServerError) || server == nil {
+	server, ok := requestServer(c, db, req, ss)
+	if !ok {
 		return
 	}
 
-	err = db.Transaction(func(tx *gorm.DB) error {
+	err := db.Transaction(func(tx *gorm.DB) error {
 		server.Suspended = false
 		if err := tx.Save(server).Error; err != nil {
 			return err
@@ -614,4 +724,182 @@ func provisionUnsuspend(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+// ChangePackageRequest names the service and either the product it moves to or the new
+// limits themselves (cpu in %, memory and disk in MB).
+type ChangePackageRequest struct {
+	ProvisionActionRequest
+	ProductID string `json:"product_id"`
+	CPU       int    `json:"cpu"`
+	Memory    int64  `json:"memory"`
+	Disk      int64  `json:"disk"`
+}
+
+// @Summary Change a service's plan
+// @Description Moves a provisioned server to another product's limits, or to the cpu, memory
+// @Description and disk given. The server keeps its files; a running server gets the new
+// @Description CPU and memory on its next restart (restart_required), the disk limit counts at once.
+// @Param request body ChangePackageRequest true "Service and its new plan"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Tags Provision
+// @Router /api/v1/change-package [post]
+func provisionChangePackage(c *gin.Context) {
+	db := middleware.GetDatabase(c)
+	var req ChangePackageRequest
+	if err := c.ShouldBindJSON(&req); response.HandleError(c, err, http.StatusBadRequest) {
+		return
+	}
+
+	cpu, memory, disk := req.CPU, req.Memory, req.Disk
+	if req.ProductID != "" {
+		var product models.ProvisionProduct
+		if err := db.Where("product_id = ?", req.ProductID).First(&product).Error; response.HandleError(c, err, http.StatusBadRequest) {
+			return
+		}
+		cpu, memory, disk = product.CPU, product.Memory, product.Disk
+	}
+	if cpu < 0 || memory < 0 || disk < 0 {
+		response.HandleError(c, errors.New("resources cannot be negative"), http.StatusBadRequest)
+		return
+	}
+	data := resourceLimitData(cpu, memory, disk)
+	if len(data) == 0 {
+		response.HandleError(c, errors.New("give a product_id or at least one of cpu, memory and disk"), http.StatusBadRequest)
+		return
+	}
+
+	ss := &services.Server{DB: db}
+	server, ok := requestServer(c, db, req.ProvisionActionRequest, ss)
+	if !ok {
+		return
+	}
+
+	// the node first: if it refuses, the panel must not show limits the server does not have
+	body, _ := json.Marshal(data)
+	ns := &services.Node{DB: db}
+	nodeResponse, err := ns.CallNode(&server.Node, "PUT", daemonServerPrefix+server.Identifier+"/data", io.NopCloser(bytes.NewReader(body)), nil)
+	defer utils.CloseResponse(nodeResponse)
+	if response.HandleError(c, err, http.StatusBadGateway) {
+		return
+	}
+	if nodeResponse.StatusCode != http.StatusNoContent && nodeResponse.StatusCode != http.StatusOK {
+		details, _ := io.ReadAll(nodeResponse.Body)
+		c.AbortWithStatusJSON(nodeResponse.StatusCode, gin.H{"error": "Daemon error", "details": string(details)})
+		return
+	}
+
+	updates := map[string]interface{}{}
+	if cpu > 0 {
+		updates["total_cpu"] = cpu
+	}
+	if memory > 0 {
+		updates["total_memory"] = memory
+	}
+	if disk > 0 {
+		updates["total_disk"] = disk
+	}
+	// UpdateColumns: the save hook would validate an empty model and refuse
+	if err := db.Model(&models.Server{}).Where("identifier = ?", server.Identifier).UpdateColumns(updates).Error; response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":          true,
+		"server_id":        server.Identifier,
+		"restart_required": serverIsRunning(ns, &server.Node, server.Identifier),
+	})
+}
+
+// serverIsRunning asks the node; when it cannot tell, it says yes so the caller restarts to be safe
+func serverIsRunning(ns *services.Node, node *models.Node, identifier string) bool {
+	running, err := serverRunningOnNode(ns, node, identifier)
+	return err != nil || running
+}
+
+// SSORequest names who signs in: the account's email, and optionally the service whose
+// server the browser lands on.
+type SSORequest struct {
+	ProvisionActionRequest
+	Email string `json:"email" binding:"required,email"`
+}
+
+// @Summary One-time sign-in link
+// @Description For the billing system's "go to the panel" button: returns a link that signs
+// @Description the customer in without their password, once, within a minute. Administrator
+// @Description accounts are refused, so a leaked billing key cannot open the admin panel.
+// @Param request body SSORequest true "Customer email and optional service"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 403 {object} skypanel.ErrorResponse
+// @Failure 404 {object} skypanel.ErrorResponse
+// @Tags Provision
+// @Router /api/v1/sso [post]
+func provisionSSO(c *gin.Context) {
+	db := middleware.GetDatabase(c)
+	var req SSORequest
+	if err := c.ShouldBindJSON(&req); response.HandleError(c, err, http.StatusBadRequest) {
+		return
+	}
+
+	us := &services.User{DB: db}
+	user, err := us.GetByEmail(req.Email)
+	if response.HandleError(c, err, http.StatusNotFound) {
+		return
+	}
+
+	privileged, err := userIsPrivileged(db, user)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+	if privileged {
+		response.HandleError(c, skypanel.ErrSSONotForAdmins, http.StatusForbidden)
+		return
+	}
+	ps := &services.Permission{DB: db}
+
+	redirect := "/servers/"
+	if req.ServiceID != "" || req.ServerID != "" {
+		ss := &services.Server{DB: db}
+		server, ok := requestServer(c, db, req.ProvisionActionRequest, ss)
+		if !ok {
+			return
+		}
+		// the link only goes to a server the customer can open
+		allowed, err := ps.HasPermission(user.ID, server.Identifier, scopes.ScopeServerView)
+		if response.HandleError(c, err, http.StatusInternalServerError) {
+			return
+		}
+		if !allowed {
+			response.HandleError(c, skypanel.ErrNoPermission, http.StatusForbidden)
+			return
+		}
+		redirect = "/servers/view/?id=" + url.QueryEscape(server.Identifier)
+	}
+
+	token, err := services.SSOLinks.Create(user.ID, redirect)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":    true,
+		"url":        panelURL(c) + "/auth/sso?token=" + token,
+		"expires_in": int(services.SSOLinkLifetime.Seconds()),
+	})
+}
+
+// panelURL is the address customers reach the panel at: the configured master URL, else
+// the address the billing system called.
+func panelURL(c *gin.Context) string {
+	if master := strings.TrimSuffix(config.MasterURL.Value(), "/"); config.MasterURL.IsSet() && master != "" {
+		return master
+	}
+	scheme := "http"
+	if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
+		scheme = "https"
+	}
+	return scheme + "://" + c.Request.Host
 }

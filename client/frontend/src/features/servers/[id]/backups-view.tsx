@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/empty-state';
 import { Button } from '@/components/ui/button';
-import { Archive, Plus, Download, RotateCcw, Trash2, Loader2, Clock, Cloud, HardDrive, ShieldCheck } from 'lucide-react';
+import { Archive, Plus, Download, RotateCcw, Trash2, Loader2, Clock, Cloud, HardDrive, ShieldCheck, TriangleAlert } from 'lucide-react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -60,6 +60,8 @@ function formatBackupDate(iso: string, lang: string) {
 export default function BackupsView({ serverId }: Readonly<BackupsViewProps>) {
   const [backups, setBackups] = useState<BackupInfo[]>([]);
   const [loading, setLoading] = useState(false);
+  // a list that could not be read is not an empty one: "no backups yet" would suggest they are gone
+  const [loadFailed, setLoadFailed] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [backupName, setBackupName] = useState('');
@@ -74,8 +76,10 @@ export default function BackupsView({ serverId }: Readonly<BackupsViewProps>) {
       const data: BackupInfo[] = await api.get(`/api/servers/${serverId}/backup`);
       // newest first: the timeline marks the first entry as the latest
       setBackups([...(data || [])].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+      setLoadFailed(false);
     } catch (err) {
       console.error('Failed to fetch backups:', err);
+      setLoadFailed(true);
     } finally {
       setLoading(false);
     }
@@ -158,6 +162,20 @@ export default function BackupsView({ serverId }: Readonly<BackupsViewProps>) {
       <div className="flex justify-center py-16">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
+    );
+  } else if (loadFailed && backups.length === 0) {
+    body = (
+      <EmptyState
+        icon={TriangleAlert}
+        title={t('servers.backups.loadError.title')}
+        description={t('servers.backups.loadError.description')}
+        action={
+          <Button variant="outline" onClick={() => void fetchBackups()}>
+            <RotateCcw aria-hidden="true" />
+            {t('common.retry')}
+          </Button>
+        }
+      />
     );
   } else if (backups.length === 0) {
     body = (

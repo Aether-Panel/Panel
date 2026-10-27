@@ -73,6 +73,17 @@ func (f *dnsFake) serve(w http.ResponseWriter, r *http.Request) {
 		f.records[rec.ID] = rec
 		f.creates = append(f.creates, rec)
 		reply(http.StatusOK, map[string]interface{}{"success": true, "result": rec})
+	case r.Method == http.MethodPut && strings.HasPrefix(r.URL.Path, prefix+"/dns_records/"):
+		id := strings.TrimPrefix(r.URL.Path, prefix+"/dns_records/")
+		if _, ok := f.records[id]; !ok {
+			reply(http.StatusNotFound, map[string]interface{}{"success": false, "errors": []map[string]interface{}{{"code": 81044, "message": "Record does not exist."}}})
+			return
+		}
+		var rec services.CloudflareRecord
+		_ = json.NewDecoder(r.Body).Decode(&rec)
+		rec.ID = id
+		f.records[id] = rec
+		reply(http.StatusOK, map[string]interface{}{"success": true, "result": rec})
 	case r.Method == http.MethodDelete && strings.HasPrefix(r.URL.Path, prefix+"/dns_records/"):
 		id := strings.TrimPrefix(r.URL.Path, prefix+"/dns_records/")
 		f.deletes = append(f.deletes, id)
@@ -534,4 +545,60 @@ func TestChangeLimiter(t *testing.T) {
 	assert.False(t, l.allow("a", now.Add(5*time.Second)))
 	assert.True(t, l.allow("b", now.Add(5*time.Second)))
 	assert.True(t, l.allow("a", now.Add(11*time.Second)))
+}
+
+func TestRefreshSubdomainRecords_FollowsTheNewPort(t *testing.T) {
+	env := setupDNSTest(t)
+	server := env.addServer(t, "mc01", "Survival", "minecraft", 25570, true)
+	updated, err := assignSubdomain(context.Background(), env.db, server, "survival", env.settings)
+	require.NoError(t, err)
+
+	require.NoError(t, env.db.Model(&models.Server{}).Where("identifier = ?", "mc01").UpdateColumn("port", 25600).Error)
+	moved := env.reload(t, "mc01")
+	require.NoError(t, refreshSubdomainRecords(context.Background(), env.db, moved, env.settings))
+
+	srv := env.fake.byName("_minecraft._tcp.survival.play.example.com")
+	require.Len(t, srv, 1)
+	require.NotNil(t, srv[0].Data)
+	assert.Equal(t, 25600, srv[0].Data.Port, "the SRV record points at the new port")
+	assert.Len(t, env.fake.creates, 2, "the records are edited in place, not created again")
+	assert.ElementsMatch(t, updated.DNSRecordIDs, env.reload(t, "mc01").DNSRecordIDs)
+}
+
+func TestRefreshSubdomainRecords_FollowsTheServerToAnotherNode(t *testing.T) {
+	env := setupDNSTest(t)
+	server := env.addServer(t, "mc01", "Survival", "minecraft", 25570, true)
+	_, err := assignSubdomain(context.Background(), env.db, server, "survival", env.settings)
+	require.NoError(t, err)
+
+	other := &models.Node{Name: "us-1", PublicHost: "198.51.100.7", PrivateHost: "10.0.0.7", PublicPort: 8080, PrivatePort: 8080, SFTPPort: 5657, Secret: "other"}
+	require.NoError(t, env.db.Create(other).Error)
+	require.NoError(t, env.db.Exec("UPDATE servers SET node_id = ? WHERE identifier = ?", other.ID, "mc01").Error)
+	require.NoError(t, refreshSubdomainRecords(context.Background(), env.db, env.reload(t, "mc01"), env.settings))
+
+	a := env.fake.byName("survival.play.example.com")
+	require.Len(t, a, 1)
+	assert.Equal(t, "198.51.100.7", a[0].Content, "the name points at the new node")
+}
+
+func TestRefreshSubdomainRecords_DropsTheSRVRecordWhenItNoLongerApplies(t *testing.T) {
+	env := setupDNSTest(t)
+	server := env.addServer(t, "mc01", "Survival", "minecraft", 25570, true)
+	_, err := assignSubdomain(context.Background(), env.db, server, "survival", env.settings)
+	require.NoError(t, err)
+
+	require.NoError(t, env.db.Model(&models.Server{}).Where("identifier = ?", "mc01").UpdateColumn("type", "generic").Error)
+	require.NoError(t, refreshSubdomainRecords(context.Background(), env.db, env.reload(t, "mc01"), env.settings))
+
+	assert.Empty(t, env.fake.byName("_minecraft._tcp.survival.play.example.com"))
+	assert.Len(t, env.fake.byName("survival.play.example.com"), 1)
+	assert.Len(t, env.reload(t, "mc01").DNSRecordIDs, 1)
+}
+
+func TestRefreshSubdomainRecords_NothingToDoWithoutASubdomain(t *testing.T) {
+	env := setupDNSTest(t)
+	server := env.addServer(t, "mc01", "Survival", "minecraft", 25570, true)
+
+	require.NoError(t, refreshSubdomainRecords(context.Background(), env.db, server, env.settings))
+	assert.Zero(t, env.fake.listCalls, "no Cloudflare call for a server without a subdomain")
 }

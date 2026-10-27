@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
@@ -49,10 +50,7 @@ func getAllUptime(c *gin.Context) {
 
 	// Obtener todos los servidores de la base de datos para incluir los que no tienen datos de uptime
 	dbServers := &services.Server{DB: db}
-	searchCriteria := services.ServerSearch{
-		PageSize: 1000, // Obtener todos los servidores
-		Page:     1,
-	}
+	searchCriteria := services.ServerSearch{}
 
 	// Un usuario sin admin solo puede ver los servidores a los que tiene acceso
 	user := c.MustGet("user").(*models.User)
@@ -61,7 +59,7 @@ func getAllUptime(c *gin.Context) {
 		searchCriteria.Username = user.Username
 	}
 
-	allServers, totalServers, err := dbServers.Search(searchCriteria)
+	allServers, totalServers, err := searchAllServers(dbServers, searchCriteria)
 	if err != nil && !isAdmin {
 		response.HandleError(c, err, http.StatusInternalServerError)
 		return
@@ -90,31 +88,104 @@ func getAllUptime(c *gin.Context) {
 		hasUptimeData[serverID] = true
 	}
 
+	// los servidores ya cargados describen las estadísticas sin volver a consultar uno a uno
+	loaded := make(map[string]*models.Server, len(allServers))
+	for _, server := range allServers {
+		loaded[server.Identifier] = server
+	}
+
 	// Agregar información de nodos y nombres a servidores existentes
-	// Y obtener estado actual desde el daemon para servidores con datos históricos
+	described := make([]*models.Server, 0, len(uptimeStats))
 	for serverID := range uptimeStats {
-		if server := describeUptimeServer(dbServers, uptimeStats, serverID); server != nil {
-			uptimeStats[serverID]["currentStatus"] = fetchServerRunning(c, ns, &server.Node, serverID)
+		if server := describeLoadedUptimeServer(dbServers, loaded, uptimeStats, serverID); server != nil {
+			described = append(described, server)
 		}
 	}
 
-	// Para servidores sin datos de uptime, obtener estado actual y crear entrada mínima
-	addMissingUptimeEntries(c, ns, uptimeStats, hasUptimeData, allServers, since)
+	// el estado actual de todos se pide a la vez (con un tope), no uno tras otro: con un nodo
+	// caído, cada consulta espera nodeStatusTimeout y la página tardaba minutos
+	running := fetchServersRunning(c, ns, append(described, missingUptimeServers(hasUptimeData, allServers)...))
+	for _, server := range described {
+		uptimeStats[server.Identifier]["currentStatus"] = running[server.Identifier]
+	}
+
+	// Para servidores sin datos de uptime, crear entrada mínima con su estado actual
+	now := time.Now()
+	for _, server := range missingUptimeServers(hasUptimeData, allServers) {
+		uptimeStats[server.Identifier] = minimalUptimeEntry(server, running[server.Identifier], since, now)
+	}
 
 	c.JSON(http.StatusOK, uptimeStats)
 }
 
-// addMissingUptimeEntries crea una entrada mínima, con su estado actual, para cada servidor
-// que no tiene datos de uptime
-func addMissingUptimeEntries(c *gin.Context, ns *services.Node, uptimeStats map[string]map[string]interface{}, hasUptimeData map[string]bool, allServers []*models.Server, since time.Time) {
-	now := time.Now()
-	for _, server := range allServers {
-		if hasUptimeData[server.Identifier] {
-			continue
+// uptimeSearchPage es cuántos servidores se leen por consulta al juntarlos todos; los tests lo bajan
+var uptimeSearchPage = 1000
+
+// searchAllServers junta todas las páginas de la búsqueda: antes se pedía una sola página de
+// 1000 y los servidores a partir de ahí desaparecían del resumen sin avisar
+func searchAllServers(dbServers *services.Server, criteria services.ServerSearch) ([]*models.Server, int64, error) {
+	criteria.PageSize = uint(uptimeSearchPage)
+	var all []*models.Server
+	var total int64
+	for page := uint(1); ; page++ {
+		criteria.Page = page
+		batch, count, err := dbServers.Search(criteria)
+		if err != nil {
+			return all, total, err
 		}
-		isRunning := fetchServerRunning(c, ns, &server.Node, server.Identifier)
-		uptimeStats[server.Identifier] = minimalUptimeEntry(server, isRunning, since, now)
+		total = count
+		all = append(all, batch...)
+		if len(batch) < uptimeSearchPage || int64(len(all)) >= total {
+			return all, total, nil
+		}
 	}
+}
+
+// missingUptimeServers son los servidores que todavía no tienen datos de uptime
+func missingUptimeServers(hasUptimeData map[string]bool, allServers []*models.Server) []*models.Server {
+	missing := make([]*models.Server, 0)
+	for _, server := range allServers {
+		if !hasUptimeData[server.Identifier] {
+			missing = append(missing, server)
+		}
+	}
+	return missing
+}
+
+// uptimeStatusParallel limita cuántos nodos se consultan a la vez
+const uptimeStatusParallel = 16
+
+// fetchServersRunning pregunta a los nodos, en paralelo, qué servidores están encendidos
+func fetchServersRunning(c *gin.Context, ns *services.Node, list []*models.Server) map[string]bool {
+	running := make(map[string]bool, len(list))
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	slots := make(chan struct{}, uptimeStatusParallel)
+	for _, server := range list {
+		wg.Add(1)
+		slots <- struct{}{}
+		go func(server *models.Server) {
+			defer wg.Done()
+			defer func() { <-slots }()
+			isRunning := fetchServerRunning(c, ns, &server.Node, server.Identifier)
+			mu.Lock()
+			running[server.Identifier] = isRunning
+			mu.Unlock()
+		}(server)
+	}
+	wg.Wait()
+	return running
+}
+
+// describeLoadedUptimeServer es describeUptimeServer usando el servidor ya cargado si está
+func describeLoadedUptimeServer(dbServers *services.Server, loaded map[string]*models.Server, uptimeStats map[string]map[string]interface{}, serverID string) *models.Server {
+	server, ok := loaded[serverID]
+	if !ok {
+		return describeUptimeServer(dbServers, uptimeStats, serverID)
+	}
+	uptimeStats[serverID]["serverName"] = server.Name
+	uptimeStats[serverID]["nodeName"] = uptimeNodeName(&server.Node)
+	return server
 }
 
 // clampedQueryInt lee un entero de la query: def si falta o es menor que 1, max como tope

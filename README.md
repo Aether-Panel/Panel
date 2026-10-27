@@ -5,7 +5,7 @@
 ### Panel de Gestión de Servidores de Juegos de Código Abierto
 </div>
 
-[Documentación](./docs/README.md) • [Instalación](./docs/setup/01-installation.md) • [API](./docs/reference/11-api-reference.md) • [Discord](https://discord.gg/aetherpanel)
+[Documentación](./docs/es/README.md) • [Instalación](./docs/es/setup/01-installation.md) • [API](./docs/es/reference/11-api-reference.md) • [English docs](./docs/en/README.md) • [Discord](https://discord.gg/aetherpanel)
 
 ---
 
@@ -26,22 +26,30 @@ Ofrece una arquitectura flexible con dos backends de ejecución —Docker y ejec
 *   **Dos Backends de Ejecución:**
     *   **Docker:** Cada servidor se ejecuta en un contenedor Docker aislado.
     *   **Host/TTY:** Ejecución directa con aislamiento por contenedores de Linux (namespaces: user, mount, cgroup, ipc, uts) y `pivot_root`.
-*   **Plantillas: ** Soporte para más de 24 tipos de juegos (Minecraft, Terraria, Valheim, Rust, ARK, etc.) mediante repositorios de plantillas externos.
+*   **Plantillas:** Soporte para más de 24 tipos de juegos (Minecraft, Terraria, Valheim, Rust, ARK, etc.) mediante repositorios de plantillas externos.
+*   **Límites reales:** El límite de disco se aplica de verdad (también a las subidas por SFTP) y cada servidor tiene prioridad de E/S de disco configurable.
+*   **Sin cortes al reiniciar:** Si el panel o el daemon se reinician, se vuelven a conectar a los servidores que siguieron en marcha.
+*   **Subdominios automáticos:** Con Cloudflare, cada servidor tiene su subdominio, que se actualiza si cambia su puerto o su nodo.
 
 ### Administración y Seguridad
 *   **Multi-Usuario:** Sistema completo de usuarios y roles con permisos detallados por servidor.
+*   **Propietario y subusuarios:** Cada servidor tiene un propietario, que invita a subusuarios y les da solo los permisos que elija.
+*   **API keys con permisos:** Cada clave (por ejemplo, la del sistema de facturación) solo puede hacer las acciones que se le dieron.
 *   **Autenticación Múltiple:** Sesiones con cookie/token, API keys (`ak_*`), OAuth2 (client credentials + password grant), JWT con JWKS endpoint.
-*   **2FA/TOTP:** Autenticación de dos factores vía códigos temporales.
+*   **2FA/TOTP:** Autenticación de dos factores vía códigos temporales, con inicio de sesión en dos pasos y códigos de recuperación.
+*   **Anti-bots sin configurar nada:** Comprobación anti-bots propia (prueba de trabajo) activada por defecto en el registro, el inicio de sesión y la recuperación de contraseña. Cloudflare Turnstile sigue disponible como opción.
 *   **Aislamiento:** Contenedores Docker o namespaces de Linux con `pivot_root` y mapeo de usuarios.
 
 ### Herramientas Integradas
-*   **Gestión de Archivos:** Servidor SFTP nativo (SSH + SFTP sobre Go) con autenticación por OAuth2 o base de datos.
+*   **Gestión de Archivos:** Servidor SFTP nativo (SSH + SFTP sobre Go) con contraseña o, en el nodo del panel, con claves SSH públicas.
 *   **Panel Web:** Interfaz moderna construida con Astro, React 19 y Tailwind CSS.
 *   **Notificaciones:** Alertas automáticas vía Discord (embeds enriquecidos) y correo electrónico (Mailgun, Mailjet, SendGrid, SMTP).
 *   **API RESTful:** Documentada con Swagger/OpenAPI, disponible en `/swagger/`.
 *   **Monitorización:** Estadísticas de CPU, memoria y disco por servidor vía `gopsutil`; WebSocket en tiempo real para console y métricas.
 *   **Programador de Tareas:** Motor de tareas programadas con gocron.
 *   **AI Asistente:** Integración con Google GenAI para asistencia en consola/logs.
+*   **Facturación:** API de aprovisionamiento para WHMCS u otros sistemas: crea servidores con los límites del plan, cambia de plan y genera enlaces de acceso directo de un solo uso.
+*   **Extensiones:** Instala extensiones (`.zip`) que añaden páginas aisladas al panel y reciben eventos firmados. Ver [Extensiones](./docs/es/reference/15-extensions.md).
 
 ---
 
@@ -52,7 +60,7 @@ Aether Panel opera como una aplicación monolítica modular con capacidad de des
 ### Componentes Principales
 
 1.  **Core (Backend):**
-    *   Escrito en **Go** (1.25).
+    *   Escrito en **Go** (1.26).
     *   Framework web **Gin**, ORM **GORM**, CLI **Cobra**.
     *   Gestiona la API HTTP, autenticación, base de datos y lógica de negocio.
     *   Controla el ciclo de vida de servidores (Docker o directo).
@@ -85,11 +93,13 @@ Aether Panel opera como una aplicación monolítica modular con capacidad de des
 ## Instalación Rápida
 
 ### Opción 1: Instalación Automática (Script)
-El método recomendado para la mayoría de los usuarios en sistemas Linux (Ubuntu/Debian/CentOS).
+El método recomendado. Probado en Ubuntu 22.04, 24.04, 26.04 y 26.10, Debian 12 y Rocky Linux 9 (amd64 y arm64).
 
 ```bash
-bash <(curl -s https://install.aetherpanel.es/install.sh)
+curl -fsSL https://install.aetherpanel.es/install.sh | sudo bash
 ```
+
+Opciones (`--non-interactive`, `--dry-run`, dominio y SSL…) en la [Guía de Instalación](./docs/es/setup/01-installation.md#opciones-útiles).
 
 ### Opción 2: Despliegue con Docker
 Para ejecutar el panel dentro de un contenedor Docker.
@@ -104,21 +114,21 @@ docker run -d \
 ```
 
 ### Opción 3: Construcción Manual
-Requiere Go 1.25+ y Node.js 22+.
+Requiere Go 1.26+ y Node.js 22+.
 
 1.  Clonar el repositorio.
 2.  Compilar el frontend (`yarn build` en `client/`).
 3.  Compilar el backend (`make build` en raíz).
 4.  Ejecutar el binario generado (`make run`).
 
-Para instrucciones detalladas, consulte la [Guía de Instalación Completa](./docs/setup/01-installation.md).
+Para instrucciones detalladas, consulte la [Guía de Instalación Completa](./docs/es/setup/01-installation.md).
 
 ---
 
 ## Stack Tecnológico
 
 **Backend**
-*   Lenguaje: Go 1.25
+*   Lenguaje: Go 1.26
 *   Framework Web: Gin
 *   ORM: GORM
 *   CLI: Cobra + Viper
@@ -140,7 +150,7 @@ Para instrucciones detalladas, consulte la [Guía de Instalación Completa](./do
 *   Base de Datos: SQLite, MySQL/MariaDB, PostgreSQL, SQL Server
 *   Transferencia: SFTP nativo (Go)
 *   Notificaciones: Discord, Mailgun, Mailjet, SendGrid, SMTP
-*   Autenticación: Sesiones, OAuth2, JWT/JWKS, API Keys, 2FA/TOTP
+*   Autenticación: Sesiones, OAuth2, JWT/JWKS, API Keys, 2FA/TOTP, claves SSH (SFTP)
 
 ---
 

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { api, ApiError } from '@/lib/api-client';
 import type { Server } from '@/lib/data';
 import { parsePlayerQuery } from '@/lib/players';
+import { fetchAllPages } from '@/lib/paged';
 const globalFailedStatsSet = new Set<string>();
 
 // Stats are polled for every listed server; cap parallel requests so large lists do not flood the panel
@@ -36,11 +37,12 @@ export function useServers(statsFor?: (server: Server) => boolean) {
     const fetchServers = async () => {
         try {
             const [serversData, uptimeData] = await Promise.all([
-                api.get('/api/servers'),
+                // every page: without a limit the API answers only the first 20
+                fetchAllPages('/api/servers', 'servers'),
                 api.get('/api/uptime').catch(() => ({}))
             ]);
 
-            const mappedServers: Server[] = (serversData.servers || []).map((s: any) => {
+            const mappedServers: Server[] = serversData.items.map((s: any) => {
                 const uptime = uptimeData[s.id] || {};
                 return {
                     id: s.id,
@@ -66,7 +68,25 @@ export function useServers(statsFor?: (server: Server) => boolean) {
                 };
             });
 
-            setServers(mappedServers);
+            // a refresh (after start, stop…) keeps the live stats, chart history and players
+            // already shown; the next stats round brings them up to date
+            setServers(prev => mappedServers.map(fresh => {
+                const shown = prev.find(p => p.id === fresh.id);
+                if (!shown) return fresh;
+                return {
+                    ...shown,
+                    name: fresh.name,
+                    nodeId: fresh.nodeId,
+                    ipAddress: fresh.ipAddress,
+                    port: fresh.port,
+                    isGhost: fresh.isGhost,
+                    parentServerId: fresh.parentServerId,
+                    totalCpu: fresh.totalCpu,
+                    totalMemory: fresh.totalMemory,
+                    totalDisk: fresh.totalDisk,
+                    uptimePercent: fresh.uptimePercent,
+                };
+            }));
             setError(null);
 
             // Start fetching stats for each server
@@ -89,7 +109,9 @@ export function useServers(statsFor?: (server: Server) => boolean) {
                 }
 
                 const [stats, queryData] = await Promise.all([
-                    api.get(`/api/servers/${server.id}/stats`).catch(() => null),
+                    // a failed stats call must reach the catch below and mark the server offline,
+                    // or it would keep its last status and numbers forever
+                    api.get(`/api/servers/${server.id}/stats`),
                     api.get(`/api/servers/${server.id}/query`).catch(() => null)
                 ]);
 

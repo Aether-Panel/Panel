@@ -52,6 +52,11 @@ type Server struct {
 	// Server State
 	Suspended bool `gorm:"column:suspended;default:false" json:"suspended"`
 
+	// OwnerID is the customer the server belongs to: they hold OwnerScopes on it whatever
+	// their permission row says, and sub-users cannot remove or limit them. Only an
+	// administrator changes it. Nil for servers that belong to nobody (an admin's own).
+	OwnerID *uint `gorm:"column:owner_id;index" json:"-" validate:"-"`
+
 	// External integration ID (e.g. Paymenter service ID)
 	ExternalID string `gorm:"column:external_id;size:64;index" json:"-"`
 
