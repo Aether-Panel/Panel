@@ -1990,8 +1990,36 @@ panel_local_host() {
     if [[ "$PANEL_BIND" == "0.0.0.0" ]]; then echo 127.0.0.1; else echo "$PANEL_BIND"; fi
 }
 
+# pull_images: descarga las imágenes que no se construyen aquí (MariaDB, Adminer), con
+# reintentos. Docker Hub limita las descargas sin cuenta por IP (100 cada 6 horas), y en un
+# servidor con IP compartida se agotan: entonces se explica en vez de dar un error de Docker.
+pull_images() {
+    if [[ "$DRY_RUN" == "true" ]]; then
+        dc pull --ignore-buildable
+        return 0
+    fi
+    local attempt out
+    out=$(mktemp)
+    TMP_FILES+=("$out")
+    for attempt in 1 2 3; do
+        if dc pull --ignore-buildable 2>&1 | tee "$out"; then
+            return 0
+        fi
+        if (( attempt < 3 )); then
+            log_warning "No se pudieron descargar las imágenes; reintento en $((attempt * 30)) s..."
+            sleep $((attempt * 30))
+        fi
+    done
+    if grep -qiE '429|too many requests|toomanyrequests' "$out"; then
+        die "Docker Hub ha limitado las descargas desde esta IP. Espera unas horas o inicia sesión con 'docker login' y vuelve a ejecutar el instalador (es seguro repetirlo)."
+    fi
+    die "No se pudieron descargar las imágenes de Docker. Revisa la conexión a Internet y vuelve a ejecutar el instalador."
+}
+
 start_stack() {
     print_step "Iniciando $PROJECT_NAME"
+
+    pull_images
 
     local -a recreate=()
     if [[ "$FORCE" == "true" ]]; then recreate=(--force-recreate); fi
