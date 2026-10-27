@@ -1271,8 +1271,11 @@ install_dependencies() {
 
     print_step "Instalando dependencias del sistema"
 
-    # Solo lo necesario: la compilación del panel ocurre dentro de Docker
-    local -a pkgs=(curl ca-certificates git jq)
+    # Solo lo necesario: la compilación del panel ocurre dentro de Docker. curl no se pide si
+    # ya está: en Rocky/Alma 9 viene como curl-minimal, que choca con el paquete curl y hacía
+    # fallar toda la instalación de dependencias.
+    local -a pkgs=(ca-certificates git jq)
+    if ! command -v curl >/dev/null 2>&1; then pkgs+=(curl); fi
     local need_nginx=false
     if [[ "$SKIP_NGINX" != "true" ]]; then need_nginx=true; fi
 
