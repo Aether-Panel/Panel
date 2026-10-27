@@ -853,7 +853,7 @@ fetch_public_ip() {
     local s ip
     command -v curl >/dev/null 2>&1 || return 1
     for s in https://ifconfig.me https://ipinfo.io/ip https://icanhazip.com https://checkip.amazonaws.com; do
-        ip=$(curl -4 -fsS --max-time 5 "$s" 2>/dev/null | tr -d '[:space:]') || continue
+        ip=$(curl --proto '=https' -4 -fsS --max-time 5 "$s" 2>/dev/null | tr -d '[:space:]') || continue
         if validate_ip "$ip" && ! is_private_ip "$ip"; then
             printf '%s' "$ip"
             return 0
@@ -1313,7 +1313,7 @@ fetch_docker_gpg_key() {
     local dest="$1" tmp fpr
     tmp=$(mktemp)
     TMP_FILES+=("$tmp")
-    curl -fsSL "https://download.docker.com/linux/$DOCKER_DISTRO/gpg" -o "$tmp"
+    curl --proto '=https' --tlsv1.2 -fsSL "https://download.docker.com/linux/$DOCKER_DISTRO/gpg" -o "$tmp"
     if command -v gpg >/dev/null 2>&1; then
         fpr=$(gpg --show-keys --with-colons "$tmp" 2>/dev/null | awk -F: '$1 == "fpr" {print $10}')
         if [[ "$fpr" != *"$DOCKER_GPG_FINGERPRINT"* ]]; then
@@ -1341,7 +1341,7 @@ install_docker() {
             # Instalaciones de 4.0.0 usaban docker.gpg: se respeta si ya existe
             if [[ -f /etc/apt/keyrings/docker.gpg ]]; then keyring="/etc/apt/keyrings/docker.gpg"; fi
             if [[ "$DRY_RUN" == "true" ]]; then
-                run curl -fsSL "https://download.docker.com/linux/$DOCKER_DISTRO/gpg" -o "$keyring"
+                run curl --proto '=https' --tlsv1.2 -fsSL "https://download.docker.com/linux/$DOCKER_DISTRO/gpg" -o "$keyring"
             elif [[ ! -f "$keyring" ]]; then
                 install -m 0755 -d /etc/apt/keyrings
                 fetch_docker_gpg_key "$keyring"
@@ -1370,13 +1370,13 @@ install_docker() {
 
 curl_to_file() {
     if [[ "$DRY_RUN" == "true" ]]; then
-        run curl -fsSL "$1" -o "$2"
+        run curl --proto '=https' --tlsv1.2 -fsSL "$1" -o "$2"
         return 0
     fi
     local tmp
     tmp=$(mktemp)
     TMP_FILES+=("$tmp")
-    curl -fsSL "$1" -o "$tmp"
+    curl --proto '=https' --tlsv1.2 -fsSL "$1" -o "$tmp"
     install -m 0644 "$tmp" "$2"
 }
 
@@ -2015,14 +2015,16 @@ start_stack() {
 
 wait_for_panel() {
     if [[ "$DRY_RUN" == "true" ]]; then
-        log_info "[dry-run] Se esperaría a que el panel responda en http://$(panel_local_host):$PANEL_PORT/"
+        log_info "[dry-run] Se esperaría a que el panel responda en http://$(panel_local_host):$PANEL_PORT/" # NOSONAR: comprobación local, el panel solo sirve http dentro del servidor
         return 0
     fi
     log_info "Esperando a que el panel responda (migraciones de base de datos incluidas)..."
     local url code status restarts start=$SECONDS next=15
-    url="http://$(panel_local_host):$PANEL_PORT/"
+    # el panel escucha en http dentro del servidor (Nginx pone el https delante): esta
+    # comprobación va a la propia máquina, nunca sale por la red
+    url="http://$(panel_local_host):$PANEL_PORT/" # NOSONAR
     while (( SECONDS - start < 300 )); do
-        code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 "$url" 2>/dev/null || true)
+        code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 "$url" 2>/dev/null || true) # NOSONAR: misma comprobación local
         if [[ "$code" =~ ^[1-5][0-9][0-9]$ ]]; then
             log_success "Panel respondiendo en $url (HTTP $code)"
             return 0
@@ -2445,7 +2447,7 @@ print_summary() {
     else
         printf '📍 Accede al panel: %s%s%s\n' "$GREEN" "$MASTER_URL" "$NC"
         if [[ "$NGINX_CONFIGURED" == "true" && -n "$DOMAIN" && "$PANEL_BIND" == "0.0.0.0" ]]; then
-            echo "   (también directo en http://$SERVER_IP:$PANEL_PORT)"
+            echo "   (también directo en http://$SERVER_IP:$PANEL_PORT)" # NOSONAR: la dirección directa del panel es http
         fi
         if [[ "$MASTER_URL_WRITTEN" == "true" ]]; then
             echo "   URL maestra guardada en el panel (enlaces de recuperación de contraseña y SSO)."
