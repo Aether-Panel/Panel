@@ -18,20 +18,21 @@ Welcome to the official technical documentation of Aether Panel. Here you will f
 *   [License System](./general/14-license.md): License system (external API).
 *   [Email/SMTP](./general/15-email.md): Email providers and template system.
 *   [Discord Webhooks](./general/16-discord.md): Webhook types and embed structures.
-*   [Turnstile/Captcha](./general/17-turnstile.md): Cloudflare Turnstile.
+*   [Captcha / anti-bot](./general/17-turnstile.md): Built-in anti-bot check (on by default, no keys) and optional Cloudflare Turnstile.
 *   [Conditions/CEL Engine](./general/18-conditions-cel.md): CEL engine + custom functions.
 *   [Files/Compression](./general/19-files-compression.md): FileServer, MergedFS, archive/extract.
 *   [Security/unshare](./general/20-security-unshare.md): openat2, unshare, kernel support.
 *   [Terms and Conditions](./general/terms.md): Legal terms.
 *   [Privacy Policy](./general/privacy.md): Data privacy.
-*   [Security](./general/security.md): Security considerations.
+*   [Security](./general/security.md): Security considerations, two-step sign-in (2FA), sessions and SSH keys for SFTP.
+*   [Scopes reference](./general/scopes-reference.md): Owner and sub-users, roles, API key permissions and the full scope list.
 *   [Usages](./general/usages.md): Use cases.
 
 ### Backend (Architecture and APIs)
 *   [01. Overview](./backend/01-overview.md): Structure of the Go code, Panel and Daemon modes.
 *   [02. Configuration](./backend/02-configuration.md): `config.json` file and Viper system.
 *   [03. Database](./backend/03-database.md): GORM models and migrations.
-*   [04. Server Management](./backend/04-servers.md): Lifecycle, scheduler, **ExtraPortBindings, Docker network auto-detection**.
+*   [04. Server Management](./backend/04-servers.md): Lifecycle, scheduler, **ExtraPortBindings, Docker network auto-detection**, disk limit, I/O priority, reconnect after restart and subdomains.
 *   [05. API and HTTP Layer](./backend/05-api-layer.md): REST routes, CORS, OAuth2, **port endpoints**.
 *   [06. Operations and Conditions](./backend/06-operations.md): JSON-based operation engine for tasks (downloads, unzip, chown).
 *   [07. CLI Tool](./backend/07-cli.md): Usage of the SkyPanel binary from the terminal.
@@ -53,6 +54,6 @@ Welcome to the official technical documentation of Aether Panel. Here you will f
 *   [08. AI Detailed](./frontend/08-ai-detailed.md): Genkit flows, prompts, UI.
 
 ### References
-*   [API Reference](./reference/11-api-reference.md): General schema for programmatic usage.
+*   [API Reference](./reference/11-api-reference.md): General schema for programmatic usage and the provisioning (billing) API.
 *   [CLI Commands Reference](./reference/14-cli-commands.md): Detailed list of console subcommands and flags.
 *   [Extensions](./reference/15-extensions.md): How to build and install extensions (pages and events).

@@ -32,19 +32,7 @@ The panel includes an OAuth2 server. The endpoint is at `/oauth2/token` (generat
 
 #### Two-Factor Authentication (2FA/TOTP)
 
-Aether Panel supports TOTP (Time-based One-Time Password) for two-factor authentication. When a user has 2FA enabled, they are prompted for the OTP code after login. The code must be entered within a 5-minute window from login. Compatible with Google Authenticator, Authy, Microsoft Authenticator, etc.
-
-##### Setting Up 2FA
-
-- Go to your profile in the panel
-- Click 'Configure 2FA'
-- Scan the QR code with your authenticator app
-- Enter the verification code to confirm
-- Save the recovery codes in a safe place
-
-##### Recovery Codes
-
-When you configure 2FA, unique recovery codes are generated. You can regenerate them at `/api/self/otp/recovery`. If you lose access to your 2FA device, recovery codes are the only way to recover your account.
+Aether Panel supports TOTP (Time-based One-Time Password) for two-factor authentication. How to turn it on, recovery codes and the API are in [Two-step verification (2FA)](#two-step-verification-2fa).
 
 ### Password Security
 
@@ -52,7 +40,7 @@ Passwords in Aether Panel are protected with:
 
 - bcrypt hashing (default cost: 10) — never stored in plain text
 - Each SetPassword() call generates a new hash with automatic salt
-- Password field has a maximum size of 200 characters in the database
+- Passwords must be between 8 and 72 bytes (bcrypt's limit)
 
 #### Password Recommendations
 
@@ -61,6 +49,133 @@ Passwords in Aether Panel are protected with:
 - Don't reuse passwords from other services
 - Use a password manager (Bitwarden, 1Password, etc.)
 - Rotate passwords regularly, especially admin accounts
+
+## Sign-in and account
+
+The sign-in, sign-up and password reset forms go through an anti-bot check. It is described in [Captcha / anti-bot](17-turnstile.md).
+
+### Attempt limits
+
+| What | Limit | Answer once over it |
+|------|-------|---------------------|
+| Password (panel and SFTP share the counter) | 10 failures in 15 minutes per account | `429` `ErrTooManyAttempts` |
+| 2FA code | 10 failures in 15 minutes per account | `429` `ErrTooManyAttempts` |
+| Password reset emails | 5 per address per hour | `204`, no email sent |
+
+The counter is per account (email), not per IP, so it works the same behind a proxy. It lives in memory: it resets when the panel restarts. A successful sign-in resets it for that account.
+
+### Two-step verification (2FA)
+
+6-digit TOTP codes, compatible with Google Authenticator, Authy, Microsoft Authenticator and similar apps.
+
+**Turning it on**: **Account Settings → Two-factor authentication → Enable 2FA**. Scan the QR code and type the code the app shows. Until you confirm it, 2FA is not on.
+
+Once confirmed, the panel shows **10 recovery codes** of 12 characters. Keep them: the panel only stores their hash and cannot show them again. Each one works **once** in place of the app's code.
+
+| Action | What it asks for | What happens |
+|--------|------------------|--------------|
+| Regenerate codes | A code from the app or a recovery code | The old ones stop working. |
+| Turn off | A code from the app or a recovery code | The secret and the codes are deleted. |
+| Change phone | Turn it off and on again | You cannot enrol over an active one (`ErrOtpAlreadyEnabled`). |
+
+If email is configured, the panel sends a notice when 2FA is turned on, turned off and when codes are regenerated.
+
+**If both the phone and the codes are lost**, an administrator removes it on the server with `SkyPanel user edit` → **Remove 2FA** (see [CLI](../backend/07-cli.md)).
+
+**When signing in**, `POST /auth/login` answers `{"otpNeeded": true}` and the code goes to `POST /auth/otp` in the same browser session, within **5 minutes**. After that the password must be typed again (`ErrSessionExpired`).
+
+```bash
+# 1. Password (plus the anti-bot token): answers {"otpNeeded": true}
+curl -c cookies.txt -X POST https://panel.example.com/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email": "ana@example.com", "password": "<your-password>", "captchaToken": "<token>"}'
+
+# 2. The app's code (or a recovery code), with the same cookie
+curl -b cookies.txt -X POST https://panel.example.com/auth/otp \
+  -H 'Content-Type: application/json' \
+  -d '{"token": "123456"}'
+```
+
+| Method and path | Body | Response |
+|-----------------|------|----------|
+| `GET /api/self/otp` | — | `{"otpEnabled": true}` |
+| `POST /api/self/otp` | — | `{"secret": "...", "img": "data:image/png;base64,..."}` |
+| `PUT /api/self/otp` | `{"token": "123456"}` | `{"recoveryCodes": ["...", ...]}` |
+| `POST /api/self/otp/recovery` | `{"token": "123456"}` | `{"recoveryCodes": ["...", ...]}` |
+| `DELETE /api/self/otp/{token}` | — | `204` |
+
+All of them need the `self.edit` permission.
+
+SFTP does not ask for the 2FA code: it signs in with the password or with an [SSH key](#ssh-keys-for-sftp).
+
+### Taking away the login permission
+
+The panel checks the `login` permission on **every request**, not only at sign-in. It counts `login` from the user's panel-wide permissions or from their role; `login` on a single server does not count.
+
+If you take it away from a user (or take away the role that gave it), their session ends on their next request: the panel deletes it and answers `401`.
+
+Other things that end sessions:
+
+| What | Sessions ended |
+|------|----------------|
+| The user changes their password in their profile | All but the current one |
+| An administrator sets a new password for them | All |
+| The password is reset with the email link | All |
+
+Taking away `login` also closes SFTP: the panel checks it on every connection, by password or SSH key, as well as `server.sftp`.
+
+### SSH keys for SFTP
+
+A user can sign in to SFTP with a public key instead of their password. The username is still `email#serverID`.
+
+**Adding a key**: **Account Settings → SSH keys → Add key**. Paste the line from your `.pub` file (for example `~/.ssh/id_ed25519.pub`). If you leave the name empty, the key's comment is used.
+
+| Rule | Detail |
+|------|--------|
+| Accepted types | `ssh-ed25519`, ECDSA (256, 384 and 521), security keys (`sk-ssh-ed25519@openssh.com`, `sk-ecdsa-sha2-nistp256@openssh.com`) and RSA of 2048 bits or more. |
+| Refused | DSA, certificates, lines with options (`from=`, `command=`…) and private keys. |
+| Name | Up to 100 characters. |
+| Maximum | 25 keys per account. The same key cannot be added twice. |
+
+The panel shows each key's SHA256 fingerprint, the same one `ssh-keygen -l` prints.
+
+**Connecting**:
+
+```bash
+sftp -P 5657 -i ~/.ssh/id_ed25519 -o User='ana@example.com#1a2b3c4d' panel.example.com
+```
+
+The user still needs `server.sftp` on that server (or to own it). Deleting a key stops new connections with it; deleting the user deletes their keys.
+
+Keys only work on the node the panel runs on. Remote nodes check SFTP sign-ins against the panel with username and password, so on their servers you sign in with the password.
+
+| Method and path | Body | Response |
+|-----------------|------|----------|
+| `GET /api/self/sshkeys` | — | List of keys |
+| `POST /api/self/sshkeys` | `{"name": "Laptop", "publicKey": "ssh-ed25519 AAAA... ana@laptop"}` | The created key |
+| `DELETE /api/self/sshkeys/{id}` | — | `204` |
+
+```json
+{
+  "id": 3,
+  "name": "Laptop",
+  "fingerprint": "SHA256:…",
+  "type": "ssh-ed25519",
+  "createdAt": "2026-10-26T16:00:00Z"
+}
+```
+
+All of them need the `self.edit` permission. Errors: `ErrSSHKeyInvalid`, `ErrSSHKeyIsPrivate`, `ErrSSHKeyWeak`, `ErrSSHKeyExists`, `ErrSSHKeyLimit`, `ErrSSHKeyName`.
+
+### Password reset
+
+- The **Forgot password** form goes through the anti-bot check.
+- It always answers `204`, whether the account exists or not and even when the email limit is reached.
+- The email goes to the address stored on the account, not to what was typed in the form.
+- The link is built from the panel's **Base URL** (`panel.settings.masterUrl`), never from the request's headers. Set it: otherwise the link uses `http://localhost:8080` and the panel warns about it in the log.
+- The link expires after **30 minutes** and works **once**. Asking for another cancels the previous one. Only its hash is stored in the database.
+- The new password must be 8 to 72 bytes. This is checked before the link is spent, so a password that is too short can simply be typed again.
+- Once changed, every session of the account ends and a notice email is sent.
 
 ## Authorization & Permissions
 

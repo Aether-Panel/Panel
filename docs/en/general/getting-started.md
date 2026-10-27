@@ -12,14 +12,14 @@ It is important to note that Aether Panel requires at least 2 CPU vcores, 2GB of
 
 - **cardTitle**: Hardware and Software
 - **cardTitle2**: Minimum
-- Operating System: Linux (Ubuntu 20.04+, Debian 11+, CentOS 8+).
+- Operating System: Linux (Ubuntu 22.04+, Debian 12+, Rocky/Alma 9).
 - Architecture: amd64 or arm64.
 - Virtualization: KVM, OpenVZ, LXC or dedicated server (for nodes).
 - Software: Docker and Docker Compose (v20.10.0+, optional).
 - Hardware: 2 CPU vcores, 2GB RAM, 5GB storage (minimum).
 
 - **cardTitle3**: Recommended
-- Operating System: Linux (Ubuntu 20.04+, Debian 11+, CentOS 8+).
+- Operating System: Linux (Ubuntu 22.04+, Debian 12+, Rocky/Alma 9).
 - Architecture: amd64 or arm64.
 - Virtualization: KVM, OpenVZ, LXC or dedicated server (for nodes).
 - Software: Docker and Docker Compose (v20.10.0+, optional).

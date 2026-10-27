@@ -96,6 +96,14 @@ type EnvironmentImpl interface {
 }
 ```
 
+Un entorno puede implementar además `Reattacher`, para volver a conectarse a un proceso que siguió en marcha mientras el daemon estaba parado. Solo lo implementa Docker (ver [Reconexión tras reiniciar el daemon](#reconexión-tras-reiniciar-el-daemon)):
+
+```go
+type Reattacher interface {
+    ReattachImpl(env *Environment, steps ExecutionData) error
+}
+```
+
 ## Ciclo de Vida del Servidor
 
 ```
@@ -111,6 +119,8 @@ type EnvironmentImpl interface {
    └── Procesa server.Installation[]
 
 3. POST /daemon/server/:serverId/start
+   ├── Disco lleno → 409 ErrDiskLimitExceeded (ver Límite de disco)
+   ├── Conflicto de puertos → 409
    ├── server.Start()
    ├── Crea Environment si no existe
    ├── Verifica requirements
@@ -142,9 +152,11 @@ var statTicker *time.Ticker        // estadísticas cada 5s
 var systemStatusTicker *time.Ticker // estado del sistema cada 1min
 ```
 
-- `InitService()` inicia 4 goroutines: `processQueue()`, `processStats()`, `processSystemStatus()`, `trackUptimeForAllServers()`
+- `InitService()` inicia 6 goroutines: `processQueue()`, `processStats()`, `processPlayers()`, `processSystemStatus()`, `reattachRunningServers()`, `trackUptimeForAllServers()`
 - `processStats()` recolecta métricas de todos los servidores cada 5s y notifica via StatsTracker
+- `processPlayers()` guarda cada minuto el número de jugadores de los servidores en marcha
 - `processSystemStatus()` recolecta métricas del sistema cada 1min
+- `reattachRunningServers()` se reconecta a los servidores que siguieron en marcha durante un reinicio del daemon
 - `trackUptimeForAllServers()` registra uptime de servidores
 
 ## Scheduler (Tareas Programadas)
@@ -209,3 +221,94 @@ El daemon mantiene un cache en memoria de los servidores activos. Cuando el pane
 ## Alerta de Cambio de Estado
 
 El sistema trackea cambios de estado (running ↔ stopped) y puede enviar notificaciones vía Discord webhook.
+
+## Límite de disco
+
+El límite es la variable `disk` del servidor, en MB. Sin `disk`, o con `0`, no hay límite. Código: `internal/servers/disk.go`.
+
+### Cómo se mide
+
+- El daemon recorre la carpeta del servidor y suma el tamaño de sus archivos.
+- La medida vale 15 segundos. Lo que escribe el panel (subidas, SFTP, extracción, plugins) se suma al momento. Lo que escribe el propio juego solo se ve en la siguiente medida.
+- Al borrar archivos (desde el panel o por SFTP) la medida se descarta, así que el espacio liberado cuenta enseguida.
+
+### Qué se bloquea
+
+Un servidor que ya ha usado todo su disco no arranca y no acepta archivos nuevos hasta que se borre algo. La API del daemon contesta `409` con el error `ErrDiskLimitExceeded`.
+
+| Operación | Comportamiento |
+|-----------|----------------|
+| Arrancar / reiniciar | La API lo rechaza con `409` antes de arrancar. `Start()` vuelve a medir la carpeta y, si está llena, escribe en la consola: *The server has used all of its disk space. Delete files to free some before starting it.* |
+| Subir un archivo (`PUT` de archivo) | Se rechaza si el disco ya está lleno. Cada byte cuenta: si la subida pasa del límite, se corta, el archivo a medias se borra y la respuesta es `409`. Al sobrescribir un archivo, su tamaño anterior deja de contar. |
+| Escribir por SFTP | Se rechaza si el disco ya está lleno. Solo cuenta lo que hace crecer el archivo; reescribir bytes que ya tenía no cuenta. Ver abajo qué pasa con una subida cortada. |
+| Extraer un archivo comprimido | Se rechaza si el disco ya está lleno. Cada archivo extraído cuenta: la extracción se detiene al llegar al límite (`409`) y los archivos ya extraídos se quedan. |
+| Comprimir | Se rechaza si el disco ya está lleno. El archivo comprimido cuenta mientras se escribe: si pasa del límite, se borra y la respuesta es `409`. |
+| Instalar un plugin | Se rechaza si el disco ya está lleno. Si la descarga pasa del límite, el archivo a medias se borra y la respuesta es `409`. |
+
+### Subidas por SFTP cortadas por el límite
+
+Cuando una escritura por SFTP pasaría del límite, falla y no escribe nada. Al cerrar el archivo:
+
+- Si la subida empezó desde un archivo vacío (el cliente abrió con truncado, lo normal al subir un archivo), el archivo a medias **se borra**: medio archivo no sirve y mantendría el disco lleno.
+- Si era una subida reanudada o que añadía al final (sin truncado), el archivo se conserva.
+
+En los dos casos la medida de disco se descarta y se vuelve a medir.
+
+### Servidor en marcha
+
+Además, cada 5 segundos `processStats()` compara el uso de disco con el límite. Si un servidor en marcha lo supera en más de 1 MB, se para (`Stop()`, y `Kill()` si falla) y se avisa en la consola. En Docker el tamaño de la carpeta que usan las estadísticas se recalcula como mucho cada 30 segundos.
+
+## Prioridad de disco (`io`)
+
+La variable `io` reparte la lectura y escritura de disco entre los servidores del mismo nodo. Solo se aplica en el entorno Docker, como `BlkioWeight` del contenedor.
+
+| Valor | Efecto |
+|-------|--------|
+| 10 a 1000 | Peso del servidor frente a los demás. `500` es un reparto igual. |
+| Menor que 10 / mayor que 1000 | Se ajusta a 10 / 1000. |
+| `0`, vacío o no numérico | No se fija peso; Docker usa su valor por defecto. |
+
+Docker solo lo aplica si el planificador de E/S del host admite pesos. El valor se lee al crear el contenedor, así que un cambio cuenta desde el siguiente arranque. En el panel aparece como **Prioridad de disco** junto a CPU, memoria y disco (por defecto `500`).
+
+## Reconexión tras reiniciar el daemon
+
+Un contenedor Docker sigue en marcha aunque el daemon se reinicie (una actualización, un fallo). En una instalación con panel y daemon juntos, reiniciar el panel también reinicia el daemon. Código: `internal/servers/reattach.go`.
+
+Al arrancar, el daemon se reconecta en segundo plano a cada servidor que sigue en marcha (`reattachRunningServers()`):
+
+- La consola vuelve a recibir la salida del contenedor y acepta comandos.
+- La salida del proceso pasa por el mismo `afterExit` que un arranque normal (una sola vez): detección de caídas, reinicio automático, avisos.
+- Si el servidor tiene KeepAlive, se vuelve a activar.
+- `startedAt` toma la hora de la reconexión. Solo retrasa el momento en que se olvidan caídas anteriores.
+- En la consola aparece *Reconnected to the running server after a daemon restart*.
+
+`Stop()`, `Kill()` y enviar un comando también se reconectan primero, por si llegan antes que la pasada en segundo plano. Un candado (`attachMu`) evita que dos reconexiones se hagan a la vez.
+
+No hace nada si el servidor está parado o ya conectado. Un proceso del host (`tty`, `host`, `standard`) no se puede recuperar: devuelve `ErrNotImplemented` y no se registra nada. Si la reconexión falla, se registra el error y el servidor queda como estaba; vuelve a estar accesible cuando se reinicia.
+
+## Subdominio (Cloudflare)
+
+Un servidor puede tener un subdominio en la zona de Cloudflare del administrador (por ejemplo `survival.play.example.com`). Los registros son solo DNS (sin proxy), porque el tráfico de juego no es HTTP:
+
+- Un registro `A`, `AAAA` o `CNAME` con el nombre del subdominio, que apunta a la dirección del nodo.
+- Para servidores de tipo `minecraft` o `minecraft-java` con puerto, un registro `SRV` (`_minecraft._tcp.<subdominio>`) con el puerto principal.
+
+El subdominio sigue al servidor. Estos cambios actualizan sus registros:
+
+| Cambio | Ruta |
+|--------|------|
+| Puerto principal o tipo del servidor | `PUT /api/servers/:serverId/definition` |
+| Puerto principal (administrador) | `PUT /api/servers/:serverId/data` |
+| Puerto principal elegido en los ajustes de puertos | `PUT /api/servers/:serverId/port-settings` |
+| Traslado a otro nodo | transferencia interna entre nodos |
+
+La actualización (`refreshSubdomainRecords` en `internal/web/api/server_dns.go`):
+
+- Corre en segundo plano, medio segundo después de guardar el cambio.
+- Edita los registros del servidor en su sitio; el nombre del subdominio no cambia.
+- Si el nodo pasa a estar detrás de un nombre, el registro `A` pasa a `CNAME`.
+- Crea o borra el registro `SRV` cuando cambia la regla (por ejemplo, el tipo deja de ser Minecraft).
+- Solo toca los registros que el servidor tiene guardados.
+- Es de mejor esfuerzo: si Cloudflare falla, se registra el error y el cambio del servidor no se deshace.
+
+No hace nada si el servidor no tiene subdominio o si Cloudflare no está configurado.

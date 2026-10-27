@@ -141,26 +141,15 @@ No additional configuration needed. Works automatically with `docker compose up`
 
 > **Note**: Servers created before this change must be recreated to join the correct network.
 
-## Updated Roles and Permissions (Migration `20260821-fix-usuario-role-scopes`)
+## Roles, propietario y subusuarios
 
-Fixed scope assignment for "Usuario" role to remove improper admin access and grant correct definition/flags permissions.
+Desde la migración `20261026-server-owners`, los permisos de servidor de un **rol** (por ejemplo "Usuario") ya no se aplican sobre los servidores. Lo que una persona puede hacer en un servidor sale de:
 
-### Changes
+- **Administrador**: todo, en todos los servidores.
+- **Propietario**: cada servidor tiene uno. Puede casi todo en su servidor (consola, archivos, encendido, copias, tareas, subusuarios…), pero no los límites, los metadatos, la pestaña de administración ni la definición.
+- **Subusuario**: exactamente los permisos que el propietario le marcó, ni uno más.
 
-| Action | Before | After |
-|--------|--------|-------|
-| `server.admin.config.view` | ✅ Granted | ❌ Revoked |
-| `server.admin.config.manage` | ✅ Granted | ❌ Revoked |
-| `server.data.edit.admin` | ✅ Granted | ❌ Revoked |
-| `server.definition.view` | ❌ Missing | ✅ Granted |
-| `server.definition.edit` | ❌ Missing | ✅ Granted |
-| `server.flags.view` | ❌ Missing | ✅ Granted |
-| `server.flags.edit` | ❌ Missing | ✅ Granted |
-
-### Result
-
-- **Admin**: Full access to everything (config, limits, metadata, admin tab, ports CRUD).
-- **User**: View/edit Groups, Variables, Plugins, Auto-start, Ports (view + primary + notes, no number CRUD), **NO** Resource Limits, Metadata, Admin tab.
+Los detalles, la lista completa de permisos y cómo cambiar el propietario están en la [Referencia de permisos](./scopes-reference.md).
 
 ## Monaco Editor — Pin to v0.44.0
 

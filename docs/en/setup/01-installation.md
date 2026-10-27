@@ -8,7 +8,12 @@ This guide details the steps required to install Aether Panel on your server. We
 
 Before you begin, ensure your server meets the following minimum requirements:
 
-*   **Operating System:** Linux (Ubuntu 20.04+, Debian 11+, CentOS 8+)
+*   **Operating System:** Linux. Tested with real installs on:
+    *   Ubuntu 22.04, 24.04, 26.04 and 26.10
+    *   Debian 12
+    *   Rocky Linux 9 (and AlmaLinux / RHEL 9, which are equivalent)
+
+    It also works on Rocky/Alma/RHEL 8 and Fedora. Ubuntu 20.04 and Debian 11 no longer get security support: the installer warns and they are not recommended.
 *   **Architecture:** amd64 or arm64
 *   **Resources (Minimum):** 2 vCPU, 2GB RAM
 *   **Docker:** Docker Engine + Docker Compose v2 (the installer installs it if missing)
