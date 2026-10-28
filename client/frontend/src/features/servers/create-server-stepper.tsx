@@ -710,15 +710,24 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId, 
             if (!templateDetails) return;
             const identifier = serverIdFromName(name);
 
+            // each variable keeps the template's definition (name, description, type, options,
+            // whether the user may edit it) with the chosen value: sending only the value left
+            // the server's Settings with nothing the user could change
+            const templateVars: Record<string, any> = (templateDetails.data && typeof templateDetails.data === 'object') ? templateDetails.data : {};
+            const withDefinition = (k: string, value: any) => {
+                const definition = templateVars[k];
+                return (definition && typeof definition === 'object') ? { ...definition, value } : { value };
+            };
+
             const vars: Record<string, any> = {};
             Object.entries(configData).forEach(([k, v]) => {
-                vars[k] = { value: v };
+                vars[k] = withDefinition(k, v);
             });
-            
-            vars['cpu'] = { value: cpuLimit === '' ? 100 : cpuLimit };
-            vars['memory'] = { value: memoryLimit === '' ? 1024 : memoryLimit };
-            vars['disk'] = { value: diskLimit === '' ? 10240 : diskLimit };
-            vars['io'] = { value: ioLimit === '' ? 500 : ioLimit };
+
+            vars['cpu'] = withDefinition('cpu', cpuLimit === '' ? 100 : cpuLimit);
+            vars['memory'] = withDefinition('memory', memoryLimit === '' ? 1024 : memoryLimit);
+            vars['disk'] = withDefinition('disk', diskLimit === '' ? 10240 : diskLimit);
+            vars['io'] = withDefinition('io', ioLimit === '' ? 500 : ioLimit);
 
             // Inject extra ports as port2, port3, ... so the daemon binds them
             extraPorts.map(Number).filter(p => p > 0).forEach((p, i) => {

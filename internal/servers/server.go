@@ -923,7 +923,9 @@ func (p *Server) Start() error {
 	if err != nil {
 		p.stopKeepAlive()
 		p.Log(logging.Error, "error starting server %s: %s", p.ID(), err)
-		p.RunningEnvironment.DisplayToConsole(true, " Failed to start server\n")
+		// the owner sees why, as in Pterodactyl: "Failed to start server" alone sends them to
+		// the panel's logs, which only an administrator can read
+		p.RunningEnvironment.DisplayToConsole(true, " Failed to start server: %s\n", startFailureReason(err))
 		return err
 	}
 
@@ -1955,4 +1957,16 @@ func (p *Server) IsIdle() error {
 
 func (p *Server) GetBackupDirectory() string {
 	return filepath.Join(config.BackupsFolder.Value(), p.ID())
+}
+
+// startFailureReason keeps the part of a start error that tells the owner what is wrong. Docker
+// wraps a missing program in several layers ("failed to create task for container: ... OCI
+// runtime create failed: ... exec: "x": executable file not found in $PATH: unknown"), and
+// only the exec part is useful.
+func startFailureReason(err error) string {
+	msg := strings.TrimPrefix(err.Error(), "Error response from daemon: ")
+	if i := strings.Index(msg, "exec: "); i >= 0 {
+		msg = strings.TrimSuffix(msg[i+len("exec: "):], ": unknown")
+	}
+	return msg
 }
