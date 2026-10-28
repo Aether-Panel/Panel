@@ -94,20 +94,12 @@ function templateVariableValue(val: any) {
 /** Template descriptions may carry a little HTML (links, <strong>); the form shows them as plain text. */
 function plainDescription(desc: unknown): string {
     if (typeof desc !== 'string') return '';
-    // First, convert anchor tags to plain text so the URL is preserved.
-    let result = desc.replace(/<a\s[^>]*href=['"]([^'"]+)['"][^>]*>(.*?)<\/a>/gi, '$2 ($1)');
-    // Strip HTML tags in a loop: a single pass can leave residual tags when the
-    // input contains nested constructs like "<scr<b>ipt>" (after the inner tag is
-    // removed the outer one becomes valid).  Looping until stable fully sanitises.
-    let previous: string;
-    do {
-        previous = result;
-        result = result.replace(/<[^>]*>/g, '');
-    } while (result !== previous);
-    // Final safety net: remove any remaining angle brackets that are not part of a
-    // well-formed tag (e.g. a lone "<" or ">").
-    return result
-        .replace(/[<>]/g, '')
+    // Convert anchor tags to "text (url)" before stripping so links are preserved.
+    const withLinks = desc.replace(/<a\s[^>]*href=['"]([^'"]+)['"][^>]*>(.*?)<\/a>/gi, '$2 ($1)');
+    // Use the browser's HTML parser for safe, complete tag removal – no regex
+    // backtracking and immune to nested-tag tricks like "<scr<b>ipt>".
+    const doc = new DOMParser().parseFromString(withLinks, 'text/html');
+    return (doc.body.textContent ?? '')
         .replace(/\s+/g, ' ')
         .trim();
 }
