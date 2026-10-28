@@ -94,10 +94,19 @@ function templateVariableValue(val: any) {
 /** Template descriptions may carry a little HTML (links, <strong>); the form shows them as plain text. */
 function plainDescription(desc: unknown): string {
     if (typeof desc !== 'string') return '';
-    return desc
-        .replace(/<a\s[^>]*href=['"]([^'"]+)['"][^>]*>(.*?)<\/a>/gi, '$2 ($1)')
-        .replace(/<[^>]*>/g, '')
-        // a tag split around another one ("<scr<b>ipt>") must not leave half a tag behind
+    // First, convert anchor tags to plain text so the URL is preserved.
+    let result = desc.replace(/<a\s[^>]*href=['"]([^'"]+)['"][^>]*>(.*?)<\/a>/gi, '$2 ($1)');
+    // Strip HTML tags in a loop: a single pass can leave residual tags when the
+    // input contains nested constructs like "<scr<b>ipt>" (after the inner tag is
+    // removed the outer one becomes valid).  Looping until stable fully sanitises.
+    let previous: string;
+    do {
+        previous = result;
+        result = result.replace(/<[^>]*>/g, '');
+    } while (result !== previous);
+    // Final safety net: remove any remaining angle brackets that are not part of a
+    // well-formed tag (e.g. a lone "<" or ">").
+    return result
         .replace(/[<>]/g, '')
         .replace(/\s+/g, ' ')
         .trim();
