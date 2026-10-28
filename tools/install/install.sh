@@ -2736,6 +2736,12 @@ apply_panel_url() {
 
     if [[ "$want_domain" == "${PREV_DOMAIN:-}" && "$want_ssl" == "${PREV_USE_SSL:-false}" ]]; then
         log_info "El servidor ya está configurado para $url"
+        # instalaciones de antes del servicio, o una URL que vuelve a la ya aplicada: Ajustes lo
+        # muestra como activo
+        if [[ "$(jq -r '.state + " " + .url' "$(domain_status_file)" 2>/dev/null || true)" != "ok $url" ]]; then
+            DOMAIN="$want_domain"; USE_SSL="$want_ssl"
+            write_domain_status ok "$url" "El servidor ya está configurado para $url"
+        fi
         return 0
     fi
 
