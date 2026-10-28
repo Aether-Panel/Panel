@@ -3,6 +3,7 @@ import React, { Component, type ErrorInfo, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, RefreshCcw } from 'lucide-react';
 import { useTranslations } from '@/contexts/translations-context';
+import { isStaleBuildError, reloadForNewBuild } from '@/lib/stale-build';
 
 interface Props {
     children?: ReactNode;
@@ -51,6 +52,8 @@ class ErrorBoundary extends Component<Props, State> {
     }
 
     public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+        // the panel was updated while this page was open: load the new version
+        if (isStaleBuildError(error) && reloadForNewBuild()) return;
         console.error(`Uncaught error in ${this.props.name || 'Component'}:`, error, errorInfo);
     }
 
@@ -60,7 +63,14 @@ class ErrorBoundary extends Component<Props, State> {
                 return this.props.fallback;
             }
 
-            return <ErrorFallback message={this.state.error?.message} onReset={() => this.setState({ hasError: false, error: null })} />;
+            const stale = isStaleBuildError(this.state.error);
+            return (
+                <ErrorFallback
+                    message={this.state.error?.message}
+                    // retrying an import of a file that no longer exists cannot work; a reload can
+                    onReset={() => (stale ? window.location.reload() : this.setState({ hasError: false, error: null }))}
+                />
+            );
         }
 
         return this.props.children;

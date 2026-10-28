@@ -206,6 +206,9 @@ func setupPanel(router *gin.Engine) bool {
 
 	if config.DaemonEnabled.Value() {
 		services.SyncNodeToConfig()
+		// the address servers hand out for this node: master node IP, or the server's IP when
+		// the domain sits behind Cloudflare's proxy, kept current as either changes
+		services.KeepLocalNodeHostInSync(db)
 	}
 	return true
 }
