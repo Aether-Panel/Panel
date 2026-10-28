@@ -143,3 +143,12 @@ Arreglos encontrados al instalar de verdad en Ubuntu 22.04, 24.04, 26.04 y 26.10
 - **Rocky/Alma 9: `dnf` fallaba por `curl` frente a `curl-minimal`.** curl solo se instala si falta.
 - **Límite de descargas de Docker Hub.** Las imágenes se descargan antes de arrancar, con 3 intentos. Si Docker Hub responde 429, el instalador lo explica (esperar o `docker login`) en vez de fallar sin más.
 - **Versiones sin soporte.** El aviso ahora sale con Ubuntu anterior a 22.04 y Debian anterior a 12: ya no tienen parches de seguridad (Debian 11 terminó en agosto de 2026 y sus repositorios se archivaron).
+
+# install.sh 4.1.1 → 4.1.2
+
+Encontrado al instalar en un VPS real (Ubuntu 26.04) y apuntar un dominio con el proxy de Cloudflare.
+
+- **El puerto 80 no se abría sin dominio.** El instalador pone Nginx en el 80 delante del panel también cuando no hay dominio, pero el firewall solo abría 22, 8080 y 5657. Un dominio con Cloudflare daba 522. Ahora el 80 se abre siempre que haya Nginx, y el 443 cuando hay dominio.
+- **Un dominio sin configurar caía en la página de bienvenida de Nginx.** Sin dominio, el sitio del panel solo contestaba a la IP y el sitio `default` de la distribución se quedaba con el resto. Ahora el sitio del panel es el predeterminado del puerto 80: contesta por la IP y por cualquier dominio que apunte al servidor. Se quita solo el enlace `sites-enabled/default` (el archivo sigue en `sites-available`); si otro sitio ya es el predeterminado, no se toca.
+- **IPv6.** Nginx escucha también en `[::]:80` y `[::]:443`.
+

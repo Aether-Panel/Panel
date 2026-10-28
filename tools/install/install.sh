@@ -2,7 +2,7 @@
 
 ###############################################################################
 # Aether Panel - Script de Instalación Automática (Docker)
-# Versión: 4.1.1
+# Versión: 4.1.2
 # Repositorio: https://github.com/Aether-Panel/Panel.git
 # Nota: Aether Panel es el nombre oficial. SkyPanel es el nombre en clave.
 # Soporte: Solo instalación vía Docker. No existe modo nativo.
@@ -29,7 +29,7 @@ umask 022
 # CONFIGURACIÓN Y VARIABLES GLOBALES
 # =============================================================================
 
-readonly SCRIPT_VERSION="4.1.1"
+readonly SCRIPT_VERSION="4.1.2"
 readonly SCRIPT_BUILD="20261026-hardening"
 readonly PROJECT_NAME="Aether Panel"
 readonly PROJECT_CODENAME="SkyPanel"
@@ -2105,8 +2105,12 @@ configure_firewall() {
     local -a tcp_ports=()
     if [[ "$PANEL_BIND" == "0.0.0.0" ]]; then tcp_ports+=("$PANEL_PORT"); fi
     tcp_ports+=("$SFTP_PORT")
-    # Con dominio se usa Nginx (puertos 80/443)
-    if [[ -n "$DOMAIN" && "$SKIP_NGINX" != "true" ]]; then tcp_ports+=(80 443); fi
+    # Nginx atiende el puerto 80 también sin dominio (proxy por IP), y con dominio el 443.
+    # Sin abrir el 80, un dominio con el proxy de Cloudflare da 522: no llega al servidor.
+    if [[ "$SKIP_NGINX" != "true" ]]; then
+        tcp_ports+=(80)
+        if [[ -n "$DOMAIN" ]]; then tcp_ports+=(443); fi
+    fi
 
     local p
     case "$OS_FAMILY" in
@@ -2192,9 +2196,12 @@ nginx_proxy_locations() {
 EOF
 }
 
-# nginx_site_config SERVER_NAME http|ssl
+# nginx_site_config SERVER_NAME http|ssl [default]
+# "default" hace de este sitio el predeterminado del puerto 80: sin dominio, el panel contesta
+# por la IP y por cualquier dominio que apunte aquí, en vez de la página de bienvenida de Nginx
 nginx_site_config() {
-    local name="$1" mode="$2" acme_root="/var/www/html"
+    local name="$1" mode="$2" default="${3:-}" acme_root="/var/www/html" listen_opts=""
+    if [[ "$default" == "default" ]]; then listen_opts=" default_server"; name="_"; fi
     cat <<EOF
 # Aether Panel - generado por install.sh $SCRIPT_VERSION.
 # Se regenera al volver a ejecutar el instalador.
@@ -2204,7 +2211,8 @@ map \$http_upgrade \$skypanel_connection_upgrade {
 }
 
 server {
-    listen 80;
+    listen 80$listen_opts;
+    listen [::]:80$listen_opts;
     server_name $name;
 
     location /.well-known/acme-challenge/ {
@@ -2221,6 +2229,7 @@ EOF
 
 server {
     listen 443 ssl http2;
+    listen [::]:443 ssl http2;
     server_name $name;
 
     ssl_certificate /etc/letsencrypt/live/$name/fullchain.pem;
@@ -2238,6 +2247,28 @@ EOF
         nginx_proxy_locations
         echo "}"
     fi
+}
+
+# nginx_take_default_server: deja libre el papel de sitio predeterminado del puerto 80. Quita
+# solo el enlace al sitio de bienvenida de la distribución (el archivo se queda en
+# sites-available y se recupera con ln -s); si otro sitio ya es el predeterminado, no lo toca
+# y devuelve 1.
+nginx_take_default_server() {
+    local distro_default="/etc/nginx/sites-enabled/default"
+    if [[ -L "$distro_default" && "$(readlink -f "$distro_default")" == "/etc/nginx/sites-available/default" ]]; then
+        log_info "Desactivando el sitio de bienvenida de Nginx (queda en sites-available/default)"
+        run rm -f "$distro_default"
+    fi
+    local f
+    for f in /etc/nginx/nginx.conf /etc/nginx/conf.d/*.conf /etc/nginx/sites-enabled/*; do
+        [[ -f "$f" ]] || continue
+        [[ "$(readlink -f "$f")" == "$(readlink -f "$NGINX_CONF" 2>/dev/null)" ]] && continue
+        if grep -Eqs '^[[:space:]]*listen[^;#]*[[:space:]:]80[[:space:]][^;#]*default_server' "$f"; then
+            log_warning "Otro sitio de Nginx ($f) es el predeterminado del puerto 80: el panel contestará solo por la IP"
+            return 1
+        fi
+    done
+    return 0
 }
 
 # Escribe la configuración y la prueba; si nginx -t falla se restaura la anterior
@@ -2380,8 +2411,13 @@ configure_nginx() {
         install_nginx_site "$(nginx_site_config "$DOMAIN" http)"
         log_success "Nginx configurado"
     else
-        # IP sin dominio (proxy en el puerto 80 como en versiones anteriores)
-        install_nginx_site "$(nginx_site_config "$SERVER_IP" http)"
+        # IP sin dominio (proxy en el puerto 80 como en versiones anteriores). Si se puede, es el
+        # sitio predeterminado, así un dominio que ya apunte aquí también llega al panel.
+        if nginx_take_default_server; then
+            install_nginx_site "$(nginx_site_config "$SERVER_IP" http default)"
+        else
+            install_nginx_site "$(nginx_site_config "$SERVER_IP" http)"
+        fi
         log_success "Nginx configurado"
     fi
     NGINX_CONFIGURED=true
