@@ -12,6 +12,7 @@ Before you begin, ensure your server meets the following minimum requirements:
     *   Ubuntu 22.04, 24.04, 26.04 and 26.10
     *   Debian 12
     *   Rocky Linux 9 (and AlmaLinux / RHEL 9, which are equivalent)
+    *   Arch Linux and openSUSE Tumbleweed (with Docker from the distribution's repositories)
 
     It also works on Rocky/Alma/RHEL 8 and Fedora. Ubuntu 20.04 and Debian 11 no longer get security support: the installer warns and they are not recommended.
 *   **Architecture:** amd64 or arm64
@@ -52,6 +53,21 @@ The installer will guide you through the process:
 7.  Starting Aether Panel, with a summary of its address and where the credentials are (`/etc/SkyPanel/credenciales.txt`).
 
 Running it again on an existing install is safe: it keeps the data, the passwords and the administrator account.
+
+### Managing the panel with the installer
+
+Run without options, the installer says whether the panel is **not installed**, **installed but stopped** or **running** (with its branch and version) and offers:
+
+| Option | What it does | Data |
+|---|---|---|
+| **Install** | Asks for a domain or IP, ports (defaults or your own) and the database (internal or external), and installs everything. | — |
+| **Update** (`--update`) | Backs up the database and checks the copy, pulls the branch, rebuilds and restarts. If the new version does not start, it goes back to the previous one by itself. | Kept |
+| **Reinstall** (`--reinstall`) | Offers a backup, asks you to type `REINSTALAR`, removes the install and installs again from scratch. | Deleted (an external DB is not) |
+| **Uninstall** (`--uninstall`, `--uninstall-data`, `--uninstall-all`) | Removes the panel keeping data, deleting data, or everything. Offers a backup before deleting and checks nothing is left. | Depends on the option |
+
+Backups go to `/var/backups/aether-panel`, outside the panel's folder. Only what belongs to the install is removed: the containers docker compose created from `/opt/skypanel`, the panel's game servers, their networks and image. An external database is never changed or deleted.
+
+**External database.** The connection is checked before installing. If the database or the user do not exist, the installer can create them with a MySQL admin account (`--db-admin-user root --db-admin-pass …`, or the `AETHER_DB_ADMIN_PASSWORD` variable), which is not stored. The host cannot be `localhost`: inside the panel's container that is the container itself, so use the server's private IP.
 
 ### Useful options
 

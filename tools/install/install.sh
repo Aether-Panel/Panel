@@ -2,7 +2,7 @@
 
 ###############################################################################
 # Aether Panel - Script de Instalación Automática (Docker)
-# Versión: 4.1.4
+# Versión: 4.2.0
 # Repositorio: https://github.com/Aether-Panel/Panel.git
 # Nota: Aether Panel es el nombre oficial. SkyPanel es el nombre en clave.
 # Soporte: Solo instalación vía Docker. No existe modo nativo.
@@ -29,7 +29,7 @@ umask 022
 # CONFIGURACIÓN Y VARIABLES GLOBALES
 # =============================================================================
 
-readonly SCRIPT_VERSION="4.1.4"
+readonly SCRIPT_VERSION="4.2.0"
 readonly SCRIPT_BUILD="20261026-hardening"
 readonly PROJECT_NAME="Aether Panel"
 readonly PROJECT_CODENAME="SkyPanel"
@@ -1442,7 +1442,9 @@ install_dependencies() {
         suse)
             pkgs=(ca-certificates git-core jq iproute2 util-linux)
             if ! command -v curl >/dev/null 2>&1; then pkgs+=(curl); fi
-            if ! command -v docker >/dev/null 2>&1; then pkgs+=(docker docker-compose docker-buildx); fi
+            # iptables con el motor nftables: los núcleos nuevos ya no traen los módulos del
+            # iptables clásico, y sin ellos Docker no arranca ("Module ip_tables not found")
+            if ! command -v docker >/dev/null 2>&1; then pkgs+=(docker docker-compose docker-buildx iptables-backend-nft nftables); fi
             if [[ "$need_nginx" == "true" ]]; then pkgs+=(nginx); fi
             if [[ "$SKIP_FIREWALL" != "true" ]]; then pkgs+=(firewalld); fi
             zypper_install "${pkgs[@]}"
@@ -1523,7 +1525,7 @@ install_docker() {
             pacman_install docker docker-compose docker-buildx
             ;;
         suse)
-            zypper_install docker docker-compose docker-buildx
+            zypper_install docker docker-compose docker-buildx iptables-backend-nft nftables
             ;;
     esac
 
@@ -3341,6 +3343,8 @@ uninstall() {
     print_banner
     require_root
     acquire_lock
+    # sin detect_os: solo hace falta saber si hay systemd (servicio del dominio, Nginx)
+    if [[ -d /run/systemd/system ]]; then HAS_SYSTEMD=true; fi
 
     if ! command -v docker >/dev/null 2>&1; then
         log_warning "Docker no está instalado"

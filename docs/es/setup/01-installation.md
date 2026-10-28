@@ -12,6 +12,7 @@ Antes de comenzar, asegúrese de que su servidor cumpla con los siguientes requi
     *   Ubuntu 22.04, 24.04, 26.04 y 26.10
     *   Debian 12
     *   Rocky Linux 9 (y AlmaLinux / RHEL 9, que son equivalentes)
+    *   Arch Linux y openSUSE Tumbleweed (con Docker de los repositorios de la distribución)
 
     También funciona en Rocky/Alma/RHEL 8 y Fedora. Ubuntu 20.04 y Debian 11 ya no tienen soporte de seguridad: el instalador avisa y no se recomiendan.
 *   **Arquitectura:** amd64 o arm64
@@ -52,6 +53,21 @@ El instalador le guiará a través del proceso:
 7.  Inicio de Aether Panel y un resumen con la dirección y dónde quedan las credenciales (`/etc/SkyPanel/credenciales.txt`).
 
 Volver a ejecutarlo sobre una instalación existente es seguro: conserva los datos, las contraseñas y la cuenta de administrador.
+
+### Administrar el panel con el instalador
+
+Al ejecutarlo sin opciones, el instalador dice si el panel **no está instalado**, está **instalado pero detenido** o **funcionando** (con su rama y versión) y ofrece:
+
+| Opción | Qué hace | Datos |
+|---|---|---|
+| **Instalar** | Pregunta dominio o IP, puertos (predeterminados o propios) y base de datos (interna o externa), y lo instala todo. | — |
+| **Actualizar** (`--update`) | Copia la base de datos y comprueba la copia, descarga la rama, reconstruye y reinicia. Si la versión nueva no arranca, vuelve sola a la anterior. | Se conservan |
+| **Reinstalar** (`--reinstall`) | Ofrece una copia, pide escribir `REINSTALAR`, borra la instalación y vuelve a instalar desde cero. | Se borran (una BD externa no) |
+| **Desinstalar** (`--uninstall`, `--uninstall-data`, `--uninstall-all`) | Quita el panel conservando datos, o borrando datos, o todo. Ofrece una copia antes de borrar y comprueba que no queda nada. | Según la opción |
+
+Las copias van a `/var/backups/aether-panel`, fuera de la carpeta del panel. Solo se borra lo que pertenece a la instalación: los contenedores que docker compose creó desde `/opt/skypanel`, los servidores de juego del panel, sus redes e imagen. Una base de datos externa nunca se modifica ni se borra.
+
+**Base de datos externa.** Se comprueba la conexión antes de instalar. Si la base de datos o el usuario no existen, el instalador puede crearlos con una cuenta de administrador de MySQL (`--db-admin-user root --db-admin-pass …`, o la variable `AETHER_DB_ADMIN_PASSWORD`), que no se guarda. El host no puede ser `localhost`: dentro del contenedor del panel eso es el propio contenedor, así que hay que usar la IP privada del servidor.
 
 ### Opciones útiles
 

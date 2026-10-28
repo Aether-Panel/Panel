@@ -93,7 +93,7 @@ Aether Panel opera como una aplicación monolítica modular con capacidad de des
 ## Instalación Rápida
 
 ### Opción 1: Instalación Automática (Script)
-El método recomendado. Probado en Ubuntu 22.04, 24.04, 26.04 y 26.10, Debian 12 y Rocky Linux 9 (amd64 y arm64).
+El método recomendado. Probado en Ubuntu 22.04, 24.04, 26.04 y 26.10, Debian 12, Rocky Linux 9, Arch Linux y openSUSE (amd64 y arm64).
 
 ```bash
 curl -fsSL https://install.aetherpanel.es/install.sh | sudo bash
