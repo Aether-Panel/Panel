@@ -43,7 +43,7 @@ WORKDIR /build/SkyPanel
 
 COPY go.mod go.sum ./
 
-RUN go mod download && go mod verify
+RUN GODEBUG=http2client=0 go mod download && go mod verify
 
 # Optimización: Instalar swag antes de copiar todo el código para cachear la descarga
 RUN CGO_ENABLED=0 go install github.com/swaggo/swag/cmd/swag
