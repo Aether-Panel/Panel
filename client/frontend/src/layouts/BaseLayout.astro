@@ -36,6 +36,17 @@ import { ClientRouter } from "astro:transitions";
               el.remove();
             });
         });
+        // The panel was updated while this page was open and a file it loads on demand no
+        // longer exists: load the new version once (lib/stale-build.ts does the same in React)
+        window.addEventListener("vite:preloadError", function (event) {
+          try {
+            var last = Number(sessionStorage.getItem("aether:stale-build-reload") || 0);
+            if (Date.now() - last < 60000) return;
+            sessionStorage.setItem("aether:stale-build-reload", String(Date.now()));
+          } catch (e) {}
+          event.preventDefault();
+          window.location.reload();
+        });
       })();
     </script>
   </head>

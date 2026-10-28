@@ -1,0 +1,4 @@
+# Scripts de shell siempre con finales de línea Unix (LF): con CRLF bash falla
+# ("set: pipefail\r: invalid option") aunque se editen o clonen en Windows
+*.sh text eol=lf
+Dockerfile text eol=lf

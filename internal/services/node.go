@@ -70,6 +70,24 @@ type Node struct {
 	DB *gorm.DB
 }
 
+// localNodeHostRefresh is how often KeepLocalNodeHostInSync looks again
+const localNodeHostRefresh = 15 * time.Second
+
+// KeepLocalNodeHostInSync sets the panel node's address now and every few seconds after.
+// Servers copy the node when they are loaded (models.Server.AfterFind), so the address must
+// already be right then; the master node IP and the domain service's result change at any time.
+func KeepLocalNodeHostInSync(db *gorm.DB) {
+	ns := &Node{DB: db}
+	ns.syncLocalNodeHost()
+	go func() {
+		ticker := time.NewTicker(localNodeHostRefresh)
+		defer ticker.Stop()
+		for range ticker.C {
+			ns.syncLocalNodeHost()
+		}
+	}()
+}
+
 // syncLocalNodeHost sets the address players and SFTP clients get for the panel's own node: the
 // master node IP from Settings when there is one; otherwise the server's IP when the Base URL's
 // domain sits behind a proxy that only passes the website (Cloudflare's orange cloud), where
