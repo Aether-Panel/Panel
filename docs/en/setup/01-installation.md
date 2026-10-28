@@ -46,7 +46,7 @@ sudo bash /tmp/install.sh
 The installer will guide you through the process:
 1.  System checks: architecture, RAM (2 GB or swap), disk space, free ports.
 2.  Installation of Docker and Docker Compose (if not present), with Docker's GPG key verified.
-3.  Cloning of the repository from `https://github.com/Aether-Panel/Panel.git` (branch `dev2.0`, or the one already installed).
+3.  Cloning of the repository from `https://github.com/Aether-Panel/Panel.git` (branch `main`, or the one already installed; another with `-b BRANCH`).
 4.  Random database passwords (in `.env`, readable by root only).
 5.  Building the image and setting up ports, domain, SSL and the firewall (optional).
 6.  The panel URL (used by password reset and sign-in links) and the administrator account.
@@ -108,7 +108,7 @@ If you prefer full control over the process, clone the repository and use the in
 ### 1. Clone the Repository
 
 ```bash
-git clone -b dev2.0 https://github.com/Aether-Panel/Panel.git /opt/skypanel
+git clone -b main https://github.com/Aether-Panel/Panel.git /opt/skypanel
 cd /opt/skypanel
 ```
 

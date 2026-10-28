@@ -2,7 +2,7 @@
 
 ###############################################################################
 # Aether Panel - Script de Instalación Automática (Docker)
-# Versión: 4.2.0
+# Versión: 4.2.1
 # Repositorio: https://github.com/Aether-Panel/Panel.git
 # Nota: Aether Panel es el nombre oficial. SkyPanel es el nombre en clave.
 # Soporte: Solo instalación vía Docker. No existe modo nativo.
@@ -29,7 +29,7 @@ umask 022
 # CONFIGURACIÓN Y VARIABLES GLOBALES
 # =============================================================================
 
-readonly SCRIPT_VERSION="4.2.0"
+readonly SCRIPT_VERSION="4.2.1"
 readonly SCRIPT_BUILD="20261026-hardening"
 readonly PROJECT_NAME="Aether Panel"
 readonly PROJECT_CODENAME="SkyPanel"
@@ -37,7 +37,9 @@ readonly INSTALL_URL="https://install.aetherpanel.es/install.sh"
 # El repositorio se puede cambiar (forks, pruebas) con AETHER_REPO
 GITHUB_REPO="${AETHER_REPO:-https://github.com/Aether-Panel/Panel.git}"
 # Rama por defecto de las instalaciones. Se puede cambiar con --branch o AETHER_BRANCH.
-readonly DEFAULT_GIT_BRANCH="dev2.0"
+# rama estable: una instalación nueva usa main salvo que se pida otra (-b / AETHER_BRANCH);
+# al volver a ejecutar el instalador se mantiene la rama ya instalada
+readonly DEFAULT_GIT_BRANCH="main"
 
 # Directorios (usando nombre en clave SkyPanel con mayúsculas).
 # INSTALL_DIR es fijo: la actualización desde el panel (internal/update) y

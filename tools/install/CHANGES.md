@@ -215,3 +215,8 @@ Instalaciones reales en contenedores con systemd:
 
 - `.gitattributes`: los `.sh` y el Dockerfile siempre con finales de línea LF.
 
+# install.sh 4.2.0 → 4.2.1
+
+- **Rama `main` por defecto.** Una instalación nueva, y el actualizador del panel (`tools/panelUpdate/panelUpdate.sh`) cuando no hay otra rama indicada, usan `main`, la rama estable. Una instalación que ya está en otra rama sigue en la suya: se lee de `installer.conf` o del repositorio. Otra rama se elige con `-b RAMA` o `AETHER_BRANCH`.
+- El aviso de "actualización disponible" del panel compara con la rama instalada (la que lee de `/repo/.git/HEAD`), no con `dev2.0` fijo. Antes, una instalación en `main` veía avisos de cambios que su actualización no iba a traer.
+

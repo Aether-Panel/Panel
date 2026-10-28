@@ -83,7 +83,7 @@ During installation, the script will ask you:
 - Automatically detect your operating system (Ubuntu, Debian, Fedora, CentOS, RHEL)
 - Install Docker and Docker Compose v2 (if not present)
 - Clone the repository from https://github.com/Aether-Panel/Panel.git
-- Build the image with `docker compose build` (dev2.0 branch)
+- Build the image with `docker compose build` (main branch)
 - Configure Nginx as a reverse proxy (only if using a domain)
 - Configure SSL with Let's Encrypt (optional)
 - Create the initial administrator user

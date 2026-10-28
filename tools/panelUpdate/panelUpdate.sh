@@ -9,7 +9,8 @@ set -e
 
 readonly PROJECT_NAME="Aether Panel"
 readonly INSTALL_DIR="/opt/skypanel"
-readonly DEFAULT_GIT_BRANCH="dev2.0"
+# rama estable: la que se usa cuando la instalación no indica otra
+readonly DEFAULT_GIT_BRANCH="main"
 # Opciones guardadas por el instalador (install.sh 4.1+): de ahí sale la rama instalada
 readonly INSTALLER_STATE="/etc/SkyPanel/installer.conf"
 
