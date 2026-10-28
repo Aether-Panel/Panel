@@ -71,6 +71,16 @@ curl -fsSL https://install.aetherpanel.es/install.sh | sudo bash -s -- --update
 curl -fsSL https://install.aetherpanel.es/install.sh | sudo bash -s -- --uninstall
 ```
 
+**Adding a domain later.** Point the domain at the server's IP (with or without Cloudflare's proxy) and enter it in **Settings → General → Base URL**, for example `https://panel.example.com`. When you save it, the `aether-domain` service the installer leaves on the server sets up Nginx, the Let's Encrypt certificate and the firewall within seconds, and the result shows under the field. With `http://` it is set up without a certificate; with an IP, Nginx goes back to answering on the IP. If the certificate fails (the domain does not point here yet, or port 80 is closed at the provider), the panel keeps working over HTTP and it is retried after an hour or when the URL changes.
+
+The service is installed by installer 4.1.3 and later (also with `--update`). On an install without it, the same result is reached by hand:
+
+```bash
+curl -fsSL https://install.aetherpanel.es/install.sh | sudo bash -s -- --domain panel.example.com --ssl
+```
+
+Without a domain, Nginx answers on port 80 for the IP and for any domain pointed at the server. With Cloudflare in "Full" SSL mode, Cloudflare connects on 443 and the certificate is needed (a URL with `https://`).
+
 It can also set up Turnstile (`--turnstile-site-key`, `--turnstile-secret-key`), Cloudflare automatic subdomains (`--cf-dns-token`, `--cf-zone-id`, `--dns-base-domain`), S3 backups (`--s3-*`) and the CurseForge key; all of it can be changed later in Settings. Changing the ports (`--port`, `--sftp-port`) needs Docker Compose 2.24.4 or later. The installer's source is `tools/install/install.sh`.
 
 ---

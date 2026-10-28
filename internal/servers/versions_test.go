@@ -60,3 +60,24 @@ func TestBuildVariable(t *testing.T) {
 	p.Installation = []skypanel.ConditionalMetadataType{op("paperdl", map[string]interface{}{"minecraftVersion": "${version}", "build": "latest"})}
 	assert.Equal(t, "", p.buildVariable())
 }
+
+func TestListVersions_RefusesAnUnknownPlatform(t *testing.T) {
+	// the name becomes part of the PaperMC URL, so only the known ones are fetched
+	_, err := ListVersions("../../evil")
+	assert.ErrorIs(t, err, ErrUnknownPlatform)
+}
+
+func TestListVersions_KnownPlatformUsesTheCache(t *testing.T) {
+	versionCacheLock.Lock()
+	versionCache["folia"] = cachedVersions{versions: []string{"1.21.4", "1.21.3"}, fetched: time.Now()}
+	versionCacheLock.Unlock()
+	t.Cleanup(func() {
+		versionCacheLock.Lock()
+		delete(versionCache, "folia")
+		versionCacheLock.Unlock()
+	})
+
+	versions, err := ListVersions("folia")
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"1.21.4", "1.21.3"}, versions)
+}

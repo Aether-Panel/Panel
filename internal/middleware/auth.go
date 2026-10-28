@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/database"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
@@ -154,8 +155,20 @@ func abortUnauthorized(c *gin.Context) {
 }
 
 // SetAuthCookie writes the session cookie. SameSite=Lax keeps browsers from attaching it
-// to requests started by other sites, on top of HttpOnly and Secure.
+// to requests started by other sites, on top of HttpOnly. It is Secure whenever the panel is
+// reached over HTTPS: browsers drop a Secure cookie sent over plain HTTP, so always setting it
+// made sign-in impossible on a panel opened at http://IP:8080, the installer's default.
 func SetAuthCookie(c *gin.Context, value string, maxAge int) {
 	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie("skypanel_auth", value, maxAge, "/", "", true, true)
+	c.SetCookie("skypanel_auth", value, maxAge, "/", "", cookieMustBeSecure(c), true)
+}
+
+// cookieMustBeSecure is true for a request that came over HTTPS, directly or through a proxy
+// that ended TLS (the installer's Nginx sends X-Forwarded-Proto), or when the administrator
+// asked for it with panel.web.cookies.secure. A forged header can only make the cookie
+// stricter, so the header is taken as it comes.
+func cookieMustBeSecure(c *gin.Context) bool {
+	return config.PanelWebCookiesSecure.Value() ||
+		c.Request.TLS != nil ||
+		strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https")
 }

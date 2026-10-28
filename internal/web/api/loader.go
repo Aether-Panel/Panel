@@ -29,6 +29,7 @@ func RegisterRoutes(rg *gin.RouterGroup) {
 	registerUsers(rg.Group("/users"))
 	registerActivity(rg.Group("/activity"))
 	registerTemplates(rg.Group("/templates"))
+	registerGameVersions(rg.Group("/game-versions"))
 	registerSelf(rg.Group("/self"))
 	registerSettings(rg.Group("/settings"))
 	registerUserSettings(rg.Group("/userSettings"))

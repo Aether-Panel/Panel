@@ -62,6 +62,23 @@ func registerSettings(g *gin.RouterGroup) {
 
 	g.Handle("GET", "/update-status", middleware.RequiresPermission(scopes.ScopeSettingsEdit), updateStatus)
 	g.Handle("OPTIONS", "/update-status", response.CreateOptions("GET"))
+
+	g.Handle("GET", "/domain-status", middleware.RequiresPermission(scopes.ScopeSettingsEdit), domainStatus)
+	g.Handle("OPTIONS", "/domain-status", response.CreateOptions("GET"))
+}
+
+// @Summary Domain set-up status
+// @Description What the server did with the Base URL: Nginx, the HTTPS certificate and the firewall
+// @Success 200 {object} services.DomainStatus
+// @Tags Settings
+// @Router /api/settings/domain-status [get]
+// @Security OAuth2Application[settings.edit]
+func domainStatus(c *gin.Context) {
+	status, err := services.ReadDomainStatus()
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+	c.JSON(http.StatusOK, status)
 }
 
 // @Summary Value a panel setting
