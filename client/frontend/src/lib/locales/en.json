@@ -1242,6 +1242,17 @@
       "ioLabel": "Disk priority",
       "variablesTitle": "Template variables",
       "optionNone": "None",
+      "versionPlaceholder": "Choose a version",
+      "versionLatest": "Latest version (latest)",
+      "fixFieldsTitle": "Check the marked fields",
+      "fixFieldsDescription": "Some values are missing or not valid; the server was not created.",
+      "fieldErrors": {
+        "required": "This field is required.",
+        "notNumber": "Enter a whole number.",
+        "min": "The minimum is {limit}.",
+        "max": "The maximum is {limit}.",
+        "eula": "Accept the Minecraft EULA: without it the server stops as soon as it starts."
+      },
       "enable": "Enable",
       "portsTitle": "Extra ports",
       "mainPort": "Main port:",

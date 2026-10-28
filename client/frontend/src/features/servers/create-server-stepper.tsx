@@ -91,6 +91,129 @@ function templateVariableValue(val: any) {
     return rawValue;
 }
 
+/** Template descriptions may carry a little HTML (links, <strong>); the form shows them as plain text. */
+function plainDescription(desc: unknown): string {
+    if (typeof desc !== 'string') return '';
+    return desc
+        .replace(/<a\s[^>]*href=['"]([^'"]+)['"][^>]*>(.*?)<\/a>/gi, '$2 ($1)')
+        .replace(/<[^>]*>/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+type VersionTarget = { platform: string; variable: string };
+
+/**
+ * The install step that downloads the game and the variable that holds its version, found the
+ * way the panel's version switch finds it: vanilla through mojangdl, PaperMC projects through
+ * paperdl. Its variable gets a list of real releases instead of a free text field.
+ */
+function templateVersionTarget(details: any, values: Record<string, any>): VersionTarget | null {
+    const ops: any[] = Array.isArray(details?.install) ? details.install : [];
+    const vars = details?.data || {};
+    const tokenOf = (arg: unknown) => (typeof arg === 'string' ? /^\$\{(\w+)\}$/.exec(arg.trim())?.[1] : undefined);
+    for (const op of ops) {
+        let variable: string | undefined;
+        let platform = '';
+        if (op?.type === 'mojangdl') {
+            variable = tokenOf(op.version);
+            platform = 'vanilla';
+        } else if (op?.type === 'paperdl') {
+            variable = tokenOf(op.minecraftVersion);
+            const project = String(op.project ?? '');
+            const projectVar = tokenOf(project);
+            platform = (projectVar ? String(values[projectVar] ?? '') : project).trim().toLowerCase() || 'paper';
+        }
+        if (variable && vars[variable]) return { platform, variable };
+    }
+    return null;
+}
+
+/** The Java releases that have an eclipse-temurin image, newest first. */
+const TEMURIN_JAVA_VERSIONS = ['25', '21', '17', '11', '8'];
+
+/**
+ * The variable that picks the Java image, when the template runs eclipse-temurin:${variable}.
+ * Typed freely, a value like 200 names an image that does not exist and the server cannot
+ * start, so the form offers the releases that do.
+ */
+function javaImageVariable(details: any): string | null {
+    const environments: any[] = [details?.environment, ...(Array.isArray(details?.supportedEnvironments) ? details.supportedEnvironments : [])];
+    for (const env of environments) {
+        const match = typeof env?.image === 'string' ? /^eclipse-temurin:\$\{(\w+)\}$/.exec(env.image.trim()) : null;
+        if (match && details?.data?.[match[1]]) return match[1];
+    }
+    return null;
+}
+
+type FieldError = { code: 'required' | 'notNumber' | 'min' | 'max' | 'eula'; limit?: number };
+
+/**
+ * Checks the values before the server is created: a required field cannot be empty, a number
+ * must be a whole number inside the template's min/max (a required number starts at 1 unless
+ * the template says otherwise, so an ID left at 0 counts as missing).
+ */
+function validateTemplateValues(variables: Record<string, any>, values: Record<string, any>): Record<string, FieldError> {
+    const errors: Record<string, FieldError> = {};
+    for (const [key, v] of Object.entries(variables)) {
+        if (!v || typeof v !== 'object' || v.internal || isResourceKey(key)) continue;
+        const value = values[key];
+        // a required checkbox only has to have a value (PvP off is fine); Minecraft's EULA is the
+        // exception, as the server stops at once until it is accepted
+        if (v.type === 'boolean') {
+            if (key.toLowerCase() === 'eula' && value !== true && value !== 'true') errors[key] = { code: 'eula' };
+            continue;
+        }
+        const empty = value === undefined || value === null || String(value).trim() === '';
+        if (v.type !== 'integer') {
+            if (v.required && empty) errors[key] = { code: 'required' };
+            continue;
+        }
+        if (empty) {
+            if (v.required) errors[key] = { code: 'required' };
+            continue;
+        }
+        const n = Number(value);
+        if (!Number.isInteger(n)) {
+            errors[key] = { code: 'notNumber' };
+            continue;
+        }
+        const hasMin = typeof v.min === 'number';
+        const min = hasMin ? v.min : v.required ? 1 : 0;
+        if (n < min) {
+            errors[key] = !hasMin && v.required && n === 0 ? { code: 'required' } : { code: 'min', limit: min };
+        } else if (typeof v.max === 'number' && n > v.max) {
+            errors[key] = { code: 'max', limit: v.max };
+        }
+    }
+    return errors;
+}
+
+/**
+ * The releases of a game platform for the version select. Empty while loading or when Mojang
+ * and PaperMC cannot be reached: the field is then plain text, as before.
+ */
+function useGameVersions(platform: string | undefined): string[] {
+    const [versions, setVersions] = useState<string[]>([]);
+    useEffect(() => {
+        setVersions([]);
+        if (!platform) return;
+        let cancelled = false;
+        api.get(`/api/game-versions/${encodeURIComponent(platform)}`)
+            .then((list: unknown) => {
+                if (!cancelled && Array.isArray(list)) setVersions(list.map(String));
+            })
+            .catch(() => undefined);
+        return () => {
+            cancelled = true;
+        };
+    }, [platform]);
+    return versions;
+}
+
+/** The id of a variable's field, so an error can move the focus to it. */
+const variableFieldId = (key: string) => `tpl-var-${key.replace(/[^\w-]/g, '_')}`;
+
 /** What the config form holds for a variable: objects as JSON, anything else as is. */
 const toConfigValue = (rawValue: any) =>
     (typeof rawValue === 'object' && rawValue !== null) ? JSON.stringify(rawValue) : (rawValue ?? "");
@@ -350,15 +473,41 @@ function rawOptionValue(opt: any) {
     return typeof opt === 'string' ? opt : "";
 }
 
-/** The input for one template variable: a select for its options, a checkbox for booleans, a text or number field otherwise. */
-function TemplateVariableInput({ fieldId, varKey, variable, currentVal, stringifiedVal, setConfigData, t }: any) {
+/** The input for one template variable: a select for its options or the game's releases, a checkbox for booleans, a text or number field otherwise. */
+function TemplateVariableInput({ fieldId, varKey, variable, currentVal, stringifiedVal, setConfigData, versions, invalid, describedBy, t }: any) {
+    if (Array.isArray(versions) && versions.length > 0) {
+        // "latest" stays offered when the template starts there; a value typed before (or saved
+        // by an older form) that is not a release is kept so it is not silently replaced
+        const choices: string[] = [];
+        if (stringifiedVal === 'latest' || String(variable.value ?? '') === 'latest') choices.push('latest');
+        if (stringifiedVal && stringifiedVal !== 'latest' && !versions.includes(stringifiedVal)) choices.push(stringifiedVal);
+        choices.push(...versions);
+        return (
+            <Select
+                value={stringifiedVal || undefined}
+                // an integer variable (FTB's Java version) keeps its type
+                onValueChange={(val) => setConfigData((prev: any) => ({ ...prev, [varKey]: variable.type === 'integer' ? Number(val) : val }))}
+            >
+                <SelectTrigger id={fieldId} aria-invalid={invalid || undefined} aria-describedby={describedBy} className={cn(invalid && 'border-destructive')}>
+                    <SelectValue placeholder={t('servers.create.versionPlaceholder')} />
+                </SelectTrigger>
+                <SelectContent className="z-[100] max-h-60">
+                    {choices.map((v) => (
+                        <SelectItem key={v} value={v} className={cn(v !== 'latest' && 'font-mono tabular-nums')}>
+                            {v === 'latest' ? t('servers.create.versionLatest') : v}
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+        );
+    }
     if (Array.isArray(variable.options) && variable.options.length > 0) {
         return (
             <Select
                 value={stringifiedVal === "" ? "_EMPTY_VALUE_" : stringifiedVal}
                 onValueChange={(val) => setConfigData((prev: any) => ({ ...prev, [varKey]: val === "_EMPTY_VALUE_" ? "" : val }))}
             >
-                <SelectTrigger id={fieldId}>
+                <SelectTrigger id={fieldId} aria-invalid={invalid || undefined} aria-describedby={describedBy}>
                     <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="z-[100] max-h-60">
@@ -395,19 +544,29 @@ function TemplateVariableInput({ fieldId, varKey, variable, currentVal, stringif
         <Input
             id={fieldId}
             type={variable.type === 'integer' ? 'number' : 'text'}
+            inputMode={variable.type === 'integer' ? 'numeric' : undefined}
+            min={variable.type === 'integer' && typeof variable.min === 'number' ? variable.min : undefined}
+            max={variable.type === 'integer' && typeof variable.max === 'number' ? variable.max : undefined}
             value={stringifiedVal}
-            onChange={(e) => setConfigData((prev: any) => ({ ...prev, [varKey]: variable.type === 'integer' ? Number(e.target.value) : e.target.value }))}
-            className={cn(variable.type === 'integer' && 'font-mono tabular-nums')}
+            aria-invalid={invalid || undefined}
+            aria-describedby={describedBy}
+            // an emptied number field stays empty while the user types, instead of jumping to 0
+            onChange={(e) => setConfigData((prev: any) => ({ ...prev, [varKey]: variable.type === 'integer' && e.target.value !== '' ? Number(e.target.value) : e.target.value }))}
+            className={cn(variable.type === 'integer' && 'font-mono tabular-nums', invalid && 'border-destructive')}
         />
     );
 }
 
 function Step3Configuration({
-    templateDetails, templateError, configData, setConfigData,
+    templateDetails, templateError, configData, setConfigData, fieldErrors,
     cpuLimit, setCpuLimit, memoryLimit, setMemoryLimit, diskLimit, setDiskLimit, ioLimit, setIoLimit,
     extraPorts, setExtraPorts,
     setCurrentStep, t
 }: any) {
+    const versionTarget = templateDetails ? templateVersionTarget(templateDetails, configData) : null;
+    const gameVersions = useGameVersions(versionTarget?.platform);
+    const javaVariable = templateDetails ? javaImageVariable(templateDetails) : null;
+
     if (templateError) {
         return (
             <div className="rounded-xl border border-dashed border-destructive/40 px-6 py-10 text-center">
@@ -472,7 +631,11 @@ function Step3Configuration({
 
                             const label = variable.display || key;
                             const isWide = (label.toLowerCase().includes('motd') || label.toLowerCase().includes('arguments') || label.toLowerCase().includes('command'));
-                            const fieldId = `tpl-var-${idx}`;
+                            const fieldId = variableFieldId(key);
+                            const description = plainDescription(variable.desc);
+                            const error: FieldError | undefined = fieldErrors?.[key];
+                            const descriptionId = description ? `${fieldId}-desc` : undefined;
+                            const errorId = error ? `${fieldId}-error` : undefined;
 
                             return (
                                 <div key={key + idx} className={cn('grid min-w-0 content-start gap-2', isWide && 'sm:col-span-2')}>
@@ -487,8 +650,23 @@ function Step3Configuration({
                                         currentVal={currentVal}
                                         stringifiedVal={stringifiedVal}
                                         setConfigData={setConfigData}
+                                        versions={
+                                            versionTarget?.variable === key ? gameVersions
+                                                : javaVariable === key && !(Array.isArray(variable.options) && variable.options.length > 0) ? TEMURIN_JAVA_VERSIONS
+                                                    : undefined
+                                        }
+                                        invalid={!!error}
+                                        describedBy={[errorId, descriptionId].filter(Boolean).join(' ') || undefined}
                                         t={t}
                                     />
+                                    {error && (
+                                        <p id={errorId} className="text-pretty text-xs font-medium text-destructive-bright">
+                                            {t(`servers.create.fieldErrors.${error.code}`, { limit: error.limit ?? '' })}
+                                        </p>
+                                    )}
+                                    {description && (
+                                        <p id={descriptionId} className="text-pretty text-xs leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">{description}</p>
+                                    )}
                                 </div>
                             );
                         })}
@@ -588,6 +766,18 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId, 
     const [templateDetails, setTemplateDetails] = useState<any>(null);
     const [templateError, setTemplateError] = useState<string | null>(null);
     const [configData, setConfigData] = useState<Record<string, any>>({});
+    const [fieldErrors, setFieldErrors] = useState<Record<string, FieldError>>({});
+
+    // once a field was marked, its error goes away as soon as it is fixed
+    useEffect(() => {
+        setFieldErrors((prev) => {
+            if (Object.keys(prev).length === 0 || !templateDetails) return prev;
+            const now = validateTemplateValues(templateDetails.data || {}, configData);
+            const still: Record<string, FieldError> = {};
+            for (const key of Object.keys(prev)) if (now[key]) still[key] = now[key];
+            return still;
+        });
+    }, [configData, templateDetails]);
     
     const [cpuLimit, setCpuLimit] = useState<number | ''>(100);
     const [memoryLimit, setMemoryLimit] = useState<number | ''>(1024);
@@ -705,9 +895,17 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId, 
     };
 
     const handleCreate = async () => {
+        if (!templateDetails) return;
+        const errors = validateTemplateValues(templateDetails.data || {}, configData);
+        setFieldErrors(errors);
+        const firstInvalid = Object.keys(errors)[0];
+        if (firstInvalid) {
+            sileo.error({ title: t('servers.create.fixFieldsTitle'), description: t('servers.create.fixFieldsDescription') });
+            document.getElementById(variableFieldId(firstInvalid))?.focus();
+            return;
+        }
         setLoading(true);
         try {
-            if (!templateDetails) return;
             const identifier = serverIdFromName(name);
 
             // each variable keeps the template's definition (name, description, type, options,
@@ -848,6 +1046,7 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId, 
                         )}
                         {currentStep === 3 && (
                             <Step3Configuration
+                                fieldErrors={fieldErrors}
                                 templateDetails={templateDetails} templateError={templateError}
                                 configData={configData} setConfigData={setConfigData}
                                 cpuLimit={cpuLimit} setCpuLimit={setCpuLimit}

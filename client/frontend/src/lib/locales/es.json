@@ -1242,6 +1242,17 @@
       "ioLabel": "Prioridad de disco",
       "variablesTitle": "Variables de la plantilla",
       "optionNone": "Ninguno",
+      "versionPlaceholder": "Elige una versión",
+      "versionLatest": "Última versión (latest)",
+      "fixFieldsTitle": "Revisa los campos marcados",
+      "fixFieldsDescription": "Hay datos que faltan o no son válidos; el servidor no se ha creado.",
+      "fieldErrors": {
+        "required": "Este campo es obligatorio.",
+        "notNumber": "Escribe un número entero.",
+        "min": "El mínimo es {limit}.",
+        "max": "El máximo es {limit}.",
+        "eula": "Acepta el EULA de Minecraft: sin él el servidor se detiene al arrancar."
+      },
       "enable": "Habilitar",
       "portsTitle": "Puertos extra",
       "mainPort": "Puerto principal:",
