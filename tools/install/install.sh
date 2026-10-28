@@ -2,7 +2,7 @@
 
 ###############################################################################
 # Aether Panel - Script de Instalación Automática (Docker)
-# Versión: 4.1.3
+# Versión: 4.1.4
 # Repositorio: https://github.com/Aether-Panel/Panel.git
 # Nota: Aether Panel es el nombre oficial. SkyPanel es el nombre en clave.
 # Soporte: Solo instalación vía Docker. No existe modo nativo.
@@ -29,7 +29,7 @@ umask 022
 # CONFIGURACIÓN Y VARIABLES GLOBALES
 # =============================================================================
 
-readonly SCRIPT_VERSION="4.1.3"
+readonly SCRIPT_VERSION="4.1.4"
 readonly SCRIPT_BUILD="20261026-hardening"
 readonly PROJECT_NAME="Aether Panel"
 readonly PROJECT_CODENAME="SkyPanel"
@@ -177,6 +177,8 @@ IS_NODE_ONLY=false
 LOCAL_IP=""; PUBLIC_IP=""
 SSH_PORTS=()
 SSL_FAILED=false
+DOMAIN_PROXIED=false
+DOMAIN_SERVER_IP=""
 PANEL_NOT_READY=false
 NGINX_CONFIGURED=false
 DEFAULT_DB_PASSWORDS_IN_USE=false
@@ -2661,6 +2663,7 @@ update_panel() {
     create_admin
     save_state
     install_domain_service
+    record_domain_status
     print_summary "Actualización completada"
     log_info "Los datos y la configuración se mantuvieron intactos"
 }
@@ -2682,9 +2685,30 @@ DOMAIN_RETRY_SECONDS=3600
 
 domain_status_file() { echo "$(dirname "$(panel_config_file)")/domain-status.json"; }
 
+# domain_proxy_check: DOMAIN_PROXIED=true cuando el dominio no apunta a este servidor, que es lo
+# que pasa con el proxy de Cloudflare (nube naranja). La web llega igual, pero los juegos
+# (Minecraft en el 25565…) y el SFTP no pasan por ese proxy: el panel les da entonces la IP
+# del servidor (DOMAIN_SERVER_IP) en lugar del dominio.
+domain_proxy_check() {
+    DOMAIN_PROXIED=false
+    DOMAIN_SERVER_IP=""
+    [[ -n "$DOMAIN" ]] || return 0
+    local resolved ip
+    resolved=$(getent ahostsv4 "$DOMAIN" 2>/dev/null | awk '{print $1}' | sort -u | tr '\n' ' ' || true)
+    [[ -n "$resolved" ]] || return 0
+    ip="${PUBLIC_IP:-}"
+    if [[ -z "$ip" ]]; then ip=$(fetch_public_ip || true); fi
+    if [[ -z "$ip" ]]; then ip="$SERVER_IP"; fi
+    if [[ -n "$ip" ]] && ! contains_word "$resolved" "$ip"; then
+        DOMAIN_PROXIED=true
+        DOMAIN_SERVER_IP="$ip"
+        log_info "$DOMAIN pasa por un proxy (${resolved% }): jugadores y SFTP usarán la IP $ip"
+    fi
+}
+
 # write_domain_status ESTADO(working|ok|error) URL MENSAJE
 write_domain_status() {
-    local file tmp https=false
+    local file tmp https=false proxied=false
     file=$(domain_status_file)
     [[ -d "$(dirname "$file")" ]] || return 0
     if [[ "$DRY_RUN" == "true" ]]; then
@@ -2692,11 +2716,13 @@ write_domain_status() {
         return 0
     fi
     if [[ "$USE_SSL" == "true" ]]; then https=true; fi
+    if [[ "$DOMAIN_PROXIED" == "true" ]]; then proxied=true; fi
     tmp=$(mktemp "$file.XXXXXX")
     jq -n --arg state "$1" --arg url "$2" --arg message "$3" \
         --arg domain "$DOMAIN" --argjson https "$https" \
+        --argjson proxied "$proxied" --arg serverIp "${DOMAIN_SERVER_IP:-}" \
         --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-        '{state: $state, url: $url, domain: $domain, https: $https, message: $message, updatedAt: $at}' >"$tmp"
+        '{state: $state, url: $url, domain: $domain, https: $https, proxied: $proxied, serverIp: $serverIp, message: $message, updatedAt: $at}' >"$tmp"
     # el panel lo lee con su propio usuario
     chmod 644 "$tmp"
     mv -f "$tmp" "$file"
@@ -2738,8 +2764,10 @@ apply_panel_url() {
         log_info "El servidor ya está configurado para $url"
         # instalaciones de antes del servicio, o una URL que vuelve a la ya aplicada: Ajustes lo
         # muestra como activo
-        if [[ "$(jq -r '.state + " " + .url' "$(domain_status_file)" 2>/dev/null || true)" != "ok $url" ]]; then
-            DOMAIN="$want_domain"; USE_SSL="$want_ssl"
+        DOMAIN="$want_domain"; USE_SSL="$want_ssl"
+        if [[ -z "$SERVER_IP" ]]; then SERVER_IP="${PREV_SERVER_IP:-}"; fi
+        domain_proxy_check
+        if [[ "$(jq -r '.state + " " + .url + " " + (.proxied|tostring)' "$(domain_status_file)" 2>/dev/null || true)" != "ok $url $DOMAIN_PROXIED" ]]; then
             write_domain_status ok "$url" "El servidor ya está configurado para $url"
         fi
         return 0
@@ -2783,6 +2811,7 @@ apply_panel_url() {
     configure_firewall
     configure_nginx
     save_state
+    domain_proxy_check
 
     if [[ "$SSL_FAILED" == "true" ]]; then
         write_domain_status error "$url" "No se pudo obtener el certificado para $DOMAIN: comprueba que el dominio apunta a este servidor y que el puerto 80 está abierto. El panel funciona por HTTP mientras tanto."
@@ -2825,6 +2854,21 @@ install_domain_service() {
     run systemctl daemon-reload
     run systemctl enable --now "$DOMAIN_SERVICE.path"
     log_success "Dominio desde Ajustes: el servidor aplicará la URL principal al guardarla"
+}
+
+# record_domain_status: lo que la instalación dejó configurado, para que Ajustes lo muestre
+record_domain_status() {
+    if [[ "$IS_NODE_ONLY" == "true" || "$SKIP_NGINX" == "true" ]]; then return 0; fi
+    local url
+    url=$(cfg_get panel.settings.masterUrl)
+    url="${url%/}"
+    [[ -n "$url" ]] || return 0
+    domain_proxy_check
+    if [[ "$SSL_FAILED" == "true" ]]; then
+        write_domain_status error "$url" "No se pudo obtener el certificado para $DOMAIN"
+    else
+        write_domain_status ok "$url" "El servidor está configurado para $url"
+    fi
 }
 
 remove_domain_service() {
@@ -3396,6 +3440,7 @@ main() {
     create_admin
     save_state
     install_domain_service
+    record_domain_status
     print_summary
 }
 

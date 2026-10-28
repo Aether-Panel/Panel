@@ -3060,6 +3060,7 @@
         "okHttps": "Active: {domain} over HTTPS (Nginx and certificate set up).",
         "okHttp": "Active: {domain} over HTTP.",
         "okIp": "The panel answers on the server's IP.",
+        "proxied": "Your domain goes through Cloudflare's proxy, which only lets the website through: players and SFTP use the IP {ip}. For a name they can join with, use automatic subdomains (Settings → Domains) or a DNS record without the proxy (grey cloud).",
         "error": "Could not get the certificate for {domain}. Check that the domain points at this server and that port 80 is open; it will be retried in an hour. Meanwhile the panel works over HTTP."
       },
       "companyNameLabel": "Company Name",

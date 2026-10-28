@@ -158,3 +158,8 @@ Encontrado al instalar en un VPS real (Ubuntu 26.04) y apuntar un dominio con el
 - El resultado queda en `domain-status.json`, junto al `config.json`, y el panel lo muestra bajo el campo (`GET /api/settings/domain-status`).
 - Se instala también con `--update`, y `--uninstall` lo quita. No se instala sin systemd, en nodos solo daemon ni con `--skip-nginx`.
 
+# install.sh 4.1.3 → 4.1.4
+
+- **Dominio con el proxy de Cloudflare.** El panel daba como dirección de los servidores de juego y del SFTP el dominio de la URL principal. Con la nube naranja de Cloudflare ese dominio solo deja pasar la web, así que `dominio:25565` no conectaba nunca. El servicio `aether-domain` (y la instalación) comprueba ahora si el dominio apunta a este servidor; si no, lo anota en `domain-status.json` (`proxied` y `serverIp`) y el panel usa esa IP para jugadores y SFTP, salvo que en Ajustes haya una "IP del nodo maestro". Ajustes lo explica bajo la URL principal y recuerda los subdominios automáticos.
+- La instalación y `--update` también escriben ese estado al terminar.
+

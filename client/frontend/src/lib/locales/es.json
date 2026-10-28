@@ -3060,6 +3060,7 @@
         "okHttps": "Activo: {domain} con HTTPS (Nginx y certificado configurados).",
         "okHttp": "Activo: {domain} por HTTP.",
         "okIp": "El panel contesta por la IP del servidor.",
+        "proxied": "Tu dominio pasa por el proxy de Cloudflare, que solo deja pasar la web: los jugadores y el SFTP usan la IP {ip}. Para que entren con un nombre, usa los subdominios automáticos (Ajustes → Dominios) o un registro DNS sin proxy (nube gris).",
         "error": "No se pudo obtener el certificado para {domain}. Comprueba que el dominio apunta a este servidor y que el puerto 80 está abierto; se reintentará en una hora. Mientras tanto el panel funciona por HTTP."
       },
       "companyNameLabel": "Nombre de la empresa",

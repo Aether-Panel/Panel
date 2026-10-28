@@ -14,7 +14,7 @@ interface GeneralTabProps {
     t: (key: string) => string;
 }
 
-type DomainStatus = { state: 'none' | 'working' | 'ok' | 'error'; url?: string; domain?: string; https?: boolean; updatedAt?: string };
+type DomainStatus = { state: 'none' | 'working' | 'ok' | 'error'; url?: string; domain?: string; https?: boolean; proxied?: boolean; serverIp?: string; updatedAt?: string };
 
 /**
  * What the server did with the Base URL. The server's aether-domain service sets up Nginx,
@@ -56,7 +56,12 @@ function DomainStatusLine({ t }: Readonly<{ t: (key: string) => string }>) {
     text = text.replace('{domain}', domain);
 
     const Icon = status.state === 'working' ? Loader2 : status.state === 'error' ? XCircle : CheckCircle2;
+    // the website goes through the proxy, game ports and SFTP cannot: the panel hands out the IP
+    const proxyNote = status.state === 'ok' && status.proxied && status.serverIp
+        ? t('settings.general.domainStatus.proxied').replace('{ip}', status.serverIp)
+        : '';
     return (
+        <div className="space-y-1">
         <output
             aria-live="polite"
             className={cn(
@@ -69,6 +74,8 @@ function DomainStatusLine({ t }: Readonly<{ t: (key: string) => string }>) {
             <Icon className={cn('mt-px h-3.5 w-3.5 shrink-0', status.state === 'working' && 'animate-spin')} aria-hidden="true" />
             <span className="min-w-0 break-words">{text}</span>
         </output>
+        {proxyNote && <p className="text-pretty pl-[1.375rem] text-xs text-muted-foreground">{proxyNote}</p>}
+        </div>
     );
 }
 
