@@ -5,12 +5,71 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { Check, Copy, CopyPlus, Eye, EyeOff, Layers, MapPin, SlidersHorizontal, type LucideIcon } from 'lucide-react';
+import { Check, CheckCircle2, Copy, CopyPlus, Eye, EyeOff, Layers, Loader2, MapPin, SlidersHorizontal, XCircle, type LucideIcon } from 'lucide-react';
+import { api } from '@/lib/api-client';
 
 interface GeneralTabProps {
     localSettings: Record<string, any>;
     handleUpdate: (key: string, value: any) => void;
     t: (key: string) => string;
+}
+
+type DomainStatus = { state: 'none' | 'working' | 'ok' | 'error'; url?: string; domain?: string; https?: boolean; updatedAt?: string };
+
+/**
+ * What the server did with the Base URL. The server's aether-domain service sets up Nginx,
+ * the certificate and the firewall a few seconds after the URL is saved; this polls its
+ * result, faster while it is still working. Installs without that service show nothing.
+ */
+function DomainStatusLine({ t }: Readonly<{ t: (key: string) => string }>) {
+    const [status, setStatus] = useState<DomainStatus | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const load = async () => {
+            let next: DomainStatus | null = null;
+            try {
+                next = await api.get('/api/settings/domain-status');
+            } catch {
+                next = null;
+            }
+            if (cancelled) return;
+            setStatus(next);
+            timer = setTimeout(load, next?.state === 'working' ? 3000 : 15000);
+        };
+        void load();
+        return () => {
+            cancelled = true;
+            if (timer) clearTimeout(timer);
+        };
+    }, []);
+
+    if (!status || status.state === 'none') return null;
+    const domain = status.domain || status.url || '';
+    let text: string;
+    if (status.state === 'working') text = t('settings.general.domainStatus.working');
+    else if (status.state === 'error') text = t('settings.general.domainStatus.error');
+    else if (!status.domain) text = t('settings.general.domainStatus.okIp');
+    else if (status.https) text = t('settings.general.domainStatus.okHttps');
+    else text = t('settings.general.domainStatus.okHttp');
+    text = text.replace('{domain}', domain);
+
+    const Icon = status.state === 'working' ? Loader2 : status.state === 'error' ? XCircle : CheckCircle2;
+    return (
+        <output
+            aria-live="polite"
+            className={cn(
+                'flex items-start gap-2 text-pretty text-xs',
+                status.state === 'ok' && 'text-success',
+                status.state === 'error' && 'text-destructive-bright',
+                status.state === 'working' && 'text-muted-foreground',
+            )}
+        >
+            <Icon className={cn('mt-px h-3.5 w-3.5 shrink-0', status.state === 'working' && 'animate-spin')} aria-hidden="true" />
+            <span className="min-w-0 break-words">{text}</span>
+        </output>
+    );
 }
 
 /* ------------------------------------------------------------------ */
@@ -230,6 +289,7 @@ export function GeneralTab({ localSettings, handleUpdate, t }: Readonly<GeneralT
                                 onChange={(e) => handleUpdate('panel.settings.masterUrl', e.target.value)}
                                 className="font-mono text-[13px] md:text-[13px]"
                             />
+                            <DomainStatusLine t={t} />
                         </SettingsField>
                         <SettingsField id="master-node-ip" label={t('settings.general.masterNodeIpLabel')} hint={t('settings.general.masterNodeIpDescription')}>
                             <Input

@@ -3043,7 +3043,14 @@
       "title": "General Settings",
       "description": "Adjust the main application settings.",
       "baseUrlLabel": "Base URL",
-      "baseUrlDescription": "The link from which you will access the control panel following the format: http://localhost:8080",
+      "baseUrlDescription": "The address used to open the panel, for example https://panel.yourdomain.com or http://IP:8080. With a domain, the server sets up Nginx, the HTTPS certificate and the firewall by itself when you save it (installs made with the installer). Point the domain at the server's IP first.",
+      "domainStatus": {
+        "working": "Setting up the server for {domain}…",
+        "okHttps": "Active: {domain} over HTTPS (Nginx and certificate set up).",
+        "okHttp": "Active: {domain} over HTTP.",
+        "okIp": "The panel answers on the server's IP.",
+        "error": "Could not get the certificate for {domain}. Check that the domain points at this server and that port 80 is open; it will be retried in an hour. Meanwhile the panel works over HTTP."
+      },
       "companyNameLabel": "Company Name",
       "companyNameDescription": "The name of your organization displayed across the panel interface.",
       "masterNodeIpLabel": "Global Master Node IP",

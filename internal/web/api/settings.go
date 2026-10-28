@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -62,6 +63,47 @@ func registerSettings(g *gin.RouterGroup) {
 
 	g.Handle("GET", "/update-status", middleware.RequiresPermission(scopes.ScopeSettingsEdit), updateStatus)
 	g.Handle("OPTIONS", "/update-status", response.CreateOptions("GET"))
+
+	g.Handle("GET", "/domain-status", middleware.RequiresPermission(scopes.ScopeSettingsEdit), domainStatus)
+	g.Handle("OPTIONS", "/domain-status", response.CreateOptions("GET"))
+}
+
+// domainStatusFile is written by the server's aether-domain service (tools/install/install.sh
+// --apply-panel-url) after it sets up Nginx, the certificate and the firewall for the Base URL
+const domainStatusFile = "domain-status.json"
+
+// DomainStatus is what the server did with the Base URL the last time it changed. State is
+// "working", "ok", "error", or "none" when the service has never run (an install made
+// without the installer, or one older than 4.1.3).
+type DomainStatus struct {
+	State     string `json:"state"`
+	URL       string `json:"url,omitempty"`
+	Domain    string `json:"domain,omitempty"`
+	HTTPS     bool   `json:"https"`
+	Message   string `json:"message,omitempty"`
+	UpdatedAt string `json:"updatedAt,omitempty"`
+} // @name DomainStatus
+
+// @Summary Domain set-up status
+// @Description What the server did with the Base URL: Nginx, the HTTPS certificate and the firewall
+// @Success 200 {object} DomainStatus
+// @Tags Settings
+// @Router /api/settings/domain-status [get]
+// @Security OAuth2Application[settings.edit]
+func domainStatus(c *gin.Context) {
+	data, err := os.ReadFile(filepath.Join(filepath.Dir(config.FileUsed()), domainStatusFile))
+	if errors.Is(err, os.ErrNotExist) {
+		c.JSON(http.StatusOK, DomainStatus{State: "none"})
+		return
+	}
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+	var status DomainStatus
+	if response.HandleError(c, json.Unmarshal(data, &status), http.StatusInternalServerError) {
+		return
+	}
+	c.JSON(http.StatusOK, status)
 }
 
 // @Summary Value a panel setting

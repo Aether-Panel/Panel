@@ -152,3 +152,9 @@ Encontrado al instalar en un VPS real (Ubuntu 26.04) y apuntar un dominio con el
 - **Un dominio sin configurar caía en la página de bienvenida de Nginx.** Sin dominio, el sitio del panel solo contestaba a la IP y el sitio `default` de la distribución se quedaba con el resto. Ahora el sitio del panel es el predeterminado del puerto 80: contesta por la IP y por cualquier dominio que apunte al servidor. Se quita solo el enlace `sites-enabled/default` (el archivo sigue en `sites-available`); si otro sitio ya es el predeterminado, no se toca.
 - **IPv6.** Nginx escucha también en `[::]:80` y `[::]:443`.
 
+# install.sh 4.1.2 → 4.1.3
+
+- **El dominio de Ajustes se aplica solo.** Hasta ahora, escribir un dominio en **Ajustes → General → URL principal** solo cambiaba los enlaces del panel: Nginx, el certificado y el firewall había que configurarlos volviendo a ejecutar el instalador. Ahora el instalador deja el servicio `aether-domain` (una unidad `.path` de systemd que vigila el `config.json` del panel). Al guardar la URL ejecuta `install.sh --apply-panel-url`, que con las mismas funciones de la instalación configura Nginx, pide el certificado si la URL es `https://` y abre los puertos. Si no hay cambios, no toca nada. Un certificado fallido no se vuelve a pedir hasta pasada una hora (límite de Let's Encrypt), salvo que cambie la URL.
+- El resultado queda en `domain-status.json`, junto al `config.json`, y el panel lo muestra bajo el campo (`GET /api/settings/domain-status`).
+- Se instala también con `--update`, y `--uninstall` lo quita. No se instala sin systemd, en nodos solo daemon ni con `--skip-nginx`.
+

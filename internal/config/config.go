@@ -14,6 +14,12 @@ func init() {
 	viper.AutomaticEnv()
 }
 
+// FileUsed is the config.json the panel reads and writes; files that other programs leave
+// for the panel, such as the domain service's status, sit next to it
+func FileUsed() string {
+	return viper.ConfigFileUsed()
+}
+
 func LoadConfigFile(configFile string) error {
 	if configFile == "" {
 		var exists bool

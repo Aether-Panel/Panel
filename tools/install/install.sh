@@ -2,7 +2,7 @@
 
 ###############################################################################
 # Aether Panel - Script de Instalación Automática (Docker)
-# Versión: 4.1.2
+# Versión: 4.1.3
 # Repositorio: https://github.com/Aether-Panel/Panel.git
 # Nota: Aether Panel es el nombre oficial. SkyPanel es el nombre en clave.
 # Soporte: Solo instalación vía Docker. No existe modo nativo.
@@ -29,7 +29,7 @@ umask 022
 # CONFIGURACIÓN Y VARIABLES GLOBALES
 # =============================================================================
 
-readonly SCRIPT_VERSION="4.1.2"
+readonly SCRIPT_VERSION="4.1.3"
 readonly SCRIPT_BUILD="20261026-hardening"
 readonly PROJECT_NAME="Aether Panel"
 readonly PROJECT_CODENAME="SkyPanel"
@@ -153,6 +153,7 @@ AUTO_MODE=$(truthy_env "${AETHER_YES:-}")
 NON_INTERACTIVE=$(truthy_env "${AETHER_NONINTERACTIVE:-}")
 DRY_RUN=$(truthy_env "${AETHER_DRY_RUN:-}")
 UPDATE_MODE=false
+APPLY_PANEL_URL=false
 ROTATE_DB_PASSWORDS=false
 UNINSTALL_MODE=""
 DEBUG=$(truthy_env "${AETHER_DEBUG:-}")
@@ -2659,8 +2660,172 @@ update_panel() {
     start_stack
     create_admin
     save_state
+    install_domain_service
     print_summary "Actualización completada"
     log_info "Los datos y la configuración se mantuvieron intactos"
+}
+
+# =============================================================================
+# DOMINIO DESDE AJUSTES (servicio aether-domain)
+#   Al guardar un dominio en Ajustes → General → URL principal, el servidor tiene
+#   que configurar Nginx, el certificado y el firewall, y eso el panel (dentro de
+#   Docker) no lo puede hacer. Una unidad .path de systemd vigila el config.json
+#   del panel y ejecuta "install.sh --apply-panel-url", que usa las mismas
+#   funciones que la instalación. El resultado queda en domain-status.json, junto
+#   al config.json, y el panel lo muestra bajo el campo.
+# =============================================================================
+
+DOMAIN_SERVICE="aether-domain"
+# Tras un certificado fallido no se vuelve a pedir el mismo hasta pasada una hora:
+# Let's Encrypt limita los intentos fallidos por dominio
+DOMAIN_RETRY_SECONDS=3600
+
+domain_status_file() { echo "$(dirname "$(panel_config_file)")/domain-status.json"; }
+
+# write_domain_status ESTADO(working|ok|error) URL MENSAJE
+write_domain_status() {
+    local file tmp https=false
+    file=$(domain_status_file)
+    [[ -d "$(dirname "$file")" ]] || return 0
+    if [[ "$DRY_RUN" == "true" ]]; then
+        printf '%s[dry-run]%s estado del dominio: %s (%s)\n' "$CYAN" "$NC" "$1" "$3"
+        return 0
+    fi
+    if [[ "$USE_SSL" == "true" ]]; then https=true; fi
+    tmp=$(mktemp "$file.XXXXXX")
+    jq -n --arg state "$1" --arg url "$2" --arg message "$3" \
+        --arg domain "$DOMAIN" --argjson https "$https" \
+        --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        '{state: $state, url: $url, domain: $domain, https: $https, message: $message, updatedAt: $at}' >"$tmp"
+    # el panel lo lee con su propio usuario
+    chmod 644 "$tmp"
+    mv -f "$tmp" "$file"
+}
+
+apply_panel_url() {
+    if [[ ! -d "$INSTALL_DIR/.git" ]]; then
+        log_error "No hay una instalación de $PROJECT_NAME en $INSTALL_DIR"
+        exit 1
+    fi
+    local url host scheme port want_domain="" want_ssl=false
+    url=$(cfg_get panel.settings.masterUrl)
+    url="${url%/}"
+    if [[ -z "$url" ]]; then
+        log_info "Ajustes no tiene URL principal: no hay nada que aplicar"
+        return 0
+    fi
+    if [[ ! "$url" =~ ^(https?)://([^/:]+)(:([0-9]+))?(/.*)?$ ]]; then
+        log_warning "La URL principal no es válida: $url"
+        return 0
+    fi
+    scheme="${BASH_REMATCH[1]}"; host="${BASH_REMATCH[2],,}"; port="${BASH_REMATCH[4]}"
+
+    if validate_ip "$host" || [[ "$host" == "localhost" ]]; then
+        want_domain=""
+    elif [[ -n "$port" ]]; then
+        # http://dominio:8080 entra directo al panel: Nginx no interviene
+        log_info "La URL principal lleva puerto ($url): no se configura Nginx"
+        return 0
+    elif validate_domain "$host"; then
+        want_domain="$host"
+        if [[ "$scheme" == "https" ]]; then want_ssl=true; fi
+    else
+        log_warning "La URL principal no tiene un dominio válido: $url"
+        return 0
+    fi
+
+    if [[ "$want_domain" == "${PREV_DOMAIN:-}" && "$want_ssl" == "${PREV_USE_SSL:-false}" ]]; then
+        log_info "El servidor ya está configurado para $url"
+        return 0
+    fi
+
+    # Un certificado que acaba de fallar no se pide otra vez en cada cambio de Ajustes
+    local status_file last_state last_url last_at last_epoch now
+    status_file=$(domain_status_file)
+    if [[ -r "$status_file" ]]; then
+        last_state=$(jq -r '.state // empty' "$status_file" 2>/dev/null || true)
+        last_url=$(jq -r '.url // empty' "$status_file" 2>/dev/null || true)
+        last_at=$(jq -r '.updatedAt // empty' "$status_file" 2>/dev/null || true)
+        last_epoch=$(date -u -d "$last_at" +%s 2>/dev/null || echo 0)
+        now=$(date -u +%s)
+        if [[ "$last_state" == "error" && "$last_url" == "$url" ]] && (( now - last_epoch < DOMAIN_RETRY_SECONDS )); then
+            log_info "El último intento para $url falló hace menos de una hora; se reintentará después"
+            return 0
+        fi
+    fi
+
+    print_step "Aplicando la URL principal de Ajustes: $url"
+    DOMAIN="$want_domain"
+    USE_SSL="$want_ssl"
+    if [[ -z "$DOMAIN" ]]; then NO_DOMAIN=true; fi
+    SSL_EMAIL="${SSL_EMAIL:-${PREV_SSL_EMAIL:-}}"
+    if [[ -z "$PANEL_PORT" ]]; then PANEL_PORT="${PREV_PANEL_PORT:-$DEFAULT_PANEL_PORT}"; fi
+    if [[ -z "$SFTP_PORT" ]]; then SFTP_PORT="${PREV_SFTP_PORT:-$DEFAULT_SFTP_PORT}"; fi
+    if [[ -z "$PANEL_BIND" ]]; then PANEL_BIND="${PREV_PANEL_BIND:-0.0.0.0}"; fi
+    if [[ -z "$SERVER_IP" ]]; then SERVER_IP="${PREV_SERVER_IP:-}"; fi
+    if [[ -z "$SERVER_IP" ]]; then
+        LOCAL_IP=$(detect_local_ip)
+        SERVER_IP="${LOCAL_IP:-127.0.0.1}"
+    fi
+    if [[ -z "$GIT_BRANCH" ]]; then GIT_BRANCH="${PREV_GIT_BRANCH:-$DEFAULT_GIT_BRANCH}"; fi
+    if [[ -z "$DB_MODE" ]]; then DB_MODE="${PREV_DB_MODE:-local}"; fi
+    MYSQL_HOST_PORT="${PREV_MYSQL_HOST_PORT:-$DEFAULT_MYSQL_HOST_PORT}"
+    # la URL ya está en Ajustes: no se vuelve a escribir en el config.json
+    MASTER_URL="$url"
+    write_domain_status working "$url" "Configurando Nginx${DOMAIN:+ para $DOMAIN}"
+
+    configure_firewall
+    configure_nginx
+    save_state
+
+    if [[ "$SSL_FAILED" == "true" ]]; then
+        write_domain_status error "$url" "No se pudo obtener el certificado para $DOMAIN: comprueba que el dominio apunta a este servidor y que el puerto 80 está abierto. El panel funciona por HTTP mientras tanto."
+    elif [[ -n "$DOMAIN" && "$USE_SSL" == "true" ]]; then
+        write_domain_status ok "$url" "Nginx y el certificado HTTPS de $DOMAIN están configurados"
+    elif [[ -n "$DOMAIN" ]]; then
+        write_domain_status ok "$url" "Nginx está configurado para $DOMAIN (sin HTTPS)"
+    else
+        write_domain_status ok "$url" "Nginx contesta por la IP del servidor"
+    fi
+}
+
+install_domain_service() {
+    if [[ "$IS_NODE_ONLY" == "true" || "$HAS_SYSTEMD" != "true" || "$SKIP_NGINX" == "true" ]]; then return 0; fi
+    local config_file script="$INSTALL_DIR/tools/install/install.sh"
+    config_file=$(panel_config_file)
+    if [[ ! -f "$script" ]]; then
+        log_warning "No está $script: el dominio de Ajustes no se aplicará solo"
+        return 0
+    fi
+    printf '%s\n' \
+        "[Unit]" \
+        "Description=Aether Panel: aplicar la URL principal de Ajustes (Nginx, certificado, firewall)" \
+        "After=network-online.target docker.service" \
+        "" \
+        "[Service]" \
+        "Type=oneshot" \
+        "ExecStart=/bin/bash $script --apply-panel-url" |
+        write_file "/etc/systemd/system/$DOMAIN_SERVICE.service" 644
+    printf '%s\n' \
+        "[Unit]" \
+        "Description=Aether Panel: vigilar la URL principal de Ajustes" \
+        "" \
+        "[Path]" \
+        "PathChanged=$config_file" \
+        "" \
+        "[Install]" \
+        "WantedBy=multi-user.target" |
+        write_file "/etc/systemd/system/$DOMAIN_SERVICE.path" 644
+    run systemctl daemon-reload
+    run systemctl enable --now "$DOMAIN_SERVICE.path"
+    log_success "Dominio desde Ajustes: el servidor aplicará la URL principal al guardarla"
+}
+
+remove_domain_service() {
+    if [[ ! -f "/etc/systemd/system/$DOMAIN_SERVICE.path" ]]; then return 0; fi
+    svc disable --now "$DOMAIN_SERVICE.path" || true
+    run rm -f "/etc/systemd/system/$DOMAIN_SERVICE.path" "/etc/systemd/system/$DOMAIN_SERVICE.service"
+    run systemctl daemon-reload || true
 }
 
 # =============================================================================
@@ -2745,6 +2910,8 @@ uninstall() {
             run docker rm -f "$c" || true
         fi
     done
+
+    remove_domain_service
 
     # Nginx
     local conf
@@ -2919,6 +3086,7 @@ Opciones de Cuenta:
 
 Opciones de Actualización:
       --update               Actualizar sin borrar datos
+      --apply-panel-url      Configurar Nginx/SSL para la URL principal de Ajustes (lo usa el servicio aether-domain)
 
 Opciones:
       --debug                Modo debug
@@ -3054,6 +3222,7 @@ parse_args() {
             --uninstall-data) UNINSTALL_MODE="data"; HAS_INSTALL_ARGS=true ;;
             --uninstall-all) UNINSTALL_MODE="full"; HAS_INSTALL_ARGS=true ;;
             --update) UPDATE_MODE=true; HAS_INSTALL_ARGS=true ;;
+            --apply-panel-url) APPLY_PANEL_URL=true; HAS_INSTALL_ARGS=true; NON_INTERACTIVE=true ;;
             -b|--branch) need_value "$opt" "$has_eq" "$eqval" "${2:-}"; GIT_BRANCH="$REPLY" ;;
             --debug) DEBUG=true ;;
             -V|--version) echo "$SCRIPT_VERSION ($SCRIPT_BUILD)"; exit 0 ;;
@@ -3177,6 +3346,12 @@ main() {
         exit 0
     fi
 
+    # El servicio aether-domain: aplicar la URL principal guardada en Ajustes
+    if [[ "$APPLY_PANEL_URL" == "true" ]]; then
+        apply_panel_url
+        exit 0
+    fi
+
     check_resources
     if [[ "$EXISTING_INSTALL" == "true" ]]; then
         existing_installation_menu
@@ -3214,6 +3389,7 @@ main() {
     start_stack
     create_admin
     save_state
+    install_domain_service
     print_summary
 }
 
