@@ -97,6 +97,8 @@ function plainDescription(desc: unknown): string {
     return desc
         .replace(/<a\s[^>]*href=['"]([^'"]+)['"][^>]*>(.*?)<\/a>/gi, '$2 ($1)')
         .replace(/<[^>]*>/g, '')
+        // a tag split around another one ("<scr<b>ipt>") must not leave half a tag behind
+        .replace(/[<>]/g, '')
         .replace(/\s+/g, ' ')
         .trim();
 }

@@ -85,8 +85,12 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    # También en la red de los servidores de juego: el panel les habla por dentro (mapa del
+    # mundo, jugadores conectados…). En Linux Docker aísla las redes entre sí, y sin esto esas
+    # peticiones no llegan aunque el servidor funcione por su IP y puerto públicos.
     networks:
       - skypanel-network
+      - skypanel-servers
 
   # ==========================================
   # ADMINER - Administración de la base de datos del panel
