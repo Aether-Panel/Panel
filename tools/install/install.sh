@@ -2,7 +2,7 @@
 
 ###############################################################################
 # Aether Panel - Script de Instalación Automática (Docker)
-# Versión: 4.1.1
+# Versión: 4.2.1
 # Repositorio: https://github.com/Aether-Panel/Panel.git
 # Nota: Aether Panel es el nombre oficial. SkyPanel es el nombre en clave.
 # Soporte: Solo instalación vía Docker. No existe modo nativo.
@@ -29,7 +29,7 @@ umask 022
 # CONFIGURACIÓN Y VARIABLES GLOBALES
 # =============================================================================
 
-readonly SCRIPT_VERSION="4.1.1"
+readonly SCRIPT_VERSION="4.2.1"
 readonly SCRIPT_BUILD="20261026-hardening"
 readonly PROJECT_NAME="Aether Panel"
 readonly PROJECT_CODENAME="SkyPanel"
@@ -37,7 +37,9 @@ readonly INSTALL_URL="https://install.aetherpanel.es/install.sh"
 # El repositorio se puede cambiar (forks, pruebas) con AETHER_REPO
 GITHUB_REPO="${AETHER_REPO:-https://github.com/Aether-Panel/Panel.git}"
 # Rama por defecto de las instalaciones. Se puede cambiar con --branch o AETHER_BRANCH.
-readonly DEFAULT_GIT_BRANCH="dev2.0"
+# rama estable: una instalación nueva usa main salvo que se pida otra (-b / AETHER_BRANCH);
+# al volver a ejecutar el instalador se mantiene la rama ya instalada
+readonly DEFAULT_GIT_BRANCH="main"
 
 # Directorios (usando nombre en clave SkyPanel con mayúsculas).
 # INSTALL_DIR es fijo: la actualización desde el panel (internal/update) y
@@ -51,6 +53,9 @@ readonly DEFAULT_WEB_DIR="/var/www/SkyPanel"    # legado
 readonly PANEL_CONTAINER="skypanel"
 readonly MYSQL_CONTAINER="skypanel-mysql"
 readonly SERVERS_NETWORK="skypanel-servers"
+# Copias de seguridad que hace el instalador: fuera de $INSTALL_DIR para que una reinstalación
+# o desinstalación no se las lleve
+readonly BACKUP_ROOT="/var/backups/aether-panel"
 
 # Puertos por defecto (docker-compose.yml: "8080:8080", "5657:5657", MariaDB 127.0.0.1:3307)
 readonly DEFAULT_PANEL_PORT="8080"
@@ -153,6 +158,19 @@ AUTO_MODE=$(truthy_env "${AETHER_YES:-}")
 NON_INTERACTIVE=$(truthy_env "${AETHER_NONINTERACTIVE:-}")
 DRY_RUN=$(truthy_env "${AETHER_DRY_RUN:-}")
 UPDATE_MODE=false
+APPLY_PANEL_URL=false
+REINSTALL_MODE=false
+SKIP_BACKUP=false
+DB_ADMIN_USER="${AETHER_DB_ADMIN_USER:-}"
+DB_ADMIN_PASSWORD="${AETHER_DB_ADMIN_PASSWORD:-}"
+INSTALL_STATE="absent"          # absent | stopped | running
+FOREIGN_CONTAINER=false         # un contenedor "skypanel" que no es de esta instalación
+ROLLBACK_ON_FAILURE=false       # en una actualización, un panel que no arranca vuelve atrás
+PANEL_START_FAILED=false
+PRE_UPDATE_COMMIT=""
+LAST_DB_BACKUP=""
+ROLLBACK_IMAGE=""
+DBS_MODE=""; DBS_NAME=""; DBS_USER=""; DBS_HOST=""; DBS_PORT=""
 ROTATE_DB_PASSWORDS=false
 UNINSTALL_MODE=""
 DEBUG=$(truthy_env "${AETHER_DEBUG:-}")
@@ -176,6 +194,8 @@ IS_NODE_ONLY=false
 LOCAL_IP=""; PUBLIC_IP=""
 SSH_PORTS=()
 SSL_FAILED=false
+DOMAIN_PROXIED=false
+DOMAIN_SERVER_IP=""
 PANEL_NOT_READY=false
 NGINX_CONFIGURED=false
 DEFAULT_DB_PASSWORDS_IN_USE=false
@@ -566,6 +586,11 @@ detect_os() {
             OS_FAMILY="rhel"; DOCKER_DISTRO="rhel" ;;
         centos|rocky|alma|almalinux|ol)
             OS_FAMILY="rhel"; DOCKER_DISTRO="centos" ;;
+        arch|manjaro|endeavouros|garuda|artix)
+            # Docker y Compose vienen en los repositorios de la distribución
+            OS_FAMILY="arch"; DOCKER_DISTRO="arch" ;;
+        opensuse-leap|opensuse-tumbleweed|opensuse-slowroll|sles)
+            OS_FAMILY="suse"; DOCKER_DISTRO="suse" ;;
         *)
             if contains_word "$OS_LIKE" ubuntu; then
                 OS_FAMILY="debian"; DOCKER_DISTRO="ubuntu"; DOCKER_CODENAME="${OS_UBUNTU_CODENAME:-$OS_CODENAME}"
@@ -573,8 +598,12 @@ detect_os() {
                 OS_FAMILY="debian"; DOCKER_DISTRO="debian"; DOCKER_CODENAME="$OS_CODENAME"
             elif contains_word "$OS_LIKE" rhel || contains_word "$OS_LIKE" centos || contains_word "$OS_LIKE" fedora; then
                 OS_FAMILY="rhel"; DOCKER_DISTRO="centos"
+            elif contains_word "$OS_LIKE" arch; then
+                OS_FAMILY="arch"; DOCKER_DISTRO="arch"
+            elif contains_word "$OS_LIKE" suse; then
+                OS_FAMILY="suse"; DOCKER_DISTRO="suse"
             else
-                die "Sistema operativo no soportado: ${OS_PRETTY:-$OS_TYPE} (soportados: Ubuntu, Debian, Fedora, RHEL/Rocky/Alma)"
+                die "Sistema operativo no soportado: ${OS_PRETTY:-$OS_TYPE}. Funciona en Ubuntu, Debian, Fedora, RHEL/Rocky/Alma, Arch y openSUSE (y derivadas): hace falta un gestor de paquetes conocido (apt, dnf, pacman o zypper) para instalar Docker, Nginx y certbot."
             fi
             log_warning "Distribución no probada ($OS_TYPE); se trata como derivada de $DOCKER_DISTRO"
             ;;
@@ -767,6 +796,46 @@ port_owner() {
     proc=$(sed -n 's/.*users:(("\([^"]*\)".*/\1/p' <<<"$out")
     proc=${proc%%$'\n'*}
     echo "proc:${proc:-desconocido}"
+}
+
+# ask_port VARIABLE "Pregunta" DEFECTO OTRO_PUERTO: pide un puerto hasta que sea válido, distinto
+# de OTRO_PUERTO, no reservado por el propio panel y libre (o ya usado por esta instalación)
+ask_port() {
+    local __var="$1" label="$2" def="$3" other="$4" p owner reason i
+    for i in 1 2 3 4 5; do
+        ask_input p "$label" "$def"
+        reason=""
+        if ! validate_port "$p"; then
+            reason="debe ser un número entre 1 y 65535"
+        elif [[ -n "$other" && "$p" == "$other" ]]; then
+            reason="ya lo usa otro servicio del panel"
+        elif [[ "$p" == "22" ]] || contains_word "$(detect_ssh_ports_list)" "$p"; then
+            reason="es el puerto de SSH"
+        elif [[ "$p" == "80" || "$p" == "443" ]] && [[ "$SKIP_NGINX" != "true" ]]; then
+            reason="lo usa Nginx delante del panel"
+        elif [[ "$p" == "$DEFAULT_MYSQL_HOST_PORT" || "$p" == "8081" ]]; then
+            reason="lo usa la base de datos o Adminer del panel"
+        else
+            owner=$(port_owner "$p")
+            case "$owner" in
+                free|ours|unknown) ;;
+                docker:*) reason="lo usa el contenedor ${owner#docker:}" ;;
+                proc:*) reason="lo usa el proceso ${owner#proc:}" ;;
+            esac
+        fi
+        if [[ -z "$reason" ]]; then
+            printf -v "$__var" '%s' "$p"
+            return 0
+        fi
+        log_error "Puerto $p: $reason"
+    done
+    die "No se indicó un puerto válido para: $label"
+}
+
+# Puertos SSH como lista (detect_ssh_ports llena SSH_PORTS)
+detect_ssh_ports_list() {
+    detect_ssh_ports >/dev/null 2>&1 || true
+    echo "${SSH_PORTS[*]:-22}"
 }
 
 check_ports() {
@@ -963,13 +1032,49 @@ container_running() {
     [[ "$s" == "true" ]]
 }
 
+# container_is_ours NOMBRE: el contenedor lo creó docker compose desde $INSTALL_DIR. Otro
+# proyecto puede tener un contenedor con el mismo nombre, y ese no se toca.
+container_is_ours() {
+    local dir
+    dir=$(docker inspect -f '{{index .Config.Labels "com.docker.compose.project.working_dir"}}' "$1" 2>/dev/null || true)
+    [[ -n "$dir" ]] || return 1
+    [[ "$(readlink -f "$dir" 2>/dev/null || echo "$dir")" == "$(readlink -f "$INSTALL_DIR" 2>/dev/null || echo "$INSTALL_DIR")" ]]
+}
+
+# detect_existing_installation: EXISTING_INSTALL e INSTALL_STATE (absent, stopped, running)
 detect_existing_installation() {
     EXISTING_INSTALL=false
-    if [[ -d "$INSTALL_DIR/.git" ]] || { command -v docker >/dev/null 2>&1 && container_exists "$PANEL_CONTAINER"; }; then
+    INSTALL_STATE=absent
+    FOREIGN_CONTAINER=false
+    if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1 && container_exists "$PANEL_CONTAINER"; then
+        if container_is_ours "$PANEL_CONTAINER"; then
+            EXISTING_INSTALL=true
+            if container_running "$PANEL_CONTAINER"; then INSTALL_STATE=running; else INSTALL_STATE=stopped; fi
+        else
+            FOREIGN_CONTAINER=true
+        fi
+    fi
+    if [[ -d "$INSTALL_DIR/.git" ]]; then
         EXISTING_INSTALL=true
+        if [[ "$INSTALL_STATE" == "absent" ]]; then INSTALL_STATE=stopped; fi
     fi
     if [[ -f "$INSTALL_DIR/docker-compose.yml" ]] && grep -qE '^[[:space:]]*- SKYPANEL_PANEL_ENABLE=false' "$INSTALL_DIR/docker-compose.yml"; then
         IS_NODE_ONLY=true
+    fi
+}
+
+# show_install_state: qué hay instalado, en qué rama y versión, y si funciona
+show_install_state() {
+    case "$INSTALL_STATE" in
+        absent) log_info "Estado: $PROJECT_NAME no está instalado en este servidor" ;;
+        stopped) log_warning "Estado: instalado en $INSTALL_DIR, pero el panel está detenido" ;;
+        running) log_success "Estado: instalado en $INSTALL_DIR y funcionando" ;;
+    esac
+    if [[ -d "$INSTALL_DIR/.git" ]]; then
+        log_info "Rama $(git_in rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?'), versión $(git_in log -1 --format='%h del %cs' 2>/dev/null || echo '?')"
+    fi
+    if [[ "$FOREIGN_CONTAINER" == "true" ]]; then
+        log_warning "Hay un contenedor llamado '$PANEL_CONTAINER' que no pertenece a $INSTALL_DIR: no se tocará"
     fi
 }
 
@@ -991,17 +1096,19 @@ existing_installation_menu() {
 
     local choice
     echo ""
-    echo "  ¿Qué deseas hacer?"
-    echo "  1) Actualizar (mantener datos)"
-    echo "  2) Reinstalar / reconfigurar (mantener datos)"
-    echo "  3) Desinstalar"
-    echo "  4) Cancelar"
+    echo "  Ya hay una instalación. ¿Qué deseas hacer?"
+    echo "  1) Actualizar (conserva los datos)"
+    echo "  2) Reconfigurar: dominio, puertos… (conserva los datos)"
+    echo "  3) Reinstalar desde cero (borra los datos)"
+    echo "  4) Desinstalar"
+    echo "  5) Cancelar"
     echo ""
-    prompt_read choice "Selecciona [1-4]" "1"
+    prompt_read choice "Selecciona [1-5]" "1"
     case "$choice" in
         1) log_info "Iniciando actualización..."; UPDATE_MODE=true ;;
         2) log_info "Iniciando reconfiguración..." ;;
-        3) UNINSTALL_MODE="basic"; uninstall; exit 0 ;;
+        3) REINSTALL_MODE=true; reinstall_prepare ;;
+        4) UNINSTALL_MODE=""; uninstall; exit 0 ;;
         *) echo "Cancelado."; exit 0 ;;
     esac
 }
@@ -1042,6 +1149,7 @@ ask_configuration() {
             [[ -n "$DOMAIN" ]] || die "No se indicó un dominio válido"
             ask_yes_no ans "¿Configurar HTTPS con Let's Encrypt?" "$([[ "$USE_SSL" == "false" ]] && echo no || echo yes)"
             if [[ "$ans" == "yes" ]]; then
+                print_ssl_requirements
                 USE_SSL=true
                 ask_input SSL_EMAIL "Email para Let's Encrypt (avisos de caducidad; vacío = sin email)" "${SSL_EMAIL:-$ADMIN_EMAIL}" sensitive
             else
@@ -1060,11 +1168,15 @@ ask_configuration() {
     if [[ -z "$PANEL_BIND" ]]; then PANEL_BIND="${PREV_PANEL_BIND:-0.0.0.0}"; fi
     if interactive_manual; then
         echo ""
-        local p
-        ask_input p "Puerto del panel" "$PANEL_PORT"
-        if validate_port "$p"; then PANEL_PORT="$p"; else log_warning "Puerto inválido; se usa $PANEL_PORT"; fi
-        ask_input p "Puerto SFTP" "$SFTP_PORT"
-        if validate_port "$p"; then SFTP_PORT="$p"; else log_warning "Puerto inválido; se usa $SFTP_PORT"; fi
+        ask_yes_no ans "¿Usar los puertos predeterminados (panel $DEFAULT_PANEL_PORT, SFTP $DEFAULT_SFTP_PORT)?" \
+            "$([[ "$PANEL_PORT" == "$DEFAULT_PANEL_PORT" && "$SFTP_PORT" == "$DEFAULT_SFTP_PORT" ]] && echo yes || echo no)"
+        if [[ "$ans" == "yes" ]]; then
+            PANEL_PORT="$DEFAULT_PANEL_PORT"
+            SFTP_PORT="$DEFAULT_SFTP_PORT"
+        else
+            ask_port PANEL_PORT "Puerto del panel" "$PANEL_PORT" ""
+            ask_port SFTP_PORT "Puerto SFTP" "$SFTP_PORT" "$PANEL_PORT"
+        fi
     fi
 
     # --- Base de datos -------------------------------------------------------------
@@ -1086,6 +1198,16 @@ ask_configuration() {
                 ask_input DB_USER "Usuario BD" "${DB_USER:-skypanel}"
                 if [[ -z "$DB_PASSWORD" ]]; then
                     ask_password DB_PASSWORD "Contraseña del usuario BD" 1 false
+                fi
+                echo ""
+                log_info "Si la base de datos o el usuario todavía no existen, el instalador los crea con una"
+                log_info "cuenta de administrador (root u otra con permiso CREATE USER). No se guarda en ningún sitio."
+                ask_yes_no ans "¿La base de datos y el usuario ya existen?" "yes"
+                if [[ "$ans" != "yes" ]]; then
+                    ask_input DB_ADMIN_USER "Usuario administrador de MySQL" "${DB_ADMIN_USER:-root}"
+                    if [[ -z "$DB_ADMIN_PASSWORD" ]]; then
+                        ask_password DB_ADMIN_PASSWORD "Contraseña del administrador de MySQL" 1 false
+                    fi
                 fi
                 ;;
             *)
@@ -1256,6 +1378,14 @@ apt_install() {
         install --no-install-recommends "$@"
 }
 
+pacman_install() {
+    run pacman -Sy --needed --noconfirm "$@"
+}
+
+zypper_install() {
+    run zypper --non-interactive --quiet install --no-recommends "$@"
+}
+
 dnf_install() {
     if command -v dnf >/dev/null 2>&1; then
         run dnf install -y -q "$@"
@@ -1301,6 +1431,33 @@ install_dependencies() {
                 pkgs+=(certbot)
             fi
             dnf_install "${pkgs[@]}"
+            ;;
+        arch)
+            # Docker, Compose y buildx son paquetes de Arch: no hay repositorio aparte
+            pkgs+=(iproute2 util-linux)
+            if ! command -v docker >/dev/null 2>&1; then pkgs+=(docker docker-compose docker-buildx); fi
+            if [[ "$need_nginx" == "true" ]]; then pkgs+=(nginx); fi
+            if [[ "$SKIP_FIREWALL" != "true" ]]; then pkgs+=(ufw); fi
+            if [[ "$USE_SSL" == "true" && "$need_nginx" == "true" ]]; then pkgs+=(certbot); fi
+            pacman_install "${pkgs[@]}"
+            ;;
+        suse)
+            pkgs=(ca-certificates git-core jq iproute2 util-linux)
+            if ! command -v curl >/dev/null 2>&1; then pkgs+=(curl); fi
+            # iptables con el motor nftables: los núcleos nuevos ya no traen los módulos del
+            # iptables clásico, y sin ellos Docker no arranca ("Module ip_tables not found")
+            if ! command -v docker >/dev/null 2>&1; then pkgs+=(docker docker-compose docker-buildx iptables-backend-nft nftables); fi
+            if [[ "$need_nginx" == "true" ]]; then pkgs+=(nginx); fi
+            if [[ "$SKIP_FIREWALL" != "true" ]]; then pkgs+=(firewalld); fi
+            zypper_install "${pkgs[@]}"
+            if [[ "$USE_SSL" == "true" && "$need_nginx" == "true" ]]; then
+                # según la versión el paquete se llama certbot o python3-certbot
+                zypper_install certbot 2>/dev/null || zypper_install python3-certbot \
+                    || log_warning "No se pudo instalar certbot: el panel funcionará por HTTP hasta instalarlo"
+            fi
+            ;;
+        *)
+            die "No sé instalar paquetes en esta distribución ($OS_FAMILY)"
             ;;
     esac
 
@@ -1366,6 +1523,12 @@ install_docker() {
                 run yum install -y -q docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
             fi
             ;;
+        arch)
+            pacman_install docker docker-compose docker-buildx
+            ;;
+        suse)
+            zypper_install docker docker-compose docker-buildx iptables-backend-nft nftables
+            ;;
     esac
 
     svc enable --now docker
@@ -1393,6 +1556,12 @@ install_compose_plugin() {
             ;;
         fedora|rhel)
             dnf_install docker-compose-plugin || log_warning "No se pudo instalar Docker Compose v2 automáticamente"
+            ;;
+        arch)
+            pacman_install docker-compose || log_warning "No se pudo instalar Docker Compose v2 automáticamente"
+            ;;
+        suse)
+            zypper_install docker-compose || log_warning "No se pudo instalar Docker Compose v2 automáticamente"
             ;;
     esac
 }
@@ -2051,6 +2220,7 @@ wait_for_panel() {
         return 0
     fi
     log_info "Esperando a que el panel responda (migraciones de base de datos incluidas)..."
+    PANEL_START_FAILED=false
     local url code status restarts start=$SECONDS next=15
     # el panel escucha en http dentro del servidor (Nginx pone el https delante): esta
     # comprobación va a la propia máquina, nunca sale por la red
@@ -2066,6 +2236,10 @@ wait_for_panel() {
         if [[ "$status" == "exited" || "$status" == "dead" || "$status" == "missing" ]] || (( restarts >= 3 )); then
             log_error "El contenedor $PANEL_CONTAINER no arranca (estado: $status, reinicios: $restarts). Últimas líneas:"
             docker logs --tail 40 "$PANEL_CONTAINER" 2>&1 | sed 's/^/    /' >&2 || true
+            if [[ "$ROLLBACK_ON_FAILURE" == "true" ]]; then
+                PANEL_START_FAILED=true
+                return 1
+            fi
             die "Revisa los logs con: docker logs $PANEL_CONTAINER"
         fi
         if (( SECONDS - start >= next )); then
@@ -2105,12 +2279,16 @@ configure_firewall() {
     local -a tcp_ports=()
     if [[ "$PANEL_BIND" == "0.0.0.0" ]]; then tcp_ports+=("$PANEL_PORT"); fi
     tcp_ports+=("$SFTP_PORT")
-    # Con dominio se usa Nginx (puertos 80/443)
-    if [[ -n "$DOMAIN" && "$SKIP_NGINX" != "true" ]]; then tcp_ports+=(80 443); fi
+    # Nginx atiende el puerto 80 también sin dominio (proxy por IP), y con dominio el 443.
+    # Sin abrir el 80, un dominio con el proxy de Cloudflare da 522: no llega al servidor.
+    if [[ "$SKIP_NGINX" != "true" ]]; then
+        tcp_ports+=(80)
+        if [[ -n "$DOMAIN" ]]; then tcp_ports+=(443); fi
+    fi
 
     local p
     case "$OS_FAMILY" in
-        debian)
+        debian|arch)
             if ! command -v ufw >/dev/null 2>&1; then
                 log_warning "ufw no está instalado; no se configura el firewall"
                 return 0
@@ -2125,7 +2303,7 @@ configure_firewall() {
                 run ufw --force enable
             fi
             ;;
-        fedora|rhel)
+        fedora|rhel|suse)
             if ! command -v firewall-cmd >/dev/null 2>&1; then
                 log_warning "firewalld no está instalado; no se configura el firewall"
                 return 0
@@ -2165,7 +2343,27 @@ nginx_paths() {
     else
         NGINX_CONF="/etc/nginx/conf.d/skypanel.conf"
         NGINX_LINK=""
+        nginx_include_conf_d
     fi
+}
+
+# El nginx.conf de Arch no lee conf.d: se añade la línea dentro del bloque http (una vez)
+nginx_include_conf_d() {
+    local main=/etc/nginx/nginx.conf
+    [[ -f "$main" ]] || return 0
+    if grep -Eq '^[^#]*include[[:space:]]+(/etc/nginx/)?conf\.d/\*\.conf' "$main"; then return 0; fi
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[dry-run] Se añadiría 'include /etc/nginx/conf.d/*.conf;' a $main"
+        return 0
+    fi
+    run mkdir -p /etc/nginx/conf.d
+    cp -p "$main" "$main.antes-aether"
+    if ! sed -i '0,/^[[:space:]]*http[[:space:]]*{/s//&\n    include \/etc\/nginx\/conf.d\/*.conf;/' "$main" || ! grep -q 'include /etc/nginx/conf.d/\*.conf' "$main"; then
+        cp -p "$main.antes-aether" "$main"
+        log_warning "No se pudo añadir conf.d a $main: añade 'include /etc/nginx/conf.d/*.conf;' dentro de http { }"
+        return 0
+    fi
+    log_info "Nginx: $main ahora lee /etc/nginx/conf.d (copia en $main.antes-aether)"
 }
 
 nginx_proxy_locations() {
@@ -2192,9 +2390,12 @@ nginx_proxy_locations() {
 EOF
 }
 
-# nginx_site_config SERVER_NAME http|ssl
+# nginx_site_config SERVER_NAME http|ssl [default]
+# "default" hace de este sitio el predeterminado del puerto 80: sin dominio, el panel contesta
+# por la IP y por cualquier dominio que apunte aquí, en vez de la página de bienvenida de Nginx
 nginx_site_config() {
-    local name="$1" mode="$2" acme_root="/var/www/html"
+    local name="$1" mode="$2" default="${3:-}" acme_root="/var/www/html" listen_opts=""
+    if [[ "$default" == "default" ]]; then listen_opts=" default_server"; name="_"; fi
     cat <<EOF
 # Aether Panel - generado por install.sh $SCRIPT_VERSION.
 # Se regenera al volver a ejecutar el instalador.
@@ -2204,7 +2405,8 @@ map \$http_upgrade \$skypanel_connection_upgrade {
 }
 
 server {
-    listen 80;
+    listen 80$listen_opts;
+    listen [::]:80$listen_opts;
     server_name $name;
 
     location /.well-known/acme-challenge/ {
@@ -2221,6 +2423,7 @@ EOF
 
 server {
     listen 443 ssl http2;
+    listen [::]:443 ssl http2;
     server_name $name;
 
     ssl_certificate /etc/letsencrypt/live/$name/fullchain.pem;
@@ -2230,6 +2433,11 @@ server {
     ssl_session_cache shared:SkyPanelSSL:10m;
     ssl_session_timeout 1d;
 
+    # Con Cloudflare "Always Use HTTPS" el reto de una renovación llega por aquí
+    location /.well-known/acme-challenge/ {
+        root $acme_root;
+    }
+
 EOF
         nginx_proxy_locations
         echo "}"
@@ -2238,6 +2446,28 @@ EOF
         nginx_proxy_locations
         echo "}"
     fi
+}
+
+# nginx_take_default_server: deja libre el papel de sitio predeterminado del puerto 80. Quita
+# solo el enlace al sitio de bienvenida de la distribución (el archivo se queda en
+# sites-available y se recupera con ln -s); si otro sitio ya es el predeterminado, no lo toca
+# y devuelve 1.
+nginx_take_default_server() {
+    local distro_default="/etc/nginx/sites-enabled/default"
+    if [[ -L "$distro_default" && "$(readlink -f "$distro_default")" == "/etc/nginx/sites-available/default" ]]; then
+        log_info "Desactivando el sitio de bienvenida de Nginx (queda en sites-available/default)"
+        run rm -f "$distro_default"
+    fi
+    local f
+    for f in /etc/nginx/nginx.conf /etc/nginx/conf.d/*.conf /etc/nginx/sites-enabled/*; do
+        [[ -f "$f" ]] || continue
+        [[ "$(readlink -f "$f")" == "$(readlink -f "$NGINX_CONF" 2>/dev/null)" ]] && continue
+        if grep -Eqs '^[[:space:]]*listen[^;#]*[[:space:]:]80[[:space:]][^;#]*default_server' "$f"; then
+            log_warning "Otro sitio de Nginx ($f) es el predeterminado del puerto 80: el panel contestará solo por la IP"
+            return 1
+        fi
+    done
+    return 0
 }
 
 # Escribe la configuración y la prueba; si nginx -t falla se restaura la anterior
@@ -2270,6 +2500,24 @@ install_nginx_site() {
     else
         nginx -s reload 2>/dev/null || nginx
     fi
+}
+
+# Lo que hace falta para el certificado, sobre todo con Cloudflare delante
+print_ssl_requirements() {
+    echo ""
+    log_info "Certificado de Let's Encrypt: se valida por HTTP en el puerto 80 de este servidor."
+    echo "   • Sin Cloudflare, o con la nube gris: el dominio debe apuntar a esta IP y el puerto 80"
+    echo "     estar abierto (también en el firewall del proveedor)."
+    echo "   • Con el proxy de Cloudflare (nube naranja) también funciona, sin quitarlo, si el 80 llega:"
+    echo "       - Modo SSL \"Flexible\" o \"Full\"; \"Full (strict)\" cuando el certificado ya exista."
+    echo "       - La PRIMERA emisión falla si \"Always Use HTTPS\" está activado y el servidor aún no"
+    echo "         tiene certificado: desactívalo unos minutos, o pon la nube gris solo para emitirlo."
+    echo "       - Las renovaciones automáticas funcionan con la nube naranja y \"Always Use HTTPS\":"
+    echo "         Nginx responde al reto también por HTTPS."
+    echo "   • Otra opción sin validar por este servidor: un certificado de origen de Cloudflare"
+    echo "     (modo Full strict), que se instala a mano en Nginx."
+    echo "   • Los juegos y el SFTP no pasan por el proxy de Cloudflare: el panel les dará la IP."
+    echo ""
 }
 
 check_domain_dns() {
@@ -2380,8 +2628,13 @@ configure_nginx() {
         install_nginx_site "$(nginx_site_config "$DOMAIN" http)"
         log_success "Nginx configurado"
     else
-        # IP sin dominio (proxy en el puerto 80 como en versiones anteriores)
-        install_nginx_site "$(nginx_site_config "$SERVER_IP" http)"
+        # IP sin dominio (proxy en el puerto 80 como en versiones anteriores). Si se puede, es el
+        # sitio predeterminado, así un dominio que ya apunte aquí también llega al panel.
+        if nginx_take_default_server; then
+            install_nginx_site "$(nginx_site_config "$SERVER_IP" http default)"
+        else
+            install_nginx_site "$(nginx_site_config "$SERVER_IP" http)"
+        fi
         log_success "Nginx configurado"
     fi
     NGINX_CONFIGURED=true
@@ -2503,9 +2756,35 @@ print_summary() {
     echo "📋 Puertos:"
     echo "   • Panel web: $PANEL_PORT$([[ "$PANEL_BIND" != "0.0.0.0" ]] && echo " (solo en $PANEL_BIND)")"
     echo "   • SFTP: $SFTP_PORT (contraseña o llave SSH)"
+    if [[ "$NGINX_CONFIGURED" == "true" ]]; then
+        echo "   • Nginx: 80$([[ -n "$DOMAIN" ]] && echo " y 443")"
+    fi
     echo "   • Adminer (BD): 127.0.0.1:8081 (solo local; usa un túnel SSH: ssh -L 8081:127.0.0.1:8081 ...)"
+    local fw_ports="${SSH_PORTS[*]:-22}"
+    if [[ "$PANEL_BIND" == "0.0.0.0" ]]; then fw_ports+=" $PANEL_PORT"; fi
+    fw_ports+=" $SFTP_PORT"
+    if [[ "$NGINX_CONFIGURED" == "true" ]]; then fw_ports+=" 80"; [[ -n "$DOMAIN" ]] && fw_ports+=" 443"; fi
+    echo "   Abre en el firewall de tu proveedor (Hetzner, OVH, AWS…) los TCP: ${fw_ports// /, }"
+    echo "   y el puerto de cada servidor de juego que crees (p. ej. 25565 para Minecraft)."
     if [[ "$SKIP_FIREWALL" != "true" ]]; then
-        echo "   Nota: Docker publica sus puertos por delante de ufw/firewalld."
+        echo "   En este servidor ya están abiertos (Docker publica sus puertos por delante de ufw/firewalld)."
+    fi
+
+    if [[ "$DRY_RUN" != "true" ]] && command -v docker >/dev/null 2>&1; then
+        echo ""
+        echo "🐳 Contenedores:"
+        docker ps -a --filter "label=com.docker.compose.project.working_dir=$INSTALL_DIR" --format '   • {{.Names}}: {{.Status}}' 2>/dev/null || true
+    fi
+
+    if [[ "$IS_NODE_ONLY" != "true" ]]; then
+        db_settings
+        echo ""
+        if [[ "$DBS_MODE" == "external" ]]; then
+            echo "🗄  Base de datos externa: $DBS_HOST:$DBS_PORT, base de datos $DBS_NAME, usuario $DBS_USER"
+        else
+            echo "🗄  Base de datos: MariaDB en Docker ($MYSQL_CONTAINER), base de datos $DBS_NAME, usuario $DBS_USER"
+        fi
+        echo "   Contraseñas en $INSTALL_DIR/.env (solo root)."
     fi
 
     if [[ "$IS_NODE_ONLY" != "true" ]]; then
@@ -2562,16 +2841,28 @@ print_summary() {
     echo "2. Configura el correo (Ajustes) para que funcione la recuperación de contraseñas."
     echo "3. Opcional en Ajustes: Turnstile, subdominios con Cloudflare, copias en S3, CurseForge."
     echo ""
-    echo "🐳 Comandos útiles:"
-    echo "   • Estado:     cd $INSTALL_DIR && ${DC[*]:-docker compose} ps"
-    echo "   • Logs:       cd $INSTALL_DIR && ${DC[*]:-docker compose} logs -f"
-    echo "   • Reiniciar:  cd $INSTALL_DIR && ${DC[*]:-docker compose} restart"
-    echo "   • Actualizar: desde el panel (usa tools/panelUpdate/panelUpdate.sh) o"
-    echo "                 curl -fsSL $INSTALL_URL | sudo bash -s -- --update"
-    echo "   • Desinstalar (conserva datos): curl -fsSL $INSTALL_URL | sudo bash -s -- --uninstall"
+    local dcmd="${DC[*]:-docker compose}"
+    echo "🛠  Administración (desde $INSTALL_DIR: cd $INSTALL_DIR):"
+    echo "   • Estado:              $dcmd ps"
+    echo "   • Logs en directo:     $dcmd logs -f skypanel     (todos: $dcmd logs -f)"
+    echo "   • Reiniciar:           $dcmd restart"
+    echo "   • Detener / arrancar:  $dcmd stop   /   $dcmd start"
+    if [[ "$IS_NODE_ONLY" != "true" ]]; then
+        echo "   • Crear administrador: docker exec -it $PANEL_CONTAINER /SkyPanel/bin/SkyPanel user add --name NOMBRE --email EMAIL --admin"
+        echo "                          (pide la contraseña; también: sudo bash install.sh --create-admin --admin-email EMAIL)"
+        echo "   • Editar un usuario:   docker exec -it $PANEL_CONTAINER /SkyPanel/bin/SkyPanel user edit"
+        echo "                          (nombre, email, contraseña, administrador, quitar 2FA)"
+    fi
+    echo "   • Versión:             docker exec $PANEL_CONTAINER /SkyPanel/bin/SkyPanel version"
+    echo "   • Actualizar:          sudo bash install.sh --update   (o desde Ajustes del panel)"
+    echo "   • Reinstalar / quitar: sudo bash install.sh --reinstall   /   --uninstall"
+    echo "     (el instalador: curl -fsSL $INSTALL_URL -o install.sh)"
     echo ""
-    echo "   Opciones de esta instalación: $STATE_FILE"
-    echo "   Datos (BD, servidores, backups, extensiones, logs): $INSTALL_DIR/storage"
+    echo "📁 Archivos:"
+    echo "   • Panel y docker-compose:  $INSTALL_DIR"
+    echo "   • Datos persistentes:      $INSTALL_DIR/storage (BD, servidores, copias, extensiones, logs)"
+    echo "   • Opciones del instalador: $STATE_FILE"
+    echo "   • Copias del instalador:   $BACKUP_ROOT"
     echo ""
 }
 
@@ -2613,18 +2904,431 @@ update_panel() {
     fi
     validate_configuration
 
+    # Versión de antes, para volver a ella si la nueva no arranca
+    PRE_UPDATE_COMMIT=$(git_in rev-parse HEAD 2>/dev/null || true)
+    log_info "Versión instalada: $(git_in log -1 --format='%h del %cs' 2>/dev/null || echo '?') (rama $(git_in rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?'))"
+    backup_before_update
+
     sync_repository
+    if [[ "$(git_in rev-parse HEAD 2>/dev/null || true)" == "$PRE_UPDATE_COMMIT" ]]; then
+        log_info "No hay cambios nuevos en la rama $GIT_BRANCH; se reconstruye y reinicia igualmente"
+    fi
     configure_env_file
     configure_compose_override
+    check_external_db
+    tag_rollback_image
     build_images
     rotate_db_passwords
     compute_master_url
     queue_panel_config
+    ROLLBACK_ON_FAILURE=true
     start_stack
+    ROLLBACK_ON_FAILURE=false
+    if [[ "$PANEL_START_FAILED" == "true" ]]; then
+        rollback_update
+    fi
     create_admin
     save_state
+    install_domain_service
+    record_domain_status
     print_summary "Actualización completada"
     log_info "Los datos y la configuración se mantuvieron intactos"
+}
+
+# =============================================================================
+# COPIAS DE SEGURIDAD
+#   La base de datos se copia con mariadb-dump (una transacción, sin parar el
+#   panel) y se comprueba antes de seguir: gzip íntegro y con tablas dentro.
+#   Las contraseñas pasan por MYSQL_PWD en el entorno, nunca en la línea de
+#   comandos ni en los logs.
+# =============================================================================
+
+# db_settings: modo, host, puerto, nombre y usuario de la base de datos del panel (sin contraseñas)
+db_settings() {
+    DBS_MODE="${DB_MODE:-${PREV_DB_MODE:-local}}"
+    if [[ -n "$(env_get DB_HOST)" ]]; then DBS_MODE="external"; fi
+    DBS_NAME="$(env_get DB_DATABASE)"; DBS_NAME="${DBS_NAME:-${DB_NAME:-skypanel}}"
+    DBS_USER="$(env_get DB_USER)"; DBS_USER="${DBS_USER:-${DB_USER:-skypanel}}"
+    DBS_HOST="$(env_get DB_HOST)"; DBS_HOST="${DBS_HOST:-$DB_HOST}"
+    DBS_PORT="$(env_get DB_PORT)"; DBS_PORT="${DBS_PORT:-${DB_PORT:-3306}}"
+}
+
+# backup_database CARPETA: copia comprobada de la base de datos; deja la ruta en LAST_DB_BACKUP
+backup_database() {
+    local dest="$1" file stamp ok=false
+    db_settings
+    stamp=$(date +%Y%m%d-%H%M%S)
+    file="$dest/basedatos-$stamp.sql.gz"
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[dry-run] Se copiaría la base de datos ($DBS_MODE) en $file"
+        LAST_DB_BACKUP="$file"
+        return 0
+    fi
+    run mkdir -p "$dest"
+    chmod 700 "$BACKUP_ROOT" "$dest" 2>/dev/null || true
+    log_info "Copiando la base de datos ($DBS_MODE, $DBS_NAME)..."
+    (
+        umask 077
+        if [[ "$DBS_MODE" == "local" ]]; then
+            if ! container_running "$MYSQL_CONTAINER"; then
+                dc up -d mysql >/dev/null 2>&1 || true
+                local i
+                for i in $(seq 1 30); do
+                    [[ "$(docker inspect -f '{{.State.Health.Status}}' "$MYSQL_CONTAINER" 2>/dev/null)" == "healthy" ]] && break
+                    sleep 2
+                done
+            fi
+            MYSQL_PWD="$(env_get DB_ROOT_PASSWORD)" docker exec -i -e MYSQL_PWD "$MYSQL_CONTAINER" \
+                mariadb-dump -uroot --single-transaction --routines --triggers --databases "$DBS_NAME" | gzip >"$file"
+        else
+            MYSQL_PWD="$(env_get DB_PASSWORD)" docker run --rm -i --network host -e MYSQL_PWD mariadb:10.11 \
+                mariadb-dump -h "$DBS_HOST" -P "$DBS_PORT" -u "$DBS_USER" --single-transaction --routines --triggers --databases "$DBS_NAME" | gzip >"$file"
+        fi
+    ) && ok=true
+    if [[ "$ok" == "true" ]] && gzip -t "$file" 2>/dev/null && gzip -dc "$file" | grep -q -m1 'CREATE TABLE'; then
+        LAST_DB_BACKUP="$file"
+        log_success "Copia de la base de datos comprobada: $file ($(du -h "$file" | cut -f1))"
+        # se guardan las 10 más recientes de esta carpeta
+        find "$dest" -maxdepth 1 -name 'basedatos-*.sql.gz' -printf '%T@ %p\n' 2>/dev/null | sort -rn | tail -n +11 | cut -d' ' -f2- | xargs -r rm -f
+        return 0
+    fi
+    rm -f "$file"
+    log_error "La copia de la base de datos falló o salió vacía"
+    return 1
+}
+
+# restore_hint ARCHIVO: cómo devolver la base de datos a una copia
+restore_hint() {
+    db_settings
+    if [[ "$DBS_MODE" == "local" ]]; then
+        echo "   gzip -dc $1 | sudo docker exec -i -e MYSQL_PWD=\"\$(grep ^DB_ROOT_PASSWORD= $INSTALL_DIR/.env | cut -d= -f2-)\" $MYSQL_CONTAINER mariadb -uroot"
+    else
+        echo "   gzip -dc $1 | mariadb -h $DBS_HOST -P $DBS_PORT -u $DBS_USER -p"
+    fi
+}
+
+backup_before_update() {
+    if [[ "$SKIP_BACKUP" == "true" ]]; then
+        log_warning "Actualización sin copia de la base de datos (--skip-backup)"
+        return 0
+    fi
+    print_step "Copia de seguridad antes de actualizar"
+    if backup_database "$BACKUP_ROOT/actualizaciones"; then return 0; fi
+    if interactive_manual; then
+        local ans
+        ask_yes_no ans "No se pudo copiar la base de datos. ¿Actualizar igualmente, sin copia?" "no"
+        [[ "$ans" == "yes" ]] && return 0
+    fi
+    die "Actualización cancelada: sin una copia de la base de datos no se sigue. Comprueba que la base de datos funciona, o usa --skip-backup bajo tu responsabilidad."
+}
+
+# tag_rollback_image: guarda la imagen actual del panel antes de reconstruir
+tag_rollback_image() {
+    ROLLBACK_IMAGE=""
+    [[ "$DRY_RUN" == "true" ]] && return 0
+    local image
+    image=$(docker inspect -f '{{.Config.Image}}' "$PANEL_CONTAINER" 2>/dev/null || true)
+    [[ -n "$image" ]] || return 0
+    image="${image%:latest}"
+    if docker image tag "$image:latest" "$image:anterior" 2>/dev/null; then
+        ROLLBACK_IMAGE="$image"
+        log_info "Imagen actual guardada como $image:anterior (para volver atrás si la nueva falla)"
+    fi
+}
+
+# rollback_update: la versión nueva no arranca; se vuelve al código y la imagen de antes
+rollback_update() {
+    print_step "Volviendo a la versión anterior"
+    log_error "La versión nueva del panel no arranca. Los datos no se han borrado."
+    if [[ -n "$PRE_UPDATE_COMMIT" ]]; then
+        backup_env_file
+        run "${GIT[@]}" reset -q --hard "$PRE_UPDATE_COMMIT"
+        restore_env_file
+        log_info "Código devuelto a $(git_in log -1 --format='%h del %cs')"
+    fi
+    if [[ -n "$ROLLBACK_IMAGE" ]]; then
+        run docker image tag "$ROLLBACK_IMAGE:anterior" "$ROLLBACK_IMAGE:latest"
+    else
+        build_images
+    fi
+    dc up -d
+    if wait_for_panel; then
+        log_success "El panel vuelve a funcionar con la versión anterior"
+    fi
+    echo ""
+    if [[ -n "$LAST_DB_BACKUP" ]]; then
+        echo "La copia de la base de datos de antes de actualizar está en:"
+        echo "   $LAST_DB_BACKUP"
+        echo "Si la versión nueva llegó a cambiar la base de datos y algo no va bien, se restaura con:"
+        restore_hint "$LAST_DB_BACKUP"
+    fi
+    die "Actualización revertida. Revisa los mensajes anteriores (docker logs $PANEL_CONTAINER) antes de reintentar."
+}
+
+# =============================================================================
+# BASE DE DATOS EXTERNA: se comprueba antes de construir nada
+# =============================================================================
+
+# mysql_external SQL [usuario]: ejecuta SQL contra la BD externa (contraseña en MYSQL_PWD)
+mysql_external() {
+    local sql="$1" user="${2:-$DBS_USER}" db="${3:-}"
+    local -a args=(-h "$DBS_HOST" -P "$DBS_PORT" -u "$user" --connect-timeout=10)
+    if [[ -n "$db" ]]; then args+=("$db"); fi
+    printf '%s\n' "$sql" | docker run --rm -i --network host -e MYSQL_PWD mariadb:10.11 mariadb "${args[@]}"
+}
+
+check_external_db() {
+    [[ "$DB_MODE" == "external" ]] || return 0
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[dry-run] Se comprobaría la conexión a la base de datos externa"
+        return 0
+    fi
+    print_step "Comprobando la base de datos externa"
+    db_settings
+    DBS_HOST="${DB_HOST:-$DBS_HOST}"; DBS_PORT="${DB_PORT:-$DBS_PORT}"; DBS_NAME="${DB_NAME:-$DBS_NAME}"; DBS_USER="${DB_USER:-$DBS_USER}"
+    local pass="${DB_PASSWORD:-$(env_get DB_PASSWORD)}"
+    case "$DBS_HOST" in
+        localhost|127.*|::1)
+            die "La base de datos externa no puede ser '$DBS_HOST': dentro del contenedor del panel eso es el propio contenedor. Usa la IP privada de este servidor o el hostname del servidor de base de datos." ;;
+    esac
+
+    if MYSQL_PWD="$pass" mysql_external "SELECT 1;" "$DBS_USER" "$DBS_NAME" >/dev/null 2>&1; then
+        log_success "Conexión correcta: $DBS_USER@$DBS_HOST:$DBS_PORT/$DBS_NAME"
+        return 0
+    fi
+
+    if [[ -n "$DB_ADMIN_USER" && -n "$DB_ADMIN_PASSWORD" ]]; then
+        log_info "Creando la base de datos '$DBS_NAME' y el usuario '$DBS_USER' con $DB_ADMIN_USER..."
+        # solo los permisos sobre esa base de datos; la contraseña va por la entrada, no por argumentos
+        local sql
+        sql="CREATE DATABASE IF NOT EXISTS \`$DBS_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER IF NOT EXISTS '$DBS_USER'@'%' IDENTIFIED BY '$pass';
+GRANT ALL PRIVILEGES ON \`$DBS_NAME\`.* TO '$DBS_USER'@'%';
+FLUSH PRIVILEGES;"
+        if ! MYSQL_PWD="$DB_ADMIN_PASSWORD" mysql_external "$sql" "$DB_ADMIN_USER" >/dev/null 2>&1; then
+            die "No se pudo crear la base de datos o el usuario con la cuenta '$DB_ADMIN_USER' (¿contraseña correcta, permiso CREATE USER, acceso desde esta IP?)"
+        fi
+        if MYSQL_PWD="$pass" mysql_external "SELECT 1;" "$DBS_USER" "$DBS_NAME" >/dev/null 2>&1; then
+            log_success "Base de datos y usuario listos: $DBS_USER@$DBS_HOST:$DBS_PORT/$DBS_NAME"
+            return 0
+        fi
+    fi
+
+    log_error "No se puede conectar a $DBS_USER@$DBS_HOST:$DBS_PORT/$DBS_NAME. Comprueba:"
+    log_error "  • que el servidor de base de datos acepta conexiones desde esta IP (bind-address, firewall);"
+    log_error "  • el usuario y la contraseña, y que la base de datos existe"
+    log_error "    (o indica una cuenta de administrador para crearlas: --db-admin-user / --db-admin-pass)."
+    die "Base de datos externa no accesible: no se ha cambiado nada"
+}
+
+# =============================================================================
+# DOMINIO DESDE AJUSTES (servicio aether-domain)
+#   Al guardar un dominio en Ajustes → General → URL principal, el servidor tiene
+#   que configurar Nginx, el certificado y el firewall, y eso el panel (dentro de
+#   Docker) no lo puede hacer. Una unidad .path de systemd vigila el config.json
+#   del panel y ejecuta "install.sh --apply-panel-url", que usa las mismas
+#   funciones que la instalación. El resultado queda en domain-status.json, junto
+#   al config.json, y el panel lo muestra bajo el campo.
+# =============================================================================
+
+DOMAIN_SERVICE="aether-domain"
+# Tras un certificado fallido no se vuelve a pedir el mismo hasta pasada una hora:
+# Let's Encrypt limita los intentos fallidos por dominio
+DOMAIN_RETRY_SECONDS=3600
+
+domain_status_file() { echo "$(dirname "$(panel_config_file)")/domain-status.json"; }
+
+# domain_proxy_check: DOMAIN_PROXIED=true cuando el dominio no apunta a este servidor, que es lo
+# que pasa con el proxy de Cloudflare (nube naranja). La web llega igual, pero los juegos
+# (Minecraft en el 25565…) y el SFTP no pasan por ese proxy: el panel les da entonces la IP
+# del servidor (DOMAIN_SERVER_IP) en lugar del dominio.
+domain_proxy_check() {
+    DOMAIN_PROXIED=false
+    DOMAIN_SERVER_IP=""
+    [[ -n "$DOMAIN" ]] || return 0
+    local resolved ip
+    resolved=$(getent ahostsv4 "$DOMAIN" 2>/dev/null | awk '{print $1}' | sort -u | tr '\n' ' ' || true)
+    [[ -n "$resolved" ]] || return 0
+    ip="${PUBLIC_IP:-}"
+    if [[ -z "$ip" ]]; then ip=$(fetch_public_ip || true); fi
+    if [[ -z "$ip" ]]; then ip="$SERVER_IP"; fi
+    if [[ -n "$ip" ]] && ! contains_word "$resolved" "$ip"; then
+        DOMAIN_PROXIED=true
+        DOMAIN_SERVER_IP="$ip"
+        log_info "$DOMAIN pasa por un proxy (${resolved% }): jugadores y SFTP usarán la IP $ip"
+    fi
+}
+
+# write_domain_status ESTADO(working|ok|error) URL MENSAJE
+write_domain_status() {
+    local file tmp https=false proxied=false
+    file=$(domain_status_file)
+    [[ -d "$(dirname "$file")" ]] || return 0
+    if [[ "$DRY_RUN" == "true" ]]; then
+        printf '%s[dry-run]%s estado del dominio: %s (%s)\n' "$CYAN" "$NC" "$1" "$3"
+        return 0
+    fi
+    if [[ "$USE_SSL" == "true" ]]; then https=true; fi
+    if [[ "$DOMAIN_PROXIED" == "true" ]]; then proxied=true; fi
+    tmp=$(mktemp "$file.XXXXXX")
+    jq -n --arg state "$1" --arg url "$2" --arg message "$3" \
+        --arg domain "$DOMAIN" --argjson https "$https" \
+        --argjson proxied "$proxied" --arg serverIp "${DOMAIN_SERVER_IP:-}" \
+        --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        '{state: $state, url: $url, domain: $domain, https: $https, proxied: $proxied, serverIp: $serverIp, message: $message, updatedAt: $at}' >"$tmp"
+    # el panel lo lee con su propio usuario
+    chmod 644 "$tmp"
+    mv -f "$tmp" "$file"
+}
+
+apply_panel_url() {
+    if [[ ! -d "$INSTALL_DIR/.git" ]]; then
+        log_error "No hay una instalación de $PROJECT_NAME en $INSTALL_DIR"
+        exit 1
+    fi
+    local url host scheme port want_domain="" want_ssl=false
+    url=$(cfg_get panel.settings.masterUrl)
+    url="${url%/}"
+    if [[ -z "$url" ]]; then
+        log_info "Ajustes no tiene URL principal: no hay nada que aplicar"
+        return 0
+    fi
+    if [[ ! "$url" =~ ^(https?)://([^/:]+)(:([0-9]+))?(/.*)?$ ]]; then
+        log_warning "La URL principal no es válida: $url"
+        return 0
+    fi
+    scheme="${BASH_REMATCH[1]}"; host="${BASH_REMATCH[2],,}"; port="${BASH_REMATCH[4]}"
+
+    if validate_ip "$host" || [[ "$host" == "localhost" ]]; then
+        want_domain=""
+    elif [[ -n "$port" ]]; then
+        # http://dominio:8080 entra directo al panel: Nginx no interviene
+        log_info "La URL principal lleva puerto ($url): no se configura Nginx"
+        return 0
+    elif validate_domain "$host"; then
+        want_domain="$host"
+        if [[ "$scheme" == "https" ]]; then want_ssl=true; fi
+    else
+        log_warning "La URL principal no tiene un dominio válido: $url"
+        return 0
+    fi
+
+    if [[ "$want_domain" == "${PREV_DOMAIN:-}" && "$want_ssl" == "${PREV_USE_SSL:-false}" ]]; then
+        log_info "El servidor ya está configurado para $url"
+        # instalaciones de antes del servicio, o una URL que vuelve a la ya aplicada: Ajustes lo
+        # muestra como activo
+        DOMAIN="$want_domain"; USE_SSL="$want_ssl"
+        if [[ -z "$SERVER_IP" ]]; then SERVER_IP="${PREV_SERVER_IP:-}"; fi
+        domain_proxy_check
+        if [[ "$(jq -r '.state + " " + .url + " " + (.proxied|tostring)' "$(domain_status_file)" 2>/dev/null || true)" != "ok $url $DOMAIN_PROXIED" ]]; then
+            write_domain_status ok "$url" "El servidor ya está configurado para $url"
+        fi
+        return 0
+    fi
+
+    # Un certificado que acaba de fallar no se pide otra vez en cada cambio de Ajustes
+    local status_file last_state last_url last_at last_epoch now
+    status_file=$(domain_status_file)
+    if [[ -r "$status_file" ]]; then
+        last_state=$(jq -r '.state // empty' "$status_file" 2>/dev/null || true)
+        last_url=$(jq -r '.url // empty' "$status_file" 2>/dev/null || true)
+        last_at=$(jq -r '.updatedAt // empty' "$status_file" 2>/dev/null || true)
+        last_epoch=$(date -u -d "$last_at" +%s 2>/dev/null || echo 0)
+        now=$(date -u +%s)
+        if [[ "$last_state" == "error" && "$last_url" == "$url" ]] && (( now - last_epoch < DOMAIN_RETRY_SECONDS )); then
+            log_info "El último intento para $url falló hace menos de una hora; se reintentará después"
+            return 0
+        fi
+    fi
+
+    print_step "Aplicando la URL principal de Ajustes: $url"
+    DOMAIN="$want_domain"
+    USE_SSL="$want_ssl"
+    if [[ -z "$DOMAIN" ]]; then NO_DOMAIN=true; fi
+    SSL_EMAIL="${SSL_EMAIL:-${PREV_SSL_EMAIL:-}}"
+    if [[ -z "$PANEL_PORT" ]]; then PANEL_PORT="${PREV_PANEL_PORT:-$DEFAULT_PANEL_PORT}"; fi
+    if [[ -z "$SFTP_PORT" ]]; then SFTP_PORT="${PREV_SFTP_PORT:-$DEFAULT_SFTP_PORT}"; fi
+    if [[ -z "$PANEL_BIND" ]]; then PANEL_BIND="${PREV_PANEL_BIND:-0.0.0.0}"; fi
+    if [[ -z "$SERVER_IP" ]]; then SERVER_IP="${PREV_SERVER_IP:-}"; fi
+    if [[ -z "$SERVER_IP" ]]; then
+        LOCAL_IP=$(detect_local_ip)
+        SERVER_IP="${LOCAL_IP:-127.0.0.1}"
+    fi
+    if [[ -z "$GIT_BRANCH" ]]; then GIT_BRANCH="${PREV_GIT_BRANCH:-$DEFAULT_GIT_BRANCH}"; fi
+    if [[ -z "$DB_MODE" ]]; then DB_MODE="${PREV_DB_MODE:-local}"; fi
+    MYSQL_HOST_PORT="${PREV_MYSQL_HOST_PORT:-$DEFAULT_MYSQL_HOST_PORT}"
+    # la URL ya está en Ajustes: no se vuelve a escribir en el config.json
+    MASTER_URL="$url"
+    write_domain_status working "$url" "Configurando Nginx${DOMAIN:+ para $DOMAIN}"
+
+    configure_firewall
+    configure_nginx
+    save_state
+    domain_proxy_check
+
+    if [[ "$SSL_FAILED" == "true" ]]; then
+        write_domain_status error "$url" "No se pudo obtener el certificado para $DOMAIN: comprueba que el dominio apunta a este servidor y que el puerto 80 está abierto. El panel funciona por HTTP mientras tanto."
+    elif [[ -n "$DOMAIN" && "$USE_SSL" == "true" ]]; then
+        write_domain_status ok "$url" "Nginx y el certificado HTTPS de $DOMAIN están configurados"
+    elif [[ -n "$DOMAIN" ]]; then
+        write_domain_status ok "$url" "Nginx está configurado para $DOMAIN (sin HTTPS)"
+    else
+        write_domain_status ok "$url" "Nginx contesta por la IP del servidor"
+    fi
+}
+
+install_domain_service() {
+    if [[ "$IS_NODE_ONLY" == "true" || "$HAS_SYSTEMD" != "true" || "$SKIP_NGINX" == "true" ]]; then return 0; fi
+    local config_file script="$INSTALL_DIR/tools/install/install.sh"
+    config_file=$(panel_config_file)
+    if [[ ! -f "$script" ]]; then
+        log_warning "No está $script: el dominio de Ajustes no se aplicará solo"
+        return 0
+    fi
+    printf '%s\n' \
+        "[Unit]" \
+        "Description=Aether Panel: aplicar la URL principal de Ajustes (Nginx, certificado, firewall)" \
+        "After=network-online.target docker.service" \
+        "" \
+        "[Service]" \
+        "Type=oneshot" \
+        "ExecStart=/bin/bash $script --apply-panel-url" |
+        write_file "/etc/systemd/system/$DOMAIN_SERVICE.service" 644
+    printf '%s\n' \
+        "[Unit]" \
+        "Description=Aether Panel: vigilar la URL principal de Ajustes" \
+        "" \
+        "[Path]" \
+        "PathChanged=$config_file" \
+        "" \
+        "[Install]" \
+        "WantedBy=multi-user.target" |
+        write_file "/etc/systemd/system/$DOMAIN_SERVICE.path" 644
+    run systemctl daemon-reload
+    run systemctl enable --now "$DOMAIN_SERVICE.path"
+    log_success "Dominio desde Ajustes: el servidor aplicará la URL principal al guardarla"
+}
+
+# record_domain_status: lo que la instalación dejó configurado, para que Ajustes lo muestre
+record_domain_status() {
+    if [[ "$IS_NODE_ONLY" == "true" || "$SKIP_NGINX" == "true" ]]; then return 0; fi
+    local url
+    url=$(cfg_get panel.settings.masterUrl)
+    url="${url%/}"
+    [[ -n "$url" ]] || return 0
+    domain_proxy_check
+    if [[ "$SSL_FAILED" == "true" ]]; then
+        write_domain_status error "$url" "No se pudo obtener el certificado para $DOMAIN"
+    else
+        write_domain_status ok "$url" "El servidor está configurado para $url"
+    fi
+}
+
+remove_domain_service() {
+    if [[ ! -f "/etc/systemd/system/$DOMAIN_SERVICE.path" ]]; then return 0; fi
+    svc disable --now "$DOMAIN_SERVICE.path" || true
+    run rm -f "/etc/systemd/system/$DOMAIN_SERVICE.path" "/etc/systemd/system/$DOMAIN_SERVICE.service"
+    run systemctl daemon-reload || true
 }
 
 # =============================================================================
@@ -2641,6 +3345,8 @@ uninstall() {
     print_banner
     require_root
     acquire_lock
+    # sin detect_os: solo hace falta saber si hay systemd (servicio del dominio, Nginx)
+    if [[ -d /run/systemd/system ]]; then HAS_SYSTEMD=true; fi
 
     if ! command -v docker >/dev/null 2>&1; then
         log_warning "Docker no está instalado"
@@ -2651,7 +3357,7 @@ uninstall() {
     load_state
 
     local has_container=false
-    if command -v docker >/dev/null 2>&1 && container_exists "$PANEL_CONTAINER"; then has_container=true; fi
+    if command -v docker >/dev/null 2>&1 && container_exists "$PANEL_CONTAINER" && container_is_ours "$PANEL_CONTAINER"; then has_container=true; fi
 
     printf '%s════════════════════════════════════════════════════════════%s\n' "$RED" "$NC"
     printf '%s  ⚠️  ADVERTENCIA: DESINSTALACIÓN DE %s%s\n' "$RED" "$PROJECT_NAME" "$NC"
@@ -2670,13 +3376,13 @@ uninstall() {
 
     if interactive_manual; then
         local choice def=1
-        case "$UNINSTALL_MODE" in data) def=2 ;; full) def=3 ;; esac
+        case "$UNINSTALL_MODE" in data) def=2 ;; full) def=3 ;; *) def=1 ;; esac
         echo "¿Estás seguro de que deseas desinstalar $PROJECT_NAME?"
         echo ""
         echo "Opciones:"
-        echo "  1) Desinstalar solo (mantener datos y configuración)"
-        echo "  2) Desinstalar + Eliminar datos (mantener configuración)"
-        echo "  3) Desinstalar + Eliminar TODO (completo)"
+        echo "  1) Quitar el panel pero conservar datos y configuración (se vuelve a levantar con --update)"
+        echo "  2) Quitar el panel y BORRAR los datos (conserva código y configuración)"
+        echo "  3) Desinstalación completa: BORRA todo lo del panel (datos, código, configuración)"
         echo "  4) Cancelar"
         echo ""
         prompt_read choice "Selecciona [1-4]" "$def"
@@ -2687,75 +3393,31 @@ uninstall() {
             *) echo "Cancelado."; exit 0 ;;
         esac
         if [[ "$UNINSTALL_MODE" != "basic" ]]; then
+            db_settings
+            echo ""
+            printf '%s⚠  Esto es irreversible: se borran la base de datos%s y los servidores de juego.%s
+' "$RED" \
+                "$([[ "$DBS_MODE" == "external" ]] && echo " local (la externa $DBS_HOST no se toca)")" "$NC"
             local confirm
-            prompt_read confirm "Esto BORRA la base de datos y los servidores. Escribe BORRAR para confirmar" ""
+            prompt_read confirm "Escribe BORRAR para confirmar" ""
             [[ "$confirm" == "BORRAR" ]] || { echo "Cancelado."; exit 0; }
         fi
-    elif [[ "$UNINSTALL_MODE" != "basic" && "$AUTO_CONFIRMED" != "true" ]]; then
-        die "Borrar datos sin terminal requiere confirmación explícita: añade --yes"
+    else
+        if [[ -z "$UNINSTALL_MODE" ]]; then UNINSTALL_MODE="basic"; fi
+        if [[ "$UNINSTALL_MODE" != "basic" && "$AUTO_CONFIRMED" != "true" ]]; then
+            die "Borrar datos sin terminal requiere confirmación explícita: añade --yes"
+        fi
+    fi
+
+    if [[ "$UNINSTALL_MODE" != "basic" ]] && interactive_manual && [[ -d "$INSTALL_DIR/storage" ]]; then
+        local ans
+        ask_yes_no ans "¿Hacer antes una copia de seguridad (base de datos y datos)?" "yes"
+        if [[ "$ans" == "yes" ]]; then backup_installation "desinstalacion"; fi
     fi
 
     print_step "Desinstalando ($UNINSTALL_MODE)"
-
-    # Contenedores del panel (los datos están en $INSTALL_DIR/storage y NO se tocan aquí)
-    if [[ -f "$INSTALL_DIR/docker-compose.yml" ]]; then
-        local -a down_args=(down --remove-orphans)
-        if [[ "$UNINSTALL_MODE" == "full" ]]; then down_args+=(--rmi local --volumes); fi
-        dc "${down_args[@]}" || log_warning "docker compose down terminó con avisos"
-    fi
-    local c
-    for c in "$PANEL_CONTAINER" "$MYSQL_CONTAINER" skypanel-adminer; do
-        if command -v docker >/dev/null 2>&1 && container_exists "$c"; then
-            run docker rm -f "$c" || true
-        fi
-    done
-
-    # Nginx
-    local conf
-    for conf in /etc/nginx/sites-enabled/skypanel /etc/nginx/sites-available/skypanel /etc/nginx/conf.d/skypanel.conf; do
-        if [[ -e "$conf" || -L "$conf" ]]; then
-            run rm -f "$conf"
-            NGINX_CONFIGURED=true
-        fi
-    done
-    if [[ "$NGINX_CONFIGURED" == "true" ]] && command -v nginx >/dev/null 2>&1; then
-        log_info "Configuración de Nginx eliminada"
-        if nginx -t >/dev/null 2>&1; then svc reload nginx || true; fi
-    fi
-
-    if [[ "$UNINSTALL_MODE" == "data" || "$UNINSTALL_MODE" == "full" ]]; then
-        # Servidores de juego creados por el panel (en su red propia)
-        if command -v docker >/dev/null 2>&1; then
-            local ids
-            ids=$(docker ps -aq --filter "network=$SERVERS_NETWORK" 2>/dev/null || true)
-            if [[ -n "$ids" ]]; then
-                log_info "Eliminando contenedores de servidores de juego..."
-                # shellcheck disable=SC2086 # lista de IDs separada por espacios
-                run docker rm -f $ids || true
-            fi
-            if docker network inspect "$SERVERS_NETWORK" >/dev/null 2>&1; then
-                run docker network rm "$SERVERS_NETWORK" || true
-            fi
-        fi
-        log_info "Eliminando datos ($INSTALL_DIR/storage)..."
-        run rm -rf "$INSTALL_DIR/storage"
-        if [[ -d "$DATA_DIR" ]]; then run rm -rf "$DATA_DIR"; fi
-    fi
-
-    if [[ "$UNINSTALL_MODE" == "full" ]]; then
-        log_info "Eliminando instalación y configuración..."
-        local cert_domain="${PREV_DOMAIN:-$DOMAIN}"
-        run rm -rf "$INSTALL_DIR" "$CONFIG_DIR"
-        local d
-        for d in "$LOG_DIR" "$WEB_DIR"; do
-            if [[ -d "$d" ]]; then run rm -rf "$d"; fi
-        done
-        # Solo el certificado del dominio del panel (nunca los de otros sitios)
-        if [[ -n "$cert_domain" && -d "/etc/letsencrypt/live/$cert_domain" ]] && command -v certbot >/dev/null 2>&1; then
-            log_info "Eliminando el certificado SSL de $cert_domain..."
-            run certbot delete --cert-name "$cert_domain" --non-interactive || true
-        fi
-    fi
+    remove_installation "$UNINSTALL_MODE" false
+    verify_removal "$UNINSTALL_MODE"
 
     # ============================================
     # RESUMEN FINAL
@@ -2769,12 +3431,16 @@ uninstall() {
     case "$UNINSTALL_MODE" in
         full)
             echo "✅ Todo eliminado:"
-            echo "   • Contenedores, imagen y servidores de juego"
+            echo "   • Contenedores, imagen, redes y servidores de juego del panel"
             echo "   • Directorio de instalación y datos ($INSTALL_DIR)"
             echo "   • Opciones y credenciales ($CONFIG_DIR)"
-            echo "   • Configuración de Nginx y certificado del panel"
+            echo "   • Sitio de Nginx, certificado del panel, servicio $DOMAIN_SERVICE"
+            echo "   • Reglas del firewall del panel y del SFTP"
             echo ""
-            echo "   Docker, Nginx y las reglas del firewall siguen instalados."
+            echo "   Siguen instalados Docker, Nginx y certbot, y las reglas de SSH, 80 y 443."
+            if [[ "${DBS_MODE:-}" == "external" ]]; then
+                echo "   La base de datos externa ${DBS_HOST:-} no se ha tocado."
+            fi
             ;;
         data)
             echo "✅ Eliminado:"
@@ -2799,6 +3465,220 @@ uninstall() {
     echo ""
     echo "¡Gracias por haber usado $PROJECT_NAME!"
     echo ""
+}
+
+# =============================================================================
+# REINSTALACIÓN Y LIMPIEZA
+#   Solo se borra lo que es de esta instalación: los contenedores creados por
+#   docker compose desde $INSTALL_DIR, los servidores de juego del panel
+#   (etiqueta skypanel.server), sus redes e imagen, $INSTALL_DIR y $CONFIG_DIR.
+#   Una base de datos externa nunca se toca.
+# =============================================================================
+
+# ids de los contenedores de esta instalación (compose) y, con "servers", los servidores de juego
+project_containers() {
+    command -v docker >/dev/null 2>&1 || return 0
+    docker ps -aq --filter "label=com.docker.compose.project.working_dir=$INSTALL_DIR" 2>/dev/null || true
+    if [[ "${1:-}" == "servers" ]]; then
+        docker ps -aq --filter "label=skypanel.server" 2>/dev/null || true
+    fi
+}
+
+# backup_installation MOTIVO: base de datos + storage (sin los archivos de MariaDB, ya copiados)
+# + .env y opciones, en $BACKUP_ROOT/MOTIVO-FECHA
+backup_installation() {
+    local dest
+    dest="$BACKUP_ROOT/$1-$(date +%Y%m%d-%H%M%S)"
+    print_step "Copia de seguridad en $dest"
+    if [[ -d "$INSTALL_DIR/storage" ]]; then
+        log_info "Tamaño de los datos: $(du -sh --exclude=mysql-data "$INSTALL_DIR/storage" 2>/dev/null | cut -f1 || echo '?')"
+    fi
+    backup_database "$dest" || log_warning "Sin copia de la base de datos (¿estaba el contenedor de MariaDB parado o borrado?)"
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[dry-run] Se copiarían $INSTALL_DIR/storage, .env y $CONFIG_DIR"
+        return 0
+    fi
+    run mkdir -p "$dest"
+    chmod 700 "$dest"
+    if ! tar -C "$INSTALL_DIR" --exclude='storage/mysql-data' -czf "$dest/datos.tar.gz" storage .env 2>/dev/null; then
+        die "La copia de los datos falló; no se ha borrado nada"
+    fi
+    if [[ -d "$CONFIG_DIR" ]]; then tar -C / -czf "$dest/configuracion.tar.gz" "${CONFIG_DIR#/}" 2>/dev/null || true; fi
+    tar -tzf "$dest/datos.tar.gz" >/dev/null 2>&1 || die "La copia de los datos no se puede leer; no se ha borrado nada"
+    log_success "Copia de seguridad en $dest ($(du -sh "$dest" | cut -f1))"
+}
+
+# remove_installation MODO(basic|data|full) CONSERVAR_CERTIFICADO(true|false)
+remove_installation() {
+    local mode="$1" keep_cert="${2:-false}"
+
+    # Contenedores del panel (los datos están en $INSTALL_DIR/storage y NO se tocan en basic)
+    if [[ -f "$INSTALL_DIR/docker-compose.yml" ]] && command -v docker >/dev/null 2>&1; then
+        local -a down_args=(down --remove-orphans)
+        if [[ "$mode" == "full" ]]; then down_args+=(--rmi local --volumes); fi
+        dc "${down_args[@]}" || log_warning "docker compose down terminó con avisos"
+    fi
+    local id
+    for id in $(project_containers); do
+        run docker rm -f "$id" >/dev/null || true
+    done
+
+    remove_domain_service
+
+    # Nginx (solo el sitio del panel)
+    local conf
+    for conf in /etc/nginx/sites-enabled/skypanel /etc/nginx/sites-available/skypanel /etc/nginx/conf.d/skypanel.conf; do
+        if [[ -e "$conf" || -L "$conf" ]]; then
+            run rm -f "$conf"
+            NGINX_CONFIGURED=true
+        fi
+    done
+    if [[ "$NGINX_CONFIGURED" == "true" ]] && command -v nginx >/dev/null 2>&1; then
+        log_info "Configuración de Nginx del panel eliminada"
+        if nginx -t >/dev/null 2>&1; then svc reload nginx || true; fi
+    fi
+
+    if [[ "$mode" == "data" || "$mode" == "full" ]]; then
+        # Servidores de juego creados por el panel: llevan su etiqueta
+        if command -v docker >/dev/null 2>&1; then
+            local ids
+            ids=$(docker ps -aq --filter "label=skypanel.server" 2>/dev/null || true)
+            if [[ -n "$ids" ]]; then
+                log_info "Eliminando contenedores de servidores de juego..."
+                # shellcheck disable=SC2086 # lista de IDs separada por espacios
+                run docker rm -f $ids >/dev/null || true
+            fi
+            if docker network inspect "$SERVERS_NETWORK" >/dev/null 2>&1 && [[ -z "$(docker network inspect -f '{{range .Containers}}x{{end}}' "$SERVERS_NETWORK" 2>/dev/null)" ]]; then
+                run docker network rm "$SERVERS_NETWORK" >/dev/null || true
+            fi
+        fi
+        log_info "Eliminando datos ($INSTALL_DIR/storage)..."
+        run rm -rf "$INSTALL_DIR/storage"
+        if [[ -d "$DATA_DIR" ]]; then run rm -rf "$DATA_DIR"; fi
+    fi
+
+    if [[ "$mode" == "full" ]]; then
+        log_info "Eliminando instalación y configuración..."
+        local cert_domain="${PREV_DOMAIN:-$DOMAIN}"
+        if command -v docker >/dev/null 2>&1; then
+            local image
+            for image in $(docker images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep -E '^skypanel-skypanel:' || true); do
+                run docker image rm -f "$image" >/dev/null || true
+            done
+        fi
+        remove_firewall_rules
+        run rm -rf "$INSTALL_DIR" "$CONFIG_DIR"
+        local d
+        for d in "$LOG_DIR" "$WEB_DIR"; do
+            if [[ -d "$d" ]]; then run rm -rf "$d"; fi
+        done
+        # Solo el certificado del dominio del panel (nunca los de otros sitios)
+        if [[ "$keep_cert" != "true" && -n "$cert_domain" && -d "/etc/letsencrypt/live/$cert_domain" ]] && command -v certbot >/dev/null 2>&1; then
+            log_info "Eliminando el certificado SSL de $cert_domain..."
+            run certbot delete --cert-name "$cert_domain" --non-interactive || true
+        fi
+    fi
+}
+
+# Reglas que añadió el instalador para el panel y el SFTP (las de SSH, 80 y 443 se quedan:
+# otros sitios del servidor pueden usarlas)
+remove_firewall_rules() {
+    local panel="${PREV_PANEL_PORT:-$DEFAULT_PANEL_PORT}" sftp="${PREV_SFTP_PORT:-$DEFAULT_SFTP_PORT}" p
+    if command -v ufw >/dev/null 2>&1; then
+        for p in "$panel" "$sftp"; do
+            if ufw status 2>/dev/null | grep -Eq "^$p/tcp .*# Aether Panel"; then
+                run ufw delete allow "$p/tcp" >/dev/null || true
+            fi
+        done
+    elif command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state >/dev/null 2>&1; then
+        for p in "$panel" "$sftp"; do
+            run firewall-cmd --permanent --remove-port="$p/tcp" >/dev/null 2>&1 || true
+        done
+        run firewall-cmd --reload >/dev/null 2>&1 || true
+    fi
+}
+
+# verify_removal MODO: comprueba que no queda nada de lo que se ha borrado
+verify_removal() {
+    [[ "$DRY_RUN" == "true" ]] && return 0
+    local mode="$1" left=0
+    print_step "Comprobando la limpieza"
+    if [[ -n "$(project_containers)" ]]; then log_warning "Quedan contenedores del panel"; left=$((left + 1)); else log_success "Sin contenedores del panel"; fi
+    if [[ "$mode" != "basic" ]]; then
+        if command -v docker >/dev/null 2>&1 && [[ -n "$(docker ps -aq --filter label=skypanel.server 2>/dev/null)" ]]; then
+            log_warning "Quedan servidores de juego"; left=$((left + 1))
+        else
+            log_success "Sin servidores de juego"
+        fi
+        if [[ -d "$INSTALL_DIR/storage" ]]; then log_warning "Quedan datos en $INSTALL_DIR/storage"; left=$((left + 1)); else log_success "Datos eliminados"; fi
+    fi
+    if [[ "$mode" == "full" ]]; then
+        if [[ -d "$INSTALL_DIR" || -d "$CONFIG_DIR" ]]; then log_warning "Quedan $INSTALL_DIR o $CONFIG_DIR"; left=$((left + 1)); else log_success "Archivos y configuración eliminados"; fi
+        if command -v docker >/dev/null 2>&1 && docker images --format '{{.Repository}}' 2>/dev/null | grep -qx 'skypanel-skypanel'; then
+            log_warning "Queda la imagen skypanel-skypanel"; left=$((left + 1))
+        else
+            log_success "Imagen del panel eliminada"
+        fi
+    fi
+    if [[ -f "/etc/systemd/system/$DOMAIN_SERVICE.path" ]]; then log_warning "Queda el servicio $DOMAIN_SERVICE"; left=$((left + 1)); fi
+    if (( left > 0 )); then
+        log_warning "Quedaron $left elemento(s): revisa los avisos anteriores"
+    fi
+}
+
+# reinstall_prepare: avisa, ofrece una copia, pide confirmación, borra la instalación y deja
+# todo listo para una instalación nueva (que vuelve a preguntar dominio, puertos y base de datos)
+reinstall_prepare() {
+    print_step "Reinstalación desde cero"
+    if [[ "$EXISTING_INSTALL" != "true" ]]; then
+        log_info "No hay ninguna instalación: se hace una instalación normal"
+        REINSTALL_MODE=false
+        return 0
+    fi
+    if command -v docker >/dev/null 2>&1; then detect_docker; fi
+    if (( ${#DC[@]} == 0 )); then DC=(docker compose); fi
+    db_settings
+    printf '%s════════════════════════════════════════════════════════════%s\n' "$RED" "$NC"
+    printf '%s  ⚠️  REINSTALAR BORRA LOS DATOS DE ESTA INSTALACIÓN%s\n' "$RED" "$NC"
+    printf '%s════════════════════════════════════════════════════════════%s\n' "$RED" "$NC"
+    echo "Se borrará:"
+    echo "   • Contenedores, imagen y redes del panel, y todos los servidores de juego"
+    echo "   • $INSTALL_DIR: código, .env y datos (servidores, copias, extensiones, logs)"
+    if [[ "$DBS_MODE" == "local" ]]; then
+        echo "   • La base de datos local (usuarios, servidores, ajustes)"
+    fi
+    echo "   • $CONFIG_DIR (opciones y credenciales guardadas), el sitio de Nginx y el servicio $DOMAIN_SERVICE"
+    echo "No se tocará:"
+    if [[ "$DBS_MODE" == "external" ]]; then
+        echo "   • La base de datos externa $DBS_HOST:$DBS_PORT/$DBS_NAME: sus datos siguen ahí; si la"
+        echo "     vuelves a indicar, el panel nuevo los usará. Bórrala tú si quieres empezar de cero."
+    fi
+    echo "   • Docker, Nginx, certbot, el certificado del dominio y otros contenedores del servidor"
+    echo ""
+
+    local backup=true
+    if interactive_manual; then
+        local ans
+        ask_yes_no ans "¿Hacer antes una copia de seguridad (base de datos y datos)?" "yes"
+        [[ "$ans" == "yes" ]] || backup=false
+        local confirm
+        prompt_read confirm "Escribe REINSTALAR para borrar y reinstalar" ""
+        [[ "$confirm" == "REINSTALAR" ]] || { echo "Cancelado."; exit 0; }
+    else
+        [[ "$AUTO_CONFIRMED" == "true" ]] || die "Reinstalar sin terminal borra datos: confirma con --yes"
+        [[ "$SKIP_BACKUP" == "true" ]] && backup=false
+    fi
+    if [[ "$backup" == "true" ]]; then backup_installation "reinstalacion"; fi
+
+    remove_installation full true
+    verify_removal full
+
+    # instalación nueva: nada de la anterior se usa como valor por defecto
+    EXISTING_INSTALL=false
+    INSTALL_STATE=absent
+    PREV_DOMAIN=""; PREV_USE_SSL=""; PREV_SSL_EMAIL=""; PREV_PANEL_PORT=""; PREV_SFTP_PORT=""
+    PREV_PANEL_BIND=""; PREV_SERVER_IP=""; PREV_MASTER_URL=""; PREV_DB_MODE=""; PREV_MYSQL_HOST_PORT=""
+    log_success "Instalación anterior eliminada: empieza la instalación nueva"
 }
 
 # =============================================================================
@@ -2882,7 +3762,13 @@ Opciones de Cuenta:
       --create-admin         Crear cuenta administrador (solo)
 
 Opciones de Actualización:
-      --update               Actualizar sin borrar datos
+      --update               Actualizar sin borrar datos (copia la base de datos antes y vuelve a la
+                             versión anterior si la nueva no arranca)
+      --reinstall            Borrar la instalación y volver a instalar (pide confirmación; --yes sin terminal)
+      --skip-backup          No hacer copia de seguridad antes de actualizar o reinstalar
+      --db-admin-user U      Con BD externa: cuenta que crea la base de datos y el usuario si no existen
+      --db-admin-pass P      Su contraseña (mejor por entorno: AETHER_DB_ADMIN_PASSWORD); no se guarda
+      --apply-panel-url      Configurar Nginx/SSL para la URL principal de Ajustes (lo usa el servicio aether-domain)
 
 Opciones:
       --debug                Modo debug
@@ -3018,6 +3904,11 @@ parse_args() {
             --uninstall-data) UNINSTALL_MODE="data"; HAS_INSTALL_ARGS=true ;;
             --uninstall-all) UNINSTALL_MODE="full"; HAS_INSTALL_ARGS=true ;;
             --update) UPDATE_MODE=true; HAS_INSTALL_ARGS=true ;;
+            --reinstall) REINSTALL_MODE=true; HAS_INSTALL_ARGS=true ;;
+            --skip-backup) SKIP_BACKUP=true ;;
+            --db-admin-user) need_value "$opt" "$has_eq" "$eqval" "${2:-}"; DB_ADMIN_USER="$REPLY"; HAS_INSTALL_ARGS=true ;;
+            --db-admin-pass) need_value "$opt" "$has_eq" "$eqval" "${2:-}"; DB_ADMIN_PASSWORD="$REPLY"; HAS_INSTALL_ARGS=true ;;
+            --apply-panel-url) APPLY_PANEL_URL=true; HAS_INSTALL_ARGS=true; NON_INTERACTIVE=true ;;
             -b|--branch) need_value "$opt" "$has_eq" "$eqval" "${2:-}"; GIT_BRANCH="$REPLY" ;;
             --debug) DEBUG=true ;;
             -V|--version) echo "$SCRIPT_VERSION ($SCRIPT_BUILD)"; exit 0 ;;
@@ -3100,24 +3991,38 @@ main() {
 
     # Menú principal interactivo (solo si no se pasó ningún argumento)
     if [[ "$HAS_INSTALL_ARGS" == "false" ]] && interactive_manual; then
-        local main_choice
+        require_root
+        detect_existing_installation
+        show_install_state
+        local main_choice def=1
+        if [[ "$EXISTING_INSTALL" == "true" ]]; then def=2; fi
+        echo ""
         echo "============================================================"
         echo "  Menú Principal"
         echo "============================================================"
         echo ""
-        echo "  1) Instalar $PROJECT_NAME (Docker)"
-        echo "  2) Actualizar $PROJECT_NAME (mantener datos)"
-        echo "  3) Crear cuenta administrador"
-        echo "  4) Desinstalar $PROJECT_NAME"
-        echo "  5) Salir"
+        echo "  1) Instalar"
+        echo "  2) Actualizar (conserva los datos)"
+        echo "  3) Reinstalar desde cero (borra los datos)"
+        echo "  4) Desinstalar"
+        echo "  5) Crear cuenta administrador"
+        echo "  6) Salir"
         echo ""
-        prompt_read main_choice "Selecciona [1-5]" "1"
+        while true; do
+            prompt_read main_choice "Selecciona [1-6]" "$def"
+            if [[ "$main_choice" =~ ^[2-5]$ && "$EXISTING_INSTALL" != "true" ]]; then
+                log_warning "No hay ninguna instalación de $PROJECT_NAME: elige 1 para instalar"
+                continue
+            fi
+            break
+        done
         case "$main_choice" in
             1) : ;;
             2) UPDATE_MODE=true ;;
-            3) CREATE_ADMIN=true; CREATE_ADMIN_ONLY=true ;;
-            4) UNINSTALL_MODE="basic"; uninstall; exit 0 ;;
-            5) echo "¡Hasta luego!"; exit 0 ;;
+            3) REINSTALL_MODE=true ;;
+            4) UNINSTALL_MODE=""; uninstall; exit 0 ;;
+            5) CREATE_ADMIN=true; CREATE_ADMIN_ONLY=true ;;
+            6) echo "¡Hasta luego!"; exit 0 ;;
             *) echo "Opción inválida"; exit 1 ;;
         esac
     fi
@@ -3135,9 +4040,27 @@ main() {
     load_state
     detect_existing_installation
 
+    if [[ "$FOREIGN_CONTAINER" == "true" && "$UPDATE_MODE" != "true" && "$APPLY_PANEL_URL" != "true" ]]; then
+        die "Ya existe un contenedor llamado '$PANEL_CONTAINER' que no pertenece a $INSTALL_DIR. Renómbralo o elimínalo (es de otro proyecto: el instalador no lo toca)."
+    fi
+
     # Modo actualización (sin borrar datos)
     if [[ "$UPDATE_MODE" == "true" ]]; then
+        if [[ "$EXISTING_INSTALL" != "true" ]]; then
+            die "No hay ninguna instalación de $PROJECT_NAME que actualizar: ejecuta el instalador sin --update"
+        fi
         update_panel
+        exit 0
+    fi
+
+    # Reinstalación: se borra lo anterior y sigue como instalación nueva
+    if [[ "$REINSTALL_MODE" == "true" ]]; then
+        reinstall_prepare
+    fi
+
+    # El servicio aether-domain: aplicar la URL principal guardada en Ajustes
+    if [[ "$APPLY_PANEL_URL" == "true" ]]; then
+        apply_panel_url
         exit 0
     fi
 
@@ -3166,6 +4089,7 @@ main() {
     sync_repository
     configure_env_file
     configure_compose_override
+    check_external_db
     build_images
     rotate_db_passwords
     if [[ "$FORCE" == "true" && "$EXISTING_INSTALL" == "true" ]]; then
@@ -3178,6 +4102,8 @@ main() {
     start_stack
     create_admin
     save_state
+    install_domain_service
+    record_domain_status
     print_summary
 }
 

@@ -70,6 +70,45 @@ type Node struct {
 	DB *gorm.DB
 }
 
+// localNodeHostRefresh is how often KeepLocalNodeHostInSync looks again
+const localNodeHostRefresh = 15 * time.Second
+
+// KeepLocalNodeHostInSync sets the panel node's address now and every few seconds after.
+// Servers copy the node when they are loaded (models.Server.AfterFind), so the address must
+// already be right then; the master node IP and the domain service's result change at any time.
+func KeepLocalNodeHostInSync(db *gorm.DB) {
+	ns := &Node{DB: db}
+	ns.syncLocalNodeHost()
+	go func() {
+		ticker := time.NewTicker(localNodeHostRefresh)
+		defer ticker.Stop()
+		for range ticker.C {
+			ns.syncLocalNodeHost()
+		}
+	}()
+}
+
+// syncLocalNodeHost sets the address players and SFTP clients get for the panel's own node: the
+// master node IP from Settings when there is one; otherwise the server's IP when the Base URL's
+// domain sits behind a proxy that only passes the website (Cloudflare's orange cloud), where
+// the domain would never reach a game port; otherwise the Base URL's host, as before.
+func (ns *Node) syncLocalNodeHost() {
+	var masterSetting models.PanelSetting
+	if err := ns.DB.Where("`key` = ?", "master_node_ip").First(&masterSetting).Error; err == nil && masterSetting.Value != "" {
+		models.LocalNode.PublicHost = masterSetting.Value
+		models.LocalNode.PrivateHost = masterSetting.Value
+		return
+	}
+	if ip := proxiedDomainServerIP(); ip != "" {
+		models.LocalNode.PublicHost = ip
+		return
+	}
+	// the Base URL's host, also after a master node IP was removed (it used to stay until a restart)
+	host := strings.Split(strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(config.MasterURL.Value(), "http://"), "https://"), "/"), ":")[0]
+	models.LocalNode.PublicHost = host
+	models.LocalNode.PrivateHost = host
+}
+
 func (ns *Node) GetAll() ([]*models.Node, error) {
 	var nodes []*models.Node
 
@@ -81,11 +120,7 @@ func (ns *Node) GetAll() ([]*models.Node, error) {
 
 	if config.PanelEnabled.Value() {
 		// Sync the global Master Node IP from the DB
-		var masterSetting models.PanelSetting
-		if err := ns.DB.Where("`key` = ?", "master_node_ip").First(&masterSetting).Error; err == nil && masterSetting.Value != "" {
-			models.LocalNode.PublicHost = masterSetting.Value
-			models.LocalNode.PrivateHost = masterSetting.Value
-		}
+		ns.syncLocalNodeHost()
 		nodes = append(nodes, models.LocalNode)
 	}
 
@@ -96,11 +131,7 @@ func (ns *Node) Get(id uint) (*models.Node, error) {
 	model := &models.Node{}
 
 	if id == models.LocalNode.ID && config.PanelEnabled.Value() {
-		var masterSetting models.PanelSetting
-		if err := ns.DB.Where("`key` = ?", "master_node_ip").First(&masterSetting).Error; err == nil && masterSetting.Value != "" {
-			models.LocalNode.PublicHost = masterSetting.Value
-			models.LocalNode.PrivateHost = masterSetting.Value
-		}
+		ns.syncLocalNodeHost()
 		return models.LocalNode, nil
 	}
 

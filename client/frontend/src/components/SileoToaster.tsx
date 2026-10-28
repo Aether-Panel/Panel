@@ -1,6 +1,10 @@
 'use client';
 
 import { Toaster } from 'sileo';
+// Sileo injects its CSS into <head> once, when the module loads, and Astro's page transitions
+// replace <head> on every navigation: from the second page on, toasts had no styles and showed
+// as a dark box at the end of the page. Bundled here, the CSS comes with every page.
+import 'sileo/styles.css';
 
 export default function SileoToaster() {
     return (

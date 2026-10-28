@@ -143,3 +143,80 @@ Arreglos encontrados al instalar de verdad en Ubuntu 22.04, 24.04, 26.04 y 26.10
 - **Rocky/Alma 9: `dnf` fallaba por `curl` frente a `curl-minimal`.** curl solo se instala si falta.
 - **Límite de descargas de Docker Hub.** Las imágenes se descargan antes de arrancar, con 3 intentos. Si Docker Hub responde 429, el instalador lo explica (esperar o `docker login`) en vez de fallar sin más.
 - **Versiones sin soporte.** El aviso ahora sale con Ubuntu anterior a 22.04 y Debian anterior a 12: ya no tienen parches de seguridad (Debian 11 terminó en agosto de 2026 y sus repositorios se archivaron).
+
+# install.sh 4.1.1 → 4.1.2
+
+Encontrado al instalar en un VPS real (Ubuntu 26.04) y apuntar un dominio con el proxy de Cloudflare.
+
+- **El puerto 80 no se abría sin dominio.** El instalador pone Nginx en el 80 delante del panel también cuando no hay dominio, pero el firewall solo abría 22, 8080 y 5657. Un dominio con Cloudflare daba 522. Ahora el 80 se abre siempre que haya Nginx, y el 443 cuando hay dominio.
+- **Un dominio sin configurar caía en la página de bienvenida de Nginx.** Sin dominio, el sitio del panel solo contestaba a la IP y el sitio `default` de la distribución se quedaba con el resto. Ahora el sitio del panel es el predeterminado del puerto 80: contesta por la IP y por cualquier dominio que apunte al servidor. Se quita solo el enlace `sites-enabled/default` (el archivo sigue en `sites-available`); si otro sitio ya es el predeterminado, no se toca.
+- **IPv6.** Nginx escucha también en `[::]:80` y `[::]:443`.
+
+# install.sh 4.1.2 → 4.1.3
+
+- **El dominio de Ajustes se aplica solo.** Hasta ahora, escribir un dominio en **Ajustes → General → URL principal** solo cambiaba los enlaces del panel: Nginx, el certificado y el firewall había que configurarlos volviendo a ejecutar el instalador. Ahora el instalador deja el servicio `aether-domain` (una unidad `.path` de systemd que vigila el `config.json` del panel). Al guardar la URL ejecuta `install.sh --apply-panel-url`, que con las mismas funciones de la instalación configura Nginx, pide el certificado si la URL es `https://` y abre los puertos. Si no hay cambios, no toca nada. Un certificado fallido no se vuelve a pedir hasta pasada una hora (límite de Let's Encrypt), salvo que cambie la URL.
+- El resultado queda en `domain-status.json`, junto al `config.json`, y el panel lo muestra bajo el campo (`GET /api/settings/domain-status`).
+- Se instala también con `--update`, y `--uninstall` lo quita. No se instala sin systemd, en nodos solo daemon ni con `--skip-nginx`.
+
+# install.sh 4.1.3 → 4.1.4
+
+- **Dominio con el proxy de Cloudflare.** El panel daba como dirección de los servidores de juego y del SFTP el dominio de la URL principal. Con la nube naranja de Cloudflare ese dominio solo deja pasar la web, así que `dominio:25565` no conectaba nunca. El servicio `aether-domain` (y la instalación) comprueba ahora si el dominio apunta a este servidor; si no, lo anota en `domain-status.json` (`proxied` y `serverIp`) y el panel usa esa IP para jugadores y SFTP, salvo que en Ajustes haya una "IP del nodo maestro". Ajustes lo explica bajo la URL principal y recuerda los subdominios automáticos.
+- La instalación y `--update` también escriben ese estado al terminar.
+
+# install.sh 4.1.4 → 4.2.0
+
+Punto de entrada único para instalar y administrar el panel: detecta el estado, ofrece las cuatro
+operaciones y protege los datos en las que pueden perderlos.
+
+## Estado y menú
+
+- Distingue **no instalado**, **instalado pero detenido** y **funcionando**, y muestra la rama y la versión.
+- Un contenedor solo cuenta como del panel si docker compose lo creó desde `/opt/skypanel` (etiqueta `com.docker.compose.project.working_dir`). Un contenedor `skypanel` de otro proyecto no se toca y se avisa.
+- Menú: **Instalar**, **Actualizar**, **Reinstalar desde cero**, **Desinstalar** (más crear administrador y salir). Sin instalación, solo deja instalar.
+
+## Instalación
+
+- Puertos: se pregunta si usar los predeterminados; si no, se piden hasta que sean válidos, distintos entre sí, no reservados (SSH, 80/443 de Nginx, 3307 de la BD, 8081 de Adminer) y libres.
+- Con dominio y HTTPS se explica qué necesita Let's Encrypt con Cloudflare: funciona con la nube naranja si el puerto 80 llega; la primera emisión falla con "Always Use HTTPS" activado; el certificado de origen de Cloudflare como alternativa.
+- **Renovaciones detrás de Cloudflare:** el sitio HTTPS de Nginx también responde al reto de Let's Encrypt. Antes, con "Always Use HTTPS", la renovación llegaba por HTTPS al panel y fallaba.
+- **Base de datos externa:** se comprueba la conexión y las credenciales antes de construir nada. Si la base de datos o el usuario no existen, se crean con una cuenta de administrador opcional (`--db-admin-user`, `--db-admin-pass` o `AETHER_DB_ADMIN_PASSWORD`), dando al usuario solo permisos sobre esa base de datos. La cuenta de administrador no se guarda. `localhost` se rechaza con la explicación: dentro del contenedor es el propio contenedor.
+- El resumen final muestra el estado de los contenedores, la base de datos (sin contraseñas), los puertos que hay que abrir en el firewall del proveedor, dónde están los archivos y los comandos reales de administración: `SkyPanel user add`, `SkyPanel user edit`, `SkyPanel version` y docker compose.
+
+## Actualización
+
+- **Copia de la base de datos antes de tocar nada**, comprobada (gzip íntegro y con tablas), en `/var/backups/aether-panel/actualizaciones` (se guardan las 10 últimas). Sin copia no se actualiza, salvo `--skip-backup` o confirmación expresa.
+- **Vuelta atrás automática:** se guarda la imagen actual como `:anterior`. Si la versión nueva no arranca, se devuelve el código a la versión de antes, se restaura la imagen y se levanta el panel otra vez. Se indica la copia de la base de datos y el comando para restaurarla si la versión nueva llegó a cambiarla.
+- La base de datos nunca se borra ni se reinicia al actualizar.
+
+## Reinstalación (nueva)
+
+- `--reinstall` o la opción del menú. Explica qué se borra y qué no, ofrece una copia (base de datos + datos + configuración en `/var/backups/aether-panel/reinstalacion-FECHA`) y pide escribir `REINSTALAR` (o `--yes` sin terminal).
+- Borra solo lo de esta instalación y empieza una instalación nueva que vuelve a preguntar dominio, puertos y base de datos. Una base de datos externa no se toca; se avisa de que sus datos siguen ahí. El certificado del dominio se conserva.
+
+## Desinstalación
+
+- Ofrece una copia antes de borrar datos.
+- Borra solo lo del panel: contenedores de compose de `/opt/skypanel`, servidores de juego (etiqueta `skypanel.server`), redes, imagen `skypanel-skypanel`, sitio de Nginx, servicio `aether-domain` y las reglas del firewall del panel y del SFTP. Las de SSH, 80 y 443 se quedan, porque pueden usarlas otros sitios.
+- Al terminar comprueba que no quede nada y lo dice.
+
+## Distribuciones
+
+- **Arch Linux** (y Manjaro, EndeavourOS…) con pacman, y **openSUSE** (Leap, Tumbleweed, SLES) con zypper. En ambas Docker viene de los repositorios de la distribución. En Arch se añade `include conf.d/*.conf` al `nginx.conf`, que no lo trae; se guarda una copia antes.
+- En openSUSE se instala iptables con el motor nftables (`iptables-backend-nft`). Los núcleos nuevos (por ejemplo el 7.0 de Ubuntu 26.04) ya no traen los módulos del iptables clásico, y sin ellos Docker no arranca.
+- En una distribución sin gestor de paquetes conocido se detiene explicando qué falta.
+
+## Probado
+
+Instalaciones reales en contenedores con systemd:
+- **Ubuntu 26.04**, ciclo completo: instalar, menú con el estado, actualizar (copia de 26 tablas comprobada), actualización rota a propósito (vuelve sola a la versión anterior y el panel sigue respondiendo), reinstalar (con copia) y desinstalar todo (sin contenedores, imagen, redes ni archivos).
+- **Arch Linux** y **openSUSE Tumbleweed**: instalación completa con el panel respondiendo.
+
+## Repositorio
+
+- `.gitattributes`: los `.sh` y el Dockerfile siempre con finales de línea LF.
+
+# install.sh 4.2.0 → 4.2.1
+
+- **Rama `main` por defecto.** Una instalación nueva, y el actualizador del panel (`tools/panelUpdate/panelUpdate.sh`) cuando no hay otra rama indicada, usan `main`, la rama estable. Una instalación que ya está en otra rama sigue en la suya: se lee de `installer.conf` o del repositorio. Otra rama se elige con `-b RAMA` o `AETHER_BRANCH`.
+- El aviso de "actualización disponible" del panel compara con la rama instalada (la que lee de `/repo/.git/HEAD`), no con `dev2.0` fijo. Antes, una instalación en `main` veía avisos de cambios que su actualización no iba a traer.
+

@@ -220,6 +220,23 @@ func (p *Server) runVersionChange(variable, target string) error {
 	return nil
 }
 
+// ErrUnknownPlatform is a version list the panel does not know how to fetch
+var ErrUnknownPlatform = errors.New("unknown game platform; use vanilla, paper, folia, velocity or waterfall")
+
+// versionPlatforms are the platforms whose releases the panel can list: Mojang's manifest for
+// vanilla and PaperMC's projects for the rest
+var versionPlatforms = map[string]string{"vanilla": "vanilla", "paper": "paper", "folia": "folia", "velocity": "velocity", "waterfall": "waterfall"}
+
+// ListVersions is availableVersions for a platform named by a caller. The name becomes part of
+// the PaperMC URL, so what is used is the list's own value, never the caller's text.
+func ListVersions(platform string) ([]string, error) {
+	known, ok := versionPlatforms[platform]
+	if !ok {
+		return nil, ErrUnknownPlatform
+	}
+	return availableVersions(known)
+}
+
 // availableVersions lists the stable releases of a platform, newest first, cached for an hour
 func availableVersions(platform string) ([]string, error) {
 	versionCacheLock.Lock()

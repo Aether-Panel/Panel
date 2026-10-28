@@ -12,6 +12,7 @@ Antes de comenzar, asegúrese de que su servidor cumpla con los siguientes requi
     *   Ubuntu 22.04, 24.04, 26.04 y 26.10
     *   Debian 12
     *   Rocky Linux 9 (y AlmaLinux / RHEL 9, que son equivalentes)
+    *   Arch Linux y openSUSE Tumbleweed (con Docker de los repositorios de la distribución)
 
     También funciona en Rocky/Alma/RHEL 8 y Fedora. Ubuntu 20.04 y Debian 11 ya no tienen soporte de seguridad: el instalador avisa y no se recomiendan.
 *   **Arquitectura:** amd64 o arm64
@@ -45,13 +46,28 @@ sudo bash /tmp/install.sh
 El instalador le guiará a través del proceso:
 1.  Verificación del sistema: arquitectura, RAM (2 GB o swap), espacio, puertos libres.
 2.  Instalación de Docker y Docker Compose (si no están presentes), con la clave GPG de Docker verificada.
-3.  Clonado del repositorio desde `https://github.com/Aether-Panel/Panel.git` (rama `dev2.0`, o la ya instalada).
+3.  Clonado del repositorio desde `https://github.com/Aether-Panel/Panel.git` (rama `main`, o la ya instalada; otra con `-b RAMA`).
 4.  Contraseñas aleatorias para la base de datos (en `.env`, solo legible por root).
 5.  Construcción de la imagen y configuración de puertos, dominio, SSL y cortafuegos (opcional).
 6.  URL del panel (para los enlaces de cambio de contraseña y de acceso directo) y cuenta de administrador.
 7.  Inicio de Aether Panel y un resumen con la dirección y dónde quedan las credenciales (`/etc/SkyPanel/credenciales.txt`).
 
 Volver a ejecutarlo sobre una instalación existente es seguro: conserva los datos, las contraseñas y la cuenta de administrador.
+
+### Administrar el panel con el instalador
+
+Al ejecutarlo sin opciones, el instalador dice si el panel **no está instalado**, está **instalado pero detenido** o **funcionando** (con su rama y versión) y ofrece:
+
+| Opción | Qué hace | Datos |
+|---|---|---|
+| **Instalar** | Pregunta dominio o IP, puertos (predeterminados o propios) y base de datos (interna o externa), y lo instala todo. | — |
+| **Actualizar** (`--update`) | Copia la base de datos y comprueba la copia, descarga la rama, reconstruye y reinicia. Si la versión nueva no arranca, vuelve sola a la anterior. | Se conservan |
+| **Reinstalar** (`--reinstall`) | Ofrece una copia, pide escribir `REINSTALAR`, borra la instalación y vuelve a instalar desde cero. | Se borran (una BD externa no) |
+| **Desinstalar** (`--uninstall`, `--uninstall-data`, `--uninstall-all`) | Quita el panel conservando datos, o borrando datos, o todo. Ofrece una copia antes de borrar y comprueba que no queda nada. | Según la opción |
+
+Las copias van a `/var/backups/aether-panel`, fuera de la carpeta del panel. Solo se borra lo que pertenece a la instalación: los contenedores que docker compose creó desde `/opt/skypanel`, los servidores de juego del panel, sus redes e imagen. Una base de datos externa nunca se modifica ni se borra.
+
+**Base de datos externa.** Se comprueba la conexión antes de instalar. Si la base de datos o el usuario no existen, el instalador puede crearlos con una cuenta de administrador de MySQL (`--db-admin-user root --db-admin-pass …`, o la variable `AETHER_DB_ADMIN_PASSWORD`), que no se guarda. El host no puede ser `localhost`: dentro del contenedor del panel eso es el propio contenedor, así que hay que usar la IP privada del servidor.
 
 ### Opciones útiles
 
@@ -71,6 +87,16 @@ curl -fsSL https://install.aetherpanel.es/install.sh | sudo bash -s -- --update
 curl -fsSL https://install.aetherpanel.es/install.sh | sudo bash -s -- --uninstall
 ```
 
+**Añadir un dominio después.** Apunte el dominio a la IP del servidor (con o sin el proxy de Cloudflare) y escríbalo en **Ajustes → General → URL principal**, por ejemplo `https://panel.ejemplo.com`. Al guardarlo, el servicio `aether-domain` que deja el instalador configura Nginx, el certificado de Let's Encrypt y el firewall en unos segundos, y el resultado aparece bajo el campo. Con `http://` se configura sin certificado; con una IP, Nginx vuelve a contestar por la IP. Si el certificado falla (el dominio aún no apunta aquí, o el puerto 80 está cerrado en el proveedor), el panel sigue por HTTP y se reintenta pasada una hora o al cambiar la URL.
+
+El servicio lo instalan el instalador 4.1.3 y posteriores (también con `--update`). En una instalación sin él, el mismo resultado se consigue a mano:
+
+```bash
+curl -fsSL https://install.aetherpanel.es/install.sh | sudo bash -s -- --domain panel.ejemplo.com --ssl
+```
+
+Sin dominio, Nginx contesta en el puerto 80 por la IP y por cualquier dominio que apunte al servidor. Con Cloudflare en modo SSL "Full", Cloudflare entra por el 443 y hace falta el certificado (URL con `https://`).
+
 También puede dejar configurados Turnstile (`--turnstile-site-key`, `--turnstile-secret-key`), los subdominios automáticos de Cloudflare (`--cf-dns-token`, `--cf-zone-id`, `--dns-base-domain`), las copias en S3 (`--s3-*`) y la clave de CurseForge; todo se puede cambiar después en Ajustes. Cambiar los puertos (`--port`, `--sftp-port`) necesita Docker Compose 2.24.4 o superior. El código del instalador está en `tools/install/install.sh`.
 
 ---
@@ -82,7 +108,7 @@ Si prefiere tener control total sobre el proceso, clone el repositorio y use el 
 ### 1. Clonar el Repositorio
 
 ```bash
-git clone -b dev2.0 https://github.com/Aether-Panel/Panel.git /opt/skypanel
+git clone -b main https://github.com/Aether-Panel/Panel.git /opt/skypanel
 cd /opt/skypanel
 ```
 

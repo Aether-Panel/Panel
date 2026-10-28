@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -62,6 +64,23 @@ func registerSettings(g *gin.RouterGroup) {
 
 	g.Handle("GET", "/update-status", middleware.RequiresPermission(scopes.ScopeSettingsEdit), updateStatus)
 	g.Handle("OPTIONS", "/update-status", response.CreateOptions("GET"))
+
+	g.Handle("GET", "/domain-status", middleware.RequiresPermission(scopes.ScopeSettingsEdit), domainStatus)
+	g.Handle("OPTIONS", "/domain-status", response.CreateOptions("GET"))
+}
+
+// @Summary Domain set-up status
+// @Description What the server did with the Base URL: Nginx, the HTTPS certificate and the firewall
+// @Success 200 {object} services.DomainStatus
+// @Tags Settings
+// @Router /api/settings/domain-status [get]
+// @Security OAuth2Application[settings.edit]
+func domainStatus(c *gin.Context) {
+	status, err := services.ReadDomainStatus()
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+	c.JSON(http.StatusOK, status)
 }
 
 // @Summary Value a panel setting
@@ -716,8 +735,33 @@ func isGitAncestor(ancestor, descendant string) (bool, error) {
 	}
 }
 
+// updateBranchPattern is a branch name safe to put in the GitHub URL
+var updateBranchPattern = regexp.MustCompile(`^[A-Za-z0-9._/-]{1,100}$`)
+
+// defaultUpdateBranch is the stable branch, used when the panel's repository has no branch
+// checked out (a detached HEAD) or none can be read
+const defaultUpdateBranch = "main"
+
+// currentGitBranch is the branch the panel's repository has checked out, which is the one
+// tools/panelUpdate/panelUpdate.sh updates from
+func currentGitBranch() string {
+	head, err := os.ReadFile(gitRepoGitDir + "/HEAD")
+	if err != nil {
+		return defaultUpdateBranch
+	}
+	ref := strings.TrimSpace(string(head))
+	if !strings.HasPrefix(ref, "ref:") {
+		return defaultUpdateBranch
+	}
+	branch := strings.TrimPrefix(strings.TrimSpace(strings.TrimPrefix(ref, "ref:")), "refs/heads/")
+	if !updateBranchPattern.MatchString(branch) || strings.Contains(branch, "..") {
+		return defaultUpdateBranch
+	}
+	return branch
+}
+
 // @Summary Check for panel updates
-// @Description Compares the deployed commit with the latest commit on the dev2.0 branch.
+// @Description Compares the deployed commit with the latest commit of the branch the panel is installed from (main when it cannot be read).
 // @Success 200 {object} nil
 // @Tags Panel Settings
 // @Router /api/settings/update-check [get]
@@ -728,7 +772,10 @@ func updateCheck(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/repos/Aether-Panel/Panel/commits/dev2.0", nil)
+	// the branch the updater pulls from: comparing with another one announced updates that the
+	// update would not bring
+	branch := currentGitBranch()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/repos/Aether-Panel/Panel/commits/"+url.PathEscape(branch), nil)
 	if err != nil {
 		response.HandleError(c, fmt.Errorf("failed to build update check request: %v", err), http.StatusInternalServerError)
 		return

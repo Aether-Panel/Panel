@@ -219,12 +219,32 @@ func serveFavicon(c *gin.Context) {
 </svg>`)
 }
 
+// missingAsset is a request for a build file that does not exist. After an update the build's
+// file names change, and a page opened before it still asks for the old ones: they must answer
+// 404, not the app's HTML, which the browser then fails to run as a script ("Failed to fetch
+// dynamically imported module") instead of knowing the page is out of date.
+func missingAsset(p string) bool {
+	if strings.HasPrefix(p, "/_astro/") {
+		return true
+	}
+	switch path.Ext(p) {
+	case ".js", ".mjs", ".css", ".map", ".wasm", ".woff", ".woff2", ".ttf":
+		return true
+	}
+	return false
+}
+
 func handle404(c *gin.Context) {
 	for _, v := range noHTMLRedirectOn404 {
 		if strings.HasPrefix(c.Request.URL.Path, v) {
 			c.AbortWithStatus(http.StatusNotFound)
 			return
 		}
+	}
+	if missingAsset(c.Request.URL.Path) {
+		c.Header("Cache-Control", "no-store")
+		c.AbortWithStatus(http.StatusNotFound)
+		return
 	}
 
 	if c.Request.Method == http.MethodConnect {
