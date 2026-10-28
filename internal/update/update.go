@@ -138,7 +138,8 @@ func Trigger() (containerID string, err error) {
 			Cmd:   Command,
 		},
 		HostConfig: &container.HostConfig{
-			Binds: []string{"/:/host"},
+			NetworkMode: "host",
+			Binds:       []string{"/:/host"},
 		},
 	})
 	if err != nil {
