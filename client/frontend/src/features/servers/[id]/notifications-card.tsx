@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useId, useState } from 'react';
-import { AlertOctagon, Archive, BellRing, Check, Gauge, Loader2, Power, Send, Webhook, type AppIcon } from '@/components/icons';
+import { AlertOctagon, Archive, Check, Gauge, Loader2, Power, Send, Webhook, type AppIcon } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -169,13 +169,6 @@ export default function NotificationsCard({ serverId }: Readonly<{ serverId: str
     <Card className="overflow-hidden">
       <section className="grid gap-5 p-5 md:p-6 lg:grid-cols-[minmax(0,16rem)_minmax(0,1fr)] lg:gap-10">
         <div className="space-y-3">
-          <span
-            aria-hidden="true"
-            className="flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-[0_0_24px_-4px_hsl(var(--primary)/0.7)]"
-            style={{ background: 'linear-gradient(135deg, hsl(var(--primary)), #7983F5)' }}
-          >
-            <BellRing className="h-5 w-5" />
-          </span>
           <div className="space-y-1.5">
             <h2 className="text-sm font-semibold text-foreground">{t('servers.notifications.title')}</h2>
             <p className="text-pretty text-sm text-muted-foreground">{t('servers.notifications.description')}</p>
