@@ -3298,7 +3298,9 @@
         "available": "Update available",
         "availableDescription": "A new version of the panel is available.",
         "availableCount": "The branch has {count} change(s) this panel does not have yet.",
-        "upToDate": "System is up to date"
+        "upToDate": "System is up to date",
+        "verifying": "New version being verified",
+        "verifyingDescription": "A new version is out and GitHub is still checking it. You can update as soon as its checks pass."
       },
       "node": {
         "updating": "Updating…",

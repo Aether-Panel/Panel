@@ -48,3 +48,22 @@ func TestUpdateCheck_ReportsTheBranchAndWhyGitHubFailed(t *testing.T) {
 	assert.Equal(t, "main", body["branch"], "no repository in tests: the stable branch")
 	assert.Equal(t, false, body["updateAvailable"])
 }
+
+func TestCommitVerification_WaitsForTheChecks(t *testing.T) {
+	cases := map[string]string{
+		`{"check_runs":[{"status":"completed","conclusion":"success"},{"status":"in_progress","conclusion":null}]}`:    "pending",
+		`{"check_runs":[{"status":"completed","conclusion":"success"},{"status":"completed","conclusion":"failure"}]}`: "failed",
+		`{"check_runs":[{"status":"completed","conclusion":"success"},{"status":"completed","conclusion":"skipped"}]}`: "",
+		`{"check_runs":[]}`: "",
+	}
+	for answer, want := range cases {
+		fakeGitHub(t, func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "/commits/abc/check-runs", r.URL.Path)
+			_, _ = w.Write([]byte(answer))
+		})
+		assert.Equal(t, want, commitVerification(context.Background(), "abc"), answer)
+	}
+
+	fakeGitHub(t, func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusForbidden) })
+	assert.Equal(t, "", commitVerification(context.Background(), "abc"), "GitHub not answering does not hold the update back")
+}
