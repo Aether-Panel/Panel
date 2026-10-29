@@ -137,6 +137,22 @@ function templateVersionTarget(details: any, values: Record<string, any>): Versi
 const TEMURIN_JAVA_VERSIONS = ['25', '21', '17', '11', '8'];
 
 /**
+ * The Java a Minecraft release needs: 26.1 and newer 25, 1.20.5 to 1.21.x 21, 1.17 to 1.20.4 17,
+ * older ones 8. Null for what is not a release number (a snapshot, an empty field).
+ */
+function minecraftJavaFor(version: string): string | null {
+    const year = /^(\d{2,})\.\d+/.exec(version.trim());
+    if (year && Number(year[1]) >= 26) return '25';
+    const release = /^1\.(\d+)(?:\.(\d+))?/.exec(version.trim());
+    if (!release) return null;
+    const minor = Number(release[1]);
+    const patch = Number(release[2] ?? 0);
+    if (minor >= 21 || (minor === 20 && patch >= 5)) return '21';
+    if (minor >= 17) return '17';
+    return '8';
+}
+
+/**
  * The variable that picks the Java image, when the template runs eclipse-temurin:${variable}.
  * Typed freely, a value like 200 names an image that does not exist and the server cannot
  * start, so the form offers the releases that do.
@@ -574,6 +590,21 @@ function Step3Configuration({
     const gameVersions = useGameVersions(versionTarget?.platform);
     const javaVariable = templateDetails ? javaImageVariable(templateDetails) : null;
 
+    // The Java image follows the Minecraft version: newer releases do not start on an older Java.
+    // It is set again whenever the version changes; picking another one by hand is still allowed.
+    const chosenVersion = versionTarget ? String(configData[versionTarget.variable] ?? '') : '';
+    const versionForJava = chosenVersion === 'latest' ? gameVersions[0] ?? '' : chosenVersion;
+    const neededJava = versionTarget && javaVariable
+        ? minecraftJavaFor(versionForJava) ?? (chosenVersion === 'latest' ? TEMURIN_JAVA_VERSIONS[0] : null)
+        : null;
+    useEffect(() => {
+        if (!neededJava || !javaVariable) return;
+        setConfigData((prev: any) => {
+            const value = typeof prev[javaVariable] === 'number' ? Number(neededJava) : neededJava;
+            return String(prev[javaVariable] ?? '') === neededJava ? prev : { ...prev, [javaVariable]: value };
+        });
+    }, [neededJava, javaVariable, setConfigData]);
+
     if (templateError) {
         return (
             <div className="rounded-xl border border-dashed border-destructive/40 px-6 py-10 text-center">
@@ -669,6 +700,11 @@ function Step3Configuration({
                                     {error && (
                                         <p id={errorId} className="text-pretty text-xs font-medium text-destructive-bright">
                                             {t(`servers.create.fieldErrors.${error.code}`, { limit: error.limit ?? '' })}
+                                        </p>
+                                    )}
+                                    {javaVariable === key && neededJava && stringifiedVal !== neededJava && (
+                                        <p className="text-pretty text-xs font-medium text-warning">
+                                            {t('servers.create.javaMismatch', { version: versionForJava || chosenVersion, java: neededJava })}
                                         </p>
                                     )}
                                     {description && (

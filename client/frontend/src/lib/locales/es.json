@@ -1245,13 +1245,14 @@
       "optionNone": "Ninguno",
       "versionPlaceholder": "Elige una versión",
       "versionLatest": "Última versión (latest)",
+      "javaMismatch": "Minecraft {{version}} necesita Java {{java}}: con otra versión el servidor no arranca.",
       "fixFieldsTitle": "Revisa los campos marcados",
       "fixFieldsDescription": "Hay datos que faltan o no son válidos; el servidor no se ha creado.",
       "fieldErrors": {
         "required": "Este campo es obligatorio.",
         "notNumber": "Escribe un número entero.",
-        "min": "El mínimo es {limit}.",
-        "max": "El máximo es {limit}.",
+        "min": "El mínimo es {{limit}}.",
+        "max": "El máximo es {{limit}}.",
         "eula": "Acepta el EULA de Minecraft: sin él el servidor se detiene al arrancar."
       },
       "enable": "Habilitar",
@@ -3057,12 +3058,12 @@
       "baseUrlLabel": "URL principal",
       "baseUrlDescription": "La dirección con la que se entra al panel, por ejemplo https://panel.tudominio.com o http://IP:8080. Con un dominio, el servidor configura Nginx, el certificado HTTPS y el firewall solo al guardarla (instalaciones hechas con el instalador). Apunta antes el dominio a la IP del servidor.",
       "domainStatus": {
-        "working": "Configurando el servidor para {domain}…",
-        "okHttps": "Activo: {domain} con HTTPS (Nginx y certificado configurados).",
-        "okHttp": "Activo: {domain} por HTTP.",
+        "working": "Configurando el servidor para {{domain}}…",
+        "okHttps": "Activo: {{domain}} con HTTPS (Nginx y certificado configurados).",
+        "okHttp": "Activo: {{domain}} por HTTP.",
         "okIp": "El panel contesta por la IP del servidor.",
-        "proxied": "Tu dominio pasa por el proxy de Cloudflare, que solo deja pasar la web: los jugadores y el SFTP usan la IP {ip}. Para que entren con un nombre, usa los subdominios automáticos (Ajustes → Dominios) o un registro DNS sin proxy (nube gris).",
-        "error": "No se pudo obtener el certificado para {domain}. Comprueba que el dominio apunta a este servidor y que el puerto 80 está abierto; se reintentará en una hora. Mientras tanto el panel funciona por HTTP."
+        "proxied": "Tu dominio pasa por el proxy de Cloudflare, que solo deja pasar la web: los jugadores y el SFTP usan la IP {{ip}}. Para que entren con un nombre, usa los subdominios automáticos (Ajustes → Dominios) o un registro DNS sin proxy (nube gris).",
+        "error": "No se pudo obtener el certificado para {{domain}}. Comprueba que el dominio apunta a este servidor y que el puerto 80 está abierto; se reintentará en una hora. Mientras tanto el panel funciona por HTTP."
       },
       "companyNameLabel": "Nombre de la empresa",
       "companyNameDescription": "El nombre de tu organización mostrado en toda la interfaz del panel.",
@@ -3297,7 +3298,7 @@
         "unknownCurrentDescription": "No se pudo determinar el commit desplegado. Aun así puedes actualizar manualmente.",
         "available": "Actualización disponible",
         "availableDescription": "Hay una nueva versión del panel disponible.",
-        "availableCount": "La rama tiene {count} cambio(s) que este panel aún no tiene.",
+        "availableCount": "La rama tiene {{count}} cambio(s) que este panel aún no tiene.",
         "upToDate": "El sistema está actualizado",
         "verifying": "Versión nueva en verificación",
         "verifyingDescription": "Hay una versión nueva y GitHub aún está comprobándola. Podrás actualizar en cuanto pasen las pruebas."
