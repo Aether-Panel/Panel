@@ -115,4 +115,11 @@ COMPOSE_PROFILES=local-db $DOCKER_COMPOSE build 2>&1
 echo "[INFO] Reiniciando con la versión nueva..."
 COMPOSE_PROFILES=local-db $DOCKER_COMPOSE up -d 2>&1
 
+# Cada compilación deja su caché y nada la borra: tras unas cuantas actualizaciones ocupa
+# decenas de GB y el disco se llena. Se dejan 3 GB para que la próxima compile rápido.
+echo "[INFO] Liberando la caché de compilaciones anteriores..."
+docker builder prune -f --max-used-space 3GB >/dev/null 2>&1 \
+    || docker builder prune -f --keep-storage 3GB >/dev/null 2>&1 \
+    || echo "[AVISO] No se pudo liberar la caché de compilación (docker builder prune)."
+
 echo "[✓] $PROJECT_NAME actualizado correctamente."
