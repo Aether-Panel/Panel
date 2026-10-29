@@ -139,6 +139,10 @@ var DockerDisallowHost = asBool("docker.disallowHost", false)
 // not pick one. Empty keeps them on the panel's own network.
 var DockerServersNetwork = asString("docker.serversNetwork", "")
 
+// DockerServerUser is the uid:gid game servers run as when the panel runs as root (installs
+// stay root). "0:0" keeps them running as root.
+var DockerServerUser = asString("docker.serverUser", "988:988")
+
 type entry[T ValueType] struct {
 	key string
 }
