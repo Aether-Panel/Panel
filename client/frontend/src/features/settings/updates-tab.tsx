@@ -369,12 +369,6 @@ export function UpdatesTab() {
                                         {currentDisplay ?? t('settings.updates.unknown')}
                                     </dd>
                                 </div>
-                                {check?.branch && (
-                                    <div className="flex items-baseline gap-2">
-                                        <dt className="text-muted-foreground">{t('settings.updates.branch')}</dt>
-                                        <dd className="font-mono text-[13px] text-foreground">{check.branch}</dd>
-                                    </div>
-                                )}
                                 <div className="flex items-baseline gap-2">
                                     <dt className="text-muted-foreground">{t('settings.updates.latest')}</dt>
                                     <dd className={cn('tabular-nums', latestDisplay ? 'font-mono text-[13px] text-foreground' : 'text-muted-foreground')}>

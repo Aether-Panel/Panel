@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/SkyPanel/SkyPanel/v3/conditions"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
@@ -25,8 +26,12 @@ import (
 
 // VersionInfo is what the version picker needs
 type VersionInfo struct {
-	// Platform is "paper", "folia", "velocity", "waterfall" or "vanilla"
+	// Platform is "paper", "folia", "velocity", "waterfall" or "vanilla": where the versions
+	// come from
 	Platform string `json:"platform"`
+	// Software is what runs the server: the template's mod launcher when it has one (a Fabric
+	// server takes vanilla's versions), the platform otherwise
+	Software string `json:"software"`
 	// Variable is the server variable that holds the version
 	Variable string `json:"variable"`
 	Current  string `json:"current"`
@@ -61,6 +66,9 @@ const versionCacheFor = time.Hour
 // versionTarget finds the install step that downloads the game and the variable it reads
 func (p *Server) versionTarget() (platform, variable string, ok bool) {
 	for _, op := range p.Installation {
+		if !p.installStepRuns(op) {
+			continue
+		}
 		var arg, plat string
 		switch op.Type {
 		case "paperdl":
@@ -85,6 +93,35 @@ func (p *Server) versionTarget() (platform, variable string, ok bool) {
 		return plat, match[1], true
 	}
 	return "", "", false
+}
+
+// installStepRuns reports whether an install step runs for this server. A template with
+// several launchers (the Minecraft one: vanilla, Paper, Fabric, Purpur...) has a download step
+// for each, and only the one whose condition holds installs this server.
+func (p *Server) installStepRuns(op skypanel.ConditionalMetadataType) bool {
+	if strings.TrimSpace(op.If) == "" {
+		return true
+	}
+	data := map[string]interface{}{conditions.VariableServerID: p.ID()}
+	if p.RunningEnvironment != nil {
+		data[conditions.VariableEnv] = p.RunningEnvironment.Type
+	}
+	for k, v := range p.Variables {
+		data[k] = v.Value
+	}
+	runs, err := conditions.ResolveIf(op.If, data, CreateFunctions(p.RunningEnvironment))
+	return err == nil && runs
+}
+
+// serverSoftware is what runs the server: the template's "modlauncher" variable when it is
+// set, else the platform its versions come from
+func (p *Server) serverSoftware(platform string) string {
+	if launcher, ok := p.Variables["modlauncher"]; ok && launcher.Value != nil {
+		if value := strings.ToLower(strings.TrimSpace(fmt.Sprint(launcher.Value))); value != "" {
+			return value
+		}
+	}
+	return platform
 }
 
 // versionChange tracks a running change and the last failure
@@ -114,6 +151,7 @@ func (p *Server) GameVersions() (VersionInfo, error) {
 	state := p.versionState()
 	info := VersionInfo{
 		Platform: platform,
+		Software: p.serverSoftware(platform),
 		Variable: variable,
 		Current:  fmt.Sprint(p.Variables[variable].Value),
 		Versions: versions,
@@ -338,7 +376,7 @@ func sortVersionsDesc(versions []string) []string {
 // buildVariable is the server variable a paperdl step reads its build number from, if any
 func (p *Server) buildVariable() string {
 	for _, op := range p.Installation {
-		if op.Type != "paperdl" {
+		if op.Type != "paperdl" || !p.installStepRuns(op) {
 			continue
 		}
 		match := tokenVariable.FindStringSubmatch(strings.TrimSpace(fmt.Sprint(op.Metadata["build"])))

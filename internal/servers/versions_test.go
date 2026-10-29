@@ -81,3 +81,44 @@ func TestListVersions_KnownPlatformUsesTheCache(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"1.21.4", "1.21.3"}, versions)
 }
+
+// The Minecraft template downloads the game in a different step for each launcher; only the
+// step of the server's own launcher counts
+func TestVersionTarget_FollowsTheModLauncher(t *testing.T) {
+	when := func(cond string, o skypanel.ConditionalMetadataType) skypanel.ConditionalMetadataType {
+		o.If = cond
+		return o
+	}
+	p := CreateProgram()
+	p.Installation = []skypanel.ConditionalMetadataType{
+		when("modlauncher == ''", op("mojangdl", map[string]interface{}{"version": "${version}"})),
+		when("modlauncher == 'fabric'", op("mojangdl", map[string]interface{}{"version": "${version}"})),
+		when("modlauncher == 'paper'", op("paperdl", map[string]interface{}{"minecraftVersion": "${version}", "build": "${paperbuild}"})),
+		when("modlauncher == 'purpur'", op("download", map[string]interface{}{"files": []string{"https://example.invalid/${version}"}})),
+	}
+	launch := func(launcher string) {
+		p.Variables = map[string]skypanel.Variable{"version": {Value: "1.21.4"}, "paperbuild": {Value: "latest"}, "modlauncher": {Value: launcher}}
+	}
+
+	launch("paper")
+	platform, _, ok := p.versionTarget()
+	assert.True(t, ok)
+	assert.Equal(t, "paper", platform, "a Paper server is not offered vanilla's versions")
+	assert.Equal(t, "paperbuild", p.buildVariable())
+
+	launch("")
+	platform, _, ok = p.versionTarget()
+	assert.True(t, ok)
+	assert.Equal(t, "vanilla", platform)
+	assert.Equal(t, "vanilla", p.serverSoftware(platform))
+	assert.Equal(t, "", p.buildVariable(), "the Paper build is not vanilla's")
+
+	launch("fabric")
+	platform, _, _ = p.versionTarget()
+	assert.Equal(t, "vanilla", platform)
+	assert.Equal(t, "fabric", p.serverSoftware(platform), "a Fabric server is not called vanilla")
+
+	launch("purpur")
+	_, _, ok = p.versionTarget()
+	assert.False(t, ok, "no version list the panel knows: the card is hidden instead of naming another server")
+}
