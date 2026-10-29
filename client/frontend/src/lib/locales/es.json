@@ -41,6 +41,7 @@
       "noAccount": "¿No tienes cuenta?",
       "signUp": "Regístrate",
       "ssoExpired": "El enlace de acceso ya se usó o ha caducado. Vuelve a pulsar el botón en tu área de cliente o entra con tu contraseña.",
+      "sessionExpired": "Tu sesión ha caducado. Vuelve a iniciar sesión y seguirás donde estabas.",
       "ssoDenied": "Esta cuenta no tiene permiso para entrar al panel. Contacta con el soporte."
     },
     "register": {
@@ -3273,6 +3274,7 @@
       "updating": "Actualizando…",
       "current": "Actual",
       "latest": "Última",
+      "branch": "Rama",
       "unknown": "Desconocida",
       "unavailable": "No disponible",
       "nodesTitle": "Nodos",
@@ -3289,10 +3291,13 @@
         "failed": "La actualización falló",
         "checkFailed": "No se pudo comprobar si hay actualizaciones",
         "checkFailedDescription": "El panel no pudo conectar con GitHub para buscar nuevas versiones.",
+        "rateLimitedDescription": "GitHub limita las consultas sin cuenta (60 por hora desde cada IP) y este servidor ya las ha usado. Vuelve a probar en un rato; actualizar sigue funcionando.",
+        "panelErrorDescription": "El panel no respondió a la comprobación. Recarga la página y vuelve a probar.",
         "unknownCurrent": "No se pudo verificar la versión actual",
         "unknownCurrentDescription": "No se pudo determinar el commit desplegado. Aun así puedes actualizar manualmente.",
         "available": "Actualización disponible",
         "availableDescription": "Hay una nueva versión del panel disponible.",
+        "availableCount": "La rama tiene {count} cambio(s) que este panel aún no tiene.",
         "upToDate": "El sistema está actualizado"
       },
       "node": {

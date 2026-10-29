@@ -41,6 +41,7 @@
       "noAccount": "Don't have an account?",
       "signUp": "Sign up",
       "ssoExpired": "That sign-in link was already used or has expired. Press the button in your client area again or sign in with your password.",
+      "sessionExpired": "Your session has expired. Sign in again to pick up where you left off.",
       "ssoDenied": "This account is not allowed to sign in to the panel. Please contact support."
     },
     "register": {
@@ -3273,6 +3274,7 @@
       "updating": "Updating…",
       "current": "Current",
       "latest": "Latest",
+      "branch": "Branch",
       "unknown": "Unknown",
       "unavailable": "Unavailable",
       "nodesTitle": "Nodes",
@@ -3289,10 +3291,13 @@
         "failed": "Update failed",
         "checkFailed": "Couldn't check for updates",
         "checkFailedDescription": "The panel could not reach GitHub to look for new versions.",
+        "rateLimitedDescription": "GitHub limits anonymous requests (60 an hour from each IP) and this server has used them. Try again in a while; updating still works.",
+        "panelErrorDescription": "The panel did not answer the check. Reload the page and try again.",
         "unknownCurrent": "Unable to verify the current version",
         "unknownCurrentDescription": "The deployed commit could not be determined. You can still update manually.",
         "available": "Update available",
         "availableDescription": "A new version of the panel is available.",
+        "availableCount": "The branch has {count} change(s) this panel does not have yet.",
         "upToDate": "System is up to date"
       },
       "node": {

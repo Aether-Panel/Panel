@@ -44,7 +44,21 @@ export default function SettingsPage() {
     const { refresh: refreshConfig } = useConfig();
 
     const [localSettings, setLocalSettings] = useState<Record<string, any>>({});
-    const [activeTab, setActiveTab] = useState('general');
+    // ?tab= opens a tab directly (links from elsewhere, and the return after signing in again)
+    const [activeTab, setActiveTabState] = useState(() => {
+        if (typeof window === 'undefined') return 'general';
+        return new URLSearchParams(window.location.search).get('tab') || 'general';
+    });
+    const setActiveTab = (value: string) => {
+        setActiveTabState(value);
+        try {
+            const url = new URL(window.location.href);
+            url.searchParams.set('tab', value);
+            window.history.replaceState(window.history.state, '', url);
+        } catch {
+            // the address just does not follow the tab
+        }
+    };
 
     useEffect(() => {
         if (settings) {
