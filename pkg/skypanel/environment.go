@@ -31,6 +31,12 @@ type EnvironmentImpl interface {
 	IsRunningImpl(environment *Environment) (isRunning bool, err error)
 }
 
+// StartCanceler is an environment whose start can be stopped before the process runs, as a
+// container whose image is still downloading
+type StartCanceler interface {
+	CancelStartImpl()
+}
+
 // Reattacher is an environment that can connect again to a process it started before the
 // daemon restarted. A container keeps running across that restart; a host process started
 // by the old daemon does not, so only some environments implement it.
@@ -341,6 +347,13 @@ func (e *Environment) IsRunning() (isRunning bool, err error) {
 
 func (e *Environment) Kill() error {
 	return e.Implementation.KillImpl(e)
+}
+
+// CancelStart stops a start that has not reached the process yet, when the environment can
+func (e *Environment) CancelStart() {
+	if canceler, ok := e.Implementation.(StartCanceler); ok {
+		canceler.CancelStartImpl()
+	}
 }
 
 func (e *Environment) GetStats() (*ServerStats, error) {

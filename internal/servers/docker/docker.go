@@ -43,12 +43,15 @@ type Docker struct {
 	connection       client.HijackedResponse
 	cli              *client.Client
 	downloadingImage bool
-	statLocker       sync.Mutex
-	lastStats        *skypanel.ServerStats
-	lastStatTime     time.Time
-	lastNetworkRx    uint64
-	lastNetworkTx    uint64
-	lastNetTime      time.Time
+	// cancels the start that is still downloading the image or creating the container
+	startLock     sync.Mutex
+	cancelStart   context.CancelFunc
+	statLocker    sync.Mutex
+	lastStats     *skypanel.ServerStats
+	lastStatTime  time.Time
+	lastNetworkRx uint64
+	lastNetworkTx uint64
+	lastNetTime   time.Time
 	// disableStdin        bool
 	disableSpecialStats bool
 
@@ -157,7 +160,19 @@ func (d *Docker) ExecuteAsyncImpl(environment *skypanel.Environment, steps skypa
 		return errors.New("docker container already exists")
 	}
 
-	err = d.createContainer(ctx, environment, steps)
+	// A kill or a delete while the image downloads cancels the start. Without it the container
+	// was created once the download finished, for a server that might no longer exist, and kept
+	// running with its port taken.
+	createCtx, cancel := context.WithCancel(ctx)
+	d.setStartCancel(cancel)
+	err = d.createContainer(createCtx, environment, steps)
+	d.setStartCancel(nil)
+	cancelled := createCtx.Err() != nil
+	cancel()
+	if err == nil && cancelled {
+		removeContainer(dockerClient, environment)
+		err = context.Canceled
+	}
 	if err != nil {
 		return err
 	}
@@ -270,7 +285,24 @@ func removeContainer(dockerClient *client.Client, environment *skypanel.Environm
 	}
 }
 
+// CancelStartImpl stops a start that is still downloading the image or creating the container
+func (d *Docker) CancelStartImpl() {
+	d.startLock.Lock()
+	defer d.startLock.Unlock()
+	if d.cancelStart != nil {
+		d.cancelStart()
+	}
+}
+
+func (d *Docker) setStartCancel(cancel context.CancelFunc) {
+	d.startLock.Lock()
+	defer d.startLock.Unlock()
+	d.cancelStart = cancel
+}
+
 func (d *Docker) KillImpl(environment *skypanel.Environment) error {
+	d.CancelStartImpl()
+
 	running, err := environment.IsRunning()
 	if err != nil {
 		return err

@@ -1105,6 +1105,8 @@ func (p *Server) Destroy() (err error) {
 	}
 
 	p.Log(logging.Info, "Destroying server %s", p.ID())
+	// a start still downloading its image would otherwise create the container afterwards
+	p.RunningEnvironment.CancelStart()
 
 	p.Log(logging.Debug, "Stopping scheduler")
 	if p.Scheduler != nil && p.Scheduler.IsRunning() {
