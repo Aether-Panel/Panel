@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import type { LucideIcon } from 'lucide-react';
+import type { AppIcon } from '@/components/icons';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { AnimatedNumber } from '@/components/animated-number';
@@ -41,7 +41,7 @@ type KpiCardProps = {
     /** Muted suffix rendered next to the value (e.g. `%` or `/ 14`). */
     unit?: string;
     hint: string;
-    icon: LucideIcon;
+    icon: AppIcon;
     tone: KpiTone;
     /** 0-100 fill of the meter; defaults to the numeric value. */
     meter?: number;

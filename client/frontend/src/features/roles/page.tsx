@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Check, ChevronDown, Loader2, Lock, Minus, Pencil, Plus, Search, ShieldCheck, Trash2 } from 'lucide-react';
+import { Check, ChevronDown, Loader2, Lock, Minus, Pencil, Plus, Search, ShieldCheck, Trash2 } from '@/components/icons';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';

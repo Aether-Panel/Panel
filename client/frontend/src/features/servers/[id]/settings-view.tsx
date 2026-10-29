@@ -13,7 +13,7 @@ import { api } from '@/lib/api-client';
 import { useAuth } from '@/contexts/providers';
 import { cn } from '@/lib/utils';
 import { keyedByContent } from '@/lib/keyed';
-import { Box, Loader2, Lock, Plus, X } from 'lucide-react';
+import { Box, Loader2, Lock, Plus, X } from '@/components/icons';
 import type { ReactNode } from 'react';
 import NotificationsCard from './notifications-card';
 import AddressCard from './address-card';

@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { Send } from 'lucide-react';
+import { Send } from '@/components/icons';
 import { SecretInput, SettingsCard, SettingsCardHeader, SettingsSection } from './general-tab';
 
 interface DiscordTabProps {

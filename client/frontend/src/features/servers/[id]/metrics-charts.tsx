@@ -5,7 +5,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } f
 import type { Server } from '@/lib/data';
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { useTranslations } from '@/contexts/translations-context';
-import { Activity } from 'lucide-react';
+import { Activity } from '@/components/icons';
 import { cn } from '@/lib/utils';
 import { EmptyState } from '@/components/empty-state';
 

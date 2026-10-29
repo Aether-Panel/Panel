@@ -15,7 +15,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Trash2, Plus, Pencil, Package } from 'lucide-react';
+import { Trash2, Plus, Pencil, Package } from '@/components/icons';
 import { sileo } from "@/lib/toast";
 import { api } from '@/lib/api-client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';

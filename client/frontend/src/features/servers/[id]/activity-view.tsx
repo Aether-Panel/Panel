@@ -14,8 +14,8 @@ import {
   Settings2,
   SquareTerminal,
   Users,
-  type LucideIcon,
-} from 'lucide-react';
+  type AppIcon,
+} from '@/components/icons';
 import { EmptyState } from '@/components/empty-state';
 import { UserAvatar } from '@/components/user-avatar';
 import { Button } from '@/components/ui/button';
@@ -59,7 +59,7 @@ function familyOf(action: string): Family {
   return 'settings';
 }
 
-const FAMILY_ICONS: Record<Family, LucideIcon> = {
+const FAMILY_ICONS: Record<Family, AppIcon> = {
   power: Power,
   console: SquareTerminal,
   files: FileText,

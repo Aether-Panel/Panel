@@ -10,7 +10,7 @@ import { useAuth } from '@/contexts/providers';
 import { useConfig } from '@/contexts/config-context';
 import { useTranslations } from '@/contexts/translations-context';
 import { sileo } from "@/lib/toast";
-import { Loader2, Lock, Mail, User } from 'lucide-react';
+import { Loader2, Lock, Mail, User } from '@/components/icons';
 import { useCaptcha } from '@/components/Turnstile';
 import { AuthFrame, AuthInput, PasswordStrength, AuthPasswordInput, authLabelClass, authLinkClass, authMessageClass } from '@/components/AuthShell';
 

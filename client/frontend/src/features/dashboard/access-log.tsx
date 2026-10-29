@@ -1,7 +1,7 @@
 'use client';
 
-import { LogIn, ShieldAlert, UserPlus } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { LogIn, ShieldAlert, UserPlus } from '@/components/icons';
+import type { AppIcon } from '@/components/icons';
 import type { ReactNode } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -10,7 +10,7 @@ import { useAccessLog, type AccessEvent } from '@/hooks/use-access-log';
 import { cn } from '@/lib/utils';
 import { EmptyState } from '@/components/empty-state';
 
-const EVENT_STYLE: Record<string, { icon: LucideIcon; capsule: string; labelKey: string }> = {
+const EVENT_STYLE: Record<string, { icon: AppIcon; capsule: string; labelKey: string }> = {
     login: {
         icon: LogIn,
         capsule: 'border-primary/25 bg-primary/10 text-primary-bright',

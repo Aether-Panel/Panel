@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { sileo } from "@/lib/toast";
-import { Loader2, Copy, Check, CheckCircle2, DownloadCloud, UploadCloud, Clock, KeyRound, ArrowRight, Info, TriangleAlert, Ban, CircleX, Activity } from 'lucide-react';
+import { Loader2, Copy, Check, CheckCircle2, DownloadCloud, UploadCloud, Clock, KeyRound, ArrowRight, Info, TriangleAlert, Ban, CircleX, Activity } from '@/components/icons';
 import {
   AlertDialog,
   AlertDialogAction,

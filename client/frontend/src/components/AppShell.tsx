@@ -31,7 +31,7 @@ import {
     ChevronRight,
     ChevronsUpDown,
     Database,
-    FileText,
+    Package,
     LayoutDashboard,
     LogOut,
     Menu,
@@ -40,8 +40,8 @@ import {
     Settings,
     ShieldCheck,
     Users,
-} from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+} from '@/components/icons';
+import type { AppIcon } from '@/components/icons';
 import { Logo } from '@/components/logo';
 import { AmbientBackdrop } from '@/components/ambient-backdrop';
 import { SpotlightTracker } from '@/components/spotlight';
@@ -61,7 +61,7 @@ import { useActiveExtensions, pagesFor } from '@/hooks/use-extensions';
 interface NavItem {
     href: string;
     label: string;
-    icon: LucideIcon;
+    icon: AppIcon;
     requiredScopes: string[];
 }
 
@@ -249,7 +249,7 @@ function AppLayoutInner({ children, currentPath }: Readonly<{ children: ReactNod
         { href: '/roles/', label: t('sidebar.roles'), icon: ShieldCheck, requiredScopes: ['admin'] },
         { href: '/nodes/', label: t('sidebar.nodes'), icon: Network, requiredScopes: ['nodes.view'] },
         { href: '/database-hosts/', label: t('sidebar.databaseHosts'), icon: Database, requiredScopes: ['admin'] },
-        { href: '/templates/', label: t('sidebar.templates'), icon: FileText, requiredScopes: ['templates.view'] },
+        { href: '/templates/', label: t('sidebar.templates'), icon: Package, requiredScopes: ['templates.view'] },
         { href: '/settings/', label: t('sidebar.settings'), icon: Settings, requiredScopes: ['settings.edit'] },
     ];
 
@@ -334,7 +334,7 @@ function AppLayoutInner({ children, currentPath }: Readonly<{ children: ReactNod
                                                 className="hover:bg-transparent data-[active=true]:bg-transparent data-[active=true]:bg-gradient-to-r"
                                             >
                                                 <a href={item.href}>
-                                                    <item.icon />
+                                                    <item.icon weight={isCurrent(item.href) ? 'duotone' : 'regular'} />
                                                     <span>{item.label}</span>
                                                 </a>
                                             </SidebarMenuButton>

@@ -2,8 +2,8 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   AlertTriangle, Box, ChevronDown, FileQuestion, Gamepad2, Globe2, Loader2, Lock, MonitorPlay, Network,
-  RotateCcw, RotateCw, Save, Search, ShieldAlert, SignalHigh, SlidersHorizontal, Users, Wrench, X, type LucideIcon,
-} from 'lucide-react';
+  RotateCcw, RotateCw, Save, Search, ShieldAlert, SignalHigh, SlidersHorizontal, Users, Wrench, X, type AppIcon,
+} from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -28,7 +28,7 @@ const FILE = 'server.properties';
 /** A MOTD run is identified by its text and its styling together. */
 const motdSegmentText = (segment: MotdSegment) => JSON.stringify(segment);
 
-const SECTION_ICONS: Record<PropertySection, LucideIcon> = {
+const SECTION_ICONS: Record<PropertySection, AppIcon> = {
   game: Gamepad2,
   players: Users,
   world: Globe2,

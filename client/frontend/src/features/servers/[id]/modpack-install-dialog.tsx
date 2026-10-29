@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useId, useState, type ReactNode } from 'react';
-import { AlertTriangle, Download, Loader2, MemoryStick, RotateCcw } from 'lucide-react';
+import { AlertTriangle, Download, Loader2, MemoryStick, RotateCcw } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/empty-state';

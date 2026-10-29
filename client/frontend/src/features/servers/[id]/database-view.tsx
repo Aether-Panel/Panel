@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Plus, Trash2, Database, Globe, ExternalLink, Loader2, Eye, EyeOff, Copy, Check, Lock, User as UserIcon, CheckCircle2 } from 'lucide-react';
+import { Plus, Trash2, Database, Globe, ExternalLink, Loader2, Eye, EyeOff, Copy, Check, Lock, User as UserIcon, CheckCircle2 } from '@/components/icons';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';

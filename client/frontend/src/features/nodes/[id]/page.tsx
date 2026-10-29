@@ -8,8 +8,8 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CheckCircle2, Clock, Cpu, HardDrive, Info, MemoryStick, Server as ServerIcon, SearchX, Trash2, Rocket, Copy, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { CheckCircle2, Clock, Cpu, HardDrive, Info, MemoryStick, Server as ServerIcon, SearchX, Trash2, Rocket, Copy, Loader2, ChevronLeft, ChevronRight } from '@/components/icons';
+import type { AppIcon } from '@/components/icons';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -131,7 +131,7 @@ function StatCell({
   meter,
   className,
 }: Readonly<{
-  icon: LucideIcon;
+  icon: AppIcon;
   label: string;
   value: React.ReactNode;
   detail?: React.ReactNode;

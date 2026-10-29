@@ -15,7 +15,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Trash2, Key, Copy, Check, Plus, TriangleAlert } from 'lucide-react';
+import { Trash2, Key, Copy, Check, Plus, TriangleAlert } from '@/components/icons';
 import { sileo } from "@/lib/toast";
 import { api } from '@/lib/api-client';
 import { useTranslations } from '@/contexts/translations-context';

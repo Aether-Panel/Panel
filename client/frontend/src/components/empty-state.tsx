@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
-import type { LucideIcon } from 'lucide-react';
+import type { AppIcon } from '@/components/icons';
 import { cn } from '@/lib/utils';
 
 type EmptyStateProps = {
-  icon: LucideIcon;
+  icon: AppIcon;
   title: ReactNode;
   description?: ReactNode;
   /** Buttons or links under the text. */

@@ -2,7 +2,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Blocks, Cpu, HardDrive, MemoryStick, Network, Terminal, Folder, Settings as SettingsIcon, Users, Database, Archive, Shield, Puzzle, Play, RefreshCw, Square, ShieldAlert, Key, ArrowRightLeft, GitBranch, ServerOff, ArrowLeft, CalendarClock, ScrollText, Package, Map as MapIcon, SlidersHorizontal, type LucideIcon } from 'lucide-react';
+import { Blocks, Cpu, HardDrive, MemoryStick, Gauge, Terminal, Folder, Settings as SettingsIcon, Users, Database, Archive, Shield, Puzzle, Play, RefreshCw, Square, ShieldAlert, Key, ArrowRightLeft, GitBranch, ServerOff, ArrowLeft, CalendarClock, ScrollText, Package, Map as MapIcon, SlidersHorizontal, type AppIcon } from '@/components/icons';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { ServerTabNav } from './server-tab-nav';
 import { Progress } from '@/components/ui/progress';
@@ -35,7 +35,7 @@ import { BetaBadge } from '@/components/beta-badge';
 import { useServers } from '@/hooks/use-servers';
 import { api, ApiError } from '@/lib/api-client';
 import { sileo } from "@/lib/toast";
-import { Loader2 } from 'lucide-react';
+import { Loader2 } from '@/components/icons';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { useActiveExtensions, pagesFor } from '@/hooks/use-extensions';
 import { ExtensionFrame } from '@/features/extensions/extension-frame';
@@ -162,7 +162,7 @@ function ServerActions({ server, isActionPending, handleAction, showKill, can, t
 }
 
 function ResourceGauge({ icon: Icon, label, used, allocated, pct, showPct = true }: Readonly<{
-  icon: LucideIcon;
+  icon: AppIcon;
   label: string;
   used: string;
   allocated: string;
@@ -524,7 +524,7 @@ export default function ServerDetailPage({ params }: Readonly<{ params: { id: st
 
   const serverTabs = [
     ...(can('server.console') ? [{ value: 'console', label: t('servers.detail.tabs.console'), icon: Terminal }] : []),
-    { value: 'overview', label: t('servers.detail.tabs.overview'), icon: Network },
+    { value: 'overview', label: t('servers.detail.tabs.overview'), icon: Gauge },
     ...(can('server.files.view') ? [{ value: 'files', label: t('servers.detail.tabs.files'), icon: Folder }] : []),
     ...(can('server.data.view') || can('server.flags.view') ? [{ value: 'settings', label: t('servers.detail.tabs.settings'), icon: SettingsIcon }] : []),
     ...(isMinecraftJava && experimental.propertiesEditor && can('server.files.edit') ? [{ value: 'properties', label: t('servers.detail.tabs.properties'), icon: SlidersHorizontal, beta: true }] : []),

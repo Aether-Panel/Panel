@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import type { ComponentProps } from 'react';
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
-import { Activity } from 'lucide-react';
+import { Activity } from '@/components/icons';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import { useTranslations } from '@/contexts/translations-context';

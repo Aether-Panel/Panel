@@ -2,8 +2,8 @@
 
 import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
-import { Archive, CalendarClock, CornerDownLeft, Folder, Loader2, Play, RotateCw, Search, Server as ServerIcon, Settings as SettingsIcon, Square, Terminal } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { Archive, CalendarClock, CornerDownLeft, Folder, Loader2, Play, RotateCw, Search, Server as ServerIcon, Settings as SettingsIcon, Square, Terminal } from '@/components/icons';
+import type { AppIcon } from '@/components/icons';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -19,7 +19,7 @@ export interface QuickSearchItem {
     label: string;
     /** Section the destination belongs to, shown as a trailing hint. */
     group: string;
-    icon: LucideIcon;
+    icon: AppIcon;
 }
 
 /** One row of the palette: somewhere to go, or something to do. */
@@ -30,7 +30,7 @@ type PaletteItem = {
     section: string;
     /** Short trailing hint (the page's sidebar group, a server's address...). */
     hint?: string;
-    icon: LucideIcon;
+    icon: AppIcon;
     href?: string;
     run?: () => Promise<void>;
     /** Extra words that should find the row (e.g. "restart" for "Reiniciar"). */
@@ -78,7 +78,7 @@ function Highlight({ text, needle }: Readonly<{ text: string; needle: string }>)
 }
 
 /** The server tabs worth jumping to straight from search. */
-const SERVER_TABS: { tab: string; icon: LucideIcon }[] = [
+const SERVER_TABS: { tab: string; icon: AppIcon }[] = [
     { tab: 'console', icon: Terminal },
     { tab: 'files', icon: Folder },
     { tab: 'backups', icon: Archive },
@@ -86,7 +86,7 @@ const SERVER_TABS: { tab: string; icon: LucideIcon }[] = [
     { tab: 'settings', icon: SettingsIcon },
 ];
 
-const POWER_ACTIONS: { action: 'start' | 'restart' | 'stop'; icon: LucideIcon; keywords: string }[] = [
+const POWER_ACTIONS: { action: 'start' | 'restart' | 'stop'; icon: AppIcon; keywords: string }[] = [
     { action: 'start', icon: Play, keywords: 'start iniciar encender arrancar' },
     { action: 'restart', icon: RotateCw, keywords: 'restart reiniciar reboot' },
     { action: 'stop', icon: Square, keywords: 'stop detener apagar parar' },

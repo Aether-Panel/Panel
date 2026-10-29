@@ -1,8 +1,8 @@
 'use client';
 
 import { useLayoutEffect, useRef, useState } from 'react';
-import type { LucideIcon } from 'lucide-react';
-import { ChevronDown } from 'lucide-react';
+import type { AppIcon } from '@/components/icons';
+import { ChevronDown } from '@/components/icons';
 import { TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
     DropdownMenu,
@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
 import { BetaBadge } from '@/components/beta-badge';
 
 /** `beta` marks a tab for an experimental feature. */
-export type ServerTab = { value: string; label: string; icon: LucideIcon; beta?: boolean };
+export type ServerTab = { value: string; label: string; icon: AppIcon; beta?: boolean };
 
 /** Gap between triggers, in px (matches `gap-1`). */
 const GAP = 4;
@@ -149,14 +149,14 @@ export function ServerTabNav({
                     />
                     {visible.map((tab) => (
                         <TabsTrigger key={tab.value} value={tab.value} className={triggerClass}>
-                            <tab.icon aria-hidden="true" />
+                            <tab.icon aria-hidden="true" weight={tab.value === value ? 'duotone' : 'regular'} />
                             {tab.label}
                             {tab.beta && <BetaBadge />}
                         </TabsTrigger>
                     ))}
                     {activeOverflow && (
                         <TabsTrigger value={activeOverflow.value} className={triggerClass}>
-                            <activeOverflow.icon aria-hidden="true" />
+                            <activeOverflow.icon aria-hidden="true" weight="duotone" />
                             {activeOverflow.label}
                             {activeOverflow.beta && <BetaBadge />}
                         </TabsTrigger>

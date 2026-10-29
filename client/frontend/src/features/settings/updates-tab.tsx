@@ -10,7 +10,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { DownloadCloud, Loader2, CheckCircle2, XCircle, Info, RefreshCw, ArrowUpCircle, Hourglass } from 'lucide-react';
+import { DownloadCloud, Loader2, CheckCircle2, XCircle, Info, RefreshCw, ArrowUpCircle, Hourglass } from '@/components/icons';
 import { sileo } from '@/lib/toast';
 import { api } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
