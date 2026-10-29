@@ -3,7 +3,7 @@ import { useState, useEffect, createContext, useContext, useCallback, useMemo } 
 import type { ReactNode } from 'react';
 import { sileo } from "@/lib/toast";
 import { TranslationsProvider, useTranslations } from '@/contexts/translations-context';
-import { api } from '@/lib/api-client';
+import { api, rememberPageForLogin, RETURN_TO_KEY } from '@/lib/api-client';
 import { ConfigProvider, useConfig } from '@/contexts/config-context';
 
 export type UserRole = 'admin' | 'user';
@@ -103,8 +103,8 @@ function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
 
     if (!role && !isAuthPage) {
       // back to this page after signing in
-      const here = window.location.pathname + window.location.search;
-      window.location.href = here === '/' ? '/login/' : `/login/?next=${encodeURIComponent(here)}`;
+      if (window.location.pathname !== '/') rememberPageForLogin();
+      window.location.href = '/login/';
     }
     if (role && isAuthPage) {
       window.location.href = afterLoginPath();
@@ -260,17 +260,18 @@ function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
 }
 
 /**
- * Where to go after signing in: back to the page the session expired on (?next=, set by
- * api-client), when it is one of the panel's own pages; otherwise the dashboard.
+ * Where to go after signing in: back to the page the session expired on, which api-client kept
+ * in sessionStorage (never read from the address), when it is one of the panel's own pages.
  */
 function afterLoginPath(): string {
   try {
-    const next = new URLSearchParams(window.location.search).get('next') || '';
-    if (next.startsWith('/') && !next.startsWith('//') && !next.includes('\\') && !/^\/(login|register)(\/|$)/.test(next)) {
-      return next;
+    const saved = sessionStorage.getItem(RETURN_TO_KEY) || '';
+    sessionStorage.removeItem(RETURN_TO_KEY);
+    if (saved.startsWith('/') && !saved.startsWith('//') && !saved.includes('\\') && !/^\/(login|register)(\/|$)/.test(saved)) {
+      return saved;
     }
   } catch {
-    // no window or a malformed address: the dashboard
+    // storage blocked: the dashboard
   }
   return '/dashboard/';
 }

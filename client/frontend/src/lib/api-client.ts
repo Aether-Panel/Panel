@@ -27,6 +27,21 @@ export class ApiError extends Error {
 const AUTH_PAGES = ['/login', '/register', '/forgot-password', '/reset-password'];
 let sentToLogin = false;
 
+/** sessionStorage key with the page to return to after signing in */
+export const RETURN_TO_KEY = 'aether:return-to';
+
+/**
+ * Remembers this page for after signing in. It is kept in sessionStorage, not in the login
+ * address: a ?next= anyone can put in a link would let a crafted link send the user elsewhere.
+ */
+export function rememberPageForLogin() {
+    try {
+        sessionStorage.setItem(RETURN_TO_KEY, window.location.pathname + window.location.search);
+    } catch {
+        // without storage the login goes to the dashboard
+    }
+}
+
 /**
  * The session ended while the page was open (it expired, or was closed elsewhere): every call
  * would fail from here on and the page would show misleading errors, so go to the login page,
@@ -39,8 +54,8 @@ function sessionExpired(url: string) {
     const path = window.location.pathname.replace(/\/$/, '') || '/';
     if (AUTH_PAGES.includes(path)) return;
     sentToLogin = true;
-    const next = window.location.pathname + window.location.search;
-    window.location.href = `/login/?expired=1&next=${encodeURIComponent(next)}`;
+    rememberPageForLogin();
+    window.location.href = '/login/?expired=1';
 }
 
 async function handleResponse(response: Response, url = '') {
