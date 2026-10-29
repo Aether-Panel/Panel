@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { ArrowRight, CheckCircle2, Layers, Loader2, RotateCcw, ShieldCheck, XCircle } from '@/components/icons';
+import { ArrowRight, CheckCircle2, Loader2, RotateCcw, ShieldCheck, XCircle } from '@/components/icons';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -14,6 +14,8 @@ import { BetaBadge } from '@/components/beta-badge';
 
 type VersionInfo = {
   platform: string;
+  /** what runs the server (the template's mod launcher), when the panel says */
+  software?: string;
   variable: string;
   current: string;
   versions: string[];
@@ -21,12 +23,17 @@ type VersionInfo = {
   lastError?: string;
 };
 
-const PLATFORM_NAMES: Record<string, string> = {
+const SOFTWARE_NAMES: Record<string, string> = {
+  vanilla: 'Minecraft Vanilla',
   paper: 'Paper',
+  purpur: 'Purpur',
   folia: 'Folia',
+  spigot: 'Spigot',
+  fabric: 'Fabric',
+  forge: 'Forge',
+  neoforge: 'NeoForge',
   velocity: 'Velocity',
   waterfall: 'Waterfall',
-  vanilla: 'Minecraft Vanilla',
 };
 
 /**
@@ -79,7 +86,8 @@ export default function VersionCard({ serverId }: Readonly<{ serverId: string }>
 
   if (hidden || !info) return null;
 
-  const platformName = PLATFORM_NAMES[info.platform] ?? info.platform;
+  const software = info.software || info.platform;
+  const platformName = SOFTWARE_NAMES[software] ?? software;
   const latest = info.versions[0];
   const isLatest = info.current === latest || info.current === 'latest';
   const choice = target || '';
@@ -116,9 +124,6 @@ export default function VersionCard({ serverId }: Readonly<{ serverId: string }>
     <Card className="overflow-hidden">
       <section className="grid gap-5 p-5 md:p-6 lg:grid-cols-[minmax(0,16rem)_minmax(0,1fr)] lg:gap-10">
         <div className="space-y-3">
-          <span aria-hidden="true" className="flex h-10 w-10 items-center justify-center rounded-xl border border-border/60 bg-card text-primary-bright">
-            <Layers className="h-5 w-5" />
-          </span>
           <div className="space-y-1.5">
             <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
               {t('servers.version.title')}
