@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { AlertTriangle, ChevronRight, History, RotateCw } from 'lucide-react';
+import { AlertTriangle, ChevronRight, History, RotateCw } from '@/components/icons';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';

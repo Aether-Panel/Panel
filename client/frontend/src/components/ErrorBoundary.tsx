@@ -1,7 +1,7 @@
 'use client';
 import React, { Component, type ErrorInfo, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, RefreshCcw } from 'lucide-react';
+import { AlertCircle, RefreshCcw } from '@/components/icons';
 import { useTranslations } from '@/contexts/translations-context';
 import { isStaleBuildError, reloadForNewBuild } from '@/lib/stale-build';
 

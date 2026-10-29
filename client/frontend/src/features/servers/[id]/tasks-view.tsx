@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { AlertTriangle, Archive, CalendarClock, Clock, Loader2, Pencil, Play, Plus, RotateCw, Trash2, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, Archive, CalendarClock, Clock, Loader2, Pencil, Play, Plus, RotateCw, Trash2, type AppIcon } from '@/components/icons';
 import { EmptyState } from '@/components/empty-state';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
@@ -26,7 +26,7 @@ const STEP_SCOPES: Record<string, string[]> = {
   backup: ['server.backup.create'],
 };
 
-type Preset = { id: 'dailyRestart' | 'dailyBackup' | 'warnRestart'; icon: LucideIcon; build: (t: (key: string) => string) => Task };
+type Preset = { id: 'dailyRestart' | 'dailyBackup' | 'warnRestart'; icon: AppIcon; build: (t: (key: string) => string) => Task };
 
 const PRESETS: Preset[] = [
   {

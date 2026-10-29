@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Settings, Bell, Mail, Loader2, Key, Package, DownloadCloud, CloudUpload, Globe, Blocks } from 'lucide-react';
+import { Settings, Bell, Mail, Loader2, Key, Package, DownloadCloud, CloudUpload, Globe, Blocks } from '@/components/icons';
 import { useTranslations } from '@/contexts/translations-context';
 import { useSettings } from '@/hooks/use-settings';
 import { useConfig } from '@/contexts/config-context';

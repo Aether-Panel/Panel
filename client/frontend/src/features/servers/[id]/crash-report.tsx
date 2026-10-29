@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { AlertOctagon, Bot, ChevronRight, Lightbulb, Loader2, RotateCw, SearchCheck, ShieldCheck, Sparkles, X } from 'lucide-react';
+import { AlertOctagon, Bot, ChevronRight, Lightbulb, Loader2, RotateCw, SearchCheck, ShieldCheck, Sparkles, X } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';

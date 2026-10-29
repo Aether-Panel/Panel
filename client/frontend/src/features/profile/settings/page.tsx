@@ -10,7 +10,7 @@ import { useAuth } from '@/contexts/providers';
 import { useProfile } from '@/hooks/use-profile';
 import { sileo } from "@/lib/toast";
 import { cn } from '@/lib/utils';
-import { Loader2, Download, Trash2, Plus, Copy, Check, KeyRound, TriangleAlert, RefreshCw, ExternalLink } from 'lucide-react';
+import { Loader2, Download, Trash2, Plus, Copy, Check, KeyRound, TriangleAlert, RefreshCw, ExternalLink } from '@/components/icons';
 import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { useTranslations } from '@/contexts/translations-context';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';

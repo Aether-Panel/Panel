@@ -1,6 +1,6 @@
 'use client';
 import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { ArrowUp, Bot, Eraser, Sparkles } from 'lucide-react';
+import { ArrowUp, Bot, Eraser, Sparkles } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useTranslations } from '@/contexts/translations-context';

@@ -799,21 +799,56 @@ func updateCheck(c *gin.Context) {
 		AheadBy int               `json:"ahead_by"`
 		Files   []json.RawMessage `json:"files"`
 	}
+	var updateAvailable bool
 	if updateCommitPattern.MatchString(current) && updateCommitPattern.MatchString(latest) && githubJSON(ctx, "compare/"+current+"..."+latest, &compare) == "" {
 		result["behindBy"] = compare.AheadBy
-		result["updateAvailable"] = compare.AheadBy > 0 && len(compare.Files) > 0
-		c.JSON(http.StatusOK, result)
-		return
+		updateAvailable = compare.AheadBy > 0 && len(compare.Files) > 0
+	} else {
+		// The install's commit is not on GitHub (local commits): compare ancestry in the local
+		// repository instead
+		updateAvailable = true
+		if contains, err := isGitAncestor(latest, current); err == nil {
+			updateAvailable = !contains
+		}
 	}
 
-	// The install's commit is not on GitHub (local commits): compare ancestry in the local
-	// repository instead
-	updateAvailable := true
-	if contains, err := isGitAncestor(latest, current); err == nil {
-		updateAvailable = !contains
+	// Every install that follows the branch updates from its tip, so it is offered only once
+	// GitHub's checks on it have passed: not while they run, never when one failed
+	if updateAvailable && updateCommitPattern.MatchString(latest) {
+		if verification := commitVerification(ctx, latest); verification != "" {
+			result["verification"] = verification
+			updateAvailable = false
+		}
 	}
 	result["updateAvailable"] = updateAvailable
 	c.JSON(http.StatusOK, result)
+}
+
+// commitVerification says how GitHub's checks on a commit went: "pending" while one still
+// runs, "failed" when one failed, "" when all passed. A commit without checks, or a GitHub that
+// does not answer, gives "": the update was already confirmed and is not held back.
+func commitVerification(ctx context.Context, sha string) string {
+	var runs struct {
+		CheckRuns []struct {
+			Status     string `json:"status"`
+			Conclusion string `json:"conclusion"`
+		} `json:"check_runs"`
+	}
+	if githubJSON(ctx, "commits/"+sha+"/check-runs?per_page=100", &runs) != "" {
+		return ""
+	}
+	verification := ""
+	for _, run := range runs.CheckRuns {
+		if run.Status != "completed" {
+			verification = "pending"
+			continue
+		}
+		switch run.Conclusion {
+		case "failure", "timed_out", "startup_failure", "action_required":
+			return "failed"
+		}
+	}
+	return verification
 }
 
 // githubRepoAPI is the panel's repository on GitHub's API (a variable so tests can point it at

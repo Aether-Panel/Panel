@@ -1,7 +1,7 @@
 import type { Server } from '@/lib/data';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MoreHorizontal, Globe, Terminal, LayoutDashboard, Eye, Pencil, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Globe, Terminal, LayoutDashboard, Eye, Pencil, Trash2 } from '@/components/icons';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { cn, formatBytes } from '@/lib/utils';
 import { useAuth } from '@/contexts/providers';

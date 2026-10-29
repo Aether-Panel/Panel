@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useId, useRef, useState } from 'react';
-import { Archive, ArrowDown, ArrowUp, Hourglass, Loader2, Play, Plus, RotateCw, Square, Terminal, X, type LucideIcon } from 'lucide-react';
+import { Archive, ArrowDown, ArrowUp, Hourglass, Loader2, Play, Plus, RotateCw, Square, Terminal, X, type AppIcon } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -20,7 +20,7 @@ export type Task = {
   operations?: TaskStep[];
 };
 
-export const STEP_ICONS: Record<string, LucideIcon> = {
+export const STEP_ICONS: Record<string, AppIcon> = {
   stdin: Terminal,
   sleep: Hourglass,
   restart: RotateCw,

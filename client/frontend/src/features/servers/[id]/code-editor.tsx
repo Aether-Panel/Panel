@@ -6,7 +6,7 @@ import CssWorker from 'monaco-editor/language/css/css.worker?worker';
 import HtmlWorker from 'monaco-editor/language/html/html.worker?worker';
 import TsWorker from 'monaco-editor/language/typescript/ts.worker?worker';
 import { useEffect, useRef } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2 } from '@/components/icons';
 import { ensureMonacoStylesheet, markMonacoInUse } from '@/lib/monaco-setup';
 import { useTranslations } from '@/contexts/translations-context';
 

@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useServers } from '@/hooks/use-servers';
-import { Cpu, MemoryStick, HardDrive, ServerIcon, Plus, ArrowUpRight } from 'lucide-react';
+import { Cpu, MemoryStick, HardDrive, ServerIcon, Plus, ArrowUpRight } from '@/components/icons';
 import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { CreateServerStepper } from '../create-server-stepper';
 import { cn } from '@/lib/utils';

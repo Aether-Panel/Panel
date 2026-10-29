@@ -6,7 +6,7 @@ import { EmptyState } from '@/components/empty-state';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertTriangle, Plus, Search, Server as ServerIcon, X } from 'lucide-react';
+import { AlertTriangle, Plus, Search, Server as ServerIcon, X } from '@/components/icons';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 import { useTranslations } from '@/contexts/translations-context';

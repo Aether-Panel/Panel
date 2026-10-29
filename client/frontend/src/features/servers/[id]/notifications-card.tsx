@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useId, useState } from 'react';
-import { AlertOctagon, Archive, BellRing, Check, Gauge, Loader2, Power, Send, Webhook, type LucideIcon } from 'lucide-react';
+import { AlertOctagon, Archive, BellRing, Check, Gauge, Loader2, Power, Send, Webhook, type AppIcon } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -63,14 +63,14 @@ function channelError(n: Notifications, channel: Channel): string | null {
   return url === '' || /^https:\/\/[^\s/@]+/.test(url) ? null : 'servers.notifications.webhook.invalid';
 }
 
-const EVENTS: { key: EventKey; icon: LucideIcon; color: string }[] = [
+const EVENTS: { key: EventKey; icon: AppIcon; color: string }[] = [
   { key: 'crash', icon: AlertOctagon, color: '#F2726B' },
   { key: 'backup', icon: Archive, color: '#34D399' },
   { key: 'resources', icon: Gauge, color: '#F5A524' },
   { key: 'power', icon: Power, color: '#3B9EF5' },
 ];
 
-const CHANNELS: { key: Channel; icon: LucideIcon | typeof DiscordIcon; color: string }[] = [
+const CHANNELS: { key: Channel; icon: AppIcon | typeof DiscordIcon; color: string }[] = [
   { key: 'discord', icon: DiscordIcon, color: '#7983F5' },
   { key: 'telegram', icon: TelegramIcon, color: '#29A9EB' },
   { key: 'webhook', icon: Webhook, color: '#34D399' },

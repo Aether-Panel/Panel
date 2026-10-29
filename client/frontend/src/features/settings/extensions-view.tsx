@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Blocks, Check, Copy, ExternalLink, Loader2, Send, Trash2, Upload } from 'lucide-react';
+import { Blocks, Check, Copy, ExternalLink, Loader2, Send, Trash2, Upload } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';

@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { CheckCircle2, ExternalLink, Globe, Loader2, PlugZap, XCircle } from 'lucide-react';
+import { CheckCircle2, ExternalLink, Globe, Loader2, PlugZap, XCircle } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ApiError, api } from '@/lib/api-client';

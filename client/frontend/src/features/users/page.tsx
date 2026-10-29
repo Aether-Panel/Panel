@@ -5,7 +5,7 @@ import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import type { User } from '@/lib/data';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, MoreHorizontal, Plus, Server as ServerIcon, Trash2, Users as UsersIcon } from 'lucide-react';
+import { AlertTriangle, MoreHorizontal, Plus, Server as ServerIcon, Trash2, Users as UsersIcon } from '@/components/icons';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { UserAvatar as AccountAvatar } from '@/components/user-avatar';

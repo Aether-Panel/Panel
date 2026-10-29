@@ -3298,7 +3298,9 @@
         "available": "Actualización disponible",
         "availableDescription": "Hay una nueva versión del panel disponible.",
         "availableCount": "La rama tiene {count} cambio(s) que este panel aún no tiene.",
-        "upToDate": "El sistema está actualizado"
+        "upToDate": "El sistema está actualizado",
+        "verifying": "Versión nueva en verificación",
+        "verifyingDescription": "Hay una versión nueva y GitHub aún está comprobándola. Podrás actualizar en cuanto pasen las pruebas."
       },
       "node": {
         "updating": "Actualizando…",

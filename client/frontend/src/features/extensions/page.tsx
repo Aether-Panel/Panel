@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Blocks } from 'lucide-react';
+import { Blocks } from '@/components/icons';
 import { PageHeader } from '@/components/page-header';
 import { EmptyState } from '@/components/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';

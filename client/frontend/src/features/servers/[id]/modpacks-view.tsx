@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { AlertTriangle, Download, KeyRound, Loader2, Search, SearchX, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, Download, KeyRound, Loader2, Search, SearchX, ShieldCheck } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/empty-state';

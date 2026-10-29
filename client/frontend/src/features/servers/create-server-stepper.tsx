@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, ChevronRight, ChevronLeft, Check, Code, Globe, Shield, X, ShieldAlert, Plus } from 'lucide-react';
+import { Loader2, ChevronRight, ChevronLeft, Check, Code, Globe, Shield, X, ShieldAlert, Plus } from '@/components/icons';
 import { useNodes } from '@/hooks/use-dashboard-data';
 import { useUsers } from '@/hooks/use-users';
 import { useTemplates } from '@/hooks/use-templates';
@@ -14,6 +14,7 @@ import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
 import { sileo } from "@/lib/toast";
 import { cn } from '@/lib/utils';
+import { gameLogo } from '@/lib/game-logos';
 import { keyedByContent } from '@/lib/keyed';
 
 type TFn = (key: string, options?: { [key: string]: string | number }) => string;
@@ -370,6 +371,7 @@ function TemplatePicker({ loadingTemplates, templateList, selectedTemplateName, 
             <div className="grid w-full grid-cols-2 gap-1.5 sm:grid-cols-3">
                 {templateList.map((tpl: any) => {
                     const active = selectedTemplateName === tpl.name;
+                    const logo = gameLogo(tpl);
                     return (
                         <button
                             key={tpl.name}
@@ -384,9 +386,11 @@ function TemplatePicker({ loadingTemplates, templateList, selectedTemplateName, 
                                     : 'border-transparent text-muted-foreground hover:bg-accent/40 hover:text-foreground'
                             )}
                         >
-                            {active
-                                ? <Check className="h-3.5 w-3.5 shrink-0 text-primary-bright" aria-hidden="true" />
-                                : <Code className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
+                            {logo
+                                ? <img src={logo} alt="" width={18} height={18} loading="lazy" className="h-[18px] w-[18px] shrink-0 rounded object-cover" />
+                                : active
+                                    ? <Check className="h-3.5 w-3.5 shrink-0 text-primary-bright" aria-hidden="true" />
+                                    : <Code className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
                             <span className="min-w-0 truncate font-mono">{tpl.name}</span>
                         </button>
                     );

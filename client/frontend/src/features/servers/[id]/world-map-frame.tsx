@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ExternalLink, Maximize2, Minimize2, RefreshCw, Trash2 } from 'lucide-react';
+import { ExternalLink, Maximize2, Minimize2, RefreshCw, Trash2 } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
