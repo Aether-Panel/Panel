@@ -22,6 +22,12 @@ interface UpdateCheckResult {
     latest: string;
     version: string;
     updateAvailable: boolean;
+    /** the branch the panel is installed from, which the updater pulls */
+    branch?: string;
+    /** commits the branch has that this install lacks */
+    behindBy?: number;
+    /** why GitHub could not answer: github_rate_limited, github_unreachable or github_error */
+    reason?: string;
 }
 
 interface NodeUpdateStatus {
@@ -106,7 +112,7 @@ function updatingStatus(nodes: NodeUpdateStatus[], reconnecting: boolean, t: Tra
 
 /** Status headline once the version check has answered and nothing is running. */
 function idleStatus(
-    flags: { updateFailed: boolean; checkFailed: boolean; unknownCurrent: boolean; updateAvailable: boolean },
+    flags: { updateFailed: boolean; checkFailed: boolean; unknownCurrent: boolean; updateAvailable: boolean; reason?: string; behindBy?: number },
     t: Translate,
 ): StatusView {
     const base = { spin: false, statusDescription: '' };
@@ -119,7 +125,11 @@ function idleStatus(
             statusTitle: t('settings.updates.status.checkFailed'),
             StatusIcon: XCircle,
             tone: 'destructive',
-            statusDescription: t('settings.updates.status.checkFailedDescription'),
+            statusDescription: t(
+                flags.reason === 'github_rate_limited' ? 'settings.updates.status.rateLimitedDescription'
+                    : flags.reason === 'panel_error' ? 'settings.updates.status.panelErrorDescription'
+                        : 'settings.updates.status.checkFailedDescription',
+            ),
         };
     }
     if (flags.unknownCurrent) {
@@ -137,7 +147,9 @@ function idleStatus(
             statusTitle: t('settings.updates.status.available'),
             StatusIcon: ArrowUpCircle,
             tone: 'primary',
-            statusDescription: t('settings.updates.status.availableDescription'),
+            statusDescription: flags.behindBy && flags.behindBy > 0
+                ? t('settings.updates.status.availableCount', { count: flags.behindBy })
+                : t('settings.updates.status.availableDescription'),
         };
     }
     return { ...base, statusTitle: t('settings.updates.status.upToDate'), StatusIcon: CheckCircle2, tone: 'success' };
@@ -196,8 +208,9 @@ export function UpdatesTab() {
             const data = await api.get<UpdateCheckResult>('/api/settings/update-check');
             setCheck(data);
         } catch (err) {
+            // an expired session already sends the browser to the login page (api-client)
             console.error("Failed to check for updates:", err);
-            setCheck({ current: '', latest: '', version: '', updateAvailable: false });
+            setCheck({ current: '', latest: '', version: '', updateAvailable: false, reason: 'panel_error' });
         } finally {
             setChecking(false);
         }
@@ -310,7 +323,7 @@ export function UpdatesTab() {
     if (updating) {
         status = updatingStatus(nodes, reconnecting, t);
     } else if (!checking) {
-        status = idleStatus({ updateFailed, checkFailed, unknownCurrent: Boolean(unknownCurrent), updateAvailable }, t);
+        status = idleStatus({ updateFailed, checkFailed, unknownCurrent: Boolean(unknownCurrent), updateAvailable, reason: check?.reason, behindBy: check?.behindBy }, t);
     }
     const { statusTitle, StatusIcon, spin, tone, statusDescription } = status;
 
@@ -345,6 +358,12 @@ export function UpdatesTab() {
                                         {currentDisplay ?? t('settings.updates.unknown')}
                                     </dd>
                                 </div>
+                                {check?.branch && (
+                                    <div className="flex items-baseline gap-2">
+                                        <dt className="text-muted-foreground">{t('settings.updates.branch')}</dt>
+                                        <dd className="font-mono text-[13px] text-foreground">{check.branch}</dd>
+                                    </div>
+                                )}
                                 <div className="flex items-baseline gap-2">
                                     <dt className="text-muted-foreground">{t('settings.updates.latest')}</dt>
                                     <dd className={cn('tabular-nums', latestDisplay ? 'font-mono text-[13px] text-foreground' : 'text-muted-foreground')}>

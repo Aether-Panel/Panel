@@ -32,6 +32,8 @@ export default function LoginPage() {
   // the billing system's sign-in link was used already, came too late, or is for an account
   // that may not sign in
   const [ssoNotice] = useState(() => (typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('sso')));
+  // the session ended while a page was open (api-client sends the browser here)
+  const [sessionExpired] = useState(() => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('expired') === '1');
 
   const formSchema = useMemo(() => createFormSchema(t), [t]);
   const form = useForm<LoginValues>({
@@ -91,6 +93,11 @@ export default function LoginPage() {
         ) : null
       }
     >
+      {sessionExpired && !ssoNotice && (
+        <div className="mb-5">
+          <AuthNotice icon={Clock} tone="warning">{t('auth.login.sessionExpired')}</AuthNotice>
+        </div>
+      )}
       {(ssoNotice === 'expired' || ssoNotice === 'denied') && (
         <div className="mb-5">
           <AuthNotice icon={Clock} tone="warning">

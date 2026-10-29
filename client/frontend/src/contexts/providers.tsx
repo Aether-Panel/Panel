@@ -3,7 +3,7 @@ import { useState, useEffect, createContext, useContext, useCallback, useMemo } 
 import type { ReactNode } from 'react';
 import { sileo } from "@/lib/toast";
 import { TranslationsProvider, useTranslations } from '@/contexts/translations-context';
-import { api } from '@/lib/api-client';
+import { api, rememberPageForLogin, RETURN_TO_KEY } from '@/lib/api-client';
 import { ConfigProvider, useConfig } from '@/contexts/config-context';
 
 export type UserRole = 'admin' | 'user';
@@ -102,10 +102,12 @@ function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
     if (loading) return;
 
     if (!role && !isAuthPage) {
+      // back to this page after signing in
+      if (window.location.pathname !== '/') rememberPageForLogin();
       window.location.href = '/login/';
     }
     if (role && isAuthPage) {
-      window.location.href = '/dashboard/';
+      window.location.href = afterLoginPath();
     }
   }, [role, loading]);
 
@@ -122,7 +124,7 @@ function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
     });
 
     setTimeout(() => {
-      window.location.href = '/dashboard/';
+      window.location.href = afterLoginPath();
     }, 500);
   }, [t, fetchSelf]);
 
@@ -255,6 +257,23 @@ function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
       {children}
     </AuthContext.Provider>
   );
+}
+
+/**
+ * Where to go after signing in: back to the page the session expired on, which api-client kept
+ * in sessionStorage (never read from the address), when it is one of the panel's own pages.
+ */
+function afterLoginPath(): string {
+  try {
+    const saved = sessionStorage.getItem(RETURN_TO_KEY) || '';
+    sessionStorage.removeItem(RETURN_TO_KEY);
+    if (saved.startsWith('/') && !saved.startsWith('//') && !saved.includes('\\') && !/^\/(login|register)(\/|$)/.test(saved)) {
+      return saved;
+    }
+  } catch {
+    // storage blocked: the dashboard
+  }
+  return '/dashboard/';
 }
 
 export function useAuth() {
