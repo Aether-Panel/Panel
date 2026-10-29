@@ -1,6 +1,6 @@
 'use client';
 import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { ArrowUp, Bot, Eraser, Sparkles } from '@/components/icons';
+import { ArrowUp, Eraser, Sparkles } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useTranslations } from '@/contexts/translations-context';
@@ -233,14 +233,7 @@ export default function AssistantPanel({ serverId, serverName }: Readonly<{ serv
         }}
       >
         <SheetHeader className="space-y-1 border-b border-border/50 px-5 pb-4 pt-5 text-left">
-          <SheetTitle className="flex items-center gap-2.5 pr-8 text-base">
-            <span
-              aria-hidden="true"
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-white shadow-[0_6px_20px_-6px_hsl(var(--primary)/0.8)]"
-              style={{ background: 'linear-gradient(135deg, hsl(var(--primary)), #8B5CF6)' }}
-            >
-              <Bot className="h-4 w-4" />
-            </span>
+          <SheetTitle className="pr-8 text-base">
             {t('servers.assistant.title')}
           </SheetTitle>
           <SheetDescription className="text-xs">{t('servers.assistant.description', { name: serverName })}</SheetDescription>
@@ -316,7 +309,8 @@ export default function AssistantPanel({ serverId, serverName }: Readonly<{ serv
           }}
         >
           <label htmlFor={`${ids}-question`} className="sr-only">{t('servers.assistant.placeholder')}</label>
-          <div className="relative rounded-xl border border-border/60 bg-background/40 transition-colors duration-200 focus-within:border-primary/50 focus-within:shadow-[0_0_0_3px_hsl(var(--primary)/0.12)]">
+          {/* a row, not an absolutely placed button: the primary button's sheen sets position: relative */}
+          <div className="flex items-end gap-2 rounded-xl border border-border/60 bg-background/40 pr-2 transition-colors duration-200 focus-within:border-primary/50 focus-within:shadow-[0_0_0_3px_hsl(var(--primary)/0.12)]">
             <textarea
               id={`${ids}-question`}
               ref={inputRef}
@@ -326,14 +320,14 @@ export default function AssistantPanel({ serverId, serverName }: Readonly<{ serv
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={onKeyDown}
               placeholder={t('servers.assistant.placeholder')}
-              className="block max-h-40 min-h-[3.25rem] w-full resize-none bg-transparent px-3.5 py-3 pr-12 text-sm text-foreground outline-none placeholder:text-muted-foreground/60"
+              className="block max-h-40 min-h-[3.25rem] min-w-0 flex-1 resize-none bg-transparent px-3.5 py-3 text-sm text-foreground outline-none placeholder:text-muted-foreground/60"
             />
             <Button
               type="submit"
               size="icon"
               disabled={thinking || draft.trim() === ''}
               aria-label={t('servers.assistant.send')}
-              className="absolute bottom-2 right-2 h-8 w-8 rounded-lg"
+              className="mb-2 h-8 w-8 shrink-0 rounded-lg"
             >
               <ArrowUp aria-hidden="true" />
             </Button>
