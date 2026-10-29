@@ -9,8 +9,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   Code, Bot, Server as ServerIcon, Database, Plus, LayoutTemplate, MoreHorizontal,
   Gamepad2, Globe, Cpu, Radio, Network, Box, Terminal, Shield, Play, Upload, FileJson, Trash2, Loader2
-} from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+} from '@/components/icons';
+import type { AppIcon } from '@/components/icons';
 import { useTranslations } from '@/contexts/translations-context';
 import { useTemplates } from '@/hooks/use-templates';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -22,9 +22,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { EmptyState } from '@/components/empty-state';
+import { gameLogo } from '@/lib/game-logos';
 
 // Optional icon mapping if we want to guess icon by category later, or just a default
-function getIconForCategory(category?: string): LucideIcon {
+function getIconForCategory(category?: string): AppIcon {
   if (!category) return LayoutTemplate;
   const c = category.toLowerCase();
 
@@ -76,14 +77,17 @@ function TemplateItem({
 }>) {
   const { t } = useTranslations();
   const Icon = getIconForCategory(template.type);
+  const logo = gameLogo(template);
   const categoryLabel = template.type || t('templates.categories.other');
   const title = template.display || template.name;
 
   return (
     <article className="flex flex-col gap-4 rounded-xl border border-border/60 bg-background/30 p-4">
       <div className="flex items-start gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-border/60 bg-secondary text-muted-foreground" aria-hidden="true">
-          <Icon className="h-5 w-5" />
+        <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-lg border border-border/60 bg-secondary text-muted-foreground" aria-hidden="true">
+          {logo
+            ? <img src={logo} alt="" width={40} height={40} loading="lazy" className="h-full w-full object-cover" />
+            : <Icon className="h-5 w-5" />}
         </span>
         <div className="min-w-0 flex-1 pt-0.5">
           <h3 className="truncate text-sm font-semibold text-foreground">{title}</h3>

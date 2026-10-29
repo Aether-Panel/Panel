@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Copy } from 'lucide-react';
+import { Copy } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { sileo } from "@/lib/toast";
 import { api } from '@/lib/api-client';

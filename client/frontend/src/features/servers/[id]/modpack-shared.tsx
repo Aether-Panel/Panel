@@ -1,6 +1,6 @@
 'use client';
 import { useState, type ReactNode } from 'react';
-import { Package } from 'lucide-react';
+import { Package } from '@/components/icons';
 import { cn } from '@/lib/utils';
 
 export type ModpackSource = 'modrinth' | 'curseforge';

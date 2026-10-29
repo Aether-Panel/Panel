@@ -1,7 +1,7 @@
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Mail, Send } from 'lucide-react';
+import { Mail, Send } from '@/components/icons';
 import { SecretInput, SettingsCard, SettingsCardHeader, SettingsField, SettingsSection } from './general-tab';
 import { EmptyState } from '@/components/empty-state';
 

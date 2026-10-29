@@ -1,6 +1,6 @@
 'use client';
 import { useId, useState } from 'react';
-import { Box, Check, Download, Info, Loader2, Map as MapIcon, RotateCcw, XCircle } from 'lucide-react';
+import { Box, Check, Download, Info, Loader2, Map as MapIcon, RotateCcw, XCircle } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';

@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/empty-state';
 import { Button } from '@/components/ui/button';
-import { Archive, Plus, Download, RotateCcw, Trash2, Loader2, Clock, Cloud, HardDrive, ShieldCheck, TriangleAlert } from 'lucide-react';
+import { Archive, Plus, Download, RotateCcw, Trash2, Loader2, Clock, Cloud, HardDrive, ShieldCheck, TriangleAlert } from '@/components/icons';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';

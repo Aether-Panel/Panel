@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { AlertTriangle, Loader2, Map as MapIcon, Package, Power, RefreshCw, Settings2, Trash2 } from 'lucide-react';
+import { AlertTriangle, Loader2, Map as MapIcon, Package, Power, RefreshCw, Settings2, Trash2 } from '@/components/icons';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';

@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useId, useState } from 'react';
-import { ArrowRight, Check, CheckCircle2, Copy, Loader2, Minus, RotateCcw, TriangleAlert } from 'lucide-react';
+import { ArrowRight, Check, CheckCircle2, Copy, Loader2, Minus, RotateCcw, TriangleAlert } from '@/components/icons';
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

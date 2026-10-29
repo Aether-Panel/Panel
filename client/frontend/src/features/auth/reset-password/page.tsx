@@ -10,7 +10,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
 import { sileo } from '@/lib/toast';
-import { CircleCheck, Loader2, Lock, TriangleAlert } from 'lucide-react';
+import { CircleCheck, Loader2, Lock, TriangleAlert } from '@/components/icons';
 import { AuthFrame, PasswordStrength, AuthPasswordInput, AuthNotice, authLabelClass, authLinkClass, authMessageClass } from '@/components/AuthShell';
 
 /** Same rules as before; only the messages now follow the active language. */

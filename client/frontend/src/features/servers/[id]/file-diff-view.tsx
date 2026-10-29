@@ -1,6 +1,6 @@
 'use client';
 import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { AlertTriangle, ArrowLeft, GitCompareArrows, Loader2, RotateCcw, RotateCw } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, GitCompareArrows, Loader2, RotateCcw, RotateCw } from '@/components/icons';
 import {
   AlertDialog,
   AlertDialogAction,

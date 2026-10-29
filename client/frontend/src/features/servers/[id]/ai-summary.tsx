@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { AlertCircle, ListChecks, Loader2, Sparkles } from 'lucide-react';
+import { AlertCircle, ListChecks, Loader2, Sparkles } from '@/components/icons';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useTranslations } from '@/contexts/translations-context';
 import { ScrollArea } from '@/components/ui/scroll-area';

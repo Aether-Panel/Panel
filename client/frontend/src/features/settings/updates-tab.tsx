@@ -10,7 +10,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { DownloadCloud, Loader2, CheckCircle2, XCircle, Info, RefreshCw, ArrowUpCircle } from 'lucide-react';
+import { DownloadCloud, Loader2, CheckCircle2, XCircle, Info, RefreshCw, ArrowUpCircle, Hourglass } from '@/components/icons';
 import { sileo } from '@/lib/toast';
 import { api } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
@@ -28,6 +28,8 @@ interface UpdateCheckResult {
     behindBy?: number;
     /** why GitHub could not answer: github_rate_limited, github_unreachable or github_error */
     reason?: string;
+    /** a newer version whose checks on GitHub are still running ("pending") or failed ("failed") */
+    verification?: string;
 }
 
 interface NodeUpdateStatus {
@@ -112,7 +114,7 @@ function updatingStatus(nodes: NodeUpdateStatus[], reconnecting: boolean, t: Tra
 
 /** Status headline once the version check has answered and nothing is running. */
 function idleStatus(
-    flags: { updateFailed: boolean; checkFailed: boolean; unknownCurrent: boolean; updateAvailable: boolean; reason?: string; behindBy?: number },
+    flags: { updateFailed: boolean; checkFailed: boolean; unknownCurrent: boolean; updateAvailable: boolean; reason?: string; behindBy?: number; verification?: string },
     t: Translate,
 ): StatusView {
     const base = { spin: false, statusDescription: '' };
@@ -150,6 +152,15 @@ function idleStatus(
             statusDescription: flags.behindBy && flags.behindBy > 0
                 ? t('settings.updates.status.availableCount', { count: flags.behindBy })
                 : t('settings.updates.status.availableDescription'),
+        };
+    }
+    if (flags.verification === 'pending') {
+        return {
+            ...base,
+            statusTitle: t('settings.updates.status.verifying'),
+            StatusIcon: Hourglass,
+            tone: 'primary',
+            statusDescription: t('settings.updates.status.verifyingDescription'),
         };
     }
     return { ...base, statusTitle: t('settings.updates.status.upToDate'), StatusIcon: CheckCircle2, tone: 'success' };
@@ -323,7 +334,7 @@ export function UpdatesTab() {
     if (updating) {
         status = updatingStatus(nodes, reconnecting, t);
     } else if (!checking) {
-        status = idleStatus({ updateFailed, checkFailed, unknownCurrent: Boolean(unknownCurrent), updateAvailable, reason: check?.reason, behindBy: check?.behindBy }, t);
+        status = idleStatus({ updateFailed, checkFailed, unknownCurrent: Boolean(unknownCurrent), updateAvailable, reason: check?.reason, behindBy: check?.behindBy, verification: check?.verification }, t);
     }
     const { statusTitle, StatusIcon, spin, tone, statusDescription } = status;
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import { Info } from 'lucide-react';
+import { Info } from '@/components/icons';
 import { Card, CardContent } from '@/components/ui/card';
 import { useTranslations } from '@/contexts/translations-context';
 

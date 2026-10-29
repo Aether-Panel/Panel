@@ -1,5 +1,5 @@
 'use client';
-import { CheckCircle2, ExternalLink, Loader2, Lock, Package, X, XCircle } from 'lucide-react';
+import { CheckCircle2, ExternalLink, Loader2, Lock, Package, X, XCircle } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useTranslations } from '@/contexts/translations-context';

@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/providers';
 import { useConfig } from '@/contexts/config-context';
 import type { ReactNode } from 'react';
 import type { Server } from '@/lib/data';
-import { AlertTriangle, Cpu, HardDrive, MemoryStick, ServerIcon } from 'lucide-react';
+import { AlertTriangle, Cpu, HardDrive, MemoryStick, ServerIcon } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/page-header';
 import { Skeleton } from '@/components/ui/skeleton';

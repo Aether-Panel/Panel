@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Loader2, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { Loader2, ShieldAlert, ShieldCheck } from '@/components/icons';
 import { useConfig } from '@/contexts/config-context';
 import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';

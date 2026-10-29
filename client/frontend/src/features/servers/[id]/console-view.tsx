@@ -2,7 +2,7 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { ArrowDown, ChevronDown, ChevronUp, Search, Send, Star, Terminal, X } from 'lucide-react';
+import { ArrowDown, ChevronDown, ChevronUp, Search, Send, Star, Terminal, X } from '@/components/icons';
 import { sileo } from '@/lib/toast';
 import { useId, useState, useRef, useEffect, useMemo } from 'react';
 import AISummary from './ai-summary';
@@ -431,7 +431,7 @@ export default function ConsoleView({
 
         {favorites.length > 0 && (
           <fieldset className="flex min-w-0 shrink-0 items-center gap-1.5 overflow-x-auto border-t border-border/50 px-3 py-1.5 [scrollbar-width:none] sm:px-4 [&::-webkit-scrollbar]:hidden" aria-label={t('servers.console.favorites.label')}>
-            <Star className="h-3 w-3 shrink-0 fill-warning text-warning" aria-hidden="true" />
+            <Star className="h-3 w-3 shrink-0 text-warning" weight="fill" aria-hidden="true" />
             {favorites.map((favorite) => (
               <span key={favorite} className="group inline-flex shrink-0 items-center rounded-md border border-border/60 bg-background/60 transition-colors duration-200 hover:border-primary/40">
                 <button
@@ -494,7 +494,7 @@ export default function ConsoleView({
             aria-label={isFavorite ? t('servers.console.favorites.unsave') : t('servers.console.favorites.save')}
             className="h-8 w-8 shrink-0 text-muted-foreground hover:text-warning disabled:opacity-30"
           >
-            <Star aria-hidden="true" className={cn('transition-transform duration-200 ease-panel', isFavorite && 'scale-110 fill-warning text-warning')} />
+            <Star aria-hidden="true" weight={isFavorite ? 'fill' : 'regular'} className={cn('transition-transform duration-200 ease-panel', isFavorite && 'scale-110 text-warning')} />
           </Button>
           <Button
             type="submit"

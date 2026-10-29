@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/providers';
 import { useTranslations } from '@/contexts/translations-context';
 import { sileo } from "@/lib/toast";
-import { Check, Copy, ExternalLink, Lock, ServerOff } from 'lucide-react';
+import { Check, Copy, ExternalLink, Lock, ServerOff } from '@/components/icons';
 import { EmptyState } from '@/components/empty-state';
 
 type SFTPViewProps = {

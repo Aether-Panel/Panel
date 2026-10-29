@@ -39,8 +39,9 @@ import {
   Download,
   Check,
   History,
-  type LucideIcon,
-} from 'lucide-react';
+  type AppIcon,
+  type IconWeight,
+} from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -73,13 +74,14 @@ type ClipboardItem = {
 };
 
 type FileMeta = {
-  icon: LucideIcon;
+  icon: AppIcon;
   className: string;
+  weight?: IconWeight;
 };
 
 // File-type tint, from the semantic chart palette only: blue for code, teal for
 // config and data, violet for media, amber for folders, neutral for plain text.
-const FILE_META: { match: RegExp; icon: LucideIcon; className: string }[] = [
+const FILE_META: { match: RegExp; icon: AppIcon; className: string }[] = [
   { match: /^(png|jpe?g|gif|webp|svg|bmp|ico)$/, icon: FileImage, className: 'text-chart-3' },
   { match: /^(js|mjs|cjs|jsx|ts|tsx)$/, icon: FileCode, className: 'text-chart-4' },
   { match: /^(json|yaml|yml|toml|ini|conf|cfg|properties)$/, icon: FileCog, className: 'text-chart-2' },
@@ -98,7 +100,7 @@ const FILE_META: { match: RegExp; icon: LucideIcon; className: string }[] = [
   { match: /^(geojson|json5)$/, icon: FileJson, className: 'text-chart-2' },
 ];
 
-const FOLDER_META: FileMeta = { icon: Folder, className: 'fill-chart-5/15 text-chart-5' };
+const FOLDER_META: FileMeta = { icon: Folder, className: 'text-chart-5', weight: 'duotone' };
 const PARENT_META: FileMeta = { icon: ArrowUpToLine, className: 'text-muted-foreground' };
 
 function getFileMeta(name: string): FileMeta {
@@ -787,7 +789,7 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
                       className="focus-ring flex w-full min-w-0 items-center gap-3 rounded-md text-left"
                     >
                       <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-border/60 bg-card">
-                        <MetaIcon className={cn('h-4 w-4', meta.className)} aria-hidden="true" />
+                        <MetaIcon className={cn('h-4 w-4', meta.className)} weight={meta.weight} aria-hidden="true" />
                       </span>
                       <span className="min-w-0">
                         <span

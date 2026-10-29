@@ -1611,6 +1611,11 @@
   resolved "https://registry.yarnpkg.com/@oxc-project/types/-/types-0.153.0.tgz#ac7cd0095a6db231a892d41310ddf2e1b2329bfc"
   integrity sha512-jSNrRIyvPVLL5E1z/tS5zLAprosGz/FuI1PWwEOz59j3E4TTTzSpqKb/RDGqJhhW0QHYISGXxq582wGx6T11Tw==
 
+"@phosphor-icons/react@^2.1.10":
+  version "2.1.10"
+  resolved "https://registry.yarnpkg.com/@phosphor-icons/react/-/react-2.1.10.tgz#3a97ec5b7a4b8d53afeb29125bc17e74ed2daf92"
+  integrity sha512-vt8Tvq8GLjheAZZYa+YG/pW7HDbov8El/MANW8pOAz4eGxrwhnbfrQZq0Cp4q8zBEu8NIhHdnr+r8thnfRSNYA==
+
 "@pkgjs/parseargs@^0.11.0":
   version "0.11.0"
   resolved "https://registry.yarnpkg.com/@pkgjs/parseargs/-/parseargs-0.11.0.tgz#a77ea742fab25775145434eb1d2328cf5013ac33"
@@ -3764,11 +3769,6 @@ lru-cache@^11.2.7:
   resolved "https://registry.yarnpkg.com/lru-cache/-/lru-cache-11.5.3.tgz#a7767b4034e35269562d2b9da2b185b5df70c421"
   integrity sha512-U4N8FgzmWxc8k1VH8Kr6lQg18U7Fjvby6wXHVRX/ZZ7IwWbRMgrRbP0Wrb5q5NVinryp4SQampHKdvtecItxUg==
 
-lucide-react@^1.34.0:
-  version "1.55.0"
-  resolved "https://registry.yarnpkg.com/lucide-react/-/lucide-react-1.55.0.tgz#20d7410a79317ee32e8116fc38c813aba005af10"
-  integrity sha512-bSozQHiI3/8q7JvgoqVRGOYUi7fYT3siAZwmZsljjsOH2Husp/2ODdFf/leD+ZC/2yKfn7r8oh6yeoR3ITR5vA==
-
 magic-string@^1.4.2:
   version "1.4.3"
   resolved "https://registry.yarnpkg.com/magic-string/-/magic-string-1.4.3.tgz#a0887990507b2ffbcdbc367a8759ed97e0b1233b"
@@ -4725,9 +4725,9 @@ svgo@^4.0.2, svgo@^4.1.0:
     sax "1.6.1"
 
 systeminformation@^5.31.6:
-  version "5.33.15"
-  resolved "https://registry.yarnpkg.com/systeminformation/-/systeminformation-5.33.15.tgz#305ca18a1161c3c1ea57b126192705e60baf7169"
-  integrity sha512-s5RloL0F7xhN0ZjfHtLGnbf7EW74EI0N8NFL+1xR7Oxz9QA33obNZsl7lyfnJOhN04E/kGFPoJPlvY7TZ5fzmw==
+  version "5.33.16"
+  resolved "https://registry.yarnpkg.com/systeminformation/-/systeminformation-5.33.16.tgz#878ccdc0151a55506903c23c06684db1185ef843"
+  integrity sha512-R+Lh69IJXfJj6bfyH1In5cIR9FTr4hBS39YvlZHZjsK1p9cuELPq7hplZZIb56ZESMMb+DzdKqqE6Iomi01Mvg==
 
 tailwind-merge@^3.0.1:
   version "3.7.0"

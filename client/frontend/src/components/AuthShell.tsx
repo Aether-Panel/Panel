@@ -8,8 +8,8 @@ import { cn } from '@/lib/utils';
 import { useTranslations } from '@/contexts/translations-context';
 import { forwardRef, useEffect, useRef, useState } from 'react';
 import type { ComponentProps, KeyboardEvent, ReactNode } from 'react';
-import { ArrowBigUp, Eye, EyeOff } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { ArrowBigUp, Eye, EyeOff } from '@/components/icons';
+import type { AppIcon } from '@/components/icons';
 
 export default function AuthShell({ children }: Readonly<{ children: ReactNode }>) {
     return (
@@ -141,7 +141,7 @@ export const authLinkClass =
  * invalid state. `FormControl` passes `id`, `aria-invalid` and
  * `aria-describedby` straight through to the input.
  */
-export const AuthInput = forwardRef<HTMLInputElement, ComponentProps<'input'> & { icon: LucideIcon }>(
+export const AuthInput = forwardRef<HTMLInputElement, ComponentProps<'input'> & { icon: AppIcon }>(
     ({ icon: Icon, className, ...props }, ref) => (
         <div className="relative">
             <Icon
@@ -165,7 +165,7 @@ AuthInput.displayName = 'AuthInput';
  * Password field: `AuthInput` plus a show/hide toggle and a Caps Lock warning,
  * the two things that cause most "wrong password" attempts.
  */
-export const AuthPasswordInput = forwardRef<HTMLInputElement, Omit<ComponentProps<'input'>, 'type'> & { icon: LucideIcon }>(
+export const AuthPasswordInput = forwardRef<HTMLInputElement, Omit<ComponentProps<'input'>, 'type'> & { icon: AppIcon }>(
     ({ className, onKeyDown, onKeyUp, onBlur, ...props }, ref) => {
         const { t } = useTranslations();
         const [visible, setVisible] = useState(false);
@@ -345,7 +345,7 @@ export const authLabelClass = 'text-sm font-medium text-foreground';
 export const authMessageClass = 'text-xs font-medium text-destructive-bright';
 
 type AuthNoticeProps = {
-    icon: LucideIcon;
+    icon: AppIcon;
     tone: 'success' | 'warning';
     children: ReactNode;
 };

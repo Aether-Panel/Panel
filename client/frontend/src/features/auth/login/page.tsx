@@ -10,7 +10,7 @@ import { useAuth } from '@/contexts/providers';
 import type { LoginResult } from '@/contexts/providers';
 import { useConfig } from '@/contexts/config-context';
 import { useTranslations } from '@/contexts/translations-context';
-import { ArrowLeft, Clock, KeyRound, Loader2, Mail, Lock, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Clock, KeyRound, Loader2, Mail, Lock, ShieldCheck } from '@/components/icons';
 import { useCaptcha } from '@/components/Turnstile';
 import { AuthFrame, AuthInput, AuthNotice, AuthPasswordInput, OtpInput, authLabelClass, authLinkClass, authMessageClass } from '@/components/AuthShell';
 

@@ -5,7 +5,7 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { Check, CheckCircle2, Copy, CopyPlus, Eye, EyeOff, Layers, Loader2, MapPin, SlidersHorizontal, XCircle, type LucideIcon } from 'lucide-react';
+import { Check, CheckCircle2, Copy, CopyPlus, Eye, EyeOff, Layers, Loader2, MapPin, SlidersHorizontal, XCircle, type AppIcon } from '@/components/icons';
 import { api } from '@/lib/api-client';
 
 interface GeneralTabProps {
@@ -152,7 +152,7 @@ export function SettingRows({ children }: Readonly<{ children: ReactNode }>) {
  */
 function ExperimentalRow({ id, icon: Icon, label, description, where, checked, onCheckedChange }: Readonly<{
     id: string;
-    icon: LucideIcon;
+    icon: AppIcon;
     label: string;
     description: string;
     where: string;
@@ -263,7 +263,7 @@ export function SecretInput({
 /* ------------------------------------------------------------------ */
 
 /** Experimental features, in the order they are listed; each is a panel setting that starts off. */
-const EXPERIMENTAL_FEATURES: { key: string; name: string; icon: LucideIcon }[] = [
+const EXPERIMENTAL_FEATURES: { key: string; name: string; icon: AppIcon }[] = [
     { key: 'panel.experimental.versionSwitch', name: 'versionSwitch', icon: Layers },
     { key: 'panel.experimental.propertiesEditor', name: 'propertiesEditor', icon: SlidersHorizontal },
     { key: 'panel.experimental.serverClone', name: 'serverClone', icon: CopyPlus },

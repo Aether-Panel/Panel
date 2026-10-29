@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useId, useRef, useState } from 'react';
-import { AlertCircle, Check, CheckCircle2, Copy, Globe, Info, Loader2, Trash2, XCircle } from 'lucide-react';
+import { AlertCircle, Check, CheckCircle2, Copy, Globe, Info, Loader2, Trash2, XCircle } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
