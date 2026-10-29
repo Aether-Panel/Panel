@@ -21,7 +21,7 @@ type DomainStatus = { state: 'none' | 'working' | 'ok' | 'error'; url?: string; 
  * the certificate and the firewall a few seconds after the URL is saved; this polls its
  * result, faster while it is still working. Installs without that service show nothing.
  */
-function DomainStatusLine({ t }: Readonly<{ t: (key: string) => string }>) {
+function DomainStatusLine({ t }: Readonly<{ t: (key: string, options?: Record<string, string | number>) => string }>) {
     const [status, setStatus] = useState<DomainStatus | null>(null);
 
     useEffect(() => {
@@ -48,17 +48,16 @@ function DomainStatusLine({ t }: Readonly<{ t: (key: string) => string }>) {
     if (!status || status.state === 'none') return null;
     const domain = status.domain || status.url || '';
     let text: string;
-    if (status.state === 'working') text = t('settings.general.domainStatus.working');
-    else if (status.state === 'error') text = t('settings.general.domainStatus.error');
+    if (status.state === 'working') text = t('settings.general.domainStatus.working', { domain });
+    else if (status.state === 'error') text = t('settings.general.domainStatus.error', { domain });
     else if (!status.domain) text = t('settings.general.domainStatus.okIp');
-    else if (status.https) text = t('settings.general.domainStatus.okHttps');
-    else text = t('settings.general.domainStatus.okHttp');
-    text = text.replace('{domain}', domain);
+    else if (status.https) text = t('settings.general.domainStatus.okHttps', { domain });
+    else text = t('settings.general.domainStatus.okHttp', { domain });
 
     const Icon = status.state === 'working' ? Loader2 : status.state === 'error' ? XCircle : CheckCircle2;
     // the website goes through the proxy, game ports and SFTP cannot: the panel hands out the IP
     const proxyNote = status.state === 'ok' && status.proxied && status.serverIp
-        ? t('settings.general.domainStatus.proxied').replace('{ip}', status.serverIp)
+        ? t('settings.general.domainStatus.proxied', { ip: status.serverIp })
         : '';
     return (
         <div className="space-y-1">

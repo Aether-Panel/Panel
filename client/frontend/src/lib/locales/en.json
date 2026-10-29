@@ -1245,13 +1245,14 @@
       "optionNone": "None",
       "versionPlaceholder": "Choose a version",
       "versionLatest": "Latest version (latest)",
+      "javaMismatch": "Minecraft {{version}} needs Java {{java}}: with another version the server does not start.",
       "fixFieldsTitle": "Check the marked fields",
       "fixFieldsDescription": "Some values are missing or not valid; the server was not created.",
       "fieldErrors": {
         "required": "This field is required.",
         "notNumber": "Enter a whole number.",
-        "min": "The minimum is {limit}.",
-        "max": "The maximum is {limit}.",
+        "min": "The minimum is {{limit}}.",
+        "max": "The maximum is {{limit}}.",
         "eula": "Accept the Minecraft EULA: without it the server stops as soon as it starts."
       },
       "enable": "Enable",
@@ -3057,12 +3058,12 @@
       "baseUrlLabel": "Base URL",
       "baseUrlDescription": "The address used to open the panel, for example https://panel.yourdomain.com or http://IP:8080. With a domain, the server sets up Nginx, the HTTPS certificate and the firewall by itself when you save it (installs made with the installer). Point the domain at the server's IP first.",
       "domainStatus": {
-        "working": "Setting up the server for {domain}…",
-        "okHttps": "Active: {domain} over HTTPS (Nginx and certificate set up).",
-        "okHttp": "Active: {domain} over HTTP.",
+        "working": "Setting up the server for {{domain}}…",
+        "okHttps": "Active: {{domain}} over HTTPS (Nginx and certificate set up).",
+        "okHttp": "Active: {{domain}} over HTTP.",
         "okIp": "The panel answers on the server's IP.",
-        "proxied": "Your domain goes through Cloudflare's proxy, which only lets the website through: players and SFTP use the IP {ip}. For a name they can join with, use automatic subdomains (Settings → Domains) or a DNS record without the proxy (grey cloud).",
-        "error": "Could not get the certificate for {domain}. Check that the domain points at this server and that port 80 is open; it will be retried in an hour. Meanwhile the panel works over HTTP."
+        "proxied": "Your domain goes through Cloudflare's proxy, which only lets the website through: players and SFTP use the IP {{ip}}. For a name they can join with, use automatic subdomains (Settings → Domains) or a DNS record without the proxy (grey cloud).",
+        "error": "Could not get the certificate for {{domain}}. Check that the domain points at this server and that port 80 is open; it will be retried in an hour. Meanwhile the panel works over HTTP."
       },
       "companyNameLabel": "Company Name",
       "companyNameDescription": "The name of your organization displayed across the panel interface.",
@@ -3297,7 +3298,7 @@
         "unknownCurrentDescription": "The deployed commit could not be determined. You can still update manually.",
         "available": "Update available",
         "availableDescription": "A new version of the panel is available.",
-        "availableCount": "The branch has {count} change(s) this panel does not have yet.",
+        "availableCount": "The branch has {{count}} change(s) this panel does not have yet.",
         "upToDate": "System is up to date",
         "verifying": "New version being verified",
         "verifyingDescription": "A new version is out and GitHub is still checking it. You can update as soon as its checks pass."
