@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -768,17 +769,67 @@ func currentGitBranch() string {
 // @Security OAuth2Application[settings.edit]
 func updateCheck(c *gin.Context) {
 	current := currentGitCommit()
+	// the branch the updater pulls from: comparing with another one announced updates that the
+	// update would not bring
+	branch := currentGitBranch()
+	result := gin.H{"current": current, "latest": "", "version": skypanel.Version, "branch": branch, "updateAvailable": false, "behindBy": 0}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	// the branch the updater pulls from: comparing with another one announced updates that the
-	// update would not bring
-	branch := currentGitBranch()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/repos/Aether-Panel/Panel/commits/"+url.PathEscape(branch), nil)
-	if err != nil {
-		response.HandleError(c, fmt.Errorf("failed to build update check request: %v", err), http.StatusInternalServerError)
+	var tip struct {
+		Sha string `json:"sha"`
+	}
+	if reason := githubJSON(ctx, "commits/"+url.PathEscape(branch), &tip); reason != "" {
+		result["reason"] = reason
+		c.JSON(http.StatusOK, result)
 		return
+	}
+	latest := tip.Sha
+	result["latest"] = latest
+	if current == "" || latest == "" || current == latest {
+		c.JSON(http.StatusOK, result)
+		return
+	}
+
+	// What the branch has that this install lacks. A merge on GitHub makes a new commit even
+	// when it changes no file, so a different commit alone is not an update: one is available
+	// only when the branch is ahead and some file differs.
+	var compare struct {
+		AheadBy int               `json:"ahead_by"`
+		Files   []json.RawMessage `json:"files"`
+	}
+	if updateCommitPattern.MatchString(current) && updateCommitPattern.MatchString(latest) && githubJSON(ctx, "compare/"+current+"..."+latest, &compare) == "" {
+		result["behindBy"] = compare.AheadBy
+		result["updateAvailable"] = compare.AheadBy > 0 && len(compare.Files) > 0
+		c.JSON(http.StatusOK, result)
+		return
+	}
+
+	// The install's commit is not on GitHub (local commits): compare ancestry in the local
+	// repository instead
+	updateAvailable := true
+	if contains, err := isGitAncestor(latest, current); err == nil {
+		updateAvailable = !contains
+	}
+	result["updateAvailable"] = updateAvailable
+	c.JSON(http.StatusOK, result)
+}
+
+// githubRepoAPI is the panel's repository on GitHub's API (a variable so tests can point it at
+// a local server)
+var githubRepoAPI = "https://api.github.com/repos/Aether-Panel/Panel/"
+
+// updateCommitPattern is a full commit hash, safe to put in the GitHub URL
+var updateCommitPattern = regexp.MustCompile(`^[0-9a-f]{40}$`)
+
+// githubJSON reads one GitHub API answer about the panel's repository into target. It returns
+// "" on success, or why it could not: "github_rate_limited" (GitHub allows 60 anonymous
+// requests an hour per IP), "github_error" or "github_unreachable".
+func githubJSON(ctx context.Context, path string, target interface{}) string {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, githubRepoAPI+path, nil)
+	if err != nil {
+		return "github_error"
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("User-Agent", "Aether-Panel")
@@ -786,46 +837,23 @@ func updateCheck(c *gin.Context) {
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		logging.Error.Printf("Update check failed to reach GitHub: %v", err)
-		c.JSON(http.StatusOK, gin.H{"current": current, "latest": "", "version": skypanel.Version, "updateAvailable": false})
-		return
+		return "github_unreachable"
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		logging.Error.Printf("Update check got unexpected GitHub response: %d", resp.StatusCode)
-		c.JSON(http.StatusOK, gin.H{"current": current, "latest": "", "version": skypanel.Version, "updateAvailable": false})
-		return
+	switch {
+	case resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusTooManyRequests:
+		logging.Error.Printf("Update check: GitHub refused the request (%d), probably its rate limit", resp.StatusCode)
+		return "github_rate_limited"
+	case resp.StatusCode != http.StatusOK:
+		logging.Error.Printf("Update check got unexpected GitHub response for %s: %d", path, resp.StatusCode)
+		return "github_error"
 	}
-
-	var payload struct {
-		Sha string `json:"sha"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 8<<20)).Decode(target); err != nil {
 		logging.Error.Printf("Update check failed to decode GitHub response: %v", err)
-		c.JSON(http.StatusOK, gin.H{"current": current, "latest": "", "version": skypanel.Version, "updateAvailable": false})
-		return
+		return "github_error"
 	}
-
-	latest := payload.Sha
-
-	// Consider an update available only when the remote tip contains commits
-	// not yet deployed. A plain SHA comparison produces false positives when
-	// the host repository has local commits (e.g. merge commits created by
-	// git pull after local edits), so compare ancestry instead.
-	updateAvailable := current != "" && latest != "" && current != latest
-	if updateAvailable {
-		contains, err := isGitAncestor(latest, current)
-		if err == nil {
-			updateAvailable = !contains
-		}
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"current":         current,
-		"latest":          latest,
-		"version":         skypanel.Version,
-		"updateAvailable": updateAvailable,
-	})
+	return ""
 }
 
 // nodeUpdateStatus describes the update status of a single node of the fleet.

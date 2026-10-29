@@ -102,10 +102,12 @@ function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
     if (loading) return;
 
     if (!role && !isAuthPage) {
-      window.location.href = '/login/';
+      // back to this page after signing in
+      const here = window.location.pathname + window.location.search;
+      window.location.href = here === '/' ? '/login/' : `/login/?next=${encodeURIComponent(here)}`;
     }
     if (role && isAuthPage) {
-      window.location.href = '/dashboard/';
+      window.location.href = afterLoginPath();
     }
   }, [role, loading]);
 
@@ -122,7 +124,7 @@ function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
     });
 
     setTimeout(() => {
-      window.location.href = '/dashboard/';
+      window.location.href = afterLoginPath();
     }, 500);
   }, [t, fetchSelf]);
 
@@ -255,6 +257,22 @@ function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
       {children}
     </AuthContext.Provider>
   );
+}
+
+/**
+ * Where to go after signing in: back to the page the session expired on (?next=, set by
+ * api-client), when it is one of the panel's own pages; otherwise the dashboard.
+ */
+function afterLoginPath(): string {
+  try {
+    const next = new URLSearchParams(window.location.search).get('next') || '';
+    if (next.startsWith('/') && !next.startsWith('//') && !next.includes('\\') && !/^\/(login|register)(\/|$)/.test(next)) {
+      return next;
+    }
+  } catch {
+    // no window or a malformed address: the dashboard
+  }
+  return '/dashboard/';
 }
 
 export function useAuth() {
