@@ -61,6 +61,18 @@ export function useCrashReports(serverId: string, enabled = true) {
   return { reports, loaded, refresh };
 }
 
+type Translate = (key: string, options?: { [key: string]: string | number }) => string;
+
+/** What a crash meant and whether the server came back, for the crash toast. */
+export function crashSummary(t: Translate, report: Partial<CrashReport>): string {
+  const code = Number(report.exitCode);
+  const meaning = KNOWN_EXIT_CODES.has(code) ? t(`servers.crashes.exitCodes.${code}`) : t('servers.crashes.exitCodes.other');
+  const recovery = report.restarted
+    ? t('servers.crashes.restarted', { attempt: report.attempt ?? 1, limit: report.limit ?? 1 })
+    : t('servers.crashes.notRestarted');
+  return `${meaning}; ${recovery}.`;
+}
+
 function useFormat() {
   const { t, language } = useTranslations();
   const locale = language === 'es' ? 'es-ES' : 'en-US';

@@ -43,7 +43,7 @@ import { useAuth } from '@/contexts/providers';
 import { EmptyState } from '@/components/empty-state';
 import { LiveDot, PlayerAvatar } from '@/components/player-presence';
 import { AnimatedNumber } from '@/components/animated-number';
-import { CRASH_EVENT, CrashBanner, CrashHistory, CrashReportDialog, type CrashReport } from './crash-report';
+import { CRASH_EVENT, CrashBanner, CrashHistory, CrashReportDialog, crashSummary, type CrashReport } from './crash-report';
 import ModpacksView from './modpacks-view';
 import WorldMapView from './world-map-view';
 import PropertiesView from './properties-view';
@@ -397,6 +397,10 @@ export default function ServerDetailPage({ params }: Readonly<{ params: { id: st
             if (parsed.type === 'crash') {
               window.dispatchEvent(new CustomEvent(CRASH_EVENT, { detail: parsed.data }));
               setAnnouncement(t('servers.console.announce.crashed', { code: parsed.data?.exitCode ?? '?' }));
+              sileo.error({
+                title: t('servers.console.announce.crashed', { code: parsed.data?.exitCode ?? '?' }),
+                description: crashSummary(t, parsed.data ?? {}),
+              });
               return;
             }
             if (parsed.type === 'stat' || parsed.type === 'status') return;
