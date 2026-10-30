@@ -86,6 +86,9 @@ function readStored(): NetworkSample[] {
 export function useNetworkHistory(totals: NetworkTotals | null) {
     const [samples, setSamples] = useState<NetworkSample[]>([]);
     const latest = useRef<NetworkTotals | null>(totals);
+    // the reading last put on the chart: when the node polls stall, the same one is not
+    // recorded again every 5 s as a flat line that was never measured
+    const recorded = useRef<NetworkTotals | null>(null);
     const lastPersist = useRef(0);
 
     useEffect(() => {
@@ -103,7 +106,8 @@ export function useNetworkHistory(totals: NetworkTotals | null) {
     useEffect(() => {
         const collect = () => {
             const value = latest.current;
-            if (!value) return;
+            if (!value || value === recorded.current) return;
+            recorded.current = value;
             const now = Date.now();
             setSamples((previous) => {
                 const last = previous[previous.length - 1];

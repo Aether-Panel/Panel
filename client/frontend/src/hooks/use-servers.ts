@@ -99,13 +99,16 @@ export function useServers(statsFor?: (server: Server) => boolean) {
         }
     };
 
+    // a server whose stats cannot be read shows nothing in use, not its last numbers as if live
+    const offlineResult = (id: string) => ({ id, status: 'offline', cpuUsage: 0, cpuRaw: 0, memoryUsage: 0, memoryUsed: 0, metrics: undefined });
+
     const updateAllStats = async (currentServers: Server[]) => {
         const statsFor = statsForRef.current;
         const wanted = statsFor ? currentServers.filter((server) => statsFor(server)) : currentServers;
         const results = await mapWithConcurrency(wanted, STATS_CONCURRENCY, async (server) => {
             try {
                 if (globalFailedStatsSet.has(server.id) || server.isGhost) {
-                    return { id: server.id, status: 'offline' };
+                    return offlineResult(server.id);
                 }
 
                 const [stats, queryData] = await Promise.all([
@@ -117,7 +120,12 @@ export function useServers(statsFor?: (server: Server) => boolean) {
 
                 const players = parsePlayerQuery(queryData);
                 if (stats) {
-                    const cpu = Math.round(stats.cpu || 0);
+                    // CPU as a share of what the server may use: the node sends its allowance
+                    // (the "cpu" limit, or every core when unlimited); 200% of one core on a
+                    // two-core server is 100%, the same number every chart and card shows
+                    const rawCpu = stats.cpu || 0;
+                    const maxCpu = stats.maxCpu > 0 ? stats.maxCpu : (server.totalCpu ?? 0);
+                    const cpu = Math.min(100, Math.round(maxCpu > 0 ? (rawCpu / maxCpu) * 100 : rawCpu));
                     // If maxMemory is missing or 0, we can't calculate percentage reliably. 
                     // We'll fallback to showing 0 or trying to use the value if it looks like a % already.
                     let memory = 0;
@@ -135,6 +143,8 @@ export function useServers(statsFor?: (server: Server) => boolean) {
                     return {
                         id: server.id,
                         cpuUsage: cpu,
+                        cpuRaw: Math.round(rawCpu),
+                        maxCpu: maxCpu > 0 ? maxCpu : undefined,
                         memoryUsage: memory,
                         memoryUsed: stats.memory || 0,
                         storageUsage,
@@ -142,8 +152,9 @@ export function useServers(statsFor?: (server: Server) => boolean) {
                         storageMax,
                         status: stats.running ? 'online' : 'offline',
                         metrics: {
-                            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-                            cpu: Math.min(100, cpu),
+                            // the charts format it in the panel's language
+                            ts: Date.now(),
+                            cpu,
                             memory: Math.min(100, memory),
                             networkIn: Number.parseFloat((stats.networkRx || 0).toFixed(2)),
                             networkOut: Number.parseFloat((stats.networkTx || 0).toFixed(2)),
@@ -159,7 +170,7 @@ export function useServers(statsFor?: (server: Server) => boolean) {
                 if (e instanceof ApiError && e.status === 404) {
                     globalFailedStatsSet.add(server.id);
                 }
-                return { id: server.id, status: 'offline' };
+                return offlineResult(server.id);
             }
             return null;
         });
@@ -173,6 +184,8 @@ export function useServers(statsFor?: (server: Server) => boolean) {
                     ...s,
                     status: res.status as any,
                     cpuUsage: res.cpuUsage ?? s.cpuUsage,
+                    cpuRaw: (res as any).cpuRaw ?? s.cpuRaw,
+                    maxCpu: (res as any).maxCpu ?? s.maxCpu,
                     memoryUsage: res.memoryUsage ?? s.memoryUsage,
                     storageUsage: (res as any).storageUsage ?? s.storageUsage,
                     storageUsed: (res as any).storageUsed ?? s.storageUsed,

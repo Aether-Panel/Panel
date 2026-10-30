@@ -1200,7 +1200,8 @@
     "charts": {
       "liveDescription": "En directo desde que abriste esta página, una muestra cada 5 s.",
       "waitingTitle": "Recopilando muestras",
-      "waitingDescription": "La gráfica aparece en cuanto llegan un par de muestras."
+      "waitingDescription": "La gráfica aparece en cuanto llegan un par de muestras.",
+      "ofLimit": "La CPU y la memoria son el porcentaje del límite del servidor."
     },
     "create": {
       "renderError": "No se pudo mostrar el asistente",
@@ -1550,7 +1551,8 @@
       "playersAvg": "Media de jugadores",
       "playersPeak": "Pico de jugadores",
       "record": "Récord histórico",
-      "noPlayerData": "El juego no respondió a la consulta de jugadores."
+      "noPlayerData": "El juego no respondió a la consulta de jugadores.",
+      "noData": "Sin datos: el nodo estaba apagado."
     },
     "subdomain": {
       "title": "Dirección del servidor",
@@ -2781,7 +2783,8 @@
         "total": "Total",
         "used": "Usado",
         "free": "Libre",
-        "system": "Sistema"
+        "system": "Sistema",
+        "available": "Disponible"
       },
       "disks": {
         "title": "Discos",

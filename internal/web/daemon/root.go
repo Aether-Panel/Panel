@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"os"
+	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -298,15 +301,30 @@ func sampleCPU() {
 	}
 }
 
-// collectDiskInfo reports the usage of every mounted partition that can be read
+// collectDiskInfo reports the usage of every disk the node can read, each once. Inside a
+// container every bind mount (/etc/hosts, /etc/hostname, the data folders…) shows up as a
+// partition of the same disk, so the node page listed one disk seven times.
 func collectDiskInfo() []*DiskInfo {
 	disks := make([]*DiskInfo, 0)
 	partitions, err := disk.Partitions(false)
 	if err != nil {
 		return disks
 	}
+	servers, _ := filepath.Abs(config.ServersFolder.Value())
+	seen := make(map[string]*DiskInfo)
 	for _, partition := range partitions {
+		if info, err := os.Stat(partition.Mountpoint); err != nil || !info.IsDir() {
+			continue // a file mounted on its own: its disk is listed through a folder
+		}
 		if usage, err := disk.Usage(partition.Mountpoint); err == nil {
+			key := fmt.Sprintf("%s|%d|%d", partition.Device, usage.Total, usage.Used)
+			if listed, ok := seen[key]; ok {
+				// the same disk again: name it after the folder that matters most
+				if diskLabelRank(partition.Mountpoint, servers) < diskLabelRank(listed.Path, servers) {
+					listed.Path = partition.Mountpoint
+				}
+				continue
+			}
 			diskInfo := &DiskInfo{
 				Path:        partition.Mountpoint,
 				Total:       usage.Total,
@@ -314,10 +332,24 @@ func collectDiskInfo() []*DiskInfo {
 				Free:        usage.Free,
 				UsedPercent: usage.UsedPercent,
 			}
+			seen[key] = diskInfo
 			disks = append(disks, diskInfo)
 		}
 	}
 	return disks
+}
+
+// diskLabelRank orders the folders one disk is mounted at by how well they name it: the root,
+// then the one holding the servers, then the shortest
+func diskLabelRank(mountpoint, serversFolder string) int {
+	switch {
+	case mountpoint == "/":
+		return 0
+	case serversFolder != "" && strings.HasPrefix(serversFolder+"/", strings.TrimSuffix(mountpoint, "/")+"/"):
+		return 1
+	default:
+		return 2 + len(mountpoint)
+	}
 }
 
 // totalNetworkBytes sums the bytes sent and received over all network

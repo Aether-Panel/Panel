@@ -1,6 +1,7 @@
 'use client';
 import { useAuth } from '@/contexts/providers';
 import { useConfig } from '@/contexts/config-context';
+import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 import type { Server } from '@/lib/data';
 import { AlertTriangle, Cpu, HardDrive, MemoryStick, ServerIcon } from '@/components/icons';
@@ -25,7 +26,7 @@ function calculateCpuUsage(nodeResources: any[], onlineServers: any[], onlineCou
     return Math.round(nodeResources.reduce((acc, si) => acc + (si.cpuUsage || 0), 0) / nodeResources.length);
   }
   if (onlineCount > 0) {
-    return Math.round(onlineServers.reduce((acc, s) => acc + s.cpuUsage, 0) / onlineCount);
+    return Math.round(onlineServers.reduce((acc, s) => acc + Math.min(100, s.cpuUsage), 0) / onlineCount);
   }
   return 0;
 }
@@ -46,7 +47,8 @@ function calculateMemoryUsage(nodeResources: any[], onlineServers: any[], online
 function calculateStorageUsage(nodeResources: any[], onlineServers: any[], onlineCount: number): number {
   if (nodeResources.length > 0) {
     return Math.round(nodeResources.reduce((acc, si) => {
-      const disk = si.disks?.[0] || {};
+      // the disk the servers live on, the one the low-disk warning is about
+      const disk = si.serversDisk ?? si.disks?.[0] ?? {};
       return acc + (disk.usedPercent || 0);
     }, 0) / nodeResources.length);
   }
@@ -100,9 +102,11 @@ function AdminDashboard({ user, t, canSeeNodes, canSeeUsers, allServers, usersCo
 
   const lastNetworkSample = globalNetworkMetrics[globalNetworkMetrics.length - 1];
   const networkKbps = lastNetworkSample ? lastNetworkSample.networkIn + lastNetworkSample.networkOut : null;
-  const networkTotals = lastNetworkSample
-    ? { in: lastNetworkSample.networkIn, out: lastNetworkSample.networkOut }
-    : null;
+  // one object per node reading, so the history can tell a new reading from a repeated one
+  const networkTotals = useMemo(
+    () => (lastNetworkSample ? { in: lastNetworkSample.networkIn, out: lastNetworkSample.networkOut } : null),
+    [lastNetworkSample],
+  );
 
   const { samples } = useNetworkHistory(networkTotals);
 

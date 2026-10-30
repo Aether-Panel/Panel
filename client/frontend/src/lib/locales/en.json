@@ -1200,7 +1200,8 @@
     "charts": {
       "liveDescription": "Live since you opened this page, one sample every 5 s.",
       "waitingTitle": "Collecting samples",
-      "waitingDescription": "The chart appears as soon as a couple of samples arrive."
+      "waitingDescription": "The chart appears as soon as a couple of samples arrive.",
+      "ofLimit": "CPU and memory are shares of the server's limits."
     },
     "create": {
       "renderError": "The wizard couldn't be displayed",
@@ -1550,7 +1551,8 @@
       "playersAvg": "Average players",
       "playersPeak": "Player peak",
       "record": "All-time record",
-      "noPlayerData": "The game did not answer the player query."
+      "noPlayerData": "The game did not answer the player query.",
+      "noData": "No data: the node was down."
     },
     "subdomain": {
       "title": "Server address",
@@ -2781,7 +2783,8 @@
         "total": "Total",
         "used": "Used",
         "free": "Free",
-        "system": "System"
+        "system": "System",
+        "available": "Available"
       },
       "disks": {
         "title": "Disks",

@@ -33,12 +33,16 @@ export function MetricBar({ label, value, extra }: Readonly<{ label: string; val
   );
 }
 
-export function Sparkline({ data }: Readonly<{ data: number[] }>) {
+/**
+ * A small trend line. With `max` it draws on a fixed 0-`max` scale (a percentage: 3% stays near
+ * the bottom); without it the line spans its own range.
+ */
+export function Sparkline({ data, max: fixedMax }: Readonly<{ data: number[]; max?: number }>) {
   const values = data.length > 0 ? data.slice(-32) : [0];
   const w = 300;
   const h = 44;
-  const max = Math.max(...values, 1);
-  const min = Math.min(...values, 0);
+  const max = fixedMax ?? Math.max(...values, 1);
+  const min = fixedMax === undefined ? Math.min(...values, 0) : 0;
   const range = max - min || 1;
   const points = values
     .map((v, i) => {
@@ -180,7 +184,7 @@ export function ServerCard({ server, t }: Readonly<{ server: Server; t: (key: st
                   {lastCpu !== null ? `${lastCpu}%` : '—'}
                 </span>
               </div>
-              <Sparkline data={cpuSeries} />
+              <Sparkline data={cpuSeries} max={100} />
             </div>
           )}
 

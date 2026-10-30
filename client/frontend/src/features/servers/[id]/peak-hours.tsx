@@ -96,11 +96,14 @@ export default function PeakHours({ serverId }: Readonly<{ serverId: string }>) 
                       className={cn(
                         // a fixed height keeps the week compact on wide screens; the cells only stretch sideways
                         'h-3 rounded-[3px] animate-in fade-in-0 zoom-in-50 fill-mode-both duration-500 ease-panel sm:h-[18px]',
-                        value === null ? 'bg-secondary/40' : 'bg-success',
+                        // no data, nobody online and some people online must not look alike
+                        value === null && 'border border-dashed border-border/70',
+                        value === 0 && 'bg-secondary',
+                        value !== null && value > 0 && 'bg-success',
                         isBest && 'ring-2 ring-success/70 ring-offset-1 ring-offset-card',
                       )}
                       style={{
-                        opacity: value === null ? 1 : 0.18 + level * 0.82,
+                        opacity: value === null || value === 0 ? 1 : 0.3 + level * 0.7,
                         // the week fills in left to right, row by row
                         animationDelay: `${hour * 12 + row * 20}ms`,
                       }}
@@ -119,7 +122,8 @@ export default function PeakHours({ serverId }: Readonly<{ serverId: string }>) 
         </div>
         <div className="mt-4 flex items-center justify-end gap-2 text-[11px] text-muted-foreground">
           <span>{t('servers.peakHours.fewer')}</span>
-          {[0.2, 0.45, 0.7, 1].map((o) => (
+          <span aria-hidden="true" className="h-2.5 w-2.5 rounded-[3px] bg-secondary" />
+          {[0.3, 0.55, 0.8, 1].map((o) => (
             <span key={o} aria-hidden="true" className="h-2.5 w-2.5 rounded-[3px] bg-success" style={{ opacity: o }} />
           ))}
           <span>{t('servers.peakHours.more')}</span>

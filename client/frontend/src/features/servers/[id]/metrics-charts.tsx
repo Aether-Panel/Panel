@@ -7,10 +7,11 @@ import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { useTranslations } from '@/contexts/translations-context';
 import { Activity } from '@/components/icons';
 import { cn } from '@/lib/utils';
+import { CHART_COLORS, formatClock } from '@/lib/chart-theme';
 import { EmptyState } from '@/components/empty-state';
 
-const CPU_COLOR = 'hsl(var(--chart-1))';
-const MEM_COLOR = 'hsl(var(--chart-2))';
+const CPU_COLOR = CHART_COLORS.cpu;
+const MEM_COLOR = CHART_COLORS.memory;
 
 type TooltipFormatter = NonNullable<ComponentProps<typeof ChartTooltipContent>['formatter']>;
 
@@ -33,7 +34,7 @@ type MetricsChartsProps = {
 };
 
 export default function MetricsCharts({ serverMetrics, className }: Readonly<MetricsChartsProps>) {
-  const { t } = useTranslations();
+  const { t, language } = useTranslations();
 
   const chartConfig = {
     cpu: { label: t('dashboard.table.cpu'), color: CPU_COLOR },
@@ -48,18 +49,15 @@ export default function MetricsCharts({ serverMetrics, className }: Readonly<Met
   const latest = serverMetrics?.at(-1) ?? null;
   // A single sample draws nothing useful; wait for a second point.
   const hasTrend = !!serverMetrics && serverMetrics.length >= 2;
-  // Two polls can land in the same second, so the axis runs on the sample index
-  // and only labels the first sample of each distinct time.
-  const chartData = (serverMetrics ?? []).map((sample, index) => ({ ...sample, index }));
-  const timeTicks = chartData
-    .filter((sample, i) => i === 0 || sample.time !== chartData[i - 1].time)
-    .map((sample) => sample.index);
+  // The axis runs on the sample index (two polls can land in the same second) and is labelled
+  // with each sample's time in the panel's language.
+  const chartData = (serverMetrics ?? []).map((sample, index) => ({ ...sample, index, time: formatClock(sample.ts, language) }));
 
   return (
     <Card className={cn('flex min-w-0 flex-col', className)}>
       <CardHeader className="space-y-1 border-b border-border/50 p-5 md:p-6">
         <CardTitle className="text-lg font-semibold tracking-[-0.02em]">{t('servers.cpuMemoryChart.title')}</CardTitle>
-        <CardDescription>{t('servers.charts.liveDescription')}</CardDescription>
+        <CardDescription>{t('servers.charts.liveDescription')} {t('servers.charts.ofLimit')}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col gap-4 p-5 md:p-6">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-medium text-muted-foreground">
@@ -106,13 +104,13 @@ export default function MetricsCharts({ serverMetrics, className }: Readonly<Met
                 dataKey="index"
                 type="number"
                 domain={['dataMin', 'dataMax']}
-                ticks={timeTicks}
                 tickFormatter={(index: number) => chartData[index]?.time ?? ''}
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
                 fontSize={10}
                 minTickGap={48}
+                allowDecimals={false}
               />
               <YAxis
                 tickLine={false}
