@@ -1271,9 +1271,21 @@
       "templateLoadingDescription": "Espera un momento mientras se cargan los detalles de la plantilla.",
       "templateLoadFailed": "No se pudo cargar la plantilla. Comprueba que el repositorio de plantillas esté disponible.",
       "templateFetchFailed": "No se pudieron obtener los detalles de la plantilla. Revisa tu conexión o tus permisos.",
-      "success": "Servidor «{{name}}» creado correctamente.",
+      "success": "Servidor «{{name}}» creado. Se está instalando: lo verás en la consola.",
       "createFailed": "No se pudo crear el servidor",
-      "unknownError": "Error desconocido."
+      "unknownError": "Error desconocido.",
+      "portBusy": {
+        "range": "Los puertos por debajo de 1024 no se pueden usar.",
+        "panel": "Este puerto lo usa el propio panel.",
+        "server": "Este puerto ya lo usa el servidor «{{by}}».",
+        "container": "Este puerto lo usa otro contenedor del nodo ({{by}})."
+      },
+      "portUse": "Usar {{port}}",
+      "memoryOverNode": "Este nodo solo tiene {{total}} de RAM.",
+      "memoryOverFree": "Ahora mismo el nodo tiene {{free}} de RAM libres: el servidor podría no arrancar o ir lento.",
+      "memoryBelowTemplate": "La plantilla recomienda al menos {{size}} de RAM.",
+      "nodeDiskLow": "Al nodo le queda poco disco: {{free}} libres. Es posible que la instalación no quepa.",
+      "diskOverFree": "Al nodo solo le quedan {{free}} de disco libres."
     },
     "extransfer": {
       "title": "Migración entre paneles",
@@ -2825,6 +2837,10 @@
       "deletedDescription": "«{{name}}» se ha eliminado correctamente.",
       "deleteFailed": "Error al eliminar el nodo",
       "unknownError": "Error desconocido."
+    },
+    "diskLow": {
+      "title": "Al nodo «{{name}}» le queda poco disco",
+      "description": "Quedan {{free}} libres de {{total}} donde se guardan los servidores. Si se llena, los servidores de este nodo se paran y las instalaciones fallan a medias: libera espacio o amplía el disco."
     }
   },
   "databaseHosts": {

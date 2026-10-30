@@ -1271,9 +1271,21 @@
       "templateLoadingDescription": "Hold on while the template details load.",
       "templateLoadFailed": "The template couldn't be loaded. Check that the template repository is available.",
       "templateFetchFailed": "Couldn't fetch the template details. Check your connection or permissions.",
-      "success": "Server \"{{name}}\" created.",
+      "success": "Server \"{{name}}\" created. It is installing now: follow it in the console.",
       "createFailed": "Couldn't create the server",
-      "unknownError": "Unknown error."
+      "unknownError": "Unknown error.",
+      "portBusy": {
+        "range": "Ports below 1024 cannot be used.",
+        "panel": "The panel itself uses this port.",
+        "server": "The server \"{{by}}\" already uses this port.",
+        "container": "Another container on the node uses this port ({{by}})."
+      },
+      "portUse": "Use {{port}}",
+      "memoryOverNode": "This node only has {{total}} of RAM.",
+      "memoryOverFree": "The node has {{free}} of RAM free right now: the server might not start or run slowly.",
+      "memoryBelowTemplate": "The template recommends at least {{size}} of RAM.",
+      "nodeDiskLow": "The node is running out of disk: {{free}} free. The install might not fit.",
+      "diskOverFree": "The node only has {{free}} of disk left."
     },
     "extransfer": {
       "title": "Panel-to-panel migration",
@@ -2825,6 +2837,10 @@
       "deletedDescription": "\"{{name}}\" was deleted.",
       "deleteFailed": "Couldn't delete the node",
       "unknownError": "Unknown error."
+    },
+    "diskLow": {
+      "title": "The node \"{{name}}\" is running out of disk",
+      "description": "{{free}} free of {{total}} where the servers are stored. If it fills up, the servers on this node stop and installs fail halfway: free some space or grow the disk."
     }
   },
   "databaseHosts": {

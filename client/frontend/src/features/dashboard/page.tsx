@@ -18,6 +18,7 @@ import { PanelInfoCard } from '@/features/dashboard/panel-info-card';
 import { NetworkHistoryChart } from '@/features/dashboard/network-history-chart';
 import { AccessLog } from '@/features/dashboard/access-log';
 import { EmptyState } from '@/components/empty-state';
+import { NodeDiskAlert } from '@/features/nodes/node-disk-alert';
 
 function calculateCpuUsage(nodeResources: any[], onlineServers: any[], onlineCount: number): number {
   if (nodeResources.length > 0) {
@@ -122,6 +123,8 @@ function AdminDashboard({ user, t, canSeeNodes, canSeeUsers, allServers, usersCo
         total={totalServers}
         networkKbps={networkKbps}
       />
+
+      {canSeeNodes && <NodeDiskAlert nodes={realNodes} />}
 
       <section
         aria-label={t('dashboard.admin.kpi.label')}

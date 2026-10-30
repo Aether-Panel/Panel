@@ -36,6 +36,9 @@ func TestMain(m *testing.M) {
 	_ = config.PanelEnabled.Set(true, false)
 	// the tests sign in directly, without solving the built-in anti-bot check
 	_ = config.CaptchaBuiltin.Set(false, false)
+	// the tests create servers without installing them: no downloads, and no install
+	// holding the server while the next test edits it
+	_ = config.ServersAutoInstall.Set(false, false)
 	// _ = config.DatabaseLoggingEnabled.Set(false, false)
 
 	_ = os.Remove("testing.db")

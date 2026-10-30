@@ -69,6 +69,7 @@ var ErrServerOwner = CreateError("the server's owner cannot be removed or limite
 var ErrAPIKeyNotAllowed = CreateError("this API key is not allowed to do that", "ErrAPIKeyNotAllowed")
 var ErrAPIKeyPermissions = CreateError("pick at least one action, from: create, terminate, suspend, change-package, sso", "ErrAPIKeyPermissions")
 var ErrDiskLimitExceeded = CreateError("the server has used all of its disk space, delete files to free some", "ErrDiskLimitExceeded")
+var ErrNodeDiskFull = CreateError("the node is almost out of disk space, free some before installing", "ErrNodeDiskFull")
 var ErrNoCommand = CreateError("command could not be determined", "ErrNoCommand")
 var ErrRepoExists = CreateError("repo already exists with given name", "ErrRepoExists")
 var ErrEnvironmentNotSupported = CreateError("environment not supported", "ErrEnvironmentNotSupported")

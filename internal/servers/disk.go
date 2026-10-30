@@ -1,13 +1,17 @@
 package servers
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
 
+	"github.com/SkyPanel/SkyPanel/v3/internal/config"
+	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
+	"github.com/shirou/gopsutil/disk"
 	"github.com/spf13/cast"
 )
 
@@ -45,7 +49,7 @@ func (p *Server) DiskUsage() int64 {
 
 func (p *Server) diskUsageLocked(fresh bool) int64 {
 	if fresh || p.disk.at.IsZero() || time.Since(p.disk.at) > diskUsageTTL {
-		p.disk.bytes = folderSize(p.rootDirectory())
+		p.disk.bytes = folderSize(p.rootDirectory()) + folderSize(p.tmpDirectory())
 		p.disk.at = time.Now()
 	}
 	return p.disk.bytes
@@ -175,6 +179,14 @@ func (p *Server) rootDirectory() string {
 	return p.RunningEnvironment.GetRootDirectory()
 }
 
+// tmpDirectory is the folder a Docker server writes /tmp to; it counts against its disk limit
+func (p *Server) tmpDirectory() string {
+	if p.RunningEnvironment == nil || p.RunningEnvironment.Type != "docker" {
+		return ""
+	}
+	return p.RunningEnvironment.GetTmpDirectory()
+}
+
 func folderSize(root string) int64 {
 	if root == "" {
 		return 0
@@ -190,4 +202,60 @@ func folderSize(root string) int64 {
 		return nil
 	})
 	return size
+}
+
+// NodeDisk is the space of the disk that holds the servers' folders
+type NodeDisk struct {
+	Path        string  `json:"path"`
+	Total       uint64  `json:"total"`
+	Used        uint64  `json:"used"`
+	Free        uint64  `json:"free"`
+	UsedPercent float64 `json:"usedPercent"`
+	// Low is true when the disk is close to full: under 10% or 5 GB free. The panel warns
+	// the administrators then, before an install or a game fills it.
+	Low bool `json:"low"`
+}
+
+const lowDiskBytes = 5 << 30
+
+// NodeDiskUsage measures the disk the servers' folders live on
+func NodeDiskUsage() (*NodeDisk, error) {
+	folder := config.ServersFolder.Value()
+	usage, err := disk.Usage(folder)
+	if err != nil {
+		return nil, err
+	}
+	return &NodeDisk{
+		Path:        folder,
+		Total:       usage.Total,
+		Used:        usage.Used,
+		Free:        usage.Free,
+		UsedPercent: usage.UsedPercent,
+		Low:         usage.Free < lowDiskBytes || usage.Free < usage.Total/10,
+	}, nil
+}
+
+// checkNodeDiskForInstall refuses an install when the node has less free space than
+// daemon.minFreeDiskMB: a game download would fill the disk and stop every server on it.
+func (p *Server) checkNodeDiskForInstall() error {
+	minFree := uint64(max(config.MinFreeDiskMB.Value(), 0)) << 20
+	if minFree == 0 {
+		return nil
+	}
+	usage, err := NodeDiskUsage()
+	if err != nil {
+		// without a reading the install goes ahead, as before the check existed
+		p.Log(logging.Error, "Could not read the node's free disk space: %s", err)
+		return nil
+	}
+	if usage.Free < minFree {
+		p.RunningEnvironment.DisplayToConsole(true, "The node only has %s free, and an install needs at least %s. Free some space on the node and install again.\n",
+			formatGigabytes(usage.Free), formatGigabytes(minFree))
+		return skypanel.ErrNodeDiskFull
+	}
+	return nil
+}
+
+func formatGigabytes(bytes uint64) string {
+	return fmt.Sprintf("%.1f GB", float64(bytes)/(1<<30))
 }

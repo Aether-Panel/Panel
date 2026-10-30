@@ -201,6 +201,14 @@ func Create(program *Server) (server *Server, err error) {
 		return
 	}
 
+	// the folder belongs to the user the game runs as; otherwise it stays root's until the
+	// server first starts, and a copy or a restored backup lands in a folder the game can't write
+	if env := server.RunningEnvironment; env.GetUID() > 0 && os.Getuid() == 0 {
+		if chownErr := os.Chown(env.GetRootDirectory(), env.GetUID(), env.GetGid()); chownErr != nil && !os.IsNotExist(chownErr) {
+			logging.Error.Printf("[%s] Could not give the server folder to its user: %s", serverID, chownErr)
+		}
+	}
+
 	err = server.GetEnvironment().Create()
 	if err != nil {
 		return
@@ -247,6 +255,12 @@ func Delete(id string) (err error) {
 	err = os.Remove(filepath.Join(config.ServersFolder.Value(), safeID+".json"))
 	if err != nil {
 		logging.Error.Printf("Error removing server: %s", err)
+	}
+	// and so does the folder a Docker server used as /tmp
+	if tmp := program.RunningEnvironment.GetTmpDirectory(); tmp != "" {
+		if err := os.RemoveAll(tmp); err != nil {
+			logging.Error.Printf("Error removing the temporary folder of server %s: %s", safeID, err)
+		}
 	}
 	// the server's tasks, crash reports and notification settings go with it
 	forgetMetrics(safeID)

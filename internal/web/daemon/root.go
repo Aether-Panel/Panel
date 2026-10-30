@@ -12,6 +12,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers"
+	"github.com/SkyPanel/SkyPanel/v3/internal/servers/docker"
 	"github.com/SkyPanel/SkyPanel/v3/internal/update"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
@@ -35,6 +36,10 @@ func RegisterDaemonRoutes(e *gin.RouterGroup) {
 	// host details (hostname, disks, CPU) are only for the panel, and each call blocks for a second
 	e.GET("system", middleware.ValidateJWT, getSystemInfo)
 	e.Handle("OPTIONS", "system", response.CreateOptions("GET"))
+
+	// host ports the containers running on this node publish, for the panel's port checks
+	e.GET("ports", middleware.ValidateJWT, getPublishedPorts)
+	e.Handle("OPTIONS", "ports", response.CreateOptions("GET"))
 
 	e.POST("update", middleware.ValidateJWT, daemonUpdate)
 	e.Handle("OPTIONS", "update", response.CreateOptions("POST"))
@@ -164,22 +169,26 @@ type DiskInfo struct {
 } // @name DiskInfo
 
 type SystemInfo struct {
-	Hostname         string      `json:"hostname"`
-	OS               string      `json:"os"`
-	Platform         string      `json:"platform"`
-	PlatformVer      string      `json:"platformVersion"`
-	Arch             string      `json:"arch"`
-	CPUModel         string      `json:"cpuModel"`
-	CPUCores         int         `json:"cpuCores"`
-	CPUThreads       int         `json:"cpuThreads"`
-	CPUUsage         float64     `json:"cpuUsage"`
-	MemoryTotal      uint64      `json:"memoryTotal"`
-	MemoryUsed       uint64      `json:"memoryUsed"`
-	MemoryFree       uint64      `json:"memoryFree"`
-	Disks            []*DiskInfo `json:"disks"`
-	Uptime           uint64      `json:"uptime"`
-	NetworkBytesSent uint64      `json:"networkBytesSent"`
-	NetworkBytesRecv uint64      `json:"networkBytesRecv"`
+	Hostname    string  `json:"hostname"`
+	OS          string  `json:"os"`
+	Platform    string  `json:"platform"`
+	PlatformVer string  `json:"platformVersion"`
+	Arch        string  `json:"arch"`
+	CPUModel    string  `json:"cpuModel"`
+	CPUCores    int     `json:"cpuCores"`
+	CPUThreads  int     `json:"cpuThreads"`
+	CPUUsage    float64 `json:"cpuUsage"`
+	MemoryTotal uint64  `json:"memoryTotal"`
+	MemoryUsed  uint64  `json:"memoryUsed"`
+	MemoryFree  uint64  `json:"memoryFree"`
+	// MemoryAvailable is what can still be given out without swapping (free plus caches)
+	MemoryAvailable uint64      `json:"memoryAvailable"`
+	Disks           []*DiskInfo `json:"disks"`
+	// ServersDisk is the disk that holds the servers' folders, whichever partition it is
+	ServersDisk      *servers.NodeDisk `json:"serversDisk,omitempty"`
+	Uptime           uint64            `json:"uptime"`
+	NetworkBytesSent uint64            `json:"networkBytesSent"`
+	NetworkBytesRecv uint64            `json:"networkBytesRecv"`
 } // @name SystemInfo
 
 // @Summary Get system information
@@ -224,6 +233,7 @@ func getSystemInfo(c *gin.Context) {
 		sysInfo.MemoryTotal = memInfo.Total
 		sysInfo.MemoryUsed = memInfo.Used
 		sysInfo.MemoryFree = memInfo.Free
+		sysInfo.MemoryAvailable = memInfo.Available
 	}
 
 	// Get CPU usage (percentage)
@@ -233,11 +243,25 @@ func getSystemInfo(c *gin.Context) {
 
 	// Get disk info
 	sysInfo.Disks = append(sysInfo.Disks, collectDiskInfo()...)
+	if serversDisk, err := servers.NodeDiskUsage(); err == nil {
+		sysInfo.ServersDisk = serversDisk
+	}
 
 	// Get network statistics
 	sysInfo.NetworkBytesSent, sysInfo.NetworkBytesRecv = totalNetworkBytes()
 
 	c.JSON(http.StatusOK, sysInfo)
+}
+
+// getPublishedPorts lists the host ports published by the containers running on the node, each
+// with the container's name: the panel's own (panel, SFTP, database, Adminer) and the servers'.
+func getPublishedPorts(c *gin.Context) {
+	ports, err := docker.PublishedHostPorts(c.Request.Context())
+	if err != nil {
+		// no Docker on this node: nothing published, the panel still checks its own records
+		ports = map[uint16]string{}
+	}
+	c.JSON(http.StatusOK, gin.H{"ports": ports})
 }
 
 // collectDiskInfo reports the usage of every mounted partition that can be read

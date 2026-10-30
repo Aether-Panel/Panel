@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -377,6 +378,24 @@ func getServer(c *gin.Context) {
 // @Tags Daemon Servers
 // @Router /api/servers/{id} [put]
 // @Security OAuth2Application[server.create]
+// startFirstInstall runs the template's installation on a server that was just created, so it
+// is ready to start without anyone pressing Install. The node answers at once and installs in
+// the background; if it cannot, the server stays as before and is installed by hand.
+func startFirstInstall(ns *services.Node, node *models.Node, serverID string) {
+	if !config.ServersAutoInstall.Value() {
+		return
+	}
+	res, err := ns.CallNode(node, http.MethodPost, daemonServerPrefix+serverID+"/install", nil, nil)
+	defer utils.CloseResponse(res)
+	if err != nil {
+		logging.Error.Printf("[%s] Could not start the first installation: %s", serverID, err)
+		return
+	}
+	if res.StatusCode >= http.StatusMultipleChoices {
+		logging.Error.Printf("[%s] Could not start the first installation: the node answered %d", serverID, res.StatusCode)
+	}
+}
+
 func createServer(c *gin.Context) {
 	db := middleware.GetDatabase(c)
 	ns := &services.Node{DB: db}
@@ -444,6 +463,8 @@ func createServer(c *gin.Context) {
 	if hasParentServer(server) {
 		updateParentServerLimitsOnNode(c, db, ns, node, server, parentAvailableCPU, parentAvailableMemory, parentAvailableDisk)
 	}
+
+	startFirstInstall(ns, node, server.Identifier)
 
 	sendServerCreationEmails(users, server)
 	// a new server gets its subdomain once; editing it later must not give back one the owner removed
@@ -1844,6 +1865,7 @@ func validatePortsAgainstNode(db *gorm.DB, nodeID uint, excludeIdentifier string
 	if err != nil {
 		return err
 	}
+	reserved := nodeOwnPorts(db, nodeID)
 
 	seen := make(map[uint16]bool)
 	for _, p := range ports {
@@ -1856,6 +1878,9 @@ func validatePortsAgainstNode(db *gorm.DB, nodeID uint, excludeIdentifier string
 		if seen[p] {
 			return fmt.Errorf("el puerto %d está duplicado", p)
 		}
+		if reserved[p] {
+			return fmt.Errorf("el puerto %d lo usa el propio panel en este nodo", p)
+		}
 		if used[p] {
 			return fmt.Errorf("el puerto %d ya está en uso por otro servidor en este nodo", p)
 		}
@@ -1867,6 +1892,85 @@ func validatePortsAgainstNode(db *gorm.DB, nodeID uint, excludeIdentifier string
 
 // portsTakenByOtherServers collects every port already assigned to the
 // servers on the node, skipping the server being edited.
+// nodeOwnPorts are the ports the node itself listens on (web and SFTP); a server given one of
+// them could be created but never started.
+func nodeOwnPorts(db *gorm.DB, nodeID uint) map[uint16]bool {
+	own := make(map[uint16]bool)
+	node, err := (&services.Node{DB: db}).Get(nodeID)
+	if err != nil || node == nil {
+		return own
+	}
+	for _, p := range []uint16{node.PublicPort, node.PrivatePort, node.SFTPPort} {
+		if p != 0 {
+			own[p] = true
+		}
+	}
+	return own
+}
+
+// validateOtherPorts checks the template's other port variables (query, RCON…) the way the
+// main ones are, except that they may share a number with each other or with the main port
+// on purpose (a game answering queries on its own port).
+func validateOtherPorts(db *gorm.DB, nodeID uint, variables map[string]skypanel.Variable) error {
+	used, err := portsTakenByOtherServers(db, nodeID, "")
+	if err != nil {
+		return err
+	}
+	reserved := nodeOwnPorts(db, nodeID)
+	for _, key := range sortedKeys(variables) {
+		if !isOtherPortVariable(key, variables[key]) {
+			continue
+		}
+		p := servers.PortValue(variables[key].Value)
+		switch {
+		case p == 0:
+		case p < 1024:
+			return fmt.Errorf("el puerto %d (%s) está fuera del rango permitido (1024-65535)", p, key)
+		case reserved[p]:
+			return fmt.Errorf("el puerto %d (%s) lo usa el propio panel en este nodo", p, key)
+		case used[p]:
+			return fmt.Errorf("el puerto %d (%s) ya está en uso por otro servidor en este nodo", p, key)
+		}
+	}
+	return nil
+}
+
+// isOtherPortVariable is a port variable besides port, port2…: the ones the clone knows
+// (queryport, rcon_port…) and any whole number whose name ends in "port" (webadminport,
+// txadminport), which templates name freely.
+func isOtherPortVariable(key string, variable skypanel.Variable) bool {
+	if isMainPortVariable(key) {
+		return false
+	}
+	if servers.IsPortVariable(key) {
+		return true
+	}
+	return strings.HasSuffix(strings.ToLower(key), "port") && variable.Type.Type == "integer"
+}
+
+// isMainPortVariable is port, port2, port3…: the ones the panel tracks as the server's ports
+func isMainPortVariable(key string) bool {
+	rest, ok := strings.CutPrefix(key, "port")
+	if !ok {
+		return false
+	}
+	for _, r := range rest {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func sortedKeys(variables map[string]skypanel.Variable) []string {
+	keys := make([]string, 0, len(variables))
+	for k := range variables {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
 func portsTakenByOtherServers(db *gorm.DB, nodeID uint, excludeIdentifier string) (map[uint16]bool, error) {
 	query := db.Model(&models.Server{})
 	if nodeID == 0 {
@@ -2389,6 +2493,10 @@ func validateAndBuildServerCreation(c *gin.Context, db *gorm.DB, us *services.Us
 			response.HandleError(c, err, http.StatusBadRequest)
 			return nil, nil, err
 		}
+	}
+	if err := validateOtherPorts(db, postBody.NodeID, postBody.Variables); err != nil {
+		response.HandleError(c, err, http.StatusBadRequest)
+		return nil, nil, err
 	}
 
 	if postBody.Name == "" {
