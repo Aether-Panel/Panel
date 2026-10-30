@@ -640,6 +640,55 @@ function PortNotice({ id, check, onUse, t }: Readonly<{ id: string; check?: Port
     );
 }
 
+/** The ports the form asks for, by variable (and `extra:<n>` for the added ones), to check on the node. */
+function portsToCheck(variables: Record<string, any>, configData: Record<string, any>, extraPorts: string[]): Record<string, number> {
+    const ports: Record<string, number> = {};
+    const add = (key: string, value: unknown) => {
+        const port = Number(value);
+        if (Number.isInteger(port) && port > 0) ports[key] = port;
+    };
+    for (const [key, variable] of Object.entries(variables)) {
+        if (variable && !variable.internal && isPortField(key, variable)) add(key, configData[key]);
+    }
+    extraPorts.forEach((value, idx) => add(`extra:${idx}`, value));
+    return ports;
+}
+
+type Notice = { tone: 'error' | 'warning'; key: string; vars: Record<string, string> };
+
+/** What to say about the memory asked for, against the node and the template (null: nothing). */
+function memoryNoticeFor(memoryMb: number, nodeInfo: any, recommendedMemory: number | null): Notice | null {
+    if (memoryMb <= 0) return null;
+    const total = nodeInfo?.memoryTotal ?? 0;
+    const available = nodeInfo?.memoryAvailable || nodeInfo?.memoryFree || 0;
+    if (total > 0 && memoryMb * MB > total) return { tone: 'error', key: 'memoryOverNode', vars: { total: formatBytes(total) } };
+    if (available > 0 && memoryMb * MB > available) return { tone: 'warning', key: 'memoryOverFree', vars: { free: formatBytes(available) } };
+    if (recommendedMemory && memoryMb < recommendedMemory) return { tone: 'warning', key: 'memoryBelowTemplate', vars: { size: formatBytes(recommendedMemory * MB) } };
+    return null;
+}
+
+/** What to say about the node's disk for the disk limit asked for (null: nothing). */
+function diskNoticeFor(diskMb: number, serversDisk: any): Notice | null {
+    if (serversDisk?.low) return { tone: 'warning', key: 'nodeDiskLow', vars: { free: formatBytes(serversDisk.free) } };
+    if (serversDisk?.free && diskMb * MB > serversDisk.free) return { tone: 'warning', key: 'diskOverFree', vars: { free: formatBytes(serversDisk.free) } };
+    return null;
+}
+
+/**
+ * Stable React keys for the added ports, which are plain strings that change as they are
+ * typed: one id per row, removed with its row, so a row keeps its input (and focus).
+ */
+function useRowIds(count: number) {
+    const ids = useRef<number[]>([]);
+    const next = useRef(0);
+    while (ids.current.length < count) ids.current.push(next.current++);
+    if (ids.current.length > count) ids.current.length = count;
+    return {
+        ids: ids.current,
+        remove: (idx: number) => { ids.current.splice(idx, 1); },
+    };
+}
+
 /** A warning under a resource field: red when the server cannot get it, amber when it is only risky. */
 function ResourceNotice({ tone, children }: Readonly<{ tone: 'error' | 'warning'; children: React.ReactNode }>) {
     return (
@@ -675,37 +724,18 @@ function Step3Configuration({
     }, [neededJava, javaVariable, setConfigData]);
 
     const templateVariables = (templateDetails?.data || templateDetails?.variables || templateDetails?.Variables || {}) as Record<string, any>;
-    const portsToCheck: Record<string, number> = {};
-    for (const [key, variable] of Object.entries(templateVariables)) {
-        const port = Number(configData[key]);
-        if (variable && !variable.internal && isPortField(key, variable) && Number.isInteger(port) && port > 0) portsToCheck[key] = port;
-    }
-    (extraPorts as string[]).forEach((value, idx) => {
-        const port = Number(value);
-        if (Number.isInteger(port) && port > 0) portsToCheck[`extra:${idx}`] = port;
-    });
-    const portChecks = usePortCheck(nodeId ?? '', portsToCheck);
+    const portChecks = usePortCheck(nodeId ?? '', portsToCheck(templateVariables, configData, extraPorts));
+    const extraRows = useRowIds(extraPorts.length);
 
     // what the chosen node can give: its RAM and the disk its servers live on
-    const memoryMb = Number(memoryLimit) || 0;
-    const nodeTotalMb = nodeInfo?.memoryTotal ? Math.floor(nodeInfo.memoryTotal / MB) : 0;
-    const nodeAvailableBytes = nodeInfo ? (nodeInfo.memoryAvailable || nodeInfo.memoryFree || 0) : 0;
-    let memoryNotice: React.ReactNode = null;
-    if (memoryMb > 0 && nodeTotalMb > 0 && memoryMb > nodeTotalMb) {
-        memoryNotice = <ResourceNotice tone="error">{t('servers.create.memoryOverNode', { total: formatBytes(nodeInfo.memoryTotal) })}</ResourceNotice>;
-    } else if (memoryMb > 0 && nodeAvailableBytes > 0 && memoryMb * MB > nodeAvailableBytes) {
-        memoryNotice = <ResourceNotice tone="warning">{t('servers.create.memoryOverFree', { free: formatBytes(nodeAvailableBytes) })}</ResourceNotice>;
-    } else if (memoryMb > 0 && recommendedMemory && memoryMb < recommendedMemory) {
-        memoryNotice = <ResourceNotice tone="warning">{t('servers.create.memoryBelowTemplate', { size: formatBytes(recommendedMemory * MB) })}</ResourceNotice>;
-    }
-    const serversDisk = nodeInfo?.serversDisk;
-    const diskMb = Number(diskLimit) || 0;
-    let diskNotice: React.ReactNode = null;
-    if (serversDisk?.low) {
-        diskNotice = <ResourceNotice tone="warning">{t('servers.create.nodeDiskLow', { free: formatBytes(serversDisk.free) })}</ResourceNotice>;
-    } else if (serversDisk?.free && diskMb * MB > serversDisk.free) {
-        diskNotice = <ResourceNotice tone="warning">{t('servers.create.diskOverFree', { free: formatBytes(serversDisk.free) })}</ResourceNotice>;
-    }
+    const notices = [
+        memoryNoticeFor(Number(memoryLimit) || 0, nodeInfo, recommendedMemory),
+        diskNoticeFor(Number(diskLimit) || 0, nodeInfo?.serversDisk),
+    ].filter((notice): notice is Notice => notice !== null);
+    const removeExtraPort = (idx: number) => {
+        extraRows.remove(idx);
+        setExtraPorts(extraPorts.filter((_: string, i: number) => i !== idx));
+    };
     const setExtraPort = (idx: number, value: string) => {
         const next = [...extraPorts];
         next[idx] = value;
@@ -762,10 +792,11 @@ function Step3Configuration({
                         <Input id="limit-io" type="number" inputMode="numeric" min={10} max={1000} value={ioLimit} onChange={(e) => setIoLimit(e.target.value === '' ? '' : Number(e.target.value))} className="font-mono tabular-nums" />
                     </div>
                 </div>
-                {(memoryNotice || diskNotice) && (
+                {notices.length > 0 && (
                     <div className="grid gap-1" aria-live="polite">
-                        {memoryNotice}
-                        {diskNotice}
+                        {notices.map((notice) => (
+                            <ResourceNotice key={notice.key} tone={notice.tone}>{t(`servers.create.${notice.key}`, notice.vars)}</ResourceNotice>
+                        ))}
                     </div>
                 )}
             </StepSection>
@@ -843,7 +874,7 @@ function Step3Configuration({
                 {extraPorts.length > 0 && (
                     <div className="grid gap-2 sm:grid-cols-2">
                         {extraPorts.map((p: string, idx: number) => (
-                            <div key={idx} className="grid gap-1.5">
+                            <div key={extraRows.ids[idx]} className="grid gap-1.5">
                             <div className="flex items-center gap-2">
                                 <Input
                                     type="number"
@@ -860,7 +891,7 @@ function Step3Configuration({
                                     variant="ghost"
                                     size="icon"
                                     className="shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive-bright"
-                                    onClick={() => setExtraPorts(extraPorts.filter((_: string, i: number) => i !== idx))}
+                                    onClick={() => removeExtraPort(idx)}
                                     aria-label={t('servers.create.removePort')}
                                 >
                                     <X aria-hidden="true" />
@@ -991,16 +1022,16 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId, 
 
     const parseTemplateVariables = (details: any) => {
         const initial: Record<string, any> = {};
-        setRecommendedMemory(null);
         const rawVars = details.data || details.variables || details.Variables || {};
         const variables = (typeof rawVars === 'object' && rawVars !== null) ? rawVars : {};
+        // the template's own memory: lowering it below that gets a warning
+        setRecommendedMemory(Number(templateVariableValue(variables.memory ?? {})) || null);
 
         Object.entries(variables).forEach(([key, val]: [string, any]) => {
             if (val && typeof val === 'object') {
                 const rawValue = templateVariableValue(val);
                 if (isResourceKey(key)) {
                     setResourceLimit(key, rawValue ? Number(rawValue) : RESOURCE_DEFAULTS[key]);
-                    if (key === 'memory') setRecommendedMemory(Number(rawValue) || null);
                 } else {
                     initial[key] = toConfigValue(rawValue);
                 }

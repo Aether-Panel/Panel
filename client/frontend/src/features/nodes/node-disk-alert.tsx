@@ -21,7 +21,7 @@ export function NodeDiskAlert({ nodes, linkToNode = true }: Readonly<{ nodes: No
   if (low.length === 0) return null;
 
   return (
-    <div role="status" className="grid gap-2">
+    <output className="grid gap-2">
       {low.map((node) => {
         const disk = node.systemInfo?.serversDisk ?? {};
         const name = node.name || String(node.id);
@@ -45,6 +45,6 @@ export function NodeDiskAlert({ nodes, linkToNode = true }: Readonly<{ nodes: No
           </div>
         );
       })}
-    </div>
+    </output>
   );
 }

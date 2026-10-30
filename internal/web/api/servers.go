@@ -387,12 +387,14 @@ func startFirstInstall(ns *services.Node, node *models.Node, serverID string) {
 	}
 	res, err := ns.CallNode(node, http.MethodPost, daemonServerPrefix+serverID+"/install", nil, nil)
 	defer utils.CloseResponse(res)
+	// the id comes from the request path: no line breaks reach the log
+	logID := strings.ReplaceAll(strings.ReplaceAll(serverID, "\n", ""), "\r", "")
 	if err != nil {
-		logging.Error.Printf("[%s] Could not start the first installation: %s", serverID, err)
+		logging.Error.Printf("[%s] Could not start the first installation: %s", logID, err)
 		return
 	}
 	if res.StatusCode >= http.StatusMultipleChoices {
-		logging.Error.Printf("[%s] Could not start the first installation: the node answered %d", serverID, res.StatusCode)
+		logging.Error.Printf("[%s] Could not start the first installation: the node answered %d", logID, res.StatusCode)
 	}
 }
 

@@ -99,6 +99,7 @@ function AppTopBar({ currentPath, searchItems }: Readonly<{ currentPath: string;
     const { t } = useTranslations();
     const { toggleSidebar, state } = useSidebar();
     const isMobile = useIsMobile();
+    const railLabel = t(state === 'expanded' ? 'sidebar.collapse' : 'sidebar.expand');
     const [entityLabels, setEntityLabels] = useState<Record<string, string>>({});
 
     // Layout effect: registered before any page effect can dispatch.
@@ -148,7 +149,7 @@ function AppTopBar({ currentPath, searchItems }: Readonly<{ currentPath: string;
                         size="icon"
                         onClick={toggleSidebar}
                         // phones open the menu as a sheet; on desktop it shrinks the sidebar to the rail and back
-                        aria-label={isMobile ? t('sidebar.toggleMenu') : t(state === 'expanded' ? 'sidebar.collapse' : 'sidebar.expand')}
+                        aria-label={isMobile ? t('sidebar.toggleMenu') : railLabel}
                         aria-expanded={isMobile ? undefined : state === 'expanded'}
                         className="h-9 w-9 shrink-0 rounded-lg border border-border/60 text-muted-foreground hover:border-border hover:bg-accent/60 hover:text-foreground"
                     >
@@ -157,7 +158,7 @@ function AppTopBar({ currentPath, searchItems }: Readonly<{ currentPath: string;
                     </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="hidden md:flex md:items-center md:gap-2">
-                    {t(state === 'expanded' ? 'sidebar.collapse' : 'sidebar.expand')}
+                    {railLabel}
                     <kbd className="rounded border border-border/60 bg-muted/70 px-1 font-mono text-[10px] leading-4">Ctrl B</kbd>
                 </TooltipContent>
             </Tooltip>

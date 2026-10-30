@@ -102,7 +102,28 @@ func portsHeldOnNode(db *gorm.DB, ns *services.Node, node *models.Node, exclude 
 		}
 	}
 
-	// the panel's own node keeps its servers without a node id
+	onNode, err := serversOnNode(db, node)
+	if err != nil {
+		return nil, err
+	}
+	names := make(map[string]string, len(onNode))
+	for _, s := range onNode {
+		names[s.Identifier] = s.Name
+		if s.Identifier != exclude {
+			holdServerPorts(held, s)
+		}
+	}
+
+	for p, container := range publishedPortsOnNode(ns, node) {
+		if _, known := held[p]; !known && container != exclude {
+			held[p] = containerHolder(container, names)
+		}
+	}
+	return held, nil
+}
+
+// serversOnNode lists the node's servers; the panel's own node keeps them without a node id
+func serversOnNode(db *gorm.DB, node *models.Node) ([]*models.Server, error) {
 	query := db.Model(&models.Server{})
 	if node.ID == 0 {
 		query = query.Where("node_id IS NULL")
@@ -110,39 +131,29 @@ func portsHeldOnNode(db *gorm.DB, ns *services.Node, node *models.Node, exclude 
 		query = query.Where("node_id = ?", node.ID)
 	}
 	var onNode []*models.Server
-	if err := query.Find(&onNode).Error; err != nil {
-		return nil, err
-	}
-	names := make(map[string]string, len(onNode))
-	for _, s := range onNode {
-		names[s.Identifier] = s.Name
-		if s.Identifier == exclude {
-			continue
-		}
-		for _, p := range append([]uint16{s.Port}, s.Ports...) {
-			if p != 0 {
-				held[p] = portHolder{reason: portBusyServer, by: s.Name}
-			}
-		}
-	}
+	err := query.Find(&onNode).Error
+	return onNode, err
+}
 
-	for p, container := range publishedPortsOnNode(ns, node) {
-		if container == exclude {
-			continue
-		}
-		if _, known := held[p]; known {
-			continue
-		}
-		switch {
-		case names[container] != "":
-			held[p] = portHolder{reason: portBusyServer, by: names[container]}
-		case strings.HasPrefix(container, "skypanel"):
-			held[p] = portHolder{reason: portBusyPanel, by: container}
-		default:
-			held[p] = portHolder{reason: portBusyContainer, by: container}
+func holdServerPorts(held map[uint16]portHolder, s *models.Server) {
+	for _, p := range append([]uint16{s.Port}, s.Ports...) {
+		if p != 0 {
+			held[p] = portHolder{reason: portBusyServer, by: s.Name}
 		}
 	}
-	return held, nil
+}
+
+// containerHolder names who holds a published port: a server (by its name), the panel's own
+// containers (skypanel, skypanel-mysql, skypanel-adminer) or any other container
+func containerHolder(container string, serverNames map[string]string) portHolder {
+	switch {
+	case serverNames[container] != "":
+		return portHolder{reason: portBusyServer, by: serverNames[container]}
+	case strings.HasPrefix(container, "skypanel"):
+		return portHolder{reason: portBusyPanel, by: container}
+	default:
+		return portHolder{reason: portBusyContainer, by: container}
+	}
 }
 
 // publishedPortsOnNode asks the node which host ports its running containers publish; a node
