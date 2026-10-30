@@ -7,13 +7,13 @@ const API_ERRORS: Record<string, Record<string, string>> = { en: en.apiErrors, e
 
 function localizedError(code: unknown): string | undefined {
     if (typeof code !== 'string') return undefined;
-    let language = 'es';
+    let language = 'en';
     try {
-        language = localStorage.getItem('aether_panel_language') || 'es';
+        language = localStorage.getItem('aether_panel_language') || 'en';
     } catch {
         // storage blocked: the panel's default language
     }
-    return (API_ERRORS[language] ?? API_ERRORS.es)[code];
+    return (API_ERRORS[language] ?? API_ERRORS.en)[code];
 }
 
 export class ApiError extends Error {

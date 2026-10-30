@@ -260,7 +260,7 @@ function StepSection({ title, hint, children }: Readonly<{ title: string; hint?:
 const RequiredMark = () => <span className="ml-0.5 text-destructive-bright" aria-hidden="true">*</span>;
 
 function Step1Environment({
-    name, setName, selectedNode, setSelectedNode, selectedEnvironment, setSelectedEnvironment,
+    name, setName, selectedNode, setSelectedNode,
     selectedUsers, setSelectedUsers, forcedParentId, nodes, users, t
 }: any) {
     const availableUsers = users.filter((u: any) => !selectedUsers.includes(u.id));
@@ -295,18 +295,13 @@ function Step1Environment({
                             </SelectContent>
                         </Select>
                     </div>
+                    {/* servers always run in Docker: the panel's install turns the host environments
+                        off (docker.disallowHost), so there is nothing to choose */}
                     <div className="grid gap-2">
-                        <Label htmlFor="server-environment">{t('servers.create.environmentLabel')}</Label>
-                        <Select value={selectedEnvironment} onValueChange={setSelectedEnvironment}>
-                            <SelectTrigger id="server-environment">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className="z-[100] max-h-80 overflow-y-auto">
-                                <SelectItem value="docker">{t('servers.create.environment.docker')}</SelectItem>
-                                <SelectItem value="standard">{t('servers.create.environment.standard')}</SelectItem>
-                                <SelectItem value="tty">{t('servers.create.environment.tty')}</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <span className="text-sm font-medium leading-none">{t('servers.create.environmentLabel')}</span>
+                        <p className="flex h-10 items-center rounded-md border border-border/60 bg-background/30 px-3 text-sm text-muted-foreground">
+                            {t('servers.create.environment.docker')}
+                        </p>
                     </div>
                 </div>
             )}
@@ -933,7 +928,8 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId, 
     const [selectedNode, setSelectedNode] = useState(forcedNodeId || '');
     // the template's own memory: lowering it below that gets a warning
     const [recommendedMemory, setRecommendedMemory] = useState<number | null>(null);
-    const [selectedEnvironment, setSelectedEnvironment] = useState('docker');
+    // servers always run in Docker (see the environment line of the first step)
+    const selectedEnvironment = 'docker';
     const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
 
     useEffect(() => {
@@ -1233,7 +1229,6 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId, 
                             <Step1Environment
                                 name={name} setName={setName}
                                 selectedNode={selectedNode} setSelectedNode={setSelectedNode}
-                                selectedEnvironment={selectedEnvironment} setSelectedEnvironment={setSelectedEnvironment}
                                 selectedUsers={selectedUsers} setSelectedUsers={setSelectedUsers}
                                 forcedParentId={forcedParentId} nodes={nodes} users={users} t={t}
                             />

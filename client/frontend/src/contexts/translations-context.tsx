@@ -31,7 +31,8 @@ interface TranslationsContextType {
 const TranslationsContext = createContext<TranslationsContextType | undefined>(undefined);
 
 export function TranslationsProvider({ children }: Readonly<{ children: ReactNode }>) {
-  const [language, setLanguageState] = useState<Locale>('es');
+  // English until the user picks a language in their profile (kept in localStorage)
+  const [language, setLanguageState] = useState<Locale>('en');
 
   useEffect(() => {
     let storedLang: Locale | null = null;
