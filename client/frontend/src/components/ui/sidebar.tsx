@@ -23,7 +23,8 @@ const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
-const SIDEBAR_WIDTH_ICON = "3rem"
+// The collapsed rail: icons centred in it (see the menu button's left padding)
+const SIDEBAR_WIDTH_ICON = "4.5rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
 
 type SidebarContext = {
@@ -241,7 +242,7 @@ const Sidebar = React.forwardRef<
         {/* This is what handles the sidebar gap on desktop */}
         <div
           className={cn(
-            "duration-200 relative h-svh w-[--sidebar-width] bg-transparent transition-[width] ease-panel motion-reduce:transition-none",
+            "duration-300 relative h-svh w-[--sidebar-width] bg-transparent transition-[width] ease-panel motion-reduce:transition-none",
             "group-data-[collapsible=offcanvas]:w-0",
             "group-data-[side=right]:rotate-180",
             variant === "floating" || variant === "inset"
@@ -251,7 +252,13 @@ const Sidebar = React.forwardRef<
         />
         <div
           className={cn(
-            "duration-200 fixed inset-y-0 z-10 hidden h-svh w-[--sidebar-width] transition-[left,right,width] ease-panel motion-reduce:transition-none md:flex",
+            "group/rail duration-300 fixed inset-y-0 z-10 hidden h-svh w-[--sidebar-width] transition-[left,right,width] ease-panel motion-reduce:transition-none md:flex",
+            // Collapsed to the rail, it opens over the page while the pointer or the keyboard
+            // is in it (after a short pause, so crossing it on the way elsewhere does nothing);
+            // the page keeps the rail's width and does not move.
+            "group-data-[collapsible=icon]:hover:w-[--sidebar-width] group-data-[collapsible=icon]:hover:delay-150 group-data-[collapsible=icon]:focus-within:w-[--sidebar-width]",
+            // open, it also covers the sticky top bar (z-40), which starts right after the rail
+            "group-data-[collapsible=icon]:hover:z-50 group-data-[collapsible=icon]:focus-within:z-50",
             side === "left"
               ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
               : "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]",
@@ -265,7 +272,7 @@ const Sidebar = React.forwardRef<
         >
           <div
             data-sidebar="sidebar"
-            className="flex h-full w-full flex-col bg-sidebar group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow"
+            className="flex h-full w-full flex-col overflow-hidden bg-sidebar transition-shadow duration-300 ease-panel group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow group-data-[collapsible=icon]:group-hover/rail:shadow-elevation-3 group-data-[collapsible=icon]:group-focus-within/rail:shadow-elevation-3"
           >
             {children}
           </div>
@@ -421,7 +428,7 @@ const SidebarContent = React.forwardRef<
       ref={ref}
       data-sidebar="content"
       className={cn(
-        "flex min-h-0 flex-1 flex-col gap-3 overflow-auto group-data-[collapsible=icon]:overflow-hidden",
+        "flex min-h-0 flex-1 flex-col gap-3 overflow-auto group-data-[collapsible=icon]:overflow-x-hidden",
         className
       )}
       {...props}
@@ -457,7 +464,7 @@ const SidebarGroupLabel = React.forwardRef<
       data-sidebar="group-label"
       className={cn(
         "flex h-7 shrink-0 items-center rounded-md px-2 text-xs font-semibold text-sidebar-foreground/70 outline-none ring-sidebar-ring transition-[margin,opacity] duration-200 ease-panel focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0",
-        "group-data-[collapsible=icon]:-mt-7 group-data-[collapsible=icon]:opacity-0",
+        "group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:group-hover/rail:opacity-100 group-data-[collapsible=icon]:group-focus-within/rail:opacity-100 motion-reduce:transition-none",
         className
       )}
       {...props}
@@ -530,7 +537,11 @@ SidebarMenuItem.displayName = "SidebarMenuItem"
 
 const sidebarMenuButtonVariants = cva(
   [
-    "peer/menu-button relative flex w-full items-center gap-2 overflow-hidden rounded-lg p-2 text-left text-sm outline-none ring-sidebar-ring transition-[color,background-color,box-shadow] duration-200 ease-panel hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2 group-data-[collapsible=icon]:transition-all motion-reduce:transition-none [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-sidebar-foreground/60 [&>svg]:transition-colors [&>svg]:duration-200",
+    "peer/menu-button relative flex w-full items-center gap-2 overflow-hidden rounded-lg py-2 pl-5 pr-2 text-left text-sm outline-none ring-sidebar-ring transition-[color,background-color,box-shadow] duration-200 ease-panel hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground motion-reduce:transition-none [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-sidebar-foreground/60 [&>svg]:transition-colors [&>svg]:duration-200",
+    // In the collapsed rail only the icons show (the 20px left padding centres them in it);
+    // the labels fade back in while the rail is open.
+    "[&>span:last-child]:transition-opacity [&>span:last-child]:duration-200 [&>span:last-child]:ease-panel motion-reduce:[&>span:last-child]:transition-none",
+    "group-data-[collapsible=icon]:[&>span:last-child]:opacity-0 group-data-[collapsible=icon]:group-hover/rail:[&>span:last-child]:opacity-100 group-data-[collapsible=icon]:group-focus-within/rail:[&>span:last-child]:opacity-100",
     // Accent rail on the selected item. Drawn with a pseudo-element so
     // it also shows when the button renders as a child element (`asChild`).
     "before:absolute before:left-0 before:top-1/2 before:h-4 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-primary before:opacity-0 before:transition-opacity before:duration-200 before:ease-panel motion-reduce:before:transition-none",
@@ -546,7 +557,7 @@ const sidebarMenuButtonVariants = cva(
       size: {
         default: "h-9 text-sm",
         sm: "h-7 text-xs",
-        lg: "h-12 text-sm group-data-[collapsible=icon]:!p-0",
+        lg: "h-12 text-sm",
       },
     },
     defaultVariants: {

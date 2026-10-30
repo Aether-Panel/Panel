@@ -164,7 +164,9 @@
     "roleBadge": {
       "admin": "Administrador",
       "user": "Usuario"
-    }
+    },
+    "collapse": "Contraer menú",
+    "expand": "Expandir menú"
   },
   "userMenu": {
     "settings": "Configuración",

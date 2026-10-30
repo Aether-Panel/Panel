@@ -36,6 +36,7 @@ import {
     LogOut,
     Menu,
     Network,
+    PanelLeft,
     Server,
     Settings,
     ShieldCheck,
@@ -43,6 +44,7 @@ import {
 } from '@/components/icons';
 import type { AppIcon } from '@/components/icons';
 import { Logo } from '@/components/logo';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { AmbientBackdrop } from '@/components/ambient-backdrop';
 import { SpotlightTracker } from '@/components/spotlight';
 import { GlideMenu } from '@/components/glide-menu';
@@ -82,6 +84,9 @@ const SEGMENT_LABEL_KEYS: Record<string, string> = {
     extension: 'sidebar.groups.extensions',
 };
 
+/** Hidden in the collapsed sidebar rail, faded back in while the rail is open. */
+const RAIL_FADE = "transition-opacity duration-200 ease-panel motion-reduce:transition-none group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:group-hover/rail:opacity-100 group-data-[collapsible=icon]:group-focus-within/rail:opacity-100";
+
 /** Detail pages dispatch this with `{ id, label }` once the entity name is known. */
 const BREADCRUMB_EVENT = 'aether:breadcrumb';
 
@@ -93,6 +98,7 @@ const BREADCRUMB_EVENT = 'aether:breadcrumb';
 function AppTopBar({ currentPath, searchItems }: Readonly<{ currentPath: string; searchItems: QuickSearchItem[] }>) {
     const { t } = useTranslations();
     const { toggleSidebar, state } = useSidebar();
+    const isMobile = useIsMobile();
     const [entityLabels, setEntityLabels] = useState<Record<string, string>>({});
 
     // Layout effect: registered before any page effect can dispatch.
@@ -135,19 +141,26 @@ function AppTopBar({ currentPath, searchItems }: Readonly<{ currentPath: string;
 
     return (
         <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-2 border-b border-border/60 bg-background/80 px-3 backdrop-blur-xl md:gap-3 md:px-6">
-            <Button
-                variant="ghost"
-                size="icon"
-                onClick={toggleSidebar}
-                aria-label={t('sidebar.toggleMenu')}
-                // on desktop it only shows while the sidebar is hidden, so it can always be brought back
-                className={cn(
-                    "h-9 w-9 shrink-0 rounded-lg border border-border/60 text-muted-foreground hover:border-border hover:bg-accent/60 hover:text-foreground",
-                    state === 'expanded' && "md:hidden"
-                )}
-            >
-                <Menu aria-hidden="true" />
-            </Button>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={toggleSidebar}
+                        // phones open the menu as a sheet; on desktop it shrinks the sidebar to the rail and back
+                        aria-label={isMobile ? t('sidebar.toggleMenu') : t(state === 'expanded' ? 'sidebar.collapse' : 'sidebar.expand')}
+                        aria-expanded={isMobile ? undefined : state === 'expanded'}
+                        className="h-9 w-9 shrink-0 rounded-lg border border-border/60 text-muted-foreground hover:border-border hover:bg-accent/60 hover:text-foreground"
+                    >
+                        <Menu aria-hidden="true" className="md:hidden" />
+                        <PanelLeft aria-hidden="true" weight={state === 'expanded' ? 'regular' : 'duotone'} className="hidden md:block" />
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="hidden md:flex md:items-center md:gap-2">
+                    {t(state === 'expanded' ? 'sidebar.collapse' : 'sidebar.expand')}
+                    <kbd className="rounded border border-border/60 bg-muted/70 px-1 font-mono text-[10px] leading-4">Ctrl B</kbd>
+                </TooltipContent>
+            </Tooltip>
 
             <nav aria-label={t('header.breadcrumbs')} className="min-w-0 flex-1">
                 <ol className="flex min-w-0 items-center gap-1 text-sm sm:gap-1.5">
@@ -312,9 +325,10 @@ function AppLayoutInner({ children, currentPath }: Readonly<{ children: ReactNod
 
     return (
         <SidebarProvider>
-            <Sidebar collapsible="offcanvas" mobileCloseLabel={t('sidebar.closeMenu')}>
+            <Sidebar collapsible="icon" mobileCloseLabel={t('sidebar.closeMenu')}>
                 <SidebarHeader className="relative overflow-hidden border-b border-sidebar-border/60 p-0">
-                    <div className="relative px-4 pb-4 pt-5">
+                    {/* 24px in: the mark sits centred in the collapsed rail, where it stays */}
+                    <div className="relative pb-4 pl-6 pr-4 pt-5">
                         <Logo />
                     </div>
                 </SidebarHeader>
@@ -329,7 +343,6 @@ function AppLayoutInner({ children, currentPath }: Readonly<{ children: ReactNod
                                             <SidebarMenuButton
                                                 asChild
                                                 isActive={isCurrent(item.href)}
-                                                tooltip={item.label}
                                                 // the glide pill is the hover surface; the active gradient stays
                                                 className="hover:bg-transparent data-[active=true]:bg-transparent data-[active=true]:bg-gradient-to-r"
                                             >
@@ -359,7 +372,11 @@ function AppLayoutInner({ children, currentPath }: Readonly<{ children: ReactNod
                         <DropdownMenuTrigger asChild>
                             <Button
                                 variant="ghost"
-                                className="group/user h-14 w-full justify-start gap-3 rounded-xl border border-sidebar-border/60 bg-sidebar-accent/40 px-2.5 text-left hover:border-sidebar-border hover:bg-sidebar-accent data-[state=open]:border-primary/40 data-[state=open]:bg-sidebar-accent"
+                                className={cn(
+                                    "group/user h-14 w-full justify-start gap-3 overflow-hidden rounded-xl border border-sidebar-border/60 bg-sidebar-accent/40 pl-1.5 pr-2.5 text-left hover:border-sidebar-border hover:bg-sidebar-accent data-[state=open]:border-primary/40 data-[state=open]:bg-sidebar-accent",
+                                    // the collapsed rail shows the avatar alone, centred; the card comes back when it opens
+                                    "group-data-[collapsible=icon]:border-transparent group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:group-hover/rail:border-sidebar-border/60 group-data-[collapsible=icon]:group-hover/rail:bg-sidebar-accent/40 group-data-[collapsible=icon]:group-focus-within/rail:border-sidebar-border/60",
+                                )}
                             >
                                 <UserAvatar
                                     identity={user?.email || displayName}
@@ -368,7 +385,7 @@ function AppLayoutInner({ children, currentPath }: Readonly<{ children: ReactNod
                                     className="h-9 w-9 ring-1 ring-sidebar-border/70 transition-shadow duration-200 ease-panel group-hover/user:ring-primary/40"
                                     fallbackClassName="bg-primary/15 text-[13px] text-primary-bright"
                                 />
-                                <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
+                                <div className={cn("flex min-w-0 flex-1 flex-col items-start gap-1", RAIL_FADE)}>
                                     <div className="flex w-full min-w-0 items-center gap-1.5">
                                         <span className="truncate text-sm font-medium leading-none text-sidebar-foreground">{displayName}</span>
                                         <Badge
@@ -380,7 +397,7 @@ function AppLayoutInner({ children, currentPath }: Readonly<{ children: ReactNod
                                     </div>
                                     <span className="w-full truncate text-[11px] leading-none text-muted-foreground">{user?.email}</span>
                                 </div>
-                                <ChevronsUpDown aria-hidden="true" className="shrink-0 text-sidebar-foreground/40 transition-colors duration-200 ease-panel group-hover/user:text-sidebar-foreground/70 group-data-[state=open]/user:text-sidebar-foreground/70" />
+                                <ChevronsUpDown aria-hidden="true" className={cn("shrink-0 text-sidebar-foreground/40 transition-[color,opacity] duration-200 ease-panel group-hover/user:text-sidebar-foreground/70 group-data-[state=open]/user:text-sidebar-foreground/70", RAIL_FADE)} />
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent
