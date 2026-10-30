@@ -67,6 +67,7 @@ All nested keys with `.` are converted to `_`. `SKYPANEL_` prefix:
 | `panel.license.serverIp` | string | — | Server IP for license |
 | `panel.sessionKey` | string | — | Key for session encryption (auto-generated) |
 | `panel.registrationEnabled` | bool | `true` | Allows user registration |
+| `panel.servers.autoInstall` | bool | `true` | Runs the template's installation as soon as a server is created (also from billing; copies are not reinstalled) |
 | `panel.token` | string | — | Ed25519 private key (JWT) |
 | `panel.turnstile.siteKey` | string | — | Cloudflare Turnstile Site Key |
 | `panel.turnstile.secretKey` | string | — | Cloudflare Turnstile Secret Key |
@@ -163,6 +164,7 @@ All nested keys with `.` are converted to `_`. `SKYPANEL_` prefix:
 | `daemon.data.servers` | string | `servers` | Servers folder |
 | `daemon.data.backups.folder` | string | `backups` | Backups folder |
 | `daemon.data.binaries` | string | `binaries` | Binaries folder |
+| `daemon.minFreeDiskMB` | int | `2048` | Free space (MB) the servers' disk must keep: an install that starts with less is refused; `0` turns the check off |
 | `daemon.data.crashLimit` | int | `3` | Crash limit before suspend |
 | `daemon.data.root` | string | (auto) | Data root (parent of servers) |
 | `daemon.curseforge.key` | string | — | CurseForge API key |
@@ -205,6 +207,9 @@ All nested keys with `.` are converted to `_`. `SKYPANEL_` prefix:
 |---|---|---|---|
 | `docker.root` | string | — | Docker root path |
 | `docker.disallowHost` | bool | `false` | Disable host environment (force Docker) |
+| `docker.serversNetwork` | string | — | Docker network for game servers whose template names none (empty: the panel's own network) |
+| `docker.serverUser` | string | `988:988` | `uid:gid` game servers run as when the panel runs as root; installs stay root. `0:0` keeps them running as root. A template's own user always wins |
+| `docker.pidsLimit` | int | `4096` | Processes and threads per server container (stops a fork bomb); `0` = no limit. A template's own limit wins |
 
 ### Node
 
