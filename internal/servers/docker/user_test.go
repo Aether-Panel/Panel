@@ -125,3 +125,20 @@ func TestOwnServerFiles_ChangesOwnerWithoutFollowingLinks(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, uint32(0), info.Sys().(*syscall.Stat_t).Uid, "the file a link points to outside the folder keeps its owner")
 }
+
+func TestLimitProcesses(t *testing.T) {
+	hc := &container.HostConfig{}
+	limitProcesses(hc, 4096)
+	require.NotNil(t, hc.PidsLimit)
+	assert.Equal(t, int64(4096), *hc.PidsLimit)
+
+	none := &container.HostConfig{}
+	limitProcesses(none, 0)
+	assert.Nil(t, none.PidsLimit, "0 leaves the container without a cap")
+
+	own := int64(100)
+	template := &container.HostConfig{}
+	template.PidsLimit = &own
+	limitProcesses(template, 4096)
+	assert.Equal(t, int64(100), *template.PidsLimit, "a template's own cap is kept")
+}

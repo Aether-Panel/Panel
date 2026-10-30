@@ -105,6 +105,18 @@ func harden(hostConfig *container.HostConfig, root bool) {
 	hostConfig.SecurityOpt = securityOpt
 }
 
+// limitProcesses caps the container's processes, threads included, at docker.pidsLimit, unless
+// the template sets its own cap. Wings uses 512, but Java servers start threads per CPU core,
+// so a modded server on a many-core host can need hundreds; the default leaves room for that
+// and still stops a fork bomb.
+func limitProcesses(hostConfig *container.HostConfig, limit int) {
+	if hostConfig.PidsLimit != nil || limit <= 0 {
+		return
+	}
+	pids := int64(limit)
+	hostConfig.PidsLimit = &pids
+}
+
 // ownServerFiles gives every file in the server folder to the user the game runs as, before
 // each start, as Wings does. Files an install (run as root) or the panel left behind would
 // otherwise be read-only for the game, and servers created while games ran as root move over

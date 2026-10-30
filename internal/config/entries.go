@@ -143,6 +143,10 @@ var DockerServersNetwork = asString("docker.serversNetwork", "")
 // stay root). "0:0" keeps them running as root.
 var DockerServerUser = asString("docker.serverUser", "988:988")
 
+// DockerPidsLimit caps the processes and threads of each server container, so a fork bomb in
+// a plugin cannot take the whole machine down. 0 removes the cap.
+var DockerPidsLimit = asInt("docker.pidsLimit", 4096)
+
 type entry[T ValueType] struct {
 	key string
 }

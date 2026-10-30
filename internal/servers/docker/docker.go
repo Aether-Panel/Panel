@@ -863,6 +863,7 @@ func (d *Docker) createContainer(ctx context.Context, environment *skypanel.Envi
 	applyResourceLimits(hostConfig, data.Variables)
 	// a user the panel cannot read (a name) may be root: it keeps the capabilities root needs
 	harden(hostConfig, uid <= 0)
+	limitProcesses(hostConfig, config.DockerPidsLimit.Value())
 
 	networkConfig := &network.NetworkingConfig{}
 
