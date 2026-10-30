@@ -449,11 +449,16 @@ func (d *Docker) networkRates(data *container.StatsResponse) (float64, float64) 
 	return rxRate, txRate
 }
 
-// refreshDirSize walks the server folder at most every 30 seconds, it is slow on big servers.
-// Callers must hold statLocker.
+// refreshDirSize updates the folder size for the stats at most every 30 seconds: walking a big
+// server's folder is slow. It is the server's own disk measure when there is one, so the folder
+// is not walked twice. Callers must hold statLocker.
 func (d *Docker) refreshDirSize(environment *skypanel.Environment) {
 	if !d.disableSpecialStats && (d.dirSizeTime.IsZero() || time.Since(d.dirSizeTime) > 30*time.Second) {
-		d.dirSize = getDirSize(environment.GetRootDirectory()) + getDirSize(environment.GetTmpDirectory())
+		if environment.DiskUsage != nil {
+			d.dirSize = environment.DiskUsage()
+		} else {
+			d.dirSize = getDirSize(environment.GetRootDirectory()) + getDirSize(environment.GetTmpDirectory())
+		}
 		d.dirSizeTime = time.Now()
 	}
 }

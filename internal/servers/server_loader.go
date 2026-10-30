@@ -151,6 +151,9 @@ func LoadFromData(id string, source []byte) (*Server, error) {
 		}
 	}
 
+	// the stats read the folder size the disk limit already measures
+	data.RunningEnvironment.DiskUsage = data.DiskUsage
+
 	fs, err := files.NewFileServer(data.RunningEnvironment.GetRootDirectory(), data.RunningEnvironment.GetUID(), data.RunningEnvironment.GetGid())
 	if err != nil {
 		return nil, err
@@ -320,6 +323,7 @@ func Reload(id string) (err error) {
 	}
 
 	program.RunningEnvironment = newVersion.RunningEnvironment
+	program.RunningEnvironment.DiskUsage = program.DiskUsage
 	program.Server = newVersion.Server
 
 	// Load opened the server folder again and started a scheduler of its own. The server

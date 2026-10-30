@@ -3,8 +3,11 @@ package daemon
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/http"
 	"runtime"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
@@ -236,10 +239,7 @@ func getSystemInfo(c *gin.Context) {
 		sysInfo.MemoryAvailable = memInfo.Available
 	}
 
-	// Get CPU usage (percentage)
-	if cpuPercent, err := cpu.Percent(time.Second, false); err == nil && len(cpuPercent) > 0 {
-		sysInfo.CPUUsage = cpuPercent[0]
-	}
+	sysInfo.CPUUsage = currentCPUUsage()
 
 	// Get disk info
 	sysInfo.Disks = append(sysInfo.Disks, collectDiskInfo()...)
@@ -262,6 +262,40 @@ func getPublishedPorts(c *gin.Context) {
 		ports = map[uint16]string{}
 	}
 	c.JSON(http.StatusOK, gin.H{"ports": ports})
+}
+
+// The node's CPU usage is sampled in the background over two-second windows, so /system answers
+// at once with the latest reading. Measuring it inside the request held every call for a second,
+// and the dashboard, the nodes pages and the new-server wizard ask for it every few seconds.
+var cpuSampler struct {
+	once  sync.Once
+	ready atomic.Bool
+	value atomic.Uint64 // math.Float64bits of the percentage
+}
+
+func currentCPUUsage() float64 {
+	cpuSampler.once.Do(func() { go sampleCPU() })
+	if !cpuSampler.ready.Load() {
+		// first call since the daemon started: a short reading instead of none
+		if percent, err := cpu.Percent(250*time.Millisecond, false); err == nil && len(percent) > 0 {
+			return percent[0]
+		}
+		return 0
+	}
+	return math.Float64frombits(cpuSampler.value.Load())
+}
+
+func sampleCPU() {
+	defer skypanel.Recover()
+	for {
+		percent, err := cpu.Percent(2*time.Second, false)
+		if err != nil || len(percent) == 0 {
+			time.Sleep(2 * time.Second)
+			continue
+		}
+		cpuSampler.value.Store(math.Float64bits(percent[0]))
+		cpuSampler.ready.Store(true)
+	}
 }
 
 // collectDiskInfo reports the usage of every mounted partition that can be read

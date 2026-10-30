@@ -297,6 +297,8 @@ func daemon() error {
 	if err != nil {
 		return err
 	}
+	// the runtime images, downloaded and kept up to date in the background
+	docker.PrefetchImages()
 
 	if _, err = os.Stat(config.ServersFolder.Value()); os.IsNotExist(err) {
 		logging.Info.Printf("No server directory found, creating")

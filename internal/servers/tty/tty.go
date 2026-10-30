@@ -259,7 +259,12 @@ func (t *tty) networkRates() (float64, float64) {
 // Callers must hold statLocker.
 func (t *tty) refreshDirSize(environment *skypanel.Environment) {
 	if t.dirSizeTime.IsZero() || time.Since(t.dirSizeTime) > 30*time.Second {
-		t.dirSize = getDirSize(environment.GetRootDirectory())
+		// the server's own disk measure when there is one, so the folder is not walked twice
+		if environment.DiskUsage != nil {
+			t.dirSize = environment.DiskUsage()
+		} else {
+			t.dirSize = getDirSize(environment.GetRootDirectory())
+		}
 		t.dirSizeTime = time.Now()
 	}
 }

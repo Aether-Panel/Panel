@@ -243,7 +243,7 @@ The limit is the server's `disk` variable, in MB. Without `disk`, or with `0`, t
 ### How it is measured
 
 - The daemon walks the server folder and adds up the size of its files. On Docker its `/tmp` (the `<id>.tmp` folder) counts too.
-- The measure is trusted for 15 seconds. What the panel writes (uploads, SFTP, extraction, plugins) is added at once. What the game itself writes is only seen at the next measure.
+- The measure is trusted for 30 seconds, and the server's stats use that same measure, so the folder is not walked twice. What the panel writes (uploads, SFTP, extraction, plugins) is added at once. What the game itself writes is only seen at the next measure.
 - Deleting files (from the panel or over SFTP) drops the measure, so freed space counts right away.
 
 ### What is blocked

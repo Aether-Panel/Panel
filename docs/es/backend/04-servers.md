@@ -243,7 +243,7 @@ El límite es la variable `disk` del servidor, en MB. Sin `disk`, o con `0`, no 
 ### Cómo se mide
 
 - El daemon recorre la carpeta del servidor y suma el tamaño de sus archivos. En Docker suma también su `/tmp` (la carpeta `<id>.tmp`).
-- La medida vale 15 segundos. Lo que escribe el panel (subidas, SFTP, extracción, plugins) se suma al momento. Lo que escribe el propio juego solo se ve en la siguiente medida.
+- La medida vale 30 segundos, y las estadísticas del servidor usan esa misma medida, así que la carpeta no se recorre dos veces. Lo que escribe el panel (subidas, SFTP, extracción, plugins) se suma al momento. Lo que escribe el propio juego solo se ve en la siguiente medida.
 - Al borrar archivos (desde el panel o por SFTP) la medida se descarta, así que el espacio liberado cuenta enseguida.
 
 ### Qué se bloquea

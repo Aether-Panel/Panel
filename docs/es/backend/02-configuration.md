@@ -210,6 +210,7 @@ All nested keys with `.` are converted to `_`. `SKYPANEL_` prefix:
 | `docker.serversNetwork` | string | — | Docker network for game servers whose template names none (empty: the panel's own network) |
 | `docker.serverUser` | string | `988:988` | `uid:gid` game servers run as when the panel runs as root; installs stay root. `0:0` keeps them running as root. A template's own user always wins |
 | `docker.pidsLimit` | int | `4096` | Processes and threads per server container (stops a fork bomb); `0` = no limit. A template's own limit wins |
+| `docker.prefetchImages` | []string | `ghcr.io/aether-panel/{steamcmd,ubuntu,generic}:latest` | Runtime images downloaded and kept up to date in the background (2 minutes after start, then daily); an old copy no container uses is removed. Empty turns it off |
 
 ### Node
 

@@ -18,7 +18,8 @@ import (
 // diskUsageTTL is how long a measured folder size is trusted before the folder is walked
 // again. Writes made through the panel are added to it as they happen, so in between it
 // only misses what the game itself writes.
-const diskUsageTTL = 15 * time.Second
+// The stats of a running server read this measure too (every 30 seconds), so one walk serves both.
+const diskUsageTTL = 30 * time.Second
 
 // diskUsage is the server folder's size as last measured plus what the panel wrote since.
 type diskUsage struct {

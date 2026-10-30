@@ -151,6 +151,15 @@ var DockerServerUser = asString("docker.serverUser", "988:988")
 // a plugin cannot take the whole machine down. 0 removes the cap.
 var DockerPidsLimit = asInt("docker.pidsLimit", 4096)
 
+// DockerPrefetchImages are downloaded, and kept up to date, in the background on every Docker
+// node, so the first server using one does not wait for it and templates get its latest version.
+// Empty turns it off.
+var DockerPrefetchImages = asStringArray("docker.prefetchImages", []string{
+	"ghcr.io/aether-panel/steamcmd:latest",
+	"ghcr.io/aether-panel/ubuntu:latest",
+	"ghcr.io/aether-panel/generic:latest",
+})
+
 // MinFreeDiskMB is the free space (MB) the node's server folder must keep: an install that
 // starts with less is refused, before a game download fills the disk and takes every server
 // down. 0 turns the check off.

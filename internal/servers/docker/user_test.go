@@ -7,6 +7,7 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/moby/moby/api/types/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -158,4 +159,14 @@ func TestPrepareTmpDir_StartsEmptyAndOpenLikeTmp(t *testing.T) {
 	assert.Equal(t, os.ModeSticky|0o777, info.Mode()&(os.ModeSticky|os.ModePerm))
 
 	assert.NoError(t, prepareTmpDir("", 0, 0), "a server without a folder has nothing to prepare")
+}
+
+func TestRefreshDirSize_UsesTheServersOwnMeasure(t *testing.T) {
+	d := &Docker{}
+	calls := 0
+	env := &skypanel.Environment{RootDirectory: t.TempDir(), DiskUsage: func() int64 { calls++; return 4242 }}
+	d.refreshDirSize(env)
+	assert.Equal(t, int64(4242), d.dirSize, "the stats take the disk limit's measure")
+	d.refreshDirSize(env)
+	assert.Equal(t, 1, calls, "and at most every 30 seconds")
 }
