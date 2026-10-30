@@ -587,7 +587,9 @@
         "unsave": "Remove from favourites"
       },
       "historyHint": "Up and down arrows go through previous commands; Tab completes.",
-      "readOnly": "You can read the console but not send commands. The server's owner can give you that permission."
+      "readOnly": "You can read the console but not send commands. The server's owner can give you that permission.",
+      "expand": "Expand",
+      "collapse": "Collapse"
     },
     "aiSummary": {
       "title": "AI Console Analysis",

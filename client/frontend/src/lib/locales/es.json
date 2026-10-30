@@ -587,7 +587,9 @@
         "unsave": "Quitar de favoritos"
       },
       "historyHint": "Flechas arriba y abajo para recorrer los comandos anteriores; Tab para completar.",
-      "readOnly": "Puedes ver la consola, pero no enviar comandos. El propietario del servidor puede darte ese permiso."
+      "readOnly": "Puedes ver la consola, pero no enviar comandos. El propietario del servidor puede darte ese permiso.",
+      "expand": "Ampliar",
+      "collapse": "Reducir"
     },
     "aiSummary": {
       "title": "Análisis de consola por IA",
