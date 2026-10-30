@@ -351,8 +351,9 @@ Error codes: `ErrFieldRequired`, `ErrFieldLength`, `ErrServerNotFound`, `ErrUser
   "hostname": "node1", "os": "linux", "platform": "ubuntu", "platformVersion": "22.04",
   "arch": "amd64", "uptime": 123456,
   "cpuModel": "Intel Core", "cpuCores": 8, "cpuThreads": 16, "cpuUsage": 25.5,
-  "memoryTotal": 17179869184, "memoryUsed": 8589934592, "memoryFree": 8589934592,
+  "memoryTotal": 17179869184, "memoryUsed": 8589934592, "memoryFree": 8589934592, "memoryAvailable": 12884901888,
   "disks": [ { "path": "/", "total": 1099511627776, "used": 549755813888, "free": 549755813888, "usedPercent": 50.0 } ],
+  "serversDisk": { "path": "servers", "total": 1099511627776, "used": 549755813888, "free": 549755813888, "usedPercent": 50.0, "low": false },
   "networkBytesSent": 1000000, "networkBytesRecv": 2000000
 }
 ```
@@ -516,6 +517,7 @@ See [Authentication](#authentication) for examples.
 | DELETE | `/api/nodes/:id` | `nodes.delete` | Delete node |
 | GET | `/api/nodes/:id/features` | `nodes.view` | Node features |
 | GET | `/api/nodes/:id/system` | `nodes.view` | System info |
+| POST | `/api/nodes/:id/ports/check` | `server.create` | Which ports are taken on the node, and a free one |
 | GET | `/api/nodes/:id/deployment` | `nodes.deploy` | Deployment data |
 
 ### `POST /api/nodes`
@@ -527,6 +529,25 @@ See [Authentication](#authentication) for examples.
 }
 ```
 **Response:** `Node` (includes `id`)
+
+### `POST /api/nodes/:id/ports/check`
+
+Used by the new-server wizard before it creates anything. Body: the ports the form asks for, by
+variable, and optionally the server being edited (its own ports count as free):
+
+```json
+{ "ports": { "port": 8080, "queryport": 27016 }, "exclude": "" }
+```
+
+Each variable comes back free or busy, with who holds it (`range` below 1024, `panel` for the
+panel's own ports and containers, `server`, `container`) and the next free port:
+
+```json
+{ "ports": { "port": { "busy": true, "reason": "panel", "by": "skypanel", "suggestion": 8082 }, "queryport": { "busy": false } } }
+```
+
+`serversDisk` in `SystemInfo` is the disk the servers' folders live on; `low` is true under 10% or
+5 GB free, and the dashboard, the nodes list and the node page warn administrators then.
 
 ### `GET /api/nodes/:id/deployment`
 ```json

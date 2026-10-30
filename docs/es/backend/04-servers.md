@@ -38,6 +38,18 @@ El sistema de servidores se basa en el concepto de **entornos** (`Environment`).
   - `factory.go` — `EnvironmentFactory`
   - `container_mount_source.go` — montaje de bind mounts
   - `imagewriter.go` — descarga de imágenes
+  - `user.go` — usuario del contenedor, permisos y límite de procesos
+
+#### Usuario y aislamiento del contenedor
+
+Cuando el panel corre como root (la instalación normal con Docker), los juegos **no** corren como root, igual que en Pterodactyl:
+
+- **El juego** corre con `docker.serverUser` (`988:988` por defecto). **La instalación** corre como root, porque sus scripts instalan paquetes. Si la plantilla indica su propio usuario, se respeta. Si el panel no corre como root, todo corre con su usuario, como antes.
+- **Antes de cada arranque**, el panel da todos los archivos de la carpeta del servidor a ese usuario, sin seguir enlaces simbólicos. Así se migran solos los servidores creados cuando los juegos corrían como root.
+- **La carpeta del servidor** es de ese usuario desde que se crea, y lo que el panel escribe (gestor de archivos, SFTP, copias, restauraciones) nace con él.
+- **Permisos:** el contenedor del juego pierde las capacidades de Linux que no necesita (la misma lista que Wings) y lleva `no-new-privileges`. Los contenedores que corren como root (instalaciones) conservan las que hacen falta para instalar paquetes.
+- **Límite de procesos:** cada contenedor tiene `docker.pidsLimit` procesos e hilos (4096 por defecto), para que una «fork bomb» no tumbe el nodo.
+- **`/tmp` y `/var/tmp`** son una carpeta junto a la del servidor (`<id>.tmp`): se vacía al crear cada contenedor, cuenta en el límite de disco y se borra con el servidor. No aparece en el gestor de archivos ni en las copias de seguridad.
 
 ## ExtraPortBindings — Puertos Extra en Contenedores
 
@@ -112,8 +124,10 @@ type Reattacher interface {
    │   └── envMapping[type].Create() → EnvironmentImpl
    ├── Crea directorios (root, backup, etc.)
    └── Agrega al cache de servidores
+   (el panel lanza la instalación justo después: panel.servers.autoInstall)
 
 2. POST /daemon/server/:serverId/install
+   ├── Disco del nodo casi lleno → ErrNodeDiskFull (menos de daemon.minFreeDiskMB libres)
    ├── server.Install()
    │   └── Ejecuta operaciones de instalación (descarga, extracción, etc.)
    └── Procesa server.Installation[]
@@ -228,7 +242,7 @@ El límite es la variable `disk` del servidor, en MB. Sin `disk`, o con `0`, no 
 
 ### Cómo se mide
 
-- El daemon recorre la carpeta del servidor y suma el tamaño de sus archivos.
+- El daemon recorre la carpeta del servidor y suma el tamaño de sus archivos. En Docker suma también su `/tmp` (la carpeta `<id>.tmp`).
 - La medida vale 15 segundos. Lo que escribe el panel (subidas, SFTP, extracción, plugins) se suma al momento. Lo que escribe el propio juego solo se ve en la siguiente medida.
 - Al borrar archivos (desde el panel o por SFTP) la medida se descarta, así que el espacio liberado cuenta enseguida.
 

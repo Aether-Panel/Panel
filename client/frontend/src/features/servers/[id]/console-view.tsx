@@ -2,9 +2,10 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { ArrowDown, ChevronDown, ChevronUp, Search, Send, Star, Terminal, X } from '@/components/icons';
+import { ArrowDown, ChevronDown, ChevronUp, Maximize2, Minimize2, Search, Send, Star, Terminal, X } from '@/components/icons';
 import { sileo } from '@/lib/toast';
 import { useId, useState, useRef, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import AISummary from './ai-summary';
 import { AnsiText } from '@/lib/ansi-utils';
 import { useTranslations } from '@/contexts/translations-context';
@@ -95,6 +96,8 @@ export default function ConsoleView({
   const commandRef = useRef<HTMLInputElement>(null);
   const { settings } = useSettings();
   const scrollRef = useRef<HTMLDivElement>(null);
+  // "Expand" opens the console over the whole page; Esc or the same button brings it back
+  const [expanded, setExpanded] = useState(false);
   const commandId = useId();
 
   // The only connection feedback is a short toast when the console comes back after a
@@ -124,11 +127,12 @@ export default function ConsoleView({
     setPinned(true);
   };
 
+  // also when expanding or shrinking, which moves the console to a new element
   useEffect(() => {
     if (scrollRef.current && pinned) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [logs, pinned]);
+  }, [logs, pinned, expanded]);
 
   const handleSendCommand = async (override?: string) => {
     const cmdToSend = override ?? command;
@@ -204,6 +208,20 @@ export default function ConsoleView({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [termHeight, setTermHeight] = useState(500);
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setExpanded(false);
+    };
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKey);
+    commandRef.current?.focus();
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = overflow;
+    };
+  }, [expanded]);
 
   // The console runs down to the page's bottom padding (p-4 md:p-6 lg:p-8 in AppShell), so it
   // fills the space without scrolling the page. It is measured again when anything above it
@@ -216,7 +234,8 @@ export default function ConsoleView({
       let bottomPadding = 16;
       if (window.innerWidth >= 1024) bottomPadding = 32;
       else if (window.innerWidth >= 768) bottomPadding = 24;
-      setTermHeight(Math.max(400, Math.round(window.innerHeight - top - bottomPadding)));
+      // never under 420px; for more room than the page leaves, "Expand" opens it over the page
+      setTermHeight(Math.max(420, Math.round(window.innerHeight - top - bottomPadding)));
     };
     measure();
     window.addEventListener('resize', measure);
@@ -285,7 +304,8 @@ export default function ConsoleView({
     };
     frame.addEventListener('keydown', onKeyDown);
     return () => frame.removeEventListener('keydown', onKeyDown);
-  }, []);
+    // expanding moves the console to a new element: listen on that one
+  }, [expanded]);
   const closeSearch = () => {
     setSearchOpen(false);
     setQuery('');
@@ -304,14 +324,16 @@ export default function ConsoleView({
   let matchLabel = '';
   if (needle) matchLabel = matches.length ? `${Math.min(activeMatch, matches.length - 1) + 1}/${matches.length}` : '0/0';
 
-  return (
-    <div ref={containerRef} className="mt-4">
+  const frame = (
       <div
-        className="relative flex flex-col overflow-hidden rounded-xl border border-border/60 bg-background shadow-elevation-1"
+        className={cn(
+          'relative flex flex-col overflow-hidden rounded-xl border border-border/60 bg-background shadow-elevation-1',
+          expanded && 'fixed inset-3 z-[70] shadow-elevation-3 animate-in fade-in-0 zoom-in-95 duration-200 sm:inset-6',
+        )}
         ref={frameRef}
-        style={{ height: termHeight }}
+        style={expanded ? undefined : { height: termHeight }}
       >
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border/50 px-2 py-1.5 sm:px-3">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border/50 px-2 py-1.5 sm:px-3">
           <div role="radiogroup" aria-label={t('servers.console.filters.label')} className="flex items-center gap-1">
             {(['all', 'error', 'warn'] as Filter[]).map((option) => {
               const count = filterCount(option, counts);
@@ -340,7 +362,7 @@ export default function ConsoleView({
 
           {searchOpen ? (
             // on phones the search takes its own row under the filters
-            <div className="flex min-w-0 basis-full items-center justify-end gap-1 animate-in fade-in-0 slide-in-from-right-2 duration-200 ease-panel sm:basis-auto sm:flex-none">
+            <div className="ml-auto flex min-w-0 basis-full items-center justify-end gap-1 animate-in fade-in-0 slide-in-from-right-2 duration-200 ease-panel sm:basis-auto sm:flex-none">
               <div className="relative min-w-0 flex-1 sm:w-56 sm:flex-none">
                 <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                 <input
@@ -376,12 +398,24 @@ export default function ConsoleView({
               </Button>
             </div>
           ) : (
-            <Button type="button" size="sm" variant="ghost" className="h-7 gap-1.5 px-2 text-xs text-muted-foreground" onClick={openSearch}>
+            <Button type="button" size="sm" variant="ghost" className="ml-auto h-7 gap-1.5 px-2 text-xs text-muted-foreground" onClick={openSearch}>
               <Search aria-hidden="true" className="!size-3.5" />
               {t('servers.console.search.open')}
               <kbd className="hidden rounded border border-border/60 bg-muted/70 px-1 font-mono text-[10px] leading-4 sm:inline">Ctrl F</kbd>
             </Button>
           )}
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 gap-1.5 px-2 text-xs text-muted-foreground"
+            onClick={() => setExpanded((value) => !value)}
+            aria-pressed={expanded}
+          >
+            {expanded ? <Minimize2 aria-hidden="true" className="!size-3.5" /> : <Maximize2 aria-hidden="true" className="!size-3.5" />}
+            <span className="hidden sm:inline">{expanded ? t('servers.console.collapse') : t('servers.console.expand')}</span>
+            <span className="sr-only sm:hidden">{expanded ? t('servers.console.collapse') : t('servers.console.expand')}</span>
+          </Button>
         </div>
 
         <div
@@ -519,6 +553,25 @@ export default function ConsoleView({
         </form>
         )}
       </div>
+  );
+
+  return (
+    <div ref={containerRef} className="mt-4">
+      {/* Expanded, the console leaves the page for <body>: the page's entrance animation
+          would otherwise be what "fixed" is relative to, and the top bar and sidebar
+          would cover it. Its place in the page keeps its height meanwhile. */}
+      {expanded ? (
+        <>
+          <div style={{ height: termHeight }} aria-hidden="true" />
+          {createPortal(
+            <>
+              <div aria-hidden="true" className="fixed inset-0 z-[60] bg-background/70 backdrop-blur-sm animate-in fade-in-0 duration-200" onClick={() => setExpanded(false)} />
+              {frame}
+            </>,
+            document.body,
+          )}
+        </>
+      ) : frame}
 
       {!settings['panel.settings.hideAiAnalysis'] && (
         <Card className="mt-6">

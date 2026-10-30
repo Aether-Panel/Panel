@@ -117,23 +117,24 @@ export function CrashBanner({ serverId, onOpen }: Readonly<{ serverId: string; o
 
   return (
     <output
-      className="relative mt-6 block overflow-hidden rounded-xl border border-destructive/30 bg-destructive/[0.06] p-4 shadow-[0_0_32px_-12px_hsl(var(--destructive)/0.6)] animate-in fade-in-0 slide-in-from-top-2 duration-500 ease-panel sm:p-5"
+      className="relative mt-4 block overflow-hidden rounded-xl border border-destructive/30 bg-destructive/[0.06] px-3 py-2.5 shadow-[0_0_32px_-12px_hsl(var(--destructive)/0.6)] animate-in fade-in-0 slide-in-from-top-2 duration-500 ease-panel sm:px-4"
     >
       {/* a faint wash from the left edge, like light from the warning icon */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 w-48 bg-gradient-to-r from-destructive/15 to-transparent" />
-      <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center">
-        <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-destructive/40 bg-destructive/15 text-destructive-bright">
-          <span aria-hidden="true" className="absolute inset-0 animate-ping rounded-xl bg-destructive/20 [animation-duration:2.4s]" />
-          <AlertOctagon className="relative h-5 w-5" aria-hidden="true" />
+      {/* one slim line above the console, so it does not eat into the console's height */}
+      <div className="relative flex flex-wrap items-center gap-x-3 gap-y-2">
+        <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-destructive/40 bg-destructive/15 text-destructive-bright">
+          <span aria-hidden="true" className="absolute inset-0 animate-ping rounded-lg bg-destructive/20 [animation-duration:2.4s]" />
+          <AlertOctagon className="relative h-4 w-4" aria-hidden="true" />
         </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-foreground">{t('servers.crashes.banner.title', { time: time(latest.time) })}</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
+        <div className="flex min-w-0 flex-1 flex-col gap-x-3 sm:flex-row sm:items-baseline">
+          <p className="shrink-0 text-sm font-semibold text-foreground">{t('servers.crashes.banner.title', { time: time(latest.time) })}</p>
+          <p className="min-w-0 truncate text-xs text-muted-foreground">
             {t('servers.crashes.exitCode', { code: latest.exitCode })} · {exitMeaning(latest.exitCode)} · {restartText(latest)}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <Button size="sm" variant="outline" className="border-destructive/40 hover:bg-destructive/10" onClick={() => onOpen(latest)}>
+          <Button size="sm" variant="outline" className="h-8 border-destructive/40 hover:bg-destructive/10" onClick={() => onOpen(latest)}>
             <SearchCheck aria-hidden="true" />
             {t('servers.crashes.banner.open')}
           </Button>

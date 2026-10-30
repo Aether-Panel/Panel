@@ -38,6 +38,18 @@ The server system is based on the concept of **environments** (`Environment`). A
   - `factory.go` — `EnvironmentFactory`
   - `container_mount_source.go` — bind mount handling
   - `imagewriter.go` — image download
+  - `user.go` — container user, capabilities and process limit
+
+#### Container user and isolation
+
+When the panel runs as root (the usual Docker install), game servers do **not** run as root, as in Pterodactyl:
+
+- **The game** runs as `docker.serverUser` (`988:988` by default). **The installation** runs as root, since its scripts install packages. A template's own user is kept. A panel that does not run as root runs everything as itself, as before.
+- **Before every start** the panel gives every file in the server folder to that user, without following symlinks, so servers created while games ran as root move over on their own.
+- **The server folder** belongs to that user from its creation, and what the panel writes (file manager, SFTP, copies, restores) is created with it.
+- **Capabilities:** the game container drops the Linux capabilities it does not need (Wings' list) and gets `no-new-privileges`. Containers running as root (installs) keep the ones package installs need.
+- **Process limit:** each container gets `docker.pidsLimit` processes and threads (4096 by default), so a fork bomb cannot take the node down.
+- **`/tmp` and `/var/tmp`** are a folder next to the server's (`<id>.tmp`): emptied when each container is created, counted against the disk limit and removed with the server. It is not in the file manager or the backups.
 
 ## ExtraPortBindings — Extra Ports in Containers
 
@@ -112,8 +124,10 @@ type Reattacher interface {
    │   └── envMapping[type].Create() → EnvironmentImpl
    ├── Creates directories (root, backup, etc.)
    └── Adds to server cache
+   (the panel starts the installation right after: panel.servers.autoInstall)
 
 2. POST /daemon/server/:serverId/install
+   ├── Node disk almost full → ErrNodeDiskFull (less than daemon.minFreeDiskMB free)
    ├── server.Install()
    │   └── Executes installation operations (download, extraction, etc.)
    └── Processes server.Installation[]
@@ -228,7 +242,7 @@ The limit is the server's `disk` variable, in MB. Without `disk`, or with `0`, t
 
 ### How it is measured
 
-- The daemon walks the server folder and adds up the size of its files.
+- The daemon walks the server folder and adds up the size of its files. On Docker its `/tmp` (the `<id>.tmp` folder) counts too.
 - The measure is trusted for 15 seconds. What the panel writes (uploads, SFTP, extraction, plugins) is added at once. What the game itself writes is only seen at the next measure.
 - Deleting files (from the panel or over SFTP) drops the measure, so freed space counts right away.
 

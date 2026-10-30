@@ -15,7 +15,7 @@ Aether Panel (nombre en clave interno: SkyPanel) es una solución moderna de ges
 
 Ofrece una arquitectura flexible con dos backends de ejecución —Docker y ejecución directa con aislamiento por namespaces (unshare)—, gestión de usuarios con permisos granulares, servidor SFTP integrado, y monitorización en tiempo real.
 
-**Versión:** 2.0.0
+**Versión:** 2.1.0
 
 ---
 
@@ -26,7 +26,9 @@ Ofrece una arquitectura flexible con dos backends de ejecución —Docker y ejec
 *   **Dos Backends de Ejecución:**
     *   **Docker:** Cada servidor se ejecuta en un contenedor Docker aislado.
     *   **Host/TTY:** Ejecución directa con aislamiento por contenedores de Linux (namespaces: user, mount, cgroup, ipc, uts) y `pivot_root`.
-*   **Plantillas:** Soporte para más de 24 tipos de juegos (Minecraft, Terraria, Valheim, Rust, ARK, etc.) mediante repositorios de plantillas externos.
+*   **Plantillas:** 56 plantillas en el repositorio oficial (Minecraft y sus variantes, Palworld, Rust, ARK, Valheim, FiveM, bases de datos, Node.js, Python…) y repositorios propios.
+*   **Instalación automática:** Al crear un servidor se instala solo, sin pulsar «Instalar».
+*   **Un asistente que evita fallos:** Al crear un servidor avisa de los puertos ya ocupados (por el panel, otro servidor u otro contenedor) y propone uno libre, y avisa si la RAM o el disco pedidos no caben en el nodo.
 *   **Límites reales:** El límite de disco se aplica de verdad (también a las subidas por SFTP) y cada servidor tiene prioridad de E/S de disco configurable.
 *   **Sin cortes al reiniciar:** Si el panel o el daemon se reinician, se vuelven a conectar a los servidores que siguieron en marcha.
 *   **Subdominios automáticos:** Con Cloudflare, cada servidor tiene su subdominio, que se actualiza si cambia su puerto o su nodo.
@@ -39,10 +41,13 @@ Ofrece una arquitectura flexible con dos backends de ejecución —Docker y ejec
 *   **2FA/TOTP:** Autenticación de dos factores vía códigos temporales, con inicio de sesión en dos pasos y códigos de recuperación.
 *   **Anti-bots sin configurar nada:** Comprobación anti-bots propia (prueba de trabajo) activada por defecto en el registro, el inicio de sesión y la recuperación de contraseña. Cloudflare Turnstile sigue disponible como opción.
 *   **Aislamiento:** Contenedores Docker o namespaces de Linux con `pivot_root` y mapeo de usuarios.
+*   **Juegos sin root:** En Docker, cada juego corre con un usuario sin privilegios, sin los permisos de Linux que no necesita y con un límite de procesos, como en Pterodactyl. Los servidores existentes se migran solos al arrancar. Ver [Servidores](./docs/es/backend/04-servers.md#usuario-y-aislamiento-del-contenedor).
+*   **Disco de los nodos vigilado:** El panel avisa a los administradores cuando a un nodo le queda poco disco y no deja empezar una instalación si no hay espacio.
 
 ### Herramientas Integradas
 *   **Gestión de Archivos:** Servidor SFTP nativo (SSH + SFTP sobre Go) con contraseña o, en el nodo del panel, con claves SSH públicas.
-*   **Panel Web:** Interfaz moderna construida con Astro, React 19 y Tailwind CSS.
+*   **Panel Web:** Interfaz moderna construida con Astro, React 19 y Tailwind CSS, con menú lateral que se encoge a una barra de iconos y un inicio de sesión y registro en una sola tarjeta.
+*   **Caídas a la vista:** Cuando un servidor se cae, el panel lo avisa al momento con la causa, guarda un informe con las últimas líneas de la consola y puede explicarlo con IA.
 *   **Notificaciones:** Alertas automáticas vía Discord (embeds enriquecidos) y correo electrónico (Mailgun, Mailjet, SendGrid, SMTP).
 *   **API RESTful:** Documentada con Swagger/OpenAPI, disponible en `/swagger/`.
 *   **Monitorización:** Estadísticas de CPU, memoria y disco por servidor vía `gopsutil`; WebSocket en tiempo real para console y métricas.
