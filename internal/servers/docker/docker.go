@@ -806,8 +806,18 @@ func (d *Docker) createContainer(ctx context.Context, environment *skypanel.Envi
 		containerConfig.Entrypoint = cmdSlice
 	}
 
+	installing := environment.IsInstalling()
+	uid, gid := d.containerUser(installing)
 	if containerConfig.User == "" && runtime.GOOS != "windows" {
-		containerConfig.User = fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid())
+		containerConfig.User = fmt.Sprintf("%d:%d", uid, gid)
+	}
+
+	// the game gets its files before it starts: an install runs as root and leaves them root's
+	if !installing && uid > 0 && os.Getuid() == 0 {
+		if err = ownServerFiles(environment.GetRootDirectory(), uid, gid); err != nil {
+			environment.DisplayToConsole(true, "Could not give the server files to the user the server runs as: %s\n", err)
+			return err
+		}
 	}
 
 	bindDirs, err := d.serverBinds(environment, containerRoot)
@@ -851,6 +861,9 @@ func (d *Docker) createContainer(ctx context.Context, environment *skypanel.Envi
 	}
 
 	applyResourceLimits(hostConfig, data.Variables)
+	// a user the panel cannot read (a name) may be root: it keeps the capabilities root needs
+	harden(hostConfig, uid <= 0)
+	limitProcesses(hostConfig, config.DockerPidsLimit.Value())
 
 	networkConfig := &network.NetworkingConfig{}
 
@@ -1021,20 +1034,16 @@ func (d *Docker) SendCodeImpl(environment *skypanel.Environment, code int) error
 	return err
 }
 
+// GetUIDImpl is the owner the panel gives the files it writes for the server (file manager,
+// SFTP): the user the game runs as, so it can change them.
 func (d *Docker) GetUIDImpl(_ *skypanel.Environment) int {
-	user := d.Config.User
-	if user == "" {
-		return -1
-	}
-	return cast.ToInt(strings.Split(user, ":")[0])
+	uid, _ := d.containerUser(false)
+	return uid
 }
 
 func (d *Docker) GetGidImpl(_ *skypanel.Environment) int {
-	user := d.Config.User
-	if user == "" {
-		return -1
-	}
-	return cast.ToInt(strings.Split(user, ":")[1])
+	_, gid := d.containerUser(false)
+	return gid
 }
 
 func (d *Docker) handleClose(environment *skypanel.Environment, dockerClient *client.Client, callback func(int)) {
