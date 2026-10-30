@@ -21,6 +21,58 @@ async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T)
     return results;
 }
 
+/** CPU as a share of what the server may use: the node sends its allowance (the "cpu" limit,
+ *  or every core when unlimited); 200% of one core on a two-core server is 100%, the same number
+ *  every chart and card shows. */
+function cpuShare(stats: any, server: Server) {
+    const raw = stats.cpu || 0;
+    const allowance = stats.maxCpu > 0 ? stats.maxCpu : (server.totalCpu ?? 0);
+    return {
+        cpu: Math.min(100, Math.round(allowance > 0 ? (raw / allowance) * 100 : raw)),
+        raw: Math.round(raw),
+        allowance: allowance > 0 ? allowance : undefined,
+    };
+}
+
+/** Memory as a share of the limit; an older node without a limit may already send a percentage. */
+function memoryShare(stats: any): number {
+    if (stats.maxMemory > 0) return Math.round((stats.memory / stats.maxMemory) * 100);
+    return stats.memory <= 100 ? Math.round(stats.memory) : 0;
+}
+
+/** One server's figures and live sample from its /stats and player query. */
+function statsResult(server: Server, stats: any, players: ReturnType<typeof parsePlayerQuery>) {
+    const { cpu, raw, allowance } = cpuShare(stats, server);
+    const memory = memoryShare(stats);
+    const storageUsed = stats.storage || 0;
+    const storageMax = stats.maxStorage || 0;
+    return {
+        id: server.id,
+        cpuUsage: cpu,
+        cpuRaw: raw,
+        maxCpu: allowance,
+        memoryUsage: memory,
+        memoryUsed: stats.memory || 0,
+        storageUsage: storageMax > 0 ? Math.round((storageUsed / storageMax) * 100) : 0,
+        storageUsed,
+        storageMax,
+        status: stats.running ? 'online' : 'offline',
+        metrics: {
+            // the charts format it in the panel's language
+            ts: Date.now(),
+            cpu,
+            memory: Math.min(100, memory),
+            networkIn: Number.parseFloat((stats.networkRx || 0).toFixed(2)),
+            networkOut: Number.parseFloat((stats.networkTx || 0).toFixed(2)),
+        },
+        playersOnline: players?.online,
+        maxPlayers: players?.max,
+        hasPlayerQuery: players !== null,
+        playerNames: players?.names,
+        playerInfo: players ?? undefined,
+    };
+}
+
 /**
  * Lists the user's servers and polls live stats for them.
  * `statsFor` limits the polling to the servers a page shows (the detail page needs one);
@@ -118,61 +170,13 @@ export function useServers(statsFor?: (server: Server) => boolean) {
                     api.get(`/api/servers/${server.id}/query`).catch(() => null)
                 ]);
 
-                const players = parsePlayerQuery(queryData);
-                if (stats) {
-                    // CPU as a share of what the server may use: the node sends its allowance
-                    // (the "cpu" limit, or every core when unlimited); 200% of one core on a
-                    // two-core server is 100%, the same number every chart and card shows
-                    const rawCpu = stats.cpu || 0;
-                    const maxCpu = stats.maxCpu > 0 ? stats.maxCpu : (server.totalCpu ?? 0);
-                    const cpu = Math.min(100, Math.round(maxCpu > 0 ? (rawCpu / maxCpu) * 100 : rawCpu));
-                    // If maxMemory is missing or 0, we can't calculate percentage reliably. 
-                    // We'll fallback to showing 0 or trying to use the value if it looks like a % already.
-                    let memory = 0;
-                    if (stats.maxMemory && stats.maxMemory > 0) {
-                        memory = Math.round((stats.memory / stats.maxMemory) * 100);
-                    } else if (stats.memory <= 100) {
-                        // Maybe it's already a percentage?
-                        memory = Math.round(stats.memory);
-                    }
-
-                    const storageUsed = stats.storage || 0;
-                    const storageMax = stats.maxStorage || 0;
-                    const storageUsage = storageMax > 0 ? Math.round((storageUsed / storageMax) * 100) : 0;
-
-                    return {
-                        id: server.id,
-                        cpuUsage: cpu,
-                        cpuRaw: Math.round(rawCpu),
-                        maxCpu: maxCpu > 0 ? maxCpu : undefined,
-                        memoryUsage: memory,
-                        memoryUsed: stats.memory || 0,
-                        storageUsage,
-                        storageUsed,
-                        storageMax,
-                        status: stats.running ? 'online' : 'offline',
-                        metrics: {
-                            // the charts format it in the panel's language
-                            ts: Date.now(),
-                            cpu,
-                            memory: Math.min(100, memory),
-                            networkIn: Number.parseFloat((stats.networkRx || 0).toFixed(2)),
-                            networkOut: Number.parseFloat((stats.networkTx || 0).toFixed(2)),
-                        },
-                        playersOnline: players?.online,
-                        maxPlayers: players?.max,
-                        hasPlayerQuery: players !== null,
-                        playerNames: players?.names,
-                        playerInfo: players ?? undefined
-                    };
-                }
+                return stats ? statsResult(server, stats, parsePlayerQuery(queryData)) : null;
             } catch (e: any) {
                 if (e instanceof ApiError && e.status === 404) {
                     globalFailedStatsSet.add(server.id);
                 }
                 return offlineResult(server.id);
             }
-            return null;
         });
 
         setServers(prev => prev.map(s => {

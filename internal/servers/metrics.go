@@ -333,25 +333,28 @@ func resample(points []MetricPoint, since, step int64) []MetricPoint {
 			bucket = metricBucket{}
 			bucketTime = t
 		}
-		bucket.count++
-		bucket.online += pt.Online
-		bucket.running += pt.Online
-		bucket.cpu += pt.CPU * pt.Online
-		bucket.mem += pt.Memory * pt.Online
-		bucket.maxMem += pt.MaxMemory * pt.Online
-		bucket.rx += pt.NetRx * pt.Online
-		bucket.tx += pt.NetTx * pt.Online
-		if pt.HasPlayers {
-			bucket.playerSamples++
-			bucket.players += pt.Players
-			if pt.PlayersPeak > bucket.playersPeak {
-				bucket.playersPeak = pt.PlayersPeak
-			}
-			if pt.MaxPlayers > bucket.maxPlayers {
-				bucket.maxPlayers = pt.MaxPlayers
-			}
-		}
+		bucket.addPoint(pt)
 	}
 	flush()
 	return result
+}
+
+// addPoint folds an already averaged point into a coarser bucket, weighting its resources by
+// how long its server ran
+func (b *metricBucket) addPoint(pt MetricPoint) {
+	b.count++
+	b.online += pt.Online
+	b.running += pt.Online
+	b.cpu += pt.CPU * pt.Online
+	b.mem += pt.Memory * pt.Online
+	b.maxMem += pt.MaxMemory * pt.Online
+	b.rx += pt.NetRx * pt.Online
+	b.tx += pt.NetTx * pt.Online
+	if !pt.HasPlayers {
+		return
+	}
+	b.playerSamples++
+	b.players += pt.Players
+	b.playersPeak = max(b.playersPeak, pt.PlayersPeak)
+	b.maxPlayers = max(b.maxPlayers, pt.MaxPlayers)
 }
