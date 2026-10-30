@@ -246,6 +246,7 @@ func provisionServer(c *gin.Context) {
 		return
 	}
 	provisioned = true
+	startFirstInstall(ns, node, server.Identifier)
 	scheduleAutoSubdomain(server.Identifier)
 
 	// Send Email

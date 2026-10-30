@@ -453,7 +453,7 @@ func (d *Docker) networkRates(data *container.StatsResponse) (float64, float64) 
 // Callers must hold statLocker.
 func (d *Docker) refreshDirSize(environment *skypanel.Environment) {
 	if !d.disableSpecialStats && (d.dirSizeTime.IsZero() || time.Since(d.dirSizeTime) > 30*time.Second) {
-		d.dirSize = getDirSize(environment.GetRootDirectory())
+		d.dirSize = getDirSize(environment.GetRootDirectory()) + getDirSize(environment.GetTmpDirectory())
 		d.dirSizeTime = time.Now()
 	}
 }
@@ -550,6 +550,33 @@ func CheckBindingsConflict(portSpecs []string, variables map[string]interface{},
 	// or a random service), which never show up in the container list. Ports
 	// already bound by the excluded (restarting) server must be skipped.
 	return firstBusyHostPort(hostPorts, func(host uint16) bool { return excludedPorts[host] })
+}
+
+// PublishedHostPorts lists the host ports published by the running containers, each with
+// the name of the container that holds it.
+func PublishedHostPorts(ctx context.Context) (map[uint16]string, error) {
+	dockerClient, err := client.New(client.FromEnv)
+	if err != nil {
+		return nil, err
+	}
+	defer utils.Close(dockerClient)
+	opts := client.ContainerListOptions{Filters: make(client.Filters)}
+	opts.Filters.Add("status", "running")
+	list, err := dockerClient.ContainerList(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	ports := make(map[uint16]string)
+	for _, cont := range list.Items {
+		name := cont.ID
+		if len(cont.Names) > 0 {
+			name = strings.TrimPrefix(cont.Names[0], "/")
+		}
+		for _, host := range publishedPorts(cont) {
+			ports[host] = name
+		}
+	}
+	return ports, nil
 }
 
 // containerPortConflicts fails when a running container other than excludedID publishes
@@ -820,6 +847,11 @@ func (d *Docker) createContainer(ctx context.Context, environment *skypanel.Envi
 		}
 	}
 
+	if err = prepareTmpDir(environment.GetTmpDirectory(), uid, gid); err != nil {
+		environment.DisplayToConsole(true, "Could not prepare the server's temporary folder: %s\n", err)
+		return err
+	}
+
 	bindDirs, err := d.serverBinds(environment, containerRoot)
 	if err != nil {
 		return err
@@ -937,7 +969,13 @@ func (d *Docker) serverBinds(environment *skypanel.Environment, containerRoot st
 		}
 	}
 
-	bindDirs := []string{convertToBind(dir) + ":" + containerRoot}
+	bindDirs := []string{
+		convertToBind(dir) + ":" + containerRoot,
+		// /tmp and /var/tmp are the only places outside its folder an unprivileged game can
+		// write to; on the node they are a folder that counts against its disk limit
+		convertToBind(filepath.Clean(dir)+".tmp") + ":/tmp",
+		convertToBind(filepath.Clean(dir)+".tmp") + ":/var/tmp",
+	}
 
 	if binaryFolder := binariesBindSource(); binaryFolder != "" {
 		bindDirs = append(bindDirs, convertToBind(binaryFolder)+":"+"/var/lib/SkyPanel/binaries")
@@ -947,6 +985,28 @@ func (d *Docker) serverBinds(environment *skypanel.Environment, containerRoot st
 		bindDirs = append(bindDirs, convertToBind(k)+":"+v)
 	}
 	return bindDirs, nil
+}
+
+// prepareTmpDir empties the server's temporary folder before each container, as a fresh
+// container's own /tmp was, and opens it to everyone like /tmp (sticky, 1777), owned by the
+// user the container runs as.
+func prepareTmpDir(dir string, uid, gid int) error {
+	if dir == "" {
+		return nil
+	}
+	if err := os.RemoveAll(dir); err != nil {
+		return err
+	}
+	if err := os.Mkdir(dir, 0o755); err != nil {
+		return err
+	}
+	if err := os.Chmod(dir, os.ModeSticky|0o777); err != nil {
+		return err
+	}
+	if uid >= 0 && os.Getuid() == 0 {
+		return os.Chown(dir, uid, gid)
+	}
+	return nil
 }
 
 // binariesBindSource is the host path of the binaries folder, empty when it cannot be resolved.

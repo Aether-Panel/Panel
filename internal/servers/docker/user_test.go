@@ -142,3 +142,20 @@ func TestLimitProcesses(t *testing.T) {
 	limitProcesses(template, 4096)
 	assert.Equal(t, int64(100), *template.PidsLimit, "a template's own cap is kept")
 }
+
+func TestPrepareTmpDir_StartsEmptyAndOpenLikeTmp(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "abc.tmp")
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "left", "over"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "left", "file"), []byte("x"), 0o644))
+
+	require.NoError(t, prepareTmpDir(dir, os.Getuid(), os.Getgid()))
+
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	assert.Empty(t, entries, "what the last run left in /tmp is gone, as with a fresh container")
+	info, err := os.Stat(dir)
+	require.NoError(t, err)
+	assert.Equal(t, os.ModeSticky|0o777, info.Mode()&(os.ModeSticky|os.ModePerm))
+
+	assert.NoError(t, prepareTmpDir("", 0, 0), "a server without a folder has nothing to prepare")
+}

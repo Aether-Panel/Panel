@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/stretchr/testify/assert"
 )
@@ -125,4 +126,37 @@ func TestStart_RefusesAFullDisk(t *testing.T) {
 	p, _ := newDiskTestServer(t, 2*1024*1024)
 	assert.ErrorIs(t, p.Start(), skypanel.ErrDiskLimitExceeded)
 	assert.Contains(t, consoleText(p), "disk space")
+}
+
+func TestCheckNodeDiskForInstall_RefusesWhenTheNodeIsAlmostFull(t *testing.T) {
+	p, _ := newDiskTestServer(t, 0)
+	useServersFolder(t)
+	previous := config.MinFreeDiskMB.Value()
+	t.Cleanup(func() { _ = config.MinFreeDiskMB.Set(previous, false) })
+
+	// more than any disk has free: the install is refused before anything downloads
+	_ = config.MinFreeDiskMB.Set(1<<40, false)
+	assert.ErrorIs(t, p.checkNodeDiskForInstall(), skypanel.ErrNodeDiskFull)
+
+	_ = config.MinFreeDiskMB.Set(1, false)
+	assert.NoError(t, p.checkNodeDiskForInstall())
+
+	_ = config.MinFreeDiskMB.Set(0, false)
+	assert.NoError(t, p.checkNodeDiskForInstall(), "0 turns the check off")
+}
+
+func TestNodeDiskUsage_ReadsTheServersDisk(t *testing.T) {
+	useServersFolder(t)
+	usage, err := NodeDiskUsage()
+	assert.NoError(t, err)
+	assert.Positive(t, usage.Total)
+	assert.LessOrEqual(t, usage.Free, usage.Total)
+}
+
+func TestTmpDirectoryCountsOnlyForDocker(t *testing.T) {
+	p, dir := newDiskTestServer(t, 0)
+	p.RunningEnvironment.Type = "docker"
+	assert.Equal(t, dir+".tmp", p.tmpDirectory())
+	p.RunningEnvironment.Type = "host"
+	assert.Empty(t, p.tmpDirectory(), "only a Docker server writes /tmp next to its folder")
 }

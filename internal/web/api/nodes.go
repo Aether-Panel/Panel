@@ -34,6 +34,10 @@ func registerNodes(g *gin.RouterGroup) {
 	g.Handle("GET", "/:id/system", middleware.RequiresPermission(scopes.ScopeNodesView), getSystemInfo)
 	g.Handle("OPTIONS", "/:id/system", response.CreateOptions("GET"))
 
+	// used by the new-server wizard, so it needs the right to create servers, not to see nodes
+	g.Handle("POST", "/:id/ports/check", middleware.RequiresPermission(scopes.ScopeServerCreate), checkNodePorts)
+	g.Handle("OPTIONS", "/:id/ports/check", response.CreateOptions("POST"))
+
 	g.Handle("GET", "/:id/deployment", middleware.RequiresPermission(scopes.ScopeNodesDeploy), deployNode)
 	g.Handle("OPTIONS", "/:id/deployment", response.CreateOptions("GET"))
 }

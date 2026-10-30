@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { useTranslations } from '@/contexts/translations-context';
 import { EmptyState } from '@/components/empty-state';
 import { keyedByContent } from '@/lib/keyed';
+import { NodeDiskAlert } from '../node-disk-alert';
 
 function findNode(realNodes: any[], idParam: string) {
   return realNodes.find((n: any) =>
@@ -670,6 +671,8 @@ export default function NodeDetailPage({ params }: Readonly<{ params: { id: stri
           </Button>
         )}
       </PageHeader>
+
+      <NodeDiskAlert nodes={[{ id: node.id, name: node.name, systemInfo: liveStats ?? node.systemInfo }]} linkToNode={false} />
 
       <Card className="overflow-hidden">
         <dl className="grid grid-cols-2 xl:grid-cols-4">

@@ -142,6 +142,16 @@ func (e *Environment) GetRootDirectory() string {
 	return e.RootDirectory
 }
 
+// GetTmpDirectory is the folder a Docker server gets as /tmp, next to its own folder: its
+// writes count against the server's disk limit instead of filling the node unseen, and it
+// stays out of the file manager and the backups. Empty when the server has no folder.
+func (e *Environment) GetTmpDirectory() string {
+	if e.RootDirectory == "" {
+		return ""
+	}
+	return filepath.Clean(e.RootDirectory) + ".tmp"
+}
+
 func (e *Environment) GetConsole() (console []byte, epoch int64) {
 	console, epoch = e.ConsoleBuffer.Read()
 	return

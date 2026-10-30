@@ -21,6 +21,7 @@ import { useTranslations } from '@/contexts/translations-context';
 import { useNodes } from '@/hooks/use-dashboard-data';
 import { useServers } from '@/hooks/use-servers';
 import { EmptyState } from '@/components/empty-state';
+import { NodeDiskAlert } from './node-disk-alert';
 
 type Field<T> = [T, Dispatch<SetStateAction<T>>];
 
@@ -579,6 +580,8 @@ export default function NodesPage() {
           </DialogContent>
         </Dialog>
       </PageHeader>
+
+      <NodeDiskAlert nodes={realNodes} />
 
       <Card className="overflow-hidden">
         <div className="flex flex-col gap-1 border-b border-border/50 p-5 md:p-6">

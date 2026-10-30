@@ -19,6 +19,10 @@ var TemplatesURL = asString("templates.url", "")
 
 var PanelEnabled = asBool("panel.enable", true)
 
+// ServersAutoInstall runs the template's installation as soon as a server is created, so it
+// is ready to start without anyone pressing Install
+var ServersAutoInstall = asBool("panel.servers.autoInstall", true)
+
 var DatabaseDialect = asString("panel.database.dialect", "sqlite3")
 var DatabaseURL = asString("panel.database.url", "")
 var DatabaseLoggingEnabled = asBool("panel.database.log", false)
@@ -146,6 +150,11 @@ var DockerServerUser = asString("docker.serverUser", "988:988")
 // DockerPidsLimit caps the processes and threads of each server container, so a fork bomb in
 // a plugin cannot take the whole machine down. 0 removes the cap.
 var DockerPidsLimit = asInt("docker.pidsLimit", 4096)
+
+// MinFreeDiskMB is the free space (MB) the node's server folder must keep: an install that
+// starts with less is refused, before a game download fills the disk and takes every server
+// down. 0 turns the check off.
+var MinFreeDiskMB = asInt("daemon.minFreeDiskMB", 2048)
 
 type entry[T ValueType] struct {
 	key string
