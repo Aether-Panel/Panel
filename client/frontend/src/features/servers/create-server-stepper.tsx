@@ -13,7 +13,7 @@ import { useTemplates } from '@/hooks/use-templates';
 import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
 import { sileo } from "@/lib/toast";
-import { cn } from '@/lib/utils';
+import { cn, formatBytes } from '@/lib/utils';
 import { gameLogo } from '@/lib/game-logos';
 import { keyedByContent } from '@/lib/keyed';
 
@@ -580,10 +580,128 @@ function TemplateVariableInput({ fieldId, varKey, variable, currentVal, stringif
     );
 }
 
+type PortCheck = { busy: boolean; reason?: 'range' | 'panel' | 'server' | 'container'; by?: string; suggestion?: number };
+
+const MB = 1024 * 1024;
+
+/** A template variable holding a network port: port, port2, queryport, webadminport… */
+function isPortField(key: string, variable: any): boolean {
+    if (!/port\d*$/i.test(key)) return false;
+    const value = templateVariableValue(variable);
+    return variable?.type === 'integer' || /^\d+$/.test(String(value ?? ''));
+}
+
+/**
+ * Asks the node which of the form's ports are already taken (by the panel, another server or
+ * another container) a moment after the user stops typing, so a clash shows here and not as a
+ * server that cannot start.
+ */
+function usePortCheck(nodeId: string, ports: Record<string, number>): Record<string, PortCheck> {
+    const [results, setResults] = useState<Record<string, PortCheck>>({});
+    const request = JSON.stringify(ports);
+    useEffect(() => {
+        const asked = JSON.parse(request) as Record<string, number>;
+        if (nodeId === '' || Object.keys(asked).length === 0) {
+            setResults({});
+            return;
+        }
+        const controller = new AbortController();
+        const timer = setTimeout(() => {
+            api.post<{ ports: Record<string, PortCheck> }>(`/api/nodes/${nodeId}/ports/check`, { ports: asked }, controller.signal)
+                .then((res) => setResults(res?.ports ?? {}))
+                // an older panel or no permission: the form works as before, without the hint
+                .catch(() => { if (!controller.signal.aborted) setResults({}); });
+        }, 400);
+        return () => {
+            clearTimeout(timer);
+            controller.abort();
+        };
+    }, [nodeId, request]);
+    return results;
+}
+
+/** Why a port can't be used, with a one-click free one. */
+function PortNotice({ id, check, onUse, t }: Readonly<{ id: string; check?: PortCheck; onUse: (port: number) => void; t: (key: string, options?: Record<string, string | number>) => string }>) {
+    if (!check?.busy) return null;
+    const suggestion = check.suggestion;
+    return (
+        <p id={id} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-pretty text-xs font-medium text-destructive-bright">
+            <span>{t(`servers.create.portBusy.${check.reason ?? 'container'}`, { by: check.by ?? '' })}</span>
+            {suggestion ? (
+                <button
+                    type="button"
+                    onClick={() => onUse(suggestion)}
+                    className="rounded-sm font-mono text-foreground underline decoration-border underline-offset-2 transition-colors hover:decoration-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+                >
+                    {t('servers.create.portUse', { port: suggestion })}
+                </button>
+            ) : null}
+        </p>
+    );
+}
+
+/** The ports the form asks for, by variable (and `extra:<n>` for the added ones), to check on the node. */
+function portsToCheck(variables: Record<string, any>, configData: Record<string, any>, extraPorts: string[]): Record<string, number> {
+    const ports: Record<string, number> = {};
+    const add = (key: string, value: unknown) => {
+        const port = Number(value);
+        if (Number.isInteger(port) && port > 0) ports[key] = port;
+    };
+    for (const [key, variable] of Object.entries(variables)) {
+        if (variable && !variable.internal && isPortField(key, variable)) add(key, configData[key]);
+    }
+    extraPorts.forEach((value, idx) => add(`extra:${idx}`, value));
+    return ports;
+}
+
+type Notice = { tone: 'error' | 'warning'; key: string; vars: Record<string, string> };
+
+/** What to say about the memory asked for, against the node and the template (null: nothing). */
+function memoryNoticeFor(memoryMb: number, nodeInfo: any, recommendedMemory: number | null): Notice | null {
+    if (memoryMb <= 0) return null;
+    const total = nodeInfo?.memoryTotal ?? 0;
+    const available = nodeInfo?.memoryAvailable || nodeInfo?.memoryFree || 0;
+    if (total > 0 && memoryMb * MB > total) return { tone: 'error', key: 'memoryOverNode', vars: { total: formatBytes(total) } };
+    if (available > 0 && memoryMb * MB > available) return { tone: 'warning', key: 'memoryOverFree', vars: { free: formatBytes(available) } };
+    if (recommendedMemory && memoryMb < recommendedMemory) return { tone: 'warning', key: 'memoryBelowTemplate', vars: { size: formatBytes(recommendedMemory * MB) } };
+    return null;
+}
+
+/** What to say about the node's disk for the disk limit asked for (null: nothing). */
+function diskNoticeFor(diskMb: number, serversDisk: any): Notice | null {
+    if (serversDisk?.low) return { tone: 'warning', key: 'nodeDiskLow', vars: { free: formatBytes(serversDisk.free) } };
+    if (serversDisk?.free && diskMb * MB > serversDisk.free) return { tone: 'warning', key: 'diskOverFree', vars: { free: formatBytes(serversDisk.free) } };
+    return null;
+}
+
+/**
+ * Stable React keys for the added ports, which are plain strings that change as they are
+ * typed: one id per row, removed with its row, so a row keeps its input (and focus).
+ */
+function useRowIds(count: number) {
+    const ids = useRef<number[]>([]);
+    const next = useRef(0);
+    while (ids.current.length < count) ids.current.push(next.current++);
+    if (ids.current.length > count) ids.current.length = count;
+    return {
+        ids: ids.current,
+        remove: (idx: number) => { ids.current.splice(idx, 1); },
+    };
+}
+
+/** A warning under a resource field: red when the server cannot get it, amber when it is only risky. */
+function ResourceNotice({ tone, children }: Readonly<{ tone: 'error' | 'warning'; children: React.ReactNode }>) {
+    return (
+        <p className={cn('text-pretty text-xs font-medium', tone === 'error' ? 'text-destructive-bright' : 'text-warning')}>
+            {children}
+        </p>
+    );
+}
+
 function Step3Configuration({
     templateDetails, templateError, configData, setConfigData, fieldErrors,
     cpuLimit, setCpuLimit, memoryLimit, setMemoryLimit, diskLimit, setDiskLimit, ioLimit, setIoLimit,
-    extraPorts, setExtraPorts,
+    extraPorts, setExtraPorts, nodeId, nodeInfo, recommendedMemory,
     setCurrentStep, t
 }: any) {
     const versionTarget = templateDetails ? templateVersionTarget(templateDetails, configData) : null;
@@ -604,6 +722,25 @@ function Step3Configuration({
             return String(prev[javaVariable] ?? '') === neededJava ? prev : { ...prev, [javaVariable]: value };
         });
     }, [neededJava, javaVariable, setConfigData]);
+
+    const templateVariables = (templateDetails?.data || templateDetails?.variables || templateDetails?.Variables || {}) as Record<string, any>;
+    const portChecks = usePortCheck(nodeId ?? '', portsToCheck(templateVariables, configData, extraPorts));
+    const extraRows = useRowIds(extraPorts.length);
+
+    // what the chosen node can give: its RAM and the disk its servers live on
+    const notices = [
+        memoryNoticeFor(Number(memoryLimit) || 0, nodeInfo, recommendedMemory),
+        diskNoticeFor(Number(diskLimit) || 0, nodeInfo?.serversDisk),
+    ].filter((notice): notice is Notice => notice !== null);
+    const removeExtraPort = (idx: number) => {
+        extraRows.remove(idx);
+        setExtraPorts(extraPorts.filter((_: string, i: number) => i !== idx));
+    };
+    const setExtraPort = (idx: number, value: string) => {
+        const next = [...extraPorts];
+        next[idx] = value;
+        setExtraPorts(next);
+    };
 
     if (templateError) {
         return (
@@ -655,6 +792,13 @@ function Step3Configuration({
                         <Input id="limit-io" type="number" inputMode="numeric" min={10} max={1000} value={ioLimit} onChange={(e) => setIoLimit(e.target.value === '' ? '' : Number(e.target.value))} className="font-mono tabular-nums" />
                     </div>
                 </div>
+                {notices.length > 0 && (
+                    <div className="grid gap-1" aria-live="polite">
+                        {notices.map((notice) => (
+                            <ResourceNotice key={notice.key} tone={notice.tone}>{t(`servers.create.${notice.key}`, notice.vars)}</ResourceNotice>
+                        ))}
+                    </div>
+                )}
             </StepSection>
 
             {entries.length > 0 && (
@@ -694,7 +838,7 @@ function Step3Configuration({
                                                     : undefined
                                         }
                                         invalid={!!error}
-                                        describedBy={[errorId, descriptionId].filter(Boolean).join(' ') || undefined}
+                                        describedBy={[errorId, portChecks[key]?.busy ? `${fieldId}-port` : undefined, descriptionId].filter(Boolean).join(' ') || undefined}
                                         t={t}
                                     />
                                     {error && (
@@ -702,6 +846,12 @@ function Step3Configuration({
                                             {t(`servers.create.fieldErrors.${error.code}`, { limit: error.limit ?? '' })}
                                         </p>
                                     )}
+                                    <PortNotice
+                                        id={`${fieldId}-port`}
+                                        check={portChecks[key]}
+                                        onUse={(port) => setConfigData((prev: any) => ({ ...prev, [key]: typeof prev[key] === 'string' ? String(port) : port }))}
+                                        t={t}
+                                    />
                                     {javaVariable === key && neededJava && stringifiedVal !== neededJava && (
                                         <p className="text-pretty text-xs font-medium text-warning">
                                             {t('servers.create.javaMismatch', { version: versionForJava || chosenVersion, java: neededJava })}
@@ -724,18 +874,16 @@ function Step3Configuration({
                 {extraPorts.length > 0 && (
                     <div className="grid gap-2 sm:grid-cols-2">
                         {extraPorts.map((p: string, idx: number) => (
-                            <div key={idx} className="flex items-center gap-2">
+                            <div key={extraRows.ids[idx]} className="grid gap-1.5">
+                            <div className="flex items-center gap-2">
                                 <Input
                                     type="number"
                                     inputMode="numeric"
                                     value={p}
                                     placeholder={t('servers.create.portPlaceholder')}
                                     aria-label={t('servers.create.extraPortLabel', { index: idx + 1 })}
-                                    onChange={(e) => {
-                                        const next = [...extraPorts];
-                                        next[idx] = e.target.value;
-                                        setExtraPorts(next);
-                                    }}
+                                    aria-describedby={portChecks[`extra:${idx}`]?.busy ? `extra-port-${idx}-port` : undefined}
+                                    onChange={(e) => setExtraPort(idx, e.target.value)}
                                     className="font-mono tabular-nums"
                                 />
                                 <Button
@@ -743,11 +891,13 @@ function Step3Configuration({
                                     variant="ghost"
                                     size="icon"
                                     className="shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive-bright"
-                                    onClick={() => setExtraPorts(extraPorts.filter((_: string, i: number) => i !== idx))}
+                                    onClick={() => removeExtraPort(idx)}
                                     aria-label={t('servers.create.removePort')}
                                 >
                                     <X aria-hidden="true" />
                                 </Button>
+                            </div>
+                            <PortNotice id={`extra-port-${idx}-port`} check={portChecks[`extra:${idx}`]} onUse={(port) => setExtraPort(idx, String(port))} t={t} />
                             </div>
                         ))}
                     </div>
@@ -781,6 +931,8 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId, 
 
     const [name, setName] = useState('');
     const [selectedNode, setSelectedNode] = useState(forcedNodeId || '');
+    // the template's own memory: lowering it below that gets a warning
+    const [recommendedMemory, setRecommendedMemory] = useState<number | null>(null);
     const [selectedEnvironment, setSelectedEnvironment] = useState('docker');
     const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
 
@@ -872,6 +1024,8 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId, 
         const initial: Record<string, any> = {};
         const rawVars = details.data || details.variables || details.Variables || {};
         const variables = (typeof rawVars === 'object' && rawVars !== null) ? rawVars : {};
+        // the template's own memory: lowering it below that gets a warning
+        setRecommendedMemory(Number(templateVariableValue(variables.memory ?? {})) || null);
 
         Object.entries(variables).forEach(([key, val]: [string, any]) => {
             if (val && typeof val === 'object') {
@@ -1018,6 +1172,10 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId, 
         }
     };
 
+    // the node the server goes to, for the port and resource checks of the last step
+    const checkNodeId = selectedNode !== '' ? String(selectedNode) : (forcedNodeId ?? '');
+    const checkNodeInfo = nodes?.find((n: any) => String(n.id) === checkNodeId)?.systemInfo ?? null;
+
     const steps: { id: Step; label: string }[] = [
         { id: 1, label: t('servers.create.steps.environment') },
         { id: 2, label: t('servers.create.steps.template') },
@@ -1097,6 +1255,7 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId, 
                                 diskLimit={diskLimit} setDiskLimit={setDiskLimit}
                                 ioLimit={ioLimit} setIoLimit={setIoLimit}
                                 extraPorts={extraPorts} setExtraPorts={setExtraPorts}
+                                nodeId={checkNodeId} nodeInfo={checkNodeInfo} recommendedMemory={recommendedMemory}
                                 setCurrentStep={setCurrentStep} t={t}
                             />
                         )}

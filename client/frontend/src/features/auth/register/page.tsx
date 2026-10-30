@@ -7,12 +7,12 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useAuth } from '@/contexts/providers';
-import { useConfig } from '@/contexts/config-context';
 import { useTranslations } from '@/contexts/translations-context';
 import { sileo } from "@/lib/toast";
 import { Loader2, Lock, Mail, User } from '@/components/icons';
 import { useCaptcha } from '@/components/Turnstile';
-import { AuthFrame, AuthInput, PasswordStrength, AuthPasswordInput, authLabelClass, authLinkClass, authMessageClass } from '@/components/AuthShell';
+import { AuthInput, AuthPane, PasswordStrength, AuthPasswordInput, authLabelClass, authLinkClass, authMessageClass } from '@/components/AuthShell';
+import { AuthCard } from '@/features/auth/auth-card';
 
 /** Same rules as before; only the messages now follow the active language. */
 const createFormSchema = (t: (key: string) => string) =>
@@ -29,18 +29,15 @@ const createFormSchema = (t: (key: string) => string) =>
 type RegisterValues = z.infer<ReturnType<typeof createFormSchema>>;
 
 export default function RegisterPage() {
+  return <AuthCard initial="register" />;
+}
+
+/** The sign-up side of the auth card; `onSwitch` goes back to the sign-in form. */
+export function RegisterPanel({ onSwitch }: Readonly<{ onSwitch: () => void }>) {
   const { t } = useTranslations();
   const { register } = useAuth();
-  const { config } = useConfig();
-  const panelName = config?.branding?.name || 'Aether Panel';
   const [loading, setLoading] = React.useState(false);
   const captcha = useCaptcha();
-
-  React.useEffect(() => {
-    if (config?.registrationEnabled === false) {
-      window.location.href = '/login';
-    }
-  }, [config?.registrationEnabled]);
 
   const formSchema = React.useMemo(() => createFormSchema(t), [t]);
   const form = useForm<RegisterValues>({
@@ -66,17 +63,17 @@ export default function RegisterPage() {
   }
 
   return (
-    <AuthFrame
+    <AuthPane
       title={t('auth.register.title')}
       description={t('auth.register.description')}
-      artTitle={t('auth.register.artTitle', { name: panelName })}
-      artDescription={t('auth.register.artDescription')}
+      // on desktop the card's sliding panel has the sign-in button
+      footerClassName="md:hidden"
       footer={
         <>
           {t('auth.register.haveAccount')}{' '}
-          <a href="/login" className={authLinkClass}>
+          <button type="button" onClick={onSwitch} className={authLinkClass}>
             {t('auth.links.signIn')}
-          </a>
+          </button>
         </>
       }
     >
@@ -159,6 +156,6 @@ export default function RegisterPage() {
           </Button>
         </form>
       </Form>
-    </AuthFrame>
+    </AuthPane>
   );
 }

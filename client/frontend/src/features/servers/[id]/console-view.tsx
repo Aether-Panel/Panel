@@ -205,17 +205,27 @@ export default function ConsoleView({
   const containerRef = useRef<HTMLDivElement>(null);
   const [termHeight, setTermHeight] = useState(500);
 
+  // The console runs down to the page's bottom padding (p-4 md:p-6 lg:p-8 in AppShell), so it
+  // fills the space without scrolling the page. It is measured again when anything above it
+  // changes height, such as the crash banner appearing.
   useEffect(() => {
     const measure = () => {
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        const space = window.innerHeight - rect.top - 40;
-        setTermHeight(Math.max(350, space));
-      }
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const top = rect.top + window.scrollY;
+      let bottomPadding = 16;
+      if (window.innerWidth >= 1024) bottomPadding = 32;
+      else if (window.innerWidth >= 768) bottomPadding = 24;
+      setTermHeight(Math.max(400, Math.round(window.innerHeight - top - bottomPadding)));
     };
     measure();
     window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
+    const observer = new ResizeObserver(measure);
+    observer.observe(document.body);
+    return () => {
+      window.removeEventListener('resize', measure);
+      observer.disconnect();
+    };
   }, []);
 
   const counts = useMemo(() => {
@@ -295,7 +305,7 @@ export default function ConsoleView({
   if (needle) matchLabel = matches.length ? `${Math.min(activeMatch, matches.length - 1) + 1}/${matches.length}` : '0/0';
 
   return (
-    <div ref={containerRef} className="mt-6">
+    <div ref={containerRef} className="mt-4">
       <div
         className="relative flex flex-col overflow-hidden rounded-xl border border-border/60 bg-background shadow-elevation-1"
         ref={frameRef}

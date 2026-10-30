@@ -64,23 +64,38 @@ export function AuthFrame({ title, description, artTitle, artDescription, footer
                         </div>
                     </div>
 
-                    <div className="flex items-center px-6 pb-8 pt-6 sm:px-12 sm:pb-12 sm:pt-10 md:py-12">
-                        <div className="mx-auto w-full max-w-[380px]">
-                            <h1 className="text-[1.75rem] font-semibold leading-tight tracking-[-0.035em] text-foreground">
-                                {title}
-                            </h1>
-                            {description ? (
-                                <p className="mt-2 text-pretty text-sm leading-relaxed text-muted-foreground">{description}</p>
-                            ) : null}
-
-                            <div className="mt-8">{children}</div>
-
-                            {footer ? (
-                                <p className="mt-8 text-center text-sm text-muted-foreground">{footer}</p>
-                            ) : null}
-                        </div>
-                    </div>
+                    <AuthPane title={title} description={description} footer={footer}>
+                        {children}
+                    </AuthPane>
                 </div>
+            </div>
+        </div>
+    );
+}
+
+/** The form column of an auth screen: heading, one sentence, the form and a line under it. */
+export function AuthPane({ title, description, footer, footerClassName, children }: Readonly<{
+    title: string;
+    description?: ReactNode;
+    footer?: ReactNode;
+    footerClassName?: string;
+    children: ReactNode;
+}>) {
+    return (
+        <div className="flex items-center px-6 pb-8 pt-6 sm:px-12 sm:pb-12 sm:pt-10 md:py-12">
+            <div className="mx-auto w-full max-w-[380px]">
+                <h1 className="text-[1.75rem] font-semibold leading-tight tracking-[-0.035em] text-foreground">
+                    {title}
+                </h1>
+                {description ? (
+                    <p className="mt-2 text-pretty text-sm leading-relaxed text-muted-foreground">{description}</p>
+                ) : null}
+
+                <div className="mt-8">{children}</div>
+
+                {footer ? (
+                    <p className={cn('mt-8 text-center text-sm text-muted-foreground', footerClassName)}>{footer}</p>
+                ) : null}
             </div>
         </div>
     );
@@ -91,7 +106,7 @@ export function AuthFrame({ title, description, artTitle, artDescription, footer
  * fades out when the relief is ready; three.js loads on demand, so the rest of
  * the panel never pays for it. Without WebGL the flat emblem simply stays.
  */
-function AuthEmblem() {
+export function AuthEmblem() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [state, setState] = useState<'flat' | 'ready'>('flat');
 

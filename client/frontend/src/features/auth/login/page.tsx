@@ -12,7 +12,8 @@ import { useConfig } from '@/contexts/config-context';
 import { useTranslations } from '@/contexts/translations-context';
 import { ArrowLeft, Clock, KeyRound, Loader2, Mail, Lock, ShieldCheck } from '@/components/icons';
 import { useCaptcha } from '@/components/Turnstile';
-import { AuthFrame, AuthInput, AuthNotice, AuthPasswordInput, OtpInput, authLabelClass, authLinkClass, authMessageClass } from '@/components/AuthShell';
+import { AuthInput, AuthNotice, AuthPane, AuthPasswordInput, OtpInput, authLabelClass, authLinkClass, authMessageClass } from '@/components/AuthShell';
+import { AuthCard } from '@/features/auth/auth-card';
 
 /** Same rules as before; only the messages now follow the active language. */
 const createFormSchema = (t: (key: string) => string) =>
@@ -24,6 +25,14 @@ const createFormSchema = (t: (key: string) => string) =>
 type LoginValues = z.infer<ReturnType<typeof createFormSchema>>;
 
 export default function LoginPage() {
+  return <AuthCard initial="login" />;
+}
+
+/**
+ * The sign-in side of the auth card: email and password, then the 2FA code when the account
+ * has it. `onSwitch` goes to the sign-up form (null when sign-ups are closed).
+ */
+export function LoginPanel({ onSwitch }: Readonly<{ onSwitch: (() => void) | null }>) {
   const { t } = useTranslations();
   const { login, verifyOtp, loading } = useAuth();
   const { config } = useConfig();
@@ -65,30 +74,28 @@ export default function LoginPage() {
 
   if (step === 'otp') {
     return (
-      <AuthFrame
+      <AuthPane
         title={t('auth.otp.title')}
         description={t('auth.otp.description', { email: form.getValues('email') })}
-        artTitle={t('auth.login.artTitle', { name: panelName })}
-        artDescription={t('auth.login.artDescription')}
       >
         <OtpStep loading={loading} verify={verifyOtp} onExpired={backToCredentials} onBack={backToCredentials} />
-      </AuthFrame>
+      </AuthPane>
     );
   }
 
   return (
-    <AuthFrame
+    <AuthPane
       title={t('auth.login.title')}
       description={t('auth.login.description')}
-      artTitle={t('auth.login.artTitle', { name: panelName })}
-      artDescription={t('auth.login.artDescription')}
+      // on desktop the card's sliding panel has the sign-up button
+      footerClassName="md:hidden"
       footer={
-        config?.registrationEnabled !== false ? (
+        onSwitch ? (
           <>
             {t('auth.login.noAccount')}{' '}
-            <a href="/register" className={authLinkClass}>
+            <button type="button" onClick={onSwitch} className={authLinkClass}>
               {t('auth.login.signUp')}
-            </a>
+            </button>
           </>
         ) : null
       }
@@ -149,7 +156,7 @@ export default function LoginPage() {
           </Button>
         </form>
       </Form>
-    </AuthFrame>
+    </AuthPane>
   );
 }
 

@@ -1147,6 +1147,9 @@ func (p *Server) Install() error {
 	if err := p.IsIdle(); err != nil {
 		return err
 	}
+	if err := p.checkNodeDiskForInstall(); err != nil {
+		return err
+	}
 
 	p.GetEnvironment().SetInstalling(true)
 	defer p.GetEnvironment().SetInstalling(false)
