@@ -37,6 +37,9 @@ type MetricPoint struct {
 	NetTx     float64 `json:"tx"`
 	// Online is the share of samples taken while the server was running (0 to 1)
 	Online float64 `json:"online"`
+	// NoData marks a step nothing was recorded in (the node was down): the charts leave it
+	// blank and count it as offline instead of drawing a line across it
+	NoData bool `json:"noData,omitempty"`
 	// Players is the average number of people online and PlayersPeak the most at once;
 	// HasPlayers is false when the game did not answer any query in the bucket
 	Players     float64 `json:"players"`
@@ -46,8 +49,10 @@ type MetricPoint struct {
 } // @name MetricPoint
 
 type metricBucket struct {
-	start                            time.Time
-	count                            float64
+	start time.Time
+	// count is every sample, running only those taken while the server ran: CPU, memory and
+	// network are averaged over the running ones, so an hour half spent stopped does not halve them
+	count, running                   float64
 	cpu, mem, maxMem, rx, tx, online float64
 	playerSamples, players           float64
 	playersPeak, maxPlayers          int
@@ -76,25 +81,34 @@ func (b *metricBucket) fillPlayers(point *MetricPoint) {
 
 func (b *metricBucket) add(s *skypanel.ServerStats) {
 	b.count++
-	b.cpu += s.CPU
+	if !s.Running {
+		return
+	}
+	b.running++
+	b.online++
+	// CPU as a share of what the server may use, the same number its live charts show
+	b.cpu += s.CPUPercent()
 	b.mem += s.Memory
 	b.maxMem += s.MaxMemory
 	b.rx += s.NetworkRx
 	b.tx += s.NetworkTx
-	if s.Running {
-		b.online++
-	}
 }
 
 func (b *metricBucket) point() MetricPoint {
 	point := MetricPoint{Time: b.start.Unix()}
-	if b.count > 0 {
-		point.CPU = b.cpu / b.count
-		point.Memory = b.mem / b.count
-		point.MaxMemory = b.maxMem / b.count
-		point.NetRx = b.rx / b.count
-		point.NetTx = b.tx / b.count
+	if b.running > 0 {
+		point.CPU = b.cpu / b.running
+		point.Memory = b.mem / b.running
+		point.MaxMemory = b.maxMem / b.running
+		point.NetRx = b.rx / b.running
+		point.NetTx = b.tx / b.running
+	}
+	switch {
+	case b.count > 0:
 		point.Online = b.online / b.count
+	case b.playerSamples > 0:
+		// only player counts arrived: a game answering queries is running
+		point.Online = 1
 	}
 	b.fillPlayers(&point)
 	return point
@@ -269,10 +283,35 @@ func (p *Server) Metrics(window, step time.Duration, now time.Time) []MetricPoin
 		source = append(source, current.point())
 	}
 	since := now.Add(-window).Unix()
-	return resample(source, since, int64(step/time.Second))
+	stepSeconds := int64(step / time.Second)
+	return fillGaps(resample(source, since, stepSeconds), stepSeconds, now.Unix())
 }
 
-// resample averages points into steps of the given size, dropping those before since
+// fillGaps adds a NoData point for every step with nothing recorded between the first point
+// and now: the node was down then, so the server was too. Without them the chart drew a line
+// across the hours and the uptime only counted the minutes that had samples.
+func fillGaps(points []MetricPoint, step, now int64) []MetricPoint {
+	if len(points) == 0 || step <= 0 {
+		return points
+	}
+	last := now - now%step
+	filled := make([]MetricPoint, 0, len(points))
+	for i, pt := range points {
+		filled = append(filled, pt)
+		next := last + step // after the last point: up to the current step
+		if i+1 < len(points) {
+			next = points[i+1].Time
+		}
+		// the step still running (last) may simply not have its first sample yet
+		for t := pt.Time + step; t < next && t < last; t += step {
+			filled = append(filled, MetricPoint{Time: t, NoData: true})
+		}
+	}
+	return filled
+}
+
+// resample averages points into steps of the given size, dropping those before since. CPU,
+// memory and network are weighted by how long each point's server ran, as in a bucket.
 func resample(points []MetricPoint, since, step int64) []MetricPoint {
 	result := make([]MetricPoint, 0)
 	var bucket metricBucket
@@ -285,7 +324,7 @@ func resample(points []MetricPoint, since, step int64) []MetricPoint {
 		}
 	}
 	for _, pt := range points {
-		if pt.Time < since {
+		if pt.Time < since || pt.NoData {
 			continue
 		}
 		t := pt.Time - pt.Time%step
@@ -294,24 +333,28 @@ func resample(points []MetricPoint, since, step int64) []MetricPoint {
 			bucket = metricBucket{}
 			bucketTime = t
 		}
-		bucket.count++
-		bucket.cpu += pt.CPU
-		bucket.mem += pt.Memory
-		bucket.maxMem += pt.MaxMemory
-		bucket.rx += pt.NetRx
-		bucket.tx += pt.NetTx
-		bucket.online += pt.Online
-		if pt.HasPlayers {
-			bucket.playerSamples++
-			bucket.players += pt.Players
-			if pt.PlayersPeak > bucket.playersPeak {
-				bucket.playersPeak = pt.PlayersPeak
-			}
-			if pt.MaxPlayers > bucket.maxPlayers {
-				bucket.maxPlayers = pt.MaxPlayers
-			}
-		}
+		bucket.addPoint(pt)
 	}
 	flush()
 	return result
+}
+
+// addPoint folds an already averaged point into a coarser bucket, weighting its resources by
+// how long its server ran
+func (b *metricBucket) addPoint(pt MetricPoint) {
+	b.count++
+	b.online += pt.Online
+	b.running += pt.Online
+	b.cpu += pt.CPU * pt.Online
+	b.mem += pt.Memory * pt.Online
+	b.maxMem += pt.MaxMemory * pt.Online
+	b.rx += pt.NetRx * pt.Online
+	b.tx += pt.NetTx * pt.Online
+	if !pt.HasPlayers {
+		return
+	}
+	b.playerSamples++
+	b.players += pt.Players
+	b.playersPeak = max(b.playersPeak, pt.PlayersPeak)
+	b.maxPlayers = max(b.maxPlayers, pt.MaxPlayers)
 }

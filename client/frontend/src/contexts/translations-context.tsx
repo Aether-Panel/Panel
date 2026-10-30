@@ -31,7 +31,8 @@ interface TranslationsContextType {
 const TranslationsContext = createContext<TranslationsContextType | undefined>(undefined);
 
 export function TranslationsProvider({ children }: Readonly<{ children: ReactNode }>) {
-  const [language, setLanguageState] = useState<Locale>('es');
+  // English until the user picks a language in their profile (kept in localStorage)
+  const [locale, setLocale] = useState<Locale>('en');
 
   useEffect(() => {
     let storedLang: Locale | null = null;
@@ -42,14 +43,14 @@ export function TranslationsProvider({ children }: Readonly<{ children: ReactNod
     }
 
     if (storedLang && ['en', 'es'].includes(storedLang)) {
-      setLanguageState(storedLang);
+      setLocale(storedLang);
     }
   }, []);
 
   // keep <html lang> in step so screen readers and the browser use the right language
   useEffect(() => {
-    document.documentElement.lang = language;
-  }, [language]);
+    document.documentElement.lang = locale;
+  }, [locale]);
 
   const setLanguage = useCallback((lang: Locale) => {
     try {
@@ -57,11 +58,11 @@ export function TranslationsProvider({ children }: Readonly<{ children: ReactNod
     } catch (e) {
       console.error('localStorage is not available');
     }
-    setLanguageState(lang);
+    setLocale(lang);
   }, []);
 
   const t = useCallback((key: string, options?: { [key: string]: string | number }): string => {
-    let translation = getNestedTranslation(language, key);
+    let translation = getNestedTranslation(locale, key);
 
     // If translation is not found in the current language, fallback to English.
     translation ??= getNestedTranslation('en', key);
@@ -76,9 +77,9 @@ export function TranslationsProvider({ children }: Readonly<{ children: ReactNod
 
     // If still not found, return the key itself.
     return result;
-  }, [language]);
+  }, [locale]);
 
-  const value = useMemo(() => ({ language, setLanguage, t }), [language, setLanguage, t]);
+  const value = useMemo(() => ({ language: locale, setLanguage, t }), [locale, setLanguage, t]);
 
   return (
     <TranslationsContext.Provider value={value}>

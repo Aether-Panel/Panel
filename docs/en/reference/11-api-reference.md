@@ -300,11 +300,16 @@ Error codes: `ErrFieldRequired`, `ErrFieldLength`, `ErrServerNotFound`, `ErrUser
 ### ServerStats
 ```json
 {
-  "cpu": 45.2, "memory": 1536000000, "maxMemory": 2147483648,
+  "cpu": 45.2, "maxCpu": 200, "memory": 1536000000, "maxMemory": 2147483648,
   "running": true, "storage": 5000000000,
   "jvm": { "heapUsed": 1000000000, "heapTotal": 2000000000, "metaspaceUsed": 50000000, "metaspaceTotal": 100000000 }
 }
 ```
+
+`cpu` is in percent of one core (200 = two cores busy) and `maxCpu` is what the server may use in
+the same unit: its `cpu` limit, or every core of the node when it has none. The panel shows
+`cpu / maxCpu` (capped at 100%) everywhere. `memory` leaves out the inactive page cache, like
+`docker stats`.
 
 ### ServerLogs
 ```json

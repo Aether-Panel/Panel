@@ -7,10 +7,11 @@ import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { useTranslations } from '@/contexts/translations-context';
 import { Network } from '@/components/icons';
 import { cn, formatBytes } from '@/lib/utils';
+import { CHART_COLORS, formatClock } from '@/lib/chart-theme';
 import { EmptyState } from '@/components/empty-state';
 
-const NET_IN_COLOR = 'hsl(var(--chart-4))';
-const NET_OUT_COLOR = 'hsl(var(--chart-5))';
+const NET_IN_COLOR = CHART_COLORS.download;
+const NET_OUT_COLOR = CHART_COLORS.upload;
 
 /** KB/s to a human rate (B/s, KB/s, MB/s…). */
 const formatRate = (kbps: number) => (kbps > 0 ? `${formatBytes(kbps * 1024)}/s` : '0 B/s');
@@ -36,7 +37,7 @@ type NetworkUsageChartProps = {
 };
 
 export default function NetworkUsageChart({ serverMetrics, className }: Readonly<NetworkUsageChartProps>) {
-  const { t } = useTranslations();
+  const { t, language } = useTranslations();
 
   const chartConfig = {
     networkIn: { label: t('servers.networkChart.download'), color: NET_IN_COLOR },
@@ -51,12 +52,9 @@ export default function NetworkUsageChart({ serverMetrics, className }: Readonly
   const latest = serverMetrics?.at(-1) ?? null;
   // A single sample draws nothing useful; wait for a second point.
   const hasTrend = !!serverMetrics && serverMetrics.length >= 2;
-  // Two polls can land in the same second, so the axis runs on the sample index
-  // and only labels the first sample of each distinct time.
-  const chartData = (serverMetrics ?? []).map((sample, index) => ({ ...sample, index }));
-  const timeTicks = chartData
-    .filter((sample, i) => i === 0 || sample.time !== chartData[i - 1].time)
-    .map((sample) => sample.index);
+  // The axis runs on the sample index (two polls can land in the same second) and is labelled
+  // with each sample's time in the panel's language.
+  const chartData = (serverMetrics ?? []).map((sample, index) => ({ ...sample, index, time: formatClock(sample.ts, language) }));
 
   return (
     <Card className={cn('flex min-w-0 flex-col', className)}>
@@ -109,13 +107,13 @@ export default function NetworkUsageChart({ serverMetrics, className }: Readonly
                 dataKey="index"
                 type="number"
                 domain={['dataMin', 'dataMax']}
-                ticks={timeTicks}
                 tickFormatter={(index: number) => chartData[index]?.time ?? ''}
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
                 fontSize={10}
                 minTickGap={48}
+                allowDecimals={false}
               />
               <YAxis
                 tickLine={false}

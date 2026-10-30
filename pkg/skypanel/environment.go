@@ -61,6 +61,9 @@ type Environment struct {
 	Console         Console         `json:"-"`
 	Server          Server          `json:"-"`
 	Implementation  EnvironmentImpl `json:"-"`
+	// DiskUsage is the server's own measure of its folder (cached, and kept up to date with
+	// what the panel writes). The stats use it instead of walking the folder a second time.
+	DiskUsage func() int64 `json:"-"`
 }
 
 type ExecutionData struct {

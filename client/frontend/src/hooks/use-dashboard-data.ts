@@ -81,7 +81,8 @@ export function useUsersCount(skip = false) {
 
 /** Converts an elapsed counter pair into KB/s, treating a lower reading as a counter reset (daemon restart, etc.). */
 function rateKBps(current: number, previous: number, elapsedSeconds: number): number {
-    const diff = current >= previous ? current - previous : current;
+    // a counter that went backwards (the node restarted) starts over: no rate for that reading
+    const diff = current >= previous ? current - previous : 0;
     return (diff / elapsedSeconds) / 1024;
 }
 
@@ -101,6 +102,8 @@ export function useGlobalNetworkMetrics(nodes: any[]) {
         const now = Date.now();
         let totalRxRate = 0;
         let totalTxRate = 0;
+        // a rate needs two readings: the first poll after opening the page only sets the baseline
+        let measured = false;
 
         for (const node of nodes) {
             const sysInfo = node.systemInfo;
@@ -114,11 +117,14 @@ export function useGlobalNetworkMetrics(nodes: any[]) {
             if (elapsed > 0) {
                 totalRxRate += rateKBps(bytesRecv, prev.bytesRecv, elapsed);
                 totalTxRate += rateKBps(bytesSent, prev.bytesSent, elapsed);
+                measured = true;
             }
 
             lastSnapshotsRef.current[node.id] = { bytesRecv, bytesSent, time: now };
         }
 
+        // no fake "0 B/s" on every page load
+        if (!measured) return;
         const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
         setMetrics(prev => [

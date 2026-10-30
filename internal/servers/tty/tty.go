@@ -186,18 +186,26 @@ func (t *tty) GetStatsImpl(environment *skypanel.Environment) (*skypanel.ServerS
 		return nil, err
 	}
 
-	memMap, _ := pr.MemoryInfo()
+	// a process that just exited leaves no memory reading: report none instead of crashing
+	var rss uint64
+	if memMap, err := pr.MemoryInfo(); err == nil && memMap != nil {
+		rss = memMap.RSS
+	}
 	cpu, _ := pr.Percent(time.Second * 1)
 
-	memInfo, _ := mem.VirtualMemory()
+	var totalMemory uint64
+	if memInfo, err := mem.VirtualMemory(); err == nil && memInfo != nil {
+		totalMemory = memInfo.Total
+	}
 
 	rxRate, txRate := t.networkRates()
 	t.refreshDirSize(environment)
 
 	stats := &skypanel.ServerStats{
 		CPU:        cpu,
-		Memory:     cast.ToFloat64(memMap.RSS),
-		MaxMemory:  cast.ToFloat64(memInfo.Total),
+		MaxCPU:     cpuAllowance(environment),
+		Memory:     cast.ToFloat64(rss),
+		MaxMemory:  cast.ToFloat64(totalMemory),
 		Disk:       float64(t.dirSize),
 		MaxStorage: maxStorageBytes(environment),
 		NetworkRx:  rxRate,
@@ -216,6 +224,17 @@ func (t *tty) GetStatsImpl(environment *skypanel.Environment) (*skypanel.ServerS
 	t.lastStatTime = time.Now()
 
 	return stats, nil
+}
+
+// cpuAllowance is the CPU the server may use, in percent of one core: its "cpu" limit, or every
+// core of the node when it has none
+func cpuAllowance(environment *skypanel.Environment) float64 {
+	if cpuVar, ok := environment.Server.Variables["cpu"]; ok {
+		if limit, err := cast.ToFloat64E(cpuVar.Value); err == nil && limit > 0 {
+			return limit
+		}
+	}
+	return float64(runtime.NumCPU()) * 100
 }
 
 // stoppedStats is what a server that is not running reports.
@@ -241,7 +260,8 @@ func (t *tty) networkRates() (float64, float64) {
 	if netStats, err := psnet.IOCounters(false); err == nil && len(netStats) > 0 {
 		totalRx := netStats[0].BytesRecv
 		totalTx := netStats[0].BytesSent
-		if !t.lastNetTime.IsZero() {
+		// counters that went backwards (an interface reset) start a new count, not a wrapped one
+		if !t.lastNetTime.IsZero() && totalRx >= t.lastNetworkRx && totalTx >= t.lastNetworkTx {
 			elapsed := now.Sub(t.lastNetTime).Seconds()
 			if elapsed > 0 {
 				rxRate = (float64(totalRx-t.lastNetworkRx) / elapsed) / 1024
@@ -259,7 +279,12 @@ func (t *tty) networkRates() (float64, float64) {
 // Callers must hold statLocker.
 func (t *tty) refreshDirSize(environment *skypanel.Environment) {
 	if t.dirSizeTime.IsZero() || time.Since(t.dirSizeTime) > 30*time.Second {
-		t.dirSize = getDirSize(environment.GetRootDirectory())
+		// the server's own disk measure when there is one, so the folder is not walked twice
+		if environment.DiskUsage != nil {
+			t.dirSize = environment.DiskUsage()
+		} else {
+			t.dirSize = getDirSize(environment.GetRootDirectory())
+		}
 		t.dirSizeTime = time.Now()
 	}
 }

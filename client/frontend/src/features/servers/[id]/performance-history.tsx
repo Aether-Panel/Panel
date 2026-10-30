@@ -9,22 +9,25 @@ import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
 import { cn, formatBytes } from '@/lib/utils';
 import { useCrashReports } from './crash-report';
+import { CHART_COLORS, chartLocale } from '@/lib/chart-theme';
 
 type Point = {
   t: number; cpu: number; memory: number; maxMemory: number; rx: number; tx: number; online: number;
   players?: number; playersPeak?: number; maxPlayers?: number; hasPlayers?: boolean;
+  /** nothing was recorded in this step (the node was down): drawn as a gap, counted as offline */
+  noData?: boolean;
 };
 type Record = { players: number; at: number };
 type Range = '1h' | '24h' | '7d';
 type View = 'resources' | 'network' | 'players';
 
 const RANGES: Range[] = ['1h', '24h', '7d'];
-const CPU_COLOR = 'hsl(var(--chart-1))';
-const MEM_COLOR = 'hsl(var(--chart-2))';
-const RX_COLOR = 'hsl(var(--chart-3))';
-const TX_COLOR = 'hsl(var(--chart-4))';
-const PLAYERS_COLOR = 'hsl(var(--success))';
-const PEAK_COLOR = 'hsl(var(--chart-5))';
+const CPU_COLOR = CHART_COLORS.cpu;
+const MEM_COLOR = CHART_COLORS.memory;
+const RX_COLOR = CHART_COLORS.download;
+const TX_COLOR = CHART_COLORS.upload;
+const PLAYERS_COLOR = CHART_COLORS.players;
+const PEAK_COLOR = CHART_COLORS.playersPeak;
 
 const formatRate = (kbps: number) => (kbps > 0 ? `${formatBytes(kbps * 1024)}/s` : '0 B/s');
 
@@ -46,7 +49,10 @@ function offlineRuns(points: Point[], step: number) {
 type SeriesKey = 'cpu' | 'memoryPct' | 'rx' | 'tx' | 'playersAvg' | 'playersPeakValue';
 type Series = { key: SeriesKey; color: string }[];
 type HistoryChartConfig = { [K in SeriesKey]: { label: string; color: string } };
-type ChartPoint = Point & { memoryPct: number | null; playersAvg: number | null; playersPeakValue: number | null };
+type ChartPoint = Omit<Point, 'cpu' | 'rx' | 'tx'> & {
+  cpu: number | null; rx: number | null; tx: number | null;
+  memoryPct: number | null; playersAvg: number | null; playersPeakValue: number | null;
+};
 type Summary = {
   cpuAvg: number; cpuPeak: number; memAvg: number | null; memAvgBytes: number; uptime: number;
   rxAvg: number; txAvg: number; playersAvg: number; playersPeak: number;
@@ -106,10 +112,11 @@ function formatAxisValue(view: View, value: number) {
  */
 export default function PerformanceHistory({ serverId }: Readonly<{ serverId: string }>) {
   const { t, language } = useTranslations();
-  const locale = language === 'es' ? 'es-ES' : 'en-US';
+  const locale = chartLocale(language);
   const [range, setRange] = useState<Range>('24h');
   const [view, setView] = useState<View>('resources');
-  const [data, setData] = useState<{ step: number; points: Point[]; record?: Record } | null>(null);
+  // the range is kept with its data, so ticks keep their format until the new range arrives
+  const [data, setData] = useState<{ range: Range; step: number; points: Point[]; record?: Record } | null>(null);
   const [loading, setLoading] = useState(true);
   const { reports } = useCrashReports(serverId);
 
@@ -118,8 +125,9 @@ export default function PerformanceHistory({ serverId }: Readonly<{ serverId: st
     setLoading(true);
     const load = () =>
       api.get<{ step: number; points: Point[]; record?: Record }>(`/api/servers/${serverId}/metrics?range=${range}`)
-        .then((res) => !cancelled && setData({ step: res.step, points: res.points ?? [], record: res.record }))
-        .catch(() => !cancelled && setData({ step: 60, points: [] }))
+        .then((res) => !cancelled && setData({ range, step: res.step, points: res.points ?? [], record: res.record }))
+        // a failed refresh keeps what is on screen; only a first load with nothing shows empty
+        .catch(() => !cancelled && setData((previous) => previous ?? { range, step: 60, points: [] }))
         .finally(() => !cancelled && setLoading(false));
     void load();
     // the newest point keeps filling, so the chart follows it
@@ -135,26 +143,35 @@ export default function PerformanceHistory({ serverId }: Readonly<{ serverId: st
 
   const chartData = useMemo<ChartPoint[]>(
     () =>
-      points.map((p) => ({
-        ...p,
-        // memory as a share of the limit when there is one, so both lines fit one axis
-        memoryPct: p.maxMemory > 0 ? Math.min(100, (p.memory / p.maxMemory) * 100) : null,
-        cpu: Math.min(100, p.cpu),
-        // gaps where the game did not answer stay gaps instead of dropping to zero
-        playersAvg: p.hasPlayers ? Math.round((p.players ?? 0) * 10) / 10 : null,
-        playersPeakValue: p.hasPlayers ? p.playersPeak ?? 0 : null,
-      })),
+      points.map((p) => {
+        // a step with nothing recorded, or with the server off, is a gap in the lines
+        const measured = !p.noData && p.online > 0;
+        return {
+          ...p,
+          // memory as a share of the limit when there is one, so both lines fit one axis
+          memoryPct: measured && p.maxMemory > 0 ? Math.min(100, (p.memory / p.maxMemory) * 100) : null,
+          // a share of the server's CPU allowance (older points may be in percent of one core)
+          cpu: measured ? Math.min(100, p.cpu) : null,
+          rx: measured ? p.rx : null,
+          tx: measured ? p.tx : null,
+          // gaps where the game did not answer stay gaps instead of dropping to zero
+          playersAvg: p.hasPlayers ? Math.round((p.players ?? 0) * 10) / 10 : null,
+          playersPeakValue: p.hasPlayers ? p.playersPeak ?? 0 : null,
+        };
+      }),
     [points],
   );
+  // points actually measured: the chart and its figures need two of them
+  const measuredCount = points.filter((p) => !p.noData).length;
 
   const summary = useMemo((): Summary | null => {
-    const online = points.filter((p) => p.online > 0);
+    const online = points.filter((p) => !p.noData && p.online > 0);
     if (points.length === 0) return null;
     const avg = (values: number[]) => (values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0);
     const memPcts = online.filter((p) => p.maxMemory > 0).map((p) => (p.memory / p.maxMemory) * 100);
     return {
-      cpuAvg: avg(online.map((p) => p.cpu)),
-      cpuPeak: online.reduce((max, p) => Math.max(max, p.cpu), 0),
+      cpuAvg: avg(online.map((p) => Math.min(100, p.cpu))),
+      cpuPeak: online.reduce((max, p) => Math.max(max, Math.min(100, p.cpu)), 0),
       memAvg: memPcts.length ? avg(memPcts) : null,
       memAvgBytes: avg(online.map((p) => p.memory)),
       uptime: avg(points.map((p) => p.online)) * 100,
@@ -174,7 +191,7 @@ export default function PerformanceHistory({ serverId }: Readonly<{ serverId: st
 
   const formatTick = (seconds: number) => {
     const d = new Date(seconds * 1000);
-    return range === '7d'
+    return (data?.range ?? range) === '7d'
       ? d.toLocaleDateString(locale, { weekday: 'short', day: 'numeric' })
       : d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
   };
@@ -193,7 +210,8 @@ export default function PerformanceHistory({ serverId }: Readonly<{ serverId: st
   const series = seriesFor(view);
   const record = data?.record && data.record.players > 0 ? data.record : null;
 
-  const stats = buildStats(summary, view, record, t, locale);
+  // the figures only show with a chart under them: alone they read as a broken chart
+  const stats = measuredCount >= 2 ? buildStats(summary, view, record, t, locale) : [];
 
   let body: ReactNode;
   if (loading && !data) {
@@ -203,7 +221,7 @@ export default function PerformanceHistory({ serverId }: Readonly<{ serverId: st
         <span className="sr-only">{t('common.loading')}</span>
       </div>
     );
-  } else if (points.length < 2) {
+  } else if (measuredCount < 2) {
     body = <EmptyState icon={History} size="sm" as="p" title={t('servers.history.emptyTitle')} description={t('servers.history.emptyDescription')} className="min-h-[260px]" />;
   } else {
     body = (
@@ -311,7 +329,12 @@ function HistoryChart({ chartData, chartConfig, series, view, from, to, offline,
           </span>
         )}
       </div>
-      <ChartContainer config={chartConfig} className="aspect-auto h-[260px] w-full">
+      <ChartContainer
+        config={chartConfig}
+        role="img"
+        aria-label={`${t('servers.history.title')}: ${series.map((entry) => chartConfig[entry.key].label).join(', ')}`}
+        className="aspect-auto h-[260px] w-full"
+      >
         <AreaChart data={chartData} margin={{ left: 4, right: 8, top: 8, bottom: 0 }}>
           <defs>
             {series.map((entry) => (
@@ -360,7 +383,6 @@ function HistoryChart({ chartData, chartConfig, series, view, from, to, offline,
               stroke={entry.color}
               strokeWidth={2}
               fill={`url(#history-${entry.key})`}
-              connectNulls
               isAnimationActive
               animationDuration={700}
             />
@@ -384,22 +406,25 @@ type HistoryTooltipProps = {
 function HistoryTooltip({ view, chartConfig, formatFull, active, payload }: Readonly<HistoryTooltipProps>) {
   const { t } = useTranslations();
   if (!active || !payload?.length) return null;
-  const point = payload[0].payload as Point & { memoryPct: number | null };
+  const point = payload[0].payload as ChartPoint;
+  let body: ReactNode = <TooltipRows view={view} chartConfig={chartConfig} point={point} />;
+  if (point.noData) body = <p className="text-muted-foreground">{t('servers.history.noData')}</p>;
+  else if (point.online === 0) body = <p className="text-muted-foreground">{t('servers.history.offline')}</p>;
   return (
     <div className="min-w-[11rem] rounded-lg border border-border/60 bg-popover/95 px-3 py-2 text-xs shadow-elevation-2 backdrop-blur-md">
       <p className="mb-1.5 font-medium text-foreground">{formatFull(point.t)}</p>
-      <TooltipRows view={view} chartConfig={chartConfig} point={point} />
-      {point.online < 0.5 && <p className="mt-1 text-muted-foreground">{t('servers.history.offline')}</p>}
+      {body}
+      {!point.noData && point.online > 0 && point.online < 0.5 && <p className="mt-1 text-muted-foreground">{t('servers.history.offline')}</p>}
     </div>
   );
 }
 
-function TooltipRows({ view, chartConfig, point }: Readonly<{ view: View; chartConfig: HistoryChartConfig; point: Point & { memoryPct: number | null } }>) {
+function TooltipRows({ view, chartConfig, point }: Readonly<{ view: View; chartConfig: HistoryChartConfig; point: ChartPoint }>) {
   const { t } = useTranslations();
   if (view === 'resources') {
     return (
       <>
-        <Row color={CPU_COLOR} label={chartConfig.cpu.label} value={`${Math.round(point.cpu)}%`} />
+        <Row color={CPU_COLOR} label={chartConfig.cpu.label} value={`${Math.round(point.cpu ?? 0)}%`} />
         <Row color={MEM_COLOR} label={chartConfig.memoryPct.label} value={point.memoryPct !== null ? `${Math.round(point.memoryPct)}% · ${formatBytes(point.memory)}` : formatBytes(point.memory)} />
       </>
     );
@@ -407,8 +432,8 @@ function TooltipRows({ view, chartConfig, point }: Readonly<{ view: View; chartC
   if (view === 'network') {
     return (
       <>
-        <Row color={RX_COLOR} label={chartConfig.rx.label} value={formatRate(point.rx)} />
-        <Row color={TX_COLOR} label={chartConfig.tx.label} value={formatRate(point.tx)} />
+        <Row color={RX_COLOR} label={chartConfig.rx.label} value={formatRate(point.rx ?? 0)} />
+        <Row color={TX_COLOR} label={chartConfig.tx.label} value={formatRate(point.tx ?? 0)} />
       </>
     );
   }

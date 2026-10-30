@@ -5,13 +5,19 @@ export type Server = {
   port: number;
   ports?: number[];
   status: 'online' | 'offline' | 'pending';
+  /** CPU as a share of what the server may use, 0-100 (its limit, or every core of the node) */
   cpuUsage: number;
+  /** CPU in percent of one core as the node reports it (200 = two cores), and the server's
+   *  allowance in the same unit */
+  cpuRaw?: number;
+  maxCpu?: number;
   memoryUsage: number;
   storageUsage: number;
   storageUsed: number;
   storageMax: number;
   memoryUsed?: number;
-  metrics: { time: string; cpu: number; memory: number; networkIn: number; networkOut: number }[];
+  /** live samples: `ts` in ms, CPU and memory as shares of the server's limits */
+  metrics: { ts: number; cpu: number; memory: number; networkIn: number; networkOut: number }[];
   alerts: string[];
   isGhost?: boolean;
   parentServerId?: string;

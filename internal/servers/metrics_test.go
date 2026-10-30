@@ -33,8 +33,9 @@ func TestMetrics_MinutePointsAreAverages(t *testing.T) {
 	points := p.Metrics(time.Hour, time.Minute, start.Add(90*time.Second))
 	if assert.Len(t, points, 2, "a closed minute and the one still being filled") {
 		assert.Equal(t, start.Unix(), points[0].Time)
-		assert.InDelta(t, 20, points[0].CPU, 0.001)
-		assert.InDelta(t, 200, points[0].Memory, 0.001)
+		// resources average over the samples taken while it ran: the stopped one does not halve them
+		assert.InDelta(t, 10, points[0].CPU, 0.001)
+		assert.InDelta(t, 100, points[0].Memory, 0.001)
 		assert.InDelta(t, 0.5, points[0].Online, 0.001)
 		assert.InDelta(t, 50, points[1].CPU, 0.001)
 	}
@@ -112,5 +113,49 @@ func TestMetrics_NoPlayersWhenTheGameNeverAnswers(t *testing.T) {
 	points := p.Metrics(time.Hour, time.Minute, start.Add(10*time.Second))
 	if assert.Len(t, points, 1) {
 		assert.False(t, points[0].HasPlayers)
+	}
+}
+
+func TestMetrics_CPUIsAShareOfTheServersAllowance(t *testing.T) {
+	p := newMetricsTestServer(t)
+	start := time.Date(2026, 10, 22, 10, 0, 0, 0, time.UTC)
+	// a two-core server with both cores busy, as Docker reports it (percent of one core)
+	p.recordMetrics(&skypanel.ServerStats{CPU: 206, MaxCPU: 200, Running: true}, start)
+	p.recordMetrics(&skypanel.ServerStats{CPU: 100, MaxCPU: 200, Running: true}, start.Add(10*time.Second))
+
+	points := p.Metrics(time.Hour, time.Minute, start.Add(30*time.Second))
+	if assert.Len(t, points, 1) {
+		assert.InDelta(t, 75, points[0].CPU, 0.001, "(100% + 50%) / 2, never over 100")
+	}
+}
+
+func TestMetrics_GapsAreMarkedAsNoData(t *testing.T) {
+	p := newMetricsTestServer(t)
+	start := time.Date(2026, 10, 22, 10, 0, 0, 0, time.UTC)
+	p.recordMetrics(&skypanel.ServerStats{CPU: 10, Running: true}, start)
+	// the node is down from 10:01 to 10:04
+	p.recordMetrics(&skypanel.ServerStats{CPU: 30, Running: true}, start.Add(4*time.Minute))
+	p.recordMetrics(&skypanel.ServerStats{CPU: 30, Running: true}, start.Add(5*time.Minute+10*time.Second))
+
+	points := p.Metrics(time.Hour, time.Minute, start.Add(5*time.Minute+30*time.Second))
+	var noData []int64
+	for _, pt := range points {
+		if pt.NoData {
+			noData = append(noData, (pt.Time-start.Unix())/60)
+			assert.Zero(t, pt.Online, "a gap counts as offline")
+		}
+	}
+	assert.Equal(t, []int64{1, 2, 3}, noData, "the three silent minutes, not the one still being filled")
+	assert.Len(t, points, 6, "10:00 to 10:05")
+}
+
+func TestMetrics_PlayerOnlyBucketsCountAsOnline(t *testing.T) {
+	p := newMetricsTestServer(t)
+	start := time.Date(2026, 10, 22, 10, 0, 0, 0, time.UTC)
+	p.recordPlayers(3, 20, start)
+
+	points := p.Metrics(time.Hour, time.Minute, start.Add(30*time.Second))
+	if assert.Len(t, points, 1) {
+		assert.InDelta(t, 1, points[0].Online, 0.001, "a game answering queries is running")
 	}
 }

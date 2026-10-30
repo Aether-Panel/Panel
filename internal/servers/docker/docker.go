@@ -347,16 +347,23 @@ func (d *Docker) GetStatsImpl(environment *skypanel.Environment) (*skypanel.Serv
 	}
 
 	if !running {
+		// the next container starts its network counters from zero
+		d.statLocker.Lock()
+		d.lastNetTime = time.Time{}
+		d.statLocker.Unlock()
 		return stoppedStats(environment), nil
 	}
 
 	d.statLocker.Lock()
 	defer d.statLocker.Unlock()
 
-	// only fetch stats once every 5 seconds, to avoid excessive spam
-	if d.lastStatTime.Add(5 * time.Second).After(time.Now()) {
+	// at most one Docker stats call every few seconds, whoever asks (the panel's 5 s poll, the
+	// node's own sampling). The time is taken before the call, which itself takes about a
+	// second: taken after, every other 5 s poll hit the cache and repeated the last sample.
+	if d.lastStatTime.Add(statsCacheFor).After(time.Now()) {
 		return d.lastStats, nil
 	}
+	fetchedAt := time.Now()
 
 	dockerClient, err := d.getClient()
 
@@ -387,9 +394,10 @@ func (d *Docker) GetStatsImpl(environment *skypanel.Environment) (*skypanel.Serv
 	d.refreshDirSize(environment)
 
 	stats := &skypanel.ServerStats{
-		Memory:     float64(data.MemoryStats.Usage),
+		Memory:     memoryInUse(data.MemoryStats),
 		MaxMemory:  float64(data.MemoryStats.Limit),
 		CPU:        calculateCPUPercent(data),
+		MaxCPU:     cpuAllowance(environment, data),
 		Disk:       float64(d.dirSize),
 		MaxStorage: maxStorageBytes(environment),
 		NetworkRx:  rxRate,
@@ -406,7 +414,7 @@ func (d *Docker) GetStatsImpl(environment *skypanel.Environment) (*skypanel.Serv
 	}
 
 	d.lastStats = stats
-	d.lastStatTime = time.Now()
+	d.lastStatTime = fetchedAt
 
 	return stats, nil
 }
@@ -436,7 +444,10 @@ func (d *Docker) networkRates(data *container.StatsResponse) (float64, float64) 
 
 	now := time.Now()
 	var rxRate, txRate float64
-	if !d.lastNetTime.IsZero() {
+	// A new container (a restart) counts from zero again: going by the old totals, the
+	// unsigned difference wrapped around into a rate of about 10^15 KB/s, which also stayed
+	// in the history for a week. That sample just starts the new count.
+	if !d.lastNetTime.IsZero() && totalRx >= d.lastNetworkRx && totalTx >= d.lastNetworkTx {
 		elapsed := now.Sub(d.lastNetTime).Seconds()
 		if elapsed > 0 {
 			rxRate = (float64(totalRx-d.lastNetworkRx) / elapsed) / 1024
@@ -449,11 +460,16 @@ func (d *Docker) networkRates(data *container.StatsResponse) (float64, float64) 
 	return rxRate, txRate
 }
 
-// refreshDirSize walks the server folder at most every 30 seconds, it is slow on big servers.
-// Callers must hold statLocker.
+// refreshDirSize updates the folder size for the stats at most every 30 seconds: walking a big
+// server's folder is slow. It is the server's own disk measure when there is one, so the folder
+// is not walked twice. Callers must hold statLocker.
 func (d *Docker) refreshDirSize(environment *skypanel.Environment) {
 	if !d.disableSpecialStats && (d.dirSizeTime.IsZero() || time.Since(d.dirSizeTime) > 30*time.Second) {
-		d.dirSize = getDirSize(environment.GetRootDirectory()) + getDirSize(environment.GetTmpDirectory())
+		if environment.DiskUsage != nil {
+			d.dirSize = environment.DiskUsage()
+		} else {
+			d.dirSize = getDirSize(environment.GetRootDirectory()) + getDirSize(environment.GetTmpDirectory())
+		}
 		d.dirSizeTime = time.Now()
 	}
 }
@@ -1147,15 +1163,54 @@ func (d *Docker) handleClose(environment *skypanel.Environment, dockerClient *cl
 	}
 }
 
+// statsCacheFor is how long one Docker stats call answers every caller
+const statsCacheFor = 4 * time.Second
+
+// calculateCPUPercent is the container's CPU use in percent of one core (200 = two cores busy).
+// The math is Docker's: https://docs.docker.com/reference/api/engine/version/v1.45/#tag/Container/operation/ContainerStats
 func calculateCPUPercent(v *container.StatsResponse) float64 {
-	// this math is from https://docs.docker.com/reference/api/engine/version/v1.45/#tag/Container/operation/ContainerStats
+	// the counters are unsigned: a smaller one (the first sample of a new container) would wrap
+	// around, and a zero system delta divides by zero; NaN even breaks the stats' JSON
+	if v.CPUStats.CPUUsage.TotalUsage <= v.PreCPUStats.CPUUsage.TotalUsage || v.CPUStats.SystemUsage <= v.PreCPUStats.SystemUsage {
+		return 0
+	}
 	cpuDelta := v.CPUStats.CPUUsage.TotalUsage - v.PreCPUStats.CPUUsage.TotalUsage
 	systemCPUDelta := v.CPUStats.SystemUsage - v.PreCPUStats.SystemUsage
-	numCpus := int(v.CPUStats.OnlineCPUs)
-	if numCpus == 0 {
-		numCpus = len(v.CPUStats.CPUUsage.PercpuUsage)
+	return (float64(cpuDelta) / float64(systemCPUDelta)) * float64(onlineCPUs(v)) * 100.0
+}
+
+func onlineCPUs(v *container.StatsResponse) int {
+	if n := int(v.CPUStats.OnlineCPUs); n > 0 {
+		return n
 	}
-	return (float64(cpuDelta) / float64(systemCPUDelta)) * float64(numCpus) * 100.0
+	if n := len(v.CPUStats.CPUUsage.PercpuUsage); n > 0 {
+		return n
+	}
+	return runtime.NumCPU()
+}
+
+// cpuAllowance is the CPU the server may use, in percent of one core: its "cpu" limit, or every
+// core of the node when it has none
+func cpuAllowance(environment *skypanel.Environment, v *container.StatsResponse) float64 {
+	if cpuVar, ok := environment.Server.Variables["cpu"]; ok {
+		if limit, err := cast.ToFloat64E(cpuVar.Value); err == nil && limit > 0 {
+			return limit
+		}
+	}
+	return float64(onlineCPUs(v)) * 100
+}
+
+// memoryInUse is the memory the container really holds, as `docker stats` shows it: the usage
+// minus the inactive page cache, which the kernel gives back whenever it is needed. Counted in,
+// a server that reads a lot from disk looked nearly full and set off memory alerts.
+func memoryInUse(m container.MemoryStats) float64 {
+	used := m.Usage
+	for _, key := range []string{"inactive_file", "total_inactive_file"} { // cgroup v2, v1
+		if cache, ok := m.Stats[key]; ok && cache < used {
+			return float64(used - cache)
+		}
+	}
+	return float64(used)
 }
 
 func getDirSize(path string) int64 {

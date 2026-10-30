@@ -10,6 +10,7 @@ import { useTranslations } from '@/contexts/translations-context';
 import { downsampleNetwork, NETWORK_SAMPLE_INTERVAL_MS, type NetworkSample } from '@/hooks/use-network-history';
 import { cn, formatBytes } from '@/lib/utils';
 import { EmptyState } from '@/components/empty-state';
+import { CHART_COLORS, chartLocale } from '@/lib/chart-theme';
 
 type RangeId = '1h' | '6h' | '24h';
 
@@ -25,8 +26,23 @@ const MAX_POINTS = 120;
 /** KB/s to a human rate. */
 const formatRate = (kbps: number) => `${formatBytes(kbps * 1024)}/s`;
 
-const formatClock = (epochMs: number) =>
-    new Date(epochMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+/** Persisted points are a minute apart: more than this between two means the page was closed. */
+const GAP_MS = 3 * 60_000;
+
+/**
+ * The points with a break wherever the page was closed (or the tab hidden), so the line stops
+ * instead of joining the two ends as if traffic had been measured in between.
+ */
+function withGaps(points: NetworkSample[], bucketMs: number): (NetworkSample | { t: number; in: null; out: null })[] {
+    const gap = Math.max(GAP_MS, 3 * bucketMs);
+    const result: (NetworkSample | { t: number; in: null; out: null })[] = [];
+    points.forEach((point, index) => {
+        const previous = points[index - 1];
+        if (previous && point.t - previous.t > gap) result.push({ t: previous.t + 1, in: null, out: null });
+        result.push(point);
+    });
+    return result;
+}
 
 type TooltipFormatter = NonNullable<ComponentProps<typeof ChartTooltipContent>['formatter']>;
 
@@ -57,7 +73,9 @@ const tooltipFormatter =
  * cadence and sample count.
  */
 export function NetworkHistoryChart({ samples }: Readonly<{ samples: NetworkSample[] }>) {
-    const { t } = useTranslations();
+    const { t, language } = useTranslations();
+    const formatClock = (epochMs: number) =>
+        new Date(epochMs).toLocaleTimeString(chartLocale(language), { hour: '2-digit', minute: '2-digit' });
     const [range, setRange] = useState<RangeId>('1h');
 
     const rangeMs = RANGES.find((entry) => entry.id === range)?.ms ?? RANGES[0].ms;
@@ -69,25 +87,25 @@ export function NetworkHistoryChart({ samples }: Readonly<{ samples: NetworkSamp
     const { data, count } = useMemo(() => {
         const cutoff = Date.now() - rangeMs;
         const inRange = samples.filter((sample) => sample.t >= cutoff);
-        const points =
-            inRange.length <= MAX_POINTS ? inRange : downsampleNetwork(inRange, rangeMs / MAX_POINTS);
-        return { data: points, count: inRange.length };
+        const bucketMs = inRange.length <= MAX_POINTS ? NETWORK_SAMPLE_INTERVAL_MS : rangeMs / MAX_POINTS;
+        const points = inRange.length <= MAX_POINTS ? inRange : downsampleNetwork(inRange, bucketMs);
+        return { data: withGaps(points, bucketMs), count: inRange.length };
     }, [samples, rangeMs]);
 
     const latest = data[data.length - 1];
-    const hasTrend = data.length >= 2;
+    const hasTrend = count >= 2;
     // A young buffer is a handful of points at the right edge: mark them so
     // they read as samples rather than a stray vertical stroke.
     const sparse = data.length < 12;
 
     const chartConfig = {
-        in: { label: t('dashboard.admin.networkTraffic.download'), color: 'hsl(var(--chart-1))' },
-        out: { label: t('dashboard.admin.networkTraffic.upload'), color: 'hsl(var(--chart-2))' },
+        in: { label: t('dashboard.admin.networkTraffic.download'), color: CHART_COLORS.download },
+        out: { label: t('dashboard.admin.networkTraffic.upload'), color: CHART_COLORS.upload },
     } satisfies ChartConfig;
 
     const series = [
-        { key: 'in' as const, color: 'hsl(var(--chart-1))' },
-        { key: 'out' as const, color: 'hsl(var(--chart-2))' },
+        { key: 'in' as const, color: CHART_COLORS.download },
+        { key: 'out' as const, color: CHART_COLORS.upload },
     ];
 
     return (
@@ -133,7 +151,7 @@ export function NetworkHistoryChart({ samples }: Readonly<{ samples: NetworkSamp
                             />
                             {t(`dashboard.admin.networkTraffic.${entry.key === 'in' ? 'download' : 'upload'}`)}
                             <span className="font-medium tabular-nums text-foreground">
-                                {latest ? formatRate(latest[entry.key]) : '—'}
+                                {latest && latest[entry.key] !== null ? formatRate(latest[entry.key] as number) : '—'}
                             </span>
                         </span>
                     ))}
@@ -151,12 +169,12 @@ export function NetworkHistoryChart({ samples }: Readonly<{ samples: NetworkSamp
                             <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                                 <defs>
                                     <linearGradient id="dashboardNetworkInFill" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.24} />
-                                        <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0} />
+                                        <stop offset="5%" stopColor={CHART_COLORS.download} stopOpacity={0.24} />
+                                        <stop offset="95%" stopColor={CHART_COLORS.download} stopOpacity={0} />
                                     </linearGradient>
                                     <linearGradient id="dashboardNetworkOutFill" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="hsl(var(--chart-2))" stopOpacity={0.12} />
-                                        <stop offset="95%" stopColor="hsl(var(--chart-2))" stopOpacity={0} />
+                                        <stop offset="5%" stopColor={CHART_COLORS.upload} stopOpacity={0.12} />
+                                        <stop offset="95%" stopColor={CHART_COLORS.upload} stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid vertical={false} />
@@ -197,20 +215,20 @@ export function NetworkHistoryChart({ samples }: Readonly<{ samples: NetworkSamp
                                 <Area
                                     dataKey="in"
                                     type="monotone"
-                                    stroke="hsl(var(--chart-1))"
+                                    stroke={CHART_COLORS.download}
                                     strokeWidth={2}
                                     fill="url(#dashboardNetworkInFill)"
-                                    dot={sparse ? { r: 2.5, strokeWidth: 0, fill: 'hsl(var(--chart-1))' } : false}
+                                    dot={sparse ? { r: 2.5, strokeWidth: 0, fill: CHART_COLORS.download } : false}
                                     isAnimationActive={false}
                                     activeDot={{ r: 3.5, strokeWidth: 0 }}
                                 />
                                 <Area
                                     dataKey="out"
                                     type="monotone"
-                                    stroke="hsl(var(--chart-2))"
+                                    stroke={CHART_COLORS.upload}
                                     strokeWidth={2}
                                     fill="url(#dashboardNetworkOutFill)"
-                                    dot={sparse ? { r: 2.5, strokeWidth: 0, fill: 'hsl(var(--chart-2))' } : false}
+                                    dot={sparse ? { r: 2.5, strokeWidth: 0, fill: CHART_COLORS.upload } : false}
                                     isAnimationActive={false}
                                     activeDot={{ r: 3.5, strokeWidth: 0 }}
                                 />

@@ -764,9 +764,10 @@ func trackPowerChange(server *Server, state *serverState, isRunning bool, server
 func checkResourceAlerts(server *Server, state *serverState, stats *skypanel.ServerStats, serverName string) {
 	now := time.Now()
 
-	// CPU > 80%
-	if stats.CPU > 80.0 {
-		sendResourceAlert(server, state, now, serverName, resourceAlert{key: "cpu_high", resource: "CPU", value: stats.CPU, limit: 80.0})
+	// CPU > 80% of what the server may use (a two-core server at one core is not high)
+	cpu := stats.CPUPercent()
+	if cpu > 80.0 {
+		sendResourceAlert(server, state, now, serverName, resourceAlert{key: "cpu_high", resource: "CPU", value: cpu, limit: 80.0})
 	}
 
 	// RAM > 90%
@@ -776,7 +777,7 @@ func checkResourceAlerts(server *Server, state *serverState, stats *skypanel.Ser
 	}
 
 	// Limpiar alertas antiguas si el recurso ya no está alto
-	if stats.CPU <= 80.0 {
+	if cpu <= 80.0 {
 		delete(state.lastAlert, "cpu_high")
 	}
 	if memory <= 90.0 {

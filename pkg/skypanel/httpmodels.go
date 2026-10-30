@@ -11,7 +11,10 @@ type ServerIDResponse struct {
 } // @name ServerId
 
 type ServerStats struct {
+	// CPU is in percent of one core (200 = two cores busy); MaxCPU is what the server may use,
+	// in the same unit: its CPU limit, or every core of the node when it has none
 	CPU        float64         `json:"cpu"`
+	MaxCPU     float64         `json:"maxCpu"`
 	Memory     float64         `json:"memory"`
 	MaxMemory  float64         `json:"maxMemory"`
 	Disk       float64         `json:"storage"`
@@ -21,6 +24,15 @@ type ServerStats struct {
 	Jvm        *utils.JvmStats `json:"jvm,omitempty"`
 	Running    bool            `json:"running"`
 } // @name ServerStats
+
+// CPUPercent is the CPU use as a share of what the server may use, 0 to 100. Every chart,
+// card and alert reads this one number, so a two-core server at full load is 100% everywhere.
+func (s *ServerStats) CPUPercent() float64 {
+	if s.MaxCPU <= 0 {
+		return max(s.CPU, 0)
+	}
+	return min(max(s.CPU/s.MaxCPU*100, 0), 100)
+}
 
 type ServerLogs struct {
 	Epoch int64  `json:"epoch"`

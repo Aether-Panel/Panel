@@ -3,8 +3,14 @@ package daemon
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/http"
+	"os"
+	"path/filepath"
 	"runtime"
+	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
@@ -236,10 +242,7 @@ func getSystemInfo(c *gin.Context) {
 		sysInfo.MemoryAvailable = memInfo.Available
 	}
 
-	// Get CPU usage (percentage)
-	if cpuPercent, err := cpu.Percent(time.Second, false); err == nil && len(cpuPercent) > 0 {
-		sysInfo.CPUUsage = cpuPercent[0]
-	}
+	sysInfo.CPUUsage = currentCPUUsage()
 
 	// Get disk info
 	sysInfo.Disks = append(sysInfo.Disks, collectDiskInfo()...)
@@ -264,15 +267,64 @@ func getPublishedPorts(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ports": ports})
 }
 
-// collectDiskInfo reports the usage of every mounted partition that can be read
+// The node's CPU usage is sampled in the background over two-second windows, so /system answers
+// at once with the latest reading. Measuring it inside the request held every call for a second,
+// and the dashboard, the nodes pages and the new-server wizard ask for it every few seconds.
+var cpuSampler struct {
+	once  sync.Once
+	ready atomic.Bool
+	value atomic.Uint64 // math.Float64bits of the percentage
+}
+
+func currentCPUUsage() float64 {
+	cpuSampler.once.Do(func() { go sampleCPU() })
+	if !cpuSampler.ready.Load() {
+		// first call since the daemon started: a short reading instead of none
+		if percent, err := cpu.Percent(250*time.Millisecond, false); err == nil && len(percent) > 0 {
+			return percent[0]
+		}
+		return 0
+	}
+	return math.Float64frombits(cpuSampler.value.Load())
+}
+
+func sampleCPU() {
+	defer skypanel.Recover()
+	for {
+		percent, err := cpu.Percent(2*time.Second, false)
+		if err != nil || len(percent) == 0 {
+			time.Sleep(2 * time.Second)
+			continue
+		}
+		cpuSampler.value.Store(math.Float64bits(percent[0]))
+		cpuSampler.ready.Store(true)
+	}
+}
+
+// collectDiskInfo reports the usage of every disk the node can read, each once. Inside a
+// container every bind mount (/etc/hosts, /etc/hostname, the data folders…) shows up as a
+// partition of the same disk, so the node page listed one disk seven times.
 func collectDiskInfo() []*DiskInfo {
 	disks := make([]*DiskInfo, 0)
 	partitions, err := disk.Partitions(false)
 	if err != nil {
 		return disks
 	}
+	servers, _ := filepath.Abs(config.ServersFolder.Value())
+	seen := make(map[string]*DiskInfo)
 	for _, partition := range partitions {
+		if info, err := os.Stat(partition.Mountpoint); err != nil || !info.IsDir() {
+			continue // a file mounted on its own: its disk is listed through a folder
+		}
 		if usage, err := disk.Usage(partition.Mountpoint); err == nil {
+			key := fmt.Sprintf("%s|%d|%d", partition.Device, usage.Total, usage.Used)
+			if listed, ok := seen[key]; ok {
+				// the same disk again: name it after the folder that matters most
+				if diskLabelRank(partition.Mountpoint, servers) < diskLabelRank(listed.Path, servers) {
+					listed.Path = partition.Mountpoint
+				}
+				continue
+			}
 			diskInfo := &DiskInfo{
 				Path:        partition.Mountpoint,
 				Total:       usage.Total,
@@ -280,10 +332,24 @@ func collectDiskInfo() []*DiskInfo {
 				Free:        usage.Free,
 				UsedPercent: usage.UsedPercent,
 			}
+			seen[key] = diskInfo
 			disks = append(disks, diskInfo)
 		}
 	}
 	return disks
+}
+
+// diskLabelRank orders the folders one disk is mounted at by how well they name it: the root,
+// then the one holding the servers, then the shortest
+func diskLabelRank(mountpoint, serversFolder string) int {
+	switch {
+	case mountpoint == "/":
+		return 0
+	case serversFolder != "" && strings.HasPrefix(serversFolder+"/", strings.TrimSuffix(mountpoint, "/")+"/"):
+		return 1
+	default:
+		return 2 + len(mountpoint)
+	}
 }
 
 // totalNetworkBytes sums the bytes sent and received over all network

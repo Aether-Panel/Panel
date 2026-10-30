@@ -183,7 +183,11 @@ function SystemInfoCard({ node }: Readonly<{ node: any }>) {
         <InfoSection title={t('nodes.detail.systemInfo.memory')}>
           <InfoItem label={t('nodes.detail.systemInfo.total')} value={info?.memoryTotal ? `${(info.memoryTotal / GB).toFixed(1)} GB` : '—'} />
           <InfoItem label={t('nodes.detail.systemInfo.used')} value={info?.memoryUsed ? `${(info.memoryUsed / GB).toFixed(1)} GB` : '—'} />
-          <InfoItem label={t('nodes.detail.systemInfo.free')} value={info?.memoryFree ? `${(info.memoryFree / GB).toFixed(1)} GB` : '—'} />
+          {/* what can still be given out, page cache included: "free" alone looked nearly full */}
+          <InfoItem
+            label={t('nodes.detail.systemInfo.available')}
+            value={(info?.memoryAvailable ?? info?.memoryFree) ? `${((info.memoryAvailable ?? info.memoryFree) / GB).toFixed(1)} GB` : '—'}
+          />
         </InfoSection>
       </div>
     </Card>
@@ -603,8 +607,9 @@ export default function NodeDetailPage({ params }: Readonly<{ params: { id: stri
       try {
         const data = await api.get(`/api/nodes/${node.id}/system`);
         setLiveStats(data);
-      } catch (e) {
-        // silently ignore; keep last known values
+      } catch {
+        // the node did not answer: show no figures rather than old ones as if they were live
+        setLiveStats(null);
       }
     };
     void fetchLive();

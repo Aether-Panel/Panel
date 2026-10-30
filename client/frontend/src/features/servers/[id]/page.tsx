@@ -203,7 +203,9 @@ function allocatedMemoryBytes(server: any): number {
 }
 
 function ServerOverviewCards({ server, t }: any) {
-  const cpuAllocated = server.totalCpu ?? 100;
+  // CPU reads like Pterodactyl's ("206% / 200%", percent of one core) while the bar is the
+  // share of the allowance, the same number as the charts; no limit means every core
+  const cpuAllocated = server.maxCpu ?? (server.totalCpu || 100);
   const memAllocatedBytes = allocatedMemoryBytes(server);
   const players = server.playerInfo as import('@/lib/players').PlayerInfo | undefined;
 
@@ -218,7 +220,7 @@ function ServerOverviewCards({ server, t }: any) {
           <ResourceGauge
             icon={Cpu}
             label={t('dashboard.table.cpu')}
-            used={`${server.cpuUsage}%`}
+            used={`${server.cpuRaw ?? server.cpuUsage}%`}
             allocated={`${cpuAllocated}%`}
             pct={server.cpuUsage}
             showPct={false}
