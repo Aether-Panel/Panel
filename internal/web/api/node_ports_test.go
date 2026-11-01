@@ -21,3 +21,18 @@ func TestIsMainPortVariable(t *testing.T) {
 		assert.Equal(t, want, isMainPortVariable(key), key)
 	}
 }
+
+func TestPortCheckResults_HoldersOnlyForAdministrators(t *testing.T) {
+	held := map[uint16]portHolder{25565: {reason: portBusyServer, by: "someone's survival"}}
+	ports := map[string]uint16{"port": 25565, "queryport": 80, "rcon": 25575}
+
+	customer := portCheckResults(ports, held, false)
+	assert.True(t, customer["port"].Busy)
+	assert.Empty(t, customer["port"].By, "a customer does not learn whose server holds it")
+	assert.NotZero(t, customer["port"].Suggestion)
+	assert.Equal(t, portBusyRange, customer["queryport"].Reason)
+	assert.False(t, customer["rcon"].Busy)
+
+	admin := portCheckResults(ports, held, true)
+	assert.Equal(t, "someone's survival", admin["port"].By)
+}

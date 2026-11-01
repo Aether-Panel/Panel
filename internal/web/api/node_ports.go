@@ -70,15 +70,19 @@ func checkNodePorts(c *gin.Context) {
 
 	// who holds a port is an administrator's business: customers splitting a server only
 	// learn that it is taken, not the names of other customers' servers and containers
-	showHolders := callerIsAdmin(c)
+	c.JSON(http.StatusOK, gin.H{"ports": portCheckResults(req.Ports, held, callerIsAdmin(c))})
+}
 
-	asked := make(map[uint16]bool, len(req.Ports))
-	for _, p := range req.Ports {
+// portCheckResults answers each asked port: free, or busy with why, who (showHolders) and a
+// free one to use instead
+func portCheckResults(ports map[string]uint16, held map[uint16]portHolder, showHolders bool) map[string]portCheckResult {
+	asked := make(map[uint16]bool, len(ports))
+	for _, p := range ports {
 		asked[p] = true
 	}
 
-	results := make(map[string]portCheckResult, len(req.Ports))
-	for variable, p := range req.Ports {
+	results := make(map[string]portCheckResult, len(ports))
+	for variable, p := range ports {
 		if p == 0 {
 			continue
 		}
@@ -96,7 +100,7 @@ func checkNodePorts(c *gin.Context) {
 		}
 		results[variable] = result
 	}
-	c.JSON(http.StatusOK, gin.H{"ports": results})
+	return results
 }
 
 // portsHeldOnNode collects every port that is not free on the node: the node's own, the ones

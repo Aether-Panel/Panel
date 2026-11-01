@@ -704,46 +704,57 @@ func deleteServer(c *gin.Context) {
 // @Router /api/servers/{id}/user/{email} [get]
 // @Security OAuth2Application[server.users.view]
 func getServerUsers(c *gin.Context) {
-	var err error
 	db := middleware.GetDatabase(c)
 	ps := &services.Permission{DB: db}
-
 	server := getServerFromGin(c)
 
-	email := c.Param("email")
-
 	var perms []*models.Permissions
-	if email != "" {
-		us := &services.User{DB: db}
-		var user *models.User
-		user, err = us.GetByEmail(email)
-		if user == nil || errors.Is(err, gorm.ErrRecordNotFound) {
-			response.HandleError(c, err, http.StatusNotFound)
+	var err error
+	if email := c.Param("email"); email != "" {
+		var ok bool
+		if perms, ok = serverMemberByEmail(c, db, ps, server, email); !ok {
 			return
-		}
-		var p *models.Permissions
-		p, err = ps.GetForUserAndServer(user.ID, server.Identifier)
-		isOwner := server.OwnerID != nil && *server.OwnerID == user.ID
-		// someone with no access to this server gets the same answer as an unknown email:
-		// otherwise any owner could find out which emails have an account, and their names
-		if err == nil && !isOwner && (p == nil || p.ID == 0) {
-			c.AbortWithStatus(http.StatusNotFound)
-			return
-		}
-		if p != nil {
-			perms = []*models.Permissions{p}
 		}
 	} else {
 		perms, err = ps.GetForServer(server.Identifier)
 	}
-
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
 
-	users := groupScopesByUser(perms)
+	c.JSON(http.StatusOK, serverUserViews(server, groupScopesByUser(perms)))
+}
 
-	data := make([]*models.UserPermissionsView, 0)
+// serverMemberByEmail finds the permission row of a member of the server by email. Someone
+// with no access to the server gets the same 404 as an unknown email: otherwise any owner
+// could find out which emails have an account, and their names. It writes the error response
+// itself and returns false when the request must stop.
+func serverMemberByEmail(c *gin.Context, db *gorm.DB, ps *services.Permission, server *models.Server, email string) ([]*models.Permissions, bool) {
+	us := &services.User{DB: db}
+	user, err := us.GetByEmail(email)
+	if user == nil || errors.Is(err, gorm.ErrRecordNotFound) {
+		response.HandleError(c, err, http.StatusNotFound)
+		return nil, false
+	}
+	p, err := ps.GetForUserAndServer(user.ID, server.Identifier)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return nil, false
+	}
+	isOwner := server.OwnerID != nil && *server.OwnerID == user.ID
+	if !isOwner && (p == nil || p.ID == 0) {
+		c.AbortWithStatus(http.StatusNotFound)
+		return nil, false
+	}
+	if p == nil {
+		return nil, true
+	}
+	return []*models.Permissions{p}, true
+}
+
+// serverUserViews lists the server's users with their scopes; the owner also gets the
+// owner's scopes
+func serverUserViews(server *models.Server, users map[*models.User][]*scopes.Scope) []*models.UserPermissionsView {
+	data := make([]*models.UserPermissionsView, 0, len(users))
 	for k, v := range users {
 		view := &models.UserPermissionsView{
 			Username: k.Username,
@@ -758,8 +769,7 @@ func getServerUsers(c *gin.Context) {
 		}
 		data = append(data, view)
 	}
-
-	c.JSON(http.StatusOK, data)
+	return data
 }
 
 // groupScopesByUser merges the permission rows that belong to the same user
