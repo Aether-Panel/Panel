@@ -9,10 +9,10 @@ require (
 	github.com/cavaliergopher/grab/v3 v3.0.1
 	github.com/creack/pty v1.1.24
 	github.com/dreamscached/minequery/v2 v2.5.0
-	github.com/gin-contrib/cors v1.7.7
+	github.com/gin-contrib/cors v1.7.9
 	github.com/gin-contrib/sessions v1.1.2
 	github.com/gin-gonic/gin v1.12.0
-	github.com/go-co-op/gocron/v2 v2.22.0
+	github.com/go-co-op/gocron/v2 v2.23.0
 	github.com/go-git/go-git/v5 v5.19.3
 	github.com/go-gormigrate/gormigrate/v2 v2.1.7
 	github.com/go-sql-driver/mysql v1.10.1
@@ -30,9 +30,9 @@ require (
 	github.com/mholt/archives v0.1.5
 	github.com/minio/minio-go/v7 v7.4.1
 	github.com/moby/moby/api v1.56.1
-	github.com/moby/moby/client v0.5.1
+	github.com/moby/moby/client v0.6.2
 	github.com/opencontainers/image-spec v1.1.1
-	github.com/pkg/sftp v1.13.11
+	github.com/pkg/sftp v1.13.12
 	github.com/pquerna/otp v1.5.0
 	github.com/pterm/pterm v0.12.84
 	github.com/robfig/cron/v3 v3.0.1
@@ -48,7 +48,7 @@ require (
 	github.com/wneessen/go-mail v0.8.1
 	golang.org/x/crypto v0.58.0
 	golang.org/x/sys v0.49.0
-	google.golang.org/genai v1.75.0
+	google.golang.org/genai v1.76.0
 	gopkg.in/go-playground/validator.v9 v9.31.0
 	gorm.io/driver/mysql v1.6.0
 	gorm.io/driver/postgres v1.6.3
@@ -91,7 +91,7 @@ require (
 	github.com/cyphar/filepath-securejoin v0.6.1 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/distribution/reference v0.6.0 // indirect
-	github.com/docker/go-connections v0.7.0 // indirect
+	github.com/docker/go-connections v0.8.2 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dsnet/compress v0.0.2-0.20230904184137-39efe44ab707 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect

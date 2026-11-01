@@ -10,7 +10,7 @@
   "resolutions": {
     "@opentelemetry/core": "2.10.0",
     "@opentelemetry/auto-instrumentations-node": "^0.81.1",
-    "@opentelemetry/sdk-node": "^0.221.0",
+    "@opentelemetry/sdk-node": "^0.300.0",
     "protobufjs": "8.7.1",
     "esbuild": "^0.28.1",
     "uuid": "^11.1.1",
@@ -31,9 +31,9 @@
   "dependencies": {
     "@hono/node-server": "^2.0.5",
     "@opentelemetry/auto-instrumentations-node": "^0.81.1",
-    "@opentelemetry/sdk-node": "^0.221.0",
+    "@opentelemetry/sdk-node": "^0.300.0",
     "adm-zip": "^0.6.0",
-    "astro": "^7.2.4",
+    "astro": "^7.4.4",
     "brace-expansion": "^5.0.9",
     "braces": "^3.0.3",
     "dompurify": "^3.4.17",
