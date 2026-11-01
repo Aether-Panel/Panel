@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@astrojs/react": "^7.0.1",
+    "@astrojs/react": "^7.1.2",
     "@astrojs/tailwind": "^6.0.2",
     "@hookform/resolvers": "^5.7.1",
     "@monaco-editor/react": "^4.6.1",
