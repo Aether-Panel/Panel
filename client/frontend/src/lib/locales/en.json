@@ -3489,7 +3489,8 @@
     "ErrSSONotForAdmins": "Sign-in links are not issued for administrator accounts.",
     "ErrServerOwner": "The server's owner cannot be removed or limited. An administrator can give the server to someone else.",
     "ErrAPIKeyPermissions": "Tick at least one action for the key.",
-    "ErrAPIKeyNotAllowed": "This API key is not allowed to do that."
+    "ErrAPIKeyNotAllowed": "This API key is not allowed to do that.",
+    "ErrBackupLimit": "This server already has as many backups as it may keep. Delete an old one before making another."
   },
   "extensions": {
     "title": "Extensions",

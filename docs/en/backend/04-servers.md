@@ -50,6 +50,8 @@ When the panel runs as root (the usual Docker install), game servers do **not** 
 - **Capabilities:** the game container drops the Linux capabilities it does not need (Wings' list) and gets `no-new-privileges`. Containers running as root (installs) keep the ones package installs need.
 - **Process limit:** each container gets `docker.pidsLimit` processes and threads (4096 by default), so a fork bomb cannot take the node down.
 - **`/tmp` and `/var/tmp`** are a folder next to the server's (`<id>.tmp`): emptied when each container is created, counted against the disk limit and removed with the server. It is not in the file manager or the backups.
+- **Symlinks the game leaves:** the panel works as root, so it never follows a link the game made. Install downloads, extracting, compressing, backups and the ownership change before each start open every file beneath the server folder; a link is stored as a link and a named pipe blocks nothing.
+- **What the owner cannot change:** memory, CPU, disk, IP and ports are set by an administrator even when the template marks them editable. A sub-server only publishes its own port variables, with no labels and no container user chosen by the customer.
 
 ## ExtraPortBindings — Extra Ports in Containers
 

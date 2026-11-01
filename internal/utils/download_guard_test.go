@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -11,7 +12,9 @@ import (
 )
 
 func TestCheckDownloadAddress(t *testing.T) {
-	t.Cleanup(func() { _ = config.SecurityBlockPrivateDownloads.Set(false, false) })
+	t.Cleanup(func() { _ = config.SecurityBlockPrivateDownloads.Set(true, false) })
+	assert.Error(t, checkDownloadAddress(net.ParseIP("172.18.0.1"), nil), "private addresses are refused by default")
+	_ = config.SecurityBlockPrivateDownloads.Set(false, false)
 
 	for _, ip := range []string{"127.0.0.1", "::1", "169.254.169.254", "fe80::1", "0.0.0.0", "224.0.0.1"} {
 		assert.Error(t, checkDownloadAddress(net.ParseIP(ip), nil), "%s must always be refused", ip)
@@ -19,7 +22,7 @@ func TestCheckDownloadAddress(t *testing.T) {
 	assert.NoError(t, checkDownloadAddress(net.ParseIP("1.1.1.1"), nil))
 
 	var warned net.IP
-	assert.NoError(t, checkDownloadAddress(net.ParseIP("192.168.1.20"), func(ip net.IP) { warned = ip }), "LAN mirrors keep working by default")
+	assert.NoError(t, checkDownloadAddress(net.ParseIP("192.168.1.20"), func(ip net.IP) { warned = ip }), "LAN mirrors work once allowed")
 	assert.Equal(t, "192.168.1.20", warned.String())
 
 	_ = config.SecurityBlockPrivateDownloads.Set(true, false)
@@ -34,10 +37,15 @@ func TestDownloadFile_RefusesLoopback(t *testing.T) {
 	}))
 	defer server.Close()
 
-	err := DownloadFile(t.TempDir(), server.URL+"/file.txt", nil)
+	saved := false
+	err := DownloadFile(server.URL+"/file.txt", nil, func(string, io.Reader) error {
+		saved = true
+		return nil
+	})
 
 	assert.Error(t, err)
 	assert.Zero(t, hits, "the request must not reach the local service")
+	assert.False(t, saved)
 }
 
 func TestRestrictedHTTPClient_RefusesInternalAddresses(t *testing.T) {

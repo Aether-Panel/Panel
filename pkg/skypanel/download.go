@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/SkyPanel/SkyPanel/v3/files"
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
@@ -18,18 +19,13 @@ func DownloadFile(url, fileName string, env *Environment) error {
 	if err != nil {
 		return err
 	}
-	cleanRoot := filepath.Clean(root)
-	rootPrefix := cleanRoot + string(filepath.Separator)
-	targetPath := filepath.Join(cleanRoot, fileName)
-	cleanTarget := filepath.Clean(targetPath)
-	if !strings.HasPrefix(cleanTarget, rootPrefix) {
-		return fmt.Errorf("invalid file path: %s", fileName)
-	}
-	target, err := os.Create(cleanTarget)
-	defer utils.Close(target)
+	// opened beneath the server folder: installs run as root, and the game may have left a
+	// symlink where the file goes
+	target, err := files.CreateIn(root, filepath.Join(root, fileName))
 	if err != nil {
 		return err
 	}
+	defer utils.Close(target)
 
 	env.DisplayToConsole(true, "Downloading: "+url+"\n")
 

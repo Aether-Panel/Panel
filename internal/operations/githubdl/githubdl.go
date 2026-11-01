@@ -4,13 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"path"
 	"strings"
 
+	"github.com/SkyPanel/SkyPanel/v3/files"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
-	"github.com/cavaliergopher/grab/v3"
 )
 
 type GithubDl struct {
@@ -65,7 +66,11 @@ func (op GithubDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 	}
 
 	env.DisplayToConsole(true, "Downloading %s\n", downloadURL)
-	_, err = grab.Get(env.GetRootDirectory(), downloadURL)
+	// saved under the URL's name, the one the output variable hands to the template
+	localName := path.Base(downloadURL)
+	err = utils.DownloadWith(nil, downloadURL, func(_ string, content io.Reader) error {
+		return files.WriteFile(content, env.GetRootDirectory(), localName)
+	})
 	if err != nil {
 		return skypanel.OperationResult{Error: err}
 	}
@@ -75,7 +80,6 @@ func (op GithubDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 		// the basename of the URL. Templates reference this variable as a local
 		// file path (e.g. in `extract source` / `move source` / `rm`), so we must
 		// expose the on-disk filename rather than the download URL.
-		localName := path.Base(downloadURL)
 		return skypanel.OperationResult{
 			VariableOverrides: map[string]interface{}{
 				op.OutputVariable: localName,

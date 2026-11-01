@@ -36,14 +36,15 @@ func (s *DatabaseSFTPAuthorization) Validate(username, password string) (perms *
 		return nil, skypanel.ErrDatabaseNotAvailable
 	}
 
+	us := &User{DB: db}
+	user, err := us.GetByEmail(email)
+
 	// same budget as the panel login, so SFTP cannot be used to guess the password instead
-	limitKey := "password:" + email
+	limitKey := attemptKey("password", email, user)
 	if !LoginAttempts.Take(limitKey) {
 		return nil, skypanel.ErrTooManyAttempts
 	}
 
-	us := &User{DB: db}
-	user, err := us.GetByEmail(email)
 	if user == nil || err != nil || !us.IsValidCredentials(user, password) {
 		return nil, errSFTPRefused
 	}

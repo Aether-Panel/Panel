@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/SkyPanel/SkyPanel/v3/files"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
@@ -61,7 +62,9 @@ func (op ScraperDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult 
 	finalDownloadURL := strings.ReplaceAll(op.DownloadURL, "${match}", match)
 
 	env.DisplayToConsole(true, "Downloading %s\n", finalDownloadURL)
-	err = utils.DownloadFile(env.GetRootDirectory(), finalDownloadURL, warnPrivate)
+	err = utils.DownloadFile(finalDownloadURL, warnPrivate, func(name string, content io.Reader) error {
+		return files.WriteFile(content, env.GetRootDirectory(), name)
+	})
 	if err != nil {
 		return skypanel.OperationResult{Error: err}
 	}

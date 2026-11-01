@@ -551,6 +551,8 @@ panel's own ports and containers, `server`, `container`) and the next free port:
 { "ports": { "port": { "busy": true, "reason": "panel", "by": "skypanel", "suggestion": 8082 }, "queryport": { "busy": false } } }
 ```
 
+`by` (who holds the port) is only sent to administrators; customers only learn that the port is taken.
+
 `serversDisk` in `SystemInfo` is the disk the servers' folders live on; `low` is true under 10% or
 5 GB free, and the dashboard, the nodes list and the node page warn administrators then.
 
@@ -863,6 +865,8 @@ Creates a compressed backup of the server files.
 - Stored in daemon's backup directory (`daemon.data.backups.folder`)
 - Discord webhook alerts on success/failure
 - Returns immediately, backup runs in background
+- Files are listed and opened beneath the server folder: symlinks are stored as links, never followed, and pipes are left out
+- A server's users keep at most `panel.backups.maxPerServer` backups (default 10); past it the answer is `409` with code `ErrBackupLimit`. Administrators are not capped
 
 ---
 

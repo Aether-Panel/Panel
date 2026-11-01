@@ -44,7 +44,7 @@ func (f *Fabricdl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 		return skypanel.OperationResult{Error: err}
 	}
 
-	err = files.WriteFile(file, path.Join(env.GetRootDirectory(), "fabric-installer.jar"))
+	err = files.WriteFile(file, env.GetRootDirectory(), path.Join(env.GetRootDirectory(), "fabric-installer.jar"))
 	if err != nil {
 		return skypanel.OperationResult{Error: err}
 	}

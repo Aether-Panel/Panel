@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/sys/unix"
 )
 
 func newSafetyServer(t *testing.T) (FileServer, string, string) {
@@ -56,7 +57,62 @@ func TestCompress_DoesNotReadThroughASymlinkedFolder(t *testing.T) {
 	assert.NoError(t, os.Symlink(outside, filepath.Join(root, "link")))
 
 	err := Compress(fs, "out.tar.gz", []string{"link/secret"})
-	assert.ErrorIs(t, err, ErrPathTraversal)
+	assert.ErrorIs(t, err, ErrPathTraversal, "the file server refuses to go through the link")
+}
+
+func TestCompress_AWildcardFolderDoesNotFollowLinks(t *testing.T) {
+	fs, root, outside := newSafetyServer(t)
+	assert.NoError(t, os.WriteFile(filepath.Join(outside, "shadow"), []byte("root:secret"), 0644))
+	assert.NoError(t, os.Symlink(outside, filepath.Join(root, "alink")))
+
+	// the wildcard in the folder used to be expanded by the OS, through the link
+	err := Compress(fs, "out.zip", []string{"a*/shadow"})
+	assert.Error(t, err)
+	_, statErr := os.Stat(filepath.Join(root, "out.zip"))
+	assert.True(t, os.IsNotExist(statErr))
+}
+
+func TestCompress_StoresLinksAsLinks(t *testing.T) {
+	fs, root, outside := newSafetyServer(t)
+	assert.NoError(t, os.WriteFile(filepath.Join(outside, "secret"), []byte("root:secret"), 0644))
+	assert.NoError(t, os.Symlink(filepath.Join(outside, "secret"), filepath.Join(root, "leak")))
+	assert.NoError(t, unix.Mkfifo(filepath.Join(root, "pipe"), 0644))
+
+	if !assert.NoError(t, Compress(fs, "all.tar", []string{"*"})) {
+		return
+	}
+	data, err := os.ReadFile(filepath.Join(root, "all.tar"))
+	assert.NoError(t, err)
+	assert.NotContains(t, string(data), "root:secret", "the target of a link is not read into the archive")
+	assert.Contains(t, string(data), "world", "the server's own files are")
+}
+
+func TestCompressServer_KeepsTheServerFolderAsRoot(t *testing.T) {
+	fs, root, outside := newSafetyServer(t)
+	assert.NoError(t, os.MkdirAll(filepath.Join(root, "world", "region"), 0755))
+	assert.NoError(t, os.WriteFile(filepath.Join(root, "world", "region", "r.0.0.mca"), []byte("chunk"), 0644))
+	target := filepath.Join(outside, "backup.tar.gz")
+
+	if !assert.NoError(t, CompressServer(fs, target)) {
+		return
+	}
+
+	restored := filepath.Join(t.TempDir(), "restored")
+	assert.NoError(t, os.MkdirAll(restored, 0755))
+	dest, err := NewFileServer(restored, -1, -1)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer dest.Close()
+	in, err := os.Open(target)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer in.Close()
+	assert.NoError(t, ExtractReader(dest, in, target, "", "*", true))
+	content, err := os.ReadFile(filepath.Join(restored, "world", "region", "r.0.0.mca"))
+	assert.NoError(t, err)
+	assert.Equal(t, "chunk", string(content))
 }
 
 // limitedWriter refuses writes past max bytes, as the server's disk writer does

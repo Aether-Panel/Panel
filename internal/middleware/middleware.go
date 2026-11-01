@@ -242,7 +242,11 @@ func collectScopes(role *models.Role, perms []*models.Permissions, serverID stri
 	}
 
 	for _, p := range perms {
-		for _, s := range p.Scopes {
+		granted := p.Scopes
+		if p.ServerIdentifier != nil {
+			granted = scopes.ServerOnly(granted)
+		}
+		for _, s := range granted {
 			allScopes = scopes.AddScope(allScopes, s)
 		}
 	}

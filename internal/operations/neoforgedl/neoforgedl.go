@@ -46,7 +46,7 @@ func (op NeoforgeDL) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult
 	}
 
 	// copy from the cache
-	err = files.WriteFile(localFile, path.Join(env.GetRootDirectory(), op.Filename))
+	err = files.WriteFile(localFile, env.GetRootDirectory(), path.Join(env.GetRootDirectory(), op.Filename))
 	if err != nil {
 		return skypanel.OperationResult{Error: err}
 	}

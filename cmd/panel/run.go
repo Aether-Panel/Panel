@@ -19,6 +19,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/database"
 	"github.com/SkyPanel/SkyPanel/v3/internal/extensions"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
+	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers"
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers/docker"
@@ -68,7 +69,7 @@ func internalRun() (terminate chan bool, success bool) {
 
 	router := gin.New()
 	router.Use(gin.Recovery())
-	router.Use(gin.LoggerWithWriter(logging.Info.Writer()))
+	router.Use(gin.LoggerWithConfig(gin.LoggerConfig{Output: logging.Info.Writer(), Formatter: middleware.RedactedLogFormatter}))
 
 	configureTrustedProxies(router)
 

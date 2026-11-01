@@ -36,9 +36,17 @@ func (s *OAuth2) Update(request *models.Client) error {
 	return s.DB.Save(request).Error
 }
 
+// Delete removes the client and the sessions its credentials opened: a leaked token kept
+// working (each call renewed it) after its owner deleted the client
 func (s *OAuth2) Delete(clientID string) error {
-	client := &models.Client{
-		ClientID: clientID,
-	}
-	return s.DB.Model(client).Delete(client, client).Error
+	return s.DB.Transaction(func(tx *gorm.DB) error {
+		client := &models.Client{}
+		if err := tx.Where(&models.Client{ClientID: clientID}).First(client).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("client_id = ?", client.ID).Delete(&models.Session{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(client).Error
+	})
 }

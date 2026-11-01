@@ -3489,7 +3489,8 @@
     "ErrSSONotForAdmins": "No se crean enlaces de acceso para cuentas de administrador.",
     "ErrServerOwner": "El propietario del servidor no se puede quitar ni limitar. Un administrador puede pasar el servidor a otra persona.",
     "ErrAPIKeyPermissions": "Marca al menos una acción para la clave.",
-    "ErrAPIKeyNotAllowed": "Esta clave API no tiene permiso para hacer eso."
+    "ErrAPIKeyNotAllowed": "Esta clave API no tiene permiso para hacer eso.",
+    "ErrBackupLimit": "Este servidor ya tiene todas las copias de seguridad que puede guardar. Borra una antigua antes de crear otra."
   },
   "extensions": {
     "title": "Extensiones",

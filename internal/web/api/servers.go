@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -536,6 +537,18 @@ func editServer(c *gin.Context) {
 
 	postBody.Identifier = server.Identifier
 
+	// the environment decides what the container may touch on the node (host mounts,
+	// privileged mode, running on the host itself) and the limits, address and ports are what
+	// the customer pays for: only an administrator may change them
+	if !scopes.ContainsScope(callerScopes(c), scopes.ScopeServerEditDataAdmin) {
+		current, err := currentDefinition(c, ns, server)
+		if response.HandleError(c, err, http.StatusBadGateway) {
+			return
+		}
+		postBody.Environment = lockEnvironment(current.Environment, postBody.Environment)
+		postBody.Variables = lockVariables(current.Variables, postBody.Variables)
+	}
+
 	port, err := getFromDataOrDefault(postBody.Variables, "port", uint16(0))
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
@@ -559,16 +572,6 @@ func editServer(c *gin.Context) {
 
 	if postBody.Icon != "" {
 		server.Icon = postBody.Icon
-	}
-
-	// the environment decides what the container may touch on the node (host mounts,
-	// privileged mode, running on the host itself): only an administrator may change it
-	if !scopes.ContainsScope(callerScopes(c), scopes.ScopeServerEditDataAdmin) {
-		current, err := currentDefinition(c, ns, server)
-		if response.HandleError(c, err, http.StatusBadGateway) {
-			return
-		}
-		postBody.Environment = lockEnvironment(current.Environment, postBody.Environment)
 	}
 
 	err = ss.Update(server)
@@ -838,6 +841,10 @@ func editServerUser(c *gin.Context) {
 	}
 
 	firstTimeAccess := existing.ID == 0
+
+	// a server's member list only gives powers over that server: "admin" sent here would
+	// have made the user a panel administrator
+	perms.Scopes = scopes.ServerOnly(perms.Scopes)
 
 	// update perms to match this "setup", but not stomp over what the user can't change
 	if canGrantAnyServerScope(currentPerms, currentGlobalPerms) {
@@ -1632,6 +1639,16 @@ func createBackup(c *gin.Context) {
 		response.HandleError(c, skypanel.ErrFieldRequired("name"), http.StatusBadRequest)
 		return
 	}
+	if limit := config.BackupsMaxPerServer.Value(); limit > 0 && !callerIsAdmin(c) {
+		existing, err := bs.GetAllForServer(server.Identifier)
+		if response.HandleError(c, err, http.StatusInternalServerError) {
+			return
+		}
+		if len(existing) >= limit {
+			response.HandleError(c, skypanel.ErrBackupLimit, http.StatusConflict)
+			return
+		}
+	}
 
 	// keep the path escaped: it is parsed again for the node, so a decoded "#", "?" or "%"
 	// in a file name would end up as fragment, query or a broken escape
@@ -2319,7 +2336,11 @@ func getUserScopesForSearch(user *models.User, ps *services.Permission) []*scope
 	perms, err := ps.GetForUser(user.ID)
 	if err == nil {
 		for _, p := range perms {
-			for _, s := range p.Scopes {
+			granted := p.Scopes
+			if p.ServerIdentifier != nil {
+				granted = scopes.ServerOnly(granted)
+			}
+			for _, s := range granted {
 				userScopes = scopes.AddScope(userScopes, s)
 			}
 		}
@@ -2586,12 +2607,14 @@ func inheritParentServer(c *gin.Context, db *gorm.DB, us *services.User, postBod
 }
 
 // subServerDockerKeys are the docker environment settings a non-admin may choose. Host
-// mounts (bindings), hostConfig (privileged mode, capabilities, devices) and the network
-// are left out because they give the container access to the host.
-var subServerDockerKeys = []string{"image", "portBindings", "containerRoot", "config", "labels"}
+// mounts (bindings), hostConfig (privileged mode, capabilities, devices), the network and
+// labels (a proxy reading them would route other domains to the container) are left out.
+// portBindings are checked by checkSubServerPorts and config loses its user.
+var subServerDockerKeys = []string{"image", "portBindings", "containerRoot", "config"}
 
 // lockEnvironment keeps the server's environment as it is except for the docker settings a
-// non-admin may choose (subServerDockerKeys)
+// non-admin may change: the image, its folder and the container config without its user.
+// The published ports stay the template's.
 func lockEnvironment(current, wanted skypanel.MetadataType) skypanel.MetadataType {
 	locked := skypanel.MetadataType{Type: current.Type, Metadata: make(map[string]interface{}, len(current.Metadata))}
 	for k, v := range current.Metadata {
@@ -2600,14 +2623,77 @@ func lockEnvironment(current, wanted skypanel.MetadataType) skypanel.MetadataTyp
 	if current.Type != "docker" || wanted.Type != current.Type {
 		return locked
 	}
-	for _, k := range subServerDockerKeys {
+	for _, k := range []string{"image", "containerRoot", "config"} {
 		if v, ok := wanted.Metadata[k]; ok {
 			locked.Metadata[k] = v
 		} else {
 			delete(locked.Metadata, k)
 		}
 	}
+	dropContainerUser(locked.Metadata)
 	return locked
+}
+
+// dropContainerUser takes the user out of a docker config: the game runs as the user the
+// node gives it (never root), whatever the template or the customer asked for. JSON keys
+// match the field without case, so every spelling of "User" goes.
+func dropContainerUser(metadata map[string]interface{}) {
+	config, ok := metadata["config"].(map[string]interface{})
+	if !ok {
+		return
+	}
+	for k := range config {
+		if strings.EqualFold(k, "user") {
+			delete(config, k)
+		}
+	}
+}
+
+// lockVariables keeps the current value of every variable the owner may not edit (those the
+// template does not open to them, and limits, address and ports always), and drops new ones
+// of that kind
+func lockVariables(current, wanted map[string]skypanel.Variable) map[string]skypanel.Variable {
+	locked := make(map[string]skypanel.Variable, len(wanted))
+	for k, v := range wanted {
+		if _, existed := current[k]; !existed && servers.IsAdminOnlyVariable(k, v) {
+			continue
+		}
+		locked[k] = v
+	}
+	for k, cur := range current {
+		if !cur.UserEditable || servers.IsAdminOnlyVariable(k, cur) {
+			locked[k] = cur
+		}
+	}
+	return locked
+}
+
+// subServerPortBinding is a port a sub-server publishes: its host port must be one of its
+// port variables, which are checked against the node's other servers
+var subServerPortBinding = regexp.MustCompile(`^(?:0\.0\.0\.0:|\$\{ip\}:)?\$\{([A-Za-z0-9_.-]+)\}:[^:]+$`)
+
+// checkSubServerPorts refuses a published port that is not one of the sub-server's port
+// variables: "0.0.0.0:25565:25565" would take a port another customer has
+func checkSubServerPorts(bindings interface{}, variables map[string]skypanel.Variable) error {
+	if bindings == nil {
+		return nil
+	}
+	list, ok := bindings.([]interface{})
+	if !ok {
+		return errors.New("portBindings must be a list")
+	}
+	for _, item := range list {
+		spec, _ := item.(string)
+		m := subServerPortBinding.FindStringSubmatch(spec)
+		if m == nil {
+			return fmt.Errorf("sub-servers can only publish their port variables, not %q", spec)
+		}
+		variable, ok := variables[m[1]]
+		if !ok || !(isMainPortVariable(m[1]) || isOtherPortVariable(m[1], variable)) {
+			return fmt.Errorf("%s in %q is not a port variable of the server", m[1], spec)
+		}
+	}
+	return nil
 }
 
 // currentDefinition reads the server's definition from its node
@@ -2676,6 +2762,10 @@ func restrictSubServerCreation(ps *services.Permission, user *models.User, postB
 		if v, ok := postBody.Environment.Metadata[k]; ok {
 			allowed[k] = v
 		}
+	}
+	dropContainerUser(allowed)
+	if err = checkSubServerPorts(allowed["portBindings"], postBody.Variables); err != nil {
+		return err
 	}
 	postBody.Environment.Metadata = allowed
 

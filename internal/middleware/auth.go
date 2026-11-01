@@ -60,6 +60,13 @@ func AuthMiddleware(c *gin.Context) {
 		c.Set("user", &sess.User)
 	}
 	if sess.ClientID != nil {
+		// a session of a client that no longer exists (deleted on a panel older than this
+		// check) must not run with an empty client, which allows everything
+		if sess.Client.ID == 0 {
+			_ = ss.Expire(token)
+			abortUnauthorized(c)
+			return
+		}
 		c.Set("client", &sess.Client)
 	}
 

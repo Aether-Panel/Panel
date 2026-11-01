@@ -37,7 +37,11 @@ func LoadFromFolder() {
 	}
 	var program *Server
 	for _, element := range programFiles {
-		if element.IsDir() || !strings.HasSuffix(element.Name(), ".json") {
+		// only regular files: a symlink here would load a definition someone else wrote
+		if !element.Type().IsRegular() || !strings.HasSuffix(element.Name(), ".json") {
+			if element.Type()&os.ModeSymlink != 0 {
+				logging.Error.Printf("Skipping %s: server definitions must be regular files", element.Name())
+			}
 			continue
 		}
 		logging.Info.Printf("Attempting to load %s\n", element.Name())
@@ -85,8 +89,13 @@ func Load(id string) (program *Server, err error) {
 	if err != nil {
 		return
 	}
+	file := filepath.Join(config.ServersFolder.Value(), safeID+".json")
+	if info, statErr := os.Lstat(file); statErr == nil && !info.Mode().IsRegular() {
+		err = errors.New("server definition is not a regular file")
+		return
+	}
 	var data []byte
-	data, err = os.ReadFile(filepath.Join(config.ServersFolder.Value(), safeID+".json"))
+	data, err = os.ReadFile(file)
 	if err != nil {
 		return
 	}

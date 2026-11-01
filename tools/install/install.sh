@@ -1165,7 +1165,7 @@ ask_configuration() {
     # --- Puertos -----------------------------------------------------------------
     if [[ -z "$PANEL_PORT" ]]; then PANEL_PORT="${PREV_PANEL_PORT:-$DEFAULT_PANEL_PORT}"; fi
     if [[ -z "$SFTP_PORT" ]]; then SFTP_PORT="${PREV_SFTP_PORT:-$DEFAULT_SFTP_PORT}"; fi
-    if [[ -z "$PANEL_BIND" ]]; then PANEL_BIND="${PREV_PANEL_BIND:-0.0.0.0}"; fi
+    resolve_panel_bind
     if interactive_manual; then
         echo ""
         ask_yes_no ans "¿Usar los puertos predeterminados (panel $DEFAULT_PANEL_PORT, SFTP $DEFAULT_SFTP_PORT)?" \
@@ -1275,6 +1275,19 @@ ask_configuration() {
 }
 
 # Comprueba la coherencia de todas las opciones antes de cambiar nada
+# resolve_panel_bind decide en qué IP se publica el puerto web del panel. Con dominio y Nginx
+# el panel se usa por el dominio, así que el puerto queda solo en 127.0.0.1: si no, cualquiera
+# entra por http://IP:puerto saltándose el HTTPS, y ufw no lo impide porque Docker publica sus
+# puertos por delante del cortafuegos. --bind 0.0.0.0 lo deja abierto a propósito.
+resolve_panel_bind() {
+    if [[ -n "$PANEL_BIND" ]]; then return; fi
+    PANEL_BIND="${PREV_PANEL_BIND:-0.0.0.0}"
+    if [[ "$PANEL_BIND" == "0.0.0.0" && -n "$DOMAIN" && "$SKIP_NGINX" != "true" && "$IS_NODE_ONLY" != "true" ]]; then
+        PANEL_BIND=127.0.0.1
+        log_info "El panel se sirve por $DOMAIN: el puerto $PANEL_PORT queda solo en 127.0.0.1 (--bind 0.0.0.0 para abrirlo)"
+    fi
+}
+
 validate_configuration() {
     local errors=0
     if [[ -n "$DOMAIN" ]] && ! validate_domain "$DOMAIN"; then
@@ -2886,7 +2899,6 @@ update_panel() {
     if [[ -z "$DB_MODE" ]]; then DB_MODE="${PREV_DB_MODE:-local}"; fi
     if [[ -z "$PANEL_PORT" ]]; then PANEL_PORT="${PREV_PANEL_PORT:-$DEFAULT_PANEL_PORT}"; fi
     if [[ -z "$SFTP_PORT" ]]; then SFTP_PORT="${PREV_SFTP_PORT:-$DEFAULT_SFTP_PORT}"; fi
-    if [[ -z "$PANEL_BIND" ]]; then PANEL_BIND="${PREV_PANEL_BIND:-0.0.0.0}"; fi
     if [[ -z "$DOMAIN" && "$NO_DOMAIN" != "true" ]]; then DOMAIN="$PREV_DOMAIN"; fi
     if [[ -z "$USE_SSL" ]]; then USE_SSL="${PREV_USE_SSL:-false}"; fi
     if [[ -z "$SERVER_IP" ]]; then SERVER_IP="$PREV_SERVER_IP"; fi
@@ -2898,6 +2910,8 @@ update_panel() {
     if [[ -f /etc/nginx/sites-available/skypanel || -f /etc/nginx/conf.d/skypanel.conf ]]; then
         NGINX_CONFIGURED=true
     fi
+    if [[ "$NGINX_CONFIGURED" != "true" ]]; then SKIP_NGINX=true; fi
+    resolve_panel_bind
     if [[ -z "$CREATE_ADMIN" ]]; then CREATE_ADMIN=false; fi
     if [[ "$DOMAIN" != "$PREV_DOMAIN" || "$USE_SSL" != "${PREV_USE_SSL:-false}" ]] && [[ -n "$PREV_DOMAIN$DOMAIN" ]]; then
         log_warning "--update no reconfigura Nginx ni SSL: para cambiar el dominio ejecuta el instalador sin --update"

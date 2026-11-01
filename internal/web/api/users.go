@@ -190,7 +190,7 @@ func updateUser(c *gin.Context) {
 	}
 
 	isAdmin := callerIsAdmin(c)
-	if !isAdmin && denyEditingAdmin(c, db, user) {
+	if !isAdmin && denyEditingStronger(c, db, user) {
 		return
 	}
 
@@ -239,7 +239,7 @@ func deleteUser(c *gin.Context) {
 		return
 	}
 
-	if !callerIsAdmin(c) && denyEditingAdmin(c, db, user) {
+	if !callerIsAdmin(c) && denyEditingStronger(c, db, user) {
 		return
 	}
 
@@ -331,7 +331,7 @@ func setUserPerms(c *gin.Context) {
 	if scopes.ContainsScope(editorScopes, scopes.ScopeAdmin) {
 		perms.Scopes = viewModel.Scopes
 	} else {
-		if denyEditingAdmin(c, db, user) {
+		if denyEditingStronger(c, db, user) {
 			return
 		}
 		// server scopes in the global row apply on every server; only an administrator may
@@ -385,19 +385,44 @@ func callerIsAdmin(c *gin.Context) bool {
 	return scopes.ContainsScope(callerScopes(c), scopes.ScopeAdmin)
 }
 
-// denyEditingAdmin stops non-admins from changing an administrator's account, which would
-// let them take it over (new email or password). It aborts and returns true when denied.
-func denyEditingAdmin(c *gin.Context, db *gorm.DB, target *models.User) bool {
-	isAdmin, err := userIsAdmin(db, target)
+// denyEditingStronger stops a non-admin from changing an account that holds a panel-wide
+// power they do not (administrators included): with users.info.edit alone, staff could set
+// the password of someone who edits settings or every server, and sign in as them. It
+// aborts and returns true when denied.
+func denyEditingStronger(c *gin.Context, db *gorm.DB, target *models.User) bool {
+	held, err := globalScopesOf(db, target)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return true
 	}
-
-	if isAdmin {
-		c.AbortWithStatusJSON(http.StatusForbidden, &skypanel.ErrorResponse{Error: skypanel.FromError(errors.New("only administrators can modify an administrator"))})
-		return true
+	mine := callerScopes(c)
+	for _, s := range held {
+		if (isPrivilegedScope(s) || s.Is(scopes.ScopeServerAdmin.Value)) && !scopes.ContainsScope(mine, s) {
+			c.AbortWithStatusJSON(http.StatusForbidden, &skypanel.ErrorResponse{Error: skypanel.FromError(errors.New("you cannot modify an account with permissions you do not have"))})
+			return true
+		}
 	}
 	return false
+}
+
+// globalScopesOf is what the user holds on the whole panel: their global row and their role
+func globalScopesOf(db *gorm.DB, user *models.User) ([]*scopes.Scope, error) {
+	ps := &services.Permission{DB: db}
+	perms, err := ps.GetForUserAndServer(user.ID, "")
+	if err != nil {
+		return nil, err
+	}
+	held := append([]*scopes.Scope{}, perms.Scopes...)
+	if user.RoleID != nil {
+		rs := &services.Role{DB: db}
+		role, err := rs.Get(*user.RoleID)
+		if err != nil {
+			return nil, err
+		}
+		for _, s := range role.Scopes {
+			held = scopes.AddScope(held, scopes.GetScope(s))
+		}
+	}
+	return held, nil
 }
 
 // userIsAdmin reports whether the user holds the admin scope, globally or through their role
@@ -405,21 +430,9 @@ func denyEditingAdmin(c *gin.Context, db *gorm.DB, target *models.User) bool {
 // (admin, settings, users, nodes, templates…), directly or through its role. Sign-in links
 // from the billing API are refused for these: a leaked billing key must not open them.
 func userIsPrivileged(db *gorm.DB, user *models.User) (bool, error) {
-	ps := &services.Permission{DB: db}
-	perms, err := ps.GetForUserAndServer(user.ID, "")
+	held, err := globalScopesOf(db, user)
 	if err != nil {
 		return false, err
-	}
-	held := append([]*scopes.Scope{}, perms.Scopes...)
-	if user.RoleID != nil {
-		rs := &services.Role{DB: db}
-		role, err := rs.Get(*user.RoleID)
-		if err != nil {
-			return false, err
-		}
-		for _, s := range role.Scopes {
-			held = scopes.AddScope(held, scopes.GetScope(s))
-		}
 	}
 	for _, s := range held {
 		if isPrivilegedScope(s) {

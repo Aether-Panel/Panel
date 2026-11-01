@@ -68,6 +68,10 @@ func checkNodePorts(c *gin.Context) {
 		return
 	}
 
+	// who holds a port is an administrator's business: customers splitting a server only
+	// learn that it is taken, not the names of other customers' servers and containers
+	showHolders := callerIsAdmin(c)
+
 	asked := make(map[uint16]bool, len(req.Ports))
 	for _, p := range req.Ports {
 		asked[p] = true
@@ -82,7 +86,10 @@ func checkNodePorts(c *gin.Context) {
 		if p < 1024 {
 			result = portCheckResult{Busy: true, Reason: portBusyRange}
 		} else if h, taken := held[p]; taken {
-			result = portCheckResult{Busy: true, Reason: h.reason, By: h.by}
+			result = portCheckResult{Busy: true, Reason: h.reason}
+			if showHolders {
+				result.By = h.by
+			}
 		}
 		if result.Busy {
 			result.Suggestion = nextPortFree(max(p, 1023), held, asked)

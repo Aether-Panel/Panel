@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"image"
 	"image/png"
 	"math/big"
@@ -55,12 +56,33 @@ func (us *User) GetByID(id uint) (*models.User, error) {
 	return model, nil
 }
 
+// attemptKey is what sign-in attempts are counted against: the account when the email found
+// one, since the database matches emails without case or accents ("admín@" and "ádmin@" are
+// the same account and must not get ten tries each), else the address typed
+func attemptKey(kind, email string, user *models.User) string {
+	if user != nil && user.ID != 0 {
+		return fmt.Sprintf("%s:user:%d", kind, user.ID)
+	}
+	return kind + ":" + strings.ToLower(email)
+}
+
+// unknownUserHash is checked against when the email has no account, so a wrong email takes
+// as long as a wrong password and the timing does not tell which emails exist
+var unknownUserHash, _ = bcrypt.GenerateFromPassword([]byte("no account has this password"), bcrypt.DefaultCost)
+
 func (us *User) ValidateLogin(email, password string) (user *models.User, otpNeeded bool, err error) {
 	if email == "" {
 		err = skypanel.ErrInvalidCredentials
 		return
 	}
-	limitKey := "password:" + email
+
+	user = &models.User{}
+	err = us.DB.Where("email = ?", email).First(user).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return
+	}
+
+	limitKey := attemptKey("password", email, user)
 	if !LoginAttempts.Take(limitKey) {
 		err = skypanel.ErrTooManyAttempts
 		return
@@ -71,14 +93,8 @@ func (us *User) ValidateLogin(email, password string) (user *models.User, otpNee
 		}
 	}()
 
-	user = &models.User{}
-	err = us.DB.Where("email = ?", email).First(user).Error
-
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return
-	}
-
 	if user.ID == 0 || errors.Is(err, gorm.ErrRecordNotFound) {
+		_ = bcrypt.CompareHashAndPassword(unknownUserHash, []byte(password))
 		err = skypanel.ErrInvalidCredentials
 		return
 	}
@@ -101,7 +117,13 @@ func (us *User) ValidOtp(email, token string) (user *models.User, err error) {
 		err = skypanel.ErrInvalidCredentials
 		return
 	}
-	limitKey := "otp:" + email
+	user = &models.User{}
+	err = us.DB.Where("email = ?", email).First(user).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return
+	}
+
+	limitKey := attemptKey("otp", email, user)
 	if !LoginAttempts.Take(limitKey) {
 		err = skypanel.ErrTooManyAttempts
 		return
@@ -111,13 +133,6 @@ func (us *User) ValidOtp(email, token string) (user *models.User, err error) {
 			LoginAttempts.Reset(limitKey)
 		}
 	}()
-
-	user = &models.User{}
-	err = us.DB.Where("email = ?", email).First(user).Error
-
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return
-	}
 
 	if user.ID == 0 || errors.Is(err, gorm.ErrRecordNotFound) {
 		err = skypanel.ErrInvalidCredentials
