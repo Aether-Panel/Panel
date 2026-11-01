@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/mail"
 	"net/url"
 	"regexp"
 	"sort"
@@ -722,6 +723,13 @@ func getServerUsers(c *gin.Context) {
 		}
 		var p *models.Permissions
 		p, err = ps.GetForUserAndServer(user.ID, server.Identifier)
+		isOwner := server.OwnerID != nil && *server.OwnerID == user.ID
+		// someone with no access to this server gets the same answer as an unknown email:
+		// otherwise any owner could find out which emails have an account, and their names
+		if err == nil && !isOwner && (p == nil || p.ID == 0) {
+			c.AbortWithStatus(http.StatusNotFound)
+			return
+		}
 		if p != nil {
 			perms = []*models.Permissions{p}
 		}
@@ -885,6 +893,16 @@ func findOrInviteServerUser(c *gin.Context, us *services.User, email, username s
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		if email == "" {
 			response.HandleError(c, err, http.StatusBadRequest)
+			return nil, "", false
+		}
+		// an invite makes an account: with sign-ups closed only an administrator may, or
+		// any owner could open accounts the administrator never allowed
+		if !config.RegistrationEnabled.Value() && !callerIsAdmin(c) {
+			response.HandleError(c, skypanel.ErrInviteSignupsClosed, http.StatusForbidden)
+			return nil, "", false
+		}
+		if addr, perr := mail.ParseAddress(email); perr != nil || addr.Address != email {
+			response.HandleError(c, skypanel.ErrFieldNotEmail("email"), http.StatusBadRequest)
 			return nil, "", false
 		}
 		// we need to create the user here, since it's a new email we've not seen

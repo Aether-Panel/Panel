@@ -1,6 +1,7 @@
 package files
 
 import (
+	"archive/tar"
 	"errors"
 	"io"
 	"os"
@@ -175,4 +176,73 @@ func TestCompressLimited_KeepsAnArchiveThatFits(t *testing.T) {
 	assert.NoError(t, err)
 	_, statErr := os.Stat(filepath.Join(root, "world.tar.gz"))
 	assert.NoError(t, statErr)
+}
+
+func tarOf(t *testing.T, root string, entries ...*tar.Header) string {
+	path := filepath.Join(root, "in.tar")
+	f, err := os.Create(path)
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
+	defer f.Close()
+	tw := tar.NewWriter(f)
+	for _, h := range entries {
+		assert.NoError(t, tw.WriteHeader(h))
+		if h.Typeflag == tar.TypeReg {
+			_, _ = tw.Write(make([]byte, h.Size))
+		}
+	}
+	assert.NoError(t, tw.Close())
+	return path
+}
+
+func TestExtract_LeavesOutLinksThatLeaveTheServer(t *testing.T) {
+	fs, root, _ := newSafetyServer(t)
+	tarOf(t, root,
+		&tar.Header{Name: "steamclient.so", Typeflag: tar.TypeSymlink, Linkname: "/home/steam/.steam/sdk64/steamclient.so"},
+		&tar.Header{Name: "up", Typeflag: tar.TypeSymlink, Linkname: "../../etc"},
+		&tar.Header{Name: "config.cfg", Typeflag: tar.TypeReg, Size: 3, Mode: 0644},
+		&tar.Header{Name: "current", Typeflag: tar.TypeSymlink, Linkname: "config.cfg"},
+	)
+
+	assert.NoError(t, Extract(fs, "in.tar", "out", "*", false, nil), "a game's absolute links do not fail the archive")
+	for _, gone := range []string{"steamclient.so", "up"} {
+		_, err := os.Lstat(filepath.Join(root, "out", gone))
+		assert.True(t, os.IsNotExist(err), "%s must be left out", gone)
+	}
+	target, err := os.Readlink(filepath.Join(root, "out", "current"))
+	assert.NoError(t, err)
+	assert.Equal(t, "config.cfg", target, "links inside the folder are kept")
+}
+
+func TestCheckArchive(t *testing.T) {
+	_, root, _ := newSafetyServer(t)
+	good := tarOf(t, root, &tar.Header{Name: "srv/world.dat", Typeflag: tar.TypeReg, Size: 1, Mode: 0644})
+	in, err := os.Open(good)
+	if !assert.NoError(t, err) {
+		return
+	}
+	assert.NoError(t, CheckArchive(in, good, true))
+	in.Close()
+
+	bad := tarOf(t, root, &tar.Header{Name: "srv/../../etc/cron.d/x", Typeflag: tar.TypeReg, Size: 1, Mode: 0644})
+	in, err = os.Open(bad)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer in.Close()
+	assert.ErrorIs(t, CheckArchive(in, bad, true), ErrPathTraversal)
+}
+
+func TestReadlinkDoesNotGoThroughALinkedFolder(t *testing.T) {
+	fs, root, outside := newSafetyServer(t)
+	assert.NoError(t, os.Symlink("/etc/shadow", filepath.Join(outside, "l")))
+	assert.NoError(t, os.Symlink(outside, filepath.Join(root, "dir")))
+	assert.NoError(t, os.Symlink("world.dat", filepath.Join(root, "ok")))
+
+	_, err := Readlink(fs, "dir/l")
+	assert.Error(t, err)
+	target, err := Readlink(fs, "ok")
+	assert.NoError(t, err)
+	assert.Equal(t, "world.dat", target)
 }

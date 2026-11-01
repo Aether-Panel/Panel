@@ -3490,7 +3490,8 @@
     "ErrServerOwner": "The server's owner cannot be removed or limited. An administrator can give the server to someone else.",
     "ErrAPIKeyPermissions": "Tick at least one action for the key.",
     "ErrAPIKeyNotAllowed": "This API key is not allowed to do that.",
-    "ErrBackupLimit": "This server already has as many backups as it may keep. Delete an old one before making another."
+    "ErrBackupLimit": "This server already has as many backups as it may keep. Delete an old one before making another.",
+    "ErrInviteSignupsClosed": "Sign-ups are closed: that person needs an account before you can add them."
   },
   "extensions": {
     "title": "Extensions",

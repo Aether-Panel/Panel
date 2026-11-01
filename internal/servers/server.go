@@ -1830,9 +1830,17 @@ func (p *Server) StartRestore(fileName string) error {
 		}
 		defer utils.Close(archive)
 
-		// read the whole archive before deleting anything: an unreadable backup must fail
-		// here, not after the server's files are gone
-		if _, err = files.DetermineIfSingleRoot(context.Background(), source, archive); err != nil {
+		// read the whole archive before deleting anything: an unreadable backup, or one with
+		// an entry the extraction would refuse, must fail here, not after the server's files
+		// are gone
+		singleRoot, err := files.DetermineIfSingleRoot(context.Background(), source, archive)
+		if err == nil {
+			_, err = archive.Seek(0, io.SeekStart)
+		}
+		if err == nil {
+			err = files.CheckArchive(archive, source, singleRoot)
+		}
+		if err != nil {
 			p.Log(logging.Error, "Error reading backup: %s", err)
 			p.RunningEnvironment.DisplayToConsole(true, "Backup file cannot be read: %s", err)
 			return

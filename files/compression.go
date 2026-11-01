@@ -535,7 +535,10 @@ func extractSymlink(fs FileServer, file archives.FileInfo, dest *extractTarget) 
 		return err
 	}
 	if !filepath.IsLocal(target) || (resolvedTarget != dest.root && !strings.HasPrefix(resolvedTarget, dest.root+string(filepath.Separator))) {
-		return ErrPathTraversal
+		// left out rather than failing the whole archive: game files often hold absolute
+		// links (steamclient.so -> /home/...), and a restore that stopped here had already
+		// deleted the server's files
+		return nil
 	}
 	if err = extractMkdirAll(fs, filepath.Dir(dest.path)); err != nil {
 		return err
@@ -544,6 +547,47 @@ func extractSymlink(fs FileServer, file archives.FileInfo, dest *extractTarget) 
 		return fs.Symlink(target, dest.path)
 	}
 	return os.Symlink(target, dest.path)
+}
+
+// CheckArchive reads every entry of the archive and returns an error for the first path an
+// extraction would refuse (one that leaves the folder), without writing anything. A restore
+// checks the backup this way before it deletes the server's files.
+func CheckArchive(file io.ReadSeeker, sourceFile string, skipRoot bool) error {
+	ctx := context.Background()
+	format, _, err := archives.Identify(ctx, sourceFile, file)
+	if err != nil {
+		return err
+	}
+	extractor, ok := format.(archives.Extractor)
+	if !ok {
+		return errors.New("format is not an extractor")
+	}
+	if _, err = file.Seek(0, io.SeekStart); err != nil {
+		return err
+	}
+	return extractor.Extract(ctx, file, func(_ context.Context, f archives.FileInfo) error {
+		name := strings.TrimLeft(getCompressedItemName(f), "/\\")
+		if skipRoot {
+			name = stripArchiveRoot(name)
+		}
+		if name != "" && !filepath.IsLocal(name) {
+			return fmt.Errorf("%w: %s", ErrPathTraversal, name)
+		}
+		return nil
+	})
+}
+
+// Readlink reads the target of the symlink name inside the file server, reaching it beneath
+// the root: by path, a folder on the way swapped for a link would be followed
+func Readlink(server FileServer, name string) (string, error) {
+	info, link, err := lstatBeneath(server, name)
+	if err != nil {
+		return "", err
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		return "", fmt.Errorf("%s is not a symlink", name)
+	}
+	return link, nil
 }
 
 // getCompressedItemName Resolves headers in the event the wrapped interface fails
