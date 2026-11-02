@@ -631,6 +631,7 @@ var editableStringEntries = []config.StringEntry{
 var editableBoolEntries = []config.BoolEntry{
 	config.RegistrationEnabled,
 	config.HideAIAnalysis,
+	config.AIFileTools,
 	config.BackupsS3Enabled,
 	config.BackupsS3Insecure,
 	config.DNSAutoAssign,

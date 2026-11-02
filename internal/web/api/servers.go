@@ -109,6 +109,8 @@ func registerServers(g *gin.RouterGroup) {
 
 	g.POST("/:serverId/ai/analyze", middleware.RequiresPermission(scopes.ScopeServerConsole), middleware.ResolveServerPanel, analyzeServerLogs)
 	g.POST("/:serverId/ai/chat", middleware.RequiresPermission(scopes.ScopeServerConsole), middleware.ResolveServerPanel, chatWithAssistant)
+	g.POST("/:serverId/ai/chat/confirm", middleware.RequiresPermission(scopes.ScopeServerConsole), middleware.ResolveServerPanel, confirmAssistantChanges)
+	g.OPTIONS("/:serverId/ai/chat/confirm", response.CreateOptions("POST"))
 	g.OPTIONS("/:serverId/ai/analyze", response.CreateOptions("POST"))
 
 	g.POST("/:serverId/extransfer/create", middleware.RequiresPermission(scopes.ScopeServerEditDataAdmin), middleware.ResolveServerPanel, CreateExTransfer)

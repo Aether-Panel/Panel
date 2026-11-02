@@ -1716,6 +1716,16 @@
           "extract": "descomprimió",
           "restore": "restauró una versión anterior de"
         },
+        "ai": {
+          "create_file": "usó el asistente para crear el archivo",
+          "create_directory": "usó el asistente para crear la carpeta",
+          "copy_path": "usó el asistente para copiar",
+          "edit_file": "usó el asistente para editar el archivo",
+          "write_file": "usó el asistente para sobrescribir el archivo",
+          "move_path": "usó el asistente para mover",
+          "rename_path": "usó el asistente para renombrar",
+          "delete_path": "usó el asistente para eliminar"
+        },
         "plugin": {
           "install": "instaló el plugin",
           "delete": "eliminó el plugin"
@@ -1789,13 +1799,48 @@
         "players": "jugadores",
         "performance": "rendimiento",
         "crashes": "caídas",
-        "console": "consola"
+        "console": "consola",
+        "files": "archivos"
       },
       "errors": {
         "generic": "No pude responder ahora mismo. Inténtalo de nuevo en un momento.",
         "limit": "Has hecho muchas preguntas seguidas. Espera unos minutos y vuelve a intentarlo.",
         "notConfigured": "La IA no está configurada. Un administrador puede añadir la clave de Gemini en Configuración.",
-        "noPermission": "Necesitas acceso a la consola de este servidor para usar el asistente."
+        "noPermission": "Necesitas acceso a la consola de este servidor para usar el asistente.",
+        "expired": "Esta solicitud ha caducado. Vuelve a preguntar."
+      },
+      "steps": {
+        "label": "Lo que hizo el asistente",
+        "status": {
+          "done": "Hecho",
+          "failed": "Falló",
+          "pending": "En espera",
+          "declined": "Rechazado",
+          "refused": "No permitido"
+        }
+      },
+      "pending": {
+        "title": "El asistente quiere:",
+        "description": "No cambia nada hasta que lo apruebes. Desmarca lo que no quieras.",
+        "destructive": "Borra o reemplaza datos",
+        "approve": "Aprobar",
+        "declineAll": "Rechazar todo",
+        "working": "Aplicando los cambios aprobados…",
+        "inputLocked": "Primero aprueba o rechaza los cambios de arriba"
+      },
+      "tools": {
+        "list_directory": "Ver la carpeta {{path}}",
+        "read_file": "Leer {{path}}",
+        "file_info": "Consultar {{path}}",
+        "search_files": "Buscar en {{path}}",
+        "create_file": "Crear el archivo {{path}}",
+        "create_directory": "Crear la carpeta {{path}}",
+        "copy_path": "Copiar {{path}} a {{dest}}",
+        "edit_file": "Editar {{path}}",
+        "write_file": "Reescribir {{path}}",
+        "move_path": "Mover {{path}} a {{dest}}",
+        "rename_path": "Renombrar {{path}} a {{dest}}",
+        "delete_path": "Borrar {{path}}"
       }
     },
     "version": {
@@ -3157,6 +3202,8 @@
       "geminiApiKeyDescription": "Introduce tu clave API de Google Gemini para habilitar las funciones de inteligencia artificial.",
       "hideAiAnalysisLabel": "Ocultar análisis IA de la consola",
       "hideAiAnalysisDescription": "Si se activa, se ocultará la función de análisis de la consola por IA para todos los servidores.",
+      "aiFileToolsLabel": "Dejar que el asistente trabaje con los archivos del servidor",
+      "aiFileToolsDescription": "El asistente del servidor puede leer, crear, editar, mover y borrar archivos del servidor en el que se abre, dentro de los permisos de archivos del usuario. Siempre pide confirmación antes de cambiar o borrar algo.",
       "allowRegistrationLabel": "Permitir que los usuarios se puedan registrar",
       "allowRegistrationDescription": "Los usuarios autorregistrados no pueden realizar ninguna acción hasta que se les otorguen permisos. Deshabilitar esto solo impide el registro directo, las invitaciones a un servidor y la página de Usuarios no se ven afectadas.",
       "captchaBuiltinLabel": "Comprobación anti-bots integrada",
@@ -3599,7 +3646,8 @@
     "ErrCloudflareRefusedCode": "Cloudflare respondió: {{message}} (código {{cloudflareCode}})",
     "ErrDiscordNoWebhooks": "No hay webhooks de Discord configurados.",
     "ErrDiscordTestFailed": "El mensaje de prueba no llegó a estos webhooks: {{webhooks}}. Revisa que sigan existiendo en Discord.",
-    "ErrNotificationLanguage": "El idioma de las notificaciones debe ser español o inglés."
+    "ErrNotificationLanguage": "El idioma de las notificaciones debe ser español o inglés.",
+    "ErrAIConfirmationInvalid": "Esta solicitud ha caducado, ya se respondió o es de otra persona. Vuelve a preguntar."
   },
   "apiErrorValues": {
     "ErrDiscordTestFailed": {

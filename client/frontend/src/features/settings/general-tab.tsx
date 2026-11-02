@@ -338,6 +338,14 @@ export function GeneralTab({ localSettings, handleUpdate, t }: Readonly<GeneralT
                                 checked={hideAi}
                                 onCheckedChange={(v) => handleUpdate('panel.settings.hideAiAnalysis', v)}
                             />
+                            <SettingRow
+                                id="ai-file-tools"
+                                label={t('settings.general.aiFileToolsLabel')}
+                                description={t('settings.general.aiFileToolsDescription')}
+                                // on unless an administrator turned it off
+                                checked={localSettings['panel.settings.aiFileTools'] !== false}
+                                onCheckedChange={(v) => handleUpdate('panel.settings.aiFileTools', v)}
+                            />
                         </SettingRows>
                         {!hideAi && (
                             <SettingsField id="gemini-api-key" label={t('settings.general.geminiApiKeyLabel')} hint={t('settings.general.geminiApiKeyDescription')}>
