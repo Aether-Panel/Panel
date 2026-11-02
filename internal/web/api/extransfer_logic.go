@@ -128,6 +128,10 @@ type ExTransferAPIError struct {
 	Retryable bool   `json:"retryable"`
 }
 
+// exTransferProtocolVersion is the version of the federated transfer protocol this panel speaks,
+// as a destination and as an origin
+const exTransferProtocolVersion = "1.0"
+
 type ExValidateReq struct {
 	Token           string `json:"token" binding:"required"`
 	TargetPublicKey string `json:"target_public_key" binding:"required"`
@@ -154,22 +158,6 @@ func RegisterExTransferRoutes(rg *gin.RouterGroup) {
 	rg.POST("/cancel", cancelExTransfer)
 }
 
-func WellKnownAetherPanel(c *gin.Context) {
-	pubKeyB64 := base64.StdEncoding.EncodeToString(exTransferPublicKey())
-	c.JSON(200, gin.H{
-		"panel_name":          "SkyPanel",
-		"version":             "1.0",
-		"protocols_supported": []string{"1.0"},
-		"public_key":          pubKeyB64,
-		"tls_fingerprint":     "AUTO_GENERATED",
-		"capabilities": map[string]interface{}{
-			"virtualization": []string{"docker"},
-			"os":             "linux",
-		},
-		"timestamp": time.Now().Unix(),
-	})
-}
-
 // @Summary Create federated transfer session
 // @Description Create a new federated transfer session for a server
 // @Produce json
@@ -178,7 +166,7 @@ func WellKnownAetherPanel(c *gin.Context) {
 // @Failure 500 {object} map[string]string "Failed to create session"
 // @Tags Federated Transfer
 // @Router /api/servers/{serverId}/extransfer/create [post]
-// @Security OAuth2Application[server.edit.admin]
+// @Security OAuth2Application[server.data.edit.admin]
 func CreateExTransfer(c *gin.Context) {
 	server := c.MustGet("server").(*models.Server)
 	user := c.MustGet("user").(*models.User)
@@ -232,6 +220,12 @@ func validateExTransfer(c *gin.Context) {
 	}
 
 	req.Token = strings.TrimSpace(req.Token) // se agrego prueba local
+
+	// a destination speaking another version would read the answers differently
+	if req.ProtocolVer != exTransferProtocolVersion {
+		c.JSON(http.StatusBadRequest, ExTransferAPIError{ErrorCode: "UNSUPPORTED_PROTOCOL", Message: "protocol_version " + req.ProtocolVer + " is not supported; this panel speaks " + exTransferProtocolVersion, Retryable: false})
+		return
+	}
 
 	mac := hmac.New(sha256.New, []byte(ExTransferSalt))
 	mac.Write([]byte(req.Token))
@@ -481,21 +475,77 @@ func reportExTransfer(db *gorm.DB, serverID, status, details string, isError boo
 }
 
 // removeOriginArchive deletes the archive a finished or cancelled session left in the server's
-// files. It is a variable so tests can keep away from the node.
+// files, finished or still being written. It is a variable so tests can keep away from the node.
 var removeOriginArchive = func(db *gorm.DB, serverID string) {
 	var server models.Server
 	if err := db.Preload("Node").Where(serverIdentifierQuery, serverID).First(&server).Error; err != nil {
 		return
 	}
 	ns := &services.Node{DB: db}
-	res, err := ns.CallNode(&server.Node, "DELETE", fmt.Sprintf("/daemon/server/%s/file/transfer.tar.gz", server.Identifier), nil, nil)
+	for _, name := range []string{originArchive, originArchivePartial} {
+		res, err := ns.CallNode(&server.Node, "DELETE", originArchivePath(server.Identifier, name), nil, nil)
+		if err != nil {
+			logging.Error.Printf("Could not remove the transfer archive of %s: %v", serverID, err)
+			return
+		}
+		utils.CloseResponse(res)
+	}
+}
+
+// The archive a federated transfer sends from this panel is written under a hidden partial name
+// and renamed once complete: the destination polls the download while it is being made, and
+// must never be sent half an archive. The partial name keeps the .tar.gz ending, which picks
+// the format.
+const (
+	originArchive        = "transfer.tar.gz"
+	originArchivePartial = ".transfer-partial.tar.gz"
+)
+
+func originArchivePath(serverID, name string) string {
+	return fmt.Sprintf("/daemon/server/%s/file/%s", serverID, name)
+}
+
+// nodeCaller makes one request to the server's node
+type nodeCaller func(method, path string, body io.ReadCloser, headers http.Header) (*http.Response, error)
+
+// buildOriginArchive packs the server's files for the destination: under the partial name first,
+// then renamed to the name the download serves. What an earlier attempt left is removed first,
+// and a failed attempt removes its partial archive.
+func buildOriginArchive(call nodeCaller, serverID string) error {
+	for _, name := range []string{originArchive, originArchivePartial} {
+		res, err := call(http.MethodDelete, originArchivePath(serverID, name), nil, nil)
+		if err == nil {
+			utils.CloseResponse(res)
+		}
+	}
+
+	headers := http.Header{}
+	headers.Set(headerContentType, contentTypeJSON)
+	res, err := call(http.MethodPost, fmt.Sprintf("/daemon/server/%s/archive/%s", serverID, originArchivePartial), io.NopCloser(strings.NewReader(`["*"]`)), headers)
+	err = daemonStepError("archiving the files", res, err)
+	if err == nil {
+		res, err = call(http.MethodPost, originArchivePath(serverID, originArchivePartial)+"?destination="+originArchive, nil, nil)
+		err = daemonStepError("renaming the finished archive", res, err)
+	}
 	if err != nil {
-		logging.Error.Printf("Could not remove the transfer archive of %s: %v", serverID, err)
-		return
+		if res, delErr := call(http.MethodDelete, originArchivePath(serverID, originArchivePartial), nil, nil); delErr == nil {
+			utils.CloseResponse(res)
+		}
 	}
-	if res.Body != nil {
-		_ = res.Body.Close()
+	return err
+}
+
+// daemonStepError is nil when the node did the step, and otherwise says why not; it closes
+// the response either way
+func daemonStepError(step string, res *http.Response, err error) error {
+	if isDaemonSuccess(res, err) {
+		utils.CloseResponse(res)
+		return nil
 	}
+	if err != nil {
+		return fmt.Errorf("%s: %w", step, err)
+	}
+	return fmt.Errorf("%s: the node answered %d: %s", step, res.StatusCode, readFailureBody(res))
 }
 
 // downloads being streamed per session, so a cancel can cut them off
@@ -761,7 +811,13 @@ func downloadExTransfer(c *gin.Context) {
 	}
 
 	ns := &services.Node{DB: db}
-	downloadRes, err := ns.CallNodeContext(ctx, &server.Node, "GET", fmt.Sprintf("/daemon/server/%s/file/transfer.tar.gz", server.Identifier), nil, nil)
+	downloadRes, err := ns.CallNodeContext(ctx, &server.Node, "GET", originArchivePath(server.Identifier, originArchive), nil, nil)
+	if err == nil && downloadRes.StatusCode == http.StatusNotFound {
+		// the archive is only there once it is complete: the destination asks again
+		_ = downloadRes.Body.Close()
+		c.JSON(http.StatusServiceUnavailable, ExTransferAPIError{ErrorCode: "NOT_READY", Message: "The archive is still being made", Retryable: true})
+		return
+	}
 	if err != nil || downloadRes.StatusCode != 200 {
 		if err == nil {
 			_ = downloadRes.Body.Close()
@@ -790,16 +846,11 @@ func StartDataPlaneMigration(session models.ExTransferSession, db *gorm.DB) {
 	}
 
 	ns := &services.Node{DB: db}
+	callNode := func(method, path string, body io.ReadCloser, headers http.Header) (*http.Response, error) {
+		return ns.CallNode(&server.Node, method, path, body, headers)
+	}
 
-	// Clean up existing archive if it exists from previous attempts
-	_, _ = ns.CallNode(&server.Node, "DELETE", fmt.Sprintf("/daemon/server/%s/file/transfer.tar.gz", server.Identifier), nil, nil)
-
-	// Archive files
-	archiveBody := bytes.NewReader([]byte(`["*"]`))
-	headersArch := http.Header{}
-	headersArch.Set(headerContentType, contentTypeJSON)
-	res, err := ns.CallNode(&server.Node, "POST", fmt.Sprintf("/daemon/server/%s/archive/transfer.tar.gz", server.Identifier), io.NopCloser(archiveBody), headersArch)
-	if err != nil || (res != nil && res.StatusCode != http.StatusNoContent && res.StatusCode != http.StatusOK) {
+	if err := buildOriginArchive(callNode, server.Identifier); err != nil {
 		logging.Error.Printf("Failed to archive server %s: %v", server.Identifier, err)
 		// a session cancelled meanwhile stays cancelled
 		db.Model(&models.ExTransferSession{}).Where("id = ? AND status = ?", session.ID, models.StatusMigrating).Update("status", models.StatusFailed)
@@ -1238,7 +1289,7 @@ func validateOriginToken(postOrigin originPoster, token string) (validateRes ori
 	resp, err := postOrigin("/api/extransfer/validate", map[string]string{
 		"token":             token,
 		"target_public_key": pubKeyB64,
-		"protocol_version":  "1.0",
+		"protocol_version":  exTransferProtocolVersion,
 	})
 	if err != nil {
 		logging.Error.Printf("Failed to call validate on origin: %v", err)
@@ -1290,7 +1341,9 @@ func consumeOriginSession(postOrigin originPoster, validateRes originValidateRes
 // waitForOriginArchive polls the origin until it serves the archive. A nil response means the
 // pull stops with errMsg, which is empty when ctx was cancelled
 func waitForOriginArchive(ctx context.Context, dlURL string, sendStep func(string)) (resp *http.Response, errMsg string) {
-	const maxWait = 90 * time.Second
+	// the origin only serves the archive once it is complete, which takes a while for a big
+	// server; meanwhile the heartbeats stop the wait early if the origin fails or cancels
+	const maxWait = 2 * time.Hour
 	const pollInterval = 5 * time.Second
 	deadline := time.Now().Add(maxWait)
 
@@ -1443,7 +1496,7 @@ func parseOriginURL(rawURL string) (*url.URL, error) {
 // @Failure 409 {object} ExTransferAPIError "No transfer in progress"
 // @Tags Federated Transfer
 // @Router /api/servers/{serverId}/extransfer/cancel [post]
-// @Security OAuth2Application[server.edit.admin]
+// @Security OAuth2Application[server.data.edit.admin]
 func cancelExTransferByUser(c *gin.Context) {
 	server := c.MustGet("server").(*models.Server)
 	db := middleware.GetDatabase(c)

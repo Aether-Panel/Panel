@@ -7,6 +7,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
@@ -15,6 +16,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -31,9 +33,10 @@ type TransferRequest struct {
 // @Param request body TransferRequest true "Target Node ID"
 // @Success 202 {object} string "Transfer started"
 // @Failure 400 {object} skypanel.ErrorResponse
+// @Failure 409 {object} skypanel.ErrorResponse "Ports of the server are taken on the target node"
 // @Tags Servers
 // @Router /api/servers/{id}/transfer [post]
-// @Security OAuth2Application[server.edit.admin]
+// @Security OAuth2Application[server.data.edit.admin]
 func transferServer(c *gin.Context) {
 	server := c.MustGet("server").(*models.Server)
 
@@ -53,6 +56,17 @@ func transferServer(c *gin.Context) {
 
 	if targetNode.ID == server.NodeID {
 		response.HandleError(c, errors.New("cannot transfer to the same node"), http.StatusBadRequest)
+		return
+	}
+
+	// the server keeps its ports on the new node; one taken there would only show once the
+	// moved server failed to start
+	held, err := portsHeldOnNode(db, ns, targetNode, server.Identifier)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+	if taken := serverPortsTaken(server, held); len(taken) > 0 {
+		response.HandleError(c, skypanel.ErrTransferPortsTaken(taken), http.StatusConflict)
 		return
 	}
 
@@ -99,10 +113,24 @@ func performInternalTransfer(server *models.Server, targetNode *models.Node, db 
 	// its subdomain follows it to the new node's address
 	scheduleSubdomainRefresh(server.Identifier)
 
-	// 8. Ask source node to delete the server
-	_, _ = ns.CallNode(&oldNode, "DELETE", fmt.Sprintf("/daemon/server/%s", server.Identifier), nil, nil)
+	// 8. Ask source node to delete the server. Its backups are not moved, so they stay there
+	// as they always have, instead of going with the server
+	_, _ = ns.CallNode(&oldNode, "DELETE", fmt.Sprintf("/daemon/server/%s?keepBackups=true", server.Identifier), nil, nil)
 
 	logging.Info.Printf("Transfer of %s completed successfully", server.Identifier)
+}
+
+// serverPortsTaken lists the server's ports that something already holds on the target node,
+// in order. Its own ports below 1024 were allowed where it is, so only holders count.
+func serverPortsTaken(server *models.Server, held map[uint16]portHolder) []uint16 {
+	taken := make([]uint16, 0)
+	for _, p := range append([]uint16{server.Port}, server.Ports...) {
+		if _, busy := held[p]; p != 0 && busy && !slices.Contains(taken, p) {
+			taken = append(taken, p)
+		}
+	}
+	slices.Sort(taken)
+	return taken
 }
 
 // copyDefinitionToTarget reads the server definition from the source node and

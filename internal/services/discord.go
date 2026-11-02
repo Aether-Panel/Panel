@@ -277,21 +277,26 @@ func systemStatusDescription(servers []ServerInfo) string {
 	return description
 }
 
-// systemStatusFields builds one field per server, capped by Discord's field limit
+// discordMaxEmbedFields is the most fields Discord accepts in one embed; with one more it
+// refuses the whole message
+const discordMaxEmbedFields = 25
+
+// systemStatusFields builds one field per server. Above Discord's field limit it shows the
+// first servers and spends the last field on a note saying how many are left out (the counts
+// in the description still cover all of them); it used to add that note as a 26th field,
+// which made Discord reject the report.
 func systemStatusFields(servers []ServerInfo) []DiscordEmbedField {
-	// Crear campos para cada servidor (limitado a 25 por limitación de Discord)
-	maxFields := 25
 	serversToShow := len(servers)
-	if serversToShow > maxFields {
-		serversToShow = maxFields
+	if serversToShow > discordMaxEmbedFields {
+		serversToShow = discordMaxEmbedFields - 1
 	}
 
-	fields := make([]DiscordEmbedField, 0)
+	fields := make([]DiscordEmbedField, 0, serversToShow+1)
 	for i := 0; i < serversToShow; i++ {
 		fields = append(fields, serverStatusField(servers[i]))
 	}
 
-	if len(servers) > maxFields {
+	if serversToShow < len(servers) {
 		fields = append(fields, DiscordEmbedField{
 			Name:  "Nota",
 			Value: fmt.Sprintf("Mostrando %d de %d servidores", serversToShow, len(servers)),

@@ -11,6 +11,7 @@ import {
   FileCog,
   FileText,
   FileArchive,
+  Archive,
   FileTerminal,
   FileVideo,
   FileAudio,
@@ -121,6 +122,14 @@ function joinPath(dir: string, name: string) {
   return dir ? `${dir}/${name}` : name;
 }
 
+// Formats the daemon can write: it picks one from the archive's extension, so a name
+// without one of these gets ".zip" instead of failing on the server
+const WRITABLE_ARCHIVE = /\.(zip|tar|tar\.gz)$/i;
+
+function withArchiveExtension(name: string) {
+  return WRITABLE_ARCHIVE.test(name) ? name : `${name}.zip`;
+}
+
 function encodePath(path: string) {
   return path.split('/').map(encodeURIComponent).join('/');
 }
@@ -196,6 +205,9 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
   const [renameTarget, setRenameTarget] = useState<FileItemResource | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [isRenaming, setIsRenaming] = useState(false);
+  const [compressTarget, setCompressTarget] = useState<FileItemResource | null>(null);
+  const [compressName, setCompressName] = useState('');
+  const [isCompressing, setIsCompressing] = useState(false);
 
   const [clipboard, setClipboard] = useState<ClipboardItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -531,6 +543,39 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
     }
   };
 
+  const openCompress = (file: FileItemResource) => {
+    setCompressTarget(file);
+    setCompressName(`${file.name}.zip`);
+  };
+
+  const closeCompress = () => {
+    setCompressTarget(null);
+    setCompressName('');
+    setIsCompressing(false);
+  };
+
+  const handleCompress = async () => {
+    if (!compressTarget || !compressName.trim() || isCompressing) return;
+    setIsCompressing(true);
+    try {
+      const archiveName = withArchiveExtension(compressName.trim());
+      // the daemon reads both the items and the archive path from the server root, and picks
+      // the format from the archive's extension; it refuses to overwrite an existing file
+      await api.post(`/api/servers/${serverId}/archive/${encodePath(joinPath(currentPath, archiveName))}`, [joinPath(currentPath, compressTarget.name)]);
+      sileo.success({ title: t('common.success'), description: t('servers.fileManager.toast.compressed', { name: archiveName }) });
+      closeCompress();
+      // Ensure Radix Dialog/DropdownMenu cleanup finished so the UI is not left blocked
+      setTimeout(() => {
+        document.body.style.pointerEvents = 'auto';
+        document.body.style.overflow = 'auto';
+      }, 100);
+      void fetchFiles(currentPath);
+    } catch (e: any) {
+      sileo.error({ title: t('common.error'), description: e.message || t('servers.fileManager.toast.compressError') });
+      setIsCompressing(false);
+    }
+  };
+
   const handleSaveChanges = async () => {
     if (!editingFile || savingRef.current) return;
     savingRef.current = true;
@@ -696,6 +741,10 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
             {t('servers.fileManager.actions.unarchive')}
           </DropdownMenuItem>
         ) : null}
+        <DropdownMenuItem onClick={() => setTimeout(() => openCompress(file), 50)}>
+          <Archive className="mr-2 h-4 w-4" aria-hidden="true" />
+          {t('servers.fileManager.actions.compress')}
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTimeout(() => openRename(file), 50)}>
           <PencilLine className="mr-2 h-4 w-4" aria-hidden="true" />
           {t('servers.fileManager.actions.rename')}
@@ -1046,6 +1095,42 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
             <Button onClick={handleRename} disabled={isRenaming || !renameValue.trim()}>
               {isRenaming && <Loader2 className="animate-spin" aria-hidden="true" />}
               {t('servers.fileManager.actions.rename')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Compress Dialog */}
+      <Dialog open={!!compressTarget} onOpenChange={(open) => !open && closeCompress()}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>{t('servers.fileManager.compressDialog.title')}</DialogTitle>
+            <DialogDescription>
+              {t('servers.fileManager.compressDialog.description', { name: compressTarget?.name ?? '' })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="file-manager-compress">{t('servers.fileManager.compressDialog.nameLabel')}</Label>
+              <Input
+                id="file-manager-compress"
+                value={compressName}
+                onChange={(e) => setCompressName(e.target.value)}
+                placeholder={t('servers.fileManager.compressDialog.placeholder')}
+                className="font-mono"
+                autoFocus
+                onKeyDown={(e) => e.key === 'Enter' && handleCompress()}
+              />
+              <p className="text-pretty text-xs text-muted-foreground">{t('servers.fileManager.compressDialog.hint')}</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeCompress}>
+              {t('common.cancel')}
+            </Button>
+            <Button onClick={handleCompress} disabled={isCompressing || !compressName.trim()}>
+              {isCompressing && <Loader2 className="animate-spin" aria-hidden="true" />}
+              {t('servers.fileManager.actions.compress')}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -30,8 +30,8 @@ func templateRepoRoot(t *testing.T) string {
 // TestTemplates_AllRegisteredAndStructured validates every published template
 // under Templates/ parses as a Server definition, that every operation `type`
 // referenced by install/uninstall/run.pre/run.post is registered in
-// commandMapping (an unregistered type is silently skipped at runtime, which is
-// a common cause of "install does nothing"), and that docker environments
+// commandMapping (an unregistered type stops the whole step list at runtime with
+// ErrMissingFactory, so the install fails at that step), and that docker environments
 // declare portBindings (the format those are parsed in is covered separately by
 // the docker package tests).
 func TestTemplates_AllRegisteredAndStructured(t *testing.T) {

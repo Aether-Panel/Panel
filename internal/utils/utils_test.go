@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestUnion(t *testing.T) {
+func TestIntersection(t *testing.T) {
 	type args[T comparable] struct {
 		a []T
 		b []T
@@ -75,7 +75,7 @@ func TestUnion(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equalf(t, tt.want, Union(tt.args.a, tt.args.b), "Union(%v, %v)", tt.args.a, tt.args.b)
+			assert.Equalf(t, tt.want, Intersection(tt.args.a, tt.args.b), "Intersection(%v, %v)", tt.args.a, tt.args.b)
 		})
 	}
 }

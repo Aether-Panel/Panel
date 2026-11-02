@@ -6,7 +6,7 @@ type DatabaseView struct {
 	DatabaseHostID   uint   `json:"database_host_id"`
 	DatabaseName     string `json:"database_name"`
 	Username         string `json:"username"`
-	Password         string `json:"password"`
+	Password         string `json:"password,omitempty"` // only for callers who may manage the databases
 	RemoteConnection string `json:"remote_connection"`
 	MaxConnections   int    `json:"max_connections"`
 	Host             string `json:"host"`

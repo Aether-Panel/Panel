@@ -185,7 +185,8 @@ func List(ctx context.Context, c Config, serverID string) ([]Object, error) {
 	return result, nil
 }
 
-// Test checks the settings by writing, reading and deleting a small object
+// Test checks the settings: the bucket must exist, and a small object is written and then
+// deleted. Reading is not tried, so a key that may write but not read still passes.
 func Test(ctx context.Context, c Config) error {
 	client, err := c.client()
 	if err != nil {

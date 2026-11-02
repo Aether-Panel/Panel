@@ -70,54 +70,70 @@ func (us *Uptime) TrackStatus(serverID string, isRunning bool) error {
 	return us.DB.Save(currentStatus).Error
 }
 
-// GetUptimeStats obtiene estadísticas de uptime para un servidor
-func (us *Uptime) GetUptimeStats(serverID string, since time.Time) (uptimeSeconds, downtimeSeconds int64, uptimePercent float64, err error) {
-	var results []struct {
-		IsRunning bool
-		Duration  int64
+// uptimePeriod is the part of an uptime row the stats need
+type uptimePeriod struct {
+	ServerID  string
+	IsRunning bool
+	StartTime time.Time
+	EndTime   *time.Time
+}
+
+// secondsInWindow is how much of the period falls between since and now. A period that
+// started before since only counts from since on, and the open period (no end) lasts until now.
+func (p uptimePeriod) secondsInWindow(since, now time.Time) int64 {
+	start := p.StartTime
+	if start.Before(since) {
+		start = since
 	}
+	end := now
+	if p.EndTime != nil && p.EndTime.Before(now) {
+		end = *p.EndTime
+	}
+	if !end.After(start) {
+		return 0
+	}
+	return int64(end.Sub(start).Seconds())
+}
 
-	query := us.DB.Model(&models.UptimeStatus{}).
-		Where("server_id = ? AND start_time >= ?", serverID, since).
-		Select("is_running, SUM(duration) as duration").
-		Group("is_running")
+// periodsSince reads the periods that overlap the window: those still open and those that
+// ended after since. Filtering on the start instead would drop a server that has been up the
+// whole window, because its only period started before it.
+func periodsSince(db *gorm.DB, since time.Time) ([]uptimePeriod, error) {
+	var periods []uptimePeriod
+	err := db.Model(&models.UptimeStatus{}).
+		Select("server_id, is_running, start_time, end_time").
+		Where("(end_time IS NULL OR end_time > ?)", since).
+		Find(&periods).Error
+	return periods, err
+}
 
-	err = query.Find(&results).Error
+// uptimePercentage is the share of the known time the server was up; with no data it counts as 100%
+func uptimePercentage(uptimeSeconds, downtimeSeconds int64) float64 {
+	total := uptimeSeconds + downtimeSeconds
+	if total <= 0 {
+		return 100.0
+	}
+	return float64(uptimeSeconds) / float64(total) * 100.0
+}
+
+// GetUptimeStats returns how long the server was up and down between since and now,
+// the running period included
+func (us *Uptime) GetUptimeStats(serverID string, since time.Time) (uptimeSeconds, downtimeSeconds int64, uptimePercent float64, err error) {
+	periods, err := periodsSince(us.DB.Where("server_id = ?", serverID), since)
 	if err != nil {
 		return
 	}
 
-	var totalSeconds int64
-	for _, result := range results {
-		if result.IsRunning {
-			uptimeSeconds += result.Duration
+	now := time.Now()
+	for _, period := range periods {
+		if period.IsRunning {
+			uptimeSeconds += period.secondsInWindow(since, now)
 		} else {
-			downtimeSeconds += result.Duration
+			downtimeSeconds += period.secondsInWindow(since, now)
 		}
-		totalSeconds += result.Duration
 	}
 
-	// Si hay un registro activo sin EndTime, calcular su duración hasta ahora
-	var activeStatus *models.UptimeStatus
-	activeErr := us.DB.Where("server_id = ? AND end_time IS NULL", serverID).
-		Order(newestStartFirst).First(&activeStatus).Error
-
-	if activeErr == nil && activeStatus != nil {
-		activeDuration := int64(time.Since(activeStatus.StartTime).Seconds())
-		if activeStatus.IsRunning {
-			uptimeSeconds += activeDuration
-		} else {
-			downtimeSeconds += activeDuration
-		}
-		totalSeconds += activeDuration
-	}
-
-	if totalSeconds > 0 {
-		uptimePercent = float64(uptimeSeconds) / float64(totalSeconds) * 100.0
-	} else {
-		uptimePercent = 100.0 // Si no hay datos, asumir 100% uptime
-	}
-
+	uptimePercent = uptimePercentage(uptimeSeconds, downtimeSeconds)
 	return
 }
 
@@ -131,64 +147,26 @@ func (us *Uptime) GetRecentHistory(serverID string, limit int) ([]*models.Uptime
 	return records, err
 }
 
-// GetAllServerUptime obtiene estadísticas de uptime para todos los servidores
+// GetAllServerUptime returns, per server, how long it was up and down between since and now,
+// plus the state it is in now and since when
 func (us *Uptime) GetAllServerUptime(since time.Time) (map[string]map[string]interface{}, error) {
-	var results []struct {
-		ServerID         string
-		IsRunning        bool
-		TotalDuration    int64
-		CurrentRunning   bool
-		CurrentStartTime time.Time
-	}
-
-	// Obtener duración total por estado
-	query := us.DB.Model(&models.UptimeStatus{}).
-		Where("start_time >= ?", since).
-		Select("server_id, is_running, SUM(duration) as total_duration").
-		Group("server_id, is_running")
-
-	err := query.Find(&results).Error
+	periods, err := periodsSince(us.DB, since)
 	if err != nil {
 		return nil, err
 	}
 
-	// Obtener estados actuales
-	var activeStatuses []models.UptimeStatus
-	err = us.DB.Where("end_time IS NULL").Find(&activeStatuses).Error
-	if err != nil {
-		return nil, err
-	}
-
-	activeMap := make(map[string]*models.UptimeStatus)
-	for i := range activeStatuses {
-		activeMap[activeStatuses[i].ServerID] = &activeStatuses[i]
-	}
-
-	// Agrupar por servidor
+	now := time.Now()
 	serverStats := make(map[string]map[string]interface{})
-	for _, result := range results {
-		addUptimeDuration(serverStats, result.ServerID, result.IsRunning, result.TotalDuration)
-	}
-
-	// Agregar estados actuales
-	for serverID, status := range activeMap {
-		activeDuration := int64(time.Since(status.StartTime).Seconds())
-		addUptimeDuration(serverStats, serverID, status.IsRunning, activeDuration)
-		serverStats[serverID]["currentStatus"] = status.IsRunning
-		serverStats[serverID]["currentStartTime"] = status.StartTime
-	}
-
-	// Calcular porcentajes
-	for _, stats := range serverStats {
-		uptime := stats["uptime"].(int64)
-		downtime := stats["downtime"].(int64)
-		total := uptime + downtime
-
-		if total > 0 {
-			stats["uptimePercent"] = float64(uptime) / float64(total) * 100.0
-		} else {
-			stats["uptimePercent"] = 100.0
+	for _, period := range periods {
+		addUptimeDuration(serverStats, period.ServerID, period.IsRunning, period.secondsInWindow(since, now))
+		if period.EndTime == nil {
+			serverStats[period.ServerID]["currentStatus"] = period.IsRunning
+			serverStats[period.ServerID]["currentStartTime"] = period.StartTime
 		}
+	}
+
+	for _, stats := range serverStats {
+		stats["uptimePercent"] = uptimePercentage(stats["uptime"].(int64), stats["downtime"].(int64))
 	}
 
 	return serverStats, nil

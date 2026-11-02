@@ -91,9 +91,12 @@ func pickVersion(current string, ver *version.Version, folderName, mcVersion str
 		ver, _ = version.NewVersion(current)
 	case !strings.HasPrefix(folderName, mcVersion):
 		// we need a different version of MC
-	case ver != nil:
-		// time to check to see if this a newer version
-		if ver2, _ := version.NewVersion(current); ver2 != nil && ver.LessThan(ver2) {
+	default:
+		// a newer folder for the wanted Minecraft version wins; the first folder found may be
+		// for another Minecraft version, and then any folder for the wanted one replaces it.
+		// (This compared the current folder with itself, so the first folder always stayed.)
+		ver2, _ := version.NewVersion(folderName)
+		if ver2 != nil && (ver == nil || !strings.HasPrefix(current, mcVersion) || ver.LessThan(ver2)) {
 			current = folderName
 			ver = ver2
 		}

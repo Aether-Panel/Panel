@@ -106,3 +106,11 @@ func TestHostOrLocal_KeepsASpecificAddress(t *testing.T) {
 	assert.Equal(t, "10.0.0.5", hostOrLocal("10.0.0.5"))
 	assert.NotEqual(t, "0.0.0.0", hostOrLocal("0.0.0.0"))
 }
+
+func TestHostOrLocal_IsTheSameForTheConsoles(t *testing.T) {
+	// RCON, Telnet and RCON over WebSocket reach the game the way the queries do
+	assert.Equal(t, "10.0.0.5", HostOrLocal("10.0.0.5"))
+	assert.Equal(t, hostOrLocal(""), HostOrLocal(""))
+	assert.Equal(t, hostOrLocal("::"), HostOrLocal("::"))
+	assert.NotEmpty(t, HostOrLocal(""))
+}

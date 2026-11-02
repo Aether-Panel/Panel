@@ -290,6 +290,24 @@ function ServerOverviewCards({ server, t }: any) {
   );
 }
 
+/**
+ * The crash toast's text. The socket's crash message only carries {id, exitCode, restarted},
+ * so for an automatic restart the saved report is read for which attempt it was and the limit
+ * (the crash report shows the same numbers). Without the report the toast just says the
+ * server restarted, rather than "attempt 1 of 1".
+ */
+async function crashToastText(t: Parameters<typeof crashSummary>[0], serverId: string, crash: Partial<CrashReport>): Promise<string> {
+  if (!crash.restarted) return crashSummary(t, crash);
+  try {
+    const reports = await api.get<CrashReport[]>(`/api/servers/${serverId}/crashes`);
+    const report = Array.isArray(reports) ? reports.find((r) => r.id === crash.id) : undefined;
+    if (report) return crashSummary(t, report);
+  } catch {
+    // no permission to read the reports, or an older node: fall back below
+  }
+  return t('servers.crashes.autoRestarted');
+}
+
 export default function ServerDetailPage({ params }: Readonly<{ params: { id: string } }>) {
   // only this server's live stats are needed here, not those of every server in the list
   const { servers: allServers, loading, refresh } = useServers((s) => s.id === params.id);
@@ -397,12 +415,11 @@ export default function ServerDetailPage({ params }: Readonly<{ params: { id: st
 
           if (parsed) {
             if (parsed.type === 'crash') {
-              window.dispatchEvent(new CustomEvent(CRASH_EVENT, { detail: parsed.data }));
-              setAnnouncement(t('servers.console.announce.crashed', { code: parsed.data?.exitCode ?? '?' }));
-              sileo.error({
-                title: t('servers.console.announce.crashed', { code: parsed.data?.exitCode ?? '?' }),
-                description: crashSummary(t, parsed.data ?? {}),
-              });
+              const crash: Partial<CrashReport> = parsed.data ?? {};
+              window.dispatchEvent(new CustomEvent(CRASH_EVENT, { detail: crash }));
+              const title = t('servers.console.announce.crashed', { code: crash.exitCode ?? '?' });
+              setAnnouncement(title);
+              void crashToastText(t, server.id, crash).then((description) => sileo.error({ title, description }));
               return;
             }
             if (parsed.type === 'stat' || parsed.type === 'status') return;

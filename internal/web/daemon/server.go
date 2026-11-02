@@ -377,9 +377,16 @@ func deleteServer(c *gin.Context) {
 	}
 
 	err := servers.Delete(server.ID())
-	if !response.HandleError(c, err, http.StatusInternalServerError) {
-		c.Status(http.StatusNoContent)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
 	}
+	// its backups go too, unless the panel moves the server to another node: those stay here
+	if c.Query("keepBackups") != "true" {
+		if err := servers.DeleteBackups(server.ID()); err != nil {
+			logging.Error.Printf("Error removing the backups of server %s: %s", server.ID(), err)
+		}
+	}
+	c.Status(http.StatusNoContent)
 }
 
 // @Summary Install server
@@ -588,7 +595,7 @@ func runServerTask(c *gin.Context) {
 // @Param taskID path string true "Task ID"
 // @Param task body skypanel.Task true "Task definition"
 // @Tags Daemon Server
-// @Router /api/servers/{id}/tasks/{taskID} [put]
+// @Router /daemon/server/{id}/tasks/{taskID} [put]
 // @Security OAuth2Application[server.tasks.edit]
 func editServerTask(c *gin.Context) {
 	server := getServerFromGin(c)
@@ -691,7 +698,7 @@ func getServerAdmin(c *gin.Context) {
 // @Param id path string true "Server ID"
 // @Param server body skypanel.Server true "New definition"
 // @Tags Daemon Server
-// @Router /api/servers/{id}/definition [post]
+// @Router /daemon/server/{id}/definition [put]
 // @Security OAuth2Application[server.definition.edit]
 func editServerAdmin(c *gin.Context) {
 	prg := getServerFromGin(c)
@@ -1086,6 +1093,9 @@ func archive(c *gin.Context) {
 	if errors.Is(err, files.ErrPathTraversal) || errors.Is(err, os.ErrNotExist) {
 		status = http.StatusBadRequest // a file that is not there, or a link out of the server
 	}
+	if errors.Is(err, skypanel.ErrFileExists) {
+		status = http.StatusConflict // the archive name is taken: the user picks another one
+	}
 	if !response.HandleError(c, err, status) {
 		c.Status(http.StatusNoContent)
 	}
@@ -1137,7 +1147,7 @@ func extract(c *gin.Context) {
 // @Success 200 {object} skypanel.ServerBackupResponse
 // @Param id path string true "Server ID"
 // @Tags Daemon Server
-// @Router /api/servers/{id}/backup/create [post]
+// @Router /daemon/server/{id}/backup/create [post]
 // @Security OAuth2Application[server.backup.create]
 func createBackup(c *gin.Context) {
 	server := getServerFromGin(c)
@@ -1159,7 +1169,8 @@ func createBackup(c *gin.Context) {
 }
 
 // @Summary List backup files
-// @Description Lists the finished backup archives in the server's backup folder, newest first
+// @Description Lists the finished backup archives in the server's backup folder, newest first,
+// @Description then the backups made by hand whose archive could not be written, with location "failed"
 // @Success 200 {object} []skypanel.BackupFile
 // @Param id path string true "Server ID"
 // @Tags Daemon Server
@@ -1172,6 +1183,14 @@ func listBackups(c *gin.Context) {
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
+	// the panel recorded those when they were asked for, and drops them when it sees them here
+	failed, err := server.FailedBackups()
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+	for _, name := range failed {
+		backups = append(backups, skypanel.BackupFile{FileName: name, Location: servers.BackupFailedLocation})
+	}
 	c.JSON(http.StatusOK, backups)
 }
 
@@ -1181,7 +1200,7 @@ func listBackups(c *gin.Context) {
 // @Param id path string true "Server ID"
 // @Param fileName query string true "File Name"
 // @Tags Daemon Server
-// @Router /api/servers/{id}/backup/delete [post]
+// @Router /daemon/server/{id}/backup [delete]
 // @Security OAuth2Application[server.backup.delete]
 func deleteBackup(c *gin.Context) {
 	server := getServerFromGin(c)
@@ -1200,7 +1219,7 @@ func deleteBackup(c *gin.Context) {
 // @Param id path string true "Server ID"
 // @Param fileName query string true "File Name"
 // @Tags Daemon Server
-// @Router /api/servers/{id}/backup/restore [post]
+// @Router /daemon/server/{id}/backup/restore [post]
 // @Security OAuth2Application[server.backup.restore]
 func restoreBackup(c *gin.Context) {
 	server := getServerFromGin(c)
@@ -1223,12 +1242,13 @@ func restoreBackup(c *gin.Context) {
 
 // @Summary Download backup
 // @Description Download a backup of the server
-// @Success 204 {object} nil
+// @Produce octet-stream
+// @Success 200 {file} binary "Backup archive"
 // @Param id path string true "Server ID"
 // @Param fileName query string true "File Name"
 // @Tags Daemon Server
-// @Router /api/servers/{id}/backup/restore [post]
-// @Security OAuth2Application[server.backup.restore]
+// @Router /daemon/server/{id}/backup/download [get]
+// @Security OAuth2Application[server.backup.view]
 func downloadBackup(c *gin.Context) {
 	server := getServerFromGin(c)
 	fileName := c.Query("fileName")
@@ -1542,11 +1562,20 @@ func searchPlugins(c *gin.Context) {
 	c.JSON(http.StatusOK, results)
 }
 
+// pluginModrinthAPI is a variable so tests can point it at a local server
+var pluginModrinthAPI = "https://api.modrinth.com/v2"
+
+// errNoCompatiblePluginVersion is returned when the project has versions, but none for the
+// loader and Minecraft version the panel asked for
+var errNoCompatiblePluginVersion = skypanel.CreateError("this project has no version for the server's loader and Minecraft version", "ErrPluginNoCompatibleVersion")
+
 // @Summary Install plugin
-// @Description Downloads and installs a plugin from Spigot
+// @Description Downloads and installs the newest version of a Modrinth project, limited to the given loaders and game versions when they are set
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
-// @Param pluginId path int true "Plugin ID from Spigot"
+// @Param pluginId path string true "Modrinth project ID"
+// @Param loaders query string false "Comma-separated Modrinth loaders, such as paper,spigot,bukkit"
+// @Param game_versions query string false "Comma-separated Minecraft versions, such as 1.21.4"
 // @Tags Daemon Server
 // @Router /daemon/server/{id}/plugins/{pluginId} [post]
 func installPlugin(c *gin.Context) {
@@ -1564,7 +1593,9 @@ func installPlugin(c *gin.Context) {
 		logging.Info.Printf("[%s] No restore point before installing a plugin: %s", server.ID(), err)
 	}
 
-	downloadURL, fileName, ok := fetchLatestModrinthFile(c, projectID)
+	loaders := pluginFilter(c.Query("loaders"))
+	gameVersions := pluginFilter(c.Query("game_versions"))
+	downloadURL, fileName, ok := fetchLatestModrinthFile(c, projectID, loaders, gameVersions)
 	if !ok {
 		return
 	}
@@ -1620,12 +1651,55 @@ func installPlugin(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// fetchLatestModrinthFile looks up the newest version of a Modrinth project and
-// returns the download URL and name of its primary file (or the first one). It
-// writes the error response itself and returns false when the request must stop.
-func fetchLatestModrinthFile(c *gin.Context, projectID string) (string, string, bool) {
-	// Obtener versiones del proyecto de Modrinth
-	versionURL := fmt.Sprintf("https://api.modrinth.com/v2/project/%s/version", projectID)
+// pluginFilter splits a comma-separated loaders or game_versions value. Only plain names
+// and version numbers are kept, so nothing else ends up in the query sent to Modrinth.
+func pluginFilter(raw string) []string {
+	values := make([]string, 0)
+	for _, v := range strings.Split(raw, ",") {
+		v = strings.ToLower(strings.TrimSpace(v))
+		if v == "" || len(v) > 32 {
+			continue
+		}
+		valid := true
+		for _, r := range v {
+			if (r < 'a' || r > 'z') && (r < '0' || r > '9') && r != '.' && r != '-' && r != '_' {
+				valid = false
+				break
+			}
+		}
+		if valid {
+			values = append(values, v)
+		}
+	}
+	return values
+}
+
+// modrinthVersionsURL is the list of a project's versions, newest first. Modrinth keeps
+// only the versions made for one of the loaders and one of the game versions when they are
+// given (as JSON arrays), so the server gets a jar that runs on it.
+func modrinthVersionsURL(projectID string, loaders, gameVersions []string) string {
+	query := url.Values{}
+	if len(loaders) > 0 {
+		encoded, _ := json.Marshal(loaders)
+		query.Set("loaders", string(encoded))
+	}
+	if len(gameVersions) > 0 {
+		encoded, _ := json.Marshal(gameVersions)
+		query.Set("game_versions", string(encoded))
+	}
+	versionURL := fmt.Sprintf("%s/project/%s/version", pluginModrinthAPI, url.PathEscape(projectID))
+	if len(query) > 0 {
+		versionURL += "?" + query.Encode()
+	}
+	return versionURL
+}
+
+// fetchLatestModrinthFile looks up the newest version of a Modrinth project for the given
+// loaders and game versions (any, when empty) and returns the download URL and name of its
+// primary file (or the first one). It writes the error response itself and returns false
+// when the request must stop.
+func fetchLatestModrinthFile(c *gin.Context, projectID string, loaders, gameVersions []string) (string, string, bool) {
+	versionURL := modrinthVersionsURL(projectID, loaders, gameVersions)
 	client := &http.Client{}
 	req, _ := http.NewRequest("GET", versionURL, nil)
 	req.Header.Set("User-Agent", "PufferPanel/SkyPanel Plugin Manager")
@@ -1658,7 +1732,11 @@ func fetchLatestModrinthFile(c *gin.Context, projectID string) (string, string, 
 	}
 
 	if len(versions) == 0 {
-		response.HandleError(c, fmt.Errorf("no versions found for this project"), http.StatusNotFound)
+		err = fmt.Errorf("no versions found for this project")
+		if len(loaders) > 0 || len(gameVersions) > 0 {
+			err = errNoCompatiblePluginVersion
+		}
+		response.HandleError(c, err, http.StatusNotFound)
 		return "", "", false
 	}
 

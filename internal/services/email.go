@@ -12,6 +12,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"html/template"
 	"io/fs"
+	"net/url"
 	"os"
 	"strings"
 )
@@ -108,6 +109,7 @@ func (es *emailService) SendEmail(to, template string, data map[string]interface
 
 	data["COMPANY_NAME"] = config.CompanyName.Value()
 	data["MASTER_URL"] = config.MasterURL.Value()
+	data["HOST_NAME"] = emailHostName(config.MasterURL.Value(), config.CompanyName.Value())
 
 	subjectBuilder := &strings.Builder{}
 	err = tmpl.Subject.Execute(subjectBuilder, data)
@@ -139,4 +141,13 @@ func (es *emailService) SendEmail(to, template string, data map[string]interface
 	}
 
 	return svc.Send(to, subjectBuilder.String(), bodyBuilder.String())
+}
+
+// emailHostName is the panel's host name (panel.example.com), which templates use as
+// HOST_NAME; the company name when there is no Base URL to take it from
+func emailHostName(masterURL, companyName string) string {
+	if parsed, err := url.Parse(masterURL); err == nil && parsed.Hostname() != "" {
+		return parsed.Hostname()
+	}
+	return companyName
 }

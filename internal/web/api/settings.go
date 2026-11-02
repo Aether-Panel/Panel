@@ -96,7 +96,7 @@ func getSetting(c *gin.Context) {
 
 	for _, v := range editableStringEntries {
 		if v.Key() == key {
-			c.JSON(http.StatusOK, models.Setting{Value: v.Value()})
+			c.JSON(http.StatusOK, models.Setting{Value: maskedSettingValue(key, v.Value())})
 			return
 		}
 	}
@@ -134,6 +134,12 @@ func setSetting(c *gin.Context) {
 	var model models.Setting
 	var err error
 	if err = c.BindJSON(&model); response.HandleError(c, err, http.StatusBadRequest) {
+		return
+	}
+
+	// the page sent the mask back: the saved secret stays as it is
+	if isSecretSetting(key) && cast.ToString(model.Value) == secretMask {
+		c.Status(http.StatusNoContent)
 		return
 	}
 
@@ -216,6 +222,7 @@ func setSettings(c *gin.Context) {
 	}
 
 	db := middleware.GetDatabase(c)
+	dropMaskedSecrets(*settings)
 
 	// check everything first, so a bad value does not leave the settings half saved
 	for key, value := range *settings {
@@ -245,7 +252,7 @@ func getSettings(c *gin.Context) {
 	settings := make(map[string]interface{})
 
 	for _, v := range editableStringEntries {
-		settings[v.Key()] = v.Value()
+		settings[v.Key()] = maskedSettingValue(v.Key(), v.Value())
 	}
 
 	for _, v := range editableBoolEntries {
@@ -279,6 +286,7 @@ func sendTestEmail(c *gin.Context) {
 
 	var body map[string]interface{}
 	_ = c.BindJSON(&body)
+	dropMaskedSecrets(body)
 
 	getStr := func(key string) string {
 		if v, ok := body[key].(string); ok {
@@ -334,6 +342,7 @@ func sendTestDiscord(c *gin.Context) {
 	// webhooks typed in the form but not saved yet are tested too, like the email test does
 	var overrides map[string]interface{}
 	_ = c.ShouldBindJSON(&overrides)
+	dropMaskedSecrets(overrides)
 
 	fields := []services.DiscordEmbedField{
 		{Name: "Tipo", Value: "Mensaje de Prueba", Inline: true},
@@ -988,6 +997,7 @@ func sendTestS3(c *gin.Context) {
 	cfg, _ := offsite.FromSettings()
 	var overrides map[string]interface{}
 	_ = c.ShouldBindJSON(&overrides)
+	dropMaskedSecrets(overrides)
 	if v, ok := overrides[config.BackupsS3Endpoint.Key()]; ok {
 		cfg.Endpoint = strings.TrimSpace(cast.ToString(v))
 	}

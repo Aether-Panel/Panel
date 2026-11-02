@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
+	"github.com/SkyPanel/SkyPanel/v3/internal/query"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/gorcon/rcon"
 	"io"
@@ -47,9 +48,9 @@ func (tc *RCONConnection) Write(p []byte) (n int, err error) {
 func (tc *RCONConnection) Start() {
 	tc.lock.Lock()
 	tc.Reconnect = true
-	if tc.IP == "" {
-		tc.IP = "127.0.0.1"
-	}
+	// no address, or every address, means the game itself: this machine, or the host when
+	// the panel runs in Docker, as the game queries resolve it
+	tc.IP = query.HostOrLocal(tc.IP)
 	tc.closer = make(chan error, 1)
 	tc.lock.Unlock()
 

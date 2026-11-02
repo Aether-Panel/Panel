@@ -6,15 +6,33 @@ import (
 	"github.com/gin-gonic/gin/binding"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
+// tokenPath is where the panel answers token requests (internal/web/oauth2)
+const tokenPath = "/oauth2/token"
+
 func createRequest(data url.Values) (request *http.Request) {
-	authURL := config.AuthURL.Value()
+	authURL := tokenURL(config.AuthURL.Value())
 	request, _ = http.NewRequest("POST", authURL, bytes.NewBufferString(data.Encode()))
 
 	request.Header.Add("Authorization", "Bearer "+config.ClientSecret.Value())
 	request.Header.Add("Content-Type", binding.MIMEPOSTForm)
 	return
+}
+
+// tokenURL returns the URL the daemon sends its token requests to. daemon.auth.url is meant
+// to be the panel's full token URL, but its default (http://localhost:8080) is only the
+// panel's address, and a remote node configured the same way got the web page instead of a
+// token. A URL with no path gets the token path added; full URLs, and anything that does
+// not parse as an absolute URL, are used as they are.
+func tokenURL(configured string) string {
+	u, err := url.Parse(configured)
+	if err != nil || u.Host == "" || strings.Trim(u.Path, "/") != "" {
+		return configured
+	}
+	u.Path = tokenPath
+	return u.String()
 }
 
 type TokenInfoResponse struct {

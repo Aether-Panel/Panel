@@ -49,19 +49,12 @@ func (op SpongeDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 		op.SpongeVersion = latest
 	}
 
-	var key string
-	if op.SpongeType == "vanilla" {
-		key = ""
-	} else {
-		key = "universal"
-	}
-
 	data, err := op.getSpecificVersion(env, op.SpongeVersion)
 	if err != nil {
 		return skypanel.OperationResult{Error: err}
 	}
 
-	url := findJarURL(data.Assets, key)
+	url := serverJarURL(data.Assets)
 	if url == "" {
 		err = errors.New("no asset found to download")
 		return skypanel.OperationResult{Error: err}
@@ -100,6 +93,17 @@ func (op SpongeDl) latestVersion(env *skypanel.Environment) (string, error) {
 		break
 	}
 	return version, nil
+}
+
+// serverJarURL is the jar to install, for both accepted types (spongeforge and
+// spongevanilla): the "universal" one, which the current builds of both publish, else the
+// one without a classifier, the only jar the older builds have. The old check gave
+// vanilla the empty classifier only for the type "vanilla", which is not an accepted type.
+func serverJarURL(assets []SpongeAPIV2Asset) string {
+	if url := findJarURL(assets, "universal"); url != "" {
+		return url
+	}
+	return findJarURL(assets, "")
 }
 
 // findJarURL returns the download url of the last jar asset with the given classifier.

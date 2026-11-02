@@ -18,6 +18,7 @@ var ErrInvalidCredentials = CreateError("invalid credentials", "ErrInvalidCreden
 var ErrTooManyAttempts = CreateError("too many failed attempts, wait a few minutes and try again", "ErrTooManyAttempts")
 var ErrServiceNotAvailable = CreateError("service not available", "ErrServiceNotAvailable")
 var ErrFeatureDisabled = CreateError("this experimental feature is turned off in the panel settings", "ErrFeatureDisabled")
+var ErrAIAnalysisDisabled = CreateError("the AI log analysis is turned off in the panel settings", "ErrAIAnalysisDisabled")
 var ErrEmailNotConfigured = CreateError("email not configured", "ErrEmailNotConfigured")
 var ErrTokenInvalid = CreateError("token is invalid", "ErrTokenInvalid")
 var ErrClientNotFound = CreateError("client not found", "ErrClientNotFound")
@@ -26,6 +27,7 @@ var ErrLoginNotPermitted = CreateError("login not permitted", "ErrLoginNotPermit
 var ErrOtpAlreadyEnabled = CreateError("2FA is already enabled, disable it before enrolling again", "ErrOtpAlreadyEnabled")
 var ErrDatabaseHostFull = CreateError("this database host has reached its database limit", "ErrDatabaseHostFull")
 var ErrDatabaseHostOtherNode = CreateError("this database host serves another node", "ErrDatabaseHostOtherNode")
+var ErrDatabaseHostInUse = CreateError("this database host still has databases, delete them first", "ErrDatabaseHostInUse")
 var ErrDatabaseNameTaken = CreateError("a database with that name already exists on this host", "ErrDatabaseNameTaken")
 var ErrInvalidDatabaseName = CreateError("database name may only use letters, digits, '_' and '-', within the length limit", "ErrInvalidDatabaseName")
 var ErrInvalidTokenState = CreateError("invalid token state", "ErrInvalidTokenState")
@@ -97,6 +99,10 @@ var ErrNoTemplate = func(template string) *Error {
 
 var ErrServiceInvalidProvider = func(service, provider string) *Error {
 	return CreateError("${service} does not support ${provider}", "ErrServiceInvalidProvider").Metadata(map[string]interface{}{"service": service, "provider": provider})
+}
+
+var ErrTransferPortsTaken = func(ports []uint16) *Error {
+	return CreateError("ports ${ports} of this server are already used on the target node: free them or pick another node", "ErrTransferPortsTaken").Metadata(map[string]interface{}{"ports": ports})
 }
 
 var ErrFieldRequired = func(fieldName string) *Error {

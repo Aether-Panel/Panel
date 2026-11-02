@@ -90,7 +90,7 @@ func getsTemplatesForRepo(c *gin.Context) {
 
 // @Summary Add repo
 // @Description Adds a new repo to the service
-// @Param repo body models.TemplateRepo true "Repo information"
+// @Param repo body templateRepoInput true "Repo information; pat, username, password and sshKey are optional and never returned"
 // @Success 200 {object} models.TemplateRepo
 // @Failure 400 {object} skypanel.ErrorResponse
 // @Failure 500 {object} skypanel.ErrorResponse
@@ -98,12 +98,13 @@ func getsTemplatesForRepo(c *gin.Context) {
 // @Router /api/templates [post]
 // @Security OAuth2Application[templates.repo.create]
 func addRepo(c *gin.Context) {
-	var repo models.TemplateRepo
-	err := c.BindJSON(&repo)
+	var input templateRepoInput
+	err := c.BindJSON(&input)
 
 	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
+	repo := input.toRepo()
 
 	if repo.Name == "" {
 		response.HandleError(c, skypanel.ErrFieldRequired("repoName"), http.StatusBadRequest)
@@ -113,7 +114,7 @@ func addRepo(c *gin.Context) {
 	db := middleware.GetDatabase(c)
 	ts := &services.Template{DB: db}
 
-	err = ts.AddRepo(&repo)
+	err = ts.AddRepo(repo)
 
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
@@ -316,4 +317,23 @@ func parseUploadedTemplate(fh *multipart.FileHeader) (*models.Template, error) {
 	}
 
 	return &models.Template{Name: name, Server: server}, nil
+}
+
+// templateRepoInput is the body of POST /api/templates. The credentials of a private
+// repository are accepted here but never sent back: models.TemplateRepo hides them from JSON.
+type templateRepoInput struct {
+	models.TemplateRepo
+	PAT      string `json:"pat"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	SSHKey   string `json:"sshKey"`
+} // @name TemplateRepoInput
+
+func (in templateRepoInput) toRepo() *models.TemplateRepo {
+	repo := in.TemplateRepo
+	repo.PAT = in.PAT
+	repo.Username = in.Username
+	repo.Password = in.Password
+	repo.SSHKey = in.SSHKey
+	return &repo
 }

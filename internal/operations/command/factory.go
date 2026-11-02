@@ -15,7 +15,9 @@ func (of OperationFactory) Create(op skypanel.CreateOperation) (skypanel.Operati
 
 	var stdIn skypanel.StdinConsoleConfiguration
 	if field, exists := op.OperationArgs["stdin"]; exists {
-		err := utils.UnmarshalTo(field, stdIn)
+		// a pointer: given the value, json.Unmarshal fails and every command with stdin
+		// could not be created
+		err := utils.UnmarshalTo(field, &stdIn)
 		if err != nil {
 			return nil, err
 		}

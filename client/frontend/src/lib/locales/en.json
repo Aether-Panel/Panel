@@ -659,7 +659,8 @@
         "delete": "Delete",
         "copy": "Copy",
         "cut": "Cut",
-        "unarchive": "Unarchive"
+        "unarchive": "Unarchive",
+        "compress": "Compress"
       },
       "deleteDialog": {
         "title": "Delete",
@@ -669,6 +670,13 @@
         "title": "Rename",
         "description": "Rename {{name}}. You can also change the extension.",
         "placeholder": "new-name.txt"
+      },
+      "compressDialog": {
+        "title": "Compress",
+        "description": "Pack {{name}} into an archive in this folder.",
+        "nameLabel": "Archive name",
+        "placeholder": "backup.zip",
+        "hint": "End it in .zip, .tar or .tar.gz to pick the format; any other name gets .zip added."
       },
       "editor": {
         "title": "Editing: {{filename}}",
@@ -699,6 +707,8 @@
         "deleteError": "Could not delete.",
         "renameError": "Could not rename.",
         "extractError": "Could not extract.",
+        "compressed": "Created {{name}}.",
+        "compressError": "Could not compress.",
         "saveError": "Could not save."
       },
       "goRoot": "Go to root folder",
@@ -906,6 +916,7 @@
       "hostPort": "Host and port",
       "showPassword": "Show password",
       "hidePassword": "Hide password",
+      "passwordHidden": "Only visible to users who can manage databases",
       "copyField": "Copy {{field}}",
       "createdDialog": {
         "title": "Database created",
@@ -1335,8 +1346,8 @@
         "cancelledBody": "This migration session was cancelled and its token is no longer valid. Generate a new one if you want to try again."
       },
       "import": {
-        "warningTitle": "This server will be overwritten",
-        "warningBody": "Importing from another provider stops this server and replaces its files and configuration with the incoming data. Make a backup before you continue.",
+        "warningTitle": "Files with the same name will be replaced",
+        "warningBody": "Importing copies the files from the other panel into this server's folder: files with the same name are replaced and the rest are kept. The server is not stopped and its configuration (template, variables, ports) does not change. Stop it and make a backup before you continue.",
         "urlLabel": "Origin panel URL",
         "urlHelp": "The main or API address of the provider currently hosting the server.",
         "tokenLabel": "Migration token",
@@ -1806,7 +1817,7 @@
       "save": "Save changes",
       "unknownField": "An option the panel does not know; it is kept as is.",
       "changed": "Changed",
-      "locked": "Managed by the panel in Settings → Address, so it matches the assigned port.",
+      "locked": "Managed by the panel in Settings → Ports, so it matches the assigned port.",
       "undo": "Undo the change to {{name}}",
       "default": "default value",
       "newWorldsOnly": "Only affects new worlds",
@@ -3198,12 +3209,23 @@
         "keyPlaceholder": "••••••••"
       },
       "mailjet": {
-        "domainLabel": "Domain",
-        "domainPlaceholder": "example.com",
+        "publicKeyLabel": "API Key (public)",
+        "publicKeyPlaceholder": "Mailjet API key",
+        "fromLabel": "Sender Address",
+        "fromPlaceholder": "no-reply@aether.panel",
+        "secretKeyLabel": "Secret Key",
+        "keyPlaceholder": "••••••••"
+      },
+      "sendgrid": {
         "fromLabel": "Sender Address",
         "fromPlaceholder": "no-reply@aether.panel",
         "keyLabel": "API Key",
         "keyPlaceholder": "••••••••"
+      },
+      "debug": {
+        "option": "Debug (log only)",
+        "configDescription": "For testing: no email leaves the server.",
+        "note": "Emails are not sent. The panel writes each one (recipient, subject and body) to its log, tagged [DEBUG], instead."
       },
       "testButton": "Test Email",
       "testSuccess": "Test email sent successfully",
@@ -3487,6 +3509,8 @@
     }
   },
   "apiErrors": {
+    "ErrFileExists": "A file with that name already exists. Choose another name.",
+    "ErrPluginNoCompatibleVersion": "This project has no version for this server's loader and Minecraft version.",
     "ErrDiskLimitExceeded": "The server has used all of its disk space. Delete files to free some before starting it or uploading more.",
     "ErrSSHKeyInvalid": "That is not a valid SSH public key. Paste one line, such as the contents of id_ed25519.pub.",
     "ErrSSHKeyIsPrivate": "That is a private key. Paste the public key (the .pub file) and never share the private one.",
@@ -3499,8 +3523,11 @@
     "ErrServerOwner": "The server's owner cannot be removed or limited. An administrator can give the server to someone else.",
     "ErrAPIKeyPermissions": "Tick at least one action for the key.",
     "ErrAPIKeyNotAllowed": "This API key is not allowed to do that.",
+    "ErrAIAnalysisDisabled": "An administrator has turned the AI log analysis off.",
     "ErrBackupLimit": "This server already has as many backups as it may keep. Delete an old one before making another.",
-    "ErrInviteSignupsClosed": "Sign-ups are closed: that person needs an account before you can add them."
+    "ErrInviteSignupsClosed": "Sign-ups are closed: that person needs an account before you can add them.",
+    "ErrDatabaseHostInUse": "This host still has databases. Delete them from their servers first, so they are not left behind on the database server.",
+    "ErrTransferPortsTaken": "Some of this server's ports are already in use on the target node. Free them there or pick another node."
   },
   "extensions": {
     "title": "Extensions",

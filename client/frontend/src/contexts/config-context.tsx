@@ -18,6 +18,8 @@ export interface Config {
     turnstileEnabled: boolean;
     /** The anti-bot check the sign-in forms use */
     captcha?: 'turnstile' | 'builtin' | '';
+    /** The admin turned the AI log analysis off for every server */
+    hideAiAnalysis?: boolean;
     experimental?: ExperimentalFeatures;
     version: string;
 }

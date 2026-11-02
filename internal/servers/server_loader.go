@@ -290,6 +290,25 @@ func Delete(id string) (err error) {
 	return
 }
 
+// DeleteBackups removes every backup of the server kept on this node, for when the server
+// itself is deleted. It is apart from Delete: a server moved to another node, or created
+// again over itself, keeps its backups where they are.
+func DeleteBackups(id string) error {
+	safeID, err := validateServerID(id)
+	if err != nil {
+		return err
+	}
+	// "." or a path would reach past this server's own folder, to every server's backups
+	if safeID == "." || filepath.Base(safeID) != safeID {
+		return fmt.Errorf("invalid server id: %s", id)
+	}
+	folder := config.BackupsFolder.Value()
+	if folder == "" {
+		return nil
+	}
+	return os.RemoveAll(filepath.Join(folder, safeID))
+}
+
 func GetFromCache(id string) *Server {
 	allServersLock.RLock()
 	defer allServersLock.RUnlock()

@@ -174,3 +174,69 @@ func TestBackupAndRestore_RoundTrip(t *testing.T) {
 	assert.True(t, os.IsNotExist(statErr), "files added after the backup are gone")
 	assert.True(t, strings.Contains(consoleText(p), "Restore complete"))
 }
+
+// failArchive makes the next archive written to name fail: its hidden partial name is taken
+func failArchive(t *testing.T, p *Server, name string) string {
+	dir := p.GetBackupDirectory()
+	assert.NoError(t, os.MkdirAll(filepath.Join(dir, ".partial-"+name), 0755))
+	return filepath.Join(dir, name)
+}
+
+func TestFinishBackup_MarksAFailedManualBackup(t *testing.T) {
+	p, _ := newBackupTestServer(t)
+	p.backupState.Store(backupRunning)
+
+	assert.False(t, p.finishBackup(failArchive(t, p, "manual.tar.gz")))
+
+	failed, err := p.FailedBackups()
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"manual.tar.gz"}, failed, "the panel is told to drop its entry")
+	listed, err := p.ListBackups()
+	assert.NoError(t, err)
+	assert.Empty(t, listed, "the mark is not a backup")
+
+	// deleting the backup, as the panel does when it drops the entry, removes the mark
+	assert.NoError(t, p.DeleteBackup("manual.tar.gz"))
+	failed, err = p.FailedBackups()
+	assert.NoError(t, err)
+	assert.Empty(t, failed)
+}
+
+func TestFinishBackup_NoMarkForAScheduledBackup(t *testing.T) {
+	p, _ := newBackupTestServer(t)
+	p.backupState.Store(backupRunning)
+
+	assert.False(t, p.finishBackup(failArchive(t, p, AutoBackupPrefix+"x.tar.gz")))
+
+	failed, err := p.FailedBackups()
+	assert.NoError(t, err)
+	assert.Empty(t, failed, "the panel keeps no entry for it")
+}
+
+func TestFailedBackups_NoFolderYet(t *testing.T) {
+	p, _ := newBackupTestServer(t)
+	failed, err := p.FailedBackups()
+	assert.NoError(t, err)
+	assert.Empty(t, failed)
+}
+
+func TestDeleteBackups_RemovesOnlyThatServersBackups(t *testing.T) {
+	p, _ := newBackupTestServer(t)
+	name, err := p.StartBackup()
+	if !assert.NoError(t, err) {
+		return
+	}
+	waitIdle(t, p)
+	other := filepath.Join(config.BackupsFolder.Value(), "otherserver")
+	assert.NoError(t, os.MkdirAll(other, 0755))
+	assert.NoError(t, os.WriteFile(filepath.Join(other, "keep.tar.gz"), []byte("x"), 0644))
+	assert.FileExists(t, filepath.Join(p.GetBackupDirectory(), name))
+
+	assert.NoError(t, DeleteBackups(p.ID()))
+
+	assert.NoDirExists(t, p.GetBackupDirectory())
+	assert.FileExists(t, filepath.Join(other, "keep.tar.gz"))
+	assert.Error(t, DeleteBackups("."), "never the folder of every server")
+	assert.Error(t, DeleteBackups("../x"))
+	assert.FileExists(t, filepath.Join(other, "keep.tar.gz"))
+}

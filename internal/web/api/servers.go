@@ -1722,7 +1722,7 @@ func createBackup(c *gin.Context) {
 // @Param id path string true "Server ID"
 // @Param backupID path string true "Backup ID"
 // @Tags Daemon Servers
-// @Router /api/servers/{id}/backup/Delete/{backupID} [delete]
+// @Router /api/servers/{id}/backup/{backupID} [delete]
 // @Security OAuth2Application[server.backup.delete]
 func deleteBackup(c *gin.Context) {
 	server := getServerFromGin(c)
@@ -1777,7 +1777,7 @@ func deleteBackup(c *gin.Context) {
 // @Param id path string true "Server ID"
 // @Param backupID path string true "Backup ID"
 // @Tags Daemon Servers
-// @Router /api/servers/{id}/backup/Delete/{backupID} [delete]
+// @Router /api/servers/{id}/backup/restore/{backupID} [post]
 // @Security OAuth2Application[server.backup.restore]
 func restoreBackup(c *gin.Context) {
 	server := getServerFromGin(c)
@@ -1823,12 +1823,13 @@ func restoreBackup(c *gin.Context) {
 
 // @Summary Download backup
 // @Description Download a server backup
-// @Success 204 {object} nil
+// @Produce octet-stream
+// @Success 200 {file} binary "Backup archive"
 // @Param id path string true "Server ID"
 // @Param backupID path string true "Backup ID"
 // @Tags Daemon Servers
-// @Router /api/servers/{id}/backup/Delete/{backupID} [delete]
-// @Security OAuth2Application[server.backup.restore]
+// @Router /api/servers/{id}/backup/download/{backupID} [get]
+// @Security OAuth2Application[server.backup.view]
 func downloadBackup(c *gin.Context) {
 	server := getServerFromGin(c)
 	db := middleware.GetDatabase(c)
@@ -2059,7 +2060,6 @@ func proxyServerRequest(c *gin.Context) {
 		resolvedPath += "?" + c.Request.URL.RawQuery
 	}
 
-	user := c.MustGet("user").(*models.User)
 	server := c.MustGet("server").(*models.Server)
 	node := &server.Node
 
@@ -2083,11 +2083,7 @@ func proxyServerRequest(c *gin.Context) {
 	c.Request.Header.Set("Authorization", bearerPrefix+token)
 
 	if c.IsWebsocket() {
-		socketPath, ok := websocketPathWithGrants(c, db, user, server, resolvedPath)
-		if !ok {
-			return
-		}
-		proxySocketRequest(c, socketPath, ns, node)
+		proxySocketRequest(c, websocketPathWithGrants(c, resolvedPath), ns, node)
 	} else {
 		proxyHTTPRequest(c, resolvedPath, ns, node)
 	}
@@ -2096,29 +2092,18 @@ func proxyServerRequest(c *gin.Context) {
 }
 
 // websocketPathWithGrants replaces the query of a websocket path with the
-// streams (console, status, stats) the user is allowed to receive. It writes
-// the error response itself and returns false when the request must stop.
-func websocketPathWithGrants(c *gin.Context, db *gorm.DB, user *models.User, server *models.Server, resolvedPath string) (string, bool) {
+// streams (console, status, stats) the user is allowed to receive. The scopes
+// are the ones checkPermission resolved for this request, so the owner's scopes,
+// the panel-wide row and an OAuth2 client's bounds count as they do on every
+// other route.
+func websocketPathWithGrants(c *gin.Context, resolvedPath string) string {
 	// for websocket, nuke the query params to avoid trying to escalate
 	resolvedPath = strings.SplitN(resolvedPath, "?", 2)[0]
 	if !strings.HasPrefix(resolvedPath, "/") {
 		resolvedPath = "/" + resolvedPath
 	}
 
-	permService := &services.Permission{DB: db}
-	perms, err := permService.GetForUserAndServer(user.ID, server.Identifier)
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-		return "", false
-	}
-
-	allScopes := perms.Scopes
-
-	perms, err = permService.GetForUserAndServer(user.ID, "")
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-		return "", false
-	}
-
-	allScopes = append(allScopes, perms.Scopes...)
+	allScopes := callerScopes(c)
 
 	// add the params we can grant for this request
 	var params []string
@@ -2131,7 +2116,7 @@ func websocketPathWithGrants(c *gin.Context, db *gorm.DB, user *models.User, ser
 	if scopes.ContainsScope(allScopes, scopes.ScopeServerStats) {
 		params = append(params, "stats")
 	}
-	return resolvedPath + "?" + strings.Join(params, "&"), true
+	return resolvedPath + "?" + strings.Join(params, "&")
 }
 
 var wsupgrader = websocket.Upgrader{
@@ -2512,7 +2497,7 @@ func updateParentServerLimitsAfterDeletion(db *gorm.DB, ns *services.Node, node 
 func sendServerDeletionEmails(users []models.User, server *models.Server) {
 	es := services.GetEmailService()
 	for _, user := range users {
-		err := es.SendEmail(user.Email, "deletedFromServer", map[string]interface{}{
+		err := es.SendEmail(user.Email, "deletedServer", map[string]interface{}{
 			"Server": server,
 		}, true)
 		if err != nil {

@@ -9,7 +9,7 @@ import { createPortal } from 'react-dom';
 import AISummary from './ai-summary';
 import { AnsiText } from '@/lib/ansi-utils';
 import { useTranslations } from '@/contexts/translations-context';
-import { useSettings } from '@/hooks/use-settings';
+import { useConfig } from '@/contexts/config-context';
 import { cn } from '@/lib/utils';
 
 type LogEntry = {
@@ -94,7 +94,8 @@ export default function ConsoleView({
   const [activeMatch, setActiveMatch] = useState(0);
   const searchRef = useRef<HTMLInputElement>(null);
   const commandRef = useRef<HTMLInputElement>(null);
-  const { settings } = useSettings();
+  // read from the public config: the settings route is for administrators only
+  const { config } = useConfig();
   const scrollRef = useRef<HTMLDivElement>(null);
   // "Expand" opens the console over the whole page; Esc or the same button brings it back
   const [expanded, setExpanded] = useState(false);
@@ -573,7 +574,7 @@ export default function ConsoleView({
         </>
       ) : frame}
 
-      {!settings['panel.settings.hideAiAnalysis'] && (
+      {!config?.hideAiAnalysis && (
         <Card className="mt-6">
           <CardContent className="p-0">
             <AISummary logs={logs} serverId={serverId} />

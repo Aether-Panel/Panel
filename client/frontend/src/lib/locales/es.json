@@ -659,7 +659,8 @@
         "delete": "Eliminar",
         "copy": "Copiar",
         "cut": "Cortar",
-        "unarchive": "Descomprimir"
+        "unarchive": "Descomprimir",
+        "compress": "Comprimir"
       },
       "deleteDialog": {
         "title": "Eliminar",
@@ -669,6 +670,13 @@
         "title": "Renombrar",
         "description": "Renombrar {{name}}. También puedes cambiar la extensión.",
         "placeholder": "nuevo-nombre.txt"
+      },
+      "compressDialog": {
+        "title": "Comprimir",
+        "description": "Empaqueta {{name}} en un archivo comprimido dentro de esta carpeta.",
+        "nameLabel": "Nombre del archivo comprimido",
+        "placeholder": "copia.zip",
+        "hint": "Termínalo en .zip, .tar o .tar.gz para elegir el formato; a cualquier otro nombre se le añade .zip."
       },
       "editor": {
         "title": "Editando: {{filename}}",
@@ -699,6 +707,8 @@
         "deleteError": "No se pudo eliminar.",
         "renameError": "No se pudo renombrar.",
         "extractError": "No se pudo descomprimir.",
+        "compressed": "Se ha creado {{name}}.",
+        "compressError": "No se pudo comprimir.",
         "saveError": "No se pudo guardar."
       },
       "goRoot": "Ir a la carpeta raíz",
@@ -906,6 +916,7 @@
       "hostPort": "Host y puerto",
       "showPassword": "Mostrar contraseña",
       "hidePassword": "Ocultar contraseña",
+      "passwordHidden": "Solo visible para quien puede gestionar las bases de datos",
       "copyField": "Copiar {{field}}",
       "createdDialog": {
         "title": "Base de datos creada",
@@ -1335,8 +1346,8 @@
         "cancelledBody": "Esta sesión de migración se canceló y su token ya no es válido. Genera uno nuevo si quieres volver a intentarlo."
       },
       "import": {
-        "warningTitle": "Se sobrescribirá este servidor",
-        "warningBody": "Importar desde otro proveedor detiene este servidor y reemplaza sus archivos y su configuración con los datos recibidos. Haz una copia de seguridad antes de continuar.",
+        "warningTitle": "Se reemplazarán los archivos con el mismo nombre",
+        "warningBody": "Importar copia los archivos del otro panel en la carpeta de este servidor: los archivos con el mismo nombre se reemplazan y el resto se conservan. El servidor no se detiene y su configuración (plantilla, variables, puertos) no cambia. Detenlo y haz una copia de seguridad antes de continuar.",
         "urlLabel": "URL del panel de origen",
         "urlHelp": "La dirección principal o de la API del proveedor donde está el servidor ahora.",
         "tokenLabel": "Token de migración",
@@ -1460,7 +1471,7 @@
         "title": "Explicación con IA",
         "explain": "Explicar con IA",
         "thinking": "Analizando…",
-        "notConfigured": "La IA no está configurada. Un administrador puede añadir la clave de Gemini en Ajustes.",
+        "notConfigured": "La IA no está configurada. Un administrador puede añadir la clave de Gemini en Configuración.",
         "error": "No se pudo obtener la explicación. Inténtalo de nuevo en un momento.",
         "causes": "Causas probables",
         "fixes": "Cómo solucionarlo"
@@ -1743,7 +1754,7 @@
       "errors": {
         "generic": "No pude responder ahora mismo. Inténtalo de nuevo en un momento.",
         "limit": "Has hecho muchas preguntas seguidas. Espera unos minutos y vuelve a intentarlo.",
-        "notConfigured": "La IA no está configurada. Un administrador puede añadir la clave de Gemini en Ajustes.",
+        "notConfigured": "La IA no está configurada. Un administrador puede añadir la clave de Gemini en Configuración.",
         "noPermission": "Necesitas acceso a la consola de este servidor para usar el asistente."
       }
     },
@@ -1806,7 +1817,7 @@
       "save": "Guardar cambios",
       "unknownField": "Opción del archivo que el panel no conoce; se guarda tal cual.",
       "changed": "Modificado",
-      "locked": "Lo gestiona el panel desde Ajustes → Dirección, para que coincida con el puerto asignado.",
+      "locked": "Lo gestiona el panel desde Configuración → Puertos, para que coincida con el puerto asignado.",
       "undo": "Deshacer el cambio en {{name}}",
       "default": "valor por defecto",
       "newWorldsOnly": "Solo afecta a mundos nuevos",
@@ -3094,7 +3105,7 @@
         "okHttps": "Activo: {{domain}} con HTTPS (Nginx y certificado configurados).",
         "okHttp": "Activo: {{domain}} por HTTP.",
         "okIp": "El panel contesta por la IP del servidor.",
-        "proxied": "Tu dominio pasa por el proxy de Cloudflare, que solo deja pasar la web: los jugadores y el SFTP usan la IP {{ip}}. Para que entren con un nombre, usa los subdominios automáticos (Ajustes → Dominios) o un registro DNS sin proxy (nube gris).",
+        "proxied": "Tu dominio pasa por el proxy de Cloudflare, que solo deja pasar la web: los jugadores y el SFTP usan la IP {{ip}}. Para que entren con un nombre, usa los subdominios automáticos (Configuración → Dominios) o un registro DNS sin proxy (nube gris).",
         "error": "No se pudo obtener el certificado para {{domain}}. Comprueba que el dominio apunta a este servidor y que el puerto 80 está abierto; se reintentará en una hora. Mientras tanto el panel funciona por HTTP."
       },
       "companyNameLabel": "Nombre de la empresa",
@@ -3137,7 +3148,7 @@
       "experimental": {
         "versionSwitchLabel": "Cambio de versión del juego",
         "versionSwitchDescription": "Cambiar la versión de Minecraft de un servidor en un clic, con un punto de restauración antes.",
-        "versionSwitchWhere": "En la pestaña Ajustes de cada servidor",
+        "versionSwitchWhere": "En la pestaña Configuración de cada servidor",
         "propertiesEditorLabel": "Editor de propiedades",
         "propertiesEditorDescription": "Editar server.properties como un formulario, con cada opción explicada.",
         "propertiesEditorWhere": "Pestaña Propiedades, en servidores de Minecraft Java",
@@ -3198,12 +3209,23 @@
         "keyPlaceholder": "••••••••"
       },
       "mailjet": {
-        "domainLabel": "Dominio",
-        "domainPlaceholder": "example.com",
+        "publicKeyLabel": "Clave API (pública)",
+        "publicKeyPlaceholder": "Clave API de Mailjet",
+        "fromLabel": "Dirección del remitente",
+        "fromPlaceholder": "no-reply@aether.panel",
+        "secretKeyLabel": "Clave secreta",
+        "keyPlaceholder": "••••••••"
+      },
+      "sendgrid": {
         "fromLabel": "Dirección del remitente",
         "fromPlaceholder": "no-reply@aether.panel",
         "keyLabel": "Clave API",
         "keyPlaceholder": "••••••••"
+      },
+      "debug": {
+        "option": "Depuración (solo registro)",
+        "configDescription": "Para pruebas: ningún correo sale del servidor.",
+        "note": "Los correos no se envían. El panel escribe cada uno (destinatario, asunto y cuerpo) en su registro con la etiqueta [DEBUG]."
       },
       "testButton": "Email de prueba",
       "testSuccess": "Email de prueba enviado correctamente",
@@ -3487,6 +3509,8 @@
     }
   },
   "apiErrors": {
+    "ErrFileExists": "Ya existe un archivo con ese nombre. Elige otro.",
+    "ErrPluginNoCompatibleVersion": "Este proyecto no tiene ninguna versión para el loader y la versión de Minecraft de este servidor.",
     "ErrDiskLimitExceeded": "El servidor ha usado todo su espacio en disco. Borra archivos para liberar espacio antes de arrancarlo o subir más.",
     "ErrSSHKeyInvalid": "Eso no es una clave pública SSH válida. Pega una sola línea, como el contenido de id_ed25519.pub.",
     "ErrSSHKeyIsPrivate": "Eso es una clave privada. Pega la clave pública (el archivo .pub) y no compartas nunca la privada.",
@@ -3499,8 +3523,11 @@
     "ErrServerOwner": "El propietario del servidor no se puede quitar ni limitar. Un administrador puede pasar el servidor a otra persona.",
     "ErrAPIKeyPermissions": "Marca al menos una acción para la clave.",
     "ErrAPIKeyNotAllowed": "Esta clave API no tiene permiso para hacer eso.",
+    "ErrAIAnalysisDisabled": "Un administrador ha desactivado el análisis de registros con IA.",
     "ErrBackupLimit": "Este servidor ya tiene todas las copias de seguridad que puede guardar. Borra una antigua antes de crear otra.",
-    "ErrInviteSignupsClosed": "Los registros están cerrados: esa persona necesita una cuenta antes de que puedas añadirla."
+    "ErrInviteSignupsClosed": "Los registros están cerrados: esa persona necesita una cuenta antes de que puedas añadirla.",
+    "ErrDatabaseHostInUse": "Este host todavía tiene bases de datos. Bórralas primero desde sus servidores, para que no queden olvidadas en el servidor de bases de datos.",
+    "ErrTransferPortsTaken": "Algunos puertos de este servidor ya están en uso en el nodo de destino. Libéralos allí o elige otro nodo."
   },
   "extensions": {
     "title": "Extensiones",

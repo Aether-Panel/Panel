@@ -69,3 +69,24 @@ func TestServerSearch_FiltersByNode(t *testing.T) {
 	assert.Equal(t, int64(1), total)
 	assert.Equal(t, "local01", local[0].Identifier)
 }
+
+// Deleting a host that still has databases used to cascade their rows away and leave the
+// databases and users on the MySQL server
+func TestDatabaseHostDelete_RefusedWhileItHasDatabases(t *testing.T) {
+	db := setupDatabaseHostTest(t)
+	require.NoError(t, db.Create(&models.Server{Name: "s", Identifier: "srv01", Type: "generic"}).Error)
+	used := &models.DatabaseHost{Name: "used", Host: "db1.example.com", Port: 3306, Username: "u", Password: "p"}
+	empty := &models.DatabaseHost{Name: "empty", Host: "db2.example.com", Port: 3306, Username: "u", Password: "p"}
+	require.NoError(t, db.Create(used).Error)
+	require.NoError(t, db.Create(empty).Error)
+	require.NoError(t, db.Create(&models.Database{ServerID: "srv01", DatabaseHostID: used.ID, DatabaseName: "s_srv01_a", Username: "db_x", Password: "y"}).Error)
+
+	dhs := &DatabaseHost{DB: db}
+	assert.ErrorIs(t, dhs.Delete(used.ID), skypanel.ErrDatabaseHostInUse)
+	_, err := dhs.Get(used.ID)
+	assert.NoError(t, err, "the host is kept")
+
+	assert.NoError(t, dhs.Delete(empty.ID))
+	_, err = dhs.Get(empty.ID)
+	assert.Error(t, err)
+}

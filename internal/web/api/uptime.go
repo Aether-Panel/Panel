@@ -351,10 +351,8 @@ func getServerUptime(c *gin.Context) {
 		currentUptime, currentStartTime = currentRunSince(db, server.Identifier)
 	}
 
+	// GetUptimeStats already counts the running period, so it is not added again here
 	totalSeconds := uptimeSeconds + downtimeSeconds
-	if isRunning {
-		totalSeconds += currentUptime
-	}
 
 	nodeName := uptimeNodeName(&server.Node)
 

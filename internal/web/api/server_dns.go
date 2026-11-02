@@ -347,6 +347,7 @@ func sendTestCloudflare(c *gin.Context) {
 	s := currentDNSSettings()
 	var overrides map[string]interface{}
 	_ = c.ShouldBindJSON(&overrides)
+	dropMaskedSecrets(overrides)
 	if v, ok := overrides[config.CloudflareAPIToken.Key()]; ok {
 		s.Token = strings.TrimSpace(cast.ToString(v))
 	}

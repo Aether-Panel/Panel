@@ -3,6 +3,7 @@ package services
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -103,4 +104,23 @@ func TestPostDiscordPayloadRefusesNonDiscordURLs(t *testing.T) {
 	if err := postDiscordPayload("", DiscordWebhookPayload{}); err != nil {
 		t.Fatalf("an empty webhook means notifications are off, got %v", err)
 	}
+}
+
+// Discord rejects an embed with more than 25 fields; above that the report used to send 26
+func TestSystemStatusFields_StayWithinDiscordsLimit(t *testing.T) {
+	servers := func(n int) []ServerInfo {
+		list := make([]ServerInfo, n)
+		for i := range list {
+			list[i] = ServerInfo{Name: fmt.Sprintf("srv%d", i)}
+		}
+		return list
+	}
+
+	assert.Len(t, systemStatusFields(servers(25)), 25, "25 servers fit, no note")
+	assert.Equal(t, "srv24", systemStatusFields(servers(25))[24].Name)
+
+	fields := systemStatusFields(servers(40))
+	assert.Len(t, fields, discordMaxEmbedFields)
+	assert.Equal(t, "Nota", fields[24].Name)
+	assert.Equal(t, "Mostrando 24 de 40 servidores", fields[24].Value)
 }
