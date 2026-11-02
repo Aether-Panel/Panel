@@ -122,7 +122,7 @@ Each area below links to the page that documents it.
 
 ### Daemon
 
-`/daemon`, `/daemon/features`, `/daemon/system`, `/daemon/ports`, `/daemon/network/history`, `/daemon/servers/status`, `/daemon/update`, `/daemon/update-status` and `/daemon/server/:serverId/...`. See [Daemon](./api/09-daemon.md).
+`/daemon`, `/daemon/features`, `/daemon/system`, `/daemon/ports`, `/daemon/network/history`, `/daemon/servers/status`, `/daemon/update`, `/daemon/update-status` and `/daemon/server/:serverId/...`, including the node transfer's backup copy and scheduler pause/resume routes. The panel's status poll (`/daemon/servers/status`) also carries its notification language in the `X-Aether-Notification-Language` header. See [Daemon](./api/09-daemon.md).
 
 ## Related documentation
 

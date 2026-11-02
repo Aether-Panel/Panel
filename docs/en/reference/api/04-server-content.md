@@ -78,11 +78,11 @@ Renames or moves a file or folder; the extension can change. `204`. `400` when `
 
 ### `DELETE /api/servers/:serverId/file/*filename`
 
-Deletes a file, or a folder with everything inside. `204`. Freed space counts at once, so a server stopped for a full disk can start again.
+Deletes a file, or a folder with everything inside. `204`. Freed space counts at once, so a server stopped for a full disk can start again. There is no route that deletes several paths at once: the file manager's **Delete selected** calls this route once per item, one after another, and stops at the first failure.
 
 ### `POST /api/servers/:serverId/archive/*filename`
 
-Body: the paths to compress, e.g. `["world", "server.properties"]`. `*filename` is the archive to create; its extension picks the format (see [Files and compression](../../general/19-files-compression.md)). `204`.
+Body: the paths to compress, e.g. `["world", "server.properties"]`. `*filename` is the archive to create; its extension picks the format (see [Files and compression](../../general/19-files-compression.md)). `204`. The file manager sends one path from a row's **Compress**, and every selected path from **Compress selected**.
 
 | Error | When |
 |-------|------|

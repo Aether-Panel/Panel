@@ -19,7 +19,7 @@ Everything the panel sends outside its own pages is written in one language, set
 
 Saving any other value through the settings API is refused with `400` `ErrNotificationLanguage`. An empty or unknown value in the config file falls back to Spanish. The texts live in one catalogue, `internal/services/notification_text.go`.
 
-Each process reads its own configuration. Alerts about servers on a remote node are sent by that node (see [Who sends what](#who-sends-what)), so they use the language set in **that node's** config: the panel does not push this setting to its nodes. Set `panel.settings.notificationLanguage` (or the environment variable) on every node whose alerts should be in English.
+Alerts about servers on a remote node are sent by that node (see [Who sends what](#who-sends-what)). The panel passes its notification language to every remote node in the header `X-Aether-Notification-Language` of the status poll it sends every 30 seconds (`GET /daemon/servers/status`), and polls at once when the setting is saved with a new value, so remote alerts follow the panel's setting. On a node the language is chosen in this order: a value set in that node's own config file or environment (`SKYPANEL_PANEL_SETTINGS_NOTIFICATIONLANGUAGE`) wins; otherwise the panel's value; otherwise `es`. The node keeps the panel's value in memory only: right after a node restart its alerts use `es` until the next poll, at most 30 seconds later. A node on a version from before this header ignores it and keeps using its own config.
 
 The JSON webhook keeps its machine-readable values whatever the language: `event` is always one of the codes listed below, and `resource` in a resource alert is always `CPU` or `Memoria`, as before the setting existed.
 
@@ -214,7 +214,7 @@ The same events (crash, backup, resources, started/stopped) are also handed to i
 | `400` when saving a webhook | The URL is not a `https://discord.com/api/webhooks/<id>/<token>` URL (`ptb.`, `canary.` and `discordapp.com` are also accepted) |
 | Test answers `422` / a channel shows `discord webhook returned status 404` | The webhook was deleted in Discord |
 | No alerts for servers on a remote node | That node's configuration has no `panel.notifications.discordWebhook` |
-| Alerts from a remote node arrive in Spanish while the panel is set to English | The node reads `panel.settings.notificationLanguage` from its own config; set it there |
+| Alerts from a remote node arrive in Spanish while the panel is set to English | The node's own config or environment sets `panel.settings.notificationLanguage` to `es`, which wins over the panel's value (remove it there or set `en`); or the node restarted less than 30 seconds ago and has not been polled yet; or the panel's status poll does not reach the node |
 | A node report says `🔴 No answer` | The panel's status poll did not reach that node: it is down or unreachable, refuses the panel's token (see [Troubleshooting](../setup/troubleshooting.md)), or runs a version without `/daemon/servers/status` and needs updating |
 | No offline alert after stopping a server | Expected: requested stops and handled crashes do not produce an offline alert (crashes have their own alert) |
 | Telegram `400` when saving | Token or chat id do not match the expected format |

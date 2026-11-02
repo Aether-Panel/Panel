@@ -103,7 +103,7 @@ Los inicios de sesión con contraseña comparten el limitador de intentos del pa
 - Un inicio de sesión correcto reinicia el contador. Superado el límite, la respuesta es «demasiados intentos» hasta que los intentos antiguos salen de la ventana.
 - Se guarda en memoria: reiniciar el panel lo pone a cero.
 
-Los inicios de sesión con clave en el nodo propio del panel no se cuentan, porque una clave no se puede adivinar. En los nodos remotos, las comprobaciones de clave de `/auth/sftp-key` tienen un cupo propio, también de 10 por cuenta cada 15 minutos (clave `sshkey:user:<id>`), separado del de contraseñas: un cliente SSH ofrece sus claves una tras otra, y esos fallos no deben impedir al dueño entrar con su contraseña. Un inicio de sesión con clave correcto lo reinicia; superado el límite, la ruta responde `429`.
+Los inicios de sesión con clave tienen un cupo propio, también de 10 por cuenta cada 15 minutos (clave `sshkey:user:<id>`), separado del de contraseñas: un cliente SSH ofrece sus claves una tras otra, y esos fallos no deben impedir al dueño entrar con su contraseña. Cuenta cada clave ofrecida para una cuenta existente, tanto en el nodo propio del panel (`validateSFTPKey` en `internal/services/sftp.go`) como en las comprobaciones de `/auth/sftp-key` para los nodos remotos; ambos usan el mismo contador, así que el límite es igual en todos los nodos y se comparte entre ellos. Un inicio de sesión con clave correcto lo reinicia. Superado el límite, el nodo propio del panel rechaza la clave (`ErrTooManyAttempts`) y `/auth/sftp-key` responde `429`.
 
 ### Qué puede hacer una sesión
 

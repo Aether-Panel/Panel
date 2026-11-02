@@ -19,7 +19,7 @@ Todo lo que el panel envía fuera de sus propias páginas se escribe en un solo 
 
 Guardar cualquier otro valor mediante la API de ajustes se rechaza con `400` `ErrNotificationLanguage`. Un valor vacío o desconocido en el archivo de configuración vuelve al español. Los textos están en un único catálogo, `internal/services/notification_text.go`.
 
-Cada proceso lee su propia configuración. Los avisos de los servidores de un nodo remoto los envía ese nodo (véase [Quién envía qué](#quién-envía-qué)), así que usan el idioma configurado en **la configuración de ese nodo**: el panel no envía este ajuste a sus nodos. Configure `panel.settings.notificationLanguage` (o la variable de entorno) en cada nodo cuyos avisos deban llegar en inglés.
+Los avisos de los servidores de un nodo remoto los envía ese nodo (véase [Quién envía qué](#quién-envía-qué)). El panel pasa su idioma de las notificaciones a cada nodo remoto en la cabecera `X-Aether-Notification-Language` del sondeo de estado que envía cada 30 segundos (`GET /daemon/servers/status`), y sondea al momento cuando el ajuste se guarda con un valor nuevo, así que los avisos remotos siguen el ajuste del panel. En un nodo, el idioma se elige en este orden: un valor definido en el archivo de configuración o en el entorno de ese nodo (`SKYPANEL_PANEL_SETTINGS_NOTIFICATIONLANGUAGE`) tiene prioridad; si no, el valor del panel; si no, `es`. El nodo guarda el valor del panel solo en memoria: justo después de reiniciarse, sus avisos usan `es` hasta el siguiente sondeo, como mucho 30 segundos después. Un nodo con una versión anterior a esta cabecera la ignora y sigue usando su propia configuración.
 
 El webhook JSON mantiene sus valores pensados para máquinas sea cual sea el idioma: `event` es siempre uno de los códigos indicados más abajo, y `resource` en un aviso de recursos es siempre `CPU` o `Memoria`, como antes de que existiera el ajuste.
 
@@ -214,7 +214,7 @@ Los mismos eventos (caída, copia, recursos, encendido/apagado) también se entr
 | `400` al guardar un webhook | La URL no es del tipo `https://discord.com/api/webhooks/<id>/<token>` (también se aceptan `ptb.`, `canary.` y `discordapp.com`) |
 | La prueba responde `422` / un canal muestra `discord webhook returned status 404` | El webhook se borró en Discord |
 | No llegan avisos de los servidores de un nodo remoto | La configuración de ese nodo no tiene `panel.notifications.discordWebhook` |
-| Los avisos de un nodo remoto llegan en español aunque el panel está en inglés | El nodo lee `panel.settings.notificationLanguage` de su propia configuración; configúrelo allí |
+| Los avisos de un nodo remoto llegan en español aunque el panel está en inglés | La configuración o el entorno del propio nodo definen `panel.settings.notificationLanguage` como `es`, que tiene prioridad sobre el valor del panel (quítelo allí o ponga `en`); o el nodo se reinició hace menos de 30 segundos y aún no se ha sondeado; o el sondeo de estado del panel no llega al nodo |
 | Un informe de nodo dice `🔴 Sin respuesta` | La consulta de estado del panel no llegó a ese nodo: está caído o no se alcanza, rechaza el token del panel (véase [Solución de problemas](../setup/troubleshooting.md)) o tiene una versión sin `/daemon/servers/status` y necesita actualizarse |
 | No llega aviso de apagado tras detener un servidor | Es lo esperado: las paradas solicitadas y las caídas gestionadas no generan aviso de apagado (las caídas tienen su propio aviso) |
 | `400` de Telegram al guardar | El token o el id del chat no tienen el formato esperado |

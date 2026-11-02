@@ -140,11 +140,21 @@ Un `{filename}` que ya existe se rechaza con el código `ErrFileExists` (HTTP 40
 
 #### Comprimir desde el gestor de archivos
 
-El menú de cada archivo o carpeta tiene **Comprimir**. El diálogo pide el **Nombre del archivo comprimido** (propone `<nombre>.zip`) y crea el archivo en la carpeta actual con este endpoint, con el elemento elegido como única ruta:
+El menú de cada archivo o carpeta tiene **Comprimir**. El diálogo pide el **Nombre del archivo comprimido** (propone `<nombre>.zip`) y crea el archivo en la carpeta actual con este endpoint, con el elemento elegido como única ruta. Para empaquetar varios elementos en un solo archivo, se marcan y se usa **Comprimir selección** (véase [Seleccionar varios elementos](#seleccionar-varios-elementos)): todas las rutas seleccionadas van en la misma petición, y con dos o más el nombre propuesto es `<carpeta>.zip`, con el nombre de la carpeta actual (`archive.zip` en la raíz). En ambos casos:
 
 - El formato sale de la extensión: `.zip`, `.tar` o `.tar.gz`. A cualquier otro nombre se le añade `.zip`.
 - Si ya existe un archivo con ese nombre, no se sobrescribe y se muestra «Ya existe un archivo con ese nombre. Elige otro.».
 - Al terminar, «Se ha creado <nombre>.» y la lista se actualiza.
+
+#### Seleccionar varios elementos
+
+La lista de archivos tiene una columna de casillas: una por fila (salvo el enlace `..` a la carpeta superior) y otra en la cabecera que selecciona o quita todo lo de la carpeta actual (muestra un estado intermedio cuando solo hay algunos marcados). Mientras hay algo seleccionado, una barra sobre la lista indica cuántos elementos hay seleccionados y ofrece:
+
+- **Comprimir selección**: un solo archivo comprimido con todos los elementos seleccionados, como se describe arriba.
+- **Eliminar selección**: una sola confirmación para todos y después un `DELETE /api/servers/{id}/file/{ruta}` por elemento, uno tras otro, la misma llamada que **Eliminar** en el menú de la fila. Se detiene en el primer fallo e indica cuántos se eliminaron antes («Se eliminaron 2 de 5 elementos y luego se detuvo: <motivo>»).
+- Un botón para quitar la selección.
+
+La selección se borra al abrir otra carpeta, después de **Eliminar selección** y después de comprimir dos o más elementos; las marcas de elementos que ya no están tras actualizar la lista se descartan. No se puede copiar ni cortar una selección (el portapapeles guarda un solo elemento, desde el menú de la fila) ni seleccionar un rango con Mayús + clic. No interviene ninguna ruta nueva de la API: ambas acciones usan las rutas existentes de compresión y borrado.
 
 ### `POST /api/servers/{id}/extract/{filename}`
 

@@ -168,7 +168,7 @@ Las copias externas solo están activas cuando `enabled` vale `true` **y** está
 - Retención de copias automáticas: `keep` entre 1 y 50.
 - Clonar un servidor no copia sus copias de seguridad ([Clonar servidores](./cloning.md)).
 - Al eliminar un servidor, sus copias del bucket externo se quedan allí; hay que borrarlas a mano si ya no se necesitan.
-- Una transferencia entre nodos copia todas las copias de seguridad a través del panel, así que tarda más y necesita espacio para ellas en el nodo nuevo. El nodo nuevo debe tener la ruta `/daemon/server/:id/backup/file` (una versión actual) para recibirlas.
+- Una transferencia entre nodos copia todas las copias de seguridad a través del panel, así que tarda más y necesita espacio para ellas en el nodo nuevo. Ambos nodos deben tener una versión actual: el nodo nuevo necesita la ruta `/daemon/server/:id/backup/file` para recibirlas, y los dos necesitan las rutas para pausar las tareas que usa la transferencia (véase [Transferencias de servidores](./server-transfers.md#requisitos-y-configuración)).
 - La configuración S3 guardada en **Configuración › Copias externas** solo se aplica al nodo propio del panel; cada nodo remoto necesita la suya (véase [Nodos remotos](#requisitos-y-configuración)).
 
 ## Problemas conocidos y soluciones

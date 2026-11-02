@@ -10,11 +10,11 @@ Aether Panel can move a server's files in two ways:
 | | Node transfer | Panel-to-panel migration |
 |---|---|---|
 | Scope | Two nodes of one panel | Two independent panels |
-| What travels | Server definition, all files and the backups kept on the node, together with its Splitter sub-servers | Files only (an archive of the server folder) |
+| What travels | Server definition, scheduled tasks, all files and the backups kept on the node, together with its Splitter sub-servers | Files only (an archive of the server folder) |
 | Started from | The origin server (**Administration › Transfer**) | Both sides: a token on the origin, an import on the destination (**Migration** tab) |
 | Server stopped first | Yes (stopped, killed if it does not stop; started again on the new node if it was running) | No |
 | Progress in the UI | No (the panel log; a failure is also written to the server's activity log) | Yes (step text, heartbeat, outcome) |
-| Undone on failure | Yes, automatically | The partial archive is deleted |
+| Undone on failure | Yes, automatically, also after a panel restart in the middle | The partial archive is deleted |
 | Cancellable | No | Yes, from either side |
 
 ## How it works
@@ -26,24 +26,36 @@ A server moves together with its **Splitter sub-servers** (see [Sub-servers](sub
 Before anything moves, `POST /api/servers/:serverId/transfer` checks:
 
 - The target is another node (`400` `cannot transfer to the same node` otherwise).
-- No transfer of any of these servers is already running: `409` `ErrTransferRunning`.
+- No transfer of any of these servers is already running, nor recorded as unfinished from before a panel restart: `409` `ErrTransferRunning`.
 - The ports of every server that moves (the main one and the extra ones) are free on the target node: no other server of that node, none of the node's own ports (panel, daemon, SFTP) and no container published there may use them. Otherwise `409` `ErrTransferPortsTaken` with the list of ports.
 - No backup, restore point or restore of any of them is being written on the old node (asked through `GET /daemon/server/:id/backup/busy`): `409` `ErrTransferBackupRunning`. A node too old to have that route is not asked.
 
-If the checks pass, the request answers `202` straight away and the panel runs the transfer in the background. It first drops the panel's records of backups that failed, so none is left pointing at a backup the old node never had, and then:
+If the checks pass, the panel stores a record of the transfer in the `node_transfers` table (see [Recovery after a panel restart](#recovery-after-a-panel-restart)), answers `202` straight away and runs the transfer in the background. It first drops the panel's records of backups that failed, so none is left pointing at a backup the old node never had, and then:
 
 1. **Prepare**, for each server in turn (the parent first):
-   1. Reads the server definition from the old node and creates the server with it on the new node.
-   2. Stops the server on the old node and waits; if it is still running, kills it. If it cannot be stopped, the transfer fails. A backup that started in the meantime also fails it.
-   3. Archives every file into `transfer.tar.gz` on the old node, streams the archive to the new node without buffering it in the panel, extracts it into the server folder there and deletes the archive.
-   4. Copies each backup the old node keeps for the server (location `local` or `both`) through the panel to the new node (`PUT /daemon/server/:id/backup/file`), keeping its name and date. A backup kept only off-site (S3) needs no copy: the bucket is the same wherever the server runs. A backup that is already on the new node with the same name is left alone.
-2. **Commit**: points every moved server's database record at the new node in one database transaction. Only the node is written, so other changes made to the server while the transfer ran are kept.
+   1. Pauses the server's scheduled tasks on the old node (`POST /daemon/server/:id/scheduler/pause`), so no task starts, stops or backs up the server during the copy.
+   2. Reads the server definition from the old node and creates the server with it on the new node, pauses its tasks there too, and copies every scheduled task from the old node to the new one (`GET /daemon/server/:id/tasks`, then `PUT /daemon/server/:id/tasks/:taskId` for each).
+   3. Stops the server on the old node and waits; if it is still running, kills it. If it cannot be stopped, the transfer fails. A backup that started in the meantime also fails it.
+   4. Archives every file into `transfer.tar.gz` on the old node, streams the archive to the new node without buffering it in the panel, extracts it into the server folder there and deletes the archive.
+   5. Copies each backup the old node keeps for the server (location `local` or `both`) through the panel to the new node (`PUT /daemon/server/:id/backup/file`), keeping its name and date. A backup kept only off-site (S3) needs no copy: the bucket is the same wherever the server runs. A backup that is already on the new node with the same name is left alone.
+2. **Commit**: points every moved server's database record at the new node in one database transaction, which also marks the transfer record as committed. Only the node is written, so other changes made to the server while the transfer ran are kept.
 3. **Clean up**: deletes each server from the old node, with its backups there (their copies are on the new node now; off-site copies are untouched). A failure here is only logged: the server already runs from the new node and what is left is a stray copy. Each moved server's subdomain is refreshed so it follows the new node's address.
-4. **Start**: starts on the new node the servers that were running before the transfer. One that does not start is not moved back; the panel records `server.transferStartFailed` in its activity log with the reason.
+4. **Start**: resumes the tasks of every moved server on the new node (`POST /daemon/server/:id/scheduler/resume`) and starts there the servers that were running before the transfer. One that does not start is not moved back; the panel records `server.transferStartFailed` in its activity log with the reason.
 
-If any step up to the commit fails, the whole transfer is undone, newest step first, for every server already reached: the backup copies it brought and the server itself are removed from the new node, the archives are removed from the old node, and a server that was running is started again on the old node. The servers stay on their old node and the panel records `server.transferFailed` in each one's activity log with the step and the reason (see [Activity log](activity-and-access-log.md)). A cleanup call that fails is written to the panel log.
+If any step up to the commit fails, the whole transfer is undone, newest step first, for every server already reached: the backup copies it brought and the server itself are removed from the new node, the archives are removed from the old node, the tasks are resumed on the old node and a server that was running is started again there. The servers stay on their old node and the panel records `server.transferFailed` in each one's activity log with the step and the reason (see [Activity log](activity-and-access-log.md)). A cleanup call that fails is written to the panel log.
 
-The activity log also records the request itself as `server.transfer`.
+The activity log also records the request itself as `server.transfer`. When the transfer ends, successfully or not, its record is deleted.
+
+#### Recovery after a panel restart
+
+The record in `node_transfers` holds, for each server being moved, its old node, the last step begun, whether it was running and which backups were (or were being) copied to the new node. It is updated at each step, and it is marked committed in the same database transaction that points the servers at the new node, so the record and the servers never disagree.
+
+When the panel starts, once its routes are in place (the panel's own node answers through them), it looks for unfinished records and ends each one in a single pass:
+
+- **Not committed**: the transfer is undone like a failed one. Everything that may have been done is undone (undoing a step that was not reached is harmless): the copied backups and the server are removed from the new node, the archives from the old node, the tasks are resumed on the old node and a server that was running is started again there. Each server's activity log gets `server.transferFailed` with the detail `the panel restarted while <step>: the transfer was undone`.
+- **Committed**: the transfer is finished. The old copies are deleted, the subdomains are refreshed, the tasks are resumed on the new node and the servers that were running are started there (unless they already run); one that does not start gets `server.transferStartFailed`.
+
+Calls that fail during recovery are written to the panel log and are not retried. The record is deleted either way.
 
 ### Panel-to-panel migration
 
@@ -70,7 +82,7 @@ The activity log records `extransfer.create`, `extransfer.pull` and `extransfer.
 
 1. Open the server and go to **Administration › Transfer**.
 2. Click **Transfer**, choose the **Target node** and click **Start transfer**.
-3. The panel shows *Transfer started.* When the copy finishes the server, its sub-servers and its backups are on the new node, and the servers that were running are started there. If the transfer fails it is undone and the server's **Activity** shows why.
+3. The panel shows *Transfer started.* When the copy finishes the server, its sub-servers, their scheduled tasks and their backups are on the new node, and the servers that were running are started there. If the transfer fails it is undone and the server's **Activity** shows why.
 
 **Panel-to-panel migration**
 
@@ -118,15 +130,16 @@ See [Configuration](../backend/02-configuration.md).
 Other requirements:
 
 - Both actions need `server.data.edit.admin` on the server, which a server owner does not hold by default (see the [scopes reference](../general/scopes-reference.md)).
-- Node transfer: both nodes online and reachable from the panel; enough free disk on the source node for the archive and on the target for archive plus files and backups. To receive backups the target node must run a version with the `/daemon/server/:id/backup/file` route; on an older one, a server with backups on its node cannot be transferred (the backup copy fails and the transfer is undone).
+- Node transfer: both nodes online and reachable from the panel; enough free disk on the source node for the archive and on the target for archive plus files and backups. Both nodes must run a version with the `/daemon/server/:id/scheduler/pause` and `/scheduler/resume` routes: with an older daemon on either side, the transfer fails when it pauses the tasks there and is undone (see [Troubleshooting](../setup/troubleshooting.md)). To receive backups the target node also needs the `/daemon/server/:id/backup/file` route, which every version with the scheduler routes has.
 - Migration: the origin panel must be reachable from the destination panel over HTTP(S) at a **public** address. Localhost and private or loopback IP addresses are refused. The URL may only be `http(s)://host[:port]` (no path); without a scheme, `https://` is assumed.
 
 ## Limits
 
 - **Node transfer**
   - There is no progress indicator: the outcome shows in the server's activity log (on failure) and in the panel log.
-  - The transfer is not resumed after a panel restart: a restart in the middle leaves it half done, without the automatic undo. Check both nodes before trying again.
-  - Scheduled tasks keep running during the transfer (see [Scheduled tasks](scheduled-tasks.md)); a task that starts, stops or backs up the server can get in the way. Avoid transferring while one is due.
+  - A transfer cut short by a panel restart is not continued: it is undone, or finished if the panel already pointed at the new node. Recovery is a single pass when the panel starts; a node that is unreachable at that moment keeps what was left on it (a copy on the new node, an archive or paused tasks on the old one), and the panel log lists each failed call. Check both nodes before trying again.
+  - The detail of a recovery entry in the activity log (`the panel restarted while …`) is in English.
+  - Scheduled tasks are paused on both nodes while the server moves, so runs due meanwhile (and **Run now**) are skipped, not caught up. A task already running when the transfer starts is not interrupted. The tasks themselves are copied, but not the scheduler settings of the `.cron` file (time zone, concurrency limit): the new node uses its defaults (see [Scheduled tasks](scheduled-tasks.md)).
   - Only one level of sub-servers moves with the server: sub-servers of a sub-server are not looked for.
   - The servers are unavailable from the moment they are stopped until they are started on the new node.
 - **Panel-to-panel migration**
@@ -147,6 +160,8 @@ Other requirements:
 | `This server is already being transferred…` (`409`, `ErrTransferRunning`) | Panel | A transfer of this server or one of its sub-servers is running. | Wait for it to end. |
 | `A backup or restore of this server is in progress…` (`409`, `ErrTransferBackupRunning`) | Panel | The old node is writing a backup, restore point or restore of one of the servers. | Transfer once it is done. |
 | The server is still on the old node; its activity shows `server.transferFailed` | Panel | A step failed and the transfer was undone. The detail names the server, the step and the node's answer. | Fix the cause (disk, node offline, target node too old to receive backups) and try again. The panel log has `Transfer of … failed and was undone`. |
+| Activity shows `server.transferFailed` with `the panel restarted while <step>: the transfer was undone` | Panel | The panel stopped during the transfer and undid it when it started again. | Check the panel log for cleanup calls that failed (for example a node that was offline), then transfer again. |
+| `pausing its tasks on the old node` / `on the new node` in the failure detail | Panel | That node runs a daemon without the scheduler pause route. | Update the node (see [Troubleshooting](../setup/troubleshooting.md)) and try again. |
 | The server moved but is stopped; its activity shows `server.transferStartFailed` | Panel | It could not be started on the new node. | Read the reason in the detail and the server console, then start it by hand. |
 | `The origin URL is not valid or points to an address that is not allowed` (`ERROR_ORIGIN_URL`) | Destination | URL with a path, credentials, a private IP or localhost. | Use the origin panel's public `https://host[:port]`. |
 | `Network error while connecting to the origin` (`ERROR_ORIGIN_UNREACHABLE`) | Destination | The origin is unreachable. | Check DNS, firewall and TLS of the origin panel. |

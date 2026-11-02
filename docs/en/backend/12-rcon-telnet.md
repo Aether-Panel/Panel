@@ -24,7 +24,7 @@ Code:
 | `stdin` (or empty) | `NoStartConsole` | Writes to the process stdin (PTY / Docker attach) | — |
 | `rcon` | `RCONConnection` | Source RCON over TCP | `github.com/gorcon/rcon` |
 | `telnet` | `TelnetConnection` | Raw TCP | `net` |
-| `rconws` | `RCONWSConnection` | JSON over WebSocket, **TLS only** (`wss://`) | `github.com/gorilla/websocket` |
+| `rconws` | `RCONWSConnection` | JSON over WebSocket: `wss://` by default, plain `ws://` with `"secure": false` | `github.com/gorilla/websocket` |
 
 The type is spelled `rconws`. Any other value the switch does not know (for example `rcon-ws`) falls back to plain stdin and logs an error naming the server, the type and the known ones: `Unknown console type "rcon-ws" (known: stdin, rcon, telnet, rconws): commands go to the standard input`.
 
@@ -55,6 +55,7 @@ type StdinConsoleConfiguration struct {
     IP       string `json:"ip,omitempty"`
     Port     string `json:"port,omitempty"`
     Password string `json:"password,omitempty"`
+    Secure   *bool  `json:"secure,omitempty"`
 }
 ```
 
@@ -64,6 +65,7 @@ type StdinConsoleConfiguration struct {
 | `ip` | Address the daemon connects to. Empty, `0.0.0.0` or `::` mean the game's own machine (see below). |
 | `port` | A **string**, so it can hold a variable (`"${rconport}"`). |
 | `password` | RCON password, Telnet password line or the RCON-WS path segment. |
+| `secure` | Only for `rconws`, optional boolean. Missing or `true`: the daemon dials `wss://` (TLS). `false`: plain `ws://`, for games that serve RCON over an unencrypted WebSocket, such as Rust's WebRCON. Templates written before the field keep using `wss://` (`StdinConsoleConfiguration.UsesTLS`). It is not a variable: `Replace` copies it as it is. |
 
 **Variables.** Before the process starts, `ExecuteAsync()` (and `Reattach()`) replaces `${name}` tokens in `ip`, `port` and `password` with the server's variables (`StdinConsoleConfiguration.Replace` → `utils.ReplaceTokens`). The syntax is `${name}`, not `{{name}}`. There is no automatic port detection: the template must point `port` at the right variable.
 
@@ -85,7 +87,7 @@ func (e *Environment) CreateConsoleStdinProxy(config StdinConsoleConfiguration, 
     case "rcon":
         e.Console = &connections.RCONConnection{IP: config.IP, Port: config.Port, Password: config.Password}
     case "rconws":
-        e.Console = &connections.RCONWSConnection{IP: config.IP, Port: config.Port, Password: config.Password}
+        e.Console = &connections.RCONWSConnection{IP: config.IP, Port: config.Port, Password: config.Password, NoTLS: !config.UsesTLS()}
     case "", "stdin":
         e.Console = &NoStartConsole{Base: base}
     default:
@@ -186,11 +188,12 @@ type TelnetConnection struct {
 type RCONWSConnection struct {
     io.WriteCloser
     IP, Port, Password string
+    NoTLS              bool
     Reconnect          bool
 }
 ```
 
-- **Reconnect loop**: dials `wss://<ip>:<port>/<password>` (`rconwsURL`) with the default gorilla dialer, retry every 5 seconds. The password is the URL path and is escaped (`url.PathEscape`), so a `/`, `?`, `#` or `%` in it reaches the game as typed. The scheme is always `wss://`, since the template's console settings have no way to ask for plain `ws://`: a server that only speaks `ws://` (Rust's WebRCON usually does) cannot be reached.
+- **Reconnect loop**: dials `wss://<ip>:<port>/<password>` (`rconwsURL`), or `ws://` when `NoTLS` is set (the template's `"secure": false`), with the default gorilla dialer, retry every 5 seconds. The password is the URL path and is escaped (`url.PathEscape`), so a `/`, `?`, `#` or `%` in it reaches the game as typed.
 - **`Start()`** resolves `IP` like RCON does.
 - Incoming messages are read and discarded.
 - State is guarded by a mutex and writes are serialised (a WebSocket takes one writer at a time). As with Telnet, a broken socket is closed before the next dial, a connection opened while `Close()` runs is closed at once, and closing twice is not an error (covered by `internal/connections/rconws_test.go`).
@@ -222,6 +225,12 @@ A server with a Telnet admin console:
 "stdin": { "type": "telnet", "ip": "127.0.0.1", "port": "${telnetport}", "password": "${telnetpassword}" }
 ```
 
+A game that serves RCON over a plain WebSocket, such as Rust's WebRCON:
+
+```json
+"stdin": { "type": "rconws", "port": "${rconport}", "password": "${rconpass}", "secure": false }
+```
+
 The variable names (`rconport`, `rconpassword`, ...) are whatever the template defines; the panel gives them no special meaning.
 
 ---
@@ -232,7 +241,7 @@ The variable names (`rconport`, `rconpassword`, ...) are whatever the template d
 |---|---|
 | Commands fail with `rcon not available` | RCON is not enabled in the game, wrong port/password, or the game listens on an address the daemon cannot reach. Turn on debug logging to see `Error connecting to RCON`. |
 | Command accepted but nothing appears in the console | Expected with `rcon`: the reply only goes to the debug log. The game's own output still appears if it prints to stdout. |
-| `rconws` never connects | The target only offers `ws://`; this client always uses `wss://`. |
+| `rconws` never connects | The scheme does not match the game: it only offers `ws://` and the template does not set `"secure": false`, or it expects TLS and the template sets it. Debug logging shows `Error waiting for RCON WS socket`. |
 | `type` set but commands still go to stdin | The type is misspelled (`rcon-ws` instead of `rconws`); the daemon log shows `Unknown console type`. |
 | `ErrConsoleDetached` | The daemon restarted while a host (non-Docker) server kept running; kill and start it. |
 
@@ -240,4 +249,4 @@ The variable names (`rconport`, `rconpassword`, ...) are whatever the template d
 
 - RCON and Telnet are unencrypted. Keep them on loopback or a private network and do not publish their ports.
 - The `password` is part of the server definition; anyone who can read the definition can read it.
-- With `rconws` the password travels in the URL path (encrypted by TLS, but visible to the remote server's logs).
+- With `rconws` the password travels in the URL path, visible to the remote server's logs. With `wss://` it is encrypted by TLS; with `"secure": false` it travels in clear, like RCON and Telnet, so keep that port on loopback or a private network as well.

@@ -228,6 +228,7 @@ type Scheduler struct {
     Timezone        string                   `json:"timezone,omitempty"`
     ConcurrentLimit uint                     `json:"concurrentLimit"`
     LimitMode       string                   `json:"limitMode"`
+    Paused          bool                     `json:"paused,omitempty"`
 }
 ```
 
@@ -235,6 +236,7 @@ type Scheduler struct {
 - A server holds at most 50 tasks (`MaxTasks`); adding one more is refused.
 - Tasks are lists of operations. Besides the normal [operations](./06-operations.md), tasks can use `start`, `stop`, `restart` (only restarts a running server) and `backup` (automatic backup with a `keep` argument).
 - Schedules run in the time zone of the person who created them (`CRON_TZ=`); the binary embeds the zone database.
+- **Pause** (`SetPaused`, `IsPaused` in `internal/servers/scheduler_pause.go`): while `Paused` is true, `runScheduledTask` skips every run, scheduled or from **Run now**, and logs `Task <id> skipped: the server is being moved to another node`; a task already running goes on. The flag is saved in the `.cron` file, so it survives a node restart. Only a node transfer sets it, through `POST /daemon/server/{id}/scheduler/pause` and `/scheduler/resume`: it pauses the tasks on both nodes, copies them to the new node (`GET` the list, `PUT` each task; `Timezone`, `ConcurrentLimit` and `LimitMode` are not copied) and resumes them on the node that keeps the server. See [Server transfers](../features/server-transfers.md).
 - Routes: `GET /api/servers/{id}/tasks`, `GET/PUT/DELETE .../tasks/{taskId}`, `POST .../tasks/{taskId}/run`.
 
 ## Server definition (JSON)

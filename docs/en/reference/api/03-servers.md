@@ -228,20 +228,22 @@ Checked before answering:
 | `400 ErrTransferSubServer` | The server is a sub-server: it stays on its parent's node and moves with the parent |
 | `400` | The target is the server's own node |
 | `404` | Unknown node |
-| `409 ErrTransferRunning` | The server or one of its sub-servers is already being transferred |
+| `409 ErrTransferRunning` | The server or one of its sub-servers is already being transferred, or is in a transfer recorded in `node_transfers` that has not ended |
 | `409 ErrTransferPortsTaken` | A port (primary or extra) of the server or of a sub-server is taken on the target node: by its panel, daemon or SFTP port, by a server already there or by a port its containers publish (`metadata.ports` lists them) |
 | `409 ErrTransferBackupRunning` | The old node is writing a backup, restore point or restore of one of them (asked through [`GET /daemon/server/:id/backup/busy`](./09-daemon.md); a node without that route is not asked) |
 
-Then, in the background:
+The transfer is recorded in the `node_transfers` table before the answer and updated at each step. Then, in the background:
 
-1. **Prepare**, server by server: copy the definition to the new node, stop the server on the old node (killing it if it does not stop), archive its files, stream the archive to the new node and extract it, and copy each backup whose archive is on the old node (`local` or `both`) through the panel into the new node, keeping its name and date.
-2. **Commit**: one database transaction points every record at the new node. Only `node_id` is written, so a change made to the server meanwhile is kept.
+1. **Prepare**, server by server: pause its scheduled tasks on the old node (`POST /daemon/server/:id/scheduler/pause`), copy the definition to the new node, pause the tasks there and copy each task (`GET /tasks`, then `PUT /tasks/:taskId` on the daemon), stop the server on the old node (killing it if it does not stop), archive its files, stream the archive to the new node and extract it, and copy each backup whose archive is on the old node (`local` or `both`) through the panel into the new node, keeping its name and date.
+2. **Commit**: one database transaction points every record at the new node and marks the transfer record committed. Only `node_id` is written, so a change made to the server meanwhile is kept.
 3. **Clean up**: delete the servers from the old node, with the backup archives there. Copies in off-site storage are not touched; the bucket is the same wherever the server runs.
-4. **Start** on the new node the servers that were running before.
+4. **Start**: resume the tasks on the new node (`POST /daemon/server/:id/scheduler/resume`) and start there the servers that were running before. The transfer record is then deleted.
 
-When a step fails, up to and including the commit, everything is undone, newest first: the backup copies and the servers are removed from the new node, the archives from the old one, and a server that was running is started again on its old node. The servers stay where they were. The failure is written to the panel log and to the activity log of each server as `server.transferFailed` (step and reason). A server that does not start on the new node after the commit stays there and gets `server.transferStartFailed`. Its subdomain follows it to the new node's address.
+When a step fails, up to and including the commit, everything is undone, newest first: the backup copies and the servers are removed from the new node, the archives from the old one, the tasks are resumed on the old node and a server that was running is started again there. The servers stay where they were. The failure is written to the panel log and to the activity log of each server as `server.transferFailed` (step and reason). A server that does not start on the new node after the commit stays there and gets `server.transferStartFailed`. Its subdomain follows it to the new node's address.
 
-Limits: a transfer cut by a panel restart is neither resumed nor undone (before the commit the panel still points at the old node, where the server may be left stopped, and a partial copy may remain on the new node); scheduled tasks keep running during the transfer; only one level of sub-servers is moved; and the new node needs a version with the backup routes (`PUT /daemon/server/:id/backup/file`) to receive backups. Details: [Server transfers](../../features/server-transfers.md).
+When the panel starts, it ends the transfers a stop cut short, in one pass with no retry: one not committed is undone as above (activity `server.transferFailed`, detail `the panel restarted while <step>: the transfer was undone`), one committed is finished (old copies deleted, tasks resumed and servers started on the new node). See [Recovery after a panel restart](../../features/server-transfers.md#recovery-after-a-panel-restart).
+
+Limits: recovery after a restart is a single pass, and a node unreachable at that moment keeps what was left on it; both daemons need the scheduler routes (`/scheduler/pause`, `/scheduler/resume`), so with an older daemon the transfer fails while pausing the tasks and is undone; a task already running is not interrupted, and the time zone and concurrency settings of the tasks are not copied; only one level of sub-servers is moved. Details: [Server transfers](../../features/server-transfers.md).
 
 ## Definition, variables and ports
 

@@ -256,7 +256,7 @@ Respuesta (`Cache-Control: no-store`); como la concesión de contraseña, nunca 
 | `429 {"error": "invalid_request", "error_description": "too many failed attempts, wait a few minutes"}` | 10 comprobaciones en 15 minutos para esta cuenta sin ningún acierto |
 | `500 {"error": "server_error"}` | El panel no pudo buscar el nodo |
 
-El contador de intentos es independiente del de contraseñas (clave `sshkey:user:<id>`): un cliente SSH ofrece sus claves una tras otra, y esos fallos no deben impedir al propietario entrar con su contraseña. Un acierto lo reinicia. Un nodo con una versión anterior solo admite contraseñas. Un nodo cuyo panel aún no tiene esta ruta, o cuyo `daemon.auth.url` no es una URL `http(s)` absoluta, rechaza los inicios de sesión con clave y registra el motivo; las contraseñas siguen funcionando.
+El contador de intentos es independiente del de contraseñas (clave `sshkey:user:<id>`): un cliente SSH ofrece sus claves una tras otra, y esos fallos no deben impedir al propietario entrar con su contraseña. Los inicios de sesión con clave en el nodo propio del panel cuentan en el mismo contador, así que el límite es igual en todos los nodos. Un acierto lo reinicia. Un nodo con una versión anterior solo admite contraseñas. Un nodo cuyo panel aún no tiene esta ruta, o cuyo `daemon.auth.url` no es una URL `http(s)` absoluta, rechaza los inicios de sesión con clave y registra el motivo; las contraseñas siguen funcionando.
 
 ## Configuración pública
 

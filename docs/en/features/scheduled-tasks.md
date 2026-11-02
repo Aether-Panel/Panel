@@ -27,6 +27,7 @@ For the internal structure of the scheduler (the `Scheduler` type and its file),
 - The tasks of a server are stored on the node in `<daemon.data.servers>/<serverId>.cron` (JSON, mode `0600`). The node loads them when it loads the server, so tasks fire even while the game server is stopped.
 - Scheduling uses gocron. Schedules are cron expressions with an optional seconds field, an optional `CRON_TZ=` or `TZ=` prefix, and descriptors such as `@daily`. A task with an empty schedule is registered with a run date in the year 9999, so it only runs through **Run now**.
 - Each server's scheduler runs at most **5 tasks at the same time**; further runs wait for a free slot (`concurrentLimit: 5`, `limitMode: "wait"` in the `.cron` file). These values are not exposed in the panel or the API.
+- While a server is being [transferred to another node](server-transfers.md), its tasks are **paused** on both nodes (`"paused": true` in the `.cron` file, kept across a node restart): runs that fall due and **Run now** are skipped, and the node logs `Task <id> skipped: the server is being moved to another node`. A task already running is not interrupted. The transfer copies the tasks to the new node and resumes them on the node that keeps the server; if the transfer is undone, they resume on the old node.
 - When a task runs, the console shows `Running task <name>` and, when it ends, `Task <name> finished`. If a step fails, the console shows `Failed to setup tasks` followed by the error.
 - Automatic backups are written as `auto-<uuid>.tar.gz` in the server's backup folder. The panel adds them to the **Backups** list (named "Automatic backup") the next time the list is loaded, and removes the entries that retention deleted. See [Backups](backups.md).
 - The panel always writes a five-field schedule prefixed with the creator's browser time zone, for example `CRON_TZ=Europe/Madrid 0 5 * * *`. "05:00" therefore means 05:00 where the person who created the task lives, whatever time zone the node uses.
@@ -107,7 +108,8 @@ Saving, deleting and running a task are recorded in the server's [activity log](
 - `stop` and `restart` give the game 5 minutes to exit; past that, the step fails and the rest of the task is skipped.
 - Only one backup per server can run at a time. A `backup` step that starts while another backup is running fails.
 - The **Next** run is only computed in the browser for daily, weekly and hourly schedules in the viewer's time zone. Custom cron expressions are only evaluated by the node.
-- Runs that were due while the node was offline are not caught up later.
+- Runs that were due while the node was offline, or while the tasks were paused for a node transfer, are not caught up later.
+- A node transfer copies the tasks but not the time zone or concurrency settings of the `.cron` file; the new node uses its defaults.
 
 ## Troubleshooting
 

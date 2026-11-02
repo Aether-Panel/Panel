@@ -121,7 +121,7 @@ Más en [Hosts de bases de datos](../features/database-hosts.md).
 
 ## Transferencias
 
-- **Entre nodos del mismo panel**: un administrador (`server.data.edit.admin`) mueve un servidor a otro nodo desde la pestaña **Administración** (`POST /api/servers/:serverId/transfer`). Sus subservidores y las copias de seguridad guardadas en el nodo antiguo se van con él; si falla un paso, la transferencia se deshace y el servidor se queda donde estaba.
+- **Entre nodos del mismo panel**: un administrador (`server.data.edit.admin`) mueve un servidor a otro nodo desde la pestaña **Administración** (`POST /api/servers/:serverId/transfer`). Sus subservidores, sus tareas programadas y las copias de seguridad guardadas en el nodo antiguo se van con él; si falla un paso, o el panel se reinicia antes de confirmar el traslado, la transferencia se deshace y el servidor se queda donde estaba.
 - **Entre paneles (transferencia federada)**: mueve un servidor de una instalación de Aether Panel a otra (pestaña **Migración**, `server.data.edit.admin`). Los paneles firman sus peticiones con claves Ed25519 (`panel.exTransferKey`), los tokens se guardan con HMAC-SHA256 y una sesión de transferencia vale 15 minutos; mientras se mueven los datos, los latidos del destino (cada 20 segundos) la mantienen viva, hasta 6 horas. Estados: `CREATED` → `VALIDATED` → `MIGRATING` → `CONSUMED` / `COMPLETED`, o `FAILED` / `CANCELLED`. Las rutas del origen son `/api/servers/:serverId/extransfer/{create,pull,status,cancel}`; las que llama el otro panel son `/api/extransfer/{validate,consume,heartbeat,confirm,download,cancel}`.
 
 Más en [Transferencias de servidores](../features/server-transfers.md).

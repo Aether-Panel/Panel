@@ -42,7 +42,7 @@ A token that does not check out usually means the node's `daemon.auth.clientSecr
 | GET | `/daemon/system` | Panel token | Host, CPU, memory, disks, network counters | [`GET /api/nodes/:id/system`](./06-panel-admin.md#get-apinodesidsystem) |
 | GET | `/daemon/ports` | Panel token | Host ports published by the node's containers | [`POST /api/nodes/:id/ports/check`](./06-panel-admin.md#post-apinodesidportscheck) |
 | GET | `/daemon/network/history` | Panel token | The node's traffic over the last hour, 6 hours or day | [`GET /api/nodes/network-history`](./06-panel-admin.md#get-apinodesnetwork-historyrange1h) |
-| GET | `/daemon/servers/status` | Panel token | Running / installing state of every server on the node | The panel's uptime poller and Discord node report |
+| GET | `/daemon/servers/status` | Panel token | Running / installing state of every server on the node; the request also carries the panel's notification language | The panel's uptime poller and Discord node report |
 | POST | `/daemon/update` | Panel token | Starts an update of this node | `POST /api/settings/update-panel` |
 | GET | `/daemon/update-status` | Panel token | State of this node's last update | `GET /api/settings/update-status` |
 
@@ -63,7 +63,8 @@ Unless the last column says otherwise, the panel route is the same path under `/
 | PUT | `/data` | Changes any variable; `ports` / `primaryPort` become `port`, `port2`, ... | Same, plus port settings and sub-server limits |
 | GET | `/tasks` | Scheduled tasks | Same |
 | GET, PUT, DELETE | `/tasks/:taskID` | One task | Same |
-| POST | `/tasks/:taskID/run` | Runs a task now | Same |
+| POST | `/tasks/:taskID/run` | Runs a task now (skipped while the tasks are paused) | Same |
+| POST | `/scheduler/pause`, `/scheduler/resume` | Pauses / resumes the server's scheduled tasks | Node transfer |
 | POST | `/reload` | Reloads the definition from disk | Same |
 | POST | `/start`, `/restart` | Starts / restarts | Same (the panel refuses suspended servers first) |
 | POST | `/stop`, `/kill` | Stops / kills | Same |
@@ -145,6 +146,8 @@ The node reads its traffic counters every 10 seconds and keeps one point a minut
 
 The state of every server loaded on the node, keyed by server ID: the same as `GET /daemon/server/:serverId/status`, for all of them in one call. A server whose state cannot be read is left out, so the panel takes it as unknown rather than stopped. The panel asks every remote node for it every 30 seconds to record [uptime](../../general/13-uptime.md), and uses the last answer in the Discord node report. A node older than this route answers `404`, and the panel treats it as unreachable until it is updated.
 
+The panel sends its notification language (`panel.settings.notificationLanguage`) with each poll in the header `X-Aether-Notification-Language: es|en`, and polls at once when that setting is saved with a new value. The node keeps the value in memory and writes its servers' alerts in it, unless the node's own config file or environment sets `panel.settings.notificationLanguage`, which wins. An empty or unknown value is ignored. After a node restart its alerts use `es` (or its own value) until the next poll, at most 30 seconds later. See [Server notifications](../../features/server-notifications.md).
+
 ### `POST /daemon/update`
 
 Starts an update of the machine the node runs on, in a short-lived container (the update image is pulled first when missing). Answer: `{"message": "Update initiated on this node.", "containerId": "..."}`; `500` when Docker cannot be reached or the container cannot start. See [Panel updates](../../features/panel-updates.md).
@@ -186,6 +189,12 @@ A [node transfer](./03-servers.md#post-apiserversserveridtransfer) uses three mo
 - `GET /backup/busy` answers `{"busy": true}` while a backup, restore point or restore of the server is being written. The panel refuses the transfer meanwhile; a node without this route is not asked.
 - `PUT /backup/file?fileName=<name>&modTime=<RFC 3339>` takes the archive as the raw body (`application/octet-stream`) and writes it in the server's backup folder under the same name, keeping its date (`modTime`, optional), which the list order and the retention of automatic backups go by. The name must be a plain `.tar.gz` file name, not hidden. It is written under a hidden name and moved into place once complete, so a copy cut short is never listed. `204`; `409 ErrFileExists` when a backup with that name is already there (the panel leaves it alone); `400` for a bad `modTime`; `500` for a bad name or a write error.
 - `DELETE /backup/file?fileName=<name>` removes this node's copy only (a missing file is fine), unlike `DELETE /backup`, which also deletes the off-site copy. `204`.
+
+### `POST /daemon/server/:serverId/scheduler/pause` and `/scheduler/resume`
+
+No body. `pause` keeps the server's scheduled tasks from running until `resume`: runs that fall due meanwhile are skipped (the node logs `Task <id> skipped: the server is being moved to another node`), and so is `POST /tasks/:taskID/run`, which still answers `204`. A task already running is not interrupted. The state is saved as `"paused": true` in the server's `.cron` file, so it survives a restart of the node. Pausing a paused server, or resuming a running one, does nothing. `204`; `500` when the file cannot be written.
+
+A [node transfer](./03-servers.md#post-apiserversserveridtransfer) pauses the tasks on both nodes while it copies the server (and copies them with `GET /tasks` and `PUT /tasks/:taskID`), then resumes them on the node that keeps the server. A node without these routes answers `404` and the transfer fails at that step and is undone.
 
 ### `POST /daemon/server/:serverId/clone-from/:sourceId`
 

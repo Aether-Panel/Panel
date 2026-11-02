@@ -103,7 +103,7 @@ Password logins share the panel's attempt limiter (`internal/services/login_atte
 - A successful login resets the counter. Past the limit the answer is "too many attempts" until older attempts leave the window.
 - Kept in memory: a panel restart resets it.
 
-Key logins on the panel's own node are not counted, since a key cannot be guessed. On remote nodes the key checks of `/auth/sftp-key` have a budget of their own, also 10 per account every 15 minutes (key `sshkey:user:<id>`), apart from the password one: an SSH client offers each of its keys in turn, and those misses must not lock the owner out of password sign-in. A successful key login resets it; past the limit the route answers `429`.
+Key logins have a budget of their own, also 10 per account every 15 minutes (key `sshkey:user:<id>`), apart from the password one: an SSH client offers each of its keys in turn, and those misses must not lock the owner out of password sign-in. Every key offered for a known account counts, on the panel's own node (`validateSFTPKey` in `internal/services/sftp.go`) as well as in the `/auth/sftp-key` checks for remote nodes; both use the same counter, so the limit is the same on every node and shared between them. A successful key login resets it. Past the limit the panel's own node refuses the key (`ErrTooManyAttempts`) and `/auth/sftp-key` answers `429`.
 
 ### What a session can do
 

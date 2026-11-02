@@ -37,7 +37,7 @@ The tabs depend on your permissions on that server (the exact rules are in the [
 |-----|-------------------|-------|
 | **Console** | Live output, commands (with `server.console.send`), start / restart / stop / kill. It can be expanded over the page; a crash shows a notice and a crash report. | [Crash reports](../features/crash-reports.md), [AI assistant](../features/ai-assistant.md) |
 | **Overview** | Address, version, players, and CPU, memory and network charts. | [Server overview and statistics](../features/server-statistics.md), [Game version](../features/game-versions.md) |
-| **File Manager** | Browse, edit, upload, compress and extract files; file history. | [File history](../features/file-history.md) |
+| **File Manager** | Browse, edit, upload, compress and extract files; select several items to compress or delete them together; file history. | [File history](../features/file-history.md) |
 | **Settings** | Name, variables the template opens to you, auto start and restart, port notes and primary port, notifications, subdomain. | [Server settings](../features/server-settings.md), [Notifications](../features/server-notifications.md), [Subdomains](../features/subdomains.md) |
 | **Properties** (beta) | `server.properties` editor for Minecraft: Java Edition. | [Server properties](../features/server-properties.md) |
 | **Users** | The owner and sub-users, and their permissions. | [Scopes reference](./scopes-reference.md#owner-and-sub-users) |

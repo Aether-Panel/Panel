@@ -256,7 +256,7 @@ Answer (`Cache-Control: no-store`); like the password grant it never contains a 
 | `429 {"error": "invalid_request", "error_description": "too many failed attempts, wait a few minutes"}` | 10 checks in 15 minutes for this account without a success |
 | `500 {"error": "server_error"}` | The panel could not look the node up |
 
-The attempt budget is apart from the password one (key `sshkey:user:<id>`): an SSH client offers each of its keys in turn, and those misses must not lock the owner out of signing in with a password. A success resets it. A node on an older version takes passwords only. A node whose panel does not have this route yet, or whose `daemon.auth.url` is not an absolute `http(s)` URL, refuses key logins and logs why; passwords keep working.
+The attempt budget is apart from the password one (key `sshkey:user:<id>`): an SSH client offers each of its keys in turn, and those misses must not lock the owner out of signing in with a password. Key logins on the panel's own node count on the same budget, so the limit is the same on every node. A success resets it. A node on an older version takes passwords only. A node whose panel does not have this route yet, or whose `daemon.auth.url` is not an absolute `http(s)` URL, refuses key logins and logs why; passwords keep working.
 
 ## Public configuration
 

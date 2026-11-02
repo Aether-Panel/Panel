@@ -51,10 +51,11 @@ With SQLite the pool is limited to one open connection and foreign keys are not 
 | 3 | `20260821-server-port-notes` | Migrates the `servers` table again (port notes). |
 | 3 | `20261026-server-owners` | Adds `servers.owner_id` and names an owner for every server without one: the member with the most scopes on it, the earliest on a tie. |
 | 3 | `20261016-server-internal-id-verify` | Read-only check that no server lacks `internal_id`; it only logs. |
+| 3 | `20261102-node-transfers` | `AutoMigrate` of `NodeTransfer`: makes sure the `node_transfers` table exists (the model migration, which also lists the model, normally creates it first). |
 
 ## Tables
 
-`AutoMigrate` covers 25 models (`dbObjects` in `internal/database/upgrade.go`). Columns marked *json* use GORM's JSON serializer.
+`AutoMigrate` covers 26 models (`dbObjects` in `internal/database/upgrade.go`). Columns marked *json* use GORM's JSON serializer.
 
 ### Accounts and access
 
@@ -81,6 +82,7 @@ With SQLite the pool is limited to one open connection and foreign keys are not 
 | `ServerActivity` (`server_activities`) | `serveractivity.go` | `id` | `server_id`, `user_id`, `username` (copied), `action` (e.g. `server.start`, `file.write`), `detail` (300), `ip`, `created_at` |
 | `UptimeStatus` (`uptime_statuses`) | `uptime.go` | `id` | `server_id`, `is_running`, `start_time`, `end_time` (nullable), `duration` (seconds), timestamps |
 | `Backup` (`backups`) | `backup.go` | `id` | `name`, `file_name`, `file_size`, `location` (`local`, `offsite`, `both`), `server_id`, `created_at` |
+| `NodeTransfer` (`node_transfers`) | `nodetransfer.go` | `id` | `server_id` (20, unique: the server the transfer was asked for), `target_node_id`, `user_id` (nullable: who asked), `committed` (set in the same transaction that moves `node_id`), `moves` (*json*: per server, `serverId`, `sourceNodeId`, `step` reached, `wasRunning`, `copiedBackups`), timestamps. One row per [node transfer](../features/server-transfers.md#recovery-after-a-panel-restart) still running, so a panel that restarts can undo or finish it |
 | `ProvisionProduct` (`provision_products`) | `product.go` | `id` | `product_id` (unique), `display_name`, `template`, `node_id` (nullable: pick automatically), `cpu` (100 = one core), `memory` (MB), `disk` (MB), `default_node`, `port_range_min`, `port_range_max` |
 
 The **local node** (the daemon running in the panel's own binary) is not a row: it is `models.LocalNode` (ID `0`), built from `panel.settings.masterUrl`, `daemon.sftp.host` and the master node IP, with a secret derived from `panel.sessionKey`. Saving it is refused.
@@ -139,6 +141,7 @@ Node 1──N DatabaseHost, ProvisionProduct   (nullable)
 - **Sessions** last one hour from the last activity (sliding expiration); expired rows are never accepted, and creating a session deletes the expired ones at most once an hour.
 - **Activity feed** (`activity_logs`) and **server activity** (`server_activities`) keep 90 days; older rows are pruned when the feed is read, and at most once an hour when server activity is recorded.
 - **Password reset tokens** expire after 30 minutes and are consumed on use.
+- **Node transfers** (`node_transfers`): a row is deleted when its transfer ends, and rows left by a panel stop are ended and deleted at the next start.
 - Usernames and emails are copied into activity rows so they still read correctly after an account is renamed or deleted.
 
 ## Services

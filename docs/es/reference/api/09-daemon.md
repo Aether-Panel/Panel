@@ -42,7 +42,7 @@ Un token que no supera la comprobación suele indicar que el `daemon.auth.client
 | GET | `/daemon/system` | Token del panel | Equipo, CPU, memoria, discos, contadores de red | [`GET /api/nodes/:id/system`](./06-panel-admin.md#get-apinodesidsystem) |
 | GET | `/daemon/ports` | Token del panel | Puertos del equipo publicados por los contenedores del nodo | [`POST /api/nodes/:id/ports/check`](./06-panel-admin.md#post-apinodesidportscheck) |
 | GET | `/daemon/network/history` | Token del panel | Tráfico del nodo en la última hora, 6 horas o día | [`GET /api/nodes/network-history`](./06-panel-admin.md#get-apinodesnetwork-historyrange1h) |
-| GET | `/daemon/servers/status` | Token del panel | Estado (en marcha / instalando) de todos los servidores del nodo | El sondeo de disponibilidad del panel y el informe de nodos de Discord |
+| GET | `/daemon/servers/status` | Token del panel | Estado (en marcha / instalando) de todos los servidores del nodo; la petición también lleva el idioma de las notificaciones del panel | El sondeo de disponibilidad del panel y el informe de nodos de Discord |
 | POST | `/daemon/update` | Token del panel | Inicia una actualización de este nodo | `POST /api/settings/update-panel` |
 | GET | `/daemon/update-status` | Token del panel | Estado de la última actualización de este nodo | `GET /api/settings/update-status` |
 
@@ -63,7 +63,8 @@ Salvo que la última columna diga otra cosa, la ruta del panel es la misma bajo 
 | PUT | `/data` | Cambia cualquier variable; `ports` / `primaryPort` se convierten en `port`, `port2`, ... | La misma, además de los ajustes de puertos y los límites de subservidores |
 | GET | `/tasks` | Tareas programadas | La misma |
 | GET, PUT, DELETE | `/tasks/:taskID` | Una tarea | La misma |
-| POST | `/tasks/:taskID/run` | Ejecuta una tarea ahora | La misma |
+| POST | `/tasks/:taskID/run` | Ejecuta una tarea ahora (se omite mientras las tareas están pausadas) | La misma |
+| POST | `/scheduler/pause`, `/scheduler/resume` | Pausa / reanuda las tareas programadas del servidor | Transferencia entre nodos |
 | POST | `/reload` | Recarga la definición desde el disco | La misma |
 | POST | `/start`, `/restart` | Inicia / reinicia | La misma (antes, el panel rechaza los servidores suspendidos) |
 | POST | `/stop`, `/kill` | Detiene / fuerza la parada | La misma |
@@ -145,6 +146,8 @@ El nodo lee sus contadores de tráfico cada 10 segundos y guarda un punto por mi
 
 El estado de cada servidor cargado en el nodo, por ID de servidor: lo mismo que `GET /daemon/server/:serverId/status`, para todos a la vez. Un servidor cuyo estado no se puede leer se omite, para que el panel lo tome como desconocido y no como detenido. El panel se lo pide a cada nodo remoto cada 30 segundos para registrar la [disponibilidad](../../general/13-uptime.md), y usa la última respuesta en el informe de nodos de Discord. Un nodo anterior a esta ruta responde `404`, y el panel lo trata como inalcanzable hasta que se actualice.
 
+El panel envía en cada sondeo su idioma de las notificaciones (`panel.settings.notificationLanguage`) en la cabecera `X-Aether-Notification-Language: es|en`, y sondea al momento cuando ese ajuste se guarda con un valor nuevo. El nodo guarda el valor en memoria y redacta en él las alertas de sus servidores, salvo que el archivo de configuración o el entorno del propio nodo definan `panel.settings.notificationLanguage`, que tiene prioridad. Un valor vacío o desconocido se ignora. Tras reiniciarse el nodo, sus alertas usan `es` (o su propio valor) hasta el siguiente sondeo, como mucho 30 segundos después. Véase [Notificaciones del servidor](../../features/server-notifications.md).
+
 ### `POST /daemon/update`
 
 Inicia una actualización de la máquina en la que se ejecuta el nodo, en un contenedor de vida corta (si falta la imagen de actualización, primero la descarga). Respuesta: `{"message": "Update initiated on this node.", "containerId": "..."}`; `500` cuando no se puede contactar con Docker o el contenedor no arranca. Véase [Actualizaciones del panel](../../features/panel-updates.md).
@@ -186,6 +189,12 @@ Una [transferencia entre nodos](./03-servers.md#post-apiserversserveridtransfer)
 - `GET /backup/busy` responde `{"busy": true}` mientras se escribe una copia, un punto de restauración o una restauración del servidor. Entretanto, el panel rechaza la transferencia; a un nodo sin esta ruta no se le pregunta.
 - `PUT /backup/file?fileName=<nombre>&modTime=<RFC 3339>` recibe el archivo como cuerpo sin procesar (`application/octet-stream`) y lo escribe en la carpeta de copias del servidor con el mismo nombre, conservando su fecha (`modTime`, opcional), por la que se ordenan las copias y se aplica la retención de las automáticas. El nombre debe ser un nombre de archivo `.tar.gz` simple y no oculto. Se escribe con un nombre oculto y se mueve a su sitio al terminar, así que una copia interrumpida nunca aparece en la lista. `204`; `409 ErrFileExists` si ya hay una copia con ese nombre (el panel la deja como está); `400` si `modTime` no es válido; `500` si el nombre no es válido o falla la escritura.
 - `DELETE /backup/file?fileName=<nombre>` quita solo la copia de este nodo (que el archivo no exista no es un error), a diferencia de `DELETE /backup`, que también borra la copia externa. `204`.
+
+### `POST /daemon/server/:serverId/scheduler/pause` y `/scheduler/resume`
+
+Sin cuerpo. `pause` impide que las tareas programadas del servidor se ejecuten hasta `resume`: las ejecuciones que tocan entretanto se omiten (el nodo anota `Task <id> skipped: the server is being moved to another node`), igual que `POST /tasks/:taskID/run`, que aun así responde `204`. Una tarea que ya se está ejecutando no se interrumpe. El estado se guarda como `"paused": true` en el archivo `.cron` del servidor, así que se mantiene si el nodo se reinicia. Pausar un servidor ya pausado, o reanudar uno que no lo está, no hace nada. `204`; `500` si no se puede escribir el archivo.
+
+Una [transferencia entre nodos](./03-servers.md#post-apiserversserveridtransfer) pausa las tareas en ambos nodos mientras copia el servidor (y las copia con `GET /tasks` y `PUT /tasks/:taskID`), y después las reanuda en el nodo que se queda con el servidor. Un nodo sin estas rutas responde `404` y la transferencia falla en ese paso y se deshace.
 
 ### `POST /daemon/server/:serverId/clone-from/:sourceId`
 

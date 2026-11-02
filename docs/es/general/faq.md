@@ -22,7 +22,7 @@ Sí. El propio panel se instala con Docker (no hay instalación nativa) y los se
 
 En inglés (el idioma por defecto) y en español. Cada usuario elige su idioma en **Configuración de la cuenta**; se recuerda en el navegador.
 
-Lo que el panel envía fuera de sus propias páginas (los embeds de Discord, los avisos de Discord, Telegram y webhook de cada servidor, los informes de Discord del panel y los eventos que reciben las extensiones) usa un mismo idioma para todos, que elige un administrador en **Configuración → General → Notificaciones** (español por defecto; un nodo remoto usa el valor de su propia configuración). Ver [Discord y notificaciones](16-discord.md#idioma-de-las-notificaciones). Los errores de la API están en inglés; los que llevan un código de error la interfaz web los muestra traducidos, igual que los pasos de una [migración entre paneles](../features/server-transfers.md).
+Lo que el panel envía fuera de sus propias páginas (los embeds de Discord, los avisos de Discord, Telegram y webhook de cada servidor, los informes de Discord del panel y los eventos que reciben las extensiones) usa un mismo idioma para todos, que elige un administrador en **Configuración → General → Notificaciones** (español por defecto; los nodos remotos reciben el valor del panel con cada sondeo de estado, salvo que la configuración del propio nodo defina otro). Ver [Discord y notificaciones](16-discord.md#idioma-de-las-notificaciones). Los errores de la API están en inglés; los que llevan un código de error la interfaz web los muestra traducidos, igual que los pasos de una [migración entre paneles](../features/server-transfers.md).
 
 ## Instalación y funcionamiento
 
@@ -108,7 +108,7 @@ En la pestaña **Usuarios** del servidor, se añade su correo y se marcan los pe
 
 ### ¿Puedo mover un servidor a otro nodo o a otro panel?
 
-Sí. Un administrador lo mueve entre nodos del mismo panel desde la pestaña **Administración**, y a otra instalación de Aether Panel desde la pestaña **Migración** (transferencia federada). Entre nodos, los subservidores del servidor y las copias de seguridad guardadas en el nodo antiguo se mueven con él, y una transferencia que falla se deshace. Ver [Transferencias de servidores](../features/server-transfers.md).
+Sí. Un administrador lo mueve entre nodos del mismo panel desde la pestaña **Administración**, y a otra instalación de Aether Panel desde la pestaña **Migración** (transferencia federada). Entre nodos, los subservidores del servidor, sus tareas programadas y las copias de seguridad guardadas en el nodo antiguo se mueven con él; una transferencia que falla se deshace, y una interrumpida por un reinicio del panel se deshace (o se completa, si el panel ya apuntaba al nodo nuevo) cuando el panel vuelve a arrancar. Ver [Transferencias de servidores](../features/server-transfers.md).
 
 ### ¿Hay límite de copias de seguridad?
 

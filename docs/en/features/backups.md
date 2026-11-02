@@ -168,7 +168,7 @@ Off-site backups are only active when `enabled` is true **and** endpoint, bucket
 - Automatic backup retention: `keep` from 1 to 50.
 - Cloning a server does not copy its backups ([Cloning servers](./cloning.md)).
 - When a server is deleted, its copies in the off-site bucket stay there; remove them by hand if they are no longer needed.
-- A node transfer copies every backup through the panel, so it takes longer and needs room on the new node for them. The new node must have the `/daemon/server/:id/backup/file` route (a current version) to receive them.
+- A node transfer copies every backup through the panel, so it takes longer and needs room on the new node for them. Both nodes must run a current version: the new node needs the `/daemon/server/:id/backup/file` route to receive them, and both need the scheduler pause routes the transfer uses (see [Server transfers](./server-transfers.md#requirements-and-configuration)).
 - The S3 settings saved in **Settings › Off-site backups** only apply to the panel's own node; each remote node needs its own (see [Remote nodes](#requirements-and-configuration)).
 
 ## Troubleshooting

@@ -51,10 +51,11 @@ Con SQLite el pool se limita a una conexión abierta y las migraciones no crean 
 | 3 | `20260821-server-port-notes` | Vuelve a migrar la tabla `servers` (notas de puertos). |
 | 3 | `20261026-server-owners` | Añade `servers.owner_id` y asigna dueño a cada servidor que no lo tiene: el miembro con más permisos sobre él y, en caso de empate, el más antiguo. |
 | 3 | `20261016-server-internal-id-verify` | Comprobación de solo lectura de que ningún servidor carece de `internal_id`; solo registra. |
+| 3 | `20261102-node-transfers` | `AutoMigrate` de `NodeTransfer`: garantiza que existe la tabla `node_transfers` (la migración de modelos, que también incluye el modelo, normalmente ya la crea antes). |
 
 ## Tablas
 
-`AutoMigrate` cubre 25 modelos (`dbObjects` en `internal/database/upgrade.go`). Las columnas marcadas como *json* usan el serializador JSON de GORM.
+`AutoMigrate` cubre 26 modelos (`dbObjects` en `internal/database/upgrade.go`). Las columnas marcadas como *json* usan el serializador JSON de GORM.
 
 ### Cuentas y acceso
 
@@ -81,6 +82,7 @@ Con SQLite el pool se limita a una conexión abierta y las migraciones no crean 
 | `ServerActivity` (`server_activities`) | `serveractivity.go` | `id` | `server_id`, `user_id`, `username` (copiado), `action` (p. ej. `server.start`, `file.write`), `detail` (300), `ip`, `created_at` |
 | `UptimeStatus` (`uptime_statuses`) | `uptime.go` | `id` | `server_id`, `is_running`, `start_time`, `end_time` (anulable), `duration` (segundos), fechas |
 | `Backup` (`backups`) | `backup.go` | `id` | `name`, `file_name`, `file_size`, `location` (`local`, `offsite`, `both`), `server_id`, `created_at` |
+| `NodeTransfer` (`node_transfers`) | `nodetransfer.go` | `id` | `server_id` (20, único: el servidor para el que se pidió la transferencia), `target_node_id`, `user_id` (anulable: quién la pidió), `committed` (se marca en la misma transacción que cambia `node_id`), `moves` (*json*: por servidor, `serverId`, `sourceNodeId`, `step` alcanzado, `wasRunning`, `copiedBackups`), fechas. Una fila por cada [transferencia entre nodos](../features/server-transfers.md#recuperación-tras-un-reinicio-del-panel) en curso, para que un panel que se reinicia pueda deshacerla o completarla |
 | `ProvisionProduct` (`provision_products`) | `product.go` | `id` | `product_id` (único), `display_name`, `template`, `node_id` (anulable: se elige automáticamente), `cpu` (100 = un núcleo), `memory` (MB), `disk` (MB), `default_node`, `port_range_min`, `port_range_max` |
 
 El **nodo local** (el daemon que corre en el mismo binario que el panel) no es una fila: es `models.LocalNode` (ID `0`), construido a partir de `panel.settings.masterUrl`, `daemon.sftp.host` y la IP del nodo maestro, con un secreto derivado de `panel.sessionKey`. Guardarlo se rechaza.
@@ -139,6 +141,7 @@ Las filas de `Permissions` unen a un usuario (o a un cliente OAuth2) con un serv
 - Las **sesiones** duran una hora desde la última actividad (caducidad deslizante); las filas caducadas nunca se aceptan, y al crear una sesión se borran las caducadas como mucho una vez por hora.
 - El **registro de actividad** (`activity_logs`) y la **actividad de servidores** (`server_activities`) se conservan 90 días; las filas más antiguas se podan al leer el registro y, como mucho una vez por hora, al anotar actividad de servidores.
 - Los **tokens de restablecimiento de contraseña** caducan a los 30 minutos y se consumen al usarse.
+- **Transferencias entre nodos** (`node_transfers`): una fila se borra cuando termina su transferencia, y las que deja una parada del panel se cierran y se borran en el siguiente arranque.
 - Los nombres de usuario y los correos se copian en las filas de actividad para que se sigan leyendo bien después de renombrar o borrar una cuenta.
 
 ## Servicios

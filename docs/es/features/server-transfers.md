@@ -10,11 +10,11 @@ Aether Panel puede mover los archivos de un servidor de dos maneras:
 | | Transferencia entre nodos | Migración entre paneles |
 |---|---|---|
 | Alcance | Dos nodos de un mismo panel | Dos paneles independientes |
-| Qué se traslada | La definición del servidor, todos los archivos y las copias de seguridad guardadas en el nodo, junto con sus subservidores de Splitter | Solo los archivos (un archivo comprimido de la carpeta del servidor) |
+| Qué se traslada | La definición del servidor, las tareas programadas, todos los archivos y las copias de seguridad guardadas en el nodo, junto con sus subservidores de Splitter | Solo los archivos (un archivo comprimido de la carpeta del servidor) |
 | Dónde se inicia | En el servidor de origen (**Administración › Transferencia**) | En ambos lados: un token en el origen y una importación en el destino (pestaña **Migración**) |
 | Se detiene el servidor antes | Sí (se detiene y, si no para, se fuerza; se vuelve a iniciar en el nodo nuevo si estaba encendido) | No |
 | Progreso en la interfaz | No (registro del panel; un fallo también se anota en el registro de actividad del servidor) | Sí (paso actual, señal de vida y resultado) |
-| Se deshace si falla | Sí, automáticamente | Se borra el archivo parcial |
+| Se deshace si falla | Sí, automáticamente, también tras un reinicio del panel a mitad | Se borra el archivo parcial |
 | Se puede cancelar | No | Sí, desde cualquiera de los dos lados |
 
 ## Cómo funciona
@@ -26,24 +26,36 @@ Un servidor se traslada junto con sus **subservidores de Splitter** (véase [Sub
 Antes de mover nada, `POST /api/servers/:serverId/transfer` comprueba:
 
 - Que el destino sea otro nodo (si no, `400` `cannot transfer to the same node`).
-- Que no haya ya una transferencia en curso de ninguno de estos servidores: `409` `ErrTransferRunning`.
+- Que no haya ya una transferencia en curso de ninguno de estos servidores, ni una registrada como pendiente desde antes de un reinicio del panel: `409` `ErrTransferRunning`.
 - Que los puertos de todos los servidores que se trasladan (el principal y los adicionales) estén libres en el nodo de destino: no deben usarlos otros servidores de ese nodo, los puertos del propio nodo (panel, daemon, SFTP) ni contenedores publicados allí. Si no, `409` `ErrTransferPortsTaken` con la lista de puertos.
 - Que el nodo antiguo no esté escribiendo una copia de seguridad, un punto de restauración o una restauración de ninguno de ellos (se pregunta con `GET /daemon/server/:id/backup/busy`): `409` `ErrTransferBackupRunning`. A un nodo demasiado antiguo para tener esa ruta no se le pregunta.
 
-Si las comprobaciones pasan, la petición responde `202` al momento y el panel ejecuta la transferencia en segundo plano. Primero elimina los registros del panel de las copias que fallaron, para que ninguno apunte a una copia que el nodo antiguo nunca tuvo, y después:
+Si las comprobaciones pasan, el panel guarda un registro de la transferencia en la tabla `node_transfers` (véase [Recuperación tras un reinicio del panel](#recuperación-tras-un-reinicio-del-panel)), responde `202` al momento y ejecuta la transferencia en segundo plano. Primero elimina los registros del panel de las copias que fallaron, para que ninguno apunte a una copia que el nodo antiguo nunca tuvo, y después:
 
 1. **Preparación**, para cada servidor por orden (primero el principal):
-   1. Lee la definición del servidor en el nodo antiguo y crea el servidor con ella en el nodo nuevo.
-   2. Detiene el servidor en el nodo antiguo y espera; si sigue encendido, lo fuerza a parar. Si no consigue detenerlo, la transferencia falla. Una copia de seguridad que haya empezado mientras tanto también la hace fallar.
-   3. Comprime todos los archivos en `transfer.tar.gz` en el nodo antiguo, envía el archivo al nodo nuevo en flujo continuo sin guardarlo en el panel, lo descomprime allí en la carpeta del servidor y lo borra.
-   4. Copia a través del panel cada copia de seguridad que el nodo antiguo guarda del servidor (ubicación `local` o `both`) al nodo nuevo (`PUT /daemon/server/:id/backup/file`), con su nombre y su fecha. Una copia guardada solo fuera del nodo (S3) no necesita copiarse: el bucket es el mismo esté donde esté el servidor. Si el nodo nuevo ya tiene una copia con el mismo nombre, se deja como está.
-2. **Confirmación**: apunta al nodo nuevo el registro de cada servidor trasladado en una sola transacción de la base de datos. Solo se escribe el nodo, así que se conservan los demás cambios hechos en el servidor durante la transferencia.
+   1. Pausa las tareas programadas del servidor en el nodo antiguo (`POST /daemon/server/:id/scheduler/pause`), para que ninguna tarea lo inicie, lo detenga o haga una copia de seguridad durante la copia.
+   2. Lee la definición del servidor en el nodo antiguo, crea el servidor con ella en el nodo nuevo, pausa allí también sus tareas y copia todas las tareas programadas del nodo antiguo al nuevo (`GET /daemon/server/:id/tasks` y después `PUT /daemon/server/:id/tasks/:taskId` para cada una).
+   3. Detiene el servidor en el nodo antiguo y espera; si sigue encendido, lo fuerza a parar. Si no consigue detenerlo, la transferencia falla. Una copia de seguridad que haya empezado mientras tanto también la hace fallar.
+   4. Comprime todos los archivos en `transfer.tar.gz` en el nodo antiguo, envía el archivo al nodo nuevo en flujo continuo sin guardarlo en el panel, lo descomprime allí en la carpeta del servidor y lo borra.
+   5. Copia a través del panel cada copia de seguridad que el nodo antiguo guarda del servidor (ubicación `local` o `both`) al nodo nuevo (`PUT /daemon/server/:id/backup/file`), con su nombre y su fecha. Una copia guardada solo fuera del nodo (S3) no necesita copiarse: el bucket es el mismo esté donde esté el servidor. Si el nodo nuevo ya tiene una copia con el mismo nombre, se deja como está.
+2. **Confirmación**: apunta al nodo nuevo el registro de cada servidor trasladado en una sola transacción de la base de datos, que además marca como confirmado el registro de la transferencia. Solo se escribe el nodo, así que se conservan los demás cambios hechos en el servidor durante la transferencia.
 3. **Limpieza**: borra cada servidor del nodo antiguo, junto con sus copias de seguridad allí (sus copias ya están en el nodo nuevo; las copias externas no se tocan). Un fallo en este paso solo se anota en el registro: el servidor ya funciona desde el nodo nuevo y lo que queda es una copia sobrante. Se actualiza el subdominio de cada servidor trasladado para que siga a la dirección del nodo nuevo.
-4. **Arranque**: inicia en el nodo nuevo los servidores que estaban encendidos antes de la transferencia. Uno que no arranca no se devuelve al nodo antiguo; el panel anota `server.transferStartFailed` en su registro de actividad con el motivo.
+4. **Arranque**: reanuda las tareas de cada servidor trasladado en el nodo nuevo (`POST /daemon/server/:id/scheduler/resume`) e inicia allí los servidores que estaban encendidos antes de la transferencia. Uno que no arranca no se devuelve al nodo antiguo; el panel anota `server.transferStartFailed` en su registro de actividad con el motivo.
 
-Si falla cualquier paso hasta la confirmación, toda la transferencia se deshace, del paso más reciente al más antiguo, para cada servidor al que se llegó: se quitan del nodo nuevo las copias de seguridad que trajo y el propio servidor, se borran los archivos comprimidos del nodo antiguo y un servidor que estaba encendido se vuelve a iniciar en el nodo antiguo. Los servidores se quedan en su nodo antiguo y el panel anota `server.transferFailed` en el registro de actividad de cada uno, con el paso y el motivo (véase [Registro de actividad](activity-and-access-log.md)). Una llamada de limpieza que falla se escribe en el registro del panel.
+Si falla cualquier paso hasta la confirmación, toda la transferencia se deshace, del paso más reciente al más antiguo, para cada servidor al que se llegó: se quitan del nodo nuevo las copias de seguridad que trajo y el propio servidor, se borran los archivos comprimidos del nodo antiguo, se reanudan las tareas en el nodo antiguo y un servidor que estaba encendido se vuelve a iniciar allí. Los servidores se quedan en su nodo antiguo y el panel anota `server.transferFailed` en el registro de actividad de cada uno, con el paso y el motivo (véase [Registro de actividad](activity-and-access-log.md)). Una llamada de limpieza que falla se escribe en el registro del panel.
 
-El registro de actividad también anota la propia petición como `server.transfer`.
+El registro de actividad también anota la propia petición como `server.transfer`. Cuando la transferencia termina, bien o mal, se borra su registro.
+
+#### Recuperación tras un reinicio del panel
+
+El registro de `node_transfers` guarda, para cada servidor que se traslada, su nodo antiguo, el último paso iniciado, si estaba encendido y qué copias de seguridad se copiaron (o se estaban copiando) al nodo nuevo. Se actualiza en cada paso y se marca como confirmado en la misma transacción de la base de datos que apunta los servidores al nodo nuevo, así que el registro y los servidores nunca discrepan.
+
+Al arrancar, una vez registradas sus rutas (el propio nodo del panel responde a través de ellas), el panel busca registros sin terminar y cierra cada uno en una sola pasada:
+
+- **Sin confirmar**: la transferencia se deshace como una que falló. Se deshace todo lo que pudo hacerse (deshacer un paso al que no se llegó no causa problemas): se quitan del nodo nuevo las copias de seguridad copiadas y el servidor, se borran los archivos comprimidos del nodo antiguo, se reanudan las tareas en el nodo antiguo y un servidor que estaba encendido se vuelve a iniciar allí. El registro de actividad de cada servidor recibe `server.transferFailed` con el detalle `the panel restarted while <paso>: the transfer was undone`.
+- **Confirmada**: la transferencia se completa. Se borran las copias antiguas, se actualizan los subdominios, se reanudan las tareas en el nodo nuevo y se inician allí los servidores que estaban encendidos (salvo que ya lo estén); uno que no arranca recibe `server.transferStartFailed`.
+
+Las llamadas que fallan durante la recuperación se escriben en el registro del panel y no se reintentan. El registro de la transferencia se borra en ambos casos.
 
 ### Migración entre paneles
 
@@ -70,7 +82,7 @@ El registro de actividad anota `extransfer.create`, `extransfer.pull` y `extrans
 
 1. Se abre el servidor y se entra en **Administración › Transferencia**.
 2. Se pulsa **Transferir**, se elige el **Nodo de destino** y se pulsa **Iniciar transferencia**.
-3. El panel muestra *Transferencia iniciada.* Cuando termina la copia, el servidor, sus subservidores y sus copias de seguridad están en el nodo nuevo, y los servidores que estaban encendidos se inician allí. Si la transferencia falla, se deshace y la **Actividad** del servidor indica el motivo.
+3. El panel muestra *Transferencia iniciada.* Cuando termina la copia, el servidor, sus subservidores, sus tareas programadas y sus copias de seguridad están en el nodo nuevo, y los servidores que estaban encendidos se inician allí. Si la transferencia falla, se deshace y la **Actividad** del servidor indica el motivo.
 
 **Migración entre paneles**
 
@@ -118,15 +130,16 @@ Véase [Configuración](../backend/02-configuration.md).
 Otros requisitos:
 
 - Ambas acciones necesitan `server.data.edit.admin` sobre el servidor, que el propietario no tiene por defecto (véase la [referencia de permisos](../general/scopes-reference.md)).
-- Transferencia entre nodos: ambos nodos encendidos y accesibles desde el panel; disco libre suficiente en el nodo de origen para el archivo comprimido y en el de destino para el archivo, los archivos descomprimidos y las copias de seguridad. Para recibir copias de seguridad, el nodo de destino debe tener una versión con la ruta `/daemon/server/:id/backup/file`; con una más antigua, un servidor que tenga copias en su nodo no se puede transferir (la copia falla y la transferencia se deshace).
+- Transferencia entre nodos: ambos nodos encendidos y accesibles desde el panel; disco libre suficiente en el nodo de origen para el archivo comprimido y en el de destino para el archivo, los archivos descomprimidos y las copias de seguridad. Ambos nodos deben tener una versión con las rutas `/daemon/server/:id/scheduler/pause` y `/scheduler/resume`: con un daemon más antiguo en cualquiera de los dos lados, la transferencia falla al pausar allí las tareas y se deshace (véase [Solución de problemas](../setup/troubleshooting.md)). Para recibir copias de seguridad, el nodo de destino también necesita la ruta `/daemon/server/:id/backup/file`, que tienen todas las versiones con las rutas de tareas.
 - Migración: el panel de origen debe ser accesible desde el de destino por HTTP(S) en una dirección **pública**. Se rechazan localhost y las IP privadas o de loopback. La URL solo puede ser `http(s)://host[:puerto]` (sin ruta); si no lleva esquema, se supone `https://`.
 
 ## Límites
 
 - **Transferencia entre nodos**
   - No hay indicador de progreso: el resultado aparece en el registro de actividad del servidor (si falla) y en el registro del panel.
-  - La transferencia no se reanuda tras reiniciar el panel: un reinicio a mitad la deja a medias, sin la marcha atrás automática. Conviene revisar ambos nodos antes de volver a intentarlo.
-  - Las tareas programadas siguen ejecutándose durante la transferencia (véase [Tareas programadas](scheduled-tasks.md)); una tarea que inicie, detenga o haga una copia del servidor puede interferir. Es mejor no transferir cuando toca alguna.
+  - Una transferencia interrumpida por un reinicio del panel no continúa: se deshace, o se completa si el panel ya apuntaba al nodo nuevo. La recuperación es una sola pasada al arrancar el panel; un nodo que no responda en ese momento conserva lo que quedó en él (una copia en el nodo nuevo, un archivo comprimido o las tareas pausadas en el antiguo), y el registro del panel indica cada llamada fallida. Conviene revisar ambos nodos antes de volver a intentarlo.
+  - El detalle de una entrada de recuperación en el registro de actividad (`the panel restarted while …`) está en inglés.
+  - Las tareas programadas se pausan en ambos nodos mientras se traslada el servidor, así que las ejecuciones que tocan entretanto (y **Ejecutar ahora**) se omiten y no se recuperan después. Una tarea que ya se esté ejecutando cuando empieza la transferencia no se interrumpe. Las tareas se copian, pero no los ajustes del planificador del archivo `.cron` (zona horaria, límite de concurrencia): el nodo nuevo usa sus valores por defecto (véase [Tareas programadas](scheduled-tasks.md)).
   - Solo se traslada un nivel de subservidores con el servidor: no se buscan subservidores de un subservidor.
   - Los servidores no están disponibles desde que se detienen hasta que se inician en el nodo nuevo.
 - **Migración entre paneles**
@@ -147,6 +160,8 @@ Otros requisitos:
 | `Este servidor ya se está transfiriendo…` (`409`, `ErrTransferRunning`) | Panel | Hay en curso una transferencia de este servidor o de uno de sus subservidores. | Esperar a que termine. |
 | `Hay una copia de seguridad o una restauración de este servidor en curso…` (`409`, `ErrTransferBackupRunning`) | Panel | El nodo antiguo está escribiendo una copia, un punto de restauración o una restauración de alguno de los servidores. | Transferir cuando termine. |
 | El servidor sigue en el nodo antiguo; su actividad muestra `server.transferFailed` | Panel | Un paso falló y la transferencia se deshizo. El detalle indica el servidor, el paso y la respuesta del nodo. | Corregir la causa (disco, nodo apagado, nodo de destino demasiado antiguo para recibir copias) y repetir. El registro del panel contiene `Transfer of … failed and was undone`. |
+| La actividad muestra `server.transferFailed` con `the panel restarted while <paso>: the transfer was undone` | Panel | El panel se detuvo durante la transferencia y la deshizo al volver a arrancar. | Revisar en el registro del panel las llamadas de limpieza que fallaron (por ejemplo, un nodo que estaba apagado) y volver a transferir. |
+| `pausing its tasks on the old node` / `on the new node` en el detalle del fallo | Panel | Ese nodo tiene un daemon sin la ruta para pausar las tareas. | Actualizar el nodo (véase [Solución de problemas](../setup/troubleshooting.md)) y volver a intentarlo. |
 | El servidor se trasladó pero está detenido; su actividad muestra `server.transferStartFailed` | Panel | No se pudo iniciar en el nodo nuevo. | Leer el motivo en el detalle y en la consola del servidor e iniciarlo a mano. |
 | `La URL de origen no es válida o apunta a una dirección no permitida` (`ERROR_ORIGIN_URL`) | Destino | URL con ruta, credenciales, IP privada o localhost. | Usar la dirección pública `https://host[:puerto]` del panel de origen. |
 | `Fallo de red al conectar con origen` (`ERROR_ORIGIN_UNREACHABLE`) | Destino | El origen no es accesible. | Revisar DNS, cortafuegos y TLS del panel de origen. |

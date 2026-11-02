@@ -56,13 +56,13 @@ Los formularios de inicio de sesión, registro y cambio de contraseña pasan una
 |-----|--------|----------------------|
 | Contraseña (web, OAuth2 y SFTP comparten contador) | 10 intentos en 15 minutos por cuenta | `429` `ErrTooManyAttempts` |
 | Código 2FA | 10 intentos en 15 minutos por cuenta | `429` `ErrTooManyAttempts` |
-| Clave SSH comprobada para un nodo remoto (`POST /auth/sftp-key`) | 10 intentos en 15 minutos por cuenta, con un contador propio | `429` al nodo, que rechaza el inicio de sesión SFTP |
+| Clave SSH (SFTP en el propio nodo del panel y `POST /auth/sftp-key` para los nodos remotos) | 10 intentos en 15 minutos por cuenta, con un contador propio que comparten todos los nodos | Se rechaza el inicio de sesión SFTP (`ErrTooManyAttempts` en el propio nodo del panel, `429` a un nodo remoto) |
 | Correos de cambio de contraseña | 5 por dirección y hora | `204`, sin enviar correo |
 
 - El contador es de la **cuenta**, no de la IP, así que funciona igual detrás de un proxy. Las variantes de un mismo correo que la base de datos considera iguales (mayúsculas, tildes) comparten contador.
 - Para un correo sin cuenta, el contador va por la dirección escrita, y la respuesta tarda lo mismo que con una contraseña incorrecta, para que el tiempo no revele qué correos existen.
 - Un inicio de sesión correcto pone el contador a cero. Vive en memoria y también se pone a cero al reiniciar el panel.
-- Las comprobaciones de claves SSH para nodos remotos tienen su propio contador, separado del de la contraseña: un cliente SFTP ofrece sus claves una tras otra, y cada clave ofrecida cuenta como un intento, así que esos fallos no deben impedir al propietario entrar con su contraseña. Las claves en el propio nodo del panel se comprueban en su base de datos y no tienen contador.
+- Las comprobaciones de claves SSH tienen su propio contador, separado del de la contraseña: un cliente SFTP ofrece sus claves una tras otra, y cada clave ofrecida cuenta como un intento, así que esos fallos no deben impedir al propietario entrar con su contraseña. El propio nodo del panel y los nodos remotos (mediante `POST /auth/sftp-key`) cuentan en el mismo contador, así que el límite es igual en todos los nodos.
 - Cuando el paso de 2FA sale bien, el estado pendiente guardado en la cookie `session` se borra: la misma cookie no sirve para probar más códigos.
 
 ### Contraseñas

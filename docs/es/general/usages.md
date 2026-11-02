@@ -37,7 +37,7 @@ Las pestañas dependen de los permisos que se tengan en ese servidor (las reglas
 |---------|-----------------|------|
 | **Consola** | Salida en directo, comandos (con `server.console.send`), iniciar / reiniciar / detener / forzar. Se puede ampliar sobre la página; una caída muestra un aviso y un informe. | [Informes de caída](../features/crash-reports.md), [Asistente de IA](../features/ai-assistant.md) |
 | **Resumen** | Dirección, versión, jugadores y gráficas de CPU, memoria y red. | [Resumen y estadísticas](../features/server-statistics.md), [Versión del juego](../features/game-versions.md) |
-| **Archivos** | Navegar, editar, subir, comprimir y extraer archivos; historial de archivos. | [Historial de archivos](../features/file-history.md) |
+| **Archivos** | Navegar, editar, subir, comprimir y extraer archivos; seleccionar varios elementos para comprimirlos o eliminarlos a la vez; historial de archivos. | [Historial de archivos](../features/file-history.md) |
 | **Configuración** | Nombre, variables que la plantilla abre al usuario, inicio y reinicio automático, notas de puertos y puerto principal, notificaciones, subdominio. | [Configuración del servidor](../features/server-settings.md), [Notificaciones](../features/server-notifications.md), [Subdominios](../features/subdomains.md) |
 | **Propiedades** (beta) | Editor de `server.properties` para Minecraft: Java Edition. | [Propiedades del servidor](../features/server-properties.md) |
 | **Usuarios** | El propietario y los subusuarios, con sus permisos. | [Referencia de scopes](./scopes-reference.md#propietario-y-subusuarios) |

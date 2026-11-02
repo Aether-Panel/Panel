@@ -38,7 +38,7 @@ Quien no tiene `settings.edit` y abre `/settings` vuelve al panel de inicio. Una
 
 **Notificaciones**
 
-- **Idioma de las notificaciones** (`panel.settings.notificationLanguage`): **español (España)** (`es`, el valor por defecto) o **English (US)** (`en`). Es el idioma de lo que el panel envía fuera de sus propias páginas: las alertas e informes de Discord del panel, los avisos de caída, los textos de estado de las copias de seguridad, los avisos de Discord, Telegram y webhook de cada servidor y su mensaje de prueba, el título y el mensaje de los eventos que reciben las extensiones, y los informes de Discord de las migraciones entre paneles. Las páginas del panel siguen el idioma de cada persona. Cualquier otro valor se rechaza con `ErrNotificationLanguage`. Los nodos remotos leen esta clave de su propia configuración (el panel no se la envía), así que hay que definirla en cada nodo cuyos servidores deban avisar en otro idioma. Ver [Notificaciones del servidor](./server-notifications.md) y [Discord](../general/16-discord.md).
+- **Idioma de las notificaciones** (`panel.settings.notificationLanguage`): **español (España)** (`es`, el valor por defecto) o **English (US)** (`en`). Es el idioma de lo que el panel envía fuera de sus propias páginas: las alertas e informes de Discord del panel, los avisos de caída, los textos de estado de las copias de seguridad, los avisos de Discord, Telegram y webhook de cada servidor y su mensaje de prueba, el título y el mensaje de los eventos que reciben las extensiones, y los informes de Discord de las migraciones entre paneles. Las páginas del panel siguen el idioma de cada persona. Cualquier otro valor se rechaza con `ErrNotificationLanguage`. El panel la envía a cada nodo remoto con su sondeo de estado cada 30 segundos, y al momento cuando se guarda con un valor nuevo, así que los avisos de los servidores de nodos remotos también la siguen; un nodo cuya configuración o entorno defina la clave conserva ese valor. Ver [Notificaciones del servidor](./server-notifications.md) y [Discord](../general/16-discord.md).
 
 **Inteligencia artificial**
 
@@ -107,7 +107,7 @@ Las variables de entorno usan el prefijo `SKYPANEL_` y la clave en mayúsculas c
 
 - La API no devuelve los secretos, pero quien tiene `settings.edit` puede sustituirlos (por ejemplo, apuntar el correo o las copias externas a otro servicio). Conviene dar ese permiso solo a administradores de confianza.
 - Al guardar se reescribe `config.json` completo, así que su formato y el orden de las claves pueden cambiar.
-- La **Clave de API de CurseForge** y el **Idioma de las notificaciones** solo se aplican al nodo propio del panel; los nodos remotos usan su propia configuración.
+- La **Clave de API de CurseForge** solo se aplica al nodo propio del panel; los nodos remotos usan su propia configuración. El **Idioma de las notificaciones** llega a los nodos remotos con el sondeo de estado, salvo que un nodo defina el suyo.
 
 ## Problemas conocidos y soluciones
 

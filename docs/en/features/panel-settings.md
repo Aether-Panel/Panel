@@ -38,7 +38,7 @@ Users without `settings.edit` who open `/settings` are sent back to the dashboar
 
 **Notifications**
 
-- **Notification language** (`panel.settings.notificationLanguage`): **Spanish (Spain)** (`es`, the default) or **English (US)** (`en`). It is the language of what the panel sends outside its own pages: the panel's Discord alerts and reports, crash alerts, backup status texts, each server's Discord, Telegram and webhook alerts and their test message, the title and message of the events extensions receive, and the Discord reports of panel-to-panel migrations. The panel's pages keep following each person's own language. Any other value is refused with `ErrNotificationLanguage`. Remote nodes read this key from their own configuration (the panel does not push it), so set it on each node whose servers' alerts should change language. See [Server notifications](./server-notifications.md) and [Discord](../general/16-discord.md).
+- **Notification language** (`panel.settings.notificationLanguage`): **Spanish (Spain)** (`es`, the default) or **English (US)** (`en`). It is the language of what the panel sends outside its own pages: the panel's Discord alerts and reports, crash alerts, backup status texts, each server's Discord, Telegram and webhook alerts and their test message, the title and message of the events extensions receive, and the Discord reports of panel-to-panel migrations. The panel's pages keep following each person's own language. Any other value is refused with `ErrNotificationLanguage`. The panel sends it to every remote node with its 30-second status poll, and at once when it is saved with a new value, so the alerts of servers on remote nodes follow it too; a node whose own config or environment sets the key keeps that value. See [Server notifications](./server-notifications.md) and [Discord](../general/16-discord.md).
 
 **Artificial intelligence**
 
@@ -107,7 +107,7 @@ Environment variables use the prefix `SKYPANEL_` and the key in upper case with 
 
 - The API does not return the secrets, but anyone with `settings.edit` can replace them (for example, point mail or off-site backups at another service). Give that scope only to trusted administrators.
 - Saving rewrites `config.json` as a whole, so its formatting and key order may change.
-- **CurseForge API key** and **Notification language** only apply to the panel's own node; remote nodes use their own configuration.
+- **CurseForge API key** only applies to the panel's own node; remote nodes use their own configuration. **Notification language** reaches remote nodes with the status poll, unless a node sets its own.
 
 ## Troubleshooting
 

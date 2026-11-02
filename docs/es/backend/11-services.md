@@ -295,7 +295,7 @@ Límites: 25 claves por usuario (`ErrSSHKeyLimit`), sin duplicados por usuario (
 Implementa `skypanel.SFTPAuthorization` y `skypanel.SFTPKeyAuthorization`. El usuario es `email#serverId`.
 
 - `Validate(username, password)`: el mismo cupo de `LoginAttempts` que el inicio de sesión web; comprobación bcrypt.
-- `ValidateKey(username, key)`: clave de la lista `SSHKey` del usuario.
+- `ValidateKey(username, key)`: clave de la lista `SSHKey` del usuario. Cada clave ofrecida para una cuenta existente consume un intento del cupo `sshkey:user:<id>` de `LoginAttempts` (el que usa `/auth/sftp-key` para los nodos remotos, separado del de contraseñas); superado el cupo, el inicio de sesión falla con `ErrTooManyAttempts`, y un inicio de sesión con clave correcto lo reinicia.
 - En ambos casos se exige después `MaySignIn` y el scope `server.sftp` en ese servidor, y se devuelve un `ssh.Permissions` con la extensión `server_id`. Cualquier fallo responde con el mismo `incorrect username or password`.
 
 Véase [Seguridad: SFTP](./09-security.md).
@@ -372,7 +372,7 @@ Contador en memoria con ventana deslizante, por cuenta y no por IP (funciona igu
 
 | Instancia | Límite | Lo usa |
 |---|---|---|
-| `LoginAttempts` | 10 cada 15 min | Inicio de sesión del panel, códigos 2FA, grant de contraseña de OAuth2, SFTP |
+| `LoginAttempts` | 10 cada 15 min | Inicio de sesión del panel, códigos 2FA, grant de contraseña de OAuth2, contraseñas SFTP; claves SSH (nodo propio y `/auth/sftp-key`) con una clave `sshkey:` aparte |
 | `PasswordResetRequests` | 5 por hora | `internal/web/auth/password_reset.go` |
 
 ### `SSOLinks` (`sso.go`)
@@ -393,12 +393,13 @@ Todos los textos que el panel envía fuera de sus propias páginas están en un 
 
 | Función | Descripción |
 |---|---|
-| `NotificationLanguage()` | El valor de `panel.settings.notificationLanguage` si el catálogo lo tiene; si no, `es` (`DefaultNotificationLanguage`) |
+| `NotificationLanguage()` | El idioma de este proceso: `panel.settings.notificationLanguage` si está definido en su propio archivo de configuración o entorno (`IsSet`) y el catálogo lo conoce; si no, el idioma que envió el panel por última vez (`PanelNotificationLanguage()`); si no, el valor de la clave; si no, `es` (`DefaultNotificationLanguage`) |
+| `SetPanelNotificationLanguage(lang)` / `PanelNotificationLanguage()` | Guardan / leen el idioma que envió el panel en la cabecera `X-Aether-Notification-Language` (`NotificationLanguageHeader`) de `GET /daemon/servers/status`. Se guarda en memoria (`atomic.Value`); los valores vacíos o desconocidos se ignoran, así que un panel antiguo que no envía ninguno no cambia nada |
 | `NotificationText(key, args...)` | El texto en ese idioma, completado con `fmt` |
 | `NotificationTextIn(lang, key, args...)` | Lo mismo en un idioma dado: una clave que falta en él usa la inglesa, y una clave que no existe en ninguno se devuelve tal cual |
 | `IsNotificationLanguage(lang)` | Lo usa la API de ajustes para rechazar otros valores (`ErrNotificationLanguage`) |
 
-Cada proceso lee su propia configuración: un nodo remoto usa el valor definido en ese nodo para las alertas de sus servidores. En el JSON del webhook de una alerta de recursos, el campo `resource` mantiene `CPU` o `Memoria` sea cual sea el idioma, por compatibilidad. La API de estado de las transferencias externas y el motivo que se envía al panel de origen usan siempre el texto en inglés, y el cliente web traduce él mismo los códigos de los pasos.
+El panel envía `NotificationLanguage()` con cada sondeo de estado de un nodo remoto (`statusPollHeaders` en `internal/servers/remote_status.go`), y `setSetting` / `setSettings` lanzan una ronda de sondeo al momento (`servers.PollRemoteNodesNow`) cuando un guardado lo cambia, así que un nodo remoto sigue al panel en segundos, salvo que su propia configuración defina la clave. En el JSON del webhook de una alerta de recursos, el campo `resource` mantiene `CPU` o `Memoria` sea cual sea el idioma, por compatibilidad. La API de estado de las transferencias externas y el motivo que se envía al panel de origen usan siempre el texto en inglés, y el cliente web traduce él mismo los códigos de los pasos.
 
 ### `ReadDomainStatus` (`domain_status.go`)
 

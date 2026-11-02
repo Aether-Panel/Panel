@@ -40,7 +40,7 @@ Los avisos se envían en segundo plano: un canal lento o inaccesible nunca retra
 | Telegram | Un mensaje con formato HTML a través del bot (`sendMessage`, sin vista previa de enlaces). Las líneas de consola se recortan a los últimos 3.000 caracteres. |
 | Webhook | Un `POST` JSON (ver más abajo), con `User-Agent: AetherPanel-Webhook/1`. |
 
-Los títulos y mensajes de los avisos los genera el nodo en el **idioma de las notificaciones**, `panel.settings.notificationLanguage` (`es` por defecto, o `en`), no en el idioma de quien mira el panel. En el nodo del propio panel se ajusta en **Configuración › General › Notificaciones** (véase [Ajustes del panel](panel-settings.md)); un nodo remoto lee su propia configuración, así que los avisos de sus servidores siguen el valor definido en ese nodo (el panel no se lo envía). El ejemplo siguiente está en español; en inglés el título es `💥 Server crashed`.
+Los títulos y mensajes de los avisos los genera el nodo en el **idioma de las notificaciones**, `panel.settings.notificationLanguage` (`es` por defecto, o `en`), no en el idioma de quien mira el panel. En el nodo del propio panel se ajusta en **Configuración › General › Notificaciones** (véase [Ajustes del panel](panel-settings.md)); los nodos remotos reciben el valor del panel con cada sondeo de estado (cada 30 segundos, y al momento cuando cambia el ajuste), así que los avisos de sus servidores también lo siguen, salvo que la configuración o el entorno del propio nodo definan la clave, que allí tiene prioridad. Justo después de reiniciarse un nodo, sus avisos van en español hasta el siguiente sondeo. El ejemplo siguiente está en español; en inglés el título es `💥 Server crashed`.
 
 ### Contenido del webhook
 
@@ -120,7 +120,7 @@ Todo se configura por servidor, salvo el idioma de los textos. Claves relacionad
 |-------|-------------------|---------------------|--------|
 | `daemon.data.servers` | `servers` (dentro de la carpeta de datos) | `SKYPANEL_DAEMON_DATA_SERVERS` | Carpeta donde se guarda el archivo `.notify`. |
 | `daemon.data.crashLimit` | `3` | `SKYPANEL_DAEMON_DATA_CRASHLIMIT` | Reinicios automáticos tras una caída; aparece en el aviso como «intento *n* de *límite*». |
-| `panel.settings.notificationLanguage` | `es` | `SKYPANEL_PANEL_SETTINGS_NOTIFICATIONLANGUAGE` | Idioma de los títulos y mensajes de los avisos (`es` o `en`); lo lee el nodo que los envía. |
+| `panel.settings.notificationLanguage` | `es` | `SKYPANEL_PANEL_SETTINGS_NOTIFICATIONLANGUAGE` | Idioma de los títulos y mensajes de los avisos (`es` o `en`). En un nodo remoto: su propio valor si lo tiene; si no, el del panel (enviado con el sondeo de estado); si no, `es`. |
 
 Véase [Configuración](../backend/02-configuration.md) para saber cómo se leen las claves y las variables de entorno.
 

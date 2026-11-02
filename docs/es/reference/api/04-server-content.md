@@ -78,11 +78,11 @@ Cambia el nombre de un archivo o carpeta, o lo mueve; la extensión puede cambia
 
 ### `DELETE /api/servers/:serverId/file/*filename`
 
-Elimina un archivo, o una carpeta con todo su contenido. `204`. El espacio liberado cuenta al instante, así que un servidor detenido por disco lleno puede volver a arrancar.
+Elimina un archivo, o una carpeta con todo su contenido. `204`. El espacio liberado cuenta al instante, así que un servidor detenido por disco lleno puede volver a arrancar. No hay ninguna ruta que borre varias rutas a la vez: **Eliminar selección** del gestor de archivos llama a esta ruta una vez por elemento, uno tras otro, y se detiene en el primer fallo.
 
 ### `POST /api/servers/:serverId/archive/*filename`
 
-Cuerpo: las rutas que se van a comprimir, por ejemplo `["world", "server.properties"]`. `*filename` es el archivo comprimido que se crea; su extensión determina el formato (véase [Archivos del servidor y archivos comprimidos](../../general/19-files-compression.md)). `204`.
+Cuerpo: las rutas que se van a comprimir, por ejemplo `["world", "server.properties"]`. `*filename` es el archivo comprimido que se crea; su extensión determina el formato (véase [Archivos del servidor y archivos comprimidos](../../general/19-files-compression.md)). `204`. El gestor de archivos envía una ruta desde **Comprimir** en una fila, y todas las rutas seleccionadas desde **Comprimir selección**.
 
 | Error | Cuándo |
 |-------|--------|

@@ -122,7 +122,7 @@ Cada área enlaza con la página que la documenta.
 
 ### Daemon
 
-`/daemon`, `/daemon/features`, `/daemon/system`, `/daemon/ports`, `/daemon/network/history`, `/daemon/servers/status`, `/daemon/update`, `/daemon/update-status` y `/daemon/server/:serverId/...`. Véase [Daemon](./api/09-daemon.md).
+`/daemon`, `/daemon/features`, `/daemon/system`, `/daemon/ports`, `/daemon/network/history`, `/daemon/servers/status`, `/daemon/update`, `/daemon/update-status` y `/daemon/server/:serverId/...`, incluidas las rutas de la transferencia entre nodos para copiar copias de seguridad y pausar o reanudar las tareas. El sondeo de estado del panel (`/daemon/servers/status`) también lleva su idioma de las notificaciones en la cabecera `X-Aether-Notification-Language`. Véase [Daemon](./api/09-daemon.md).
 
 ## Documentación relacionada
 

@@ -140,11 +140,21 @@ An existing `{filename}` is refused with the error code `ErrFileExists` (HTTP 40
 
 #### Compressing from the file manager
 
-The menu of every file and folder has **Compress**. The dialog asks for the **Archive name** (it suggests `<name>.zip`) and creates the archive in the current folder through this endpoint, with the chosen item as the only path:
+The menu of every file and folder has **Compress**. The dialog asks for the **Archive name** (it suggests `<name>.zip`) and creates the archive in the current folder through this endpoint, with the chosen item as the only path. To pack several items into one archive, tick them and use **Compress selected** (see [Selecting several items](#selecting-several-items)): all the selected paths go in the same request, and with two or more of them the suggested name is `<folder>.zip` after the current folder (`archive.zip` at the root). In both cases:
 
 - The format comes from the extension: `.zip`, `.tar` or `.tar.gz`. Any other name gets `.zip` added.
 - If a file with that name already exists, it is not overwritten and the dialog shows "A file with that name already exists. Choose another name."
 - When it is done, "Created <name>." and the list refreshes.
+
+#### Selecting several items
+
+The file list has a checkbox column: one per row (except the `..` link to the parent folder) and one in the header that selects or clears everything in the current folder (it shows a mixed state when only some items are ticked). While something is selected, a bar above the list shows how many items are selected and offers:
+
+- **Compress selected**: one archive with all the selected items, as described above.
+- **Delete selected**: one confirmation for all of them, then one `DELETE /api/servers/{id}/file/{path}` per item, one after another, the same call as the row menu's **Delete**. It stops at the first failure and says how many were deleted before it ("Deleted 2 of 5 items, then it stopped: <reason>").
+- A button to clear the selection.
+
+The selection is cleared when another folder is opened, after **Delete selected** and after compressing two or more items; ticks on items that are gone after a refresh are dropped. There is no copy or cut of a selection (the clipboard holds one item, from the row menu) and no Shift-click to select a range. No new API route is involved: both actions use the existing archive and delete routes.
 
 ### `POST /api/servers/{id}/extract/{filename}`
 

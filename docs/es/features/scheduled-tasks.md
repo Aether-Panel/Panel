@@ -27,6 +27,7 @@ La estructura interna del planificador (el tipo `Scheduler` y su archivo) se des
 - Las tareas de un servidor se guardan en el nodo en `<daemon.data.servers>/<serverId>.cron` (JSON, permisos `0600`). El nodo las carga al cargar el servidor, por lo que se disparan aunque el servidor de juego esté detenido.
 - La planificación usa gocron. Las programaciones son expresiones cron con un campo de segundos opcional, un prefijo `CRON_TZ=` o `TZ=` opcional y descriptores como `@daily`. Una tarea con la programación vacía se registra con fecha de ejecución en el año 9999, de modo que solo se ejecuta con **Ejecutar ahora**.
 - El planificador de cada servidor ejecuta como máximo **5 tareas a la vez**; las ejecuciones adicionales esperan a que quede un hueco (`concurrentLimit: 5`, `limitMode: "wait"` en el archivo `.cron`). Estos valores no se exponen en el panel ni en la API.
+- Mientras un servidor se [traslada a otro nodo](server-transfers.md), sus tareas quedan **pausadas** en ambos nodos (`"paused": true` en el archivo `.cron`, que se mantiene si el nodo se reinicia): las ejecuciones que tocan y **Ejecutar ahora** se omiten, y el nodo registra `Task <id> skipped: the server is being moved to another node`. Una tarea que ya se está ejecutando no se interrumpe. La transferencia copia las tareas al nodo nuevo y las reanuda en el nodo que se queda con el servidor; si la transferencia se deshace, se reanudan en el nodo antiguo.
 - Al ejecutarse una tarea, la consola muestra `Running task <nombre>` y, al terminar, `Task <nombre> finished`. Si un paso falla, la consola muestra `Failed to setup tasks` seguido del error.
 - Las copias automáticas se escriben como `auto-<uuid>.tar.gz` en la carpeta de copias del servidor. El panel las añade a la lista de **Copias de seguridad** (con el nombre "Automatic backup") la próxima vez que se carga la lista, y quita las entradas que la retención ha borrado. Véase [Copias de seguridad](backups.md).
 - El panel siempre escribe una programación de cinco campos precedida de la zona horaria del navegador de quien crea la tarea, por ejemplo `CRON_TZ=Europe/Madrid 0 5 * * *`. Así, "05:00" significa las 05:00 en el lugar donde vive quien creó la tarea, sea cual sea la zona horaria del nodo.
@@ -107,7 +108,8 @@ Guardar, eliminar y ejecutar una tarea queda anotado en el [registro de activida
 - `stop` y `restart` dan al juego 5 minutos para terminar; pasado ese tiempo, el paso falla y se omite el resto de la tarea.
 - Solo puede hacerse una copia de seguridad por servidor a la vez. Un paso `backup` que empieza mientras se hace otra copia falla.
 - La **Próxima** ejecución solo la calcula el navegador para programaciones diarias, semanales y por horas en la zona horaria de quien la ve. Las expresiones cron personalizadas solo las evalúa el nodo.
-- Las ejecuciones que tocaban mientras el nodo estaba apagado no se recuperan después.
+- Las ejecuciones que tocaban mientras el nodo estaba apagado, o mientras las tareas estaban pausadas por una transferencia entre nodos, no se recuperan después.
+- Una transferencia entre nodos copia las tareas, pero no la zona horaria ni los ajustes de concurrencia del archivo `.cron`; el nodo nuevo usa sus valores por defecto.
 
 ## Problemas conocidos y soluciones
 

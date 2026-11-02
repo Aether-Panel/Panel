@@ -295,7 +295,7 @@ Limits: 25 keys per user (`ErrSSHKeyLimit`), no duplicates per user (`ErrSSHKeyE
 Implements `skypanel.SFTPAuthorization` and `skypanel.SFTPKeyAuthorization`. The username is `email#serverId`.
 
 - `Validate(username, password)`: same `LoginAttempts` budget as the web login; bcrypt check.
-- `ValidateKey(username, key)`: key from the user's `SSHKey` list.
+- `ValidateKey(username, key)`: key from the user's `SSHKey` list. Each key offered for a known account takes one attempt from the `sshkey:user:<id>` budget of `LoginAttempts` (the one `/auth/sftp-key` uses for remote nodes, apart from passwords); past it the login fails with `ErrTooManyAttempts`, and a successful key login resets it.
 - Both then require `MaySignIn` and the `server.sftp` scope on that server, and return `ssh.Permissions` with the `server_id` extension. Every failure answers the same `incorrect username or password`.
 
 See [Security: SFTP](./09-security.md#sftp-server).
@@ -372,7 +372,7 @@ In-memory sliding-window counter keyed by account, not IP (works the same behind
 
 | Instance | Limit | Used by |
 |---|---|---|
-| `LoginAttempts` | 10 per 15 min | Panel login, 2FA codes, OAuth2 password grant, SFTP |
+| `LoginAttempts` | 10 per 15 min | Panel login, 2FA codes, OAuth2 password grant, SFTP passwords; SSH keys (own node and `/auth/sftp-key`) on a separate `sshkey:` key |
 | `PasswordResetRequests` | 5 per hour | `internal/web/auth/password_reset.go` |
 
 ### `SSOLinks` (`sso.go`)
@@ -393,12 +393,13 @@ Every text the panel sends outside its own pages lives in one catalogue, `notifi
 
 | Function | Description |
 |---|---|
-| `NotificationLanguage()` | The value of `panel.settings.notificationLanguage` when the catalogue has it, otherwise `es` (`DefaultNotificationLanguage`) |
+| `NotificationLanguage()` | The language of this process: `panel.settings.notificationLanguage` when set in its own config file or environment (`IsSet`) and known to the catalogue; else the language the panel last sent (`PanelNotificationLanguage()`); else the key's value; else `es` (`DefaultNotificationLanguage`) |
+| `SetPanelNotificationLanguage(lang)` / `PanelNotificationLanguage()` | Store / read the language the panel sent in the `X-Aether-Notification-Language` header (`NotificationLanguageHeader`) of `GET /daemon/servers/status`. Kept in memory (`atomic.Value`); empty or unknown values are ignored, so an older panel that sends none changes nothing |
 | `NotificationText(key, args...)` | The text in that language, filled in with `fmt` |
 | `NotificationTextIn(lang, key, args...)` | The same in a given language: a key missing in it falls back to English, and a key missing everywhere is returned as it is |
 | `IsNotificationLanguage(lang)` | Used by the settings API to refuse other values (`ErrNotificationLanguage`) |
 
-Each process reads its own configuration: a remote node uses the value set on that node for its servers' alerts. In the JSON webhook payload of a resource alert, the `resource` field keeps `CPU` or `Memoria` whatever the language, for compatibility. The external transfer status API and the reason sent to the origin panel always use the English text, and the web client translates the step codes itself.
+The panel sends `NotificationLanguage()` with every status poll of a remote node (`statusPollHeaders` in `internal/servers/remote_status.go`), and `setSetting` / `setSettings` start a poll round at once (`servers.PollRemoteNodesNow`) when a save changes it, so a remote node follows the panel within seconds, unless its own config sets the key. In the JSON webhook payload of a resource alert, the `resource` field keeps `CPU` or `Memoria` whatever the language, for compatibility. The external transfer status API and the reason sent to the origin panel always use the English text, and the web client translates the step codes itself.
 
 ### `ReadDomainStatus` (`domain_status.go`)
 

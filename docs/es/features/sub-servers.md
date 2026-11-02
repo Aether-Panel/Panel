@@ -86,7 +86,7 @@ No hay ajustes específicos de los subservidores.
 ## Límites
 
 - La interfaz admite un solo nivel: un subservidor no se puede volver a dividir desde la pestaña **Splitter**.
-- Un subservidor siempre está en el nodo de su padre. Una [transferencia entre nodos](server-transfers.md) del padre traslada con él sus subservidores; un subservidor no se puede transferir por separado (`400` `ErrTransferSubServer`).
+- Un subservidor siempre está en el nodo de su padre. Una [transferencia entre nodos](server-transfers.md) del padre traslada con él sus subservidores, con sus archivos, copias de seguridad y tareas programadas; un subservidor no se puede transferir por separado (`400` `ErrTransferSubServer`).
 - La CPU es un porcentaje (100 = un núcleo); la memoria y el disco van en MB, como en cualquier servidor.
 - El plan del padre en la base de datos no se reduce; solo los límites aplicados en el nodo. Por eso las gráficas de uso del padre se comparan con los límites del nodo.
 - Los clientes no pueden elegir montajes del host, modo privilegiado, redes, etiquetas ni el usuario del contenedor de un subservidor.

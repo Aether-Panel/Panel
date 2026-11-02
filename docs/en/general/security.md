@@ -56,13 +56,13 @@ The sign-in, sign-up and password reset forms go through an anti-bot check, desc
 |------|-------|---------------------|
 | Password (web, OAuth2 and SFTP share the counter) | 10 attempts in 15 minutes per account | `429` `ErrTooManyAttempts` |
 | 2FA code | 10 attempts in 15 minutes per account | `429` `ErrTooManyAttempts` |
-| SSH key checked for a remote node (`POST /auth/sftp-key`) | 10 attempts in 15 minutes per account, on a counter of its own | `429` to the node, which refuses the SFTP sign-in |
+| SSH key (SFTP on the panel's own node, and `POST /auth/sftp-key` for remote nodes) | 10 attempts in 15 minutes per account, on a counter of its own shared by every node | The SFTP sign-in is refused (`ErrTooManyAttempts` on the panel's own node, `429` to a remote node) |
 | Password reset emails | 5 per address per hour | `204`, no email sent |
 
 - The counter belongs to the **account**, not to the IP, so it works the same behind a proxy. Variants of the same email that the database treats as equal (case, accents) share one counter.
 - For an email with no account the counter is per address typed, and the answer takes as long as a wrong password, so timing does not reveal which emails exist.
 - A successful sign-in resets the counter. It lives in memory and also resets when the panel restarts.
-- SSH key checks for remote nodes have their own counter, apart from the password one: an SFTP client offers each of its keys in turn, and every key offered counts as one attempt, so those misses must not lock the owner out of signing in with their password. Key sign-ins on the panel's own node are checked in its database and have no counter.
+- SSH key checks have their own counter, apart from the password one: an SFTP client offers each of its keys in turn, and every key offered counts as one attempt, so those misses must not lock the owner out of signing in with their password. The panel's own node and the remote nodes (through `POST /auth/sftp-key`) count on the same counter, so the limit is the same on every node.
 - After the 2FA step succeeds, the pending sign-in state in the `session` cookie is cleared: the same cookie cannot be used to try more codes.
 
 ### Passwords
