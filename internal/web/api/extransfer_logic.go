@@ -390,7 +390,7 @@ const (
 	exStepCleanup          = "STEP_CLEANUP"
 	exErrOriginURL         = "ERROR_ORIGIN_URL"
 	exErrOriginUnreachable = "ERROR_ORIGIN_UNREACHABLE"
-	exErrTokenRejected     = "ERROR_TOKEN_REJECTED"
+	exErrTokenRejected     = "ERROR_TOKEN_REJECTED" // #nosec G101 -- a status code, not a credential
 	exErrOriginBadAnswer   = "ERROR_ORIGIN_BAD_ANSWER"
 	exErrOriginBadSession  = "ERROR_ORIGIN_BAD_SESSION"
 	exErrOriginStart       = "ERROR_ORIGIN_START"

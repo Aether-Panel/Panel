@@ -13,8 +13,9 @@ const DefaultNotificationLanguage = "es"
 // notificationTexts holds every text the panel sends outside its own pages (Discord, Telegram,
 // webhooks, extension events), per language. Texts with values are fmt formats; the test
 // checks that both languages have the same keys and the same verbs in the same order.
-var notificationTexts = map[string]map[string]string{
-	"es": {
+// The texts mention tokens and passwords, which gosec G101 reads as credentials: they are not.
+var notificationTexts = map[string]map[string]string{ // #nosec G101 -- message catalogue
+	"es": { // #nosec G101 -- message catalogue
 		// embed field names
 		"field.server":         "Servidor",
 		"field.status":         "Estado",
@@ -139,7 +140,7 @@ var notificationTexts = map[string]map[string]string{
 		"extransfer.ERROR_UPLOAD":             "Error al subir archivo al daemon",
 		"extransfer.ERROR_EXTRACT":            "Error al descomprimir en el destino",
 	},
-	"en": {
+	"en": { // #nosec G101 -- message catalogue
 		"field.server":         "Server",
 		"field.status":         "Status",
 		"field.resource":       "Resource",
