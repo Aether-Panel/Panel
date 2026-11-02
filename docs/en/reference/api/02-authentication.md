@@ -17,6 +17,7 @@ How a request proves who sent it, how the panel decides what it may do, and the 
 | GET | `/auth/challenge` | Public | Built-in anti-bot challenge |
 | GET | `/auth/publickey` | Public | The panel's JWT public keys (JWKS) |
 | POST | `/oauth2/token` | Client credentials or node secret | Issues a token |
+| POST | `/auth/sftp-key` | Node secret | Checks an SFTP login with an SSH key for a remote node |
 | GET | `/api/config` | Public | Branding, sign-up and anti-bot settings, version |
 
 ## Ways to authenticate
@@ -27,7 +28,7 @@ How a request proves who sent it, how the panel decides what it may do, and the 
 | Bearer token | `Authorization: Bearer <token>` | Scripts and integrations: a session token or an OAuth2 access token |
 | API key | `X-Api-Key: ak_...` or `Authorization: Bearer ak_...` | Only the billing routes under `/api/v1` (see [Provisioning](./07-provisioning.md)) |
 | Panel JWT | `Authorization: Bearer <jwt>` | The `/daemon` routes, panel to node, except the public `GET`/`HEAD`/`OPTIONS /daemon` and `GET /daemon/features` (see [Daemon](./09-daemon.md)) |
-| Node secret | `Authorization: Bearer <secret>` | Only the OAuth2 password grant, node to panel |
+| Node secret | `Authorization: Bearer <secret>` | Node to panel: the OAuth2 password grant and `POST /auth/sftp-key` (SFTP logins) |
 | Signed links | Token in the path or query | `/auth/sso?token=...`, `/api/map-view/...` |
 | Ed25519 signatures | In the body or query | `/api/extransfer/*`, panel to panel, except `validate`, which takes the transfer token (see [External transfer](./08-external-transfer.md)) |
 
@@ -215,7 +216,7 @@ curl -X POST https://panel.example.com/oauth2/token \
 
 **`grant_type=password`** (nodes only)
 
-A node uses it to check an SFTP login. It sends `Authorization: Bearer <node secret>` (the `clientSecret` of its deployment), `username=<email>#<serverId>` and the user's password. The panel checks that the server is on that node, the password, the `login` scope and `server.sftp` on the server. The answer has no access token, only `{"token_type": "Bearer", "expires_in": 3600, "scope": "<serverId>:server.sftp"}`: a password alone never opens a panel session (2FA would be skipped). The SFTP login itself does not ask for the 2FA code, because SFTP clients cannot send one: accounts with 2FA should use [SSH keys](./05-accounts.md#ssh-keys) for SFTP, which the panel's own node accepts (remote nodes only take passwords).
+A node uses it to check an SFTP login. It sends `Authorization: Bearer <node secret>` (the `clientSecret` of its deployment), `username=<email>#<serverId>` and the user's password. The panel checks that the server is on that node, the password, the `login` scope and `server.sftp` on the server. The answer has no access token, only `{"token_type": "Bearer", "expires_in": 3600, "scope": "<serverId>:server.sftp"}`: a password alone never opens a panel session (2FA would be skipped). The SFTP login itself does not ask for the 2FA code, because SFTP clients cannot send one: accounts with 2FA should use [SSH keys](./05-accounts.md#ssh-keys) for SFTP, which every node accepts (remote nodes check them with [`POST /auth/sftp-key`](#post-authsftp-key)).
 
 | Error | When |
 |-------|------|
@@ -223,6 +224,39 @@ A node uses it to check an SFTP login. It sends `Authorization: Bearer <node sec
 | `400 {"error": "invalid_client"}` | Wrong client secret |
 | `401 {"error": "invalid_client"}` | Password grant without a bearer header |
 | `400 {"error": "unsupported_grant_type"}` | Any other grant type |
+
+### `POST /auth/sftp-key`
+
+How a remote node checks an SFTP login with an SSH key: the users' keys live in the panel's database, which only the panel's own node can read. The node's SFTP server asks this route for each key a client offers, before the client proves it holds the private key; the node grants nothing until that proof checks out.
+
+The node signs in with its secret, as for the password grant: `Authorization: Bearer <node secret>` (`daemon.auth.clientSecret` in its configuration). It finds the panel from `daemon.auth.url`: the same address with the token path (`/oauth2/token`) swapped for `/auth/sftp-key`, keeping any path prefix the panel is served under; that URL must be an absolute `http(s)` address. Each check waits at most 15 seconds.
+
+```json
+{ "username": "player@example.com#a1b2c3d4", "publicKey": "ssh-ed25519 AAAAC3Nza... laptop" }
+```
+
+| Field | Notes |
+|-------|-------|
+| `username` | The SFTP login, `<email>#<serverId>` |
+| `publicKey` | The key the client offered, as one `authorized_keys` line |
+
+The body may be at most 16 KiB. The checks are the same as for an SFTP key login on the panel's own node, plus one: the server must be on the node that asks. The key must be one of the account's [SSH keys](./05-accounts.md#ssh-keys), and the account must still hold `login` and `server.sftp` on the server.
+
+Answer (`Cache-Control: no-store`); like the password grant it never contains a session:
+
+```json
+{ "scope": "a1b2c3d4:server.sftp" }
+```
+
+| Error | When |
+|-------|------|
+| `401 {"error": "invalid_client"}` | No bearer header, or the secret is not a node's (with `WWW-Authenticate: Bearer`) |
+| `400 {"error": "invalid_request", "error_description": "bad request"}` | The body is not valid JSON or is too large |
+| `400 {"error": "invalid_request", "error_description": "no access"}` | Bad username, unparseable key, server not on the asking node, unknown account, key not the account's, or no `login` / `server.sftp`: the same answer for all, so it does not tell which part was wrong |
+| `429 {"error": "invalid_request", "error_description": "too many failed attempts, wait a few minutes"}` | 10 checks in 15 minutes for this account without a success |
+| `500 {"error": "server_error"}` | The panel could not look the node up |
+
+The attempt budget is apart from the password one (key `sshkey:user:<id>`): an SSH client offers each of its keys in turn, and those misses must not lock the owner out of signing in with a password. A success resets it. A node on an older version takes passwords only. A node whose panel does not have this route yet, or whose `daemon.auth.url` is not an absolute `http(s)` URL, refuses key logins and logs why; passwords keep working.
 
 ## Public configuration
 

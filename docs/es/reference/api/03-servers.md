@@ -2,7 +2,7 @@
 
 Rutas bajo `/api/servers`: la lista de servidores, la creación y eliminación de servidores, las acciones de encendido, la consola, las estadísticas, los ajustes, los miembros, la actividad, el subdominio, la clonación, el traslado de nodo, la IA y el WebSocket. Los archivos, las copias de seguridad, las tareas y las bases de datos están en [Contenido del servidor](./04-server-content.md). Volver a la [referencia de la API](../11-api-reference.md).
 
-La mayoría de las rutas bajo `/api/servers/:serverId/` se reenvían al daemon del nodo del servidor (`/daemon/server/:serverId/...`, véase [Daemon](./09-daemon.md)): el panel comprueba el scope y devuelve sin cambios el código de estado y el cuerpo del nodo. En las tablas se marcan con «nodo». Todo cambio correcto bajo `/:serverId` se anota en el [registro de actividad](#get-apiserversserveridactivity) del servidor.
+La mayoría de las rutas bajo `/api/servers/:serverId/` se reenvían al daemon del nodo del servidor (`/daemon/server/:serverId/...`, véase [Daemon](./09-daemon.md)): el panel comprueba el scope y devuelve sin cambios el código de estado y el cuerpo del nodo (salvo cuando el nodo rechaza el token del propio panel: `502 ErrNodeAuthFailed`, véase [Convenciones](./01-conventions.md#fallos-de-autenticación-con-el-nodo)). En las tablas se marcan con «nodo». Todo cambio correcto bajo `/:serverId` se anota en el [registro de actividad](#get-apiserversserveridactivity) del servidor.
 
 ## Rutas
 
@@ -180,14 +180,14 @@ Respuesta: `200 {"id": "3F9A1C2B7D4E"}`.
 
 Qué comprueba y qué hace el panel:
 
-- Las variables `port`, `port2`, ... deben ser 1024 o mayores, únicas, distintas de los puertos propios del nodo y no estar en uso por otro servidor del nodo; las demás variables de puerto (query, RCON, cualquier variable entera cuyo nombre termine en `port`) se comprueban igual. Los fallos responden `400`.
+- Las variables `port`, `port2`, ... deben ser 1024 o mayores, únicas, distintas de los puertos propios del nodo y no estar en uso por otro servidor del nodo; las demás variables de puerto (query, RCON, cualquier variable entera cuyo nombre termine en `port`) se comprueban igual. Los fallos responden `400` con `ErrPortOutOfRange`, `ErrPortDuplicated`, `ErrPortUsedByPanel` o `ErrPortTaken`; `metadata.port` es el número, seguido del nombre de la variable en las demás variables de puerto (por ejemplo, `27015 (queryport)`).
 - Las variables `cpu`, `memory` y `disk` pasan a ser los límites del servidor; los valores negativos responden `400`. Un subservidor necesita los tres por encima de cero, y deben caber en lo que le queda libre al padre.
 - Los usuarios sin `admin` solo pueden crear subservidores: `parent_server_id` debe ser un servidor suyo, el entorno debe ser `docker` y de él solo se conservan `image`, `containerRoot`, `config` (sin su usuario) y los `portBindings` de la plantilla. Cualquier otra cosa responde `403`. Véase [Subservidores](../../features/sub-servers.md).
 - Propietario: el primer usuario de la lista; en un subservidor, el propietario del padre; si quien crea no es administrador, él mismo; un administrador que crea sin usuarios no es propietario de nada.
 - El nodo recibe la definición (`400` si rechaza el entorno, por ejemplo un entorno host con `docker.disallowHost`). Con `panel.servers.autoInstall` activado (valor por defecto), la instalación empieza enseguida en segundo plano.
 - Los miembros reciben un correo y, si está activado, se asigna un subdominio automático.
 
-Errores: `400 ErrNodeInvalid` para un nodo desconocido, `403` por las reglas de los subservidores, y el código de estado y el cuerpo del nodo cuando este lo rechaza.
+Errores: `400 ErrNodeInvalid` para un nodo desconocido, `403` por las reglas de los subservidores, el código de estado y el cuerpo del nodo cuando este lo rechaza, y `502 ErrNodeAuthFailed` cuando el nodo no acepta el token del panel.
 
 ### `DELETE /api/servers/:serverId`
 
@@ -219,7 +219,29 @@ Quien no sea administrador debe ser miembro del original, el original no debe es
 { "nodeId": 2 }
 ```
 
-Traslada el servidor a otro nodo de este panel en segundo plano: copia la definición, detiene y empaqueta el servidor, envía el archivo al nodo nuevo, lo extrae, actualiza el panel y elimina el servidor del nodo antiguo. Antes de empezar, el panel comprueba los puertos del servidor (el principal y los adicionales) en el nodo de destino: sus puertos del panel, del daemon y SFTP, los puertos de los servidores que ya están allí y los que publican sus contenedores. Respuesta: `202 {"msg": "Transfer started"}`. `400` si es el mismo nodo; `404` si el nodo es desconocido; `409 ErrTransferPortsTaken` si alguno de los puertos está ocupado allí (`metadata.ports` los enumera). El progreso solo se escribe en el registro del panel. Las copias de seguridad del servidor no se trasladan: sus archivos se quedan en el nodo antiguo, que los conserva al eliminar el servidor. Tampoco se trasladan los subservidores, y un traslado fallido no se revierte. Detalles: [Transferencias de servidores](../../features/server-transfers.md).
+Traslada el servidor a otro nodo de este panel en segundo plano, junto con sus [subservidores](../../features/sub-servers.md) (un subservidor que ya esté en el nodo de destino se queda donde está) y las copias de seguridad que guarda su nodo antiguo. Respuesta: `202 {"msg": "Transfer started"}`.
+
+Se comprueba antes de responder:
+
+| Error | Cuándo |
+|-------|--------|
+| `400 ErrTransferSubServer` | El servidor es un subservidor: se queda en el nodo de su servidor padre y se traslada con él |
+| `400` | El destino es el propio nodo del servidor |
+| `404` | Nodo desconocido |
+| `409 ErrTransferRunning` | El servidor o uno de sus subservidores ya se está trasladando |
+| `409 ErrTransferPortsTaken` | Un puerto (principal o adicional) del servidor o de un subservidor está ocupado en el nodo de destino: por sus puertos del panel, del daemon o SFTP, por un servidor que ya está allí o por un puerto que publican sus contenedores (`metadata.ports` los enumera) |
+| `409 ErrTransferBackupRunning` | El nodo antiguo está escribiendo una copia de seguridad, un punto de restauración o una restauración de alguno de ellos (se pregunta con [`GET /daemon/server/:id/backup/busy`](./09-daemon.md); a un nodo sin esa ruta no se le pregunta) |
+
+Después, en segundo plano:
+
+1. **Preparación**, servidor por servidor: se copia la definición al nodo nuevo, se detiene el servidor en el nodo antiguo (se fuerza su cierre si no se detiene), se empaquetan sus archivos, el archivo se envía al nodo nuevo y se extrae, y cada copia de seguridad cuyo archivo está en el nodo antiguo (`local` o `both`) se copia a través del panel al nodo nuevo, con su nombre y su fecha.
+2. **Confirmación**: una única transacción de la base de datos apunta todos los registros al nodo nuevo. Solo se escribe `node_id`, así que se conservan los cambios hechos en el servidor mientras tanto.
+3. **Limpieza**: se eliminan los servidores del nodo antiguo, con los archivos de copias de seguridad de allí. Las copias del almacenamiento externo no se tocan; el bucket es el mismo sea cual sea el nodo.
+4. **Arranque** en el nodo nuevo de los servidores que estaban en marcha antes.
+
+Si falla un paso hasta la confirmación incluida, todo se deshace, del más reciente al más antiguo: se eliminan del nodo nuevo las copias de seguridad y los servidores, del nodo antiguo los archivos empaquetados, y un servidor que estaba en marcha se vuelve a arrancar en su nodo antiguo. Los servidores se quedan donde estaban. El fallo se escribe en el registro del panel y en el registro de actividad de cada servidor como `server.transferFailed` (paso y motivo). Un servidor que no arranca en el nodo nuevo después de la confirmación se queda allí y recibe `server.transferStartFailed`. Su subdominio pasa a apuntar a la dirección del nodo nuevo.
+
+Límites: un traslado interrumpido por un reinicio del panel no se reanuda ni se deshace (antes de la confirmación el panel sigue apuntando al nodo antiguo, donde el servidor puede quedar detenido, y puede quedar una copia parcial en el nodo nuevo); las tareas programadas siguen ejecutándose durante el traslado; solo se traslada un nivel de subservidores; y el nodo nuevo necesita una versión con las rutas de copias de seguridad (`PUT /daemon/server/:id/backup/file`) para recibirlas. Detalles: [Transferencias de servidores](../../features/server-transfers.md).
 
 ## Definición, variables y puertos
 
@@ -290,7 +312,7 @@ Respuesta: `200 {"success": true}`.
 |-------|--------|
 | `403` | Arrancar o reiniciar un servidor suspendido |
 | `409 ErrDiskLimitExceeded` | Arrancar o reiniciar con el límite de disco alcanzado |
-| `409` | Otro contenedor en marcha ya publica un puerto del servidor |
+| `409 ErrPortBusy` | Otro contenedor en marcha ya publica un puerto de host del servidor, u otro proceso del nodo lo ocupa (`metadata.port`) |
 
 Una instalación rechazada porque el nodo está por debajo de `daemon.minFreeDiskMB` falla con `ErrNodeDiskFull` (se muestra en la consola; con `?wait` se devuelve como error).
 
@@ -422,7 +444,7 @@ Convierte a ese usuario en propietario (y en miembro). El propietario anterior s
 { "items": [ { "id": 812, "action": "console.command", "detail": "say hi", "username": "alice", "userId": 3, "createdAt": "2026-11-01T09:12:00Z" } ], "nextCursor": 790 }
 ```
 
-`ip` solo se incluye para los administradores. Entre las acciones están `server.start`, `file.write`, `file.upload`, `backup.create`, `user.add`, `task.save` y `settings.notifications`; los cambios de ajustes se anotan sin sus valores. Detalles: [Registro de actividad y registros de acceso](../../features/activity-and-access-log.md).
+`ip` solo se incluye para los administradores. Entre las acciones están `server.start`, `file.write`, `file.upload`, `backup.create`, `user.add`, `task.save`, `settings.notifications` y, del traslado de nodo, `server.transfer`, `server.transferFailed` y `server.transferStartFailed` (en la familia `settings`); los cambios de ajustes se anotan sin sus valores. Detalles: [Registro de actividad y registros de acceso](../../features/activity-and-access-log.md).
 
 ## Subdominio
 

@@ -56,11 +56,13 @@ Los formularios de inicio de sesión, registro y cambio de contraseña pasan una
 |-----|--------|----------------------|
 | Contraseña (web, OAuth2 y SFTP comparten contador) | 10 intentos en 15 minutos por cuenta | `429` `ErrTooManyAttempts` |
 | Código 2FA | 10 intentos en 15 minutos por cuenta | `429` `ErrTooManyAttempts` |
+| Clave SSH comprobada para un nodo remoto (`POST /auth/sftp-key`) | 10 intentos en 15 minutos por cuenta, con un contador propio | `429` al nodo, que rechaza el inicio de sesión SFTP |
 | Correos de cambio de contraseña | 5 por dirección y hora | `204`, sin enviar correo |
 
 - El contador es de la **cuenta**, no de la IP, así que funciona igual detrás de un proxy. Las variantes de un mismo correo que la base de datos considera iguales (mayúsculas, tildes) comparten contador.
 - Para un correo sin cuenta, el contador va por la dirección escrita, y la respuesta tarda lo mismo que con una contraseña incorrecta, para que el tiempo no revele qué correos existen.
 - Un inicio de sesión correcto pone el contador a cero. Vive en memoria y también se pone a cero al reiniciar el panel.
+- Las comprobaciones de claves SSH para nodos remotos tienen su propio contador, separado del de la contraseña: un cliente SFTP ofrece sus claves una tras otra, y cada clave ofrecida cuenta como un intento, así que esos fallos no deben impedir al propietario entrar con su contraseña. Las claves en el propio nodo del panel se comprueban en su base de datos y no tienen contador.
 - Cuando el paso de 2FA sale bien, el estado pendiente guardado en la cookie `session` se borra: la misma cookie no sirve para probar más códigos.
 
 ### Contraseñas
@@ -111,7 +113,7 @@ curl -b cookies.txt -X POST https://panel.example.com/auth/otp \
 
 Todas necesitan el permiso `self.edit`.
 
-El SFTP no pide el código 2FA: entra con la contraseña o con una [clave SSH](#claves-ssh-para-sftp). Quien tenga la 2FA activada debería usar claves SSH (véase [Limitaciones conocidas](#limitaciones-conocidas)).
+El SFTP no pide el código 2FA: entra con la contraseña o con una [clave SSH](#claves-ssh-para-sftp). Quien tenga la 2FA activada debería usar claves SSH, que funcionan en todos los nodos (véase [Limitaciones conocidas](#limitaciones-conocidas)).
 
 ### Quitar el permiso de entrar
 
@@ -153,7 +155,12 @@ sftp -P 5657 -i ~/.ssh/id_ed25519 -o User='ana@example.com#1a2b3c4d' panel.examp
 
 El usuario necesita igualmente `server.sftp` en ese servidor (o ser su propietario). Borrar una clave impide las conexiones nuevas con ella; borrar el usuario borra sus claves.
 
-Las claves solo sirven en el nodo donde corre el panel. Los nodos remotos comprueban el SFTP contra el panel con usuario y contraseña, así que en sus servidores hay que entrar con la contraseña.
+Las claves funcionan en todos los nodos:
+
+- **Nodo del propio panel**: el servidor SFTP comprueba la clave en la base de datos del panel.
+- **Nodo remoto**: el nodo no tiene las claves de los usuarios, así que pregunta al panel. Envía `POST /auth/sftp-key` al panel indicado en su `daemon.auth.url` (la parte `/oauth2/token`, si la hay, se sustituye por `/auth/sftp-key`; un prefijo de ruta se conserva), firmado con su propio secreto (`Authorization: Bearer <daemon.auth.clientSecret>`), con el usuario y la clave pública ofrecida. El panel aplica las mismas reglas que en su propio nodo y además comprueba que el servidor está en el nodo que pregunta. Solo responde el permiso concedido (`<serverID>:server.sftp`), nunca una sesión. Todo inicio de sesión rechazado recibe la misma respuesta (`400`, `no access`), para no revelar si fallaba la cuenta, el servidor o la clave. El nodo espera como mucho 15 segundos la respuesta. Después, el protocolo SSH obliga al cliente a demostrar que tiene la clave privada antes de conceder nada. Los detalles de la ruta están en la [referencia de la API de autenticación](../reference/api/02-authentication.md).
+
+Un nodo remoto con una versión anterior a esta comprobación solo acepta contraseñas: actualícelo para usar claves en él.
 
 | Método y ruta | Cuerpo | Respuesta |
 |---------------|--------|-----------|
@@ -299,7 +306,7 @@ El instalador abre SSH, SFTP, 80/443 y el puerto del panel (solo cuando no está
 ## Buenas prácticas
 
 - Usar un dominio con HTTPS en cualquier panel con clientes, y configurar la URL principal.
-- Activar la 2FA en todos los administradores y guardar los códigos de recuperación fuera de línea. Con la 2FA activada, usar claves SSH para el SFTP.
+- Activar la 2FA en todos los administradores y guardar los códigos de recuperación fuera de línea. Con la 2FA activada, usar claves SSH para el SFTP (funcionan en todos los nodos).
 - Dar `admin` solo a quienes administran el panel. Usar roles para el personal, con los mínimos scopes necesarios.
 - Dejar `docker.disallowHost`, `docker.serverUser`, `docker.pidsLimit` y `security.blockPrivateDownloads` con sus valores por defecto salvo que se sepa por qué se cambian.
 - Cerrar el registro público (`panel.registrationEnabled`, en **Configuración**) si los clientes llegan desde la facturación.
@@ -310,7 +317,7 @@ El instalador abre SSH, SFTP, 80/443 y el puerto del panel (solo cuando no está
 
 ## Limitaciones conocidas
 
-- **SFTP y 2FA**: los clientes SFTP no pueden pedir un código, así que el inicio de sesión por SFTP con contraseña no pide la 2FA. Quien tenga la 2FA activada debería entrar por SFTP con una [clave SSH](#claves-ssh-para-sftp), que solo funciona en el nodo del panel; en los nodos remotos el SFTP siempre usa la contraseña.
+- **SFTP y 2FA**: los clientes SFTP no pueden pedir un código, así que el inicio de sesión por SFTP con contraseña no pide la 2FA, y el acceso SFTP con contraseña no se puede desactivar. Quien tenga la 2FA activada debería entrar por SFTP con una [clave SSH](#claves-ssh-para-sftp), que funciona en todos los nodos con la versión actual.
 - **Secreto TOTP sin cifrar**: el secreto de la 2FA se guarda en claro en la base de datos (`users.otp_secret`). Quien lea la base de datos puede generar códigos: proteja la base de datos y sus copias.
 
 ## Si sospecha que el panel está comprometido

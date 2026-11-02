@@ -26,8 +26,8 @@ Un **nodo** es una máquina que ejecuta servidores de juego, es decir, una máqu
 
 Cómo se comunican:
 
-- **Panel → nodo**: peticiones HTTP con un JWT firmado por el panel (Ed25519, válido 15 minutos, ligado a ese nodo). El nodo lo comprueba con la clave pública del panel. A un nodo que se ha visto usar TLS una vez ya nunca se le llama por HTTP sin cifrar.
-- **Nodo → panel**: el nodo se identifica con sus credenciales de cliente (`/oauth2/token`, `client_credentials`) y comprueba las contraseñas de SFTP contra el panel (tipo `password`).
+- **Panel → nodo**: peticiones HTTP con un JWT firmado por el panel (Ed25519, válido 15 minutos, ligado a ese nodo). El nodo lo comprueba con la clave pública del panel y responde `401` (`invalid_token`) cuando no es válido. A un nodo que se ha visto usar TLS una vez ya nunca se le llama por HTTP sin cifrar. Además, cada 30 segundos el panel pregunta a cada nodo remoto por el estado de sus servidores (`GET /daemon/servers/status`) para registrar su [disponibilidad](./13-uptime.md).
+- **Nodo → panel**: el nodo se identifica con sus credenciales de cliente (`/oauth2/token`, `client_credentials`) y comprueba los inicios de sesión SFTP contra el panel: las contraseñas con el tipo `password` y las claves SSH con `POST /auth/sftp-key`, firmado con el secreto del nodo.
 - **Navegador ↔ nodo**: la consola y las estadísticas pasan por el panel, que hace de proxy del websocket hacia el nodo.
 
 Cada nodo informa de lo que admite (`GET /api/nodes/:id/features`) y de su información de sistema (`GET /api/nodes/:id/system`). El panel de inicio muestra el historial de CPU, memoria, disco y red de cada nodo. Además, los nodos:
@@ -92,7 +92,8 @@ Todo sobre scopes, propietarios, subusuarios, roles y claves API de facturación
 |--------|--------|
 | Cookie de sesión `skypanel_auth` | La interfaz web. Las sesiones duran 1 hora de inactividad y se renuevan mientras hay actividad. |
 | `Authorization: Bearer <token>` | Clientes de la API. El mismo token de sesión, o un token OAuth2. |
-| OAuth2 (`/oauth2/token`) | `client_credentials` para clientes OAuth2 y nodos, `password` para las comprobaciones de SFTP de los nodos remotos. Cada usuario crea sus propios clientes con `self.clients`. |
+| OAuth2 (`/oauth2/token`) | `client_credentials` para clientes OAuth2 y nodos, `password` para las comprobaciones de contraseñas SFTP de los nodos remotos. Cada usuario crea sus propios clientes con `self.clients`. |
+| Secreto del nodo (`/auth/sftp-key`) | Comprobación de claves SFTP desde los nodos remotos: `Authorization: Bearer <secreto del nodo>`. |
 | JWT (Ed25519) | Peticiones del panel a los nodos. Clave pública en `/auth/publickey`. |
 | Claves API de facturación (`ak_...`) | Solo `/api/v1` (aprovisionamiento, suspensión, enlaces de acceso). |
 
@@ -103,7 +104,7 @@ Ver [Seguridad](./security.md#inicio-de-sesión-y-sesiones).
 Cada daemon ejecuta un servidor SFTP (puerto 5657 por defecto, `daemon.sftp.host`).
 
 - El usuario es `correo#idServidor`; la pestaña **SFTP** del servidor muestra la dirección completa.
-- Se entra con la contraseña del panel o con una clave SSH añadida en la configuración de la cuenta (las claves solo en el nodo del propio panel).
+- Se entra con la contraseña del panel o con una clave SSH añadida en la configuración de la cuenta (las claves funcionan en todos los nodos; un nodo remoto pide al panel que las compruebe).
 - El usuario necesita `server.sftp` en ese servidor, o ser su propietario, y el permiso general `login`. Los dos se comprueban en cada conexión.
 - Una sesión solo ve la carpeta de ese servidor. Lo que se sube cuenta en el límite de disco del servidor.
 
@@ -120,7 +121,7 @@ Más en [Hosts de bases de datos](../features/database-hosts.md).
 
 ## Transferencias
 
-- **Entre nodos del mismo panel**: un administrador (`server.data.edit.admin`) mueve un servidor a otro nodo desde la pestaña **Administración** (`POST /api/servers/:serverId/transfer`).
+- **Entre nodos del mismo panel**: un administrador (`server.data.edit.admin`) mueve un servidor a otro nodo desde la pestaña **Administración** (`POST /api/servers/:serverId/transfer`). Sus subservidores y las copias de seguridad guardadas en el nodo antiguo se van con él; si falla un paso, la transferencia se deshace y el servidor se queda donde estaba.
 - **Entre paneles (transferencia federada)**: mueve un servidor de una instalación de Aether Panel a otra (pestaña **Migración**, `server.data.edit.admin`). Los paneles firman sus peticiones con claves Ed25519 (`panel.exTransferKey`), los tokens se guardan con HMAC-SHA256 y una sesión de transferencia vale 15 minutos; mientras se mueven los datos, los latidos del destino (cada 20 segundos) la mantienen viva, hasta 6 horas. Estados: `CREATED` → `VALIDATED` → `MIGRATING` → `CONSUMED` / `COMPLETED`, o `FAILED` / `CANCELLED`. Las rutas del origen son `/api/servers/:serverId/extransfer/{create,pull,status,cancel}`; las que llama el otro panel son `/api/extransfer/{validate,consume,heartbeat,confirm,download,cancel}`.
 
 Más en [Transferencias de servidores](../features/server-transfers.md).

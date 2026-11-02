@@ -30,7 +30,7 @@ Todos usan `fetch` del navegador con `credentials: 'include'`, de modo que la co
 Una respuesta que no es 2xx lanza `ApiError` (`status`, `message`, `data` = el cuerpo interpretado). El mensaje se elige así:
 
 1. Si el cuerpo es `{ "error": "texto" }`, ese texto.
-2. Si el cuerpo es `{ "error": { "code": "ErrAlgo", "msg": "..." } }` (los errores estructurados del panel), la traducción de `code` dentro de `apiErrors` en el idioma del usuario (leído de la clave `aether_panel_language` de `localStorage`, inglés por defecto) cuando existe; si no, el `msg` del servidor.
+2. Si el cuerpo es `{ "error": { "code": "ErrAlgo", "msg": "..." } }` (los errores estructurados del panel), la traducción de `code` dentro de `apiErrors` en el idioma del usuario (leído de la clave `aether_panel_language` de `localStorage`, inglés por defecto) cuando existe, con sus marcadores `{{nombre}}` rellenados con el `metadata` del error; si no, el `msg` del servidor.
 3. En otro caso, el texto del estado HTTP.
 
 Los códigos traducidos hoy se listan en [05. Traducciones](./05-translations.md#errores-de-api-traducidos).

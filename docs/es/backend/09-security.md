@@ -44,6 +44,8 @@ El panel firma un token de vida corta para cada petición que envía al daemon d
 
 El daemon (`middleware.ValidateJWT`) solo acepta un token firmado con `EdDSA` por la clave del panel, con `exp` (un minuto de margen para desfases de reloj) y cuya audiencia coincide con el secreto del nodo local (panel y daemon en un mismo proceso) o con `daemon.auth.clientSecret` (un nodo desplegado aparte). Por tanto, un token capturado de camino a un nodo no sirve contra otro.
 
+Un token que no supera estas comprobaciones recibe `401` con `WWW-Authenticate: Bearer error="invalid_token"` y queda registrado en el nodo. El panel muestra ese rechazo al usuario como `502 ErrNodeAuthFailed` en lugar de transmitir el `401`, para que un secreto de nodo equivocado o un reloj desajustado no parezcan el fin de la sesión del usuario (ver [Capa API](./05-api-layer.md#peticiones-del-panel-a-los-nodos)).
+
 Cómo obtiene el daemon la clave pública:
 
 - **Panel activo** en el mismo proceso: de memoria.
@@ -53,7 +55,7 @@ Cómo obtiene el daemon la clave pública:
 
 Cada nodo tiene un secreto que guarda el panel. Un administrador con `nodes.deploy` lo lee en `GET /api/nodes/:id/deployment` (`clientId` es `.node_<id>` y `clientSecret` es el secreto) y lo pone en `daemon.auth.clientSecret` del nodo. El secreto del nodo local se deriva de `panel.sessionKey`, así que no cambia entre reinicios.
 
-El nodo también usa su secreto en sentido contrario: para preguntar al panel si un inicio de sesión SFTP es válido (siguiente sección). Cuando el panel reenvía una petición del navegador a un nodo, **quita la cabecera `Cookie`**: la sesión del usuario nunca llega a un nodo.
+El nodo también usa su secreto en sentido contrario: para preguntar al panel si un inicio de sesión SFTP, con contraseña o con clave SSH, es válido (siguiente sección). Cuando el panel reenvía una petición del navegador a un nodo, **quita la cabecera `Cookie`**: la sesión del usuario nunca llega a un nodo.
 
 ---
 
@@ -77,16 +79,18 @@ Un inicio de sesión da acceso a un servidor. Los clientes se conectan con `sftp
 
 ### Quién puede entrar
 
-Solo se acepta un inicio de sesión si la cuenta todavía puede entrar en el panel (scope global `login`) **y** tiene `server.sftp` en ese servidor. Los propietarios lo tienen por los scopes de propietario; `admin` y `server.admin` lo incluyen. SFTP no distingue entre `server.files.view` y `server.files.edit`: quien tiene `server.sftp` puede leer y escribir toda la carpeta del servidor. Para SFTP no se pide la verificación en dos pasos, porque los clientes SFTP no pueden enviar un código: una cuenta con 2FA puede entrar por SFTP solo con su contraseña. Esas cuentas deberían usar claves SSH, que solo acepta el nodo propio del panel (véase abajo). Cualquier fallo devuelve el mismo «incorrect username or password», de modo que la respuesta no revela si el email existe.
+Solo se acepta un inicio de sesión si la cuenta todavía puede entrar en el panel (scope global `login`) **y** tiene `server.sftp` en ese servidor. Los propietarios lo tienen por los scopes de propietario; `admin` y `server.admin` lo incluyen. SFTP no distingue entre `server.files.view` y `server.files.edit`: quien tiene `server.sftp` puede leer y escribir toda la carpeta del servidor. Para SFTP no se pide la verificación en dos pasos, porque los clientes SFTP no pueden enviar un código: una cuenta con 2FA puede entrar por SFTP solo con su contraseña. Esas cuentas deberían usar claves SSH, que aceptan todos los nodos (véase abajo), y mantener una contraseña robusta, porque la contraseña sigue abriendo SFTP. Cualquier fallo devuelve el mismo «incorrect username or password», de modo que la respuesta no revela si el email existe.
 
 ### Autenticación por contraseña y por clave
 
 | Nodo | Contraseña | Clave SSH |
 |------|------------|-----------|
 | El nodo del propio panel (panel activo) | Se comprueba contra la base de datos | Sí: cualquier clave pública que el usuario haya añadido en la sección **Claves SSH** de su cuenta (`/api/self/sshkeys`) |
-| Un nodo remoto solo daemon | La comprueba el panel por HTTP (ver abajo) | No |
+| Un nodo remoto solo daemon | La comprueba el panel por HTTP (ver abajo) | Sí: las mismas claves, que comprueba el panel por HTTP (ver abajo) |
 
 **Los nodos remotos** envían `grant_type=password`, `username`, `password` y `scope=sftp` a `daemon.auth.url` (la URL completa del `/oauth2/token` del panel), autenticados con `Authorization: Bearer <daemon.auth.clientSecret>`. El panel comprueba que el secreto pertenece a un nodo, que el servidor está en **ese** nodo, las credenciales, `login` y `server.sftp`, y responde con el scope `<serverId>:server.sftp`. A propósito no devuelve un token de acceso: una contraseña sola no debe dar una sesión completa del panel que se salte la verificación en dos pasos.
+
+**Claves SSH en nodos remotos.** Un nodo remoto no tiene las claves de los usuarios, así que pregunta al panel (`internal/oauth2/ssh.go`, límite de 15 s): envía `{"username": "email#idServidor", "publicKey": "<línea de authorized_keys>"}` a `POST /auth/sftp-key` con la misma cabecera `Authorization: Bearer <daemon.auth.clientSecret>`. La URL sale de `daemon.auth.url`: mismo esquema y host, con `/oauth2/token` sustituido por `/auth/sftp-key` (se conserva la ruta que haya delante). El panel (`internal/web/auth/sftp_key.go`) aplica las reglas del nodo propio del panel y una más: el servidor debe estar en el nodo que pregunta. La clave debe ser una de las del usuario, y la cuenta debe seguir teniendo `login` y `server.sftp` sobre ese servidor. Solo responde el scope concedido (`200 {"scope": "<idServidor>:server.sftp"}`), nunca una sesión; cualquier rechazo es el mismo `400` «no access», y un secreto de nodo desconocido recibe `401`. La biblioteca SSH hace esta comprobación antes de que el cliente demuestre que tiene la clave privada, y no concede nada hasta que esa prueba sale bien. Tanto el panel como el nodo necesitan una versión con esta ruta: un panel anterior responde `404` y el nodo rechaza los inicios de sesión con clave.
 
 **Claves SSH** que se aceptan al añadirlas: Ed25519, ECDSA (P-256, P-384, P-521), las variantes con llave de seguridad `sk-ssh-ed25519@openssh.com` y `sk-ecdsa-sha2-nistp256@openssh.com`, y RSA de al menos 2048 bits. Se rechazan las claves DSA, los certificados, las opciones de `authorized_keys` y las claves privadas. Hasta 25 claves por usuario; el nombre (por defecto, el comentario de la clave) admite hasta 100 caracteres. Al entrar, la clave ofrecida se busca por su huella SHA-256 y después se compara byte a byte.
 
@@ -99,7 +103,7 @@ Los inicios de sesión con contraseña comparten el limitador de intentos del pa
 - Un inicio de sesión correcto reinicia el contador. Superado el límite, la respuesta es «demasiados intentos» hasta que los intentos antiguos salen de la ventana.
 - Se guarda en memoria: reiniciar el panel lo pone a cero.
 
-Los inicios de sesión con clave no se cuentan, porque una clave no se puede adivinar.
+Los inicios de sesión con clave en el nodo propio del panel no se cuentan, porque una clave no se puede adivinar. En los nodos remotos, las comprobaciones de clave de `/auth/sftp-key` tienen un cupo propio, también de 10 por cuenta cada 15 minutos (clave `sshkey:user:<id>`), separado del de contraseñas: un cliente SSH ofrece sus claves una tras otra, y esos fallos no deben impedir al dueño entrar con su contraseña. Un inicio de sesión con clave correcto lo reinicia; superado el límite, la ruta responde `429`.
 
 ### Qué puede hacer una sesión
 
@@ -231,6 +235,6 @@ La configuración de Nginx del instalador enlaza el panel a `127.0.0.1` y envía
 
 ## Limitaciones conocidas
 
-- Los inicios de sesión SFTP con contraseña no piden 2FA (véase [Quién puede entrar](#quién-puede-entrar)).
+- Los inicios de sesión SFTP con contraseña no piden 2FA (véase [Quién puede entrar](#quién-puede-entrar)); las claves SSH, que aceptan todos los nodos, evitan enviar la contraseña.
 - Los secretos TOTP (`users.otp_secret`, `otp_pending_secret`) se guardan en la base de datos sin cifrar; proteja en consecuencia el acceso a la base de datos y sus copias.
 - El host del servidor de licencias está fijado en el código y es un host de pruebas (véase [Servicios → LicenseService](./11-services.md#22-licenseservice-licensego)).

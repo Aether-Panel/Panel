@@ -17,6 +17,7 @@ Cómo demuestra una petición quién la envía, cómo decide el panel qué puede
 | GET | `/auth/challenge` | Pública | Desafío anti-bots integrado |
 | GET | `/auth/publickey` | Pública | Las claves públicas JWT del panel (JWKS) |
 | POST | `/oauth2/token` | Credenciales de cliente o secreto del nodo | Emite un token |
+| POST | `/auth/sftp-key` | Secreto del nodo | Comprueba un inicio de sesión SFTP con clave SSH para un nodo remoto |
 | GET | `/api/config` | Pública | Marca, registros, configuración anti-bots y versión |
 
 ## Formas de autenticarse
@@ -27,7 +28,7 @@ Cómo demuestra una petición quién la envía, cómo decide el panel qué puede
 | Token bearer | `Authorization: Bearer <token>` | Scripts e integraciones: un token de sesión o un token de acceso OAuth2 |
 | Clave de API | `X-Api-Key: ak_...` o `Authorization: Bearer ak_...` | Solo las rutas de facturación bajo `/api/v1` (véase [Aprovisionamiento](./07-provisioning.md)) |
 | JWT del panel | `Authorization: Bearer <jwt>` | Las rutas `/daemon`, del panel al nodo, salvo las públicas `GET`/`HEAD`/`OPTIONS /daemon` y `GET /daemon/features` (véase [Daemon](./09-daemon.md)) |
-| Secreto del nodo | `Authorization: Bearer <secreto>` | Solo la concesión de contraseña de OAuth2, del nodo al panel |
+| Secreto del nodo | `Authorization: Bearer <secreto>` | Del nodo al panel: la concesión de contraseña de OAuth2 y `POST /auth/sftp-key` (inicios de sesión SFTP) |
 | Enlaces firmados | Token en la ruta o en la consulta | `/auth/sso?token=...`, `/api/map-view/...` |
 | Firmas Ed25519 | En el cuerpo o en la consulta | `/api/extransfer/*`, de panel a panel, salvo `validate`, que recibe el token de transferencia (véase [Transferencia externa](./08-external-transfer.md)) |
 
@@ -215,7 +216,7 @@ curl -X POST https://panel.example.com/oauth2/token \
 
 **`grant_type=password`** (solo nodos)
 
-Un nodo la usa para comprobar un inicio de sesión SFTP. Envía `Authorization: Bearer <secreto del nodo>` (el `clientSecret` de su despliegue), `username=<email>#<serverId>` y la contraseña del usuario. El panel comprueba que el servidor esté en ese nodo, la contraseña, el scope `login` y `server.sftp` en el servidor. La respuesta no contiene token de acceso, solo `{"token_type": "Bearer", "expires_in": 3600, "scope": "<serverId>:server.sftp"}`: una contraseña sola nunca abre una sesión del panel (se saltaría la 2FA). El propio inicio de sesión SFTP no pide el código 2FA, porque los clientes SFTP no pueden enviarlo: las cuentas con 2FA deberían usar [claves SSH](./05-accounts.md#claves-ssh) para SFTP, que acepta el nodo propio del panel (los nodos remotos solo admiten contraseñas).
+Un nodo la usa para comprobar un inicio de sesión SFTP. Envía `Authorization: Bearer <secreto del nodo>` (el `clientSecret` de su despliegue), `username=<email>#<serverId>` y la contraseña del usuario. El panel comprueba que el servidor esté en ese nodo, la contraseña, el scope `login` y `server.sftp` en el servidor. La respuesta no contiene token de acceso, solo `{"token_type": "Bearer", "expires_in": 3600, "scope": "<serverId>:server.sftp"}`: una contraseña sola nunca abre una sesión del panel (se saltaría la 2FA). El propio inicio de sesión SFTP no pide el código 2FA, porque los clientes SFTP no pueden enviarlo: las cuentas con 2FA deberían usar [claves SSH](./05-accounts.md#claves-ssh) para SFTP, que aceptan todos los nodos (los nodos remotos las comprueban con [`POST /auth/sftp-key`](#post-authsftp-key)).
 
 | Error | Cuándo |
 |-------|--------|
@@ -223,6 +224,39 @@ Un nodo la usa para comprobar un inicio de sesión SFTP. Envía `Authorization: 
 | `400 {"error": "invalid_client"}` | Secreto de cliente incorrecto |
 | `401 {"error": "invalid_client"}` | Concesión de contraseña sin cabecera bearer |
 | `400 {"error": "unsupported_grant_type"}` | Cualquier otro tipo de concesión |
+
+### `POST /auth/sftp-key`
+
+Así comprueba un nodo remoto un inicio de sesión SFTP con clave SSH: las claves de los usuarios están en la base de datos del panel, que solo puede leer el nodo propio del panel. El servidor SFTP del nodo consulta esta ruta por cada clave que ofrece un cliente, antes de que el cliente demuestre que tiene la clave privada; el nodo no concede nada hasta que esa prueba es correcta.
+
+El nodo se identifica con su secreto, como en la concesión de contraseña: `Authorization: Bearer <secreto del nodo>` (`daemon.auth.clientSecret` en su configuración). Encuentra el panel a partir de `daemon.auth.url`: la misma dirección con la ruta del token (`/oauth2/token`) cambiada por `/auth/sftp-key`, conservando el prefijo de ruta bajo el que se sirva el panel; esa URL debe ser una dirección `http(s)` absoluta. Cada comprobación espera como máximo 15 segundos.
+
+```json
+{ "username": "player@example.com#a1b2c3d4", "publicKey": "ssh-ed25519 AAAAC3Nza... laptop" }
+```
+
+| Campo | Notas |
+|-------|-------|
+| `username` | El usuario SFTP, `<email>#<serverId>` |
+| `publicKey` | La clave que ofreció el cliente, como una línea de `authorized_keys` |
+
+El cuerpo puede ocupar como máximo 16 KiB. Las comprobaciones son las mismas que en un inicio de sesión SFTP con clave en el nodo propio del panel, más una: el servidor debe estar en el nodo que pregunta. La clave debe ser una de las [claves SSH](./05-accounts.md#claves-ssh) de la cuenta, y la cuenta debe seguir teniendo `login` y `server.sftp` en el servidor.
+
+Respuesta (`Cache-Control: no-store`); como la concesión de contraseña, nunca contiene una sesión:
+
+```json
+{ "scope": "a1b2c3d4:server.sftp" }
+```
+
+| Error | Cuándo |
+|-------|--------|
+| `401 {"error": "invalid_client"}` | Sin cabecera bearer, o el secreto no es el de ningún nodo (con `WWW-Authenticate: Bearer`) |
+| `400 {"error": "invalid_request", "error_description": "bad request"}` | El cuerpo no es JSON válido o es demasiado grande |
+| `400 {"error": "invalid_request", "error_description": "no access"}` | Usuario mal formado, clave ilegible, servidor que no está en el nodo que pregunta, cuenta desconocida, clave que no es de la cuenta, o sin `login` / `server.sftp`: la misma respuesta para todo, para no revelar qué parte falló |
+| `429 {"error": "invalid_request", "error_description": "too many failed attempts, wait a few minutes"}` | 10 comprobaciones en 15 minutos para esta cuenta sin ningún acierto |
+| `500 {"error": "server_error"}` | El panel no pudo buscar el nodo |
+
+El contador de intentos es independiente del de contraseñas (clave `sshkey:user:<id>`): un cliente SSH ofrece sus claves una tras otra, y esos fallos no deben impedir al propietario entrar con su contraseña. Un acierto lo reinicia. Un nodo con una versión anterior solo admite contraseñas. Un nodo cuyo panel aún no tiene esta ruta, o cuyo `daemon.auth.url` no es una URL `http(s)` absoluta, rechaza los inicios de sesión con clave y registra el motivo; las contraseñas siguen funcionando.
 
 ## Configuración pública
 

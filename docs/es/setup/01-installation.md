@@ -331,7 +331,9 @@ En **Nodos**, cree el nodo con su host público, el puerto HTTP (8080) y el puer
 > - El `clientSecret` que muestra es un valor fijo, no el del nodo. El secreto real lo devuelve `GET /api/nodes/{id}/deployment` (permiso `nodes.deploy`), en el campo `clientSecret`.
 > - El `docker-compose.yml` que propone no incluye base de datos, y el `entrypoint` de la imagen espera a MySQL (por defecto en el host `mysql`) y se detiene tras 60 segundos si no responde. Por eso se recomienda preparar el nodo con el instalador, como se indica a continuación.
 
-`daemon.auth.*` lo usa el SFTP del nodo para validar a los usuarios contra el maestro, y `token.public` para comprobar las peticiones que le envía el maestro. Si `token.public` está vacío con el panel desactivado, el log lo avisa al arrancar. Si `daemon.auth.url` es solo la dirección del maestro, sin ruta (por ejemplo `https://<maestro>`), el nodo le añade `/oauth2/token`; una URL con ruta se usa tal cual.
+`daemon.auth.*` lo usa el SFTP del nodo para validar a los usuarios contra el maestro, y `token.public` para comprobar las peticiones que le envía el maestro. Si `token.public` está vacío con el panel desactivado, el log lo avisa al arrancar. Si `daemon.auth.url` es solo la dirección del maestro, sin ruta (por ejemplo `https://<maestro>`), el nodo le añade `/oauth2/token`; una URL con ruta se usa tal cual. Los inicios de sesión con clave SSH se comprueban en `/auth/sftp-key` de la misma dirección: el nodo sustituye `/oauth2/token` por esa ruta y conserva cualquier ruta que haya delante.
+
+`daemon.auth.clientSecret` debe ser el secreto real del nodo: las peticiones del maestro van ligadas a él, y el nodo las responde con `401` si no coincide (los usuarios ven entonces `ErrNodeAuthFailed`, véase [Solución de problemas](./troubleshooting.md#nodos-secundarios)). La hora de las dos máquinas también debe coincidir, porque las peticiones del maestro llevan tokens de corta duración.
 
 ### 2. Instalar y convertir la máquina en nodo
 

@@ -25,7 +25,9 @@ El token **no lleva usuario ni permisos**: cualquier token válido del panel pue
 | Respuesta | Cuándo |
 |-----------|--------|
 | `401 {"error": "invalid_request"}` con `WWW-Authenticate: Bearer` | Sin cabecera `Authorization`, o no tiene la forma `Bearer <token>` |
-| `400` con un cuerpo de error | Firma incorrecta, token caducado, sin caducidad o con una audiencia que no corresponde |
+| `401 {"error": "invalid_token"}` con `WWW-Authenticate: Bearer error="invalid_token"` | Firma incorrecta, token caducado, sin caducidad o con una audiencia que no corresponde (el nodo registra el motivo) |
+
+Un token que no supera la comprobación suele indicar que el `daemon.auth.clientSecret` del nodo no es el secreto que el panel tiene para ese nodo, o que el reloj de una de las dos máquinas está desajustado. El panel no pasa ese `401` al navegador (ni un `403` con `WWW-Authenticate`, de un proxy delante del nodo): responde `502 ErrNodeAuthFailed` y registra el nombre del nodo (véase [Convenciones → Fallos de autenticación con el nodo](./01-conventions.md#fallos-de-autenticación-con-el-nodo)). Los nodos anteriores a esta versión respondían `400` en este caso.
 
 ## Rutas
 
@@ -40,6 +42,7 @@ El token **no lleva usuario ni permisos**: cualquier token válido del panel pue
 | GET | `/daemon/system` | Token del panel | Equipo, CPU, memoria, discos, contadores de red | [`GET /api/nodes/:id/system`](./06-panel-admin.md#get-apinodesidsystem) |
 | GET | `/daemon/ports` | Token del panel | Puertos del equipo publicados por los contenedores del nodo | [`POST /api/nodes/:id/ports/check`](./06-panel-admin.md#post-apinodesidportscheck) |
 | GET | `/daemon/network/history` | Token del panel | Tráfico del nodo en la última hora, 6 horas o día | [`GET /api/nodes/network-history`](./06-panel-admin.md#get-apinodesnetwork-historyrange1h) |
+| GET | `/daemon/servers/status` | Token del panel | Estado (en marcha / instalando) de todos los servidores del nodo | El sondeo de disponibilidad del panel y el informe de nodos de Discord |
 | POST | `/daemon/update` | Token del panel | Inicia una actualización de este nodo | `POST /api/settings/update-panel` |
 | GET | `/daemon/update-status` | Token del panel | Estado de la última actualización de este nodo | `GET /api/settings/update-status` |
 
@@ -52,7 +55,7 @@ Salvo que la última columna diga otra cosa, la ruta del panel es la misma bajo 
 | Método | Ruta (tras `/daemon/server/:serverId`) | Qué hace | Ruta del panel |
 |--------|----------------------------------------|----------|----------------|
 | PUT | *(ninguna)* | Crea el servidor a partir de una definición | `PUT /api/servers/:serverId`, transferencia entre nodos, clonado |
-| DELETE | *(ninguna)* | Borra el servidor, sus archivos y sus copias de seguridad (`?keepBackups=true` conserva las copias) | `DELETE /api/servers/:serverId`, transferencia entre nodos |
+| DELETE | *(ninguna)* | Borra el servidor, sus archivos y sus copias de seguridad (`?keepBackups=true` conserva las copias) | `DELETE /api/servers/:serverId`, transferencia entre nodos (y su deshacer) |
 | GET | `/definition` | Definición completa | La misma; también transferencia entre nodos y clonado |
 | PUT | `/definition` | Sustituye la definición | La misma (el panel filtra lo que envían quienes no son administradores) |
 | GET | `/data` | Variables editables por el usuario | La misma |
@@ -72,16 +75,16 @@ Salvo que la última columna diga otra cosa, la ruta del panel es la misma bajo 
 | POST | `/console` | Envía un comando | La misma |
 | GET, POST | `/flags` | Opciones de inicio y reinicio automáticos | La misma |
 | GET | `/stats` | CPU, memoria, disco, red | La misma |
-| GET | `/status` | En marcha / instalando | La misma; también las comprobaciones de disponibilidad (uptime) |
+| GET | `/status` | En marcha / instalando | La misma; también las comprobaciones de disponibilidad (uptime) y la transferencia entre nodos |
 | HEAD, GET | `/query` | Consulta al juego | La misma |
 | GET | `/crashes` | Informes de fallos | La misma |
 | GET | `/metrics` | Historial de rendimiento (`range` `1h`, `24h` o `7d`) | La misma |
 | GET, POST | `/version` | Versiones del juego / cambio de versión | La misma |
 | GET, PUT | `/notifications` | Canales de notificación | La misma |
 | POST | `/notifications/test` | Mensaje de prueba | La misma |
-| GET, DELETE | `/plugins` | Plugins instalados / quitar uno (`?name=`) | La misma |
-| GET | `/plugins/search` | Busca en Modrinth (`?q=`) | La misma |
-| POST | `/plugins/:pluginId` | Instala un plugin (`?loaders=` y `?game_versions=` filtran las versiones de Modrinth) | La misma |
+| GET, DELETE | `/plugins` | Plugins o mods instalados / quitar uno (`?name=`), en `mods/` en Fabric, Forge y NeoForge y en `plugins/` en los demás casos | La misma |
+| GET | `/plugins/search` | Busca en Modrinth para la plataforma del servidor (`?q=`) | La misma |
+| POST | `/plugins/:pluginId` | Instala un plugin o un mod (`?loaders=` y `?game_versions=` filtran las versiones de Modrinth) | La misma |
 | GET | `/modpacks`, `/modpacks/search`, `/modpacks/versions` | Estado y búsqueda de modpacks | La misma |
 | POST | `/modpacks/install` | Instala un modpack | La misma |
 | GET | `/file-history` | Versiones de un archivo (`?path=`) | La misma |
@@ -96,6 +99,9 @@ Salvo que la última columna diga otra cosa, la ruta del panel es la misma bajo 
 | POST | `/backup/restore?fileName=` | Restaura una copia | `POST /api/servers/:serverId/backup/restore/:backupID` |
 | GET | `/backup/download?fileName=` | Envía una copia en flujo continuo | `GET /api/servers/:serverId/backup/download/:backupID` |
 | DELETE | `/backup?fileName=` | Borra el archivo de una copia | `DELETE /api/servers/:serverId/backup/:backupID` |
+| GET | `/backup/busy` | Si se está escribiendo una copia, un punto de restauración o una restauración | Transferencia entre nodos |
+| PUT | `/backup/file?fileName=&modTime=` | Recibe el archivo de una copia copiado desde otro nodo | Transferencia entre nodos |
+| DELETE | `/backup/file?fileName=` | Quita la copia de este nodo y deja la del almacenamiento externo | Transferencia entre nodos (deshacer) |
 | POST | `/clone-from/:sourceId` | Copia en este servidor los archivos de otro | [`POST /api/servers/:serverId/clone`](./03-servers.md#post-apiserversserveridclone) |
 | GET | `/socket` | WebSocket: consola, estadísticas, estado | [`GET /api/servers/:serverId/socket`](./03-servers.md#websocket) |
 
@@ -131,6 +137,14 @@ Puertos del equipo publicados por los contenedores en marcha en el nodo, cada un
 
 El nodo lee sus contadores de tráfico cada 10 segundos y guarda un punto por minuto durante 24 horas en el archivo `network.history`, junto a la carpeta de servidores (se guarda cada 5 minutos, así que sobrevive a los reinicios). La respuesta promedia esos minutos en pasos de 1, 5 o 15 minutos. `t` es el inicio del paso en segundos Unix; `rx` y `tx` son los KB/s recibidos y enviados. Los pasos que el nodo no midió (estaba apagado) no tienen punto. El panel suma los nodos en [`GET /api/nodes/network-history`](./06-panel-admin.md#get-apinodesnetwork-historyrange1h); allí, un nodo demasiado antiguo para tener esta ruta cuenta como no disponible.
 
+### `GET /daemon/servers/status`
+
+```json
+{ "servers": { "3F9A1C2B7D4E": { "running": true, "installing": false }, "a1b2c3d4": { "running": false, "installing": true } } }
+```
+
+El estado de cada servidor cargado en el nodo, por ID de servidor: lo mismo que `GET /daemon/server/:serverId/status`, para todos a la vez. Un servidor cuyo estado no se puede leer se omite, para que el panel lo tome como desconocido y no como detenido. El panel se lo pide a cada nodo remoto cada 30 segundos para registrar la [disponibilidad](../../general/13-uptime.md), y usa la última respuesta en el informe de nodos de Discord. Un nodo anterior a esta ruta responde `404`, y el panel lo trata como inalcanzable hasta que se actualice.
+
 ### `POST /daemon/update`
 
 Inicia una actualización de la máquina en la que se ejecuta el nodo, en un contenedor de vida corta (si falta la imagen de actualización, primero la descarga). Respuesta: `{"message": "Update initiated on this node.", "containerId": "..."}`; `500` cuando no se puede contactar con Docker o el contenedor no arranca. Véase [Actualizaciones del panel](../../features/panel-updates.md).
@@ -153,11 +167,11 @@ Cuerpo: una definición de servidor. Si el nodo ya tiene un servidor con ese ide
 
 ### `DELETE /daemon/server/:serverId`
 
-Fuerza la parada del servidor si está en marcha, ejecuta los pasos de desinstalación de la plantilla y borra la carpeta del servidor y todo lo que el nodo guarda de él (definición, tareas, informes de fallos, ajustes de notificación, métricas, estado del mapa del mundo y del modpack, historial de archivos y su carpeta `/tmp`). Si falla un paso de desinstalación, se registra en el log y se muestra en la consola, y el borrado continúa. Después se borra la carpeta de copias de seguridad del servidor en este nodo (`<daemon.data.backups.folder>/<serverId>`), salvo que la petición lleve `?keepBackups=true`, que el panel envía cuando traslada el servidor a otro nodo; las copias del almacenamiento externo no se tocan. `204`.
+Fuerza la parada del servidor si está en marcha, ejecuta los pasos de desinstalación de la plantilla y borra la carpeta del servidor y todo lo que el nodo guarda de él (definición, tareas, informes de fallos, ajustes de notificación, métricas, estado del mapa del mundo y del modpack, historial de archivos y su carpeta `/tmp`). Si falla un paso de desinstalación, se registra en el log y se muestra en la consola, y el borrado continúa. Después se borra la carpeta de copias de seguridad del servidor en este nodo (`<daemon.data.backups.folder>/<serverId>`), salvo que la petición lleve `?keepBackups=true`, que el panel envía cuando deshace una transferencia entre nodos y quita el servidor del nodo nuevo (solo retira, una a una con `DELETE /backup/file`, las copias que llevó). Tras una transferencia correcta, el nodo antiguo recibe un `DELETE` normal: sus copias ya se copiaron al nodo nuevo. Las copias del almacenamiento externo nunca se tocan. `204`.
 
 ### Acciones de encendido
 
-`start`, `restart`, `stop` e `install` responden `202` y trabajan en segundo plano; con `?wait` responden `204` al terminar. `start` y `restart` responden `409` de inmediato cuando el disco del servidor está lleno o alguno de sus puertos ya lo ocupa otro contenedor en marcha. `kill` responde `204`.
+`start`, `restart`, `stop` e `install` responden `202` y trabajan en segundo plano; con `?wait` responden `204` al terminar. `start` y `restart` responden `409` de inmediato cuando el disco del servidor está lleno (`ErrDiskLimitExceeded`) o alguno de sus puertos de host ya lo publica otro contenedor en marcha o lo ocupa otro proceso (`ErrPortBusy`). `kill` responde `204`.
 
 ### Archivos
 
@@ -166,6 +180,12 @@ Las mismas reglas que las [rutas de archivos del panel](./04-server-content.md#a
 ### Copias de seguridad
 
 El nodo identifica las copias por el nombre del archivo, no por el ID del registro del panel: `GET /backup` lista los archivos terminados (los más recientes primero) y, después, las copias hechas a mano cuyo archivo no se pudo escribir, con `"location": "failed"` (el panel elimina sus registros al verlas y llama a `DELETE` para borrar la marca). `restore`, `download` y `DELETE` reciben `?fileName=`. `POST /backup/create` responde `{"backupFileName": "..."}` y escribe el archivo en segundo plano. `restore` responde `400 ErrBackupServerRunning` mientras el servidor está en marcha y, si no, `202`. Véase [Contenido del servidor → Copias de seguridad](./04-server-content.md#copias-de-seguridad).
+
+Una [transferencia entre nodos](./03-servers.md#post-apiserversserveridtransfer) usa tres rutas más:
+
+- `GET /backup/busy` responde `{"busy": true}` mientras se escribe una copia, un punto de restauración o una restauración del servidor. Entretanto, el panel rechaza la transferencia; a un nodo sin esta ruta no se le pregunta.
+- `PUT /backup/file?fileName=<nombre>&modTime=<RFC 3339>` recibe el archivo como cuerpo sin procesar (`application/octet-stream`) y lo escribe en la carpeta de copias del servidor con el mismo nombre, conservando su fecha (`modTime`, opcional), por la que se ordenan las copias y se aplica la retención de las automáticas. El nombre debe ser un nombre de archivo `.tar.gz` simple y no oculto. Se escribe con un nombre oculto y se mueve a su sitio al terminar, así que una copia interrumpida nunca aparece en la lista. `204`; `409 ErrFileExists` si ya hay una copia con ese nombre (el panel la deja como está); `400` si `modTime` no es válido; `500` si el nombre no es válido o falla la escritura.
+- `DELETE /backup/file?fileName=<nombre>` quita solo la copia de este nodo (que el archivo no exista no es un error), a diferencia de `DELETE /backup`, que también borra la copia externa. `204`.
 
 ### `POST /daemon/server/:serverId/clone-from/:sourceId`
 

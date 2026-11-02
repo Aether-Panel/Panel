@@ -170,6 +170,7 @@ See [Turnstile](../general/17-turnstile.md).
 | `panel.notifications.discordWebhookSystem` | string | — | Yes | Discord webhook for the periodic system summary. |
 | `panel.notifications.discordWebhookNode` | string | — | Yes | Discord webhook for the node status. While it is empty the node report is skipped and remote nodes are not asked for their hardware. |
 | `panel.notifications.discordWebhookExTransfer` | string | — | Yes | Discord webhook for federated transfers. |
+| `panel.settings.notificationLanguage` | string | `es` | Yes | Language (`es` or `en`) of what the panel sends outside its own pages: the panel's Discord alerts and reports, each owner's Discord, Telegram and JSON webhook alerts and their test, the title and message of extension events, and the external transfer reports. Any other value is refused when saving (`ErrNotificationLanguage`). In the web client: Settings → General → Notifications. Environment variable `SKYPANEL_PANEL_SETTINGS_NOTIFICATIONLANGUAGE`. A remote node reads its own configuration, so the alerts of its servers follow the value set on that node (the panel does not push it). The panel's pages follow each user's own language. |
 
 Only `https://discord.com/api/webhooks/...` URLs (or an empty value) are accepted when saving. See [Discord](../general/16-discord.md). Per-server alerts set by each owner are not configuration: they live next to the server (see [Servers](./04-servers.md#per-server-files-on-the-node)).
 
@@ -220,9 +221,9 @@ See [Subdomain (Cloudflare)](./04-servers.md#subdomain-cloudflare) and [Subdomai
 | `daemon.sftp.host` | string | `0.0.0.0:5657` | | SFTP listen address. Its port is also the SFTP port reported for the local node. |
 | `daemon.sftp.key` | data folder | `sftp.key` | | SFTP host key file (generated if missing). |
 | `daemon.sftp.log` | bool | `false` | | Logs every SFTP request. |
-| `daemon.auth.url` | string | `http://localhost:8080` | | Only on a node without the panel: the panel's OAuth2 token endpoint, `<panel>/oauth2/token`, used to check SFTP passwords. A URL without a path (such as the default, or `https://panel.example.com`) gets `/oauth2/token` appended; a URL with a path is used as it is. |
+| `daemon.auth.url` | string | `http://localhost:8080` | | Only on a node without the panel: the panel's OAuth2 token endpoint, `<panel>/oauth2/token`, used to check SFTP passwords. A URL without a path (such as the default, or `https://panel.example.com`) gets `/oauth2/token` appended; a URL with a path is used as it is. SSH key logins are checked at `/auth/sftp-key` on the same address (a path in front of `/oauth2/token` is kept), so for them the value must be an absolute `http(s)` URL. |
 | `daemon.auth.clientId` | string | — | | Node client ID (`.node_<id>`). Declared and set by the deployment snippet, but not read by the current code. |
-| `daemon.auth.clientSecret` | string | — | | Node secret, from `GET /api/nodes/{id}/deployment`. Sent to the panel when checking SFTP passwords, and used to recognise the tokens the panel signs for this node. |
+| `daemon.auth.clientSecret` | string | — | | Node secret, from `GET /api/nodes/{id}/deployment`. Sent to the panel when checking SFTP passwords and SSH keys, and used to recognise the tokens the panel signs for this node. |
 | `daemon.console.buffer` | int | `50` | | Declared but not read by the current code. |
 | `daemon.console.forward` | bool | `false` | | Declared but not read by the panel (only the developer tools in `tools/` set it). |
 | `daemon.curseforge.key` | string | (build value) | Yes | CurseForge API key for CurseForge modpacks and downloads. The default can be injected at build time (Dockerfile build argument `curseforgeKey`); it is empty otherwise. On a remote node it is set in that node's own configuration. |
@@ -360,6 +361,6 @@ The same in `config.json`:
 How the two sides authenticate:
 
 - **Panel → node.** For every call to `/daemon/*` the panel signs a short-lived JWT (EdDSA with `panel.token`, 15 minutes, audience derived from the node secret). The node checks it against the key set at `token.public` and against `daemon.auth.clientSecret`.
-- **Node → panel.** When someone signs in to SFTP with a password, the node posts it to `daemon.auth.url` (`grant_type=password`, username `email#serverId`) with `Authorization: Bearer <clientSecret>`. The panel only confirms the `server.sftp` scope for that server; it does not open a session.
+- **Node → panel.** When someone signs in to SFTP with a password, the node posts it to `daemon.auth.url` (`grant_type=password`, username `email#serverId`) with `Authorization: Bearer <clientSecret>`. With an SSH key, it posts the username and the offered public key to the panel's `/auth/sftp-key` with the same header. Either way the panel only confirms the `server.sftp` scope for that server; it does not open a session.
 
 See [Security](./09-security.md) for the details of tokens and SFTP.

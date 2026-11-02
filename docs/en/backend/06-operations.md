@@ -331,7 +331,7 @@ One of `version` or `minecraftVersion` is required. Reads `maven.neoforged.net`.
 Without `version`, they look in `libraries/net/minecraftforge/forge` (or `libraries/net/neoforged/neoforge`), through the server's file server, for version folders that contain `unix_args.txt` and store the chosen one:
 
 - `resolveneoforgeversion` picks the newest folder for `minecraftVersion`. NeoForge versions drop the leading `1.` of the Minecraft version (`1.21.4` → `21.4.*`, `1.21` → `21.0.*`). When no folder matches, or `minecraftVersion` is empty, it uses the first supported folder found.
-- `resolveforgeversion` keeps the first supported folder found (folders are read in name order); in practice `minecraftVersion` does not change the pick.
+- `resolveforgeversion` picks the newest folder whose name starts with `minecraftVersion` (Forge folders are named `<minecraft>-<forge>`, such as `1.20.1-47.2.0`). When none matches, it keeps the first supported folder found (folders are read in name order).
 
 If the folder does not exist the variable is set to an empty string; that is not an error.
 

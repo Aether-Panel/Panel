@@ -2,7 +2,7 @@
 
 Routes under `/api/servers`: the server list, creating and deleting servers, power actions, console, stats, settings, members, activity, subdomain, clone, node transfer, AI and the WebSocket. Files, backups, tasks and databases are in [Server content](./04-server-content.md). Back to the [API reference](../11-api-reference.md).
 
-Most routes below `/api/servers/:serverId/` are forwarded to the daemon of the server's node (`/daemon/server/:serverId/...`, see [Daemon](./09-daemon.md)): the panel checks the scope, then passes the node's status and body back unchanged. Those are marked "node" in the tables. Every successful change below `/:serverId` is written to the server's [activity log](#get-apiserversserveridactivity).
+Most routes below `/api/servers/:serverId/` are forwarded to the daemon of the server's node (`/daemon/server/:serverId/...`, see [Daemon](./09-daemon.md)): the panel checks the scope, then passes the node's status and body back unchanged (except when the node refuses the panel's own token: `502 ErrNodeAuthFailed`, see [Conventions](./01-conventions.md#node-authentication-failures)). Those are marked "node" in the tables. Every successful change below `/:serverId` is written to the server's [activity log](#get-apiserversserveridactivity).
 
 ## Routes
 
@@ -180,18 +180,18 @@ Answer: `200 {"id": "3F9A1C2B7D4E"}`.
 
 What the panel checks and does:
 
-- The `port`, `port2`, ... variables must be 1024 or higher, unique, not one of the node's own ports and not used by another server on the node; other port variables (query, RCON, any integer variable whose name ends in `port`) are checked the same way. Failures answer `400`.
+- The `port`, `port2`, ... variables must be 1024 or higher, unique, not one of the node's own ports and not used by another server on the node; other port variables (query, RCON, any integer variable whose name ends in `port`) are checked the same way. Failures answer `400` with `ErrPortOutOfRange`, `ErrPortDuplicated`, `ErrPortUsedByPanel` or `ErrPortTaken`; `metadata.port` is the number, followed by the variable name for the other port variables (for example `27015 (queryport)`).
 - `cpu`, `memory` and `disk` variables become the server's limits; negative values answer `400`. A sub-server needs all three above zero and they must fit in what the parent has left.
 - Users without `admin` can only create sub-servers: `parent_server_id` must be a server they own, the environment must be `docker`, and only `image`, `containerRoot`, `config` (without its user) and the template's `portBindings` are kept from it. Anything else answers `403`. See [Sub-servers](../../features/sub-servers.md).
 - Owner: the first listed user; for a sub-server the parent's owner; for a non-administrator creator, themselves; an administrator creating without users owns nothing.
 - The node gets the definition (`400` when it refuses the environment, for example a host environment with `docker.disallowHost`). With `panel.servers.autoInstall` on (the default) the installation starts right away in the background.
 - Members get an email, and an automatic subdomain is assigned when enabled.
 
-Errors: `400 ErrNodeInvalid` for an unknown node, `403` for the sub-server rules, the node's status and body when it refuses.
+Errors: `400 ErrNodeInvalid` for an unknown node, `403` for the sub-server rules, the node's status and body when it refuses, `502 ErrNodeAuthFailed` when the node does not accept the panel's token.
 
 ### `DELETE /api/servers/:serverId`
 
-Stops the server, deletes it on the node (with its backup archives kept on that node; copies already uploaded to off-site storage stay there) and removes its permissions, backup records, OAuth2 clients, sessions, uptime history and DNS records. Its MySQL databases and their users are dropped from their hosts. A server with sub-servers answers `400` until they are deleted. `?skipNode` deletes it from the panel only, without contacting the node. Answer: `204`; members are notified by email (template `deletedServer`).
+Stops the server, deletes it on the node together with the backup archives kept there (copies already uploaded to off-site storage stay there) and removes its permissions, backup records, OAuth2 clients, sessions, uptime history and DNS records. Its MySQL databases and their users are dropped from their hosts. A server with sub-servers answers `400` until they are deleted. `?skipNode` deletes it from the panel only, without contacting the node. Answer: `204`; members are notified by email (template `deletedServer`).
 
 ### `POST /api/servers/:serverId/suspend`
 
@@ -219,7 +219,29 @@ Non-administrators must be members of the original, the original must not be sus
 { "nodeId": 2 }
 ```
 
-Moves the server to another node of this panel in the background: copies the definition, stops and archives the server, streams the archive to the new node, extracts it, updates the panel and deletes the server from the old node. Before starting, the panel checks the server's ports (primary and extra) against the target node: its panel, daemon and SFTP ports, the ports of the servers already there and the ports its containers publish. Answer: `202 {"msg": "Transfer started"}`. `400` for the same node; `404` for an unknown node; `409 ErrTransferPortsTaken` when some port is taken there (`metadata.ports` lists them). Progress is only written to the panel log. The server's backups are not moved: their archives stay on the old node, which keeps them when it deletes the server. Sub-servers are not moved either, and a failed transfer is not rolled back. Details: [Server transfers](../../features/server-transfers.md).
+Moves the server to another node of this panel in the background, together with its [sub-servers](../../features/sub-servers.md) (a sub-server already on the target node stays where it is) and the backups their old node keeps. Answer: `202 {"msg": "Transfer started"}`.
+
+Checked before answering:
+
+| Error | When |
+|-------|------|
+| `400 ErrTransferSubServer` | The server is a sub-server: it stays on its parent's node and moves with the parent |
+| `400` | The target is the server's own node |
+| `404` | Unknown node |
+| `409 ErrTransferRunning` | The server or one of its sub-servers is already being transferred |
+| `409 ErrTransferPortsTaken` | A port (primary or extra) of the server or of a sub-server is taken on the target node: by its panel, daemon or SFTP port, by a server already there or by a port its containers publish (`metadata.ports` lists them) |
+| `409 ErrTransferBackupRunning` | The old node is writing a backup, restore point or restore of one of them (asked through [`GET /daemon/server/:id/backup/busy`](./09-daemon.md); a node without that route is not asked) |
+
+Then, in the background:
+
+1. **Prepare**, server by server: copy the definition to the new node, stop the server on the old node (killing it if it does not stop), archive its files, stream the archive to the new node and extract it, and copy each backup whose archive is on the old node (`local` or `both`) through the panel into the new node, keeping its name and date.
+2. **Commit**: one database transaction points every record at the new node. Only `node_id` is written, so a change made to the server meanwhile is kept.
+3. **Clean up**: delete the servers from the old node, with the backup archives there. Copies in off-site storage are not touched; the bucket is the same wherever the server runs.
+4. **Start** on the new node the servers that were running before.
+
+When a step fails, up to and including the commit, everything is undone, newest first: the backup copies and the servers are removed from the new node, the archives from the old one, and a server that was running is started again on its old node. The servers stay where they were. The failure is written to the panel log and to the activity log of each server as `server.transferFailed` (step and reason). A server that does not start on the new node after the commit stays there and gets `server.transferStartFailed`. Its subdomain follows it to the new node's address.
+
+Limits: a transfer cut by a panel restart is neither resumed nor undone (before the commit the panel still points at the old node, where the server may be left stopped, and a partial copy may remain on the new node); scheduled tasks keep running during the transfer; only one level of sub-servers is moved; and the new node needs a version with the backup routes (`PUT /daemon/server/:id/backup/file`) to receive backups. Details: [Server transfers](../../features/server-transfers.md).
 
 ## Definition, variables and ports
 
@@ -290,7 +312,7 @@ Answer: `200 {"success": true}`.
 |-------|------|
 | `403` | Starting or restarting a suspended server |
 | `409 ErrDiskLimitExceeded` | Starting or restarting with the disk limit reached |
-| `409` | A port of the server is already published by another running container |
+| `409 ErrPortBusy` | A host port of the server is already published by another running container or held by another process on the node (`metadata.port`) |
 
 An install refused because the node is below `daemon.minFreeDiskMB` fails with `ErrNodeDiskFull` (shown on the console; returned as an error with `?wait`).
 
@@ -422,7 +444,7 @@ Makes that user the owner (and a member). The previous owner stays as a sub-user
 { "items": [ { "id": 812, "action": "console.command", "detail": "say hi", "username": "alice", "userId": 3, "createdAt": "2026-11-01T09:12:00Z" } ], "nextCursor": 790 }
 ```
 
-`ip` is only included for administrators. Actions include `server.start`, `file.write`, `file.upload`, `backup.create`, `user.add`, `task.save`, `settings.notifications`; settings changes are recorded without their values. Details: [Activity and access log](../../features/activity-and-access-log.md).
+`ip` is only included for administrators. Actions include `server.start`, `file.write`, `file.upload`, `backup.create`, `user.add`, `task.save`, `settings.notifications`, and the node transfer's `server.transfer`, `server.transferFailed` and `server.transferStartFailed` (in the `settings` family); settings changes are recorded without their values. Details: [Activity and access log](../../features/activity-and-access-log.md).
 
 ## Subdomain
 

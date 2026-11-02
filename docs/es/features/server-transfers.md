@@ -10,27 +10,40 @@ Aether Panel puede mover los archivos de un servidor de dos maneras:
 | | Transferencia entre nodos | Migración entre paneles |
 |---|---|---|
 | Alcance | Dos nodos de un mismo panel | Dos paneles independientes |
-| Qué se traslada | La definición del servidor y todos los archivos | Solo los archivos (un archivo comprimido de la carpeta del servidor) |
+| Qué se traslada | La definición del servidor, todos los archivos y las copias de seguridad guardadas en el nodo, junto con sus subservidores de Splitter | Solo los archivos (un archivo comprimido de la carpeta del servidor) |
 | Dónde se inicia | En el servidor de origen (**Administración › Transferencia**) | En ambos lados: un token en el origen y una importación en el destino (pestaña **Migración**) |
-| Se detiene el servidor antes | Sí (se detiene y, si no para, se fuerza) | No |
-| Progreso en la interfaz | No (solo en el registro del panel) | Sí (paso actual, señal de vida y resultado) |
+| Se detiene el servidor antes | Sí (se detiene y, si no para, se fuerza; se vuelve a iniciar en el nodo nuevo si estaba encendido) | No |
+| Progreso en la interfaz | No (registro del panel; un fallo también se anota en el registro de actividad del servidor) | Sí (paso actual, señal de vida y resultado) |
+| Se deshace si falla | Sí, automáticamente | Se borra el archivo parcial |
 | Se puede cancelar | No | Sí, desde cualquiera de los dos lados |
 
 ## Cómo funciona
 
 ### Transferencia entre nodos
 
-Antes de empezar, el panel comprueba que los puertos del servidor (el principal y los adicionales) estén libres en el nodo de destino: no deben usarlos otros servidores de ese nodo, los puertos del propio nodo (panel, daemon, SFTP) ni contenedores publicados allí. Si alguno está ocupado, responde `409` con `ErrTransferPortsTaken` y la lista de puertos, y no se mueve nada. Si están libres, `POST /api/servers/:serverId/transfer` responde `202` al momento y el panel ejecuta estos pasos en segundo plano:
+Un servidor se traslada junto con sus **subservidores de Splitter** (véase [Subservidores](sub-servers.md)): viven en el nodo de su servidor principal y toman sus recursos del plan de este allí. Un subservidor que ya está en el nodo de destino se queda donde está. Un subservidor no se puede transferir por separado: la petición se rechaza con `400` `ErrTransferSubServer`; hay que transferir su servidor principal.
 
-1. Lee la definición del servidor en el nodo actual y crea el servidor con ella en el nodo de destino.
-2. Detiene el servidor en el nodo actual y espera; si sigue encendido, lo fuerza a parar. Si no consigue detenerlo, la transferencia se cancela.
-3. Comprime todos los archivos en `transfer.tar.gz` en el nodo actual.
-4. Envía el archivo del nodo actual al de destino en flujo continuo, sin guardarlo en el panel.
-5. Lo descomprime en la carpeta del servidor del nodo de destino y borra allí el archivo.
-6. Apunta el registro del servidor en la base de datos al nodo de destino y actualiza su subdominio para que siga a la dirección del nodo nuevo.
-7. Pide al nodo antiguo que borre el servidor, conservando sus copias de seguridad (`?keepBackups=true`): las copias **no** se trasladan al nodo nuevo y siguen en el disco del nodo antiguo.
+Antes de mover nada, `POST /api/servers/:serverId/transfer` comprueba:
 
-El servidor no se vuelve a iniciar en el nodo de destino; hay que iniciarlo al terminar. El registro de actividad anota `server.transfer`.
+- Que el destino sea otro nodo (si no, `400` `cannot transfer to the same node`).
+- Que no haya ya una transferencia en curso de ninguno de estos servidores: `409` `ErrTransferRunning`.
+- Que los puertos de todos los servidores que se trasladan (el principal y los adicionales) estén libres en el nodo de destino: no deben usarlos otros servidores de ese nodo, los puertos del propio nodo (panel, daemon, SFTP) ni contenedores publicados allí. Si no, `409` `ErrTransferPortsTaken` con la lista de puertos.
+- Que el nodo antiguo no esté escribiendo una copia de seguridad, un punto de restauración o una restauración de ninguno de ellos (se pregunta con `GET /daemon/server/:id/backup/busy`): `409` `ErrTransferBackupRunning`. A un nodo demasiado antiguo para tener esa ruta no se le pregunta.
+
+Si las comprobaciones pasan, la petición responde `202` al momento y el panel ejecuta la transferencia en segundo plano. Primero elimina los registros del panel de las copias que fallaron, para que ninguno apunte a una copia que el nodo antiguo nunca tuvo, y después:
+
+1. **Preparación**, para cada servidor por orden (primero el principal):
+   1. Lee la definición del servidor en el nodo antiguo y crea el servidor con ella en el nodo nuevo.
+   2. Detiene el servidor en el nodo antiguo y espera; si sigue encendido, lo fuerza a parar. Si no consigue detenerlo, la transferencia falla. Una copia de seguridad que haya empezado mientras tanto también la hace fallar.
+   3. Comprime todos los archivos en `transfer.tar.gz` en el nodo antiguo, envía el archivo al nodo nuevo en flujo continuo sin guardarlo en el panel, lo descomprime allí en la carpeta del servidor y lo borra.
+   4. Copia a través del panel cada copia de seguridad que el nodo antiguo guarda del servidor (ubicación `local` o `both`) al nodo nuevo (`PUT /daemon/server/:id/backup/file`), con su nombre y su fecha. Una copia guardada solo fuera del nodo (S3) no necesita copiarse: el bucket es el mismo esté donde esté el servidor. Si el nodo nuevo ya tiene una copia con el mismo nombre, se deja como está.
+2. **Confirmación**: apunta al nodo nuevo el registro de cada servidor trasladado en una sola transacción de la base de datos. Solo se escribe el nodo, así que se conservan los demás cambios hechos en el servidor durante la transferencia.
+3. **Limpieza**: borra cada servidor del nodo antiguo, junto con sus copias de seguridad allí (sus copias ya están en el nodo nuevo; las copias externas no se tocan). Un fallo en este paso solo se anota en el registro: el servidor ya funciona desde el nodo nuevo y lo que queda es una copia sobrante. Se actualiza el subdominio de cada servidor trasladado para que siga a la dirección del nodo nuevo.
+4. **Arranque**: inicia en el nodo nuevo los servidores que estaban encendidos antes de la transferencia. Uno que no arranca no se devuelve al nodo antiguo; el panel anota `server.transferStartFailed` en su registro de actividad con el motivo.
+
+Si falla cualquier paso hasta la confirmación, toda la transferencia se deshace, del paso más reciente al más antiguo, para cada servidor al que se llegó: se quitan del nodo nuevo las copias de seguridad que trajo y el propio servidor, se borran los archivos comprimidos del nodo antiguo y un servidor que estaba encendido se vuelve a iniciar en el nodo antiguo. Los servidores se quedan en su nodo antiguo y el panel anota `server.transferFailed` en el registro de actividad de cada uno, con el paso y el motivo (véase [Registro de actividad](activity-and-access-log.md)). Una llamada de limpieza que falla se escribe en el registro del panel.
+
+El registro de actividad también anota la propia petición como `server.transfer`.
 
 ### Migración entre paneles
 
@@ -57,7 +70,7 @@ El registro de actividad anota `extransfer.create`, `extransfer.pull` y `extrans
 
 1. Se abre el servidor y se entra en **Administración › Transferencia**.
 2. Se pulsa **Transferir**, se elige el **Nodo de destino** y se pulsa **Iniciar transferencia**.
-3. El panel muestra *Transferencia iniciada.* El servidor desaparece del nodo antiguo cuando termina la copia.
+3. El panel muestra *Transferencia iniciada.* Cuando termina la copia, el servidor, sus subservidores y sus copias de seguridad están en el nodo nuevo, y los servidores que estaban encendidos se inician allí. Si la transferencia falla, se deshace y la **Actividad** del servidor indica el motivo.
 
 **Migración entre paneles**
 
@@ -79,10 +92,10 @@ Ambos lados ofrecen **Cancelar transferencia** mientras hay una transferencia ac
 
 | Método | Ruta | Permiso | Finalidad |
 |--------|------|---------|-----------|
-| POST | `/api/servers/:serverId/transfer` | `server.data.edit.admin` | Transferencia entre nodos. `409` `ErrTransferPortsTaken` si algún puerto del servidor está ocupado en el destino. Cuerpo `{"nodeId": 2}`. Responde `202 {"msg": "Transfer started"}`. |
+| POST | `/api/servers/:serverId/transfer` | `server.data.edit.admin` | Transferencia entre nodos del servidor y sus subservidores. Cuerpo `{"nodeId": 2}`. Responde `202 {"msg": "Transfer started"}`. `400` `ErrTransferSubServer` para un subservidor; `409` `ErrTransferPortsTaken`, `ErrTransferRunning` o `ErrTransferBackupRunning`. |
 | POST | `/api/servers/:serverId/extransfer/create` | `server.data.edit.admin` | Origen: crea una sesión. Responde `session_id`, `token` y `expires_in` (900). |
 | POST | `/api/servers/:serverId/extransfer/pull` | `server.data.edit.admin` | Destino: inicia la importación. Cuerpo `{"origin_url": "https://panel.example.com", "token": "…"}`. Responde `202`. |
-| GET | `/api/servers/:serverId/extransfer/status` | `server.data.edit.admin` | Ambos lados: `status` (paso actual de la importación), `pulling` y `origin` (la sesión más reciente creada aquí, mientras está activa o hasta 15 minutos después de terminar). |
+| GET | `/api/servers/:serverId/extransfer/status` | `server.data.edit.admin` | Ambos lados: `status` (código del paso actual o del resultado de la importación: `STEP_*`, `ERROR_*`, `DONE`, `CANCELLED`, `CANCELLED_BY_ORIGIN`), `detail` (lo que añaden algunos fallos, como `HTTP 403`), `message` (texto en inglés de un código `STEP_*` o `ERROR_*`, para un cliente que no lo conozca), `pulling` y `origin` (la sesión más reciente creada aquí, mientras está activa o hasta 15 minutos después de terminar). |
 | POST | `/api/servers/:serverId/extransfer/cancel` | `server.data.edit.admin` | Cancela las sesiones de origen activas y la importación en curso de este servidor. `409 NO_ACTIVE_TRANSFER` si no hay ninguna. |
 | POST | `/api/extransfer/validate` | pública (token) | La llama el destino. |
 | POST | `/api/extransfer/consume` | pública (firma) | La llama el destino. |
@@ -98,28 +111,30 @@ Los errores de las rutas públicas tienen la forma `{"error_code", "message", "r
 | Clave | Valor por defecto | Variable de entorno | Significado |
 |-------|-------------------|---------------------|-------------|
 | `panel.exTransferKey` | se genera en el primer uso | `SKYPANEL_PANEL_EXTRANSFERKEY` | Semilla de la clave de firma Ed25519 de este panel. Se escribe sola en el archivo de configuración; no debe cambiarse durante una transferencia. |
-| `panel.notifications.discordWebhookExTransfer` | vacío | `SKYPANEL_PANEL_NOTIFICATIONS_DISCORDWEBHOOKEXTRANSFER` | Webhook de Discord que recibe un informe cuando una migración termina, falla o se cancela. Se edita en **Configuración › Notificaciones Discord** (**Webhook de ExTransfer**). |
+| `panel.notifications.discordWebhookExTransfer` | vacío | `SKYPANEL_PANEL_NOTIFICATIONS_DISCORDWEBHOOKEXTRANSFER` | Webhook de Discord que recibe un informe cuando una migración termina, falla o se cancela. Se edita en **Configuración › Notificaciones Discord** (**Webhook de ExTransfer**). El informe se redacta en el idioma de las notificaciones (`panel.settings.notificationLanguage`, véase [Ajustes del panel](panel-settings.md)). |
 
 Véase [Configuración](../backend/02-configuration.md).
 
 Otros requisitos:
 
 - Ambas acciones necesitan `server.data.edit.admin` sobre el servidor, que el propietario no tiene por defecto (véase la [referencia de permisos](../general/scopes-reference.md)).
-- Transferencia entre nodos: ambos nodos encendidos y accesibles desde el panel; disco libre suficiente en el nodo de origen para el archivo comprimido y en el de destino para el archivo y los archivos descomprimidos.
+- Transferencia entre nodos: ambos nodos encendidos y accesibles desde el panel; disco libre suficiente en el nodo de origen para el archivo comprimido y en el de destino para el archivo, los archivos descomprimidos y las copias de seguridad. Para recibir copias de seguridad, el nodo de destino debe tener una versión con la ruta `/daemon/server/:id/backup/file`; con una más antigua, un servidor que tenga copias en su nodo no se puede transferir (la copia falla y la transferencia se deshace).
 - Migración: el panel de origen debe ser accesible desde el de destino por HTTP(S) en una dirección **pública**. Se rechazan localhost y las IP privadas o de loopback. La URL solo puede ser `http(s)://host[:puerto]` (sin ruta); si no lleva esquema, se supone `https://`.
 
 ## Límites
 
 - **Transferencia entre nodos**
-  - No hay indicador de progreso ni marcha atrás automática. Si un paso falla, el error solo va al registro del panel; el servidor puede quedar creado en el nodo de destino mientras sigue funcionando desde el de origen, o quedarse detenido tras el paso 2.
-  - Solo se mueve el servidor elegido. Los subservidores se quedan en su nodo (véase [Subservidores](sub-servers.md)).
-  - Las copias de seguridad no se mueven: siguen en el nodo antiguo y la pestaña **Copias de seguridad** del servidor ya no las muestra. Antes de transferir, descargue las que quiera conservar (véase [Copias de seguridad](backups.md)).
+  - No hay indicador de progreso: el resultado aparece en el registro de actividad del servidor (si falla) y en el registro del panel.
+  - La transferencia no se reanuda tras reiniciar el panel: un reinicio a mitad la deja a medias, sin la marcha atrás automática. Conviene revisar ambos nodos antes de volver a intentarlo.
+  - Las tareas programadas siguen ejecutándose durante la transferencia (véase [Tareas programadas](scheduled-tasks.md)); una tarea que inicie, detenga o haga una copia del servidor puede interferir. Es mejor no transferir cuando toca alguna.
+  - Solo se traslada un nivel de subservidores con el servidor: no se buscan subservidores de un subservidor.
+  - Los servidores no están disponibles desde que se detienen hasta que se inician en el nodo nuevo.
 - **Migración entre paneles**
   - Solo viajan los archivos. El servidor de destino conserva su plantilla, variables, recursos, usuarios y copias de seguridad; hay que configurarlos para que coincidan.
   - Los archivos del paquete sobrescriben los del destino que tienen el mismo nombre; el resto de archivos existentes se conserva. La importación no detiene el servidor de destino ni cambia su configuración, como indica el aviso de la pestaña **Importar**: conviene detenerlo y hacer antes una copia de seguridad (véase [Copias de seguridad](backups.md)).
   - El servidor de origen no se detiene mientras se comprime, así que un mundo en marcha puede copiarse a medio guardar, y tampoco se borra tras la migración.
   - El origen debe tener listo el paquete en las 2 horas posteriores al primer intento de descarga (que empieza 5 segundos después del consume); si no, la importación falla.
-  - Los mensajes de los pasos de la importación los genera el backend del destino en español, sea cual sea el idioma de la interfaz.
+  - La API de estado devuelve cada paso de la importación como un código que la página traduce al idioma de quien la mira; los informes de Discord del destino usan el idioma de las notificaciones del panel, y el motivo que envía al origen cuando abandona va en inglés.
   - El archivo comprimido se escribe dentro de la carpeta del servidor de origen y cuenta para su disco.
 
 ## Problemas conocidos y soluciones
@@ -128,14 +143,18 @@ Otros requisitos:
 |---------|------|-------|----------|
 | `cannot transfer to the same node` | Panel | El nodo de destino es el actual. | Elegir otro nodo. |
 | `ports … of this server are already used on the target node: free them or pick another node` (`409`, `ErrTransferPortsTaken`) | Panel | Otro servidor, el propio nodo o un contenedor usa esos puertos en el nodo de destino. | Liberarlos allí, cambiar los puertos del servidor o elegir otro nodo. |
-| La transferencia entre nodos no termina; el servidor sigue en el nodo antiguo | Panel | Falló un paso en segundo plano. | Buscar `Failed to …` / `Transfer of … cancelled` en el registro del panel, corregir el problema del nodo y repetir. |
-| `ERROR: La URL de origen no es válida o apunta a una dirección no permitida` | Destino | URL con ruta, credenciales, IP privada o localhost. | Usar la dirección pública `https://host[:puerto]` del panel de origen. |
-| `ERROR: Fallo de red al conectar con origen` | Destino | El origen no es accesible. | Revisar DNS, cortafuegos y TLS del panel de origen. |
-| `ERROR: Token inválido o expirado (Status 403)` | Destino | Token mal copiado, ya usado, cancelado o con más de 15 minutos. | Generar un token nuevo en el origen. |
-| `ERROR: El origen rechazó la transferencia` | Destino | Se rechazó el consume firmado (nonce de más de 3 minutos, sesión que no está en `VALIDATED`). | Empezar de nuevo con otro token. |
-| `ERROR: El origen no preparó el paquete a tiempo (timeout 2h0m0s)` | Destino | Comprimir el servidor de origen tardó más de 2 horas. | Reducir el tamaño del servidor (copias antiguas, registros) y reintentar. |
-| `ERROR: El origen rechazó la descarga (Status …)` | Destino | La sesión se canceló, falló o caducó en el origen. | Revisar la pestaña **Exportar** del origen y generar un token nuevo. |
-| `ERROR: Error al subir archivo al daemon` / `ERROR: Error al descomprimir en el destino: …` | Destino | El nodo de destino rechazó el archivo (límite de disco, nodo apagado). | Liberar disco en el servidor o el nodo de destino. |
+| `Un subservidor se queda en el nodo de su servidor principal…` (`400`, `ErrTransferSubServer`) | Panel | El servidor es un subservidor de Splitter. | Transferir el servidor principal: sus subservidores van con él. |
+| `Este servidor ya se está transfiriendo…` (`409`, `ErrTransferRunning`) | Panel | Hay en curso una transferencia de este servidor o de uno de sus subservidores. | Esperar a que termine. |
+| `Hay una copia de seguridad o una restauración de este servidor en curso…` (`409`, `ErrTransferBackupRunning`) | Panel | El nodo antiguo está escribiendo una copia, un punto de restauración o una restauración de alguno de los servidores. | Transferir cuando termine. |
+| El servidor sigue en el nodo antiguo; su actividad muestra `server.transferFailed` | Panel | Un paso falló y la transferencia se deshizo. El detalle indica el servidor, el paso y la respuesta del nodo. | Corregir la causa (disco, nodo apagado, nodo de destino demasiado antiguo para recibir copias) y repetir. El registro del panel contiene `Transfer of … failed and was undone`. |
+| El servidor se trasladó pero está detenido; su actividad muestra `server.transferStartFailed` | Panel | No se pudo iniciar en el nodo nuevo. | Leer el motivo en el detalle y en la consola del servidor e iniciarlo a mano. |
+| `La URL de origen no es válida o apunta a una dirección no permitida` (`ERROR_ORIGIN_URL`) | Destino | URL con ruta, credenciales, IP privada o localhost. | Usar la dirección pública `https://host[:puerto]` del panel de origen. |
+| `Fallo de red al conectar con origen` (`ERROR_ORIGIN_UNREACHABLE`) | Destino | El origen no es accesible. | Revisar DNS, cortafuegos y TLS del panel de origen. |
+| `Token inválido o expirado (HTTP 403)` (`ERROR_TOKEN_REJECTED`) | Destino | Token mal copiado, ya usado, cancelado o con más de 15 minutos. | Generar un token nuevo en el origen. |
+| `El origen rechazó la transferencia` (`ERROR_ORIGIN_REFUSED`) | Destino | Se rechazó el consume firmado (nonce de más de 3 minutos, sesión que no está en `VALIDATED`). | Empezar de nuevo con otro token. |
+| `El origen no preparó el paquete a tiempo (2h0m0s)` (`ERROR_DOWNLOAD_TIMEOUT`) | Destino | Comprimir el servidor de origen tardó más de 2 horas. | Reducir el tamaño del servidor (copias antiguas, registros) y reintentar. |
+| `El origen rechazó la descarga (HTTP …)` (`ERROR_DOWNLOAD_REFUSED`) | Destino | La sesión se canceló, falló o caducó en el origen. | Revisar la pestaña **Exportar** del origen y generar un token nuevo. |
+| `Error al subir archivo al daemon` (`ERROR_UPLOAD`) / `Error al descomprimir en el destino (…)` (`ERROR_EXTRACT`) | Destino | El nodo de destino rechazó el archivo (límite de disco, nodo apagado). | Liberar disco en el servidor o el nodo de destino. |
 | `A transfer is already running for this server` (`409`) | Destino | Ya hay una importación en curso. | Esperar a que termine o cancelarla. |
 | `There is no transfer in progress for this server` (`409 NO_ACTIVE_TRANSFER`) | Ambos | No hay nada que cancelar. | — |
 | `UNSUPPORTED_PROTOCOL` (`400`) | Origen (rutas públicas) | El destino usa una versión del protocolo distinta de `1.0`. | Actualizar ambos paneles a una versión compatible. |

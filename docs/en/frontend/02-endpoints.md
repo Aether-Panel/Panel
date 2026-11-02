@@ -30,7 +30,7 @@ All of them use the browser's `fetch` with `credentials: 'include'`, so the sess
 A non-2xx response throws `ApiError` (`status`, `message`, `data` = the parsed body). The message is chosen like this:
 
 1. If the body is `{ "error": "text" }`, that text.
-2. If the body is `{ "error": { "code": "ErrSomething", "msg": "..." } }` (the panel's structured errors), the translation of `code` under `apiErrors` in the viewer's language (read from `localStorage` key `aether_panel_language`, English by default) when one exists; otherwise the server's `msg`.
+2. If the body is `{ "error": { "code": "ErrSomething", "msg": "..." } }` (the panel's structured errors), the translation of `code` under `apiErrors` in the viewer's language (read from `localStorage` key `aether_panel_language`, English by default) when one exists, with its `{{name}}` placeholders filled from the error's `metadata`; otherwise the server's `msg`.
 3. Otherwise the HTTP status text.
 
 The codes translated today are listed in [05. Translations](./05-translations.md#localized-api-errors).

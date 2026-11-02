@@ -16,6 +16,7 @@ Related pages: server lifecycle, scheduler, keep-alive and disk limit in [Server
 | `processStats()` | 5 s | `SendStatsForServers()` (live stats, history, alerts, disk limit) and `trackUptimeForAllServers()` |
 | `processPlayers()` | 1 min | `samplePlayers()`: player counts into the history |
 | `processSystemStatus()` | 1 min | `sendSystemStatusToDiscord()` |
+| `processRemoteStatus()` | 30 s | `pollRemoteNodes()`: state of every remote node's servers, recorded as uptime ([below](#uptime-tracking)) |
 | `reattachRunningServers()` | once | Reconnects to Docker containers that kept running across a daemon restart ([Servers](./04-servers.md#reconnecting-after-a-daemon-restart)) |
 | `trackUptimeForAllServers()` | once (then every 5 s from `processStats`) | Uptime periods |
 
@@ -130,6 +131,14 @@ The thresholds are constants in code; there is no setting for them.
 ## Uptime tracking
 
 `trackUptimeForAllServers()` calls `services.Uptime.TrackStatus(id, isRunning)` for every server. It only runs where the panel runs (`panel.enable`): a daemon-only node has no panel database. An atomic flag stops two rounds from overlapping on a slow database. Storage and statistics: [Services: Uptime](./11-services.md#16-uptime-uptimego). Endpoints: `GET /api/uptime` (scope `admin` or `uptime.view`) and `GET /api/uptime/:serverId` (scope `server.view`).
+
+`trackUptimeForAllServers()` only sees the servers the panel's own process runs. Servers on **remote nodes** are recorded by `processRemoteStatus()` (`internal/servers/remote_status.go`), also only where the panel runs:
+
+- Every 30 seconds it asks every remote node, all at once, for the state of all its servers in one request: `GET /daemon/servers/status` (panel JWT), which answers `{"servers": {"<id>": {"running": bool, "installing": bool}}}` for every server loaded on the node and leaves out a server whose state cannot be read. Each request has a 10 s timeout, and a new round never starts while one is running.
+- The answers go to `services.Uptime.RecordNodeStatuses` for the servers the panel places on that node; an installing server counts as not running.
+- A node that does not answer records nothing: its servers' state is unknown, not stopped. An open period not confirmed for more than 3 minutes is closed at its last confirmation, so the outage counts as neither up nor down; a new period starts when the node answers again. The panel log says once when a node stops answering the poll and once when it answers again.
+- A node on an older version answers `404` and is treated as unreachable: update it to have its servers' uptime recorded.
+- The last answer of each node is kept for the Discord node report ([below](#discord-status-reports)).
 
 ---
 
@@ -255,10 +264,12 @@ A step the node did not measure has no point. The panel endpoint asks all nodes 
 
 `sendSystemStatusToDiscord()` runs **every minute**, only where the panel runs, and only does something when webhooks are configured:
 
-- `panel.notifications.discordWebhookSystem`: one embed with online/offline counts, averages and a line per server.
+- `panel.notifications.discordWebhookSystem`: one embed with online/offline counts, averages and a line per server. It covers the servers the panel's own process runs; with none, nothing is sent.
 - `panel.notifications.discordWebhookNode`: one embed per node with its server counts, host, CPU model/cores/threads/GHz, RAM and OS.
 
-The CPU, RAM and OS figures in the node report are read on the machine where the panel runs (`hostCPUSummary`, `mem.VirtualMemory`, `getOSName`), for every node, including remote ones.
+For the panel's own node, the counts are its servers and the CPU, RAM and OS figures are read on the panel's machine (`hostCPUSummary`, `mem.VirtualMemory`, `getOSName`). For a remote node, the counts come from the status poller's last answer (or a direct call to `/daemon/servers/status` when that answer is older than 60 seconds, which is not recorded as uptime), and the hardware from the node's own `GET /daemon/system` (10 s timeout; the daemon does not send the CPU frequency, so that field is left out). A remote node that does not answer gets a red "no answer" report with the number of servers placed on it.
+
+The texts follow `panel.settings.notificationLanguage` ([Services: notification texts](./11-services.md#notification-texts-notification_textgo)).
 
 ---
 
@@ -273,6 +284,7 @@ The CPU, RAM and OS figures in the node report are read on the machine where the
 | `GET /api/nodes/:id/system` | `nodes.view` | Node system information |
 | `GET /api/nodes/network-history?range=` | `nodes.view` | Network history of all nodes |
 | `GET /daemon/network/history?range=` | panel JWT | Network history of one node |
+| `GET /daemon/servers/status` | panel JWT | Running/installing state of every server on one node |
 
 ---
 
@@ -286,5 +298,6 @@ The CPU, RAM and OS figures in the node report are read on the machine where the
 | Gaps in the 24 h or 7 d chart | The node (daemon) was down; those steps are `noData` |
 | Node network chart flat at zero inside Docker | `daemon.hostProc` not set or `/proc` not mounted; the container only sees its own traffic |
 | `unavailable` > 0 in the network history | A node is down or runs a daemon without `/daemon/network/history` |
-| No uptime data on a daemon-only node | Expected: uptime is written by the panel's node only |
+| No uptime data on a daemon-only node | Expected: uptime is written in the panel's database only; the panel polls remote nodes for theirs |
+| No uptime for the servers of a remote node | The node runs an older daemon without `/daemon/servers/status` (update it), or it does not answer the panel: the panel log shows `Node <name> did not answer the server status poll` |
 | Too many Discord status messages | The system/node webhooks post every minute; leave them empty to turn them off |

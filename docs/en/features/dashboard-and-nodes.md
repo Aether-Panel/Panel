@@ -71,6 +71,12 @@ While a user types ports in the new-server wizard, it calls `POST /api/nodes/:id
 
 A busy port comes with a `suggestion`: the next port after it (and at least 1024) that is free and not requested elsewhere in the same form; the wizard offers it as "Use N". Who holds the port (`by`) is only returned to administrators (`admin` scope). A node that cannot answer `/daemon/ports` (no Docker, older version) leaves the check to the panel's records. The request may carry `exclude` with a server identifier whose own ports are ignored.
 
+### Server status on remote nodes
+
+A remote node's daemon runs without the panel, so the panel asks it for the state of its servers: every 30 seconds it calls `GET /daemon/servers/status` on every remote node at once (one request per node, 10-second timeout; a round never overlaps the previous one). Only the process that runs the panel does this. The answers are recorded as uptime in the same way as the panel's own servers (see [Uptime tracking](../general/13-uptime.md)), so **Overall health** and the uptime figures cover servers on remote nodes too. A node that does not answer records nothing; a period that has not been confirmed for more than 3 minutes is closed at its last confirmation, so an outage of the node counts as neither up nor down, and a new period starts when the node answers again. A node running an older daemon without that route (it answers `404`) is treated as not answering.
+
+The same answers feed the node report sent to the Discord node webhook (`panel.notifications.discordWebhookNode`): a remote node shows its real number of servers online and offline (from the last poll, or from a direct call when that poll is more than 60 seconds old), and a node that does not answer gets a red report with the status **No answer** and the number of servers the panel places there. See [Discord webhooks](../general/16-discord.md).
+
 ### Image prefetch
 
 On Docker nodes the daemon downloads the images in `docker.prefetchImages` 2 minutes after start and then once a day (30-minute limit per run). If a pull replaced an older copy, the old image is removed when no container uses it. This avoids a long first start for a server using one of those images.
@@ -127,6 +133,7 @@ The low-disk thresholds (5 GB / 10 %), the sampling intervals and the 24-hour hi
 - A node running an older daemon without `/daemon/network/history` counts as "not answering" in the history footer.
 - Without `daemon.hostProc` in a containerised daemon, the traffic shown is only the panel container's own, not the game servers'.
 - Port checks are hints: they do not reserve ports.
+- Servers on a node running an older daemon (without `/daemon/servers/status`) get no uptime data until the node is updated.
 
 ## Troubleshooting
 
@@ -138,6 +145,8 @@ The low-disk thresholds (5 GB / 10 %), the sampling intervals and the 24-hour hi
 | Traffic near zero while servers are busy | Containerised daemon without `daemon.hostProc` | Mount `/proc:/host/proc:ro` and set `SKYPANEL_DAEMON_HOSTPROC=/host/proc` |
 | Overall health shows no value | The user lacks `admin`/`uptime.view`, or no uptime data yet | Grant `uptime.view` or wait for data |
 | Node page: "This node can't be reached…" | The daemon is down or unreachable from the panel | Start the daemon; check host, ports and firewall |
+| "The node refused the panel's credentials…" (`502`, `ErrNodeAuthFailed`) on a server of a remote node | The node refused the panel's token: its `daemon.auth.clientSecret` is not the node's secret in the panel, or one of the two clocks is wrong. The panel log names the node | Copy the secret again from **Deploy Node** into the node's configuration and restart it; synchronise both clocks (NTP). See [Troubleshooting](../setup/troubleshooting.md) |
+| Discord node report: **No answer** | The node did not answer the status poll (down, unreachable, or an older daemon) | Check the node; update it if it is old |
 | "The node "X" is running out of disk" | Less than 5 GB or 10 % free on the servers' disk | Free space or grow the disk |
 | Install fails with `ErrNodeDiskFull` | Free space below `daemon.minFreeDiskMB` | Free space, or lower the key (`0` disables it) |
 | Daemon log: `Could not download the runtime image …` | Registry unreachable during prefetch | Check network access to `ghcr.io`; the next daily run retries |

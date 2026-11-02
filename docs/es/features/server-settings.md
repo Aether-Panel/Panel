@@ -124,14 +124,14 @@ La lista completa de claves está en [Configuración](../backend/02-configuratio
 |---|---|---|
 | `El servidor debe estar apagado para cambiar el puerto principal.` | El servidor está encendido | Apagarlo, cambiar el puerto principal y guardar |
 | `El puerto N no es válido (debe estar entre 1024 y 65535).` / `El puerto N ya está asignado a este servidor.` | Validación de la página | Usar un puerto dentro del rango y sin repetir |
-| `el puerto N lo usa el propio panel en este nodo` | Es el puerto web o SFTP del nodo | Elegir otro puerto |
-| `el puerto N ya está en uso por otro servidor en este nodo` | Otro servidor del nodo lo tiene | Elegir un puerto libre. `POST /api/nodes/:id/ports/check` (lo usa el asistente de creación de servidores) indica qué puertos están libres en un nodo; ver [Panel de inicio y nodos](./dashboard-and-nodes.md) |
+| `El puerto N lo usa el propio panel en este nodo.` (`ErrPortUsedByPanel`) | Es el puerto web o SFTP del nodo | Elegir otro puerto |
+| `El puerto N ya está en uso por otro servidor en este nodo.` (`ErrPortTaken`) | Otro servidor del nodo lo tiene | Elegir un puerto libre. `POST /api/nodes/:id/ports/check` (lo usa el asistente de creación de servidores) indica qué puertos están libres en un nodo; ver [Panel de inicio y nodos](./dashboard-and-nodes.md) |
 | `primaryPort must be one of the assigned ports` | Llamada a la API con un `primaryPort` que no está en `ports` | Incluirlo en `ports` |
 | `the sub-servers of this server already use more than that` | Se intenta bajar un padre por debajo de lo que tienen sus subservidores | Reducir o eliminar antes los subservidores |
 | `resources cannot be negative` | CPU, memoria o disco negativos | Enviar cero o un número positivo |
 | `Error al guardar la configuración` | Ha fallado una de las peticiones (nodo caído, falta de permiso) | Comprobar que el nodo está en línea y que se tiene el permiso de la sección modificada |
 
-Los mensajes de la API sobre puertos se devuelven en español sea cual sea el idioma del panel; los demás, en inglés.
+Los errores de puertos de la API llevan un código (`ErrPortOutOfRange`, `ErrPortDuplicated`, `ErrPortUsedByPanel`, `ErrPortTaken`) y el puerto en sus metadatos, como número o, para una variable de la plantilla, como `25566 (rcon_port)`; el panel los muestra en el idioma de quien lo mira. Los demás mensajes de la API de esta tabla están en inglés.
 
 ## Véase también
 

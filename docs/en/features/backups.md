@@ -73,7 +73,7 @@ Restore points are quick backups taken just before a risky step:
 | `restore` | Restoring a backup | The restore is cancelled |
 
 - Only the **3 newest** restore points are kept; older ones are deleted.
-- For plugins, no new restore point is taken if one is less than **30 minutes** old, so a row of installs does not create one per plugin.
+- For plugins, no new restore point is taken if one is less than **30 minutes** old, so a row of installs does not create one per plugin. An install takes it only once Modrinth has a compatible version with a valid file name, right before the download; a removal takes it only once the file is found. A refused install or a wrong name leaves no restore point behind.
 - Restore points are kept on the node only; they are not uploaded off-site.
 - They appear in the backup list and are restored, downloaded and deleted like any other backup.
 
@@ -86,7 +86,7 @@ Each time the backup list is opened, the panel compares its records with the fil
 ### When a server is deleted or transferred
 
 - **Deleting a server** also deletes its backups on the node (the folder `<daemon.data.backups.folder>/<server-id>/`) and its records in the panel. Off-site copies in the bucket are **not** deleted.
-- **Transferring a server to another node** ([Server transfers](./server-transfers.md)) does not move its backups: they stay on the old node, which keeps them when it deletes the server there.
+- **Transferring a server to another node** ([Server transfers](./server-transfers.md)) copies the backups kept on the old node (location `local` or `both`, restore points included) to the new node through the panel, with their names and dates, and then deletes them from the old node with the server. The records follow the server. Off-site copies stay where they are: the bucket is the same for every node. If the transfer fails, the copies it made on the new node are removed and the old node keeps its own.
 
 ### Off-site copies
 
@@ -168,7 +168,7 @@ Off-site backups are only active when `enabled` is true **and** endpoint, bucket
 - Automatic backup retention: `keep` from 1 to 50.
 - Cloning a server does not copy its backups ([Cloning servers](./cloning.md)).
 - When a server is deleted, its copies in the off-site bucket stay there; remove them by hand if they are no longer needed.
-- A node transfer leaves the backups on the old node, without listing them in the panel.
+- A node transfer copies every backup through the panel, so it takes longer and needs room on the new node for them. The new node must have the `/daemon/server/:id/backup/file` route (a current version) to receive them.
 - The S3 settings saved in **Settings › Off-site backups** only apply to the panel's own node; each remote node needs its own (see [Remote nodes](#requirements-and-configuration)).
 
 ## Troubleshooting

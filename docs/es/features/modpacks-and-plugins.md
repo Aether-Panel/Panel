@@ -15,9 +15,10 @@ Aether Panel puede instalar un modpack completo de Minecraft: Java Edition desde
 
 **Plugins** (pestaña **Plugins**):
 
-- Lista los archivos `.jar` de la carpeta `plugins/` del servidor, con su tamaño y una versión deducida del nombre del archivo.
-- Busca en Modrinth proyectos de tipo plugin o mod (20 resultados) e instala la versión más reciente del proyecto elegido en `plugins/`.
-- Elimina un archivo de plugin de `plugins/`.
+- Trabaja en la carpeta de la que el servidor carga sus jars: `mods/` en servidores Fabric, Forge y NeoForge, y `plugins/` en Paper y en cualquier otro (vanilla, proxies, lanzadores desconocidos).
+- Lista los archivos `.jar` de esa carpeta, con su tamaño y una versión deducida del nombre del archivo. En un servidor con mods incluye los que instaló un modpack.
+- Busca en Modrinth (20 resultados) lo que el servidor puede cargar e instala la versión más reciente del proyecto elegido en esa carpeta.
+- Elimina un jar de esa carpeta.
 
 ---
 
@@ -45,7 +46,17 @@ El modpack solo se considera instalado mientras ese lanzador conserve la misma s
 
 ### Explorador de plugins
 
-La pestaña Plugins consulta la API pública de búsqueda de Modrinth con los filtros `project_type:mod` o `project_type:plugin`. Al instalar un plugin se toma la **versión más reciente hecha para este servidor**: la pestaña lee de `GET /api/servers/:id/map` la plataforma del servidor (deducida del cargador del modpack, la variable `modlauncher` o el paso de instalación) y su versión de Minecraft, y pide a Modrinth solo las versiones de esos cargadores y esa versión del juego. Los cargadores son `paper`, `spigot` y `bukkit` en Paper y sus variantes, y `fabric`, `forge` o `neoforge` en los demás. Si la plataforma o la versión no se conocen, esa parte del filtro se omite; si Modrinth no tiene ninguna versión que encaje, la instalación responde `404` con `ErrPluginNoCompatibleVersion` y la pestaña lo indica. El archivo principal (o el primero) de la versión elegida se descarga en `plugins/`, creando la carpeta si hace falta. Antes de instalar o quitar un plugin el panel intenta guardar un punto de restauración (motivo `plugin`); se omite si ya se creó uno en los últimos 30 minutos, y si hay una copia en curso el paso continúa sin él. La descarga cuenta para el límite de disco del servidor; si se supera, el archivo parcial se elimina. La consola muestra `Plugin/Mod <id> installed successfully as <archivo>` y hay que reiniciar el servidor para cargarlo.
+El daemon deduce la plataforma del servidor igual que el [visor de mapa](world-map.md): a partir del cargador del modpack, la variable `modlauncher` o los pasos de instalación. Puede ser `paper` (Paper y sus variantes), `fabric`, `forge`, `neoforge` o desconocida. La plataforma decide la carpeta (`mods/` en Fabric, Forge y NeoForge; `plugins/` en los demás) y la búsqueda, que consulta la API pública de búsqueda de Modrinth con:
+
+| Plataforma | Filtro de búsqueda |
+|---|---|
+| Paper | Proyectos de tipo `plugin` o `mod` con una versión para `paper`, `spigot` o `bukkit` |
+| Fabric, Forge, NeoForge | Mods con una versión para ese cargador que funcionan en un servidor (lado servidor obligatorio u opcional; se excluyen los mods solo de cliente) |
+| Desconocida | Proyectos de tipo `plugin` o `mod`, de cualquier cargador |
+
+El cuadro de búsqueda indica *Buscar plugins en Modrinth* en Paper, *Buscar mods en Modrinth* en Fabric, Forge y NeoForge, y *Buscar en Modrinth (plugins, mods...)* en los demás.
+
+Al instalar se toma la **versión más reciente hecha para este servidor**: la pestaña lee de `GET /api/servers/:id/map` la plataforma y la versión de Minecraft y pide las versiones de los mismos cargadores (`paper`, `spigot` y `bukkit` en Paper; `fabric`, `forge` o `neoforge` en los demás) y de esa versión del juego. Si la plataforma o la versión no se conocen, esa parte del filtro se omite; si Modrinth no tiene ninguna versión que encaje, la instalación responde `404` con `ErrPluginNoCompatibleVersion` y la pestaña lo indica. El archivo principal (o el primero) de la versión elegida debe tener un nombre `.jar` simple, sin carpetas; si no, la instalación responde `502` con `ErrPluginBadFileName` y no se escribe nada. Después el daemon comprueba el límite de disco del servidor (`409` si está agotado), intenta guardar un punto de restauración (motivo `plugin`; se omite si ya se creó uno en los últimos 30 minutos, y si hay una copia en curso la instalación continúa sin él) y descarga el archivo en la carpeta, creándola si hace falta. Al quitar un plugin, el punto de restauración se guarda solo cuando se encuentra el archivo. La descarga cuenta para el límite de disco del servidor; si se supera, el archivo parcial se elimina. La consola muestra `Plugin/Mod <id> installed successfully as <archivo>` y hay que reiniciar el servidor para cargarlo.
 
 ---
 
@@ -64,7 +75,7 @@ La pestaña Plugins consulta la API pública de búsqueda de Modrinth con los fi
 **Plugins**
 
 1. Abrir la pestaña **Plugins** (visible para usuarios con `server.files.edit`).
-2. **Marketplace**: buscar en Modrinth y pulsar **Instalar**. **Instalados**: ver los jars de `plugins/` y pulsar **Eliminar** para borrar uno.
+2. **Marketplace**: buscar en Modrinth y pulsar **Instalar**. **Instalados**: ver los jars de `mods/` o `plugins/` y pulsar **Eliminar** para borrar uno.
 3. Reiniciar el servidor para aplicar los cambios.
 
 En servidores de Minecraft Java la pestaña puede ocultarse en **Configuración › Configuración de plugins › Habilitar pestaña de plugins**. Este interruptor se guarda en el navegador (`localStorage`), así que solo afecta a ese navegador y no bloquea la API.
@@ -79,10 +90,10 @@ Todas las rutas cuelgan de `/api/servers/:serverId` y se reenvían al nodo del s
 | GET | `/modpacks/search?source=&q=&offset=` | `server.files.view` | Buscar modpacks; `source` es `modrinth` o `curseforge`; `q` se recorta a 100 caracteres |
 | GET | `/modpacks/versions?source=&project=` | `server.files.view` | Versiones instalables de un modpack, de la más reciente a la más antigua |
 | POST | `/modpacks/install` | `server.install` | Iniciar una instalación. Cuerpo: `{"source","projectId","versionId","freshWorld","label"}`. Responde `202` |
-| GET | `/plugins` | `server.files.view` | Jars de `plugins/` |
-| GET | `/plugins/search?q=` | `server.files.view` | Buscar en Modrinth (plugins y mods) |
-| POST | `/plugins/:pluginId?loaders=<lista>&game_versions=<lista>` | `server.files.edit` | Instalar la versión más reciente de un proyecto de Modrinth, limitada a los cargadores y versiones del juego indicados (listas separadas por comas, ambas opcionales); responde `204`, o `404` `ErrPluginNoCompatibleVersion` si ninguna versión encaja |
-| DELETE | `/plugins?name=<archivo>.jar` | `server.files.edit` | Borrar un jar de `plugins/` (se añade `.jar` si falta); responde `204` |
+| GET | `/plugins` | `server.files.view` | Jars de `mods/` (Fabric, Forge, NeoForge) o de `plugins/` (los demás) |
+| GET | `/plugins/search?q=` | `server.files.view` | Buscar en Modrinth lo que puede cargar la plataforma del servidor |
+| POST | `/plugins/:pluginId?loaders=<lista>&game_versions=<lista>` | `server.files.edit` | Instalar la versión más reciente de un proyecto de Modrinth, limitada a los cargadores y versiones del juego indicados (listas separadas por comas, ambas opcionales); responde `204`, `404` `ErrPluginNoCompatibleVersion` si ninguna versión encaja, `502` `ErrPluginBadFileName` si el nombre del archivo no es un nombre `.jar` simple, o `409` si el límite de disco está agotado |
+| DELETE | `/plugins?name=<archivo>.jar` | `server.files.edit` | Borrar un jar de `mods/` o `plugins/`, la misma carpeta de la lista (se añade `.jar` si falta); responde `204` |
 
 Los scopes se explican en la [referencia de scopes](../general/scopes-reference.md).
 
@@ -111,7 +122,7 @@ Véase [Configuración](../backend/02-configuration.md) para saber cómo se leen
 - Límites de tamaño para modpacks de Modrinth: `.mrpack` de hasta 1 GB, cada mod de hasta 512 MB (o el tamaño que declare el índice) y overrides de hasta 4 GB en total. Cada descarga de archivo caduca a los 10 minutos y la instalación completa de Modrinth a las 2 horas.
 - Solo una instalación de modpack por servidor a la vez, y nunca durante una copia, una restauración o un cambio de versión.
 - Mientras haya un modpack instalado, la versión del juego no se puede cambiar desde el panel; en su lugar, se instala otra versión del modpack.
-- Explorador de plugins: siempre instala en `plugins/`, también en servidores con cargador de mods. Fabric, Forge y NeoForge cargan los mods desde `mods/`, así que un mod instalado desde esta pestaña debe moverse allí a mano. La lista solo muestra archivos `.jar` situados directamente en `plugins/`.
+- Explorador de plugins: la lista solo muestra archivos `.jar` situados directamente en `mods/` o `plugins/`. En un servidor cuya plataforma el panel no reconoce (vanilla, un proxy, un lanzador propio) usa `plugins/` y la búsqueda no se filtra, así que conviene comprobar que lo que se instala encaja con el servidor.
 
 ---
 
@@ -133,8 +144,9 @@ Véase [Configuración](../backend/02-configuration.md) para saber cómo se leen
 | `the modpack was installed but the server did not start: ...` | Los archivos están en su sitio, pero el arranque falló (a menudo por memoria o Java). Revisar la consola y la memoria del servidor. |
 | `project or versions not found on Modrinth` (plugins) | El proyecto no tiene versiones o el identificador es incorrecto. |
 | «Este proyecto no tiene ninguna versión para el loader y la versión de Minecraft de este servidor.» (`ErrPluginNoCompatibleVersion`, plugins) | El proyecto no publica ninguna versión para la plataforma y la versión de Minecraft del servidor. Buscar otro proyecto o una alternativa compatible. |
+| «El archivo que ofrece Modrinth para este proyecto no es un .jar con un nombre de archivo normal, así que no se ha instalado.» (`502`, `ErrPluginBadFileName`, plugins) | El nombre del archivo del proyecto incluye una carpeta o no es un `.jar`. Descargar el archivo desde Modrinth y revisarlo antes de subirlo a mano. |
 | `search query is required` (plugins) | Se llamó a `GET /plugins/search` sin `q`. |
-| El plugin no se carga tras instalarlo | Reiniciar el servidor. En Fabric/Forge/NeoForge, mover el jar de `plugins/` a `mods/`. |
+| El plugin no se carga tras instalarlo | Reiniciar el servidor. Si el panel no reconoció la plataforma, el jar se instaló en `plugins/`: un servidor Fabric, Forge o NeoForge carga los mods desde `mods/`. |
 
 Cuando la instalación de un modpack falla después de haber tocado archivos, el mensaje termina con `(a restore point was saved before the install; it is in Backups)`: basta con restaurarlo desde la pestaña **Copias de seguridad** para volver al estado anterior.
 

@@ -56,11 +56,13 @@ The sign-in, sign-up and password reset forms go through an anti-bot check, desc
 |------|-------|---------------------|
 | Password (web, OAuth2 and SFTP share the counter) | 10 attempts in 15 minutes per account | `429` `ErrTooManyAttempts` |
 | 2FA code | 10 attempts in 15 minutes per account | `429` `ErrTooManyAttempts` |
+| SSH key checked for a remote node (`POST /auth/sftp-key`) | 10 attempts in 15 minutes per account, on a counter of its own | `429` to the node, which refuses the SFTP sign-in |
 | Password reset emails | 5 per address per hour | `204`, no email sent |
 
 - The counter belongs to the **account**, not to the IP, so it works the same behind a proxy. Variants of the same email that the database treats as equal (case, accents) share one counter.
 - For an email with no account the counter is per address typed, and the answer takes as long as a wrong password, so timing does not reveal which emails exist.
 - A successful sign-in resets the counter. It lives in memory and also resets when the panel restarts.
+- SSH key checks for remote nodes have their own counter, apart from the password one: an SFTP client offers each of its keys in turn, and every key offered counts as one attempt, so those misses must not lock the owner out of signing in with their password. Key sign-ins on the panel's own node are checked in its database and have no counter.
 - After the 2FA step succeeds, the pending sign-in state in the `session` cookie is cleared: the same cookie cannot be used to try more codes.
 
 ### Passwords
@@ -111,7 +113,7 @@ curl -b cookies.txt -X POST https://panel.example.com/auth/otp \
 
 All of them need the `self.edit` permission.
 
-SFTP does not ask for the 2FA code: it signs in with the password or with an [SSH key](#ssh-keys-for-sftp). Users with 2FA on should use SSH keys (see [Known limitations](#known-limitations)).
+SFTP does not ask for the 2FA code: it signs in with the password or with an [SSH key](#ssh-keys-for-sftp). Users with 2FA on should use SSH keys, which work on every node (see [Known limitations](#known-limitations)).
 
 ### Taking away the login permission
 
@@ -153,7 +155,12 @@ sftp -P 5657 -i ~/.ssh/id_ed25519 -o User='ana@example.com#1a2b3c4d' panel.examp
 
 The user still needs `server.sftp` on that server (or to own it). Deleting a key stops new connections with it; deleting the user deletes their keys.
 
-Keys only work on the node the panel runs on. Remote nodes check SFTP sign-ins against the panel with username and password, so on their servers you sign in with the password.
+Keys work on every node:
+
+- **Panel's own node**: the SFTP server checks the key in the panel's database.
+- **Remote node**: the node does not have the users' keys, so it asks the panel. It sends `POST /auth/sftp-key` to the panel set in its `daemon.auth.url` (the `/oauth2/token` part, if present, is replaced by `/auth/sftp-key`; a path prefix is kept), signed with its own secret (`Authorization: Bearer <daemon.auth.clientSecret>`), with the login and the offered public key. The panel applies the same rules as on its own node, and also checks that the server is on the node asking. It answers only the granted scope (`<serverID>:server.sftp`), never a session. Every refused login gets the same answer (`400`, `no access`), so it does not reveal whether the account, the server or the key was wrong. The node waits at most 15 seconds for the answer. The SSH protocol then makes the client prove it holds the private key before anything is granted. Details of the route are in the [authentication API reference](../reference/api/02-authentication.md).
+
+A remote node running a version from before this check only accepts passwords: update it to use keys there.
 
 | Method and path | Body | Response |
 |-----------------|------|----------|
@@ -299,7 +306,7 @@ The installer opens SSH, SFTP, 80/443 and the panel port (only when it is not bo
 ## Best practices
 
 - Use a domain with HTTPS for any panel with customers, and set the Base URL.
-- Turn on 2FA for every administrator; keep the recovery codes offline. With 2FA on, use SSH keys for SFTP.
+- Turn on 2FA for every administrator; keep the recovery codes offline. With 2FA on, use SSH keys for SFTP (they work on every node).
 - Give `admin` only to people who run the panel. Use roles for staff, with the fewest scopes they need.
 - Leave `docker.disallowHost`, `docker.serverUser`, `docker.pidsLimit` and `security.blockPrivateDownloads` at their defaults unless you know why you change them.
 - Close public sign-ups (`panel.registrationEnabled`, in **Settings**) if customers come from billing.
@@ -310,7 +317,7 @@ The installer opens SSH, SFTP, 80/443 and the panel port (only when it is not bo
 
 ## Known limitations
 
-- **SFTP and 2FA**: SFTP clients cannot ask for a code, so an SFTP sign-in with a password does not ask for 2FA. Users with 2FA on should sign in to SFTP with an [SSH key](#ssh-keys-for-sftp), which only works on the panel's own node; on remote nodes SFTP always uses the password.
+- **SFTP and 2FA**: SFTP clients cannot ask for a code, so an SFTP sign-in with a password does not ask for 2FA, and password sign-in to SFTP cannot be turned off. Users with 2FA on should sign in to SFTP with an [SSH key](#ssh-keys-for-sftp), which works on every node that runs the current version.
 - **Unencrypted TOTP secret**: the 2FA secret is stored in clear in the database (`users.otp_secret`). Anyone who can read the database can generate codes: protect the database and its backups.
 
 ## If you suspect a compromise

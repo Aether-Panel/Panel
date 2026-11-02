@@ -145,28 +145,29 @@ type Reattacher interface { ReattachImpl(env *Environment, steps ExecutionData) 
 |---|---|---|
 | Create | `PUT /daemon/server/{id}` | Validates the definition, refuses a host environment under `docker.disallowHost`, creates the environment and folders, saves `<id>.json` and adds the server to the cache. The panel then starts the installation itself when `panel.servers.autoInstall` is on, and requests a subdomain when `panel.dns.autoAssign` is on. |
 | Install | `POST /daemon/server/{id}/install` | Only one install at a time per server. Refused under `docker.disallowHost` for host environments, and with `ErrNodeDiskFull` when the node has less free space than `daemon.minFreeDiskMB`. Stops the server if it runs, then runs the template's `install` operations (see [Operations](./06-operations.md)). `?wait` waits for it to finish. |
-| Start | `POST /daemon/server/{id}/start` | Refused while the server is busy (installing, backing up, restoring), for a host environment under `docker.disallowHost`, when the disk is full (`409`, see [Disk limit](#disk-limit)) and when a port is taken (`409`). The panel refuses it for a suspended server. The process starts asynchronously. |
+| Start | `POST /daemon/server/{id}/start` | Refused while the server is busy (installing, backing up, restoring), for a host environment under `docker.disallowHost`, when the disk is full (`409`, see [Disk limit](#disk-limit)) and when a port is taken (`409 ErrPortBusy`, with the port in `metadata.port`). The panel refuses it for a suspended server. The process starts asynchronously. |
 | Restart | `POST /daemon/server/{id}/restart` | Stop, wait for the exit, start. |
 | Stop | `POST /daemon/server/{id}/stop` | Sends the template's `stopCode` signal, or types its `stopCommand` on the console. |
 | Kill | `POST /daemon/server/{id}/kill` | Kills the process (`SIGKILL` / container kill). |
 | Redefine | `PUT /daemon/server/{id}/definition` | Replaces the definition (same environment checks as create). |
 | Reload | `POST /daemon/server/{id}/reload` | Loads the definition and the scheduled tasks again from disk; only while the server is idle. |
-| Delete | `DELETE /daemon/server/{id}` | Kills it if it runs, stops the scheduler, runs the template's uninstall operations (a failure is logged and shown on the console, and the deletion goes on), deletes the environment, then removes `<id>.json`, the `<id>.tmp` folder, the side files (`.cron`, `.crashes`, `.notify`, `.metrics`, `.worldmap`, `.modpack`) and the file history. Last, `servers.DeleteBackups` removes `<backups>/<id>/`, unless the request has `?keepBackups=true` (node transfers). |
+| Delete | `DELETE /daemon/server/{id}` | Kills it if it runs, stops the scheduler, runs the template's uninstall operations (a failure is logged and shown on the console, and the deletion goes on), deletes the environment, then removes `<id>.json`, the `<id>.tmp` folder, the side files (`.cron`, `.crashes`, `.notify`, `.metrics`, `.worldmap`, `.modpack`) and the file history. Last, `servers.DeleteBackups` removes `<backups>/<id>/`, unless the request has `?keepBackups=true`: a node transfer that is undone uses it to remove the server from the new node without touching backups that were already there (the copies it brought are removed one by one). |
 
 A stop or kill someone asked for is never treated as a crash. When the panel stops, it asks every server to stop at the same time and gives each up to one minute before killing it (`docker-compose.yml` gives the panel container 90 seconds).
 
 ## Service loop
 
-`servers.InitService()` starts six goroutines (`internal/servers/server.go`):
+`servers.InitService()` starts seven goroutines (`internal/servers/server.go`):
 
 | Goroutine | Interval | Job |
 |---|---|---|
 | `processQueue()` | 1 s | Starts the servers queued with `StartViaService` (auto-start at boot, automatic restarts), one queue for the node. |
 | `processStats()` | 5 s | Collects every server's stats, publishes them on the stats tracker, records the performance history, checks the disk limit and the resource alerts, and tracks uptime. |
 | `processPlayers()` | 1 min | Records the player count of every running server that answers queries. |
-| `processSystemStatus()` | 1 min | Sends the system summary to the Discord system webhook (panel only, if configured; above 25 servers it lists 24 and a note), and one report per node to the node webhook when that one is set. Remote nodes' hardware comes from their own `/daemon/system` (10 s timeout; no CPU frequency), the panel's node from its own machine. |
+| `processSystemStatus()` | 1 min | Sends the system summary to the Discord system webhook (panel only, if configured; it lists the servers the panel runs itself, and above 25 servers it lists 24 and a note), and one report per node to the node webhook when that one is set. A remote node's server counts come from the status poller below (or a direct call when its last answer is older than 60 s) and its hardware from its own `/daemon/system` (10 s timeout; no CPU frequency); a node that does not answer gets a red "no answer" report with the number of servers placed on it. The panel's node is read from its own machine. |
+| `processRemoteStatus()` | 30 s | Panel only: asks every remote node for the state of all its servers (`GET /daemon/servers/status`, one request per node, 10 s timeout, rounds never overlap), records their uptime and keeps each node's answer for the node report. |
 | `reattachRunningServers()` | once | Reconnects to the containers that kept running across a daemon restart. |
-| `trackUptimeForAllServers()` | once (then every stats round) | Records uptime in the panel database; it does nothing on a node without the panel. |
+| `trackUptimeForAllServers()` | once (then every stats round) | Records the uptime of the servers this process runs in the panel database; it does nothing on a node without the panel. Remote nodes' servers are recorded by `processRemoteStatus()`. |
 
 More detail in [Process management and metrics](./13-process-metrics.md).
 
@@ -198,8 +199,8 @@ User guide: [Backups](../features/backups.md).
 
 - Backups live in `daemon.data.backups.folder/<id>/`. The archive is written under a hidden name and moved into place when complete, so a half-written backup is never listed, downloaded or restored. Only one backup or restore runs at a time per server.
 - The panel records a manual backup as soon as it is asked for. If its archive then cannot be written, the node leaves a hidden `.failed-<name>` mark; `GET /daemon/server/{id}/backup` lists it with `location: "failed"`, and the panel's next sync deletes the record and calls `DELETE` on the node, which removes the mark. Scheduled backups leave no mark (the task reports its own failure).
-- Deleting the server deletes its backup folder on the node; copies in the off-site bucket stay. A node transfer keeps the backups on the old node: they are not moved.
-- **Restore points** are taken before installing or removing a plugin (at most one every 30 minutes for a run of plugin changes), installing a world map, changing the game version, installing a modpack, and restoring a backup. They do not count against the automatic-backup retention.
+- Deleting the server deletes its backup folder on the node; copies in the off-site bucket stay. A node transfer copies the backups kept on the node (`local` and `both`) to the new node through the panel (`PUT /daemon/server/{id}/backup/file`), then deletes the server and its backups from the old node; off-site copies are not touched. See [Server transfers](../features/server-transfers.md).
+- **Restore points** are taken before installing or removing a plugin (at most one every 30 minutes for a run of plugin changes; only once Modrinth offered a compatible file, or the plugin to remove exists), installing a world map, changing the game version, installing a modpack, and restoring a backup. They do not count against the automatic-backup retention.
 - **Restore** (`POST /api/servers/{id}/backup/restore/{backupID}`) only runs on a stopped, idle server. The archive is checked first, a restore point is written (without it the restore does not go ahead), the server's files are removed and the archive is extracted.
 - With **off-site backups** on (`daemon.backups.s3.*`), every finished backup is also uploaded to the bucket; a failed upload is reported on the console but the local backup stays. The list merges both places (`location`: `local`, `offsite` or `both`), a backup only in the bucket is downloaded before it is restored, and deleting removes both copies.
 
@@ -401,4 +402,4 @@ Each has its own guide: [Game versions](../features/game-versions.md), [Modpacks
 | Clone | `POST /api/servers/{id}/clone` | Needs `panel.experimental.serverClone`. Copies the files into a new server on the same node; the copy is marked as installing until it finishes. Symlinks that leave the source, devices and sockets are skipped. |
 | World map | `GET/DELETE /api/servers/{id}/map`, `POST .../map/install` | BlueMap or Dynmap from Modrinth for Minecraft Java, shown through the panel with a signed link (`/api/map-view/...`). |
 | Players | `GET /api/servers/{id}/query` | Minecraft server list ping or Steam A2S, cached for 10 seconds. |
-| Plugins | `GET/DELETE /api/servers/{id}/plugins`, `.../plugins/search`, `POST .../plugins/{pluginId}` | Install and removal take a restore point first. |
+| Plugins | `GET/DELETE /api/servers/{id}/plugins`, `.../plugins/search`, `POST .../plugins/{pluginId}` | List, install and delete use `mods/` on Fabric, Forge and NeoForge servers and `plugins/` otherwise (platform detected as for the world map). The Modrinth search is limited to that platform: Paper gets plugins and mods built for Paper, Spigot or Bukkit; Fabric, Forge and NeoForge get server-side mods for their loader; an unknown platform gets everything. Install and removal take a restore point first. A Modrinth file that is not a plain `.jar` name answers `502 ErrPluginBadFileName`. |

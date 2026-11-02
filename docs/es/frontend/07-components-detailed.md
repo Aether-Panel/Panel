@@ -80,9 +80,9 @@ El aviso de disco bajo procede de `features/nodes/node-disk-alert.tsx`: una lín
 | Tareas | `tasks-view.tsx`, `task-dialog.tsx`, `task-schedule.ts` | Tareas programadas: editor de horario y lista ordenada de pasos (comando `stdin`, `sleep`, `restart`, `stop`, `start`, `backup`), ejecutar ahora. |
 | Actividad | `activity-view.tsx` | Registro de actividad paginado (`GET /api/servers/:id/activity?limit=&before=&type=`), filtrable por familia. |
 | Acceso SFTP | `sftp-view.tsx` | Datos de conexión con botones de copiar. |
-| Migración | `external-transfer-view.tsx` | Traer un servidor desde otro panel o llevarlo a otro (crear, descargar, estado, cancelar). |
+| Migración | `external-transfer-view.tsx` | Traer un servidor desde otro panel o llevarlo a otro (crear, descargar, estado, cancelar). El estado de la importación llega como códigos (`STEP_*`, `ERROR_*`, `DONE`...) que la vista traduce en `servers.extransfer.progress`, con el `message` en inglés de la API como respaldo. |
 | Splitter | `splitter-view.tsx` | Repartir la CPU, la memoria y el disco del servidor en subservidores, con una franja que muestra lo usado y lo libre. |
-| Plugins | `plugins-view.tsx` | Buscar e instalar plugins, quitar los instalados. |
+| Plugins | `plugins-view.tsx` | Buscar e instalar plugins o mods, quitar los instalados. El texto del buscador depende de la plataforma (plugins en Paper, mods en Fabric, Forge y NeoForge); `ErrPluginNoCompatibleVersion` y `ErrPluginBadFileName` se muestran con su propio texto. |
 | Modpacks | `modpacks-view.tsx`, `modpack-install-dialog.tsx`, `modpack-status.tsx`, `modpack-shared.tsx` | Modpacks en un clic desde Modrinth o CurseForge; el diálogo de instalación explica cada paso y deja "mundo nuevo" tras un interruptor apagado por defecto; el progreso se consulta periódicamente. |
 | Mapa | `world-map-view.tsx`, `world-map-choice.tsx`, `world-map-frame.tsx`, `world-map-types.ts` | Instalar BlueMap o Dynmap (BlueMap pide aceptar la descarga de Mojang) y mostrar el mapa. |
 | Administración | `admin-view.tsx`, `clone-server-card.tsx` | Estado de instalación y reinstalación, transferencia a otro nodo, editar la definición, asignaciones (dueño), suspender, eliminar y clonar (`serverClone` experimental; requiere `server.create` o `admin`). |
@@ -144,7 +144,7 @@ Todos toman los colores de `CHART_COLORS` y formatean las horas con `chartLocale
 | Archivo | Pestaña |
 |---|---|
 | `page.tsx` | Contenedor de pestañas. Los secretos llegan de `GET /api/settings` como `********` y se reenvían así si no se tocan, lo que conserva el valor guardado (ver [Configuración del panel](../features/panel-settings.md#cómo-funciona)); Claves API, Productos y Extensiones solo aparecen para `admin`. |
-| `general-tab.tsx` | Secciones: Panel (nombre de la empresa, URL base, IP del nodo maestro), Inteligencia artificial (clave de API de Gemini, desactivar el análisis de registros con IA para todos), Registro y seguridad (registro, captcha integrado, claves de Turnstile), Modpacks (clave de CurseForge) y Funciones experimentales (`panel.experimental.versionSwitch`, `propertiesEditor`, `serverClone`). |
+| `general-tab.tsx` | Secciones: Panel (nombre de la empresa, URL base, IP del nodo maestro), Notificaciones (`panel.settings.notificationLanguage`, español o inglés), Inteligencia artificial (clave de API de Gemini, desactivar el análisis de registros con IA para todos), Registro y seguridad (registro, captcha integrado, claves de Turnstile), Modpacks (clave de CurseForge) y Funciones experimentales (`panel.experimental.versionSwitch`, `propertiesEditor`, `serverClone`). |
 | `discord-tab.tsx` | Webhooks de Discord con prueba (ver [Discord y notificaciones](../general/16-discord.md)). |
 | `mail-tab.tsx` | Proveedor de correo (SMTP, Mailgun, Mailjet, SendGrid o Depuración) y prueba (ver [Correo](../general/15-email.md)). En Mailjet los campos son **Clave API (pública)** (`panel.email.domain`) y **Clave secreta** (`panel.email.key`); Depuración no muestra campos. |
 | `offsite-tab.tsx` | Copias externas en almacenamiento compatible con S3 (`daemon.backups.s3.*`) con prueba de conexión. |

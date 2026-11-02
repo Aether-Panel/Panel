@@ -8,7 +8,7 @@ La página tiene una pestaña por área. En móviles y tabletas las pestañas se
 
 | Pestaña | Qué configura | Quién la ve | Documentada en |
 |---|---|---|---|
-| **General** | Nombre, URL principal, IP del nodo maestro, IA, clave de CurseForge, registro y anti-bots, funciones experimentales | `settings.edit` | Esta página |
+| **General** | Nombre, URL principal, IP del nodo maestro, idioma de las notificaciones, IA, clave de CurseForge, registro y anti-bots, funciones experimentales | `settings.edit` | Esta página |
 | **Discord** | Webhooks de Discord para alertas, informes, estado de nodos y transferencias | `settings.edit` | [Discord](../general/16-discord.md) |
 | **Correo** | Proveedor y remitente del correo, con botón de prueba | `settings.edit` | [Correo electrónico](../general/15-email.md) |
 | **Copias externas** | Almacenamiento compatible con S3 para copiar las copias de seguridad | `settings.edit` | [Copias de seguridad](./backups.md) |
@@ -35,6 +35,10 @@ Quien no tiene `settings.edit` y abre `/settings` vuelve al panel de inicio. Una
 - **Nombre de la empresa**: el nombre que se muestra en la web, en el manifiesto web del navegador, en los correos y como emisor de los códigos de verificación en dos pasos.
 - **URL principal**: la dirección desde la que se abre el panel, por ejemplo `https://panel.example.com` o `http://IP:8080`. Se usa en los enlaces de los correos, como origen permitido y como dirección del nodo propio del panel. En las instalaciones hechas con el instalador, guardar aquí un dominio hace que el servidor configure por sí solo Nginx, el certificado HTTPS y el cortafuegos; el resultado aparece bajo el campo. Ver [Instalación: añadir un dominio más tarde](../setup/01-installation.md).
 - **IP global del nodo maestro**: la dirección que reciben los jugadores y los clientes SFTP para el nodo propio del panel. Si está vacía, el panel usa la IP del servidor cuando el dominio de la URL principal está detrás de un proxy que solo deja pasar la web (la nube naranja de Cloudflare) y, si no, el host de la URL principal. Útil cuando varios paneles comparten una base de datos.
+
+**Notificaciones**
+
+- **Idioma de las notificaciones** (`panel.settings.notificationLanguage`): **español (España)** (`es`, el valor por defecto) o **English (US)** (`en`). Es el idioma de lo que el panel envía fuera de sus propias páginas: las alertas e informes de Discord del panel, los avisos de caída, los textos de estado de las copias de seguridad, los avisos de Discord, Telegram y webhook de cada servidor y su mensaje de prueba, el título y el mensaje de los eventos que reciben las extensiones, y los informes de Discord de las migraciones entre paneles. Las páginas del panel siguen el idioma de cada persona. Cualquier otro valor se rechaza con `ErrNotificationLanguage`. Los nodos remotos leen esta clave de su propia configuración (el panel no se la envía), así que hay que definirla en cada nodo cuyos servidores deban avisar en otro idioma. Ver [Notificaciones del servidor](./server-notifications.md) y [Discord](../general/16-discord.md).
 
 **Inteligencia artificial**
 
@@ -95,7 +99,7 @@ Las claves desconocidas se ignoran. Las rutas de prueba (`/api/settings/test/ema
 
 Las claves de la pestaña General, con sus valores por defecto y variables de entorno, están en [Configuración](../backend/02-configuration.md):
 
-`panel.settings.companyName`, `panel.settings.masterUrl`, `panel.settings.geminiApiKey`, `panel.settings.hideAiAnalysis`, `daemon.curseforge.key`, `panel.registrationEnabled`, `panel.captcha.builtin`, `panel.turnstile.enabled`, `panel.turnstile.siteKey`, `panel.turnstile.secretKey`, `panel.experimental.versionSwitch`, `panel.experimental.propertiesEditor`, `panel.experimental.serverClone`.
+`panel.settings.companyName`, `panel.settings.masterUrl`, `panel.settings.notificationLanguage`, `panel.settings.geminiApiKey`, `panel.settings.hideAiAnalysis`, `daemon.curseforge.key`, `panel.registrationEnabled`, `panel.captcha.builtin`, `panel.turnstile.enabled`, `panel.turnstile.siteKey`, `panel.turnstile.secretKey`, `panel.experimental.versionSwitch`, `panel.experimental.propertiesEditor`, `panel.experimental.serverClone`.
 
 Las variables de entorno usan el prefijo `SKYPANEL_` y la clave en mayúsculas con los puntos cambiados por guiones bajos, por ejemplo `SKYPANEL_PANEL_EXPERIMENTAL_SERVERCLONE`.
 
@@ -103,7 +107,7 @@ Las variables de entorno usan el prefijo `SKYPANEL_` y la clave en mayúsculas c
 
 - La API no devuelve los secretos, pero quien tiene `settings.edit` puede sustituirlos (por ejemplo, apuntar el correo o las copias externas a otro servicio). Conviene dar ese permiso solo a administradores de confianza.
 - Al guardar se reescribe `config.json` completo, así que su formato y el orden de las claves pueden cambiar.
-- La **Clave de API de CurseForge** solo se aplica al nodo propio del panel.
+- La **Clave de API de CurseForge** y el **Idioma de las notificaciones** solo se aplican al nodo propio del panel; los nodos remotos usan su propia configuración.
 
 ## Problemas conocidos y soluciones
 
@@ -111,6 +115,8 @@ Las variables de entorno usan el prefijo `SKYPANEL_` y la clave en mayúsculas c
 |---|---|---|
 | Al abrir `/settings` se vuelve al panel de inicio | Falta `settings.edit` | Pedir el permiso a un administrador |
 | `No se pudo guardar la configuración` o un mensaje de validación | Se ha rechazado un valor (por ejemplo, una URL de Discord que no es un webhook) | Corregir el valor; no se ha guardado nada |
+| «El idioma de las notificaciones debe ser español o inglés.» (`ErrNotificationLanguage`) | Se envió para `panel.settings.notificationLanguage` un valor distinto de `es` o `en` | Enviar `es` o `en` |
+| Prueba de Discord: «El mensaje de prueba no llegó a estos webhooks: …» (`422`, `ErrDiscordTestFailed`) | Los webhooks indicados (con el nombre de las secciones de la pestaña Discord: **Alertas de servidores**, **Informes del sistema**, **Estado de los nodos**, **ExTransfer**) se borraron o son incorrectos | Volver a crear el webhook en Discord y pegar la URL nueva. Ver [Discord](../general/16-discord.md) |
 | El guardado falla con un error de archivo | El panel no puede escribir `config.json` | Revisar el propietario y los permisos del archivo |
 | El dominio no obtiene HTTPS tras guardar la URL principal | El dominio aún no apunta al servidor, el puerto 80 está cerrado o la instalación no tiene el servicio `aether-domain` | Ver [Instalación](../setup/01-installation.md) |
 | `ErrFeatureDisabled` desde la API | La función experimental está apagada | Activarla en **Funciones experimentales** |

@@ -86,7 +86,7 @@ There are no settings specific to sub-servers.
 ## Limits
 
 - One level only in the interface: a sub-server cannot be split again from the **Splitter** tab.
-- A sub-server always lives on its parent's node. A [node transfer](server-transfers.md) moves only the server it is run on; it does not move the parent's sub-servers along.
+- A sub-server always lives on its parent's node. A [node transfer](server-transfers.md) of the parent moves its sub-servers along with it; a sub-server cannot be transferred on its own (`400` `ErrTransferSubServer`).
 - CPU is a percentage (100 = one core), memory and disk are in MB, the same units as any server.
 - The parent's database plan is not reduced; only the limits applied on the node are. Usage graphs of the parent therefore compare against the node limits.
 - Customers cannot choose host mounts, privileged mode, networks, labels or the container user for a sub-server.

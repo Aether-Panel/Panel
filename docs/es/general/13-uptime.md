@@ -6,7 +6,7 @@ Aether Panel registra cuándo está encendido y cuándo está apagado cada servi
 
 ## Resumen
 
-- El panel comprueba el estado de cada servidor cada **5 segundos** y guarda una fila por cada periodo continuo "encendido" o "apagado".
+- El panel comprueba el estado de los servidores de su propio nodo cada **5 segundos** y pregunta a cada nodo remoto por el estado de sus servidores cada **30 segundos**. Guarda una fila por cada periodo continuo "encendido" o "apagado".
 - `GET /api/uptime` devuelve un resumen de todos los servidores que puede ver quien llama; `GET /api/uptime/:serverId` devuelve el detalle y el historial de un servidor.
 - El periodo por defecto son los últimos **30 días** (máximo 365).
 - Los avisos de encendido/apagado para administradores se envían por Discord y se documentan en [Discord y notificaciones](16-discord.md); no dependen de estos registros.
@@ -35,10 +35,14 @@ Al borrar un servidor, sus filas de uptime se borran de forma explícita junto c
 
 ## Cómo se registra
 
-`trackUptimeForAllServers()` en `internal/servers/server.go` es el único punto que escribe uptime. Se ejecuta una vez al arrancar y después en cada ciclo de estadísticas de 5 segundos (`processStats()`):
+El uptime se escribe en dos sitios, ambos solo donde se ejecuta el panel (`panel.enable`; un nodo solo-daemon no tiene base de datos del panel): uno para los servidores del propio nodo del panel y otro para los de los nodos remotos. Los dos terminan en `Uptime.TrackStatus` (`internal/services/uptime.go`).
 
-1. No hace nada si `panel.enable` es `false` (un nodo solo-daemon no tiene base de datos del panel). Una marca impide que una ronda lenta se solape con la siguiente.
-2. Para cada servidor cargado en este proceso pregunta al entorno si está en marcha y llama a `Uptime.TrackStatus(serverID, isRunning)` (`internal/services/uptime.go`).
+### Servidores del nodo del panel
+
+`trackUptimeForAllServers()` en `internal/servers/server.go` se ejecuta una vez al arrancar y después en cada ciclo de estadísticas de 5 segundos (`processStats()`):
+
+1. No hace nada si `panel.enable` es `false`. Una marca impide que una ronda lenta se solape con la siguiente.
+2. Para cada servidor cargado en este proceso pregunta al entorno si está en marcha y llama a `Uptime.TrackStatus(serverID, isRunning)`.
 
 `TrackStatus`:
 
@@ -48,9 +52,21 @@ Al borrar un servidor, sus filas de uptime se borran de forma explícita junto c
 4. El estado ha cambiado: cierra la fila abierta (`end_time = ahora`, `duration = ahora - start_time` en segundos) y abre otra con el nuevo estado.
 5. El estado no ha cambiado: solo actualiza `updated_at`.
 
-> **Alcance:** solo se registran los servidores que ejecuta el propio proceso del panel (el nodo local). Los servidores de nodos remotos no tienen historial guardado; `/api/uptime` les asigna una entrada derivada de su estado actual (ver más abajo).
+Un reinicio del panel conserva las filas abiertas de estos servidores y las continúa, de modo que el tiempo que el panel estuvo caído cuenta para el estado que estaba abierto en ese momento.
 
-Un reinicio del panel conserva las filas abiertas y las continúa, de modo que el tiempo que el panel estuvo caído cuenta para el estado que estaba abierto en ese momento.
+### Servidores de nodos remotos
+
+Un nodo remoto funciona sin el panel, así que en su lado nadie registra el uptime. En su lugar, el panel pregunta a cada nodo remoto (`processRemoteStatus()` en `internal/servers/remote_status.go`):
+
+1. Una vez al arrancar y después cada **30 segundos**, el panel envía una petición a cada nodo remoto, a todos a la vez: `GET /daemon/servers/status`, firmada como cualquier otra llamada del panel a un nodo. Cada nodo tiene **10 segundos** para responder, para que un nodo caído no retrase la ronda, y nunca empieza una ronda mientras la anterior sigue en curso.
+2. El nodo responde con el estado de todos los servidores que tiene cargados: `{"servers": {"<id>": {"running": true, "installing": false}}}`. Un servidor cuyo estado el nodo no puede leer queda fuera de la respuesta.
+3. Para cada servidor que el panel tiene asignado a ese nodo, `Uptime.RecordNodeStatuses` llama a `TrackStatus` con el estado recibido, igual que en el nodo local. Un servidor que se está instalando cuenta como apagado. Un servidor que el nodo no menciona se deja como está: desconocido, no apagado.
+
+Cuando un nodo no responde (está caído, no se alcanza o rechaza el token del panel), no se registra nada para sus servidores: el panel no interpreta "sin respuesta" como "todos apagados". Sus periodos abiertos siguen abiertos durante un tiempo, para que un reinicio del nodo o un corte breve de red no los parta. Un periodo que nadie ha confirmado durante más de **3 minutos** se cierra en el momento de su última confirmación. La caída queda entonces como un hueco entre periodos, que no cuenta ni como tiempo encendido ni como tiempo apagado (las filas no tienen un estado "desconocido"). Cuando el nodo vuelve a responder, empieza un periodo nuevo desde ese momento.
+
+Un nodo con una versión anterior, sin `/daemon/servers/status`, responde `404` y se trata como un nodo que no responde: sus servidores no tienen historial registrado hasta que se actualiza. El log del panel avisa una vez cuando un nodo deja de responder a la consulta y otra cuando vuelve a hacerlo, no en cada ronda.
+
+Los servidores que aún no tienen historial registrado siguen apareciendo en `/api/uptime` con una entrada derivada de su estado actual (ver más abajo).
 
 ---
 
@@ -167,5 +183,6 @@ Las gráficas de rendimiento del servidor (CPU, memoria, red y uptime por hora/d
 
 ## Limitaciones conocidas
 
-- Solo se registra el historial de los servidores del nodo local; los de nodos remotos reciben una entrada derivada de su estado actual (véase [Cómo se registra](#cómo-se-registra)).
-- El tiempo que el panel está apagado cuenta para el estado que estaba abierto en ese momento.
+- En el propio nodo del panel, el tiempo que el panel está apagado cuenta para el estado que estaba abierto en ese momento. En los nodos remotos, una caída del panel de más de 3 minutos queda en cambio como un hueco (véase [Cómo se registra](#cómo-se-registra)).
+- Los servidores de nodos remotos se registran cada 30 segundos, no cada 5: un arranque o una parada aparece en su historial con hasta 30 segundos de retraso, y un servidor que se para y vuelve a arrancar entre dos consultas mantiene un único periodo.
+- Un nodo remoto con una versión sin `GET /daemon/servers/status` no tiene uptime registrado hasta que se actualiza.

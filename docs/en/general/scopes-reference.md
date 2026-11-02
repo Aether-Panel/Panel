@@ -274,7 +274,7 @@ The **Owner** column says whether it is in the owner set.
 |-------|----------------|-------|
 | `server.files.view` | List and read files, their history, plugins and modpacks. | yes |
 | `server.files.edit` | Upload, edit, delete, compress and extract files; restore versions; install or remove plugins and the map. | yes |
-| `server.sftp` | Sign in over SFTP. | yes |
+| `server.sftp` | Sign in over SFTP, with the password or an SSH key, on any node. | yes |
 | `server.backup.view` | See and download backups. | yes |
 | `server.backup.create` | Create backups. Without `admin`, up to `panel.backups.maxPerServer` per server (10 by default; `0` turns the cap off), then `409 ErrBackupLimit`. | yes |
 | `server.backup.restore` | Restore backups. | yes |

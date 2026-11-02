@@ -100,7 +100,7 @@ El secreto solo aparece en esta respuesta. El cliente actúa con todos los permi
 
 ### Claves SSH
 
-Claves públicas con las que se puede entrar por SFTP en lugar de con la contraseña; el usuario SFTP sigue siendo `email#serverId`.
+Claves públicas con las que se puede entrar por SFTP en lugar de con la contraseña; el usuario SFTP sigue siendo `email#serverId`. Funcionan en todos los nodos: el nodo propio del panel las comprueba en su base de datos, y los nodos remotos se lo preguntan al panel con [`POST /auth/sftp-key`](./02-authentication.md#post-authsftp-key).
 
 `POST /api/self/sshkeys`:
 

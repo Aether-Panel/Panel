@@ -124,14 +124,14 @@ The full list of keys is in [Configuration](../backend/02-configuration.md).
 |---|---|---|
 | `The server must be stopped to change the primary port.` | The server is running | Stop it, change the primary port and save |
 | `Port N is invalid (must be between 1024 and 65535).` / `Port N is already assigned to this server.` | Page-side validation | Use a port in range, without repeating it |
-| `el puerto N lo usa el propio panel en este nodo` | The port is the node's web or SFTP port | Choose another port |
-| `el puerto N ya está en uso por otro servidor en este nodo` | Another server on the node has it | Choose a free port. `POST /api/nodes/:id/ports/check` (used by the create-server wizard) tells which ports are free on a node; see [Dashboard and nodes](./dashboard-and-nodes.md) |
+| `Port N is used by the panel itself on this node.` (`ErrPortUsedByPanel`) | The port is the node's web or SFTP port | Choose another port |
+| `Port N is already used by another server on this node.` (`ErrPortTaken`) | Another server on the node has it | Choose a free port. `POST /api/nodes/:id/ports/check` (used by the create-server wizard) tells which ports are free on a node; see [Dashboard and nodes](./dashboard-and-nodes.md) |
 | `primaryPort must be one of the assigned ports` | API call with a `primaryPort` outside `ports` | Include it in `ports` |
 | `the sub-servers of this server already use more than that` | Lowering a parent below what its sub-servers hold | Shrink or remove sub-servers first |
 | `resources cannot be negative` | Negative CPU, memory or disk | Send zero or a positive number |
 | `Failed to save settings` | One of the requests failed (node down, missing permission) | Check the node is online and that you hold the scope of the section you changed |
 
-The API messages about ports are currently returned in Spanish, whatever the panel language.
+The port errors from the API carry a code (`ErrPortOutOfRange`, `ErrPortDuplicated`, `ErrPortUsedByPanel`, `ErrPortTaken`) and the port in their metadata, as a number or, for a template variable, as `25566 (rcon_port)`; the panel shows them in the viewer's language. The other API messages in this table are in English.
 
 ## See also
 

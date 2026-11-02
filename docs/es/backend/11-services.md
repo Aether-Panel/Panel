@@ -55,6 +55,7 @@ Módulos auxiliares:
 | `AttemptLimiter` (`LoginAttempts`, `PasswordResetRequests`) | `login_attempts.go` | Limitación de intentos en memoria por cuenta |
 | `SSOLinks` | `sso.go` | Enlaces de inicio de sesión de un solo uso para sistemas de facturación |
 | Telegram / webhook JSON | `channels.go` | Validación y envío para las notificaciones del propietario y las extensiones |
+| Textos de las notificaciones | `notification_text.go` | Textos que se envían fuera de las páginas del panel, en español e inglés |
 | `ReadDomainStatus` | `domain_status.go` | Lee lo que hizo el servicio de dominio del instalador |
 | `serveLocal` | `node_local.go` | Ejecuta en el propio proceso una "llamada al nodo" dirigida al nodo del panel |
 
@@ -261,7 +262,7 @@ Los errores que devuelve `repoAuth` nombran el repositorio y el tipo de credenci
 | `List(serverID, limit, before, filter)` | Más recientes primero; `limit` por defecto 50, máximo 100; `before` es el cursor por id; devuelve el siguiente cursor o nil |
 | `TruncateRunes(text, limit)` | Función auxiliar del paquete, corta con `…` |
 
-Filtros: un nombre de familia (`power`, `console`, `files`, `backups`, `users`, `settings`, `tasks`, véase `ServerActivityFamilies`) o un prefijo de acción en minúsculas como `file.` o `backup.restore`. Cualquier otra cosa no devuelve nada.
+Filtros: un nombre de familia (`power`, `console`, `files`, `backups`, `users`, `settings`, `tasks`, véase `ServerActivityFamilies`) o un prefijo de acción en minúsculas como `file.` o `backup.restore`. Cualquier otra cosa no devuelve nada. La familia `settings` incluye `server.transferFailed` y `server.transferStartFailed`, que registra un traslado entre nodos después de responder a la petición, con el paso y el motivo como detalle (`internal/web/api/transfer_logic.go`).
 
 ## 16. `Uptime` (`uptime.go`)
 
@@ -271,8 +272,11 @@ Filtros: un nombre de familia (`power`, `console`, `files`, `backups`, `users`, 
 | `GetUptimeStats(serverID, since)` | Segundos en línea/apagado entre `since` y ahora, periodo en curso incluido, y porcentaje (100 si no hay datos) |
 | `GetRecentHistory(serverID, limit)` | Últimos periodos |
 | `GetAllServerUptime(since)` | Mapa por servidor con `uptime`, `downtime`, `uptimePercent`, `currentStatus`, `currentStartTime` |
+| `RecordNodeStatuses(serverIDs, reported, staleAfter)` | Registra lo que un nodo remoto informó de los servidores que el panel tiene en él (ver abajo) |
 
-El bucle de estadísticas del daemon llama a `TrackStatus` para cada servidor cada 5 segundos, solo donde se ejecuta el panel ([Gestión de procesos y métricas](./13-process-metrics.md#seguimiento-del-uptime)). Las estadísticas leen todos los periodos que se solapan con la ventana (aún abiertos, o terminados después de `since`) y cuentan solo la parte que cae dentro: un periodo que empezó antes de `since` se recorta a `since`, y el periodo abierto llega hasta ahora. El periodo en curso se cuenta una sola vez: `GET /api/uptime/:serverId` no lo vuelve a sumar a `totalSeconds`. Descripción funcional: [Uptime](../general/13-uptime.md).
+El bucle de estadísticas del daemon llama a `TrackStatus` cada 5 segundos para cada servidor que ejecuta el propio proceso del panel, solo donde se ejecuta el panel ([Gestión de procesos y métricas](./13-process-metrics.md#seguimiento-del-uptime)). Las estadísticas leen todos los periodos que se solapan con la ventana (aún abiertos, o terminados después de `since`) y cuentan solo la parte que cae dentro: un periodo que empezó antes de `since` se recorta a `since`, y el periodo abierto llega hasta ahora. El periodo en curso se cuenta una sola vez: `GET /api/uptime/:serverId` no lo vuelve a sumar a `totalSeconds`. Descripción funcional: [Uptime](../general/13-uptime.md).
+
+`RecordNodeStatuses` lo llama cada 30 segundos, para cada nodo remoto, el sondeo de estado de nodos remotos del panel ([Gestión de procesos y métricas](./13-process-metrics.md#seguimiento-del-uptime)). `reported` contiene el estado de cada servidor por el que respondió el nodo, y es `nil` cuando el nodo no respondió. Desconocido no es apagado: un servidor que el nodo no incluyó, o todos los de un nodo que no respondió, no registran nada. Antes de registrar, cierra los periodos abiertos de esos servidores que nadie ha confirmado durante `staleAfter` (3 minutos), en su última confirmación (`updated_at`), de modo que una caída larga no cuenta ni como encendido ni como apagado (queda un hueco entre periodos); cuando el nodo vuelve a responder empieza un periodo nuevo.
 
 ## 17. `SSHKey` (`sshkey.go`)
 
@@ -334,9 +338,14 @@ Singleton obtenido con `GetDiscordService()`.
 | `SendBackupAlert(name, id, status, ok)` | principal | |
 | `SendSystemStatus(servers []ServerInfo)` | `panel.notifications.discordWebhookSystem` | Un campo por servidor; con más de 25 servidores (el límite de campos de Discord), los 24 primeros y una nota con cuántos quedan fuera; los recuentos de la descripción los cubren todos |
 | `SendNodeStatus(...)` | `panel.notifications.discordWebhookNode` | Los campos vacíos o a cero se omiten |
+| `SendNodeUnreachable(total, name, host, port)` | `panel.notifications.discordWebhookNode` | Informe rojo «sin respuesta» de un nodo remoto que no respondió: solo el número de servidores que tiene asignados, porque su estado y su máquina son desconocidos |
 | `ValidateDiscordWebhook(url)` | — | Función del paquete |
 
-Cada envío exige una URL real de webhook de Discord (`https://discord.com/api/webhooks/...`, también `ptb.`, `canary.` y `discordapp.com`) y pasa por `utils.NewRestrictedHTTPClient`, que rechaza direcciones privadas. Los textos de los embeds están en español. El cuarto webhook, `panel.notifications.discordWebhookExTransfer`, lo usa el código de transferencias externas de `internal/web/api`. Más información: [Discord](../general/16-discord.md).
+Cada envío exige una URL real de webhook de Discord (`https://discord.com/api/webhooks/...`, también `ptb.`, `canary.` y `discordapp.com`) y pasa por `utils.NewRestrictedHTTPClient`, que rechaza direcciones privadas. Los textos de los embeds salen del catálogo de notificaciones, en el idioma de `panel.settings.notificationLanguage` (ver [Textos de las notificaciones](#textos-de-las-notificaciones-notification_textgo)).
+
+`POST /api/settings/test/discord` (`internal/web/api/settings.go`) envía un mensaje de prueba a cada webhook configurado e indica a cuáles no llegó: `422 ErrDiscordTestFailed` con `metadata.webhooks`, que enumera `alerts`, `reports`, `status` o `transfers` (el cliente web muestra los nombres de sus propias secciones); sin ningún webhook configurado responde `400 ErrDiscordNoWebhooks`.
+
+El cuarto webhook, `panel.notifications.discordWebhookExTransfer`, lo usa el código de transferencias externas de `internal/web/api`. Más información: [Discord](../general/16-discord.md).
 
 ## 22. `LicenseService` (`license.go`)
 
@@ -351,7 +360,7 @@ La URL base es una constante del código y apunta a un host de pruebas (`prueba.
 
 ## 23. `Cloudflare` (`cloudflare.go`)
 
-`NewCloudflare(token, zoneID)` crea un cliente para una zona (`https://api.cloudflare.com/client/v4`, límite de 15 s). Métodos: `Zone`, `ListRecords(name)`, `CreateRecord`, `UpdateRecord(id, ...)`, `DeleteRecord(id)` (un registro que ya no existe cuenta como borrado) y `Verify(domain)` (lee la zona, comprueba que el dominio pertenece a ella y crea y borra un TXT `_aether-panel-test.<dominio>`). El token solo se envía como cabecera Bearer y se elimina de los mensajes de error; los ids de zona y de registro deben tener 32 caracteres hexadecimales. Lo usa `internal/web/api/server_dns.go` para los subdominios de servidor ([Servidores: subdominio](./04-servers.md#subdominio-cloudflare), [Subdominios](../features/subdomains.md)).
+`NewCloudflare(token, zoneID)` crea un cliente para una zona (`https://api.cloudflare.com/client/v4`, límite de 15 s). Métodos: `Zone`, `ListRecords(name)`, `CreateRecord`, `UpdateRecord(id, ...)`, `DeleteRecord(id)` (un registro que ya no existe cuenta como borrado) y `Verify(domain)` (lee la zona, comprueba que el dominio pertenece a ella y crea y borra un TXT `_aether-panel-test.<dominio>`). El token solo se envía como cabecera Bearer y se elimina de los mensajes de error; los ids de zona y de registro deben tener 32 caracteres hexadecimales. Los errores son códigos de error del panel que traduce el cliente web: `ErrCloudflareNotConfigured`, `ErrCloudflareZoneID`, `ErrCloudflareRecordID`, `ErrCloudflareDomainNotInZone`, `ErrCloudflareUnreachable`, `ErrCloudflareBadAnswer`, y los rechazos de la propia Cloudflare como `ErrCloudflareRefused` o `ErrCloudflareRefusedCode`, con su mensaje (y su código de error) en los metadatos. Lo usa `internal/web/api/server_dns.go` para los subdominios de servidor ([Servidores: subdominio](./04-servers.md#subdominio-cloudflare), [Subdominios](../features/subdomains.md)).
 
 ---
 
@@ -377,6 +386,19 @@ Enlaces de inicio de sesión de un solo uso para sistemas de facturación (WHMCS
 - Ambos usan el cliente HTTP restringido y un límite de 10 s; los mensajes de error nunca incluyen la URL (una URL de Telegram contiene el token del bot).
 
 Los usan las notificaciones por servidor ([Notificaciones de servidor](../features/server-notifications.md)) y las extensiones ([Extensiones](../reference/15-extensions.md)).
+
+### Textos de las notificaciones (`notification_text.go`)
+
+Todos los textos que el panel envía fuera de sus propias páginas están en un único catálogo, `notificationTexts`, con una versión en español (`es`) y otra en inglés (`en`) de cada clave; una prueba comprueba que ambas tienen las mismas claves y los mismos verbos de formato en el mismo orden. Abarca las alertas e informes de Discord del panel (caídas, apagado/encendido, recursos, copias de seguridad, informes del sistema y de nodos, la prueba de Discord), las alertas de Discord, Telegram y webhook JSON de cada dueño y su prueba, el título y el mensaje de los eventos de las extensiones, y los informes y textos de los pasos de las transferencias externas.
+
+| Función | Descripción |
+|---|---|
+| `NotificationLanguage()` | El valor de `panel.settings.notificationLanguage` si el catálogo lo tiene; si no, `es` (`DefaultNotificationLanguage`) |
+| `NotificationText(key, args...)` | El texto en ese idioma, completado con `fmt` |
+| `NotificationTextIn(lang, key, args...)` | Lo mismo en un idioma dado: una clave que falta en él usa la inglesa, y una clave que no existe en ninguno se devuelve tal cual |
+| `IsNotificationLanguage(lang)` | Lo usa la API de ajustes para rechazar otros valores (`ErrNotificationLanguage`) |
+
+Cada proceso lee su propia configuración: un nodo remoto usa el valor definido en ese nodo para las alertas de sus servidores. En el JSON del webhook de una alerta de recursos, el campo `resource` mantiene `CPU` o `Memoria` sea cual sea el idioma, por compatibilidad. La API de estado de las transferencias externas y el motivo que se envía al panel de origen usan siempre el texto en inglés, y el cliente web traduce él mismo los códigos de los pasos.
 
 ### `ReadDomainStatus` (`domain_status.go`)
 

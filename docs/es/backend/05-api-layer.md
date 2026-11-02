@@ -137,6 +137,7 @@ La mayoría de las rutas `/api/servers/{id}/...` son una comprobación de permis
 | `GET /auth/sso` | `NeedsDatabase` | Consume un enlace de un solo uso creado por la API de facturación (`POST /api/v1/sso`) e inicia la sesión del usuario. |
 | `GET /auth/challenge` | — | Reto de prueba de trabajo del captcha propio. |
 | `GET /auth/publickey` | — | Conjunto de claves públicas del panel (JWKS) que usan los nodos. |
+| `POST /auth/sftp-key` | `NeedsDatabase` | Para los nodos remotos: comprueba un inicio de sesión SFTP con clave SSH (`internal/web/auth/sftp_key.go`). Se autentica con el secreto del nodo (`Authorization: Bearer <secreto>`), cuerpo `{"username": "email#idServidor", "publicKey": "<línea de authorized_keys>"}`. Responde `200 {"scope": "<idServidor>:server.sftp"}` (nunca una sesión), `401 invalid_client` sin un secreto de nodo válido, `400 invalid_request` («no access») ante cualquier rechazo y `429` tras demasiados intentos fallidos. Ver [Seguridad](./09-security.md#autenticación-por-contraseña-y-por-clave). |
 
 El inicio de sesión, el registro y el restablecimiento de contraseña comprueban antes el captcha: Turnstile si está activado y configurado y, si no, la prueba de trabajo propia cuando `panel.captcha.builtin` está activo.
 
@@ -200,7 +201,9 @@ Cada llamada del panel a `/daemon/*` de un nodo (incluidas las rutas `/api/serve
 
 `ValidateJWT` en el nodo solo acepta tokens EdDSA con caducidad y esa audiencia (el secreto del nodo local o, en un nodo remoto, `daemon.auth.clientSecret`). La clave de verificación es el propio conjunto de claves del panel cuando el panel corre en el mismo binario, o el JWKS descargado de `token.public` en un nodo remoto. Rutas del daemon sin autenticación: `GET/HEAD /daemon` (estado) y `GET /daemon/features`.
 
-El nodo solo llama al panel para comprobar contraseñas SFTP (la concesión `password` de arriba). Ver [Configuración: nodo remoto](./02-configuration.md#ejemplo-nodo-remoto) y [Seguridad](./09-security.md).
+Un token que el nodo no puede verificar (firmado por otro panel, hecho para otro nodo o caducado porque un reloj va mal) recibe `401` con `WWW-Authenticate: Bearer error="invalid_token"` y queda registrado en el nodo. El panel no traslada ese rechazo al navegador, donde parecería que la sesión del propio usuario ha terminado y lo devolvería a la página de inicio de sesión: cuando un nodo responde `401`, o `403` con una cabecera `WWW-Authenticate`, el panel registra el nombre del nodo con una pista (revisar el secreto del nodo y la hora de ambas máquinas) y responde `502 ErrNodeAuthFailed` (`answerNodeAuthFailure`, `internal/web/api/node_auth.go`). Esto cubre las rutas de servidor que se reenvían al nodo y las llamadas directas que crean, editan, borran y hacen copias de servidores, el mapa del mundo y el aprovisionamiento. Cualquier otra respuesta del nodo (un `403` normal, `409`, `400`…) se transmite como antes.
+
+El nodo solo llama al panel para comprobar inicios de sesión SFTP: las contraseñas, con la concesión `password` de arriba, y las claves SSH, con `POST /auth/sftp-key`. Ver [Configuración: nodo remoto](./02-configuration.md#ejemplo-nodo-remoto) y [Seguridad](./09-security.md).
 
 ## Comprobación de permisos
 
@@ -223,6 +226,7 @@ g.GET("/:serverId/flags", middleware.RequiresAnyPermission(scopes.ScopeServerVie
 | Qué | Límite | Clave |
 |---|---|---|
 | Intentos de contraseña (inicio de sesión del panel, OAuth2 `password`, SFTP) | 10 cada 15 minutos | cuenta |
+| Comprobaciones de claves SSH para nodos remotos (`/auth/sftp-key`) | 10 cada 15 minutos | cuenta, con un cupo propio (`sshkey:user:<id>`) |
 | Códigos del segundo factor | 10 cada 15 minutos | cuenta |
 | Solicitudes de restablecimiento de contraseña | 5 por hora | email |
 | Peticiones de IA (análisis de registros y asistente juntos) | 30 cada 10 minutos | usuario |
@@ -242,7 +246,7 @@ Guarda la lista completa de puertos y el puerto principal. Requiere `server.data
 ```
 
 - `primaryPort` debe ser uno de los puertos; se coloca el primero.
-- Cada puerto se comprueba contra el nodo: rango 1024–65535, sin duplicados, que no sea uno de los puertos del propio panel en ese nodo y que no esté asignado a otro servidor allí.
+- Cada puerto se comprueba contra el nodo: rango 1024–65535, sin duplicados, que no sea uno de los puertos del propio panel en ese nodo y que no esté asignado a otro servidor allí. Un rechazo responde `400` con `ErrPortOutOfRange`, `ErrPortDuplicated`, `ErrPortUsedByPanel` o `ErrPortTaken`, y el puerto en `metadata.port` (para una variable de puerto de la plantilla, el número y la variable, como `25566 (rcon_port)`); el cliente web los traduce.
 - Primero se actualiza el nodo; si lo rechaza o está caído, el panel no guarda puertos ni límites que el servidor no tiene. El daemon reescribe `port`, `port2`, `port3`… (quitando los que sobran).
 - Actualiza `server.Port` y `server.Ports` en la base de datos del panel y refresca los registros del subdominio cuando cambia el puerto principal.
 

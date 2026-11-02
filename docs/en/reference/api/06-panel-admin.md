@@ -156,7 +156,7 @@ Editable keys:
 | Addresses | `panel.settings.masterUrl`, `panel.settings.nodeIp`, `panel.settings.masterNodeIp` |
 | Sign-up and anti-bot | `panel.registrationEnabled`, `panel.turnstile.enabled`, `panel.turnstile.siteKey`, `panel.turnstile.secretKey`, `panel.captcha.builtin` |
 | Email | `panel.email.provider`, `panel.email.from`, `panel.email.host`, `panel.email.username`, `panel.email.password`, `panel.email.domain`, `panel.email.key` |
-| Notifications | `panel.notifications.discordWebhook`, `panel.notifications.discordWebhookSystem`, `panel.notifications.discordWebhookNode`, `panel.notifications.discordWebhookExTransfer` |
+| Notifications | `panel.settings.notificationLanguage` (`es` or `en`, default `es`: the language of Discord, Telegram and webhook alerts, the panel's Discord reports and extension events), `panel.notifications.discordWebhook`, `panel.notifications.discordWebhookSystem`, `panel.notifications.discordWebhookNode`, `panel.notifications.discordWebhookExTransfer` |
 | AI and integrations | `panel.settings.geminiApiKey`, `panel.settings.hideAiAnalysis`, `daemon.curseforge.key` |
 | Experimental | `panel.experimental.versionSwitch`, `panel.experimental.propertiesEditor`, `panel.experimental.serverClone` |
 | Off-site backups | `daemon.backups.s3.enabled`, `daemon.backups.s3.endpoint`, `daemon.backups.s3.region`, `daemon.backups.s3.bucket`, `daemon.backups.s3.accessKey`, `daemon.backups.s3.secretKey`, `daemon.backups.s3.prefix`, `daemon.backups.s3.insecure` |
@@ -167,7 +167,7 @@ Other configuration keys (for example `panel.backups.maxPerServer`) are only set
 
 ### `POST /api/settings`
 
-An object of keys and values: `{"panel.settings.companyName": "My Hosting", "panel.registrationEnabled": false}`. Every value is checked first (Discord webhooks must be valid Discord webhook URLs, `400` otherwise), so a bad value saves nothing. Text values are trimmed; unknown keys are ignored. A secret sent as `********` (the mask, unchanged) is dropped and keeps its saved value. `204`.
+An object of keys and values: `{"panel.settings.companyName": "My Hosting", "panel.registrationEnabled": false}`. Every value is checked first (Discord webhooks must be valid Discord webhook URLs, `panel.settings.notificationLanguage` must be `es` or `en`: `400`, with `ErrNotificationLanguage` for the latter, otherwise), so a bad value saves nothing. Text values are trimmed; unknown keys are ignored. A secret sent as `********` (the mask, unchanged) is dropped and keeps its saved value. `204`.
 
 ### `GET /api/settings/:key` and `PUT /api/settings/:key`
 
@@ -180,7 +180,7 @@ The test routes take the values typed in the form, not saved yet, as overrides (
 | Route | Overrides | Answer |
 |-------|-----------|--------|
 | `POST /test/email` | `panel.email.*` | `204`, sent to the caller's email; `422` with the mail server's reason |
-| `POST /test/discord` | The four `panel.notifications.discordWebhook*` keys | `204`; `400` when none is configured or one is invalid; `422` naming the webhooks the message did not reach |
+| `POST /test/discord` | The four `panel.notifications.discordWebhook*` keys | `204`; `400 ErrDiscordNoWebhooks` when none is configured, `400` when one is invalid; `422 ErrDiscordTestFailed` naming the webhooks the message did not reach in `metadata.webhooks` (`alerts`, `reports`, `status`, `transfers`, which the settings page shows with the names of its sections). The message is written in the notification language |
 | `POST /test/s3` | `daemon.backups.s3.*` | `204`, after writing and deleting a small object; `400` when not configured; `422` with the storage's answer |
 | `POST /test/cloudflare` | `panel.dns.cloudflare.token`, `panel.dns.cloudflare.zoneId`, `panel.dns.baseDomain` | `200 {"zone": ...}` after creating and removing a TXT record; `400` when not configured; `422` with Cloudflare's answer |
 
@@ -272,7 +272,7 @@ Extension packages, their pages and events are described in [Extensions](../15-e
 
 Details: [Uptime](../../general/13-uptime.md).
 
-Only servers on the panel's own node are recorded. Periods that overlap the window are counted only for the part inside it, and the running period up to now.
+Servers on the panel's own node are recorded by the panel every few seconds; servers on remote nodes by a poller that asks each node every 30 seconds (`GET /daemon/servers/status`). While a remote node does not answer nothing is recorded for it, and after 3 minutes without an answer its open periods are closed at their last confirmation, so the outage counts as neither uptime nor downtime. Periods that overlap the window are counted only for the part inside it, and the running period up to now.
 
 ### `GET /api/uptime?days=30`
 

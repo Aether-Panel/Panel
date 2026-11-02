@@ -73,7 +73,7 @@ Los puntos de restauración son copias rápidas que se toman justo antes de un p
 | `restore` | Restaurar una copia | La restauración se cancela |
 
 - Solo se conservan los **3 más recientes**; los anteriores se eliminan.
-- En los plugins no se crea un punto nuevo si ya existe uno de hace menos de **30 minutos**, para que una serie de instalaciones no genere uno por plugin.
+- En los plugins no se crea un punto nuevo si ya existe uno de hace menos de **30 minutos**, para que una serie de instalaciones no genere uno por plugin. Una instalación lo crea solo cuando Modrinth tiene una versión compatible con un nombre de archivo válido, justo antes de la descarga; una eliminación, solo cuando encuentra el archivo. Una instalación rechazada o un nombre equivocado no dejan ningún punto de restauración.
 - Los puntos de restauración se guardan solo en el nodo; no se suben al almacenamiento externo.
 - Aparecen en la lista de copias y se restauran, descargan y eliminan como cualquier otra copia.
 
@@ -86,7 +86,7 @@ Cada vez que se abre la lista de copias, el panel compara sus registros con los 
 ### Al borrar o transferir un servidor
 
 - **Borrar un servidor** borra también sus copias de seguridad en el nodo (la carpeta `<daemon.data.backups.folder>/<id-servidor>/`) y sus registros en el panel. Las copias externas del bucket **no** se borran.
-- **Transferir un servidor a otro nodo** ([Transferencias](./server-transfers.md)) no mueve las copias: se quedan en el nodo antiguo, que las conserva al borrar allí el servidor.
+- **Transferir un servidor a otro nodo** ([Transferencias](./server-transfers.md)) copia a través del panel al nodo nuevo las copias guardadas en el nodo antiguo (ubicación `local` o `both`, incluidos los puntos de restauración), con su nombre y su fecha, y después las borra del nodo antiguo junto con el servidor. Los registros siguen al servidor. Las copias externas se quedan donde están: el bucket es el mismo para todos los nodos. Si la transferencia falla, se quitan las copias que hizo en el nodo nuevo y el nodo antiguo conserva las suyas.
 
 ### Copias externas
 
@@ -168,7 +168,7 @@ Las copias externas solo están activas cuando `enabled` vale `true` **y** está
 - Retención de copias automáticas: `keep` entre 1 y 50.
 - Clonar un servidor no copia sus copias de seguridad ([Clonar servidores](./cloning.md)).
 - Al eliminar un servidor, sus copias del bucket externo se quedan allí; hay que borrarlas a mano si ya no se necesitan.
-- Una transferencia entre nodos deja las copias en el nodo antiguo, sin mostrarlas en el panel.
+- Una transferencia entre nodos copia todas las copias de seguridad a través del panel, así que tarda más y necesita espacio para ellas en el nodo nuevo. El nodo nuevo debe tener la ruta `/daemon/server/:id/backup/file` (una versión actual) para recibirlas.
 - La configuración S3 guardada en **Configuración › Copias externas** solo se aplica al nodo propio del panel; cada nodo remoto necesita la suya (véase [Nodos remotos](#requisitos-y-configuración)).
 
 ## Problemas conocidos y soluciones

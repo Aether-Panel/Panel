@@ -128,22 +128,22 @@ All five are editable from **Settings → Domains**. The token is stored in the 
 
 ## Troubleshooting
 
-Errors from the panel are returned in Spanish; the codes in brackets are stable.
+Errors from the panel carry a stable code (in brackets) and an English message; the panel shows each one translated into the viewer's language, with the values the error carries (port, domain, Cloudflare's message) filled in.
 
 | Message | Cause and fix |
 |---------|---------------|
-| `los subdominios automáticos no están configurados en este panel` (`ErrSubdomainDisabled`, 400) | Token, zone ID or base domain missing. Complete **Settings → Domains**. |
-| `el subdominio solo puede tener letras minúsculas, números y guiones…` (`ErrSubdomainInvalid`, 400) | Name too short or long, or with invalid characters. |
-| `ese subdominio está reservado` (`ErrSubdomainReserved`, 400) | The name is on the reserved list. Pick another. |
-| `ese subdominio ya está en uso` (`ErrSubdomainTaken`, 409) | Another server uses it, **or** a record with that name (or its `_minecraft._tcp.` SRV name) already exists in the zone outside the panel. Delete the foreign record in Cloudflare or pick another name. |
-| `espera unos segundos antes de volver a cambiar el subdominio` (`ErrSubdomainRateLimited`, 429) | Two changes within 10 seconds. Wait and retry. |
-| `el nodo de este servidor no tiene una dirección pública; configura un destino DNS…` (`ErrSubdomainNoTarget`, 422) | The node is registered with a private IP, `localhost` or an internal hostname. Set **DNS target** to the public IP or hostname, or register the node with its public address. |
-| `faltan el token de la API o el ID de zona de Cloudflare` (400, test) | Token or zone ID empty. |
-| `el ID de zona de Cloudflare debe tener 32 caracteres hexadecimales` | Wrong zone ID (often the account ID was pasted). Copy the *Zone ID* from the domain's Overview page. |
-| `el dominio base no es un nombre de dominio válido` (400, test) | The base domain contains `http://`, slashes or invalid characters. |
-| `el dominio <domain> no pertenece a la zona <zone>` (422, test) | The base domain is not the zone or a subdomain of it. Use a domain inside the selected zone. |
-| `Cloudflare respondió: … (código <n>)` (422) | Cloudflare refused the call. The panel shows Cloudflare's own message and code as received; the usual causes are an invalid token or a token without DNS edit permission on that zone. Recreate the token with the *Edit zone DNS* template restricted to the right zone. |
-| `no se pudo contactar con Cloudflare: …` | The panel cannot reach `api.cloudflare.com` (firewall, DNS, no outbound internet). |
+| `Automatic subdomains are not set up on this panel.` (`ErrSubdomainDisabled`, 400) | Token, zone ID or base domain missing. Complete **Settings → Domains**. |
+| `A subdomain may only have lowercase letters, digits and hyphens…` (`ErrSubdomainInvalid`, 400) | Name too short or long, or with invalid characters. |
+| `That subdomain is reserved.` (`ErrSubdomainReserved`, 400) | The name is on the reserved list. Pick another. |
+| `That subdomain is already in use.` (`ErrSubdomainTaken`, 409) | Another server uses it, **or** a record with that name (or its `_minecraft._tcp.` SRV name) already exists in the zone outside the panel. Delete the foreign record in Cloudflare or pick another name. |
+| `Wait a few seconds before changing the subdomain again.` (`ErrSubdomainRateLimited`, 429) | Two changes within 10 seconds. Wait and retry. |
+| `This server's node has no public address. Set a DNS target…` (`ErrSubdomainNoTarget`, 422) | The node is registered with a private IP, `localhost` or an internal hostname. Set **DNS target** to the public IP or hostname, or register the node with its public address. |
+| `The Cloudflare API token or zone ID is missing.` (`ErrCloudflareNotConfigured`, 400, test) | Token or zone ID empty. |
+| `The Cloudflare zone ID must be 32 hexadecimal characters.` (`ErrCloudflareZoneID`) | Wrong zone ID (often the account ID was pasted). Copy the *Zone ID* from the domain's Overview page. |
+| `The base domain is not a valid domain name.` (`ErrDNSBaseDomainInvalid`, 400, test) | The base domain contains `http://`, slashes or invalid characters. |
+| `The domain <domain> does not belong to the zone <zone>.` (`ErrCloudflareDomainNotInZone`, 422, test) | The base domain is not the zone or a subdomain of it. Use a domain inside the selected zone. |
+| `Cloudflare answered: … (code <n>)` (`ErrCloudflareRefusedCode`, or `ErrCloudflareRefused` without a code; 422) | Cloudflare refused the call. The panel shows Cloudflare's own message and code as received; the usual causes are an invalid token or a token without DNS edit permission on that zone. Recreate the token with the *Edit zone DNS* template restricted to the right zone. |
+| `Could not reach Cloudflare: …` (`ErrCloudflareUnreachable`) | The panel cannot reach `api.cloudflare.com` (firewall, DNS, no outbound internet). |
 | The address resolves but players cannot connect | The record points at a proxied domain or the wrong IP. Open **Show DNS records** and check the target; if it is the panel's proxied domain, set **DNS target** to the server's public IP. Also check that the game port is open on the node. |
 | Records left in the zone after deleting a server | Cloudflare was not configured, or the call failed, when the server was deleted. Remove the records manually; they carry the comment `Aether Panel: server <serverId>`. |
 

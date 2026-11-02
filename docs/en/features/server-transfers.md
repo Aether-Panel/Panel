@@ -10,27 +10,40 @@ Aether Panel can move a server's files in two ways:
 | | Node transfer | Panel-to-panel migration |
 |---|---|---|
 | Scope | Two nodes of one panel | Two independent panels |
-| What travels | Server definition and all files | Files only (an archive of the server folder) |
+| What travels | Server definition, all files and the backups kept on the node, together with its Splitter sub-servers | Files only (an archive of the server folder) |
 | Started from | The origin server (**Administration › Transfer**) | Both sides: a token on the origin, an import on the destination (**Migration** tab) |
-| Server stopped first | Yes (stopped, killed if it does not stop) | No |
-| Progress in the UI | No (only the panel log) | Yes (step text, heartbeat, outcome) |
+| Server stopped first | Yes (stopped, killed if it does not stop; started again on the new node if it was running) | No |
+| Progress in the UI | No (the panel log; a failure is also written to the server's activity log) | Yes (step text, heartbeat, outcome) |
+| Undone on failure | Yes, automatically | The partial archive is deleted |
 | Cancellable | No | Yes, from either side |
 
 ## How it works
 
 ### Node transfer
 
-Before it starts, the panel checks that the server's ports (the main one and the extra ones) are free on the target node: no other server of that node, none of the node's own ports (panel, daemon, SFTP) and no container published there may use them. If any is taken, it answers `409` with `ErrTransferPortsTaken` and the list of ports, and nothing is moved. When they are free, `POST /api/servers/:serverId/transfer` answers `202` straight away and the panel runs these steps in the background:
+A server moves together with its **Splitter sub-servers** (see [Sub-servers](sub-servers.md)): they live on their parent's node and take their resources from its plan there. A sub-server that is already on the target node stays where it is. A sub-server cannot be transferred on its own: the request is refused with `400` `ErrTransferSubServer`; transfer its parent instead.
 
-1. Reads the server definition from the current node and creates the server with it on the target node.
-2. Stops the server on the current node and waits; if it is still running, kills it. If it cannot be stopped, the transfer is cancelled.
-3. Archives every file into `transfer.tar.gz` on the current node.
-4. Streams the archive from the current node to the target node, without buffering it in the panel.
-5. Extracts it into the server folder on the target node and deletes the archive there.
-6. Points the server's database record at the target node and refreshes its subdomain so it follows the new node's address.
-7. Asks the old node to delete the server while keeping its backups (`?keepBackups=true`): backups are **not** moved to the new node and stay on the old node's disk.
+Before anything moves, `POST /api/servers/:serverId/transfer` checks:
 
-The server is not started again on the target node; start it when the transfer is done. The activity log records `server.transfer`.
+- The target is another node (`400` `cannot transfer to the same node` otherwise).
+- No transfer of any of these servers is already running: `409` `ErrTransferRunning`.
+- The ports of every server that moves (the main one and the extra ones) are free on the target node: no other server of that node, none of the node's own ports (panel, daemon, SFTP) and no container published there may use them. Otherwise `409` `ErrTransferPortsTaken` with the list of ports.
+- No backup, restore point or restore of any of them is being written on the old node (asked through `GET /daemon/server/:id/backup/busy`): `409` `ErrTransferBackupRunning`. A node too old to have that route is not asked.
+
+If the checks pass, the request answers `202` straight away and the panel runs the transfer in the background. It first drops the panel's records of backups that failed, so none is left pointing at a backup the old node never had, and then:
+
+1. **Prepare**, for each server in turn (the parent first):
+   1. Reads the server definition from the old node and creates the server with it on the new node.
+   2. Stops the server on the old node and waits; if it is still running, kills it. If it cannot be stopped, the transfer fails. A backup that started in the meantime also fails it.
+   3. Archives every file into `transfer.tar.gz` on the old node, streams the archive to the new node without buffering it in the panel, extracts it into the server folder there and deletes the archive.
+   4. Copies each backup the old node keeps for the server (location `local` or `both`) through the panel to the new node (`PUT /daemon/server/:id/backup/file`), keeping its name and date. A backup kept only off-site (S3) needs no copy: the bucket is the same wherever the server runs. A backup that is already on the new node with the same name is left alone.
+2. **Commit**: points every moved server's database record at the new node in one database transaction. Only the node is written, so other changes made to the server while the transfer ran are kept.
+3. **Clean up**: deletes each server from the old node, with its backups there (their copies are on the new node now; off-site copies are untouched). A failure here is only logged: the server already runs from the new node and what is left is a stray copy. Each moved server's subdomain is refreshed so it follows the new node's address.
+4. **Start**: starts on the new node the servers that were running before the transfer. One that does not start is not moved back; the panel records `server.transferStartFailed` in its activity log with the reason.
+
+If any step up to the commit fails, the whole transfer is undone, newest step first, for every server already reached: the backup copies it brought and the server itself are removed from the new node, the archives are removed from the old node, and a server that was running is started again on the old node. The servers stay on their old node and the panel records `server.transferFailed` in each one's activity log with the step and the reason (see [Activity log](activity-and-access-log.md)). A cleanup call that fails is written to the panel log.
+
+The activity log also records the request itself as `server.transfer`.
 
 ### Panel-to-panel migration
 
@@ -57,7 +70,7 @@ The activity log records `extransfer.create`, `extransfer.pull` and `extransfer.
 
 1. Open the server and go to **Administration › Transfer**.
 2. Click **Transfer**, choose the **Target node** and click **Start transfer**.
-3. The panel shows *Transfer started.* The server disappears from the old node when the copy finishes.
+3. The panel shows *Transfer started.* When the copy finishes the server, its sub-servers and its backups are on the new node, and the servers that were running are started there. If the transfer fails it is undone and the server's **Activity** shows why.
 
 **Panel-to-panel migration**
 
@@ -79,10 +92,10 @@ Both sides offer **Cancel transfer** while a transfer is live.
 
 | Method | Path | Scope | Purpose |
 |--------|------|-------|---------|
-| POST | `/api/servers/:serverId/transfer` | `server.data.edit.admin` | Node transfer. `409` `ErrTransferPortsTaken` when a port of the server is taken on the target. Body `{"nodeId": 2}`. Answers `202 {"msg": "Transfer started"}`. |
+| POST | `/api/servers/:serverId/transfer` | `server.data.edit.admin` | Node transfer of the server and its sub-servers. Body `{"nodeId": 2}`. Answers `202 {"msg": "Transfer started"}`. `400` `ErrTransferSubServer` for a sub-server; `409` `ErrTransferPortsTaken`, `ErrTransferRunning` or `ErrTransferBackupRunning`. |
 | POST | `/api/servers/:serverId/extransfer/create` | `server.data.edit.admin` | Origin: creates a session. Answers `session_id`, `token`, `expires_in` (900). |
 | POST | `/api/servers/:serverId/extransfer/pull` | `server.data.edit.admin` | Destination: starts the import. Body `{"origin_url": "https://panel.example.com", "token": "…"}`. Answers `202`. |
-| GET | `/api/servers/:serverId/extransfer/status` | `server.data.edit.admin` | Both sides: `status` (current import step), `pulling`, and `origin` (newest session created here, while live or up to 15 minutes after it ended). |
+| GET | `/api/servers/:serverId/extransfer/status` | `server.data.edit.admin` | Both sides: `status` (code of the current import step or outcome: `STEP_*`, `ERROR_*`, `DONE`, `CANCELLED`, `CANCELLED_BY_ORIGIN`), `detail` (what some failures add, such as `HTTP 403`), `message` (English text of a `STEP_*` or `ERROR_*` code, for a client that does not know it), `pulling`, and `origin` (newest session created here, while live or up to 15 minutes after it ended). |
 | POST | `/api/servers/:serverId/extransfer/cancel` | `server.data.edit.admin` | Cancels the live origin sessions and the running import of this server. `409 NO_ACTIVE_TRANSFER` when there is none. |
 | POST | `/api/extransfer/validate` | public (token) | Called by the destination. |
 | POST | `/api/extransfer/consume` | public (signature) | Called by the destination. |
@@ -98,28 +111,30 @@ Errors from the public routes use `{"error_code", "message", "retryable"}` (the 
 | Key | Default | Environment variable | Meaning |
 |-----|---------|----------------------|---------|
 | `panel.exTransferKey` | generated on first use | `SKYPANEL_PANEL_EXTRANSFERKEY` | Seed of this panel's Ed25519 signing key. Written to the config file automatically; do not change it during a transfer. |
-| `panel.notifications.discordWebhookExTransfer` | empty | `SKYPANEL_PANEL_NOTIFICATIONS_DISCORDWEBHOOKEXTRANSFER` | Discord webhook that receives a report when a migration completes, fails or is cancelled. Editable in **Settings › Discord Notifications** (**ExTransfer Webhook**). |
+| `panel.notifications.discordWebhookExTransfer` | empty | `SKYPANEL_PANEL_NOTIFICATIONS_DISCORDWEBHOOKEXTRANSFER` | Discord webhook that receives a report when a migration completes, fails or is cancelled. Editable in **Settings › Discord Notifications** (**ExTransfer Webhook**). The report is written in the notification language (`panel.settings.notificationLanguage`, see [Panel settings](panel-settings.md)). |
 
 See [Configuration](../backend/02-configuration.md).
 
 Other requirements:
 
 - Both actions need `server.data.edit.admin` on the server, which a server owner does not hold by default (see the [scopes reference](../general/scopes-reference.md)).
-- Node transfer: both nodes online and reachable from the panel; enough free disk on the source node for the archive and on the target for archive plus files.
+- Node transfer: both nodes online and reachable from the panel; enough free disk on the source node for the archive and on the target for archive plus files and backups. To receive backups the target node must run a version with the `/daemon/server/:id/backup/file` route; on an older one, a server with backups on its node cannot be transferred (the backup copy fails and the transfer is undone).
 - Migration: the origin panel must be reachable from the destination panel over HTTP(S) at a **public** address. Localhost and private or loopback IP addresses are refused. The URL may only be `http(s)://host[:port]` (no path); without a scheme, `https://` is assumed.
 
 ## Limits
 
 - **Node transfer**
-  - There is no progress indicator and no automatic rollback. If a step fails, the error goes to the panel log only; the server may already exist on the target node while still running from the source node, or stay stopped after step 2.
-  - Only the chosen server moves. Sub-servers stay on their node (see [Sub-servers](sub-servers.md)).
-  - Backups are not moved: they stay on the old node and the server's **Backups** tab no longer lists them. Download the ones you want to keep before transferring (see [Backups](backups.md)).
+  - There is no progress indicator: the outcome shows in the server's activity log (on failure) and in the panel log.
+  - The transfer is not resumed after a panel restart: a restart in the middle leaves it half done, without the automatic undo. Check both nodes before trying again.
+  - Scheduled tasks keep running during the transfer (see [Scheduled tasks](scheduled-tasks.md)); a task that starts, stops or backs up the server can get in the way. Avoid transferring while one is due.
+  - Only one level of sub-servers moves with the server: sub-servers of a sub-server are not looked for.
+  - The servers are unavailable from the moment they are stopped until they are started on the new node.
 - **Panel-to-panel migration**
   - Only files travel. The destination server keeps its own template, variables, resources, users and backups; set them up to match.
   - Files from the archive overwrite files with the same name on the destination; other existing files are kept. The import does not stop the destination server or change its configuration, as the warning in the **Import** tab says: stop it yourself and make a backup first (see [Backups](backups.md)).
   - The origin server is not stopped while it is archived, so a running world can be copied mid-save, and it is not deleted after the migration.
   - The origin must have the archive ready within 2 hours of the first download attempt (polling starts 5 seconds after the consume), otherwise the import fails.
-  - Import step messages are produced by the destination's backend in Spanish, whatever language the interface uses.
+  - The status API answers each import step as a code that the page translates into the viewer's language; the destination's Discord reports use the panel's notification language, and the reason it sends to the origin when it gives up is in English.
   - The archive is written inside the origin server's folder and counts towards its disk.
 
 ## Troubleshooting
@@ -128,14 +143,18 @@ Other requirements:
 |---------|------|-------|-----|
 | `cannot transfer to the same node` | Panel | The target node is the current one. | Choose another node. |
 | `ports … of this server are already used on the target node: free them or pick another node` (`409`, `ErrTransferPortsTaken`) | Panel | Another server, the node itself or a container uses those ports on the target node. | Free them there, change the server's ports or pick another node. |
-| Node transfer never finishes; the server is still on the old node | Panel | A background step failed. | Check the panel log for `Failed to …` / `Transfer of … cancelled`, fix the node problem and retry. |
-| `ERROR: La URL de origen no es válida o apunta a una dirección no permitida` | Destination | URL with a path, credentials, a private IP or localhost. | Use the origin panel's public `https://host[:port]`. |
-| `ERROR: Fallo de red al conectar con origen` | Destination | The origin is unreachable. | Check DNS, firewall and TLS of the origin panel. |
-| `ERROR: Token inválido o expirado (Status 403)` | Destination | Token mistyped, already used, cancelled or older than 15 minutes. | Generate a new token on the origin. |
-| `ERROR: El origen rechazó la transferencia` | Destination | The signed consume was refused (nonce older than 3 minutes, session not `VALIDATED`). | Start again with a new token. |
-| `ERROR: El origen no preparó el paquete a tiempo (timeout 2h0m0s)` | Destination | Archiving the origin server took more than 2 hours. | Reduce the server's size (old backups, logs) and try again. |
-| `ERROR: El origen rechazó la descarga (Status …)` | Destination | The session was cancelled, failed or expired on the origin. | Check the origin's **Export** tab; generate a new token. |
-| `ERROR: Error al subir archivo al daemon` / `ERROR: Error al descomprimir en el destino: …` | Destination | The destination node refused the archive (disk limit, node offline). | Free disk on the destination server or node. |
+| `A sub-server stays on its parent's node…` (`400`, `ErrTransferSubServer`) | Panel | The server is a Splitter sub-server. | Transfer the parent server: its sub-servers go with it. |
+| `This server is already being transferred…` (`409`, `ErrTransferRunning`) | Panel | A transfer of this server or one of its sub-servers is running. | Wait for it to end. |
+| `A backup or restore of this server is in progress…` (`409`, `ErrTransferBackupRunning`) | Panel | The old node is writing a backup, restore point or restore of one of the servers. | Transfer once it is done. |
+| The server is still on the old node; its activity shows `server.transferFailed` | Panel | A step failed and the transfer was undone. The detail names the server, the step and the node's answer. | Fix the cause (disk, node offline, target node too old to receive backups) and try again. The panel log has `Transfer of … failed and was undone`. |
+| The server moved but is stopped; its activity shows `server.transferStartFailed` | Panel | It could not be started on the new node. | Read the reason in the detail and the server console, then start it by hand. |
+| `The origin URL is not valid or points to an address that is not allowed` (`ERROR_ORIGIN_URL`) | Destination | URL with a path, credentials, a private IP or localhost. | Use the origin panel's public `https://host[:port]`. |
+| `Network error while connecting to the origin` (`ERROR_ORIGIN_UNREACHABLE`) | Destination | The origin is unreachable. | Check DNS, firewall and TLS of the origin panel. |
+| `Invalid or expired token (HTTP 403)` (`ERROR_TOKEN_REJECTED`) | Destination | Token mistyped, already used, cancelled or older than 15 minutes. | Generate a new token on the origin. |
+| `The origin refused the transfer` (`ERROR_ORIGIN_REFUSED`) | Destination | The signed consume was refused (nonce older than 3 minutes, session not `VALIDATED`). | Start again with a new token. |
+| `The origin did not prepare the package in time (2h0m0s)` (`ERROR_DOWNLOAD_TIMEOUT`) | Destination | Archiving the origin server took more than 2 hours. | Reduce the server's size (old backups, logs) and try again. |
+| `The origin refused the download (HTTP …)` (`ERROR_DOWNLOAD_REFUSED`) | Destination | The session was cancelled, failed or expired on the origin. | Check the origin's **Export** tab; generate a new token. |
+| `The file could not be uploaded to the daemon` (`ERROR_UPLOAD`) / `The files could not be unpacked on the destination (…)` (`ERROR_EXTRACT`) | Destination | The destination node refused the archive (disk limit, node offline). | Free disk on the destination server or node. |
 | `A transfer is already running for this server` (`409`) | Destination | An import is already in progress. | Wait for it or cancel it. |
 | `There is no transfer in progress for this server` (`409 NO_ACTIVE_TRANSFER`) | Either | Nothing to cancel. | — |
 | `UNSUPPORTED_PROTOCOL` (`400`) | Origin (public routes) | The destination speaks a protocol version other than `1.0`. | Update both panels to compatible versions. |

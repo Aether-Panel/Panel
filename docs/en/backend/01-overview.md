@@ -62,7 +62,7 @@ internal/
 ├── query/              Game queries (Minecraft ping, Source A2S)
 ├── sftp/               Built-in SFTP server
 ├── scopes/             The 73 permission scopes
-├── oauth2/             Client side of the node → panel SFTP password check
+├── oauth2/             Client side of the node → panel SFTP password and SSH key checks
 ├── email/              Email providers (smtp, mailgun, mailjet, sendgrid, debug)
 ├── extensions/         Installed extensions: files and event webhooks
 ├── offsite/            S3-compatible copy of backups
@@ -129,7 +129,7 @@ Both run together in a normal install: the panel's own daemon is the **local nod
 The two sides authenticate differently in each direction:
 
 - **Panel → node:** every call to `/daemon/*` carries a JWT the panel signs with its Ed25519 key (`panel.token`), valid for 15 minutes and bound to the target node's secret. A remote node verifies it with the panel's public key set (`token.public`, `/auth/publickey`).
-- **Node → panel:** only to check SFTP passwords, through `POST /oauth2/token` (`grant_type=password`) with the node's secret as bearer token (`daemon.auth.url`, `daemon.auth.clientSecret`).
+- **Node → panel:** only to check SFTP logins, with the node's secret as bearer token (`daemon.auth.url`, `daemon.auth.clientSecret`): passwords through `POST /oauth2/token` (`grant_type=password`), SSH keys through `POST /auth/sftp-key`.
 
 Details in [API layer](./05-api-layer.md#panel-to-node-requests) and [Configuration: remote node](./02-configuration.md#example-remote-node).
 

@@ -133,7 +133,8 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/
 
 ```json
 {
-  "status": "Descomprimiendo archivos...",
+  "status": "STEP_EXTRACTING",
+  "message": "Unpacking the files...",
   "pulling": true,
   "origin": {
     "session_id": "6f1c2a9e-0b7d-4c55-9a51-2f0e8c3d7b14",
@@ -148,18 +149,42 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/
 
 | Campo | Significado |
 |-------|-------------|
-| `status` | Paso actual de la importación en este panel (lado destino), o `""` si no hay ninguna |
+| `status` | Paso actual o resultado de la importación en este panel (lado destino), como código, o `""` si no hay ninguna |
+| `detail` | Solo en algunos fallos: lo que añaden, como el estado HTTP del origen (`HTTP 403`) o el tiempo esperado (`2h0m0s`) |
+| `message` | Solo con los códigos `STEP_*` y `ERROR_*`: el paso en inglés, con su detalle, para un cliente que no conozca el código |
 | `pulling` | Si hay una importación de este servidor en curso aquí |
 | `origin` | Solo cuando este panel creó una sesión para el servidor (lado origen): la más reciente, mientras está viva y hasta 15 minutos después de terminar o caducar |
 
-Los textos de los pasos los genera el backend en español, sea cual sea el idioma de la interfaz: `Iniciando...`, `Validando conexión con el panel de origen...`, `Iniciando la transferencia en el servidor origen...`, `Esperando a que el origen comprima los archivos...`, `Descargando paquete de datos desde el origen...`, `Subiendo archivos al daemon local (esto puede tardar)...`, `Descomprimiendo archivos...`, `Limpiando archivos temporales...`. El último paso es uno de estos:
+El cliente web traduce los códigos al idioma de quien mira la página (`servers.extransfer.progress.<código>` en sus traducciones) y añade el `detail` entre paréntesis; si no conoce un código, muestra `message`. Los pasos, por orden:
 
-| Valor | Significado |
-|-------|-------------|
+| Código | Paso |
+|--------|------|
+| `STEP_STARTING` | Inicio |
+| `STEP_VALIDATING` | Comprobación de la conexión con el panel de origen |
+| `STEP_ORIGIN_START` | Inicio de la transferencia en el origen |
+| `STEP_WAITING_ARCHIVE` | Espera a que el origen empaquete los archivos |
+| `STEP_DOWNLOADING` | Descarga del paquete desde el origen |
+| `STEP_UPLOADING` | Subida de los archivos al nodo de este panel |
+| `STEP_EXTRACTING` | Extracción de los archivos |
+| `STEP_CLEANUP` | Eliminación de los archivos temporales |
+
+El último valor es uno de estos:
+
+| Código | Significado |
+|--------|-------------|
 | `DONE` | La importación terminó |
 | `CANCELLED` | Se canceló en este panel |
 | `CANCELLED_BY_ORIGIN` | El origen canceló, o su sesión falló |
-| `ERROR: ...` | La importación falló; el texto indica el motivo (los mensajes están en [Transferencias de servidores → Problemas conocidos y soluciones](../../features/server-transfers.md#problemas-conocidos-y-soluciones)) |
+| `ERROR_ORIGIN_URL` | La URL de origen no es válida o apunta a una dirección no permitida |
+| `ERROR_ORIGIN_UNREACHABLE` | Fallo de red al contactar con el origen |
+| `ERROR_TOKEN_REJECTED` | El origen rechazó el token: no válido, ya usado o caducado (`detail`: su estado HTTP) |
+| `ERROR_ORIGIN_BAD_ANSWER`, `ERROR_ORIGIN_BAD_SESSION` | El origen respondió algo ilegible, o un ID de sesión no válido |
+| `ERROR_ORIGIN_START`, `ERROR_ORIGIN_REFUSED` | Falló la llamada que inicia la transferencia en el origen, o el origen la rechazó |
+| `ERROR_DOWNLOAD_NETWORK`, `ERROR_DOWNLOAD_REFUSED` | Error de red durante la descarga, o el origen rechazó la descarga (`detail`: su estado HTTP) |
+| `ERROR_DOWNLOAD_TIMEOUT` | El origen no tuvo listo el paquete a tiempo (`detail`: el tiempo esperado) |
+| `ERROR_UPLOAD`, `ERROR_EXTRACT` | No se pudo subir el paquete al nodo de este panel, o extraerlo allí (`detail`: la respuesta del nodo) |
+
+Qué hacer ante cada fallo: [Transferencias de servidores → Problemas conocidos y soluciones](../../features/server-transfers.md#problemas-conocidos-y-soluciones). El motivo que se envía al origen con `cancel` es el texto en inglés del fallo, sea cual sea el idioma de cada panel; los informes de transferencias de Discord usan el [idioma de las notificaciones](./06-panel-admin.md#configuración) de este panel.
 
 ### `POST /api/servers/:serverId/extransfer/cancel`
 

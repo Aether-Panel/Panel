@@ -48,7 +48,7 @@ Las pestañas dependen de los permisos que se tengan en ese servidor (las reglas
 | **Acceso SFTP** | La dirección y el usuario SFTP (`correo#idServidor`). | [Conceptos básicos: SFTP](./concepts.md#sftp) |
 | **Migración** | Mover el servidor a otra instalación de Aether Panel (administradores). | [Transferencias de servidores](../features/server-transfers.md) |
 | **Splitter** | Dividir el servidor en sub-servidores (propietario o administrador). | [Subservidores](../features/sub-servers.md) |
-| **Plugins**, **Modpacks** | Instalar plugins (de Modrinth) y modpacks (Modrinth, CurseForge). | [Modpacks y plugins](../features/modpacks-and-plugins.md) |
+| **Plugins**, **Modpacks** | Instalar plugins, o mods en servidores Fabric, Forge y NeoForge (de Modrinth), y modpacks (Modrinth, CurseForge). | [Modpacks y plugins](../features/modpacks-and-plugins.md) |
 | **Mapa** | Mapa del mundo para Minecraft: Java Edition. | [Mapa del mundo](../features/world-map.md) |
 | **Administración** | Reinstalar y, para administradores: transferir a otro nodo, definición, suspensión, clonado y borrado. | [Transferencias de servidores](../features/server-transfers.md), [Clonar servidores](../features/cloning.md) |
 
@@ -89,7 +89,7 @@ Después, en la pestaña **Base de datos** de un servidor, quien tiene `server.d
 
 ## Configuración del panel
 
-**Configuración** (`settings.edit`) tiene estas pestañas: **General** (nombre de la empresa, URL principal, IP del nodo maestro, clave de Gemini, clave de CurseForge, registro, comprobación anti-bots y Turnstile, funciones experimentales), **Notificaciones Discord**, **Correo**, **Claves API** (facturación), **Productos** (planes para la facturación), **Actualizaciones**, **Copias externas** (S3), **Dominios** (subdominios de Cloudflare) y **Extensiones**. En el resto de la documentación esta página se llama **Configuración**. Ver [Configuración del panel](../features/panel-settings.md).
+**Configuración** (`settings.edit`) tiene estas pestañas: **General** (nombre de la empresa, URL principal, IP del nodo maestro, idioma de las notificaciones, clave de Gemini, clave de CurseForge, registro, comprobación anti-bots y Turnstile, funciones experimentales), **Notificaciones Discord**, **Correo**, **Claves API** (facturación), **Productos** (planes para la facturación), **Actualizaciones**, **Copias externas** (S3), **Dominios** (subdominios de Cloudflare) y **Extensiones**. En el resto de la documentación esta página se llama **Configuración**. Ver [Configuración del panel](../features/panel-settings.md).
 
 ## Configuración de la cuenta
 

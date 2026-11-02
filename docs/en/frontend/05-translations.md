@@ -59,9 +59,9 @@ Keys are nested and addressed with dot notation:
 
 ## Localized API errors
 
-When the API answers `{ "error": { "code": "...", "msg": "..." } }`, the client looks up `apiErrors.<code>` in the language stored in `aether_panel_language` and uses it as the error message; codes without a translation keep the server's `msg`. Translated codes today:
+When the API answers `{ "error": { "code": "...", "msg": "..." } }`, the client looks up `apiErrors.<code>` in the language stored in `aether_panel_language` and uses it as the error message; codes without a translation keep the server's `msg`. A translation can hold `{{name}}` placeholders, filled from the error's `metadata` (a list is joined with commas): for example `ErrPortTaken` reads `Port {{port}} is already used by another server on this node.` Values that are themselves words get their own translation under `apiErrorValues.<code>`: the webhook names `alerts`, `reports`, `status` and `transfers` of `ErrDiscordTestFailed` read as the Discord settings sections. Translated codes today (47):
 
-`ErrDiskLimitExceeded`, `ErrSSHKeyInvalid`, `ErrSSHKeyIsPrivate`, `ErrSSHKeyWeak`, `ErrSSHKeyExists`, `ErrSSHKeyLimit`, `ErrSSHKeyName`, `ErrCaptchaFailed`, `ErrSSONotForAdmins`, `ErrServerOwner`, `ErrAPIKeyPermissions`, `ErrAPIKeyNotAllowed`, `ErrBackupLimit`, `ErrInviteSignupsClosed`.
+`ErrAIAnalysisDisabled`, `ErrAPIKeyNotAllowed`, `ErrAPIKeyPermissions`, `ErrBackupLimit`, `ErrCaptchaFailed`, `ErrCloudflareBadAnswer`, `ErrCloudflareDomainNotInZone`, `ErrCloudflareNotConfigured`, `ErrCloudflareRecordID`, `ErrCloudflareRefused`, `ErrCloudflareRefusedCode`, `ErrCloudflareUnreachable`, `ErrCloudflareZoneID`, `ErrDNSBaseDomainInvalid`, `ErrDatabaseHostInUse`, `ErrDiscordNoWebhooks`, `ErrDiscordTestFailed`, `ErrDiskLimitExceeded`, `ErrFileExists`, `ErrInviteSignupsClosed`, `ErrNodeAuthFailed`, `ErrNotificationLanguage`, `ErrPluginBadFileName`, `ErrPluginNoCompatibleVersion`, `ErrPortBusy`, `ErrPortDuplicated`, `ErrPortOutOfRange`, `ErrPortTaken`, `ErrPortUsedByPanel`, `ErrSSHKeyExists`, `ErrSSHKeyInvalid`, `ErrSSHKeyIsPrivate`, `ErrSSHKeyLimit`, `ErrSSHKeyName`, `ErrSSHKeyWeak`, `ErrSSONotForAdmins`, `ErrServerOwner`, `ErrSubdomainDisabled`, `ErrSubdomainInvalid`, `ErrSubdomainNoTarget`, `ErrSubdomainRateLimited`, `ErrSubdomainReserved`, `ErrSubdomainTaken`, `ErrTransferBackupRunning`, `ErrTransferPortsTaken`, `ErrTransferRunning`, `ErrTransferSubServer`.
 
 ## Usage
 
@@ -78,5 +78,5 @@ function Example({ count }: { count: number }) {
 
 1. Add the key to **both** `en.json` and `es.json`, in the same place of the tree (the files are kept key-for-key identical).
 2. Use `t('namespace.key')` in the component; never hard-code visible text.
-3. For a new structured API error, add its code under `apiErrors` in both files.
+3. For a new structured API error, add its code under `apiErrors` in both files, with `{{name}}` for each `metadata` field the message should show.
 4. Run `npm run typecheck`: the locale files are imported as JSON modules.

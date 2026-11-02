@@ -331,7 +331,9 @@ In **Nodes**, create the node with its public host, the HTTP port (8080) and the
 > - The `clientSecret` it shows is a fixed value, not the node's. The real secret is returned by `GET /api/nodes/{id}/deployment` (permission `nodes.deploy`), in the `clientSecret` field.
 > - The `docker-compose.yml` it suggests has no database, and the image's `entrypoint` waits for MySQL (by default on host `mysql`) and exits after 60 seconds if it does not answer. That is why preparing the node with the installer, as below, is recommended.
 
-`daemon.auth.*` is used by the node's SFTP server to check users against the master, and `token.public` to verify the requests the master sends. If `token.public` is empty while the panel is off, the log warns about it on start. If `daemon.auth.url` is only the master's address, with no path (for example `https://<master>`), the node appends `/oauth2/token`; a URL with a path is used as it is.
+`daemon.auth.*` is used by the node's SFTP server to check users against the master, and `token.public` to verify the requests the master sends. If `token.public` is empty while the panel is off, the log warns about it on start. If `daemon.auth.url` is only the master's address, with no path (for example `https://<master>`), the node appends `/oauth2/token`; a URL with a path is used as it is. SSH key sign-ins are checked at `/auth/sftp-key` on the same address: the node replaces `/oauth2/token` with it and keeps any path in front of it.
+
+`daemon.auth.clientSecret` must be the node's real secret: the master's requests are bound to it, and the node answers them `401` if it differs (users then see `ErrNodeAuthFailed`, see [Troubleshooting](./troubleshooting.md#secondary-nodes)). The two machines' clocks must also agree, since the master's requests carry short-lived tokens.
 
 ### 2. Install and turn the machine into a node
 

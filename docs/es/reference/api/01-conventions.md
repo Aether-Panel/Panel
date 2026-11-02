@@ -50,7 +50,7 @@ La mayoría de los errores tienen esta forma:
 }
 ```
 
-`code` es estable y está pensado para los programas; `msg` es un texto en inglés para las personas; `metadata` solo aparece con algunos códigos. Los códigos se definen en `pkg/skypanel/errors.go`.
+`code` es estable y está pensado para los programas; `msg` es un texto en inglés para las personas; `metadata` solo aparece con algunos códigos. Los códigos se definen en `pkg/skypanel/errors.go` (unos pocos, junto a la ruta que los produce). El cliente web no muestra `msg`: busca el código en sus propias traducciones (`apiErrors` en `client/frontend/src/lib/locales/{en,es}.json`) y rellena cada `{{nombre}}` con el valor de `metadata`, uniendo las listas con comas; si no conoce el código, muestra `msg`.
 
 Excepciones a esa forma:
 
@@ -60,16 +60,20 @@ Excepciones a esa forma:
 | Falta un scope | `403` sin cuerpo |
 | [Protección de mismo origen](./02-authentication.md#protección-de-mismo-origen) | `403 {"error": "cross-origin request refused"}` |
 | Middleware de claves de API | `401 {"error": "Unauthorized - Missing or invalid API Key format"}` o `401 {"error": "Invalid API Key"}` |
-| `/oauth2/token` | Estilo OAuth2: `{"error": "invalid_client", "error_description": "..."}` |
+| `/oauth2/token` y `/auth/sftp-key` | Estilo OAuth2: `{"error": "invalid_client", "error_description": "..."}` |
 | `/api/extransfer/*` y las rutas `extransfer` del servidor | `{"error_code": "...", "message": "...", "retryable": false}` |
 | Algunas rutas (IA, validación del identificador del servidor, rangos, algunas comprobaciones) | `{"error": "texto plano"}` |
-| Rutas reenviadas al nodo | El código de estado y el cuerpo del nodo, tal cual |
+| Rutas reenviadas al nodo | El código de estado y el cuerpo del nodo, tal cual, salvo cuando el nodo rechaza al propio panel (véase [Fallos de autenticación con el nodo](#fallos-de-autenticación-con-el-nodo)) |
 
 ### Errores internos
 
 Un fallo inesperado (base de datos, sistema de archivos, red) responde con su código de estado (normalmente `500`), el código `ErrInternal` y el mensaje «internal error, the details are in the panel log». El motivo real solo se escribe en el registro del panel. Los errores que el panel provoca a propósito conservan su código aunque el estado sea `5xx` (por ejemplo, `ErrDatabaseNotAvailable` o `ErrNodeHasServers`).
 
 Por eso, las rutas cuyo fallo debe poder leer el administrador (pruebas de correo, Discord, Cloudflare y S3, orígenes de modpacks, cambios de subdominio) responden `422` en lugar de `502`, para que el texto llegue al navegador.
+
+### Fallos de autenticación con el nodo
+
+Un nodo solo comprueba el token del panel; los permisos del usuario ya los ha comprobado el panel. Por eso, cuando un nodo responde `401`, o `403` con una cabecera `WWW-Authenticate` (un proxy delante del nodo que pide credenciales), el problema está entre el panel y el nodo, no en la sesión del usuario. Las rutas que reenvían al nodo (las rutas proxy del servidor, crear, editar y eliminar servidores, las copias de seguridad, la instalación del mapa del mundo y la API de aprovisionamiento) responden entonces `502` con `ErrNodeAuthFailed` en lugar de pasar el `401`, que haría creer al navegador que su propia sesión ha terminado y devolvería al usuario a la página de inicio de sesión. El registro del panel indica el nodo y las causas probables: el `daemon.auth.clientSecret` del nodo no coincide con el secreto del nodo en el panel, o el reloj de una de las dos máquinas está desajustado. Cualquier otro `403`, y todos los `400` o `409` del nodo, se siguen pasando tal cual.
 
 ### Códigos de estado
 
@@ -78,16 +82,16 @@ Por eso, las rutas cuyo fallo debe poder leer el administrador (pruebas de corre
 | `200` | Correcto, con cuerpo |
 | `202` | Aceptado; el trabajo continúa en segundo plano (acciones de encendido sin `?wait`, traslado de nodo, recepción externa, cambio de versión del juego, instalación de modpacks y del mapa del mundo, copia de archivos al clonar) |
 | `204` | Hecho, sin cuerpo |
-| `400` | Cuerpo, parámetro de consulta o valor no válido; o la plantilla del servidor no permite la acción |
+| `400` | Cuerpo, parámetro de consulta o valor no válido (puerto fuera de rango, repetido, usado por el panel o por otro servidor: `ErrPortOutOfRange`, `ErrPortDuplicated`, `ErrPortUsedByPanel`, `ErrPortTaken`); un subservidor trasladado por separado (`ErrTransferSubServer`); o la plantilla del servidor no permite la acción |
 | `401` | No hay una sesión, un token o una clave válidos |
 | `403` | Falta un permiso, petición de otro origen rechazada, servidor suspendido, función experimental desactivada (`ErrFeatureDisabled`), análisis de registros con IA desactivado (`ErrAIAnalysisDisabled`), registros cerrados (`ErrInviteSignupsClosed`) |
 | `404` | El objeto no existe, o quien llama no puede saber que existe |
-| `409` | Conflicto con el estado actual: disco lleno (`ErrDiskLimitExceeded`), puerto ocupado, límite de copias (`ErrBackupLimit`), propietario del servidor (`ErrServerOwner`), host de bases de datos aún en uso (`ErrDatabaseHostInUse`), puertos del servidor ocupados en el nodo de destino de un traslado (`ErrTransferPortsTaken`), subdominio ocupado, otro trabajo en curso |
+| `409` | Conflicto con el estado actual: disco lleno (`ErrDiskLimitExceeded`), puerto ocupado, límite de copias (`ErrBackupLimit`), propietario del servidor (`ErrServerOwner`), host de bases de datos aún en uso (`ErrDatabaseHostInUse`), puertos del servidor ocupados en el nodo de destino de un traslado (`ErrTransferPortsTaken`), servidor que ya se está trasladando (`ErrTransferRunning`) o que está escribiendo una copia (`ErrTransferBackupRunning`), nombre de archivo comprimido ya usado (`ErrFileExists`), subdominio ocupado, otro trabajo en curso |
 | `413` | Cuerpo de la tarea demasiado grande |
 | `422` | Un servicio externo lo rechazó (servidor de correo, Discord, Cloudflare, S3, Modrinth/CurseForge) |
 | `429` | Demasiados intentos (`ErrTooManyAttempts`), cuota de IA, cambio de subdominio o prueba de notificaciones demasiado frecuentes |
 | `500` | Error interno (véase arriba) |
-| `502` | No se pudo contactar con el nodo o con un servicio externo (algunas rutas) |
+| `502` | No se pudo contactar con el nodo o con un servicio externo (algunas rutas); el nodo rechazó las credenciales del panel (`ErrNodeAuthFailed`); Modrinth ofreció un archivo que no es un nombre `.jar` simple (`ErrPluginBadFileName`) |
 | `503` | Transferencia externa: el archivo del origen aún no está listo (`NOT_READY`, reintentable) |
 
 ### Códigos de error comunes
@@ -105,19 +109,27 @@ Por eso, las rutas cuyo fallo debe poder leer el administrador (pruebas de corre
 | `ErrNoPermission` | La acción no está permitida para esta cuenta |
 | `ErrUserNotFound`, `ErrServerNotFound` | Usuario o servidor desconocido |
 | `ErrNodeInvalid`, `ErrNodeHasServers` | Nodo desconocido; no se puede eliminar un nodo con servidores |
+| `ErrNodeAuthFailed` | El nodo rechazó el token del panel (`502`, véase [Fallos de autenticación con el nodo](#fallos-de-autenticación-con-el-nodo)) |
 | `ErrServerOwner` | El propietario de un servidor no se puede limitar ni quitar |
 | `ErrInviteSignupsClosed` | Invitación a un correo desconocido con los registros cerrados |
 | `ErrBackupLimit`, `ErrBackupServerRunning`, `ErrBackupInProgress` | Límite de copias alcanzado; restauración con el servidor en marcha; otra copia en curso |
 | `ErrDiskLimitExceeded`, `ErrNodeDiskFull` | Disco del servidor lleno; nodo por debajo de `daemon.minFreeDiskMB` antes de una instalación |
-| `ErrFileExists`, `ErrIllegalFileAccess` | Mover sobre una ruta que ya existe; ruta fuera de la carpeta del servidor |
+| `ErrFileExists`, `ErrIllegalFileAccess` | Mover o comprimir sobre una ruta que ya existe; ruta fuera de la carpeta del servidor |
 | `ErrFeatureDisabled` | Función experimental desactivada en la configuración |
 | `ErrAIAnalysisDisabled` | Análisis de registros con IA desactivado (`panel.settings.hideAiAnalysis`) |
 | `ErrAPIKeyNotAllowed`, `ErrAPIKeyPermissions` | La clave de API no tiene esa acción; clave creada sin ninguna acción conocida |
 | `ErrSSONotForAdmins` | Se pidió un enlace de acceso para una cuenta privilegiada |
 | `ErrDatabaseHostFull`, `ErrDatabaseHostOtherNode`, `ErrDatabaseNameTaken`, `ErrInvalidDatabaseName` | Creación de base de datos rechazada |
 | `ErrDatabaseHostInUse` | No se puede eliminar un host de bases de datos que aún tiene bases de datos |
-| `ErrTransferPortsTaken` | Traslado de nodo rechazado: algunos puertos del servidor están en uso en el nodo de destino (`metadata.ports` los enumera) |
-| `ErrPluginNoCompatibleVersion` | El proyecto de Modrinth no tiene ninguna versión para el cargador y la versión de Minecraft del servidor |
+| `ErrTransferPortsTaken` | Traslado de nodo rechazado: algunos puertos del servidor o de sus subservidores están en uso en el nodo de destino (`metadata.ports` los enumera) |
+| `ErrTransferRunning`, `ErrTransferBackupRunning`, `ErrTransferSubServer` | Traslado de nodo rechazado: el servidor ya se está trasladando; se está escribiendo una copia, un punto de restauración o una restauración suya; un subservidor solo se traslada con su servidor padre |
+| `ErrPortOutOfRange`, `ErrPortDuplicated`, `ErrPortUsedByPanel`, `ErrPortTaken` | Un puerto del servidor por debajo de 1024, repetido, usado por el panel en ese nodo o por otro servidor del nodo (`metadata.port`: el número, o el número y su variable de plantilla, como `27015 (queryport)`) |
+| `ErrPortBusy` | Arranque rechazado (`409`): algo en el nodo ya ocupa un puerto de host del servidor (`metadata.port`) |
+| `ErrPluginNoCompatibleVersion`, `ErrPluginBadFileName` | El proyecto de Modrinth no tiene ninguna versión para el cargador y la versión de Minecraft del servidor; el archivo que indica Modrinth no tiene un nombre `.jar` simple |
+| `ErrSubdomainInvalid`, `ErrSubdomainReserved`, `ErrSubdomainTaken`, `ErrSubdomainDisabled`, `ErrSubdomainRateLimited`, `ErrSubdomainNoTarget`, `ErrDNSBaseDomainInvalid` | Cambio de subdominio rechazado (véase [Subdominio](./03-servers.md#subdominio)) |
+| `ErrCloudflareNotConfigured`, `ErrCloudflareZoneID`, `ErrCloudflareRecordID`, `ErrCloudflareDomainNotInZone`, `ErrCloudflareUnreachable`, `ErrCloudflareBadAnswer`, `ErrCloudflareRefused`, `ErrCloudflareRefusedCode` | Falta el token o la zona de Cloudflare o tienen un formato incorrecto, o no se pudo contactar con Cloudflare, su respuesta no se pudo leer o la rechazó (`metadata.message` lleva el mensaje del propio Cloudflare y `metadata.cloudflareCode`, su código) |
+| `ErrDiscordNoWebhooks`, `ErrDiscordTestFailed` | Prueba de Discord sin ningún webhook configurado; la prueba no llegó a algunos webhooks (`metadata.webhooks`: `alerts`, `reports`, `status`, `transfers`) |
+| `ErrNotificationLanguage` | `panel.settings.notificationLanguage` no es `es` ni `en` |
 | `ErrSSHKeyInvalid`, `ErrSSHKeyIsPrivate`, `ErrSSHKeyWeak`, `ErrSSHKeyExists`, `ErrSSHKeyLimit`, `ErrSSHKeyName` | Clave SSH rechazada |
 | `ErrOtpAlreadyEnabled` | Alta de 2FA con la 2FA ya activada |
 | `ErrInternal` | Fallo inesperado; véase el registro del panel |
@@ -162,6 +174,7 @@ Todos los contadores se guardan en memoria y se reinician cuando se reinicia el 
 | Qué | Límite | Respuesta |
 |-----|--------|-----------|
 | Intentos de contraseña y 2FA (inicio de sesión en el panel, concesión de contraseña de OAuth2, SFTP) | 10 por cuenta cada 15 minutos; un acierto reinicia el contador | `429 ErrTooManyAttempts` |
+| Comprobaciones de claves SFTP de los nodos remotos (`POST /auth/sftp-key`) | 10 por cuenta cada 15 minutos, contadas aparte de las contraseñas; un acierto reinicia el contador | `429 {"error": "invalid_request", "error_description": "too many failed attempts, wait a few minutes"}` |
 | Solicitudes de restablecimiento de contraseña | 5 por correo cada hora | `204` como siempre (el límite no se revela) |
 | IA (análisis de registros y chat en conjunto) | 30 por usuario cada 10 minutos | `429 {"error": "too many AI requests, try again in a few minutes"}` |
 | Cambios de subdominio | Uno por servidor cada 10 segundos | `429 ErrSubdomainRateLimited` |

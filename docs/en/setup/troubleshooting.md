@@ -114,7 +114,7 @@ The panel refuses requests that change something (and console websockets) when t
 
 ### "too many failed attempts, wait a few minutes and try again"
 
-After 10 failed attempts in 15 minutes, sign-in for that account (password or 2FA code) is blocked until attempts leave the window. SFTP shares the same counter. The counter is kept in memory: it is cleared when the panel restarts.
+After 10 failed attempts in 15 minutes, sign-in for that account (password or 2FA code) is blocked until attempts leave the window. SFTP passwords share the same counter; SSH key checks for remote nodes have a separate one (see [Attempt limits](../general/security.md#attempt-limits)). The counter is kept in memory: it is cleared when the panel restarts.
 
 ### `http://IP:8080` no longer answers after setting up a domain
 
@@ -219,13 +219,14 @@ or turn the isolation off with `"security": {"disableUnshare": true}` in `config
 
 ## SFTP
 
-The default port is `5657` (`daemon.sftp.host`). The username is `email#serverId` (for example `user@example.com#a1b2c3d4`) and the password is the panel account's, or an SSH public key added to the profile (keys only on the panel's node; secondary nodes use the password).
+The default port is `5657` (`daemon.sftp.host`). The username is `email#serverId` (for example `user@example.com#a1b2c3d4`) and the password is the panel account's, or an SSH public key added to the profile. Keys work on every node: a secondary node asks the panel to check them (`POST /auth/sftp-key`, see [SSH keys for SFTP](../general/security.md#ssh-keys-for-sftp)).
 
 | Error | Cause and fix |
 |---|---|
 | `incorrect username or password` | Wrong credentials, wrong username format, or the user lacks the `server.sftp` permission on that server. |
 | `too many failed attempts…` | The 10 attempts in 15 minutes shared with the panel sign-in are used up. |
 | `invalid response from authorization server` (and `error talking to auth server` in the log) | On a secondary node: `daemon.auth.url`, `daemon.auth.clientId` or `daemon.auth.clientSecret` are wrong, or the master does not answer. See [secondary node](./01-installation.md#method-3-secondary-node-daemon-only). |
+| An SSH key is refused on a secondary node while the password works | The node runs a version from before key checks on remote nodes, which only offers password sign-in: update it. On a current node, its log shows `Cannot check SFTP keys with the panel` when `daemon.auth.url` is not an absolute `http(s)` URL, and `Error checking an SFTP key with the auth server: [<status>]` when the panel refused the node (`401`: wrong `daemon.auth.clientSecret`; `429`: too many key attempts for that account) or failed. A key that is simply not the user's, or a user without `server.sftp`, is refused like a wrong password. |
 | `connection refused` | The port is not open or the panel is not running: `ss -tlnp \| grep 5657`. |
 
 ---
@@ -235,6 +236,8 @@ The default port is `5657` (`daemon.sftp.host`). The username is `email#serverId
 - **The browser shows 404 on `http://node:8080`.** That is expected: with `panel.enable=false` only the daemon API runs.
 - **"Panel is disabled but token.public (TokenPublicURL) is empty!"** The node cannot verify the master's requests. Set `SKYPANEL_TOKEN_PUBLIC=https://<master>/auth/publickey`.
 - **The node does not authenticate with the Deploy dialog's secret.** The dialog shows a fixed secret; the real one is returned by `GET /api/nodes/{id}/deployment`.
+- **`502` "The node refused the panel's credentials" (`ErrNodeAuthFailed`).** The node answered the panel with `401` (or a `403` with an authentication challenge), so the panel reports it as a node problem instead of signing the user out. The panel log names the node: `Node "<name>" refused the panel's token (status 401)…`, and the node log shows `Refused a request with an invalid panel token: …`. Check that the node's `daemon.auth.clientSecret` is the secret the panel shows for that node (`GET /api/nodes/{id}/deployment`), that its `token.public` points at this panel's `/auth/publickey`, that both machines have the right time (use NTP: the panel's tokens are valid for 15 minutes) and that no proxy in front of the node asks for its own credentials.
+- **The servers of a node have no uptime history, or its Discord node report says "No answer".** The panel polls each remote node every 30 seconds with `GET /daemon/servers/status`. The panel log says `Node <name> did not answer the server status poll…` with the reason: a node that is down or unreachable, one that refuses the panel's token (see above), or one on an older version, which answers `status 404` and must be updated. See [Uptime tracking](../general/13-uptime.md#how-it-is-recorded).
 - **The node settings disappear after updating.** Only the `SKYPANEL_PANEL_ENABLE=false` and `SKYPANEL_TOKEN_PUBLIC=…` lines of `docker-compose.yml` are kept; the rest belongs in the `config.json` under `storage/`.
 
 ---

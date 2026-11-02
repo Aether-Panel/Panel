@@ -22,7 +22,7 @@ Yes. The panel itself is installed with Docker (there is no native install), and
 
 English (the default) and Spanish. Each user picks their language in **Account Settings**; it is remembered in the browser.
 
-Known limitation: some messages produced by the server are hard-coded in Spanish whatever the chosen language, for example the [Discord](16-discord.md) embeds, the steps of a [panel-to-panel migration](../features/server-transfers.md#limits) and some API errors.
+What the panel sends outside its own pages (Discord embeds, each server's Discord, Telegram and webhook alerts, the panel's Discord reports and the events extensions receive) uses one language for everyone, chosen by an administrator in **Settings → General → Notifications** (Spanish by default; a remote node uses the value in its own config). See [Discord and notifications](16-discord.md#notification-language). API errors are in English; those that carry an error code are shown translated by the web interface, as are the steps of a [panel-to-panel migration](../features/server-transfers.md).
 
 ## Installing and running
 
@@ -108,7 +108,7 @@ In the server's **Users** tab, add their email and tick the permissions. If they
 
 ### Can I move a server to another node or another panel?
 
-Yes. An administrator moves it between nodes of the same panel from the **Administration** tab, and to another Aether Panel installation from the **Migration** tab (federated transfer). Between nodes, backups do not travel with the server: they stay on the old node. See [Server transfers](../features/server-transfers.md).
+Yes. An administrator moves it between nodes of the same panel from the **Administration** tab, and to another Aether Panel installation from the **Migration** tab (federated transfer). Between nodes, the server's sub-servers and the backups kept on the old node move with it, and a transfer that fails is undone. See [Server transfers](../features/server-transfers.md).
 
 ### Is there a limit on backups?
 

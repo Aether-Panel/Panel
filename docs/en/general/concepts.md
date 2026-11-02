@@ -26,8 +26,8 @@ A **node** is a machine that runs game servers, that is, a machine with a daemon
 
 How they talk:
 
-- **Panel → node**: HTTP requests with a JWT signed by the panel (Ed25519, valid 15 minutes, bound to that node). The node checks it against the panel's public key. A node seen speaking TLS once is never called over plain HTTP again.
-- **Node → panel**: the node signs in with its client credentials (`/oauth2/token`, `client_credentials`) and checks SFTP passwords against the panel (`password` grant).
+- **Panel → node**: HTTP requests with a JWT signed by the panel (Ed25519, valid 15 minutes, bound to that node). The node checks it against the panel's public key and answers `401` (`invalid_token`) when it does not check out. A node seen speaking TLS once is never called over plain HTTP again. Every 30 seconds the panel also asks each remote node for the state of its servers (`GET /daemon/servers/status`) to record their [uptime](./13-uptime.md).
+- **Node → panel**: the node signs in with its client credentials (`/oauth2/token`, `client_credentials`) and checks SFTP logins against the panel: passwords with the `password` grant, SSH keys with `POST /auth/sftp-key` signed with the node's secret.
 - **Browser ↔ node**: consoles and statistics go through the panel, which proxies the websocket to the node.
 
 Each node reports what it supports (`GET /api/nodes/:id/features`) and its system information (`GET /api/nodes/:id/system`). The dashboard shows each node's CPU, memory, disk and network history. Nodes also:
@@ -92,7 +92,8 @@ Everything about scopes, owners, sub-users, roles and billing API keys is in the
 |--------|---------|
 | Session cookie `skypanel_auth` | The web interface. Sessions last 1 hour of inactivity and are renewed while active. |
 | `Authorization: Bearer <token>` | API clients. The same session token, or an OAuth2 token. |
-| OAuth2 (`/oauth2/token`) | `client_credentials` for OAuth2 clients and nodes, `password` for SFTP checks from remote nodes. Users create their own clients with `self.clients`. |
+| OAuth2 (`/oauth2/token`) | `client_credentials` for OAuth2 clients and nodes, `password` for SFTP password checks from remote nodes. Users create their own clients with `self.clients`. |
+| Node secret (`/auth/sftp-key`) | SFTP key checks from remote nodes: `Authorization: Bearer <node secret>`. |
 | JWT (Ed25519) | Panel → node requests. Public key at `/auth/publickey`. |
 | Billing API keys (`ak_...`) | `/api/v1` only (provisioning, suspension, sign-in links). |
 
@@ -103,7 +104,7 @@ See [Security](./security.md#sign-in-and-sessions).
 Each daemon runs an SFTP server (port 5657 by default, `daemon.sftp.host`).
 
 - The username is `email#serverID`; the server's **SFTP** tab shows the full address.
-- Sign-in uses the panel password or an SSH key added in the account settings (keys only on the panel's own node).
+- Sign-in uses the panel password or an SSH key added in the account settings (keys work on every node; a remote node asks the panel to check them).
 - The user needs `server.sftp` on that server, or to be its owner, and the panel-wide `login` permission. Both are checked on every connection.
 - A session only sees that server's folder. Uploads count against the server's disk limit.
 
@@ -120,7 +121,7 @@ More in [Database hosts](../features/database-hosts.md).
 
 ## Transfers
 
-- **Between nodes of the same panel**: an administrator (`server.data.edit.admin`) moves a server to another node from the **Administration** tab (`POST /api/servers/:serverId/transfer`).
+- **Between nodes of the same panel**: an administrator (`server.data.edit.admin`) moves a server to another node from the **Administration** tab (`POST /api/servers/:serverId/transfer`). Its sub-servers and the backups kept on the old node go with it; if a step fails, the transfer is undone and the server stays where it was.
 - **Between panels (federated transfer)**: moves a server from one Aether Panel installation to another (the **Migration** tab, `server.data.edit.admin`). The panels sign their requests with Ed25519 keys (`panel.exTransferKey`), tokens are hashed with HMAC-SHA256, and a transfer session is valid for 15 minutes; while the data moves, the destination's heartbeats (every 20 seconds) keep it alive, for up to 6 hours. States: `CREATED` → `VALIDATED` → `MIGRATING` → `CONSUMED` / `COMPLETED`, or `FAILED` / `CANCELLED`. The origin's routes are `/api/servers/:serverId/extransfer/{create,pull,status,cancel}`; the routes the other panel calls are `/api/extransfer/{validate,consume,heartbeat,confirm,download,cancel}`.
 
 More in [Server transfers](../features/server-transfers.md).

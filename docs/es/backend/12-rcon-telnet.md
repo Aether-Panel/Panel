@@ -190,7 +190,7 @@ type RCONWSConnection struct {
 }
 ```
 
-- **Bucle de reconexión**: conecta a `wss://<ip>:<puerto>/<contraseña>` con el dialer por defecto de gorilla, con reintento cada 5 segundos. El esquema siempre es `wss://`: un servidor que solo habla `ws://` sin TLS no es accesible.
+- **Bucle de reconexión**: conecta a `wss://<ip>:<puerto>/<contraseña>` (`rconwsURL`) con el dialer por defecto de gorilla, con reintento cada 5 segundos. La contraseña es la ruta de la URL y se escapa (`url.PathEscape`), así que un `/`, `?`, `#` o `%` en ella llega al juego tal como se escribió. El esquema siempre es `wss://`, porque los ajustes de consola de la plantilla no permiten pedir `ws://` sin TLS: un servidor que solo habla `ws://` (el WebRCON de Rust suele hacerlo) no es accesible.
 - **`Start()`** resuelve `IP` igual que RCON.
 - Los mensajes entrantes se leen y se descartan.
 - El estado está protegido por un mutex y las escrituras se serializan (un WebSocket admite un solo escritor a la vez). Como en Telnet, un socket roto se cierra antes de volver a conectar, una conexión abierta mientras se ejecuta `Close()` se cierra en el acto, y cerrar dos veces no es un error (cubierto por `internal/connections/rconws_test.go`).

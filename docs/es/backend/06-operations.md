@@ -331,7 +331,7 @@ Hace falta `version` o `minecraftVersion`. Consulta `maven.neoforged.net`.
 Sin `version`, buscan en `libraries/net/minecraftforge/forge` (o `libraries/net/neoforged/neoforge`), a través del servidor de archivos del servidor, carpetas de versión que contengan `unix_args.txt` y guardan la elegida:
 
 - `resolveneoforgeversion` elige la carpeta más reciente para `minecraftVersion`. Las versiones de NeoForge quitan el `1.` inicial de la versión de Minecraft (`1.21.4` → `21.4.*`, `1.21` → `21.0.*`). Si ninguna carpeta coincide, o `minecraftVersion` está vacío, usa la primera carpeta compatible que encuentra.
-- `resolveforgeversion` se queda con la primera carpeta compatible que encuentra (las carpetas se leen por orden de nombre); en la práctica `minecraftVersion` no cambia la elección.
+- `resolveforgeversion` elige la carpeta más reciente cuyo nombre empieza por `minecraftVersion` (las carpetas de Forge se llaman `<minecraft>-<forge>`, como `1.20.1-47.2.0`). Si ninguna coincide, se queda con la primera carpeta compatible que encuentra (las carpetas se leen por orden de nombre).
 
 Si la carpeta no existe, la variable queda vacía; no es un error.
 

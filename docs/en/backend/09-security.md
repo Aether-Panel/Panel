@@ -44,6 +44,8 @@ The panel signs a short-lived token for every request it sends to a node's daemo
 
 The daemon (`middleware.ValidateJWT`) accepts a token only if it is signed with `EdDSA` by the panel's key, has an `exp` (one minute of clock leeway), and its audience matches either the local node's secret (panel and daemon in one process) or `daemon.auth.clientSecret` (a separately deployed node). A token captured on its way to one node is therefore useless against another.
 
+A token that fails these checks is answered `401` with `WWW-Authenticate: Bearer error="invalid_token"` and logged on the node. The panel reports that refusal to the user as `502 ErrNodeAuthFailed` instead of passing the `401` on, so a wrong node secret or a clock that is off does not look like the user's session ending (see [API layer](./05-api-layer.md#panel-to-node-requests)).
+
 How the daemon gets the public key:
 
 - **Panel enabled** on the same process: from memory.
@@ -53,7 +55,7 @@ How the daemon gets the public key:
 
 Each node has a secret stored by the panel. An administrator with `nodes.deploy` reads it from `GET /api/nodes/:id/deployment` (`clientId` is `.node_<id>`, `clientSecret` is the secret) and puts it in the node's `daemon.auth.clientSecret`. The local node's secret is derived from `panel.sessionKey`, so it stays the same across restarts.
 
-The node uses its secret in the other direction too: to ask the panel whether an SFTP login is valid (next section). When the panel forwards a browser request to a node it **removes the `Cookie` header**: the user's session never reaches a node.
+The node uses its secret in the other direction too: to ask the panel whether an SFTP login, with a password or an SSH key, is valid (next section). When the panel forwards a browser request to a node it **removes the `Cookie` header**: the user's session never reaches a node.
 
 ---
 
@@ -77,16 +79,18 @@ One login gives access to one server. Clients connect with `sftp -P 5657 'admin@
 
 ### Who may sign in
 
-A login is accepted only when the account may still sign in to the panel (global `login` scope) **and** has `server.sftp` on that server. Owners have it through the owner scopes; `admin` and `server.admin` include it. SFTP does not distinguish `server.files.view` from `server.files.edit`: whoever has `server.sftp` can read and write the whole server folder. Two-factor authentication is not asked for SFTP, because SFTP clients cannot send a code: an account with 2FA can still sign in to SFTP with its password alone. Such accounts should use SSH keys, which only the panel's own node accepts (see below). Every failure returns the same "incorrect username or password", so the answer does not reveal whether the email exists.
+A login is accepted only when the account may still sign in to the panel (global `login` scope) **and** has `server.sftp` on that server. Owners have it through the owner scopes; `admin` and `server.admin` include it. SFTP does not distinguish `server.files.view` from `server.files.edit`: whoever has `server.sftp` can read and write the whole server folder. Two-factor authentication is not asked for SFTP, because SFTP clients cannot send a code: an account with 2FA can still sign in to SFTP with its password alone. Such accounts should use SSH keys, which every node accepts (see below), and keep a strong password, since the password still opens SFTP. Every failure returns the same "incorrect username or password", so the answer does not reveal whether the email exists.
 
 ### Password and key authentication
 
 | Node | Password | SSH key |
 |------|----------|---------|
 | The panel's own node (panel enabled) | Checked against the database | Yes: any public key the user added in the **SSH keys** section of their account (`/api/self/sshkeys`) |
-| A remote, daemon-only node | Checked by the panel over HTTP (below) | No |
+| A remote, daemon-only node | Checked by the panel over HTTP (below) | Yes: the same keys, checked by the panel over HTTP (below) |
 
 **Remote nodes** send `grant_type=password`, `username`, `password` and `scope=sftp` to `daemon.auth.url` (the full URL of the panel's `/oauth2/token`), authenticated with `Authorization: Bearer <daemon.auth.clientSecret>`. The panel checks that the secret belongs to a node, that the server is on **that** node, the credentials, `login` and `server.sftp`, and answers with the scope `<serverId>:server.sftp`. It deliberately returns no access token: a password alone must not give a full panel session that skips 2FA.
+
+**SSH keys on remote nodes.** A remote node does not hold the users' keys, so it asks the panel (`internal/oauth2/ssh.go`, 15 s timeout): it posts `{"username": "email#serverId", "publicKey": "<authorized_keys line>"}` to `POST /auth/sftp-key` with the same `Authorization: Bearer <daemon.auth.clientSecret>`. The URL comes from `daemon.auth.url`: same scheme and host, with `/oauth2/token` replaced by `/auth/sftp-key` (a path in front of it is kept). The panel (`internal/web/auth/sftp_key.go`) applies the rules of the panel's own node plus one: the server must be on the node asking. The key must be one of the user's, and the account must still hold `login` and `server.sftp` on that server. It answers only the granted scope (`200 {"scope": "<serverId>:server.sftp"}`), never a session; every refusal is the same `400` "no access", and an unknown node secret gets `401`. The SSH library runs this check before the client proves it holds the private key, and grants nothing until that proof succeeds. Both the panel and the node need a version with this route: an older panel answers `404` and the node refuses key logins.
 
 **SSH keys** accepted when added: Ed25519, ECDSA (P-256, P-384, P-521), the security-key variants `sk-ssh-ed25519@openssh.com` and `sk-ecdsa-sha2-nistp256@openssh.com`, and RSA of at least 2048 bits. DSA keys, certificates, `authorized_keys` options and private keys are refused. Up to 25 keys per user; the name (defaulting to the key's comment) has up to 100 characters. At login the offered key is matched by its SHA-256 fingerprint and then compared byte for byte.
 
@@ -99,7 +103,7 @@ Password logins share the panel's attempt limiter (`internal/services/login_atte
 - A successful login resets the counter. Past the limit the answer is "too many attempts" until older attempts leave the window.
 - Kept in memory: a panel restart resets it.
 
-Key logins are not counted, since a key cannot be guessed.
+Key logins on the panel's own node are not counted, since a key cannot be guessed. On remote nodes the key checks of `/auth/sftp-key` have a budget of their own, also 10 per account every 15 minutes (key `sshkey:user:<id>`), apart from the password one: an SSH client offers each of its keys in turn, and those misses must not lock the owner out of password sign-in. A successful key login resets it; past the limit the route answers `429`.
 
 ### What a session can do
 
@@ -231,6 +235,6 @@ The installer's Nginx setup binds the panel to `127.0.0.1` and sends `X-Forwarde
 
 ## Known limitations
 
-- SFTP password logins do not ask for 2FA (see [Who may sign in](#who-may-sign-in)).
+- SFTP password logins do not ask for 2FA (see [Who may sign in](#who-may-sign-in)); SSH keys, accepted on every node, avoid sending the password.
 - TOTP secrets (`users.otp_secret`, `otp_pending_secret`) are stored in the database unencrypted; protect database access and backups accordingly.
 - The license server host is fixed in code and is a test host (see [Services → LicenseService](./11-services.md#22-licenseservice-licensego)).

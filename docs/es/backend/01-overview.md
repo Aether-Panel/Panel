@@ -62,7 +62,7 @@ internal/
 ├── query/              Consultas a juegos (ping de Minecraft, Source A2S)
 ├── sftp/               Servidor SFTP propio
 ├── scopes/             Los 73 permisos (scopes)
-├── oauth2/             Lado cliente de la comprobación de contraseñas SFTP nodo → panel
+├── oauth2/             Lado cliente de las comprobaciones de contraseñas y claves SSH de SFTP nodo → panel
 ├── email/              Proveedores de correo (smtp, mailgun, mailjet, sendgrid, debug)
 ├── extensions/         Extensiones instaladas: archivos y webhooks de eventos
 ├── offsite/            Copia de las copias de seguridad en almacenamiento compatible con S3
@@ -129,7 +129,7 @@ En una instalación normal ambos corren juntos: el daemon del propio panel es el
 Los dos lados se autentican de forma distinta en cada dirección:
 
 - **Panel → nodo:** cada llamada a `/daemon/*` lleva un JWT que el panel firma con su clave Ed25519 (`panel.token`), válido 15 minutos y ligado al secreto del nodo de destino. Un nodo remoto lo verifica con el conjunto de claves públicas del panel (`token.public`, `/auth/publickey`).
-- **Nodo → panel:** solo para comprobar contraseñas SFTP, mediante `POST /oauth2/token` (`grant_type=password`) con el secreto del nodo como token bearer (`daemon.auth.url`, `daemon.auth.clientSecret`).
+- **Nodo → panel:** solo para comprobar inicios de sesión SFTP, con el secreto del nodo como token bearer (`daemon.auth.url`, `daemon.auth.clientSecret`): las contraseñas mediante `POST /oauth2/token` (`grant_type=password`) y las claves SSH mediante `POST /auth/sftp-key`.
 
 Detalles en [Capa API](./05-api-layer.md#peticiones-del-panel-a-los-nodos) y [Configuración: nodo remoto](./02-configuration.md#ejemplo-nodo-remoto).
 

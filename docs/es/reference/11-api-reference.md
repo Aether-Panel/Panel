@@ -42,7 +42,7 @@ Cada área enlaza con la página que la documenta.
 
 ### Autenticación
 
-`/auth/login`, `/auth/otp`, `/auth/logout`, `/auth/register`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/reauth`, `/auth/sso`, `/auth/challenge`, `/auth/publickey`, `/oauth2/token` y la ruta pública `GET /api/config`. Véase [Autenticación](./api/02-authentication.md).
+`/auth/login`, `/auth/otp`, `/auth/logout`, `/auth/register`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/reauth`, `/auth/sso`, `/auth/challenge`, `/auth/publickey`, `/auth/sftp-key` (solo para nodos), `/oauth2/token` y la ruta pública `GET /api/config`. Véase [Autenticación](./api/02-authentication.md).
 
 ### Servidores
 
@@ -122,7 +122,7 @@ Cada área enlaza con la página que la documenta.
 
 ### Daemon
 
-`/daemon`, `/daemon/features`, `/daemon/system`, `/daemon/ports`, `/daemon/network/history`, `/daemon/update`, `/daemon/update-status` y `/daemon/server/:serverId/...`. Véase [Daemon](./api/09-daemon.md).
+`/daemon`, `/daemon/features`, `/daemon/system`, `/daemon/ports`, `/daemon/network/history`, `/daemon/servers/status`, `/daemon/update`, `/daemon/update-status` y `/daemon/server/:serverId/...`. Véase [Daemon](./api/09-daemon.md).
 
 ## Documentación relacionada
 

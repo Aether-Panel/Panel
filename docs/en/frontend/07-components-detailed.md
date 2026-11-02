@@ -80,9 +80,9 @@ The low-disk warning comes from `features/nodes/node-disk-alert.tsx`: one line p
 | Tasks | `tasks-view.tsx`, `task-dialog.tsx`, `task-schedule.ts` | Scheduled tasks: schedule editor and an ordered list of steps (`stdin` command, `sleep`, `restart`, `stop`, `start`, `backup`), run now. |
 | Activity | `activity-view.tsx` | Paginated activity log (`GET /api/servers/:id/activity?limit=&before=&type=`), filterable by family. |
 | SFTP Access | `sftp-view.tsx` | Connection details with copy buttons. |
-| Migration | `external-transfer-view.tsx` | Move a server from or to another panel (create, pull, status, cancel). |
+| Migration | `external-transfer-view.tsx` | Move a server from or to another panel (create, pull, status, cancel). The import status arrives as codes (`STEP_*`, `ERROR_*`, `DONE`...) that the view translates under `servers.extransfer.progress`, falling back to the API's English `message`. |
 | Splitter | `splitter-view.tsx` | Split the server's CPU, memory and disk into sub-servers, with a resource strip showing what is used and free. |
-| Plugins | `plugins-view.tsx` | Search and install plugins, remove installed ones. |
+| Plugins | `plugins-view.tsx` | Search and install plugins or mods, remove installed ones. The search placeholder follows the platform (plugins on Paper, mods on Fabric, Forge and NeoForge); `ErrPluginNoCompatibleVersion` and `ErrPluginBadFileName` are shown with their own text. |
 | Modpacks | `modpacks-view.tsx`, `modpack-install-dialog.tsx`, `modpack-status.tsx`, `modpack-shared.tsx` | One-click modpacks from Modrinth or CurseForge; the install dialog spells out each step and keeps "new world" behind a switch that is off by default; progress is polled. |
 | Map | `world-map-view.tsx`, `world-map-choice.tsx`, `world-map-frame.tsx`, `world-map-types.ts` | Install BlueMap or Dynmap (BlueMap asks for consent to Mojang's download) and show the map. |
 | Administration | `admin-view.tsx`, `clone-server-card.tsx` | Install status and reinstall, transfer to another node, edit definition, assignments (owner), suspend, delete, and clone (experimental `serverClone`, needs `server.create` or `admin`). |
@@ -144,7 +144,7 @@ All of them take colours from `CHART_COLORS` and format times with `chartLocale(
 | File | Tab |
 |---|---|
 | `page.tsx` | Tab container. Secrets arrive from `GET /api/settings` as `********` and are sent back that way when untouched, which keeps the saved value (see [Panel settings](../features/panel-settings.md#how-it-works)); API keys, Products and Extensions are only listed for `admin`. |
-| `general-tab.tsx` | Sections: Panel (company name, base URL, master node IP), Artificial intelligence (Gemini API key, turn the AI log analysis off for everyone), Sign-up and security (registration, built-in captcha, Turnstile keys), Modpacks (CurseForge key) and Experimental features (`panel.experimental.versionSwitch`, `propertiesEditor`, `serverClone`). |
+| `general-tab.tsx` | Sections: Panel (company name, base URL, master node IP), Notifications (`panel.settings.notificationLanguage`, Spanish or English), Artificial intelligence (Gemini API key, turn the AI log analysis off for everyone), Sign-up and security (registration, built-in captcha, Turnstile keys), Modpacks (CurseForge key) and Experimental features (`panel.experimental.versionSwitch`, `propertiesEditor`, `serverClone`). |
 | `discord-tab.tsx` | Discord webhooks with test (see [Discord and notifications](../general/16-discord.md)). |
 | `mail-tab.tsx` | Email provider (SMTP, Mailgun, Mailjet, SendGrid or Debug) and test (see [Email](../general/15-email.md)). For Mailjet the fields are **API Key (public)** (`panel.email.domain`) and **Secret Key** (`panel.email.key`); Debug shows no fields. |
 | `offsite-tab.tsx` | Off-site backups to S3-compatible storage (`daemon.backups.s3.*`) with a connection test. |

@@ -40,7 +40,7 @@ Los avisos se envían en segundo plano: un canal lento o inaccesible nunca retra
 | Telegram | Un mensaje con formato HTML a través del bot (`sendMessage`, sin vista previa de enlaces). Las líneas de consola se recortan a los últimos 3.000 caracteres. |
 | Webhook | Un `POST` JSON (ver más abajo), con `User-Agent: AetherPanel-Webhook/1`. |
 
-Los títulos y mensajes de los avisos los genera el nodo y actualmente están **siempre en español** (por ejemplo `💥 Caída del servidor`), sea cual sea el idioma de la interfaz del panel.
+Los títulos y mensajes de los avisos los genera el nodo en el **idioma de las notificaciones**, `panel.settings.notificationLanguage` (`es` por defecto, o `en`), no en el idioma de quien mira el panel. En el nodo del propio panel se ajusta en **Configuración › General › Notificaciones** (véase [Ajustes del panel](panel-settings.md)); un nodo remoto lee su propia configuración, así que los avisos de sus servidores siguen el valor definido en ese nodo (el panel no se lo envía). El ejemplo siguiente está en español; en inglés el título es `💥 Server crashed`.
 
 ### Contenido del webhook
 
@@ -63,7 +63,7 @@ Los títulos y mensajes de los avisos los genera el nodo y actualmente están **
 |--------|--------------------|
 | `crash` | `exitCode`, `restarted` |
 | `backup` | `success` |
-| `resources` | `resource` (`CPU` o `Memoria`), `value`, `threshold` |
+| `resources` | `resource` (`CPU` o `Memoria`, sea cual sea el idioma de las notificaciones, para que los receptores sigan funcionando), `value`, `threshold` |
 | `power` | `running` |
 
 **Firma.** Si se define un secreto para firmar, cada petición lleva la cabecera `X-Aether-Signature: sha256=<hex>`, el HMAC-SHA256 del cuerpo exacto de la petición con el secreto como clave. El receptor debe calcular el mismo HMAC y compararlo antes de confiar en la petición.
@@ -114,12 +114,13 @@ Al guardar se registra `settings.notifications` en el registro de actividad del 
 
 ## Requisitos y configuración
 
-Esta función no tiene ajustes globales en el panel: todo se configura por servidor. Claves relacionadas:
+Todo se configura por servidor, salvo el idioma de los textos. Claves relacionadas:
 
 | Clave | Valor por defecto | Variable de entorno | Efecto |
 |-------|-------------------|---------------------|--------|
 | `daemon.data.servers` | `servers` (dentro de la carpeta de datos) | `SKYPANEL_DAEMON_DATA_SERVERS` | Carpeta donde se guarda el archivo `.notify`. |
 | `daemon.data.crashLimit` | `3` | `SKYPANEL_DAEMON_DATA_CRASHLIMIT` | Reinicios automáticos tras una caída; aparece en el aviso como «intento *n* de *límite*». |
+| `panel.settings.notificationLanguage` | `es` | `SKYPANEL_PANEL_SETTINGS_NOTIFICATIONLANGUAGE` | Idioma de los títulos y mensajes de los avisos (`es` o `en`); lo lee el nodo que los envía. |
 
 Véase [Configuración](../backend/02-configuration.md) para saber cómo se leen las claves y las variables de entorno.
 

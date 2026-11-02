@@ -44,12 +44,12 @@ Cada servidor de juego se ejecuta en su propio contenedor Docker, con un usuario
 *   **Endurecimiento de la web:** cabeceras de seguridad, rechazo de peticiones con la cookie del panel iniciadas desde otra web, descargas de plantillas bloqueadas hacia redes privadas (`security.blockPrivateDownloads`) y límite de copias por servidor (`panel.backups.maxPerServer`). Ver [Seguridad](./docs/es/backend/09-security.md).
 
 ### Herramientas integradas
-*   **Archivos:** servidor SFTP nativo (SSH + SFTP en Go) con contraseña o, en el nodo del panel, con claves SSH públicas; editor de archivos con historial.
+*   **Archivos:** servidor SFTP nativo (SSH + SFTP en Go) con contraseña o con claves SSH públicas, en todos los nodos; editor de archivos con historial.
 *   **Panel web:** Astro, React 19 y Tailwind CSS, en inglés (por defecto) y español, con menú lateral que se encoge a una barra de iconos, consola ampliable e inicio de sesión y registro en una sola tarjeta.
 *   **Monitorización:** CPU, memoria, disco y red por servidor y por nodo, con WebSocket en tiempo real para consola y métricas, e historial de disponibilidad.
 *   **Copias de seguridad:** locales y en S3 o compatible (MinIO, R2…).
 *   **Tareas programadas:** motor de tareas con gocron.
-*   **Notificaciones:** Discord (embeds) y correo (Mailgun, Mailjet, SendGrid, SMTP).
+*   **Notificaciones:** Discord (embeds), Telegram y webhooks JSON por servidor, con idioma configurable (español o inglés), y correo (Mailgun, Mailjet, SendGrid, SMTP).
 *   **Asistente de IA:** Google Gemini para analizar la consola y los logs.
 *   **Facturación:** API de aprovisionamiento para WHMCS u otros sistemas: crea servidores con los límites del plan, cambia de plan y genera enlaces de acceso directo de un solo uso.
 *   **Extensiones:** instala extensiones (`.zip`) que añaden páginas aisladas al panel y reciben eventos firmados. Ver [Extensiones](./docs/es/reference/15-extensions.md).

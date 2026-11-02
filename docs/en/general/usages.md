@@ -48,7 +48,7 @@ The tabs depend on your permissions on that server (the exact rules are in the [
 | **SFTP Access** | The SFTP address and username (`email#serverID`). | [Core concepts: SFTP](./concepts.md#sftp) |
 | **Migration** | Move the server to another Aether Panel installation (administrators). | [Server transfers](../features/server-transfers.md) |
 | **Splitter** | Split the server into sub-servers (owner or administrator). | [Sub-servers](../features/sub-servers.md) |
-| **Plugins**, **Modpacks** | Install plugins (from Modrinth) and modpacks (Modrinth, CurseForge). | [Modpacks and plugins](../features/modpacks-and-plugins.md) |
+| **Plugins**, **Modpacks** | Install plugins, or mods on Fabric, Forge and NeoForge servers (from Modrinth), and modpacks (Modrinth, CurseForge). | [Modpacks and plugins](../features/modpacks-and-plugins.md) |
 | **Map** | World map for Minecraft: Java Edition. | [World map](../features/world-map.md) |
 | **Administration** | Reinstall, and for administrators: transfer to another node, definition, suspension, cloning, deletion. | [Server transfers](../features/server-transfers.md), [Cloning](../features/cloning.md) |
 
@@ -89,7 +89,7 @@ Then, in a server's **Database** tab, anyone with `server.data.edit` creates a d
 
 ## Settings
 
-**Settings** (`settings.edit`) has these tabs: **General** (company name, Base URL, master node IP, Gemini key, CurseForge key, sign-ups, anti-bot check and Turnstile, experimental features), **Discord Notifications**, **Mail**, **API keys** (billing), **Products** (plans for billing), **Updates**, **Off-site backups** (S3), **Domains** (Cloudflare subdomains) and **Extensions**. See [Panel settings](../features/panel-settings.md).
+**Settings** (`settings.edit`) has these tabs: **General** (company name, Base URL, master node IP, notification language, Gemini key, CurseForge key, sign-ups, anti-bot check and Turnstile, experimental features), **Discord Notifications**, **Mail**, **API keys** (billing), **Products** (plans for billing), **Updates**, **Off-site backups** (S3), **Domains** (Cloudflare subdomains) and **Extensions**. See [Panel settings](../features/panel-settings.md).
 
 ## Account Settings
 

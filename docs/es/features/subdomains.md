@@ -128,22 +128,22 @@ Las cinco se pueden editar desde **Configuración → Dominios**. El token se gu
 
 ## Problemas conocidos y soluciones
 
-Los errores del panel se devuelven en español; los códigos entre paréntesis son estables.
+Los errores del panel llevan un código estable (entre paréntesis) y un mensaje en inglés; el panel muestra cada uno traducido al idioma de quien lo mira, con los valores que lleva el error (puerto, dominio, mensaje de Cloudflare) ya rellenados.
 
 | Mensaje | Causa y solución |
 |---------|------------------|
-| `los subdominios automáticos no están configurados en este panel` (`ErrSubdomainDisabled`, 400) | Falta el token, el ID de zona o el dominio base. Completar **Configuración → Dominios**. |
-| `el subdominio solo puede tener letras minúsculas, números y guiones…` (`ErrSubdomainInvalid`, 400) | Nombre demasiado corto o largo, o con caracteres no válidos. |
-| `ese subdominio está reservado` (`ErrSubdomainReserved`, 400) | El nombre está en la lista de reservados. Elegir otro. |
-| `ese subdominio ya está en uso` (`ErrSubdomainTaken`, 409) | Lo usa otro servidor **o** ya existe en la zona, fuera del panel, un registro con ese nombre (o con su nombre SRV `_minecraft._tcp.`). Borrar el registro ajeno en Cloudflare o elegir otro nombre. |
-| `espera unos segundos antes de volver a cambiar el subdominio` (`ErrSubdomainRateLimited`, 429) | Dos cambios en menos de 10 segundos. Esperar y reintentar. |
-| `el nodo de este servidor no tiene una dirección pública; configura un destino DNS…` (`ErrSubdomainNoTarget`, 422) | El nodo está registrado con una IP privada, `localhost` o un nombre interno. Poner en **Destino DNS** la IP o el nombre público, o registrar el nodo con su dirección pública. |
-| `faltan el token de la API o el ID de zona de Cloudflare` (400, prueba) | El token o el ID de zona están vacíos. |
-| `el ID de zona de Cloudflare debe tener 32 caracteres hexadecimales` | ID de zona incorrecto (a menudo se pega el ID de la cuenta). Copiar el *ID de zona* de la página de información general del dominio. |
-| `el dominio base no es un nombre de dominio válido` (400, prueba) | El dominio base contiene `http://`, barras o caracteres no válidos. |
-| `el dominio <dominio> no pertenece a la zona <zona>` (422, prueba) | El dominio base no es la zona ni un subdominio de ella. Usar un dominio dentro de la zona elegida. |
-| `Cloudflare respondió: … (código <n>)` (422) | Cloudflare rechazó la llamada. El panel muestra el mensaje y el código de Cloudflare tal como llegan; las causas habituales son un token no válido o un token sin permiso de edición de DNS en esa zona. Volver a crear el token con la plantilla *Editar DNS de zona* limitada a la zona correcta. |
-| `no se pudo contactar con Cloudflare: …` | El panel no llega a `api.cloudflare.com` (cortafuegos, DNS o sin salida a internet). |
+| `Los subdominios automáticos no están configurados en este panel.` (`ErrSubdomainDisabled`, 400) | Falta el token, el ID de zona o el dominio base. Completar **Configuración → Dominios**. |
+| `El subdominio solo puede tener letras minúsculas, números y guiones…` (`ErrSubdomainInvalid`, 400) | Nombre demasiado corto o largo, o con caracteres no válidos. |
+| `Ese subdominio está reservado.` (`ErrSubdomainReserved`, 400) | El nombre está en la lista de reservados. Elegir otro. |
+| `Ese subdominio ya está en uso.` (`ErrSubdomainTaken`, 409) | Lo usa otro servidor **o** ya existe en la zona, fuera del panel, un registro con ese nombre (o con su nombre SRV `_minecraft._tcp.`). Borrar el registro ajeno en Cloudflare o elegir otro nombre. |
+| `Espera unos segundos antes de volver a cambiar el subdominio.` (`ErrSubdomainRateLimited`, 429) | Dos cambios en menos de 10 segundos. Esperar y reintentar. |
+| `El nodo de este servidor no tiene una dirección pública; configura un destino DNS…` (`ErrSubdomainNoTarget`, 422) | El nodo está registrado con una IP privada, `localhost` o un nombre interno. Poner en **Destino DNS** la IP o el nombre público, o registrar el nodo con su dirección pública. |
+| `Faltan el token de la API o el ID de zona de Cloudflare.` (`ErrCloudflareNotConfigured`, 400, prueba) | El token o el ID de zona están vacíos. |
+| `El ID de zona de Cloudflare debe tener 32 caracteres hexadecimales.` (`ErrCloudflareZoneID`) | ID de zona incorrecto (a menudo se pega el ID de la cuenta). Copiar el *ID de zona* de la página de información general del dominio. |
+| `El dominio base no es un nombre de dominio válido.` (`ErrDNSBaseDomainInvalid`, 400, prueba) | El dominio base contiene `http://`, barras o caracteres no válidos. |
+| `El dominio <dominio> no pertenece a la zona <zona>.` (`ErrCloudflareDomainNotInZone`, 422, prueba) | El dominio base no es la zona ni un subdominio de ella. Usar un dominio dentro de la zona elegida. |
+| `Cloudflare respondió: … (código <n>)` (`ErrCloudflareRefusedCode`, o `ErrCloudflareRefused` si no hay código; 422) | Cloudflare rechazó la llamada. El panel muestra el mensaje y el código de Cloudflare tal como llegan; las causas habituales son un token no válido o un token sin permiso de edición de DNS en esa zona. Volver a crear el token con la plantilla *Editar DNS de zona* limitada a la zona correcta. |
+| `No se pudo contactar con Cloudflare: …` (`ErrCloudflareUnreachable`) | El panel no llega a `api.cloudflare.com` (cortafuegos, DNS o sin salida a internet). |
 | La dirección resuelve pero los jugadores no pueden conectarse | El registro apunta a un dominio con proxy o a una IP incorrecta. Abrir **Ver registros DNS** y revisar el destino; si es el dominio del panel con proxy, poner en **Destino DNS** la IP pública del servidor. Comprobar también que el puerto del juego está abierto en el nodo. |
 | Quedan registros en la zona tras borrar un servidor | Cloudflare no estaba configurado o la llamada falló al borrar el servidor. Eliminar los registros a mano; llevan el comentario `Aether Panel: server <serverId>`. |
 

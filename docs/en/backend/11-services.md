@@ -55,6 +55,7 @@ Helper modules:
 | `AttemptLimiter` (`LoginAttempts`, `PasswordResetRequests`) | `login_attempts.go` | In-memory throttling per account |
 | `SSOLinks` | `sso.go` | One-time sign-in links for billing systems |
 | Telegram / JSON webhook | `channels.go` | Validation and delivery for owner notifications and extensions |
+| Notification texts | `notification_text.go` | Texts sent outside the panel's pages, in Spanish and English |
 | `ReadDomainStatus` | `domain_status.go` | Reads what the installer's domain service did |
 | `serveLocal` | `node_local.go` | Runs a "node call" in-process for the panel's own node |
 
@@ -261,7 +262,7 @@ The errors `repoAuth` returns name the repository and the kind of credential tha
 | `List(serverID, limit, before, filter)` | Newest first; `limit` default 50, max 100; `before` is the id cursor; returns the next cursor or nil |
 | `TruncateRunes(text, limit)` | Package helper, cuts with `…` |
 
-Filters: a family name (`power`, `console`, `files`, `backups`, `users`, `settings`, `tasks`, see `ServerActivityFamilies`) or a lowercase action prefix such as `file.` or `backup.restore`. Anything else matches nothing.
+Filters: a family name (`power`, `console`, `files`, `backups`, `users`, `settings`, `tasks`, see `ServerActivityFamilies`) or a lowercase action prefix such as `file.` or `backup.restore`. Anything else matches nothing. The `settings` family includes `server.transferFailed` and `server.transferStartFailed`, which a node transfer records after the request was answered, with the step and the reason as detail (`internal/web/api/transfer_logic.go`).
 
 ## 16. `Uptime` (`uptime.go`)
 
@@ -271,8 +272,11 @@ Filters: a family name (`power`, `console`, `files`, `backups`, `users`, `settin
 | `GetUptimeStats(serverID, since)` | Uptime/downtime seconds between `since` and now, running period included, and percent (100 when there is no data) |
 | `GetRecentHistory(serverID, limit)` | Latest periods |
 | `GetAllServerUptime(since)` | Map per server with `uptime`, `downtime`, `uptimePercent`, `currentStatus`, `currentStartTime` |
+| `RecordNodeStatuses(serverIDs, reported, staleAfter)` | Records what a remote node reported for the servers the panel places on it (see below) |
 
-`TrackStatus` is called for every server every 5 seconds by the daemon's stats loop, only where the panel runs ([Process management & metrics](./13-process-metrics.md#uptime-tracking)). The stats read every period that overlaps the window (still open, or ended after `since`) and count only the part inside it: a period that began before `since` is clipped to `since`, and the open period runs until now. The running period is counted once: `GET /api/uptime/:serverId` does not add it again to `totalSeconds`. Feature overview: [Uptime](../general/13-uptime.md).
+`TrackStatus` is called every 5 seconds for every server the panel's own process runs, by the daemon's stats loop, only where the panel runs ([Process management & metrics](./13-process-metrics.md#uptime-tracking)). The stats read every period that overlaps the window (still open, or ended after `since`) and count only the part inside it: a period that began before `since` is clipped to `since`, and the open period runs until now. The running period is counted once: `GET /api/uptime/:serverId` does not add it again to `totalSeconds`. Feature overview: [Uptime](../general/13-uptime.md).
+
+`RecordNodeStatuses` is called by the panel's remote status poller every 30 seconds for each remote node ([Process management & metrics](./13-process-metrics.md#uptime-tracking)). `reported` holds the state of each server the node answered for, and is `nil` when the node did not answer. Unknown is not stopped: a server the node left out, or every server of a node that did not answer, records nothing. Before recording, it closes the open periods of those servers that nobody confirmed for `staleAfter` (3 minutes), at their last confirmation (`updated_at`), so a long outage counts as neither up nor down (a gap between periods); a new period starts when the node answers again.
 
 ## 17. `SSHKey` (`sshkey.go`)
 
@@ -334,9 +338,14 @@ Singleton from `GetDiscordService()`.
 | `SendBackupAlert(name, id, status, ok)` | main | |
 | `SendSystemStatus(servers []ServerInfo)` | `panel.notifications.discordWebhookSystem` | One field per server; above 25 servers (Discord's field limit) the first 24 and a note with how many are left out; the counts in the description cover all |
 | `SendNodeStatus(...)` | `panel.notifications.discordWebhookNode` | Fields left empty or zero are left out |
+| `SendNodeUnreachable(total, name, host, port)` | `panel.notifications.discordWebhookNode` | Red report "no answer" for a remote node that did not answer: only the number of servers placed on it, since their states and its machine are unknown |
 | `ValidateDiscordWebhook(url)` | — | Package function |
 
-Every post requires a real Discord webhook URL (`https://discord.com/api/webhooks/...`, also `ptb.`, `canary.` and `discordapp.com`) and goes through `utils.NewRestrictedHTTPClient`, which refuses private addresses. Embed texts are in Spanish. The fourth webhook, `panel.notifications.discordWebhookExTransfer`, is used by the external transfer code in `internal/web/api`. More: [Discord](../general/16-discord.md).
+Every post requires a real Discord webhook URL (`https://discord.com/api/webhooks/...`, also `ptb.`, `canary.` and `discordapp.com`) and goes through `utils.NewRestrictedHTTPClient`, which refuses private addresses. Embed texts come from the notification catalogue, in the language of `panel.settings.notificationLanguage` (see [Notification texts](#notification-texts-notification_textgo)).
+
+`POST /api/settings/test/discord` (`internal/web/api/settings.go`) sends a test message to every configured webhook and names the ones it did not reach: `422 ErrDiscordTestFailed` with `metadata.webhooks` listing `alerts`, `reports`, `status` and/or `transfers` (the web client shows its own section names); with no webhook configured it answers `400 ErrDiscordNoWebhooks`.
+
+The fourth webhook, `panel.notifications.discordWebhookExTransfer`, is used by the external transfer code in `internal/web/api`. More: [Discord](../general/16-discord.md).
 
 ## 22. `LicenseService` (`license.go`)
 
@@ -351,7 +360,7 @@ The base URL is a constant in code and points at a test host (`prueba.skyhosting
 
 ## 23. `Cloudflare` (`cloudflare.go`)
 
-`NewCloudflare(token, zoneID)` builds a client for one zone (`https://api.cloudflare.com/client/v4`, 15 s timeout). Methods: `Zone`, `ListRecords(name)`, `CreateRecord`, `UpdateRecord(id, ...)`, `DeleteRecord(id)` (an already missing record counts as deleted) and `Verify(domain)` (reads the zone, checks the domain belongs to it, creates and deletes a TXT `_aether-panel-test.<domain>`). The token is only sent as a Bearer header and scrubbed from errors; zone and record ids must be 32 hex characters. Used by `internal/web/api/server_dns.go` for server subdomains ([Servers: subdomain](./04-servers.md#subdomain-cloudflare), [Subdomains](../features/subdomains.md)).
+`NewCloudflare(token, zoneID)` builds a client for one zone (`https://api.cloudflare.com/client/v4`, 15 s timeout). Methods: `Zone`, `ListRecords(name)`, `CreateRecord`, `UpdateRecord(id, ...)`, `DeleteRecord(id)` (an already missing record counts as deleted) and `Verify(domain)` (reads the zone, checks the domain belongs to it, creates and deletes a TXT `_aether-panel-test.<domain>`). The token is only sent as a Bearer header and scrubbed from errors; zone and record ids must be 32 hex characters. Errors are panel error codes the web client translates: `ErrCloudflareNotConfigured`, `ErrCloudflareZoneID`, `ErrCloudflareRecordID`, `ErrCloudflareDomainNotInZone`, `ErrCloudflareUnreachable`, `ErrCloudflareBadAnswer`, and Cloudflare's own refusals as `ErrCloudflareRefused` or `ErrCloudflareRefusedCode`, with its message (and its error code) in the metadata. Used by `internal/web/api/server_dns.go` for server subdomains ([Servers: subdomain](./04-servers.md#subdomain-cloudflare), [Subdomains](../features/subdomains.md)).
 
 ---
 
@@ -377,6 +386,19 @@ One-time sign-in links for billing systems (WHMCS, Paymenter): `Create(userID, r
 - Both use the restricted HTTP client and a 10 s timeout; error texts never include the URL (a Telegram URL contains the bot token).
 
 Used by per-server notifications ([Server notifications](../features/server-notifications.md)) and by extensions ([Extensions](../reference/15-extensions.md)).
+
+### Notification texts (`notification_text.go`)
+
+Every text the panel sends outside its own pages lives in one catalogue, `notificationTexts`, with a Spanish (`es`) and an English (`en`) version of each key; a test checks that both have the same keys and the same format verbs in the same order. It covers the panel's Discord alerts and reports (crash, offline/online, resources, backups, system and node reports, the Discord test), each owner's Discord, Telegram and JSON webhook alerts and their test, the title and message of extension events, and the external transfer reports and step texts.
+
+| Function | Description |
+|---|---|
+| `NotificationLanguage()` | The value of `panel.settings.notificationLanguage` when the catalogue has it, otherwise `es` (`DefaultNotificationLanguage`) |
+| `NotificationText(key, args...)` | The text in that language, filled in with `fmt` |
+| `NotificationTextIn(lang, key, args...)` | The same in a given language: a key missing in it falls back to English, and a key missing everywhere is returned as it is |
+| `IsNotificationLanguage(lang)` | Used by the settings API to refuse other values (`ErrNotificationLanguage`) |
+
+Each process reads its own configuration: a remote node uses the value set on that node for its servers' alerts. In the JSON webhook payload of a resource alert, the `resource` field keeps `CPU` or `Memoria` whatever the language, for compatibility. The external transfer status API and the reason sent to the origin panel always use the English text, and the web client translates the step codes itself.
 
 ### `ReadDomainStatus` (`domain_status.go`)
 

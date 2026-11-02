@@ -71,6 +71,12 @@ Mientras se escriben puertos en el asistente de nuevo servidor, este llama a `PO
 
 Un puerto ocupado incluye `suggestion`: el siguiente puerto (como mínimo 1024) libre y no pedido en otro campo del mismo formulario; el asistente lo ofrece como «Usar N». Quién ocupa el puerto (`by`) solo se devuelve a los administradores (permiso `admin`). Si el nodo no puede responder a `/daemon/ports` (sin Docker o versión antigua), la comprobación se limita a los registros del panel. La petición admite `exclude` con el identificador de un servidor cuyos propios puertos se ignoran.
 
+### Estado de los servidores en nodos remotos
+
+El daemon de un nodo remoto funciona sin el panel, así que el panel le pregunta por el estado de sus servidores: cada 30 segundos llama a `GET /daemon/servers/status` en todos los nodos remotos a la vez (una petición por nodo, con 10 segundos de tiempo máximo; una ronda nunca se solapa con la anterior). Solo lo hace el proceso que ejecuta el panel. Las respuestas se registran como disponibilidad igual que las de los servidores del propio panel (véase [Seguimiento de disponibilidad](../general/13-uptime.md)), de modo que la **Salud global** y las cifras de disponibilidad también cubren los servidores de nodos remotos. Un nodo que no responde no registra nada; un periodo que lleva más de 3 minutos sin confirmarse se cierra en su última confirmación, así que una caída del nodo no cuenta ni como encendido ni como apagado, y empieza un periodo nuevo cuando el nodo vuelve a responder. Un nodo con un daemon antiguo sin esa ruta (responde `404`) se trata como un nodo que no responde.
+
+Las mismas respuestas alimentan el informe del nodo que se envía al webhook de Discord de nodos (`panel.notifications.discordWebhookNode`): un nodo remoto muestra su número real de servidores encendidos y apagados (de la última consulta, o de una llamada directa si esa consulta tiene más de 60 segundos), y un nodo que no responde recibe un informe en rojo con el estado **Sin respuesta** y el número de servidores que el panel tiene en él. Véase [Webhooks de Discord](../general/16-discord.md).
+
 ### Descarga anticipada de imágenes
 
 En los nodos con Docker, el daemon descarga las imágenes de `docker.prefetchImages` 2 minutos después de arrancar y luego una vez al día (con un límite de 30 minutos por pasada). Si una descarga sustituye una copia anterior, la imagen vieja se borra cuando ningún contenedor la usa. Así se evita un primer arranque largo en los servidores que usan esas imágenes.
@@ -127,6 +133,7 @@ Los umbrales de poco disco (5 GB / 10 %), los intervalos de muestreo y las 24 ho
 - Un nodo con un daemon antiguo sin `/daemon/network/history` cuenta como «sin responder» en el pie del historial.
 - Sin `daemon.hostProc` en un daemon dentro de un contenedor, el tráfico mostrado es solo el del propio contenedor del panel, no el de los servidores de juego.
 - La comprobación de puertos es orientativa: no reserva puertos.
+- Los servidores de un nodo con un daemon antiguo (sin `/daemon/servers/status`) no tienen datos de disponibilidad hasta que se actualiza el nodo.
 
 ## Problemas conocidos y soluciones
 
@@ -138,6 +145,8 @@ Los umbrales de poco disco (5 GB / 10 %), los intervalos de muestreo y las 24 ho
 | Tráfico casi nulo con los servidores en uso | Daemon en contenedor sin `daemon.hostProc` | Montar `/proc:/host/proc:ro` y definir `SKYPANEL_DAEMON_HOSTPROC=/host/proc` |
 | La salud global no muestra valor | El usuario no tiene `admin`/`uptime.view`, o aún no hay datos de disponibilidad | Conceder `uptime.view` o esperar a que haya datos |
 | Página del nodo: «No se puede contactar con este nodo…» | El daemon está parado o el panel no llega a él | Arrancar el daemon; revisar host, puertos y cortafuegos |
+| «El nodo rechazó las credenciales del panel…» (`502`, `ErrNodeAuthFailed`) en un servidor de un nodo remoto | El nodo rechazó el token del panel: su `daemon.auth.clientSecret` no es el secreto del nodo en el panel, o la hora de una de las dos máquinas es incorrecta. El registro del panel indica el nodo | Volver a copiar el secreto desde **Desplegar nodo** en la configuración del nodo y reiniciarlo; sincronizar la hora de ambas máquinas (NTP). Véase [Solución de problemas](../setup/troubleshooting.md) |
+| Informe de Discord del nodo: **Sin respuesta** | El nodo no respondió a la consulta de estado (caído, inaccesible o con un daemon antiguo) | Revisar el nodo; actualizarlo si es antiguo |
 | «Al nodo «X» le queda poco disco» | Quedan menos de 5 GB o del 10 % en el disco de servidores | Liberar espacio o ampliar el disco |
 | La instalación falla con `ErrNodeDiskFull` | Espacio libre por debajo de `daemon.minFreeDiskMB` | Liberar espacio o bajar la clave (`0` la desactiva) |
 | Registro del daemon: `Could not download the runtime image …` | El registro de imágenes no responde durante la descarga anticipada | Revisar el acceso a `ghcr.io`; la pasada diaria siguiente lo reintenta |

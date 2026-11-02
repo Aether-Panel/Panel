@@ -133,7 +133,8 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/
 
 ```json
 {
-  "status": "Descomprimiendo archivos...",
+  "status": "STEP_EXTRACTING",
+  "message": "Unpacking the files...",
   "pulling": true,
   "origin": {
     "session_id": "6f1c2a9e-0b7d-4c55-9a51-2f0e8c3d7b14",
@@ -148,18 +149,42 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/
 
 | Field | Meaning |
 |-------|---------|
-| `status` | The import's current step on this panel (destination side), or `""` when there is none |
+| `status` | The import's current step or outcome on this panel (destination side) as a code, or `""` when there is none |
+| `detail` | Only for some failures: what they add, such as the origin's HTTP status (`HTTP 403`) or the time waited (`2h0m0s`) |
+| `message` | Only for `STEP_*` and `ERROR_*` codes: the step in English, with its detail, for a client that does not know the code |
 | `pulling` | Whether an import of this server is running here |
 | `origin` | Only when this panel created a session for the server (origin side): the newest one, while it is live and up to 15 minutes after it ended or expired |
 
-The step texts come from the backend in Spanish, whatever the interface language: `Iniciando...`, `Validando conexión con el panel de origen...`, `Iniciando la transferencia en el servidor origen...`, `Esperando a que el origen comprima los archivos...`, `Descargando paquete de datos desde el origen...`, `Subiendo archivos al daemon local (esto puede tardar)...`, `Descomprimiendo archivos...`, `Limpiando archivos temporales...`. The last step is one of:
+The web client translates the codes into the viewer's language (`servers.extransfer.progress.<code>` in its locales) and adds the `detail` in brackets; for a code it does not know it shows `message`. The steps, in order:
 
-| Value | Meaning |
-|-------|---------|
+| Code | Step |
+|------|------|
+| `STEP_STARTING` | Starting |
+| `STEP_VALIDATING` | Validating the connection with the origin panel |
+| `STEP_ORIGIN_START` | Starting the transfer on the origin |
+| `STEP_WAITING_ARCHIVE` | Waiting for the origin to archive the files |
+| `STEP_DOWNLOADING` | Downloading the archive from the origin |
+| `STEP_UPLOADING` | Uploading the files to this panel's node |
+| `STEP_EXTRACTING` | Extracting the files |
+| `STEP_CLEANUP` | Removing temporary files |
+
+The last value is one of:
+
+| Code | Meaning |
+|------|---------|
 | `DONE` | The import finished |
 | `CANCELLED` | Cancelled on this panel |
 | `CANCELLED_BY_ORIGIN` | The origin cancelled, or its session failed |
-| `ERROR: ...` | The import failed; the text says why (the messages are listed in [Server transfers → Troubleshooting](../../features/server-transfers.md#troubleshooting)) |
+| `ERROR_ORIGIN_URL` | The origin URL is invalid or points to an address that is not allowed |
+| `ERROR_ORIGIN_UNREACHABLE` | Network failure reaching the origin |
+| `ERROR_TOKEN_REJECTED` | The origin refused the token: invalid, used or expired (`detail`: its HTTP status) |
+| `ERROR_ORIGIN_BAD_ANSWER`, `ERROR_ORIGIN_BAD_SESSION` | The origin answered something unreadable, or a session ID that is not valid |
+| `ERROR_ORIGIN_START`, `ERROR_ORIGIN_REFUSED` | The call that starts the transfer on the origin failed, or the origin refused it |
+| `ERROR_DOWNLOAD_NETWORK`, `ERROR_DOWNLOAD_REFUSED` | Network error while downloading, or the origin refused the download (`detail`: its HTTP status) |
+| `ERROR_DOWNLOAD_TIMEOUT` | The origin did not have the archive ready in time (`detail`: the time waited) |
+| `ERROR_UPLOAD`, `ERROR_EXTRACT` | The archive could not be uploaded to this panel's node, or extracted there (`detail`: the node's answer) |
+
+What to do about each failure: [Server transfers → Troubleshooting](../../features/server-transfers.md#troubleshooting). The reason sent to the origin with `cancel` is the English text of the failure, whatever the language of either panel; the Discord transfer reports use this panel's [notification language](./06-panel-admin.md#settings).
 
 ### `POST /api/servers/:serverId/extransfer/cancel`
 

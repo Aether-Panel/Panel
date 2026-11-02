@@ -8,7 +8,7 @@ The page has one tab per area. On phones and tablets the tabs become a drop-down
 
 | Tab | What it configures | Who sees it | Documented in |
 |---|---|---|---|
-| **General** | Name, Base URL, master node IP, AI, CurseForge key, sign-up and anti-bot, experimental features | `settings.edit` | This page |
+| **General** | Name, Base URL, master node IP, notification language, AI, CurseForge key, sign-up and anti-bot, experimental features | `settings.edit` | This page |
 | **Discord** | Discord webhooks for alerts, reports, node status and transfers | `settings.edit` | [Discord](../general/16-discord.md) |
 | **Mail** | Mail provider and sender, with a test button | `settings.edit` | [Email](../general/15-email.md) |
 | **Off-site backups** | S3-compatible storage for copies of the backups | `settings.edit` | [Backups](./backups.md) |
@@ -35,6 +35,10 @@ Users without `settings.edit` who open `/settings` are sent back to the dashboar
 - **Company Name**: the name shown in the web, in the browser's web manifest, in emails and as the issuer of two-factor codes.
 - **Base URL**: the address the panel is opened at, for example `https://panel.example.com` or `http://IP:8080`. It is used in email links, as an allowed origin and as the address of the panel's own node. On installs made with the installer, saving a domain here makes the server set up Nginx, the HTTPS certificate and the firewall by itself; the result shows under the field. See [Installation: adding a domain later](../setup/01-installation.md).
 - **Global Master Node IP**: the address players and SFTP clients get for the panel's own node. When empty, the panel uses the server's IP if the Base URL's domain sits behind a proxy that only passes the website (Cloudflare's orange cloud), and otherwise the Base URL's host. Useful when several panels share one database.
+
+**Notifications**
+
+- **Notification language** (`panel.settings.notificationLanguage`): **Spanish (Spain)** (`es`, the default) or **English (US)** (`en`). It is the language of what the panel sends outside its own pages: the panel's Discord alerts and reports, crash alerts, backup status texts, each server's Discord, Telegram and webhook alerts and their test message, the title and message of the events extensions receive, and the Discord reports of panel-to-panel migrations. The panel's pages keep following each person's own language. Any other value is refused with `ErrNotificationLanguage`. Remote nodes read this key from their own configuration (the panel does not push it), so set it on each node whose servers' alerts should change language. See [Server notifications](./server-notifications.md) and [Discord](../general/16-discord.md).
 
 **Artificial intelligence**
 
@@ -95,7 +99,7 @@ Unknown keys are ignored. The test routes (`/api/settings/test/email`, `/test/di
 
 The keys behind the General tab, with their defaults and environment variables, are listed in [Configuration](../backend/02-configuration.md):
 
-`panel.settings.companyName`, `panel.settings.masterUrl`, `panel.settings.geminiApiKey`, `panel.settings.hideAiAnalysis`, `daemon.curseforge.key`, `panel.registrationEnabled`, `panel.captcha.builtin`, `panel.turnstile.enabled`, `panel.turnstile.siteKey`, `panel.turnstile.secretKey`, `panel.experimental.versionSwitch`, `panel.experimental.propertiesEditor`, `panel.experimental.serverClone`.
+`panel.settings.companyName`, `panel.settings.masterUrl`, `panel.settings.notificationLanguage`, `panel.settings.geminiApiKey`, `panel.settings.hideAiAnalysis`, `daemon.curseforge.key`, `panel.registrationEnabled`, `panel.captcha.builtin`, `panel.turnstile.enabled`, `panel.turnstile.siteKey`, `panel.turnstile.secretKey`, `panel.experimental.versionSwitch`, `panel.experimental.propertiesEditor`, `panel.experimental.serverClone`.
 
 Environment variables use the prefix `SKYPANEL_` and the key in upper case with dots turned into underscores, for example `SKYPANEL_PANEL_EXPERIMENTAL_SERVERCLONE`.
 
@@ -103,7 +107,7 @@ Environment variables use the prefix `SKYPANEL_` and the key in upper case with 
 
 - The API does not return the secrets, but anyone with `settings.edit` can replace them (for example, point mail or off-site backups at another service). Give that scope only to trusted administrators.
 - Saving rewrites `config.json` as a whole, so its formatting and key order may change.
-- **CurseForge API key** only applies to the panel's own node.
+- **CurseForge API key** and **Notification language** only apply to the panel's own node; remote nodes use their own configuration.
 
 ## Troubleshooting
 
@@ -111,6 +115,8 @@ Environment variables use the prefix `SKYPANEL_` and the key in upper case with 
 |---|---|---|
 | Sent back to the dashboard when opening `/settings` | No `settings.edit` | Ask an administrator for the scope |
 | `Failed to save settings` or a validation message | A value was refused (for example a Discord URL that is not a webhook) | Fix the value; nothing was saved |
+| "The notification language must be Spanish or English." (`ErrNotificationLanguage`) | A value other than `es` or `en` was sent for `panel.settings.notificationLanguage` | Send `es` or `en` |
+| Discord test: "The test message did not reach these webhooks: …" (`422`, `ErrDiscordTestFailed`) | The listed webhooks (named after the Discord tab's sections: **Server alerts**, **System reports**, **Node status**, **ExTransfer**) were deleted or are wrong | Create the webhook again in Discord and paste the new URL. See [Discord](../general/16-discord.md) |
 | Saving fails with a file error | The panel cannot write `config.json` | Check the file's owner and permissions |
 | The domain does not get HTTPS after saving the Base URL | The domain does not point at the server yet, port 80 is closed, or the install has no `aether-domain` service | See [Installation](../setup/01-installation.md) |
 | `ErrFeatureDisabled` from the API | The experimental feature is off | Turn it on under **Experimental features** |

@@ -42,7 +42,7 @@ Each area below links to the page that documents it.
 
 ### Authentication
 
-`/auth/login`, `/auth/otp`, `/auth/logout`, `/auth/register`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/reauth`, `/auth/sso`, `/auth/challenge`, `/auth/publickey`, `/oauth2/token` and the public `GET /api/config`. See [Authentication](./api/02-authentication.md).
+`/auth/login`, `/auth/otp`, `/auth/logout`, `/auth/register`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/reauth`, `/auth/sso`, `/auth/challenge`, `/auth/publickey`, `/auth/sftp-key` (nodes only), `/oauth2/token` and the public `GET /api/config`. See [Authentication](./api/02-authentication.md).
 
 ### Servers
 
@@ -122,7 +122,7 @@ Each area below links to the page that documents it.
 
 ### Daemon
 
-`/daemon`, `/daemon/features`, `/daemon/system`, `/daemon/ports`, `/daemon/network/history`, `/daemon/update`, `/daemon/update-status` and `/daemon/server/:serverId/...`. See [Daemon](./api/09-daemon.md).
+`/daemon`, `/daemon/features`, `/daemon/system`, `/daemon/ports`, `/daemon/network/history`, `/daemon/servers/status`, `/daemon/update`, `/daemon/update-status` and `/daemon/server/:serverId/...`. See [Daemon](./api/09-daemon.md).
 
 ## Related documentation
 

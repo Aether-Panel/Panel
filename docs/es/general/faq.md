@@ -22,7 +22,7 @@ Sí. El propio panel se instala con Docker (no hay instalación nativa) y los se
 
 En inglés (el idioma por defecto) y en español. Cada usuario elige su idioma en **Configuración de la cuenta**; se recuerda en el navegador.
 
-Limitación conocida: algunos mensajes que genera el servidor están fijados en español, sea cual sea el idioma elegido, por ejemplo los embeds de [Discord](16-discord.md), los pasos de una [migración entre paneles](../features/server-transfers.md#límites) y algunos errores de la API.
+Lo que el panel envía fuera de sus propias páginas (los embeds de Discord, los avisos de Discord, Telegram y webhook de cada servidor, los informes de Discord del panel y los eventos que reciben las extensiones) usa un mismo idioma para todos, que elige un administrador en **Configuración → General → Notificaciones** (español por defecto; un nodo remoto usa el valor de su propia configuración). Ver [Discord y notificaciones](16-discord.md#idioma-de-las-notificaciones). Los errores de la API están en inglés; los que llevan un código de error la interfaz web los muestra traducidos, igual que los pasos de una [migración entre paneles](../features/server-transfers.md).
 
 ## Instalación y funcionamiento
 
@@ -108,7 +108,7 @@ En la pestaña **Usuarios** del servidor, se añade su correo y se marcan los pe
 
 ### ¿Puedo mover un servidor a otro nodo o a otro panel?
 
-Sí. Un administrador lo mueve entre nodos del mismo panel desde la pestaña **Administración**, y a otra instalación de Aether Panel desde la pestaña **Migración** (transferencia federada). Entre nodos, las copias de seguridad no viajan con el servidor: se quedan en el nodo antiguo. Ver [Transferencias de servidores](../features/server-transfers.md).
+Sí. Un administrador lo mueve entre nodos del mismo panel desde la pestaña **Administración**, y a otra instalación de Aether Panel desde la pestaña **Migración** (transferencia federada). Entre nodos, los subservidores del servidor y las copias de seguridad guardadas en el nodo antiguo se mueven con él, y una transferencia que falla se deshace. Ver [Transferencias de servidores](../features/server-transfers.md).
 
 ### ¿Hay límite de copias de seguridad?
 

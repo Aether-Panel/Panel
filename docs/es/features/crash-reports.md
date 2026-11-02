@@ -9,7 +9,7 @@ Cuando un servidor de juego se detiene solo con un código de salida inesperado,
 - Guarda un **informe de caída**: hora, código de salida, las últimas 60 líneas no vacías de la consola, si el servidor se reinició automáticamente y qué intento consecutivo fue.
 - Conserva los **10 últimos informes** de cada servidor, del más reciente al más antiguo.
 - Envía un evento `crash` por el WebSocket del servidor, de modo que la página abierta del servidor muestra un aviso al instante.
-- Envía la caída a los canales de notificación propios del servidor, cuando el evento de **caída** está activado en ellos (véase [Notificaciones](server-notifications.md)), y al webhook de Discord general del panel (véase [Discord](../general/16-discord.md)).
+- Envía la caída a los canales de notificación propios del servidor, cuando el evento de **caída** está activado en ellos (véase [Notificaciones](server-notifications.md)), y al webhook de Discord general del panel (véase [Discord](../general/16-discord.md)). Ambos se redactan en el idioma de las notificaciones (`panel.settings.notificationLanguage`, véase [Ajustes del panel](panel-settings.md)) del nodo que ejecuta el servidor.
 - Opcionalmente **reinicia el servidor** de forma automática (**Reiniciar en caso de fallo**), con un límite de reinicios consecutivos.
 
 ## Cómo funciona

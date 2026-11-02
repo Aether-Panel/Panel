@@ -100,7 +100,7 @@ The secret is only shown in this answer. The client acts with all the permission
 
 ### SSH keys
 
-Public keys you can sign in to SFTP with instead of your password; the SFTP username stays `email#serverId`.
+Public keys you can sign in to SFTP with instead of your password; the SFTP username stays `email#serverId`. They work on every node: the panel's own node checks them in its database, and remote nodes ask the panel with [`POST /auth/sftp-key`](./02-authentication.md#post-authsftp-key).
 
 `POST /api/self/sshkeys`:
 

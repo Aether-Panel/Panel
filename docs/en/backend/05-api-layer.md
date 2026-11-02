@@ -137,6 +137,7 @@ Most `/api/servers/{id}/...` routes are a scope check plus `proxyServerRequest`,
 | `GET /auth/sso` | `NeedsDatabase` | Consumes a one-time link created by the billing API (`POST /api/v1/sso`) and signs the user in. |
 | `GET /auth/challenge` | — | Proof-of-work challenge of the built-in captcha. |
 | `GET /auth/publickey` | — | The panel's public key set (JWKS) used by nodes. |
+| `POST /auth/sftp-key` | `NeedsDatabase` | For remote nodes: checks an SFTP login with an SSH key (`internal/web/auth/sftp_key.go`). Authenticated with the node secret (`Authorization: Bearer <secret>`), body `{"username": "email#serverId", "publicKey": "<authorized_keys line>"}`. Answers `200 {"scope": "<serverId>:server.sftp"}` (never a session), `401 invalid_client` without a valid node secret, `400 invalid_request` ("no access") for any refusal and `429` after too many failed attempts. See [Security](./09-security.md#password-and-key-authentication). |
 
 Sign-in, sign-up and password reset check the captcha first: Turnstile when it is enabled and configured, otherwise the built-in proof of work when `panel.captcha.builtin` is on.
 
@@ -200,7 +201,9 @@ Every call the panel makes to a node's `/daemon/*` (including the proxied `/api/
 
 `ValidateJWT` on the node accepts only EdDSA tokens with an expiry and that audience (the local node's secret, or `daemon.auth.clientSecret` on a remote node). The verification key is the panel's own key set when the panel runs on the same binary, or the JWKS fetched from `token.public` on a remote node. Unauthenticated daemon routes: `GET/HEAD /daemon` (status) and `GET /daemon/features`.
 
-The node calls the panel only to check SFTP passwords (the `password` grant above). See [Configuration: remote node](./02-configuration.md#example-remote-node) and [Security](./09-security.md).
+A token the node cannot verify (signed by another panel, made for another node, or expired because a clock is off) is answered `401` with `WWW-Authenticate: Bearer error="invalid_token"` and logged on the node. The panel does not pass such a refusal on to the browser, where it would look like the user's own session ending and send them back to the login page: when a node answers `401`, or `403` with a `WWW-Authenticate` header, the panel logs the node's name with a hint (check the node secret and both clocks) and answers `502 ErrNodeAuthFailed` (`answerNodeAuthFailure`, `internal/web/api/node_auth.go`). This covers the proxied server routes and the direct calls that create, edit, delete and back up servers, the world map and provisioning. Any other answer from the node (a plain `403`, `409`, `400`…) is passed through as before.
+
+The node calls the panel only to check SFTP logins: passwords through the `password` grant above, SSH keys through `POST /auth/sftp-key`. See [Configuration: remote node](./02-configuration.md#example-remote-node) and [Security](./09-security.md).
 
 ## Scope checks
 
@@ -223,6 +226,7 @@ g.GET("/:serverId/flags", middleware.RequiresAnyPermission(scopes.ScopeServerVie
 | What | Limit | Key |
 |---|---|---|
 | Password attempts (panel sign-in, OAuth2 `password`, SFTP) | 10 per 15 minutes | account |
+| SSH key checks for remote nodes (`/auth/sftp-key`) | 10 per 15 minutes | account, a budget of its own (`sshkey:user:<id>`) |
 | Two-factor codes | 10 per 15 minutes | account |
 | Password reset requests | 5 per hour | email |
 | AI requests (log analysis and assistant together) | 30 per 10 minutes | user |
@@ -242,7 +246,7 @@ Saves the full port list and the main port. Requires `server.data.edit.admin`.
 ```
 
 - `primaryPort` must be one of the ports; it is moved to the front.
-- Every port is checked against the node: range 1024–65535, no duplicates, not one of the panel's own ports on that node, not assigned to another server there.
+- Every port is checked against the node: range 1024–65535, no duplicates, not one of the panel's own ports on that node, not assigned to another server there. A refusal answers `400` with `ErrPortOutOfRange`, `ErrPortDuplicated`, `ErrPortUsedByPanel` or `ErrPortTaken`, and the port in `metadata.port` (for a port template variable, the number and the variable, such as `25566 (rcon_port)`); the web client translates them.
 - The node is updated first; if it refuses or is down, the panel does not save ports or limits the server does not have. The daemon rewrites `port`, `port2`, `port3`… (removing stale ones).
 - Updates `server.Port` and `server.Ports` in the panel database and refreshes the subdomain records when the main port changed.
 

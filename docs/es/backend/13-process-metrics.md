@@ -16,6 +16,7 @@ Páginas relacionadas: ciclo de vida, scheduler, keep-alive y límite de disco e
 | `processStats()` | 5 s | `SendStatsForServers()` (estadísticas en vivo, historial, alertas, límite de disco) y `trackUptimeForAllServers()` |
 | `processPlayers()` | 1 min | `samplePlayers()`: número de jugadores al historial |
 | `processSystemStatus()` | 1 min | `sendSystemStatusToDiscord()` |
+| `processRemoteStatus()` | 30 s | `pollRemoteNodes()`: estado de los servidores de cada nodo remoto, registrado como uptime ([abajo](#seguimiento-del-uptime)) |
 | `reattachRunningServers()` | una vez | Vuelve a conectar con los contenedores Docker que siguieron en marcha durante un reinicio del daemon ([Servidores](./04-servers.md)) |
 | `trackUptimeForAllServers()` | una vez (después cada 5 s desde `processStats`) | Periodos de uptime |
 
@@ -130,6 +131,14 @@ Los umbrales son constantes en el código; no hay ningún ajuste para cambiarlos
 ## Seguimiento del uptime
 
 `trackUptimeForAllServers()` llama a `services.Uptime.TrackStatus(id, isRunning)` para cada servidor. Solo se ejecuta donde corre el panel (`panel.enable`): un nodo solo daemon no tiene base de datos del panel. Un indicador atómico evita que dos rondas se solapen si la base de datos va lenta. Almacenamiento y estadísticas: [Servicios: Uptime](./11-services.md#16-uptime-uptimego). Endpoints: `GET /api/uptime` (scope `admin` o `uptime.view`) y `GET /api/uptime/:serverId` (scope `server.view`).
+
+`trackUptimeForAllServers()` solo ve los servidores que ejecuta el propio proceso del panel. Los servidores de los **nodos remotos** los registra `processRemoteStatus()` (`internal/servers/remote_status.go`), también solo donde corre el panel:
+
+- Cada 30 segundos pregunta a la vez a todos los nodos remotos por el estado de todos sus servidores, con una sola petición por nodo: `GET /daemon/servers/status` (JWT del panel), que responde `{"servers": {"<id>": {"running": bool, "installing": bool}}}` para cada servidor cargado en el nodo y omite los servidores cuyo estado no se puede leer. Cada petición tiene un límite de 10 s, y no empieza una ronda nueva mientras otra está en curso.
+- Las respuestas van a `services.Uptime.RecordNodeStatuses` para los servidores que el panel tiene en ese nodo; un servidor que se está instalando cuenta como apagado.
+- Un nodo que no responde no registra nada: el estado de sus servidores es desconocido, no apagado. Un periodo abierto que lleva más de 3 minutos sin confirmarse se cierra en su última confirmación, de modo que la caída no cuenta ni como encendido ni como apagado; cuando el nodo vuelve a responder empieza un periodo nuevo. El log del panel avisa una vez cuando un nodo deja de responder al sondeo y otra cuando vuelve a hacerlo.
+- Un nodo con una versión anterior responde `404` y se trata como inaccesible: actualícelo para que se registre el uptime de sus servidores.
+- La última respuesta de cada nodo se guarda para el informe de nodos de Discord ([abajo](#informes-de-estado-en-discord)).
 
 ---
 
@@ -255,10 +264,12 @@ Un paso que el nodo no midió no tiene punto. El endpoint del panel consulta tod
 
 `sendSystemStatusToDiscord()` se ejecuta **cada minuto**, solo donde corre el panel, y solo hace algo si hay webhooks configurados:
 
-- `panel.notifications.discordWebhookSystem`: un embed con los recuentos en línea/apagados, medias y una línea por servidor.
+- `panel.notifications.discordWebhookSystem`: un embed con los recuentos en línea/apagados, medias y una línea por servidor. Abarca los servidores que ejecuta el propio proceso del panel; si no hay ninguno, no se envía nada.
 - `panel.notifications.discordWebhookNode`: un embed por nodo con sus recuentos de servidores, host, modelo/núcleos/hilos/GHz de CPU, RAM y sistema operativo.
 
-Las cifras de CPU, RAM y sistema operativo del informe de nodo se leen en la máquina donde corre el panel (`hostCPUSummary`, `mem.VirtualMemory`, `getOSName`), para todos los nodos, incluidos los remotos.
+Para el nodo propio del panel, los recuentos son sus servidores y las cifras de CPU, RAM y sistema operativo se leen en la máquina del panel (`hostCPUSummary`, `mem.VirtualMemory`, `getOSName`). Para un nodo remoto, los recuentos salen de la última respuesta del sondeo de estado (o de una llamada directa a `/daemon/servers/status` cuando esa respuesta tiene más de 60 segundos, que no se registra como uptime), y el hardware, del propio `GET /daemon/system` del nodo (límite de 10 s; el daemon no envía la frecuencia de la CPU, así que ese campo se omite). Un nodo remoto que no responde recibe un informe rojo «sin respuesta» con el número de servidores que tiene asignados.
+
+Los textos siguen `panel.settings.notificationLanguage` ([Servicios: textos de las notificaciones](./11-services.md#textos-de-las-notificaciones-notification_textgo)).
 
 ---
 
@@ -273,6 +284,7 @@ Las cifras de CPU, RAM y sistema operativo del informe de nodo se leen en la má
 | `GET /api/nodes/:id/system` | `nodes.view` | Información del sistema del nodo |
 | `GET /api/nodes/network-history?range=` | `nodes.view` | Historial de red de todos los nodos |
 | `GET /daemon/network/history?range=` | JWT del panel | Historial de red de un nodo |
+| `GET /daemon/servers/status` | JWT del panel | Estado (en marcha / instalando) de todos los servidores de un nodo |
 
 ---
 
@@ -286,5 +298,6 @@ Las cifras de CPU, RAM y sistema operativo del informe de nodo se leen en la má
 | Huecos en la gráfica de 24 h o 7 d | El nodo (daemon) estaba caído; esos pasos son `noData` |
 | Gráfica de red del nodo plana a cero dentro de Docker | `daemon.hostProc` sin definir o `/proc` sin montar; el contenedor solo ve su propio tráfico |
 | `unavailable` > 0 en el historial de red | Un nodo está caído o tiene un daemon sin `/daemon/network/history` |
-| Sin datos de uptime en un nodo solo daemon | Es lo esperado: el uptime solo lo escribe el nodo del panel |
+| Sin datos de uptime en un nodo solo daemon | Es lo esperado: el uptime solo se escribe en la base de datos del panel; el panel sondea a los nodos remotos para obtener el suyo |
+| Sin uptime para los servidores de un nodo remoto | El nodo tiene un daemon anterior sin `/daemon/servers/status` (actualícelo), o no responde al panel: el log del panel muestra `Node <nombre> did not answer the server status poll` |
 | Demasiados mensajes de estado en Discord | Los webhooks de sistema/nodo publican cada minuto; déjelos vacíos para desactivarlos |

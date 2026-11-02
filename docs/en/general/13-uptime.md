@@ -6,7 +6,7 @@ Aether Panel records when each server is running and when it is stopped, and tur
 
 ## Overview
 
-- The panel checks every server's state every **5 seconds** and stores one row per continuous period of "running" or "stopped".
+- The panel checks the state of the servers on its own node every **5 seconds**, and asks every remote node for the state of its servers every **30 seconds**. It stores one row per continuous period of "running" or "stopped".
 - `GET /api/uptime` returns a summary for every server the caller can see; `GET /api/uptime/:serverId` returns the detail and history of one server.
 - The default period is the last **30 days** (maximum 365).
 - Online/offline alerts for administrators are sent through Discord and are documented in [Discord and notifications](16-discord.md); they do not depend on these records.
@@ -35,10 +35,14 @@ When a server is deleted, its uptime rows are deleted explicitly together with t
 
 ## How it is recorded
 
-`trackUptimeForAllServers()` in `internal/servers/server.go` is the only place that writes uptime. It runs once at start-up and then on every 5-second stats tick (`processStats()`):
+Uptime is written in two places, both only where the panel runs (`panel.enable`; a daemon-only node has no panel database): one for the servers of the panel's own node and one for the servers of remote nodes. Both end in `Uptime.TrackStatus` (`internal/services/uptime.go`).
 
-1. It does nothing when `panel.enable` is `false` (a daemon-only node has no panel database). A flag prevents a slow round from overlapping the next one.
-2. For each server loaded in this process it asks the environment whether the server is running and calls `Uptime.TrackStatus(serverID, isRunning)` (`internal/services/uptime.go`).
+### Servers on the panel's node
+
+`trackUptimeForAllServers()` in `internal/servers/server.go` runs once at start-up and then on every 5-second stats tick (`processStats()`):
+
+1. It does nothing when `panel.enable` is `false`. A flag prevents a slow round from overlapping the next one.
+2. For each server loaded in this process it asks the environment whether the server is running and calls `Uptime.TrackStatus(serverID, isRunning)`.
 
 `TrackStatus`:
 
@@ -48,9 +52,21 @@ When a server is deleted, its uptime rows are deleted explicitly together with t
 4. State changed: closes the open row (`end_time = now`, `duration = now - start_time` in seconds) and opens a new one with the new state.
 5. State unchanged: only refreshes `updated_at`.
 
-> **Scope:** only the servers run by the panel's own process (the local node) are recorded. Servers on remote nodes have no stored history; `/api/uptime` gives them an entry derived from their current status (see below).
+A panel restart keeps the open rows of these servers and continues them, so the time the panel was down counts towards whatever state was open at that moment.
 
-A panel restart keeps the open rows and continues them, so the time the panel was down counts towards whatever state was open at that moment.
+### Servers on remote nodes
+
+A remote node runs without the panel, so nothing records uptime on its side. The panel asks each remote node instead (`processRemoteStatus()` in `internal/servers/remote_status.go`):
+
+1. Once at start-up and then every **30 seconds**, the panel sends one request to every remote node at the same time: `GET /daemon/servers/status`, signed like every other panel call to a node. Each node has **10 seconds** to answer, so a node that is down does not hold up the round, and a new round never starts while the previous one is still running.
+2. The node answers with the state of every server it has loaded: `{"servers": {"<id>": {"running": true, "installing": false}}}`. A server whose state the node cannot read is left out of the answer.
+3. For every server the panel places on that node, `Uptime.RecordNodeStatuses` calls `TrackStatus` with the reported state, exactly as for the local node. A server that is installing counts as stopped. A server the node did not mention is left as it is: unknown, not stopped.
+
+When a node does not answer (it is down, unreachable, or refuses the panel's token), nothing is recorded for its servers: the panel does not take "no answer" as "all stopped". Their open periods stay open for a while, so a node restarting or a short network cut does not split them. A period that nobody has confirmed for more than **3 minutes** is closed at the moment it was last confirmed. The outage then shows as a gap between periods, counted neither as uptime nor as downtime (the rows have no "unknown" state). When the node answers again, a new period starts from that moment.
+
+A node on an older version, without `/daemon/servers/status`, answers `404` and is treated like a node that does not answer: its servers get no recorded history until the node is updated. The panel log says once when a node stops answering the poll and once when it answers again, not on every round.
+
+Servers with no recorded history yet still appear in `/api/uptime` with an entry derived from their current status (see below).
 
 ---
 
@@ -167,5 +183,6 @@ The server performance charts (CPU, memory, network, uptime per hour/day/week) c
 
 ## Known limitations
 
-- Only servers of the local node have a recorded history; servers on remote nodes get an entry derived from their current status (see [How it is recorded](#how-it-is-recorded)).
-- Time while the panel is down counts towards the state that was open at that moment.
+- On the panel's own node, time while the panel is down counts towards the state that was open at that moment. On remote nodes a panel outage longer than 3 minutes shows as a gap instead (see [How it is recorded](#how-it-is-recorded)).
+- Servers on remote nodes are recorded every 30 seconds, not every 5: a start or stop shows in their history up to 30 seconds late, and a server that stops and starts again between two polls keeps a single period.
+- A remote node on a version without `GET /daemon/servers/status` has no recorded uptime until it is updated.

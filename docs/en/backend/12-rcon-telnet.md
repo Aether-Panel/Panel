@@ -190,7 +190,7 @@ type RCONWSConnection struct {
 }
 ```
 
-- **Reconnect loop**: dials `wss://<ip>:<port>/<password>` with the default gorilla dialer, retry every 5 seconds. The scheme is always `wss://`: a server that only speaks plain `ws://` cannot be reached.
+- **Reconnect loop**: dials `wss://<ip>:<port>/<password>` (`rconwsURL`) with the default gorilla dialer, retry every 5 seconds. The password is the URL path and is escaped (`url.PathEscape`), so a `/`, `?`, `#` or `%` in it reaches the game as typed. The scheme is always `wss://`, since the template's console settings have no way to ask for plain `ws://`: a server that only speaks `ws://` (Rust's WebRCON usually does) cannot be reached.
 - **`Start()`** resolves `IP` like RCON does.
 - Incoming messages are read and discarded.
 - State is guarded by a mutex and writes are serialised (a WebSocket takes one writer at a time). As with Telnet, a broken socket is closed before the next dial, a connection opened while `Close()` runs is closed at once, and closing twice is not an error (covered by `internal/connections/rconws_test.go`).

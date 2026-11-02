@@ -18,10 +18,10 @@ Las rutas marcadas con «nodo» se reenvían al nodo del servidor (`/daemon/serv
 | GET | `/file-history?path=` | `server.files.view` | Versiones anteriores de un archivo (nodo) |
 | GET | `/file-history/:versionId?path=` | `server.files.view` | Texto de una versión (nodo) |
 | POST | `/file-history/:versionId/restore?path=` | `server.files.edit` | Restaura una versión (nodo) |
-| GET | `/plugins` | `server.files.view` | Plugins `.jar` instalados (nodo) |
-| GET | `/plugins/search?q=` | `server.files.view` | Busca en Modrinth (nodo) |
+| GET | `/plugins` | `server.files.view` | Plugins o mods `.jar` instalados (nodo) |
+| GET | `/plugins/search?q=` | `server.files.view` | Busca en Modrinth para la plataforma del servidor (nodo) |
 | POST | `/plugins/:pluginId` | `server.files.edit` | Instala un proyecto de Modrinth (nodo) |
-| DELETE | `/plugins?name=` | `server.files.edit` | Quita un plugin (nodo) |
+| DELETE | `/plugins?name=` | `server.files.edit` | Quita un plugin o un mod (nodo) |
 | GET | `/modpacks` | `server.files.view` | Modpack instalado y progreso de la instalación (nodo) |
 | GET | `/modpacks/search` | `server.files.view` | Busca en Modrinth o CurseForge (nodo) |
 | GET | `/modpacks/versions` | `server.files.view` | Versiones de un modpack (nodo) |
@@ -106,11 +106,13 @@ Cuando se sobrescribe un archivo desde el panel, se conserva su texto anterior. 
 
 ## Plugins
 
-Los plugins proceden de Modrinth. Detalles: [Modpacks y plugins](../../features/modpacks-and-plugins.md).
+Los plugins y los mods proceden de Modrinth. Detalles: [Modpacks y plugins](../../features/modpacks-and-plugins.md).
+
+El nodo deduce la plataforma del servidor igual que para el [mapa del mundo](#mapa-del-mundo) (el cargador del modpack, la variable `modlauncher` y, por último, los pasos de instalación): `paper`, `fabric`, `forge`, `neoforge` o desconocida (vanilla, proxies, otros juegos, lanzadores desconocidos). La carpeta depende de ella: **`mods/`** en Fabric, Forge y NeoForge, **`plugins/`** en los demás casos. Listar, instalar y quitar usan esa carpeta.
 
 ### `GET /api/servers/:serverId/plugins`
 
-Los archivos `.jar` de `plugins/`; una lista vacía si la carpeta no existe.
+Los archivos `.jar` de la carpeta del servidor (`mods/` o `plugins/`, véase arriba); una lista vacía si la carpeta no existe.
 
 ```json
 [ { "name": "EssentialsX-2.20.1.jar", "version": "2.20.1", "size": 1234567 } ]
@@ -120,7 +122,13 @@ Los archivos `.jar` de `plugins/`; una lista vacía si la carpeta no existe.
 
 ### `GET /api/servers/:serverId/plugins/search?q=essentials`
 
-Hasta 20 mods y plugins de Modrinth:
+Hasta 20 proyectos de Modrinth adecuados para la plataforma del servidor:
+
+| Plataforma | Qué se busca |
+|------------|--------------|
+| Paper | Plugins y mods con una versión para Paper, Spigot o Bukkit |
+| Fabric, Forge, NeoForge | Mods para ese cargador que funcionan en un servidor (`server_side` obligatorio u opcional; se excluyen los mods solo de cliente) |
+| Desconocida | Plugins y mods de cualquier cargador |
 
 ```json
 [ { "id": "hXiIvTyT", "name": "EssentialsX", "tag": "", "description": "...", "author": "...", "iconUrl": "https://...", "downloads": 1000000, "version": "2.20.1" } ]
@@ -130,11 +138,11 @@ Hasta 20 mods y plugins de Modrinth:
 
 ### `POST /api/servers/:serverId/plugins/:pluginId`
 
-`:pluginId` es el id del proyecto en Modrinth. Consulta opcional: `loaders` (cargadores de Modrinth separados por comas, como `paper,spigot,bukkit`) y `game_versions` (versiones de Minecraft separadas por comas, como `1.21.4`); solo se conservan letras minúsculas, dígitos, `.`, `-` y `_`, hasta 32 caracteres por valor. Guarda un punto de restauración (una copia de seguridad, como máximo una cada 30 minutos para los cambios de plugins), descarga en `plugins/` el archivo principal de la versión más reciente que cumpla esos filtros (cualquier versión si no se envían) y lo indica en la consola. El cliente web envía los cargadores que funcionan en la plataforma del servidor y su versión del juego, leídos de `GET /map`. `204`. `404 ErrPluginNoCompatibleVersion` cuando se enviaron filtros y ninguna versión los cumple; `404` cuando no se encuentran el proyecto, sus versiones o sus archivos; `409 ErrDiskLimitExceeded`. El archivo siempre va a `plugins/`, también con cargadores de mods.
+`:pluginId` es el id del proyecto en Modrinth. Consulta opcional: `loaders` (cargadores de Modrinth separados por comas, como `paper,spigot,bukkit`) y `game_versions` (versiones de Minecraft separadas por comas, como `1.21.4`); solo se conservan letras minúsculas, dígitos, `.`, `-` y `_`, hasta 32 caracteres por valor. Elige el archivo principal de la versión más reciente que cumpla esos filtros (cualquier versión si no se envían), comprueba que su nombre sea un nombre de archivo `.jar` simple (sin carpetas ni `..`) y que haya espacio en disco, y después guarda un punto de restauración (una copia de seguridad, como máximo una cada 30 minutos para los cambios de plugins), descarga el archivo en `mods/` o `plugins/` (véase arriba) y lo indica en la consola. Una instalación rechazada no deja ningún punto de restauración. El cliente web envía los cargadores que funcionan en la plataforma del servidor y su versión del juego, leídos de `GET /map`. `204`. `404 ErrPluginNoCompatibleVersion` cuando se enviaron filtros y ninguna versión los cumple; `404` cuando no se encuentran el proyecto, sus versiones o sus archivos; `502 ErrPluginBadFileName` cuando el archivo que indica Modrinth no tiene un nombre `.jar` simple; `409 ErrDiskLimitExceeded`.
 
 ### `DELETE /api/servers/:serverId/plugins?name=EssentialsX.jar`
 
-Quita `plugins/<name>` (se añade `.jar` si falta) tras guardar un punto de restauración. `204`; `400` sin `name`; `404` si el archivo no existe.
+Quita `<name>` de `mods/` o `plugins/` (véase arriba; se añade `.jar` si falta). El punto de restauración se guarda una vez encontrado el archivo, así que un nombre equivocado no deja ninguno. `204`; `400` sin `name`; `404` si el archivo no existe.
 
 ## Modpacks
 
@@ -177,7 +185,7 @@ Pública: la autorización es el token de la ruta. Es un HMAC firmado por el pan
 
 ## Copias de seguridad
 
-El panel guarda un registro por copia; el nodo guarda el archivo. Detalles (retención, copias externas, puntos de restauración): [Copias de seguridad](../../features/backups.md).
+El panel guarda un registro por copia; el nodo guarda el archivo, que acompaña al servidor cuando se [traslada a otro nodo](./03-servers.md#post-apiserversserveridtransfer). Detalles (retención, copias externas, puntos de restauración): [Copias de seguridad](../../features/backups.md).
 
 ### `GET /api/servers/:serverId/backup`
 

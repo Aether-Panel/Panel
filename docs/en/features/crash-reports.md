@@ -9,7 +9,7 @@ When a game server stops by itself with an unexpected exit code, Aether Panel tr
 - Saves a **crash report**: time, exit code, the last 60 non-empty console lines, whether the server was restarted automatically, and which attempt in a row it was.
 - Keeps the **last 10 reports** per server, newest first.
 - Pushes a `crash` event over the server's WebSocket, so the open server page shows a toast at once.
-- Sends the crash to the server's own notification channels, when the **crash** event is enabled there (see [Notifications](server-notifications.md)), and to the panel-wide Discord webhook (see [Discord](../general/16-discord.md)).
+- Sends the crash to the server's own notification channels, when the **crash** event is enabled there (see [Notifications](server-notifications.md)), and to the panel-wide Discord webhook (see [Discord](../general/16-discord.md)). Both are written in the notification language (`panel.settings.notificationLanguage`, see [Panel settings](panel-settings.md)) of the node that runs the server.
 - Optionally **restarts the server** automatically (**Restart on Crash**), with a limit on consecutive restarts.
 
 ## How it works

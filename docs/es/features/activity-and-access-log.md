@@ -36,6 +36,7 @@ Ambos se guardan en la base de datos del panel y se conservan **90 días**.
 - `POST /ai/analyze`, `POST /ai/chat` y `POST /notifications/test` se ignoran porque no cambian nada. Una ruta de modificación sin clave de acción propia se anota como `server.change`, con la ruta como detalle.
 - Los detalles se recortan: los comandos de consola a 200 caracteres y cualquier detalle a 300. Los cambios de ajustes, datos, indicadores, notificaciones, puertos y definición del servidor solo anotan **que** cambiaron, nunca el cuerpo, porque puede contener secretos (webhooks, contraseñas).
 - Los cambios hechos fuera de la API del panel no se anotan: transferencias por SFTP y lo que hacen las tareas programadas cuando se disparan solas según su programación (guardar, eliminar y ejecutar una tarea a mano *sí* se anotan).
+- Una transferencia entre nodos se ejecuta en segundo plano después de responder a la petición, así que el propio panel anota su resultado: `server.transferFailed` cuando un paso falló y la transferencia se deshizo, y `server.transferStartFailed` cuando el servidor se trasladó pero no se pudo iniciar en el nodo nuevo. El detalle indica en qué paso y por qué, y la página lo muestra como código (véase [Transferencias de servidores](server-transfers.md)).
 - Cuando se elimina un servidor desde el panel, su registro completo se elimina con él. La retención se aplica como mucho una vez por hora mientras se escriben entradas nuevas: borra las entradas de más de 90 días y las de servidores que ya no existen.
 
 ### Registros de acceso
@@ -96,7 +97,7 @@ Parámetros de consulta de `GET /api/activity`: `event` (`login`, `login_failed`
 | Archivos | `file.write`, `file.upload`, `file.mkdir`, `file.rename`, `file.delete`, `file.archive`, `file.extract`, `file.restore`, `plugin.install`, `plugin.delete`, `modpack.install`, `map.install`, `map.remove` |
 | Copias | `backup.create`, `backup.restore`, `backup.delete` |
 | Usuarios | `user.add`, `user.edit`, `user.remove` |
-| Ajustes | `settings.data`, `settings.ports`, `settings.definition`, `settings.flags`, `settings.notifications`, `server.create`, `server.rename`, `server.suspend`, `server.unsuspend`, `server.transfer`, `server.change`, `server.clone`, `extransfer.create`, `extransfer.pull`, `extransfer.cancel` |
+| Ajustes | `settings.data`, `settings.ports`, `settings.definition`, `settings.flags`, `settings.notifications`, `server.create`, `server.rename`, `server.suspend`, `server.unsuspend`, `server.transfer`, `server.transferFailed`, `server.transferStartFailed`, `server.change`, `server.clone`, `extransfer.create`, `extransfer.pull`, `extransfer.cancel` |
 | Tareas | `task.save`, `task.delete`, `task.run` |
 
 `server.version` (cambio de versión del juego) se anota, pero no pertenece a ninguna familia: solo aparece en **Todo** o con `type=server`.

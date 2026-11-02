@@ -156,7 +156,7 @@ Claves editables:
 | Direcciones | `panel.settings.masterUrl`, `panel.settings.nodeIp`, `panel.settings.masterNodeIp` |
 | Registro y antibots | `panel.registrationEnabled`, `panel.turnstile.enabled`, `panel.turnstile.siteKey`, `panel.turnstile.secretKey`, `panel.captcha.builtin` |
 | Correo | `panel.email.provider`, `panel.email.from`, `panel.email.host`, `panel.email.username`, `panel.email.password`, `panel.email.domain`, `panel.email.key` |
-| Notificaciones | `panel.notifications.discordWebhook`, `panel.notifications.discordWebhookSystem`, `panel.notifications.discordWebhookNode`, `panel.notifications.discordWebhookExTransfer` |
+| Notificaciones | `panel.settings.notificationLanguage` (`es` o `en`, por defecto `es`: el idioma de los avisos de Discord, Telegram y webhooks, de los informes de Discord del panel y de los eventos de las extensiones), `panel.notifications.discordWebhook`, `panel.notifications.discordWebhookSystem`, `panel.notifications.discordWebhookNode`, `panel.notifications.discordWebhookExTransfer` |
 | IA e integraciones | `panel.settings.geminiApiKey`, `panel.settings.hideAiAnalysis`, `daemon.curseforge.key` |
 | Experimental | `panel.experimental.versionSwitch`, `panel.experimental.propertiesEditor`, `panel.experimental.serverClone` |
 | Copias externas | `daemon.backups.s3.enabled`, `daemon.backups.s3.endpoint`, `daemon.backups.s3.region`, `daemon.backups.s3.bucket`, `daemon.backups.s3.accessKey`, `daemon.backups.s3.secretKey`, `daemon.backups.s3.prefix`, `daemon.backups.s3.insecure` |
@@ -167,7 +167,7 @@ Las demás claves de configuración (por ejemplo `panel.backups.maxPerServer`) s
 
 ### `POST /api/settings`
 
-Un objeto de claves y valores: `{"panel.settings.companyName": "My Hosting", "panel.registrationEnabled": false}`. Todos los valores se comprueban antes de guardar (los webhooks de Discord deben ser URL de webhook de Discord válidas; si no, `400`), así que un valor incorrecto hace que no se guarde nada. A los valores de texto se les quitan los espacios de los extremos; las claves desconocidas se ignoran. Un secreto enviado como `********` (la máscara, sin cambiar) se descarta y conserva su valor guardado. Responde `204`.
+Un objeto de claves y valores: `{"panel.settings.companyName": "My Hosting", "panel.registrationEnabled": false}`. Todos los valores se comprueban antes de guardar (los webhooks de Discord deben ser URL de webhook de Discord válidas y `panel.settings.notificationLanguage` debe ser `es` o `en`; si no, `400`, con `ErrNotificationLanguage` en el segundo caso), así que un valor incorrecto hace que no se guarde nada. A los valores de texto se les quitan los espacios de los extremos; las claves desconocidas se ignoran. Un secreto enviado como `********` (la máscara, sin cambiar) se descarta y conserva su valor guardado. Responde `204`.
 
 ### `GET /api/settings/:key` y `PUT /api/settings/:key`
 
@@ -180,7 +180,7 @@ Las rutas de prueba reciben como sustituciones los valores escritos en el formul
 | Ruta | Sustituciones | Respuesta |
 |------|---------------|-----------|
 | `POST /test/email` | `panel.email.*` | `204`, enviado al correo de quien llama; `422` con el motivo del servidor de correo |
-| `POST /test/discord` | Las cuatro claves `panel.notifications.discordWebhook*` | `204`; `400` si no hay ninguno configurado o alguno no es válido; `422` indicando los webhooks a los que no llegó el mensaje |
+| `POST /test/discord` | Las cuatro claves `panel.notifications.discordWebhook*` | `204`; `400 ErrDiscordNoWebhooks` si no hay ninguno configurado, `400` si alguno no es válido; `422 ErrDiscordTestFailed` con los webhooks a los que no llegó el mensaje en `metadata.webhooks` (`alerts`, `reports`, `status`, `transfers`, que la página de ajustes muestra con los nombres de sus secciones). El mensaje se escribe en el idioma de las notificaciones |
 | `POST /test/s3` | `daemon.backups.s3.*` | `204`, tras escribir y borrar un objeto pequeño; `400` si no está configurado; `422` con la respuesta del almacenamiento |
 | `POST /test/cloudflare` | `panel.dns.cloudflare.token`, `panel.dns.cloudflare.zoneId`, `panel.dns.baseDomain` | `200 {"zone": ...}` tras crear y quitar un registro TXT; `400` si no está configurado; `422` con la respuesta de Cloudflare |
 
@@ -272,7 +272,7 @@ Los paquetes de extensión, sus páginas y sus eventos se describen en [Extensio
 
 Más detalles: [Seguimiento de disponibilidad (uptime)](../../general/13-uptime.md).
 
-Solo se registran los servidores del nodo propio del panel. Los periodos que se solapan con la ventana solo cuentan por la parte que cae dentro, y el periodo en curso hasta ahora.
+Los servidores del nodo propio del panel los registra el panel cada pocos segundos; los de los nodos remotos, un sondeo que pregunta a cada nodo cada 30 segundos (`GET /daemon/servers/status`). Mientras un nodo remoto no responde no se registra nada de él, y tras 3 minutos sin respuesta sus periodos abiertos se cierran en su última confirmación, así que la caída no cuenta ni como tiempo en línea ni como tiempo caído. Los periodos que se solapan con la ventana solo cuentan por la parte que cae dentro, y el periodo en curso hasta ahora.
 
 ### `GET /api/uptime?days=30`
 

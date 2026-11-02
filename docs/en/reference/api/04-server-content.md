@@ -18,10 +18,10 @@ Routes marked "node" are forwarded to the server's node (`/daemon/server/:server
 | GET | `/file-history?path=` | `server.files.view` | Previous versions of a file (node) |
 | GET | `/file-history/:versionId?path=` | `server.files.view` | Text of one version (node) |
 | POST | `/file-history/:versionId/restore?path=` | `server.files.edit` | Restores a version (node) |
-| GET | `/plugins` | `server.files.view` | Installed `.jar` plugins (node) |
-| GET | `/plugins/search?q=` | `server.files.view` | Searches Modrinth (node) |
+| GET | `/plugins` | `server.files.view` | Installed `.jar` plugins or mods (node) |
+| GET | `/plugins/search?q=` | `server.files.view` | Searches Modrinth for the server's platform (node) |
 | POST | `/plugins/:pluginId` | `server.files.edit` | Installs a Modrinth project (node) |
-| DELETE | `/plugins?name=` | `server.files.edit` | Removes a plugin (node) |
+| DELETE | `/plugins?name=` | `server.files.edit` | Removes a plugin or mod (node) |
 | GET | `/modpacks` | `server.files.view` | Installed modpack and install progress (node) |
 | GET | `/modpacks/search` | `server.files.view` | Searches Modrinth or CurseForge (node) |
 | GET | `/modpacks/versions` | `server.files.view` | Versions of a modpack (node) |
@@ -106,11 +106,13 @@ When a file is overwritten through the panel, its previous text is kept. Details
 
 ## Plugins
 
-Plugins come from Modrinth. Details: [Modpacks and plugins](../../features/modpacks-and-plugins.md).
+Plugins and mods come from Modrinth. Details: [Modpacks and plugins](../../features/modpacks-and-plugins.md).
+
+The node works out the server's platform the same way as for the [world map](#world-map) (the modpack's loader, the `modlauncher` variable, then the install steps): `paper`, `fabric`, `forge`, `neoforge`, or unknown (vanilla, proxies, other games, unknown launchers). The folder follows it: **`mods/`** on Fabric, Forge and NeoForge, **`plugins/`** otherwise. Listing, installing and removing all use that folder.
 
 ### `GET /api/servers/:serverId/plugins`
 
-The `.jar` files in `plugins/`; an empty list when the folder does not exist.
+The `.jar` files in the server's folder (`mods/` or `plugins/`, see above); an empty list when the folder does not exist.
 
 ```json
 [ { "name": "EssentialsX-2.20.1.jar", "version": "2.20.1", "size": 1234567 } ]
@@ -120,7 +122,13 @@ The `.jar` files in `plugins/`; an empty list when the folder does not exist.
 
 ### `GET /api/servers/:serverId/plugins/search?q=essentials`
 
-Up to 20 Modrinth mods and plugins:
+Up to 20 Modrinth projects that fit the server's platform:
+
+| Platform | What is searched |
+|----------|------------------|
+| Paper | Plugins and mods with a Paper, Spigot or Bukkit build |
+| Fabric, Forge, NeoForge | Mods for that loader that run on a server (`server_side` required or optional; client-only mods are left out) |
+| Unknown | Plugins and mods of any loader |
 
 ```json
 [ { "id": "hXiIvTyT", "name": "EssentialsX", "tag": "", "description": "...", "author": "...", "iconUrl": "https://...", "downloads": 1000000, "version": "2.20.1" } ]
@@ -130,11 +138,11 @@ Up to 20 Modrinth mods and plugins:
 
 ### `POST /api/servers/:serverId/plugins/:pluginId`
 
-`:pluginId` is the Modrinth project id. Optional query: `loaders` (comma-separated Modrinth loaders, such as `paper,spigot,bukkit`) and `game_versions` (comma-separated Minecraft versions, such as `1.21.4`); only lowercase letters, digits, `.`, `-` and `_` are kept, up to 32 characters per value. Saves a restore point (a backup, at most one every 30 minutes for plugin changes), downloads the primary file of the newest version matching those filters (any version without them) into `plugins/` and reports it on the console. The web client sends the loaders that run on the server's platform and its game version, read from `GET /map`. `204`. `404 ErrPluginNoCompatibleVersion` when filters were sent and no version matches them; `404` when the project, its versions or its files are not found; `409 ErrDiskLimitExceeded`. The file always goes to `plugins/`, also on mod loaders.
+`:pluginId` is the Modrinth project id. Optional query: `loaders` (comma-separated Modrinth loaders, such as `paper,spigot,bukkit`) and `game_versions` (comma-separated Minecraft versions, such as `1.21.4`); only lowercase letters, digits, `.`, `-` and `_` are kept, up to 32 characters per value. Picks the primary file of the newest version matching those filters (any version without them), checks that its name is a plain `.jar` file name (no folder, no `..`) and that the disk has room, then saves a restore point (a backup, at most one every 30 minutes for plugin changes), downloads the file into `mods/` or `plugins/` (see above) and reports it on the console. A refused install leaves no restore point behind. The web client sends the loaders that run on the server's platform and its game version, read from `GET /map`. `204`. `404 ErrPluginNoCompatibleVersion` when filters were sent and no version matches them; `404` when the project, its versions or its files are not found; `502 ErrPluginBadFileName` when the file Modrinth names is not a plain `.jar` name; `409 ErrDiskLimitExceeded`.
 
 ### `DELETE /api/servers/:serverId/plugins?name=EssentialsX.jar`
 
-Removes `plugins/<name>` (`.jar` is added when missing) after a restore point. `204`; `400` without `name`; `404` when the file does not exist.
+Removes `<name>` from `mods/` or `plugins/` (see above; `.jar` is added when missing). The restore point is saved once the file is found, so a wrong name leaves none behind. `204`; `400` without `name`; `404` when the file does not exist.
 
 ## Modpacks
 
@@ -177,7 +185,7 @@ Public: the token in the path is the authorization. It is an HMAC signed by the 
 
 ## Backups
 
-The panel keeps a record per backup; the node keeps the archive. Details (retention, off-site copies, restore points): [Backups](../../features/backups.md).
+The panel keeps a record per backup; the node keeps the archive, which goes with the server when it is [transferred to another node](./03-servers.md#post-apiserversserveridtransfer). Details (retention, off-site copies, restore points): [Backups](../../features/backups.md).
 
 ### `GET /api/servers/:serverId/backup`
 
