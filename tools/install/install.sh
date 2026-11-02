@@ -3089,9 +3089,10 @@ rollback_update() {
 # contenedor 'localhost' es el propio contenedor: el MySQL de este servidor se alcanza por
 # host.docker.internal (host-gateway en docker-compose.override.yml)
 container_db_host() {
-    case "$1" in
+    local host="$1"
+    case "$host" in
         localhost|127.*|::1|"[::1]") echo "host.docker.internal" ;;
-        *) echo "$1" ;;
+        *) echo "$host" ;;
     esac
 }
 

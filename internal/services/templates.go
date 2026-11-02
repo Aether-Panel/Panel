@@ -426,35 +426,47 @@ func repoAuth(repo *models.TemplateRepo) (transport.AuthMethod, error) {
 
 	switch endpoint.Protocol {
 	case "ssh":
-		if repo.SSHKey == "" {
-			return nil, nil
-		}
-		user := repo.Username
-		if user == "" {
-			user = endpoint.User
-		}
-		if user == "" {
-			user = gitssh.DefaultUsername
-		}
-		auth, err := gitssh.NewPublicKeys(user, []byte(repo.SSHKey), repo.Password)
-		if err != nil {
-			return nil, fmt.Errorf("the SSH key of template repo %s cannot be read", repo.Name)
-		}
-		return auth, nil
+		return sshRepoAuth(repo, endpoint.User)
 	case "http", "https":
-		if repo.PAT != "" {
-			// GitHub and GitLab take a token with any username; Bitbucket needs the real one
-			user := repo.Username
-			if user == "" {
-				user = "git"
-			}
-			return &githttp.BasicAuth{Username: user, Password: repo.PAT}, nil
-		}
-		if repo.Username != "" || repo.Password != "" {
-			return &githttp.BasicAuth{Username: repo.Username, Password: repo.Password}, nil
-		}
+		return httpRepoAuth(repo), nil
 	}
 	return nil, nil
+}
+
+// sshRepoAuth signs in with the repo's SSH key: the user is Username, else the one in the
+// address, else "git"
+func sshRepoAuth(repo *models.TemplateRepo, addressUser string) (transport.AuthMethod, error) {
+	if repo.SSHKey == "" {
+		return nil, nil
+	}
+	user := repo.Username
+	if user == "" {
+		user = addressUser
+	}
+	if user == "" {
+		user = gitssh.DefaultUsername
+	}
+	auth, err := gitssh.NewPublicKeys(user, []byte(repo.SSHKey), repo.Password)
+	if err != nil {
+		return nil, fmt.Errorf("the SSH key of template repo %s cannot be read", repo.Name)
+	}
+	return auth, nil
+}
+
+// httpRepoAuth signs in with the personal access token, else the username and password
+func httpRepoAuth(repo *models.TemplateRepo) transport.AuthMethod {
+	if repo.PAT != "" {
+		// GitHub and GitLab take a token with any username; Bitbucket needs the real one
+		user := repo.Username
+		if user == "" {
+			user = "git"
+		}
+		return &githttp.BasicAuth{Username: user, Password: repo.PAT}
+	}
+	if repo.Username != "" || repo.Password != "" {
+		return &githttp.BasicAuth{Username: repo.Username, Password: repo.Password}
+	}
+	return nil
 }
 
 // --- Origen alternativo: índice JSON remoto (VPS) ---

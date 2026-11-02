@@ -26,6 +26,9 @@ import (
 	"gorm.io/gorm"
 )
 
+// transferLogFormat is how the panel log names a transfer step or failure of one server
+const transferLogFormat = "Transfer of %s: %s"
+
 type TransferRequest struct {
 	NodeID *uint `json:"nodeId" binding:"required"`
 }
@@ -206,7 +209,7 @@ func performInternalTransfer(record *models.NodeTransfer, family []*models.Serve
 	}
 	// the transfer is done either way: a server that does not start is reported, not moved back
 	for id, err := range resumeMovedServers(run.moves) {
-		logging.Error.Printf("Transfer of %s: %s", id, err)
+		logging.Error.Printf(transferLogFormat, id, err)
 		recordTransferActivity(db, id, activityTransferStartFailed, err.Error(), by)
 	}
 	logging.Info.Printf("Transfer of %s completed successfully", server.Identifier)
@@ -325,7 +328,7 @@ func recoverNodeTransfer(db *gorm.DB, record *models.NodeTransfer, callerFor fun
 			scheduleSubdomainRefresh(m.id)
 		}
 		for id, err := range resumeMovedServers(moves) {
-			logging.Error.Printf("Transfer of %s: %s", id, err)
+			logging.Error.Printf(transferLogFormat, id, err)
 			recordTransferActivity(db, id, activityTransferStartFailed, err.Error(), by)
 		}
 	} else {
@@ -619,7 +622,7 @@ func (m *serverMove) save() {
 
 // reach begins a step
 func (m *serverMove) reach(step string) {
-	logging.Info.Printf("Transfer of %s: %s", m.id, step)
+	logging.Info.Printf(transferLogFormat, m.id, step)
 	m.step = step
 	m.save()
 }
@@ -931,7 +934,7 @@ func (m *serverMove) undoStep(call nodeCaller, method, path, step string) {
 		return
 	}
 	if err = daemonStepError(step, res, err); err != nil {
-		logging.Error.Printf("Transfer of %s: %s", m.id, err)
+		logging.Error.Printf(transferLogFormat, m.id, err)
 	}
 }
 

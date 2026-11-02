@@ -172,6 +172,60 @@ function Breadcrumbs({ path, onNavigate, label }: Readonly<{ path: string; onNav
   );
 }
 
+/** The Monaco language for a file name, by its extension. */
+function getLanguageFromFilename(filename: string): string {
+  const extension = filename.split('.').pop()?.toLowerCase();
+  switch (extension) {
+    case 'js': return 'javascript';
+    case 'ts': return 'typescript';
+    case 'tsx': return 'typescript';
+    case 'jsx': return 'javascript';
+    case 'json': return 'json';
+    case 'md': return 'markdown';
+    case 'py': return 'python';
+    case 'yaml':
+    case 'yml': return 'yaml';
+    case 'css': return 'css';
+    case 'html':
+    case 'htm': return 'html';
+    case 'xml': return 'xml';
+    case 'php': return 'php';
+    case 'go': return 'go';
+    case 'sh': return 'shell';
+    case 'java': return 'java';
+    case 'sql': return 'sql';
+    case 'rb': return 'ruby';
+    case 'c': return 'c';
+    case 'cpp':
+    case 'cc': return 'cpp';
+    case 'cs': return 'csharp';
+    case 'ini':
+    case 'conf':
+    case 'cfg':
+    case 'env':
+    case 'properties': return 'ini';
+    default: return 'plaintext';
+  }
+}
+
+/** What the selection looks like in the folder being browsed; every entry but the ".." link
+ *  to the parent folder can be ticked. */
+function selectionInfo(files: FileItemResource[], selected: Set<string>) {
+  const selectableNames = files.filter((f) => !(f.name === '..' && !f.isFile) && f.name !== '.').map((f) => f.name);
+  const selectedCount = selected.size;
+  const allSelected = selectableNames.length > 0 && selectableNames.every((name) => selected.has(name));
+  let selectAllState: boolean | 'indeterminate' = false;
+  if (allSelected) selectAllState = true;
+  else if (selectedCount > 0) selectAllState = 'indeterminate';
+  return { selectableNames, selectedCount, allSelected, selectAllState };
+}
+
+/** The icon and editor language for the file open in the editor (or the defaults when none is). */
+function editorFileInfo(file: FileItemResource | null) {
+  if (!file) return { meta: { icon: File, className: 'text-muted-foreground' }, language: 'plaintext' };
+  return { meta: getFileMeta(file.name), language: getLanguageFromFilename(file.name) };
+}
+
 export default function FileManagerView({ serverId }: Readonly<{ serverId: string }>) {
   const [currentPath, setCurrentPath] = useState('');
   const [files, setFiles] = useState<FileItemResource[]>([]);
@@ -264,13 +318,7 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
     });
   }, [files]);
 
-  // every entry but the ".." link to the parent folder can be ticked
-  const selectableNames = files.filter((f) => !(f.name === '..' && !f.isFile) && f.name !== '.').map((f) => f.name);
-  const selectedCount = selected.size;
-  const allSelected = selectableNames.length > 0 && selectableNames.every((name) => selected.has(name));
-  let selectAllState: boolean | 'indeterminate' = false;
-  if (allSelected) selectAllState = true;
-  else if (selectedCount > 0) selectAllState = 'indeterminate';
+  const { selectableNames, selectedCount, allSelected, selectAllState } = selectionInfo(files, selected);
 
   const toggleSelected = (name: string, checked: boolean) => {
     setSelected((prev) => {
@@ -535,10 +583,14 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
     setIsLoading(true);
     let deleted = 0;
     try {
-      for (const name of names) {
-        await api.delete(fileUrl(joinPath(currentPath, name)));
-        deleted++;
-      }
+      // one after another (a chain, not a loop of awaits) so a failure stops the rest
+      await names.reduce(
+        (previous, name) => previous.then(async () => {
+          await api.delete(fileUrl(joinPath(currentPath, name)));
+          deleted++;
+        }),
+        Promise.resolve(),
+      );
       sileo.success({ title: t('common.success'), description: t('servers.fileManager.toast.deletedMany', { count: deleted }) });
     } catch (e: any) {
       const reason = e.message || t('servers.fileManager.toast.deleteError');
@@ -694,40 +746,6 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingFile, editedContent, isSaving]);
 
-  const getLanguageFromFilename = (filename: string) => {
-    const extension = filename.split('.').pop()?.toLowerCase();
-    switch (extension) {
-      case 'js': return 'javascript';
-      case 'ts': return 'typescript';
-      case 'tsx': return 'typescript';
-      case 'jsx': return 'javascript';
-      case 'json': return 'json';
-      case 'md': return 'markdown';
-      case 'py': return 'python';
-      case 'yaml':
-      case 'yml': return 'yaml';
-      case 'css': return 'css';
-      case 'html':
-      case 'htm': return 'html';
-      case 'xml': return 'xml';
-      case 'php': return 'php';
-      case 'go': return 'go';
-      case 'sh': return 'shell';
-      case 'java': return 'java';
-      case 'sql': return 'sql';
-      case 'rb': return 'ruby';
-      case 'c': return 'c';
-      case 'cpp':
-      case 'cc': return 'cpp';
-      case 'cs': return 'csharp';
-      case 'ini':
-      case 'conf':
-      case 'cfg':
-      case 'env':
-      case 'properties': return 'ini';
-      default: return 'plaintext';
-    }
-  };
 
   const formatSize = (bytes: number) => {
     if (bytes === 0) return '0 B';
@@ -785,8 +803,7 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
     });
   };
 
-  const editingMeta = editingFile ? getFileMeta(editingFile.name) : { icon: File, className: 'text-muted-foreground' };
-  const editingLanguage = editingFile ? getLanguageFromFilename(editingFile.name) : 'plaintext';
+  const { meta: editingMeta, language: editingLanguage } = editorFileInfo(editingFile);
   const EditingIcon = editingMeta.icon;
 
   const renderRowMenu = (file: FileItemResource) => (

@@ -61,11 +61,11 @@ function installFilter(target: ServerPlatform | null): string {
 
 // Fabric, Forge and NeoForge load mods (the daemon keeps them in mods/ and only searches mods),
 // Paper loads plugins; an unknown platform searches both
-const MOD_PLATFORMS = ['fabric', 'forge', 'neoforge'];
+const MOD_PLATFORMS = new Set(['fabric', 'forge', 'neoforge']);
 
 function searchPlaceholderKey(target: ServerPlatform | null): string {
   if (target?.platform === 'paper') return 'servers.plugins.searchPlaceholderPlugins';
-  if (target?.platform && MOD_PLATFORMS.includes(target.platform)) return 'servers.plugins.searchPlaceholderMods';
+  if (target?.platform && MOD_PLATFORMS.has(target.platform)) return 'servers.plugins.searchPlaceholderMods';
   return 'servers.plugins.searchPlaceholder';
 }
 
