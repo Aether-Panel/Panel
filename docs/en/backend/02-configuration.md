@@ -248,6 +248,7 @@ All nested keys with `.` are converted to `_`. `SKYPANEL_` prefix:
 | `daemon.data.backups.folder` | string | `backups` | Backups folder |
 | `daemon.data.binaries` | string | `binaries` | Binaries folder |
 | `daemon.minFreeDiskMB` | int | `2048` | Free space (MB) the servers' disk must keep: an install that starts with less is refused; `0` turns the check off |
+| `daemon.hostProc` | string | `""` | Where the host's `/proc` is mounted when the daemon runs in a container (docker-compose mounts it read-only at `/host/proc`). The node's network traffic is read there: inside the container only the panel's own traffic shows. Only physical interfaces count (not `lo`, Docker bridges or `veth`) |
 | `daemon.data.crashLimit` | int | `3` | Crash limit before suspend |
 | `daemon.data.root` | string | (auto) | Data root (parent of servers) |
 | `daemon.curseforge.key` | string | — | CurseForge API key |

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -46,6 +47,10 @@ func RegisterDaemonRoutes(e *gin.RouterGroup) {
 	// host ports the containers running on this node publish, for the panel's port checks
 	e.GET("ports", middleware.ValidateJWT, getPublishedPorts)
 	e.Handle("OPTIONS", "ports", response.CreateOptions("GET"))
+
+	// the node's traffic over the last day, for the dashboard
+	e.GET("network/history", middleware.ValidateJWT, getNetworkHistory)
+	e.Handle("OPTIONS", "network/history", response.CreateOptions("GET"))
 
 	e.POST("update", middleware.ValidateJWT, daemonUpdate)
 	e.Handle("OPTIONS", "update", response.CreateOptions("POST"))
@@ -352,16 +357,64 @@ func diskLabelRank(mountpoint, serversFolder string) int {
 	}
 }
 
-// totalNetworkBytes sums the bytes sent and received over all network
-// interfaces; zero when the counters cannot be read
+// totalNetworkBytes sums the bytes the node sent and received over its physical interfaces;
+// zero when the counters cannot be read. In a container the daemon's own /proc only shows the
+// container's traffic (the panel's API, not the game servers), so with daemon.hostProc set
+// the host's counters are read through its first process.
 func totalNetworkBytes() (sent, recv uint64) {
-	netStats, err := net.IOCounters(false)
+	file := "/proc/net/dev"
+	if hostProc := config.DaemonHostProc.Value(); hostProc != "" {
+		file = filepath.Join(hostProc, "1", "net", "dev")
+	}
+	if data, err := os.ReadFile(file); err == nil {
+		return sumPhysicalTraffic(string(data))
+	}
+	netStats, err := net.IOCounters(true)
 	if err != nil {
 		return 0, 0
 	}
 	for _, stat := range netStats {
-		sent += stat.BytesSent
-		recv += stat.BytesRecv
+		if physicalInterface(stat.Name) {
+			sent += stat.BytesSent
+			recv += stat.BytesRecv
+		}
 	}
 	return sent, recv
+}
+
+// sumPhysicalTraffic adds up the bytes of the physical interfaces in a /proc/net/dev listing
+func sumPhysicalTraffic(listing string) (sent, recv uint64) {
+	for _, line := range strings.Split(listing, "\n") {
+		name, counters, ok := strings.Cut(line, ":")
+		if !ok || !physicalInterface(strings.TrimSpace(name)) {
+			continue
+		}
+		fields := strings.Fields(counters)
+		if len(fields) < 9 {
+			continue
+		}
+		r, errR := strconv.ParseUint(fields[0], 10, 64)
+		t, errT := strconv.ParseUint(fields[8], 10, 64)
+		if errR == nil && errT == nil {
+			recv += r
+			sent += t
+		}
+	}
+	return sent, recv
+}
+
+// virtualInterfaces carry traffic that also crosses a physical interface (or never leaves the
+// host): counting them added each container's traffic two or three times
+var virtualInterfaces = []string{"docker", "br-", "veth", "virbr", "vnet", "cni", "flannel", "cali", "vxlan", "kube", "lxc", "podman", "tun", "tap", "wg", "tailscale", "zt", "dummy", "bond", "ifb"}
+
+func physicalInterface(name string) bool {
+	if name == "" || name == "lo" || strings.Contains(name, ".") || strings.Contains(name, "@") {
+		return false // loopback, and VLANs whose traffic the parent interface already counts
+	}
+	for _, prefix := range virtualInterfaces {
+		if strings.HasPrefix(name, prefix) {
+			return false
+		}
+	}
+	return true
 }

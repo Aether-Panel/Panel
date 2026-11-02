@@ -27,6 +27,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/sftp"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/internal/web"
+	daemonweb "github.com/SkyPanel/SkyPanel/v3/internal/web/daemon"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
@@ -300,6 +301,8 @@ func daemon() error {
 	}
 	// the runtime images, downloaded and kept up to date in the background
 	docker.PrefetchImages()
+	// the node's traffic over the last day, for the dashboard
+	daemonweb.StartNetworkHistory()
 
 	if _, err = os.Stat(config.ServersFolder.Value()); os.IsNotExist(err) {
 		logging.Info.Printf("No server directory found, creating")

@@ -354,17 +354,26 @@
       },
       "history": {
         "title": "Red histórica",
-        "description": "Descarga y subida agregadas de todos los nodos.",
+        "description": "Descarga y subida de todos los nodos sumadas, media de cada minuto.",
         "rangeLabel": "Rango de tiempo",
         "range1h": "1 h",
         "range6h": "6 h",
         "range24h": "24 h",
         "chartLabel": "Tráfico de red agregado a lo largo del tiempo",
-        "samples": "{{count}} muestras · cada {{seconds}} s",
-        "samplesOne": "1 muestra · cada {{seconds}} s",
         "empty": {
-          "title": "Recopilando historial",
-          "description": "El historial se guarda en este navegador y empieza a dibujarse en cuanto hay unas muestras."
+          "title": "Aún no hay historial",
+          "description": "Cada nodo guarda su tráfico minuto a minuto durante 24 h; en unos minutos empezará a dibujarse."
+        },
+        "footer": "Media cada {{minutes}} min · {{nodes}} nodos",
+        "footerOne": "Media cada {{minutes}} min · 1 nodo",
+        "unavailable": "{{count}} sin responder",
+        "loading": {
+          "title": "Cargando historial",
+          "description": "Pidiendo a los nodos su tráfico de este rango."
+        },
+        "error": {
+          "title": "No se pudo cargar el historial",
+          "description": "El panel no respondió. Se vuelve a intentar cada minuto."
         }
       },
       "access": {

@@ -127,6 +127,11 @@ var DNSAutoAssign = asBool("panel.dns.autoAssign", false)
 
 var CurseForgeKey = asString("daemon.curseforge.key", curseforgeKey)
 var DataRootFolder = asString("daemon.data.root", "")
+
+// DaemonHostProc is where the host's /proc is mounted when the daemon runs in a container
+// (docker-compose mounts it at /host/proc): the node's network traffic is read from the
+// host's first process there. Empty reads this process's own /proc.
+var DaemonHostProc = asString("daemon.hostProc", "")
 var DepotDownloaderVersion = asString("daemon.depotDownloader.version", "latest")
 var DepotDownloaderDisableLancache = asBool("daemon.depotDownloader.disableLancache", false)
 

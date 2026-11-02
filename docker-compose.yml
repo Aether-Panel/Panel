@@ -56,11 +56,15 @@ services:
       - //var/run/docker.sock:/var/run/docker.sock
       # Repositorio del host montado en solo lectura para verificar el commit desplegado
       - ./.git:/repo/.git:ro
+      # /proc del host en solo lectura: el tráfico de red del nodo (dentro del contenedor solo
+      # se ve el del propio panel, no el de los servidores de juego)
+      - /proc:/host/proc:ro
     environment:
       - GIN_MODE=release
       - SKYPANEL_PLATFORM=docker
       - SKYPANEL_DOCKER_ROOT=
       - SKYPANEL_DOCKER_DISALLOWHOST=true
+      - SKYPANEL_DAEMON_HOSTPROC=/host/proc
       # Los servidores de juego van a su propia red: llegan a MariaDB, pero no al panel
       - SKYPANEL_DOCKER_SERVERSNETWORK=skypanel-servers
       - SKYPANEL_WEB_HOST=0.0.0.0:8080

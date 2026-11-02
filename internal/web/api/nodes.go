@@ -23,6 +23,10 @@ func registerNodes(g *gin.RouterGroup) {
 	g.Handle("POST", "", middleware.RequiresPermission(scopes.ScopeNodesCreate), createNode)
 	g.Handle("OPTIONS", "", response.CreateOptions("GET", "POST"))
 
+	// the traffic of every node over the last day, for the dashboard
+	g.Handle("GET", "/network-history", middleware.RequiresPermission(scopes.ScopeNodesView), getNodesNetworkHistory)
+	g.Handle("OPTIONS", "/network-history", response.CreateOptions("GET"))
+
 	g.Handle("GET", "/:id", middleware.RequiresPermission(scopes.ScopeNodesView), getNode)
 	g.Handle("PUT", "/:id", middleware.RequiresPermission(scopes.ScopeNodesEdit), updateNode)
 	g.Handle("DELETE", "/:id", middleware.RequiresPermission(scopes.ScopeNodesDelete), deleteNode)
