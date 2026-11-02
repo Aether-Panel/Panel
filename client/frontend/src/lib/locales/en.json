@@ -1098,6 +1098,8 @@
       "title": "Plugins",
       "description": "{{count}} plugins installed",
       "searchPlaceholder": "Search in Modrinth (plugins, mods...)",
+      "searchPlaceholderPlugins": "Search plugins on Modrinth",
+      "searchPlaceholderMods": "Search mods on Modrinth",
       "searchButton": "Search",
       "tabs": {
         "installed": "Installed",
@@ -1387,6 +1389,28 @@
         "importDescription": "The download will stop and the temporary files will be deleted. Files already unpacked on this server are not restored.",
         "confirm": "Yes, cancel",
         "keep": "Keep transferring"
+      },
+      "progress": {
+        "STEP_STARTING": "Starting…",
+        "STEP_VALIDATING": "Checking the connection with the origin panel…",
+        "STEP_ORIGIN_START": "Starting the transfer on the origin server…",
+        "STEP_WAITING_ARCHIVE": "Waiting for the origin to compress the files…",
+        "STEP_DOWNLOADING": "Downloading the data package from the origin…",
+        "STEP_UPLOADING": "Uploading the files to the local daemon (this can take a while)…",
+        "STEP_EXTRACTING": "Unpacking the files…",
+        "STEP_CLEANUP": "Removing temporary files…",
+        "ERROR_ORIGIN_URL": "The origin URL is not valid or points to an address that is not allowed",
+        "ERROR_ORIGIN_UNREACHABLE": "Network error while connecting to the origin",
+        "ERROR_TOKEN_REJECTED": "Invalid or expired token",
+        "ERROR_ORIGIN_BAD_ANSWER": "The origin sent an invalid answer",
+        "ERROR_ORIGIN_BAD_SESSION": "The origin returned an invalid session ID",
+        "ERROR_ORIGIN_START": "The transfer could not be started on the origin",
+        "ERROR_ORIGIN_REFUSED": "The origin refused the transfer",
+        "ERROR_DOWNLOAD_NETWORK": "Network error while downloading the package",
+        "ERROR_DOWNLOAD_REFUSED": "The origin refused the download",
+        "ERROR_DOWNLOAD_TIMEOUT": "The origin did not prepare the package in time",
+        "ERROR_UPLOAD": "The file could not be uploaded to the daemon",
+        "ERROR_EXTRACT": "The files could not be unpacked on the destination"
       }
     },
     "sftp": {
@@ -1659,6 +1683,8 @@
           "suspend": "suspended the server",
           "unsuspend": "unsuspended the server",
           "transfer": "moved the server to another node",
+          "transferFailed": "tried to move the server to another node, but it failed and was undone:",
+          "transferStartFailed": "moved the server to another node, but it could not be started there:",
           "change": "made a change to the server",
           "version": "changed the game version to",
           "clone": "cloned the server as"
@@ -3140,7 +3166,9 @@
         "modpacksTitle": "Modpacks",
         "modpacksDescription": "Key to search and install CurseForge modpacks. Modrinth does not need one.",
         "experimentalTitle": "Experimental features",
-        "experimentalDescription": "New features we are still refining. They start turned off: switch on the ones you want to try. Turning one off hides it again and deletes nothing."
+        "experimentalDescription": "New features we are still refining. They start turned off: switch on the ones you want to try. Turning one off hides it again and deletes nothing.",
+        "notificationsTitle": "Notifications",
+        "notificationsDescription": "What the panel sends outside its own pages."
       },
       "curseforgeKeyLabel": "CurseForge API key",
       "curseforgeKeyPlaceholder": "Paste the API key",
@@ -3155,7 +3183,9 @@
         "serverCloneLabel": "Clone server",
         "serverCloneDescription": "Duplicate a server to try changes without touching the original.",
         "serverCloneWhere": "In each server's Administration › Clone"
-      }
+      },
+      "notificationLanguageLabel": "Notification language",
+      "notificationLanguageDescription": "The language of the alerts sent to Discord, Telegram and webhooks (the panel's and each server's), the panel's Discord reports and the events extensions receive. The panel's pages follow each person's own language."
     },
     "discord": {
       "title": "Discord Notifications",
@@ -3511,6 +3541,7 @@
   "apiErrors": {
     "ErrFileExists": "A file with that name already exists. Choose another name.",
     "ErrPluginNoCompatibleVersion": "This project has no version for this server's loader and Minecraft version.",
+    "ErrPluginBadFileName": "The file Modrinth offers for this project is not a .jar with a plain file name, so it was not installed.",
     "ErrDiskLimitExceeded": "The server has used all of its disk space. Delete files to free some before starting it or uploading more.",
     "ErrSSHKeyInvalid": "That is not a valid SSH public key. Paste one line, such as the contents of id_ed25519.pub.",
     "ErrSSHKeyIsPrivate": "That is a private key. Paste the public key (the .pub file) and never share the private one.",
@@ -3527,7 +3558,42 @@
     "ErrBackupLimit": "This server already has as many backups as it may keep. Delete an old one before making another.",
     "ErrInviteSignupsClosed": "Sign-ups are closed: that person needs an account before you can add them.",
     "ErrDatabaseHostInUse": "This host still has databases. Delete them from their servers first, so they are not left behind on the database server.",
-    "ErrTransferPortsTaken": "Some of this server's ports are already in use on the target node. Free them there or pick another node."
+    "ErrTransferRunning": "This server is already being transferred. Wait for that transfer to finish.",
+    "ErrTransferBackupRunning": "A backup or restore of this server is in progress. Transfer it once it's done.",
+    "ErrTransferSubServer": "A sub-server stays on its parent's node. Transfer the parent server instead: its sub-servers go with it.",
+    "ErrTransferPortsTaken": "Some of this server's ports are already in use on the target node. Free them there or pick another node.",
+    "ErrNodeAuthFailed": "The node refused the panel's credentials. An administrator should check that the node's secret matches the one in the panel and that both machines have the right time.",
+    "ErrPortOutOfRange": "Port {{port}} is outside the allowed range (1024-65535).",
+    "ErrPortDuplicated": "Port {{port}} is listed more than once.",
+    "ErrPortUsedByPanel": "Port {{port}} is used by the panel itself on this node.",
+    "ErrPortTaken": "Port {{port}} is already used by another server on this node.",
+    "ErrPortBusy": "Port {{port}} is already in use by another server or process on this node. Stop whatever is using it or change the server's port before starting it.",
+    "ErrSubdomainInvalid": "A subdomain may only have lowercase letters, digits and hyphens (3 to 32 characters, no hyphen at the start or end).",
+    "ErrSubdomainReserved": "That subdomain is reserved.",
+    "ErrSubdomainTaken": "That subdomain is already in use.",
+    "ErrSubdomainDisabled": "Automatic subdomains are not set up on this panel.",
+    "ErrSubdomainRateLimited": "Wait a few seconds before changing the subdomain again.",
+    "ErrSubdomainNoTarget": "This server's node has no public address. Set a DNS target in the panel settings.",
+    "ErrDNSBaseDomainInvalid": "The base domain is not a valid domain name.",
+    "ErrCloudflareNotConfigured": "The Cloudflare API token or zone ID is missing.",
+    "ErrCloudflareZoneID": "The Cloudflare zone ID must be 32 hexadecimal characters.",
+    "ErrCloudflareRecordID": "Invalid DNS record ID: {{id}}",
+    "ErrCloudflareDomainNotInZone": "The domain {{domain}} does not belong to the zone {{zone}}.",
+    "ErrCloudflareUnreachable": "Could not reach Cloudflare: {{reason}}",
+    "ErrCloudflareBadAnswer": "Cloudflare's answer could not be read: {{reason}}",
+    "ErrCloudflareRefused": "Cloudflare answered: {{message}}",
+    "ErrCloudflareRefusedCode": "Cloudflare answered: {{message}} (code {{cloudflareCode}})",
+    "ErrDiscordNoWebhooks": "There are no Discord webhooks configured.",
+    "ErrDiscordTestFailed": "The test message did not reach these webhooks: {{webhooks}}. Check that they still exist in Discord.",
+    "ErrNotificationLanguage": "The notification language must be Spanish or English."
+  },
+  "apiErrorValues": {
+    "ErrDiscordTestFailed": {
+      "alerts": "Server alerts",
+      "reports": "System reports",
+      "status": "Node status",
+      "transfers": "ExTransfer"
+    }
   },
   "extensions": {
     "title": "Extensions",

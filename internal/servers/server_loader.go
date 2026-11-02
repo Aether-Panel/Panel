@@ -291,8 +291,9 @@ func Delete(id string) (err error) {
 }
 
 // DeleteBackups removes every backup of the server kept on this node, for when the server
-// itself is deleted. It is apart from Delete: a server moved to another node, or created
-// again over itself, keeps its backups where they are.
+// itself is deleted or has been moved to another node with its backups. It is apart from
+// Delete: a server created again over itself, or removed from a node by a transfer that is
+// undone, keeps the backups it has there.
 func DeleteBackups(id string) error {
 	safeID, err := validateServerID(id)
 	if err != nil {

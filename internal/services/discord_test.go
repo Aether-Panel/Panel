@@ -124,3 +124,32 @@ func TestSystemStatusFields_StayWithinDiscordsLimit(t *testing.T) {
 	assert.Equal(t, "Nota", fields[24].Name)
 	assert.Equal(t, "Mostrando 24 de 40 servidores", fields[24].Value)
 }
+
+// The node report said "🟢 Activo" for a node that did not answer; now it says so instead
+func TestNodeUnreachableReport(t *testing.T) {
+	description, fields := nodeUnreachableReport(3, "node2", "203.0.113.5", 8080)
+
+	assert.Contains(t, description, "**Nodo:** node2")
+	assert.Contains(t, description, "**Total de Servidores:** 3")
+	assert.Contains(t, description, "no responde")
+	if assert.Len(t, fields, 3) {
+		assert.Equal(t, DiscordEmbedField{Name: "Estado", Value: "🔴 Sin respuesta", Inline: true}, fields[0])
+		assert.Equal(t, "3", fields[1].Value)
+		assert.Equal(t, "203.0.113.5:8080", fields[2].Value)
+	}
+}
+
+// With the notification language set to English the same report is written in English
+func TestNodeUnreachableReport_English(t *testing.T) {
+	_ = config.NotificationLanguage.Set("en", false)
+	t.Cleanup(func() { _ = config.NotificationLanguage.Set("es", false) })
+
+	description, fields := nodeUnreachableReport(3, "node2", "", 0)
+
+	assert.Contains(t, description, "**Node:** node2")
+	assert.Contains(t, description, "**Total servers:** 3")
+	assert.Contains(t, description, "does not answer")
+	if assert.Len(t, fields, 2) {
+		assert.Equal(t, DiscordEmbedField{Name: "Status", Value: "🔴 No answer", Inline: true}, fields[0])
+	}
+}

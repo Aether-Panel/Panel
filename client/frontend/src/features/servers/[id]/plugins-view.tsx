@@ -40,7 +40,7 @@ type ServerPlatform = {
 };
 
 // Modrinth loaders whose builds run on each platform. Paper and its forks also load Spigot
-// and Bukkit plugins.
+// and Bukkit plugins. The daemon searches the same loaders, so what it lists can be installed.
 const PLATFORM_LOADERS: Record<string, string[]> = {
   paper: ['paper', 'spigot', 'bukkit'],
   fabric: ['fabric'],
@@ -58,6 +58,20 @@ function installFilter(target: ServerPlatform | null): string {
   const query = params.toString();
   return query ? `?${query}` : '';
 }
+
+// Fabric, Forge and NeoForge load mods (the daemon keeps them in mods/ and only searches mods),
+// Paper loads plugins; an unknown platform searches both
+const MOD_PLATFORMS = ['fabric', 'forge', 'neoforge'];
+
+function searchPlaceholderKey(target: ServerPlatform | null): string {
+  if (target?.platform === 'paper') return 'servers.plugins.searchPlaceholderPlugins';
+  if (target?.platform && MOD_PLATFORMS.includes(target.platform)) return 'servers.plugins.searchPlaceholderMods';
+  return 'servers.plugins.searchPlaceholder';
+}
+
+// Install failures the daemon names by code and the api client translates: they say why,
+// so they are shown instead of the generic message
+const EXPLAINED_INSTALL_ERRORS = new Set(['ErrPluginNoCompatibleVersion', 'ErrPluginBadFileName']);
 
 export default function PluginsView({ serverId }: Readonly<PluginsViewProps>) {
   const [activeTab, setActiveTab] = useState('installed');
@@ -129,8 +143,10 @@ export default function PluginsView({ serverId }: Readonly<PluginsViewProps>) {
       void fetchInstalled();
     } catch (err) {
       console.error('Failed to install project:', err);
-      // "no version for this server" is worth saying; anything else stays generic
-      const description = err instanceof ApiError && err.data?.error?.code === 'ErrPluginNoCompatibleVersion'
+      // "no version for this server" or "not a safe .jar name" is worth saying; anything else
+      // stays generic
+      const code: unknown = err instanceof ApiError ? err.data?.error?.code : undefined;
+      const description = err instanceof ApiError && typeof code === 'string' && EXPLAINED_INSTALL_ERRORS.has(code)
         ? err.message
         : t('servers.plugins.notifications.installError');
       sileo.error({ title: t('common.error'), description });
@@ -341,8 +357,8 @@ export default function PluginsView({ serverId }: Readonly<PluginsViewProps>) {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <Input
               type="search"
-              placeholder={t('servers.plugins.searchPlaceholder')}
-              aria-label={t('servers.plugins.searchPlaceholder')}
+              placeholder={t(searchPlaceholderKey(target))}
+              aria-label={t(searchPlaceholderKey(target))}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"

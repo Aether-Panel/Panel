@@ -1,13 +1,16 @@
 package api
 
 import (
-	"bytes"
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
@@ -26,14 +29,14 @@ type TransferRequest struct {
 }
 
 // @Summary Transfer server
-// @Description Transfer a server from one node to another
+// @Description Transfer a server from one node to another, with its backups and its sub-servers. When a step fails the transfer is undone and the server stays on its node.
 // @Accept json
 // @Produce json
 // @Param id path string true "Server ID"
 // @Param request body TransferRequest true "Target Node ID"
 // @Success 202 {object} string "Transfer started"
-// @Failure 400 {object} skypanel.ErrorResponse
-// @Failure 409 {object} skypanel.ErrorResponse "Ports of the server are taken on the target node"
+// @Failure 400 {object} skypanel.ErrorResponse "A sub-server moves with its parent"
+// @Failure 409 {object} skypanel.ErrorResponse "Ports of the server are taken on the target node, it is already being transferred, or a backup of it is being written"
 // @Tags Servers
 // @Router /api/servers/{id}/transfer [post]
 // @Security OAuth2Application[server.data.edit.admin]
@@ -42,6 +45,13 @@ func transferServer(c *gin.Context) {
 
 	var req TransferRequest
 	if err := c.BindJSON(&req); response.HandleError(c, err, http.StatusBadRequest) {
+		return
+	}
+
+	// a sub-server lives on its parent's node: the parent's limits there are what its
+	// sub-servers leave free, and the panel updates them on the sub-server's node
+	if hasParentServer(server) {
+		response.HandleError(c, skypanel.ErrTransferSubServer, http.StatusBadRequest)
 		return
 	}
 
@@ -59,65 +69,262 @@ func transferServer(c *gin.Context) {
 		return
 	}
 
-	// the server keeps its ports on the new node; one taken there would only show once the
+	children, err := subServersToMove(db, server, targetNode)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+	family := append([]*models.Server{server}, children...)
+
+	// two transfers of the same servers would copy, stop and delete them under each other
+	ids := familyIDs(family)
+	if !claimTransfer(ids) {
+		response.HandleError(c, skypanel.ErrTransferRunning, http.StatusConflict)
+		return
+	}
+	started := false
+	defer func() {
+		if !started {
+			releaseTransfer(ids)
+		}
+	}()
+
+	// the servers keep their ports on the new node; one taken there would only show once the
 	// moved server failed to start
 	held, err := portsHeldOnNode(db, ns, targetNode, server.Identifier)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
-	if taken := serverPortsTaken(server, held); len(taken) > 0 {
+	if taken := familyPortsTaken(family, held); len(taken) > 0 {
 		response.HandleError(c, skypanel.ErrTransferPortsTaken(taken), http.StatusConflict)
 		return
 	}
 
-	go performInternalTransfer(server, targetNode, db)
+	// a backup being written would not be finished when the backups are copied, and would be
+	// lost with the old node's copy
+	callerFor := func(s *models.Server) nodeCaller { return nodeCallerFor(ns, &s.Node) }
+	if firstWithBackupRunning(family, callerFor) != "" {
+		response.HandleError(c, skypanel.ErrTransferBackupRunning, http.StatusConflict)
+		return
+	}
+
+	var by *models.User
+	if v, ok := c.Get("user"); ok {
+		by, _ = v.(*models.User)
+	}
+	started = true
+	go performInternalTransfer(server, children, targetNode, db, by)
 
 	c.JSON(http.StatusAccepted, gin.H{"msg": "Transfer started"})
 }
 
-func performInternalTransfer(server *models.Server, targetNode *models.Node, db *gorm.DB) {
+// subServersToMove lists the Splitter sub-servers that go with the server: they live on their
+// parent's node and take their resources out of its plan there. One already on the target
+// node stays where it is.
+func subServersToMove(db *gorm.DB, server *models.Server, targetNode *models.Node) ([]*models.Server, error) {
+	var children []*models.Server
+	if err := db.Preload("Node").Where(parentServerIDQuery, server.Identifier).Find(&children).Error; err != nil {
+		return nil, err
+	}
+	moving := make([]*models.Server, 0, len(children))
+	for _, child := range children {
+		if child.NodeID != targetNode.ID {
+			moving = append(moving, child)
+		}
+	}
+	return moving, nil
+}
+
+// performInternalTransfer moves the server and its sub-servers to the target node. Nothing in
+// the panel changes until all of them are on the new node with their files and backups; when
+// a step fails before that, everything is undone and they stay where they were.
+func performInternalTransfer(server *models.Server, children []*models.Server, targetNode *models.Node, db *gorm.DB, by *models.User) {
 	logging.Info.Printf("Starting transfer of server %s to node %s", server.Identifier, targetNode.Name)
 
 	ns := &services.Node{DB: db}
+	family := append([]*models.Server{server}, children...)
+	defer releaseTransfer(familyIDs(family))
+	moves := make([]*serverMove, 0, len(family))
+	for _, s := range family {
+		// the panel drops the records of backups that failed, so none is left pointing at a
+		// backup the old node never had
+		syncAutomaticBackups(context.Background(), db, s)
+		moves = append(moves, newServerMove(ns, s, targetNode))
+	}
 
-	// 1+2. Copy the server definition from the source node to the target node
-	if !copyDefinitionToTarget(ns, server, targetNode) {
+	commit := func() error {
+		return db.Transaction(func(tx *gorm.DB) error {
+			for _, s := range family {
+				if err := moveServerRecordToNode(tx, s.Identifier, targetNode); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	}
+
+	if err := moveServers(moves, commit); err != nil {
+		logging.Error.Printf("Transfer of %s to node %s failed and was undone, it stays on node %s: %s",
+			server.Identifier, targetNode.Name, server.Node.Name, err)
+		// the owner sees it in the server's activity, not only whoever reads the panel log
+		for _, s := range family {
+			recordTransferActivity(db, s.Identifier, activityTransferFailed, err.Error(), by)
+		}
 		return
 	}
 
-	// 3+4. Stop the server and archive its files on the source node
-	if !stopAndArchiveOnSource(ns, server) {
-		return
+	for _, s := range family {
+		s.NodeID = targetNode.ID
+		s.Node = *targetNode
+		// its subdomain follows it to the new node's address
+		scheduleSubdomainRefresh(s.Identifier)
 	}
-
-	// 5. Download from Source and stream to Target Node via io.Pipe
-	if !streamArchiveToTarget(ns, server, targetNode) {
-		return
+	// the transfer is done either way: a server that does not start is reported, not moved back
+	for id, err := range startMovedServers(moves) {
+		logging.Error.Printf("Transfer of %s: %s", id, err)
+		recordTransferActivity(db, id, activityTransferStartFailed, err.Error(), by)
 	}
-
-	// 6. Extract on target node
-	if !extractArchiveOnTarget(ns, server, targetNode) {
-		return
-	}
-
-	// Clean up transfer file on target node
-	_, _ = ns.CallNode(targetNode, "DELETE", fmt.Sprintf("/daemon/server/%s/file/transfer.tar.gz", server.Identifier), nil, nil)
-
-	// 7. Change DB record
-	logging.Info.Printf("Updating database for %s", server.Identifier)
-
-	oldNode := server.Node
-	if !moveServerRecordToNode(db, server, targetNode) {
-		return
-	}
-	// its subdomain follows it to the new node's address
-	scheduleSubdomainRefresh(server.Identifier)
-
-	// 8. Ask source node to delete the server. Its backups are not moved, so they stay there
-	// as they always have, instead of going with the server
-	_, _ = ns.CallNode(&oldNode, "DELETE", fmt.Sprintf("/daemon/server/%s?keepBackups=true", server.Identifier), nil, nil)
-
 	logging.Info.Printf("Transfer of %s completed successfully", server.Identifier)
+}
+
+// The activity log entries of a node transfer that the request itself cannot record, because
+// they happen after it was answered
+const (
+	activityTransferFailed      = "server.transferFailed"
+	activityTransferStartFailed = "server.transferStartFailed"
+)
+
+// recordTransferActivity adds what happened to a transfer to the server's activity log, under
+// the name of who asked for it
+func recordTransferActivity(db *gorm.DB, serverID, action, detail string, by *models.User) {
+	entry := &models.ServerActivity{ServerID: serverID, Action: action, Detail: detail}
+	if by != nil {
+		id := by.ID
+		entry.UserID = &id
+		entry.Username = by.Username
+	}
+	sa := &services.ServerActivity{DB: db}
+	if err := sa.Record(entry); err != nil {
+		logging.Error.Printf("Failed to record activity %s on server %s: %s", action, serverID, err)
+	}
+}
+
+// startMovedServers starts on the new node the servers that were running before the transfer,
+// and returns why each one that did not start failed
+func startMovedServers(moves []*serverMove) map[string]error {
+	failed := make(map[string]error)
+	for _, m := range moves {
+		if !m.wasRunning {
+			continue
+		}
+		res, err := m.target(http.MethodPost, daemonServerPrefix+m.id+startAndWait, nil, nil)
+		if err = daemonStepError("starting it on the new node", res, err); err != nil {
+			failed[m.id] = err
+		}
+	}
+	return failed
+}
+
+// startAndWait starts a server and answers once it started, or why it could not
+const startAndWait = "/start?wait=true"
+
+var (
+	transfersMu sync.Mutex
+
+	// transfersRunning holds the servers being moved to another node right now
+	transfersRunning = make(map[string]bool)
+)
+
+// familyIDs are the identifiers of the servers moved together
+func familyIDs(family []*models.Server) []string {
+	ids := make([]string, 0, len(family))
+	for _, s := range family {
+		ids = append(ids, s.Identifier)
+	}
+	return ids
+}
+
+// claimTransfer marks the servers as being moved, all of them or none: false when one of them
+// already is
+func claimTransfer(ids []string) bool {
+	transfersMu.Lock()
+	defer transfersMu.Unlock()
+	for _, id := range ids {
+		if transfersRunning[id] {
+			return false
+		}
+	}
+	for _, id := range ids {
+		transfersRunning[id] = true
+	}
+	return true
+}
+
+// releaseTransfer lets the servers be moved again
+func releaseTransfer(ids []string) {
+	transfersMu.Lock()
+	defer transfersMu.Unlock()
+	for _, id := range ids {
+		delete(transfersRunning, id)
+	}
+}
+
+// firstWithBackupRunning is the first server whose node is writing a backup or restore of it,
+// "" when none is. A node that cannot tell is not taken as busy: the transfer finds out about a
+// node it cannot reach by itself.
+func firstWithBackupRunning(family []*models.Server, callerFor func(*models.Server) nodeCaller) string {
+	for _, s := range family {
+		if busy, err := backupRunningOn(callerFor(s), s.Identifier); err == nil && busy {
+			return s.Identifier
+		}
+	}
+	return ""
+}
+
+// backupRunningOn asks the node whether a backup, restore point or restore of the server is
+// being written
+func backupRunningOn(call nodeCaller, id string) (bool, error) {
+	res, err := call(http.MethodGet, daemonServerPrefix+id+"/backup/busy", nil, nil)
+	defer utils.CloseResponse(res)
+	if err != nil {
+		return false, err
+	}
+	if res.StatusCode != http.StatusOK {
+		return false, fmt.Errorf("the node answered %d", res.StatusCode)
+	}
+	var answer struct {
+		Busy bool `json:"busy"`
+	}
+	if err = json.NewDecoder(res.Body).Decode(&answer); err != nil {
+		return false, err
+	}
+	return answer.Busy, nil
+}
+
+// moveServers copies every server in full (definition, files and backups) to the new node,
+// then commit points the panel at it, and only then are the servers removed from their old
+// node. When a step before that fails, what was done for every server is undone.
+func moveServers(moves []*serverMove, commit func() error) error {
+	for _, m := range moves {
+		if err := m.prepare(); err != nil {
+			undoMoves(moves)
+			return fmt.Errorf("server %s, %w", m.id, err)
+		}
+	}
+	if err := commit(); err != nil {
+		undoMoves(moves)
+		return fmt.Errorf("pointing the panel at the new node: %w", err)
+	}
+	for _, m := range moves {
+		m.finish()
+	}
+	return nil
+}
+
+// undoMoves undoes the servers newest first; one that was not reached has nothing to undo
+func undoMoves(moves []*serverMove) {
+	for i := len(moves) - 1; i >= 0; i-- {
+		moves[i].rollback()
+	}
 }
 
 // serverPortsTaken lists the server's ports that something already holds on the target node,
@@ -133,44 +340,320 @@ func serverPortsTaken(server *models.Server, held map[uint16]portHolder) []uint1
 	return taken
 }
 
-// copyDefinitionToTarget reads the server definition from the source node and
-// creates the server with it on the target node.
-func copyDefinitionToTarget(ns *services.Node, server *models.Server, targetNode *models.Node) bool {
-	// 1. Get the server definition from the source node
-	logging.Info.Printf("Getting server definition from source node")
-	defRes, err := ns.CallNode(&server.Node, "GET", fmt.Sprintf("/daemon/server/%s/definition", server.Identifier), nil, nil)
-	if err != nil || defRes.StatusCode != 200 {
-		logging.Error.Printf("Failed to get server definition for %s: %v", server.Identifier, err)
-		return false
-	}
-	defer defRes.Body.Close()
-
-	// 2. Create the server on the target node
-	logging.Info.Printf("Creating server on target node")
-	headers := http.Header{}
-	headers.Set(headerContentType, "application/json")
-	createRes, err := ns.CallNode(targetNode, "PUT", fmt.Sprintf("/daemon/server/%s", server.Identifier), defRes.Body, headers)
-	if err != nil || createRes.StatusCode != 200 {
-		var errorBody string
-		if createRes != nil && createRes.Body != nil {
-			if bodyBytes, errRead := io.ReadAll(createRes.Body); errRead == nil {
-				errorBody = string(bodyBytes)
+// familyPortsTaken is serverPortsTaken for a server and the sub-servers moving with it
+func familyPortsTaken(family []*models.Server, held map[uint16]portHolder) []uint16 {
+	taken := make([]uint16, 0)
+	for _, s := range family {
+		for _, p := range serverPortsTaken(s, held) {
+			if !slices.Contains(taken, p) {
+				taken = append(taken, p)
 			}
 		}
-		logging.Error.Printf("Failed to create server on target node for %s: err=%v, status=%d, body=%s",
-			server.Identifier, err, statusCodeOf(createRes), errorBody)
-		return false
 	}
-	defer createRes.Body.Close()
-	return true
+	slices.Sort(taken)
+	return taken
 }
 
-// statusCodeOf is the response's status code, or 0 when there is no response.
-func statusCodeOf(res *http.Response) int {
-	if res != nil {
-		return res.StatusCode
+// daemonBackupFile is where a node receives, and gives back, the backups a transfer copies
+const daemonBackupFile = "/backup/file"
+
+// serverMove is one server of a node transfer, with what has been done for it so far, so a
+// failed transfer undoes exactly that
+type serverMove struct {
+	id     string
+	source nodeCaller
+	target nodeCaller
+
+	createdOnTarget bool
+	wasRunning      bool
+	archived        bool
+
+	// copiedBackups are the backups this transfer wrote on the new node
+	copiedBackups []string
+}
+
+func newServerMove(ns *services.Node, s *models.Server, targetNode *models.Node) *serverMove {
+	// a copy: the server's own node changes once it is moved
+	sourceNode := s.Node
+	return &serverMove{
+		id:     s.Identifier,
+		source: nodeCallerFor(ns, &sourceNode),
+		target: nodeCallerFor(ns, targetNode),
 	}
-	return 0
+}
+
+// nodeCallerFor makes the calls to one node
+func nodeCallerFor(ns *services.Node, node *models.Node) nodeCaller {
+	return func(method, path string, body io.ReadCloser, headers http.Header) (*http.Response, error) {
+		return ns.CallNode(node, method, path, body, headers)
+	}
+}
+
+// prepare puts a full copy of the server on the new node; the old node keeps its own until
+// the panel points at the new one
+func (m *serverMove) prepare() error {
+	logging.Info.Printf("Transfer of %s: creating it on the new node", m.id)
+	if err := m.copyDefinition(); err != nil {
+		return err
+	}
+	logging.Info.Printf("Transfer of %s: stopping it on the old node", m.id)
+	if err := m.stop(); err != nil {
+		return fmt.Errorf("stopping it: %w", err)
+	}
+	// a backup that began after the transfer was asked for is not finished yet
+	if busy, err := backupRunningOn(m.source, m.id); err == nil && busy {
+		return errors.New("a backup or restore of it is being written: try again once it is done")
+	}
+	logging.Info.Printf("Transfer of %s: copying its files", m.id)
+	m.archived = true
+	if err := buildOriginArchive(m.source, m.id); err != nil {
+		return err
+	}
+	if err := m.streamArchive(); err != nil {
+		return err
+	}
+	if err := m.extractArchive(); err != nil {
+		return err
+	}
+	logging.Info.Printf("Transfer of %s: copying its backups", m.id)
+	return m.copyBackups()
+}
+
+// copyDefinition reads the server definition from the old node and creates the server with
+// it on the new node
+func (m *serverMove) copyDefinition() error {
+	def, err := m.source(http.MethodGet, daemonServerPrefix+m.id+"/definition", nil, nil)
+	if err != nil {
+		return fmt.Errorf("reading its definition: %w", err)
+	}
+	defer utils.CloseResponse(def)
+	if def.StatusCode != http.StatusOK {
+		return fmt.Errorf("reading its definition: the node answered %d: %s", def.StatusCode, readFailureBody(def))
+	}
+
+	headers := http.Header{}
+	headers.Set(headerContentType, contentTypeJSON)
+	res, err := m.target(http.MethodPut, daemonServerPrefix+m.id, def.Body, headers)
+	// a node that answered with an error removed what it began itself; one that could not
+	// be heard may have created it
+	m.createdOnTarget = err != nil || isDaemonSuccess(res, err)
+	return daemonStepError("creating it on the new node", res, err)
+}
+
+// transferKillWait is how long a killed server is given to go down before the transfer gives up
+var transferKillWait = 2 * time.Second
+
+// stop stops the server on its old node and waits for it; one that does not stop in time is
+// killed. Archiving a running server copies a world that is still being written, and anything
+// saved after the archive is lost, so the transfer only goes on once the node says it is
+// stopped.
+func (m *serverMove) stop() error {
+	running, err := m.runningOnSource()
+	if err != nil {
+		return fmt.Errorf("could not read its status: %w", err)
+	}
+	if !running {
+		return nil
+	}
+	m.wasRunning = true
+	res, err := m.source(http.MethodPost, daemonServerPrefix+m.id+"/stop?wait=true", nil, nil)
+	utils.CloseResponse(res)
+	if err == nil {
+		if running, err = m.runningOnSource(); err == nil && !running {
+			return nil
+		}
+	}
+	res, err = m.source(http.MethodPost, daemonServerPrefix+m.id+"/kill", nil, nil)
+	utils.CloseResponse(res)
+	if err != nil {
+		return fmt.Errorf("could not kill it: %w", err)
+	}
+	time.Sleep(transferKillWait)
+	if running, err = m.runningOnSource(); err != nil || running {
+		return errors.New("it is still running")
+	}
+	return nil
+}
+
+// runningOnSource asks the old node whether the server is running
+func (m *serverMove) runningOnSource() (bool, error) {
+	res, err := m.source(http.MethodGet, daemonServerPrefix+m.id+"/status", nil, nil)
+	defer utils.CloseResponse(res)
+	if err != nil {
+		return false, err
+	}
+	if res.StatusCode != http.StatusOK {
+		return false, fmt.Errorf("status %d", res.StatusCode)
+	}
+	var status skypanel.ServerRunning
+	if err = json.NewDecoder(res.Body).Decode(&status); err != nil {
+		return false, err
+	}
+	return status.Running, nil
+}
+
+// streamArchive downloads the archive from the old node and uploads it to the new one
+// through a pipe, without buffering it
+func (m *serverMove) streamArchive() error {
+	download, err := m.source(http.MethodGet, originArchivePath(m.id, originArchive), nil, nil)
+	if err != nil {
+		return fmt.Errorf("downloading the archive: %w", err)
+	}
+	defer utils.CloseResponse(download)
+	if download.StatusCode != http.StatusOK {
+		return fmt.Errorf("downloading the archive: the node answered %d: %s", download.StatusCode, readFailureBody(download))
+	}
+
+	pr, pw := io.Pipe()
+	writer := multipart.NewWriter(pw)
+	go func() {
+		part, err := writer.CreateFormFile("file", originArchive)
+		if err == nil {
+			_, err = io.Copy(part, download.Body)
+		}
+		if err == nil {
+			err = writer.Close()
+		}
+		// a copy cut short fails the upload, instead of ending it as a smaller archive
+		_ = pw.CloseWithError(err)
+	}()
+
+	headers := http.Header{}
+	headers.Set(headerContentType, writer.FormDataContentType())
+	res, err := m.target(http.MethodPut, originArchivePath(m.id, originArchive), pr, headers)
+	// the copy must not wait forever for a node that stopped reading
+	_ = pr.Close()
+	return daemonStepError("uploading the archive", res, err)
+}
+
+// extractArchive unpacks the archive into the server's folder on the new node, then removes it
+func (m *serverMove) extractArchive() error {
+	res, err := m.target(http.MethodPost, fmt.Sprintf("%s%s/extract/%s?destination=.", daemonServerPrefix, m.id, originArchive), nil, nil)
+	if err = daemonStepError("extracting the archive", res, err); err != nil {
+		return err
+	}
+	callQuietly(m.target, http.MethodDelete, originArchivePath(m.id, originArchive))
+	return nil
+}
+
+// copyBackups copies every backup the old node keeps for the server to the new one, so the
+// panel's records, which follow the server, find their files there. A backup only kept
+// off-site needs nothing: the bucket is the same wherever the server runs.
+func (m *serverMove) copyBackups() error {
+	res, err := m.source(http.MethodGet, daemonServerPrefix+m.id+"/backup", nil, nil)
+	if err != nil {
+		return fmt.Errorf("listing its backups: %w", err)
+	}
+	defer utils.CloseResponse(res)
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("listing its backups: the node answered %d: %s", res.StatusCode, readFailureBody(res))
+	}
+	var backups []skypanel.BackupFile
+	if err = json.NewDecoder(res.Body).Decode(&backups); err != nil {
+		return fmt.Errorf("listing its backups: %w", err)
+	}
+	for _, b := range backups {
+		// "local" and "both" have an archive on the node; "offsite" and "failed" do not
+		if b.Location != "local" && b.Location != "both" {
+			continue
+		}
+		if err = m.copyBackup(b); err != nil {
+			return fmt.Errorf("copying the backup %s: %w", b.FileName, err)
+		}
+	}
+	return nil
+}
+
+// copyBackup streams one backup from the old node into the new one
+func (m *serverMove) copyBackup(b skypanel.BackupFile) error {
+	name := url.QueryEscape(b.FileName)
+	download, err := m.source(http.MethodGet, daemonServerPrefix+m.id+"/backup/download"+fileNameParam+name, nil, nil)
+	if err != nil {
+		return err
+	}
+	defer utils.CloseResponse(download)
+	if download.StatusCode != http.StatusOK {
+		return fmt.Errorf("the old node answered %d: %s", download.StatusCode, readFailureBody(download))
+	}
+
+	headers := http.Header{}
+	headers.Set(headerContentType, "application/octet-stream")
+	path := daemonServerPrefix + m.id + daemonBackupFile + fileNameParam + name + "&modTime=" + url.QueryEscape(b.ModTime.Format(time.RFC3339Nano))
+	res, err := m.target(http.MethodPut, path, download.Body, headers)
+	if err == nil && res != nil && res.StatusCode == http.StatusConflict {
+		// the new node already has this very backup, from an earlier stay of the server there:
+		// it is not this transfer's to take back
+		utils.CloseResponse(res)
+		return nil
+	}
+	if err = daemonStepError("writing it on the new node", res, err); err != nil {
+		return err
+	}
+	m.copiedBackups = append(m.copiedBackups, b.FileName)
+	return nil
+}
+
+// rollback undoes what was done for the server, newest first: what it brought to the new node
+// goes, and the server runs again on its old node if it was running. A step that cannot be
+// undone is logged.
+func (m *serverMove) rollback() {
+	for _, name := range m.copiedBackups {
+		m.undoStep(m.target, http.MethodDelete, daemonServerPrefix+m.id+daemonBackupFile+fileNameParam+url.QueryEscape(name),
+			"removing the copy of backup "+name+" from the new node")
+	}
+	if m.createdOnTarget {
+		// anything else in its backup folder there was not brought by this transfer
+		m.undoStep(m.target, http.MethodDelete, daemonServerPrefix+m.id+"?keepBackups=true", "removing it from the new node")
+	}
+	if m.archived {
+		for _, name := range []string{originArchive, originArchivePartial} {
+			callQuietly(m.source, http.MethodDelete, originArchivePath(m.id, name))
+		}
+	}
+	if m.wasRunning {
+		m.undoStep(m.source, http.MethodPost, daemonServerPrefix+m.id+startAndWait, "starting it again on the old node")
+	}
+}
+
+// finish removes the server from its old node once the panel points at the new one; its
+// backups there go too, they are on the new node now. A failure is only logged: the server
+// already runs from the new node, and what is left on the old one is a stray copy.
+func (m *serverMove) finish() {
+	m.undoStep(m.source, http.MethodDelete, daemonServerPrefix+m.id, "removing it from the old node")
+}
+
+// undoStep makes a call that cleans up after the transfer and logs it when the node did not
+// do it; a node that no longer has what is removed (404) is fine
+func (m *serverMove) undoStep(call nodeCaller, method, path, step string) {
+	res, err := call(method, path, nil, nil)
+	if err == nil && res != nil && res.StatusCode == http.StatusNotFound {
+		utils.CloseResponse(res)
+		return
+	}
+	if err = daemonStepError(step, res, err); err != nil {
+		logging.Error.Printf("Transfer of %s: %s", m.id, err)
+	}
+}
+
+// callQuietly makes a cleanup call whose failure does not matter, such as removing a file
+// that may not be there
+func callQuietly(call nodeCaller, method, path string) {
+	res, err := call(method, path, nil, nil)
+	if err == nil {
+		utils.CloseResponse(res)
+	}
+}
+
+// moveServerRecordToNode points the server's database record at the target node. The model
+// only writes node_id on create, so it is set here with SQL, and only that column: the rest of
+// the record may have been edited while the transfer ran.
+func moveServerRecordToNode(db *gorm.DB, identifier string, targetNode *models.Node) error {
+	var rawNodeID *uint
+	if targetNode.ID != 0 && !targetNode.IsLocal() {
+		id := targetNode.ID
+		rawNodeID = &id
+	}
+	return db.Exec("UPDATE servers SET node_id = ? WHERE identifier = ?", rawNodeID, identifier).Error
 }
 
 // isDaemonSuccess reports whether a daemon action answered with 200 or 204.
@@ -187,153 +670,4 @@ func readFailureBody(res *http.Response) string {
 	body, _ := io.ReadAll(res.Body)
 	res.Body.Close()
 	return string(body)
-}
-
-// stopForTransfer stops the server and waits for it; one that does not stop in time is killed
-func stopForTransfer(ns *services.Node, server *models.Server) error {
-	running, err := serverRunningOnNode(ns, &server.Node, server.Identifier)
-	if err != nil {
-		return fmt.Errorf("could not read its status: %w", err)
-	}
-	if !running {
-		return nil
-	}
-	res, err := ns.CallNode(&server.Node, "POST", daemonServerPrefix+server.Identifier+"/stop?wait=true", nil, nil)
-	utils.CloseResponse(res)
-	if err == nil {
-		if running, err = serverRunningOnNode(ns, &server.Node, server.Identifier); err == nil && !running {
-			return nil
-		}
-	}
-	res, err = ns.CallNode(&server.Node, "POST", daemonServerPrefix+server.Identifier+"/kill", nil, nil)
-	utils.CloseResponse(res)
-	if err != nil {
-		return fmt.Errorf("could not kill it: %w", err)
-	}
-	time.Sleep(2 * time.Second)
-	if running, err = serverRunningOnNode(ns, &server.Node, server.Identifier); err != nil || running {
-		return errors.New("it is still running")
-	}
-	return nil
-}
-
-// stopAndArchiveOnSource stops the server on the source node and packs its
-// files into transfer.tar.gz.
-func stopAndArchiveOnSource(ns *services.Node, server *models.Server) bool {
-	// 3. Stop the server on Source Node. Archiving a running server copies a world that is
-	// still being written, and anything saved after the archive is lost, so the transfer only
-	// goes on once the node says it is stopped.
-	logging.Info.Printf("Stopping server %s on source node", server.Identifier)
-	if err := stopForTransfer(ns, server); err != nil {
-		logging.Error.Printf("Transfer of %s cancelled: %s", server.Identifier, err)
-		return false
-	}
-
-	// Clean up old transfer files if they existed
-	_, _ = ns.CallNode(&server.Node, "DELETE", fmt.Sprintf("/daemon/server/%s/file/transfer.tar.gz", server.Identifier), nil, nil)
-
-	// 4. Archive files on Source Node
-	logging.Info.Printf("Archiving files for %s on source node", server.Identifier)
-	archiveBody := bytes.NewReader([]byte(`["*"]`))
-	headersArch := http.Header{}
-	headersArch.Set(headerContentType, "application/json")
-	res, err := ns.CallNode(&server.Node, "POST", fmt.Sprintf("/daemon/server/%s/archive/transfer.tar.gz", server.Identifier), io.NopCloser(archiveBody), headersArch)
-	if !isDaemonSuccess(res, err) {
-		logging.Error.Printf("Failed to archive server %s: %v - %s", server.Identifier, err, readFailureBody(res))
-		return false
-	}
-	if res != nil && res.Body != nil {
-		res.Body.Close()
-	}
-	return true
-}
-
-// streamArchiveToTarget downloads transfer.tar.gz from the source node and
-// uploads it to the target node through a pipe, without buffering it.
-func streamArchiveToTarget(ns *services.Node, server *models.Server, targetNode *models.Node) bool {
-	logging.Info.Printf("Streaming archive for %s from source to target node", server.Identifier)
-	downloadRes, err := ns.CallNode(&server.Node, "GET", fmt.Sprintf("/daemon/server/%s/file/transfer.tar.gz", server.Identifier), nil, nil)
-	if err != nil || downloadRes.StatusCode != 200 {
-		logging.Error.Printf("Failed to start download for %s: %s or status", server.Identifier, err)
-		return false
-	}
-	defer downloadRes.Body.Close()
-
-	pr, pw := io.Pipe()
-	writer := multipart.NewWriter(pw)
-
-	go func() {
-		defer pw.Close()
-		defer writer.Close()
-
-		part, err := writer.CreateFormFile("file", "transfer.tar.gz")
-		if err != nil {
-			logging.Error.Printf("Error creating form file: %v", err)
-			return
-		}
-
-		_, err = io.Copy(part, downloadRes.Body)
-		if err != nil {
-			logging.Error.Printf("Error streaming body: %v", err)
-		}
-	}()
-
-	headersTransfer := http.Header{}
-	headersTransfer.Set(headerContentType, writer.FormDataContentType())
-
-	uploadRes, err := ns.CallNode(targetNode, "PUT", fmt.Sprintf("/daemon/server/%s/file/transfer.tar.gz", server.Identifier), pr, headersTransfer)
-	if err != nil || uploadRes.StatusCode != http.StatusNoContent {
-		// uploadRes is nil when the call itself failed
-		var body []byte
-		if uploadRes != nil {
-			body, _ = io.ReadAll(uploadRes.Body)
-		}
-		logging.Error.Printf("Failed to upload archive to target node for %s: %v %s", server.Identifier, err, string(body))
-		return false
-	}
-	if uploadRes.Body != nil {
-		uploadRes.Body.Close()
-	}
-	return true
-}
-
-// extractArchiveOnTarget unpacks transfer.tar.gz into the server's folder on
-// the target node.
-func extractArchiveOnTarget(ns *services.Node, server *models.Server, targetNode *models.Node) bool {
-	logging.Info.Printf("Extracting files on target node for %s", server.Identifier)
-	extractRes, err := ns.CallNode(targetNode, "POST", fmt.Sprintf("/daemon/server/%s/extract/transfer.tar.gz?destination=.", server.Identifier), nil, nil)
-	if !isDaemonSuccess(extractRes, err) {
-		logging.Error.Printf("Failed to extract on target node for %s: %v - %s", server.Identifier, err, readFailureBody(extractRes))
-		return false
-	}
-	if extractRes.Body != nil {
-		extractRes.Body.Close()
-	}
-	return true
-}
-
-// moveServerRecordToNode points the server's database record at the target
-// node.
-func moveServerRecordToNode(db *gorm.DB, server *models.Server, targetNode *models.Node) bool {
-	server.NodeID = targetNode.ID
-	server.Node = *targetNode
-
-	ss := &services.Server{DB: db}
-	if err := ss.Update(server); err != nil {
-		logging.Error.Printf("Failed to update server config in DB: %v", err)
-		return false
-	}
-
-	// ss.Update explicitly omits 'node_id' for security, and gorm has it marked as '<-:create' only.
-	// We MUST force update it here via raw SQL.
-	var rawNodeID *uint
-	if targetNode.ID != 0 && !targetNode.IsLocal() {
-		rawNodeID = &targetNode.ID
-	}
-	if err := db.Exec("UPDATE servers SET node_id = ? WHERE identifier = ?", rawNodeID, server.Identifier).Error; err != nil {
-		logging.Error.Printf("Failed to update server node_id in DB via raw SQL: %v", err)
-		return false
-	}
-	server.RawNodeID = rawNodeID
-	return true
 }

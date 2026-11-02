@@ -345,25 +345,26 @@ func sendTestDiscord(c *gin.Context) {
 	dropMaskedSecrets(overrides)
 
 	fields := []services.DiscordEmbedField{
-		{Name: "Tipo", Value: "Mensaje de Prueba", Inline: true},
-		{Name: "Estado", Value: "✅ Configuración Correcta", Inline: true},
+		{Name: services.NotificationText("field.type"), Value: services.NotificationText("discordTest.type"), Inline: true},
+		{Name: services.NotificationText("field.status"), Value: services.NotificationText("discordTest.status"), Inline: true},
 	}
 
-	title := "🧪 Test de Webhook Discord"
-	description := "Este es un mensaje de prueba para verificar que el webhook de Discord está configurado correctamente."
+	title := services.NotificationText("discordTest.title")
+	description := services.NotificationText("discordTest.description")
 	color := 0x0099FF
 
 	// send to every configured webhook and report the ones that failed: a test that always
-	// says OK hides a wrong or deleted webhook until a real alert goes missing
+	// says OK hides a wrong or deleted webhook until a real alert goes missing. The names are
+	// the ones ErrDiscordTestFailed carries, which the page shows as its section titles.
 	targets := []struct {
 		name  string
 		entry config.StringEntry
 		title string
 	}{
-		{"principal", config.DiscordWebhook, title},
-		{"sistema", config.DiscordWebhookSystem, title + " (Sistema)"},
-		{"nodo", config.DiscordWebhookNode, title + " (Nodo)"},
-		{"migraciones", config.DiscordWebhookExTransfer, title + " (Migraciones)"},
+		{"alerts", config.DiscordWebhook, title},
+		{"reports", config.DiscordWebhookSystem, title + " (" + services.NotificationText("discordTest.system") + ")"},
+		{"status", config.DiscordWebhookNode, title + " (" + services.NotificationText("discordTest.node") + ")"},
+		{"transfers", config.DiscordWebhookExTransfer, title + " (" + services.NotificationText("discordTest.transfers") + ")"},
 	}
 
 	var failed []string
@@ -382,18 +383,18 @@ func sendTestDiscord(c *gin.Context) {
 		}
 		sent++
 		if err := ds.SendWebhookToURL(hook, target.title, description, color, fields); err != nil {
-			logging.Error.Printf("Error enviando test al webhook %s: %v", target.name, err)
+			logging.Error.Printf("Error sending the test to the %s webhook: %v", target.name, err)
 			failed = append(failed, target.name)
 		}
 	}
 
 	if sent == 0 {
-		response.HandleError(c, errors.New("no hay webhooks de Discord configurados"), http.StatusBadRequest)
+		response.HandleError(c, skypanel.ErrDiscordNoWebhooks, http.StatusBadRequest)
 		return
 	}
 	if len(failed) > 0 {
 		// 422 rather than 502: the panel hides the text of 5xx errors, and the admin needs it
-		response.HandleError(c, fmt.Errorf("el mensaje de prueba no llegó al webhook %s; revisa que siga existiendo en Discord", strings.Join(failed, ", ")), http.StatusUnprocessableEntity)
+		response.HandleError(c, skypanel.ErrDiscordTestFailed(failed), http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -570,6 +571,9 @@ func validateStringSetting(key, value string) error {
 			return services.ValidateDiscordWebhook(strings.TrimSpace(value))
 		}
 	}
+	if key == config.NotificationLanguage.Key() && !services.IsNotificationLanguage(strings.TrimSpace(value)) {
+		return skypanel.ErrNotificationLanguage
+	}
 	return nil
 }
 
@@ -587,6 +591,7 @@ var editableStringEntries = []config.StringEntry{
 	config.MasterURL,
 	config.NodeIP,
 	config.GeminiAPIKey,
+	config.NotificationLanguage,
 	// the node's key for CurseForge modpacks (on remote nodes it is set in their own config)
 	config.CurseForgeKey,
 	config.DiscordWebhook,

@@ -1,8 +1,10 @@
 package docker
 
 import (
+	"errors"
 	"testing"
 
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	network "github.com/moby/moby/api/types/network"
 	"github.com/stretchr/testify/assert"
 )
@@ -73,4 +75,15 @@ func TestParsePortSpecsMultiple(t *testing.T) {
 	assert.Contains(t, exposed, network.MustParsePort("25565/tcp"))
 	assert.Contains(t, exposed, network.MustParsePort("8123/udp"))
 	assert.Len(t, bindings, 2)
+}
+
+// A busy host port is a coded error the page translates, with the port in it
+func TestPortConflictError_IsCoded(t *testing.T) {
+	err := portConflictError(25565)
+	var panelErr *skypanel.Error
+	if assert.True(t, errors.As(err, &panelErr)) {
+		assert.Equal(t, "ErrPortBusy", panelErr.Code)
+		assert.Equal(t, uint16(25565), panelErr.Meta["port"])
+	}
+	assert.Contains(t, err.Error(), "port 25565 is already in use")
 }

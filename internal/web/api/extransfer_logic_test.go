@@ -8,10 +8,13 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -509,4 +512,80 @@ func TestParseOriginURL(t *testing.T) {
 			assert.Error(t, err)
 		})
 	}
+}
+
+// The import reports codes the page translates, with the HTTP status as a detail; the texts
+// in the catalogue are the Discord report and the English fallback
+func TestExTransferStep_Text(t *testing.T) {
+	step := exTransferStep{Code: exErrTokenRejected, Detail: "HTTP 403"}
+	assert.True(t, step.failed())
+	assert.Equal(t, "Invalid or expired token (HTTP 403)", step.text("en"))
+	assert.Equal(t, "Token inválido o expirado (HTTP 403)", step.text("es"))
+	assert.False(t, exTransferStep{Code: exStepDownloading}.failed())
+	assert.False(t, exTransferStep{Code: exTransferProgressDone}.failed())
+	assert.Equal(t, "Unpacking the files...", exTransferStep{Code: exStepExtracting}.text("en"))
+
+	codes := []string{
+		exStepStarting, exStepValidating, exStepOriginStart, exStepWaitingArchive, exStepDownloading,
+		exStepUploading, exStepExtracting, exStepCleanup, exErrOriginURL, exErrOriginUnreachable,
+		exErrTokenRejected, exErrOriginBadAnswer, exErrOriginBadSession, exErrOriginStart,
+		exErrOriginRefused, exErrDownloadNetwork, exErrDownloadRefused, exErrDownloadTimeout,
+		exErrUpload, exErrExtract,
+	}
+	for _, code := range codes {
+		for _, lang := range []string{"es", "en"} {
+			assert.NotEqual(t, "extransfer."+code, exTransferStep{Code: code}.text(lang), "%s has no %s text", code, lang)
+		}
+	}
+}
+
+func TestValidateOriginToken_ReportsCodedFailures(t *testing.T) {
+	answer := func(status int, body string) originPoster {
+		return func(string, interface{}) (*http.Response, error) {
+			return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(body))}, nil
+		}
+	}
+
+	_, failure := validateOriginToken(func(string, interface{}) (*http.Response, error) { return nil, errors.New("down") }, "tok")
+	assert.Equal(t, exTransferStep{Code: exErrOriginUnreachable}, failure)
+
+	_, failure = validateOriginToken(answer(http.StatusForbidden, "expired"), "tok")
+	assert.Equal(t, exTransferStep{Code: exErrTokenRejected, Detail: "HTTP 403"}, failure)
+
+	_, failure = validateOriginToken(answer(http.StatusOK, "not json"), "tok")
+	assert.Equal(t, exTransferStep{Code: exErrOriginBadAnswer}, failure)
+
+	_, failure = validateOriginToken(answer(http.StatusOK, `{"session_id":"x","nonce":"n"}`), "tok")
+	assert.Equal(t, exTransferStep{Code: exErrOriginBadSession}, failure)
+
+	res, failure := validateOriginToken(answer(http.StatusOK, `{"session_id":"`+uuid.NewString()+`","nonce":"n"}`), "tok")
+	assert.Empty(t, failure.Code)
+	assert.NotEmpty(t, res.SessionID)
+}
+
+func TestGetExTransferStatus_SendsTheCodeAndAnEnglishFallback(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	setTransferProgress(exTestServer, exTransferStep{Code: exErrDownloadRefused, Detail: "HTTP 410"})
+	t.Cleanup(func() { setTransferProgress(exTestServer, exTransferStep{}) })
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Set("server", &models.Server{Identifier: exTestServer})
+	getExTransferStatus(c)
+
+	var body map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	assert.Equal(t, exErrDownloadRefused, body["status"])
+	assert.Equal(t, "HTTP 410", body["detail"])
+	assert.Equal(t, "The origin refused the download (HTTP 410)", body["message"])
+
+	setTransferProgress(exTestServer, exTransferStep{Code: exTransferProgressDone})
+	w = httptest.NewRecorder()
+	c, _ = gin.CreateTestContext(w)
+	c.Set("server", &models.Server{Identifier: exTestServer})
+	getExTransferStatus(c)
+	body = nil
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	assert.Equal(t, exTransferProgressDone, body["status"])
+	assert.NotContains(t, body, "message", "the page handles DONE itself")
 }

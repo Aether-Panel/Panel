@@ -108,6 +108,8 @@ func InitService() {
 	go processStats()
 	go processPlayers()
 	go processSystemStatus()
+	// remote nodes run without the panel, so the panel asks them for their servers' states
+	go processRemoteStatus()
 	// servers that kept running while the daemon was down get their console back
 	go reattachRunningServers()
 	// Trackear uptime inicialmente para todos los servidores
@@ -228,11 +230,12 @@ func sendSystemStatusToDiscord() {
 	if ds == nil {
 		return
 	}
-
-	allServers := GetAll()
-	if len(allServers) == 0 {
+	if config.DiscordWebhookSystem.Value() == "" && config.DiscordWebhookNode.Value() == "" {
 		return
 	}
+
+	// a panel without servers of its own still reports its remote nodes
+	allServers := GetAll()
 
 	// Obtener información de los nodos y servidores desde la base de datos
 	db, err := database.GetConnection()
@@ -328,39 +331,59 @@ func systemStatusInfo(server *Server) services.ServerInfo {
 	return serverInfo
 }
 
+// sendNodeStatusToDiscord reports one node. serversForNode are the servers this process runs
+// there, which is only the panel's own node: a remote node's come from the status poller.
 func sendNodeStatusToDiscord(ds *services.DiscordService, ns *services.Node, node *models.Node, serversForNode []services.ServerInfo) {
 	// without a node webhook there is nothing to send, so remote nodes are not asked either
 	if config.DiscordWebhookNode.Value() == "" {
 		return
 	}
 
-	totalServers := len(serversForNode)
-	onlineServers := 0
-	offlineServers := 0
-
-	for _, info := range serversForNode {
-		if info.IsRunning {
-			onlineServers++
-		} else {
-			offlineServers++
-		}
-	}
-
 	nodeName := node.Name
 	if nodeName == "" || node.IsLocal() {
-		nodeName = "Nodo Local"
+		nodeName = services.NotificationText("nodeStatus.localNode")
 	}
 
-	// the panel's own machine is only right for the panel's node; a remote node is asked for its own
-	hw := localNodeHardware()
-	if !node.IsLocal() {
-		hw = remoteNodeHardware(ns, node)
+	var err error
+	if node.IsLocal() {
+		// the panel's own machine is only right for the panel's node
+		online, offline := countRunning(serversForNode)
+		err = sendNodeReport(ds, node, nodeName, len(serversForNode), online, offline, localNodeHardware())
+	} else {
+		err = sendRemoteNodeReport(ds, ns, node, nodeName)
 	}
-
-	err := ds.SendNodeStatus(totalServers, onlineServers, offlineServers, nodeName, node.PublicHost, node.PublicPort, hw.cpuModel, hw.cpuCores, hw.cpuThreads, hw.cpuGhz, hw.memTotal, hw.memUsed, hw.osName)
 	if err != nil {
 		logging.Error.Printf("Error sending node status to Discord for node %s: %s", nodeName, err)
 	}
+}
+
+// sendRemoteNodeReport reports a remote node from the status poller's last answer. A node that
+// did not answer is reported as such: its servers' states and its machine are unknown, only how
+// many servers the panel places there is shown.
+func sendRemoteNodeReport(ds *services.DiscordService, ns *services.Node, node *models.Node, nodeName string) error {
+	status := remoteNodeStatus(ns, node)
+	if !status.reachable {
+		return ds.SendNodeUnreachable(status.total, nodeName, node.PublicHost, node.PublicPort)
+	}
+	online, offline := status.onlineOffline()
+	return sendNodeReport(ds, node, nodeName, len(status.running), online, offline, remoteNodeHardware(ns, node))
+}
+
+// sendNodeReport sends the report of a node that answered
+func sendNodeReport(ds *services.DiscordService, node *models.Node, nodeName string, total, online, offline int, hw nodeHardware) error {
+	return ds.SendNodeStatus(total, online, offline, nodeName, node.PublicHost, node.PublicPort, hw.cpuModel, hw.cpuCores, hw.cpuThreads, hw.cpuGhz, hw.memTotal, hw.memUsed, hw.osName)
+}
+
+// countRunning counts the servers by state
+func countRunning(infos []services.ServerInfo) (online, offline int) {
+	for _, info := range infos {
+		if info.IsRunning {
+			online++
+		} else {
+			offline++
+		}
+	}
+	return
 }
 
 // nodeHardware is the machine part of a node's Discord report. Fields left empty or zero
@@ -774,7 +797,7 @@ func checkDiskLimit(server *Server, stats *skypanel.ServerStats) {
 		isRunning, _ := server.IsRunning()
 		if isRunning {
 			logging.Info.Printf("[%s] Server exceeded disk limit (%.2f MB > %.2f MB). Stopping server...", server.ID(), stats.Disk/1024/1024, stats.MaxStorage/1024/1024)
-			server.RunningEnvironment.DisplayToConsole(true, fmt.Sprintf("\n[CRÍTICO] El servidor ha superado el límite de disco asignado (%.2f MB / %.2f MB).\n[CRÍTICO] Deteniendo el servidor por seguridad...\n", stats.Disk/1024/1024, stats.MaxStorage/1024/1024))
+			server.RunningEnvironment.DisplayToConsole(true, fmt.Sprintf("\n[CRITICAL] The server has gone over its disk limit (%.2f MB / %.2f MB).\n[CRITICAL] Stopping the server to protect the node...\n", stats.Disk/1024/1024, stats.MaxStorage/1024/1024))
 
 			// Detener el servidor
 			err := server.Stop()
@@ -884,7 +907,7 @@ func sendResourceAlert(server *Server, state *serverState, now time.Time, server
 		return
 	}
 	ds := services.GetDiscordService()
-	_ = ds.SendResourceAlert(serverName, server.ID(), alert.resource, alert.value, alert.limit)
+	_ = ds.SendResourceAlert(serverName, server.ID(), resourceLabel(alert.resource, false), alert.value, alert.limit)
 	server.notifyResource(alert.resource, alert.value, alert.limit)
 	state.lastAlert[alert.key] = now
 }
@@ -1449,18 +1472,18 @@ func (p *Server) afterExit(exitCode int) {
 		p.RunningEnvironment.DisplayToConsole(true, "Server crashed (exit code %d)\n", exitCode)
 		report := p.recordCrash(exitCode, autoRestart)
 		p.notifyCrash(report)
-		restartText := "No"
+		restartText := services.NotificationText("no")
 		if autoRestart {
-			restartText = "Sí"
+			restartText = services.NotificationText("yes")
 		}
 		name, id := p.displayName(), p.ID()
 		go func() {
-			_ = services.GetDiscordService().SendAlert("💥 Caída del servidor",
-				fmt.Sprintf("**%s** se ha caído (código de salida %d).", name, exitCode),
+			_ = services.GetDiscordService().SendAlert(services.NotificationText("crashAlert.title"),
+				services.NotificationText("crashAlert.description", name, exitCode),
 				[]services.DiscordEmbedField{
-					{Name: "Servidor", Value: name, Inline: true},
+					{Name: services.NotificationText("field.server"), Value: name, Inline: true},
 					{Name: "ID", Value: id, Inline: true},
-					{Name: "Reinicio automático", Value: restartText, Inline: true},
+					{Name: services.NotificationText("field.autoRestart"), Value: restartText, Inline: true},
 				})
 		}()
 	}
@@ -1764,10 +1787,10 @@ func (p *Server) endBackup(success bool) {
 	ds := services.GetDiscordService()
 	if success {
 		p.RunningEnvironment.DisplayToConsole(true, "Backup complete")
-		_ = ds.SendBackupAlert(serverName, p.ID(), "Completado exitosamente", true)
+		_ = ds.SendBackupAlert(serverName, p.ID(), services.NotificationText("backupAlert.statusSuccess"), true)
 	} else {
 		p.RunningEnvironment.DisplayToConsole(true, "Backup failed")
-		_ = ds.SendBackupAlert(serverName, p.ID(), "Falló durante la creación", false)
+		_ = ds.SendBackupAlert(serverName, p.ID(), services.NotificationText("backupAlert.statusFailed"), false)
 	}
 }
 

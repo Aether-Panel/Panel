@@ -46,7 +46,12 @@ interface OriginSession {
 }
 
 interface TransferStatusResponse {
+  /** the import's step or outcome as a code (STEP_*, ERROR_*, DONE, CANCELLED, CANCELLED_BY_ORIGIN) */
   status?: string;
+  /** what some failures add, such as the origin's HTTP status */
+  detail?: string;
+  /** the step in English, for a code this page does not know */
+  message?: string;
   pulling?: boolean;
   origin?: OriginSession;
 }
@@ -129,8 +134,17 @@ export default function ExternalTransferView({ serverId }: Readonly<ExternalTran
     }
   }, [serverId]);
 
+  // The text of an import step or failure: its code translated, with the detail, or the panel's
+  // English text when the code is newer than this page
+  const progressText = useCallback((code: string, detail?: string, message?: string) => {
+    const key = `servers.extransfer.progress.${code}`;
+    const text = t(key);
+    if (text === key) return message || code;
+    return detail ? `${text} (${detail})` : text;
+  }, [t]);
+
   // Un estado nuevo de la importación: terminada, cancelada, fallida o el paso en curso
-  const applyImportStatus = useCallback((status: string) => {
+  const applyImportStatus = useCallback((status: string, detail?: string, message?: string) => {
     setImporting(true);
     setActiveTab('import');
 
@@ -148,14 +162,14 @@ export default function ExternalTransferView({ serverId }: Readonly<ExternalTran
       setImportStep('');
       setImporting(false);
       setImportOutcome(byOrigin ? 'cancelledByOrigin' : 'cancelled');
-    } else if (status.startsWith('ERROR: ')) {
-      sileo.error({ title: t('servers.extransfer.toast.failedTitle'), description: status.substring(7) });
+    } else if (status.startsWith('ERROR_')) {
+      sileo.error({ title: t('servers.extransfer.toast.failedTitle'), description: progressText(status, detail, message) });
       setImportStep('');
       setImporting(false);
     } else {
-      setImportStep(status);
+      setImportStep(progressText(status, detail, message));
     }
-  }, [t]);
+  }, [t, progressText]);
 
   // Polling de estado de transferencia (importación en curso y sesión de origen)
   const checkStatus = useCallback(async () => {
@@ -169,7 +183,7 @@ export default function ExternalTransferView({ serverId }: Readonly<ExternalTran
       const status = data.status ?? '';
       if (status && status !== lastStatusRef.current) {
         lastStatusRef.current = status;
-        applyImportStatus(status);
+        applyImportStatus(status, data.detail, data.message);
       } else if (!status && lastStatusRef.current) {
         // El backend limpió el estado, terminamos.
         lastStatusRef.current = '';

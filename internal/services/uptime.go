@@ -1,6 +1,7 @@
 package services
 
 import (
+	"errors"
 	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
@@ -68,6 +69,65 @@ func (us *Uptime) TrackStatus(serverID string, isRunning bool) error {
 	// Si el estado no cambió, actualizar el timestamp
 	currentStatus.UpdatedAt = now
 	return us.DB.Save(currentStatus).Error
+}
+
+// RecordNodeStatuses records what a remote node reported for its servers. serverIDs are the
+// servers the panel places on that node; reported holds the state of those the node answered
+// for, and is nil when the node did not answer at all.
+//
+// A node that does not answer is not taken as "all its servers stopped": nothing is recorded
+// for it and its open periods stay as they are. Only a period nobody has confirmed for
+// staleAfter is closed, at the moment it was last confirmed, so a long outage counts as
+// neither up nor down (the rows have no "unknown" state, a gap between periods is how they
+// say it). When the node answers again a new period starts from then.
+func (us *Uptime) RecordNodeStatuses(serverIDs []string, reported map[string]bool, staleAfter time.Duration) error {
+	if err := us.closeStalePeriods(serverIDs, time.Now().Add(-staleAfter)); err != nil {
+		return err
+	}
+
+	var errs []error
+	for _, serverID := range serverIDs {
+		running, ok := reported[serverID]
+		if !ok {
+			// the node did not say: unknown, not stopped
+			continue
+		}
+		if err := us.TrackStatus(serverID, running); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
+}
+
+// closeStalePeriods ends the open periods of these servers that were last confirmed (TrackStatus
+// saves the row on every reading, which moves updated_at) before cutoff, at that confirmation
+func (us *Uptime) closeStalePeriods(serverIDs []string, cutoff time.Time) error {
+	if len(serverIDs) == 0 {
+		return nil
+	}
+
+	var stale []*models.UptimeStatus
+	err := us.DB.Where("server_id IN ? AND end_time IS NULL AND updated_at < ?", serverIDs, cutoff).Find(&stale).Error
+	if err != nil {
+		return err
+	}
+
+	for _, period := range stale {
+		end := period.UpdatedAt
+		if end.Before(period.StartTime) {
+			end = period.StartTime
+		}
+		// update through the loaded row: the model's save hook validates it, and an empty
+		// model would fail on the missing server id
+		err = us.DB.Model(period).Updates(map[string]interface{}{
+			"end_time": end,
+			"duration": int64(end.Sub(period.StartTime).Seconds()),
+		}).Error
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // uptimePeriod is the part of an uptime row the stats need

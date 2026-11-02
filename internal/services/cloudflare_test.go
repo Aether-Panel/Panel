@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +11,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -207,5 +209,27 @@ func TestCloudflare_Verify(t *testing.T) {
 	assert.Equal(t, "_aether-panel-test.play.example.com", fake.calls[1].Body["name"])
 
 	_, err = cf.Verify(context.Background(), "play.other.org")
-	assert.ErrorContains(t, err, "no pertenece")
+	assert.ErrorContains(t, err, "does not belong")
+}
+
+// A refusal reaches the page as a coded error with Cloudflare's message inside, so the page
+// can show it in the viewer's language
+func TestCloudflareError_IsACodedPanelError(t *testing.T) {
+	err := error(&CloudflareError{Status: http.StatusForbidden, Code: 9109, Message: "Invalid access token"})
+	assert.Equal(t, "Cloudflare answered: Invalid access token (code 9109)", err.Error())
+
+	var panelErr *skypanel.Error
+	require.True(t, errors.As(fmt.Errorf("creating the record: %w", err), &panelErr))
+	assert.Equal(t, "ErrCloudflareRefusedCode", panelErr.Code)
+	assert.Equal(t, "Invalid access token", panelErr.Meta["message"])
+	assert.Equal(t, 9109, panelErr.Meta["cloudflareCode"])
+
+	require.True(t, errors.As(&CloudflareError{Status: http.StatusBadGateway, Message: "Bad Gateway"}, &panelErr))
+	assert.Equal(t, "ErrCloudflareRefused", panelErr.Code)
+	assert.True(t, IsCloudflareNotFound(&CloudflareError{Status: http.StatusNotFound, Message: "not found"}))
+
+	cf := NewCloudflare(testCFToken, "../../user")
+	_, zoneErr := cf.Zone(context.Background())
+	require.True(t, errors.As(zoneErr, &panelErr))
+	assert.Equal(t, "ErrCloudflareZoneID", panelErr.Code)
 }

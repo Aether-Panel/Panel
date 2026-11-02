@@ -4,6 +4,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"runtime"
 	"testing"
 	"time"
@@ -82,4 +83,22 @@ func TestRCONWSConnection_CloseStopsTheReconnector(t *testing.T) {
 		time.Sleep(20 * time.Millisecond)
 	}
 	assert.LessOrEqual(t, runtime.NumGoroutine(), before)
+}
+
+// The password is the path of the address: characters that mean something in a URL must
+// reach the game as they are, not end the path or start a query
+func TestRCONWSURL_EscapesThePassword(t *testing.T) {
+	password := "p/a?ss#w%rd x"
+	addr := &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 28016}
+
+	got := rconwsURL(addr, password)
+
+	assert.Equal(t, "wss://127.0.0.1:28016/p%2Fa%3Fss%23w%25rd%20x", got)
+	u, err := url.Parse(got)
+	require.NoError(t, err)
+	assert.Equal(t, "/"+password, u.Path)
+	assert.Empty(t, u.RawQuery)
+	assert.Empty(t, u.Fragment)
+
+	assert.Equal(t, "wss://[::1]:28016/secret", rconwsURL(&net.TCPAddr{IP: net.ParseIP("::1"), Port: 28016}, "secret"))
 }

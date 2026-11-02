@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cast"
 	"io"
 	"net"
+	"net/url"
 	"sync"
 	"time"
 )
@@ -38,6 +39,14 @@ type rconwsMessage struct {
 
 // rconwsDialer opens the connection; a variable so tests can trust their own certificate
 var rconwsDialer = websocket.DefaultDialer
+
+// rconwsURL is the address of the game's RCON websocket, which takes the password as the
+// path. The password is escaped: a "/", "?", "#" or "%" in it would otherwise end the path or
+// start a query, and the game would get another password. The console settings of a template
+// have no way to say plain ws://, so it is always wss://.
+func rconwsURL(addr *net.TCPAddr, password string) string {
+	return fmt.Sprintf("wss://%s/%s", addr, url.PathEscape(password))
+}
 
 func (tc *RCONWSConnection) Write(p []byte) (n int, err error) {
 	conn := tc.readyConnection()
@@ -139,7 +148,7 @@ func (tc *RCONWSConnection) reconnector() {
 		password := tc.Password
 		tc.lock.Unlock()
 
-		conn, _, err := rconwsDialer.Dial(fmt.Sprintf("wss://%s/%s", ipAddr, password), nil)
+		conn, _, err := rconwsDialer.Dial(rconwsURL(ipAddr, password), nil)
 		if err != nil {
 			logging.Debug.Printf("Error waiting for RCON WS socket: %s", err.Error())
 			continue

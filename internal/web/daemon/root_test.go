@@ -20,3 +20,11 @@ func TestCheckEnvironmentAllowed(t *testing.T) {
 	}
 	assert.NoError(t, checkEnvironmentAllowed("docker"))
 }
+
+// The panel's uptime poller reads an empty object, not null, from a node without servers
+func TestServerStatuses_NoServers(t *testing.T) {
+	statuses := serverStatuses(nil)
+
+	assert.NotNil(t, statuses)
+	assert.Empty(t, statuses)
+}

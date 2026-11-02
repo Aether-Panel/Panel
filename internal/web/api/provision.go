@@ -240,6 +240,10 @@ func provisionServer(c *gin.Context) {
 		return
 	}
 
+	// a node refusing the panel must not read as the billing system's API key being wrong
+	if answerNodeAuthFailure(c, node, nodeResponse) {
+		return
+	}
 	if nodeResponse.StatusCode != http.StatusOK {
 		resData, _ := io.ReadAll(nodeResponse.Body)
 		c.AbortWithStatusJSON(nodeResponse.StatusCode, gin.H{"error": "Daemon error", "details": string(resData)})
@@ -784,6 +788,9 @@ func provisionChangePackage(c *gin.Context) {
 	nodeResponse, err := ns.CallNode(&server.Node, "PUT", daemonServerPrefix+server.Identifier+"/data", io.NopCloser(bytes.NewReader(body)), nil)
 	defer utils.CloseResponse(nodeResponse)
 	if response.HandleError(c, err, http.StatusBadGateway) {
+		return
+	}
+	if answerNodeAuthFailure(c, &server.Node, nodeResponse) {
 		return
 	}
 	if nodeResponse.StatusCode != http.StatusNoContent && nodeResponse.StatusCode != http.StatusOK {

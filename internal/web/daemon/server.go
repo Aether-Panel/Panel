@@ -136,6 +136,7 @@ func RegisterServerRoutes(e *gin.RouterGroup) {
 		registerWorldMapRoutes(l)
 		registerFileHistoryRoutes(l)
 		registerCloneRoutes(l)
+		registerBackupTransferRoutes(l)
 
 		p := l.Group("/:serverId/socket")
 		{
@@ -380,7 +381,8 @@ func deleteServer(c *gin.Context) {
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
-	// its backups go too, unless the panel moves the server to another node: those stay here
+	// its backups go too, unless the panel asks to keep them: a node transfer that is undone
+	// removes only the backup copies it brought, one by one
 	if c.Query("keepBackups") != "true" {
 		if err := servers.DeleteBackups(server.ID()); err != nil {
 			logging.Error.Printf("Error removing the backups of server %s: %s", server.ID(), err)
@@ -1421,7 +1423,7 @@ type PluginSearchResult struct {
 }
 
 // @Summary Get installed plugins
-// @Description Gets list of plugins installed in the server
+// @Description Lists the jars in mods/ on Fabric, Forge and NeoForge servers and in plugins/ otherwise
 // @Success 200 {array} PluginInfo
 // @Param id path string true "Server ID"
 // @Tags Daemon Server
@@ -1429,7 +1431,7 @@ type PluginSearchResult struct {
 func getPlugins(c *gin.Context) {
 	server := getServerFromGin(c)
 
-	pluginsDir := "plugins"
+	pluginsDir := pluginFolder(server.PluginPlatform())
 	_, err := server.GetFileServer().Stat(pluginsDir)
 	if err != nil {
 		// Si no existe la carpeta plugins, crear una lista vacía
@@ -1480,14 +1482,59 @@ func getPlugins(c *gin.Context) {
 	c.JSON(http.StatusOK, plugins)
 }
 
+// pluginLoaders are the Modrinth loaders whose builds run on each platform. Paper and its
+// forks also load Spigot and Bukkit plugins. The plugins tab asks the install for the same
+// loaders, so what the search shows can be installed.
+var pluginLoaders = map[string][]string{
+	"paper":    {"paper", "spigot", "bukkit"},
+	"fabric":   {"fabric"},
+	"forge":    {"forge"},
+	"neoforge": {"neoforge"},
+}
+
+// pluginFolder is where the server loads its jars from: Fabric, Forge and NeoForge read mods/
+// (as the world map install does), Paper and anything the panel cannot tell read plugins/
+func pluginFolder(platform string) string {
+	switch platform {
+	case "fabric", "forge", "neoforge":
+		return "mods"
+	}
+	return "plugins"
+}
+
+// pluginSearchFacets limits a Modrinth search to what the server can load: projects with a
+// build for one of its loaders, and on a modded server only mods that run on a server (not
+// client-only ones). Modrinth's v2 API lists plugins as project_type "mod" too, so for Paper
+// the loaders are what keep mods out. An unknown platform lists plugins and mods of any
+// loader, as before.
+func pluginSearchFacets(platform string) string {
+	loaders, ok := pluginLoaders[platform]
+	if !ok {
+		return `[["project_type:mod","project_type:plugin"]]`
+	}
+	categories := make([]string, 0, len(loaders))
+	for _, loader := range loaders {
+		categories = append(categories, "categories:"+loader)
+	}
+	facets := [][]string{{"project_type:mod", "project_type:plugin"}, categories}
+	if pluginFolder(platform) == "mods" {
+		facets[0] = []string{"project_type:mod"}
+		facets = append(facets, []string{"server_side:required", "server_side:optional"})
+	}
+	encoded, _ := json.Marshal(facets)
+	return string(encoded)
+}
+
 // @Summary Search plugins
-// @Description Searches for plugins using Spigot API
+// @Description Searches Modrinth for plugins or mods that fit the server's platform (Paper plugins, or Fabric, Forge or NeoForge mods); anything when the platform is unknown
 // @Success 200 {array} PluginSearchResult
 // @Param id path string true "Server ID"
 // @Param q query string true "Search query"
 // @Tags Daemon Server
 // @Router /daemon/server/{id}/plugins/search [get]
 func searchPlugins(c *gin.Context) {
+	server := getServerFromGin(c)
+
 	queryParam := c.Query("q")
 	if queryParam == "" {
 		response.HandleError(c, errors.New("search query is required"), http.StatusBadRequest)
@@ -1495,11 +1542,11 @@ func searchPlugins(c *gin.Context) {
 	}
 
 	// Buscar usando Modrinth API
-	u, _ := url.Parse("https://api.modrinth.com/v2/search")
+	u, _ := url.Parse(pluginModrinthAPI + "/search")
 	q := u.Query()
 	q.Set("query", queryParam)
 	q.Set("limit", "20")
-	q.Set("facets", "[[\"project_type:mod\",\"project_type:plugin\"]]")
+	q.Set("facets", pluginSearchFacets(server.PluginPlatform()))
 	u.RawQuery = q.Encode()
 
 	modrinthURL := u.String()
@@ -1569,8 +1616,12 @@ var pluginModrinthAPI = "https://api.modrinth.com/v2"
 // loader and Minecraft version the panel asked for
 var errNoCompatiblePluginVersion = skypanel.CreateError("this project has no version for the server's loader and Minecraft version", "ErrPluginNoCompatibleVersion")
 
+// errBadPluginFileName is returned when the file Modrinth names is not a plain .jar name: the
+// name becomes the path the jar is written to, so a folder or ".." in it is never followed
+var errBadPluginFileName = skypanel.CreateError("the file Modrinth offers for this project is not a .jar with a plain file name", "ErrPluginBadFileName")
+
 // @Summary Install plugin
-// @Description Downloads and installs the newest version of a Modrinth project, limited to the given loaders and game versions when they are set
+// @Description Downloads and installs the newest version of a Modrinth project, limited to the given loaders and game versions when they are set, into mods/ on Fabric, Forge and NeoForge servers and plugins/ otherwise
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
 // @Param pluginId path string true "Modrinth project ID"
@@ -1587,17 +1638,23 @@ func installPlugin(c *gin.Context) {
 		return
 	}
 
-	// a plugin can break the server; a restore point lets the owner go back (a busy backup
-	// only means this install goes ahead without one)
-	if err := server.CreateRestorePoint(servers.RestoreReasonPlugin); err != nil {
-		logging.Info.Printf("[%s] No restore point before installing a plugin: %s", server.ID(), err)
-	}
-
 	loaders := pluginFilter(c.Query("loaders"))
 	gameVersions := pluginFilter(c.Query("game_versions"))
 	downloadURL, fileName, ok := fetchLatestModrinthFile(c, projectID, loaders, gameVersions)
 	if !ok {
 		return
+	}
+
+	if err := server.CheckDiskSpace(false); response.HandleError(c, err, http.StatusConflict) {
+		return
+	}
+
+	// a plugin can break the server; a restore point lets the owner go back (a busy backup
+	// only means this install goes ahead without one). It is made only once Modrinth has a
+	// file that fits, so a refused install leaves none behind, and before the download
+	// starts, so the download does not sit idle while the archive is written.
+	if err := server.CreateRestorePoint(servers.RestoreReasonPlugin); err != nil {
+		logging.Info.Printf("[%s] No restore point before installing a plugin: %s", server.ID(), err)
 	}
 
 	// Descargar el plugin
@@ -1613,12 +1670,8 @@ func installPlugin(c *gin.Context) {
 		return
 	}
 
-	if err := server.CheckDiskSpace(false); response.HandleError(c, err, http.StatusConflict) {
-		return
-	}
-
-	// Crear carpeta plugins si no existe
-	pluginsDir := "plugins"
+	// Crear la carpeta si no existe: mods/ en Fabric, Forge y NeoForge, plugins/ en el resto
+	pluginsDir := pluginFolder(server.PluginPlatform())
 	_, err = server.GetFileServer().Stat(pluginsDir)
 	if err != nil && os.IsNotExist(err) {
 		err = server.GetFileServer().Mkdir(pluginsDir, 0755)
@@ -1756,11 +1809,15 @@ func fetchLatestModrinthFile(c *gin.Context, projectID string, loaders, gameVers
 			fileName = file.FileName
 		}
 	}
+	if !servers.ValidJarName(fileName) {
+		response.HandleError(c, errBadPluginFileName, http.StatusBadGateway)
+		return "", "", false
+	}
 	return downloadURL, fileName, true
 }
 
 // @Summary Delete plugin
-// @Description Deletes a plugin from the server
+// @Description Deletes a jar from mods/ on Fabric, Forge and NeoForge servers and from plugins/ otherwise
 // @Success 204 {object} nil
 // @Param id path string true "Server ID"
 // @Param name query string true "Plugin file name"
@@ -1785,10 +1842,6 @@ func deletePlugin(c *gin.Context) {
 		return
 	}
 
-	if err := server.CreateRestorePoint(servers.RestoreReasonPlugin); err != nil {
-		logging.Info.Printf("[%s] No restore point before removing a plugin: %s", server.ID(), err)
-	}
-
 	// Asegurar que es un archivo .jar
 	originalName := pluginName
 	if !strings.HasSuffix(strings.ToLower(pluginName), ".jar") {
@@ -1796,7 +1849,8 @@ func deletePlugin(c *gin.Context) {
 		logging.Debug.Printf("deletePlugin: added .jar extension: '%s' -> '%s'", originalName, pluginName)
 	}
 
-	pluginPath := filepath.Join("plugins", pluginName)
+	// the same folder the list came from: mods/ on Fabric, Forge and NeoForge
+	pluginPath := filepath.Join(pluginFolder(server.PluginPlatform()), pluginName)
 	logging.Debug.Printf("deletePlugin: checking if file exists at path: '%s'", pluginPath)
 
 	_, err := server.GetFileServer().Stat(pluginPath)
@@ -1804,6 +1858,11 @@ func deletePlugin(c *gin.Context) {
 		logging.Error.Printf("deletePlugin: file not found at path '%s': %v", pluginPath, err)
 		response.HandleError(c, err, http.StatusNotFound)
 		return
+	}
+
+	// only once there is a file to remove, so a wrong name leaves no restore point behind
+	if err := server.CreateRestorePoint(servers.RestoreReasonPlugin); err != nil {
+		logging.Info.Printf("[%s] No restore point before removing a plugin: %s", server.ID(), err)
 	}
 
 	logging.Debug.Printf("deletePlugin: file found, attempting to remove: '%s'", pluginPath)

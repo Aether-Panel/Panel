@@ -3,7 +3,6 @@ package servers
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -251,9 +250,9 @@ func (p *Server) notify(enabled func(Notifications) bool, e notificationEvent) {
 }
 
 func (p *Server) notifyCrash(report CrashReport) {
-	status := "No se reinició automáticamente."
+	status := services.NotificationText("notify.notRestarted")
 	if report.Restarted {
-		status = fmt.Sprintf("Se está reiniciando solo (intento %d de %d).", report.Attempt, report.Limit)
+		status = services.NotificationText("notify.restarting", report.Attempt, report.Limit)
 	}
 	tail := report.Lines
 	if len(tail) > 12 {
@@ -261,8 +260,8 @@ func (p *Server) notifyCrash(report CrashReport) {
 	}
 	p.notify(func(n Notifications) bool { return n.Crash }, notificationEvent{
 		Kind:    "crash",
-		Title:   "💥 Caída del servidor",
-		Message: fmt.Sprintf("%s se ha caído (código de salida %d). %s", p.displayName(), report.ExitCode, status),
+		Title:   services.NotificationText("notify.crashTitle"),
+		Message: services.NotificationText("notify.crash", p.displayName(), report.ExitCode, status),
 		Color:   colorCrash,
 		Lines:   tail,
 		Extra:   map[string]interface{}{"exitCode": report.ExitCode, "restarted": report.Restarted},
@@ -272,25 +271,28 @@ func (p *Server) notifyCrash(report CrashReport) {
 func (p *Server) notifyBackup(success bool) {
 	e := notificationEvent{
 		Kind:    "backup",
-		Title:   "✅ Copia de seguridad completada",
-		Message: fmt.Sprintf("La copia de seguridad de %s se ha guardado correctamente.", p.displayName()),
+		Title:   services.NotificationText("notify.backupTitle"),
+		Message: services.NotificationText("notify.backup", p.displayName()),
 		Color:   colorSuccess,
 		Extra:   map[string]interface{}{"success": true},
 	}
 	if !success {
-		e.Title = "❌ La copia de seguridad falló"
-		e.Message = fmt.Sprintf("No se pudo completar la copia de seguridad de %s. Revisa la consola del servidor.", p.displayName())
+		e.Title = services.NotificationText("notify.backupFailedTitle")
+		e.Message = services.NotificationText("notify.backupFailed", p.displayName())
 		e.Color = colorCrash
 		e.Extra["success"] = false
 	}
 	p.notify(func(n Notifications) bool { return n.Backup }, e)
 }
 
+// notifyResource alerts on a resource ("CPU" or "Memoria", which the webhook's JSON keeps as
+// they are) over its threshold
 func (p *Server) notifyResource(resource string, value, threshold float64) {
+	label := resourceLabel(resource, true)
 	p.notify(func(n Notifications) bool { return n.Resources }, notificationEvent{
 		Kind:    "resources",
-		Title:   "⚠️ Uso alto de " + strings.ToLower(resource),
-		Message: fmt.Sprintf("%s está usando el %.0f %% de %s (aviso a partir del %.0f %%).", p.displayName(), value, strings.ToLower(resource), threshold),
+		Title:   services.NotificationText("notify.resourceTitle", label),
+		Message: services.NotificationText("notify.resource", p.displayName(), value, label, threshold),
 		Color:   colorWarning,
 		Extra:   map[string]interface{}{"resource": resource, "value": value, "threshold": threshold},
 	})
@@ -299,14 +301,14 @@ func (p *Server) notifyResource(resource string, value, threshold float64) {
 func (p *Server) notifyPower(running bool) {
 	e := notificationEvent{
 		Kind:    "power",
-		Title:   "🟢 Servidor encendido",
-		Message: fmt.Sprintf("%s está en línea.", p.displayName()),
+		Title:   services.NotificationText("notify.startedTitle"),
+		Message: services.NotificationText("notify.started", p.displayName()),
 		Color:   colorSuccess,
 		Extra:   map[string]interface{}{"running": true},
 	}
 	if !running {
-		e.Title = "⚪ Servidor apagado"
-		e.Message = fmt.Sprintf("%s se ha detenido.", p.displayName())
+		e.Title = services.NotificationText("notify.stoppedTitle")
+		e.Message = services.NotificationText("notify.stopped", p.displayName())
 		e.Color = colorInfo
 		e.Extra["running"] = false
 	}
@@ -329,8 +331,8 @@ func (p *Server) SendTestNotification() (map[string]string, error) {
 	results := make(map[string]string)
 	for channel, err := range p.deliver(n, notificationEvent{
 		Kind:    "test",
-		Title:   "🔔 Notificaciones conectadas",
-		Message: fmt.Sprintf("A partir de ahora recibirás aquí los avisos de %s.", p.displayName()),
+		Title:   services.NotificationText("notify.testTitle"),
+		Message: services.NotificationText("notify.test", p.displayName()),
 		Color:   colorInfo,
 	}) {
 		if err != nil {
@@ -340,4 +342,17 @@ func (p *Server) SendTestNotification() (map[string]string, error) {
 		}
 	}
 	return results, nil
+}
+
+// resourceLabel is the name of a resource alert's resource ("CPU" or "Memoria") in the
+// notification language, as a title word or, with inSentence, inside a sentence
+func resourceLabel(resource string, inSentence bool) string {
+	key := "resource.cpu"
+	if resource != "CPU" {
+		key = "resource.memory"
+	}
+	if inSentence {
+		key += ".inSentence"
+	}
+	return services.NotificationText(key)
 }

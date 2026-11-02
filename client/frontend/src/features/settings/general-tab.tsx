@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -308,6 +309,23 @@ export function GeneralTab({ localSettings, handleUpdate, t }: Readonly<GeneralT
                             />
                         </SettingsField>
                     </div>
+                </SettingsSection>
+
+                <SettingsSection title={t('settings.general.sections.notificationsTitle')} description={t('settings.general.sections.notificationsDescription')}>
+                    <SettingsField id="notification-language" label={t('settings.general.notificationLanguageLabel')} hint={t('settings.general.notificationLanguageDescription')} className="max-w-sm">
+                        <Select
+                            value={localSettings['panel.settings.notificationLanguage'] === 'en' ? 'en' : 'es'}
+                            onValueChange={(v) => handleUpdate('panel.settings.notificationLanguage', v)}
+                        >
+                            <SelectTrigger id="notification-language">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="es">{t('profileSettings.general.language_es')}</SelectItem>
+                                <SelectItem value="en">{t('profileSettings.general.language_en')}</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </SettingsField>
                 </SettingsSection>
 
                 <SettingsSection title={t('settings.general.sections.aiTitle')} description={t('settings.general.sections.aiDescription')}>
