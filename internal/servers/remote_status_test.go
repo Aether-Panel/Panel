@@ -4,6 +4,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/SkyPanel/SkyPanel/v3/internal/config"
+	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/stretchr/testify/assert"
 )
@@ -49,4 +51,15 @@ func TestNewNodeSnapshot_UnreachableNode(t *testing.T) {
 	online, offline := snapshot.onlineOffline()
 	assert.Zero(t, online)
 	assert.Zero(t, offline)
+}
+
+// Every status poll tells the node the panel's notification language
+func TestStatusPollHeaders_CarryTheNotificationLanguage(t *testing.T) {
+	t.Cleanup(func() { _ = config.NotificationLanguage.Set("es", false) })
+
+	_ = config.NotificationLanguage.Set("en", false)
+	assert.Equal(t, "en", statusPollHeaders().Get(services.NotificationLanguageHeader))
+
+	_ = config.NotificationLanguage.Set("es", false)
+	assert.Equal(t, "es", statusPollHeaders().Get(services.NotificationLanguageHeader))
 }

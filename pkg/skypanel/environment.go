@@ -135,6 +135,7 @@ func (e *Environment) CreateConsoleStdinProxy(config StdinConsoleConfiguration, 
 			IP:       config.IP,
 			Port:     config.Port,
 			Password: config.Password,
+			NoTLS:    !config.UsesTLS(),
 		}
 	case "", "stdin":
 		e.Console = &NoStartConsole{Base: base}

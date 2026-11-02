@@ -11,14 +11,48 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// registerBackupTransferRoutes adds the calls a node transfer uses to bring a server's backups
-// along: the panel copies each backup from the old node into the new one, and takes the
-// copies back out when the transfer is undone
-func registerBackupTransferRoutes(l *gin.RouterGroup) {
+// registerTransferRoutes adds the calls a node transfer uses besides the usual ones: the panel
+// copies each backup from the old node into the new one (and takes the copies back out when
+// the transfer is undone), and pauses the server's tasks on both nodes while it moves
+func registerTransferRoutes(l *gin.RouterGroup) {
 	l.PUT("/:serverId/backup/file", middleware.ResolveServerNode, receiveBackup)
 	l.DELETE("/:serverId/backup/file", middleware.ResolveServerNode, removeLocalBackup)
 	l.OPTIONS("/:serverId/backup/file", response.CreateOptions("PUT", "DELETE"))
 	l.GET("/:serverId/backup/busy", middleware.ResolveServerNode, backupBusy)
+	l.POST("/:serverId/scheduler/pause", middleware.ResolveServerNode, pauseScheduler)
+	l.POST("/:serverId/scheduler/resume", middleware.ResolveServerNode, resumeScheduler)
+}
+
+// @Summary Pause the server's tasks
+// @Description Keeps the server's scheduled tasks from running until they are resumed, also across a restart of the node. A node transfer pauses them while it moves the server.
+// @Success 204 {object} nil
+// @Param id path string true "Server ID"
+// @Tags Daemon Server
+// @Router /daemon/server/{id}/scheduler/pause [post]
+func pauseScheduler(c *gin.Context) {
+	setSchedulerPaused(c, true)
+}
+
+// @Summary Resume the server's tasks
+// @Description Lets the server's scheduled tasks run again after a pause
+// @Success 204 {object} nil
+// @Param id path string true "Server ID"
+// @Tags Daemon Server
+// @Router /daemon/server/{id}/scheduler/resume [post]
+func resumeScheduler(c *gin.Context) {
+	setSchedulerPaused(c, false)
+}
+
+func setSchedulerPaused(c *gin.Context, paused bool) {
+	server := getServerFromGin(c)
+	if server.Scheduler == nil {
+		response.HandleError(c, errors.New("the server has no scheduler"), http.StatusInternalServerError)
+		return
+	}
+	if response.HandleError(c, server.Scheduler.SetPaused(paused), http.StatusInternalServerError) {
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
 
 // @Summary Is a backup running

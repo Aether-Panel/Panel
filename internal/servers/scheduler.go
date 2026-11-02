@@ -58,6 +58,10 @@ type Scheduler struct {
 	Timezone        string                   `json:"timezone,omitempty"`
 	ConcurrentLimit uint                     `json:"concurrentLimit"`
 	LimitMode       string                   `json:"limitMode"`
+
+	// Paused keeps the tasks from running while the server is moved to another node. It is
+	// saved, so a node that restarts meanwhile keeps them paused.
+	Paused bool `json:"paused,omitempty"`
 }
 
 // LoadScheduler Loads the scheduler from the serverid.cron file, or defaults
@@ -273,6 +277,12 @@ func runScheduledTask(serverID, id string) {
 
 	task, ok := p.Scheduler.GetTask(id)
 	if !ok {
+		return
+	}
+	// a task run on a server being moved would act on a copy about to be thrown away, or
+	// start the server in the middle of the copy
+	if p.Scheduler.IsPaused() {
+		logging.Info.Printf("[%s] Task %s skipped: the server is being moved to another node", serverID, id)
 		return
 	}
 

@@ -48,6 +48,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useState, useEffect, lazy, Suspense, useRef, Fragment, useCallback, type ReactNode } from 'react';
 import { useTranslations } from '@/contexts/translations-context';
 import { api } from '@/lib/api-client';
@@ -205,9 +206,13 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
   const [renameTarget, setRenameTarget] = useState<FileItemResource | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [isRenaming, setIsRenaming] = useState(false);
-  const [compressTarget, setCompressTarget] = useState<FileItemResource | null>(null);
+  // names (in the folder being browsed) the archive is made from; null while the dialog is closed
+  const [compressItems, setCompressItems] = useState<string[] | null>(null);
   const [compressName, setCompressName] = useState('');
   const [isCompressing, setIsCompressing] = useState(false);
+  // names ticked in the folder being browsed; a folder change starts a new selection
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
   const [clipboard, setClipboard] = useState<ClipboardItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -245,8 +250,42 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
   };
 
   useEffect(() => {
+    setSelected(new Set());
     void fetchFiles(currentPath);
   }, [currentPath, serverId]);
+
+  // after a refresh, forget ticks on names that are no longer in the folder
+  useEffect(() => {
+    setSelected((prev) => {
+      if (prev.size === 0) return prev;
+      const names = new Set(files.map((f) => f.name));
+      const kept = [...prev].filter((name) => names.has(name));
+      return kept.length === prev.size ? prev : new Set(kept);
+    });
+  }, [files]);
+
+  // every entry but the ".." link to the parent folder can be ticked
+  const selectableNames = files.filter((f) => !(f.name === '..' && !f.isFile) && f.name !== '.').map((f) => f.name);
+  const selectedCount = selected.size;
+  const allSelected = selectableNames.length > 0 && selectableNames.every((name) => selected.has(name));
+  let selectAllState: boolean | 'indeterminate' = false;
+  if (allSelected) selectAllState = true;
+  else if (selectedCount > 0) selectAllState = 'indeterminate';
+
+  const toggleSelected = (name: string, checked: boolean) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(name);
+      else next.delete(name);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    setSelected(allSelected ? new Set() : new Set(selectableNames));
+  };
+
+  const clearSelection = () => setSelected(new Set());
 
   const openFolder = (name: string) => {
     if (name === '..') {
@@ -487,6 +526,38 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
     }
   };
 
+  // one DELETE per item, the same call the row menu makes; they run one after another so a
+  // failure stops early and the toast can say how many went
+  const handleBulkDelete = async () => {
+    const names = selectableNames.filter((name) => selected.has(name));
+    setBulkDeleteOpen(false);
+    if (names.length === 0) return;
+    setIsLoading(true);
+    let deleted = 0;
+    try {
+      for (const name of names) {
+        await api.delete(fileUrl(joinPath(currentPath, name)));
+        deleted++;
+      }
+      sileo.success({ title: t('common.success'), description: t('servers.fileManager.toast.deletedMany', { count: deleted }) });
+    } catch (e: any) {
+      const reason = e.message || t('servers.fileManager.toast.deleteError');
+      sileo.error({
+        title: t('common.error'),
+        description: deleted > 0 ? t('servers.fileManager.toast.deletedPartly', { count: deleted, total: names.length, reason }) : reason,
+      });
+    } finally {
+      clearSelection();
+      setIsLoading(false);
+      void fetchFiles(currentPath);
+      // Ensure Radix alert-dialog cleanup finished so the UI is not left blocked
+      setTimeout(() => {
+        document.body.style.pointerEvents = 'auto';
+        document.body.style.overflow = 'auto';
+      }, 100);
+    }
+  };
+
   const openRename = (file: FileItemResource) => {
     setRenameTarget(file);
     setRenameValue(file.name);
@@ -543,26 +614,34 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
     }
   };
 
-  const openCompress = (file: FileItemResource) => {
-    setCompressTarget(file);
-    setCompressName(`${file.name}.zip`);
+  const openCompress = (names: string[]) => {
+    if (names.length === 0) return;
+    setCompressItems(names);
+    // one item is named after itself; several after the folder they are in
+    const base = names.length === 1 ? names[0] : currentPath.split('/').pop() || 'archive';
+    setCompressName(`${base}.zip`);
   };
 
   const closeCompress = () => {
-    setCompressTarget(null);
+    setCompressItems(null);
     setCompressName('');
     setIsCompressing(false);
   };
 
   const handleCompress = async () => {
-    if (!compressTarget || !compressName.trim() || isCompressing) return;
+    if (!compressItems || !compressName.trim() || isCompressing) return;
     setIsCompressing(true);
     try {
       const archiveName = withArchiveExtension(compressName.trim());
       // the daemon reads both the items and the archive path from the server root, and picks
-      // the format from the archive's extension; it refuses to overwrite an existing file
-      await api.post(`/api/servers/${serverId}/archive/${encodePath(joinPath(currentPath, archiveName))}`, [joinPath(currentPath, compressTarget.name)]);
+      // the format from the archive's extension; it refuses to overwrite an existing file.
+      // All the items go in one request, so they end up in one archive.
+      await api.post(
+        `/api/servers/${serverId}/archive/${encodePath(joinPath(currentPath, archiveName))}`,
+        compressItems.map((name) => joinPath(currentPath, name))
+      );
       sileo.success({ title: t('common.success'), description: t('servers.fileManager.toast.compressed', { name: archiveName }) });
+      if (compressItems.length > 1) clearSelection();
       closeCompress();
       // Ensure Radix Dialog/DropdownMenu cleanup finished so the UI is not left blocked
       setTimeout(() => {
@@ -741,7 +820,7 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
             {t('servers.fileManager.actions.unarchive')}
           </DropdownMenuItem>
         ) : null}
-        <DropdownMenuItem onClick={() => setTimeout(() => openCompress(file), 50)}>
+        <DropdownMenuItem onClick={() => setTimeout(() => openCompress([file.name]), 50)}>
           <Archive className="mr-2 h-4 w-4" aria-hidden="true" />
           {t('servers.fileManager.actions.compress')}
         </DropdownMenuItem>
@@ -815,6 +894,15 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
         <Table>
           <TableHeader className="bg-transparent">
             <TableRow className="border-border/50 hover:bg-transparent">
+              <TableHead className="w-10 pl-3 sm:pl-4">
+                <Checkbox
+                  checked={selectAllState}
+                  onCheckedChange={toggleSelectAll}
+                  disabled={selectableNames.length === 0}
+                  aria-label={t('servers.fileManager.selection.selectAll')}
+                  className={CHECKBOX_HIT_AREA}
+                />
+              </TableHead>
               <TableHead>{t('servers.fileManager.table.name')}</TableHead>
               <TableHead className="hidden w-28 sm:table-cell">{t('servers.fileManager.table.size')}</TableHead>
               <TableHead className="hidden w-48 lg:table-cell">{t('servers.fileManager.table.modified')}</TableHead>
@@ -828,8 +916,23 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
               const isParent = !file.isFile && file.name === '..';
               const meta = rowMeta(file, isParent);
               const MetaIcon = meta.icon;
+              const isSelected = selected.has(file.name);
               return (
-                <TableRow key={file.name} className="group border-border/50 hover:bg-accent/30">
+                <TableRow
+                  key={file.name}
+                  data-state={isSelected ? 'selected' : undefined}
+                  className="group border-border/50 hover:bg-accent/30 data-[state=selected]:bg-primary/[0.06]"
+                >
+                  <TableCell className="w-10 py-2.5 pl-3 sm:pl-4">
+                    {!isParent && (
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={(checked) => toggleSelected(file.name, checked === true)}
+                        aria-label={t('servers.fileManager.selection.select', { name: file.name })}
+                        className={CHECKBOX_HIT_AREA}
+                      />
+                    )}
+                  </TableCell>
                   {/* w-full + max-w-0 lets the name column absorb the free width and truncate */}
                   <TableCell className="w-full max-w-0 py-2.5">
                     <button
@@ -933,6 +1036,15 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
               <ClipboardBar clipboard={clipboard} disabled={isLoading} onPaste={handlePaste} onClear={() => setClipboard(null)} />
             )}
           </div>
+
+          {selectedCount > 0 && !isLoading && (
+            <SelectionBar
+              count={selectedCount}
+              onCompress={() => openCompress(selectableNames.filter((name) => selected.has(name)))}
+              onDelete={() => setBulkDeleteOpen(true)}
+              onClear={clearSelection}
+            />
+          )}
 
           {body}
         </CardContent>
@@ -1101,12 +1213,14 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
       </Dialog>
 
       {/* Compress Dialog */}
-      <Dialog open={!!compressTarget} onOpenChange={(open) => !open && closeCompress()}>
+      <Dialog open={!!compressItems} onOpenChange={(open) => !open && closeCompress()}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>{t('servers.fileManager.compressDialog.title')}</DialogTitle>
             <DialogDescription>
-              {t('servers.fileManager.compressDialog.description', { name: compressTarget?.name ?? '' })}
+              {compressItems && compressItems.length > 1
+                ? t('servers.fileManager.compressDialog.descriptionMany', { count: compressItems.length })
+                : t('servers.fileManager.compressDialog.description', { name: compressItems?.[0] ?? '' })}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -1135,7 +1249,73 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Selected Dialog */}
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('servers.fileManager.deleteDialog.title')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectedCount === 1
+                ? t('servers.fileManager.deleteDialog.description', { name: [...selected][0] ?? '' })
+                : t('servers.fileManager.deleteDialog.descriptionMany', { count: selectedCount })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {t('servers.fileManager.actions.delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
+  );
+}
+
+// The checkbox is drawn at 16px but answers taps on a larger square around it, so it stays
+// easy to hit on a phone without making the row taller
+const CHECKBOX_HIT_AREA = "relative align-middle after:absolute after:-inset-3 after:content-['']";
+
+function SelectionBar({ count, onCompress, onDelete, onClear }: Readonly<{ count: number; onCompress: () => void; onDelete: () => void; onClear: () => void }>) {
+  const { t } = useTranslations();
+  return (
+    <div
+      role="toolbar"
+      aria-label={t('servers.fileManager.selection.toolbar')}
+      className="flex flex-wrap items-center gap-1 rounded-lg border border-primary/25 bg-primary/[0.05] p-1 animate-in fade-in-0 duration-150"
+    >
+      {/* on a phone the count and the clear button share the first line and the actions get
+          their own, so they keep their labels; from sm up everything sits on one line */}
+      <output className="order-1 min-w-0 flex-1 truncate px-2 text-xs font-medium tabular-nums" aria-live="polite">
+        {count === 1 ? t('servers.fileManager.selection.countOne') : t('servers.fileManager.selection.countMany', { count })}
+      </output>
+      <div className="order-3 flex w-full gap-1 sm:w-auto">
+        <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={onCompress}>
+          <Archive aria-hidden="true" />
+          {t('servers.fileManager.selection.compress')}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 px-2 text-xs text-destructive-bright hover:bg-destructive/10 hover:text-destructive-bright"
+          onClick={onDelete}
+        >
+          <Trash2 aria-hidden="true" />
+          {t('servers.fileManager.selection.delete')}
+        </Button>
+      </div>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="order-2 h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground sm:order-4"
+        onClick={onClear}
+        aria-label={t('servers.fileManager.selection.clear')}
+        title={t('servers.fileManager.selection.clear')}
+      >
+        <X aria-hidden="true" />
+      </Button>
+    </div>
   );
 }
 

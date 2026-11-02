@@ -21,6 +21,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/offsite"
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
 	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
+	"github.com/SkyPanel/SkyPanel/v3/internal/servers"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	"github.com/SkyPanel/SkyPanel/v3/internal/update"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
@@ -156,11 +157,13 @@ func setSetting(c *gin.Context) {
 		return
 	}
 
+	previousLanguage := services.NotificationLanguage()
 	if err = applyEditableSetting(key, model.Value); response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
 
 	services.SyncNodeToConfig()
+	pushNotificationLanguageIfChanged(previousLanguage)
 
 	c.Status(http.StatusNoContent)
 }
@@ -231,6 +234,7 @@ func setSettings(c *gin.Context) {
 		}
 	}
 
+	previousLanguage := services.NotificationLanguage()
 	for key, value := range *settings {
 		// Intercept the custom global setting
 		if key == masterNodeIPKey {
@@ -244,8 +248,17 @@ func setSettings(c *gin.Context) {
 	}
 
 	services.SyncNodeToConfig()
+	pushNotificationLanguageIfChanged(previousLanguage)
 
 	c.Status(http.StatusNoContent)
+}
+
+// pushNotificationLanguageIfChanged sends a changed notification language to the remote nodes
+// now: the status poll carries it, and would otherwise only run within the next 30 seconds
+func pushNotificationLanguageIfChanged(previous string) {
+	if services.NotificationLanguage() != previous {
+		servers.PollRemoteNodesNow()
+	}
 }
 
 func getSettings(c *gin.Context) {

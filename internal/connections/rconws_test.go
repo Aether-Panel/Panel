@@ -16,9 +16,15 @@ import (
 
 // startRCONWSServer answers on wss://host:port/secret and passes on every command it gets
 func startRCONWSServer(t *testing.T) (messages chan rconwsMessage, host, port string) {
+	return startRCONWSServerWith(t, httptest.NewTLSServer)
+}
+
+// startRCONWSServerWith is startRCONWSServer on a server newServer starts: httptest.NewServer
+// for plain ws://, httptest.NewTLSServer for wss://
+func startRCONWSServerWith(t *testing.T, newServer func(http.Handler) *httptest.Server) (messages chan rconwsMessage, host, port string) {
 	messages = make(chan rconwsMessage, 16)
 	upgrader := websocket.Upgrader{}
-	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := newServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/secret" {
 			http.NotFound(w, r)
 			return
@@ -91,7 +97,7 @@ func TestRCONWSURL_EscapesThePassword(t *testing.T) {
 	password := "p/a?ss#w%rd x"
 	addr := &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 28016}
 
-	got := rconwsURL(addr, password)
+	got := rconwsURL(addr, password, true)
 
 	assert.Equal(t, "wss://127.0.0.1:28016/p%2Fa%3Fss%23w%25rd%20x", got)
 	u, err := url.Parse(got)
@@ -100,5 +106,31 @@ func TestRCONWSURL_EscapesThePassword(t *testing.T) {
 	assert.Empty(t, u.RawQuery)
 	assert.Empty(t, u.Fragment)
 
-	assert.Equal(t, "wss://[::1]:28016/secret", rconwsURL(&net.TCPAddr{IP: net.ParseIP("::1"), Port: 28016}, "secret"))
+	assert.Equal(t, "wss://[::1]:28016/secret", rconwsURL(&net.TCPAddr{IP: net.ParseIP("::1"), Port: 28016}, "secret", true))
+}
+
+// Rust's WebRCON serves plain ws://: a console with "secure": false dials it
+func TestRCONWSURL_PlainWebSocket(t *testing.T) {
+	addr := &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 28016}
+
+	assert.Equal(t, "ws://127.0.0.1:28016/p%2Fw", rconwsURL(addr, "p/w", false))
+	assert.Equal(t, "wss://127.0.0.1:28016/p%2Fw", rconwsURL(addr, "p/w", true))
+}
+
+func TestRCONWSConnection_SendsCommandsOverPlainWebSocket(t *testing.T) {
+	messages, host, port := startRCONWSServerWith(t, httptest.NewServer)
+	tc := &RCONWSConnection{IP: host, Port: port, Password: "secret", NoTLS: true}
+	tc.Start()
+	defer func() { _ = tc.Close() }()
+	waitForConnection(t, func() bool { return tc.readyConnection() != nil })
+
+	_, err := tc.Write([]byte("say hi"))
+
+	assert.NoError(t, err)
+	select {
+	case m := <-messages:
+		assert.Equal(t, "say hi", m.Message)
+	case <-time.After(5 * time.Second):
+		t.Fatal("the command never arrived")
+	}
 }

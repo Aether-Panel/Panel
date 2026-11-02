@@ -177,6 +177,7 @@ func newTransferSource(id string, running bool) *fakeTransferNode {
 	prefix := "GET /daemon/server/" + id
 	answers := map[string]fakeAnswer{}
 	answers[prefix+"/definition"] = fakeAnswer{status: http.StatusOK, body: `{"type":"minecraft"}`}
+	answers[prefix+"/tasks"] = fakeAnswer{status: http.StatusOK, body: `{"tasks":{"restart":{"name":"Daily restart","cronSchedule":"0 5 * * *"}}}`}
 	answers[prefix+"/file/transfer.tar.gz"] = fakeAnswer{status: http.StatusOK, body: "ARCHIVE"}
 	answers[prefix+"/backup"] = fakeAnswer{status: http.StatusOK, body: `[
 		{"fileName":"a.tar.gz","location":"local","modTime":"2026-03-01T12:00:00Z"},
@@ -221,6 +222,8 @@ func TestMoveServers_CopiesFilesAndBackupsBeforeTheRecordMoves(t *testing.T) {
 	assert.True(t, committed)
 	assert.Equal(t, []string{
 		"PUT /daemon/server/srv01",
+		"POST /daemon/server/srv01/scheduler/pause",
+		"PUT /daemon/server/srv01/tasks/restart",
 		"PUT /daemon/server/srv01/file/transfer.tar.gz",
 		"POST /daemon/server/srv01/extract/transfer.tar.gz?destination=.",
 		"DELETE /daemon/server/srv01/file/transfer.tar.gz",
@@ -230,6 +233,8 @@ func TestMoveServers_CopiesFilesAndBackupsBeforeTheRecordMoves(t *testing.T) {
 	assert.Equal(t, "BACKUP A", target.uploads["PUT /daemon/server/srv01/backup/file?fileName=a.tar.gz&modTime=2026-03-01T12%3A00%3A00Z"])
 	assert.Contains(t, target.uploads["PUT /daemon/server/srv01/file/transfer.tar.gz"], "ARCHIVE")
 	assert.Equal(t, `{"type":"minecraft"}`, target.uploads["PUT /daemon/server/srv01"])
+	assert.Equal(t, `{"name":"Daily restart","cronSchedule":"0 5 * * *"}`, target.uploads["PUT /daemon/server/srv01/tasks/restart"], "its tasks go with it")
+	assert.Equal(t, "POST /daemon/server/srv01/scheduler/pause", source.calls[0], "no task runs on the old node while it moves")
 
 	assert.Equal(t, "DELETE /daemon/server/srv01", source.calls[len(source.calls)-1], "removed from the old node with its backups, last")
 	assert.Empty(t, callsWithPrefix(source.calls, "POST /daemon/server/srv01/start?wait=true"))
@@ -251,8 +256,10 @@ func TestMoveServers_AFailedBackupCopyUndoesTheTransfer(t *testing.T) {
 	assert.False(t, committed, "the panel keeps pointing at the old node")
 	assert.Equal(t, []string{
 		"DELETE /daemon/server/srv01/backup/file?fileName=a.tar.gz",
+		"DELETE /daemon/server/srv01/backup/file?fileName=auto-b.tar.gz",
 		"DELETE /daemon/server/srv01?keepBackups=true",
-	}, target.calls[len(target.calls)-2:], "the copies it made go, then the server")
+	}, target.calls[len(target.calls)-3:], "the copies it made or began go, then the server")
+	assert.Equal(t, "POST /daemon/server/srv01/scheduler/resume", source.calls[len(source.calls)-2], "its tasks run again where it is")
 	assert.Equal(t, "POST /daemon/server/srv01/start?wait=true", source.calls[len(source.calls)-1], "it runs again where it was")
 	assert.True(t, source.running)
 	assert.NotContains(t, source.calls, "DELETE /daemon/server/srv01")
@@ -271,7 +278,12 @@ func TestMoveServers_AFailedArchiveRestartsTheServer(t *testing.T) {
 	})
 
 	require.Error(t, err)
-	assert.Equal(t, []string{"PUT /daemon/server/srv01", "DELETE /daemon/server/srv01?keepBackups=true"}, target.calls)
+	assert.Equal(t, []string{
+		"PUT /daemon/server/srv01",
+		"POST /daemon/server/srv01/scheduler/pause",
+		"PUT /daemon/server/srv01/tasks/restart",
+		"DELETE /daemon/server/srv01?keepBackups=true",
+	}, target.calls)
 	assert.Equal(t, "POST /daemon/server/srv01/start?wait=true", source.calls[len(source.calls)-1])
 }
 
@@ -296,7 +308,11 @@ func TestMoveServers_NothingToUndoWhenTheDefinitionCannotBeRead(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Empty(t, target.calls)
-	assert.Equal(t, []string{"GET /daemon/server/srv01/definition"}, source.calls, "it was never stopped")
+	assert.Equal(t, []string{
+		"POST /daemon/server/srv01/scheduler/pause",
+		"GET /daemon/server/srv01/definition",
+		"POST /daemon/server/srv01/scheduler/resume",
+	}, source.calls, "it was never stopped, and its tasks run again")
 	assert.True(t, source.running)
 }
 
@@ -402,19 +418,33 @@ func TestStreamArchive_ACopyCutShortFailsTheUpload(t *testing.T) {
 	assert.Contains(t, err.Error(), "connection lost")
 }
 
-func TestStartMovedServers_StartsOnlyThoseThatWereRunning(t *testing.T) {
-	target := &fakeTransferNode{fail: map[string]int{"POST /daemon/server/sub01/start": http.StatusConflict}}
+func TestResumeMovedServers_StartsOnlyThoseThatWereRunning(t *testing.T) {
+	parent := &fakeTransferNode{}
+	child := &fakeTransferNode{fail: map[string]int{"POST /daemon/server/sub01/start": http.StatusConflict}}
+	stopped := &fakeTransferNode{}
 	moves := []*serverMove{
-		{id: "srv01", target: target.call, wasRunning: true},
-		{id: "sub01", target: target.call, wasRunning: true},
-		{id: "sub02", target: target.call},
+		{id: "srv01", target: parent.call, wasRunning: true},
+		{id: "sub01", target: child.call, wasRunning: true},
+		{id: "sub02", target: stopped.call},
 	}
 
-	failed := startMovedServers(moves)
+	failed := resumeMovedServers(moves)
 
-	assert.Equal(t, []string{"POST /daemon/server/srv01/start?wait=true", "POST /daemon/server/sub01/start?wait=true"}, target.calls)
+	assert.Equal(t, []string{
+		"POST /daemon/server/srv01/scheduler/resume",
+		"GET /daemon/server/srv01/status",
+		"POST /daemon/server/srv01/start?wait=true",
+	}, parent.calls)
+	assert.Equal(t, []string{"POST /daemon/server/sub02/scheduler/resume"}, stopped.calls, "its tasks come back, but it stays stopped")
 	require.Len(t, failed, 1, "a server that does not start is reported")
 	assert.Contains(t, failed["sub01"].Error(), "node says no")
+}
+
+func TestResumeMovedServers_LeavesARunningServerAlone(t *testing.T) {
+	target := &fakeTransferNode{running: true}
+
+	assert.Empty(t, resumeMovedServers([]*serverMove{{id: "srv01", target: target.call, wasRunning: true}}))
+	assert.Empty(t, callsWithPrefix(target.calls, "POST /daemon/server/srv01/start"), "started before the panel restarted")
 }
 
 func TestMoveServers_ARunningServerIsStartedOnTheNewNodeAfterwards(t *testing.T) {
@@ -424,7 +454,7 @@ func TestMoveServers_ARunningServerIsStartedOnTheNewNodeAfterwards(t *testing.T)
 	moves := []*serverMove{{id: "srv01", source: source.call, target: target.call}}
 
 	require.NoError(t, moveServers(moves, func() error { return nil }))
-	assert.Empty(t, startMovedServers(moves))
+	assert.Empty(t, resumeMovedServers(moves))
 
 	assert.Equal(t, "POST /daemon/server/srv01/start?wait=true", target.calls[len(target.calls)-1])
 	assert.True(t, target.running)
@@ -464,19 +494,26 @@ func TestFirstWithBackupRunning_OnlyWhenTheNodeSaysSo(t *testing.T) {
 func TestClaimTransfer_AllOrNone(t *testing.T) {
 	t.Cleanup(func() { releaseTransfer([]string{"srv01", "sub01", "sub02"}) })
 
-	require.True(t, claimTransfer([]string{"srv01", "sub01"}))
-	assert.False(t, claimTransfer([]string{"sub02", "sub01"}), "one of them is already being moved")
-	assert.True(t, claimTransfer([]string{"sub02"}), "a refused claim takes nothing")
+	claim := func(ids ...string) bool {
+		claimed, err := claimTransfer(nil, ids)
+		require.NoError(t, err)
+		return claimed
+	}
+	require.True(t, claim("srv01", "sub01"))
+	assert.False(t, claim("sub02", "sub01"), "one of them is already being moved")
+	assert.True(t, claim("sub02"), "a refused claim takes nothing")
 
 	releaseTransfer([]string{"srv01", "sub01"})
-	assert.True(t, claimTransfer([]string{"srv01"}))
+	assert.True(t, claim("srv01"))
 }
 
 func TestTransferServer_RefusesASecondTransfer(t *testing.T) {
 	db := setupExTransferTest(t)
 	require.NoError(t, db.Omit(clause.Associations).Create(&models.Server{Identifier: "srv01", Name: "srv01", Type: "generic"}).Error)
 	newTransferTargetNode(t, db)
-	require.True(t, claimTransfer([]string{"srv01"}))
+	claimed, err := claimTransfer(nil, []string{"srv01"})
+	require.NoError(t, err)
+	require.True(t, claimed)
 	t.Cleanup(func() { releaseTransfer([]string{"srv01"}) })
 
 	w := httptest.NewRecorder()
@@ -490,7 +527,9 @@ func TestTransferServer_RefusesASecondTransfer(t *testing.T) {
 
 	assert.Equal(t, http.StatusConflict, w.Code)
 	assert.Contains(t, w.Body.String(), "ErrTransferRunning")
-	assert.False(t, claimTransfer([]string{"srv01"}), "the refused request leaves the running transfer's claim alone")
+	claimed, err = claimTransfer(nil, []string{"srv01"})
+	require.NoError(t, err)
+	assert.False(t, claimed, "the refused request leaves the running transfer's claim alone")
 }
 
 func TestRecordTransferActivity_UnderWhoAskedForIt(t *testing.T) {
@@ -511,4 +550,159 @@ func TestRecordTransferActivity_UnderWhoAskedForIt(t *testing.T) {
 	assert.Equal(t, uint(4), *entries[0].UserID)
 	assert.Equal(t, "server.transferStartFailed", entries[1].Action)
 	assert.Nil(t, entries[1].UserID)
+}
+
+// setupNodeTransferTest is a database with the tables a recorded transfer uses
+func setupNodeTransferTest(t *testing.T) *gorm.DB {
+	db := setupExTransferTest(t)
+	require.NoError(t, db.AutoMigrate(&models.NodeTransfer{}, &models.ServerActivity{}))
+	for _, id := range []string{"srv01", "sub01"} {
+		require.NoError(t, db.Omit(clause.Associations).Create(&models.Server{Identifier: id, Name: id, Type: "generic"}).Error)
+	}
+	return db
+}
+
+func reloadNodeTransfer(t *testing.T, db *gorm.DB, id uint) models.NodeTransfer {
+	var record models.NodeTransfer
+	require.NoError(t, db.First(&record, id).Error)
+	return record
+}
+
+func TestTransferRun_SavesHowFarEachServerGot(t *testing.T) {
+	noKillWait(t)
+	db := setupNodeTransferTest(t)
+	family := []*models.Server{{Identifier: "srv01", NodeID: 3}}
+	record, err := recordNodeTransfer(db, family, &models.Node{ID: 7}, &models.User{ID: 4})
+	require.NoError(t, err)
+
+	source := newTransferSource("srv01", true)
+	target := &fakeTransferNode{}
+	run := &transferRun{db: db, record: record}
+	m := &serverMove{id: "srv01", sourceNodeID: 3, source: source.call, target: target.call, persist: run.save}
+	run.moves = []*serverMove{m}
+
+	err = moveServers(run.moves, func() error {
+		saved := reloadNodeTransfer(t, db, record.ID)
+		require.Len(t, saved.Moves, 1)
+		assert.Equal(t, models.NodeTransferMove{
+			ServerID:      "srv01",
+			SourceNodeID:  3,
+			Step:          stepCopied,
+			WasRunning:    true,
+			CopiedBackups: []string{"a.tar.gz", "auto-b.tar.gz"},
+		}, saved.Moves[0], "what a panel that restarts now needs to undo it")
+		assert.False(t, saved.Committed)
+		require.NotNil(t, saved.UserID)
+		assert.Equal(t, uint(4), *saved.UserID)
+		return errors.New("database is gone")
+	})
+
+	require.Error(t, err)
+}
+
+func TestClaimTransfer_ARecordedTransferHoldsItsServers(t *testing.T) {
+	db := setupNodeTransferTest(t)
+	_, err := recordNodeTransfer(db, []*models.Server{{Identifier: "srv01"}, {Identifier: "sub01"}}, &models.Node{ID: 7}, nil)
+	require.NoError(t, err)
+
+	claimed, err := claimTransfer(db, []string{"sub01"})
+	require.NoError(t, err)
+	assert.False(t, claimed, "a transfer from before a restart still holds its sub-server")
+
+	claimed, err = claimTransfer(db, []string{"other01"})
+	require.NoError(t, err)
+	assert.True(t, claimed)
+	releaseTransfer([]string{"other01"})
+}
+
+// recoveryNodes answers for nodes 3 (the old one) and 7 (the new one)
+func recoveryNodes(source, target *fakeTransferNode) func(uint) (nodeCaller, error) {
+	return func(id uint) (nodeCaller, error) {
+		switch id {
+		case 3:
+			return source.call, nil
+		case 7:
+			return target.call, nil
+		}
+		return nil, errors.New("no such node")
+	}
+}
+
+func TestRecoverNodeTransfers_UndoesOneNotCommitted(t *testing.T) {
+	db := setupNodeTransferTest(t)
+	user := &models.User{Username: "alice", Email: "alice@example.com", HashedPassword: "x"}
+	require.NoError(t, db.Create(user).Error)
+	record := &models.NodeTransfer{ServerID: "srv01", TargetNodeID: 7, UserID: &user.ID, Moves: []models.NodeTransferMove{
+		{ServerID: "srv01", SourceNodeID: 3, Step: stepCopyingBackups, WasRunning: true, CopiedBackups: []string{"a.tar.gz"}},
+		{ServerID: "sub01", SourceNodeID: 3, Step: stepWaiting},
+	}}
+	require.NoError(t, db.Create(record).Error)
+	source := &fakeTransferNode{}
+	target := &fakeTransferNode{}
+
+	recoverNodeTransfers(db, recoveryNodes(source, target))
+
+	assert.Equal(t, []string{
+		"DELETE /daemon/server/sub01?keepBackups=true",
+		"DELETE /daemon/server/srv01/backup/file?fileName=a.tar.gz",
+		"DELETE /daemon/server/srv01?keepBackups=true",
+	}, target.calls, "what it may have left on the new node goes")
+	assert.Equal(t, "POST /daemon/server/srv01/scheduler/resume", source.calls[len(source.calls)-2])
+	assert.Equal(t, "POST /daemon/server/srv01/start?wait=true", source.calls[len(source.calls)-1], "it runs again where it was")
+	assert.Contains(t, source.calls, "POST /daemon/server/sub01/scheduler/resume")
+	assert.Empty(t, callsWithPrefix(source.calls, "POST /daemon/server/sub01/start"), "it was not running")
+	assert.Empty(t, callsWithPrefix(source.calls, "DELETE /daemon/server/srv01?"), "the old node keeps it")
+
+	var count int64
+	require.NoError(t, db.Model(&models.NodeTransfer{}).Count(&count).Error)
+	assert.Zero(t, count, "the transfer has ended")
+
+	var entries []models.ServerActivity
+	require.NoError(t, db.Where("server_id = ?", "srv01").Find(&entries).Error)
+	require.Len(t, entries, 1)
+	assert.Equal(t, activityTransferFailed, entries[0].Action)
+	assert.Contains(t, entries[0].Detail, "panel restarted")
+	assert.Contains(t, entries[0].Detail, stepCopyingBackups)
+	assert.Equal(t, "alice", entries[0].Username)
+}
+
+func TestRecoverNodeTransfers_FinishesOneCommitted(t *testing.T) {
+	db := setupNodeTransferTest(t)
+	record := &models.NodeTransfer{ServerID: "srv01", TargetNodeID: 7, Committed: true, Moves: []models.NodeTransferMove{
+		{ServerID: "srv01", SourceNodeID: 3, Step: stepCopied, WasRunning: true},
+		{ServerID: "sub01", SourceNodeID: 3, Step: stepCopied},
+	}}
+	require.NoError(t, db.Create(record).Error)
+	source := &fakeTransferNode{}
+	target := &fakeTransferNode{}
+
+	recoverNodeTransfers(db, recoveryNodes(source, target))
+
+	assert.Equal(t, []string{"DELETE /daemon/server/srv01", "DELETE /daemon/server/sub01"}, source.calls, "only the old copies go")
+	assert.Equal(t, []string{
+		"POST /daemon/server/srv01/scheduler/resume",
+		"GET /daemon/server/srv01/status",
+		"POST /daemon/server/srv01/start?wait=true",
+		"POST /daemon/server/sub01/scheduler/resume",
+	}, target.calls, "the tasks come back on the new node, and what ran starts there")
+
+	var count int64
+	require.NoError(t, db.Model(&models.NodeTransfer{}).Count(&count).Error)
+	assert.Zero(t, count)
+	require.NoError(t, db.Model(&models.ServerActivity{}).Count(&count).Error)
+	assert.Zero(t, count, "nothing failed")
+}
+
+func TestRecoverNodeTransfers_ANodeThatIsGoneStillEndsTheRecord(t *testing.T) {
+	db := setupNodeTransferTest(t)
+	record := &models.NodeTransfer{ServerID: "srv01", TargetNodeID: 9, Moves: []models.NodeTransferMove{{ServerID: "srv01", SourceNodeID: 3, Step: stepCreating}}}
+	require.NoError(t, db.Create(record).Error)
+	source := &fakeTransferNode{}
+
+	recoverNodeTransfers(db, recoveryNodes(source, &fakeTransferNode{}))
+
+	assert.Contains(t, source.calls, "POST /daemon/server/srv01/scheduler/resume", "the old node is still reached")
+	var count int64
+	require.NoError(t, db.Model(&models.NodeTransfer{}).Count(&count).Error)
+	assert.Zero(t, count)
 }

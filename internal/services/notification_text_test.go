@@ -63,3 +63,30 @@ func keysOf[V any](m map[string]V) []string {
 	}
 	return keys
 }
+
+// A remote node follows the language the panel sends, unless its own config sets one
+func TestResolveNotificationLanguage(t *testing.T) {
+	assert.Equal(t, "en", resolveNotificationLanguage(false, "es", "en"), "the panel's language fills in a node that sets none")
+	assert.Equal(t, "es", resolveNotificationLanguage(true, "es", "en"), "a language set on the node itself wins")
+	assert.Equal(t, "en", resolveNotificationLanguage(true, "fr", "en"), "an unknown own value does not count")
+	assert.Equal(t, "es", resolveNotificationLanguage(false, "es", ""), "nothing from the panel yet: the default")
+	assert.Equal(t, "en", resolveNotificationLanguage(true, "en", ""))
+	assert.Equal(t, DefaultNotificationLanguage, resolveNotificationLanguage(false, "", "fr"))
+}
+
+func TestSetPanelNotificationLanguage_IgnoresUnknownValues(t *testing.T) {
+	previous := PanelNotificationLanguage()
+	t.Cleanup(func() {
+		if previous != "" {
+			SetPanelNotificationLanguage(previous)
+		} else {
+			SetPanelNotificationLanguage(DefaultNotificationLanguage)
+		}
+	})
+
+	assert.True(t, SetPanelNotificationLanguage("en"))
+	assert.Equal(t, "en", PanelNotificationLanguage())
+	assert.False(t, SetPanelNotificationLanguage(""), "an older panel sends nothing")
+	assert.False(t, SetPanelNotificationLanguage("fr"))
+	assert.Equal(t, "en", PanelNotificationLanguage(), "the last good value stays")
+}

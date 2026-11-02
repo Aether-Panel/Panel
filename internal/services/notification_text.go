@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"sync/atomic"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 )
@@ -266,11 +267,50 @@ func IsNotificationLanguage(lang string) bool {
 	return ok
 }
 
-// NotificationLanguage is the language set in panel.settings.notificationLanguage, or the
-// default when it is empty or unknown
+// NotificationLanguageHeader carries the panel's notification language on its status poll of
+// each remote node, so the alerts of servers there follow the panel's setting
+const NotificationLanguageHeader = "X-Aether-Notification-Language"
+
+// panelNotificationLanguage is the language the panel last sent this node. It is kept in memory
+// only: the panel repeats it on every status poll (every 30 seconds), so a node that restarts
+// picks it up again on the next one.
+var panelNotificationLanguage atomic.Value
+
+// SetPanelNotificationLanguage records the language the panel sent; an empty or unknown value
+// is ignored, so an older panel that sends none leaves the node as it was
+func SetPanelNotificationLanguage(lang string) bool {
+	if !IsNotificationLanguage(lang) {
+		return false
+	}
+	panelNotificationLanguage.Store(lang)
+	return true
+}
+
+// PanelNotificationLanguage is the language the panel last sent this node, "" if none yet
+func PanelNotificationLanguage() string {
+	lang, _ := panelNotificationLanguage.Load().(string)
+	return lang
+}
+
+// NotificationLanguage is the language of the messages this process sends: the one set in its
+// own config file or environment, else the one the panel sent (on a remote node), else the
+// default
 func NotificationLanguage() string {
-	if lang := config.NotificationLanguage.Value(); IsNotificationLanguage(lang) {
-		return lang
+	return resolveNotificationLanguage(config.NotificationLanguage.IsSet(), config.NotificationLanguage.Value(), PanelNotificationLanguage())
+}
+
+// resolveNotificationLanguage picks the language. A value set on purpose on this machine wins
+// over the panel's: an operator who sets a node's language in its own config means it for that
+// node. On the panel itself the setting is always its own, as the settings page saves it there.
+func resolveNotificationLanguage(setHere bool, own, fromPanel string) string {
+	if setHere && IsNotificationLanguage(own) {
+		return own
+	}
+	if IsNotificationLanguage(fromPanel) {
+		return fromPanel
+	}
+	if IsNotificationLanguage(own) {
+		return own
 	}
 	return DefaultNotificationLanguage
 }

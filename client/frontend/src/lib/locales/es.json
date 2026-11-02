@@ -664,7 +664,8 @@
       },
       "deleteDialog": {
         "title": "Eliminar",
-        "description": "¿Estás seguro de que quieres eliminar {{name}}?"
+        "description": "¿Estás seguro de que quieres eliminar {{name}}?",
+        "descriptionMany": "¿Seguro que quieres eliminar los {{count}} elementos seleccionados? Esta acción no se puede deshacer."
       },
       "renameDialog": {
         "title": "Renombrar",
@@ -674,6 +675,7 @@
       "compressDialog": {
         "title": "Comprimir",
         "description": "Empaqueta {{name}} en un archivo comprimido dentro de esta carpeta.",
+        "descriptionMany": "Empaqueta los {{count}} elementos seleccionados en un solo archivo comprimido dentro de esta carpeta.",
         "nameLabel": "Nombre del archivo comprimido",
         "placeholder": "copia.zip",
         "hint": "Termínalo en .zip, .tar o .tar.gz para elegir el formato; a cualquier otro nombre se le añade .zip."
@@ -709,12 +711,24 @@
         "extractError": "No se pudo descomprimir.",
         "compressed": "Se ha creado {{name}}.",
         "compressError": "No se pudo comprimir.",
+        "deletedMany": "Se han eliminado {{count}} elementos.",
+        "deletedPartly": "Se eliminaron {{count}} de {{total}} elementos y luego se detuvo: {{reason}}",
         "saveError": "No se pudo guardar."
       },
       "goRoot": "Ir a la carpeta raíz",
       "pathLabel": "Ruta actual",
       "rowActions": "Acciones para {{name}}",
-      "clearClipboard": "Vaciar portapapeles"
+      "clearClipboard": "Vaciar portapapeles",
+      "selection": {
+        "selectAll": "Seleccionar todo en esta carpeta",
+        "select": "Seleccionar {{name}}",
+        "toolbar": "Elementos seleccionados",
+        "countOne": "1 elemento seleccionado",
+        "countMany": "{{count}} elementos seleccionados",
+        "compress": "Comprimir selección",
+        "delete": "Eliminar selección",
+        "clear": "Quitar selección"
+      }
     },
     "settings": {
       "title": "Configuración",

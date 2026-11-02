@@ -59,8 +59,9 @@ var HideAIAnalysis = asBool("panel.settings.hideAiAnalysis", false)
 
 // NotificationLanguage is the language ("es" or "en") of what the panel sends outside its own
 // pages: Discord, Telegram and webhook alerts, the panel's Discord reports and extension
-// events. Spanish by default, which is what installs sent before it existed. A remote node
-// reads its own config, so its servers' alerts follow the value set there.
+// events. Spanish by default, which is what installs sent before it existed. Remote nodes get
+// the panel's value with every status poll; one set in a node's own config or environment
+// wins there.
 var NotificationLanguage = asString("panel.settings.notificationLanguage", "es")
 
 // Experimental features are off until an admin turns them on in the panel settings

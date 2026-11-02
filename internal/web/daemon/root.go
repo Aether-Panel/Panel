@@ -20,6 +20,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers"
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers/docker"
+	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	"github.com/SkyPanel/SkyPanel/v3/internal/update"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
@@ -66,12 +67,15 @@ func RegisterDaemonRoutes(e *gin.RouterGroup) {
 }
 
 // @Summary Get the status of every server
-// @Description Whether each server on this node is running or installing, keyed by server ID. The panel polls it to record the uptime of servers on remote nodes. A server whose state cannot be read is left out.
+// @Description Whether each server on this node is running or installing, keyed by server ID. The panel polls it to record the uptime of servers on remote nodes. A server whose state cannot be read is left out. The X-Aether-Notification-Language header (es or en), when sent, sets the language of this node's alerts unless its own config sets one.
 // @Success 200 {object} map[string]interface{} "servers: server ID to ServerRunning"
 // @Tags Daemon Root
 // @Router /daemon/servers/status [get]
 // @Security OAuth2Application[none]
 func getServersStatus(c *gin.Context) {
+	// the panel repeats its notification language on every poll, so the alerts of this node's
+	// servers follow the panel's setting (unless this node's own config sets one)
+	services.SetPanelNotificationLanguage(c.GetHeader(services.NotificationLanguageHeader))
 	c.JSON(http.StatusOK, gin.H{"servers": serverStatuses(servers.GetAll())})
 }
 

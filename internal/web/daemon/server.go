@@ -136,7 +136,7 @@ func RegisterServerRoutes(e *gin.RouterGroup) {
 		registerWorldMapRoutes(l)
 		registerFileHistoryRoutes(l)
 		registerCloneRoutes(l)
-		registerBackupTransferRoutes(l)
+		registerTransferRoutes(l)
 
 		p := l.Group("/:serverId/socket")
 		{

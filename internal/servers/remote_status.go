@@ -151,7 +151,7 @@ func fetchNodeServerStatuses(ns *services.Node, node *models.Node) (map[string]s
 	ctx, cancel := context.WithTimeout(context.Background(), remoteStatusTimeout)
 	defer cancel()
 
-	res, err := ns.CallNodeContext(ctx, node, "GET", "/daemon/servers/status", nil, nil)
+	res, err := ns.CallNodeContext(ctx, node, "GET", "/daemon/servers/status", nil, statusPollHeaders())
 	if err != nil {
 		return nil, err
 	}
@@ -166,6 +166,25 @@ func fetchNodeServerStatuses(ns *services.Node, node *models.Node) (map[string]s
 		return nil, err
 	}
 	return answer.Servers, nil
+}
+
+// statusPollHeaders go with every status poll. They carry the panel's notification language, so
+// the alerts of servers on remote nodes follow the panel's setting within one poll of a change
+// (and again after a node restarts) without another request.
+func statusPollHeaders() http.Header {
+	headers := http.Header{}
+	headers.Set(services.NotificationLanguageHeader, services.NotificationLanguage())
+	return headers
+}
+
+// PollRemoteNodesNow runs a poll round in the background, so a changed notification language
+// reaches the remote nodes at once. A round already running is not doubled; the next one
+// carries the change.
+func PollRemoteNodesNow() {
+	go func() {
+		defer skypanel.Recover()
+		pollRemoteNodes()
+	}()
 }
 
 // newNodeSnapshot keeps, of the node's answer, the servers the panel places on that node and does

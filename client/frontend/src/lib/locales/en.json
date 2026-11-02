@@ -664,7 +664,8 @@
       },
       "deleteDialog": {
         "title": "Delete",
-        "description": "Are you sure you want to delete {{name}}?"
+        "description": "Are you sure you want to delete {{name}}?",
+        "descriptionMany": "Are you sure you want to delete the {{count}} selected items? This cannot be undone."
       },
       "renameDialog": {
         "title": "Rename",
@@ -674,6 +675,7 @@
       "compressDialog": {
         "title": "Compress",
         "description": "Pack {{name}} into an archive in this folder.",
+        "descriptionMany": "Pack the {{count}} selected items into one archive in this folder.",
         "nameLabel": "Archive name",
         "placeholder": "backup.zip",
         "hint": "End it in .zip, .tar or .tar.gz to pick the format; any other name gets .zip added."
@@ -709,12 +711,24 @@
         "extractError": "Could not extract.",
         "compressed": "Created {{name}}.",
         "compressError": "Could not compress.",
+        "deletedMany": "Deleted {{count}} items.",
+        "deletedPartly": "Deleted {{count}} of {{total}} items, then it stopped: {{reason}}",
         "saveError": "Could not save."
       },
       "goRoot": "Go to root folder",
       "pathLabel": "Current path",
       "rowActions": "Actions for {{name}}",
-      "clearClipboard": "Clear clipboard"
+      "clearClipboard": "Clear clipboard",
+      "selection": {
+        "selectAll": "Select everything in this folder",
+        "select": "Select {{name}}",
+        "toolbar": "Selected items",
+        "countOne": "1 item selected",
+        "countMany": "{{count}} items selected",
+        "compress": "Compress selected",
+        "delete": "Delete selected",
+        "clear": "Clear selection"
+      }
     },
     "settings": {
       "title": "Configuration",

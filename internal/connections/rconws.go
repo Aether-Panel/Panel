@@ -19,6 +19,7 @@ type RCONWSConnection struct {
 	IP        string
 	Port      string
 	Password  string
+	NoTLS     bool
 	Reconnect bool
 	// Environment      skypanel.Environment
 	connection *websocket.Conn
@@ -42,10 +43,14 @@ var rconwsDialer = websocket.DefaultDialer
 
 // rconwsURL is the address of the game's RCON websocket, which takes the password as the
 // path. The password is escaped: a "/", "?", "#" or "%" in it would otherwise end the path or
-// start a query, and the game would get another password. The console settings of a template
-// have no way to say plain ws://, so it is always wss://.
-func rconwsURL(addr *net.TCPAddr, password string) string {
-	return fmt.Sprintf("wss://%s/%s", addr, url.PathEscape(password))
+// start a query, and the game would get another password. It is wss:// unless the template's
+// console says "secure": false (NoTLS), for games that serve plain ws:// such as Rust.
+func rconwsURL(addr *net.TCPAddr, password string, secure bool) string {
+	scheme := "ws"
+	if secure {
+		scheme = "wss"
+	}
+	return fmt.Sprintf("%s://%s/%s", scheme, addr, url.PathEscape(password))
 }
 
 func (tc *RCONWSConnection) Write(p []byte) (n int, err error) {
@@ -146,9 +151,10 @@ func (tc *RCONWSConnection) reconnector() {
 			Port: cast.ToInt(tc.Port),
 		}
 		password := tc.Password
+		secure := !tc.NoTLS
 		tc.lock.Unlock()
 
-		conn, _, err := rconwsDialer.Dial(rconwsURL(ipAddr, password), nil)
+		conn, _, err := rconwsDialer.Dial(rconwsURL(ipAddr, password, secure), nil)
 		if err != nil {
 			logging.Debug.Printf("Error waiting for RCON WS socket: %s", err.Error())
 			continue
