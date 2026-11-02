@@ -1,14 +1,54 @@
 'use client';
 import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { ArrowUp, Eraser, Sparkles } from '@/components/icons';
+import {
+  AlertTriangle,
+  ArrowUp,
+  Ban,
+  Check,
+  Clock,
+  Eraser,
+  FilePlus,
+  FileText,
+  Loader2,
+  Pencil,
+  ShieldAlert,
+  Sparkles,
+  Trash2,
+  X,
+  type AppIcon,
+} from '@/components/icons';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useTranslations } from '@/contexts/translations-context';
 import { ApiError, api } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { keyedByContent } from '@/lib/keyed';
 
-type Message = { id: string; role: 'user' | 'assistant'; content: string; sources?: string[]; error?: boolean };
+type Translate = (key: string, options?: { [key: string]: string | number }) => string;
+
+type StepKind = 'read' | 'create' | 'modify' | 'destructive';
+type StepStatus = 'done' | 'failed' | 'pending' | 'declined' | 'refused';
+
+/** One tool call the assistant made (or wants to make) on the server's files. */
+type Step = {
+  id: string;
+  tool: string;
+  kind: StepKind;
+  summary: string;
+  /** Server-relative paths; the panel never sends host paths. */
+  paths?: string[];
+  status: StepStatus;
+  error?: string;
+};
+
+/** Changes waiting for the user's approval; the token answers them once, before expiresAt. */
+type Pending = { token: string; actions: Step[]; expiresAt: string };
+
+/** What both /ai/chat and /ai/chat/confirm answer. */
+type ChatResponse = { reply: string; sources?: string[]; steps?: Step[]; pending?: Pending | null };
+
+type Message = { id: string; role: 'user' | 'assistant'; content: string; sources?: string[]; steps?: Step[]; error?: boolean };
 
 // ids only need to be unique within one conversation; crypto.randomUUID is missing on plain-HTTP panels
 let messageSeq = 0;
@@ -140,13 +180,207 @@ function Markdown({ text }: Readonly<{ text: string }>) {
   return <div className="space-y-2.5">{blocks}</div>;
 }
 
+/* ------------------------------------------------------------------ */
+/* File work: the steps the assistant took and the changes it asks     */
+/* to make. Status and kind always read as text, never colour alone.   */
+/* ------------------------------------------------------------------ */
+
+const KIND_ICONS: Record<StepKind, AppIcon> = {
+  read: FileText,
+  create: FilePlus,
+  modify: Pencil,
+  destructive: Trash2,
+};
+
+const STATUS_STYLES: Record<StepStatus, { icon: AppIcon; className: string }> = {
+  done: { icon: Check, className: 'border-success/30 bg-success/10 text-success' },
+  failed: { icon: X, className: 'border-destructive/30 bg-destructive/10 text-destructive-bright' },
+  pending: { icon: Clock, className: 'border-warning/30 bg-warning/10 text-warning' },
+  declined: { icon: Ban, className: 'border-border/60 bg-background/50 text-muted-foreground' },
+  refused: { icon: ShieldAlert, className: 'border-warning/30 bg-warning/10 text-warning' },
+};
+
+/** The server folder itself reaches the panel as "."; people read it as "/". */
+function displayPath(path: string): string {
+  return path === '.' || path === '' ? '/' : path;
+}
+
+/**
+ * What a step does, in the reader's language. The backend's summary is English (it also goes
+ * to the model and the logs), so other languages get a translated phrase from the tool and its
+ * paths; English keeps the backend's more detailed sentence.
+ */
+function stepText(step: Step, t: Translate, language: string): string {
+  if (language.startsWith('en') && step.summary) return step.summary;
+  const key = `servers.assistant.tools.${step.tool}`;
+  const text = t(key, { path: displayPath(step.paths?.[0] ?? ''), dest: displayPath(step.paths?.[1] ?? '') });
+  return text === key ? step.summary : text;
+}
+
+function PathList({ paths }: Readonly<{ paths?: string[] }>) {
+  if (!paths || paths.length === 0) return null;
+  return (
+    <span className="flex flex-wrap gap-1">
+      {keyedByContent(paths).map(({ key, item }) => (
+        <code key={key} className="max-w-full break-all rounded bg-background/70 px-1 py-0.5 font-mono text-[11px] text-foreground">
+          {displayPath(item)}
+        </code>
+      ))}
+    </span>
+  );
+}
+
+function StatusBadge({ status, t }: Readonly<{ status: StepStatus; t: Translate }>) {
+  // a status the panel does not know yet still shows, as a neutral badge with its name
+  const style = STATUS_STYLES[status] ?? STATUS_STYLES.declined;
+  const Icon = style.icon;
+  const label = STATUS_STYLES[status] ? t(`servers.assistant.steps.status.${status}`) : status;
+  return (
+    <span className={cn('inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium leading-none', style.className)}>
+      <Icon className="h-2.5 w-2.5" aria-hidden="true" />
+      {label}
+    </span>
+  );
+}
+
+/** The compact list of what the assistant did, under its answer. */
+function StepList({ steps, t }: Readonly<{ steps: Step[]; t: Translate }>) {
+  const { language } = useTranslations();
+  return (
+    <ul aria-label={t('servers.assistant.steps.label')} className="space-y-2 rounded-lg border border-border/50 bg-background/30 px-2.5 py-2">
+      {steps.map((step) => {
+        const Icon = KIND_ICONS[step.kind] ?? FileText;
+        return (
+          <li key={step.id} className="flex items-start gap-2 text-xs leading-5">
+            <Icon aria-hidden="true" className={cn('mt-0.5 h-3.5 w-3.5 shrink-0', step.kind === 'destructive' ? 'text-destructive-bright' : 'text-muted-foreground')} />
+            <span className="min-w-0 flex-1 space-y-1">
+              <span className="block break-words text-foreground/90">{stepText(step, t, language)}</span>
+              <PathList paths={step.paths} />
+              {step.error && <span className="block break-words text-destructive-bright">{step.error}</span>}
+            </span>
+            <StatusBadge status={step.status} t={t} />
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+type PendingCardProps = {
+  pending: Pending;
+  approved: ReadonlySet<string>;
+  onToggle: (id: string, checked: boolean) => void;
+  onAnswer: (approved: string[]) => void;
+  confirming: boolean;
+  cardRef: React.RefObject<HTMLElement | null>;
+  idPrefix: string;
+  t: Translate;
+};
+
+/** The changes the assistant wants to make: each one can be unticked; nothing runs until Approve. */
+function PendingCard({ pending, approved, onToggle, onAnswer, confirming, cardRef, idPrefix, t }: Readonly<PendingCardProps>) {
+  const { language } = useTranslations();
+  const titleId = `${idPrefix}-pending-title`;
+  return (
+    <section
+      ref={cardRef}
+      tabIndex={-1}
+      aria-labelledby={titleId}
+      className="focus-ring space-y-3 rounded-xl border border-primary/30 bg-primary/[0.05] p-3.5 outline-none animate-in fade-in-0 slide-in-from-bottom-1 duration-300 ease-panel"
+    >
+      <div className="space-y-0.5">
+        <h3 id={titleId} className="text-sm font-semibold text-foreground">{t('servers.assistant.pending.title')}</h3>
+        <p className="text-xs text-muted-foreground">{t('servers.assistant.pending.description')}</p>
+      </div>
+      <ul className="space-y-2">
+        {pending.actions.map((action, index) => {
+          const destructive = action.kind === 'destructive';
+          const Icon = KIND_ICONS[action.kind] ?? FileText;
+          const checkId = `${idPrefix}-approve-${index}`;
+          return (
+            <li
+              key={action.id}
+              className={cn('flex items-start gap-2.5 rounded-lg border px-3 py-2.5', destructive ? 'border-destructive/40 bg-destructive/[0.07]' : 'border-border/60 bg-background/40')}
+            >
+              <Checkbox
+                id={checkId}
+                checked={approved.has(action.id)}
+                onCheckedChange={(value) => onToggle(action.id, value === true)}
+                disabled={confirming}
+                className="mt-0.5"
+              />
+              <label htmlFor={checkId} className="min-w-0 flex-1 cursor-pointer space-y-1 text-sm leading-5">
+                <span className="flex items-start gap-1.5">
+                  <Icon aria-hidden="true" className={cn('mt-0.5 h-3.5 w-3.5 shrink-0', destructive ? 'text-destructive-bright' : 'text-muted-foreground')} />
+                  <span className="min-w-0 break-words text-foreground">{stepText(action, t, language)}</span>
+                </span>
+                {destructive && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-destructive-bright">
+                    <AlertTriangle className="h-3 w-3" aria-hidden="true" />
+                    {t('servers.assistant.pending.destructive')}
+                  </span>
+                )}
+                <PathList paths={action.paths} />
+              </label>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Button type="button" size="sm" variant="outline" disabled={confirming} onClick={() => onAnswer([])}>
+          {t('servers.assistant.pending.declineAll')}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          disabled={confirming || approved.size === 0}
+          aria-busy={confirming}
+          // keep the order the assistant listed them in
+          onClick={() => onAnswer(pending.actions.filter((a) => approved.has(a.id)).map((a) => a.id))}
+        >
+          {confirming ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Check aria-hidden="true" />}
+          {t('servers.assistant.pending.approve')}
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+/** The panel's error code, when the API sent one ({error: {code, msg}}). */
+function errorCode(err: ApiError): string | undefined {
+  const data: unknown = err.data;
+  if (data === null || typeof data !== 'object' || !('error' in data)) return undefined;
+  const error: unknown = (data as { error: unknown }).error;
+  if (error === null || typeof error !== 'object' || !('code' in error)) return undefined;
+  const code: unknown = (error as { code: unknown }).code;
+  return typeof code === 'string' ? code : undefined;
+}
+
+/** The request can no longer be answered: it expired, was already answered, or belongs to someone else. */
+function isExpiredConfirmation(err: unknown): boolean {
+  if (!(err instanceof ApiError)) return false;
+  return errorCode(err) === 'ErrAIConfirmationInvalid' || err.status === 409;
+}
+
 function storageKey(serverId: string) {
   return `assistant_${serverId}`;
+}
+
+function pendingStorageKey(serverId: string) {
+  return `assistant_${serverId}_pending`;
+}
+
+function isPending(value: unknown): value is Pending {
+  if (value === null || typeof value !== 'object') return false;
+  const p = value as Partial<Pending>;
+  return typeof p.token === 'string' && Array.isArray(p.actions) && p.actions.length > 0;
 }
 
 /**
  * The server assistant: a side panel with a chat that looks at the server's console,
  * crashes, performance and players to answer in plain words. Opened from the server header.
+ * When the panel lets it work with files, it lists what it did under each answer and asks
+ * before changing or deleting anything.
  */
 export default function AssistantPanel({ serverId, serverName }: Readonly<{ serverId: string; serverName: string }>) {
   const { t, language } = useTranslations();
@@ -155,8 +389,17 @@ export default function AssistantPanel({ serverId, serverName }: Readonly<{ serv
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState('');
   const [thinking, setThinking] = useState(false);
+  const [pending, setPending] = useState<Pending | null>(null);
+  const [approved, setApproved] = useState<Set<string>>(new Set());
+  const [confirming, setConfirming] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const cardRef = useRef<HTMLElement>(null);
+  const wasBusy = useRef(false);
+
+  const busy = thinking || confirming;
+  // nothing new can be asked while a request runs or the assistant waits for an answer
+  const inputLocked = busy || pending !== null;
 
   // the conversation survives switching tabs in the same browser session
   useEffect(() => {
@@ -164,8 +407,11 @@ export default function AssistantPanel({ serverId, serverName }: Readonly<{ serv
       const stored = sessionStorage.getItem(storageKey(serverId));
       // conversations saved before messages had ids get them now
       if (stored) setMessages((JSON.parse(stored) as Message[]).map((m) => (m.id ? m : { ...m, id: messageId() })));
+      const storedPending: unknown = JSON.parse(sessionStorage.getItem(pendingStorageKey(serverId)) ?? 'null');
+      setPending(isPending(storedPending) ? storedPending : null);
     } catch {
       setMessages([]);
+      setPending(null);
     }
   }, [serverId]);
   useEffect(() => {
@@ -175,34 +421,111 @@ export default function AssistantPanel({ serverId, serverName }: Readonly<{ serv
       // storage blocked: the chat simply starts empty next time
     }
   }, [messages, serverId]);
+  useEffect(() => {
+    try {
+      if (pending) sessionStorage.setItem(pendingStorageKey(serverId), JSON.stringify(pending));
+      else sessionStorage.removeItem(pendingStorageKey(serverId));
+    } catch {
+      // storage blocked: an unanswered request is simply gone next time
+    }
+  }, [pending, serverId]);
+
+  // every action starts ticked; a new request resets the choice
+  useEffect(() => {
+    setApproved(new Set(pending?.actions.map((a) => a.id) ?? []));
+  }, [pending]);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
-  }, [messages, thinking]);
+  }, [messages, busy, pending]);
+
+  // a new request takes the focus, so keyboard and screen reader users land on it
+  useEffect(() => {
+    if (pending) cardRef.current?.focus();
+  }, [pending]);
+
+  // back to the question box once an answer arrives (it is disabled while waiting, so this
+  // runs after it is enabled again rather than in the request itself)
+  useEffect(() => {
+    if (wasBusy.current && !busy && !pending) inputRef.current?.focus();
+    wasBusy.current = busy;
+  }, [busy, pending]);
+
+  const errorContent = (err: unknown) => {
+    if (err instanceof ApiError && err.status === 429) return t('servers.assistant.errors.limit');
+    if (err instanceof ApiError && err.status === 403) return t('servers.assistant.errors.noPermission');
+    if (err instanceof ApiError && err.status === 400 && /api key/i.test(err.message)) return t('servers.assistant.errors.notConfigured');
+    return t('servers.assistant.errors.generic');
+  };
+
+  const addError = (content: string, err?: unknown) => {
+    // a task that failed half way still did some work: its steps come with the error and are
+    // shown, so the user sees what changed before it stopped
+    const steps = err instanceof ApiError && Array.isArray(err.data?.steps) ? (err.data.steps as Step[]) : [];
+    setMessages((current) => [...current, { id: messageId(), role: 'assistant', content, error: true, steps }]);
+  };
+
+  const addAnswer = (res: ChatResponse) => {
+    setMessages((current) => [
+      ...current,
+      { id: messageId(), role: 'assistant', content: res.reply ?? '', sources: res.sources ?? [], steps: res.steps ?? [] },
+    ]);
+    setPending(isPending(res.pending) ? res.pending : null);
+  };
 
   const send = async (text: string) => {
     const question = text.trim();
-    if (!question || thinking) return;
-    const history = [...messages.filter((m) => !m.error), { role: 'user' as const, content: question }];
+    if (!question || inputLocked) return;
+    // only the text of the conversation goes back; steps and confirmations stay in the panel
+    const history = [...messages.filter((m) => !m.error && m.content.trim() !== ''), { role: 'user' as const, content: question }];
     setMessages((current) => [...current, { id: messageId(), role: 'user', content: question }]);
     setDraft('');
     setThinking(true);
     try {
-      const res = await api.post<{ reply: string; sources?: string[] }>(`/api/servers/${serverId}/ai/chat`, {
+      const res = await api.post<ChatResponse>(`/api/servers/${serverId}/ai/chat`, {
         messages: history.slice(-20).map(({ role, content }) => ({ role, content })),
         language,
       });
-      setMessages((current) => [...current, { id: messageId(), role: 'assistant', content: res.reply, sources: res.sources ?? [] }]);
+      addAnswer(res);
     } catch (err) {
-      let content = t('servers.assistant.errors.generic');
-      if (err instanceof ApiError && err.status === 429) content = t('servers.assistant.errors.limit');
-      else if (err instanceof ApiError && err.status === 403) content = t('servers.assistant.errors.noPermission');
-      else if (err instanceof ApiError && err.status === 400 && /api key/i.test(err.message)) content = t('servers.assistant.errors.notConfigured');
-      setMessages((current) => [...current, { id: messageId(), role: 'assistant', content, error: true }]);
+      addError(errorContent(err), err);
     } finally {
       setThinking(false);
-      inputRef.current?.focus();
     }
+  };
+
+  /** Answers the pending request: the IDs to run (an empty list declines them all). */
+  const answer = async (approvedIds: string[]) => {
+    if (!pending || busy) return;
+    setConfirming(true);
+    try {
+      const res = await api.post<ChatResponse>(`/api/servers/${serverId}/ai/chat/confirm`, {
+        token: pending.token,
+        approved: approvedIds,
+        language,
+      });
+      addAnswer(res);
+    } catch (err) {
+      if (isExpiredConfirmation(err)) {
+        setPending(null);
+        addError(t('servers.assistant.errors.expired'));
+      } else {
+        // without permission it cannot be answered any more; anything else can be tried again
+        if (err instanceof ApiError && err.status === 403) setPending(null);
+        addError(errorContent(err), err);
+      }
+    } finally {
+      setConfirming(false);
+    }
+  };
+
+  const toggleApproved = (id: string, checked: boolean) => {
+    setApproved((current) => {
+      const next = new Set(current);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
   };
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -211,6 +534,15 @@ export default function AssistantPanel({ serverId, serverName }: Readonly<{ serv
       void send(draft);
     }
   };
+
+  const clearConversation = () => {
+    setMessages([]);
+    setPending(null);
+  };
+
+  let busyLabel = '';
+  if (confirming) busyLabel = t('servers.assistant.pending.working');
+  else if (thinking) busyLabel = t('servers.assistant.thinking');
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -224,9 +556,13 @@ export default function AssistantPanel({ serverId, serverName }: Readonly<{ serv
         side="right"
         closeLabel={t('common.close')}
         className="flex w-full flex-col gap-0 p-0 sm:max-w-md"
-        // on a desktop the question box gets the focus; on phones the keyboard waits for a tap
+        // a request waiting for an answer gets the focus; otherwise, on a desktop, the question
+        // box does; on phones the keyboard waits for a tap
         onOpenAutoFocus={(event) => {
-          if (window.matchMedia('(min-width: 640px)').matches) {
+          if (pending) {
+            event.preventDefault();
+            cardRef.current?.focus();
+          } else if (window.matchMedia('(min-width: 640px)').matches) {
             event.preventDefault();
             inputRef.current?.focus();
           }
@@ -239,7 +575,7 @@ export default function AssistantPanel({ serverId, serverName }: Readonly<{ serv
           <SheetDescription className="text-xs">{t('servers.assistant.description', { name: serverName })}</SheetDescription>
         </SheetHeader>
 
-        <div ref={listRef} className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-5 py-5" aria-live="polite" aria-busy={thinking}>
+        <div ref={listRef} className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-5 py-5" aria-live="polite" aria-busy={busy}>
           {messages.length === 0 ? (
             <div className="flex h-full flex-col justify-end gap-4">
               <div className="space-y-1.5">
@@ -272,8 +608,10 @@ export default function AssistantPanel({ serverId, serverName }: Readonly<{ serv
                       {message.content}
                     </p>
                   ) : (
-                    <div className={cn('max-w-[92%] space-y-2 text-sm leading-relaxed', message.error ? 'text-destructive-bright' : 'text-muted-foreground')}>
-                      {message.error ? <p>{message.content}</p> : <Markdown text={message.content} />}
+                    <div className={cn('min-w-0 max-w-[92%] space-y-2 text-sm leading-relaxed', message.error ? 'text-destructive-bright' : 'text-muted-foreground')}>
+                      {message.error && <p>{message.content}</p>}
+                      {!message.error && message.content.trim() !== '' && <Markdown text={message.content} />}
+                      {message.steps && message.steps.length > 0 && <StepList steps={message.steps} t={t} />}
                       {message.sources && message.sources.length > 0 && (
                         <p className="text-[11px] text-muted-foreground/80">
                           {t('servers.assistant.looked', { sources: message.sources.map((s) => t(`servers.assistant.sources.${s}`)).join(', ') })}
@@ -283,8 +621,22 @@ export default function AssistantPanel({ serverId, serverName }: Readonly<{ serv
                   )}
                 </li>
               ))}
-              {thinking && (
-                <li className="flex items-center gap-1.5 py-1" aria-label={t('servers.assistant.thinking')}>
+              {pending && (
+                <li>
+                  <PendingCard
+                    pending={pending}
+                    approved={approved}
+                    onToggle={toggleApproved}
+                    onAnswer={(ids) => void answer(ids)}
+                    confirming={confirming}
+                    cardRef={cardRef}
+                    idPrefix={ids}
+                    t={t}
+                  />
+                </li>
+              )}
+              {busy && (
+                <li className="flex items-center gap-1.5 py-1" aria-label={busyLabel}>
                   {[0, 1, 2].map((dot) => (
                     <span
                       key={dot}
@@ -294,7 +646,7 @@ export default function AssistantPanel({ serverId, serverName }: Readonly<{ serv
                       style={{ animationDelay: `${dot * 140}ms` }}
                     />
                   ))}
-                  <span className="sr-only">{t('servers.assistant.thinking')}</span>
+                  <span className="sr-only">{busyLabel}</span>
                 </li>
               )}
             </ol>
@@ -310,22 +662,28 @@ export default function AssistantPanel({ serverId, serverName }: Readonly<{ serv
         >
           <label htmlFor={`${ids}-question`} className="sr-only">{t('servers.assistant.placeholder')}</label>
           {/* a row, not an absolutely placed button: the primary button's sheen sets position: relative */}
-          <div className="flex items-end gap-2 rounded-xl border border-border/60 bg-background/40 pr-2 transition-colors duration-200 focus-within:border-primary/50 focus-within:shadow-[0_0_0_3px_hsl(var(--primary)/0.12)]">
+          <div
+            className={cn(
+              'flex items-end gap-2 rounded-xl border border-border/60 bg-background/40 pr-2 transition-colors duration-200 focus-within:border-primary/50 focus-within:shadow-[0_0_0_3px_hsl(var(--primary)/0.12)]',
+              inputLocked && 'opacity-60',
+            )}
+          >
             <textarea
               id={`${ids}-question`}
               ref={inputRef}
               rows={2}
               value={draft}
               maxLength={MAX_LENGTH}
+              disabled={inputLocked}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={onKeyDown}
-              placeholder={t('servers.assistant.placeholder')}
-              className="block max-h-40 min-h-[3.25rem] min-w-0 flex-1 resize-none bg-transparent px-3.5 py-3 text-sm text-foreground outline-none placeholder:text-muted-foreground/60"
+              placeholder={pending ? t('servers.assistant.pending.inputLocked') : t('servers.assistant.placeholder')}
+              className="block max-h-40 min-h-[3.25rem] min-w-0 flex-1 resize-none bg-transparent px-3.5 py-3 text-sm text-foreground outline-none placeholder:text-muted-foreground/60 disabled:cursor-not-allowed"
             />
             <Button
               type="submit"
               size="icon"
-              disabled={thinking || draft.trim() === ''}
+              disabled={inputLocked || draft.trim() === ''}
               aria-label={t('servers.assistant.send')}
               className="mb-2 h-8 w-8 shrink-0 rounded-lg"
             >
@@ -335,7 +693,12 @@ export default function AssistantPanel({ serverId, serverName }: Readonly<{ serv
           <div className="mt-2 flex items-center justify-between gap-3 text-[11px] text-muted-foreground">
             <span>{t('servers.assistant.hint')}</span>
             {messages.length > 0 && (
-              <button type="button" onClick={() => setMessages([])} className="focus-ring inline-flex items-center gap-1 rounded px-1 hover:text-foreground">
+              <button
+                type="button"
+                onClick={clearConversation}
+                disabled={busy}
+                className="focus-ring inline-flex items-center gap-1 rounded px-1 hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+              >
                 <Eraser className="h-3 w-3" aria-hidden="true" />
                 {t('servers.assistant.clear')}
               </button>

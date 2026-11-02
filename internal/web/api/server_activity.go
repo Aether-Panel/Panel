@@ -72,10 +72,12 @@ var serverActivityRoutes = map[string]string{
 	"POST /clone":                           "server.clone",
 }
 
-// serverActivityIgnored are POSTs that change nothing on the server
+// serverActivityIgnored are POSTs that change nothing on the server, or (the assistant's
+// confirmations) whose changes the handler records itself, one entry per change
 var serverActivityIgnored = map[string]bool{
 	"POST /ai/analyze":         true,
 	"POST /ai/chat":            true,
+	"POST /ai/chat/confirm":    true,
 	"POST /notifications/test": true,
 }
 

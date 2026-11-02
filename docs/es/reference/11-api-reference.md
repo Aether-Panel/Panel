@@ -46,7 +46,7 @@ Cada área enlaza con la página que la documenta.
 
 ### Servidores
 
-`/api/servers` y `/api/servers/:serverId/...`: lista, creación, eliminación, suspensión, cambio de nombre, definición, variables, ajustes de puertos, flags, acciones de encendido, consola, estadísticas, estado, consulta del juego, métricas, informes de caída, versión del juego, notificaciones, usuarios y propietario, registro de actividad, subdominio, clonación, traslado de nodo, IA. Véase [Servidores](./api/03-servers.md).
+`/api/servers` y `/api/servers/:serverId/...`: lista, creación, eliminación, suspensión, cambio de nombre, definición, variables, ajustes de puertos, flags, acciones de encendido, consola, estadísticas, estado, consulta del juego, métricas, informes de caída, versión del juego, notificaciones, usuarios y propietario, registro de actividad, subdominio, clonación, traslado de nodo, IA (`ai/analyze`, `ai/chat` y las confirmaciones del asistente `ai/chat/confirm`). Véase [Servidores](./api/03-servers.md).
 
 ### WebSocket
 
@@ -122,7 +122,7 @@ Cada área enlaza con la página que la documenta.
 
 ### Daemon
 
-`/daemon`, `/daemon/features`, `/daemon/system`, `/daemon/ports`, `/daemon/network/history`, `/daemon/servers/status`, `/daemon/update`, `/daemon/update-status` y `/daemon/server/:serverId/...`, incluidas las rutas de la transferencia entre nodos para copiar copias de seguridad y pausar o reanudar las tareas. El sondeo de estado del panel (`/daemon/servers/status`) también lleva su idioma de las notificaciones en la cabecera `X-Aether-Notification-Language`. Véase [Daemon](./api/09-daemon.md).
+`/daemon`, `/daemon/features`, `/daemon/system`, `/daemon/ports`, `/daemon/network/history`, `/daemon/servers/status`, `/daemon/update`, `/daemon/update-status` y `/daemon/server/:serverId/...`, incluidas las rutas de la transferencia entre nodos para copiar copias de seguridad y pausar o reanudar las tareas y las rutas de archivos del asistente del servidor (`fs/stat`, `fs/copy`, `fs/search`). El sondeo de estado del panel (`/daemon/servers/status`) también lleva su idioma de las notificaciones en la cabecera `X-Aether-Notification-Language`. Véase [Daemon](./api/09-daemon.md).
 
 ## Documentación relacionada
 

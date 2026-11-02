@@ -30,7 +30,7 @@ The same documentation is available in Spanish in [`docs/es`](../es/README.md), 
 
 User and administrator guides, one page per feature. Full list: [Features](./features/README.md).
 
-- Server pages: [overview and statistics](./features/server-statistics.md), [settings](./features/server-settings.md), [`server.properties` editor](./features/server-properties.md), [game version](./features/game-versions.md), [modpacks and plugins](./features/modpacks-and-plugins.md), [world map](./features/world-map.md), [scheduled tasks](./features/scheduled-tasks.md), [backups](./features/backups.md), [file history](./features/file-history.md), [crash reports](./features/crash-reports.md), [notifications](./features/server-notifications.md), [subdomains](./features/subdomains.md), [AI assistant](./features/ai-assistant.md).
+- Server pages: [overview and statistics](./features/server-statistics.md), [settings](./features/server-settings.md), [`server.properties` editor](./features/server-properties.md), [game version](./features/game-versions.md), [modpacks and plugins](./features/modpacks-and-plugins.md), [world map](./features/world-map.md), [scheduled tasks](./features/scheduled-tasks.md), [backups](./features/backups.md), [file history](./features/file-history.md), [crash reports](./features/crash-reports.md), [notifications](./features/server-notifications.md), [subdomains](./features/subdomains.md), [AI assistant](./features/ai-assistant.md) and its [work with files](./features/ai-agent.md).
 - Server lifecycle: [cloning](./features/cloning.md), [sub-servers](./features/sub-servers.md), [transfers](./features/server-transfers.md).
 - Panel administration: [dashboard and nodes](./features/dashboard-and-nodes.md), [activity and access log](./features/activity-and-access-log.md), [database hosts](./features/database-hosts.md), [panel settings](./features/panel-settings.md), [templates](./features/templates.md), [panel updates](./features/panel-updates.md), [billing integration and sign-in links](./features/provisioning-and-sso.md).
 
@@ -80,6 +80,7 @@ User and administrator guides, one page per feature. Full list: [Features](./fea
 | [11. Services](./backend/11-services.md) | Business services in `internal/services` |
 | [12. Console input](./backend/12-rcon-telnet.md) | stdin, RCON, Telnet and RCON over WebSocket |
 | [13. Processes and metrics](./backend/13-process-metrics.md) | Process management, metrics history, node sampling |
+| [14. AI agent toolkit](./backend/14-ai-toolkit.md) | The assistant's file tools: agent loop, Gemini function calling, isolation, confirmations, audit |
 
 ## Frontend internals
 

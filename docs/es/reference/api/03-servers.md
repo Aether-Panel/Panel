@@ -83,6 +83,7 @@ La mayoría de las rutas bajo `/api/servers/:serverId/` se reenvían al daemon d
 |--------|------|-------|----------|
 | POST | `/api/servers/:serverId/ai/analyze` | `server.console` | Explica líneas de la consola |
 | POST | `/api/servers/:serverId/ai/chat` | `server.console` | Chat con el asistente del servidor |
+| POST | `/api/servers/:serverId/ai/chat/confirm` | `server.console` | Aprueba o rechaza los cambios que espera el asistente |
 
 Las rutas de transferencia externa (`/extransfer/*`) están en [Transferencia externa](./08-external-transfer.md); la disponibilidad de un servidor (`/api/uptime/:serverId`), en [Administración del panel](./06-panel-admin.md#disponibilidad).
 
@@ -440,13 +441,13 @@ Convierte a ese usuario en propietario (y en miembro). El propietario anterior s
 |----------|-------------|
 | `limit` | Entradas por página; por defecto 50, como máximo 100 |
 | `before` | Solo entradas anteriores a este id |
-| `type` | Una familia (`power`, `console`, `files`, `backups`, `users`, `settings`, `tasks`) o un prefijo de acción como `file` o `backup.create` |
+| `type` | Una familia (`power`, `console`, `files`, `backups`, `users`, `settings`, `tasks`) o un prefijo de acción como `file`, `backup.create` o `ai.edit_file` (letras minúsculas, un punto y guiones bajos después del punto) |
 
 ```json
 { "items": [ { "id": 812, "action": "console.command", "detail": "say hi", "username": "alice", "userId": 3, "createdAt": "2026-11-01T09:12:00Z" } ], "nextCursor": 790 }
 ```
 
-`ip` solo se incluye para los administradores. Entre las acciones están `server.start`, `file.write`, `file.upload`, `backup.create`, `user.add`, `task.save`, `settings.notifications` y, del traslado de nodo, `server.transfer`, `server.transferFailed` y `server.transferStartFailed` (en la familia `settings`); los cambios de ajustes se anotan sin sus valores. Detalles: [Registro de actividad y registros de acceso](../../features/activity-and-access-log.md).
+`ip` solo se incluye para los administradores. Entre las acciones están `server.start`, `file.write`, `file.upload`, `backup.create`, `user.add`, `task.save`, `settings.notifications`, las del traslado de nodo `server.transfer`, `server.transferFailed` y `server.transferStartFailed` (en la familia `settings`) y los cambios de archivos del asistente `ai.create_file`, `ai.create_directory`, `ai.copy_path`, `ai.edit_file`, `ai.write_file`, `ai.move_path`, `ai.rename_path` y `ai.delete_path` (en la familia `files`; detalle: la ruta u `origen → destino`); los cambios de ajustes se anotan sin sus valores. Detalles: [Registro de actividad y registros de acceso](../../features/activity-and-access-log.md).
 
 ## Subdominio
 
@@ -484,7 +485,7 @@ Elimina los registros. `204`; `422` cuando Cloudflare lo rechaza (el nombre se c
 
 ## IA
 
-Las dos rutas necesitan `panel.settings.geminiApiKey` (en otro caso, `400 {"error": "Gemini API Key is not configured. Please add it in Settings."}`) y comparten una cuota de 30 peticiones por usuario cada 10 minutos (`429`). Detalles: [Asistente de IA y análisis de registros](../../features/ai-assistant.md).
+Las tres rutas necesitan `panel.settings.geminiApiKey` (en otro caso, `400 {"error": "Gemini API Key is not configured. Please add it in Settings."}`) y comparten una cuota de 30 peticiones por usuario cada 10 minutos (`429`). Detalles: [Asistente de IA y análisis de registros](../../features/ai-assistant.md) y [Asistente de IA: trabajar con archivos](../../features/ai-agent.md).
 
 ### `POST /api/servers/:serverId/ai/analyze`
 
@@ -507,6 +508,52 @@ Las dos rutas necesitan `panel.settings.geminiApiKey` (en otro caso, `400 {"erro
 ```
 
 De 1 a 20 mensajes de 1 a 2000 caracteres, con `role` `user` o `assistant`, y el último del usuario. El asistente ve el estado del servidor, los jugadores, el rendimiento del último día, las caídas y la consola reciente. Respuesta: `{"reply": "...", "sources": ["status", "console"]}`; `502` cuando falla el servicio de IA.
+
+**Modo agente.** Cuando `panel.settings.aiFileTools` está activado (por defecto), la petición tiene un usuario con sesión y ese usuario tiene `server.files.view` en el servidor, el asistente también puede usar herramientas de archivos en este servidor (y solo en este): las de lectura con `server.files.view` y las de crear, cambiar, mover y borrar con `server.files.edit`. Las lecturas y las creaciones se ejecutan durante la petición; los cambios de datos existentes se detienen a la espera de confirmación. La respuesta es entonces:
+
+```json
+{
+  "reply": "Voy a eliminar la carpeta del mundo antiguo.",
+  "sources": ["status", "console"],
+  "steps": [
+    { "id": "local-1-1", "tool": "list_directory", "kind": "read", "summary": "Listed the server folder (12 entries)", "paths": ["."], "status": "done" }
+  ],
+  "pending": {
+    "token": "9f2c…",
+    "actions": [
+      { "id": "local-2-1", "tool": "delete_path", "kind": "destructive", "summary": "Delete the folder world_old and everything in it", "paths": ["world_old"], "status": "pending" }
+    ],
+    "expiresAt": "2026-11-02T10:10:00Z"
+  }
+}
+```
+
+| Campo | Significado |
+|-------|-------------|
+| `steps` | Las llamadas a herramientas de esta petición, en orden. `kind` es `read`, `create`, `modify` o `destructive` (vacío en una llamada rechazada); `status` es `done`, `failed`, `declined` o `refused` (no se ejecutó: herramienta desconocida, falta un scope o un límite); `error` explica un fallo o un rechazo; `paths` son relativas a la carpeta del servidor |
+| `pending` | `null`, o las llamadas que esperan al usuario (`status` `pending`), el `token` de un solo uso y `expiresAt` (10 minutos) |
+
+Cuando hay `pending`, `reply` es la explicación del modelo sobre esas llamadas y puede estar vacía. En modo agente, una tarea fallida responde `502 {"error": "...", "steps": [...], "pending": null}` con los pasos que se ejecutaron antes del fallo. Los cambios hechos se anotan en el [registro de actividad](#registro-de-actividad) como `ai.<herramienta>`. Herramientas, límites y aislamiento: [Kit de herramientas del agente de IA](../../backend/14-ai-toolkit.md).
+
+### `POST /api/servers/:serverId/ai/chat/confirm`
+
+Responde a una confirmación pendiente. Scope `server.console`; cuenta para la misma cuota.
+
+```json
+{ "token": "9f2c…", "approved": ["local-2-1"], "language": "es" }
+```
+
+`approved` contiene los IDs de las acciones pendientes que se ejecutan (como mucho 64); las demás se rechazan, y una lista vacía las rechaza todas. El token y cada ID tienen como mucho 128 caracteres. Cada acción aprobada se vuelve a comprobar (scopes y archivos tal como están en ese momento) antes de ejecutarse, y después el asistente continúa. La respuesta tiene la misma forma que la del chat en modo agente (con `sources: []`) y puede traer un `pending` nuevo.
+
+| Error | Cuándo |
+|-------|--------|
+| `400` | No hay clave de Gemini; JSON no válido; falta el token o supera 128 caracteres; más de 64 IDs o un ID vacío o demasiado largo |
+| `403 ErrNoPermission` | No hay usuario con sesión, o quien llama ya no tiene `server.files.view` en el servidor. Sin `server.files.edit`, los cambios aprobados no se ejecutan y vuelven como pasos `refused` |
+| `409 ErrAIConfirmationInvalid` | El token es desconocido, ha caducado, ya se usó o lo sustituyó una petición más reciente del mismo usuario en el mismo servidor; pertenece a otro usuario o servidor; un ID aprobado no estaba pendiente; o se desactivó entretanto `panel.settings.aiFileTools`. Las confirmaciones pendientes se guardan en memoria, así que un reinicio del panel también las invalida |
+| `429` | Cuota |
+| `502` | El asistente falló al continuar: `{"error": "...", "steps": [...], "pending": null}` |
+
+Un token enviado por otro usuario o para otro servidor se rechaza sin gastarse. Una respuesta que nombra un ID que no estaba pendiente gasta el token.
 
 ## WebSocket
 

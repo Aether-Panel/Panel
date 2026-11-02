@@ -1716,6 +1716,16 @@
           "extract": "extracted",
           "restore": "restored an earlier version of"
         },
+        "ai": {
+          "create_file": "used the assistant to create the file",
+          "create_directory": "used the assistant to create the folder",
+          "copy_path": "used the assistant to copy",
+          "edit_file": "used the assistant to edit the file",
+          "write_file": "used the assistant to overwrite the file",
+          "move_path": "used the assistant to move",
+          "rename_path": "used the assistant to rename",
+          "delete_path": "used the assistant to delete"
+        },
         "plugin": {
           "install": "installed the plugin",
           "delete": "removed the plugin"
@@ -1789,13 +1799,48 @@
         "players": "players",
         "performance": "performance",
         "crashes": "crashes",
-        "console": "console"
+        "console": "console",
+        "files": "files"
       },
       "errors": {
         "generic": "I could not answer right now. Try again in a moment.",
         "limit": "You asked a lot of questions in a row. Wait a few minutes and try again.",
         "notConfigured": "The AI is not set up. An administrator can add the Gemini key in Settings.",
-        "noPermission": "You need access to this server's console to use the assistant."
+        "noPermission": "You need access to this server's console to use the assistant.",
+        "expired": "This request expired. Ask again."
+      },
+      "steps": {
+        "label": "What the assistant did",
+        "status": {
+          "done": "Done",
+          "failed": "Failed",
+          "pending": "Waiting",
+          "declined": "Declined",
+          "refused": "Not allowed"
+        }
+      },
+      "pending": {
+        "title": "The assistant wants to:",
+        "description": "Nothing changes until you approve. Untick anything you do not want.",
+        "destructive": "Deletes or replaces data",
+        "approve": "Approve",
+        "declineAll": "Decline all",
+        "working": "Carrying out the approved changes…",
+        "inputLocked": "Approve or decline the changes above first"
+      },
+      "tools": {
+        "list_directory": "Look at the folder {{path}}",
+        "read_file": "Read {{path}}",
+        "file_info": "Check {{path}}",
+        "search_files": "Search in {{path}}",
+        "create_file": "Create the file {{path}}",
+        "create_directory": "Create the folder {{path}}",
+        "copy_path": "Copy {{path}} to {{dest}}",
+        "edit_file": "Edit {{path}}",
+        "write_file": "Rewrite {{path}}",
+        "move_path": "Move {{path}} to {{dest}}",
+        "rename_path": "Rename {{path}} to {{dest}}",
+        "delete_path": "Delete {{path}}"
       }
     },
     "version": {
@@ -3157,6 +3202,8 @@
       "geminiApiKeyDescription": "Enter your Google Gemini API key to enable artificial intelligence features.",
       "hideAiAnalysisLabel": "Hide AI Console Analysis",
       "hideAiAnalysisDescription": "If enabled, the AI console analysis feature will be hidden for all servers.",
+      "aiFileToolsLabel": "Let the assistant work with server files",
+      "aiFileToolsDescription": "The server assistant can read, create, edit, move and delete files of the server it is opened on, within the user's file permissions. It always asks for confirmation before changing or deleting anything.",
       "allowRegistrationLabel": "Allow users to register",
       "allowRegistrationDescription": "Self-registered users cannot perform any actions until permissions are granted. Disabling this only prevents direct registration, server invitations and the Users page are not affected.",
       "captchaBuiltinLabel": "Built-in anti-bot check",
@@ -3599,7 +3646,8 @@
     "ErrCloudflareRefusedCode": "Cloudflare answered: {{message}} (code {{cloudflareCode}})",
     "ErrDiscordNoWebhooks": "There are no Discord webhooks configured.",
     "ErrDiscordTestFailed": "The test message did not reach these webhooks: {{webhooks}}. Check that they still exist in Discord.",
-    "ErrNotificationLanguage": "The notification language must be Spanish or English."
+    "ErrNotificationLanguage": "The notification language must be Spanish or English.",
+    "ErrAIConfirmationInvalid": "This request expired, was already answered or belongs to someone else. Ask again."
   },
   "apiErrorValues": {
     "ErrDiscordTestFailed": {

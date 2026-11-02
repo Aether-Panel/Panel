@@ -21,6 +21,7 @@ Para el detalle completo de los endpoints, consulte la [referencia de la API](..
 | [Notificaciones del servidor](server-notifications.md) | Avisos por servidor a Discord, Telegram o un webhook firmado |
 | [Subdominios automáticos (Cloudflare)](subdomains.md) | Subdominios de servidor y registros SRV de Minecraft gestionados mediante Cloudflare |
 | [Asistente de IA y análisis de registros](ai-assistant.md) | Chat del asistente, análisis de la consola y «Explicar con IA» (Gemini) |
+| [Asistente de IA: trabajar con archivos](ai-agent.md) | Lo que el asistente puede hacer con los archivos de un servidor, aprobaciones, dónde quedan registrados los cambios, privacidad, límites |
 
 ## Ciclo de vida del servidor
 

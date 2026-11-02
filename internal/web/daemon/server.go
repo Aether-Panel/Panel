@@ -29,6 +29,7 @@ import (
 	"github.com/gofrs/uuid/v5"
 	"github.com/gorilla/websocket"
 	"github.com/spf13/cast"
+	"golang.org/x/sys/unix"
 )
 
 var wsupgrader = websocket.Upgrader{
@@ -89,6 +90,11 @@ func RegisterServerRoutes(e *gin.RouterGroup) {
 		l.DELETE("/:serverId/file/*filename", middleware.ResolveServerNode, deleteFile)
 		l.POST("/:serverId/file/*filename", middleware.ResolveServerNode, moveFile)
 		l.OPTIONS("/:serverId/file/*filename", response.CreateOptions("GET", "PUT", "DELETE", "POST"))
+
+		// the server assistant's file operations that the file manager's routes do not cover
+		l.GET("/:serverId/fs/stat", middleware.ResolveServerNode, statServerPath)
+		l.POST("/:serverId/fs/copy", middleware.ResolveServerNode, copyServerPath)
+		l.GET("/:serverId/fs/search", middleware.ResolveServerNode, searchServerFiles)
 
 		l.GET("/:serverId/console", middleware.ResolveServerNode, getLogs)
 		l.POST("/:serverId/console", middleware.ResolveServerNode, postConsole)
@@ -799,10 +805,13 @@ func getFile(c *gin.Context) {
 }
 
 // @Summary Edit file
-// @Description Adds or edit a file, replacing the contents with the provided body
+// @Description Adds or edit a file, replacing the contents with the provided body.
+// @Description With create=true it only creates a new file and answers 409 when something is already there.
 // @Success 204 {object} nil
+// @Failure 409 {object} skypanel.ErrorResponse "create=true and the file exists, or the disk limit is reached"
 // @Param id path string true "Server ID"
 // @Param filepath path string true "File path"
+// @Param create query bool false "Only create a new file, never replace one"
 // @Param file formData file true "File contents"
 // @Accept multipart/form-data
 // @Tags Daemon Server
@@ -812,6 +821,14 @@ func putFile(c *gin.Context) {
 	server := getServerFromGin(c)
 
 	targetPath := getFullFilename(c)
+
+	// only "create=true" turns it on: a stray "create" or "create=false" keeps the normal write
+	create := c.Query("create") == "true"
+	if create {
+		// getFullFilename keeps a query as part of the name, for old links to names with a
+		// "?"; a create request escapes its name, so its query is only the flag
+		targetPath = c.Param("filename")
+	}
 
 	if targetPath == "" {
 		c.AbortWithStatus(http.StatusNotFound)
@@ -852,16 +869,27 @@ func putFile(c *gin.Context) {
 		return
 	}
 
-	// keep the text being replaced, so a config edit can be compared and undone
-	recordFileVersion(server, targetPath)
+	flags := os.O_CREATE | os.O_TRUNC | os.O_RDWR
+	if create {
+		// O_EXCL makes the check and the creation one step: two writers cannot both create the
+		// file, and nothing already there (a file, a folder or a link) is replaced
+		flags = os.O_CREATE | os.O_EXCL | os.O_WRONLY
+	} else {
+		// keep the text being replaced, so a config edit can be compared and undone
+		recordFileVersion(server, targetPath)
 
-	// the old content is about to be truncated, so it stops counting against the disk limit
-	if fi, err := server.GetFileServer().Stat(targetPath); err == nil && !fi.IsDir() {
-		server.ReleaseDisk(fi.Size())
+		// the old content is about to be truncated, so it stops counting against the disk limit
+		if fi, err := server.GetFileServer().Stat(targetPath); err == nil && !fi.IsDir() {
+			server.ReleaseDisk(fi.Size())
+		}
 	}
 
-	file, err := server.GetFileServer().OpenFile(targetPath, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0644)
+	file, err := server.GetFileServer().OpenFile(targetPath, flags, 0644)
 	defer utils.Close(file)
+	if create && os.IsExist(err) {
+		response.HandleError(c, skypanel.ErrFileExists, http.StatusConflict)
+		return
+	}
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
@@ -884,8 +912,10 @@ func putFile(c *gin.Context) {
 
 // @Summary Delete file
 // @Description Deletes a file or folder.
-// @Description WARNING: This is a recursive operation, specifying a folder will delete all children
+// @Description WARNING: This is a recursive operation, specifying a folder will delete all children.
+// @Description A symlink is removed itself; what it points at is not touched.
 // @Success 204 {object} nil
+// @Failure 404 {object} nil
 // @Param id path string true "Server ID"
 // @Param filepath path string true "File path"
 // @Tags Daemon Server
@@ -895,14 +925,30 @@ func deleteFile(c *gin.Context) {
 	server := getServerFromGin(c)
 
 	targetPath := getFullFilename(c)
+	// the server folder itself is never removed through this route: an empty path would
+	// otherwise empty the whole server
+	if cleaned := filepath.Clean("/" + targetPath); cleaned == "/" {
+		response.HandleError(c, skypanel.ErrIllegalFileAccess, http.StatusBadRequest)
+		return
+	}
 
-	fi, err := server.GetFileServer().Stat(targetPath)
+	// described without following it: following a symlink to a folder would empty that folder
+	// and then fail to remove the link itself
+	fi, err := lstatFile(server.GetFileServer(), targetPath)
+	if os.IsNotExist(err) {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
-	if fi.IsDir() {
+	switch {
+	case fi.Mode()&os.ModeSymlink != 0:
+		// only the link goes; what it points at is not touched
+		err = removeLink(server.GetFileServer(), targetPath)
+	case fi.IsDir():
 		err = server.GetFileServer().RemoveAll(targetPath)
-	} else {
+	default:
 		err = server.GetFileServer().Remove(targetPath)
 	}
 	// freed space counts at once, so a server stopped for a full disk can start again
@@ -911,6 +957,29 @@ func deleteFile(c *gin.Context) {
 	if !response.HandleError(c, err, http.StatusInternalServerError) {
 		c.Status(http.StatusNoContent)
 	}
+}
+
+// lstatFile describes name without following it when it is a symlink. The way there is still
+// resolved beneath the server folder, as every file server path is.
+func lstatFile(fsys files.FileServer, name string) (os.FileInfo, error) {
+	f, err := fsys.OpenFile(name, unix.O_PATH|unix.O_NOFOLLOW, 0)
+	if err != nil {
+		return nil, err
+	}
+	defer utils.Close(f)
+	return f.Stat()
+}
+
+// removeLink removes the symlink name itself. The file server's Remove opens what a link
+// points at, so the link is unlinked from its folder, which is opened beneath the root.
+func removeLink(fsys files.FileServer, name string) error {
+	name = filepath.Clean(name)
+	folder, err := fsys.OpenFile(filepath.Dir(name), os.O_RDONLY|unix.O_DIRECTORY, 0)
+	if err != nil {
+		return err
+	}
+	defer utils.Close(folder)
+	return unix.Unlinkat(int(folder.Fd()), filepath.Base(name), 0)
 }
 
 // @Summary Rename or move a file/folder

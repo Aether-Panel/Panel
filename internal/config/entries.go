@@ -57,6 +57,11 @@ var NodeIP = asString("panel.settings.nodeIp", "0.0.0.0")
 var GeminiAPIKey = asString("panel.settings.geminiApiKey", "")
 var HideAIAnalysis = asBool("panel.settings.hideAiAnalysis", false)
 
+// AIFileTools lets the server assistant read and change the files of the server it is opened
+// on, within the user's file permissions; it asks before it changes or deletes anything. Off,
+// the assistant only answers questions, as it did before it had tools.
+var AIFileTools = asBool("panel.settings.aiFileTools", true)
+
 // NotificationLanguage is the language ("es" or "en") of what the panel sends outside its own
 // pages: Discord, Telegram and webhook alerts, the panel's Discord reports and extension
 // events. Spanish by default, which is what installs sent before it existed. Remote nodes get

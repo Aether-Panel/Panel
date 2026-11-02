@@ -19,6 +19,7 @@ var ErrTooManyAttempts = CreateError("too many failed attempts, wait a few minut
 var ErrServiceNotAvailable = CreateError("service not available", "ErrServiceNotAvailable")
 var ErrFeatureDisabled = CreateError("this experimental feature is turned off in the panel settings", "ErrFeatureDisabled")
 var ErrAIAnalysisDisabled = CreateError("the AI log analysis is turned off in the panel settings", "ErrAIAnalysisDisabled")
+var ErrAIConfirmationInvalid = CreateError("this request expired, was already answered or belongs to someone else: ask again", "ErrAIConfirmationInvalid")
 var ErrEmailNotConfigured = CreateError("email not configured", "ErrEmailNotConfigured")
 var ErrTokenInvalid = CreateError("token is invalid", "ErrTokenInvalid")
 var ErrClientNotFound = CreateError("client not found", "ErrClientNotFound")

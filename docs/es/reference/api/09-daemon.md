@@ -69,7 +69,10 @@ Salvo que la última columna diga otra cosa, la ruta del panel es la misma bajo 
 | POST | `/start`, `/restart` | Inicia / reinicia | La misma (antes, el panel rechaza los servidores suspendidos) |
 | POST | `/stop`, `/kill` | Detiene / fuerza la parada | La misma |
 | POST | `/install` | Ejecuta la instalación de la plantilla | La misma; también justo después de crear el servidor |
-| GET, PUT, POST, DELETE | `/file/*filename` | Leer, escribir, mover y borrar archivos | La misma; también las dos transferencias |
+| GET, PUT, POST, DELETE | `/file/*filename` | Leer, escribir, mover y borrar archivos | La misma; también las dos transferencias y el asistente del servidor |
+| GET | `/fs/stat` | Describe un archivo o una carpeta | Ninguna: el asistente del servidor del panel ([abajo](#archivos)) |
+| POST | `/fs/copy` | Copia un archivo o una carpeta | Ninguna: el asistente del servidor del panel |
+| GET | `/fs/search` | Busca en nombres o en el contenido de los archivos | Ninguna: el asistente del servidor del panel |
 | POST | `/archive/*filename` | Comprime archivos | La misma; también las dos transferencias |
 | POST | `/extract/*filename` | Descomprime un archivo | La misma; también las dos transferencias |
 | GET | `/console` | Búfer de la consola | La misma |
@@ -179,6 +182,56 @@ Fuerza la parada del servidor si está en marcha, ejecuta los pasos de desinstal
 ### Archivos
 
 Las mismas reglas que las [rutas de archivos del panel](./04-server-content.md#archivos), incluida la opción `?folder` y que la cadena de consulta se lea como parte del nombre del archivo en `GET`, `PUT` y `DELETE`. Las dos [transferencias](./08-external-transfer.md#qué-se-traslada) usan estas rutas con el archivo `transfer.tar.gz` y `extract/transfer.tar.gz?destination=.`.
+
+Cambios hechos para el asistente del servidor (se aplican a cualquiera que llame a estas rutas):
+
+- `PUT /file/*filename?create=true` solo crea un archivo nuevo: lo abre con `O_EXCL`, así que no sustituye nada de lo que ya haya (archivo, carpeta o enlace), y responde `409 ErrFileExists` cuando ya existe algo. Con `create` en la consulta (con cualquier valor), la consulta **no** se lee como parte del nombre, y no se guarda ninguna versión anterior en el historial de archivos (no la hay). Se crean las carpetas superiores que falten y se aplica el límite de disco como en cualquier `PUT` (`409 ErrDiskLimitExceeded`).
+- `DELETE /file/*filename` describe el destino sin seguirlo: un enlace simbólico se elimina a sí mismo (se desvincula de su carpeta) y aquello a lo que apunta no se toca. Antes, borrar un enlace a una carpeta vaciaba esa carpeta y luego no conseguía eliminar el enlace. Una ruta que no existe responde `404` sin cuerpo; una ruta vacía, o que se resuelve en la propia carpeta del servidor, responde `400 ErrIllegalFileAccess` en lugar de vaciar el servidor.
+
+El asistente del servidor (véase [Kit de herramientas del agente de IA](../../backend/14-ai-toolkit.md)) usa además tres rutas que no tienen ruta en el panel: el panel solo las llama desde su `nodeWorkspace`, para el servidor de la conversación. Funcionan mediante el workspace del kit sobre el servidor de archivos confinado del servidor, así que las rutas se vuelven a comprobar en el nodo (relativas a la carpeta del servidor; sin `/` inicial, letra de unidad, `..` ni NUL; como mucho 4096 bytes y 64 elementos) y los enlaces simbólicos no se siguen fuera de la carpeta.
+
+#### `GET /daemon/server/:serverId/fs/stat?path=`
+
+`path` es relativa a la carpeta del servidor; vacía (o `.`) es la propia carpeta. Respuesta:
+
+```json
+{ "name": "server.properties", "path": "server.properties", "isDir": false, "size": 1187, "modTime": "2026-11-02T09:41:00Z" }
+```
+
+Un enlace simbólico que queda dentro de la carpeta del servidor se describe por aquello a lo que apunta. La carpeta del servidor responde `name` y `path` `"."`. `size` es `0` en las carpetas.
+
+#### `POST /daemon/server/:serverId/fs/copy`
+
+Cuerpo `{"source": "config", "destination": "config-backup"}`. Copia un archivo o un árbol de carpetas; `204`. El destino no debe existir ni estar dentro del origen; se crean las carpetas superiores que falten. Un enlace simbólico como origen se rechaza; dentro de una carpeta copiada se omiten los enlaces simbólicos, dispositivos, sockets y tuberías. Antes de copiar, el nodo comprueba el disco (`ErrDiskLimitExceeded`) y, si hay límite de disco, suma los archivos normales que se copiarían y lo rechaza con `409 ErrDiskLimitExceeded` si no caben; después vuelve a medir la carpeta.
+
+#### `GET /daemon/server/:serverId/fs/search?dir=&query=&content=`
+
+Busca `query` (sin distinguir mayúsculas, como mucho 200 caracteres, no vacía) por debajo de `dir` (vacía es la carpeta del servidor), por niveles: en los nombres de archivos y carpetas o, con `content=true`, en las líneas de los archivos de texto. Límites: 8 carpetas de profundidad, 5000 entradas revisadas, 200 coincidencias, archivos de hasta 1 MiB; se omiten los archivos binarios y el interior de las carpetas enlazadas.
+
+```json
+{ "matches": [ { "path": "logs/latest.log", "line": 214, "text": "[ERROR] Could not load plugin" } ], "truncated": false }
+```
+
+Una coincidencia de nombre solo tiene `path`; una de contenido tiene además `line` (desde 1) y `text` (la línea sin espacios en los extremos, como mucho 300 caracteres). `truncated` es `true` cuando la búsqueda se detuvo en 200 coincidencias.
+
+#### Errores de las rutas `fs/*`
+
+Responden `{"error": {"code": "...", "msg": "..."}}` con un mensaje que contiene como mucho una ruta relativa al servidor. El panel vuelve a leer el código para saber qué ocurrió.
+
+| Estado | Código | Cuándo |
+|---|---|---|
+| `400` | `ErrFileInvalidPath` | Ruta vacía, demasiado larga o demasiado profunda, byte NUL |
+| `400` | `ErrFileOutsideServer` | Ruta absoluta, letra de unidad, `..`, o una ruta o enlace que sale de la carpeta del servidor |
+| `400` | `ErrFileNotAFolder`, `ErrFileIsAFolder` | Un archivo donde hace falta una carpeta, o al revés |
+| `400` | `ErrFileSymlink`, `ErrFileNotRegular` | Un enlace simbólico, dispositivo, socket o tubería donde hace falta un archivo normal o una carpeta |
+| `400` | `ErrFileInvalidRequest` | Cuerpo incorrecto, texto de búsqueda vacío o demasiado largo, un destino dentro de su origen |
+| `403` | `ErrFileProtected`, `ErrFilePermission` | Una ruta protegida (ninguna por defecto); el sistema operativo lo rechazó |
+| `404` | `ErrFileNotFound` | No existe |
+| `409` | `ErrFileExists` | El destino ya existe |
+| `409` | `ErrDiskLimitExceeded` | La copia no cabe en el límite de disco del servidor |
+| `413` | `ErrFileTooLarge` | Supera un límite de tamaño |
+| `507` | `ErrFileNoSpace` | El disco del nodo está lleno |
+| `500` | `ErrFileOperationFailed` | Cualquier otro caso (la causa solo se anota en el log del nodo) |
 
 ### Copias de seguridad
 

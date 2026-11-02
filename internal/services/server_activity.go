@@ -26,16 +26,17 @@ const ServerActivityMaxLimit = 100
 var ServerActivityFamilies = map[string][]string{
 	"power":    {"server.start", "server.stop", "server.restart", "server.kill", "server.install", "server.reload"},
 	"console":  {"console.*"},
-	"files":    {"file.*", "plugin.*", "modpack.*", "map.*"},
+	"files":    {"file.*", "plugin.*", "modpack.*", "map.*", "ai.*"},
 	"backups":  {"backup.*"},
 	"users":    {"user.*"},
 	"settings": {"settings.*", "server.rename", "server.suspend", "server.unsuspend", "server.transfer", "server.transferFailed", "server.transferStartFailed", "server.create", "server.change", "server.clone", "extransfer.*"},
 	"tasks":    {"task.*"},
 }
 
-// a free-form filter is a plain action prefix; keeping it to letters and dots means no LIKE
-// wildcard can reach the query
-var serverActivityPrefixPattern = regexp.MustCompile(`^[a-z]+(\.[a-z]*)?$`)
+// a free-form filter is a plain action prefix: letters and dots, and underscores after the dot
+// for the assistant's actions (ai.create_file). An underscore is a LIKE wildcard, so prefixes
+// are escaped before they reach the query (see likePrefix).
+var serverActivityPrefixPattern = regexp.MustCompile(`^[a-z]+(\.[a-z_]*)?$`)
 
 // lastServerActivityPrune is the unix time of the last retention pass, shared by every
 // request so the pass runs at most once per serverActivityPruneEvery
@@ -106,7 +107,7 @@ func (s *ServerActivity) List(serverID string, limit int, before uint, filter st
 		cond := s.DB.Where("1 = 0")
 		for _, p := range patterns {
 			if prefix, ok := strings.CutSuffix(p, "*"); ok {
-				cond = cond.Or("action LIKE ?", prefix+"%")
+				cond = cond.Or("action LIKE ? ESCAPE '!'", likePrefix(prefix)+"%")
 			} else {
 				cond = cond.Or("action = ?", p)
 			}
@@ -145,6 +146,12 @@ func serverActivityPatterns(filter string) []string {
 		filter += "."
 	}
 	return []string{filter + "*"}
+}
+
+// likePrefix escapes the LIKE wildcards of prefix with "!", the ESCAPE character of the
+// query: "ai.create_" must not also match "ai.createx…"
+func likePrefix(prefix string) string {
+	return strings.NewReplacer("!", "!!", "%", "!%", "_", "!_").Replace(prefix)
 }
 
 // TruncateRunes shortens text to at most limit characters without splitting one, marking
