@@ -86,3 +86,23 @@ func TestServerOwnersBackfill(t *testing.T) {
 	}
 	assert.Nil(t, owners["empty"], "a server nobody belongs to has no owner")
 }
+
+// The table that keeps node transfers in progress is created by its migration, and holds the
+// servers of a transfer as written
+func TestNodeTransfersMigration_CreatesTheTable(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "transfers.db")), &gorm.Config{})
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	assert.NoError(t, findMigration(t, "20261102-node-transfers").Migrate(db))
+
+	record := &models.NodeTransfer{ServerID: "srv01", TargetNodeID: 7, Moves: []models.NodeTransferMove{
+		{ServerID: "srv01", SourceNodeID: 3, Step: "copying its files", WasRunning: true, CopiedBackups: []string{"a.tar.gz"}},
+	}}
+	assert.NoError(t, db.Create(record).Error)
+	var loaded models.NodeTransfer
+	assert.NoError(t, db.First(&loaded, record.ID).Error)
+	assert.Equal(t, record.Moves, loaded.Moves)
+	assert.False(t, loaded.Committed)
+}

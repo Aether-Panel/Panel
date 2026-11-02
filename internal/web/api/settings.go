@@ -21,6 +21,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/offsite"
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
 	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
+	"github.com/SkyPanel/SkyPanel/v3/internal/servers"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	"github.com/SkyPanel/SkyPanel/v3/internal/update"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
@@ -96,7 +97,7 @@ func getSetting(c *gin.Context) {
 
 	for _, v := range editableStringEntries {
 		if v.Key() == key {
-			c.JSON(http.StatusOK, models.Setting{Value: v.Value()})
+			c.JSON(http.StatusOK, models.Setting{Value: maskedSettingValue(key, v.Value())})
 			return
 		}
 	}
@@ -137,6 +138,12 @@ func setSetting(c *gin.Context) {
 		return
 	}
 
+	// the page sent the mask back: the saved secret stays as it is
+	if isSecretSetting(key) && cast.ToString(model.Value) == secretMask {
+		c.Status(http.StatusNoContent)
+		return
+	}
+
 	if key == masterNodeIPKey {
 		err = saveMasterNodeIP(middleware.GetDatabase(c), model.Value)
 		if response.HandleError(c, err, http.StatusInternalServerError) {
@@ -150,11 +157,13 @@ func setSetting(c *gin.Context) {
 		return
 	}
 
+	previousLanguage := services.NotificationLanguage()
 	if err = applyEditableSetting(key, model.Value); response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
 
 	services.SyncNodeToConfig()
+	pushNotificationLanguageIfChanged(previousLanguage)
 
 	c.Status(http.StatusNoContent)
 }
@@ -216,6 +225,7 @@ func setSettings(c *gin.Context) {
 	}
 
 	db := middleware.GetDatabase(c)
+	dropMaskedSecrets(*settings)
 
 	// check everything first, so a bad value does not leave the settings half saved
 	for key, value := range *settings {
@@ -224,6 +234,7 @@ func setSettings(c *gin.Context) {
 		}
 	}
 
+	previousLanguage := services.NotificationLanguage()
 	for key, value := range *settings {
 		// Intercept the custom global setting
 		if key == masterNodeIPKey {
@@ -237,15 +248,24 @@ func setSettings(c *gin.Context) {
 	}
 
 	services.SyncNodeToConfig()
+	pushNotificationLanguageIfChanged(previousLanguage)
 
 	c.Status(http.StatusNoContent)
+}
+
+// pushNotificationLanguageIfChanged sends a changed notification language to the remote nodes
+// now: the status poll carries it, and would otherwise only run within the next 30 seconds
+func pushNotificationLanguageIfChanged(previous string) {
+	if services.NotificationLanguage() != previous {
+		servers.PollRemoteNodesNow()
+	}
 }
 
 func getSettings(c *gin.Context) {
 	settings := make(map[string]interface{})
 
 	for _, v := range editableStringEntries {
-		settings[v.Key()] = v.Value()
+		settings[v.Key()] = maskedSettingValue(v.Key(), v.Value())
 	}
 
 	for _, v := range editableBoolEntries {
@@ -279,6 +299,7 @@ func sendTestEmail(c *gin.Context) {
 
 	var body map[string]interface{}
 	_ = c.BindJSON(&body)
+	dropMaskedSecrets(body)
 
 	getStr := func(key string) string {
 		if v, ok := body[key].(string); ok {
@@ -334,27 +355,29 @@ func sendTestDiscord(c *gin.Context) {
 	// webhooks typed in the form but not saved yet are tested too, like the email test does
 	var overrides map[string]interface{}
 	_ = c.ShouldBindJSON(&overrides)
+	dropMaskedSecrets(overrides)
 
 	fields := []services.DiscordEmbedField{
-		{Name: "Tipo", Value: "Mensaje de Prueba", Inline: true},
-		{Name: "Estado", Value: "✅ Configuración Correcta", Inline: true},
+		{Name: services.NotificationText("field.type"), Value: services.NotificationText("discordTest.type"), Inline: true},
+		{Name: services.NotificationText("field.status"), Value: services.NotificationText("discordTest.status"), Inline: true},
 	}
 
-	title := "🧪 Test de Webhook Discord"
-	description := "Este es un mensaje de prueba para verificar que el webhook de Discord está configurado correctamente."
+	title := services.NotificationText("discordTest.title")
+	description := services.NotificationText("discordTest.description")
 	color := 0x0099FF
 
 	// send to every configured webhook and report the ones that failed: a test that always
-	// says OK hides a wrong or deleted webhook until a real alert goes missing
+	// says OK hides a wrong or deleted webhook until a real alert goes missing. The names are
+	// the ones ErrDiscordTestFailed carries, which the page shows as its section titles.
 	targets := []struct {
 		name  string
 		entry config.StringEntry
 		title string
 	}{
-		{"principal", config.DiscordWebhook, title},
-		{"sistema", config.DiscordWebhookSystem, title + " (Sistema)"},
-		{"nodo", config.DiscordWebhookNode, title + " (Nodo)"},
-		{"migraciones", config.DiscordWebhookExTransfer, title + " (Migraciones)"},
+		{"alerts", config.DiscordWebhook, title},
+		{"reports", config.DiscordWebhookSystem, title + " (" + services.NotificationText("discordTest.system") + ")"},
+		{"status", config.DiscordWebhookNode, title + " (" + services.NotificationText("discordTest.node") + ")"},
+		{"transfers", config.DiscordWebhookExTransfer, title + " (" + services.NotificationText("discordTest.transfers") + ")"},
 	}
 
 	var failed []string
@@ -373,18 +396,18 @@ func sendTestDiscord(c *gin.Context) {
 		}
 		sent++
 		if err := ds.SendWebhookToURL(hook, target.title, description, color, fields); err != nil {
-			logging.Error.Printf("Error enviando test al webhook %s: %v", target.name, err)
+			logging.Error.Printf("Error sending the test to the %s webhook: %v", target.name, err)
 			failed = append(failed, target.name)
 		}
 	}
 
 	if sent == 0 {
-		response.HandleError(c, errors.New("no hay webhooks de Discord configurados"), http.StatusBadRequest)
+		response.HandleError(c, skypanel.ErrDiscordNoWebhooks, http.StatusBadRequest)
 		return
 	}
 	if len(failed) > 0 {
 		// 422 rather than 502: the panel hides the text of 5xx errors, and the admin needs it
-		response.HandleError(c, fmt.Errorf("el mensaje de prueba no llegó al webhook %s; revisa que siga existiendo en Discord", strings.Join(failed, ", ")), http.StatusUnprocessableEntity)
+		response.HandleError(c, skypanel.ErrDiscordTestFailed(failed), http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -561,6 +584,9 @@ func validateStringSetting(key, value string) error {
 			return services.ValidateDiscordWebhook(strings.TrimSpace(value))
 		}
 	}
+	if key == config.NotificationLanguage.Key() && !services.IsNotificationLanguage(strings.TrimSpace(value)) {
+		return skypanel.ErrNotificationLanguage
+	}
 	return nil
 }
 
@@ -578,6 +604,7 @@ var editableStringEntries = []config.StringEntry{
 	config.MasterURL,
 	config.NodeIP,
 	config.GeminiAPIKey,
+	config.NotificationLanguage,
 	// the node's key for CurseForge modpacks (on remote nodes it is set in their own config)
 	config.CurseForgeKey,
 	config.DiscordWebhook,
@@ -988,6 +1015,7 @@ func sendTestS3(c *gin.Context) {
 	cfg, _ := offsite.FromSettings()
 	var overrides map[string]interface{}
 	_ = c.ShouldBindJSON(&overrides)
+	dropMaskedSecrets(overrides)
 	if v, ok := overrides[config.BackupsS3Endpoint.Key()]; ok {
 		cfg.Endpoint = strings.TrimSpace(cast.ToString(v))
 	}

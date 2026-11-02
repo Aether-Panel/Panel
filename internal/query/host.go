@@ -22,6 +22,12 @@ func hostOrLocal(ip string) string {
 	return localHost
 }
 
+// HostOrLocal is where the panel reaches a game server listening on ip: the game queries
+// and the RCON, Telnet and RCON over WebSocket consoles find the game the same way
+func HostOrLocal(ip string) string {
+	return hostOrLocal(ip)
+}
+
 var (
 	localHostOnce sync.Once
 	localHost     string

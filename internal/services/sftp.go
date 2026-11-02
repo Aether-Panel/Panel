@@ -66,18 +66,38 @@ func (s *DatabaseSFTPAuthorization) ValidateKey(username string, key ssh.PublicK
 		return nil, skypanel.ErrDatabaseNotAvailable
 	}
 
+	return validateSFTPKey(db, email, serverID, key)
+}
+
+// validateSFTPKey checks a key login against the database. Failed keys count against the
+// account's key budget, "sshkey:user:<id>", the one the panel's /auth/sftp-key check for
+// remote nodes uses, so a key login has the same limit on every node. It is apart from the
+// password budget: an SSH client offers each of its keys in turn, and those misses must not
+// lock the owner out of signing in with their password.
+func validateSFTPKey(db *gorm.DB, email, serverID string, key ssh.PublicKey) (*ssh.Permissions, error) {
 	us := &User{DB: db}
 	user, err := us.GetByEmail(email)
 	if user == nil || err != nil {
 		return nil, errSFTPRefused
 	}
+
+	limitKey := attemptKey("sshkey", email, user)
+	if !LoginAttempts.Take(limitKey) {
+		return nil, skypanel.ErrTooManyAttempts
+	}
+
 	ks := &SSHKey{DB: db}
 	stored, err := ks.FindForLogin(user.ID, key)
 	if stored == nil || err != nil {
 		return nil, errSFTPRefused
 	}
 
-	return sftpPermissions(db, user.ID, serverID)
+	perms, err := sftpPermissions(db, user.ID, serverID)
+	if err != nil {
+		return nil, err
+	}
+	LoginAttempts.Reset(limitKey)
+	return perms, nil
 }
 
 // sftpPermissions lets a user into the server's files when they may still sign in to the

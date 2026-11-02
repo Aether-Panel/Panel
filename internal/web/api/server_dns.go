@@ -75,12 +75,12 @@ var accentFold = map[rune]string{
 }
 
 var (
-	errSubdomainInvalid  = skypanel.CreateError("el subdominio solo puede tener letras minúsculas, números y guiones (3 a 32 caracteres, sin guion al principio ni al final)", "ErrSubdomainInvalid")
-	errSubdomainReserved = skypanel.CreateError("ese subdominio está reservado", "ErrSubdomainReserved")
-	errSubdomainTaken    = skypanel.CreateError("ese subdominio ya está en uso", "ErrSubdomainTaken")
-	errSubdomainDisabled = skypanel.CreateError("los subdominios automáticos no están configurados en este panel", "ErrSubdomainDisabled")
-	errSubdomainWait     = skypanel.CreateError("espera unos segundos antes de volver a cambiar el subdominio", "ErrSubdomainRateLimited")
-	errSubdomainNoTarget = skypanel.CreateError("el nodo de este servidor no tiene una dirección pública; configura un destino DNS en los ajustes del panel", "ErrSubdomainNoTarget")
+	errSubdomainInvalid  = skypanel.CreateError("a subdomain may only have lowercase letters, digits and hyphens (3 to 32 characters, no hyphen at the start or end)", "ErrSubdomainInvalid")
+	errSubdomainReserved = skypanel.CreateError("that subdomain is reserved", "ErrSubdomainReserved")
+	errSubdomainTaken    = skypanel.CreateError("that subdomain is already in use", "ErrSubdomainTaken")
+	errSubdomainDisabled = skypanel.CreateError("automatic subdomains are not set up on this panel", "ErrSubdomainDisabled")
+	errSubdomainWait     = skypanel.CreateError("wait a few seconds before changing the subdomain again", "ErrSubdomainRateLimited")
+	errSubdomainNoTarget = skypanel.CreateError("this server's node has no public address; set a DNS target in the panel settings", "ErrSubdomainNoTarget")
 )
 
 // dnsProviderError marks a failure reported by Cloudflare, which the admin or owner can act
@@ -347,6 +347,7 @@ func sendTestCloudflare(c *gin.Context) {
 	s := currentDNSSettings()
 	var overrides map[string]interface{}
 	_ = c.ShouldBindJSON(&overrides)
+	dropMaskedSecrets(overrides)
 	if v, ok := overrides[config.CloudflareAPIToken.Key()]; ok {
 		s.Token = strings.TrimSpace(cast.ToString(v))
 	}
@@ -362,7 +363,7 @@ func sendTestCloudflare(c *gin.Context) {
 		return
 	}
 	if s.Domain != "" && !hostnamePattern.MatchString(s.Domain) {
-		response.HandleError(c, errors.New("el dominio base no es un nombre de dominio válido"), http.StatusBadRequest)
+		response.HandleError(c, skypanel.ErrDNSBaseDomainInvalid, http.StatusBadRequest)
 		return
 	}
 

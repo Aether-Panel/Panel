@@ -220,3 +220,7 @@ Instalaciones reales en contenedores con systemd:
 - **Rama `main` por defecto.** Una instalación nueva, y el actualizador del panel (`tools/panelUpdate/panelUpdate.sh`) cuando no hay otra rama indicada, usan `main`, la rama estable. Una instalación que ya está en otra rama sigue en la suya: se lee de `installer.conf` o del repositorio. Otra rama se elige con `-b RAMA` o `AETHER_BRANCH`.
 - El aviso de "actualización disponible" del panel compara con la rama instalada (la que lee de `/repo/.git/HEAD`), no con `dev2.0` fijo. Antes, una instalación en `main` veía avisos de cambios que su actualización no iba a traer.
 
+
+# install.sh 4.2.1 → 4.2.2
+
+- **Base de datos externa en el propio servidor.** Con `--db-mode external` y el host `localhost` (el valor por defecto de la pregunta), el `.env` recibía `host.docker.internal`, pero la comprobación de la conexión rechazaba `localhost`/`127.*` y paraba la instalación. Ahora las dos usan la misma regla: `localhost`, `127.*` y `::1` pasan a `host.docker.internal`, y la comprobación (y la copia de seguridad de `--update`) se conectan a ese nombre desde un contenedor con `host-gateway`, como el panel. MySQL tiene que escuchar en la IP del puente Docker (`bind-address`), y el instalador lo recuerda.

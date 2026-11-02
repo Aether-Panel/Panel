@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/empty-state';
+import { useConfig } from '@/contexts/config-context';
 import { useTranslations } from '@/contexts/translations-context';
 import { ApiError, api } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
@@ -222,6 +223,7 @@ export function CrashHistory({ serverId, onOpen }: Readonly<{ serverId: string; 
 /** One crash in full: what happened, the console before it, and the AI's reading of it. */
 export function CrashReportDialog({ serverId, report, onOpenChange }: Readonly<{ serverId: string; report: CrashReport | null; onOpenChange: (open: boolean) => void }>) {
   const { t, language, date, exitMeaning, restartText } = useFormat();
+  const aiHidden = !!useConfig().config?.hideAiAnalysis;
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [analysing, setAnalysing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
@@ -299,6 +301,7 @@ export function CrashReportDialog({ serverId, report, onOpenChange }: Readonly<{
               )}
             </section>
 
+            {!aiHidden && (
             <section aria-labelledby="crash-ai-title" aria-busy={analysing} className="rounded-xl border border-primary/25 bg-gradient-to-br from-primary/[0.07] via-transparent to-accent/[0.05] p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h3 id="crash-ai-title" className="flex items-center gap-2 text-sm font-semibold">
@@ -352,6 +355,7 @@ export function CrashReportDialog({ serverId, report, onOpenChange }: Readonly<{
                 </div>
               )}
             </section>
+            )}
           </>
         )}
       </DialogContent>

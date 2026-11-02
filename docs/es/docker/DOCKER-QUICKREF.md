@@ -1,104 +1,111 @@
-# Referencia Rápida Docker
+# Referencia rápida de Docker
+
+Comandos de uso diario. Ejecútelos desde la carpeta del `docker-compose.yml` (`/opt/skypanel` en una instalación con el instalador). Se usa Docker Compose v2 (`docker compose`); `docker-compose` v1 no es compatible. Los detalles están en [Documentación Docker](./README.docker.md).
+
+## Docker Compose
+
+```bash
+# Construir e iniciar (panel, MariaDB y Adminer)
+docker compose up -d --build
+
+# Estado y logs
+docker compose ps
+docker compose logs -f skypanel
+docker compose logs -f              # todos los servicios
+
+# Reiniciar, detener y arrancar
+docker compose restart
+docker compose stop
+docker compose start
+
+# Eliminar los contenedores (los datos de ./storage se conservan)
+docker compose down
+
+# Volver a construir la imagen del panel
+docker compose build
+```
+
+Para actualizar una instalación hecha con el instalador, use `install.sh --update` o **Configuración → Actualizaciones**; ver [Actualizar](../setup/01-installation.md#actualizar). `docker compose pull` solo descarga MariaDB y Adminer: la imagen del panel se construye en el servidor.
+
+## Comandos del panel
+
+```bash
+# Crear un administrador (pide la contraseña si no se indica --password)
+docker exec -it skypanel /SkyPanel/bin/SkyPanel user add --name admin --email admin@ejemplo.com --admin
+
+# Editar un usuario: nombre, email, contraseña, administrador, quitar 2FA
+docker exec -it skypanel /SkyPanel/bin/SkyPanel user edit
+
+# Versión
+docker exec skypanel /SkyPanel/bin/SkyPanel version
+
+# Migraciones del esquema (el panel ya las aplica al arrancar)
+docker exec skypanel /SkyPanel/bin/SkyPanel db upgrade
+
+# Shell en el contenedor
+docker exec -it skypanel sh
+```
+
+Con el instalador también se puede crear un administrador: `sudo bash install.sh --create-admin --admin-email admin@ejemplo.com`.
 
 ## Imágenes
 
 ```bash
-# Construir imagen principal
+# Imagen del panel
 docker build -t skypanel:latest .
-
-# Build multi-plataforma
-docker build --platform linux/amd64 -t skypanel:latest .
 docker build --platform linux/arm64 -t skypanel:latest .
 
-# Dockerfiles auxiliares
+# Herramientas auxiliares
 docker build -f Dockerfile-curseforge -t curseforge-tester .
 docker build -f Dockerfile-templatetester -t template-tester .
 docker build -f Dockerfile-formatter -t formatter .
 ```
 
-## Docker Compose
-
-```bash
-# Producción (Panel + MariaDB)
-docker-compose up -d
-
-# Desarrollo (Panel standalone, SQLite)
-docker-compose -f docker-compose.dev.yml up -d
-
-# Logs
-docker-compose logs -f
-docker-compose -f docker-compose.dev.yml logs -f
-
-# Detener
-docker-compose down
-docker-compose -f docker-compose.dev.yml down -v
-```
-
-## Comandos del Panel
-
-```bash
-# Crear usuario admin
-docker exec -it skypanel /SkyPanel/bin/SkyPanel user add --name admin --email admin@example.com --admin
-
-# Shell
-docker exec -it skypanel sh
-
-# Versión
-docker exec skypanel /SkyPanel/bin/SkyPanel version
-
-# Migraciones de esquema
-docker exec skypanel /SkyPanel/bin/SkyPanel db upgrade
-```
-
 ## Puertos
 
-| Puerto | Servicio | Prod | Dev |
+| Puerto | Servicio | `docker-compose.yml` | `docker-compose.dev.yml` |
 |---|---|---|---|
-| `8080` | Panel Web | sí | sí |
-| `5657` | SFTP | sí | sí |
-| `3306` | MariaDB | sí | no |
+| `8080` | Panel web y API | Todas las interfaces | Todas las interfaces |
+| `5657` | SFTP | Todas las interfaces | Todas las interfaces |
+| `3307` | MariaDB (3306 dentro) | Solo `127.0.0.1` (`DB_BIND_ADDRESS`) | — |
+| `8081` | Adminer | Solo `127.0.0.1` | — |
 
-## Volúmenes
+## Datos
 
-| Ruta | Propósito | Prod | Dev |
+| Ruta en el host | Ruta en el contenedor | Contenido | Archivo |
 |---|---|---|---|
-| `./storage/skypanel-config/` | Config | sí | no |
-| `./storage/skypanel-data/` | Datos | sí | no |
-| `./storage/skypanel-logs/` | Logs | sí | no |
-| `./storage/mysql-data/` | BD MySQL | sí | no |
-| `./dev-data/data/` | Datos | no | sí |
-| `./dev-data/logs/` | Logs | no | sí |
+| `./storage/skypanel-config/` | `/etc/SkyPanel` | `config.json` si se deja aquí | `docker-compose.yml` |
+| `./storage/skypanel-data/` | `/var/lib/SkyPanel` | Servidores, copias, extensiones, `config.json` | `docker-compose.yml` |
+| `./storage/skypanel-logs/` | `/var/log/SkyPanel` | Logs del panel | `docker-compose.yml` |
+| `./storage/mysql-data/` | `/var/lib/mysql` | Base de datos | `docker-compose.yml` |
+| `./dev-data/data/` | `/var/lib/SkyPanel` | Datos | `docker-compose.dev.yml` |
+| `./dev-data/logs/` | `/var/log/SkyPanel` | Logs | `docker-compose.dev.yml` |
 
-## Variables Comunes
+## Base de datos
 
 ```bash
-# Cambiar a SQLite (dev)
-SKYPANEL_PANEL_DATABASE_DIALECT=sqlite3
+# Consola de MariaDB (contraseña de root en .env)
+docker exec -it skypanel-mysql mariadb -uroot -p
 
-# Personalizar marca
-SKYPANEL_PANEL_SETTINGS_COMPANYNAME="Mi Panel"
+# Copia de la base de datos
+docker exec -e MYSQL_PWD="$(grep ^DB_ROOT_PASSWORD= .env | cut -d= -f2-)" skypanel-mysql \
+  mariadb-dump -uroot --single-transaction --databases skypanel | gzip > skypanel.sql.gz
 
-# Template URL
+# Adminer desde su equipo (túnel SSH) y luego http://localhost:8081
+ssh -L 8081:127.0.0.1:8081 usuario@servidor
+```
+
+## Variables de entorno
+
+Cualquier clave de configuración se puede fijar con `SKYPANEL_` + la clave en mayúsculas, con los puntos cambiados por `_`. Póngalas en `docker-compose.override.yml`, no en `docker-compose.yml` (las actualizaciones lo restauran). Una variable gana siempre a lo guardado en Configuración, así que use variables solo para lo que no vaya a cambiar desde el panel.
+
+```bash
 SKYPANEL_TEMPLATES_URL=https://templates.aetherpanel.es/templates.json
-
-# Gemini API Key
-SKYPANEL_PANEL_SETTINGS_GEMINIAPIKEY=tu-api-key
-
-# Discord Webhooks
+SKYPANEL_PANEL_SETTINGS_COMPANYNAME="Mi Panel"
+SKYPANEL_PANEL_SETTINGS_GEMINIAPIKEY=su-clave
 SKYPANEL_PANEL_NOTIFICATIONS_DISCORDWEBHOOK=https://discord.com/api/webhooks/...
+SKYPANEL_DAEMON_MINFREEDISKMB=4096
+SKYPANEL_PANEL_BACKUPS_MAXPERSERVER=20
 ```
 
-## Solución Rápida
-
-```bash
-# 1. Iniciar
-docker-compose up -d
-
-# 2. Ver logs hasta que esté listo
-docker-compose logs -f
-
-# 3. Crear admin
-docker exec -it skypanel /SkyPanel/bin/SkyPanel user add --name admin --email admin@example.com --admin
-
-# 4. Abrir http://localhost:8080
-```
+La lista de claves está en [Configuración](../backend/02-configuration.md).

@@ -135,8 +135,14 @@ func (e *Environment) CreateConsoleStdinProxy(config StdinConsoleConfiguration, 
 			IP:       config.IP,
 			Port:     config.Port,
 			Password: config.Password,
+			NoTLS:    !config.UsesTLS(),
 		}
+	case "", "stdin":
+		e.Console = &NoStartConsole{Base: base}
 	default:
+		// a misspelled type (say "rcon-ws") still works through the standard input, but the
+		// template meant something else, and the game may ignore what arrives there
+		logging.Error.Printf("[%s] Unknown console type %q (known: stdin, rcon, telnet, rconws): commands go to the standard input", e.ServerID, config.Type)
 		e.Console = &NoStartConsole{Base: base}
 	}
 }

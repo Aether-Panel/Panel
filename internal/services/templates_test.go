@@ -1,0 +1,115 @@
+package services
+
+import (
+	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/pem"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/SkyPanel/SkyPanel/v3/internal/models"
+	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
+	gitssh "github.com/go-git/go-git/v5/plumbing/transport/ssh"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/ssh"
+)
+
+func TestRepoAuth_PublicRepo(t *testing.T) {
+	auth, err := repoAuth(&models.TemplateRepo{URL: "https://github.com/org/templates.git"})
+	require.NoError(t, err)
+	assert.Nil(t, auth)
+}
+
+func TestRepoAuth_HTTP(t *testing.T) {
+	auth, err := repoAuth(&models.TemplateRepo{URL: "https://github.com/org/private.git", PAT: "ghp_token"})
+	require.NoError(t, err)
+	assert.Equal(t, &githttp.BasicAuth{Username: "git", Password: "ghp_token"}, auth)
+
+	auth, err = repoAuth(&models.TemplateRepo{URL: "https://bitbucket.org/org/private.git", Username: "me", PAT: "app-password"})
+	require.NoError(t, err)
+	assert.Equal(t, &githttp.BasicAuth{Username: "me", Password: "app-password"}, auth)
+
+	auth, err = repoAuth(&models.TemplateRepo{URL: "https://git.example.com/private.git", Username: "me", Password: "secret"})
+	require.NoError(t, err)
+	assert.Equal(t, &githttp.BasicAuth{Username: "me", Password: "secret"}, auth)
+}
+
+func TestRepoAuth_SSH(t *testing.T) {
+	_, key, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	block, err := ssh.MarshalPrivateKey(key, "")
+	require.NoError(t, err)
+	pemKey := string(pem.EncodeToMemory(block))
+
+	auth, err := repoAuth(&models.TemplateRepo{URL: "git@github.com:org/private.git", SSHKey: pemKey})
+	require.NoError(t, err)
+	if keys, ok := auth.(*gitssh.PublicKeys); assert.True(t, ok, "an SSH address signs in with the key") {
+		assert.Equal(t, "git", keys.User)
+	}
+
+	auth, err = repoAuth(&models.TemplateRepo{URL: "ssh://deploy@git.example.com/private.git", SSHKey: pemKey})
+	require.NoError(t, err)
+	if keys, ok := auth.(*gitssh.PublicKeys); assert.True(t, ok) {
+		assert.Equal(t, "deploy", keys.User)
+	}
+
+	_, err = repoAuth(&models.TemplateRepo{Name: "broken", URL: "git@github.com:org/private.git", SSHKey: "not a key"})
+	if assert.Error(t, err) {
+		assert.NotContains(t, err.Error(), "not a key", "the key must not end up in an error or log")
+	}
+}
+
+// vpsServer serves an index with two templates and counts the index downloads
+func vpsServer(t *testing.T) (*httptest.Server, *atomic.Int32) {
+	indexHits := &atomic.Int32{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/index.json":
+			indexHits.Add(1)
+			_, _ = fmt.Fprint(w, `{"paper":{"url":"paper.json"},"vanilla":{"url":"vanilla.json"}}`)
+		case "/paper.json", "/vanilla.json":
+			_, _ = fmt.Fprint(w, `{"display":"Minecraft"}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(server.Close)
+	return server, indexHits
+}
+
+func TestGetAllFromVps_ReusesTheIndex(t *testing.T) {
+	vpsCache = vpsCacheEntry{}
+	t.Cleanup(func() { vpsCache = vpsCacheEntry{} })
+	server, indexHits := vpsServer(t)
+	ts := &Template{}
+
+	for i := 0; i < 3; i++ {
+		list, err := ts.getAllFromVps(server.URL + "/index.json")
+		require.NoError(t, err)
+		assert.Len(t, list, 2)
+	}
+	assert.Equal(t, int32(1), indexHits.Load(), "the index was downloaded on every request")
+
+	tmpl, err := ts.getFromVps(server.URL+"/index.json", "paper")
+	require.NoError(t, err)
+	assert.Equal(t, "paper", tmpl.Name)
+	assert.Equal(t, int32(1), indexHits.Load())
+
+	// another templates.url is never answered from the old one
+	_, err = ts.getAllFromVps(server.URL + "/index.json?v=2")
+	require.NoError(t, err)
+	assert.Equal(t, int32(2), indexHits.Load())
+
+	// nor is an old copy
+	vpsCacheLock.Lock()
+	vpsCache.fetched = time.Now().Add(-vpsCacheTTL)
+	vpsCacheLock.Unlock()
+	_, err = ts.getAllFromVps(server.URL + "/index.json?v=2")
+	require.NoError(t, err)
+	assert.Equal(t, int32(3), indexHits.Load())
+}

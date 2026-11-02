@@ -1,9 +1,13 @@
 package api
 
 import (
+	"errors"
 	"testing"
 
+	"github.com/SkyPanel/SkyPanel/v3/internal/models"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNextPortFree_SkipsHeldAndAskedPorts(t *testing.T) {
@@ -35,4 +39,29 @@ func TestPortCheckResults_HoldersOnlyForAdministrators(t *testing.T) {
 
 	admin := portCheckResults(ports, held, true)
 	assert.Equal(t, "someone's survival", admin["port"].By)
+}
+
+// A refused port is a coded error with the port in it, so the page shows it in the viewer's
+// language instead of the text the panel wrote
+func TestValidatePorts_CodedErrors(t *testing.T) {
+	db := setupCloneTest(t)
+	require.NoError(t, db.Create(&models.Server{Identifier: "other", Name: "other", Type: "generic", Port: 25566, Ports: []uint16{25566}}).Error)
+
+	assertPortError := func(err error, code, port string) {
+		t.Helper()
+		var panelErr *skypanel.Error
+		if assert.True(t, errors.As(err, &panelErr), "%v", err) {
+			assert.Equal(t, code, panelErr.Code)
+			assert.Equal(t, port, panelErr.Meta["port"])
+		}
+	}
+
+	assertPortError(validatePortsAgainstNode(db, 0, "", []uint16{80}), "ErrPortOutOfRange", "80")
+	assertPortError(validatePortsAgainstNode(db, 0, "", []uint16{30000, 30000}), "ErrPortDuplicated", "30000")
+	assertPortError(validatePortsAgainstNode(db, 0, "", []uint16{25566}), "ErrPortTaken", "25566")
+	assert.NoError(t, validatePortsAgainstNode(db, 0, "other", []uint16{25566}), "a server keeps its own port")
+
+	err := validateOtherPorts(db, 0, map[string]skypanel.Variable{"rcon_port": {Value: float64(25566)}})
+	assertPortError(err, "ErrPortTaken", "25566 (rcon_port)")
+	assert.Equal(t, "port 25566 (rcon_port) is already used by another server on this node", err.Error())
 }

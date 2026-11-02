@@ -91,7 +91,10 @@ export default function ServersPage() {
     setStatusFilter('all');
   };
 
-  if (!isMounted || !hasScope('server.view') || serversLoading) {
+  // the gate is `login`, like the sidebar entry and the redirect above: /api/servers only
+  // returns the servers the user owns or was added to, so a user whose role lacks the global
+  // server.view (most server owners and sub-users) must still get their list, not a skeleton
+  if (!isMounted || !hasScope('login') || serversLoading) {
     return (
       <div className="flex flex-col gap-6" aria-busy="true">
         <span className="sr-only">{t('common.loading')}</span>

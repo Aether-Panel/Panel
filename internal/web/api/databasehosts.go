@@ -13,6 +13,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/response"
 	"github.com/SkyPanel/SkyPanel/v3/internal/scopes"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
+	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-gonic/gin"
 	"github.com/go-sql-driver/mysql"
 )
@@ -266,11 +267,12 @@ func updateDatabaseHost(c *gin.Context) {
 }
 
 // @Summary Delete database host
-// @Description Deletes a database host
+// @Description Deletes a database host. Refused with 409 while the host still has databases.
 // @Success 204 {object} nil
 // @Failure 400 {object} skypanel.ErrorResponse
 // @Failure 403 {object} skypanel.ErrorResponse
 // @Failure 404 {object} skypanel.ErrorResponse
+// @Failure 409 {object} skypanel.ErrorResponse
 // @Failure 500 {object} skypanel.ErrorResponse
 // @Param id path string true "Database Host Id"
 // @Tags Database Hosts
@@ -287,7 +289,12 @@ func deleteDatabaseHost(c *gin.Context) {
 		return
 	}
 
-	if err = dhs.Delete(uint(id)); response.HandleError(c, err, http.StatusInternalServerError) {
+	if err = dhs.Delete(uint(id)); err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, skypanel.ErrDatabaseHostInUse) {
+			status = http.StatusConflict
+		}
+		response.HandleError(c, err, status)
 		return
 	}
 

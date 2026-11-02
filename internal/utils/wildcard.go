@@ -34,7 +34,9 @@ func WildCardToRegexp(pattern string) string {
 	return result.String()
 }
 
-func matchRegex(pattern, value string) bool {
-	result, _ := regexp.MatchString("^"+WildCardToRegexp(pattern)+"$", value)
+// matchRegex matches value against a regex made by WildCardToRegexp. It must not convert
+// it again: that quoted the ".*" too, so no pattern with a * in it ever matched.
+func matchRegex(regex, value string) bool {
+	result, _ := regexp.MatchString("^"+regex+"$", value)
 	return result
 }

@@ -30,7 +30,7 @@ func registerWorldMapRoutes(l *gin.RouterGroup) {
 // @Success 200 {object} servers.WorldMapStatus
 // @Param id path string true "Server ID"
 // @Tags Daemon Server
-// @Router /api/servers/{id}/map [get]
+// @Router /daemon/server/{id}/map [get]
 // @Security OAuth2Application[server.view]
 func getWorldMap(c *gin.Context) {
 	server := getServerFromGin(c)

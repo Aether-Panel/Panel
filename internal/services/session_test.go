@@ -223,3 +223,49 @@ func TestSession_ExpireAllForUserKeepsOnlyTheCurrentSession(t *testing.T) {
 	_, err = ss.Validate(current)
 	assert.Error(t, err)
 }
+
+func TestSession_PruneExpiredKeepsLiveSessions(t *testing.T) {
+	db := setupSessionTestDB(t)
+	user := createTestUser(t, db)
+	ss := &Session{DB: db}
+
+	live, err := ss.CreateForUser(user)
+	assert.NoError(t, err)
+	expired, err := ss.CreateForUser(user)
+	assert.NoError(t, err)
+	expiredHash, err := HashToken(expired)
+	assert.NoError(t, err)
+	assert.NoError(t, db.Model(&models.Session{}).Where("token = ?", expiredHash).Update("expiration_time", time.Now().Add(-time.Minute)).Error)
+
+	assert.NoError(t, ss.PruneExpired(time.Now()))
+
+	var count int64
+	db.Model(&models.Session{}).Where("token = ?", expiredHash).Count(&count)
+	assert.Zero(t, count, "the expired row is deleted")
+	_, err = ss.Validate(live)
+	assert.NoError(t, err, "the live session stays")
+}
+
+// Creating a session also clears out the expired ones, at most once per sessionPruneEvery
+func TestSession_CreatePrunesExpiredSessions(t *testing.T) {
+	db := setupSessionTestDB(t)
+	user := createTestUser(t, db)
+	ss := &Session{DB: db}
+
+	old, err := ss.CreateForUser(user)
+	assert.NoError(t, err)
+	oldHash, err := HashToken(old)
+	assert.NoError(t, err)
+	assert.NoError(t, db.Model(&models.Session{}).Where("token = ?", oldHash).Update("expiration_time", time.Now().Add(-time.Minute)).Error)
+
+	previous := lastSessionPrune.Load()
+	lastSessionPrune.Store(time.Now().Add(-2 * sessionPruneEvery).Unix())
+	t.Cleanup(func() { lastSessionPrune.Store(previous) })
+
+	_, err = ss.CreateForUser(user)
+	assert.NoError(t, err)
+
+	var count int64
+	db.Model(&models.Session{}).Where("token = ?", oldHash).Count(&count)
+	assert.Zero(t, count)
+}

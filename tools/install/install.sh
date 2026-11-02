@@ -2,7 +2,7 @@
 
 ###############################################################################
 # Aether Panel - Script de Instalación Automática (Docker)
-# Versión: 4.2.1
+# Versión: 4.2.2
 # Repositorio: https://github.com/Aether-Panel/Panel.git
 # Nota: Aether Panel es el nombre oficial. SkyPanel es el nombre en clave.
 # Soporte: Solo instalación vía Docker. No existe modo nativo.
@@ -29,7 +29,7 @@ umask 022
 # CONFIGURACIÓN Y VARIABLES GLOBALES
 # =============================================================================
 
-readonly SCRIPT_VERSION="4.2.1"
+readonly SCRIPT_VERSION="4.2.2"
 readonly SCRIPT_BUILD="20261026-hardening"
 readonly PROJECT_NAME="Aether Panel"
 readonly PROJECT_CODENAME="SkyPanel"
@@ -171,6 +171,7 @@ PRE_UPDATE_COMMIT=""
 LAST_DB_BACKUP=""
 ROLLBACK_IMAGE=""
 DBS_MODE=""; DBS_NAME=""; DBS_USER=""; DBS_HOST=""; DBS_PORT=""
+EXT_DB_NET=()
 ROTATE_DB_PASSWORDS=false
 UNINSTALL_MODE=""
 DEBUG=$(truthy_env "${AETHER_DEBUG:-}")
@@ -1777,12 +1778,12 @@ configure_env_file() {
     fi
 
     if [[ "$DB_MODE" == "external" ]]; then
-        local host="$DB_HOST"
+        local host
+        host=$(container_db_host "$DB_HOST")
         if [[ -n "$host" ]]; then
-            if [[ "$host" == "localhost" || "$host" == "127.0.0.1" ]]; then
-                log_warning "Dentro del contenedor 'localhost' es el propio contenedor: se usa host.docker.internal"
+            if [[ "$host" != "$DB_HOST" ]]; then
+                log_warning "Dentro del contenedor '$DB_HOST' es el propio contenedor: se usa host.docker.internal"
                 log_warning "Asegúrate de que MySQL del host escucha en la IP del puente Docker (bind-address)"
-                host="host.docker.internal"
             fi
             env_set DB_HOST "$host"
             env_set DB_PORT "${DB_PORT:-3306}"
@@ -2995,7 +2996,8 @@ backup_database() {
             MYSQL_PWD="$(env_get DB_ROOT_PASSWORD)" docker exec -i -e MYSQL_PWD "$MYSQL_CONTAINER" \
                 mariadb-dump -uroot --single-transaction --routines --triggers --databases "$DBS_NAME" | gzip >"$file"
         else
-            MYSQL_PWD="$(env_get DB_PASSWORD)" docker run --rm -i --network host -e MYSQL_PWD mariadb:10.11 \
+            external_db_net_args
+            MYSQL_PWD="$(env_get DB_PASSWORD)" docker run --rm -i "${EXT_DB_NET[@]}" -e MYSQL_PWD mariadb:10.11 \
                 mariadb-dump -h "$DBS_HOST" -P "$DBS_PORT" -u "$DBS_USER" --single-transaction --routines --triggers --databases "$DBS_NAME" | gzip >"$file"
         fi
     ) && ok=true
@@ -3083,12 +3085,34 @@ rollback_update() {
 # BASE DE DATOS EXTERNA: se comprueba antes de construir nada
 # =============================================================================
 
+# container_db_host HOST: el host de la BD tal como lo ve el contenedor del panel. Dentro del
+# contenedor 'localhost' es el propio contenedor: el MySQL de este servidor se alcanza por
+# host.docker.internal (host-gateway en docker-compose.override.yml)
+container_db_host() {
+    local host="$1"
+    case "$host" in
+        localhost|127.*|::1|"[::1]") echo "host.docker.internal" ;;
+        *) echo "$host" ;;
+    esac
+}
+
+# external_db_net_args: opciones de red de "docker run" para llegar a la BD externa ($DBS_HOST)
+# en EXT_DB_NET. host.docker.internal solo existe dentro de los contenedores, así que se crea
+# igual que en el del panel; el resto se alcanza desde la red del host
+external_db_net_args() {
+    EXT_DB_NET=(--network host)
+    if [[ "$DBS_HOST" == "host.docker.internal" ]]; then
+        EXT_DB_NET=(--add-host host.docker.internal:host-gateway)
+    fi
+}
+
 # mysql_external SQL [usuario]: ejecuta SQL contra la BD externa (contraseña en MYSQL_PWD)
 mysql_external() {
     local sql="$1" user="${2:-$DBS_USER}" db="${3:-}"
     local -a args=(-h "$DBS_HOST" -P "$DBS_PORT" -u "$user" --connect-timeout=10)
     if [[ -n "$db" ]]; then args+=("$db"); fi
-    printf '%s\n' "$sql" | docker run --rm -i --network host -e MYSQL_PWD mariadb:10.11 mariadb "${args[@]}"
+    external_db_net_args
+    printf '%s\n' "$sql" | docker run --rm -i "${EXT_DB_NET[@]}" -e MYSQL_PWD mariadb:10.11 mariadb "${args[@]}"
 }
 
 check_external_db() {
@@ -3099,12 +3123,10 @@ check_external_db() {
     fi
     print_step "Comprobando la base de datos externa"
     db_settings
-    DBS_HOST="${DB_HOST:-$DBS_HOST}"; DBS_PORT="${DB_PORT:-$DBS_PORT}"; DBS_NAME="${DB_NAME:-$DBS_NAME}"; DBS_USER="${DB_USER:-$DBS_USER}"
+    # se comprueba el host que usará el panel: 'localhost' pasa a ser host.docker.internal,
+    # como en el .env (configure_env_file)
+    DBS_HOST=$(container_db_host "${DB_HOST:-$DBS_HOST}"); DBS_PORT="${DB_PORT:-$DBS_PORT}"; DBS_NAME="${DB_NAME:-$DBS_NAME}"; DBS_USER="${DB_USER:-$DBS_USER}"
     local pass="${DB_PASSWORD:-$(env_get DB_PASSWORD)}"
-    case "$DBS_HOST" in
-        localhost|127.*|::1)
-            die "La base de datos externa no puede ser '$DBS_HOST': dentro del contenedor del panel eso es el propio contenedor. Usa la IP privada de este servidor o el hostname del servidor de base de datos." ;;
-    esac
 
     if MYSQL_PWD="$pass" mysql_external "SELECT 1;" "$DBS_USER" "$DBS_NAME" >/dev/null 2>&1; then
         log_success "Conexión correcta: $DBS_USER@$DBS_HOST:$DBS_PORT/$DBS_NAME"

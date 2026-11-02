@@ -27,6 +27,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/sftp"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/internal/web"
+	"github.com/SkyPanel/SkyPanel/v3/internal/web/api"
 	daemonweb "github.com/SkyPanel/SkyPanel/v3/internal/web/daemon"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-contrib/sessions"
@@ -93,6 +94,12 @@ func internalRun() (terminate chan bool, success bool) {
 	}
 
 	web.RegisterRoutes(router)
+
+	// node transfers cut short by the last stop are undone or finished; the routes must be in
+	// place first, the panel's own node answers through them
+	if config.PanelEnabled.Value() {
+		go api.RecoverNodeTransfers()
+	}
 
 	l, err := net.Listen("tcp", config.WebHost.Value())
 	if err != nil {

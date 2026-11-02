@@ -5,8 +5,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"strings"
+	"sync/atomic"
 	"time"
 
+	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	uuid "github.com/gofrs/uuid/v5"
 	"gorm.io/gorm"
@@ -16,6 +18,14 @@ import (
 // Validate) the clock is renewed on activity, so a session only expires after
 // this much time has passed without any authenticated request.
 const SessionLength = time.Hour
+
+// sessionPruneEvery is how often creating a session also deletes the expired ones. Validate
+// already ignores them, but nothing else removes the rows, so every login left one behind.
+const sessionPruneEvery = time.Hour
+
+// lastSessionPrune is the unix time of the last clean-up, shared by every request so the
+// pass runs at most once per sessionPruneEvery
+var lastSessionPrune atomic.Int64
 
 type Session struct {
 	DB *gorm.DB
@@ -40,7 +50,7 @@ func (ss *Session) CreateForUser(user *models.User) (string, error) {
 		UserID:         &user.ID,
 	}
 
-	err = ss.DB.Create(session).Error
+	err = ss.create(session)
 	return sessionToken, err
 }
 
@@ -64,8 +74,31 @@ func (ss *Session) CreateForClient(client *models.Client) (string, error) {
 		UserID:         &client.UserID,
 	}
 
-	err = ss.DB.Create(session).Error
+	err = ss.create(session)
 	return sessionToken, err
+}
+
+// create stores the session and, at most once per sessionPruneEvery, deletes the expired
+// ones. Sessions are only made here, so this keeps the table from growing with every login.
+func (ss *Session) create(session *models.Session) error {
+	if err := ss.DB.Create(session).Error; err != nil {
+		return err
+	}
+
+	now := time.Now()
+	last := lastSessionPrune.Load()
+	if now.Sub(time.Unix(last, 0)) >= sessionPruneEvery && lastSessionPrune.CompareAndSwap(last, now.Unix()) {
+		// a failed clean-up must not fail the login: the rows just wait for the next pass
+		if err := ss.PruneExpired(now); err != nil {
+			logging.Error.Printf("Error deleting expired sessions: %s", err)
+		}
+	}
+	return nil
+}
+
+// PruneExpired deletes the sessions that expired by now; Validate would refuse them anyway
+func (ss *Session) PruneExpired(now time.Time) error {
+	return ss.DB.Where("expiration_time <= ?", now).Delete(&models.Session{}).Error
 }
 
 func (ss *Session) Validate(token string) (*models.Session, error) {

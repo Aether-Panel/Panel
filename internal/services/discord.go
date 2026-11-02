@@ -15,6 +15,13 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 )
 
+// notification text keys used by several reports
+const (
+	textFieldServer       = "field.server"
+	textFieldStatus       = "field.status"
+	textSystemStatusTotal = "systemStatus.total"
+)
+
 var discordServiceInstance *DiscordService
 
 type DiscordService struct{}
@@ -146,35 +153,36 @@ func (ds *DiscordService) SendAlert(title, description string, fields []DiscordE
 // SendServerOfflineAlert envía alerta cuando un servidor se desconecta
 func (ds *DiscordService) SendServerOfflineAlert(serverName, serverID string) error {
 	fields := []DiscordEmbedField{
-		{Name: "Servidor", Value: serverName, Inline: true},
+		{Name: NotificationText(textFieldServer), Value: serverName, Inline: true},
 		{Name: "ID", Value: serverID, Inline: true},
-		{Name: "Estado", Value: "🔴 Offline", Inline: true},
+		{Name: NotificationText(textFieldStatus), Value: "🔴 Offline", Inline: true},
 	}
-	return ds.SendAlert("⚠️ Servidor Desconectado", fmt.Sprintf("El servidor **%s** se ha desconectado o está offline.", serverName), fields)
+	return ds.SendAlert(NotificationText("serverOffline.title"), NotificationText("serverOffline.description", serverName), fields)
 }
 
 // SendServerOnlineAlert envía alerta cuando un servidor se conecta
 func (ds *DiscordService) SendServerOnlineAlert(serverName, serverID string) error {
 	fields := []DiscordEmbedField{
-		{Name: "Servidor", Value: serverName, Inline: true},
+		{Name: NotificationText(textFieldServer), Value: serverName, Inline: true},
 		{Name: "ID", Value: serverID, Inline: true},
-		{Name: "Estado", Value: "🟢 Online", Inline: true},
+		{Name: NotificationText(textFieldStatus), Value: "🟢 Online", Inline: true},
 	}
-	return ds.SendWebhook("✅ Servidor Conectado", fmt.Sprintf("El servidor **%s** está ahora online.", serverName), 0x00FF00, fields) // Verde
+	return ds.SendWebhook(NotificationText("serverOnline.title"), NotificationText("serverOnline.description", serverName), 0x00FF00, fields) // Verde
 }
 
-// SendResourceAlert envía alerta cuando el uso de recursos es alto
+// SendResourceAlert envía alerta cuando el uso de recursos es alto. resourceType is the
+// resource's name already in the notification language.
 func (ds *DiscordService) SendResourceAlert(serverName, serverID, resourceType string, currentValue, threshold float64) error {
 	fields := []DiscordEmbedField{
-		{Name: "Servidor", Value: serverName, Inline: true},
+		{Name: NotificationText(textFieldServer), Value: serverName, Inline: true},
 		{Name: "ID", Value: serverID, Inline: true},
-		{Name: "Recurso", Value: resourceType, Inline: true},
-		{Name: "Uso Actual", Value: fmt.Sprintf("%.1f%%", currentValue), Inline: true},
-		{Name: "Umbral", Value: fmt.Sprintf("%.1f%%", threshold), Inline: true},
+		{Name: NotificationText("field.resource"), Value: resourceType, Inline: true},
+		{Name: NotificationText("field.currentUsage"), Value: fmt.Sprintf("%.1f%%", currentValue), Inline: true},
+		{Name: NotificationText("field.threshold"), Value: fmt.Sprintf("%.1f%%", threshold), Inline: true},
 	}
 
-	title := fmt.Sprintf("⚠️ Alto Uso de %s", resourceType)
-	description := fmt.Sprintf("El servidor **%s** está usando **%.1f%%** de %s (umbral: %.1f%%)", serverName, currentValue, resourceType, threshold)
+	title := NotificationText("resourceAlert.title", resourceType)
+	description := NotificationText("resourceAlert.description", serverName, currentValue, resourceType, threshold)
 
 	return ds.SendAlert(title, description, fields)
 }
@@ -182,21 +190,21 @@ func (ds *DiscordService) SendResourceAlert(serverName, serverID, resourceType s
 // SendBackupAlert envía alerta sobre backups
 func (ds *DiscordService) SendBackupAlert(serverName, serverID, status string, isSuccess bool) error {
 	fields := []DiscordEmbedField{
-		{Name: "Servidor", Value: serverName, Inline: true},
+		{Name: NotificationText(textFieldServer), Value: serverName, Inline: true},
 		{Name: "ID", Value: serverID, Inline: true},
-		{Name: "Estado", Value: status, Inline: true},
+		{Name: NotificationText(textFieldStatus), Value: status, Inline: true},
 	}
 
 	var title, description string
 	var color int
 
 	if isSuccess {
-		title = "✅ Backup Completado"
-		description = fmt.Sprintf("El backup del servidor **%s** se completó exitosamente.", serverName)
+		title = NotificationText("backupAlert.successTitle")
+		description = NotificationText("backupAlert.success", serverName)
 		color = 0x00FF00 // Verde
 	} else {
-		title = "❌ Backup Fallido"
-		description = fmt.Sprintf("El backup del servidor **%s** falló: %s", serverName, status)
+		title = NotificationText("backupAlert.failedTitle")
+		description = NotificationText("backupAlert.failed", serverName, status)
 		color = 0xFF0000 // Rojo
 	}
 
@@ -220,13 +228,13 @@ func (ds *DiscordService) SendSystemStatus(servers []ServerInfo) error {
 	color := 0x3498DB // Azul para status general
 
 	embed := DiscordEmbed{
-		Title:       "📊 Estado del Sistema",
+		Title:       NotificationText("systemStatus.title"),
 		Description: description,
 		Color:       color,
 		Fields:      fields,
 		Timestamp:   time.Now().Format(time.RFC3339),
 		Footer: &DiscordEmbedFooter{
-			Text: "Actualizado cada minuto",
+			Text: NotificationText("systemStatus.footer"),
 		},
 	}
 
@@ -266,35 +274,40 @@ func systemStatusDescription(servers []ServerInfo) string {
 	}
 
 	// Crear descripción principal
-	description := fmt.Sprintf("**Total de Servidores:** %d\n", totalServers)
+	description := NotificationText(textSystemStatusTotal, totalServers) + "\n"
 	description += fmt.Sprintf("🟢 **Online:** %d | 🔴 **Offline:** %d\n", onlineServers, offlineServers)
 
 	if onlineCount > 0 {
-		description += "\n**Promedio de Recursos (Servidores Online):**\n"
+		description += "\n" + NotificationText("systemStatus.averages") + "\n"
 		description += fmt.Sprintf("• CPU: %.1f%%\n", avgCPU)
-		description += fmt.Sprintf("• Memoria: %.1f MB\n", avgMemory/1024/1024) // Convertir bytes a MB si es necesario
+		description += NotificationText("systemStatus.memory", avgMemory/1024/1024) + "\n" // Convertir bytes a MB si es necesario
 	}
 	return description
 }
 
-// systemStatusFields builds one field per server, capped by Discord's field limit
+// discordMaxEmbedFields is the most fields Discord accepts in one embed; with one more it
+// refuses the whole message
+const discordMaxEmbedFields = 25
+
+// systemStatusFields builds one field per server. Above Discord's field limit it shows the
+// first servers and spends the last field on a note saying how many are left out (the counts
+// in the description still cover all of them); it used to add that note as a 26th field,
+// which made Discord reject the report.
 func systemStatusFields(servers []ServerInfo) []DiscordEmbedField {
-	// Crear campos para cada servidor (limitado a 25 por limitación de Discord)
-	maxFields := 25
 	serversToShow := len(servers)
-	if serversToShow > maxFields {
-		serversToShow = maxFields
+	if serversToShow > discordMaxEmbedFields {
+		serversToShow = discordMaxEmbedFields - 1
 	}
 
-	fields := make([]DiscordEmbedField, 0)
+	fields := make([]DiscordEmbedField, 0, serversToShow+1)
 	for i := 0; i < serversToShow; i++ {
 		fields = append(fields, serverStatusField(servers[i]))
 	}
 
-	if len(servers) > maxFields {
+	if serversToShow < len(servers) {
 		fields = append(fields, DiscordEmbedField{
-			Name:  "Nota",
-			Value: fmt.Sprintf("Mostrando %d de %d servidores", serversToShow, len(servers)),
+			Name:  NotificationText("field.note"),
+			Value: NotificationText("systemStatus.showing", serversToShow, len(servers)),
 		})
 	}
 	return fields
@@ -402,21 +415,21 @@ func (ds *DiscordService) SendNodeStatus(totalServers, onlineServers, offlineSer
 	}
 
 	if nodeName == "" {
-		nodeName = "Nodo Local"
+		nodeName = NotificationText("nodeStatus.localNode")
 	}
 
-	description := fmt.Sprintf("**Nodo:** %s\n", nodeName)
+	description := NotificationText("nodeStatus.node", nodeName) + "\n"
 	if publicHost != "" {
-		description += fmt.Sprintf("**Dirección:** %s\n", nodeAddress(publicHost, publicPort))
+		description += NotificationText("nodeStatus.address", nodeAddress(publicHost, publicPort)) + "\n"
 	}
-	description += fmt.Sprintf("**Total de Servidores:** %d\n", totalServers)
+	description += NotificationText(textSystemStatusTotal, totalServers) + "\n"
 	description += fmt.Sprintf("🟢 **Online:** %d | 🔴 **Offline:** %d\n", onlineServers, offlineServers)
 
 	fields := []DiscordEmbedField{
-		{Name: "Estado", Value: "🟢 Activo", Inline: true},
-		{Name: "Servidores Totales", Value: fmt.Sprintf("%d", totalServers), Inline: true},
-		{Name: "Servidores Online", Value: fmt.Sprintf("%d", onlineServers), Inline: true},
-		{Name: "Servidores Offline", Value: fmt.Sprintf("%d", offlineServers), Inline: true},
+		{Name: NotificationText(textFieldStatus), Value: NotificationText("nodeStatus.active"), Inline: true},
+		{Name: NotificationText("field.totalServers"), Value: fmt.Sprintf("%d", totalServers), Inline: true},
+		{Name: NotificationText("field.onlineServers"), Value: fmt.Sprintf("%d", onlineServers), Inline: true},
+		{Name: NotificationText("field.offlineServers"), Value: fmt.Sprintf("%d", offlineServers), Inline: true},
 	}
 
 	if publicHost != "" {
@@ -428,29 +441,61 @@ func (ds *DiscordService) SendNodeStatus(totalServers, onlineServers, offlineSer
 		fields = append(fields, DiscordEmbedField{Name: "CPU", Value: cpuModel, Inline: false})
 	}
 	if cpuCores > 0 {
-		fields = append(fields, DiscordEmbedField{Name: "Núcleos", Value: fmt.Sprintf("%d", cpuCores), Inline: true})
+		fields = append(fields, DiscordEmbedField{Name: NotificationText("field.cores"), Value: fmt.Sprintf("%d", cpuCores), Inline: true})
 	}
 	if cpuThreads > 0 {
-		fields = append(fields, DiscordEmbedField{Name: "Hilos", Value: fmt.Sprintf("%d", cpuThreads), Inline: true})
+		fields = append(fields, DiscordEmbedField{Name: NotificationText("field.threads"), Value: fmt.Sprintf("%d", cpuThreads), Inline: true})
 	}
 	if cpuGhz > 0 {
-		fields = append(fields, DiscordEmbedField{Name: "Frecuencia", Value: fmt.Sprintf("%.2f GHz", cpuGhz), Inline: true})
+		fields = append(fields, DiscordEmbedField{Name: NotificationText("field.frequency"), Value: fmt.Sprintf("%.2f GHz", cpuGhz), Inline: true})
 	}
 
 	// Información de RAM
 	if memTotal > 0 {
 		memUsagePercent := float64(memUsed) / float64(memTotal) * 100.0
-		fields = append(fields, DiscordEmbedField{Name: "RAM Total", Value: formatBytes(memTotal), Inline: true})
-		fields = append(fields, DiscordEmbedField{Name: "RAM Usada", Value: fmt.Sprintf("%s (%.1f%%)", formatBytes(memUsed), memUsagePercent), Inline: true})
-		fields = append(fields, DiscordEmbedField{Name: "RAM Libre", Value: formatBytes(memTotal - memUsed), Inline: true})
+		fields = append(fields, DiscordEmbedField{Name: NotificationText("field.ramTotal"), Value: formatBytes(memTotal), Inline: true})
+		fields = append(fields, DiscordEmbedField{Name: NotificationText("field.ramUsed"), Value: fmt.Sprintf("%s (%.1f%%)", formatBytes(memUsed), memUsagePercent), Inline: true})
+		fields = append(fields, DiscordEmbedField{Name: NotificationText("field.ramFree"), Value: formatBytes(memTotal - memUsed), Inline: true})
 	}
 
 	// Sistema operativo
 	if osName != "" {
-		fields = append(fields, DiscordEmbedField{Name: "Sistema Operativo", Value: osName, Inline: true})
+		fields = append(fields, DiscordEmbedField{Name: NotificationText("field.os"), Value: osName, Inline: true})
 	}
 
-	return ds.SendWebhookToURL(webhookURL, "🖥️ Estado del Nodo", description, nodeStatusColor(onlineServers, offlineServers), fields)
+	return ds.SendWebhookToURL(webhookURL, NotificationText("nodeStatus.title"), description, nodeStatusColor(onlineServers, offlineServers), fields)
+}
+
+// SendNodeUnreachable reports a node that did not answer the panel. Its servers' states and its
+// machine are unknown, so only what the panel knows itself is shown: how many servers it places
+// there. SendNodeStatus is for nodes that answered, and always says they are active.
+func (ds *DiscordService) SendNodeUnreachable(totalServers int, nodeName string, publicHost string, publicPort uint16) error {
+	webhookURL := config.DiscordWebhookNode.Value()
+	if webhookURL == "" {
+		return nil // Silently skip if webhook is not configured
+	}
+
+	description, fields := nodeUnreachableReport(totalServers, nodeName, publicHost, publicPort)
+	return ds.SendWebhookToURL(webhookURL, NotificationText("nodeStatus.title"), description, 0xFF0000, fields)
+}
+
+// nodeUnreachableReport is the description and fields of SendNodeUnreachable
+func nodeUnreachableReport(totalServers int, nodeName string, publicHost string, publicPort uint16) (string, []DiscordEmbedField) {
+	description := NotificationText("nodeStatus.node", nodeName) + "\n"
+	if publicHost != "" {
+		description += NotificationText("nodeStatus.address", nodeAddress(publicHost, publicPort)) + "\n"
+	}
+	description += NotificationText(textSystemStatusTotal, totalServers) + "\n"
+	description += NotificationText("nodeStatus.unreachable") + "\n"
+
+	fields := []DiscordEmbedField{
+		{Name: NotificationText(textFieldStatus), Value: NotificationText("nodeStatus.noAnswer"), Inline: true},
+		{Name: NotificationText("field.totalServers"), Value: fmt.Sprintf("%d", totalServers), Inline: true},
+	}
+	if publicHost != "" {
+		fields = append(fields, DiscordEmbedField{Name: "Host", Value: nodeAddress(publicHost, publicPort), Inline: true})
+	}
+	return description, fields
 }
 
 // nodeAddress is host:port, or just the host when no port is known

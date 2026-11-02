@@ -109,6 +109,22 @@ func cacheFile(downloadURL, localPath string) (io.ReadCloser, error) {
 	return f, nil
 }
 
+// cachePath is where the cache keeps the file at downloadURL: the cache folder, then the
+// address without its scheme (cache/maven.example.com/path/file.jar). ok is false when that
+// would not be inside the cache folder, as with a ".." in the address.
+func cachePath(downloadURL string) (string, bool) {
+	trimmed := strings.TrimPrefix(strings.TrimPrefix(downloadURL, "http://"), "https://")
+	if os.PathSeparator != '/' {
+		trimmed = strings.ReplaceAll(trimmed, "/", string(os.PathSeparator))
+	}
+	base := filepath.Clean(config.CacheFolder.Value())
+	localPath := filepath.Join(base, trimmed)
+	if !strings.HasPrefix(localPath, base+string(os.PathSeparator)) {
+		return "", false
+	}
+	return localPath, true
+}
+
 func Download(downloadURL, hash string, algorithm crypto.Hash, cache bool, env *Environment) (io.ReadCloser, error) {
 	if env != nil {
 		env.DisplayToConsole(true, "Downloading: %s\n", downloadURL)
@@ -119,10 +135,9 @@ func Download(downloadURL, hash string, algorithm crypto.Hash, cache bool, env *
 		return downloadFile(downloadURL)
 	}
 	// caching allowed
-	localPath := filepath.Join(config.CacheFolder.Value(), strings.TrimPrefix(strings.TrimPrefix(downloadURL, "http:// "), "https:// "))
-
-	if os.PathSeparator != '/' {
-		localPath = strings.ReplaceAll(localPath, "/", string(os.PathSeparator))
+	localPath, ok := cachePath(downloadURL)
+	if !ok {
+		return downloadFile(downloadURL)
 	}
 
 	// try to open existing cached file

@@ -29,7 +29,7 @@ var ServerActivityFamilies = map[string][]string{
 	"files":    {"file.*", "plugin.*", "modpack.*", "map.*"},
 	"backups":  {"backup.*"},
 	"users":    {"user.*"},
-	"settings": {"settings.*", "server.rename", "server.suspend", "server.unsuspend", "server.transfer", "server.create", "server.change", "server.clone", "extransfer.*"},
+	"settings": {"settings.*", "server.rename", "server.suspend", "server.unsuspend", "server.transfer", "server.transferFailed", "server.transferStartFailed", "server.create", "server.change", "server.clone", "extransfer.*"},
 	"tasks":    {"task.*"},
 }
 

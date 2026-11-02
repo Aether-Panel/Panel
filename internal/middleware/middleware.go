@@ -119,7 +119,7 @@ func checkPermission(c *gin.Context, perm *scopes.Scope) bool {
 	// Check role-based permissions first (Global Roles)
 	role := resolveUserRole(db, user)
 
-	allScopes := collectScopes(role, perms, serverID, owner)
+	allScopes := boundByClient(c, collectScopes(role, perms, serverID, owner), serverID)
 
 	allowed := scopes.ContainsScope(allScopes, perm)
 	if allowed {
@@ -147,6 +147,27 @@ func clientPermits(c *gin.Context, perm *scopes.Scope, serverID string) (permitt
 		return false, true
 	}
 	return true, false
+}
+
+// boundByClient keeps, for a session minted from an OAuth2 client, only the scopes the client
+// may use. Handlers read the stored scopes for second checks (who may see a password, edit
+// the environment, grant a scope...), so they must not see the user's wider powers there.
+func boundByClient(c *gin.Context, granted []*scopes.Scope, serverID string) []*scopes.Scope {
+	clientGin, hasClient := c.Get("client")
+	if !hasClient {
+		return granted
+	}
+	client, ok := clientGin.(*models.Client)
+	if !ok || client == nil {
+		return []*scopes.Scope{}
+	}
+	bounded := make([]*scopes.Scope, 0, len(granted))
+	for _, s := range granted {
+		if clientAllows(client, s, serverID) {
+			bounded = append(bounded, s)
+		}
+	}
+	return bounded
 }
 
 // loadUserPermissions fetches the server permissions plus the global ones when a server is set.

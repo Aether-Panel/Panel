@@ -119,9 +119,9 @@ func TestValidateOtpEnroll_RejectsWithoutPendingEnrollment(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestDelete_RemovesTheUsersRecoveryCodesAndPasswordResets(t *testing.T) {
+func TestDelete_RemovesTheUsersRecoveryCodesPasswordResetsAndSettings(t *testing.T) {
 	db := setupOtpTestDB(t)
-	if !assert.NoError(t, db.AutoMigrate(&models.Client{}, &models.Session{}, &models.PasswordReset{}, &models.SSHKey{}, &models.Server{})) {
+	if !assert.NoError(t, db.AutoMigrate(&models.Client{}, &models.Session{}, &models.PasswordReset{}, &models.SSHKey{}, &models.Server{}, &models.UserSetting{})) {
 		t.FailNow()
 	}
 	us := &User{DB: db}
@@ -131,16 +131,20 @@ func TestDelete_RemovesTheUsersRecoveryCodesAndPasswordResets(t *testing.T) {
 	assert.NoError(t, code.SetCode("A1b2C3d4E5f6"))
 	assert.NoError(t, db.Create(code).Error)
 	assert.NoError(t, db.Create(&models.PasswordReset{UserID: user.ID, TokenHash: "reset-token-hash", ExpiresAt: time.Now().Add(time.Hour)}).Error)
+	// a deleted user's settings must not be left behind (SQLite can reuse the id for the next user)
+	assert.NoError(t, db.Create(&models.UserSetting{UserID: user.ID, Key: "theme", Value: "dark"}).Error)
 
 	assert.NoError(t, us.Delete(user))
 
-	var users, codes, resets int64
+	var users, codes, resets, settings int64
 	db.Model(&models.User{}).Where("id = ?", user.ID).Count(&users)
 	db.Model(&models.RecoveryCode{}).Where(userIDQuery, user.ID).Count(&codes)
 	db.Model(&models.PasswordReset{}).Where(userIDQuery, user.ID).Count(&resets)
+	db.Model(&models.UserSetting{}).Where(userIDQuery, user.ID).Count(&settings)
 	assert.Zero(t, users)
 	assert.Zero(t, codes)
 	assert.Zero(t, resets)
+	assert.Zero(t, settings)
 }
 
 func TestDelete_ReportsADatabaseError(t *testing.T) {

@@ -1,82 +1,89 @@
-# Seguridad y Mejores Prácticas
+# Seguridad
 
-## Introducción a la Seguridad
+Esta página es para quien instala y administra Aether Panel. Explica cómo exponer el panel de forma segura, cómo funcionan el inicio de sesión y las sesiones, y las protecciones que el panel aplica a los servidores de juego, a los archivos y a la interfaz web. El modelo completo de permisos está en la [Referencia de scopes](./scopes-reference.md).
 
-La seguridad es una prioridad fundamental en Aether Panel. Este documento cubre las características de seguridad integradas en el panel y las mejores prácticas para mantener tu instalación segura.
+## Resumen
 
-Aether Panel incluye múltiples capas de seguridad: autenticación por tokens Bearer y cookies HttpOnly, sesiones con hash SHA256, cifrado bcrypt para contraseñas, JWT con firma Ed25519, un sistema de 74 scopes granulares, y soporte para 2FA vía TOTP. El panel no maneja TLS directamente — debe usarse un proxy reverso como Nginx o Caddy para HTTPS.
+| Capa | Qué hace el panel |
+|------|-------------------|
+| Exposición | Escucha en HTTP sin cifrar (`web.host`, `0.0.0.0:8080`). El HTTPS lo pone Nginx, que el instalador configura cuando se usa un dominio; entonces el puerto del panel se publica solo en `127.0.0.1`. |
+| Inicio de sesión | Contraseñas con bcrypt (de 8 a 72 bytes), 2FA TOTP opcional con códigos de recuperación, comprobación anti-bots y límite de intentos por cuenta. |
+| Sesiones | Tokens aleatorios guardados solo como hash SHA-256, 1 hora de inactividad, cookie HttpOnly, `Secure` sobre HTTPS. |
+| Peticiones web | Las peticiones con cookie que cambian algo deben venir del propio panel; cabeceras de seguridad en cada respuesta; CORS nunca lleva cookies. |
+| Permisos | 73 scopes, propietarios y subusuarios, filas de servidor que solo guardan scopes de servidor, personal que no puede editar cuentas con más poder. |
+| Servidores de juego | Solo Docker, usuario sin privilegios, capacidades eliminadas, `no-new-privileges`, límite de procesos y red propia. |
+| Archivos | Toda operación con archivos se queda dentro de la carpeta del servidor; los enlaces nunca se siguen hacia fuera. |
 
-## Autenticación
+## Exponer el panel con un dominio y HTTPS
 
-El panel implementa un sistema de autenticación multicapa. Los tokens se envían como Bearer en el header Authorization, o alternativamente en la cookie `skypanel_auth`. Las sesiones se almacenan en la base de datos con el token hasheado en SHA256.
+Un panel con clientes debe abrirse en `https://su-dominio`, no en `http://IP:8080`.
 
-### Métodos de Autenticación
+**Por qué un panel en `http://IP` es un riesgo.** Los navegadores asocian las cookies al host, no al puerto. Un panel en `http://203.0.113.10:8080` envía su cookie de sesión a todos los puertos de `203.0.113.10`, y los servidores de juego de los clientes funcionan en esa misma IP. Una página web o un plugin de un servidor de juego (por ejemplo, un visor de mapas en el puerto 8123) recibe la cookie del administrador cuando este la abre. La [protección de mismo origen](#protecciones-web) del panel impide que esa página haga cambios con la cookie, pero la cookie sigue viajando sin cifrar por HTTP y hacia esos puertos. Con un dominio y HTTPS la cookie se marca como `Secure`, solo se envía al host del panel y viaja cifrada.
 
-#### Sesiones Web
+**Cómo configurarlo.**
 
-El panel usa sesiones basadas en cookies con Gin sessions. Al iniciar sesión, se genera un UUID v4 como token de sesión. El token se hashea con SHA256 antes de almacenarse en la base de datos. La cookie `skypanel_auth` es configurable: path, domain, maxAge, Secure, HttpOnly y SameSite. La sesión expira por defecto en 1 hora.
+1. Apuntar un dominio (o subdominio) a la IP del servidor, con o sin el proxy de Cloudflare.
+2. Pasarlo al instalador (`--domain panel.example.com --ssl`) o, con el panel ya funcionando, escribir `https://panel.example.com` en **Configuración → General → URL principal**. El servicio `aether-domain` que deja el instalador configura entonces Nginx, el certificado de Let's Encrypt y el firewall. Los detalles están en la [Guía de instalación](../setup/01-installation.md).
+3. Configurar la URL principal (`panel.settings.masterUrl`) en cualquier caso: los enlaces para restablecer la contraseña y de acceso directo se construyen con ella, nunca con las cabeceras de la petición.
 
-#### Tokens Bearer (API)
+**Qué hace el instalador con un dominio.** Publica el puerto del panel solo en `127.0.0.1`, así que al panel se entra por Nginx y nadie puede usar `http://IP:8080` saltándose el HTTPS. Docker publica los puertos de los contenedores por delante de ufw/firewalld, de modo que una regla del firewall no bastaría para cerrarlo. Use `--bind 0.0.0.0` solo si necesita ese puerto abierto a propósito.
 
-Para acceso mediante API, el panel prioriza el header `Authorization: Bearer <token>`. Si no hay header, busca la cookie `skypanel_auth`. El token se valida consultando la base de datos, verificando que exista y que `expiration_time` sea futura.
+**Detrás de un proxy propio.** Por defecto el panel no confía en ningún proxy. Si el suyo no es el Nginx del instalador en la misma máquina, ponga sus direcciones en `security.trustedProxies` (y `security.trustedProxyHeader` si usa una cabecera propia) para que el panel vea la IP real del cliente. Envíe `X-Forwarded-Proto: https`: el panel lo usa para marcar la cookie como `Secure` y para enviar HSTS.
 
-#### OAuth2 Server Integrado
+## Inicio de sesión y sesiones
 
-El panel incluye un servidor OAuth2. El endpoint está en `/oauth2/token` (generar token). Usa los flujos Client Credentials (autenticación panel↔nodo) y Password (autenticación SFTP). Las claves públicas están disponibles en `/auth/publickey` en formato JWKS. Los tokens son JWT firmados con Ed25519 (EdDSA).
+Los formularios de inicio de sesión, registro y cambio de contraseña pasan una comprobación anti-bots, descrita en [Captcha / anti-bots](17-turnstile.md).
 
-- Autenticación Client Credentials para integraciones
-- Tokens JWT con firma Ed25519 (clave autogenerada en el primer inicio)
-- Endpoint JWKS para verificación de firmas por terceros
-- Scopes granulares por cliente OAuth2
-- Revocación de tokens y regeneración de secrets
+### Sesiones
 
-#### Autenticación de Dos Factores (2FA/TOTP)
+- Al iniciar sesión se crea un token aleatorio (UUID v4). La base de datos solo guarda su hash SHA-256.
+- Una sesión dura **1 hora sin actividad**. Mientras el usuario está activo se renueva (la caducidad en la base de datos cuando ha pasado más de la mitad, la cookie en cada petición), así que un usuario activo no pierde la sesión.
+- El token se devuelve en la cookie `skypanel_auth` y en la respuesta JSON (`session`), para los clientes que usan `Authorization: Bearer <token>`. El panel lee primero la cabecera y después la cookie.
+- Cerrar sesión borra la sesión. Además, el panel comprueba el permiso `login` en cada petición (ver [Quitar el permiso de entrar](#quitar-el-permiso-de-entrar)).
 
-Aether Panel soporta TOTP (Time-based One-Time Password) para autenticación de dos factores. Cómo se activa, los códigos de recuperación y la API están en [Verificación en dos pasos (2FA)](#verificación-en-dos-pasos-2fa).
+### Cookies
 
-### Seguridad de Contraseñas
+| Cookie | Qué guarda | Atributos |
+|--------|------------|-----------|
+| `skypanel_auth` | El token de sesión | `HttpOnly`, `SameSite=Lax`, ruta `/`, duración 1 hora (se renueva con la actividad). `Secure` cuando la petición llegó por HTTPS (directamente o con `X-Forwarded-Proto: https`) o cuando `panel.web.cookies.secure` está activado. |
+| `session` | Estado breve del inicio de sesión, como el paso pendiente de 2FA (firmada con `panel.sessionKey`) | La configuran las claves `panel.web.cookies.*`: `path` (`/`), `domain` (vacío), `age` (30 días), `secure` (`false`), `httpOnly` (`true`), `sameSite` (`Strict`; también acepta `Lax` y `None`). |
 
-Las contraseñas en Aether Panel están protegidas con:
-
-- Hashing con bcrypt (costo por defecto: 10) — nunca se almacenan en texto plano
-- Cada llamada a SetPassword() genera un nuevo hash con salt automático
-- Las contraseñas deben tener entre 8 y 72 bytes (el límite de bcrypt)
-
-#### Recomendaciones para Contraseñas
-
-- Mínimo 12 caracteres (recomendado 16+)
-- Combinación de mayúsculas, minúsculas, números y símbolos
-- No reutilices contraseñas de otros servicios
-- Usa un gestor de contraseñas (Bitwarden, 1Password, etc.)
-- Cambia las contraseñas regularmente, especialmente las de administrador
-
-## Inicio de sesión y cuenta
-
-Los formularios de inicio de sesión, registro y cambio de contraseña pasan una comprobación anti-bots. Está en [Captcha / anti-bots](17-turnstile.md).
+`skypanel_auth` no se marca como `Secure` en HTTP a propósito: los navegadores descartan una cookie `Secure` enviada por HTTP, y eso impedía iniciar sesión en `http://IP:8080`. Sobre HTTPS siempre lo es. El panel también guarda algunas preferencias en el almacenamiento local del navegador (idioma, última pestaña abierta, avisos cerrados); no contienen credenciales.
 
 ### Límite de intentos
 
 | Qué | Límite | Respuesta al pasarlo |
 |-----|--------|----------------------|
-| Contraseña (panel y SFTP comparten contador) | 10 fallos en 15 minutos por cuenta | `429` `ErrTooManyAttempts` |
-| Código 2FA | 10 fallos en 15 minutos por cuenta | `429` `ErrTooManyAttempts` |
+| Contraseña (web, OAuth2 y SFTP comparten contador) | 10 intentos en 15 minutos por cuenta | `429` `ErrTooManyAttempts` |
+| Código 2FA | 10 intentos en 15 minutos por cuenta | `429` `ErrTooManyAttempts` |
+| Clave SSH (SFTP en el propio nodo del panel y `POST /auth/sftp-key` para los nodos remotos) | 10 intentos en 15 minutos por cuenta, con un contador propio que comparten todos los nodos | Se rechaza el inicio de sesión SFTP (`ErrTooManyAttempts` en el propio nodo del panel, `429` a un nodo remoto) |
 | Correos de cambio de contraseña | 5 por dirección y hora | `204`, sin enviar correo |
 
-El contador va por cuenta (correo), no por IP, así que funciona igual detrás de un proxy. Vive en memoria: se pone a cero al reiniciar el panel. Un inicio de sesión correcto lo pone a cero para esa cuenta.
+- El contador es de la **cuenta**, no de la IP, así que funciona igual detrás de un proxy. Las variantes de un mismo correo que la base de datos considera iguales (mayúsculas, tildes) comparten contador.
+- Para un correo sin cuenta, el contador va por la dirección escrita, y la respuesta tarda lo mismo que con una contraseña incorrecta, para que el tiempo no revele qué correos existen.
+- Un inicio de sesión correcto pone el contador a cero. Vive en memoria y también se pone a cero al reiniciar el panel.
+- Las comprobaciones de claves SSH tienen su propio contador, separado del de la contraseña: un cliente SFTP ofrece sus claves una tras otra, y cada clave ofrecida cuenta como un intento, así que esos fallos no deben impedir al propietario entrar con su contraseña. El propio nodo del panel y los nodos remotos (mediante `POST /auth/sftp-key`) cuentan en el mismo contador, así que el límite es igual en todos los nodos.
+- Cuando el paso de 2FA sale bien, el estado pendiente guardado en la cookie `session` se borra: la misma cookie no sirve para probar más códigos.
+
+### Contraseñas
+
+- Se guardan con bcrypt (coste 10), con una sal nueva cada vez.
+- Deben tener entre 8 y 72 bytes (el límite de bcrypt; las letras con tilde y los emojis ocupan más de un byte).
+- Recomendado: 12 caracteres o más, un gestor de contraseñas y 2FA en todas las cuentas de administrador.
 
 ### Verificación en dos pasos (2FA)
 
 Códigos TOTP de 6 dígitos, compatibles con Google Authenticator, Authy, Microsoft Authenticator y similares.
 
-**Activarla**: **Configuración de la cuenta → Autenticación de dos pasos → Habilitar 2FA**. Escanea el código QR y escribe el código que da la aplicación. Hasta que no lo confirmas, la 2FA no se activa.
+**Activarla**: **Configuración de la cuenta → Autenticación de dos pasos → Habilitar 2FA**. Se escanea el código QR y se escribe el código que da la aplicación. Hasta que no se confirma, la 2FA no se activa.
 
-Al confirmarla, el panel muestra **10 códigos de recuperación** de 12 caracteres. Guárdalos: el panel solo guarda su hash y no los puede volver a mostrar. Cada uno sirve **una vez** en lugar del código de la aplicación.
+Al confirmarla, el panel muestra **10 códigos de recuperación** de 12 caracteres. Hay que guardarlos: el panel solo almacena su hash y no los puede volver a mostrar. Cada uno sirve **una vez** en lugar del código de la aplicación.
 
 | Acción | Qué pide | Qué pasa |
 |--------|----------|----------|
 | Regenerar códigos | Un código de la aplicación o de recuperación | Los anteriores dejan de funcionar. |
 | Desactivar | Un código de la aplicación o de recuperación | Se borran la clave y los códigos. |
-| Cambiar de teléfono | Desactívala y vuelve a activarla | No se puede activar otra encima de una activa (`ErrOtpAlreadyEnabled`). |
+| Cambiar de teléfono | Desactivarla y volver a activarla | No se puede activar otra encima de una activa (`ErrOtpAlreadyEnabled`). |
 
 Si el correo está configurado, el panel avisa al activarla, al desactivarla y al regenerar los códigos.
 
@@ -88,7 +95,7 @@ Si el correo está configurado, el panel avisa al activarla, al desactivarla y a
 # 1. Contraseña (más el token anti-bots): responde {"otpNeeded": true}
 curl -c cookies.txt -X POST https://panel.example.com/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email": "ana@example.com", "password": "<tu-contraseña>", "captchaToken": "<token>"}'
+  -d '{"email": "ana@example.com", "password": "<su-contraseña>", "captchaToken": "<token>"}'
 
 # 2. Código de la aplicación (o uno de recuperación), con la misma cookie
 curl -b cookies.txt -X POST https://panel.example.com/auth/otp \
@@ -106,13 +113,13 @@ curl -b cookies.txt -X POST https://panel.example.com/auth/otp \
 
 Todas necesitan el permiso `self.edit`.
 
-El SFTP no pide el código 2FA: entra con la contraseña o con una [clave SSH](#claves-ssh-para-sftp).
+El SFTP no pide el código 2FA: entra con la contraseña o con una [clave SSH](#claves-ssh-para-sftp). Quien tenga la 2FA activada debería usar claves SSH, que funcionan en todos los nodos (véase [Limitaciones conocidas](#limitaciones-conocidas)).
 
 ### Quitar el permiso de entrar
 
 El panel comprueba el permiso `login` en **cada petición**, no solo al iniciar sesión. Cuenta el `login` de los permisos generales del usuario o el de su rol; el de un servidor concreto no cuenta.
 
-Si se lo quitas a un usuario (o le quitas el rol que se lo daba), su sesión se cierra en la siguiente petición: el panel la borra y responde `401`.
+Si se le quita a un usuario (o se le quita el rol que se lo daba), su sesión se cierra en la siguiente petición: el panel la borra y responde `401`.
 
 Otras situaciones que cierran sesiones:
 
@@ -120,7 +127,8 @@ Otras situaciones que cierran sesiones:
 |-----|-------------------------|
 | El usuario cambia su contraseña en su perfil | Todas menos la actual |
 | Un administrador le pone una contraseña nueva | Todas |
-| Restablece la contraseña con el enlace del correo | Todas |
+| Se restablece la contraseña con el enlace del correo | Todas |
+| Se borra un cliente OAuth2 | Todas las de ese cliente |
 
 Quitar `login` también cierra el SFTP: el panel lo comprueba en cada conexión, con contraseña o con clave SSH, además de `server.sftp`.
 
@@ -128,7 +136,7 @@ Quitar `login` también cierra el SFTP: el panel lo comprueba en cada conexión,
 
 Un usuario puede entrar por SFTP con una clave pública en lugar de su contraseña. El usuario sigue siendo `correo#idServidor`.
 
-**Añadir una clave**: **Configuración de la cuenta → Claves SSH → Añadir clave**. Pega la línea de tu archivo `.pub` (por ejemplo `~/.ssh/id_ed25519.pub`). Si no le pones nombre, se usa el comentario de la clave.
+**Añadir una clave**: **Configuración de la cuenta → Claves SSH → Añadir clave**. Se pega la línea del archivo `.pub` (por ejemplo `~/.ssh/id_ed25519.pub`). Si no se le pone nombre, se usa el comentario de la clave.
 
 | Regla | Detalle |
 |-------|---------|
@@ -145,9 +153,14 @@ El panel muestra la huella SHA256 de cada clave, la misma que imprime `ssh-keyge
 sftp -P 5657 -i ~/.ssh/id_ed25519 -o User='ana@example.com#1a2b3c4d' panel.example.com
 ```
 
-El usuario necesita igualmente `server.sftp` en ese servidor (o ser su dueño). Borrar una clave impide las conexiones nuevas con ella; borrar el usuario borra sus claves.
+El usuario necesita igualmente `server.sftp` en ese servidor (o ser su propietario). Borrar una clave impide las conexiones nuevas con ella; borrar el usuario borra sus claves.
 
-Las claves solo sirven en el nodo donde corre el panel. Los nodos remotos comprueban el SFTP contra el panel con usuario y contraseña, así que en sus servidores hay que entrar con la contraseña.
+Las claves funcionan en todos los nodos:
+
+- **Nodo del propio panel**: el servidor SFTP comprueba la clave en la base de datos del panel.
+- **Nodo remoto**: el nodo no tiene las claves de los usuarios, así que pregunta al panel. Envía `POST /auth/sftp-key` al panel indicado en su `daemon.auth.url` (la parte `/oauth2/token`, si la hay, se sustituye por `/auth/sftp-key`; un prefijo de ruta se conserva), firmado con su propio secreto (`Authorization: Bearer <daemon.auth.clientSecret>`), con el usuario y la clave pública ofrecida. El panel aplica las mismas reglas que en su propio nodo y además comprueba que el servidor está en el nodo que pregunta. Solo responde el permiso concedido (`<serverID>:server.sftp`), nunca una sesión. Todo inicio de sesión rechazado recibe la misma respuesta (`400`, `no access`), para no revelar si fallaba la cuenta, el servidor o la clave. El nodo espera como mucho 15 segundos la respuesta. Después, el protocolo SSH obliga al cliente a demostrar que tiene la clave privada antes de conceder nada. Los detalles de la ruta están en la [referencia de la API de autenticación](../reference/api/02-authentication.md).
+
+Un nodo remoto con una versión anterior a esta comprobación solo acepta contraseñas: actualícelo para usar claves en él.
 
 | Método y ruta | Cuerpo | Respuesta |
 |---------------|--------|-----------|
@@ -172,253 +185,146 @@ Todas necesitan el permiso `self.edit`. Errores: `ErrSSHKeyInvalid`, `ErrSSHKeyI
 - El formulario **He olvidado mi contraseña** pasa la comprobación anti-bots.
 - Responde siempre `204`, exista o no la cuenta y aunque se haya pasado el límite de correos.
 - El correo va a la dirección guardada en la cuenta, no a lo que se escribió en el formulario.
-- El enlace se construye con la **URL principal** del panel (`panel.settings.masterUrl`), nunca con las cabeceras de la petición. Configúrala: si no, el enlace usa `http://localhost:8080` y el panel lo avisa en el log.
+- El enlace se construye con la **URL principal** del panel (`panel.settings.masterUrl`), nunca con las cabeceras de la petición. Debe configurarse: si no, el enlace usa `http://localhost:8080` y el panel lo avisa en el log.
 - El enlace caduca a los **30 minutos** y sirve **una vez**. Pedir otro anula el anterior. En la base de datos solo se guarda su hash.
 - La contraseña nueva debe tener entre 8 y 72 bytes. Se comprueba antes de gastar el enlace, así que una contraseña demasiado corta se puede volver a escribir.
 - Al cambiarla se cierran todas las sesiones de la cuenta y se envía un correo de aviso.
 
-## Autorización y Permisos
+## Protecciones web
 
-El panel utiliza un sistema de permisos basado en 74 scopes granulares. Cada ruta de la API requiere uno o más scopes específicos. El middleware `RequiresPermission` verifica los scopes antes de procesar cada petición.
+Cada respuesta del panel pasa por estos middlewares, en este orden: CORS, cabeceras de seguridad, protección de mismo origen y, por último, recuperación ante pánicos.
 
-### Sistema de Scopes
+### Protección de mismo origen
 
-Los scopes controlan el acceso a funcionalidades específicas. Ejemplos de los 74 scopes definidos (50 específicos de servidor + 24 globales):
+Una petición que **lleva una cookie del panel** (`skypanel_auth` o `session`) y **cambia algo** (cualquier método salvo `GET`, `HEAD` y `OPTIONS`, y además cualquier apertura de websocket) debe venir de las páginas del propio panel. El panel lo comprueba así:
 
-- admin — Acceso administrativo completo (hereda todos los scopes)
-- server.view — Ver información de servidores
-- server.start / server.stop / server.kill — Control de estado
-- server.console / server.console.send — Acceso a consola
-- server.files.view / server.files.edit — Gestión de archivos
-- server.backup.create / server.backup.restore — Backups
-- server.sftp — Acceso SFTP
-- nodes.view / nodes.create / nodes.edit / nodes.delete — Gestión de nodos
-- users.info.view / users.info.edit — Gestión de usuarios
+1. Si el navegador envió `Sec-Fetch-Site` (todos los navegadores actuales lo hacen y las páginas no pueden falsificarlo), debe ser `same-origin` o `none`.
+2. Si no, y hay cabecera `Origin`, su host debe coincidir con el `Host` de la petición, con la cabecera `X-Forwarded-Host` o con el host de la URL principal.
+3. Una petición sin ninguna de las dos cabeceras no viene de una página web y se deja pasar.
 
-#### Jerarquía de Scopes
+Cualquier otra recibe `403 {"error": "cross-origin request refused"}`. Las peticiones sin cookies (tokens bearer, clientes OAuth2, nodos, claves API de facturación) no se ven afectadas.
 
-El scope `admin` concede todos los permisos globales. El scope `server.admin` concede todos los permisos sobre un servidor específico. Los scopes marcados como `forServer` requieren un ID de servidor en la ruta. Los usuarios pueden tener permisos globales (afectan toda la instancia) y permisos por servidor.
+Esto cubre lo que `SameSite=Lax` no cubre por sí solo: para un navegador, `http://IP:25566` (el servidor de juego de un cliente) y `http://IP:8080` (el panel) son el **mismo sitio**, así que un formulario o un websocket abierto desde una página de un servidor de juego llevaría la cookie del administrador. Antes de esta protección, una página así podía crear una cuenta de administrador.
 
-### Roles y Grupos
+### Cabeceras de seguridad
 
-Los roles agrupan múltiples scopes para asignación masiva a usuarios. La verificación de permisos combina: (1) los scopes del rol del usuario, (2) los scopes globales del usuario, y (3) los scopes por servidor.
+| Cabecera | Valor | Para qué |
+|----------|-------|----------|
+| `Content-Security-Policy` | `frame-ancestors 'self'; object-src 'none'; base-uri 'self'` | Ningún otro sitio puede incrustar el panel (clickjacking). |
+| `X-Frame-Options` | `SAMEORIGIN` | Lo mismo, para navegadores antiguos. |
+| `X-Content-Type-Options` | `nosniff` | Los navegadores no adivinan el tipo de contenido. |
+| `Referrer-Policy` | `same-origin` | Las URL completas (algunas llevan tokens, como los enlaces del mapa del mundo) no se filtran a otros sitios. |
+| `Strict-Transport-Security` | `max-age=31536000` | Solo sobre HTTPS (o con `X-Forwarded-Proto: https`): una vez visto, el navegador usa siempre HTTPS durante un año. |
 
-- Crea roles específicos para diferentes tipos de usuarios
-- Revisa regularmente los permisos asignados a cada rol
-- No otorgues el scope `admin` a menos que sea absolutamente necesario
+Las páginas que muestran contenido no fiable (páginas de extensiones, mapas del mundo) sustituyen la política por su propio sandbox.
 
-## Seguridad de Tokens
+### CORS y otros detalles
 
-El panel maneja varios tipos de tokens con diferentes niveles de seguridad.
+- CORS acepta cualquier origen con las cabeceras `Authorization`, `Content-Type`, `Accept` y `Origin`, pero **nunca con credenciales**: otros sitios pueden llamar a la API con un token bearer, nunca con la cookie del usuario.
+- La documentación de la API en `/swagger/` solo se sirve a administradores con sesión iniciada.
+- El log de accesos omite los tokens del mapa del mundo y los valores `token`, `code`, `access_token` y `refresh_token` de la URL.
+- Cuando el panel llama a un nodo, quita la cabecera `Cookie` del navegador: los nodos se autentican con el token propio del panel.
+- La página a la que se vuelve tras iniciar sesión no se toma de la barra de direcciones, así que un enlace manipulado no puede llevar al usuario a otro sitio después del inicio de sesión.
 
-### Tokens de Sesión
+## Permisos
 
-UUID v4 aleatorio  SHA256 hash  almacenado en BD. El token original nunca se persiste, solo su hash. La sesión expira en 1 hora y se valida en cada petición.
+El modelo completo está en la [Referencia de scopes](./scopes-reference.md). Las reglas más importantes para la seguridad:
 
-### Tokens JWT (OAuth2/Daemon)
+- `admin` lo permite todo. Debe darse solo a quienes administran el panel.
+- La fila de permisos de un servidor solo guarda **scopes de servidor**: un scope del panel como `admin` se descarta al guardar y se ignora al leer. Ver [Subusuarios](./scopes-reference.md#subusuarios).
+- Los propietarios no pueden cambiar la memoria, la CPU, el disco, la IP ni los puertos de su servidor, aunque la plantilla abra esas variables. Ver [Variables que solo cambia un administrador](./scopes-reference.md#variables-que-solo-cambia-un-administrador).
+- El personal con `users.info.edit` o `users.perms.edit` no puede editar, borrar ni cambiar los permisos de cuentas que tienen poderes que él no tiene. Ver [Editar otras cuentas](./scopes-reference.md#editar-otras-cuentas).
+- Con el registro cerrado, solo los administradores pueden invitar a un servidor a alguien sin cuenta.
+- Las claves API de facturación solo hacen las acciones que se les dieron y no pueden abrir enlaces de acceso a cuentas con poderes en el panel. Ver [Claves API](./scopes-reference.md#claves-api).
+- Una sesión de un cliente OAuth2 queda limitada por el cliente también en las comprobaciones internas de cada ruta, y el socket de la consola concede sus flujos con esos mismos scopes. Ver [De dónde salen los permisos](./scopes-reference.md#de-dónde-salen-los-permisos).
+- La contraseña de una base de datos de servidor solo se devuelve a quien tiene `server.data.edit` sobre él. Ver [Hosts de bases de datos](../features/database-hosts.md).
 
-Firmados con Ed25519 (EdDSA). La clave privada se genera aleatoriamente en el primer inicio y se almacena en la configuración. La clave pública se expone via JWKS. El key ID es 'SkyPanel'.
+## Contenedores de los servidores de juego
 
-### Secretos de Nodos
+Los servidores se crean solo en Docker. La instalación Docker del panel activa `docker.disallowHost` (`SKYPANEL_DOCKER_DISALLOWHOST=true` en `docker-compose.yml` y en la imagen), que desactiva los entornos que ejecutan procesos directamente en el nodo (`host`, `tty`, `standard`, `bubblewrap`). Se comprueba al crear o redefinir un servidor, y también en cada instalación y cada arranque, así que una definición que llegó al nodo por otro camino (una copia restaurada, un panel antiguo) tampoco se ejecuta fuera de un contenedor.
 
-Cada nodo tiene un secreto único generado como UUID sin guiones. El secreto se almacena en la base de datos y se compara directamente para autenticar la comunicación nodo-panel. Los nodos locales usan una comparación directa con el modelo LocalNode.
+Cada contenedor de un servidor de juego se endurece así:
 
-## Cadena de Middleware
+| Protección | Detalle | Ajuste |
+|------------|---------|--------|
+| Usuario sin privilegios | Cuando el panel se ejecuta como root (la instalación Docker lo hace), el juego se ejecuta con uid:gid `988:988`. Las instalaciones siguen ejecutándose como root, porque sus scripts instalan paquetes. Una plantilla que indica su propio usuario lo conserva. Antes de cada arranque el panel da los archivos del servidor a ese usuario. | `docker.serverUser` (`988:988`; `0:0` mantiene root) |
+| Sin usuario de contenedor elegido por clientes | La clave `User` de la configuración del contenedor se elimina cuando alguien que no es administrador edita la definición o crea un sub-servidor. | — |
+| Capacidades eliminadas | `setpcap`, `mknod`, `audit_write`, `net_raw`, `dac_override`, `fowner`, `fsetid`, `net_bind_service`, `sys_chroot`, `setfcap`. Un contenedor que se ejecuta como root (una instalación) conserva las que necesitan la instalación de paquetes y solo quita `setpcap`, `mknod`, `audit_write`, `net_raw` y `sys_chroot`. Las listas propias de la plantilla se respetan. | — |
+| Sin ganar privilegios | `no-new-privileges`: los binarios setuid dentro del contenedor no elevan privilegios. | — |
+| Límite de procesos | Procesos e hilos por contenedor, para que una fork bomb en un plugin no tumbe la máquina. El límite propio de una plantilla tiene prioridad. | `docker.pidsLimit` (`4096`; `0` lo quita) |
+| `/tmp` propio | `/tmp` y `/var/tmp` son una carpeta junto a la del servidor, que se vacía antes de arrancar cada contenedor y cuenta en su límite de disco. | — |
+| Red propia | Los servidores de juego van a la red `skypanel-servers`. Llegan a MariaDB (que está en las dos redes), pero no a la red del panel. | `docker.serversNetwork` |
+| Sin descargas desde redes privadas | Las descargas de las plantillas rechazan siempre las direcciones de loopback, link-local (metadatos de la nube) y sin especificar, y por defecto también las privadas (las redes de Docker, la LAN). Algunas plantillas toman una URL de una variable que edita el propietario. Se aplica también a los archivos de las versiones de GitHub (`githubdl`), cuya dirección viene de la versión publicada. | `security.blockPrivateDownloads` (`true`) |
 
-Cada petición a la API pasa por una cadena de middleware que garantiza la seguridad:
+Otros límites que protegen el nodo:
 
-- CORS — Permite todas las origins, métodos GET/POST/PUT/DELETE/OPTIONS, headers Authorization/Content-Type/Accept/Origin
-- Recovery — Captura panics y retorna 500 sin exponer información interna
-- ResponseAndRecover — Manejo de errores con respuestas JSON estructuradas
-- NeedsDatabase — Verifica conexión a BD antes de procesar
-- AuthMiddleware — Extrae token del header Authorization o cookie skypanel_auth, valida contra BD
-- RequiresPermission — Verifica que el usuario tenga el scope necesario (retorna 403 si no)
-- ResolveServerPanel — Para rutas con :serverId, carga el servidor desde BD
-- HasTransaction — Envuelve la operación en una transacción de BD
-- AddVersionHeader — Agrega headers de versión a la respuesta
+- `panel.backups.maxPerServer` (`10`): copias de seguridad que pueden guardar los usuarios de un servidor; los administradores no tienen límite. Las copias no cuentan en el disco del servidor.
+- `daemon.minFreeDiskMB` (`2048`): se rechaza una instalación que empezaría con menos espacio libre en la carpeta de servidores, antes de que una descarga del juego llene el disco.
+- El límite de disco del servidor se aplica; un servidor que ya lo llenó no arranca hasta que se borren archivos.
 
-## Mejores Prácticas de Seguridad
+## Archivos de los servidores
 
-Sigue estas recomendaciones para mantener tu instalación segura:
+Todas las operaciones con archivos (gestor de archivos, SFTP, archivos comprimidos, copias de seguridad, instalaciones) trabajan dentro de la carpeta del servidor y nunca siguen un enlace hacia fuera. El funcionamiento está en [Archivos y compresión](19-files-compression.md) y en [openat2 y unshare](20-security-unshare.md). Endurecimiento reciente:
 
-### Proxy Reverso y HTTPS
+- **Extraer**: los enlaces de un archivo comprimido se crean desde su carpeta padre, abierta dentro de la raíz. Los enlaces que apuntan fuera de la carpeta se omiten (los archivos de los juegos suelen tener enlaces absolutos, como `steamclient.so`) en lugar de hacer fallar todo el archivo.
+- **Comprimir y copias de seguridad**: cada archivo se lista y se abre dentro de la carpeta del servidor. Una carpeta con comodines en el nombre o cambiada por un enlace no puede meter archivos del host en el comprimido. Los enlaces se guardan como enlaces; las tuberías con nombre se omiten.
+- **Restaurar una copia**: se lee todo el archivo y se comprueba cada entrada antes de borrar ningún archivo del servidor. Una copia con una ruta que sale de la carpeta se rechaza.
+- **Descargas de instalación** (Mojang, Paper, Forge, Fabric, NeoForge, Sponge, CurseForge, GitHub, URL genéricas): se escriben a través del servidor de archivos y nunca a través de un enlace.
+- **Cambio de propietario antes de arrancar**: recorre la carpeta por descriptor de archivo, así que una carpeta cambiada por un enlace a `/` no se recorre.
+- **Definiciones de servidor**: deben ser archivos normales; una tubería con nombre ya no bloquea el gestor de archivos ni el historial de archivos.
+- **Clonar** un servidor lee los enlaces dentro de la carpeta de origen.
 
-- El panel NO maneja TLS internamente. Usa Nginx, Caddy o Traefik como proxy reverso con HTTPS.
-- Configura `security_trusted_proxies` en config.json para que el panel confíe en las IPs de tu proxy.
-- Configura `security_trusted_proxy_header` si tu proxy usa un header personalizado.
-- Renueva automáticamente certificados Let's Encrypt con Certbot.
-- Considera Cloudflare Proxy para protección DDoS adicional.
+## Tokens y secretos
 
-### Configuración de Cookies
+| Qué | Cómo se protege |
+|-----|-----------------|
+| Tokens de sesión | UUID v4 aleatorio; solo se guarda el hash SHA-256. |
+| Peticiones panel ↔ nodo | JWT firmados con Ed25519 (`panel.token`, generado en el primer arranque y guardado en la configuración). Los tokens de petición duran 15 minutos y van ligados al nodo al que se envían. La clave pública está en `/auth/publickey` (JWKS). |
+| Credenciales de los nodos | Cada nodo remoto tiene un ID de cliente `.node_<id>` y un secreto. `GET /api/nodes/:id/deployment` los muestra y pide `nodes.deploy`. El secreto del nodo local se deriva de `panel.sessionKey`. |
+| Clave de la cookie de sesión | `panel.sessionKey`, generada en el primer arranque. |
+| Clave de transferencias federadas | `panel.exTransferKey`, una semilla Ed25519 generada una vez y guardada en la configuración. |
+| Enlaces de restablecimiento y códigos de recuperación | Solo se guarda su hash. |
+| Claves API de facturación | Se muestran una vez (`ak_...`); solo se guarda el hash. |
+| Secretos de la configuración (claves de correo, Gemini, CurseForge, S3, Cloudflare, Turnstile y licencia, webhooks de Discord) | Se guardan en el archivo de configuración. La API de ajustes nunca los devuelve: responde `********`. Ver [Configuración del panel](../features/panel-settings.md#cómo-funciona). |
+| Secreto TOTP de la 2FA | Se guarda sin cifrar en la base de datos (véase [Limitaciones conocidas](#limitaciones-conocidas)). |
 
-- Configura `panel_web_cookies_samesite` como 'Strict' para evitar CSRF.
-- Habilita `panel_web_cookies_secure` solo si usas HTTPS (requerido).
-- Configura `panel_web_cookies_httponly` como true (por defecto).
-- Ajusta `panel_web_cookies_age` según tu política de sesión (por defecto 1 hora).
-- Configura `panel_web_cookies_path` y `panel_web_cookies_domain` según tu despliegue.
+El archivo de configuración (`/etc/SkyPanel/config.json` dentro del contenedor, `storage/skypanel-config` en el host) guarda estas claves: debe ser legible solo por root, igual que el `/etc/SkyPanel/credenciales.txt` del instalador, y conviene incluirlo en las copias de seguridad.
 
-### Actualizaciones y Mantenimiento
-
-- Mantén el panel actualizado a la última versión para tener los últimos parches de seguridad.
-- Actualiza el sistema operativo y Docker regularmente.
-- Revisa los logs del panel en busca de actividad sospechosa.
-- Mantén backups actualizados de la base de datos y configuración.
-
-### Contraseñas y Autenticación
-
-- Usa contraseñas seguras (12+ caracteres con variedad de tipos).
-- Habilita 2FA/TOTP para todos los administradores.
-- Rota las contraseñas regularmente, especialmente para cuentas administrativas.
-- Cada usuario debe tener su propia cuenta — no compartas credenciales.
-
-### Permisos y Scopes
-
-- Aplica el principio de menor privilegio: solo otorga los scopes necesarios.
-- Revisa y audita los permisos de usuario periódicamente.
-- Usa roles en lugar de asignar scopes individualmente a cada usuario.
-- Desactiva cuentas de usuarios que ya no necesitan acceso.
-
-### Red y Firewall
-
-- Configura el firewall para abrir solo los puertos necesarios (8080, 5657, 8081).
-- Usa fail2ban para proteger contra ataques de fuerza bruta en SSH.
-- Considera una VPN para acceso administrativo remoto.
-- Cambia el puerto SSH del 22 por defecto.
-
-### Nodos y Daemon
-
-- Mantén los secretos de nodos seguros — son la llave de acceso al daemon.
-- Si usas nodos remotos, asegura la comunicación via VPN o túnel SSH.
-- Revisa que los nodos solo expongan los puertos necesarios.
-- Configura los nodos para que acepten conexiones solo desde el panel.
-
-
-## Configuración del Firewall
-
-Asegúrate de que el firewall de tu servidor esté configurado correctamente:
-
-### Puertos Necesarios
-
-Puerto predeterminado del panel web (HTTP). Requiere proxy reverso para HTTPS.
-
-- **port**: 8080/TCP
-- **restrict**: Restringe a IPs específicas o usa Cloudflare Proxy si es posible.
-Puerto SFTP para transferencia de archivos.
-
-- **port**: 5657/TCP
-- **restrict**: Solo accesible para usuarios que necesitan SFTP.
-Puerto para Gatus (monitoreo de uptime). Opcional.
-
-- **port**: 8081/TCP
-- **restrict**: Puede restringirse a acceso interno.
-
-### Configuración con UFW (Ubuntu/Debian)
-
-Para configurar el firewall con UFW:
-
-```text
-# Permitir puertos necesarios
-sudo ufw allow 8080/tcp
-sudo ufw allow 5657/tcp
-sudo ufw allow 8081/tcp
-
-# Habilitar firewall
-sudo ufw enable
-
-# Verificar estado
-sudo ufw status
-```
-
-### Configuración con firewalld (Fedora/RHEL/CentOS)
-
-Para configurar el firewall con firewalld:
-
-```text
-# Permitir puertos necesarios
-sudo firewall-cmd --permanent --add-port=8080/tcp
-sudo firewall-cmd --permanent --add-port=5657/tcp
-sudo firewall-cmd --permanent --add-port=8081/tcp
-
-# Aplicar cambios
-sudo firewall-cmd --reload
-
-# Verificar reglas
-sudo firewall-cmd --list-ports
-```
-
-## Proxy Reverso y SSL/TLS
-
-Aether Panel escucha en HTTP plano. Para HTTPS debes usar un proxy reverso (Nginx, Caddy, Traefik). Configura `security_trusted_proxies` para que el panel registre las IPs reales de los clientes.
-
-### Certificados con Let's Encrypt (vía proxy reverso)
-
-Configura un proxy reverso Nginx con Certbot para SSL automático:
-
-Los certificados de Let's Encrypt expiran cada 90 días. Certbot los renueva automáticamente.
-
-- Instala Nginx: sudo apt install nginx (Ubuntu/Debian)
-- Configura Nginx como proxy reverso hacia localhost:8080
-- Instala Certbot: sudo apt install certbot python3-certbot-nginx
-- Obtén certificado: sudo certbot --nginx -d tu-dominio.com
-- Verifica renovación automática: sudo certbot renew --dry-run
-
-### Certificados Auto-firmados (Solo Desarrollo)
-
-Los certificados auto-firmados solo deben usarse en entornos de desarrollo.
-
-- **warning**: Los navegadores mostrarán advertencias de seguridad con certificados auto-firmados.
-## Monitoreo y Logs
-
-El panel utiliza un sistema de logging estructurado con diferentes niveles (Info, Warn, Error, Debug). Los logs del panel se escriben al archivo y a stdout.
-
-### Revisión de Logs
-
-Revisa regularmente los logs del panel para detectar:
-
-- Errores de autenticación y tokens inválidos
-- Peticiones a rutas sin permisos suficientes (403)
-- Errores de conexión a nodos o base de datos
-- Actividad anormal de API o patrones sospechosos
-- Panics recuperados por el middleware de recovery
-
-#### Ubicación de Logs
-
-- **native**: En instalaciones nativas: según la configuración del sistema de logging de Go
-- **docker**: En Docker: docker compose logs -f skypanel
-## Respuesta a Incidentes
-
-Si sospechas que tu instalación ha sido comprometida:
-
-- Desconecta el servidor de la red inmediatamente
-- Cambia todas las contraseñas (panel, base de datos, SSH, etc.)
-- Revisa los logs del panel buscando actividad sospechosa
-- Revoca todos los tokens OAuth2 y regenera client secrets
-- Regenera la clave privada del panel (ed25519) eliminándola de la configuración
-- Revisa y elimina cualquier usuario o permiso sospechoso
-- Restaura desde un backup conocido seguro si es necesario
-- Actualiza el panel y todas las dependencias
-- Notifica a los usuarios afectados si es apropiado
-
-### Prevención
-
-La mejor respuesta a incidentes es prevenirlos. Sigue todas las mejores prácticas, mantén el panel actualizado, monitorea los logs y aplica el principio de menor privilegio en los scopes.
-
-## Checklist de Seguridad
-
-Usa este checklist para asegurarte de que tu instalación está configurada de forma segura:
-
-- Panel actualizado a la última versión
-- Sistema operativo y Docker actualizados
-- Proxy reverso configurado con HTTPS y certificado válido
-- security_trusted_proxies configurado correctamente
-- 2FA/TOTP habilitado para todos los administradores
-- Firewall configurado (solo puertos 8080, 5657, 8081 abiertos)
-- Contraseñas seguras para todas las cuentas (bcrypt)
-- Permisos de usuario revisados y limitados al mínimo necesario
-- Scopes auditados regularmente
-- Logs siendo monitoreados (incluyendo errores de autenticación)
-- Tokens OAuth2 y secrets de nodos protegidos
-- Backups configurados y probados regularmente
-- Cookie session configurada con SameSite=Strict y HttpOnly=true
-- Clave privada Ed25519 del panel respaldada de forma segura
-
+## Firewall y puertos
+
+| Puerto | Servicio | ¿Abierto a Internet? |
+|--------|----------|----------------------|
+| 80, 443 | Nginx (HTTP, y HTTPS con dominio) | Sí, cuando se usa Nginx. |
+| 8080 | Panel | Solo sin dominio. Con dominio el instalador lo publica en `127.0.0.1`. |
+| 5657 | SFTP | Sí, para los usuarios que necesiten SFTP. |
+| Puertos de los servidores de juego | Servidores de juego | Docker los publica él mismo, por delante de ufw/firewalld. |
+| 3307 | MariaDB (`127.0.0.1:3307` → 3306) | No. Publicado en `127.0.0.1` (`DB_BIND_ADDRESS`). |
+| 8081 | Adminer (`127.0.0.1:8081`) | No. Use un túnel SSH: `ssh -L 8081:127.0.0.1:8081 usuario@servidor`. |
+
+El instalador abre SSH, SFTP, 80/443 y el puerto del panel (solo cuando no está publicado en `127.0.0.1`) con ufw o firewalld. Hay que tener en cuenta que **los puertos que publica Docker se saltan ufw**: para limitar un puerto publicado, publíquelo en una dirección concreta (como hace el instalador con `--bind`) o añada reglas a la cadena `DOCKER-USER` de iptables.
+
+## Buenas prácticas
+
+- Usar un dominio con HTTPS en cualquier panel con clientes, y configurar la URL principal.
+- Activar la 2FA en todos los administradores y guardar los códigos de recuperación fuera de línea. Con la 2FA activada, usar claves SSH para el SFTP (funcionan en todos los nodos).
+- Dar `admin` solo a quienes administran el panel. Usar roles para el personal, con los mínimos scopes necesarios.
+- Dejar `docker.disallowHost`, `docker.serverUser`, `docker.pidsLimit` y `security.blockPrivateDownloads` con sus valores por defecto salvo que se sepa por qué se cambian.
+- Cerrar el registro público (`panel.registrationEnabled`, en **Configuración**) si los clientes llegan desde la facturación.
+- Mantener el panel actualizado (**Configuración → Actualizaciones**, o `install.sh --update`), y también el sistema operativo y Docker.
+- Hacer copias de la base de datos, de la carpeta de configuración y de la carpeta de copias de seguridad, y probar a restaurarlas.
+- No exponer MariaDB ni Adminer a Internet.
+- Revisar la actividad del panel (inicios de sesión, fallidos, cierres de sesión, registros, cambios de contraseña y accesos directos desde la facturación, con IP y navegador; se guardan 90 días) y la actividad de cada servidor.
+
+## Limitaciones conocidas
+
+- **SFTP y 2FA**: los clientes SFTP no pueden pedir un código, así que el inicio de sesión por SFTP con contraseña no pide la 2FA, y el acceso SFTP con contraseña no se puede desactivar. Quien tenga la 2FA activada debería entrar por SFTP con una [clave SSH](#claves-ssh-para-sftp), que funciona en todos los nodos con la versión actual.
+- **Secreto TOTP sin cifrar**: el secreto de la 2FA se guarda en claro en la base de datos (`users.otp_secret`). Quien lea la base de datos puede generar códigos: proteja la base de datos y sus copias.
+
+## Si sospecha que el panel está comprometido
+
+1. Desconecte el servidor de la red o detenga el panel (`docker compose stop` en `/opt/skypanel`).
+2. Cambie las contraseñas de los administradores y de la base de datos; revoque las claves API de facturación y los clientes OAuth2.
+3. Rote `panel.sessionKey` y `panel.token` borrándolas de la configuración y reiniciando: se generan claves nuevas al arrancar. Los nodos remotos leen la clave pública del panel de `token.public` (`/auth/publickey`); compruebe después que siguen aceptando al panel y reinícielos si no.
+4. Revise usuarios, roles y permisos globales en busca de algo que no haya concedido; revise los propietarios de los servidores.
+5. Revise la actividad y los logs (`docker compose logs skypanel` y la carpeta de logs del panel).
+6. Restaure desde una copia sana si se modificaron archivos, actualice el panel e informe a los usuarios afectados.

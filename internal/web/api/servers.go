@@ -590,6 +590,9 @@ func editServer(c *gin.Context) {
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
+	if answerNodeAuthFailure(c, &server.Node, nodeResponse) {
+		return
+	}
 
 	if nodeResponse.StatusCode != http.StatusNoContent {
 		resData, err := io.ReadAll(nodeResponse.Body)
@@ -1271,6 +1274,9 @@ func sendDataToNode(c *gin.Context, db *gorm.DB, server *models.Server, postBody
 	if response.HandleError(c, err, http.StatusBadGateway) {
 		return false
 	}
+	if answerNodeAuthFailure(c, &server.Node, res) {
+		return false
+	}
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
 		details, _ := io.ReadAll(res.Body)
 		c.Header(headerContentType, res.Header.Get(headerContentType))
@@ -1691,6 +1697,9 @@ func createBackup(c *gin.Context) {
 		return
 	}
 
+	if answerNodeAuthFailure(c, node, callResponse) {
+		return
+	}
 	// any refusal from the node (bad request, server running, backup in progress...) is
 	// passed through; only a 400 used to be, so other errors were reported as success
 	if callResponse.StatusCode >= http.StatusMultipleChoices {
@@ -1722,7 +1731,7 @@ func createBackup(c *gin.Context) {
 // @Param id path string true "Server ID"
 // @Param backupID path string true "Backup ID"
 // @Tags Daemon Servers
-// @Router /api/servers/{id}/backup/Delete/{backupID} [delete]
+// @Router /api/servers/{id}/backup/{backupID} [delete]
 // @Security OAuth2Application[server.backup.delete]
 func deleteBackup(c *gin.Context) {
 	server := getServerFromGin(c)
@@ -1753,6 +1762,9 @@ func deleteBackup(c *gin.Context) {
 		return
 	}
 
+	if answerNodeAuthFailure(c, node, callResponse) {
+		return
+	}
 	// any refusal from the node (bad request, server running, backup in progress...) is
 	// passed through; only a 400 used to be, so other errors were reported as success
 	if callResponse.StatusCode >= http.StatusMultipleChoices {
@@ -1777,7 +1789,7 @@ func deleteBackup(c *gin.Context) {
 // @Param id path string true "Server ID"
 // @Param backupID path string true "Backup ID"
 // @Tags Daemon Servers
-// @Router /api/servers/{id}/backup/Delete/{backupID} [delete]
+// @Router /api/servers/{id}/backup/restore/{backupID} [post]
 // @Security OAuth2Application[server.backup.restore]
 func restoreBackup(c *gin.Context) {
 	server := getServerFromGin(c)
@@ -1808,6 +1820,9 @@ func restoreBackup(c *gin.Context) {
 		return
 	}
 
+	if answerNodeAuthFailure(c, node, callResponse) {
+		return
+	}
 	// any refusal from the node (bad request, server running, backup in progress...) is
 	// passed through; only a 400 used to be, so other errors were reported as success
 	if callResponse.StatusCode >= http.StatusMultipleChoices {
@@ -1823,12 +1838,13 @@ func restoreBackup(c *gin.Context) {
 
 // @Summary Download backup
 // @Description Download a server backup
-// @Success 204 {object} nil
+// @Produce octet-stream
+// @Success 200 {file} binary "Backup archive"
 // @Param id path string true "Server ID"
 // @Param backupID path string true "Backup ID"
 // @Tags Daemon Servers
-// @Router /api/servers/{id}/backup/Delete/{backupID} [delete]
-// @Security OAuth2Application[server.backup.restore]
+// @Router /api/servers/{id}/backup/download/{backupID} [get]
+// @Security OAuth2Application[server.backup.view]
 func downloadBackup(c *gin.Context) {
 	server := getServerFromGin(c)
 	db := middleware.GetDatabase(c)
@@ -1855,6 +1871,9 @@ func downloadBackup(c *gin.Context) {
 	callResponse, err := ns.CallNode(node, "GET", resolvedPath, nil, nil)
 	defer utils.CloseResponse(callResponse)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+	if answerNodeAuthFailure(c, node, callResponse) {
 		return
 	}
 
@@ -1919,17 +1938,18 @@ func validatePortsAgainstNode(db *gorm.DB, nodeID uint, excludeIdentifier string
 		if p == 0 {
 			continue
 		}
+		port := strconv.Itoa(int(p))
 		if p < 1024 {
-			return fmt.Errorf("el puerto %d está fuera del rango permitido (1024-65535)", p)
+			return skypanel.ErrPortOutOfRange(port)
 		}
 		if seen[p] {
-			return fmt.Errorf("el puerto %d está duplicado", p)
+			return skypanel.ErrPortDuplicated(port)
 		}
 		if reserved[p] {
-			return fmt.Errorf("el puerto %d lo usa el propio panel en este nodo", p)
+			return skypanel.ErrPortUsedByPanel(port)
 		}
 		if used[p] {
-			return fmt.Errorf("el puerto %d ya está en uso por otro servidor en este nodo", p)
+			return skypanel.ErrPortTaken(port)
 		}
 		seen[p] = true
 		used[p] = true
@@ -1969,14 +1989,15 @@ func validateOtherPorts(db *gorm.DB, nodeID uint, variables map[string]skypanel.
 			continue
 		}
 		p := servers.PortValue(variables[key].Value)
+		port := fmt.Sprintf("%d (%s)", p, key)
 		switch {
 		case p == 0:
 		case p < 1024:
-			return fmt.Errorf("el puerto %d (%s) está fuera del rango permitido (1024-65535)", p, key)
+			return skypanel.ErrPortOutOfRange(port)
 		case reserved[p]:
-			return fmt.Errorf("el puerto %d (%s) lo usa el propio panel en este nodo", p, key)
+			return skypanel.ErrPortUsedByPanel(port)
 		case used[p]:
-			return fmt.Errorf("el puerto %d (%s) ya está en uso por otro servidor en este nodo", p, key)
+			return skypanel.ErrPortTaken(port)
 		}
 	}
 	return nil
@@ -2059,7 +2080,6 @@ func proxyServerRequest(c *gin.Context) {
 		resolvedPath += "?" + c.Request.URL.RawQuery
 	}
 
-	user := c.MustGet("user").(*models.User)
 	server := c.MustGet("server").(*models.Server)
 	node := &server.Node
 
@@ -2083,11 +2103,7 @@ func proxyServerRequest(c *gin.Context) {
 	c.Request.Header.Set("Authorization", bearerPrefix+token)
 
 	if c.IsWebsocket() {
-		socketPath, ok := websocketPathWithGrants(c, db, user, server, resolvedPath)
-		if !ok {
-			return
-		}
-		proxySocketRequest(c, socketPath, ns, node)
+		proxySocketRequest(c, websocketPathWithGrants(c, resolvedPath), ns, node)
 	} else {
 		proxyHTTPRequest(c, resolvedPath, ns, node)
 	}
@@ -2096,29 +2112,18 @@ func proxyServerRequest(c *gin.Context) {
 }
 
 // websocketPathWithGrants replaces the query of a websocket path with the
-// streams (console, status, stats) the user is allowed to receive. It writes
-// the error response itself and returns false when the request must stop.
-func websocketPathWithGrants(c *gin.Context, db *gorm.DB, user *models.User, server *models.Server, resolvedPath string) (string, bool) {
+// streams (console, status, stats) the user is allowed to receive. The scopes
+// are the ones checkPermission resolved for this request, so the owner's scopes,
+// the panel-wide row and an OAuth2 client's bounds count as they do on every
+// other route.
+func websocketPathWithGrants(c *gin.Context, resolvedPath string) string {
 	// for websocket, nuke the query params to avoid trying to escalate
 	resolvedPath = strings.SplitN(resolvedPath, "?", 2)[0]
 	if !strings.HasPrefix(resolvedPath, "/") {
 		resolvedPath = "/" + resolvedPath
 	}
 
-	permService := &services.Permission{DB: db}
-	perms, err := permService.GetForUserAndServer(user.ID, server.Identifier)
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-		return "", false
-	}
-
-	allScopes := perms.Scopes
-
-	perms, err = permService.GetForUserAndServer(user.ID, "")
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-		return "", false
-	}
-
-	allScopes = append(allScopes, perms.Scopes...)
+	allScopes := callerScopes(c)
 
 	// add the params we can grant for this request
 	var params []string
@@ -2131,7 +2136,7 @@ func websocketPathWithGrants(c *gin.Context, db *gorm.DB, user *models.User, ser
 	if scopes.ContainsScope(allScopes, scopes.ScopeServerStats) {
 		params = append(params, "stats")
 	}
-	return resolvedPath + "?" + strings.Join(params, "&"), true
+	return resolvedPath + "?" + strings.Join(params, "&")
 }
 
 var wsupgrader = websocket.Upgrader{
@@ -2154,6 +2159,10 @@ func proxyHTTPRequest(c *gin.Context, path string, ns *services.Node, node *mode
 
 	defer utils.CloseResponse(callResponse)
 
+	if answerNodeAuthFailure(c, node, callResponse) {
+		return
+	}
+
 	// Intercept 404 for stats/status/console to avoid errors in console for "ghost" servers (non-local or fallback)
 	if callResponse.StatusCode == http.StatusNotFound && c.Request.Method == "GET" && writeIdleServerStub(c, path) {
 		return
@@ -2175,7 +2184,7 @@ func answerLocalGhostServer(c *gin.Context, path string, node *models.Node) bool
 	}
 	// For ghost servers, return 200 with an error description instead of a red 404
 	c.JSON(http.StatusOK, gin.H{
-		"error": "El servidor existe en la base de datos pero sus archivos no se encuentran en este nodo. Por favor, reintenta instalarlo o elimínalo.",
+		"error": "The server exists in the database but its files are not on this node. Install it again or delete it.",
 	})
 	return true
 }
@@ -2225,7 +2234,7 @@ func proxySocketRequest(c *gin.Context, path string, ns *services.Node, node *mo
 			}
 			// Enviar un mensaje de advertencia simulado
 			msg := skypanel.ServerLogs{
-				Logs: []byte("> Error: Los archivos de este servidor han desaparecido del nodo. No se puede conectar a la consola."),
+				Logs: []byte("> Error: this server's files are gone from the node, so its console cannot be opened."),
 			}
 			data, _ := json.Marshal(msg)
 			_ = conn.WriteMessage(websocket.TextMessage, data)
@@ -2466,6 +2475,9 @@ func executeServerDeletionOnNode(c *gin.Context, ns *services.Node, node *models
 		return err
 	}
 
+	if answerNodeAuthFailure(c, node, nodeResponse) {
+		return errors.New("the node refused the panel's token")
+	}
 	if nodeResponse.StatusCode != http.StatusNoContent && nodeResponse.StatusCode != http.StatusNotFound {
 		resData, err := io.ReadAll(nodeResponse.Body)
 		if err != nil {
@@ -2512,7 +2524,7 @@ func updateParentServerLimitsAfterDeletion(db *gorm.DB, ns *services.Node, node 
 func sendServerDeletionEmails(users []models.User, server *models.Server) {
 	es := services.GetEmailService()
 	for _, user := range users {
-		err := es.SendEmail(user.Email, "deletedFromServer", map[string]interface{}{
+		err := es.SendEmail(user.Email, "deletedServer", map[string]interface{}{
 			"Server": server,
 		}, true)
 		if err != nil {
@@ -2979,6 +2991,9 @@ func notifyNodeOfServerCreation(c *gin.Context, ns *services.Node, node *models.
 		return err
 	}
 
+	if answerNodeAuthFailure(c, node, nodeResponse) {
+		return errors.New("the node refused the panel's token")
+	}
 	if nodeResponse.StatusCode != http.StatusOK {
 		resData, err := io.ReadAll(nodeResponse.Body)
 		if err != nil {

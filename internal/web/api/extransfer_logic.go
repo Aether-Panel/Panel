@@ -35,7 +35,7 @@ import (
 
 var (
 	transferProgressMutex sync.RWMutex
-	transferProgress      = make(map[string]string)
+	transferProgress      = make(map[string]exTransferStep)
 	externalHTTPClient    = utils.NewRestrictedHTTPClient()
 )
 
@@ -59,30 +59,53 @@ func sendWebhookReport(serverName, status, details string, isError bool) {
 
 	title := fmt.Sprintf("ExTransfer: %s", status)
 	fields := []services.DiscordEmbedField{
-		{Name: "Servidor", Value: serverName, Inline: true},
-		{Name: "Estado", Value: status, Inline: true},
+		{Name: services.NotificationText("field.server"), Value: serverName, Inline: true},
+		{Name: services.NotificationText("field.status"), Value: status, Inline: true},
 	}
 	if details != "" {
-		fields = append(fields, services.DiscordEmbedField{Name: "Detalles", Value: details, Inline: false})
+		fields = append(fields, services.DiscordEmbedField{Name: services.NotificationText("field.details"), Value: details, Inline: false})
 	}
 
-	err := ds.SendWebhookToURL(webhookURL, title, "Reporte de transferencia externa", color, fields)
+	err := ds.SendWebhookToURL(webhookURL, title, services.NotificationText("extransfer.report"), color, fields)
 	if err != nil {
 		logging.Error.Printf("Failed to send ExTransfer webhook: %v", err)
 	}
 }
 
-func setTransferProgress(serverID, status string) {
+// exTransferStep is the import's progress as the status API shows it: a code the page
+// translates (STEP_*, ERROR_*, DONE, CANCELLED, CANCELLED_BY_ORIGIN) and, for some failures, a
+// detail such as the origin's HTTP status
+type exTransferStep struct {
+	Code   string
+	Detail string
+}
+
+// failed reports whether the step is a failure that ended the import
+func (s exTransferStep) failed() bool {
+	return strings.HasPrefix(s.Code, "ERROR_")
+}
+
+// text is the step in lang, with its detail: the details of the Discord report, the reason
+// sent to the origin and the English fallback of the status API
+func (s exTransferStep) text(lang string) string {
+	text := services.NotificationTextIn(lang, "extransfer."+s.Code)
+	if s.Detail != "" {
+		text += " (" + s.Detail + ")"
+	}
+	return text
+}
+
+func setTransferProgress(serverID string, step exTransferStep) {
 	transferProgressMutex.Lock()
 	defer transferProgressMutex.Unlock()
-	if status == "" {
+	if step.Code == "" {
 		delete(transferProgress, serverID)
 	} else {
-		transferProgress[serverID] = status
+		transferProgress[serverID] = step
 	}
 }
 
-func getTransferProgress(serverID string) string {
+func getTransferProgress(serverID string) exTransferStep {
 	transferProgressMutex.RLock()
 	defer transferProgressMutex.RUnlock()
 	return transferProgress[serverID]
@@ -128,6 +151,10 @@ type ExTransferAPIError struct {
 	Retryable bool   `json:"retryable"`
 }
 
+// exTransferProtocolVersion is the version of the federated transfer protocol this panel speaks,
+// as a destination and as an origin
+const exTransferProtocolVersion = "1.0"
+
 type ExValidateReq struct {
 	Token           string `json:"token" binding:"required"`
 	TargetPublicKey string `json:"target_public_key" binding:"required"`
@@ -154,22 +181,6 @@ func RegisterExTransferRoutes(rg *gin.RouterGroup) {
 	rg.POST("/cancel", cancelExTransfer)
 }
 
-func WellKnownAetherPanel(c *gin.Context) {
-	pubKeyB64 := base64.StdEncoding.EncodeToString(exTransferPublicKey())
-	c.JSON(200, gin.H{
-		"panel_name":          "SkyPanel",
-		"version":             "1.0",
-		"protocols_supported": []string{"1.0"},
-		"public_key":          pubKeyB64,
-		"tls_fingerprint":     "AUTO_GENERATED",
-		"capabilities": map[string]interface{}{
-			"virtualization": []string{"docker"},
-			"os":             "linux",
-		},
-		"timestamp": time.Now().Unix(),
-	})
-}
-
 // @Summary Create federated transfer session
 // @Description Create a new federated transfer session for a server
 // @Produce json
@@ -178,7 +189,7 @@ func WellKnownAetherPanel(c *gin.Context) {
 // @Failure 500 {object} map[string]string "Failed to create session"
 // @Tags Federated Transfer
 // @Router /api/servers/{serverId}/extransfer/create [post]
-// @Security OAuth2Application[server.edit.admin]
+// @Security OAuth2Application[server.data.edit.admin]
 func CreateExTransfer(c *gin.Context) {
 	server := c.MustGet("server").(*models.Server)
 	user := c.MustGet("user").(*models.User)
@@ -232,6 +243,12 @@ func validateExTransfer(c *gin.Context) {
 	}
 
 	req.Token = strings.TrimSpace(req.Token) // se agrego prueba local
+
+	// a destination speaking another version would read the answers differently
+	if req.ProtocolVer != exTransferProtocolVersion {
+		c.JSON(http.StatusBadRequest, ExTransferAPIError{ErrorCode: "UNSUPPORTED_PROTOCOL", Message: "protocol_version " + req.ProtocolVer + " is not supported; this panel speaks " + exTransferProtocolVersion, Retryable: false})
+		return
+	}
 
 	mac := hmac.New(sha256.New, []byte(ExTransferSalt))
 	mac.Write([]byte(req.Token))
@@ -357,10 +374,32 @@ const (
 	// exTransferRecentOutcome is how long the panel keeps showing a finished session's outcome
 	exTransferRecentOutcome = 15 * time.Minute
 
-	// progress values the destination reports to its own UI besides the step texts
+	// progress values the destination reports to its own UI besides the steps
 	exTransferProgressDone              = "DONE"
 	exTransferProgressCancelled         = "CANCELLED"
 	exTransferProgressCancelledByOrigin = "CANCELLED_BY_ORIGIN"
+
+	// the import's steps and failures; the page translates them under servers.extransfer.progress
+	exStepStarting         = "STEP_STARTING"
+	exStepValidating       = "STEP_VALIDATING"
+	exStepOriginStart      = "STEP_ORIGIN_START"
+	exStepWaitingArchive   = "STEP_WAITING_ARCHIVE"
+	exStepDownloading      = "STEP_DOWNLOADING"
+	exStepUploading        = "STEP_UPLOADING"
+	exStepExtracting       = "STEP_EXTRACTING"
+	exStepCleanup          = "STEP_CLEANUP"
+	exErrOriginURL         = "ERROR_ORIGIN_URL"
+	exErrOriginUnreachable = "ERROR_ORIGIN_UNREACHABLE"
+	exErrTokenRejected     = "ERROR_TOKEN_REJECTED" // #nosec G101 -- a status code, not a credential
+	exErrOriginBadAnswer   = "ERROR_ORIGIN_BAD_ANSWER"
+	exErrOriginBadSession  = "ERROR_ORIGIN_BAD_SESSION"
+	exErrOriginStart       = "ERROR_ORIGIN_START"
+	exErrOriginRefused     = "ERROR_ORIGIN_REFUSED"
+	exErrDownloadNetwork   = "ERROR_DOWNLOAD_NETWORK"
+	exErrDownloadRefused   = "ERROR_DOWNLOAD_REFUSED"
+	exErrDownloadTimeout   = "ERROR_DOWNLOAD_TIMEOUT"
+	exErrUpload            = "ERROR_UPLOAD"
+	exErrExtract           = "ERROR_EXTRACT"
 )
 
 // ExSignedReq is what the destination sends to heartbeat, confirm or cancel a session: the
@@ -481,21 +520,77 @@ func reportExTransfer(db *gorm.DB, serverID, status, details string, isError boo
 }
 
 // removeOriginArchive deletes the archive a finished or cancelled session left in the server's
-// files. It is a variable so tests can keep away from the node.
+// files, finished or still being written. It is a variable so tests can keep away from the node.
 var removeOriginArchive = func(db *gorm.DB, serverID string) {
 	var server models.Server
 	if err := db.Preload("Node").Where(serverIdentifierQuery, serverID).First(&server).Error; err != nil {
 		return
 	}
 	ns := &services.Node{DB: db}
-	res, err := ns.CallNode(&server.Node, "DELETE", fmt.Sprintf("/daemon/server/%s/file/transfer.tar.gz", server.Identifier), nil, nil)
+	for _, name := range []string{originArchive, originArchivePartial} {
+		res, err := ns.CallNode(&server.Node, "DELETE", originArchivePath(server.Identifier, name), nil, nil)
+		if err != nil {
+			logging.Error.Printf("Could not remove the transfer archive of %s: %v", serverID, err)
+			return
+		}
+		utils.CloseResponse(res)
+	}
+}
+
+// The archive a federated transfer sends from this panel is written under a hidden partial name
+// and renamed once complete: the destination polls the download while it is being made, and
+// must never be sent half an archive. The partial name keeps the .tar.gz ending, which picks
+// the format.
+const (
+	originArchive        = "transfer.tar.gz"
+	originArchivePartial = ".transfer-partial.tar.gz"
+)
+
+func originArchivePath(serverID, name string) string {
+	return fmt.Sprintf("/daemon/server/%s/file/%s", serverID, name)
+}
+
+// nodeCaller makes one request to the server's node
+type nodeCaller func(method, path string, body io.ReadCloser, headers http.Header) (*http.Response, error)
+
+// buildOriginArchive packs the server's files for the destination: under the partial name first,
+// then renamed to the name the download serves. What an earlier attempt left is removed first,
+// and a failed attempt removes its partial archive.
+func buildOriginArchive(call nodeCaller, serverID string) error {
+	for _, name := range []string{originArchive, originArchivePartial} {
+		res, err := call(http.MethodDelete, originArchivePath(serverID, name), nil, nil)
+		if err == nil {
+			utils.CloseResponse(res)
+		}
+	}
+
+	headers := http.Header{}
+	headers.Set(headerContentType, contentTypeJSON)
+	res, err := call(http.MethodPost, fmt.Sprintf("/daemon/server/%s/archive/%s", serverID, originArchivePartial), io.NopCloser(strings.NewReader(`["*"]`)), headers)
+	err = daemonStepError("archiving the files", res, err)
+	if err == nil {
+		res, err = call(http.MethodPost, originArchivePath(serverID, originArchivePartial)+"?destination="+originArchive, nil, nil)
+		err = daemonStepError("renaming the finished archive", res, err)
+	}
 	if err != nil {
-		logging.Error.Printf("Could not remove the transfer archive of %s: %v", serverID, err)
-		return
+		if res, delErr := call(http.MethodDelete, originArchivePath(serverID, originArchivePartial), nil, nil); delErr == nil {
+			utils.CloseResponse(res)
+		}
 	}
-	if res.Body != nil {
-		_ = res.Body.Close()
+	return err
+}
+
+// daemonStepError is nil when the node did the step, and otherwise says why not; it closes
+// the response either way
+func daemonStepError(step string, res *http.Response, err error) error {
+	if isDaemonSuccess(res, err) {
+		utils.CloseResponse(res)
+		return nil
 	}
+	if err != nil {
+		return fmt.Errorf("%s: %w", step, err)
+	}
+	return fmt.Errorf("%s: the node answered %d: %s", step, res.StatusCode, readFailureBody(res))
 }
 
 // downloads being streamed per session, so a cancel can cut them off
@@ -638,7 +733,7 @@ func confirmExTransfer(c *gin.Context) {
 	}
 
 	if completed {
-		reportExTransfer(db, serverID, "Completada (Origen)", "El panel de destino confirmó que recibió los datos del servidor.", false)
+		reportExTransfer(db, serverID, services.NotificationText("extransfer.status.completedOrigin"), services.NotificationText("extransfer.destinationConfirmed"), false)
 		go removeOriginArchive(db, serverID)
 	}
 	c.JSON(http.StatusOK, gin.H{"status": models.StatusCompleted})
@@ -697,11 +792,11 @@ func cancelExTransfer(c *gin.Context) {
 
 	if cancelled {
 		stopOriginDownloads(sessionID)
-		details := "El panel de destino canceló la transferencia."
+		details := services.NotificationText("extransfer.destinationCancelled")
 		if req.Reason != "" {
-			details += " Motivo: " + req.Reason
+			details += " " + services.NotificationText("extransfer.reason", req.Reason)
 		}
-		reportExTransfer(db, serverID, "Cancelada (Destino)", details, true)
+		reportExTransfer(db, serverID, services.NotificationText("extransfer.status.cancelledDestination"), details, true)
 		go removeOriginArchive(db, serverID)
 	}
 	c.JSON(http.StatusOK, gin.H{"status": models.StatusCancelled})
@@ -761,7 +856,13 @@ func downloadExTransfer(c *gin.Context) {
 	}
 
 	ns := &services.Node{DB: db}
-	downloadRes, err := ns.CallNodeContext(ctx, &server.Node, "GET", fmt.Sprintf("/daemon/server/%s/file/transfer.tar.gz", server.Identifier), nil, nil)
+	downloadRes, err := ns.CallNodeContext(ctx, &server.Node, "GET", originArchivePath(server.Identifier, originArchive), nil, nil)
+	if err == nil && downloadRes.StatusCode == http.StatusNotFound {
+		// the archive is only there once it is complete: the destination asks again
+		_ = downloadRes.Body.Close()
+		c.JSON(http.StatusServiceUnavailable, ExTransferAPIError{ErrorCode: "NOT_READY", Message: "The archive is still being made", Retryable: true})
+		return
+	}
 	if err != nil || downloadRes.StatusCode != 200 {
 		if err == nil {
 			_ = downloadRes.Body.Close()
@@ -790,20 +891,15 @@ func StartDataPlaneMigration(session models.ExTransferSession, db *gorm.DB) {
 	}
 
 	ns := &services.Node{DB: db}
+	callNode := func(method, path string, body io.ReadCloser, headers http.Header) (*http.Response, error) {
+		return ns.CallNode(&server.Node, method, path, body, headers)
+	}
 
-	// Clean up existing archive if it exists from previous attempts
-	_, _ = ns.CallNode(&server.Node, "DELETE", fmt.Sprintf("/daemon/server/%s/file/transfer.tar.gz", server.Identifier), nil, nil)
-
-	// Archive files
-	archiveBody := bytes.NewReader([]byte(`["*"]`))
-	headersArch := http.Header{}
-	headersArch.Set(headerContentType, contentTypeJSON)
-	res, err := ns.CallNode(&server.Node, "POST", fmt.Sprintf("/daemon/server/%s/archive/transfer.tar.gz", server.Identifier), io.NopCloser(archiveBody), headersArch)
-	if err != nil || (res != nil && res.StatusCode != http.StatusNoContent && res.StatusCode != http.StatusOK) {
+	if err := buildOriginArchive(callNode, server.Identifier); err != nil {
 		logging.Error.Printf("Failed to archive server %s: %v", server.Identifier, err)
 		// a session cancelled meanwhile stays cancelled
 		db.Model(&models.ExTransferSession{}).Where("id = ? AND status = ?", session.ID, models.StatusMigrating).Update("status", models.StatusFailed)
-		sendWebhookReport(server.Name, "Fallida (Origen)", "Fallo al comprimir los archivos en el servidor de origen.", true)
+		sendWebhookReport(server.Name, services.NotificationText("extransfer.status.failedOrigin"), services.NotificationText("extransfer.archiveFailed"), true)
 		return
 	}
 
@@ -892,7 +988,7 @@ func pullExTransfer(c *gin.Context) {
 		return
 	}
 
-	setTransferProgress(server.Identifier, "Iniciando...")
+	setTransferProgress(server.Identifier, exTransferStep{Code: exStepStarting})
 	go func() {
 		defer finish()
 		performPullTransferAsync(ctx, server, req.OriginURL, req.Token, db)
@@ -903,9 +999,17 @@ func pullExTransfer(c *gin.Context) {
 
 func getExTransferStatus(c *gin.Context) {
 	server := c.MustGet("server").(*models.Server)
+	step := getTransferProgress(server.Identifier)
 	res := gin.H{
-		"status":  getTransferProgress(server.Identifier),
+		"status":  step.Code,
 		"pulling": isPullRunning(server.Identifier),
+	}
+	if step.Detail != "" {
+		res["detail"] = step.Detail
+	}
+	// a readable English text for a page that does not know the code
+	if strings.HasPrefix(step.Code, "STEP_") || step.failed() {
+		res["message"] = step.text("en")
 	}
 	if origin := originSessionSummary(middleware.GetDatabase(c), server.Identifier); origin != nil {
 		res["origin"] = origin
@@ -1072,12 +1176,12 @@ func performPullTransferAsync(parent context.Context, server *models.Server, ori
 	ctx, abort := context.WithCancelCause(parent)
 	defer abort(nil)
 
-	var lastStep string
-	sendStep := func(msg string) {
-		lastStep = msg
-		setTransferProgress(server.Identifier, msg)
-		if strings.HasPrefix(msg, "ERROR:") {
-			sendWebhookReport(server.Name, "Fallida", msg, true)
+	var lastStep exTransferStep
+	sendStep := func(step exTransferStep) {
+		lastStep = step
+		setTransferProgress(server.Identifier, step)
+		if step.failed() {
+			sendWebhookReport(server.Name, services.NotificationText("extransfer.status.failed"), step.text(services.NotificationLanguage()), true)
 		}
 	}
 	defer func() {
@@ -1091,34 +1195,35 @@ func performPullTransferAsync(parent context.Context, server *models.Server, ori
 	archiveTouched := false
 
 	// fail ends the pull early: it removes the partial archive, tells the origin (unless the
-	// origin is the one that cancelled) and reports a cancel or errMsg to the owner.
-	fail := func(errMsg string) {
+	// origin is the one that cancelled) and reports a cancel or failure to the owner.
+	fail := func(failure exTransferStep) {
 		if archiveTouched {
 			deleteTransferArchive(ns, server, archivePath)
 		}
 		switch cause := context.Cause(ctx); {
 		case errors.Is(cause, errPullCancelledByOrigin):
 			logging.Info.Printf("Pull transfer for server %s was cancelled by the origin", server.Identifier)
-			sendStep(exTransferProgressCancelledByOrigin)
-			sendWebhookReport(server.Name, "Cancelada (Origen)", "El panel de origen canceló la transferencia.", true)
+			sendStep(exTransferStep{Code: exTransferProgressCancelledByOrigin})
+			sendWebhookReport(server.Name, services.NotificationText("extransfer.status.cancelledOrigin"), services.NotificationText("extransfer.originCancelled"), true)
 		case ctx.Err() != nil:
 			logging.Info.Printf("Pull transfer for server %s was cancelled by its owner", server.Identifier)
 			origin.notifyCancel("cancelled by the owner on the destination panel")
-			sendStep(exTransferProgressCancelled)
-			sendWebhookReport(server.Name, "Cancelada", "El propietario canceló la transferencia desde el panel de destino.", true)
+			sendStep(exTransferStep{Code: exTransferProgressCancelled})
+			sendWebhookReport(server.Name, services.NotificationText("extransfer.status.cancelled"), services.NotificationText("extransfer.ownerCancelledDestination"), true)
 		default:
-			origin.notifyCancel(strings.TrimPrefix(errMsg, "ERROR: "))
-			sendStep(errMsg)
+			// the other panel logs the reason, so it gets the English text whatever the language here
+			origin.notifyCancel(failure.text("en"))
+			sendStep(failure)
 		}
 	}
 
 	logging.Info.Printf("Starting pull transfer for server %s from %s", server.Identifier, originURL)
-	sendStep("Validando conexión con el panel de origen...")
+	sendStep(exTransferStep{Code: exStepValidating})
 
 	baseURL, err := parseOriginURL(originURL)
 	if err != nil {
 		logging.Error.Printf("Invalid origin URL %s: %v", originURL, err)
-		fail("ERROR: La URL de origen no es válida o apunta a una dirección no permitida")
+		fail(exTransferStep{Code: exErrOriginURL})
 		return
 	}
 
@@ -1130,17 +1235,17 @@ func performPullTransferAsync(parent context.Context, server *models.Server, ori
 	}
 
 	// 2. Validate token and get nonce
-	validateRes, errMsg := validateOriginToken(postOrigin, token)
-	if errMsg != "" {
-		fail(errMsg)
+	validateRes, failure := validateOriginToken(postOrigin, token)
+	if failure.Code != "" {
+		fail(failure)
 		return
 	}
 	origin = &originSession{client: externalHTTPClient, base: baseURL, id: validateRes.SessionID, key: exTransferPrivateKey()}
 
-	sendStep("Iniciando la transferencia en el servidor origen...")
+	sendStep(exTransferStep{Code: exStepOriginStart})
 	// 3. Consume transfer
-	if errMsg := consumeOriginSession(postOrigin, validateRes); errMsg != "" {
-		fail(errMsg)
+	if failure := consumeOriginSession(postOrigin, validateRes); failure.Code != "" {
+		fail(failure)
 		return
 	}
 
@@ -1158,7 +1263,7 @@ func performPullTransferAsync(parent context.Context, server *models.Server, ori
 	}
 	defer stopHeartbeats()
 
-	sendStep("Esperando a que el origen comprima los archivos...")
+	sendStep(exTransferStep{Code: exStepWaitingArchive})
 
 	// 5. Download file — retry until origin is ready (archive may take time to create)
 	dlSig := ed25519.Sign(exTransferPrivateKey(), []byte("DOWNLOAD:"+validateRes.SessionID))
@@ -1168,36 +1273,36 @@ func performPullTransferAsync(parent context.Context, server *models.Server, ori
 		"signature":  {base64.StdEncoding.EncodeToString(dlSig)},
 	}.Encode()
 
-	resp, errMsg := waitForOriginArchive(ctx, dlURL.String(), sendStep)
+	resp, failure := waitForOriginArchive(ctx, dlURL.String(), sendStep)
 	if resp == nil {
-		fail(errMsg)
+		fail(failure)
 		return
 	}
 	defer resp.Body.Close()
 
-	sendStep("Subiendo archivos al daemon local (esto puede tardar)...")
+	sendStep(exTransferStep{Code: exStepUploading})
 
 	// 6. Stream to daemon
 	archiveTouched = true
 	if !uploadTransferArchive(ctx, ns, server, archivePath, resp.Body) {
-		fail("ERROR: Error al subir archivo al daemon")
+		fail(exTransferStep{Code: exErrUpload})
 		return
 	}
 
 	if ctx.Err() != nil {
-		fail("")
+		fail(exTransferStep{})
 		return
 	}
 
-	sendStep("Descomprimiendo archivos...")
+	sendStep(exTransferStep{Code: exStepExtracting})
 	// 7. Extract on daemon
 	logging.Info.Printf("Extracting files on daemon for server %s", server.Identifier)
-	if errMsg := extractTransferArchive(ctx, ns, server); errMsg != "" {
-		fail(errMsg)
+	if failure := extractTransferArchive(ctx, ns, server); failure.Code != "" {
+		fail(failure)
 		return
 	}
 
-	sendStep("Limpiando archivos temporales...")
+	sendStep(exTransferStep{Code: exStepCleanup})
 	// Clean up transfer file on daemon
 	deleteTransferArchive(ns, server, archivePath)
 
@@ -1208,8 +1313,8 @@ func performPullTransferAsync(parent context.Context, server *models.Server, ori
 	}
 
 	logging.Info.Printf("Pull transfer for server %s completed successfully", server.Identifier)
-	sendWebhookReport(server.Name, "Completada", "La transferencia externa finalizó correctamente.", false)
-	sendStep(exTransferProgressDone)
+	sendWebhookReport(server.Name, services.NotificationText("extransfer.status.completed"), services.NotificationText("extransfer.completed"), false)
+	sendStep(exTransferStep{Code: exTransferProgressDone})
 }
 
 // originPoster sends a JSON body to one of the origin's federated transfer routes
@@ -1231,42 +1336,42 @@ type originValidateResponse struct {
 	Nonce     string `json:"nonce"`
 }
 
-// validateOriginToken presents the token to the origin; errMsg is what to report when the
+// validateOriginToken presents the token to the origin; failure is what to report when the
 // origin does not accept it
-func validateOriginToken(postOrigin originPoster, token string) (validateRes originValidateResponse, errMsg string) {
+func validateOriginToken(postOrigin originPoster, token string) (validateRes originValidateResponse, failure exTransferStep) {
 	pubKeyB64 := base64.StdEncoding.EncodeToString(exTransferPublicKey())
 	resp, err := postOrigin("/api/extransfer/validate", map[string]string{
 		"token":             token,
 		"target_public_key": pubKeyB64,
-		"protocol_version":  "1.0",
+		"protocol_version":  exTransferProtocolVersion,
 	})
 	if err != nil {
 		logging.Error.Printf("Failed to call validate on origin: %v", err)
-		return validateRes, "ERROR: Fallo de red al conectar con origen"
+		return validateRes, exTransferStep{Code: exErrOriginUnreachable}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
 		logging.Error.Printf("Origin validate failed with status %d: %s", resp.StatusCode, string(body))
-		return validateRes, fmt.Sprintf("ERROR: Token inválido o expirado (Status %d)", resp.StatusCode)
+		return validateRes, exTransferStep{Code: exErrTokenRejected, Detail: fmt.Sprintf("HTTP %d", resp.StatusCode)}
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&validateRes); err != nil {
 		logging.Error.Printf("Failed to decode validate response: %v", err)
-		return validateRes, "ERROR: Respuesta inválida del origen"
+		return validateRes, exTransferStep{Code: exErrOriginBadAnswer}
 	}
 
 	if _, err := uuid.Parse(validateRes.SessionID); err != nil {
 		logging.Error.Printf("Origin returned invalid session_id: %v", err)
-		return validateRes, "ERROR: El origen devolvió un ID de sesión inválido"
+		return validateRes, exTransferStep{Code: exErrOriginBadSession}
 	}
-	return validateRes, ""
+	return validateRes, exTransferStep{}
 }
 
-// consumeOriginSession asks the origin to start the transfer, signing its nonce; errMsg is
+// consumeOriginSession asks the origin to start the transfer, signing its nonce; failure is
 // what to report when it refuses
-func consumeOriginSession(postOrigin originPoster, validateRes originValidateResponse) (errMsg string) {
+func consumeOriginSession(postOrigin originPoster, validateRes originValidateResponse) (failure exTransferStep) {
 	message := validateRes.Nonce + validateRes.SessionID
 	sig := ed25519.Sign(exTransferPrivateKey(), []byte(message))
 	resp, err := postOrigin("/api/extransfer/consume", map[string]string{
@@ -1275,52 +1380,54 @@ func consumeOriginSession(postOrigin originPoster, validateRes originValidateRes
 	})
 	if err != nil {
 		logging.Error.Printf("Failed to call consume on origin: %v", err)
-		return "ERROR: Fallo al iniciar transferencia en origen"
+		return exTransferStep{Code: exErrOriginStart}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 202 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
 		logging.Error.Printf("Origin consume failed with status %d: %s", resp.StatusCode, string(body))
-		return "ERROR: El origen rechazó la transferencia"
+		return exTransferStep{Code: exErrOriginRefused}
 	}
-	return ""
+	return exTransferStep{}
 }
 
 // waitForOriginArchive polls the origin until it serves the archive. A nil response means the
-// pull stops with errMsg, which is empty when ctx was cancelled
-func waitForOriginArchive(ctx context.Context, dlURL string, sendStep func(string)) (resp *http.Response, errMsg string) {
-	const maxWait = 90 * time.Second
+// pull stops with failure, which is empty when ctx was cancelled
+func waitForOriginArchive(ctx context.Context, dlURL string, sendStep func(exTransferStep)) (resp *http.Response, failure exTransferStep) {
+	// the origin only serves the archive once it is complete, which takes a while for a big
+	// server; meanwhile the heartbeats stop the wait early if the origin fails or cancels
+	const maxWait = 2 * time.Hour
 	const pollInterval = 5 * time.Second
 	deadline := time.Now().Add(maxWait)
 
 	for {
 		select {
 		case <-ctx.Done():
-			return nil, ""
+			return nil, exTransferStep{}
 		case <-time.After(pollInterval):
 		}
-		sendStep("Descargando paquete de datos desde el origen...")
+		sendStep(exTransferStep{Code: exStepDownloading})
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, dlURL, nil)
 		if err == nil {
 			resp, err = exTransferDownloadClient.Do(req)
 		}
 		if err != nil {
 			logging.Error.Printf("Failed to call download on origin: %v", err)
-			return nil, "ERROR: Error de red al descargar paquete"
+			return nil, exTransferStep{Code: exErrDownloadNetwork}
 		}
 		if resp.StatusCode == 200 {
-			return resp, ""
+			return resp, exTransferStep{}
 		}
 		resp.Body.Close()
 		if resp.StatusCode >= 400 && resp.StatusCode < 500 {
 			// the origin refuses the session (cancelled, failed or expired): waiting will not help
 			logging.Error.Printf("Origin refused the download with status %d", resp.StatusCode)
-			return nil, fmt.Sprintf("ERROR: El origen rechazó la descarga (Status %d)", resp.StatusCode)
+			return nil, exTransferStep{Code: exErrDownloadRefused, Detail: fmt.Sprintf("HTTP %d", resp.StatusCode)}
 		}
 		if time.Now().After(deadline) {
 			logging.Error.Printf("Origin download timed out after %s", maxWait)
-			return nil, fmt.Sprintf("ERROR: El origen no preparó el paquete a tiempo (timeout %s)", maxWait)
+			return nil, exTransferStep{Code: exErrDownloadTimeout, Detail: maxWait.String()}
 		}
 		logging.Info.Printf("Origin not ready yet (status %d), retrying...", resp.StatusCode)
 	}
@@ -1347,9 +1454,9 @@ func uploadTransferArchive(ctx context.Context, ns *services.Node, server *model
 	return true
 }
 
-// extractTransferArchive unpacks the archive into the server folder; errMsg is what to report
+// extractTransferArchive unpacks the archive into the server folder; failure is what to report
 // when the daemon could not
-func extractTransferArchive(ctx context.Context, ns *services.Node, server *models.Server) (errMsg string) {
+func extractTransferArchive(ctx context.Context, ns *services.Node, server *models.Server) (failure exTransferStep) {
 	extractRes, err := ns.CallNodeContext(ctx, &server.Node, "POST", fmt.Sprintf("/daemon/server/%s/extract/transfer.tar.gz?destination=.", server.Identifier), nil, nil)
 	if err != nil || (extractRes != nil && extractRes.StatusCode != http.StatusNoContent && extractRes.StatusCode != http.StatusOK) {
 		var body string
@@ -1359,12 +1466,12 @@ func extractTransferArchive(ctx context.Context, ns *services.Node, server *mode
 			extractRes.Body.Close()
 		}
 		logging.Error.Printf("Failed to extract on daemon: %v, body: %s", err, body)
-		return fmt.Sprintf("ERROR: Error al descomprimir en el destino: %s", body)
+		return exTransferStep{Code: exErrExtract, Detail: strings.TrimSpace(body)}
 	}
 	if extractRes != nil && extractRes.Body != nil {
 		extractRes.Body.Close()
 	}
-	return ""
+	return exTransferStep{}
 }
 
 // deleteTransferArchive removes the transfer archive from the server folder, best effort
@@ -1375,7 +1482,7 @@ func deleteTransferArchive(ns *services.Node, server *models.Server, archivePath
 }
 
 // clearTransferProgressIf clears the server's progress unless something newer replaced it.
-func clearTransferProgressIf(serverID, expected string) {
+func clearTransferProgressIf(serverID string, expected exTransferStep) {
 	transferProgressMutex.Lock()
 	defer transferProgressMutex.Unlock()
 	if transferProgress[serverID] == expected {
@@ -1443,7 +1550,7 @@ func parseOriginURL(rawURL string) (*url.URL, error) {
 // @Failure 409 {object} ExTransferAPIError "No transfer in progress"
 // @Tags Federated Transfer
 // @Router /api/servers/{serverId}/extransfer/cancel [post]
-// @Security OAuth2Application[server.edit.admin]
+// @Security OAuth2Application[server.data.edit.admin]
 func cancelExTransferByUser(c *gin.Context) {
 	server := c.MustGet("server").(*models.Server)
 	db := middleware.GetDatabase(c)
@@ -1492,7 +1599,7 @@ func cancelExTransferByUser(c *gin.Context) {
 		for _, id := range cancelledSessions {
 			stopOriginDownloads(id)
 		}
-		go sendWebhookReport(server.Name, "Cancelada (Origen)", "El propietario canceló la transferencia desde el panel de origen.", true)
+		go sendWebhookReport(server.Name, services.NotificationText("extransfer.status.cancelledOrigin"), services.NotificationText("extransfer.ownerCancelledOrigin"), true)
 		go removeOriginArchive(db, server.Identifier)
 	}
 

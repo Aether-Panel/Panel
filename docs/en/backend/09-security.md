@@ -1,163 +1,240 @@
-# Security, SFTP, JWT and API Keys
+# Security: Permissions, Tokens, SFTP and HTTP Protections
 
-## SFTP Server
+How the backend decides who may do what, how the panel and its nodes trust each other, how the built-in SFTP server signs people in, and which protections every HTTP answer carries.
 
-The panel includes an integrated SFTP server (does not require OpenSSH). It runs on the configured port (`daemon.sftp.host`, default `0.0.0.0:5657`).
+Related pages:
 
-### Authentication
+- [Security & best practices](../general/security.md): accounts, 2FA, passwords and recommendations for administrators.
+- [Permissions reference (scopes)](../general/scopes-reference.md): every scope, owners, sub-users, roles and API keys.
+- [unshare & kernel isolation](../general/20-security-unshare.md): process isolation for servers on the host environment.
 
-SFTP authentication is performed against the panel:
-1. The SFTP client connects to the daemon with username/password
-2. The daemon validates the credentials against the panel via the OAuth2 endpoint (`grant_type=password`, `scope=sftp`) — see `internal/oauth2/ssh.go:validateSSH`
-3. The panel returns the granted scopes in `<serverId>:<scope>` format; the daemon grants access only if it includes `server.sftp`
-4. Local mode (`DatabaseSFTPAuthorization`, `internal/services/sftp.go`): the username uses the `<email>#<serverId>` format and verifies the `server.sftp` scope directly against the DB
-5. SSH keys: on the panel's own node you can also sign in with a public key the user added to their account (`/api/self/sshkeys`). Remote nodes accept passwords only. See [Security](../general/security.md)
+---
 
-### Server Key
+## Permission checks
 
-- Path: `daemon.sftp.key` (default: `<data>/sftp.key`)
-- Automatically generated if it does not exist
-- Format: SSH private key
+Routes declare the scope they need with `middleware.RequiresPermission(scope)` (`internal/middleware/middleware.go`). For each request the check gathers:
 
-### Implementation
+1. the user's permissions **on the server** in the URL (`:serverId`), if any;
+2. the user's **global** permissions;
+3. the scopes of the user's **role**, if one is assigned;
+4. the **owner scopes**, when the user owns that server.
 
-Files: `internal/sftp/server.go` and `internal/sftp/requestprefix.go`
+`admin` satisfies every scope, and `server.admin` satisfies every server scope. A session created from an **OAuth2 client** is additionally bounded by what that client was registered for: a client tied to one server only works on that server, and a client with declared scopes never exceeds them, whatever its user may do. The scope list the check stores on the request (`c.Set("scopes")`, read by handlers through `callerScopes`) is bounded the same way (`boundByClient`), so the second checks handlers make (who sees a database password, who may change a locked environment variable, which scopes may be granted, which scopes a task step may use) and the streams the server WebSocket subscribes to never see the user's wider powers.
 
-- `server.go` — initializes and runs the SSH/SFTP server
-- `requestprefix.go` — handles the path prefix to isolate each server
+Scopes are defined in `internal/scopes/scopes.go`: a *server* scope (`forServer: true`, such as `server.files.edit`) is granted per server, a *panel* scope (such as `nodes.edit`) globally. The full list and what each one unlocks is in the [scopes reference](../general/scopes-reference.md).
 
-### SFTP Connection Flow
+---
 
-1. Client connects to the SFTP port
-2. SSH server starts (with the server key)
-3. Password authentication against the panel
-4. `server.sftp` scope verification
-5. Access restricted to the server's directory
+## Panel and node tokens
 
-## JWT (JSON Web Tokens)
+The panel signs a short-lived token for every request it sends to a node's daemon (`/daemon/*`), including WebSocket proxies. Code: `internal/services/token.go`, `internal/middleware/decrypt.go`.
 
-Used for daemon↔panel and OAuth2 authentication.
+### The signing key
 
-### Algorithm
+- An **Ed25519** key. Its 32-byte seed is stored base64-encoded in `panel.token`; if that key is empty when the panel first needs it, a random seed is generated and saved.
+- The public half is published as a JWKS with the fixed key id `SkyPanel` at `GET /auth/publickey`.
 
-- **Ed25519** (public/private key)
-- Library: `golang-jwt/jwt/v5`
+### Tokens sent to nodes
 
-### Keys
+| Property | Value |
+|----------|-------|
+| Algorithm | `EdDSA` (header `kid: SkyPanel`) |
+| `iat` / `exp` | Issue time / issue time + **15 minutes** |
+| `aud` | `hex(sha256("skypanel-daemon-aud:" + node secret))`: binds the token to one node without putting the secret in it |
 
-- `panel.token`: Ed25519 private key (automatically generated if it does not exist)
-- The `GET /auth/publickey` endpoint exposes the public key for external validation
-- `TokenPublicURL` allows configuring the key's public URL
+The daemon (`middleware.ValidateJWT`) accepts a token only if it is signed with `EdDSA` by the panel's key, has an `exp` (one minute of clock leeway), and its audience matches either the local node's secret (panel and daemon in one process) or `daemon.auth.clientSecret` (a separately deployed node). A token captured on its way to one node is therefore useless against another.
 
-### Claims
+A token that fails these checks is answered `401` with `WWW-Authenticate: Bearer error="invalid_token"` and logged on the node. The panel reports that refusal to the user as `502 ErrNodeAuthFailed` instead of passing the `401` on, so a wrong node secret or a clock that is off does not look like the user's session ending (see [API layer](./05-api-layer.md#panel-to-node-requests)).
 
-```go
-// The daemon token (GenerateRequest) uses a JWT signed with Ed25519.
-// Header: alg=EdDSA, kid="SkyPanel"
-// Claims: jwt.MapClaims (no custom claims by default)
-// The panel validates signature + expiration; the node identity is resolved
-// by the requested /daemon/* endpoint (the daemon authenticates with its
-// request token signed with the node's private key).
+How the daemon gets the public key:
+
+- **Panel enabled** on the same process: from memory.
+- **Daemon-only node** (`panel.enable=false`): it downloads the JWKS from the URL in `token.public` (the panel's `/auth/publickey`). If `token.public` is empty the node logs a warning at start and cannot authenticate the panel.
+
+### Node secrets
+
+Each node has a secret stored by the panel. An administrator with `nodes.deploy` reads it from `GET /api/nodes/:id/deployment` (`clientId` is `.node_<id>`, `clientSecret` is the secret) and puts it in the node's `daemon.auth.clientSecret`. The local node's secret is derived from `panel.sessionKey`, so it stays the same across restarts.
+
+The node uses its secret in the other direction too: to ask the panel whether an SFTP login, with a password or an SSH key, is valid (next section). When the panel forwards a browser request to a node it **removes the `Cookie` header**: the user's session never reaches a node.
+
+---
+
+## SFTP server
+
+Every daemon runs a built-in SFTP server (`internal/sftp`, no OpenSSH needed).
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `daemon.sftp.host` | `0.0.0.0:5657` | Listen address |
+| `daemon.sftp.key` | `<data>/sftp.key` | Host key. If missing, an Ed25519 key is generated and saved (PKCS#8 PEM) |
+| `daemon.sftp.log` | `false` | Log every SFTP request (method, server, path) at debug level |
+
+### Username
+
+```
+<email>#<serverId>
 ```
 
-### Token Service (`internal/services/token.go`)
+One login gives access to one server. Clients connect with `sftp -P 5657 'admin@example.com#a1b2c3d4'@panel.example.com`.
 
-| Method | Description |
-|---|---|
-| `GenerateRequest()` | Signs a daemon request JWT (header `kid=SkyPanel`, EdDSA/Ed25519 method) |
-| `ValidateRequest(token)` | Validates the JWT signature and expiration against the public key |
-| `GetKeyFunc()` | Returns `jwt.Keyfunc` (resolves the JWK key) |
-| `GetTokenStore()` | Returns the JWKS store (`jwkset.Storage`) |
+### Who may sign in
 
-The private key is obtained from `config.PrivateKey` (base64, 32 byte seed) or randomly generated if it does not exist. The KID is fixed (`SkyPanel`).
+A login is accepted only when the account may still sign in to the panel (global `login` scope) **and** has `server.sftp` on that server. Owners have it through the owner scopes; `admin` and `server.admin` include it. SFTP does not distinguish `server.files.view` from `server.files.edit`: whoever has `server.sftp` can read and write the whole server folder. Two-factor authentication is not asked for SFTP, because SFTP clients cannot send a code: an account with 2FA can still sign in to SFTP with its password alone. Such accounts should use SSH keys, which every node accepts (see below), and keep a strong password, since the password still opens SFTP. Every failure returns the same "incorrect username or password", so the answer does not reveal whether the email exists.
 
-## API Keys
+### Password and key authentication
 
-### Format
+| Node | Password | SSH key |
+|------|----------|---------|
+| The panel's own node (panel enabled) | Checked against the database | Yes: any public key the user added in the **SSH keys** section of their account (`/api/self/sshkeys`) |
+| A remote, daemon-only node | Checked by the panel over HTTP (below) | Yes: the same keys, checked by the panel over HTTP (below) |
 
-Token: `ak_<5 hex>_<43 hex>` (e.g. `ak_a1b2c3_...`). Generated with 24 random bytes (`crypto/rand`) in `services/apikey.go:GenerateKey`.
+**Remote nodes** send `grant_type=password`, `username`, `password` and `scope=sftp` to `daemon.auth.url` (the full URL of the panel's `/oauth2/token`), authenticated with `Authorization: Bearer <daemon.auth.clientSecret>`. The panel checks that the secret belongs to a node, that the server is on **that** node, the credentials, `login` and `server.sftp`, and answers with the scope `<serverId>:server.sftp`. It deliberately returns no access token: a password alone must not give a full panel session that skips 2FA.
 
-### Storage
+**SSH keys on remote nodes.** A remote node does not hold the users' keys, so it asks the panel (`internal/oauth2/ssh.go`, 15 s timeout): it posts `{"username": "email#serverId", "publicKey": "<authorized_keys line>"}` to `POST /auth/sftp-key` with the same `Authorization: Bearer <daemon.auth.clientSecret>`. The URL comes from `daemon.auth.url`: same scheme and host, with `/oauth2/token` replaced by `/auth/sftp-key` (a path in front of it is kept). The panel (`internal/web/auth/sftp_key.go`) applies the rules of the panel's own node plus one: the server must be on the node asking. The key must be one of the user's, and the account must still hold `login` and `server.sftp` on that server. It answers only the granted scope (`200 {"scope": "<serverId>:server.sftp"}`), never a session; every refusal is the same `400` "no access", and an unknown node secret gets `401`. The SSH library runs this check before the client proves it holds the private key, and grants nothing until that proof succeeds. Both the panel and the node need a version with this route: an older panel answers `404` and the node refuses key logins.
 
-`api_keys` table with the fields:
-- `id` — auto-increment
-- `name` — descriptive name
-- `prefix` — first 8 characters (`ak_` + 5 hex), used for fast lookup
-- `hashed_key` — SHA-256 hash of the full token (hex), for validation
-- `permissions` — JSON array of allowed permissions/scopes
-- `created_at`
+**SSH keys** accepted when added: Ed25519, ECDSA (P-256, P-384, P-521), the security-key variants `sk-ssh-ed25519@openssh.com` and `sk-ecdsa-sha2-nistp256@openssh.com`, and RSA of at least 2048 bits. DSA keys, certificates, `authorized_keys` options and private keys are refused. Up to 25 keys per user; the name (defaulting to the key's comment) has up to 100 characters. At login the offered key is matched by its SHA-256 fingerprint and then compared byte for byte.
 
-Only the hash is stored; the full token is not stored in the DB.
+### Login attempt limits
 
-### Authentication
+Password logins share the panel's attempt limiter (`internal/services/login_attempts.go`):
 
-The `APIKeyAuthMiddleware` middleware searches in order:
-1. `X-Api-Key` Header
-2. `Authorization: Bearer <token>` Header (only if it starts with `ak_`)
+- **10 attempts per account every 15 minutes**, counted together for the web login, the OAuth2 password check used by remote nodes, SFTP passwords and 2FA codes.
+- Counted per account (or per typed email when it matches no account), not per IP, so it behaves the same behind a reverse proxy.
+- A successful login resets the counter. Past the limit the answer is "too many attempts" until older attempts leave the window.
+- Kept in memory: a panel restart resets it.
 
-Used by Provisioning API routes (`/api/v1/*`).
+Key logins have a budget of their own, also 10 per account every 15 minutes (key `sshkey:user:<id>`), apart from the password one: an SSH client offers each of its keys in turn, and those misses must not lock the owner out of password sign-in. Every key offered for a known account counts, on the panel's own node (`validateSFTPKey` in `internal/services/sftp.go`) as well as in the `/auth/sftp-key` checks for remote nodes; both use the same counter, so the limit is the same on every node and shared between them. A successful key login resets it. Past the limit the panel's own node refuses the key (`ErrTooManyAttempts`) and `/auth/sftp-key` answers `429`.
 
-## Unshare (Namespace Isolation)
+### What a session can do
 
-TTY environments use `unshare` to isolate the server process:
+- Only `session` channels with the `sftp` subsystem are accepted; shell, exec and port forwarding are refused.
+- Every path is resolved through the server's confined file server (see [File access](#file-access)).
+- Uploads respect the client's create/exclusive/truncate flags and stop at the server's disk limit.
+- `Setstat` (permissions, times) and `Symlink` are accepted but do nothing, so a client cannot create links.
 
-- User namespace (CLONE_NEWUSER)
-- Mount namespace (CLONE_NEWNS)
-- Cgroup namespace (CLONE_NEWCGROUP)
-- UTS namespace (separate hostname)
-- IPC namespace (CLONE_NEWIPC)
-- CLONE_FILES (share file descriptors)
+---
 
-Configurable with:
-- `security.disableUnshare` (bool, default false) — disables unshare globally
-- `disableUnshare` (bool, per server) — disables unshare for a specific server
-- `security.forceOpenat` (bool, default false) — forces openat() for file operations
+## File access
 
-## Trusted Proxies
+All server file I/O (file manager, SFTP, operations, backups, extraction) goes through `files.FileServer` (`files/filesystem.go`):
 
-For when the panel runs behind a reverse proxy (Nginx, Caddy, Cloudflare):
+- Paths are opened relative to the server folder with `openat2` and `RESOLVE_BENEATH`: the kernel refuses any path, `..` or symlink that would end up outside it.
+- At start the daemon tries `openat2` and **refuses to start** if it cannot use it (a kernel without it, or a seccomp profile that blocks it, answering `EPERM`). `security.forceOpenat=true` skips the check and uses a fallback that opens each path component with `openat` and `O_NOFOLLOW`; use it only where `openat2` cannot be used.
+- Files written by downloads are created with `O_NOFOLLOW`, so a symlink left where a file goes is refused instead of followed. See [Operations: file safety](./06-operations.md#file-safety).
+
+---
+
+## Process and container isolation
+
+| Key | Default | Effect |
+|-----|---------|--------|
+| `docker.disallowHost` | `false` (`true` in the Docker image) | Servers whose environment is `host` are refused, also when started |
+| `docker.serverUser` | `988:988` | uid:gid game containers run as when the panel runs as root (installs stay root). `0:0` keeps root |
+| `docker.pidsLimit` | `4096` | Maximum processes/threads per server container; `0` removes the cap |
+| `security.disableUnshare` | `false` | Turns off `unshare` isolation for host-environment servers |
+
+Game containers also drop capabilities they do not need (fewer when they run as root), get `no-new-privileges`, and have their own `/tmp` and `/var/tmp` next to the server folder. Host-environment isolation is described in [unshare & kernel isolation](../general/20-security-unshare.md).
+
+---
+
+## HTTP protections
+
+Applied to every request by `internal/web/loader.go` and `internal/middleware/security.go`.
+
+### Security headers
+
+| Header | Value |
+|--------|-------|
+| `Content-Security-Policy` | `frame-ancestors 'self'; object-src 'none'; base-uri 'self'` |
+| `X-Frame-Options` | `SAMEORIGIN` |
+| `X-Content-Type-Options` | `nosniff` |
+| `Referrer-Policy` | `same-origin` |
+| `Strict-Transport-Security` | `max-age=31536000`, only when the request arrived over HTTPS (directly or with `X-Forwarded-Proto: https`) |
+
+Pages that serve untrusted content replace the CSP with their own sandbox: [extension files](../reference/15-extensions.md#pages) and the world map viewer.
+
+### Cross-site requests
+
+`SameOriginGuard` refuses requests that carry a panel cookie, change state (anything but `GET`/`HEAD`/`OPTIONS`, plus WebSocket handshakes) and come from another site, with `403 {"error": "cross-origin request refused"}`. Bearer-token clients are not affected. Details in [WebSocket: origin check](./08-websocket.md#origin-check).
+
+### CORS
+
+Any origin may call the API, but **without credentials** (`Access-Control-Allow-Credentials` is off): other sites can use a bearer token, never the user's cookies. Allowed headers: `Authorization`, `Content-Type`, `Accept`, `Origin`; methods `GET`, `POST`, `PUT`, `DELETE`, `OPTIONS`.
+
+### Access log redaction
+
+The request log hides the values of `token`, `code`, `access_token` and `refresh_token` query parameters and the signed token in world map links.
+
+---
+
+## Cookies
+
+| Cookie | Purpose | Attributes |
+|--------|---------|------------|
+| `skypanel_auth` | The login session token | `HttpOnly`, `SameSite=Lax`, path `/`. `Secure` when the request came over HTTPS (or `X-Forwarded-Proto: https`) or `panel.web.cookies.secure` is `true`, so sign-in also works on `http://IP:8080` |
+| `session` | Cookie-based session store (`gin-contrib/sessions`) | Configured with the keys below |
+
+| Key | Default |
+|-----|---------|
+| `panel.web.cookies.secure` | `false` |
+| `panel.web.cookies.httpOnly` | `true` |
+| `panel.web.cookies.sameSite` | `Strict` (`Lax` and `None` also accepted) |
+| `panel.web.cookies.age` | `2592000` (30 days, in seconds) |
+| `panel.web.cookies.path` | `/` |
+| `panel.web.cookies.domain` | empty |
+
+The `session` cookie is signed with `panel.sessionKey`, generated on first start.
+
+---
+
+## Secrets in the settings API
+
+`GET /api/settings` and `GET /api/settings/:key` never return a saved secret: mail passwords and keys, the Gemini and CurseForge keys, the four Discord webhooks, the license key, the S3 secret key, the Cloudflare token and the Turnstile secret key are answered as `********` (an unset one stays empty). When a request sends `********` back for one of them (`POST /api/settings`, `PUT /api/settings/:key` and the email, Discord, S3 and Cloudflare tests), the saved value is kept. So a user with `settings.edit` can replace these secrets but cannot read them out of the panel. Code: `internal/web/api/settings_secrets.go`.
+
+---
+
+## API keys
+
+Provisioning integrations (WHMCS, Paymenter) call `/api/v1/*` with an API key instead of a session:
+
+- Format `ak_<5 hex>_<43 hex>`, generated from 24 random bytes. Only its SHA-256 is stored, with the 8-character prefix for lookup; the full key is shown once.
+- Sent as `X-Api-Key: <key>` or `Authorization: Bearer <key>` (only values starting with `ak_` are treated as keys).
+- Each key carries a list of allowed actions, checked per route.
+
+Creating keys and their permissions: [scopes reference — API keys](../general/scopes-reference.md#api-keys).
+
+---
+
+## Behind a reverse proxy
+
+By default the panel trusts **no** proxy headers for the client address.
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `security.trustedProxies` | `[]` | IPs or CIDRs whose `X-Forwarded-For` is believed |
+| `security.trustedProxyHeader` | empty | A header that holds the real client IP set by a trusted platform, such as `CF-Connecting-IP` (Cloudflare) or `X-Real-IP`. It is read whatever address the request comes from, so set it only when every request passes through that platform |
 
 ```json
 {
   "security": {
-    "trustedProxies": ["10.0.0.0/8", "172.16.0.0/12"],
-    "trustedProxyHeader": "X-Forwarded-For"
+    "trustedProxies": ["127.0.0.1", "172.16.0.0/12"],
+    "trustedProxyHeader": "X-Real-IP"
   }
 }
 ```
 
-## Session Cookies
+The installer's Nginx setup binds the panel to `127.0.0.1` and sends `X-Forwarded-Proto`, which also makes cookies `Secure` and enables HSTS.
 
-| Property | Config | Default |
-|---|---|---|
-| Secure | `panel.web.cookies.secure` | `false` |
-| HttpOnly | `panel.web.cookies.httpOnly` | `true` |
-| SameSite | `panel.web.cookies.sameSite` | `Strict` |
-| Max-Age | `panel.web.cookies.age` | 30 days |
-| Path | `panel.web.cookies.path` | `/` |
-| Domain | `panel.web.cookies.domain` | — |
+---
 
-## CORS
+## Template downloads
 
-Global configuration in `RegisterRoutes()`:
+`download`, `scraperdl` and the asset download of `githubdl` never connect to loopback, link-local or metadata addresses, and refuse private networks while `security.blockPrivateDownloads` is `true` (the default). See [Operations: download network rules](./06-operations.md#download-network-rules).
 
-```go
-corsConfig.AllowOriginFunc = func(_ string) bool { return true }
-corsConfig.AllowCredentials = true
-corsConfig.AddAllowHeaders("Authorization", "Content-Type", "Accept", "Origin")
-corsConfig.AddAllowMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-```
+---
 
-## Path Validation (Antipath Traversal)
+## Known limitations
 
-The system uses `path.Clean()` and `fs.ValidPath()` in front of the embedded `fs.FS` to prevent path traversal in the static frontend.
-
-For the daemon, file handlers use `strings.TrimPrefix(path, "/")` and verify that the path does not contain `..`.
-
-## Security Notifications
-
-The system can send alerts via Discord webhook when critical status changes occur:
-
-- `panel.notifications.discordWebhook` — general notifications
-- `panel.notifications.discordWebhookSystem` — system alerts
-- `panel.notifications.discordWebhookNode` — node events
+- SFTP password logins do not ask for 2FA (see [Who may sign in](#who-may-sign-in)); SSH keys, accepted on every node, avoid sending the password.
+- TOTP secrets (`users.otp_secret`, `otp_pending_secret`) are stored in the database unencrypted; protect database access and backups accordingly.
+- The license server host is fixed in code and is a test host (see [Services → LicenseService](./11-services.md#22-licenseservice-licensego)).

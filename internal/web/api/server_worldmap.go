@@ -158,6 +158,9 @@ func getWorldMap(c *gin.Context) {
 		return
 	}
 	defer utils.CloseResponse(res)
+	if answerNodeAuthFailure(c, &server.Node, res) {
+		return
+	}
 	if res.StatusCode != http.StatusOK {
 		c.DataFromReader(res.StatusCode, -1, res.Header.Get(headerContentType), io.LimitReader(res.Body, 64*1024), nil)
 		return

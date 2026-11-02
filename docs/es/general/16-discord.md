@@ -1,363 +1,220 @@
-# Discord Webhooks
+# Discord y notificaciones
 
-Aether Panel sends rich Discord embed notifications for server events, system status, and alerts via configurable webhooks.
+Aether Panel tiene dos capas de notificación independientes:
 
----
+1. **Webhooks del panel** (administradores): cuatro webhooks de Discord configurados en **Configuración → Discord** que reciben avisos de servidores, informes del sistema y de los nodos, e informes de transferencias externas.
+2. **Notificaciones del servidor** (propietarios): cada servidor puede enviar sus propios avisos a un webhook de Discord, a un bot de Telegram y/o a un webhook JSON genérico, configurados en la tarjeta **Notificaciones** de los ajustes del servidor.
 
-## Overview
-
-- **3 separate webhook URLs** for different notification categories
-- **Rich embeds** with colors, fields, timestamps
-- **Per-event customization** of title, description, fields
-- **System status aggregates** with per-server details
+Todas las peticiones pasan por un cliente HTTP restringido que rechaza direcciones privadas, de loopback e internas (se comprueba en la propia conexión, después de resolver el DNS), de modo que una URL de webhook nunca puede usarse para llegar a la red del propio nodo. Los mensajes se envían una sola vez: no hay reintentos y un fallo solo se registra en el log.
 
 ---
 
-## Configuration
+## Idioma de las notificaciones
 
-```json
-{
-  "panel": {
-    "notifications": {
-      "discordWebhook": "https://discord.com/api/webhooks/xxx/yyy",
-      "discordWebhookSystem": "https://discord.com/api/webhooks/aaa/bbb",
-      "discordWebhookNode": "https://discord.com/api/webhooks/ccc/ddd"
-    }
-  }
-}
-```
+Todo lo que el panel envía fuera de sus propias páginas se escribe en un solo idioma, configurado en **Configuración → General → Notificaciones → Idioma de las notificaciones**: los webhooks del panel que se describen más abajo (avisos, informes del sistema y de los nodos, la prueba de Discord, informes de transferencias externas), los avisos de Discord, Telegram y webhook JSON de cada servidor y su mensaje de prueba, y el título y el mensaje de los eventos que reciben las [extensiones](../reference/15-extensions.md). Las páginas del panel no dependen de este ajuste: siguen el idioma de cada usuario.
 
-**Environment Variables:**
-| Variable | Config Key | Purpose |
-|----------|------------|---------|
-| `SKYPANEL_PANEL_NOTIFICATIONS_DISCORDWEBHOOK` | `panel.notifications.discordWebhook` | General alerts |
-| `SKYPANEL_PANEL_NOTIFICATIONS_DISCORDWEBHOOKSYSTEM` | `panel.notifications.discordWebhookSystem` | System status (hourly) |
-| `SKYPANEL_PANEL_NOTIFICATIONS_DISCORDWEBHOOKNODE` | `panel.notifications.discordWebhookNode` | Node alerts |
+| Clave | Variable de entorno | Valores | Por defecto |
+|-------|---------------------|---------|-------------|
+| `panel.settings.notificationLanguage` | `SKYPANEL_PANEL_SETTINGS_NOTIFICATIONLANGUAGE` | `es`, `en` | `es` |
 
-**Note:** Only 3 webhooks are used (no ExTransfer webhook in code).
+Guardar cualquier otro valor mediante la API de ajustes se rechaza con `400` `ErrNotificationLanguage`. Un valor vacío o desconocido en el archivo de configuración vuelve al español. Los textos están en un único catálogo, `internal/services/notification_text.go`.
+
+Los avisos de los servidores de un nodo remoto los envía ese nodo (véase [Quién envía qué](#quién-envía-qué)). El panel pasa su idioma de las notificaciones a cada nodo remoto en la cabecera `X-Aether-Notification-Language` del sondeo de estado que envía cada 30 segundos (`GET /daemon/servers/status`), y sondea al momento cuando el ajuste se guarda con un valor nuevo, así que los avisos remotos siguen el ajuste del panel. En un nodo, el idioma se elige en este orden: un valor definido en el archivo de configuración o en el entorno de ese nodo (`SKYPANEL_PANEL_SETTINGS_NOTIFICATIONLANGUAGE`) tiene prioridad; si no, el valor del panel; si no, `es`. El nodo guarda el valor del panel solo en memoria: justo después de reiniciarse, sus avisos usan `es` hasta el siguiente sondeo, como mucho 30 segundos después. Un nodo con una versión anterior a esta cabecera la ignora y sigue usando su propia configuración.
+
+El webhook JSON mantiene sus valores pensados para máquinas sea cual sea el idioma: `event` es siempre uno de los códigos indicados más abajo, y `resource` en un aviso de recursos es siempre `CPU` o `Memoria`, como antes de que existiera el ajuste.
 
 ---
 
-## Webhook Types & Routing
+## Webhooks del panel
 
-| Webhook | Config Key | Events |
-|---------|------------|--------|
-| **General** | `discordWebhook` | Server offline/online, resource alerts, backup success/fail, license expiry |
-| **System** | `discordWebhookSystem` | Hourly system status summary |
-| **Node** | `discordWebhookNode` | Node offline/online, node resource alerts |
+### Configuración
 
-**Fallback Logic:** If specific webhook not set, falls back to `discordWebhook`.
+| Clave | Variable de entorno | Sección en Configuración | Recibe |
+|-------|---------------------|--------------------|--------|
+| `panel.notifications.discordWebhook` | `SKYPANEL_PANEL_NOTIFICATIONS_DISCORDWEBHOOK` | Alertas de servidores | Encendido, apagado inesperado, caída, CPU/memoria alta, resultado de copias |
+| `panel.notifications.discordWebhookSystem` | `SKYPANEL_PANEL_NOTIFICATIONS_DISCORDWEBHOOKSYSTEM` | Informes del sistema | Estado del sistema, cada minuto |
+| `panel.notifications.discordWebhookNode` | `SKYPANEL_PANEL_NOTIFICATIONS_DISCORDWEBHOOKNODE` | Estado de los nodos | Un mensaje de estado por nodo, cada minuto |
+| `panel.notifications.discordWebhookExTransfer` | `SKYPANEL_PANEL_NOTIFICATIONS_DISCORDWEBHOOKEXTRANSFER` | ExTransfer | Transferencia externa completada, fallida o cancelada |
 
----
+Todas están vacías por defecto (esa categoría queda desactivada). No hay respaldo entre ellas: un webhook vacío simplemente no envía nada. Se pueden editar con `settings.edit` mediante la API de ajustes; ver [Configuración](../backend/02-configuration.md).
 
-## DiscordService (`internal/services/discord.go`)
+**Validación.** Solo se aceptan URL de webhooks de Discord, tanto al guardar como al enviar:
 
-```go
-type DiscordService struct{}
-
-type DiscordEmbedField struct {
-    Name   string
-    Value  string
-    Inline bool
-}
-
-func (s *DiscordService) SendWebhook(title, description string, color int, fields []DiscordEmbedField) error
-func (s *DiscordService) SendWebhookToURL(webhookURL, title, description string, color int, fields []DiscordEmbedField) error
-
-// Convenience methods
-func (s *DiscordService) SendAlert(title, description string) error
-func (s *DiscordService) SendServerOfflineAlert(serverName, serverID string) error
-func (s *DiscordService) SendServerOnlineAlert(serverName, serverID string) error
-func (s *DiscordService) SendResourceAlert(serverName, serverID, resource string, current, threshold float64) error
-func (s *DiscordService) SendBackupAlert(serverName, serverID, status string, isSuccess bool) error
-func (s *DiscordService) SendSystemStatus(servers []ServerInfo) error
-func (s *DiscordService) SendNodeStatus(nodeName string, cpuModel string, cpuCores int, cpuThreads int, cpuGHz float64, osName string, memoryTotal uint64, memoryUsed uint64, memoryFree uint64, servers []ServerInfo) error
+```
+^https://(?:(?:ptb|canary)\.)?discord(?:app)?\.com/api/webhooks/\d+/[\w-]+$
 ```
 
-**Note:** No `DB` field in struct - stateless service.
+Cualquier otra cosa se rechaza con `400` (`the URL is not a Discord webhook (https://discord.com/api/webhooks/...)`).
 
----
+### Quién envía qué
 
-## Embed Structure
+Los avisos de servidores (encendido, apagado, caída, recursos, copias) los envía **el proceso que ejecuta el servidor**, con los webhooks de la configuración de **ese proceso**. Los servidores del nodo local del panel usan los ajustes del panel; un nodo remoto solo los envía si su propia configuración tiene estas claves.
 
-```json
-{
-  "embeds": [{
-    "title": "🔴 Server Offline",
-    "description": "Server **MyServer** (`abc123`) went offline",
-    "color": 16711680,
-    "fields": [
-      {"name": "Server", "value": "MyServer", "inline": true},
-      {"name": "ID", "value": "abc123", "inline": true},
-      {"name": "Time", "value": "2024-01-15 14:30:00 UTC", "inline": true}
-    ],
-    "timestamp": "2024-01-15T14:30:00Z",
-    "footer": {"text": "Aether Panel"}
-  }]
-}
-```
+Los informes del sistema y de los nodos solo los envía el proceso que ejecuta el panel (`panel.enable: true`).
 
-**Color Constants:**
-| Color | Hex | Decimal | Use Case |
-|-------|-----|---------|----------|
-| Red | `#FF0000` | 16711680 | Offline, failed, critical |
-| Green | `#00FF00` | 65280 | Online, success, recovered |
-| Yellow | `#FFFF00` | 16776960 | Warning, resource threshold |
-| Blue | `#0000FF` | 255 | Info, system status |
-| Orange | `#FFA500` | 16753920 | Warning, maintenance |
+### Avisos de servidores (`discordWebhook`)
 
-**Type:** `DiscordEmbedField` (not `DiscordField`)
+El bucle de estadísticas (`internal/servers/server.go`) evalúa cada servidor cada 5 segundos. La primera vez que se ve un servidor no se envía nada.
 
----
+| Evento | Cuándo | Título (`es` / `en`) | Color |
+|--------|--------|--------|-------|
+| Encendido | El servidor pasa de apagado a en marcha | `✅ Servidor Conectado` / `✅ Server online` | verde `0x00FF00` |
+| Apagado | El servidor se detuvo **sin** una parada solicitada, una salida limpia o una caída ya gestionada, y sigue apagado 15 segundos después | `⚠️ Servidor Desconectado` / `⚠️ Server offline` | rojo `0xFF0000` |
+| Caída | El proceso terminó con un código inesperado y nadie pidió detenerlo | `💥 Caída del servidor` / `💥 Server crashed` (campos: servidor, ID, reinicio automático sí/no) | rojo |
+| CPU alta | CPU por encima del **80 %** de lo que puede usar el servidor | `⚠️ Alto Uso de CPU` / `⚠️ High CPU usage` | rojo |
+| Memoria alta | Memoria por encima del **90 %** | `⚠️ Alto Uso de Memoria` / `⚠️ High memory usage` | rojo |
+| Copia de seguridad | Termina una copia | `✅ Backup Completado` / `✅ Backup completed`, `❌ Backup Fallido` / `❌ Backup failed` | verde / rojo |
 
-## Event Types & Payloads
+Los avisos de recursos se repiten como mucho cada **5 minutos** por recurso mientras siga alto, y se reinician cuando baja del umbral. Los umbrales están fijados en el código.
 
-### 1. Server Offline
-```go
-SendServerOfflineAlert("MyServer", "abc123")
-```
-**Embed:**
-```json
-{
-  "title": "🔴 Server Offline",
-  "description": "Server **MyServer** (`abc123`) went offline",
-  "color": 16711680,
-  "fields": [
-    {"name": "Server", "value": "MyServer", "inline": true},
-    {"name": "ID", "value": "abc123", "inline": true},
-    {"name": "Time", "value": "2024-01-15 14:30:00 UTC", "inline": true}
-  ]
-}
-```
+Los textos de los embeds siguen el [idioma de las notificaciones](#idioma-de-las-notificaciones) del proceso que los envía. Cada embed lleva la marca de tiempo actual y el pie `Aether Panel`.
 
-### 2. Server Online
-```go
-SendServerOnlineAlert("MyServer", "abc123")
-```
-**Color:** Green (65280) 🟢
+### Estado del sistema (`discordWebhookSystem`)
 
-### 3. Resource Alert
-```go
-SendResourceAlert("MyServer", "abc123", "CPU", 95.5, 80.0)
-```
-**Fields:** Resource, Current Value, Threshold, Server, Time
+Cada minuto (`processSystemStatus()`), un embed titulado `📊 Estado del Sistema` / `📊 System status`, azul `0x3498DB`, con el pie `Actualizado cada minuto` / `Updated every minute`:
 
-### 4. Backup Alert
-```go
-SendBackupAlert("MyServer", "abc123", "failed", false)
-```
-**Status:** `isSuccess` boolean (true = green, false = red)
+- Total de servidores y número de encendidos y apagados.
+- Media de CPU y memoria de los servidores encendidos.
+- Un campo en línea por servidor (estado, CPU, RAM). Discord acepta como máximo 25 campos por embed: con más de 25 servidores se muestran los 24 primeros y un último campo `Nota` / `Note` («Mostrando 24 de N servidores» / «Showing 24 of N servers»), 25 campos en total; los totales de la descripción siguen contando todos.
 
-### 5. System Status (Hourly)
-```go
-SendSystemStatus([]ServerInfo{
-    {Name: "Server1", ID: "abc", Running: true, CPU: 45.2, Memory: 60.1},
-    {Name: "Server2", ID: "def", Running: false, CPU: 0, Memory: 0},
-})
-```
-**Summary Embed:**
-- Total servers, online/offline counts
-- Average CPU/RAM across online servers
-- Per-server fields (max 25 due to Discord limit)
+Solo se incluyen los servidores cargados en el propio proceso del panel (el nodo local); un panel sin servidores propios no envía informe del sistema. Los servidores de nodos remotos aparecen en los informes de nodo que se describen a continuación.
 
-### 6. Node Status
-```go
-SendNodeStatus("Node-01", "Intel Core", 8, 16, 3.2, "Ubuntu 22.04", 17179869184, 8589934592, 8589934592, servers)
-```
-**Includes:** Node specs (CPU model, cores, threads, GHz), RAM total/used/free, server counts, per-server status
+### Estado de los nodos (`discordWebhookNode`)
 
----
+Cada minuto, un embed por cada nodo de la base de datos, titulado `🖥️ Estado del Nodo` / `🖥️ Node status`: nombre del nodo (`Nodo Local` / `Local node` para el nodo local), dirección, número de servidores (total, encendidos, apagados), modelo de CPU, núcleos, hilos, frecuencia, RAM total/usada/libre y sistema operativo. Color: verde si no hay nada apagado, naranja si hay algunos servidores apagados, rojo si todos están apagados.
 
-## Webhook Payload Format
+De dónde salen las cifras:
 
-Discord expects:
-```json
-{
-  "username": "Aether Panel",
-  "avatar_url": "https://example.com/icon.png",
-  "embeds": [{
-    "title": "Title",
-    "description": "Description with **markdown**",
-    "color": 16711680,
-    "fields": [
-      {"name": "Field Name", "value": "Field Value", "inline": true}
-    ],
-    "timestamp": "2024-01-15T14:30:00Z",
-    "footer": {"text": "Aether Panel"}
-  }]
-}
-```
+- **Nodo local**: el número de servidores sale de los servidores que ejecuta el proceso del panel, y las cifras de la máquina, de la máquina que ejecuta el panel.
+- **Nodo remoto**: el número de servidores sale de la consulta que hace el panel sobre los servidores del nodo (`GET /daemon/servers/status`, cada 30 segundos; véase [Seguimiento de disponibilidad](13-uptime.md#cómo-se-registra)). Si la última consulta a ese nodo tiene más de 60 segundos (el panel acaba de arrancar o el nodo se acaba de añadir), se pregunta directamente al nodo para este informe. Solo se cuentan los servidores que el panel tiene asignados a ese nodo. Las cifras de la máquina salen del daemon del nodo (`GET /daemon/system`, el mismo dato que muestra la página del nodo, con 10 segundos de tiempo máximo). El daemon no envía la frecuencia de la CPU, así que ese campo no aparece; si `/daemon/system` no responde, el mensaje se envía sin los datos de la máquina.
+- **Nodo remoto que no responde** a la consulta de estado (caído, inalcanzable, que rechaza el token del panel o con una versión sin `/daemon/servers/status`): un informe en rojo con el nombre y la dirección del nodo, la línea «El nodo no responde: el estado de sus servidores es desconocido.» / «The node does not answer: the state of its servers is unknown.», el estado `🔴 Sin respuesta` / `🔴 No answer` y el número de servidores que el panel tiene asignados al nodo. No incluye recuento de encendidos/apagados ni cifras de la máquina.
 
----
+Si `discordWebhookNode` está vacío no se prepara ningún informe de nodo ni se consulta a los nodos remotos para ello (la consulta de uptime se hace igualmente).
 
-## SendWebhook() - Low Level
+### Transferencias externas (`discordWebhookExTransfer`)
 
-```go
-func (s *DiscordService) SendWebhook(
-    title, description string,
-    color int, fields []DiscordEmbedField
-) error
-```
+Las envía el flujo de ExTransfer (`internal/web/api/extransfer_logic.go`) cuando una transferencia se completa, falla o se cancela. Título `ExTransfer: <estado>`, campos servidor, estado y detalles, todo en el idioma de las notificaciones; verde si sale bien, rojo en otro caso.
 
-**Uses config webhooks automatically** (falls back to general webhook if specific not set).
+### Prueba: `POST /api/settings/test/discord`
 
----
+Permiso: `settings.edit`. Lo llama el botón **Probar webhook** de **Configuración → Discord**.
 
-## Integration Points
+- Envía un embed de prueba (`🧪 Test de Webhook Discord` / `🧪 Discord webhook test`, en el idioma de las notificaciones) a **todos** los webhooks del panel configurados.
+- El cuerpo puede incluir valores sin guardar con la clave de configuración como nombre (por ejemplo `{"panel.notifications.discordWebhook": "https://discord.com/api/webhooks/…"}`); se validan y se usan solo para la prueba. Un webhook con el valor `********` (lo que la página recibe en lugar del guardado) usa el valor guardado.
 
-### Server Alerts (`internal/servers/server.go:checkServerAlerts`)
+| Estado | Significado |
+|--------|-------------|
+| `204` | Todos los webhooks configurados aceptaron el mensaje |
+| `400` | `ErrDiscordNoWebhooks`: no hay ningún webhook configurado; o un valor enviado no es una URL de webhook de Discord |
+| `422` | `ErrDiscordTestFailed`: Discord rechazó el mensaje en uno o varios webhooks (normalmente el webhook se borró) |
 
-```go
-func (s *Server) checkServerAlerts(running bool) {
-    // State change detection
-    wasRunning := s.wasRunning[serverID]
-    if wasRunning != running {
-        if running {
-            discord.SendServerOnlineAlert(s.Name, s.Identifier)
-        } else {
-            discord.SendServerOfflineAlert(s.Name, s.Identifier)
-        }
-        s.wasRunning[serverID] = running
-    }
-    
-    // Resource thresholds (hardcoded)
-    if cpu > 80 && !alertedCPU {
-        discord.SendResourceAlert(s.Name, s.Identifier, "CPU", cpu, 80)
-        alertedCPU = true
-    }
-    // ... RAM, Disk similar
-}
-```
+`ErrDiscordTestFailed` nombra los webhooks que fallaron en `metadata.webhooks` como `alerts`, `reports`, `status` y `transfers` (en ese orden: avisos de servidores, informes del sistema, estado de los nodos, ExTransfer); la página de ajustes los muestra con los nombres de sus propias secciones, en el idioma de quien la ve.
 
-**Deduplication:** Tracks `serverStateTracking` map to avoid spam.
-
-### Backup Alerts (`internal/servers/server.go:StartBackup`)
-
-```go
-func (s *Server) StartBackup() error {
-    // ... backup logic ...
-    if err != nil {
-        discord.SendBackupAlert(s.Name, s.Identifier, "failed", false)
-    } else {
-        discord.SendBackupAlert(s.Name, s.Identifier, "success", true)
-    }
-}
-```
-
-### System Status (`internal/services/discord.go:SendSystemStatus`)
-
-Called from `processSystemStatus()` ticker (every 1 minute).
-
-### License Expiry (`internal/services/license.go`)
-
-```go
-if daysUntilExpiry <= 7 {
-    discord.SendAlert("License Expiring", 
-        fmt.Sprintf("License expires in %d days", daysUntilExpiry))
-}
-```
-
----
-
-## Creating a Discord Webhook
-
-1. Open Discord → Server Settings → Integrations → Webhooks
-2. Click "New Webhook"
-3. Select channel
-4. Copy Webhook URL
-4. Paste in Panel Settings → Notifications
-
----
-
-## Testing
-
-### Test Endpoint
 ```bash
-curl -X POST http://panel/api/settings/test/discord \
+curl -X POST https://panel.example.com/api/settings/test/discord \
   -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json"
-```
-
-### Manual Test (cURL)
-```bash
-curl -X POST "https://discord.com/api/webhooks/WEBHOOK_ID/WEBHOOK_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{
-    "username": "Aether Panel",
-    "embeds": [{
-      "title": "Test Alert",
-      "description": "This is a test from Aether Panel",
-      "color": 16776960,
-      "fields": [
-        {"name": "Test", "value": "Success", "inline": true}
-      ],
-      "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
-    }]
-  }'
+  -d '{}'
 ```
 
 ---
 
-## Discord Limits & Best Practices
+## Notificaciones del servidor
 
-| Limit | Value | Handling |
-|--------|-------|----------|
-| Embeds per message | 10 | Panel sends 1 embed per webhook |
-| Fields per embed | 25 | System status truncates at 25 |
-| Field name length | 256 chars | Truncated if needed |
-| Field value length | 1024 chars | Truncated if needed |
-| Description length | 4096 chars | Truncated if needed |
-| Rate limit | 30 req/min/webhook | Async sending, queue if needed |
+Cada servidor tiene sus propios canales e interruptores de eventos, independientes de los webhooks del panel.
 
-**Rate Limit Handling:**
-```go
-func (s *DiscordService) SendWebhook(...) error {
-    // Retry with exponential backoff on 429
-    for i := 0; i < 3; i++ {
-        resp, err := http.Post(...)
-        if resp.StatusCode == 429 {
-            retryAfter := parseRetryAfter(resp.Header.Get("Retry-After"))
-            time.Sleep(retryAfter)
-            continue
-        }
-        return err
-    }
-    return err
-}
-```
+### Almacenamiento
 
----
+Se guardan en `<daemon.data.servers>/<serverId>.notify` en el nodo que ejecuta el servidor, con permisos `0600` (las URL de webhook y los tokens de bot son secretos). Un servidor sin este archivo usa los valores por defecto.
 
-## Troubleshooting
-
-| Issue | Cause | Fix |
-|-------|-------|-----|
-| No notifications | Webhook URL wrong | Verify URL in settings, test endpoint |
-| Rate limited | Too many alerts | Reduce alert frequency, check rate limits |
-| Missing embed | Field too long | Check field value lengths (<1024) |
-| Wrong color | Color decimal | Use decimal (16711680 = red) |
-| Missing webhook | Not configured | Add URL in Settings → Notifications |
-
----
-
-## API Reference
-
-| Method | Path | Scope | Description |
-|--------|------|-------|-------------|
-| POST | `/api/settings/test/discord` | `settings.edit` | Send test webhook |
-
-**Request:**
 ```json
 {
-  "webhookType": "general" // or "system", "node"
+  "discordWebhook": "https://discord.com/api/webhooks/123/abc",
+  "telegramBotToken": "123456789:AA…",
+  "telegramChatId": "-1001234567890",
+  "webhookUrl": "https://example.com/hooks/aether",
+  "webhookSecret": "s3cret",
+  "crash": true,
+  "backup": true,
+  "resources": true,
+  "power": false
 }
 ```
 
+| Campo | Por defecto | Descripción |
+|-------|-------------|-------------|
+| `discordWebhook` | `""` | URL de webhook de Discord (misma validación que los webhooks del panel) |
+| `telegramBotToken` / `telegramChatId` | `""` | Token del bot de @BotFather y el chat donde publica. Los dos vacíos o los dos válidos: token `<5-15 dígitos>:<30+ caracteres>`, chat un id numérico (puede ser negativo) o `@nombredelcanal` |
+| `webhookUrl` | `""` | Cualquier URL `https://` con host y sin credenciales |
+| `webhookSecret` | `""` | Opcional; firma el cuerpo JSON |
+| `crash` | `true` | El servidor se cayó por sí solo (incluye las últimas 12 líneas de consola) |
+| `backup` | `true` | Una copia de seguridad terminó o falló |
+| `resources` | `true` | CPU alta (> 80 %) o memoria alta (> 90 %), con los mismos límites y la misma repetición cada 5 minutos que arriba |
+| `power` | `false` | El servidor se encendió o se apagó (cualquier parada, también las solicitadas) |
+
+No se envía nada hasta que hay al menos un canal configurado. El envío se hace en segundo plano para que un canal lento nunca frene al servidor.
+
+### API
+
+El panel la reenvía al nodo (`internal/web/api/servers.go` → `internal/web/daemon/server.go`). Permiso: `server.flags.edit` sobre el servidor.
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/api/servers/:serverId/notifications` | Ajustes actuales (los valores por defecto si nunca se guardaron) |
+| PUT | `/api/servers/:serverId/notifications` | Valida y guarda; `204`, o `400` con el error de validación |
+| POST | `/api/servers/:serverId/notifications/test` | Envía un mensaje de prueba (`🔔 Notificaciones conectadas` / `🔔 Notifications connected`) a todos los canales |
+
+La prueba responde `200` con el resultado de cada canal, por ejemplo `{"discord": "ok", "telegram": "telegram answered with status 401"}`. Devuelve `400` si no hay ningún canal y `429` si se vuelve a llamar antes de 10 segundos para el mismo servidor.
+
+### Formato de los mensajes
+
+- **Discord:** un embed con el título del evento, el mensaje (con el nombre del servidor en negrita), las líneas de consola en un bloque de código cuando las hay (últimos 3500 caracteres) y el pie `Aether Panel · <serverId>`. Colores: caída `0xF2726B`, aviso `0xF5A524`, éxito `0x34D399`, información `0x3B9EF5`.
+- **Telegram:** `sendMessage` con `parse_mode: HTML`, el título en negrita, las líneas de consola en `<pre>` (últimos 3000 caracteres) y sin vista previa de enlaces.
+- **Webhook JSON:** `POST` con `Content-Type: application/json` y `User-Agent: AetherPanel-Webhook/1`, con 10 segundos de límite:
+
+  ```json
+  {
+    "event": "crash",
+    "title": "💥 Caída del servidor",
+    "message": "Survival se ha caído (código de salida 1). No se reinició automáticamente.",
+    "server": { "id": "a1b2c3d4", "name": "Survival" },
+    "timestamp": "2026-11-01T10:00:00Z",
+    "lines": ["…últimas líneas de consola…"],
+    "exitCode": 1,
+    "restarted": false
+  }
+  ```
+
+  `title` y `message` están en el [idioma de las notificaciones](#idioma-de-las-notificaciones) del nodo que ejecuta el servidor (el ejemplo está en español, el idioma por defecto). `event` es `crash`, `backup`, `resources`, `power` o `test`. Campos adicionales por evento: `exitCode`/`restarted` (caída), `success` (copia), `resource`/`value`/`threshold` (recursos), `running` (encendido/apagado).
+
+  Con `webhookSecret`, la cabecera `X-Aether-Signature: sha256=<hex>` lleva el HMAC-SHA256 del cuerpo sin modificar, con el secreto como clave. Verifíquelo en el receptor, por ejemplo:
+
+  ```python
+  import hmac, hashlib
+  expected = "sha256=" + hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+  ok = hmac.compare_digest(expected, request.headers["X-Aether-Signature"])
+  ```
+
+Los mismos eventos (caída, copia, recursos, encendido/apagado) también se entregan a las extensiones instaladas, sea cual sea la configuración del propietario; ver [Extensiones](../reference/15-extensions.md).
+
 ---
 
-## Security
+## Crear un webhook de Discord
 
-- Webhook URLs stored in config (not DB)
-- URLs masked in logs (show `.../xxx/yyy`)
-- No sensitive data in embeds
-- HTTPS only (Discord requirement)
+1. En Discord: **Configuración del servidor → Integraciones → Webhooks → Nuevo webhook**.
+2. Elija el canal y copie la URL del webhook.
+3. Péguela en **Configuración → Discord** (panel) o en la tarjeta **Notificaciones** del servidor, guarde y use el botón de prueba.
+
+---
+
+## Solución de problemas
+
+| Síntoma | Causa |
+|---------|-------|
+| `400` al guardar un webhook | La URL no es del tipo `https://discord.com/api/webhooks/<id>/<token>` (también se aceptan `ptb.`, `canary.` y `discordapp.com`) |
+| La prueba responde `422` / un canal muestra `discord webhook returned status 404` | El webhook se borró en Discord |
+| No llegan avisos de los servidores de un nodo remoto | La configuración de ese nodo no tiene `panel.notifications.discordWebhook` |
+| Los avisos de un nodo remoto llegan en español aunque el panel está en inglés | La configuración o el entorno del propio nodo definen `panel.settings.notificationLanguage` como `es`, que tiene prioridad sobre el valor del panel (quítelo allí o ponga `en`); o el nodo se reinició hace menos de 30 segundos y aún no se ha sondeado; o el sondeo de estado del panel no llega al nodo |
+| Un informe de nodo dice `🔴 Sin respuesta` | La consulta de estado del panel no llegó a ese nodo: está caído o no se alcanza, rechaza el token del panel (véase [Solución de problemas](../setup/troubleshooting.md)) o tiene una versión sin `/daemon/servers/status` y necesita actualizarse |
+| No llega aviso de apagado tras detener un servidor | Es lo esperado: las paradas solicitadas y las caídas gestionadas no generan aviso de apagado (las caídas tienen su propio aviso) |
+| `400` de Telegram al guardar | El token o el id del chat no tienen el formato esperado |

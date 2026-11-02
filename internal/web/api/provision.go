@@ -240,6 +240,10 @@ func provisionServer(c *gin.Context) {
 		return
 	}
 
+	// a node refusing the panel must not read as the billing system's API key being wrong
+	if answerNodeAuthFailure(c, node, nodeResponse) {
+		return
+	}
 	if nodeResponse.StatusCode != http.StatusOK {
 		resData, _ := io.ReadAll(nodeResponse.Body)
 		c.AbortWithStatusJSON(nodeResponse.StatusCode, gin.H{"error": "Daemon error", "details": string(resData)})
@@ -754,23 +758,11 @@ func provisionChangePackage(c *gin.Context) {
 		return
 	}
 
-	cpu, memory, disk := req.CPU, req.Memory, req.Disk
-	if req.ProductID != "" {
-		var product models.ProvisionProduct
-		if err := db.Where("product_id = ?", req.ProductID).First(&product).Error; response.HandleError(c, err, http.StatusBadRequest) {
-			return
-		}
-		cpu, memory, disk = product.CPU, product.Memory, product.Disk
-	}
-	if cpu < 0 || memory < 0 || disk < 0 {
-		response.HandleError(c, errors.New("resources cannot be negative"), http.StatusBadRequest)
+	cpu, memory, disk, err := packageLimits(db, req)
+	if response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
 	data := resourceLimitData(cpu, memory, disk)
-	if len(data) == 0 {
-		response.HandleError(c, errors.New("give a product_id or at least one of cpu, memory and disk"), http.StatusBadRequest)
-		return
-	}
 
 	ss := &services.Server{DB: db}
 	server, ok := requestServer(c, db, req.ProvisionActionRequest, ss)
@@ -786,12 +778,50 @@ func provisionChangePackage(c *gin.Context) {
 	if response.HandleError(c, err, http.StatusBadGateway) {
 		return
 	}
+	if answerNodeAuthFailure(c, &server.Node, nodeResponse) {
+		return
+	}
 	if nodeResponse.StatusCode != http.StatusNoContent && nodeResponse.StatusCode != http.StatusOK {
 		details, _ := io.ReadAll(nodeResponse.Body)
 		c.AbortWithStatusJSON(nodeResponse.StatusCode, gin.H{"error": "Daemon error", "details": string(details)})
 		return
 	}
 
+	// UpdateColumns: the save hook would validate an empty model and refuse
+	if err := db.Model(&models.Server{}).Where("identifier = ?", server.Identifier).UpdateColumns(serverLimitColumns(cpu, memory, disk)).Error; response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":          true,
+		"server_id":        server.Identifier,
+		"restart_required": serverIsRunning(ns, &server.Node, server.Identifier),
+	})
+}
+
+// packageLimits is the plan a change-package request asks for: the product's limits when it
+// names one, otherwise the cpu, memory and disk it gives; at least one must be set and none
+// may be negative
+func packageLimits(db *gorm.DB, req ChangePackageRequest) (cpu int, memory, disk int64, err error) {
+	cpu, memory, disk = req.CPU, req.Memory, req.Disk
+	if req.ProductID != "" {
+		var product models.ProvisionProduct
+		if err = db.Where("product_id = ?", req.ProductID).First(&product).Error; err != nil {
+			return 0, 0, 0, err
+		}
+		cpu, memory, disk = product.CPU, product.Memory, product.Disk
+	}
+	if cpu < 0 || memory < 0 || disk < 0 {
+		return 0, 0, 0, errors.New("resources cannot be negative")
+	}
+	if len(resourceLimitData(cpu, memory, disk)) == 0 {
+		return 0, 0, 0, errors.New("give a product_id or at least one of cpu, memory and disk")
+	}
+	return cpu, memory, disk, nil
+}
+
+// serverLimitColumns are the panel's server columns for the limits that are set
+func serverLimitColumns(cpu int, memory, disk int64) map[string]interface{} {
 	updates := map[string]interface{}{}
 	if cpu > 0 {
 		updates["total_cpu"] = cpu
@@ -802,16 +832,7 @@ func provisionChangePackage(c *gin.Context) {
 	if disk > 0 {
 		updates["total_disk"] = disk
 	}
-	// UpdateColumns: the save hook would validate an empty model and refuse
-	if err := db.Model(&models.Server{}).Where("identifier = ?", server.Identifier).UpdateColumns(updates).Error; response.HandleError(c, err, http.StatusInternalServerError) {
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"success":          true,
-		"server_id":        server.Identifier,
-		"restart_required": serverIsRunning(ns, &server.Node, server.Identifier),
-	})
+	return updates
 }
 
 // serverIsRunning asks the node; when it cannot tell, it says yes so the caller restarts to be safe

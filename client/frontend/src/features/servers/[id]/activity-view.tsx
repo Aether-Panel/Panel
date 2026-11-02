@@ -75,6 +75,8 @@ type DetailStyle = 'code' | 'name' | 'none';
 function detailStyleOf(action: string): DetailStyle {
   if (action.startsWith('console.') || action.startsWith('file.') || action.startsWith('plugin.')) return 'code';
   if (action === 'task.delete' || action === 'task.run' || action === 'server.change' || action === 'server.version') return 'code';
+  // a transfer that failed after it was accepted says at which step and why
+  if (action === 'server.transferFailed' || action === 'server.transferStartFailed') return 'code';
   if (action.startsWith('backup.') || action.startsWith('user.') || action === 'task.save' || action === 'server.rename') return 'name';
   if (action === 'modpack.install' || action === 'map.install' || action === 'server.clone') return 'name';
   return 'none';

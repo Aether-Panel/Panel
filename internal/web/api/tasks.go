@@ -189,7 +189,8 @@ var syncAutomaticBackupsLock sync.Mutex
 // syncAutomaticBackups brings the panel's list in line with the node: backups scheduled tasks
 // made are added and ones removed by retention are dropped, and every backup gets its size
 // once its archive is written. Backups made by hand are recorded when they are made, so only
-// automatic ones are added or removed. It is best effort: when the node cannot be reached the
+// automatic ones are added, and one made by hand is only removed when the node reports that
+// its archive could not be written. It is best effort: when the node cannot be reached the
 // stored list is shown as it is.
 func syncAutomaticBackups(ctx context.Context, db *gorm.DB, server *models.Server) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -211,20 +212,51 @@ func syncAutomaticBackups(ctx context.Context, db *gorm.DB, server *models.Serve
 	defer syncAutomaticBackupsLock.Unlock()
 
 	bs := &services.Backup{DB: db}
-	records, err := bs.GetAllForServer(server.Identifier)
+	failed, err := applyNodeBackups(bs, server, onNode)
 	if err != nil {
 		return
 	}
+	// the node keeps a mark for each failed backup until it is told the panel dropped it
+	for _, name := range failed {
+		res, err := ns.CallNodeContext(ctx, &server.Node, http.MethodDelete, daemonServerPrefix+server.Identifier+"/backup"+fileNameParam+name, nil, nil)
+		utils.CloseResponse(res)
+		if err != nil {
+			logging.Error.Printf("Error clearing the failed backup %s on the node: %s", name, err)
+		}
+	}
+}
+
+// applyNodeBackups updates the panel's records of the server's backups from the node's list
+// and returns the backups the node reports as failed, whose record it removed
+func applyNodeBackups(bs *services.Backup, server *models.Server, onNode []skypanel.BackupFile) ([]string, error) {
+	records, err := bs.GetAllForServer(server.Identifier)
+	if err != nil {
+		return nil, err
+	}
 
 	present := make(map[string]skypanel.BackupFile, len(onNode))
+	finished := make([]skypanel.BackupFile, 0, len(onNode))
+	failed := make([]string, 0)
 	for _, f := range onNode {
+		if f.Location == servers.BackupFailedLocation {
+			failed = append(failed, f.FileName)
+			continue
+		}
 		present[f.FileName] = f
+		finished = append(finished, f)
 	}
+	isFailed := make(map[string]bool, len(failed))
+	for _, name := range failed {
+		isFailed[name] = true
+	}
+
 	known := make(map[string]bool, len(records))
 	for _, r := range records {
 		known[r.FileName] = true
 		file, onDisk := present[r.FileName]
-		if isSystemBackup(r.FileName) && !onDisk {
+		// a backup made by hand is recorded when it is asked for, before its archive is
+		// written; when writing it failed there is no file behind the record
+		if (isSystemBackup(r.FileName) && !onDisk) || isFailed[r.FileName] {
 			if err := bs.Delete(r.ID); err != nil {
 				logging.Error.Printf("Error removing the record of deleted backup %s: %s", r.FileName, err)
 			}
@@ -238,7 +270,8 @@ func syncAutomaticBackups(ctx context.Context, db *gorm.DB, server *models.Serve
 			}
 		}
 	}
-	addSystemBackups(bs, server, onNode, known)
+	addSystemBackups(bs, server, finished, known)
+	return failed, nil
 }
 
 // addSystemBackups records the backups the node made by itself that the panel does not list yet

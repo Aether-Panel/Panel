@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/fs"
 	"log"
+	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -107,6 +108,8 @@ func InitService() {
 	go processStats()
 	go processPlayers()
 	go processSystemStatus()
+	// remote nodes run without the panel, so the panel asks them for their servers' states
+	go processRemoteStatus()
 	// servers that kept running while the daemon was down get their console back
 	go reattachRunningServers()
 	// Trackear uptime inicialmente para todos los servidores
@@ -227,11 +230,12 @@ func sendSystemStatusToDiscord() {
 	if ds == nil {
 		return
 	}
-
-	allServers := GetAll()
-	if len(allServers) == 0 {
+	if config.DiscordWebhookSystem.Value() == "" && config.DiscordWebhookNode.Value() == "" {
 		return
 	}
+
+	// a panel without servers of its own still reports its remote nodes
+	allServers := GetAll()
 
 	// Obtener información de los nodos y servidores desde la base de datos
 	db, err := database.GetConnection()
@@ -271,7 +275,7 @@ func sendSystemStatusToDiscord() {
 
 	// Enviar estado de cada nodo a Discord
 	for _, node := range nodes {
-		sendNodeStatusToDiscord(ds, node, nodeServerMap[node.ID])
+		sendNodeStatusToDiscord(ds, ns, node, nodeServerMap[node.ID])
 	}
 }
 
@@ -327,43 +331,149 @@ func systemStatusInfo(server *Server) services.ServerInfo {
 	return serverInfo
 }
 
-func sendNodeStatusToDiscord(ds *services.DiscordService, node *models.Node, serversForNode []services.ServerInfo) {
-	totalServers := len(serversForNode)
-	onlineServers := 0
-	offlineServers := 0
-
-	for _, info := range serversForNode {
-		if info.IsRunning {
-			onlineServers++
-		} else {
-			offlineServers++
-		}
+// sendNodeStatusToDiscord reports one node. serversForNode are the servers this process runs
+// there, which is only the panel's own node: a remote node's come from the status poller.
+func sendNodeStatusToDiscord(ds *services.DiscordService, ns *services.Node, node *models.Node, serversForNode []services.ServerInfo) {
+	// without a node webhook there is nothing to send, so remote nodes are not asked either
+	if config.DiscordWebhookNode.Value() == "" {
+		return
 	}
 
 	nodeName := node.Name
 	if nodeName == "" || node.IsLocal() {
-		nodeName = "Nodo Local"
+		nodeName = services.NotificationText("nodeStatus.localNode")
 	}
 
-	// Obtener información del sistema
-	cpuModel, cpuCores, cpuThreads, cpuGhz := hostCPUSummary()
-
-	// Obtener información de memoria
-	memInfo, err := mem.VirtualMemory()
-	memTotal := uint64(0)
-	memUsed := uint64(0)
-	if err == nil {
-		memTotal = memInfo.Total
-		memUsed = memInfo.Used
+	var err error
+	if node.IsLocal() {
+		// the panel's own machine is only right for the panel's node
+		online, offline := countRunning(serversForNode)
+		err = sendNodeReport(ds, node, nodeName, len(serversForNode), online, offline, localNodeHardware())
+	} else {
+		err = sendRemoteNodeReport(ds, ns, node, nodeName)
 	}
-
-	// Sistema operativo - obtener información detallada como neofetch/fastfetch
-	osName := getOSName()
-
-	err = ds.SendNodeStatus(totalServers, onlineServers, offlineServers, nodeName, node.PublicHost, node.PublicPort, cpuModel, cpuCores, cpuThreads, cpuGhz, memTotal, memUsed, osName)
 	if err != nil {
 		logging.Error.Printf("Error sending node status to Discord for node %s: %s", nodeName, err)
 	}
+}
+
+// sendRemoteNodeReport reports a remote node from the status poller's last answer. A node that
+// did not answer is reported as such: its servers' states and its machine are unknown, only how
+// many servers the panel places there is shown.
+func sendRemoteNodeReport(ds *services.DiscordService, ns *services.Node, node *models.Node, nodeName string) error {
+	status := remoteNodeStatus(ns, node)
+	if !status.reachable {
+		return ds.SendNodeUnreachable(status.total, nodeName, node.PublicHost, node.PublicPort)
+	}
+	online, offline := status.onlineOffline()
+	return sendNodeReport(ds, node, nodeName, len(status.running), online, offline, remoteNodeHardware(ns, node))
+}
+
+// sendNodeReport sends the report of a node that answered
+func sendNodeReport(ds *services.DiscordService, node *models.Node, nodeName string, total, online, offline int, hw nodeHardware) error {
+	return ds.SendNodeStatus(total, online, offline, nodeName, node.PublicHost, node.PublicPort, hw.cpuModel, hw.cpuCores, hw.cpuThreads, hw.cpuGhz, hw.memTotal, hw.memUsed, hw.osName)
+}
+
+// countRunning counts the servers by state
+func countRunning(infos []services.ServerInfo) (online, offline int) {
+	for _, info := range infos {
+		if info.IsRunning {
+			online++
+		} else {
+			offline++
+		}
+	}
+	return
+}
+
+// nodeHardware is the machine part of a node's Discord report. Fields left empty or zero
+// are left out of the message.
+type nodeHardware struct {
+	cpuModel   string
+	cpuCores   int
+	cpuThreads int
+	cpuGhz     float64
+	memTotal   uint64
+	memUsed    uint64
+	osName     string
+}
+
+// unknownCPUModel is what SendNodeStatus takes as "no CPU model to show"
+const unknownCPUModel = "Desconocido"
+
+// localNodeHardware describes the machine this process runs on
+func localNodeHardware() nodeHardware {
+	hw := nodeHardware{}
+	hw.cpuModel, hw.cpuCores, hw.cpuThreads, hw.cpuGhz = hostCPUSummary()
+	if memInfo, err := mem.VirtualMemory(); err == nil {
+		hw.memTotal = memInfo.Total
+		hw.memUsed = memInfo.Used
+	}
+	// Sistema operativo - obtener información detallada como neofetch/fastfetch
+	hw.osName = getOSName()
+	return hw
+}
+
+// nodeSystemTimeout bounds the call to a remote node, so one that does not answer cannot
+// hold up the reports of the others
+const nodeSystemTimeout = 10 * time.Second
+
+// nodeSystemInfo is the part of a daemon's /daemon/system answer the node report uses
+type nodeSystemInfo struct {
+	OS          string `json:"os"`
+	Platform    string `json:"platform"`
+	PlatformVer string `json:"platformVersion"`
+	CPUModel    string `json:"cpuModel"`
+	CPUCores    int    `json:"cpuCores"`
+	CPUThreads  int    `json:"cpuThreads"`
+	MemoryTotal uint64 `json:"memoryTotal"`
+	MemoryUsed  uint64 `json:"memoryUsed"`
+}
+
+// remoteNodeHardware asks the node's daemon for its machine, as the node page does. When the
+// node does not answer the hardware is left out of the report rather than filled with the
+// panel's own machine.
+func remoteNodeHardware(ns *services.Node, node *models.Node) nodeHardware {
+	ctx, cancel := context.WithTimeout(context.Background(), nodeSystemTimeout)
+	defer cancel()
+
+	res, err := ns.CallNodeContext(ctx, node, "GET", "/daemon/system", nil, nil)
+	if err != nil {
+		logging.Error.Printf("Error getting system info of node %s for Discord: %s", node.Name, err)
+		return nodeHardware{cpuModel: unknownCPUModel}
+	}
+	defer utils.CloseResponse(res)
+
+	var info nodeSystemInfo
+	if res.StatusCode != http.StatusOK {
+		logging.Error.Printf("Error getting system info of node %s for Discord: status %d", node.Name, res.StatusCode)
+		return nodeHardware{cpuModel: unknownCPUModel}
+	}
+	if err := json.NewDecoder(res.Body).Decode(&info); err != nil {
+		logging.Error.Printf("Error reading system info of node %s for Discord: %s", node.Name, err)
+		return nodeHardware{cpuModel: unknownCPUModel}
+	}
+	return info.hardware()
+}
+
+// hardware turns the daemon's answer into the report's fields. The daemon does not send the
+// CPU frequency, so that field is left out for remote nodes.
+func (info nodeSystemInfo) hardware() nodeHardware {
+	hw := nodeHardware{
+		cpuModel:   info.CPUModel,
+		cpuCores:   info.CPUCores,
+		cpuThreads: info.CPUThreads,
+		memTotal:   info.MemoryTotal,
+		memUsed:    info.MemoryUsed,
+		osName:     strings.TrimSpace(info.Platform + " " + info.PlatformVer),
+	}
+	if hw.cpuModel == "" {
+		hw.cpuModel = unknownCPUModel
+	}
+	if hw.osName == "" {
+		hw.osName = info.OS
+	}
+	return hw
 }
 
 // hostCPUSummary returns the CPU model, physical cores, threads and GHz of this machine
@@ -384,7 +494,7 @@ func hostCPUSummary() (string, int, int, float64) {
 	}
 
 	// Obtener modelo y frecuencia del CPU
-	cpuModel := "Desconocido"
+	cpuModel := unknownCPUModel
 	cpuGhz := 0.0
 	if haveInfo {
 		cpuModel = cpuInfo[0].ModelName
@@ -687,7 +797,7 @@ func checkDiskLimit(server *Server, stats *skypanel.ServerStats) {
 		isRunning, _ := server.IsRunning()
 		if isRunning {
 			logging.Info.Printf("[%s] Server exceeded disk limit (%.2f MB > %.2f MB). Stopping server...", server.ID(), stats.Disk/1024/1024, stats.MaxStorage/1024/1024)
-			server.RunningEnvironment.DisplayToConsole(true, fmt.Sprintf("\n[CRÍTICO] El servidor ha superado el límite de disco asignado (%.2f MB / %.2f MB).\n[CRÍTICO] Deteniendo el servidor por seguridad...\n", stats.Disk/1024/1024, stats.MaxStorage/1024/1024))
+			server.RunningEnvironment.DisplayToConsole(true, fmt.Sprintf("\n[CRITICAL] The server has gone over its disk limit (%.2f MB / %.2f MB).\n[CRITICAL] Stopping the server to protect the node...\n", stats.Disk/1024/1024, stats.MaxStorage/1024/1024))
 
 			// Detener el servidor
 			err := server.Stop()
@@ -797,7 +907,7 @@ func sendResourceAlert(server *Server, state *serverState, now time.Time, server
 		return
 	}
 	ds := services.GetDiscordService()
-	_ = ds.SendResourceAlert(serverName, server.ID(), alert.resource, alert.value, alert.limit)
+	_ = ds.SendResourceAlert(serverName, server.ID(), resourceLabel(alert.resource, false), alert.value, alert.limit)
 	server.notifyResource(alert.resource, alert.value, alert.limit)
 	state.lastAlert[alert.key] = now
 }
@@ -1132,18 +1242,11 @@ func (p *Server) Destroy() (err error) {
 	}
 
 	p.Log(logging.Debug, "Starting uninstall processes")
-	process, err := GenerateProcess(p.Uninstallation, p.RunningEnvironment, p.DataToMap(), p.Execution.EnvironmentVariables)
-	if err != nil {
-		p.Log(logging.Error, uninstallErrorFmt, err)
+	// the server is deleted either way: a failed uninstall step is logged and the environment
+	// still goes, or a broken template would leave a server that can never be deleted
+	if uninstallErr := p.runUninstall(); uninstallErr != nil {
+		p.Log(logging.Error, uninstallErrorFmt, uninstallErr)
 		p.RunningEnvironment.DisplayToConsole(true, uninstallFailedMsg)
-		return
-	}
-
-	err = process.Run(p)
-	if err != nil {
-		p.Log(logging.Error, uninstallErrorFmt, err)
-		p.RunningEnvironment.DisplayToConsole(true, uninstallFailedMsg)
-		return
 	}
 
 	p.Log(logging.Debug, "Deleting environment")
@@ -1154,6 +1257,15 @@ func (p *Server) Destroy() (err error) {
 	}
 
 	return
+}
+
+// runUninstall runs the template's uninstall steps
+func (p *Server) runUninstall() error {
+	process, err := GenerateProcess(p.Uninstallation, p.RunningEnvironment, p.DataToMap(), p.Execution.EnvironmentVariables)
+	if err != nil {
+		return err
+	}
+	return process.Run(p)
 }
 
 func (p *Server) Install() error {
@@ -1360,18 +1472,18 @@ func (p *Server) afterExit(exitCode int) {
 		p.RunningEnvironment.DisplayToConsole(true, "Server crashed (exit code %d)\n", exitCode)
 		report := p.recordCrash(exitCode, autoRestart)
 		p.notifyCrash(report)
-		restartText := "No"
+		restartText := services.NotificationText("no")
 		if autoRestart {
-			restartText = "Sí"
+			restartText = services.NotificationText("yes")
 		}
 		name, id := p.displayName(), p.ID()
 		go func() {
-			_ = services.GetDiscordService().SendAlert("💥 Caída del servidor",
-				fmt.Sprintf("**%s** se ha caído (código de salida %d).", name, exitCode),
+			_ = services.GetDiscordService().SendAlert(services.NotificationText("crashAlert.title"),
+				services.NotificationText("crashAlert.description", name, exitCode),
 				[]services.DiscordEmbedField{
-					{Name: "Servidor", Value: name, Inline: true},
+					{Name: services.NotificationText("field.server"), Value: name, Inline: true},
 					{Name: "ID", Value: id, Inline: true},
-					{Name: "Reinicio automático", Value: restartText, Inline: true},
+					{Name: services.NotificationText("field.autoRestart"), Value: restartText, Inline: true},
 				})
 		}()
 	}
@@ -1389,7 +1501,8 @@ func (p *Server) afterExit(exitCode int) {
 	p.RunningEnvironment.DisplayToConsole(true, "Running post-execution steps\n")
 	p.Log(logging.Info, "Running post execution steps: %s", p.ID())
 
-	err = processes.Run(p)
+	// the conditions see them too: "if": "!success" runs a step only after a crash
+	err = processes.RunWith(p, map[string]interface{}{"success": graceful, "exitCode": exitCode})
 	if err != nil {
 		p.Log(logging.Error, "Error running post processing for server: %s", err)
 		p.RunningEnvironment.DisplayToConsole(true, "Failed to run post-execution steps\n")
@@ -1522,6 +1635,14 @@ const (
 // retention only ever removes those and never a backup somebody made by hand
 const AutoBackupPrefix = "auto-"
 
+// failedBackupPrefix names the mark left for a backup made by hand whose archive could not be
+// written. The panel listed that backup as soon as it was asked for; the mark tells it to drop
+// the entry, which has no file behind it. It is hidden, so it is never listed as a backup.
+const failedBackupPrefix = ".failed-"
+
+// BackupFailedLocation is the Location the backup list gives a backup marked as failed
+const BackupFailedLocation = "failed"
+
 // StartBackup begins a backup and returns its file name straight away; the archive is
 // written in the background and the console reports when it is done
 func (p *Server) StartBackup() (string, error) {
@@ -1576,6 +1697,11 @@ func (p *Server) finishBackup(file string) bool {
 	if err != nil {
 		p.Log(logging.Error, "Error creating backup file: %s", err)
 		p.RunningEnvironment.DisplayToConsole(true, "Failed to create backup file")
+		// only the panel's list of backups made by hand has an entry to drop; a scheduled
+		// task reports its failure itself
+		if !strings.HasPrefix(filepath.Base(file), AutoBackupPrefix) {
+			p.markBackupFailed(file)
+		}
 	}
 	// the backup is done once the local archive exists; the off-site copy (up to two hours)
 	// runs after, so it no longer keeps the server from starting or being restarted
@@ -1584,6 +1710,33 @@ func (p *Server) finishBackup(file string) bool {
 		go p.uploadOffsite(file)
 	}
 	return err == nil
+}
+
+// markBackupFailed leaves the mark FailedBackups reports for the backup written to file
+func (p *Server) markBackupFailed(file string) {
+	mark := filepath.Join(filepath.Dir(file), failedBackupPrefix+filepath.Base(file))
+	if err := os.WriteFile(mark, nil, 0600); err != nil {
+		p.Log(logging.Error, "Error marking the backup %s as failed: %s", filepath.Base(file), err)
+	}
+}
+
+// FailedBackups lists the backups made by hand whose archive could not be written, until
+// DeleteBackup removes them
+func (p *Server) FailedBackups() ([]string, error) {
+	entries, err := os.ReadDir(p.GetBackupDirectory())
+	if os.IsNotExist(err) {
+		return []string{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	failed := make([]string, 0)
+	for _, entry := range entries {
+		if name, ok := strings.CutPrefix(entry.Name(), failedBackupPrefix); ok && !entry.IsDir() {
+			failed = append(failed, name)
+		}
+	}
+	return failed, nil
 }
 
 // writeArchive compresses the server's files under a hidden name and moves the archive into
@@ -1634,10 +1787,10 @@ func (p *Server) endBackup(success bool) {
 	ds := services.GetDiscordService()
 	if success {
 		p.RunningEnvironment.DisplayToConsole(true, "Backup complete")
-		_ = ds.SendBackupAlert(serverName, p.ID(), "Completado exitosamente", true)
+		_ = ds.SendBackupAlert(serverName, p.ID(), services.NotificationText("backupAlert.statusSuccess"), true)
 	} else {
 		p.RunningEnvironment.DisplayToConsole(true, "Backup failed")
-		_ = ds.SendBackupAlert(serverName, p.ID(), "Falló durante la creación", false)
+		_ = ds.SendBackupAlert(serverName, p.ID(), services.NotificationText("backupAlert.statusFailed"), false)
 	}
 }
 
@@ -1732,6 +1885,11 @@ func (p *Server) DeleteBackup(fileName string) error {
 	backupFile := path.Join(backupDirectory, path.Base(fileName))
 
 	err := os.Remove(backupFile)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	// a backup that failed has only its mark
+	err = os.Remove(path.Join(backupDirectory, failedBackupPrefix+path.Base(fileName)))
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}

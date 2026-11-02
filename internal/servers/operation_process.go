@@ -73,6 +73,9 @@ func init() {
 	}
 }
 
+// GenerateProcess prepares a step list. The ${} tokens of each step are replaced when the step
+// runs, not here, so a value a step hands back (githubdl's outputVariable, the version a
+// resolve step finds) can be used by the steps after it.
 func GenerateProcess(directions []skypanel.ConditionalMetadataType, environment *skypanel.Environment, dataMapping map[string]interface{}, env map[string]string) (OperationProcess, error) {
 	dataMap := make(map[string]interface{})
 	for k, v := range dataMapping {
@@ -82,47 +85,8 @@ func GenerateProcess(directions []skypanel.ConditionalMetadataType, environment 
 	dataMap["rootDir"] = environment.GetRootDirectory()
 	operationList := make(OperationProcess, 0)
 	for _, mapping := range directions {
-		mapCopy := make(map[string]interface{})
-
-		// replace tokens
-		for k, v := range mapping.Metadata {
-			switch r := v.(type) {
-			case string:
-				{
-					mapCopy[k] = utils.ReplaceTokens(r, dataMap)
-				}
-			case []string:
-				{
-					mapCopy[k] = utils.ReplaceTokensInArr(r, dataMap)
-				}
-			case map[string]string:
-				{
-					mapCopy[k] = utils.ReplaceTokensInMap(r, dataMap)
-				}
-			case []interface{}:
-				{
-					// if we can convert this to a string list, we can work with it
-					temp := cast.ToStringSlice(r)
-					if len(temp) == len(r) {
-						mapCopy[k] = utils.ReplaceTokensInArr(temp, dataMap)
-					} else {
-						mapCopy[k] = v
-					}
-				}
-			default:
-				mapCopy[k] = v
-			}
-		}
-
-		envMap := utils.ReplaceTokensInMap(env, dataMap)
-
-		opCreate := skypanel.CreateOperation{
-			OperationArgs:        mapCopy,
-			EnvironmentVariables: envMap,
-			DataMap:              dataMap,
-		}
-
-		task := &OperationTask{Type: mapping.Type, Operation: opCreate, Condition: mapping.If}
+		// every step shares dataMap, so what one step sets is seen by the next
+		task := &OperationTask{Type: mapping.Type, Condition: mapping.If, metadata: mapping.Metadata, env: env, data: dataMap}
 		operationList = append(operationList, task)
 	}
 	return operationList, nil
@@ -131,12 +95,56 @@ func GenerateProcess(directions []skypanel.ConditionalMetadataType, environment 
 type OperationProcess []*OperationTask
 
 type OperationTask struct {
-	Operation skypanel.CreateOperation
 	Condition string
 	Type      string
+
+	metadata map[string]interface{}
+	env      map[string]string
+	data     map[string]interface{}
+}
+
+// createOperation is the step's arguments with the ${} tokens replaced by the values known now
+func (v *OperationTask) createOperation() skypanel.CreateOperation {
+	mapCopy := make(map[string]interface{})
+	for k, val := range v.metadata {
+		mapCopy[k] = replaceTokensIn(val, v.data)
+	}
+
+	return skypanel.CreateOperation{
+		OperationArgs:        mapCopy,
+		EnvironmentVariables: utils.ReplaceTokensInMap(v.env, v.data),
+		DataMap:              v.data,
+	}
+}
+
+// replaceTokensIn replaces the ${} tokens in a step argument that is text or a list of text
+func replaceTokensIn(v interface{}, data map[string]interface{}) interface{} {
+	switch r := v.(type) {
+	case string:
+		return utils.ReplaceTokens(r, data)
+	case []string:
+		return utils.ReplaceTokensInArr(r, data)
+	case map[string]string:
+		return utils.ReplaceTokensInMap(r, data)
+	case []interface{}:
+		// if we can convert this to a string list, we can work with it
+		temp := cast.ToStringSlice(r)
+		if len(temp) == len(r) {
+			return utils.ReplaceTokensInArr(temp, data)
+		}
+	}
+	return v
 }
 
 func (p *OperationProcess) Run(server *Server) error {
+	return p.RunWith(server, nil)
+}
+
+// RunWith runs the steps with extra values for their conditions. A list stops at the first
+// step that fails, so while it runs success is always true; the post-execution steps pass
+// success (whether the server stopped cleanly) and exitCode, so "if": "!success" can react
+// to a crash.
+func (p *OperationProcess) RunWith(server *Server, extra map[string]interface{}) error {
 	if len(*p) == 0 {
 		return nil
 	}
@@ -144,24 +152,28 @@ func (p *OperationProcess) Run(server *Server) error {
 	extraData := map[string]interface{}{
 		conditions.VariableSuccess: true,
 	}
-
-	var firstError error
-	for _, v := range *p {
-		shouldRun, err := server.RunCondition(v.Condition, extraData)
-		if err != nil {
-			return err
-		}
-
-		if !shouldRun {
-			continue
-		}
-
-		if err = v.run(server); err != nil {
-			return err
-		}
-		extraData[conditions.VariableSuccess] = true
+	for k, v := range extra {
+		extraData[k] = v
 	}
-	return firstError
+
+	for _, v := range *p {
+		// a step without a condition always runs: CEL would read an empty condition as
+		// "success", which would skip it after a crash
+		if v.Condition != "" {
+			shouldRun, err := server.RunCondition(v.Condition, extraData)
+			if err != nil {
+				return err
+			}
+			if !shouldRun {
+				continue
+			}
+		}
+
+		if err := v.run(server); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // run executes the task and applies the variable overrides it returns.
@@ -170,7 +182,7 @@ func (v *OperationTask) run(server *Server) error {
 	if factory == nil {
 		return skypanel.ErrMissingFactory
 	}
-	op, err := factory.Create(v.Operation)
+	op, err := factory.Create(v.createOperation())
 	if err != nil {
 		return skypanel.ErrFactoryError(v.Type, err)
 	}
@@ -182,13 +194,6 @@ func (v *OperationTask) run(server *Server) error {
 
 	if result.Error != nil {
 		logging.Error.Printf("Error running command: %s", result.Error.Error())
-		// TODO: Implement success checking more accurately here
-		/*if firstError == nil {
-			firstError = result.Error
-			return result.Error
-		}
-		// extraData[conditions.VariableSuccess] = false
-		*/
 		return result.Error
 	}
 
@@ -196,6 +201,8 @@ func (v *OperationTask) run(server *Server) error {
 		variable := server.Variables[k]
 		variable.Value = val
 		server.Variables[k] = variable
+		// and for the ${} tokens of the steps after this one
+		v.data[k] = val
 	}
 	return nil
 }

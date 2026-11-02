@@ -22,8 +22,6 @@ By accessing and using Aether Panel, you agree to:
 
 You agree not to use the service for any unlawful or unauthorized purpose. You agree not to:
 
-The use of the service must be consistent with its purpose as an open source server management tool. Any use that violates these terms may result in immediate termination of your access.
-
 - Violate any law in your jurisdiction
 - Attempt to compromise the security or integrity of our systems or networks
 - Distribute malware, spam, or any other malicious content
@@ -31,6 +29,8 @@ The use of the service must be consistent with its purpose as an open source ser
 - Use the service for fraudulent or deceptive activities
 - Interfere with the operation of the service or other users
 - Attempt to access restricted areas of the service without authorization
+
+The use of the service must be consistent with its purpose as an open source server management tool. Any use that violates these terms may result in immediate termination of your access.
 
 ## Accounts and User Responsibilities
 
@@ -43,6 +43,10 @@ When you create an account with us (whether in the panel or in our community), y
 - Provide accurate and up-to-date information
 - Be responsible for all activities that occur under your account
 - Comply with these terms and all applicable laws
+
+### Accounts in a Self-Hosted Installation
+
+In an Aether Panel installation run by someone else (a hosting company, a community, your own server), your panel account belongs to that installation: its administrator creates, suspends and deletes accounts and decides what each one may do (see [Permissions reference](./scopes-reference.md)). The project has no access to those installations or their accounts. What an installation stores about you and which outside services it contacts is described in the [Privacy Policy](./privacy.md).
 
 ### Account Terms Violation
 
@@ -71,6 +75,8 @@ Development decisions are based on community needs. The main panel will always b
 ### No Paywalls in the Panel
 
 We will never put core panel features behind a paywall. The panel is and will always be free. Only integrations with third-party closed-source software could have a cost.
+
+The panel can activate a license key against an external license server, but today no panel feature is enabled or blocked by it (see [License system](./14-license.md)).
 
 
 ## Contributions to the Project
@@ -121,21 +127,17 @@ You retain rights over content you create using Aether Panel (such as server con
 
 Aether Panel is open source software provided without warranties:
 
-This limitation of liability is standard for open source software. Aether Panel is a community project, not a commercial product.
-
 - We do not guarantee that the software will work without errors or interruptions
 - We are not responsible for data loss, revenue, or indirect damages
 - We do not offer commercial technical support or availability guarantees
 - Use of the software is at your own risk
 - We are not responsible for how you use the software or the consequences of its use
 
+This limitation of liability is standard for open source software. Aether Panel is a community project, not a commercial product.
+
 ## Termination
 
 We may terminate or suspend your account and your ability to contribute to the panel immediately, without prior notice or liability, for any reason, including, among others:
-
-Upon termination, your right to use the service and contribute to the panel will immediately cease.
-
-Contributions to the panel terminate when you violate these principles, especially if you attempt to resell the panel or its features as your own product.
 
 - If you breach these Terms of Service
 - If you use the service illegally or unauthorized
@@ -143,7 +145,12 @@ Contributions to the panel terminate when you violate these principles, especial
 - If you attempt to monetize panel features in a way that violates our principles
 - If you participate in activities that go against the project's open source philosophy
 
-- **p4**: If your account is terminated, you may lose access to:
+Upon termination, your right to use the service and contribute to the panel will immediately cease.
+
+Contributions to the panel terminate when you violate these principles, especially if you attempt to resell the panel or its features as your own product.
+
+If your account is terminated, you may lose access to:
+
 - Your account in the panel (if it is an installation managed by us)
 - Your ability to contribute code to the project
 - Your participation in the community and decision-making
@@ -153,11 +160,11 @@ Contributions to the panel terminate when you violate these principles, especial
 
 We reserve the right to modify these terms at any time. When we make significant changes:
 
-Continued use of the service after the changes constitutes your acceptance of the new terms. If you do not agree with the changes, you must stop using the service.
-
 - We will publish a notification on our Discord
 - We will update the "Last updated" date on this page
 - We will notify you if the changes significantly affect your rights or responsibilities
+
+Continued use of the service after the changes constitutes your acceptance of the new terms. If you do not agree with the changes, you must stop using the service.
 
 ## Governing Law
 
@@ -169,17 +176,15 @@ As an international open source project, we strive to comply with the laws of mu
 
 If you have questions about these terms:
 
-We are committed to keeping these terms clear and fair, reflecting our philosophy of real open source and community first.
-
 - Join our Discord server for community discussions
 - Open an issue on GitHub for public questions
 - Contact directly through community channels
 
+We are committed to keeping these terms clear and fair, reflecting our philosophy of real open source and community first.
+
 ## Summary
 
 In summary, these terms establish that:
-
-Aether Panel exists to be different: a real open source panel that respects the community and does not monetize basic features. If you're looking for a panel that sells extensions or premium features, this is not the right one for you.
 
 - Aether Panel is open source software without commercial warranties
 - We do not offer commercial technical support or premium features
@@ -189,11 +194,13 @@ Aether Panel exists to be different: a real open source panel that respects the 
 - Contributions must align with our open source principles
 - We can terminate accounts that violate these principles
 
+Aether Panel exists to be different: a real open source panel that respects the community and does not monetize basic features. If you're looking for a panel that sells extensions or premium features, this is not the right one for you.
+
 ## Paid Modules & Integrations
 
 The main panel of Aether Panel is and will always be 100% free and open source (Apache 2.0). However, integration modules with third-party software may have an associated cost.
 
-We are currently developing a WHMCS integration module (billing and automation platform). WHMCS is closed-source software requiring a paid license, so the module has associated costs:
+The panel itself includes, at no cost, the provisioning API (`/api/v1`) that billing systems such as WHMCS or Paymenter call to create, suspend and delete servers (see [Billing integration](../features/provisioning-and-sso.md)). We are currently developing a WHMCS integration module (billing and automation platform) that uses it. WHMCS is closed-source software requiring a paid license, so the module has associated costs:
 
 - WHMCS is proprietary software — requires a paid license for development, testing, and maintenance
 - The module requires ongoing maintenance to ensure compatibility with WHMCS updates

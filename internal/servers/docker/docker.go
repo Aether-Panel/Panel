@@ -640,10 +640,7 @@ func firstBusyHostPort(hostPorts map[uint16]bool, skip func(uint16) bool) error 
 }
 
 func portConflictError(host uint16) error {
-	return fmt.Errorf(
-		"el puerto %d ya está en uso por otro servidor o proceso activo en este nodo. Detén el servicio que lo ocupa o cambia el puerto del servidor antes de iniciarlo",
-		host,
-	)
+	return skypanel.ErrPortBusy(host)
 }
 
 // hostPortFree reports whether a TCP listener can be bound to the given port

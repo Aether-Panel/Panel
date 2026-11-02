@@ -31,7 +31,7 @@ El panel publica cuál usa en `GET /api/config` (no necesita sesión), en el cam
 
 ## Ajustes
 
-Se cambian en **Ajustes → General → Registro y seguridad**, o en `config.json` y variables de entorno:
+Se cambian en **Configuración → General → Registro y seguridad**, o en `config.json` y variables de entorno:
 
 | Clave | Variable de entorno | Por defecto | Qué hace |
 |-------|---------------------|-------------|----------|
@@ -131,7 +131,7 @@ Si falta el token, está caducado, ya se usó o no es correcto, la respuesta es 
 1. Entra en el [panel de Turnstile de Cloudflare](https://dash.cloudflare.com/turnstile).
 2. Crea un sitio y añade el dominio del panel.
 3. Copia la **Site Key** y la **Secret Key**.
-4. Pégalas en **Ajustes → General → Registro y seguridad** y enciende **Protección Cloudflare Turnstile**.
+4. Pégalas en **Configuración → General → Registro y seguridad** y enciende **Protección Cloudflare Turnstile**.
 
 ### Cómo se verifica
 
@@ -142,7 +142,7 @@ Si falta el token, está caducado, ya se usó o no es correcto, la respuesta es 
 - Si Cloudflare no responde, el formulario se rechaza con `ErrCaptchaFailed`: mientras Cloudflare no esté disponible no se puede iniciar sesión. El panel deja en el log `Could not reach Cloudflare Turnstile`.
 - Tras cada intento de envío el widget se vuelve a mostrar, porque un token sirve para una sola petición.
 
-La IP que se envía como `remoteip` es la que ve el panel. Detrás de un proxy, configura `security.trustedProxies` (y `security.trustedProxyHeader` si hace falta) para que sea la del usuario y no la del proxy.
+La IP que se envía como `remoteip` es la que ve el panel. Detrás de un proxy, hay que configurar `security.trustedProxies` (y `security.trustedProxyHeader` si hace falta) para que sea la del usuario y no la del proxy.
 
 La site key es pública (aparece en `GET /api/config`). La secret key no sale nunca del servidor.
 

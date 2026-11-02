@@ -659,16 +659,26 @@
         "delete": "Eliminar",
         "copy": "Copiar",
         "cut": "Cortar",
-        "unarchive": "Descomprimir"
+        "unarchive": "Descomprimir",
+        "compress": "Comprimir"
       },
       "deleteDialog": {
         "title": "Eliminar",
-        "description": "¿Estás seguro de que quieres eliminar {{name}}?"
+        "description": "¿Estás seguro de que quieres eliminar {{name}}?",
+        "descriptionMany": "¿Seguro que quieres eliminar los {{count}} elementos seleccionados? Esta acción no se puede deshacer."
       },
       "renameDialog": {
         "title": "Renombrar",
         "description": "Renombrar {{name}}. También puedes cambiar la extensión.",
         "placeholder": "nuevo-nombre.txt"
+      },
+      "compressDialog": {
+        "title": "Comprimir",
+        "description": "Empaqueta {{name}} en un archivo comprimido dentro de esta carpeta.",
+        "descriptionMany": "Empaqueta los {{count}} elementos seleccionados en un solo archivo comprimido dentro de esta carpeta.",
+        "nameLabel": "Nombre del archivo comprimido",
+        "placeholder": "copia.zip",
+        "hint": "Termínalo en .zip, .tar o .tar.gz para elegir el formato; a cualquier otro nombre se le añade .zip."
       },
       "editor": {
         "title": "Editando: {{filename}}",
@@ -699,12 +709,26 @@
         "deleteError": "No se pudo eliminar.",
         "renameError": "No se pudo renombrar.",
         "extractError": "No se pudo descomprimir.",
+        "compressed": "Se ha creado {{name}}.",
+        "compressError": "No se pudo comprimir.",
+        "deletedMany": "Se han eliminado {{count}} elementos.",
+        "deletedPartly": "Se eliminaron {{count}} de {{total}} elementos y luego se detuvo: {{reason}}",
         "saveError": "No se pudo guardar."
       },
       "goRoot": "Ir a la carpeta raíz",
       "pathLabel": "Ruta actual",
       "rowActions": "Acciones para {{name}}",
-      "clearClipboard": "Vaciar portapapeles"
+      "clearClipboard": "Vaciar portapapeles",
+      "selection": {
+        "selectAll": "Seleccionar todo en esta carpeta",
+        "select": "Seleccionar {{name}}",
+        "toolbar": "Elementos seleccionados",
+        "countOne": "1 elemento seleccionado",
+        "countMany": "{{count}} elementos seleccionados",
+        "compress": "Comprimir selección",
+        "delete": "Eliminar selección",
+        "clear": "Quitar selección"
+      }
     },
     "settings": {
       "title": "Configuración",
@@ -906,6 +930,7 @@
       "hostPort": "Host y puerto",
       "showPassword": "Mostrar contraseña",
       "hidePassword": "Ocultar contraseña",
+      "passwordHidden": "Solo visible para quien puede gestionar las bases de datos",
       "copyField": "Copiar {{field}}",
       "createdDialog": {
         "title": "Base de datos creada",
@@ -1087,6 +1112,8 @@
       "title": "Plugins",
       "description": "{{count}} plugins instalados",
       "searchPlaceholder": "Buscar en Modrinth (plugins, mods...)",
+      "searchPlaceholderPlugins": "Buscar plugins en Modrinth",
+      "searchPlaceholderMods": "Buscar mods en Modrinth",
       "searchButton": "Buscar",
       "tabs": {
         "installed": "Instalados",
@@ -1335,8 +1362,8 @@
         "cancelledBody": "Esta sesión de migración se canceló y su token ya no es válido. Genera uno nuevo si quieres volver a intentarlo."
       },
       "import": {
-        "warningTitle": "Se sobrescribirá este servidor",
-        "warningBody": "Importar desde otro proveedor detiene este servidor y reemplaza sus archivos y su configuración con los datos recibidos. Haz una copia de seguridad antes de continuar.",
+        "warningTitle": "Se reemplazarán los archivos con el mismo nombre",
+        "warningBody": "Importar copia los archivos del otro panel en la carpeta de este servidor: los archivos con el mismo nombre se reemplazan y el resto se conservan. El servidor no se detiene y su configuración (plantilla, variables, puertos) no cambia. Detenlo y haz una copia de seguridad antes de continuar.",
         "urlLabel": "URL del panel de origen",
         "urlHelp": "La dirección principal o de la API del proveedor donde está el servidor ahora.",
         "tokenLabel": "Token de migración",
@@ -1376,6 +1403,28 @@
         "importDescription": "La descarga se detendrá y se borrarán los archivos temporales. Los archivos que ya se hayan descomprimido en este servidor no se restauran.",
         "confirm": "Sí, cancelar",
         "keep": "Seguir con la transferencia"
+      },
+      "progress": {
+        "STEP_STARTING": "Iniciando…",
+        "STEP_VALIDATING": "Validando conexión con el panel de origen…",
+        "STEP_ORIGIN_START": "Iniciando la transferencia en el servidor origen…",
+        "STEP_WAITING_ARCHIVE": "Esperando a que el origen comprima los archivos…",
+        "STEP_DOWNLOADING": "Descargando paquete de datos desde el origen…",
+        "STEP_UPLOADING": "Subiendo archivos al daemon local (esto puede tardar)…",
+        "STEP_EXTRACTING": "Descomprimiendo archivos…",
+        "STEP_CLEANUP": "Limpiando archivos temporales…",
+        "ERROR_ORIGIN_URL": "La URL de origen no es válida o apunta a una dirección no permitida",
+        "ERROR_ORIGIN_UNREACHABLE": "Fallo de red al conectar con origen",
+        "ERROR_TOKEN_REJECTED": "Token inválido o expirado",
+        "ERROR_ORIGIN_BAD_ANSWER": "Respuesta inválida del origen",
+        "ERROR_ORIGIN_BAD_SESSION": "El origen devolvió un ID de sesión inválido",
+        "ERROR_ORIGIN_START": "Fallo al iniciar transferencia en origen",
+        "ERROR_ORIGIN_REFUSED": "El origen rechazó la transferencia",
+        "ERROR_DOWNLOAD_NETWORK": "Error de red al descargar paquete",
+        "ERROR_DOWNLOAD_REFUSED": "El origen rechazó la descarga",
+        "ERROR_DOWNLOAD_TIMEOUT": "El origen no preparó el paquete a tiempo",
+        "ERROR_UPLOAD": "Error al subir archivo al daemon",
+        "ERROR_EXTRACT": "Error al descomprimir en el destino"
       }
     },
     "sftp": {
@@ -1460,7 +1509,7 @@
         "title": "Explicación con IA",
         "explain": "Explicar con IA",
         "thinking": "Analizando…",
-        "notConfigured": "La IA no está configurada. Un administrador puede añadir la clave de Gemini en Ajustes.",
+        "notConfigured": "La IA no está configurada. Un administrador puede añadir la clave de Gemini en Configuración.",
         "error": "No se pudo obtener la explicación. Inténtalo de nuevo en un momento.",
         "causes": "Causas probables",
         "fixes": "Cómo solucionarlo"
@@ -1648,6 +1697,8 @@
           "suspend": "suspendió el servidor",
           "unsuspend": "reactivó el servidor",
           "transfer": "trasladó el servidor a otro nodo",
+          "transferFailed": "intentó trasladar el servidor a otro nodo, pero falló y se deshizo:",
+          "transferStartFailed": "trasladó el servidor a otro nodo, pero no se pudo iniciar allí:",
           "change": "hizo un cambio en el servidor",
           "version": "cambió la versión del juego a",
           "clone": "clonó el servidor como"
@@ -1743,7 +1794,7 @@
       "errors": {
         "generic": "No pude responder ahora mismo. Inténtalo de nuevo en un momento.",
         "limit": "Has hecho muchas preguntas seguidas. Espera unos minutos y vuelve a intentarlo.",
-        "notConfigured": "La IA no está configurada. Un administrador puede añadir la clave de Gemini en Ajustes.",
+        "notConfigured": "La IA no está configurada. Un administrador puede añadir la clave de Gemini en Configuración.",
         "noPermission": "Necesitas acceso a la consola de este servidor para usar el asistente."
       }
     },
@@ -1806,7 +1857,7 @@
       "save": "Guardar cambios",
       "unknownField": "Opción del archivo que el panel no conoce; se guarda tal cual.",
       "changed": "Modificado",
-      "locked": "Lo gestiona el panel desde Ajustes → Dirección, para que coincida con el puerto asignado.",
+      "locked": "Lo gestiona el panel desde Configuración → Puertos, para que coincida con el puerto asignado.",
       "undo": "Deshacer el cambio en {{name}}",
       "default": "valor por defecto",
       "newWorldsOnly": "Solo afecta a mundos nuevos",
@@ -3094,7 +3145,7 @@
         "okHttps": "Activo: {{domain}} con HTTPS (Nginx y certificado configurados).",
         "okHttp": "Activo: {{domain}} por HTTP.",
         "okIp": "El panel contesta por la IP del servidor.",
-        "proxied": "Tu dominio pasa por el proxy de Cloudflare, que solo deja pasar la web: los jugadores y el SFTP usan la IP {{ip}}. Para que entren con un nombre, usa los subdominios automáticos (Ajustes → Dominios) o un registro DNS sin proxy (nube gris).",
+        "proxied": "Tu dominio pasa por el proxy de Cloudflare, que solo deja pasar la web: los jugadores y el SFTP usan la IP {{ip}}. Para que entren con un nombre, usa los subdominios automáticos (Configuración → Dominios) o un registro DNS sin proxy (nube gris).",
         "error": "No se pudo obtener el certificado para {{domain}}. Comprueba que el dominio apunta a este servidor y que el puerto 80 está abierto; se reintentará en una hora. Mientras tanto el panel funciona por HTTP."
       },
       "companyNameLabel": "Nombre de la empresa",
@@ -3129,7 +3180,9 @@
         "modpacksTitle": "Modpacks",
         "modpacksDescription": "Clave para buscar e instalar modpacks de CurseForge. Modrinth no necesita ninguna.",
         "experimentalTitle": "Funciones experimentales",
-        "experimentalDescription": "Funciones nuevas que todavía estamos afinando. Vienen apagadas: enciende las que quieras probar. Si las apagas se vuelven a ocultar y no se borra nada."
+        "experimentalDescription": "Funciones nuevas que todavía estamos afinando. Vienen apagadas: enciende las que quieras probar. Si las apagas se vuelven a ocultar y no se borra nada.",
+        "notificationsTitle": "Notificaciones",
+        "notificationsDescription": "Lo que el panel envía fuera de sus propias páginas."
       },
       "curseforgeKeyLabel": "Clave de API de CurseForge",
       "curseforgeKeyPlaceholder": "Pega la clave de API",
@@ -3137,14 +3190,16 @@
       "experimental": {
         "versionSwitchLabel": "Cambio de versión del juego",
         "versionSwitchDescription": "Cambiar la versión de Minecraft de un servidor en un clic, con un punto de restauración antes.",
-        "versionSwitchWhere": "En la pestaña Ajustes de cada servidor",
+        "versionSwitchWhere": "En la pestaña Configuración de cada servidor",
         "propertiesEditorLabel": "Editor de propiedades",
         "propertiesEditorDescription": "Editar server.properties como un formulario, con cada opción explicada.",
         "propertiesEditorWhere": "Pestaña Propiedades, en servidores de Minecraft Java",
         "serverCloneLabel": "Clonar servidor",
         "serverCloneDescription": "Duplicar un servidor para probar cambios sin tocar el original.",
         "serverCloneWhere": "En Administración › Clonar de cada servidor"
-      }
+      },
+      "notificationLanguageLabel": "Idioma de las notificaciones",
+      "notificationLanguageDescription": "El idioma de los avisos que se envían a Discord, Telegram y webhooks (los del panel y los de cada servidor), de los informes de Discord del panel y de los eventos que reciben las extensiones. Las páginas del panel siguen el idioma de cada persona."
     },
     "discord": {
       "title": "Notificaciones Discord",
@@ -3198,12 +3253,23 @@
         "keyPlaceholder": "••••••••"
       },
       "mailjet": {
-        "domainLabel": "Dominio",
-        "domainPlaceholder": "example.com",
+        "publicKeyLabel": "Clave API (pública)",
+        "publicKeyPlaceholder": "Clave API de Mailjet",
+        "fromLabel": "Dirección del remitente",
+        "fromPlaceholder": "no-reply@aether.panel",
+        "secretKeyLabel": "Clave secreta",
+        "keyPlaceholder": "••••••••"
+      },
+      "sendgrid": {
         "fromLabel": "Dirección del remitente",
         "fromPlaceholder": "no-reply@aether.panel",
         "keyLabel": "Clave API",
         "keyPlaceholder": "••••••••"
+      },
+      "debug": {
+        "option": "Depuración (solo registro)",
+        "configDescription": "Para pruebas: ningún correo sale del servidor.",
+        "note": "Los correos no se envían. El panel escribe cada uno (destinatario, asunto y cuerpo) en su registro con la etiqueta [DEBUG]."
       },
       "testButton": "Email de prueba",
       "testSuccess": "Email de prueba enviado correctamente",
@@ -3487,6 +3553,9 @@
     }
   },
   "apiErrors": {
+    "ErrFileExists": "Ya existe un archivo con ese nombre. Elige otro.",
+    "ErrPluginNoCompatibleVersion": "Este proyecto no tiene ninguna versión para el loader y la versión de Minecraft de este servidor.",
+    "ErrPluginBadFileName": "El archivo que ofrece Modrinth para este proyecto no es un .jar con un nombre de archivo normal, así que no se ha instalado.",
     "ErrDiskLimitExceeded": "El servidor ha usado todo su espacio en disco. Borra archivos para liberar espacio antes de arrancarlo o subir más.",
     "ErrSSHKeyInvalid": "Eso no es una clave pública SSH válida. Pega una sola línea, como el contenido de id_ed25519.pub.",
     "ErrSSHKeyIsPrivate": "Eso es una clave privada. Pega la clave pública (el archivo .pub) y no compartas nunca la privada.",
@@ -3499,8 +3568,46 @@
     "ErrServerOwner": "El propietario del servidor no se puede quitar ni limitar. Un administrador puede pasar el servidor a otra persona.",
     "ErrAPIKeyPermissions": "Marca al menos una acción para la clave.",
     "ErrAPIKeyNotAllowed": "Esta clave API no tiene permiso para hacer eso.",
+    "ErrAIAnalysisDisabled": "Un administrador ha desactivado el análisis de registros con IA.",
     "ErrBackupLimit": "Este servidor ya tiene todas las copias de seguridad que puede guardar. Borra una antigua antes de crear otra.",
-    "ErrInviteSignupsClosed": "Los registros están cerrados: esa persona necesita una cuenta antes de que puedas añadirla."
+    "ErrInviteSignupsClosed": "Los registros están cerrados: esa persona necesita una cuenta antes de que puedas añadirla.",
+    "ErrDatabaseHostInUse": "Este host todavía tiene bases de datos. Bórralas primero desde sus servidores, para que no queden olvidadas en el servidor de bases de datos.",
+    "ErrTransferRunning": "Este servidor ya se está transfiriendo. Espera a que termine esa transferencia.",
+    "ErrTransferBackupRunning": "Hay una copia de seguridad o una restauración de este servidor en curso. Transfiérelo cuando termine.",
+    "ErrTransferSubServer": "Un subservidor se queda en el nodo de su servidor principal. Transfiere el servidor principal: sus subservidores van con él.",
+    "ErrTransferPortsTaken": "Algunos puertos de este servidor ya están en uso en el nodo de destino. Libéralos allí o elige otro nodo.",
+    "ErrNodeAuthFailed": "El nodo rechazó las credenciales del panel. Un administrador debe comprobar que el secreto del nodo coincide con el del panel y que la hora de ambas máquinas es correcta.",
+    "ErrPortOutOfRange": "El puerto {{port}} está fuera del rango permitido (1024-65535).",
+    "ErrPortDuplicated": "El puerto {{port}} está duplicado.",
+    "ErrPortUsedByPanel": "El puerto {{port}} lo usa el propio panel en este nodo.",
+    "ErrPortTaken": "El puerto {{port}} ya está en uso por otro servidor en este nodo.",
+    "ErrPortBusy": "El puerto {{port}} ya está en uso por otro servidor o proceso activo en este nodo. Detén el servicio que lo ocupa o cambia el puerto del servidor antes de iniciarlo.",
+    "ErrSubdomainInvalid": "El subdominio solo puede tener letras minúsculas, números y guiones (3 a 32 caracteres, sin guion al principio ni al final).",
+    "ErrSubdomainReserved": "Ese subdominio está reservado.",
+    "ErrSubdomainTaken": "Ese subdominio ya está en uso.",
+    "ErrSubdomainDisabled": "Los subdominios automáticos no están configurados en este panel.",
+    "ErrSubdomainRateLimited": "Espera unos segundos antes de volver a cambiar el subdominio.",
+    "ErrSubdomainNoTarget": "El nodo de este servidor no tiene una dirección pública; configura un destino DNS en los ajustes del panel.",
+    "ErrDNSBaseDomainInvalid": "El dominio base no es un nombre de dominio válido.",
+    "ErrCloudflareNotConfigured": "Faltan el token de la API o el ID de zona de Cloudflare.",
+    "ErrCloudflareZoneID": "El ID de zona de Cloudflare debe tener 32 caracteres hexadecimales.",
+    "ErrCloudflareRecordID": "ID de registro DNS no válido: {{id}}",
+    "ErrCloudflareDomainNotInZone": "El dominio {{domain}} no pertenece a la zona {{zone}}.",
+    "ErrCloudflareUnreachable": "No se pudo contactar con Cloudflare: {{reason}}",
+    "ErrCloudflareBadAnswer": "No se pudo leer la respuesta de Cloudflare: {{reason}}",
+    "ErrCloudflareRefused": "Cloudflare respondió: {{message}}",
+    "ErrCloudflareRefusedCode": "Cloudflare respondió: {{message}} (código {{cloudflareCode}})",
+    "ErrDiscordNoWebhooks": "No hay webhooks de Discord configurados.",
+    "ErrDiscordTestFailed": "El mensaje de prueba no llegó a estos webhooks: {{webhooks}}. Revisa que sigan existiendo en Discord.",
+    "ErrNotificationLanguage": "El idioma de las notificaciones debe ser español o inglés."
+  },
+  "apiErrorValues": {
+    "ErrDiscordTestFailed": {
+      "alerts": "Alertas de servidores",
+      "reports": "Informes del sistema",
+      "status": "Estado de los nodos",
+      "transfers": "ExTransfer"
+    }
   },
   "extensions": {
     "title": "Extensiones",

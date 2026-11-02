@@ -173,3 +173,18 @@ func TestValidateStringSetting_DiscordWebhooks(t *testing.T) {
 	}
 	assert.True(t, found, "the transfer webhook can be saved")
 }
+
+func TestValidateStringSetting_NotificationLanguage(t *testing.T) {
+	key := config.NotificationLanguage.Key()
+	assert.NoError(t, validateStringSetting(key, "es"))
+	assert.NoError(t, validateStringSetting(key, " en "), "saved trimmed")
+	for _, value := range []string{"", "fr", "EN", "english"} {
+		assert.ErrorIs(t, validateStringSetting(key, value), skypanel.ErrNotificationLanguage, "%q", value)
+	}
+
+	found := false
+	for _, entry := range editableStringEntries {
+		found = found || entry.Key() == key
+	}
+	assert.True(t, found, "the notification language can be saved from the settings page")
+}
