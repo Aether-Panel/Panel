@@ -12,7 +12,6 @@ import { useTranslations } from '@/contexts/translations-context';
 import { ServerCard } from '@/components/server-card';
 import { useServers } from '@/hooks/use-servers';
 import { useNodes, useUsersCount, useGlobalNetworkMetrics } from '@/hooks/use-dashboard-data';
-import { useNetworkHistory } from '@/hooks/use-network-history';
 import { StatusStrip } from '@/features/dashboard/status-strip';
 import { KpiCard, usageTone } from '@/features/dashboard/kpi-card';
 import { PanelInfoCard } from '@/features/dashboard/panel-info-card';
@@ -102,13 +101,10 @@ function AdminDashboard({ user, t, canSeeNodes, canSeeUsers, allServers, usersCo
 
   const lastNetworkSample = globalNetworkMetrics[globalNetworkMetrics.length - 1];
   const networkKbps = lastNetworkSample ? lastNetworkSample.networkIn + lastNetworkSample.networkOut : null;
-  // one object per node reading, so the history can tell a new reading from a repeated one
   const networkTotals = useMemo(
     () => (lastNetworkSample ? { in: lastNetworkSample.networkIn, out: lastNetworkSample.networkOut } : null),
     [lastNetworkSample],
   );
-
-  const { samples } = useNetworkHistory(networkTotals);
 
   const averageHint = describeSamples(sampleCount, usingNodes, t);
 
@@ -156,7 +152,7 @@ function AdminDashboard({ user, t, canSeeNodes, canSeeUsers, allServers, usersCo
       </section>
 
       <div data-fit="fill" className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,13fr)_minmax(0,7fr)]">
-        <NetworkHistoryChart samples={samples} />
+        <NetworkHistoryChart live={networkTotals} />
         <AccessLog canRead={canSeeUsers} />
       </div>
     </div>

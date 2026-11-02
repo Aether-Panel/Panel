@@ -26,6 +26,23 @@ func TestLockEnvironment_NonAdminsCannotReachTheHost(t *testing.T) {
 	assert.Equal(t, map[string]interface{}{"Privileged": false}, got.Metadata["hostConfig"], "hostConfig stays as it was")
 }
 
+func TestLockEnvironment_PortsAndUserStay(t *testing.T) {
+	current := skypanel.MetadataType{Type: "docker", Metadata: map[string]interface{}{
+		"portBindings": []interface{}{"0.0.0.0:${port}:${port}"},
+	}}
+	wanted := skypanel.MetadataType{Type: "docker", Metadata: map[string]interface{}{
+		"portBindings": []interface{}{"0.0.0.0:22:22"},
+		"config":       map[string]interface{}{"user": "0:0", "WorkingDir": "/SkyPanel"},
+		"labels":       map[string]interface{}{"a": "b"},
+	}}
+
+	got := lockEnvironment(current, wanted)
+
+	assert.Equal(t, []interface{}{"0.0.0.0:${port}:${port}"}, got.Metadata["portBindings"])
+	assert.Equal(t, map[string]interface{}{"WorkingDir": "/SkyPanel"}, got.Metadata["config"])
+	assert.NotContains(t, got.Metadata, "labels")
+}
+
 func TestLockEnvironment_TheTypeCannotChange(t *testing.T) {
 	current := skypanel.MetadataType{Type: "docker", Metadata: map[string]interface{}{"image": "a"}}
 

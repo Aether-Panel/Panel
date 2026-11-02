@@ -50,6 +50,8 @@ Cuando el panel corre como root (la instalación normal con Docker), los juegos 
 - **Permisos:** el contenedor del juego pierde las capacidades de Linux que no necesita (la misma lista que Wings) y lleva `no-new-privileges`. Los contenedores que corren como root (instalaciones) conservan las que hacen falta para instalar paquetes.
 - **Límite de procesos:** cada contenedor tiene `docker.pidsLimit` procesos e hilos (4096 por defecto), para que una «fork bomb» no tumbe el nodo.
 - **`/tmp` y `/var/tmp`** son una carpeta junto a la del servidor (`<id>.tmp`): se vacía al crear cada contenedor, cuenta en el límite de disco y se borra con el servidor. No aparece en el gestor de archivos ni en las copias de seguridad.
+- **Enlaces simbólicos del juego:** el panel trabaja como root, así que nunca sigue un enlace que haya dejado el juego. Las descargas de instalación, descomprimir, comprimir, las copias de seguridad y el cambio de dueño del arranque abren cada archivo dentro de la carpeta del servidor; un enlace se guarda como enlace y un FIFO no bloquea nada.
+- **Lo que el dueño no cambia:** memoria, CPU, disco, IP y puertos los fija un administrador aunque la plantilla los marque como editables. Un sub-servidor solo publica sus propias variables de puerto, sin etiquetas ni un usuario de contenedor elegido por el cliente.
 
 ## ExtraPortBindings — Puertos Extra en Contenedores
 

@@ -521,6 +521,7 @@ See [Authentication](#authentication) for examples.
 | PUT | `/api/nodes/:id` | `nodes.edit` | Update node |
 | DELETE | `/api/nodes/:id` | `nodes.delete` | Delete node |
 | GET | `/api/nodes/:id/features` | `nodes.view` | Node features |
+| GET | `/api/nodes/network-history` | `nodes.view` | Every node's network traffic added up, over the last hour, 6 hours or day |
 | GET | `/api/nodes/:id/system` | `nodes.view` | System info |
 | POST | `/api/nodes/:id/ports/check` | `server.create` | Which ports are taken on the node, and a free one |
 | GET | `/api/nodes/:id/deployment` | `nodes.deploy` | Deployment data |
@@ -551,6 +552,8 @@ panel's own ports and containers, `server`, `container`) and the next free port:
 { "ports": { "port": { "busy": true, "reason": "panel", "by": "skypanel", "suggestion": 8082 }, "queryport": { "busy": false } } }
 ```
 
+`by` (who holds the port) is only sent to administrators; customers only learn that the port is taken.
+
 `serversDisk` in `SystemInfo` is the disk the servers' folders live on; `low` is true under 10% or
 5 GB free, and the dashboard, the nodes list and the node page warn administrators then.
 
@@ -561,6 +564,18 @@ panel's own ports and containers, `server`, `container`) and the next free port:
 
 ### `GET /api/nodes/:id/features`
 Returns node capabilities (`Features` type).
+
+### `GET /api/nodes/network-history`
+
+`range` is `1h`, `6h` or `24h` (points every 1, 5 or 15 minutes). Each node keeps its traffic
+for a day, a point a minute, on disk (`network.history` next to the servers folder), and answers
+`GET /daemon/network/history`; the panel adds the nodes up. A step no node measured has no point,
+so the chart leaves a gap. Rates are KB/s averaged over the step; `unavailable` counts the nodes
+that did not answer (down, or too old to keep a history).
+
+```json
+{ "step": 60, "points": [{ "t": 1793576400, "rx": 0.49, "tx": 0.37 }], "nodes": 1, "unavailable": 0 }
+```
 
 ### `GET /api/nodes/:id/system`
 Returns system info (`SystemInfo` type).
@@ -863,6 +878,8 @@ Creates a compressed backup of the server files.
 - Stored in daemon's backup directory (`daemon.data.backups.folder`)
 - Discord webhook alerts on success/failure
 - Returns immediately, backup runs in background
+- Files are listed and opened beneath the server folder: symlinks are stored as links, never followed, and pipes are left out
+- A server's users keep at most `panel.backups.maxPerServer` backups (default 10); past it the answer is `409` with code `ErrBackupLimit`. Administrators are not capped
 
 ---
 

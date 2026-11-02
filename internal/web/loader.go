@@ -34,6 +34,7 @@ var clientFiles fs.FS
 // RegisterRoutes Registers all routes
 func RegisterRoutes(e *gin.Engine) {
 	e.Use(corsMiddleware())
+	e.Use(middleware.SecurityHeaders, middleware.SameOriginGuard)
 
 	e.Use(func(c *gin.Context) {
 		middleware.Recover(c)

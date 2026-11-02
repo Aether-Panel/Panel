@@ -278,7 +278,7 @@ func (c *treeCopy) copyFile(rel string) error {
 }
 
 func (c *treeCopy) copySymlink(rel string) error {
-	target, err := os.Readlink(filepath.Join(c.src.Prefix(), filepath.FromSlash(rel)))
+	target, err := files.Readlink(c.src, filepath.FromSlash(rel))
 	if err != nil {
 		if vanished(err) {
 			c.stats.Skipped++
@@ -363,7 +363,8 @@ func statInside(fsys files.FileServer, rel string) (fs.FileInfo, error) {
 
 // vanished reports errors of entries that disappeared or turned into links while copying
 func vanished(err error) bool {
-	return errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ELOOP) || errors.Is(err, syscall.EXDEV) || errors.Is(err, syscall.ENOTDIR)
+	return errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ELOOP) || errors.Is(err, syscall.EXDEV) || errors.Is(err, syscall.ENOTDIR) ||
+		errors.Is(err, files.ErrPathTraversal)
 }
 
 func isEmptyDir(fsys files.FileServer) (bool, error) {

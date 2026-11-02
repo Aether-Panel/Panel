@@ -104,12 +104,15 @@ func TestRestrictSubServerCreation_StripsHostAccessFromDocker(t *testing.T) {
 		Type: "docker",
 		Metadata: map[string]interface{}{
 			"image":        "eclipse-temurin:21",
-			"portBindings": []interface{}{"25565:25565"},
+			"portBindings": []interface{}{"0.0.0.0:${port}:${port}/tcp", "${queryport}:${queryport}/udp"},
 			"hostConfig":   map[string]interface{}{"Privileged": true},
 			"bindings":     map[string]interface{}{"/": "/host"},
 			"networkName":  "host",
+			"labels":       map[string]interface{}{"traefik.http.routers.x.rule": "Host(`panel.example.com`)"},
+			"config":       map[string]interface{}{"User": "0:0", "Env": []interface{}{"A=1"}},
 		},
 	})
+	body.Variables = map[string]skypanel.Variable{"port": {Value: 25565}, "queryport": {Value: 25566}}
 
 	err := restrictSubServerCreation(ps, user, body)
 
@@ -120,6 +123,45 @@ func TestRestrictSubServerCreation_StripsHostAccessFromDocker(t *testing.T) {
 	assert.NotContains(t, body.Environment.Metadata, "hostConfig")
 	assert.NotContains(t, body.Environment.Metadata, "bindings")
 	assert.NotContains(t, body.Environment.Metadata, "networkName")
+	assert.NotContains(t, body.Environment.Metadata, "labels")
+	assert.Equal(t, map[string]interface{}{"Env": []interface{}{"A=1"}}, body.Environment.Metadata["config"], "the game never picks its user")
+}
+
+func TestRestrictSubServerCreation_PublishesOnlyItsPortVariables(t *testing.T) {
+	ps, user := setupSubServerTest(t)
+	ownParent(t, ps, user)
+
+	for _, spec := range []string{"0.0.0.0:25565:25565", "25565:25565/udp", "0.0.0.0:${motd}:25565", "127.0.0.1:${port}:${port}"} {
+		body := subServerBody("parent01", skypanel.MetadataType{Type: "docker", Metadata: map[string]interface{}{
+			"portBindings": []interface{}{spec},
+		}})
+		body.Variables = map[string]skypanel.Variable{"port": {Value: 25570}, "motd": {Value: "hi"}}
+		assert.Error(t, restrictSubServerCreation(ps, user, body), "%q must be refused", spec)
+	}
+}
+
+func TestLockVariables_OwnersKeepTheirLimitsAndPorts(t *testing.T) {
+	current := map[string]skypanel.Variable{
+		"memory": {Value: 4096, UserEditable: true}, // a template that opened it by mistake
+		"port":   {Value: 25565, UserEditable: true},
+		"motd":   {Value: "hello", UserEditable: true},
+		"jar":    {Value: "server.jar"},
+	}
+	wanted := map[string]skypanel.Variable{
+		"memory":    {Value: -1, UserEditable: true},
+		"port":      {Value: 25570, UserEditable: true},
+		"motd":      {Value: "mine", UserEditable: true},
+		"jar":       {Value: "evil.jar"},
+		"queryport": {Value: 3000},
+	}
+
+	got := lockVariables(current, wanted)
+
+	assert.Equal(t, 4096, got["memory"].Value)
+	assert.Equal(t, 25565, got["port"].Value)
+	assert.Equal(t, "server.jar", got["jar"].Value, "not editable by the owner")
+	assert.Equal(t, "mine", got["motd"].Value)
+	assert.NotContains(t, got, "queryport", "no new ports either")
 }
 
 func TestFilterUptimeToServers(t *testing.T) {

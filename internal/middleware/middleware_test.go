@@ -83,3 +83,17 @@ func TestMayStillSignIn(t *testing.T) {
 
 	assert.False(t, mayStillSignIn(&models.User{}), "nothing left: the session ends")
 }
+
+func TestCollectScopes_AdminInAServerRowIsNotPanelAdmin(t *testing.T) {
+	server := "theirs"
+	// what a server.admin holder could write into their own row of the member list
+	serverPerms := &models.Permissions{ID: 10, ServerIdentifier: &server,
+		Scopes: []*scopes.Scope{scopes.ScopeAdmin, scopes.ScopeSettingsEdit, scopes.ScopeServerView}}
+
+	got := collectScopes(userRole(), []*models.Permissions{serverPerms, {}}, server, false)
+
+	assert.True(t, scopes.ContainsScope(got, scopes.ScopeServerView))
+	assert.False(t, scopes.ContainsScope(got, scopes.ScopeAdmin), "admin only comes from the global row or the role")
+	assert.False(t, scopes.ContainsScope(got, scopes.ScopeSettingsEdit))
+	assert.False(t, scopes.ContainsScope(got, scopes.ScopeServerSendCommand))
+}

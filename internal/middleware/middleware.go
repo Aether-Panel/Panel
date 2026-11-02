@@ -223,17 +223,7 @@ func clientAllows(client *models.Client, perm *scopes.Scope, serverID string) bo
 // OwnerScopes for its owner. A role's server scopes never count there: they would give every
 // sub-user the owner's powers, whatever the owner chose for them.
 func collectScopes(role *models.Role, perms []*models.Permissions, serverID string, owner bool) []*scopes.Scope {
-	allScopes := make([]*scopes.Scope, 0)
-
-	if role != nil {
-		for _, s := range role.Scopes {
-			scopeObj := scopes.GetScope(s)
-			if scopeObj.ForServer && serverID != "" {
-				continue
-			}
-			allScopes = scopes.AddScope(allScopes, scopeObj)
-		}
-	}
+	allScopes := roleScopes(role, serverID)
 
 	if owner && serverID != "" {
 		for _, s := range scopes.OwnerScopes {
@@ -242,12 +232,38 @@ func collectScopes(role *models.Role, perms []*models.Permissions, serverID stri
 	}
 
 	for _, p := range perms {
-		for _, s := range p.Scopes {
+		for _, s := range grantedScopes(p) {
 			allScopes = scopes.AddScope(allScopes, s)
 		}
 	}
 
 	return allScopes
+}
+
+// roleScopes are the role's scopes that apply here: on a server, its server scopes do not
+// (a role must not open a server the user has no access to)
+func roleScopes(role *models.Role, serverID string) []*scopes.Scope {
+	out := make([]*scopes.Scope, 0)
+	if role == nil {
+		return out
+	}
+	for _, s := range role.Scopes {
+		scopeObj := scopes.GetScope(s)
+		if scopeObj.ForServer && serverID != "" {
+			continue
+		}
+		out = scopes.AddScope(out, scopeObj)
+	}
+	return out
+}
+
+// grantedScopes are the scopes a permission row gives: a row of one server only holds
+// server scopes, so "admin" written into it never counts
+func grantedScopes(p *models.Permissions) []*scopes.Scope {
+	if p.ServerIdentifier != nil {
+		return scopes.ServerOnly(p.Scopes)
+	}
+	return p.Scopes
 }
 
 func GetToken(c *gin.Context) string {

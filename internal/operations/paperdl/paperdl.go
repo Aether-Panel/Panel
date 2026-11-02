@@ -54,7 +54,7 @@ func (op PaperDl) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 		return skypanel.OperationResult{Error: err}
 	}
 
-	err = files.WriteFile(dl, path.Join(env.GetRootDirectory(), op.Filename))
+	err = files.WriteFile(dl, env.GetRootDirectory(), path.Join(env.GetRootDirectory(), op.Filename))
 	if err != nil {
 		return skypanel.OperationResult{Error: err}
 	}

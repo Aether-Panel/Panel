@@ -1,6 +1,7 @@
 package files
 
 import (
+	"archive/tar"
 	"errors"
 	"io"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/sys/unix"
 )
 
 func newSafetyServer(t *testing.T) (FileServer, string, string) {
@@ -56,7 +58,62 @@ func TestCompress_DoesNotReadThroughASymlinkedFolder(t *testing.T) {
 	assert.NoError(t, os.Symlink(outside, filepath.Join(root, "link")))
 
 	err := Compress(fs, "out.tar.gz", []string{"link/secret"})
-	assert.ErrorIs(t, err, ErrPathTraversal)
+	assert.ErrorIs(t, err, ErrPathTraversal, "the file server refuses to go through the link")
+}
+
+func TestCompress_AWildcardFolderDoesNotFollowLinks(t *testing.T) {
+	fs, root, outside := newSafetyServer(t)
+	assert.NoError(t, os.WriteFile(filepath.Join(outside, "shadow"), []byte("root:secret"), 0644))
+	assert.NoError(t, os.Symlink(outside, filepath.Join(root, "alink")))
+
+	// the wildcard in the folder used to be expanded by the OS, through the link
+	err := Compress(fs, "out.zip", []string{"a*/shadow"})
+	assert.Error(t, err)
+	_, statErr := os.Stat(filepath.Join(root, "out.zip"))
+	assert.True(t, os.IsNotExist(statErr))
+}
+
+func TestCompress_StoresLinksAsLinks(t *testing.T) {
+	fs, root, outside := newSafetyServer(t)
+	assert.NoError(t, os.WriteFile(filepath.Join(outside, "secret"), []byte("root:secret"), 0644))
+	assert.NoError(t, os.Symlink(filepath.Join(outside, "secret"), filepath.Join(root, "leak")))
+	assert.NoError(t, unix.Mkfifo(filepath.Join(root, "pipe"), 0644))
+
+	if !assert.NoError(t, Compress(fs, "all.tar", []string{"*"})) {
+		return
+	}
+	data, err := os.ReadFile(filepath.Join(root, "all.tar"))
+	assert.NoError(t, err)
+	assert.NotContains(t, string(data), "root:secret", "the target of a link is not read into the archive")
+	assert.Contains(t, string(data), "world", "the server's own files are")
+}
+
+func TestCompressServer_KeepsTheServerFolderAsRoot(t *testing.T) {
+	fs, root, outside := newSafetyServer(t)
+	assert.NoError(t, os.MkdirAll(filepath.Join(root, "world", "region"), 0755))
+	assert.NoError(t, os.WriteFile(filepath.Join(root, "world", "region", "r.0.0.mca"), []byte("chunk"), 0644))
+	target := filepath.Join(outside, "backup.tar.gz")
+
+	if !assert.NoError(t, CompressServer(fs, target)) {
+		return
+	}
+
+	restored := filepath.Join(t.TempDir(), "restored")
+	assert.NoError(t, os.MkdirAll(restored, 0755))
+	dest, err := NewFileServer(restored, -1, -1)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer dest.Close()
+	in, err := os.Open(target)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer in.Close()
+	assert.NoError(t, ExtractReader(dest, in, target, "", "*", true))
+	content, err := os.ReadFile(filepath.Join(restored, "world", "region", "r.0.0.mca"))
+	assert.NoError(t, err)
+	assert.Equal(t, "chunk", string(content))
 }
 
 // limitedWriter refuses writes past max bytes, as the server's disk writer does
@@ -119,4 +176,73 @@ func TestCompressLimited_KeepsAnArchiveThatFits(t *testing.T) {
 	assert.NoError(t, err)
 	_, statErr := os.Stat(filepath.Join(root, "world.tar.gz"))
 	assert.NoError(t, statErr)
+}
+
+func tarOf(t *testing.T, root string, entries ...*tar.Header) string {
+	path := filepath.Join(root, "in.tar")
+	f, err := os.Create(path)
+	if !assert.NoError(t, err) {
+		t.FailNow()
+	}
+	defer f.Close()
+	tw := tar.NewWriter(f)
+	for _, h := range entries {
+		assert.NoError(t, tw.WriteHeader(h))
+		if h.Typeflag == tar.TypeReg {
+			_, _ = tw.Write(make([]byte, h.Size))
+		}
+	}
+	assert.NoError(t, tw.Close())
+	return path
+}
+
+func TestExtract_LeavesOutLinksThatLeaveTheServer(t *testing.T) {
+	fs, root, _ := newSafetyServer(t)
+	tarOf(t, root,
+		&tar.Header{Name: "steamclient.so", Typeflag: tar.TypeSymlink, Linkname: "/home/steam/.steam/sdk64/steamclient.so"},
+		&tar.Header{Name: "up", Typeflag: tar.TypeSymlink, Linkname: "../../etc"},
+		&tar.Header{Name: "config.cfg", Typeflag: tar.TypeReg, Size: 3, Mode: 0644},
+		&tar.Header{Name: "current", Typeflag: tar.TypeSymlink, Linkname: "config.cfg"},
+	)
+
+	assert.NoError(t, Extract(fs, "in.tar", "out", "*", false, nil), "a game's absolute links do not fail the archive")
+	for _, gone := range []string{"steamclient.so", "up"} {
+		_, err := os.Lstat(filepath.Join(root, "out", gone))
+		assert.True(t, os.IsNotExist(err), "%s must be left out", gone)
+	}
+	target, err := os.Readlink(filepath.Join(root, "out", "current"))
+	assert.NoError(t, err)
+	assert.Equal(t, "config.cfg", target, "links inside the folder are kept")
+}
+
+func TestCheckArchive(t *testing.T) {
+	_, root, _ := newSafetyServer(t)
+	good := tarOf(t, root, &tar.Header{Name: "srv/world.dat", Typeflag: tar.TypeReg, Size: 1, Mode: 0644})
+	in, err := os.Open(good)
+	if !assert.NoError(t, err) {
+		return
+	}
+	assert.NoError(t, CheckArchive(in, good, true))
+	in.Close()
+
+	bad := tarOf(t, root, &tar.Header{Name: "srv/../../etc/cron.d/x", Typeflag: tar.TypeReg, Size: 1, Mode: 0644})
+	in, err = os.Open(bad)
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer in.Close()
+	assert.ErrorIs(t, CheckArchive(in, bad, true), ErrPathTraversal)
+}
+
+func TestReadlinkDoesNotGoThroughALinkedFolder(t *testing.T) {
+	fs, root, outside := newSafetyServer(t)
+	assert.NoError(t, os.Symlink("/etc/shadow", filepath.Join(outside, "l")))
+	assert.NoError(t, os.Symlink(outside, filepath.Join(root, "dir")))
+	assert.NoError(t, os.Symlink("world.dat", filepath.Join(root, "ok")))
+
+	_, err := Readlink(fs, "dir/l")
+	assert.Error(t, err)
+	target, err := Readlink(fs, "ok")
+	assert.NoError(t, err)
+	assert.Equal(t, "world.dat", target)
 }

@@ -68,13 +68,21 @@ func checkNodePorts(c *gin.Context) {
 		return
 	}
 
-	asked := make(map[uint16]bool, len(req.Ports))
-	for _, p := range req.Ports {
+	// who holds a port is an administrator's business: customers splitting a server only
+	// learn that it is taken, not the names of other customers' servers and containers
+	c.JSON(http.StatusOK, gin.H{"ports": portCheckResults(req.Ports, held, callerIsAdmin(c))})
+}
+
+// portCheckResults answers each asked port: free, or busy with why, who (showHolders) and a
+// free one to use instead
+func portCheckResults(ports map[string]uint16, held map[uint16]portHolder, showHolders bool) map[string]portCheckResult {
+	asked := make(map[uint16]bool, len(ports))
+	for _, p := range ports {
 		asked[p] = true
 	}
 
-	results := make(map[string]portCheckResult, len(req.Ports))
-	for variable, p := range req.Ports {
+	results := make(map[string]portCheckResult, len(ports))
+	for variable, p := range ports {
 		if p == 0 {
 			continue
 		}
@@ -82,14 +90,17 @@ func checkNodePorts(c *gin.Context) {
 		if p < 1024 {
 			result = portCheckResult{Busy: true, Reason: portBusyRange}
 		} else if h, taken := held[p]; taken {
-			result = portCheckResult{Busy: true, Reason: h.reason, By: h.by}
+			result = portCheckResult{Busy: true, Reason: h.reason}
+			if showHolders {
+				result.By = h.by
+			}
 		}
 		if result.Busy {
 			result.Suggestion = nextPortFree(max(p, 1023), held, asked)
 		}
 		results[variable] = result
 	}
-	c.JSON(http.StatusOK, gin.H{"ports": results})
+	return results
 }
 
 // portsHeldOnNode collects every port that is not free on the node: the node's own, the ones

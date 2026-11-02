@@ -19,6 +19,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/database"
 	"github.com/SkyPanel/SkyPanel/v3/internal/extensions"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
+	"github.com/SkyPanel/SkyPanel/v3/internal/middleware"
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers"
 	"github.com/SkyPanel/SkyPanel/v3/internal/servers/docker"
@@ -26,6 +27,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/sftp"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/SkyPanel/SkyPanel/v3/internal/web"
+	daemonweb "github.com/SkyPanel/SkyPanel/v3/internal/web/daemon"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
@@ -68,7 +70,7 @@ func internalRun() (terminate chan bool, success bool) {
 
 	router := gin.New()
 	router.Use(gin.Recovery())
-	router.Use(gin.LoggerWithWriter(logging.Info.Writer()))
+	router.Use(gin.LoggerWithConfig(gin.LoggerConfig{Output: logging.Info.Writer(), Formatter: middleware.RedactedLogFormatter}))
 
 	configureTrustedProxies(router)
 
@@ -299,6 +301,8 @@ func daemon() error {
 	}
 	// the runtime images, downloaded and kept up to date in the background
 	docker.PrefetchImages()
+	// the node's traffic over the last day, for the dashboard
+	daemonweb.StartNetworkHistory()
 
 	if _, err = os.Stat(config.ServersFolder.Value()); os.IsNotExist(err) {
 		logging.Info.Printf("No server directory found, creating")

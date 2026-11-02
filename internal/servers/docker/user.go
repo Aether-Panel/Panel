@@ -3,17 +3,16 @@ package docker
 import (
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
-	"syscall"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/config"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/moby/moby/api/types/container"
+	"golang.org/x/sys/unix"
 )
 
 // defaultServerUser is the uid:gid game servers run as when the panel runs as root. It is the
@@ -120,27 +119,70 @@ func limitProcesses(hostConfig *container.HostConfig, limit int) {
 // ownServerFiles gives every file in the server folder to the user the game runs as, before
 // each start, as Wings does. Files an install (run as root) or the panel left behind would
 // otherwise be read-only for the game, and servers created while games ran as root move over
-// on their first start. Symlinks are changed themselves, never followed, so a link that points
-// outside the folder cannot hand anything else to the server.
+// on their first start. The walk goes folder by folder through open descriptors, never by path:
+// symlinks are changed themselves, never followed, and a folder the game swaps for a symlink
+// while the walk runs (to / for example) is refused instead of walked into.
 func ownServerFiles(root string, uid, gid int) error {
-	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		info, err := entry.Info()
-		if err != nil {
-			if errors.Is(err, fs.ErrNotExist) {
-				return nil // removed while walking
+	fd, err := unix.Open(root, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0)
+	if errors.Is(err, unix.ENOENT) {
+		return nil // nothing installed yet: Docker creates the folder
+	}
+	if err != nil {
+		return &os.PathError{Op: "open", Path: root, Err: err}
+	}
+	if err = ownIfNeeded(fd, "", uid, gid); err != nil {
+		_ = unix.Close(fd)
+		return err
+	}
+	return ownFolder(fd, root, uid, gid)
+}
+
+// ownFolder owns everything in the open folder dirFd and closes it
+func ownFolder(dirFd int, path string, uid, gid int) error {
+	folder := os.NewFile(uintptr(dirFd), path)
+	defer folder.Close()
+	entries, err := folder.ReadDir(-1)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		name := entry.Name()
+		if err = ownIfNeeded(dirFd, name, uid, gid); err != nil {
+			if errors.Is(err, unix.ENOENT) {
+				continue // removed while walking
 			}
 			return err
 		}
-		if st, ok := info.Sys().(*syscall.Stat_t); ok && int(st.Uid) == uid && int(st.Gid) == gid {
-			return nil
+		if !entry.IsDir() {
+			continue
 		}
-		return os.Lchown(path, uid, gid)
-	})
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil // nothing installed yet: Docker creates the folder
+		child, err := unix.Openat(dirFd, name, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0)
+		if errors.Is(err, unix.ENOENT) || errors.Is(err, unix.ELOOP) || errors.Is(err, unix.ENOTDIR) {
+			continue // removed, or swapped for a symlink or a file, since it was listed
+		}
+		if err != nil {
+			return &os.PathError{Op: "open", Path: filepath.Join(path, name), Err: err}
+		}
+		if err = ownFolder(child, filepath.Join(path, name), uid, gid); err != nil {
+			return err
+		}
 	}
-	return err
+	return nil
+}
+
+// ownIfNeeded changes the owner of name in dirFd (dirFd itself when name is empty), unless it
+// already has it; a symlink is changed itself
+func ownIfNeeded(dirFd int, name string, uid, gid int) error {
+	flags := unix.AT_SYMLINK_NOFOLLOW
+	if name == "" {
+		flags |= unix.AT_EMPTY_PATH
+	}
+	var st unix.Stat_t
+	if err := unix.Fstatat(dirFd, name, &st, flags); err != nil {
+		return err
+	}
+	if int(st.Uid) == uid && int(st.Gid) == gid {
+		return nil
+	}
+	return unix.Fchownat(dirFd, name, uid, gid, flags)
 }

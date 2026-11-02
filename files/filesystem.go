@@ -67,8 +67,27 @@ func (sfp *fileServer) Stat(name string) (fs.FileInfo, error) {
 	return f.Stat()
 }
 
+// Symlink makes newpath a link to oldpath. The link is made from its parent folder, opened
+// beneath the root: given the whole path, the kernel would follow a symlink on the way and an
+// archive entry "e/x" under a link e -> /etc would land a root-owned link in /etc.
 func (sfp *fileServer) Symlink(oldpath, newpath string) error {
-	return unix.Symlinkat(oldpath, getFd(sfp.root), newpath)
+	newpath = prepPath(newpath)
+	if newpath == "" || !filepath.IsLocal(newpath) {
+		return fmt.Errorf("invalid path: %s", newpath)
+	}
+	folder, err := sfp.OpenFile(filepath.Dir(newpath), os.O_RDONLY|unix.O_DIRECTORY, 0)
+	if err != nil {
+		return err
+	}
+	defer utils.Close(folder)
+	name := filepath.Base(newpath)
+	if err = unix.Symlinkat(oldpath, getFd(folder), name); err != nil {
+		return err
+	}
+	if sfp.uid != -1 {
+		_ = unix.Fchownat(getFd(folder), name, sfp.uid, sfp.gid, unix.AT_SYMLINK_NOFOLLOW)
+	}
+	return nil
 }
 
 func (sfp *fileServer) ReadDir(name string) ([]fs.DirEntry, error) {
@@ -119,6 +138,11 @@ func (sfp *fileServer) OpenFile(path string, flags int, mode os.FileMode) (*os.F
 	// if this is not a create request, nuke mode
 	if flags&os.O_CREATE == 0 {
 		mode = 0
+	}
+	// a named pipe the game made would otherwise block the open until someone writes to it,
+	// hanging the request (and, for history, every later save); regular files ignore it
+	if flags&unix.O_PATH == 0 {
+		flags |= unix.O_NONBLOCK
 	}
 
 	var fd int

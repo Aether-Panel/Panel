@@ -865,8 +865,25 @@ func CreateProgram() *Server {
 
 // Start Starts the program.
 // This includes starting the environment if it is not running.
+// hostEnvironments run the server's processes on the node itself, as the panel's user
+var hostEnvironments = map[string]bool{"host": true, "tty": true, "standard": true, "bubblewrap": true}
+
+// checkEnvironmentAllowed refuses to run a server on the host while docker.disallowHost is on.
+// It was only checked when a server was created or redefined: a definition that got onto the
+// node another way (a restored backup, an older panel) still ran outside any container.
+func (p *Server) checkEnvironmentAllowed() error {
+	if config.DockerDisallowHost.Value() && hostEnvironments[p.Environment.Type] {
+		p.RunningEnvironment.DisplayToConsole(true, "This node only runs servers in Docker containers (docker.disallowHost).\n")
+		return fmt.Errorf("environment %q is disabled on this node (docker.disallowHost)", p.Environment.Type)
+	}
+	return nil
+}
+
 func (p *Server) Start() error {
 	if err := p.IsIdle(); err != nil {
+		return err
+	}
+	if err := p.checkEnvironmentAllowed(); err != nil {
 		return err
 	}
 	// like Pterodactyl, a server that already filled its disk does not boot until files are deleted
@@ -1148,6 +1165,9 @@ func (p *Server) Install() error {
 	if err := p.IsIdle(); err != nil {
 		return err
 	}
+	if err := p.checkEnvironmentAllowed(); err != nil {
+		return err
+	}
 	if err := p.checkNodeDiskForInstall(); err != nil {
 		return err
 	}
@@ -1264,6 +1284,21 @@ func (p *Server) Save() (err error) {
 	return
 }
 
+// limitVariables are the resources an administrator sets for a server
+var limitVariables = map[string]bool{"memory": true, "cpu": true, "io": true, "disk": true, "swap": true, "ip": true}
+
+// IsAdminOnlyVariable is true for the variables that hold the server's limits, its address and
+// its ports. Only an administrator changes them, even when the template lets the owner edit
+// them: memory -1 left the container without a memory cap, and a port of the owner's choosing
+// took another customer's port.
+func IsAdminOnlyVariable(key string, variable skypanel.Variable) bool {
+	lower := strings.ToLower(strings.TrimSpace(key))
+	if limitVariables[lower] || IsPortVariable(key) {
+		return true
+	}
+	return strings.HasSuffix(lower, "port") && variable.Type.Type == "integer"
+}
+
 func (p *Server) EditData(data map[string]interface{}, asAdmin bool) (err error) {
 	for k, v := range data {
 		var elem skypanel.Variable
@@ -1271,7 +1306,7 @@ func (p *Server) EditData(data map[string]interface{}, asAdmin bool) (err error)
 		if _, ok := p.Variables[k]; ok {
 			elem = p.Variables[k]
 		}
-		if !asAdmin && !elem.UserEditable {
+		if !asAdmin && (!elem.UserEditable || IsAdminOnlyVariable(k, elem)) {
 			continue
 		}
 
@@ -1374,6 +1409,9 @@ func (p *Server) GetItem(name string) (*FileData, error) {
 
 	if info.IsDir() {
 		return &FileData{FileList: p.listDirectory(name)}, nil
+	}
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("%s is not a regular file", name)
 	}
 	file, err := p.GetFileServer().Open(name)
 	if err != nil {
@@ -1553,7 +1591,7 @@ func (p *Server) finishBackup(file string) bool {
 // restored. The hidden name keeps the .tar.gz ending because the format is picked from it.
 func (p *Server) writeArchive(file string) error {
 	partial := filepath.Join(filepath.Dir(file), ".partial-"+filepath.Base(file))
-	err := files.Compress(nil, partial, []string{p.GetFileServer().Prefix()})
+	err := files.CompressServer(p.GetFileServer(), partial)
 	if err == nil {
 		err = os.Rename(partial, file)
 	}
@@ -1792,9 +1830,17 @@ func (p *Server) StartRestore(fileName string) error {
 		}
 		defer utils.Close(archive)
 
-		// read the whole archive before deleting anything: an unreadable backup must fail
-		// here, not after the server's files are gone
-		if _, err = files.DetermineIfSingleRoot(context.Background(), source, archive); err != nil {
+		// read the whole archive before deleting anything: an unreadable backup, or one with
+		// an entry the extraction would refuse, must fail here, not after the server's files
+		// are gone
+		singleRoot, err := files.DetermineIfSingleRoot(context.Background(), source, archive)
+		if err == nil {
+			_, err = archive.Seek(0, io.SeekStart)
+		}
+		if err == nil {
+			err = files.CheckArchive(archive, source, singleRoot)
+		}
+		if err != nil {
 			p.Log(logging.Error, "Error reading backup: %s", err)
 			p.RunningEnvironment.DisplayToConsole(true, "Backup file cannot be read: %s", err)
 			return

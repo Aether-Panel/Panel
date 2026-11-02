@@ -293,7 +293,7 @@ func downloadForgeInstaller(env *skypanel.Environment, modLoader string, data ma
 		return "", err
 	}
 	// copy to server
-	err = files.WriteFile(dl, filepath.Join(env.GetRootDirectory(), installerJar))
+	err = files.WriteFile(dl, env.GetRootDirectory(), filepath.Join(env.GetRootDirectory(), installerJar))
 	if err != nil {
 		return "", err
 	}
@@ -316,7 +316,7 @@ func grabServerStarter(env *skypanel.Environment) error {
 			return err
 		}
 	}
-	return files.CopyFile(cachePath, runJarFile)
+	return files.CopyFile(cachePath, env.GetRootDirectory(), runJarFile)
 }
 
 func findInstallerJar(env *skypanel.Environment) (string, error) {
@@ -416,7 +416,7 @@ func installFabric(env *skypanel.Environment, data map[string]string, javaBinary
 	cleanTarget := filepath.Clean(targetFile)
 
 	env.DisplayToConsole(true, "Downloading %s to %s", fabricURL, cleanTarget)
-	err := downloadFile(fabricURL, cleanTarget)
+	err := downloadFile(fabricURL, cleanRoot, cleanTarget)
 	if err == nil {
 		// this was a good file, we got what we need
 		return nil
@@ -429,7 +429,7 @@ func installFabric(env *skypanel.Environment, data map[string]string, javaBinary
 		cleanTarget = filepath.Clean(targetFile)
 
 		env.DisplayToConsole(true, "Downloading %s to %s", fabricURL, cleanTarget)
-		err = downloadFile(fabricURL, cleanTarget)
+		err = downloadFile(fabricURL, cleanRoot, cleanTarget)
 		if err != nil {
 			return err
 		}
@@ -475,8 +475,8 @@ func installFabric(env *skypanel.Environment, data map[string]string, javaBinary
 	return err
 }
 
-func downloadFile(url, target string) error {
-	file, err := os.Create(target)
+func downloadFile(url, root, target string) error {
+	file, err := files.CreateIn(root, target)
 	if err != nil {
 		return err
 	}

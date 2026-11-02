@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
 	"github.com/stretchr/testify/assert"
 )
@@ -37,7 +38,8 @@ func TestValidateLogin_StopsPasswordGuessing(t *testing.T) {
 	user := createTestUser(t, db)
 	assert.NoError(t, user.SetPassword("the-right-password"))
 	assert.NoError(t, db.Save(user).Error)
-	t.Cleanup(func() { LoginAttempts.Reset("password:" + user.Email) })
+	key := attemptKey("password", user.Email, user)
+	t.Cleanup(func() { LoginAttempts.Reset(key) })
 	us := &User{DB: db}
 
 	for i := 0; i < 10; i++ {
@@ -48,7 +50,14 @@ func TestValidateLogin_StopsPasswordGuessing(t *testing.T) {
 	_, _, err := us.ValidateLogin(user.Email, "the-right-password")
 	assert.ErrorIs(t, err, skypanel.ErrTooManyAttempts, "even the right password waits once the limit is hit")
 
-	LoginAttempts.Reset("password:" + user.Email)
+	LoginAttempts.Reset(key)
 	_, _, err = us.ValidateLogin(user.Email, "the-right-password")
 	assert.NoError(t, err)
+}
+
+func TestAttemptKey_CountsPerAccount(t *testing.T) {
+	user := &models.User{ID: 7}
+	// the database finds the same account for both spellings, so they share one budget
+	assert.Equal(t, attemptKey("password", "admín@x.com", user), attemptKey("password", "ádmin@x.com", user))
+	assert.Equal(t, "password:nobody@x.com", attemptKey("password", "Nobody@x.com", &models.User{}))
 }

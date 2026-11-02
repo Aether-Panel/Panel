@@ -23,6 +23,11 @@ var PanelEnabled = asBool("panel.enable", true)
 // is ready to start without anyone pressing Install
 var ServersAutoInstall = asBool("panel.servers.autoInstall", true)
 
+// BackupsMaxPerServer caps the backups a server's users keep (administrators are not capped;
+// 0 turns it off). Backups do not count against the server's disk, so without a cap one
+// customer could fill the node's backup disk.
+var BackupsMaxPerServer = asInt("panel.backups.maxPerServer", 10)
+
 var DatabaseDialect = asString("panel.database.dialect", "sqlite3")
 var DatabaseURL = asString("panel.database.url", "")
 var DatabaseLoggingEnabled = asBool("panel.database.log", false)
@@ -122,6 +127,11 @@ var DNSAutoAssign = asBool("panel.dns.autoAssign", false)
 
 var CurseForgeKey = asString("daemon.curseforge.key", curseforgeKey)
 var DataRootFolder = asString("daemon.data.root", "")
+
+// DaemonHostProc is where the host's /proc is mounted when the daemon runs in a container
+// (docker-compose mounts it at /host/proc): the node's network traffic is read from the
+// host's first process there. Empty reads this process's own /proc.
+var DaemonHostProc = asString("daemon.hostProc", "")
 var DepotDownloaderVersion = asString("daemon.depotDownloader.version", "latest")
 var DepotDownloaderDisableLancache = asBool("daemon.depotDownloader.disableLancache", false)
 
@@ -133,8 +143,11 @@ var SecurityTrustedProxyHeader = asString("security.trustedProxyHeader", "")
 var SecurityDisableUnshare = asBool("security.disableUnshare", false)
 
 // SecurityBlockPrivateDownloads also refuses template downloads from private network
-// addresses (LAN mirrors); loopback and link-local addresses are always refused
-var SecurityBlockPrivateDownloads = asBool("security.blockPrivateDownloads", false)
+// addresses; loopback and link-local addresses are always refused. On by default: some
+// templates take the URL from a variable the server's owner edits, and private addresses are
+// the Docker networks (the database, the host's own services) and the node's LAN. An install
+// that keeps mirrors on its LAN turns it off.
+var SecurityBlockPrivateDownloads = asBool("security.blockPrivateDownloads", true)
 
 var DockerRootPath = asString("docker.root", "")
 var DockerDisallowHost = asBool("docker.disallowHost", false)

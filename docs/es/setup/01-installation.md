@@ -97,6 +97,8 @@ curl -fsSL https://install.aetherpanel.es/install.sh | sudo bash -s -- --domain 
 
 Sin dominio, Nginx contesta en el puerto 80 por la IP y por cualquier dominio que apunte al servidor. Con Cloudflare en modo SSL "Full", Cloudflare entra por el 443 y hace falta el certificado (URL con `https://`).
 
+Con dominio, el instalador (también con `--update`) publica el puerto del panel solo en `127.0.0.1`: el panel se usa por el dominio a través de Nginx y nadie entra por `http://IP:8080` saltándose el HTTPS. Docker publica sus puertos por delante de ufw, así que el cortafuegos no bastaba. Para dejarlo abierto a propósito, `--bind 0.0.0.0`. Un panel servido solo por `http://IP:8080` envía la cookie de sesión del administrador a cualquier puerto de esa IP, también al servidor de juego de un cliente: para un panel con clientes, use un dominio con HTTPS.
+
 También puede dejar configurados Turnstile (`--turnstile-site-key`, `--turnstile-secret-key`), los subdominios automáticos de Cloudflare (`--cf-dns-token`, `--cf-zone-id`, `--dns-base-domain`), las copias en S3 (`--s3-*`) y la clave de CurseForge; todo se puede cambiar después en Ajustes. Cambiar los puertos (`--port`, `--sftp-port`) necesita Docker Compose 2.24.4 o superior. El código del instalador está en `tools/install/install.sh`.
 
 ---

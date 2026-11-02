@@ -6,13 +6,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
 	"github.com/klauspost/compress/zip"
 	"github.com/mholt/archives"
+	"golang.org/x/sys/unix"
 )
 
 var ErrPathTraversal = errors.New("path traversal detected")
@@ -190,30 +193,22 @@ func compress(fs FileServer, targetFile string, filesToCompress []string, limit 
 		return errors.New("no files to compress")
 	}
 
-	relativeTarget := targetFile
-	if fs != nil {
-		p := fs.Prefix()
-
-		var err error
-		targetFile, err = safeJoin(p, targetFile)
-		if err != nil {
-			return err
-		}
-
-		filesToCompress, err = expandCompressFiles(p, targetFile, filesToCompress)
-		if err != nil {
-			return err
-		}
-	}
-
 	ctx := context.Background()
-
-	filenames, err := archiveNames(fs, filesToCompress)
-	if err != nil {
-		return err
+	relativeTarget := targetFile
+	var filesList []archives.FileInfo
+	var err error
+	if fs != nil {
+		if targetFile, err = safeJoin(fs.Prefix(), targetFile); err != nil {
+			return err
+		}
+		filesList, err = serverArchiveEntries(fs, relativeTarget, filesToCompress)
+	} else {
+		filenames := make(map[string]string)
+		for _, f := range filesToCompress {
+			filenames[f] = ""
+		}
+		filesList, err = archives.FilesFromDisk(ctx, nil, filenames)
 	}
-
-	filesList, err := archives.FilesFromDisk(ctx, nil, filenames)
 	if err != nil {
 		return err
 	}
@@ -235,21 +230,7 @@ func compress(fs FileServer, targetFile string, filesToCompress []string, limit 
 	}
 	defer utils.Close(out)
 
-	format, _, err := archives.Identify(ctx, targetFile, nil)
-	if err != nil {
-		return err
-	}
-
-	archiver, ok := format.(archives.Archiver)
-	if !ok {
-		return errors.New("format is not an archiver")
-	}
-
-	var w io.Writer = out
-	if limit != nil {
-		w = limit(out)
-	}
-	err = archiver.Archive(ctx, w, filesList)
+	err = writeArchive(ctx, out, targetFile, filesList, limit)
 	if err != nil && limit != nil {
 		// half an archive is no use to anyone, and it is what took the disk past the limit
 		utils.Close(out)
@@ -262,79 +243,157 @@ func compress(fs FileServer, targetFile string, filesToCompress []string, limit 
 	return err
 }
 
-// insideRealRoot checks that dir, with every symlink resolved, is still inside root
-func insideRealRoot(root, dir string) error {
-	realRoot, err := filepath.EvalSymlinks(root)
+// CompressServer archives the whole folder of fs into targetFile, outside of it (backups and
+// restore points), every entry under a folder named like the server's. The files are listed
+// and opened beneath the root, so a game that swaps a folder for a symlink while the backup
+// runs cannot get host files into it.
+func CompressServer(fs FileServer, targetFile string) error {
+	walk := &archiveWalk{fs: fs}
+	if err := walk.add("", filepath.Base(filepath.Clean(fs.Prefix()))); err != nil {
+		return err
+	}
+	out, err := os.OpenFile(targetFile, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if os.IsExist(err) {
+		return ErrFileExists
+	}
 	if err != nil {
 		return err
 	}
-	realDir, err := filepath.EvalSymlinks(dir)
+	defer utils.Close(out)
+	return writeArchive(context.Background(), out, targetFile, walk.entries, nil)
+}
+
+func writeArchive(ctx context.Context, out io.Writer, targetFile string, filesList []archives.FileInfo, limit WriteLimit) error {
+	format, _, err := archives.Identify(ctx, targetFile, nil)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
+		return err
+	}
+	archiver, ok := format.(archives.Archiver)
+	if !ok {
+		return errors.New("format is not an archiver")
+	}
+	if limit != nil {
+		out = limit(out)
+	}
+	return archiver.Archive(ctx, out, filesList)
+}
+
+// serverArchiveEntries resolves the requested files inside the server root, expanding a
+// wildcard in the last part of a path and leaving out the archive being written.
+func serverArchiveEntries(fs FileServer, target string, filesToCompress []string) ([]archives.FileInfo, error) {
+	target = prepPath(target)
+	walk := &archiveWalk{fs: fs}
+	for _, v := range filesToCompress {
+		v = prepPath(v)
+		if v == "" || !filepath.IsLocal(v) {
+			return nil, fmt.Errorf("%w: %s", ErrPathTraversal, v)
 		}
+		names := []string{v}
+		if strings.Contains(v, "*") {
+			// matched inside its folder through the file server: a wildcard in a folder
+			// ("a*/shadow") would be expanded by the OS, through any symlink the game made
+			var err error
+			if names, err = fs.Glob(v); err != nil {
+				return nil, err
+			}
+		}
+		for _, name := range names {
+			if name == target {
+				continue
+			}
+			if err := walk.add(name, filepath.ToSlash(name)); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return walk.entries, nil
+}
+
+// archiveWalk lists files for an archive through the file server: every folder is read and
+// every file opened beneath the root, never by its path on disk. Symlinks are stored as links,
+// not followed, and pipes and devices are left out (reading a pipe would hang the archive).
+type archiveWalk struct {
+	fs      FileServer
+	entries []archives.FileInfo
+}
+
+func (w *archiveWalk) add(name, inArchive string) error {
+	info, link, err := lstatBeneath(w.fs, name)
+	if err != nil {
 		return err
 	}
-	if realDir != realRoot && !strings.HasPrefix(realDir, realRoot+string(filepath.Separator)) {
-		return fmt.Errorf("%w: %s", ErrPathTraversal, dir)
+	entry := archives.FileInfo{FileInfo: info, NameInArchive: inArchive}
+	switch {
+	case info.Mode()&os.ModeSymlink != 0:
+		entry.LinkTarget = link
+	case info.IsDir():
+		w.entries = append(w.entries, entry)
+		children, err := w.fs.ReadDir(name)
+		if err != nil {
+			return err
+		}
+		for _, child := range children {
+			err = w.add(filepath.Join(name, child.Name()), path.Join(inArchive, child.Name()))
+			if err != nil && !errors.Is(err, fs.ErrNotExist) { // removed while listing
+				return err
+			}
+		}
+		return nil
+	case info.Mode().IsRegular():
+		entry.Open = func() (fs.File, error) { return w.openRegular(name, info.Size()) }
+	default:
+		return nil
 	}
+	w.entries = append(w.entries, entry)
 	return nil
 }
 
-// expandCompressFiles resolves the requested files inside the server root, expanding globs
-// and leaving out the archive being written.
-func expandCompressFiles(prefix, targetFile string, filesToCompress []string) ([]string, error) {
-	var expandedFiles []string
-	for _, v := range filesToCompress {
-		fullPath, err := safeJoin(prefix, v)
-		if err != nil {
-			return nil, err
-		}
-		// the files are read by path from disk: a symlinked folder on the way could point
-		// anywhere on the host and its files would land in an archive the user downloads
-		if err = insideRealRoot(prefix, filepath.Dir(fullPath)); err != nil {
-			return nil, err
-		}
-		if strings.Contains(v, "*") {
-			matches, _ := filepath.Glob(fullPath)
-			for _, match := range matches {
-				if match != targetFile {
-					expandedFiles = append(expandedFiles, match)
-				}
-			}
-		} else if fullPath != targetFile {
-			expandedFiles = append(expandedFiles, fullPath)
-		}
+// openRegular opens a listed file to be read into the archive, at most the size it was listed
+// with: a log that grew since would otherwise not fit its entry and fail the whole archive
+func (w *archiveWalk) openRegular(name string, size int64) (fs.File, error) {
+	f, err := w.fs.OpenFile(name, os.O_RDONLY|unix.O_NOFOLLOW|unix.O_NONBLOCK, 0)
+	if err != nil {
+		return nil, err
 	}
-	return expandedFiles, nil
+	if info, err := f.Stat(); err != nil || !info.Mode().IsRegular() {
+		utils.Close(f)
+		return nil, fmt.Errorf("%s is no longer a regular file", name)
+	}
+	return &sizedFile{File: f, r: io.LimitReader(f, size)}, nil
 }
 
-// archiveNames builds the mapping for archives.FilesFromDisk.
-// The second value in the map is the NameInArchive (relative path inside the tar).
-// When a FileServer is used, we MUST set this to the path relative to the server
-// root, otherwise archives.FilesFromDisk will use the absolute disk path's last
-// component (e.g. "mc-pc-local") as the root directory name inside the archive.
-// This causes "path traversal detected" errors during extraction on the destination.
-func archiveNames(fs FileServer, filesToCompress []string) (map[string]string, error) {
-	filenames := make(map[string]string)
-	if fs == nil {
-		for _, f := range filesToCompress {
-			filenames[f] = ""
-		}
-		return filenames, nil
-	}
+type sizedFile struct {
+	*os.File
+	r io.Reader
+}
 
-	prefix := filepath.Clean(fs.Prefix())
-	for _, f := range filesToCompress {
-		rel, err := filepath.Rel(prefix, f)
-		if err != nil {
-			return nil, err
-		}
-		// Normalize separators to forward slashes for cross-platform tarballs
-		rel = filepath.ToSlash(rel)
-		filenames[f] = rel
+func (f *sizedFile) Read(b []byte) (int, error) {
+	return f.r.Read(b)
+}
+
+// lstatBeneath describes name inside the file server without following it when it is a
+// symlink, and reads the link's target in that case
+func lstatBeneath(server FileServer, name string) (fs.FileInfo, string, error) {
+	f, err := server.OpenFile(name, unix.O_PATH|unix.O_NOFOLLOW, 0)
+	if errors.Is(err, unix.EXDEV) || errors.Is(err, unix.ELOOP) || errors.Is(err, unix.ENOTDIR) {
+		// the way there goes through a symlink out of the server (ENOTDIR where openat2 is
+		// off: each part is opened without following links, and a link is no folder)
+		return nil, "", fmt.Errorf("%w: %s", ErrPathTraversal, name)
 	}
-	return filenames, nil
+	if err != nil {
+		return nil, "", err
+	}
+	defer utils.Close(f)
+	info, err := f.Stat()
+	if err != nil || info.Mode()&os.ModeSymlink == 0 {
+		return info, "", err
+	}
+	buf := make([]byte, unix.PathMax)
+	n, err := unix.Readlinkat(int(f.Fd()), "", buf)
+	if err != nil {
+		return nil, "", err
+	}
+	return info, string(buf[:n]), nil
 }
 
 func walker(fs FileServer, targetPath, filter string, skipRoot bool, limit WriteLimit) archives.FileHandler {
@@ -476,7 +535,10 @@ func extractSymlink(fs FileServer, file archives.FileInfo, dest *extractTarget) 
 		return err
 	}
 	if !filepath.IsLocal(target) || (resolvedTarget != dest.root && !strings.HasPrefix(resolvedTarget, dest.root+string(filepath.Separator))) {
-		return ErrPathTraversal
+		// left out rather than failing the whole archive: game files often hold absolute
+		// links (steamclient.so -> /home/...), and a restore that stopped here had already
+		// deleted the server's files
+		return nil
 	}
 	if err = extractMkdirAll(fs, filepath.Dir(dest.path)); err != nil {
 		return err
@@ -485,6 +547,47 @@ func extractSymlink(fs FileServer, file archives.FileInfo, dest *extractTarget) 
 		return fs.Symlink(target, dest.path)
 	}
 	return os.Symlink(target, dest.path)
+}
+
+// CheckArchive reads every entry of the archive and returns an error for the first path an
+// extraction would refuse (one that leaves the folder), without writing anything. A restore
+// checks the backup this way before it deletes the server's files.
+func CheckArchive(file io.ReadSeeker, sourceFile string, skipRoot bool) error {
+	ctx := context.Background()
+	format, _, err := archives.Identify(ctx, sourceFile, file)
+	if err != nil {
+		return err
+	}
+	extractor, ok := format.(archives.Extractor)
+	if !ok {
+		return errors.New("format is not an extractor")
+	}
+	if _, err = file.Seek(0, io.SeekStart); err != nil {
+		return err
+	}
+	return extractor.Extract(ctx, file, func(_ context.Context, f archives.FileInfo) error {
+		name := strings.TrimLeft(getCompressedItemName(f), "/\\")
+		if skipRoot {
+			name = stripArchiveRoot(name)
+		}
+		if name != "" && !filepath.IsLocal(name) {
+			return fmt.Errorf("%w: %s", ErrPathTraversal, name)
+		}
+		return nil
+	})
+}
+
+// Readlink reads the target of the symlink name inside the file server, reaching it beneath
+// the root: by path, a folder on the way swapped for a link would be followed
+func Readlink(server FileServer, name string) (string, error) {
+	info, link, err := lstatBeneath(server, name)
+	if err != nil {
+		return "", err
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		return "", fmt.Errorf("%s is not a symlink", name)
+	}
+	return link, nil
 }
 
 // getCompressedItemName Resolves headers in the event the wrapped interface fails

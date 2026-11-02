@@ -145,7 +145,7 @@ func downloadSpongeJar(env *skypanel.Environment, url, target string) error {
 		return err
 	}
 
-	return files.WriteFile(file, target)
+	return files.WriteFile(file, env.GetRootDirectory(), target)
 }
 
 func (op SpongeDl) getLatestVersion(env *skypanel.Environment) (SpongeAPIV2Versions, error) {

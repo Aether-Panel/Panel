@@ -181,6 +181,18 @@ func ContainsScope(arr []*Scope, value *Scope) bool {
 	return false
 }
 
+// ServerOnly keeps the scopes that act on a server. A permission row of one server can only
+// hold those: "admin" in it would count as panel administrator everywhere scopes are merged.
+func ServerOnly(list []*Scope) []*Scope {
+	out := make([]*Scope, 0, len(list))
+	for _, s := range list {
+		if s != nil && GetScope(s.Value).ForServer {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
 func AddScope(source []*Scope, addition *Scope) []*Scope {
 	for _, v := range source {
 		if v.Is(addition) {

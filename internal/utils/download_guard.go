@@ -2,8 +2,11 @@ package utils
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -52,14 +55,45 @@ func NewDownloadHTTPClient(onPrivate func(net.IP)) *http.Client {
 	return &http.Client{Transport: transport}
 }
 
-// DownloadFile saves url into directory using NewDownloadHTTPClient
-func DownloadFile(directory, url string, onPrivate func(net.IP)) error {
-	client := grab.NewClient()
-	client.HTTPClient = NewDownloadHTTPClient(onPrivate)
+// DownloadFile downloads url with NewDownloadHTTPClient into a folder of the panel's own, then
+// hands the file to save under the name the download got (from the URL or the server's
+// Content-Disposition). It is never written straight into a server's folder: grab writes by
+// path, and the game could have left a symlink there under that name.
+func DownloadFile(url string, onPrivate func(net.IP), save func(name string, content io.Reader) error) error {
+	return DownloadWith(NewDownloadHTTPClient(onPrivate), url, save)
+}
 
-	req, err := grab.NewRequest(directory, url)
+// DownloadWith is DownloadFile with the given client, for URLs that do not come from a
+// template (a GitHub release asset); nil is grab's default client
+func DownloadWith(httpClient *http.Client, url string, save func(name string, content io.Reader) error) error {
+	// the cache folder is on the data disk, where the server's files go anyway; the system's
+	// temporary folder only when it cannot be made
+	parent := config.CacheFolder.Value()
+	if os.MkdirAll(parent, 0755) != nil {
+		parent = ""
+	}
+	dir, err := os.MkdirTemp(parent, "download-")
 	if err != nil {
 		return err
 	}
-	return client.Do(req).Err()
+	defer func() { _ = os.RemoveAll(dir) }()
+
+	client := grab.NewClient()
+	if httpClient != nil {
+		client.HTTPClient = httpClient
+	}
+	req, err := grab.NewRequest(dir, url)
+	if err != nil {
+		return err
+	}
+	resp := client.Do(req)
+	if err = resp.Err(); err != nil {
+		return err
+	}
+	file, err := os.Open(resp.Filename)
+	if err != nil {
+		return err
+	}
+	defer Close(file)
+	return save(filepath.Base(resp.Filename), file)
 }

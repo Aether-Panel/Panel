@@ -119,6 +119,9 @@ func OtpPost(c *gin.Context) {
 		return
 	}
 
+	// the password step is used up: the same cookie cannot open more sessions with new codes
+	userSession.Clear()
+	_ = userSession.Save()
 	createSession(c, user)
 }
 

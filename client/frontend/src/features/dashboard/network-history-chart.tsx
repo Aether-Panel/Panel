@@ -7,34 +7,63 @@ import { Activity } from '@/components/icons';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import { useTranslations } from '@/contexts/translations-context';
-import { downsampleNetwork, NETWORK_SAMPLE_INTERVAL_MS, type NetworkSample } from '@/hooks/use-network-history';
+import { useNetworkHistory, type NetworkRange, type NetworkSample } from '@/hooks/use-network-history';
 import { cn, formatBytes } from '@/lib/utils';
 import { EmptyState } from '@/components/empty-state';
 import { CHART_COLORS, chartLocale } from '@/lib/chart-theme';
 
-type RangeId = '1h' | '6h' | '24h';
+const HOUR = 60 * 60 * 1000;
 
-const RANGES: { id: RangeId; ms: number; labelKey: string }[] = [
-    { id: '1h', ms: 60 * 60 * 1000, labelKey: 'dashboard.admin.history.range1h' },
-    { id: '6h', ms: 6 * 60 * 60 * 1000, labelKey: 'dashboard.admin.history.range6h' },
-    { id: '24h', ms: 24 * 60 * 60 * 1000, labelKey: 'dashboard.admin.history.range24h' },
+/** Each range with the spacing of its time labels, on round clock times. */
+const RANGES: { id: NetworkRange; ms: number; tickMs: number; labelKey: string }[] = [
+    { id: '1h', ms: HOUR, tickMs: 15 * 60 * 1000, labelKey: 'dashboard.admin.history.range1h' },
+    { id: '6h', ms: 6 * HOUR, tickMs: HOUR, labelKey: 'dashboard.admin.history.range6h' },
+    { id: '24h', ms: 24 * HOUR, tickMs: 4 * HOUR, labelKey: 'dashboard.admin.history.range24h' },
 ];
 
-/** Buckets per range: dense enough to read a trend, bounded so 24 h stays smooth. */
-const MAX_POINTS = 120;
+/** Round clock times every tickMs inside [start, end], in local time. */
+export function timeTicks(start: number, end: number, tickMs: number): number[] {
+    const offset = new Date(start).getTimezoneOffset() * 60_000;
+    const first = Math.ceil((start - offset) / tickMs) * tickMs + offset;
+    const ticks: number[] = [];
+    for (let tick = first; tick <= end; tick += tickMs) ticks.push(tick);
+    return ticks;
+}
+
+const RATE_UNITS = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
+
+/**
+ * Round rate labels for the y axis, in KB/s: a step of 1, 2, 2.5 or 5 of the unit the top
+ * value reads in (B/s, KB/s, MB/s), so the axis says 250 B/s, not 307.2 B/s. Every label is
+ * written in that one unit (0.5 MB/s, not 512 KB/s). An idle node still gets a 1 KB/s scale.
+ */
+export function rateTicks(maxKbps: number, count = 3): { ticks: number[]; format: (kbps: number) => string } {
+    const maxBytes = Math.max(maxKbps * 1024, 1024);
+    const power = Math.min(Math.floor(Math.log(maxBytes) / Math.log(1024)), RATE_UNITS.length - 1);
+    const unit = 1024 ** power;
+    const raw = maxBytes / unit / count;
+    const magnitude = 10 ** Math.floor(Math.log10(raw));
+    const step = ([1, 2, 2.5, 5, 10].find((m) => m * magnitude >= raw) ?? 10) * magnitude;
+    const ticks: number[] = [];
+    for (let i = 0; i <= count + 1; i += 1) {
+        const value = Number((i * step).toFixed(6));
+        ticks.push((value * unit) / 1024);
+        if (value * unit >= maxBytes) break;
+    }
+    // a no-break space: the axis wraps "500 KB/s" onto two lines at a normal one
+    const format = (kbps: number) => `${Number.parseFloat(((kbps * 1024) / unit).toFixed(2))}\u00a0${RATE_UNITS[power]}`;
+    return { ticks, format };
+}
 
 /** KB/s to a human rate. */
 const formatRate = (kbps: number) => `${formatBytes(kbps * 1024)}/s`;
 
-/** Persisted points are a minute apart: more than this between two means the page was closed. */
-const GAP_MS = 3 * 60_000;
-
 /**
- * The points with a break wherever the page was closed (or the tab hidden), so the line stops
+ * The points with a break wherever a step is missing (every node was down), so the line stops
  * instead of joining the two ends as if traffic had been measured in between.
  */
-function withGaps(points: NetworkSample[], bucketMs: number): (NetworkSample | { t: number; in: null; out: null })[] {
-    const gap = Math.max(GAP_MS, 3 * bucketMs);
+function withGaps(points: NetworkSample[], stepMs: number): (NetworkSample | { t: number; in: null; out: null })[] {
+    const gap = stepMs * 1.5;
     const result: (NetworkSample | { t: number; in: null; out: null })[] = [];
     points.forEach((point, index) => {
         const previous = points[index - 1];
@@ -42,6 +71,13 @@ function withGaps(points: NetworkSample[], bucketMs: number): (NetworkSample | {
         result.push(point);
     });
     return result;
+}
+
+/** The empty state's text: loading, could not load, or nothing recorded yet. */
+function emptyKey(loading: boolean, error: boolean, part: 'title' | 'description'): string {
+    if (error) return `dashboard.admin.history.error.${part}`;
+    if (loading) return `dashboard.admin.history.loading.${part}`;
+    return `dashboard.admin.history.empty.${part}`;
 }
 
 type TooltipFormatter = NonNullable<ComponentProps<typeof ChartTooltipContent>['formatter']>;
@@ -66,34 +102,38 @@ const tooltipFormatter =
     );
 
 /**
- * Row 3 (65 %) — the network trend. The panel has no metrics-history endpoint,
- * so the series is a real client-side buffer (5 s points while this view is
- * open, persisted downsampled to one point per minute). A time-scaled x axis
- * keeps gaps honest instead of spacing points evenly, and the footer states the
- * cadence and sample count.
+ * Row 3 (65 %) — the network trend. Every node keeps its own traffic for a day, a point a
+ * minute, and the panel adds the nodes up, so the chart shows what happened while nobody had
+ * the dashboard open. A time-scaled x axis keeps gaps honest instead of spacing points evenly;
+ * the legend shows the live rate, the footer the step and the nodes counted.
  */
-export function NetworkHistoryChart({ samples }: Readonly<{ samples: NetworkSample[] }>) {
+export function NetworkHistoryChart({ live }: Readonly<{ live: { in: number; out: number } | null }>) {
     const { t, language } = useTranslations();
     const formatClock = (epochMs: number) =>
         new Date(epochMs).toLocaleTimeString(chartLocale(language), { hour: '2-digit', minute: '2-digit' });
-    const [range, setRange] = useState<RangeId>('1h');
+    const [range, setRange] = useState<NetworkRange>('1h');
+    const history = useNetworkHistory(range, true);
 
     const rangeMs = RANGES.find((entry) => entry.id === range)?.ms ?? RANGES[0].ms;
 
-    // The x axis spans the selected range, not just the data extent: a fresh
-    // buffer must not pretend that 40 seconds is "24 h". Only bucket when the
-    // range actually holds more points than the chart should draw.
+    // The x axis spans the selected range, not just the data extent, so a node that only
+    // started keeping its history a few minutes ago does not look like a full day.
     const now = Date.now();
     const { data, count } = useMemo(() => {
         const cutoff = Date.now() - rangeMs;
-        const inRange = samples.filter((sample) => sample.t >= cutoff);
-        const bucketMs = inRange.length <= MAX_POINTS ? NETWORK_SAMPLE_INTERVAL_MS : rangeMs / MAX_POINTS;
-        const points = inRange.length <= MAX_POINTS ? inRange : downsampleNetwork(inRange, bucketMs);
-        return { data: withGaps(points, bucketMs), count: inRange.length };
-    }, [samples, rangeMs]);
+        const inRange = history.samples.filter((sample) => sample.t >= cutoff);
+        return { data: withGaps(inRange, history.stepMs), count: inRange.length };
+    }, [history.samples, history.stepMs, rangeMs]);
 
-    const latest = data[data.length - 1];
-    const hasTrend = count >= 2;
+    const tickMs = RANGES.find((entry) => entry.id === range)?.tickMs ?? RANGES[0].tickMs;
+    const xTicks = timeTicks(now - rangeMs, now, tickMs);
+    const peak = data.reduce((top, point) => Math.max(top, point.in ?? 0, point.out ?? 0), 0);
+    const { ticks: yTicks, format: formatAxisRate } = rateTicks(peak);
+
+    const lastPoint = data[data.length - 1];
+    const latest = live ?? (lastPoint && lastPoint.in !== null ? lastPoint : null);
+    // one point is drawn as a dot: a node that started its history minutes ago has data
+    const hasTrend = count >= 1;
     // A young buffer is a handful of points at the right edge: mark them so
     // they read as samples rather than a stray vertical stroke.
     const sparse = data.length < 12;
@@ -151,7 +191,7 @@ export function NetworkHistoryChart({ samples }: Readonly<{ samples: NetworkSamp
                             />
                             {t(`dashboard.admin.networkTraffic.${entry.key === 'in' ? 'download' : 'upload'}`)}
                             <span className="font-medium tabular-nums text-foreground">
-                                {latest && latest[entry.key] !== null ? formatRate(latest[entry.key] as number) : '—'}
+                                {latest ? formatRate(latest[entry.key] as number) : '—'}
                             </span>
                         </span>
                     ))}
@@ -183,21 +223,22 @@ export function NetworkHistoryChart({ samples }: Readonly<{ samples: NetworkSamp
                                     type="number"
                                     scale="time"
                                     domain={[now - rangeMs, now]}
+                                    ticks={xTicks}
                                     tickLine={false}
                                     axisLine={false}
                                     tickMargin={8}
                                     fontSize={11}
-                                    minTickGap={48}
+                                    minTickGap={24}
                                     tickFormatter={(value) => formatClock(Number(value))}
                                 />
                                 <YAxis
-                                    domain={[0, 'auto']}
-                                    tickFormatter={(value) => formatRate(Number(value))}
+                                    domain={[0, yTicks[yTicks.length - 1]]}
+                                    ticks={yTicks}
+                                    tickFormatter={(value) => formatAxisRate(Number(value))}
                                     tickLine={false}
                                     axisLine={false}
                                     tickMargin={6}
                                     fontSize={11}
-                                    tickCount={4}
                                     width={72}
                                 />
                                 <ChartTooltip
@@ -242,19 +283,22 @@ export function NetworkHistoryChart({ samples }: Readonly<{ samples: NetworkSamp
                             icon={Activity}
                             size="sm"
                             as="p"
-                            title={t('dashboard.admin.history.empty.title')}
+                            title={t(emptyKey(history.loading, history.error, 'title'))}
                             // Short desktop screens keep the title only, so nothing overlaps.
-                            description={<span data-fit="hide-short">{t('dashboard.admin.history.empty.description')}</span>}
+                            description={<span data-fit="hide-short">{t(emptyKey(history.loading, history.error, 'description'))}</span>}
                             className="min-h-[240px] flex-1 overflow-hidden py-4 sm:min-h-[280px] [&>*]:shrink-0"
                         />
                     </div>
                 )}
 
                 <p className="pt-3 text-xs text-muted-foreground">
-                    {t(count === 1 ? 'dashboard.admin.history.samplesOne' : 'dashboard.admin.history.samples', {
-                        count,
-                        seconds: Math.round(NETWORK_SAMPLE_INTERVAL_MS / 1000),
+                    {t(history.nodes === 1 ? 'dashboard.admin.history.footerOne' : 'dashboard.admin.history.footer', {
+                        minutes: Math.round(history.stepMs / 60_000),
+                        nodes: history.nodes,
                     })}
+                    {history.unavailable > 0 && (
+                        <> · {t('dashboard.admin.history.unavailable', { count: history.unavailable })}</>
+                    )}
                 </p>
             </CardContent>
         </Card>

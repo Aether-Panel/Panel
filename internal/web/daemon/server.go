@@ -1058,19 +1058,19 @@ func getStatus(c *gin.Context) {
 // @Security OAuth2Application[server.files.edit]
 func archive(c *gin.Context) {
 	server := getServerFromGin(c)
-	var files []string
+	var items []string
 
-	if err := c.BindJSON(&files); response.HandleError(c, err, http.StatusBadRequest) {
+	if err := c.BindJSON(&items); response.HandleError(c, err, http.StatusBadRequest) {
 		return
 	}
-	if len(files) == 0 {
+	if len(items) == 0 {
 		c.Status(http.StatusBadRequest)
 		return
 	}
 
 	destination := strings.TrimPrefix(c.Param("filename"), "/")
 
-	for _, f := range files {
+	for _, f := range items {
 		if !filepath.IsLocal(f) {
 			_ = c.AbortWithError(http.StatusBadRequest, fmt.Errorf("invalid file path: %s", f))
 			return
@@ -1081,8 +1081,12 @@ func archive(c *gin.Context) {
 		return
 	}
 
-	err := server.ArchiveItems(files, destination)
-	if !response.HandleError(c, err, diskStatus(err, http.StatusInternalServerError)) {
+	err := server.ArchiveItems(items, destination)
+	status := diskStatus(err, http.StatusInternalServerError)
+	if errors.Is(err, files.ErrPathTraversal) || errors.Is(err, os.ErrNotExist) {
+		status = http.StatusBadRequest // a file that is not there, or a link out of the server
+	}
+	if !response.HandleError(c, err, status) {
 		c.Status(http.StatusNoContent)
 	}
 }

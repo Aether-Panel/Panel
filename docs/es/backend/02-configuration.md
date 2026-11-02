@@ -68,6 +68,7 @@ All nested keys with `.` are converted to `_`. `SKYPANEL_` prefix:
 | `panel.sessionKey` | string | — | Key for session encryption (auto-generated) |
 | `panel.registrationEnabled` | bool | `true` | Allows user registration |
 | `panel.servers.autoInstall` | bool | `true` | Runs the template's installation as soon as a server is created (also from billing; copies are not reinstalled) |
+| `panel.backups.maxPerServer` | int | `10` | Backups a server's users may keep (administrators are not capped); `0` = no limit. Backups do not count against the server's disk |
 | `panel.token` | string | — | Ed25519 private key (JWT) |
 | `panel.turnstile.siteKey` | string | — | Cloudflare Turnstile Site Key |
 | `panel.turnstile.secretKey` | string | — | Cloudflare Turnstile Secret Key |
@@ -165,6 +166,7 @@ All nested keys with `.` are converted to `_`. `SKYPANEL_` prefix:
 | `daemon.data.backups.folder` | string | `backups` | Backups folder |
 | `daemon.data.binaries` | string | `binaries` | Binaries folder |
 | `daemon.minFreeDiskMB` | int | `2048` | Free space (MB) the servers' disk must keep: an install that starts with less is refused; `0` turns the check off |
+| `daemon.hostProc` | string | `""` | Where the host's `/proc` is mounted when the daemon runs in a container (docker-compose mounts it read-only at `/host/proc`). The node's network traffic is read there: inside the container only the panel's own traffic shows. Only physical interfaces count (not `lo`, Docker bridges or `veth`) |
 | `daemon.data.crashLimit` | int | `3` | Crash limit before suspend |
 | `daemon.data.root` | string | (auto) | Data root (parent of servers) |
 | `daemon.curseforge.key` | string | — | CurseForge API key |
@@ -200,13 +202,14 @@ All nested keys with `.` are converted to `_`. `SKYPANEL_` prefix:
 | `security.trustedProxies` | []string | `[]` | Trusted proxy CIDRs |
 | `security.trustedProxyHeader` | string | `X-Forwarded-For` | Proxy header for client IP |
 | `security.disableUnshare` | bool | `false` | Disable unshare isolation |
+| `security.blockPrivateDownloads` | bool | `true` | Refuses template downloads from private network addresses (Docker networks, the LAN); loopback and link-local are always refused. Turn it off only for LAN mirrors |
 
 ### Docker
 
 | Key | Type | Default | Description |
 |---|---|---|---|
 | `docker.root` | string | — | Docker root path |
-| `docker.disallowHost` | bool | `false` | Disable host environment (force Docker) |
+| `docker.disallowHost` | bool | `false` | Disable host environment (force Docker); checked when a server is created, redefined, installed and started. The Docker image and compose set it to `true` |
 | `docker.serversNetwork` | string | — | Docker network for game servers whose template names none (empty: the panel's own network) |
 | `docker.serverUser` | string | `988:988` | `uid:gid` game servers run as when the panel runs as root; installs stay root. `0:0` keeps them running as root. A template's own user always wins |
 | `docker.pidsLimit` | int | `4096` | Processes and threads per server container (stops a fork bomb); `0` = no limit. A template's own limit wins |
