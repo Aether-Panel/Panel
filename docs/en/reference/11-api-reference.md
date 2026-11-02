@@ -46,7 +46,7 @@ Each area below links to the page that documents it.
 
 ### Servers
 
-`/api/servers` and `/api/servers/:serverId/...`: list, create, delete, suspend, rename, definition, variables, port settings, flags, power actions, console, stats, status, query, metrics, crash reports, game version, notifications, users and owner, activity log, subdomain, clone, node transfer, AI. See [Servers](./api/03-servers.md).
+`/api/servers` and `/api/servers/:serverId/...`: list, create, delete, suspend, rename, definition, variables, port settings, flags, power actions, console, stats, status, query, metrics, crash reports, game version, notifications, users and owner, activity log, subdomain, clone, node transfer, AI (`ai/analyze`, `ai/chat` and the assistant's confirmations `ai/chat/confirm`). See [Servers](./api/03-servers.md).
 
 ### WebSocket
 
@@ -122,7 +122,7 @@ Each area below links to the page that documents it.
 
 ### Daemon
 
-`/daemon`, `/daemon/features`, `/daemon/system`, `/daemon/ports`, `/daemon/network/history`, `/daemon/servers/status`, `/daemon/update`, `/daemon/update-status` and `/daemon/server/:serverId/...`, including the node transfer's backup copy and scheduler pause/resume routes. The panel's status poll (`/daemon/servers/status`) also carries its notification language in the `X-Aether-Notification-Language` header. See [Daemon](./api/09-daemon.md).
+`/daemon`, `/daemon/features`, `/daemon/system`, `/daemon/ports`, `/daemon/network/history`, `/daemon/servers/status`, `/daemon/update`, `/daemon/update-status` and `/daemon/server/:serverId/...`, including the node transfer's backup copy and scheduler pause/resume routes and the server assistant's file routes (`fs/stat`, `fs/copy`, `fs/search`). The panel's status poll (`/daemon/servers/status`) also carries its notification language in the `X-Aether-Notification-Language` header. See [Daemon](./api/09-daemon.md).
 
 ## Related documentation
 

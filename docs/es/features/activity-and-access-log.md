@@ -33,7 +33,8 @@ Ambos se guardan en la base de datos del panel y se conservan **90 días**.
 ### Registro de actividad del servidor
 
 - Un middleware en todas las rutas `/api/servers` revisa las peticiones que modifican algo (`POST`, `PUT`, `DELETE`, `PATCH`). Cuando la petición termina, si el código de respuesta es menor que 400, escribe la entrada en segundo plano. Las peticiones fallidas nunca se anotan, y un error al escribir la entrada nunca hace fallar la petición.
-- `POST /ai/analyze`, `POST /ai/chat` y `POST /notifications/test` se ignoran porque no cambian nada. Una ruta de modificación sin clave de acción propia se anota como `server.change`, con la ruta como detalle.
+- `POST /ai/analyze`, `POST /ai/chat`, `POST /ai/chat/confirm` y `POST /notifications/test` no los anota el middleware: no cambian nada o (el asistente del servidor) el propio manejador anota sus cambios. Una ruta de modificación sin clave de acción propia se anota como `server.change`, con la ruta como detalle.
+- Cuando el [asistente del servidor](ai-agent.md) cambia archivos, el panel escribe una entrada por cada cambio ejecutado, a nombre del usuario que lo pidió y con su IP: `ai.<herramienta>` con la ruta, u `origen → destino`, como detalle. También se anotan los pasos que se ejecutaron antes de que fallara una tarea. Las lecturas del asistente no se anotan.
 - Los detalles se recortan: los comandos de consola a 200 caracteres y cualquier detalle a 300. Los cambios de ajustes, datos, indicadores, notificaciones, puertos y definición del servidor solo anotan **que** cambiaron, nunca el cuerpo, porque puede contener secretos (webhooks, contraseñas).
 - Los cambios hechos fuera de la API del panel no se anotan: transferencias por SFTP y lo que hacen las tareas programadas cuando se disparan solas según su programación (guardar, eliminar y ejecutar una tarea a mano *sí* se anotan).
 - Una transferencia entre nodos se ejecuta en segundo plano después de responder a la petición, así que el propio panel anota su resultado: `server.transferFailed` cuando un paso falló y la transferencia se deshizo (también cuando un reinicio del panel la interrumpió: `the panel restarted while <paso>: the transfer was undone`), y `server.transferStartFailed` cuando el servidor se trasladó pero no se pudo iniciar en el nodo nuevo. El detalle indica en qué paso y por qué, y la página lo muestra como código (véase [Transferencias de servidores](server-transfers.md)).
@@ -71,7 +72,7 @@ Parámetros de consulta de `GET /api/servers/:serverId/activity`:
 |---|---|---|
 | `limit` | `50` | Entradas por página, de 1 a 100 (los valores mayores se limitan a 100). |
 | `before` | — | Solo entradas con un id menor que este (el cursor de la página anterior). |
-| `type` | todas | Una familia (`power`, `console`, `files`, `backups`, `users`, `settings`, `tasks`), `all` o un prefijo de acción como `file` o `backup.restore` (letras minúsculas con un punto como máximo). Cualquier otro valor no devuelve entradas. |
+| `type` | todas | Una familia (`power`, `console`, `files`, `backups`, `users`, `settings`, `tasks`), `all` o un prefijo de acción como `file`, `backup.restore` o `ai.edit_file` (letras minúsculas con un punto como máximo, y guiones bajos después del punto). Cualquier otro valor no devuelve entradas. |
 
 Respuesta:
 
@@ -94,7 +95,7 @@ Parámetros de consulta de `GET /api/activity`: `event` (`login`, `login_failed`
 |---|---|
 | Energía | `server.start`, `server.stop`, `server.restart`, `server.kill`, `server.install`, `server.reload` |
 | Consola | `console.command` |
-| Archivos | `file.write`, `file.upload`, `file.mkdir`, `file.rename`, `file.delete`, `file.archive`, `file.extract`, `file.restore`, `plugin.install`, `plugin.delete`, `modpack.install`, `map.install`, `map.remove` |
+| Archivos | `file.write`, `file.upload`, `file.mkdir`, `file.rename`, `file.delete`, `file.archive`, `file.extract`, `file.restore`, `plugin.install`, `plugin.delete`, `modpack.install`, `map.install`, `map.remove`, y las del asistente del servidor `ai.create_file`, `ai.create_directory`, `ai.copy_path`, `ai.edit_file`, `ai.write_file`, `ai.move_path`, `ai.rename_path`, `ai.delete_path` |
 | Copias | `backup.create`, `backup.restore`, `backup.delete` |
 | Usuarios | `user.add`, `user.edit`, `user.remove` |
 | Ajustes | `settings.data`, `settings.ports`, `settings.definition`, `settings.flags`, `settings.notifications`, `server.create`, `server.rename`, `server.suspend`, `server.unsuspend`, `server.transfer`, `server.transferFailed`, `server.transferStartFailed`, `server.change`, `server.clone`, `extransfer.create`, `extransfer.pull`, `extransfer.cancel` |

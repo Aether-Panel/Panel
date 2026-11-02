@@ -86,7 +86,7 @@ A node only checks the panel's token; the panel has already checked the user's p
 | `401` | No valid session, token or key |
 | `403` | Missing permission, cross-origin request refused, suspended server, experimental feature off (`ErrFeatureDisabled`), AI log analysis off (`ErrAIAnalysisDisabled`), sign-ups closed (`ErrInviteSignupsClosed`) |
 | `404` | The object does not exist, or the caller may not know it exists |
-| `409` | Conflict with the current state: disk full (`ErrDiskLimitExceeded`), port taken, backup cap (`ErrBackupLimit`), server owner (`ErrServerOwner`), database host still in use (`ErrDatabaseHostInUse`), server ports taken on the transfer target (`ErrTransferPortsTaken`), the server already being transferred (`ErrTransferRunning`) or writing a backup (`ErrTransferBackupRunning`), archive name taken (`ErrFileExists`), subdomain taken, another job running |
+| `409` | Conflict with the current state: disk full (`ErrDiskLimitExceeded`), port taken, backup cap (`ErrBackupLimit`), server owner (`ErrServerOwner`), database host still in use (`ErrDatabaseHostInUse`), server ports taken on the transfer target (`ErrTransferPortsTaken`), the server already being transferred (`ErrTransferRunning`) or writing a backup (`ErrTransferBackupRunning`), archive name taken (`ErrFileExists`), the assistant's confirmation expired or already answered (`ErrAIConfirmationInvalid`), subdomain taken, another job running |
 | `413` | Task body too large |
 | `422` | An external service refused (mail server, Discord, Cloudflare, S3, Modrinth/CurseForge) |
 | `429` | Too many attempts (`ErrTooManyAttempts`), AI quota, subdomain or notification test sent too often |
@@ -114,9 +114,11 @@ A node only checks the panel's token; the panel has already checked the user's p
 | `ErrInviteSignupsClosed` | Inviting an unknown email while sign-ups are closed |
 | `ErrBackupLimit`, `ErrBackupServerRunning`, `ErrBackupInProgress` | Backup cap reached; restore while running; another backup running |
 | `ErrDiskLimitExceeded`, `ErrNodeDiskFull` | Server disk full; node below `daemon.minFreeDiskMB` before an install |
-| `ErrFileExists`, `ErrIllegalFileAccess` | Move or archive onto an existing path; path outside the server folder |
+| `ErrFileExists`, `ErrIllegalFileAccess` | Move or archive onto an existing path, or `PUT …/file/*?create=true` onto one; path outside the server folder, or a `DELETE` of the server folder itself |
 | `ErrFeatureDisabled` | Experimental feature switched off in the settings |
 | `ErrAIAnalysisDisabled` | AI log analysis switched off (`panel.settings.hideAiAnalysis`) |
+| `ErrAIConfirmationInvalid` | `POST /ai/chat/confirm` (`409`): the server assistant's request expired, was already answered or replaced, belongs to another user or server, or the file tools were turned off (see [Servers → AI](./03-servers.md#post-apiserversserveridaichatconfirm)) |
+| `ErrFileNotFound`, `ErrFileTooLarge`, `ErrFileNotAFolder`, `ErrFileIsAFolder`, `ErrFileSymlink`, `ErrFileNotRegular`, `ErrFileInvalidPath`, `ErrFileOutsideServer`, `ErrFileProtected`, `ErrFileInvalidRequest`, `ErrFilePermission`, `ErrFileNoSpace`, `ErrFileOperationFailed` | Node only: answers of the server assistant's file routes `/daemon/server/:serverId/fs/*` (see [Daemon → Files](./09-daemon.md#files)); the panel turns them into the assistant's step errors |
 | `ErrAPIKeyNotAllowed`, `ErrAPIKeyPermissions` | API key lacks the action; key created with no known action |
 | `ErrSSONotForAdmins` | Sign-in link asked for a privileged account |
 | `ErrDatabaseHostFull`, `ErrDatabaseHostOtherNode`, `ErrDatabaseNameTaken`, `ErrInvalidDatabaseName` | Database creation refused |

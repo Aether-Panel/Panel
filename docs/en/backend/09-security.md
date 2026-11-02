@@ -122,6 +122,17 @@ All server file I/O (file manager, SFTP, operations, backups, extraction) goes t
 - At start the daemon tries `openat2` and **refuses to start** if it cannot use it (a kernel without it, or a seccomp profile that blocks it, answering `EPERM`). `security.forceOpenat=true` skips the check and uses a fallback that opens each path component with `openat` and `O_NOFOLLOW`; use it only where `openat2` cannot be used.
 - Files written by downloads are created with `O_NOFOLLOW`, so a symlink left where a file goes is refused instead of followed. See [Operations: file safety](./06-operations.md#file-safety).
 
+## Server assistant file tools
+
+The server assistant can read and change files through Gemini function calling (agent mode, `panel.settings.aiFileTools`). Its safeguards, described in full in [AI agent toolkit](./14-ai-toolkit.md):
+
+- **One server.** The server comes from the authenticated route (`/api/servers/:serverId/ai/...`, after `server.console`), never from the model; no tool takes a server argument, and every operation goes to that server's `/daemon/server/<id>/...` routes on its node.
+- **Paths** are cleaned by `tools/toolkit/security` on the panel, and again on the node for the `fs/*` routes (no absolute paths, drive letters, `..` or NUL, at most 4096 bytes and 64 elements), then opened by the confined file server above. Symlinks are never followed out of the server folder, writes use `O_NOFOLLOW`, creates `O_EXCL`, copies and searches skip links, and deleting a link removes only the link (the file manager's `DELETE` route too, which also refuses the server folder itself).
+- **Permissions.** Tools are offered by scope: reads with `server.files.view`, the rest with `server.files.edit`; scopes are read again on every request and on every confirmation.
+- **Confirmations.** Edits, overwrites, moves, renames and deletions wait for the user: a random single-use token bound to the user, the server and the hash of the exact calls, valid 10 minutes, one per user and server, kept in panel memory.
+- **No commands**: there is no tool for shell or console commands or power actions.
+- **Audit**: every change is recorded in the server's activity log as `ai.<tool>`.
+
 ---
 
 ## Process and container isolation

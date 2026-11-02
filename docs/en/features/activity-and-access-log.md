@@ -33,7 +33,8 @@ Both are stored in the panel database and kept for **90 days**.
 ### Server activity log
 
 - A middleware on every `/api/servers` route looks at mutating requests (`POST`, `PUT`, `DELETE`, `PATCH`). After the request finishes, if the response status is below 400, it writes the entry in the background. Failed requests are never recorded, and a failure to write the entry never fails the request.
-- `POST /ai/analyze`, `POST /ai/chat` and `POST /notifications/test` are ignored because they change nothing. A mutating route without its own action key is recorded as `server.change` with the route as detail.
+- `POST /ai/analyze`, `POST /ai/chat`, `POST /ai/chat/confirm` and `POST /notifications/test` are not recorded by the middleware: they change nothing, or (the server assistant) the handler records its changes itself. A mutating route without its own action key is recorded as `server.change` with the route as detail.
+- When the [server assistant](ai-agent.md) changes files, the panel writes one entry per change that ran, under the user who asked and their IP: `ai.<tool>` with the path, or `source → destination`, as detail. Steps that ran before a task failed are recorded too. Reads by the assistant are not recorded.
 - Details are trimmed: console commands to 200 characters, any detail to 300 characters. Changes to settings, data, flags, notifications, ports and the server definition only record **that** they changed, never the body, because it may contain secrets (webhooks, passwords).
 - Changes made outside the panel API are not recorded: SFTP transfers, and what scheduled tasks do when they fire on their own schedule (saving, deleting and running a task by hand *are* recorded).
 - A node transfer runs in the background after the request was answered, so the panel records its outcome itself: `server.transferFailed` when a step failed and the transfer was undone (also when a panel restart interrupted it: `the panel restarted while <step>: the transfer was undone`), and `server.transferStartFailed` when the server moved but could not be started on the new node. The detail says at which step and why, and the page shows it as code (see [Server transfers](server-transfers.md)).
@@ -71,7 +72,7 @@ Full details are in the [API reference](../reference/11-api-reference.md).
 |---|---|---|
 | `limit` | `50` | Entries per page, 1 to 100 (larger values are capped at 100). |
 | `before` | — | Only entries with an id lower than this one (the cursor from the previous page). |
-| `type` | all | A family (`power`, `console`, `files`, `backups`, `users`, `settings`, `tasks`), `all`, or an action prefix such as `file` or `backup.restore` (lowercase letters with at most one dot). Any other value returns no entries. |
+| `type` | all | A family (`power`, `console`, `files`, `backups`, `users`, `settings`, `tasks`), `all`, or an action prefix such as `file`, `backup.restore` or `ai.edit_file` (lowercase letters with at most one dot, and underscores after the dot). Any other value returns no entries. |
 
 Response:
 
@@ -94,7 +95,7 @@ Response:
 |---|---|
 | Power | `server.start`, `server.stop`, `server.restart`, `server.kill`, `server.install`, `server.reload` |
 | Console | `console.command` |
-| Files | `file.write`, `file.upload`, `file.mkdir`, `file.rename`, `file.delete`, `file.archive`, `file.extract`, `file.restore`, `plugin.install`, `plugin.delete`, `modpack.install`, `map.install`, `map.remove` |
+| Files | `file.write`, `file.upload`, `file.mkdir`, `file.rename`, `file.delete`, `file.archive`, `file.extract`, `file.restore`, `plugin.install`, `plugin.delete`, `modpack.install`, `map.install`, `map.remove`, and the server assistant's `ai.create_file`, `ai.create_directory`, `ai.copy_path`, `ai.edit_file`, `ai.write_file`, `ai.move_path`, `ai.rename_path`, `ai.delete_path` |
 | Backups | `backup.create`, `backup.restore`, `backup.delete` |
 | Users | `user.add`, `user.edit`, `user.remove` |
 | Settings | `settings.data`, `settings.ports`, `settings.definition`, `settings.flags`, `settings.notifications`, `server.create`, `server.rename`, `server.suspend`, `server.unsuspend`, `server.transfer`, `server.transferFailed`, `server.transferStartFailed`, `server.change`, `server.clone`, `extransfer.create`, `extransfer.pull`, `extransfer.cancel` |

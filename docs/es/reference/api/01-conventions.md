@@ -86,7 +86,7 @@ Un nodo solo comprueba el token del panel; los permisos del usuario ya los ha co
 | `401` | No hay una sesión, un token o una clave válidos |
 | `403` | Falta un permiso, petición de otro origen rechazada, servidor suspendido, función experimental desactivada (`ErrFeatureDisabled`), análisis de registros con IA desactivado (`ErrAIAnalysisDisabled`), registros cerrados (`ErrInviteSignupsClosed`) |
 | `404` | El objeto no existe, o quien llama no puede saber que existe |
-| `409` | Conflicto con el estado actual: disco lleno (`ErrDiskLimitExceeded`), puerto ocupado, límite de copias (`ErrBackupLimit`), propietario del servidor (`ErrServerOwner`), host de bases de datos aún en uso (`ErrDatabaseHostInUse`), puertos del servidor ocupados en el nodo de destino de un traslado (`ErrTransferPortsTaken`), servidor que ya se está trasladando (`ErrTransferRunning`) o que está escribiendo una copia (`ErrTransferBackupRunning`), nombre de archivo comprimido ya usado (`ErrFileExists`), subdominio ocupado, otro trabajo en curso |
+| `409` | Conflicto con el estado actual: disco lleno (`ErrDiskLimitExceeded`), puerto ocupado, límite de copias (`ErrBackupLimit`), propietario del servidor (`ErrServerOwner`), host de bases de datos aún en uso (`ErrDatabaseHostInUse`), puertos del servidor ocupados en el nodo de destino de un traslado (`ErrTransferPortsTaken`), servidor que ya se está trasladando (`ErrTransferRunning`) o que está escribiendo una copia (`ErrTransferBackupRunning`), nombre de archivo comprimido ya usado (`ErrFileExists`), confirmación del asistente caducada o ya respondida (`ErrAIConfirmationInvalid`), subdominio ocupado, otro trabajo en curso |
 | `413` | Cuerpo de la tarea demasiado grande |
 | `422` | Un servicio externo lo rechazó (servidor de correo, Discord, Cloudflare, S3, Modrinth/CurseForge) |
 | `429` | Demasiados intentos (`ErrTooManyAttempts`), cuota de IA, cambio de subdominio o prueba de notificaciones demasiado frecuentes |
@@ -114,9 +114,11 @@ Un nodo solo comprueba el token del panel; los permisos del usuario ya los ha co
 | `ErrInviteSignupsClosed` | Invitación a un correo desconocido con los registros cerrados |
 | `ErrBackupLimit`, `ErrBackupServerRunning`, `ErrBackupInProgress` | Límite de copias alcanzado; restauración con el servidor en marcha; otra copia en curso |
 | `ErrDiskLimitExceeded`, `ErrNodeDiskFull` | Disco del servidor lleno; nodo por debajo de `daemon.minFreeDiskMB` antes de una instalación |
-| `ErrFileExists`, `ErrIllegalFileAccess` | Mover o comprimir sobre una ruta que ya existe; ruta fuera de la carpeta del servidor |
+| `ErrFileExists`, `ErrIllegalFileAccess` | Mover o comprimir sobre una ruta que ya existe, o `PUT …/file/*?create=true` sobre ella; ruta fuera de la carpeta del servidor, o un `DELETE` de la propia carpeta del servidor |
 | `ErrFeatureDisabled` | Función experimental desactivada en la configuración |
 | `ErrAIAnalysisDisabled` | Análisis de registros con IA desactivado (`panel.settings.hideAiAnalysis`) |
+| `ErrAIConfirmationInvalid` | `POST /ai/chat/confirm` (`409`): la solicitud del asistente del servidor caducó, ya se respondió o se sustituyó, es de otro usuario o servidor, o se desactivaron las herramientas de archivos (véase [Servidores → IA](./03-servers.md#post-apiserversserveridaichatconfirm)) |
+| `ErrFileNotFound`, `ErrFileTooLarge`, `ErrFileNotAFolder`, `ErrFileIsAFolder`, `ErrFileSymlink`, `ErrFileNotRegular`, `ErrFileInvalidPath`, `ErrFileOutsideServer`, `ErrFileProtected`, `ErrFileInvalidRequest`, `ErrFilePermission`, `ErrFileNoSpace`, `ErrFileOperationFailed` | Solo en el nodo: respuestas de las rutas de archivos del asistente del servidor `/daemon/server/:serverId/fs/*` (véase [Daemon → Archivos](./09-daemon.md#archivos)); el panel las convierte en los errores de los pasos del asistente |
 | `ErrAPIKeyNotAllowed`, `ErrAPIKeyPermissions` | La clave de API no tiene esa acción; clave creada sin ninguna acción conocida |
 | `ErrSSONotForAdmins` | Se pidió un enlace de acceso para una cuenta privilegiada |
 | `ErrDatabaseHostFull`, `ErrDatabaseHostOtherNode`, `ErrDatabaseNameTaken`, `ErrInvalidDatabaseName` | Creación de base de datos rechazada |

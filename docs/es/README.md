@@ -30,7 +30,7 @@ La misma documentación está disponible en inglés en [`docs/en`](../en/README.
 
 Guías para usuarios y administradores, una página por funcionalidad. Lista completa: [Funcionalidades](./features/README.md).
 
-- Páginas del servidor: [resumen y estadísticas](./features/server-statistics.md), [configuración](./features/server-settings.md), [editor de `server.properties`](./features/server-properties.md), [versión del juego](./features/game-versions.md), [modpacks y plugins](./features/modpacks-and-plugins.md), [mapa del mundo](./features/world-map.md), [tareas programadas](./features/scheduled-tasks.md), [copias de seguridad](./features/backups.md), [historial de archivos](./features/file-history.md), [informes de caída](./features/crash-reports.md), [notificaciones](./features/server-notifications.md), [subdominios](./features/subdomains.md), [asistente de IA](./features/ai-assistant.md).
+- Páginas del servidor: [resumen y estadísticas](./features/server-statistics.md), [configuración](./features/server-settings.md), [editor de `server.properties`](./features/server-properties.md), [versión del juego](./features/game-versions.md), [modpacks y plugins](./features/modpacks-and-plugins.md), [mapa del mundo](./features/world-map.md), [tareas programadas](./features/scheduled-tasks.md), [copias de seguridad](./features/backups.md), [historial de archivos](./features/file-history.md), [informes de caída](./features/crash-reports.md), [notificaciones](./features/server-notifications.md), [subdominios](./features/subdomains.md), [asistente de IA](./features/ai-assistant.md) y su [trabajo con archivos](./features/ai-agent.md).
 - Ciclo de vida del servidor: [clonación](./features/cloning.md), [subservidores](./features/sub-servers.md), [transferencias](./features/server-transfers.md).
 - Administración del panel: [panel de inicio y nodos](./features/dashboard-and-nodes.md), [actividad y registro de accesos](./features/activity-and-access-log.md), [hosts de bases de datos](./features/database-hosts.md), [configuración del panel](./features/panel-settings.md), [plantillas](./features/templates.md), [actualizaciones del panel](./features/panel-updates.md), [integración con facturación y enlaces de acceso](./features/provisioning-and-sso.md).
 
@@ -80,6 +80,7 @@ Guías para usuarios y administradores, una página por funcionalidad. Lista com
 | [11. Servicios](./backend/11-services.md) | Servicios de negocio de `internal/services` |
 | [12. Entrada de consola](./backend/12-rcon-telnet.md) | stdin, RCON, Telnet y RCON sobre WebSocket |
 | [13. Procesos y métricas](./backend/13-process-metrics.md) | Gestión de procesos, historial de métricas, muestreo del nodo |
+| [14. Kit de herramientas del agente de IA](./backend/14-ai-toolkit.md) | Las herramientas de archivos del asistente: bucle del agente, function calling de Gemini, aislamiento, confirmaciones, auditoría |
 
 ## Funcionamiento interno del frontend
 

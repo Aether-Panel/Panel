@@ -122,6 +122,17 @@ Toda la E/S de archivos de los servidores (gestor de archivos, SFTP, operaciones
 - Al arrancar, el daemon prueba `openat2` y **se niega a arrancar** si no puede usarla (un kernel sin ella, o un perfil seccomp que la bloquea y responde `EPERM`). `security.forceOpenat=true` omite la comprobación y usa una alternativa que abre cada componente de la ruta con `openat` y `O_NOFOLLOW`; úsela solo donde no se pueda usar `openat2`.
 - Los archivos que escriben las descargas se crean con `O_NOFOLLOW`, así que un enlace simbólico dejado donde va un archivo se rechaza en lugar de seguirse. Véase [Operaciones: seguridad de los archivos](./06-operations.md#seguridad-de-los-archivos).
 
+## Herramientas de archivos del asistente del servidor
+
+El asistente del servidor puede leer y cambiar archivos mediante el function calling de Gemini (modo agente, `panel.settings.aiFileTools`). Sus salvaguardas, descritas por completo en [Kit de herramientas del agente de IA](./14-ai-toolkit.md):
+
+- **Un solo servidor.** El servidor sale de la ruta autenticada (`/api/servers/:serverId/ai/...`, después de `server.console`), nunca del modelo; ninguna herramienta acepta un argumento de servidor, y cada operación va a las rutas `/daemon/server/<id>/...` de ese servidor en su nodo.
+- **Las rutas** las limpia `tools/toolkit/security` en el panel, y otra vez en el nodo en las rutas `fs/*` (sin rutas absolutas, letras de unidad, `..` ni NUL, como mucho 4096 bytes y 64 elementos), y después las abre el servidor de archivos confinado descrito arriba. Los enlaces simbólicos nunca se siguen fuera de la carpeta del servidor, las escrituras usan `O_NOFOLLOW`, las creaciones `O_EXCL`, las copias y las búsquedas omiten los enlaces, y borrar un enlace elimina solo el enlace (también en la ruta `DELETE` del gestor de archivos, que además rechaza la propia carpeta del servidor).
+- **Permisos.** Las herramientas se ofrecen según el scope: las de lectura con `server.files.view` y el resto con `server.files.edit`; los scopes se vuelven a leer en cada petición y en cada confirmación.
+- **Confirmaciones.** Las ediciones, sobrescrituras, movimientos, cambios de nombre y borrados esperan al usuario: un token aleatorio de un solo uso ligado al usuario, al servidor y al hash de las llamadas exactas, válido 10 minutos, uno por usuario y servidor, guardado en la memoria del panel.
+- **Sin comandos**: no hay herramienta para comandos de shell o de consola ni para acciones de encendido.
+- **Auditoría**: cada cambio se anota en el registro de actividad del servidor como `ai.<herramienta>`.
+
 ---
 
 ## Aislamiento de procesos y contenedores

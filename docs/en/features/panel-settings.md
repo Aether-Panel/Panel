@@ -43,6 +43,7 @@ Users without `settings.edit` who open `/settings` are sent back to the dashboar
 **Artificial intelligence**
 
 - **Hide AI Console Analysis**: turns the AI log analysis off on every server and for every user: it hides the card under the console and **Explain with AI** in crash reports, and `POST /api/servers/:id/ai/analyze` answers `403` with `ErrAIAnalysisDisabled`. The **Assistant** chat is not affected.
+- **Let the assistant work with server files** (`panel.settings.aiFileTools`, on by default): the server assistant can read, create, edit, move and delete files of the server it is opened on, within each user's file permissions, and always asks for confirmation before changing or deleting anything. Off, the assistant only answers questions. See [AI assistant: working with files](./ai-agent.md).
 - **Gemini API Key** (shown while the analysis is not hidden): the Google Gemini key used by the console analysis and the server assistant. See [AI assistant](./ai-assistant.md).
 
 **Modpacks**
@@ -99,7 +100,7 @@ Unknown keys are ignored. The test routes (`/api/settings/test/email`, `/test/di
 
 The keys behind the General tab, with their defaults and environment variables, are listed in [Configuration](../backend/02-configuration.md):
 
-`panel.settings.companyName`, `panel.settings.masterUrl`, `panel.settings.notificationLanguage`, `panel.settings.geminiApiKey`, `panel.settings.hideAiAnalysis`, `daemon.curseforge.key`, `panel.registrationEnabled`, `panel.captcha.builtin`, `panel.turnstile.enabled`, `panel.turnstile.siteKey`, `panel.turnstile.secretKey`, `panel.experimental.versionSwitch`, `panel.experimental.propertiesEditor`, `panel.experimental.serverClone`.
+`panel.settings.companyName`, `panel.settings.masterUrl`, `panel.settings.notificationLanguage`, `panel.settings.geminiApiKey`, `panel.settings.hideAiAnalysis`, `panel.settings.aiFileTools`, `daemon.curseforge.key`, `panel.registrationEnabled`, `panel.captcha.builtin`, `panel.turnstile.enabled`, `panel.turnstile.siteKey`, `panel.turnstile.secretKey`, `panel.experimental.versionSwitch`, `panel.experimental.propertiesEditor`, `panel.experimental.serverClone`.
 
 Environment variables use the prefix `SKYPANEL_` and the key in upper case with dots turned into underscores, for example `SKYPANEL_PANEL_EXPERIMENTAL_SERVERCLONE`.
 

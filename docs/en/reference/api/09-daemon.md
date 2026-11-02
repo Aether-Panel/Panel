@@ -69,7 +69,10 @@ Unless the last column says otherwise, the panel route is the same path under `/
 | POST | `/start`, `/restart` | Starts / restarts | Same (the panel refuses suspended servers first) |
 | POST | `/stop`, `/kill` | Stops / kills | Same |
 | POST | `/install` | Runs the template's installation | Same; also right after creation |
-| GET, PUT, POST, DELETE | `/file/*filename` | Read, write, move, delete files | Same; also both transfers |
+| GET, PUT, POST, DELETE | `/file/*filename` | Read, write, move, delete files | Same; also both transfers and the server assistant |
+| GET | `/fs/stat` | Describes a file or folder | None: the panel's server assistant ([below](#files)) |
+| POST | `/fs/copy` | Copies a file or folder | None: the panel's server assistant |
+| GET | `/fs/search` | Searches names or file contents | None: the panel's server assistant |
 | POST | `/archive/*filename` | Compresses files | Same; also both transfers |
 | POST | `/extract/*filename` | Extracts an archive | Same; also both transfers |
 | GET | `/console` | Console buffer | Same |
@@ -179,6 +182,56 @@ Kills the server if it runs, runs the template's uninstall steps, deletes the se
 ### Files
 
 The same rules as the [panel's file routes](./04-server-content.md#files), including the `?folder` flag and the query string being read as part of the file name on `GET`, `PUT` and `DELETE`. Both [transfers](./08-external-transfer.md#what-moves) use these routes with the archive `transfer.tar.gz` and `extract/transfer.tar.gz?destination=.`.
+
+Changes made for the server assistant (they apply to every caller of these routes):
+
+- `PUT /file/*filename?create=true` only creates a new file: it opens the file with `O_EXCL`, so nothing already there (file, folder or link) is replaced, and answers `409 ErrFileExists` when something exists. With `create` in the query (any value), the query is **not** read as part of the name, and no previous version is kept in the file history (there is none). Missing parent folders are made and the disk limit applies as for any `PUT` (`409 ErrDiskLimitExceeded`).
+- `DELETE /file/*filename` describes the target without following it: a symlink is removed itself (unlinked from its folder) and what it points at is not touched. Before, deleting a link to a folder emptied that folder and then failed to remove the link. A path that does not exist answers `404` with no body; an empty path, or one that resolves to the server folder itself, answers `400 ErrIllegalFileAccess` instead of emptying the server.
+
+The server assistant (see [AI agent toolkit](../../backend/14-ai-toolkit.md)) also uses three routes that have no panel route: the panel calls them only from its `nodeWorkspace`, for the server of the conversation. They work through the toolkit's workspace over the server's confined file server, so paths are checked again on the node (relative to the server folder; no leading `/`, drive letter, `..` or NUL; at most 4096 bytes and 64 elements) and symlinks are not followed out of the folder.
+
+#### `GET /daemon/server/:serverId/fs/stat?path=`
+
+`path` is relative to the server folder; empty (or `.`) is the folder itself. Answer:
+
+```json
+{ "name": "server.properties", "path": "server.properties", "isDir": false, "size": 1187, "modTime": "2026-11-02T09:41:00Z" }
+```
+
+A symlink that stays inside the server folder is described by what it points at. The server folder answers `name` and `path` `"."`. `size` is `0` for folders.
+
+#### `POST /daemon/server/:serverId/fs/copy`
+
+Body `{"source": "config", "destination": "config-backup"}`. Copies a file or a folder tree; `204`. The destination must not exist and cannot be inside the source; missing parent folders are made. A symlink as source is refused; inside a copied folder, symlinks, devices, sockets and pipes are skipped. Before copying, the node checks the disk (`ErrDiskLimitExceeded`) and, with a disk limit, adds up the regular files to be copied and refuses with `409 ErrDiskLimitExceeded` when they would not fit; afterwards it measures the folder again.
+
+#### `GET /daemon/server/:serverId/fs/search?dir=&query=&content=`
+
+Looks for `query` (case-insensitive, at most 200 characters, not empty) below `dir` (empty is the server folder), breadth first: in file and folder names, or with `content=true` in the lines of text files. Limits: 8 folders deep, 5000 entries looked at, 200 matches, files up to 1 MiB; binary files and the inside of linked folders are skipped.
+
+```json
+{ "matches": [ { "path": "logs/latest.log", "line": 214, "text": "[ERROR] Could not load plugin" } ], "truncated": false }
+```
+
+A name match has only `path`; a content match also has `line` (from 1) and `text` (the trimmed line, at most 300 characters). `truncated` is `true` when the search stopped at 200 matches.
+
+#### Errors of the `fs/*` routes
+
+They answer `{"error": {"code": "...", "msg": "..."}}` with a message that holds at most a server-relative path. The panel reads the code back to know what happened.
+
+| Status | Code | When |
+|---|---|---|
+| `400` | `ErrFileInvalidPath` | Empty, too long or too deep path, NUL byte |
+| `400` | `ErrFileOutsideServer` | Absolute path, drive letter, `..`, or a path or link that leaves the server folder |
+| `400` | `ErrFileNotAFolder`, `ErrFileIsAFolder` | A file where a folder is needed, or the other way round |
+| `400` | `ErrFileSymlink`, `ErrFileNotRegular` | A symlink, device, socket or pipe where a regular file or folder is needed |
+| `400` | `ErrFileInvalidRequest` | Bad body, empty or too long search text, a destination inside its source |
+| `403` | `ErrFileProtected`, `ErrFilePermission` | A protected path (none by default); the operating system refused |
+| `404` | `ErrFileNotFound` | Not found |
+| `409` | `ErrFileExists` | The destination exists |
+| `409` | `ErrDiskLimitExceeded` | The copy does not fit in the server's disk limit |
+| `413` | `ErrFileTooLarge` | Over a size limit |
+| `507` | `ErrFileNoSpace` | The node's disk is full |
+| `500` | `ErrFileOperationFailed` | Anything else (the cause is only logged on the node) |
 
 ### Backups
 

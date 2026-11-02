@@ -43,6 +43,7 @@ Quien no tiene `settings.edit` y abre `/settings` vuelve al panel de inicio. Una
 **Inteligencia artificial**
 
 - **Ocultar análisis IA de la consola**: desactiva el análisis de registros con IA en todos los servidores y para todos los usuarios: oculta la tarjeta bajo la consola y **Explicar con IA** en los informes de caída, y `POST /api/servers/:id/ai/analyze` responde `403` con `ErrAIAnalysisDisabled`. El chat del **Asistente** no se ve afectado.
+- **Dejar que el asistente trabaje con los archivos del servidor** (`panel.settings.aiFileTools`, activado por defecto): el asistente del servidor puede leer, crear, editar, mover y borrar archivos del servidor en el que se abre, dentro de los permisos de archivos de cada usuario, y siempre pide confirmación antes de cambiar o borrar algo. Desactivado, el asistente solo responde preguntas. Ver [Asistente de IA: trabajar con archivos](./ai-agent.md).
 - **Clave API de Gemini** (visible mientras el análisis no está oculto): la clave de Google Gemini que usan el análisis de la consola y el asistente del servidor. Ver [Asistente de IA](./ai-assistant.md).
 
 **Modpacks**
@@ -99,7 +100,7 @@ Las claves desconocidas se ignoran. Las rutas de prueba (`/api/settings/test/ema
 
 Las claves de la pestaña General, con sus valores por defecto y variables de entorno, están en [Configuración](../backend/02-configuration.md):
 
-`panel.settings.companyName`, `panel.settings.masterUrl`, `panel.settings.notificationLanguage`, `panel.settings.geminiApiKey`, `panel.settings.hideAiAnalysis`, `daemon.curseforge.key`, `panel.registrationEnabled`, `panel.captcha.builtin`, `panel.turnstile.enabled`, `panel.turnstile.siteKey`, `panel.turnstile.secretKey`, `panel.experimental.versionSwitch`, `panel.experimental.propertiesEditor`, `panel.experimental.serverClone`.
+`panel.settings.companyName`, `panel.settings.masterUrl`, `panel.settings.notificationLanguage`, `panel.settings.geminiApiKey`, `panel.settings.hideAiAnalysis`, `panel.settings.aiFileTools`, `daemon.curseforge.key`, `panel.registrationEnabled`, `panel.captcha.builtin`, `panel.turnstile.enabled`, `panel.turnstile.siteKey`, `panel.turnstile.secretKey`, `panel.experimental.versionSwitch`, `panel.experimental.propertiesEditor`, `panel.experimental.serverClone`.
 
 Las variables de entorno usan el prefijo `SKYPANEL_` y la clave en mayúsculas con los puntos cambiados por guiones bajos, por ejemplo `SKYPANEL_PANEL_EXPERIMENTAL_SERVERCLONE`.
 

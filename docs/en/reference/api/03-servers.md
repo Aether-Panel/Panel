@@ -83,6 +83,7 @@ Most routes below `/api/servers/:serverId/` are forwarded to the daemon of the s
 |--------|------|-------|--------------|
 | POST | `/api/servers/:serverId/ai/analyze` | `server.console` | Explains console lines |
 | POST | `/api/servers/:serverId/ai/chat` | `server.console` | Chat with the server assistant |
+| POST | `/api/servers/:serverId/ai/chat/confirm` | `server.console` | Approves or declines the changes the assistant is waiting on |
 
 External transfer routes (`/extransfer/*`) are in [External transfer](./08-external-transfer.md); the uptime of a server (`/api/uptime/:serverId`) is in [Panel administration](./06-panel-admin.md#uptime).
 
@@ -440,13 +441,13 @@ Makes that user the owner (and a member). The previous owner stays as a sub-user
 |-------|---------|
 | `limit` | Entries per page, default 50, at most 100 |
 | `before` | Only entries older than this id |
-| `type` | A family (`power`, `console`, `files`, `backups`, `users`, `settings`, `tasks`) or an action prefix such as `file` or `backup.create` |
+| `type` | A family (`power`, `console`, `files`, `backups`, `users`, `settings`, `tasks`) or an action prefix such as `file`, `backup.create` or `ai.edit_file` (lowercase letters, one dot, underscores after the dot) |
 
 ```json
 { "items": [ { "id": 812, "action": "console.command", "detail": "say hi", "username": "alice", "userId": 3, "createdAt": "2026-11-01T09:12:00Z" } ], "nextCursor": 790 }
 ```
 
-`ip` is only included for administrators. Actions include `server.start`, `file.write`, `file.upload`, `backup.create`, `user.add`, `task.save`, `settings.notifications`, and the node transfer's `server.transfer`, `server.transferFailed` and `server.transferStartFailed` (in the `settings` family); settings changes are recorded without their values. Details: [Activity and access log](../../features/activity-and-access-log.md).
+`ip` is only included for administrators. Actions include `server.start`, `file.write`, `file.upload`, `backup.create`, `user.add`, `task.save`, `settings.notifications`, the node transfer's `server.transfer`, `server.transferFailed` and `server.transferStartFailed` (in the `settings` family), and the assistant's file changes `ai.create_file`, `ai.create_directory`, `ai.copy_path`, `ai.edit_file`, `ai.write_file`, `ai.move_path`, `ai.rename_path` and `ai.delete_path` (in the `files` family, detail: the path or `source → destination`); settings changes are recorded without their values. Details: [Activity and access log](../../features/activity-and-access-log.md).
 
 ## Subdomain
 
@@ -484,7 +485,7 @@ Deletes the records. `204`; `422` when Cloudflare refuses (the name is kept so i
 
 ## AI
 
-Both routes need `panel.settings.geminiApiKey` (otherwise `400 {"error": "Gemini API Key is not configured. Please add it in Settings."}`) and share a quota of 30 requests per user every 10 minutes (`429`). Details: [AI assistant](../../features/ai-assistant.md).
+The three routes need `panel.settings.geminiApiKey` (otherwise `400 {"error": "Gemini API Key is not configured. Please add it in Settings."}`) and share a quota of 30 requests per user every 10 minutes (`429`). Details: [AI assistant](../../features/ai-assistant.md) and [AI assistant: working with files](../../features/ai-agent.md).
 
 ### `POST /api/servers/:serverId/ai/analyze`
 
@@ -507,6 +508,52 @@ Both routes need `panel.settings.geminiApiKey` (otherwise `400 {"error": "Gemini
 ```
 
 1 to 20 messages of 1 to 2000 characters, `role` `user` or `assistant`, the last one from the user. The assistant sees the server's status, players, last day of performance, crashes and recent console. Answer: `{"reply": "...", "sources": ["status", "console"]}`; `502` when the AI service fails.
+
+**Agent mode.** When `panel.settings.aiFileTools` is on (the default), the request has a signed-in user and that user holds `server.files.view` on the server, the assistant can also use file tools on this server (and only this one): reading tools with `server.files.view`, creating, changing, moving and deleting tools with `server.files.edit`. Reads and creations run during the request; changes to existing data stop for confirmation. The answer then is:
+
+```json
+{
+  "reply": "I will remove the old world folder.",
+  "sources": ["status", "console"],
+  "steps": [
+    { "id": "local-1-1", "tool": "list_directory", "kind": "read", "summary": "Listed the server folder (12 entries)", "paths": ["."], "status": "done" }
+  ],
+  "pending": {
+    "token": "9f2c…",
+    "actions": [
+      { "id": "local-2-1", "tool": "delete_path", "kind": "destructive", "summary": "Delete the folder world_old and everything in it", "paths": ["world_old"], "status": "pending" }
+    ],
+    "expiresAt": "2026-11-02T10:10:00Z"
+  }
+}
+```
+
+| Field | Meaning |
+|-------|---------|
+| `steps` | The tool calls of this request, in order. `kind` is `read`, `create`, `modify` or `destructive` (empty for a refused call); `status` is `done`, `failed`, `declined` or `refused` (not run: unknown tool, missing scope or a limit); `error` explains a failure or refusal; `paths` are relative to the server folder |
+| `pending` | `null`, or the calls waiting for the user (`status` `pending`), the single-use `token` and `expiresAt` (10 minutes) |
+
+When `pending` is set, `reply` is the model's explanation of those calls and may be empty. In agent mode a failed task answers `502 {"error": "...", "steps": [...], "pending": null}` with the steps that ran before it failed. The changes made are recorded in the [activity log](#activity-log) as `ai.<tool>`. Tools, limits and isolation: [AI agent toolkit](../../backend/14-ai-toolkit.md).
+
+### `POST /api/servers/:serverId/ai/chat/confirm`
+
+Answers a pending confirmation. Scope `server.console`; counts against the same quota.
+
+```json
+{ "token": "9f2c…", "approved": ["local-2-1"], "language": "en" }
+```
+
+`approved` holds the IDs of the pending actions to run (at most 64); the others are declined, and an empty list declines them all. The token and each ID have at most 128 characters. Each approved action is checked again (scopes and files as they are now) before it runs, then the assistant continues. The answer has the same shape as the agent-mode chat (with `sources: []`) and may carry a new `pending`.
+
+| Error | When |
+|-------|------|
+| `400` | No Gemini key; invalid JSON; token missing or longer than 128 characters; more than 64 IDs or an empty or too long ID |
+| `403 ErrNoPermission` | No signed-in user, or the caller no longer has `server.files.view` on the server. Without `server.files.edit`, approved changes are not run and come back as `refused` steps |
+| `409 ErrAIConfirmationInvalid` | The token is unknown, expired, already used or replaced by a newer request of the same user on the same server; it belongs to another user or server; an approved ID was not pending; or `panel.settings.aiFileTools` was turned off meanwhile. Pending confirmations are kept in memory, so a panel restart also invalidates them |
+| `429` | Quota |
+| `502` | The assistant failed while continuing: `{"error": "...", "steps": [...], "pending": null}` |
+
+A token sent by another user or for another server is refused without being used up. An answer naming an ID that was not pending uses the token up.
 
 ## WebSocket
 
