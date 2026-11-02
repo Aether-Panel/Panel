@@ -9,8 +9,9 @@ import (
 	"strings"
 )
 
-// tokenPath is where the panel answers token requests (internal/web/oauth2)
-const tokenPath = "/oauth2/token"
+// oauth2EndpointPath is the panel route that answers token requests (internal/web/oauth2).
+// It is a URL path, not a credential (gosec G101 matches on names like "token").
+const oauth2EndpointPath = "/oauth2/token" // #nosec G101
 
 func createRequest(data url.Values) (request *http.Request) {
 	authURL := tokenURL(config.AuthURL.Value())
@@ -31,7 +32,7 @@ func tokenURL(configured string) string {
 	if err != nil || u.Host == "" || strings.Trim(u.Path, "/") != "" {
 		return configured
 	}
-	u.Path = tokenPath
+	u.Path = oauth2EndpointPath
 	return u.String()
 }
 
