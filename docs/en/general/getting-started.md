@@ -1,669 +1,136 @@
-# Getting Started - Complete Guide
+# Getting Started
 
-## Welcome to Aether Panel
+This guide goes from a clean Linux server to a first game server running in Aether Panel. Each step links to the page with the full details.
 
-This guide will take you step by step from installation to having your first server running. Follow each section in order for a successful setup.
+## 1. Check the requirements
 
-## System Requirements
+| | Minimum |
+|---|---|
+| Operating system | Linux: Ubuntu 22.04/24.04 (and newer), Debian 12, Rocky/Alma/RHEL 9; also Arch, openSUSE Tumbleweed, RHEL 8 and Fedora |
+| Architecture | amd64 or arm64 |
+| Resources | 2 vCPU and 2 GB of RAM for the panel itself (or swap), plus whatever your game servers need |
+| Access | root or `sudo` |
+| Network | A public IP. A domain is optional but recommended (see step 4). |
 
-Before starting, make sure your system meets the following requirements:
+Docker and Docker Compose v2 are installed by the installer if they are missing. The full list, with the systems tested, is in the [Installation guide](../setup/01-installation.md#system-requirements).
 
-It is important to note that Aether Panel requires at least 2 CPU vcores, 2GB of RAM, and 5GB of storage just to run correctly. These requirements do not cover the usage of the services it will manage in the panel.
+## 2. Install the panel
 
-- **cardTitle**: Hardware and Software
-- **cardTitle2**: Minimum
-- Operating System: Linux (Ubuntu 22.04+, Debian 12+, Rocky/Alma 9).
-- Architecture: amd64 or arm64.
-- Virtualization: KVM, OpenVZ, LXC or dedicated server (for nodes).
-- Software: Docker and Docker Compose (v20.10.0+, optional).
-- Hardware: 2 CPU vcores, 2GB RAM, 5GB storage (minimum).
+Run as root (or with `sudo`):
 
-- **cardTitle3**: Recommended
-- Operating System: Linux (Ubuntu 22.04+, Debian 12+, Rocky/Alma 9).
-- Architecture: amd64 or arm64.
-- Virtualization: KVM, OpenVZ, LXC or dedicated server (for nodes).
-- Software: Docker and Docker Compose (v20.10.0+, optional).
-- Hardware: 2 CPU vcores, 4GB RAM, 20GB storage.
-
-### Required Ports
-
-Make sure the following ports are available:
-
-- 8080/TCP: Web panel (HTTP/HTTPS) - Required
-- 5657/TCP: SFTP for file transfer - Required
-- 22/TCP: SSH for administration - Recommended to change to non-standard port
-
-### Verify Requirements
-
-Before installing, verify that you have root or sudo access:
-
-Verify that the ports are free:
-
-If any port is in use, stop the service or change the port in the configuration.
-
-- **code1**: sudo whoami
-- **code2**: # Check port 8080
-sudo netstat -tuln | grep 8080
-
-# Check port 5657
-sudo netstat -tuln | grep 5657
-## Step-by-Step Installation
-
-### Installation Methods
-
-Aether Panel can be installed in three different ways. Choose the one that best suits your needs:
-
-- Automatic Installation with Script (Recommended): The easiest and fastest method
-- Docker Installation: Ideal for containerized environments
-- Manual Installation: For advanced users who want full control
-
-- **linuxTitle**: Method 1: Automatic Installation with Script
-- **linuxP1**: This is the most recommended method. The script installs Docker (if missing), clones the repository, builds the image, and configures the service.
-- **linuxP2**: Run the following command as root or with sudo to start the installation:
-- **linuxCode**: bash -c "$(curl -fsSL https://install.aetherpanel.es/install.sh)"
-- **linuxP3**: Or download the script first and then run it:
-- **linuxCode2**: # Download the script
-wget https://install.aetherpanel.es/install.sh
-
-# Give execution permissions
-chmod +x install.sh
-
-# Run as root
-sudo bash install.sh
-### Interactive Process
-
-During installation, the script will ask you:
-
-- Use a domain or only IP? (if using a domain, configure Nginx as reverse proxy)
-- SSL: Do you want to configure SSL with Let's Encrypt? (only if using a domain)
-- Ports: Do you want to change the default ports? (optional)
-
-### The installation script will perform the following steps:
-
-- Automatically detect your operating system (Ubuntu, Debian, Fedora, CentOS, RHEL)
-- Install Docker and Docker Compose v2 (if not present)
-- Clone the repository from https://github.com/Aether-Panel/Panel.git
-- Build the image with `docker compose build` (main branch)
-- Configure Nginx as a reverse proxy (only if using a domain)
-- Configure SSL with Let's Encrypt (optional)
-- Create the initial administrator user
-- Start the containers with `docker compose up -d`
-
-- **dockerTitle**: Method 2: Docker Installation
-- **dockerP1**: If you prefer to use Docker, you can deploy Aether Panel with Docker Compose. This method is ideal if you are already familiar with Docker.
-### Prerequisites
-
-Make sure you have Docker and Docker Compose installed:
-
-- **checkDocker**: # Verify Docker
-docker --version
-
-# Verify Docker Compose
-docker compose version
-#### If you don't have Docker installed:
-
-- **ubuntu**: # Ubuntu/Debian
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-- **fedora**: # Fedora/RHEL/CentOS
-sudo dnf install -y docker docker-compose-plugin
-sudo systemctl enable docker
-sudo systemctl start docker
-### Steps to install with Docker:
-
-#### 1. Clone the repository
-
-This will download all the panel source code.
-
-```text
-git clone https://github.com/Aether-Panel/Panel.git
-cd Panel
+```bash
+bash -c "$(curl -fsSL https://install.aetherpanel.es/install.sh)"
 ```
 
-#### 2. Configure the database (optional)
+The installer checks the machine (architecture, RAM, disk, free ports), installs Docker if needed, clones the repository into `/opt/skypanel`, generates random database passwords, builds the image and starts the containers. It asks for:
 
-If you want to use external MySQL, edit config.docker.json:
+- a **domain** or only the IP (with a domain it sets up Nginx and, if you want, a Let's Encrypt certificate);
+- the **ports** (defaults: 8080 for the panel, 5657 for SFTP) and the **database** (the bundled MariaDB, or an external MySQL/MariaDB);
+- the **administrator's email**. If you do not give a password, it generates one.
 
-If you use the MySQL from the docker-compose.yml, you don't need to change anything.
+To install without questions, with a domain and HTTPS:
 
-```text
-{
-  "panel": {
-    "database": {
-      "dialect": "mysql",
-      "url": "user:password@tcp(IP:3306)/database?charset=utf8mb4&parseTime=true"
-    }
-  }
-}
+```bash
+curl -fsSL https://install.aetherpanel.es/install.sh | sudo bash -s -- --non-interactive \
+  --domain panel.example.com --ssl --email admin@example.com --admin-email admin@example.com
 ```
 
-#### 3. Build the Docker image
+Running the installer again offers to update, reinstall or uninstall. All of its options are in the [Installation guide](../setup/01-installation.md).
 
-This process may take several minutes the first time, as it downloads dependencies and compiles the panel.
+> There is no native (non-Docker) installation. The image is always built from the repository's `Dockerfile`.
 
-```text
-docker compose build
+## 3. Sign in
+
+At the end the installer prints the panel's address and where the credentials are:
+
+- **Address**: `https://panel.example.com` with a domain, otherwise `http://YOUR_IP:8080`.
+- **Credentials**: a generated password is saved in `/etc/SkyPanel/credenciales.txt` (readable by root only), together with the database passwords.
+
+```bash
+sudo cat /etc/SkyPanel/credenciales.txt
 ```
 
-#### 4. Start the containers
+Open the address, sign in with the administrator's email and password, and change the password in **Account Settings** if it was generated.
 
-The -d flag runs the containers in the background (detached mode).
+If the administrator account could not be created (for example the panel was not ready yet), create it by hand:
 
-```text
-docker compose up -d
+```bash
+docker exec -it skypanel /SkyPanel/bin/SkyPanel user add --name admin --email admin@example.com --admin
 ```
 
-#### 5. Verify that the containers are running
+It asks for the password (8 to 72 bytes). The [CLI reference](../reference/14-cli-commands.md) lists every command.
 
-You should see the 'skypanel' and 'skypanel-mysql' containers with 'Up' status.
+## 4. Secure the panel
 
-```text
-docker compose ps
-```
+Do this before giving access to anyone else:
 
-#### 6. View the logs (optional)
+1. **Use a domain with HTTPS.** A panel at `http://IP:8080` sends its session cookie to every port of that IP, including your customers' game servers. Point a domain at the server and either install with `--domain … --ssl` or enter `https://your-domain` in **Settings → General → Base URL**: the panel sets up Nginx, the certificate and the firewall, and publishes its own port on `127.0.0.1` only. Why and how: [Security](./security.md#expose-the-panel-with-a-domain-and-https).
+2. **Set the Base URL** even without a domain (`http://YOUR_IP:8080`): password reset and sign-in links are built from it.
+3. **Turn on 2FA** for the administrator in **Account Settings → Two-factor authentication**, and keep the recovery codes.
+4. **Decide about sign-ups.** Public sign-up is on by default (`panel.registrationEnabled`). Turn it off in **Settings → General** if accounts come from you or from a billing system. The anti-bot check on the sign-in and sign-up forms is on by default ([Captcha / anti-bot](17-turnstile.md)).
 
-Press Ctrl+C to exit the logs.
+The installer opens SSH, SFTP (5657), 80/443 and, when it is not bound to `127.0.0.1`, the panel port with ufw or firewalld. Game server ports need no rule: Docker publishes them itself. Do not open MariaDB (3307) or Adminer (8081); both listen on `127.0.0.1` only. See [Firewall and ports](./security.md#firewall-and-ports).
 
-```text
-docker compose logs -f
-```
+## 5. Check the node
 
-> **Note:** There is no published pre-built image. The image is always built from the repository's `Dockerfile` (`docker compose build` or `docker compose up -d --build`).
+The machine where the panel runs is already a node: the **local node** (`LocalNode`) appears in **Nodes** without any setup. Its address comes from the Base URL. You can run every server there.
 
-### Create Administrator User (Docker)
+To run servers on other machines, install the same image there as a node and register it in **Nodes**: see [Installation as a secondary node](../setup/01-installation.md) and [Dashboard and nodes](../features/dashboard-and-nodes.md).
 
-Once the container is running, run this command to create your administrator account:
+## 6. Create your first server
 
-Remember to change admin@example.com and admin123 to your real data.
+Go to **Servers** and click **Add Server** (only administrators create servers from scratch; customers split their own servers with Splitter). You can also click **Use Template** on a template in **Templates** to open the wizard with that template already chosen. The wizard has three steps.
 
-```text
-docker exec -it skypanel /SkyPanel/bin/SkyPanel user add --name admin --email admin@example.com --password 'admin123' --admin
-```
+### Step 1: Environment
 
-### Docker Configuration
+| Field | What to enter |
+|-------|---------------|
+| **Server name** | Any name; it is what users see. The server's ID is made from it plus a random suffix. |
+| **Node** | Where the server runs. Each node shows its public address. |
+| **Environment** | Always **Docker**: the panel's install only runs servers in containers (`docker.disallowHost`). There is nothing to choose. |
+| **Users with access** | Optional. The **first** user picked becomes the server's **owner**; the others are added as members. Leave it empty for a server of your own. |
 
-The docker-compose.yml includes:
+What the users get: the owner holds the full owner set (console, files, backups, tasks, sub-users…); the other users get the same customer permissions except backups. Neither can change limits, ports or the definition. See [Owner and sub-users](./scopes-reference.md#owner-and-sub-users).
 
-- MySQL/MariaDB service for the database
-- Aether Panel service with all necessary ports
-- Persistent volumes for data and configuration
-- Health checks to verify service status
+### Step 2: Template
 
-### Post-Installation
+1. Pick the **template repository**: **Community** (the index at `templates.aetherpanel.es`, set by the Docker install) or **Local** (templates uploaded to your panel).
+2. Pick the **template** (for example a Minecraft flavour). The wizard loads its details; wait until it finishes.
 
-Once installed, the panel will be accessible at:
+### Step 3: Configuration
 
-Log in with the administrator credentials created during the installation process.
+**Resources.** CPU (percent of one core: 100 is one core, 200 two), RAM (MB), disk (MB) and disk priority. They start with the template's values (or 100 % CPU, 1024 MB, 10240 MB and 500). The wizard warns you, under the fields, when:
 
-```text
-http://<YOUR-SERVER-IP>:8080
-```
+- the RAM is more than the node has (red), more than it has free right now, or less than the template recommends (amber);
+- the node is low on disk or has less free disk than the limit you set.
 
-- **nativeTitle**: Method 3: Manual Installation (Without Docker)
-- **nativeP1**: **There is no supported native mode.** The official installation is only via Docker. If you still want to compile the panel from source code (for example, for development), you can do so by following these steps, but it is not the recommended installation method nor the one used by the automatic installer.
-### Install Dependencies Manually
+**Template variables.** One field per variable the template defines (required ones are marked with `*`):
 
-#### Ubuntu/Debian
+- The game **version** is a list of real releases (from Mojang or PaperMC) when the template downloads the game with them; `latest` stays available.
+- For Minecraft, the **Java** image follows the version you pick (26.1+ → Java 25, 1.20.5–1.21.x → 21, 1.17–1.20.4 → 17, older → 8). You can still change it; a warning appears if it does not match.
+- **Port** fields are checked against the node as you type: a port below 1024, one the panel uses, one another server has or one another container publishes is flagged, with a **Use** button for the next free port. Administrators also see who holds it.
+- Before creating, values are validated: required fields, whole numbers within the template's limits, and the Minecraft **EULA**, which must be accepted (without it the server stops as soon as it starts).
 
-```text
-# Update system
-sudo apt update && sudo apt upgrade -y
+**Extra ports.** **Add port** adds ports beyond the main one; they become `port2`, `port3`… and are published over TCP and UDP. They are checked against the node too.
 
-# Install basic dependencies
-sudo apt install -y git build-essential curl wget sqlite3
+Click **Create server**. If something is wrong, the wizard marks the field and moves the focus to it; nothing is created.
 
-# Install Go 1.25.0
-wget https://go.dev/dl/go1.25.0.linux-amd64.tar.gz
-sudo rm -rf /usr/local/go
-sudo tar -C /usr/local -xzf go1.25.0.linux-amd64.tar.gz
-echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
-source ~/.bashrc
+### What happens next
 
-# Verify Go
-go version
+1. The panel creates the server on the node and, with `panel.servers.autoInstall` on (the default), **starts the installation right away**: the template downloads the game and its files. You do not need to press Install.
+2. Open the server (the wizard says it is installing) and watch the progress in the **Console**. A first install can take a few minutes; the runtime images are usually already downloaded, because nodes prefetch them (`docker.prefetchImages`).
+3. When the install finishes, click **Start**. If the server fails to start, the console says why (for example a missing EULA, a port in use or not enough memory), and a crash notice appears if it stops unexpectedly.
+4. Connect with your game to the address shown on the server page (the node's address and the main port).
 
-# Install Node.js 22
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt install -y nodejs
+The game runs in its container as an unprivileged user (uid 988), with its own `/tmp`, a process cap and dropped capabilities. See [Game server containers](./security.md#game-server-containers).
 
-# Install Yarn
-sudo npm install -g yarn
+## 7. Next steps
 
-# Verify installations
-node --version
-yarn --version
-```
-
-#### Fedora/RHEL/CentOS
-
-```text
-# Update system
-sudo dnf update -y
-
-# Install basic dependencies
-sudo dnf install -y git gcc make curl wget sqlite
-
-# Install Go 1.25.0
-wget https://go.dev/dl/go1.25.0.linux-amd64.tar.gz
-sudo rm -rf /usr/local/go
-sudo tar -C /usr/local -xzf go1.25.0.linux-amd64.tar.gz
-echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
-source ~/.bashrc
-
-# Install Node.js 22
-curl -fsSL https://rpm.nodesource.com/setup_22.x | sudo bash -
-sudo dnf install -y nodejs
-
-# Install Yarn
-sudo npm install -g yarn
-```
-
-### Manual Compilation Process:
-
-#### 1. Clone the repository
-
-```text
-git clone https://github.com/Aether-Panel/Panel.git
-cd Panel
-```
-
-#### 2. Compile the frontend
-
-This will compile the web interface (Astro + React).
-
-```text
-cd client/frontend
-yarn install
-yarn build
-```
-
-#### 3. Compile the backend
-
-This will create the executable binary 'SkyPanel'.
-
-```text
-cd ../..
-go mod download
-go build -o SkyPanel ./cmd/panel
-```
-
-#### 4. Create directory structure
-
-```text
-sudo mkdir -p /etc/SkyPanel
-sudo mkdir -p /var/lib/SkyPanel
-sudo mkdir -p /var/log/SkyPanel
-sudo mkdir -p /var/www/aetherpanel
-```
-
-#### 5. Copy compiled files
-
-```text
-sudo cp -r client/frontend/dist/* /var/www/aetherpanel/
-sudo cp SkyPanel /usr/sbin/
-sudo chmod +x /usr/sbin/SkyPanel
-```
-
-#### 6. Create configuration file
-
-```text
-sudo tee /etc/SkyPanel/config.json > /dev/null <<EOF
-{
-  "logs": "/var/log/SkyPanel",
-  "panel": {
-    "database": {
-      "dialect": "sqlite3",
-      "url": "file:/var/lib/SkyPanel/database.db?cache=shared"
-    },
-    "web": {
-      "files": "/var/www/aetherpanel"
-    }
-  },
-  "daemon": {
-    "data": {
-      "root": "/var/lib/SkyPanel"
-    }
-  }
-}
-EOF
-```
-
-#### 7. Create system user
-
-```text
-sudo useradd -r -m -d /var/lib/SkyPanel -s /bin/bash skypanel
-sudo chown -R skypanel:skypanel /var/lib/SkyPanel /var/log/SkyPanel
-```
-
-#### 8. Create systemd service
-
-```text
-sudo tee /etc/systemd/system/skypanel.service > /dev/null <<EOF
-[Unit]
-Description=Aether Panel - Server Management Panel
-After=network.target
-
-[Service]
-Type=simple
-User=skypanel
-WorkingDirectory=/var/lib/SkyPanel
-ExecStart=/usr/sbin/SkyPanel runService --config /etc/SkyPanel/config.json
-Restart=always
-RestartSec=10
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-sudo systemctl daemon-reload
-sudo systemctl enable skypanel
-```
-
-## Installation Verification
-
-After installing, verify that everything is working correctly:
-
-### Verify Service (Native Installation)
-
-```text
-# Check service status
-sudo systemctl status skypanel
-
-# View logs in real-time
-sudo journalctl -u skypanel -f
-```
-
-### Verify Containers (Docker Installation)
-
-```text
-# Check container status
-docker compose ps
-
-# View logs
-docker compose logs -f skypanel
-```
-
-### Verify Ports
-
-```text
-# Verify that ports are listening
-sudo netstat -tuln | grep -E '8080|5657'
-
-# Or use ss
-sudo ss -tuln | grep -E '8080|5657'
-```
-
-### Verify Web Panel
-
-```text
-# From the server
-curl http://localhost:8080
-
-# Or from your browser
-# http://YOUR_IP:8080
-```
-
-## First Access and Initial Configuration
-
-Once installation and verification are complete, it's time to access the panel and configure it for the first time.
-
-### Access the Panel
-
-Open your browser and access:
-
-You will be greeted by the login screen.
-
-- **ip**: http://YOUR_IP:8080
-- **domain**: https://your-domain.com (if you configured domain and SSL)
-### Step 1: Create Administrator User
-
-Before you can log in, you need to create an administrator user using the CLI.
-
-If you installed with Docker, run the commands inside the container:
-
-If you installed natively, run directly:
-
-- **dockerCommand**: # Enter the container
-docker exec -it skypanel sh
-
-# Create admin user
-/SkyPanel/bin/SkyPanel user add --name admin --email admin@example.com --admin
-- **nativeCommand**: sudo -u skypanel /usr/sbin/SkyPanel user add --name admin --email admin@example.com --admin
-- **p4**: Or from the installation directory:
-- **localCommand**: SkyPanel user add --name admin --email admin@example.com --admin
-- **p5**: The system will ask you for a password. Choose a secure password.
-#### Command Parameters
-
-- --username: Username for login
-- --email: Email address
-- --admin: Grants full administrator permissions
-
-### Step 2: Log In
-
-Now you can log in to the panel:
-
-- Open http://YOUR_IP:8080 in your browser
-- Enter the username you created
-- Enter the password
-- Click 'Log In'
-
-### Available CLI Commands
-
-To see all available commands from the Aether Panel CLI:
-
-Or from the Docker container:
-
-- **helpCommand**: SkyPanel --help
-- **dockerHelp**: docker exec skypanel /SkyPanel/bin/SkyPanel --help
-#### Main Commands
-
-##### User Management
-
-- SkyPanel user add --name USER --email EMAIL --admin
-- SkyPanel user add --name USER --email EMAIL --password PASS (non-interactive)
-- SkyPanel user edit (interactive menu: username/email/password/admin/2FA)
-
-##### Database Management
-
-- SkyPanel db upgrade (update the database schema to the new version)
-
-##### Run Panel
-
-- SkyPanel runService (start as a service with systemd notify)
-- SkyPanel version (show version)
-
-### Step 3: Configure Firewall
-
-If you don't have the ports enabled in the firewall, the panel will not be accessible from outside the server.
-
-#### Ubuntu/Debian (UFW)
-
-```text
-# Enable UFW if not active
-sudo ufw enable
-
-# Allow necessary ports
-sudo ufw allow 8080/tcp
-sudo ufw allow 5657/tcp
-sudo ufw allow 8081/tcp
-
-# Verify rules
-sudo ufw status
-```
-
-#### Fedora/RHEL/CentOS (firewalld)
-
-```text
-# Start firewalld if not active
-sudo systemctl start firewalld
-sudo systemctl enable firewalld
-
-# Allow necessary ports
-sudo firewall-cmd --permanent --add-port=8080/tcp
-sudo firewall-cmd --permanent --add-port=5657/tcp
-sudo firewall-cmd --permanent --add-port=8081/tcp
-
-# Apply changes
-sudo firewall-cmd --reload
-
-# Verify rules
-sudo firewall-cmd --list-ports
-```
-
-### Step 4: Initial Configuration in the Panel
-
-Once you have logged in, configure the basic settings:
-
-#### Basic Configuration
-
-- Go to Settings (Configuration) in the menu
-- Configure the panel URL (e.g., http://YOUR_IP:8080 or https://your-domain.com)
-- Configure the administrator email
-- Configure the company/organization name
-- Save changes
-
-#### Configure Nodes
-
-If you installed on the same server where the servers will run (local node), you don't need to configure anything else. The local node is configured automatically.
-
-If you want to use remote nodes:
-
-- Go to Admin  Nodes
-- Click 'Create Node'
-- Enter the remote node IP
-- Enter the daemon port (default 8080)
-- Enter the daemon authentication token
-- Verify the connection
-- Save the node
-
-#### Configure Discord (Optional)
-
-To receive notifications on Discord:
-
-To create a Discord webhook:
-
-- Go to Settings  Notifications
-- Enter the Discord webhook URL
-- Configure the types of notifications you want to receive
-- Save changes
-
-- Go to your Discord server
-- Channel Settings  Integrations  Webhooks
-- Create a new webhook
-- Copy the webhook URL
-
-### Step 5: Create Your First Server
-
-Now you're ready to create your first server:
-
-Congratulations! You now have your first server running on Aether Panel.
-
-- Go to the Servers section
-- Click 'Create Server'
-- Select the node where it will run (or use the local node)
-- Choose a template (e.g., Minecraft Java Edition)
-- Configure the server name
-- Configure the server port
-- Adjust resources (RAM, CPU) if necessary
-- Click 'Create'
-- Wait for the server to install
-- Click 'Start' to boot the server
-
-## Installation Summary
-
-If you have followed all the steps, you should have:
-
--  Aether Panel installed and running
--  Administrator user created
--  Firewall configured
--  Panel accessible at http://YOUR_IP:8080
--  Basic configuration completed
--  First server created (optional)
-
-### Next Steps
-
-Now that you have the panel running, you can:
-
-- Explore all panel functionalities
-- Create more servers of different types
-- Configure Database Hosts for MySQL databases
-- Add additional users with specific permissions
-- Configure automatic backups
-- Explore the API for automation
-- Read the complete documentation in other sections
-
-### What's New in v2.0.1+
-
-#### Redesigned Settings View
-
-The server **Settings** tab (`/servers/:id` → Settings) now features:
-
-- **2-column responsive layout** with per-section cards.
-- **Unique visual identity** per section (colors, borders, gradient bars).
-- **Sticky Save Bar** that stays visible on scroll.
-- **Role-based permissions**: Admin sees all + CRUD; User sees only allowed (no Limits, Metadata, Admin tab).
-- **Extra Ports Management**: Users view assigned ports, pick primary, edit notes; Admins have full CRUD.
-- **Metadata (Admin only)**: Key-value read-only, filters internal variables.
-- **Resource Limits**: Colored progress bars with percentages.
-
-#### Automatic MySQL Connectivity (Docker)
-
-Docker container servers now auto-join the `skypanel-network`, allowing `mysql:3306` resolution without extra config. See [Troubleshooting: MySQL Connectivity](../setup/troubleshooting.md#16-mysql-connectivity-from-docker-servers-mysql3306-not-resolving).
-
-#### Fixed Roles and Permissions
-
-The "User" role now has correct permissions:
-- **Has**: `server.definition.view/edit`, `server.flags.view/edit`.
-- **No longer has**: `server.admin.config.view/manage`, `server.data.edit.admin`.
-
-#### Sidebar Fix
-
-Sidebar navigation uses `hasScope()` instead of `scopes.includes()` and `/servers/` requires `server.view`.
-
-## Advanced Panel Configuration
-
-### Configuration File
-
-The main configuration file is located at:
-
-You can edit this file to customize the panel configuration.
-
-- **native**: /etc/SkyPanel/config.json (native installation)
-- **docker**: /etc/SkyPanel/config.json (inside Docker container)
-### Database Configuration
-
-Aether Panel supports SQLite (default) and MySQL/MariaDB.
-
-#### SQLite (Default)
-
-SQLite is configured automatically and requires no additional configuration. It's ideal for small installations.
-
-#### MySQL/MariaDB
-
-To use MySQL, edit the configuration file:
-
-Make sure the database and user exist before starting the panel.
-
-```text
-{
-  "panel": {
-    "database": {
-      "dialect": "mysql",
-      "url": "user:password@tcp(host:3306)/database?charset=utf8mb4&parseTime=true"
-    }
-  }
-}
-```
-
-### Port Configuration
-
-The default ports are:
-
-You can change these ports by editing the configuration file or environment variables.
-
-- 8080: Web panel (HTTP)
-- 5657: SFTP for file transfer
-
+- Give access to someone: the server's **Users** tab ([Scopes reference](./scopes-reference.md)).
+- Files and SFTP: the **File Manager** and **SFTP Access** tabs ([Core concepts: SFTP](./concepts.md#sftp)).
+- Backups and scheduled tasks: [Backups](../features/backups.md), [Scheduled tasks](../features/scheduled-tasks.md).
+- Databases for your servers: [Database hosts](../features/database-hosts.md).
+- Email, Discord alerts and the AI assistant: [Email](15-email.md), [Discord](16-discord.md), [AI assistant](../features/ai-assistant.md).
+- Selling servers from WHMCS or Paymenter: [Billing integration](../features/provisioning-and-sso.md).
+- Keeping the panel updated: **Settings → Updates**, or the installer with `--update` ([Panel updates](../features/panel-updates.md)).
+- Something not working: [Troubleshooting](../setup/troubleshooting.md) and the [FAQ](./faq.md).

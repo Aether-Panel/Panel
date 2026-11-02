@@ -1,446 +1,167 @@
-# Email & SMTP System
+# Email
 
-Aether Panel uses a template-based email system with support for multiple providers (SMTP, SendGrid, Mailjet, Mailgun, Debug).
+Aether Panel sends transactional emails (account created, password reset, added to a server, …) from HTML templates through one of five providers: SMTP, Mailgun, Mailjet, SendGrid or a debug provider that only logs.
 
----
-
-## Overview
-
-- **Template-based**: Templates defined in `emails.json`, rendered with Go templates
-- **Multi-provider**: SMTP, SendGrid, Mailjet, Mailgun, Debug (log only)
-- **Async sending**: Non-blocking goroutine
-- **Merged FS**: Custom templates override embedded defaults
+Email is optional. With no provider set, every send returns `email not configured` and the action that triggered it carries on (the error is only logged).
 
 ---
 
 ## Configuration
 
-```json
-{
-  "panel": {
-    "email": {
-      "templateFolder": "/etc/SkyPanel/emails",
-      "provider": "smtp",
-      "from": "panel@example.com",
-      "domain": "example.com",
-      "host": "smtp.example.com",
-      "key": "api_key_or_password",
-      "username": "smtp_user",
-      "password": "smtp_password"
-    }
-  }
-}
-```
+Keys from `internal/config/entries.go` (all default to `""`). Environment variables follow the usual rule (`SKYPANEL_` + key in upper case, dots as `_`), see [Configuration](../backend/02-configuration.md).
 
-**Environment Variables:**
-| Variable | Config Key | Required |
-|----------|------------|----------|
-| `SKYPANEL_PANEL_EMAIL_TEMPLATEFOLDER` | `panel.email.templateFolder` | No |
-| `SKYPANEL_PANEL_EMAIL_PROVIDER` | `panel.email.provider` | Yes |
-| `SKYPANEL_PANEL_EMAIL_FROM` | `panel.email.from` | Yes |
-| `SKYPANEL_PANEL_EMAIL_DOMAIN` | `panel.email.domain` | Mailgun only |
-| `SKYPANEL_PANEL_EMAIL_HOST` | `panel.email.host` | SMTP only |
-| `SKYPANEL_PANEL_EMAIL_KEY` | `panel.email.key` | Yes |
-| `SKYPANEL_PANEL_EMAIL_USERNAME` | `panel.email.username` | SMTP only |
-| `SKYPANEL_PANEL_EMAIL_PASSWORD` | `panel.email.password` | SMTP only |
+| Key | Environment variable | Used by |
+|-----|----------------------|---------|
+| `panel.email.provider` | `SKYPANEL_PANEL_EMAIL_PROVIDER` | All. `smtp`, `mailgun`, `mailjet`, `sendgrid` or `debug` (case-insensitive) |
+| `panel.email.from` | `SKYPANEL_PANEL_EMAIL_FROM` | SMTP, Mailgun, Mailjet, SendGrid (required) |
+| `panel.email.host` | `SKYPANEL_PANEL_EMAIL_HOST` | SMTP (required) |
+| `panel.email.username` | `SKYPANEL_PANEL_EMAIL_USERNAME` | SMTP |
+| `panel.email.password` | `SKYPANEL_PANEL_EMAIL_PASSWORD` | SMTP |
+| `panel.email.domain` | `SKYPANEL_PANEL_EMAIL_DOMAIN` | Mailgun (sending domain), Mailjet (see below) |
+| `panel.email.key` | `SKYPANEL_PANEL_EMAIL_KEY` | Mailgun, Mailjet, SendGrid (required) |
+| `panel.email.templateFolder` | `SKYPANEL_PANEL_EMAIL_TEMPLATEFOLDER` | Folder with custom templates (optional, read at start-up) |
 
----
+Every key except `templateFolder` can be changed from **Settings → Mail** or the settings API (`settings.edit`). The Mail tab offers all five providers: SMTP, Mailgun, Mailjet, SendGrid and **Debug (log only)**, which shows no fields.
 
-## EmailService (`internal/services/email.go`)
-
-```go
-type EmailService interface {
-    SendEmail(to, templateName string, data map[string]interface{}, async bool) error
-}
-```
-
-**Parameters:**
-- `to`: Recipient email
-- `templateName`: Key in `emails.json` (e.g., `passwordReset`)
-- `data`: Template variables
-- `async`: `true` = goroutine (non-blocking), `false` = blocking
-
-**Returns:** Error only on sync send or provider init failure
-
----
-
-## Provider Interface (`internal/email/provider.go`)
-
-```go
-type Provider interface {
-    Send(to, subject, body string) error
-}
-```
-
-**Note:** No `Name()` method - providers are registered by name in map.
-
----
-
-## Provider Registration
-
-```go
-// In each provider file (smtp.go, sendgrid.go, etc.)
-func init() {
-    providers["smtp"] = NewSMTPProvider
-    providers["sendgrid"] = NewSendGridProvider
-    // ...
-}
-
-func GetProvider(name string) (Provider, error) {
-    if f, ok := providers[name]; ok {
-        return f(), nil
-    }
-    return nil, errors.New("provider not found")
-}
-```
-
-**Pattern:** Each provider file registers itself in `init()` - no central `RegisterProvider` function.
+A missing required value makes the send fail with `<key> is not configured` (error code `ErrSettingNotConfigured`).
 
 ---
 
 ## Providers (`internal/email/`)
 
-### 1. SMTP (`internal/email/smtp.go`)
+Each provider registers itself by name in an `init()` function; `email.GetProvider(name)` looks the name up in lower case. All providers send the body as HTML.
 
-Uses `wneessen/go-mail`.
+### SMTP (`smtp.go`)
 
-```go
-type SMTPProvider struct {
-    client *mail.Client
-    from   string
-}
-```
-
-**Config:**
-```json
-{
-  "provider": "smtp",
-  "host": "smtp.gmail.com",
-  "key": "app_password",
-  "username": "user@gmail.com",
-  "password": "app_password",
-  "from": "panel@example.com"
-}
-```
-
-**Features:**
-- SSL/TLS (port 465) or STARTTLS (port 587) auto-detected via `mail.WithSSLPort(true)`
-- Authentication: PLAIN
-- **Note:** No port config - uses `mail.WithSSLPort(true)` which auto-detects SSL (port 465) or STARTTLS (port 587)
-
----
-
-### 2. SendGrid (`internal/email/sendgrid.go`)
-
-Uses `sendgrid-go`.
-
-```go
-type SendGridProvider struct {
-    client *sendgrid.Client
-    from   string
-}
-```
-
-**Config:**
-```json
-{
-  "provider": "sendgrid",
-  "key": "SG.xxxxx",
-  "from": "panel@example.com"
-}
-```
-
----
-
-### 3. Mailjet (`internal/email/mailjet.go`)
-
-Uses `mailjet-go`.
-
-```go
-type MailjetProvider struct {
-    client *mailjet.Client
-    from   string
-}
-```
-
-**Config:**
-```json
-{
-  "provider": "mailjet",
-  "key": "api_key",
-  "password": "api_secret",
-  "from": "panel@example.com"
-}
-```
-
----
-
-### 4. Mailgun (`internal/email/mailgun.go`)
-
-Uses `mailgun-go`.
-
-```go
-type MailgunProvider struct {
-    client *mailgun.MailgunImpl
-    from   string
-}
-```
-
-**Config:**
-```json
-{
-  "provider": "mailgun",
-  "key": "api_key",
-  "domain": "mg.example.com",
-  "from": "panel@example.com"
-}
-```
-
----
-
-### 5. Debug (`internal/email/debug.go`)
-
-Logs email to stdout (development only).
-
-```go
-type DebugProvider struct{}
-```
-
-**Output:**
-```
-=== EMAIL DEBUG ===
-To: user@example.com
-Subject: Password Reset
-Body: <html><h1>Password Reset</h1><p>Hello user,...</p></html>
-===================
-```
-
----
-
-## Provider Registration
-
-Each provider registers itself in its own `init()`:
-
-```go
-// internal/email/smtp.go
-func init() {
-    providers["smtp"] = NewSMTPProvider
-}
-
-// internal/email/sendgrid.go
-func init() {
-    providers["sendgrid"] = NewSendGridProvider
-}
-```
-
-**GetProvider:**
-```go
-func GetProvider(name string) (Provider, error) {
-    if f, ok := providers[name]; ok {
-        return f(), nil
-    }
-    return nil, errors.New("provider not found")
-}
-```
-
-**Custom Provider:** Add new file with `init()` registering to `providers` map.
-
----
-
-## Template System
-
-### emails.json Structure
-
-```json
-{
-  "passwordReset": {
-    "subject": "Reset your password",
-    "body": "emails/password_reset.tmpl"
-  },
-  "addedToServer": {
-    "subject": "You've been added to a server",
-    "body": "emails/added_to_server.tmpl"
-  },
-  "otpEnroll": {
-    "subject": "Your OTP enrollment code",
-    "body": "emails/otp_enroll.tmpl"
-  }
-}
-```
-
-### Template Files (Go Templates)
-
-**password_reset.tmpl:**
-```html
-<h1>Password Reset</h1>
-<p>Hello {{.Username}},</p>
-<p>Click <a href="{{.ResetLink}}">here</a> to reset your password.</p>
-<p>This link expires in 30 minutes.</p>
-<p>If you didn't request this, please ignore.</p>
-```
-
-**Available Variables (per template):**
-| Template | Variables |
-|----------|-----------|
-| `passwordReset` | `Username`, `ResetLink`, `ExpiryMinutes` |
-| `addedToServer` | `Username`, `ServerName`, `ServerURL`, `Scopes` |
-| `otpEnroll` | `Username`, `Secret`, `QRCodeURL`, `RecoveryCodes` |
-| `licenseExpiring` | `DaysUntilExpiry`, `LicenseKey`, `Plan` |
-| `serverOffline` | `ServerName`, `ServerID`, `Timestamp` |
-| `backupFailed` | `ServerName`, `BackupName`, `Error` |
-
-### Template Resolution
-
-```go
-// 1. Check custom folder (panel.email.templateFolder)
-// 2. Fall back to embedded FS (assets/email/)
-// 3. Parse with Go text/template
-```
-
-**Custom Override:** Place templates in `templateFolder` to override defaults.
-
----
-
-## Async Sending
-
-```go
-func (es *emailService) SendEmail(to, templateName string, data map[string]interface{}, async bool) error {
-    if async {
-        go func() {
-            if err := es.sendEmailSync(to, templateName, data); err != nil {
-                logging.Errorf("Async email failed: %v", err)
-            }
-        }()
-        return nil
-    }
-    return es.sendEmailSync(to, templateName, data)
-}
-```
-
-**Use Cases:**
-| async=true | async=false |
-|------------|-------------|
-| Password reset | Critical alerts |
-| Server notifications | License expiry warnings |
-| User invites | Provision confirmations |
-
----
-
-## Built-in Templates
-
-| Template | Trigger | Key Variables |
-|----------|---------|---------------|
-| `passwordReset` | Forgot password | `Username`, `ResetLink`, `ExpiryMinutes` |
-| `otpEnroll` | OTP setup | `Username`, `Secret`, `QRCodeURL`, `RecoveryCodes` |
-| `otpRecovery` | Recovery code used | `Username`, `RemainingCodes` |
-| `addedToServer` | User added to server | `Username`, `ServerName`, `ServerURL`, `Scopes` |
-| `removedFromServer` | User removed | `Username`, `ServerName` |
-| `inviteToServer` | Server invite | `InviterName`, `ServerName`, `InviteLink` |
-| `licenseExpiring` | License near expiry | `DaysUntilExpiry`, `LicenseKey`, `Plan` |
-| `serverOffline` | Server goes offline | `ServerName`, `ServerID`, `Timestamp` |
-| `serverOnline` | Server comes online | `ServerName`, `ServerID` |
-| `backupFailed` | Backup fails | `ServerName`, `BackupName`, `Error` |
-| `backupSuccess` | Backup succeeds | `ServerName`, `BackupName`, `Size` |
-| `resourceAlert` | CPU/RAM threshold | `ServerName`, `Resource`, `Current`, `Threshold` |
-| `nodeOffline` | Node disconnects | `NodeName`, `NodeID` |
-| `exTransferCreated` | Transfer created | `Token`, `ServerName`, `Expiry` |
-
----
-
-## Discord Fallback
-
-If email fails and Discord webhook configured, sends to Discord instead:
-
-```go
-func (es *emailService) SendEmail(...) error {
-    err := svc.Send(...)
-    if err != nil && hasDiscordWebhook() {
-        discord.SendAlert("Email Failed", fmt.Sprintf("To: %s, Template: %s, Error: %v", to, templateName, err))
-    }
-    return err
-}
-```
-
----
-
-## API Endpoints
-
-| Method | Path | Scope | Description |
-|--------|------|-------|-------------|
-| POST | `/api/settings/test/email` | `settings.edit` | Send test email |
-
-**Request:**
-```json
-{
-  "to": "test@example.com"
-}
-```
-
-**Response:** `204` on success, error details on failure
-
----
-
-## Testing
-
-### Development (Debug Provider)
+Library: `github.com/wneessen/go-mail`.
 
 ```json
 {
   "panel": {
     "email": {
-      "provider": "debug",
-      "from": "test@example.com"
+      "provider": "smtp",
+      "host": "smtp.example.com",
+      "username": "no-reply@example.com",
+      "password": "app-password",
+      "from": "no-reply@example.com"
     }
   }
 }
 ```
 
-**Output:**
-```
-=== EMAIL DEBUG ===
-To: user@example.com
-Subject: Password Reset
-Body: <html><h1>Password Reset</h1><p>Hello user,...</p></html>
-===================
-```
+- `host` is the host name only. There is no port setting: the client is created with `mail.WithSSLPort(true)`, which connects with implicit TLS on port **465** and lets go-mail fall back to its non-SSL port if that fails. Servers that only accept port 587 (STARTTLS) are not supported by a setting.
+- Authentication: `SMTPAuthAutoDiscover` (the strongest method the server announces).
+- `username` is trimmed; **all spaces are removed** from `password` (so Gmail-style app passwords can be pasted with spaces).
+- Each message gets a random `Message-ID`.
 
-### Production Checklist
+### Mailgun (`mailgun.go`)
 
-- [ ] Valid SMTP credentials / API keys
-- [ ] `from` address verified with provider
-- [ ] SPF/DKIM/DMARC configured for domain
-- [ ] Test email sent on startup (`/api/settings/test/email`)
-- [ ] Custom templates in `templateFolder` if needed
-- [ ] Async=true for non-critical emails
-- [ ] Rate limits respected (provider dependent)
+Library: `mailgun-go/v4`. Requires `domain` (the Mailgun sending domain), `from` and `key` (API key). Uses the library's default API base (US region).
+
+### Mailjet (`mailjet.go`)
+
+Library: `mailjet-apiv3-go/v4`, Send API v3.1. Requires `domain`, `from` and `key`. The client is built as `NewMailjetClient(domain, key)`, so **`panel.email.domain` holds the Mailjet API key (public) and `panel.email.key` the secret key**. In the Mail tab these fields are labelled **API Key (public)** and **Secret Key**.
+
+### SendGrid (`sendgrid.go`)
+
+Library: `sendgrid-go`. Requires `from` and `key` (API key). In the Mail tab: **Sender Address** and **API Key**.
+
+### Debug (`debug.go`)
+
+Writes `DEBUG EMAIL TO <to>`, the subject and the body to the debug log and returns success. For development only.
 
 ---
 
-## Custom Provider Example
+## Templates
 
-```go
-// internal/email/custom.go
-package email
+### Loading
 
-type CustomProvider struct {
-    apiEndpoint string
-    apiKey      string
-}
+`LoadEmailService()` runs once when the panel starts (`cmd/panel/run.go`):
 
-func NewCustomProvider(config map[string]string) Provider {
-    return &CustomProvider{
-        apiEndpoint: config["endpoint"],
-        apiKey:      config["key"],
-    }
-}
+1. If `panel.email.templateFolder` is set, it builds a merged file system: the custom folder first, the embedded templates (`assets/email/`) as fallback.
+2. Reads `emails.json`, which maps each template name to a subject and a body file:
 
-func (c *CustomProvider) Send(to, subject, body string) error {
-    // Custom HTTP request
-    return nil
-}
+   ```json
+   {
+     "passwordReset": {
+       "subject": "Your password has been reset",
+       "body": "password-reset.html"
+     }
+   }
+   ```
 
-// Note: No Name() method needed - providers registered by init()
+3. Parses the subject and body with Go's `html/template`. A missing file or a syntax error **stops the panel at start-up** (panic).
 
-// Register in provider.go init():
-// providers["custom"] = func() Provider { return NewCustomProvider(config) }
+Because the whole `emails.json` is taken from the first location that has it, a custom `emails.json` replaces the embedded list: it must declare every template the panel uses. Body files missing from the custom folder are still read from the embedded set. Template changes need a panel restart.
+
+### Variables
+
+Every send adds three variables:
+
+| Variable | Source |
+|----------|--------|
+| `COMPANY_NAME` | `panel.settings.companyName` (default `SkyPanel`) |
+| `MASTER_URL` | `panel.settings.masterUrl` (default `http://localhost:8080`) |
+| `HOST_NAME` | The host name of `panel.settings.masterUrl` (for example `panel.example.com`); when none can be taken from it, `panel.settings.companyName`. Used by the `accountCreation` template |
+
+### Built-in templates
+
+The built-in subjects are in English; they can be changed with a custom template folder.
+
+| Template | Subject | Sent when | Extra variables |
+|----------|---------|-----------|-----------------|
+| `accountCreation` | Your account has been created | A user registers (`/auth/register`) | — |
+| `passwordReset` | Your password has been reset | A password reset is requested | `RESET_LINK` (`<panel>/reset-password/?token=…`) |
+| `passwordChanged` | Your password has been changed | The password is changed (profile or reset) | — |
+| `emailChanged` | Your email has been changed | The email is changed; sent to the **old** address | `NEW_EMAIL` |
+| `otpEnabled` | OTP has been enabled for your account | 2FA turned on | — |
+| `otpDisabled` | OTP has been disabled for your account | 2FA turned off | — |
+| `recoveryCodesRegenerated` | OTP Recovery Codes have been regenerated for your account | Recovery codes regenerated | — |
+| `oauthCreated` | OAuth client created | The user creates an OAuth client | — |
+| `oauthDeleted` | OAuth client deleted | The user deletes an OAuth client | — |
+| `addedToServer` | You have been added to a server | A user is added to a server, a server is created for them, or provisioned | `Server` (`.Server.Name`, `.Server.Identifier`), `RegisterToken`, `Email` |
+| `removedFromServer` | You have been removed from a server | A user is removed from a server | `Server` |
+| `deletedServer` | A server you have access to has been deleted | A server is deleted; sent to the users who had access to it | `Server` |
+| `login` | Someone has logged into your account | Not sent by any code path | — |
+| `test` | Email Test | Test button / test endpoint | — |
+
+`addedToServer`: when the user did not exist and the panel created the account (`RegisterToken` not empty), the email asks them to choose a password at `<MASTER_URL>/forgot-password/` with their address; otherwise it shows the login link.
+
+All emails are sent **asynchronously** (errors only go to the log), except the test email, which is sent synchronously so the error can be shown.
+
+---
+
+## Test email: `POST /api/settings/test/email`
+
+Permission: `settings.edit`. The **Test Email** button in **Settings → Mail** calls it.
+
+- The email (template `test`) goes to the **logged-in user's own address**; there is no `to` field.
+- The body may contain unsaved values to test before saving. Recognised keys: `panel.email.provider`, `panel.email.from`, `panel.email.host`, `panel.email.username`, `panel.email.password`, `panel.email.domain`, `panel.email.key`. Non-empty values are applied for the test only and the previous values are restored afterwards. `panel.email.password` or `panel.email.key` set to `********` (what the page receives instead of the saved secret) are ignored and the saved value is used.
+
+```bash
+curl -X POST https://panel.example.com/api/settings/test/email \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"panel.email.provider": "smtp", "panel.email.host": "smtp.example.com"}'
 ```
+
+| Status | Meaning |
+|--------|---------|
+| `204` | Sent |
+| `422` | `the test email could not be sent: <reason>` (the provider's error, e.g. wrong password or TLS failure) |
+
+---
+
+## Troubleshooting
+
+| Symptom | Cause |
+|---------|-------|
+| `email not configured` | `panel.email.provider` is empty |
+| `panel.email.… is not configured` | A required key for the chosen provider is empty |
+| `email does not support <name>` | `panel.email.provider` is not one of the five names |
+| SMTP timeout or TLS error | The server does not offer implicit TLS on port 465 |
+| Mailjet `401` | `domain`/`key` are not the Mailjet public/secret API key pair |
+| Panel does not start after editing templates | A body file listed in `emails.json` is missing or a template has a syntax error |
+| Nothing arrives, no error in the UI | Asynchronous emails only log failures; check the panel log |
+
+For production, verify the `from` address or domain with the provider and set up SPF/DKIM/DMARC for it.

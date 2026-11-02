@@ -1,275 +1,155 @@
-# CEL Engine & Custom Functions
+# Condiciones (CEL)
 
-Aether Panel uses **Common Expression Language (CEL)** for conditional operation execution and dynamic configuration evaluation.
+Las plantillas y las tareas pueden hacer que un paso dependa de una condición, escrita en el campo `if`. Aether Panel evalúa estas condiciones con [Common Expression Language](https://github.com/google/cel-spec) (CEL), mediante la biblioteca `google/cel-go`. CEL es un lenguaje de expresiones pequeño: no tiene bucles ni asignaciones, y no accede a archivos ni a la red salvo con las funciones que añade el panel.
 
----
+Los tipos de operación (`download`, `javadl`, `writefile`...) y la sustitución `${variable}` en sus argumentos se describen en [Motor de operaciones](../backend/06-operations.md).
 
-## Overview
+## Dónde se evalúan las condiciones
 
-- **Library**: `google/cel-go`
-- **Use Cases**: Operation conditions, variable validation, dynamic config
-- **Syntax**: CEL spec compliant with custom functions
+| Lugar | Campo | Qué ocurre |
+|-------|-------|------------|
+| Pasos de instalación | `install[].if` | El paso solo se ejecuta si la condición es verdadera. |
+| Pasos de desinstalación | `uninstall[].if` | Igual. |
+| Pasos previos y posteriores al arranque | `run.pre[].if`, `run.post[].if` | Igual. |
+| Comando de arranque | `run.command[].if` | Cuando `run.command` es una lista, se usa la primera entrada cuya condición sea verdadera. Si no coincide ninguna, se usa la entrada sin `if`. |
+| Tareas programadas | `operations[].if` | Igual que en la instalación. Solo los administradores pueden guardar un paso de tarea con condición; para el resto, la API responde `only administrators can use conditions`. |
+| Cambios de versión | `install[].if` | Al cambiar la versión de un servidor, el panel usa las condiciones para saber qué paso de descarga corresponde a ese servidor (por ejemplo, qué lanzador de la plantilla de Minecraft). |
+| Detección del mapa del mundo | `install[].if` | Los pasos de instalación cuya condición se cumple indican al panel qué plataforma ejecuta el servidor. |
 
----
+Una condición debe devolver un booleano. Cualquier otro resultado es un error (`invalid return type, expected bool, got ...`).
 
-## CEL Basics
+Qué pasa cuando hay un error:
 
-### Syntax
-```cel
-// Comparisons
-variable > 10
-name == "admin"
-status in ["running", "stopped"]
+- En los pasos de instalación, previos/posteriores y de tareas, un error de evaluación detiene todo el proceso y se muestra en la consola del servidor.
+- En los pasos de desinstalación, un error detiene los pasos restantes y se registra y muestra en la consola, pero el servidor se borra igualmente (su entorno se elimina).
+- En el comando de arranque, un error detiene el arranque (`Failed to start server`).
+- En los cambios de versión y en la detección del mapa, un error cuenta como «falso» y el paso se ignora.
 
-// Logical
-a && b || c
-!condition
+## Datos disponibles
 
-// String operations
-name.contains("admin")
-name.startsWith("server_")
-name.endsWith(".jar")
+| Nombre | Tipo | Valor |
+|--------|------|-------|
+| `os` | string | Sistema operativo del proceso del daemon (`runtime.GOOS` de Go): `linux`, `windows`... |
+| `arch` | string | Arquitectura del proceso del daemon (`runtime.GOARCH`): `amd64`, `arm64`... |
+| `env` | string | Tipo de entorno del servidor, por ejemplo `"docker"` o `"host"`. Es un texto, no un mapa de variables de entorno. |
+| `serverId` | string | Identificador del servidor. |
+| `success` | bool | En las listas de pasos, `true`: un paso que falla detiene la lista, así que los siguientes nunca ven `false`. En `run.post`, indica si el servidor se detuvo de forma ordenada (`false` tras una caída). |
+| `exitCode` | int | Solo en `run.post`: el código de salida del proceso del servidor. |
+| Cada variable del servidor | cualquiera | Valor actual de la variable, por su nombre (`javaversion`, `modlauncher`, `memory`...). |
 
-// List/map operations
-size(list) > 0
-key in map
-map[key] == "value"
+Notas:
 
-// Math
-memory / 1024 / 1024 > 1024
-```
+- Las variables del servidor se usan por su nombre (`javaversion != ""`). También se puede escribir `${nombre}` dentro de un `if`, como en el resto del paso: antes de evaluar, el panel lo sustituye por el valor de forma segura. Dentro de una cadena, el valor se escapa (`in_path("java${javaversion}")` pasa a `in_path("java17")`); fuera de una cadena, `${nombre}` se convierte en la propia variable. El valor nunca se interpreta como código CEL. Un `${...}` con un nombre desconocido se deja tal cual.
+- Los `${...}` de un paso (en el `if` y en los argumentos) se resuelven justo cuando se ejecuta ese paso, así que ven las variables que haya cambiado un paso anterior (por ejemplo, el `outputVariable` de `githubdl` o la versión que encuentra un paso de resolución).
+- Todas las variables se declaran con tipo dinámico, así que las comparaciones se comprueban al evaluar. Una variable numérica se compara con un número y una de texto con una cadena.
+- Un `if` vacío significa que el paso se ejecuta siempre, también en `run.post` tras una caída.
+- `os` y `arch` describen dónde se ejecuta el daemon, no el interior de un contenedor Docker.
 
-### In Operations
-```json
-{
-  "type": "download",
-  "url": "https://example.com/file.jar",
-  "if": "!file_exists('{{rootDir}}/server.jar') && variables.auto_update == true"
-}
-```
+## Funciones que añade el panel
 
----
+Se registran en `internal/servers/operation_functions.go` (`CreateFunctions`).
 
-## Global Constants
-
-| Constant | Type | Description |
-|----------|------|-------------|
-| `os` | string | Runtime OS: `linux`, `windows` |
-| `arch` | string | Architecture: `amd64`, `arm64` |
-
----
-
-## Available Variables
-
-| Variable | Source | Type |
-|----------|--------|------|
-| `success` | Previous operation | bool |
-| `env` | Environment variables | map[string]string |
-| `serverId` | Current server | string |
-| `nodeId` | Current node | string |
-| All server variables | Server definition | various |
-
----
-
-## Custom CEL Functions
-
-Registered in `internal/servers/operation_functions.go:initCELFunctions()`:
-
-### 1. `file_exists(path)`
+### `file_exists(ruta)`
 
 ```cel
-file_exists("/path/to/file")
+file_exists("server.properties")
 ```
 
-**Returns:** `bool` - true if file exists and is accessible
+Devuelve `true` si la ruta existe dentro de la carpeta del servidor. La ruta es relativa a la raíz del servidor; una ruta que sale de ella (`../`) siempre devuelve `false`. Usa `os.Stat`, así que un enlace simbólico cuenta si su destino existe.
 
-**Implementation:** `os.Stat(path)` - checks existence and readability
-
----
-
-### 2. `in_path(command)`
+### `in_path(comando)`
 
 ```cel
 in_path("java")
-in_path("/usr/bin/java")
 ```
 
-**Returns:** `bool` - true if command found in PATH
+Devuelve `true` si el comando está en el `PATH` (`exec.LookPath`), incluida una coincidencia en el directorio actual. La búsqueda se hace en el `PATH` del propio daemon, no dentro del contenedor del servidor.
 
-**Implementation:** `exec.LookPath(command)`
-
----
-
-### 3. `is_server_running()`
+### `is_server_running()`
 
 ```cel
 is_server_running()
 ```
 
-**Returns:** `bool` - true if any server is currently running (checks all servers)
+No recibe argumentos. Devuelve `true` si el proceso de **este** servidor está en marcha. Cualquier error al consultarlo cuenta como `false`.
 
-**Implementation:** Checks server cache for running processes
+## CEL estándar
 
-**Note:** Takes **no arguments** - checks if ANY server is running.
+Funciona toda la sintaxis estándar de CEL. Algunos ejemplos:
 
----
-
-## CEL in Operations
-
-### Condition Evaluation (`internal/servers/operation_functions.go`)
-
-```go
-func evaluateCondition(condition string, variables map[string]interface{}) (bool, error) {
-    if condition == "" {
-        return true, nil
-    }
-    env, _ := cel.NewEnv(
-        cel.Variable("success", cel.BoolType),
-        cel.Variable("env", cel.MapType(cel.StringType, cel.StringType)),
-        // ... all variables
-        cel.Function("file_exists", fileExists),
-        cel.Function("in_path", inPath),
-        cel.Function("is_server_running", isServerRunning),
-        // ...
-    )
-    // ...
-}
+```cel
+javaversion != ""
+modlauncher == "fabric"
+modlauncher in ["forge", "neoforge"]
+os != "windows" && arch == "amd64"
+!file_exists("server.properties")
 ```
 
-### Variable Binding
+Las cadenas admiten comillas dobles o simples (`loader == 'vanilla'` funciona).
 
-All variables from server definition + runtime are bound:
+## Ejemplos
 
-```go
-variables := map[string]interface{}{
-    "success":     previousResult.Success,
-    "env":         getEnvVars(),
-    "serverId":    server.Identifier,
-    "nodeId":      server.NodeID,
-    // All server variables
-    "memory":      server.Variables["memory"].Value,
-    "port":        server.Variables["port"].Value,
-    // ...
-}
-```
-
----
-
-## Use Cases
-
-### 1. Conditional Installation Steps
+Instalar Java solo si la plantilla fija una versión, y escribir `server.properties` solo la primera vez:
 
 ```json
-{
-  "type": "javadl",
-  "version": "17",
-  "if": "!in_path('java') || env_var('JAVA_HOME') == ''"
-}
-```
-
-### 2. Conditional Config Updates
-
-```json
-{
-  "type": "alterfile",
-  "file": "server.properties",
-  "operations": [
-    { "type": "replace", "from": "max-players=20", "to": "max-players=100" }
-  ],
-  "if": "variables.maxPlayers > 20"
-}
-```
-
-### 3. Platform-Specific Operations
-
-```json
-{
-  "type": "download",
-  "url": "https://example.com/linux_binary",
-  "if": "os == 'linux' && arch == 'amd64'"
-}
-```
-
-### 4. Skip if Already Done
-
-```json
-{
-  "type": "download",
-  "url": "https://example.com/server.jar",
-  "if": "!file_exists('{{rootDir}}/server.jar')"
-}
-```
-
-### 5. Dependency Checks
-
-```json
-{
-  "type": "fabricdl",
-  "if": "is_server_running() == false"
-}
-```
-
----
-
-## Error Handling
-
-| Error | Cause | Resolution |
-|-------|-------|------------|
-| `undefined variable` | Variable not in scope | Check variable name, add to binding |
-| `type mismatch` | Wrong type for operator | Cast or use correct operator |
-| `no such overload` | Function args wrong | Check function signature |
-| `parse error` | Syntax error | Check CEL syntax |
-
----
-
-## Debugging CEL
-
-### Enable Debug Logging
-
-```json
-{
-  "panel": {
-    "settings": {
-      "celDebug": true
-    }
+"install": [
+  { "if": "javaversion != \"\"", "type": "javadl", "version": "${javaversion}" },
+  { "type": "mojangdl", "version": "${version}", "target": "server.jar" },
+  {
+    "if": "!file_exists(\"server.properties\")",
+    "type": "writefile",
+    "target": "server.properties",
+    "text": "server-port=${port}\n"
   }
+]
+```
+
+Un paso de descarga por lanzador; solo se ejecuta el que corresponde al servidor:
+
+```json
+"install": [
+  { "if": "modlauncher == \"\"", "type": "mojangdl", "version": "${version}", "target": "server.jar" },
+  { "if": "modlauncher == \"fabric\"", "type": "fabricdl", "version": "${version}" }
+]
+```
+
+Un comando de arranque con alternativa:
+
+```json
+"run": {
+  "command": [
+    { "if": "in_path(\"java21\")", "command": "java21 -Xmx${memory}M -jar server.jar" },
+    { "command": "java -Xmx${memory}M -jar server.jar" }
+  ]
 }
 ```
 
-### Test Expressions
+Un paso posterior que solo se ejecuta tras una caída (`success` y `exitCode` solo existen en las condiciones de `run.post`, no en los argumentos `${...}`):
 
-```go
-// In Go REPL or test
-env, _ := cel.NewEnv(cel.Variable("x", cel.IntType))
-ast, iss := env.Compile("x > 10")
-prog, _ := env.Program(ast)
-result, _, _ := prog.Eval(map[string]interface{}{"x": 15})
-fmt.Println(result.Value()) // true
-```
-
----
-
-## Extending CEL Functions
-
-Add custom functions in `initCELFunctions()`:
-
-```go
-func initCELFunctions() {
-    cel.Function("my_custom_func",
-        cel.Overload("my_custom_func_string", []*cel.Type{cel.StringType}, cel.BoolType),
-        cel.FunctionBinding(func(args ...ref.Value) ref.Value {
-            s := args[0].Value().(string)
-            return ref.OfBool(strings.HasPrefix(s, "custom_"))
-        }),
-    )
+```json
+"run": {
+  "post": [
+    { "if": "!success && exitCode != 0", "type": "writefile", "target": "last-crash.txt", "text": "The server crashed\n" }
+  ]
 }
 ```
 
----
+## Errores habituales
 
-## Security
+| Mensaje (comienzo) | Causa |
+|--------------------|-------|
+| `undeclared reference to 'x'` | La condición usa un nombre que no es una variable del servidor ni uno de los nombres anteriores. |
+| `invalid return type, expected bool` | La expresión no devuelve verdadero o falso. |
 
-- **No arbitrary code execution**: CEL is not Turing-complete
-- **Sandboxed**: No filesystem/network access except via explicit functions
-- **Resource limits**: Max expression size, max recursion depth
-- **Audit logging**: All evaluated expressions logged at debug level
+Los errores de sintaxis y los operadores usados con tipos incorrectos (por ejemplo, comparar un número con una cadena) también fallan; el mensaje lo genera `cel-go` e indica la posición en la expresión.
+
+## Para desarrolladores
+
+El paquete `conditions` (`conditions/executor.go`) contiene el motor:
+
+| Función | Qué hace |
+|---------|----------|
+| `ResolveIf(condition, data, extras)` | Sustituye los `${nombre}` de la condición (`SubstituteVariables`, en `conditions/variables.go`), la evalúa y devuelve un booleano. Si la condición está vacía y `data` contiene `success`, evalúa `success` (las listas de pasos no llaman a `ResolveIf` para un paso sin `if`: lo ejecutan siempre). |
+| `Run[T](statement, data, extras)` | Evalúa una expresión y devuelve un valor de tipo `T`. Cada clave de `data` pasa a ser una variable CEL de tipo dinámico, además de las constantes `os` y `arch`. |
+
+`Server.RunCondition` (`internal/servers/server.go`) construye los datos (`env`, `serverId`, las variables del servidor y los valores extra) y añade las funciones de `CreateFunctions`. Una función nueva se añade allí, como otro `cel.Function(...)` con su sobrecarga y su enlace.

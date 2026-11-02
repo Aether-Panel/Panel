@@ -1,150 +1,147 @@
 # Backend — Overview
 
-## Technology Stack
+The Aether Panel backend is a single Go binary (module `github.com/SkyPanel/SkyPanel/v3`, binary and paths still named `SkyPanel`/`skypanel`) that contains the web panel, its API, the daemon that runs game servers, an SFTP server and the web client, embedded at build time.
 
-| Component | Technology |
+## Technology stack
+
+Versions are the ones in `go.mod`.
+
+| Area | Technology |
 |---|---|
-| Language | **Go 1.25+** |
-| Module | `github.com/SkyPanel/SkyPanel/v3` |
-| HTTP Framework | **Gin** (`github.com/gin-gonic/gin` v1.12) |
-| ORM | **GORM** (`gorm.io/gorm`) with `auto` and `gormigrate` |
-| Database | SQLite3, MySQL, PostgreSQL, SQL Server |
-| CLI | **Cobra** (`github.com/spf13/cobra`) |
-| Config | **Viper** (`github.com/spf13/viper`) with `SKYPANEL_*` environment variables |
-| Auth | JWT (`golang-jwt/jwt/v5`), Ed25519, OAuth2, session cookies |
-| Scheduling | **gocron** (`go-co-op/gocron/v2`) |
+| Language | **Go 1.26** |
+| HTTP | **Gin** v1.12, `gin-contrib/cors`, `gin-contrib/sessions` |
+| ORM | **GORM** v1.31 with **gormigrate** v2 (versioned migrations) |
+| Databases | SQLite, MySQL/MariaDB, PostgreSQL, SQL Server (GORM drivers) |
+| CLI | **Cobra** |
+| Configuration | **Viper**, `SKYPANEL_*` environment variables |
+| Auth | `golang-jwt/jwt/v5` with EdDSA (Ed25519), `jwkset` / `keyfunc` (JWKS), bcrypt, TOTP (`pquerna/otp`), OAuth2 token endpoint of its own |
+| Scheduling | **gocron** v2 |
 | WebSocket | **gorilla/websocket** |
-| SFTP | **pkg/sftp** (proprietary, not OpenSSH) |
-| Containers | **Docker SDK** (`github.com/moby/moby` api v1.55 + client v0.5) |
-| Server Query | **minequery** (game server query) |
-| AI | **Gemini API** (Google GenAI) |
-| Template Engine | Go `text/template` |
-| Validation | `go-playground/validator` |
-| CEL | `google/cel-go` for evaluating conditions in operations |
+| SFTP | `pkg/sftp` over `golang.org/x/crypto/ssh` (built-in server, not OpenSSH) |
+| Containers | Docker SDK (`moby/moby` api v1.56, client v0.6) |
+| Host processes | `creack/pty`, Linux namespaces (`unshare`), `openat2` |
+| Game queries | `minequery` (Minecraft), Source A2S, `gorcon/rcon`, Telnet |
+| Off-site backups | `minio-go` v7 (any S3-compatible storage) |
+| Templates | `go-git` (Git repositories) or a JSON index |
+| Archives | `mholt/archives`, `klauspost/compress` |
+| Email | SMTP (`wneessen/go-mail`), Mailgun, Mailjet, SendGrid |
+| AI | Google GenAI (Gemini) |
+| Conditions | `google/cel-go` |
+| System metrics | `gopsutil` |
+| API docs | `swaggo` (Swagger / OpenAPI) |
 
-## Package Structure
+## Package structure
 
-```
-cmd/panel/              → Entry point (CLI + HTTP server)
-├── main.go             → Cobra root, init, Execute()
-├── run.go              → HTTP server (panel + daemon)
-├── user.go             → Interactive CLI: add, edit
-├── version.go          → CLI: version
-├── db.go               → CLI: db operations
-├── dbmigrate.go        → migrations
-└── dbupgrade.go        → DB upgrade
+```text
+cmd/panel/              Entry point (Cobra)
+├── main.go             Root command, --workDir and --config flags, config loading
+├── run.go              `run`: starts panel and daemon, graceful shutdown
+├── runservice.go       `runService`: same as run, plus systemd READY/STOPPING notifications
+├── user.go             `user add` / `user edit`
+├── version.go          `version`
+└── db.go, dbmigrate.go, dbupgrade.go   `db` commands
 
 internal/
-├── config/             → Typed configuration system with Viper
-│   ├── config.go       → LoadConfigFile, init with SKYPANEL_ prefix
-│   └── entries.go      → Typed declaration of all variables
-├── database/           → Multi-dialect GORM connection
-│   ├── loader.go       → openConnection, GetConnection, Close
-│   └── upgrade.go      → gormigrate (versioned migrations)
-├── models/             → 21 GORM models (Server, User, Node, etc.)
-├── services/           → 19 services (business layer)
-├── middleware/         → 6 Gin middleware
-├── web/               → HTTP Layer
-│   ├── loader.go      → RegisterRoutes (main router)
-│   ├── api/           → API REST Routes
-│   ├── auth/          → Authentication (login, logout, OTP, register)
-│   ├── oauth2/        → OAuth2 token endpoint
-│   ├── daemon/        → Daemon routes (proxy to nodes)
-│   └── swagger/       → Embedded Swagger documentation
-├── servers/           → Daemon Core
-│   ├── server.go      → Server runtime, queues, stats, trackers
-│   ├── env_loader.go  → Environment factory (Docker/TTY)
-│   ├── scheduler.go   → per-server gocron scheduler
-│   ├── docker/        → Docker Implementation
-│   └── tty/           → TTY Implementation (host/standard)
-├── operations/        → Operations System (26 types)
-├── connections/       → RCON, Telnet, WebSocket RCON
-├── sftp/              → Integrated SFTP server
-├── scopes/            → 74 typed permission scopes
-├── oauth2/            → OAuth2 Logic (grant types)
-├── email/             → Email Provider (Mailgun, SMTP)
-├── response/          → HTTP Response Utilities
-├── logging/           → Custom Logger
-├── query/             → Game server query
-├── storage/           → Docker volumes (mysql-data, skypanel-config, skypanel-logs)
-├── update/            → Panel self-update via Docker
-├── groups/            → System group verification
-├── utils/             → General Utilities
-├── sys/               → Syscalls and namespace manipulation
-├── systemd/           → systemd integration (notify, watchdog)
-└── services/          → 19 business services (GORM queries)
+├── config/             Typed configuration keys (entries.go) and file/env loading (config.go)
+├── database/           GORM connection (loader.go) and migrations (upgrade.go)
+├── models/             GORM models (25 tables) and API shapes
+├── services/           Business layer over the database, see 11-services.md
+├── middleware/         Gin middleware: auth, scopes, security headers, origin guard, API keys
+├── web/                HTTP layer
+│   ├── loader.go       RegisterRoutes: CORS, security, /daemon, /api, /oauth2, /auth, web client
+│   ├── api/            Panel API (/api)
+│   ├── auth/           Sign-in, 2FA, sign-up, password reset, SSO, captcha, JWKS (/auth)
+│   ├── oauth2/         Token endpoint (/oauth2/token)
+│   ├── daemon/         Daemon API (/daemon), network history, CPU sampler
+│   └── swagger/        Generated OpenAPI files
+├── servers/            Daemon core: servers, environments, scheduler, backups, metrics...
+│   ├── docker/         Docker environment
+│   └── tty/            Host environment (PTY + unshare)
+├── operations/         Install/task operations (26 packages), see 06-operations.md
+├── connections/        RCON, Telnet and RCON-over-websocket consoles
+├── query/              Game queries (Minecraft ping, Source A2S)
+├── sftp/               Built-in SFTP server
+├── scopes/             The 73 permission scopes
+├── oauth2/             Client side of the node → panel SFTP password check
+├── email/              Email providers (smtp, mailgun, mailjet, sendgrid, debug)
+├── extensions/         Installed extensions: files and event webhooks
+├── offsite/            S3-compatible copy of backups
+├── update/             Panel self-update through an ephemeral container
+├── logging/            Logger and daily log rotation
+├── response/           HTTP error helpers
+├── groups/             System group check (used by the user CLI)
+├── sys/                Syscall helpers
+├── utils/              Helpers: downloads (with the private-address guard), kernel checks, JVM stats...
+└── systemd/            No Go code: skypanel.service, AppArmor profile, Debian packaging templates
 
-pkg/skypanel/          → Public Shared Package
-├── server.go          → Server definition, DaemonServer interface
-├── environment.go     → Environment runtime, EnvironmentImpl interface
-├── environmentfactory.go → EnvironmentFactory interface
-├── operation.go       → Operation, OperationFactory interfaces
-├── authorization.go   → AuthorizationResponse
-├── errors.go          → Shared Errors
-├── version.go         → Version and Display string (ldflags)
-├── engine.go          → Global Gin engine
-├── tracker.go         → Pub/sub Tracker for WebSocket
-├── cache.go           → MemoryCache for console buffer
-├── console.go         → Console interface
-├── stdin.go           → Stdin configuration
-├── task.go            → Task definition for scheduler
-├── message.go         → WebSocket Messages
-├── download.go        → Download utilities
-├── filelist.go        → File listing types
-├── httpmodels.go      → HTTP request/response models
-├── requirements.go    → System requirements check
-├── client.go          → HTTP Client for panel→daemon
-├── variable.go        → Variable type definition
-├── typewithmetadata.go → Generic MetadataType
-└── server_test.go     → Tests
-
-files/                 → Filesystem (compression, paths)
-conditions/            → CEL condition evaluation
+pkg/skypanel/           Shared types: Server definition, Environment, operations, trackers,
+                        console cache, HTTP models, errors, version (set with ldflags)
+files/                  Root-confined file system (openat2), compression, merged FS
+conditions/             CEL condition evaluation
+client/frontend/        Astro + React web client, embedded from client/frontend/dist
 ```
 
-## Startup Flow
+The `storage/` folder at the repository root is not code: `docker-compose.yml` keeps the volumes there (`storage/mysql-data`, `storage/skypanel-config`, `storage/skypanel-data`, `storage/skypanel-logs`).
 
-```
-1. cmd/panel/main.go
-   ├── defer logging.Close()
-   ├── defer recover() → logging.Error
-   └── Execute() (Cobra)
+## Start-up
 
-2. init()
-   ├── Flags --workDir, --config
-   ├── cobra.OnInitialize → setWorkDir(), loadConfig()
-   └── AddCommand(run, version, user, runService, db)
-
-3. loadConfig()
-   └── config.LoadConfigFile(configFile)
-       ├── Viper init (SKYPANEL_ prefix, auto env)
-       ├── Searches: --config > SKYPANEL_CONFIG > /etc/SkyPanel/config.json > config.json
-       └── Reads file with viper.ReadInConfig()
-
-4. internalRun() (run.go)
-   ├── logging.Initialize(true)
-   ├── signal.Ignore(SIGPIPE, SIGHUP)
-   ├── database.GetConnection() → GORM (SQLite/MySQL/Postgres/SQLServer)
-   ├── database.RunMigrations() → gormigrate (versioned)
-   ├── Configures cookie store for sessions
-   ├── web.RegisterRoutes(gin.Engine) → registers all routes
-   │   ├── Global CORS (AllowOriginFunc: true)
-   │   ├── /swagger/*any
-   │   ├── /daemon/* (if daemon.enable=true)
-   │   └── /api/*, /oauth2/*, /auth/*, static frontend (if panel.enable=true)
-   ├── servers.InitService() → process queue, stats, systemStatus
-   ├── SFTP server (goroutine, if configured)
-   ├── manners.GracefulServer (graceful shutdown with signals)
-   └── Waits for SIGINT/SIGTERM signal
+```text
+1. main()                          logging.Close and a panic handler (exit code 2) are deferred
+2. Cobra OnInitialize
+   ├── setWorkDir()                --workDir
+   └── loadConfig()                --config > SKYPANEL_CONFIG > /etc/SkyPanel/config.json > ./config.json
+3. run / runService → internalRun()
+   ├── logging.Initialize, ignore SIGPIPE/SIGHUP, watch SIGINT/SIGTERM
+   ├── Gin engine: Recovery, access log with secrets redacted, trusted proxies
+   ├── if panel.enable → setupPanel()
+   │   ├── email service, database SFTP authorisation, extension event sink
+   │   ├── database.GetConnection() + database.Upgrade()   (migrations)
+   │   ├── panel.sessionKey (generated if empty) → session cookie store, local node secret
+   │   └── if daemon.enable: local node address kept in sync with the settings
+   ├── if daemon.enable → daemon()
+   │   ├── openat2 kernel check (security.forceOpenat skips it)
+   │   ├── SFTP server, container mount source, image prefetch, network history
+   │   ├── create servers/binaries/cache folders, add binaries to PATH
+   │   ├── servers.LoadFromFolder() + servers.InitService()
+   │   └── queue the servers marked to start automatically
+   ├── web.RegisterRoutes()
+   └── listen on web.host (ReadHeaderTimeout 10 s)
+4. On SIGINT/SIGTERM → closePanel()
+   ├── HTTP server shutdown (up to 10 s for requests in progress)
+   ├── SFTP stop, service loop stop (metrics saved)
+   ├── every game server asked to stop at once, up to 1 minute each
+   └── database connections closed
 ```
 
-## Operation Modes
+If the daemon fails to start and `SKYPANEL_PLATFORM=docker`, the panel logs it and keeps running without the daemon; otherwise the process stops. `runService` also sends `READY=1` and `STOPPING=1` to `NOTIFY_SOCKET` when systemd provides it.
 
-The binary can run in two simultaneous modes:
+The CLI commands are described in [CLI](./07-cli.md).
 
-| Mode | Flag | Services |
+## Operation modes
+
+| Mode | Key | What it runs |
 |---|---|---|
-| **Panel** | `panel.enable` (default: true) | REST API, Auth, OAuth2, Static Frontend, SFTP |
-| **Daemon** | `daemon.enable` (default: true) | Proxy to nodes, authentication against panel |
+| **Panel** | `panel.enable` (default `true`) | `/api`, `/auth`, `/oauth2`, `/swagger`, the web client and the database |
+| **Daemon** | `daemon.enable` (default `true`) | `/daemon`, the SFTP server and the game servers of this machine |
 
-Both modes can run together (monolith) or separately (central panel + daemon nodes). The daemon authenticates against the panel using a **JWT signed with Ed25519** (a request token signed with the daemon's private key, sent as `Authorization: Bearer` and validated by the panel), not OAuth2.
+Both run together in a normal install: the panel's own daemon is the **local node** (ID `0`, not stored in the database). Extra machines run the same image with `panel.enable=false` as remote nodes.
+
+The two sides authenticate differently in each direction:
+
+- **Panel → node:** every call to `/daemon/*` carries a JWT the panel signs with its Ed25519 key (`panel.token`), valid for 15 minutes and bound to the target node's secret. A remote node verifies it with the panel's public key set (`token.public`, `/auth/publickey`).
+- **Node → panel:** only to check SFTP passwords, through `POST /oauth2/token` (`grant_type=password`) with the node's secret as bearer token (`daemon.auth.url`, `daemon.auth.clientSecret`).
+
+Details in [API layer](./05-api-layer.md#panel-to-node-requests) and [Configuration: remote node](./02-configuration.md#example-remote-node).
+
+## Where to go next
+
+| Topic | Page |
+|---|---|
+| Every configuration key | [Configuration](./02-configuration.md) |
+| Tables and migrations | [Database](./03-database.md) |
+| Environments, lifecycle, backups, disk | [Servers](./04-servers.md) |
+| Routes, middleware, authentication | [API layer](./05-api-layer.md) |
+| Install and task operations | [Operations](./06-operations.md) |
+| Business services | [Services](./11-services.md) |
+| Console websocket | [WebSocket](./08-websocket.md) |
+| SFTP, tokens, API keys | [Security](./09-security.md) |

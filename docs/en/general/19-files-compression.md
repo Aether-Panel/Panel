@@ -1,324 +1,199 @@
-# Files & Compression Utilities
+# Server files and archives
 
-Aether Panel provides robust file system operations with path traversal protection and multi-format archive support.
+Everything the daemon does with a server's files (the file manager, SFTP, install downloads, archives, backups, restores and clones) goes through the `files` package (`files/` at the repository root). Its job is to keep every read and write inside the server's folder, even when the game, or the person running it, leaves symbolic links, named pipes or tricky names behind.
 
----
+How the kernel side of this works (`openat2`, the `security.forceOpenat` fallback) is described in [Kernel isolation: openat2 and unshare](20-security-unshare.md).
 
-## FileServer (`internal/files/fileserver.go`)
+## The file server
 
-Secure file server with path traversal prevention using `openat2` (Linux) or `openat` fallback.
+`files.NewFileServer(root, uid, gid)` opens the server's folder once and returns a `FileServer`. Every operation is then resolved relative to that open folder, never by its path on disk.
 
-### Features
+| Method | What it does |
+|--------|--------------|
+| `Open`, `OpenFile` | Opens a file beneath the root. |
+| `Stat` | Opens the file beneath the root and returns its details. |
+| `ReadDir` | Lists a folder. |
+| `Glob(pattern)` | Matches the **last** element of the pattern inside its folder (`mods/*.jar`, `*`). Folder parts are not expanded. |
+| `Mkdir`, `MkdirAll` | Creates folders, each one from its parent opened beneath the root. |
+| `Rename` | Renames from the parent folders opened beneath the root (`renameat2`). |
+| `Remove`, `RemoveAll` | Deletes from the parent folder opened beneath the root. `RemoveAll` deletes the symbolic links it finds inside a folder as links, without walking into them. |
+| `Symlink(target, path)` | Creates a link from its parent folder opened beneath the root. |
+| `Prefix()` | The server's folder on disk. |
+| `Close()` | Releases the open folder. |
 
-- **Path Traversal Prevention**: Uses `RESOLVE_BENEATH` flag (Linux 5.6+) or manual validation
-- **Symlink Protection**: `O_NOFOLLOW` prevents symlink attacks
-- **Root Jail**: All operations relative to configured root
-- **Permission Preservation**: Maintains file modes, ownership
+Rules every operation follows:
 
-### Interface
+- **Relative paths only.** The path is cleaned and a leading `/` is removed. A path that leaves the folder (`../`) is refused with `invalid path`.
+- **Beneath the root.** With `openat2`, files are opened with `RESOLVE_BENEATH`: a symbolic link that stays inside the folder works, one that points outside fails. In the `openat` fallback, each part of the path is opened with `O_NOFOLLOW`, so any symbolic link on the way fails, even one that points inside.
+- **Named pipes do not hang.** Every open adds `O_NONBLOCK`. A named pipe (FIFO) left by the game would otherwise block the request until someone wrote to it. Regular files are not affected.
+- **Ownership.** When the file server has a `uid`/`gid` (the server's user), new files, folders and links are given to that user. The change is best effort: a file that opened fine is still usable without it. `-1` leaves ownership as it is.
 
-```go
-type FileServer interface {
-    Open(name string) (File, error)
-    Stat(name string) (FileInfo, error)
-    ReadDir(name string) ([]FileInfo, error)
-    Mkdir(name string, perm FileMode) error
-    Remove(name string) error
-    RemoveAll(name string) error
-    Create(name string) (File, error)
-    OpenFile(name string, flag int, perm FileMode) (File, error)
-}
+### What the file manager shows
+
+- A file that is not a regular file (a pipe, a device, a socket) cannot be opened from the file manager: the daemon answers `<name> is not a regular file`.
+- Listings put folders first, then files, alphabetically without case, with `..` first outside the root.
+
+## Writing downloads: `CreateIn`, `WriteFile`, `CopyFile`
+
+Install operations (`download`, `mojangdl`, `paperdl`, `forgedl`, `neoforgedl`, `fabricdl`, `spongedl`, `githubdl`, `scraperdl`, `curseforge`) write their files with these helpers:
+
+| Function | What it does |
+|----------|--------------|
+| `CreateIn(root, dest)` | Creates or empties `dest` inside `root`, creating the missing folders. The file is opened through the file server with `O_NOFOLLOW`. |
+| `WriteFile(reader, root, dest)` | Writes a stream to `dest` through `CreateIn`. |
+| `CopyFile(src, root, dest)` | Copies a file from the panel's cache to `dest` through `CreateIn`. |
+
+`dest` may be relative or absolute; an absolute path must be inside `root`. Anything that leaves it fails with `path traversal detected`. Installs run as the daemon's user, so without this a game that left `server.jar` pointing at a host file would have the download overwrite that file.
+
+## Archives
+
+Archives are handled by [`mholt/archives`](https://github.com/mholt/archives). The format is recognised from the file name and, when extracting, from its contents: `.zip`, `.tar`, `.tar.gz`/`.tgz`, `.tar.bz2`, `.tar.xz` and the other formats the library supports. The file manager shows **Unarchive** for names ending in `.zip`, `.tar`, `.tar.gz`, `.tgz`, `.gz`, `.bz2`, `.rar`, `.7z` and `.xz`, and **Compress** in the menu of every file and folder (see [Compressing from the file manager](#compressing-from-the-file-manager)).
+
+### Creating an archive: `Compress`
+
+`Compress(fs, target, files)` and `CompressLimited(..., limit)` create an archive inside the server's folder from a list of paths.
+
+- Each path must be relative and inside the folder; otherwise `path traversal detected`.
+- A `*` in the **last** part of a path is expanded inside its folder (`logs/*.gz`). A wildcard in a folder part (`a*/file`) is not expanded.
+- The archive being written is left out of itself.
+- The archive is created with `O_EXCL`: if the name already exists, the answer is `file already exists` and nothing is overwritten. It is opened through the file server, so it cannot be written through a link that points outside.
+- The archive format comes from the target's extension.
+- `CompressLimited` counts the bytes written against the server's disk limit. If the limit cuts the archive short, the half-written archive is deleted. See [Disk limit](../backend/04-servers.md#disk-limit).
+
+### Backups and restore points: `CompressServer`
+
+`CompressServer(fs, target)` archives the whole server folder into a file **outside** it. Backups and restore points use it; both are `.tar.gz` files in the server's backup folder.
+
+- Every entry goes under a folder named like the server's folder (its identifier).
+- The archive is created with mode `0600` and `O_EXCL`.
+- The server writes it under a hidden `.partial-<name>` and renames it once complete, so a half-written backup is never listed, downloaded or restored.
+
+### How files are collected (both functions)
+
+`Compress` and `CompressServer` list files through the file server (`archiveWalk`): each folder is read and each file opened beneath the root, never by its path on disk.
+
+| Found | What goes into the archive |
+|-------|----------------------------|
+| Folder | The folder, then its contents. |
+| Regular file | Its contents, read up to the size it had when it was listed. A log that grows meanwhile does not break the archive. |
+| Symbolic link | The link itself, with its target text. It is never followed, whatever it points to. |
+| Named pipe, device, socket | Nothing: it is left out (reading a pipe would hang the archive). |
+| A file deleted while listing | Nothing: it is skipped. |
+
+If a folder is swapped for a link that leads out of the server while the archive is being built, the walk stops with `path traversal detected` instead of reading host files. If a listed file is no longer a regular file when it is read, the archive fails with `<name> is no longer a regular file`.
+
+### Extracting: `Extract`, `ExtractLimited`, `ExtractReader`
+
+| Function | Used by |
+|----------|---------|
+| `Extract(fs, source, target, filter, skipRoot, forcedType)` | Extraction with an archive inside the server folder. |
+| `ExtractLimited(fs, source, target, filter, skipRoot, limit)` | The `extract` operation and the extract endpoint; counts against the disk limit. |
+| `ExtractReader(fs, reader, source, target, filter, skipRoot)` | Restoring a backup and installing a CurseForge server pack: the archive is outside the server folder, but its entries are written through the server's file server. |
+| `ExtractFromReader(reader, source, target, filter, skipRoot, forcedType)` | Extraction without a file server (panel-side folders). `target` must be relative. |
+
+For each entry:
+
+- Leading `/` and `\` are removed, then the entry must be a relative path inside the target; otherwise the extraction fails with `path traversal detected`.
+- `filter` is a wildcard matched against the entry's file name: `*` (or empty) takes everything, `*.jar` only names ending in `.jar`, and text without `*` only that exact name.
+- **Folders** are created; **regular files** are created or overwritten with their mode plus `0600`.
+- **Symbolic links** are recreated only if their target stays inside the target folder. A link with an absolute target, or one that leads outside, is **left out without failing**: game files often hold absolute links (for example `steamclient.so`), and a restore that stopped there would already have deleted the server's files. Links are created from their parent folder opened beneath the root, so an entry under a link cannot land outside.
+- In ZIP archives, a link whose target the library does not report fails with `zip symlink unsupported`.
+- Other entry types (devices, pipes, hard links) are ignored.
+
+`skipRoot` drops the first folder of every entry, but only when the whole archive sits under a single top folder (`DetermineIfSingleRoot`). An archive with several top-level entries is extracted as it is.
+
+### Checking an archive before a restore: `CheckArchive`
+
+`CheckArchive(reader, source, skipRoot)` reads every entry and returns an error for the first path that an extraction would refuse, without writing anything. A restore goes in this order:
+
+1. It finds out whether the backup has a single top folder (`DetermineIfSingleRoot`).
+2. It checks every entry with `CheckArchive`. An unreadable backup, or one with an entry that leaves the folder, stops here, before anything is deleted (`Backup file cannot be read: ...` in the console).
+3. It writes a restore point of the current files. Without it, the restore does not go ahead.
+4. It deletes the server's files and extracts the backup with `ExtractReader`.
+
+### Reading a link: `Readlink`
+
+`Readlink(fs, name)` returns the target of the symbolic link `name`, reaching it beneath the root. It fails with `<name> is not a symlink` for anything else. Cloning a server uses it: links whose target stays inside the server are recreated in the copy, the rest are skipped and counted as skipped.
+
+## HTTP endpoints
+
+Both are panel routes that need `server.files.edit` and are forwarded to the server's node.
+
+### `POST /api/servers/{id}/archive/{filename}`
+
+Creates the archive `{filename}` (a path inside the server) from the paths in the body:
+
+```bash
+curl -X POST "https://panel.example.com/api/servers/abc123/archive/backups/world.zip" \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '["world", "plugins/*.jar", "server.properties"]'
 ```
 
-### Security Flags (Linux)
+| Answer | When |
+|--------|------|
+| `204` | The archive was created. |
+| `400` | Empty list, a path or name that leaves the folder, a file that does not exist, or a link out of the server on the way. |
+| `409` | The server's disk limit is used up. |
 
-```go
-// openat2 with RESOLVE_BENEATH (kernel 5.6+)
-flags := unix.O_RDONLY | unix.O_NOFOLLOW
-resolveFlags := unix.RESOLVE_BENEATH | unix.RESOLVE_NO_SYMLINKS
-fd, err := unix.Openat2(dirFD, name, &unix.OpenHow{Flags: uint64(flags), Resolve: resolveFlags})
+An existing `{filename}` is refused with the error code `ErrFileExists` (HTTP 409) and not overwritten.
+
+#### Compressing from the file manager
+
+The menu of every file and folder has **Compress**. The dialog asks for the **Archive name** (it suggests `<name>.zip`) and creates the archive in the current folder through this endpoint, with the chosen item as the only path:
+
+- The format comes from the extension: `.zip`, `.tar` or `.tar.gz`. Any other name gets `.zip` added.
+- If a file with that name already exists, it is not overwritten and the dialog shows "A file with that name already exists. Choose another name."
+- When it is done, "Created <name>." and the list refreshes.
+
+### `POST /api/servers/{id}/extract/{filename}`
+
+Extracts `{filename}` into the folder given in `destination` (relative to the server root; empty means the root):
+
+```bash
+curl -X POST "https://panel.example.com/api/servers/abc123/extract/uploads/pack.zip?destination=uploads&skipRoot" \
+  -H "Authorization: Bearer <token>"
 ```
 
-**Fallback:** If `openat2` unavailable, uses `openat` with manual path validation:
-```go
-func safePath(root, path string) (string, error) {
-    absRoot, _ := filepath.Abs(root)
-    absPath, _ := filepath.Abs(filepath.Join(root, path))
-    if !strings.HasPrefix(absPath, absRoot) {
-        return "", errors.New("path traversal attempt")
-    }
-    return absPath, nil
-}
-```
+| Parameter | Meaning |
+|-----------|---------|
+| `destination` | Target folder inside the server. |
+| `skipRoot` | Present (with any value or none): drops the archive's single top folder, if it has one. The file manager always sends it and extracts next to the archive. |
 
----
+| Answer | When |
+|--------|------|
+| `204` | Extracted. |
+| `400` | `filename` or `destination` leaves the folder. |
+| `409` | The server's disk limit is used up, before or during the extraction. |
 
-## MergedFS (`internal/files/mergedfs.go`)
+## Operations
 
-Merges multiple `fs.FS` sources with priority order.
-
-```go
-type MergedFS []fs.FS
-
-func (m MergedFS) Open(name string) (fs.File, error) {
-    for _, fs := range m {
-        if f, err := fs.Open(name); err == nil {
-            return f, nil
-        }
-    }
-    return nil, fs.ErrNotExist
-}
-```
-
-**Use Case:** Template system merges:
-1. Custom templates (user-uploaded)
-2. Embedded default templates
-3. Remote repository cache
-
----
-
-## Compression (`internal/files/compression.go`)
-
-Multi-format archive support via `mholt/archives`.
-
-### Supported Formats
-
-| Format | Extensions | Compression | Use Case |
-|--------|------------|-------------|----------|
-| ZIP | `.zip` | Deflate | Cross-platform, server backups |
-| TAR | `.tar` | None | Unix backups, Docker layers |
-| GZIP | `.tar.gz`, `.tgz` | gzip | Compressed backups |
-| BZIP2 | `.tar.bz2`, `.tbz2` | bzip2 | High compression |
-| XZ | `.tar.xz`, `.txz` | LZMA | Maximum compression |
-
-### Compress()
-
-```go
-func Compress(format, source, destination string) error {
-    // Creates archive from source (file or directory)
-    // Preserves permissions, symlinks, timestamps
-}
-```
-
-**Example:**
-```go
-Compress("zip", "/server/world", "/backups/world_20240115.zip")
-```
-
-### Extract()
-
-```go
-func Extract(format, source, destination string, options ...ExtractOption) error {
-    // Extracts archive to destination
-    // skipRoot: skip top-level directory in archive
-    // overwrite: overwrite existing files
-    // preservePermissions: keep original permissions
-}
-```
-
-**Options:**
-```go
-type ExtractOption func(*ExtractConfig)
-
-func SkipRoot(skip bool) ExtractOption
-func Overwrite(overwrite bool) ExtractOption
-func PreservePermissions(preserve bool) ExtractOption
-```
-
-**Example:**
-```go
-Extract("zip", "backup.zip", "/server", 
-    SkipRoot(true),           // Skip top-level "backup/" folder
-    Overwrite(true),          // Overwrite existing files
-    PreservePermissions(true) // Keep file modes
-)
-```
-
----
-
-## Archive Operations in Operations Engine
-
-### `archive` Operation
+The `archive` and `extract` operations call the same code, with the disk limit applied. Their arguments are described in [Operations engine](../backend/06-operations.md).
 
 ```json
-{
-  "type": "archive",
-  "source": "world",
-  "destination": "backups/world_{{timestamp}}.zip",
-  "format": "zip"
-}
+{ "type": "archive", "source": ["world"], "destination": "world-${version}.zip" }
 ```
-
-### `extract` Operation
 
 ```json
-{
-  "type": "extract",
-  "source": "backup.zip",
-  "destination": "{{rootDir}}",
-  "format": "zip",
-  "skipRoot": true,
-  "overwrite": true
-}
+{ "type": "extract", "source": "pack.zip", "destination": "" }
 ```
 
----
+The `extract` operation does not drop a top folder (`skipRoot` is off).
 
-## File Operations
+## Merged file systems: `MergedFS`
 
-### CopyFile
+`files.NewMergedFS(fs1, fs2, ...)` combines several read-only file systems. `Open` and `ReadFile` return the first file system that has the file; `ReadDir` merges the listings, with earlier file systems winning on repeated names. The panel uses it for:
 
-```go
-func CopyFile(src, dst string) error {
-    // Copies file with permissions
-    // Creates parent directories
-}
-```
+- The web interface: the folder in `panel.web.files` (default `www`) over the files built into the binary.
+- Email templates: the folder in `panel.email.templateFolder`, when set, over the built-in templates (see [Email](15-email.md)).
 
-### WriteFile
+## Errors
 
-```go
-func WriteFile(path, content string, perm os.FileMode) error {
-    // Writes string to file
-    // Creates parent directories
-}
-```
-
-### ReadFile
-
-```go
-func ReadFile(path string) (string, error) {
-    // Reads file as string (UTF-8)
-}
-```
-
-### SafeWriteFile
-
-```go
-func SafeWriteFile(path, content string, perm os.FileMode) error {
-    // Atomic write: writes to temp file, then renames
-    // Prevents partial writes on crash
-}
-```
-
----
-
-## Path Utilities
-
-### SafeJoin
-
-```go
-func SafeJoin(root, elem ...string) (string, error) {
-    // Joins path elements
-    // Validates result is within root
-    // Prevents path traversal
-}
-```
-
-### IsWithinRoot
-
-```go
-func IsWithinRoot(root, path string) bool {
-    // Validates path is within root directory
-    // Handles symlinks, relative paths
-}
-```
-
----
-
-## Security
-
-### Path Traversal Prevention
-
-All file operations validate paths:
-
-```go
-func validatePath(root, requested string) (string, error) {
-    absRoot, _ := filepath.Abs(root)
-    absRequested, _ := filepath.Abs(filepath.Join(root, requested))
-    
-    if !strings.HasPrefix(absRequested, absRoot) {
-        return "", errors.New("path traversal detected")
-    }
-    return absRequested, nil
-}
-```
-
-### Symlink Handling
-
-- `O_NOFOLLOW` on open
-- `lstat` instead of `stat` for metadata
-- Symlinks preserved in archives but not followed on extract
-
-### Permission Handling
-
-- Default file mode: `0644`
-- Default dir mode: `0755`
-- Preserves executable bit on scripts
-- Ownership preserved in archives
-
----
-
-## Testing
-
-```go
-// Test path traversal
-func TestPathTraversal(t *testing.T) {
-    fs := NewFileServer("/safe/root")
-    _, err := fs.Open("../../etc/passwd")
-    assert.Error(t, err) // Should fail
-}
-
-// Test archive round-trip
-func TestArchiveRoundTrip(t *testing.T) {
-    os.MkdirTemp("", "test")
-    // Create files
-    Compress("zip", src, dest)
-    Extract("zip", dest, dst)
-    // Verify files match
-}
-```
-
----
-
-## API Endpoints
-
-| Method | Path | Scope | Description |
-|--------|------|-------|-------------|
-| POST | `/api/servers/:id/archive/*filename` | `server.files.edit` | Create archive |
-| POST | `/api/servers/:id/extract/*filename` | `server.files.edit` | Extract archive |
-
-**Archive Request:**
-```json
-POST /api/servers/abc123/archive/backup.zip
-Content-Type: application/json
-["world/", "plugins/", "server.properties"]
-```
-
-**Extract Query:**
-```
-POST /api/servers/abc123/extract/backup.zip?destination=world_restored
-```
-
----
-
-## Performance
-
-| Operation | Optimization |
-|-----------|--------------|
-| Large archives | Streaming (no full memory load) |
-| Many small files | Batched operations |
-| Permissions | Preserved without extra syscalls |
-| Symlinks | Skipped on extract by default |
-
----
-
-## Error Codes
-
-| Error | Code | Description |
-|-------|------|-------------|
-| `ErrPathTraversal` | `E_PATH_TRAVERSAL` | Path escapes root |
-| `ErrNotFound` | `E_NOT_FOUND` | File/directory not found |
-| `ErrPermission` | `E_PERMISSION` | Insufficient permissions |
-| `ErrInvalidFormat` | `E_INVALID_FORMAT` | Unsupported archive format |
-| `ErrCorrupted` | `E_CORRUPTED` | Archive corrupted |
+| Message | Meaning |
+|---------|---------|
+| `path traversal detected` | A path, archive entry or link leaves the server's folder (`files.ErrPathTraversal`). |
+| `file already exists` | The archive to create already exists (`files.ErrFileExists`; over HTTP it arrives as `ErrFileExists`, "file exists where there should be none"). |
+| `invalid path: ...` | The file server was given a path that leaves the folder. |
+| `no files to compress` | `Compress` was called with an empty list. |
+| `format is not an extractor` / `format is not an archiver` | The format cannot be extracted or created. |
+| `<name> is not a regular file` | The file manager was asked to open a pipe, device or socket. |

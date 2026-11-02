@@ -1,286 +1,142 @@
-# Guía de Solución de Problemas (Troubleshooting)
+# Solución de problemas
 
-Este documento detalla las soluciones a problemas comunes encontrados durante el despliegue y operación de Aether Panel.
+Problemas habituales al instalar y usar Aether Panel, con su causa y cómo resolverlos. Las rutas suponen una instalación hecha con el [instalador](./01-installation.md) en `/opt/skypanel`.
 
----
+## Dónde mirar primero
 
-## 1. Aislamiento con Unshare (Ubuntu 24.04+)
-
-**Problema:** Error `Permission denied` al iniciar el "security jail" o el servidor de juego.
-
-**Causa:** Ubuntu 24.04+ restringe por defecto el uso de *unprivileged user namespaces* (`unshare`), que el panel usa para aislar procesos de servidores de juego.
-
-**Síntoma en logs:**
-```
-[ERROR] error starting server testserver: fork/exec /bin/bash: operation not permitted
+```bash
+cd /opt/skypanel
+docker compose ps                        # ¿están en marcha skypanel y skypanel-mysql?
+docker compose logs -f skypanel          # salida del panel
+docker compose logs -f mysql             # salida de MariaDB
+tail -f storage/skypanel-logs/skypanel.log
 ```
 
-#### Soluciones:
-
-*   **Opción A (Recomendada para producción):** Habilitar los namespaces en el kernel:
-    ```bash
-    sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-    ```
-*   **Opción B (Desactivar aislamiento):** Agregar en `config.json`:
-    ```json
-    {
-        "security": {
-            "disableUnshare": true
-        }
-    }
-    ```
-    También se puede configurar por servidor en su JSON individual con `"disableUnshare": true` en la sección de entorno (tty).
+Las respuestas de error de la API llevan un código (`ErrNodeDiskFull`, `ErrBackupLimit`…) que identifica el problema; los mensajes de este documento salen del código del panel.
 
 ---
 
-## 2. Conexión a Docker
+## Instalación
 
-**Problema:** El panel no puede conectarse al motor Docker.
+### La construcción de la imagen falla
 
-**Síntoma en logs:**
-```
-[ERROR] Cannot connect to the Docker daemon
+El instalador termina con «La construcción de la imagen falló». Las causas habituales son poca memoria, poco disco o falta de red. El instalador ya avisa al empezar si hay menos de 3 GB entre RAM y swap; para añadir 2 GB de swap:
+
+```bash
+fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
 ```
 
-**Causa:** El panel usa el SDK de Docker con `client.FromEnv()`, que lee las variables de entorno estándar de Docker.
+Si falta disco, libere espacio de Docker (`docker system prune`) y vuelva a ejecutar el instalador: es seguro repetirlo y no borra datos.
 
-#### Soluciones:
+### «Docker Hub ha limitado las descargas desde esta IP»
 
-*   **Verificar que Docker está corriendo:**
-    ```bash
-    docker info
-    ```
-*   **Verificar permisos del socket:** El usuario que ejecuta el panel debe tener permisos para acceder al socket de Docker:
-    ```bash
-    sudo usermod -aG docker $USER
-    # Cerrar sesión y volver a entrar
-    ```
-*   **Usar Docker socket personalizado:** Configurar vía variable de entorno:
-    ```bash
-    export DOCKER_HOST=unix:///var/run/docker.sock
-    ```
-*   **Ejecutando el panel dentro de Docker:** El panel detecta automáticamente `SKYPANEL_PLATFORM=docker` y omite la verificación de Docker, continuando sin el motor Docker interno.
+Docker Hub limita las descargas sin cuenta por IP, y en servidores con IP compartida se agotan. El instalador reintenta tres veces. Espere unas horas o inicie sesión con `docker login` y repita la instalación.
 
----
+### «Cambiar puertos necesita Docker Compose >= 2.24.4»
 
-## 3. SFTP — Conexión y Autenticación
+El archivo `docker-compose.override.yml` que genera el instalador usa `ports: !override`. Hace falta en cuanto los puertos no son los predeterminados, al usar `--bind` (incluido el `127.0.0.1` automático con dominio) o cuando el 3307 está ocupado. Actualice Docker (el plugin `docker-compose-plugin`) o use los puertos por defecto sin dominio.
 
-**Problema:** No se puede conectar via SFTP al panel.
+### «Puerto N (…) ocupado por …»
 
-**Puerto por defecto:** `5657`
+El instalador comprueba el puerto del panel, el SFTP y, con Nginx, el 80 y el 443, y dice qué contenedor o proceso los ocupa. Libérelos o elija otros con `--port` / `--sftp-port`. `--force` continúa a pesar del conflicto. Si el 3307 (MariaDB) está ocupado, no es un error: el instalador usa el primero libre entre 3308 y 3399.
 
-#### Soluciones:
+### «Ya existe un contenedor llamado 'skypanel' que no pertenece a /opt/skypanel»
 
-**Error: `incorrect username or password`**
-*   **Autenticación por base de datos:** El formato de usuario es `email#serverId` (ej: `user@example.com#abc123`). Verificar que el usuario tenga el permiso `ScopeServerSftp` asignado.
-*   **Autenticación por OAuth2:** Verificar que el servidor de autenticación OAuth2 esté accesible y devuelva el scope `sftp` para el servidor correspondiente.
+Otro proyecto tiene un contenedor con ese nombre. El instalador no lo toca: renómbrelo o elimínelo usted.
 
-**Error: `error talking to auth server`**
-*   Verificar que `daemon.auth.url` apunte a la URL correcta del panel (default: `http://localhost:8080`).
-*   Verificar que `daemon.auth.clientId` y `daemon.auth.clientSecret` estén configurados.
+### «Ya hay otra ejecución del instalador en curso»
 
-**Error: `no access` / `invalid response from authorization server`**
-*   El servidor OAuth2 rechazó las credenciales o el scope solicitado no está disponible.
+Hay otro instalador en marcha (bloqueo `/run/aetherpanel-install.lock`). Espere a que termine.
 
-**Error: `connection refused`**
-*   El puerto SFTP (5657) no está abierto o el panel no está corriendo.
-*   Verificar con: `ss -tlnp | grep 5657`
+### El certificado de Let's Encrypt no se emite
+
+El instalador reintenta `certbot` una vez y, si falla, deja el panel por HTTP. Compruebe que:
+
+1. El dominio apunta a la IP pública del servidor (`dig +short su-dominio`).
+2. El puerto 80 está abierto también en el cortafuegos del proveedor.
+3. Con el proxy de Cloudflare, «Always Use HTTPS» está desactivado durante la primera emisión.
+
+Después, repita con `--domain su-dominio --ssl`, o guarde de nuevo la URL principal en **Configuración → General**. El servicio `aether-domain` no repite un intento fallido para la misma URL hasta pasada una hora.
+
+### La base de datos externa no es accesible
+
+El instalador prueba la conexión antes de cambiar nada y se detiene con «Base de datos externa no accesible». Compruebe que el servidor de base de datos acepta conexiones desde esta IP (`bind-address`, cortafuegos), el usuario, la contraseña y que la base de datos existe, o indique una cuenta de administrador para crearlas (`--db-admin-user`, `AETHER_DB_ADMIN_PASSWORD`). Con `localhost`, `127.*` o `::1` el instalador se conecta a `host.docker.internal` (la máquina vista desde un contenedor), así que el MySQL del propio servidor debe escuchar en la IP del puente de Docker y no solo en `127.0.0.1` (`bind-address`); véase [Instalación](./01-installation.md).
+
+### El panel no arranca después de instalar o actualizar
+
+El instalador espera hasta 5 minutos y, si el contenedor se detiene o se reinicia tres veces, muestra sus últimas 40 líneas de log. En una actualización con `--update` vuelve solo a la versión anterior (código e imagen) y conserva los datos; la copia de la base de datos queda en `/var/backups/aether-panel/actualizaciones/`. La actualización desde **Configuración → Actualizaciones** no tiene esa vuelta atrás: si falla, ejecute `install.sh --update` desde el servidor.
+
+Si el log termina con `OpenAt2 is not supported. Cowardly not starting to avoid security issues.`, el kernel no tiene `openat2` o un filtro seccomp (por ejemplo, un perfil de Docker antiguo) la bloquea con `EPERM`. Actualice el kernel o Docker; si no es posible, véase [`security.forceOpenat`](../general/20-security-unshare.md#alternativa-securityforceopenat).
 
 ---
 
-## 4. Base de Datos
+## Base de datos y arranque del panel
 
-**Problema:** Error de conexión a la base de datos al iniciar el panel.
+### «MySQL no disponible aún» / «MySQL no está disponible después de 60 intentos»
 
-**Dialectos soportados:** `sqlite3`, `mysql`, `postgresql`, `sqlserver`
+El `entrypoint` de la imagen espera hasta 60 segundos a que responda el host y puerto de `SKYPANEL_PANEL_DATABASE_URL` (`mysql:3306` si no se indica) y, si no, se detiene. Revise `docker compose logs mysql`. Esta espera ocurre siempre, también con SQLite o con el panel desactivado: la imagen necesita un MySQL/MariaDB alcanzable.
 
-**Síntomas comunes:**
+### «Access denied» tras cambiar el `.env`
 
-*   `dial tcp 127.0.0.1:3306: connect: connection refused` — MySQL/MariaDB no está corriendo.
-*   `could not load driver` — Dialecto incorrecto o controlador no compilado.
+MariaDB solo aplica `DB_ROOT_PASSWORD` y `DB_PASSWORD` al crear la base de datos. Si se cambian después en `.env`, el panel deja de poder entrar. Devuelva los valores anteriores (están en `/etc/SkyPanel/credenciales.txt` si los generó el instalador) o cambie las contraseñas de forma coordinada en MariaDB y en `.env`:
 
-#### Soluciones:
-
-*   **Para SQLite (recomendado para pruebas):**
-    ```json
-    {
-        "panel": {
-            "database": {
-                "dialect": "sqlite3",
-                "url": "skypanel.db"
-            }
-        }
-    }
-    ```
-*   **Para MySQL/MariaDB:** Verificar que el servicio esté corriendo y que el usuario tenga permisos:
-    ```bash
-    mysql -u skypanel -p -h 127.0.0.1 skypanel
-    ```
-*   **Para PostgreSQL:** Verificar `pg_hba.conf` permita conexiones desde `localhost`.
-*   **Para SQL Server:** Verificar que TCP/IP esté habilitado en la configuración del servidor.
-
----
-
-## 5. Puertos en Uso
-
-**Problema:** Error `address already in use` al iniciar el panel.
-
-**Puertos por defecto:**
-| Servicio | Puerto | Config Key |
-|----------|--------|------------|
-| HTTP (Web) | `8080` | `web.host` |
-| SFTP | `5657` | `daemon.sftp.host` |
-
-#### Soluciones:
-
-*   **Verificar qué proceso está usando el puerto:**
-    ```bash
-    ss -tlnp | grep -E '8080|5657'
-    ```
-*   **Cambiar el puerto** en `config.json`:
-    ```json
-    {
-        "web": {
-            "host": "0.0.0.0:9090"
-        },
-        "daemon": {
-            "sftp": {
-                "host": "0.0.0.0:6565"
-            }
-        }
-    }
-    ```
-*   También se puede cambiar vía variables de entorno:
-    ```bash
-    export SKYPANEL_WEB_HOST=0.0.0.0:9090
-    export SKYPANEL_DAEMON_SFTP_HOST=0.0.0.0:6565
-    ```
-
----
-
-## 6. Permisos de Archivos (UID/GID)
-
-**Problema:** Archivos creados por el panel tienen dueños incorrectos o errores de permisos.
-
-**Comportamiento:** El panel asigna UID/GID a los archivos del servidor según el usuario configurado. Si el UID es `-1`, no se cambia la propiedad (usa el usuario del proceso).
-
-#### Soluciones:
-
-*   **Verificar el UID/GID del proceso del panel:**
-    ```bash
-    ps aux | grep skypanel
-    ```
-*   **Los contenedores Docker** heredan el UID/GID del proceso del panel automáticamente.
-*   **Entorno TTY con unshare:** El proceso dentro del jail se ejecuta como root (UID 0) mapeado al usuario real del sistema. Los archivos creados dentro del jail pertenecerán al usuario real fuera del jail.
-*   **Si hay errores de permisos** al leer/escribir archivos del servidor, verificar que el usuario del panel tenga acceso a los directorios `servers/`, `cache/` y `binaries/`.
-
----
-
-## 7. CORS — Conexiones desde el Frontend
-
-**Problema:** El frontend no puede hacer peticiones a la API (errores CORS en consola del navegador).
-
-**Comportamiento:** El panel permite **todos los orígenes** (`AllowOriginFunc` siempre retorna `true`). Esto es intencional para soportar despliegues donde el frontend y backend están en dominios separados.
-
-#### Soluciones:
-
-*   Si hay errores CORS, verificar que el frontend esté usando la URL correcta de la API.
-*   Verificar que los headers `Authorization` y `Content-Type` estén incluidos en las peticiones.
-*   Si se usa un proxy reverso (nginx, Caddy) que modifica headers, asegurarse de que no quite los headers CORS.
-
----
-
-## 8. Variables de Entorno y Configuración
-
-**Problema:** El panel no usa los valores que configuraste.
-
-**Comportamiento:** Todas las configuraciones de `config.json` se pueden sobrescribir con variables de entorno con prefijo `SKYPANEL_` y reemplazando `.` por `_`.
-
-### Ejemplos:
-
-| Variable de Entorno | Config JSON |
-|---------------------|-------------|
-| `SKYPANEL_WEB_HOST` | `web.host` |
-| `SKYPANEL_DAEMON_SFTP_HOST` | `daemon.sftp.host` |
-| `SKYPANEL_PANEL_DATABASE_URL` | `panel.database.url` |
-| `SKYPANEL_PANEL_DATABASE_DIALECT` | `panel.database.dialect` |
-| `SKYPANEL_LOGS` | `logs` |
-| `SKYPANEL_LOGRETENTIONDAYS` | `logRetentionDays` |
-| `SKYPANEL_PANEL_SETTINGS_COMPANYNAME` | `panel.settings.companyName` |
-
-Las variables de entorno **tienen prioridad** sobre el archivo `config.json`.
-
----
-
-## 9. Logs y Depuración
-
-**Problema:** Necesitas más información para diagnosticar un error.
-
-**Comportamiento:** El panel escribe el día actual en `skypanel.log`, dentro de la carpeta `logs` (`/var/log/SkyPanel` en Linux y en Docker; con Docker Compose, `./storage/skypanel-logs` en el host).
-
-Rotación diaria, como en Pterodactyl, sin instalar `logrotate`:
-- Al cambiar de día el archivo pasa a `skypanel-AAAA-MM-DD.log.gz` (comprimido) y se empieza uno nuevo.
-- Si un solo día pasa de 100 MB, se archiva antes como `skypanel-AAAA-MM-DD.1.log.gz`, `.2`, etc.
-- Los archivos de más de `logRetentionDays` días (14 por defecto) se borran solos. Con `0` se guardan todos.
-- Solo toca archivos `skypanel-*`; el resto de la carpeta no se borra.
-
-**Niveles de log:**
-| Prefijo | Nivel | Destino |
-|---------|-------|---------|
-| `[ERROR]` | Error | Stderr + archivo |
-| `[INFO]` | Info | Stdout + archivo |
-| `[DEBUG]` | Debug | Stdout + archivo |
-| `[SERVER]` | Servidor | Stdout + archivo |
-
-#### Soluciones:
-
-*   **Ver logs en tiempo real:**
-    ```bash
-    tail -f logs/skypanel.log
-    ```
-*   **Ver un día anterior:**
-    ```bash
-    zcat /var/log/SkyPanel/skypanel-2026-10-25.log.gz | grep ERROR
-    ```
-*   **Usar un `logrotate` externo:** pon `logRetentionDays` a `0` y, después de rotar, envía `SIGUSR1` para que el panel reabra `skypanel.log`:
-    ```bash
-    kill -USR1 $(pidof SkyPanel)
-    ```
-*   **Aumentar nivel de detalle:** Iniciar con `GIN_MODE=debug` para ver todas las rutas HTTP:
-    ```bash
-    GIN_MODE=debug ./SkyPanel run
-    ```
-
----
-
-## 10. SSL/TLS (HTTPS)
-
-**Problema:** Necesitas HTTPS para producción.
-
-**Comportamiento:** El panel **no incluye soporte nativo para HTTPS**. Escucha únicamente en HTTP plano.
-
-### Solución:
-
-Usar un proxy reverso para terminación SSL (nginx, Caddy, Traefik):
-
-**Ejemplo con Caddy:**
-```caddyfile
-panel.tudominio.com {
-    reverse_proxy localhost:8080
-}
+```bash
+sudo bash install.sh --update --rotate-db-passwords
 ```
 
-**Ejemplo con nginx:**
+### «AVISO: la base de datos usa la contraseña por defecto»
+
+El `entrypoint` lo muestra si la URL de la base de datos contiene `skypanel_secret`, el valor público del repositorio. Los servidores de juego comparten red con MariaDB, así que cámbiela con `--rotate-db-passwords`.
+
+### Otros errores de conexión
+
+- `unknown dialect …`: `panel.database.dialect` debe ser `sqlite3`, `mysql`, `postgresql` o `sqlserver`.
+- `error connecting to database` / `database not available`: la URL de conexión (`panel.database.url`) es incorrecta o el servidor no responde.
+- PostgreSQL y SQL Server: compruebe que aceptan conexiones TCP desde el contenedor (`pg_hba.conf`, TCP/IP habilitado).
+
+### Migraciones
+
+El panel aplica las migraciones del esquema al arrancar (`SkyPanel run`); el usuario de la base de datos necesita permiso para crear y modificar tablas. Para ejecutarlas a mano:
+
+```bash
+docker exec skypanel /SkyPanel/bin/SkyPanel db upgrade
+```
+
+Con SQLite, `db upgrade` copia antes el archivo (`<archivo>.N.backup`) y lo restaura si falla. Con MySQL no hace copia: use la del instalador (`--update` la hace) o `mariadb-dump`. El paso «Ejecutando migraciones» del `entrypoint` llama a `SkyPanel db migrate`, que aplica las migraciones pendientes (las mismas que `run` al arrancar) y termina con un código distinto de cero si fallan; el `entrypoint` muestra entonces `ERROR: Fallo en migraciones` y sigue arrancando, y `run` vuelve a intentarlo. Con el panel desactivado (nodo secundario), `db migrate` no hace nada.
+
+---
+
+## Acceso al panel
+
+### `403 {"error":"cross-origin request refused"}`
+
+El panel rechaza las peticiones que cambian algo (y los websockets de la consola) cuando llevan su cookie de sesión pero las inició otra web, por ejemplo una página servida por un servidor de juego en la misma IP. Se considera mismo origen si `Sec-Fetch-Site` es `same-origin`, o si el `Origin` coincide con el `Host`, con `X-Forwarded-Host` o con la URL principal (`panel.settings.masterUrl`). Si ocurre al usar el panel normalmente detrás de un proxy propio, haga que el proxy conserve la cabecera `Host` (`proxy_set_header Host $host;` en Nginx) o que la URL principal de Configuración sea la dirección con la que se entra. Las peticiones con token Bearer, del daemon o de clientes OAuth2 no se ven afectadas.
+
+### «too many failed attempts, wait a few minutes and try again»
+
+Tras 10 intentos fallidos en 15 minutos, el inicio de sesión de esa cuenta (contraseña o código 2FA) se bloquea hasta que salgan intentos de la ventana. El SFTP comparte el mismo contador. El contador está en memoria: se vacía al reiniciar el panel.
+
+### `http://IP:8080` ya no responde tras configurar un dominio
+
+Es lo esperado: con dominio y Nginx, el instalador publica el puerto del panel solo en `127.0.0.1` y el panel se usa por el dominio. Para volver a abrirlo, `install.sh --update --bind 0.0.0.0`. Ver [Dominio, HTTPS y Nginx](./01-installation.md#dominio-https-y-nginx).
+
+### HTTPS sin el instalador
+
+El panel solo escucha en HTTP: el HTTPS lo pone un proxy inverso. El instalador configura Nginx y Let's Encrypt; en un despliegue propio, por ejemplo:
+
 ```nginx
 server {
     listen 443 ssl;
-    server_name panel.tudominio.com;
+    server_name panel.su-dominio.com;
 
-    ssl_certificate /etc/ssl/certs/panel.crt;
+    ssl_certificate     /etc/ssl/certs/panel.crt;
     ssl_certificate_key /etc/ssl/private/panel.key;
 
     location / {
         proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -289,122 +145,159 @@ server {
 }
 ```
 
-Si usas un proxy de confianza, configurar en `config.json`:
+Para que el panel vea la IP real de los visitantes (límites de intentos, captcha, registros), indique el proxy en `config.json`:
+
 ```json
 {
-    "security": {
-        "trustedProxies": ["127.0.0.1/32", "10.0.0.0/8"],
-        "trustedProxyHeader": "X-Forwarded-For"
-    }
+  "security": {
+    "trustedProxies": ["127.0.0.1/32"],
+    "trustedProxyHeader": "X-Forwarded-For"
+  }
 }
 ```
 
 ---
 
-## 11. Migraciones de Base de Datos
+## Servidores de juego
 
-**Problema:** Error al ejecutar migraciones o el panel no arranca después de una actualización.
+### Puerto ya ocupado
 
-#### Soluciones:
+El asistente de creación comprueba los puertos en el nodo antes de crear nada y avisa si los usa el propio panel (web, SFTP, base de datos, Adminer), otro servidor u otro contenedor, o si son menores de 1024, y propone el siguiente libre. Si un puerto se ocupa después, el arranque falla con un mensaje de Docker como `driver failed programming external connectivity: port is already allocated`: cambie el puerto del servidor o detenga lo que lo usa (`ss -tlnup | grep PUERTO`).
 
-*   **Ejecutar migraciones manualmente:**
-    ```bash
-    ./SkyPanel db upgrade
-    ```
-    Este comando realiza un backup automático antes de migrar.
-*   **Si la migración falla**, verificar que el usuario de base de datos tenga permisos para crear/modificar tablas.
-*   **SQLite:** El archivo `skypanel.db` debe tener permisos de escritura para el usuario del panel.
+### La instalación se rechaza por falta de disco en el nodo
 
----
+`ErrNodeDiskFull` («the node is almost out of disk space, free some before installing»), y en la consola: «The node only has X GB free, and an install needs at least Y GB». Una instalación no empieza si en la carpeta de servidores del nodo quedan menos de `daemon.minFreeDiskMB` MB libres (2048 por defecto; `0` desactiva la comprobación), para que una descarga no llene el disco y pare todos los servidores. Libere espacio o amplíe el disco. El panel muestra además un aviso de disco bajo en el inicio y en Nodos cuando quedan menos de 5 GB o menos del 10 %.
 
-## 12. Plantillas (Templates)
+### El servidor no arranca: «the server has used all of its disk space»
 
-**Problema:** El panel carga el índice de plantillas pero falla al descargar plantillas individuales.
+`ErrDiskLimitExceeded`: el servidor ya usa todo su límite de disco y no arranca hasta que se borren archivos (las subidas por SFTP también se cortan al llegar al límite). Borre archivos o pida que se amplíe el límite. Ver [Límite de disco](../backend/04-servers.md#límite-de-disco).
 
-**Causa:** La URL configurada en `templates.url` apunta a un servidor que solo tiene el `templates.json` pero no los archivos JSON de cada plantilla.
+### «environment "tty" is disabled on this node (docker.disallowHost)»
 
-**Solución:** Asegurarse de que el servidor de plantillas tenga la estructura completa. Si `templates.json` referencia `minecraft/minecraft.json`, ese archivo debe ser accesible en la misma ruta base.
+Con `docker.disallowHost` activo (lo está en la imagen Docker y en `docker-compose.yml`), el nodo solo ejecuta servidores en contenedores: los entornos `host`, `tty`, `standard` y `bubblewrap` se ocultan, se rechazan al crear o redefinir un servidor y, si una definición llega por otro camino (una copia restaurada, un panel antiguo), el arranque se niega con «This node only runs servers in Docker containers (docker.disallowHost).». Cambie el servidor a un entorno Docker.
 
----
+### Una descarga de la plantilla se rechaza
 
-## 13. AI Asistente (Google GenAI)
+`refusing to download from private address … (security.blockPrivateDownloads)`: por defecto las plantillas no pueden descargar de direcciones de red privada (las redes Docker, los servicios del host, la LAN), porque algunas toman la URL de una variable que edita el dueño del servidor. Las direcciones de loopback y link-local (como 169.254.169.254) se rechazan siempre (`refusing to download from internal address …`). Si tiene réplicas en su LAN, ponga `security.blockPrivateDownloads` a `false`.
 
-**Problema:** El asistente AI no responde o muestra errores.
+### Errores de permisos dentro del juego
 
-**Causa:** No se ha configurado la API Key de Google Gemini.
+En Docker, con el panel como root (así funciona `docker-compose.yml`), las instalaciones se ejecutan como root y el juego como `docker.serverUser` (`988:988` por defecto), sin las capacidades de Linux que no necesita, con `no-new-privileges` y un límite de procesos (`docker.pidsLimit`, 4096). Antes de cada arranque el panel da todos los archivos del servidor a ese usuario, así que reiniciar el servidor corrige los archivos que se dejaron con otro dueño. Una plantilla que fija su propio usuario lo conserva; `docker.serverUser` a `"0:0"` vuelve a ejecutar los juegos como root (no recomendado). Ver [Usuario y aislamiento del contenedor](../backend/04-servers.md#usuario-y-aislamiento-del-contenedor).
 
-**Solución:** Configurar en `config.json`:
-```json
-{
-    "panel": {
-        "settings": {
-            "geminiApiKey": "tu-api-key-de-gemini"
-        }
-    }
-}
-```
-O vía variable de entorno:
-```bash
-export SKYPANEL_PANEL_SETTINGS_GEMINIAPIKEY=tu-api-key-de-gemini
-```
+### No se puede crear otra copia: «this server already has as many backups as it may keep»
 
----
+`ErrBackupLimit` (HTTP 409): el servidor ya tiene `panel.backups.maxPerServer` copias (10 por defecto). Las copias no cuentan en el disco del servidor, así que sin límite un cliente podría llenar el disco de copias del nodo. Borre una copia antigua. Los administradores no tienen límite, y `0` lo desactiva para todos.
 
-## 14. Archivo de Configuración
+### La restauración de una copia falla: «cannot backup server, is running»
 
-**Problema:** El panel no encuentra o ignora el archivo de configuración.
+Restaurar una copia exige el servidor detenido. Deténgalo y repita.
 
-**Comportamiento:** Por defecto, el panel busca `config.json` en el directorio de trabajo actual. Se puede especificar una ruta personalizada con la flag `--config` o la variable de entorno `SKYPANEL_CONFIG`.
+<a id="16-conectividad-mysql-desde-servidores-docker-mysql3306-no-resuelve"></a>
 
-### Archivos de configuración incluidos:
+### Un servidor no llega a la base de datos (`mysql:3306`)
 
-*   `config.json` — Configuración principal (personalizable).
-*   `config.docker.json` — Configución predefinida para entorno Docker.
-*   `config.linux.json` — Configuración predefinida para Linux (SQLite local).
+Los servidores de juego se crean en la red de Docker `docker.serversNetwork` (`skypanel-servers` en `docker-compose.yml`), salvo que la plantilla indique otra. MariaDB está también en esa red, así que los servidores la alcanzan como `mysql:3306`, pero no llegan al panel. El panel también está en esa red para hablar con los servidores (mapa del mundo, jugadores). Si esa red no existe, el panel lo registra y usa su propia red. Sin `docker.serversNetwork`, los servidores se unen a la red del contenedor del panel.
 
 ```bash
-./SkyPanel run --config config.linux.json
+docker inspect <id-del-servidor> --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}'
+# Debe mostrar: skypanel-servers
 ```
 
----
+Un servidor creado antes de ese cambio puede seguir en otra red: elimínelo y vuelva a crearlo.
 
-## 16. Conectividad MySQL desde Servidores Docker (`mysql:3306` no resuelve)
+### Aislamiento con unshare: «Permission denied while starting the security jail»
 
-**Problema:** Los servidores en contenedores Docker no pueden conectarse a MySQL usando el hostname `mysql` (ej. error `Communications link failure... database address 'mysql:3306' accessible`).
+Solo afecta al entorno `tty` (ejecución directa en el host), que no está disponible en la instalación con Docker. Ubuntu 24.04 y posteriores restringen los *user namespaces* sin privilegios que usa el aislamiento. La consola muestra las dos soluciones:
 
-**Causa:** El contenedor del servidor se creaba en la red `bridge` por defecto de Docker, mientras que MySQL corre en la red interna `skypanel-network`. Los contenedores en redes diferentes no se resuelven por hostname.
-
-**Solución Implementada (v2.0.0+):**
-Aether Panel ahora detecta automáticamente la red Docker del contenedor Panel (`skypanel-network` o `panel_skypanel-network` según el project name de docker-compose) y conecta todos los servidores a esa red.
-
-**Verificación:**
 ```bash
-# Ver red del panel
-docker inspect skypanel --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{end}}'
-# Debe mostrar: panel_skypanel-network (o skypanel-network)
-
-# Ver red de un servidor
-docker inspect <server-id> --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{end}}'
-# Debe coincidir con la red del panel
+sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 ```
 
-**Si el servidor ya existe:** Eliminar y recrear el servidor para que se una a la red correcta.
-
-**Instalación nativa (sin Docker):** No aplica. Usar IP del host o `host.docker.internal` en Database Host config.
+o desactivar el aislamiento con `"security": {"disableUnshare": true}` en `config.json` (o `"disableUnshare": true` en el entorno de un servidor). Ver [Seguridad y unshare](../general/20-security-unshare.md).
 
 ---
 
-## 17. Error de Build Frontend: `monaco-editor/min/vs/editor/editor.main.css?inline`
+## SFTP
 
-**Problema:** `astro build` falla con:
-```
-Rolldown failed to resolve import "monaco-editor/min/vs/editor/editor.main.css?inline"
+El puerto por defecto es `5657` (`daemon.sftp.host`). El usuario es `email#idDelServidor` (por ejemplo `usuario@ejemplo.com#a1b2c3d4`) y la contraseña, la de la cuenta del panel o una clave SSH pública añadida al perfil (claves solo en el nodo del panel; en nodos secundarios, contraseña).
+
+| Error | Causa y solución |
+|---|---|
+| `incorrect username or password` | Credenciales incorrectas, formato de usuario incorrecto o el usuario no tiene el permiso `server.sftp` en ese servidor. |
+| `too many failed attempts…` | Se agotaron los 10 intentos en 15 minutos que comparte con el inicio de sesión del panel. |
+| `invalid response from authorization server` (y `error talking to auth server` en el log) | En un nodo secundario: `daemon.auth.url`, `daemon.auth.clientId` o `daemon.auth.clientSecret` son incorrectos o el maestro no responde. Ver [nodo secundario](./01-installation.md#método-3-nodo-secundario-solo-daemon). |
+| `connection refused` | El puerto no está abierto o el panel no está en marcha: `ss -tlnp \| grep 5657`. |
+
+---
+
+## Nodos secundarios
+
+- **El navegador muestra 404 en `http://nodo:8080`.** Es lo esperado: con `panel.enable=false` solo funciona la API del daemon.
+- **«Panel is disabled but token.public (TokenPublicURL) is empty!»** El nodo no puede validar las peticiones del maestro. Ponga `SKYPANEL_TOKEN_PUBLIC=https://<maestro>/auth/publickey`.
+- **El nodo no se autentica con el secreto del diálogo Desplegar.** El diálogo muestra un secreto fijo; el real lo devuelve `GET /api/nodes/{id}/deployment`.
+- **La configuración del nodo desaparece al actualizar.** Solo se conservan las líneas `SKYPANEL_PANEL_ENABLE=false` y `SKYPANEL_TOKEN_PUBLIC=…` de `docker-compose.yml`; el resto debe ir en el `config.json` de `storage/`.
+
+---
+
+## Docker
+
+### El panel no puede conectarse a Docker
+
+El panel usa el cliente de Docker con las variables estándar (`DOCKER_HOST`; por defecto `unix:///var/run/docker.sock`). En `docker-compose.yml` el socket del host se monta en el contenedor, que se ejecuta como root (`user: "0:0"`). Si el daemon no puede iniciarse dentro de Docker, el panel web sigue funcionando y lo registra («Continuing without daemon in Docker environment»), pero los servidores no estarán disponibles. Compruebe:
+
+```bash
+docker info
+docker exec skypanel ls -la /var/run/docker.sock
 ```
 
-**Causa:** `monaco-editor@0.56.0+` introdujo restricciones en `package.json` `exports` que impiden resolver imports CSS con `?inline` bajo Vite 8/Rolldown.
+Más detalles en [Socket de Docker y permisos](../docker/DOCKER-SUDO-FIX.md).
 
-**Solución:** Mantener `monaco-editor` en `^0.44.0` en `client/frontend/package.json`:
-```json
-"monaco-editor": "^0.44.0"
+---
+
+## Configuración
+
+### El panel no usa los valores configurados
+
+El panel lee un único `config.json`: el de `--config`, el de la variable `SKYPANEL_CONFIG`, `/etc/SkyPanel/config.json` si existe o, si no, `config.json` en el directorio de trabajo. En la instalación con Docker es `storage/skypanel-data/config.json` (o `storage/skypanel-config/config.json` si existe). Los cambios de **Configuración** se guardan en ese archivo.
+
+Cualquier clave se puede sobrescribir con una variable de entorno: prefijo `SKYPANEL_`, la clave en mayúsculas y los puntos cambiados por `_`.
+
+| Variable de entorno | Clave |
+|---|---|
+| `SKYPANEL_WEB_HOST` | `web.host` |
+| `SKYPANEL_DAEMON_SFTP_HOST` | `daemon.sftp.host` |
+| `SKYPANEL_PANEL_DATABASE_URL` | `panel.database.url` |
+| `SKYPANEL_DOCKER_DISALLOWHOST` | `docker.disallowHost` |
+| `SKYPANEL_LOGRETENTIONDAYS` | `logRetentionDays` |
+
+Las variables de entorno **tienen prioridad** sobre `config.json`, también sobre lo guardado en Configuración: un valor fijado en `docker-compose.yml` gana siempre y el cambio hecho en Configuración no tendrá efecto. Por eso `docker-compose.yml` no fija el registro público ni el tema. La lista de claves está en [Configuración](../backend/02-configuration.md).
+
+### Plantillas que no se descargan
+
+El índice se carga pero fallan las plantillas individuales: la URL de `templates.url` (en `docker-compose.yml`, `https://templates.aetherpanel.es/templates.json`) apunta a un servidor que solo tiene `templates.json`. Cada ruta que referencia el índice (por ejemplo `minecraft/minecraft.json`) debe existir bajo la misma ruta base.
+
+### El asistente de IA no responde
+
+Falta la clave de Google Gemini (`panel.settings.geminiApiKey`, o `SKYPANEL_PANEL_SETTINGS_GEMINIAPIKEY`). Ver [Asistente de IA](../frontend/04-ai.md).
+
+---
+
+## Logs
+
+El panel escribe el día actual en `skypanel.log` dentro de la carpeta `logs` (`/var/log/SkyPanel` en la imagen; `storage/skypanel-logs` en el host con Docker Compose). La rotación es diaria y no necesita `logrotate`:
+
+- Al cambiar de día el archivo pasa a `skypanel-AAAA-MM-DD.log.gz` y se empieza uno nuevo.
+- Si un día pasa de 100 MB, se archiva antes como `skypanel-AAAA-MM-DD.1.log.gz`, `.2`, etc.
+- Los archivos de más de `logRetentionDays` días (14 por defecto) se borran solos; con `0` se guardan todos. Solo se tocan los archivos `skypanel-*`.
+
+| Prefijo | Salida |
+|---|---|
+| `[ERROR]` | stderr y archivo |
+| `[INFO]`, `[DEBUG]`, `[SERVER]` | stdout y archivo |
+
+```bash
+tail -f /opt/skypanel/storage/skypanel-logs/skypanel.log
+zcat /opt/skypanel/storage/skypanel-logs/skypanel-2026-10-25.log.gz | grep ERROR
 ```
-El CSS se inyecta inline y el font codicon se sirve desde CDN jsDelivr apuntando a la versión 0.44.0.
+
+Con un `logrotate` externo, ponga `logRetentionDays` a `0` y, tras rotar, envíe `SIGUSR1` al proceso para que reabra `skypanel.log`. El modo de Gin lo fija `GIN_MODE` (`release` en Docker; `debug` muestra todas las rutas HTTP).

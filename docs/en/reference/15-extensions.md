@@ -5,7 +5,9 @@ An extension adds features to the panel without touching its code. It can do two
 - **Pages**: HTML files the panel shows as a tab on every server or as an entry in the administration menu.
 - **Events**: the panel notifies an `https://` address of the extension when something happens (a server is created, starts, crashes…).
 
-An administrator installs them in **Settings → Extensions** by uploading a `.zip`. A freshly installed extension is **switched off**: it shows nothing and receives no events until you switch it on.
+An administrator installs them in **Settings → Extensions** by uploading a `.zip`. A freshly installed extension is **switched off**: it shows nothing and receives no events until an administrator switches it on.
+
+Code: `internal/extensions` (manifest, installation, event delivery), `internal/web/api/extensions.go` (API and file serving), `client/frontend/src/features/extensions` (the frame).
 
 ## The package
 
@@ -18,7 +20,7 @@ my-extension.zip
 └── js/app.js
 ```
 
-Limits: 20 MB compressed, 50 MB unpacked and 500 files. Symbolic links and paths that leave the folder are refused.
+Limits: 20 MB compressed, 50 MB unpacked, 500 files and 64 KB for `extension.json`. Symbolic links, backslashes and paths that leave the folder are refused; `__MACOSX` entries are ignored. The unpacked size is enforced while writing, whatever sizes the zip declares.
 
 ### `extension.json`
 
@@ -40,28 +42,48 @@ Limits: 20 MB compressed, 50 MB unpacked and 500 files. Symbolic links and paths
 
 | Field | Required | What it is |
 |-------|----------|------------|
-| `id` | yes | 2 to 40 lowercase letters, digits or dashes. Installing another package with the same `id` updates it. |
+| `id` | yes | 2 to 40 lowercase letters, digits or dashes, starting with a letter or digit. Installing another package with the same `id` updates it. |
 | `name` | yes | Up to 60 characters. |
-| `version` | yes | Up to 20 characters, such as `1.0.0`. |
-| `author`, `description` | no | Shown in Settings. |
-| `pages` | without a `webhook` | Up to 10. `placement` is `server` (a tab on every server) or `admin` (administration menu, administrators only). `path` is an `.html` of the package. |
-| `webhook` | with `events` | `https://` address that receives the events. The administrator can change it in Settings. |
-| `events` | no | The events it wants (list below). |
+| `version` | yes | Up to 20 characters among letters, digits, `.`, `+` and `-`, such as `1.0.0`. |
+| `author` | no | Up to 60 characters. Shown in Settings. |
+| `description` | no | Up to 300 characters. Shown in Settings. |
+| `pages` | without a `webhook` | Up to 10 (see below). |
+| `webhook` | with `events` | `https://` address that receives the events, without `user:password@`. The administrator can change it in Settings. |
+| `events` | no | The events it wants ([list below](#events)). Requires `webhook`. |
 
-A field the panel does not know makes the installation fail, so a typo does not go unnoticed.
+An extension needs at least one page or a webhook. A field the panel does not know makes the installation fail, so a typo does not go unnoticed.
+
+Each page:
+
+| Field | What it is |
+|-------|------------|
+| `id` | 1 to 40 lowercase letters, digits or dashes, unique within the extension |
+| `title` | 1 to 40 characters: the tab or menu label |
+| `placement` | `server` (a tab on every server) or `admin` (administration menu, administrators only) |
+| `path` | An `.html` file of the package, as a clean relative path (`index.html`, `pages/a.html`) |
+
+## Installing, updating and removing
+
+- **Install**: the package is checked, unpacked into a staging folder and then moved into `<panel.extensions.folder>/<id>` (default `<data>/extensions/<id>`). A new extension gets its own random signing key and starts switched off.
+- **Update**: uploading a package with an `id` that is already installed replaces its files atomically (a failed update leaves the previous version untouched) and keeps its on/off switch, its signing key and, if the administrator changed it, its webhook.
+- **Uninstall**: removes the record and the extension's folder.
+
+Changes take effect at once: the list of active extensions is reloaded after every install, update, switch or uninstall.
 
 ## Pages
 
-The panel shows each page inside an **isolated** frame (`sandbox` without `allow-same-origin`): its scripts run, but in an opaque origin, so they cannot read the administrator's session or call the panel's API on their behalf. They have no `localStorage` or cookies of their own either.
+The panel shows each page inside an **isolated** frame: `sandbox="allow-scripts allow-forms allow-popups allow-modals allow-downloads"`, without `allow-same-origin`, and `referrerpolicy="no-referrer"`. Its scripts run, but in an opaque origin, so they cannot read the administrator's session or call the panel's API on their behalf. They have no `localStorage` or cookies of their own either.
 
-Once loaded, the page receives a message with the context:
+The files themselves are served from `/api/extension-files/<id>/<path>` with the same sandbox as their `Content-Security-Policy`, so the isolation holds even if someone opens a file directly. Only regular files of a **switched-on** extension are served (anything else answers `404`), with `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: SAMEORIGIN` and `Cache-Control: no-cache`; the content type comes from the file extension. Page files are public while the extension is switched on: put no keys or secrets in them.
+
+Once loaded, the page receives a message with the context, and again whenever the user moves to another server or changes the language:
 
 ```js
 window.addEventListener('message', (event) => {
-  if (event.data?.type !== 'aether:context') return;
+  if (event.source !== window.parent || event.data?.type !== 'aether:context') return;
   const { serverId, language, theme } = event.data;
   // serverId: the tab's server (null on an administration page)
-  // language: "es" or "en"; theme: "dark" or "light"
+  // language: "es" or "en"; theme: "dark" or "light" (as it was when the message was sent)
 });
 ```
 
@@ -71,21 +93,23 @@ To fit the frame to its content, the page can answer:
 parent.postMessage({ type: 'aether:resize', height: document.body.scrollHeight }, '*');
 ```
 
-When a page needs data, it asks its own service (the webhook's, for example). Page files are public while the extension is switched on: put no keys or secrets in them.
+The panel only accepts that message from the page's own frame (whose origin is always the opaque `"null"`), and keeps the height between 200 and 4000 pixels.
+
+When a page needs data, it asks its own service (the webhook's, for example).
 
 ## Events
 
-| Event | When |
-|-------|------|
-| `server.created` | A server is created (from WHMCS/Paymenter too). |
-| `server.deleted` | A server is deleted. |
-| `server.started` | The server is up. |
-| `server.stopped` | The server is down. |
-| `server.crashed` | The server died on its own. Carries `exitCode`, `restarted` and the last console lines in `lines`. |
-| `server.backup` | A backup finished. `success` says whether it worked. |
-| `server.resources` | CPU or memory stayed high. Carries `resource`, `value` and `threshold`. |
+| Event | When | Extra fields |
+|-------|------|--------------|
+| `server.created` | A server is created (from the panel, or from WHMCS/Paymenter through `/api/v1`). | — |
+| `server.deleted` | A server is deleted. | — |
+| `server.started` | The server is up. | `running: true` |
+| `server.stopped` | The server is down. | `running: false` |
+| `server.crashed` | The server died on its own. | `exitCode`, `restarted`, `lines` (up to the last 12 console lines) |
+| `server.backup` | A backup finished. | `success` |
+| `server.resources` | CPU or memory stayed high. | `resource`, `value`, `threshold` |
 
-Each event is a JSON `POST`:
+Each event is a JSON `POST` with `Content-Type: application/json` and `User-Agent: AetherPanel-Webhook/1`:
 
 ```json
 {
@@ -101,9 +125,15 @@ Each event is a JSON `POST`:
 }
 ```
 
-When the answer is not `2xx`, the panel retries after 5 and 30 seconds. Answer quickly and do the work afterwards.
+Every event has `event`, `extension`, `timestamp` (UTC, RFC 3339) and `server`. The node events (`started`, `stopped`, `crashed`, `backup`, `resources`) also carry the `title` and `message` of the panel's server notifications, which are currently written in Spanish; rely on `event` and the extra fields, not on that text.
 
-`server.started`, `server.stopped`, `server.crashed`, `server.backup` and `server.resources` come from the node the server runs on. They are only sent from a node that also runs the panel (the usual single-machine setup).
+Delivery:
+
+- Each attempt has a 10-second timeout. When it fails or the answer is not `2xx`, the panel retries after 5 and then 30 seconds; after the third failure the event is only logged. Answer quickly and do the work afterwards.
+- At most 32 deliveries are in flight at once across all extensions. Beyond that, new events are dropped (and logged) rather than queued.
+- Events are sent whatever the server owner's own notification settings are.
+
+`server.started`, `server.stopped`, `server.crashed`, `server.backup` and `server.resources` come from the node the server runs on. They are only sent from a node that also runs the panel (the usual single-machine setup); a daemon-only node does not deliver them.
 
 ### Checking the signature
 
@@ -119,16 +149,18 @@ function validSignature(body, header, key) {
 }
 ```
 
-The **Send test** button in Settings posts a signed `test` event to check the address and the key.
+The **Send test** button in Settings posts a signed `test` event (`event`, `extension` and `timestamp` only) to check the address and the key.
 
 ## API
 
-| Method | Path | Who |
-|--------|------|-----|
-| GET | `/api/extensions` | administrators: all of them, with their signing key |
-| POST | `/api/extensions` | administrators: install or update (`file` field of a multipart form) |
-| PUT | `/api/extensions/:id` | administrators: `{ "enabled": true, "webhookUrl": "https://..." }` |
-| DELETE | `/api/extensions/:id` | administrators: uninstall |
-| POST | `/api/extensions/:id/test` | administrators: send a test event |
-| GET | `/api/extensions/active` | any user: pages of the switched-on extensions (administration pages only for administrators) |
-| GET | `/api/extension-files/:id/*` | the pages' files, always with `Content-Security-Policy: sandbox` |
+| Method | Path | Who | Answer |
+|--------|------|-----|--------|
+| GET | `/api/extensions` | administrators | Every extension with its pages (each with its `url`), `events`, `manifestWebhook`, `webhookUrl`, `enabled` and signing key (`secret`) |
+| POST | `/api/extensions` | administrators | Install or update: the zip in the `file` field of a multipart form. `200` with the extension, or `400` with `ErrExtensionInvalid` and the reason |
+| PUT | `/api/extensions/:id` | administrators | `{ "enabled": true, "webhookUrl": "https://..." }`, both optional. An empty `webhookUrl` stops events. `404` if not installed |
+| DELETE | `/api/extensions/:id` | administrators | Uninstall. `204`, or `404` |
+| POST | `/api/extensions/:id/test` | administrators | Send a test event. `204`; `400` with `ErrExtensionNoWebhook` or `ErrExtensionWebhook` (the delivery error) |
+| GET | `/api/extensions/active` | any signed-in user | Pages of the switched-on extensions: `[{ id, name, pages }]`. Administration pages only for administrators |
+| GET, HEAD | `/api/extension-files/:id/*path` | public | The pages' files, always with `Content-Security-Policy: sandbox ...` |
+
+"Administrators" means the `admin` scope; "any signed-in user" means the `login` scope.

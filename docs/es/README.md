@@ -1,59 +1,100 @@
-# Documentación Técnica de Aether Panel
+# Documentación de Aether Panel
 
-Bienvenido a la documentación oficial técnica de Aether Panel. Aquí encontrará toda la información profunda sobre la arquitectura, backend, frontend y configuración del panel.
+Documentación para instalar, operar, usar y ampliar Aether Panel. Describe lo que hace el código hoy; cuando una funcionalidad es experimental o está implementada solo en parte, su página lo indica.
 
-## Índice de Contenidos
+> El producto se llama Aether Panel. El módulo de Go, el binario y algunos identificadores (contenedor `skypanel`, variables de entorno `SKYPANEL_*`, cookie `skypanel_auth`) conservan el nombre SkyPanel.
 
-### Instalación y Configuración
-*   [01. Guía de Instalación](./setup/01-installation.md): Instrucciones paso a paso para desplegar el panel.
-*   [Troubleshooting](./setup/troubleshooting.md): Guía de solución de problemas y errores comunes (incluye MySQL Docker, Monaco Editor build).
-*   [Referencia Rápida de Docker](./docker/DOCKER-QUICKREF.md): Comandos esenciales para entornos Docker.
-*   [Solución de Problemas Sudo (Docker)](./docker/DOCKER-SUDO-FIX.md): Guía para resolver permisos en Docker.
+La misma documentación está disponible en inglés en [`docs/en`](../en/README.md), con los mismos nombres de archivo.
 
-### General (Conceptos y Guías)
-*   [Primeros Pasos](./general/getting-started.md): Guía completa desde instalación hasta primer servidor.
-*   [Conceptos Clave](./general/concepts.md): Arquitectura, nodos, servidores, auth, scopes, SFTP, templates, database hosts, transferencia federada, **gestión de puertos, red Docker auto-detección, roles actualizados, Monaco Editor pin**.
-*   [FAQ](./general/faq.md): Preguntas frecuentes (novedades v2.0.0+, roles, conectividad MySQL, Monaco).
-*   [Uptime Tracking](./general/13-uptime.md): Sistema de seguimiento de tiempo activo/inactivo.
-*   [License System](./general/14-license.md): Sistema de licencias (API externa).
-*   [Email/SMTP](./general/15-email.md): Proveedores de email y sistema de plantillas.
-*   [Discord Webhooks](./general/16-discord.md): Tipos de webhook y estructuras de embeds.
-*   [Captcha / anti-bots](./general/17-turnstile.md): Comprobación anti-bots propia (activada por defecto, sin claves) y Cloudflare Turnstile opcional.
-*   [Conditions/CEL Engine](./general/18-conditions-cel.md): Motor CEL + funciones personalizadas.
-*   [Files/Compression](./general/19-files-compression.md): FileServer, MergedFS, archive/extract.
-*   [Security/unshare](./general/20-security-unshare.md): openat2, unshare, soporte kernel.
-*   [Términos y Condiciones](./general/terms.md): Términos legales.
-*   [Política de Privacidad](./general/privacy.md): Privacidad de datos.
-*   [Seguridad](./general/security.md): Consideraciones de seguridad, inicio de sesión en dos pasos (2FA), sesiones y claves SSH para SFTP.
-*   [Referencia de permisos](./general/scopes-reference.md): Propietario y subusuarios, roles, permisos de las claves API y lista completa de scopes.
-*   [Usos](./general/usages.md): Casos de uso.
+## Por dónde empezar
 
-### Backend (Arquitectura y APIs)
-*   [01. Visión General](./backend/01-overview.md): Estructura del código Go, modos Panel y Daemon.
-*   [02. Configuración](./backend/02-configuration.md): Archivo `config.json` y sistema Viper.
-*   [03. Base de Datos](./backend/03-database.md): Modelos GORM y migraciones.
-*   [04. Gestión de Servidores](./backend/04-servers.md): Ciclo de vida, scheduler, **ExtraPortBindings, red Docker auto-detección**, límite de disco, prioridad de E/S, reconexión tras reinicio y subdominios.
-*   [05. Capa API y HTTP](./backend/05-api-layer.md): Rutas REST, CORS, OAuth2, **endpoints de puertos**.
-*   [06. Operaciones y Condiciones](./backend/06-operations.md): Motor de operaciones tipo JSON para tareas (descargas, unzip, chown).
-*   [07. Herramienta CLI](./backend/07-cli.md): Uso del binario de SkyPanel desde la terminal.
-*   [08. WebSocket y Consola](./backend/08-websocket.md): Transmisión en tiempo real de logs y estadísticas.
-*   [09. Seguridad y SFTP](./backend/09-security.md): Scopes, JWKS, y servidor SFTP integrado.
-*   [10. Paquetes Restantes](./backend/10-remaining-packages.md): Email, logs, utilidades y sistema de plantillas.
-*   [11. Servicios Internos](./backend/11-services.md): 19 servicios de negocio (Email, Discord, Token, License, etc.).
-*   [12. RCON/Telnet/RCON-WS](./backend/12-rcon-telnet.md): Conexiones stdin, proxy automático.
-*   [13. Process/Metrics](./backend/13-process-metrics.md): Gestión procesos, métricas, JVM stats.
+1. [Guía de instalación](./setup/01-installation.md): requisitos, el instalador y sus opciones, actualización y desinstalación.
+2. [Primeros pasos](./general/getting-started.md): de una instalación nueva al primer servidor en marcha.
+3. [Conceptos básicos](./general/concepts.md): nodos, servidores, plantillas, usuarios, roles y permisos, SFTP.
+4. [Uso del panel](./general/usages.md): dónde está cada cosa en la interfaz.
+5. [Preguntas frecuentes](./general/faq.md) y [Solución de problemas](./setup/troubleshooting.md).
 
-### Frontend (Arquitectura de Interfaz)
-*   [01. Arquitectura del Cliente](./frontend/01-architecture.md): Estructura general de Astro, React y Tailwind.
-*   [02. Endpoints y API Client](./frontend/02-endpoints.md): SDK nativo de API e integración de React.
-*   [03. Componentes y UI](./frontend/03-components.md): Shadcn UI, **Settings View rediseñada, roles corregidos**.
-*   [04. Inteligencia Artificial (Genkit)](./frontend/04-ai.md): Integración de Google GenAI para análisis de logs.
-*   [05. Sistema de Traducciones (i18n)](./frontend/05-translations.md): Internacionalización usando diccionarios JSON.
-*   [06. Páginas y Vistas](./frontend/06-pages.md): Vistas principales, **Settings View, Sidebar fix**.
-*   [07. Componentes y Hooks Detallados](./frontend/07-components-detailed.md): Todos los componentes, hooks, contexts, API client.
-*   [08. AI Detallado](./frontend/08-ai-detailed.md): Genkit flows, prompts, UI.
+## Instalación y operación
 
-### Referencias
-*   [Referencia de API](./reference/11-api-reference.md): Esquema general para uso programático y API de aprovisionamiento (facturación).
-*   [Referencia de Comandos CLI](./reference/14-cli-commands.md): Lista detallada de subcomandos y flags de la consola.
-*   [Extensiones](./reference/15-extensions.md): Cómo crear e instalar extensiones (páginas y eventos).
+| Página | Contenido |
+|--------|-----------|
+| [Guía de instalación](./setup/01-installation.md) | Sistemas compatibles, opciones de `install.sh`, dominio y HTTPS, nodos, actualizaciones, desinstalación |
+| [Solución de problemas](./setup/troubleshooting.md) | Fallos conocidos y cómo resolverlos |
+| [Documentación Docker](./docker/README.docker.md) | El panel con Docker Compose, volúmenes, imágenes de ejecución, entorno de desarrollo |
+| [Referencia rápida de Docker](./docker/DOCKER-QUICKREF.md) | Comandos de Docker de uso diario para el panel |
+| [Socket de Docker y permisos](./docker/DOCKER-SUDO-FIX.md) | Acceso al socket de Docker y errores de permisos |
+| [Configuración](./backend/02-configuration.md) | Todas las claves de configuración, su valor por defecto y su variable de entorno |
+| [Comandos CLI](./reference/14-cli-commands.md) | Todos los comandos y opciones del binario |
+
+## Funcionalidades
+
+Guías para usuarios y administradores, una página por funcionalidad. Lista completa: [Funcionalidades](./features/README.md).
+
+- Páginas del servidor: [resumen y estadísticas](./features/server-statistics.md), [configuración](./features/server-settings.md), [editor de `server.properties`](./features/server-properties.md), [versión del juego](./features/game-versions.md), [modpacks y plugins](./features/modpacks-and-plugins.md), [mapa del mundo](./features/world-map.md), [tareas programadas](./features/scheduled-tasks.md), [copias de seguridad](./features/backups.md), [historial de archivos](./features/file-history.md), [informes de caída](./features/crash-reports.md), [notificaciones](./features/server-notifications.md), [subdominios](./features/subdomains.md), [asistente de IA](./features/ai-assistant.md).
+- Ciclo de vida del servidor: [clonación](./features/cloning.md), [subservidores](./features/sub-servers.md), [transferencias](./features/server-transfers.md).
+- Administración del panel: [panel de inicio y nodos](./features/dashboard-and-nodes.md), [actividad y registro de accesos](./features/activity-and-access-log.md), [hosts de bases de datos](./features/database-hosts.md), [configuración del panel](./features/panel-settings.md), [plantillas](./features/templates.md), [actualizaciones del panel](./features/panel-updates.md), [integración con facturación y enlaces de acceso](./features/provisioning-and-sso.md).
+
+## Integraciones
+
+| Página | Contenido |
+|--------|-----------|
+| [Correo electrónico](./general/15-email.md) | Proveedores de correo y plantillas |
+| [Discord y notificaciones](./general/16-discord.md) | Webhooks y embeds del panel |
+| [Captcha / anti-bots](./general/17-turnstile.md) | Comprobación anti-bots propia (activada por defecto, sin claves) y Cloudflare Turnstile opcional |
+| [Seguimiento de disponibilidad](./general/13-uptime.md) | Cómo se registra y se muestra la disponibilidad de los servidores |
+| [Sistema de licencias](./general/14-license.md) | Comprobación de licencias contra la API externa |
+
+## Seguridad y permisos
+
+| Página | Contenido |
+|--------|-----------|
+| [Seguridad](./general/security.md) | Recomendaciones para administradores, inicio de sesión en dos pasos, sesiones, claves SSH, endurecimiento |
+| [Referencia de permisos](./general/scopes-reference.md) | Todos los scopes, roles por defecto, propietario y subusuarios, permisos de las claves API |
+| [Seguridad (interna)](./backend/09-security.md) | Scopes, JWT entre panel y nodos, servidor SFTP, protecciones HTTP |
+| [Aislamiento del kernel](./general/20-security-unshare.md) | `openat2` y `unshare` |
+
+## Referencia
+
+| Página | Contenido |
+|--------|-----------|
+| [Referencia de la API](./reference/11-api-reference.md) | Índice de la API HTTP, dividida por áreas: [convenciones](./reference/api/01-conventions.md), [autenticación](./reference/api/02-authentication.md), [servidores](./reference/api/03-servers.md), [contenido del servidor](./reference/api/04-server-content.md), [cuentas](./reference/api/05-accounts.md), [administración del panel](./reference/api/06-panel-admin.md), [aprovisionamiento](./reference/api/07-provisioning.md), [transferencia externa](./reference/api/08-external-transfer.md), [daemon](./reference/api/09-daemon.md) |
+| [Comandos CLI](./reference/14-cli-commands.md) | Comandos y opciones |
+| [Extensiones](./reference/15-extensions.md) | Paquetes de extensión: manifiesto, páginas, eventos, instalación |
+| [Condiciones (CEL)](./general/18-conditions-cel.md) | Expresiones de condición que usan las plantillas y las operaciones |
+| [Archivos del servidor y archivos comprimidos](./general/19-files-compression.md) | Servidor de archivos, reglas de compresión y extracción |
+
+## Funcionamiento interno del backend
+
+| Página | Contenido |
+|--------|-----------|
+| [01. Visión general](./backend/01-overview.md) | Estructura del código, modos panel y daemon |
+| [02. Configuración](./backend/02-configuration.md) | `config.json`, variables de entorno y configuración del panel |
+| [03. Base de datos](./backend/03-database.md) | Modelos, tablas y migraciones |
+| [04. Servidores](./backend/04-servers.md) | Entornos, ciclo de vida, tareas programadas, límite de disco, reconexión, subdominios |
+| [05. Capa API](./backend/05-api-layer.md) | Rutas, middleware, autenticación, OAuth2 |
+| [06. Motor de operaciones](./backend/06-operations.md) | Operaciones de instalación y de tareas, descargas, condiciones |
+| [07. CLI](./backend/07-cli.md) | Cómo está construida la línea de comandos |
+| [08. WebSocket](./backend/08-websocket.md) | Consola, estadísticas y estado en tiempo real |
+| [09. Seguridad](./backend/09-security.md) | Permisos, tokens, SFTP, protecciones HTTP |
+| [10. Paquetes restantes](./backend/10-remaining-packages.md) | Otros paquetes de `internal/` y `pkg/` |
+| [11. Servicios](./backend/11-services.md) | Servicios de negocio de `internal/services` |
+| [12. Entrada de consola](./backend/12-rcon-telnet.md) | stdin, RCON, Telnet y RCON sobre WebSocket |
+| [13. Procesos y métricas](./backend/13-process-metrics.md) | Gestión de procesos, historial de métricas, muestreo del nodo |
+
+## Funcionamiento interno del frontend
+
+| Página | Contenido |
+|--------|-----------|
+| [01. Arquitectura](./frontend/01-architecture.md) | Estructura de `client/frontend` (Astro y React) |
+| [02. Consumo de la API](./frontend/02-endpoints.md) | Cliente de la API, errores, cómo llama la interfaz al backend |
+| [03. Componentes](./frontend/03-components.md) | Componentes de la interfaz y estructura de la pantalla |
+| [04. Funciones de IA](./frontend/04-ai.md) | Funciones de IA en la interfaz (visión general) |
+| [05. Traducciones](./frontend/05-translations.md) | Internacionalización; el inglés es el idioma por defecto |
+| [06. Páginas](./frontend/06-pages.md) | Rutas y páginas |
+| [07. Referencia detallada](./frontend/07-components-detailed.md) | Componentes, hooks y contextos en detalle |
+| [08. IA en detalle](./frontend/08-ai-detailed.md) | Funciones de IA en detalle |
+
+## Legal
+
+- [Términos y condiciones](./general/terms.md)
+- [Política de privacidad](./general/privacy.md)

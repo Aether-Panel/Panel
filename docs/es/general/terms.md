@@ -22,8 +22,6 @@ Al acceder y usar Aether Panel, aceptas:
 
 Aceptas no utilizar el servicio para ningún propósito ilegal o no autorizado. Te comprometes a no:
 
-El uso del servicio debe ser consistente con su propósito como herramienta de gestión de servidores open source. Cualquier uso que viole estos términos puede resultar en la terminación inmediata de tu acceso.
-
 - Violar ninguna ley en tu jurisdicción
 - Intentar comprometer la seguridad o integridad de nuestros sistemas o redes
 - Distribuir malware, spam o cualquier otro contenido malicioso
@@ -31,6 +29,8 @@ El uso del servicio debe ser consistente con su propósito como herramienta de g
 - Usar el servicio para actividades fraudulentas o engañosas
 - Interferir con el funcionamiento del servicio o de otros usuarios
 - Intentar acceder a áreas restringidas del servicio sin autorización
+
+El uso del servicio debe ser consistente con su propósito como herramienta de gestión de servidores open source. Cualquier uso que viole estos términos puede resultar en la terminación inmediata de tu acceso.
 
 ## Cuentas y Responsabilidades del Usuario
 
@@ -43,6 +43,10 @@ Cuando creas una cuenta con nosotros (ya sea en el panel o en nuestra comunidad)
 - Proporcionar información precisa y actualizada
 - Ser responsable de todas las actividades que ocurran bajo tu cuenta
 - Cumplir con estos términos y todas las leyes aplicables
+
+### Cuentas en una instalación autogestionada
+
+En una instalación de Aether Panel que gestiona otra persona (una empresa de hosting, una comunidad, un servidor propio), la cuenta del panel pertenece a esa instalación: su administrador crea, suspende y borra las cuentas y decide qué puede hacer cada una (ver [Referencia de permisos](./scopes-reference.md)). El proyecto no tiene acceso a esas instalaciones ni a sus cuentas. Qué guarda una instalación sobre cada persona y con qué servicios externos se comunica se explica en la [Política de Privacidad](./privacy.md).
 
 ### Violación de Términos de Cuenta
 
@@ -71,6 +75,8 @@ Las decisiones de desarrollo se basan en las necesidades de la comunidad. El pan
 ### Sin Paywalls en el Panel
 
 Nunca pondremos funciones del panel principal tras un paywall. El panel es y será siempre gratuito. Solo integraciones con software de código cerrado de terceros podrían tener costo.
+
+El panel puede activar una clave de licencia contra un servidor de licencias externo, pero hoy ninguna función del panel se activa ni se bloquea con ella (ver [Sistema de licencias](./14-license.md)).
 
 
 ## Contribuciones al Proyecto
@@ -121,21 +127,17 @@ Tú conservas los derechos sobre el contenido que creas usando Aether Panel (com
 
 Aether Panel es software open source proporcionado sin garantías:
 
-Esta limitación de responsabilidad es estándar para software open source. Aether Panel es un proyecto comunitario, no un producto comercial.
-
 - No garantizamos que el software funcionará sin errores o interrupciones
 - No somos responsables de pérdidas de datos, ingresos, o daños indirectos
 - No ofrecemos soporte técnico comercial ni garantías de disponibilidad
 - El uso del software es bajo tu propio riesgo
 - No somos responsables de cómo uses el software o de las consecuencias de su uso
 
+Esta limitación de responsabilidad es estándar para software open source. Aether Panel es un proyecto comunitario, no un producto comercial.
+
 ## Terminación
 
 Podemos terminar o suspender tu cuenta y tu capacidad de contribuir al panel de inmediato, sin previo aviso ni responsabilidad, por cualquier motivo, incluyendo, entre otros:
-
-Tras la terminación, tu derecho a utilizar el servicio y contribuir al panel cesará de inmediato.
-
-La contribución al panel se termina cuando violas estos principios, especialmente si intentas revender el panel o sus funciones como producto propio.
 
 - Si incumples estos Términos de Servicio
 - Si usas el servicio de manera ilegal o no autorizada
@@ -143,7 +145,12 @@ La contribución al panel se termina cuando violas estos principios, especialmen
 - Si intentas monetizar funciones del panel de manera que viole nuestros principios
 - Si participas en actividades que van en contra de la filosofía open source del proyecto
 
-- **p4**: Si tu cuenta es terminada, puedes perder acceso a:
+Tras la terminación, tu derecho a utilizar el servicio y contribuir al panel cesará de inmediato.
+
+La contribución al panel se termina cuando violas estos principios, especialmente si intentas revender el panel o sus funciones como producto propio.
+
+Si tu cuenta es terminada, puedes perder acceso a:
+
 - Tu cuenta en el panel (si es una instalación gestionada por nosotros)
 - Tu capacidad de contribuir código al proyecto
 - Tu participación en la comunidad y toma de decisiones
@@ -153,11 +160,11 @@ La contribución al panel se termina cuando violas estos principios, especialmen
 
 Nos reservamos el derecho de modificar estos términos en cualquier momento. Cuando hagamos cambios significativos:
 
-El uso continuado del servicio después de los cambios constituye tu aceptación de los nuevos términos. Si no estás de acuerdo con los cambios, debes dejar de usar el servicio.
-
 - Publicaremos una notificación en nuestro Discord
 - Actualizaremos la fecha de "Última actualización" en esta página
 - Te notificaremos si los cambios afectan significativamente tus derechos o responsabilidades
+
+El uso continuado del servicio después de los cambios constituye tu aceptación de los nuevos términos. Si no estás de acuerdo con los cambios, debes dejar de usar el servicio.
 
 ## Ley Aplicable
 
@@ -169,17 +176,15 @@ Como proyecto open source internacional, nos esforzamos por cumplir con las leye
 
 Si tienes preguntas sobre estos términos:
 
-Estamos comprometidos a mantener estos términos claros y justos, reflejando nuestra filosofía de open source real y comunidad primero.
-
 - Únete a nuestro servidor de Discord para discusiones comunitarias
 - Abre un issue en GitHub para preguntas públicas
 - Contacta directamente a través de los canales de la comunidad
 
+Estamos comprometidos a mantener estos términos claros y justos, reflejando nuestra filosofía de open source real y comunidad primero.
+
 ## Resumen
 
 En resumen, estos términos establecen que:
-
-Aether Panel existe para ser diferente: un panel open source real que respeta a la comunidad y no monetiza funciones básicas. Si buscas un panel que venda extensiones o funciones premium, este no es el adecuado para ti.
 
 - Aether Panel es software open source sin garantías comerciales
 - No ofrecemos soporte técnico comercial ni funciones premium
@@ -189,11 +194,13 @@ Aether Panel existe para ser diferente: un panel open source real que respeta a 
 - Las contribuciones deben alinearse con nuestros principios open source
 - Podemos terminar cuentas que violen estos principios
 
+Aether Panel existe para ser diferente: un panel open source real que respeta a la comunidad y no monetiza funciones básicas. Si buscas un panel que venda extensiones o funciones premium, este no es el adecuado para ti.
+
 ## Módulos de Pago e Integraciones
 
 El panel principal de Aether Panel es y será siempre 100% gratuito y open source (Apache 2.0). Sin embargo, pueden existir módulos de integración con software de terceros que tengan un costo asociado.
 
-Actualmente estamos desarrollando un módulo de integración con WHMCS (plataforma de facturación y automatización). WHMCS es un software de código cerrado que requiere licencia paga, por lo que el módulo tiene costos asociados:
+El propio panel incluye sin coste la API de aprovisionamiento (`/api/v1`) a la que llaman sistemas de facturación como WHMCS o Paymenter para crear, suspender y borrar servidores (ver [Integración con facturación](../features/provisioning-and-sso.md)). Actualmente estamos desarrollando un módulo de integración con WHMCS (plataforma de facturación y automatización) que la usa. WHMCS es un software de código cerrado que requiere licencia paga, por lo que el módulo tiene costos asociados:
 
 - WHMCS es software propietario — requiere licencia paga para desarrollo, pruebas y mantenimiento
 - El módulo requiere mantenimiento continuo para garantizar compatibilidad con actualizaciones de WHMCS

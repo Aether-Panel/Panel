@@ -1,171 +1,93 @@
-# Components and Graphical Interface (`client/frontend`)
+# Componentes e interfaz de usuario
 
-The visual interface that users interact with (dashboard, login, web console, etc.). It uses a hybrid approach combining Astro (static rendering) and React 19 (interactive components).
+Visión general de las piezas que forman la interfaz de Aether Panel: los dos shells de página, los componentes compartidos, el estado global y los comportamientos transversales (toasts, gráficos, captcha). La referencia archivo por archivo de cada carpeta de features, hook y utilidad está en [07. Referencia detallada](./07-components-detailed.md); las rutas, en [06. Rutas y páginas](./06-pages.md).
 
-## Core UI Technologies
+## Modelo de renderizado
 
-### 1. Astro (Routing and SSR)
-- Routes are determined by files in `src/pages/`.
-- `.astro` pages act as containers and "hydrate" React components with directives like `client:only="react"`.
+- Las páginas `.astro` son contenedores estáticos. Cada una monta un único wrapper de React con `client:only="react"` ([01. Arquitectura](./01-architecture.md#de-la-ruta-a-la-pantalla)).
+- Toda la interfaz interactiva es React 19 con estilos de Tailwind. La interfaz usa tema oscuro: `BaseLayout.astro` pone `class="dark"` en `<html>` y no hay selector de tema.
+- Los tokens de diseño (colores como `--primary`, `--chart-1…5`, `--success`, `--warning`; radios; sombras `shadow-elevation-*`; la curva `ease-panel`) son variables CSS de `src/styles/globals.css` que lee `tailwind.config.ts`.
+- Las animaciones respetan `prefers-reduced-motion` (variantes `motion-reduce:`; `AnimatedNumber` muestra el valor final directamente).
 
-### 2. React 19 + Tailwind CSS
-- All interactive components (forms, consoles, modals) are in React 19.
-- 100% utility-first styling with Tailwind CSS and `tailwind-merge` + `clsx` for conditional classes.
+## Shells de página
 
-## Base UI Components (Shadcn UI / Radix UI)
+### `AppShell` (páginas con sesión)
 
-In `src/components/ui/` there are 33 components based on Radix UI primitives:
+`components/AppShell.tsx` envuelve cada página con sesión en `Providers`, la barra lateral, la barra superior y el contenedor de toasts.
 
-| Component | Purpose |
+**Barra lateral plegable** (basada en `components/ui/sidebar.tsx` con `collapsible="icon"`):
+
+- En escritorio se puede plegar a un carril de iconos de 4,5rem y volver a desplegar con el botón de la barra superior o con **Ctrl/⌘+B** (se ignora mientras se escribe en un campo o en el editor de código). El estado se guarda en la cookie `sidebar_state` durante 7 días.
+- Plegada, al pasar el puntero o enfocar el carril se abre por encima de la página (tras un breve retardo) sin desplazar el contenido; las etiquetas, la tarjeta de la cuenta y el enlace "Impulsado por Aether Panel" vuelven a aparecer.
+- En móviles (< 768 px) la barra lateral se convierte en un panel deslizante que se abre con el botón de menú.
+- Los elementos se agrupan en **Resumen** (Inicio), **Gestión** (Servidores, Usuarios, Roles, Nodos, Hosts de BD, Plantillas, Configuración) y **Extensiones** (páginas de administración de las extensiones activas). Cada elemento solo aparece si el usuario tiene alguno de sus scopes, y un grupo sin elementos visibles no se muestra. Los scopes de cada elemento se listan en [06](./06-pages.md#navegación-lateral).
+- Un `GlideMenu` dibuja una única píldora de resaltado que se desliza entre elementos.
+- El pie contiene la tarjeta de la cuenta (avatar, nombre, insignia de rol, correo) con un menú para **Configuración de la cuenta** y **Cerrar sesión**.
+
+**Barra superior** (`AppTopBar`): el botón de la barra lateral, migas de pan construidas a partir de la URL (las páginas de detalle sustituyen el id por el nombre de la entidad emitiendo el evento `aether:breadcrumb`; en móviles una ruta profunda oculta la miga raíz) y la **búsqueda rápida**.
+
+**Búsqueda rápida** (`components/quick-search.tsx`, **Ctrl/⌘+K**): una paleta de comandos con las páginas que el usuario puede abrir (la misma lista que la barra lateral, así que nunca sugiere una página prohibida), sus servidores y las pestañas principales de cada uno, y acciones de encendido sobre un servidor. La coincidencia ignora mayúsculas y tildes. En escritorio es un campo con desplegable; en móviles, un diálogo.
+
+**Aviso de actualización**: los usuarios con `settings.edit` reciben un toast informativo por sesión del navegador cuando `GET /api/settings/update-check` indica que hay una versión nueva del panel.
+
+### `AuthShell` (páginas de acceso)
+
+`components/AuthShell.tsx` renderiza `Providers`, el fondo ambiental y el contenedor de toasts, y exporta las piezas que comparten todas las pantallas de acceso: `AuthFrame` (columna de marca + columna del formulario, usada por las pantallas de contraseña), `AuthPane`, `AuthInput`, `AuthPasswordInput`, `PasswordStrength`, `AuthNotice`, `AuthEmblem` (el emblema en 3D con three.js en escritorio; la imagen plana aparece primero y se mantiene si no hay WebGL) y clases compartidas.
+
+El inicio de sesión y el registro comparten una **tarjeta deslizante** (`features/auth/auth-card.tsx`): en escritorio el panel de marca cubre una mitad y se desliza a la otra al cambiar de formulario, mientras los formularios se desplazan y se funden por debajo. La URL acompaña el cambio (`/login` ↔ `/register`, con `history.pushState`) y el botón Atrás del navegador vuelve al anterior. El formulario de registro (y su captcha) solo se monta la primera vez que hace falta. En móviles se ve un formulario cada vez, con un enlace al otro. Con el registro desactivado, `/register` muestra el formulario de inicio de sesión. Detalles en [06](./06-pages.md#páginas-de-acceso).
+
+## Componentes compartidos (`src/components/`)
+
+| Componente | Función |
 |---|---|
-| Accordion, Collapsible | Expandable panels |
-| Alert, AlertDialog | Confirmation/alert dialogs |
-| Avatar | User avatars |
-| Badge | Status labels/badges |
-| Button | Buttons with variants |
-| Calendar | Date selection |
-| Card | Content cards |
-| Carousel | Image carousel |
-| Chart | Charts (wraps recharts) |
-| Checkbox, RadioGroup, Switch | Selection inputs |
-| Dialog, Sheet, Sidebar | Modal and side panels |
-| DropdownMenu, Menubar | Dropdown menus |
-| Form, Input, Label, Textarea, Select | Form elements |
-| Popover, Tooltip | Contextual overlays |
-| Progress, Skeleton | Loading indicators |
-| ScrollArea | Custom scroll areas |
-| Separator | Visual separators |
-| Slider | Slider control |
-| Table | Data tables |
-| Tabs | Tabbed navigation |
+| `ui/*` | 25 primitivas estilo shadcn: accordion, alert-dialog, avatar, badge, button, card, chart, checkbox, dialog, dropdown-menu, form, input, label, progress, scroll-area, select, separator, sheet, sidebar, skeleton, switch, table, tabs, textarea, tooltip. |
+| `page-wrappers/*` | Un componente de entrada por ruta (ver [06](./06-pages.md)). |
+| `server-card.tsx` | `ServerCard` (panel principal y lista de servidores), `StatusBadge`, `StatusIndicator`, `MetricBar`, `Sparkline`, `usageColor`. |
+| `user-avatar.tsx` | `UserAvatar`: la foto propia de la cuenta o un avatar de Kodama desde `api.kodama.sh`, generado a partir de un hash de un solo sentido de la cuenta (nunca el correo en sí); iniciales mientras carga. |
+| `empty-state.tsx` | El único recuadro de vacío / sin resultados / error de carga. |
+| `page-header.tsx` | `PageHeader` con `title`, `description`, `badges` y acciones alineadas a la derecha (`children`). |
+| `ErrorBoundary.tsx` | Captura errores de renderizado por zona (cada pestaña del servidor tiene el suyo) y muestra un recuadro para reintentar. Si el error se debe a un build obsoleto (un fragmento eliminado por una actualización del panel), recarga la página una vez. |
+| `Turnstile.tsx` | `useCaptcha()` y el widget de Turnstile (ver más abajo). |
+| `SileoToaster.tsx` | Renderiza los toasts e incluye el CSS de sileo para que sobreviva a los cambios de página de Astro. |
+| `quick-search.tsx`, `glide-menu.tsx` | Paleta de comandos y píldora de resaltado de la barra lateral. |
+| `player-presence.tsx` | `PlayerAvatar`, `PlayerStack` (caras superpuestas de los jugadores conectados), `LiveDot`. |
+| `animated-number.tsx` | Cifras que cuentan hasta su valor y se deslizan entre valores. |
+| `ambient-backdrop.tsx`, `spotlight.tsx` | Fondo decorativo y el brillo que sigue al puntero en los paneles `[data-spotlight]` (desactivado en pantallas táctiles). |
+| `beta-badge.tsx` | Etiqueta "Beta" para funciones experimentales. |
+| `icons.tsx` | El conjunto de iconos (Phosphor), exportado con nombres estables. |
+| `logo.tsx` | Logotipo del panel. |
 
-> Note: toast notifications are not a `ui/` component; they are implemented with **sileo** (`src/lib/toast.ts`) and rendered with `SileoToaster.tsx`.
+## Estado global (`src/contexts/`)
 
-## Custom Components (`src/components/`)
-
-- **AppShell.tsx** — Main dashboard layout (sidebar, header, content)
-- **AuthShell.tsx** — Layout for authentication pages
-- **ErrorBoundary.tsx** — React error handling
-- **logo.tsx** — Panel logo component
-- **page-header.tsx** — Reusable page header
-- **PageWrappers.tsx** — Page wrappers with permissions
-- **metrics-charts.tsx, network-usage-chart.tsx, resource-usage-chart.tsx** — Metrics charts with recharts
-
-## Features and Domains (`src/features/`)
-
-### Console / Terminal (`features/servers/[id]/`)
-- `console-view.tsx` — Live terminal with WebSocket, ANSI color parsing (`lib/ansi-utils.tsx`), command sending
-- The WebSocket connection is established to `ws[s]://host/api/servers/:id/socket?console`
-
-### File Manager (`features/servers/[id]/`)
-- `file-manager-view.tsx` — File explorer with navigation, upload, download, creation, editing, deletion
-- Integration with Monaco Editor (`code-editor.tsx`) for file editing (Tokyo Night theme, lazy-loaded)
-- Operations: create folder, upload file, compress/extract ZIP
-
-### Other Features
-- **auth/** — Login, registration, OTP, password recovery (forgot/reset)
-- **dashboard/** — Main panel with global metrics, uptime, server status
-- **servers/** — CRUD, details, management of backups, plugins, tasks, flags, database, sub-users, transfers
-  - `settings-view.tsx` — **Redesigned Settings View**: 2-column layout, per-section themed cards (colors, gradient bars), sticky save bar, permission gates by role (admin vs user).
-- **nodes/** — Listing, creation, detail, deployment
-- **users/** — Global user CRUD, permissions
-- **templates/** — Template repositories
-- **settings/** — Global panel configuration, email/discord tests, license
-- **roles/** — Roles and scope assignment
-- **database-hosts/** — External database hosts
-- **profile/** — Own profile, OTP, OAuth2 clients
-
-## Global State (`src/contexts/`)
-
-| Context | File | Purpose |
+| Contexto | Hook | Proporciona |
 |---|---|---|
-| **AuthContext** | `providers.tsx` | User session (login, register, logout, role, scopes, hasScope). Redirects to `/login/` if no session. |
-| **ConfigContext** | `config-context.tsx` | Public panel configuration from `GET /api/config` (branding, name, registration enabled, themes). |
-| **TranslationsContext** | `translations-context.tsx` | Internationalization (i18n) with `en.json` and `es.json`. |
+| `AuthContext` (`providers.tsx`) | `useAuth()` | `role` (`'admin'` si los scopes incluyen `admin`, si no `'user'`), `user`, `scopes`, `login`, `verifyOtp`, `register`, `logout`, `hasScope`, `loading`, `fetchSelf`. |
+| `ConfigContext` (`config-context.tsx`) | `useConfig()`, `useExperimental()` | `GET /api/config`: `branding.name`, `registrationEnabled`, `captcha` (`'turnstile'`, `'builtin'` o vacío), `turnstileSiteKey`, `turnstileEnabled`, `hideAiAnalysis`, indicadores `experimental` (`versionSwitch`, `propertiesEditor`, `serverClone`), `version`, `themes`. |
+| `TranslationsContext` (`translations-context.tsx`) | `useTranslations()` | `language`, `setLanguage`, `t()`. Ver [05](./05-translations.md). |
 
-## Custom Hooks (`src/hooks/`)
+`hasScope(scope)` devuelve `true` para los administradores, para los scopes que el usuario tiene y para cualquier scope `server.*` (salvo `server.create` y el propio `server.admin`) cuando el usuario tiene `server.admin`. En el detalle del servidor, las pestañas usan en cambio los scopes del usuario **en ese servidor** (ver [06](./06-pages.md#detalle-del-servidor-serversviewidid)). El frontend solo oculta lo que el usuario no puede usar; la API aplica todos los permisos.
 
-| Hook | Purpose | Key Returns |
-|---|---|---|
-| `use-servers` | Server CRUD | `{ servers, loading, create, update, delete, start, stop, restart, kill, install, reload }` |
-| `use-users` | User and permissions CRUD | `{ users, loading, create, update, delete, getPermissions, updatePermissions }` |
-| `use-nodes` | Node CRUD and deployment data | `{ nodes, loading, create, update, delete, getDeployment, getFeatures, getSystem }` |
-| `use-templates` | Repositories and templates | `{ templates, loading, createRepo, deleteRepo, syncRepo, createLocal, updateLocal, deleteLocal }` |
-| `use-database-hosts` | Database hosts | `{ hosts, loading, create, update, delete, testConnection }` |
-| `use-settings` | Global panel configuration | `{ settings, loading, saving, saveSettings, sendTestEmail, sendTestDiscord }` |
-| `use-server-settings` | Server variables/configuration | `{ settings, loading, error, saveSettings, isMinecraftJava, refresh }` |
-| `use-profile` | Own profile, OTP, OAuth2 clients | `{ profile, loading, update, otp: { status, enroll, validate, recovery, disable }, oauth2: { clients, create, delete } }` |
-| `use-dashboard-data` | Dashboard data (uptime, servers) | `{ uptime, servers, loading, refresh }` |
-| `use-user-settings` | User-specific settings | `{ value, setValue }` |
-| `use-mobile` | Mobile device detection | `true` if viewport < 768px |
-
-## Toast Notifications (`lib/toast.ts`)
-
-Uses **sileo** library for toast notifications:
+## Toasts (`lib/toast.ts`)
 
 ```typescript
 import { sileo } from '@/lib/toast';
 
-// Success
-sileo.success({ title: 'Success', description: 'Settings saved' });
-
-// Error
-sileo.error({ title: 'Error', description: 'Failed to save' });
-
-// Info
-sileo.info({ title: 'Info', description: 'Server started' });
-
-// Warning
-sileo.warning({ title: 'Warning', description: 'High memory usage' });
+sileo.success({ title: t('common.success'), description: t('servers.actions.startSuccess') });
+sileo.error({ title: t('common.error'), description: err.message });
 ```
 
-Rendered by `SileoToaster.tsx` in `AppShell.tsx`.
+El envoltorio reexporta sileo (`show`, `success`, `info`, `action`, `promise`, `dismiss`, `clear`) y fuerza los toasts de `error` y `warning` a la posición `top-center` para que los problemas se vean. Toasts destacados: el **toast de caída** cuando el socket del servidor informa de una caída (título con el código de salida y una descripción de lo que suele significar ese código y de si el servidor se reinició), un breve aviso de "consola conectada" cuando la consola reconecta tras un corte, el aviso de actualización y el resultado de cada acción.
 
-## Genkit AI Integration (`src/ai/`)
+## Gráficos
 
-- `genkit.ts` — Genkit client configuration with Google Generative AI
-- `flows/` — AI flows:
-  - `summarize-server-alerts.ts` — **Input:** server alerts array. **Output:** `{ summary, rootCauses[], suggestions[] }`. Prompt: analyzes alerts for patterns.
-  - `generate-troubleshooting-tips.ts` — **Input:** error logs + context. **Output:** `{ tips[] }`. Prompt: generates actionable troubleshooting steps.
-- Invoked from the "AI Analyze" button in the server view (requires `geminiApiKey` in config)
+Todos los gráficos usan recharts a través de `components/ui/chart.tsx`. `lib/chart-theme.ts` asigna a cada tipo de dato el mismo color en todos los gráficos (`CHART_COLORS`: CPU `--chart-1`, memoria `--chart-2`, descarga `--chart-3`, subida `--chart-5`, jugadores `--success`, pico de jugadores `--chart-4`) y formatea las horas en el idioma del panel (`chartLocale`, `formatClock`), no en el del navegador. Los gráficos en sí se describen en [07](./07-components-detailed.md#gráficos).
 
-### AI Flow Details
+## Captcha (`components/Turnstile.tsx`)
 
-| Flow | Input | Output | Prompt Focus |
-|---|---|---|---|
-| `summarize-server-alerts` | `logs: string[]` | `{ summary, rootCauses: string[], suggestions: string[] }` | Pattern recognition in server logs |
-| `generate-troubleshooting-tips` | `logs: string[], context: object` | `{ tips: string[] }` | Actionable steps for specific errors |
+`useCaptcha()` devuelve `{ widget, fields, ready, reset }` para los formularios de acceso, según `config.captcha`:
 
-## Console / Terminal (`features/servers/[id]/`)
+- `builtin`: pide un reto a `GET /auth/challenge` y resuelve la prueba de trabajo en segundo plano (`lib/proof-of-work.ts`, esquema ALTCHA, con su propio SHA-256 porque `crypto.subtle` no existe en HTTP sin cifrar). Una línea discreta bajo el formulario muestra el progreso; no hay nada que pulsar.
+- `turnstile`: carga Cloudflare Turnstile una sola vez desde `challenges.cloudflare.com` y muestra el widget con `turnstileSiteKey`.
+- vacío: sin comprobación. Los paneles demasiado antiguos para enviar `captcha` recurren a Turnstile cuando `turnstileEnabled` y `turnstileSiteKey` tienen valor.
 
-- `console-view.tsx` — Live terminal with WebSocket (`ws[s]://host/api/servers/:id/socket?console`)
-- `ansi-utils.tsx` — ANSI escape code parser → HTML spans (colors, bold, cursor movement)
-- `xterm.js` — Terminal emulator (fit addon, webgl addon for performance)
-- Connection auto-reconnect with exponential backoff
-- Command history (up/down arrows), paste support, fullscreen
-
-## File Manager (`features/servers/[id]/`)
-
-- `file-manager-view.tsx` — Tree navigation, drag-drop upload, context menus
-- `code-editor.tsx` — Monaco Editor integration (lazy-loaded, Tokyo Night theme)
-- Operations: create file/folder, upload, download, rename, delete, zip/extract
-- Syntax highlighting for 50+ languages, minimap, word wrap
-
-## AI Flows
-
-| File | Purpose | Input | Output |
-|---|---|---|---|
-| `summarize-server-alerts.ts` | Summarize server alerts | `logs: string[]` | `{ summary, rootCauses[], suggestions[] }` |
-| `generate-troubleshooting-tips.ts` | Generate tips for errors | `logs: string[], context` | `{ tips: string[] }` |
-
-## Build Flow
-
-```bash
-npm run build    # astro build → client/frontend/dist/
-npm run dev      # astro dev --port 9002 (development)
-npm run start    # astro preview
-npm run lint     # astro check
-npm run typecheck # tsc --noEmit
-```
-
-The compiled files in `dist/` are embedded by the Go backend using `embed.FS` and served in production from the panel's binary.
+El botón de envío permanece desactivado hasta `ready` (hay un token, o no hay comprobación configurada). Si la comprobación integrada falla, la línea ofrece reintentar. El formulario incluye `fields` (`captchaToken` o `turnstileToken`) en la petición y llama a `reset()` tras cada intento, porque un token solo vale una vez. El comportamiento en el servidor se documenta en [Turnstile y captcha](../general/17-turnstile.md).
