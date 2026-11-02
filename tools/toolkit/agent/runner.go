@@ -51,7 +51,7 @@ type Pending struct {
 
 // Runner drives the conversation between the model and the tools.
 type Runner struct {
-	Model    Model
+	Model    Generator
 	Registry *toolkit.Registry
 	Store    *ConfirmationStore
 	Limits   Limits
@@ -298,7 +298,7 @@ func (r *Runner) handleCall(ctx context.Context, sc Session, available map[strin
 // taking the request down.
 func describeTool(ctx context.Context, tool toolkit.Tool, ec toolkit.ExecContext, args map[string]any) (s toolkit.Summary, err error) {
 	defer func() {
-		if p := recover(); p != nil {
+		if recover() != nil {
 			err = errors.New("the operation failed unexpectedly")
 		}
 	}()
@@ -307,7 +307,7 @@ func describeTool(ctx context.Context, tool toolkit.Tool, ec toolkit.ExecContext
 
 func runTool(ctx context.Context, tool toolkit.Tool, ec toolkit.ExecContext, args map[string]any) (res toolkit.Result, err error) {
 	defer func() {
-		if p := recover(); p != nil {
+		if recover() != nil {
 			err = errors.New("the operation failed unexpectedly")
 		}
 	}()

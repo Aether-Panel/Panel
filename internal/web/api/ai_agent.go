@@ -45,7 +45,7 @@ var (
 
 // aiAgentModel makes the model of a request. The API key is read on every request, because an
 // administrator can change it at any time. Tests swap it for a scripted model.
-var aiAgentModel = func(apiKey string) agent.Model {
+var aiAgentModel = func(apiKey string) agent.Generator {
 	return &gemini.Client{APIKey: apiKey}
 }
 

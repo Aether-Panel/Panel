@@ -1,6 +1,6 @@
 // Package gemini is the Gemini function-calling client of the toolkit. It talks
 // to the REST generateContent endpoint directly (no SDK) and implements
-// agent.Model.
+// agent.Generator.
 package gemini
 
 import (
@@ -52,7 +52,7 @@ type Client struct {
 	MaxOutputTokens int          // 2048 when zero
 }
 
-var _ agent.Model = (*Client)(nil)
+var _ agent.Generator = (*Client)(nil)
 
 // Wire types of the REST API (only the fields used here).
 

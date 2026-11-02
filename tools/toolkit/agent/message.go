@@ -57,8 +57,8 @@ type FunctionResponse struct {
 	Response map[string]any
 }
 
-// Model generates the next message of the conversation.
-type Model interface {
+// Generator is the language model: it generates the next message of the conversation.
+type Generator interface {
 	Generate(ctx context.Context, system string, history []Message, tools []toolkit.Tool) (Message, error)
 }
 

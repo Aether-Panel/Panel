@@ -15,7 +15,7 @@ Páginas relacionadas: la guía de uso [Asistente de IA: trabajar con archivos](
 | `workspace` | `tools/toolkit/workspace/` | La interfaz `Workspace` (los archivos de un servidor) y `NewFileServerWorkspace`, construido sobre el `files.FileServer` confinado del nodo |
 | `filesystem` | `tools/toolkit/filesystem/` | Las 12 herramientas de archivos y `Register(r)` |
 | `agent` | `tools/toolkit/agent/` | El bucle: `Runner`, `Session`, `Step`, `Limits`, `ConfirmationStore` |
-| `gemini` | `tools/toolkit/gemini/` | Un cliente REST de Gemini con function calling que implementa `agent.Model` (sin SDK) |
+| `gemini` | `tools/toolkit/gemini/` | Un cliente REST de Gemini con function calling que implementa `agent.Generator` (sin SDK) |
 | Integración en el panel | `internal/web/api/ai_agent.go`, `ai_workspace.go`, `ai_chat.go` | El modo agente de `POST /ai/chat`, `POST /ai/chat/confirm`, el `nodeWorkspace` que llega al servidor a través de su nodo, las entradas de actividad |
 | Integración en el nodo | `internal/web/daemon/ai_files.go`, `server.go` | Las rutas `fs/stat`, `fs/copy`, `fs/search`, `PUT file?create=true` y el `DELETE file` reforzado |
 
@@ -48,7 +48,7 @@ files.FileServer: openat2 + RESOLVE_BENEATH bajo la carpeta del servidor
 
 ## El bucle del agente
 
-`agent.Runner` (`tools/toolkit/agent/runner.go`) contiene un `Model`, un `Registry`, un `ConfirmationStore` y unos `Limits`. El panel mantiene un registro y un almacén de confirmaciones por proceso (`aiRunner`, creado una sola vez con `sync.Once`) y da a cada petición una copia del runner con su propio `gemini.Client`, porque la clave de API se lee en cada petición y un administrador puede cambiarla en cualquier momento.
+`agent.Runner` (`tools/toolkit/agent/runner.go`) contiene un `Model` (un `agent.Generator`), un `Registry`, un `ConfirmationStore` y unos `Limits`. El panel mantiene un registro y un almacén de confirmaciones por proceso (`aiRunner`, creado una sola vez con `sync.Once`) y da a cada petición una copia del runner con su propio `gemini.Client`, porque la clave de API se lee en cada petición y un administrador puede cambiarla en cualquier momento.
 
 ### Rondas
 
