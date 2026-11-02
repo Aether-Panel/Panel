@@ -130,7 +130,7 @@ export function NetworkHistoryChart({ live }: Readonly<{ live: { in: number; out
     const peak = data.reduce((top, point) => Math.max(top, point.in ?? 0, point.out ?? 0), 0);
     const { ticks: yTicks, format: formatAxisRate } = rateTicks(peak);
 
-    const lastPoint = data[data.length - 1];
+    const lastPoint = data.at(-1);
     const latest = live ?? (lastPoint && lastPoint.in !== null ? lastPoint : null);
     // one point is drawn as a dot: a node that started its history minutes ago has data
     const hasTrend = count >= 1;
@@ -232,7 +232,7 @@ export function NetworkHistoryChart({ live }: Readonly<{ live: { in: number; out
                                     tickFormatter={(value) => formatClock(Number(value))}
                                 />
                                 <YAxis
-                                    domain={[0, yTicks[yTicks.length - 1]]}
+                                    domain={[0, yTicks.at(-1) ?? 1]}
                                     ticks={yTicks}
                                     tickFormatter={(value) => formatAxisRate(Number(value))}
                                     tickLine={false}
