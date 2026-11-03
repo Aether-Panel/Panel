@@ -692,62 +692,92 @@ func TestServerAIsolatedFromServerB(t *testing.T) {
 func checkServerAIsolatedFromServerB(t *testing.T) {
 	for _, trick := range trickPaths() {
 		t.Run(strings.ReplaceAll(trick, "/", "|"), func(t *testing.T) {
-			base := t.TempDir()
-			aDir, bDir, hostDir := filepath.Join(base, "a"), filepath.Join(base, "b"), filepath.Join(base, "host")
-			writeTree(t, aDir, map[string]string{"own.txt": "mine", "plugins/x.yml": "x: 1"})
-			writeTree(t, bDir, map[string]string{"secret.txt": "B-SECRET", "world/level.dat": "B-LEVEL"})
-			writeTree(t, hostDir, map[string]string{"passwd": "HOST-SECRET"})
-			for link, target := range map[string]string{
-				"toB":        bDir,
-				"toBfile":    filepath.Join(bDir, "secret.txt"),
-				"toBrel":     "../b",
-				"toHost":     hostDir,
-				"toHostFile": filepath.Join(hostDir, "passwd"),
-			} {
-				require.NoError(t, os.Symlink(target, filepath.Join(aDir, link)))
-			}
-			p := strings.ReplaceAll(trick, bMarker, bDir)
-			ecA := serverContext(t, aDir)
-			ecB := serverContext(t, bDir)
-			beforeB, beforeHost := snapshot(t, bDir), snapshot(t, hostDir)
-
-			for _, c := range callsFor(p) {
-				tl := tool(t, c.tool)
-				var texts []string
-				if summary, err := tl.Describe(context.Background(), ecA, c.args); err != nil {
-					texts = append(texts, err.Error())
-				} else {
-					texts = append(texts, summary.Text)
-				}
-				res, err := tl.Run(context.Background(), ecA, c.args)
-				if err != nil {
-					texts = append(texts, err.Error())
-				} else {
-					data, jsonErr := json.Marshal(res.Output)
-					require.NoError(t, jsonErr)
-					texts = append(texts, string(data), res.Summary)
-				}
-				for _, text := range texts {
-					for _, secret := range secrets {
-						assert.NotContains(t, text, secret, "%s %v", c.tool, c.args)
-					}
-					assert.NotContains(t, text, base, "no host path in %s %v", c.tool, c.args)
-				}
-			}
-
-			assert.Equal(t, beforeB, snapshot(t, bDir), "server B is untouched")
-			assert.Equal(t, beforeHost, snapshot(t, hostDir), "the host folder is untouched")
-			for rel, entry := range snapshot(t, aDir) {
-				for _, secret := range secrets {
-					assert.NotContains(t, entry, secret, "nothing of B or the host was copied into A (%s)", rel)
-				}
-			}
-
-			// B's own workspace still sees its files as they were
-			res, err := tool(t, "read_file").Run(context.Background(), ecB, map[string]any{"path": "secret.txt"})
-			require.NoError(t, err)
-			assert.Equal(t, "B-SECRET", output(t, res)["content"])
+			checkIsolationTrick(t, trick)
 		})
+	}
+}
+
+// isolationFixture is server A (with links to B and to a host folder), server B and the
+// host folder, all under base
+type isolationFixture struct {
+	base, aDir, bDir, hostDir string
+}
+
+func newIsolationFixture(t *testing.T) isolationFixture {
+	t.Helper()
+	base := t.TempDir()
+	f := isolationFixture{base: base, aDir: filepath.Join(base, "a"), bDir: filepath.Join(base, "b"), hostDir: filepath.Join(base, "host")}
+	writeTree(t, f.aDir, map[string]string{"own.txt": "mine", "plugins/x.yml": "x: 1"})
+	writeTree(t, f.bDir, map[string]string{"secret.txt": "B-SECRET", "world/level.dat": "B-LEVEL"})
+	writeTree(t, f.hostDir, map[string]string{"passwd": "HOST-SECRET"})
+	for link, target := range map[string]string{
+		"toB":        f.bDir,
+		"toBfile":    filepath.Join(f.bDir, "secret.txt"),
+		"toBrel":     "../b",
+		"toHost":     f.hostDir,
+		"toHostFile": filepath.Join(f.hostDir, "passwd"),
+	} {
+		require.NoError(t, os.Symlink(target, filepath.Join(f.aDir, link)))
+	}
+	return f
+}
+
+func checkIsolationTrick(t *testing.T, trick string) {
+	f := newIsolationFixture(t)
+	p := strings.ReplaceAll(trick, bMarker, f.bDir)
+	ecA := serverContext(t, f.aDir)
+	ecB := serverContext(t, f.bDir)
+	beforeB, beforeHost := snapshot(t, f.bDir), snapshot(t, f.hostDir)
+
+	for _, c := range callsFor(p) {
+		assertNothingLeaks(t, callTexts(t, ecA, c), f.base, c)
+	}
+
+	assert.Equal(t, beforeB, snapshot(t, f.bDir), "server B is untouched")
+	assert.Equal(t, beforeHost, snapshot(t, f.hostDir), "the host folder is untouched")
+	for rel, entry := range snapshot(t, f.aDir) {
+		assertNoSecret(t, entry, "nothing of B or the host was copied into A (%s)", rel)
+	}
+
+	// B's own workspace still sees its files as they were
+	res, err := tool(t, "read_file").Run(context.Background(), ecB, map[string]any{"path": "secret.txt"})
+	require.NoError(t, err)
+	assert.Equal(t, "B-SECRET", output(t, res)["content"])
+}
+
+// callTexts describes then runs a call and returns everything it showed: the summary or
+// error of each step and the JSON output
+func callTexts(t *testing.T, ec toolkit.ExecContext, c toolCall) []string {
+	t.Helper()
+	tl := tool(t, c.tool)
+	var texts []string
+	summary, err := tl.Describe(context.Background(), ec, c.args)
+	texts = append(texts, summary.Text, errorText(err))
+	res, err := tl.Run(context.Background(), ec, c.args)
+	data, jsonErr := json.Marshal(res.Output)
+	require.NoError(t, jsonErr)
+	return append(texts, string(data), res.Summary, errorText(err))
+}
+
+func errorText(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
+}
+
+func assertNothingLeaks(t *testing.T, texts []string, base string, c toolCall) {
+	t.Helper()
+	for _, text := range texts {
+		assertNoSecret(t, text, "%s %v", c.tool, c.args)
+		assert.NotContains(t, text, base, "no host path in %s %v", c.tool, c.args)
+	}
+}
+
+func assertNoSecret(t *testing.T, text string, msgAndArgs ...any) {
+	t.Helper()
+	for _, secret := range secrets {
+		assert.NotContains(t, text, secret, msgAndArgs...)
 	}
 }
 

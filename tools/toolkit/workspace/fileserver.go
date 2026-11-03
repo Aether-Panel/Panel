@@ -428,7 +428,7 @@ func (w *fileServerWorkspace) copyFile(ctx context.Context, from, to string) err
 	if err != nil {
 		return w.translate(err, to)
 	}
-	_, copyErr := io.Copy(out, &contextReader{ctx: ctx, r: in})
+	copyErr := copyWithContext(ctx, out, in)
 	closeErr := out.Close()
 	if copyErr == nil {
 		copyErr = closeErr
@@ -508,52 +508,70 @@ func (s *search) run(ctx context.Context, start string) error {
 		return fmt.Errorf("%w: %s", ErrNotDir, start)
 	}
 	queue := []searchDir{{rel: start}}
-	for len(queue) > 0 {
+	for len(queue) > 0 && !s.done() {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
 		current := queue[0]
 		queue = queue[1:]
-		items, err := s.w.fs.ReadDir(current.rel)
+		subfolders, err := s.searchDir(current, current.rel == start)
 		if err != nil {
-			if current.rel == start {
-				return s.w.translate(err, start)
-			}
-			// a folder that went away or cannot be read is left out
-			continue
+			return err
 		}
-		// the file server does not sort; a stable order makes results repeatable for the model
-		sort.Slice(items, func(i, j int) bool { return items[i].Name() < items[j].Name() })
-		for _, item := range items {
-			if s.done() {
-				return nil
-			}
-			s.visited++
-			child := path.Join(current.rel, item.Name())
-			if security.IsProtected(child) {
-				continue
-			}
-			info, err := s.w.lstat(child)
-			if err != nil {
-				continue
-			}
-			isLink := info.Mode()&fs.ModeSymlink != 0
-			if !s.opts.InContent && s.nameMatches(item.Name()) {
-				s.matches = append(s.matches, Match{Path: child})
-			}
-			switch {
-			case isLink:
-				// never followed: its name can match, nothing behind it is searched
-			case info.IsDir():
-				if current.depth+1 < s.opts.MaxDepth {
-					queue = append(queue, searchDir{rel: child, depth: current.depth + 1})
-				}
-			case s.opts.InContent && info.Mode().IsRegular() && info.Size() <= s.opts.MaxFileBytes:
-				s.searchFile(child)
-			}
-		}
+		queue = append(queue, subfolders...)
 	}
 	return nil
+}
+
+// searchDir looks at the entries of one folder and returns its subfolders still to walk. A
+// folder that went away or cannot be read is left out, unless it is where the search starts.
+func (s *search) searchDir(current searchDir, isStart bool) ([]searchDir, error) {
+	items, err := s.w.fs.ReadDir(current.rel)
+	if err != nil {
+		if isStart {
+			return nil, s.w.translate(err, current.rel)
+		}
+		return nil, nil
+	}
+	// the file server does not sort; a stable order makes results repeatable for the model
+	sort.Slice(items, func(i, j int) bool { return items[i].Name() < items[j].Name() })
+	var subfolders []searchDir
+	for _, item := range items {
+		if s.done() {
+			break
+		}
+		s.visited++
+		if next, ok := s.visit(current, item.Name()); ok {
+			subfolders = append(subfolders, next)
+		}
+	}
+	return subfolders, nil
+}
+
+// visit matches one entry and reports a subfolder to walk when it is one within the depth
+// limit. Links are described, never followed: a link's name can match, nothing behind it is
+// searched.
+func (s *search) visit(current searchDir, name string) (searchDir, bool) {
+	child := path.Join(current.rel, name)
+	if security.IsProtected(child) {
+		return searchDir{}, false
+	}
+	info, err := s.w.lstat(child)
+	if err != nil {
+		return searchDir{}, false
+	}
+	if !s.opts.InContent && s.nameMatches(name) {
+		s.matches = append(s.matches, Match{Path: child})
+	}
+	switch {
+	case info.Mode()&fs.ModeSymlink != 0:
+		return searchDir{}, false
+	case info.IsDir():
+		return searchDir{rel: child, depth: current.depth + 1}, current.depth+1 < s.opts.MaxDepth
+	case s.opts.InContent && info.Mode().IsRegular() && info.Size() <= s.opts.MaxFileBytes:
+		s.searchFile(child)
+	}
+	return searchDir{}, false
 }
 
 func (s *search) done() bool {
@@ -697,17 +715,27 @@ func (e *safeError) Error() string { return e.msg }
 
 func (e *safeError) Unwrap() []error { return []error{e.kind, e.cause} }
 
-// contextReader stops a long copy when the request is cancelled
-type contextReader struct {
-	ctx context.Context
-	r   io.Reader
-}
-
-func (c *contextReader) Read(p []byte) (int, error) {
-	if err := c.ctx.Err(); err != nil {
-		return 0, err
+// copyWithContext copies src to dst in chunks, stopping a long copy when the request is
+// cancelled
+func copyWithContext(ctx context.Context, dst io.Writer, src io.Reader) error {
+	buf := make([]byte, 32<<10)
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		n, readErr := src.Read(buf)
+		if n > 0 {
+			if _, err := dst.Write(buf[:n]); err != nil {
+				return err
+			}
+		}
+		if errors.Is(readErr, io.EOF) {
+			return nil
+		}
+		if readErr != nil {
+			return readErr
+		}
 	}
-	return c.r.Read(p)
 }
 
 func closeQuietly(f *os.File) {

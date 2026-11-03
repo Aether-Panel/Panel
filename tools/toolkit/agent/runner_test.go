@@ -22,7 +22,7 @@ func userAsks(s string) []Message {
 	return []Message{{Role: RoleUser, Parts: []Part{{Text: s}}}}
 }
 
-func newRunner(k *kit, m Model) *Runner {
+func newRunner(k *kit, m Generator) *Runner {
 	return &Runner{Model: m, Registry: k.reg, Store: NewConfirmationStore()}
 }
 

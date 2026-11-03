@@ -171,7 +171,7 @@ func (w *nodeWorkspace) Write(ctx context.Context, p string, data []byte, overwr
 		// the node creates the file with O_EXCL: whatever is already there is never replaced
 		target += "?create=true"
 	}
-	header := http.Header{"Content-Type": {"application/octet-stream"}}
+	header := http.Header{headerContentType: {"application/octet-stream"}}
 	return w.expectNoContent(ctx, http.MethodPut, target, bytes.NewReader(data), header, rel)
 }
 
@@ -222,7 +222,7 @@ func (w *nodeWorkspace) Copy(ctx context.Context, src, dst string) error {
 	if err != nil {
 		return err
 	}
-	header := http.Header{"Content-Type": {"application/json"}}
+	header := http.Header{headerContentType: {contentTypeJSON}}
 	return w.expectNoContent(ctx, http.MethodPost, w.prefix+"/fs/copy", bytes.NewReader(body), header, from)
 }
 
@@ -415,7 +415,7 @@ func answerError(res *http.Response, rel string) error {
 }
 
 func isJSONAnswer(res *http.Response) bool {
-	return strings.HasPrefix(res.Header.Get("Content-Type"), "application/json")
+	return strings.HasPrefix(res.Header.Get(headerContentType), contentTypeJSON)
 }
 
 func readTooLarge(rel string, limit int64) error {

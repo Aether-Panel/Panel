@@ -37,8 +37,8 @@ tools/toolkit/
                     //   create_file, create_directory, copy_path,
                     //   edit_file, write_file (overwrite), move_path, rename_path,
                     //   delete_path; Register(reg *toolkit.Registry)
-  agent/            // the loop: Model interface, Runner, limits, ConfirmationStore
-  gemini/           // Gemini function-calling client implementing agent.Model
+  agent/            // the loop: Generator interface, Runner, limits, ConfirmationStore
+  gemini/           // Gemini function-calling client implementing agent.Generator
 ```
 
 ## Go contracts (all builders must use exactly these)
@@ -158,7 +158,7 @@ type Part struct {
 type FunctionCall struct { ID, Name string; Args map[string]any }
 type FunctionResponse struct { ID, Name string; Response map[string]any }
 
-type Model interface {
+type Generator interface {
 	Generate(ctx context.Context, system string, history []Message, tools []toolkit.Tool) (Message, error)
 }
 
@@ -175,7 +175,7 @@ type Step struct {
 type Limits struct { MaxRounds, MaxCallsPerRound, MaxCalls int; Timeout time.Duration } // defaults 10, 8, 30, 120s
 
 type Runner struct {
-	Model    Model
+	Model    Generator
 	Registry *toolkit.Registry
 	Store    *ConfirmationStore
 	Limits   Limits
@@ -217,7 +217,7 @@ Loop rules:
 
 ## Gemini client (`tools/toolkit/gemini`)
 
-- Implements `agent.Model` with the REST `generateContent` endpoint (`v1beta/models/gemini-2.5-flash:generateContent`, endpoint variable swappable in tests), `x-goog-api-key` header, `tools: [{functionDeclarations: [...]}]`, `toolConfig.functionCallingConfig.mode = "AUTO"`, function responses sent as `role: "user"` parts `{functionResponse: {name, response}}` (Gemini REST convention), model messages keep their `functionCall` parts. Parse `candidates[0].content.parts`. No SDK, no new dependency.
+- Implements `agent.Generator` with the REST `generateContent` endpoint (`v1beta/models/gemini-2.5-flash:generateContent`, endpoint variable swappable in tests), `x-goog-api-key` header, `tools: [{functionDeclarations: [...]}]`, `toolConfig.functionCallingConfig.mode = "AUTO"`, function responses sent as `role: "user"` parts `{functionResponse: {name, response}}` (Gemini REST convention), model messages keep their `functionCall` parts. Parse `candidates[0].content.parts`. No SDK, no new dependency.
 - The existing `askGemini` text path stays for the no-tools mode.
 
 ## API (panel)

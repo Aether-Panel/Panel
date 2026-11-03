@@ -15,7 +15,7 @@ Related pages: the user guide [AI assistant: working with files](../features/ai-
 | `workspace` | `tools/toolkit/workspace/` | The `Workspace` interface (one server's files) and `NewFileServerWorkspace`, built on the node's confined `files.FileServer` |
 | `filesystem` | `tools/toolkit/filesystem/` | The 12 file tools and `Register(r)` |
 | `agent` | `tools/toolkit/agent/` | The loop: `Runner`, `Session`, `Step`, `Limits`, `ConfirmationStore` |
-| `gemini` | `tools/toolkit/gemini/` | A Gemini REST client with function calling that implements `agent.Model` (no SDK) |
+| `gemini` | `tools/toolkit/gemini/` | A Gemini REST client with function calling that implements `agent.Generator` (no SDK) |
 | Panel glue | `internal/web/api/ai_agent.go`, `ai_workspace.go`, `ai_chat.go` | Agent mode of `POST /ai/chat`, `POST /ai/chat/confirm`, the `nodeWorkspace` that reaches the server through its node, the activity entries |
 | Node glue | `internal/web/daemon/ai_files.go`, `server.go` | The routes `fs/stat`, `fs/copy`, `fs/search`, `PUT file?create=true` and the hardened `DELETE file` |
 
@@ -48,7 +48,7 @@ files.FileServer: openat2 + RESOLVE_BENEATH under the server folder
 
 ## The agent loop
 
-`agent.Runner` (`tools/toolkit/agent/runner.go`) holds a `Model`, a `Registry`, a `ConfirmationStore` and `Limits`. The panel keeps one registry and one confirmation store per process (`aiRunner`, created once with `sync.Once`) and gives each request a copy of the runner with its own `gemini.Client`, because the API key is read on every request and an administrator can change it at any time.
+`agent.Runner` (`tools/toolkit/agent/runner.go`) holds a `Model` (an `agent.Generator`), a `Registry`, a `ConfirmationStore` and `Limits`. The panel keeps one registry and one confirmation store per process (`aiRunner`, created once with `sync.Once`) and gives each request a copy of the runner with its own `gemini.Client`, because the API key is read on every request and an administrator can change it at any time.
 
 ### Rounds
 

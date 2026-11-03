@@ -125,6 +125,18 @@ func intArg(args map[string]any, name string, fallback int) (int, error) {
 	if !ok || raw == nil {
 		return fallback, nil
 	}
+	n, ok := wholeNumber(raw)
+	if !ok {
+		return 0, invalid(notWholeNumber, name)
+	}
+	return n, nil
+}
+
+// notWholeNumber is the message for a number argument that is not a whole number
+const notWholeNumber = "%s must be a whole number"
+
+// wholeNumber converts a decoded JSON value holding a whole number
+func wholeNumber(raw any) (int, bool) {
 	var f float64
 	switch v := raw.(type) {
 	case float64:
@@ -132,28 +144,25 @@ func intArg(args map[string]any, name string, fallback int) (int, error) {
 	case float32:
 		f = float64(v)
 	case int:
-		return v, nil
+		return v, true
 	case int64:
 		f = float64(v)
 	case json.Number:
 		parsed, err := v.Float64()
 		if err != nil {
-			return 0, invalid("%s must be a whole number", name)
+			return 0, false
 		}
 		f = parsed
 	case string:
 		parsed, err := strconv.Atoi(strings.TrimSpace(v))
-		if err != nil {
-			return 0, invalid("%s must be a whole number", name)
-		}
-		return parsed, nil
+		return parsed, err == nil
 	default:
-		return 0, invalid("%s must be a whole number", name)
+		return 0, false
 	}
 	if f != math.Trunc(f) || math.Abs(f) > math.MaxInt32 {
-		return 0, invalid("%s must be a whole number", name)
+		return 0, false
 	}
-	return int(f), nil
+	return int(f), true
 }
 
 // boolArg reads a true/false argument, also given as the strings "true" and "false"

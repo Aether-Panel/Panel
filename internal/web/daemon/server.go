@@ -820,43 +820,20 @@ func getFile(c *gin.Context) {
 func putFile(c *gin.Context) {
 	server := getServerFromGin(c)
 
-	targetPath := getFullFilename(c)
-
-	// only "create=true" turns it on: a stray "create" or "create=false" keeps the normal write
-	create := c.Query("create") == "true"
-	if create {
-		// getFullFilename keeps a query as part of the name, for old links to names with a
-		// "?"; a create request escapes its name, so its query is only the flag
-		targetPath = c.Param("filename")
-	}
-
+	targetPath, create := putFileTarget(c)
 	if targetPath == "" {
 		c.AbortWithStatus(http.StatusNotFound)
 		return
 	}
 
-	var err error
-
-	_, mkFolder := c.GetQuery("folder")
-	if mkFolder {
-		err = server.GetFileServer().MkdirAll(targetPath, 0755)
-		if response.HandleError(c, err, http.StatusInternalServerError) {
-			return
-		}
-		c.Status(http.StatusNoContent)
+	if _, mkFolder := c.GetQuery("folder"); mkFolder {
+		makeFolder(c, server, targetPath)
 		return
 	}
 
-	var sourceFile io.ReadCloser
-
-	v := c.Request.Header.Get("Content-Type")
-	if t, _, _ := mime.ParseMediaType(v); t == "multipart/form-data" {
-		sourceFile, _, err = c.Request.FormFile("file")
-		if response.HandleError(c, err, http.StatusInternalServerError) {
-			return
-		}
-	} else {
-		sourceFile = c.Request.Body
+	sourceFile, ok := uploadSource(c)
+	if !ok {
+		return
 	}
 
 	// os.O_CREATE does not create missing parent directories, so ensure they exist first
@@ -869,6 +846,62 @@ func putFile(c *gin.Context) {
 		return
 	}
 
+	file, ok := openPutTarget(c, server, targetPath, create)
+	if !ok {
+		return
+	}
+	defer utils.Close(file)
+
+	_, err := io.Copy(server.DiskWriter(file), sourceFile)
+	if errors.Is(err, skypanel.ErrDiskLimitExceeded) {
+		// a half-written upload is useless and would keep the disk full
+		utils.Close(file)
+		_ = server.GetFileServer().Remove(targetPath)
+		server.ForgetDiskUsage()
+		response.HandleError(c, err, http.StatusConflict)
+		return
+	}
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
+// putFileTarget is the file a PUT writes and whether it may only create it. Only
+// "create=true" turns creating on: a stray "create" or "create=false" keeps the normal write.
+func putFileTarget(c *gin.Context) (string, bool) {
+	if c.Query("create") == "true" {
+		// getFullFilename keeps a query as part of the name, for old links to names with a
+		// "?"; a create request escapes its name, so its query is only the flag
+		return c.Param("filename"), true
+	}
+	return getFullFilename(c), false
+}
+
+// makeFolder answers a PUT with ?folder: the folder and its parents are made
+func makeFolder(c *gin.Context, server *servers.Server, targetPath string) {
+	err := server.GetFileServer().MkdirAll(targetPath, 0755)
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// uploadSource is what a PUT writes: the "file" part of a multipart form, or the raw body
+func uploadSource(c *gin.Context) (io.ReadCloser, bool) {
+	if t, _, _ := mime.ParseMediaType(c.Request.Header.Get("Content-Type")); t != "multipart/form-data" {
+		return c.Request.Body, true
+	}
+	sourceFile, _, err := c.Request.FormFile("file")
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return nil, false
+	}
+	return sourceFile, true
+}
+
+// openPutTarget opens the file a PUT writes. false means the answer was already sent.
+func openPutTarget(c *gin.Context, server *servers.Server, targetPath string, create bool) (*os.File, bool) {
 	flags := os.O_CREATE | os.O_TRUNC | os.O_RDWR
 	if create {
 		// O_EXCL makes the check and the creation one step: two writers cannot both create the
@@ -885,29 +918,14 @@ func putFile(c *gin.Context) {
 	}
 
 	file, err := server.GetFileServer().OpenFile(targetPath, flags, 0644)
-	defer utils.Close(file)
 	if create && os.IsExist(err) {
 		response.HandleError(c, skypanel.ErrFileExists, http.StatusConflict)
-		return
+		return nil, false
 	}
 	if response.HandleError(c, err, http.StatusInternalServerError) {
-		return
+		return nil, false
 	}
-
-	_, err = io.Copy(server.DiskWriter(file), sourceFile)
-	if errors.Is(err, skypanel.ErrDiskLimitExceeded) {
-		// a half-written upload is useless and would keep the disk full
-		utils.Close(file)
-		_ = server.GetFileServer().Remove(targetPath)
-		server.ForgetDiskUsage()
-		response.HandleError(c, err, http.StatusConflict)
-		return
-	}
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-		return
-	}
-
-	c.Status(http.StatusNoContent)
+	return file, true
 }
 
 // @Summary Delete file
@@ -927,7 +945,7 @@ func deleteFile(c *gin.Context) {
 	targetPath := getFullFilename(c)
 	// the server folder itself is never removed through this route: an empty path would
 	// otherwise empty the whole server
-	if cleaned := filepath.Clean("/" + targetPath); cleaned == "/" {
+	if filepath.Clean("/"+targetPath) == "/" {
 		response.HandleError(c, skypanel.ErrIllegalFileAccess, http.StatusBadRequest)
 		return
 	}

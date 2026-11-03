@@ -81,7 +81,7 @@ func newAgentHarness(t *testing.T) *agentHarness {
 	require.NoError(t, db.AutoMigrate(&models.User{}, &models.Node{}, &models.Server{}, &models.ServerActivity{}))
 
 	h := &agentHarness{db: db, daemon: newFakeDaemon(t, "srv1", "srv2"), model: &fakeModel{}, servers: map[string]*models.Server{}}
-	aiAgentModel = func(apiKey string) agent.Model {
+	aiAgentModel = func(apiKey string) agent.Generator {
 		assert.Equal(t, "test-key", apiKey)
 		return h.model
 	}
