@@ -76,9 +76,21 @@ A panic in `Describe` or `Run` is caught and becomes a `failed` step (`the opera
 - `systemInstruction`: the system text;
 - `contents`: the history. `user` and `model` messages keep their roles; the model's function calls stay as `functionCall` parts; the answers to them (role `tool` in the agent) are sent as role `user` with `functionResponse` parts `{id, name, response}`, in call order. IDs the runner generated (`local-…`) are not sent;
 - `tools: [{functionDeclarations: [{name, description, parameters}]}]` built from the offered tools, and `toolConfig.functionCallingConfig.mode = "AUTO"`;
-- `generationConfig`: temperature 0.4 and at most 2048 output tokens.
+- `generationConfig`: temperature 0.4, `maxOutputTokens` (8192 for the agent, 4096 for the plain chat) and `thinkingConfig.thinkingBudget` (1024 for the agent, 512 for the plain chat). Gemini 2.5 counts its thinking inside the output tokens, so without that cap thinking could leave no room for the answer or for a `write_file` with a whole file;
+- the model's thought signatures (`thoughtSignature`) go back unchanged on the parts that carried them (`agent.Part.Signature`), so the model keeps its reasoning between rounds.
 
-The client reads `candidates[0].content.parts` (at most 4 MiB of answer): `functionCall` parts become calls, text parts become text, and thinking summaries (`thought`) are dropped. Finish reasons `SAFETY`, `RECITATION`, `BLOCKLIST`, `PROHIBITED_CONTENT`, `SPII` and `IMAGE_SAFETY` give `ErrBlocked`; `MALFORMED_FUNCTION_CALL` and `UNEXPECTED_TOOL_CALL` give `ErrMalformedCall`. Without the key it fails with `ErrNotConfigured`; a transport failure gives `ErrUnreachable`; a status other than 200 gives `the AI service answered with status N` (the body is not read, as it may echo the request). The HTTP client has a 90 s timeout as a backstop.
+The client reads `candidates[0].content.parts` (at most 4 MiB of answer): `functionCall` parts become calls, text parts become text, and thinking summaries (`thought`) are dropped. Finish reasons `SAFETY`, `RECITATION`, `BLOCKLIST`, `PROHIBITED_CONTENT`, `SPII` and `IMAGE_SAFETY` give `ErrBlocked`; `MALFORMED_FUNCTION_CALL` and `UNEXPECTED_TOOL_CALL` give `ErrMalformedCall`. A candidate with no text and no call gives `ErrEmpty`, or `ErrTooLong` when its finish reason is `MAX_TOKENS`. Without the key it fails with `ErrNotConfigured`; a transport failure gives `ErrUnreachable`. A status other than 200 gives a `*gemini.ServiceError` (`CheckResponse`), whose `Kind` is:
+
+| Kind | When |
+|---|---|
+| `ErrKeyRejected` | `401`, `403`, a `API_KEY_*` reason, or a message about the API key (an invalid, restricted or revoked key, or the API not enabled) |
+| `ErrQuota` | `429` (`RESOURCE_EXHAUSTED`) |
+| `ErrUnavailable` | `500` and above (overloaded or down) |
+| `ErrRejected` | any other status (for example `400` for a request Gemini does not accept, `404` for an unknown model) |
+
+Its `Error()` is the kind's safe text; `Detail` holds Google's status, reason and up to 300 characters of its message, for the panel's log only, and `RetryAfter` the `retryDelay` Google asked for.
+
+`Generate` makes up to three attempts. It tries again after 1 s and then 3 s (`Client.Backoff`) when the service is busy (`ErrUnavailable`) or unreachable, and after a `429` only when Google asks to wait 10 s or less (a per-minute limit); a daily limit is reported at once. The wait ends early when the task's context ends. The HTTP client has a 90 s timeout as a backstop.
 
 What goes back to the model as a function response:
 
@@ -347,7 +359,7 @@ Tool and workspace errors are user-safe: they carry at most a server-relative pa
 - On the panel, `answerError` maps the code back (`FileErrorForCode`). For the file manager's routes, which do not send these codes, it goes by status: `404` → not found, `409` → exists, `413` → too large, `400` → outside the server folder, `403` → permission, anything else → failed; their text is not passed on. `ErrDiskLimitExceeded` becomes `ErrNoSpace` with the panel's disk message.
 - A node that cannot be reached gives `could not reach the node that hosts this server`; a node that refuses the panel's token gives `the node that hosts this server refused the panel's credentials; an administrator has to check the node` (details in the panel log).
 - A failed tool call does not fail the request: the step is `failed` with its error, and the model gets the error to act on.
-- A failed task (model error, cancelled request) answers `502 {"error": "…", "steps": […], "pending": null}`: the Gemini client's own messages are shown as they are, a timeout gives `the assistant took too long to answer, try again`, anything else `the assistant could not answer, try again` (the cause is logged).
+- A failed task (model error, cancelled request) answers `{"error": "…", "reason": "…", "steps": […], "pending": null}`, `502`, or `504` for a timeout. `classifyAIFailure` (`ai_agent.go`) turns the error into a stable `reason` code (`keyRejected`, `quota`, `unavailable`, `unreachable`, `rejected`, `unreadable`, `empty`, `tooLong`, `blocked`, `malformed`, `notConfigured`, `timeout` or `failed`) and an English text that is safe to show, and writes the cause to the panel log: `The AI service did not accept the assistant's request (status 429 RESOURCE_EXHAUSTED: …)` for a `ServiceError`, the error itself for the rest. The plain chat answers the same `{error, reason}` through the same function.
 
 ## Limits
 
@@ -376,7 +388,8 @@ Agent, model and API limits:
 | Rounds / calls per answer / calls per task | 10 / 8 / 30 (`agent.DefaultLimits`) |
 | Time per `Start` or `Resume` | 120 s |
 | Strings returned to the model | 64 KiB each |
-| Gemini answer | 2048 output tokens, temperature 0.4, at most 4 MiB read |
+| Gemini answer | 8192 output tokens of which up to 1024 thinking (plain chat: 4096 and 512), temperature 0.4, at most 4 MiB read |
+| Gemini attempts | 3 per model call, 1 s and 3 s apart, only while busy or unreachable (or a `429` asking for 10 s or less) |
 | Pending confirmations | 10 min, one per user and server, 1000 in memory |
 | Confirmation request | 64 approved IDs; token and IDs up to 128 characters |
 | Rate limit | 30 AI requests per user every 10 minutes, shared with the plain chat and the log analysis; a chat or a confirmation counts once, however many Gemini calls its task makes |
@@ -398,7 +411,7 @@ Agent, model and API limits:
 - **The conversation sent back is text only.** The browser sends the previous messages' text; the steps and the file contents the model read in an earlier answer are not part of the next request, so the model reads files again when it needs them.
 - **Step summaries and tool errors are in English.** The sentences come from the tools (they also go to the model and the logs); only the runner's stop messages are translated. The chat shows other languages a translated phrase built from the tool name and its paths (`servers.assistant.tools.<tool>` in the locales), and the server folder as `/`.
 - **Large files.** Files over 1 MiB cannot be read or edited, and content search skips them, although the read error suggests searching them.
-- **Written files are small in practice.** The model's answer is limited to 2048 output tokens, so the content it can write in one call is far below the 1 MiB limit.
+- **Written files are small in practice.** The model's answer is limited to 8192 output tokens, so the content it can write in one call is far below the 1 MiB limit; a larger file ends with `ErrTooLong` and the user is told to ask for it in parts.
 - **Not atomic across steps.** A move checks that the destination is free and then moves; a confirmed call re-validates, but the files can still change between checks.
 - **Nodes must run the same version.** A node without `fs/stat`, `fs/copy` and `fs/search` answers `404` to them: `file_info`, `search_files` and `copy_path` fail, and the existence checks of the other tools read "not found", so file operations misbehave. Update the nodes with the panel.
 - **Requests without a user** (OAuth2 clients) always get the plain chat.
@@ -411,7 +424,7 @@ Agent, model and API limits:
 | `tools/toolkit/workspace` | `NewFileServerWorkspace` on temporary folders: every operation, no writing through a link, search not following links, search limits, protected paths, a cancelled request |
 | `tools/toolkit/filesystem` | Every tool's happy path, invalid arguments, edits with 0 or 2 occurrences, overwrite only through `write_file`, isolation between two servers, in both resolve modes (`internal/resolvemode`) |
 | `tools/toolkit/agent` | Multi-round tasks, unknown and out-of-scope tools refused, confirmations, `Resume` with another user or server, a reused or expired token, an unknown approved ID, declined calls, limits |
-| `tools/toolkit/gemini` | Request shape (tools, function responses, IDs) and parsing with `httptest` |
+| `tools/toolkit/gemini` | Request shape (tools, function responses, IDs, thinking budget, thought signatures), parsing, error classification and retries with `httptest` |
 | `tools/toolkit` | Registry |
 | `internal/web/api` (`ai_agent_test.go`, `ai_workspace_test.go`) | Round trip through a node, confirmation bound to user and server, declined actions, no edit permission, permissions checked again on confirm, plain chat when off, safe model errors, `nodeWorkspace` paths, links and failures |
 | `internal/web/daemon` (`ai_files_test.go`) | `fs/stat`, `fs/copy` (with the disk limit), `fs/search`, `PUT ?create=true`, `DELETE` of a symlink and of the server folder |

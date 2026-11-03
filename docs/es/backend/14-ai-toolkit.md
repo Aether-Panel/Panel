@@ -76,9 +76,21 @@ Un pánico en `Describe` o `Run` se captura y se convierte en un paso `failed` (
 - `systemInstruction`: el texto de sistema;
 - `contents`: el historial. Los mensajes `user` y `model` conservan su rol; las llamadas a funciones del modelo siguen como partes `functionCall`; las respuestas a ellas (rol `tool` en el agente) se envían con rol `user` y partes `functionResponse` `{id, name, response}`, en el orden de las llamadas. Los IDs generados por el runner (`local-…`) no se envían;
 - `tools: [{functionDeclarations: [{name, description, parameters}]}]` construido con las herramientas ofrecidas, y `toolConfig.functionCallingConfig.mode = "AUTO"`;
-- `generationConfig`: temperatura 0,4 y un máximo de 2048 tokens de salida.
+- `generationConfig`: temperatura 0,4, `maxOutputTokens` (8192 para el agente, 4096 para el chat simple) y `thinkingConfig.thinkingBudget` (1024 para el agente, 512 para el chat simple). Gemini 2.5 cuenta su razonamiento dentro de los tokens de salida, así que sin ese tope el razonamiento podía no dejar sitio para la respuesta o para un `write_file` con un archivo entero;
+- las firmas de razonamiento del modelo (`thoughtSignature`) vuelven sin cambios en las partes que las traían (`agent.Part.Signature`), para que el modelo conserve su razonamiento entre rondas.
 
-El cliente lee `candidates[0].content.parts` (como mucho 4 MiB de respuesta): las partes `functionCall` se convierten en llamadas, las de texto en texto, y los resúmenes de razonamiento (`thought`) se descartan. Los motivos de fin `SAFETY`, `RECITATION`, `BLOCKLIST`, `PROHIBITED_CONTENT`, `SPII` e `IMAGE_SAFETY` dan `ErrBlocked`; `MALFORMED_FUNCTION_CALL` y `UNEXPECTED_TOOL_CALL` dan `ErrMalformedCall`. Sin clave falla con `ErrNotConfigured`; un fallo de transporte da `ErrUnreachable`; un estado distinto de 200 da `the AI service answered with status N` (el cuerpo no se lee, porque puede repetir la petición). El cliente HTTP tiene un tiempo máximo de 90 s como red de seguridad.
+El cliente lee `candidates[0].content.parts` (como mucho 4 MiB de respuesta): las partes `functionCall` se convierten en llamadas, las de texto en texto, y los resúmenes de razonamiento (`thought`) se descartan. Los motivos de fin `SAFETY`, `RECITATION`, `BLOCKLIST`, `PROHIBITED_CONTENT`, `SPII` e `IMAGE_SAFETY` dan `ErrBlocked`; `MALFORMED_FUNCTION_CALL` y `UNEXPECTED_TOOL_CALL` dan `ErrMalformedCall`. Un candidato sin texto ni llamadas da `ErrEmpty`, o `ErrTooLong` si su motivo de fin es `MAX_TOKENS`. Sin clave falla con `ErrNotConfigured`; un fallo de transporte da `ErrUnreachable`. Un estado distinto de 200 da un `*gemini.ServiceError` (`CheckResponse`), cuyo `Kind` es:
+
+| Tipo | Cuándo |
+|---|---|
+| `ErrKeyRejected` | `401`, `403`, un motivo `API_KEY_*` o un mensaje sobre la clave (clave no válida, restringida o revocada, o la API sin activar) |
+| `ErrQuota` | `429` (`RESOURCE_EXHAUSTED`) |
+| `ErrUnavailable` | `500` o más (saturado o caído) |
+| `ErrRejected` | cualquier otro estado (por ejemplo `400` para una petición que Gemini no acepta, `404` para un modelo desconocido) |
+
+Su `Error()` es el texto seguro de su tipo; `Detail` guarda el estado, el motivo y hasta 300 caracteres del mensaje de Google, solo para el log del panel, y `RetryAfter` el `retryDelay` que pidió Google.
+
+`Generate` hace hasta tres intentos. Vuelve a intentarlo tras 1 s y luego 3 s (`Client.Backoff`) cuando el servicio está saturado (`ErrUnavailable`) o no se alcanza, y tras un `429` solo si Google pide esperar 10 s o menos (un límite por minuto); un límite diario se informa en el acto. La espera termina antes si termina el contexto de la tarea. El cliente HTTP tiene un tiempo máximo de 90 s como red de seguridad.
 
 Lo que vuelve al modelo como respuesta de función:
 
@@ -347,7 +359,7 @@ Los errores de las herramientas y del workspace son seguros para el usuario: lle
 - En el panel, `answerError` traduce el código de vuelta (`FileErrorForCode`). Para las rutas del gestor de archivos, que no envían estos códigos, se guía por el estado: `404` → no encontrado, `409` → ya existe, `413` → demasiado grande, `400` → fuera de la carpeta del servidor, `403` → permiso, cualquier otro → fallo; su texto no se transmite. `ErrDiskLimitExceeded` se convierte en `ErrNoSpace` con el mensaje de disco del panel.
 - Un nodo inalcanzable da `could not reach the node that hosts this server`; un nodo que rechaza el token del panel da `the node that hosts this server refused the panel's credentials; an administrator has to check the node` (los detalles, en el log del panel).
 - Una llamada de herramienta fallida no hace fallar la petición: el paso queda `failed` con su error, y el modelo recibe el error para actuar en consecuencia.
-- Una tarea fallida (error del modelo, petición cancelada) responde `502 {"error": "…", "steps": […], "pending": null}`: los mensajes propios del cliente de Gemini se muestran tal cual, un tiempo agotado da `the assistant took too long to answer, try again` y cualquier otra cosa `the assistant could not answer, try again` (la causa se anota en el log).
+- Una tarea fallida (error del modelo, petición cancelada) responde `{"error": "…", "reason": "…", "steps": […], "pending": null}`, con `502`, o `504` si se agotó el tiempo. `classifyAIFailure` (`ai_agent.go`) convierte el error en un código `reason` estable (`keyRejected`, `quota`, `unavailable`, `unreachable`, `rejected`, `unreadable`, `empty`, `tooLong`, `blocked`, `malformed`, `notConfigured`, `timeout` o `failed`) y un texto en inglés que se puede mostrar, y anota la causa en el log del panel: `The AI service did not accept the assistant's request (status 429 RESOURCE_EXHAUSTED: …)` para un `ServiceError`, y el propio error para el resto. El chat simple responde el mismo `{error, reason}` con la misma función.
 
 ## Límites
 
@@ -376,7 +388,8 @@ Límites del agente, del modelo y de la API:
 | Rondas / llamadas por respuesta / llamadas por tarea | 10 / 8 / 30 (`agent.DefaultLimits`) |
 | Tiempo por `Start` o `Resume` | 120 s |
 | Cadenas devueltas al modelo | 64 KiB cada una |
-| Respuesta de Gemini | 2048 tokens de salida, temperatura 0,4, como mucho 4 MiB leídos |
+| Respuesta de Gemini | 8192 tokens de salida, de ellos hasta 1024 de razonamiento (chat simple: 4096 y 512), temperatura 0,4, como mucho 4 MiB leídos |
+| Intentos con Gemini | 3 por llamada al modelo, separados 1 s y 3 s, solo si está saturado o no se alcanza (o un `429` que pide 10 s o menos) |
 | Confirmaciones pendientes | 10 min, una por usuario y servidor, 1000 en memoria |
 | Petición de confirmación | 64 IDs aprobados; token e IDs de hasta 128 caracteres |
 | Límite de peticiones | 30 peticiones de IA por usuario cada 10 minutos, compartidas con el chat simple y el análisis de registros; un chat o una confirmación cuentan una vez, haga su tarea las llamadas a Gemini que haga |
@@ -398,7 +411,7 @@ Límites del agente, del modelo y de la API:
 - **La conversación que se reenvía es solo texto.** El navegador envía el texto de los mensajes anteriores; los pasos y el contenido de los archivos que el modelo leyó en una respuesta anterior no forman parte de la petición siguiente, así que el modelo vuelve a leer los archivos cuando los necesita.
 - **Los resúmenes de los pasos y los errores de las herramientas están en inglés.** Las frases vienen de las herramientas (también van al modelo y a los registros); solo los mensajes de parada del runner están traducidos. En otros idiomas, el chat muestra una frase traducida construida con el nombre de la herramienta y sus rutas (`servers.assistant.tools.<tool>` en las traducciones), y la carpeta del servidor como `/`.
 - **Archivos grandes.** Los archivos de más de 1 MiB no se pueden leer ni editar, y la búsqueda en el contenido los omite, aunque el error de lectura sugiere buscar en ellos.
-- **En la práctica se escriben archivos pequeños.** La respuesta del modelo está limitada a 2048 tokens de salida, así que el contenido que puede escribir en una llamada queda muy por debajo del límite de 1 MiB.
+- **En la práctica se escriben archivos pequeños.** La respuesta del modelo está limitada a 8192 tokens de salida, así que el contenido que puede escribir en una llamada queda muy por debajo del límite de 1 MiB; un archivo mayor termina en `ErrTooLong` y se pide al usuario que lo solicite por partes.
 - **No es atómico entre pasos.** Mover comprueba que el destino está libre y después mueve; una llamada confirmada se vuelve a validar, pero los archivos pueden cambiar entre comprobaciones.
 - **Los nodos deben tener la misma versión.** Un nodo sin `fs/stat`, `fs/copy` ni `fs/search` responde `404` a esas rutas: `file_info`, `search_files` y `copy_path` fallan, y las comprobaciones de existencia de las demás herramientas leen «no encontrado», así que las operaciones con archivos se comportan mal. Hay que actualizar los nodos junto con el panel.
 - **Las peticiones sin usuario** (clientes OAuth2) reciben siempre el chat simple.
@@ -411,7 +424,7 @@ Límites del agente, del modelo y de la API:
 | `tools/toolkit/workspace` | `NewFileServerWorkspace` sobre carpetas temporales: todas las operaciones, no escribir a través de un enlace, búsqueda sin seguir enlaces, límites de búsqueda, rutas protegidas, una petición cancelada |
 | `tools/toolkit/filesystem` | El caso normal de cada herramienta, argumentos no válidos, ediciones con 0 o 2 coincidencias, sobrescribir solo con `write_file`, aislamiento entre dos servidores, en los dos modos de resolución (`internal/resolvemode`) |
 | `tools/toolkit/agent` | Tareas de varias rondas, herramientas desconocidas y fuera de los scopes rechazadas, confirmaciones, `Resume` con otro usuario o servidor, un token reutilizado o caducado, un ID aprobado desconocido, llamadas rechazadas, límites |
-| `tools/toolkit/gemini` | Forma de la petición (herramientas, respuestas de funciones, IDs) y lectura de la respuesta con `httptest` |
+| `tools/toolkit/gemini` | Forma de la petición (herramientas, respuestas de funciones, IDs, presupuesto de razonamiento, firmas de razonamiento), lectura de la respuesta, clasificación de errores y reintentos con `httptest` |
 | `tools/toolkit` | Registro |
 | `internal/web/api` (`ai_agent_test.go`, `ai_workspace_test.go`) | Ida y vuelta a través de un nodo, confirmación ligada a usuario y servidor, acciones rechazadas, sin permiso de edición, permisos comprobados de nuevo al confirmar, chat simple cuando está desactivado, errores del modelo seguros, rutas, enlaces y fallos de `nodeWorkspace` |
 | `internal/web/daemon` (`ai_files_test.go`) | `fs/stat`, `fs/copy` (con el límite de disco), `fs/search`, `PUT ?create=true`, `DELETE` de un enlace simbólico y de la carpeta del servidor |

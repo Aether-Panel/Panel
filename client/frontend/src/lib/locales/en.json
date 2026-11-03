@@ -1803,11 +1803,33 @@
         "files": "files"
       },
       "errors": {
-        "generic": "I could not answer right now. Try again in a moment.",
         "limit": "You asked a lot of questions in a row. Wait a few minutes and try again.",
         "notConfigured": "The AI is not set up. An administrator can add the Gemini key in Settings.",
         "noPermission": "You need access to this server's console to use the assistant.",
-        "expired": "This request expired. Ask again."
+        "expired": "This request expired. Ask again.",
+        "title": "What you asked for could not be done",
+        "retry": "Try again",
+        "changesKept": "Before it stopped it made the changes marked as done below; they stay and are in the activity log.",
+        "reasons": {
+          "offline": "There is no internet connection. Check your connection and try again.",
+          "connection": "The connection to the panel was lost before the answer arrived. Check your connection and try again.",
+          "panelUnavailable": "The panel did not answer (code {{status}}). It may be restarting or updating; wait a moment and try again.",
+          "session": "Your session expired. Sign in again.",
+          "status": "The panel answered with an unexpected error (code {{status}}).",
+          "notConfigured": "The AI is not set up. An administrator can add the Gemini key in Settings.",
+          "keyRejected": "Gemini rejected the API key: it is invalid, restricted, or the API is not enabled. An administrator must check it in Settings → General.",
+          "quota": "The Gemini key reached its usage limit. Wait a little or check the key's plan in Google AI Studio.",
+          "unavailable": "Gemini is overloaded or unavailable right now; the panel tried 3 times. Try again in a moment.",
+          "unreachable": "The panel could not connect to Gemini. Check the internet connection of the panel's machine.",
+          "rejected": "Gemini rejected the request. The exact reason is in the panel's log.",
+          "unreadable": "Gemini sent an answer that could not be read. Try again.",
+          "empty": "Gemini answered with nothing. Try again or put the request in other words.",
+          "tooLong": "The answer did not fit in Gemini's limit. Ask for the task in parts, for example one file at a time.",
+          "blocked": "Gemini refused to answer because of its safety filters. Rephrase the request.",
+          "malformed": "Gemini tried an operation that could not be read. Try again.",
+          "timeout": "The assistant took too long and stopped. Ask for the task in parts.",
+          "failed": "The assistant failed with an internal error. The reason is in the panel's log."
+        }
       },
       "steps": {
         "label": "What the assistant did",

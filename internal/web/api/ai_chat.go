@@ -1,7 +1,6 @@
 package api
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -18,6 +17,7 @@ import (
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
 	"github.com/SkyPanel/SkyPanel/v3/internal/services"
 	"github.com/SkyPanel/SkyPanel/v3/internal/utils"
+	"github.com/SkyPanel/SkyPanel/v3/tools/toolkit/gemini"
 	"github.com/gin-gonic/gin"
 )
 
@@ -96,7 +96,7 @@ func validateChat(req *aiChatRequest) error {
 func chatWithAssistant(c *gin.Context) {
 	apiKey := config.GeminiAPIKey.Value()
 	if apiKey == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Gemini API Key is not configured. Please add it in Settings."})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Gemini API Key is not configured. Please add it in Settings.", "reason": "notConfigured"})
 		return
 	}
 
@@ -125,7 +125,8 @@ func chatWithAssistant(c *gin.Context) {
 	}
 	reply, err := askGemini(ctx, apiKey, assistantInstruction(server, req.Language, serverContext), req.Messages)
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		failure := classifyAIFailure(err)
+		c.JSON(failure.status, gin.H{"error": failure.message, "reason": failure.reason})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"reply": reply, "sources": sources})
@@ -366,56 +367,15 @@ func writeConsoleContext(b *strings.Builder, fetch aiContextFetch) bool {
 var geminiChatEndpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
 
 func askGemini(ctx context.Context, apiKey, instruction string, messages []aiChatMessage) (string, error) {
-	contents := make([]map[string]interface{}, 0, len(messages))
-	for _, m := range messages {
-		role := "user"
-		if m.Role == "assistant" {
-			role = "model"
-		}
-		contents = append(contents, map[string]interface{}{"role": role, "parts": []map[string]string{{"text": m.Content}}})
-	}
-	payload, err := json.Marshal(map[string]interface{}{
-		"systemInstruction": map[string]interface{}{"parts": []map[string]string{{"text": instruction}}},
-		"contents":          contents,
-		"generationConfig":  map[string]interface{}{"temperature": 0.4, "maxOutputTokens": 1200},
-	})
+	// the same client as the agent, without tools: the same retries and the same errors
+	client := &gemini.Client{APIKey: apiKey, Endpoint: geminiChatEndpoint, MaxOutputTokens: 4096, ThinkingBudget: 512}
+	msg, err := client.Generate(ctx, instruction, aiHistory(messages), nil)
 	if err != nil {
 		return "", err
-	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, geminiChatEndpoint, bytes.NewReader(payload))
-	if err != nil {
-		return "", err
-	}
-	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set("x-goog-api-key", apiKey)
-	res, err := http.DefaultClient.Do(request)
-	if err != nil {
-		return "", errors.New("could not reach the AI service")
-	}
-	defer func() { _ = res.Body.Close() }()
-	if res.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("the AI service answered with status %d", res.StatusCode)
-	}
-	var result struct {
-		Candidates []struct {
-			Content struct {
-				Parts []struct {
-					Text string `json:"text"`
-				} `json:"parts"`
-			} `json:"content"`
-		} `json:"candidates"`
-	}
-	if err := json.NewDecoder(io.LimitReader(res.Body, 1<<20)).Decode(&result); err != nil {
-		return "", errors.New("the AI service sent an answer that could not be read")
 	}
 	var reply strings.Builder
-	if len(result.Candidates) > 0 {
-		for _, part := range result.Candidates[0].Content.Parts {
-			reply.WriteString(part.Text)
-		}
-	}
-	if strings.TrimSpace(reply.String()) == "" {
-		return "", errors.New("the AI service sent an empty answer")
+	for _, part := range msg.Parts {
+		reply.WriteString(part.Text)
 	}
 	return reply.String(), nil
 }

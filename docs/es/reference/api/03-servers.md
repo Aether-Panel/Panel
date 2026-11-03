@@ -507,7 +507,7 @@ Las tres rutas necesitan `panel.settings.geminiApiKey` (en otro caso, `400 {"err
 { "messages": [ { "role": "user", "content": "Why does my server lag?" } ], "language": "en" }
 ```
 
-De 1 a 20 mensajes de 1 a 2000 caracteres, con `role` `user` o `assistant`, y el último del usuario. El asistente ve el estado del servidor, los jugadores, el rendimiento del último día, las caídas y la consola reciente. Respuesta: `{"reply": "...", "sources": ["status", "console"]}`; `502` cuando falla el servicio de IA.
+De 1 a 20 mensajes de 1 a 2000 caracteres, con `role` `user` o `assistant`, y el último del usuario. El asistente ve el estado del servidor, los jugadores, el rendimiento del último día, las caídas y la consola reciente. Respuesta: `{"reply": "...", "sources": ["status", "console"]}`. Cuando falla el servicio de IA: `502` (`504` si se agotó el tiempo) con `{"error": "...", "reason": "..."}`, donde `reason` es `keyRejected`, `quota`, `unavailable`, `unreachable`, `rejected`, `unreadable`, `empty`, `tooLong`, `blocked`, `malformed`, `timeout` o `failed` (sin clave es `400` con `reason` `notConfigured`). La web muestra un texto para cada `reason`; la causa exacta queda en el log del panel.
 
 **Modo agente.** Cuando `panel.settings.aiFileTools` está activado (por defecto), la petición tiene un usuario con sesión y ese usuario tiene `server.files.view` en el servidor, el asistente también puede usar herramientas de archivos en este servidor (y solo en este): las de lectura con `server.files.view` y las de crear, cambiar, mover y borrar con `server.files.edit`. Las lecturas y las creaciones se ejecutan durante la petición; los cambios de datos existentes se detienen a la espera de confirmación. La respuesta es entonces:
 
@@ -533,7 +533,7 @@ De 1 a 20 mensajes de 1 a 2000 caracteres, con `role` `user` o `assistant`, y el
 | `steps` | Las llamadas a herramientas de esta petición, en orden. `kind` es `read`, `create`, `modify` o `destructive` (vacío en una llamada rechazada); `status` es `done`, `failed`, `declined` o `refused` (no se ejecutó: herramienta desconocida, falta un scope o un límite); `error` explica un fallo o un rechazo; `paths` son relativas a la carpeta del servidor |
 | `pending` | `null`, o las llamadas que esperan al usuario (`status` `pending`), el `token` de un solo uso y `expiresAt` (10 minutos) |
 
-Cuando hay `pending`, `reply` es la explicación del modelo sobre esas llamadas y puede estar vacía. En modo agente, una tarea fallida responde `502 {"error": "...", "steps": [...], "pending": null}` con los pasos que se ejecutaron antes del fallo. Los cambios hechos se anotan en el [registro de actividad](#registro-de-actividad) como `ai.<herramienta>`. Herramientas, límites y aislamiento: [Kit de herramientas del agente de IA](../../backend/14-ai-toolkit.md).
+Cuando hay `pending`, `reply` es la explicación del modelo sobre esas llamadas y puede estar vacía. En modo agente, una tarea fallida responde `502` (`504` si se agotó el tiempo) `{"error": "...", "reason": "...", "steps": [...], "pending": null}` con los pasos que se ejecutaron antes del fallo. Los cambios hechos se anotan en el [registro de actividad](#registro-de-actividad) como `ai.<herramienta>`. Herramientas, límites y aislamiento: [Kit de herramientas del agente de IA](../../backend/14-ai-toolkit.md).
 
 ### `POST /api/servers/:serverId/ai/chat/confirm`
 
@@ -551,7 +551,7 @@ Responde a una confirmación pendiente. Scope `server.console`; cuenta para la m
 | `403 ErrNoPermission` | No hay usuario con sesión, o quien llama ya no tiene `server.files.view` en el servidor. Sin `server.files.edit`, los cambios aprobados no se ejecutan y vuelven como pasos `refused` |
 | `409 ErrAIConfirmationInvalid` | El token es desconocido, ha caducado, ya se usó o lo sustituyó una petición más reciente del mismo usuario en el mismo servidor; pertenece a otro usuario o servidor; un ID aprobado no estaba pendiente; o se desactivó entretanto `panel.settings.aiFileTools`. Las confirmaciones pendientes se guardan en memoria, así que un reinicio del panel también las invalida |
 | `429` | Cuota |
-| `502` | El asistente falló al continuar: `{"error": "...", "steps": [...], "pending": null}` |
+| `502`, `504` | El asistente falló al continuar: `{"error": "...", "reason": "...", "steps": [...], "pending": null}` |
 
 Un token enviado por otro usuario o para otro servidor se rechaza sin gastarse. Una respuesta que nombra un ID que no estaba pendiente gasta el token.
 

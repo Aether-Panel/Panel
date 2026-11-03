@@ -1803,11 +1803,33 @@
         "files": "archivos"
       },
       "errors": {
-        "generic": "No pude responder ahora mismo. Inténtalo de nuevo en un momento.",
         "limit": "Has hecho muchas preguntas seguidas. Espera unos minutos y vuelve a intentarlo.",
         "notConfigured": "La IA no está configurada. Un administrador puede añadir la clave de Gemini en Configuración.",
         "noPermission": "Necesitas acceso a la consola de este servidor para usar el asistente.",
-        "expired": "Esta solicitud ha caducado. Vuelve a preguntar."
+        "expired": "Esta solicitud ha caducado. Vuelve a preguntar.",
+        "title": "No se pudo completar lo que pediste",
+        "retry": "Reintentar",
+        "changesKept": "Antes de detenerse hizo los cambios marcados como hechos abajo; se mantienen y están en el registro de actividad.",
+        "reasons": {
+          "offline": "No hay conexión a internet. Comprueba tu conexión y vuelve a intentarlo.",
+          "connection": "Se perdió la conexión con el panel antes de recibir la respuesta. Comprueba tu conexión y vuelve a intentarlo.",
+          "panelUnavailable": "El panel no respondió (código {{status}}). Puede que se esté reiniciando o actualizando; espera un momento y vuelve a intentarlo.",
+          "session": "Tu sesión ha caducado. Vuelve a iniciar sesión.",
+          "status": "El panel respondió con un error inesperado (código {{status}}).",
+          "notConfigured": "La IA no está configurada. Un administrador puede añadir la clave de Gemini en Configuración.",
+          "keyRejected": "Gemini rechazó la clave de API: no es válida, está restringida o la API no está activada. Un administrador debe revisarla en Configuración → General.",
+          "quota": "La clave de Gemini llegó a su límite de uso. Espera un poco o revisa el plan de la clave en Google AI Studio.",
+          "unavailable": "Gemini está saturado o no disponible ahora mismo; el panel lo intentó 3 veces. Vuelve a intentarlo en un momento.",
+          "unreachable": "El panel no pudo conectar con Gemini. Revisa la conexión a internet de la máquina del panel.",
+          "rejected": "Gemini rechazó la petición. El motivo exacto queda en el registro del panel.",
+          "unreadable": "Gemini envió una respuesta que no se pudo leer. Vuelve a intentarlo.",
+          "empty": "Gemini respondió sin contenido. Vuelve a intentarlo o explica la petición con otras palabras.",
+          "tooLong": "La respuesta no cabía en el límite de Gemini. Pide la tarea por partes, por ejemplo un archivo cada vez.",
+          "blocked": "Gemini se negó a responder por sus filtros de seguridad. Reformula la petición.",
+          "malformed": "Gemini intentó una operación que no se pudo leer. Vuelve a intentarlo.",
+          "timeout": "El asistente tardó demasiado y se detuvo. Pide la tarea por partes.",
+          "failed": "El asistente falló por un error interno. El motivo queda en el registro del panel."
+        }
       },
       "steps": {
         "label": "Lo que hizo el asistente",

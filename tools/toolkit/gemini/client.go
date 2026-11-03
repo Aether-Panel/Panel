@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3/tools/toolkit"
@@ -28,6 +29,21 @@ const (
 // maxResponseBytes caps the body read from the service.
 const maxResponseBytes = 4 << 20
 
+// maxErrorBytes caps the body read from a failed answer, and maxDetail the part of its
+// message kept for the log.
+const (
+	maxErrorBytes = 64 << 10
+	maxDetail     = 300
+)
+
+// defaultBackoff is how long Generate waits before each new attempt when the service is
+// busy or could not be reached: three attempts in all.
+var defaultBackoff = []time.Duration{time.Second, 3 * time.Second}
+
+// maxRetryAfter is the longest wait the service may ask for (on a 429) that Generate still
+// waits out; a longer one is reported at once instead of keeping the user waiting.
+const maxRetryAfter = 10 * time.Second
+
 // defaultHTTP is used when Client.HTTP is nil. The timeout is a backstop; the
 // runner's context normally ends the request earlier.
 var defaultHTTP = &http.Client{Timeout: 90 * time.Second}
@@ -41,7 +57,28 @@ var (
 	ErrEmpty         = errors.New("the AI service sent an empty answer")
 	ErrBlocked       = errors.New("the AI service refused to answer this request")
 	ErrMalformedCall = errors.New("the AI service sent an operation that could not be read")
+	ErrTooLong       = errors.New("the answer was too long for the AI service; ask for a smaller part")
+
+	// Kinds of a ServiceError, the service's answer to a request it did not accept.
+	ErrKeyRejected = errors.New("the AI service rejected the API key; an administrator must check it in Settings")
+	ErrQuota       = errors.New("the API key reached its usage limit on the AI service; wait a moment or check its plan")
+	ErrUnavailable = errors.New("the AI service is overloaded or unavailable right now")
+	ErrRejected    = errors.New("the AI service rejected the request")
 )
+
+// ServiceError is an answer of the service other than 200. Error is the safe text of its
+// Kind (one of ErrKeyRejected, ErrQuota, ErrUnavailable, ErrRejected); Detail carries the
+// service's own status and message, for the panel's log only.
+type ServiceError struct {
+	Kind       error
+	StatusCode int
+	Detail     string
+	// RetryAfter is the wait the service asked for, when it said one
+	RetryAfter time.Duration
+}
+
+func (e *ServiceError) Error() string { return e.Kind.Error() }
+func (e *ServiceError) Unwrap() error { return e.Kind }
 
 // Client calls Gemini with function calling.
 type Client struct {
@@ -50,6 +87,13 @@ type Client struct {
 	HTTP            *http.Client // a client with a 90 s timeout when nil
 	Temperature     float64      // 0.4 when zero
 	MaxOutputTokens int          // 2048 when zero
+	// ThinkingBudget caps the tokens the model spends thinking, which Gemini 2.5 takes out
+	// of MaxOutputTokens: without a cap, thinking can leave no room for the answer. Zero
+	// leaves the model's own default.
+	ThinkingBudget int
+	// Backoff holds the waits before each new attempt when the service is busy or could
+	// not be reached; nil uses one second, then three.
+	Backoff []time.Duration
 }
 
 var _ agent.Generator = (*Client)(nil)
@@ -64,6 +108,7 @@ type content struct {
 type part struct {
 	Text             string            `json:"text,omitempty"`
 	Thought          bool              `json:"thought,omitempty"`
+	ThoughtSignature string            `json:"thoughtSignature,omitempty"`
 	FunctionCall     *functionCall     `json:"functionCall,omitempty"`
 	FunctionResponse *functionResponse `json:"functionResponse,omitempty"`
 }
@@ -96,9 +141,14 @@ type toolConfig struct {
 	} `json:"functionCallingConfig"`
 }
 
+type thinkingConfig struct {
+	ThinkingBudget int `json:"thinkingBudget"`
+}
+
 type generationConfig struct {
-	Temperature     float64 `json:"temperature"`
-	MaxOutputTokens int     `json:"maxOutputTokens"`
+	Temperature     float64         `json:"temperature"`
+	MaxOutputTokens int             `json:"maxOutputTokens"`
+	ThinkingConfig  *thinkingConfig `json:"thinkingConfig,omitempty"`
 }
 
 type request struct {
@@ -119,7 +169,9 @@ type response struct {
 	} `json:"promptFeedback"`
 }
 
-// Generate sends the conversation and the tools and returns the model's message.
+// Generate sends the conversation and the tools and returns the model's message. When the
+// service is busy (500, 502, 503, 504), cannot be reached, or asks to wait a few seconds
+// (429 with a short retry delay), it tries again, up to three attempts in all.
 func (c *Client) Generate(ctx context.Context, system string, history []agent.Message, tools []toolkit.Tool) (agent.Message, error) {
 	if c.APIKey == "" {
 		return agent.Message{}, ErrNotConfigured
@@ -128,6 +180,48 @@ func (c *Client) Generate(ctx context.Context, system string, history []agent.Me
 	if err != nil {
 		return agent.Message{}, errors.New("the request for the AI service could not be built")
 	}
+	backoff := c.Backoff
+	if backoff == nil {
+		backoff = defaultBackoff
+	}
+	for attempt := 0; ; attempt++ {
+		msg, err := c.send(ctx, payload)
+		wait, again := retryWait(err, attempt, backoff)
+		if !again {
+			return msg, err
+		}
+		timer := time.NewTimer(wait)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return agent.Message{}, ctx.Err()
+		case <-timer.C:
+		}
+	}
+}
+
+// retryWait says whether a failed attempt is tried again, and after how long.
+func retryWait(err error, attempt int, backoff []time.Duration) (time.Duration, bool) {
+	if err == nil || attempt >= len(backoff) {
+		return 0, false
+	}
+	wait := backoff[attempt]
+	var service *ServiceError
+	switch {
+	case errors.Is(err, ErrUnavailable), errors.Is(err, ErrUnreachable):
+		return wait, true
+	case errors.As(err, &service) && errors.Is(err, ErrQuota):
+		// a per-minute limit that frees up in a few seconds is worth waiting for; a daily one is not
+		if service.RetryAfter <= 0 || service.RetryAfter > maxRetryAfter {
+			return 0, false
+		}
+		return max(wait, service.RetryAfter), true
+	}
+	return 0, false
+}
+
+// send makes one attempt.
+func (c *Client) send(ctx context.Context, payload []byte) (agent.Message, error) {
 	endpoint := c.Endpoint
 	if endpoint == "" {
 		endpoint = DefaultEndpoint
@@ -151,15 +245,84 @@ func (c *Client) Generate(ctx context.Context, system string, history []agent.Me
 		return agent.Message{}, ErrUnreachable
 	}
 	defer func() { _ = res.Body.Close() }()
-	if res.StatusCode != http.StatusOK {
-		// Only the status: the body may echo the request.
-		return agent.Message{}, fmt.Errorf("the AI service answered with status %d", res.StatusCode)
+	if err := CheckResponse(res); err != nil {
+		return agent.Message{}, err
 	}
 	var decoded response
 	if err := json.NewDecoder(io.LimitReader(res.Body, maxResponseBytes)).Decode(&decoded); err != nil {
 		return agent.Message{}, ErrUnreadable
 	}
 	return parseResponse(decoded)
+}
+
+// serviceErrorBody is the error Google APIs answer with.
+type serviceErrorBody struct {
+	Error struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+		Status  string `json:"status"`
+		Details []struct {
+			Reason     string `json:"reason"`
+			RetryDelay string `json:"retryDelay"`
+		} `json:"details"`
+	} `json:"error"`
+}
+
+// CheckResponse returns nil for a 200 answer and a *ServiceError for any other, classified
+// by what went wrong. It reads the body of a failed answer, never of a good one.
+func CheckResponse(res *http.Response) error {
+	if res.StatusCode == http.StatusOK {
+		return nil
+	}
+	var body serviceErrorBody
+	_ = json.NewDecoder(io.LimitReader(res.Body, maxErrorBytes)).Decode(&body)
+	reason := ""
+	var retryAfter time.Duration
+	for _, d := range body.Error.Details {
+		if d.Reason != "" && reason == "" {
+			reason = d.Reason
+		}
+		if wait, err := time.ParseDuration(d.RetryDelay); err == nil && wait > 0 {
+			retryAfter = wait
+		}
+	}
+	return &ServiceError{
+		Kind:       serviceErrorKind(res.StatusCode, reason, body.Error.Message),
+		StatusCode: res.StatusCode,
+		Detail:     serviceErrorDetail(res.StatusCode, body.Error.Status, reason, body.Error.Message),
+		RetryAfter: retryAfter,
+	}
+}
+
+func serviceErrorKind(status int, reason, message string) error {
+	switch {
+	case status == http.StatusUnauthorized, status == http.StatusForbidden,
+		strings.HasPrefix(reason, "API_KEY_"), strings.Contains(strings.ToLower(message), "api key"):
+		return ErrKeyRejected
+	case status == http.StatusTooManyRequests:
+		return ErrQuota
+	case status >= http.StatusInternalServerError:
+		return ErrUnavailable
+	default:
+		return ErrRejected
+	}
+}
+
+func serviceErrorDetail(status int, code, reason, message string) string {
+	detail := fmt.Sprintf("status %d", status)
+	for _, extra := range []string{code, reason} {
+		if extra != "" {
+			detail += " " + extra
+		}
+	}
+	message = strings.Join(strings.Fields(message), " ")
+	if len(message) > maxDetail {
+		message = message[:maxDetail] + "…"
+	}
+	if message != "" {
+		detail += ": " + message
+	}
+	return detail
 }
 
 func (c *Client) buildRequest(system string, history []agent.Message, tools []toolkit.Tool) request {
@@ -188,6 +351,9 @@ func (c *Client) buildRequest(system string, history []agent.Message, tools []to
 	if req.GenerationConfig.MaxOutputTokens <= 0 {
 		req.GenerationConfig.MaxOutputTokens = defaultMaxOutputTokens
 	}
+	if c.ThinkingBudget > 0 {
+		req.GenerationConfig.ThinkingConfig = &thinkingConfig{ThinkingBudget: c.ThinkingBudget}
+	}
 	return req
 }
 
@@ -207,15 +373,15 @@ func toContent(msg agent.Message) (content, bool) {
 			if args == nil {
 				args = map[string]any{}
 			}
-			out.Parts = append(out.Parts, part{FunctionCall: &functionCall{ID: modelID(p.Call.ID), Name: p.Call.Name, Args: args}})
+			out.Parts = append(out.Parts, part{FunctionCall: &functionCall{ID: modelID(p.Call.ID), Name: p.Call.Name, Args: args}, ThoughtSignature: p.Signature})
 		case p.Response != nil:
 			resp := p.Response.Response
 			if resp == nil {
 				resp = map[string]any{}
 			}
 			out.Parts = append(out.Parts, part{FunctionResponse: &functionResponse{ID: modelID(p.Response.ID), Name: p.Response.Name, Response: resp}})
-		case p.Text != "":
-			out.Parts = append(out.Parts, part{Text: p.Text})
+		case p.Text != "" || p.Signature != "":
+			out.Parts = append(out.Parts, part{Text: p.Text, ThoughtSignature: p.Signature})
 		}
 	}
 	return out, len(out.Parts) > 0
@@ -245,6 +411,7 @@ func parseResponse(res response) (agent.Message, error) {
 		return agent.Message{}, ErrMalformedCall
 	}
 	msg := agent.Message{Role: agent.RoleModel}
+	useful := false
 	for _, p := range candidate.Content.Parts {
 		switch {
 		case p.FunctionCall != nil:
@@ -255,14 +422,20 @@ func parseResponse(res response) (agent.Message, error) {
 				ID:   p.FunctionCall.ID,
 				Name: p.FunctionCall.Name,
 				Args: p.FunctionCall.Args,
-			}})
+			}, Signature: p.ThoughtSignature})
+			useful = true
 		case p.Thought:
 			// Thinking summaries are not part of the answer.
-		case p.Text != "":
-			msg.Parts = append(msg.Parts, agent.Part{Text: p.Text})
+		case p.Text != "" || p.ThoughtSignature != "":
+			// a signature goes back with the history, so the model keeps its reasoning between rounds
+			msg.Parts = append(msg.Parts, agent.Part{Text: p.Text, Signature: p.ThoughtSignature})
+			useful = useful || strings.TrimSpace(p.Text) != ""
 		}
 	}
-	if len(msg.Parts) == 0 {
+	if !useful {
+		if candidate.FinishReason == "MAX_TOKENS" {
+			return agent.Message{}, ErrTooLong
+		}
 		return agent.Message{}, ErrEmpty
 	}
 	return msg, nil

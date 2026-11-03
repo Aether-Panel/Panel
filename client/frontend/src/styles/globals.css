@@ -698,3 +698,10 @@ body::after {
     display: none;
   }
 }
+
+/* Toasts sit above dialogs and side panels (z-50) and the expanded console (z-[70]): Sileo
+   gives its viewport z-index 50, so a toast sent while one was open was drawn under its
+   overlay and never seen. Outside any layer and more specific than Sileo's own rule. */
+:root [data-sileo-viewport] {
+  z-index: 110;
+}
