@@ -144,7 +144,7 @@ Each new question sends the previous messages as text only: the assistant does n
 | A step fails with *old_text was not found* or *appears N times* | The file changed, or the text to replace is not unique | Ask again; the assistant reads the file again first. |
 | *too large* or *is a binary file* | The file is over 1 MiB, or not text | Edit it in the File Manager or over SFTP. |
 | *the server has used all of its disk space…* | The server's disk limit is reached | Free space, then ask again. |
-| A red **What you asked for could not be done** card (and a toast) | The task stopped; the card says why: connection to the panel lost, the panel not answering, Gemini rejecting the key, its usage limit, Gemini overloaded (after 3 attempts), an answer too long, a timeout… See [the chat failures](./ai-assistant.md#chat-failures) | Follow what the card says. **Try again** asks the same question once more; it is not offered when only an administrator can fix the cause (key, setting, permission). Changes made before the failure stay, are listed under the card and are in the activity log. |
+| A red **What you asked for could not be done** card (and a toast) | The task stopped; the card says why: connection to the panel lost, the panel not answering, Gemini rejecting the key, its usage limit, Gemini overloaded (after 3 attempts), an answer too long, a timeout… See [the chat failures](./ai-assistant.md#chat-failures) | Follow what the card says. **Try again** asks the same question once more; it is not offered when asking again cannot help (key, setting, permission, or the key out of quota). Changes made before the failure stay, are listed under the card and are in the activity log. |
 
 ## See also
 

@@ -432,12 +432,15 @@ function failureText(err: unknown, t: Translate): string {
   return t('servers.assistant.errors.reasons.status', { status: err.status });
 }
 
-/** Whether asking the same again can work; a missing permission or key will not change by itself. */
+/** Reasons that asking again cannot fix: a key, a setting, or a quota the panel already
+ * waited for when it was short. Each retry of a used-up quota is one more refused request. */
+const NO_RETRY_REASONS = new Set(['keyRejected', 'notConfigured', 'quota']);
+
+/** Whether asking the same again can work. */
 function canRetry(err: unknown): boolean {
   if (!(err instanceof ApiError)) return true;
   if ([400, 401, 403].includes(err.status)) return false;
-  const reason = failureReason(err);
-  return reason !== 'keyRejected' && reason !== 'notConfigured';
+  return !NO_RETRY_REASONS.has(failureReason(err) ?? '');
 }
 
 /** The request can no longer be answered: it expired, was already answered, or belongs to someone else. */

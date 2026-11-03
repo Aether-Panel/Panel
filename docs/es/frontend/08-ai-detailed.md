@@ -107,7 +107,7 @@ Una pieza que falla o tarda se omite; el resto se envía igualmente. La petició
 | 400 | No hay clave de API (`"Gemini API Key is not configured. Please add it in Settings."`), JSON no válido o se incumple alguna regla de las anteriores |
 | 403 | El usuario no tiene `server.console` en el servidor |
 | 429 | Límite de uso |
-| 502 | Gemini no responde, devuelve un estado distinto de 200 o una respuesta ilegible o vacía (el mensaje indica cuál). En modo agente el cuerpo es `{"error": "…", "steps": [...], "pending": null}`, con los pasos que se ejecutaron antes del fallo |
+| 422 | Falló el servicio de IA: `{"error": "…", "reason": "…"}`, y en modo agente además `"steps": [...]` (los que se ejecutaron antes del fallo) y `"pending": null`. No 502, que Cloudflare sustituiría por su propia página |
 
 ### `POST /ai/chat/confirm`
 
@@ -125,7 +125,7 @@ Responde a la tarjeta. Petición:
 | 403 `ErrNoPermission` | No hay usuario con sesión, o ya no se tiene `server.files.view` en el servidor (sin `server.files.edit`, las ediciones aprobadas vuelven en cambio como pasos `refused`) |
 | 409 `ErrAIConfirmationInvalid` | Token desconocido, caducado (10 min), ya usado o sustituido; token de otro usuario o servidor; un ID que no estaba pendiente; o `panel.settings.aiFileTools` desactivado entretanto |
 | 429 | Límite de uso |
-| 502 | La tarea falló después, igual que en el chat |
+| 422 | La tarea falló después, igual que en el chat |
 
 ### `POST /ai/analyze`
 
@@ -171,7 +171,7 @@ Errores: `400` (sin clave de API, petición no válida, `"No logs provided for a
 - La solicitud pendiente se guarda en `sessionStorage` (`assistant_<serverId>_pending`), así que la tarjeta sobrevive a una recarga en la misma sesión de la pestaña. **Nueva conversación** la borra (el token no se envía a ningún sitio; caduca en el panel).
 - Al confirmar, un `409` o el código `ErrAIConfirmationInvalid` quita la tarjeta y muestra "Esta solicitud ha caducado. Vuelve a preguntar."; un `403` la quita y muestra el mensaje de falta de permiso; con otros errores se mantiene para poder responder de nuevo.
 - Las respuestas se muestran con un pequeño intérprete de Markdown propio (negrita, código en línea, listas, bloques de código), sin inyectar HTML.
-- **Fallos.** Una pregunta fallida se informa dos veces: con un aviso emergente (`sileo.error`) y con una tarjeta `FailureReport` en el chat (`role="alert"`, título "No se pudo completar lo que pediste") que se queda en la conversación. Su texto sale del `reason` de la respuesta (`servers.assistant.errors.reasons.<reason>`); sin él, del estado (429 límite, 403 sin permiso, 401 sesión caducada, 400 con "api key" sin configurar, 502/503/504 el panel no responde), y sin respuesta alguna, de la conexión (sin internet o perdida). Los pasos de una tarea del agente que falló aparecen bajo la tarjeta, con una nota si se hicieron cambios. La última pregunta fallida tiene un botón **Reintentar** que la vuelve a hacer sin repetirla en el chat; se oculta cuando solo un administrador puede arreglar la causa (400, 401, 403, `keyRejected`, `notConfigured`). Véase [Fallos del chat](../features/ai-assistant.md#fallos-del-chat).
+- **Fallos.** Una pregunta fallida se informa dos veces: con un aviso emergente (`sileo.error`) y con una tarjeta `FailureReport` en el chat (`role="alert"`, título "No se pudo completar lo que pediste") que se queda en la conversación. Su texto sale del `reason` de la respuesta (`servers.assistant.errors.reasons.<reason>`); sin él, del estado (429 límite, 403 sin permiso, 401 sesión caducada, 400 con "api key" sin configurar, 502/503/504 el panel no responde), y sin respuesta alguna, de la conexión (sin internet o perdida). Los pasos de una tarea del agente que falló aparecen bajo la tarjeta, con una nota si se hicieron cambios. La última pregunta fallida tiene un botón **Reintentar** que la vuelve a hacer sin repetirla en el chat; se oculta cuando volver a preguntar no puede servir (400, 401, 403, `keyRejected`, `notConfigured`, `quota`). Véase [Fallos del chat](../features/ai-assistant.md#fallos-del-chat).
 
 ### Análisis de consola por IA (`features/servers/[id]/ai-summary.tsx`)
 

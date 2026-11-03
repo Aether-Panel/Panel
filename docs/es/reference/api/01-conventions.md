@@ -69,7 +69,7 @@ Excepciones a esa forma:
 
 Un fallo inesperado (base de datos, sistema de archivos, red) responde con su código de estado (normalmente `500`), el código `ErrInternal` y el mensaje «internal error, the details are in the panel log». El motivo real solo se escribe en el registro del panel. Los errores que el panel provoca a propósito conservan su código aunque el estado sea `5xx` (por ejemplo, `ErrDatabaseNotAvailable` o `ErrNodeHasServers`).
 
-Por eso, las rutas cuyo fallo debe poder leer el administrador (pruebas de correo, Discord, Cloudflare y S3, orígenes de modpacks, cambios de subdominio) responden `422` en lugar de `502`, para que el texto llegue al navegador.
+Por eso, las rutas cuyo fallo debe poder leer el administrador (pruebas de correo, Discord, Cloudflare y S3, orígenes de modpacks, cambios de subdominio, el asistente del servidor) responden `422` en lugar de `502`, para que el texto llegue al navegador.
 
 ### Fallos de autenticación con el nodo
 
@@ -88,7 +88,7 @@ Un nodo solo comprueba el token del panel; los permisos del usuario ya los ha co
 | `404` | El objeto no existe, o quien llama no puede saber que existe |
 | `409` | Conflicto con el estado actual: disco lleno (`ErrDiskLimitExceeded`), puerto ocupado, límite de copias (`ErrBackupLimit`), propietario del servidor (`ErrServerOwner`), host de bases de datos aún en uso (`ErrDatabaseHostInUse`), puertos del servidor ocupados en el nodo de destino de un traslado (`ErrTransferPortsTaken`), servidor que ya se está trasladando (`ErrTransferRunning`) o que está escribiendo una copia (`ErrTransferBackupRunning`), nombre de archivo comprimido ya usado (`ErrFileExists`), confirmación del asistente caducada o ya respondida (`ErrAIConfirmationInvalid`), subdominio ocupado, otro trabajo en curso |
 | `413` | Cuerpo de la tarea demasiado grande |
-| `422` | Un servicio externo lo rechazó (servidor de correo, Discord, Cloudflare, S3, Modrinth/CurseForge) |
+| `422` | Un servicio externo lo rechazó (servidor de correo, Discord, Cloudflare, S3, Modrinth/CurseForge, Gemini en el asistente del servidor) |
 | `429` | Demasiados intentos (`ErrTooManyAttempts`), cuota de IA, cambio de subdominio o prueba de notificaciones demasiado frecuentes |
 | `500` | Error interno (véase arriba) |
 | `502` | No se pudo contactar con el nodo o con un servicio externo (algunas rutas); el nodo rechazó las credenciales del panel (`ErrNodeAuthFailed`); Modrinth ofreció un archivo que no es un nombre `.jar` simple (`ErrPluginBadFileName`) |
