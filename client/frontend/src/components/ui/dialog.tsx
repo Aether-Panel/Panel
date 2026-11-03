@@ -38,11 +38,14 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg translate-x-[-50%] overflow-y-auto translate-y-[-50%] gap-4 rounded-2xl border border-border/60 bg-popover p-6 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.07),var(--shadow-elevation-3)] dialog-content",
+        "fixed left-[50%] top-[50%] z-50 grid max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg translate-x-[-50%] overflow-y-auto translate-y-[-50%] gap-4 [&>*]:min-w-0 rounded-2xl border border-border/60 bg-popover p-6 shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.07),var(--shadow-elevation-3)] dialog-content",
         className
       )}
       {...props}
     >
+      {/* a grid (or flex) child never grows wider than the dialog: without min-w-0 a long
+          unbroken word, such as a path in a log line, widened its column past the dialog and
+          the content showed cut off and scrolled sideways */}
       {children}
       <DialogPrimitive.Close className="focus-ring absolute right-4 top-4 rounded-md p-1 opacity-70 transition-all duration-200 hover:bg-accent hover:opacity-100 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
         <X className="h-4 w-4" />
