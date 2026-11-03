@@ -41,6 +41,9 @@ type Part struct {
 	Text     string            `json:",omitempty"`
 	Call     *FunctionCall     `json:",omitempty"` // from the model
 	Response *FunctionResponse `json:",omitempty"` // to the model
+	// Signature is opaque state the model attaches to its own parts (Gemini's thought
+	// signature); it goes back unchanged with the history.
+	Signature string `json:",omitempty"`
 }
 
 // FunctionCall is a tool call requested by the model.

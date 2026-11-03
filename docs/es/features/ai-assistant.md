@@ -46,7 +46,7 @@ Cuando **Dejar que el asistente trabaje con los archivos del servidor** está ac
 
 Seguridad del prompt: las líneas de consola y el contexto del servidor son texto no fiable escrito por el juego y sus jugadores. El panel los encierra entre `<logs>…</logs>` o `<server-context>…</server-context>` e indica al modelo que los trate solo como datos. También se le indica que nunca sugiera borrar mundos o archivos sin una copia de seguridad previa y que nunca pida contraseñas ni claves.
 
-Parámetros del modelo: el chat usa temperatura 0,4 y un máximo de 1200 tokens de salida (2048 en modo agente). El análisis pide una respuesta JSON con el esquema fijo `{ summary, suggestions[], rootCauses[] }`.
+Parámetros del modelo: el chat usa temperatura 0,4 y un máximo de 4096 tokens de salida, de ellos hasta 512 de razonamiento (8192 y 1024 en modo agente). El análisis pide una respuesta JSON con el esquema fijo `{ summary, suggestions[], rootCauses[] }`.
 
 Las peticiones de IA en sí no se registran en el registro de actividad del servidor. En modo agente, cada cambio que el asistente hace en los archivos se registra como `ai.<herramienta>` (por ejemplo `ai.edit_file`), véase [Registro de actividad](./activity-and-access-log.md).
 
@@ -140,6 +140,29 @@ Otros aspectos a tener en cuenta:
 - **Ocultar análisis IA de la consola** se aplica a todos los usuarios (la web lo lee de la configuración pública, `GET /api/config`) y también en el servidor: `/ai/analyze` lo rechaza. No afecta al botón **Asistente**, que sigue disponible mientras haya clave.
 - Las peticiones hechas con un cliente OAuth2 (sin usuario asociado) comparten un único contador del límite.
 
+## Fallos del chat
+
+Cuando una pregunta no se puede responder, el chat lo dice dos veces: con un aviso emergente y con una tarjeta roja **No se pudo completar lo que pediste** que se queda en la conversación. La tarjeta explica lo que pasó con palabras sencillas, enumera los pasos hechos antes de detenerse (modo agente) y avisa cuando se hicieron cambios, que se mantienen y están en el registro de actividad. La última pregunta fallida tiene un botón **Reintentar** que la vuelve a hacer; no aparece cuando solo un administrador puede arreglar la causa (clave, ajuste o permiso).
+
+Antes de rendirse, el panel intenta cada llamada a Gemini hasta tres veces, con 1 s y luego 3 s de espera, mientras Gemini esté saturado (5xx) o no se alcance, y tras un `429` que pida esperar 10 s o menos.
+
+| Texto de la tarjeta (inicio) | `reason` | Causa | Qué hacer |
+|---|---|---|---|
+| *Se perdió la conexión con el panel…* / *No hay conexión a internet…* | ninguno (sin respuesta) | El navegador perdió la conexión antes de llegar la respuesta | Comprobar la conexión y reintentar. |
+| *El panel no respondió (código 502/503/504)…* | ninguno | Respondió un proxy delante del panel: el panel se está reiniciando, actualizando o está caído | Esperar y reintentar. |
+| *Gemini rechazó la clave de API…* | `keyRejected` | La clave no es válida, está revocada, restringida a otras API o IP, o la Generative Language API no está activada | Un administrador revisa la clave en Google AI Studio y en **Configuración → General**. |
+| *La clave de Gemini llegó a su límite de uso…* | `quota` | Se agotaron las peticiones por minuto o por día del plan de la clave (el nivel gratuito es bajo) | Esperar o subir el plan de la clave. |
+| *Gemini está saturado o no disponible ahora mismo…* | `unavailable` | Gemini respondió 5xx tres veces | Reintentar en un momento. |
+| *El panel no pudo conectar con Gemini…* | `unreachable` | La máquina del panel no llega a Google (cortafuegos, DNS, proxy) | Permitir la salida HTTPS hacia `generativelanguage.googleapis.com`. |
+| *Gemini rechazó la petición…* | `rejected` | Gemini rechazó la petición por otro motivo (por ejemplo, un modelo desconocido) | Leer la línea del log del panel `The AI service did not accept the assistant's request (…)`. |
+| *La respuesta no cabía en el límite de Gemini…* | `tooLong` | La respuesta (por ejemplo, un archivo grande que escribir) agotó los 8192 tokens de salida | Pedir la tarea por partes, un archivo cada vez. |
+| *Gemini se negó a responder por sus filtros de seguridad…* | `blocked` | Los filtros de seguridad de Google pararon la respuesta | Reformular la petición. |
+| *Gemini respondió sin contenido…*, *…no se pudo leer*, *Gemini intentó una operación que no se pudo leer…* | `empty`, `unreadable`, `malformed` | El modelo no dio una respuesta utilizable | Reintentar o decirlo con otras palabras. |
+| *El asistente tardó demasiado y se detuvo…* | `timeout` (HTTP 504) | La tarea superó su tiempo máximo (120 s en modo agente, 90 s en el chat simple) | Pedir la tarea por partes. |
+| *El asistente falló por un error interno…* | `failed` | Algo inesperado; la causa está en el log del panel | Leer la línea del log `The server assistant failed: …`. |
+
+El log del panel siempre tiene la causa exacta de un rechazo de Gemini, con el estado y el mensaje de Google, por ejemplo `The AI service did not accept the assistant's request (status 429 RESOURCE_EXHAUSTED: Quota exceeded…)`. La clave nunca aparece en él.
+
 ## Problemas conocidos y soluciones
 
 | Mensaje | Causa | Solución |
@@ -150,9 +173,10 @@ Otros aspectos a tener en cuenta:
 | HTTP 403 (interfaz: «Necesitas acceso a la consola de este servidor para usar el asistente.») | El usuario no tiene `server.console` en ese servidor | Conceder el permiso de consola al subusuario. |
 | `a conversation has between 1 and 20 messages`, `each message has between 1 and 2000 characters`, `the last message must be the user's question`, `messages are from the user or the assistant` | Petición de chat no válida (clientes de la API) | Corregir el cuerpo de la petición. La interfaz ya recorta el historial a 20 mensajes. |
 | `No logs provided for analysis` / `Invalid payload` | Petición de análisis vacía o mal formada | Enviar un array `logs` no vacío. |
-| `could not reach the AI service` / `Failed to connect to AI API` | La máquina del panel no llega a Google (cortafuegos, DNS, proxy) | Permitir la salida HTTPS hacia `generativelanguage.googleapis.com`. |
-| `the AI service answered with status N` / `AI API returned status N` | Google rechazó la llamada: clave no válida o revocada (400/403), cuota agotada (429), error del servicio (5xx) | Revisar la clave y su cuota en Google AI Studio. |
-| `the AI service sent an empty answer`, `AI returned invalid JSON structure`, `Empty response from AI` | El modelo no produjo una respuesta utilizable (por ejemplo, bloqueada por los filtros de seguridad de Google) | Reintentar, o enviar menos líneas o líneas distintas. |
+| Chat: una tarjeta roja *No se pudo completar lo que pediste* | Véase [Fallos del chat](#fallos-del-chat) | Seguir lo que dice la tarjeta. |
+| Análisis de registros: `Failed to connect to AI API` | La máquina del panel no llega a Google (cortafuegos, DNS, proxy) | Permitir la salida HTTPS hacia `generativelanguage.googleapis.com`. |
+| Análisis de registros: `AI API returned status N` | Google rechazó la llamada: clave no válida o revocada (400/403), cuota agotada (429), error del servicio (5xx) | Revisar la clave y su cuota en Google AI Studio. |
+| Análisis de registros: `AI returned invalid JSON structure`, `Empty response from AI` | El modelo no produjo una respuesta utilizable (por ejemplo, bloqueada por los filtros de seguridad de Google) | Reintentar, o enviar menos líneas o líneas distintas. |
 | `Esta solicitud ha caducado. Vuelve a preguntar.` (HTTP 409, `ErrAIConfirmationInvalid`) | Un cambio pendiente de aprobación caducó (10 minutos), ya se respondió, se sustituyó o el panel se reinició | Volver a preguntar. Véase [Asistente de IA: trabajar con archivos](./ai-agent.md#problemas-conocidos-y-soluciones). |
 | La respuesta dice que no tiene información sobre algo | No se pudo obtener ese dato de contexto (nodo caído, consulta desactivada, todavía sin métricas) | Consultar «Revisó: …» bajo la respuesta para ver qué fuentes estaban disponibles. |
 

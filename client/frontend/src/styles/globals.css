@@ -281,6 +281,9 @@
   }
 
 [data-sileo-viewport] {
+    /* above dialogs and side panels (z-50) and the expanded console (z-[70]): a toast sent
+       while one is open was drawn under its overlay and never seen */
+    z-index: 110 !important;
     --sileo-state-success: hsl(var(--success));
     --sileo-state-error: hsl(var(--destructive));
     --sileo-state-warning: hsl(var(--warning));

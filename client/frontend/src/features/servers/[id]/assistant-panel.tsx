@@ -11,6 +11,7 @@ import {
   FileText,
   Loader2,
   Pencil,
+  RotateCcw,
   ShieldAlert,
   Sparkles,
   Trash2,
@@ -22,6 +23,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useTranslations } from '@/contexts/translations-context';
 import { ApiError, api } from '@/lib/api-client';
+import { sileo } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { keyedByContent } from '@/lib/keyed';
 
@@ -48,7 +50,16 @@ type Pending = { token: string; actions: Step[]; expiresAt: string };
 /** What both /ai/chat and /ai/chat/confirm answer. */
 type ChatResponse = { reply: string; sources?: string[]; steps?: Step[]; pending?: Pending | null };
 
-type Message = { id: string; role: 'user' | 'assistant'; content: string; sources?: string[]; steps?: Step[]; error?: boolean };
+type Message = {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  sources?: string[];
+  steps?: Step[];
+  error?: boolean;
+  /** On a failed question: true when it can be sent again as it was. */
+  retry?: boolean;
+};
 
 // ids only need to be unique within one conversation; crypto.randomUUID is missing on plain-HTTP panels
 let messageSeq = 0;
@@ -266,6 +277,28 @@ function StepList({ steps, t }: Readonly<{ steps: Step[]; t: Translate }>) {
   );
 }
 
+/** A failed request, said plainly: that it could not be done, why, and whether changes were
+ * made before it stopped (those steps are listed under it). The last one can be asked again. */
+function FailureReport({ message, canRetry, onRetry, t }: Readonly<{ message: Message; canRetry: boolean; onRetry: () => void; t: Translate }>) {
+  const changed = (message.steps ?? []).some((step) => step.status === 'done' && step.kind !== 'read');
+  return (
+    <div role="alert" className="space-y-2 rounded-xl border border-destructive/30 bg-destructive/[0.06] px-3.5 py-3">
+      <p className="flex items-start gap-2 font-medium text-destructive-bright">
+        <AlertTriangle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+        {t('servers.assistant.errors.title')}
+      </p>
+      <p className="break-words text-foreground/90">{message.content}</p>
+      {changed && <p className="text-xs">{t('servers.assistant.errors.changesKept')}</p>}
+      {canRetry && (
+        <Button type="button" size="sm" variant="outline" onClick={onRetry}>
+          <RotateCcw aria-hidden="true" />
+          {t('servers.assistant.errors.retry')}
+        </Button>
+      )}
+    </div>
+  );
+}
+
 type PendingCardProps = {
   pending: Pending;
   approved: ReadonlySet<string>;
@@ -354,6 +387,57 @@ function errorCode(err: ApiError): string | undefined {
   if (error === null || typeof error !== 'object' || !('code' in error)) return undefined;
   const code: unknown = (error as { code: unknown }).code;
   return typeof code === 'string' ? code : undefined;
+}
+
+/** The reasons the panel gives for a failed chat ({error, reason}); each has its own text. */
+const FAILURE_REASONS = new Set([
+  'notConfigured',
+  'keyRejected',
+  'quota',
+  'unavailable',
+  'unreachable',
+  'rejected',
+  'unreadable',
+  'empty',
+  'tooLong',
+  'blocked',
+  'malformed',
+  'timeout',
+  'failed',
+]);
+
+/** The reason code a failed chat came with, if any. */
+function failureReason(err: ApiError): string | undefined {
+  const data: unknown = err.data;
+  if (data === null || typeof data !== 'object' || !('reason' in data)) return undefined;
+  const reason: unknown = (data as { reason: unknown }).reason;
+  return typeof reason === 'string' ? reason : undefined;
+}
+
+/** What went wrong with a request, in the reader's language: from the panel's reason when it
+ * gave one, else from the status, else (no answer at all) the connection. */
+function failureText(err: unknown, t: Translate): string {
+  if (!(err instanceof ApiError)) {
+    const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+    return t(`servers.assistant.errors.reasons.${offline ? 'offline' : 'connection'}`);
+  }
+  const reason = failureReason(err);
+  if (reason && FAILURE_REASONS.has(reason)) return t(`servers.assistant.errors.reasons.${reason}`);
+  if (err.status === 429) return t('servers.assistant.errors.limit');
+  if (err.status === 403) return t('servers.assistant.errors.noPermission');
+  if (err.status === 401) return t('servers.assistant.errors.reasons.session');
+  if (err.status === 400 && /api key/i.test(err.message)) return t('servers.assistant.errors.notConfigured');
+  // a proxy in front of the panel answers these when the panel is down or restarting
+  if ([502, 503, 504].includes(err.status)) return t('servers.assistant.errors.reasons.panelUnavailable', { status: err.status });
+  return t('servers.assistant.errors.reasons.status', { status: err.status });
+}
+
+/** Whether asking the same again can work; a missing permission or key will not change by itself. */
+function canRetry(err: unknown): boolean {
+  if (!(err instanceof ApiError)) return true;
+  if ([400, 401, 403].includes(err.status)) return false;
+  const reason = failureReason(err);
+  return reason !== 'keyRejected' && reason !== 'notConfigured';
 }
 
 /** The request can no longer be answered: it expired, was already answered, or belongs to someone else. */
@@ -451,18 +535,14 @@ export default function AssistantPanel({ serverId, serverName }: Readonly<{ serv
     wasBusy.current = busy;
   }, [busy, pending]);
 
-  const errorContent = (err: unknown) => {
-    if (err instanceof ApiError && err.status === 429) return t('servers.assistant.errors.limit');
-    if (err instanceof ApiError && err.status === 403) return t('servers.assistant.errors.noPermission');
-    if (err instanceof ApiError && err.status === 400 && /api key/i.test(err.message)) return t('servers.assistant.errors.notConfigured');
-    return t('servers.assistant.errors.generic');
-  };
-
-  const addError = (content: string, err?: unknown) => {
+  /** Reports a failure twice: a toast, seen wherever the chat is scrolled, and a message in
+   * the chat that stays, with the steps done before it stopped. */
+  const addError = (content: string, err?: unknown, retry = false) => {
     // a task that failed half way still did some work: its steps come with the error and are
     // shown, so the user sees what changed before it stopped
     const steps = err instanceof ApiError && Array.isArray(err.data?.steps) ? (err.data.steps as Step[]) : [];
-    setMessages((current) => [...current, { id: messageId(), role: 'assistant', content, error: true, steps }]);
+    sileo.error({ title: t('servers.assistant.errors.title'), description: content });
+    setMessages((current) => [...current, { id: messageId(), role: 'assistant', content, error: true, steps, retry }]);
   };
 
   const addAnswer = (res: ChatResponse) => {
@@ -473,13 +553,20 @@ export default function AssistantPanel({ serverId, serverName }: Readonly<{ serv
     setPending(isPending(res.pending) ? res.pending : null);
   };
 
-  const send = async (text: string) => {
+  /** Asks a question; with `retryOf`, the failed answer of that id is removed and the
+   * question, already in the conversation, is asked again. */
+  const send = async (text: string, retryOf?: string) => {
     const question = text.trim();
     if (!question || inputLocked) return;
     // only the text of the conversation goes back; steps and confirmations stay in the panel
-    const history = [...messages.filter((m) => !m.error && m.content.trim() !== ''), { role: 'user' as const, content: question }];
-    setMessages((current) => [...current, { id: messageId(), role: 'user', content: question }]);
-    setDraft('');
+    const said = messages.filter((m) => !m.error && m.content.trim() !== '');
+    const history = retryOf ? said : [...said, { role: 'user' as const, content: question }];
+    if (retryOf) {
+      setMessages((current) => current.filter((m) => m.id !== retryOf));
+    } else {
+      setMessages((current) => [...current, { id: messageId(), role: 'user', content: question }]);
+      setDraft('');
+    }
     setThinking(true);
     try {
       const res = await api.post<ChatResponse>(`/api/servers/${serverId}/ai/chat`, {
@@ -488,10 +575,17 @@ export default function AssistantPanel({ serverId, serverName }: Readonly<{ serv
       });
       addAnswer(res);
     } catch (err) {
-      addError(errorContent(err), err);
+      addError(failureText(err, t), err, canRetry(err));
     } finally {
       setThinking(false);
     }
+  };
+
+  /** Asks again the question a failed answer belongs to: the last one before it. */
+  const retryFailed = (failedId: string) => {
+    const index = messages.findIndex((m) => m.id === failedId);
+    const question = messages.slice(0, index).findLast((m) => m.role === 'user');
+    if (question) void send(question.content, failedId);
   };
 
   /** Answers the pending request: the IDs to run (an empty list declines them all). */
@@ -512,7 +606,7 @@ export default function AssistantPanel({ serverId, serverName }: Readonly<{ serv
       } else {
         // without permission it cannot be answered any more; anything else can be tried again
         if (err instanceof ApiError && err.status === 403) setPending(null);
-        addError(errorContent(err), err);
+        addError(failureText(err, t), err);
       }
     } finally {
       setConfirming(false);
@@ -598,7 +692,7 @@ export default function AssistantPanel({ serverId, serverName }: Readonly<{ serv
             </div>
           ) : (
             <ol className="space-y-4">
-              {messages.map((message) => (
+              {messages.map((message, index) => (
                 <li
                   key={message.id}
                   className={cn('flex animate-in fade-in-0 slide-in-from-bottom-1 duration-300 ease-panel', message.role === 'user' ? 'justify-end' : 'justify-start')}
@@ -608,8 +702,15 @@ export default function AssistantPanel({ serverId, serverName }: Readonly<{ serv
                       {message.content}
                     </p>
                   ) : (
-                    <div className={cn('min-w-0 max-w-[92%] space-y-2 text-sm leading-relaxed', message.error ? 'text-destructive-bright' : 'text-muted-foreground')}>
-                      {message.error && <p>{message.content}</p>}
+                    <div className="min-w-0 max-w-[92%] space-y-2 text-sm leading-relaxed text-muted-foreground">
+                      {message.error && (
+                        <FailureReport
+                          message={message}
+                          canRetry={message.retry === true && index === messages.length - 1 && !inputLocked}
+                          onRetry={() => retryFailed(message.id)}
+                          t={t}
+                        />
+                      )}
                       {!message.error && message.content.trim() !== '' && <Markdown text={message.content} />}
                       {message.steps && message.steps.length > 0 && <StepList steps={message.steps} t={t} />}
                       {message.sources && message.sources.length > 0 && (

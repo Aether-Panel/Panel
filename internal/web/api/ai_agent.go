@@ -46,7 +46,9 @@ var (
 // aiAgentModel makes the model of a request. The API key is read on every request, because an
 // administrator can change it at any time. Tests swap it for a scripted model.
 var aiAgentModel = func(apiKey string) agent.Generator {
-	return &gemini.Client{APIKey: apiKey}
+	// room for whole files in a call (a write_file of a small bot is a few thousand tokens),
+	// with thinking capped so it cannot eat that room
+	return &gemini.Client{APIKey: apiKey, MaxOutputTokens: 8192, ThinkingBudget: 1024}
 }
 
 // aiAgentWorkspace makes the workspace of the route's server, reached through its node. Tests
@@ -177,7 +179,7 @@ func runAssistantAgent(c *gin.Context, apiKey string, server *models.Server, req
 func confirmAssistantChanges(c *gin.Context) {
 	apiKey := config.GeminiAPIKey.Value()
 	if apiKey == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Gemini API Key is not configured. Please add it in Settings."})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Gemini API Key is not configured. Please add it in Settings.", "reason": "notConfigured"})
 		return
 	}
 
@@ -244,7 +246,8 @@ func answerAgent(c *gin.Context, server *models.Server, user *models.User, out a
 	}
 	recordAgentActivity(c, server, user, steps)
 	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": aiAgentErrorMessage(err), "steps": steps, "pending": nil})
+		failure := classifyAIFailure(err)
+		c.JSON(failure.status, gin.H{"error": failure.message, "reason": failure.reason, "steps": steps, "pending": nil})
 		return
 	}
 	if sources == nil {
@@ -253,23 +256,55 @@ func answerAgent(c *gin.Context, server *models.Server, user *models.User, out a
 	c.JSON(http.StatusOK, aiAgentResponse{Reply: out.Reply, Sources: sources, Steps: steps, Pending: out.Pending})
 }
 
-// aiAgentErrorMessage is the user-safe text for a failed task. The Gemini client's errors are
-// written to be shown; anything else may carry details for the log only.
-func aiAgentErrorMessage(err error) string {
-	for _, known := range []error{gemini.ErrNotConfigured, gemini.ErrUnreachable, gemini.ErrUnreadable, gemini.ErrEmpty, gemini.ErrBlocked, gemini.ErrMalformedCall} {
-		if errors.Is(err, known) {
-			return known.Error()
+// aiFailure is how a failed chat is answered: the HTTP status, a stable reason code the
+// panel translates, and an English text that is safe to show.
+type aiFailure struct {
+	status  int
+	reason  string
+	message string
+}
+
+// aiFailureReasons maps the Gemini client's errors, whose texts are written to be shown, to
+// the reason codes of the API.
+var aiFailureReasons = []struct {
+	err    error
+	reason string
+}{
+	{gemini.ErrNotConfigured, "notConfigured"},
+	{gemini.ErrKeyRejected, "keyRejected"},
+	{gemini.ErrQuota, "quota"},
+	{gemini.ErrUnavailable, "unavailable"},
+	{gemini.ErrUnreachable, "unreachable"},
+	{gemini.ErrRejected, "rejected"},
+	{gemini.ErrUnreadable, "unreadable"},
+	{gemini.ErrEmpty, "empty"},
+	{gemini.ErrTooLong, "tooLong"},
+	{gemini.ErrBlocked, "blocked"},
+	{gemini.ErrMalformedCall, "malformed"},
+}
+
+// classifyAIFailure turns a failed chat into its answer and writes the cause to the panel's
+// log: the service's own status and message for a rejected request, the full error for an
+// unexpected one. Nothing but the safe text reaches the user.
+func classifyAIFailure(err error) aiFailure {
+	var service *gemini.ServiceError
+	if errors.As(err, &service) {
+		logging.Error.Printf("The AI service did not accept the assistant's request (%s)", service.Detail)
+	}
+	for _, known := range aiFailureReasons {
+		if errors.Is(err, known.err) {
+			if service == nil {
+				logging.Error.Printf("The server assistant failed: %s", known.err)
+			}
+			return aiFailure{status: http.StatusBadGateway, reason: known.reason, message: known.err.Error()}
 		}
 	}
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-		return "the assistant took too long to answer, try again"
-	}
-	if strings.HasPrefix(err.Error(), "the AI service answered with status ") {
-		// the client's own text: only the status, never what the service sent
-		return err.Error()
+		logging.Error.Printf("The server assistant took too long: %s", err)
+		return aiFailure{status: http.StatusGatewayTimeout, reason: "timeout", message: "the assistant took too long to answer, try again"}
 	}
 	logging.Error.Printf("The server assistant failed: %s", err)
-	return "the assistant could not answer, try again"
+	return aiFailure{status: http.StatusBadGateway, reason: "failed", message: "the assistant could not answer, try again"}
 }
 
 // recordAgentActivity writes the changes the assistant made to the server's activity log,

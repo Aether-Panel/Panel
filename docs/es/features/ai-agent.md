@@ -118,7 +118,7 @@ El panel no guarda nada más aparte de las entradas de actividad y las versiones
 | Límite | Valor |
 |---|---|
 | Archivos que puede leer o editar | Archivos de texto de hasta 1 MiB; los binarios se rechazan |
-| Contenido que puede escribir | Hasta 1 MiB por archivo en teoría; en la práctica mucho menos, porque cada respuesta de Gemini está limitada a 2048 tokens de salida |
+| Contenido que puede escribir | Hasta 1 MiB por archivo en teoría; en la práctica mucho menos, porque cada respuesta de Gemini está limitada a 8192 tokens de salida |
 | Listado de una carpeta | 1000 entradas |
 | Búsqueda | 8 carpetas de profundidad, 5000 entradas revisadas, 200 coincidencias, archivos de hasta 1 MiB, consultas de hasta 200 caracteres |
 | Una pregunta | Como mucho 10 rondas con Gemini, 8 operaciones por ronda, 30 operaciones en total y 120 segundos |
@@ -144,7 +144,7 @@ Cada pregunta nueva envía los mensajes anteriores solo como texto: el asistente
 | Un paso falla con *old_text was not found* o *appears N times* | El archivo cambió, o el texto que hay que sustituir no es único | Volver a preguntar; el asistente vuelve a leer antes el archivo. |
 | *too large* o *is a binary file* | El archivo supera 1 MiB, o no es de texto | Editarlo en la pestaña **Archivos** o por SFTP. |
 | *the server has used all of its disk space…* | Se ha alcanzado el límite de disco del servidor | Liberar espacio y volver a preguntar. |
-| *No pude responder ahora mismo.* | Gemini falló o tardó demasiado | Volver a intentarlo. Los cambios hechos antes del fallo están en el registro de actividad. |
+| Una tarjeta roja **No se pudo completar lo que pediste** (y un aviso emergente) | La tarea se detuvo; la tarjeta dice por qué: conexión con el panel perdida, el panel no responde, Gemini rechaza la clave, su límite de uso, Gemini saturado (tras 3 intentos), una respuesta demasiado larga, tiempo agotado… Véase [los fallos del chat](./ai-assistant.md#fallos-del-chat) | Seguir lo que indica la tarjeta. **Reintentar** vuelve a hacer la misma pregunta; no aparece cuando solo un administrador puede arreglar la causa (clave, ajuste, permiso). Los cambios hechos antes del fallo se mantienen, aparecen bajo la tarjeta y están en el registro de actividad. |
 
 ## Véase también
 

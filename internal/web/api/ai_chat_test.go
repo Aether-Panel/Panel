@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/SkyPanel/SkyPanel/v3/internal/models"
+	"github.com/SkyPanel/SkyPanel/v3/tools/toolkit/gemini"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -80,7 +81,9 @@ func TestAskGemini_ReportsFailures(t *testing.T) {
 
 	_, err := askGemini(context.Background(), "k", "i", []aiChatMessage{{Role: "user", Content: "x"}})
 	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(), "429")
-		assert.NotContains(t, err.Error(), "k")
+		assert.ErrorIs(t, err, gemini.ErrQuota)
+		failure := classifyAIFailure(err)
+		assert.Equal(t, "quota", failure.reason)
+		assert.Equal(t, http.StatusBadGateway, failure.status)
 	}
 }

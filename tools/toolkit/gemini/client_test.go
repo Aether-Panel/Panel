@@ -3,10 +3,13 @@ package gemini
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/SkyPanel/SkyPanel/v3/tools/toolkit"
 	"github.com/SkyPanel/SkyPanel/v3/tools/toolkit/agent"
@@ -49,7 +52,7 @@ func capture(t *testing.T, status int, body string) (*Client, *map[string]any, *
 		_, _ = w.Write([]byte(body))
 	}))
 	t.Cleanup(server.Close)
-	return &Client{APIKey: "s3cret", Endpoint: server.URL, HTTP: server.Client()}, &got, &header
+	return &Client{APIKey: "s3cret", Endpoint: server.URL, HTTP: server.Client(), Backoff: []time.Duration{time.Millisecond, time.Millisecond}}, &got, &header
 }
 
 func conversation() []agent.Message {
@@ -155,8 +158,13 @@ func TestGenerate_ReportsFailuresSafely(t *testing.T) {
 		want   error
 		text   string
 	}{
-		"http status":     {status: http.StatusTooManyRequests, body: `{"error":{"message":"key s3cret over quota"}}`, text: "the AI service answered with status 429"},
-		"server error":    {status: http.StatusInternalServerError, body: `oops`, text: "the AI service answered with status 500"},
+		"quota":           {status: http.StatusTooManyRequests, body: `{"error":{"message":"key s3cret over quota"}}`, want: ErrQuota},
+		"server error":    {status: http.StatusInternalServerError, body: `oops`, want: ErrUnavailable},
+		"overloaded":      {status: http.StatusServiceUnavailable, body: `{"error":{"code":503,"message":"The model is overloaded.","status":"UNAVAILABLE"}}`, want: ErrUnavailable},
+		"invalid key":     {status: http.StatusBadRequest, body: `{"error":{"code":400,"message":"API key not valid. Please pass a valid API key.","status":"INVALID_ARGUMENT","details":[{"reason":"API_KEY_INVALID"}]}}`, want: ErrKeyRejected},
+		"no permission":   {status: http.StatusForbidden, body: `{"error":{"code":403,"message":"Generative Language API has not been used","status":"PERMISSION_DENIED"}}`, want: ErrKeyRejected},
+		"bad request":     {status: http.StatusBadRequest, body: `{"error":{"code":400,"message":"Invalid JSON payload","status":"INVALID_ARGUMENT"}}`, want: ErrRejected},
+		"too long":        {status: http.StatusOK, body: `{"candidates":[{"content":{"parts":[]},"finishReason":"MAX_TOKENS"}]}`, want: ErrTooLong},
 		"bad json":        {status: http.StatusOK, body: `{"candidates":`, want: ErrUnreadable},
 		"no candidates":   {status: http.StatusOK, body: `{"candidates":[]}`, want: ErrEmpty},
 		"prompt blocked":  {status: http.StatusOK, body: `{"promptFeedback":{"blockReason":"SAFETY"}}`, want: ErrBlocked},
@@ -189,7 +197,7 @@ func TestGenerate_NeedsAKeyAndHandlesUnreachableService(t *testing.T) {
 	server := httptest.NewServer(http.NotFoundHandler())
 	url := server.URL
 	server.Close()
-	_, err = (&Client{APIKey: "s3cret", Endpoint: url}).Generate(context.Background(), "", conversation()[:1], nil)
+	_, err = (&Client{APIKey: "s3cret", Endpoint: url, Backoff: []time.Duration{time.Millisecond}}).Generate(context.Background(), "", conversation()[:1], nil)
 	assert.ErrorIs(t, err, ErrUnreachable)
 	assert.False(t, strings.Contains(err.Error(), url), "the endpoint is not leaked")
 }
@@ -199,4 +207,96 @@ func TestGenerate_LimitsTheResponseBody(t *testing.T) {
 	c, _, _ := capture(t, http.StatusOK, huge)
 	_, err := c.Generate(context.Background(), "", conversation()[:1], nil)
 	assert.ErrorIs(t, err, ErrUnreadable)
+}
+
+func TestGenerate_ServiceErrorKeepsTheCauseForTheLog(t *testing.T) {
+	c, _, _ := capture(t, http.StatusTooManyRequests, `{"error":{"code":429,"message":"Quota exceeded for metric generate_content_free_tier_requests","status":"RESOURCE_EXHAUSTED","details":[{"retryDelay":"45s"}]}}`)
+	_, err := c.Generate(context.Background(), "", conversation()[:1], nil)
+	var service *ServiceError
+	require.ErrorAs(t, err, &service)
+	assert.Equal(t, http.StatusTooManyRequests, service.StatusCode)
+	assert.Equal(t, 45*time.Second, service.RetryAfter)
+	assert.Contains(t, service.Detail, "RESOURCE_EXHAUSTED")
+	assert.Contains(t, service.Detail, "Quota exceeded")
+	assert.Equal(t, ErrQuota.Error(), err.Error(), "the user only sees the safe text")
+}
+
+// sequence answers with the given statuses in turn, then 200
+func sequence(t *testing.T, statuses ...int) (*Client, *atomic.Int32) {
+	t.Helper()
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		n := int(calls.Add(1))
+		if n <= len(statuses) {
+			w.WriteHeader(statuses[n-1])
+			if statuses[n-1] == http.StatusTooManyRequests {
+				_, _ = w.Write([]byte(`{"error":{"code":429,"status":"RESOURCE_EXHAUSTED","details":[{"retryDelay":"0.001s"}]}}`))
+			}
+			return
+		}
+		_, _ = w.Write([]byte(`{"candidates":[{"content":{"parts":[{"text":"ok"}]}}]}`))
+	}))
+	t.Cleanup(server.Close)
+	return &Client{APIKey: "k", Endpoint: server.URL, Backoff: []time.Duration{time.Millisecond, time.Millisecond}}, &calls
+}
+
+func TestGenerate_RetriesWhileTheServiceIsBusy(t *testing.T) {
+	c, calls := sequence(t, http.StatusServiceUnavailable, http.StatusInternalServerError)
+	msg, err := c.Generate(context.Background(), "", conversation()[:1], nil)
+	require.NoError(t, err)
+	assert.Equal(t, "ok", msg.Parts[0].Text)
+	assert.Equal(t, int32(3), calls.Load())
+
+	c, calls = sequence(t, http.StatusServiceUnavailable, http.StatusServiceUnavailable, http.StatusServiceUnavailable)
+	_, err = c.Generate(context.Background(), "", conversation()[:1], nil)
+	assert.ErrorIs(t, err, ErrUnavailable, "three attempts in all")
+	assert.Equal(t, int32(3), calls.Load())
+
+	c, calls = sequence(t, http.StatusTooManyRequests)
+	_, err = c.Generate(context.Background(), "", conversation()[:1], nil)
+	require.NoError(t, err, "a short per-minute limit is waited out")
+	assert.Equal(t, int32(2), calls.Load())
+}
+
+func TestGenerate_DoesNotRetryWhatCannotGetBetter(t *testing.T) {
+	for _, status := range []int{http.StatusBadRequest, http.StatusForbidden, http.StatusNotFound} {
+		c, calls := sequence(t, status)
+		_, err := c.Generate(context.Background(), "", conversation()[:1], nil)
+		require.Error(t, err)
+		assert.Equal(t, int32(1), calls.Load(), "status %d", status)
+	}
+	c, _, _ := capture(t, http.StatusTooManyRequests, `{"error":{"details":[{"retryDelay":"3600s"}]}}`)
+	start := time.Now()
+	_, err := c.Generate(context.Background(), "", conversation()[:1], nil)
+	assert.ErrorIs(t, err, ErrQuota)
+	assert.Less(t, time.Since(start), time.Second, "a daily limit is reported at once")
+}
+
+func TestGenerate_StopsRetryingWhenTheTaskEnds(t *testing.T) {
+	c, _ := sequence(t, http.StatusServiceUnavailable, http.StatusServiceUnavailable)
+	c.Backoff = []time.Duration{time.Hour, time.Hour}
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	_, err := c.Generate(ctx, "", conversation()[:1], nil)
+	assert.True(t, errors.Is(err, context.DeadlineExceeded))
+}
+
+func TestGenerate_CapsThinkingAndKeepsThoughtSignatures(t *testing.T) {
+	c, got, _ := capture(t, http.StatusOK, `{"candidates":[{"content":{"parts":[
+		{"functionCall":{"name":"read_file","args":{"path":"a"}},"thoughtSignature":"c2ln"}
+	]}}]}`)
+	c.ThinkingBudget = 1024
+	msg, err := c.Generate(context.Background(), "", conversation()[:1], []toolkit.Tool{stubTool{"read_file"}})
+	require.NoError(t, err)
+	gen := (*got)["generationConfig"].(map[string]any)
+	assert.Equal(t, map[string]any{"thinkingBudget": float64(1024)}, gen["thinkingConfig"])
+	require.Len(t, msg.Parts, 1)
+	assert.Equal(t, "c2ln", msg.Parts[0].Signature)
+
+	// the signature goes back with the call in the next request
+	history := []agent.Message{conversation()[0], msg}
+	_, err = c.Generate(context.Background(), "", history, nil)
+	require.NoError(t, err)
+	model := (*got)["contents"].([]any)[1].(map[string]any)
+	assert.Equal(t, "c2ln", model["parts"].([]any)[0].(map[string]any)["thoughtSignature"])
 }

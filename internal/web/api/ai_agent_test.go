@@ -384,7 +384,21 @@ func TestAssistantAgent_ModelErrorsAreSafe(t *testing.T) {
 	rec := h.ask(t, "srv1", "hello")
 	assert.Equal(t, http.StatusBadGateway, rec.Code)
 	assert.Contains(t, rec.Body.String(), gemini.ErrBlocked.Error())
+	assert.Contains(t, rec.Body.String(), `"reason":"blocked"`)
 	assert.Contains(t, rec.Body.String(), `"steps":[]`)
+
+	h.model.respond = func(int, []agent.Message) (agent.Message, error) {
+		return agent.Message{}, &gemini.ServiceError{Kind: gemini.ErrKeyRejected, StatusCode: 400, Detail: "status 400 API_KEY_INVALID: API key not valid"}
+	}
+	rec = h.ask(t, "srv1", "hello")
+	assert.Equal(t, http.StatusBadGateway, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"reason":"keyRejected"`)
+	assert.NotContains(t, rec.Body.String(), "API_KEY_INVALID", "the service's own text stays in the log")
+
+	h.model.respond = func(int, []agent.Message) (agent.Message, error) { return agent.Message{}, context.DeadlineExceeded }
+	rec = h.ask(t, "srv1", "hello")
+	assert.Equal(t, http.StatusGatewayTimeout, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"reason":"timeout"`)
 
 	h.model.respond = func(int, []agent.Message) (agent.Message, error) {
 		return agent.Message{}, errors.New("dial tcp 10.0.0.7:443: key=secret")
@@ -393,6 +407,7 @@ func TestAssistantAgent_ModelErrorsAreSafe(t *testing.T) {
 	assert.Equal(t, http.StatusBadGateway, rec.Code)
 	assert.NotContains(t, rec.Body.String(), "secret")
 	assert.NotContains(t, rec.Body.String(), "10.0.0.7")
+	assert.Contains(t, rec.Body.String(), `"reason":"failed"`)
 }
 
 func TestAssistantConfirm_ValidatesTheRequest(t *testing.T) {

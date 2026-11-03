@@ -507,7 +507,7 @@ The three routes need `panel.settings.geminiApiKey` (otherwise `400 {"error": "G
 { "messages": [ { "role": "user", "content": "Why does my server lag?" } ], "language": "en" }
 ```
 
-1 to 20 messages of 1 to 2000 characters, `role` `user` or `assistant`, the last one from the user. The assistant sees the server's status, players, last day of performance, crashes and recent console. Answer: `{"reply": "...", "sources": ["status", "console"]}`; `502` when the AI service fails.
+1 to 20 messages of 1 to 2000 characters, `role` `user` or `assistant`, the last one from the user. The assistant sees the server's status, players, last day of performance, crashes and recent console. Answer: `{"reply": "...", "sources": ["status", "console"]}`. When the AI service fails: `502` (`504` for a timeout) with `{"error": "...", "reason": "..."}`, where `reason` is one of `keyRejected`, `quota`, `unavailable`, `unreachable`, `rejected`, `unreadable`, `empty`, `tooLong`, `blocked`, `malformed`, `timeout` or `failed` (a missing key is `400` with `reason` `notConfigured`). The web client shows a text per `reason`; the exact cause is in the panel log.
 
 **Agent mode.** When `panel.settings.aiFileTools` is on (the default), the request has a signed-in user and that user holds `server.files.view` on the server, the assistant can also use file tools on this server (and only this one): reading tools with `server.files.view`, creating, changing, moving and deleting tools with `server.files.edit`. Reads and creations run during the request; changes to existing data stop for confirmation. The answer then is:
 
@@ -533,7 +533,7 @@ The three routes need `panel.settings.geminiApiKey` (otherwise `400 {"error": "G
 | `steps` | The tool calls of this request, in order. `kind` is `read`, `create`, `modify` or `destructive` (empty for a refused call); `status` is `done`, `failed`, `declined` or `refused` (not run: unknown tool, missing scope or a limit); `error` explains a failure or refusal; `paths` are relative to the server folder |
 | `pending` | `null`, or the calls waiting for the user (`status` `pending`), the single-use `token` and `expiresAt` (10 minutes) |
 
-When `pending` is set, `reply` is the model's explanation of those calls and may be empty. In agent mode a failed task answers `502 {"error": "...", "steps": [...], "pending": null}` with the steps that ran before it failed. The changes made are recorded in the [activity log](#activity-log) as `ai.<tool>`. Tools, limits and isolation: [AI agent toolkit](../../backend/14-ai-toolkit.md).
+When `pending` is set, `reply` is the model's explanation of those calls and may be empty. In agent mode a failed task answers `502` (`504` for a timeout) `{"error": "...", "reason": "...", "steps": [...], "pending": null}` with the steps that ran before it failed. The changes made are recorded in the [activity log](#activity-log) as `ai.<tool>`. Tools, limits and isolation: [AI agent toolkit](../../backend/14-ai-toolkit.md).
 
 ### `POST /api/servers/:serverId/ai/chat/confirm`
 
@@ -551,7 +551,7 @@ Answers a pending confirmation. Scope `server.console`; counts against the same 
 | `403 ErrNoPermission` | No signed-in user, or the caller no longer has `server.files.view` on the server. Without `server.files.edit`, approved changes are not run and come back as `refused` steps |
 | `409 ErrAIConfirmationInvalid` | The token is unknown, expired, already used or replaced by a newer request of the same user on the same server; it belongs to another user or server; an approved ID was not pending; or `panel.settings.aiFileTools` was turned off meanwhile. Pending confirmations are kept in memory, so a panel restart also invalidates them |
 | `429` | Quota |
-| `502` | The assistant failed while continuing: `{"error": "...", "steps": [...], "pending": null}` |
+| `502`, `504` | The assistant failed while continuing: `{"error": "...", "reason": "...", "steps": [...], "pending": null}` |
 
 A token sent by another user or for another server is refused without being used up. An answer naming an ID that was not pending uses the token up.
 

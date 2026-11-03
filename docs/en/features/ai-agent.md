@@ -118,7 +118,7 @@ The panel keeps nothing else apart from the activity entries and file versions a
 | Limit | Value |
 |---|---|
 | Files it can read or edit | Text files up to 1 MiB; binary files are refused |
-| Content it can write | Up to 1 MiB per file in theory; in practice much less, because each Gemini answer is limited to 2048 output tokens |
+| Content it can write | Up to 1 MiB per file in theory; in practice much less, because each Gemini answer is limited to 8192 output tokens |
 | Folder listing | 1000 entries |
 | Search | 8 folders deep, 5000 entries looked at, 200 matches, files up to 1 MiB, queries up to 200 characters |
 | One question | At most 10 rounds with Gemini, 8 operations per round, 30 operations in total, 120 seconds |
@@ -144,7 +144,7 @@ Each new question sends the previous messages as text only: the assistant does n
 | A step fails with *old_text was not found* or *appears N times* | The file changed, or the text to replace is not unique | Ask again; the assistant reads the file again first. |
 | *too large* or *is a binary file* | The file is over 1 MiB, or not text | Edit it in the File Manager or over SFTP. |
 | *the server has used all of its disk space…* | The server's disk limit is reached | Free space, then ask again. |
-| *I could not answer right now.* | Gemini failed or took too long | Try again. Changes made before the failure are in the activity log. |
+| A red **What you asked for could not be done** card (and a toast) | The task stopped; the card says why: connection to the panel lost, the panel not answering, Gemini rejecting the key, its usage limit, Gemini overloaded (after 3 attempts), an answer too long, a timeout… See [the chat failures](./ai-assistant.md#chat-failures) | Follow what the card says. **Try again** asks the same question once more; it is not offered when only an administrator can fix the cause (key, setting, permission). Changes made before the failure stay, are listed under the card and are in the activity log. |
 
 ## See also
 

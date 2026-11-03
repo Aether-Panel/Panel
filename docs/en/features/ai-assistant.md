@@ -46,7 +46,7 @@ When **Let the assistant work with server files** is on (`panel.settings.aiFileT
 
 Prompt safety: console lines and the server context are untrusted text written by the game and its players. The panel wraps them in `<logs>…</logs>` or `<server-context>…</server-context>` and instructs the model to treat them as data only. The assistant is also told never to suggest deleting worlds or files without a backup first and never to ask for passwords or keys.
 
-Model settings: the chat uses temperature 0.4 and at most 1200 output tokens (2048 in agent mode). The analysis requests a JSON response with the fixed schema `{ summary, suggestions[], rootCauses[] }`.
+Model settings: the chat uses temperature 0.4 and at most 4096 output tokens, up to 512 of them thinking (8192 and 1024 in agent mode). The analysis requests a JSON response with the fixed schema `{ summary, suggestions[], rootCauses[] }`.
 
 The AI requests themselves are not recorded in the server activity log. In agent mode, every change the assistant makes to the files is recorded as `ai.<tool>` (for example `ai.edit_file`), see [Activity log](./activity-and-access-log.md).
 
@@ -140,6 +140,29 @@ Other things to know:
 - **Hide AI Console Analysis** applies to every user (the web reads it from the public config, `GET /api/config`) and on the server too: `/ai/analyze` refuses the call. It does not affect the **Assistant** button, which stays available while a key is set.
 - Requests made with an OAuth2 client (no user attached) share a single rate-limit bucket.
 
+## Chat failures
+
+When a question cannot be answered, the chat says so twice: a toast, and a red **What you asked for could not be done** card in the conversation that stays there. The card says what happened in plain words, lists the steps done before it stopped (agent mode), and notes when changes were made, which stay and are in the activity log. The last failed question has a **Try again** button that asks it once more; it is not shown when only an administrator can fix the cause (key, setting or permission).
+
+Before giving up, the panel tries each Gemini call up to three times, 1 s and then 3 s apart, while Gemini is overloaded (5xx) or cannot be reached, and after a `429` that asks to wait 10 s or less.
+
+| Card text (beginning) | `reason` | Cause | What to do |
+|---|---|---|---|
+| *The connection to the panel was lost…* / *There is no internet connection…* | none (no answer) | The browser lost its connection before the answer came | Check the connection and try again. |
+| *The panel did not answer (code 502/503/504)…* | none | A proxy in front of the panel answered: the panel is restarting, updating or down | Wait and try again. |
+| *Gemini rejected the API key…* | `keyRejected` | The key is invalid, revoked, restricted to other APIs or IPs, or the Generative Language API is not enabled | An administrator checks the key in Google AI Studio and in **Settings → General**. |
+| *The Gemini key reached its usage limit…* | `quota` | Requests per minute or per day of the key's plan are used up (the free tier is low) | Wait, or raise the plan of the key. |
+| *Gemini is overloaded or unavailable right now…* | `unavailable` | Gemini answered 5xx three times | Try again in a moment. |
+| *The panel could not connect to Gemini…* | `unreachable` | The panel host cannot reach Google (firewall, DNS, proxy) | Allow outbound HTTPS to `generativelanguage.googleapis.com`. |
+| *Gemini rejected the request…* | `rejected` | Gemini refused the request for another reason (for example an unknown model) | Read the panel log line `The AI service did not accept the assistant's request (…)`. |
+| *The answer did not fit in Gemini's limit…* | `tooLong` | The answer (for example a large file to write) used all 8192 output tokens | Ask for the task in parts, one file at a time. |
+| *Gemini refused to answer because of its safety filters…* | `blocked` | Google's safety filters stopped the answer | Rephrase the request. |
+| *Gemini answered with nothing…*, *…could not be read*, *Gemini tried an operation that could not be read…* | `empty`, `unreadable`, `malformed` | The model gave no usable answer | Try again, or put it in other words. |
+| *The assistant took too long and stopped…* | `timeout` (HTTP 504) | The task passed its time limit (120 s in agent mode, 90 s in plain chat) | Ask for the task in parts. |
+| *The assistant failed with an internal error…* | `failed` | Something unexpected; the cause is in the panel log | Read the log line `The server assistant failed: …`. |
+
+The panel log always has the exact cause of a Gemini refusal, with Google's status and message, for example `The AI service did not accept the assistant's request (status 429 RESOURCE_EXHAUSTED: Quota exceeded…)`. The key never appears in it.
+
 ## Troubleshooting
 
 | Message | Cause | Fix |
@@ -150,9 +173,10 @@ Other things to know:
 | HTTP 403 (UI: "You need access to this server's console to use the assistant.") | The user lacks `server.console` on that server | Grant the console permission to the sub-user. |
 | `a conversation has between 1 and 20 messages`, `each message has between 1 and 2000 characters`, `the last message must be the user's question`, `messages are from the user or the assistant` | Invalid chat payload (API clients) | Fix the request body. The panel UI already trims history to 20 messages. |
 | `No logs provided for analysis` / `Invalid payload` | Empty or malformed analysis request | Send a non-empty `logs` array. |
-| `could not reach the AI service` / `Failed to connect to AI API` | The panel host cannot reach Google (firewall, DNS, proxy) | Allow outbound HTTPS to `generativelanguage.googleapis.com`. |
-| `the AI service answered with status N` / `AI API returned status N` | Google refused the call: invalid or revoked key (400/403), quota exhausted (429), service error (5xx) | Check the key and its quota in Google AI Studio. |
-| `the AI service sent an empty answer`, `AI returned invalid JSON structure`, `Empty response from AI` | The model produced no usable answer (for example, blocked by Google's safety filters) | Retry, or send fewer or different lines. |
+| Chat: a red card *What you asked for could not be done* | See [Chat failures](#chat-failures) | Follow the card. |
+| Log analysis: `Failed to connect to AI API` | The panel host cannot reach Google (firewall, DNS, proxy) | Allow outbound HTTPS to `generativelanguage.googleapis.com`. |
+| Log analysis: `AI API returned status N` | Google refused the call: invalid or revoked key (400/403), quota exhausted (429), service error (5xx) | Check the key and its quota in Google AI Studio. |
+| Log analysis: `AI returned invalid JSON structure`, `Empty response from AI` | The model produced no usable answer (for example, blocked by Google's safety filters) | Retry, or send fewer or different lines. |
 | `This request expired. Ask again.` (HTTP 409, `ErrAIConfirmationInvalid`) | A change waiting for approval expired (10 minutes), was already answered, was replaced or the panel restarted | Ask again. See [AI assistant: working with files](./ai-agent.md#troubleshooting). |
 | The answer says it has no information about something | The context piece was not collected (node offline, query disabled, no metrics yet) | Check "Looked at: …" under the answer to see which sources were available. |
 
