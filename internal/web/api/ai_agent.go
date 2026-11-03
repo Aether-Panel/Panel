@@ -170,7 +170,7 @@ func runAssistantAgent(c *gin.Context, apiKey string, server *models.Server, req
 // @Failure 403 {object} skypanel.ErrorResponse
 // @Failure 409 {object} skypanel.ErrorResponse "ErrAIConfirmationInvalid: expired, already answered, or for another user or server"
 // @Failure 429 {object} map[string]interface{}
-// @Failure 502 {object} map[string]interface{}
+// @Failure 422 {object} map[string]interface{} "The AI service failed: {error, reason, steps}"
 // @Param id path string true "Server ID"
 // @Param body body aiConfirmRequest true "The token and the approved action IDs"
 // @Tags Servers
@@ -257,7 +257,9 @@ func answerAgent(c *gin.Context, server *models.Server, user *models.User, out a
 }
 
 // aiFailure is how a failed chat is answered: the HTTP status, a stable reason code the
-// panel translates, and an English text that is safe to show.
+// panel translates, and an English text that is safe to show. The status is 422, not 502 or
+// 504: a proxy in front of the panel (Cloudflare) replaces a 502 or 504 with its own page, and
+// the reason never reached the browser.
 type aiFailure struct {
 	status  int
 	reason  string
@@ -296,15 +298,15 @@ func classifyAIFailure(err error) aiFailure {
 			if service == nil {
 				logging.Error.Printf("The server assistant failed: %s", known.err)
 			}
-			return aiFailure{status: http.StatusBadGateway, reason: known.reason, message: known.err.Error()}
+			return aiFailure{status: http.StatusUnprocessableEntity, reason: known.reason, message: known.err.Error()}
 		}
 	}
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		logging.Error.Printf("The server assistant took too long: %s", err)
-		return aiFailure{status: http.StatusGatewayTimeout, reason: "timeout", message: "the assistant took too long to answer, try again"}
+		return aiFailure{status: http.StatusUnprocessableEntity, reason: "timeout", message: "the assistant took too long to answer, try again"}
 	}
 	logging.Error.Printf("The server assistant failed: %s", err)
-	return aiFailure{status: http.StatusBadGateway, reason: "failed", message: "the assistant could not answer, try again"}
+	return aiFailure{status: http.StatusUnprocessableEntity, reason: "failed", message: "the assistant could not answer, try again"}
 }
 
 // recordAgentActivity writes the changes the assistant made to the server's activity log,

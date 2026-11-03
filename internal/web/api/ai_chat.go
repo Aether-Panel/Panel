@@ -87,7 +87,7 @@ func validateChat(req *aiChatRequest) error {
 // @Success 200 {object} aiAgentResponse
 // @Failure 400 {object} map[string]interface{}
 // @Failure 429 {object} map[string]interface{}
-// @Failure 502 {object} map[string]interface{}
+// @Failure 422 {object} map[string]interface{} "The AI service failed: {error, reason, steps}"
 // @Param id path string true "Server ID"
 // @Param body body aiChatRequest true "The conversation, oldest first, ending with the user's question"
 // @Tags Servers

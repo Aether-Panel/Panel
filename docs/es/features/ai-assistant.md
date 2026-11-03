@@ -142,7 +142,7 @@ Otros aspectos a tener en cuenta:
 
 ## Fallos del chat
 
-Cuando una pregunta no se puede responder, el chat lo dice dos veces: con un aviso emergente y con una tarjeta roja **No se pudo completar lo que pediste** que se queda en la conversación. La tarjeta explica lo que pasó con palabras sencillas, enumera los pasos hechos antes de detenerse (modo agente) y avisa cuando se hicieron cambios, que se mantienen y están en el registro de actividad. La última pregunta fallida tiene un botón **Reintentar** que la vuelve a hacer; no aparece cuando solo un administrador puede arreglar la causa (clave, ajuste o permiso).
+Cuando una pregunta no se puede responder, el chat lo dice dos veces: con un aviso emergente y con una tarjeta roja **No se pudo completar lo que pediste** que se queda en la conversación. La tarjeta explica lo que pasó con palabras sencillas, enumera los pasos hechos antes de detenerse (modo agente) y avisa cuando se hicieron cambios, que se mantienen y están en el registro de actividad. La última pregunta fallida tiene un botón **Reintentar** que la vuelve a hacer; no aparece cuando volver a preguntar no puede servir (clave, ajuste, permiso o la clave sin cuota).
 
 Antes de rendirse, el panel intenta cada llamada a Gemini hasta tres veces, con 1 s y luego 3 s de espera, mientras Gemini esté saturado (5xx) o no se alcance, y tras un `429` que pida esperar 10 s o menos.
 
@@ -158,7 +158,7 @@ Antes de rendirse, el panel intenta cada llamada a Gemini hasta tres veces, con 
 | *La respuesta no cabía en el límite de Gemini…* | `tooLong` | La respuesta (por ejemplo, un archivo grande que escribir) agotó los 8192 tokens de salida | Pedir la tarea por partes, un archivo cada vez. |
 | *Gemini se negó a responder por sus filtros de seguridad…* | `blocked` | Los filtros de seguridad de Google pararon la respuesta | Reformular la petición. |
 | *Gemini respondió sin contenido…*, *…no se pudo leer*, *Gemini intentó una operación que no se pudo leer…* | `empty`, `unreadable`, `malformed` | El modelo no dio una respuesta utilizable | Reintentar o decirlo con otras palabras. |
-| *El asistente tardó demasiado y se detuvo…* | `timeout` (HTTP 504) | La tarea superó su tiempo máximo (120 s en modo agente, 90 s en el chat simple) | Pedir la tarea por partes. |
+| *El asistente tardó demasiado y se detuvo…* | `timeout` | La tarea superó su tiempo máximo (120 s en modo agente, 90 s en el chat simple) | Pedir la tarea por partes. |
 | *El asistente falló por un error interno…* | `failed` | Algo inesperado; la causa está en el log del panel | Leer la línea del log `The server assistant failed: …`. |
 
 El log del panel siempre tiene la causa exacta de un rechazo de Gemini, con el estado y el mensaje de Google, por ejemplo `The AI service did not accept the assistant's request (status 429 RESOURCE_EXHAUSTED: Quota exceeded…)`. La clave nunca aparece en él.

@@ -84,6 +84,6 @@ func TestAskGemini_ReportsFailures(t *testing.T) {
 		assert.ErrorIs(t, err, gemini.ErrQuota)
 		failure := classifyAIFailure(err)
 		assert.Equal(t, "quota", failure.reason)
-		assert.Equal(t, http.StatusBadGateway, failure.status)
+		assert.Equal(t, http.StatusUnprocessableEntity, failure.status, "not 502: a proxy would hide the reason")
 	}
 }

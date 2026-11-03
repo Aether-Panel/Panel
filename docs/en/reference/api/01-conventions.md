@@ -69,7 +69,7 @@ Exceptions to that shape:
 
 An unexpected failure (database, file system, network) answers its status (usually `500`) with code `ErrInternal` and the message "internal error, the details are in the panel log". The real reason is only written to the panel log. Errors the panel raises on purpose keep their code even with a `5xx` status (for example `ErrDatabaseNotAvailable`, `ErrNodeHasServers`).
 
-For that reason, routes whose failure the administrator must read (email, Discord, Cloudflare and S3 tests, modpack sources, subdomain changes) answer `422` instead of `502`, so the text reaches the browser.
+For that reason, routes whose failure the administrator must read (email, Discord, Cloudflare and S3 tests, modpack sources, subdomain changes, the server assistant) answer `422` instead of `502`, so the text reaches the browser.
 
 ### Node authentication failures
 
@@ -88,7 +88,7 @@ A node only checks the panel's token; the panel has already checked the user's p
 | `404` | The object does not exist, or the caller may not know it exists |
 | `409` | Conflict with the current state: disk full (`ErrDiskLimitExceeded`), port taken, backup cap (`ErrBackupLimit`), server owner (`ErrServerOwner`), database host still in use (`ErrDatabaseHostInUse`), server ports taken on the transfer target (`ErrTransferPortsTaken`), the server already being transferred (`ErrTransferRunning`) or writing a backup (`ErrTransferBackupRunning`), archive name taken (`ErrFileExists`), the assistant's confirmation expired or already answered (`ErrAIConfirmationInvalid`), subdomain taken, another job running |
 | `413` | Task body too large |
-| `422` | An external service refused (mail server, Discord, Cloudflare, S3, Modrinth/CurseForge) |
+| `422` | An external service refused (mail server, Discord, Cloudflare, S3, Modrinth/CurseForge, Gemini for the server assistant) |
 | `429` | Too many attempts (`ErrTooManyAttempts`), AI quota, subdomain or notification test sent too often |
 | `500` | Internal error (see above) |
 | `502` | The node or an upstream service could not be reached (some routes); the node refused the panel's credentials (`ErrNodeAuthFailed`); Modrinth offered a file that is not a plain `.jar` name (`ErrPluginBadFileName`) |

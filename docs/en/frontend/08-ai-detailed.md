@@ -107,7 +107,7 @@ A piece that fails or is slow is skipped; the rest is still sent. The whole requ
 | 400 | No API key configured (`"Gemini API Key is not configured. Please add it in Settings."`), invalid JSON, or a validation rule above |
 | 403 | The user lacks `server.console` on the server |
 | 429 | Rate limit |
-| 502 | Gemini unreachable, non-200 answer, unreadable or empty answer (the message says which). In agent mode the body is `{"error": "…", "steps": [...], "pending": null}`, with the steps that ran before the failure |
+| 422 | The AI service failed: `{"error": "…", "reason": "…"}`, and in agent mode also `"steps": [...]` (the ones that ran before the failure) and `"pending": null`. Not 502, which Cloudflare would replace with its own page |
 
 ### `POST /ai/chat/confirm`
 
@@ -125,7 +125,7 @@ Answers the card. Request:
 | 403 `ErrNoPermission` | No signed-in user, or no `server.files.view` on the server any more (without `server.files.edit`, approved edits come back as `refused` steps instead) |
 | 409 `ErrAIConfirmationInvalid` | Unknown, expired (10 min), already used or replaced token; token of another user or server; an ID that was not pending; or `panel.settings.aiFileTools` turned off meanwhile |
 | 429 | Rate limit |
-| 502 | The task failed afterwards, as for the chat |
+| 422 | The task failed afterwards, as for the chat |
 
 ### `POST /ai/analyze`
 
@@ -171,7 +171,7 @@ Errors: `400` (no API key, invalid payload, `"No logs provided for analysis"`), 
 - The pending request is kept in `sessionStorage` (`assistant_<serverId>_pending`), so the card survives a reload in the same tab session. **New conversation** clears it (the token is not sent anywhere; it expires on the panel).
 - On the confirmation, a `409` or the code `ErrAIConfirmationInvalid` removes the card and shows "This request expired. Ask again."; a `403` removes it and shows the no-permission message; other errors keep it so it can be answered again.
 - Replies are rendered by a small built-in Markdown renderer (bold, inline code, lists, fenced code blocks), not by injecting HTML.
-- **Failures.** A failed question is reported twice: a toast (`sileo.error`) and a `FailureReport` card in the chat (`role="alert"`, title "What you asked for could not be done") that stays in the conversation. Its text comes from the `reason` of the answer (`servers.assistant.errors.reasons.<reason>`); without one, from the status (429 limit, 403 no permission, 401 session expired, 400 with "api key" not configured, 502/503/504 the panel not answering), and with no answer at all from the connection (offline or lost). The steps of a failed agent task are listed under the card, with a note when changes were made. The last failed question has a **Try again** button that asks it again without repeating it in the chat; it is hidden for causes only an administrator can fix (400, 401, 403, `keyRejected`, `notConfigured`). See [Chat failures](../features/ai-assistant.md#chat-failures).
+- **Failures.** A failed question is reported twice: a toast (`sileo.error`) and a `FailureReport` card in the chat (`role="alert"`, title "What you asked for could not be done") that stays in the conversation. Its text comes from the `reason` of the answer (`servers.assistant.errors.reasons.<reason>`); without one, from the status (429 limit, 403 no permission, 401 session expired, 400 with "api key" not configured, 502/503/504 the panel not answering), and with no answer at all from the connection (offline or lost). The steps of a failed agent task are listed under the card, with a note when changes were made. The last failed question has a **Try again** button that asks it again without repeating it in the chat; it is hidden when asking again cannot help (400, 401, 403, `keyRejected`, `notConfigured`, `quota`). See [Chat failures](../features/ai-assistant.md#chat-failures).
 
 ### AI console analysis (`features/servers/[id]/ai-summary.tsx`)
 

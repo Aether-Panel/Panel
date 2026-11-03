@@ -142,7 +142,7 @@ Other things to know:
 
 ## Chat failures
 
-When a question cannot be answered, the chat says so twice: a toast, and a red **What you asked for could not be done** card in the conversation that stays there. The card says what happened in plain words, lists the steps done before it stopped (agent mode), and notes when changes were made, which stay and are in the activity log. The last failed question has a **Try again** button that asks it once more; it is not shown when only an administrator can fix the cause (key, setting or permission).
+When a question cannot be answered, the chat says so twice: a toast, and a red **What you asked for could not be done** card in the conversation that stays there. The card says what happened in plain words, lists the steps done before it stopped (agent mode), and notes when changes were made, which stay and are in the activity log. The last failed question has a **Try again** button that asks it once more; it is not shown when asking again cannot help (key, setting, permission, or the key out of quota).
 
 Before giving up, the panel tries each Gemini call up to three times, 1 s and then 3 s apart, while Gemini is overloaded (5xx) or cannot be reached, and after a `429` that asks to wait 10 s or less.
 
@@ -158,7 +158,7 @@ Before giving up, the panel tries each Gemini call up to three times, 1 s and th
 | *The answer did not fit in Gemini's limit…* | `tooLong` | The answer (for example a large file to write) used all 8192 output tokens | Ask for the task in parts, one file at a time. |
 | *Gemini refused to answer because of its safety filters…* | `blocked` | Google's safety filters stopped the answer | Rephrase the request. |
 | *Gemini answered with nothing…*, *…could not be read*, *Gemini tried an operation that could not be read…* | `empty`, `unreadable`, `malformed` | The model gave no usable answer | Try again, or put it in other words. |
-| *The assistant took too long and stopped…* | `timeout` (HTTP 504) | The task passed its time limit (120 s in agent mode, 90 s in plain chat) | Ask for the task in parts. |
+| *The assistant took too long and stopped…* | `timeout` | The task passed its time limit (120 s in agent mode, 90 s in plain chat) | Ask for the task in parts. |
 | *The assistant failed with an internal error…* | `failed` | Something unexpected; the cause is in the panel log | Read the log line `The server assistant failed: …`. |
 
 The panel log always has the exact cause of a Gemini refusal, with Google's status and message, for example `The AI service did not accept the assistant's request (status 429 RESOURCE_EXHAUSTED: Quota exceeded…)`. The key never appears in it.
