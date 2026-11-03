@@ -288,7 +288,7 @@ export function CrashReportDialog({ serverId, report, onOpenChange }: Readonly<{
                 // the scroller stays focusable for keyboard scrolling (as in the console); the list
                 // keeps its own semantics and name
                 <div
-                  tabIndex={0}
+                  tabIndex={0} // NOSONAR: a scrolling region must be focusable to scroll it with the keyboard (WCAG 2.1.1, axe scrollable-region-focusable)
                   className="custom-scrollbar max-h-[min(24rem,50dvh)] overflow-auto rounded-lg border border-border/60 bg-background py-2 font-mono text-[12px] leading-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                 >
                   <ol aria-labelledby="crash-log-title">
