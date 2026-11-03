@@ -285,20 +285,27 @@ export function CrashReportDialog({ serverId, report, onOpenChange }: Readonly<{
               {report.lines.length === 0 ? (
                 <p className="text-sm text-muted-foreground">{t('servers.crashes.dialog.noLines')}</p>
               ) : (
-                <ol className="custom-scrollbar max-h-[min(24rem,50dvh)] overflow-auto rounded-lg border border-border/60 bg-background py-2 font-mono text-[12px] leading-5" tabIndex={0} aria-labelledby="crash-log-title">
-                  {keyedByContent(report.lines).map(({ key: lineKey, item: line }, index) => (
-                    <li
-                      key={lineKey}
-                      className={cn(
-                        'flex gap-3 px-3',
-                        ERROR_LINE.test(line) && 'bg-destructive/10 text-destructive-bright',
-                      )}
-                    >
-                      <span aria-hidden="true" className="w-6 shrink-0 select-none text-right text-muted-foreground/40 tabular-nums">{index + 1}</span>
-                      <span className="min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere]"><AnsiText text={line} /></span>
-                    </li>
-                  ))}
-                </ol>
+                // the scroller stays focusable for keyboard scrolling (as in the console); the list
+                // keeps its own semantics and name
+                <div
+                  tabIndex={0}
+                  className="custom-scrollbar max-h-[min(24rem,50dvh)] overflow-auto rounded-lg border border-border/60 bg-background py-2 font-mono text-[12px] leading-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                >
+                  <ol aria-labelledby="crash-log-title">
+                    {keyedByContent(report.lines).map(({ key: lineKey, item: line }, index) => (
+                      <li
+                        key={lineKey}
+                        className={cn(
+                          'flex gap-3 px-3',
+                          ERROR_LINE.test(line) && 'bg-destructive/10 text-destructive-bright',
+                        )}
+                      >
+                        <span aria-hidden="true" className="w-6 shrink-0 select-none text-right text-muted-foreground/40 tabular-nums">{index + 1}</span>
+                        <span className="min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere]"><AnsiText text={line} /></span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
               )}
             </section>
 
