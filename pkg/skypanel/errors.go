@@ -25,6 +25,9 @@ var ErrTokenInvalid = CreateError("token is invalid", "ErrTokenInvalid")
 var ErrClientNotFound = CreateError("client not found", "ErrClientNotFound")
 var ErrUserNotFound = CreateError("user not found", "ErrUserNotFound")
 var ErrLoginNotPermitted = CreateError("login not permitted", "ErrLoginNotPermitted")
+
+// ErrAccountPending is a registered account an administrator has not approved yet
+var ErrAccountPending = CreateError("your account is waiting for an administrator to approve it", "ErrAccountPending")
 var ErrOtpAlreadyEnabled = CreateError("2FA is already enabled, disable it before enrolling again", "ErrOtpAlreadyEnabled")
 var ErrDatabaseHostFull = CreateError("this database host has reached its database limit", "ErrDatabaseHostFull")
 var ErrDatabaseHostOtherNode = CreateError("this database host serves another node", "ErrDatabaseHostOtherNode")

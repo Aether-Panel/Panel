@@ -20,6 +20,10 @@ type User struct {
 	// active secret only changes once ValidateOtpEnroll proves they have this one
 	OtpPendingSecret string `gorm:"column:otp_pending_secret;size:32" json:"-"`
 
+	// PendingApproval marks an account made through public registration that an administrator
+	// has not approved yet: it has no permission to sign in until then
+	PendingApproval bool `gorm:"column:pending_approval;not null;default:false" json:"-"`
+
 	RoleID      *uint         `gorm:"column:role_id;index" json:"-"`
 	Role        Role          `gorm:"ASSOCIATION_SAVE_REFERENCE:false" json:"-" validate:"-"`
 	Permissions []Permissions `gorm:"foreignKey:UserID" json:"-"`

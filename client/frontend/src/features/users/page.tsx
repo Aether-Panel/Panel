@@ -5,7 +5,7 @@ import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import type { User } from '@/lib/data';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, MoreHorizontal, Plus, Server as ServerIcon, Trash2, Users as UsersIcon } from '@/components/icons';
+import { AlertTriangle, Check, Clock, MoreHorizontal, Plus, Server as ServerIcon, Trash2, Users as UsersIcon } from '@/components/icons';
 import { Card } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { UserAvatar as AccountAvatar } from '@/components/user-avatar';
@@ -164,8 +164,10 @@ export default function UsersPage() {
         roleId: u.roleId,
         // the role's name; when the API only sends its id, the badge looks it up in the roles list
         role: u.roleName || '',
-        assignedServers: [] // not listed here; the servers dialog loads them on demand
-      })));
+        assignedServers: [], // not listed here; the servers dialog loads them on demand
+        pendingApproval: !!u.pendingApproval,
+      // accounts waiting for approval first, so they are not missed
+      })).sort((a: User, b: User) => Number(!!b.pendingApproval) - Number(!!a.pendingApproval)));
       setLoadFailed(false);
     } catch (e: any) {
       console.error('Failed to fetch users:', e);
@@ -249,6 +251,18 @@ export default function UsersPage() {
     }
   };
 
+  const canApprove = hasScope('users.perms.edit');
+  const handleApproveUser = async (user: User) => {
+    try {
+      await api.post(`/api/users/${user.id}/approve`, {});
+      sileo.success({ title: t('users.approval.approvedToast', { name: user.name }) });
+      void fetchUsers();
+    } catch (e: any) {
+      sileo.error({ title: t('common.error'), description: e.message || t('users.approval.approveFailed') });
+    }
+  };
+  const pendingCount = users.filter((u) => u.pendingApproval).length;
+
   const handleDeleteUser = async (id: number | string) => {
     try {
       await api.delete(`/api/users/${id}`);
@@ -288,10 +302,27 @@ export default function UsersPage() {
     || (user.roleId ? t('users.roleFallback', { id: user.roleId }) : t('users.noRole'));
 
   const roleBadge = (user: User) => (
-    <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="max-w-[12rem] truncate">
-      {roleLabel(user)}
-    </Badge>
+    <>
+      {user.pendingApproval && (
+        <Badge variant="outline" className="gap-1 border-warning/40 text-warning">
+          <Clock className="h-3 w-3" aria-hidden="true" />
+          {t('users.approval.pending')}
+        </Badge>
+      )}
+      <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="max-w-[12rem] truncate">
+        {roleLabel(user)}
+      </Badge>
+    </>
   );
+
+  /** Approving is one click on the row itself, so a waiting account is never two menus away. */
+  const approveButton = (user: User) =>
+    user.pendingApproval && canApprove ? (
+      <Button size="sm" variant="outline" onClick={() => void handleApproveUser(user)} className="h-8">
+        <Check aria-hidden="true" />
+        {t('users.approval.approve')}
+      </Button>
+    ) : null;
 
   const renderActions = (user: User) => (
     <DropdownMenu>
@@ -307,6 +338,9 @@ export default function UsersPage() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuLabel>{t('users.actions.menuLabel')}</DropdownMenuLabel>
+        {user.pendingApproval && canApprove && (
+          <DropdownMenuItem onClick={() => void handleApproveUser(user)}>{t('users.approval.approve')}</DropdownMenuItem>
+        )}
         <DropdownMenuItem onClick={() => setEditingUser(user)}>{t('users.actions.edit')}</DropdownMenuItem>
         <DropdownMenuItem onClick={() => setViewingUser(user)}>{t('users.actions.viewServers')}</DropdownMenuItem>
         <DropdownMenuSeparator />
@@ -315,7 +349,7 @@ export default function UsersPage() {
           onClick={() => setTimeout(() => setDeletingUser(user), 50)}
         >
           <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
-          {t('users.actions.delete')}
+          {user.pendingApproval ? t('users.approval.reject') : t('users.actions.delete')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -379,6 +413,12 @@ export default function UsersPage() {
   } else {
     userList = (
       <>
+        {pendingCount > 0 && (
+          <output className="flex items-start gap-2 rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-foreground">
+            <Clock className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
+            <span className="min-w-0 text-pretty">{t('users.approval.banner', { count: pendingCount })}</span>
+          </output>
+        )}
         {/* Phones and tablets (the sidebar leaves too little room for the table): stacked rows. */}
         <ul className="divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60 bg-background/30 lg:hidden">
           {users.map((user) => (
@@ -390,6 +430,7 @@ export default function UsersPage() {
                 <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                   {roleBadge(user)}
                 </div>
+                {user.pendingApproval && canApprove && <div className="mt-2">{approveButton(user)}</div>}
               </div>
               {renderActions(user)}
             </li>
@@ -418,8 +459,15 @@ export default function UsersPage() {
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell>{roleBadge(user)}</TableCell>
-                  <TableCell className="py-2 text-right">{renderActions(user)}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap items-center gap-2">{roleBadge(user)}</div>
+                  </TableCell>
+                  <TableCell className="py-2 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      {approveButton(user)}
+                      {renderActions(user)}
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

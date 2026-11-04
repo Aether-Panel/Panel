@@ -407,63 +407,82 @@ func formatBytes(bytes uint64) string {
 	return fmt.Sprintf("%.2f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
+// NodeStatus is the report of a node that answered: its servers and its machine. Hardware
+// fields left empty or zero, and a CPUModel of "Desconocido", are left out of the message.
+type NodeStatus struct {
+	NodeName       string
+	PublicHost     string
+	PublicPort     uint16
+	TotalServers   int
+	OnlineServers  int
+	OfflineServers int
+	CPUModel       string
+	CPUCores       int
+	CPUThreads     int
+	CPUGhz         float64
+	MemTotal       uint64
+	MemUsed        uint64
+	OSName         string
+}
+
 // SendNodeStatus envía información sobre el estado del nodo
-func (ds *DiscordService) SendNodeStatus(totalServers, onlineServers, offlineServers int, nodeName string, publicHost string, publicPort uint16, cpuModel string, cpuCores int, cpuThreads int, cpuGhz float64, memTotal uint64, memUsed uint64, osName string) error {
+func (ds *DiscordService) SendNodeStatus(status NodeStatus) error {
 	webhookURL := config.DiscordWebhookNode.Value()
 	if webhookURL == "" {
 		return nil // Silently skip if webhook is not configured
 	}
 
+	nodeName := status.NodeName
 	if nodeName == "" {
 		nodeName = NotificationText("nodeStatus.localNode")
 	}
 
 	description := NotificationText("nodeStatus.node", nodeName) + "\n"
-	if publicHost != "" {
-		description += NotificationText("nodeStatus.address", nodeAddress(publicHost, publicPort)) + "\n"
+	if status.PublicHost != "" {
+		description += NotificationText("nodeStatus.address", nodeAddress(status.PublicHost, status.PublicPort)) + "\n"
 	}
-	description += NotificationText(textSystemStatusTotal, totalServers) + "\n"
-	description += fmt.Sprintf("🟢 **Online:** %d | 🔴 **Offline:** %d\n", onlineServers, offlineServers)
+	description += NotificationText(textSystemStatusTotal, status.TotalServers) + "\n"
+	description += fmt.Sprintf("🟢 **Online:** %d | 🔴 **Offline:** %d\n", status.OnlineServers, status.OfflineServers)
 
 	fields := []DiscordEmbedField{
 		{Name: NotificationText(textFieldStatus), Value: NotificationText("nodeStatus.active"), Inline: true},
-		{Name: NotificationText("field.totalServers"), Value: fmt.Sprintf("%d", totalServers), Inline: true},
-		{Name: NotificationText("field.onlineServers"), Value: fmt.Sprintf("%d", onlineServers), Inline: true},
-		{Name: NotificationText("field.offlineServers"), Value: fmt.Sprintf("%d", offlineServers), Inline: true},
+		{Name: NotificationText("field.totalServers"), Value: fmt.Sprintf("%d", status.TotalServers), Inline: true},
+		{Name: NotificationText("field.onlineServers"), Value: fmt.Sprintf("%d", status.OnlineServers), Inline: true},
+		{Name: NotificationText("field.offlineServers"), Value: fmt.Sprintf("%d", status.OfflineServers), Inline: true},
 	}
 
-	if publicHost != "" {
-		fields = append(fields, DiscordEmbedField{Name: "Host", Value: nodeAddress(publicHost, publicPort), Inline: true})
+	if status.PublicHost != "" {
+		fields = append(fields, DiscordEmbedField{Name: "Host", Value: nodeAddress(status.PublicHost, status.PublicPort), Inline: true})
 	}
 
 	// Información del CPU
-	if cpuModel != "Desconocido" {
-		fields = append(fields, DiscordEmbedField{Name: "CPU", Value: cpuModel, Inline: false})
+	if status.CPUModel != "Desconocido" {
+		fields = append(fields, DiscordEmbedField{Name: "CPU", Value: status.CPUModel, Inline: false})
 	}
-	if cpuCores > 0 {
-		fields = append(fields, DiscordEmbedField{Name: NotificationText("field.cores"), Value: fmt.Sprintf("%d", cpuCores), Inline: true})
+	if status.CPUCores > 0 {
+		fields = append(fields, DiscordEmbedField{Name: NotificationText("field.cores"), Value: fmt.Sprintf("%d", status.CPUCores), Inline: true})
 	}
-	if cpuThreads > 0 {
-		fields = append(fields, DiscordEmbedField{Name: NotificationText("field.threads"), Value: fmt.Sprintf("%d", cpuThreads), Inline: true})
+	if status.CPUThreads > 0 {
+		fields = append(fields, DiscordEmbedField{Name: NotificationText("field.threads"), Value: fmt.Sprintf("%d", status.CPUThreads), Inline: true})
 	}
-	if cpuGhz > 0 {
-		fields = append(fields, DiscordEmbedField{Name: NotificationText("field.frequency"), Value: fmt.Sprintf("%.2f GHz", cpuGhz), Inline: true})
+	if status.CPUGhz > 0 {
+		fields = append(fields, DiscordEmbedField{Name: NotificationText("field.frequency"), Value: fmt.Sprintf("%.2f GHz", status.CPUGhz), Inline: true})
 	}
 
 	// Información de RAM
-	if memTotal > 0 {
-		memUsagePercent := float64(memUsed) / float64(memTotal) * 100.0
-		fields = append(fields, DiscordEmbedField{Name: NotificationText("field.ramTotal"), Value: formatBytes(memTotal), Inline: true})
-		fields = append(fields, DiscordEmbedField{Name: NotificationText("field.ramUsed"), Value: fmt.Sprintf("%s (%.1f%%)", formatBytes(memUsed), memUsagePercent), Inline: true})
-		fields = append(fields, DiscordEmbedField{Name: NotificationText("field.ramFree"), Value: formatBytes(memTotal - memUsed), Inline: true})
+	if status.MemTotal > 0 {
+		memUsagePercent := float64(status.MemUsed) / float64(status.MemTotal) * 100.0
+		fields = append(fields, DiscordEmbedField{Name: NotificationText("field.ramTotal"), Value: formatBytes(status.MemTotal), Inline: true})
+		fields = append(fields, DiscordEmbedField{Name: NotificationText("field.ramUsed"), Value: fmt.Sprintf("%s (%.1f%%)", formatBytes(status.MemUsed), memUsagePercent), Inline: true})
+		fields = append(fields, DiscordEmbedField{Name: NotificationText("field.ramFree"), Value: formatBytes(status.MemTotal - status.MemUsed), Inline: true})
 	}
 
 	// Sistema operativo
-	if osName != "" {
-		fields = append(fields, DiscordEmbedField{Name: NotificationText("field.os"), Value: osName, Inline: true})
+	if status.OSName != "" {
+		fields = append(fields, DiscordEmbedField{Name: NotificationText("field.os"), Value: status.OSName, Inline: true})
 	}
 
-	return ds.SendWebhookToURL(webhookURL, NotificationText("nodeStatus.title"), description, nodeStatusColor(onlineServers, offlineServers), fields)
+	return ds.SendWebhookToURL(webhookURL, NotificationText("nodeStatus.title"), description, nodeStatusColor(status.OnlineServers, status.OfflineServers), fields)
 }
 
 // SendNodeUnreachable reports a node that did not answer the panel. Its servers' states and its

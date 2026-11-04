@@ -283,23 +283,26 @@ func changeEmail(user *models.User, us *services.User, value string) error {
 	return nil
 }
 
+// errUpdatingPasswordFmt is the one message for every step of a password change that fails
+const errUpdatingPasswordFmt = "Error updating password: %s"
+
 func handleEditPassword(user *models.User, us *services.User) {
 	password, _ := pterm.DefaultInteractiveTextInput.WithMask("*").WithDefaultText("Change password to").Show()
 
 	// the same rule as the web, which also rejects what bcrypt cannot hash
 	if err := us.IsSecurePassword(password); err != nil {
-		pterm.Error.Printfln("Error updating password: %s", err.Error())
+		pterm.Error.Printfln(errUpdatingPasswordFmt, err.Error())
 		return
 	}
 
 	err := user.SetPassword(password)
 	if err != nil {
-		pterm.Error.Printfln("Error updating password: %s", err.Error())
+		pterm.Error.Printfln(errUpdatingPasswordFmt, err.Error())
 		return
 	}
 	err = us.Update(user)
 	if err != nil {
-		pterm.Error.Printfln("Error updating password: %s", err.Error())
+		pterm.Error.Printfln(errUpdatingPasswordFmt, err.Error())
 		return
 	}
 	// whoever knew the old password is signed out, as when it is changed on the web

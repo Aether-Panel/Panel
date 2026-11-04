@@ -128,8 +128,8 @@ func rsaBits(key ssh.PublicKey) (int, bool) {
 	if !ok {
 		return 0, false
 	}
-	type sized interface{ Size() int }
-	rsa, ok := crypto.CryptoPublicKey().(sized)
+	type sizer interface{ Size() int }
+	rsa, ok := crypto.CryptoPublicKey().(sizer)
 	if !ok {
 		return 0, false
 	}

@@ -64,16 +64,25 @@ const isResourceKey = (key: string) => Object.hasOwn(RESOURCE_DEFAULTS, key);
  * '-' or '_'), from the name plus a random suffix so two servers named alike never collide.
  * The name itself stays the display name, with any characters it likes.
  */
+/** Drops leading and trailing '-' and '_'. A loop, not /[-_]+$/, which backtracks on long runs. */
+function trimSeparators(text: string) {
+    const isSeparator = (char: string) => char === '-' || char === '_';
+    let start = 0;
+    let end = text.length;
+    while (start < end && isSeparator(text[start])) start++;
+    while (end > start && isSeparator(text[end - 1])) end--;
+    return text.slice(start, end);
+}
+
 function serverIdFromName(name: string) {
     const suffix = crypto.getRandomValues(new Uint32Array(1))[0].toString(36).padStart(6, '0').slice(0, 6);
-    const base = name
+    const slug = name
         .normalize('NFD')
         .replaceAll(/[\u0300-\u036f]/g, '')
         .toLowerCase()
-        .replaceAll(/[^a-z0-9_-]+/g, '-')
-        .replaceAll(/^[-_]+|[-_]+$/g, '')
-        .slice(0, 13)
-        .replaceAll(/[-_]+$/g, '');
+        .replaceAll(/[^a-z0-9_-]+/g, '-');
+    // cut to 13 after trimming, then trim again: the cut can end on a separator
+    const base = trimSeparators(trimSeparators(slug).slice(0, 13));
     return base ? `${base}-${suffix}` : `srv-${suffix}`;
 }
 
@@ -153,6 +162,25 @@ function minecraftJavaFor(version: string): string | null {
 }
 
 /**
+ * The Java a Minecraft version needs. "latest" whose release is not known yet (the list is still
+ * loading or unreachable) gets the newest Java.
+ */
+function javaForVersion(chosenVersion: string, versionForJava: string): string | null {
+    return minecraftJavaFor(versionForJava) ?? (chosenVersion === 'latest' ? TEMURIN_JAVA_VERSIONS[0] : null);
+}
+
+/**
+ * The releases a variable's select offers: the game's for the version variable, and the Java
+ * images for the Java one unless the template lists its own options. Undefined for the rest.
+ */
+function versionChoicesFor(key: string, variable: any, versionVariable: string | undefined, javaVariable: string | null, gameVersions: string[]): string[] | undefined {
+    if (versionVariable === key) return gameVersions;
+    const hasOwnOptions = Array.isArray(variable.options) && variable.options.length > 0;
+    if (javaVariable === key && !hasOwnOptions) return TEMURIN_JAVA_VERSIONS;
+    return undefined;
+}
+
+/**
  * The variable that picks the Java image, when the template runs eclipse-temurin:${variable}.
  * Typed freely, a value like 200 names an image that does not exist and the server cannot
  * start, so the form offers the releases that do.
@@ -166,7 +194,51 @@ function javaImageVariable(details: any): string | null {
     return null;
 }
 
+/** Where the server runs: for Docker, the template's own Docker setup when it lists one. */
+function serverEnvironment(type: string, templateDetails: any): Record<string, any> {
+    if (type !== 'docker' || !templateDetails?.supportedEnvironments) return { type };
+    const dockerEnvTemplate = templateDetails.supportedEnvironments.find((e: any) => e.type === 'docker');
+    return dockerEnvTemplate ? { ...dockerEnvTemplate } : { type: 'docker', image: 'ubuntu:22.04' };
+}
+
+/** The node the server goes on: the one picked, else the one the form was opened for. */
+function serverNode(selectedNode: string, forcedNodeId: string | undefined): number {
+    if (selectedNode !== '') return Number(selectedNode);
+    if (forcedNodeId) return Number(forcedNodeId);
+    return 0;
+}
+
 type FieldError = { code: 'required' | 'notNumber' | 'min' | 'max' | 'eula'; limit?: number };
+
+/** The smallest value a number variable takes: the template's min, else 1 when it is required. */
+function integerMin(v: any): number {
+    if (typeof v.min === 'number') return v.min;
+    return v.required ? 1 : 0;
+}
+
+/** What is wrong with a whole-number variable's value, or null when it is fine. */
+function integerValueError(v: any, value: any, empty: boolean): FieldError | null {
+    if (empty) return v.required ? { code: 'required' } : null;
+    const n = Number(value);
+    if (!Number.isInteger(n)) return { code: 'notNumber' };
+    const hasMin = typeof v.min === 'number';
+    const min = integerMin(v);
+    if (n < min) return !hasMin && v.required && n === 0 ? { code: 'required' } : { code: 'min', limit: min };
+    if (typeof v.max === 'number' && n > v.max) return { code: 'max', limit: v.max };
+    return null;
+}
+
+/** What is wrong with one variable's value, or null when it is fine. */
+function templateValueError(key: string, v: any, value: any): FieldError | null {
+    // a required checkbox only has to have a value (PvP off is fine); Minecraft's EULA is the
+    // exception, as the server stops at once until it is accepted
+    if (v.type === 'boolean') {
+        return key.toLowerCase() === 'eula' && value !== true && value !== 'true' ? { code: 'eula' } : null;
+    }
+    const empty = value === undefined || value === null || String(value).trim() === '';
+    if (v.type !== 'integer') return v.required && empty ? { code: 'required' } : null;
+    return integerValueError(v, value, empty);
+}
 
 /**
  * Checks the values before the server is created: a required field cannot be empty, a number
@@ -177,34 +249,8 @@ function validateTemplateValues(variables: Record<string, any>, values: Record<s
     const errors: Record<string, FieldError> = {};
     for (const [key, v] of Object.entries(variables)) {
         if (!v || typeof v !== 'object' || v.internal || isResourceKey(key)) continue;
-        const value = values[key];
-        // a required checkbox only has to have a value (PvP off is fine); Minecraft's EULA is the
-        // exception, as the server stops at once until it is accepted
-        if (v.type === 'boolean') {
-            if (key.toLowerCase() === 'eula' && value !== true && value !== 'true') errors[key] = { code: 'eula' };
-            continue;
-        }
-        const empty = value === undefined || value === null || String(value).trim() === '';
-        if (v.type !== 'integer') {
-            if (v.required && empty) errors[key] = { code: 'required' };
-            continue;
-        }
-        if (empty) {
-            if (v.required) errors[key] = { code: 'required' };
-            continue;
-        }
-        const n = Number(value);
-        if (!Number.isInteger(n)) {
-            errors[key] = { code: 'notNumber' };
-            continue;
-        }
-        const hasMin = typeof v.min === 'number';
-        const min = hasMin ? v.min : v.required ? 1 : 0;
-        if (n < min) {
-            errors[key] = !hasMin && v.required && n === 0 ? { code: 'required' } : { code: 'min', limit: min };
-        } else if (typeof v.max === 'number' && n > v.max) {
-            errors[key] = { code: 'max', limit: v.max };
-        }
+        const error = templateValueError(key, v, values[key]);
+        if (error) errors[key] = error;
     }
     return errors;
 }
@@ -397,11 +443,7 @@ function TemplatePicker({ loadingTemplates, templateList, selectedTemplateName, 
                                     : 'border-transparent text-muted-foreground hover:bg-accent/40 hover:text-foreground'
                             )}
                         >
-                            {logo
-                                ? <img src={logo} alt="" width={18} height={18} loading="lazy" className="h-[18px] w-[18px] shrink-0 rounded object-cover" />
-                                : active
-                                    ? <Check className="h-3.5 w-3.5 shrink-0 text-primary-bright" aria-hidden="true" />
-                                    : <Code className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
+                            <TemplateIcon logo={logo} active={active} />
                             <span className="min-w-0 truncate font-mono">{tpl.name}</span>
                         </button>
                     );
@@ -409,6 +451,13 @@ function TemplatePicker({ loadingTemplates, templateList, selectedTemplateName, 
             </div>
         </div>
     );
+}
+
+/** A template's game logo; without one, a check while it is picked and a code mark otherwise. */
+function TemplateIcon({ logo, active }: Readonly<{ logo: string | undefined; active: boolean }>) {
+    if (logo) return <img src={logo} alt="" width={18} height={18} loading="lazy" className="h-[18px] w-[18px] shrink-0 rounded object-cover" />;
+    if (active) return <Check className="h-3.5 w-3.5 shrink-0 text-primary-bright" aria-hidden="true" />;
+    return <Code className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />;
 }
 
 function Step2Template({
@@ -491,73 +540,78 @@ function rawOptionValue(opt: any) {
     return typeof opt === 'string' ? opt : "";
 }
 
-/** The input for one template variable: a select for its options or the game's releases, a checkbox for booleans, a text or number field otherwise. */
-function TemplateVariableInput({ fieldId, varKey, variable, currentVal, stringifiedVal, setConfigData, versions, invalid, describedBy, t }: any) {
-    if (Array.isArray(versions) && versions.length > 0) {
-        // "latest" stays offered when the template starts there; a value typed before (or saved
-        // by an older form) that is not a release is kept so it is not silently replaced
-        const choices: string[] = [];
-        if (stringifiedVal === 'latest' || String(variable.value ?? '') === 'latest') choices.push('latest');
-        if (stringifiedVal && stringifiedVal !== 'latest' && !versions.includes(stringifiedVal)) choices.push(stringifiedVal);
-        choices.push(...versions);
-        return (
-            <Select
-                value={stringifiedVal || undefined}
-                // an integer variable (FTB's Java version) keeps its type
-                onValueChange={(val) => setConfigData((prev: any) => ({ ...prev, [varKey]: variable.type === 'integer' ? Number(val) : val }))}
-            >
-                <SelectTrigger id={fieldId} aria-invalid={invalid || undefined} aria-describedby={describedBy} className={cn(invalid && 'border-destructive')}>
-                    <SelectValue placeholder={t('servers.create.versionPlaceholder')} />
-                </SelectTrigger>
-                <SelectContent className="z-[100] max-h-60">
-                    {choices.map((v) => (
-                        <SelectItem key={v} value={v} className={cn(v !== 'latest' && 'font-mono tabular-nums')}>
-                            {v === 'latest' ? t('servers.create.versionLatest') : v}
+/** The game's releases to pick from, for the version variable. */
+function VersionSelect({ fieldId, varKey, variable, stringifiedVal, setConfigData, versions, invalid, describedBy, t }: any) {
+    // "latest" stays offered when the template starts there; a value typed before (or saved
+    // by an older form) that is not a release is kept so it is not silently replaced
+    const choices: string[] = [];
+    if (stringifiedVal === 'latest' || String(variable.value ?? '') === 'latest') choices.push('latest');
+    if (stringifiedVal && stringifiedVal !== 'latest' && !versions.includes(stringifiedVal)) choices.push(stringifiedVal);
+    choices.push(...versions);
+    return (
+        <Select
+            value={stringifiedVal || undefined}
+            // an integer variable (FTB's Java version) keeps its type
+            onValueChange={(val) => setConfigData((prev: any) => ({ ...prev, [varKey]: variable.type === 'integer' ? Number(val) : val }))}
+        >
+            <SelectTrigger id={fieldId} aria-invalid={invalid || undefined} aria-describedby={describedBy} className={cn(invalid && 'border-destructive')}>
+                <SelectValue placeholder={t('servers.create.versionPlaceholder')} />
+            </SelectTrigger>
+            <SelectContent className="z-[100] max-h-60">
+                {choices.map((v) => (
+                    <SelectItem key={v} value={v} className={cn(v !== 'latest' && 'font-mono tabular-nums')}>
+                        {v === 'latest' ? t('servers.create.versionLatest') : v}
+                    </SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
+    );
+}
+
+/** A select over the template's own options for the variable. */
+function OptionsSelect({ fieldId, varKey, variable, stringifiedVal, setConfigData, invalid, describedBy, t }: any) {
+    return (
+        <Select
+            value={stringifiedVal === "" ? "_EMPTY_VALUE_" : stringifiedVal}
+            onValueChange={(val) => setConfigData((prev: any) => ({ ...prev, [varKey]: val === "_EMPTY_VALUE_" ? "" : val }))}
+        >
+            <SelectTrigger id={fieldId} aria-invalid={invalid || undefined} aria-describedby={describedBy}>
+                <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="z-[100] max-h-60">
+                {keyedByContent(variable.options as any[], (opt) => (opt ? String(rawOptionValue(opt)) : '')).map(({ key: optKey, item: opt }) => {
+                    if (!opt) return null;
+                    const rawOptVal = rawOptionValue(opt);
+                    const optVal = rawOptVal === "" ? "_EMPTY_VALUE_" : String(rawOptVal);
+                    return (
+                        <SelectItem key={optKey} value={optVal}>
+                            <SafeValue v={opt.display || (rawOptVal === "" ? t('servers.create.optionNone') : rawOptVal)} />
                         </SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-        );
-    }
-    if (Array.isArray(variable.options) && variable.options.length > 0) {
-        return (
-            <Select
-                value={stringifiedVal === "" ? "_EMPTY_VALUE_" : stringifiedVal}
-                onValueChange={(val) => setConfigData((prev: any) => ({ ...prev, [varKey]: val === "_EMPTY_VALUE_" ? "" : val }))}
-            >
-                <SelectTrigger id={fieldId} aria-invalid={invalid || undefined} aria-describedby={describedBy}>
-                    <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="z-[100] max-h-60">
-                    {keyedByContent(variable.options as any[], (opt) => (opt ? String(rawOptionValue(opt)) : '')).map(({ key: optKey, item: opt }) => {
-                        if (!opt) return null;
-                        const rawOptVal = rawOptionValue(opt);
-                        const optVal = rawOptVal === "" ? "_EMPTY_VALUE_" : String(rawOptVal);
-                        return (
-                            <SelectItem key={optKey} value={optVal}>
-                                <SafeValue v={opt.display || (rawOptVal === "" ? t('servers.create.optionNone') : rawOptVal)} />
-                            </SelectItem>
-                        );
-                    })}
-                </SelectContent>
-            </Select>
-        );
-    }
-    if (variable.type === 'boolean') {
-        return (
-            <label
-                htmlFor={fieldId}
-                className="flex h-10 cursor-pointer items-center gap-2.5 rounded-lg border border-input bg-background/50 px-3 text-sm transition-colors duration-200 hover:bg-accent/30"
-            >
-                <Checkbox
-                    id={fieldId}
-                    checked={!!currentVal}
-                    onCheckedChange={() => setConfigData((prev: any) => ({ ...prev, [varKey]: !currentVal }))}
-                />
-                <span className="select-none">{t('servers.create.enable')}</span>
-            </label>
-        );
-    }
+                    );
+                })}
+            </SelectContent>
+        </Select>
+    );
+}
+
+function BooleanVariableInput({ fieldId, varKey, currentVal, setConfigData, t }: any) {
+    return (
+        <label
+            htmlFor={fieldId}
+            className="flex h-10 cursor-pointer items-center gap-2.5 rounded-lg border border-input bg-background/50 px-3 text-sm transition-colors duration-200 hover:bg-accent/30"
+        >
+            <Checkbox
+                id={fieldId}
+                checked={!!currentVal}
+                onCheckedChange={() => setConfigData((prev: any) => ({ ...prev, [varKey]: !currentVal }))}
+            />
+            <span className="select-none">{t('servers.create.enable')}</span>
+        </label>
+    );
+}
+
+/** A text field, or a number field for an integer variable. */
+function PlainVariableInput({ fieldId, varKey, variable, stringifiedVal, setConfigData, invalid, describedBy }: any) {
     return (
         <Input
             id={fieldId}
@@ -573,6 +627,15 @@ function TemplateVariableInput({ fieldId, varKey, variable, currentVal, stringif
             className={cn(variable.type === 'integer' && 'font-mono tabular-nums', invalid && 'border-destructive')}
         />
     );
+}
+
+/** The input for one template variable: a select for its options or the game's releases, a checkbox for booleans, a text or number field otherwise. */
+function TemplateVariableInput(props: any) {
+    const { variable, versions } = props;
+    if (Array.isArray(versions) && versions.length > 0) return <VersionSelect {...props} />;
+    if (Array.isArray(variable.options) && variable.options.length > 0) return <OptionsSelect {...props} />;
+    if (variable.type === 'boolean') return <BooleanVariableInput {...props} />;
+    return <PlainVariableInput {...props} />;
 }
 
 type PortCheck = { busy: boolean; reason?: 'range' | 'panel' | 'server' | 'container'; by?: string; suggestion?: number };
@@ -707,9 +770,7 @@ function Step3Configuration({
     // It is set again whenever the version changes; picking another one by hand is still allowed.
     const chosenVersion = versionTarget ? String(configData[versionTarget.variable] ?? '') : '';
     const versionForJava = chosenVersion === 'latest' ? gameVersions[0] ?? '' : chosenVersion;
-    const neededJava = versionTarget && javaVariable
-        ? minecraftJavaFor(versionForJava) ?? (chosenVersion === 'latest' ? TEMURIN_JAVA_VERSIONS[0] : null)
-        : null;
+    const neededJava = versionTarget && javaVariable ? javaForVersion(chosenVersion, versionForJava) : null;
     useEffect(() => {
         if (!neededJava || !javaVariable) return;
         setConfigData((prev: any) => {
@@ -827,11 +888,7 @@ function Step3Configuration({
                                         currentVal={currentVal}
                                         stringifiedVal={stringifiedVal}
                                         setConfigData={setConfigData}
-                                        versions={
-                                            versionTarget?.variable === key ? gameVersions
-                                                : javaVariable === key && !(Array.isArray(variable.options) && variable.options.length > 0) ? TEMURIN_JAVA_VERSIONS
-                                                    : undefined
-                                        }
+                                        versions={versionChoicesFor(key, variable, versionTarget?.variable, javaVariable, gameVersions)}
                                         invalid={!!error}
                                         describedBy={[errorId, portChecks[key]?.busy ? `${fieldId}-port` : undefined, descriptionId].filter(Boolean).join(' ') || undefined}
                                         t={t}
@@ -1129,22 +1186,8 @@ export function CreateServerStepper({ onComplete, forcedParentId, forcedNodeId, 
                 .map(id => users.find((u: any) => u.id === id)?.username)
                 .filter((uname): uname is string => !!uname);
 
-            let environmentConfig: Record<string, any> = { type: selectedEnvironment };
-
-            if (selectedEnvironment === 'docker' && templateDetails?.supportedEnvironments) {
-                const dockerEnvTemplate = templateDetails.supportedEnvironments.find(
-                    (e: any) => e.type === 'docker'
-                );
-                if (dockerEnvTemplate) {
-                    environmentConfig = { ...dockerEnvTemplate };
-                } else {
-                    environmentConfig = { type: 'docker', image: 'ubuntu:22.04' };
-                }
-            }
-
-            let resolvedNode = 0;
-            if (selectedNode !== '') resolvedNode = Number(selectedNode);
-            else if (forcedNodeId) resolvedNode = Number(forcedNodeId);
+            const environmentConfig = serverEnvironment(selectedEnvironment, templateDetails);
+            const resolvedNode = serverNode(selectedNode, forcedNodeId);
 
             const serverPayload = {
                 ...templateDetails,

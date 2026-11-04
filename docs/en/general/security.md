@@ -310,6 +310,7 @@ The installer opens SSH, SFTP, 80/443 and the panel port (only when it is not bo
 - Give `admin` only to people who run the panel. Use roles for staff, with the fewest scopes they need.
 - Leave `docker.disallowHost`, `docker.serverUser`, `docker.pidsLimit` and `security.blockPrivateDownloads` at their defaults unless you know why you change them.
 - Close public sign-ups (`panel.registrationEnabled`, in **Settings**) if customers come from billing.
+- With sign-ups open, keep **Approve new accounts** on (`panel.registrationApproval`): a registered account cannot sign in until an administrator approves it in **Users**. Nobody uses an account under someone else's email without an administrator looking at it first.
 - Keep the panel updated (**Settings → Updates**, or `install.sh --update`) and the operating system and Docker too.
 - Back up the database, the config folder and the backups folder; test a restore.
 - Do not expose MariaDB or Adminer to the Internet.

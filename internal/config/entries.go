@@ -84,6 +84,10 @@ var LicenseServerID = asString("panel.license.serverId", "")
 var LicenseServerIP = asString("panel.license.serverIp", "")
 var SessionKey = asString("panel.sessionKey", "")
 var RegistrationEnabled = asBool("panel.registrationEnabled", true)
+
+// RegistrationApproval keeps every account made through public registration unable to sign in
+// until an administrator approves it in Users
+var RegistrationApproval = asBool("panel.registrationApproval", true)
 var PrivateKey = asString("panel.token", "")
 
 // ExTransferKey is the seed of the key this panel signs federated transfer requests with. It
@@ -136,6 +140,10 @@ var CloudflareZoneID = asString("panel.dns.cloudflare.zoneId", "")
 var DNSBaseDomain = asString("panel.dns.baseDomain", "")
 var DNSTarget = asString("panel.dns.target", "")
 var DNSAutoAssign = asBool("panel.dns.autoAssign", false)
+
+// GitHubClientID is the Client ID of a GitHub OAuth App with Device Flow on: users connect
+// their account with a code and install repositories into their servers. No secret is needed.
+var GitHubClientID = asString("panel.github.clientId", "")
 
 var CurseForgeKey = asString("daemon.curseforge.key", curseforgeKey)
 var DataRootFolder = asString("daemon.data.root", "")

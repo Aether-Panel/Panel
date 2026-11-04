@@ -86,6 +86,7 @@ The panel writes the current day to `skypanel.log` inside `logs`. When the day c
 |---|---|---|---|---|
 | `panel.enable` | bool | `true` | | Runs the web panel: API, sign-in, OAuth2, web client and database. `false` turns the binary into a node that only serves `/daemon`. |
 | `panel.registrationEnabled` | bool | `true` | Yes | Allows public sign-up (`POST /auth/register`). Administrators can still create accounts. |
+| `panel.registrationApproval` | bool | `true` | Yes | Accounts from public sign-up cannot sign in until an administrator approves them in **Users**; the welcome email goes out on approval. |
 | `panel.servers.autoInstall` | bool | `true` | | Runs the template's installation right after a server is created (also from billing), so it can be started without pressing Install. |
 | `panel.backups.maxPerServer` | int | `10` | | Backups a server's users can keep; creating one more answers `409`. Administrators are not limited. `0` turns the cap off. Backups do not count against the server's disk. |
 | `panel.web.files` | string | `www` | | Folder layered over the web client embedded in the binary: a file found here replaces the embedded one. Themes are read from its `theme/` subfolder (`*.tar`). The shipped configs use `/var/www/SkyPanel`. |

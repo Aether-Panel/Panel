@@ -9,7 +9,7 @@ Cómo demuestra una petición quién la envía, cómo decide el panel qué puede
 | POST | `/auth/login` | Pública | Inicia sesión con correo y contraseña |
 | POST | `/auth/otp` | Pública (cookie de inicio de sesión pendiente) | Segundo paso con un código 2FA o de recuperación |
 | POST | `/auth/logout` | Pública | Cierra una sesión |
-| POST | `/auth/register` | Pública (registros abiertos) | Crea una cuenta e inicia su sesión |
+| POST | `/auth/register` | Pública (registros abiertos) | Crea una cuenta: pendiente de aprobación, o con sesión si la aprobación está desactivada |
 | POST | `/auth/forgot-password` | Pública | Envía por correo un enlace para restablecer la contraseña |
 | POST | `/auth/reset-password` | Pública (token de restablecimiento) | Establece una contraseña nueva |
 | POST | `/auth/reauth` | Sesión o bearer | Abre una sesión nueva para el usuario que ya la tiene iniciada |
@@ -143,7 +143,7 @@ Solo mientras los registros están abiertos (`panel.registrationEnabled`); en ot
 { "username": "newplayer", "email": "new@example.com", "password": "at-least-8", "captchaToken": "..." }
 ```
 
-`username` tiene de 5 a 100 caracteres ASCII imprimibles; `email` debe ser válido; la contraseña necesita al menos 8 bytes. La cuenta recibe el scope `login`, un correo de bienvenida y una sesión (la misma respuesta que el inicio de sesión). Errores: `400` por validación, `400 ErrCaptchaFailed`, `400 ErrPasswordRequirements`.
+`username` tiene de 5 a 100 caracteres ASCII imprimibles; `email` debe ser válido; la contraseña necesita al menos 8 bytes. Con **Aprobar cuentas nuevas** activado (`panel.registrationApproval`, por defecto), la cuenta queda pendiente: sin el scope `login`, sin sesión ni correo, y la respuesta es `202 {"pending": true}`. Al iniciar sesión con la contraseña correcta recibe `403 ErrAccountPending` hasta que un administrador la apruebe con `POST /api/users/{id}/approve` (`users.perms.edit`), que le da `login` y envía el correo de bienvenida. Rechazarla es borrarla (`DELETE /api/users/{id}`). Con la aprobación desactivada, la cuenta recibe el scope `login`, un correo de bienvenida y una sesión (la misma respuesta que el inicio de sesión). Errores: `400` por validación, `400 ErrCaptchaFailed`, `400 ErrPasswordRequirements`.
 
 ### `POST /auth/forgot-password`
 

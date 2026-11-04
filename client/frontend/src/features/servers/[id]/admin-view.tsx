@@ -19,6 +19,7 @@ import { useAuth } from '@/contexts/providers';
 
 const CodeEditor = lazy(() => import('./code-editor'));
 const CloneServerCard = lazy(() => import('./clone-server-card'));
+const GitHubInstallCard = lazy(() => import('./github-install-card'));
 
 export default function AdminView({ serverId }: Readonly<{ serverId: string }>) {
     const { t } = useTranslations();
@@ -248,6 +249,14 @@ export default function AdminView({ serverId }: Readonly<{ serverId: string }>) 
                                 </AlertDialog>
                             )}
                         </ActionRow>
+                        {/* replacing the files with a repository needs the same permission as reinstalling */}
+                        {canManageInstall && (
+                            <div className="mt-4">
+                                <Suspense fallback={null}>
+                                    <GitHubInstallCard serverId={serverId} />
+                                </Suspense>
+                            </div>
+                        )}
                     </TabsContent>
 
                     <TabsContent value="transfer" className="mt-0">

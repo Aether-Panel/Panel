@@ -51,6 +51,8 @@ export type User = {
   roleId?: number;
   avatar?: string;
   assignedServers: string[]; // array of server IDs
+  /** made through public registration and not approved yet: it cannot sign in */
+  pendingApproval?: boolean;
 };
 
 export type Node = {

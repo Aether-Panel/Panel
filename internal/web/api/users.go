@@ -29,6 +29,8 @@ func registerUsers(g *gin.RouterGroup) {
 	g.Handle("GET", "/:id/perms", middleware.RequiresPermission(scopes.ScopeUserPermsView), getUserPerms)
 	g.Handle("PUT", "/:id/perms", middleware.RequiresPermission(scopes.ScopeUserPermsEdit), setUserPerms)
 	g.Handle("OPTIONS", "/:id/perms", response.CreateOptions("PUT", "GET"))
+
+	registerUserApproval(g)
 }
 
 // @Summary Get users

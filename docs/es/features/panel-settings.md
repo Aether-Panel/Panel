@@ -100,7 +100,7 @@ Las claves desconocidas se ignoran. Las rutas de prueba (`/api/settings/test/ema
 
 Las claves de la pestaña General, con sus valores por defecto y variables de entorno, están en [Configuración](../backend/02-configuration.md):
 
-`panel.settings.companyName`, `panel.settings.masterUrl`, `panel.settings.notificationLanguage`, `panel.settings.geminiApiKey`, `panel.settings.hideAiAnalysis`, `panel.settings.aiFileTools`, `daemon.curseforge.key`, `panel.registrationEnabled`, `panel.captcha.builtin`, `panel.turnstile.enabled`, `panel.turnstile.siteKey`, `panel.turnstile.secretKey`, `panel.experimental.versionSwitch`, `panel.experimental.propertiesEditor`, `panel.experimental.serverClone`.
+`panel.settings.companyName`, `panel.settings.masterUrl`, `panel.settings.notificationLanguage`, `panel.settings.geminiApiKey`, `panel.settings.hideAiAnalysis`, `panel.settings.aiFileTools`, `daemon.curseforge.key`, `panel.registrationEnabled`, `panel.registrationApproval`, `panel.captcha.builtin`, `panel.turnstile.enabled`, `panel.turnstile.siteKey`, `panel.turnstile.secretKey`, `panel.experimental.versionSwitch`, `panel.experimental.propertiesEditor`, `panel.experimental.serverClone`.
 
 Las variables de entorno usan el prefijo `SKYPANEL_` y la clave en mayúsculas con los puntos cambiados por guiones bajos, por ejemplo `SKYPANEL_PANEL_EXPERIMENTAL_SERVERCLONE`.
 

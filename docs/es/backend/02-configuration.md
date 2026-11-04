@@ -86,6 +86,7 @@ El panel escribe el día en curso en `skypanel.log`, dentro de `logs`. Cuando ca
 |---|---|---|---|---|
 | `panel.enable` | bool | `true` | | Ejecuta el panel web: API, inicio de sesión, OAuth2, cliente web y base de datos. Con `false` el binario es un nodo que solo atiende `/daemon`. |
 | `panel.registrationEnabled` | bool | `true` | Sí | Permite el registro público (`POST /auth/register`). Los administradores pueden crear cuentas igualmente. |
+| `panel.registrationApproval` | bool | `true` | Sí | Las cuentas del registro público no pueden entrar hasta que un administrador las aprueba en **Usuarios**; el correo de bienvenida se envía al aprobar. |
 | `panel.servers.autoInstall` | bool | `true` | | Ejecuta la instalación de la plantilla nada más crear un servidor (también desde la facturación), para que se pueda arrancar sin pulsar Instalar. |
 | `panel.backups.maxPerServer` | int | `10` | | Copias de seguridad que pueden conservar los usuarios de un servidor; crear una más responde `409`. Los administradores no tienen límite. `0` lo desactiva. Las copias no cuentan en el disco del servidor. |
 | `panel.web.files` | string | `www` | | Carpeta que se superpone al cliente web incluido en el binario: un archivo que esté aquí sustituye al incluido. Los temas se leen de su subcarpeta `theme/` (`*.tar`). Las configuraciones incluidas usan `/var/www/SkyPanel`. |

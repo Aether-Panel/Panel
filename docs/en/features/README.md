@@ -20,6 +20,7 @@ For full endpoint details see the [API reference](../reference/11-api-reference.
 | [Crash detection and crash reports](crash-reports.md) | How crashes are detected, automatic restart, crash reports |
 | [Server notifications](server-notifications.md) | Per-server alerts to Discord, Telegram or a signed webhook |
 | [Automatic subdomains (Cloudflare)](subdomains.md) | Server subdomains and Minecraft SRV records managed through Cloudflare |
+| [Install from GitHub](github.md) | Connect a GitHub account and install a repository (private ones too) and its branch into a server |
 | [AI assistant and log analysis](ai-assistant.md) | Server assistant chat, console analysis and "Explain with AI" (Gemini) |
 | [AI assistant: working with files](ai-agent.md) | What the assistant can do with a server's files, approvals, where changes are recorded, privacy, limits |
 

@@ -10,12 +10,11 @@ type EnvironmentFactory struct {
 
 func (ef EnvironmentFactory) Create() skypanel.EnvironmentImpl {
 	return &Docker{
-		// ghcr.io/aether-panel/generic es la imagen base por defecto (todo minúsculas requerido por Docker)
-		// La imagen anterior "SkyPanel/generic" era inválida: Docker interpreta mayúsculas
-		// como un registro privado y falla al resolver el DNS.
+		// Docker needs image references in lowercase: the old default "SkyPanel/generic" was
+		// read as a private registry and failed to resolve
 		ImageName: "ghcr.io/aether-panel/generic",
-		// "bridge" permite el port-mapping correcto (0.0.0.0:PUERTO->PUERTO/tcp)
-		// "host" comparte la red del host directamente, lo que rompe el mapping en VPS
+		// "bridge" maps the ports (0.0.0.0:PORT->PORT/tcp); "host" shares the host's network
+		// and breaks that mapping on a VPS
 		Network: "bridge",
 		Ports:   make([]string, 0),
 		Binds:   make(map[string]string),

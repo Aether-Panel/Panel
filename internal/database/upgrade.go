@@ -47,6 +47,7 @@ var dbObjects = []interface{}{
 	&models.SSHKey{},
 	&models.Extension{},
 	&models.NodeTransfer{},
+	&models.GitHubAccount{},
 }
 
 func Upgrade(dbConn *gorm.DB, prettyPrint bool) error {

@@ -968,6 +968,9 @@ func matchingRecord(records []services.CloudflareRecord, used map[string]bool, k
 	return nil
 }
 
+// refreshLogFormat is the log line for a failed update of one server's records
+const refreshLogFormat = "updating the DNS records of server %s: %v"
+
 // subdomainRefreshDelay lets the request that changed the server commit first
 var subdomainRefreshDelay = 500 * time.Millisecond
 
@@ -987,18 +990,18 @@ func scheduleSubdomainRefresh(serverID string) {
 		time.Sleep(subdomainRefreshDelay)
 		db, err := database.GetConnection()
 		if err != nil {
-			logging.Error.Printf("updating the DNS records of server %s: %v", serverID, err)
+			logging.Error.Printf(refreshLogFormat, serverID, err)
 			return
 		}
 		server, err := (&services.Server{DB: db}).Get(serverID)
 		if err != nil {
-			logging.Error.Printf("updating the DNS records of server %s: %v", serverID, err)
+			logging.Error.Printf(refreshLogFormat, serverID, err)
 			return
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), subdomainRequestTimeout)
 		defer cancel()
 		if err := refreshSubdomainRecords(ctx, db, server, s); err != nil {
-			logging.Error.Printf("updating the DNS records of server %s: %v", serverID, err)
+			logging.Error.Printf(refreshLogFormat, serverID, err)
 		}
 	}()
 }

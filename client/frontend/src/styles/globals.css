@@ -631,13 +631,19 @@ body::after {
   to { --auth-angle: 360deg; }
 }
 
+/* These rules must outrank every animation and transition in the panel and in Sileo's
+   stylesheet, including Tailwind's variants (data-[state=open]:duration-500) and Sileo's
+   three-attribute toast rules, which come later or weigh more than a plain class.
+   `:not(#\#)` matches every element (none has the id "#") and adds an id's weight, which
+   no class or attribute selector reaches, so they win without !important. Only an inline
+   style would still beat them, and the panel sets no inline animation or transition. */
 @media (prefers-reduced-motion: reduce) {
-  .ambient *,
-  .skeleton-shimmer::after,
-  .meter-grow,
-  .auth-glow::before,
-  .pulse-dot::after {
-    animation: none !important;
+  .ambient *:not(#\#),
+  .skeleton-shimmer:not(#\#)::after,
+  .meter-grow:not(#\#),
+  .auth-glow:not(#\#)::before,
+  .pulse-dot:not(#\#)::after {
+    animation: none;
   }
   /* Panels light up on hover without the pointer-tracking glow. */
   [data-spotlight]::before,
@@ -649,13 +655,13 @@ body::after {
      at once. The durations are near zero rather than none so components that wait
      for animationend/transitionend still finish. Spinners keep turning: they tell
      the user something is loading. */
-  *:not(.animate-spin),
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
+  *:not(.animate-spin):not(#\#),
+  *:not(#\#)::before,
+  *:not(#\#)::after {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+    transition-duration: 0.01ms;
+    scroll-behavior: auto;
   }
 }
 

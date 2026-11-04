@@ -165,6 +165,11 @@ func openSession(c *gin.Context, user *models.User, event models.ActivityEvent) 
 	}
 
 	if !scopes.ContainsScope(allScopes, scopes.ScopeLogin) {
+		// the password was right: say why, so the person knows to wait rather than retry
+		if user.PendingApproval {
+			response.HandleError(c, skypanel.ErrAccountPending, http.StatusForbidden)
+			return nil, false
+		}
 		response.HandleError(c, skypanel.ErrLoginNotPermitted, http.StatusForbidden)
 		return nil, false
 	}

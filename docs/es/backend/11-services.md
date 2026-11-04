@@ -43,7 +43,7 @@ user, err := us.GetByID(id)
 | 17 | `SSHKey` | `sshkey.go` | BD | Claves públicas SFTP de los usuarios |
 | 18 | `DatabaseSFTPAuthorization` | `sftp.go` | BD | Inicio de sesión SFTP con contraseña o clave |
 | 19 | `TokenService` (interfaz) | `token.go` | Criptografía | JWT EdDSA para las llamadas panel → daemon, JWKS |
-| 20 | `EmailService` (interfaz) | `email.go` | Singleton | Plantillas y envío de correo |
+| 20 | `EmailSender` (interfaz) | `email.go` | Singleton | Plantillas y envío de correo |
 | 21 | `DiscordService` | `discord.go` | Singleton | Embeds para webhooks de Discord |
 | 22 | `LicenseService` | `license.go` | Singleton | API externa de licencias |
 | 23 | `Cloudflare` | `cloudflare.go` | Cliente de API | Registros DNS de una zona de Cloudflare |
@@ -315,7 +315,7 @@ type TokenService interface {
 - `GenerateRequest(node)`: JWT EdDSA, `kid` `SkyPanel`, claims `iat`, `exp` (+15 min) y `aud` = SHA-256 de `"skypanel-daemon-aud:" + secreto del nodo`, de modo que un token solo sirve en el nodo para el que se emitió.
 - `ValidateRequest(token)` (lo usa `middleware.ValidateJWT`): solo EdDSA, `exp` obligatorio, 1 min de margen, y `aud` debe coincidir con el secreto del nodo local o con `daemon.auth.clientSecret`.
 
-## 20. `EmailService` (`email.go`)
+## 20. `EmailSender` (`email.go`)
 
 - `LoadEmailService()` (al arrancar) lee `emails.json` y los cuerpos HTML de `assets/email` (embebidos), combinados con `panel.email.templateFolder` si tiene valor (los archivos de esa carpeta tienen prioridad). Asuntos y cuerpos son `html/template` de Go.
 - `GetEmailService().SendEmail(to, template, data, async)`: necesita `panel.email.provider` (`ErrEmailNotConfigured`), añade `COMPANY_NAME`, `MASTER_URL` y `HOST_NAME` (el host de `panel.settings.masterUrl`, o el nombre de la empresa si la URL no tiene host) a `data`, renderiza y envía con el proveedor de `internal/email`. Con `async` el envío va en una goroutine y los errores solo se registran en el log.

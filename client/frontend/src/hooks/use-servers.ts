@@ -26,13 +26,15 @@ const STATS_CONCURRENCY = 6;
 async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
     const results = new Array<R>(items.length);
     let next = 0;
-    const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-        while (next < items.length) {
-            const i = next++;
-            results[i] = await fn(items[i]);
-        }
-    });
-    await Promise.all(workers);
+    // Each worker takes the next item only once its previous one is done: that wait is what
+    // holds the requests to `limit` at a time, so it stays sequential within a worker.
+    const work = async (): Promise<void> => {
+        if (next >= items.length) return;
+        const i = next++;
+        results[i] = await fn(items[i]);
+        await work();
+    };
+    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => work()));
     return results;
 }
 

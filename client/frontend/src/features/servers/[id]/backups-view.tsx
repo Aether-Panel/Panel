@@ -32,7 +32,7 @@ const AUTOMATIC_BACKUP_NAME = 'Automatic backup';
 /** Restore points: quick backups taken before risky steps, named "restore-<reason>-<id>". */
 const restoreReason = (backup: BackupInfo) =>
   backup.fileName.startsWith('restore-') ? backup.fileName.split('-')[1] ?? 'other' : null;
-const RESTORE_REASONS = new Set(['plugin', 'version', 'restore', 'modpack']);
+const RESTORE_REASONS = new Set(['plugin', 'version', 'restore', 'modpack', 'github']);
 
 /** The title a backup reads by: its restore reason, the translated automatic name, or its own name. */
 function backupTitle(backup: BackupInfo, t: (key: string) => string): string {

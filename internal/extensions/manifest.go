@@ -109,7 +109,14 @@ func (m *Manifest) validate(has func(name string) bool) error {
 	if err := services.ValidateWebhook(m.Webhook); err != nil {
 		return errors.New("webhook must be an https:// address")
 	}
+	if err := m.validatePages(has); err != nil {
+		return err
+	}
+	return m.validateEvents()
+}
 
+// validatePages checks every page and trims what the author may have padded
+func (m *Manifest) validatePages(has func(name string) bool) error {
 	seen := map[string]bool{}
 	for i := range m.Pages {
 		p := &m.Pages[i]
@@ -129,7 +136,11 @@ func (m *Manifest) validate(has func(name string) bool) error {
 		}
 		seen[p.ID] = true
 	}
+	return nil
+}
 
+// validateEvents refuses events the panel does not send, and events with nowhere to go
+func (m *Manifest) validateEvents() error {
 	known := map[string]bool{}
 	for _, e := range Events {
 		known[e] = true

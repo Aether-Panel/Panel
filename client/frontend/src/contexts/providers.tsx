@@ -42,7 +42,8 @@ interface AuthContextType {
   login: (credentials: LoginCredentials) => Promise<LoginResult>;
   /** Second step of a sign-in on an account with two-factor authentication. */
   verifyOtp: (token: string) => Promise<LoginResult>;
-  register: (data: RegisterData) => Promise<void>;
+  /** 'pending' when the account waits for an administrator's approval */
+  register: (data: RegisterData) => Promise<'pending' | void>;
   logout: () => void;
   hasScope: (scope: string) => boolean;
   loading: boolean;
@@ -189,6 +190,13 @@ function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
         turnstileToken: data.turnstileToken,
         captchaToken: data.captchaToken,
       });
+
+      // approval is on: no session yet, the person waits for an administrator
+      if (res?.pending) {
+        sileo.success({ title: t('auth.registerSuccess'), description: t('auth.registerPending') });
+        setLoading(false);
+        return 'pending';
+      }
 
       const scopesList = normalizeScopes(res.scopes || []);
 

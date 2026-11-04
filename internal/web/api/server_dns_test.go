@@ -44,74 +44,103 @@ type dnsFake struct {
 	listCalls int
 }
 
+// dnsReply writes a Cloudflare API answer
+func dnsReply(w http.ResponseWriter, status int, payload map[string]interface{}) {
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(payload)
+}
+
+// dnsFailure is a Cloudflare error answer
+func dnsFailure(w http.ResponseWriter, status, code int, message string) {
+	dnsReply(w, status, map[string]interface{}{"success": false, "errors": []map[string]interface{}{{"code": code, "message": message}}})
+}
+
+func dnsSuccess(w http.ResponseWriter, result interface{}) {
+	dnsReply(w, http.StatusOK, map[string]interface{}{"success": true, "result": result})
+}
+
+// zoneName is the name of a zone the fake knows, the test zone when no zones were set
+func (f *dnsFake) zoneName(zone string) (string, bool) {
+	if len(f.zones) == 0 && zone == dnsTestZone {
+		return "example.com", true
+	}
+	name, ok := f.zones[zone]
+	return name, ok
+}
+
 func (f *dnsFake) serve(w http.ResponseWriter, r *http.Request) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	w.Header().Set("Content-Type", "application/json")
-	reply := func(status int, payload map[string]interface{}) {
-		w.WriteHeader(status)
-		_ = json.NewEncoder(w).Encode(payload)
-	}
 	if r.Header.Get("Authorization") != "Bearer "+dnsTestToken {
-		reply(http.StatusUnauthorized, map[string]interface{}{"success": false, "errors": []map[string]interface{}{{"code": 10000, "message": "Authentication error"}}})
+		dnsFailure(w, http.StatusUnauthorized, 10000, "Authentication error")
 		return
 	}
 	zone := strings.SplitN(strings.TrimPrefix(r.URL.Path, "/zones/"), "/", 2)[0]
-	zoneName, known := f.zones[zone]
-	if len(f.zones) == 0 && zone == dnsTestZone {
-		zoneName, known = "example.com", true
-	}
+	zoneName, known := f.zoneName(zone)
 	if !known {
-		reply(http.StatusNotFound, map[string]interface{}{"success": false, "errors": []map[string]interface{}{{"code": 7003, "message": "Could not route to /zones/" + zone}}})
+		dnsFailure(w, http.StatusNotFound, 7003, "Could not route to /zones/"+zone)
 		return
 	}
 	prefix := "/zones/" + zone
-	if id := strings.TrimPrefix(r.URL.Path, prefix+"/dns_records/"); id != r.URL.Path && f.zoneOf[id] != "" && f.zoneOf[id] != zone {
-		reply(http.StatusNotFound, map[string]interface{}{"success": false, "errors": []map[string]interface{}{{"code": 81044, "message": "Record does not exist."}}})
+	records := prefix + "/dns_records"
+	id, onRecord := strings.CutPrefix(r.URL.Path, records+"/")
+	if onRecord && f.zoneOf[id] != "" && f.zoneOf[id] != zone {
+		dnsFailure(w, http.StatusNotFound, 81044, "Record does not exist.")
 		return
 	}
 	switch {
 	case r.Method == http.MethodGet && r.URL.Path == prefix:
-		reply(http.StatusOK, map[string]interface{}{"success": true, "result": map[string]string{"id": zone, "name": zoneName}})
-	case r.Method == http.MethodGet && r.URL.Path == prefix+"/dns_records":
+		dnsSuccess(w, map[string]string{"id": zone, "name": zoneName})
+	case r.Method == http.MethodGet && r.URL.Path == records:
 		f.listCalls++
-		reply(http.StatusOK, map[string]interface{}{"success": true, "result": f.recordsNamed(zone, r.URL.Query().Get("name"))})
-	case r.Method == http.MethodPost && r.URL.Path == prefix+"/dns_records":
-		var rec services.CloudflareRecord
-		_ = json.NewDecoder(r.Body).Decode(&rec)
-		if f.failType != "" && rec.Type == f.failType {
-			reply(http.StatusBadRequest, map[string]interface{}{"success": false, "errors": []map[string]interface{}{{"code": 9000, "message": f.failText}}})
-			return
-		}
-		f.next++
-		rec.ID = fmt.Sprintf("%032x", f.next)
-		f.records[rec.ID] = rec
-		f.zoneOf[rec.ID] = zone
-		f.creates = append(f.creates, rec)
-		reply(http.StatusOK, map[string]interface{}{"success": true, "result": rec})
-	case r.Method == http.MethodPut && strings.HasPrefix(r.URL.Path, prefix+"/dns_records/"):
-		id := strings.TrimPrefix(r.URL.Path, prefix+"/dns_records/")
-		if _, ok := f.records[id]; !ok {
-			reply(http.StatusNotFound, map[string]interface{}{"success": false, "errors": []map[string]interface{}{{"code": 81044, "message": "Record does not exist."}}})
-			return
-		}
-		var rec services.CloudflareRecord
-		_ = json.NewDecoder(r.Body).Decode(&rec)
-		rec.ID = id
-		f.records[id] = rec
-		reply(http.StatusOK, map[string]interface{}{"success": true, "result": rec})
-	case r.Method == http.MethodDelete && strings.HasPrefix(r.URL.Path, prefix+"/dns_records/"):
-		id := strings.TrimPrefix(r.URL.Path, prefix+"/dns_records/")
-		f.deletes = append(f.deletes, id)
-		if _, ok := f.records[id]; !ok {
-			reply(http.StatusNotFound, map[string]interface{}{"success": false, "errors": []map[string]interface{}{{"code": 81044, "message": "Record does not exist."}}})
-			return
-		}
-		delete(f.records, id)
-		reply(http.StatusOK, map[string]interface{}{"success": true, "result": map[string]string{"id": id}})
+		dnsSuccess(w, f.recordsNamed(zone, r.URL.Query().Get("name")))
+	case r.Method == http.MethodPost && r.URL.Path == records:
+		f.createRecord(w, r, zone)
+	case r.Method == http.MethodPut && onRecord:
+		f.updateRecord(w, r, id)
+	case r.Method == http.MethodDelete && onRecord:
+		f.deleteRecord(w, id)
 	default:
-		reply(http.StatusNotFound, map[string]interface{}{"success": false, "errors": []map[string]interface{}{{"code": 7003, "message": "no route"}}})
+		dnsFailure(w, http.StatusNotFound, 7003, "no route")
 	}
+}
+
+func (f *dnsFake) createRecord(w http.ResponseWriter, r *http.Request, zone string) {
+	var rec services.CloudflareRecord
+	_ = json.NewDecoder(r.Body).Decode(&rec)
+	if f.failType != "" && rec.Type == f.failType {
+		dnsFailure(w, http.StatusBadRequest, 9000, f.failText)
+		return
+	}
+	f.next++
+	rec.ID = fmt.Sprintf("%032x", f.next)
+	f.records[rec.ID] = rec
+	f.zoneOf[rec.ID] = zone
+	f.creates = append(f.creates, rec)
+	dnsSuccess(w, rec)
+}
+
+func (f *dnsFake) updateRecord(w http.ResponseWriter, r *http.Request, id string) {
+	if _, ok := f.records[id]; !ok {
+		dnsFailure(w, http.StatusNotFound, 81044, "Record does not exist.")
+		return
+	}
+	var rec services.CloudflareRecord
+	_ = json.NewDecoder(r.Body).Decode(&rec)
+	rec.ID = id
+	f.records[id] = rec
+	dnsSuccess(w, rec)
+}
+
+func (f *dnsFake) deleteRecord(w http.ResponseWriter, id string) {
+	f.deletes = append(f.deletes, id)
+	if _, ok := f.records[id]; !ok {
+		dnsFailure(w, http.StatusNotFound, 81044, "Record does not exist.")
+		return
+	}
+	delete(f.records, id)
+	dnsSuccess(w, map[string]string{"id": id})
 }
 
 // recordsNamed lists the zone's records with that name, never nil; the caller holds f.mu

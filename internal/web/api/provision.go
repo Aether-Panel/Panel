@@ -143,15 +143,8 @@ func provisionServer(c *gin.Context) {
 	}
 
 	// 3. Find Template
-	ts := &services.Template{DB: db}
-	repos, err := ts.GetRepos()
-	if response.HandleError(c, err, http.StatusInternalServerError) {
-		return
-	}
-
-	template := findTemplateInRepos(ts, repos, product.Template)
-	if template == nil {
-		response.HandleError(c, errors.New("template not found"), http.StatusBadRequest)
+	template, ok := provisionTemplate(c, db, product.Template)
+	if !ok {
 		return
 	}
 
@@ -229,24 +222,7 @@ func provisionServer(c *gin.Context) {
 	// and the plan's limits, or the container would run with the template's defaults
 	injectResourceLimits(serverCreation, product.CPU, product.Memory, product.Disk)
 
-	reader := &bytes.Buffer{}
-	_ = json.NewEncoder(reader).Encode(&serverCreation)
-
-	// no request headers: they hold the billing system's API key, which the node has no use for
-	nodeResponse, err := ns.CallNode(node, "PUT", daemonServerPrefix+server.Identifier, io.NopCloser(reader), nil)
-	defer utils.CloseResponse(nodeResponse)
-
-	if response.HandleError(c, err, http.StatusBadGateway) {
-		return
-	}
-
-	// a node refusing the panel must not read as the billing system's API key being wrong
-	if answerNodeAuthFailure(c, node, nodeResponse) {
-		return
-	}
-	if nodeResponse.StatusCode != http.StatusOK {
-		resData, _ := io.ReadAll(nodeResponse.Body)
-		c.AbortWithStatusJSON(nodeResponse.StatusCode, gin.H{"error": "Daemon error", "details": string(resData)})
+	if !createProvisionedOnNode(c, ns, node, serverCreation) {
 		return
 	}
 	provisioned = true
@@ -268,6 +244,49 @@ func provisionServer(c *gin.Context) {
 		"password":  generatedPassword,
 		"port":      assignedPort,
 	})
+}
+
+// provisionTemplate finds the product's template in any of the panel's repos; false when a
+// response has been written
+func provisionTemplate(c *gin.Context, db *gorm.DB, name string) (*models.Template, bool) {
+	ts := &services.Template{DB: db}
+	repos, err := ts.GetRepos()
+	if response.HandleError(c, err, http.StatusInternalServerError) {
+		return nil, false
+	}
+
+	template := findTemplateInRepos(ts, repos, name)
+	if template == nil {
+		response.HandleError(c, errors.New("template not found"), http.StatusBadRequest)
+		return nil, false
+	}
+	return template, true
+}
+
+// createProvisionedOnNode asks the node to create the server; false when it did not and a
+// response has been written
+func createProvisionedOnNode(c *gin.Context, ns *services.Node, node *models.Node, serverCreation *models.ServerCreation) bool {
+	reader := &bytes.Buffer{}
+	_ = json.NewEncoder(reader).Encode(&serverCreation)
+
+	// no request headers: they hold the billing system's API key, which the node has no use for
+	nodeResponse, err := ns.CallNode(node, "PUT", daemonServerPrefix+serverCreation.Identifier, io.NopCloser(reader), nil)
+	defer utils.CloseResponse(nodeResponse)
+
+	if response.HandleError(c, err, http.StatusBadGateway) {
+		return false
+	}
+
+	// a node refusing the panel must not read as the billing system's API key being wrong
+	if answerNodeAuthFailure(c, node, nodeResponse) {
+		return false
+	}
+	if nodeResponse.StatusCode != http.StatusOK {
+		resData, _ := io.ReadAll(nodeResponse.Body)
+		c.AbortWithStatusJSON(nodeResponse.StatusCode, gin.H{"error": "Daemon error", "details": string(resData)})
+		return false
+	}
+	return true
 }
 
 // answerAlreadyProvisioned answers with the server that already carries the

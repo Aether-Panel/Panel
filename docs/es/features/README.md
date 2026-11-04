@@ -20,6 +20,7 @@ Para el detalle completo de los endpoints, consulte la [referencia de la API](..
 | [Detección de caídas e informes de caída](crash-reports.md) | Cómo se detectan las caídas, reinicio automático e informes de caída |
 | [Notificaciones del servidor](server-notifications.md) | Avisos por servidor a Discord, Telegram o un webhook firmado |
 | [Subdominios automáticos (Cloudflare)](subdomains.md) | Subdominios de servidor y registros SRV de Minecraft gestionados mediante Cloudflare |
+| [Instalar desde GitHub](github.md) | Conectar la cuenta de GitHub e instalar un repositorio (también privado) y su rama en un servidor |
 | [Asistente de IA y análisis de registros](ai-assistant.md) | Chat del asistente, análisis de la consola y «Explicar con IA» (Gemini) |
 | [Asistente de IA: trabajar con archivos](ai-agent.md) | Lo que el asistente puede hacer con los archivos de un servidor, aprobaciones, dónde quedan registrados los cambios, privacidad, límites |
 

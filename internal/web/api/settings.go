@@ -638,6 +638,8 @@ var editableStringEntries = []config.StringEntry{
 	config.NotificationLanguage,
 	// the node's key for CurseForge modpacks (on remote nodes it is set in their own config)
 	config.CurseForgeKey,
+	// the OAuth App users connect their GitHub account through
+	config.GitHubClientID,
 	config.DiscordWebhook,
 	config.DiscordWebhookSystem,
 	config.DiscordWebhookNode,
@@ -661,6 +663,7 @@ var editableStringEntries = []config.StringEntry{
 }
 var editableBoolEntries = []config.BoolEntry{
 	config.RegistrationEnabled,
+	config.RegistrationApproval,
 	config.HideAIAnalysis,
 	config.AIFileTools,
 	config.BackupsS3Enabled,

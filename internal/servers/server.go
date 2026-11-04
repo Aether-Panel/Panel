@@ -371,7 +371,21 @@ func sendRemoteNodeReport(ds *services.DiscordService, ns *services.Node, node *
 
 // sendNodeReport sends the report of a node that answered
 func sendNodeReport(ds *services.DiscordService, node *models.Node, nodeName string, total, online, offline int, hw nodeHardware) error {
-	return ds.SendNodeStatus(total, online, offline, nodeName, node.PublicHost, node.PublicPort, hw.cpuModel, hw.cpuCores, hw.cpuThreads, hw.cpuGhz, hw.memTotal, hw.memUsed, hw.osName)
+	return ds.SendNodeStatus(services.NodeStatus{
+		NodeName:       nodeName,
+		PublicHost:     node.PublicHost,
+		PublicPort:     node.PublicPort,
+		TotalServers:   total,
+		OnlineServers:  online,
+		OfflineServers: offline,
+		CPUModel:       hw.cpuModel,
+		CPUCores:       hw.cpuCores,
+		CPUThreads:     hw.cpuThreads,
+		CPUGhz:         hw.cpuGhz,
+		MemTotal:       hw.memTotal,
+		MemUsed:        hw.memUsed,
+		OSName:         hw.osName,
+	})
 }
 
 // countRunning counts the servers by state
@@ -1273,6 +1287,10 @@ func (p *Server) Install() error {
 		return skypanel.ErrServerRunning
 	}
 	defer p.installRunning.Store(false)
+	// a repository being unpacked into the folder must not be mixed with the template's files
+	if p.githubInstallRunning() {
+		return ErrGitHubInstalling
+	}
 
 	if err := p.IsIdle(); err != nil {
 		return err

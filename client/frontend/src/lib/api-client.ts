@@ -45,7 +45,7 @@ export class ApiError extends Error {
 }
 
 /** Pages where a 401 is part of the flow (signing in), not an expired session */
-const AUTH_PAGES = ['/login', '/register', '/forgot-password', '/reset-password'];
+const AUTH_PAGES = new Set(['/login', '/register', '/forgot-password', '/reset-password']);
 let sentToLogin = false;
 
 /** sessionStorage key with the page to return to after signing in */
@@ -73,7 +73,7 @@ function sessionExpired(url: string) {
     // the panel's own sign-in calls answer 401 for a wrong password; that is not an expired session
     if (url.startsWith('/auth/')) return;
     const path = window.location.pathname.replace(/\/$/, '') || '/';
-    if (AUTH_PAGES.includes(path)) return;
+    if (AUTH_PAGES.has(path)) return;
     sentToLogin = true;
     rememberPageForLogin();
     window.location.href = '/login/?expired=1';

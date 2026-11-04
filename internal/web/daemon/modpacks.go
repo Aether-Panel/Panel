@@ -32,7 +32,8 @@ func modpackErrorStatus(err error) int {
 	switch {
 	case errors.Is(err, servers.ErrModpackBadRequest), errors.Is(err, servers.ErrCurseForgeKeyMissing), errors.Is(err, servers.ErrModpackUnsupported):
 		return http.StatusBadRequest
-	case errors.Is(err, servers.ErrModpackInstalling), errors.Is(err, servers.ErrModpackServerBusy), errors.Is(err, servers.ErrVersionChanging):
+	case errors.Is(err, servers.ErrModpackInstalling), errors.Is(err, servers.ErrModpackServerBusy), errors.Is(err, servers.ErrVersionChanging),
+		errors.Is(err, servers.ErrGitHubInstalling):
 		return http.StatusConflict
 	case errors.As(err, &upstream):
 		return http.StatusUnprocessableEntity

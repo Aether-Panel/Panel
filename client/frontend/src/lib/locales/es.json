@@ -105,7 +105,8 @@
       "done": "Comprobación anti-bots completada",
       "failed": "No se pudo hacer la comprobación anti-bots.",
       "retry": "Reintentar"
-    }
+    },
+    "registerPending": "Cuenta creada. Un administrador tiene que aprobarla antes de que puedas entrar."
   },
   "header": {
     "root": "Panel",
@@ -996,7 +997,8 @@
           "version": "Antes de cambiar de versión",
           "restore": "Antes de restaurar una copia",
           "other": "Punto de restauración",
-          "modpack": "Antes de instalar un modpack"
+          "modpack": "Antes de instalar un modpack",
+          "github": "Antes de instalar desde GitHub"
         }
       }
     },
@@ -2542,6 +2544,60 @@
         "error": "No se pudo empezar la instalación."
       },
       "safety": "Antes de instalar se guarda un punto de restauración en Copias de seguridad. Si el modpack da problemas, restáuralo y vuelves a como estabas."
+    },
+    "github": {
+      "title": "Instalar desde GitHub",
+      "description": "Trae un proyecto de tu cuenta de GitHub (también privado) directamente al servidor, sin subirlo por SFTP. El nodo lo descarga de GitHub.",
+      "loadError": "No se pudo cargar la conexión con GitHub.",
+      "notConfigured": "GitHub no está configurado en este panel. Un administrador debe añadir el Client ID de una OAuth App en Configuración → GitHub.",
+      "connect": "Conectar con GitHub",
+      "connectedToast": "GitHub conectado como {{login}}",
+      "connectedAs": "Conectado como",
+      "unlink": "Desvincular",
+      "unlinkedToast": "Cuenta de GitHub desvinculada",
+      "unlinkError": "No se pudo desvincular la cuenta.",
+      "unlinkDialog": {
+        "title": "¿Desvincular GitHub?",
+        "description": "El panel olvidará tu cuenta de GitHub en todos tus servidores. Los archivos ya instalados no cambian. También puedes revocar el acceso en GitHub → Settings → Applications."
+      },
+      "device": {
+        "title": "Conecta tu cuenta de GitHub",
+        "description": "Abre GitHub, inicia sesión y escribe este código. Esta ventana se cerrará sola cuando termines.",
+        "copy": "Copiar código",
+        "open": "Abrir GitHub",
+        "waiting": "Esperando a que escribas el código en GitHub…",
+        "expired": "El código caducó. Vuelve a pulsar «Conectar con GitHub».",
+        "denied": "Se rechazó el acceso en GitHub.",
+        "failed": "No se pudo conectar con GitHub."
+      },
+      "search": "Buscar repositorio",
+      "reposLabel": "Tus repositorios",
+      "reposError": "No se pudieron cargar tus repositorios.",
+      "noRepos": "Esta cuenta no tiene repositorios.",
+      "noMatch": "Ningún repositorio coincide con la búsqueda.",
+      "loadMore": "Cargar más",
+      "private": "Privado",
+      "branch": "Rama",
+      "defaultBranch": "principal",
+      "install": "Instalar",
+      "installStarted": "Instalando {{repo}}…",
+      "installError": "No se pudo empezar la instalación.",
+      "installDone": "{{repo}} instalado",
+      "installFailed": "La instalación desde GitHub falló",
+      "installDialog": {
+        "title": "¿Instalar {{repo}} ({{branch}})?",
+        "description": "Se borrarán todos los archivos del servidor y quedará solo el contenido de esa rama. Antes se guarda un punto de restauración en Copias de seguridad. El servidor se detiene si está encendido y no se vuelve a encender solo.",
+        "confirm": "Borrar e instalar"
+      },
+      "steps": {
+        "stopping": "Deteniendo el servidor…",
+        "downloading": "Descargando de GitHub… {{size}}",
+        "restorePoint": "Guardando un punto de restauración…",
+        "cleaning": "Vaciando la carpeta del servidor…",
+        "extracting": "Descomprimiendo el proyecto…",
+        "done": "Instalado",
+        "failed": "Falló"
+      }
     }
   },
   "users": {
@@ -2621,6 +2677,14 @@
       "updateFailed": "No se pudo actualizar el usuario.",
       "deleted": "Usuario eliminado correctamente.",
       "deleteFailed": "No se pudo eliminar el usuario."
+    },
+    "approval": {
+      "pending": "Pendiente",
+      "approve": "Aprobar",
+      "reject": "Rechazar y borrar",
+      "approvedToast": "{{name}} ya puede entrar al panel",
+      "approveFailed": "No se pudo aprobar la cuenta.",
+      "banner": "Cuentas que esperan aprobación: {{count}}. No pueden entrar hasta que las apruebes; si no las reconoces, recházalas."
     }
   },
   "roles": {
@@ -3202,7 +3266,8 @@
       "sectionLabel": "Sección de la configuración",
       "offsite": "Copias externas",
       "domains": "Dominios",
-      "extensions": "Extensiones"
+      "extensions": "Extensiones",
+      "github": "GitHub"
     },
     "general": {
       "title": "Configuración general",
@@ -3270,7 +3335,9 @@
         "serverCloneWhere": "En Administración › Clonar de cada servidor"
       },
       "notificationLanguageLabel": "Idioma de las notificaciones",
-      "notificationLanguageDescription": "El idioma de los avisos que se envían a Discord, Telegram y webhooks (los del panel y los de cada servidor), de los informes de Discord del panel y de los eventos que reciben las extensiones. Las páginas del panel siguen el idioma de cada persona."
+      "notificationLanguageDescription": "El idioma de los avisos que se envían a Discord, Telegram y webhooks (los del panel y los de cada servidor), de los informes de Discord del panel y de los eventos que reciben las extensiones. Las páginas del panel siguen el idioma de cada persona.",
+      "registrationApprovalLabel": "Aprobar cuentas nuevas",
+      "registrationApprovalDescription": "Quien se registre no podrá entrar hasta que un administrador apruebe su cuenta en Usuarios. El correo de bienvenida se envía al aprobarla."
     },
     "discord": {
       "title": "Notificaciones Discord",
@@ -3556,6 +3623,22 @@
       "zoneId": "ID de zona",
       "zoneIdHint": "32 caracteres hexadecimales.",
       "zoneIdInvalid": "El ID de zona tiene 32 caracteres hexadecimales (0-9, a-f)."
+    },
+    "github": {
+      "title": "GitHub",
+      "description": "Permite que cada usuario conecte su cuenta de GitHub e instale sus repositorios (también privados) en sus servidores desde Administración → Instalación.",
+      "appTitle": "OAuth App de GitHub",
+      "appDescription": "Se crea una vez desde tu cuenta u organización de GitHub. Solo hace falta su Client ID: sin secreto ni URL de retorno.",
+      "openGitHub": "Crear una OAuth App en GitHub",
+      "step1": "En GitHub abre Settings → Developer settings → OAuth Apps → New OAuth App.",
+      "step2": "Pon un nombre (lo verán tus usuarios al conectar) y en Homepage URL y Authorization callback URL la dirección del panel; no se usa para iniciar sesión.",
+      "step3": "Tras registrarla, marca «Enable Device Flow» y guarda.",
+      "step4": "Copia el Client ID y pégalo aquí. No hace falta generar un Client secret.",
+      "clientId": "Client ID",
+      "clientIdHint": "Empieza por «Ov23li» en las apps nuevas.",
+      "clientIdInvalid": "Eso no parece un Client ID.",
+      "onHint": "Activo: los usuarios verán «Conectar con GitHub» al guardar.",
+      "offHint": "Desactivado hasta que pongas un Client ID."
     }
   },
   "apiKeys": {
@@ -3671,7 +3754,16 @@
     "ErrDiscordNoWebhooks": "No hay webhooks de Discord configurados.",
     "ErrDiscordTestFailed": "El mensaje de prueba no llegó a estos webhooks: {{webhooks}}. Revisa que sigan existiendo en Discord.",
     "ErrNotificationLanguage": "El idioma de las notificaciones debe ser español o inglés.",
-    "ErrAIConfirmationInvalid": "Esta solicitud ha caducado, ya se respondió o es de otra persona. Vuelve a preguntar."
+    "ErrAIConfirmationInvalid": "Esta solicitud ha caducado, ya se respondió o es de otra persona. Vuelve a preguntar.",
+    "ErrAccountPending": "Tu cuenta está pendiente de aprobación. Un administrador tiene que aprobarla antes de que puedas entrar.",
+    "ErrGitHubNotConfigured": "GitHub no está configurado en este panel. Un administrador debe añadir el Client ID en Configuración → GitHub.",
+    "ErrGitHubNotConnected": "Primero conecta tu cuenta de GitHub.",
+    "ErrGitHubCodeExpired": "El código de GitHub caducó. Vuelve a empezar.",
+    "ErrGitHubDenied": "Se rechazó el acceso en GitHub.",
+    "ErrGitHubTokenRevoked": "GitHub ya no acepta esta conexión. Vuelve a conectar tu cuenta.",
+    "ErrGitHubNotFound": "GitHub no encuentra ese repositorio o rama, o tu cuenta no tiene acceso.",
+    "ErrGitHubBadName": "Ese nombre de repositorio o rama no es válido.",
+    "ErrGitHubBadClient": "GitHub no reconoce ese Client ID o su OAuth App no tiene activado Device Flow. Revísalo en Configuración → GitHub."
   },
   "apiErrorValues": {
     "ErrDiscordTestFailed": {

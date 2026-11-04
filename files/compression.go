@@ -25,6 +25,8 @@ var ErrFileExists = errors.New("file already exists")
 
 const PathSeparator = "/"
 
+// ExtractOptions is what to unpack and where. ForcedWalker is the extractor to use when the
+// format cannot be told from the file name or its first bytes.
 type ExtractOptions struct {
 	FileServer   FileServer
 	SourceFile   string
@@ -101,7 +103,7 @@ func Extract(fs FileServer, sourceFile, targetPath, filter string, skipRoot bool
 	}
 	defer utils.Close(file)
 
-	return extractFile(file, sourceFile, targetPath, filter, skipRoot, forcedType, fs, nil)
+	return extractFile(file, ExtractOptions{FileServer: fs, SourceFile: sourceFile, TargetPath: targetPath, Filter: filter, SkipRoot: skipRoot, ForcedWalker: forcedType}, nil)
 }
 
 // WriteLimit wraps the writer of every extracted file, so the caller can count the bytes
@@ -121,7 +123,7 @@ func ExtractLimited(fs FileServer, sourceFile, targetPath, filter string, skipRo
 	}
 	defer utils.Close(file)
 
-	return extractFile(file, sourceFile, targetPath, filter, skipRoot, nil, fs, limit)
+	return extractFile(file, ExtractOptions{FileServer: fs, SourceFile: sourceFile, TargetPath: targetPath, Filter: filter, SkipRoot: skipRoot}, limit)
 }
 
 // ExtractReader extracts an archive the caller already opened into fs. Backups live outside
@@ -131,22 +133,34 @@ func ExtractReader(fs FileServer, reader io.ReadSeeker, sourceFile, targetPath, 
 	if fs == nil {
 		return errors.New("fileserver is required")
 	}
-	return extractFile(reader, sourceFile, targetPath, filter, skipRoot, nil, fs, nil)
+	return extractFile(reader, ExtractOptions{FileServer: fs, SourceFile: sourceFile, TargetPath: targetPath, Filter: filter, SkipRoot: skipRoot}, nil)
+}
+
+// ExtractReaderLimited is ExtractReader with every file written through limit, for an archive
+// kept outside the server's folder that still has to count against its disk quota
+func ExtractReaderLimited(fs FileServer, reader io.ReadSeeker, sourceFile, targetPath, filter string, skipRoot bool, limit WriteLimit) error {
+	if fs == nil {
+		return errors.New("fileserver is required")
+	}
+	return extractFile(reader, ExtractOptions{FileServer: fs, SourceFile: sourceFile, TargetPath: targetPath, Filter: filter, SkipRoot: skipRoot}, limit)
 }
 
 func ExtractFromReader(reader io.ReadSeeker, sourceFile, targetPath, filter string, skipRoot bool, forcedType archives.Extractor) error {
 	if !filepath.IsLocal(targetPath) {
 		return fmt.Errorf("%w: %s", ErrPathTraversal, targetPath)
 	}
-	return extractFile(reader, sourceFile, targetPath, filter, skipRoot, forcedType, nil, nil)
+	return extractFile(reader, ExtractOptions{SourceFile: sourceFile, TargetPath: targetPath, Filter: filter, SkipRoot: skipRoot, ForcedWalker: forcedType}, nil)
 }
 
-func extractFile(file io.ReadSeeker, sourceFile, targetPath, filter string, skipRoot bool, forcedType archives.Extractor, fs FileServer, limit WriteLimit) error {
+// extractFile unpacks file as opts describes. Without a file server the target is a path on
+// disk; a nil limit writes without a cap.
+func extractFile(file io.ReadSeeker, opts ExtractOptions, limit WriteLimit) error {
 	ctx := context.Background()
 
+	skipRoot := opts.SkipRoot
 	if skipRoot {
 		var err error
-		skipRoot, err = DetermineIfSingleRoot(ctx, sourceFile, file)
+		skipRoot, err = DetermineIfSingleRoot(ctx, opts.SourceFile, file)
 		if err != nil {
 			return err
 		}
@@ -157,10 +171,10 @@ func extractFile(file io.ReadSeeker, sourceFile, targetPath, filter string, skip
 	}
 
 	var extractor archives.Extractor
-	if forcedType != nil {
-		extractor = forcedType
+	if opts.ForcedWalker != nil {
+		extractor = opts.ForcedWalker
 	} else {
-		format, _, err := archives.Identify(ctx, sourceFile, file)
+		format, _, err := archives.Identify(ctx, opts.SourceFile, file)
 		if err != nil {
 			return err
 		}
@@ -175,7 +189,7 @@ func extractFile(file io.ReadSeeker, sourceFile, targetPath, filter string, skip
 		}
 	}
 
-	return extractor.Extract(ctx, file, walker(fs, targetPath, filter, skipRoot, limit))
+	return extractor.Extract(ctx, file, walker(opts.FileServer, opts.TargetPath, opts.Filter, skipRoot, limit))
 }
 
 func Compress(fs FileServer, targetFile string, filesToCompress []string) error {

@@ -787,20 +787,14 @@ func (d *Docker) imageExists(ctx context.Context, imageName string) (bool, error
 
 func (d *Docker) createContainer(ctx context.Context, environment *skypanel.Environment, data skypanel.ExecutionData) error {
 	environment.Log(logging.Debug, "Creating container")
-	containerRoot := d.ContainerRoot
-	if containerRoot == "" {
-		containerRoot = "/SkyPanel"
-	}
-
-	if runtime.GOOS != "windows" {
-		if !filepath.IsAbs(containerRoot) {
-			return skypanel.ErrPathNotAbs(containerRoot)
-		}
+	containerRoot, err := d.containerRoot()
+	if err != nil {
+		return err
 	}
 
 	imageName := utils.ReplaceTokens(d.ImageName, data.Variables)
 
-	err := d.PullImage(ctx, environment, imageName, false)
+	err = d.PullImage(ctx, environment, imageName, false)
 
 	if err != nil {
 		return err
@@ -880,29 +874,9 @@ func (d *Docker) createContainer(ctx context.Context, environment *skypanel.Envi
 
 	hostConfig.Binds = append(hostConfig.Binds, bindDirs...)
 
-	var exposedPorts network.PortSet
-	portSpecs := utils.ReplaceTokensInArr(d.Ports, data.Variables)
-	portSpecs = append(portSpecs, ExtraPortBindings(data.Variables)...)
-	exposedPorts, hostConfig.PortBindings, err = parsePortSpecs(portSpecs)
+	containerConfig.ExposedPorts, hostConfig.PortBindings, err = d.containerPorts(data)
 	if err != nil {
 		return err
-	}
-
-	if hostConfig.PortBindings == nil {
-		hostConfig.PortBindings = network.PortMap{}
-	}
-
-	if data.StdInConfig.Port != "" {
-		addStdinPortBinding(hostConfig.PortBindings, data.StdInConfig.Port)
-	}
-
-	containerConfig.ExposedPorts = exposedPorts
-	if containerConfig.ExposedPorts == nil {
-		containerConfig.ExposedPorts = network.PortSet{}
-	}
-
-	for k := range hostConfig.PortBindings {
-		containerConfig.ExposedPorts[k] = struct{}{}
 	}
 
 	applyResourceLimits(hostConfig, data.Variables)
@@ -921,6 +895,46 @@ func (d *Docker) createContainer(ctx context.Context, environment *skypanel.Envi
 		Name:             environment.ServerID,
 	})
 	return err
+}
+
+// containerRoot is the folder the server's files are mounted at inside the container. Docker
+// on Linux needs it absolute; Windows paths are left as they are.
+func (d *Docker) containerRoot() (string, error) {
+	containerRoot := d.ContainerRoot
+	if containerRoot == "" {
+		containerRoot = "/SkyPanel"
+	}
+	if runtime.GOOS != "windows" && !filepath.IsAbs(containerRoot) {
+		return "", skypanel.ErrPathNotAbs(containerRoot)
+	}
+	return containerRoot, nil
+}
+
+// containerPorts is what the container exposes and how it is published on the host: the
+// template's ports, the extra bindings and the stdin port. Every published port is also
+// exposed, as Docker only publishes ports the container exposes.
+func (d *Docker) containerPorts(data skypanel.ExecutionData) (network.PortSet, network.PortMap, error) {
+	portSpecs := utils.ReplaceTokensInArr(d.Ports, data.Variables)
+	portSpecs = append(portSpecs, ExtraPortBindings(data.Variables)...)
+	exposedPorts, bindings, err := parsePortSpecs(portSpecs)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if bindings == nil {
+		bindings = network.PortMap{}
+	}
+	if data.StdInConfig.Port != "" {
+		addStdinPortBinding(bindings, data.StdInConfig.Port)
+	}
+
+	if exposedPorts == nil {
+		exposedPorts = network.PortSet{}
+	}
+	for k := range bindings {
+		exposedPorts[k] = struct{}{}
+	}
+	return exposedPorts, bindings, nil
 }
 
 // commandSlice splits the template command into the container entrypoint.

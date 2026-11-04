@@ -49,6 +49,21 @@ function readPorts(variables: ServerSettings['variables']): number[] {
   return lp;
 }
 
+/**
+ * Stable React keys for the port rows, which can be removed from the middle: keyed by index,
+ * removing a row would hand its inputs to the row after it. Each row keeps the id it got when
+ * it appeared; `remove` goes with removing the row itself.
+ */
+function useRowIds(length: number) {
+  const idsRef = useRef<number[]>([]);
+  const nextIdRef = useRef(0);
+  const ids = idsRef.current;
+  while (ids.length < length) ids.push(nextIdRef.current++);
+  ids.length = length;
+  const remove = (idx: number) => { ids.splice(idx, 1); };
+  return [ids, remove] as const;
+}
+
 export default function SettingsView({ serverId, serverStatus, onPortsSaved }: Readonly<SettingsViewProps>) {
   const { t } = useTranslations();
   const { features: experimental } = useExperimental();
@@ -67,6 +82,7 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: R
   const canManagePorts = canEditAdminData;
 
   const [ports, setPorts] = useState<number[]>([]);
+  const [portRowIds, removePortRowId] = useRowIds(ports.length);
   const [portNotes, setPortNotes] = useState<Record<string, string>>({});
   const initialPrimaryRef = useRef<number | null>(null);
   const savedPortsRef = useRef<number[]>([]);
@@ -93,7 +109,7 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: R
 
   useEffect(() => {
     if (!settings) return;
-    setLocalSettings(JSON.parse(JSON.stringify(settings)));
+    setLocalSettings(structuredClone(settings));
     baseSettingsRef.current = JSON.stringify(settings);
     const stored = localStorage.getItem(`pluginsEnabled_${serverId}`);
     if (stored !== null) setPluginsEnabled(stored === 'true');
@@ -123,6 +139,7 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: R
   };
   const removePort = (idx: number) => {
     if (idx === 0 && isRunning) { sileo.error({ title: t('common.error'), description: t('servers.settings.portsRequireOffline') }); return; }
+    removePortRowId(idx);
     setPorts(prev => prev.filter((_, i) => i !== idx));
   };
 
@@ -423,7 +440,7 @@ export default function SettingsView({ serverId, serverStatus, onPortsSaved }: R
                 </div>
                 <ul className="divide-y divide-border/50">
                   {ports.map((p, idx) => (
-                    <li key={idx} className={cn('grid items-center gap-x-3 gap-y-2 px-3 py-2.5 sm:py-2', portGrid)}>
+                    <li key={portRowIds[idx]} className={cn('grid items-center gap-x-3 gap-y-2 px-3 py-2.5 sm:py-2', portGrid)}>
                       <span className={cn('text-xs', idx === 0 ? 'font-medium text-primary-bright' : 'text-muted-foreground')}>
                         {idx === 0 ? t('servers.settings.primaryPortLabel') : `#${idx + 1}`}
                       </span>

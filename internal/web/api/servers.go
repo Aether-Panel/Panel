@@ -61,6 +61,7 @@ func registerServers(g *gin.RouterGroup) {
 	registerServerActivity(g)
 	registerServerDNS(g)
 	registerServerModpacks(g)
+	registerServerGitHub(g)
 	registerServerWorldMap(g)
 	registerServerFileHistory(g)
 	registerServerClone(g)
@@ -467,7 +468,7 @@ func createServer(c *gin.Context) {
 	}
 
 	if hasParentServer(server) {
-		updateParentServerLimitsOnNode(c, db, ns, node, server, parentAvailableCPU, parentAvailableMemory, parentAvailableDisk)
+		updateParentServerLimitsOnNode(c, db, ns, node, server, parentLimits{CPU: parentAvailableCPU, Memory: parentAvailableMemory, Disk: parentAvailableDisk})
 	}
 
 	startFirstInstall(ns, node, server.Identifier)
@@ -1501,7 +1502,7 @@ func saveAdminServerChanges(c *gin.Context, db *gorm.DB, server *models.Server, 
 
 	node, nodeErr := (&services.Node{DB: db}).Get(server.NodeID)
 	if nodeErr == nil && node != nil {
-		updateParentServerLimitsOnNode(c, db, &services.Node{DB: db}, node, server, parentAvailableCPU, parentAvailableMemory, parentAvailableDisk)
+		updateParentServerLimitsOnNode(c, db, &services.Node{DB: db}, node, server, parentLimits{CPU: parentAvailableCPU, Memory: parentAvailableMemory, Disk: parentAvailableDisk})
 	}
 	return true
 }
@@ -3011,9 +3012,17 @@ func notifyNodeOfServerCreation(c *gin.Context, ns *services.Node, node *models.
 	return nil
 }
 
-func updateParentServerLimitsOnNode(c *gin.Context, db *gorm.DB, ns *services.Node, node *models.Node, server *models.Server, parentAvailableCPU int, parentAvailableMemory int64, parentAvailableDisk int64) {
+// parentLimits is the cpu, memory and disk a parent server has left once its sub-servers
+// took their share
+type parentLimits struct {
+	CPU    int
+	Memory int64
+	Disk   int64
+}
+
+func updateParentServerLimitsOnNode(c *gin.Context, db *gorm.DB, ns *services.Node, node *models.Node, server *models.Server, limits parentLimits) {
 	// the admin PUT: the plain POST only changes values the owner may edit, which these are not
-	updateBytes, _ := json.Marshal(parentLimitsData(parentAvailableCPU, parentAvailableMemory, parentAvailableDisk))
+	updateBytes, _ := json.Marshal(parentLimitsData(limits.CPU, limits.Memory, limits.Disk))
 	parentReqBody := io.NopCloser(bytes.NewReader(updateBytes))
 
 	var parent models.Server

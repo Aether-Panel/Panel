@@ -105,7 +105,8 @@
       "done": "Anti-bot check complete",
       "failed": "The anti-bot check could not run.",
       "retry": "Retry"
-    }
+    },
+    "registerPending": "Account created. An administrator has to approve it before you can sign in."
   },
   "header": {
     "root": "Panel",
@@ -996,7 +997,8 @@
           "version": "Before a version change",
           "restore": "Before restoring a backup",
           "other": "Restore point",
-          "modpack": "Before installing a modpack"
+          "modpack": "Before installing a modpack",
+          "github": "Before installing from GitHub"
         }
       }
     },
@@ -2542,6 +2544,60 @@
         "error": "Could not start the install."
       },
       "safety": "A restore point is saved in Backups before the install. If the modpack gives trouble, restore it and you are back where you were."
+    },
+    "github": {
+      "title": "Install from GitHub",
+      "description": "Bring a project from your GitHub account (private ones too) straight into the server, without uploading it over SFTP. The node downloads it from GitHub.",
+      "loadError": "Could not load the GitHub connection.",
+      "notConfigured": "GitHub is not set up on this panel. An administrator has to add the Client ID of an OAuth App in Settings → GitHub.",
+      "connect": "Connect GitHub",
+      "connectedToast": "GitHub connected as {{login}}",
+      "connectedAs": "Connected as",
+      "unlink": "Unlink",
+      "unlinkedToast": "GitHub account unlinked",
+      "unlinkError": "Could not unlink the account.",
+      "unlinkDialog": {
+        "title": "Unlink GitHub?",
+        "description": "The panel forgets your GitHub account on all your servers. Files already installed stay as they are. You can also revoke the access in GitHub → Settings → Applications."
+      },
+      "device": {
+        "title": "Connect your GitHub account",
+        "description": "Open GitHub, sign in and enter this code. This window closes by itself when you are done.",
+        "copy": "Copy code",
+        "open": "Open GitHub",
+        "waiting": "Waiting for you to enter the code on GitHub…",
+        "expired": "The code expired. Click «Connect GitHub» again.",
+        "denied": "The access was refused on GitHub.",
+        "failed": "Could not connect to GitHub."
+      },
+      "search": "Search repositories",
+      "reposLabel": "Your repositories",
+      "reposError": "Could not load your repositories.",
+      "noRepos": "This account has no repositories.",
+      "noMatch": "No repository matches the search.",
+      "loadMore": "Load more",
+      "private": "Private",
+      "branch": "Branch",
+      "defaultBranch": "default",
+      "install": "Install",
+      "installStarted": "Installing {{repo}}…",
+      "installError": "Could not start the install.",
+      "installDone": "{{repo}} installed",
+      "installFailed": "The GitHub install failed",
+      "installDialog": {
+        "title": "Install {{repo}} ({{branch}})?",
+        "description": "Every file of the server is deleted and only the contents of that branch remain. A restore point is saved in Backups first. The server stops if it is running and does not start again by itself.",
+        "confirm": "Delete and install"
+      },
+      "steps": {
+        "stopping": "Stopping the server…",
+        "downloading": "Downloading from GitHub… {{size}}",
+        "restorePoint": "Saving a restore point…",
+        "cleaning": "Emptying the server folder…",
+        "extracting": "Unpacking the project…",
+        "done": "Installed",
+        "failed": "Failed"
+      }
     }
   },
   "users": {
@@ -2621,6 +2677,14 @@
       "updateFailed": "Couldn't update the user.",
       "deleted": "User deleted.",
       "deleteFailed": "Couldn't delete the user."
+    },
+    "approval": {
+      "pending": "Pending",
+      "approve": "Approve",
+      "reject": "Reject and delete",
+      "approvedToast": "{{name}} can now sign in",
+      "approveFailed": "Could not approve the account.",
+      "banner": "Accounts waiting for approval: {{count}}. They cannot sign in until you approve them; reject any you do not recognise."
     }
   },
   "roles": {
@@ -3202,7 +3266,8 @@
       "sectionLabel": "Settings section",
       "offsite": "Off-site backups",
       "domains": "Domains",
-      "extensions": "Extensions"
+      "extensions": "Extensions",
+      "github": "GitHub"
     },
     "general": {
       "title": "General Settings",
@@ -3270,7 +3335,9 @@
         "serverCloneWhere": "In each server's Administration › Clone"
       },
       "notificationLanguageLabel": "Notification language",
-      "notificationLanguageDescription": "The language of the alerts sent to Discord, Telegram and webhooks (the panel's and each server's), the panel's Discord reports and the events extensions receive. The panel's pages follow each person's own language."
+      "notificationLanguageDescription": "The language of the alerts sent to Discord, Telegram and webhooks (the panel's and each server's), the panel's Discord reports and the events extensions receive. The panel's pages follow each person's own language.",
+      "registrationApprovalLabel": "Approve new accounts",
+      "registrationApprovalDescription": "People who sign up cannot sign in until an administrator approves their account in Users. The welcome email goes out on approval."
     },
     "discord": {
       "title": "Discord Notifications",
@@ -3556,6 +3623,22 @@
       "zoneId": "Zone ID",
       "zoneIdHint": "32 hexadecimal characters.",
       "zoneIdInvalid": "The zone ID has 32 hexadecimal characters (0-9, a-f)."
+    },
+    "github": {
+      "title": "GitHub",
+      "description": "Lets each user connect their GitHub account and install their repositories (private ones too) into their servers from Admin → Installation.",
+      "appTitle": "GitHub OAuth App",
+      "appDescription": "Created once from your GitHub account or organisation. Only its Client ID is needed: no secret and no callback URL.",
+      "openGitHub": "Create an OAuth App on GitHub",
+      "step1": "On GitHub open Settings → Developer settings → OAuth Apps → New OAuth App.",
+      "step2": "Give it a name (users see it when they connect) and put the panel's address as Homepage URL and Authorization callback URL; it is not used to sign in.",
+      "step3": "Once registered, tick «Enable Device Flow» and save.",
+      "step4": "Copy the Client ID and paste it here. No Client secret is needed.",
+      "clientId": "Client ID",
+      "clientIdHint": "New apps start with «Ov23li».",
+      "clientIdInvalid": "That does not look like a Client ID.",
+      "onHint": "On: users see «Connect GitHub» once you save.",
+      "offHint": "Off until you add a Client ID."
     }
   },
   "apiKeys": {
@@ -3671,7 +3754,16 @@
     "ErrDiscordNoWebhooks": "There are no Discord webhooks configured.",
     "ErrDiscordTestFailed": "The test message did not reach these webhooks: {{webhooks}}. Check that they still exist in Discord.",
     "ErrNotificationLanguage": "The notification language must be Spanish or English.",
-    "ErrAIConfirmationInvalid": "This request expired, was already answered or belongs to someone else. Ask again."
+    "ErrAIConfirmationInvalid": "This request expired, was already answered or belongs to someone else. Ask again.",
+    "ErrAccountPending": "Your account is waiting for approval. An administrator has to approve it before you can sign in.",
+    "ErrGitHubNotConfigured": "GitHub is not set up on this panel. An administrator has to add the Client ID in Settings → GitHub.",
+    "ErrGitHubNotConnected": "Connect your GitHub account first.",
+    "ErrGitHubCodeExpired": "The GitHub code expired. Start again.",
+    "ErrGitHubDenied": "The access was refused on GitHub.",
+    "ErrGitHubTokenRevoked": "GitHub no longer accepts this connection. Connect your account again.",
+    "ErrGitHubNotFound": "GitHub cannot find that repository or branch, or your account has no access to it.",
+    "ErrGitHubBadName": "That repository or branch name is not valid.",
+    "ErrGitHubBadClient": "GitHub does not know that Client ID, or its OAuth App has Device Flow off. Check it in Settings → GitHub."
   },
   "apiErrorValues": {
     "ErrDiscordTestFailed": {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -62,4 +63,14 @@ func TestTrustedProxyList_NoDuplicates(t *testing.T) {
 		assert.Equal(t, 1, n, p)
 	}
 	assert.NotContains(t, list, "")
+}
+
+func TestAlwaysTrustedProxies_EveryLineIsARange(t *testing.T) {
+	require.NotEmpty(t, alwaysTrustedProxies)
+	for _, proxy := range alwaysTrustedProxies {
+		_, _, err := net.ParseCIDR(proxy)
+		assert.NoError(t, err, proxy)
+	}
+	assert.Contains(t, alwaysTrustedProxies, "172.16.0.0/12", "the Docker gateway range")
+	assert.Contains(t, alwaysTrustedProxies, "2606:4700::/32", "a Cloudflare range")
 }

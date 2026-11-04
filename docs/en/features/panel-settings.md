@@ -100,7 +100,7 @@ Unknown keys are ignored. The test routes (`/api/settings/test/email`, `/test/di
 
 The keys behind the General tab, with their defaults and environment variables, are listed in [Configuration](../backend/02-configuration.md):
 
-`panel.settings.companyName`, `panel.settings.masterUrl`, `panel.settings.notificationLanguage`, `panel.settings.geminiApiKey`, `panel.settings.hideAiAnalysis`, `panel.settings.aiFileTools`, `daemon.curseforge.key`, `panel.registrationEnabled`, `panel.captcha.builtin`, `panel.turnstile.enabled`, `panel.turnstile.siteKey`, `panel.turnstile.secretKey`, `panel.experimental.versionSwitch`, `panel.experimental.propertiesEditor`, `panel.experimental.serverClone`.
+`panel.settings.companyName`, `panel.settings.masterUrl`, `panel.settings.notificationLanguage`, `panel.settings.geminiApiKey`, `panel.settings.hideAiAnalysis`, `panel.settings.aiFileTools`, `daemon.curseforge.key`, `panel.registrationEnabled`, `panel.registrationApproval`, `panel.captcha.builtin`, `panel.turnstile.enabled`, `panel.turnstile.siteKey`, `panel.turnstile.secretKey`, `panel.experimental.versionSwitch`, `panel.experimental.propertiesEditor`, `panel.experimental.serverClone`.
 
 Environment variables use the prefix `SKYPANEL_` and the key in upper case with dots turned into underscores, for example `SKYPANEL_PANEL_EXPERIMENTAL_SERVERCLONE`.
 

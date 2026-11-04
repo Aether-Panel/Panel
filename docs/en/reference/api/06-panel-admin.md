@@ -154,13 +154,14 @@ Editable keys:
 |-------|------|
 | Branding | `panel.settings.companyName`, `panel.settings.defaultTheme`, `panel.settings.themeSettings` |
 | Addresses | `panel.settings.masterUrl`, `panel.settings.nodeIp`, `panel.settings.masterNodeIp` |
-| Sign-up and anti-bot | `panel.registrationEnabled`, `panel.turnstile.enabled`, `panel.turnstile.siteKey`, `panel.turnstile.secretKey`, `panel.captcha.builtin` |
+| Sign-up and anti-bot | `panel.registrationEnabled`, `panel.registrationApproval`, `panel.turnstile.enabled`, `panel.turnstile.siteKey`, `panel.turnstile.secretKey`, `panel.captcha.builtin` |
 | Email | `panel.email.provider`, `panel.email.from`, `panel.email.host`, `panel.email.username`, `panel.email.password`, `panel.email.domain`, `panel.email.key` |
 | Notifications | `panel.settings.notificationLanguage` (`es` or `en`, default `es`: the language of Discord, Telegram and webhook alerts, the panel's Discord reports and extension events), `panel.notifications.discordWebhook`, `panel.notifications.discordWebhookSystem`, `panel.notifications.discordWebhookNode`, `panel.notifications.discordWebhookExTransfer` |
 | AI and integrations | `panel.settings.geminiApiKey`, `panel.settings.hideAiAnalysis`, `daemon.curseforge.key` |
 | Experimental | `panel.experimental.versionSwitch`, `panel.experimental.propertiesEditor`, `panel.experimental.serverClone` |
 | Off-site backups | `daemon.backups.s3.enabled`, `daemon.backups.s3.endpoint`, `daemon.backups.s3.region`, `daemon.backups.s3.bucket`, `daemon.backups.s3.accessKey`, `daemon.backups.s3.secretKey`, `daemon.backups.s3.prefix`, `daemon.backups.s3.insecure` |
 | Subdomains | `panel.dns.cloudflare.token`, `panel.dns.cloudflare.zoneId`, `panel.dns.baseDomain`, `panel.dns.target`, `panel.dns.autoAssign` |
+| GitHub | `panel.github.clientId` |
 | License | `panel.license.key`, `panel.license.status`, `panel.license.serverId`, `panel.license.serverIp` |
 
 Other configuration keys (for example `panel.backups.maxPerServer`) are only set in the config file or environment.
