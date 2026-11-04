@@ -163,6 +163,9 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: '22'
+          # the newest 22.x, not whatever the runner has cached: astro asks for a recent patch and
+          # an older cached one failed the install on some runners
+          check-latest: true
           cache: 'yarn'
           cache-dependency-path: 'client/yarn.lock'
 
