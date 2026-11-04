@@ -14,10 +14,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-        bash ca-certificates curl git unzip zip \
-        libfreetype-dev libjpeg62-turbo-dev libpng-dev libzip-dev \
-        libpq-dev libicu-dev libonig-dev \
-        autoconf dpkg-dev file g++ gcc libc-dev make pkg-config re2c; \
+        autoconf bash ca-certificates curl dpkg-dev file g++ gcc git libc-dev \
+        libfreetype-dev libicu-dev libjpeg62-turbo-dev libonig-dev libpng-dev libpq-dev \
+        libzip-dev make pkg-config re2c unzip zip; \
     docker-php-ext-configure gd --with-freetype --with-jpeg; \
     docker-php-ext-install -j"$(nproc)" \
         bcmath exif gd intl mysqli opcache pcntl \
