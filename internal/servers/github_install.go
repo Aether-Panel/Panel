@@ -49,11 +49,10 @@ var (
 // githubDownloadTimeout bounds the whole download, so a stalled one does not hold the server
 const githubDownloadTimeout = 30 * time.Minute
 
-// githubDownloadAllowed tells whether the panel's download address is GitHub's archive host; a
-// node never fetches anything else for this job. Tests point it at a fake.
-var githubDownloadAllowed = func(u *url.URL) bool {
-	return u.Scheme == "https" && u.Host == "codeload.github.com"
-}
+// githubArchiveOrigin is GitHub's archive host. The node builds every download address on it
+// and takes only the path and query from the panel's, so this job can never fetch anything
+// else. Tests point it at a fake.
+var githubArchiveOrigin = "https://codeload.github.com"
 
 var (
 	githubRepositoryPattern = regexp.MustCompile(`^[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}$`)
@@ -113,11 +112,15 @@ func validGitHubInstall(req GitHubInstallRequest) (*url.URL, bool) {
 		!githubBranchPattern.MatchString(req.Branch) || strings.Contains(req.Branch, "..") {
 		return nil, false
 	}
-	u, err := url.Parse(req.URL)
-	if err != nil || !githubDownloadAllowed(u) {
+	origin, err := url.Parse(githubArchiveOrigin)
+	if err != nil {
 		return nil, false
 	}
-	return u, true
+	given, err := url.Parse(req.URL)
+	if err != nil || given.Scheme != origin.Scheme || given.Host != origin.Host || given.User != nil {
+		return nil, false
+	}
+	return &url.URL{Scheme: origin.Scheme, Host: origin.Host, Path: given.Path, RawPath: given.RawPath, RawQuery: given.RawQuery}, true
 }
 
 // GitHubInstallStatus reports the install that is running or the last one

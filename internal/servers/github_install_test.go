@@ -6,7 +6,6 @@ import (
 	"compress/gzip"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -51,9 +50,9 @@ func fakeGitHubArchive(t *testing.T, archive []byte) string {
 	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
-	previous := githubDownloadAllowed
-	githubDownloadAllowed = func(u *url.URL) bool { return u.Host == strings.TrimPrefix(srv.URL, "http://") }
-	t.Cleanup(func() { githubDownloadAllowed = previous })
+	previous := githubArchiveOrigin
+	githubArchiveOrigin = srv.URL
+	t.Cleanup(func() { githubArchiveOrigin = previous })
 	return srv.URL + "/octo/app/legacy.tar.gz/refs/heads/dev?token=short-lived"
 }
 
@@ -142,6 +141,8 @@ func TestInstallFromGitHub_RefusesBadRequests(t *testing.T) {
 	for _, req := range []GitHubInstallRequest{
 		{Repository: "octo/app", Branch: "main", URL: "https://evil.example/archive.tar.gz"},
 		{Repository: "octo/app", Branch: "main", URL: "http://codeload.github.com/octo/app"},
+		{Repository: "octo/app", Branch: "main", URL: "https://user:pass@codeload.github.com/octo/app"},
+		{Repository: "octo/app", Branch: "main", URL: "https://codeload.github.com.evil.example/octo/app"},
 		{Repository: "../etc/app", Branch: "main", URL: good},
 		{Repository: "octo/..", Branch: "main", URL: good},
 		{Repository: "octo", Branch: "main", URL: good},
