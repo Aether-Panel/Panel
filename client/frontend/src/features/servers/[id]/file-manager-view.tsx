@@ -495,22 +495,25 @@ export default function FileManagerView({ serverId }: Readonly<{ serverId: strin
     return Array.isArray(data) ? data : [];
   };
 
-  const copyFolderRecursive = async (src: string, dest: string) => {
+  const copyEntry = async (item: FileItemResource, src: string, dest: string) => {
+    const srcChild = `${src}/${item.name}`;
+    const destChild = `${dest}/${item.name}`;
+    if (item.isFile) {
+      const blob = await readFileBlob(srcChild);
+      await writeFileBlob(destChild, blob);
+    } else {
+      await copyFolderRecursive(srcChild, destChild);
+    }
+  };
+
+  const copyFolderRecursive = async (src: string, dest: string): Promise<void> => {
     await makeFolder(dest);
     const items = await listFolderForCopy(src);
-    // one entry at a time on purpose: a parallel walk would fire an unbounded burst of
-    // reads/writes at the daemon for big trees
-    for (const item of items) {
-      if (item.name === '.' || item.name === '..') continue;
-      const srcChild = `${src}/${item.name}`;
-      const destChild = `${dest}/${item.name}`;
-      if (item.isFile) {
-        const blob = await readFileBlob(srcChild);
-        await writeFileBlob(destChild, blob);
-      } else {
-        await copyFolderRecursive(srcChild, destChild);
-      }
-    }
+    // one entry at a time on purpose, each chained after the previous one: a parallel walk
+    // would fire an unbounded burst of reads/writes at the daemon for big trees
+    await items
+      .filter((item) => item.name !== '.' && item.name !== '..')
+      .reduce<Promise<void>>((previous, item) => previous.then(() => copyEntry(item, src, dest)), Promise.resolve());
   };
 
   const handlePaste = async () => {

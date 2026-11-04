@@ -112,6 +112,13 @@ function updatingStatus(nodes: NodeUpdateStatus[], reconnecting: boolean, t: Tra
     return { ...base, statusTitle: t('settings.updates.status.complete'), StatusIcon: CheckCircle2, spin: false, tone: 'success' };
 }
 
+/** Why the version check failed, for the line under its headline. */
+function checkFailedDescriptionKey(reason?: string) {
+    if (reason === 'github_rate_limited') return 'settings.updates.status.rateLimitedDescription';
+    if (reason === 'panel_error') return 'settings.updates.status.panelErrorDescription';
+    return 'settings.updates.status.checkFailedDescription';
+}
+
 /** Status headline once the version check has answered and nothing is running. */
 function idleStatus(
     flags: { updateFailed: boolean; checkFailed: boolean; unknownCurrent: boolean; updateAvailable: boolean; reason?: string; behindBy?: number; verification?: string },
@@ -127,11 +134,7 @@ function idleStatus(
             statusTitle: t('settings.updates.status.checkFailed'),
             StatusIcon: XCircle,
             tone: 'destructive',
-            statusDescription: t(
-                flags.reason === 'github_rate_limited' ? 'settings.updates.status.rateLimitedDescription'
-                    : flags.reason === 'panel_error' ? 'settings.updates.status.panelErrorDescription'
-                        : 'settings.updates.status.checkFailedDescription',
-            ),
+            statusDescription: t(checkFailedDescriptionKey(flags.reason)),
         };
     }
     if (flags.unknownCurrent) {

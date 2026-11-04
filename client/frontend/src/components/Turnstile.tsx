@@ -106,14 +106,14 @@ function BuiltinCheck({ done, failed, onRetry }: Readonly<{ done: boolean; faile
     );
   }
   return (
-    <p role="status" className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+    <output className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
       {done ? (
         <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" />
       ) : (
         <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden="true" />
       )}
       {done ? t('auth.captcha.done') : t('auth.captcha.checking')}
-    </p>
+    </output>
   );
 }
 

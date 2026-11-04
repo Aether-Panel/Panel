@@ -111,16 +111,18 @@ export function useGlobalNetworkMetrics(nodes: any[]) {
 
             const bytesRecv: number = sysInfo.networkBytesRecv ?? 0;
             const bytesSent: number = sysInfo.networkBytesSent ?? 0;
+            // when the node read its counters; an older node without it falls back to this poll
+            const sampledAt: number = typeof sysInfo.sampledAt === 'number' && sysInfo.sampledAt > 0 ? sysInfo.sampledAt : now;
 
             const prev = lastSnapshotsRef.current[node.id];
-            const elapsed = prev && prev.time > 0 ? (now - prev.time) / 1000 : 0; // seconds
+            const elapsed = prev && prev.time > 0 ? (sampledAt - prev.time) / 1000 : 0; // seconds
             if (elapsed > 0) {
                 totalRxRate += rateKBps(bytesRecv, prev.bytesRecv, elapsed);
                 totalTxRate += rateKBps(bytesSent, prev.bytesSent, elapsed);
                 measured = true;
             }
 
-            lastSnapshotsRef.current[node.id] = { bytesRecv, bytesSent, time: now };
+            lastSnapshotsRef.current[node.id] = { bytesRecv, bytesSent, time: sampledAt };
         }
 
         // no fake "0 B/s" on every page load

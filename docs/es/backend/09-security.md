@@ -218,11 +218,11 @@ Crear claves y sus permisos: [referencia de scopes — Claves API](../general/sc
 
 ## Detrás de un proxy inverso
 
-Por defecto el panel **no** confía en ninguna cabecera de proxy para la dirección del cliente.
+El panel siempre cree el `X-Forwarded-For` de esta máquina (`127.0.0.0/8`, `::1`), las redes privadas (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `100.64.0.0/10`, `fc00::/7`), que cubren el Nginx del instalador llegando al contenedor por la puerta de enlace de Docker, y [el borde de Cloudflare](https://www.cloudflare.com/ips/). Lee la cabecera de derecha a izquierda y se detiene en la primera dirección en la que no confía, así que la cabecera solo cuenta cuando la conexión viene de una de ellas, y una dirección que escriba el visitante nunca sustituye a la que vio el proxy. Sin esto, todo visitante detrás del Nginx del instalador aparecía como la puerta de enlace de Docker (`172.18.0.1`) en el registro de accesos, el captcha y los límites por IP. `security.trustedProxies` añade más (`cmd/panel/proxies.go`).
 
 | Clave | Por defecto | Descripción |
 |-------|-------------|-------------|
-| `security.trustedProxies` | `[]` | IP o CIDR cuyo `X-Forwarded-For` se cree |
+| `security.trustedProxies` | `[]` | Más IP o CIDR cuyo `X-Forwarded-For` se cree, además de la lista integrada |
 | `security.trustedProxyHeader` | vacío | Una cabecera con la IP real del cliente que fija una plataforma de confianza, como `CF-Connecting-IP` (Cloudflare) o `X-Real-IP`. Se lee venga de donde venga la petición, así que solo debe fijarse cuando todas las peticiones pasan por esa plataforma |
 
 ```json

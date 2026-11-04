@@ -24,6 +24,9 @@ import (
 // userIDQuery picks the rows that belong to a user
 const userIDQuery = "user_id = ?"
 
+// emailQuery finds an account by its email address
+const emailQuery = "email = ?"
+
 type User struct {
 	DB *gorm.DB
 }
@@ -77,7 +80,7 @@ func (us *User) ValidateLogin(email, password string) (user *models.User, otpNee
 	}
 
 	user = &models.User{}
-	err = us.DB.Where("email = ?", email).First(user).Error
+	err = us.DB.Where(emailQuery, email).First(user).Error
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return
 	}
@@ -118,7 +121,7 @@ func (us *User) ValidOtp(email, token string) (user *models.User, err error) {
 		return
 	}
 	user = &models.User{}
-	err = us.DB.Where("email = ?", email).First(user).Error
+	err = us.DB.Where(emailQuery, email).First(user).Error
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return
 	}
@@ -166,7 +169,7 @@ func (us *User) GetByEmail(email string) (*models.User, error) {
 		return nil, gorm.ErrRecordNotFound
 	}
 	model := &models.User{}
-	err := us.DB.Where("email = ?", email).First(model).Error
+	err := us.DB.Where(emailQuery, email).First(model).Error
 
 	if err != nil {
 		return nil, err
@@ -190,6 +193,7 @@ func (us *User) Delete(model *models.User) (err error) {
 			models.RecoveryCode{},
 			models.PasswordReset{},
 			models.SSHKey{},
+			models.GitHubAccount{},
 			models.UserSetting{},
 		} {
 			if err := tx.Delete(owned, userIDQuery, model.ID).Error; err != nil {

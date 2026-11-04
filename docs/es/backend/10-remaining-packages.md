@@ -216,7 +216,7 @@ Los proveedores se registran en `init()`:
 | `mailjet` | `mailjet.go` | `mailjet-apiv3-go` | `domain` (la clave pública de la API), `from`, `key` (la clave secreta) |
 | `debug` | `debug.go` | — | Solo imprime el correo en el log de debug |
 
-Un ajuste que falte devuelve `ErrSettingNotConfigured(<clave>)`. El renderizado y las plantillas están en `services.EmailService` ([Servicios](./11-services.md#20-emailservice-emailgo)); la configuración, en [Correo](../general/15-email.md).
+Un ajuste que falte devuelve `ErrSettingNotConfigured(<clave>)`. El renderizado y las plantillas están en `services.EmailSender` ([Servicios](./11-services.md#20-emailsender-emailgo)); la configuración, en [Correo](../general/15-email.md).
 
 ---
 

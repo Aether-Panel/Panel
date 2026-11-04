@@ -28,6 +28,9 @@ const extensionPageSandbox = "sandbox allow-scripts allow-forms allow-popups all
 
 const extensionFilesPath = "/api/extension-files/"
 
+// extensionIDQuery picks an extension by the id from its manifest
+const extensionIDQuery = "id = ?"
+
 func registerExtensions(g *gin.RouterGroup) {
 	g.Handle("GET", "", middleware.RequiresPermission(scopes.ScopeAdmin), getExtensions)
 	g.Handle("POST", "", middleware.RequiresPermission(scopes.ScopeAdmin), installExtension)
@@ -199,7 +202,7 @@ func updateExtension(c *gin.Context) {
 	}
 
 	var ext models.Extension
-	if err := db.First(&ext, "id = ?", c.Param("id")).Error; response.HandleError(c, err, http.StatusNotFound) {
+	if err := db.First(&ext, extensionIDQuery, c.Param("id")).Error; response.HandleError(c, err, http.StatusNotFound) {
 		return
 	}
 	if req.WebhookURL != nil {
@@ -250,7 +253,7 @@ func uninstallExtension(c *gin.Context) {
 func testExtension(c *gin.Context) {
 	db := middleware.GetDatabase(c)
 	var ext models.Extension
-	if err := db.First(&ext, "id = ?", c.Param("id")).Error; response.HandleError(c, err, http.StatusNotFound) {
+	if err := db.First(&ext, extensionIDQuery, c.Param("id")).Error; response.HandleError(c, err, http.StatusNotFound) {
 		return
 	}
 	if ext.WebhookURL == "" {
@@ -275,7 +278,7 @@ func serveExtensionFile(c *gin.Context) {
 	}
 
 	var ext models.Extension
-	err := db.Select("id", "enabled").First(&ext, "id = ?", id).Error
+	err := db.Select("id", "enabled").First(&ext, extensionIDQuery, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) || (err == nil && !ext.Enabled) {
 		c.AbortWithStatus(http.StatusNotFound)
 		return

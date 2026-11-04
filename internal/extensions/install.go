@@ -129,31 +129,17 @@ func existingManifest(ext *models.Extension) (*Manifest, error) {
 // compressing the extension's folder has everything under that folder: the prefix is
 // dropped so extension.json is at the root either way.
 func packageFiles(zr *zip.Reader) (map[string]*zip.File, string, error) {
-	prefix := ""
-	if _, ok := find(zr, ManifestFile); !ok {
-		for _, f := range zr.File {
-			if dir, name := path.Split(f.Name); name == ManifestFile && strings.Count(dir, "/") == 1 {
-				prefix = dir
-				break
-			}
-		}
-	}
+	prefix := packagePrefix(zr)
 
 	files := map[string]*zip.File{}
 	var total uint64
 	for _, f := range zr.File {
-		if f.FileInfo().IsDir() || strings.HasPrefix(path.Base(f.Name), "__MACOSX") || strings.HasPrefix(f.Name, "__MACOSX/") {
+		if isPackageClutter(f) {
 			continue
 		}
-		if f.Mode()&os.ModeSymlink != 0 {
-			return nil, "", fmt.Errorf("%s: links are not allowed in a package", f.Name)
-		}
-		if !strings.HasPrefix(f.Name, prefix) {
-			return nil, "", fmt.Errorf("%s is outside the extension's folder", f.Name)
-		}
-		name := strings.TrimPrefix(f.Name, prefix)
-		if !isPackagePath(name) {
-			return nil, "", fmt.Errorf("%s is not a valid file name", f.Name)
+		name, err := packageEntryName(f, prefix)
+		if err != nil {
+			return nil, "", err
 		}
 		total += f.UncompressedSize64
 		if len(files) >= maxFiles || total > maxUnpacked {
@@ -162,6 +148,42 @@ func packageFiles(zr *zip.Reader) (map[string]*zip.File, string, error) {
 		files[name] = f
 	}
 	return files, prefix, nil
+}
+
+// packagePrefix is the folder every entry sits in when the zip was made from the extension's
+// folder rather than its contents, and "" when extension.json is already at the root
+func packagePrefix(zr *zip.Reader) string {
+	if _, ok := find(zr, ManifestFile); ok {
+		return ""
+	}
+	for _, f := range zr.File {
+		if dir, name := path.Split(f.Name); name == ManifestFile && strings.Count(dir, "/") == 1 {
+			return dir
+		}
+	}
+	return ""
+}
+
+// isPackageClutter is an entry that is not a file of the extension: a folder, or the
+// metadata macOS adds when it compresses a folder
+func isPackageClutter(f *zip.File) bool {
+	return f.FileInfo().IsDir() || strings.HasPrefix(path.Base(f.Name), "__MACOSX") || strings.HasPrefix(f.Name, "__MACOSX/")
+}
+
+// packageEntryName is the entry's path inside the package, refusing links and anything that
+// would land outside the extension's folder
+func packageEntryName(f *zip.File, prefix string) (string, error) {
+	if f.Mode()&os.ModeSymlink != 0 {
+		return "", fmt.Errorf("%s: links are not allowed in a package", f.Name)
+	}
+	if !strings.HasPrefix(f.Name, prefix) {
+		return "", fmt.Errorf("%s is outside the extension's folder", f.Name)
+	}
+	name := strings.TrimPrefix(f.Name, prefix)
+	if !isPackagePath(name) {
+		return "", fmt.Errorf("%s is not a valid file name", f.Name)
+	}
+	return name, nil
 }
 
 func find(zr *zip.Reader, name string) (*zip.File, bool) {

@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Settings, Bell, Mail, Loader2, Key, Package, DownloadCloud, CloudUpload, Globe, Blocks } from '@/components/icons';
+import { Settings, Bell, Mail, Loader2, Key, Package, DownloadCloud, CloudUpload, Globe, Blocks, Github } from '@/components/icons';
 import { useTranslations } from '@/contexts/translations-context';
 import { useSettings } from '@/hooks/use-settings';
 import { useConfig } from '@/contexts/config-context';
@@ -19,6 +19,7 @@ import { MailTab } from './mail-tab';
 import { UpdatesTab } from './updates-tab';
 import { OffsiteTab } from './offsite-tab';
 import { DomainsTab } from './domains-tab';
+import { GitHubTab } from './github-tab';
 import { ExtensionsView } from './extensions-view';
 
 /** Underline tab style shared with the server page tab bar. */
@@ -45,12 +46,12 @@ export default function SettingsPage() {
 
     const [localSettings, setLocalSettings] = useState<Record<string, any>>({});
     // ?tab= opens a tab directly (links from elsewhere, and the return after signing in again)
-    const [activeTab, setActiveTabState] = useState(() => {
+    const [activeTab, setActiveTab] = useState(() => {
         if (typeof window === 'undefined') return 'general';
         return new URLSearchParams(window.location.search).get('tab') || 'general';
     });
-    const setActiveTab = (value: string) => {
-        setActiveTabState(value);
+    const changeTab = (value: string) => {
+        setActiveTab(value);
         try {
             const url = new URL(window.location.href);
             url.searchParams.set('tab', value);
@@ -72,6 +73,7 @@ export default function SettingsPage() {
         { value: 'mail', label: t('settings.tabs.mail'), icon: Mail },
         { value: 'offsite', label: t('settings.tabs.offsite'), icon: CloudUpload },
         { value: 'domains', label: t('settings.tabs.domains'), icon: Globe },
+        { value: 'github', label: t('settings.tabs.github'), icon: Github },
         // these three are administrator-only on the API, so they only show to administrators
         ...(hasScope('admin') ? [
             { value: 'apikeys', label: t('settings.tabs.apiKeys'), icon: Key },
@@ -173,10 +175,10 @@ export default function SettingsPage() {
         <div className="stagger flex flex-col gap-6 pb-12">
             <PageHeader title={t('settings.title')} description={t('settings.description')} />
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <Tabs value={activeTab} onValueChange={changeTab} className="w-full">
                 {/* Phones and tablets: a select; desktop: one row of underline tabs. */}
                 <div className="lg:hidden">
-                    <Select value={activeTab} onValueChange={setActiveTab}>
+                    <Select value={activeTab} onValueChange={changeTab}>
                         <SelectTrigger aria-label={t('settings.tabs.sectionLabel')}>
                             <SelectValue />
                         </SelectTrigger>
@@ -234,6 +236,10 @@ export default function SettingsPage() {
 
                 <TabsContent value="domains" className="mt-6">
                     <DomainsTab localSettings={localSettings} handleUpdate={handleUpdate} t={t} />
+                </TabsContent>
+
+                <TabsContent value="github" className="mt-6">
+                    <GitHubTab localSettings={localSettings} handleUpdate={handleUpdate} t={t} />
                 </TabsContent>
 
                 <TabsContent value="apikeys" className="mt-6">

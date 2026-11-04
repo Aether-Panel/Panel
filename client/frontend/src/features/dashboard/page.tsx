@@ -62,9 +62,12 @@ function calculateStorageUsage(nodeResources: any[], onlineServers: any[], onlin
  * servers otherwise, and nothing at all when there is no sample. One sample
  * takes a singular wording — "media de 1 nodos" reads as a bug.
  */
-function describeSamples(sampleCount: number, usingNodes: boolean, t: (key: string, options?: any) => string): string {
+function describeSamples(sampleCount: number, usingNodes: boolean, t: (key: string, options?: any) => string, onlyNode?: { name?: string; isLocal?: boolean }): string {
     if (sampleCount === 0) return t('dashboard.admin.kpi.noSamples');
     if (sampleCount === 1) {
+        // one node is not an average: say which node it is
+        if (usingNodes && onlyNode?.isLocal) return t('dashboard.admin.kpi.ofLocalNode');
+        if (usingNodes && onlyNode?.name) return t('dashboard.admin.kpi.ofNode', { name: onlyNode.name });
         return usingNodes ? t('dashboard.admin.kpi.avgOfNodesOne') : t('dashboard.admin.kpi.avgOfServersOne');
     }
     if (usingNodes) return t('dashboard.admin.kpi.avgOfNodes', { count: sampleCount });
@@ -83,7 +86,8 @@ function AdminDashboard({ user, t, canSeeNodes, canSeeUsers, allServers, usersCo
 
   // Nodes report real utilization; without node data the online servers are
   // the sample. Both the KPI row and the history chart read the same numbers.
-  const nodeResources = realNodes.map((n: any) => n.systemInfo).filter(Boolean);
+  const reportingNodes = realNodes.filter((n: any) => n.systemInfo);
+  const nodeResources = reportingNodes.map((n: any) => n.systemInfo);
   const usingNodes = nodeResources.length > 0;
   const sampleCount = usingNodes ? nodeResources.length : onlineCount;
 
@@ -91,7 +95,8 @@ function AdminDashboard({ user, t, canSeeNodes, canSeeUsers, allServers, usersCo
   const avgMemoryUsage = calculateMemoryUsage(nodeResources, onlineServers, onlineCount);
   const avgStorageUsage = calculateStorageUsage(nodeResources, onlineServers, onlineCount);
 
-  // 30-day availability per server from /api/uptime.
+  // share of the last 30 days each server was running (/api/uptime); a server its owner stopped
+  // counts as not running, so the label says "running time", not "health"
   const uptimeValues = allServers
     .map((s: any) => s.uptimePercent)
     .filter((value: unknown): value is number => typeof value === 'number');
@@ -106,7 +111,7 @@ function AdminDashboard({ user, t, canSeeNodes, canSeeUsers, allServers, usersCo
     [lastNetworkSample],
   );
 
-  const averageHint = describeSamples(sampleCount, usingNodes, t);
+  const averageHint = describeSamples(sampleCount, usingNodes, t, reportingNodes[0]);
 
   const metrics = [
     { key: 'cpu', label: t('dashboard.admin.kpi.averageCpu'), value: avgCpuUsage, icon: Cpu },

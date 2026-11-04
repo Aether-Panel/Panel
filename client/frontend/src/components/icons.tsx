@@ -76,6 +76,8 @@ import {
     GaugeIcon,
     GearSixIcon,
     GitBranchIcon,
+    GithubLogoIcon,
+    LinkBreakIcon,
     GitDiffIcon,
     GlobeIcon,
     GlobeSimpleIcon,
@@ -225,6 +227,8 @@ export const FolderPlus = panelIcon(FolderSimplePlusIcon);
 export const Gamepad2 = panelIcon(GameControllerIcon);
 export const Gauge = panelIcon(GaugeIcon);
 export const GitBranch = panelIcon(GitBranchIcon);
+export const Github = panelIcon(GithubLogoIcon);
+export const Unlink = panelIcon(LinkBreakIcon);
 export const GitCompareArrows = panelIcon(GitDiffIcon);
 export const Globe = panelIcon(GlobeSimpleIcon);
 export const Globe2 = panelIcon(GlobeIcon);

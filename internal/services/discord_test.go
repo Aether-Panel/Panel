@@ -57,7 +57,8 @@ func TestDiscordService_SendWebhookToURL(t *testing.T) {
 	assert.Equal(t, "Test Field", receivedPayload.Embeds[0].Fields[0].Name)
 }
 
-/* este archivo interactua con servicios externos como los de discord y hace pruebas de que todo funcione correctamente, este archivo se coloco aqui por que en el archivo main.go se inicializa el servicio de discord como un servicio global */
+// The Discord tests live in this package because main.go starts the Discord service as a
+// global, so they exercise the same instance the panel uses.
 
 func TestValidateDiscordWebhook(t *testing.T) {
 	for _, ok := range []string{

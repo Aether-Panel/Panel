@@ -9,8 +9,9 @@ Con una zona de Cloudflare conectada, cada servidor puede tener su propia direcc
 - Crea los registros DNS en la zona de Cloudflare del administrador:
   - Un registro `A`, `AAAA` o `CNAME` con el nombre del subdominio, que apunta al nodo del servidor.
   - En los servidores de Minecraft Java, un registro `SRV` (`_minecraft._tcp.<nombre>.<dominio base>`) con el puerto principal, para que los jugadores puedan conectarse **sin escribir el puerto**.
-- Mantiene los registros al día cuando cambian el puerto principal, el tipo o el nodo del servidor, y los elimina cuando se quita el subdominio o se borra el servidor.
-- Muestra la dirección en la cabecera del servidor en lugar de `IP:puerto`, con un botón para copiarla.
+- Mantiene los registros al día cuando cambian el puerto principal, el tipo o el nodo del servidor, la dirección del nodo o el Destino DNS, y los elimina cuando se quita el subdominio o se borra el servidor.
+- Si el administrador cambia el dominio base o la zona, mueve los subdominios existentes al dominio nuevo.
+- Muestra la dirección en la cabecera del servidor y en su tarjeta de la lista de servidores en lugar de `IP:puerto`, con un botón para copiarla en la cabecera.
 
 ## Cómo funciona
 
@@ -18,16 +19,18 @@ Con una zona de Cloudflare conectada, cada servidor puede tener su propia direcc
 
 Todos los registros se crean como **solo DNS** (nube gris, `proxied: false`), con TTL automático y el comentario `Aether Panel: server <serverId>`. Nunca pasan por el proxy, porque el tráfico de los juegos no es HTTP.
 
-El registro `SRV` se añade cuando el tipo del servidor es `minecraft` o `minecraft-java` y el servidor tiene puerto principal. Sus datos son prioridad `0`, peso `5`, el puerto principal y el propio subdominio como destino. Los demás juegos (incluido Bedrock) no leen registros SRV, así que su dirección sigue necesitando el puerto: el panel muestra `nombre.dominio:puerto` en esos casos.
+El registro `SRV` se añade cuando el tipo del servidor es `minecraft` o `minecraft-java` y el servidor tiene puerto principal. Sus datos son prioridad `0`, peso `5`, el puerto principal y, como destino, el propio subdominio; si el subdominio es un `CNAME`, el destino es el nombre del nodo, porque un registro SRV no debe apuntar a un alias (RFC 2782). Los demás juegos (incluido Bedrock) no leen registros SRV, así que su dirección sigue necesitando el puerto: el panel muestra `nombre.dominio:puerto` en esos casos.
 
 ### Hacia dónde apunta el nombre
 
 El destino se elige en este orden:
 
 1. El host público del nodo, si es una dirección IP pública (`A` para IPv4, `AAAA` para IPv6).
-2. El ajuste **Destino DNS** (`panel.dns.target`), si está definido: una IP genera un registro `A`/`AAAA` y un nombre de host, un `CNAME`.
-3. En el nodo local, `panel.settings.nodeIp` si es una IP pública.
-4. El host público del nodo como `CNAME`, si es un nombre de host utilizable (no `localhost`, no una IP y que no termine en `.local`, `.internal` ni `.localhost`).
+2. En el nodo local, `panel.settings.nodeIp` si es una IP pública.
+3. El host público del nodo como `CNAME`, si es un nombre de host utilizable (no `localhost`, no una IP y que no termine en `.local`, `.internal` ni `.localhost`).
+4. El ajuste **Destino DNS** (`panel.dns.target`), si está definido: una IP genera un registro `A`/`AAAA` y un nombre de host, un `CNAME`. Solo se usa para los nodos que no tienen ninguna de las direcciones anteriores.
+
+Así cada servidor sigue a su propio nodo, y el nombre del nodo puede ser de otro dominio que los subdominios. Por ejemplo, con el nodo registrado como `usa.example.com` y el dominio base `example.es`, el servidor `pablo` queda en `pablo.example.es` → `CNAME usa.example.com`. El nombre del nodo debe ser **solo DNS** (nube gris) allí donde esté alojado; el panel no lo crea.
 
 Si no se cumple ninguno, el cambio se rechaza con `ErrSubdomainNoTarget`. Nunca se usan como destino direcciones privadas, de bucle local, de enlace local ni sin especificar.
 
@@ -52,15 +55,23 @@ Los registros se actualizan en segundo plano (alrededor de medio segundo despué
 - cambia el puerto principal o el tipo del servidor (`PUT /api/servers/:serverId/definition`),
 - un administrador cambia el puerto principal (`PUT /api/servers/:serverId/data`),
 - se cambia el puerto principal en los ajustes de puertos (`PUT /api/servers/:serverId/port-settings`),
-- el servidor se transfiere a otro nodo.
+- el servidor se transfiere a otro nodo,
+- un administrador cambia el host público del nodo (`PUT /api/nodes/:id`), o la IP del nodo maestro o la URL base en el caso del nodo local (solo los servidores de ese nodo),
+- un administrador cambia el **Destino DNS** (todos los servidores con subdominio).
 
 El nombre no cambia nunca; un registro `A` puede convertirse en `CNAME` (o al revés) y el registro `SRV` se crea o se elimina según haga falta. Es de mejor esfuerzo: si Cloudflare falla, el error se registra y el cambio del servidor no se deshace.
 
 Al borrar un servidor (desde el panel o desde la API de aprovisionamiento) se eliminan sus registros. Si en ese momento Cloudflare ya no está configurado, los registros permanecen en la zona y se escribe un mensaje en el registro.
 
+### Cambiar el dominio base o la zona
+
+Cada servidor guarda el dominio base y la zona en los que se crearon sus registros (`dns_domain`, `dns_zone_id`). Al guardar un dominio base o un ID de zona distintos, el panel mueve en segundo plano, de uno en uno, todos los subdominios: crea el mismo nombre bajo el dominio nuevo, lo guarda y elimina los registros antiguos de su zona original (con el mismo token, que necesita permiso sobre ambas zonas). Hasta que un servidor se mueve, el panel sigue mostrando su dirección antigua, que funciona.
+
+Si el nombre ya existe en la zona nueva fuera del panel, ese servidor no se mueve y conserva su dirección antigua; el motivo queda en el registro del panel. Los subdominios creados antes de esta versión no tienen guardado su dominio: el panel lo anota con los ajustes vigentes justo antes de guardarlos.
+
 ### Dominio del panel detrás del proxy de Cloudflare
 
-Esta función es independiente del dominio del propio panel (la URL base). Si el dominio del panel pasa por el proxy de Cloudflare (nube naranja), no lleva a la IP real del servidor y los puertos de juego no pueden usarlo. El servicio de dominio del instalador lo detecta y guarda la IP real del servidor, que el panel usa entonces como dirección del nodo local. Si no es el caso en una instalación concreta, hay que poner en **Destino DNS** la IP pública del servidor.
+Esta función es independiente del dominio del propio panel (la URL base). Si el dominio del panel pasa por el proxy de Cloudflare (nube naranja), no lleva a la IP real del servidor y los puertos de juego no pueden usarlo. El servicio de dominio del instalador lo detecta y guarda la IP real del servidor, que el panel usa entonces como dirección del nodo local. Si no es el caso en una instalación concreta, hay que poner la IP pública del servidor en **IP global del nodo maestro** (o en **Destino DNS**).
 
 ## Uso
 
@@ -72,7 +83,7 @@ Esta función es independiente del dominio del propio panel (la URL base). Si el
 2. Copiar el **ID de zona** desde la página *Información general* del dominio (columna derecha, apartado *API*). Tiene 32 caracteres hexadecimales.
 3. En el panel, abrir **Configuración → Dominios** y rellenar:
    - **Dominio base**: la zona o un subdominio de ella, por ejemplo `play.example.com` (sin `http://` ni barras).
-   - **Destino DNS (opcional)**: solo hace falta si los nodos están registrados con un nombre o una dirección privada, o si el dominio del panel pasa por el proxy.
+   - **Destino DNS (opcional)**: solo hace falta para nodos sin dirección pública (una IP privada o un nombre interno).
    - **Token de API** e **ID de zona**.
 4. Pulsar **Probar conexión**. La prueba usa los valores en pantalla, estén guardados o no: lee la zona, comprueba que el dominio base pertenece a ella y crea y borra un registro `TXT` temporal (`_aether-panel-test.<dominio>`). Si todo va bien, muestra el nombre de la zona.
 5. Opcionalmente, activar **Asignar un subdominio a cada servidor nuevo** y guardar.
@@ -86,7 +97,9 @@ Los subdominios quedan activos cuando están definidos el token, el ID de zona y
 3. Pulsar **Guardar**. **Ver registros DNS** muestra los registros que gestiona el panel.
 4. Para volver a `IP:puerto`, pulsar **Quitar** y confirmar (**¿Quitar? Pulsa de nuevo**).
 
-Los cambios de DNS tardan alrededor de un minuto en llegar a los jugadores. Los usuarios sin el permiso indicado siguen viendo `IP:puerto` en la cabecera del servidor.
+Los cambios de DNS tardan alrededor de un minuto en llegar a los jugadores. Los usuarios sin el permiso indicado ven la dirección en la tarjeta de la lista de servidores, pero siguen viendo `IP:puerto` en la cabecera del servidor.
+
+**Nodos con nombre propio.** Si el host público de un nodo es un nombre (`usa.example.com`), la lista de servidores muestra ese nombre en lugar de la IP en las tarjetas de sus servidores sin subdominio. Para el nodo local, el nombre se pone en **Configuración → General → IP global del nodo maestro**.
 
 ### Mediante la API
 
@@ -98,7 +111,7 @@ Los cambios de DNS tardan alrededor de un minuto en llegar a los jugadores. Los 
 | `DELETE` | `/api/servers/:serverId/subdomain` | `server.flags.edit` o `server.data.edit` | Elimina los registros. Responde `204`. |
 | `POST` | `/api/settings/test/cloudflare` | `settings.edit` | Prueba la conexión. El cuerpo opcional sustituye a los valores guardados de `panel.dns.cloudflare.token`, `panel.dns.cloudflare.zoneId` y `panel.dns.baseDomain` (un token `********`, el valor que la página recibe en lugar del guardado, usa el guardado). Devuelve `{"zone": "<nombre de la zona>"}`. |
 
-Las claves de Cloudflare se guardan con los endpoints de configuración del panel (`POST /api/settings`). Los detalles completos están en la [referencia de la API](../reference/11-api-reference.md).
+Las claves de Cloudflare se guardan con los endpoints de configuración del panel (`POST /api/settings`). La información de cada servidor (`GET /api/servers`, `GET /api/servers/:serverId`) incluye `subdomain` (la dirección completa, si tiene registros) y `subdomainSrv` (`true` cuando la dirección no necesita el puerto). Los detalles completos están en la [referencia de la API](../reference/11-api-reference.md).
 
 ## Requisitos y configuración
 
@@ -111,7 +124,7 @@ Las claves de Cloudflare se guardan con los endpoints de configuración del pane
 | `panel.dns.cloudflare.token` | `""` | `SKYPANEL_PANEL_DNS_CLOUDFLARE_TOKEN` | Token de API. Solo se envía en la cabecera `Bearer` y se sustituye por `[token]` en cualquier mensaje de error. |
 | `panel.dns.cloudflare.zoneId` | `""` | `SKYPANEL_PANEL_DNS_CLOUDFLARE_ZONEID` | ID de zona, 32 caracteres hexadecimales. |
 | `panel.dns.baseDomain` | `""` | `SKYPANEL_PANEL_DNS_BASEDOMAIN` | Dominio bajo el que se crean los nombres. |
-| `panel.dns.target` | `""` | `SKYPANEL_PANEL_DNS_TARGET` | IP o nombre de host al que apuntar cuando un nodo no tiene IP pública. Vacío: la dirección pública de cada nodo. |
+| `panel.dns.target` | `""` | `SKYPANEL_PANEL_DNS_TARGET` | IP o nombre de host al que apuntar cuando un nodo no tiene ni IP pública ni un nombre utilizable. Vacío: la dirección pública de cada nodo. |
 | `panel.dns.autoAssign` | `false` | `SKYPANEL_PANEL_DNS_AUTOASSIGN` | Asignar automáticamente un subdominio a los servidores nuevos. |
 
 Las cinco se pueden editar desde **Configuración → Dominios**. El token se guarda en el archivo de configuración del panel y se devuelve a los administradores con `settings.edit`. Véase [Configuración](../backend/02-configuration.md).
@@ -123,7 +136,7 @@ Las cinco se pueden editar desde **Configuración → Dominios**. El token se gu
 - Un subdominio por servidor, y cada nombre solo puede usarlo un servidor.
 - Un servidor puede cambiar o quitar su subdominio como máximo una vez cada **10 segundos**.
 - Cada llamada a Cloudflare caduca a los 15 segundos; un cambio completo está limitado a 45 segundos.
-- Solo una zona y un dominio base por panel.
+- Solo una zona y un dominio base activos por panel; al cambiarlos, los subdominios se mueven (véase [Cambiar el dominio base o la zona](#cambiar-el-dominio-base-o-la-zona)).
 - El registro SRV solo se crea para Minecraft Java (`minecraft`, `minecraft-java`).
 
 ## Problemas conocidos y soluciones
@@ -137,14 +150,15 @@ Los errores del panel llevan un código estable (entre paréntesis) y un mensaje
 | `Ese subdominio está reservado.` (`ErrSubdomainReserved`, 400) | El nombre está en la lista de reservados. Elegir otro. |
 | `Ese subdominio ya está en uso.` (`ErrSubdomainTaken`, 409) | Lo usa otro servidor **o** ya existe en la zona, fuera del panel, un registro con ese nombre (o con su nombre SRV `_minecraft._tcp.`). Borrar el registro ajeno en Cloudflare o elegir otro nombre. |
 | `Espera unos segundos antes de volver a cambiar el subdominio.` (`ErrSubdomainRateLimited`, 429) | Dos cambios en menos de 10 segundos. Esperar y reintentar. |
-| `El nodo de este servidor no tiene una dirección pública; configura un destino DNS…` (`ErrSubdomainNoTarget`, 422) | El nodo está registrado con una IP privada, `localhost` o un nombre interno. Poner en **Destino DNS** la IP o el nombre público, o registrar el nodo con su dirección pública. |
+| `El nodo de este servidor no tiene una dirección pública; configura un destino DNS…` (`ErrSubdomainNoTarget`, 422) | El nodo está registrado con una IP privada, `localhost` o un nombre interno. Registrar el nodo con su IP o su nombre público, o poner en **Destino DNS** la IP o el nombre público. |
 | `Faltan el token de la API o el ID de zona de Cloudflare.` (`ErrCloudflareNotConfigured`, 400, prueba) | El token o el ID de zona están vacíos. |
 | `El ID de zona de Cloudflare debe tener 32 caracteres hexadecimales.` (`ErrCloudflareZoneID`) | ID de zona incorrecto (a menudo se pega el ID de la cuenta). Copiar el *ID de zona* de la página de información general del dominio. |
 | `El dominio base no es un nombre de dominio válido.` (`ErrDNSBaseDomainInvalid`, 400, prueba) | El dominio base contiene `http://`, barras o caracteres no válidos. |
 | `El dominio <dominio> no pertenece a la zona <zona>.` (`ErrCloudflareDomainNotInZone`, 422, prueba) | El dominio base no es la zona ni un subdominio de ella. Usar un dominio dentro de la zona elegida. |
 | `Cloudflare respondió: … (código <n>)` (`ErrCloudflareRefusedCode`, o `ErrCloudflareRefused` si no hay código; 422) | Cloudflare rechazó la llamada. El panel muestra el mensaje y el código de Cloudflare tal como llegan; las causas habituales son un token no válido o un token sin permiso de edición de DNS en esa zona. Volver a crear el token con la plantilla *Editar DNS de zona* limitada a la zona correcta. |
 | `No se pudo contactar con Cloudflare: …` (`ErrCloudflareUnreachable`) | El panel no llega a `api.cloudflare.com` (cortafuegos, DNS o sin salida a internet). |
-| La dirección resuelve pero los jugadores no pueden conectarse | El registro apunta a un dominio con proxy o a una IP incorrecta. Abrir **Ver registros DNS** y revisar el destino; si es el dominio del panel con proxy, poner en **Destino DNS** la IP pública del servidor. Comprobar también que el puerto del juego está abierto en el nodo. |
+| La dirección resuelve pero los jugadores no pueden conectarse | El registro apunta a un nombre con proxy o a una IP incorrecta. Abrir **Ver registros DNS** y revisar el destino; si es el nombre del nodo, ponerlo en **solo DNS** (nube gris) o registrar el nodo con su IP pública. Comprobar también que el puerto del juego está abierto en el nodo. |
+| Tras cambiar el dominio base, algún servidor sigue con la dirección antigua | El nombre ya existía en la zona nueva fuera del panel, o el token no tiene permiso sobre la zona antigua o la nueva. El motivo está en el registro del panel. Borrar el registro ajeno o elegir otro nombre desde la tarjeta **Dirección del servidor**. |
 | Quedan registros en la zona tras borrar un servidor | Cloudflare no estaba configurado o la llamada falló al borrar el servidor. Eliminar los registros a mano; llevan el comentario `Aether Panel: server <serverId>`. |
 
 ## Véase también

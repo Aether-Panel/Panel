@@ -86,6 +86,7 @@ The panel writes the current day to `skypanel.log` inside `logs`. When the day c
 |---|---|---|---|---|
 | `panel.enable` | bool | `true` | | Runs the web panel: API, sign-in, OAuth2, web client and database. `false` turns the binary into a node that only serves `/daemon`. |
 | `panel.registrationEnabled` | bool | `true` | Yes | Allows public sign-up (`POST /auth/register`). Administrators can still create accounts. |
+| `panel.registrationApproval` | bool | `true` | Yes | Accounts from public sign-up cannot sign in until an administrator approves them in **Users**; the welcome email goes out on approval. |
 | `panel.servers.autoInstall` | bool | `true` | | Runs the template's installation right after a server is created (also from billing), so it can be started without pressing Install. |
 | `panel.backups.maxPerServer` | int | `10` | | Backups a server's users can keep; creating one more answers `409`. Administrators are not limited. `0` turns the cap off. Backups do not count against the server's disk. |
 | `panel.web.files` | string | `www` | | Folder layered over the web client embedded in the binary: a file found here replaces the embedded one. Themes are read from its `theme/` subfolder (`*.tar`). The shipped configs use `/var/www/SkyPanel`. |
@@ -201,7 +202,7 @@ See [License](../general/14-license.md).
 | `panel.dns.cloudflare.token` | string | — | Yes | Cloudflare API token; it only needs Zone → DNS → Edit on the zone. |
 | `panel.dns.cloudflare.zoneId` | string | — | Yes | Zone ID. |
 | `panel.dns.baseDomain` | string | — | Yes | Domain servers get names under (`survival` → `survival.<baseDomain>`). Token, zone and base domain are all needed. |
-| `panel.dns.target` | string | — | Yes | Where the records point (IP or hostname) when a node is registered by hostname or a private address. Empty uses each node's address. |
+| `panel.dns.target` | string | — | Yes | Where the records point (IP or hostname) for a node with neither a public IP nor a usable hostname. Nodes with their own address always get it. Changing it updates every subdomain. |
 | `panel.dns.autoAssign` | bool | `false` | Yes | Gives every new server a subdomain derived from its name (`-2`, `-3`… on a clash). |
 
 See [Subdomain (Cloudflare)](./04-servers.md#subdomain-cloudflare) and [Subdomains](../features/subdomains.md).
@@ -263,7 +264,7 @@ See [Servers: Docker environment](./04-servers.md#docker-environment).
 
 | Key | Type | Default | Settings | Description |
 |---|---|---|---|---|
-| `security.trustedProxies` | []string | `[]` | | Proxies (IPs or CIDRs) whose forwarding headers are trusted for the client address. No proxy is trusted by default. |
+| `security.trustedProxies` | []string | `[]` | | More proxies (IPs or CIDRs) whose forwarding headers are trusted for the client address, on top of this machine, private networks and Cloudflare's edge, which are always trusted. |
 | `security.trustedProxyHeader` | string | — | | Header a trusted platform sets with the client address (Gin's `TrustedPlatform`, for example `CF-Connecting-IP`). |
 | `security.blockPrivateDownloads` | bool | `true` | | Refuses template downloads from private network addresses (Docker networks, the LAN). Loopback, link-local and multicast addresses are always refused. Turn it off only for mirrors on the LAN. |
 | `security.forceOpenat` | bool | `false` | | Skips the start-up check for `openat2` and uses plain `openat`. Without it, a daemon that cannot use `openat2` (the kernel lacks it, or a seccomp profile blocks it) refuses to start. |

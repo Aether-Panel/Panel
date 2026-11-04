@@ -218,11 +218,11 @@ Creating keys and their permissions: [scopes reference — API keys](../general/
 
 ## Behind a reverse proxy
 
-By default the panel trusts **no** proxy headers for the client address.
+The panel always trusts the `X-Forwarded-For` of this machine (`127.0.0.0/8`, `::1`), private networks (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `100.64.0.0/10`, `fc00::/7`), which covers the installer's Nginx reaching the container through the Docker gateway, and [Cloudflare's edge](https://www.cloudflare.com/ips/). It reads the header from the right and stops at the first address it does not trust, so a header only counts when the connection comes from one of those, and an address a visitor writes into it can never replace the one the proxy saw. Without this, every visitor behind the installer's Nginx showed up as the Docker gateway (`172.18.0.1`) in the access log, the captcha and the per-IP limits. `security.trustedProxies` adds more (`cmd/panel/proxies.go`).
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `security.trustedProxies` | `[]` | IPs or CIDRs whose `X-Forwarded-For` is believed |
+| `security.trustedProxies` | `[]` | More IPs or CIDRs whose `X-Forwarded-For` is believed, on top of the built-in list |
 | `security.trustedProxyHeader` | empty | A header that holds the real client IP set by a trusted platform, such as `CF-Connecting-IP` (Cloudflare) or `X-Real-IP`. It is read whatever address the request comes from, so set it only when every request passes through that platform |
 
 ```json

@@ -81,7 +81,7 @@ export default function ServersPage() {
     if (statusFilter === 'online' && server.status !== 'online') return false;
     if (statusFilter === 'offline' && server.status === 'online') return false;
     if (!normalizedQuery) return true;
-    return [server.name, server.ipAddress, server.id, String(server.port)]
+    return [server.name, server.ipAddress, server.subdomain, server.id, String(server.port)]
       .some((value) => value?.toLowerCase().includes(normalizedQuery));
   });
 

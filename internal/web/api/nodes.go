@@ -176,10 +176,13 @@ func updateNode(c *gin.Context) {
 		return
 	}
 
+	previousHost := node.PublicHost
 	viewModel.CopyToModel(node)
 	if err = ns.Update(node); response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
+	// the subdomains of the node's servers point at its address
+	followNodeAddress(node.ID, previousHost, node.PublicHost)
 
 	c.Status(http.StatusNoContent)
 }

@@ -56,7 +56,11 @@ func RegisterPost(c *gin.Context) {
 		return
 	}
 
-	user := &models.User{Username: request.Username, Email: request.Email}
+	// with approval on, the account waits for an administrator: no permission to sign in, no
+	// session and no welcome email until then (the email also goes out on approval, so a flood
+	// of sign-ups cannot use the panel's mail server)
+	pending := config.RegistrationApproval.Value()
+	user := &models.User{Username: request.Username, Email: request.Email, PendingApproval: pending}
 	err = user.SetPassword(request.Password)
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
@@ -68,6 +72,11 @@ func RegisterPost(c *gin.Context) {
 	}
 
 	middleware.RecordActivity(c, models.ActivityRegister, user)
+
+	if pending {
+		c.JSON(http.StatusAccepted, gin.H{"pending": true})
+		return
+	}
 
 	ps := &services.Permission{DB: db}
 	perms, err := ps.GetForUserAndServer(user.ID, "")

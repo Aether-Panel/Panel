@@ -114,11 +114,37 @@ func (s dnsSettings) configured() bool {
 }
 
 func (s dnsSettings) client() *services.Cloudflare {
-	cf := services.NewCloudflare(s.Token, s.ZoneID)
+	return s.zoneClient(s.ZoneID)
+}
+
+// zoneClient talks to another zone with the same token: the one a server's records were made
+// in before the admin changed the settings
+func (s dnsSettings) zoneClient(zoneID string) *services.Cloudflare {
+	cf := services.NewCloudflare(s.Token, zoneID)
 	if s.APIBase != "" {
 		cf.BaseURL = s.APIBase
 	}
 	return cf
+}
+
+// subdomainHome is the base domain and zone a server's records live in: where they were made,
+// or the current settings for a subdomain made before the panel kept that
+func subdomainHome(server *models.Server, s dnsSettings) (domain, zoneID string) {
+	domain, zoneID = server.DNSDomain, server.DNSZoneID
+	if domain == "" {
+		domain = s.Domain
+	}
+	if zoneID == "" {
+		zoneID = s.ZoneID
+	}
+	return domain, zoneID
+}
+
+// subdomainElsewhere tells that the server's records are under another base domain or zone
+// than the settings now name, so they still have to be moved
+func subdomainElsewhere(server *models.Server, s dnsSettings) bool {
+	domain, zoneID := subdomainHome(server, s)
+	return server.Subdomain != "" && (domain != s.Domain || zoneID != s.ZoneID)
 }
 
 // currentDNSSettings reads the configuration; tests replace it
@@ -133,9 +159,7 @@ var currentDNSSettings = func() dnsSettings {
 }
 
 func normalizeDNSName(name string) string {
-	name = strings.ToLower(strings.TrimSpace(name))
-	name = strings.TrimPrefix(strings.TrimPrefix(name, "https://"), "http://")
-	return strings.Trim(name, ". /")
+	return models.DNSName(name)
 }
 
 // registerServerDNS adds the subdomain routes
@@ -177,10 +201,11 @@ func viewSubdomain(server *models.Server, s dnsSettings) subdomainView {
 		Port:      server.Port,
 		Records:   []subdomainRecordView{},
 	}
-	if server.Subdomain == "" || s.Domain == "" {
+	domain, _ := subdomainHome(server, s)
+	if server.Subdomain == "" || domain == "" {
 		return view
 	}
-	view.Address = server.Subdomain + "." + s.Domain
+	view.Address = server.Subdomain + "." + domain
 	if kind, content, err := resolveDNSTarget(server, s); err == nil {
 		for _, r := range planSubdomainRecords(server, view.Address, kind, content) {
 			content := r.Content
@@ -266,7 +291,7 @@ func putServerSubdomain(c *gin.Context) {
 		response.HandleError(c, err, http.StatusBadRequest)
 		return
 	}
-	if name == server.Subdomain && len(server.DNSRecordIDs) > 0 {
+	if name == server.Subdomain && len(server.DNSRecordIDs) > 0 && !subdomainElsewhere(server, s) {
 		c.JSON(http.StatusOK, viewSubdomain(server, s))
 		return
 	}
@@ -302,8 +327,9 @@ func deleteServerSubdomain(c *gin.Context) {
 		c.Status(http.StatusNoContent)
 		return
 	}
+	domain, zoneID := subdomainHome(server, s)
 	if len(server.DNSRecordIDs) > 0 {
-		if s.Token == "" || s.ZoneID == "" {
+		if s.Token == "" || zoneID == "" {
 			response.HandleError(c, errSubdomainDisabled, http.StatusBadRequest)
 			return
 		}
@@ -319,13 +345,13 @@ func deleteServerSubdomain(c *gin.Context) {
 	subdomainLock.Lock()
 	defer subdomainLock.Unlock()
 
-	remaining, err := deleteDNSRecords(ctx, s.client(), server.DNSRecordIDs)
-	subdomain := ""
+	remaining, err := deleteDNSRecords(ctx, s.zoneClient(zoneID), server.DNSRecordIDs)
+	home := subdomainRecords{}
 	if len(remaining) > 0 {
 		// keep the name while some of its records are still there, so removing can be retried
-		subdomain = server.Subdomain
+		home = subdomainRecords{Name: server.Subdomain, IDs: remaining, Domain: domain, ZoneID: zoneID}
 	}
-	if saveErr := saveSubdomain(db, server.Identifier, subdomain, remaining); response.HandleError(c, saveErr, http.StatusInternalServerError) {
+	if saveErr := saveSubdomain(db, server.Identifier, home); response.HandleError(c, saveErr, http.StatusInternalServerError) {
 		return
 	}
 	if err != nil {
@@ -475,12 +501,9 @@ func subdomainBase(server *models.Server) string {
 	return slug
 }
 
-// wantsSRVRecord is the Minecraft rule: a server whose type is "minecraft" or "minecraft-java"
-// (the same test the server settings page uses) and that has a main port gets an SRV record,
-// so Java clients find the port by themselves. Bedrock does not read SRV records.
+// wantsSRVRecord tells whether the server gets a Minecraft SRV record (models.Server.WantsSRVRecord)
 func wantsSRVRecord(server *models.Server) bool {
-	kind := strings.ToLower(strings.TrimSpace(server.Type))
-	return (kind == "minecraft" || kind == "minecraft-java") && server.Port > 0
+	return server.WantsSRVRecord()
 }
 
 // publicIP parses host as an address players on the internet can reach
@@ -505,14 +528,27 @@ func usableHostname(host string) bool {
 		!strings.HasSuffix(host, ".local") && !strings.HasSuffix(host, ".internal") && !strings.HasSuffix(host, ".localhost")
 }
 
-// resolveDNSTarget decides where the server's name points: the node's public IP when it has
-// one; otherwise the admin's DNS target; otherwise the local node's configured IP; otherwise
-// the node's hostname (as a CNAME). It returns the record type and its content.
+// resolveDNSTarget decides where the server's name points, the node's own address first so
+// every server follows its node: the node's public IP; otherwise, for the panel's own node, the
+// configured node IP; otherwise the node's hostname (usa.example.com, as a CNAME, which may sit
+// under another domain than the subdomains); and only when the node has none of those, the
+// admin's DNS target. It returns the record type and its content.
 func resolveDNSTarget(server *models.Server, s dnsSettings) (string, string, error) {
 	nodeHost := strings.TrimSpace(server.Node.PublicHost)
 	if ip := publicIP(nodeHost); ip != nil {
 		kind, content := addressRecord(ip)
 		return kind, content, nil
+	}
+
+	if server.Node.IsLocal() {
+		if ip := publicIP(config.NodeIP.Value()); ip != nil {
+			kind, content := addressRecord(ip)
+			return kind, content, nil
+		}
+	}
+
+	if usableHostname(nodeHost) {
+		return "CNAME", normalizeDNSName(nodeHost), nil
 	}
 
 	if target := normalizeDNSName(s.Target); target != "" {
@@ -526,25 +562,18 @@ func resolveDNSTarget(server *models.Server, s dnsSettings) (string, string, err
 		if hostnamePattern.MatchString(target) {
 			return "CNAME", target, nil
 		}
-		return "", "", errSubdomainNoTarget
-	}
-
-	if server.Node.IsLocal() {
-		if ip := publicIP(config.NodeIP.Value()); ip != nil {
-			kind, content := addressRecord(ip)
-			return kind, content, nil
-		}
-	}
-
-	if usableHostname(nodeHost) {
-		return "CNAME", normalizeDNSName(nodeHost), nil
 	}
 	return "", "", errSubdomainNoTarget
 }
 
 // planSubdomainRecords lists the records a subdomain needs: the name itself, plus the SRV
-// record of a Minecraft Java server
+// record of a Minecraft Java server. Behind a CNAME the SRV record names the CNAME's own target,
+// because an SRV target must not be an alias (RFC 2782) and some resolvers do not follow one.
 func planSubdomainRecords(server *models.Server, fqdn, kind, content string) []services.CloudflareRecord {
+	srvTarget := fqdn
+	if kind == "CNAME" {
+		srvTarget = content
+	}
 	proxied := false
 	comment := "Aether Panel: server " + server.Identifier
 	records := []services.CloudflareRecord{{
@@ -561,7 +590,7 @@ func planSubdomainRecords(server *models.Server, fqdn, kind, content string) []s
 			Name:    "_minecraft._tcp." + fqdn,
 			TTL:     1,
 			Comment: comment,
-			Data:    &services.CloudflareSRV{Priority: 0, Weight: 5, Port: int(server.Port), Target: fqdn},
+			Data:    &services.CloudflareSRV{Priority: 0, Weight: 5, Port: int(server.Port), Target: srvTarget},
 		})
 	}
 	return records
@@ -571,9 +600,10 @@ func planSubdomainRecords(server *models.Server, fqdn, kind, content string) []s
 // between the check and the save
 var subdomainLock sync.Mutex
 
-// assignSubdomain gives server the subdomain name: it creates the new records, saves them and
-// then removes the old ones. When anything fails before the save, the new records are removed
-// again and the server keeps its old subdomain.
+// assignSubdomain gives server the subdomain name under the current base domain: it creates the
+// new records, saves them and then removes the old ones, from the zone they were made in. When
+// anything fails before the save, the new records are removed again and the server keeps its
+// old subdomain. Giving a server the name it already has moves it to a new base domain.
 func assignSubdomain(ctx context.Context, db *gorm.DB, server *models.Server, name string, s dnsSettings) (*models.Server, error) {
 	if !s.configured() {
 		return nil, errSubdomainDisabled
@@ -598,6 +628,7 @@ func assignSubdomain(ctx context.Context, db *gorm.DB, server *models.Server, na
 		return nil, err
 	}
 
+	_, oldZoneID := subdomainHome(server, s)
 	fqdn := name + "." + s.Domain
 	records := planSubdomainRecords(server, fqdn, kind, content)
 	cf := s.client()
@@ -630,7 +661,8 @@ func assignSubdomain(ctx context.Context, db *gorm.DB, server *models.Server, na
 		created = append(created, rec.ID)
 	}
 
-	if err := saveSubdomain(db, server.Identifier, name, created); err != nil {
+	home := subdomainRecords{Name: name, IDs: created, Domain: s.Domain, ZoneID: s.ZoneID}
+	if err := saveSubdomain(db, server.Identifier, home); err != nil {
 		rollbackDNSRecords(cf, created)
 		return nil, err
 	}
@@ -641,13 +673,15 @@ func assignSubdomain(ctx context.Context, db *gorm.DB, server *models.Server, na
 			stale = append(stale, id)
 		}
 	}
-	if remaining, err := deleteDNSRecords(ctx, cf, stale); err != nil {
+	if remaining, err := deleteDNSRecords(ctx, s.zoneClient(oldZoneID), stale); err != nil {
 		logging.Error.Printf("subdomain of server %s: %d old DNS records could not be removed: %v", server.Identifier, len(remaining), err)
 	}
 
 	updated := *server
 	updated.Subdomain = name
 	updated.DNSRecordIDs = created
+	updated.DNSDomain = s.Domain
+	updated.DNSZoneID = s.ZoneID
 	return &updated, nil
 }
 
@@ -660,13 +694,21 @@ func containsString(list []string, value string) bool {
 	return false
 }
 
-// saveSubdomain writes only the two subdomain columns, without the model hooks, so it never
+// subdomainRecords is what the panel keeps of a server's subdomain; the zero value is none
+type subdomainRecords struct {
+	Name   string
+	IDs    []string
+	Domain string
+	ZoneID string
+}
+
+// saveSubdomain writes only the subdomain columns, without the model hooks, so it never
 // overwrites what another request changed on the server meanwhile
-func saveSubdomain(db *gorm.DB, serverID, name string, recordIDs []string) error {
+func saveSubdomain(db *gorm.DB, serverID string, home subdomainRecords) error {
 	return db.Model(&models.Server{Identifier: serverID}).
 		Where("identifier = ?", serverID).
-		Select("subdomain", "dns_record_ids").
-		UpdateColumns(&models.Server{Subdomain: name, DNSRecordIDs: recordIDs}).Error
+		Select("subdomain", "dns_record_ids", "dns_domain", "dns_zone_id").
+		UpdateColumns(&models.Server{Subdomain: home.Name, DNSRecordIDs: home.IDs, DNSDomain: home.Domain, DNSZoneID: home.ZoneID}).Error
 }
 
 // deleteDNSRecords removes records and returns the ones that could not be removed
@@ -809,13 +851,14 @@ func releaseSubdomain(_ *gorm.DB, server *models.Server) {
 		return
 	}
 	s := currentDNSSettings()
-	if s.Token == "" || s.ZoneID == "" {
+	_, zoneID := subdomainHome(server, s)
+	if s.Token == "" || zoneID == "" {
 		logging.Error.Printf("server %s had a subdomain, but Cloudflare is no longer configured: its DNS records stay in the zone", server.Identifier)
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	if remaining, err := deleteDNSRecords(ctx, s.client(), server.DNSRecordIDs); err != nil {
+	if remaining, err := deleteDNSRecords(ctx, s.zoneClient(zoneID), server.DNSRecordIDs); err != nil {
 		logging.Error.Printf("server %s: %d DNS records could not be removed: %v", server.Identifier, len(remaining), err)
 	}
 }
@@ -826,9 +869,10 @@ func isAddressRecord(kind string) bool {
 }
 
 // refreshSubdomainRecords brings a server's records in line with where it now is: its node's
-// address and its main port (the SRV record). It runs after the port or the node changed and
-// edits the server's own records in place, creating or removing the SRV record when that rule
-// changed; the subdomain itself stays the same.
+// address and its main port (the SRV record). It runs after the port, the node, the node's
+// address or the DNS target changed and edits the server's own records in place, in the zone
+// they live in, creating or removing the SRV record when that rule changed; the subdomain
+// itself stays the same.
 func refreshSubdomainRecords(ctx context.Context, db *gorm.DB, server *models.Server, s dnsSettings) error {
 	if server.Subdomain == "" || len(server.DNSRecordIDs) == 0 || !s.configured() {
 		return nil
@@ -841,9 +885,10 @@ func refreshSubdomainRecords(ctx context.Context, db *gorm.DB, server *models.Se
 	if err != nil {
 		return err
 	}
-	fqdn := server.Subdomain + "." + s.Domain
+	domain, zoneID := subdomainHome(server, s)
+	fqdn := server.Subdomain + "." + domain
 	planned := planSubdomainRecords(server, fqdn, kind, content)
-	cf := s.client()
+	cf := s.zoneClient(zoneID)
 
 	current, err := ownSubdomainRecords(ctx, cf, server, fqdn)
 	if err != nil {
@@ -884,7 +929,7 @@ func refreshSubdomainRecords(ctx context.Context, db *gorm.DB, server *models.Se
 	if remaining, err := deleteDNSRecords(ctx, cf, stale); err != nil {
 		logging.Error.Printf("subdomain of server %s: %d old DNS records could not be removed: %v", server.Identifier, len(remaining), err)
 	}
-	return saveSubdomain(db, server.Identifier, server.Subdomain, kept)
+	return saveSubdomain(db, server.Identifier, subdomainRecords{Name: server.Subdomain, IDs: kept, Domain: domain, ZoneID: zoneID})
 }
 
 // ownSubdomainRecords lists the server's records under the names a subdomain uses
@@ -923,6 +968,9 @@ func matchingRecord(records []services.CloudflareRecord, used map[string]bool, k
 	return nil
 }
 
+// refreshLogFormat is the log line for a failed update of one server's records
+const refreshLogFormat = "updating the DNS records of server %s: %v"
+
 // subdomainRefreshDelay lets the request that changed the server commit first
 var subdomainRefreshDelay = 500 * time.Millisecond
 
@@ -942,18 +990,164 @@ func scheduleSubdomainRefresh(serverID string) {
 		time.Sleep(subdomainRefreshDelay)
 		db, err := database.GetConnection()
 		if err != nil {
-			logging.Error.Printf("updating the DNS records of server %s: %v", serverID, err)
+			logging.Error.Printf(refreshLogFormat, serverID, err)
 			return
 		}
 		server, err := (&services.Server{DB: db}).Get(serverID)
 		if err != nil {
-			logging.Error.Printf("updating the DNS records of server %s: %v", serverID, err)
+			logging.Error.Printf(refreshLogFormat, serverID, err)
 			return
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), subdomainRequestTimeout)
 		defer cancel()
 		if err := refreshSubdomainRecords(ctx, db, server, s); err != nil {
-			logging.Error.Printf("updating the DNS records of server %s: %v", serverID, err)
+			logging.Error.Printf(refreshLogFormat, serverID, err)
 		}
 	}()
+}
+
+// subdomainSweepLock keeps one sweep at a time, so two quick saves of the settings never move
+// the same server twice at once
+var subdomainSweepLock sync.Mutex
+
+// subdomainFix is what a sweep does to one server
+type subdomainFix func(ctx context.Context, db *gorm.DB, server *models.Server, s dnsSettings) error
+
+// sweepSubdomains runs fix on every server with a subdomain, or only on those of one node when
+// node is set, one after another (Cloudflare limits how fast a token may write). A server that
+// fails is logged and the others go on.
+func sweepSubdomains(db *gorm.DB, what string, node *uint, fix subdomainFix) {
+	subdomainSweepLock.Lock()
+	defer subdomainSweepLock.Unlock()
+
+	s := currentDNSSettings()
+	if !s.configured() {
+		return
+	}
+	query := db.Model(&models.Server{}).Where("subdomain <> ''")
+	switch {
+	case node == nil:
+	case *node == models.LocalNode.ID:
+		// the panel's own servers have no node row
+		query = query.Where("node_id IS NULL OR node_id = ?", models.LocalNode.ID)
+	default:
+		query = query.Where("node_id = ?", *node)
+	}
+	var ids []string
+	if err := query.Pluck("identifier", &ids).Error; err != nil {
+		logging.Error.Printf("%s: %v", what, err)
+		return
+	}
+	ss := &services.Server{DB: db}
+	for _, id := range ids {
+		server, err := ss.Get(id)
+		if err != nil {
+			logging.Error.Printf("%s, server %s: %v", what, id, err)
+			continue
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), subdomainRequestTimeout)
+		err = fix(ctx, db, server, s)
+		cancel()
+		if err != nil {
+			logging.Error.Printf("%s, server %s: %v", what, id, err)
+		}
+	}
+}
+
+// scheduleSubdomainSweep runs sweepSubdomains in the background, after the request that
+// changed things has committed
+func scheduleSubdomainSweep(what string, node *uint, fix subdomainFix) {
+	if !currentDNSSettings().configured() {
+		return
+	}
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				logging.Error.Printf("%s failed: %v", what, r)
+			}
+		}()
+		time.Sleep(subdomainRefreshDelay)
+		db, err := database.GetConnection()
+		if err != nil {
+			logging.Error.Printf("%s: %v", what, err)
+			return
+		}
+		sweepSubdomains(db, what, node, fix)
+	}()
+}
+
+// moveSubdomain gives a server its own name again under the base domain and zone the settings
+// now name, and removes the records under the old ones. A name already used in the new zone
+// outside the panel is left alone: the server keeps its old address, which still works.
+func moveSubdomain(ctx context.Context, db *gorm.DB, server *models.Server, s dnsSettings) error {
+	if !subdomainElsewhere(server, s) {
+		return nil
+	}
+	_, err := assignSubdomain(ctx, db, server, server.Subdomain, s)
+	return err
+}
+
+// rememberSubdomainHome writes the base domain and zone into the servers whose subdomain was
+// made before the panel kept them, while the settings still name those; once the admin changes
+// the settings, the records can only be found and moved through these
+func rememberSubdomainHome(db *gorm.DB, s dnsSettings) error {
+	if db == nil || s.Domain == "" || s.ZoneID == "" {
+		return nil
+	}
+	return db.Model(&models.Server{}).
+		Where("subdomain <> '' AND (dns_domain = '' OR dns_domain IS NULL)").
+		UpdateColumns(map[string]interface{}{"dns_domain": s.Domain, "dns_zone_id": s.ZoneID}).Error
+}
+
+// dnsSettingKeys are the settings that change where subdomain records live or point
+var dnsSettingKeys = map[string]bool{
+	config.DNSBaseDomain.Key():      true,
+	config.CloudflareZoneID.Key():   true,
+	config.DNSTarget.Key():          true,
+	config.CloudflareAPIToken.Key(): true,
+}
+
+// touchesDNSSettings tells whether a settings save includes one of dnsSettingKeys
+func touchesDNSSettings(keys ...string) bool {
+	for _, key := range keys {
+		if dnsSettingKeys[key] {
+			return true
+		}
+	}
+	return false
+}
+
+// followDNSSettings brings the subdomains in line after the admin saved the settings: a new base
+// domain or zone moves every subdomain there, a new DNS target updates where they point
+func followDNSSettings(previous dnsSettings) {
+	next := currentDNSSettings()
+	switch {
+	case !next.configured():
+		return
+	case previous.Domain != next.Domain || previous.ZoneID != next.ZoneID:
+		scheduleSubdomainSweep("moving the subdomains to "+next.Domain, nil, moveSubdomain)
+	case previous.Target != next.Target:
+		scheduleSubdomainSweep("pointing the subdomains at the new DNS target", nil, refreshSubdomainRecords)
+	}
+}
+
+// followNodeAddress updates the records of a node's servers after its public address changed,
+// so the subdomains keep pointing at it
+func followNodeAddress(nodeID uint, previous, next string) {
+	if strings.TrimSpace(previous) == strings.TrimSpace(next) {
+		return
+	}
+	id := nodeID
+	scheduleSubdomainSweep("pointing the subdomains of node "+strconv.FormatUint(uint64(nodeID), 10)+" at "+next, &id, refreshSubdomainRecords)
+}
+
+// localNodeHost is the panel's own node's public address as it is right now
+func localNodeHost(db *gorm.DB) string {
+	if db == nil {
+		return models.LocalNode.PublicHost
+	}
+	if node, err := (&services.Node{DB: db}).Get(models.LocalNode.ID); err == nil && node != nil {
+		return node.PublicHost
+	}
+	return ""
 }

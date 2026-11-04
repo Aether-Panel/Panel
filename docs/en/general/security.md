@@ -28,7 +28,7 @@ A panel that serves customers should be reached at `https://your-domain`, not at
 
 **What the installer does with a domain.** It publishes the panel's port on `127.0.0.1` only, so the panel is reached through Nginx and nobody can use `http://IP:8080` around HTTPS. Docker publishes container ports ahead of ufw/firewalld, so a firewall rule alone would not close it. Pass `--bind 0.0.0.0` only if you need the port open on purpose.
 
-**Behind your own proxy.** The panel trusts no proxy by default. If yours is not the installer's Nginx on the same host, list its addresses in `security.trustedProxies` (and `security.trustedProxyHeader` if it uses a custom header) so the panel sees the real client IP. Send `X-Forwarded-Proto: https`: the panel uses it to mark the cookie `Secure` and to send HSTS.
+**Behind your own proxy.** The panel always trusts this machine, private networks and Cloudflare's edge, which covers the installer's Nginx, with or without Cloudflare in front (see [Behind a reverse proxy](../backend/09-security.md#behind-a-reverse-proxy)). If your proxy has a public address, list it in `security.trustedProxies` (and `security.trustedProxyHeader` if it uses a custom header) so the panel sees the real client IP. Send `X-Forwarded-Proto: https`: the panel uses it to mark the cookie `Secure` and to send HSTS.
 
 ## Sign-in and sessions
 
@@ -310,6 +310,7 @@ The installer opens SSH, SFTP, 80/443 and the panel port (only when it is not bo
 - Give `admin` only to people who run the panel. Use roles for staff, with the fewest scopes they need.
 - Leave `docker.disallowHost`, `docker.serverUser`, `docker.pidsLimit` and `security.blockPrivateDownloads` at their defaults unless you know why you change them.
 - Close public sign-ups (`panel.registrationEnabled`, in **Settings**) if customers come from billing.
+- With sign-ups open, keep **Approve new accounts** on (`panel.registrationApproval`): a registered account cannot sign in until an administrator approves it in **Users**. Nobody uses an account under someone else's email without an administrator looking at it first.
 - Keep the panel updated (**Settings → Updates**, or `install.sh --update`) and the operating system and Docker too.
 - Back up the database, the config folder and the backups folder; test a restore.
 - Do not expose MariaDB or Adminer to the Internet.

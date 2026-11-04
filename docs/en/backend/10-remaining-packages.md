@@ -216,7 +216,7 @@ Providers register themselves in `init()`:
 | `mailjet` | `mailjet.go` | `mailjet-apiv3-go` | `domain` (the public API key), `from`, `key` (the secret key) |
 | `debug` | `debug.go` | — | Only prints the email to the debug log |
 
-A missing setting returns `ErrSettingNotConfigured(<key>)`. Rendering and templates are in `services.EmailService` ([Services](./11-services.md#20-emailservice-emailgo)); configuration in [Email](../general/15-email.md).
+A missing setting returns `ErrSettingNotConfigured(<key>)`. Rendering and templates are in `services.EmailSender` ([Services](./11-services.md#20-emailsender-emailgo)); configuration in [Email](../general/15-email.md).
 
 ---
 

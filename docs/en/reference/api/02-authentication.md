@@ -9,7 +9,7 @@ How a request proves who sent it, how the panel decides what it may do, and the 
 | POST | `/auth/login` | Public | Signs in with email and password |
 | POST | `/auth/otp` | Public (pending sign-in cookie) | Second step with a 2FA or recovery code |
 | POST | `/auth/logout` | Public | Ends a session |
-| POST | `/auth/register` | Public (sign-ups open) | Creates an account and signs it in |
+| POST | `/auth/register` | Public (sign-ups open) | Creates an account: waiting for approval, or signed in when approval is off |
 | POST | `/auth/forgot-password` | Public | Emails a password reset link |
 | POST | `/auth/reset-password` | Public (reset token) | Sets a new password |
 | POST | `/auth/reauth` | Session or bearer | Opens a fresh session for the signed-in user |
@@ -143,7 +143,7 @@ Only while sign-ups are open (`panel.registrationEnabled`); otherwise `404`.
 { "username": "newplayer", "email": "new@example.com", "password": "at-least-8", "captchaToken": "..." }
 ```
 
-`username` is 5 to 100 printable ASCII characters; `email` must be valid; the password needs at least 8 bytes. The account gets the `login` scope, a welcome email, and a session (same answer as sign-in). Errors: `400` for validation, `400 ErrCaptchaFailed`, `400 ErrPasswordRequirements`.
+`username` is 5 to 100 printable ASCII characters; `email` must be valid; the password needs at least 8 bytes. With **Approve new accounts** on (`panel.registrationApproval`, the default), the account waits: no `login` scope, no session, no email, and the answer is `202 {"pending": true}`. Signing in with the right password answers `403 ErrAccountPending` until an administrator approves it with `POST /api/users/{id}/approve` (`users.perms.edit`), which grants `login` and sends the welcome email. Rejecting it is deleting it (`DELETE /api/users/{id}`). With approval off, the account gets the `login` scope, a welcome email, and a session (same answer as sign-in). Errors: `400` for validation, `400 ErrCaptchaFailed`, `400 ErrPasswordRequirements`.
 
 ### `POST /auth/forgot-password`
 

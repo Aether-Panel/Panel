@@ -55,7 +55,9 @@ function DomainStatusLine({ t }: Readonly<{ t: (key: string, options?: Record<st
     else if (status.https) text = t('settings.general.domainStatus.okHttps', { domain });
     else text = t('settings.general.domainStatus.okHttp', { domain });
 
-    const Icon = status.state === 'working' ? Loader2 : status.state === 'error' ? XCircle : CheckCircle2;
+    let Icon = CheckCircle2;
+    if (status.state === 'working') Icon = Loader2;
+    else if (status.state === 'error') Icon = XCircle;
     // the website goes through the proxy, game ports and SFTP cannot: the panel hands out the IP
     const proxyNote = status.state === 'ok' && status.proxied && status.serverIp
         ? t('settings.general.domainStatus.proxied', { ip: status.serverIp })
@@ -382,6 +384,13 @@ export function GeneralTab({ localSettings, handleUpdate, t }: Readonly<GeneralT
                                 description={t('settings.general.allowRegistrationDescription')}
                                 checked={!!localSettings['panel.registrationEnabled']}
                                 onCheckedChange={(v) => handleUpdate('panel.registrationEnabled', v)}
+                            />
+                            <SettingRow
+                                id="registration-approval"
+                                label={t('settings.general.registrationApprovalLabel')}
+                                description={t('settings.general.registrationApprovalDescription')}
+                                checked={localSettings['panel.registrationApproval'] !== false}
+                                onCheckedChange={(v) => handleUpdate('panel.registrationApproval', v)}
                             />
                             <SettingRow
                                 id="captcha-builtin"

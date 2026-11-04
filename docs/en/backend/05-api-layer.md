@@ -7,7 +7,7 @@ The HTTP layer lives in `internal/web` (routes) and `internal/middleware`. One G
 Before any route is registered:
 
 1. `gin.Recovery()` and an access log whose lines leave out secrets (`middleware.RedactedLogFormatter`: the token in `/api/map-view/<server>/<token>/...` and the `token`, `code`, `access_token` and `refresh_token` query values are replaced with `***`).
-2. Trusted proxies: none by default; `security.trustedProxies` and `security.trustedProxyHeader` change that (see [Configuration](./02-configuration.md#security)).
+2. Trusted proxies: this machine, private networks and Cloudflare's edge always; `security.trustedProxies` adds more and `security.trustedProxyHeader` names a platform header (see [Configuration](./02-configuration.md#security)).
 3. When the panel is enabled, the `session` cookie store (`panel.web.cookies.*`) is added.
 
 The HTTP server sets a 10-second `ReadHeaderTimeout` and, on shutdown, lets requests in progress finish for up to 10 seconds.

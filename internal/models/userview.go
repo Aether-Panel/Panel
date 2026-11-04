@@ -12,6 +12,10 @@ type UserView struct {
 	Email     string `json:"email,omitempty"`
 	OtpActive bool   `json:"otpActive"`
 	RoleID    *uint  `json:"roleId,omitempty"`
+
+	// PendingApproval is a registered account waiting for an administrator
+	PendingApproval bool `json:"pendingApproval,omitempty"`
+
 	// RoleName is filled when the role was loaded with the user (the users list), so the list
 	// can show it without a lookup per row
 	RoleName string          `json:"roleName,omitempty"`
@@ -29,6 +33,8 @@ func FromUser(model *User) *UserView {
 		OtpActive: model.OtpActive,
 		RoleID:    model.RoleID,
 		Scopes:    make([]*scopes.Scope, 0),
+
+		PendingApproval: model.PendingApproval,
 	}
 
 	// Add individual permissions

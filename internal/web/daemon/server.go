@@ -139,6 +139,7 @@ func RegisterServerRoutes(e *gin.RouterGroup) {
 		l.OPTIONS("/:serverId/plugins/:pluginId", response.CreateOptions("POST"))
 
 		registerModpackRoutes(l)
+		registerGitHubRoutes(l)
 		registerWorldMapRoutes(l)
 		registerFileHistoryRoutes(l)
 		registerCloneRoutes(l)

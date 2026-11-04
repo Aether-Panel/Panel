@@ -144,11 +144,14 @@ func setSetting(c *gin.Context) {
 		return
 	}
 
+	db := middleware.GetDatabase(c)
 	if key == masterNodeIPKey {
-		err = saveMasterNodeIP(middleware.GetDatabase(c), model.Value)
+		previousHost := localNodeHost(db)
+		err = saveMasterNodeIP(db, model.Value)
 		if response.HandleError(c, err, http.StatusInternalServerError) {
 			return
 		}
+		followNodeAddress(models.LocalNode.ID, previousHost, localNodeHost(db))
 		c.Status(http.StatusNoContent)
 		return
 	}
@@ -158,12 +161,14 @@ func setSetting(c *gin.Context) {
 	}
 
 	previousLanguage := services.NotificationLanguage()
+	previousDNS, previousHost := prepareDNSSettingsChange(db, key)
 	if err = applyEditableSetting(key, model.Value); response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}
 
 	services.SyncNodeToConfig()
 	pushNotificationLanguageIfChanged(previousLanguage)
+	followDNSSettingsChange(db, previousDNS, previousHost)
 
 	c.Status(http.StatusNoContent)
 }
@@ -235,6 +240,11 @@ func setSettings(c *gin.Context) {
 	}
 
 	previousLanguage := services.NotificationLanguage()
+	keys := make([]string, 0, len(*settings))
+	for key := range *settings {
+		keys = append(keys, key)
+	}
+	previousDNS, previousHost := prepareDNSSettingsChange(db, keys...)
 	for key, value := range *settings {
 		// Intercept the custom global setting
 		if key == masterNodeIPKey {
@@ -249,8 +259,29 @@ func setSettings(c *gin.Context) {
 
 	services.SyncNodeToConfig()
 	pushNotificationLanguageIfChanged(previousLanguage)
+	followDNSSettingsChange(db, previousDNS, previousHost)
 
 	c.Status(http.StatusNoContent)
+}
+
+// prepareDNSSettingsChange notes what the subdomains depend on before a settings save: the DNS
+// settings, after writing them into the servers whose subdomain predates that (so a new base
+// domain can still find their records), and the panel node's address
+func prepareDNSSettingsChange(db *gorm.DB, keys ...string) (dnsSettings, string) {
+	previous := currentDNSSettings()
+	if touchesDNSSettings(keys...) {
+		if err := rememberSubdomainHome(db, previous); err != nil {
+			logging.Error.Printf("keeping where the subdomain records live: %v", err)
+		}
+	}
+	return previous, localNodeHost(db)
+}
+
+// followDNSSettingsChange moves or updates the subdomains after a settings save changed their
+// base domain, zone or DNS target, or the panel node's address (master node IP, Base URL)
+func followDNSSettingsChange(db *gorm.DB, previous dnsSettings, previousHost string) {
+	followDNSSettings(previous)
+	followNodeAddress(models.LocalNode.ID, previousHost, localNodeHost(db))
 }
 
 // pushNotificationLanguageIfChanged sends a changed notification language to the remote nodes
@@ -607,6 +638,8 @@ var editableStringEntries = []config.StringEntry{
 	config.NotificationLanguage,
 	// the node's key for CurseForge modpacks (on remote nodes it is set in their own config)
 	config.CurseForgeKey,
+	// the OAuth App users connect their GitHub account through
+	config.GitHubClientID,
 	config.DiscordWebhook,
 	config.DiscordWebhookSystem,
 	config.DiscordWebhookNode,
@@ -630,6 +663,7 @@ var editableStringEntries = []config.StringEntry{
 }
 var editableBoolEntries = []config.BoolEntry{
 	config.RegistrationEnabled,
+	config.RegistrationApproval,
 	config.HideAIAnalysis,
 	config.AIFileTools,
 	config.BackupsS3Enabled,

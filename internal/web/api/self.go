@@ -47,6 +47,8 @@ func registerSelf(g *gin.RouterGroup) {
 
 	g.Handle("DELETE", "/sshkeys/:id", middleware.RequiresPermission(scopes.ScopeSelfEdit), deleteSSHKey)
 	g.Handle("OPTIONS", "/sshkeys/:id", response.CreateOptions("DELETE"))
+
+	registerGitHub(g.Group("/github"))
 }
 
 // @Summary Get your user info

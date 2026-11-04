@@ -17,7 +17,8 @@ import (
 	"strings"
 )
 
-type EmailService interface {
+// EmailSender renders one of the panel's templates and mails it
+type EmailSender interface {
 	SendEmail(to string, template string, data map[string]interface{}, async bool) error
 }
 
@@ -87,7 +88,7 @@ func LoadEmailService() {
 	}
 }
 
-func GetEmailService() EmailService {
+func GetEmailService() EmailSender {
 	return globalEmailService
 }
 
