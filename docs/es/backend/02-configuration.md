@@ -201,7 +201,7 @@ Ver [Licencia](../general/14-license.md).
 | `panel.dns.cloudflare.token` | string | — | Sí | Token de la API de Cloudflare; solo necesita Zona → DNS → Editar sobre la zona. |
 | `panel.dns.cloudflare.zoneId` | string | — | Sí | ID de la zona. |
 | `panel.dns.baseDomain` | string | — | Sí | Dominio bajo el que reciben nombre los servidores (`survival` → `survival.<baseDomain>`). Hacen falta token, zona y dominio base. |
-| `panel.dns.target` | string | — | Sí | Adónde apuntan los registros (IP o nombre de host) cuando un nodo está registrado por nombre o por una dirección privada. Vacío usa la dirección de cada nodo. |
+| `panel.dns.target` | string | — | Sí | Adónde apuntan los registros (IP o nombre de host) de un nodo sin IP pública ni nombre utilizable. Los nodos con dirección propia siempre reciben la suya. Al cambiarlo se actualizan todos los subdominios. |
 | `panel.dns.autoAssign` | bool | `false` | Sí | Da a cada servidor nuevo un subdominio derivado de su nombre (`-2`, `-3`… si ya existe). |
 
 Ver [Subdominio (Cloudflare)](./04-servers.md#subdominio-cloudflare) y [Subdominios](../features/subdomains.md).

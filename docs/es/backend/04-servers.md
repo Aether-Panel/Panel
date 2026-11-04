@@ -366,8 +366,10 @@ No hace nada si el servidor está detenido o ya conectado. Un proceso host no se
 
 Un servidor puede tener un subdominio en la zona de Cloudflare del administrador (por ejemplo `survival.play.example.com`), configurada con las claves `panel.dns.*` (ver [Configuración](./02-configuration.md#subdominios-de-servidores-dns-de-cloudflare)). Los registros son solo DNS (sin proxy), porque el tráfico de juego no es HTTP:
 
-- Un registro `A`, `AAAA` o `CNAME` con el nombre del subdominio, que apunta a `panel.dns.target` si tiene valor y, si no, a la dirección del nodo (para el nodo local, `panel.settings.nodeIp` cuando es pública).
-- Para servidores de tipo `minecraft` o `minecraft-java` con puerto, un registro `SRV` (`_minecraft._tcp.<subdominio>`) con el puerto principal.
+- Un registro `A`, `AAAA` o `CNAME` con el nombre del subdominio, que apunta al nodo: su IP pública; en el nodo local, `panel.settings.nodeIp` cuando es pública; si no, su nombre de host como `CNAME`, que puede ser de otro dominio (`pablo.example.es` → `usa.example.com`). `panel.dns.target` solo se usa para un nodo sin ninguna de esas direcciones.
+- Para servidores de tipo `minecraft` o `minecraft-java` con puerto, un registro `SRV` (`_minecraft._tcp.<subdominio>`) con el puerto principal. Detrás de un `CNAME` apunta al nombre del nodo, nunca al alias.
+
+El servidor guarda el subdominio, los ID de sus registros y el dominio base y la zona en los que se crearon (`subdomain`, `dns_record_ids`, `dns_domain`, `dns_zone_id`). La información del servidor (`ServerInfo`) lleva la dirección completa en `subdomain` y `subdomainSrv` cuando la dirección no necesita el puerto.
 
 Rutas (permiso `server.flags.edit` o `server.data.edit`): `GET/PUT/DELETE /api/servers/{id}/subdomain` y `GET /api/servers/{id}/subdomain/check`. Cada servidor puede cambiar su subdominio una vez cada 10 segundos. Con `panel.dns.autoAssign` activo, un servidor nuevo recibe un nombre derivado del suyo (con `-2`, `-3`… si ya existe, hasta 20 intentos).
 
@@ -379,6 +381,9 @@ El subdominio sigue al servidor. Estos cambios actualizan sus registros:
 | Puerto principal (administrador) | `PUT /api/servers/{id}/data` |
 | Puerto principal elegido en los ajustes de puertos | `PUT /api/servers/{id}/port-settings` |
 | Traslado a otro nodo | transferencia interna entre nodos |
+| Host público del nodo | `PUT /api/nodes/{id}` (servidores de ese nodo) |
+| IP del nodo maestro o URL base | `POST /api/settings`, `PUT /api/settings/{key}` (servidores del nodo local) |
+| Destino DNS | `POST /api/settings`, `PUT /api/settings/{key}` (todos los servidores con subdominio) |
 
 La actualización (`refreshSubdomainRecords` en `internal/web/api/server_dns.go`):
 
@@ -389,7 +394,9 @@ La actualización (`refreshSubdomainRecords` en `internal/web/api/server_dns.go`
 - Solo toca los registros que el servidor tiene guardados.
 - Es de mejor esfuerzo: si Cloudflare falla, se registra el error y el cambio del servidor no se deshace.
 
-No hace nada si el servidor no tiene subdominio o Cloudflare no está configurado.
+No hace nada si el servidor no tiene subdominio o Cloudflare no está configurado. Los cambios que afectan a muchos servidores se aplican de uno en uno (`sweepSubdomains`).
+
+Un dominio base o un ID de zona nuevos mueven todos los subdominios (`moveSubdomain`): se crea el mismo nombre bajo el dominio nuevo, se guarda y se eliminan los registros antiguos de la zona en la que se crearon. Si el nombre ya se usa en la zona nueva fuera del panel, ese servidor se queda donde estaba. Antes de guardar ese cambio, los servidores cuyo subdominio es anterior a `dns_domain` reciben los ajustes vigentes (`rememberSubdomainHome`).
 
 Guía para usuarios y administradores: [Subdominios](../features/subdomains.md).
 

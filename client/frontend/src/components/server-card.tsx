@@ -123,10 +123,15 @@ export function ServerCard({ server, t }: Readonly<{ server: Server; t: (key: st
             </a>
             <p className="flex items-center gap-1.5 font-mono text-xs tabular-nums text-muted-foreground">
               <Globe className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" aria-hidden="true" />
-              <span className="truncate">
-                {server.ipAddress}
-                <span className="text-muted-foreground/50">:</span>
-                {server.port || '—'}
+              {/* the subdomain when it has one; the IP stays in the tooltip */}
+              <span className="truncate" title={server.subdomain ? `${server.ipAddress}:${server.port || '—'}` : undefined}>
+                {server.subdomain ?? server.ipAddress}
+                {!(server.subdomain && server.subdomainSrv) && (
+                  <>
+                    <span className="text-muted-foreground/50">:</span>
+                    {server.port || '—'}
+                  </>
+                )}
               </span>
             </p>
           </div>

@@ -3,6 +3,10 @@ export type Server = {
   name: string;
   ipAddress: string;
   port: number;
+  /** the name players use instead of the IP (survival.play.example.com), when it has one */
+  subdomain?: string;
+  /** Minecraft Java finds the port through the SRV record, so the subdomain goes without it */
+  subdomainSrv?: boolean;
   ports?: number[];
   status: 'online' | 'offline' | 'pending';
   /** CPU as a share of what the server may use, 0-100 (its limit, or every core of the node) */

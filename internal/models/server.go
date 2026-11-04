@@ -69,6 +69,13 @@ type Server struct {
 	// DNSRecordIDs are the Cloudflare records created for Subdomain, so they can be removed
 	DNSRecordIDs []string `gorm:"column:dns_record_ids;serializer:json" json:"-" validate:"-"`
 
+	// DNSDomain and DNSZoneID are where Subdomain's records were made: the base domain and the
+	// Cloudflare zone the settings had then. The admin may change them later; the records stay
+	// there until the panel moves them, so the address and every later edit read these. Empty
+	// for a subdomain made before the panel kept them, which is under the current settings.
+	DNSDomain string `gorm:"column:dns_domain;size:253" json:"-" validate:"-"`
+	DNSZoneID string `gorm:"column:dns_zone_id;size:64" json:"-" validate:"-"`
+
 	CreatedAt time.Time `json:"-"`
 	UpdatedAt time.Time `json:"-"`
 }

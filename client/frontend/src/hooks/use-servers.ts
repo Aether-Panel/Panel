@@ -5,6 +5,21 @@ import { parsePlayerQuery } from '@/lib/players';
 import { fetchAllPages } from '@/lib/paged';
 const globalFailedStatsSet = new Set<string>();
 
+/** A node address players can type: a real name (usa.example.com), not an IP or a local name. */
+function isPublicName(host: string | undefined): host is string {
+    if (!host) return false;
+    const h = host.trim().toLowerCase();
+    if (/^[\d.]+$/.test(h) || h.includes(':') || !h.includes('.')) return false;
+    return !/\.(local|internal|localhost)$/.test(h);
+}
+
+/** The address the list shows: the node's name when it has one, else the server's own IP, else the node's. */
+export function serverHost(ip: string | undefined, nodeHost: string | undefined): string {
+    if (isPublicName(nodeHost) && (!ip || !isPublicName(ip))) return nodeHost.trim();
+    if (ip && ip !== '0.0.0.0') return ip;
+    return nodeHost || '0.0.0.0';
+}
+
 // Stats are polled for every listed server; cap parallel requests so large lists do not flood the panel
 const STATS_CONCURRENCY = 6;
 
@@ -100,8 +115,10 @@ export function useServers(statsFor?: (server: Server) => boolean) {
                     id: s.id,
                     name: s.name,
                     nodeId: s.nodeId ?? (s.node?.id !== undefined ? s.node.id : 0),
-                    ipAddress: s.ip && s.ip !== '0.0.0.0' ? s.ip : (s.node?.publicHost || '0.0.0.0'),
+                    ipAddress: serverHost(s.ip, s.node?.publicHost),
                     port: s.port || 0,
+                    subdomain: s.subdomain || undefined,
+                    subdomainSrv: !!s.subdomainSrv,
                     status: uptime.currentStatus ? 'online' : 'offline',
                     cpuUsage: 0,
                     memoryUsage: 0,
@@ -131,6 +148,8 @@ export function useServers(statsFor?: (server: Server) => boolean) {
                     nodeId: fresh.nodeId,
                     ipAddress: fresh.ipAddress,
                     port: fresh.port,
+                    subdomain: fresh.subdomain,
+                    subdomainSrv: fresh.subdomainSrv,
                     isGhost: fresh.isGhost,
                     parentServerId: fresh.parentServerId,
                     totalCpu: fresh.totalCpu,

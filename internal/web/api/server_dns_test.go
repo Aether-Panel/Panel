@@ -34,6 +34,8 @@ const (
 type dnsFake struct {
 	mu        sync.Mutex
 	records   map[string]services.CloudflareRecord
+	zoneOf    map[string]string // record id → zone id
+	zones     map[string]string // zone id → zone name; the test zone when empty
 	next      int
 	creates   []services.CloudflareRecord
 	deletes   []string
@@ -54,13 +56,26 @@ func (f *dnsFake) serve(w http.ResponseWriter, r *http.Request) {
 		reply(http.StatusUnauthorized, map[string]interface{}{"success": false, "errors": []map[string]interface{}{{"code": 10000, "message": "Authentication error"}}})
 		return
 	}
-	prefix := "/zones/" + dnsTestZone
+	zone := strings.SplitN(strings.TrimPrefix(r.URL.Path, "/zones/"), "/", 2)[0]
+	zoneName, known := f.zones[zone]
+	if len(f.zones) == 0 && zone == dnsTestZone {
+		zoneName, known = "example.com", true
+	}
+	if !known {
+		reply(http.StatusNotFound, map[string]interface{}{"success": false, "errors": []map[string]interface{}{{"code": 7003, "message": "Could not route to /zones/" + zone}}})
+		return
+	}
+	prefix := "/zones/" + zone
+	if id := strings.TrimPrefix(r.URL.Path, prefix+"/dns_records/"); id != r.URL.Path && f.zoneOf[id] != "" && f.zoneOf[id] != zone {
+		reply(http.StatusNotFound, map[string]interface{}{"success": false, "errors": []map[string]interface{}{{"code": 81044, "message": "Record does not exist."}}})
+		return
+	}
 	switch {
 	case r.Method == http.MethodGet && r.URL.Path == prefix:
-		reply(http.StatusOK, map[string]interface{}{"success": true, "result": map[string]string{"id": dnsTestZone, "name": "example.com"}})
+		reply(http.StatusOK, map[string]interface{}{"success": true, "result": map[string]string{"id": zone, "name": zoneName}})
 	case r.Method == http.MethodGet && r.URL.Path == prefix+"/dns_records":
 		f.listCalls++
-		reply(http.StatusOK, map[string]interface{}{"success": true, "result": f.recordsNamed(r.URL.Query().Get("name"))})
+		reply(http.StatusOK, map[string]interface{}{"success": true, "result": f.recordsNamed(zone, r.URL.Query().Get("name"))})
 	case r.Method == http.MethodPost && r.URL.Path == prefix+"/dns_records":
 		var rec services.CloudflareRecord
 		_ = json.NewDecoder(r.Body).Decode(&rec)
@@ -71,6 +86,7 @@ func (f *dnsFake) serve(w http.ResponseWriter, r *http.Request) {
 		f.next++
 		rec.ID = fmt.Sprintf("%032x", f.next)
 		f.records[rec.ID] = rec
+		f.zoneOf[rec.ID] = zone
 		f.creates = append(f.creates, rec)
 		reply(http.StatusOK, map[string]interface{}{"success": true, "result": rec})
 	case r.Method == http.MethodPut && strings.HasPrefix(r.URL.Path, prefix+"/dns_records/"):
@@ -98,11 +114,11 @@ func (f *dnsFake) serve(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// recordsNamed lists the records with that name, never nil; the caller holds f.mu
-func (f *dnsFake) recordsNamed(name string) []services.CloudflareRecord {
+// recordsNamed lists the zone's records with that name, never nil; the caller holds f.mu
+func (f *dnsFake) recordsNamed(zone, name string) []services.CloudflareRecord {
 	found := []services.CloudflareRecord{}
 	for _, rec := range f.records {
-		if rec.Name == name {
+		if rec.Name == name && f.zoneOf[rec.ID] == zone {
 			found = append(found, rec)
 		}
 	}
@@ -115,6 +131,7 @@ func (f *dnsFake) addExternal(rec services.CloudflareRecord) {
 	f.next++
 	rec.ID = fmt.Sprintf("%032x", f.next)
 	f.records[rec.ID] = rec
+	f.zoneOf[rec.ID] = dnsTestZone
 }
 
 func (f *dnsFake) byName(name string) []services.CloudflareRecord {
@@ -141,7 +158,7 @@ func setupDNSTest(t *testing.T) *dnsTestEnv {
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&models.Node{}, &models.Server{}))
 
-	fake := &dnsFake{records: map[string]services.CloudflareRecord{}}
+	fake := &dnsFake{records: map[string]services.CloudflareRecord{}, zoneOf: map[string]string{}}
 	api := httptest.NewServer(http.HandlerFunc(fake.serve))
 	t.Cleanup(api.Close)
 
@@ -601,4 +618,176 @@ func TestRefreshSubdomainRecords_NothingToDoWithoutASubdomain(t *testing.T) {
 
 	require.NoError(t, refreshSubdomainRecords(context.Background(), env.db, server, env.settings))
 	assert.Zero(t, env.fake.listCalls, "no Cloudflare call for a server without a subdomain")
+}
+
+const dnsOtherZone = "fedcba9876543210fedcba9876543210"
+
+// useTwoZones lets the fake answer for the test zone and a second one, as when the admin moves
+// the subdomains to another domain
+func (env *dnsTestEnv) useTwoZones() {
+	env.fake.mu.Lock()
+	defer env.fake.mu.Unlock()
+	env.fake.zones = map[string]string{dnsTestZone: "example.com", dnsOtherZone: "example.es"}
+}
+
+func (f *dnsFake) zoneOfName(name string) []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var zones []string
+	for id, rec := range f.records {
+		if rec.Name == name {
+			zones = append(zones, f.zoneOf[id])
+		}
+	}
+	return zones
+}
+
+func TestAssignSubdomain_NodeHostnameBeatsTheDNSTarget(t *testing.T) {
+	env := setupDNSTest(t)
+	env.node.PublicHost = "usa.example.com"
+	require.NoError(t, env.db.Save(env.node).Error)
+	env.settings.Domain = "example.es"
+	env.settings.Target = "198.51.100.99"
+	server := env.addServer(t, "mc01", "Pablo", "minecraft", 25565, true)
+
+	_, err := assignSubdomain(context.Background(), env.db, server, "pablo", env.settings)
+	require.NoError(t, err)
+	require.Len(t, env.fake.creates, 2)
+	name := env.fake.creates[0]
+	assert.Equal(t, "CNAME", name.Type)
+	assert.Equal(t, "pablo.example.es", name.Name, "the subdomain may be under another domain than the node")
+	assert.Equal(t, "usa.example.com", name.Content, "a node's own name wins over the panel-wide target")
+
+	srv := env.fake.creates[1]
+	require.NotNil(t, srv.Data)
+	assert.Equal(t, "usa.example.com", srv.Data.Target, "an SRV record never names an alias")
+}
+
+func TestAssignSubdomain_TargetStillCoversANodeWithoutAPublicAddress(t *testing.T) {
+	env := setupDNSTest(t)
+	env.node.PublicHost = "10.0.0.5"
+	require.NoError(t, env.db.Save(env.node).Error)
+	env.settings.Target = "198.51.100.99"
+	server := env.addServer(t, "rust01", "Rust", "rust", 28015, true)
+
+	_, err := assignSubdomain(context.Background(), env.db, server, "rust", env.settings)
+	require.NoError(t, err)
+	assert.Equal(t, "A", env.fake.creates[0].Type)
+	assert.Equal(t, "198.51.100.99", env.fake.creates[0].Content)
+}
+
+func TestAssignSubdomain_RemembersWhereTheRecordsLive(t *testing.T) {
+	env := setupDNSTest(t)
+	server := env.addServer(t, "mc01", "Survival", "minecraft", 25570, true)
+
+	_, err := assignSubdomain(context.Background(), env.db, server, "survival", env.settings)
+	require.NoError(t, err)
+	stored := env.reload(t, "mc01")
+	assert.Equal(t, "play.example.com", stored.DNSDomain)
+	assert.Equal(t, dnsTestZone, stored.DNSZoneID)
+
+	view := models.FromServer(stored)
+	assert.Equal(t, "survival.play.example.com", view.Subdomain, "the server list shows the name")
+	assert.True(t, view.SubdomainSRV)
+}
+
+func TestMoveSubdomain_FollowsANewBaseDomain(t *testing.T) {
+	env := setupDNSTest(t)
+	env.useTwoZones()
+	server := env.addServer(t, "mc01", "Survival", "minecraft", 25570, true)
+	_, err := assignSubdomain(context.Background(), env.db, server, "survival", env.settings)
+	require.NoError(t, err)
+
+	env.settings.Domain = "example.es"
+	env.settings.ZoneID = dnsOtherZone
+	before := env.reload(t, "mc01")
+	assert.True(t, subdomainElsewhere(before, env.settings))
+	assert.Equal(t, "survival.play.example.com", viewSubdomain(before, env.settings).Address, "until it moves, the address that works is shown")
+
+	require.NoError(t, moveSubdomain(context.Background(), env.db, before, env.settings))
+
+	assert.Empty(t, env.fake.byName("survival.play.example.com"), "the old records are removed from the old zone")
+	assert.Empty(t, env.fake.byName("_minecraft._tcp.survival.play.example.com"))
+	assert.Equal(t, []string{dnsOtherZone}, env.fake.zoneOfName("survival.example.es"))
+	assert.Equal(t, []string{dnsOtherZone}, env.fake.zoneOfName("_minecraft._tcp.survival.example.es"))
+
+	after := env.reload(t, "mc01")
+	assert.Equal(t, "survival", after.Subdomain)
+	assert.Equal(t, "example.es", after.DNSDomain)
+	assert.Equal(t, dnsOtherZone, after.DNSZoneID)
+	assert.False(t, subdomainElsewhere(after, env.settings))
+	assert.Equal(t, "survival.example.es", viewSubdomain(after, env.settings).Address)
+
+	creates := len(env.fake.creates)
+	require.NoError(t, moveSubdomain(context.Background(), env.db, after, env.settings))
+	assert.Len(t, env.fake.creates, creates, "a server already there is left alone")
+}
+
+func TestMoveSubdomain_KeepsTheOldNameWhenTheNewOneIsUsed(t *testing.T) {
+	env := setupDNSTest(t)
+	env.useTwoZones()
+	server := env.addServer(t, "rust01", "Rust", "rust", 28015, true)
+	_, err := assignSubdomain(context.Background(), env.db, server, "rust", env.settings)
+	require.NoError(t, err)
+
+	env.fake.mu.Lock()
+	env.fake.next++
+	external := fmt.Sprintf("%032x", env.fake.next)
+	env.fake.records[external] = services.CloudflareRecord{ID: external, Type: "A", Name: "rust.example.es", Content: "192.0.2.1"}
+	env.fake.zoneOf[external] = dnsOtherZone
+	env.fake.mu.Unlock()
+
+	env.settings.Domain = "example.es"
+	env.settings.ZoneID = dnsOtherZone
+	err = moveSubdomain(context.Background(), env.db, env.reload(t, "rust01"), env.settings)
+	assert.ErrorIs(t, err, errSubdomainTaken)
+
+	stored := env.reload(t, "rust01")
+	assert.Equal(t, "play.example.com", stored.DNSDomain, "the server keeps the address that still works")
+	assert.Len(t, env.fake.byName("rust.play.example.com"), 1)
+}
+
+func TestRememberSubdomainHome_FillsOlderSubdomains(t *testing.T) {
+	env := setupDNSTest(t)
+	env.addServer(t, "old01", "Old", "rust", 28015, true)
+	env.addServer(t, "none01", "None", "rust", 28016, true)
+	require.NoError(t, env.db.Exec("UPDATE servers SET subdomain = 'old', dns_record_ids = '[\"abc\"]' WHERE identifier = 'old01'").Error)
+
+	require.NoError(t, rememberSubdomainHome(env.db, env.settings))
+	old := env.reload(t, "old01")
+	assert.Equal(t, "play.example.com", old.DNSDomain)
+	assert.Equal(t, dnsTestZone, old.DNSZoneID)
+	assert.Empty(t, env.reload(t, "none01").DNSDomain, "a server without a subdomain stays as it is")
+}
+
+func TestSweepSubdomains_OnlyTheNodesServers(t *testing.T) {
+	env := setupDNSTest(t)
+	other := &models.Node{Name: "us-1", PublicHost: "198.51.100.7", PrivateHost: "10.0.0.7", PublicPort: 8080, PrivatePort: 8080, SFTPPort: 5657, Secret: "other"}
+	require.NoError(t, env.db.Create(other).Error)
+
+	first := env.addServer(t, "rust01", "Rust", "rust", 28015, true)
+	_, err := assignSubdomain(context.Background(), env.db, first, "rust", env.settings)
+	require.NoError(t, err)
+	env.addServer(t, "rust02", "Rust 2", "rust", 28016, true)
+	require.NoError(t, env.db.Exec("UPDATE servers SET node_id = ? WHERE identifier = ?", other.ID, "rust02").Error)
+	_, err = assignSubdomain(context.Background(), env.db, env.reload(t, "rust02"), "rust-two", env.settings)
+	require.NoError(t, err)
+
+	env.node.PublicHost = "usa.example.com"
+	require.NoError(t, env.db.Save(env.node).Error)
+	sweepSubdomains(env.db, "test", &env.node.ID, refreshSubdomainRecords)
+
+	moved := env.fake.byName("rust.play.example.com")
+	require.Len(t, moved, 1)
+	assert.Equal(t, "CNAME", moved[0].Type)
+	assert.Equal(t, "usa.example.com", moved[0].Content, "the node's servers follow its new address")
+	untouched := env.fake.byName("rust-two.play.example.com")
+	require.Len(t, untouched, 1)
+	assert.Equal(t, "198.51.100.7", untouched[0].Content, "the other node's servers are not touched")
+}
+
+func TestTouchesDNSSettings(t *testing.T) {
+	assert.True(t, touchesDNSSettings("panel.settings.companyName", "panel.dns.baseDomain"))
+	assert.True(t, touchesDNSSettings("panel.dns.target"))
+	assert.False(t, touchesDNSSettings("panel.settings.companyName", "panel.dns.autoAssign"))
 }
