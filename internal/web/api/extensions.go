@@ -74,6 +74,8 @@ type ActiveExtension struct {
 	ID    string              `json:"id"`
 	Name  string              `json:"name"`
 	Pages []ExtensionPageView `json:"pages"`
+	// Servers, when set, are the only servers the extension's server pages show on
+	Servers *extensions.ServerFilter `json:"servers,omitempty"`
 } // @name ActiveExtension
 
 func pageViews(ext *models.Extension, m *extensions.Manifest, include func(extensions.Page) bool) []ExtensionPageView {
@@ -142,7 +144,7 @@ func getActiveExtensions(c *gin.Context) {
 			return p.Placement == extensions.PlacementServer || isAdmin
 		})
 		if len(pages) > 0 {
-			active = append(active, ActiveExtension{ID: list[i].ID, Name: list[i].Name, Pages: pages})
+			active = append(active, ActiveExtension{ID: list[i].ID, Name: list[i].Name, Pages: pages, Servers: m.Servers})
 		}
 	}
 	c.JSON(http.StatusOK, active)

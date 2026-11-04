@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 /**
  * An extension page. The frame is sandboxed (and the panel sends its files with a sandbox
  * policy too), so its scripts run in an opaque origin: no panel cookies, storage or API.
- * Once loaded it gets {type: 'aether:context', serverId, language, theme} by postMessage, and
+ * Once loaded it gets {type: 'aether:context', serverId, panelUrl, language, theme} by postMessage, and
  * it may answer {type: 'aether:resize', height} to fit its content.
  */
 export function ExtensionFrame({
@@ -25,7 +25,8 @@ export function ExtensionFrame({
         if (!target) return;
         const theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
         // the sandboxed page has an opaque origin, so "*" is the only target that reaches it
-        target.postMessage({ type: 'aether:context', serverId: serverId ?? null, language, theme }, '*');
+        // panelUrl tells a service which panel the page is in: the page itself cannot see it
+        target.postMessage({ type: 'aether:context', serverId: serverId ?? null, panelUrl: globalThis.location.origin, language, theme }, '*');
     };
 
     useEffect(() => {

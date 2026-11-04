@@ -236,7 +236,7 @@ func provisionServer(c *gin.Context) {
 		"RegisterToken": "",
 	}, true)
 
-	extensions.Publish(extensions.EventServerCreated, extensions.ServerData(server.Identifier, server.Name))
+	extensions.Publish(extensions.EventServerCreated, extensions.ServerData(server.Identifier, server.Name, server.Type, server.Icon))
 	c.JSON(http.StatusOK, gin.H{
 		"success":   true,
 		"server_id": serverID,
@@ -596,7 +596,7 @@ func terminateProvisionedServer(db *gorm.DB, ns *services.Node, ss *services.Ser
 	if err := ss.Delete(srv.Identifier); err != nil {
 		return err
 	}
-	extensions.Publish(extensions.EventServerDeleted, extensions.ServerData(srv.Identifier, srv.Name))
+	extensions.Publish(extensions.EventServerDeleted, extensions.ServerData(srv.Identifier, srv.Name, srv.Type, srv.Icon))
 	return nil
 }
 

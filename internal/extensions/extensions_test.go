@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -163,7 +164,7 @@ func TestPublish_OnlySwitchedOnSubscribers(t *testing.T) {
 	}
 	t.Cleanup(func() { send = previous })
 
-	Publish(EventServerStarted, ServerData("abc", "Survival"))
+	Publish(EventServerStarted, ServerData("abc", "Survival", "", ""))
 	time.Sleep(50 * time.Millisecond)
 	mu.Lock()
 	assert.Empty(t, got, "a switched-off extension gets nothing")
@@ -171,8 +172,8 @@ func TestPublish_OnlySwitchedOnSubscribers(t *testing.T) {
 
 	assert.NoError(t, db.Model(ext).Update("enabled", true).Error)
 	Reload(db)
-	Publish(EventServerStarted, ServerData("abc", "Survival"))
-	Publish(EventServerDeleted, ServerData("abc", "Survival"))
+	Publish(EventServerStarted, ServerData("abc", "Survival", "", ""))
+	Publish(EventServerDeleted, ServerData("abc", "Survival", "", ""))
 
 	assert.Eventually(t, func() bool { mu.Lock(); defer mu.Unlock(); return len(got) == 1 }, time.Second, 10*time.Millisecond)
 	time.Sleep(50 * time.Millisecond)
@@ -182,4 +183,89 @@ func TestPublish_OnlySwitchedOnSubscribers(t *testing.T) {
 	assert.Equal(t, EventServerStarted, got[0]["event"])
 	assert.Equal(t, "hello", got[0]["extension"])
 	assert.Equal(t, map[string]string{"id": "abc", "name": "Survival"}, got[0]["server"])
+}
+
+// armaManifest is an extension for Arma Reforger servers only
+const armaManifest = `{
+  "id": "arma-tools",
+  "name": "Arma tools",
+  "version": "1.0.0",
+  "pages": [{"id": "main", "title": "Arma", "placement": "server", "path": "index.html"}],
+  "webhook": "https://hooks.example.com/arma",
+  "events": ["server.created", "server.started"],
+  "servers": {"types": ["ArmaReforger"], "icons": ["csgo"]}
+}`
+
+func TestServerFilter_Matches(t *testing.T) {
+	var none *ServerFilter
+	assert.True(t, none.Matches("minecraft-java", ""), "no filter: every server")
+
+	f := &ServerFilter{Types: []string{"armareforger"}, Icons: []string{"csgo"}}
+	assert.True(t, f.Matches("armareforger", ""))
+	assert.True(t, f.Matches("ArmaReforger ", "x"), "case and spaces do not matter")
+	assert.True(t, f.Matches("srcds", "csgo"), "a game that shares its type is told by its icon")
+	assert.False(t, f.Matches("srcds", "rust"))
+	assert.False(t, f.Matches("minecraft-java", "minecraft-java"))
+	assert.False(t, f.Matches("", ""), "a server of unknown kind is not one the extension is for")
+}
+
+func TestManifest_ServersIsChecked(t *testing.T) {
+	has := func(string) bool { return true }
+	m, err := ParseManifest([]byte(armaManifest), has)
+	if assert.NoError(t, err) {
+		assert.Equal(t, []string{"armareforger"}, m.Servers.Types, "lowercased")
+	}
+	for _, bad := range []string{
+		`"servers": {}`,
+		`"servers": {"types": [""]}`,
+		`"servers": {"types": ["no spaces"]}`,
+		`"servers": {"games": ["x"]}`,
+	} {
+		manifest := strings.Replace(armaManifest, `"servers": {"types": ["ArmaReforger"], "icons": ["csgo"]}`, bad, 1)
+		_, err := ParseManifest([]byte(manifest), has)
+		assert.Error(t, err, bad)
+	}
+}
+
+func TestPublish_OnlyForTheServersTheExtensionIsFor(t *testing.T) {
+	db := setup(t)
+	ext, err := install(db, zipOf(t, map[string]string{"extension.json": armaManifest, "index.html": "x"}))
+	if !assert.NoError(t, err) {
+		return
+	}
+	assert.NoError(t, db.Model(ext).Update("enabled", true).Error)
+	Reload(db)
+
+	var mu sync.Mutex
+	var got []map[string]interface{}
+	previous := send
+	send = func(_, _ string, payload interface{}) error {
+		mu.Lock()
+		defer mu.Unlock()
+		got = append(got, payload.(map[string]interface{}))
+		return nil
+	}
+	t.Cleanup(func() { send = previous })
+
+	Publish(EventServerCreated, ServerData("mc1", "Survival", "minecraft-java", "minecraft-java"))
+	Publish(EventServerStarted, ServerData("rust1", "Rust", "srcds", "rust"))
+	Publish(EventServerCreated, ServerData("arma1", "Conflict", "armareforger", "armareforger"))
+	Publish(EventServerStarted, map[string]interface{}{"server": map[string]interface{}{"id": "cs1", "name": "CS2", "type": "srcds", "icon": "csgo"}})
+
+	assert.Eventually(t, func() bool { mu.Lock(); defer mu.Unlock(); return len(got) == 2 }, time.Second, 10*time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
+	mu.Lock()
+	defer mu.Unlock()
+	assert.Len(t, got, 2, "Minecraft and Rust are not its servers")
+	ids := []string{}
+	for _, body := range got {
+		switch server := body["server"].(type) {
+		case map[string]string:
+			ids = append(ids, server["id"])
+			assert.Equal(t, "armareforger", server["type"], "events tell the server's kind")
+		case map[string]interface{}:
+			ids = append(ids, server["id"].(string))
+		}
+	}
+	assert.ElementsMatch(t, []string{"arma1", "cs1"}, ids)
 }

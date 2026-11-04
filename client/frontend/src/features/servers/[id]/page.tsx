@@ -39,7 +39,7 @@ import { api, ApiError } from '@/lib/api-client';
 import { sileo } from "@/lib/toast";
 import { Loader2 } from '@/components/icons';
 import ErrorBoundary from '@/components/ErrorBoundary';
-import { useActiveExtensions, pagesFor } from '@/hooks/use-extensions';
+import { useActiveExtensions, pagesFor, extensionFitsServer } from '@/hooks/use-extensions';
 import { ExtensionFrame } from '@/features/extensions/extension-frame';
 import { useAuth } from '@/contexts/providers';
 import { EmptyState } from '@/components/empty-state';
@@ -542,9 +542,11 @@ export default function ServerDetailPage({ params }: Readonly<{ params: { id: st
   // game settings, modpacks and the world map only make sense for Minecraft: Java Edition
   const isMinecraftJava = serverDetail?.type === 'minecraft-java';
   const { features: experimental, ready: experimentalReady } = useExperimental();
-  // pages that installed extensions add to every server
+  // pages that installed extensions add to servers: every one, or only those of the types
+  // or games the extension is for (an Arma Reforger tool shows on Arma Reforger servers)
   const { extensions, ready: extensionsReady } = useActiveExtensions();
-  const extensionTabs = pagesFor(extensions, 'server').map(({ extension, page }) => ({
+  const serverKind = { type: serverDetail?.type, icon: serverDetail?.icon };
+  const extensionTabs = pagesFor(extensions.filter((ext) => extensionFitsServer(ext, serverKind)), 'server').map(({ extension, page }) => ({
     value: `ext:${extension.id}:${page.id}`,
     label: page.title,
     icon: Blocks,

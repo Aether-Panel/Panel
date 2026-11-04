@@ -50,6 +50,7 @@ Limits: 20 MB compressed, 50 MB unpacked, 500 files and 64 KB for `extension.jso
 | `pages` | without a `webhook` | Up to 10 (see below). |
 | `webhook` | with `events` | `https://` address that receives the events, without `user:password@`. The administrator can change it in Settings. |
 | `events` | no | The events it wants ([list below](#events)). Requires `webhook`. |
+| `servers` | no | The servers the extension is for ([see below](#only-for-some-servers)). Without it, all of them. |
 
 An extension needs at least one page or a webhook. A field the panel does not know makes the installation fail, so a typo does not go unnoticed.
 
@@ -61,6 +62,21 @@ Each page:
 | `title` | 1 to 40 characters: the tab or menu label |
 | `placement` | `server` (a tab on every server) or `admin` (administration menu, administrators only) |
 | `path` | An `.html` file of the package, as a clean relative path (`index.html`, `pages/a.html`) |
+
+### Only for some servers
+
+An extension made for one game or kind of server says so with `servers`: its server pages then show only on those servers and its events only come from them. Administration pages do not change.
+
+```json
+"servers": { "types": ["armareforger"] }
+```
+
+| Field | What it is |
+|-------|------------|
+| `types` | Server types: the `type` of the template the server was made from (`armareforger`, `minecraft-java`, `nodejs`…) |
+| `icons` | Games: the template's `icon`, for those that share a type (`csgo`, `rust` and `tf2` are all `srcds`) |
+
+A server matches when its type is in `types` **or** its icon in `icons`. Each list takes up to 30 values, lowercase (they are converted), with letters, digits, `.`, `_` and `-`. An empty `servers` fails the install. A server whose type and icon are unknown matches no extension that has `servers`.
 
 ## Installing, updating and removing
 
@@ -81,8 +97,9 @@ Once loaded, the page receives a message with the context, and again whenever th
 ```js
 window.addEventListener('message', (event) => {
   if (event.source !== window.parent || event.data?.type !== 'aether:context') return;
-  const { serverId, language, theme } = event.data;
+  const { serverId, panelUrl, language, theme } = event.data;
   // serverId: the tab's server (null on an administration page)
+  // panelUrl: the panel's address (https://panel.example.com); the page cannot see it by itself
   // language: "es" or "en"; theme: "dark" or "light" (as it was when the message was sent)
 });
 ```
@@ -116,7 +133,7 @@ Each event is a JSON `POST` with `Content-Type: application/json` and `User-Agen
   "event": "server.crashed",
   "extension": "player-stats",
   "timestamp": "2026-10-26T18:04:11Z",
-  "server": { "id": "a1b2c3d4", "name": "Survival" },
+  "server": { "id": "a1b2c3d4", "name": "Survival", "type": "minecraft-java", "icon": "minecraft-java" },
   "title": "💥 Caída del servidor",
   "message": "Survival se ha caído (código de salida 1). No se reinició automáticamente.",
   "exitCode": 1,
@@ -125,7 +142,7 @@ Each event is a JSON `POST` with `Content-Type: application/json` and `User-Agen
 }
 ```
 
-Every event has `event`, `extension`, `timestamp` (UTC, RFC 3339) and `server`. The node events (`started`, `stopped`, `crashed`, `backup`, `resources`) also carry the `title` and `message` of the panel's server notifications, which are currently written in Spanish; rely on `event` and the extra fields, not on that text.
+Every event has `event`, `extension`, `timestamp` (UTC, RFC 3339) and `server`, with its `id`, its `name` and, when known, its template's `type` and `icon`. The node events (`started`, `stopped`, `crashed`, `backup`, `resources`) also carry the `title` and `message` of the panel's server notifications, which are currently written in Spanish; rely on `event` and the extra fields, not on that text.
 
 Delivery:
 
@@ -160,7 +177,7 @@ The **Send test** button in Settings posts a signed `test` event (`event`, `exte
 | PUT | `/api/extensions/:id` | administrators | `{ "enabled": true, "webhookUrl": "https://..." }`, both optional. An empty `webhookUrl` stops events. `404` if not installed |
 | DELETE | `/api/extensions/:id` | administrators | Uninstall. `204`, or `404` |
 | POST | `/api/extensions/:id/test` | administrators | Send a test event. `204`; `400` with `ErrExtensionNoWebhook` or `ErrExtensionWebhook` (the delivery error) |
-| GET | `/api/extensions/active` | any signed-in user | Pages of the switched-on extensions: `[{ id, name, pages }]`. Administration pages only for administrators |
+| GET | `/api/extensions/active` | any signed-in user | Pages of the switched-on extensions: `[{ id, name, pages, servers }]` (`servers` only when the extension declares it). Administration pages only for administrators |
 | GET, HEAD | `/api/extension-files/:id/*path` | public | The pages' files, always with `Content-Security-Policy: sandbox ...` |
 
 "Administrators" means the `admin` scope; "any signed-in user" means the `login` scope.

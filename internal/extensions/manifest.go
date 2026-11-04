@@ -46,7 +46,9 @@ var Events = []string{
 
 const (
 	maxPages = 10
-	maxField = 300
+	// maxServerKeys caps each list of a ServerFilter
+	maxServerKeys = 30
+	maxField      = 300
 )
 
 var (
@@ -54,6 +56,9 @@ var (
 	pageIDPattern  = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,39}$`)
 	versionPattern = regexp.MustCompile(`^[0-9A-Za-z.+-]{1,20}$`)
 )
+
+// serverKeyPattern is a server type or template icon, as templates write them
+var serverKeyPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,39}$`)
 
 // Manifest is extension.json
 type Manifest struct {
@@ -66,6 +71,59 @@ type Manifest struct {
 	// Webhook receives the Events the extension subscribed to, as signed JSON posts
 	Webhook string   `json:"webhook,omitempty"`
 	Events  []string `json:"events,omitempty"`
+	// Servers limits the extension to some servers: its server pages show only on them and
+	// its events only come from them. Without it, the extension is for every server.
+	Servers *ServerFilter `json:"servers,omitempty"`
+}
+
+// ServerFilter picks servers by what their template says they are: the template's "type"
+// (armareforger, minecraft-java…) or its "icon", which names the game when several share a
+// type (csgo, rust and tf2 are all srcds). A server matches when either list names it.
+type ServerFilter struct {
+	Types []string `json:"types,omitempty"`
+	Icons []string `json:"icons,omitempty"`
+}
+
+// Matches says whether a server of that type and icon is one the filter is for; no filter
+// means every server
+func (f *ServerFilter) Matches(serverType, icon string) bool {
+	if f == nil {
+		return true
+	}
+	serverType, icon = strings.ToLower(strings.TrimSpace(serverType)), strings.ToLower(strings.TrimSpace(icon))
+	for _, t := range f.Types {
+		if serverType != "" && t == serverType {
+			return true
+		}
+	}
+	for _, i := range f.Icons {
+		if icon != "" && i == icon {
+			return true
+		}
+	}
+	return false
+}
+
+func (f *ServerFilter) validate() error {
+	if f == nil {
+		return nil
+	}
+	if len(f.Types) == 0 && len(f.Icons) == 0 {
+		return errors.New("servers needs at least one type or icon")
+	}
+	if len(f.Types) > maxServerKeys || len(f.Icons) > maxServerKeys {
+		return fmt.Errorf("servers takes at most %d types and %d icons", maxServerKeys, maxServerKeys)
+	}
+	for _, list := range [][]string{f.Types, f.Icons} {
+		for i, key := range list {
+			key = strings.ToLower(strings.TrimSpace(key))
+			if !serverKeyPattern.MatchString(key) {
+				return fmt.Errorf("servers: %q is not a server type or icon", list[i])
+			}
+			list[i] = key
+		}
+	}
+	return nil
 }
 
 // Page is an HTML file of the package the panel shows in a frame
@@ -110,6 +168,9 @@ func (m *Manifest) validate(has func(name string) bool) error {
 		return errors.New("webhook must be an https:// address")
 	}
 	if err := m.validatePages(has); err != nil {
+		return err
+	}
+	if err := m.Servers.validate(); err != nil {
 		return err
 	}
 	return m.validateEvents()
