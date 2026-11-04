@@ -9,21 +9,28 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # The extensions are built against the -dev packages, which stay: they bring the shared libraries
 # the extensions link against, whatever those are called in this Debian release. Only the
-# compilers go afterwards.
+# compilers go afterwards: the official image's PHPIZE_DEPS, written out so no unquoted variable
+# has to split into words.
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
         bash ca-certificates curl git unzip zip \
-        libfreetype-dev libjpeg62-turbo-dev libpng-dev libzip-dev libpq-dev libicu-dev libonig-dev \
-        $PHPIZE_DEPS; \
+        libfreetype-dev libjpeg62-turbo-dev libpng-dev libzip-dev \
+        libpq-dev libicu-dev libonig-dev \
+        autoconf dpkg-dev file g++ gcc libc-dev make pkg-config re2c; \
     docker-php-ext-configure gd --with-freetype --with-jpeg; \
-    docker-php-ext-install -j"$(nproc)" bcmath exif gd intl mysqli opcache pcntl pdo_mysql pdo_pgsql pgsql sockets zip; \
+    docker-php-ext-install -j"$(nproc)" \
+        bcmath exif gd intl mysqli opcache pcntl \
+        pdo_mysql pdo_pgsql pgsql sockets zip; \
     pecl install redis; \
     docker-php-ext-enable redis; \
-    apt-get purge -y --auto-remove $PHPIZE_DEPS; \
+    apt-get purge -y --auto-remove \
+        autoconf dpkg-dev file g++ gcc libc-dev make pkg-config re2c; \
     rm -rf /var/lib/apt/lists/* /tmp/pear ~/.pearrc; \
     cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"; \
-    for ext in bcmath gd intl mysqli pdo_mysql pdo_pgsql redis zip; do php -m | grep -qix "$ext"; done; \
+    for ext in bcmath gd intl mysqli pdo_mysql pdo_pgsql redis zip; do \
+        php -m | grep -qix "$ext"; \
+    done; \
     groupadd -r container; \
     useradd -r -g container -m -d /home/container container
 
