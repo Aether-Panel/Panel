@@ -236,6 +236,9 @@ type SystemInfo struct {
 	Uptime           uint64            `json:"uptime"`
 	NetworkBytesSent uint64            `json:"networkBytesSent"`
 	NetworkBytesRecv uint64            `json:"networkBytesRecv"`
+	// SampledAt is when the counters above were read (Unix milliseconds), so a rate between two
+	// readings divides by the time that really passed on the node, not by when each answer arrived
+	SampledAt int64 `json:"sampledAt"`
 } // @name SystemInfo
 
 // @Summary Get system information
@@ -293,6 +296,7 @@ func getSystemInfo(c *gin.Context) {
 
 	// Get network statistics
 	sysInfo.NetworkBytesSent, sysInfo.NetworkBytesRecv = totalNetworkBytes()
+	sysInfo.SampledAt = time.Now().UnixMilli()
 
 	c.JSON(http.StatusOK, sysInfo)
 }

@@ -263,7 +263,7 @@ See [Servers: Docker environment](./04-servers.md#docker-environment).
 
 | Key | Type | Default | Settings | Description |
 |---|---|---|---|---|
-| `security.trustedProxies` | []string | `[]` | | Proxies (IPs or CIDRs) whose forwarding headers are trusted for the client address. No proxy is trusted by default. |
+| `security.trustedProxies` | []string | `[]` | | More proxies (IPs or CIDRs) whose forwarding headers are trusted for the client address, on top of this machine, private networks and Cloudflare's edge, which are always trusted. |
 | `security.trustedProxyHeader` | string | — | | Header a trusted platform sets with the client address (Gin's `TrustedPlatform`, for example `CF-Connecting-IP`). |
 | `security.blockPrivateDownloads` | bool | `true` | | Refuses template downloads from private network addresses (Docker networks, the LAN). Loopback, link-local and multicast addresses are always refused. Turn it off only for mirrors on the LAN. |
 | `security.forceOpenat` | bool | `false` | | Skips the start-up check for `openat2` and uses plain `openat`. Without it, a daemon that cannot use `openat2` (the kernel lacks it, or a seccomp profile blocks it) refuses to start. |

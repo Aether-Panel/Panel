@@ -126,15 +126,13 @@ func internalRun() (terminate chan bool, success bool) {
 	return
 }
 
-// configureTrustedProxies trusts no proxies unless the config lists some.
+// configureTrustedProxies trusts this machine, private networks and Cloudflare's edge, plus
+// what the config lists (trustedProxyList), so the panel sees the visitor's real address
 func configureTrustedProxies(router *gin.Engine) {
-	// do not trust proxies by default
-	_ = router.SetTrustedProxies(nil)
-	if proxies := config.SecurityTrustedProxies.Value(); proxies != nil {
-		err := router.SetTrustedProxies(proxies)
-		if err != nil {
-			logging.Error.Printf("Failed to add trusted proxies: %s", err.Error())
-		}
+	if err := router.SetTrustedProxies(trustedProxyList(config.SecurityTrustedProxies.Value())); err != nil {
+		logging.Error.Printf("Failed to add trusted proxies: %s", err.Error())
+		// a bad entry from the config: keep the safe built-in list rather than none
+		_ = router.SetTrustedProxies(trustedProxyList(nil))
 	}
 	if header := config.SecurityTrustedProxyHeader.Value(); header != "" {
 		router.TrustedPlatform = header

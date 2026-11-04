@@ -6,7 +6,7 @@ El panel de inicio (en la barra lateral, **Inicio**) es la primera página tras 
 
 **Inicio, vista de operador** (usuarios con `nodes.view` o `users.info.search`):
 
-- **Franja de estado**: saludo, **Servidores activos** («N de M»), **Salud global** (disponibilidad media de los servidores en 30 días) y **Tráfico de red** (velocidad en vivo de todos los nodos).
+- **Franja de estado**: saludo, **Servidores activos** («N de M»), **Tiempo encendido (30 días)** (parte media de los últimos 30 días en la que los servidores estuvieron encendidos) y **Tráfico de red** (velocidad en vivo de todos los nodos).
 - **Avisos de poco disco** para cada nodo cuyo disco de servidores esté casi lleno (solo con `nodes.view`).
 - **Indicadores de recursos**: **Media de CPU**, **Media de memoria** y **Media de almacenamiento**, en porcentaje.
 - **Información del panel**: versión, número de servidores, usuarios y nodos, y si las **Altas** están abiertas o cerradas.
@@ -28,9 +28,9 @@ El panel de inicio (en la barra lateral, **Inicio**) es la primera página tras 
 | Cifra | Origen |
 |-------|--------|
 | Servidores activos | Lista de servidores (`/api/servers`) con el estado de `/api/uptime` |
-| Salud global | Media del `uptimePercent` de cada servidor según `/api/uptime` (requiere `admin` o `uptime.view`; si no, no muestra valor) |
-| Media de CPU / memoria / almacenamiento | Media entre nodos de `GET /api/nodes/:id/system` (uso de CPU, memoria usada/total, porcentaje usado del disco de servidores). Si ningún nodo informa, se usa la media de los servidores en línea. El texto bajo cada valor indica cuál («media de N nodos» / «media de N servidores») |
-| Tráfico de red (en vivo) | Diferencia entre dos lecturas de los contadores acumulados de bytes de cada nodo (`networkBytesRecv`/`networkBytesSent`), sumada entre nodos. La primera lectura tras abrir la página solo fija la referencia |
+| Tiempo encendido (30 días) | Media del `uptimePercent` de cada servidor según `/api/uptime` (requiere `admin` o `uptime.view`; si no, no muestra valor). Un servidor que su dueño apagó cuenta como no encendido, así que una cifra baja no significa una avería |
+| Media de CPU / memoria / almacenamiento | Media entre nodos de `GET /api/nodes/:id/system` (uso de CPU, memoria usada/total, porcentaje usado del disco de servidores). Si ningún nodo informa, se usa la media de los servidores en línea. El texto bajo cada valor indica cuál («media de N nodos» / «media de N servidores»); con un solo nodo dice cuál es («nodo eu-1» o «nodo local (este servidor)») |
+| Tráfico de red (en vivo) | Diferencia entre dos lecturas de los contadores acumulados de bytes de cada nodo (`networkBytesRecv`/`networkBytesSent`), sumada entre nodos. Cada nodo marca su lectura (`sampledAt`), así que la velocidad se divide por el tiempo que pasó en el nodo y no por cuándo llegó cada respuesta. La primera lectura tras abrir la página solo fija la referencia |
 | Red histórica | `GET /api/nodes/network-history?range=1h\|6h\|24h` |
 | Información del panel | `/api/config` (versión, altas) y los recuentos que el usuario puede ver (usuarios con `users.info.search`, nodos con `nodes.view`) |
 
@@ -73,7 +73,7 @@ Un puerto ocupado incluye `suggestion`: el siguiente puerto (como mínimo 1024) 
 
 ### Estado de los servidores en nodos remotos
 
-El daemon de un nodo remoto funciona sin el panel, así que el panel le pregunta por el estado de sus servidores: cada 30 segundos llama a `GET /daemon/servers/status` en todos los nodos remotos a la vez (una petición por nodo, con 10 segundos de tiempo máximo; una ronda nunca se solapa con la anterior). Solo lo hace el proceso que ejecuta el panel. Las respuestas se registran como disponibilidad igual que las de los servidores del propio panel (véase [Seguimiento de disponibilidad](../general/13-uptime.md)), de modo que la **Salud global** y las cifras de disponibilidad también cubren los servidores de nodos remotos. Un nodo que no responde no registra nada; un periodo que lleva más de 3 minutos sin confirmarse se cierra en su última confirmación, así que una caída del nodo no cuenta ni como encendido ni como apagado, y empieza un periodo nuevo cuando el nodo vuelve a responder. Un nodo con un daemon antiguo sin esa ruta (responde `404`) se trata como un nodo que no responde.
+El daemon de un nodo remoto funciona sin el panel, así que el panel le pregunta por el estado de sus servidores: cada 30 segundos llama a `GET /daemon/servers/status` en todos los nodos remotos a la vez (una petición por nodo, con 10 segundos de tiempo máximo; una ronda nunca se solapa con la anterior). Solo lo hace el proceso que ejecuta el panel. Las respuestas se registran como disponibilidad igual que las de los servidores del propio panel (véase [Seguimiento de disponibilidad](../general/13-uptime.md)), de modo que el **Tiempo encendido (30 días)** y las cifras de disponibilidad también cubren los servidores de nodos remotos. Un nodo que no responde no registra nada; un periodo que lleva más de 3 minutos sin confirmarse se cierra en su última confirmación, así que una caída del nodo no cuenta ni como encendido ni como apagado, y empieza un periodo nuevo cuando el nodo vuelve a responder. Un nodo con un daemon antiguo sin esa ruta (responde `404`) se trata como un nodo que no responde.
 
 Las mismas respuestas alimentan el informe del nodo que se envía al webhook de Discord de nodos (`panel.notifications.discordWebhookNode`): un nodo remoto muestra su número real de servidores encendidos y apagados (de la última consulta, o de una llamada directa si esa consulta tiene más de 60 segundos), y un nodo que no responde recibe un informe en rojo con el estado **Sin respuesta** y el número de servidores que el panel tiene en él. Véase [Webhooks de Discord](../general/16-discord.md).
 

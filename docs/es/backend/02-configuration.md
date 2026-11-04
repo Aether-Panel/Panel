@@ -263,7 +263,7 @@ Ver [Servidores: entorno Docker](./04-servers.md#entorno-docker).
 
 | Clave | Tipo | Por defecto | Configuración | Descripción |
 |---|---|---|---|---|
-| `security.trustedProxies` | []string | `[]` | | Proxies (IP o CIDR) cuyas cabeceras de reenvío se aceptan para la dirección del cliente. Por defecto no se confía en ninguno. |
+| `security.trustedProxies` | []string | `[]` | | Más proxies (IP o CIDR) cuyas cabeceras de reenvío se aceptan para la dirección del cliente, además de esta máquina, las redes privadas y el borde de Cloudflare, en los que siempre se confía. |
 | `security.trustedProxyHeader` | string | — | | Cabecera en la que una plataforma de confianza pone la dirección del cliente (`TrustedPlatform` de Gin, por ejemplo `CF-Connecting-IP`). |
 | `security.blockPrivateDownloads` | bool | `true` | | Rechaza las descargas de plantillas desde direcciones de red privadas (redes Docker, la LAN). Las direcciones de loopback, de enlace local y multicast se rechazan siempre. Desactivarla solo para espejos en la LAN. |
 | `security.forceOpenat` | bool | `false` | | Omite la comprobación de `openat2` al arrancar y usa `openat` normal. Sin ella, un daemon que no puede usar `openat2` (el kernel no lo tiene, o un perfil seccomp lo bloquea) se niega a arrancar. |

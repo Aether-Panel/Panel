@@ -6,7 +6,7 @@ The dashboard (sidebar **Home**) is the first page after signing in. Operators g
 
 **Dashboard, operator view** (users with `nodes.view` or `users.info.search`):
 
-- **Status band**: a welcome line, **Active servers** ("N of M"), **Overall health** (average 30-day availability of the servers) and **Network traffic** (live rate of all nodes).
+- **Status band**: a welcome line, **Active servers** ("N of M"), **Running time (30 days)** (average share of the last 30 days the servers were running) and **Network traffic** (live rate of all nodes).
 - **Low-disk alerts** for any node whose servers' disk is nearly full (only with `nodes.view`).
 - **Resource indicators**: **Average CPU**, **Average memory** and **Average storage**, as percentages.
 - **Panel information**: version, number of servers, users and nodes, and whether **Sign-ups** are open or closed.
@@ -28,9 +28,9 @@ The dashboard (sidebar **Home**) is the first page after signing in. Operators g
 | Figure | Source |
 |--------|--------|
 | Active servers | Server list (`/api/servers`) with status from `/api/uptime` |
-| Overall health | Average of each server's `uptimePercent` from `/api/uptime` (needs `admin` or `uptime.view`; shows nothing otherwise) |
-| Average CPU / memory / storage | Average across nodes of `GET /api/nodes/:id/system` (CPU usage, used/total memory, used percent of the servers' disk). If no node reports, the average of the online servers is used instead. The hint under each value says which ("average of N nodes" / "average of N servers") |
-| Network traffic (live) | Difference between two readings of each node's cumulative byte counters (`networkBytesRecv`/`networkBytesSent`), summed across nodes. The first reading after opening the page only sets the baseline |
+| Running time (30 days) | Average of each server's `uptimePercent` from `/api/uptime` (needs `admin` or `uptime.view`; shows nothing otherwise). A server its owner stopped counts as not running, so a low figure does not mean a fault |
+| Average CPU / memory / storage | Average across nodes of `GET /api/nodes/:id/system` (CPU usage, used/total memory, used percent of the servers' disk). If no node reports, the average of the online servers is used instead. The hint under each value says which ("average of N nodes" / "average of N servers"); with a single node it names it ("node eu-1", or "local node (this machine)") |
+| Network traffic (live) | Difference between two readings of each node's cumulative byte counters (`networkBytesRecv`/`networkBytesSent`), summed across nodes. Each node stamps its reading (`sampledAt`), so the rate divides by the time that passed on the node, not by when each answer arrived. The first reading after opening the page only sets the baseline |
 | Network history | `GET /api/nodes/network-history?range=1h\|6h\|24h` |
 | Panel information | `/api/config` (version, registration) and counts the user may see (users with `users.info.search`, nodes with `nodes.view`) |
 
@@ -73,7 +73,7 @@ A busy port comes with a `suggestion`: the next port after it (and at least 1024
 
 ### Server status on remote nodes
 
-A remote node's daemon runs without the panel, so the panel asks it for the state of its servers: every 30 seconds it calls `GET /daemon/servers/status` on every remote node at once (one request per node, 10-second timeout; a round never overlaps the previous one). Only the process that runs the panel does this. The answers are recorded as uptime in the same way as the panel's own servers (see [Uptime tracking](../general/13-uptime.md)), so **Overall health** and the uptime figures cover servers on remote nodes too. A node that does not answer records nothing; a period that has not been confirmed for more than 3 minutes is closed at its last confirmation, so an outage of the node counts as neither up nor down, and a new period starts when the node answers again. A node running an older daemon without that route (it answers `404`) is treated as not answering.
+A remote node's daemon runs without the panel, so the panel asks it for the state of its servers: every 30 seconds it calls `GET /daemon/servers/status` on every remote node at once (one request per node, 10-second timeout; a round never overlaps the previous one). Only the process that runs the panel does this. The answers are recorded as uptime in the same way as the panel's own servers (see [Uptime tracking](../general/13-uptime.md)), so **Running time (30 days)** and the uptime figures cover servers on remote nodes too. A node that does not answer records nothing; a period that has not been confirmed for more than 3 minutes is closed at its last confirmation, so an outage of the node counts as neither up nor down, and a new period starts when the node answers again. A node running an older daemon without that route (it answers `404`) is treated as not answering.
 
 The same answers feed the node report sent to the Discord node webhook (`panel.notifications.discordWebhookNode`): a remote node shows its real number of servers online and offline (from the last poll, or from a direct call when that poll is more than 60 seconds old), and a node that does not answer gets a red report with the status **No answer** and the number of servers the panel places there. See [Discord webhooks](../general/16-discord.md).
 
@@ -143,7 +143,7 @@ The low-disk thresholds (5 GB / 10 %), the sampling intervals and the 24-hour hi
 | History footer says "N not answering" | A node is offline or runs an older version | Check the node; update it ([Panel updates](panel-updates.md)) |
 | "Could not load the history" | The panel did not answer `/api/nodes/network-history` | It retries every minute; check the panel log |
 | Traffic near zero while servers are busy | Containerised daemon without `daemon.hostProc` | Mount `/proc:/host/proc:ro` and set `SKYPANEL_DAEMON_HOSTPROC=/host/proc` |
-| Overall health shows no value | The user lacks `admin`/`uptime.view`, or no uptime data yet | Grant `uptime.view` or wait for data |
+| Running time (30 days) shows no value | The user lacks `admin`/`uptime.view`, or no uptime data yet | Grant `uptime.view` or wait for data |
 | Node page: "This node can't be reached…" | The daemon is down or unreachable from the panel | Start the daemon; check host, ports and firewall |
 | "The node refused the panel's credentials…" (`502`, `ErrNodeAuthFailed`) on a server of a remote node | The node refused the panel's token: its `daemon.auth.clientSecret` is not the node's secret in the panel, or one of the two clocks is wrong. The panel log names the node | Copy the secret again from **Deploy Node** into the node's configuration and restart it; synchronise both clocks (NTP). See [Troubleshooting](../setup/troubleshooting.md) |
 | Discord node report: **No answer** | The node did not answer the status poll (down, unreachable, or an older daemon) | Check the node; update it if it is old |

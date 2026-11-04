@@ -28,7 +28,7 @@ A panel that serves customers should be reached at `https://your-domain`, not at
 
 **What the installer does with a domain.** It publishes the panel's port on `127.0.0.1` only, so the panel is reached through Nginx and nobody can use `http://IP:8080` around HTTPS. Docker publishes container ports ahead of ufw/firewalld, so a firewall rule alone would not close it. Pass `--bind 0.0.0.0` only if you need the port open on purpose.
 
-**Behind your own proxy.** The panel trusts no proxy by default. If yours is not the installer's Nginx on the same host, list its addresses in `security.trustedProxies` (and `security.trustedProxyHeader` if it uses a custom header) so the panel sees the real client IP. Send `X-Forwarded-Proto: https`: the panel uses it to mark the cookie `Secure` and to send HSTS.
+**Behind your own proxy.** The panel always trusts this machine, private networks and Cloudflare's edge, which covers the installer's Nginx, with or without Cloudflare in front (see [Behind a reverse proxy](../backend/09-security.md#behind-a-reverse-proxy)). If your proxy has a public address, list it in `security.trustedProxies` (and `security.trustedProxyHeader` if it uses a custom header) so the panel sees the real client IP. Send `X-Forwarded-Proto: https`: the panel uses it to mark the cookie `Secure` and to send HSTS.
 
 ## Sign-in and sessions
 

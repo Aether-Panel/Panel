@@ -7,7 +7,7 @@ La capa HTTP vive en `internal/web` (rutas) e `internal/middleware`. Un único m
 Antes de registrar ninguna ruta:
 
 1. `gin.Recovery()` y un registro de accesos cuyas líneas omiten secretos (`middleware.RedactedLogFormatter`: el token de `/api/map-view/<servidor>/<token>/...` y los valores de consulta `token`, `code`, `access_token` y `refresh_token` se sustituyen por `***`).
-2. Proxies de confianza: ninguno por defecto; `security.trustedProxies` y `security.trustedProxyHeader` lo cambian (ver [Configuración](./02-configuration.md#seguridad)).
+2. Proxies de confianza: siempre esta máquina, las redes privadas y el borde de Cloudflare; `security.trustedProxies` añade más y `security.trustedProxyHeader` indica una cabecera de plataforma (ver [Configuración](./02-configuration.md#seguridad)).
 3. Con el panel activo, se añade el almacén de la cookie `session` (`panel.web.cookies.*`).
 
 El servidor HTTP fija un `ReadHeaderTimeout` de 10 segundos y, al apagarse, deja terminar las peticiones en curso durante hasta 10 segundos.

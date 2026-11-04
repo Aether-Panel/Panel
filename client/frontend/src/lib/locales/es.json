@@ -327,7 +327,7 @@
       "status": {
         "serversActive": "Servidores activos",
         "activeOf": "{{online}} de {{total}}",
-        "health": "Salud global",
+        "health": "Tiempo encendido (30 días)",
         "network": "Tráfico de red",
         "live": "En vivo"
       },
@@ -338,6 +338,8 @@
         "avgOfServersOne": "media de 1 servidor",
         "avgOfNodes": "media de {{count}} nodos",
         "avgOfNodesOne": "media de 1 nodo",
+        "ofNode": "nodo {{name}}",
+        "ofLocalNode": "nodo local (este servidor)",
         "noSamples": "Sin datos de recursos todavía",
         "averageCpu": "Media de CPU",
         "averageMemory": "Media de memoria",

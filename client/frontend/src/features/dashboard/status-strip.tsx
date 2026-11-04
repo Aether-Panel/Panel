@@ -9,7 +9,7 @@ type Tone = 'default' | 'success' | 'warning' | 'destructive' | 'primary';
 type StatusStripProps = {
     /** Display name of the signed-in operator. */
     name: string;
-    /** Aggregate availability for the last 30 days (`/api/uptime`), or `null` when unavailable. */
+    /** Average share of the last 30 days the servers were running (`/api/uptime`), or `null` when unavailable. */
     healthPercent: number | null;
     online: number;
     total: number;

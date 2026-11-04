@@ -327,7 +327,7 @@
       "status": {
         "serversActive": "Active servers",
         "activeOf": "{{online}} of {{total}}",
-        "health": "Overall health",
+        "health": "Running time (30 days)",
         "network": "Network traffic",
         "live": "Live"
       },
@@ -338,6 +338,8 @@
         "avgOfServersOne": "average of 1 server",
         "avgOfNodes": "average of {{count}} nodes",
         "avgOfNodesOne": "average of 1 node",
+        "ofNode": "node {{name}}",
+        "ofLocalNode": "local node (this machine)",
         "noSamples": "No resource data yet",
         "averageCpu": "Average CPU",
         "averageMemory": "Average memory",

@@ -28,7 +28,7 @@ Un panel con clientes debe abrirse en `https://su-dominio`, no en `http://IP:808
 
 **Qué hace el instalador con un dominio.** Publica el puerto del panel solo en `127.0.0.1`, así que al panel se entra por Nginx y nadie puede usar `http://IP:8080` saltándose el HTTPS. Docker publica los puertos de los contenedores por delante de ufw/firewalld, de modo que una regla del firewall no bastaría para cerrarlo. Use `--bind 0.0.0.0` solo si necesita ese puerto abierto a propósito.
 
-**Detrás de un proxy propio.** Por defecto el panel no confía en ningún proxy. Si el suyo no es el Nginx del instalador en la misma máquina, ponga sus direcciones en `security.trustedProxies` (y `security.trustedProxyHeader` si usa una cabecera propia) para que el panel vea la IP real del cliente. Envíe `X-Forwarded-Proto: https`: el panel lo usa para marcar la cookie como `Secure` y para enviar HSTS.
+**Detrás de un proxy propio.** El panel siempre confía en esta máquina, las redes privadas y el borde de Cloudflare, lo que cubre el Nginx del instalador, con o sin Cloudflare delante (ver [Detrás de un proxy inverso](../backend/09-security.md#detrás-de-un-proxy-inverso)). Si su proxy tiene una dirección pública, póngala en `security.trustedProxies` (y `security.trustedProxyHeader` si usa una cabecera propia) para que el panel vea la IP real del cliente. Envíe `X-Forwarded-Proto: https`: el panel lo usa para marcar la cookie como `Secure` y para enviar HSTS.
 
 ## Inicio de sesión y sesiones
 
