@@ -49,16 +49,25 @@ func TestUpdateCheck_ReportsTheBranchAndWhyGitHubFailed(t *testing.T) {
 	assert.Equal(t, false, body["updateAvailable"])
 }
 
-func TestCommitVerification_WaitsForTheChecks(t *testing.T) {
+func TestCommitVerification_FollowsTheCIRun(t *testing.T) {
+	ci := `"path":".github/workflows/ci.yml"`
+	dependabot := `"path":"dynamic/dependabot/dependabot-updates"`
 	cases := map[string]string{
-		`{"check_runs":[{"status":"completed","conclusion":"success"},{"status":"in_progress","conclusion":null}]}`:    "pending",
-		`{"check_runs":[{"status":"completed","conclusion":"success"},{"status":"completed","conclusion":"failure"}]}`: "failed",
-		`{"check_runs":[{"status":"completed","conclusion":"success"},{"status":"completed","conclusion":"skipped"}]}`: "",
-		`{"check_runs":[]}`: "",
+		`{"workflow_runs":[{` + ci + `,"status":"in_progress","conclusion":null}]}`:    "pending",
+		`{"workflow_runs":[{` + ci + `,"status":"completed","conclusion":"failure"}]}`: "failed",
+		`{"workflow_runs":[{` + ci + `,"status":"completed","conclusion":"success"}]}`: "",
+		`{"workflow_runs":[]}`: "",
+		// a Dependabot run that cannot apply its update fails on every commit: it says nothing
+		// about the panel and never holds an update back
+		`{"workflow_runs":[{` + ci + `,"status":"completed","conclusion":"success"},{` + dependabot + `,"status":"completed","conclusion":"failure"}]}`: "",
+		`{"workflow_runs":[{` + dependabot + `,"status":"in_progress","conclusion":null}]}`:                                                             "",
+		// a re-run that passed after a failed one is enough
+		`{"workflow_runs":[{` + ci + `,"status":"completed","conclusion":"failure"},{` + ci + `,"status":"completed","conclusion":"success"}]}`: "",
 	}
 	for answer, want := range cases {
 		fakeGitHub(t, func(w http.ResponseWriter, r *http.Request) {
-			assert.Equal(t, "/commits/abc/check-runs", r.URL.Path)
+			assert.Equal(t, "/actions/runs", r.URL.Path)
+			assert.Equal(t, "abc", r.URL.Query().Get("head_sha"))
 			_, _ = w.Write([]byte(answer))
 		})
 		assert.Equal(t, want, commitVerification(context.Background(), "abc"), answer)

@@ -3543,7 +3543,9 @@
         "availableCount": "La rama tiene {{count}} cambio(s) que este panel aún no tiene.",
         "upToDate": "El sistema está actualizado",
         "verifying": "Versión nueva en verificación",
-        "verifyingDescription": "Hay una versión nueva y GitHub aún está comprobándola. Podrás actualizar en cuanto pasen las pruebas."
+        "verifyingDescription": "Hay una versión nueva y GitHub aún está comprobándola. Podrás actualizar en cuanto pasen las pruebas.",
+        "checksFailed": "Hay una versión nueva, pero no pasó las comprobaciones",
+        "checksFailedDescription": "Las pruebas automáticas de la última versión fallaron, así que no se ofrece para no instalar algo roto. Se ofrecerá en cuanto haya una versión que las pase."
       },
       "node": {
         "updating": "Actualizando…",

@@ -3543,7 +3543,9 @@
         "availableCount": "The branch has {{count}} change(s) this panel does not have yet.",
         "upToDate": "System is up to date",
         "verifying": "New version being verified",
-        "verifyingDescription": "A new version is out and GitHub is still checking it. You can update as soon as its checks pass."
+        "verifyingDescription": "A new version is out and GitHub is still checking it. You can update as soon as its checks pass.",
+        "checksFailed": "A newer version exists, but it did not pass its checks",
+        "checksFailedDescription": "The automated checks of the latest version failed, so it is not offered, to avoid installing something broken. It will be offered as soon as a version passes them."
       },
       "node": {
         "updating": "Updating…",

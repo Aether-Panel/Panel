@@ -886,31 +886,47 @@ func updateCheck(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
-// commitVerification says how GitHub's checks on a commit went: "pending" while one still
-// runs, "failed" when one failed, "" when all passed. A commit without checks, or a GitHub that
-// does not answer, gives "": the update was already confirmed and is not held back.
+// updateWorkflowPath is the workflow whose run on a commit decides whether installs may update
+// to it: the panel's own CI. Other runs on the same commit (Dependabot, CodeQL, scanners) say
+// nothing about the panel, and a Dependabot update that cannot be applied fails on every commit.
+const updateWorkflowPath = ".github/workflows/ci.yml"
+
+// commitVerification says how the panel's CI went on a commit: "pending" while it runs,
+// "failed" when it failed, "" when it passed. A commit without a CI run, or a GitHub that does
+// not answer, gives "": the update was already confirmed and is not held back.
 func commitVerification(ctx context.Context, sha string) string {
-	var runs struct {
-		CheckRuns []struct {
+	var answer struct {
+		WorkflowRuns []struct {
+			Path       string `json:"path"`
 			Status     string `json:"status"`
 			Conclusion string `json:"conclusion"`
-		} `json:"check_runs"`
+		} `json:"workflow_runs"`
 	}
-	if githubJSON(ctx, "commits/"+sha+"/check-runs?per_page=100", &runs) != "" {
+	if githubJSON(ctx, "actions/runs?head_sha="+url.QueryEscape(sha)+"&per_page=100", &answer) != "" {
 		return ""
 	}
-	verification := ""
-	for _, run := range runs.CheckRuns {
-		if run.Status != "completed" {
-			verification = "pending"
+	pending, failed := false, false
+	for _, run := range answer.WorkflowRuns {
+		if run.Path != updateWorkflowPath {
 			continue
 		}
-		switch run.Conclusion {
-		case "failure", "timed_out", "startup_failure", "action_required":
-			return "failed"
+		switch {
+		case run.Status != "completed":
+			pending = true
+		case run.Conclusion == "success":
+			// a passing run (a re-run after a flaky one included) is enough
+			return ""
+		case run.Conclusion == "failure", run.Conclusion == "timed_out", run.Conclusion == "startup_failure", run.Conclusion == "action_required":
+			failed = true
 		}
 	}
-	return verification
+	if pending {
+		return "pending"
+	}
+	if failed {
+		return "failed"
+	}
+	return ""
 }
 
 // githubRepoAPI is the panel's repository on GitHub's API (a variable so tests can point it at
