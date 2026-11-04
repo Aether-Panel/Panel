@@ -133,6 +133,7 @@ Each event is a JSON `POST` with `Content-Type: application/json` and `User-Agen
   "event": "server.crashed",
   "extension": "player-stats",
   "timestamp": "2026-10-26T18:04:11Z",
+  "panel": "https://panel.example.com",
   "server": { "id": "a1b2c3d4", "name": "Survival", "type": "minecraft-java", "icon": "minecraft-java" },
   "title": "💥 Caída del servidor",
   "message": "Survival se ha caído (código de salida 1). No se reinició automáticamente.",
@@ -166,7 +167,34 @@ function validSignature(body, header, key) {
 }
 ```
 
-The **Send test** button in Settings posts a signed `test` event (`event`, `extension` and `timestamp` only) to check the address and the key.
+The **Send test** button in Settings posts a signed `test` event (`event`, `extension`, `timestamp` and `panel` only) to check the address and the key.
+
+### Checking which panel sent it
+
+The signing key proves the sender holds that key, not which panel it is: any panel's administrator sees their own. A service that receives events from many panels (for example, an extension hosting companies install for their customers) needs to know which one sends, so every event also carries:
+
+- `panel` in the body: the panel's address (`panel.settings.masterUrl`, without a trailing slash).
+- The `X-Aether-Panel-Signature: ed25519=<base64>` header: the Ed25519 signature of the body as received, made with the **panel's identity key**. It is the key the panel signs transfers between panels with; it is created once and kept in `panel.exTransferKey`.
+
+The panel publishes its public key at its own address, without a session:
+
+```
+GET https://panel.example.com/.well-known/aether-panel.json
+{ "url": "https://panel.example.com", "publicKey": "<base64>", "algorithm": "ed25519", "signatureHeader": "X-Aether-Panel-Signature" }
+```
+
+The service downloads that key over HTTPS from the address of the panel it links to (HTTPS proves it comes from that domain), keeps it, and checks every event with it. `panel` inside the signed body must also be that same address. Nobody else can sign as that panel: the private key never leaves it.
+
+```js
+import crypto from 'node:crypto';
+function fromPanel(body, header, publicKeyBase64) {
+  const signature = Buffer.from(String(header).replace(/^ed25519=/, ''), 'base64');
+  const key = crypto.createPublicKey({ key: Buffer.concat([Buffer.from('302a300506032b6570032100', 'hex'), Buffer.from(publicKeyBase64, 'base64')]), format: 'der', type: 'spki' });
+  return crypto.verify(null, body, key, signature);
+}
+```
+
+If the panel's key changes (for example, reinstalled without its configuration), the service has to download it again.
 
 ## API
 

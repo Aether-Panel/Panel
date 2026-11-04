@@ -113,31 +113,11 @@ func getTransferProgress(serverID string) exTransferStep {
 
 var ExTransferSalt = "AETHER_FEDERATED_SALT_v1"
 
-var (
-	exTransferKeyOnce sync.Once
-	exTransferPrivKey ed25519.PrivateKey
-)
-
-// exTransferPrivateKey returns this panel's signing key for federated transfers. The other
-// panel stores the matching public key in the session, so the key must survive restarts: it
-// is generated once and saved in the config file, like panel.token.
+// exTransferPrivateKey is the key this panel signs federated transfer requests with: the panel's
+// identity key (services.PanelIdentityKey). The other panel stores the matching public key in
+// the session, so it survives restarts.
 func exTransferPrivateKey() ed25519.PrivateKey {
-	exTransferKeyOnce.Do(func() {
-		if seed, err := base64.StdEncoding.DecodeString(config.ExTransferKey.Value()); err == nil && len(seed) == ed25519.SeedSize {
-			exTransferPrivKey = ed25519.NewKeyFromSeed(seed)
-			return
-		}
-
-		seed := make([]byte, ed25519.SeedSize)
-		if _, err := rand.Read(seed); err != nil {
-			panic(err)
-		}
-		if err := config.ExTransferKey.Set(base64.StdEncoding.EncodeToString(seed), true); err != nil {
-			logging.Error.Printf("Could not save the federated transfer key, transfers will not survive a restart: %s", err)
-		}
-		exTransferPrivKey = ed25519.NewKeyFromSeed(seed)
-	})
-	return exTransferPrivKey
+	return services.PanelIdentityKey()
 }
 
 func exTransferPublicKey() ed25519.PublicKey {

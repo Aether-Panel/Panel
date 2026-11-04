@@ -183,6 +183,7 @@ func TestPublish_OnlySwitchedOnSubscribers(t *testing.T) {
 	assert.Equal(t, EventServerStarted, got[0]["event"])
 	assert.Equal(t, "hello", got[0]["extension"])
 	assert.Equal(t, map[string]string{"id": "abc", "name": "Survival"}, got[0]["server"])
+	assert.Contains(t, got[0], "panel", "the panel's address travels inside the signed body")
 }
 
 // armaManifest is an extension for Arma Reforger servers only

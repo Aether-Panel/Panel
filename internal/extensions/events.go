@@ -18,8 +18,9 @@ var retryDelays = []time.Duration{5 * time.Second, 30 * time.Second}
 // up goroutines; past it, events are dropped (and logged) rather than queued forever
 const maxDeliveries = 32
 
-// send posts one event; tests replace it
-var send = services.SendWebhookJSON
+// send posts one event, signed with the extension's key and with the panel's identity; tests
+// replace it
+var send = services.SendPanelSignedWebhookJSON
 
 type subscriber struct {
 	id, webhook, secret string
@@ -113,6 +114,8 @@ func dispatch(event string, data map[string]interface{}) {
 		body["event"] = event
 		body["extension"] = s.id
 		body["timestamp"] = time.Now().UTC().Format(time.RFC3339)
+		// which panel sent it, inside the body the panel signs
+		body["panel"] = services.PanelURL()
 
 		select {
 		case inFlight <- struct{}{}:
@@ -148,6 +151,7 @@ func SendTest(ext *models.Extension) error {
 		"event":     "test",
 		"extension": ext.ID,
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
+		"panel":     services.PanelURL(),
 	}
 	return send(ext.WebhookURL, ext.Secret, body)
 }

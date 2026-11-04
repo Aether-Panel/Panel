@@ -76,6 +76,16 @@ func SendTelegram(token, chat, text string) error {
 // SendWebhookJSON posts a JSON event. With a secret, the body is signed in the
 // X-Aether-Signature header (sha256=<hex HMAC>), so the receiver can check it came from us.
 func SendWebhookJSON(webhookURL, secret string, payload interface{}) error {
+	return sendWebhook(webhookURL, secret, payload, false)
+}
+
+// SendPanelSignedWebhookJSON is SendWebhookJSON that also signs the body with the panel's
+// identity key (PanelSignatureHeader), so the receiver can tell which panel sent it
+func SendPanelSignedWebhookJSON(webhookURL, secret string, payload interface{}) error {
+	return sendWebhook(webhookURL, secret, payload, true)
+}
+
+func sendWebhook(webhookURL, secret string, payload interface{}, panelSigned bool) error {
 	if err := ValidateWebhook(webhookURL); err != nil || webhookURL == "" {
 		return err
 	}
@@ -88,6 +98,9 @@ func SendWebhookJSON(webhookURL, secret string, payload interface{}) error {
 		mac := hmac.New(sha256.New, []byte(secret))
 		mac.Write(body)
 		headers["X-Aether-Signature"] = "sha256=" + hex.EncodeToString(mac.Sum(nil))
+	}
+	if panelSigned {
+		headers[PanelSignatureHeader] = PanelSignature(body)
 	}
 	return postJSON(webhookURL, body, headers, "webhook")
 }

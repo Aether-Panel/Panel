@@ -133,6 +133,7 @@ Cada evento es un `POST` con JSON, `Content-Type: application/json` y `User-Agen
   "event": "server.crashed",
   "extension": "estadisticas",
   "timestamp": "2026-10-26T18:04:11Z",
+  "panel": "https://panel.example.com",
   "server": { "id": "a1b2c3d4", "name": "Survival", "type": "minecraft-java", "icon": "minecraft-java" },
   "title": "💥 Caída del servidor",
   "message": "Survival se ha caído (código de salida 1). No se reinició automáticamente.",
@@ -166,7 +167,34 @@ function firmaValida(cuerpo, cabecera, clave) {
 }
 ```
 
-El botón **Enviar prueba** de Configuración manda un evento `test` firmado (solo con `event`, `extension` y `timestamp`) para comprobar la dirección y la clave.
+El botón **Enviar prueba** de Configuración manda un evento `test` firmado (solo con `event`, `extension`, `timestamp` y `panel`) para comprobar la dirección y la clave.
+
+### Comprobar de qué panel viene
+
+La clave de firma prueba que quien envía tiene esa clave, no de qué panel viene: el administrador de cualquier panel ve la suya. Un servicio que recibe eventos de muchos paneles (por ejemplo, una extensión que instalan empresas de hosting para sus clientes) necesita saber cuál de ellos envía, y para eso cada evento lleva además:
+
+- `panel` en el cuerpo: la dirección del panel (`panel.settings.masterUrl`, sin barra final).
+- La cabecera `X-Aether-Panel-Signature: ed25519=<base64>`: la firma Ed25519 del cuerpo tal cual llega, hecha con la **clave de identidad del panel**. Es la misma clave con la que firma las transferencias entre paneles; se crea una vez y se guarda en `panel.exTransferKey`.
+
+El panel publica su clave pública en su propia dirección, sin sesión:
+
+```
+GET https://panel.ejemplo.com/.well-known/aether-panel.json
+{ "url": "https://panel.ejemplo.com", "publicKey": "<base64>", "algorithm": "ed25519", "signatureHeader": "X-Aether-Panel-Signature" }
+```
+
+El servicio descarga esa clave por HTTPS de la dirección del panel con el que se vincula (el HTTPS prueba que viene de ese dominio), la guarda, y comprueba con ella cada evento. Además, `panel` dentro del cuerpo firmado debe ser esa misma dirección. Nadie más puede firmar en nombre de ese panel: la clave privada no sale de él.
+
+```js
+import crypto from 'node:crypto';
+function delPanel(cuerpo, cabecera, clavePublicaBase64) {
+  const firma = Buffer.from(String(cabecera).replace(/^ed25519=/, ''), 'base64');
+  const clave = crypto.createPublicKey({ key: Buffer.concat([Buffer.from('302a300506032b6570032100', 'hex'), Buffer.from(clavePublicaBase64, 'base64')]), format: 'der', type: 'spki' });
+  return crypto.verify(null, cuerpo, clave, firma);
+}
+```
+
+Si el panel cambia de clave (por ejemplo, al reinstalarlo sin su configuración), el servicio tiene que volver a descargarla.
 
 ## API
 

@@ -84,6 +84,9 @@ func registerPanelRoutes(e *gin.Engine) {
 		clientFiles = files.NewMergedFS(os.DirFS(config.WebRoot.Value()), clientFiles)
 	}
 
+	// the panel's public key, for receivers of its extension events; public, like /api/config
+	e.GET(api.PanelIdentityPath, api.PanelIdentity)
+
 	// Generic static file serving (Optimized for Astro)
 	e.Use(serveClientFiles)
 
