@@ -342,15 +342,36 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # Building these images takes long (PHP compiles its extensions, and arm64 runs emulated),
+      # so a change that does not touch an image does not rebuild it. A push to main or dev2.0
+      # always builds, since that is what publishes.
+      - name: Did this image change?
+        id: changed
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          PUBLISH: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev2.0') }}
+        run: |
+          build=true
+          if [ "$PUBLISH" != "true" ] && [ -n "$BASE" ] && git cat-file -e "$BASE^{commit}" 2>/dev/null \
+             && git diff --quiet "$BASE" HEAD -- "docker/runtime-images/${{ matrix.name }}"; then
+            build=false
+          fi
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+          echo "build $build"
 
       - name: Set up QEMU (for multi-arch builds)
+        if: steps.changed.outputs.build == 'true'
         uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1
 
       - name: Set up Docker Buildx
+        if: steps.changed.outputs.build == 'true'
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
 
       - name: Log in to GitHub Container Registry
-        if: github.event_name != 'pull_request'
+        if: steps.changed.outputs.build == 'true' && github.event_name != 'pull_request'
         uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6
         with:
           registry: ${{ env.REGISTRY }}
@@ -358,6 +379,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract Docker metadata (tags, labels)
+        if: steps.changed.outputs.build == 'true'
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302
         with:
@@ -372,13 +394,15 @@ jobs:
             type=sha,prefix=${{ matrix.version }}-sha-,format=short,enable=${{ !!matrix.version }}
 
       - name: Build and push Docker image
+        if: steps.changed.outputs.build == 'true'
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
         with:
           context: ${{ github.workspace }}/docker/runtime-images/${{ matrix.name }}
           file: ${{ matrix.dockerfile }}
           build-args: |
             RUNTIME_VERSION=${{ matrix.version }}
-          platforms: linux/amd64,linux/arm64
+          # arm64 builds emulated and slowly: only what is published gets it, a check builds amd64
+          platforms: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev2.0') && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
           push: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev2.0') && github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
