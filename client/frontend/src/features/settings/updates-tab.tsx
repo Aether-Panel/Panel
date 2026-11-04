@@ -166,6 +166,17 @@ function idleStatus(
             statusDescription: t('settings.updates.status.verifyingDescription'),
         };
     }
+    if (flags.verification === 'failed') {
+        // a newer version exists but its checks failed: it is not offered, and saying "up to
+        // date" next to a different latest commit read as a broken updater
+        return {
+            ...base,
+            statusTitle: t('settings.updates.status.checksFailed'),
+            StatusIcon: Info,
+            tone: 'warning',
+            statusDescription: t('settings.updates.status.checksFailedDescription'),
+        };
+    }
     return { ...base, statusTitle: t('settings.updates.status.upToDate'), StatusIcon: CheckCircle2, tone: 'success' };
 }
 
