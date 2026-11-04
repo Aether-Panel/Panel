@@ -391,9 +391,12 @@ export default function ConsoleView({
   // Follow new output only while the reader is at the bottom; scrolling up to
   // read pauses it and offers a way back.
   const [pinned, setPinned] = useState(true);
+  // while a search is open the console stays where its matches are: scrolling near the end
+  // would otherwise pin it again, and the next line of output pulled the view back down
+  const searchingRef = useRef(false);
   const onScroll = () => {
     const el = scrollRef.current;
-    if (!el) return;
+    if (!el || searchingRef.current) return;
     setPinned(el.scrollHeight - el.scrollTop - el.clientHeight < 32);
   };
   const jumpToEnd = () => {
@@ -530,6 +533,7 @@ export default function ConsoleView({
   const shown = useMemo(() => (filter === 'all' ? logs : logs.filter((log) => levelOf(log.message) === filter)), [logs, filter]);
 
   const needle = query.trim().toLowerCase();
+  searchingRef.current = needle !== '';
   const matches = useMemo(
     () => (needle ? shown.filter((log) => plain(log.message).toLowerCase().includes(needle)).map((log) => log.id) : []),
     [shown, needle],
@@ -544,8 +548,10 @@ export default function ConsoleView({
     const scroller = scrollRef.current;
     const line = scroller?.querySelector<HTMLElement>(`[data-log="${currentMatch}"]`);
     if (scroller && line) {
-      const target = line.offsetTop - scroller.clientHeight / 2 + line.offsetHeight / 2;
-      scroller.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
+      // measured against the console itself, whatever element the line is nested in
+      const offset = line.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+      const target = scroller.scrollTop + offset - scroller.clientHeight / 2 + line.offsetHeight / 2;
+      scroller.scrollTo({ top: Math.max(0, target) });
     }
   }, [currentMatch]);
   const stepMatch = (delta: number) => {

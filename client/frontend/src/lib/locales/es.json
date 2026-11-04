@@ -3221,6 +3221,13 @@
     },
     "editDialog": {
       "title": "Editar plantilla"
+    },
+    "search": {
+      "label": "Buscar plantillas",
+      "placeholder": "Buscar por nombre, lenguaje o juego…",
+      "noResultsTitle": "Ninguna plantilla coincide",
+      "noResultsDescription": "No hay plantillas para «{{query}}». Prueba con otro nombre, un lenguaje (Go, PHP, C#…) o un juego.",
+      "clear": "Borrar búsqueda"
     }
   },
   "common": {

@@ -422,7 +422,9 @@ func (t *tty) handleClose(environment *skypanel.Environment, callback func(exitC
 	t.mainProcess = nil
 	t.processLocker.Unlock()
 
-	environment.Wait.Done()
+	// released after the exit callback, as in the Docker environment: a restart waiting here
+	// must not start the server again before the exit is handled
+	defer environment.Wait.Done()
 
 	_ = environment.StatusTracker.WriteMessage(skypanel.Transmission{
 		Message: skypanel.ServerRunning{

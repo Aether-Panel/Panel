@@ -1156,7 +1156,10 @@ func (d *Docker) handleClose(environment *skypanel.Environment, dockerClient *cl
 
 	environment.LastExitCode = exitCode
 
-	environment.Wait.Done()
+	// whoever waits for the process (a restart) goes on only once the exit is handled: released
+	// earlier, a restart started the server again before the exit callback ran, which then took
+	// the requested stop for a crash (exit code 143 after SIGTERM) and hit the new container
+	defer environment.Wait.Done()
 
 	_ = environment.StatusTracker.WriteMessage(skypanel.Transmission{
 		Message: skypanel.ServerRunning{
