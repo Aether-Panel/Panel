@@ -292,7 +292,7 @@ func (e *Environment) WaitForMainProcess() error {
 // running while its exit is still being handled, and a restart that went on in between started
 // the server again before that, so the old exit counted as a crash. With no process, Wait is
 // already free and this returns at once.
-func (e *Environment) WaitForMainProcessFor(timeout time.Duration) (err error) {
+func (e *Environment) WaitForMainProcessFor(timeout time.Duration) error {
 	if e.Wait == nil {
 		// an environment that never ran a process has nothing to wait for
 		return nil
@@ -301,18 +301,18 @@ func (e *Environment) WaitForMainProcessFor(timeout time.Duration) (err error) {
 		e.Wait.Wait()
 		return nil
 	}
-	var mu sync.Mutex
+	var killErr error
+	killed := make(chan struct{})
 	timer := time.AfterFunc(timeout, func() {
-		killErr := e.Kill()
-		mu.Lock()
-		err = killErr
-		mu.Unlock()
+		killErr = e.Kill()
+		close(killed)
 	})
 	e.Wait.Wait()
-	timer.Stop()
-	mu.Lock()
-	defer mu.Unlock()
-	return err
+	if !timer.Stop() {
+		// the timer fired: its kill finishes before what it returned is read
+		<-killed
+	}
+	return killErr
 }
 
 func (e *Environment) CreateWrapper() {
