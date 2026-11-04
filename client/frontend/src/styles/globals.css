@@ -542,7 +542,12 @@ body::after {
   inset: 0;
   border-radius: inherit;
   background: inherit;
-  animation: dot-pulse 2.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+/* the ring only moves for people who have not asked for less motion */
+@media (prefers-reduced-motion: no-preference) {
+  .pulse-dot::after {
+    animation: dot-pulse 2.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  }
 }
 @keyframes dot-pulse {
   from { transform: scale(1); opacity: 0.6; }

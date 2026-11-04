@@ -39,6 +39,9 @@ var githubTokenSecret = func() string {
 
 const githubRequestTimeout = 30 * time.Second
 
+// githubAccountQuery finds a user's GitHub connection
+const githubAccountQuery = "user_id = ?"
+
 // githubDeviceLogin is a device code a user is entering on GitHub
 type githubDeviceLogin struct {
 	// mu keeps two polls of the same user (two tabs) from asking GitHub at once
@@ -101,7 +104,7 @@ type githubStatusView struct {
 
 func githubAccountOf(db *gorm.DB, userID uint) (*models.GitHubAccount, error) {
 	var account models.GitHubAccount
-	err := db.Where("user_id = ?", userID).First(&account).Error
+	err := db.Where(githubAccountQuery, userID).First(&account).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, services.ErrGitHubNotConnected
 	}
@@ -128,7 +131,7 @@ func githubToken(db *gorm.DB, userID uint) (string, error) {
 // connect again instead of failing on every call
 func forgetRevokedGitHub(db *gorm.DB, userID uint, err error) {
 	if errors.Is(err, services.ErrGitHubTokenRevoked) {
-		_ = db.Where("user_id = ?", userID).Delete(&models.GitHubAccount{}).Error
+		_ = db.Where(githubAccountQuery, userID).Delete(&models.GitHubAccount{}).Error
 	}
 }
 
@@ -254,7 +257,7 @@ func pollGitHubDevice(c *gin.Context) {
 	db := middleware.GetDatabase(c)
 	record := models.GitHubAccount{UserID: user.ID, Login: account.Login, AvatarURL: account.AvatarURL, Token: sealed, Scopes: scope}
 	err = db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("user_id = ?", user.ID).Delete(&models.GitHubAccount{}).Error; err != nil {
+		if err := tx.Where(githubAccountQuery, user.ID).Delete(&models.GitHubAccount{}).Error; err != nil {
 			return err
 		}
 		return tx.Create(&record).Error
@@ -274,7 +277,7 @@ func pollGitHubDevice(c *gin.Context) {
 func unlinkGitHub(c *gin.Context) {
 	user := c.MustGet("user").(*models.User)
 	githubLogins.Delete(user.ID)
-	err := middleware.GetDatabase(c).Where("user_id = ?", user.ID).Delete(&models.GitHubAccount{}).Error
+	err := middleware.GetDatabase(c).Where(githubAccountQuery, user.ID).Delete(&models.GitHubAccount{}).Error
 	if response.HandleError(c, err, http.StatusInternalServerError) {
 		return
 	}

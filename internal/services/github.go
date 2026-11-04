@@ -246,7 +246,7 @@ func (g *GitHubClient) Repo(ctx context.Context, token, owner, name string) (*Gi
 		return nil, ErrGitHubBadName
 	}
 	var wire githubRepoWire
-	if err := g.get(ctx, token, "/repos/"+owner+"/"+name, &wire); err != nil {
+	if err := g.get(ctx, token, githubRepoPath(owner, name), &wire); err != nil {
 		return nil, err
 	}
 	repo := wire.repo()
@@ -263,7 +263,7 @@ func (g *GitHubClient) Branches(ctx context.Context, token, owner, name string) 
 		var wire []struct {
 			Name string `json:"name"`
 		}
-		path := "/repos/" + owner + "/" + name + "/branches?per_page=100&page=" + strconv.Itoa(page)
+		path := githubRepoPath(owner, name) + "/branches?per_page=100&page=" + strconv.Itoa(page)
 		if err := g.get(ctx, token, path, &wire); err != nil {
 			return nil, err
 		}
@@ -282,7 +282,7 @@ func (g *GitHubClient) HasBranch(ctx context.Context, token, owner, name, branch
 	if !ValidGitHubName(owner) || !ValidGitHubName(name) || !ValidGitHubBranch(branch) {
 		return ErrGitHubBadName
 	}
-	return g.get(ctx, token, "/repos/"+owner+"/"+name+"/branches/"+EscapeGitHubRef(branch), nil)
+	return g.get(ctx, token, githubRepoPath(owner, name)+"/branches/"+EscapeGitHubRef(branch), nil)
 }
 
 // ArchiveURL asks GitHub where to download a branch as a .tar.gz. GitHub answers with a redirect
@@ -292,7 +292,7 @@ func (g *GitHubClient) ArchiveURL(ctx context.Context, token, owner, name, branc
 	if !ValidGitHubName(owner) || !ValidGitHubName(name) || !ValidGitHubBranch(branch) {
 		return "", ErrGitHubBadName
 	}
-	address := strings.TrimRight(g.APIBase, "/") + "/repos/" + owner + "/" + name + "/tarball/" + EscapeGitHubRef(branch)
+	address := strings.TrimRight(g.APIBase, "/") + githubRepoPath(owner, name) + "/tarball/" + EscapeGitHubRef(branch)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, address, nil)
 	if err != nil {
 		return "", err
@@ -322,6 +322,12 @@ func (g *GitHubClient) ArchiveURL(ctx context.Context, token, owner, name, branc
 		return "", &GitHubError{Status: res.StatusCode, Message: "GitHub did not give a download address"}
 	}
 	return res.Header.Get("Location"), nil
+}
+
+// githubRepoPath is a repository's route in the API; owner and name were checked with
+// ValidGitHubName, so neither can add a path segment
+func githubRepoPath(owner, name string) string {
+	return "/repos/" + owner + "/" + name
 }
 
 // EscapeGitHubRef escapes each part of a branch name but keeps its slashes, which GitHub reads

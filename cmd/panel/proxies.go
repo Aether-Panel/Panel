@@ -1,6 +1,7 @@
 package main
 
 import (
+	// embed fills trustedProxiesList from trusted_proxies.txt at build time (go:embed below)
 	_ "embed"
 	"strings"
 )
