@@ -10,7 +10,7 @@ Aether Panel is deployed with Docker only. This document describes the panel ima
 | `docker-compose.yml` | Production: MariaDB, panel and Adminer. Used by the installer and by updates |
 | `docker-compose.dev.yml` | Development: the panel only (see [limitations](#development-docker-composedevyml)) |
 | `config.docker.json` | `config.json` the image copies to `/etc/SkyPanel/config.json` |
-| `docker/runtime-images/{ubuntu,steamcmd,generic}/Dockerfile` | Base images for game servers |
+| `docker/runtime-images/{ubuntu,steamcmd,generic,php}/Dockerfile` | Base images for servers |
 | `Dockerfile-curseforge` | CurseForge modpack test tool |
 | `Dockerfile-templatetester` | Template test tool |
 | `Dockerfile-formatter` | Tool that reorders template JSON files |
@@ -112,8 +112,9 @@ A single service, `skypanel` (container `skypanel-dev`), built with `version=dev
 | `ghcr.io/aether-panel/ubuntu` | `ubuntu:24.04` | `ca-certificates`, `curl`, `git`, `unzip`, `wget`, `xz-utils`, `zip`; `DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1` |
 | `ghcr.io/aether-panel/steamcmd` | `steamcmd/steamcmd:ubuntu-22` | i386 libraries for SteamCMD, `xvfb`, `curl`, `wget`, `unzip`, `zip`; `HOME=/home/container` |
 | `ghcr.io/aether-panel/generic` | `ubuntu:24.04` | `bash`, `ca-certificates`, `curl`, `git`, `unzip`, `wget`, `xz-utils`, `zip`; working directory `/home/container` |
+| `ghcr.io/aether-panel/php:<version>` | `php:<version>-cli` (8.2, 8.3, 8.4) | Composer 2, `git`, `unzip`, `zip`, `curl` and the extensions `bcmath`, `exif`, `gd`, `intl`, `mysqli`, `opcache`, `pcntl`, `pdo_mysql`, `pdo_pgsql`, `pgsql`, `redis`, `sockets`, `zip`; production `php.ini`. One image per version, tagged with it. Used by the PHP and Laravel templates |
 
-All three create the `container` user and run as it. Every Docker node downloads them and keeps them up to date in the background (`docker.prefetchImages`, with these three by default), so the first server using one does not wait.
+All of them create the `container` user and run as it. Every Docker node downloads the first three and keeps them up to date in the background (`docker.prefetchImages`, with those three by default); the PHP one is pulled the first time a server uses it, so the first server using one does not wait.
 
 The panel image is published as `ghcr.io/aether-panel/panel` (`amd64` and `arm64`) from `main` only, tagged `main`, `sha-<commit>` and `latest`. The installer does not use it: it builds the image on the server.
 

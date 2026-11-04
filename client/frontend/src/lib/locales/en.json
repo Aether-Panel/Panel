@@ -3221,6 +3221,13 @@
     },
     "editDialog": {
       "title": "Edit template"
+    },
+    "search": {
+      "label": "Search templates",
+      "placeholder": "Search by name, language or game…",
+      "noResultsTitle": "No template matches",
+      "noResultsDescription": "No templates for “{{query}}”. Try another name, a language (Go, PHP, C#…) or a game.",
+      "clear": "Clear search"
     }
   },
   "common": {

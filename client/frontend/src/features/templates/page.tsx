@@ -8,8 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Code, Bot, Server as ServerIcon, Database, Plus, LayoutTemplate, MoreHorizontal,
-  Gamepad2, Globe, Cpu, Radio, Network, Box, Terminal, Shield, Play, Upload, FileJson, Trash2, Loader2
+  Gamepad2, Globe, Cpu, Radio, Network, Box, Terminal, Shield, Play, Upload, FileJson, Trash2, Loader2, Search
 } from '@/components/icons';
+import { matchesTemplate } from '@/lib/template-search';
 import type { AppIcon } from '@/components/icons';
 import { useTranslations } from '@/contexts/translations-context';
 import { useTemplates } from '@/hooks/use-templates';
@@ -22,7 +23,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { EmptyState } from '@/components/empty-state';
-import { gameLogo } from '@/lib/game-logos';
+import { templateLogo } from '@/lib/template-logos';
+import { TemplateLogo } from '@/components/template-logo';
 
 // Optional icon mapping if we want to guess icon by category later, or just a default
 function getIconForCategory(category?: string): AppIcon {
@@ -77,7 +79,7 @@ function TemplateItem({
 }>) {
   const { t } = useTranslations();
   const Icon = getIconForCategory(template.type);
-  const logo = gameLogo(template);
+  const logo = templateLogo(template);
   const categoryLabel = template.type || t('templates.categories.other');
   const title = template.display || template.name;
 
@@ -85,9 +87,7 @@ function TemplateItem({
     <article className="flex flex-col gap-4 rounded-xl border border-border/60 bg-background/30 p-4">
       <div className="flex items-start gap-3">
         <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-lg border border-border/60 bg-secondary text-muted-foreground" aria-hidden="true">
-          {logo
-            ? <img src={logo} alt="" width={40} height={40} loading="lazy" className="h-full w-full object-cover" />
-            : <Icon className="h-5 w-5" />}
+          <TemplateLogo logo={logo} className="h-full w-full rounded-none ring-0" fallback={<Icon className="h-5 w-5" />} />
         </span>
         <div className="min-w-0 flex-1 pt-0.5">
           <h3 className="truncate text-sm font-semibold text-foreground">{title}</h3>
@@ -205,6 +205,7 @@ export default function TemplatesPage() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [activeTab, setActiveTab] = useState('local');
+  const [query, setQuery] = useState('');
   const [deletingTemplate, setDeletingTemplate] = useState<any>(null);
   // Name of the local template open in the editor; null while creating a new one.
   const [editingName, setEditingName] = useState<string | null>(null);
@@ -360,6 +361,16 @@ export default function TemplatesPage() {
 
   const localTemplates = allTemplates.filter(t => t.repoId === 0);
   const communityTemplates = allTemplates.filter(t => t.repoId !== 0);
+  // the search narrows both tabs; the counts follow it so the other tab shows whether it has matches
+  const shownLocal = localTemplates.filter(t => matchesTemplate(t, query));
+  const shownCommunity = communityTemplates.filter(t => matchesTemplate(t, query));
+  const noMatches = (
+    <EmptyTemplates
+      title={t('templates.search.noResultsTitle')}
+      description={t('templates.search.noResultsDescription', { query: query.trim() })}
+      action={<Button variant="outline" onClick={() => setQuery('')}>{t('templates.search.clear')}</Button>}
+    />
+  );
   const canEditLocal = hasScope('templates.local.edit');
   const canCreate = hasScope('templates.repo.create');
 
@@ -515,17 +526,31 @@ export default function TemplatesPage() {
               </p>
             </div>
             <TabsList className="w-full shrink-0 sm:w-auto">
-              <TabsTrigger value="local" className="flex-1 sm:flex-none">{t('templates.tabs.local')}{!loadingTemplates && countPill(localTemplates.length)}</TabsTrigger>
-              <TabsTrigger value="community" className="flex-1 sm:flex-none">{t('templates.tabs.community')}{!loadingTemplates && countPill(communityTemplates.length)}</TabsTrigger>
+              <TabsTrigger value="local" className="flex-1 sm:flex-none">{t('templates.tabs.local')}{!loadingTemplates && countPill(shownLocal.length)}</TabsTrigger>
+              <TabsTrigger value="community" className="flex-1 sm:flex-none">{t('templates.tabs.community')}{!loadingTemplates && countPill(shownCommunity.length)}</TabsTrigger>
             </TabsList>
+          </div>
+
+          <div className="border-b border-border/50 px-5 py-3 md:px-6">
+            <div className="relative max-w-md">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+              <Input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t('templates.search.placeholder')}
+                aria-label={t('templates.search.label')}
+                className="pl-9"
+              />
+            </div>
           </div>
 
           <TabsContent value="local" className="mt-0 p-5 md:p-6">
             <TemplateTabBody
               loading={loadingTemplates}
               placeholder={loadingGrid}
-              isEmpty={localTemplates.length === 0}
-              empty={
+              isEmpty={shownLocal.length === 0}
+              empty={localTemplates.length > 0 ? noMatches : (
                 <EmptyTemplates
                   title={t('templates.empty.localTitle')}
                   description={t('templates.empty.localDescription')}
@@ -536,9 +561,9 @@ export default function TemplatesPage() {
                     </Button>
                   ) : undefined}
                 />
-              }
+              )}
             >
-              {localTemplates.map((template, idx) => (
+              {shownLocal.map((template, idx) => (
                 <TemplateItem
                   key={`local-${template.name}-${idx}`}
                   template={template}
@@ -554,15 +579,15 @@ export default function TemplatesPage() {
             <TemplateTabBody
               loading={loadingTemplates}
               placeholder={loadingGrid}
-              isEmpty={communityTemplates.length === 0}
-              empty={
+              isEmpty={shownCommunity.length === 0}
+              empty={communityTemplates.length > 0 ? noMatches : (
                 <EmptyTemplates
                   title={t('templates.empty.communityTitle')}
                   description={t('templates.empty.communityDescription')}
                 />
-              }
+              )}
             >
-              {communityTemplates.map((template, idx) => (
+              {shownCommunity.map((template, idx) => (
                 <TemplateItem
                   key={`com-${template.repoId}-${template.name}-${idx}`}
                   template={template}

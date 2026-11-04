@@ -8,6 +8,10 @@ export type Server = {
   /** Minecraft Java finds the port through the SRV record, so the subdomain goes without it */
   subdomainSrv?: boolean;
   ports?: number[];
+  /** the logo key of the template it was made from (minecraft-java, nodejs…), when it has one */
+  icon?: string;
+  /** the template type (minecraft-java, discord…); finds a logo for servers made before icons existed */
+  type?: string;
   status: 'online' | 'offline' | 'pending';
   /** CPU as a share of what the server may use, 0-100 (its limit, or every core of the node) */
   cpuUsage: number;

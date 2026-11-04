@@ -9,7 +9,7 @@ The page (**Template Management**, `/templates`) has two tabs:
 - **Local**: templates stored in this panel's database. They can be created, edited, uploaded and deleted here.
 - **Community**: templates read from an outside source, either the template index configured in `templates.url` or the Git repositories added through the API. They are read only.
 
-Each card shows the template's name, category and a **Use Template** button that opens the create-server wizard with that template already chosen (`/servers/?create=true&template=<name>&repo=<id>`).
+Each card shows the template's logo, name, category and a **Use Template** button that opens the create-server wizard with that template already chosen (`/servers/?create=true&template=<name>&repo=<id>`).
 
 Buttons, by permission:
 
@@ -18,6 +18,10 @@ Buttons, by permission:
 | **Upload** (one or more `.json` files) | `templates.local.edit` |
 | **Create Template** | `templates.repo.create` to see it; saving needs `templates.local.edit` |
 | **Edit** / **Delete** on a local template | `templates.local.edit` |
+
+**Search.** Above the tabs, it filters both by name, display name and type, ignoring case and accents. It also knows common synonyms (`c#` and `csharp` find .NET, `golang` Go, `mysql` MariaDB, `cs2` Counter-Strike 2, `spring` or `maven` Java; the list is in `client/frontend/src/lib/template-search.ts`). The tab counts show the matches. The create-server wizard has the same search in its template step.
+
+**Logos.** The template's `icon` field picks its logo from `client/frontend/public/img/icons/` (`client/frontend/src/lib/template-logos.ts`): the official brand marks as SVG for languages, databases and services, and each game's official icon as PNG. A template without `icon` is recognised by its name (`minecraft-*`, `terraria-*`, `discord-*`…). The logo also shows in the wizard, on server cards and in the server header, which use the server's `icon` or, for older servers, its type.
 
 The page itself and the **Templates** menu entry need `templates.view` (the default "Usuario" role has it); without it the page sends you to the dashboard.
 

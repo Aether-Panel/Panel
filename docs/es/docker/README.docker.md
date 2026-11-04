@@ -10,7 +10,7 @@ Aether Panel se despliega solo con Docker. Este documento describe la imagen del
 | `docker-compose.yml` | Producción: MariaDB, panel y Adminer. Es el que usan el instalador y las actualizaciones |
 | `docker-compose.dev.yml` | Desarrollo: solo el panel (ver [limitaciones](#desarrollo-docker-composedevyml)) |
 | `config.docker.json` | `config.json` que la imagen copia en `/etc/SkyPanel/config.json` |
-| `docker/runtime-images/{ubuntu,steamcmd,generic}/Dockerfile` | Imágenes base de los servidores de juego |
+| `docker/runtime-images/{ubuntu,steamcmd,generic,php}/Dockerfile` | Imágenes base de los servidores |
 | `Dockerfile-curseforge` | Herramienta de pruebas de modpacks de CurseForge |
 | `Dockerfile-templatetester` | Herramienta de pruebas de plantillas |
 | `Dockerfile-formatter` | Herramienta que reordena los JSON de las plantillas |
@@ -112,8 +112,9 @@ Un solo servicio, `skypanel` (contenedor `skypanel-dev`), compilado con `version
 | `ghcr.io/aether-panel/ubuntu` | `ubuntu:24.04` | `ca-certificates`, `curl`, `git`, `unzip`, `wget`, `xz-utils`, `zip`; `DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1` |
 | `ghcr.io/aether-panel/steamcmd` | `steamcmd/steamcmd:ubuntu-22` | Bibliotecas i386 para SteamCMD, `xvfb`, `curl`, `wget`, `unzip`, `zip`; `HOME=/home/container` |
 | `ghcr.io/aether-panel/generic` | `ubuntu:24.04` | `bash`, `ca-certificates`, `curl`, `git`, `unzip`, `wget`, `xz-utils`, `zip`; directorio de trabajo `/home/container` |
+| `ghcr.io/aether-panel/php:<versión>` | `php:<versión>-cli` (8.2, 8.3, 8.4) | Composer 2, `git`, `unzip`, `zip`, `curl` y las extensiones `bcmath`, `exif`, `gd`, `intl`, `mysqli`, `opcache`, `pcntl`, `pdo_mysql`, `pdo_pgsql`, `pgsql`, `redis`, `sockets`, `zip`; `php.ini` de producción. Una imagen por versión, etiquetada con ella. La usan las plantillas PHP y Laravel |
 
-Las tres crean el usuario `container` y se ejecutan con él. Cada nodo Docker las descarga y mantiene al día en segundo plano (`docker.prefetchImages`, con estas tres por defecto), para que el primer servidor que las usa no tenga que esperar.
+Todas crean el usuario `container` y se ejecutan con él. Cada nodo Docker descarga y mantiene al día en segundo plano las tres primeras (`docker.prefetchImages`, con esas tres por defecto); la de PHP se descarga la primera vez que la usa un servidor, para que el primer servidor que las usa no tenga que esperar.
 
 La imagen del panel se publica en `ghcr.io/aether-panel/panel` (`amd64` y `arm64`) solo desde `main`, con las etiquetas `main`, `sha-<commit>` y `latest`. El instalador no la usa: compila la imagen en el servidor.
 

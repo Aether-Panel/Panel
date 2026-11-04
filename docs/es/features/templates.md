@@ -9,7 +9,7 @@ La página (**Gestión de plantillas**, `/templates`) tiene dos pestañas:
 - **Locales**: plantillas guardadas en la base de datos de este panel. Aquí se pueden crear, editar, subir y eliminar.
 - **Comunidad**: plantillas leídas de una fuente externa, ya sea el índice de plantillas configurado en `templates.url` o los repositorios Git añadidos mediante la API. Son de solo lectura.
 
-Cada tarjeta muestra el nombre y la categoría de la plantilla y un botón **Usar plantilla** que abre el asistente de creación de servidores con esa plantilla ya elegida (`/servers/?create=true&template=<nombre>&repo=<id>`).
+Cada tarjeta muestra el logo, el nombre y la categoría de la plantilla y un botón **Usar plantilla** que abre el asistente de creación de servidores con esa plantilla ya elegida (`/servers/?create=true&template=<nombre>&repo=<id>`).
 
 Botones, según el permiso:
 
@@ -18,6 +18,10 @@ Botones, según el permiso:
 | **Subir** (uno o varios archivos `.json`) | `templates.local.edit` |
 | **Crear plantilla** | `templates.repo.create` para verlo; guardar necesita `templates.local.edit` |
 | **Editar** / **Eliminar** en una plantilla local | `templates.local.edit` |
+
+**Buscador.** Encima de las pestañas, filtra las dos por nombre, nombre visible y tipo, sin distinguir mayúsculas ni tildes. También entiende sinónimos habituales (`c#` y `csharp` encuentran .NET, `golang` Go, `mysql` MariaDB, `cs2` Counter-Strike 2, `spring` o `maven` Java; la lista está en `client/frontend/src/lib/template-search.ts`). Los contadores de las pestañas muestran las coincidencias. El asistente de creación de servidores tiene el mismo buscador en el paso de elegir plantilla.
+
+**Logos.** El campo `icon` de la plantilla elige su logo entre los de `client/frontend/public/img/icons/` (`client/frontend/src/lib/template-logos.ts`): las marcas oficiales en SVG para lenguajes, bases de datos y servicios, y el icono oficial de cada juego en PNG. Una plantilla sin `icon` se reconoce por su nombre (`minecraft-*`, `terraria-*`, `discord-*`…). El logo también aparece en el asistente, en las tarjetas de servidor y en la cabecera del servidor, que usan el `icon` del servidor o, en servidores antiguos, su tipo.
 
 La página y la entrada **Plantillas** del menú necesitan `templates.view` (el rol por defecto «Usuario» lo tiene); sin él, la página lleva al panel de inicio.
 

@@ -25,6 +25,8 @@ import NetworkUsageChart from './network-usage-chart';
 import { cn, formatBytes } from '@/lib/utils';
 import { keyedByContent } from '@/lib/keyed';
 import { StatusBadge, usageColor } from '@/components/server-card';
+import { TemplateLogo } from '@/components/template-logo';
+import { templateLogo } from '@/lib/template-logos';
 import { useState, useEffect, useRef } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -701,7 +703,10 @@ export default function ServerDetailPage({ params }: Readonly<{ params: { id: st
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0 space-y-3">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                <h1 className="min-w-0 break-words font-headline text-2xl font-semibold tracking-[-0.03em]">{server.name}</h1>
+                <div className="flex min-w-0 items-center gap-3">
+                  <TemplateLogo logo={templateLogo({ icon: server.icon, name: server.type })} className="h-7 w-7 rounded-md" />
+                  <h1 className="min-w-0 break-words font-headline text-2xl font-semibold tracking-[-0.03em]">{server.name}</h1>
+                </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <StatusBadge status={server.status} label={t(`servers.status.${server.status}`)} />
                   {server.suspended && (
