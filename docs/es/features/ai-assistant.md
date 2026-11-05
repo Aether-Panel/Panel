@@ -41,7 +41,7 @@ Cuando **Dejar que el asistente trabaje con los archivos del servidor** está ac
 1. El navegador llama al panel (`/api/servers/:serverId/ai/chat` o `/api/servers/:serverId/ai/analyze`). Se comprueba el permiso `server.console` sobre ese servidor.
 2. El panel comprueba que hay una clave de Gemini configurada, valida la petición y aplica el límite de peticiones por usuario.
 3. En el chat, el panel reúne el contexto anterior desde el nodo. En el análisis, conserva las líneas más recientes que caben en el tamaño máximo.
-4. El panel llama a `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent` desde la máquina del panel. La clave viaja en la cabecera `x-goog-api-key`, nunca en la URL.
+4. El panel llama a `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent` desde la máquina del panel. La clave viaja en la cabecera `x-goog-api-key`, nunca en la URL.
 5. La respuesta vuelve al navegador. El historial del chat vive en el `sessionStorage` del navegador (los 20 últimos mensajes por servidor) y desaparece al cerrar la sesión de la pestaña o al pulsar **Nueva conversación**. El panel no guarda ninguna conversación; en modo agente solo mantiene en memoria una solicitud pendiente de aprobación (10 minutos como máximo) y registra en el registro de actividad los cambios hechos.
 
 Seguridad del prompt: las líneas de consola y el contexto del servidor son texto no fiable escrito por el juego y sus jugadores. El panel los encierra entre `<logs>…</logs>` o `<server-context>…</server-context>` e indica al modelo que los trate solo como datos. También se le indica que nunca sugiera borrar mundos o archivos sin una copia de seguridad previa y que nunca pida contraseñas ni claves.
@@ -133,7 +133,7 @@ Privacidad: las líneas de consola, el contexto del servidor y las preguntas se 
 | Líneas de consola en el contexto del chat | 60 (300 caracteres cada una) |
 | Detalle de caídas en el contexto del chat | Las 3 más recientes; 20 líneas de consola de la última |
 | Tiempos de espera | Análisis 60 s; chat 90 s en total y 6 s por cada dato de contexto; en modo agente, 120 s por pregunta o aprobación |
-| Modelo | `gemini-2.5-flash` (fijo en el código, no configurable) |
+| Modelo | `gemini-3.8-flash` (fijo en el código, no configurable) |
 
 Otros aspectos a tener en cuenta:
 

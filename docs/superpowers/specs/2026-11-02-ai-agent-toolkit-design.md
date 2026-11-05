@@ -217,7 +217,7 @@ Loop rules:
 
 ## Gemini client (`tools/toolkit/gemini`)
 
-- Implements `agent.Generator` with the REST `generateContent` endpoint (`v1beta/models/gemini-2.5-flash:generateContent`, endpoint variable swappable in tests), `x-goog-api-key` header, `tools: [{functionDeclarations: [...]}]`, `toolConfig.functionCallingConfig.mode = "AUTO"`, function responses sent as `role: "user"` parts `{functionResponse: {name, response}}` (Gemini REST convention), model messages keep their `functionCall` parts. Parse `candidates[0].content.parts`. No SDK, no new dependency.
+- Implements `agent.Generator` with the REST `generateContent` endpoint (`v1beta/models/gemini-3.8-flash:generateContent`, endpoint variable swappable in tests), `x-goog-api-key` header, `tools: [{functionDeclarations: [...]}]`, `toolConfig.functionCallingConfig.mode = "AUTO"`, function responses sent as `role: "user"` parts `{functionResponse: {name, response}}` (Gemini REST convention), model messages keep their `functionCall` parts. Parse `candidates[0].content.parts`. No SDK, no new dependency.
 - The existing `askGemini` text path stays for the no-tools mode.
 
 ## API (panel)

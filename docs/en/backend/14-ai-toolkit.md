@@ -31,7 +31,7 @@ Browser (assistant-panel.tsx)
 Panel  ── server.console, ResolveServerPanel, rate limit (30 / 10 min per user)
    │      agent mode? panel.settings.aiFileTools on + signed-in user + server.files.view
    │      agent.Runner.Start / Resume
-   │         ├─ gemini.Client.Generate ──► generativelanguage.googleapis.com (gemini-2.5-flash)
+   │         ├─ gemini.Client.Generate ──► generativelanguage.googleapis.com (gemini-3.8-flash)
    │         └─ Tool.Describe / Tool.Run ──► nodeWorkspace (bound to the route's server)
    ▼
 Node   /daemon/server/<id>/file/*, /fs/stat, /fs/copy, /fs/search   (panel token)
@@ -71,7 +71,7 @@ A panic in `Describe` or `Run` is caught and becomes a `failed` step (`the opera
 
 ### Function calls and responses
 
-`gemini.Client` (`tools/toolkit/gemini/client.go`) posts to `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent` (`DefaultEndpoint`, replaceable in tests) with the key in the `x-goog-api-key` header:
+`gemini.Client` (`tools/toolkit/gemini/client.go`) posts to `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent` (`DefaultEndpoint`, replaceable in tests) with the key in the `x-goog-api-key` header:
 
 - `systemInstruction`: the system text;
 - `contents`: the history. `user` and `model` messages keep their roles; the model's function calls stay as `functionCall` parts; the answers to them (role `tool` in the agent) are sent as role `user` with `functionResponse` parts `{id, name, response}`, in call order. IDs the runner generated (`local-…`) are not sent;
