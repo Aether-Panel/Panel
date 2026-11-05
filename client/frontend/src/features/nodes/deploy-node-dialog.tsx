@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { CheckCircle2, Copy, Loader2, Terminal } from '@/components/icons';
+import { CheckCircle2, Loader2, Terminal } from '@/components/icons';
+import { CopyableCode } from '@/components/copyable-code';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useTranslations } from '@/contexts/translations-context';
@@ -15,29 +16,6 @@ export type DeployableNode = { id: number | string; name: string; sftpPort?: num
 
 type JoinCode = { code: string; expiresAt: string; panelUrl: string; command: string };
 type Deployment = { clientId: string; clientSecret: string };
-
-export function CopyableCode({ command }: Readonly<{ command: string }>) {
-  const { t } = useTranslations();
-  const handleCopy = () => {
-    void navigator.clipboard.writeText(command);
-    sileo.success({ title: t('common.copied') });
-  };
-
-  return (
-    <div className="relative rounded-lg border border-border/60 bg-background/50">
-      <pre className="custom-scrollbar overflow-x-auto p-3 pr-12 font-mono text-xs leading-relaxed text-foreground"><code>{command}</code></pre>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="absolute right-1 top-1 h-9 w-9 text-muted-foreground hover:text-foreground"
-        onClick={handleCopy}
-        aria-label={t('common.copy')}
-      >
-        <Copy aria-hidden="true" />
-      </Button>
-    </div>
-  );
-}
 
 /** The docker-compose.yml of a node set up by hand, with its real credentials. */
 function manualCompose(node: DeployableNode, deployment: Deployment, origin: string): string {

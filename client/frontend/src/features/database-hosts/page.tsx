@@ -14,38 +14,16 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { AlertTriangle, Check, Copy, Database, Info, Lock, MoreHorizontal, Plus, Trash2, Loader2 } from '@/components/icons';
+import { AlertTriangle, Check, Database, Info, Lock, MoreHorizontal, Plus, Trash2, Loader2 } from '@/components/icons';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { sileo } from "@/lib/toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { useTranslations } from '@/contexts/translations-context';
 import { EmptyState } from '@/components/empty-state';
+import { CopyableCode } from '@/components/copyable-code';
 
 const richText = '[&_code]:rounded [&_code]:bg-secondary [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs [&_code]:text-foreground';
-
-function CopyableCode({ command }: Readonly<{ command: string }>) {
-    const { t } = useTranslations();
-    const handleCopy = () => {
-        void navigator.clipboard.writeText(command);
-        sileo.success({ title: t('databaseHosts.addDialog.step2.copyToast') });
-    };
-
-    return (
-        <div className="relative rounded-lg border border-border/60 bg-background/50">
-            <pre className="custom-scrollbar overflow-x-auto p-3 pr-12 font-mono text-xs leading-relaxed text-foreground"><code>{command}</code></pre>
-            <Button
-                variant="ghost"
-                size="icon"
-                className="absolute right-1 top-1 h-9 w-9 text-muted-foreground hover:text-foreground"
-                onClick={handleCopy}
-                aria-label={t('common.copy')}
-            >
-                <Copy aria-hidden="true" />
-            </Button>
-        </div>
-    );
-}
 
 function Stepper({ currentStep, steps }: Readonly<{ currentStep: number; steps: string[] }>) {
     return (
@@ -443,11 +421,11 @@ export default function DatabaseHostsPage() {
                                         </div>
                                         <div className="space-y-2">
                                             <h4 className="text-sm font-semibold">{t('databaseHosts.addDialog.step2.createUserCommandTitle')}</h4>
-                                            <CopyableCode command={"CREATE USER 'aetheruser'@'%' IDENTIFIED BY 'your_strong_password';"} />
+                                            <CopyableCode copiedMessage={t('databaseHosts.addDialog.step2.copyToast')} command={"CREATE USER 'aetheruser'@'%' IDENTIFIED BY 'your_strong_password';"} />
                                         </div>
                                         <div className="space-y-2">
                                             <h4 className="text-sm font-semibold">{t('databaseHosts.addDialog.step2.grantPermissionsCommandTitle')}</h4>
-                                            <CopyableCode command={"GRANT ALL PRIVILEGES ON *.* TO 'aetheruser'@'%' WITH GRANT OPTION;"} />
+                                            <CopyableCode copiedMessage={t('databaseHosts.addDialog.step2.copyToast')} command={"GRANT ALL PRIVILEGES ON *.* TO 'aetheruser'@'%' WITH GRANT OPTION;"} />
                                         </div>
                                         <p className={cn('text-sm text-muted-foreground', richText)} dangerouslySetInnerHTML={{ __html: t('databaseHosts.addDialog.step2.passwordNote') }} />
                                         <p className={cn('text-sm text-muted-foreground', richText)} dangerouslySetInnerHTML={{ __html: t('databaseHosts.addDialog.step2.exitMysql') }} />
@@ -457,7 +435,7 @@ export default function DatabaseHostsPage() {
                                         <h3 className="text-base font-semibold">{t('databaseHosts.addDialog.step2.externalAccessTitle')}</h3>
                                         <p className={cn('text-sm text-muted-foreground', richText)} dangerouslySetInnerHTML={{ __html: t('databaseHosts.addDialog.step2.externalAccessDescription1') }} />
                                         <p className={cn('text-sm text-muted-foreground', richText)} dangerouslySetInnerHTML={{ __html: t('databaseHosts.addDialog.step2.externalAccessDescription2') }} />
-                                        <CopyableCode command={"[mysqld]\nbind-address=0.0.0.0"} />
+                                        <CopyableCode copiedMessage={t('databaseHosts.addDialog.step2.copyToast')} command={"[mysqld]\nbind-address=0.0.0.0"} />
                                         <p className="text-sm text-muted-foreground">
                                             {t('databaseHosts.addDialog.step2.externalAccessDescription3')}
                                         </p>
