@@ -176,6 +176,10 @@ El asistente de creación comprueba los puertos en el nodo antes de crear nada y
 
 Con `docker.disallowHost` activo (lo está en la imagen Docker y en `docker-compose.yml`), el nodo solo ejecuta servidores en contenedores: los entornos `host`, `tty`, `standard` y `bubblewrap` se ocultan, se rechazan al crear o redefinir un servidor y, si una definición llega por otro camino (una copia restaurada, un panel antiguo), el arranque se niega con «This node only runs servers in Docker containers (docker.disallowHost).». Cambie el servidor a un entorno Docker.
 
+### Un servidor se queda en «Instalando» y no se puede borrar («server running»)
+
+Con versiones anteriores, si un paso de instalación terminaba con error (steamcmd que no descarga, un script que falla, una instalación cancelada), el servidor quedaba marcado como instalando para siempre: no se podía arrancar, reinstalar ni borrar, y el borrado respondía `ErrServerRunning`. Ya no ocurre: el paso falla, la consola lo indica con su código de salida y el servidor queda libre. Si un servidor quedó así antes de actualizar, reiniciar el panel (o el nodo) lo libera.
+
 ### Una descarga de la plantilla se rechaza
 
 `refusing to download from private address … (security.blockPrivateDownloads)`: por defecto las plantillas no pueden descargar de direcciones de red privada (las redes Docker, los servicios del host, la LAN), porque algunas toman la URL de una variable que edita el dueño del servidor. Las direcciones de loopback y link-local (como 169.254.169.254) se rechazan siempre (`refusing to download from internal address …`). Si tiene réplicas en su LAN, ponga `security.blockPrivateDownloads` a `false`.

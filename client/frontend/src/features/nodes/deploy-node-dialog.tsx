@@ -146,17 +146,17 @@ export function DeployNodeDialog({ node, onClose }: Readonly<{ node: DeployableN
   let connectionStatus: ReactNode = null;
   if (connected) {
     connectionStatus = (
-      <div role="status" className="flex items-start gap-2.5 rounded-xl border border-success/25 bg-success/10 px-4 py-3 text-sm text-success">
+      <output className="flex items-start gap-2.5 rounded-xl border border-success/25 bg-success/10 px-4 py-3 text-sm text-success">
         <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-        <p>{t('nodes.deployDialog.successMessage')}</p>
-      </div>
+        <span>{t('nodes.deployDialog.successMessage')}</span>
+      </output>
     );
   } else if (waiting) {
     connectionStatus = (
-      <div role="status" className="flex items-start gap-2.5 rounded-xl border border-border/60 bg-background/40 px-4 py-3 text-sm text-muted-foreground">
+      <output className="flex items-start gap-2.5 rounded-xl border border-border/60 bg-background/40 px-4 py-3 text-sm text-muted-foreground">
         <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />
-        <p>{t('nodes.deployDialog.waitingMessage')}</p>
-      </div>
+        <span>{t('nodes.deployDialog.waitingMessage')}</span>
+      </output>
     );
   }
 

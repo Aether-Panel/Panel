@@ -1,7 +1,6 @@
 package command
 
 import (
-	"errors"
 	"fmt"
 	"github.com/SkyPanel/SkyPanel/v3/internal/logging"
 	"github.com/SkyPanel/SkyPanel/v3/pkg/skypanel"
@@ -24,9 +23,12 @@ func (c Command) Run(args skypanel.RunOperatorArgs) skypanel.OperationResult {
 		err := env.Execute(skypanel.ExecutionData{
 			Command:     cmd,
 			Environment: c.Env,
+			// exactly one value: a second send blocked the exit handling for good, so the
+			// server stayed "installing" and could not be deleted, reinstalled or started
 			Callback: func(exitCode int) {
 				if exitCode != 0 {
-					ch <- errors.New("failed to run command")
+					ch <- fmt.Errorf("failed to run command (exit code %d)", exitCode)
+					return
 				}
 				ch <- nil
 			},

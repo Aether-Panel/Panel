@@ -176,6 +176,10 @@ The creation wizard checks the ports on the node before creating anything and wa
 
 With `docker.disallowHost` on (it is in the Docker image and in `docker-compose.yml`), the node only runs servers in containers: the `host`, `tty`, `standard` and `bubblewrap` environments are hidden, refused when a server is created or redefined and, if a definition gets there another way (a restored backup, an older panel), the start is refused with "This node only runs servers in Docker containers (docker.disallowHost).". Switch the server to a Docker environment.
 
+### A server stays "Installing" and cannot be deleted ("server running")
+
+With earlier versions, when an install step ended with an error (steamcmd that does not download, a script that fails, a cancelled install), the server stayed marked as installing for good: it could not be started, reinstalled or deleted, and deleting answered `ErrServerRunning`. This no longer happens: the step fails, the console shows its exit code and the server is free. A server left like that before updating is freed by restarting the panel (or the node).
+
 ### A template download is refused
 
 `refusing to download from private address … (security.blockPrivateDownloads)`: by default templates cannot download from private network addresses (the Docker networks, the host's services, the LAN), because some take the URL from a variable the server's owner edits. Loopback and link-local addresses (such as 169.254.169.254) are always refused (`refusing to download from internal address …`). If you keep mirrors on your LAN, set `security.blockPrivateDownloads` to `false`.
