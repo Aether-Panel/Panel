@@ -231,3 +231,13 @@ Instalaciones reales en contenedores con systemd:
 - **Nodo con un solo comando.** `--node --panel URL --join CÓDIGO` (el comando que da el panel en Nodos → nodo → Desplegar nodo) canjea el código por el ID, el secreto y los puertos del nodo, los guarda en `/etc/SkyPanel/node.json` (repetir el comando no necesita otro código) y deja la configuración del daemon en `config.json`. El nodo arranca sin MariaDB.
 - **La dirección de la clave del panel sale de `--panel`.** Una línea `SKYPANEL_TOKEN_PUBLIC` activa en `docker-compose.yml` (de un nodo montado a mano) ganaba a `config.json`: con una dirección vieja del panel (por ejemplo `http://IP:8080`, cerrada), el nodo no leía su clave y rechazaba todas las peticiones del panel, y el panel no mostraba sus métricas. Al unir el nodo con el comando, esa línea se vuelve a comentar.
 - Al leer la línea `SKYPANEL_TOKEN_PUBLIC` para conservarla en una actualización, se ignora la de ejemplo (`http://<MASTER-IP>:8080/...`).
+
+# install.sh 4.2.3 → 4.3.0
+
+Build `20261105-menu`. Sin opciones y en una terminal, el instalador abre un menú nuevo; las opciones de la línea de comandos siguen igual.
+
+- **Menú principal.** 1) Instalación automática, 2) Instalación paso a paso, 3) Reinstalar, 4) Desinstalar, 5) Actualizar, 6) Crear cuenta administrador, 0) Salir. Las opciones que necesitan una instalación salen apagadas si no la hay. Con el panel ya instalado, el menú propone Actualizar.
+- **Instalación automática.** Solo pregunta panel o nodo extra. El panel se instala con los valores por defecto y una cuenta de administrador generada (`admin@aether.local`, o `admin@` el dominio) cuya contraseña se muestra en el resumen final y se guarda en `/etc/SkyPanel/credenciales.txt`. El nodo extra solo pide la dirección del panel y el código de unión; si ya se unió a ese panel, ni eso.
+- **Instalación paso a paso.** Panel o nodo extra, y después todo: dominio y HTTPS, puertos, base de datos, **rama del código** y **cortafuegos** (preguntas nuevas, también en el modo manual con opciones). Para un nodo extra se puede pegar el comando entero de «Generar comando»: el instalador saca de él `--panel` y `--join`. `--node` sin `--panel`/`--join` en una terminal también los pregunta.
+- **Reinstalar** pregunta cómo: *conservando los datos* (código nuevo, imagen construida sin caché con `--pull --no-cache`, contenedores recreados; datos, contraseñas y cuentas se quedan) o *desde cero* (lo de `--reinstall`). Un nodo extra se reinstala con su propio flujo: conservando datos reutiliza `/etc/SkyPanel/node.json`; desde cero pide un código nuevo.
+- Elegir instalar sobre una instalación existente ya no muestra un segundo menú: se vuelve a configurar conservando los datos.
