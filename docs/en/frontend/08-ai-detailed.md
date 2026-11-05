@@ -13,10 +13,10 @@ Panel API (internal/web/api/ai_chat.go, ai_agent.go, ai.go)
    │  (chat only) reads status, players, metrics, crashes and console from the node
    │  (agent mode) runs the toolkit's agent loop; file tools call the server's node
    ▼
-Google Gemini  https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
+Google Gemini  https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent
 ```
 
-- The model is fixed in code: `gemini-2.5-flash`. There is no setting to change it.
+- The model is fixed in code: `gemini-3.8-flash`. There is no setting to change it.
 - The API key (`panel.settings.geminiApiKey`) is sent in the `x-goog-api-key` header, never in the URL, so it does not end up in proxy or error logs. It never reaches the browser through these endpoints.
 - These calls are not recorded in the server's activity log. In agent mode the changes the assistant makes to files are recorded one by one as `ai.<tool>` (see [AI agent toolkit → Execution and audit](../backend/14-ai-toolkit.md#execution-and-audit)).
 

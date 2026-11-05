@@ -126,7 +126,7 @@ func analyzeServerLogs(c *gin.Context) {
 
 	ctx, cancel := context.WithTimeout(c.Request.Context(), aiTimeout)
 	defer cancel()
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent", bytes.NewBuffer(payloadBytes))
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent", bytes.NewBuffer(payloadBytes))
 	if err != nil {
 		c.JSON(500, gin.H{"error": "Failed to connect to AI API"})
 		return

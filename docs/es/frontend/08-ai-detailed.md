@@ -13,10 +13,10 @@ API del panel (internal/web/api/ai_chat.go, ai_agent.go, ai.go)
    │  (solo el chat) lee del nodo el estado, los jugadores, las métricas, las caídas y la consola
    │  (modo agente) ejecuta el bucle del agente del kit; las herramientas de archivos llaman al nodo del servidor
    ▼
-Google Gemini  https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
+Google Gemini  https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent
 ```
 
-- El modelo está fijado en el código: `gemini-2.5-flash`. No hay ningún ajuste para cambiarlo.
+- El modelo está fijado en el código: `gemini-3.8-flash`. No hay ningún ajuste para cambiarlo.
 - La clave de API (`panel.settings.geminiApiKey`) se envía en la cabecera `x-goog-api-key`, nunca en la URL, para que no acabe en registros de proxies o de errores. Estos endpoints nunca la hacen llegar al navegador.
 - Estas llamadas no se anotan en el registro de actividad del servidor. En modo agente, los cambios que el asistente hace en los archivos se registran uno a uno como `ai.<herramienta>` (véase [Kit de herramientas del agente de IA → Ejecución y auditoría](../backend/14-ai-toolkit.md#ejecución-y-auditoría)).
 

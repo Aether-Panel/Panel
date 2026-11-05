@@ -19,7 +19,7 @@ import (
 )
 
 // DefaultEndpoint is the generateContent endpoint used when Client.Endpoint is empty.
-const DefaultEndpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+const DefaultEndpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent"
 
 const (
 	defaultTemperature     = 0.4

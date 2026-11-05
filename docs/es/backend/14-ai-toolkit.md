@@ -31,7 +31,7 @@ Navegador (assistant-panel.tsx)
 Panel  ── server.console, ResolveServerPanel, límite de peticiones (30 / 10 min por usuario)
    │      ¿modo agente? panel.settings.aiFileTools activado + usuario con sesión + server.files.view
    │      agent.Runner.Start / Resume
-   │         ├─ gemini.Client.Generate ──► generativelanguage.googleapis.com (gemini-2.5-flash)
+   │         ├─ gemini.Client.Generate ──► generativelanguage.googleapis.com (gemini-3.8-flash)
    │         └─ Tool.Describe / Tool.Run ──► nodeWorkspace (ligado al servidor de la ruta)
    ▼
 Nodo   /daemon/server/<id>/file/*, /fs/stat, /fs/copy, /fs/search   (token del panel)
@@ -71,7 +71,7 @@ Un pánico en `Describe` o `Run` se captura y se convierte en un paso `failed` (
 
 ### Llamadas y respuestas de funciones
 
-`gemini.Client` (`tools/toolkit/gemini/client.go`) envía un POST a `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent` (`DefaultEndpoint`, sustituible en las pruebas) con la clave en la cabecera `x-goog-api-key`:
+`gemini.Client` (`tools/toolkit/gemini/client.go`) envía un POST a `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent` (`DefaultEndpoint`, sustituible en las pruebas) con la clave en la cabecera `x-goog-api-key`:
 
 - `systemInstruction`: el texto de sistema;
 - `contents`: el historial. Los mensajes `user` y `model` conservan su rol; las llamadas a funciones del modelo siguen como partes `functionCall`; las respuestas a ellas (rol `tool` en el agente) se envían con rol `user` y partes `functionResponse` `{id, name, response}`, en el orden de las llamadas. Los IDs generados por el runner (`local-…`) no se envían;

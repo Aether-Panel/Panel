@@ -41,7 +41,7 @@ When **Let the assistant work with server files** is on (`panel.settings.aiFileT
 1. The browser calls the panel (`/api/servers/:serverId/ai/chat` or `/api/servers/:serverId/ai/analyze`). The request is checked for the `server.console` permission on that server.
 2. The panel checks that a Gemini key is configured, validates the payload and applies the per-user rate limit.
 3. For the chat, the panel gathers the context above from the node. For the analysis, it keeps the newest lines that fit the size budget.
-4. The panel calls `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent` from the panel host. The key travels in the `x-goog-api-key` header, never in the URL.
+4. The panel calls `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent` from the panel host. The key travels in the `x-goog-api-key` header, never in the URL.
 5. The answer is returned to the browser. The chat history lives in the browser's `sessionStorage` (last 20 messages per server) and disappears when the tab session ends or when **New conversation** is pressed. The panel stores no conversation; in agent mode it only keeps a request waiting for approval in memory (10 minutes at most) and records the changes made in the activity log.
 
 Prompt safety: console lines and the server context are untrusted text written by the game and its players. The panel wraps them in `<logs>…</logs>` or `<server-context>…</server-context>` and instructs the model to treat them as data only. The assistant is also told never to suggest deleting worlds or files without a backup first and never to ask for passwords or keys.
@@ -133,7 +133,7 @@ Privacy: the console lines, server context and questions are sent to Google, and
 | Console lines in the chat context | 60 (300 characters each) |
 | Crash detail in the chat context | 3 newest crashes; 20 console lines of the newest |
 | Timeouts | Analysis 60 s; chat 90 s overall, 6 s per context piece; in agent mode 120 s per question or approval |
-| Model | `gemini-2.5-flash` (fixed in code, not configurable) |
+| Model | `gemini-3.8-flash` (fixed in code, not configurable) |
 
 Other things to know:
 

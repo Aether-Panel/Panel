@@ -364,7 +364,7 @@ func writeConsoleContext(b *strings.Builder, fetch aiContextFetch) bool {
 }
 
 // geminiChatEndpoint is swapped in tests
-var geminiChatEndpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+var geminiChatEndpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent"
 
 func askGemini(ctx context.Context, apiKey, instruction string, messages []aiChatMessage) (string, error) {
 	// the same client as the agent, without tools: the same retries and the same errors
