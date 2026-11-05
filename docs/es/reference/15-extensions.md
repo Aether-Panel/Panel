@@ -50,6 +50,7 @@ Límites: 20 MB comprimido, 50 MB descomprimido, 500 archivos y 64 KB para `exte
 | `pages` | si no hay `webhook` | Hasta 10 (ver abajo). |
 | `webhook` | si hay `events` | Dirección `https://` que recibe los eventos, sin `usuario:contraseña@`. El administrador puede cambiarla en Configuración. |
 | `events` | no | Los eventos que quiere recibir ([lista abajo](#eventos)). Requiere `webhook`. |
+| `servers` | no | Los servidores para los que es la extensión ([ver abajo](#solo-para-algunos-servidores)). Sin él, todos. |
 
 Una extensión necesita al menos una página o un webhook. Un campo que el panel no conoce hace que la instalación falle, para que una errata no pase desapercibida.
 
@@ -62,6 +63,21 @@ Cada página:
 | `placement` | `server` (pestaña en cada servidor) o `admin` (menú de administración, solo administradores) |
 | `path` | Un archivo `.html` del paquete, como ruta relativa limpia (`index.html`, `pages/a.html`) |
 
+### Solo para algunos servidores
+
+Una extensión hecha para un juego o un tipo de servidor concreto lo dice con `servers`, y entonces sus páginas de servidor solo salen en esos servidores y sus eventos solo llegan de ellos. Las páginas de administración no cambian.
+
+```json
+"servers": { "types": ["armareforger"] }
+```
+
+| Campo | Qué es |
+|-------|--------|
+| `types` | Tipos de servidor: el `type` de la plantilla con la que se creó (`armareforger`, `minecraft-java`, `nodejs`…) |
+| `icons` | Juegos: el `icon` de la plantilla, para los que comparten tipo (`csgo`, `rust` y `tf2` son todos `srcds`) |
+
+Un servidor encaja si su tipo está en `types` **o** su icono en `icons`. Cada lista admite hasta 30 valores, en minúsculas (se convierten), con letras, números, `.`, `_` y `-`. `servers` vacío hace que la instalación falle. Un servidor cuyo tipo e icono no se conocen no encaja con ninguna extensión que tenga `servers`.
+
 ## Instalar, actualizar y desinstalar
 
 - **Instalar**: el paquete se comprueba, se descomprime en una carpeta temporal y después se mueve a `<panel.extensions.folder>/<id>` (por defecto `<data>/extensions/<id>`). Una extensión nueva recibe su propia clave de firma aleatoria y empieza apagada.
@@ -72,7 +88,7 @@ Los cambios se aplican al momento: la lista de extensiones activas se recarga tr
 
 ## Páginas
 
-El panel muestra cada página dentro de un marco **aislado**: `sandbox="allow-scripts allow-forms allow-popups allow-modals allow-downloads"`, sin `allow-same-origin`, y `referrerpolicy="no-referrer"`. Sus scripts se ejecutan, pero en un origen opaco, así que no pueden leer la sesión del administrador ni llamar a la API del panel en su nombre. Tampoco tienen `localStorage` ni cookies propias.
+El panel muestra cada página dentro de un marco **aislado**: `sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads"`, sin `allow-same-origin`, y `referrerpolicy="no-referrer"`. Sus scripts se ejecutan, pero en un origen opaco, así que no pueden leer la sesión del administrador ni llamar a la API del panel en su nombre. Tampoco tienen `localStorage` ni cookies propias. Un enlace con `target="_blank"` abre el otro sitio en una pestaña normal (`allow-popups-to-escape-sandbox`), con su propia sesión: así una página puede llevar a su servicio sin quedar aislada.
 
 Los archivos se sirven desde `/api/extension-files/<id>/<ruta>` con el mismo sandbox como `Content-Security-Policy`, de modo que el aislamiento se mantiene aunque alguien abra un archivo directamente. Solo se sirven archivos normales de una extensión **encendida** (cualquier otra cosa responde `404`), con `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: SAMEORIGIN` y `Cache-Control: no-cache`; el tipo de contenido se deduce de la extensión del archivo. Los archivos de las páginas son públicos mientras la extensión está encendida: no ponga claves ni secretos en ellos.
 
@@ -81,8 +97,9 @@ Al cargarse, la página recibe un mensaje con el contexto, y lo vuelve a recibir
 ```js
 window.addEventListener('message', (event) => {
   if (event.source !== window.parent || event.data?.type !== 'aether:context') return;
-  const { serverId, language, theme } = event.data;
+  const { serverId, panelUrl, language, theme } = event.data;
   // serverId: el servidor de la pestaña (null en una página de administración)
+  // panelUrl: la dirección del panel (https://panel.ejemplo.com), la de Ajustes: la misma que el campo panel de los eventos; la página no puede verla por sí misma
   // language: "es" o "en"; theme: "dark" o "light" (el que había al enviar el mensaje)
 });
 ```
@@ -116,7 +133,8 @@ Cada evento es un `POST` con JSON, `Content-Type: application/json` y `User-Agen
   "event": "server.crashed",
   "extension": "estadisticas",
   "timestamp": "2026-10-26T18:04:11Z",
-  "server": { "id": "a1b2c3d4", "name": "Survival" },
+  "panel": "https://panel.example.com",
+  "server": { "id": "a1b2c3d4", "name": "Survival", "type": "minecraft-java", "icon": "minecraft-java" },
   "title": "💥 Caída del servidor",
   "message": "Survival se ha caído (código de salida 1). No se reinició automáticamente.",
   "exitCode": 1,
@@ -125,7 +143,7 @@ Cada evento es un `POST` con JSON, `Content-Type: application/json` y `User-Agen
 }
 ```
 
-Todo evento lleva `event`, `extension`, `timestamp` (UTC, RFC 3339) y `server`. Los eventos del nodo (`started`, `stopped`, `crashed`, `backup`, `resources`) llevan además el `title` y el `message` de las notificaciones de servidor del panel, que hoy están escritos en español; base la lógica en `event` y en los campos adicionales, no en ese texto.
+Todo evento lleva `event`, `extension`, `timestamp` (UTC, RFC 3339) y `server`, con su `id`, su `name` y, cuando se conocen, el `type` y el `icon` de su plantilla. Los eventos del nodo (`started`, `stopped`, `crashed`, `backup`, `resources`) llevan además el `title` y el `message` de las notificaciones de servidor del panel, que hoy están escritos en español; base la lógica en `event` y en los campos adicionales, no en ese texto.
 
 Entrega:
 
@@ -149,7 +167,34 @@ function firmaValida(cuerpo, cabecera, clave) {
 }
 ```
 
-El botón **Enviar prueba** de Configuración manda un evento `test` firmado (solo con `event`, `extension` y `timestamp`) para comprobar la dirección y la clave.
+El botón **Enviar prueba** de Configuración manda un evento `test` firmado (solo con `event`, `extension`, `timestamp` y `panel`) para comprobar la dirección y la clave.
+
+### Comprobar de qué panel viene
+
+La clave de firma prueba que quien envía tiene esa clave, no de qué panel viene: el administrador de cualquier panel ve la suya. Un servicio que recibe eventos de muchos paneles (por ejemplo, una extensión que instalan empresas de hosting para sus clientes) necesita saber cuál de ellos envía, y para eso cada evento lleva además:
+
+- `panel` en el cuerpo: la dirección del panel (`panel.settings.masterUrl`, sin barra final).
+- La cabecera `X-Aether-Panel-Signature: ed25519=<base64>`: la firma Ed25519 del cuerpo tal cual llega, hecha con la **clave de identidad del panel**. Es la misma clave con la que firma las transferencias entre paneles; se crea una vez y se guarda en `panel.exTransferKey`.
+
+El panel publica su clave pública en su propia dirección, sin sesión:
+
+```
+GET https://panel.ejemplo.com/.well-known/aether-panel.json
+{ "url": "https://panel.ejemplo.com", "publicKey": "<base64>", "algorithm": "ed25519", "signatureHeader": "X-Aether-Panel-Signature" }
+```
+
+El servicio descarga esa clave por HTTPS de la dirección del panel con el que se vincula (el HTTPS prueba que viene de ese dominio), la guarda, y comprueba con ella cada evento. Además, `panel` dentro del cuerpo firmado debe ser esa misma dirección. Nadie más puede firmar en nombre de ese panel: la clave privada no sale de él.
+
+```js
+import crypto from 'node:crypto';
+function delPanel(cuerpo, cabecera, clavePublicaBase64) {
+  const firma = Buffer.from(String(cabecera).replace(/^ed25519=/, ''), 'base64');
+  const clave = crypto.createPublicKey({ key: Buffer.concat([Buffer.from('302a300506032b6570032100', 'hex'), Buffer.from(clavePublicaBase64, 'base64')]), format: 'der', type: 'spki' });
+  return crypto.verify(null, cuerpo, clave, firma);
+}
+```
+
+Si el panel cambia de clave (por ejemplo, al reinstalarlo sin su configuración), el servicio tiene que volver a descargarla.
 
 ## API
 
@@ -160,7 +205,7 @@ El botón **Enviar prueba** de Configuración manda un evento `test` firmado (so
 | PUT | `/api/extensions/:id` | administradores | `{ "enabled": true, "webhookUrl": "https://..." }`, ambos opcionales. Un `webhookUrl` vacío detiene los eventos. `404` si no está instalada |
 | DELETE | `/api/extensions/:id` | administradores | Desinstala. `204`, o `404` |
 | POST | `/api/extensions/:id/test` | administradores | Envía un evento de prueba. `204`; `400` con `ErrExtensionNoWebhook` o `ErrExtensionWebhook` (el error de la entrega) |
-| GET | `/api/extensions/active` | cualquier usuario con sesión | Páginas de las extensiones encendidas: `[{ id, name, pages }]`. Las de administración, solo para administradores |
+| GET | `/api/extensions/active` | cualquier usuario con sesión | Páginas de las extensiones encendidas: `[{ id, name, pages, servers }]` (`servers` solo si la extensión lo declara). Las de administración, solo para administradores |
 | GET, HEAD | `/api/extension-files/:id/*path` | público | Los archivos de las páginas, siempre con `Content-Security-Policy: sandbox ...` |
 
 «Administradores» significa el scope `admin`; «cualquier usuario con sesión», el scope `login`.

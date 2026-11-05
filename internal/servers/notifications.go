@@ -171,7 +171,7 @@ func (p *Server) webhookPayload(e notificationEvent) map[string]interface{} {
 		"event":     e.Kind,
 		"title":     e.Title,
 		"message":   e.Message,
-		"server":    map[string]string{"id": p.ID(), "name": p.displayName()},
+		"server":    p.eventServer(),
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
 	}
 	if len(e.Lines) > 0 {
@@ -181,6 +181,19 @@ func (p *Server) webhookPayload(e notificationEvent) map[string]interface{} {
 		payload[k] = v
 	}
 	return payload
+}
+
+// eventServer is the server as event payloads describe it: id and name, and the template's
+// type and icon, so a receiver knows what kind of server it is
+func (p *Server) eventServer() map[string]string {
+	server := map[string]string{"id": p.ID(), "name": p.displayName()}
+	if p.Type.Type != "" {
+		server["type"] = p.Type.Type
+	}
+	if p.Icon != "" {
+		server["icon"] = p.Icon
+	}
+	return server
 }
 
 // deliver sends the event to every channel configured, returning each channel's error

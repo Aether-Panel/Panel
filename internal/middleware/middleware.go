@@ -216,6 +216,30 @@ func resolveUserRole(db *gorm.DB, user *models.User) *models.Role {
 	return role
 }
 
+// UserScopesOn is everything a user may do on a server (or panel-wide when serverID is empty),
+// the same scopes a request of theirs gets there, without an OAuth2 client's bounds
+func UserScopesOn(db *gorm.DB, user *models.User, serverID string) ([]*scopes.Scope, error) {
+	ps := &services.Permission{DB: db}
+	var perms []*models.Permissions
+	p, err := ps.GetForUserAndServer(user.ID, serverID)
+	if err != nil {
+		return nil, err
+	}
+	perms = append(perms, p)
+	owner := false
+	if serverID != "" {
+		global, err := ps.GetForUserAndServer(user.ID, "")
+		if err != nil {
+			return nil, err
+		}
+		perms = append(perms, global)
+		if owner, err = ps.IsServerOwner(user.ID, serverID); err != nil {
+			return nil, err
+		}
+	}
+	return collectScopes(resolveUserRole(db, user), perms, serverID, owner), nil
+}
+
 // clientAllows bounds what an OAuth2 client token may reach. A server-scoped client
 // only operates its own server (identity lookups via the login scope aside) and a
 // client with declared scopes never exceeds them.

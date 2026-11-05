@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { EmptyState } from '@/components/empty-state';
 import { SSHKeys } from './ssh-keys';
+import { ClientLimitsFields, NO_LIMITS, type ClientLimits } from './client-limits';
 
 /** Copy-to-clipboard icon button with a short "copied" state. */
 function CopyButton({ value, label, copiedLabel, className }: Readonly<{ value: string; label: string; copiedLabel: string; className?: string }>) {
@@ -88,6 +89,7 @@ export default function ProfileSettingsPage() {
   const [detailsForm, setDetailsForm] = useState({ username: '', email: '', password: '' });
   const [passwordForm, setPasswordForm] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' });
   const [oauthForm, setOauthForm] = useState({ name: '', description: '' });
+  const [clientLimits, setClientLimits] = useState<ClientLimits>(NO_LIMITS);
   const [oauthDialog, setOauthDialog] = useState(false);
   const [createdSecret, setCreatedSecret] = useState<{ name: string; clientId?: string; secret: string } | null>(null);
   const [pendingClientDelete, setPendingClientDelete] = useState<string | null>(null);
@@ -205,9 +207,14 @@ export default function ProfileSettingsPage() {
   // OAuth Handlers
   const handleCreateClient = async () => {
     try {
-      const client = await createOauthClient(oauthForm);
+      const client = await createOauthClient({
+        ...oauthForm,
+        serverId: clientLimits.serverId || undefined,
+        scopes: clientLimits.serverId && clientLimits.scopes ? clientLimits.scopes : undefined,
+      });
       sileo.success({ title: t('common.success'), description: t('profileSettings.oauth.created', { name: client.name }) });
       setOauthForm({ name: '', description: '' });
+      setClientLimits(NO_LIMITS);
       // Show the secret once, in the same dialog.
       if (client.clientSecret) {
         setCreatedSecret({ name: client.name, clientId: client.clientId, secret: client.clientSecret });
@@ -417,6 +424,12 @@ export default function ProfileSettingsPage() {
                         <CopyButton value={client.clientId} label={t('profileSettings.oauth.copyClientId')} copiedLabel={t('common.copied')} className="h-7 w-7 [&_svg]:size-3.5" />
                       </div>
                       {client.description && <p className="text-pretty text-sm text-muted-foreground">{client.description}</p>}
+                      <p className="text-pretty text-xs text-muted-foreground [overflow-wrap:anywhere]">
+                        {client.serverId
+                          ? t('profileSettings.oauth.limits.limitedTo', { server: client.serverName || client.serverId })
+                          : t('profileSettings.oauth.limits.wholeAccount')}
+                        {client.scopes && client.scopes.length > 0 && ` · ${client.scopes.join(', ')}`}
+                      </p>
                     </div>
                     <Button
                       variant="ghost"
@@ -654,6 +667,7 @@ export default function ProfileSettingsPage() {
               <Field id="client-desc" label={t('profileSettings.oauth.descriptionLabel')}>
                 <Input id="client-desc" autoComplete="off" value={oauthForm.description} onChange={e => setOauthForm(prev => ({ ...prev, description: e.target.value }))} />
               </Field>
+              <ClientLimitsFields value={clientLimits} onChange={setClientLimits} t={t} />
               <DialogFooter className="gap-2">
                 <Button type="button" variant="outline" onClick={() => closeOauthDialog(false)}>{t('common.cancel')}</Button>
                 <Button type="submit" disabled={!oauthForm.name || loading}>

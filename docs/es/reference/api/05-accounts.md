@@ -96,7 +96,19 @@ Cada cambio envía un correo a la cuenta. Los códigos de recuperación también
 { "client_id": "0f8fad5b-d9cb-469f-a165-70867728950e", "client_secret": "36 random characters", "name": "Discord bot", "description": "Restarts the server on command" }
 ```
 
-El secreto solo aparece en esta respuesta. El cliente actúa con todos los permisos de la cuenta (ver [Credenciales de cliente OAuth2](./02-authentication.md#credenciales-de-cliente-oauth2)); la API no admite para él una lista de permisos ni un servidor concreto. `GET /api/self/oauth2` lista los clientes propios (con `client_secret` vacío). `DELETE /api/self/oauth2/:clientID` borra uno y cierra las sesiones que abrió; responde `404` si el cliente no es de la cuenta. Crear y borrar envían un correo.
+Para un servicio externo (un panel de un juego, un bot) conviene limitar el cliente a un servidor y a unos permisos:
+
+```json
+{ "name": "ReforgerOps", "serverId": "a1b2c3d4", "scopes": ["server.status", "server.start", "server.stop", "server.console"] }
+```
+
+- `serverId`: el cliente solo actúa sobre ese servidor; no puede listar servidores ni tocar la cuenta (salvo `GET /api/self`, que usa `login`). Debe ser un servidor que la cuenta ve; si no, `404`.
+- `scopes`: solo permisos de servidor; cualquier otro responde `400` (`ErrClientScopes`). Con `serverId`, cada uno debe tenerlo la cuenta en ese servidor; si no, `403`. Se añade `server.view` si falta. Sin `scopes`, el cliente puede todo lo que la cuenta pueda en el servidor.
+- Los límites se fijan al crear el cliente y no se cambian después: para ampliarlos, cree otro. El cliente nunca supera lo que la cuenta pueda hacer en cada momento: si la cuenta pierde un permiso, el cliente también.
+
+La respuesta y `GET /api/self/oauth2` incluyen `serverId`, `serverName` y `scopes` cuando el cliente está limitado.
+
+El secreto solo aparece en esta respuesta. Sin `serverId` ni `scopes`, el cliente actúa con todos los permisos de la cuenta (ver [Credenciales de cliente OAuth2](./02-authentication.md#credenciales-de-cliente-oauth2)). `GET /api/self/oauth2` lista los clientes propios (con `client_secret` vacío). `DELETE /api/self/oauth2/:clientID` borra uno y cierra las sesiones que abrió; responde `404` si el cliente no es de la cuenta. Crear y borrar envían un correo.
 
 ### Claves SSH
 

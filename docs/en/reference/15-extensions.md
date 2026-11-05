@@ -50,6 +50,7 @@ Limits: 20 MB compressed, 50 MB unpacked, 500 files and 64 KB for `extension.jso
 | `pages` | without a `webhook` | Up to 10 (see below). |
 | `webhook` | with `events` | `https://` address that receives the events, without `user:password@`. The administrator can change it in Settings. |
 | `events` | no | The events it wants ([list below](#events)). Requires `webhook`. |
+| `servers` | no | The servers the extension is for ([see below](#only-for-some-servers)). Without it, all of them. |
 
 An extension needs at least one page or a webhook. A field the panel does not know makes the installation fail, so a typo does not go unnoticed.
 
@@ -62,6 +63,21 @@ Each page:
 | `placement` | `server` (a tab on every server) or `admin` (administration menu, administrators only) |
 | `path` | An `.html` file of the package, as a clean relative path (`index.html`, `pages/a.html`) |
 
+### Only for some servers
+
+An extension made for one game or kind of server says so with `servers`: its server pages then show only on those servers and its events only come from them. Administration pages do not change.
+
+```json
+"servers": { "types": ["armareforger"] }
+```
+
+| Field | What it is |
+|-------|------------|
+| `types` | Server types: the `type` of the template the server was made from (`armareforger`, `minecraft-java`, `nodejs`…) |
+| `icons` | Games: the template's `icon`, for those that share a type (`csgo`, `rust` and `tf2` are all `srcds`) |
+
+A server matches when its type is in `types` **or** its icon in `icons`. Each list takes up to 30 values, lowercase (they are converted), with letters, digits, `.`, `_` and `-`. An empty `servers` fails the install. A server whose type and icon are unknown matches no extension that has `servers`.
+
 ## Installing, updating and removing
 
 - **Install**: the package is checked, unpacked into a staging folder and then moved into `<panel.extensions.folder>/<id>` (default `<data>/extensions/<id>`). A new extension gets its own random signing key and starts switched off.
@@ -72,7 +88,7 @@ Changes take effect at once: the list of active extensions is reloaded after eve
 
 ## Pages
 
-The panel shows each page inside an **isolated** frame: `sandbox="allow-scripts allow-forms allow-popups allow-modals allow-downloads"`, without `allow-same-origin`, and `referrerpolicy="no-referrer"`. Its scripts run, but in an opaque origin, so they cannot read the administrator's session or call the panel's API on their behalf. They have no `localStorage` or cookies of their own either.
+The panel shows each page inside an **isolated** frame: `sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads"`, without `allow-same-origin`, and `referrerpolicy="no-referrer"`. Its scripts run, but in an opaque origin, so they cannot read the administrator's session or call the panel's API on their behalf. They have no `localStorage` or cookies of their own either. A link with `target="_blank"` opens the other site in a normal tab (`allow-popups-to-escape-sandbox`), with its own session: that way a page can take people to its service without it staying isolated.
 
 The files themselves are served from `/api/extension-files/<id>/<path>` with the same sandbox as their `Content-Security-Policy`, so the isolation holds even if someone opens a file directly. Only regular files of a **switched-on** extension are served (anything else answers `404`), with `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: SAMEORIGIN` and `Cache-Control: no-cache`; the content type comes from the file extension. Page files are public while the extension is switched on: put no keys or secrets in them.
 
@@ -81,8 +97,9 @@ Once loaded, the page receives a message with the context, and again whenever th
 ```js
 window.addEventListener('message', (event) => {
   if (event.source !== window.parent || event.data?.type !== 'aether:context') return;
-  const { serverId, language, theme } = event.data;
+  const { serverId, panelUrl, language, theme } = event.data;
   // serverId: the tab's server (null on an administration page)
+  // panelUrl: the panel's address (https://panel.example.com), the one in Settings: the same as the events' panel field; the page cannot see it by itself
   // language: "es" or "en"; theme: "dark" or "light" (as it was when the message was sent)
 });
 ```
@@ -116,7 +133,8 @@ Each event is a JSON `POST` with `Content-Type: application/json` and `User-Agen
   "event": "server.crashed",
   "extension": "player-stats",
   "timestamp": "2026-10-26T18:04:11Z",
-  "server": { "id": "a1b2c3d4", "name": "Survival" },
+  "panel": "https://panel.example.com",
+  "server": { "id": "a1b2c3d4", "name": "Survival", "type": "minecraft-java", "icon": "minecraft-java" },
   "title": "💥 Caída del servidor",
   "message": "Survival se ha caído (código de salida 1). No se reinició automáticamente.",
   "exitCode": 1,
@@ -125,7 +143,7 @@ Each event is a JSON `POST` with `Content-Type: application/json` and `User-Agen
 }
 ```
 
-Every event has `event`, `extension`, `timestamp` (UTC, RFC 3339) and `server`. The node events (`started`, `stopped`, `crashed`, `backup`, `resources`) also carry the `title` and `message` of the panel's server notifications, which are currently written in Spanish; rely on `event` and the extra fields, not on that text.
+Every event has `event`, `extension`, `timestamp` (UTC, RFC 3339) and `server`, with its `id`, its `name` and, when known, its template's `type` and `icon`. The node events (`started`, `stopped`, `crashed`, `backup`, `resources`) also carry the `title` and `message` of the panel's server notifications, which are currently written in Spanish; rely on `event` and the extra fields, not on that text.
 
 Delivery:
 
@@ -149,7 +167,34 @@ function validSignature(body, header, key) {
 }
 ```
 
-The **Send test** button in Settings posts a signed `test` event (`event`, `extension` and `timestamp` only) to check the address and the key.
+The **Send test** button in Settings posts a signed `test` event (`event`, `extension`, `timestamp` and `panel` only) to check the address and the key.
+
+### Checking which panel sent it
+
+The signing key proves the sender holds that key, not which panel it is: any panel's administrator sees their own. A service that receives events from many panels (for example, an extension hosting companies install for their customers) needs to know which one sends, so every event also carries:
+
+- `panel` in the body: the panel's address (`panel.settings.masterUrl`, without a trailing slash).
+- The `X-Aether-Panel-Signature: ed25519=<base64>` header: the Ed25519 signature of the body as received, made with the **panel's identity key**. It is the key the panel signs transfers between panels with; it is created once and kept in `panel.exTransferKey`.
+
+The panel publishes its public key at its own address, without a session:
+
+```
+GET https://panel.example.com/.well-known/aether-panel.json
+{ "url": "https://panel.example.com", "publicKey": "<base64>", "algorithm": "ed25519", "signatureHeader": "X-Aether-Panel-Signature" }
+```
+
+The service downloads that key over HTTPS from the address of the panel it links to (HTTPS proves it comes from that domain), keeps it, and checks every event with it. `panel` inside the signed body must also be that same address. Nobody else can sign as that panel: the private key never leaves it.
+
+```js
+import crypto from 'node:crypto';
+function fromPanel(body, header, publicKeyBase64) {
+  const signature = Buffer.from(String(header).replace(/^ed25519=/, ''), 'base64');
+  const key = crypto.createPublicKey({ key: Buffer.concat([Buffer.from('302a300506032b6570032100', 'hex'), Buffer.from(publicKeyBase64, 'base64')]), format: 'der', type: 'spki' });
+  return crypto.verify(null, body, key, signature);
+}
+```
+
+If the panel's key changes (for example, reinstalled without its configuration), the service has to download it again.
 
 ## API
 
@@ -160,7 +205,7 @@ The **Send test** button in Settings posts a signed `test` event (`event`, `exte
 | PUT | `/api/extensions/:id` | administrators | `{ "enabled": true, "webhookUrl": "https://..." }`, both optional. An empty `webhookUrl` stops events. `404` if not installed |
 | DELETE | `/api/extensions/:id` | administrators | Uninstall. `204`, or `404` |
 | POST | `/api/extensions/:id/test` | administrators | Send a test event. `204`; `400` with `ErrExtensionNoWebhook` or `ErrExtensionWebhook` (the delivery error) |
-| GET | `/api/extensions/active` | any signed-in user | Pages of the switched-on extensions: `[{ id, name, pages }]`. Administration pages only for administrators |
+| GET | `/api/extensions/active` | any signed-in user | Pages of the switched-on extensions: `[{ id, name, pages, servers }]` (`servers` only when the extension declares it). Administration pages only for administrators |
 | GET, HEAD | `/api/extension-files/:id/*path` | public | The pages' files, always with `Content-Security-Policy: sandbox ...` |
 
 "Administrators" means the `admin` scope; "any signed-in user" means the `login` scope.

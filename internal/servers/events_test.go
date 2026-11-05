@@ -26,7 +26,7 @@ func TestPublish_ServerEventsReachTheSinkUnderTheirExtensionNames(t *testing.T) 
 	p.publish(notificationEvent{Kind: "test"})
 
 	assert.Equal(t, []string{"server.started", "server.stopped", "server.crashed"}, events)
-	assert.Equal(t, map[string]string{"id": "backuptest", "name": "Survival"}, last["server"])
+	assert.Equal(t, map[string]string{"id": "backuptest", "name": "Survival", "type": "standard"}, last["server"], "with the server's type, so an extension knows what it is")
 	assert.Equal(t, 1, last["exitCode"])
 	assert.NotContains(t, last, "event", "the sink names the event itself")
 }

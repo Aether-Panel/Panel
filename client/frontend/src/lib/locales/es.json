@@ -275,7 +275,25 @@
       "copySecret": "Copiar secreto",
       "deleteAria": "Eliminar el cliente {{name}}",
       "deleteTitle": "¿Eliminar este cliente OAuth2?",
-      "deleteDescription": "Las aplicaciones que lo usen perderán el acceso de inmediato. Esta acción no se puede deshacer."
+      "deleteDescription": "Las aplicaciones que lo usen perderán el acceso de inmediato. Esta acción no se puede deshacer.",
+      "limits": {
+        "server": "Acceso",
+        "allServers": "Toda mi cuenta (todos mis servidores)",
+        "allServersHint": "El cliente puede hacer todo lo que puede tu cuenta. Úsalo solo para tus propias herramientas.",
+        "oneServerHint": "El cliente solo podrá actuar sobre este servidor. Recomendado para servicios externos, como un panel de un juego o un bot.",
+        "permissions": "Permisos en ese servidor",
+        "everything": "Todo lo que puedo hacer en él",
+        "groups": {
+          "power": "Encender, apagar y ver el estado",
+          "stats": "Ver CPU, memoria y disco",
+          "console": "Ver la consola y enviar comandos",
+          "files": "Ver y editar archivos",
+          "data": "Ver la configuración (variables)",
+          "backups": "Ver y crear copias de seguridad"
+        },
+        "limitedTo": "Solo el servidor {{server}}",
+        "wholeAccount": "Toda la cuenta"
+      }
     },
     "messages": {
       "infoChanged": "Tu información ha sido cambiada",
@@ -3772,7 +3790,8 @@
     "ErrGitHubTokenRevoked": "GitHub ya no acepta esta conexión. Vuelve a conectar tu cuenta.",
     "ErrGitHubNotFound": "GitHub no encuentra ese repositorio o rama, o tu cuenta no tiene acceso.",
     "ErrGitHubBadName": "Ese nombre de repositorio o rama no es válido.",
-    "ErrGitHubBadClient": "GitHub no reconoce ese Client ID o su OAuth App no tiene activado Device Flow. Revísalo en Configuración → GitHub."
+    "ErrGitHubBadClient": "GitHub no reconoce ese Client ID o su OAuth App no tiene activado Device Flow. Revísalo en Configuración → GitHub.",
+    "ErrClientScopes": "Un cliente solo puede limitarse a permisos de servidor que tengas."
   },
   "apiErrorValues": {
     "ErrDiscordTestFailed": {

@@ -476,7 +476,7 @@ func createServer(c *gin.Context) {
 	sendServerCreationEmails(users, server)
 	// a new server gets its subdomain once; editing it later must not give back one the owner removed
 	scheduleAutoSubdomain(server.Identifier)
-	extensions.Publish(extensions.EventServerCreated, extensions.ServerData(server.Identifier, server.Name))
+	extensions.Publish(extensions.EventServerCreated, extensions.ServerData(server.Identifier, server.Name, server.Type, server.Icon))
 	c.JSON(http.StatusOK, &models.CreateServerResponse{ID: serverID})
 }
 
@@ -696,7 +696,7 @@ func deleteServer(c *gin.Context) {
 	}
 
 	sendServerDeletionEmails(users, server)
-	extensions.Publish(extensions.EventServerDeleted, extensions.ServerData(server.Identifier, server.Name))
+	extensions.Publish(extensions.EventServerDeleted, extensions.ServerData(server.Identifier, server.Name, server.Type, server.Icon))
 	c.Status(http.StatusNoContent)
 }
 

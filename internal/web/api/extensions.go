@@ -24,7 +24,7 @@ import (
 // extensionPageSandbox is the Content-Security-Policy of every extension file: its scripts
 // run in an opaque origin, so a page cannot read the panel's cookies or call its API with
 // the viewer's session, whoever wrote it
-const extensionPageSandbox = "sandbox allow-scripts allow-forms allow-popups allow-modals allow-downloads"
+const extensionPageSandbox = "sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads"
 
 const extensionFilesPath = "/api/extension-files/"
 
@@ -74,6 +74,8 @@ type ActiveExtension struct {
 	ID    string              `json:"id"`
 	Name  string              `json:"name"`
 	Pages []ExtensionPageView `json:"pages"`
+	// Servers, when set, are the only servers the extension's server pages show on
+	Servers *extensions.ServerFilter `json:"servers,omitempty"`
 } // @name ActiveExtension
 
 func pageViews(ext *models.Extension, m *extensions.Manifest, include func(extensions.Page) bool) []ExtensionPageView {
@@ -142,7 +144,7 @@ func getActiveExtensions(c *gin.Context) {
 			return p.Placement == extensions.PlacementServer || isAdmin
 		})
 		if len(pages) > 0 {
-			active = append(active, ActiveExtension{ID: list[i].ID, Name: list[i].Name, Pages: pages})
+			active = append(active, ActiveExtension{ID: list[i].ID, Name: list[i].Name, Pages: pages, Servers: m.Servers})
 		}
 	}
 	c.JSON(http.StatusOK, active)

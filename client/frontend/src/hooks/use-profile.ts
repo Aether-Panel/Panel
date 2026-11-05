@@ -7,6 +7,10 @@ export type OAuthClient = {
     name: string;
     description: string;
     clientSecret?: string;
+    /** the server and permissions the client is limited to; none means the whole account */
+    serverId?: string;
+    serverName?: string;
+    scopes?: string[];
 };
 
 /** The API sends client_id and client_secret; the page works with camelCase. */
@@ -17,6 +21,9 @@ function toOAuthClient(raw: any): OAuthClient {
         name: raw?.name ?? '',
         description: raw?.description ?? '',
         clientSecret: raw?.client_secret ?? raw?.clientSecret ?? undefined,
+        serverId: raw?.serverId || undefined,
+        serverName: raw?.serverName || undefined,
+        scopes: Array.isArray(raw?.scopes) ? raw.scopes : undefined,
     };
 }
 
@@ -96,7 +103,7 @@ export function useProfile() {
         }
     };
 
-    const createOauthClient = async (client: { name: string; description: string }) => {
+    const createOauthClient = async (client: { name: string; description: string; serverId?: string; scopes?: string[] }) => {
         try {
             const res = await api.post('/api/self/oauth2', client);
             await fetchOauthClients();

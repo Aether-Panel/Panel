@@ -96,7 +96,19 @@ Each change sends an email to the account. Recovery codes also work at `POST /au
 { "client_id": "0f8fad5b-d9cb-469f-a165-70867728950e", "client_secret": "36 random characters", "name": "Discord bot", "description": "Restarts the server on command" }
 ```
 
-The secret is only shown in this answer. The client acts with all the permissions of your account (see [OAuth2 client credentials](./02-authentication.md#oauth2-client-credentials)); the API takes no scope list or server for it. `GET /api/self/oauth2` lists your clients (with an empty `client_secret`). `DELETE /api/self/oauth2/:clientID` deletes one and ends the sessions it opened; `404` for a client that is not yours. Creating and deleting send an email.
+For an outside service (a game panel, a bot), limit the client to one server and some permissions:
+
+```json
+{ "name": "ReforgerOps", "serverId": "a1b2c3d4", "scopes": ["server.status", "server.start", "server.stop", "server.console"] }
+```
+
+- `serverId`: the client only acts on that server; it cannot list servers or touch the account (except `GET /api/self`, which uses `login`). It must be a server the account can see, else `404`.
+- `scopes`: server permissions only; anything else answers `400` (`ErrClientScopes`). With `serverId`, the account must hold each one on that server, else `403`. `server.view` is added when missing. Without `scopes`, the client may do everything the account may do on the server.
+- The limits are set when the client is created and never change: to widen them, create another client. The client never goes beyond what the account may do at that moment: if the account loses a permission, so does the client.
+
+The answer and `GET /api/self/oauth2` include `serverId`, `serverName` and `scopes` when the client is limited.
+
+The secret is only shown in this answer. Without `serverId` or `scopes`, the client acts with all the permissions of your account (see [OAuth2 client credentials](./02-authentication.md#oauth2-client-credentials)). `GET /api/self/oauth2` lists your clients (with an empty `client_secret`). `DELETE /api/self/oauth2/:clientID` deletes one and ends the sessions it opened; `404` for a client that is not yours. Creating and deleting send an email.
 
 ### SSH keys
 
